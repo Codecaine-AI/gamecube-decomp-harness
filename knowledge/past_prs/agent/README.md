@@ -1,17 +1,16 @@
-# Past PR Agent Standard
+# Legacy Past PR Agent Mirror
 
-Shared Pi-agent instructions for turning one raw PR slice into a searchable JSON record.
-Per-PR folders do not duplicate these prompts; the builder renders the current PR context in memory.
+This folder is retained as a legacy mirror for previously generated run
+summaries and older operator workflows.
 
-Files:
+The canonical PR-review agent now lives at:
 
-- `system_prompt.md`: shared Pi system prompt.
-- `user_message_template.md`: template for the per-PR context payload.
-- `output_schema.json`: required JSON response shape.
+```text
+decomp-orchestrator/src/agents/pr-review/
++-- templates/system.md
++-- templates/initial_user.md
++-- schema.json
+```
 
-Default Pi review config:
-
-- Provider: `codex-lb`
-- Model: `gpt-5.5`
-- Thinking: `xhigh`
-- Tools: `read,grep,find,ls`
+`knowledge/past_prs/utils/build_pr_postmortems.py` writes standard PR-review
+agent files to the canonical source slice by default.

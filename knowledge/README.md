@@ -2,10 +2,10 @@
 
 This directory is the runtime knowledge surface for director and worker Pi
 agents. It was migrated from repo-local Codex skills so the orchestrator can
-render explicit, role-specific knowledge packs without depending on Codex skill
+render explicit, role-specific knowledge references without depending on Codex skill
 loading.
 
-The runner includes a small default set for each role and adds capability packs
+The runner includes a small default set for each role and adds capability references
 for worker packets. Agents should treat these files as authoritative local
 workflow guidance, then verify every decomp claim with the repo resources and
 commands listed in their prompt.
@@ -21,14 +21,18 @@ Reusable corpora:
 - `past_prs/` - stable PR dump, searchable per-PR postmortem library, shared
   PR-agent prompts, and refresh/postmortem utilities.
 
-Knowledge packs:
+Runtime references and workflows:
 
-- `packs/decomp-find/` - target discovery, ranking, and ROI triage.
-- `packs/melee-decomp/` - core Melee decomp workflow, matching tactics,
-  resource-guided research, review standards, and the context helper.
-- `packs/melee-decomp-sweep/` - sweep run layout, candidate matrices,
-  high-throughput batches, Pareto scoring, post-sweep analysis, charts, and
-  sweep scripts.
+- `references/director/` - scheduling policy and target-selection heuristics.
+- `references/melee/` - core Melee decomp workflow, matching tactics,
+  resource-guided research, review standards, and PR/resource evidence notes.
+- `workflows/targeted-iteration.md` - default worker loop for one bounded target.
+- `workflows/experimental-sweeps/` - optional reproducible experiment workflow
+  for broader source-shape searches.
+- `tools/` - helper scripts such as target ranking, context lookup, and optional
+  experimental-search utilities.
+- `archive/legacy-packs/` - exact pre-cleanup pack tree retained for history,
+  not used by the runtime manifest.
 
 Package command surface:
 

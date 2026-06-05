@@ -26,9 +26,10 @@ sys.dont_write_bytecode = True
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PAST_PRS_ROOT = SCRIPT_DIR.parent
+ORCHESTRATOR_ROOT = PAST_PRS_ROOT.parent.parent
 DEFAULT_DUMP_ROOT = PAST_PRS_ROOT / "current"
 DEFAULT_LIBRARY_ROOT = PAST_PRS_ROOT / "prs"
-DEFAULT_AGENT_ROOT = PAST_PRS_ROOT / "agent"
+DEFAULT_AGENT_ROOT = ORCHESTRATOR_ROOT / "src" / "agents" / "pr-review"
 SCHEMA_VERSION = "melee_pr_postmortem_v1"
 OBJECT_SCHEMA_VERSION = "melee_pr_context_v1"
 
@@ -78,7 +79,7 @@ def parse_args() -> argparse.Namespace:
         "--agent-root",
         type=Path,
         default=DEFAULT_AGENT_ROOT,
-        help="Shared Pi-agent standard files. Defaults to decomp-orchestrator/knowledge/past_prs/agent.",
+        help="Shared Pi-agent standard files. Defaults to decomp-orchestrator/src/agents/pr-review.",
     )
     parser.add_argument(
         "--pr",
@@ -727,20 +728,21 @@ def index_record(path: Path, library_root: Path) -> dict[str, Any] | None:
 
 
 def write_agent_standard_files(agent_root: Path) -> None:
+    templates_root = agent_root / "templates"
     write_text(
         agent_root / "README.md",
         "\n".join(
             [
-                "# Past PR Agent Standard",
+                "# PR Review Agent",
                 "",
                 "Shared Pi-agent instructions for turning one raw PR slice into a searchable JSON record.",
                 "Per-PR folders do not duplicate these prompts; the builder renders the current PR context in memory.",
                 "",
                 "Files:",
                 "",
-                "- `system_prompt.md`: shared Pi system prompt.",
-                "- `user_message_template.md`: template for the per-PR context payload.",
-                "- `output_schema.json`: required JSON response shape.",
+                "- `templates/system.md`: shared Pi system prompt.",
+                "- `templates/initial_user.md`: template for the per-PR context payload.",
+                "- `schema.json`: required JSON response shape.",
                 "",
                 "Default Pi review config:",
                 "",
@@ -752,9 +754,9 @@ def write_agent_standard_files(agent_root: Path) -> None:
             ]
         ),
     )
-    write_text(agent_root / "system_prompt.md", system_prompt().rstrip() + "\n")
+    write_text(templates_root / "system.md", system_prompt().rstrip() + "\n")
     write_text(
-        agent_root / "user_message_template.md",
+        templates_root / "initial_user.md",
         "\n".join(
             [
                 "<run>",
@@ -771,7 +773,7 @@ def write_agent_standard_files(agent_root: Path) -> None:
             ]
         ),
     )
-    write_json(agent_root / "output_schema.json", json.loads(output_schema_text()))
+    write_json(agent_root / "schema.json", json.loads(output_schema_text()))
 
 
 def write_library_readme(library_root: Path) -> None:

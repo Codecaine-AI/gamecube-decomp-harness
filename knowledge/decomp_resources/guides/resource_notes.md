@@ -23,7 +23,7 @@ For a concrete target, gather context in this order:
 The helper below builds a first-pass packet across those surfaces:
 
 ```sh
-python3 decomp-orchestrator/knowledge/packs/melee-decomp/scripts/decomp_context_lookup.py \
+python3 decomp-orchestrator/knowledge/tools/decomp_context_lookup.py \
   --target src/melee/it/items/itlinkbomb.c \
   --symbol itLinkbomb_UnkMotion3_Anim
 ```

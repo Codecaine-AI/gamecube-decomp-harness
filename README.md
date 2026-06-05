@@ -2,11 +2,9 @@
 
 Production-shaped vertical slice for the Melee decomp orchestration runner.
 
-This repository is the canonical source and command surface for the package.
-When vendored into a Melee checkout as a submodule, place it at repo-root
-`decomp-orchestrator/`. Generated state defaults to
-`<melee-repo>/.decomp-orchestrator-state/` so runtime files do not mix with
-source files.
+This package lives at repo-root `decomp-orchestrator/`. That is the canonical
+source and command surface. Generated state defaults to
+`.decomp-orchestrator-state/` so runtime files do not mix with source files.
 
 The runner stays intentionally thin:
 
@@ -23,7 +21,7 @@ The runner stays intentionally thin:
 The package now owns the runtime knowledge that the director and workers need:
 
 - `knowledge/manifest.json` routes role defaults and worker capabilities to
-  concrete knowledge packs.
+  concrete knowledge references and optional workflows.
 - `knowledge/decomp_resources/` stores the local decomp resource library,
   indexes, data-sheet CSVs, and mirrored hint surfaces.
 - `knowledge/past_prs/` stores the stable PR dump, searchable postmortem
@@ -31,11 +29,24 @@ The package now owns the runtime knowledge that the director and workers need:
 - `package.json` exposes the PR refresh/postmortem/sync utilities as package
   scripts.
 
-The package does not yet have a single autonomous boot command. `init-run`
-records `desired_workers`, queues initial targets, and writes run state, but it
-does not refresh PR knowledge, start a worker pool, keep workers at the desired
-count, run the director loop continuously, or perform global build/report
-refreshes. Today those are explicit operator steps.
+The package now has a trigger-agent supervisor command. `init-run` records
+`desired_workers`, queues initial targets, and writes run state; `trigger-agent`
+or its `bootstrap` alias wakes the director on durable events, fills worker
+slots up to the configured worker count, and rests when no event, queued work,
+or active worker remains. PR knowledge refreshes and global build/report
+refreshes remain explicit operator steps.
+
+## Documentation
+
+Package-local docs live under `docs/`. These are D-Comp Orchestrator docs, not
+top-level Melee repository docs.
+
+- `docs/design.html` preserves the original standalone visual design artifact.
+- `docs/00-foundation/` captures purpose, principles, and boundaries.
+- `docs/10-system-design/` captures director, worker, state, knowledge, and
+  score-gate behavior.
+- `docs/20-implementation/` captures current source layout, agent slices, CLI,
+  state, and knowledge implementation details.
 
 ## Setup
 
@@ -77,7 +88,7 @@ Required for PR knowledge refresh:
 - GitHub CLI `gh`, authenticated with access to `doldecomp/melee`.
 - Network access to GitHub.
 
-Optional tools referenced by knowledge packs and prompts:
+Optional tools referenced by knowledge references and prompts:
 
 - `pdftotext` for rebuilding the PowerPC PDF page index.
 - `openpyxl` for re-exporting the SSBM data-sheet workbook to CSV.
@@ -93,7 +104,7 @@ submodule dependency, or documented optional tool.
 
 ## Canonical Command Path
 
-Use the package scripts from this repository root:
+Use the package scripts from repo-root `decomp-orchestrator/`:
 
 ```sh
 bun run orch -- --help
@@ -102,7 +113,7 @@ bun run smoke
 
 ## Run Model
 
-The CLI is currently a set of single-step commands:
+The CLI exposes single-step commands plus a trigger-agent supervisor:
 
 - `init-run` creates the SQLite state, stores the goal and `desired_workers`,
   loads `objdiff.json` plus `build/GALE01/report.json`, queues the initial
@@ -112,14 +123,25 @@ The CLI is currently a set of single-step commands:
   priorities.
 - `worker` leases one queued target, launches one worker Pi session, records the
   durable report/facts/blocker artifacts, releases the lease, and emits the
-  resulting wake event.
+  resulting wake event. The worker prompt requires a local regression ledger:
+  before editing, the worker records the target and affected-neighbor baseline;
+  after each attempt, it reruns narrow object/objdiff checks and must undo its
+  own regressing hunks before reporting progress.
+- `trigger-agent` is the resting supervisor loop. It checks durable state for an
+  unhandled event, wakes one director Pi session when needed, starts worker
+  sessions until active leases reach `desired_workers` or `--max-workers`, and
+  then sleeps for `--idle-sleep-ms` before checking state again. `bootstrap` is
+  an alias for this command.
 - `recover-leases` writes synthetic stalled reports for interrupted or expired
   active leases after operator confirmation.
+- `regression-check` runs the repo's global match-regression gate, persists the
+  Ninja stdout/stderr/summary under the state dir, and exits non-zero when the
+  branch has any regression against the saved baseline.
 - `status` prints the current run, queue, lease, event, and report summary.
 
-`desired_workers` is therefore an input to state and director prompts, not a
-process supervisor yet. To run more than one worker today, start multiple
-`worker` commands yourself or wrap them with an external process manager.
+`desired_workers` is stored on the run and used by the trigger-agent loop as the
+default worker-pool target. Pass `--max-workers` to cap that target for a local
+run or smoke-style dry run.
 
 Manual fixture run:
 
@@ -143,9 +165,89 @@ bun run orch -- --repo-root "$FIXTURE_ROOT" --state-dir "$STATE_DIR" --dry-run-a
 bun run orch -- --repo-root "$FIXTURE_ROOT" --state-dir "$STATE_DIR" --dry-run-agents status
 ```
 
+Bounded trigger-agent fixture run:
+
+```sh
+STATE_DIR="$(mktemp -d)"
+FIXTURE_ROOT="$PWD/testdata/smoke_repo"
+
+bun run orch -- --repo-root "$FIXTURE_ROOT" --state-dir "$STATE_DIR" --dry-run-agents init-run \
+  --desired-workers 1 \
+  --candidate-limit 8 \
+  --goal-kind matched_code_percent \
+  --goal-value 72
+
+bun run orch -- --repo-root "$FIXTURE_ROOT" --state-dir "$STATE_DIR" --dry-run-agents trigger-agent \
+  --max-workers 1 \
+  --max-iterations 5 \
+  --max-idle-iterations 1 \
+  --idle-sleep-ms 1 \
+  --candidate-limit 8
+```
+
 For real repo data, set `--repo-root` to the Melee checkout root and pass an
 explicit `--state-dir` while experimenting. If omitted, `--state-dir` defaults
 to `<repo-root>/.decomp-orchestrator-state/`, which is ignored by Git.
+
+## Regression Gate
+
+Regression protection is intentionally two-layered. Workers catch local
+regressions while they work by comparing the leased target and affected
+neighbors with narrow build/objdiff checks. They must not return `progress` or
+`score_candidate` while a retained worker edit has an unresolved local
+regression.
+
+Workers must not refresh global progress reports while leases may still be
+active. After workers are idle and before PR handoff, the operator/orchestrator
+runs the global saved-baseline check from the Melee checkout:
+
+```sh
+git switch master
+git pull --ff-only origin master
+python configure.py --require-protos
+ninja baseline
+
+git switch <branch>
+python configure.py --require-protos
+bun run --cwd decomp-orchestrator regression-check -- --repo-root "$PWD"
+```
+
+The branch-side command wraps `ninja changes_all`, writes artifacts under
+`.decomp-orchestrator-state/regression_checks/`, and fails if `changes_fmt.py`
+finds any metric that moved backward. Running `ninja changes_all` directly is
+equivalent for the gate, but it will not preserve the orchestrator artifact
+summary.
+
+`regression-check` also generates a PR-style Markdown report at
+`<artifact-dir>/pr_report.md`. Use that report as the PR description under an
+`Expected / local run` heading, because it documents what the saved-baseline
+local run expects CI to confirm. A typical PR body is:
+
+```md
+## Expected / local run
+
+Generated by:
+`bun run --cwd decomp-orchestrator regression-check -- --repo-root "$PWD"`
+
+<paste <artifact-dir>/pr_report.md here>
+```
+
+Do not open or hand off the PR if the report contains any broken matches or
+regressions. If CI later reports different numbers, treat CI as the source of
+truth and rerun the baseline/check flow against the same base revision.
+
+For a custom report title or a longer table, pass:
+
+```sh
+bun run --cwd decomp-orchestrator regression-check -- --repo-root "$PWD" \
+  --report-title "Report for GALE01 (<base> - <head>)" \
+  --report-max-rows 0
+```
+
+If switching branches would disturb local dirty work, make the upstream
+baseline in a separate clean checkout/worktree and copy its
+`build/GALE01/baseline.json` into this checkout before running
+`regression-check`.
 
 ## Smoke Fixture
 
@@ -161,23 +263,36 @@ decomp-orchestrator/testdata/smoke_repo/
 The fixture contains one fuzzy function and one already-matched function. The
 smoke test proves the board loader queues only the fuzzy function.
 
-## Prompt Templates
+## Agent Layout
 
-Pi launches are rendered from template files under `prompts/`:
+Agent definitions are centralized under `src/agents/`. Each agent owns its
+prompt builder, output parsing, schema or packet helpers, and templates:
 
 ```text
-prompts/
-+-- director/system.md
-+-- director/initial_user.md
-+-- worker/system.md
-+-- worker/initial_user.md
+src/agents/
++-- registry.ts
++-- runtime/
++-- director/
+|   +-- prompt.ts
+|   +-- output.ts
+|   +-- templates/
++-- worker/
+|   +-- packet.ts
+|   +-- output.ts
+|   +-- prompt.ts
+|   +-- templates/
++-- pr-review/
+    +-- prompt.ts
+    +-- schema.json
+    +-- templates/
 ```
 
 The system prompt defines role, authority, safety rules, and output contract.
 The initial user prompt carries current run state, files to read first,
 available resources/commands, and the concrete director wake event or worker
 target packet. Dry-run and live sessions both write rendered prompt artifacts
-beside the Pi output.
+beside the Pi output. Shared Pi invocation, prompt rendering, and JSON-output
+salvage live in `src/agents/runtime/`.
 
 ## Agent Knowledge
 
@@ -186,29 +301,30 @@ Runtime Pi agent knowledge lives under `knowledge/`, not under Codex skills:
 ```text
 knowledge/
 +-- manifest.json
++-- references/
++-- workflows/
++-- tools/
 +-- decomp_resources/
 +-- past_prs/
-+-- packs/
-    +-- decomp-find/
-    +-- melee-decomp/
-    +-- melee-decomp-sweep/
 ```
 
-`manifest.json` maps role defaults and worker capabilities to concrete knowledge
-packs. `src/prompts.ts` renders `selected_knowledge_packs` into each session and
-lists the manifest, selected packs, and migrated helper scripts in the resource
-map. The director gets target-finding/classification knowledge by default; the
-worker gets core Melee decomp knowledge plus capability-specific packs such as
-focused source editing, fact research, duplicate adaptation, sweep batches, or
-permuter handoff.
+`manifest.json` maps role defaults and worker capabilities to concrete
+references and optional workflows. `src/knowledge/` builds the selected
+knowledge references and resource map for agent prompt builders. The director
+gets scheduling policy by default; the worker gets targeted iteration, Melee
+matching tactics, resource research, and review standards. Experimental search
+and permuter handoff are opt-in capabilities, not the default worker posture.
 
 The decomp resource library and past-PR corpus are also package-owned:
 
 - `knowledge/decomp_resources/` contains the data-sheet CSVs, PowerPC indexes,
   external hint indexes, manifests, and resource notes.
+- `knowledge/tools/` contains helper scripts such as target ranking, context
+  lookup, and optional experimental-search utilities.
 - `knowledge/past_prs/` contains the stable `current/` PR dump, searchable
-  `prs/` postmortem library, shared PR-agent prompts under `agent/`, and
-  refresh utilities under `utils/`.
+  `prs/` postmortem library, legacy PR-agent prompt mirrors under `agent/`, and
+  refresh utilities under `utils/`. The canonical PR-review agent lives under
+  `src/agents/pr-review/`.
 
 ## PR Knowledge Refresh
 
@@ -261,7 +377,7 @@ The smoke command asserts row counts in `runs`, `targets`, `queue`, `events`,
 `pi_sessions`, `director_cycles`, `leases`, `file_locks`, and
 `worker_reports`. It also asserts the initial board snapshot, director output,
 director system/user prompts, worker output, worker system/user prompts, worker
-report, and smoke summary artifacts.
+report, trigger-agent wake/refill behavior, and smoke summary artifacts.
 
 `recover-leases` is the operator recovery path for interrupted workers. By
 default it recovers only expired active leases. Pass `--force` only after a
@@ -282,42 +398,49 @@ bun run orch -- --repo-root "$REPO_ROOT" --state-dir "$STATE_DIR" recover-leases
 `--dry-run-agents` writes the Pi prompt and metadata to an artifact instead of
 calling the Pi SDK. This is the required mode for `bun run smoke`.
 
-Without `--dry-run-agents`, `tick` and `worker` attempt to use
-`@earendil-works/pi-coding-agent`. The adapter passes the rendered system prompt
-through Pi's `DefaultResourceLoader` system-prompt override, then sends the
-rendered initial user prompt as the session prompt. Both director and worker
-sessions default to `--provider codex-lb --model gpt-5.5 --thinking-level
-xhigh`; those flags remain overrideable per CLI invocation. Live Pi execution
-is not part of the required smoke gate yet. The current worker command still
-writes an explicit runner-side report row after the Pi session; parsing a live
-worker's report is future work.
+Without `--dry-run-agents`, `tick`, `worker`, and the Pi activations launched by
+`trigger-agent` attempt to use `@earendil-works/pi-coding-agent`. The adapter
+passes the rendered system prompt through Pi's `DefaultResourceLoader`
+system-prompt override, then sends the rendered initial user prompt as the
+session prompt. Both director and worker sessions default to `--provider
+codex-lb --model gpt-5.5 --thinking-level xhigh`; those flags remain
+overrideable per CLI invocation. Live Pi execution is not part of the required
+smoke gate yet. The current worker command still writes an explicit runner-side
+report row after the Pi session; parsing a live worker's report is future work.
 
 ## Current Limitations
 
 - No Melee source files are edited by the smoke path.
 - No real build, objdiff, score gate, or patch integration runs in this slice.
-- No built-in bootstrap command refreshes PR knowledge, starts a director loop,
-  or maintains a pool of `desired_workers`.
-- One worker lease/report path is exercised by the smoke gate; broad scheduling
-  is deferred.
+- The trigger-agent loop does not refresh PR knowledge, recover stale leases, or
+  serialize global build/report refreshes; run those as explicit maintenance or
+  gate commands.
+- The smoke gate exercises the trigger-agent loop with one worker; broad live
+  multi-worker scheduling still depends on real Pi/toolchain runs.
 - File-lock rows are transient lease guards; worker reports and recovery remove
   them when a lease is released.
 - `matched_code_percent` is the long-term progress metric. `fuzzy_match_percent`
   remains target-selection telemetry only.
 
-## Intended Bootstrap Shape
+## Trigger Agent
 
-The eventual installable/submodule shape should probably grow a command like:
+The trigger agent is a resting supervisor, not a long-lived Pi director. It keeps
+no hidden agent memory. It waits on durable state, activates director or worker
+Pi sessions only when state calls for them, and then returns to rest.
+
+Typical live shape:
 
 ```sh
-bun run orch -- bootstrap \
-  --repo-root "$REPO_ROOT" \
-  --state-dir "$STATE_DIR" \
+bun run orch -- --repo-root "$REPO_ROOT" --state-dir "$STATE_DIR" init-run \
   --desired-workers 16 \
-  --refresh-pr-knowledge
+  --goal-kind matched_code_percent \
+  --goal-value 72
+
+bun run orch -- --repo-root "$REPO_ROOT" --state-dir "$STATE_DIR" bootstrap \
+  --max-workers 16 \
+  --idle-sleep-ms 5000
 ```
 
-That command does not exist yet. It would be the place to optionally run the PR
-refresh, initialize or resume a run, keep the director ticking, maintain the
-worker pool, recover stale leases, and serialize global progress/report refreshes
-after workers are idle.
+Use `--max-iterations`, `--max-idle-iterations`, and `--idle-sleep-ms` for
+bounded dry runs. Run PR refresh before starting a live run when fresh PR
+evidence matters.

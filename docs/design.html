@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decomp orchestrator design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&amp;display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#23211c;--mut:#817b70;--line:#d8d3c7;--bg:#fbfaf7;
+    --paper:#fffdfa;--rust:#94561b;--rustfill:#f4e8d8;--rustline:#cda06a;
+    --grn:#2f7a4f;--grnfill:#e4f3ea;--grnline:#8fcfa8;
+    --teal:#2a746d;--tealfill:#e1f0ee;--tealline:#8fc8bf;
+    --grayfill:#f0eee7;--mono:"JetBrains Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Source Serif 4",Georgia,serif;font-size:18px;line-height:1.6;}
+  main{max-width:980px;margin:0 auto;padding:60px 30px 110px;}
+  h1{font-family:var(--mono);font-weight:700;font-size:27px;margin:0 0 6px;letter-spacing:0;}
+  .sub{font-family:var(--mono);font-size:12px;letter-spacing:.05em;color:var(--mut);
+    text-transform:uppercase;margin:0 0 26px;}
+  p{margin:14px 0;}
+  a{color:var(--rust);}
+  code{font-family:var(--mono);font-size:.82em;background:#efece4;padding:.05em .35em;border-radius:3px;}
+  pre{font-family:var(--mono);font-size:12px;line-height:1.45;white-space:pre-wrap;
+    background:#f2efe7;border:1px solid var(--line);border-radius:7px;padding:14px 16px;
+    overflow:auto;margin:12px 0 0;}
+  h2{font-family:var(--mono);font-size:15px;font-weight:700;margin:48px 0 2px;
+    display:flex;align-items:baseline;gap:10px;}
+  h2 .n{color:var(--rust);font-size:12px;}
+  h3{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--mut);margin:26px 0 8px;}
+  .cap{font-family:var(--mono);font-size:12px;color:var(--mut);margin:0 0 14px;}
+  .note{border-left:3px solid var(--rustline);background:var(--paper);padding:10px 14px;margin:16px 0;}
+  .note ul,.box ul{margin:6px 0 0;padding-left:20px;}
+  .note li,.box li{margin:4px 0;}
+  li ul{margin:4px 0 2px;}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0;}
+  .box{background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:12px 14px;}
+  .box b{font-family:var(--mono);font-size:12px;color:var(--rust);}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;line-height:1.45;}
+  th,td{border-bottom:1px solid var(--line);padding:9px 8px;text-align:left;vertical-align:top;}
+  th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);}
+  td:first-child{font-family:var(--mono);font-size:12px;white-space:nowrap;}
+  ol,ul{padding-left:22px;margin:12px 0;}
+  li{margin:6px 0;}
+  figure{margin:14px 0 2px;overflow-x:auto;}
+  figure.arch-figure{width:min(1320px,calc(100vw - 72px));margin:24px 0 8px 50%;
+    transform:translateX(-50%);padding:10px 6px 14px;}
+  figure.flow-figure{width:min(1180px,calc(100vw - 72px));margin:18px 0 8px 50%;
+    transform:translateX(-50%);padding:8px 6px 12px;}
+  svg{width:100%;min-width:760px;height:auto;display:block;}
+  .arch-figure svg{min-width:1120px;}
+  .flow-figure svg{min-width:980px;}
+  .dl{font-family:var(--mono);font-size:12px;font-weight:500;}
+  .ds{font-family:var(--mono);font-size:10.5px;fill:var(--mut);}
+  .arr{stroke:#b8b2a6;stroke-width:1.5;fill:none;}
+  @media (max-width:720px){
+    main{padding:42px 18px 80px}
+    figure.arch-figure{width:calc(100vw - 24px);padding:8px 0 12px;}
+    figure.flow-figure{width:calc(100vw - 24px);padding:8px 0 12px;}
+    .grid{grid-template-columns:1fr}
+    table{font-size:13px}
+    td:first-child{white-space:normal}
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Decomp orchestrator design</h1>
+  <p class="sub">doldecomp/melee · proposed system before implementation</p>
+
+  <ul>
+    <li>This document defines the top-level <code>decomp-orchestrator</code> system we want to build for Melee decomp.</li>
+    <li>It should replace <code>decomp-find</code>, <code>melee-decomp</code>, and <code>melee-decomp-sweep</code> as the top-level workflow:
+      <ul>
+        <li>Those skills become internal strategy libraries, references, prompts, and helper modes inside one larger system.</li>
+      </ul>
+    </li>
+    <li>It should still rely on the repo's hard tools:
+      <ul>
+        <li><code>configure.py</code>, <code>ninja</code>, <code>objdiff</code>, reports, locks, optional workspaces, and artifacts.</li>
+        <li>The thing directing the run is a central run-director Pi agent that understands the whole board, delegates bounded work, and wakes back up when the board changes.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <div class="note">
+    <b>Core principle.</b>
+    <ul>
+      <li>Treat decomp like Sudoku.</li>
+      <li>Do not camp on one square just because it is unfinished.</li>
+      <li>When one file yields a fact, a source shape, a field name, or even a strong negative result:
+        <ul>
+          <li>Ask where else on the board that new constraint makes progress easier.</li>
+        </ul>
+      </li>
+      <li>Concrete Sudoku example:
+        <ul>
+          <li>Finding a <code>9</code> somewhere on the board does not always mean you can immediately finish the square you were focused on.</li>
+          <li>It can still remove <code>9</code> as a possibility from a row, column, or box.</li>
+          <li>That removal may make a different square deterministic.</li>
+          <li>The decomp equivalent is a worker discovering a struct field, source shape, duplicate pattern, or negative result that does not finish its current file but makes another target much easier to fill in.</li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+
+  <div class="note">
+    <b>Agent runtime.</b>
+    <ul>
+      <li>All reasoning agents in this system should be Pi agents launched through the Pi agent SDK.</li>
+      <li>The decomp orchestrator itself is not the main agent:
+        <ul>
+          <li>It is a thin stateful runner/server that stores facts, leases, events, and artifacts.</li>
+          <li>It creates or resumes director Pi-agent sessions and creates worker Pi-agent sessions only when there is work to do.</li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+
+  <h2><span class="n">01</span> Goals</h2>
+  <p class="cap">use the whole board, parallelize evidence, fill the next constrained piece</p>
+  <ul>
+    <li>Build a system that can intelligently fill in and decompile pieces by using the full project data:
+      <ul>
+        <li>Progress reports.</li>
+        <li>Objdiff signals.</li>
+        <li>Source conventions.</li>
+        <li>Past PRs.</li>
+        <li>Duplicate groups.</li>
+        <li>Worker results.</li>
+        <li>Accepted facts and rejected hypotheses.</li>
+      </ul>
+    </li>
+    <li>Parallelize the search for useful evidence:
+      <ul>
+        <li>Many workers can explore different files, symbols, patterns, and hypotheses at once.</li>
+        <li>Each worker may produce a match, a partial improvement, a fact, or a negative result.</li>
+        <li>Those outputs become shared constraints for the next scheduling cycle.</li>
+      </ul>
+    </li>
+    <li>Prefer the easiest or most constrained useful pieces first:
+      <ul>
+        <li>Do not brute force through one singular file just because it is currently selected.</li>
+        <li>Find the targets that are easiest to improve with the information we already have.</li>
+        <li>Fill those in, then use the new information to make educated guesses about what else should become easier.</li>
+      </ul>
+    </li>
+    <li>Use global <code>matched_code_percent</code> as the north-star metric:
+      <ul>
+        <li>The long-term target is full decompilation: exact matched code pushed toward <code>100%</code>.</li>
+        <li>Intermediate targets like <code>+1.0% matched_code_percent</code> are run checkpoints and stop conditions.</li>
+        <li><code>fuzzy_match_percent</code> and linked/complete progress are secondary telemetry, not the objective.</li>
+        <li>Do not chase fuzzy score as a success metric; it is already high compared with real matched/decompiled code.</li>
+      </ul>
+    </li>
+    <li>Treat each run as the unit of progress:
+      <ul>
+        <li>A worker target, source file, or symbol is not a PR boundary.</li>
+        <li>A run can aim for a batch goal such as <code>+5.0% matched_code_percent</code>.</li>
+        <li>The orchestrator keeps integrating verified improvements into the run baseline until the target is reached or useful evidence runs out.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h2><span class="n">02</span> Architecture</h2>
+  <p class="cap">director reads board state; workers do the research and source work</p>
+  <figure class="arch-figure">
+    <svg viewBox="0 0 1220 440" role="img" aria-label="Orchestrator architecture">
+      <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#b8b2a6" stroke-width="1.5" stroke-linecap="round"/></marker></defs>
+      <text class="ds" x="120" y="28" text-anchor="middle">DIRECTOR SCOPE</text>
+      <text class="ds" x="686" y="28" text-anchor="middle">SHARED RUN STATE</text>
+      <text class="ds" x="1050" y="28" text-anchor="middle">WORKER EXECUTION</text>
+
+      <g>
+        <rect x="32" y="62" width="184" height="58" rx="7" fill="var(--grnfill)" stroke="var(--grnline)"/>
+        <text class="dl" x="124" y="86" text-anchor="middle" fill="var(--grn)">Run target</text>
+        <text class="ds" x="124" y="104" text-anchor="middle">goal · stop condition</text>
+      </g>
+      <g>
+        <rect x="32" y="146" width="184" height="58" rx="7" fill="var(--tealfill)" stroke="var(--tealline)"/>
+        <text class="dl" x="124" y="170" text-anchor="middle" fill="var(--teal)">Indexer output</text>
+        <text class="ds" x="124" y="188" text-anchor="middle">report · objdiff · graph</text>
+      </g>
+      <g>
+        <rect x="32" y="230" width="184" height="58" rx="7" fill="#fff" stroke="var(--grnline)"/>
+        <text class="dl" x="124" y="254" text-anchor="middle" fill="var(--grn)">Reducer output</text>
+        <text class="ds" x="124" y="272" text-anchor="middle">reports · facts · stalls</text>
+      </g>
+      <g>
+        <rect x="286" y="134" width="208" height="100" rx="7" fill="var(--rustfill)" stroke="var(--rustline)"/>
+        <text class="dl" x="390" y="172" text-anchor="middle" fill="var(--rust)">Pi director</text>
+        <text class="ds" x="390" y="192" text-anchor="middle">choose next</text>
+        <text class="ds" x="390" y="210" text-anchor="middle">influence point</text>
+      </g>
+      <path d="M216 91 C244 91 252 160 282 165" class="arr" marker-end="url(#arrow)"/>
+      <line x1="216" y1="175" x2="282" y2="175" class="arr" marker-end="url(#arrow)"/>
+      <path d="M216 259 C244 259 252 204 282 200" class="arr" marker-end="url(#arrow)"/>
+
+      <g>
+        <rect x="610" y="92" width="246" height="152" rx="7" fill="var(--grayfill)" stroke="var(--line)"/>
+        <text class="dl" x="733" y="122" text-anchor="middle">State substrate</text>
+        <text class="ds" x="733" y="146" text-anchor="middle">leases · events · locks</text>
+        <text class="ds" x="733" y="166" text-anchor="middle">run queue · target packets</text>
+        <text class="ds" x="733" y="186" text-anchor="middle">facts · reports · artifacts</text>
+        <text class="ds" x="733" y="212" text-anchor="middle">runner/server wakes agents</text>
+      </g>
+      <path d="M494 165 L606 165" class="arr" marker-end="url(#arrow)"/>
+      <text class="ds" x="550" y="150" text-anchor="middle">decisions</text>
+      <path d="M610 205 L498 205" class="arr" marker-end="url(#arrow)"/>
+      <text class="ds" x="554" y="226" text-anchor="middle">wake + snapshot</text>
+
+      <g>
+        <rect x="610" y="308" width="246" height="64" rx="7" fill="var(--rustfill)" stroke="var(--rustline)"/>
+        <text class="dl" x="733" y="334" text-anchor="middle" fill="var(--rust)">Score gate</text>
+        <text class="ds" x="733" y="353" text-anchor="middle">verify · absorb · refresh</text>
+      </g>
+      <path d="M733 244 L733 304" class="arr" marker-end="url(#arrow)"/>
+      <path d="M610 340 L236 340 L236 259 L220 259" class="arr" marker-end="url(#arrow)"/>
+      <text class="ds" x="430" y="324" text-anchor="middle">new baseline</text>
+
+      <g>
+        <rect x="912" y="58" width="276" height="322" rx="7" fill="var(--paper)" stroke="var(--line)"/>
+        <text class="dl" x="1050" y="92" text-anchor="middle">Worker pool</text>
+        <rect x="944" y="122" width="212" height="52" rx="7" fill="var(--grayfill)" stroke="var(--line)"/>
+        <text class="dl" x="1050" y="145" text-anchor="middle">lease A</text>
+        <text class="ds" x="1050" y="162" text-anchor="middle">Pi worker</text>
+        <rect x="944" y="196" width="212" height="52" rx="7" fill="var(--grayfill)" stroke="var(--line)"/>
+        <text class="dl" x="1050" y="219" text-anchor="middle">lease B</text>
+        <text class="ds" x="1050" y="236" text-anchor="middle">Pi worker</text>
+        <rect x="944" y="270" width="212" height="52" rx="7" fill="var(--grayfill)" stroke="var(--line)"/>
+        <text class="dl" x="1050" y="293" text-anchor="middle">lease N</text>
+        <text class="ds" x="1050" y="310" text-anchor="middle">Pi worker</text>
+        <rect x="944" y="344" width="212" height="52" rx="7" fill="var(--tealfill)" stroke="var(--tealline)"/>
+        <text class="dl" x="1050" y="367" text-anchor="middle" fill="var(--teal)">Capabilities</text>
+        <text class="ds" x="1050" y="384" text-anchor="middle">PR/docs/source · sweep/permuter</text>
+      </g>
+      <path d="M856 146 L908 146" class="arr" marker-end="url(#arrow)"/>
+      <text class="ds" x="882" y="130" text-anchor="middle">leases</text>
+      <path d="M912 232 L860 232" class="arr" marker-end="url(#arrow)"/>
+      <text class="ds" x="886" y="254" text-anchor="middle">reports + events</text>
+      <path d="M912 340 L860 340" class="arr" marker-end="url(#arrow)"/>
+      <text class="ds" x="886" y="324" text-anchor="middle">score candidates</text>
+    </svg>
+  </figure>
+
+  <ul>
+    <li>The director's world is intentionally small:
+      <ul>
+        <li>It reads the indexer output, reducer output, and run target.</li>
+        <li>It then writes decisions into shared run state.</li>
+      </ul>
+    </li>
+    <li>The state substrate owns:
+      <ul>
+        <li>Leases, events, locks, target packets, artifacts, and wakeups.</li>
+      </ul>
+    </li>
+    <li>Workers pull bounded leases from that state:
+      <ul>
+        <li>Do the PR search, resource lookup, source archaeology, sweeps, permuter work, and cleanup inside their leased write sets.</li>
+        <li>Return reports and events for the reducer/director loop.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <table>
+    <thead>
+      <tr><th>Component</th><th>Responsibility</th><th>Writes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Orchestration runner/server</td><td>Thin non-agent process that owns state transitions, invokes Pi-agent sessions through the SDK, supervises worker processes, and reacts to wake events.</td><td>SQLite event/lease rows, process logs, Pi session metadata.</td></tr>
+      <tr><td>Pi agent SDK runtime</td><td>Creates or resumes director sessions and creates worker sessions with the right cwd, prompts, model, tools, and event subscriptions.</td><td>Pi session files, agent run metadata, raw responses.</td></tr>
+      <tr><td>Run director Pi agent</td><td>Reads indexer output, reducer output, and the run target; then decides where the next worker effort is most influential.</td><td>Director-cycle notes, queue decisions, worker prompts.</td></tr>
+      <tr><td>Indexer helpers</td><td>Parse report, objdiff config, symbols, splits, table-typer duplicate groups, and coarse graph/history signals.</td><td>Read-only index tables and graph edges.</td></tr>
+      <tr><td>Scoring helpers</td><td>Compute candidate-prior features, but leave final delegation judgment to the run director.</td><td>Queue priorities and rationale rows.</td></tr>
+      <tr><td>State substrate</td><td>Lease targets to workers, enforce write-set locks, refresh TTLs, record stalls, expose idle slots, and raise director wake events.</td><td>SQLite lease/event rows only.</td></tr>
+      <tr><td>Worker Pi agents</td><td>Research one target packet, inspect PRs/docs/local conventions, use any relevant capabilities, verify, and stop when evidence runs out.</td><td>Leased file edits, optional workspace, and per-attempt artifacts.</td></tr>
+      <tr><td>Reducer</td><td>Merge worker reports, dedupe by source hash/object hash, update learned patterns, and identify score candidates.</td><td>Shared CSV/JSON artifacts after workers finish.</td></tr>
+      <tr><td>Score integration gate</td><td>Apply only verified winners to the canonical checkout, rerun validation, update progress baseline, and record facts.</td><td>Canonical checkout, integration log, fact-set.</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="n">03</span> Run Director Loop</h2>
+  <p class="cap">wake, read the board, delegate, sleep until the board changes</p>
+  <ul>
+    <li>The run director is the central Pi agent:
+      <ul>
+        <li>It is not a permanent process thinking every second.</li>
+        <li>It sleeps between events.</li>
+      </ul>
+    </li>
+    <li>The state substrate and runner/server wake it at scheduling turns:
+      <ul>
+        <li>Run start.</li>
+        <li>Worker completion.</li>
+        <li>Worker stall.</li>
+        <li>Score integration.</li>
+        <li>Regression.</li>
+        <li>When active workers drop below the desired count.</li>
+      </ul>
+    </li>
+    <li>Each cycle:
+      <ul>
+        <li>Reads the current board.</li>
+        <li>Asks what new information changed the constraints.</li>
+        <li>Delegates the next best target packet to an available worker.</li>
+      </ul>
+    </li>
+    <li>This layer should be agentic rather than a fully deterministic assignment engine:
+      <ul>
+        <li>Deterministic helpers calculate features, enforce locks, refresh reports, and verify patches.</li>
+        <li>The director uses those facts to make an informed delegation decision over the whole project.</li>
+      </ul>
+    </li>
+    <li>Workers do not talk to each other directly:
+      <ul>
+        <li>A worker Pi agent writes its state, artifacts, facts, blockers, and final report to durable storage.</li>
+        <li>It then emits a wake event.</li>
+        <li>The next time the director Pi agent runs, it absorbs that state and decides what should happen next.</li>
+      </ul>
+    </li>
+    <li>The runner/server can stay alive to supervise child processes and receive events:
+      <ul>
+        <li>It is deliberately boring: no broad reasoning loop, no project strategy, and no hidden always-on director.</li>
+        <li>Its job is to notice that something needs to happen, invoke the right Pi-agent session, persist the result, and go quiet again.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h3>Director agent cycle</h3>
+  <figure class="flow-figure">
+    <svg viewBox="0 0 1080 260" role="img" aria-label="Director agent execution cycle">
+      <defs><marker id="director-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#b8b2a6" stroke-width="1.5" stroke-linecap="round"/></marker></defs>
+      <g>
+        <rect x="24" y="74" width="150" height="74" rx="7" fill="var(--grayfill)" stroke="var(--line)"/>
+        <text class="dl" x="99" y="102" text-anchor="middle">Wake event</text>
+        <text class="ds" x="99" y="121" text-anchor="middle">run start · stall</text>
+        <text class="ds" x="99" y="138" text-anchor="middle">worker done · refill</text>
+      </g>
+      <line x1="174" y1="111" x2="220" y2="111" class="arr" marker-end="url(#director-arrow)"/>
+      <g>
+        <rect x="224" y="50" width="188" height="122" rx="7" fill="var(--tealfill)" stroke="var(--tealline)"/>
+        <text class="dl" x="318" y="80" text-anchor="middle" fill="var(--teal)">Board snapshot</text>
+        <text class="ds" x="318" y="102" text-anchor="middle">run target</text>
+        <text class="ds" x="318" y="120" text-anchor="middle">indexer output</text>
+        <text class="ds" x="318" y="138" text-anchor="middle">reducer output</text>
+        <text class="ds" x="318" y="156" text-anchor="middle">leases · stalls</text>
+      </g>
+      <line x1="412" y1="111" x2="458" y2="111" class="arr" marker-end="url(#director-arrow)"/>
+      <g>
+        <rect x="462" y="64" width="176" height="94" rx="7" fill="var(--rustfill)" stroke="var(--rustline)"/>
+        <text class="dl" x="550" y="98" text-anchor="middle" fill="var(--rust)">Pi director</text>
+        <text class="ds" x="550" y="119" text-anchor="middle">choose influence point</text>
+        <text class="ds" x="550" y="137" text-anchor="middle">under budget + locks</text>
+      </g>
+      <line x1="638" y1="111" x2="684" y2="111" class="arr" marker-end="url(#director-arrow)"/>
+      <g>
+        <rect x="688" y="48" width="184" height="126" rx="7" fill="var(--paper)" stroke="var(--line)"/>
+        <text class="dl" x="780" y="78" text-anchor="middle">Decision bundle</text>
+        <text class="ds" x="780" y="101" text-anchor="middle">target packets</text>
+        <text class="ds" x="780" y="119" text-anchor="middle">budgets · priorities</text>
+        <text class="ds" x="780" y="137" text-anchor="middle">fact packets</text>
+        <text class="ds" x="780" y="155" text-anchor="middle">cooldowns</text>
+      </g>
+      <line x1="872" y1="111" x2="918" y2="111" class="arr" marker-end="url(#director-arrow)"/>
+      <g>
+        <rect x="922" y="64" width="134" height="94" rx="7" fill="var(--grayfill)" stroke="var(--line)"/>
+        <text class="dl" x="989" y="95" text-anchor="middle">Write state</text>
+        <text class="ds" x="989" y="116" text-anchor="middle">queue · leases</text>
+        <text class="ds" x="989" y="134" text-anchor="middle">then sleep</text>
+      </g>
+      <path d="M989 158 L989 214 L99 214 L99 152" class="arr" marker-end="url(#director-arrow)"/>
+      <text class="ds" x="544" y="236" text-anchor="middle">director is inactive until another durable event wakes it</text>
+    </svg>
+  </figure>
+  <ul>
+    <li>The director does not perform source research.</li>
+    <li>It only sees enough to decide where effort is most influential:
+      <ul>
+        <li>Run target.</li>
+        <li>Candidate files and their current matched-code state.</li>
+        <li>Indexer/reducer facts.</li>
+        <li>Active lease, stall, lock, and integration state.</li>
+      </ul>
+    </li>
+    <li>Its output is a bounded scheduling decision, not a decomp attempt.</li>
+  </ul>
+
+  <ol>
+    <li><b>Board read.</b> Load current progress, active leases, worker reports, accepted facts, rejected hypotheses, duplicate groups, and recent stalls.</li>
+    <li><b>Constraint propagation.</b> Ask what the new facts make easier elsewhere: same assembly shape, same callback table, same struct field, same PR pattern, same mismatch class.</li>
+    <li><b>Delegation.</b> Fill idle worker slots with bounded target packets. A 16-worker run should refill when it falls to 15 active workers unless the run target is already reached.</li>
+    <li><b>Sleep.</b> Go idle after writing decisions. Worker Pi agents operate independently, write durable state, and wake the director only when they finish, stall, need a fact, or produce a score candidate.</li>
+  </ol>
+  <table>
+    <thead>
+      <tr><th>Wake event</th><th>Director action</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Active count drops below target</td><td>For a 16-worker run, wake as soon as the pool falls to 15 active workers and decide how to refill the slot.</td></tr>
+      <tr><td>Worker improved file</td><td>Queue score integration, record new facts, and recompute connected target priorities.</td></tr>
+      <tr><td>Worker stalled</td><td>Record the blocker, cool down that target, search for another file made easier by the worker's partial evidence.</td></tr>
+      <tr><td>Worker says "do not guess"</td><td>Treat that as a good stop signal. Preserve context and move the slot to a more constrained target.</td></tr>
+      <tr><td>Score integrated</td><td>Regenerate progress, publish the new facts/signals, and keep already-active workers running.</td></tr>
+      <tr><td>Target reached</td><td>Stop scheduling new workers and summarize the run.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Worker report contract</h3>
+  <ul>
+    <li>Workers are useful even when they do not land a perfect match.</li>
+    <li>A worker report should tell the director whether the board gained:
+      <ul>
+        <li>A patch.</li>
+        <li>A fact.</li>
+        <li>A negative result.</li>
+        <li>A cleaner understanding of why this target is not ready yet.</li>
+      </ul>
+    </li>
+  </ul>
+  <table>
+    <thead>
+      <tr><th>Report type</th><th>Meaning</th><th>Director response</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>progress</code></td><td>Score improved, source is clearer, or a mismatch class narrowed.</td><td>Record facts, consider integration, and search connected targets for the same constraint.</td></tr>
+      <tr><td><code>stalled_no_useful_guess</code></td><td>The worker exhausted grounded hypotheses and should stop before random mutation.</td><td>Cool down the target, preserve the packet, and refill the worker slot elsewhere.</td></tr>
+      <tr><td><code>needs_fact</code></td><td>The next useful move depends on a field, type, PR pattern, data owner, or compiler fact the worker cannot justify.</td><td>Queue a fact-research packet or wait until another worker discovers the missing constraint.</td></tr>
+      <tr><td><code>score_candidate</code></td><td>A patch has repeatable evidence and may be ready for the serial score gate.</td><td>Lock integration, run validation, and update the board only after the patch survives.</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="n">04</span> Durable State</h2>
+  <p class="cap">SQLite for coordination, artifact folders for evidence</p>
+  <ul>
+    <li>Use a small SQLite database for coordination and append-only history.</li>
+    <li>Store bulky evidence in run bundles, not in the database.</li>
+  </ul>
+  <pre>decomp-orchestrator/
++-- orchestrator.sqlite
++-- runs/
+|   +-- &lt;run_id&gt;/
+|       +-- run_manifest.json
+|       +-- worker_logs/
+|       +-- score_candidates/
+|       +-- result_shards/
+|       +-- snapshots/
++-- facts/
+|   +-- accepted_facts.jsonl
+|   +-- rejected_hypotheses.jsonl
++-- workspaces/
+    +-- &lt;lease_id&gt;/   optional isolated checkout or build workspace</pre>
+
+  <h3>Core tables</h3>
+  <pre>runs(id, goal_kind, target_matched_code_percent, baseline_report_sha, current_report_sha, desired_workers, status, created_at)
+director_cycles(id, run_id, trigger_event, active_workers, summary_path, decision_path, created_at)
+pi_sessions(id, run_id, lease_id, role, session_id, session_file, provider, model, thinking_level, status, created_at)
+targets(id, run_id, unit, symbol, source_path, size, fuzzy, matched, complete, risk, status)
+target_edges(src_target_id, dst_target_id, edge_type, weight, evidence_path)
+queue(id, run_id, target_id, priority, reason, status, created_at, leased_at)
+leases(id, queue_id, worker_id, base_rev, write_set_hash, workspace_path, ttl, heartbeat_at, status)
+file_locks(path, lease_id, lock_mode, reason, expires_at)
+worker_reports(id, lease_id, report_type, summary_path, facts_path, blocker_path, patch_path, created_at)
+attempts(id, lease_id, target_id, artifact_path, compiled, old_score, new_score, delta, status)
+facts(id, run_id, fact_type, subject, payload_json, evidence_path, confidence, status)
+events(id, run_id, event_type, producer, payload_json, handled_at, created_at)
+integrations(id, attempt_id, base_rev, patch_path, validation_path, old_matched_code_percent, new_matched_code_percent, status, integrated_rev)</pre>
+
+  <h3>Wake events</h3>
+  <ul>
+    <li>The <code>events</code> table is the handshake between worker Pi agents and the sleeping director Pi agent.</li>
+    <li>A worker never messages another worker and never needs the director to be live while it is working.</li>
+    <li>It writes an event row such as:
+      <ul>
+        <li><code>worker_finished</code></li>
+        <li><code>worker_stalled</code></li>
+        <li><code>needs_fact</code></li>
+        <li><code>score_candidate</code></li>
+        <li><code>pool_below_target</code></li>
+      </ul>
+    </li>
+    <li>The orchestration runner sees an unhandled event:
+      <ul>
+        <li>Invokes or resumes the director through the Pi agent SDK.</li>
+        <li>Marks the event handled after the director writes its next decisions.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h3>Fact types</h3>
+  <ul>
+    <li><code>asm_duplicate_group</code>: normalized assembly group with matched refs and unmatched candidates.</li>
+    <li><code>source_shape_pattern</code>: declaration order, branch shape, helper inline shape, loop form, or pragma behavior that improved a target.</li>
+    <li><code>type_or_field_hint</code>: struct field, accessor, callback signature, table type, or data ownership fact.</li>
+    <li><code>negative_result</code>: a capability or hypothesis class that repeatedly preserved the bad first mismatch or caused regressions.</li>
+    <li><code>integration_fact</code>: accepted patch, score delta, validation commands, and affected graph neighbors.</li>
+  </ul>
+
+  <h2><span class="n">05</span> Board Prioritization</h2>
+  <p class="cap">helper scores inform the director; the director chooses the next square</p>
+  <ul>
+    <li>The board can produce deterministic features.</li>
+    <li>The final scheduling choice should be made by the run director.</li>
+    <li>The helper score is a candidate prior:
+      <ul>
+        <li>It surfaces places where a worker is likely to create useful information.</li>
+        <li>It does not just surface places where a local function might hit 100%.</li>
+      </ul>
+    </li>
+  </ul>
+  <pre>candidate_prior =
+  roi_score_from_report
+  + duplicate_ref_bonus
+  + graph_degree_bonus
+  + linked_unlock_bonus
+  + constraint_propagation_bonus
+  + stale_fact_bonus
+  - write_lock_penalty
+  - recent_stall_penalty
+  - data_rodata_risk_penalty
+  - reviewability_debt_penalty</pre>
+  <table>
+    <thead>
+      <tr><th>Signal</th><th>Why it matters</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Matched duplicate ref</td><td>PR #2102 proved this is high leverage: a matched source shape can be adapted across unrelated files.</td></tr>
+      <tr><td>Graph degree</td><td>A target connected to many similar functions can propagate more facts if solved or partially improved.</td></tr>
+      <tr><td>Few unit blockers</td><td>Useful as a secondary signal when a small set of functions can unlock linked progress.</td></tr>
+      <tr><td>Worker context quality</td><td>A target with nearby matched siblings, useful graph edges, or reducer facts is easier for a worker to research deeply.</td></tr>
+      <tr><td>Recent stalls</td><td>Repeated no-delta attempts should cool down the target unless new facts arrive.</td></tr>
+      <tr><td>Data/rodata risk</td><td>Header, static, section-order, split, or relocation-sensitive work needs slower validation and fewer parallel edits.</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="n">06</span> Worker Lifecycle</h2>
+  <p class="cap">lease, attempt, verify, emit evidence, release</p>
+  <h3>Target packet</h3>
+  <ul>
+    <li>The director should send each worker a bounded packet:
+      <ul>
+        <li>Unit.</li>
+        <li>Symbol or file.</li>
+        <li>Source path.</li>
+        <li>Write set.</li>
+        <li>Baseline metrics.</li>
+        <li>Accepted facts.</li>
+        <li>Rejected hypotheses.</li>
+        <li>Enabled capabilities.</li>
+        <li>Verification command.</li>
+        <li>Budget.</li>
+        <li>Stop condition.</li>
+      </ul>
+    </li>
+    <li>The worker then performs the PR, docs, source, naming, and resource research inside its lease.</li>
+  </ul>
+
+  <h3>Worker agent cycle</h3>
+  <figure class="flow-figure">
+    <svg viewBox="0 0 1260 520" role="img" aria-label="Worker agent execution cycle">
+      <defs><marker id="worker-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#b8b2a6" stroke-width="1.5" stroke-linecap="round"/></marker></defs>
+      <g>
+        <rect x="24" y="186" width="138" height="88" rx="7" fill="var(--rustfill)" stroke="var(--rustline)"/>
+        <text class="dl" x="93" y="216" text-anchor="middle" fill="var(--rust)">Target packet</text>
+        <text class="ds" x="93" y="238" text-anchor="middle">unit · symbol</text>
+        <text class="ds" x="93" y="256" text-anchor="middle">budget · stop rule</text>
+      </g>
+      <line x1="162" y1="230" x2="206" y2="230" class="arr" marker-end="url(#worker-arrow)"/>
+      <g>
+        <rect x="210" y="46" width="214" height="372" rx="7" fill="var(--tealfill)" stroke="var(--tealline)"/>
+        <text class="dl" x="317" y="78" text-anchor="middle" fill="var(--teal)">Collect context</text>
+        <rect x="236" y="100" width="162" height="46" rx="7" fill="var(--paper)" stroke="var(--tealline)"/>
+        <text class="ds" x="317" y="119" text-anchor="middle">report.json · objdiff</text>
+        <text class="ds" x="317" y="134" text-anchor="middle">unit metadata</text>
+        <rect x="236" y="158" width="162" height="46" rx="7" fill="var(--paper)" stroke="var(--tealline)"/>
+        <text class="ds" x="317" y="177" text-anchor="middle">target asm</text>
+        <text class="ds" x="317" y="192" text-anchor="middle">current C · siblings</text>
+        <rect x="236" y="216" width="162" height="46" rx="7" fill="var(--paper)" stroke="var(--tealline)"/>
+        <text class="ds" x="317" y="235" text-anchor="middle">headers · types</text>
+        <text class="ds" x="317" y="250" text-anchor="middle">symbols.txt · r2/r13</text>
+        <rect x="236" y="274" width="162" height="46" rx="7" fill="var(--paper)" stroke="var(--tealline)"/>
+        <text class="ds" x="317" y="293" text-anchor="middle">PRs · docs</text>
+        <text class="ds" x="317" y="308" text-anchor="middle">decomp.me · past runs</text>
+        <rect x="236" y="332" width="162" height="46" rx="7" fill="var(--paper)" stroke="var(--tealline)"/>
+        <text class="ds" x="317" y="351" text-anchor="middle">attempt history</text>
+        <text class="ds" x="317" y="366" text-anchor="middle">accepted/rejected facts</text>
+      </g>
+      <line x1="424" y1="230" x2="468" y2="230" class="arr" marker-end="url(#worker-arrow)"/>
+      <g>
+        <rect x="472" y="176" width="156" height="108" rx="7" fill="var(--paper)" stroke="var(--line)"/>
+        <text class="dl" x="550" y="207" text-anchor="middle">Hypothesis plan</text>
+        <text class="ds" x="550" y="230" text-anchor="middle">name constraints</text>
+        <text class="ds" x="550" y="248" text-anchor="middle">choose capabilities</text>
+        <text class="ds" x="550" y="266" text-anchor="middle">define stop test</text>
+      </g>
+      <line x1="628" y1="230" x2="672" y2="230" class="arr" marker-end="url(#worker-arrow)"/>
+      <g>
+        <rect x="676" y="74" width="178" height="312" rx="7" fill="var(--grayfill)" stroke="var(--line)"/>
+        <text class="dl" x="765" y="106" text-anchor="middle">Attempt loop</text>
+        <text class="ds" x="765" y="132" text-anchor="middle">focused edit</text>
+        <text class="ds" x="765" y="154" text-anchor="middle">duplicate adaptation</text>
+        <text class="ds" x="765" y="176" text-anchor="middle">sweep batch</text>
+        <text class="ds" x="765" y="198" text-anchor="middle">permuter handoff</text>
+        <text class="ds" x="765" y="220" text-anchor="middle">type/symbol request</text>
+        <text class="ds" x="765" y="242" text-anchor="middle">source cleanup</text>
+        <text class="ds" x="765" y="276" text-anchor="middle">never random mutate</text>
+        <text class="ds" x="765" y="298" text-anchor="middle">without evidence</text>
+      </g>
+      <line x1="854" y1="230" x2="898" y2="230" class="arr" marker-end="url(#worker-arrow)"/>
+      <g>
+        <rect x="902" y="156" width="154" height="148" rx="7" fill="var(--grnfill)" stroke="var(--grnline)"/>
+        <text class="dl" x="979" y="188" text-anchor="middle" fill="var(--grn)">Verify</text>
+        <text class="ds" x="979" y="211" text-anchor="middle">compile isolated</text>
+        <text class="ds" x="979" y="229" text-anchor="middle">objdiff symbol/unit</text>
+        <text class="ds" x="979" y="247" text-anchor="middle">compare baseline</text>
+        <text class="ds" x="979" y="265" text-anchor="middle">broaden if needed</text>
+      </g>
+      <line x1="1056" y1="230" x2="1100" y2="230" class="arr" marker-end="url(#worker-arrow)"/>
+      <g>
+        <rect x="1104" y="176" width="146" height="108" rx="7" fill="var(--rustfill)" stroke="var(--rustline)"/>
+        <text class="dl" x="1177" y="207" text-anchor="middle" fill="var(--rust)">Report shard</text>
+        <text class="ds" x="1177" y="230" text-anchor="middle">patch · score delta</text>
+        <text class="ds" x="1177" y="248" text-anchor="middle">facts · blockers</text>
+        <text class="ds" x="1177" y="266" text-anchor="middle">wake event</text>
+      </g>
+      <path d="M979 304 L979 456 L550 456 L550 288" class="arr" marker-end="url(#worker-arrow)"/>
+      <text class="ds" x="764" y="478" text-anchor="middle">if evidence improves or clarifies the next hypothesis, continue inside budget</text>
+      <path d="M1177 176 L1177 34 L317 34 L317 42" class="arr" marker-end="url(#worker-arrow)"/>
+      <text class="ds" x="746" y="24" text-anchor="middle">new facts update future target packets through reducer/director, not worker-to-worker chat</text>
+    </svg>
+  </figure>
+  <ul>
+    <li>The worker is where the messy decompilation context belongs.</li>
+    <li>Worker read set should include:
+      <ul>
+        <li>Target packet, baseline metrics, write-set lock, accepted facts, and rejected hypotheses.</li>
+        <li><code>report.json</code>, <code>objdiff.json</code>, target assembly, current source, translation-unit preamble, sibling functions, and nearby headers.</li>
+        <li><code>symbols.txt</code>, r13/r2 small-data references, type definitions, struct member hints, and module-specific context.</li>
+        <li>Past PRs, local docs, decomp.me public scratch status, previous run bundles, attempt history, and reducer facts.</li>
+      </ul>
+    </li>
+    <li>Worker outputs should always be reducer-friendly:
+      <ul>
+        <li>Patch candidate or no-patch result.</li>
+        <li>Objdiff delta and validation transcript.</li>
+        <li>Accepted facts, rejected hypotheses, missing context requests, and stall reason.</li>
+        <li>Score candidate event or worker-finished/stalled event.</li>
+      </ul>
+    </li>
+  </ul>
+  <h3><code>melee-assist</code> reference map</h3>
+  <table>
+    <thead>
+      <tr><th><code>melee-assist</code> reference</th><th>Worker capability to absorb</th><th>Why it matters</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>assembly/parser.py</code></td><td>Read <code>report.json</code> as the offline source of function/unit truth.</td><td>Gives workers target names, source paths, unit names, sizes, addresses, and current fuzzy match without scraping assembly folders.</td></tr>
+      <tr><td><code>loop/context_pack.py</code></td><td>Extract target function, translation-unit preamble, sibling functions, and referenced type definitions.</td><td>Keeps prompts focused while preserving the local declarations and sibling conventions needed for real source-shape decisions.</td></tr>
+      <tr><td><code>resolver/symbols.py</code></td><td>Resolve <code>symbols.txt</code>, including r13/r2 small-data references.</td><td>Turns raw global loads into named data facts that can propagate to other targets.</td></tr>
+      <tr><td><code>resolver/structs.py</code></td><td>Look up module headers and member-offset hints.</td><td>Helps a worker move from pointer arithmetic guesses to field/name hypotheses with evidence.</td></tr>
+      <tr><td><code>api/decomp_me.py</code></td><td>Check public decomp.me scratches for target status and prior attempts.</td><td>Lets the worker learn from public progress, while treating the result as approximate and provenance-tagged.</td></tr>
+      <tr><td><code>loop/orchestrator.py</code></td><td>Run isolated compile/check loops, store best attempt, and preserve attempt history.</td><td>Allows fast local experiments without losing which hypotheses improved, regressed, or failed to compile.</td></tr>
+      <tr><td><code>llm/prompts.py</code></td><td>Use explicit missing-context requests like <code>NEED_TYPE</code> and <code>NEED_SYMBOL</code>.</td><td>Gives the worker a disciplined way to ask for facts instead of guessing when context is missing.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Research/read phase</h3>
+  <ul>
+    <li>The worker should build a compact context pack before making source edits:
+      <ul>
+        <li>Read <code>report.json</code> and <code>objdiff.json</code> for the unit, source path, base object, match score, size, and diff command.</li>
+        <li>Extract target assembly and current source for the target function.</li>
+        <li>Extract the translation-unit preamble, sibling functions, file-scope variables, static data, macros, and local coding conventions.</li>
+        <li>Scan nearby headers and module headers for types, fields, callbacks, enums, and constants.</li>
+        <li>Resolve exact globals from <code>symbols.txt</code>, including r13/r2 small-data references.</li>
+        <li>Search past PRs, local docs, previous run bundles, reducer facts, and decomp.me public scratches for matching source shapes or known attempts.</li>
+      </ul>
+    </li>
+    <li>The worker should turn missing context into explicit fact requests:
+      <ul>
+        <li><code>NEED_TYPE</code> for a struct, typedef, enum, or callback signature it cannot justify.</li>
+        <li><code>NEED_SYMBOL</code> for an exact global/data/function label from <code>symbols.txt</code>.</li>
+        <li><code>needs_fact</code> report when the target is blocked until the board learns that fact.</li>
+      </ul>
+    </li>
+    <li>The worker should preserve attempt history:
+      <ul>
+        <li>What was tried.</li>
+        <li>Which candidate compiled.</li>
+        <li>Which candidate improved or regressed objdiff score.</li>
+        <li>Which mismatch key persisted across source-hash-distinct candidates.</li>
+        <li>The best source shape so far.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <ol>
+    <li><b>Receive target packet.</b> The run director Pi agent chooses the target and the state substrate locks its write set, records base revision, creates an optional workspace if needed, and writes the packet.</li>
+    <li><b>Start Pi session.</b> The runner/server creates a worker Pi-agent session through the Pi agent SDK with the target packet as the user prompt and the leased workspace or checkout as cwd.</li>
+    <li><b>Gather context.</b> Before changing source, the worker searches relevant PRs, docs, source siblings, headers, symbols, splits, data sheets, naming conventions, public scratches, previous run bundles, and known mismatch patterns.</li>
+    <li><b>Bootstrap workspace.</b> Worker runs <code>python configure.py</code> if needed, then builds the narrowest relevant object/report baseline.</li>
+    <li><b>Attempt planning.</b> Based on that research, the worker chooses which capabilities are likely to produce progress or useful information.</li>
+    <li><b>Attempt loop.</b> Worker may combine focused editing, duplicate adaptation, sweep batches, permuter handoff, fact research, and cleanup validation. The loop pursues grounded hypotheses, not unlimited random variants.</li>
+    <li><b>Verify narrowly.</b> Use symbol or unit objdiff first. Only candidates that improve or reveal strong evidence get broader checks.</li>
+    <li><b>Emit shard.</b> Worker writes patch, result JSON, diff text, compile logs, and learned/rejected patterns into its artifacts.</li>
+    <li><b>Report or stop.</b> If progress continues, renew the lease. If evidence runs out, report "stalled/no useful guess," preserve context, release the slot, and emit a director wake event.</li>
+  </ol>
+
+  <h3>Stall policy</h3>
+  <ul>
+    <li>The target packet gives default attempt and wall-clock budgets.</li>
+    <li>The worker decides when to stop inside that budget based on the shared worker prompt.</li>
+    <li>Stop when the worker cannot name an evidence-backed next hypothesis.</li>
+    <li>No matched-code improvement after a fixed attempt budget or wall-clock budget.</li>
+    <li>Same first mismatch key repeats across many source-hash-distinct candidates.</li>
+    <li>Compile failures or reviewability failures exceed a threshold for the active capability.</li>
+    <li>The worker cannot name a plausible next hypothesis from PRs, docs, local source, duplicate groups, or measured diff signal.</li>
+    <li>A stronger related fact arrives; the worker may use it if helpful, but the director does not cancel active workers just because the board changed.</li>
+  </ul>
+
+  <h2><span class="n">07</span> Write Safety</h2>
+  <p class="cap">central file leases first; isolated workspaces only where useful</p>
+  <ul>
+    <li>The mandatory safety primitive is the central SQLite lock, not a particular checkout layout:
+      <ul>
+        <li>Before editing, a worker receives a lease with an explicit write set.</li>
+        <li>The state substrate records file-level locks for every path the worker is allowed to touch.</li>
+        <li>A worker must not edit a file that is not covered by its active lease.</li>
+      </ul>
+    </li>
+    <li>Worktrees or isolated workspaces are implementation options:
+      <ul>
+        <li>Use them when shared build output, generated files, risky headers, or long-running validation make one checkout too fragile.</li>
+        <li>A simpler first version can still be correct if the database owns edit locks and shared validation is serialized.</li>
+      </ul>
+    </li>
+    <li>The main checkout remains the canonical integration surface.</li>
+  </ul>
+  <table>
+    <thead>
+      <tr><th>Risk</th><th>Rule</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Two workers edit same file</td><td>The state substrate rejects overlapping active locks on the same source path.</td></tr>
+      <tr><td>Header/data owner edits</td><td>Start with explicit write-set locks. Widen to dependent files or target groups when a header, static, split, symbol, rodata, sdata, or sdata2 owner can stale another worker.</td></tr>
+      <tr><td>Patch generated from stale base</td><td>Score integration gate checks <code>base_rev</code>; stale patches are rebased, revalidated, or rejected.</td></tr>
+      <tr><td>Shared build output contention</td><td>V1 uses a simple global build/report lock. Later versions can add isolated workspaces when parallel validation is worth the complexity.</td></tr>
+      <tr><td>CSV/artifact races</td><td>Workers write result shards only. Reducer is the only writer to shared CSVs, charts, and summaries.</td></tr>
+      <tr><td>Bad integration</td><td>Score integration gate runs <code>git apply --check</code>, narrow objdiff, neighbor/unit checks when needed, then updates the report baseline.</td></tr>
+    </tbody>
+  </table>
+
+  <pre>BEGIN IMMEDIATE;
+-- lease must name every path the worker is allowed to edit
+INSERT INTO file_locks(path, lease_id, lock_mode, reason, expires_at) VALUES (...);
+COMMIT;
+
+# worker edits only leased paths
+# validation is serialized or runs in an optional per-lease workspace
+# score integration gate applies accepted patches to the canonical checkout after validation</pre>
+
+  <h2><span class="n">08</span> Worker Capabilities</h2>
+  <p class="cap">one worker can use multiple capabilities after research</p>
+  <ul>
+    <li>These are not separate worker types.</li>
+    <li>A worker Pi agent:
+      <ul>
+        <li>Receives a target packet.</li>
+        <li>Researches first.</li>
+        <li>Chooses the capabilities that make sense for that target.</li>
+      </ul>
+    </li>
+    <li>The director controls:
+      <ul>
+        <li>Target assignment.</li>
+        <li>Budgets.</li>
+      </ul>
+    </li>
+    <li>The worker controls the local tactic mix inside its lease.</li>
+  </ul>
+  <table>
+    <thead>
+      <tr><th>Capability</th><th>When a worker uses it</th><th>Evidence it emits</th><th>Guardrail</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Context packaging</td><td>Every worker begins by turning the target packet into a compact, bounded read set.</td><td>Target assembly, current target C, TU preamble, sibling functions, header snippets, and source-path provenance.</td><td>Keep context focused; do not dump the whole repo into the prompt or artifacts.</td></tr>
+      <tr><td>Type and symbol resolution</td><td>The worker sees unknown types, callbacks, globals, r13/r2 references, or undefined labels.</td><td>Accepted type/symbol facts, missing-context requests, and evidence paths into headers or <code>symbols.txt</code>.</td><td>Request exact missing facts instead of inventing fields or labels.</td></tr>
+      <tr><td>Scratch and history reconnaissance</td><td>The target may have public decomp.me work, prior PR discussion, or previous orchestrator attempts.</td><td>Scratch status, URL/owner when public, prior attempt summary, and reusable source-shape hints.</td><td>Public scratches are approximate/provenance-tagged; do not treat them as authoritative without local verification.</td></tr>
+      <tr><td>Isolated check loop</td><td>A candidate source shape is ready to test without promoting to main.</td><td>Compile log, symbol/unit objdiff, score delta, first mismatch key, and best-attempt history.</td><td>Prefer narrow checks first; broad validation waits for strong candidates.</td></tr>
+      <tr><td>Duplicate adaptation</td><td>The target has matched duplicate refs from <code>table-typer dups</code> or similar assembly-shape edges.</td><td>Adapted source patch, objdiff result, and reusable duplicate-shape facts.</td><td>Keep the adapted code reviewable and verify against the target, not just the reference.</td></tr>
+      <tr><td>Focused source editing</td><td>Local PR/docs/source research suggests a small number of grounded source-shape hypotheses.</td><td>Natural source improvement, mismatch notes, validation commands, and a stop/continue recommendation.</td><td>Stop when the next move becomes guesswork.</td></tr>
+      <tr><td>Fact research</td><td>A field, naming convention, PR pattern, data owner, or compiler-shape question blocks useful progress.</td><td>Accepted fact, rejected hypothesis, or new graph edge that makes targets easier.</td><td>Facts need evidence paths, not vibes.</td></tr>
+      <tr><td>Sweep batches</td><td>The worker can define a bounded matrix of plausible source-shape variants from measured evidence.</td><td>Result shards, Pareto frontier, learned patterns, and negative-result rows.</td><td>Workers write shards only; reducers merge shared artifacts.</td></tr>
+      <tr><td>Permuter handoff</td><td>A finalist is already close, reviewable, and has a narrow diff worth exploring mechanically.</td><td>Permuter artifacts, candidate patch, and source/provenance notes.</td><td>Do not use permuter output as a substitute for understandable source.</td></tr>
+      <tr><td>Review and cleanup</td><td>A patch may improve bytes but needs quality, type, or regression review before integration.</td><td>Debt report, safer rewrite, validation transcript, or rejection.</td><td>Prevent fake matches from entering the run baseline.</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="n">09</span> Score Integration Gate</h2>
+  <p class="cap">verified wins update the run baseline; PR packaging is outside the loop</p>
+  <ul>
+    <li>The orchestrator does not create a PR per file, symbol, worker, or lease.</li>
+    <li>It accumulates verified improvements inside a run until the target <code>matched_code_percent</code> delta is reached.</li>
+    <li>Committing or packaging the final result for review is a separate human-facing step after the run produces a coherent improvement bundle.</li>
+  </ul>
+  <ol>
+    <li>Confirm the worker still owns the lease and write set.</li>
+    <li>Check the patch applies cleanly to the current canonical checkout.</li>
+    <li>Run the narrowest relevant objdiff command and compare against the baseline attempt row.</li>
+    <li>Run neighbor, unit, or full report checks if the patch touches headers, statics, data, splits, pragmas, or shared declarations.</li>
+    <li>Record accepted facts and update graph edges affected by the integration.</li>
+    <li>Regenerate <code>build/GALE01/report.json</code>, update run metrics, and ask the director to recompute the board unless the run target is reached.</li>
+  </ol>
+
+  <h3>End-of-run summary</h3>
+  <ul>
+    <li>When the run stops, produce a PR-description-style summary artifact.</li>
+    <li>It should include:
+      <ul>
+        <li>Baseline and final <code>matched_code_percent</code>.</li>
+        <li>Files changed.</li>
+        <li>Score integrations accepted.</li>
+        <li>Facts learned and rejected hypotheses.</li>
+        <li>Targets that stalled or should be revisited.</li>
+        <li>Validation commands and final report path.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h2><span class="n">10</span> Current Repo Mechanics</h2>
+  <p class="cap">where the repo is today and what the implementation should wrap</p>
+  <ul>
+    <li>The repo already has a clean progress pipeline.</li>
+    <li>The orchestrator should index and drive it, not fork it.</li>
+  </ul>
+  <table>
+    <thead>
+      <tr><th>Artifact or command</th><th>Current role</th><th>Orchestrator use</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>config/GALE01/config.yml</code></td>
+        <td>Input to DTK's DOL split. Points at the original DOL, symbols, and splits.</td>
+        <td>Read-only provenance for object/unit boundaries and target addresses.</td>
+      </tr>
+      <tr>
+        <td><code>python configure.py</code></td>
+        <td>Generates <code>build.ninja</code>, <code>objdiff.json</code>, and compile commands.</td>
+        <td>Run during workspace/bootstrap and after source/config changes that require regeneration.</td>
+      </tr>
+      <tr>
+        <td><code>configure.py</code> object flags</td>
+        <td><code>Object(Matching,...)</code> means linked from rebuilt source; <code>NonMatching</code> means diffable but not linked.</td>
+        <td>Used to distinguish exact code progress from linked progress.</td>
+      </tr>
+      <tr>
+        <td><code>objdiff.json</code></td>
+        <td>Maps units to original object paths, rebuilt object paths, source paths, scratch context, and <code>metadata.complete</code>.</td>
+        <td>Primary source for unit metadata, source paths, compiler flags, and write-set derivation.</td>
+      </tr>
+      <tr>
+        <td><code>build/GALE01/report.json</code></td>
+        <td>Generated by <code>objdiff-cli report generate</code>. Contains unit/function match metrics.</td>
+        <td>Main index input for target discovery, progress targets, score deltas, and regression checks.</td>
+      </tr>
+      <tr>
+        <td><code>decomp-find</code></td>
+        <td>Repo-local candidate-ranking helper built from <code>report.json</code>.</td>
+        <td>Internal board-scan signal, not the top-level workflow.</td>
+      </tr>
+      <tr>
+        <td><code>tools/table-typer dups</code></td>
+        <td>Finds normalized assembly duplicate groups with matched refs and unmatched candidates.</td>
+        <td>High-confidence graph edges and an early worker capability modeled on PR #2102.</td>
+      </tr>
+      <tr>
+        <td><code>decomp-runs/</code></td>
+        <td>Existing experiment-bundle convention for target packets, queues, shards, charts, and learned patterns.</td>
+        <td>Per-target or per-capability artifact ledger. The orchestrator DB points into these bundles.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Progress terms</h3>
+  <ul>
+    <li><code>fuzzy_match_percent</code>: objdiff closeness, useful as diagnostic telemetry but not a v1 success target.</li>
+    <li><code>matched_code_percent</code>: exact matched code bytes/functions, even inside non-linked units.</li>
+    <li><code>complete_code_percent</code>: linked progress from units marked complete/linkable through <code>Matching</code>.</li>
+    <li><code>metadata.complete</code>: generated from the source object's <code>Matching</code>/<code>NonMatching</code> state when source exists.</li>
+  </ul>
+
+  <h3>Commands the orchestrator should wrap first</h3>
+  <pre>python configure.py
+ninja build/GALE01/report.json
+ninja progress
+python .codex/skills/decomp-find/scripts/rank_decomp_candidates.py --json --limit 200
+build/tools/objdiff-cli diff -p . -u &lt;unit&gt; &lt;symbol&gt;
+(cd tools/table-typer &amp;&amp; go run . dups)</pre>
+
+  <h2><span class="n">11</span> Unified Skill Model</h2>
+  <p class="cap">how the existing skills fold into the new top-level run system</p>
+  <ul>
+    <li>The top-level orchestrator should feel like a single decomp run system rather than three separate skills with a wrapper around them.</li>
+    <li>The user starts one run:
+      <ul>
+        <li>Sets a target.</li>
+        <li>Chooses a worker count.</li>
+      </ul>
+    </li>
+    <li>The run director Pi agent owns the board-level flow:
+      <ul>
+        <li>Reads indexer output, reducer output, and the run target.</li>
+        <li>Assigns the next most influential bounded target packet.</li>
+        <li>Wakes again when worker output or progress changes the board.</li>
+      </ul>
+    </li>
+    <li>Duplicate adaptation, sweeps, permuter work, PR research, and local cleanup are worker capabilities chosen inside a lease.</li>
+    <li>The old skills still matter, but they move down a layer:
+      <ul>
+        <li><code>decomp-find</code> becomes board-scanning logic.</li>
+        <li><code>melee-decomp</code> becomes the careful file-worker playbook.</li>
+        <li><code>melee-decomp-sweep</code> becomes the reproducible experiment mode.</li>
+      </ul>
+    </li>
+    <li>The top-level mental model is no longer "pick a target, then decomp it":
+      <ul>
+        <li>It is "update the board, learn a constraint, and ask where that constraint creates leverage next."</li>
+      </ul>
+    </li>
+  </ul>
+  <table>
+    <thead>
+      <tr><th>Former skill surface</th><th>New role inside orchestrator</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>decomp-find</code></td><td>Board scan, candidate-prior features, linked-blocker awareness, and progress metrics.</td></tr>
+      <tr><td><code>melee-decomp</code></td><td>Worker playbook for one file or symbol: gather PR/docs/local context, edit source, verify, and stop before random guessing.</td></tr>
+      <tr><td><code>melee-decomp-sweep</code></td><td>Worker mode for high-throughput source-shape experiments, result shards, Pareto selection, and learned patterns.</td></tr>
+      <tr><td>New run director</td><td>A Pi-agent Sudoku player: decides which square to touch next based on the entire board and every new fact.</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="n">12</span> Implementation Plan</h2>
+  <p class="cap">build the skeleton before trusting workers</p>
+  <table>
+    <thead>
+      <tr><th>Phase</th><th>Deliverable</th><th>Done when</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>0</td><td>Design doc and repo survey.</td><td>This document names the artifacts, state model, worker lifecycle, and safety gates.</td></tr>
+      <tr><td>1</td><td>Top-level orchestrator scaffold.</td><td><code>decomp-orchestrator/</code> exists at repo root with one run-oriented entry point and internal references to the former skill playbooks.</td></tr>
+      <tr><td>2</td><td>Pi agent SDK adapter.</td><td>The runner can create dry-run director/worker Pi-agent sessions, store <code>session_id</code>/<code>session_file</code>, stream logs, and persist raw outputs.</td></tr>
+      <tr><td>3</td><td>State substrate.</td><td>SQLite runs, leases, global file locks, worker reports, facts, events, and Pi-session rows enforce coordination without relying on agent memory.</td></tr>
+      <tr><td>4</td><td>Read-only indexer.</td><td>Can load <code>report.json</code>, <code>objdiff.json</code>, symbols, splits, duplicate groups, and coarse history signals into target rows plus graph edges.</td></tr>
+      <tr><td>5</td><td>Director-cycle dry run.</td><td>Can invoke a director Pi agent on a board snapshot and produce a human-readable delegation plan without spawning workers.</td></tr>
+      <tr><td>6</td><td>Prompt builder and capability templates.</td><td>A shared worker system prompt is combined with target-specific initial user context from the packet, facts, budget, and enabled capability hints.</td></tr>
+      <tr><td>7</td><td>One locked worker.</td><td>Leases one target, acquires its file locks, optionally creates an isolated workspace, launches a worker Pi agent, emits an attempt artifact/report, and releases the lease.</td></tr>
+      <tr><td>8</td><td>Score integration dry-run.</td><td>Can verify a patch and explain accept/reject without applying it to the run baseline.</td></tr>
+      <tr><td>9</td><td>Event-driven refill loop.</td><td>When active workers drop below the target count, a wake event causes the runner to invoke the director Pi agent, which schedules the next worker.</td></tr>
+      <tr><td>10</td><td>Fact-aware loop.</td><td>Accepted and rejected facts change future director decisions and target packets.</td></tr>
+      <tr><td>11</td><td>Human dashboard.</td><td>Shows target <code>matched_code_percent</code>, current progress, active leases, Pi sessions, stalls, accepted facts, and score candidates.</td></tr>
+      <tr><td>12</td><td>Run summary artifact.</td><td>Produces a PR-description-style summary with matched-code delta, changed files, accepted integrations, facts learned, stalls, and validation evidence.</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="n">13</span> Implementation Defaults</h2>
+  <p class="cap">settled assumptions for the first build</p>
+  <ul>
+    <li>The system lives under top-level <code>decomp-orchestrator/</code> in this repo.</li>
+    <li>It is not a Codex plugin and should not hide under <code>tools/</code> as a side utility.</li>
+    <li>The primary objective is global <code>matched_code_percent</code>, with full decompilation as the long-term goal.</li>
+    <li>Runs are the progress boundary:
+      <ul>
+        <li>A run may target a batch gain such as <code>+5.0% matched_code_percent</code>.</li>
+        <li>Files, symbols, workers, and leases are work units, not PR units.</li>
+      </ul>
+    </li>
+    <li>Central SQLite leases and file locks are mandatory; worktrees or isolated workspaces are optional implementation tools.</li>
+    <li>Header and data-owner locks start precise and become broader only when evidence shows dependent targets can be invalidated.</li>
+    <li>Active workers keep going after score integration:
+      <ul>
+        <li>The integration emits fresh facts/signals into shared state.</li>
+        <li>Workers may use those signals if they help, but v1 does not cancel or resume workers because the board changed.</li>
+      </ul>
+    </li>
+    <li>Build/report generation is serialized in v1 through one global validation lock.</li>
+    <li>Crash recovery is restart-from-state:
+      <ul>
+        <li>Restart from the canonical codebase plus SQLite/artifact state.</li>
+        <li>Do not resume worker Pi sessions in v1.</li>
+        <li>Mark abandoned leases/workers stale and let the director schedule fresh work.</li>
+      </ul>
+    </li>
+    <li>Worker prompting is standardized through a prompt builder:
+      <ul>
+        <li>Shared worker system prompt.</li>
+        <li>Target-specific initial user context generated from the target packet, facts, budget, and capability hints.</li>
+      </ul>
+    </li>
+    <li>The initial score integration path is serial and evidence-producing; any auto-apply mode should be added later as an explicit policy.</li>
+    <li>The end-of-run artifact is a PR-description-style summary, not an automatic PR.</li>
+  </ul>
+</main>
+</body>
+</html>

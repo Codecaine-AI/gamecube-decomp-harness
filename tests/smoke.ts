@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { leaseNextQueuedTarget, openState } from "../src/state.js";
+import { leaseNextQueuedTarget, openState } from "../src/state/index.js";
 
 type SqlBinding = string | number | bigint | boolean | null | Uint8Array;
 
@@ -169,6 +169,63 @@ async function main(): Promise<void> {
     recoveredStore.db.close();
   }
 
+  const triggerStateDir = await mkdtemp(join(tmpdir(), "decomp-orchestrator-trigger-smoke-"));
+  const triggerFlags = ["--repo-root", fixtureRoot, "--state-dir", triggerStateDir, "--dry-run-agents"];
+  const triggerInit = parseJson<{ run: { id: string } }>(
+    await runCli([
+      ...triggerFlags,
+      "init-run",
+      "--desired-workers",
+      "1",
+      "--candidate-limit",
+      "8",
+      "--goal-kind",
+      "matched_code_percent",
+      "--goal-value",
+      "72",
+    ]),
+  );
+  const triggerRun = parseJson<{
+    stoppedReason: string;
+    directorTicks: number;
+    workersStarted: number;
+    workerResults: unknown[];
+    workerErrors: unknown[];
+    finalStatus: { activeWorkers: number; queuedTargets: number; unhandledEvents: number };
+  }>(
+    await runCli([
+      ...triggerFlags,
+      "trigger-agent",
+      "--run-id",
+      triggerInit.run.id,
+      "--max-workers",
+      "1",
+      "--max-iterations",
+      "5",
+      "--max-idle-iterations",
+      "1",
+      "--idle-sleep-ms",
+      "1",
+      "--candidate-limit",
+      "8",
+    ]),
+  );
+  const triggerStore = openState(triggerStateDir);
+  try {
+    assertSmoke("trigger-agent rests after bounded idle", triggerRun.stoppedReason === "idle");
+    assertSmoke("trigger-agent wakes director for run and worker event", triggerRun.directorTicks === 2);
+    assertSmoke("trigger-agent starts one worker for fixture target", triggerRun.workersStarted === 1);
+    assertSmoke("trigger-agent captures worker result", triggerRun.workerResults.length === 1);
+    assertSmoke("trigger-agent has no worker errors", triggerRun.workerErrors.length === 0);
+    assertSmoke("trigger-agent leaves no active workers", triggerRun.finalStatus.activeWorkers === 0);
+    assertSmoke("trigger-agent drains unhandled events", triggerRun.finalStatus.unhandledEvents === 0);
+    assertSmoke("trigger-agent records two director cycles", count(triggerStore, "SELECT COUNT(*) AS count FROM director_cycles WHERE run_id = ?", triggerInit.run.id) === 2);
+    assertSmoke("trigger-agent records one worker report", count(triggerStore, "SELECT COUNT(*) AS count FROM worker_reports") === 1);
+    assertSmoke("trigger-agent handled all wake events", count(triggerStore, "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND handled_at IS NULL", triggerInit.run.id) === 0);
+  } finally {
+    triggerStore.db.close();
+  }
+
   const initialBoard = resolve(stateDir, "runs", init.run.id, "snapshots", "initial_board.json");
   const smokeSummaryPath = resolve(stateDir, "runs", init.run.id, "smoke_summary.json");
   assertSmoke("initial board snapshot artifact exists", existsSync(initialBoard));
@@ -188,6 +245,9 @@ async function main(): Promise<void> {
   assertSmoke("director system prompt names director role", directorSystemPrompt.includes("director Pi agent"));
   assertSmoke("director user prompt includes current state", directorUserPrompt.includes("<current_state_json>"));
   assertSmoke("worker system prompt names lease write-set rule", workerSystemPrompt.includes("write_set"));
+  assertSmoke("worker system prompt requires local regression ledger", workerSystemPrompt.includes("local regression ledger"));
+  assertSmoke("worker system prompt has local regression output contract", workerSystemPrompt.includes("local_regression_check"));
+  assertSmoke("worker user prompt forbids unresolved local regressions", workerUserPrompt.includes("unresolved local regression"));
   assertSmoke("worker user prompt includes primary source path", workerUserPrompt.includes("src/melee/ft/chara/ftDemo.c"));
   assertSmoke("director dry-run uses gpt-5.5", readFileSync(tick.directorOutput, "utf8").includes("model: gpt-5.5"));
   assertSmoke("director dry-run uses xhigh thinking", readFileSync(tick.directorOutput, "utf8").includes("thinking: xhigh"));
@@ -198,8 +258,9 @@ async function main(): Promise<void> {
   assertSmoke("rendered prompts include structured past PR index", renderedPrompts.includes("decomp-orchestrator/knowledge/past_prs/prs/index.jsonl"));
   assertSmoke("rendered prompts include data sheet resources", renderedPrompts.includes("data_sheets/ssbm_data_sheet_1_02/csv"));
   assertSmoke("rendered prompts include knowledge manifest", renderedPrompts.includes("decomp-orchestrator/knowledge/manifest.json"));
-  assertSmoke("rendered prompts include target-finding knowledge", renderedPrompts.includes("packs/decomp-find/overview.md"));
-  assertSmoke("rendered prompts include sweep knowledge availability", renderedPrompts.includes("melee-decomp-sweep"));
+  assertSmoke("rendered prompts include director scheduling reference", renderedPrompts.includes("references/director/scheduling.md"));
+  assertSmoke("rendered prompts include targeted iteration workflow", renderedPrompts.includes("workflows/targeted-iteration.md"));
+  assertSmoke("rendered prompts omit legacy sweep workflow", !renderedPrompts.includes("melee-decomp-sweep"));
   assertSmoke("rendered prompts include decomp context helper", renderedPrompts.includes("decomp_context_lookup.py"));
 
   const summary = {

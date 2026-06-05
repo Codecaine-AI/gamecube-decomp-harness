@@ -38,7 +38,7 @@ rg -n "PAD_STACK|regalloc|M2C_FIELD|sdata2" \
 The bundled context helper searches the main local and mirrored surfaces:
 
 ```sh
-python3 decomp-orchestrator/knowledge/packs/melee-decomp/scripts/decomp_context_lookup.py \
+python3 decomp-orchestrator/knowledge/tools/decomp_context_lookup.py \
   --target src/melee/it/items/itlinkbomb.c \
   --symbol itLinkbomb_UnkMotion3_Anim
 ```
