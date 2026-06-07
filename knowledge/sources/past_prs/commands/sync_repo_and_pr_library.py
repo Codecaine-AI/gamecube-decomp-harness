@@ -37,14 +37,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--since", default=None)
     parser.add_argument("--months", type=int, default=3)
     parser.add_argument("--limit", type=int, default=1000)
-    parser.add_argument("--fetch-jobs", type=int, default=32)
+    parser.add_argument("--fetch-jobs", type=int, default=16)
     parser.add_argument("--sleep", type=float, default=0.3)
     parser.add_argument(
         "--postmortem-mode",
         choices=("off", "scaffold", "pi"),
         default="pi",
     )
-    parser.add_argument("--postmortem-jobs", type=int, default=32)
+    parser.add_argument("--postmortem-jobs", type=int, default=16)
     parser.add_argument(
         "--postmortem-scope",
         choices=("all", "fetched"),

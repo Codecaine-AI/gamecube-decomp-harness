@@ -1,6 +1,13 @@
 # MWCC Debug Runners
 
-Put scripts that run or harvest MWCC debug outputs here.
+Live runner:
 
-Runner output should be reproducible and should land in `cache/` or `indexes/`
-before workers cite it.
+```sh
+bun run kg:tool-runner:mwcc-debug
+```
+
+The runner smokes `build/compilers/GC/1.2.5n/mwcceppc.exe` through Wine,
+captures the version output, extracts representative MWCC build-rule snippets
+from `build.ninja`, and writes `cache/mwcc_version_probe.txt`,
+`cache/mwcc_build_rule_snippets.json`, `indexes/mwcc_probes.jsonl`, and
+`cache/runner_status.json`.

@@ -105,7 +105,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--fetch-jobs",
         type=int,
-        default=1,
+        default=16,
         help="Number of concurrent PR fetch workers.",
     )
     parser.add_argument(
@@ -153,7 +153,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--postmortem-jobs",
         type=int,
-        default=1,
+        default=16,
         help="Number of concurrent postmortem workers.",
     )
     parser.add_argument(

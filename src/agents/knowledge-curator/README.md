@@ -12,6 +12,6 @@ directory is ignored by git and exists only to make ingestion-agent reasoning
 locally inspectable.
 
 Curator Pi runs use the shared agent runtime defaults: provider `codex-lb`,
-model `gpt-5.5`, and thinking `xhigh`, unless explicitly overridden. Auth is
+model `gpt-5.5`, and thinking `medium`, unless explicitly overridden. Auth is
 loaded from ignored repo-local `.pi-agent/models.json` through
 `PI_CODING_AGENT_DIR=.pi-agent` in `local.env`.

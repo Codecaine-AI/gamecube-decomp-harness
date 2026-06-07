@@ -1,0 +1,1621 @@
+<worker_target_context>
+    <current_state_json>
+```json
+{
+  "role": "worker",
+  "state_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/objectives/knowledge-system-operationalization/artifacts/worker-smoke-state",
+  "worker_log_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/objectives/knowledge-system-operationalization/artifacts/worker-smoke-state/runs/f9f8a956-12e8-4368-8d6d-907510721223/worker_logs/6f1b34f4-d166-4fa8-b1a6-9cc0bd6dc226",
+  "selected_agent_context_references": [
+    {
+      "id": "worker_operating_guide",
+      "role": "worker",
+      "purpose": "Compact default worker operating contract, source quality rules, validation loop, and stop conditions.",
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/src/agents/worker/context/operating-guide.md"
+    },
+    {
+      "id": "worker_lookup_guide",
+      "role": "worker",
+      "purpose": "Opt-in source, graph, PR, and resource lookup guide for fact research and type/symbol resolution.",
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/src/agents/worker/context/lookup-guide.md"
+    },
+    {
+      "id": "worker_matching_guide",
+      "role": "worker",
+      "purpose": "Opt-in MWCC/source-shape tactics for focused editing, duplicate adaptation, and isolated check loops.",
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/src/agents/worker/context/matching-guide.md"
+    }
+  ],
+  "run": {
+    "id": "f9f8a956-12e8-4368-8d6d-907510721223",
+    "goalKind": "matched_code_percent",
+    "goalValue": 70,
+    "desiredWorkers": 1,
+    "status": "active",
+    "createdAt": "2026-06-07T04:11:11.569Z"
+  },
+  "lease": {
+    "id": "6f1b34f4-d166-4fa8-b1a6-9cc0bd6dc226",
+    "queue_id": "71dd7c25-ed34-4e70-aece-bf94fe99459a",
+    "worker_id": "worker-35441-1780805471796-70fa050e",
+    "ttl": "2026-06-07T04:12:11.796Z",
+    "write_set": [
+      "src/melee/gr/grgreatbay.c"
+    ]
+  },
+  "target": {
+    "id": "6618a867-b029-479b-ba07-663c16509ff3",
+    "unit": "main/melee/gr/grgreatbay",
+    "symbol": "grGreatBay_801F499C",
+    "source_path": "src/melee/gr/grgreatbay.c",
+    "size": 2752,
+    "fuzzy_match_percent": 99.99709,
+    "priority": 10657210.253610618,
+    "reason": "code_graph index finish candidate: 2752 bytes at 99.99709% fuzzy, 0.00291% gap to exact; graph bonus 46.50 (graph_degree=188, relevant_pr_count=11, fresh_edges=184, review_risk_count=0)"
+  },
+  "baseline": {
+    "measures": {
+      "matched_functions_percent": 94.54335,
+      "matched_code_percent": 71.48215,
+      "complete_code_percent": 71.48215
+    },
+    "fuzzy_match_percent": 99.99709
+  },
+  "knowledge_context": {
+    "status": "ready",
+    "graph_db": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/resource_graph/graph.sqlite",
+    "generated_at": "2026-06-07T04:11:11.932Z",
+    "file_card": {
+      "entity_id": "file:src/melee/gr/grgreatbay.c",
+      "source_path": "src/melee/gr/grgreatbay.c",
+      "editability": {
+        "mode": "editable",
+        "reason": "3 unmatched function(s) remain in this source file."
+      },
+      "match_status": {
+        "editability": {
+          "mode": "editable",
+          "reason": "3 unmatched function(s) remain in this source file."
+        },
+        "function_count": 51,
+        "functions": [
+          {
+            "address": "0x801F423C",
+            "fuzzy": 100,
+            "size": 4,
+            "symbol": "grGreatBay_801F423C",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F4240",
+            "fuzzy": 100,
+            "size": 144,
+            "symbol": "grGreatBay_801F4240",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F42D0",
+            "fuzzy": 100,
+            "size": 4,
+            "symbol": "grGreatBay_801F42D0",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F42D4",
+            "fuzzy": 100,
+            "size": 36,
+            "symbol": "grGreatBay_801F42D4",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F42F8",
+            "fuzzy": 100,
+            "size": 8,
+            "symbol": "grGreatBay_801F42F8",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F4300",
+            "fuzzy": 100,
+            "size": 260,
+            "symbol": "grGreatBay_801F4300",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F4404",
+            "fuzzy": 100,
+            "size": 44,
+            "symbol": "grGreatBay_801F4404",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F4430",
+            "fuzzy": 100,
+            "size": 8,
+            "symbol": "grGreatBay_801F4430",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F4438",
+            "fuzzy": 100,
+            "size": 4,
+            "symbol": "grGreatBay_801F4438",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F443C",
+            "fuzzy": 100,
+            "size": 4,
+            "symbol": "grGreatBay_801F443C",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F4440",
+            "fuzzy": 100,
+            "size": 96,
+            "symbol": "grGreatBay_801F4440",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F44A0",
+            "fuzzy": 100,
+            "size": 8,
+            "symbol": "grGreatBay_801F44A0",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F44A8",
+            "fuzzy": 100,
+            "size": 4,
+            "symbol": "grGreatBay_801F44A8",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F44AC",
+            "fuzzy": 100,
+            "size": 4,
+            "symbol": "grGreatBay_801F44AC",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F44B0",
+            "fuzzy": 100,
+            "size": 96,
+            "symbol": "grGreatBay_801F44B0",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F4510",
+            "fuzzy": 100,
+            "size": 8,
+            "symbol": "grGreatBay_801F4510",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F4518",
+            "fuzzy": 100,
+            "size": 4,
+            "symbol": "grGreatBay_801F4518",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F451C",
+            "fuzzy": 100,
+            "size": 4,
+            "symbol": "grGreatBay_801F451C",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F4520",
+            "fuzzy": 100,
+            "size": 44,
+            "symbol": "fn_801F4520",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F454C",
+            "fuzzy": 100,
+            "size": 260,
+            "symbol": "grGreatBay_801F454C",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F4650",
+            "fuzzy": 100,
+            "size": 8,
+            "symbol": "grGreatBay_801F4650",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F4658",
+            "fuzzy": 100,
+            "size": 56,
+            "symbol": "grGreatBay_801F4658",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F4690",
+            "fuzzy": 100,
+            "size": 4,
+            "symbol": "grGreatBay_801F4690",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F4694",
+            "fuzzy": 100,
+            "size": 768,
+            "symbol": "grGreatBay_801F4694",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F4994",
+            "fuzzy": 100,
+            "size": 8,
+            "symbol": "grGreatBay_801F4994",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F499C",
+            "fuzzy": 99.99709,
+            "size": 2752,
+            "symbol": "grGreatBay_801F499C",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F545C",
+            "fuzzy": 100,
+            "size": 4,
+            "symbol": "grGreatBay_801F545C",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F5460",
+            "fuzzy": 97.303925,
+            "size": 408,
+            "symbol": "grGreatBay_801F5460",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F55F8",
+            "fuzzy": 100,
+            "size": 8,
+            "symbol": "grGreatBay_801F55F8",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F5600",
+            "fuzzy": 100,
+            "size": 788,
+            "symbol": "grGreatBay_801F5600",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F5914",
+            "fuzzy": 100,
+            "size": 116,
+            "symbol": "grGreatBay_801F5914",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F5988",
+            "fuzzy": 100,
+            "size": 4,
+            "symbol": "grGreatBay_801F5988",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F598C",
+            "fuzzy": 100,
+            "size": 100,
+            "symbol": "grGreatBay_801F598C",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F59F0",
+            "fuzzy": 100,
+            "size": 8,
+            "symbol": "grGreatBay_801F59F0",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F59F8",
+            "fuzzy": 100,
+            "size": 4,
+            "symbol": "grGreatBay_801F59F8",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F59FC",
+            "fuzzy": 100,
+            "size": 4,
+            "symbol": "grGreatBay_801F59FC",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F5A00",
+            "fuzzy": 100,
+            "size": 240,
+            "symbol": "grGreatBay_801F5A00",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F5AF0",
+            "fuzzy": 100,
+            "size": 8,
+            "symbol": "grGreatBay_801F5AF0",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F5AF8",
+            "fuzzy": 100,
+            "size": 592,
+            "symbol": "grGreatBay_801F5AF8",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F5D48",
+            "fuzzy": 100,
+            "size": 4,
+            "symbol": "grGreatBay_801F5D48",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F5D4C",
+            "fuzzy": 100,
+            "size": 220,
+            "symbol": "grGreatBay_801F5D4C",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F5E28",
+            "fuzzy": 100,
+            "size": 668,
+            "symbol": "grGreatBay_801F5E28",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F60C4",
+            "fuzzy": 100,
+            "size": 564,
+            "symbol": "grGreatBay_801F60C4",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F62F8",
+            "fuzzy": 100,
+            "size": 252,
+            "symbol": "grGreatBay_801F62F8",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F63F4",
+            "fuzzy": 96.716415,
+            "size": 536,
+            "symbol": "grGreatBay_801F63F4",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F660C",
+            "fuzzy": 100,
+            "size": 152,
+            "symbol": "grGreatBay_801F660C",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F66A4",
+            "fuzzy": 100,
+            "size": 100,
+            "symbol": "grGreatBay_801F66A4",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F6708",
+            "fuzzy": 100,
+            "size": 156,
+            "symbol": "grGreatBay_801F6708",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F67A4",
+            "fuzzy": 100,
+            "size": 104,
+            "symbol": "grGreatBay_801F67A4",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F680C",
+            "fuzzy": 100,
+            "size": 8,
+            "symbol": "grGreatBay_801F680C",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F6814",
+            "fuzzy": 100,
+            "size": 84,
+            "symbol": "grGreatBay_801F6814",
+            "unit": "main/melee/gr/grgreatbay"
+          }
+        ],
+        "matched_function_count": 48,
+        "source_path": "src/melee/gr/grgreatbay.c",
+        "units": [
+          "main/melee/gr/grgreatbay"
+        ],
+        "unmatched_function_count": 3,
+        "unmatched_functions": [
+          {
+            "address": "0x801F499C",
+            "fuzzy": 99.99709,
+            "size": 2752,
+            "symbol": "grGreatBay_801F499C",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F5460",
+            "fuzzy": 97.303925,
+            "size": 408,
+            "symbol": "grGreatBay_801F5460",
+            "unit": "main/melee/gr/grgreatbay"
+          },
+          {
+            "address": "0x801F63F4",
+            "fuzzy": 96.716415,
+            "size": 536,
+            "symbol": "grGreatBay_801F63F4",
+            "unit": "main/melee/gr/grgreatbay"
+          }
+        ]
+      },
+      "units": [
+        {
+          "unit": "main/melee/gr/grgreatbay"
+        }
+      ],
+      "functions": [
+        {
+          "address": "0x801F423C",
+          "fuzzy": 100,
+          "size": 4,
+          "symbol": "grGreatBay_801F423C",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F4240",
+          "fuzzy": 100,
+          "size": 144,
+          "symbol": "grGreatBay_801F4240",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F42D0",
+          "fuzzy": 100,
+          "size": 4,
+          "symbol": "grGreatBay_801F42D0",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F42D4",
+          "fuzzy": 100,
+          "size": 36,
+          "symbol": "grGreatBay_801F42D4",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F42F8",
+          "fuzzy": 100,
+          "size": 8,
+          "symbol": "grGreatBay_801F42F8",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F4300",
+          "fuzzy": 100,
+          "size": 260,
+          "symbol": "grGreatBay_801F4300",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F4404",
+          "fuzzy": 100,
+          "size": 44,
+          "symbol": "grGreatBay_801F4404",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F4430",
+          "fuzzy": 100,
+          "size": 8,
+          "symbol": "grGreatBay_801F4430",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F4438",
+          "fuzzy": 100,
+          "size": 4,
+          "symbol": "grGreatBay_801F4438",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F443C",
+          "fuzzy": 100,
+          "size": 4,
+          "symbol": "grGreatBay_801F443C",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F4440",
+          "fuzzy": 100,
+          "size": 96,
+          "symbol": "grGreatBay_801F4440",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F44A0",
+          "fuzzy": 100,
+          "size": 8,
+          "symbol": "grGreatBay_801F44A0",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F44A8",
+          "fuzzy": 100,
+          "size": 4,
+          "symbol": "grGreatBay_801F44A8",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F44AC",
+          "fuzzy": 100,
+          "size": 4,
+          "symbol": "grGreatBay_801F44AC",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F44B0",
+          "fuzzy": 100,
+          "size": 96,
+          "symbol": "grGreatBay_801F44B0",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F4510",
+          "fuzzy": 100,
+          "size": 8,
+          "symbol": "grGreatBay_801F4510",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F4518",
+          "fuzzy": 100,
+          "size": 4,
+          "symbol": "grGreatBay_801F4518",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F451C",
+          "fuzzy": 100,
+          "size": 4,
+          "symbol": "grGreatBay_801F451C",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F4520",
+          "fuzzy": 100,
+          "size": 44,
+          "symbol": "fn_801F4520",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F454C",
+          "fuzzy": 100,
+          "size": 260,
+          "symbol": "grGreatBay_801F454C",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F4650",
+          "fuzzy": 100,
+          "size": 8,
+          "symbol": "grGreatBay_801F4650",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F4658",
+          "fuzzy": 100,
+          "size": 56,
+          "symbol": "grGreatBay_801F4658",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F4690",
+          "fuzzy": 100,
+          "size": 4,
+          "symbol": "grGreatBay_801F4690",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F4694",
+          "fuzzy": 100,
+          "size": 768,
+          "symbol": "grGreatBay_801F4694",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F4994",
+          "fuzzy": 100,
+          "size": 8,
+          "symbol": "grGreatBay_801F4994",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F499C",
+          "fuzzy": 99.99709,
+          "size": 2752,
+          "symbol": "grGreatBay_801F499C",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F545C",
+          "fuzzy": 100,
+          "size": 4,
+          "symbol": "grGreatBay_801F545C",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F5460",
+          "fuzzy": 97.303925,
+          "size": 408,
+          "symbol": "grGreatBay_801F5460",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F55F8",
+          "fuzzy": 100,
+          "size": 8,
+          "symbol": "grGreatBay_801F55F8",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F5600",
+          "fuzzy": 100,
+          "size": 788,
+          "symbol": "grGreatBay_801F5600",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F5914",
+          "fuzzy": 100,
+          "size": 116,
+          "symbol": "grGreatBay_801F5914",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F5988",
+          "fuzzy": 100,
+          "size": 4,
+          "symbol": "grGreatBay_801F5988",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F598C",
+          "fuzzy": 100,
+          "size": 100,
+          "symbol": "grGreatBay_801F598C",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F59F0",
+          "fuzzy": 100,
+          "size": 8,
+          "symbol": "grGreatBay_801F59F0",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F59F8",
+          "fuzzy": 100,
+          "size": 4,
+          "symbol": "grGreatBay_801F59F8",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F59FC",
+          "fuzzy": 100,
+          "size": 4,
+          "symbol": "grGreatBay_801F59FC",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F5A00",
+          "fuzzy": 100,
+          "size": 240,
+          "symbol": "grGreatBay_801F5A00",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F5AF0",
+          "fuzzy": 100,
+          "size": 8,
+          "symbol": "grGreatBay_801F5AF0",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F5AF8",
+          "fuzzy": 100,
+          "size": 592,
+          "symbol": "grGreatBay_801F5AF8",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F5D48",
+          "fuzzy": 100,
+          "size": 4,
+          "symbol": "grGreatBay_801F5D48",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F5D4C",
+          "fuzzy": 100,
+          "size": 220,
+          "symbol": "grGreatBay_801F5D4C",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F5E28",
+          "fuzzy": 100,
+          "size": 668,
+          "symbol": "grGreatBay_801F5E28",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F60C4",
+          "fuzzy": 100,
+          "size": 564,
+          "symbol": "grGreatBay_801F60C4",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F62F8",
+          "fuzzy": 100,
+          "size": 252,
+          "symbol": "grGreatBay_801F62F8",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F63F4",
+          "fuzzy": 96.716415,
+          "size": 536,
+          "symbol": "grGreatBay_801F63F4",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F660C",
+          "fuzzy": 100,
+          "size": 152,
+          "symbol": "grGreatBay_801F660C",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F66A4",
+          "fuzzy": 100,
+          "size": 100,
+          "symbol": "grGreatBay_801F66A4",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F6708",
+          "fuzzy": 100,
+          "size": 156,
+          "symbol": "grGreatBay_801F6708",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F67A4",
+          "fuzzy": 100,
+          "size": 104,
+          "symbol": "grGreatBay_801F67A4",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F680C",
+          "fuzzy": 100,
+          "size": 8,
+          "symbol": "grGreatBay_801F680C",
+          "unit": "main/melee/gr/grgreatbay"
+        },
+        {
+          "address": "0x801F6814",
+          "fuzzy": 100,
+          "size": 84,
+          "symbol": "grGreatBay_801F6814",
+          "unit": "main/melee/gr/grgreatbay"
+        }
+      ],
+      "pr_history": {
+        "touching_prs": [
+          {
+            "author": "itsgrimetime",
+            "created_at": "2026-05-31T21:13:49Z",
+            "merged_at": "2026-06-01T03:51:54Z",
+            "pr": 2562,
+            "source_version_id": "source-version:past_prs:45bd711579f9c714",
+            "state": "MERGED",
+            "title": "Match two stage functions",
+            "url": "https://github.com/doldecomp/melee/pull/2562"
+          },
+          {
+            "author": "ribbanya",
+            "created_at": "2026-05-06T20:30:31Z",
+            "merged_at": "2026-05-06T21:16:00Z",
+            "pr": 2463,
+            "source_version_id": "source-version:past_prs:45bd711579f9c714",
+            "state": "MERGED",
+            "title": "Add `pre-commit` to `reqs/dev.in` and update documentation, then format code",
+            "url": "https://github.com/doldecomp/melee/pull/2463"
+          },
+          {
+            "author": "jurrejelle",
+            "created_at": "2026-04-29T12:35:53Z",
+            "merged_at": "2026-04-30T10:21:26Z",
+            "pr": 2440,
+            "source_version_id": "source-version:past_prs:45bd711579f9c714",
+            "state": "MERGED",
+            "title": "Permuter matches",
+            "url": "https://github.com/doldecomp/melee/pull/2440"
+          },
+          {
+            "author": "MarioLover63",
+            "created_at": "2026-04-09T17:43:57Z",
+            "merged_at": "2026-04-09T21:02:27Z",
+            "pr": 2399,
+            "source_version_id": "source-version:past_prs:45bd711579f9c714",
+            "state": "MERGED",
+            "title": "some grgreatbay data matching + attribute labelling",
+            "url": "https://github.com/doldecomp/melee/pull/2399"
+          },
+          {
+            "author": "lukechampine",
+            "created_at": "2026-04-06T03:39:07Z",
+            "merged_at": "2026-04-06T08:24:35Z",
+            "pr": 2388,
+            "source_version_id": "source-version:past_prs:45bd711579f9c714",
+            "state": "MERGED",
+            "title": "great bay work",
+            "url": "https://github.com/doldecomp/melee/pull/2388"
+          },
+          {
+            "author": "lukechampine",
+            "created_at": "2026-04-02T15:09:59Z",
+            "merged_at": "2026-04-03T04:35:43Z",
+            "pr": 2374,
+            "source_version_id": "source-version:past_prs:45bd711579f9c714",
+            "state": "MERGED",
+            "title": "grzakogenerator work",
+            "url": "https://github.com/doldecomp/melee/pull/2374"
+          },
+          {
+            "author": "johnwinston",
+            "created_at": "2026-03-28T18:35:15Z",
+            "merged_at": "2026-03-29T20:22:19Z",
+            "pr": 2364,
+            "source_version_id": "source-version:past_prs:45bd711579f9c714",
+            "state": "MERGED",
+            "title": "Stage decompilation matches",
+            "url": "https://github.com/doldecomp/melee/pull/2364"
+          },
+          {
+            "author": "johnwinston",
+            "created_at": "2026-03-18T05:10:44Z",
+            "merged_at": "2026-03-18T17:34:43Z",
+            "pr": 2318,
+            "source_version_id": "source-version:past_prs:45bd711579f9c714",
+            "state": "MERGED",
+            "title": "Match 11 stage functions",
+            "url": "https://github.com/doldecomp/melee/pull/2318"
+          },
+          {
+            "author": "johnwinston",
+            "created_at": "2026-03-17T17:38:15Z",
+            "merged_at": "",
+            "pr": 2315,
+            "source_version_id": "source-version:past_prs:45bd711579f9c714",
+            "state": "CLOSED",
+            "title": "Work in progress — pending matches",
+            "url": "https://github.com/doldecomp/melee/pull/2315"
+          },
+          {
+            "author": "PsiLupan",
+            "created_at": "2026-03-15T18:34:37Z",
+            "merged_at": "2026-03-15T18:56:02Z",
+            "pr": 2296,
+            "source_version_id": "source-version:past_prs:45bd711579f9c714",
+            "state": "MERGED",
+            "title": "gr Shrineroute and Kinokoroute matches, function renaming",
+            "url": "https://github.com/doldecomp/melee/pull/2296"
+          },
+          {
+            "author": "PsiLupan",
+            "created_at": "2026-03-12T01:53:53Z",
+            "merged_at": "2026-03-12T02:07:54Z",
+            "pr": 2272,
+            "source_version_id": "source-version:past_prs:45bd711579f9c714",
+            "state": "MERGED",
+            "title": "gr cleanup, internal ID fixes/additions, part 1",
+            "url": "https://github.com/doldecomp/melee/pull/2272"
+          }
+        ],
+        "review_risks": [],
+        "tactics": []
+      },
+      "resource_hits": [
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:385"
+        },
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:383"
+        },
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:375"
+        },
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:382"
+        },
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:178"
+        },
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:177"
+        },
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:176"
+        },
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:171"
+        },
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:168"
+        },
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:169"
+        },
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:165"
+        },
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:161"
+        },
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:158"
+        },
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:159"
+        },
+        {
+          "source_id": "agent_shared_state",
+          "title": "Historical tool lesson for src/melee/gr/grgreatbay.c",
+          "evidence_ref": "legacy-agent-state:tool_issues:156"
+        },
+        {
+          "source_id": "code_graph",
+          "title": "Code graph: src/melee/gr/grgreatbay.c",
+          "evidence_ref": "/Users/Ford/Github Repos/oss/melee/build/GALE01/report.json"
+        }
+      ],
+      "tool_hits": [],
+      "scheduling_signals": {
+        "source_path": "src/melee/gr/grgreatbay.c",
+        "editability": "editable",
+        "graph_degree": 188,
+        "fresh_edges_since_last_attempt": 184,
+        "relevant_pr_count": 11,
+        "review_risk_count": 0,
+        "duplicate_reference_count": 0,
+        "linked_unlock_potential": 1,
+        "stale_fact_count": 0,
+        "priority_bonus": 46.5,
+        "explanation": [
+          "graph_degree=188",
+          "relevant_pr_count=11",
+          "fresh_edges=184",
+          "review_risk_count=0"
+        ]
+      }
+    },
+    "lookup_commands": [
+      "bun run kg:file-card -- --source src/melee/gr/grgreatbay.c",
+      "bun run kg:search -- --source past_prs --query <query> --limit 10",
+      "bun run kg:search -- --source discord_knowledge --query <query> --limit 10",
+      "bun run kg:search -- --source ssbm_data_sheet --query <query> --limit 10",
+      "bun run kg:search -- --source powerpc_docs --query <query> --limit 10",
+      "bun run kg:search -- --source external_mirrors --query <query> --limit 10",
+      "python3 knowledge/tools/ghidra/api/lookup.py --query <query> --json",
+      "python3 knowledge/tools/opseq/api/similar_functions.py --query <query> --json",
+      "python3 knowledge/tools/mismatch_db/api/search.py --query <query> --json",
+      "python3 knowledge/tools/mwcc_debug/api/lookup_dump.py --query <query> --json"
+    ]
+  },
+  "enabled_capabilities": [
+    "context_packaging",
+    "focused_source_editing",
+    "duplicate_adaptation",
+    "fact_research"
+  ],
+  "budget": {
+    "max_attempts": 1,
+    "wall_clock_minutes": 5,
+    "file_understanding_minutes": 0,
+    "extension_minutes_if_progress": 0,
+    "continue_after_positive_delta": false
+  },
+  "stop_rule": "For this vertical-slice smoke path, stop after producing one evidence-backed worker report.",
+  "report_contract": {
+    "report_types": [
+      "progress",
+      "stalled_no_useful_guess",
+      "needs_fact",
+      "score_candidate"
+    ],
+    "durable_paths": [
+      "summary_path",
+      "facts_path",
+      "blocker_path",
+      "patch_path"
+    ],
+    "wake_event": "worker_finished, worker_stalled, needs_fact, or score_candidate"
+  }
+}
+```
+    </current_state_json>
+
+    <primary_file_to_read>
+src/melee/gr/grgreatbay.c
+    </primary_file_to_read>
+
+    <files_to_read_first_json>
+```json
+[
+  {
+    "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/src/melee/gr/grgreatbay.c",
+    "reason": "primary leased source file"
+  },
+  {
+    "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/objdiff.json",
+    "reason": "unit metadata, compiler flags, source path, and scratch provenance"
+  },
+  {
+    "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/build/GALE01/report.json",
+    "reason": "baseline function/unit metrics"
+  },
+  {
+    "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/objectives/knowledge-system-operationalization/artifacts/worker-smoke-state/runs/f9f8a956-12e8-4368-8d6d-907510721223/snapshots/initial_board.json",
+    "reason": "run board snapshot used to queue this target"
+  },
+  {
+    "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/resource_guides/data/index.md",
+    "reason": "resource library entry point and trust rules"
+  },
+  {
+    "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/prs/index.jsonl",
+    "reason": "structured searchable past-PR index"
+  },
+  {
+    "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/src/agents/context/manifest.json",
+    "reason": "orchestrator-owned agent context manifest and capability routing"
+  },
+  {
+    "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/src/agents/worker/context/operating-guide.md",
+    "reason": "worker agent context: Compact default worker operating contract, source quality rules, validation loop, and stop conditions."
+  },
+  {
+    "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/src/agents/worker/context/lookup-guide.md",
+    "reason": "worker agent context: Opt-in source, graph, PR, and resource lookup guide for fact research and type/symbol resolution."
+  },
+  {
+    "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/src/agents/worker/context/matching-guide.md",
+    "reason": "worker agent context: Opt-in MWCC/source-shape tactics for focused editing, duplicate adaptation, and isolated check loops."
+  }
+]
+```
+    </files_to_read_first_json>
+
+    <available_resources_json>
+```json
+{
+  "roots": {
+    "board_repo_root": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator",
+    "checkout_root": "/Users/Ford/Github Repos/oss/melee",
+    "orchestrator_package": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/"
+  },
+  "agent_context": {
+    "manifest": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/src/agents/context/manifest.json",
+    "selected_references": [
+      {
+        "id": "worker_operating_guide",
+        "role": "worker",
+        "purpose": "Compact default worker operating contract, source quality rules, validation loop, and stop conditions.",
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/src/agents/worker/context/operating-guide.md"
+      },
+      {
+        "id": "worker_lookup_guide",
+        "role": "worker",
+        "purpose": "Opt-in source, graph, PR, and resource lookup guide for fact research and type/symbol resolution.",
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/src/agents/worker/context/lookup-guide.md"
+      },
+      {
+        "id": "worker_matching_guide",
+        "role": "worker",
+        "purpose": "Opt-in MWCC/source-shape tactics for focused editing, duplicate adaptation, and isolated check loops.",
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/src/agents/worker/context/matching-guide.md"
+      }
+    ],
+    "capability_routes": {
+      "context_packaging": [
+        "worker_lookup_guide"
+      ],
+      "type_symbol_resolution": [
+        "worker_lookup_guide",
+        "worker_matching_guide"
+      ],
+      "scratch_history_recon": [
+        "worker_lookup_guide"
+      ],
+      "isolated_check_loop": [
+        "worker_matching_guide"
+      ],
+      "duplicate_adaptation": [
+        "worker_matching_guide"
+      ],
+      "focused_source_editing": [
+        "worker_matching_guide"
+      ],
+      "fact_research": [
+        "worker_lookup_guide"
+      ],
+      "review_cleanup": [],
+      "experimental_search": [
+        "worker_last_resort_sweeps"
+      ],
+      "permuter_handoff": [
+        "worker_last_resort_sweeps",
+        "worker_matching_guide"
+      ]
+    },
+    "scripts": {
+      "rank_decomp_candidates": {
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/rank_decomp_candidates.py",
+        "purpose": "Rank fuzzy functions and linked blocker units from build/GALE01/report.json."
+      },
+      "decomp_context_lookup": {
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/decomp_context_lookup.py",
+        "purpose": "Search local code, report metadata, PR history, and resource CSVs for one target."
+      },
+      "scaffold_decomp_run": {
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/sweeps/scaffold_decomp_run.py",
+        "purpose": "Create a reproducible decomp-runs/<slug> experimental search bundle."
+      },
+      "summarize_objdiff_json": {
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/sweeps/summarize_objdiff_json.py",
+        "purpose": "Summarize objdiff JSON for experimental search result rows."
+      },
+      "analyze_sweep_results": {
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/sweeps/analyze_sweep_results.py",
+        "purpose": "Generate sweep_analysis.md and next_sweep_plan.md."
+      },
+      "render_progress_charts": {
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/sweeps/render_progress_charts.py",
+        "purpose": "Render experimental search progress, Pareto, and mismatch SVG charts."
+      },
+      "fetch_recent_pr_dump": {
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/commands/fetch_recent_pr_dump.py",
+        "purpose": "Fetch recent GitHub PR metadata, comments, reviews, and diffs into the orchestrator-owned past-PR dump."
+      },
+      "build_pr_postmortems": {
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/commands/build_pr_postmortems.py",
+        "purpose": "Build searchable per-PR JSON knowledge records and shared Pi-agent prompt standards."
+      },
+      "sync_repo_and_pr_library": {
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/commands/sync_repo_and_pr_library.py",
+        "purpose": "Fetch/rebase the local repo and refresh the orchestrator-owned PR knowledge library."
+      }
+    }
+  },
+  "objective": {
+    "primary_metric": "matched_code_percent",
+    "telemetry_metric": "fuzzy_match_percent",
+    "quality_bar": "reviewable Melee decomp source backed by local evidence and verifier output"
+  },
+  "progress_inputs": [
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/build/GALE01/report.json",
+      "purpose": "current match metrics, function/unit status, and progress telemetry"
+    },
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/objdiff.json",
+      "purpose": "unit metadata, source paths, compiler flags, and write-set derivation"
+    }
+  ],
+  "target_metadata": [
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/config/GALE01/symbols.txt",
+      "purpose": "symbol names and addresses"
+    },
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/config/GALE01/splits.txt",
+      "purpose": "translation-unit and object ownership boundaries"
+    },
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/docs/glossary.md",
+      "purpose": "canonical local shorthand and naming conventions"
+    }
+  ],
+  "local_context": [
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/src",
+      "purpose": "target source, sibling functions, headers, and local naming/style analogs"
+    },
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/include",
+      "purpose": "project headers and struct/type definitions when present"
+    }
+  ],
+  "past_prs": {
+    "structured_index": {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/prs/index.jsonl",
+      "fields": [
+        "pr",
+        "title",
+        "summary",
+        "searchable_terms",
+        "postmortem_json"
+      ],
+      "purpose": "distilled searchable PR lessons and pointers to per-PR postmortems"
+    },
+    "known_fixes": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/prs/known_fixes.md",
+    "raw_analysis": [
+      {
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/current/analysis/changed_files.jsonl",
+        "purpose": "find PRs that touched a concrete source/config path"
+      },
+      {
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/current/analysis/text_corpus.jsonl",
+        "purpose": "PR bodies, bot reports, comments, and reviews keyed by PR number"
+      },
+      {
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/current/analysis/human_pr_text.md",
+        "purpose": "human-authored PR bodies and issue comments"
+      },
+      {
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/current/analysis/review_comments.md",
+        "purpose": "review feedback, naming corrections, and review warnings"
+      },
+      {
+        "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/current/analysis/decomp_tips_library.md",
+        "purpose": "cross-PR matching and review lessons"
+      }
+    ],
+    "per_pr_detail_pattern": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/prs/pr-<number>/postmortem.json",
+    "search_examples": [
+      "rg -n \"<symbol>|<source_path>|<subsystem>|<mismatch_term>\" \"/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/prs/index.jsonl\" \"/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/prs/known_fixes.md\"",
+      "jq 'select(.file==\"<source_path>\")' \"/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/current/analysis/changed_files.jsonl\"",
+      "jq 'select(.pr == <number>)' \"/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/current/analysis/text_corpus.jsonl\""
+    ]
+  },
+  "decomp_resources": {
+    "index": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/resource_guides/data/index.md",
+    "notes": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/resource_guides/data/guides/resource_notes.md",
+    "data_sheet_csv_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv",
+    "data_sheet_csvs": [
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/cells.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/sheet_index.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/function_addresses.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/global_addresses.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/char_data_offsets.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/character_attributes.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/action_state_reference.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/hitbox_offsets.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/hurtbox_offsets.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/stage_data_offsets.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/entity_data_offsets.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/id_lists.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/subaction_events.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/bones.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv/debug_menu_map.csv"
+    ],
+    "powerpc_index": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/powerpc_docs/data/indexes/powerpc_pdf_pages.csv",
+    "external_hint_indexes": [
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/external_mirrors/data/training_mode/indexes/gtme01_map_symbols.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/external_mirrors/data/m_ex/indexes/header_symbols.csv",
+      "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/external_mirrors/data/tockdom/compiler.txt"
+    ],
+    "trust_rule": "local source, headers, symbols, splits, assembly, and objdiff outrank PR notes and mirrored external resources"
+  },
+  "knowledge_graph": {
+    "sources_root": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources",
+    "tools_root": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools",
+    "graph_root": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/resource_graph",
+    "graph_db": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/resource_graph/graph.sqlite",
+    "cli_policy": "CLI-first; no MCP server wrapper in v1.",
+    "source_ids": [
+      "code_graph",
+      "past_prs",
+      "discord_knowledge",
+      "ssbm_data_sheet",
+      "powerpc_docs",
+      "external_mirrors",
+      "resource_guides",
+      "reference_docs",
+      "tool_outputs"
+    ],
+    "tool_ids": [
+      "ghidra",
+      "opseq",
+      "mismatch_db",
+      "mwcc_debug"
+    ],
+    "commands": [
+      {
+        "command": "bun run kg:sources",
+        "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+        "purpose": "list registered knowledge source slices and external tool integrations"
+      },
+      {
+        "command": "bun run kg:rebuild -- --repo-root <repo_root>",
+        "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+        "purpose": "rebuild the SQLite resource graph from code_graph, PRs, and graph-owned enrichments"
+      },
+      {
+        "command": "bun run kg:curate -- --repo-root <repo_root> --state-dir <state_dir>",
+        "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+        "purpose": "reduce worker reports and PR postmortems into graph-owned curator enrichment records"
+      },
+      {
+        "command": "bun run kg:maintain -- --repo-root <repo_root> --state-dir <state_dir>",
+        "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+        "purpose": "process pending PR postmortems, curate knowledge updates, and rebuild the graph"
+      },
+      {
+        "command": "bun run kg:file-card -- --repo-root <repo_root> --source <source_path>",
+        "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+        "purpose": "summarize file graph context, editability, PR history, resource hits, and graph scheduling signals"
+      },
+      {
+        "command": "bun run kg:search -- --repo-root <repo_root> --source past_prs --query <term> --limit 10",
+        "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+        "purpose": "search indexed graph chunks for a source slice such as past_prs"
+      },
+      {
+        "command": "python3 knowledge/sources/<source_id>/api/search.py --query <term> --limit 10 --json",
+        "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+        "purpose": "source-local search for registered source slices using generated JSONL indexes"
+      },
+      {
+        "command": "python3 knowledge/sources/<source_id>/api/status.py --json",
+        "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+        "purpose": "source-local readiness and index-count check for registered source slices"
+      },
+      {
+        "command": "bun run kg:rank-features -- --repo-root <repo_root> --limit 30",
+        "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+        "purpose": "show graph-derived ranking features for current board candidates"
+      }
+    ]
+  },
+  "helper_scripts": [
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/decomp_context_lookup.py",
+      "purpose": "first-pass target packet across local source, report metadata, PR corpus, and decomp resources"
+    },
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/rank_decomp_candidates.py",
+      "purpose": "director target ranking from build/GALE01/report.json"
+    },
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/commands/fetch_recent_pr_dump.py",
+      "purpose": "refresh the orchestrator-owned raw PR dump and searchable PR library"
+    },
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/commands/build_pr_postmortems.py",
+      "purpose": "build or rerun PR postmortem knowledge records"
+    },
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/commands/sync_repo_and_pr_library.py",
+      "purpose": "sync the repo branch and PR knowledge library in one operator workflow"
+    }
+  ],
+  "optional_experimental_tools": [
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/sweeps/scaffold_decomp_run.py",
+      "purpose": "create a reproducible decomp-runs/<slug> experimental search bundle"
+    },
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/sweeps/analyze_sweep_results.py",
+      "purpose": "analyze experimental search results and write next-search plans"
+    },
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/sweeps/render_progress_charts.py",
+      "purpose": "render experimental search progress charts"
+    },
+    {
+      "path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/sweeps/summarize_objdiff_json.py",
+      "purpose": "summarize objdiff JSON for experimental search result rows"
+    }
+  ],
+  "commands": [
+    {
+      "command": "rg <pattern> <paths>",
+      "purpose": "fast repo search"
+    },
+    {
+      "command": "python3 \"/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/rank_decomp_candidates.py\" --limit 30",
+      "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator",
+      "purpose": "rank candidate functions and linked blocker units for director scheduling"
+    },
+    {
+      "command": "python3 \"/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/decomp_context_lookup.py\" --target <source_path> --symbol <symbol>",
+      "purpose": "assemble first-pass local, PR, and resource evidence"
+    },
+    {
+      "command": "rg -i \"<offset>|<address>|<field>|<action_state>|<hitbox>|<sfx>\" \"/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/ssbm_data_sheet/data/csv\"",
+      "purpose": "search data-sheet offsets, IDs, states, attributes, and lookup terms"
+    },
+    {
+      "command": "rg -n \"<symbol>|<file>|<mismatch_term>\" \"/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/prs/index.jsonl\" \"/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/current/analysis\"",
+      "purpose": "search past PR summaries, comments, reviews, and diffs"
+    },
+    {
+      "command": "python3 knowledge/sources/discord_knowledge/api/search.py --query <compiler_or_review_term> --limit 10 --json",
+      "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+      "purpose": "search Discord-derived compiler and workflow knowledge with citations"
+    },
+    {
+      "command": "python3 knowledge/sources/ssbm_data_sheet/api/search.py --query <address_or_offset_or_id> --limit 10 --json",
+      "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+      "purpose": "search normalized data-sheet cells with row and CSV provenance"
+    },
+    {
+      "command": "python3 knowledge/sources/powerpc_docs/api/lookup_instruction.py --mnemonic <mnemonic> --limit 10 --json",
+      "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+      "purpose": "look up PowerPC PDF page chunks for ABI and instruction questions"
+    },
+    {
+      "command": "python3 knowledge/tools/mismatch_db/api/search.py --query <mismatch_pattern> --limit 10 --json",
+      "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+      "purpose": "search local mismatch-pattern/tool evidence"
+    },
+    {
+      "command": "bun run pr:refresh:dry",
+      "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+      "purpose": "preview the PR knowledge refresh scope without writing"
+    },
+    {
+      "command": "bun run pr:refresh -- --postmortem-mode scaffold",
+      "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+      "purpose": "refresh missing recent PRs and rebuild deterministic PR knowledge records"
+    },
+    {
+      "command": "bun run pr:postmortems -- --dump-root knowledge/sources/past_prs/data/current --run-agent --pending-only --complete-only --jobs 16",
+      "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+      "purpose": "run Pi-reviewed PR postmortems for missing, draft, or failed records in the orchestrator-owned PR dump"
+    },
+    {
+      "command": "python configure.py --require-protos",
+      "purpose": "regenerate build metadata with prototype checks when needed"
+    },
+    {
+      "command": "ninja baseline",
+      "purpose": "operator-only upstream progress baseline capture before a branch regression check"
+    },
+    {
+      "command": "bun run regression-check -- --repo-root <repo_root>",
+      "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/",
+      "purpose": "operator-only final global regression gate after workers are idle; also writes pr_report.md for the Expected / local run PR description"
+    },
+    {
+      "command": "ninja changes_all",
+      "purpose": "operator-only branch regression/progression report against the saved upstream baseline; use regression-check for the enforced gate and PR Markdown report"
+    },
+    {
+      "command": "ninja build/GALE01/<object>.o",
+      "purpose": "narrow object rebuild for the leased source file"
+    },
+    {
+      "command": "build/tools/objdiff-cli diff -p . -u <unit> <symbol>",
+      "purpose": "narrow symbol/unit diff validation"
+    },
+    {
+      "command": "go run . dups",
+      "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/tools/table-typer",
+      "purpose": "duplicate assembly-shape evidence for adaptation targets"
+    }
+  ],
+  "optional_experimental_commands": [
+    {
+      "command": "python3 \"/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/sweeps/scaffold_decomp_run.py\" --name <run-slug> --source <source_path> --symbol <symbol>",
+      "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator",
+      "purpose": "scaffold a decomp-runs bundle when experimental_search is explicitly enabled"
+    },
+    {
+      "command": "python3 \"/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/sweeps/analyze_sweep_results.py\" <run-dir>",
+      "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator",
+      "purpose": "analyze experimental search results after a run has result artifacts"
+    },
+    {
+      "command": "python3 \"/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/tools/sweeps/render_progress_charts.py\" <run-dir>",
+      "cwd": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator",
+      "purpose": "render progress charts for an experimental search run"
+    }
+  ]
+}
+```
+    </available_resources_json>
+
+    <task>
+        Research the target, choose an evidence-backed tactic mix inside the
+        lease, and produce the final JSON report required by the system prompt.
+        Use only resources that exist in this checkout or are listed above. If a
+        path or command is unavailable, report that exact blocker.
+
+        If `current_state.repair_request` is present, the runner rejected your
+        previous return. Read the referenced gate artifact, fix the named
+        regression/validation issues, remove only your own unsafe retained
+        hunks when needed, and return the corrected final JSON report. Do not
+        ignore the repair request or switch targets.
+
+        Only edit files listed in `current_state.lease.write_set`. In dry-run
+        smoke mode, respect the configured one-report stop rule. In live mode,
+        use the configured depth budget: understand the file before editing,
+        retain verified improvements, undo only your own no-op or regression
+        hunks, maintain a local regression ledger for the target and affected
+        neighbors, and continue with local evidence-backed hypotheses while
+        useful progress remains. Do not run whole-file or repo-level
+        destructive git commands such as `git checkout --`, `git restore`,
+        `git reset`, or `git clean`; preserve any pre-existing dirty work in
+        the write set.
+
+        Before the first edit, capture the local baseline you will compare
+        against. After each attempt, rerun the narrow target check and the
+        affected-neighbor checks you identified. If your attempt regresses the
+        target, breaks a previously matched local check, or makes a relevant
+        neighbor worse, undo only your own attempt hunks before continuing. Do
+        not return `progress` or `score_candidate` while a retained edit has an
+        unresolved local regression. The orchestrator accepts those report
+        types only when the final JSON includes a passed
+        `local_regression_check` with no target or neighbor regression and with
+        baseline/final validation artifacts present on disk.
+
+        Do not run global progress-report refresh commands from a worker:
+        `ninja build/GALE01/report.json`,
+        `ninja all_source build/GALE01/report.json`, or
+        `build/tools/objdiff-cli report generate`. Use narrow object builds and
+        narrow symbol/unit objdiff only. If global progress must be refreshed,
+        report the narrow evidence and let the operator/orchestrator do it when
+        workers are idle.
+    </task>
+</worker_target_context>

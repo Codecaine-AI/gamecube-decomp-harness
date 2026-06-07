@@ -1,0 +1,62 @@
+{
+  "schema_version": "knowledge_curator_v1",
+  "agent_status": "agent_completed",
+  "summary": "Reviewed batch 3 sample from deterministic curator enrichments. The sampled PR lesson for PR 1000 is safe to promote because its source postmortem is marked agent_completed and the deterministic record is already status accepted with preserved evidence. No source corpus mutation is warranted from this sample; source-specific details should remain tied to the PR lesson rather than applied as direct source updates.",
+  "accepted_records": [
+    {
+      "id": "pr_lesson:1000:e7f35c75528a0075",
+      "kind": "pr_lesson",
+      "status": "accepted",
+      "trust_tier": "historical",
+      "confidence": 0.92,
+      "title": "Curated PR 1000 lesson",
+      "evidence_ref": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/prs/pr-1000/postmortem.json",
+      "pr": 1000,
+      "url": "https://github.com/doldecomp/melee/pull/1000",
+      "agent_status": "agent_completed",
+      "summary": "PR 1000 added a dedicated CI/container path for generating assembly dumps and publishing them to a separate dump branch, keeping dump generation separate from documentation/pages generation.",
+      "promotable_lessons": [
+        "For large generated decompilation artifacts such as disassembly dumps, prefer a separate generated branch or artifact workflow rather than committing outputs into the source branch.",
+        "Keep documentation generation and assembly dump generation as separate CI responsibilities because their outputs and failure modes differ.",
+        "A dump pipeline can be automated from a normal build by enabling map generation, parsing the map, and feeding the DOL plus map CSV into the dump tool.",
+        "Root-anchor .gitignore rules for generated top-level directories when the intent is only to ignore repository-root outputs."
+      ],
+      "provenance": {
+        "enrichment_path": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/resource_graph/enrichments/knowledge_curator_updates.jsonl",
+        "evidence_ref": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/prs/pr-1000/postmortem.json"
+      }
+    }
+  ],
+  "source_update_proposals": [
+    {
+      "kind": "source_specific_pr_detail",
+      "status": "proposal",
+      "confidence": 0.82,
+      "evidence_ref": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/prs/pr-1000/postmortem.json",
+      "reason": "These are concrete PR-specific CI, workflow, path, branch, artifact, and command details from a historical postmortem. They are useful for retrieval but should not be applied as direct source-corpus updates without inspecting the referenced PR files or current repository state.",
+      "details": [
+        "The workflow and package target used the name dump-asm.",
+        "The generated assembly output branch and workflow artifact were named dump.",
+        "The container entrypoint used /input for the source repository and /output for generated dump files.",
+        "The generated dump branch commit message followed `Dump of ${{ github.sha }}`.",
+        "The dump build used `GENERATE_MAP=1` to produce `build/ssbm.us.1.2/GALE01.map`.",
+        "The pipeline ran `python tools/parse_map.py` to generate `build/map.csv`.",
+        "The pipeline ran `dadosod dol build/ssbm.us.1.2/main.dol -m build/map.csv -o /output`.",
+        "The raw `GALE01.map` was copied into `/output`.",
+        "The CI/container setup used `ln -s /opt/mwcc_compiler tools/` before invoking `make`."
+      ]
+    },
+    {
+      "kind": "uncertain_rationale",
+      "status": "proposal",
+      "confidence": 0.55,
+      "evidence_ref": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/knowledge/sources/past_prs/data/prs/pr-1000/postmortem.json",
+      "reason": "The record explicitly says the rationale is likely and that the diff does not include rationale beyond the command itself, so it should not be promoted as a factual lesson.",
+      "details": [
+        "`MAX_ERRORS=1` was used during the dump build, but the stated reason, stopping quickly on compilation errors while still exercising map generation, is uncertain."
+      ]
+    }
+  ],
+  "rejected_records": [],
+  "confidence": 0.9
+}

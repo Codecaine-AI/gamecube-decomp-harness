@@ -1,10 +1,15 @@
 # Ghidra Runners
 
-Put scripts that build or refresh Ghidra caches here. Examples:
+Live runner:
 
-- Query a checked-out Ghidra project for xrefs.
-- Export strings, function names, and symbols.
-- Run an explicitly requested live decompile.
+```sh
+bun run kg:tool-runner:ghidra
+```
 
-Runner output should land in `cache/` or `indexes/`, then be normalized by the
-`tool_outputs` source.
+The runner resolves Homebrew Ghidra/OpenJDK when present, runs
+`analyzeHeadless` against `build/GALE01/main.elf`, and records bounded smoke
+evidence in `cache/runner_status.json`, `cache/ghidra_headless_probe.log`, and
+`indexes/ghidra_headless_probe.jsonl`.
+
+Set `GHIDRA_ANALYZE_HEADLESS` or pass `--analyze-headless <path>` to use a
+non-Homebrew Ghidra install.

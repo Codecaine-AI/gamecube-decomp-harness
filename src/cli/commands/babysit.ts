@@ -90,6 +90,8 @@ const SYSTEM_ARG_ALLOWLIST = new Set([
   "--no-pr-index",
   "--no-rebuild",
   "--no-run-pr-agent",
+  "--no-tool-index",
+  "--no-tool-runners",
   "--once",
   "--post-return-check-command",
   "--pr-jobs",

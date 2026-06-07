@@ -1,0 +1,132 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2590",
+  "pr": {
+    "number": 2590,
+    "title": "Link and ninja apply HSD Bytecode",
+    "url": "https://github.com/doldecomp/melee/pull/2590",
+    "state": "MERGED",
+    "author": "PsiLupan",
+    "created_at": "2026-06-06T20:19:09Z",
+    "merged_at": "2026-06-06T20:23:23Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Marked sysdolphin/baselib/bytecode.c as Matching in configure.py and updated GALE01 symbol metadata so HSD ByteCode-related constants/strings are treated as local compiler-style labels rather than global HSD_ByteCode_* or lbl_* symbols. The PR appears to make the bytecode translation unit linkable/matching with ninja by aligning symbol visibility and generated label names with the expected object layout.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "tooling",
+      "symbol-map"
+    ],
+    "systems": [
+      "sysdolphin",
+      "baselib",
+      "HSD ByteCode",
+      "config",
+      "repo-root"
+    ]
+  },
+  "key_files": [
+    "configure.py",
+    "config/GALE01/symbols.txt"
+  ],
+  "what_changed": [
+    "Changed configure.py entry for sysdolphin/baselib/bytecode.c from Object(NonMatching, ...) to Object(Matching, ...).",
+    "In config/GALE01/symbols.txt, replaced several global data labels near 0x804074F0-0x80407574 named lbl_804074F0 through lbl_80407574 with local numbered string/object labels @393, @394, @395, @398, @399, @404, and @407.",
+    "Added a local label entry ...data.0 at .data:0x804074F0 alongside @393.",
+    "Changed HSD_ByteCode_804D5F98 and HSD_ByteCode_804D5F9C in .sdata to local labels @396 and @397, with @396 size adjusted from 0x4 to 0x1 and @397 retaining the 0x6 string data classification.",
+    "Changed HSD_ByteCode_804DE7A0 through HSD_ByteCode_804DE7D0 in .sdata2 from global HSD_ByteCode_* names to local numbered constants @392, @400, @401, @402, @403, @405, @406, and @409 while preserving float/double alignment and sizes."
+  ],
+  "smart_moves": [
+    "Kept the configure.py matching switch minimal: only bytecode.c moved from NonMatching to Matching, reducing risk to neighboring baselib objects.",
+    "Converted anonymous constants and strings to local @NNN labels instead of keeping artificial global HSD_ByteCode_* names, which better reflects compiler-emitted local constants for a matched translation unit.",
+    "Preserved section addresses, sizes, alignments, and data classifications for most constants while only changing symbol names/scope, indicating the fix targeted linker/symbol ownership rather than data layout.",
+    "Adjusted the .sdata symbol at 0x804D5F98 to a 1-byte local object, suggesting attention to exact object sizing rather than relying on a coarse placeholder global."
+  ],
+  "decomp_lessons": [
+    "When promoting a source file to Matching, audit symbols.txt for that translation unit's local constants and strings; stale global placeholder names can prevent clean linking or obscure ownership.",
+    "HSD baselib files may require local @NNN labels for compiler-generated strings, floats, and doubles rather than manually named HSD_* globals.",
+    "A matching status change in configure.py may depend entirely on symbol-map cleanup even when no C source diff is needed.",
+    "For sdata2 float/double constants, retain exact align:4 or align:8 annotations and sizes while renaming or localizing symbols.",
+    "Do not assume address-derived lbl_* names should remain global once a unit is matched; they may need to become local string labels."
+  ],
+  "naming_conventions": [
+    "Local compiler-generated constants and strings are represented as @NNN labels, such as @392, @393, @400, and @409.",
+    "Artificial address labels like lbl_804074F0 were replaced with numbered local labels when the data belonged to bytecode.c.",
+    "HSD_ByteCode_804D5F98, HSD_ByteCode_804D5F9C, and HSD_ByteCode_804DE7A0-style global names were removed in favor of local @NNN symbols.",
+    "Local section labels use the ...data.0 convention, as shown at .data:0x804074F0 and already present near hsdClass."
+  ],
+  "assembly_or_matching_tactics": [
+    "Promote an object from NonMatching to Matching only after symbol visibility and local-label ownership line up with the expected linked object.",
+    "Use symbols.txt scope changes from global to local to make anonymous constants/strings resolve as part of the matched translation unit.",
+    "For small-data sections, verify exact object sizes; the .sdata object at 0x804D5F98 changed from size 0x4 to size 0x1.",
+    "Preserve literal pool order and addresses in .sdata2 while renaming symbols to local @NNN labels."
+  ],
+  "review_feedback": [
+    "No review comments were present in the provided PR slice.",
+    "No human PR body text was included in the provided context, so intent beyond the title and diff is inferred from the changed files."
+  ],
+  "searchable_terms": [
+    "PR2590",
+    "Link and ninja apply HSD Bytecode",
+    "PsiLupan",
+    "sysdolphin/baselib/bytecode.c",
+    "configure.py",
+    "Object(Matching)",
+    "Object(NonMatching)",
+    "config/GALE01/symbols.txt",
+    "HSD ByteCode",
+    "HSD_ByteCode_804D5F98",
+    "HSD_ByteCode_804D5F9C",
+    "HSD_ByteCode_804DE7A0",
+    "HSD_ByteCode_804DE7A8",
+    "HSD_ByteCode_804DE7B0",
+    "HSD_ByteCode_804DE7B8",
+    "HSD_ByteCode_804DE7C0",
+    "HSD_ByteCode_804DE7C8",
+    "HSD_ByteCode_804DE7CC",
+    "HSD_ByteCode_804DE7D0",
+    "lbl_804074F0",
+    "lbl_804074FC",
+    "lbl_80407510",
+    "lbl_80407538",
+    "lbl_80407550",
+    "lbl_80407568",
+    "lbl_80407574",
+    "@392",
+    "@393",
+    "@394",
+    "@395",
+    "@396",
+    "@397",
+    "@398",
+    "@399",
+    "@400",
+    "@401",
+    "@402",
+    "@403",
+    "@404",
+    "@405",
+    "@406",
+    "@407",
+    "@409",
+    "sdata2 constants",
+    "local symbols",
+    "matching bytecode.c"
+  ],
+  "follow_up_queries": [
+    "Find later PRs touching sysdolphin/baselib/bytecode.c for any source-level cleanup after it became Matching.",
+    "Search for other HSD_* placeholder globals in symbols.txt that should become local @NNN labels when their translation units are matched.",
+    "Check build history around ninja apply/link failures for baselib bytecode to understand whether symbol scope was the only blocker."
+  ],
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

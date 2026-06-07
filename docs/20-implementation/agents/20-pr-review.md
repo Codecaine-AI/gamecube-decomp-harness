@@ -36,7 +36,7 @@ postmortems with `--run-pr-agent`; otherwise deterministic scaffold records
 keep the corpus indexable.
 
 The default live review runtime is provider `codex-lb`, model `gpt-5.5`, and
-thinking `xhigh`. `local.env` sets `PI_CODING_AGENT_DIR=.pi-agent`, so auth is
+thinking `medium`. `local.env` sets `PI_CODING_AGENT_DIR=.pi-agent`, so auth is
 loaded from ignored repo-local `.pi-agent/models.json` and PR indexing can be
 attributed separately from other projects.
 

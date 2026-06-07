@@ -1,7 +1,13 @@
 # Opseq Runners
 
-Put scripts that build opcode sequence fingerprints or refresh similarity
-indexes here.
+Live runner:
 
-Runner output should land in `cache/` or `indexes/`, then be normalized by the
-`tool_outputs` source when useful.
+```sh
+bun run kg:tool-runner:opseq
+```
+
+The runner parses generated assembly under `build/GALE01/asm`, extracts opcode
+fingerprints for each function, and writes `cache/opcode_fingerprints.jsonl`,
+`indexes/opcode_sequences.jsonl`, and `cache/runner_status.json`.
+
+Rerun it after regenerating assembly or `build/GALE01/report.json`.

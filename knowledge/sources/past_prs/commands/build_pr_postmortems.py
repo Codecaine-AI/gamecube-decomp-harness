@@ -117,7 +117,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--jobs",
         type=int,
-        default=1,
+        default=16,
         help="Number of PR postmortem workers to run concurrently.",
     )
     parser.add_argument(
@@ -1098,7 +1098,7 @@ def write_library_readme(library_root: Path) -> None:
                 "Persisted PR-review Pi sessions are written under `.pi-sessions/pr-review/`, which is ignored by git.",
                 "",
                 "Records with `agent_status=scaffolded_without_agent` are deterministic drafts. "
-                "Rerun with `--run-agent --pending-only --jobs 32` for model-reviewed JSON records. "
+                "Rerun with `--run-agent --pending-only --jobs 16` for model-reviewed JSON records. "
                 "Pi/API failures stay pending instead of writing fallback postmortems.",
                 "",
             ]

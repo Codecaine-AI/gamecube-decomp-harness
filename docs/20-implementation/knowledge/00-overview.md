@@ -171,10 +171,36 @@ Package scripts expose the CLI-first graph surface:
 - `bun run kg:search`
 - `bun run kg:file-card`
 - `bun run kg:rank-features`
+- `bun run kg:tool-runner:ghidra`
+- `bun run kg:tool-runner:opseq`
+- `bun run kg:tool-runner:mismatch-db`
+- `bun run kg:tool-runner:mwcc-debug`
+
+## Tool Runner Contract
+
+Registered tools are live-ready only when `api/status.py --json` reports
+`operation_mode: live_runner_v1`, `runner_available: true`, and
+`runner_smoke_passed: true`. The smoke proof is `cache/runner_status.json`;
+generated runner rows under `knowledge/tools/<tool_id>/indexes/*.jsonl` are
+then normalized into the `tool_outputs` source during graph rebuild.
+
+The current live runner paths are:
+
+| Tool | Runner evidence |
+| --- | --- |
+| `ghidra` | Homebrew Ghidra/OpenJDK `analyzeHeadless` imports `build/GALE01/main.elf` and writes `ghidra_headless_probe.jsonl`. |
+| `opseq` | Generated assembly under `build/GALE01/asm` is parsed into opcode fingerprints. |
+| `mismatch_db` | `build/tools/objdiff-cli diff` runs against an imperfect function and writes an objdiff mismatch summary. |
+| `mwcc_debug` | Wine runs `GC/1.2.5n/mwcceppc.exe -version` and the runner records MWCC build-rule snippets. |
+
+Generated fallback rows such as symbol lookup, function shapes, mismatch-note
+chunks, and compiler-note chunks remain useful search evidence, but they do not
+alone satisfy strict live tool readiness.
 
 `kg-maintain` is the maintenance loop entry point. It uses pending-only PR
-postmortem indexing, rewrites the curator enrichment, optionally runs the
-knowledge-curator agent for proposal review, and rebuilds the graph. The
+postmortem indexing, runs live tool runners unless `--no-tool-runners` is set,
+rewrites tool lookup indexes, rewrites the curator enrichment, optionally runs
+the knowledge-curator agent for proposal review, and rebuilds the graph. The
 `trigger-agent` loop can run this in the background on
 `--knowledge-maintenance-interval-ms`; live runs default to five minutes and
 dry runs default to disabled. Live trigger maintenance queues pending PRs to
@@ -193,15 +219,15 @@ the current PR dump and only queue PRs whose `postmortem.json` is missing.
 `--run-pr-agent` enables model-reviewed PR records; without it, deterministic
 scaffold records still keep the graph indexable.
 
-Current bootstrap status, 2026-06-06:
+Current bootstrap status, 2026-06-07:
 
-- `2501 / 2501` discovered PRs have complete raw slices and model-reviewed
+- `2503 / 2503` discovered PRs have complete raw slices and model-reviewed
   `agent_completed` postmortems.
 - Active PR postmortems have zero missing, unreadable, validation-issue, or
   `agent_failed_scaffold_written` records.
-- Source-local API smoke, tool API smoke, graph rebuild, strict graph smoke,
-  TypeScript checks, and Python compile checks pass against the current data
-  layer.
+- Source-local API smoke, live tool runner smoke, graph rebuild, strict graph
+  smoke, TypeScript checks, and Python compile checks pass against the current
+  data layer when the validation ladder is run from the orchestrator layout.
 
 ## Archive Boundary
 

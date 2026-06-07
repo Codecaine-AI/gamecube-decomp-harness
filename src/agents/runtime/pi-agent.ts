@@ -20,7 +20,7 @@ export interface PiRunOptions {
 
 export const DEFAULT_PI_PROVIDER = "codex-lb";
 export const DEFAULT_PI_MODEL = "gpt-5.5";
-export const DEFAULT_PI_THINKING_LEVEL = "xhigh";
+export const DEFAULT_PI_THINKING_LEVEL = "medium";
 export const DEFAULT_PI_SESSION_DIR_NAME = ".pi-sessions";
 
 function packageRoot(): string {

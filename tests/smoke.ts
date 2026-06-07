@@ -754,9 +754,9 @@ async function main(): Promise<void> {
   assertSmoke("worker user prompt forbids unresolved local regressions", workerUserPrompt.includes("unresolved local regression"));
   assertSmoke("worker user prompt includes primary source path", workerUserPrompt.includes("src/melee/ft/chara/ftDemo.c"));
   assertSmoke("director dry-run uses gpt-5.5", readFileSync(tick.directorOutput, "utf8").includes("model: gpt-5.5"));
-  assertSmoke("director dry-run uses xhigh thinking", readFileSync(tick.directorOutput, "utf8").includes("thinking: xhigh"));
+  assertSmoke("director dry-run uses medium thinking", readFileSync(tick.directorOutput, "utf8").includes("thinking: medium"));
   assertSmoke("worker dry-run uses gpt-5.5", readFileSync(worker.workerOutput, "utf8").includes("model: gpt-5.5"));
-  assertSmoke("worker dry-run uses xhigh thinking", readFileSync(worker.workerOutput, "utf8").includes("thinking: xhigh"));
+  assertSmoke("worker dry-run uses medium thinking", readFileSync(worker.workerOutput, "utf8").includes("thinking: medium"));
   assertSmoke("rendered prompts do not reference design doc", !renderedPrompts.includes("decomp-orchestrator-design.html"));
   assertSmoke("rendered prompts do not reference Codex skill paths", !renderedPrompts.includes(".codex/skills"));
   assertSmoke("rendered prompts include structured past PR index", renderedPrompts.includes("decomp-orchestrator/knowledge/sources/past_prs/data/prs/index.jsonl"));

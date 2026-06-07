@@ -29,10 +29,15 @@ worker reports and PR postmortems. `kg-maintain` runs pending PR postmortem
 indexing first, then curation, optional `--run-curator-agent`, and graph
 rebuild.
 
-When model-reviewed curation is enabled, the curator uses the shared live agent
-defaults unless overridden: provider `codex-lb`, model `gpt-5.5`, thinking
-`xhigh`. `local.env` sets `PI_CODING_AGENT_DIR=.pi-agent`, so auth is loaded
-from ignored repo-local `.pi-agent/models.json`, matching the PR-review path.
+When model-reviewed curation is enabled, the curator samples deterministic
+records with `--curator-agent-record-limit`, splits them with
+`--curator-agent-batch-size`, and runs independent batches with
+`--curator-agent-jobs` (default `16`). Batch outputs are collected first, then
+proposal-only source updates are appended in deterministic ID order. The live
+agent uses the shared defaults unless overridden: provider `codex-lb`, model
+`gpt-5.5`, thinking `medium`. `local.env` sets
+`PI_CODING_AGENT_DIR=.pi-agent`, so auth is loaded from ignored repo-local
+`.pi-agent/models.json`, matching the PR-review path.
 
 Workers and PR agents contribute evidence. The curator decides whether that
 evidence becomes an accepted graph lesson or a proposal-only source update.

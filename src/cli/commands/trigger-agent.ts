@@ -313,6 +313,8 @@ function knowledgeMaintenanceArgs(args: Map<string, string | true>, runId: strin
     "--no-pr-index",
     "--no-rebuild",
     "--no-run-pr-agent",
+    "--no-tool-index",
+    "--no-tool-runners",
     "--progress-only",
     "--pr-jobs",
     "--pr-limit",

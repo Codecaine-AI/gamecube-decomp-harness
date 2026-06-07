@@ -41,7 +41,8 @@ def write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> int:
 
 
 def report_functions(repo_root: Path) -> list[dict[str, Any]]:
-    report = read_json(repo_root / "build" / "GALE01" / "report.json", {})
+    report_path = repo_root / "build" / "GALE01" / "report.json"
+    report = read_json(report_path, {})
     functions: list[dict[str, Any]] = []
     for unit in report.get("units") or []:
         if not isinstance(unit, dict):
@@ -65,6 +66,41 @@ def report_functions(repo_root: Path) -> list[dict[str, Any]]:
                     "address": address,
                     "size": fn.get("size"),
                     "fuzzy_match_percent": fn.get("fuzzy_match_percent"),
+                    "evidence_ref": str(report_path),
+                }
+            )
+    if functions:
+        return functions
+    return indexed_code_graph_functions()
+
+
+def indexed_code_graph_functions() -> list[dict[str, Any]]:
+    index_path = PACKAGE_ROOT / "knowledge" / "sources" / "code_graph" / "indexes" / "functions.jsonl"
+    functions: list[dict[str, Any]] = []
+    if not index_path.exists():
+        return functions
+    with index_path.open("r", encoding="utf-8", errors="replace") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(row, dict):
+                continue
+            symbol = str(row.get("symbol") or "")
+            if not symbol:
+                continue
+            functions.append(
+                {
+                    "unit": str(row.get("unit") or ""),
+                    "source_path": str(row.get("sourcePath") or row.get("source_path") or ""),
+                    "symbol": symbol,
+                    "address": format_address(row.get("address")),
+                    "size": row.get("size"),
+                    "fuzzy_match_percent": row.get("fuzzy", row.get("fuzzy_match_percent")),
+                    "evidence_ref": f"{index_path}#line={line_number}",
                 }
             )
     return functions
@@ -92,7 +128,7 @@ def build_ghidra_index(repo_root: Path) -> int:
                 "source_path": fn["source_path"],
                 "unit": fn["unit"],
                 "text": text,
-                "evidence_ref": str(repo_root / "build" / "GALE01" / "report.json"),
+                "evidence_ref": str(fn.get("evidence_ref") or repo_root / "build" / "GALE01" / "report.json"),
                 "payload": fn,
             }
         )
@@ -118,7 +154,7 @@ def build_opseq_index(repo_root: Path) -> int:
                 "unit": fn["unit"],
                 "address": fn["address"],
                 "text": f"{fn['symbol']} {fn['source_path']} {fn['unit']} size {size} bucket {size_bucket} {status}",
-                "evidence_ref": str(repo_root / "build" / "GALE01" / "report.json"),
+                "evidence_ref": str(fn.get("evidence_ref") or repo_root / "build" / "GALE01" / "report.json"),
                 "payload": {**fn, "size_bucket": size_bucket, "status": status},
             }
         )

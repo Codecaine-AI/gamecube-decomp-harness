@@ -1,0 +1,145 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2592",
+  "pr": {
+    "number": 2592,
+    "title": "Link some ft TUs",
+    "url": "https://github.com/doldecomp/melee/pull/2592",
+    "state": "OPEN",
+    "author": "lukechampine",
+    "created_at": "2026-06-07T01:36:41Z",
+    "merged_at": ""
+  },
+  "agent_status": "agent_completed",
+  "summary": "Open PR attempting to link several fighter translation units by splitting Kirby SpecialN code into multiple new files and marking those objects as Matching, while also marking Purin SpecialN as Matching. The main technical move was to split ftKb_SpecialNPk.c into smaller TUs for copied Kirby neutral-special variants such as Koopa, Link, Ness, and Fox, update splits.txt address ranges, and convert many anonymous/local sdata/sdata2 constants in symbols.txt. Review feedback pushed back strongly: Kirby code needs more splitting overall, but reviewers said this style of linkage via tiny split files and extern constants would cause later issues and that some new files should not exist.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "translation-unit-linkage",
+      "fighter-decomp",
+      "config-splits",
+      "symbol-scope-adjustment",
+      "review-rejected-approach"
+    ],
+    "systems": [
+      "fighter",
+      "Kirby",
+      "Purin",
+      "config",
+      "build"
+    ]
+  },
+  "key_files": [
+    "configure.py",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNPk_Data.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNKp.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNLk.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNSs.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNFx.c",
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialfox.c",
+    "src/melee/ft/chara/ftPurin/ftPr_SpecialN.c"
+  ],
+  "what_changed": [
+    "Replaced the single large ftKirby/ftKb_SpecialNPk.c split range with several smaller Kirby SpecialN translation units in config/GALE01/splits.txt.",
+    "Added new Kirby SpecialN files: ftKb_SpecialNPk_Data.c, ftKb_SpecialNKp.c, ftKb_SpecialNLk.c, ftKb_SpecialNSs.c, and ftKb_SpecialNFx.c.",
+    "Reduced ftKb_SpecialNPk.c substantially, with the changed-file summary showing 25 added lines and 1944 deleted lines.",
+    "Marked the new Kirby split objects as Matching in configure.py: ftKb_SpecialNPk_Data.c, ftKb_SpecialNPk.c, ftKb_SpecialNKp.c, ftKb_SpecialNLk.c, ftKb_SpecialNSs.c, and ftKb_SpecialNFx.c.",
+    "Changed ftPurin/ftPr_SpecialN.c from NonMatching to Matching in configure.py.",
+    "Adjusted config/GALE01/symbols.txt so many ftKb_Init_* and ftPr_Init_* sdata/sdata2 symbols became anonymous local labels such as @240, @222, and similar.",
+    "Added a very small ftKb_SpecialNFx.c containing ftKb_SpecialNFx_800FDC00, which reads three ftKb_Init_804D9450/804D9454/804D9458 constants via externs and calls lb_8000B1CC.",
+    "Changed ftkirbyspecialfox.c around an OSReport/HSD_ASSERT caution path; the excerpt shows OSReport(\"ftToSpecialNFox::Caution!!!\\n\"); HSD_ASSERT(465, 0); replaced by OSReport(ftKb_Init_803CB6D8)."
+  ],
+  "smart_moves": [
+    "The PR tried to make matching progress by aligning object boundaries in splits.txt with address ranges for distinct copied Kirby neutral-special variants.",
+    "The split map preserved exact text and sdata2 address ranges, including a data-only sdata2 range for ftKb_SpecialNPk_Data.c and separate ranges for Koopa, Link, Ness, and Fox-related Kirby SpecialN code.",
+    "The symbols.txt edits recognized that many constants are local anonymous compiler literals rather than stable global named data, which is often important for matching object-local sdata/sdata2.",
+    "The configure.py changes made the build intent explicit by moving specific objects from NonMatching to Matching rather than relying only on source-file changes."
+  ],
+  "decomp_lessons": [
+    "Do not call a split file matched merely because linkage can be forced with externs; reviewers objected to this as a fragile way to get matching status.",
+    "Kirby copied-special code may require broader and more principled splitting than just carving tiny objects around linkable functions.",
+    "Creating data-only or tiny helper TUs should be justified by actual original object boundaries; otherwise reviewers may consider the file artificial.",
+    "Converting constants between named globals and anonymous local labels affects linkage and reviewability. Use local labels when they are truly object-local, but avoid using symbol-scope churn to hide dependency problems.",
+    "For future fighter decomp work, split strategy should be discussed when one source file contains many copied-character variants and cross-TU constants."
+  ],
+  "naming_conventions": [
+    "Kirby copied neutral-special files use the ftKb_SpecialN* prefix, with suffixes indicating copied fighter variants: Pk, Kp, Lk, Ss, Fx.",
+    "Purin neutral special uses ftPr_SpecialN.c and ftPr_* symbols.",
+    "Kirby init constants are named ftKb_Init_80xxxxxx when exposed globally, but anonymous compiler constants in symbols.txt use @NNN local labels.",
+    "Functions in the new files follow the existing address-suffixed style, for example ftKb_SpecialNKp_800FA588 and ftKb_SpecialNFx_800FDC00."
+  ],
+  "assembly_or_matching_tactics": [
+    "Split one nonmatching object into multiple object ranges in config/GALE01/splits.txt, preserving exact text start/end addresses.",
+    "Separated sdata2 ranges for each new object, including attention to alignment and double-vs-float sizes in symbols.txt.",
+    "Used anonymous @NNN labels for local literals in sdata/sdata2 to match object-local constant ownership.",
+    "Used PAD_STACK in new decompiled functions where stack shape needed preservation, as shown in the ftKb_SpecialNKp.c excerpt.",
+    "Used extern declarations for constants in ftKb_SpecialNFx.c, but this was specifically criticized by review as the wrong way to achieve linkage."
+  ],
+  "review_feedback": [
+    {
+      "author": "PsiLupan",
+      "file": "",
+      "comment": "Kirby code in general needs more splitting. I don't think we should go about doing linkage like this, as it's going to cause issues later."
+    },
+    {
+      "author": "PsiLupan",
+      "file": "src/melee/ft/chara/ftKirby/ftkirbyspecialfox.c",
+      "comment": "Why were these changed to externs?"
+    },
+    {
+      "author": "PsiLupan",
+      "file": "src/melee/ft/chara/ftKirby/ftKb_SpecialNFx.c",
+      "comment": "I think splitting this file and calling it matched with externs is not the way to go about this."
+    },
+    {
+      "author": "PsiLupan",
+      "file": "src/melee/ft/chara/ftKirby/ftKb_SpecialNPk_Data.c",
+      "comment": "Similarly this file shouldn't exist."
+    }
+  ],
+  "searchable_terms": [
+    "PR2592",
+    "Link some ft TUs",
+    "ft-link",
+    "Kirby SpecialN",
+    "ftKb_SpecialNPk",
+    "ftKb_SpecialNPk_Data",
+    "ftKb_SpecialNKp",
+    "ftKb_SpecialNLk",
+    "ftKb_SpecialNSs",
+    "ftKb_SpecialNFx",
+    "ftkirbyspecialfox",
+    "ftPr_SpecialN",
+    "Purin SpecialN",
+    "configure.py Matching",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "extern constants",
+    "sdata2 local labels",
+    "ftKb_Init_804D9450",
+    "ftKb_Init_803CB6D8",
+    "lb_8000B1CC",
+    "Item_8026AE60",
+    "itKoopaFlame_Spawn",
+    "PAD_STACK"
+  ],
+  "follow_up_queries": [
+    "Find later PRs that properly split Kirby copied SpecialN translation units without relying on extern constants.",
+    "Search for subsequent changes to ftKb_SpecialNPk.c and ftKb_SpecialNFx.c after PR 2592.",
+    "Check whether ftPr_SpecialN.c was later accepted as Matching and what symbol-scope changes were required.",
+    "Look for project conventions on when data-only split files such as *_Data.c are acceptable.",
+    "Search review history for PsiLupan comments about Kirby code splitting and extern linkage."
+  ],
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

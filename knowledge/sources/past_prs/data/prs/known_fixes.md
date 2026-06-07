@@ -1,5 +1,45 @@
 # Known PR Fixes And Changes
 
+## PR #2593: Link multiple files, remove invalid files from configure.py, fix function call
+
+Status: agent_completed
+Type: build_config_and_linking_fix
+Systems: config;symbols;player;fighter;item;wstar
+
+Open PR that updates build/link configuration by marking several previously NonMatching objects as Matching, removes invalid/duplicate object entries from configure.py, adjusts symbol metadata/names in GALE01 symbols.txt to use local compiler-style labels for newly linked data, and fixes WStar spawned logic to call it_80294624 instead of it_80294364. There were no PR body comments or review comments in the provided slice, so rationale is inferred from the title and diff.
+
+Postmortem JSON: `pr-2593/postmortem.json`
+
+## PR #2592: Link some ft TUs
+
+Status: agent_completed
+Type: decomp-matching
+Systems: fighter;Kirby;Purin;config;build
+
+Open PR attempting to link several fighter translation units by splitting Kirby SpecialN code into multiple new files and marking those objects as Matching, while also marking Purin SpecialN as Matching. The main technical move was to split ftKb_SpecialNPk.c into smaller TUs for copied Kirby neutral-special variants such as Koopa, Link, Ness, and Fox, update splits.txt address ranges, and convert many anonymous/local sdata/sdata2 constants in symbols.txt. Review feedback pushed back strongly: Kirby code needs more splitting overall, but reviewers said this style of linkage via tiny split files and extern constants would cause later issues and that some new files should not exist.
+
+Postmortem JSON: `pr-2592/postmortem.json`
+
+## PR #2591: Match and link itlinkarrow
+
+Status: agent_completed
+Type: decomp-matching
+Systems: item;itlinkarrow;link-arrow;configure;symbols;vi0501
+
+Matched and linked src/melee/it/items/itlinkarrow.c by switching itlinkarrow.c from NonMatching to Matching in configure.py, tightening function signatures and symbol names, reordering/reshaping code to match compiler output, and updating GALE01 symbol metadata for now-local literals, jump tables, and sdata2 constants. The decomp.dev report showed +1144 matched-code bytes, +8904 linked-code bytes, +48 matched-data bytes, and +336 linked-data bytes; it also identified itLinkArrow_802A850C as newly 100% matched and noted a small regression in unmatched vi0501::un_8031D9F8 caused by the related sdata2 ordering work.
+
+Postmortem JSON: `pr-2591/postmortem.json`
+
+## PR #2590: Link and ninja apply HSD Bytecode
+
+Status: agent_completed
+Type: decomp-matching
+Systems: sysdolphin;baselib;HSD ByteCode;config;repo-root
+
+Marked sysdolphin/baselib/bytecode.c as Matching in configure.py and updated GALE01 symbol metadata so HSD ByteCode-related constants/strings are treated as local compiler-style labels rather than global HSD_ByteCode_* or lbl_* symbols. The PR appears to make the bytecode translation unit linkable/matching with ninja by aligning symbol visibility and generated label names with the expected object layout.
+
+Postmortem JSON: `pr-2590/postmortem.json`
+
 ## PR #2589: link some free files
 
 Status: agent_completed
@@ -4380,7 +4420,7 @@ Large Venom stage decompilation PR focused on src/melee/gr/grvenom.c, adding man
 
 Postmortem JSON: `pr-2146/postmortem.json`
 
-## PR #2145: bump ifStatus_802F4EDC to ~ 70% match
+## PR #2145: bump ifStatus_802F4EDC to ~ 70% match
 
 Status: agent_completed
 Type: decomp-matching
@@ -7820,7 +7860,7 @@ Typed more function-pointer table entries across game-mode and stage code, repla
 
 Postmortem JSON: `pr-1800/postmortem.json`
 
-## PR #1799:  Remove unused unions in lb/types.h and it/types.h
+## PR #1799: Remove unused unions in lb/types.h and it/types.h
 
 Status: agent_completed
 Type: header type cleanup with decomp-matching call-site adjustments
@@ -8280,7 +8320,7 @@ Matched a cluster of gm_1601 and gmmain_lib functions by replacing placeholder s
 
 Postmortem JSON: `pr-1748/postmortem.json`
 
-## PR #1747:  Split mnmain/mnmainrule, partial match mn_80231804
+## PR #1747: Split mnmain/mnmainrule, partial match mn_80231804
 
 Status: agent_completed
 Type: source_split_and_partial_decomp
@@ -8830,7 +8870,7 @@ Matched several previously stubbed or undecompiled functions in Sheik down-B tra
 
 Postmortem JSON: `pr-1693/postmortem.json`
 
-## PR #1692:  Split out gm_16F1
+## PR #1692: Split out gm_16F1
 
 Status: agent_completed
 Type: translation-unit-split
@@ -8890,7 +8930,7 @@ Decompiled and typed a substantial portion of the Heal stage module, replacing m
 
 Postmortem JSON: `pr-1687/postmortem.json`
 
-## PR #1686:  gm_16AE matches
+## PR #1686: gm_16AE matches
 
 Status: agent_completed
 Type: decomp-matching
@@ -9820,7 +9860,7 @@ Updated decomp-toolkit from 1.5.1 to 1.6.2 in both the Nix package definition an
 
 Postmortem JSON: `pr-1594/postmortem.json`
 
-## PR #1593:  ft_081B matches + ftCo_8008DA4C
+## PR #1593: ft_081B matches + ftCo_8008DA4C
 
 Status: agent_completed
 Type: decomp-matching
@@ -9890,7 +9930,7 @@ Matched a substantial early block of sysdolphin/baselib sislib by refining SIS t
 
 Postmortem JSON: `pr-1587/postmortem.json`
 
-## PR #1586:  Split and match gm_1AED
+## PR #1586: Split and match gm_1AED
 
 Status: agent_completed
 Type: decompilation split-and-match
@@ -15860,7 +15900,7 @@ Updated the project setup documentation and CI/package Dockerfiles to use a newe
 
 Postmortem JSON: `pr-959/postmortem.json`
 
-## PR #958:  Remove frank, build with 1.2.5n
+## PR #958: Remove frank, build with 1.2.5n
 
 Status: agent_completed
 Type: build_toolchain_cleanup
@@ -16110,7 +16150,7 @@ Merged one-commit PR by r-burns titled "Split out rest of common items." Availab
 
 Postmortem JSON: `pr-934/postmortem.json`
 
-## PR #933:  Split out bombhei, dosei, and heart items
+## PR #933: Split out bombhei, dosei, and heart items
 
 Status: agent_completed
 Type: asm_split_reorganization
@@ -18270,7 +18310,7 @@ Moved a small Ice Climbers assembly slice out of asm/melee/ft/chara/fticeclimber
 
 Postmortem JSON: `pr-715/postmortem.json`
 
-## PR #714: Match some  `ftyoshi` functions
+## PR #714: Match some `ftyoshi` functions
 
 Status: agent_completed
 Type: decomp-matching
@@ -18760,7 +18800,7 @@ Removed two redundant self-typedefs of Vec3 from a shared header and a stage-rel
 
 Postmortem JSON: `pr-663/postmortem.json`
 
-## PR #662:  Fix GObjEvent function signatures in fighter.c
+## PR #662: Fix GObjEvent function signatures in fighter.c
 
 Status: agent_completed
 Type: fix
@@ -18860,7 +18900,7 @@ Large warning-cleanup PR that made Clang-style analysis stricter by fixing many 
 
 Postmortem JSON: `pr-653/postmortem.json`
 
-## PR #652:  Fighter cleanup pass 4 by Altimor
+## PR #652: Fighter cleanup pass 4 by Altimor
 
 Status: agent_completed
 Type: decomp-matching cleanup
@@ -18900,7 +18940,7 @@ Replaced the remaining `#pragma once` header guards in nine headers with convent
 
 Postmortem JSON: `pr-649/postmortem.json`
 
-## PR #648:  Fighter cleanup pass 3 by Altimor
+## PR #648: Fighter cleanup pass 3 by Altimor
 
 Status: agent_completed
 Type: cleanup
@@ -18970,7 +19010,7 @@ Organized the monolithic `include/functions.h` and `include/variables.h` declara
 
 Postmortem JSON: `pr-642/postmortem.json`
 
-## PR #641:  Fighter cleanup pass 2 by Altimor
+## PR #641: Fighter cleanup pass 2 by Altimor
 
 Status: agent_completed
 Type: cleanup
@@ -21680,7 +21720,7 @@ Merged a large fighter header/struct cleanup while deliberately moving unfinishe
 
 Postmortem JSON: `pr-336/postmortem.json`
 
-## PR #335: Fighter.c [WIP]  and [NON_MATCHING]
+## PR #335: Fighter.c [WIP] and [NON_MATCHING]
 
 Status: agent_completed
 Type: wip-nonmatching-fighter-decomp
@@ -22500,7 +22540,7 @@ Added 43 function declarations from stage.c to src/melee/gr/stage.h, mostly stag
 
 Postmortem JSON: `pr-254/postmortem.json`
 
-## PR #253: All functions in stage.c are matched,  but you'll have to move the string declarations
+## PR #253: All functions in stage.c are matched, but you'll have to move the string declarations
 
 Status: agent_completed
 Type: decomp-matching
@@ -22560,7 +22600,7 @@ Enabled CodeWarrior automatic inlining globally by adding `-inline auto` to `CFL
 
 Postmortem JSON: `pr-248/postmortem.json`
 
-## PR #247: Matching player c  - WIP and non matching.
+## PR #247: Matching player c - WIP and non matching.
 
 Status: agent_completed
 Type: wip-decomp-matching

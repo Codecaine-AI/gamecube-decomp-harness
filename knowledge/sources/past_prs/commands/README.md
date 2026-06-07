@@ -19,8 +19,8 @@ bun run pr:refresh:all
 ```
 
 This expands discovery to the whole `doldecomp/melee` PR corpus, fetches missing
-PR slices with `--fetch-jobs 32`, and processes missing model-reviewed
-postmortems with `--postmortem-jobs 32`.
+PR slices with `--fetch-jobs 16`, and processes missing model-reviewed
+postmortems with `--postmortem-jobs 16`.
 
 The fetch is resumable. If GitHub rate-limits the run, wait for the reported
 reset time and rerun the same command; complete local PR slices are skipped.

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { checkoutRoot, knowledgeSourcesRoot } from "../paths.js";
 import type { GraphEdge, GraphEntity, GraphFact, GraphRecords, SearchChunk } from "./types.js";
-import { arrayValue, filesFingerprint, numberValue, objectValue, readJson, shortHash, stableJson, stringValue } from "./util.js";
+import { arrayValue, filesFingerprint, numberValue, objectValue, readJson, readJsonl, shortHash, stableJson, stringValue } from "./util.js";
 
 interface FunctionRecord {
   unit: string;
@@ -17,13 +17,15 @@ interface FileRecord {
   sourcePath: string;
   units: Set<string>;
   functions: FunctionRecord[];
+  declaredFunctionCount?: number;
+  declaredMatchedFunctionCount?: number;
+  declaredUnmatchedFunctionCount?: number;
 }
 
 export function buildCodeGraphRecords(repoRoot: string): GraphRecords {
   const reportPath = resolve(repoRoot, "build/GALE01/report.json");
   const objdiffPath = resolve(repoRoot, "objdiff.json");
-  if (!existsSync(reportPath)) throw new Error(`Missing ${reportPath}`);
-  if (!existsSync(objdiffPath)) throw new Error(`Missing ${objdiffPath}`);
+  if (!existsSync(reportPath) || !existsSync(objdiffPath)) return buildCodeGraphRecordsFromIndexes(reportPath, objdiffPath);
 
   const sourceByUnit = objdiffSourceMap(readJson(objdiffPath));
   const report = readJson(reportPath);
@@ -174,6 +176,95 @@ export function buildCodeGraphRecords(repoRoot: string): GraphRecords {
   };
 }
 
+function buildCodeGraphRecordsFromIndexes(reportPath: string, objdiffPath: string): GraphRecords {
+  const filesIndex = resolve(knowledgeSourcesRoot(), "code_graph/indexes/files.jsonl");
+  const functionsIndex = resolve(knowledgeSourcesRoot(), "code_graph/indexes/functions.jsonl");
+  if (!existsSync(filesIndex) || !existsSync(functionsIndex)) {
+    const missing = [reportPath, objdiffPath, filesIndex, functionsIndex].filter((path) => !existsSync(path));
+    throw new Error(`Missing code graph inputs: ${missing.join(", ")}`);
+  }
+
+  const sourceVersionId = `source-version:code_graph:${shortHash(filesFingerprint([filesIndex, functionsIndex]))}`;
+  const entities: GraphEntity[] = [];
+  const facts: GraphFact[] = [];
+  const edges: GraphEdge[] = [];
+  const chunks: SearchChunk[] = [];
+  const files = new Map<string, FileRecord>();
+  const seenUnits = new Set<string>();
+  const seenCompileEdges = new Set<string>();
+
+  for (const row of readJsonl(filesIndex)) {
+    const sourcePath = stringValue(row.source_path, stringValue(row.sourcePath));
+    if (!sourcePath) continue;
+    const file = getFile(files, sourcePath);
+    file.declaredFunctionCount = numberValue(row.function_count, file.declaredFunctionCount ?? 0);
+    file.declaredMatchedFunctionCount = numberValue(row.matched_function_count, file.declaredMatchedFunctionCount ?? 0);
+    file.declaredUnmatchedFunctionCount = numberValue(row.unmatched_function_count, file.declaredUnmatchedFunctionCount ?? 0);
+    for (const unit of arrayValue(row.units).map((value) => String(value)).filter(Boolean)) {
+      file.units.add(unit);
+      addUnitEntity(entities, seenUnits, unit, sourcePath);
+      addCompileEdge(edges, seenCompileEdges, sourcePath, unit, sourceVersionId, filesIndex);
+    }
+  }
+
+  for (const row of readJsonl(functionsIndex)) {
+    const unit = stringValue(row.unit);
+    const sourcePath = stringValue(row.sourcePath, stringValue(row.source_path));
+    const symbol = stringValue(row.symbol);
+    if (!sourcePath || !symbol) continue;
+    const functionRecord: FunctionRecord = {
+      unit,
+      sourcePath,
+      symbol,
+      size: numberValue(row.size),
+      fuzzy: numberValue(row.fuzzy, 100),
+      address: formatAddress(row.address),
+    };
+    const file = getFile(files, sourcePath);
+    if (unit) {
+      file.units.add(unit);
+      addUnitEntity(entities, seenUnits, unit, sourcePath);
+      addCompileEdge(edges, seenCompileEdges, sourcePath, unit, sourceVersionId, functionsIndex);
+    }
+    file.functions.push(functionRecord);
+
+    if (!unit) continue;
+    const functionEntity = functionEntityId(unit, symbol);
+    entities.push({
+      id: functionEntity,
+      entityType: "function",
+      stableKey: `${unit}:${symbol}`,
+      payload: { ...functionRecord },
+    });
+    facts.push({
+      id: `fact:function_status:${shortHash(`${unit}:${symbol}`)}`,
+      entityId: functionEntity,
+      factType: "function_status",
+      payload: { ...functionRecord },
+      confidence: 1,
+      trustTier: "canonical",
+      evidenceRef: `${functionsIndex}#${unit}:${symbol}`,
+      sourceVersionId,
+    });
+    edges.push(edge(unitEntityId(unit), "CONTAINS", functionEntity, sourceVersionId, `code_graph_index:${unit}:${symbol}`, 1));
+  }
+
+  addFileRecords(files, entities, facts, chunks, sourceVersionId, filesIndex);
+
+  return {
+    sourceVersion: {
+      id: sourceVersionId,
+      sourceId: "code_graph",
+      contentHash: shortHash(stableJson({ files: filesFingerprint([filesIndex]), functions: filesFingerprint([functionsIndex]) })),
+      sourcePaths: [filesIndex, functionsIndex],
+    },
+    entities,
+    facts,
+    edges,
+    chunks,
+  };
+}
+
 function objdiffSourceMap(objdiff: Record<string, unknown>): Map<string, string> {
   const byUnit = new Map<string, string>();
   for (const unitValue of arrayValue(objdiff.units)) {
@@ -192,6 +283,102 @@ function getFile(files: Map<string, FileRecord>, sourcePath: string): FileRecord
   const created: FileRecord = { sourcePath, units: new Set<string>(), functions: [] };
   files.set(sourcePath, created);
   return created;
+}
+
+function addUnitEntity(entities: GraphEntity[], seenUnits: Set<string>, unit: string, sourcePath: string): void {
+  if (seenUnits.has(unit)) return;
+  seenUnits.add(unit);
+  entities.push({
+    id: unitEntityId(unit),
+    entityType: "object_unit",
+    stableKey: unit,
+    payload: { unit, source_path: sourcePath },
+  });
+}
+
+function addCompileEdge(
+  edges: GraphEdge[],
+  seenCompileEdges: Set<string>,
+  sourcePath: string,
+  unit: string,
+  sourceVersionId: string,
+  evidenceRef: string,
+): void {
+  const key = `${sourcePath}:${unit}`;
+  if (seenCompileEdges.has(key)) return;
+  seenCompileEdges.add(key);
+  edges.push(edge(fileEntityId(sourcePath), "COMPILES_TO", unitEntityId(unit), sourceVersionId, evidenceRef, 1));
+}
+
+function addFileRecords(
+  files: Map<string, FileRecord>,
+  entities: GraphEntity[],
+  facts: GraphFact[],
+  chunks: SearchChunk[],
+  sourceVersionId: string,
+  evidenceRef: string,
+): void {
+  for (const file of files.values()) {
+    const unmatched = file.functions.filter((fn) => fn.fuzzy < 100);
+    const matched = file.functions.filter((fn) => fn.fuzzy >= 100);
+    const functionCount = file.functions.length || file.declaredFunctionCount || 0;
+    const unmatchedCount = file.functions.length ? unmatched.length : file.declaredUnmatchedFunctionCount || 0;
+    const matchedCount = file.functions.length ? matched.length : file.declaredMatchedFunctionCount || Math.max(0, functionCount - unmatchedCount);
+    const editability =
+      functionCount === 0
+        ? { mode: "unknown", reason: "No functions were found for this source file in the code graph index." }
+        : unmatchedCount === 0
+          ? { mode: "read_only_complete", reason: "Every known function in this file is exact 100%; use as reference evidence only." }
+          : { mode: "editable", reason: `${unmatchedCount} unmatched function(s) remain in this source file.` };
+    const payload = {
+      source_path: file.sourcePath,
+      units: [...file.units].sort(),
+      function_count: functionCount,
+      unmatched_function_count: unmatchedCount,
+      matched_function_count: matchedCount,
+      editability,
+    };
+    entities.push({
+      id: fileEntityId(file.sourcePath),
+      entityType: "source_file",
+      stableKey: file.sourcePath,
+      payload,
+    });
+    facts.push({
+      id: `fact:file_status:${shortHash(file.sourcePath)}`,
+      entityId: fileEntityId(file.sourcePath),
+      factType: "file_match_status",
+      payload: {
+        ...payload,
+        unmatched_functions: unmatched.map((fn) => ({ symbol: fn.symbol, fuzzy: fn.fuzzy, size: fn.size, unit: fn.unit, address: fn.address })),
+        functions: file.functions.map((fn) => ({ symbol: fn.symbol, fuzzy: fn.fuzzy, size: fn.size, unit: fn.unit, address: fn.address })),
+      },
+      confidence: 1,
+      trustTier: "canonical",
+      evidenceRef,
+      sourceVersionId,
+    });
+    facts.push({
+      id: `fact:editability:${shortHash(file.sourcePath)}`,
+      entityId: fileEntityId(file.sourcePath),
+      factType: "editability",
+      payload: editability,
+      confidence: 1,
+      trustTier: "canonical",
+      evidenceRef,
+      sourceVersionId,
+    });
+    chunks.push({
+      id: `chunk:code_graph:file:${shortHash(file.sourcePath)}`,
+      sourceId: "code_graph",
+      sourceVersionId,
+      entityId: fileEntityId(file.sourcePath),
+      title: `Code graph: ${file.sourcePath}`,
+      text: `${file.sourcePath} ${[...file.units].join(" ")} ${file.functions.map((fn) => fn.symbol).join(" ")}`,
+      evidenceRef,
+      payload,
+    });
+  }
 }
 
 function formatAddress(value: unknown): string {
