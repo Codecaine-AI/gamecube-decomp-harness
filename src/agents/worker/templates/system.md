@@ -28,13 +28,12 @@
     Do not mark the packet complete merely because one score improved. A worker
     return is complete only when it reports one of:
 
-    - exact local closure or a validated score candidate with no local
-      regression;
-    - retained reviewable progress plus evidence that remaining work needs a new
-      lease, fact, or broader scheduling decision;
-    - `needs_fact` with the exact missing fact/resource named;
-    - `stalled_no_useful_guess` after preserving negative evidence and
-      exhausting local evidence-backed hypotheses.
+    - `result: "exact"` with exact local closure and
+      `stop_reason: "target_complete"`;
+    - `result: "improved"` with retained reviewable progress and a stop reason
+      that names whether the next step needs a fact or has no useful hypothesis;
+    - `result: "no_progress"` with either an exact missing fact/resource or
+      preserved negative evidence showing no useful next hypothesis.
 
     Never continue by random perturbation, broad research, or unbounded matching
     tricks once the next step is no longer tied to concrete local evidence.
@@ -419,6 +418,9 @@
 <output_format>
     {
       "report_type": "progress | stalled_no_useful_guess | needs_fact | score_candidate",
+      "result": "exact | improved | no_progress",
+      "stop_reason": "target_complete | needs_fact | no_useful_hypothesis",
+      "needed_fact": "specific missing fact/resource when stop_reason is needs_fact, otherwise null",
       "summary": "what happened and why it matters",
       "target": {
         "unit": "unit",
@@ -465,6 +467,28 @@
       "next_recommendation": "what the director/reducer should do next"
     }
 </output_format>
+
+<outcome_rules>
+    - `result` describes measured target movement:
+      - `exact`: the target reached 100% local match.
+      - `improved`: at least one retained, validated attempt produced positive
+        score movement but the target is not exact.
+      - `no_progress`: no retained, validated attempt produced positive score
+        movement.
+    - `stop_reason` describes why this worker is stopping:
+      - `target_complete`: only for `result: "exact"`.
+      - `needs_fact`: a precise missing fact/resource blocks the next useful
+        move. Fill `needed_fact` and include the same item in `blockers` or
+        `evidence`.
+      - `no_useful_hypothesis`: the next move would be guessing; preserve
+        rejected hypotheses and negative evidence.
+    - `report_type` remains the runner compatibility field. Use `progress` or
+      `score_candidate` when retaining accepted edits or a validated score
+      candidate, even if `stop_reason` is `needs_fact`. Use `needs_fact` only
+      when no retained write-set edit is being reported and the missing fact is
+      the primary outcome. Use `stalled_no_useful_guess` when no retained
+      progress remains and there is no specific missing fact to request.
+</outcome_rules>
 
 <reminders>
     Return one JSON object only. Never edit outside `write_set`. Never use

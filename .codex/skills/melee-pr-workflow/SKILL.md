@@ -1,6 +1,6 @@
 ---
 name: melee-pr-workflow
-description: "Top-level Melee PR workflow skill. Use when refreshing the orchestrator-owned past-PR corpus, syncing or rebasing the parent doldecomp/melee checkout, preparing a PR for handoff, running PR regression checks, updating PR reports, or coordinating GitHub PR review/CI work."
+description: "Top-level Melee PR workflow skill. Use when refreshing the orchestrator-owned past-PR corpus, syncing or rebasing the parent doldecomp/melee checkout, designing reviewer-friendly PRs or PR series, preparing a PR for handoff, running PR regression checks, drafting/updating PR bodies, or coordinating GitHub PR review/CI work."
 ---
 
 # Melee PR Workflow
@@ -101,10 +101,36 @@ python3 decomp-orchestrator/knowledge/sources/past_prs/commands/sync_repo_and_pr
 If rebase stops, leave the worktree in Git's rebase state and report the
 conflicted files plus Git's suggested next command.
 
+## Shape PRs And PR Bodies
+
+Use this path when the user asks to split, group, restructure, create, update,
+or explain Melee PRs.
+
+Load `references/pr-shaping-reviewer-guidance.md` before proposing or applying a
+PR split. Design PRs around reviewer cognition and regression-tool signal:
+
+- Keep broad header, naming, symbol, build, metadata, and rename churn separate
+  from ordinary implementation/matching work when possible.
+- Group small changes only when they share one review context and risk class.
+- Treat shared headers, symbol renames, and bot-visible name changes as
+  high-risk even when the file count is small.
+- Avoid path-only splits when a subsystem, actor/module family, matching
+  milestone, API/header change, or mechanical cleanup category gives reviewers
+  a clearer unit.
+- Write PR bodies as reviewer-facing digests using the reference template:
+  summary, PR shape, reviewer notes, and verification/regression status.
+
 ## Prepare PR Handoff
 
 Use this path when the user asks to prepare, finalize, refresh, build-check,
 regression-check, update, or hand off a Melee PR.
+
+For review-style cleanup and regression triage, use the local QA reference in
+`references/pr-review-qa-standards.md`. Keep that reference in the workflow
+skill, not in upstream Melee docs.
+
+For PR splitting/grouping and reviewer-facing PR body content, use
+`references/pr-shaping-reviewer-guidance.md`.
 
 1. Inspect status and PR context:
 
@@ -135,7 +161,17 @@ gh api --paginate repos/doldecomp/melee/issues/<PR_NUMBER>/comments
 gh api --paginate repos/doldecomp/melee/pulls/<PR_NUMBER>/reviews
 ```
 
-4. Rebuild a baseline from current `origin/master`:
+4. Evaluate PR shape before validation:
+
+- Inventory touched file types and high-risk churn.
+- Decide whether the PR should stay grouped, split, or isolate header/naming
+  changes.
+- Draft/update the PR body with a clear summary, PR shape, reviewer notes, and
+  verification section.
+- Call out expected regression false positives caused by renames or declaration
+  movement.
+
+5. Rebuild a baseline from current `origin/master`:
 
 ```bash
 BASE_SHA="$(git rev-parse origin/master)"
@@ -147,7 +183,7 @@ fi
 cp "$BASE_DIR/build/GALE01/baseline.json" build/GALE01/baseline.json
 ```
 
-5. Run build and regression gates:
+6. Run build and regression gates:
 
 ```bash
 ninja
@@ -160,7 +196,7 @@ bun run --cwd decomp-orchestrator orch -- \
   --report-max-rows 300
 ```
 
-6. Fix and rerun until the handoff state is clean:
+7. Fix and rerun until the handoff state is clean:
 
 - `build/GALE01/main.dol: OK`
 - zero broken matches
@@ -168,7 +204,7 @@ bun run --cwd decomp-orchestrator orch -- \
 - zero unit, section, or function metric regressions
 - no unresolved actionable review comments or relevant build warnings/errors
 
-7. Commit or amend only parent Melee PR files, then push safely:
+8. Commit or amend only parent Melee PR files, then push safely:
 
 ```bash
 git status --short --untracked-files=no --ignore-submodules=all
@@ -178,7 +214,7 @@ git commit --amend --no-edit
 git push --force-with-lease fork HEAD:<branch>
 ```
 
-8. Update or create the PR, then watch CI:
+9. Update or create the PR, then watch CI:
 
 ```bash
 gh pr edit <PR_NUMBER> --repo doldecomp/melee --body-file <report.md>

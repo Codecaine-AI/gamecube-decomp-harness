@@ -1,6 +1,6 @@
 ---
 covers: Current D-Comp Orchestrator source tree and implementation sections
-concepts: [implementation, source-layout, cli, agents, state, knowledge]
+concepts: [implementation, source-layout, cli, agents, state, knowledge, ui]
 code-ref: decomp-orchestrator/
 ---
 
@@ -8,8 +8,8 @@ code-ref: decomp-orchestrator/
 
 The package is organized around runtime responsibilities instead of one large
 orchestrator file. Agent slices live together, CLI commands are separated by
-operator action, state code owns SQLite transitions, and package knowledge lives
-outside `src/`.
+operator action, state code owns SQLite transitions, the UI exposes operator
+control surfaces, and package knowledge lives outside `src/`.
 
 ## File Tree
 
@@ -29,6 +29,7 @@ decomp-orchestrator/
 |   +-- shell/
 |   +-- state/
 |   +-- types/
+|   +-- ui/
 +-- testdata/
 +-- tests/
 ```
@@ -39,7 +40,7 @@ decomp-orchestrator/
 
 - Source layout and package boundaries.
 - How the CLI, process guardians, agents, state, board, shell helpers, and
-  knowledge loader fit together.
+  knowledge loader, and dashboard fit together.
 - Current implementation references for maintainers.
 
 ### What This Section Does Not Own
@@ -58,6 +59,8 @@ decomp-orchestrator/
   resource graph, agent context routing, and past PR library.
 - [State](state/00-overview.md): SQLite schema, state helpers, leases, events,
   reports, runs, and status.
+- [UI](ui/00-overview.md): dashboard server, process controls, collapsible
+  rails, and PR handoff controls.
 - [Appendix](99-appendix/10-design-source.md): original design source and
   preserved HTML artifact.
 - [Current repo mechanics](99-appendix/20-current-repo-mechanics.md): Melee

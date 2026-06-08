@@ -21,12 +21,12 @@ artifact while naming the current package status.
 | 5 | Director-cycle dry run | Present through `tick` and trigger-agent activation. |
 | 6 | Prompt builder and capability templates | Present under `src/agents/{director,worker,pr-review}` plus agent context manifest routes. |
 | 7 | One locked worker | Present through `worker` and trigger-agent subprocess workers. |
-| 8 | Score integration dry run | Partially represented by `regression-check`; full patch accept/reject integration is future work. |
+| 8 | Score integration dry run | Represented by `regression-check`, PR promotion reports, and dashboard QA controls; full patch accept/reject integration is future work. |
 | 9 | Event-driven refill loop | Present through `trigger-agent` / `bootstrap`. |
 | 9.5 | Process guardian wrapper | Present through `babysit`, guardian incident artifacts, worker-id lease recovery, and child restart policy. |
 | 10 | Fact-aware loop | Facts are represented in state and reports; reducer/fact promotion is future work. |
-| 11 | Human dashboard | Future work. |
-| 12 | Run summary artifact | Future work beyond smoke summary and regression report artifacts. |
+| 11 | Human dashboard | Present as the Bun/React UI for progress, work tables, process controls, collapsible rails, checkpointing, and PR handoff controls. |
+| 12 | Run summary artifact | Partially present through checkpoint artifacts, carry-forward ledgers, regression reports, PR split plans, and smoke summary artifacts. |
 
 ## V1 Defaults
 
@@ -46,6 +46,9 @@ artifact while naming the current package status.
   future target packets.
 - Build/report generation is serialized in v1 through one global validation
   path.
+- PR handoff is operator-controlled through dashboard actions that pause intake,
+  checkpoint the run, run PR QA, and build a split plan. The dashboard prepares
+  artifacts but does not publish GitHub PRs.
 - Crash recovery is restart-from-state: canonical checkout plus SQLite,
   artifacts, and guardian incident packets. Worker Pi sessions are not resumed
   in v1.

@@ -1,6 +1,6 @@
 ---
-covers: SQLite schema and state helper modules for runs, targets, leases, events, reports, and status
-concepts: [state, sqlite, schema, leases, events, reports, status]
+covers: SQLite schema and state helper modules for runs, targets, leases, events, reports, checkpoints, and status
+concepts: [state, sqlite, schema, leases, events, reports, checkpoints, run-status, status]
 code-ref: decomp-orchestrator/src/state
 ---
 
@@ -44,6 +44,8 @@ src/state/
 | `attempts` | Attempt-level validation and score movement records. |
 | `facts` | Reusable evidence accepted or tracked by the board. |
 | `integrations` | Score-gate integration records. |
+| `run_checkpoints` | End-of-run checkpoint records that separate PR candidates from carried-forward work. |
+| `checkpoint_items` | Per-report checkpoint items with dispositions such as PR candidate, deferred patch, needs-fact, or stalled. |
 
 ## Module Responsibilities
 
@@ -65,6 +67,11 @@ src/state/
   released or recovered.
 - A run goal is a checkpoint threshold for pausing and handoff. It is not the
   global project completion target.
+- Run status gates scheduling. `active` runs can start workers and director
+  ticks; `paused`, `complete`, and `failed` runs are rejected by scheduling
+  commands until an operator intentionally resumes or starts a fresh run.
+- `updateRunStatus` writes run status transitions and records a handled
+  `run_status_changed` event. The event is an audit row, not a director wake.
 - File-lock rows are transient active-lease guards.
 - Refill prefers fresh candidates that are not already represented in the run
   and skips source paths with active locks.
@@ -75,8 +82,15 @@ src/state/
 - Events are handled only after the follow-up state transition is persisted.
 - SQLite is configured with WAL mode, foreign keys, and a busy timeout so CLI
   steps can safely coordinate through the same state directory.
+- A checkpoint can be written after a run drains. Exact-match reports become
+  PR candidates, while non-PR progress, fact requests, and stalls remain as
+  carry-forward items for later sessions.
+- Dashboard PR handoff state reads the latest checkpoint row plus the latest
+  regression-check and split-plan summary artifacts so operators can see the
+  handoff status without leaving the UI.
 
 ## Related
 
 - [Durable state and events](../../10-system-design/30-state-and-events.md)
 - [CLI overview](../cli/00-overview.md)
+- [UI implementation](../ui/00-overview.md)

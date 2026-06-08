@@ -1,4 +1,4 @@
-import type { JsonObject } from "../types";
+import type { JsonObject } from "../types.js";
 
 export function text(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
@@ -41,6 +41,30 @@ export function signedWhole(value: unknown): string {
 
 export function score(value: unknown): string {
   return Number.isFinite(Number(value)) ? Number(value).toFixed(3) : "n/a";
+}
+
+function finiteNumber(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function percentLike(value: unknown): boolean {
+  const parsed = finiteNumber(value);
+  return parsed !== null && parsed >= 0 && parsed <= 100;
+}
+
+export function scorePairLooksPercent(oldValue: unknown, newValue: unknown, deltaValue?: unknown): boolean {
+  if (!percentLike(oldValue) || !percentLike(newValue)) return false;
+  const oldScore = finiteNumber(oldValue);
+  const newScore = finiteNumber(newValue);
+  const deltaScore = finiteNumber(deltaValue);
+  if (oldScore === null || newScore === null || deltaScore === null || Math.abs(deltaScore) < 0.0005) return true;
+  const scoreMovement = newScore - oldScore;
+  return Math.abs(scoreMovement) < 0.0005 || Math.sign(deltaScore) === Math.sign(scoreMovement);
+}
+
+export function scoreOrPercent(value: unknown, percent = true): string {
+  return percent ? pct(value) : score(value);
 }
 
 export function delta(value: unknown): string {

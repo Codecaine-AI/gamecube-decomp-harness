@@ -1,13 +1,15 @@
-import { Ban, Flag, Play, RefreshCw, RotateCcw, Square, Zap } from "lucide-react";
+import { Ban, ChevronLeft, ChevronRight, FileCheck, Flag, GitBranch, GitPullRequest, Pause, Play, RefreshCw, RotateCcw, ShieldCheck, Square, Undo2, Zap } from "lucide-react";
 import { asArray, asObject, clock, num, shortId, text } from "../lib/format";
 import type { Dashboard, FormState } from "../types";
 import { Button, CheckboxField, Field, PanelSection, PanelTitle, Pill, SelectField } from "./primitives";
 
 interface SidebarProps {
   busy: boolean;
+  collapsed: boolean;
   dashboard: Dashboard | null;
   form: FormState;
-  onAction: (action: "refresh" | "init" | "fresh" | "report" | "start" | "stop" | "forceStop") => void;
+  onAction: (action: "refresh" | "init" | "fresh" | "report" | "start" | "stop" | "forceStop" | "pausePr" | "resumePr" | "checkpoint" | "qa" | "splitPlan" | "preparePr") => void;
+  onCollapsedChange: (collapsed: boolean) => void;
   setForm: (updates: Partial<FormState>) => void;
   streamState: string;
 }
@@ -86,26 +88,157 @@ function ProcessPanel({
   );
 }
 
-export function Sidebar({ busy, dashboard, form, onAction, setForm, streamState }: SidebarProps) {
+function statusClass(value: unknown): string {
+  const status = text(value);
+  if (status === "passed" || status === "pr_ready") return "text-[#45e05e]";
+  if (status === "failed" || status === "blocked") return "text-[#ff8f8f]";
+  if (status === "local_only" || status === "open") return "text-[#d7a64b]";
+  return "text-[#969b97]";
+}
+
+function ArtifactRow({ label, path, status }: { label: string; path?: unknown; status?: unknown }) {
+  return (
+    <div className="grid min-h-7 grid-cols-[72px_74px_minmax(0,1fr)] items-center gap-2 border-t border-[#292d2b] bg-[#151715] px-2 py-1 first:border-t-0">
+      <span className="text-[11px] uppercase text-[#969b97]">{label}</span>
+      <span className={`${statusClass(status)} overflow-hidden text-ellipsis whitespace-nowrap`}>{text(status, "-")}</span>
+      <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[#969b97]" title={text(path)}>
+        {text(path, "-")}
+      </span>
+    </div>
+  );
+}
+
+function HandoffPanel({
+  busy,
+  dashboard,
+  form,
+  onAction,
+  running,
+  setForm,
+}: Pick<SidebarProps, "busy" | "dashboard" | "form" | "onAction" | "setForm"> & { running: boolean }) {
+  const run = asObject(dashboard?.status?.run);
+  const status = asObject(dashboard?.status);
+  const activeLeases = Number(status.activeLeases || 0);
+  const handoff = asObject(dashboard?.handoff);
+  const checkpoint = asObject(handoff.checkpoint || dashboard?.checkpoint);
+  const checkpointCounts = asObject(checkpoint.counts);
+  const qa = asObject(handoff.qa);
+  const qaPromotion = asObject(qa.prPromotion);
+  const splitPlan = asObject(handoff.splitPlan);
+  const runStatus = text(run.status);
+  const runPaused = runStatus === "paused";
+  const runActive = runStatus === "active";
+  const hasRun = Boolean(run.id);
+  const handoffReady = hasRun && activeLeases === 0;
+  const qaReady = handoffReady && !running;
+
+  return (
+    <PanelSection>
+      <PanelTitle>PR Handoff</PanelTitle>
+      <div className="mb-2 overflow-hidden rounded-md border border-[#292d2b]">
+        <ArtifactRow label="Run" path={run.id ? `active leases ${num(activeLeases)}` : ""} status={text(run.status, "none")} />
+        <ArtifactRow label="Checkpoint" path={checkpoint.prCandidatesPath} status={checkpoint.id ? `${num(checkpointCounts.pr_candidate)} PR` : ""} />
+        <ArtifactRow label="QA" path={qa.prReportPath || qa.summaryPath} status={text(qaPromotion.status, text(qa.status))} />
+        <ArtifactRow label="Plan" path={splitPlan.outputPath} status={splitPlan.status} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Field label="QA target" onChange={(event) => setForm({ qaTarget: event.currentTarget.value })} spellCheck={false} value={form.qaTarget} />
+        <Field label="QA rows" min={0} onChange={(event) => setForm({ qaReportMaxRows: Number(event.currentTarget.value) })} type="number" value={form.qaReportMaxRows} />
+      </div>
+      <CheckboxField checked={form.requirePrPromotion} label="Require PR promotion" onChange={(event) => setForm({ requirePrPromotion: event.currentTarget.checked })} />
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <Field label="Base ref" onChange={(event) => setForm({ prBaseRef: event.currentTarget.value })} spellCheck={false} value={form.prBaseRef} />
+        <SelectField label="Group" onChange={(event) => setForm({ prGroupMode: event.currentTarget.value })} options={["melee-subsystem", "top-dir"]} value={form.prGroupMode} />
+        <Field label="Max files" min={1} onChange={(event) => setForm({ prMaxFilesPerPr: Number(event.currentTarget.value) })} type="number" value={form.prMaxFilesPerPr} />
+        <Field label="Branch prefix" onChange={(event) => setForm({ prBranchPrefix: event.currentTarget.value })} spellCheck={false} value={form.prBranchPrefix} />
+      </div>
+      <Field label="Title prefix" onChange={(event) => setForm({ prTitlePrefix: event.currentTarget.value })} spellCheck={false} value={form.prTitlePrefix} />
+      <CheckboxField checked={form.prIncludeUntracked} label="Include untracked" onChange={(event) => setForm({ prIncludeUntracked: event.currentTarget.checked })} />
+      <CheckboxField checked={form.prCommittedOnly} label="Committed only" onChange={(event) => setForm({ prCommittedOnly: event.currentTarget.checked })} />
+      <CheckboxField checked={form.pauseBeforeHandoff} label="Pause before prepare" onChange={(event) => setForm({ pauseBeforeHandoff: event.currentTarget.checked })} />
+
+      <div className="mt-2.5 grid grid-cols-2 gap-2">
+        <Button disabled={!hasRun || !runActive || busy} icon={<Pause size={14} />} onClick={() => onAction("pausePr")} tone="warning" type="button">
+          Pause Intake
+        </Button>
+        <Button disabled={!hasRun || !runPaused || busy} icon={<Undo2 size={14} />} onClick={() => onAction("resumePr")} type="button">
+          Resume
+        </Button>
+        <Button disabled={!handoffReady || busy} icon={<FileCheck size={14} />} onClick={() => onAction("checkpoint")} type="button">
+          Checkpoint
+        </Button>
+        <Button disabled={!qaReady || busy} icon={<ShieldCheck size={14} />} onClick={() => onAction("qa")} type="button">
+          Run QA
+        </Button>
+        <Button disabled={!qaReady || busy} icon={<GitBranch size={14} />} onClick={() => onAction("splitPlan")} type="button">
+          Plan PRs
+        </Button>
+        <Button disabled={!handoffReady || busy} icon={<GitPullRequest size={14} />} onClick={() => onAction("preparePr")} tone="primary" type="button">
+          Prepare
+        </Button>
+      </div>
+    </PanelSection>
+  );
+}
+
+export function Sidebar({ busy, collapsed, dashboard, form, onAction, onCollapsedChange, setForm, streamState }: SidebarProps) {
   const run = asObject(dashboard?.status?.run);
   const selectedName = processName(form.processName);
   const { pillState, running } = useProcessView(dashboard, selectedName);
   const actionBusy = busy;
 
-  return (
-    <aside className="min-w-0 overflow-auto border-r border-[#363a38] bg-[#1d1f1e]">
-      <PanelSection className="sticky top-0 z-10 grid grid-cols-[1fr_auto] items-center gap-x-2.5 bg-[#181a19]">
-        <div className="text-xs text-[#969b97]">Decomp Orchestrator</div>
-        <Pill state={pillState} />
-        <h1 className="m-0 text-lg font-semibold tracking-normal">{run.id ? `Run ${shortId(run.id)}` : "No run"}</h1>
-        <div className="text-right text-[11px] uppercase text-[#969b97]">{streamState}</div>
-      </PanelSection>
+  if (collapsed) {
+    return (
+      <aside className="sidebar-rail sidebar-rail-collapsed grid min-w-0 border-r border-[#363a38] bg-[#1d1f1e] overflow-hidden max-[780px]:block">
+        <div className="sidebar-rail-tab z-10 flex h-full flex-col items-center justify-start gap-2 border-b border-[#292d2b] bg-[#181a19] px-2 py-1.5 max-[780px]:h-[42px] max-[780px]:flex-row">
+          <Button
+            aria-expanded={false}
+            className="h-7 min-w-7 px-0"
+            icon={<ChevronRight size={14} />}
+            onClick={() => onCollapsedChange(false)}
+            title="Show controls"
+            type="button"
+          >
+            <span className="sr-only">Show</span>
+          </Button>
+          <span className="[writing-mode:vertical-rl] rotate-180 text-xs font-bold uppercase text-[#c0c5c1] max-[780px]:[writing-mode:initial] max-[780px]:rotate-0">
+            Controls
+          </span>
+        </div>
+      </aside>
+    );
+  }
 
-      <PanelSection>
-        <PanelTitle>Project</PanelTitle>
-        <Field label="Repo root" onChange={(event) => setForm({ repoRoot: event.currentTarget.value })} spellCheck={false} value={form.repoRoot} />
-        <Field label="State dir" onChange={(event) => setForm({ stateDir: event.currentTarget.value })} spellCheck={false} value={form.stateDir} />
-      </PanelSection>
+  return (
+    <aside className="sidebar-rail sidebar-rail-open min-w-0 overflow-auto border-r border-[#363a38] bg-[#1d1f1e]">
+      <div className="sidebar-rail-content">
+        <PanelSection className="sticky top-0 z-10 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 bg-[#181a19]">
+          <Button
+            aria-expanded
+            className="h-7 min-w-7 px-0"
+            icon={<ChevronLeft size={14} />}
+            onClick={() => onCollapsedChange(true)}
+            title="Hide controls"
+            type="button"
+          >
+            <span className="sr-only">Hide</span>
+          </Button>
+          <div className="min-w-0">
+            <div className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-[#969b97]">Decomp Orchestrator</div>
+            <h1 className="m-0 overflow-hidden text-ellipsis whitespace-nowrap text-lg font-semibold tracking-normal">{run.id ? `Run ${shortId(run.id)}` : "No run"}</h1>
+          </div>
+          <div className="grid justify-items-end gap-1">
+            <Pill state={pillState} />
+            <div className="text-right text-[11px] uppercase text-[#969b97]">{streamState}</div>
+          </div>
+        </PanelSection>
+
+        <PanelSection>
+          <PanelTitle>Project</PanelTitle>
+          <Field label="Repo root" onChange={(event) => setForm({ repoRoot: event.currentTarget.value })} spellCheck={false} value={form.repoRoot} />
+          <Field label="State dir" onChange={(event) => setForm({ stateDir: event.currentTarget.value })} spellCheck={false} value={form.stateDir} />
+        </PanelSection>
 
       <PanelSection>
         <PanelTitle>Run</PanelTitle>
@@ -126,6 +259,7 @@ export function Sidebar({ busy, dashboard, form, onAction, setForm, streamState 
           <SelectField label="Worker thinking" onChange={(event) => setForm({ workerThinkingLevel: event.currentTarget.value })} options={["medium", "low", "high", "x-high"]} value={form.workerThinkingLevel} />
         </div>
         <CheckboxField checked={form.dryRunAgents} label="Dry-run agents" onChange={(event) => setForm({ dryRunAgents: event.currentTarget.checked })} />
+        <CheckboxField checked={form.checkpointBeforeFresh} label="Checkpoint before fresh" onChange={(event) => setForm({ checkpointBeforeFresh: event.currentTarget.checked })} />
         <CheckboxField checked={form.refreshPrLibrary} label="Refresh PR library" onChange={(event) => setForm({ refreshPrLibrary: event.currentTarget.checked })} />
         <CheckboxField checked={form.resetReportBaseline} label="Reset report baseline" onChange={(event) => setForm({ resetReportBaseline: event.currentTarget.checked })} />
         <div className="mt-2.5 grid grid-cols-2 gap-2">
@@ -153,7 +287,10 @@ export function Sidebar({ busy, dashboard, form, onAction, setForm, streamState 
         </div>
       </PanelSection>
 
+      <HandoffPanel busy={busy} dashboard={dashboard} form={form} onAction={onAction} running={running} setForm={setForm} />
+
       <ProcessPanel dashboard={dashboard} form={form} setForm={setForm} />
+      </div>
     </aside>
   );
 }

@@ -19,7 +19,9 @@ import {
   queuedTargetCount,
   refillQueuedTargets,
   schedulableTargetCount,
+  updateRunStatus,
 } from "../src/state/index.js";
+import { scoreOrPercent, scorePairLooksPercent } from "../src/ui/app/lib/format.js";
 import { loadTrustedReport } from "../src/ui/trusted-report.js";
 import type { TargetCandidate } from "../src/types/index.js";
 
@@ -154,6 +156,9 @@ async function main(): Promise<void> {
   assertSmoke("ui trusted report keeps worker-independent improvements separate", trustedReport.counts.improvements === 1);
   assertSmoke("ui trusted report exposes matched code byte delta", trustedReport.measures?.matchedCodeBytesDelta === 26);
   assertSmoke("ui trusted report exposes PR promotion status", trustedReport.promotion?.status === "pr_ready");
+  assertSmoke("ui worker score formatter keeps percent scores as percentages", scoreOrPercent(100, scorePairLooksPercent(99.5, 100, 0.5)) === "100.000%");
+  assertSmoke("ui worker score formatter does not percent-format large mismatch counts", scoreOrPercent(894, scorePairLooksPercent(900, 894, 6)) === "894.000");
+  assertSmoke("ui worker score formatter rejects lower-is-better local counts", scoreOrPercent(31, scorePairLooksPercent(34, 31, 3)) === "31.000");
 
   const regressionReport = await readRegressionReport(resolve(fixtureRoot, "build/GALE01/report_changes.json"), "Fixture local report", 30);
   assertSmoke("regression report promotes exact matched progress", regressionReport.promotion.status === "pr_ready");
@@ -802,6 +807,117 @@ async function main(): Promise<void> {
     assertSmoke("worker report row exists", count(store, "SELECT COUNT(*) AS count FROM worker_reports WHERE lease_id = ? AND report_type = 'stalled_no_useful_guess'", worker.leaseId) === 1);
   } finally {
     store.db.close();
+  }
+
+  const exactReportDir = join(stateDir, "synthetic-exact-report");
+  await mkdir(exactReportDir, { recursive: true });
+  const exactSummaryPath = join(exactReportDir, "worker_report.json");
+  const exactPatchPath = join(exactReportDir, "patch.diff");
+  await writeFile(exactPatchPath, "diff --git a/src/melee/ft/chara/ftDemo.c b/src/melee/ft/chara/ftDemo.c\n");
+  await writeFile(
+    exactSummaryPath,
+    JSON.stringify(
+      {
+        run_id: init.run.id,
+        lease_id: "checkpoint-exact-lease",
+        target: {
+          unit: "main/melee/ft/chara/ftDemo",
+          symbol: "ftDemo_Exact",
+          source_path: "src/melee/ft/chara/ftDemo.c",
+        },
+        write_set: ["src/melee/ft/chara/ftDemo.c"],
+        report_type: "score_candidate",
+        summary: "Synthetic exact match for checkpoint smoke.",
+        agent_report: {
+          patch_path: exactPatchPath,
+          attempts: [
+            {
+              description: "Synthetic exact-match attempt.",
+              old_score: 99.5,
+              new_score: 100,
+              delta: 0.5,
+              artifact_path: "synthetic-objdiff.json",
+            },
+          ],
+        },
+        acceptance_gate: {
+          accepted: true,
+          intendedReportType: "score_candidate",
+          effectiveReportType: "score_candidate",
+          reasons: [],
+        },
+        runner_validation: {
+          status: "passed",
+          reasons: [],
+        },
+        repair_attempts: {
+          exhausted: false,
+        },
+        created_at: new Date().toISOString(),
+      },
+      null,
+      2,
+    ),
+  );
+  const checkpointSeedStore = openState(stateDir);
+  try {
+    const createdAt = new Date().toISOString();
+    checkpointSeedStore.db
+      .query(
+        "INSERT INTO targets (id, run_id, unit, symbol, source_path, size, fuzzy, status, priority, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        "checkpoint-exact-target",
+        init.run.id,
+        "main/melee/ft/chara/ftDemo",
+        "ftDemo_Exact",
+        "src/melee/ft/chara/ftDemo.c",
+        32,
+        99.5,
+        "reported",
+        100,
+        "synthetic exact checkpoint target",
+        createdAt,
+      );
+    checkpointSeedStore.db
+      .query("INSERT INTO queue (id, run_id, target_id, priority, reason, status, created_at, leased_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .run("checkpoint-exact-queue", init.run.id, "checkpoint-exact-target", 100, "synthetic exact checkpoint target", "reported", createdAt, createdAt);
+    checkpointSeedStore.db
+      .query("INSERT INTO leases (id, queue_id, worker_id, base_rev, write_set_hash, worktree_path, ttl, heartbeat_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run("checkpoint-exact-lease", "checkpoint-exact-queue", "checkpoint-exact-worker", "smoke-base", "synthetic", null, createdAt, createdAt, "released_complete");
+    checkpointSeedStore.db
+      .query("INSERT INTO worker_reports (id, lease_id, report_type, summary_path, facts_path, blocker_path, patch_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .run("checkpoint-exact-report", "checkpoint-exact-lease", "score_candidate", exactSummaryPath, null, null, exactPatchPath, createdAt);
+  } finally {
+    checkpointSeedStore.db.close();
+  }
+  const checkpointOutputDir = join(stateDir, "checkpoint-smoke");
+  const checkpoint = parseJson<{
+    checkpoint: { summaryPath: string; prCandidatesPath: string; carryForwardPath: string };
+    counts: Record<string, number>;
+    prCandidates: unknown[];
+    carryForwardCount: number;
+  }>(await runCli([...commonFlags, "checkpoint-run", "--run-id", init.run.id, "--artifact-dir", checkpointOutputDir]));
+  assertSmoke("checkpoint-run writes one PR candidate for exact matches", checkpoint.counts.pr_candidate === 1 && checkpoint.prCandidates.length === 1);
+  assertSmoke("checkpoint-run carries non-PR work forward", checkpoint.carryForwardCount === 1 && checkpoint.counts.stalled === 1);
+  assertSmoke("checkpoint-run writes checkpoint artifacts", existsSync(checkpoint.checkpoint.summaryPath) && existsSync(checkpoint.checkpoint.prCandidatesPath) && existsSync(checkpoint.checkpoint.carryForwardPath));
+  const checkpointStore = openState(stateDir);
+  try {
+    assertSmoke("checkpoint-run persists checkpoint row", count(checkpointStore, "SELECT COUNT(*) AS count FROM run_checkpoints WHERE run_id = ?", init.run.id) === 1);
+    assertSmoke("checkpoint-run persists checkpoint item rows", count(checkpointStore, "SELECT COUNT(*) AS count FROM checkpoint_items WHERE run_id = ?", init.run.id) === 2);
+    assertSmoke("checkpoint-run marks exact matches as PR candidates", count(checkpointStore, "SELECT COUNT(*) AS count FROM checkpoint_items WHERE run_id = ? AND disposition = 'pr_candidate' AND exact_match = 1", init.run.id) === 1);
+  } finally {
+    checkpointStore.db.close();
+  }
+
+  const pausedStore = openState(stateDir);
+  try {
+    const pausedRun = updateRunStatus(pausedStore, init.run.id, "paused", "smoke");
+    assertSmoke("run pause sets non-schedulable paused status", pausedRun.status === "paused");
+    const resumedRun = updateRunStatus(pausedStore, init.run.id, "active", "smoke");
+    assertSmoke("run resume restores active status", resumedRun.status === "active");
+  } finally {
+    pausedStore.db.close();
   }
 
   const recoveryStateDir = await mkdtemp(join(tmpdir(), "decomp-orchestrator-recover-smoke-"));

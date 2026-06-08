@@ -115,6 +115,41 @@ Global score integration happens outside the worker's local loop. A worker can
 surface a score candidate, but the run baseline changes only after the
 integration gate validates it.
 
+## Report Outcomes
+
+Worker reports separate outcome into two fields:
+
+- `result`: what happened to the target. Valid values are `exact`, `improved`,
+  and `no_progress`.
+- `stop_reason`: why this worker is done with the current lease. Valid values
+  are `target_complete`, `needs_fact`, and `no_useful_hypothesis`.
+
+The UI renders these as combined outcome filters:
+
+- Exact: `result: "exact"` or `stop_reason: "target_complete"`. The target
+  reached a 100% local match.
+- Improved / Stalled: `result: "improved"` and
+  `stop_reason: "no_useful_hypothesis"`. The worker retained positive score
+  movement, then exhausted evidence-backed next hypotheses.
+- Improved / Needs: `result: "improved"` and `stop_reason: "needs_fact"`. The
+  worker retained positive score movement, then hit a specific missing
+  fact/resource.
+- No Progress / Stalled: `result: "no_progress"` and
+  `stop_reason: "no_useful_hypothesis"`. The worker did not retain positive
+  score movement and has no evidence-backed next move.
+- No Progress / Needs: `result: "no_progress"` and
+  `stop_reason: "needs_fact"`. The worker did not retain positive score movement
+  because a specific missing fact/resource blocks progress.
+- Failed: the report failed the structured acceptance gate or runner-owned
+  validation. Failed progress-like returns are treated as stalls after repair
+  attempts are exhausted.
+
+`report_type` remains the runner compatibility field for acceptance and wake
+events. `progress` and `score_candidate` describe accepted progress-style
+returns; they are not proof of score movement by themselves. `needs_fact` is used
+when the missing fact is the primary no-edit outcome. `stalled_no_useful_guess`
+is used when no retained progress remains and no specific missing fact is known.
+
 ## Stall Policy
 
 A worker should stop when it cannot name an evidence-backed next hypothesis.
