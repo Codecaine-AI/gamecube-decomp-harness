@@ -1,6 +1,6 @@
 ---
 covers: D-Comp Orchestrator CLI command modules and operator command surface
-concepts: [cli, commands, init-run, tick, worker, trigger-agent, babysit, recovery, regression-check, pr-split-plan]
+concepts: [cli, commands, init-run, tick, worker, trigger-agent, babysit, recovery, checkpoint, regression-check, pr-split-plan, ui]
 code-ref: decomp-orchestrator/src/cli, decomp-orchestrator/src/bin/decomp-orchestrator.ts
 ---
 
@@ -30,6 +30,7 @@ src/
     +-- usage.ts
     +-- commands/
         +-- babysit.ts
+        +-- checkpoint-run.ts
         +-- index.ts
         +-- init-run.ts
         +-- kg.ts
@@ -53,6 +54,7 @@ src/
 | `trigger-agent` | Resting supervisor loop that wakes the director on events, starts workers up to `desired_workers` or `--max-workers`, and sleeps when the board is quiet. |
 | `bootstrap` | Alias for `trigger-agent`. |
 | `babysit` | Guardian wrapper that launches the decomp system command, captures process-health incidents, recovers failed or expired leases, and restarts according to policy. |
+| `checkpoint-run` | Harvests a drained run into PR-candidate exact matches and carry-forward items. |
 | `recover-leases` | Converts interrupted or expired active leases into durable stalled reports after operator confirmation. |
 | `regression-check` | Wraps the repo's global saved-baseline regression gate and writes run artifacts. |
 | `pr-split-plan` | Plans review-sized PR slices from the current branch/worktree by grouping changed files by Melee subsystem or top-level directory. |
@@ -163,6 +165,29 @@ matched code/data byte movement; fuzzy-only improvements are recorded as
 `--promotion-min-*` thresholds only when an operator deliberately wants a higher
 or broader promotion policy.
 
+## Run Checkpoint
+
+`checkpoint-run` is the operator bridge between a drained run and PR packaging.
+It reads worker reports for the selected run, writes checkpoint artifacts under
+`state_dir/runs/<run_id>/checkpoints/<timestamp>/`, and persists the split to
+`run_checkpoints` and `checkpoint_items`.
+
+The checkpoint classifies exact-match `progress` or `score_candidate` reports
+as `pr_candidate`. Clean non-exact progress becomes `deferred_patch`;
+`needs_fact` and `stalled_no_useful_guess` reports stay visible as
+carry-forward evidence. The generated `pr_candidates.md` is the source list for
+match PR packaging, while `carry_forward.md` is the ledger of local work that
+should not be forgotten after the baseline or next run is reset.
+
+The dashboard Fresh Run action checkpoints the current run before resetting the
+report baseline by default. Disable that only when intentionally discarding or
+manually managing the previous run handoff.
+
+The dashboard PR Handoff panel also exposes `Checkpoint` as a direct action.
+That UI path calls the same `createRunCheckpoint` handoff logic as
+`checkpoint-run` and refuses active leases unless the run has been drained or
+the leases have been recovered.
+
 ## PR Split Planning
 
 `pr-split-plan` is the operator handoff command for turning a large accepted
@@ -198,6 +223,24 @@ changes. Use `--committed-only` after committing the source bundle,
 untracked paths, `--json` for automation, or `--output <path>` to save the
 rendered plan.
 
+## Dashboard Handoff Controls
+
+The UI server wraps the same operator commands for PR preparation:
+
+| UI Action | Underlying behavior |
+| --- | --- |
+| `Pause Intake` | Drains the managed process and marks the run `paused`, which prevents `start`, `tick`, `worker`, and `trigger-agent` scheduling until the run is resumed. |
+| `Checkpoint` | Runs the checkpoint handoff logic and writes checkpoint artifacts under the run state directory. |
+| `Run QA` | Runs `regression-check` with `--require-pr-promotion` enabled by default. |
+| `Plan PRs` | Runs `pr-split-plan` with the selected base ref, group mode, branch prefix, title prefix, and worktree/untracked options. |
+| `Prepare` | Runs pause, checkpoint, QA, and split planning in sequence; split planning runs only after QA passes. |
+
+The UI stores split-plan artifacts under
+`state_dir/pr_handoff/<run_id>/split_plans/<timestamp>/`. Regression-check
+artifacts stay under `state_dir/regression_checks/<run_id>/<timestamp>/`, and
+checkpoint artifacts stay under
+`state_dir/runs/<run_id>/checkpoints/<timestamp>/`.
+
 ## Knowledge Maintenance
 
 `trigger-agent` can run `kg-maintain` in the background. Live runs default to a
@@ -222,4 +265,5 @@ target remains `100%` matched code.
 ## Related
 
 - [State implementation](../state/00-overview.md)
+- [UI implementation](../ui/00-overview.md)
 - [Agent runtime](../agents/30-runtime.md)

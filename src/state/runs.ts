@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { RunRecord } from "../types/index.js";
+import type { RunRecord, RunStatus } from "../types/index.js";
 import { immediateTransaction, now, withBusyRetry, type StateStore } from "./db.js";
 import { insertEvent } from "./events.js";
 
@@ -55,4 +55,29 @@ export function getRun(store: StateStore, runId: string): RunRecord | null {
         .get(runId) as Record<string, unknown> | undefined,
   );
   return row ? runFromRow(row) : null;
+}
+
+export function updateRunStatus(store: StateStore, runId: string, status: RunStatus, producer = "operator"): RunRecord {
+  const run = getRun(store, runId);
+  if (!run) throw new Error(`Run not found: ${runId}`);
+  if (run.status === status) return run;
+  immediateTransaction(store.db, () => {
+    const changedAt = now();
+    store.db.query("UPDATE runs SET status = ? WHERE id = ?").run(status, runId);
+    store.db
+      .query("INSERT INTO events (id, run_id, event_type, producer, payload_json, handled_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(
+        randomUUID(),
+        runId,
+        "run_status_changed",
+        producer,
+        JSON.stringify({
+          previous_status: run.status,
+          status,
+        }),
+        changedAt,
+        changedAt,
+      );
+  });
+  return { ...run, status };
 }

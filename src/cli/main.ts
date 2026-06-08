@@ -1,6 +1,7 @@
 import { parse } from "./args.js";
 import {
   babysit,
+  checkpointRun,
   initRun,
   kgFileCard,
   kgCurate,
@@ -32,6 +33,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   else if (command === "worker") await worker(globals, args);
   else if (command === "trigger-agent" || command === "bootstrap") await triggerAgent(globals, args);
   else if (command === "babysit") await babysit(globals, args);
+  else if (command === "checkpoint-run") await checkpointRun(globals, args);
   else if (command === "recover-leases") await recoverLeases(globals, args);
   else if (command === "report-run") await reportRun(globals, args);
   else if (command === "regression-check") await regressionCheck(globals, args);

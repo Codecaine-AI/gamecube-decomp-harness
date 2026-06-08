@@ -58,8 +58,60 @@ interface WorkerAttemptEvaluation {
   repairFeedbackPath?: string;
 }
 
+type WorkerOutcomeResult = "exact" | "improved" | "no_progress";
+type WorkerStopReason = "target_complete" | "needs_fact" | "no_useful_hypothesis";
+
+const workerOutcomeResults = new Set<WorkerOutcomeResult>(["exact", "improved", "no_progress"]);
+const workerStopReasons = new Set<WorkerStopReason>(["target_complete", "needs_fact", "no_useful_hypothesis"]);
+
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function recordString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function reportAttempts(agentReport: Record<string, unknown> | null): Record<string, unknown>[] {
+  return Array.isArray(agentReport?.attempts) ? agentReport.attempts.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item)) : [];
+}
+
+function numberField(value: unknown, fallback = NaN): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function positiveScoreDelta(agentReport: Record<string, unknown> | null): number {
+  return reportAttempts(agentReport).reduce((sum, attempt) => sum + Math.max(0, numberField(attempt.delta, 0)), 0);
+}
+
+function hasExactAttempt(agentReport: Record<string, unknown> | null): boolean {
+  return reportAttempts(agentReport).some((attempt) => numberField(attempt.old_score, NaN) < 99.99999 && numberField(attempt.new_score, NaN) >= 99.99999);
+}
+
+function normalizedWorkerResult(agentReport: Record<string, unknown> | null): WorkerOutcomeResult {
+  const explicit = recordString(agentReport?.result);
+  if (workerOutcomeResults.has(explicit as WorkerOutcomeResult)) return explicit as WorkerOutcomeResult;
+  if (hasExactAttempt(agentReport)) return "exact";
+  if (positiveScoreDelta(agentReport) > 0) return "improved";
+  return "no_progress";
+}
+
+function normalizedStopReason(agentReport: Record<string, unknown> | null, reportType: WorkerReportType, result: WorkerOutcomeResult): WorkerStopReason {
+  const explicit = recordString(agentReport?.stop_reason);
+  if (workerStopReasons.has(explicit as WorkerStopReason)) return explicit as WorkerStopReason;
+  if (result === "exact") return "target_complete";
+  if (reportType === "needs_fact") return "needs_fact";
+  return "no_useful_hypothesis";
+}
+
+function neededFact(agentReport: Record<string, unknown> | null): unknown {
+  if (!agentReport || !("needed_fact" in agentReport)) return null;
+  return agentReport.needed_fact ?? null;
 }
 
 function renderPostReturnCheckCommand(
@@ -333,6 +385,9 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
     const acceptanceGate = finalEvaluation.acceptanceGate;
     const repairExhausted = finalEvaluation.repairReasons.length > 0;
     const reportType = repairExhausted ? "stalled_no_useful_guess" : acceptanceGate.effectiveReportType;
+    const outcomeResult = normalizedWorkerResult(agentReport);
+    const outcomeStopReason = normalizedStopReason(agentReport, reportType, outcomeResult);
+    const outcomeNeededFact = neededFact(agentReport);
     const agentFacts = Array.isArray(agentReport?.facts) ? agentReport.facts : [];
     const agentBlockers = Array.isArray(agentReport?.blockers) ? agentReport.blockers : [];
     const blockerPath =
@@ -366,6 +421,9 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       target,
       write_set: leased.writeSet,
       report_type: reportType,
+      result: outcomeResult,
+      stop_reason: outcomeStopReason,
+      needed_fact: outcomeNeededFact,
       agent_output_path: result.outputPath,
       summary: reportSummaryText,
       agent_report: agentReport,
@@ -429,6 +487,9 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         worker_id: leased.workerId,
         target,
         report_type: reportType,
+        result: outcomeResult,
+        stop_reason: outcomeStopReason,
+        needed_fact: outcomeNeededFact,
         intended_report_type: acceptanceGate.intendedReportType,
         acceptance_gate: acceptanceGate,
         runner_validation: finalEvaluation.runnerValidation,

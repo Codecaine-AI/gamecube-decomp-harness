@@ -12,6 +12,6 @@ export {
   unhandledPoolEventCount,
 } from "./queue-stats.js";
 export { recordWorkerReport } from "./reports.js";
-export { createRun, getLatestRun, getRun } from "./runs.js";
+export { createRun, getLatestRun, getRun, updateRunStatus } from "./runs.js";
 export { statusSnapshot } from "./status.js";
 export { addBoardTargets, prioritizeQueuedTargets, refillQueuedTargets, type QueueRefillResult } from "./targets.js";

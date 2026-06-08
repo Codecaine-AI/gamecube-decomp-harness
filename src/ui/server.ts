@@ -1,11 +1,16 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, watch, writeFileSync, type FSWatcher } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { artifactTimestamp } from "../agents/runtime/index.js";
+import { createRunCheckpoint, latestCheckpointSummary } from "../handoff/checkpoint.js";
 import { forceReportRun, type ReportRunResult } from "../report/run.js";
-import { getLatestRun, openState, statusSnapshot } from "../state/index.js";
+import { getLatestRun, getRun, openState, statusSnapshot, updateRunStatus } from "../state/index.js";
 import { loadTrustedReport } from "./trusted-report.js";
 
 type JsonObject = Record<string, unknown>;
+type ReportOutcome = "exact" | "improved_stalled" | "improved_needs_fact" | "no_progress_stalled" | "no_progress_needs_fact" | "failed";
+type ReportResult = "exact" | "improved" | "no_progress";
+type StopReason = "target_complete" | "needs_fact" | "no_useful_hypothesis";
 
 interface ManagedProcess {
   child: ChildProcess;
@@ -85,6 +90,23 @@ function numberValue(value: unknown, fallback = 0): number {
     if (Number.isFinite(parsed)) return parsed;
   }
   return fallback;
+}
+
+function percentLike(value: unknown): boolean {
+  const parsed = numberValue(value, NaN);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100;
+}
+
+function attemptHasPercentScores(attempt: JsonObject): boolean {
+  const oldScore = "oldScore" in attempt ? attempt.oldScore : attempt.old_score;
+  const newScore = "newScore" in attempt ? attempt.newScore : attempt.new_score;
+  if (!percentLike(oldScore) || !percentLike(newScore)) return false;
+  const oldValue = numberValue(oldScore, NaN);
+  const newValue = numberValue(newScore, NaN);
+  const delta = numberValue("delta" in attempt ? attempt.delta : null, NaN);
+  if (!Number.isFinite(delta) || Math.abs(delta) < 0.0005) return true;
+  const scoreMovement = newValue - oldValue;
+  return Math.abs(scoreMovement) < 0.0005 || Math.sign(delta) === Math.sign(scoreMovement);
 }
 
 function timeMs(value: unknown): number {
@@ -506,12 +528,17 @@ function workerReports(stateDir: string, runId: string, limit = 100): JsonObject
         ...asArray(lease.edited_paths).map((item) => stringValue(item)).filter(Boolean),
       ];
       if (writeSet.length === 0 && stringValue(target.source_path)) writeSet.push(stringValue(target.source_path));
-      const scoreDelta = attempts.reduce((sum, attempt) => sum + Math.max(0, numberValue(attempt.delta)), 0);
+      const scoreDelta = attempts
+        .filter(attemptHasPercentScores)
+        .reduce((sum, attempt) => sum + Math.max(0, numberValue(attempt.delta)), 0);
       return {
         id: row.report_id,
         leaseId: row.lease_id,
         workerId: row.worker_id,
         reportType: row.report_type,
+        result: stringValue(report.result, stringValue(agentReport.result)),
+        stopReason: stringValue(report.stop_reason, stringValue(agentReport.stop_reason)),
+        neededFact: "needed_fact" in report ? report.needed_fact : "needed_fact" in agentReport ? agentReport.needed_fact : null,
         createdAt: stringValue(report.created_at, stringValue(row.created_at)),
         summary: stringValue(report.summary, "No summary recorded."),
         target: {
@@ -534,6 +561,7 @@ function workerReports(stateDir: string, runId: string, limit = 100): JsonObject
         patchPath: stringValue(row.patch_path, stringValue(agentReport.patch_path)),
         acceptanceGate: asObject(report.acceptance_gate),
         runnerValidation: asObject(report.runner_validation),
+        nextRecommendation: stringValue(agentReport.next_recommendation),
         leaseStatus: row.lease_status,
         queueStatus: row.queue_status,
       };
@@ -630,7 +658,64 @@ function activeFilesForRun(stateDir: string, runId: string): JsonObject[] {
 function reportPositiveAttempts(report: JsonObject): JsonObject[] {
   return asArray(report.attempts)
     .map(asObject)
-    .filter((attempt) => numberValue(attempt.delta) > 0);
+    .filter((attempt) => attemptHasPercentScores(attempt) && numberValue(attempt.delta) > 0);
+}
+
+function reportScoreDelta(report: JsonObject): number {
+  const recorded = numberValue(report.scoreDelta, NaN);
+  if (Number.isFinite(recorded)) return recorded;
+  return reportPositiveAttempts(report).reduce((sum, attempt) => sum + Math.max(0, numberValue(attempt.delta)), 0);
+}
+
+function reportHasExactAttempt(report: JsonObject): boolean {
+  return reportPositiveAttempts(report).some(
+    (attempt) => numberValue(attempt.oldScore, NaN) < 99.99999 && numberValue(attempt.newScore, NaN) >= 99.99999,
+  );
+}
+
+function reportFailed(report: JsonObject): boolean {
+  const gate = asObject(report.acceptanceGate);
+  const validation = asObject(report.runnerValidation);
+  return gate.accepted === false || stringValue(validation.status) === "failed";
+}
+
+function reportResult(report: JsonObject): ReportResult {
+  const explicit = stringValue(report.result);
+  if (reportHasExactAttempt(report)) return "exact";
+  if (explicit === "no_progress") return explicit;
+  if (explicit === "exact" || explicit === "improved") return reportScoreDelta(report) > 0 ? "improved" : "no_progress";
+  return reportScoreDelta(report) > 0 ? "improved" : "no_progress";
+}
+
+function reportStopReason(report: JsonObject, result = reportResult(report)): StopReason {
+  const explicit = stringValue(report.stopReason);
+  if (explicit === "target_complete" || explicit === "needs_fact" || explicit === "no_useful_hypothesis") return explicit;
+  if (result === "exact") return "target_complete";
+  if (stringValue(report.reportType) === "needs_fact") return "needs_fact";
+  return "no_useful_hypothesis";
+}
+
+function reportOutcome(report: JsonObject): ReportOutcome {
+  if (reportFailed(report)) return "failed";
+  const result = reportResult(report);
+  const stopReason = reportStopReason(report, result);
+  if (result === "exact") return "exact";
+  if (result === "improved") return stopReason === "needs_fact" ? "improved_needs_fact" : "improved_stalled";
+  return stopReason === "needs_fact" ? "no_progress_needs_fact" : "no_progress_stalled";
+}
+
+function reportOutcomeCounts(reports: JsonObject[]): JsonObject {
+  const counts: Record<ReportOutcome | "all", number> = {
+    all: reports.length,
+    exact: 0,
+    improved_stalled: 0,
+    improved_needs_fact: 0,
+    no_progress_stalled: 0,
+    no_progress_needs_fact: 0,
+    failed: 0,
+  };
+  for (const report of reports) counts[reportOutcome(report)] += 1;
+  return counts;
 }
 
 function improvementRowsFromReports(reports: JsonObject[]): JsonObject[] {
@@ -735,6 +820,7 @@ function runSummary(
     progressReports: numberValue(reportTypes.get("progress")) + numberValue(reportTypes.get("score_candidate")),
     stalledReports: numberValue(reportTypes.get("stalled_no_useful_guess")),
     needsFactReports: numberValue(reportTypes.get("needs_fact")),
+    reportOutcomeCounts: reportOutcomeCounts(reports),
     positiveAttempts,
     improvedSymbols: improvements.length,
     improvedFiles: new Set(improvements.map((improvement) => stringValue(improvement.sourcePath)).filter(Boolean)).size,
@@ -960,6 +1046,68 @@ function queueTargetsForRun(stateDir: string, runId: string): JsonObject[] {
   }
 }
 
+function checkpointForRun(stateDir: string, runId: string): JsonObject | null {
+  const store = openState(stateDir);
+  try {
+    return latestCheckpointSummary(store, runId) as JsonObject | null;
+  } finally {
+    store.db.close();
+  }
+}
+
+function latestChildDirectory(root: string): string {
+  if (!existsSync(root)) return "";
+  try {
+    const dirs = readdirSync(root)
+      .map((file) => resolve(root, file))
+      .filter((path) => {
+        try {
+          return statSync(path).isDirectory();
+        } catch {
+          return false;
+        }
+      })
+      .sort((left, right) => left.localeCompare(right));
+    return dirs.length > 0 ? dirs[dirs.length - 1] ?? "" : "";
+  } catch {
+    return "";
+  }
+}
+
+function latestRegressionCheckSummary(stateDir: string, runId: string): JsonObject | null {
+  const artifactDir = latestChildDirectory(resolve(stateDir, "regression_checks", runId));
+  if (!artifactDir) return null;
+  const summaryPath = resolve(artifactDir, "summary.json");
+  const summary = readJsonObject(summaryPath);
+  if (!summary.status) return null;
+  return {
+    ...summary,
+    artifactDir,
+    summaryPath,
+  };
+}
+
+function latestPrSplitPlanSummary(stateDir: string, runId: string): JsonObject | null {
+  const artifactDir = latestChildDirectory(resolve(stateDir, "pr_handoff", runId, "split_plans"));
+  if (!artifactDir) return null;
+  const summaryPath = resolve(artifactDir, "summary.json");
+  const summary = readJsonObject(summaryPath);
+  if (!summary.status) return null;
+  return {
+    ...summary,
+    artifactDir,
+    summaryPath,
+  };
+}
+
+function handoffForRun(stateDir: string, runId: string, checkpoint: JsonObject | null): JsonObject {
+  return {
+    checkpoint,
+    qa: latestRegressionCheckSummary(stateDir, runId),
+    splitPlan: latestPrSplitPlanSummary(stateDir, runId),
+  };
+}
+
 function pushTimeline(timeline: JsonObject[], item: JsonObject): void {
   const at = stringValue(item.at);
   if (!at) return;
@@ -1061,6 +1209,7 @@ function runDetails(stateDir: string, explicitRunId = ""): JsonObject {
     status,
     summary: {
       workerReports: reports.length,
+      reportOutcomeCounts: reportOutcomeCounts(reports),
       positiveAttempts: improvements.reduce((sum, improvement) => sum + numberValue(improvement.attempts), 0),
       exactMatches,
       improvedFiles: improvedFiles.length,
@@ -1124,6 +1273,8 @@ async function runDashboard(repoRoot: string, stateDir: string): Promise<JsonObj
   const improvedFiles = fileImprovementRows(improvements);
   const queueTargets = runId ? queueTargetsForRun(stateDir, runId) : [];
   const trustedReport = runScopedTrustedReport(repoRoot, (await loadTrustedReport(repoRoot)) as unknown as JsonObject, runCreatedAt);
+  const checkpoint = runId ? checkpointForRun(stateDir, runId) : null;
+  const handoff = runId ? handoffForRun(stateDir, runId, checkpoint) : { checkpoint: null, qa: null, splitPlan: null };
 
   return {
     repoRoot,
@@ -1135,6 +1286,8 @@ async function runDashboard(repoRoot: string, stateDir: string): Promise<JsonObj
     },
     current: currentBoard,
     trustedReport,
+    checkpoint,
+    handoff,
     runSummary: runSummary(status, allReports, initialMeasures, currentBoard.measures, improvements, trustedReport as unknown as JsonObject),
     improvements,
     improvedFiles,
@@ -1548,6 +1701,207 @@ function compactReportRunResult(result: ReportRunResult): JsonObject {
   };
 }
 
+function compactCheckpointResult(result: ReturnType<typeof createRunCheckpoint>): JsonObject {
+  return {
+    checkpoint: result.checkpoint,
+    counts: result.counts,
+    prCandidates: result.items
+      .filter((item) => item.disposition === "pr_candidate")
+      .map((item) => ({
+        reportId: item.reportId,
+        symbol: item.symbol,
+        sourcePath: item.sourcePath,
+        patchPath: item.patchPath || null,
+      })),
+    carryForwardCount: result.items.filter((item) => item.disposition !== "pr_candidate").length,
+  };
+}
+
+function parseCliJsonOutput(stdout: string): JsonObject {
+  const trimmed = stdout.trim();
+  if (!trimmed) return {};
+  try {
+    return asObject(JSON.parse(trimmed));
+  } catch {
+    return {};
+  }
+}
+
+function activeRunIdFromBody(body: JsonObject, stateDir: string): string {
+  const runId = stringValue(body.runId) || latestRunId(stateDir);
+  if (!runId) throw new Error("No run found. Run init-run first.");
+  return runId;
+}
+
+function prGroupMode(value: unknown): string {
+  const groupMode = stringValue(value, "melee-subsystem");
+  return groupMode === "top-dir" ? groupMode : "melee-subsystem";
+}
+
+function prHandoffRoot(stateDir: string, runId: string, kind: string): string {
+  return resolve(stateDir, "pr_handoff", runId, kind, artifactTimestamp());
+}
+
+async function pauseRunForPr(body: JsonObject): Promise<JsonObject> {
+  const repoRoot = resolve(stringValue(body.repoRoot, defaultRepoRoot));
+  const stateDir = resolve(stringValue(body.stateDir, defaultStateDir));
+  const runId = activeRunIdFromBody(body, stateDir);
+  const drain = await drainManaged({ ...body, repoRoot, stateDir, runId });
+  const store = openState(stateDir);
+  try {
+    const run = updateRunStatus(store, runId, "paused", "ui");
+    appendLog("ui", `run ${runId} paused for PR handoff`);
+    return { paused: true, repoRoot, stateDir, run, drain };
+  } finally {
+    store.db.close();
+  }
+}
+
+function resumeRunForPr(body: JsonObject): JsonObject {
+  const repoRoot = resolve(stringValue(body.repoRoot, defaultRepoRoot));
+  const stateDir = resolve(stringValue(body.stateDir, defaultStateDir));
+  const runId = activeRunIdFromBody(body, stateDir);
+  const store = openState(stateDir);
+  try {
+    const run = updateRunStatus(store, runId, "active", "ui");
+    appendLog("ui", `run ${runId} resumed after PR handoff pause`);
+    return { resumed: true, repoRoot, stateDir, run };
+  } finally {
+    store.db.close();
+  }
+}
+
+function checkpointRunForPr(body: JsonObject): JsonObject {
+  const stateDir = resolve(stringValue(body.stateDir, defaultStateDir));
+  const runId = activeRunIdFromBody(body, stateDir);
+  appendLog("ui", `PR checkpoint started for run ${runId}`);
+  const store = openState(stateDir);
+  try {
+    const result = compactCheckpointResult(
+      createRunCheckpoint(store, runId, {
+        title: "PR handoff checkpoint",
+      }),
+    );
+    appendLog("ui", `PR checkpoint complete for run ${runId}`);
+    return result;
+  } finally {
+    store.db.close();
+  }
+}
+
+async function runPrQa(body: JsonObject): Promise<JsonObject> {
+  const repoRoot = resolve(stringValue(body.repoRoot, defaultRepoRoot));
+  const stateDir = resolve(stringValue(body.stateDir, defaultStateDir));
+  const runId = activeRunIdFromBody(body, stateDir);
+  const target = stringValue(body.qaTarget, "changes_all").trim() || "changes_all";
+  if (target.startsWith("-") || /\s/.test(target)) throw new Error("QA target must be one Ninja target name.");
+  const command = [
+    "bun",
+    binPath,
+    "--repo-root",
+    repoRoot,
+    "--state-dir",
+    stateDir,
+    "regression-check",
+    "--run-id",
+    runId,
+    "--target",
+    target,
+    "--report-title",
+    stringValue(body.qaReportTitle, "Report for GALE01 PR handoff"),
+    "--report-max-rows",
+    String(intValue(body.qaReportMaxRows, 300, 0)),
+  ];
+  if (body.requirePrPromotion !== false) command.push("--require-pr-promotion");
+  appendLog("ui", `PR QA started: ${command.join(" ")}`);
+  const result = await runCli(command);
+  appendLog("ui", `PR QA exit=${result.exitCode}`);
+  const parsed = parseCliJsonOutput(result.stdout);
+  const latest = latestRegressionCheckSummary(stateDir, runId) ?? {};
+  return {
+    ...latest,
+    ...parsed,
+    uiCommand: command,
+    cliExitCode: result.exitCode,
+    stdout: outputTail(result.stdout, 4000),
+    stderr: outputTail(result.stderr, 4000),
+  };
+}
+
+async function runPrSplitPlan(body: JsonObject): Promise<JsonObject> {
+  const repoRoot = resolve(stringValue(body.repoRoot, defaultRepoRoot));
+  const stateDir = resolve(stringValue(body.stateDir, defaultStateDir));
+  const runId = activeRunIdFromBody(body, stateDir);
+  const artifactDir = prHandoffRoot(stateDir, runId, "split_plans");
+  const outputPath = resolve(artifactDir, "pr_split_plan.md");
+  const summaryPath = resolve(artifactDir, "summary.json");
+  mkdirSync(artifactDir, { recursive: true });
+  const command = [
+    "bun",
+    binPath,
+    "--repo-root",
+    repoRoot,
+    "--state-dir",
+    stateDir,
+    "pr-split-plan",
+    "--base-ref",
+    stringValue(body.prBaseRef, "origin/master").trim() || "origin/master",
+    "--group-mode",
+    prGroupMode(body.prGroupMode),
+    "--max-files-per-pr",
+    String(intValue(body.prMaxFilesPerPr, 30, 1)),
+    "--branch-prefix",
+    stringValue(body.prBranchPrefix, "pr-split").trim() || "pr-split",
+    "--title-prefix",
+    stringValue(body.prTitlePrefix, "Melee decomp"),
+    "--output",
+    outputPath,
+  ];
+  if (boolValue(body.prCommittedOnly)) command.push("--committed-only");
+  if (body.prIncludeUntracked === false) command.push("--no-untracked");
+  appendLog("ui", `PR split plan started: ${command.join(" ")}`);
+  const result = await runCli(command);
+  appendLog("ui", `PR split plan exit=${result.exitCode}`);
+  const summary = {
+    status: result.exitCode === 0 ? "passed" : "failed",
+    runId,
+    repoRoot,
+    stateDir,
+    artifactDir,
+    outputPath,
+    summaryPath,
+    baseRef: stringValue(body.prBaseRef, "origin/master").trim() || "origin/master",
+    groupMode: prGroupMode(body.prGroupMode),
+    maxFilesPerPr: intValue(body.prMaxFilesPerPr, 30, 1),
+    command,
+    exitCode: result.exitCode,
+    stdout: outputTail(result.stdout, 4000),
+    stderr: outputTail(result.stderr, 4000),
+    createdAt: new Date().toISOString(),
+  };
+  writeFileSync(summaryPath, JSON.stringify(summary, null, 2), "utf8");
+  return summary;
+}
+
+async function preparePrHandoff(body: JsonObject): Promise<JsonObject> {
+  const stateDir = resolve(stringValue(body.stateDir, defaultStateDir));
+  const runId = activeRunIdFromBody(body, stateDir);
+  const pause = body.pauseBeforeHandoff !== false ? await pauseRunForPr(body) : null;
+  const checkpoint = checkpointRunForPr({ ...body, stateDir, runId });
+  const qa = await runPrQa({ ...body, stateDir, runId });
+  const qaPassed = stringValue(qa.status) === "passed" && numberValue(qa.cliExitCode, 1) === 0;
+  const splitPlan = qaPassed ? await runPrSplitPlan({ ...body, stateDir, runId }) : null;
+  return {
+    prepared: qaPassed && stringValue(splitPlan?.status) === "passed",
+    blockedAt: qaPassed ? (stringValue(splitPlan?.status) === "passed" ? null : "split_plan") : "qa",
+    runId,
+    pause,
+    checkpoint,
+    qa,
+    splitPlan,
+  };
+}
+
 async function runReportNow(body: JsonObject): Promise<JsonObject> {
   const repoRoot = resolve(stringValue(body.repoRoot, defaultRepoRoot));
   const resetBaseline = boolValue(body.resetBaseline);
@@ -1576,7 +1930,27 @@ async function freshRun(body: JsonObject): Promise<JsonObject> {
     const steps: FreshRunStep[] = [];
     const resetReportBaseline = body.resetReportBaseline !== false;
     const refreshPrLibrary = body.refreshPrLibrary !== false;
+    const checkpointBeforeFresh = body.checkpointBeforeFresh !== false;
     let reportRunResult: JsonObject | null = null;
+    let checkpointResult: JsonObject | null = null;
+
+    if (checkpointBeforeFresh) {
+      const runId = stringValue(body.runId) || latestRunId(stateDir);
+      if (runId) {
+        appendLog("ui", `fresh checkpoint started for run ${runId}`);
+        const store = openState(stateDir);
+        try {
+          checkpointResult = compactCheckpointResult(
+            createRunCheckpoint(store, runId, {
+              title: "Fresh run checkpoint",
+            }),
+          );
+        } finally {
+          store.db.close();
+        }
+        appendLog("ui", `fresh checkpoint complete for run ${runId}`);
+      }
+    }
 
     if (resetReportBaseline) {
       appendLog("ui", "fresh report start reset started");
@@ -1620,6 +1994,8 @@ async function freshRun(body: JsonObject): Promise<JsonObject> {
       stateDir,
       refreshPrLibrary,
       resetReportBaseline,
+      checkpointBeforeFresh,
+      checkpoint: checkpointResult,
       reportRun: reportRunResult,
       steps,
     };
@@ -1654,9 +2030,23 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     return json(processStatus(paths.stateDir));
   }
   if (url.pathname === "/api/process/start" && req.method === "POST") {
-    if (managed?.state === "running" || managed?.state === "stopping") return json({ error: "process already running", process: processStatus() }, { status: 409 });
     const body = asObject(await req.json().catch(() => ({})));
+    if (managed?.state === "running" || managed?.state === "stopping" || managed?.state === "draining") {
+      return json({ error: "process already running", process: processStatus() }, { status: 409 });
+    }
     const { command, name, stateDir } = commandFromBody(body);
+    const runId = stringValue(body.runId) || latestRunId(stateDir);
+    if (runId) {
+      const store = openState(stateDir);
+      try {
+        const run = getRun(store, runId);
+        if (run && run.status !== "active") {
+          return json({ error: `Run ${run.id} is ${run.status}; resume it before starting workers.`, run, process: processStatus(stateDir) }, { status: 409 });
+        }
+      } finally {
+        store.db.close();
+      }
+    }
     managed = spawnManaged(command, stateDir, name);
     return json({ started: true, process: processStatus(stateDir) });
   }
@@ -1665,6 +2055,24 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   }
   if (url.pathname === "/api/process/drain" && req.method === "POST") {
     return json(await drainManaged(asObject(await req.json().catch(() => ({})))));
+  }
+  if (url.pathname === "/api/pr/pause" && req.method === "POST") {
+    return json(await pauseRunForPr(asObject(await req.json().catch(() => ({})))));
+  }
+  if (url.pathname === "/api/pr/resume" && req.method === "POST") {
+    return json(resumeRunForPr(asObject(await req.json().catch(() => ({})))));
+  }
+  if (url.pathname === "/api/run/checkpoint" && req.method === "POST") {
+    return json(checkpointRunForPr(asObject(await req.json().catch(() => ({})))));
+  }
+  if (url.pathname === "/api/pr/qa" && req.method === "POST") {
+    return json(await runPrQa(asObject(await req.json().catch(() => ({})))));
+  }
+  if (url.pathname === "/api/pr/split-plan" && req.method === "POST") {
+    return json(await runPrSplitPlan(asObject(await req.json().catch(() => ({})))));
+  }
+  if (url.pathname === "/api/pr/prepare" && req.method === "POST") {
+    return json(await preparePrHandoff(asObject(await req.json().catch(() => ({})))));
   }
   if (url.pathname === "/api/run/init" && req.method === "POST") {
     return json(await initRun(asObject(await req.json().catch(() => ({})))));

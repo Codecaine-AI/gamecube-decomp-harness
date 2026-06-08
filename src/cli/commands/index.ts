@@ -1,4 +1,5 @@
 export { babysit } from "./babysit.js";
+export { checkpointRun } from "./checkpoint-run.js";
 export { initRun } from "./init-run.js";
 export {
   kgCurate,

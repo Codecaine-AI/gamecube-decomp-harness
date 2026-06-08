@@ -24,6 +24,18 @@ export interface FormState {
   thinkingLevel: string;
   workerThinkingLevel: string;
   dryRunAgents: boolean;
+  checkpointBeforeFresh: boolean;
+  pauseBeforeHandoff: boolean;
+  qaTarget: string;
+  qaReportMaxRows: number;
+  requirePrPromotion: boolean;
+  prBaseRef: string;
+  prGroupMode: string;
+  prMaxFilesPerPr: number;
+  prBranchPrefix: string;
+  prTitlePrefix: string;
+  prCommittedOnly: boolean;
+  prIncludeUntracked: boolean;
   refreshPrLibrary: boolean;
   resetReportBaseline: boolean;
 }
@@ -35,6 +47,8 @@ export interface Dashboard {
   initial: JsonObject;
   current: JsonObject;
   trustedReport: JsonObject;
+  checkpoint?: JsonObject | null;
+  handoff?: JsonObject | null;
   runSummary: JsonObject;
   improvements: JsonObject[];
   improvedFiles: JsonObject[];

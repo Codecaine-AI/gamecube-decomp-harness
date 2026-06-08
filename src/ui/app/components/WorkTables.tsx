@@ -1,4 +1,4 @@
-import { asArray, asObject, duration, durationBetween, num, pct, signedWhole, text, until } from "../lib/format";
+import { asArray, asObject, delta, duration, durationBetween, num, pct, scoreOrPercent, scorePairLooksPercent, signedWhole, text, until } from "../lib/format";
 import type { Dashboard, JsonObject } from "../types";
 import { Button, StackCell } from "./primitives";
 
@@ -16,18 +16,66 @@ function trustedReady(dashboard: Dashboard | null): boolean {
   return trustedReport(dashboard).status === "ready";
 }
 
+function workerImprovementRows(dashboard: Dashboard | null): JsonObject[] {
+  return (dashboard?.improvements || []).map(asObject);
+}
+
+function workerScore(row: JsonObject, key: "oldScore" | "newScore"): string {
+  return scoreOrPercent(row[key], scorePairLooksPercent(row.oldScore, row.newScore, row.totalDelta));
+}
+
+function isWorkerMatch(row: JsonObject): boolean {
+  return Number(row.exactMatches || 0) > 0;
+}
+
 function reportRows(dashboard: Dashboard | null, kind: "matches" | "improvements"): JsonObject[] {
   const report = trustedReport(dashboard);
-  if (!trustedReady(dashboard)) return [];
-  return asArray(kind === "matches" ? report.newMatches : report.improvements).map(asObject);
+  if (trustedReady(dashboard)) return asArray(kind === "matches" ? report.newMatches : report.improvements).map(asObject);
+  return workerImprovementRows(dashboard)
+    .filter((row) => kind === "matches" ? isWorkerMatch(row) : !isWorkerMatch(row))
+    .map((row) => ({
+      ...row,
+      unitName: text(row.sourcePath) || text(row.unit),
+      itemName: text(row.symbol, "-"),
+      scoreLabel: workerScore(row, "newScore"),
+      deltaLabel: `${delta(row.totalDelta)} pp`,
+      deltaTitle: `${workerScore(row, "oldScore")} -> ${workerScore(row, "newScore")} (${delta(row.totalDelta)} percentage points)`,
+      source: "worker_report",
+    }));
+}
+
+function reportCounts(dashboard: Dashboard | null): JsonObject {
+  if (trustedReady(dashboard)) return trustedCounts(dashboard);
+  const rows = workerImprovementRows(dashboard);
+  return {
+    newMatches: rows.filter(isWorkerMatch).length,
+    improvements: rows.filter((row) => !isWorkerMatch(row)).length,
+  };
+}
+
+function reportSourceLabel(dashboard: Dashboard | null): string {
+  return trustedReady(dashboard) ? "report bytes" : "worker % scores";
+}
+
+function deltaColumnLabel(dashboard: Dashboard | null): string {
+  return trustedReady(dashboard) ? "Bytes +/-" : "Score +/-";
+}
+
+function deltaColumnTitle(dashboard: Dashboard | null): string {
+  return trustedReady(dashboard)
+    ? "Byte movement from report_changes.json"
+    : "Worker score movement in percentage points";
 }
 
 function improvedEmptyText(dashboard: Dashboard | null, mode: ImprovedMode): string {
   const report = trustedReport(dashboard);
+  if (!trustedReady(dashboard) && workerImprovementRows(dashboard).length > 0) {
+    return mode === "improvements" ? "No non-matching score gains yet" : "No matching score gains yet";
+  }
   if (report.status === "stale") return text(report.staleReason, "Report is stale for this run");
   if (report.status === "parse_error") return text(report.error, "Could not parse report_changes.json");
-  if (!trustedReady(dashboard)) return "No report_changes.json yet";
-  return mode === "improvements" ? "No improvements during this run" : "No matches during this run";
+  if (!trustedReady(dashboard)) return "No report_changes.json or worker score gains yet";
+  return mode === "improvements" ? "No non-matches during this run" : "No matches during this run";
 }
 
 function elapsedSince(value: unknown): string {
@@ -79,12 +127,35 @@ function TabButton({ active, children, onClick }: { active: boolean; children: R
   );
 }
 
+function rowPath(entry: JsonObject): string {
+  return text(entry.unitName) || text(entry.sourcePath) || text(entry.unit, "-");
+}
+
+function rowItem(entry: JsonObject): string {
+  const exactMatches = Number(entry.exactMatches || 0);
+  const suffix = text(entry.source) === "worker_report" && exactMatches > 1 ? ` (${num(exactMatches)} exact)` : "";
+  return `${text(entry.itemName) || text(entry.symbol, "-")}${suffix}`;
+}
+
+function rowScore(entry: JsonObject): string {
+  return text(entry.scoreLabel) || pct(entry.toPercent);
+}
+
+function rowDelta(entry: JsonObject): string {
+  return text(entry.deltaLabel) || `${signedWhole(entry.bytesDelta)}b`;
+}
+
+function rowDeltaTitle(entry: JsonObject): string {
+  return text(entry.deltaTitle) || `${pct(entry.fromPercent)} -> ${pct(entry.toPercent)}`;
+}
+
 function ImprovedTable({ dashboard, mode, page, setMode, setPage }: Pick<WorkTablesProps, "dashboard" | "improvedMode" | "improvedPage" | "setImprovedMode" | "setImprovedPage"> & { mode: ImprovedMode; page: number; setMode: (mode: ImprovedMode) => void; setPage: WorkTablesProps["setImprovedPage"] }) {
-  const counts = trustedCounts(dashboard);
+  const counts = reportCounts(dashboard);
   const rows = reportRows(dashboard, mode);
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safePage = Math.min(page, pages - 1);
   const visible = rows.slice(safePage * pageSize, safePage * pageSize + pageSize);
+  const sourceLabel = reportSourceLabel(dashboard);
 
   return (
     <section className="h-full border-b border-[#292d2b] p-3 min-[1180px]:border-r min-[1180px]:border-b-0">
@@ -94,10 +165,11 @@ function ImprovedTable({ dashboard, mode, page, setMode, setPage }: Pick<WorkTab
             Matches ({num(counts.newMatches)})
           </TabButton>
           <TabButton active={mode === "improvements"} onClick={() => { setMode("improvements"); setPage(0); }}>
-            Improvements ({num(counts.improvements)})
+            Non-matches ({num(counts.improvements)})
           </TabButton>
         </div>
         <div className="flex min-h-7 items-center gap-2">
+          <span className="hidden max-w-36 overflow-hidden text-ellipsis whitespace-nowrap text-[#737873] min-[780px]:inline" title={sourceLabel}>{sourceLabel}</span>
           <Button className="min-w-12 px-2 py-0.5" disabled={safePage === 0} onClick={() => setPage((current) => Math.max(0, current - 1))} type="button">
             Prev
           </Button>
@@ -114,16 +186,16 @@ function ImprovedTable({ dashboard, mode, page, setMode, setPage }: Pick<WorkTab
               <th>Path</th>
               <th className="w-[210px] text-left">Item</th>
               <th className="w-24 text-right">Score</th>
-              <th className="w-24 text-right">Delta</th>
+              <th className="w-24 text-right" title={deltaColumnTitle(dashboard)}>{deltaColumnLabel(dashboard)}</th>
             </tr>
           </thead>
           <tbody>
             {visible.map((entry, index) => (
-              <tr key={`${text(entry.unitName)}-${text(entry.itemName)}-${index}`}>
-                <td className="text-[#b5d4e8]" title={text(entry.unitName)}>{text(entry.unitName, "-")}</td>
-                <td title={text(entry.itemName)}>{text(entry.itemName, "-")}</td>
-                <td className="text-right">{pct(entry.toPercent)}</td>
-                <td className="text-right" title={`${pct(entry.fromPercent)} -> ${pct(entry.toPercent)}`}>{signedWhole(entry.bytesDelta)}b</td>
+              <tr key={`${rowPath(entry)}-${rowItem(entry)}-${index}`}>
+                <td className="text-[#b5d4e8]" title={rowPath(entry)}>{rowPath(entry)}</td>
+                <td title={rowItem(entry)}>{rowItem(entry)}</td>
+                <td className="text-right">{rowScore(entry)}</td>
+                <td className="text-right" title={rowDeltaTitle(entry)}>{rowDelta(entry)}</td>
               </tr>
             ))}
             {visible.length === 0 ? (

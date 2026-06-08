@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { fetchRunDetails, formBody, loadConfig, postJson } from "../lib/api";
 import { asObject } from "../lib/format";
 import { useDashboardStream } from "../hooks/useDashboardStream";
@@ -24,20 +24,38 @@ const defaultForm: FormState = {
   thinkingLevel: "medium",
   workerThinkingLevel: "medium",
   dryRunAgents: false,
+  checkpointBeforeFresh: true,
+  pauseBeforeHandoff: true,
+  qaTarget: "changes_all",
+  qaReportMaxRows: 300,
+  requirePrPromotion: true,
+  prBaseRef: "origin/master",
+  prGroupMode: "melee-subsystem",
+  prMaxFilesPerPr: 30,
+  prBranchPrefix: "pr-split",
+  prTitlePrefix: "Melee decomp",
+  prCommittedOnly: false,
+  prIncludeUntracked: true,
   refreshPrLibrary: true,
   resetReportBaseline: true,
 };
 
-type Action = "refresh" | "init" | "fresh" | "report" | "start" | "stop" | "forceStop";
+type Action = "refresh" | "init" | "fresh" | "report" | "start" | "stop" | "forceStop" | "pausePr" | "resumePr" | "checkpoint" | "qa" | "splitPlan" | "preparePr";
 
 const actionLabels: Record<Action, string> = {
   refresh: "Refreshing dashboard...",
   init: "Initializing run and seeding targets...",
-  fresh: "Resetting report start, initializing a new run, and refreshing PRs...",
+  fresh: "Checkpointing current run, resetting report start, initializing a new run, and refreshing PRs...",
   report: "Generating a fresh report against the run start...",
   start: "Starting babysit process...",
   stop: "Draining managed process...",
   forceStop: "Force stopping managed process and recovering leases...",
+  pausePr: "Pausing intake for PR handoff...",
+  resumePr: "Resuming intake for this run...",
+  checkpoint: "Checkpointing run for PR handoff...",
+  qa: "Running PR QA gate...",
+  splitPlan: "Building PR split plan...",
+  preparePr: "Pausing, checkpointing, running QA, and planning PRs...",
 };
 
 function useHotReload(config: UiConfig | null) {
@@ -77,11 +95,29 @@ function saveDetailsCollapsed(collapsed: boolean) {
   }
 }
 
+function loadSidebarCollapsed(): boolean {
+  try {
+    const stored = localStorage.getItem("sidebarCollapsed");
+    return stored === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveSidebarCollapsed(collapsed: boolean) {
+  try {
+    localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0");
+  } catch {
+    // The rail still works if storage is unavailable.
+  }
+}
+
 export function App() {
   const [config, setConfig] = useState<UiConfig | null>(null);
   const [form, setFormState] = useState<FormState>(defaultForm);
   const [action, setAction] = useState<Action | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState(loadSidebarCollapsed);
   const [detailsCollapsed, setDetailsCollapsedState] = useState(loadDetailsCollapsed);
   const [improvedMode, setImprovedMode] = useState<ImprovedMode>("matches");
   const [improvedPage, setImprovedPage] = useState(0);
@@ -123,6 +159,11 @@ export function App() {
   function setDetailsCollapsed(collapsed: boolean) {
     setDetailsCollapsedState(collapsed);
     saveDetailsCollapsed(collapsed);
+  }
+
+  function setSidebarCollapsed(collapsed: boolean) {
+    setSidebarCollapsedState(collapsed);
+    saveSidebarCollapsed(collapsed);
   }
 
   const currentDashboard = dashboard as Dashboard | null;
@@ -169,6 +210,24 @@ export function App() {
         } else if (nextAction === "report") {
           await postJson("/api/report/run", body);
           await manualRefresh();
+        } else if (nextAction === "pausePr") {
+          await postJson("/api/pr/pause", body);
+          await manualRefresh();
+        } else if (nextAction === "resumePr") {
+          await postJson("/api/pr/resume", body);
+          await manualRefresh();
+        } else if (nextAction === "checkpoint") {
+          await postJson("/api/run/checkpoint", body);
+          await manualRefresh();
+        } else if (nextAction === "qa") {
+          await postJson("/api/pr/qa", body);
+          await manualRefresh();
+        } else if (nextAction === "splitPlan") {
+          await postJson("/api/pr/split-plan", body);
+          await manualRefresh();
+        } else if (nextAction === "preparePr") {
+          await postJson("/api/pr/prepare", body);
+          await manualRefresh();
         }
         setStatusMessage("");
       } catch (error) {
@@ -180,13 +239,37 @@ export function App() {
     [currentDashboard, form, manualRefresh, showError],
   );
 
-  const gridColumns = detailsCollapsed
-    ? "grid-cols-[minmax(300px,360px)_minmax(660px,1fr)_44px]"
-    : "grid-cols-[minmax(300px,360px)_minmax(660px,1fr)_minmax(300px,380px)]";
+  const gridColumns = {
+    desktop:
+      sidebarCollapsed && detailsCollapsed
+        ? "44px minmax(620px, 1fr) 44px"
+        : sidebarCollapsed
+          ? "44px minmax(620px, 1fr) minmax(440px, 560px)"
+          : detailsCollapsed
+            ? "minmax(440px, 560px) minmax(520px, 1fr) 44px"
+            : "minmax(440px, 560px) minmax(0, 1fr) minmax(440px, 560px)",
+    medium:
+      sidebarCollapsed
+        ? "44px 1fr"
+        : "minmax(440px, 560px) 1fr",
+  };
+  const shellStyle = {
+    "--app-grid-columns": gridColumns.desktop,
+    "--app-grid-columns-medium": gridColumns.medium,
+  } as CSSProperties;
 
   return (
-    <main className={`grid h-screen min-h-[620px] ${gridColumns} bg-[#171817] text-[#e2e5e2] max-[1180px]:grid-cols-[320px_1fr] max-[1180px]:h-auto max-[780px]:block max-[780px]:min-h-0`}>
-      <Sidebar busy={busy} dashboard={currentDashboard} form={form} onAction={(nextAction) => void runAction(nextAction)} setForm={setForm} streamState={streamState} />
+    <main className="app-shell grid h-screen min-h-[620px] bg-[#171817] text-[#e2e5e2] max-[1180px]:h-auto max-[780px]:block max-[780px]:min-h-0" style={shellStyle}>
+      <Sidebar
+        busy={busy}
+        collapsed={sidebarCollapsed}
+        dashboard={currentDashboard}
+        form={form}
+        onAction={(nextAction) => void runAction(nextAction)}
+        onCollapsedChange={setSidebarCollapsed}
+        setForm={setForm}
+        streamState={streamState}
+      />
       <section className="min-w-0 overflow-auto bg-[#191b1a]">
         <ProgressPanel dashboard={currentDashboard} statusMessage={action ? actionLabels[action] : statusMessage} />
         <WorkTables

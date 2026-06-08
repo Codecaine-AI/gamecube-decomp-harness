@@ -1,6 +1,6 @@
 ---
 covers: Score integration gate, global regression protection, and PR handoff boundary
-concepts: [score-integration, regression-gate, baseline, pr-handoff, pr-split-plan, review]
+concepts: [score-integration, regression-gate, baseline, pr-handoff, pr-split-plan, review, dashboard]
 ---
 
 # Score Integration And PR Handoff
@@ -36,12 +36,32 @@ The run should summarize accepted improvements, facts, rejected hypotheses,
 stalls, score movement, validation transcripts, and review risks. That summary
 is the bridge from autonomous work to human review.
 
+The checkpoint step writes that bridge as durable state. Exact matches become
+PR-candidate checkpoint items; clean non-exact improvements, fact requests, and
+stalls become carry-forward checkpoint items. This lets an operator package the
+matches into a maintainer PR without erasing local-only evidence or unfinished
+work that should inform the next run.
+
 The configured run goal is the pause threshold for this summary. Reaching a
 `matched_code_percent` checkpoint should mark the run handoff-ready only after
 score integration and regression checks confirm the movement. It does not mean
 the whole decompilation effort is complete; it means this batch has reached the
 point where the system should stop, report what happened, and let the next
 allocation decision happen outside the worker loop.
+
+## Handoff Pause
+
+PR preparation begins by preventing new worker edits from entering the checkout.
+The handoff pause is a run-level scheduling state, not a deletion or reset: the
+current reports, leases, checkpoints, and artifacts remain durable, but
+director/worker scheduling refuses to start while the run status is not
+`active`.
+
+The dashboard's `Pause Intake` action requests a process drain and marks the run
+`paused`. Draining stops the supervisor from introducing more workers while
+allowing the operator to recover or finish existing leases intentionally. The
+matching `Resume` action marks the same run `active` again if the operator
+decides to keep working before or after PR packaging.
 
 ## PR Promotion Gate
 
@@ -88,3 +108,26 @@ presented as independent.
 The PR-review agent can help analyze review patterns and PR knowledge, but
 final branch creation, presentation, reviewer coordination, and merge readiness
 stay operator-owned outside the worker lease loop.
+
+## Dashboard Control Surface
+
+The dashboard exposes the handoff sequence as explicit operator controls:
+
+- `Checkpoint` writes the durable split between PR candidates and
+  carry-forward work.
+- `Run QA` runs the saved-baseline regression gate with PR promotion required
+  by default.
+- `Plan PRs` runs PR split planning against the selected base ref and grouping
+  mode.
+- `Prepare` runs pause, checkpoint, QA, and split planning in sequence, stopping
+  before split planning if QA fails.
+
+This UI control surface does not publish GitHub PRs. It prepares artifacts that
+make a maintainer-facing PR or PR series easier to review while preserving
+unfinished local evidence for future sessions.
+
+## Related
+
+- [CLI overview](../20-implementation/cli/00-overview.md)
+- [State implementation](../20-implementation/state/00-overview.md)
+- [UI implementation](../20-implementation/ui/00-overview.md)

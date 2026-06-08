@@ -149,5 +149,46 @@ export function ensureSchema(db: Database): void {
       status TEXT NOT NULL,
       integrated_rev TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS run_checkpoints (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL,
+      checkpoint_type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      artifact_dir TEXT NOT NULL,
+      summary_path TEXT NOT NULL,
+      pr_candidates_path TEXT NOT NULL,
+      carry_forward_path TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      payload_json TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS checkpoint_items (
+      id TEXT PRIMARY KEY,
+      checkpoint_id TEXT NOT NULL,
+      run_id TEXT NOT NULL,
+      report_id TEXT,
+      lease_id TEXT,
+      target_key TEXT NOT NULL,
+      unit TEXT,
+      symbol TEXT,
+      source_path TEXT,
+      report_type TEXT NOT NULL,
+      disposition TEXT NOT NULL,
+      item_status TEXT NOT NULL,
+      exact_match INTEGER NOT NULL DEFAULT 0,
+      pr_candidate INTEGER NOT NULL DEFAULT 0,
+      patch_path TEXT,
+      summary_path TEXT,
+      report_summary TEXT,
+      evidence_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS checkpoint_items_run_disposition
+      ON checkpoint_items (run_id, disposition, item_status);
+
+    CREATE INDEX IF NOT EXISTS checkpoint_items_checkpoint
+      ON checkpoint_items (checkpoint_id);
   `);
 }
