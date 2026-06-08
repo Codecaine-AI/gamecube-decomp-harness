@@ -11,65 +11,60 @@
     "merged_at": "2026-03-10T21:22:53Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Reintroduced lbArchive_LoadSections in src/melee/lb/lbarchive.c. The restored helper takes an HSD_Archive plus varargs pairs of destination symbol pointers and public symbol names, looks each name up with HSD_ArchiveGetPublicAddress, stores the result through the caller-provided void**, and reports missing symbols with OSReport. The PR had no body or review discussion, so the exact regression or caller need is not documented beyond the title.",
+  "summary": "Restored the lbArchive_LoadSections helper in src/melee/lb/lbarchive.c. The function takes an HSD_Archive, an initial output symbol pointer, and a varargs list of symbol pointer/name pairs, resolves each symbol with HSD_ArchiveGetPublicAddress, clears unresolved outputs to NULL, and reports missing symbols with OSReport. No PR body or review discussion was present in the slice, so the motivation beyond the title's 'bring back' wording is not documented here.",
   "change_classification": {
     "primary_type": "code-restoration",
     "categories": [
       "code-change",
-      "function-restoration",
-      "archive-loading-helper",
-      "varargs-helper"
+      "library-helper",
+      "archive-symbol-loading",
+      "varargs-api"
     ],
     "systems": [
       "library",
       "lbarchive",
-      "HSD_Archive",
-      "DAT/archive symbol loading"
+      "HSD archive"
     ]
   },
   "key_files": [
     "src/melee/lb/lbarchive.c"
   ],
   "what_changed": [
-    "Added lbArchive_LoadSections(HSD_Archive* archive, void** symbol, ...) to lbarchive.c.",
-    "The function initializes a va_list with va_start(symbols, symbol).",
-    "It iterates until the destination pointer argument is NULL.",
-    "For each entry, it reads a const char* symbol_name from the varargs, clears *symbol to NULL, assigns *symbol = HSD_ArchiveGetPublicAddress(archive, symbol_name), and reports failure with OSReport(\"Cannot find symbol %s.\\n\", symbol_name).",
-    "The loop advances to the next destination pointer with va_arg(symbols, void**), then calls va_end(symbols) after the loop.",
-    "No files besides src/melee/lb/lbarchive.c were changed, and there were no deletions."
+    "Added void lbArchive_LoadSections(HSD_Archive* archive, void** symbol, ...) to lbarchive.c.",
+    "Implemented a varargs loop where each iteration consumes a const char* symbol_name after the current void** output slot, then advances to the next void** with va_arg.",
+    "Initializes each output slot to NULL before assigning the result of HSD_ArchiveGetPublicAddress(archive, symbol_name).",
+    "Emits OSReport(\"Cannot find symbol %s.\\n\", symbol_name) when a requested public symbol cannot be resolved.",
+    "The function terminates when the current void** symbol argument is NULL."
   ],
   "smart_moves": [
-    "Restored the helper as a compact varargs API rather than duplicating repeated public-symbol lookup code at each archive load site.",
-    "Preserved the destination-pointer/symbol-name pairing pattern: each void** output is paired with a const char* public symbol name.",
-    "Explicitly clears the output pointer to NULL before attempting the lookup, leaving a safe failure state if the symbol cannot be found.",
-    "Uses OSReport for missing public symbols, which makes archive symbol failures visible without changing the function signature."
+    "Restored a compact archive section-loading helper instead of duplicating repeated HSD_ArchiveGetPublicAddress calls at call sites.",
+    "Clearing *symbol to NULL before lookup preserves safe failure behavior if the archive lookup returns NULL.",
+    "Keeping missing-symbol reporting in the helper centralizes diagnostics for archive public symbol resolution failures.",
+    "The API shape supports multiple symbol loads from one archive call through a sentinel-terminated varargs list."
   ],
   "decomp_lessons": [
-    "For lbarchive helpers, the varargs order matters: initial argument is a void** destination, followed by repeated const char* symbol names and next void** destinations, ending when the destination pointer is NULL.",
-    "When reintroducing previously removed helper functions, a small source-level restoration can matter for compatibility with callers or expected project APIs even if no matching assembly changes are shown in the slice.",
-    "Archive public-symbol loaders should preserve the NULL-on-failure behavior and the diagnostic OSReport text if future matching work depends on emitted strings or call structure.",
-    "This PR provides limited rationale because there was no PR body, issue discussion, review, or comments in the slice; future researchers should verify callers and declarations separately."
+    "When restoring known library helpers, preserve the original varargs calling convention if call sites are expected to pass repeated output-pointer/name pairs.",
+    "For HSD archive public-symbol loading, the output parameter should be a void** and the resolved value should come from HSD_ArchiveGetPublicAddress.",
+    "Sentinel-terminated varargs helpers require the caller to end the list with a NULL symbol pointer; this termination rule is implicit in the loop condition.",
+    "Small helper restorations can matter for decomp readability because they recover an intended abstraction around archive symbol lookup."
   ],
   "naming_conventions": [
-    "Function follows the existing library prefix and CamelCase style: lbArchive_LoadSections.",
-    "Local names are descriptive and type-oriented: symbol, symbols, symbol_name.",
-    "Uses HSD_Archive and HSD_ArchiveGetPublicAddress naming for archive-level public symbol access."
+    "lbArchive_* is the library archive helper prefix used for functions in src/melee/lb/lbarchive.c.",
+    "lbArchive_LoadSections uses PascalCase after the subsystem prefix, matching nearby lbArchive_InitializeDAT and lbArchive_LoadArchive_inline naming style.",
+    "Local varargs state is named symbols, while each resolved public archive symbol name is held in symbol_name."
   ],
   "assembly_or_matching_tactics": [
-    "Varargs helpers require matching the exact va_arg sequence and sentinel loop shape; here the loop checks the current void** symbol for NULL, reads a const char* name, performs the lookup, then reads the next void**.",
-    "The duplicated assignment pattern `*symbol = NULL; *symbol = HSD_ArchiveGetPublicAddress(...)` may be intentional for matching or behavior and should not be simplified without checking output.",
-    "The exact diagnostic string `Cannot find symbol %s.\\n` is part of the restored function and can be a useful anchor when comparing against binaries or prior source."
+    "The function uses standard C varargs macros va_list, va_start, va_arg, and va_end, which are important to preserve when matching a variadic original helper.",
+    "The loop structure is sentinel based: for (; symbol != NULL; symbol = va_arg(symbols, void**)).",
+    "The implementation performs two writes on each output slot, first NULL and then the result of HSD_ArchiveGetPublicAddress, a sequence that may be relevant for matching generated code.",
+    "The missing-symbol branch compares *symbol against NULL after the archive lookup and calls OSReport with the exact string \"Cannot find symbol %s.\\n\"."
   ],
-  "review_feedback": [
-    "No issue comments, review comments, reviews, or PR body text were present in the provided slice."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
     "PR2266",
     "lbArchive_LoadSections",
     "lbarchive.c",
-    "src/melee/lb/lbarchive.c",
-    "PsiLupan",
-    "lbarchive-fix",
+    "lbArchive",
     "HSD_Archive",
     "HSD_ArchiveGetPublicAddress",
     "OSReport",
@@ -78,18 +73,25 @@
     "va_start",
     "va_arg",
     "va_end",
-    "public symbol",
-    "archive sections",
-    "DAT archive",
-    "lbArchive_InitializeDAT",
-    "lbArchive_LoadArchive_inline"
+    "varargs",
+    "archive public symbol",
+    "LoadSections",
+    "lbarchive-fix",
+    "PsiLupan"
   ],
   "follow_up_queries": [
-    "Where is lbArchive_LoadSections declared after PR 2266?",
-    "Which callers pass varargs to lbArchive_LoadSections?",
-    "Was lbArchive_LoadSections removed in an earlier PR before being brought back?",
-    "Does the restored varargs order match the original retail or previous decomp implementation?",
-    "Are there tests or runtime paths that depend on the exact OSReport message for missing archive symbols?"
+    "Find call sites of lbArchive_LoadSections to confirm the expected varargs ordering and NULL sentinel convention.",
+    "Check whether a header declaration for lbArchive_LoadSections exists or was already present before this restoration.",
+    "Compare this implementation against historical versions of lbarchive.c to verify exact original behavior and matching constraints.",
+    "Search for duplicated HSD_ArchiveGetPublicAddress symbol-loading sequences that could now be expressed with lbArchive_LoadSections."
   ],
-  "confidence": 0.86
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -1,0 +1,146 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2620",
+  "pr": {
+    "number": 2620,
+    "title": "Improvements to split up: FT",
+    "url": "https://github.com/doldecomp/melee/pull/2620",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:30:28Z",
+    "merged_at": "2026-06-08T15:10:00Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Fighter-system slice split out from a larger matching-improvement branch (#2617), limited to src/melee/ft. The patch made small matching-oriented rewrites across common fighter, Kirby Yoshi egg, Nana init, collision, and material code: removing temporary locals, reordering declarations and stack padding, replacing M2C/raw access with typed struct fields, inlining or expanding helper logic where it matched better, adding static material TEV data, and correcting a few argument/value expressions. The PR body reports the unsplit source branch had +11,944 matched bytes, 26 new matches, 79 improvements in unmatched items, and no regressions before the directory split; this slice itself was created from origin/master and passed diff-check.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "code cleanup",
+      "struct typing",
+      "data definition",
+      "path-sliced review"
+    ],
+    "systems": [
+      "fighter",
+      "ftCommon",
+      "fighter collision",
+      "fighter material",
+      "Kirby",
+      "Nana"
+    ]
+  },
+  "key_files": [
+    "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
+    "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+    "src/melee/ft/chara/ftCommon/ftCo_DamageIce.c",
+    "src/melee/ft/chara/ftCommon/ftCo_DownBound.c",
+    "src/melee/ft/chara/ftCommon/ftCo_Guard.c",
+    "src/melee/ft/chara/ftKirby/ftkirbyyoshiegg.c",
+    "src/melee/ft/chara/ftNana/ftNn_Init.c",
+    "src/melee/ft/ftcoll.c",
+    "src/melee/ft/ftmaterial.c"
+  ],
+  "what_changed": [
+    "Split matching improvements for src/melee/ft out of a larger branch so the fighter subsystem changes could be reviewed independently.",
+    "In ftCo_0A01.c, removed a temporary pointer to fp->co_attrs.grav and used fp->co_attrs.grav directly in trajectory math; replaced repeated CPU command emission in ftCo_800AB224 with ftCo_800AD54C_inline0(fp); replaced local dx/dy/sqrtf distance logic and an M2C_FIELD access with ftCo_800A1AB4(fp, target) and typed Fighter_804D64FC->x20[fp->kind].",
+    "In ftCo_Attack100.c, adjusted declaration order and initialization timing in ftCo_800D730C, added extern f32 ftCo_804D9018, used it for vel.z instead of literal 0.0f, changed Link catch attrs typing from struct ftLk_DatAttrs* to ftCo_LinkCatchAttrs*, and passed fp->fv.lk.xC to it_802A2B10 instead of the local item variable.",
+    "In ftCo_DamageIce.c, expanded JObjRotMtx-style behavior inside ftCo_DamageIce_Init: explicitly obtains y/x rotations, selects HSD_MkRotationMtx versus HSD_MtxQuat based on JOBJ_USE_QUATERNION, and transposes into sp11C/sp14C. The stack matrix and quaternion locals were reordered/introduced for matching.",
+    "In ftCo_DownBound.c, removed a local HSD_JObj* temporary and passed fp->parts[FtPart_TopN].joint directly to efAsync_Spawn.",
+    "In ftCo_Guard.c, added/adjusted PAD_STACK usage, changed gobj->user_data access to GET_FIGHTER(gobj), and adjusted GuardReflect animation stack padding from 16 to 12.",
+    "In ftkirbyyoshiegg.c, introduced a ftCo_DatAttrs_xBC_t* local for fp->co_attrs.xBC, added PAD_STACK(16), and loaded hurtbox offsets/scale through that local.",
+    "In ftNn_Init.c, wrapped ftCommon_8007D5D4 through an extra Fighter* fp2 local inside a block, a typical register/lifetime shaping change for matching.",
+    "In ftcoll.c, corrected pl_8003E17C argument ordering to fp->player_id, fp->x221F_b4, item->entity; reordered a scaled_dmg declaration; and changed a float-zero comparison to boolean-style !fp->dmg.x189C_unk_num_frames.",
+    "In ftmaterial.c, added static HSD_TevDesc ftMaterial_803C69D0 and static HSD_TECnst ftMaterial_803C6A44 data definitions before the force_active region."
+  ],
+  "smart_moves": [
+    "Kept the PR as a path-limited fighter slice from a larger branch, reducing review scope and isolating matching deltas to src/melee/ft.",
+    "Preferred typed accesses such as Fighter_804D64FC->x20[fp->kind] and ftCo_LinkCatchAttrs* over M2C_FIELD or less-specific struct names, improving readability while preserving matching intent.",
+    "Used existing helper logic where it matched better, notably ftCo_800A1AB4 for target distance and ftCo_800AD54C_inline0 for a repeated CPU command sequence.",
+    "Used declaration ordering, delayed initialization, PAD_STACK adjustments, direct-vs-temporary field access, and extra scoped locals as targeted codegen controls rather than broad rewrites.",
+    "Added explicit material TEV constant data as named static objects, moving unidentified data toward typed C definitions."
+  ],
+  "decomp_lessons": [
+    "For fighter matching, small local-variable lifetime changes can matter: moving GET_FIGHTER and fp->x2D0 initialization after declarations, introducing fp2, or replacing a temporary pointer with direct field access may shift register allocation enough to match.",
+    "When replacing decompiler artifacts, prefer semantically named project helpers and typed globals over raw calculations or M2C_FIELD macros if the generated code remains matched.",
+    "Stack padding should be tuned precisely; this slice includes both added PAD_STACK(8)/PAD_STACK(16) and changed PAD_STACK(16) to PAD_STACK(12).",
+    "Expanding a helper inline can be useful when the caller needs exact stack/local layout, as shown by replacing JObjRotMtx calls in DamageIce init with explicit rotation/quaternion matrix construction.",
+    "Data matching can be improved by defining static HSD structures directly in C, but the exact initializer layout matters for HSD_TevDesc/HSD_TECnst.",
+    "Be cautious with apparent semantic cleanups in matching PRs: changes like argument order in pl_8003E17C and passing fp->fv.lk.xC to it_802A2B10 look meaningful, but the PR evidence does not include reviewer discussion explaining intent."
+  ],
+  "naming_conventions": [
+    "Fighter common files retain ftCo_ prefixes and address-like symbol names where functions remain unnamed, e.g. ftCo_800A9CB4, ftCo_800D730C, ftCo_80093BC0.",
+    "Inline helper names use the project’s current convention with suffixes such as ftCo_800AD54C_inline0 and ftPp_SpecialS_0_Coll_inline3.",
+    "Typed fighter substructures use names such as Fighter_x1A88_t, Fighter_x2D0_t, ftCo_LinkCatchAttrs, and ftCo_DatAttrs_xBC_t rather than raw offsets where known.",
+    "New static material data follows address-derived names: ftMaterial_803C69D0 and ftMaterial_803C6A44.",
+    "Project macros/helpers such as GET_FIGHTER(gobj), FtPart_TopN, GA_Ground, and JOBJ_USE_QUATERNION are preferred over manual user_data or raw flag usage when they match."
+  ],
+  "assembly_or_matching_tactics": [
+    "Declaration reordering and delayed assignment to influence register allocation and stack layout.",
+    "PAD_STACK insertion and size adjustment to match stack frame expectations.",
+    "Replacing local temporaries with direct field expressions, and conversely introducing locals such as xBCp or fp2, depending on the needed codegen.",
+    "Using an extern float symbol ftCo_804D9018 instead of literal 0.0f for a vector z component, likely to match a loaded constant/global pattern.",
+    "Replacing M2C_FIELD(Fighter_804D64FC, float**, 0x20)[fp->kind] with typed Fighter_804D64FC->x20[fp->kind].",
+    "Expanding rotation-matrix logic to explicitly call HSD_JObjGetRotation, HSD_MkRotationMtx/HSD_MtxQuat, and PSMTXTranspose, shaping both calls and local stack objects.",
+    "Inlining direct struct member access into call arguments, such as fp->parts[FtPart_TopN].joint in efAsync_Spawn.",
+    "Boolean-style float zero test !fp->dmg.x189C_unk_num_frames used instead of == 0.0f where that better matched output."
+  ],
+  "review_feedback": [],
+  "searchable_terms": [
+    "PR2620",
+    "Improvements to split up FT",
+    "src/melee/ft",
+    "fighter",
+    "ftCommon",
+    "ftCo_0A01",
+    "ftCo_Attack100",
+    "ftCo_DamageIce",
+    "ftCo_DownBound",
+    "ftCo_Guard",
+    "ftkirbyyoshiegg",
+    "ftNn_Init",
+    "ftcoll",
+    "ftmaterial",
+    "ftCo_800A9CB4",
+    "ftCo_800AB224",
+    "ftCo_800AD54C_inline0",
+    "ftCo_800AF290",
+    "ftCo_800A1AB4",
+    "Fighter_804D64FC->x20",
+    "M2C_FIELD",
+    "ftCo_800D730C",
+    "ftCo_804D9018",
+    "ftCo_LinkCatchAttrs",
+    "it_802A2B10",
+    "ftCo_DamageIce_Init",
+    "JOBJ_USE_QUATERNION",
+    "HSD_JObjGetRotation",
+    "HSD_MkRotationMtx",
+    "HSD_MtxQuat",
+    "PSMTXTranspose",
+    "PAD_STACK",
+    "GET_FIGHTER",
+    "ftCo_DatAttrs_xBC_t",
+    "pl_8003E17C",
+    "HSD_TevDesc",
+    "HSD_TECnst",
+    "ftMaterial_803C69D0",
+    "ftMaterial_803C6A44"
+  ],
+  "follow_up_queries": [
+    "Look for the parent PR or branch #2617 to understand the full matching-improvement context and whether this fighter slice had a measured per-PR match delta.",
+    "Search for later PRs touching ftMaterial_803C69D0 or ftMaterial_803C6A44 to see if these static data names or initializers were refined.",
+    "Search for uses of ftCo_804D9018 to confirm whether it is a shared zero constant or a meaningful fighter common data symbol.",
+    "Search for subsequent cleanup of ftCo_DamageIce_Init to see whether the expanded rotation matrix logic was later factored into a reusable helper without losing the match.",
+    "Search for pl_8003E17C call sites to verify the argument order convention established or corrected here."
+  ],
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

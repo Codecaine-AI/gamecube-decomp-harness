@@ -11,118 +11,106 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed/unmerged PR that decompiled three Castle stage functions in src/melee/gr/grcastle.c: grCastle_801CD960, grCastle_801CF750, and fn_801CFAFC. The PR body claimed ninja built cleanly and fuzzy_match_percent was 100.0 for all three. The main technical issue was intentionally retained pointer arithmetic around Ground/GroundVars layout because the available structs did not expose accurate named fields for the touched offsets; the author later noted the work was consolidated into other PRs.",
+  "summary": "Attempted to decompile three grcastle functions, `grCastle_801CD960`, `grCastle_801CF750`, and `fn_801CFAFC`, with the PR body reporting clean `ninja` verification and 100.0 fuzzy match for all three. The PR was closed unmerged after the work was reportedly consolidated into other PRs. The main technical issue surfaced in comments was unsafe-looking pointer arithmetic caused by incomplete or mismatched Ground/GroundVars structure knowledge.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "stage",
       "decomp-matching",
+      "stage",
       "headers",
       "types-structs",
       "pointer-arithmetic",
-      "stack-matching",
-      "unmerged-consolidated"
+      "closed-unmerged"
     ],
     "systems": [
+      "stage",
       "grcastle",
       "ground",
-      "stage",
-      "item",
-      "fighter-lib"
+      "items",
+      "fighters"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grcastle.c",
-      "role": "Implemented three previously stubbed/unknown Castle stage functions with matching-oriented casts, offsets, and stack padding.",
-      "notable_symbols": [
-        "grCastle_801CD960",
-        "grCastle_801CF750",
-        "fn_801CFAFC"
-      ]
-    },
-    {
-      "path": "src/melee/gr/grcastle.h",
-      "role": "Added Item_GObj forward declaration include and replaced fn_801CFAFC UNK_PARAMS prototype with a typed callback signature.",
-      "notable_symbols": [
-        "Item_GObj",
-        "fn_801CFAFC"
-      ]
-    }
+    "src/melee/gr/grcastle.c",
+    "src/melee/gr/grcastle.h"
   ],
   "what_changed": [
-    "Replaced the grCastle_801CD960 placeholder with a loop over 12 entries, calling grLib_801C9B6C on byte offsets from Ground user data: (u8*) gp + 0xE0 + i * 0x14.",
-    "Replaced the grCastle_801CF750 placeholder with logic that chooses idx based on arg1 == 4, uses PAD_STACK(16), checks cd->x34_flags.b1234 == 1, shifts the Ground pointer by idx * 16, and adds arg3 as f32 to offset 0xD0.",
-    "Replaced the fn_801CFAFC placeholder with a function taking Item_GObj*, Ground*, Vec3*, HSD_GObj*, and f32; it writes 4 through a s16 cast to gp->gv.castle2.xC4 and conditionally calls ftLib_80086A4C when ftLib_80086960(gobj) succeeds.",
-    "Updated grcastle.h to include <melee/it/forward.h> and gave fn_801CFAFC a typed prototype instead of UNK_RET/UNK_PARAMS.",
-    "The PR was not merged; an issue comment says it was consolidated into other PRs."
+    "Replaced the nonmatching placeholder for `grCastle_801CD960` with a loop over 12 entries starting at offset `0xE0` from `Ground*`, calling `grLib_801C9B6C((u8*) gp + 0xE0 + i * 0x14)`.",
+    "Replaced the nonmatching placeholder for `grCastle_801CF750` with logic selecting `idx` from `arg1`, checking `cd->x34_flags.b1234 == 1`, offsetting the `Ground*` by `idx * 16`, and adding `arg3` as an `f32` into offset `0xD0`.",
+    "Replaced the nonmatching placeholder for `fn_801CFAFC` with a typed item/ground/fighter callback that writes `4` into `gp->gv.castle2.xC4` via an `s16*` cast and, if `ftLib_80086960(gobj)` succeeds, calls `ftLib_80086A4C(gobj, (f32) grCs_804D6970->x4)`.",
+    "Updated `grcastle.h` to include `<melee/it/forward.h>` so `Item_GObj*` could be used in the typed prototype.",
+    "Changed the header prototype for `fn_801CFAFC` from `UNK_RET fn_801CFAFC(UNK_PARAMS)` to `void fn_801CFAFC(Item_GObj*, Ground*, Vec3*, HSD_GObj*, f32)`.",
+    "The PR was not merged; a later comment says the work was consolidated into other PRs."
   ],
   "smart_moves": [
-    "Preserved exact pointer arithmetic instead of forcing misleading struct field access where the current Ground/GroundVars definitions did not describe the observed memory layout.",
-    "Flagged the layout problem explicitly: offset 0xE0 was described in comments as currently typed like a 4-byte pointer while the code treats it as an inline array of 0x14-byte elements.",
-    "Used matching-specific details such as PAD_STACK(16), byte-pointer casts, f32 and s16 casts, and an explicit bitfield comparison to maintain the claimed 100% match.",
-    "Improved the header prototype for fn_801CFAFC enough to expose real argument types while leaving the function name generic because no semantic name was established."
+    "Kept the three newly decompiled functions small and local, only adding header typing where needed for the newly known `fn_801CFAFC` signature.",
+    "Preserved match-sensitive pointer arithmetic where the known structs did not yet provide reliable named fields, rather than inventing inaccurate struct members.",
+    "Flagged that replacing the casts with field access was non-trivial because the existing castle `GroundVars` layout did not match the observed access pattern.",
+    "Used explicit forward include support for `Item_GObj` instead of relying on undeclared or generic callback parameters."
   ],
   "decomp_lessons": [
-    "When a matched function requires raw offsets into Ground or GroundVars, that can indicate a struct-layout gap rather than poor local style; avoid inventing field names until the shared layout is corrected.",
-    "If a stage-specific GroundVars area behaves like an inline array, model changes may need to happen in the shared struct/header layer before pointer math can be safely cleaned up.",
-    "For matching, small details like stack padding and cast width matter; PAD_STACK(16), s16 stores, and f32 arithmetic were all part of the submitted implementation.",
-    "Typed callback prototypes can require adding the correct forward header; here Item_GObj in grcastle.h required <melee/it/forward.h>.",
-    "Closed PRs may still contain useful matching tactics, but if the PR was consolidated elsewhere, future work should verify which version landed before reusing code directly."
+    "A 100% matching decomp may still be structurally unsatisfactory if it depends on raw offsets caused by incomplete shared struct layouts.",
+    "For stage code, especially `Ground`/`GroundVars`, do not force field names when the observed binary behavior treats a region differently from the current C type. In this PR, offset `0xE0` was typed as a 4-byte pointer in the existing structure, but the code treated it as an inline array of 12 elements of size `0x14`.",
+    "`grCastle_801CF750` showed a case where the code offsets the `Ground*` itself by `idx * 16` before writing to offset `0xD0`; this may imply a broader layout or aliasing issue rather than a simple missing field.",
+    "When pointer math points at shared type problems, a correct cleanup may require coordinated changes to shared `Ground`/`GroundVars` definitions instead of a local stage-only patch.",
+    "Closed/unmerged PRs can still capture useful matching tactics and layout caveats, but downstream users should verify whether the final version landed through the referenced consolidated PRs."
   ],
   "naming_conventions": [
-    "Castle stage functions used the existing grCastle_<address> naming convention, such as grCastle_801CD960 and grCastle_801CF750.",
-    "The unknown helper/callback retained the generic fn_801CFAFC name despite receiving a typed prototype.",
-    "Local variable names followed common decomp shorthand: gobj for GObj pointers, gp for Ground*, cd for CollData*, and idx for an index.",
-    "Header declarations retained address comments such as /* 1CFAFC */ before prototypes."
+    "Stage functions use the `grCastle_` prefix for castle stage routines.",
+    "Local callback-style functions in this file can retain the `fn_` prefix when no semantic name is known, as with `fn_801CFAFC` and `fn_801CFB68`.",
+    "Typed prototypes prefer concrete project typedefs such as `Item_GObj*`, `Ground*`, `Vec3*`, `HSD_GObj*`, `CollData*`, and `mpLib_GroundEnum` instead of `UNK_PARAMS` once call signatures are understood.",
+    "The global `grCs_804D6970` follows the stage-specific `grCs_` prefix seen in the diff."
   ],
   "assembly_or_matching_tactics": [
-    "Looped with a do/while and i < 12 for grCastle_801CD960, matching calls to grLib_801C9B6C over 0x14-byte-spaced entries at Ground offset 0xE0.",
-    "Used (u8*) casts for byte-accurate pointer math on Ground pointers.",
-    "Inserted PAD_STACK(16) in grCastle_801CF750 for stack matching.",
-    "Compared (s32) cd->x34_flags.b1234 == 1 rather than using a looser truthiness check.",
-    "Performed the grCastle_801CF750 write through *(f32*) ((u8*) gp + 0xD0) after adjusting gp by idx * 16.",
-    "Stored 4 into gp->gv.castle2.xC4 through *(s16*) to match access width in fn_801CFAFC.",
-    "Conditionally called ftLib_80086A4C(gobj, (f32) grCs_804D6970->x4) after ftLib_80086960(gobj)."
+    "Used byte-pointer casts, e.g. `(u8*) gp + offset`, to express exact offset arithmetic needed for matching.",
+    "Used a `do while` loop in `grCastle_801CD960` to match iteration over 12 fixed-size entries at stride `0x14`.",
+    "Used `PAD_STACK(16)` in `grCastle_801CF750`, indicating stack-shape preservation was needed for the match.",
+    "Used explicit casts such as `(s32) cd->x34_flags.b1234 == 1`, `(Ground*) ((u8*) gp + idx * 16)`, `*(f32*) ((u8*) gp + 0xD0)`, and `*(s16*) &gp->gv.castle2.xC4` to preserve codegen.",
+    "Converted `arg3` to float before accumulation in `grCastle_801CF750`, matching the diff's `(f32) arg3` behavior.",
+    "Kept `fn_801CFAFC`'s unused parameters in the typed signature, likely reflecting the ABI/callback signature even though only `gp`, `gobj`, and `arg4`-adjacent context are meaningful in the shown body."
   ],
   "review_feedback": [
     {
-      "source": "issue_comment",
-      "detail": "Author initially said pointer math would be fixed soon."
+      "source": "issue comment",
+      "feedback": "Author/commenter noted they would fix pointer math soon."
     },
     {
-      "source": "issue_comment",
-      "detail": "Author/Claude later explained that replacing pointer math with struct field access was non-trivial because the Castle GroundVars struct lacked named fields at the needed offsets."
+      "source": "issue comment",
+      "feedback": "Pointer math in `grCastle_801CD960` and `grCastle_801CF750` could not be easily replaced with struct field access because the castle `GroundVars` struct lacked appropriate named fields at the accessed offsets."
     },
     {
-      "source": "issue_comment",
-      "detail": "Specific layout concern noted: offset 0xE0 was described as typed as a 4-byte pointer while the code treats it as an inline array of 0x14-byte elements."
+      "source": "issue comment",
+      "feedback": "Offset `0xE0` was described as currently typed as a 4-byte pointer while the code treated it as an inline array of 0x14-byte elements."
     },
     {
-      "source": "issue_comment",
-      "detail": "Specific layout concern noted: grCastle_801CF750 shifts the Ground pointer itself by idx * 16."
+      "source": "issue comment",
+      "feedback": "`grCastle_801CF750` was described as shifting the `Ground` pointer itself by `idx * 16`, suggesting cleanup would need structural changes to shared `Ground`/`GroundVars` types."
     },
     {
-      "source": "issue_comment",
-      "detail": "Final comment says the work was consolidated into other PRs."
-    },
-    {
-      "source": "review_comments",
-      "detail": "No formal review comments were present in the provided slice."
+      "source": "issue comment",
+      "feedback": "Final comment says the work was consolidated into other PRs, explaining the closed-unmerged state."
     }
   ],
   "searchable_terms": [
     "pr-2248",
-    "johnwinston",
     "grcastle",
     "grCastle_801CD960",
     "grCastle_801CF750",
     "fn_801CFAFC",
-    "grcastle.c",
-    "grcastle.h",
-    "Ground",
+    "grCastle_801CD8A8",
+    "grCastle_801CF300",
+    "grCastle_801CF74C",
+    "grCastle_801CF7B0",
+    "grCastle_801CF868",
+    "fn_801CFB68",
+    "grCastle_801CFBD4",
+    "grCastle_801D0298",
+    "src/melee/gr/grcastle.c",
+    "src/melee/gr/grcastle.h",
     "Ground_GObj",
+    "Ground",
     "GroundVars",
+    "castle2",
     "Item_GObj",
     "HSD_GObj",
     "Vec3",
@@ -132,22 +120,31 @@
     "ftLib_80086960",
     "ftLib_80086A4C",
     "grCs_804D6970",
-    "castle2.xC4",
-    "x34_flags.b1234",
+    "x34_flags",
+    "b1234",
     "PAD_STACK",
+    "pointer math",
     "offset 0xE0",
     "offset 0xD0",
-    "0x14-byte elements",
+    "stride 0x14",
     "idx * 16",
-    "pointer math",
     "fuzzy_match_percent 100.0",
+    "closed unmerged",
     "consolidated into other PRs"
   ],
   "follow_up_queries": [
-    "Which later PR consolidated or merged the grCastle_801CD960, grCastle_801CF750, and fn_801CFAFC work?",
-    "Does the final Ground/GroundVars Castle struct now model the offset 0xE0 inline array of 0x14-byte elements?",
-    "Was the Ground pointer shift by idx * 16 in grCastle_801CF750 later represented with a named struct or kept as pointer arithmetic?",
-    "Did fn_801CFAFC keep the same typed Item_GObj/Ground/Vec3/HSD_GObj/f32 prototype in the merged version?"
+    "Find the later PRs that consolidated or superseded PR #2248's `grCastle_801CD960`, `grCastle_801CF750`, and `fn_801CFAFC` work.",
+    "Inspect current `GroundVars` and castle-specific ground variable structs around offsets `0xC4`, `0xD0`, and `0xE0` to see whether the raw pointer arithmetic was eventually replaced with named fields.",
+    "Search for other stage files using `grLib_801C9B6C` over inline arrays with stride `0x14` to infer a shared struct type.",
+    "Check whether any final merged version retained `PAD_STACK(16)` in `grCastle_801CF750` or found a cleaner expression that still matched."
   ],
-  "confidence": 0.9
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

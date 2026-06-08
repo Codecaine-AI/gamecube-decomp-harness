@@ -11,82 +11,97 @@
     "merged_at": "2026-03-21T20:04:40Z"
   },
   "agent_status": "agent_completed",
-  "summary": "One-line Kirby fighter decomp fix: in src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c, ftKb_SkSpecialAirNEnd_Coll now calls the common landing transition ftCo_Landing_Enter_Basic(gobj) after ft_80081D0C detects ground contact, instead of calling ftKb_SpecialNSk_80105E8C(gobj). The decomp.dev report shows the target item main/melee/ft/chara/ftKirby/ftKb_SpecialNZd ftKb_SkSpecialAirNEnd_Coll improved from 0.00% to 100.00% (+84 bytes).",
+  "summary": "One-line decomp matching fix in Kirby's ftKb_SpecialNZd.c: ftKb_SkSpecialAirNEnd_Coll now calls ftCo_Landing_Enter_Basic after a successful ft_80081D0C air-to-ground collision check instead of calling ftKb_SpecialNSk_80105E8C. The bot report says this made main/melee/ft/chara/ftKirby/ftKb_SpecialNZd:ftKb_SkSpecialAirNEnd_Coll a new 84-byte 100% match.",
   "change_classification": {
-    "primary_type": "decompilation-match-fix",
+    "primary_type": "decomp-matching-fix",
     "categories": [
       "decomp-matching",
       "fix",
-      "single-callee-correction",
-      "collision-callback"
+      "single-callsite-correction",
+      "collision-transition"
     ],
     "systems": [
       "fighter",
       "Kirby",
-      "special-move",
-      "landing"
+      "ftKirby",
+      "ftKb_SpecialNZd",
+      "common-landing"
     ]
   },
   "key_files": [
-    "src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c"
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c",
+      "change": "In ftKb_SkSpecialAirNEnd_Coll, replaced ftKb_SpecialNSk_80105E8C(gobj) with ftCo_Landing_Enter_Basic(gobj) after clearing fp->fv.kb.xB4 and fp->mv.kb.specialhi.x4."
+    }
   ],
   "what_changed": [
-    "Changed ftKb_SkSpecialAirNEnd_Coll's grounded branch after ft_80081D0C(gobj) from ftKb_SpecialNSk_80105E8C(gobj) to ftCo_Landing_Enter_Basic(gobj).",
-    "Kept the preceding state field resets intact: fp->fv.kb.xB4 = 0 and fp->mv.kb.specialhi.x4 = 0.",
-    "No headers, structs, or additional source files were changed in the provided diff."
+    "Changed the landing/collision transition helper used by ftKb_SkSpecialAirNEnd_Coll.",
+    "Preserved the surrounding condition and state resets: if ft_80081D0C(gobj) succeeds, fp->fv.kb.xB4 and fp->mv.kb.specialhi.x4 are set to 0 before entering the landing action.",
+    "The only source diff was one deleted call to ftKb_SpecialNSk_80105E8C(gobj) and one added call to ftCo_Landing_Enter_Basic(gobj).",
+    "decomp-dev bot reported matched code increased by +740 bytes overall and specifically listed ftKb_SkSpecialAirNEnd_Coll as a new +84 byte 100% match."
   ],
   "smart_moves": [
-    "Identified that the collision callback's landing case should use the shared common landing enter routine rather than a Kirby-specific neutral-special helper.",
-    "Minimized risk by changing only the callee while preserving the surrounding condition and field stores.",
-    "Used the decomp.dev per-item report to validate the exact target function match: ftKb_SkSpecialAirNEnd_Coll reached 100.00%."
+    "The fix targeted the semantic transition point rather than forcing local control-flow or temporary-shape changes: on ground collision, the function uses the shared common landing entry routine.",
+    "Using ftCo_Landing_Enter_Basic aligns this Kirby special-air end collision handler with common fighter landing behavior, which was enough to recover the function match.",
+    "The patch was minimal and low-risk for decomp purposes: a single call replacement with identical gobj argument and no unrelated formatting or struct changes."
   ],
   "decomp_lessons": [
-    "For aerial end collision callbacks, when a ground-contact predicate such as ft_80081D0C(gobj) succeeds, check common landing transition helpers like ftCo_Landing_Enter_Basic before assuming an action-specific transition routine.",
-    "A single wrong callee can be enough to prevent an otherwise small collision function from matching.",
-    "Preserving nearby state-reset ordering while only swapping the transition helper is a useful tactic when the branch structure already appears correct.",
-    "The bot report also listed effect-system match churn, but the only changed file in this PR was Kirby fighter code, so future readers should not infer an intentional effects-system refactor from this PR alone."
+    "When an air special collision end routine fails to match, check whether the original code calls a common landing helper such as ftCo_Landing_Enter_Basic instead of a character-specific special helper.",
+    "A wrong callee with the same argument shape can break an otherwise small function; matching may depend on choosing the semantically correct action-transition function.",
+    "State-field clears immediately before a transition call are useful context for identifying the intended helper: here fp->fv.kb.xB4 and fp->mv.kb.specialhi.x4 are reset before entering basic landing.",
+    "Keep single-callsite decomp fixes narrowly scoped when the surrounding control flow already matches."
   ],
   "naming_conventions": [
-    "ftKb_ prefix denotes Kirby fighter code in this slice.",
-    "ftKb_SkSpecialAirNEnd_Coll follows an action/callback suffix pattern where _Coll marks a collision callback.",
-    "ftCo_Landing_Enter_Basic names a common fighter landing-state entry helper.",
-    "ftKb_SpecialNSk_80105E8C retained an address-suffixed provisional name; this PR did not rename or document it."
+    "ftKb_ prefix is used for Kirby-specific fighter code.",
+    "ftKb_SkSpecialAirNEnd_Coll names a Kirby copied/special air neutral end collision handler; the suffix _Coll marks collision handling.",
+    "ftCo_ prefix marks common fighter routines; ftCo_Landing_Enter_Basic is the common basic landing action entry.",
+    "The file path src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c groups this function under Kirby character special-N-related code."
   ],
   "assembly_or_matching_tactics": [
-    "Callee substitution was the matching lever: replace ftKb_SpecialNSk_80105E8C with ftCo_Landing_Enter_Basic without changing the conditional or stores.",
-    "Bot evidence: main/melee/ft/chara/ftKirby/ftKb_SpecialNZd item ftKb_SkSpecialAirNEnd_Coll changed from 0.00% to 100.00%, +84 bytes.",
-    "Overall GALE01 report showed matched code 59.22% with +740 bytes, but only +84 bytes are directly tied to the changed Kirby function in the report."
+    "Swap candidate callees when the function body differs only at a branch/call target; compare whether the expected transition is common fighter landing versus character-specific special handling.",
+    "Use decomp.dev item-level reports to validate tiny fixes: this PR's bot report identified ftKb_SkSpecialAirNEnd_Coll moving from 0.00% to 100.00% with +84 bytes.",
+    "Do not over-interpret unrelated unit movement in the bot report; the diff only touched ftKb_SpecialNZd.c, while several ef* match/break entries were reported as broader linkage/accounting effects."
   ],
   "review_feedback": [
-    "No human review comments were present in the PR slice.",
-    "The PR body was empty.",
-    "decomp-dev[bot] posted the match report confirming the target function became a new match."
+    "No human review comments were present in the provided slice.",
+    "Automated decomp-dev report confirmed a new match for main/melee/ft/chara/ftKirby/ftKb_SpecialNZd:ftKb_SkSpecialAirNEnd_Coll (+84 bytes, 0.00% to 100.00%).",
+    "The same bot report also listed unrelated-looking ef* match and regression movements; evidence for this PR's intended fix is strongest for the Kirby function named in the title and diff."
   ],
   "searchable_terms": [
     "pr-2340",
     "Gelatart",
+    "Fixed ftKb_SkSpecialAirNEnd_Coll",
     "ftKb_SkSpecialAirNEnd_Coll",
     "ftKb_SpecialNZd.c",
-    "ftKb_SpecialNZd",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c",
+    "Fighter_GObj",
+    "ft_80081D0C",
     "ftKb_SpecialNSk_80105E8C",
     "ftCo_Landing_Enter_Basic",
-    "ft_80081D0C",
-    "Fighter_GObj",
     "fp->fv.kb.xB4",
     "fp->mv.kb.specialhi.x4",
     "Kirby",
-    "special air N end",
-    "collision callback",
-    "landing transition",
+    "ftKirby",
+    "SpecialAirNEnd",
+    "Coll",
+    "Landing_Enter_Basic",
     "GALE01",
-    "decomp-dev report",
-    "0.00% to 100.00%",
-    "+84 bytes"
+    "matched code",
+    "new match",
+    "84 bytes"
   ],
   "follow_up_queries": [
-    "Find other aerial special _Coll functions that call action-specific helpers after ft_80081D0C and compare against ftCo_Landing_Enter_Basic.",
-    "Inspect ftKb_SpecialNSk_80105E8C callsites to determine its real role and whether its provisional name should be improved.",
-    "Search Kirby copied-special collision handlers for the same landing-transition pattern."
+    "Find other ft*SpecialAir*End_Coll functions that call character-specific helpers after ft_80081D0C where ftCo_Landing_Enter_Basic may be expected.",
+    "Compare neighboring Kirby special collision handlers in ftKb_SpecialNZd.c for common landing-transition patterns.",
+    "Audit uses of ftKb_SpecialNSk_80105E8C to distinguish valid special-state transitions from places that should use ftCo_Landing_Enter_Basic."
   ],
-  "confidence": 0.88
+  "confidence": 0.87,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

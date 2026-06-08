@@ -11,24 +11,23 @@
     "merged_at": "2026-03-01T16:42:10Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Started decompiling and documenting the mnvibration menu module. The PR added substantial C implementation for controller rumble toggles, player/name vibration settings UI, JObj/text setup and cleanup, and menu lifecycle handling. It also replaced many placeholder header declarations with typed prototypes and exposed the data/float globals needed by the implementation. The author explicitly marked the work as WIP and said comments/preliminary documentation would need stronger validation in follow-up PRs. decomp.dev reported 5 new full matches and 12 partial improvements in main/melee/mn/mnvibration, for +1132 matched bytes and +0.03% overall matched code.",
+  "summary": "Started decompilation of the mnvibration menu module, replacing many placeholder prototypes with typed signatures, adding local data/asset structs, JObj helper inlines, globals/static data, and substantial C implementations for controller rumble toggling, name-list scrolling, cursor movement, text cleanup, and menu object setup. The PR body explicitly called this WIP with preliminary comments to be validated in follow-up PRs. The decomp.dev report showed 5 new full matches and 12 partial improvements in main/melee/mn/mnvibration, for +1132 matched bytes and +0.03% overall matched code.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "menu-implementation",
-      "struct-documentation",
-      "asset-wiring"
+      "menu-logic",
+      "rumble-controller",
+      "asset-structuring"
     ],
     "systems": [
+      "melee-mn",
       "mnvibration",
-      "menu",
-      "controller-rumble",
+      "rumble",
       "name-entry",
-      "HSD_JObj",
-      "HSD_Text",
-      "SisLib"
+      "baselib-jobj",
+      "sislib-text"
     ]
   },
   "key_files": [
@@ -36,61 +35,53 @@
     "src/melee/mn/mnvibration.h"
   ],
   "what_changed": [
-    "Expanded src/melee/mn/mnvibration.c by roughly 944 added lines, replacing a very small stub-like file with substantial mnvibration logic.",
-    "Added includes for ft, gm, lb, mn, baselib, Dolphin OS, controller, JObj, GObj, memory, and SisLib dependencies used by the menu implementation.",
-    "Added local inline JObj translation getter/setter helpers named mnVibration_JObjGetTranslationX/Y/Z and mnVibration_JObjSetTranslateX/Y/Z, including assert patterns and JOBJ_MTX_INDEP_SRT handling.",
-    "Added static/global data including mnVibration_804D4FE8, mnVibration_804D4FF0, mnVibration_804D6C28, and multiple MnVibrationJointAssets globals.",
-    "Introduced local structs for MnVibrationJointAssets and MnVibrationData, with field comments for controller scroll state, connected flags, scroll offset, 25 JObj references, 8 text handles, title text, and cursor gobj.",
-    "Implemented or partially implemented mnvibration functions including mnVibration_802474C4, fn_80247510, fn_80248084, mnVibration_802480B4, mnVibration_8024829C, mnVibration_80248444, mnVibration_80248644, fn_80248748, fn_802487A8, fn_80248A78, and mnVibration_80248ED4.",
-    "Added menu input behavior for B-button exit, A-button rumble toggles, controller-specific rumble state changes, up/down navigation through saved names, cursor movement, and scroll offset handling.",
-    "Added text lifecycle handling for name-list entries and title text using HSD_SisLib allocation/display/free functions.",
-    "Added JObj asset loading and animation setup for controller panels and name-row rumble indicators using HSD_JObjLoadJoint, HSD_JObjAddAnimAll, HSD_JObjReqAnimAll, HSD_JObjAnimAll, HSD_JObjAddChild, and HSD_JObjRemoveAll.",
-    "Changed mnVibration_80249174 to save arg0 in a local variable and call typed mnVibration_80248ED4(saved_arg) instead of casting around a header mismatch.",
-    "Updated src/melee/mn/mnvibration.h from UNK_RET/UNK_PARAMS declarations to concrete return types and parameter types for the mnvibration functions.",
-    "Added header declarations for MnVibrationFloatData, mnVibration_803EECE0, mnVibration_804DC020, mnVibration_803EED04, mnVibration_804D4FF4, and mnVibration_804D4FFC."
+    "Expanded src/melee/mn/mnvibration.c from a mostly placeholder module into a large partial implementation, adding 944 lines and deleting 6.",
+    "Added includes for ft_0C31, gm_1A36, gmmain_lib, lb_00B0, lb_00F9, lbarchive, lbaudio_ax, mn/inlines, mnmain, mnname, mn/types, Dolphin OS, and several baselib headers needed by the reconstructed menu code.",
+    "Added local inline JObj translation getters/setters named mnVibration_JObjGetTranslationX/Y/Z and mnVibration_JObjSetTranslateX/Y/Z, including assert calls and the ftCo_800C6AFC invalidation/update pattern when JOBJ_MTX_INDEP_SRT is not set.",
+    "Introduced static/global data used by the module, including mnVibration_804D4FE8, mnVibration_804D4FF0, mnVibration_804D6C28, mnVibration_803EECEC, and mnVibration_803EECF8.",
+    "Added local structs MnVibrationJointAssets and MnVibrationData, extending the existing MnVibrationAssets usage with documented offsets for controller state bytes, scroll offset, JObj arrays, text handles, title text, and cursor GObj.",
+    "Implemented or partially implemented functions around the vibration menu: mnVibration_802474C4, fn_80247510, fn_80248084, mnVibration_802480B4, mnVibration_8024829C, mnVibration_80248444, mnVibration_80248644, fn_80248748, fn_802487A8, fn_80248A78, and mnVibration_80248ED4.",
+    "Reworked header prototypes in src/melee/mn/mnvibration.h from UNK_RET/UNK_PARAMS placeholders to typed declarations using HSD_GObj, HSD_JObj, u8, s32, and return types such as void, s32, and HSD_JObj*.",
+    "Added MnVibrationFloatData to the header with pad0[0x18], x18, and x1C fields, plus externs for mnVibration_803EECE0, mnVibration_804DC020, mnVibration_803EED04, mnVibration_804D4FF4, and mnVibration_804D4FFC.",
+    "Menu behavior reconstructed includes B-button exit cleanup, A-button rumble toggle per controller, L-held name-list navigation, persistent name rumble flag toggling via GetPersistentNameData(...)->x1A1, text creation/destruction, JObj child creation/removal, and pad rumble add/remove calls."
   ],
   "smart_moves": [
-    "Mirrored a known ftCo_800C6AFC-style JObj setter pattern locally, including assert line constants and matrix invalidation behavior, which likely helped match call shape around direct translate.x/y/z access.",
-    "Kept asset bundles as small typed structs with joint/animjoint/matanim/shapeanim fields, making repeated JObj creation code easier to express and reuse.",
-    "Modeled menu instance state in MnVibrationData instead of scattering raw offsets, while preserving enough offset comments to support matching and later validation.",
-    "Converted placeholder header prototypes to typed signatures, which removed the need for an unsafe function-pointer cast in mnVibration_80249174.",
-    "Reloaded mnVibration_804D6C28->user_data during B-button exit cleanup before freeing text objects, which is a cautious pattern when global menu state may be involved.",
-    "Used explicit cleanup paths for SisLib text objects, GObj unlinking, and pad rumble removal on menu exit.",
-    "Separated list rebuilding into mnVibration_80248644: it frees old text, removes old row JObjs, and repopulates up to 8 visible names from scroll_offset."
+    "Kept JObj translation access as module-local inlines rather than blindly using generic helpers, allowing the generated assert line numbers and ftCo_800C6AFC update pattern to match this module's codegen constraints.",
+    "Modeled the menu's user_data as MnVibrationData with explicit offsets, which made repeated accesses to controller state, scroll_offset, jobjs, texts, title_text, and cursor_gobj more readable while preserving matching-sensitive layout.",
+    "Separated repeated asset tuples into MnVibrationJointAssets for joint, animjoint, matanim, and shapeanim, matching the recurring HSD_JObjLoadJoint/HSD_JObjAddAnimAll pattern.",
+    "Used small static frame/animation data structures such as AnimLoopSettings mnVibration_803EECEC and f32 mnVibration_803EECF8 to expose hidden data dependencies instead of leaving magic pointers opaque.",
+    "Converted only evidence-supported prototypes in the header while leaving remaining address-based symbol names where semantic names were not yet validated.",
+    "PR intentionally labeled the comments/documentation as preliminary and WIP, reducing the risk of overclaiming semantics before later validation."
   ],
   "decomp_lessons": [
-    "For menu modules built around HSD_JObj trees, define local data structs with known JObj array counts and text-handle arrays early; even partial field names make input, animation, and cleanup code tractable.",
-    "When matching direct JObj translate access, local inline wrappers can preserve assert strings/line numbers and matrix-dirty side effects while avoiding repeated boilerplate.",
-    "Replacing UNK_RET/UNK_PARAMS with real prototypes can unlock cleaner callsites and avoid cast hacks that obscure matching problems.",
-    "Menu decomp often requires reproducing small state-machine fields exactly: cooldown checks, animation frame counters, controller selection bits, cursor row, and scroll offset all affect control flow shape.",
-    "Name-list UI code should treat 0xFF as an invalid name index sentinel when visible rows exceed GetNameCount or scroll_offset points past the available data.",
-    "Text object cleanup and JObj child removal are important in scrollable menu rebuilds; leaks or stale children can hide matching mistakes as well as runtime bugs.",
-    "Controller connection checks in this code use HSD_PadCopyStatus[i].err to decide whether a panel is active.",
-    "The PR body warns that comments and documentation were preliminary; future work should validate field names and comments against more context before treating them as final."
+    "For menu modules, recovering the GObj user_data struct is often the central unlock: once arrays of JObjs and HSD_Text handles are laid out, input handling, cursor animation, and cleanup become much easier to express.",
+    "When matching code that manipulates JObj translation fields directly, preserve assert strings/line numbers and the matrix-update side effect; generic helper calls may not match if the original was an inline pattern.",
+    "Controller/menu code may require joining multiple subsystems in one translation unit: gm input access, gmMainLib rumble settings, HSD_PadRumble APIs, lbAudioAx sound effects, mn name APIs, sislib text, and JObj animation all interact here.",
+    "Name-list UI reconstruction should handle both visible row and scroll offset separately; this PR repeatedly computes name_idx from scroll_offset + cursor_row and uses 0xFF as an invalid sentinel when the row is beyond GetNameCount().",
+    "Text cleanup matters for matching and correctness: this module explicitly frees each of 8 HSD_Text handles and title_text with HSD_SisLib_803A5CC4 before unlinking the menu GObj.",
+    "A partially matched WIP PR can still be valuable if it lands typed prototypes, local structs, and matched leaf/helper functions that future PRs can build on."
   ],
   "naming_conventions": [
-    "Preserved address-based symbol names for unmatched or not-yet-renamed functions, e.g. mnVibration_802474C4, fn_80247510, fn_80248748, fn_80248A78, and mnVibration_80248ED4.",
-    "Used module-prefixed local helper names for JObj wrappers: mnVibration_JObjGetTranslationX/Y/Z and mnVibration_JObjSetTranslateX/Y/Z.",
-    "Used module-prefixed structs: MnVibrationAssets, MnVibrationJointAssets, MnVibrationData, and MnVibrationFloatData.",
-    "Kept unknown or semi-known struct fields in offset-style names such as x0, x6, x18, x1C, while documenting likely purpose in comments.",
-    "Global data retained address-style names such as mnVibration_804A0868, mnVibration_804A0878, mnVibration_804D6C28, mnVibration_803EECE0, and mnVibration_804DC020.",
-    "Generic function names beginning with fn_ were retained where semantic names were not yet validated."
+    "Module symbols use the established mnVibration_802xxxxx address-based naming when semantics are not yet known.",
+    "File-local helper inlines use a more descriptive module-prefixed CamelCase style: mnVibration_JObjGetTranslationX/Y/Z and mnVibration_JObjSetTranslateX/Y/Z.",
+    "Anonymous or not-yet-understood callbacks remain fn_802xxxxx, such as fn_80247510, fn_80248084, fn_80248748, fn_802487A8, and fn_80248A78.",
+    "Recovered structs use descriptive PascalCase names with module prefix: MnVibrationAssets, MnVibrationJointAssets, MnVibrationData, and MnVibrationFloatData.",
+    "Unknown struct fields retain offset-style names such as x0, x6, x18, x1C, and pad_0B when semantics are incomplete.",
+    "Static/global data retains address-based names such as mnVibration_804D4FE8, mnVibration_804D4FF0, mnVibration_804D6C28, mnVibration_803EECEC, and mnVibration_803EECF8."
   ],
   "assembly_or_matching_tactics": [
-    "Used local inline JObj get/set helpers to match direct field loads/stores, assert calls, and ftCo_800C6AFC invalidation behavior.",
-    "Inserted PAD_STACK markers in several functions to preserve stack layout where needed.",
-    "Kept raw integer constants and frame/button masks visible, such as inputs & 2 for B, inputs & 1 for A, inputs & 0x40/0x80 and repeated-input masks 0x10/0x20.",
-    "Used explicit NULL child/next traversal patterns for JObj children instead of abstracting traversal, preserving branch structure.",
-    "Used do/while loops for fixed-count operations over controllers, text slots, and JObj arrays, matching common compiler output patterns.",
-    "Added local saved_arg in mnVibration_80249174 to support a typed call to mnVibration_80248ED4 while preserving argument value.",
-    "Represented float data through MnVibrationFloatData and cast/field access around mnVibration_803EECE0 for animation frame values.",
-    "decomp.dev evidence: 5 functions reached 100% match: mnVibration_802480B4, mnVibration_8024829C, fn_80248748, mnVibration_802474C4, and fn_80248084."
+    "Used local static inline JObj getters/setters with explicit __assert file/line constants, direct translate field loads/stores, and ftCo_800C6AFC calls to reproduce expected codegen.",
+    "Preserved signed/unsigned casts around controller indices and pad status checks, for example casting HSD_PadCopyStatus[(u8)i].err through u8 and s8.",
+    "Used explicit u8 fields for controller states, cursor row, scroll offset, connected flags, and rumble settings to control loads/stores and comparisons.",
+    "Kept repeated child traversal code explicit rather than abstracting it away, matching patterns that walk jobj->child and jobj->next with NULL checks.",
+    "Introduced PAD_STACK markers in functions where stack shape needed adjustment, including mnVibration_80248444 and fn_80248748.",
+    "Replaced a function-pointer-style call to mnVibration_80248ED4 with a direct typed call using saved_arg after the prototype was recovered.",
+    "Relied on decomp.dev feedback showing full matches for mnVibration_802480B4, mnVibration_8024829C, fn_80248748, mnVibration_802474C4, and fn_80248084, with large partial percentages for several remaining functions."
   ],
   "review_feedback": [
     "No human review comments were present in the provided slice.",
-    "The PR body says the work was still WIP and that preliminary documentation/comments would be more strongly validated in follow-up PRs.",
-    "decomp.dev reported +1132 matched bytes, 5 new full matches, and 12 improved unmatched items in main/melee/mn/mnvibration.",
-    "Partial-match improvements reported by decomp.dev included fn_80247510 at 73.73%, fn_80248A78 at 97.97%, fn_802487A8 at 87.42%, mnVibration_80248ED4 at 81.58%, mnVibration_80248444 at 91.62%, and mnVibration_80248644 at 88.25%."
+    "The PR body says: 'still WIP' and notes that preliminary documentation/comments would be more strongly validated in follow-up PRs.",
+    "The decomp.dev bot reported +1132 matched bytes, +0.03% overall matched code, 5 new full matches, and 12 improvements in unmatched items for main/melee/mn/mnvibration."
   ],
   "searchable_terms": [
     "mnvibration",
@@ -111,28 +102,37 @@
     "MnVibrationFloatData",
     "mnVibration_JObjGetTranslationX",
     "mnVibration_JObjSetTranslateX",
-    "JOBJ_MTX_INDEP_SRT",
     "ftCo_800C6AFC",
+    "JOBJ_MTX_INDEP_SRT",
     "HSD_PadRumbleAdd",
-    "HSD_PadRumbleOffN",
     "HSD_PadRumbleRemoveAll",
+    "HSD_PadRumbleOffN",
     "GetRumbleSettingOfPort",
-    "GetPersistentNameData",
     "GetNameCount",
+    "GetPersistentNameData",
     "GetNameText",
     "HSD_SisLib_803A5CC4",
+    "HSD_SisLib_803A6754",
     "HSD_JObjReqAnimAll",
     "HSD_JObjAnimAll",
-    "mnVibration_804D6C28"
+    "HSD_JObjLoadJoint",
+    "HSD_JObjAddAnimAll",
+    "lbAudioAx_80024030",
+    "gm_801A36A0",
+    "gm_801A36C0",
+    "gmMainLib_8015ED4C",
+    "mn_80229894",
+    "Menu_GetAllInputs",
+    "Menu_DecrementAnimTimer"
   ],
   "follow_up_queries": [
-    "Validate MnVibrationData field names x0 and x6 against later mnvibration PRs or runtime behavior.",
-    "Check follow-up PRs for semantic renames of fn_80247510, fn_80248748, fn_802487A8, and fn_80248A78.",
-    "Confirm whether the preliminary comments for controller scroll states, connected flags, and name-list rows survived later review.",
-    "Investigate remaining unmatched percentages for fn_80247510, fn_80248A78, fn_802487A8, mnVibration_80248ED4, mnVibration_80248444, and mnVibration_80248644.",
-    "Look for shared baselib JObj translation inline helpers that could replace module-local wrappers without regressing matches."
+    "Find follow-up PRs that further validate or rename mnvibration comments and symbols introduced as WIP in PR 2142.",
+    "Search for later changes to MnVibrationData field names, especially x0, x6, scroll_offset, jobjs, texts, title_text, and cursor_gobj.",
+    "Search for later full matches of fn_80247510, fn_802487A8, fn_80248A78, mnVibration_80248444, mnVibration_80248644, and mnVibration_80248ED4.",
+    "Compare JObj translation inline patterns in other modules that use ftCo_800C6AFC and assert line constants.",
+    "Check whether mnVibration_804D4FE8's controller-to-JObj index mapping {0x16,0x15,0x14,0x13} receives a semantic name later."
   ],
-  "confidence": 0.89,
+  "confidence": 0.9,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

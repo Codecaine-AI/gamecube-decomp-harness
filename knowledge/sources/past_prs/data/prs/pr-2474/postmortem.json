@@ -11,19 +11,18 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Unmerged automated security-fix PR that changed only the extern Dolphin charPipeline dolphinString header prototypes for Strcat and Strcpy by adding a u32 dst_size parameter. The PR body framed this as a critical bounds-checking fix, but the diff shows only declaration changes and no implementation or callsite updates, so evidence for an actual safe/matching fix is weak.",
+  "summary": "Automated security PR proposed adding a `u32 dst_size` parameter to the declarations of custom Dolphin string helpers `Strcat` and `Strcpy` in `extern/dolphin/include/charPipeline/structures/dolphinString.h`, motivated by a claimed critical buffer-overflow risk from unbounded string copies. The PR was closed without merge and had no review discussion in the provided slice. Evidence shows only header prototype changes, not implementation or call-site updates.",
   "change_classification": {
     "primary_type": "unmerged_header_api_change",
     "categories": [
-      "fix-attempt",
-      "security",
+      "fix",
       "headers",
       "external-sdk",
-      "function-prototypes"
+      "security-claim",
+      "api-signature-change"
     ],
     "systems": [
       "external-sdk",
-      "dolphin",
       "charPipeline",
       "dolphinString"
     ]
@@ -32,37 +31,36 @@
     "extern/dolphin/include/charPipeline/structures/dolphinString.h"
   ],
   "what_changed": [
-    "Changed the Strcat declaration from `u8 Strcat(char *str1, char *str2, char *dst);` to `u8 Strcat(char *str1, char *str2, char *dst, u32 dst_size);`.",
-    "Changed the Strcpy declaration from `void Strcpy(char *dst, char *src);` to `void Strcpy(char *dst, char *src, u32 dst_size);`.",
-    "No other files were changed in the slice: 1 file, 2 added lines, 2 deleted lines.",
-    "The PR was closed with `merged_at` null and has no issue comments, review comments, or reviews in the provided dump."
+    "Changed `u8 Strcat(char *str1, char *str2, char *dst);` to `u8 Strcat(char *str1, char *str2, char *dst, u32 dst_size);`.",
+    "Changed `void Strcpy(char *dst, char *src);` to `void Strcpy(char *dst, char *src, u32 dst_size);`.",
+    "Left `Strcmp(char *str1, char *str2);` and `Strlen(char *str);` unchanged.",
+    "No implementation changes, call-site migrations, matching evidence, or tests are present in the provided diff excerpt."
   ],
   "smart_moves": [
-    "The reusable safety idea is to make destination-buffer capacity explicit when designing copy/concatenate APIs.",
-    "The PR targeted the narrow header location identified in its scanner report rather than making broad unrelated edits."
+    "The security rationale correctly identifies that adding an explicit destination-size parameter is a common mitigation pattern for unsafe copy/concat APIs.",
+    "The proposed change keeps the existing custom Dolphin-style function names and only appends a size parameter instead of renaming the API."
   ],
   "decomp_lessons": [
-    "For decompilation work, changing an external SDK/header ABI is risky unless the original binary/API evidence supports the new signature. Header-only prototype changes can desynchronize declarations from existing implementations, symbols, and callsites.",
-    "A real bounds-checking conversion needs implementation changes and callsite migration, not just adding a `dst_size` parameter to declarations.",
-    "Automated security-scanner PRs against historical/decomp code should be treated cautiously: preserving original SDK behavior and matching constraints may matter more than modernizing APIs.",
-    "When evidence is limited to a diff of prototypes, do not infer that runtime bounds checks were added."
+    "For decompilation projects, changing extern SDK/header prototypes is not enough: implementations, all call sites, and ABI/matching impact must be updated and demonstrated together.",
+    "Security-motivated API changes can conflict with matching historical binaries if the original function signature is part of the target ABI; preserve original declarations unless there is project-approved evidence that the header was wrong.",
+    "Automated scanner claims should be treated as weak evidence when they do not account for decompilation constraints, binary compatibility, or source/assembly matching requirements.",
+    "A safe wrapper can be considered separately, but mutating original SDK function signatures risks breaking existing code and does not by itself fix any compiled behavior."
   ],
   "naming_conventions": [
-    "Existing Dolphin-style function names in this header use capitalized names: `Strcat`, `Strcpy`, `Strcmp`, `Strlen`.",
-    "The added size parameter was named `dst_size`, using lower_snake_case, but there is no evidence this naming matches original Dolphin SDK conventions.",
-    "Types in this header use project/Dolphin typedefs such as `u8`, `s8`, and `u32`."
+    "Existing custom string helpers use PascalCase-style names: `Strcat`, `Strcpy`, `Strcmp`, `Strlen`.",
+    "Existing Dolphin typedefs are used in the header: `u8`, `s8`, and `u32`.",
+    "The proposed size argument name was `dst_size`, using snake_case for the new parameter."
   ],
   "assembly_or_matching_tactics": [
-    "No assembly, matching strategy, or symbol-matching evidence appears in the PR dump.",
-    "Future matching work should verify any proposed signature change against implementation assembly and all callsites before accepting it."
+    "No assembly or matching tactics were provided.",
+    "Because the diff only changes declarations, it provides no evidence that function bodies or call sites would still match the original binary."
   ],
   "review_feedback": [
-    "No review comments, issue comments, or reviews were present in the provided slice.",
-    "The PR was closed unmerged, but the dump does not include maintainer rationale."
+    "No issue comments, review comments, or reviews are present in the provided PR slice.",
+    "The PR was closed without being merged."
   ],
   "searchable_terms": [
     "PR2474",
-    "orbisai0security",
     "dolphinString.h",
     "charPipeline",
     "extern/dolphin/include/charPipeline/structures/dolphinString.h",
@@ -71,20 +69,29 @@
     "Strcmp",
     "Strlen",
     "dst_size",
-    "u32",
-    "bounds checking",
+    "u32 dst_size",
+    "security fix",
     "buffer overflow",
-    "security scanner",
-    "multi_agent_ai",
-    "V-001",
+    "bounds checking",
+    "custom strcpy",
+    "custom strcat",
+    "orbisai0security",
     "automated security fix",
-    "header prototype change",
     "unmerged"
   ],
   "follow_up_queries": [
-    "Find implementations and callsites of `Strcat` and `Strcpy` before considering any signature or bounds-checking change.",
-    "Check whether `dolphinString.h` is intended to mirror an original Dolphin SDK header and whether these signatures must remain ABI-compatible.",
-    "Investigate why PR #2474 was closed unmerged if external discussion exists outside the provided dump."
+    "Check whether `Strcat` and `Strcpy` implementations exist elsewhere and what signatures they actually use.",
+    "Search all call sites of `Strcat` and `Strcpy` before changing any prototype.",
+    "Confirm whether `dolphinString.h` is intended to mirror an external SDK interface exactly.",
+    "If safety helpers are desired, consider adding separate bounded wrappers instead of modifying original extern declarations."
   ],
-  "confidence": 0.7
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

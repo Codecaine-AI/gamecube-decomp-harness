@@ -11,220 +11,144 @@
     "merged_at": "2026-04-30T10:21:26Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged a broad permuter-driven matching batch across 31 files. The PR body says it was from running permuter on functions and committing outputs that reached 100%; the decomp.dev bot reported GALE01 matched code rising to 65.73% (+0.32%, +12608 bytes), with 45 new matches, 5 unmatched-item improvements, and 1 unmatched-item regression. Most changes are compiler-shape tactics rather than semantic rewrites: temporary variables, accessor/macro swaps, inline/noinline wrappers, declaration-order changes, stack padding, casts, and small no-op expressions.",
+  "summary": "Permuter-driven matching sweep across 31 files in fighter, game-mode, stage, item, library, and baselib code. The author stated this PR collected functions that reached 100% from permuter runs. decomp.dev reported matched code rising to 65.73% (+0.32%, +12608 bytes), with 45 new matches, 5 improvements in still-unmatched items, and 1 small regression in lbcardnew/lb_8001BC18.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "permuter-output",
-      "new function matches",
-      "codegen-shaping",
-      "register-allocation tuning",
-      "inlining-control",
-      "stack-layout tuning",
-      "accessor-macro selection"
+      "minor-source-rewrites",
+      "matching-artifacts",
+      "progress-metrics"
     ],
     "systems": [
-      "camera",
       "fighter",
       "game-mode",
-      "stage/ground",
-      "items",
-      "lb memory-card/snap/text",
-      "menu",
-      "vi",
-      "sysdolphin baselib"
+      "stage",
+      "item",
+      "library",
+      "baselib",
+      "camera",
+      "menu"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/lb/lbcardnew.c",
-      "role": "Largest diff; expanded memory-card task setup into explicit CardTask writes, introduced lb_80019C38_noinline and lb_8001BB48_inline, used dont_inline pragmas, and matched lb_8001BB48 while the bot reported lb_8001BC18 regressed by 4 bytes."
-    },
-    {
-      "path": "src/sysdolphin/baselib/particle.c",
-      "role": "Improved hsd_803966A0, fn_80397374, and fn_80393C14 by changing global ParticleScreenState access, local placement, and arithmetic shape; bot still listed these as unmatched improvements rather than full matches."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.c",
-      "role": "Several Kirby hat SpecialN helper functions reached 100% by using HSD_GObjGetUserData instead of GET_FIGHTER in local setup paths and adding baselib/forward.h."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
-      "role": "fn_80122B54 reached 100% through extra gobj/fighter temporaries, reloaded user_data after Fighter_ChangeMotionState/ftPp_set_cbs, and used 0L for the NULL argument."
-    },
-    {
-      "path": "src/melee/cm/camera.c",
-      "role": "Camera_8002FEEC reached 100% by splitting the sqrt input expression into a separate float temporary before division."
-    },
-    {
-      "path": "src/melee/gr/grkongo.c",
-      "role": "Used declaration hoisting/order changes in fn_801D7700 and an unused local/comma-expression shape in grKongo_801D8078 for stage matching."
-    },
-    {
-      "path": "src/melee/gr/groldyoshi.c",
-      "role": "Added grOldYoshi_8020EFCC_inline returning raw user_data, with an explicit comment that normal GET_GROUND did not match there."
-    },
-    {
-      "path": "src/melee/it/items/itsamusgrapple.c",
-      "role": "Matched it_802B99A0 and it_802BA3BC through local declaration order and assignment-timing tweaks."
-    },
-    {
-      "path": "src/melee/it/items/itlinkboomerang.c",
-      "role": "Matched boomerang physics helpers by switching to GET_ITEM, separating attribute setup, and adding self-assignment on attrs->xC."
-    },
-    {
-      "path": "src/sysdolphin/baselib/hsd_3AA7.c",
-      "role": "fn_803AC634 reached 100% by splitting the remaining calculation into two statements and removing the old 97.73% TODO."
-    },
-    {
-      "path": "src/melee/vi/vi1201v2.c",
-      "role": "un_803207C4 reached 100% by wrapping GObj_Create in inline_fn and carrying a second gobj temporary through object/link/proc setup."
-    },
-    {
-      "path": "src/sysdolphin/baselib/sobjlib.c",
-      "role": "HSD_SObjLib_803A54EC reached 100% by using GET_COBJ(gobj) for HSD_CObjSetCurrent; another hunk initialized cur from gobj->hsd_obj."
-    }
+    "src/melee/lb/lbcardnew.c",
+    "src/sysdolphin/baselib/particle.c",
+    "src/melee/ft/chara/ftKirby/ftKb_Init.c",
+    "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
+    "src/melee/ft/chara/ftCommon/ftCo_Guard.c",
+    "src/melee/cm/camera.c",
+    "src/melee/gm/gm_18A5.c",
+    "src/melee/gr/grkongo.c",
+    "src/melee/gr/groldyoshi.c",
+    "src/melee/it/items/itsamusgrapple.c"
   ],
   "what_changed": [
-    "Touched 31 files with 267 added and 132 deleted lines across camera, fighter, game-mode, stage, item, lb, mn, vi, and sysdolphin/baselib code.",
-    "Automated decomp.dev report for GALE01 showed matched code at 65.73%, up 0.32% and +12608 bytes.",
-    "Bot reported 45 new matches, including it_802B99A0, fn_8016CA68, fn_80122B54, lb_8001BB48, it_802BBD64, lb_800192A8, un_803207C4, several ftKb_SpecialN hat functions, fn_80165E7C, fn_8024FC48, grOldYoshi_8020EFCC, fn_803AC634, Camera_8002FEEC, grKongo_801D8078, itLinkboomerang_UnkMotion1_Phys, itLinkboomerang_UnkMotion2_Phys, it_802BA3BC, it_802C519C, HSD_SObjLib_803A54EC, lbSnap_8001D4A4, grMuteCity_801F2C10, grFourside_801F3B70, and grGreatBay_801F660C.",
-    "Bot reported 5 improvements in still-unmatched items: particle hsd_803966A0, particle fn_80397374, gm_18A5 fn_801981A0, ftCo_Guard .sdata2, and particle fn_80393C14.",
-    "Bot reported 1 regression in an unmatched item: lbcardnew lb_8001BC18 went from 96.62% to 95.28% (-4 bytes).",
-    "lbcardnew matching was driven by explicit CardTask construction, lb_80019C38_noinline, lb_8001BB48_inline, setup_task replacement in selected paths, and dont_inline pragmas around lb_8001BE30.",
-    "Fighter and item changes often toggled between direct user_data, GET_FIGHTER, GET_ITEM, HSD_GObjGetUserData, and HSD_GObjGetHSDObj forms to alter emitted code.",
-    "Several functions gained compiler-shape artifacts such as new_var locals, PAD_STACK, self-assignments, comma expressions, explicit casts, and local reordering."
+    "Applied many small C rewrites generated or found by permuter to reach exact codegen in scattered near-matching functions.",
+    "decomp.dev reported 45 new 100% matches, including it_802B99A0, fn_8016CA68, fn_80122B54, lb_8001BB48, it_802BBD64, lb_800192A8, un_803207C4, several Kirby hat setup functions, fn_80165E7C, fn_8024FC48, grOldYoshi_8020EFCC, fn_803AC634, Camera_8002FEEC, grKongo_801D8078, and multiple item/stage functions.",
+    "Improved but did not fully match several remaining functions/items: sysdolphin/baselib/particle hsd_803966A0, fn_80397374, fn_80393C14; gm_18A5 fn_801981A0; and ftCo_Guard .sdata2.",
+    "Introduced local temporaries and assignment-expression artifacts in several functions, such as Camera_8002FEEC computing a sqrt argument into new_var, gm_1601 assigning player_score = new_var = score, and grMuteCity comparing (new_var = x) to x_min.",
+    "Adjusted gobj user-data access forms for matching: ftCo_Guard switched several direct gobj->user_data reads to GET_FIGHTER(gobj), while Kirby hat setup functions switched from GET_FIGHTER(gobj) to HSD_GObjGetUserData(gobj).",
+    "Used inline/noinline helpers and pragmas in lbcardnew and stage files to influence call/inlining shape, including lb_80019C38_noinline, lb_8001BB48_inline, grFlatzone_80216F48_inline, and grOldYoshi_8020EFCC_inline.",
+    "Added or removed stack padding and small dummy constructs where needed, including PAD_STACK(8) in grinishie1 and removal of PAD_STACK(4) in ittaru.",
+    "Changed ftCh_Damage2_Anim to pass ftMh_MS_Damage2 instead of ftMh_MS_Damage to Fighter_ChangeMotionState.",
+    "Updated gm_18A5 todo from a percentage note to 'Down to linking', reflecting substantial progress but not a full match according to bot output.",
+    "decomp.dev also reported one unmatched-item regression: lbcardnew/lb_8001BC18 decreased by 4 bytes from 96.62% to 95.28%."
   ],
   "smart_moves": [
-    "The PR used the decomp.dev match report as a gate: the author explicitly stated they would commit permuter outputs that reached 100%, and the bot confirmed many new matches.",
-    "Inline/noinline wrapper functions were used surgically instead of globally changing helper behavior, especially in lbcardnew and stage/menu helpers.",
-    "Complex arithmetic was split into staged temporaries where register allocation mattered, e.g. Camera_8002FEEC sqrt input, fn_803AC634 remaining, gm_18A5 x_pos, and particle spr_off math.",
-    "Accessor choice was treated as a codegen knob: GET_FIGHTER helped ftCo_Guard, HSD_GObjGetUserData helped Kirby hat functions, GET_ITEM helped Link boomerang, and raw user_data helped some ground functions.",
-    "The patch preserved local matching artifacts close to the affected functions, making later cleanup easier to audit against specific matches.",
-    "The automated regression was visible in the PR bot output, which is useful for future tradeoff checks around lb_8001BC18."
+    "Treated permuter results as localized source-shape changes rather than broad refactors, keeping most edits narrowly scoped to expression order, variable lifetime, access macros, and call shape.",
+    "Accepted that equivalent user-data access forms are not codegen-equivalent: GET_FIGHTER, GET_GROUND, raw gobj->user_data, and HSD_GObjGetUserData were swapped case-by-case to match compiler output.",
+    "Used temporary variables to force evaluation order and register allocation, especially around floating-point math and repeated memory loads.",
+    "Used inline/noinline wrappers to control whether calls were materialized or folded, particularly in lbcardnew task setup and stage gobj access.",
+    "Kept permuter artifacts such as new_var, dummy assignments, comma-expression style, and PAD_STACK where they produced progress, making this PR primarily a matching artifact sweep rather than cleanup.",
+    "Verified progress with decomp.dev metrics: the PR landed because it produced many 100% matches despite one small regression."
   ],
   "decomp_lessons": [
-    "For late-stage matches, macro expansion choice can matter as much as logic; try GET_* macros, raw user_data, and HSD_GObjGetUserData/GET_COBJ variants before restructuring larger code.",
-    "Inlining control can be localized with small wrappers named after the target function plus _inline or _noinline, and with targeted #pragma dont_inline blocks.",
-    "Expression tree shape affects PowerPC register allocation: splitting one expression into two assignments can close small gaps without changing intended logic.",
-    "Declaration order and scope remain important; grKongo, grGreatBay, grVenom, itsamusgrapple, and particle all used local placement/order changes as matching levers.",
-    "PAD_STACK, dummy locals, self-assignments, comma expressions, and literal-width casts are legitimate last-mile matching tools, but should be documented as scaffolding rather than semantic insight.",
-    "Watch for match-progress tradeoffs: this PR gained many full matches but knowingly left an automated lbcardnew regression in an unmatched item.",
-    "Permuter output can create odd-looking but evidence-backed source. Future cleanup should preserve exact matches or re-run decomp.dev before normalizing style."
+    "For near-matches, try semantically equivalent accessors: macro expansion versus function call versus direct user_data load can affect register choice and scheduling.",
+    "Do not assume cleaner C is closer to target assembly; several matches required uglier temporaries, redundant aliases, explicit casts, or assignment expressions.",
+    "Inlining boundaries are often decisive. Small wrapper functions with _inline or _noinline-style naming can be useful probes when a direct call shape refuses to match.",
+    "Moving declarations earlier or later can change stack layout and register allocation enough to close tiny gaps.",
+    "Stack padding remains a valid last-mile tactic, but it should be localized and documented by context when possible.",
+    "When one helper change improves one function but regresses another, isolate it behind inline/noinline alternatives rather than forcing one universal source form.",
+    "Large permuter sweeps should be checked against aggregate decomp.dev output because scattered small wins can hide a localized regression."
   ],
   "naming_conventions": [
-    "Unidentified functions kept address-based names such as fn_80122B54, fn_80165E7C, fn_8024FC48, hsd_803966A0, and lb_8001BB48.",
-    "Local wrapper names used a simple suffix convention: lb_80019C38_noinline, lb_8001BB48_inline, grFlatzone_80216F48_inline, grOldYoshi_8020EFCC_inline, fn_8024FC48_inline, and inline_fn.",
-    "Temporary permuter artifacts used non-semantic names like new_var, new_var2, new_var4, fp2, and unused1; these should not be treated as recovered variable names.",
-    "The diff reinforces existing subsystem prefixes: ftCo/ftKb/ftPp for fighter code, gr* for stages, it* for items, lb* for library/memory-card helpers, and hsd*/HSD_* for baselib."
+    "Temporary permuter variables in this PR frequently used generic names like new_var, new_var2, new_var3, and fp2; these are evidence of matching artifacts rather than semantic names.",
+    "Inline helper names were derived from the target function or callee plus suffixes such as _inline and _noinline, e.g. grOldYoshi_8020EFCC_inline and lb_80019C38_noinline.",
+    "Existing decomp placeholder/function-address naming was preserved for unmatched or partially named symbols, such as fn_80122B54, lb_8001BB48, hsd_803966A0, and it_802BBD64.",
+    "System accessor macros and functions such as GET_FIGHTER, GET_GROUND, GET_JOBJ, and HSD_GObjGetUserData were used as codegen tools, not just naming/style preferences."
   ],
   "assembly_or_matching_tactics": [
-    "Split expressions into temporaries: Camera_8002FEEC new_var before sqrtf__Ff, fn_803AC634 remaining assignment split, gm_18A5 x_pos staged assignment, and particle spr_off staged subtraction.",
-    "Use accessor/macro alternatives as codegen switches: gobj->user_data, GET_FIGHTER, GET_ITEM, GET_GROUND, HSD_GObjGetUserData, GET_JOBJ, HSD_GObjGetHSDObj, and GET_COBJ.",
-    "Control inlining with wrappers and pragmas: lb_80019C38_noinline, lb_8001BB48_inline, lb_8001BE30 #pragma dont_inline, grFlatzone_80216F48_inline, grOldYoshi_8020EFCC_inline, fn_8024FC48_inline, and vi inline_fn.",
-    "Insert no-op or dummy code when needed for code shape: attrs->xC = attrs->xC, attr->x18 = attr->x18, cur->pos.z = cur->pos.z, an empty lb_804D63D0 condition, comma expressions like (0, item_pos.z), and dummy locals such as unused1.",
-    "Tune stack/register layout with PAD_STACK(8) and by moving variable declarations between inner and outer scopes.",
-    "Use explicit literal/cast forms to influence ABI/codegen: (long long) arg1 in gm_16AE, 0L in ftPp_SpecialS, and a wide mask expression in particle hsd_80393328.",
-    "Rewrite loop form when it changes emitted code: lbSnap_8001D4A4 changed while loops to for loops and cached ptr->num in new_var.",
-    "Reload or alias pointers around calls that may affect register lifetimes, as in ftPp_SpecialS reloading gobj->user_data after state/callback setup and lbcardnew expanding setup_task calls into explicit task pointer writes."
+    "Run permuter on many near-matching functions and commit only changes that reach 100% or improve measurable progress.",
+    "Introduce explicit temporaries to split complex expressions, as in Camera_8002FEEC moving the sqrt input into new_var.",
+    "Use alias variables to stabilize register allocation, as in ftPp_SpecialS adding new_var for gobj and fp2 for Fighter state.",
+    "Swap direct user_data loads, accessor macros, and HSD_GObjGetUserData calls to tune emitted code.",
+    "Use assignment inside declarations or conditions to affect lifetimes and scheduling, e.g. player_score = new_var = score and if ((new_var = x) < x_min).",
+    "Add inline/noinline wrappers and dont_inline pragmas to control call expansion in lbcardnew and stage setup functions.",
+    "Add or remove PAD_STACK to match stack frame size.",
+    "Reorder local declarations and split combined declarations where compiler stack/register behavior depends on declaration order.",
+    "Use explicit casts/widening where needed, such as gm_16AE calling gm_801A4634((long long) arg1).",
+    "Leave a small dummy conditional in lb_0192, `if ((!lb_804D63D0) && (!lb_804D63D0)){}`, when it helps match; this should be treated as a targeted matching hack."
   ],
   "review_feedback": [
-    "No human review comments or GitHub review records were present in the PR slice.",
-    "The only feedback-like record was the decomp.dev bot report: 45 new matches, 5 unmatched improvements, and 1 unmatched regression.",
-    "Automated regression to follow up: main/melee/lb/lbcardnew lb_8001BC18 lost 4 bytes of match progress, 96.62% to 95.28%."
+    "No human review comments were present in the provided slice.",
+    "decomp.dev bot reported +12608 matched bytes and +0.32% matched code overall for GALE01.",
+    "decomp.dev bot listed 45 new matches and 5 improvements in unmatched items.",
+    "decomp.dev bot reported one regression: main/melee/lb/lbcardnew lb_8001BC18 changed from 96.62% to 95.28% (-4 bytes)."
   ],
   "searchable_terms": [
-    "PR 2440",
+    "PR2440",
     "Permuter matches",
     "jurrejelle",
-    "GALE01",
+    "permuter",
     "decomp.dev",
     "45 new matches",
-    "+12608 bytes",
+    "12608 bytes",
     "65.73%",
-    "permuter",
-    "codegen shaping",
-    "register allocation",
-    "PAD_STACK",
-    "new_var",
-    "inline wrapper",
-    "noinline wrapper",
     "lbcardnew",
-    "lb_80019C38_noinline",
     "lb_8001BB48",
-    "lb_8001BB48_inline",
     "lb_8001BC18",
-    "lb_8001BE30",
-    "lb_8001BF04",
-    "lb_8001C0F4",
-    "setup_task",
-    "particle.c",
-    "hsd_80393328",
-    "fn_80393C14",
+    "lb_80019C38_noinline",
+    "lb_8001BB48_inline",
+    "baselib particle",
     "hsd_803966A0",
     "fn_80397374",
-    "hsd_804CF810",
-    "Camera_8002FEEC",
-    "ftCo_Guard",
-    "ftCo_8009370C",
-    "ftCo_8009388C",
-    "ftCo_800939B4",
-    "ftCo_80093A50",
-    "ftCh_Damage2_Anim",
+    "fn_80393C14",
     "ftKb_Init",
-    "ftKb_SpecialN_800EFD64",
-    "ftKb_SpecialN_800EFE80",
-    "ftKb_SpecialN_800F03DC",
-    "ftKb_SpecialN_800F081C",
-    "ftKb_SpecialN_800F0938",
-    "ftKb_SpecialN_800F0A54",
-    "ftKb_SpecialN_800F0C7C",
-    "ftKb_SpecialN_800F0EA4",
-    "fn_80122B54",
-    "fn_80165E7C",
-    "fn_8016CA68",
-    "fn_801981A0",
-    "grFlatzone_80216F48_inline",
-    "grFourside_801F3B70",
-    "grGreatBay_801F62F8",
-    "grGreatBay_801F660C",
-    "fn_801FC9AC",
-    "fn_801D7700",
-    "grKongo_801D8078",
-    "grMuteCity_801F2C10",
-    "grOldKongo_8021005C",
-    "fn_802112F4",
-    "grOldYoshi_8020EFCC",
-    "grOldYoshi_8020EFCC_inline",
-    "grVenom_802052E0",
-    "itLinkboomerang_UnkMotion1_Phys",
-    "itLinkboomerang_UnkMotion2_Phys",
-    "it_802C5000",
-    "it_802C519C",
-    "it_802B99A0",
-    "it_802BA3BC",
-    "it_802BBD64",
-    "it_802886C4",
-    "lb_800192A8",
-    "lbSnap_8001D4A4",
-    "fn_8024FC48",
-    "un_803207C4",
-    "fn_803AC634",
-    "HSD_SObjLib_803A54EC",
+    "Kirby hat",
+    "HSD_GObjGetUserData",
     "GET_FIGHTER",
-    "GET_ITEM",
-    "GET_GROUND",
-    "GET_COBJ",
-    "HSD_GObjGetUserData"
+    "ftCo_Guard",
+    "ReflectDesc",
+    "ftPp_SpecialS",
+    "fn_80122B54",
+    "Camera_8002FEEC",
+    "sqrtf__Ff",
+    "grOldYoshi_8020EFCC_inline",
+    "grFlatzone_80216F48_inline",
+    "PAD_STACK",
+    "new_var",
+    "gm_18A5",
+    "fn_801981A0",
+    "grKongo_801D8078",
+    "it_802B99A0",
+    "itseakchain",
+    "it_802BBD64"
   ],
   "follow_up_queries": [
-    "lb_8001BC18 regression after lb_8001BB48_inline and setup_task expansion",
-    "lbcardnew lb_80019C38_noinline memory card task matching cleanup",
-    "particle hsd_804CF810 register allocation hsd_803966A0 fn_80397374",
-    "GET_FIGHTER versus HSD_GObjGetUserData Kirby hat SpecialN matches",
-    "grOldYoshi_8020EFCC_inline normal GET_GROUND did not work",
-    "permuter no-op self assignment attrs->xC cur->pos.z attr->x18 matching tactic",
-    "PAD_STACK and comma expression last-mile matching examples PR 2440"
+    "Investigate whether lbcardnew/lb_8001BC18 regression was later recovered or isolated.",
+    "Search later PRs for cleanup of generic new_var artifacts introduced by this permuter sweep.",
+    "Look for subsequent completion of sysdolphin/baselib/particle functions hsd_803966A0, fn_80397374, and fn_80393C14.",
+    "Check later work on gm_18A5 fn_801981A0 after the todo changed to 'Down to linking'.",
+    "Compare accessor choices GET_FIGHTER versus HSD_GObjGetUserData in nearby Kirby and guard functions for reusable matching patterns."
   ],
-  "confidence": 0.9
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

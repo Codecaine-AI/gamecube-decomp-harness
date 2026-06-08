@@ -11,68 +11,56 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed unmerged. The PR was opened as an exact-match attempt for `hsd_80394314`, but the only diff changed the linkage of the particle BSS symbol `hsd_804CF810` in `src/sysdolphin/baselib/particle.static.h`. The author closed it as a bad HERMES/local-runner draft after confirming the title/body target symbol did not match the actual changed symbol and that the decomp-dev bot's \"No changes\" verdict for `hsd_80394314` was correct.",
+  "summary": "Draft PR claimed to match `hsd_80394314` in `src/sysdolphin/baselib/particle.c`, but the only diff changed the storage declaration for `hsd_804CF810` in `particle.static.h` by removing `static`. The author closed it after recognizing a title/body-vs-diff symbol mismatch; decomp-dev's no-progress/no-changes verdict for the labeled symbol was correct. The useful takeaway is process-oriented: automated PR generation needs a pre-open soundness gate to verify that the labeled target symbol, diff, and objdiff progress actually agree before consuming reviewer time.",
   "change_classification": {
-    "primary_type": "closed-unmerged automation/symbol-mismatch",
+    "primary_type": "closed-invalid-mismatched-symbol",
     "categories": [
       "decomp-matching",
       "headers",
-      "symbol-linkage",
-      "bot-automation",
-      "invalid-pr",
-      "closed-unmerged"
+      "naming",
+      "automation-soundness",
+      "no-merge"
     ],
     "systems": [
-      "sysdolphin",
-      "baselib",
+      "src/sysdolphin/baselib",
       "particle"
     ]
   },
   "key_files": [
-    {
-      "path": "src/sysdolphin/baselib/particle.static.h",
-      "role": "only changed file; changed `hsd_804CF810` from `static struct ParticleScreenState` to non-static `struct ParticleScreenState`"
-    }
+    "src/sysdolphin/baselib/particle.static.h"
   ],
   "what_changed": [
-    "The single code diff removed `static` from the BSS declaration/definition at address comment `/* 4CF810 */`, changing `static struct ParticleScreenState hsd_804CF810;` to `struct ParticleScreenState hsd_804CF810;`.",
-    "No source change to the labeled target function `hsd_80394314` was present in the diff excerpt.",
-    "The PR body claimed an accepted exact match for `hsd_80394314` in `src/sysdolphin/baselib/particle.c`, but the later author comment states this was a misrepresented HERMES draft."
+    "The only code change was in `src/sysdolphin/baselib/particle.static.h`.",
+    "Declaration/comment block around particle globals changed `/* 4CF810 */ static struct ParticleScreenState hsd_804CF810;` to `/* 4CF810 */ struct ParticleScreenState hsd_804CF810;`, removing internal linkage from `hsd_804CF810`.",
+    "No diff was shown for `src/sysdolphin/baselib/particle.c`, despite the PR body claiming candidate source `particle.c` line 1961 and symbol `hsd_80394314`.",
+    "The PR was closed unmerged because the diff touched `hsd_804CF810`, not the labeled target `hsd_80394314`."
   ],
   "smart_moves": [
-    "The author closed the PR rather than asking reviewers to reason about a mislabeled or zero-progress diff.",
-    "The author explicitly recorded the failure mode: title-vs-diff symbol mismatch, leaked body-template variables, and zero-progress objdiff.",
-    "A pre-open soundness gate was reportedly added to the local runner to catch these failures before opening future PRs."
+    "The author explicitly closed the draft once the mismatch was identified instead of trying to reinterpret it as a valid `hsd_80394314` match.",
+    "The postmortem comment names the failure mode clearly: title-vs-diff symbol mismatch, body template leaks, and zero-progress objdiff.",
+    "A pre-open soundness gate was reportedly added to the local HERMES runner to catch mismatched target symbols and zero-progress diffs before opening future PRs."
   ],
   "decomp_lessons": [
-    "For automated match PRs, verify that the target symbol in the title/body is actually affected by the patch before review.",
-    "A header-only linkage/staticness change can influence BSS relocation/symbol matching, but it should not be submitted as a match for an unrelated function without objective objdiff progress.",
-    "Bot verdicts such as \"No changes\" against the labeled symbol are useful sanity checks when the diff touches only data declarations or unrelated symbols.",
-    "Generated PR bodies with unresolved template placeholders are evidence that the automation output needs validation before submission."
+    "For decomp PRs, exact-match verification metadata is not enough if the generated patch does not actually modify or improve the labeled symbol.",
+    "Before opening an automated match PR, cross-check the PR title, body target symbol, changed declarations, and objdiff result against the same symbol.",
+    "Header-only storage-class changes can affect relocation/linkage behavior, but they must be tied to the intended function or object; otherwise they risk being noise or misleading progress.",
+    "A decomp-dev or objdiff 'No changes' verdict for the labeled symbol should be treated as a blocker when the PR claims a match."
   ],
   "naming_conventions": [
-    "Unidentified HSD symbols use address-derived names such as `hsd_80394314`, `hsd_804CF810`, `hsd_804CF7E8`, and `hsd_804D0908`.",
-    "Static header BSS entries are annotated with address comments like `/* 4CF810 */`.",
-    "Particle arrays in this area use descriptive camel-case names such as `psNumTexGroup`, `psFormGroupArray`, `psTexGroupArray`, and `psCmdListArray`."
+    "Static/global particle variables in `particle.static.h` use address-based names such as `hsd_804CF7E8`, `hsd_804CF810`, and `hsd_804D0908` with address comments like `/* 4CF810 */`.",
+    "Particle arrays in this area use descriptive camelCase-ish names such as `psFormGroupArray`, `psTexGroupArray`, `psCmdListArray`, and `psNumTexGroup`.",
+    "The PR title followed the common `Match <symbol>` convention, but this PR demonstrates that the convention is only useful if validated against the actual diff."
   ],
   "assembly_or_matching_tactics": [
-    "Do not count a build/verifier success as meaningful unless objdiff shows progress for the claimed target symbol.",
-    "Add a pre-open check comparing the claimed symbol against changed files/symbols to catch title-vs-diff mismatches.",
-    "Treat `.bss` relocation-symbol/static-linkage edits as highly targeted; confirm the relocation target is the symbol required for the function being matched."
+    "The claimed verification was an accepted exact match with verifier exit code 0, but the evidence was undermined by a mismatch between claimed symbol `hsd_80394314` and changed symbol `hsd_804CF810`.",
+    "The body mentions the candidate reason as a `.bss.0 relocation symbol` issue, and the actual patch removed `static` from a BSS-like global declaration, but the PR comment confirms this was not valid progress for the labeled symbol.",
+    "Future automation should include an objdiff zero-progress check and symbol-to-diff consistency check before submitting generated patches."
   ],
   "review_feedback": [
-    {
-      "source": "author close comment",
-      "feedback": "Closed because HERMES labeled the PR for `hsd_80394314` while the diff only touched `hsd_804CF810`."
-    },
-    {
-      "source": "author close comment",
-      "feedback": "The decomp-dev bot's \"No changes\" verdict against the labeled symbol was correct."
-    },
-    {
-      "source": "author close comment",
-      "feedback": "Future local-runner PRs should be gated for title-vs-diff symbol mismatch, body template leaks, and zero-progress objdiff."
-    }
+    "No formal review comments were present.",
+    "Author comment: closing as draft because HERMES labeled it for `hsd_80394314` but the diff only touched `hsd_804CF810`.",
+    "Author acknowledged decomp-dev bot's 'No changes' verdict against the labeled symbol was correct.",
+    "Author reported adding a pre-open soundness gate for title-vs-diff symbol mismatch, body template leaks, and zero-progress objdiff."
   ],
   "searchable_terms": [
     "pr-2493",
@@ -83,26 +71,33 @@
     "particle.static.h",
     "src/sysdolphin/baselib/particle.static.h",
     "src/sysdolphin/baselib/particle.c",
-    "sysdolphin",
-    "baselib",
-    "particle",
-    "BSS",
-    ".bss relocation",
-    "static linkage",
+    "HERMES",
+    "manual-hermes-reverify",
+    "accepted-exact-match",
     "symbol mismatch",
     "title-vs-diff symbol mismatch",
     "zero-progress objdiff",
-    "body template leaks",
-    "HERMES",
-    "decomp-dev bot",
     "No changes",
-    "closed unmerged"
+    "decomp-dev bot",
+    "static removal",
+    "BSS relocation",
+    "particle",
+    "sysdolphin",
+    "baselib"
   ],
   "follow_up_queries": [
-    "Find later accepted work that actually matches `hsd_80394314`.",
-    "Find later PRs touching `hsd_804CF810` or `ParticleScreenState` linkage in `particle.static.h`.",
-    "Search for HERMES pre-open soundness gate failures or fixes involving title-vs-diff symbol mismatch.",
-    "Check whether removing `static` from `hsd_804CF810` was later submitted in a correctly labeled particle/BSS relocation PR."
+    "Find later PRs that actually match `hsd_80394314`.",
+    "Search for subsequent valid changes to `hsd_804CF810` or `ParticleScreenState` linkage in `particle.static.h`.",
+    "Look for commits or PRs mentioning the HERMES pre-open soundness gate for title-vs-diff mismatch and zero-progress objdiff.",
+    "Audit other automated `Match <symbol>` PRs around May 2026 for body template leaks or mismatched changed symbols."
   ],
-  "confidence": 0.94
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

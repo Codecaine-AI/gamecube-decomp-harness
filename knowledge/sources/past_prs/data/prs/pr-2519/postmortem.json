@@ -11,114 +11,113 @@
     "merged_at": "2026-05-21T14:14:41Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked `melee/lb/lbarchive.c` by making two nearly-matching archive loader call sites fully matching. The PR changed `lbArchive_80017040` and `lbArchive_800171CC` to inline the `lbArchive_LoadArchive` sequence, updated GALE01 symbol scopes/labels for nearby lbarchive data strings, and changed `configure.py` so `lbarchive.c` is built as `Matching` instead of `Equivalent`. The decomp.dev report recorded 2 new matches and improvements of +768 matched code bytes, +2664 linked code bytes, and +192 linked data bytes.",
+  "summary": "Linked `src/melee/lb/lbarchive.c` by converting it from `Equivalent` to `Matching` in `configure.py`. The matching fix inlined `lbArchive_LoadArchive` inside `lbArchive_80017040` and `lbArchive_800171CC`, with supporting local temporaries and symbol table scope/name updates for nearby strings/data. The decomp.dev report showed 2 new matches, +768 matched-code bytes, +2664 linked-code bytes, and +192 linked-data bytes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "link-status-update",
-      "symbol-map-update",
-      "helper-inlining"
+      "linking-progress",
+      "build-config",
+      "symbol-map-cleanup"
     ],
     "systems": [
+      "lb",
       "lbarchive",
-      "melee/lb",
-      "GALE01 config",
-      "build configuration"
+      "config",
+      "GALE01 symbols",
+      "configure.py"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/lb/lbarchive.c",
-      "role": "Inlined the archive loading sequence inside `lbArchive_80017040` and `lbArchive_800171CC` instead of calling `lbArchive_LoadArchive`."
-    },
-    {
-      "path": "configure.py",
-      "role": "Changed `Object(Equivalent, \"melee/lb/lbarchive.c\")` to `Object(Matching, \"melee/lb/lbarchive.c\")`."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Adjusted lbarchive-adjacent data/sdata string symbol scopes to local, renamed `@126` to `@120`, and added local label `...data.0` at `.data:0x803BA588`."
-    }
+    "src/melee/lb/lbarchive.c",
+    "configure.py",
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "`lbArchive_80017040` now declares extra locals `void* tmp` and `HSD_Archive* archive2` and uses an inlined block in the non-preloaded path.",
-    "`lbArchive_800171CC` received the same inlined archive-loading block and extra locals.",
-    "The inlined block allocates a rounded-up file buffer with `lbHeap_80015BD0(0, OSRoundUp32B(lbFile_800163D8(filename)))`, allocates an `HSD_Archive`, loads file bytes with `lbFile_8001668C`, initializes the archive with `lbArchive_InitializeDAT`, and assigns the resulting archive pointer.",
-    "The inlined blocks include unused-looking `u32 pad` and `u32 pad2` locals, likely kept for stack/layout matching; the diff itself does not explain them beyond their presence.",
-    "`configure.py` now classifies `melee/lb/lbarchive.c` as `Matching`.",
-    "`symbols.txt` changed several generated string symbols from global or unspecified scope to `scope:local` and added a local `...data.0` label."
+    "`configure.py` changed `Object(Equivalent, \"melee/lb/lbarchive.c\")` to `Object(Matching, \"melee/lb/lbarchive.c\")`.",
+    "`lbArchive_80017040` no longer calls `lbArchive_LoadArchive(filename)` directly in the non-preloaded path; the load sequence is written inline.",
+    "`lbArchive_800171CC` received the same inline archive-loading sequence.",
+    "The inline load sequence allocates file data with `lbHeap_80015BD0(0, OSRoundUp32B(lbFile_800163D8(filename)))`, allocates an `HSD_Archive`, reads the file with `lbFile_8001668C`, initializes it with `lbArchive_InitializeDAT`, then assigns the resulting archive pointer.",
+    "Both changed functions added `void* tmp;` and `HSD_Archive* archive2;` temporaries, plus inner-scope locals including `void* data`, `size_t length`, `u32 pad`, and `u32 pad2`.",
+    "`config/GALE01/symbols.txt` adjusted several anonymous string/data symbols around `0x803BA588` and `0x804D37C0` from global or implicit scope to `scope:local`.",
+    "`symbols.txt` added a local label `...data.0 = .data:0x803BA588` and renamed one anonymous object from `@126` to `@120` at `0x803BA5F0`."
   ],
   "smart_moves": [
-    "Preserved the behavior of `lbArchive_LoadArchive` while spelling it out at the two call sites, matching the compiler's apparent inlining decision without changing higher-level control flow.",
-    "Applied the same inlining pattern to both `lbArchive_80017040` and `lbArchive_800171CC`, which decomp.dev then reported as both reaching 100.00%.",
-    "Updated build configuration and symbol metadata in the same PR as the code match, allowing the unit to move from equivalent to linked matching cleanly.",
-    "Localized anonymous data/sdata string symbols in `symbols.txt`, reducing exported symbol noise for data that appears to be local to the matched object."
+    "Inlining `lbArchive_LoadArchive` at the two call sites was the decisive matching tactic: both functions moved from just under 100% to 100% according to the bot report.",
+    "The PR kept the original behavior visible while matching codegen: the inline block preserves the same allocation, file read, and DAT initialization operations formerly hidden behind `lbArchive_LoadArchive`.",
+    "Local temporaries were introduced outside and inside the inline block, likely to shape register/stack behavior without changing the higher-level control flow.",
+    "Symbol table cleanup was included in the same PR, so the file could be promoted to `Matching` without leaving mismatched global/local data labels.",
+    "The build configuration was updated only after the matching changes, making the PR's intent clear and easy to validate."
   ],
   "decomp_lessons": [
-    "When a function is only equivalent or off by a tiny amount, check whether a helper call was actually inlined by the original compiler; matching may require duplicating the helper body at each call site.",
-    "For matching work, harmless-looking temporary variables can matter: explicit temps like `tmp` and `archive2`, plus placeholder locals such as `pad` and `pad2`, may be necessary to reproduce stack/register layout.",
-    "Promoting an object to `Matching` should be accompanied by config and symbol-map cleanup, not just C source changes.",
-    "Data symbol scope can affect linked output; generated `@NN` string symbols should be marked local when the object expects local visibility.",
-    "Use decomp.dev's per-function report to validate small source changes: here two functions moved from 99.93%/99.92% to 100.00%."
+    "When a function is nearly matching but still differs around a helper call, check whether the original compiler inlined the helper at that call site rather than emitting a call.",
+    "A source-level helper can still exist elsewhere, but specific callers may need the helper body expanded inline to match original codegen.",
+    "For varargs-style loader wrappers such as `lbArchive_80017040` and `lbArchive_800171CC`, preserving the preloaded/non-preloaded branch shape while only expanding the load path can be enough to recover a match.",
+    "Matching a C object may require simultaneous updates to `configure.py` and `config/GALE01/symbols.txt`; codegen and symbol scope issues are not always separable.",
+    "Anonymous string/data labels should be scoped locally when they are local compiler artifacts, not exported as globals merely because the linker map previously allowed it.",
+    "Unused padding locals may be part of a practical matching strategy, but this PR provides no reviewer explanation for exactly why `pad` and `pad2` were needed."
   ],
   "naming_conventions": [
-    "Library archive functions use the `lbArchive_800xxxxx` address-suffixed naming pattern, e.g. `lbArchive_80017040` and `lbArchive_800171CC`.",
-    "Related library helpers keep subsystem prefixes: `lbHeap_80015BD0`, `lbFile_800163D8`, `lbFile_8001668C`, and `lbArchive_InitializeDAT`.",
-    "HAL archive types use the `HSD_Archive` type name.",
-    "Anonymous compiler/string symbols in `symbols.txt` use `@NN` names and explicit `scope:local` metadata when not globally exported.",
-    "Local linker labels may use the `...data.N` form, as in `...data.0`."
+    "Existing address-based function names were preserved: `lbArchive_80017040`, `lbArchive_800171CC`, `lbArchive_LoadArchive`, `lbArchive_InitializeDAT`.",
+    "Library subsystem symbols use the `lbArchive_`, `lbHeap_`, and `lbFile_` prefixes with address suffixes for unknown or not-yet-semantic names.",
+    "Anonymous data/string labels use `@NN` names in `symbols.txt`, with explicit `scope:local` where appropriate.",
+    "Compiler-generated local labels may appear as dotted labels such as `...data.0`.",
+    "The config status names distinguish `Matching`, `Equivalent`, and `NonMatching` objects."
   ],
   "assembly_or_matching_tactics": [
-    "Inline `lbArchive_LoadArchive` manually when the original call site appears to have inlined it.",
-    "Keep allocation order explicit: first allocate the file data buffer, then store it through `tmp`, then allocate the `HSD_Archive`, then read and initialize.",
-    "Use `OSRoundUp32B(lbFile_800163D8(filename))` before heap allocation to match the original size rounding behavior.",
-    "Introduce explicit temporaries and even unused padding locals when needed for stack/register placement.",
-    "After matching code, change the object status from `Equivalent` to `Matching` in `configure.py` and fix symbol scopes in `config/GALE01/symbols.txt`."
+    "Replace a helper call with an explicitly inlined sequence when the original code appears to inline the helper.",
+    "Use a scoped block around the inlined body to control local variable lifetimes and potentially stack layout.",
+    "Split archive allocation through separate temporaries (`tmp`, `archive2`, `data`) rather than collapsing expressions, preserving codegen-sensitive assignments.",
+    "Retain the order of operations: compute rounded file size, allocate data buffer, allocate `HSD_Archive`, read file into the buffer, initialize DAT, assign final archive.",
+    "Adjust linker symbol scopes from global to local for anonymous strings/data when linking a matching object exposes incorrect symbol visibility.",
+    "Add local labels such as `...data.0` when required by the object's local relocation/label structure."
   ],
   "review_feedback": [
-    "No human inline review comments were present in the provided slice.",
-    "One approval review was submitted with an empty body.",
-    "The decomp.dev bot reported: matched code 67.74% (+0.02%, +768 bytes), linked code 39.18% (+0.07%, +2664 bytes), linked data 33.26% (+0.02%, +192 bytes), and 2 new matches: `lbArchive_80017040` and `lbArchive_800171CC`."
+    "No line review comments were present in the slice.",
+    "The only human review recorded was an approval by `jurrejelle` with an empty body.",
+    "The decomp.dev bot reported GALE01 progress: matched code 67.74% (+0.02%, +768 bytes), linked code 39.18% (+0.07%, +2664 bytes), linked data 33.26% (+0.02%, +192 bytes).",
+    "The bot specifically reported 2 new matches in `main/melee/lb/lbarchive`: `lbArchive_80017040` and `lbArchive_800171CC`, both reaching 100.00%."
   ],
   "searchable_terms": [
-    "PR 2519",
+    "PR2519",
     "Link lbarchive",
     "lbarchive",
-    "melee/lb/lbarchive.c",
-    "configure.py",
-    "config/GALE01/symbols.txt",
-    "Matching",
-    "Equivalent",
     "lbArchive_80017040",
     "lbArchive_800171CC",
     "lbArchive_LoadArchive",
     "lbArchive_InitializeDAT",
     "HSD_Archive",
     "lbHeap_80015BD0",
+    "OSRoundUp32B",
     "lbFile_800163D8",
     "lbFile_8001668C",
-    "OSRoundUp32B",
-    "va_list",
+    "MatchingFor",
+    "Object(Matching)",
+    "Object(Equivalent)",
+    "config/GALE01/symbols.txt",
+    "configure.py",
+    "src/melee/lb/lbarchive.c",
     "inlined helper",
-    "scope:local",
+    "linked code",
+    "linked data",
     "...data.0",
-    "@12",
-    "@13",
-    "@23",
-    "@62",
     "@120",
-    "@14",
-    "@61",
-    "matched code +768",
-    "linked code +2664",
-    "linked data +192"
+    "@126"
   ],
   "follow_up_queries": [
-    "Find other `Equivalent` objects in `melee/lb` where helper calls may need to be manually inlined before promotion to `Matching`.",
-    "Search for remaining global anonymous `@NN` string symbols near lbarchive/lbdvd/lbheap data that should be local.",
-    "Compare other uses of `lbArchive_LoadArchive` to see whether they are real calls or should be inlined for matching.",
-    "Inspect functions with tiny nonmatching percentages around archive loading and variadic symbol loading paths."
+    "Find other `Equivalent` objects in `melee/lb` where near-matches may require helper inlining.",
+    "Search for remaining direct calls to `lbArchive_LoadArchive` and compare whether original code expects calls or inlines.",
+    "Audit anonymous `@NN` symbols near `lbarchive`, `lbfile`, and `lbdvd` for incorrect global scope.",
+    "Check whether `u32 pad` and `u32 pad2` are necessary for stack/register matching or can be documented with a more explicit comment.",
+    "Compare `lbArchive_80017040` and `lbArchive_800171CC` to see if shared macro/inlining patterns can reduce duplication without breaking matching."
   ],
-  "confidence": 0.91
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

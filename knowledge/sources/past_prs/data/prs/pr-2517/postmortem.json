@@ -11,135 +11,84 @@
     "merged_at": "2026-05-20T21:23:44Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Behavior-neutral repo-wide scene nomenclature cleanup. The PR replaced ambiguous Major/Minor scene terminology with GameMode/GameScene naming across gm headers, structs, enum constants, scene routing state, data table symbols, call sites, and table-typer tooling. The stated goal was to clean up ambiguous definitions of \"Minor\" and \"Major\"; decomp.dev reported GALE01 \"No changes,\" supporting that this was a matching-preserving rename/refactor.",
+  "summary": "Large mechanical nomenclature cleanup for the game scene system. The PR replaces the repository's ambiguous Major/Minor scene terminology with GameMode/GameScene terminology across gm headers, implementations, scene tables, symbols, and table-typer tooling. It matters because the old Major/Minor naming had become community shorthand but was considered ambiguous; this made mode-vs-scene routing fields, enum names, table names, and function names more semantically explicit.",
   "change_classification": {
     "primary_type": "nomenclature_cleanup",
     "categories": [
       "cleanup",
-      "rename",
       "headers",
       "symbols",
       "tooling",
-      "behavior-neutral"
+      "mechanical_rename"
     ],
     "systems": [
       "game-mode",
-      "game-scene",
       "scene-routing",
-      "gm",
-      "menus",
-      "interface",
-      "library",
-      "tooling",
-      "config/GALE01"
+      "melee-core",
+      "config",
+      "tooling"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gm/forward.h",
-      "why": "Core enum and forward-declaration rename: MajorSceneKind/MJ_* to GameModeKind/GM_*, MinorSceneKind/MN_* to GameSceneKind/GS_*."
-    },
-    {
-      "path": "src/melee/gm/types.h",
-      "why": "Struct and routing state rename: MajorScene to GameMode, MinorScene to GameScene, SceneNums to GameRouting, nums/nums2 to routing/backup."
-    },
-    {
-      "path": "src/melee/gm/gm_1A3F.c",
-      "why": "Central scene/mode routing implementation updated to the new names, including gm_SetScene and gm_SetPendingScene."
-    },
-    {
-      "path": "src/melee/gm/gm_1A3F.h",
-      "why": "Public prototypes and comments changed from major/minor scene terminology to mode/scene terminology."
-    },
-    {
-      "path": "src/melee/gm/gm_1B03.c",
-      "why": "Large scene table and transition call-site rename from MinorScene/MN_* to GameScene/GS_*."
-    },
-    {
-      "path": "src/melee/gm/gmscdata.c",
-      "why": "Mode/scene data tables updated to use the new GameMode/GameScene naming."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "why": "Global symbol labels renamed, including gm_SetSceneMinor to gm_SetScene and *_MinorScenes to *_Scenes, while addresses/sizes stayed the same."
-    },
-    {
-      "path": "tools/table-typer/c.go",
-      "why": "Tooling struct type registry updated from MajorScene/MinorScene/MinorSceneHandler to GameMode/GameScene/GameSceneHandler."
-    },
-    {
-      "path": "tools/table-typer/main.go",
-      "why": "Generated naming heuristics updated so GameScene tables use Prep/Decide labels."
-    }
+    "src/melee/gm/forward.h",
+    "src/melee/gm/types.h",
+    "src/melee/gm/gm_1A3F.c",
+    "src/melee/gm/gm_1A3F.h",
+    "src/melee/gm/gm_1B03.c",
+    "src/melee/gm/gmscdata.c",
+    "config/GALE01/symbols.txt",
+    "tools/table-typer/c.go",
+    "tools/table-typer/main.go"
   ],
   "what_changed": [
-    "Renamed `MajorSceneKind` to `GameModeKind` and changed enum prefixes from `MJ_*` to `GM_*` without changing ordinal values.",
-    "Renamed `MinorSceneKind` to `GameSceneKind` and changed enum prefixes from `MN_*` to `GS_*` without changing ordinal values.",
-    "Renamed scene table structs and typedefs: `MajorScene` to `GameMode`, `MinorScene` to `GameScene`, `MinorSceneHandler` to `GameSceneHandler`, and `MinorSceneInfo` to `GameSceneInfo`.",
-    "Renamed mode/scene routing fields in `GameState`: `SceneNums` became `GameRouting`; `curr_major`, `pending_major`, `prev_major` became `curr_mode`, `pending_mode`, `prev_mode`; `curr_minor`, `prev_minor`, `pending_minor` became `curr_scene`, `prev_scene`, `pending_scene`; `nums2` became `backup`.",
-    "Renamed transition APIs and internal helpers: `gm_SetSceneMinor` to `gm_SetScene`, `gm_SetScenePendingMinor` to `gm_SetPendingScene`, `matchMinor` to `nextScene`, `getScene` to `findScene`, and `findSceneMatching` to `findMode`.",
-    "Renamed data symbols from `*_MinorScenes` to `*_Scenes` in source and `config/GALE01/symbols.txt`, preserving existing symbol addresses and sizes.",
-    "Updated call sites across 79 changed files, including gm modules, soundtest/textlib, lbdvd, mn menu files, toy code, and headers.",
-    "Updated `tools/table-typer` so generated/typed table output recognizes `GameMode`, `GameScene`, and `GameSceneHandler` instead of the old names.",
-    "Added documentation notes in `types.h` that `GameScene` is colloquially known as \"Minor Scene\" and `GameMode` as \"Major Scene\"."
+    "Renamed MajorSceneKind to GameModeKind and changed enum constants from MJ_* to GM_* in src/melee/gm/forward.h and many call sites.",
+    "Renamed MinorSceneKind to GameSceneKind and changed enum constants from MN_* to GS_*.",
+    "Renamed core scene structs and typedefs: MajorScene to GameMode, MinorScene to GameScene, MinorSceneHandler to GameSceneHandler, and MinorSceneInfo to GameSceneInfo.",
+    "Renamed scene setter APIs from gm_SetSceneMinor to gm_SetScene and gm_SetScenePendingMinor to gm_SetPendingScene.",
+    "Renamed GameState routing field vocabulary from nums.curr_minor, prev_minor, pending_minor, curr_major, prev_major, and pending_major to routing.curr_scene, prev_scene, pending_scene, curr_mode, prev_mode, and pending_mode.",
+    "Renamed data symbols in config/GALE01/symbols.txt from *_MinorScenes to *_Scenes while preserving addresses, sizes, scopes, and object metadata.",
+    "Updated many scene table definitions across gm files from MinorScene arrays to GameScene arrays and from *_MinorScenes names to *_Scenes names.",
+    "Updated helper names in gm_1A3F.c such as matchMinor to nextScene and getScene/findSceneMatching-style naming toward scene/mode terminology.",
+    "Updated table-typer tooling references so generated or inferred table types track the new GameMode/GameScene nomenclature."
   ],
   "smart_moves": [
-    "The rename was applied consistently across headers, source files, symbol maps, and tooling, reducing the risk of stale old terminology being regenerated later.",
-    "The PR preserved binary behavior: enum values, struct layouts, symbol addresses, and function sizes remained semantically unchanged, and the decomp.dev GALE01 report said \"No changes.\"",
-    "Adding `@note` comments for the colloquial Major/Minor terms made the new terminology searchable while acknowledging existing community language.",
-    "Renaming `nums` to `routing` and `nums2` to `backup` made the state machine intent clearer than merely replacing major/minor words mechanically.",
-    "Updating table-typer at the same time was important because otherwise future table typing could reintroduce `MinorScene` signatures or labels."
+    "The cleanup was applied broadly rather than partially: headers, implementations, scene tables, symbol names, and tooling were kept in sync, reducing future mixed Major/Minor vs GameMode/GameScene drift.",
+    "The PR preserved enum numeric values and comments while only changing type and enumerator names, keeping behavior and table layout stable.",
+    "Symbol renames retained exact addresses and sizes in config/GALE01/symbols.txt, which is important for decompilation symbol continuity.",
+    "The new terms separate high-level game modes from per-mode scenes more directly than Major/Minor, making routing code like curr_mode and curr_scene easier to read.",
+    "Renaming internal state grouping from nums to routing made the state fields describe their purpose instead of their representation."
   ],
   "decomp_lessons": [
-    "Large nomenclature refactors should include symbol files, generated/tooling assumptions, static headers, prototypes, comments, and all call sites, not only C definitions.",
-    "When renaming matched code, keep enum ordinals, struct field order, static asserts, table sizes, and symbol addresses stable; use the project matching report as evidence that the change is behavior-neutral.",
-    "If community terminology conflicts with clearer source terminology, preserve the old terms in comments or notes so future contributors can bridge both vocabularies.",
-    "Prefer semantic names that describe system roles: former major scenes are game modes, former minor scenes are game scenes, and current/pending/previous state belongs to routing.",
-    "Tooling that knows C struct names must be updated in the same PR as type renames, or later generated signatures can drift from the codebase.",
-    "Public symbol renames such as `gm_SetSceneMinor` to `gm_SetScene` need synchronized updates in C declarations, definitions, call sites, and `config/GALE01/symbols.txt`."
+    "When replacing widely used terminology, update forward declarations, struct typedefs, enum names, constants, function prototypes, definitions, symbols, and tooling in the same PR to avoid a half-renamed decomp surface.",
+    "For pure nomenclature changes, preserve enum order, table sentinel values, field order, addresses, and symbol metadata; this keeps the change low-risk and reviewable.",
+    "Avoid ambiguous hierarchy names when the code really models different concepts: use GameMode for the outer mode and GameScene for the routed scene entries.",
+    "Config symbol names should follow source naming changes so searches and generated references do not continue pointing at stale terminology.",
+    "Tooling that emits or reasons about table types must be renamed alongside source types, otherwise future table work may reintroduce old names."
   ],
   "naming_conventions": [
-    "`MajorSceneKind` -> `GameModeKind`; `MJ_*` enum constants -> `GM_*` constants, e.g. `MJ_CLASSIC` -> `GM_CLASSIC`, `MJ_BOOT` -> `GM_BOOT`.",
-    "`MinorSceneKind` -> `GameSceneKind`; `MN_*` enum constants -> `GS_*` constants, e.g. `MN_RESULTS` -> `GS_RESULTS`, `MN_CSS` -> `GS_CSS`.",
-    "`MajorScene` -> `GameMode`; the table member `minor_scenes` -> `scenes`.",
-    "`MinorScene` -> `GameScene`; `MinorSceneInfo` -> `GameSceneInfo`; `MinorSceneHandler` -> `GameSceneHandler`.",
-    "`SceneNums` -> `GameRouting`; `nums` -> `routing`; `nums2` -> `backup`.",
-    "`curr_major`, `pending_major`, `prev_major` -> `curr_mode`, `pending_mode`, `prev_mode`.",
-    "`curr_minor`, `prev_minor`, `pending_minor` -> `curr_scene`, `prev_scene`, `pending_scene`.",
-    "`gm_SetSceneMinor` -> `gm_SetScene`; `gm_SetScenePendingMinor` -> `gm_SetPendingScene`.",
-    "Data symbols using `_MinorScenes` suffix now use `_Scenes`, e.g. `gm_803DD6A0_MinorScenes` -> `gm_803DD6A0_Scenes`.",
-    "Use `mode` for the former major-scene concept and `scene` for the former minor-scene concept; keep \"Major Scene\" and \"Minor Scene\" only as colloquial documentation when useful."
+    "Use GameModeKind with GM_* constants for the former MajorSceneKind/MJ_* values.",
+    "Use GameSceneKind with GS_* constants for the former MinorSceneKind/MN_* values.",
+    "Use GameMode, GameScene, GameSceneHandler, and GameSceneInfo instead of MajorScene, MinorScene, MinorSceneHandler, and MinorSceneInfo.",
+    "Use gm_SetScene and gm_SetPendingScene instead of gm_SetSceneMinor and gm_SetScenePendingMinor.",
+    "Use *_Scenes data-symbol suffixes instead of *_MinorScenes.",
+    "Use mode-oriented parameter names such as mode, mode_kind, and pending_mode instead of major_scene, major_kind, and pending_major.",
+    "Use scene-oriented parameter and field names such as scene, curr_scene, prev_scene, and pending_scene instead of minor_scene, curr_minor, prev_minor, and pending_minor."
   ],
   "assembly_or_matching_tactics": [
-    "No assembly-specific matching trick is evident; this was a mechanical naming cleanup.",
-    "The decomp.dev bot reported `Report for GALE01 (0030f76 - eb19533): No changes`, indicating the rename preserved the built binary output.",
-    "The symbol map changed labels only: addresses, scopes, sizes, and object/function classifications in `config/GALE01/symbols.txt` stayed aligned.",
-    "The diff preserved enum numeric comments and table sentinel patterns, avoiding layout or control-flow changes while renaming constants.",
-    "Updating table-typer function pointer signatures from `MinorScene*` to `GameScene*` prevented generated C from creating type mismatches after the rename."
+    "No assembly-specific matching tactic was documented in the PR text or comments.",
+    "The diff appears to be a behavior-preserving mechanical rename: added/deleted line counts are nearly equal and symbol entries keep identical addresses and sizes.",
+    "For future matching-safe cleanups, follow this pattern of changing names without changing enum numeric values, table order, or struct layout."
   ],
   "review_feedback": [
     {
-      "reviewer": "ribbanya",
-      "type": "approval",
-      "feedback": "Approved with \"Looks good to me\" while deferring to r-burns or PsiLupan."
-    },
-    {
-      "reviewer": "PsiLupan",
-      "type": "issue_comment",
-      "feedback": "LGTM, but noted the community has settled on the Major/Minor terminology and that the difference will need to be reconciled eventually."
-    },
-    {
-      "reviewer": "decomp-dev[bot]",
-      "type": "matching_report",
-      "feedback": "GALE01 report said \"No changes.\""
+      "author": "PsiLupan",
+      "type": "approval_comment",
+      "body": "LGTM. Like I said before, I think the biggest thing is the community has settled on the Major/Minor thing and it'll just be another difference that'll have to be reconciled eventually.",
+      "lesson": "Reviewer accepted the cleanup but noted ecosystem cost: changing established community terminology can create another naming difference that future contributors may need to reconcile."
     }
   ],
   "searchable_terms": [
-    "pr-2517",
     "Scene nomenclature cleanup",
-    "sadkellz",
-    "PsiLupan",
-    "ribbanya",
     "MajorSceneKind",
     "MinorSceneKind",
     "GameModeKind",
@@ -152,37 +101,45 @@
     "MinorScene",
     "GameMode",
     "GameScene",
-    "MinorSceneInfo",
-    "GameSceneInfo",
     "MinorSceneHandler",
     "GameSceneHandler",
-    "SceneNums",
-    "GameRouting",
+    "MinorSceneInfo",
+    "GameSceneInfo",
     "gm_SetSceneMinor",
-    "gm_SetScene",
     "gm_SetScenePendingMinor",
+    "gm_SetScene",
     "gm_SetPendingScene",
-    "curr_major",
-    "curr_mode",
     "curr_minor",
+    "prev_minor",
+    "pending_minor",
+    "curr_major",
+    "pending_major",
     "curr_scene",
+    "prev_scene",
+    "pending_scene",
+    "curr_mode",
+    "pending_mode",
     "_MinorScenes",
     "_Scenes",
-    "gm_803DD6A0_Scenes",
     "gm_1A3F",
-    "gm_1B03",
-    "gmscdata",
-    "tools/table-typer",
-    "config/GALE01/symbols.txt",
-    "GALE01 no changes"
+    "forward.h",
+    "types.h",
+    "symbols.txt",
+    "table-typer"
   ],
   "follow_up_queries": [
-    "GameModeKind GM_* GameSceneKind GS_* MajorScene MinorScene",
-    "gm_SetPendingScene pending_scene routing.curr_scene",
-    "GameRouting nums nums2 backup curr_mode curr_scene",
-    "table-typer GameScene structTypes Prep Decide",
-    "gm_803DD6A0_Scenes _MinorScenes symbols.txt",
-    "PsiLupan community settled Major/Minor terminology"
+    "Find remaining uses of MajorScene or MinorScene terminology after PR 2517.",
+    "Check whether community docs or wiki pages still use Major/Minor scene names and need aliases to GameMode/GameScene.",
+    "Review table-typer output for GameMode/GameScene naming consistency.",
+    "Search for gm_SetSceneMinor or gm_SetScenePendingMinor in downstream branches before rebasing onto this cleanup."
   ],
-  "confidence": 0.94
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,148 +11,119 @@
     "merged_at": "2026-05-10T20:31:53Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged stage-focused decomp PR split from #2345. The PR body/title list five `gr` functions as 100% matches: `grKinokoRoute_8020836C`, `fn_801F9038`, `grHomeRun_8021EC58`, `grPushOn_802190D0`, and `grOldKongo_80210650`. The work paired stage behavior matches with callback typedef/prototype cleanup and some broader formatting/include churn. Review concentrated on avoiding an ugly `__FILE__` override in `groldkongo.c` and clarifying why the LObj type check in `grpushon.c` was inlined instead of redefining/calling the existing baselib helper.",
+  "summary": "Matched five stage-related functions at 100%, split out from PR #2345: grKinokoRoute_8020836C, fn_801F9038, grHomeRun_8021EC58, grPushOn_802190D0, and grOldKongo_80210650. The work primarily advanced gr/stage decompilation, with supporting type/header cleanup, callback typedef consolidation, include/order formatting, and struct field adjustments across fighter, game-mode, baselib, and toy files. Review focused on avoiding ugly or unnecessary local extern/__FILE__ hacks, clarifying locally duplicated macros/defs, and naming unused struct bytes as padding.",
   "change_classification": {
-    "primary_type": "stage decomp matching",
+    "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
-      "stage",
-      "headers",
-      "types-structs",
-      "naming",
+      "stage-function-matching",
       "cleanup",
-      "data-matching"
+      "headers",
+      "naming",
+      "types-structs",
+      "formatting",
+      "callback-typedef"
     ],
     "systems": [
-      "stage/gr",
-      "game-mode/gm",
-      "fighter/ft",
-      "sysdolphin/baselib",
-      "trophy/ty"
+      "stage",
+      "ground",
+      "game-mode",
+      "fighter",
+      "baselib",
+      "toy"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grkinokoroute.c",
-      "reason": "Reworked `grKinokoRoute_8020836C` with `Ground_GObj*`/`Item_GObj*` typing, JObj flag toggles, collision joint add/remove calls, and item material updates for item kind `0xA0`."
-    },
-    {
-      "path": "src/melee/gr/gricemt.c",
-      "reason": "Implemented `fn_801F9038` and retuned nearby Ice Mountain callback/prototype code to return segment ids as `int`."
-    },
-    {
-      "path": "src/melee/gr/grhomerun.c",
-      "reason": "Matched `grHomeRun_8021EC58` text overlay creation using scale-derived sizes, white `GXColor`, and `HSD_SisLib_803A6B98(..., \"%d\", ...)`."
-    },
-    {
-      "path": "src/melee/gr/grpushon.c",
-      "reason": "Defined Push On light descriptors/config table and matched `grPushOn_802190D0` light object setup loop, including an inlined LObj type check with explanatory comment."
-    },
-    {
-      "path": "src/melee/gr/groldkongo.c",
-      "reason": "Rewrote `grOldKongo_80210650` as a weighted random angle picker using stage data counters and named `grOk_804DBAxx` sdata2 float constants."
-    },
-    {
-      "path": "src/melee/gr/gricemt.h",
-      "reason": "Updated Ice Mountain declarations for `fn_801F9038`, `fn_801F91A8`, and `grIceMt_801F9ACC`."
-    },
-    {
-      "path": "src/melee/gr/forward.h",
-      "reason": "Added `GrIceMtSegmentLookup` callback typedef."
-    },
-    {
-      "path": "src/melee/gm/forward.h",
-      "reason": "Added `GmRouteCallback` typedef used by game-mode route callback storage/calls."
-    },
-    {
-      "path": "src/melee/gm/gm_1601.c",
-      "reason": "Replaced raw `bool (*)(s32)` callback signatures with `GmRouteCallback` and removed casts at call sites."
-    },
-    {
-      "path": "src/melee/gr/grvenom.c",
-      "reason": "Largest touched file in the slice, apparently stage cleanup/formatting/include-order work; PR body does not identify a new Venom match."
-    }
+    "src/melee/gr/grkinokoroute.c",
+    "src/melee/gr/gricemt.c",
+    "src/melee/gr/grhomerun.c",
+    "src/melee/gr/grpushon.c",
+    "src/melee/gr/groldkongo.c",
+    "src/melee/gr/ground.c",
+    "src/melee/gm/forward.h",
+    "src/melee/gm/gm_1601.c",
+    "src/melee/gm/gm_1601.h",
+    "src/melee/gm/gm_1601.static.h",
+    "src/melee/ft/fighter.h",
+    "src/melee/ft/types.h",
+    "src/sysdolphin/baselib/sobjlib.c",
+    "src/sysdolphin/baselib/texpdag.c",
+    "src/sysdolphin/baselib/hsd_3AA7.c"
   ],
   "what_changed": [
-    "The PR body says this was split from #2345 to contain only stage-related 100% matches.",
-    "`grKinokoRoute_8020836C` now uses a `Ground_GObj*` signature and iterates `HSD_GObj_Entities->items` as `Item_GObj*`, applying `grMaterial_801C8E08`/`grMaterial_801C8E28` while adding/removing collision joints `0x3C`, `0x33`, and `0x0C`-`0x0F`.",
-    "`fn_801F9038` was implemented for Ice Mountain: it calls `HSD_Randi(6)` until a segment slot has zero cooldown and does not equal the recent `xC4`/`xC6` ids, decrements other cooldowns, stores the cooldown from `grIm_804D69F4`, and returns `grIm_803E4068[idx].id`.",
-    "`grHomeRun_8021EC58` was changed to construct the Home-Run score text object with explicit white color, scale-derived box/font dimensions, left-aligned/fitting text settings, and the `\"%d\"` format at y `-29.0F`.",
-    "`grPushOn_802190D0` was added along with two `HSD_LightDesc` definitions and a 9-entry `grPushOn_LightConfig` table; the loop sets point-light flags, color, scaled position, and distance attenuation.",
-    "`grOldKongo_80210650` became an else-if weighted subtraction chain over fields `x2C` through `x3A`, returning named float constants such as `grOk_804DBA04` through `grOk_804DBA1C` and asserting with `HSD_ASSERT(786, 0)` if no bucket matches.",
-    "Callback typing was improved: `GmRouteCallback` and `GrIceMtSegmentLookup` replaced raw or casted function pointer types in `gm_801674C4`, `fn_80169434`, `fn_801F91A8`, and `grIceMt_801F9ACC`.",
-    "The PR body notes dropped work from #2345: `lbAudioAx_800243F4`, `fn_800244F4`, and `grOldPupupu_8021119C` were already upstream, while `grKinokoRoute_80207B5C` was left/reverted to a stub because it was only 99.64% with real struct-field offset diffs.",
-    "Evidence caveat: the included decomp-dev bot report appears to be for an intermediate comparison, showing only `fn_801F9038` as a new 100% match and `grPushOn_802190D0` at 93.16%, while the final PR title/body claim five 100% matches."
+    "Implemented five previously stubbed or unmatched stage functions to 100% match status: grKinokoRoute_8020836C, fn_801F9038, grHomeRun_8021EC58, grPushOn_802190D0, and grOldKongo_80210650.",
+    "grKinokoRoute_8020836C was described in the PR body as toggling special collision state on a Mushroom Kingdom route stage joint, adding a fixed set of joint IDs to the collision system, and applying grMaterial_801C8E08 to live item GObjs of kind 0xA0.",
+    "fn_801F9038 was described as Ice Mountain random next-segment selection using HSD_Randi(6), cooldown slots, and recent segment exclusion fields xC4/xC6.",
+    "grHomeRun_8021EC58 was described as constructing the Home-Run Contest score HSD_Text overlay, including scale-dependent text box/font setup, white color, left alignment, and formatting the current distance with \"%d\".",
+    "grPushOn_802190D0 was described as building and wiring nine Mute City point-light descriptors from a static light-config table.",
+    "grOldKongo_80210650 was described as a weighted random direction picker over eight counter fields x2C through x3A, returning angle constants in multiples of pi/4 or asserting if no bucket is selected.",
+    "Introduced a GmRouteCallback typedef in src/melee/gm/forward.h and reused it in gm_801674C4, fn_80169434, and struct lbl_8046B488_t instead of spelling out bool (*)(s32).",
+    "Adjusted struct and header declarations, including Fighter_804D64FC comments/spacing and Fighter_x1A88_t queue field formatting.",
+    "Made broad formatting and include-order cleanup in nearby fighter, game-mode, stage, and baselib files, likely to satisfy style or matching constraints.",
+    "Dropped unrelated or insufficiently matched work from the parent PR: lbAudioAx_800243F4/fn_800244F4 and grOldPupupu_8021119C were already upstream; grKinokoRoute_80207B5C was only 99.64% and reverted to a stub."
   ],
   "smart_moves": [
-    "Kept the PR scoped to stage-related 100% matches instead of carrying the full #2345 backlog.",
-    "Did not force a 99.64% `grKinokoRoute_80207B5C` into a 100% PR when the remaining differences were real struct-field offset issues.",
-    "Introduced named callback typedefs to remove unsafe-looking casts and document actual callback signatures.",
-    "For `grPushOn_802190D0`, final code inlines the LObj flag mask and comments that it is equivalent to `HSD_LObjGetType` but required for original assembly, directly addressing review concern about shadowing the baselib function.",
-    "Used typed GObj aliases (`Ground_GObj`, `Item_GObj`) where possible, reducing repeated casts in stage code.",
-    "Preserved Old Kongo float/data matching with named extern sdata2 constants rather than scattering angle literals through the function.",
-    "Simplified the Old Kongo weighted random code into an else-if decrement chain; a reviewer noted a for-loop might be possible, but accepted the matching shape if loop codegen was not worth forcing."
+    "Split a larger work-in-progress PR into a stage-only slice containing only 100% matches, making review and merge scope safer.",
+    "Explicitly listed matched functions and statuses in the PR body, giving reviewers a precise checklist.",
+    "Separated out non-ready work, especially grKinokoRoute_80207B5C with real struct-field offset diffs, rather than forcing a 99.64% function into a 100% progress PR.",
+    "Used a named callback typedef, GmRouteCallback, to reduce repeated raw function-pointer signatures and keep gm_1601 declarations consistent across source, public header, and static header.",
+    "For grOldKongo_80210650, preserved exact matching behavior with explicit weighted bucket subtraction and HSD_ASSERT behavior, even though review noted it might be expressible as a loop.",
+    "For grPushOn_802190D0, encoded repeated light setup data as a table of light configuration values, matching the function while making the point-light wiring easier to read."
   ],
   "decomp_lessons": [
-    "For PRs advertised as 100% match progress, leave near-matches as stubs when remaining diffs are structural rather than cosmetic.",
-    "Callback typedefs are a reusable cleanup tactic when decompiled code has repeated casts like `HSD_GObjEvent` or `bool (*)(s32)` that obscure the actual return type.",
-    "When a real helper exists but calling it changes codegen, inline the exact flag operation and explain why; do not create a local macro/function with the same name as the real helper without a comment.",
-    "Named sdata2 float constants can be necessary for data/code matching, but reviewer feedback suggests avoiding `#undef __FILE__`/custom `__FILE__` tricks unless they are truly required and documented.",
-    "Exact GObj subtypes and item/stage-specific pointer types can make matching code cleaner while also documenting intent.",
-    "Formatting-only churn across unrelated files should be treated as support noise in future archaeology; search the PR body and removed `/// #` stubs to identify the real match payload."
+    "For past-PR reuse, avoid bundling 99% matches with 100% matches when there are real struct offset differences; leave the near-match stubbed until the underlying type issue is understood.",
+    "When a match requires local extern float constants or a __FILE__ override for HSD_ASSERT, reviewers may accept it for matching but will push back if the hack looks unused or avoidable.",
+    "If a decompiled chain of repeated weighted-random checks matches but looks like a for-loop candidate, it is acceptable to keep the matched version, but note the possible loop form for future cleanup.",
+    "Local macro definitions that duplicate baselib functionality, such as an HSD_LObjGetType-style macro, should be justified if used for inline or matching reasons and should not masquerade as the real library function.",
+    "Unused struct byte ranges should be named as padding, e.g. x1C_pad..., not as ordinary unknown fields, when review evidence indicates they are unused.",
+    "Callback typedefs are useful when a function-pointer type appears in both struct fields and function prototypes; define the typedef in a forward/common header and apply it consistently.",
+    "Large matching PRs often include style churn from formatter constraints; keep such changes mechanical and tied to nearby matching/type cleanup where possible."
   ],
   "naming_conventions": [
-    "Stage functions keep the `grStageName_address` convention, e.g. `grKinokoRoute_8020836C`, `grHomeRun_8021EC58`, `grPushOn_802190D0`, and `grOldKongo_80210650`.",
-    "Unidentified functions remain `fn_address`, as with `fn_801F9038` and `fn_801F91A8`.",
-    "Stage data symbols use short stage prefixes plus addresses, e.g. `grIm_804D69F4`, `grOk_804DBA04`, `grPushOn_803E7B74`.",
-    "New helper types use descriptive subsystem names: `GmRouteCallback`, `GrIceMtSegmentLookup`, and `struct grPushOn_LightConfig`.",
-    "Reviewer suggested naming unused padding arrays as `x1C_pad...` rather than plain `x1C` when fields are known padding.",
-    "Headers retain address comments in prototypes, e.g. `/* 1F9038 */ int fn_801F9038(Ground_GObj*)`."
+    "Stage function names keep the grStagePrefix_address style, e.g. grKinokoRoute_8020836C, grHomeRun_8021EC58, grPushOn_802190D0, grOldKongo_80210650.",
+    "Unknown internal functions may remain fn_address when no better semantic name is evidenced, e.g. fn_801F9038.",
+    "Game-mode function-pointer typedef introduced as GmRouteCallback, replacing bool (*)(s32) in gm_801674C4, fn_80169434, and lbl_8046B488_t::x1B8.",
+    "Reviewer preference: unused unknown struct byte arrays should be named with a pad suffix such as x1C_pad rather than x1C.",
+    "Existing unknown struct fields remained offset-based where semantics were not proven, e.g. grOk_804D6A90->x2C, x2E, x30, x32, x34, x36, x38, x3A."
   ],
   "assembly_or_matching_tactics": [
-    "Used `PAD_STACK(8)` in `fn_801F9038` and `PAD_STACK(16)` in `grKinokoRoute_8020836C` to preserve stack layout.",
-    "Kept Ice Mountain's segment selection as a `do { idx = HSD_Randi(6); } while (...)` rejection loop, matching cooldown and recent-segment checks.",
-    "Changed `fn_801F91A8` from pointer-like `HSD_GObj*` returns to `int` returns, eliminating pointer casts that could affect codegen and prototype correctness.",
-    "For Old Kongo, used `(r -= field) < 0` else-if comparisons to match weighted-bucket control flow.",
-    "For Old Kongo, referenced `grOk_804DBA04` through `grOk_804DBA1C` extern float constants instead of using inline angle literals.",
-    "For Push On, inlined `(u32) (lobj->flags & LOBJ_TYPE_MASK) == LOBJ_POINT` in the assert instead of calling/redefining `HSD_LObjGetType`.",
-    "For Home-Run text, preserved expression/cast details such as `grHr_804D6AE4 * Ground_801C0498() * 8.0F` and `(s32) (f32) arg`."
+    "Used explicit nested subtraction checks in grOldKongo_80210650 to match weighted-random bucket selection rather than forcing a cleaner loop form.",
+    "Used HSD_Randi(total) only when total is nonzero in grOldKongo_80210650, otherwise falling back to r = 0 before bucket subtraction.",
+    "Used named sdata2 float constants for grOldKongo angle return values, including grOk_804DB9CC and grOk_804DBA04 through grOk_804DBA1C.",
+    "Used a __FILE__ redefinition to a rodata/sdata symbol for HSD_ASSERT matching in groldkongo.c; review questioned whether this should remain if not needed.",
+    "For grPushOn_802190D0, introduced static HSD_LightDesc/light configuration data and iterated through nine entries to populate lighting, with a local HSD_LObjGetType macro noted by review.",
+    "Used static or table-driven data for repeated light descriptor properties such as color, position, reference brightness, reference distance, and distance function.",
+    "For route/callback work, consolidated function pointer type spelling via GmRouteCallback to keep ABI-equivalent declarations synchronized without changing behavior."
   ],
   "review_feedback": [
     {
-      "reviewer": "jurrejelle",
+      "author": "jurrejelle",
       "file": "src/melee/gr/groldkongo.c",
-      "feedback": "Questioned the early `extern char grOk_803E6640[]` plus `#undef __FILE__`/`#define __FILE__ grOk_803E6640` hunk: \"This looks bad. Is this used? if not, probably remove\".",
-      "outcome_observed": "Final diff keeps the `grOk_804DBAxx` float externs but does not include that `__FILE__` override."
+      "topic": "local externs and __FILE__ override",
+      "feedback": "The block of extern float declarations and __FILE__ redefinition looked bad; reviewer asked whether it was used and suggested removing it if not."
     },
     {
-      "reviewer": "jurrejelle",
+      "author": "jurrejelle",
       "file": "src/melee/gr/groldkongo.c",
-      "feedback": "Noted the weighted-random chain might be expressible as a for-loop, but matching code was fine if a loop was not worth pursuing.",
-      "outcome_observed": "Final diff uses a compact else-if subtraction chain."
+      "topic": "weighted-random control flow",
+      "feedback": "Reviewer noted the nested subtraction chain might be representable as a for loop, but said keeping it was fine if the current form matched and loop conversion was not worth pursuing."
     },
     {
-      "reviewer": "jurrejelle",
+      "author": "jurrejelle",
       "file": "src/melee/gr/grpushon.c",
-      "feedback": "Questioned a local `HSD_LObjGetType` definition because a real function exists in `lobj.c`; asked for clarification if it was for inline/matching reasons.",
-      "outcome_observed": "Final diff removes the macro and adds a comment explaining the inlined LObj flag check is equivalent to the real helper but needed to match original assembly."
+      "topic": "duplicated HSD_LObjGetType macro",
+      "feedback": "Reviewer questioned why a definition was created when a function exists in lobj.c and asked for clarification if the local form was needed for inline reasons, especially because it used the same name while not being exactly the same."
     },
     {
-      "reviewer": "jurrejelle",
+      "author": "jurrejelle",
       "file": "src/melee/gr/groldkongo.c",
-      "feedback": "Suggested unused struct bytes be renamed to `x1C_pad...`; explicitly called it good practice and not a hard requirement.",
-      "outcome_observed": "Slice does not provide a clear final diff for that exact padding hunk."
-    },
-    {
-      "reviewer": "jurrejelle",
-      "file": null,
-      "feedback": "Review summary said only the `__FILE__` and LObj questions were hard requirements; the other two comments were suggestions.",
-      "outcome_observed": "Review state in the slice is `DISMISSED`; PR later merged."
+      "topic": "padding naming",
+      "feedback": "Reviewer suggested renaming unused struct byte fields to x1C_pad... as good practice, though not strictly required."
     }
   ],
   "searchable_terms": [
-    "pr2404",
-    "gr 5 match progress",
+    "pr-2404",
+    "gr 5 match progress 100%",
+    "johnwinston",
     "stage-related 100% matches",
     "split from #2345",
     "grKinokoRoute_8020836C",
@@ -165,53 +136,42 @@
     "grhomerun.c",
     "grpushon.c",
     "groldkongo.c",
-    "Ground_GObj",
-    "Item_GObj",
-    "HSD_GObj_Entities->items",
-    "grMaterial_801C8E08",
-    "grMaterial_801C8E28",
-    "mpJointListAdd",
-    "mpLib_80057BC0",
-    "HSD_Randi",
-    "Ice Mountain xF4 cooldown",
-    "xC4 xC6 recent segments",
-    "grIm_803E4068",
-    "grIm_804D69F4",
-    "HSD_Text",
-    "HSD_SisLib_803A6754",
-    "HSD_SisLib_803A6B98",
-    "Ground_801C0498",
-    "HSD_LightDesc",
-    "grPushOn_LightConfig",
-    "light_configs",
-    "grPushOn_803E7B74",
-    "grPushOn_803E7B90",
-    "HSD_LObjSetColor",
-    "HSD_LObjSetPosition",
-    "HSD_LObjSetDistAttn",
-    "LOBJ_TYPE_MASK",
-    "LOBJ_POINT",
-    "grOk_804DBA04",
-    "grOk_804DBA1C",
-    "sdata2 float constants",
-    "HSD_ASSERT 786",
+    "ground.c",
     "GmRouteCallback",
-    "GrIceMtSegmentLookup",
     "gm_801674C4",
     "fn_80169434",
-    "grIceMt_801F9ACC",
-    "HSD_GObjEvent cast removal",
-    "__FILE__ override",
-    "HSD_LObjGetType inline",
+    "lbl_8046B488_t",
+    "HSD_Randi",
+    "HSD_ASSERT",
+    "__FILE__ trick",
+    "HSD_LObjGetType",
+    "HSD_LightDesc",
+    "light_configs",
+    "Ground_801C0498",
+    "HSD_Text",
+    "grMaterial_801C8E08",
     "x1C_pad",
-    "grKinokoRoute_80207B5C 99.64%"
+    "padding naming",
+    "weighted random direction picker",
+    "Ice Mountain segment cooldown",
+    "Home-Run Contest score overlay",
+    "Mute City point lights",
+    "Mushroom Kingdom route collision"
   ],
   "follow_up_queries": [
-    "Find the final decomp.dev report for PR #2404 or its merge commit to reconcile the intermediate bot report with the body's five 100% match claim.",
-    "Search later PRs for `grKinokoRoute_80207B5C` to see whether the 99.64% struct-field offset issue was solved.",
-    "Audit other `gr` route callbacks still cast to `HSD_GObjEvent` or raw `bool (*)(s32)` for possible `GmRouteCallback`/stage-specific typedef cleanup.",
-    "Search `lobj.c` and later stage PRs for `HSD_LObjGetType` inline comments to reuse the Push On matching pattern.",
-    "Check subsequent `groldkongo.c` history for padding names like `x1C_pad` and for any replacement of the weighted-random chain with a matching loop."
+    "Find later PRs that clean up groldkongo.c extern float constants or remove the __FILE__ override.",
+    "Search for adoption of x1C_pad-style padding names in stage structs after PR #2404.",
+    "Check whether HSD_LObjGetType was later centralized or renamed to avoid a local macro collision in grpushon.c.",
+    "Look for the eventual match or type fix for grKinokoRoute_80207B5C after it was reverted to a stub here.",
+    "Search for additional uses of GmRouteCallback to see if the typedef became the standard callback convention."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

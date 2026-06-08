@@ -11,119 +11,93 @@
     "merged_at": "2026-04-28T09:38:07Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Implemented a major Classic mode decomp slice in `gmclassic.c` with supporting type/header cleanup. New C covers matchup order/random selection, Classic OnLoad setup, intro/preload setup, match launch, and match exit/record update logic. decomp.dev reported 3 new 100% matches (`gmClassic_801B3B40`, `gmClassic_801B3A34`, `gmclassic` `.sdata`) and 4 partial improvements (`gmClassic_801B3500` 92.27%, `gmClassic_OnLoad` 84.00%, `gmClassic_801B2D54` 99.96%, `gmClassic_801B2BA4` 93.87%), for +784 matched code bytes and +24 matched data bytes.",
+  "summary": "Substantial Classic Mode decompilation work in src/melee/gm/gmclassic.c. The PR replaced several stubbed gmClassic functions with C implementations, added local data layouts for Classic matchup and intro data, refined gm_803DDEC8Struct and callback fields in gm/types.h, and made small header/prototype cleanups. decomp.dev reported 3 new matches and 4 improved unmatched items, with gmClassic_801B3B40 and gmClassic_801B3A34 reaching 100% and gmClassic_801B3500, gmClassic_OnLoad, gmClassic_801B2D54, and gmClassic_801B2BA4 improving substantially but not all fully matching.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-typing",
-      "function-pointer-typing",
-      "data-layout",
+      "struct-layout",
       "game-mode-logic"
     ],
     "systems": [
       "game-mode",
-      "gmclassic",
       "classic-mode",
-      "gmregclear",
-      "gmmain_lib",
-      "lbDvd",
-      "lbAudioAx",
-      "ground/stage"
+      "gm",
+      "matchup-selection",
+      "preload-cache",
+      "audio-preload"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gm/gmclassic.c",
-      "role": "Main Classic mode decomp work; adds typed local data structs and C implementations for matchup setup, OnLoad, intro/preload, match start, and match exit handling."
-    },
-    {
-      "path": "src/melee/gm/types.h",
-      "role": "Shared type cleanup; typed `UnkAdventureData`/`UnkAllstarData` callbacks and replaced `gm_803DDEC8Struct` bitfield/blob layout with explicit fields plus a `gmClassicMatchup` pointer."
-    },
-    {
-      "path": "src/melee/gm/gmclassic.h",
-      "role": "Header cleanup; removed internal/static helper declarations and the bare `gmClassic_803DDEC8` global declaration."
-    },
-    {
-      "path": "src/melee/gm/gmregclear.h",
-      "role": "Prototype formatting for `gm_8017DB88` and `fn_8017DD7C`, including callback argument types used by Classic setup."
-    },
-    {
-      "path": "src/melee/gm/gmallstar.c",
-      "role": "Adjusted `UnkAllstarData.x58` assignment from integer `0` to `NULL` after the field became a function pointer."
-    }
+    "src/melee/gm/gmclassic.c",
+    "src/melee/gm/types.h",
+    "src/melee/gm/gmregclear.h",
+    "src/melee/gm/gmclassic.h",
+    "src/melee/gm/gmallstar.c"
   ],
   "what_changed": [
-    "Replaced placeholder comments for `gmClassic_801B2BA4`, `gmClassic_801B2D54`, `gmClassic_OnLoad`, `gmClassic_801B3500`, `gmClassic_801B3A34`, and `gmClassic_801B3B40` with C in `src/melee/gm/gmclassic.c`.",
-    "Added file-local Classic data models: `gmClassicMatchup`, `gmClassicMatchupData`, `gmClassicIntroData`, `gmClassic_80490880Data`, and `gmClassic_803DDEC8Data`, all with offset comments and `STATIC_ASSERT` size checks.",
-    "Added `gmClassic_InitMatchupOrder`, which counts matchup arrays until sentinel stage id `0x148`, fills an order array, and shuffles it with `HSD_Randi`.",
-    "Implemented `gmClassic_801B2BA4` matchup selection over shuffled pools, filtering empty character slots `0x21`, the current player character, `gm_80164430`, `gm_80164840`, already-used matchup characters, and stage comparisons through `Stage_8022519C`.",
-    "Implemented `gmClassic_801B2D54` to assign `gm_803DDEC8Struct.xC` matchups according to flag bits, including fixed entries `gm_804D4318`, `gm_804D4320`, `gm_804D4328`, and the `x0C0` pool for `x1 & 0x20`.",
-    "Implemented `gmClassic_OnLoad` to clear matchup pointers, initialize matchup order arrays `x80/x74/x54/x2C`, zero `gm_804908A0`, set `UnkAllstarData` callback fields `x48..x70`, set minor scene `0x70`, and call `Ground_801C5A28`.",
-    "Implemented `gmClassic_801B3500` to populate Classic intro/preload data: enemy and ally arrays, enemy color setup via `gmRegSetupEnemyColorTable`, `lbDvd` game cache entries, special stage selection, and `lbAudioAx` audio preload masks.",
-    "Implemented `gmClassic_801B3A34` to prepare `StartMeleeData` through `gm_8017CE34` and `gm_8016F088`; implemented `gmClassic_801B3B40` to write per-round status to `gm_804908A0`, check final clear via `gm_8017D7AC`, and update special-case timing/best-record fields.",
-    "Changed `types.h` so `UnkAdventureData` and `UnkAllstarData` callback slots are concrete function-pointer types instead of `UNK_T`/`u32`, and changed `gm_803DDEC8Struct` from bitfields/blob padding to explicit byte/u16 fields plus `struct gmClassicMatchup* xC`.",
-    "Changed `gmClassic_801B3E44` to use `gmClassic_803DDEC8.x00` after the global was modeled as a typed aggregate rather than a raw `gm_803DDEC8Struct`."
+    "Implemented gmClassic_801B2BA4 as a static matchup-selection helper using gmMainLib_8015CDC8()->c_kind, gm_80164430, gm_80164840, Stage_8022519C, and existing gm_803DDEC8Struct entries to avoid invalid or duplicate character/stage matchups.",
+    "Added static inline gmClassic_InitMatchupOrder to count matchup arrays until stage sentinel 0x148, initialize an order array, and shuffle it with HSD_Randi.",
+    "Implemented gmClassic_801B2D54 as a static helper assigning gm_803DDEC8Struct.xC matchup pointers from typed gmClassic_803DDEC8 data ranges based on x1 flags, including special static gmClassicMatchupData entries gm_804D4318, gm_804D4320, and gm_804D4328.",
+    "Implemented gmClassic_OnLoad to clear existing Classic matchup pointers, randomize matchup order buffers in gmClassic_80490880, initialize the 1P/All-Star-like state through gm_8017EB30 and gm_8017C984, zero gm_804908A0 result state bytes, install callback function pointers, set minor scene 0x70, and call gm_80172174 and Ground_801C5A28.",
+    "Implemented gmClassic_801B3500 to build Classic intro/preload state, count allies and enemies, set enemy colors with gmRegSetupEnemyColorTable, configure partner/enemy data through gm_8017DB88, populate lbDvd game_cache character and stage entries, and request audio preload bits through lbAudioAx functions.",
+    "Implemented gmClassic_801B3A34 to prepare StartMeleeData for a Classic match, including special target-test and team-stage stage selection, storing flags/progress in UnkAllstarData, and calling gm_8017CE34 and gm_8016F088.",
+    "Implemented gmClassic_801B3B40 to process match exit info, record per-stage result state in gm_804908A0, handle clear progression, and update target-test records/unlocks using gmMainLib and Ground timing helpers.",
+    "Introduced local gmclassic.c structs gmClassicMatchup, gmClassicMatchupData, gmClassicIntroData, gmClassic_80490880Data, and gmClassic_803DDEC8Data with STATIC_ASSERT size checks.",
+    "Refined struct UnkAllstarData and UnkAdventureData callback fields in types.h from UNK_T/u32 placeholders to typed function pointers.",
+    "Reworked gm_803DDEC8Struct in types.h from bitfields and opaque padding to explicit bytes/halfwords and a struct gmClassicMatchup* xC pointer.",
+    "Removed non-public prototypes and global declaration from gmclassic.h for gmClassic_801B2BA4, gmClassic_801B2D54, and gmClassic_803DDEC8 after those symbols became local/static or were represented via typed externs in gmclassic.c.",
+    "Changed gmallstar.c assignment data->x58 = 0 to data->x58 = NULL, consistent with x58 now being a function pointer."
   ],
   "smart_moves": [
-    "Modeled data layout first with exact-size local structs and `STATIC_ASSERT`, making the later pointer arithmetic and array indexing evidence-backed instead of raw `UNK_T` access.",
-    "Forward-declared `struct gmClassicMatchup` in `types.h` while keeping the actual `gmClassicMatchup` layout private to `gmclassic.c`, avoiding unnecessary header exposure.",
-    "Made `gmClassic_801B2BA4` and `gmClassic_801B2D54` `static` and removed their public header declarations, keeping `gmclassic.h` focused on externally used scene callbacks.",
-    "Typed callback fields in `UnkAllstarData`/`UnkAdventureData` before implementing calls through them; this also exposed the need to use `NULL` instead of integer `0` in `gmallstar.c`.",
-    "Preserved low-level control-flow shape where useful for matching: sentinel loops, `goto next` in matchup selection, explicit casts, empty infinite loops on impossible no-match paths, and `PAD_STACK` in stack-sensitive functions.",
-    "Kept preload side effects in the same setup routine as the original behavior appears to do: game cache population, stage id selection, and audio bitmask construction are all handled inside `gmClassic_801B3500`."
+    "Used file-local structs with exact offset comments and STATIC_ASSERTs to describe anonymous Classic data blobs without over-exporting uncertain types.",
+    "Forward-declared struct gmClassicMatchup in types.h so gm_803DDEC8Struct could carry a typed pointer while the detailed matchup layout stayed local to gmclassic.c.",
+    "Converted callback slots in shared 1P mode structs to concrete function pointer types, enabling Classic and All-Star code to use NULL/function assignments more accurately.",
+    "Kept helper functions gmClassic_801B2BA4 and gmClassic_801B2D54 static after decompilation, reducing gmclassic.h API surface.",
+    "Used sentinel-based iteration patterns, especially x00 == 0x148 for matchup tables and x0 == 0x0D for gm_803DDEC8Struct lists, matching the observed data layout.",
+    "Matched preload behavior by explicitly constructing lbDvd game_cache entries and OR-ing character/stage audio bitmasks, rather than treating preload setup as opaque."
   ],
   "decomp_lessons": [
-    "For `gm` mode data blobs, model the aggregate layout with offset comments and size asserts before decomping behavior; `gmClassic_803DDEC8` turned out to contain several adjacent arrays/pools, not just one simple table.",
-    "When code mostly tests flag masks such as `x1 & 8`, `x1 & 0x20`, or `x1 == 0x80`, a plain `u8` flag field can be more matching-friendly than C bitfields; name individual bits later when semantics are confirmed.",
-    "Shared mode-state callback slots should be typed project-wide. Once `UnkAllstarData.x58` became a function pointer, other users such as All-Star needed pointer-correct initialization with `NULL`.",
-    "Classic matchup logic is sentinel-heavy: `0x148` terminates matchup lists, `0x21` marks empty character slots, and `0x0D` terminates `gm_803DDEC8Struct` sequences.",
-    "Large scene setup decomp may need exact casts to callback signatures, preload cache calls, and audio bitmask construction to get close to matching; `gmClassic_801B3500` reached 92.27% but still has remaining work.",
-    "The bot report is useful triage: `gmClassic_801B2D54` at 99.96% is a near-finish target, while `gmClassic_OnLoad` and `gmClassic_801B3500` likely need further type/control-flow refinement."
+    "When a data symbol is actually a compound blob, wrapping it in a local typed aggregate can unlock pointer arithmetic and array indexing matches; this PR changed gmClassic_803DDEC8 from a single exported gm_803DDEC8Struct assumption to gmClassic_803DDEC8Data with x00, x0C0, x0CC, x1B8, x26C, and x2B0 regions.",
+    "Opaque callback fields block downstream matching; replacing UNK_T/u32 placeholders with function pointer signatures can make call sites, NULL assignments, and casts express original intent more closely.",
+    "Bitfields are not always the best representation for flag bytes in decomp work. This PR replaced gm_803DDEC8Struct.x1 bitfields with a raw u8 x1 and used explicit masks such as 2, 4, 8, 0x10, 0x20, and 0x80.",
+    "Keep uncertain or mode-specific data layouts local when possible. The detailed Classic matchup and intro structs were not promoted into shared headers, limiting churn while still improving gmclassic.c.",
+    "Use sentinel values as table boundaries instead of hardcoding counts when that matches the binary's control flow; gmClassic_InitMatchupOrder and gmClassic_801B2BA4 both recount until 0x148.",
+    "Partial but high-quality implementations are useful: decomp.dev showed full matches for gmClassic_801B3A34 and gmClassic_801B3B40, while larger functions still improved substantially and provided typed scaffolding for future cleanup."
   ],
   "naming_conventions": [
-    "New Classic-private structs use the `gmClassic` prefix: `gmClassicMatchup`, `gmClassicMatchupData`, `gmClassicIntroData`, `gmClassic_80490880Data`, and `gmClassic_803DDEC8Data`.",
-    "Unknown fields retain project-style offset names such as `x00`, `x02`, `x0C0`, `x1B8`, and `x2B0` until semantics are stronger.",
-    "Padding is named by offset, e.g. `pad_06`, `pad_1B6`, `pad_2AE`, and `pad_2EC`, matching the decomp convention used elsewhere.",
-    "Shared `types.h` keeps `gm_803DDEC8Struct` as the existing symbol name but upgrades it with offset comments and explicit field widths.",
-    "Public scene functions remain declared in `gmclassic.h` with address comments; file-internal helpers are `static`/`static inline` and are not exported."
+    "New local structs followed the existing address/data-style naming where semantics were still limited: gmClassic_80490880Data and gmClassic_803DDEC8Data.",
+    "Mode-specific semantic names were used where evidence was strong enough: gmClassicMatchup, gmClassicMatchupData, gmClassicIntroData, and gmClassic_InitMatchupOrder.",
+    "Unknown fields retained x-offset names such as x00, x02, x0C0, x1B8, x2B0 with explicit offset comments, matching project style for not-yet-understood layouts.",
+    "Helper functions that are not exported were made static/static inline rather than kept in gmclassic.h as public UNK_RET prototypes.",
+    "Pointer nullness should be expressed as NULL rather than integer 0 when a field has been typed as a callback pointer."
   ],
   "assembly_or_matching_tactics": [
-    "Used `PAD_STACK(8)` in `gmClassic_801B3A34` and `PAD_STACK(4)` plus an unused local array in `gmClassic_801B3B40` to shape stack layout.",
-    "Used explicit casts to `(u8)`, `(u16)`, `(s8)`, `(InternalStageId)`, and callback function-pointer signatures to control codegen around comparisons and calls.",
-    "Kept a `goto next` structure in `gmClassic_801B2BA4`, matching the nested filter-and-skip flow visible in the decompiled C.",
-    "Used sentinel loops (`x00 != 0x148`, `x0 != 0x0D`) instead of hard-coded loop counts where the data layout indicates terminators.",
-    "Used scoped temporary variables such as `echar`, `achar`, `ap`, `stage_id`, and `new_var` in large functions, a common register/lifetime matching tactic.",
-    "Represented no-result error paths in `gmClassic_801B2D54` as empty infinite loops, preserving the apparent original control flow.",
-    "Changed raw aggregate access from `&gmClassic_803DDEC8` to `gmClassic_803DDEC8.x00` once the global was typed, avoiding pointer-type mismatches."
+    "Introduced PAD_STACK in gmClassic_801B3A34 and gmClassic_801B3B40 to preserve stack layout for matching.",
+    "Used small scoped blocks and local variables such as ep, echar, achar, ap, audio, sp8, and spC to shape register lifetimes and stack usage.",
+    "Retained explicit casts for callback signatures passed to gm_8017DB88, e.g. u8 (*)(s32, s32, u8) and f32 (*)(s32, s32), to bridge shared type definitions with the callee prototype.",
+    "Used deliberate infinite loops for impossible no-match cases in gmClassic_801B2D54, matching apparent original trap behavior.",
+    "Used raw flag masks and explicit u8 casts around gm_803DDEC8Struct fields to match byte-oriented comparisons in the original code.",
+    "Preserved sentinel loops and repeated recounting of matchup count inside gmClassic_801B2BA4 rather than simplifying, likely helping the generated control flow stay close to the target."
   ],
   "review_feedback": [
-    "No human review comments or review approvals were present in the provided slice; the PR body was empty.",
-    "decomp.dev reported matched code at 64.96% with +0.02% / +784 bytes for GALE01.",
-    "decomp.dev reported matched data at 38.55% with +24 bytes, including `main/melee/gm/gmclassic` `.sdata` at 100%.",
-    "Bot-listed new 100% matches: `gmClassic_801B3B40` (+516 bytes) and `gmClassic_801B3A34` (+268 bytes).",
-    "Bot-listed partial improvements: `gmClassic_801B3500` +1229 bytes to 92.27%, `gmClassic_OnLoad` +1128 bytes to 84.00%, `gmClassic_801B2D54` +547 bytes to 99.96%, and `gmClassic_801B2BA4` +405 bytes to 93.87%."
+    "No human review comments were present in the slice.",
+    "Automated decomp.dev feedback reported matched code increased by 784 bytes and matched data increased by 24 bytes.",
+    "decomp.dev reported 3 new full matches: gmClassic_801B3B40 (+516 bytes), gmClassic_801B3A34 (+268 bytes), and gmclassic .sdata (+24 bytes).",
+    "decomp.dev reported improvements but not full matches for gmClassic_801B3500 at 92.27%, gmClassic_OnLoad at 84.00%, gmClassic_801B2D54 at 99.96%, and gmClassic_801B2BA4 at 93.87%."
   ],
   "searchable_terms": [
-    "pr-2426",
     "Jj/gmclassic",
     "jurrejelle",
     "gmclassic",
-    "Classic mode",
-    "src/melee/gm/gmclassic.c",
-    "src/melee/gm/types.h",
-    "src/melee/gm/gmclassic.h",
-    "src/melee/gm/gmregclear.h",
-    "src/melee/gm/gmallstar.c",
     "gmClassic_801B2BA4",
     "gmClassic_801B2D54",
     "gmClassic_OnLoad",
     "gmClassic_801B3500",
     "gmClassic_801B3A34",
     "gmClassic_801B3B40",
-    "gmClassic_801B3E44",
+    "gmClassic_InitMatchupOrder",
     "gmClassicMatchup",
     "gmClassicMatchupData",
     "gmClassicIntroData",
@@ -132,40 +106,47 @@
     "gmClassic_803DDEC8",
     "gmClassic_80490880",
     "gm_804908A0",
-    "gm_804D4318",
-    "gm_804D4320",
-    "gm_804D4328",
-    "gm_803DDC58_MinorScenes",
     "gm_803DDEC8Struct",
     "UnkAllstarData",
     "UnkAdventureData",
     "gmRegSetupEnemyColorTable",
     "gm_8017DB88",
     "gm_8017CE34",
+    "gm_8016F088",
     "gm_8017D7AC",
     "gm_8017CBAC",
-    "HSD_Randi",
-    "Stage_8022519C",
-    "Ground_801C5A28",
+    "gmMainLib_8015CDC8",
+    "gmMainLib_8015D438",
+    "gmMainLib_8015D450",
+    "gmMainLib_8015EDBC",
     "Ground_801C1DE4",
+    "Ground_801C5A28",
+    "Stage_8022519C",
     "lbDvd_8001822C",
+    "lbDvd_80018C6C",
     "lbAudioAx_80026E84",
     "lbAudioAx_80026EBC",
-    "PAD_STACK",
+    "HSD_Randi",
     "STATIC_ASSERT",
-    "0x148 sentinel",
-    "0x21 empty character",
-    "0x0D terminator",
-    "0xAF stage",
-    "function pointer callbacks"
+    "PAD_STACK",
+    "target test",
+    "classic matchup order",
+    "game_cache"
   ],
   "follow_up_queries": [
-    "Why is `gmClassic_801B2D54` still at 99.96% rather than 100%, and is the remaining issue a compare/cast/control-flow detail?",
-    "What remaining type or control-flow refinements are needed for `gmClassic_OnLoad` to improve beyond 84.00%?",
-    "Can `gmClassic_801B3500` be finished by further typing `gmClassicIntroData`, `GameCache`, `PreloadCacheSceneEntry`, or callback signatures?",
-    "Should magic constants `0x148`, `0x21`, `0x0D`, `0xAF`, and flag masks `0x80/0x20/0x10/0x08/0x04/0x02` become named constants once semantics are confirmed?",
-    "Should `gmClassicMatchup` remain file-local, or do later Classic/All-Star/adventure decomp slices need the layout in a shared header?",
-    "Can `gm_803DDEC8Struct.x1` gain named bit masks without hurting matching once more users are decompiled?"
+    "Find later PRs that finish matching gmClassic_OnLoad or gmClassic_801B3500 after this partial implementation.",
+    "Search for subsequent renames of gmClassicMatchup fields x00/x02/x05 or gm_803DDEC8Struct fields x1/x2/x4/x6/x8/xC.",
+    "Look for PRs that move gmClassicMatchup or gmClassicIntroData out of gmclassic.c into shared headers.",
+    "Search later changes to UnkAllstarData callback field signatures x48 through x70 to confirm whether u8/f32 function pointer prototypes were refined.",
+    "Find follow-up review or cleanup around the deliberate infinite loops in gmClassic_801B2D54 no-match cases."
   ],
-  "confidence": 0.88
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

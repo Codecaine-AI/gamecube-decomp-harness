@@ -10,6 +10,13 @@ The CLI is split into command modules under `src/cli/commands/`. The binary
 entry point stays thin: it parses arguments, applies defaults, and dispatches
 to the selected command.
 
+Global parsing keeps checkout ownership and state ownership separate.
+`--repo-root` identifies the Melee checkout to inspect, edit, and validate.
+`--state-dir` identifies the durable board and artifact ledger. When
+`--state-dir` is omitted, it defaults to `<cwd>/.decomp-orchestrator-state/`;
+normal operations run from `decomp-orchestrator/` so state remains
+orchestrator-owned even when `--repo-root` points at the parent Melee checkout.
+
 ## File Tree
 
 ```text
@@ -94,15 +101,25 @@ a different thinking level from the director. For example, the director can stay
 on the global default while workers run with `--worker-thinking-level low`.
 
 The trigger actor also owns deterministic queue refill. Each loop reads the
-current board artifacts, refills queued targets toward a ready-pool target,
-starts worker subprocesses for open slots, then handles one director wake event.
-This means a slow director replan does not prevent workers from picking up
-already queued, unlocked work.
+current board artifacts, ranks candidates with the configured knowledge graph
+when available, refills queued targets toward a ready-pool target, starts worker
+subprocesses for open slots, then handles one director wake event. This means a
+slow director replan does not prevent workers from picking up already queued,
+unlocked work.
 
 Queue size and board scan width are separate. `--candidate-limit` remains the
-default ready-pool size for compatibility. `--queue-target-size` can make that
-pool size explicit, and `--candidate-window` controls how many ranked board
-candidates refill scans to find fresh work beyond the current pool.
+initial seed size and compatibility pool size. `--queue-target-size` controls
+how much already-ranked work the trigger keeps queued, and defaults near active
+worker capacity so new graph facts can affect scheduling quickly.
+`--candidate-window` controls the initial ranked board scan width used to find
+fresh work beyond the current pool. If that window is exhausted, deterministic
+refill expands the scan until it restores the pool target or reaches the end of
+the ranked board.
+
+Even when the queue is full, the trigger periodically rereads the graph-ranked
+board and refreshes priorities for queued-but-not-leased targets inside the scan
+window. Graph maintenance can therefore move newly informative targets upward
+without waiting for the old queue to drain completely.
 
 The trigger writes a prioritized `pool_below_target` event when deterministic
 refill is not enough and capacity is becoming inefficient. The defaults wake the
@@ -113,9 +130,11 @@ minutes. Operators can tune this with:
 
 | Flag | Meaning |
 | --- | --- |
-| `--candidate-limit <n>` | Compatibility ready-pool size; also the queue target when `--queue-target-size` is omitted. |
-| `--queue-target-size <n>` | Maintain at least this many queued targets, subject to available fresh board candidates. |
-| `--candidate-window <n>` | Number of ranked board candidates scanned for director context and deterministic refill. |
+| `--candidate-limit <n>` | Initial seed size and compatibility pool size; default is `max(32, max_workers * 2)`. |
+| `--queue-target-size <n>` | Maintain at least this many queued targets, subject to available fresh board candidates; default is `max(candidate_limit, max_workers * 2)`. |
+| `--candidate-window <n>` | Initial number of ranked board candidates scanned for director context and deterministic refill; refill expands this when the window is exhausted. |
+| `--graph-db <path>` | Knowledge graph used for board ranking and worker file-card context; defaults to `knowledge/resource_graph/graph.sqlite`. |
+| `--queue-refresh-interval-ms <n>` | Refresh queued target priorities from the latest graph-ranked board at this interval; default is 60000. |
 | `--queue-low-watermark <n>` | Wake when total queued work is at or below `n` while workers are active. |
 | `--schedulable-low-watermark <n>` | Wake when unlocked distinct-file work is at or below `n` while the run is underfilled. |
 | `--active-low-watermark <n>` | Active-worker threshold for long-tail detection; default is 75% of `--max-workers`. |
@@ -126,6 +145,23 @@ minutes. Operators can tune this with:
 
 The babysit wrapper forwards these trigger flags to its child `bootstrap` or
 `trigger-agent` command.
+
+## Regression Check
+
+`regression-check` wraps the saved-baseline `ninja changes_all` flow, captures
+stdout/stderr, parses `build/GALE01/report_changes.json`, writes
+`summary.json`, and generates a PR-style Markdown report through
+`src/objdiff/report.ts`. The regression gate fails when Ninja returns nonzero,
+the report cannot be parsed, or the report contains broken matches, fuzzy
+regressions, or metric regressions.
+
+The same report evaluates PR promotion separately from regression cleanliness.
+Default promotion evidence requires no regressions plus an exact new match or
+matched code/data byte movement; fuzzy-only improvements are recorded as
+`local_only` evidence because match percent alone can be misleading. Use
+`--require-pr-promotion` for final maintainer-facing handoff, and tune
+`--promotion-min-*` thresholds only when an operator deliberately wants a higher
+or broader promotion policy.
 
 ## PR Split Planning
 

@@ -11,147 +11,126 @@
     "merged_at": "2026-04-03T19:18:22Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large Corneria stage decompilation PR focused on replacing many `/// #grCorneria_*` placeholders with C, refining Corneria/stage-related structs and prototypes, and wiring shared smash-taunt/material/item interfaces. decomp.dev reported +3544 matched bytes, +0.09% overall matched code, 7 new exact matches, and 18 additional grcorneria improvements. Review feedback centered on project style and cleanup: prefer `HSD_ASSERT`, reduce raw pointer math, use ABS/MIN/MAX/CLAMP helpers when possible, and scrutinize apparent s32 writes into f32-looking fields.",
+  "summary": "Large Corneria stage decompilation PR centered on src/melee/gr/grcorneria.c, replacing many placeholder stubs with C implementations for Corneria setup, arwing spawning/control, stage movement, camera/ground-region checks, dialog joint handling, effects/audio interactions, and Great Fox laser-related stage behavior. The PR also refined Corneria-related data structures in gr/types.h and headers, introduced typed stage/global data structs for grCn data, and made small cross-file prototype/include adjustments in grmaterial, grvenom, and itgreatfoxlaser. Review feedback focused on improving decomp cleanliness: prefer HSD_ASSERT over raw __assert, reduce unsafe pointer arithmetic, use ABS/MIN/MAX/CLAMP helpers where possible, and question suspicious s32 writes into fields that appear to be f32s.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "headers",
-      "struct-typing",
       "stage-logic",
-      "shared-api-exposure",
-      "review-cleanup"
+      "headers",
+      "struct-reconstruction",
+      "cleanup",
+      "item-stage-integration"
     ],
     "systems": [
-      "grcorneria",
-      "ground",
       "stage",
-      "smashtaunt",
-      "grmaterial",
-      "grvenom",
+      "ground",
+      "Corneria",
+      "arwing",
+      "Great Fox laser",
       "item",
-      "itgreatfoxlaser"
+      "baselib",
+      "audio",
+      "collision"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grcorneria.c",
-      "role": "Main change: +1224/-52 lines, added typed Corneria stage/data structs, implemented or improved many grCorneria routines for stage init, Arwing/background behavior, Great Fox cannon/laser logic, color/material updates, and smash taunt."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Refined ground variable layouts: `grCorneria_GroundVars.xE4` became `Vec3`, several counters/speeds were retyped, `grArwing_GroundVars.xD4/xD8` became s32, and `grSmashTaunt_GroundVars` gained named fields such as `state`, `timer`, `line`, `sis_data_idx`, `sound_id`, `jobj0..2`, `joint_idx0..2`, and `text`."
-    },
-    {
-      "path": "src/melee/gr/grcorneria.h",
-      "role": "Promoted several prototypes from `UNK_RET/UNK_PARAMS` to typed signatures, including `grCorneria_801DCCFC`, `grCorneria_801DDE88`, `grCorneria_801E03C8`, `grCorneria_801E0678`, `grCorneria_801E08CC`, and `grCorneria_801E277C` taking `grSmashTaunt_GroundVars`."
-    },
-    {
-      "path": "src/melee/gr/grmaterial.c",
-      "role": "Made `grMaterial_801C87D0` non-static so Corneria smash-taunt code can reuse the material flag traversal."
-    },
-    {
-      "path": "src/melee/gr/grmaterial.h",
-      "role": "Declared `grMaterial_801C87D0(HSD_JObj*, u32 flags)`."
-    },
-    {
-      "path": "src/melee/gr/grvenom.c",
-      "role": "Updated Venom to pass `&gp->gv.smashtaunt` into the shared `grCorneria_801E277C` routine instead of `&gp->gv.corneria`."
-    },
-    {
-      "path": "src/melee/it/items/itgreatfoxlaser.h",
-      "role": "Typed `it_802EAF34` as `void it_802EAF34(HSD_GObj*, Vec3*, int)`, matching new Great Fox cannon/laser call sites."
-    }
+    "src/melee/gr/grcorneria.c",
+    "src/melee/gr/types.h",
+    "src/melee/gr/grcorneria.h",
+    "src/melee/gr/grmaterial.c",
+    "src/melee/gr/grmaterial.h",
+    "src/melee/gr/grvenom.c",
+    "src/melee/it/items/itgreatfoxlaser.h"
   ],
   "what_changed": [
-    "Replaced numerous grcorneria placeholders with C implementations. decomp.dev listed exact new matches for `grCorneria_801E277C`, `grCorneria_801E0678`, `grCorneria_801DFC98`, `grCorneria_801DFF20`, `grCorneria_801E01A8`, `grCorneria_801DD350`, and `grCorneria_801E2110`.",
-    "Improved many still-unmatched Corneria routines, including `grCorneria_801E1BF0`, `grCorneria_801E1348`, `grCorneria_801DE024`, `grCorneria_801DE568`, `grCorneria_801DE8E4`, `grCorneria_801DF8D0`, `grCorneria_801E03C8`, `grCorneria_801E1970`, `grCorneria_801E1060`, `grCorneria_801E2228`, `grCorneria_801DDAC4`, `grCorneria_801E08CC`, `grCorneria_801DDE88`, `grCorneria_801E25C4`, and `grCorneria_801DCCFC`.",
-    "Introduced local typed data models in `grcorneria.c`: `grCn_StageData`, `grCn_Data`, and `grCn_Entry`, replacing a raw `void* grCn_804D69A0` with `grCn_StageData*` and naming table areas such as `arwing_gobj`, `arwing_type`, `arwing_group`, `cannon_x`, `cannon_y`, `effect_pos`, `anim_ids`, `positions`, `x3D8`, `x444`, `x458`, `dialog_joints`, and `entries`.",
-    "Added helper inlines for common Corneria behavior: `grCn_RandRange`, `grCn_CheckFar`, `grCn_SpawnArwing`, and `grCn_PickUniqueType`.",
-    "Implemented Corneria setup and stage state work such as `grCorneria_801DCCFC` and `grCorneria_801DD350`, including stage ID checks via `Stage_80225194`, initializing Arwing slot arrays, spawning ground objects, setting stage_info flags, light setup, and disabling mpLib collision lines.",
-    "Implemented or refined Arwing-related updates including object slot registration, animation triggering, visibility based on angle/rotation, audio cues through `lbAudioAx_800237A8`, and cleanup through `Ground_801C4A08`.",
-    "Implemented background/segment movement and camera-area selection logic such as `grCorneria_801E01A8`, `grCorneria_801E03C8`, `grCorneria_801E0678`, `grCorneria_801E08CC`, and `grCorneria_801E1060`.",
-    "Implemented Great Fox cannon/laser state behavior in `grCorneria_801E1348`, using fighter positions, material animation helpers, effects/sounds, and the newly typed `it_802EAF34` item function.",
-    "Moved smash-taunt handling toward a dedicated `grSmashTaunt_GroundVars` layout. `smashTaunt_801E24AC` now uses `gv.smashtaunt.text` as an `HSD_Text*` and toggles `text->hidden`; `grCorneria_801E277C` now takes `grSmashTaunt_GroundVars*` and uses named fields."
+    "Implemented a large number of previously stubbed grCorneria_* functions in src/melee/gr/grcorneria.c, increasing the file by more than 1200 added lines.",
+    "Added typed local structs for Corneria stage/global data, including grCn_StageData with offsets through x88 and grCn_Data with arwing_gobj, arwing_type, arwing_group, cannon positions, effect position, animation IDs, positions, x3D8, x444, x458, dialog_joints, and entries.",
+    "Changed grCn_804D69A0 from an untyped void pointer to a grCn_StageData pointer, allowing field accesses such as x3C, x40, x68, x70, and x88 instead of raw offsets.",
+    "Added helper-style inline functions in grcorneria.c such as grCn_RandRange, grCn_CheckFar, grCn_SpawnArwing, and grCn_PickUniqueType to express common Corneria randomization and arwing selection behavior.",
+    "Implemented Corneria initialization/setup paths including grCorneria_801DCCFC and grCorneria_801DD350, initializing arwing state, reading stage data from Ground_801C49F8, spawning ground objects, setting stage_info flags, configuring light position, and enabling/disabling mpLib entries.",
+    "Reworked Corneria ground variable layout usage so a previous sequence of xE4/xE8/xEC scalar accesses became a Vec3-style xE4.x/y/z access pattern in at least grCorneria_801DD674, grCorneria_801DDCF0, and related functions.",
+    "Implemented arwing-related object creation and update logic, including storing arwing slots in gp->gv.arwing.xC8, updating grCn_803E1D38.arwing_gobj, applying scale from Ground_801C0498 and grCn_804D69A0->x70, driving animations, handling visibility, movement, and cleanup.",
+    "Implemented stage/object movement and recycling behavior for Corneria ground sections, including grCorneria_801E01A8, grCorneria_801E03C8, grCorneria_801E0678, and grCorneria_801E08CC using HSD_JObj translation, Ground_801C2BA4 lookups, Ground_801C4A08 cleanup, and Camera_GetTransformInterest.",
+    "Implemented dialog joint handling in grCorneria_801E25C4 using grCn_803E1D38.dialog_joints and Ground_801C3FA4 to hide/show JObjs, though the review noted the implementation still used raw byte-offset pointer math.",
+    "Added include dependencies for placeholder.h, baselib forward declarations, ftlib, gm_1832, grdatfiles, item, itgreatfoxlaser, lbaudio_ax, gobjgxlink, and particle to support the newly decompiled logic.",
+    "Made small related changes in grmaterial.c/.h, grvenom.c, grcorneria.h, gr/types.h, and itgreatfoxlaser.h, likely to align prototypes/types with the expanded Corneria implementation."
   ],
   "smart_moves": [
-    "Typing `grCn_804D69A0` as `grCn_StageData*` converted many raw offset reads into field accesses like `x38`, `x70`, and `x88`, making stage constants reusable while preserving offset-based names where semantics were still uncertain.",
-    "Separating `grSmashTaunt_GroundVars` from generic Corneria vars improved cross-stage correctness: both Corneria and Venom now call `grCorneria_801E277C` with `gv.smashtaunt`.",
-    "Exposing `grMaterial_801C87D0` through `grmaterial.h` avoided duplicating material flag traversal logic in `grcorneria.c`.",
-    "Using named table fields such as `dialog_joints`, `anim_ids`, `positions`, and `arwing_type` made the remaining address-named code much more searchable than raw `M2C_FIELD` or byte-offset access.",
-    "The helper inlines isolate repeated matching-sensitive patterns for random integer ranges, far-camera checks, Arwing spawning, and unique type picking.",
-    "The PR kept exact address-based function names for unknown/partially understood routines while still improving signatures and local types, which is useful for incremental decomp work."
+    "Promoting grCn_804D69A0 from void* to grCn_StageData* made stage parameter loads much more readable and reusable for matching work.",
+    "Reconstructing grCn_Data around known offsets gave meaningful names to important Corneria tables such as arwing_gobj, arwing_type, arwing_group, anim_ids, positions, x444, x458, and dialog_joints while preserving unknown/padded regions.",
+    "Extracting repeated random-range, far-check, spawn, and unique-type selection patterns into static inline helpers provided structure without necessarily forcing additional external symbols.",
+    "Using Vec3 for the xE4 group in Corneria ground variables reduced misleading scalar-field access and better matched code that passes addresses to HSD_JObjSetTranslate or stores grouped coordinates.",
+    "The implementation preserved decomp-matching idioms where needed, including PAD_STACK blocks, explicit casts, local scoping blocks, and direct field/offset manipulation in difficult sections.",
+    "The code used existing engine APIs consistently across the stage system: Ground_801C2BA4 for ground object lookup, GET_GROUND/GET_JOBJ macros, HSD_JObj translation/scale/visibility operations, grAnime calls, mpLib toggles, and lbAudioAx sound triggers."
   ],
   "decomp_lessons": [
-    "For large stage files, building partial data structs from observed offsets can unlock many functions without needing final semantic field names.",
-    "When the same routine is shared across stages, prefer a specific common sub-struct signature over passing a stage-specific ground-var struct; this PR moved `grCorneria_801E277C` to `grSmashTaunt_GroundVars*` and updated Venom accordingly.",
-    "Reviewers prefer `HSD_ASSERT` over direct `__assert` where possible.",
-    "Raw `u8*` pointer math and `*(type*)(base + offset)` writes may be expedient for matching, but reviewers will ask whether they can be replaced with typed structs.",
-    "Use project macros like `ABS`, `MIN`, `MAX`, and `CLAMP` for obvious absolute-value and clamp patterns when they do not hurt matching.",
-    "Be cautious when assigning through `s32*` casts into fields that are or appear to be f32s; if the cast is match-required, leave evidence or improve the field typing when possible.",
-    "Small header changes matter: typing an item function or exposing a material helper can remove `UNK_PARAMS` and make stage logic compile cleanly without local fake declarations."
+    "When a stage file depends heavily on packed data blobs, partial struct reconstruction with correct offsets and pad fields is preferable to leaving everything as void* or raw array indexing.",
+    "If a field cluster is repeatedly treated as a vector, model it as Vec3 in the ground variable struct; this can clarify both source intent and callsites that pass the address to vector/JObj helpers.",
+    "Inline helpers can make large stage decomp PRs more searchable and maintainable, but should be constrained to patterns strongly supported by repeated code in the diff.",
+    "Pointer arithmetic against opaque void* or u8* buffers may help matching initially, but reviewers will ask whether it can be replaced by a real struct once the offsets and field types are understood.",
+    "Use project macros and helper functions such as ABS, MIN, MAX, and CLAMP when they express the same operation; this is preferred over hand-written absolute value and bounds code unless matching prevents it.",
+    "Raw __assert calls should be converted to the project's HSD_ASSERT style when possible.",
+    "Suspicious integer stores into float-looking fields should be documented, typed correctly, or revisited; forced s32 stores may be a matching tactic but can signal an incomplete struct/type model.",
+    "Stage decompilation often crosses system boundaries; Corneria work required stage, ground, baselib JObj/GObj, collision/mpLib, audio, item, and Great Fox laser headers to line up."
   ],
   "naming_conventions": [
-    "Corneria implementation names kept the existing address style: `grCorneria_801DCCFC`, `grCorneria_801E277C`, etc.",
-    "Local Corneria helpers used the short stage prefix plus descriptive verbs: `grCn_RandRange`, `grCn_CheckFar`, `grCn_SpawnArwing`, `grCn_PickUniqueType`.",
-    "New local data structs used the `grCn_` prefix: `grCn_StageData`, `grCn_Data`, and `grCn_Entry`.",
-    "Fields with unknown semantics remained offset-style (`xC4`, `x108`, `x3D8`, `x444`, `x458`) while clearer table roles were named (`arwing_gobj`, `arwing_type`, `arwing_group`, `positions`, `dialog_joints`).",
-    "The smash-taunt struct was given semantic field names at known offsets: `state`, `timer`, `line`, `sis_data_idx`, `sound_id`, `jobj0`, `jobj1`, `jobj2`, `joint_idx0`, `joint_idx1`, `joint_idx2`, and `text`.",
-    "Bitfields stayed conservative as `flags.b0`, `flags.b1`, `flags.b2` when behavior was not fully named."
+    "Corneria-local globals use the grCn_ prefix, such as grCn_803E1D80, grCn_803E2190, grCn_804D466C, grCn_804D69A0, grCn_804D69A4, grCn_804D69A8, grCn_804D69AC, and grCn_804D69B0.",
+    "New helper functions use grCn_ with descriptive CamelCase-style suffixes: grCn_RandRange, grCn_CheckFar, grCn_SpawnArwing, and grCn_PickUniqueType.",
+    "Stage functions retain address-based names such as grCorneria_801DCCFC, grCorneria_801DD350, grCorneria_801DE568, grCorneria_801E01A8, and grCorneria_801E25C4.",
+    "Partially known struct fields keep offset-style names such as x0, x3C, x40, x68, x70, x88, x3D8, x444, and x458, while better-understood fields receive semantic names like arwing_gobj, arwing_type, arwing_group, cannon_x, cannon_y, effect_pos, anim_ids, positions, entries, and dialog_joints.",
+    "Ground variable accesses distinguish Corneria and arwing state through gp->gv.corneria.* and gp->gv.arwing.*."
   ],
   "assembly_or_matching_tactics": [
-    "Used `PAD_STACK` in several functions to preserve stack layout while adding C implementations.",
-    "Used scoped temporaries and repeated expressions such as `Ground_801C0498()` scale calculations, likely to preserve register/float evaluation order.",
-    "Retained some match-oriented casts such as `*(s16*)(v + offset)`, `*(HSD_JObj**)(v + offset)`, and `*(s32*)&field`; review noted these should be cleaned up if a struct layout can be proven.",
-    "Converted some M2C-style raw field accesses to typed struct fields, e.g. `grCn_804D69A0->x38` and `((HSD_Text*) gp->gv.smashtaunt.text)->hidden`.",
-    "Used exact library calls seen in stage behavior paths: `HSD_JObjSetTranslate*`, `HSD_JObjSetFlagsAll`, `grAnime_801C8098`, `grMaterial_801C8E08/801C8E28`, `Item_80268E5C`, `it_802EAF34`, `mpLib_80057BC0`, and SIS text functions.",
-    "Matched progress came from both exact matches and near matches; decomp.dev reported 7 new exact matches and 18 improved unmatched items rather than all new code being fully matched."
+    "Used PAD_STACK annotations in functions such as grCorneria_801DCCFC, grCorneria_801E03C8, and grCorneria_801DE024 to preserve stack layout for matching.",
+    "Used explicit casts and typed overlaying of data, including casting Ground_801C49F8 to grCn_StageData*, casting parts of gp->gv.corneria to s32* or HSD_GObj**, and using u8* pointer arithmetic in hard-to-type areas.",
+    "Kept some goto/default_case structure in switch-like logic, likely to mirror compiler control flow for matching.",
+    "Used local nested blocks and repeated temporary variables around HSD_JObjSetScaleX/Y/Z calls, a common decomp tactic for register lifetime and ordering.",
+    "Implemented random range logic with HSD_Randi and integer-cast bounds from f32 stage-data fields, preserving observed behavior rather than over-generalizing.",
+    "Used direct JObj translation comparisons with constants such as 3200.0f, 4800.0f, -1400.0f, 1400.0f, M_PI, 1.0471976f, and scale from Ground_801C0498 to match stage movement and visibility behavior."
   ],
   "review_feedback": [
     {
-      "reviewer": "jurrejelle",
       "file": "src/melee/gr/grcorneria.c",
-      "topic": "assert style",
-      "feedback": "On `grCorneria_801E08CC`, reviewer said direct `__assert(\"grcorneria.c\", 0x9AC, \"0\")` should probably use `HSD_ASSERT`."
+      "reviewer": "jurrejelle",
+      "comment": "This should probably use HSD_ASSERT",
+      "context": "grCorneria_801E08CC ended with a raw __assert(\"grcorneria.c\", 0x9AC, \"0\")."
     },
     {
-      "reviewer": "jurrejelle",
       "file": "src/melee/gr/grcorneria.c",
-      "topic": "pointer math",
-      "feedback": "On `grCorneria_801E25C4`, reviewer asked whether the raw pointer math over `void* gv` / `u8* v` could be fixed."
+      "reviewer": "jurrejelle",
+      "comment": "Is it possible to fix this pointer math?",
+      "context": "grCorneria_801E25C4 used u8* v = gv and many writes like *(s16*)(v + 4), *(HSD_JObj**)(v + 0xC), suggesting a missing struct."
     },
     {
-      "reviewer": "jurrejelle",
       "file": "src/melee/gr/grcorneria.c",
-      "topic": "helper macros",
-      "feedback": "On manual absolute-value code in `grCorneria_801DE568`, reviewer suggested `ABS`, and noted similar availability of `MIN`, `MAX`, and `CLAMP`."
+      "reviewer": "jurrejelle",
+      "comment": "For cases like this there's f32 angle = ABS(gp->gv.arwing.xE8); same for MIN, MAX and CLAMP.",
+      "context": "grCorneria_801DE568 manually computed absolute value with if (angle < 0.0f) angle = -angle."
     },
     {
-      "reviewer": "jurrejelle",
       "file": "src/melee/gr/grcorneria.c",
-      "topic": "field typing",
-      "feedback": "Reviewer questioned why several f32-looking fields were being assigned through s32 writes."
-    },
-    {
       "reviewer": "jurrejelle",
-      "topic": "review outcome",
-      "feedback": "Review history shows an initial CHANGES_REQUESTED review followed shortly by APPROVED; the dump does not include explanatory review body text."
+      "comment": "Wondering that most of these are f32s, how come they're being assigned as s32s.",
+      "context": "grCorneria_801DE8E4 and nearby code used casts like *(s32*) &gp->gv.corneria.offset_y.val = zero and similar stores into fields that appear float/vector-like."
     }
   ],
   "searchable_terms": [
     "pr-2381",
     "grcorneria work",
     "lukechampine",
-    "grCorneria_801E277C",
-    "grCorneria_801E0678",
-    "grCorneria_801DFC98",
-    "grCorneria_801DFF20",
-    "grCorneria_801E01A8",
+    "grCorneria_801DCCFC",
     "grCorneria_801DD350",
-    "grCorneria_801E2110",
-    "grCorneria_801E1348",
+    "grCorneria_801DDAC4",
+    "grCorneria_801DDE88",
     "grCorneria_801DE024",
     "grCorneria_801DE568",
+    "grCorneria_801DE8E4",
+    "grCorneria_801DF8D0",
+    "grCorneria_801E01A8",
+    "grCorneria_801E03C8",
+    "grCorneria_801E0678",
+    "grCorneria_801E08CC",
     "grCorneria_801E25C4",
     "grCn_StageData",
     "grCn_Data",
@@ -159,29 +138,38 @@
     "grCn_CheckFar",
     "grCn_SpawnArwing",
     "grCn_PickUniqueType",
-    "grSmashTaunt_GroundVars",
-    "HSD_Text hidden",
-    "grMaterial_801C87D0",
-    "it_802EAF34",
-    "itgreatfoxlaser",
+    "grCn_804D69A0",
+    "grCn_803E1D38",
+    "arwing_gobj",
+    "arwing_type",
+    "arwing_group",
+    "dialog_joints",
     "Great Fox laser",
-    "Arwing",
-    "Corneria",
-    "Venom smash taunt",
+    "itgreatfoxlaser",
     "HSD_ASSERT",
     "ABS MIN MAX CLAMP",
     "pointer math",
-    "PAD_STACK"
+    "PAD_STACK",
+    "Ground_801C49F8",
+    "Ground_801C2BA4",
+    "mpLib_80057BC0",
+    "lbAudioAx_800237A8"
   ],
   "follow_up_queries": [
-    "grCorneria_801E25C4 pointer math grSmashTaunt_GroundVars layout",
-    "grCorneria_801E08CC __assert HSD_ASSERT",
-    "grCorneria_801DE568 ABS MIN MAX CLAMP",
-    "grCn_StageData x38 x70 x88 Corneria stage data",
-    "grSmashTaunt_GroundVars text HSD_Text hidden Corneria Venom",
-    "it_802EAF34 HSD_GObj Vec3 int Great Fox laser",
-    "grMaterial_801C87D0 exported material flags JOBJ_UNK_B27",
-    "decomp.dev PR 2381 7 new matches grcorneria"
+    "Find later PRs touching grCorneria_801E25C4 to see whether the raw gv pointer arithmetic was replaced with a named dialog/control struct.",
+    "Search for follow-up commits converting __assert in grcorneria.c to HSD_ASSERT.",
+    "Search gr/types.h history after PR 2381 for further refinements to gp->gv.corneria.xE4, offset_x, offset_y, and arwing fields.",
+    "Compare later Corneria PRs for adoption of ABS, MIN, MAX, or CLAMP in grCorneria_801DE568 and related angle/bounds code.",
+    "Check whether grCn_StageData and grCn_Data were moved to a header or renamed as more offsets became known.",
+    "Review PRs touching itgreatfoxlaser.h after this change for stage-item prototype alignment with Corneria."
   ],
-  "confidence": 0.87
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

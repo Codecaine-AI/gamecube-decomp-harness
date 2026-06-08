@@ -11,93 +11,75 @@
     "merged_at": "2026-03-18T17:03:05Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Implemented two previously placeholder functions: `lbAudioAx_80024DC4` in the audio library code and `mnName_8023749C` in name-entry menu code. The audio match depended on recognizing `lbl_80433710` as an extended pool object with an embedded `HSD_ObjAllocData` plus sound-channel arrays. The menu function became a typed, language-specific name-table lookup; the PR body describes terminator appending, but the diff evidence shows lookup-and-NULL-on-terminator behavior. Automated feedback confirmed `lbAudioAx_80024DC4` as a new 100% match, while the same bot report listed `mnName_8023749C` as 97.84%, conflicting with the PR body's 100% fuzzy-match claim.",
+  "summary": "Matched two small miscellaneous functions across the audio library and name-entry menu: lbAudioAx_80024DC4 in lbaudio_ax.c and mnName_8023749C in mnname.c. The audio match required recognizing lbl_80433710 as a larger pool-allocation state object containing an HSD_ObjAllocData header plus channel/id arrays, then updating existing allocator calls to use the embedded alloc field. The menu match added a typed signature for mnName_8023749C and implemented language-dependent name-table lookup with an opt_common_subs pragma to preserve matching.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "function-implementation",
-      "static-header-struct-layout",
-      "prototype-typing",
-      "matching-pragmas",
+      "headers",
+      "struct-typing",
       "naming"
     ],
     "systems": [
-      "lb/lbaudio_ax",
-      "mn/mnname",
-      "baselib/HSD_ObjAlloc",
-      "lb/lblanguage",
-      "name-entry-menu",
-      "audio-pool"
+      "library",
+      "audio",
+      "menus",
+      "name-entry",
+      "melee-core"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/lb/lbaudio_ax.c",
-      "reason": "Implemented `lbAudioAx_80024DC4` and updated allocator API calls to pass `&lbl_80433710.alloc`."
-    },
-    {
-      "path": "src/melee/lb/lbaudio_ax.static.h",
-      "reason": "Replaced `static HSD_ObjAllocData lbl_80433710` with `lbAudioAx_PoolAlloc`, exposing embedded allocator and arrays at offsets 0x2C and 0x70."
-    },
-    {
-      "path": "src/melee/mn/mnname.c",
-      "reason": "Implemented `mnName_8023749C`, added `lb/lblanguage.h`, extern name tables, and scoped `#pragma opt_common_subs off`."
-    },
-    {
-      "path": "src/melee/mn/mnname.h",
-      "reason": "Changed `mnName_8023749C` prototype from `UNK_RET/UNK_PARAMS` to `char* mnName_8023749C(int slot)`."
-    }
+    "src/melee/lb/lbaudio_ax.c",
+    "src/melee/lb/lbaudio_ax.static.h",
+    "src/melee/mn/mnname.c",
+    "src/melee/mn/mnname.h"
   ],
   "what_changed": [
-    "`lbAudioAx_80024DC4(int arg0)` now scans 16 entries in `lbl_80433710.x2C`; if `arg0` is already present it refreshes `lbl_80433710.x70[i]` to `0xA` and returns.",
-    "If the audio ID is not already present, `lbAudioAx_80024DC4` scans for sentinel value `0x83D60U`, writes `arg0` into `x2C[i]`, sets `x70[i]` to `0xA`, and returns.",
-    "`lbl_80433710` was retyped as `lbAudioAx_PoolAlloc` with `HSD_ObjAllocData alloc` at 0x00, `s32 x2C[17]` at 0x2C, and `s32 x70[17]` at 0x70, total noted size 0xB4.",
-    "`HSD_ObjFree`, `HSD_ObjAlloc`, and `HSD_ObjAllocInit` call sites were adjusted from `&lbl_80433710` to `&lbl_80433710.alloc` after the BSS symbol became a wrapper struct.",
-    "`mnName_8023749C(int slot)` now chooses `mnNameNew_803EE724` for saved US language and `mnNameNew_803EE720` otherwise, walks until the requested slot or `mnName_StringTerminator`, and returns NULL if the selected entry begins with the terminator.",
-    "`mnName_8023749C` was wrapped in `#pragma push`, `#pragma opt_common_subs off`, and `#pragma pop` for local codegen control.",
-    "`mnname.h` now records the concrete return and argument types for `mnName_8023749C`."
+    "Replaced the nonmatching stub for lbAudioAx_80024DC4 with a function that scans a 16-entry audio pool for an existing arg0 value, refreshes its x70 priority/timer value to 0xA if found, otherwise claims the first sentinel slot whose x2C entry equals 0x83D60 and initializes that slot.",
+    "Changed lbl_80433710 from a plain HSD_ObjAllocData static to a typed lbAudioAx_PoolAlloc struct with an embedded HSD_ObjAllocData alloc field at 0x00, x2C[17], and x70[17], size noted as 0xB4.",
+    "Updated HSD_ObjFree, HSD_ObjAlloc, and HSD_ObjAllocInit call sites in lbaudio_ax.c to pass &lbl_80433710.alloc instead of &lbl_80433710 after the static object was retyped.",
+    "Replaced the nonmatching stub for mnName_8023749C with a char* returning implementation that selects mnNameNew_803EE724 for saved US language and mnNameNew_803EE720 otherwise, scans name entries up to the requested slot or a terminator marker, and returns NULL if the resolved entry begins with mnName_StringTerminator.",
+    "Added lb/lblanguage.h include and extern declarations for mnNameNew_803EE720 and mnNameNew_803EE724 in mnname.c.",
+    "Updated mnname.h to give mnName_8023749C the concrete prototype char* mnName_8023749C(int slot) instead of UNK_RET/UNK_PARAMS."
   ],
   "smart_moves": [
-    "Recognized that a BSS symbol used by HSD allocation APIs was not only an `HSD_ObjAllocData`, but a larger subsystem state object whose first member is the allocator.",
-    "Kept allocator compatibility by passing `&lbl_80433710.alloc` to HSD functions instead of forcing the whole wrapper struct into allocator APIs.",
-    "Modeled the discovered arrays as 17 entries even though the active loops use a 0x10 bound, preserving offsets and total BSS layout.",
-    "Used a narrowly scoped compiler pragma around only `mnName_8023749C`, avoiding broader optimization side effects.",
-    "Matched compare behavior with explicit signedness casts such as `(u32) q[i] == 0x83D60U`, `(s8) mnName_StringTerminator`, and `(u8) slot`.",
-    "Replaced an unknown prototype with `char* mnName_8023749C(int slot)`, improving type information for future callers."
+    "Retyping lbl_80433710 as a wrapper struct exposed hidden state after the object allocator header, making lbAudioAx_80024DC4 expressible as normal C while preserving allocator usage through the embedded alloc field.",
+    "Kept allocator API calls semantically correct after the static retyping by passing the embedded HSD_ObjAllocData field rather than relying on pointer aliasing to the whole wrapper object.",
+    "Used explicit signed and unsigned casts around mnName_StringTerminator, slot, and array byte comparisons, which likely helped reproduce the original branch/register behavior for the matched menu function.",
+    "Applied #pragma opt_common_subs off only around mnName_8023749C, a targeted matching tactic that avoids globally changing optimization behavior.",
+    "Promoted a previously unknown header declaration to a real return type and parameter list once the implementation established the function contract."
   ],
   "decomp_lessons": [
-    "Do not assume a static symbol passed to `HSD_ObjAlloc` is exactly an `HSD_ObjAllocData`; it may be the first field of a larger module-owned state struct.",
-    "When expanding a global into a wrapper struct, update all library call sites to pass the embedded member address, not the wrapper address.",
-    "Array extents in static structs should be chosen from offsets and BSS layout, not only from loop trip counts.",
-    "Small codegen details like duplicate locals pointing at the same array, empty loop bodies, unsigned sentinel constants, and signed char casts can be required for matching.",
-    "Use `#pragma opt_common_subs off` as a surgical tactic for functions whose match is disrupted by common-subexpression optimization.",
-    "Treat PR-body semantic summaries cautiously when they conflict with the diff; here the body says name terminator append, while the implemented function returns a name-table pointer or NULL."
+    "If a static symbol is used both as an HSD_ObjAllocData and as storage for additional arrays, model it as a struct with HSD_ObjAllocData at offset 0 and update allocator calls to use the embedded member.",
+    "For pool-management functions, look for a two-pass pattern: first refresh an existing active entry, then locate a sentinel/free entry and claim it.",
+    "Sentinel values embedded in arrays, such as 0x83D60 in lbAudioAx_80024DC4, can be part of the matching logic and should not be prematurely abstracted without evidence.",
+    "Menu/name-list functions may need language-dependent global string-table selection via lbLang_IsSavedLanguageUS before indexing or scanning entries.",
+    "When matching byte-oriented string terminator logic, signedness matters; preserving s8/u8 casts can be necessary for exact codegen.",
+    "Narrow pragmas such as opt_common_subs off are acceptable matching aids when confined to the specific function that needs them."
   ],
   "naming_conventions": [
-    "Address-style names were retained for still-unnamed functions and data: `lbAudioAx_80024DC4`, `mnName_8023749C`, `lbl_80433710`, `mnNameNew_803EE720`, and `mnNameNew_803EE724`.",
-    "The new struct name `lbAudioAx_PoolAlloc` follows subsystem-plus-role naming.",
-    "Unknown struct fields were named by offset, `x2C` and `x70`, while the known embedded allocator field was named `alloc`.",
-    "Subsystem prefixes remain consistent: `lbAudioAx_` for audio-library functions, `mnName_` for name menu functions, and `lbLang_` for language selection.",
-    "Header declarations should be upgraded from `UNK_RET`/`UNK_PARAMS` once return and parameter types are known."
+    "New local struct name follows subsystem prefixing: lbAudioAx_PoolAlloc.",
+    "Unknown fields in newly discovered structs retained offset-style names such as x2C and x70 pending stronger semantic evidence.",
+    "Embedded allocator field was named alloc, clarifying the relationship between the wrapper struct and HSD_ObjAllocData.",
+    "Existing decomp placeholder function names were preserved for unmatched-address symbols: lbAudioAx_80024DC4 and mnName_8023749C.",
+    "The concrete mnName_8023749C prototype uses descriptive parameter name slot, matching its apparent role in selecting a name-list entry."
   ],
   "assembly_or_matching_tactics": [
-    "Scoped `#pragma opt_common_subs off` around `mnName_8023749C`.",
-    "Used two local pointers, `p` and `q`, both initialized to `st->x2C`, matching the two-loop audio implementation shape.",
-    "Used separate 0x10-bound loops for existing-sound refresh and free-slot claim instead of combining the scans.",
-    "Compared free slots with `(u32) q[i] == 0x83D60U` to preserve unsigned constant/codegen behavior.",
-    "Used explicit `(s8)` casts for terminator and string first-byte checks and `(u8) slot` in the name-table loop condition.",
-    "Preserved ABI/layout by changing HSD allocator calls to use the embedded `alloc` field."
+    "Introduced a typed static wrapper struct to align field offsets: HSD_ObjAllocData at 0x00, x2C at 0x2C, and x70 at 0x70.",
+    "Used two separate pointers, p and q, both initialized to st->x2C in lbAudioAx_80024DC4, likely to influence register allocation or aliasing for the match.",
+    "Used fixed loop bound 0x10 for the audio pool scan even though the arrays are declared length 17.",
+    "Compared free audio slots with an explicit unsigned cast: (u32) q[i] == 0x83D60U.",
+    "Wrapped mnName_8023749C in #pragma push / #pragma opt_common_subs off / #pragma pop.",
+    "Used an empty-body for loop in mnName_8023749C to encode the scan compactly while preserving the original control flow shape.",
+    "Preserved explicit casts to s8 and u8 in the name-table scan and terminator check."
   ],
   "review_feedback": [
-    "No human review comments or review records were present in the slice.",
-    "decomp.dev bot reported matched code 58.73%, +140 bytes overall.",
-    "Bot report listed `main/melee/lb/lbaudio_ax` / `lbAudioAx_80024DC4` as a new match, +140 bytes, 0.00% to 100.00%.",
-    "Bot report listed `.bss` in `main/melee/lb/lbaudio_ax` improving from 0.24% to 44.44%.",
-    "Bot report listed `main/melee/mn/mnname` / `mnName_8023749C` as +172 bytes, 0.00% to 97.84%, which conflicts with the PR body's `fuzzy_match_percent: 100.0 for all functions` statement."
+    "No review comments were present in the provided PR slice.",
+    "The PR summary reports fuzzy_match_percent: 100.0 for all functions.",
+    "The human text excerpt describes the name-entry function as appending a string terminator byte, but the diff evidence for mnName_8023749C shows language-dependent name lookup and NULL-on-terminator behavior; treat the append description as weak or possibly inaccurate for this function."
   ],
   "searchable_terms": [
-    "pr-2320",
+    "PR2320",
     "johnwinston",
     "Match 2 misc functions",
     "lbAudioAx_80024DC4",
@@ -114,26 +96,32 @@
     "HSD_ObjAllocInit",
     "x2C",
     "x70",
-    "0x83D60U",
+    "0x83D60",
+    "0x10",
     "0xA",
-    "audio pool",
-    "sound channel",
-    "priority refresh",
-    "mnName_StringTerminator",
     "mnNameNew_803EE720",
     "mnNameNew_803EE724",
+    "mnName_StringTerminator",
     "lbLang_IsSavedLanguageUS",
-    "opt_common_subs off",
-    "UNK_RET",
-    "UNK_PARAMS",
-    "char* mnName_8023749C(int slot)"
+    "opt_common_subs",
+    "name entry",
+    "audio pool",
+    "sound channel",
+    "fuzzy_match_percent 100.0"
   ],
   "follow_up_queries": [
-    "Find later PRs touching `mnName_8023749C` to see whether the bot-reported 97.84% mismatch was resolved.",
-    "Search later changes to `lbAudioAx_PoolAlloc`, `lbl_80433710.x2C`, and `lbl_80433710.x70` for field renames or confirmed semantics.",
-    "Look for other BSS symbols where an `HSD_ObjAllocData` is the first member of a larger static allocator/state struct.",
-    "Search for `0x83D60U` and audio-pool sentinel usage to name the free-slot marker and related fields.",
-    "Search for `#pragma opt_common_subs off` in menu/name code for reusable matching patterns."
+    "Look for later PRs that rename lbAudioAx_PoolAlloc fields x2C and x70 with semantic audio-channel names.",
+    "Check whether other lbaudio_ax functions access lbl_80433710 beyond the HSD_ObjAllocData header and can benefit from the same wrapper struct.",
+    "Search for later cleanup around mnName_8023749C to confirm whether its behavior is name lookup, terminator append, or both in surrounding call context.",
+    "Find other mnname functions that use mnNameNew_803EE720, mnNameNew_803EE724, or mnName_StringTerminator for consistent typing."
   ],
-  "confidence": 0.86
+  "confidence": 0.87,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

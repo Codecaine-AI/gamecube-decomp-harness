@@ -11,20 +11,19 @@
     "merged_at": "2026-03-04T16:44:06Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Corrected two Maxim Tomato helper declarations so they are no longer treated as local static symbols, exposed them through ittomato.h, and promoted ittomato.c from NonMatching to Matching in configure.py. The PR had no explanatory body or human review comments; the rationale is inferred from the title and diff.",
+  "summary": "Corrected two ittomato function declarations that had been incorrectly marked static in the C file by moving their prototypes to ittomato.h, then promoted src/melee/it/items/ittomato.c from NonMatching to Matching in configure.py. The evidence indicates the matching issue was linkage/header visibility rather than a code-generation rewrite.",
   "change_classification": {
-    "primary_type": "decomp_matching_linkage_fix",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "fix",
       "headers",
-      "linkage",
-      "build-config"
+      "linkage"
     ],
     "systems": [
       "item",
-      "items/ittomato",
-      "configure.py"
+      "tomato item",
+      "build configuration"
     ]
   },
   "key_files": [
@@ -33,69 +32,76 @@
     "src/melee/it/items/ittomato.h"
   ],
   "what_changed": [
-    "Changed configure.py from Object(NonMatching, \"melee/it/items/ittomato.c\") to Object(Matching, \"melee/it/items/ittomato.c\").",
+    "Changed configure.py so Object(NonMatching, \"melee/it/items/ittomato.c\") became Object(Matching, \"melee/it/items/ittomato.c\").",
     "Removed local static forward declarations for it_802841B4 and it_8028428C from src/melee/it/items/ittomato.c.",
-    "Added public prototypes for it_802841B4 and it_8028428C to src/melee/it/items/ittomato.h with their address comments.",
-    "The decomp.dev bot reported GALE01 linked code at 30.66% (+0.03%, +1168 bytes) and linked data at 28.80% (+0.01%, +104 bytes)."
+    "Added non-static prototypes for it_802841B4(Item_GObj* gobj, Vec3* arg1, s32 arg2) and it_8028428C(Item_GObj* gobj) to src/melee/it/items/ittomato.h.",
+    "Left other ittomato static/internal declarations in ittomato.c unchanged, including it_80284358 and itTomato_UnkMotion0_* helpers."
   ],
   "smart_moves": [
-    "Fixed symbol linkage rather than touching function bodies: a stray static prototype can force a later same-file definition to have internal linkage, which matters for matching and cross-translation-unit calls.",
-    "Moved only the two affected helper declarations into the header, while leaving unrelated local motion/callback prototypes static in the .c file.",
-    "Kept address comments on the newly exported prototypes, preserving the project convention for mapping unnamed symbols to DOL addresses.",
-    "Paired the linkage/header cleanup with the configure.py Matching promotion, indicating the object was verified after the static issue was resolved."
+    "Fixed the symbol linkage at the declaration level instead of perturbing function bodies, keeping the matching diff minimal.",
+    "Promoted only the functions that needed external visibility to the header while retaining unrelated private helpers as static in the C file.",
+    "Updated the build matching status in the same PR as the linkage fix, making the matching transition auditable."
   ],
   "decomp_lessons": [
-    "Matching can depend on C linkage and symbol visibility, not only instruction-level function body equivalence.",
-    "If an item helper must be visible outside its source file, avoid local static prototypes and declare it in the corresponding item header.",
-    "When removing an incorrect static declaration, audit whether the function should be exported through the header instead of relying on ad hoc externs.",
-    "Use the configure.py NonMatching-to-Matching flip as the final step after the object is known to link and match."
+    "If an item file is nearly matching but still marked NonMatching, verify whether functions are incorrectly declared static before attempting instruction-level rewrites.",
+    "Functions referenced outside their translation unit should have prototypes in the item header and should not be forward-declared static in the C file.",
+    "Minimal linkage corrections can be enough to move a file from NonMatching to Matching when the generated code is otherwise correct.",
+    "Keep internal helper routines static, but expose item lifecycle or shared helper functions through the corresponding item header when needed."
   ],
   "naming_conventions": [
-    "Unnamed item functions keep address-derived names such as it_802841B4 and it_8028428C.",
-    "Address comments precede declarations, e.g. /* 2841B4 */ and /* 28428C */.",
-    "Named Maxim Tomato callbacks in the surrounding file follow itTomato_Logic9_* and itTomato_UnkMotionN_{Anim,Phys,Coll} patterns.",
-    "Item source/header pairing follows src/melee/it/items/ittomato.c and src/melee/it/items/ittomato.h."
+    "Unidentified address-based item functions retained the it_8028xxxx naming pattern: it_802841B4 and it_8028428C.",
+    "Tomato item lifecycle functions use the itTomato_Logic9_* prefix, such as itTomato_Logic9_Spawned, itTomato_Logic9_Destroyed, and itTomato_Logic9_PickedUp.",
+    "Tomato motion callbacks use the itTomato_UnkMotion0_* naming pattern.",
+    "Address comments were preserved on prototypes, for example /* 2841B4 */ and /* 28428C */."
   ],
   "assembly_or_matching_tactics": [
-    "Remove erroneous static declarations to restore external linkage where the original binary expects visible symbols.",
-    "Promote declarations to the subsystem header so callers share one prototype and the object can be treated as matching.",
-    "Keep unrelated internal callbacks static to minimize symbol-scope changes.",
-    "After linkage correction, mark the object Matching in configure.py so linked-code progress is captured."
+    "Use configure.py's Object(Matching, ...) marker only after the file's symbol/linkage setup supports matching.",
+    "Do not leave externally needed functions as static; static linkage changes symbol visibility and can prevent correct matching/linking behavior.",
+    "When correcting static mistakes, move prototypes to the appropriate header rather than duplicating external declarations locally."
   ],
   "review_feedback": [
-    "No human review comments or PR body rationale were captured in the slice.",
-    "Only automated decomp.dev feedback was present, reporting GALE01 linked code/data gains and no listed changes beyond the metrics."
+    "No review comments were present in the provided PR slice.",
+    "The PR appears to have been merged quickly with no recorded review discussion in the excerpt."
   ],
   "searchable_terms": [
     "pr-2202",
     "PsiLupan",
     "ittomato",
-    "Maxim Tomato",
+    "tomato item",
+    "Fix incorrect static in ittomato and mark as matching",
+    "configure.py",
+    "Object(Matching)",
+    "Object(NonMatching)",
+    "src/melee/it/items/ittomato.c",
+    "src/melee/it/items/ittomato.h",
     "it_802841B4",
     "it_8028428C",
+    "it_80284358",
+    "itTomato_UnkMotion0_Anim",
+    "itTomato_UnkMotion0_Phys",
     "itTomato_Logic9_Spawned",
     "itTomato_Logic9_Destroyed",
     "itTomato_Logic9_PickedUp",
     "Item_GObj",
     "Vec3",
-    "static prototype",
-    "incorrect static",
-    "external linkage",
-    "header prototype",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "MatchingFor",
-    "configure.py",
-    "src/melee/it/items/ittomato.c",
-    "src/melee/it/items/ittomato.h",
-    "GALE01",
-    "linked code"
+    "static",
+    "matching",
+    "linkage",
+    "header prototype"
   ],
   "follow_up_queries": [
-    "Find other item .c files where non-static definitions are preceded by static prototypes.",
-    "Audit item headers for externally called helpers that are still only locally declared.",
-    "Search for item objects still NonMatching because of symbol linkage or header declaration issues.",
-    "When promoting item objects to Matching, compare configure.py flips against decomp.dev linked-code/data reports."
+    "Find other item files still marked NonMatching that may contain incorrect static forward declarations.",
+    "Search for functions declared static in a .c file but also referenced from another translation unit.",
+    "Audit item headers for missing prototypes corresponding to externally visible item helper functions.",
+    "Compare nearby item files such as itheart.c, itstar.c, itbat.c, and itsword.c for matching header/linkage patterns."
   ],
-  "confidence": 0.88
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

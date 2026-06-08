@@ -11,80 +11,90 @@
     "merged_at": "2026-04-09T21:02:27Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Great Bay stage cleanup focused on data matching and semantic attribute labels in src/melee/gr/grgreatbay.c. The PR renamed grGb_StageAttr fields from raw x-offset names into moon, floating-floor, kame/turtle, direction-probability, item-probability, and item-weight fields; added StageCallbacks role comments; defined previously extern Vec3/SpawnItem data; and made small stack/padding adjustments. decomp-dev reported the grgreatbay unit's .data, .rodata, and .sdata reaching 100% matched, plus small improvements in grGreatBay_801F499C, grGreatBay_801F63F4, and grGreatBay_801F60C4.",
+  "summary": "Matched and clarified Great Bay stage data in src/melee/gr/grgreatbay.c. The PR renamed grGb_StageAttr fields from raw offset names to behavior-oriented names for moon timing, floating floor response, Kame/turtle movement, direction probabilities, item probability, and item weights. It also added inline labels for the StageCallbacks entries, replaced extern declarations for grGb_803B81C8 and grGb_803B81D4 with concrete const data definitions, and made small local-variable/PAD_STACK adjustments needed for matching.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
+      "decomp-matching",
       "data-matching",
       "attribute-labelling",
-      "symbol-naming",
-      "stage-callback-labelling",
-      "stack-layout-tuning"
+      "stage-callback-documentation",
+      "local-variable-cleanup"
     ],
     "systems": [
       "stage",
       "Great Bay",
       "ground",
-      "item-spawn"
+      "items"
     ]
   },
   "key_files": [
     "src/melee/gr/grgreatbay.c"
   ],
   "what_changed": [
-    "Added inline labels to grGb_803E3E84 StageCallbacks entries for Great Bay objects: turtle, main stage, background, foreground water, giant 1-4, moon, and tingle.",
-    "Renamed grGb_StageAttr fields from raw x0/x2/x4-style names to semantic names such as moon_fall_wait_a/b, floatfloor_landing_rate, floatfloor_slant_mul/add/limit/rate/reb_rate, floatfloor_slide_* fields, floatfloor_down_* fields, kame_wait_frame_a/b, kame_rebirth_frame_a/b, kame_x/y, kame_x_offset_init, kame_x_lr_offset_a/b, kame_x_fb_offset_a/b, kame_scale, kame_ud_scale, kame_dir_prob[4], kame_item_prob, and items[10].",
-    "Updated all grGb_804D69E0.x0 attribute accesses in turtle/kame setup and update code, moon timer code, floating-floor physics, direction randomization, and item spawning to use the new names.",
-    "Renamed a local HSD_JObj pointer in grGreatBay_801F499C from jobj2 to trans_jobj, clarifying that it is the transform JObj used for translation/rotation work.",
-    "Replaced extern declarations for grGb_803B81C8 and grGb_803B81D4 with concrete const definitions: Vec3 grGb_803B81C8 = {0.99f, 35.72f, 0.0f} and a SpawnItem initializer.",
-    "Adjusted matching scaffolding by changing PAD_STACK(12) to PAD_STACK(4) in grGreatBay_801F60C4 and adding an s32 padding local while changing PAD_STACK(8) to PAD_STACK(4) in grGreatBay_801F63F4.",
-    "Kept existing offset / 4 item-loop indexing while renaming x7C to items, preserving the suspicious-but-matching loop shape rather than simplifying it."
+    "Annotated grGb_803E3E84 StageCallbacks entries with object-role comments: turtle, main stage, background, foreground water, giant 1-4, moon, and tingle.",
+    "Renamed grGb_StageAttr fields from offset placeholders such as x0, x4, x68, x70, and x7C to semantic attribute names including moon_fall_wait_a/b, floatfloor_* parameters, kame_* parameters, kame_dir_prob, kame_item_prob, and items.",
+    "Updated all uses of grGb_804D69E0.x0 stage attributes to the new semantic names in Great Bay turtle/Kame logic, moon timing logic, floating floor damage response, direction randomization, and item spawning.",
+    "Renamed a local HSD_JObj* in grGreatBay_801F499C from jobj2 to trans_jobj, making its role as the transform joint clearer while preserving assert line numbers.",
+    "Defined const Vec3 grGb_803B81C8 = { 0.99f, 35.72f, 0.0f } and const SpawnItem grGb_803B81D4 in-place instead of leaving them as extern declarations, contributing to data matching.",
+    "Adjusted stack padding in at least grGreatBay_801F60C4 and grGreatBay_801F63F4, including changing PAD_STACK values and adding a local s32 padding in grGreatBay_801F63F4."
   ],
   "smart_moves": [
-    "The attribute struct kept explicit offset comments while replacing opaque xNN field names, making the layout auditable and safer for future data work.",
-    "Field names were grouped by behavior instead of only by object: moon timers, floating-floor response, turtle/kame behavior, direction probabilities, item probability, and weighted item table.",
-    "The PR defined actual small data objects instead of leaving them as externs, which directly contributed to data-section matching according to the bot report.",
-    "StageCallbacks comments provided a low-risk map from callback rows to in-game objects without changing codegen.",
-    "Stack-layout fixes were minimal and localized, using PAD_STACK adjustments and one padding local rather than rewriting control flow."
+    "Kept struct offsets and member types intact while renaming fields, preserving binary layout and making attribute use self-documenting.",
+    "Grouped attribute names by subsystem behavior: moon timing, floating-floor landing/slant/slide/down response, Kame/turtle position/timing/scale/probabilities, and item spawn data.",
+    "Used field names that encode mathematical role, such as *_mul, *_add, *_limit, *_rate, and *_reb_rate, which makes formulas readable without changing logic.",
+    "Labelled callback table rows rather than renaming unknown callback functions, adding useful stage-object context without overclaiming function identities.",
+    "Matched data by replacing extern declarations with concrete const initializers for Vec3 and SpawnItem while retaining explicit field/comment offsets in the SpawnItem initializer.",
+    "Made matching-sensitive stack changes locally and minimally, suggesting the author corrected stack layout without broad refactors."
   ],
   "decomp_lessons": [
-    "When a stage attribute blob is understood, rename fields at the struct definition and propagate those names through all consumers; this turns repeated xNN accesses into documentation for the behavior.",
-    "Keep offset comments on partially understood binary-layout structs after renaming fields so future decompilers can verify that semantic names did not disturb layout.",
-    "For stage data matching, small const objects such as Vec3 and SpawnItem initializers may need to live in the same translation unit instead of remaining unresolved externs.",
-    "Do not simplify odd loops or indexing patterns during a matching PR unless codegen is verified; this PR preserved offset / 4 access patterns in the item-weight loops.",
-    "PAD_STACK size and dummy local variables can be legitimate final-mile matching tools for stubborn functions, especially after data and struct cleanup has changed local layout pressure."
+    "For stage attribute structs, semantic field names can often be inferred from use sites: random wait ranges, scale factors, motion offsets, limits, and probability tables reveal their purpose.",
+    "Preserve offset comments when renaming anonymous struct fields; this keeps the struct useful for matching and for cross-checking against data blobs.",
+    "Callback arrays benefit from object-role comments when function names are still address-based; comments make the stage object ordering searchable and reduce future reverse-engineering friction.",
+    "When decompiling weighted random selection, naming arrays as probabilities or weighted items clarifies the algorithm while leaving the exact iteration/order intact.",
+    "Data definitions can be introduced directly in the C file when known constants are available, but matching may require careful stack-padding and local-variable adjustments nearby.",
+    "For formulas driven by stage attributes, names like landing_rate, slant_mul, slant_add, slant_limit, slide_rate, and down_limit are more reusable than raw xNN offsets and make future behavior validation easier."
   ],
   "naming_conventions": [
-    "Use subsystem prefixes for stage attribute fields: moon_, floatfloor_, and kame_.",
-    "Use suffixes like _mul, _add, _limit, _rate, and _reb_rate for physics tuning constants where the consuming expression shows the role.",
-    "Use _a and _b for paired random-range or timing fields when the exact high/low semantic name is not asserted in the PR.",
-    "Use kame_dir_prob for direction-probability arrays and kame_item_prob plus items[] for weighted item-spawn data.",
-    "Inline comments on StageCallbacks rows can document stage object roles when function names remain address-based."
+    "Great Bay stage attribute typedef retained the stage prefix style: grGb_StageAttr.",
+    "Stage-global symbols retained existing grGb_ address-style names such as grGb_803E3E84, grGb_803E3F6C, grGb_803B81C8, grGb_803B81D4, and grGb_804D69E0.",
+    "Attribute fields use lower_snake_case semantic names.",
+    "Paired min/max or range endpoints were named with _a and _b suffixes where exact min/max semantics were not asserted, e.g. moon_fall_wait_a/b, kame_wait_frame_a/b, and kame_rebirth_frame_a/b.",
+    "Floating-floor attributes use the floatfloor_ prefix and role suffixes such as _mul, _add, _limit, _rate, _reb_rate, _up_rate, and _down_rate.",
+    "Kame/turtle attributes use the kame_ prefix for timing, base position, offsets, scale, direction probability, item probability, and item list fields.",
+    "The item table was renamed from x7C to items, with per-entry fields kind and weight already present or preserved.",
+    "A transform joint local was named trans_jobj to distinguish it from the primary jobj and jobj3."
   ],
   "assembly_or_matching_tactics": [
-    "Converted grGb_803B81C8 and grGb_803B81D4 from extern declarations to const definitions, after which decomp-dev reported grgreatbay .rodata, .sdata, and .data reaching 100%.",
-    "Adjusted PAD_STACK in grGreatBay_801F60C4 and grGreatBay_801F63F4, including an explicit s32 padding local in grGreatBay_801F63F4, to improve function matching without altering behavior.",
-    "Preserved existing control-flow and indexing shapes, including the offset accumulator and offset / 4 array access in grGreatBay_801F63F4.",
-    "Used semantic renames only where existing code usage supported the meaning, leaving function names address-based."
+    "Changed PAD_STACK(12) to PAD_STACK(4) in grGreatBay_801F60C4 after semantic field renames, indicating stack-size tuning for match.",
+    "In grGreatBay_801F63F4, added an explicit s32 padding local and changed PAD_STACK(8) to PAD_STACK(4), a common tactic to control stack layout while keeping source readable.",
+    "Concrete const data definitions for grGb_803B81C8 and grGb_803B81D4 replaced externs, allowing previously external data to be matched in this translation unit.",
+    "Kept assert line numbers stable while renaming locals, e.g. HSD_ASSERT(529, jobj) and HSD_ASSERT(530, trans_jobj).",
+    "Preserved odd indexing/order in probability calculation, such as summing kame_dir_prob[0], [1], [3], [2] and subtracting in the observed order, rather than simplifying it and risking mismatch.",
+    "Preserved offset-based loop structure for item weights using offset / 4, rather than rewriting as a direct array loop everywhere, likely to maintain matching codegen."
   ],
-  "review_feedback": [
-    "No human review comments or reviews were present in the slice.",
-    "decomp-dev bot reported GALE01 matched data improved to 38.10% overall (+0.05%, +632 bytes).",
-    "Bot-reported new matches: main/melee/gr/grgreatbay .data +155 bytes, 70.26% to 100.00%; .rodata +88 bytes, 0.00% to 100.00%; .sdata +5 bytes, 81.82% to 100.00%.",
-    "Bot-reported function improvements: grGreatBay_801F499C +2 bytes, 99.90% to 99.99%; grGreatBay_801F63F4 +1 byte, 96.63% to 96.72%; grGreatBay_801F60C4 94.51% to 94.67%."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
     "pr-2399",
+    "MarioLover63",
     "grgreatbay",
+    "Great Bay",
     "src/melee/gr/grgreatbay.c",
     "grGb_StageAttr",
-    "grGb_804D69E0",
+    "StageCallbacks",
     "grGb_803E3E84",
     "grGb_803E3F6C",
     "grGb_803B81C8",
     "grGb_803B81D4",
-    "StageCallbacks",
-    "SpawnItem",
+    "grGb_804D69E0",
+    "grGreatBay_801F4694",
+    "grGreatBay_801F499C",
+    "grGreatBay_801F5A00",
+    "grGreatBay_801F5AF8",
+    "grGreatBay_801F5E28",
+    "grGreatBay_801F60C4",
+    "grGreatBay_801F62F8",
+    "grGreatBay_801F63F4",
     "moon_fall_wait_a",
     "moon_fall_wait_b",
     "floatfloor_landing_rate",
@@ -119,24 +129,28 @@
     "kame_dir_prob",
     "kame_item_prob",
     "items",
-    "trans_jobj",
+    "SpawnItem",
     "PAD_STACK",
-    "grGreatBay_801F4694",
-    "grGreatBay_801F499C",
-    "grGreatBay_801F5A00",
-    "grGreatBay_801F5AF8",
-    "grGreatBay_801F5E28",
-    "grGreatBay_801F60C4",
-    "grGreatBay_801F62F8",
-    "grGreatBay_801F63F4"
+    "weighted random item spawn",
+    "turtle",
+    "moon",
+    "Tingle",
+    "floating floor"
   ],
   "follow_up_queries": [
-    "Great Bay grGb_StageAttr remaining unnamed Ground gv fields",
-    "grGreatBay_801F499C turtle state machine xC4 xC5 xC6 xC8",
-    "grGreatBay_801F60C4 floating floor collision response match",
-    "grGreatBay_801F63F4 SpawnItem weighted item selection matching",
-    "StageCallbacks Great Bay turtle moon tingle giant labels",
-    "grGb_803B81C8 grGb_803B81D4 rodata sdata data matching"
+    "Find later PRs that move grGb_StageAttr to a header or further rename Great Bay Ground gv fields.",
+    "Search for other stage files using *_StageAttr offset placeholders that can be labelled from behavior formulas.",
+    "Check whether grGb_803B81D4 SpawnItem field comments were later replaced by designated initializers or named struct fields.",
+    "Look for follow-up work on grGreatBay_801F499C and grGreatBay_801F63F4 to see if kame/turtle state variables xC4, xC5, xC6, xC8, and xCC were named.",
+    "Search for similar floating-floor attribute naming in other stages to standardize floatfloor_ prefixes and rate/rebound terminology."
   ],
-  "confidence": 0.92
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

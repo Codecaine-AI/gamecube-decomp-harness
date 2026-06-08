@@ -11,13 +11,14 @@
     "merged_at": "2026-03-15T18:22:14Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled two Super Scope item functions, it_80291F14 and it_80291FA8, and tightened related prototypes/attribute layout so charge-level ammo costs can be read from itSScopeAttributes::xC. The PR reports 100% objdiff matches and main.dol SHA1 OK.",
+  "summary": "Decompiled two Super Scope item functions, `it_80291F14` and `it_80291FA8`, in `itsscope.c`. The PR also refined Super Scope attribute layout by replacing padding at offset `+0xC` with a `float xC[10]` array, enabling charge-level indexed cost lookups. Function prototypes in `itsscope.h` were updated from unknown placeholders to typed signatures, including a typed declaration for `it_80291D38`. The PR body reports 100% objdiff matches and `main.dol: OK` SHA1 verification.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-layout"
+      "struct-layout",
+      "item-logic"
     ],
     "systems": [
       "item",
@@ -26,65 +27,59 @@
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/it/items/itsscope.c",
-      "role": "Replaced placeholders for it_80291F14 and it_80291FA8 with matched C implementations and added itsscopebeam.h include."
-    },
-    {
-      "path": "src/melee/it/items/itsscope.h",
-      "role": "Updated function prototypes for it_80291D38, it_80291F14, and it_80291FA8 from UNK signatures to typed Item_GObj/Vec3/int/float signatures."
-    },
-    {
-      "path": "src/melee/it/itCommonItems.h",
-      "role": "Split itSScopeAttributes padding at +0xC into float xC[10], preserving total size before Vec3 x34 at +0x34."
-    }
+    "src/melee/it/items/itsscope.c",
+    "src/melee/it/items/itsscope.h",
+    "src/melee/it/itCommonItems.h"
   ],
   "what_changed": [
-    "itSScopeAttributes changed from /* +C */ char pad_xC[0x28] to /* +C */ float xC[10], exposing a ten-entry float table used by Super Scope charge levels.",
-    "it_80291F14(Item_GObj* gobj, int charge_level) now gets the Item and attributes, chooses an ammo/charge cost from attrs->xC[charge_level] for cases 0 through 9, subtracts it from ip->xD4C, and clamps ip->xD4C to zero.",
-    "it_80291FA8(Item_GObj* gobj, Vec3* pos, int charge_level, float scale) now computes cost through it_80291D38(gobj, charge_level), subtracts/clamps ip->xD4C, and calls it_80298DEC(ip->owner, pos, charge_level, scale).",
-    "Included itsscopebeam.h in itsscope.c, providing the declaration needed for the beam-related call it_80298DEC.",
-    "Header declarations were refined: it_80291D38 returns int and takes Item_GObj*, int; it_80291F14 returns void and takes Item_GObj*, int; it_80291FA8 returns void and takes Item_GObj*, Vec3*, int, float."
+    "Added `#include \"itsscopebeam.h\"` to `itsscope.c`, needed for the call to `it_80298DEC` used by the decompiled firing/beam helper path.",
+    "Replaced the placeholder `/// #it_80291F14` with a typed implementation `void it_80291F14(Item_GObj* gobj, int charge_level)`.",
+    "`it_80291F14` retrieves `Item*` via `GET_ITEM`, obtains `itSScopeAttributes*` via `GET_ATTRS`, selects a cost from `attrs->xC[charge_level]` for charge levels 0 through 9, subtracts that cost from `ip->xD4C`, clamps `ip->xD4C` to zero, and uses `PAD_STACK(16)` for matching.",
+    "Replaced the placeholder `/// #it_80291FA8` with `void it_80291FA8(Item_GObj* gobj, Vec3* pos, int charge_level, float scale)`.",
+    "`it_80291FA8` computes cost with `it_80291D38(gobj, charge_level)`, subtracts and clamps `ip->xD4C`, then calls `it_80298DEC(ip->owner, pos, charge_level, scale)` before `PAD_STACK(8)`.",
+    "Updated `itSScopeAttributes` in `itCommonItems.h` so offset `+0xC` is modeled as `float xC[10]` instead of `char pad_xC[0x28]`.",
+    "Updated `itsscope.h` prototypes: `it_80291D38` became `int it_80291D38(Item_GObj*, int)`, `it_80291F14` became `void it_80291F14(Item_GObj*, int)`, and `it_80291FA8` became `void it_80291FA8(Item_GObj*, Vec3*, int, float)`."
   ],
   "smart_moves": [
-    "Used the attribute layout to replace anonymous padding with float xC[10], making the charge-level table visible while preserving offsets through x34.",
-    "Kept charge/ammo decrement behavior consistent between both decompiled functions: subtract a computed cost from ip->xD4C and clamp negative values back to zero.",
-    "Added only the narrow include needed for it_80298DEC instead of leaving an implicit or unknown external dependency.",
-    "Replaced UNK_RET/UNK_PARAMS prototypes with concrete signatures in the same PR as the decompilation, improving future call-site type propagation."
+    "Converted anonymous struct padding into a typed `float xC[10]` array only where the decompiled code needed indexed access, preserving the known offsets while exposing meaningful data layout.",
+    "Used explicit charge-level switch cases rather than over-simplifying into a single array access; this likely preserved compiler control-flow/codegen needed for a 100% match.",
+    "Kept resource accounting behavior clear: subtract a charge-dependent cost from `ip->xD4C` and clamp negative values back to zero in both decompiled functions.",
+    "Added the specific beam header include instead of relying on unknown declarations, allowing `it_80298DEC` to be called with a typed interface.",
+    "Used `PAD_STACK(16)` and `PAD_STACK(8)` in the two functions to satisfy stack layout/codegen constraints while keeping the core logic readable."
   ],
   "decomp_lessons": [
-    "When a function indexes into item attributes by a bounded charge level, padding may hide a real table; here a 0x28-byte pad became float xC[10].",
-    "Matched code may require retaining explicit PAD_STACK calls; this PR used PAD_STACK(16) in it_80291F14 and PAD_STACK(8) in it_80291FA8.",
-    "For item resource counters such as ip->xD4C, check for saturating/clamping behavior after subtraction rather than assuming unsigned arithmetic or direct assignment.",
-    "Header cleanup is part of decompilation: replacing UNK signatures with exact parameter and return types helps downstream functions match and documents inferred behavior."
+    "When a function indexes into what was previously padding, update the shared item attribute struct with the narrowest evidenced type and size; here `pad_xC[0x28]` became `float xC[10]` at the same offset.",
+    "For matching, do not assume an obvious simplification such as `cost = attrs->xC[charge_level]` will produce matching code. The accepted version preserved a switch with separate handling for charge levels 0, 1-8, and 9.",
+    "After decompiling item functions, immediately replace `UNK_RET` and `UNK_PARAMS` prototypes in the item header with typed signatures so later functions can build on them.",
+    "Item logic that spends ammo/charge often needs explicit clamping after subtraction; `ip->xD4C` was guarded against going below zero in both functions.",
+    "Stack padding macros remain an accepted matching tactic for small item functions when otherwise-correct C does not reproduce the exact stack frame."
   ],
   "naming_conventions": [
-    "Unidentified Super Scope functions kept address-based names such as it_80291F14 and it_80291FA8.",
-    "Item object locals followed existing conventions: Item_GObj* gobj and Item* ip = GET_ITEM(gobj).",
-    "Attribute access followed existing convention: itSScopeAttributes* attrs = GET_ATTRS(ip).",
-    "The newly exposed attribute member uses offset-style provisional naming, xC, matching the struct-offset naming style already present with x4, x8, and x34."
+    "Kept existing address-based symbol names for unknown/decompiled Super Scope functions: `it_80291F14`, `it_80291FA8`, `it_80291D38`, and `it_80298DEC`.",
+    "Used `gobj` for `Item_GObj*` parameters and `ip` for the retrieved `Item*`, consistent with common item code style.",
+    "Named the charge argument `charge_level`, which documents the role of the integer used for Super Scope charge/cost indexing.",
+    "Named the exposed attribute array `xC` to reflect its struct offset while avoiding unsupported semantic naming.",
+    "Preserved existing item attribute type name `itSScopeAttributes`."
   ],
   "assembly_or_matching_tactics": [
-    "Used an explicit switch over charge_level with cases 0 through 9 rather than a simpler direct array access, likely to match original control flow.",
-    "Cast float table entries from attrs->xC[...] to int before subtracting from ip->xD4C.",
-    "Inserted PAD_STACK(16) and PAD_STACK(8) to satisfy stack-shape requirements for exact matching.",
-    "Verification in the PR body states all functions were 100% matched via objdiff and main.dol SHA1 was OK."
+    "Used `PAD_STACK(16)` in `it_80291F14` and `PAD_STACK(8)` in `it_80291FA8` to match stack behavior.",
+    "Modeled `attrs->xC` as a float array and cast selected elements to `int` before subtracting from `ip->xD4C`, matching the apparent generated code behavior.",
+    "Retained a switch statement over `charge_level` with grouped cases 1 through 8 and explicit cases 0 and 9, rather than collapsing the logic.",
+    "Verified by objdiff according to the PR body: all functions at 100% match.",
+    "Verified final binary according to the PR body: `main.dol: OK` with SHA1 verification."
   ],
-  "review_feedback": [
-    "No review comments were present in the provided PR slice."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
     "pr-2291",
-    "johnwinston",
     "Super Scope",
     "itsscope",
     "itsscope.c",
     "itsscope.h",
     "itCommonItems.h",
     "itSScopeAttributes",
+    "xC",
+    "float xC[10]",
     "pad_xC",
-    "xC[10]",
-    "float charge cost table",
     "it_80291F14",
     "it_80291FA8",
     "it_80291D38",
@@ -93,17 +88,26 @@
     "Item_GObj",
     "GET_ITEM",
     "GET_ATTRS",
-    "ip->xD4C",
     "charge_level",
+    "ip->xD4C",
     "PAD_STACK",
+    "Vec3",
     "objdiff",
-    "main.dol SHA1"
+    "main.dol OK"
   ],
   "follow_up_queries": [
-    "Find later PRs that rename itSScopeAttributes::xC to a semantic Super Scope ammo or charge cost table name.",
-    "Search for other uses of ip->xD4C in item code to confirm its Super Scope ammo/energy semantics.",
-    "Inspect it_80291D38 and it_80291DAC for related charge-level cost logic and possible future naming.",
-    "Search for it_80298DEC in itsscopebeam code to understand beam spawn parameters and owner handling."
+    "Find later PRs that give semantic names to `it_80291F14`, `it_80291FA8`, `it_80291D38`, or `it_80298DEC`.",
+    "Search for other uses of `itSScopeAttributes::xC` to determine whether the float array represents ammo cost, charge cost, or beam power values.",
+    "Compare other charge-based item decompilations for the same subtract-and-clamp pattern on `ip->xD4C`.",
+    "Look for subsequent cleanup replacing the switch in `it_80291F14` with a simpler indexed form if compiler constraints changed."
   ],
-  "confidence": 0.89
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

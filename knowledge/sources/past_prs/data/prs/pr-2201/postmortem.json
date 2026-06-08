@@ -11,107 +11,105 @@
     "merged_at": "2026-03-04T16:31:18Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Marked the Heart Container item object as matching by flipping melee/it/items/itheart.c from NonMatching to Matching in configure.py and correcting seven GALE01 symbol-table entries to local @ labels. The PR contained no C source edits; the matching enablement depended on build configuration plus symbol locality/naming fixes. decomp.dev reported GALE01 linked code 30.67% (+0.04%, +1744 bytes) and linked data 28.80% (+0.01%, +144 bytes).",
+  "summary": "Marked melee/it/items/itheart.c as Matching in configure.py and adjusted several GALE01 symbol entries from global it_* names to local @NN labels so the linked object could match. The decomp.dev report showed linked code increasing by 1744 bytes and linked data by 144 bytes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
-      "matching-status-flip",
-      "symbol-map-locality",
-      "build-config"
+      "matching-status-update",
+      "symbol-map-maintenance",
+      "item-code"
     ],
     "systems": [
       "items",
+      "itheart",
       "config",
-      "repo-root",
-      "GALE01"
+      "GALE01 symbols",
+      "build configuration"
     ]
   },
   "key_files": [
-    "configure.py: +1/-1; changed Object(NonMatching, \"melee/it/items/itheart.c\") to Object(Matching, \"melee/it/items/itheart.c\") in MatchingFor.",
-    "config/GALE01/symbols.txt: +7/-7; converted seven data/sdata/sdata2 entries from it_80... labels to local @ labels and, where needed, scope:local."
+    "configure.py",
+    "config/GALE01/symbols.txt",
+    "melee/it/items/itheart.c"
   ],
   "what_changed": [
-    "Marked melee/it/items/itheart.c as Matching in configure.py.",
-    "Changed .data:0x803F5718 from it_803F5718 scope:global string to @234 scope:local string.",
-    "Changed .sdata:0x804D5210 and .sdata:0x804D5218 from it_804D5210/it_804D5218 scope:global strings to @188/@189 scope:local strings.",
-    "Changed .sdata2:0x804DC8A8 and .sdata2:0x804DC8AC from it_804DC8A8/it_804DC8AC labels to @156/@157 while preserving scope:local float metadata.",
-    "Changed .sdata2:0x804DD970 and .sdata2:0x804DD974 from it_804DD970/it_804DD974 scope:global float labels to @162/@163 scope:local floats.",
-    "Preserved the affected symbols' addresses, sections, sizes, alignments, and data type annotations; only names/scopes changed.",
-    "No source file diff was present for itheart.c in this PR."
+    "Changed configure.py entry for melee/it/items/itheart.c from Object(NonMatching, ...) to Object(Matching, ...).",
+    "Updated config/GALE01/symbols.txt for seven data symbols associated with the matching result.",
+    "Converted it_803F5718 in .data from a global it_* symbol to local @234 while preserving address 0x803F5718, size 0x25, and data:string.",
+    "Converted it_804D5210 and it_804D5218 in .sdata from global it_* string symbols to local @188 and @189.",
+    "Converted local .sdata2 float symbols it_804DC8A8 and it_804DC8AC to anonymous local labels @156 and @157.",
+    "Converted .sdata2 float symbols it_804DD970 and it_804DD974 from global it_* entries to local @162 and @163.",
+    "Bot report for GALE01 reported linked code at 30.67% (+0.04%, +1744 bytes) and linked data at 28.80% (+0.01%, +144 bytes)."
   ],
   "smart_moves": [
-    "Kept the PR tightly scoped to the minimum metadata needed to link the already-decompiled object: configure.py plus symbols.txt.",
-    "Used compiler-style local @NNN symbol labels for unidentified local constants instead of leaving them as address-derived global it_80... names.",
-    "Separated symbol visibility/naming corrections from source-code edits, making the matching-status change easy to audit.",
-    "Retained exact symbol addresses and size/type metadata, reducing risk while fixing only the locality information required for matching."
+    "The PR did not only flip the Matching flag; it also reconciled symbol-map visibility/name expectations needed for the object to link as matching.",
+    "Local data and string constants were represented with @NN labels instead of artificial global it_address names, aligning symbols.txt with local-scope semantics.",
+    "The changes were tightly scoped to the matching toggle and the exact symbol entries needed for itheart."
   ],
   "decomp_lessons": [
-    "Before flipping an object to Matching, audit config/GALE01/symbols.txt for local data constants that were auto-named as global it_80... labels.",
-    "Local strings/floats in .data, .sdata, and .sdata2 should be represented as @NNN with scope:local when that is what the object expects.",
-    "A file can be match-ready without C source changes; the remaining blocker may be symbol-map scope/name metadata.",
-    "For small item-object matching PRs, decomp.dev linked code/data deltas are useful confirmation that the configure.py status flip actually linked bytes."
+    "When promoting an item source file from NonMatching to Matching, audit the generated or required symbol map for local constants that should not remain exported as global it_* address names.",
+    "Matching status changes can require symbols.txt cleanup even when no C source diff is present in the PR slice.",
+    "For local data:string and data:float entries, scope and label form can matter as much as address, size, section, and alignment.",
+    "A successful matching promotion should be checked against linked code/data deltas from decomp.dev or equivalent build reports."
   ],
   "naming_conventions": [
-    "Address-derived it_80... names in symbols.txt should represent global symbols, not anonymous/local constants.",
-    "Unidentified local data labels use @NNN form, as shown by @234, @188, @189, @156, @157, @162, and @163.",
-    "Item object paths in configure.py use lowercase filenames under melee/it/items/, e.g. melee/it/items/itheart.c."
+    "Use Object(Matching, \"melee/it/items/<file>.c\") in configure.py for files that now match.",
+    "Reserve it_<address> symbols for global address-named item data where appropriate.",
+    "Use @NN anonymous/local labels for local-scope constants in symbols.txt, including local strings and floats.",
+    "Keep section, address, size, alignment, and data type comments intact when renaming symbols."
   ],
   "assembly_or_matching_tactics": [
-    "No assembly rewrite, C rewrite, or inline tactic is evidenced in the diff.",
-    "The matching tactic was symbol-table correction plus changing the build object classification from NonMatching to Matching.",
-    "The affected symbol metadata covered local strings and floats across .data, .sdata, and .sdata2.",
-    "decomp.dev measured the result as +1744 linked code bytes and +144 linked data bytes for GALE01."
+    "Promote the object in configure.py only after the object links as matching.",
+    "Adjust symbol scope from global to local where the matching object expects local constants.",
+    "Rename local .data, .sdata, and .sdata2 constants to @NN labels to avoid forcing global symbol names into the matched object.",
+    "Preserve exact addresses and metadata while changing symbol names/scopes, minimizing unintended linker-map churn."
   ],
   "review_feedback": [
-    "No human review comments or review-thread feedback were present in the slice.",
-    "decomp-dev[bot] posted a GALE01 report: linked code 30.67% (+0.04%, +1744 bytes), linked data 28.80% (+0.01%, +144 bytes), followed by 'No changes'."
+    "No human review comments were present in the provided slice.",
+    "decomp.dev bot reported GALE01 linked code/data improvements and no additional change notes."
   ],
   "searchable_terms": [
     "pr-2201",
-    "PsiLupan",
     "Mark itheart as matching",
+    "PsiLupan",
     "itheart",
-    "heart item",
-    "heart container",
     "melee/it/items/itheart.c",
     "configure.py",
-    "MatchingFor",
-    "Object(Matching)",
-    "Object(NonMatching)",
+    "Object(Matching",
+    "Object(NonMatching",
     "config/GALE01/symbols.txt",
-    "GALE01",
-    "symbol locality",
-    "scope:local",
-    "@234",
-    "@188",
-    "@189",
-    "@156",
-    "@157",
-    "@162",
-    "@163",
     "it_803F5718",
+    "@234",
     "it_804D5210",
     "it_804D5218",
+    "@188",
+    "@189",
     "it_804DC8A8",
     "it_804DC8AC",
+    "@156",
+    "@157",
     "it_804DD970",
     "it_804DD974",
-    ".data:0x803F5718",
-    ".sdata:0x804D5210",
-    ".sdata:0x804D5218",
-    ".sdata2:0x804DC8A8",
-    ".sdata2:0x804DC8AC",
-    ".sdata2:0x804DD970",
-    ".sdata2:0x804DD974",
-    "linked code +1744 bytes",
-    "linked data +144 bytes"
+    "@162",
+    "@163",
+    "sdata2 float",
+    "local data string",
+    "linked code 1744 bytes",
+    "linked data 144 bytes"
   ],
   "follow_up_queries": [
-    "Find item PRs that flip Object(NonMatching) to Object(Matching) with only configure.py and symbols.txt changes.",
-    "Search for symbols.txt changes converting it_80 address labels to @NNN scope:local labels.",
-    "Review future it/items matching blockers for local .sdata2 float labels using global names.",
-    "Compare itheart.c matching-status update patterns with itstar.c, itbat.c, and other common item objects."
+    "Find other item PRs that flip Object(NonMatching) to Object(Matching) and also rename symbols to @NN local labels.",
+    "Search for remaining itheart-related it_* address symbols that may later be named semantically.",
+    "Compare itheart.c matching promotion with neighboring item files itcapsule.c, itstar.c, and itbat.c.",
+    "Audit symbols.txt local-scope entries that still use it_<address> names instead of @NN labels."
   ],
-  "confidence": 0.88
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

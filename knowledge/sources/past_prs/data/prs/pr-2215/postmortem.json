@@ -11,7 +11,7 @@
     "merged_at": "2026-03-05T02:20:17Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched and linked all functions and data for `src/melee/it/items/itseakneedleheld.c`, turning the Sheik/Kirby held-needle item object from NonMatching to Matching. The PR replaced stubbed functions with typed implementations, added the held-needle item state table and item-var owner storage, updated headers/types, and corrected GALE01 split/symbol metadata. decomp.dev reported 6 new matches: `it_802B18B0`, `it_802B19AC`, `itSeakneedleheld_UnkMotion0_Anim`, plus `.data`, `.sdata`, and `.sdata2`.",
+  "summary": "Matched and linked all functions in src/melee/it/items/itseakneedleheld.c, moving the Sheik/Kirby held-needle item object from NonMatching to Matching. The PR added typed item-vars for the held needle owner, completed the item state table, implemented held-needle visibility/count updating and spawn logic, and tightened symbol/split metadata for local sdata/sdata2 constants.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -19,16 +19,16 @@
       "item-logic",
       "headers",
       "types-structs",
-      "tooling",
-      "symbols-splits"
+      "config-linking",
+      "symbol-scope-cleanup"
     ],
     "systems": [
       "item",
       "character-items",
       "Sheik",
       "Kirby",
-      "GALE01-config",
-      "build-config"
+      "config",
+      "build"
     ]
   },
   "key_files": [
@@ -41,56 +41,68 @@
     "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "`configure.py` changed `melee/it/items/itseakneedleheld.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)`.",
-    "`itseakneedleheld.c` gained `ItemStateTable it_803F70A8[]` wired to `itSeakneedleheld_UnkMotion0_Anim`, `itSeakneedleheld_UnkMotion0_Phys`, and `itSeakneedleheld_UnkMotion0_Coll`.",
-    "Implemented `it_802B18B0(Item_GObj*)`: validates the stored owner, chooses held-needle count with `ftSk_SpecialS_80111FA0` for Sheik or `ftKb_SpecialNSk_80106020` for Kirby, then iterates 6 needle JObjs and toggles `JOBJ_HIDDEN` with `HSD_JObjClearFlagsAll`/`HSD_JObjSetFlagsAll`.",
-    "Implemented `it_802B19AC(Fighter_GObj*, Vec3*, Fighter_Part, ItemKind, float)`: builds a `SpawnItem`, zeroes velocity/damage/itcmd vars, sets parent links and facing, spawns with `Item_80268B18`, stores the parent fighter in `ip->xDD4_itemVar.seakneedleheld.owner`, and attaches the item to a fighter part with `Item_8026AB54`.",
-    "Implemented `itSeakneedleheld_UnkMotion0_Anim(Item_GObj*)`: handles missing or mismatched owner cases, checks Sheik/Kirby special-state helpers `ftSk_SpecialS_80111F70` and `ftKb_SpecialNSk_80105FF0`, updates visible needle count via `it_802B18B0`, and scales the needle JObj with `ftLib_800869D4(owner)`.",
-    "`itseakneedleheld.h` replaced unknown prototypes with concrete `Item_GObj*`, `Fighter_GObj*`, `Fighter_Part`, and `ItemKind` signatures.",
-    "`itCharItems.h` added `itSeakNeedleHeld_ItemVars` containing `Fighter_GObj* owner`; `types.h` added the `seakneedleheld` member to `Item::xDD4_itemVar`.",
-    "`symbols.txt` converted the object-local `.sdata` strings and `.sdata2` float from global `it_804D5468`/`it_804D5470`/`it_804DCF88` names to local `@224`, `@225`, and `@186` labels.",
-    "`splits.txt` shortened the `itseakneedleheld.c` `.sdata` range from ending at `0x804D5478` to `0x804D5475` and `.sdata2` from ending at `0x804DCF90` to `0x804DCF8C`."
+    "Changed configure.py so melee/it/items/itseakneedleheld.c is built as Object(Matching, ...) instead of Object(NonMatching, ...).",
+    "Implemented ItemStateTable it_803F70A8 with callbacks itSeakneedleheld_UnkMotion0_Anim, itSeakneedleheld_UnkMotion0_Phys, and itSeakneedleheld_UnkMotion0_Coll.",
+    "Implemented it_802B18B0(Item_GObj*), which reads the held needle item's owner, checks that ip->owner still matches, obtains the Sheik or Kirby charged-needle count, and hides or unhides up to six needle JObjs using JOBJ_HIDDEN.",
+    "Implemented it_802B19AC(Fighter_GObj* parent_gobj, Vec3* cur_pos, Fighter_Part part, ItemKind kind, float facing_dir), constructing a SpawnItem, spawning it with Item_80268B18, zeroing item command vars, storing the parent fighter as the held-needle owner, and attaching the item to a fighter part with Item_8026AB54.",
+    "Implemented itSeakneedleheld_UnkMotion0_Anim(Item_GObj*), including owner validity checks, Sheik/Kirby state checks via ftSk_SpecialS_80111F70 and ftKb_SpecialNSk_80105FF0, held-needle model update through it_802B18B0, and scale update from ftLib_800869D4.",
+    "Added itSeakNeedleHeld_ItemVars containing Fighter_GObj* owner at item variable offset ip+DD4 and added it to the Item xDD4_itemVar union as seakneedleheld.",
+    "Updated itseakneedleheld.h prototypes from UNK_RET/UNK_PARAMS and generic HSD_GObj/u32 arguments to typed Item_GObj*, Fighter_GObj*, Fighter_Part, and ItemKind signatures.",
+    "Adjusted GALE01 split ranges for itseakneedleheld.c sdata and sdata2 to smaller local ranges.",
+    "Changed relevant symbols in config/GALE01/symbols.txt from global it_804D5468, it_804D5470, and it_804DCF88 to local labels @224, @225, and @186."
   ],
   "smart_moves": [
-    "Added a dedicated held-needle item-var struct and union member instead of leaving owner storage implicit, making all owner checks and spawn initialization evidence-backed and type-safe.",
-    "Handled Sheik and Kirby copy versions in the same item code by switching on `ItemKind` and calling the matching `ftSk_*` or `ftKb_*` helper.",
-    "Matched the visible needle model behavior through HSD JObj hierarchy traversal: child/next traversal plus `JOBJ_HIDDEN` flags over a fixed 6-needle loop.",
-    "Preserved matching-sensitive compiler shape with `PAD_STACK`, explicit return labels/gotos in the anim function, a local block around the spawned `gobj`, and chained zero assignments.",
-    "Updated source, headers, item union, configure state, splits, and local symbol scopes together, which let both code and data for the object become matched/linked rather than only compiling the C."
+    "The item variable struct was kept minimal: itSeakNeedleHeld_ItemVars only records the owner pointer, matching the observed use at xDD4 rather than over-modeling unknown item state.",
+    "The implementation distinguishes normal Sheik held needles from Kirby copied Sheik needles with explicit ItemKind cases and calls the corresponding ftSk and ftKb helper functions for count/state queries.",
+    "The held-needle visibility update traverses the JObj sibling list and toggles JOBJ_HIDDEN per needle slot, which reflects the visual representation of up to six stored needles.",
+    "Spawn initialization explicitly zeroes velocity and itcmd vars, sets parent object fields, and forces prev_pos.z to 0.0f, making the constructor behavior concrete enough to match.",
+    "Using typed prototypes in the item header reduced ambiguity for future callsites and clarified that the constructor takes a Fighter_Part and ItemKind, not raw u32 values.",
+    "Converting literals/symbols to local @ labels and shrinking split ranges avoided leaving matched-file constants exposed as global symbols."
   ],
   "decomp_lessons": [
-    "Held character item objects may need an `xDD4_itemVar` struct that stores the owning `Fighter_GObj*`; validate both the stored item-var owner and `ip->owner` before using fighter-state data.",
-    "For character-specific item variants, inspect both the base fighter and Kirby-copy helper functions; the same item object can branch on `It_Kind_Seak_NeedleHeld` versus `It_Kind_Kirby_SeakNeedleHeld`.",
-    "When an item object has state callbacks, matching may require reconstructing the `ItemStateTable` in `.data`, not just replacing function stubs.",
-    "JObj visibility and scale operations can be central to small held-item logic; use `GET_JOBJ`, `HSD_JObjGetChild`, `HSD_JObjGetNext`, `HSD_JObjSetScale`, and hidden-flag APIs when the assembly walks model parts.",
-    "Data matching may require local `@NNN` symbols and exact split extents for `.sdata`/`.sdata2`; stale global `it_804D...` labels can prevent clean object-local data accounting.",
-    "Mark the object `Matching` in `configure.py` only after all relevant functions and data sections are matched; decomp.dev confirmed this PR reached 100% for the object entries it reported."
+    "When matching small character item files, update both the source implementation and build metadata: configure.py must move the object to Matching, and splits/symbols often need follow-up scope/range corrections.",
+    "Held character items often store their owning Fighter_GObj in xDD4_itemVar; modeling that as a named item-vars struct makes later code much cleaner than repeatedly casting or using raw fields.",
+    "For copied-character behavior, do not assume the original fighter helper applies. This file uses separate Sheik and Kirby helper functions for both needle count and held-needle state checks.",
+    "Owner validation can be semantically important for item animation callbacks: this implementation checks both the stored owner pointer and ip->owner before continuing with model updates.",
+    "Item model state can be represented through HSD_JObj child/sibling traversal and JOBJ_HIDDEN flags; matching code may require reproducing that exact traversal structure.",
+    "Stack padding macros such as PAD_STACK were used in the constructor and animation function, showing that otherwise-clean C may still need explicit padding to preserve matching."
   ],
   "naming_conventions": [
-    "Item variable typedef added as `itSeakNeedleHeld_ItemVars`; the corresponding `Item` union member is lowercase `seakneedleheld`.",
-    "Unrenamed address-based functions stayed in `it_802B18B0` / `it_802B19AC` form, while state callback names used the existing `itSeakneedleheld_UnkMotion0_Anim/Phys/Coll` pattern.",
-    "Header prototypes retain address comments such as `/* 2B18B0 */` and now use project typedefs (`Item_GObj*`, `Fighter_GObj*`, `Fighter_Part`, `ItemKind`) instead of `UNK_RET`, `UNK_PARAMS`, `HSD_GObj*`, and raw `u32`.",
-    "Sheik/Kirby item kinds are distinguished with `It_Kind_Seak_NeedleHeld` and `It_Kind_Kirby_SeakNeedleHeld`.",
-    "Object-local constants in `symbols.txt` were named with `@224`, `@225`, and `@186` rather than exported `it_804D...` symbols."
+    "Item variable structs follow the pattern it<CharacterItem>_ItemVars, here itSeakNeedleHeld_ItemVars.",
+    "The Item union member uses lowercase item-family naming, here seakneedleheld.",
+    "Generated or still-unknown functions retain address-style names such as it_802B18B0 and it_802B19AC until a better semantic name is established.",
+    "Motion callbacks use the existing file-specific mixed-case pattern itSeakneedleheld_UnkMotion0_Anim, _Phys, and _Coll.",
+    "Item kind constants distinguish base character and Kirby-copy versions: It_Kind_Seak_NeedleHeld versus It_Kind_Kirby_SeakNeedleHeld.",
+    "Local data symbols in symbols.txt may be represented as @NNN labels rather than global it_804D.... names when the matched object owns local constants."
   ],
   "assembly_or_matching_tactics": [
-    "`PAD_STACK(2 * 4)` in `it_802B19AC` and `PAD_STACK(3 * 4)` in `itSeakneedleheld_UnkMotion0_Anim` were used to satisfy stack-layout/codegen constraints.",
-    "The anim function used explicit `goto ret_true` / `goto ret_false` labels to reproduce the matched control-flow shape.",
-    "Chained assignments zeroed `spawn.vel.x/y/z` and item command vars in the same expression form seen in the matched implementation.",
-    "A nested block around `Item_GObj* gobj = Item_80268B18(&spawn);` preserved local lifetime/order needed for the spawn helper match.",
-    "Split and symbol metadata were corrected alongside C code: `.sdata` and `.sdata2` ranges were tightened, and local data symbols replaced global labels."
+    "Used PAD_STACK(2 * 4) in it_802B19AC and PAD_STACK(3 * 4) in itSeakneedleheld_UnkMotion0_Anim to satisfy stack-layout-sensitive matching.",
+    "Used goto labels ret_true and ret_false in the animation callback, likely to mirror original control flow closely enough for a match.",
+    "Initialized SpawnItem fields in a specific order, including chained zero assignments for velocity and itcmd variables, which can matter for codegen.",
+    "Separated HSD_JObj child acquisition into explicit child and needle variables in it_802B18B0, matching the model hierarchy traversal needed to reach the needle JObjs.",
+    "Adjusted sdata and sdata2 symbol scope from global to local and reduced split range endpoints after matching revealed the true ownership/extent of local constants."
   ],
   "review_feedback": [
-    "The author disclosed being new to C/reverse decompilation and said they used Claude, Codex, Cursor, and assembly review to get small functions to 100%, expecting possible style/nuance cleanup.",
-    "ribbanya replied that nothing was too out of place, offered to clean it up for the author to study, and thanked them for the contribution.",
-    "No inline review comments or specific technical change requests were present in the slice.",
-    "decomp.dev reported GALE01 matched code +860 bytes, linked code +944 bytes, total data -7 bytes, matched/linked data +33 bytes, and 6 new matches for the `itseakneedleheld` unit."
+    {
+      "author": "IsaacGemal",
+      "type": "author-context",
+      "body": "The author disclosed being new to C and reverse decompilation, using Claude/Codex/Cursor plus asm review and small-function matching to reach 100%, and expected style or nuance cleanup."
+    },
+    {
+      "author": "ribbanya",
+      "type": "maintainer-response",
+      "body": "Maintainer feedback was supportive: nothing was too out of place, they would clean it up a bit for study, and the contribution was appreciated."
+    },
+    {
+      "author": "agent",
+      "type": "evidence-note",
+      "body": "No inline review comments were present in the provided slice, so specific reviewer-requested code changes are not evidenced."
+    }
   ],
   "searchable_terms": [
     "pr-2215",
+    "itseakneedleheld",
     "Match and Link itseakneedleheld",
-    "itseakneedleheld.c",
-    "itseakneedleheld.h",
     "it_802B18B0",
     "it_802B19AC",
     "itSeakNeedleHeld_Logic110_PickedUp",
@@ -98,51 +110,41 @@
     "itSeakneedleheld_UnkMotion0_Phys",
     "itSeakneedleheld_UnkMotion0_Coll",
     "it_803F70A8",
-    "ItemStateTable",
     "itSeakNeedleHeld_ItemVars",
     "seakneedleheld.owner",
-    "xDD4_itemVar",
-    "Fighter_GObj",
-    "Fighter_Part",
-    "ItemKind",
-    "SpawnItem",
-    "Item_80268B18",
-    "Item_8026AB54",
-    "Item_80268E5C",
-    "ITEM_ANIM_UPDATE",
     "It_Kind_Seak_NeedleHeld",
     "It_Kind_Kirby_SeakNeedleHeld",
     "ftSk_SpecialS_80111FA0",
-    "ftKb_SpecialNSk_80106020",
     "ftSk_SpecialS_80111F70",
+    "ftKb_SpecialNSk_80106020",
     "ftKb_SpecialNSk_80105FF0",
     "ftLib_800869D4",
-    "GET_JOBJ",
-    "GET_ITEM",
+    "Item_80268B18",
+    "Item_8026AB54",
+    "JOBJ_HIDDEN",
     "HSD_JObjGetChild",
     "HSD_JObjGetNext",
-    "HSD_JObjClearFlagsAll",
-    "HSD_JObjSetFlagsAll",
     "HSD_JObjSetScale",
-    "JOBJ_HIDDEN",
     "PAD_STACK",
-    "configure.py Matching",
+    "SpawnItem",
+    "MatchingFor",
+    "Object(Matching)",
     "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
-    "@224",
-    "@225",
-    "@186",
-    ".sdata",
-    ".sdata2"
+    "config/GALE01/symbols.txt"
   ],
   "follow_up_queries": [
-    "itseakneedleheld.c it_802B18B0 JOBJ_HIDDEN needle count",
-    "itSeakNeedleHeld_ItemVars owner xDD4_itemVar seakneedleheld",
-    "it_802B19AC SpawnItem Item_80268B18 Item_8026AB54 Fighter_Part",
-    "ftSk_SpecialS_80111FA0 ftKb_SpecialNSk_80106020 held needle",
-    "ftSk_SpecialS_80111F70 ftKb_SpecialNSk_80105FF0 itSeakneedleheld_UnkMotion0_Anim",
-    "GALE01 symbols @224 @225 @186 itseakneedleheld sdata sdata2",
-    "configure.py Object Matching melee/it/items/itseakneedleheld.c"
+    "Compare itseakneedleheld.c against itseakneedlethrown.c for shared Sheik needle item-vars or naming opportunities.",
+    "Search for other held character item constructors that store parent_gobj in xDD4_itemVar to reuse the ownership-validation pattern.",
+    "Inspect any post-merge cleanup by ribbanya around PR 2215 to see which style changes were applied after the initial AI-assisted contribution.",
+    "Check whether it_802B18B0 and it_802B19AC later received semantic names after more Sheik needle work."
   ],
-  "confidence": 0.92
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

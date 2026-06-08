@@ -11,118 +11,98 @@
     "merged_at": "2026-05-26T09:10:40Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged fighter decomp PR that split the later half of `src/melee/ft/ft_0C31.c` into ten address-named `ftCo_800C....c` units, promoted `ft_0C31.c` and the new units to Matching in `configure.py`, and filled in capture/downreflect/fighter-state code that had previously been left in the monolithic file. The diff also narrowed `ft_0C31.h`, added per-slice headers, fixed motion-var fields and item signatures needed by the new code, and updated GALE01 splits/symbols. The PR body is empty, but the decomp.dev bot reports 55 new matches and net +2192 matched-code bytes.",
+  "summary": "Split the previously monolithic fighter object src/melee/ft/ft_0C31.c into multiple matching ftCo_800C70xx-800C7xxx translation units, marking ft_0C31.c and ten new ftCo_*.c files as Matching in configure.py. The PR matched 55 items for a net decomp.dev gain of +2192 matched code bytes and +8128 linked code bytes, while the apparent broken matches were mostly the same functions moving out of ft_0C31 into new object files. It also updated splits/symbols for the new object boundaries, corrected sbss ownership/sizes around ft_804D6580 and ft_804D6588, added motion-var fields used by downreflect and capturelikelike, and replaced broad ft_0C31.h includes with narrower per-function headers.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "unit-splitting",
+      "object-splitting",
       "headers",
-      "build-config",
       "symbols",
-      "struct-typing"
+      "splits",
+      "fighter-motion"
     ],
     "systems": [
       "fighter",
       "ftCommon",
       "item",
-      "config"
+      "config",
+      "build"
     ]
   },
   "key_files": [
-    {
-      "path": "config/GALE01/splits.txt",
-      "role": "Shrank `melee/ft/ft_0C31.c` text range to 0x800C61B0..0x800C703C and added new text/sdata2 ranges for `ftCo_800C703C.c` through `ftCo_800C7CA0.c`; also split sbss so `ft_804D6580` and `ft_804D6588` are separate 4-byte objects."
-    },
-    {
-      "path": "configure.py",
-      "role": "Changed `ft_0C31.c` from NonMatching to Matching and added ten new Matching fighter objects."
-    },
-    {
-      "path": "src/melee/ft/ft_0C31.c",
-      "role": "Removed the 0x800C703C..0x800C8170 tail into new units; retained earlier entry/entry-end code and adjusted `fake_HSD_JObjSetTranslate` assert/codegen handling."
-    },
-    {
-      "path": "src/melee/ft/ft_0C31.h",
-      "role": "Deleted prototypes for the moved functions and left only the earlier `ft_0C31` entry-related declarations."
-    },
-    {
-      "path": "src/melee/ft/ftCo_800C7590.c",
-      "role": "New matching Leadead capture unit, including `ftCo_800C7590`, `ftCo_CaptureLeadead_*`, `ftCo_800C7800`, and item callback plumbing."
-    },
-    {
-      "path": "src/melee/ft/ftCo_800C78B0.c",
-      "role": "New matching Like Like capture/damage unit, including `ftCo_800C78B0`, `ftCo_CaptureLikelike_*`, `ftCo_800C7B0C`, and damage helper code."
-    },
-    {
-      "path": "src/melee/ft/ftCo_800C7CA0.c",
-      "role": "New matching DownReflect/wall-bounce and material setup unit, including `ftCo_800C7CA0`, `fn_800C7DC4`, `ftCo_DownReflect_*`, `ftCo_800C8064`, and `ft_800C80A4`."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/types.h",
-      "role": "Added `mv.co.downreflect` and `mv.co.capturelikelike.x4` fields used by the new matching code."
-    },
-    {
-      "path": "src/melee/it/items/itleadead.c",
-      "role": "Updated Leadead capture interface to include an ignored float parameter and an inline accessor used by the new `ftCo_800C7590` callsite."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Adjusted local/global labels and corrected sbss/sdata2 object ownership after the split."
-    }
+    "configure.py",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "src/melee/ft/ft_0C31.c",
+    "src/melee/ft/ft_0C31.h",
+    "src/melee/ft/ftCo_800C703C.c",
+    "src/melee/ft/ftCo_800C7070.c",
+    "src/melee/ft/ftCo_800C70D0.c",
+    "src/melee/ft/ftCo_800C7178.c",
+    "src/melee/ft/ftCo_800C7220.c",
+    "src/melee/ft/ftCo_800C739C.c",
+    "src/melee/ft/ftCo_800C7434.c",
+    "src/melee/ft/ftCo_800C7590.c",
+    "src/melee/ft/ftCo_800C78B0.c",
+    "src/melee/ft/ftCo_800C7CA0.c",
+    "src/melee/ft/chara/ftCommon/types.h",
+    "src/melee/it/items/itleadead.c",
+    "src/melee/it/items/itlikelike.c"
   ],
   "what_changed": [
-    "`ft_0C31.c` was decomposed into separate address-based fighter common objects: `ftCo_800C703C`, `ftCo_800C7070`, `ftCo_800C70D0`, `ftCo_800C7178`, `ftCo_800C7220`, `ftCo_800C739C`, `ftCo_800C7434`, `ftCo_800C7590`, `ftCo_800C78B0`, and `ftCo_800C7CA0`.",
-    "`configure.py` now marks `ft_0C31.c` and every new split object as `Object(Matching, ...)` instead of keeping the old monolithic `ft_0C31.c` as NonMatching.",
-    "Previously address-only or stubbed common-fighter routines were implemented/matched, including Mario/Luigi/Kirby/Giga Bowser fallback motion helpers, Leadead capture, Like Like capture, Like Like damage application, DownReflect wall reflection, and fighter material setup.",
-    "Header dependencies were localized: consumers stopped including the broad `ft_0C31.h` for moved symbols and instead include specific new headers such as `ftCo_800C7434.h`, `ftCo_800C7590.h`, `ftCo_800C78B0.h`, and `ftCo_800C7CA0.h`.",
-    "`ftCommon_MotionVars` gained explicit fields for `downreflect` and `capturelikelike.x4`, matching state used by the new code.",
-    "`ft_804D6580` moved to `ftCo_800C7CA0.c/.h`; `ft_804D6588` moved to `ft_0C8C.c/.h`; symbols/splits were updated so each is a 4-byte sbss object.",
-    "`itleadead` integration changed `it_802EAAEC` from three parameters to four parameters with an ignored `f32`, and the fighter capture code calls it as `it_802EAAEC(..., 0, 0.0f)`.",
-    "`ftcpuattack.c` swapped raw `__assert` calls for `HSD_ASSERT(line, NULL)` and added `baselib/debug.h`; the bot later noted a partial `.sdata` match there."
+    "Changed configure.py so ft_0C31.c and the newly split ftCo_800C703C.c through ftCo_800C7CA0.c build as Matching objects instead of keeping the whole 0x800C61B0-0x800C8170 range inside one NonMatching ft_0C31.c object.",
+    "Updated config/GALE01/splits.txt to cut ft_0C31.c at 0x800C703C and add separate text/sdata2 ranges for ftCo_800C703C, ftCo_800C7070, ftCo_800C70D0, ftCo_800C7178, ftCo_800C7220, ftCo_800C739C, ftCo_800C7434, ftCo_800C7590, ftCo_800C78B0, and ftCo_800C7CA0.",
+    "Moved the sbss range 0x804D6580-0x804D6588 to ftCo_800C7CA0.c and assigned 0x804D6588-0x804D6590 to ft_0C88.c, with matching symbol size changes from 8-byte to 4-byte entries for ft_804D6580 and ft_804D6588.",
+    "Replaced the oversized ft_0C31.h surface with small address-based headers such as ftCo_800C703C.h, ftCo_800C7434.h, ftCo_800C78B0.h, and ftCo_800C7CA0.h, then updated fighter, character, common, and item files to include only the headers they call.",
+    "Added matching implementations for capture and recovery-related common fighter routines including CaptureLeadead, CaptureLikelike, and DownReflect callbacks, plus many address-named ftCo_800C70xx helper functions.",
+    "Extended ftCommon_MotionVars with downreflect state at fp+2340/fp+2344 and an additional capturelikelike int at fp+2344 to model fields used by the newly matched routines.",
+    "Adjusted symbols.txt to demote many synthetic address-named data symbols to local @NNN labels and to keep sdata2 constants aligned with the new split object ownership.",
+    "Kept or added exact-match helper constructs in ft_0C31.c and new files, including an inline fake_HSD_JObjSetTranslate that preserves jobj.h assert file/line/condition text while routing the dirty-matrix call through a fighter-local helper."
   ],
   "smart_moves": [
-    "The PR avoided forcing a large mixed-status object to match by splitting `ft_0C31.c` at natural address boundaries and making each new unit independently matchable.",
-    "The header cleanup reduced coupling: moved declarations left `ft_0C31.h` and consumers were updated to include only the new per-address header that owns the symbol they call.",
-    "The symbols update treated many constants/strings as local `@NNN` labels rather than preserving misleading module-looking globals, which better reflects split-object ownership.",
-    "The author documented a codegen-sensitive `fake_HSD_JObjSetTranslate`: it intentionally preserves `jobj.h` assert file/line/condition metadata while routing matrix-dirty behavior through the local `ftCo_800C6AFC` path emitted by the target.",
-    "The implementation kept awkward but matching branch/codegen constructs where needed, including inline wrapper cascades around `ftCo_800C7070`, `PAD_STACK`, and an explicitly TODO-marked branch-structure workaround in `fn_800C7DC4`."
+    "Split at natural function-address boundaries instead of forcing one large ft_0C31.c object to carry unrelated code; this turned a broad nonmatching unit into many small matching units and made decomp.dev report the old broken ft_0C31 matches as relocated wins.",
+    "Used narrow per-split headers to avoid continuing the catch-all ft_0C31.h dependency pattern; callers now include the specific ftCo_800Cxxxx header for the routines they need.",
+    "Updated splits and symbols together, including sdata2 and sbss ownership, which is critical when moving matched code into new translation units because constants and BSS placement affect link order and matching.",
+    "Added concrete motion-var union fields only where the new code needed them, preserving offset comments such as fp+2340 and fp+2344 so future struct work can verify layout-sensitive accesses.",
+    "Preserved matching-sensitive inline/assert behavior by replacing macro-dependent HSD_ASSERT usage with explicit __assert(\"jobj.h\", line, cond) calls in fake_HSD_JObjSetTranslate.",
+    "Used small static inline wrapper chains and explicit TODO notes where the evidence shows the shape is matching-driven rather than fully understood source-level structure."
   ],
   "decomp_lessons": [
-    "When a PR splits an object, bot-reported broken matches in the old unit can be expected relocation noise if the same functions reappear as new 100% matches in the new units.",
-    "Per-object headers are useful after a split: remove moved prototypes from the old module header and update include sites immediately to prevent the old file from remaining a dumping ground.",
-    "Correct local/global symbol scope matters for matching data; using local `@NNN` labels for literals can avoid fake global names that no longer belong to a split unit.",
-    "Add or refine motion-variable struct fields before matching state-heavy fighter code. Here, `downreflect.x4` and `capturelikelike.x4` made the new DownReflect and Like Like capture code expressible.",
-    "Do not overname callbacks when evidence is weak: this PR keeps some callbacks as `fn_800C74CC`, `fn_800C7568`, `fn_800C7AE0`, and `fn_800C7DC4` while naming well-understood motion callbacks like `ftCo_CaptureLeadead_Anim`.",
-    "Small ABI or expression-order adjustments may be necessary for item/fighter interaction matches, such as the ignored float added to `it_802EAAEC` and the inline accessor used before `HSD_JObjSetTranslateZ`."
+    "When a previously large object contains many individually matchable functions, splitting it into address-named files can improve linked/matched accounting and isolate per-function data constants.",
+    "After object splitting, decomp.dev may show many broken matches in the old unit; check whether they are paired with new 100% matches in the new units before treating them as regressions.",
+    "Object boundaries must include corresponding .sdata2 and .sbss ranges, not just .text; this PR moved ft_804D6580/ft_804D6588 ownership and adjusted sizes to keep BSS layout sane.",
+    "Prefer local @NNN symbols for compiler-generated local floats/strings unless there is evidence for a meaningful global name; the PR converted many ftCo_804D8Dxx and related data names back to local labels.",
+    "For matching HSD inline-like code, preserving assert file names, line numbers, and branch/call shape can be more important than using the cleanest shared macro or SDK inline.",
+    "Struct/header work should follow observed offsets: the downreflect and capturelikelike fields were added with explicit fp+2340/fp+2344 comments because these routines depend on exact union layout."
   ],
   "naming_conventions": [
-    "New split files and headers are named by the first function address in the unit, e.g. `ftCo_800C7CA0.c` / `ftCo_800C7CA0.h`.",
-    "Header guards use the address form `GALE01_800C7CA0`, `GALE01_800C7590`, etc.",
-    "Prototype comments in new headers use shortened address comments such as `/* 7CA0 */`, `/* 7DC4 */`, and `/* 80A4 */`.",
-    "Common fighter functions retain the `ftCo_` prefix; non-common or still-unknown helpers retain `ft_` or `fn_800...` names.",
-    "Motion-state callback names follow the existing action callback suffix pattern: `_Anim`, `_IASA`, `_Phys`, and `_Coll`.",
-    "Local data/literal symbols in `symbols.txt` are represented as `@NNN` labels when not clearly exported globals."
+    "New split files are named after their starting address, e.g. ftCo_800C703C.c and ftCo_800C7CA0.c, matching the project convention for not-yet-semantically-named common fighter files.",
+    "Header guards follow the address convention, e.g. GALE01_800C703C, GALE01_800C7590, and GALE01_800C7CA0.",
+    "Known action callbacks use semantic ftCo names when evidence exists, such as ftCo_CaptureLeadead_Anim, ftCo_CaptureLeadead_Coll, ftCo_CaptureLikelike_Anim, ftCo_DownReflect_Anim, ftCo_DownReflect_Phys, and ftCo_DownReflect_Coll.",
+    "Unknown local callbacks retain fn_800Cxxxx names, e.g. fn_800C74CC, fn_800C7568, fn_800C7AE0, and fn_800C7DC4.",
+    "Extern data names still use address-style globals where needed, e.g. HSD_MObj* ft_804D6580, while many unneeded global-looking data labels were converted to local @NNN labels."
   ],
   "assembly_or_matching_tactics": [
-    "Split one source object into multiple matching objects with exact GALE01 text/sdata2 ranges in `splits.txt`, then list each as `Object(Matching, ...)` in `configure.py`.",
-    "`fake_HSD_JObjSetTranslate` manually calls `__assert(\"jobj.h\", 916, \"jobj\")` and `__assert(\"jobj.h\", 917, \"translate\")` instead of relying on `__FILE__`, preserving target assert metadata while still calling the local matrix-dirty helper.",
-    "Repeated `inlineB0`/`inlineB1`/`inlineB2` wrappers around `ftCo_800C7070` appear in several small units, likely to reproduce the target's fallback call/inlining pattern.",
-    "`fn_800C7DC4` uses explicit gotos and carries `// @todo fix branch structure`, indicating branch-shape matching took priority over source elegance for the DownReflect wall-position adjustment.",
-    "`ftCo_800C7CA0.c` uses `PAD_STACK(8)` and `PAD_STACK(4)` around the wall-reflect implementation.",
-    "`itleadead.c` introduced `it_802EAAEC_inline` and a fourth ignored `f32` argument to preserve codegen at the call/translate site.",
-    "Two capture files contain small `orderTest(Vec3*)` shims; the slice does not explain their purpose, so treat them only as weak evidence of ordering/codegen experimentation rather than a reusable convention."
+    "Split ft_0C31.c at exact text addresses and registered each new file as Object(Matching) in configure.py.",
+    "Moved sdata2 constants into each new split range in splits.txt so literals match object-local ordering.",
+    "Used PAD_STACK annotations in ftCo_800C7CA0/fn_800C7DC4 to reproduce stack layout.",
+    "Kept static inline wrapper chains named inlineB0/inlineB1/inlineB2 in several small motion-state files, apparently to reproduce the compiler's call/inlining shape.",
+    "Used an orderTest(Vec3*) helper in capture-related files, likely as an ordering or codegen nudge, with weak semantic evidence from the diff alone.",
+    "Used explicit casts and raw union-field aliasing in CaptureLikelike, including *(int*) &fp->mv.co.mushroom.x4, to preserve observed storage/codegen despite the new capturelikelike field.",
+    "Kept a goto-shaped branch in fn_800C7DC4 with a TODO 'fix branch structure', prioritizing the current target branch layout over source elegance.",
+    "Manually emitted __assert(\"jobj.h\", 916, \"jobj\") and __assert(\"jobj.h\", 917, \"translate\") instead of HSD_ASSERT to keep matching file/line metadata."
   ],
   "review_feedback": [
-    "No human review comments or reviews are present in the slice, and the PR body is empty.",
-    "decomp.dev bot report for GALE01: matched code 68.47% (+0.06%, +2192 bytes), linked code 40.46% (+0.21%, +8128 bytes), matched data 39.77% (+0.01%, +152 bytes), linked data 33.51% (+0.02%, +184 bytes).",
-    "The bot lists 55 new matches, mainly in the new `ftCo_800C...` units, including `fn_800C7DC4`, `ftCo_800C7590`, `ftCo_800C78B0`, `ftCo_800C7B0C`, `ftCo_800C7CA0`, and `ft_800C80A4`.",
-    "The bot also lists 36 broken matches in the old `ft_0C31` unit; the named items correspond to moved functions, so the evidence suggests split relocation rather than a human-reported regression.",
-    "The bot flags `ftcpuattack` `.sdata` as 84.21% after the assert/string changes, which may be worth rechecking separately."
+    "No human review comments were present in the slice.",
+    "The decomp.dev bot reported +0.06% matched code (+2192 bytes), +0.21% linked code (+8128 bytes), +0.01% matched data (+152 bytes), and +0.02% linked data (+184 bytes).",
+    "The bot reported 55 new matches, led by fn_800C7DC4 (+516 bytes), ftCo_800C7590 (+420), ftCo_800C78B0 (+384), ftCo_800C7B0C (+340), and ftCo_800C7CA0 (+292).",
+    "The bot also reported 36 broken matches in main/melee/ft/ft_0C31, but these correspond to functions that were moved into the new split units rather than evidence of real code loss."
   ],
   "searchable_terms": [
-    "pr2527",
-    "jj/ft_0C31",
+    "pr-2527",
+    "jurrejelle",
+    "Jj/ft 0 c31",
     "ft_0C31",
     "ftCo_800C703C",
     "ftCo_800C7070",
@@ -134,40 +114,43 @@
     "ftCo_800C7590",
     "ftCo_800C78B0",
     "ftCo_800C7CA0",
-    "ftCo_800C7800",
-    "ftCo_800C7B0C",
-    "ftCo_800C8064",
-    "ft_800C80A4",
-    "fn_800C7DC4",
     "ftCo_CaptureLeadead_Anim",
+    "ftCo_CaptureLeadead_Coll",
     "ftCo_CaptureLikelike_Anim",
+    "ftCo_CaptureLikelike_Coll",
     "ftCo_DownReflect_Anim",
-    "CaptureLeadead",
-    "CaptureLikelike",
-    "DownReflect",
-    "Leadead",
-    "LikeLike",
-    "it_802EAAEC",
-    "it_802DBA68",
+    "ftCo_DownReflect_Phys",
+    "ftCo_DownReflect_Coll",
+    "fn_800C7DC4",
+    "ft_800C80A4",
     "ft_804D6580",
     "ft_804D6588",
     "fake_HSD_JObjSetTranslate",
-    "HSD_ASSERT",
-    "PAD_STACK",
-    "ftCommon_MotionVars",
-    "capturelikelike.x4",
-    "downreflect.x4",
+    "capturelikelike",
+    "captureleadead",
+    "downreflect",
+    "Object(Matching)",
     "splits.txt",
     "symbols.txt",
-    "configure.py"
+    "sdata2",
+    "sbss",
+    "PAD_STACK",
+    "jobj.h assert"
   ],
   "follow_up_queries": [
-    "Compare `ft_800C80A4` with `ftmetal` material code; the source has a TODO suggesting a possible shared inline.",
-    "Resolve the `fn_800C7DC4` TODO and verify whether the goto-based branch structure can be replaced without breaking the match.",
-    "Audit Like Like capture state aliasing: the PR adds `capturelikelike.x4`, but `ftCo_CaptureLikelike_Anim` still accesses the union through `mv.co.mushroom.x4` casts.",
-    "Investigate whether the `orderTest(Vec3*)` shims in the capture units are still required after future cleanup.",
-    "Recheck the `ftcpuattack` `.sdata` partial regression reported by the bot after the `HSD_ASSERT` conversion.",
-    "Rename remaining address-only functions such as `ftCo_800C74F4`, `fn_800C74CC`, and `fn_800C7AE0` only when behavior is confirmed."
+    "Find later PRs that semantically renamed ftCo_800C703C through ftCo_800C7CA0 or removed their address-based file names.",
+    "Check whether the TODO in fn_800C7DC4 branch structure was later resolved.",
+    "Search for later cleanups of fake_HSD_JObjSetTranslate or shared inline work with HSD_JObjSetTranslate.",
+    "Search for later struct-field naming improvements for mv.co.downreflect and mv.co.capturelikelike.",
+    "Audit whether ft_804D6580 and ft_804D6588 sizes/ownership remained stable after the ft_0C31 split."
   ],
-  "confidence": 0.88
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

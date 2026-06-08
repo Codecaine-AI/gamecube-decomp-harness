@@ -98,6 +98,7 @@ const SYSTEM_ARG_ALLOWLIST = new Set([
   "--pr-limit",
   "--progress-only",
   "--queue-low-watermark",
+  "--queue-refresh-interval-ms",
   "--queue-target-size",
   "--replan-cooldown-ms",
   "--replan-interval-ms",

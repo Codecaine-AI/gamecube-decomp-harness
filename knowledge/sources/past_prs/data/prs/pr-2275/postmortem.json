@@ -11,31 +11,31 @@
     "merged_at": "2026-03-12T18:58:43Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched more of the Kraid stage ground object code in src/melee/gr/grkraid.c. The decomp.dev report recorded +2300 matched bytes, 3 new full matches in grKraid_801FE440, grKraid_801FEA00, and grKraid_801FEE54, plus improvements to grKraid_801FE6D8 and grKraid_801FE818. The useful work was mostly source-expression reshaping, local-vs-global data placement, and signedness/type fixes in gr/types.h.",
+  "summary": "Matched several Kraid stage functions in src/melee/gr/grkraid.c by making expression-shape, signedness, literal-initialization, and helper-extraction changes, with small header/type cleanup. decomp.dev reported 3 new full matches in main/melee/gr/grkraid: grKraid_801FE440, grKraid_801FEA00, and grKraid_801FEE54, plus improvements to grKraid_801FE6D8 and grKraid_801FE818.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-logic",
       "headers",
-      "struct-signedness",
-      "expression-rewrite"
+      "type-signedness",
+      "stage-behavior"
     ],
     "systems": [
       "stage",
       "ground",
-      "grKraid",
-      "Kraid"
+      "grkraid",
+      "camera",
+      "animation"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grkraid.c",
-      "role": "Core Kraid stage matching work; 168 additions and 154 deletions across state-machine and helper functions."
+      "role": "Main matching work for Kraid stage logic; rewrote control-flow/expression forms around map rotation, Kraid attack state machine, random timing, camera calls, and JObj transforms."
     },
     {
       "path": "src/melee/gr/types.h",
-      "role": "Changed grKraid ground variable byte fields from u8 to s8 and applied small style cleanups to nearby Old Yoshi cloud structs."
+      "role": "Ground variable struct adjustments, notably signedness changes for grKraid_GroundVars.x0 and grKraid_GroundVars2.x3 plus formatting cleanup for unrelated Old Yoshi bitfields/array syntax."
     },
     {
       "path": "src/melee/gr/grkraid.h",
@@ -43,64 +43,60 @@
     }
   ],
   "what_changed": [
-    "grKraid_801FE440 reached 100% according to the bot report. The diff removed the global zero Vec grKr_803B8278 and used a local `Vec pos = { 0.0f, 0.0f, 0.0f }`; it also changed `gp->gv.kraid.x4 != 0.0f` to a truthy float check with an inline remark that the explicit comparison caused incorrect ordering.",
-    "grKraid_801FE440 also rewrote absolute-value style code into ternaries, kept the rotation update through HSD_JObjAddRotationZ, and continued calling Camera_80030E44 with the local zero vector.",
-    "grKraid_801FE6D8 improved from 88.93% to 99.60%. The diff introduced a static `f32 getMapRotation()` helper, replaced an unused int with `f32 rot`, used a ternary absolute value for handpos.x, and rewrote the map rotation speed calculation before clamping to map_rot_spd_min/map_rot_spd_max.",
-    "grKraid_801FE818 improved from 90.70% to 91.20%. The visible matching-relevant change was the wait timer expression using `((s32) grKr_804D6A08->kraid_wait_time_add != 0 ? HSD_Randi(...) : 0)`.",
-    "grKraid_801FEA00 reached 100%. The switch/state-machine body was reformatted and retained PAD_STACK(0x70), animation completion checks, Ground_801C53EC event calls, hand hit windows, and the same `(int) map->gv.kraid.x4 == 0` checks; the wait timer reset also gained the explicit s32 cast in its random-add condition.",
-    "grKraid_801FEE54 reached 100%. Its random position selection was compressed into `HSD_Randi(2) != 0 ? gp->gv.kraid2.x3 : gp->gv.kraid2.x4`, and translate-X calls were kept for both the Kraid JObj and Ground_801C2BA4(1)->hsd_obj.",
-    "src/melee/gr/types.h changed `struct grKraid_GroundVars::x0` and `struct grKraid_GroundVars2::x3` from u8 to s8, indicating signed byte behavior mattered for matching.",
-    "src/melee/gr/types.h also normalized bitfield spacing in grOldYoshi_Cloud and array spacing in grOldYoshi_Cloud_GroundVars; these look style-only from the shown diff."
+    "Removed the global zero Vec grKr_803B8278 usage in grKraid_801FE440 and used a local Vec initializer { 0.0f, 0.0f, 0.0f } before Camera_80030E44.",
+    "Changed grKraid_801FE440 condition style from explicit float comparison to truthiness for gp->gv.kraid.x4, with an in-code remark that explicit != 0.0f led to incorrect ordering.",
+    "Compressed absolute-value and selection expressions into ternaries where that matched better, including gp->gv.kraid.xC absolute value and the HSD_Randi(2) choice in grKraid_801FEE54.",
+    "Introduced a static helper getMapRotation() for the shared map rotation scalar expression used by grKraid_801FE6D8.",
+    "Reworked grKraid_801FE6D8 so hand position X is converted to absolute value inside the rotation assignment expression rather than by mutating handpos.x first.",
+    "Added explicit s32 casts around grKr_804D6A08->kraid_wait_time_add nonzero checks before passing possible random wait additions to HSD_Randi.",
+    "Reformatted and reshaped the grKraid_801FEA00 state machine without changing the apparent stage-event sequence: animation completion checks, Ground_801C53EC sound/event IDs, JObj flag changes, and hand-triggered map rotation windows remain visible.",
+    "Changed grKraid_GroundVars.x0 from u8 to s8 and grKraid_GroundVars2.x3 from u8 to s8 in types.h.",
+    "Normalized include style/order in grkraid.c, including moving cm/camera.h earlier and using angle brackets for baselib/random.h."
   ],
   "smart_moves": [
-    "The PR targeted small codegen-sensitive expression changes instead of broad rewrites, producing three new exact function matches.",
-    "The author left a concrete matching note: `Explicit != 0.0f comparison leads to incorrect ordering`, making the float-comparison tactic reusable for future work.",
-    "Replacing a shared const zero Vec with a local initializer avoided the old grKr_803B8278 data symbol and matched the camera-call setup better.",
-    "Signedness was fixed at the shared struct level in types.h, not only papered over with local casts in grkraid.c.",
-    "Factoring the rotation expression into a private `getMapRotation()` helper made the arithmetic sequence and local variable use easier to control in grKraid_801FE6D8."
+    "Used a local zero Vec initializer instead of a named const global to influence data/reference generation while keeping the camera call semantics obvious.",
+    "Preserved a matching-sensitive note directly beside the gp->gv.kraid.x4 truthiness check, documenting that a seemingly equivalent explicit float comparison changes instruction ordering.",
+    "Factored getMapRotation() out as a static helper, likely guiding the compiler into the desired expression/codegen shape while making the rotation calculation more readable.",
+    "Matched signed comparison behavior by correcting ground-var fields from unsigned to signed where state/position selection variables are treated as signed bytes.",
+    "Used explicit casts in random-wait ternaries to force the intended comparison/type promotion behavior rather than relying on implicit conversion.",
+    "Kept function boundaries and existing symbolic names intact while doing minimal localized expression rewrites, which is ideal for incremental stage matching."
   ],
   "decomp_lessons": [
-    "For Melee stage code, syntactically equivalent float tests are not interchangeable: `if (float_field)` can produce a different compare/branch ordering than `if (float_field != 0.0f)`.",
-    "When a state/index byte is used in switch or comparison-heavy code, verify whether the assembly wants signed or unsigned loads; u8-to-s8 header fixes can be decisive.",
-    "Local aggregate initialization versus a global const object can affect rodata and stack/local codegen; try a local zero Vec for camera or position calls before introducing a shared const.",
-    "Ternary expressions are useful matching tools for absolute values and random-choice branches when handwritten if/else emits the wrong shape.",
-    "Cast placement inside ternary conditions can matter even when the field type is already integral, as shown by the `(s32) kraid_wait_time_add != 0` pattern.",
-    "The bot report showed grKraid_801FE6D8 and grKraid_801FE818 were improved but not fully matched, so partial-match PRs should preserve clear remaining targets."
+    "For Melee decomp matching, semantically equivalent float checks can produce different instruction ordering; try truthiness versus explicit != 0.0f when a float/state field blocks a match.",
+    "Local aggregate initialization can be a useful tactic when a global constant Vec creates the wrong reference or data layout for a function match.",
+    "Signedness in GroundVars structs matters even for byte-sized state fields; u8 versus s8 can affect comparisons, casts, and register extension.",
+    "Small helper functions can be matching tools, not just readability tools, especially when isolating arithmetic involving global parameter tables and float constants.",
+    "Ternary forms can better express compiler-selected abs/select idioms than expanded if/else assignments.",
+    "When a config field is later used as an integer random bound, explicit casts in the nonzero test may be necessary to reproduce original codegen."
   ],
   "naming_conventions": [
-    "Exported unresolved functions kept the address-suffixed stage naming pattern, such as grKraid_801FE440, grKraid_801FE6D8, grKraid_801FEA00, and grKraid_801FEE54.",
-    "The stage data symbol naming remained `grKr_804D6A08` with a matching typedef `grKr_804D6A08_t`.",
-    "Ground variable fields remained offset-style names such as x0, x1, x4, x8, xC, x10, x14; this PR refined types before semantic renaming.",
-    "The new file-local helper used lowerCamelCase `getMapRotation()` and was not added to grkraid.h.",
-    "New float helper/local declarations used `f32`, while existing decompiled locals still used `float`.",
-    "Style normalization used a space after commas in prototypes, bitfields formatted as `xC4_0123 : 4`, and arrays formatted as `cloud[3]`."
+    "Stage-specific functions follow the existing grKraid_801Fxxxx address-based naming convention.",
+    "Global Kraid parameter data uses grKr_804D6A08 and typed grKr_804D6A08_t naming.",
+    "Ground variable members remain placeholder offset-style names such as x0, x1, x4, x8, xC, x10 while matching is still in progress.",
+    "The new local helper uses lowerCamelCase getMapRotation(), unlike address-based recovered functions, indicating it is an internal decomp convenience helper rather than a recovered symbol."
   ],
   "assembly_or_matching_tactics": [
-    "Use a truthy float check for `gp->gv.kraid.x4` when explicit `!= 0.0f` changes ordering.",
-    "Try ternary absolute values, e.g. `x < 0.0f ? -x : x`, instead of branchy temp mutation when matching float code.",
-    "Use explicit signed casts in ternary conditions, e.g. `((s32) grKr_804D6A08->kraid_wait_time_add != 0 ? HSD_Randi(...) : 0)`.",
-    "Promote header-level signedness fixes from u8 to s8 for grKraid ground vars when the generated loads/comparisons require signed behavior.",
-    "Prefer a local `Vec pos = { 0.0f, 0.0f, 0.0f }` over a file-scope const zero vector if the target does not reference rodata.",
-    "Small ternary rewrites such as `HSD_Randi(2) != 0 ? gp->gv.kraid2.x3 : gp->gv.kraid2.x4` can close last-byte mismatches.",
-    "Retain known stack shims such as PAD_STACK(0x70) in partially decompiled state-machine functions."
+    "Replace explicit `gp->gv.kraid.x4 != 0.0f` with `if (gp->gv.kraid.x4)` when float comparison ordering differs.",
+    "Use `Vec pos = { 0.0f, 0.0f, 0.0f };` locally for zero-vector camera calls instead of referencing a const global.",
+    "Prefer ternary absolute-value expressions such as `x < 0.0f ? -x : x` when they generate the desired instruction sequence.",
+    "Extract arithmetic such as `((max / min) / 132.0f) * min` into a static helper to influence surrounding codegen in grKraid_801FE6D8.",
+    "Cast `kraid_wait_time_add` to s32 in ternary conditions before HSD_Randi to match integer comparison behavior.",
+    "Correct struct field signedness to match lbz/extsb or signed-byte comparison patterns."
   ],
   "review_feedback": [
     {
-      "source": "decomp-dev[bot]",
-      "feedback": "GALE01 report: matched code 56.28% (+0.06%, +2300 bytes). New matches: grKraid_801FE440 97.82% -> 100.00%, grKraid_801FEA00 99.78% -> 100.00%, grKraid_801FEE54 99.85% -> 100.00%. Improvements: grKraid_801FE6D8 88.93% -> 99.60%, grKraid_801FE818 90.70% -> 91.20%."
+      "source": "decomp-dev bot",
+      "feedback": "GALE01 report showed matched code increased by 0.06% (+2300 bytes), with 3 new grkraid matches and 2 unmatched-item improvements."
     },
     {
-      "source": "human-review",
-      "feedback": "No human review comments or reviews were present in the slice; the PR body was null."
+      "source": "review data",
+      "feedback": "No human review comments or review feedback were present in the provided PR slice."
     }
   ],
   "searchable_terms": [
     "pr-2275",
     "grkraid matches",
     "PsiLupan",
-    "grkraid",
-    "Kraid",
-    "main/melee/gr/grkraid",
     "src/melee/gr/grkraid.c",
     "src/melee/gr/types.h",
     "src/melee/gr/grkraid.h",
@@ -111,41 +107,43 @@
     "grKraid_801FEE54",
     "getMapRotation",
     "grKr_804D6A08",
-    "grKr_803B8278",
-    "map_rot_spd_max",
-    "map_rot_spd_min",
-    "map_time_acl",
-    "map_time_max",
-    "map_time_min",
-    "kraid_wait_time",
-    "kraid_wait_time_add",
-    "kraid_pos_x",
+    "grKraid_GroundVars",
+    "grKraid_GroundVars2",
     "Ground_801C2BA4",
     "Ground_801C3FA4",
     "Ground_801C53EC",
     "Ground_801C5440",
     "Ground_801C5544",
-    "Camera_80030E44",
     "grAnime_801C7FF8",
     "grAnime_801C83D0",
     "HSD_JObjAddRotationZ",
     "HSD_JObjSetTranslateX",
+    "HSD_JObjClearFlagsAll",
+    "HSD_JObjSetFlagsAll",
+    "Camera_80030E44",
     "HSD_Randi",
-    "PAD_STACK(0x70)",
-    "u8 to s8",
-    "float comparison ordering",
-    "Vec pos",
-    "decomp.dev",
-    "GALE01",
-    "+2300 bytes"
+    "map_rot_spd_max",
+    "map_rot_spd_min",
+    "map_time_acl",
+    "kraid_wait_time_add",
+    "signedness",
+    "float truthiness",
+    "zero Vec initializer"
   ],
   "follow_up_queries": [
-    "grKraid_801FE6D8 getMapRotation map_rot_spd_min map_rot_spd_max 99.60",
-    "grKraid_801FE818 kraid_wait_time_add s32 HSD_Randi 91.20",
-    "float != 0.0f incorrect ordering stage matching",
-    "u8 to s8 grKraid_GroundVars grKraid_GroundVars2 signedness",
-    "local zero Vec Camera_80030E44 grKr_803B8278",
-    "grKraid_801FEA00 PAD_STACK(0x70) state machine"
+    "Find other stage PRs where float truthiness matched better than explicit != 0.0f comparisons.",
+    "Search for GroundVars byte fields still typed u8 but used as signed state or index values.",
+    "Look for other camera calls using global zero Vec constants that might match better with local Vec initializers.",
+    "Compare grKraid_801FE6D8 after this PR to see what remains for the final 0.40% unmatched portion.",
+    "Search for helper-extraction tactics similar to getMapRotation in other gr stage files."
   ],
-  "confidence": 0.89
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

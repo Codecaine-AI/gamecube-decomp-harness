@@ -11,15 +11,14 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Small build-tooling PR that prevented macOS builds from selecting the Linux-oriented wibo wrapper. The PR body shows macOS was attempting to run build/tools/wibo and failing with \"cannot execute binary file\"; the diff changes tools/project.py so use_wibo() only returns true on Linux, not Darwin. The PR was closed without a recorded merge and has no review discussion in the provided slice.",
+  "summary": "Small tooling fix for macOS builds: the project tool no longer selects `wibo` on Darwin. The PR body shows macOS attempted to run `build/tools/wibo` instead of `wine`, causing `/bin/sh: build/tools/wibo: cannot execute binary file`; the diff restricts `use_wibo()` to Linux only. The PR was closed without merge according to the provided context, and there were no review comments.",
   "change_classification": {
-    "primary_type": "tooling_platform_fix",
+    "primary_type": "tooling_build_fix",
     "categories": [
       "fix",
       "tooling",
       "build",
-      "platform-compatibility",
-      "macos"
+      "platform-compatibility"
     ],
     "systems": [
       "tooling",
@@ -28,70 +27,73 @@
   },
   "key_files": [
     {
-      "path": "tools/project.py",
-      "reason": "Changed Project.use_wibo platform gate so wibo is only selected on sys.platform == \"linux\"."
+      "file": "tools/project.py",
+      "role": "Changed platform gating in `use_wibo()` so the compiler wrapper uses wibo only on Linux, not macOS."
     }
   ],
   "what_changed": [
-    "Updated tools/project.py in Project.use_wibo from allowing sys.platform == \"linux\" or \"darwin\" to allowing only sys.platform == \"linux\".",
-    "Kept the existing conditions for wibo_tag presence, supported machine architectures, and absence of an explicit wrapper.",
-    "The intended effect is that macOS/Darwin no longer tries to execute build/tools/wibo during compiler invocation; the PR body describes the desired path as using wine instead of wibo.",
-    "No C source, headers, symbols, or matching output changed; this was a one-line build tooling adjustment."
+    "`tools/project.py` changed one condition in `use_wibo()` from allowing `sys.platform == \"linux\" or sys.platform == \"darwin\"` to allowing only `sys.platform == \"linux\"`.",
+    "The PR targeted a macOS build failure where the build tried to execute `build/tools/wibo` for the Metrowerks compiler wrapper path.",
+    "The failure shown in the PR body happened during a Ninja compile command for `src/melee/pl/plstale.c`, ending with `cannot execute binary file`.",
+    "After the change, the PR body reports the build reaching the `PROGRESS` step successfully."
   ],
   "smart_moves": [
-    "Fixed the platform-selection predicate at the source of the wrapper decision rather than adding a macOS-specific workaround at call sites.",
-    "Made the smallest possible diff: one boolean condition changed, reducing risk to unrelated build behavior.",
-    "Preserved architecture checks and explicit-wrapper override behavior, so Linux wibo usage and user-provided wrapper configuration remained untouched.",
-    "Used the concrete macOS failure mode from the build log to justify the platform gate."
+    "Fixed the platform-selection predicate at the source of the wrapper choice instead of adding a local workaround to a single build command.",
+    "Kept the change minimal: one-line conditional update, reducing risk to unrelated compiler wrapper behavior.",
+    "Preserved the existing architecture checks and `self.wrapper is None` guard while narrowing only the unsupported OS case."
   ],
   "decomp_lessons": [
-    "Build wrapper selection must account for both OS and CPU architecture; an available architecture string such as x86_64 is not enough to prove a helper binary is executable on that platform.",
-    "For decompilation projects with custom compiler wrappers, prefer centralizing platform policy in a single helper such as use_wibo() so future ports can be fixed with minimal churn.",
-    "MacOS build regressions can block progress checks even when source matching is unaffected, so build-tooling compatibility is part of maintaining decomp velocity.",
-    "When documenting tooling fixes, include before/after command output; the failure log here made the impact and validation clear."
+    "Build-wrapper selection should be gated by both architecture and operating system; a binary runnable on Linux architectures is not necessarily runnable on macOS.",
+    "For cross-platform decomp tooling, avoid assuming Darwin can use the same prebuilt helper binaries as Linux even when both report `x86_64` or `arm64`.",
+    "A matching/decomp progress command can be used as a practical smoke test after build-tooling changes, but this PR provides only body evidence, not CI or review confirmation."
   ],
   "naming_conventions": [
-    "The boolean helper is named use_wibo(), matching its role as a predicate for whether the wibo wrapper should be selected.",
-    "The optional wrapper-related fields visible in the diff use concise descriptive names: wibo_tag and wrapper.",
-    "No new decomp symbols, structs, headers, or gameplay naming conventions were introduced."
+    "`use_wibo()` is the boolean predicate controlling whether the build should use wibo.",
+    "`wibo_tag`, `wrapper`, and `compiler_wrapper` appear to be existing project-tooling names for selecting compiler execution wrappers.",
+    "No new symbols or naming conventions were introduced."
   ],
   "assembly_or_matching_tactics": [
-    "No assembly or C matching tactics were involved.",
-    "The practical matching-support tactic was to keep macOS builds operational so progress generation and object builds can complete."
+    "No assembly or function-matching tactics were involved; this was a Python build-tooling platform gate.",
+    "The failure occurred while compiling decomp source with `mwcceppc.exe` through `sjiswrap.exe`, showing that wrapper correctness is a prerequisite for normal matching builds."
   ],
   "review_feedback": [
-    "No issue comments, review comments, or reviews are present in the provided PR slice.",
-    "The PR was closed with merged_at null, so the slice does not prove that this exact patch was merged."
+    "No issue comments, review comments, or reviews were present in the provided PR slice.",
+    "The PR was closed with `merged_at: null`, so the slice does not prove this exact patch landed."
   ],
   "searchable_terms": [
     "PR 2417",
     "Fix build from macOS",
-    "macabeus",
-    "tools/project.py",
-    "Project.use_wibo",
-    "use_wibo",
+    "macOS build",
+    "Darwin",
+    "sys.platform",
+    "linux",
     "wibo",
     "wine",
-    "darwin",
-    "linux",
-    "sys.platform",
+    "use_wibo",
+    "compiler_wrapper",
+    "tools/project.py",
+    "cannot execute binary file",
+    "build/tools/wibo",
+    "sjiswrap.exe",
+    "mwcceppc.exe",
     "platform.machine",
     "x86_64",
-    "aarch64",
     "arm64",
-    "compiler_wrapper",
-    "build/tools/wibo",
-    "cannot execute binary file",
-    "macOS build failure",
-    "tooling platform fix",
-    "ninja build stopped",
-    "sjiswrap.exe",
-    "mwcceppc.exe"
+    "aarch64",
+    "ninja build failure"
   ],
   "follow_up_queries": [
-    "Find later or alternate PRs that merged the macOS wibo/wine platform gate, since PR 2417 is closed with no merged_at value.",
-    "Search tools/project.py history for further wrapper-selection changes involving wibo, wine, Darwin, or Apple Silicon.",
-    "Check whether macOS CI or documentation was updated to clarify required wrapper behavior for Metrowerks compiler execution."
+    "Check whether a later PR or commit applied the same `use_wibo()` Darwin exclusion after this PR was closed unmerged.",
+    "Search build-tooling history for macOS wrapper selection between `wibo`, `wine`, and any user-provided `wrapper` configuration.",
+    "Verify whether documentation tells macOS users how to install/configure `wine` for the Metrowerks compiler tools."
   ],
-  "confidence": 0.94
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

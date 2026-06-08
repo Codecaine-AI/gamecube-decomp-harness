@@ -11,22 +11,20 @@
     "merged_at": "2026-03-18T16:43:40Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large tydisplay/ToyDsp decomp PR that replaced many placeholder stubs in src/melee/ty/tydisplay.c with typed C, recovered display/archive/JObj helper structs, and tightened related headers/callsites. decomp.dev reported +5476 matched bytes (+0.14% total matched code), with 8 new full matches and 15 additional tydisplay improvements. The PR body only said it was a tracking PR, so intent beyond matching progress is inferred from the diff and bot report.",
+  "summary": "Large matching/decompilation PR for src/melee/ty/tydisplay.c, replacing many placeholder stubs with implemented tyDisplay routines and adding local structs/types for display grid/config/archive/background data. The PR also adjusted related call sites and headers: Ground_801C5878 now passes tyDisplay_8031C2EC's result into un_8031C454, it_8027CC88 uses a correctly typed s32 stack array and cleaner un_8031C354 pointer arguments, and toy.h gives un_80305D00 a concrete float-returning prototype. Review focused on replacing raw __assert patterns with HSD_ASSERT and on preserving OSPanic string/file handling in a way that helps future matching/linking.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "type-recovery",
       "headers",
-      "callsite-fix",
-      "review-cleanup"
+      "naming",
+      "fix"
     ],
     "systems": [
-      "tydisplay",
-      "toy",
+      "ty",
       "item",
-      "ground/stage",
-      "HSD/baselib archive and JObj"
+      "stage",
+      "melee-core"
     ]
   },
   "key_files": [
@@ -35,119 +33,122 @@
     "src/melee/ty/types.h",
     "src/melee/ty/tylist.h",
     "src/melee/ty/toy.h",
-    "src/melee/it/it_2725.c",
-    "src/melee/gr/ground.c"
+    "src/melee/gr/ground.c",
+    "src/melee/it/it_2725.c"
   ],
   "what_changed": [
-    "Implemented or substantially advanced many tydisplay functions, including un_8031830C, un_80318714, un_80318B1C, un_80318CB4, un_80319540, un_80319994, un_80319EF0, fn_8031A4EC, fn_8031A94C, un_8031B1FC, un_8031B328, un_8031B460_OnEnter, un_8031B850, un_8031BA78, un_8031BC54, un_8031BF34, un_8031C1D0, un_8031C454, un_8031C5E4, and un_8031C8B8.",
-    "decomp.dev reported 8 new full matches in main/melee/ty/tydisplay: fn_8031A94C, fn_8031A4EC, un_8031C5E4, un_8031C454, un_8031B850, un_8031C1D0, un_8031C8B8, and un_8031BA78.",
-    "Added recovered display data types and archive/name-table helpers in tydisplay.c, including TyDspBaseData, TyDspArchiveHolder, TyDspBgData, TyDspArchNames, TyDspNameTables, TyDspSceneGfx, TyDspGrid, TyDspConfig, and TyDspPos.",
-    "Added TySortElem to tydisplay.h and replaced many UNK_RET/UNK_PARAMS declarations with typed prototypes using s32, f32, HSD_GObj, HSD_JObj, and TyDspEntry.",
-    "Added TyDspEntry to ty/types.h with a 0x10-byte STATIC_ASSERT, and changed tylist.h globals un_804D6EAC and un_804D6EB0 from void* to TyDspEntry*.",
-    "Changed un_8031B9DC to return TyDspEntry* and rewrote table walking from raw 0x10-byte pointer arithmetic to typed TyDspEntry iteration.",
-    "Changed un_8031C354 to take an s32 buffer pointer instead of s32 (*)[], then updated it_8027CC88 to use s32 sp1C[10] and natural &sp1C[temp_r3] calls.",
-    "Changed un_8031C454 to take the selected display id and return s32; Ground_801C5878 now calls un_8031C454(temp_r30) before saving stage_info.x6E4[0].",
-    "Corrected toy.h prototype for un_80305D00 from unknown params/return to float un_80305D00(void), matching its use as controller/stick input in fn_8031A4EC and fn_8031A94C.",
-    "Final diff incorporated review cleanup around asserts: raw __assert condition \"0\" cases became HSD_ASSERT line-number calls, and an OSPanic site used __FILE__."
+    "Implemented a large block of previously stubbed tyDisplay functions in src/melee/ty/tydisplay.c, including un_8031830C, un_80318714, un_80318B1C, un_80318CB4, un_80319540, and many later functions indicated by the diff replacing placeholder comments.",
+    "Added many dependencies to tydisplay.c, including db, text drawing, lb archive/audio/vector helpers, mnmain, Dolphin OS, baselib archive/cobj/debug/fog/gobj/jobj/lobj/memory, and MSL math/trig headers.",
+    "Introduced local tyDisplay-related data structures in tydisplay.c such as TyDspBaseData, TyDspArchiveHolder, TyDspBgData, TyDspArchNames, TyDspNameTables, TyDspSceneGfx, TyDspPos, TyDspGrid, and TyDspConfig.",
+    "Added extern declarations for tyDisplay globals and static data such as un_804D6F10, un_804D6F14, un_804D6F18, un_804D6F1C, un_804D6F20, un_804D6F24, un_804A2DE8, un_804A2D98, un_803B8988, and un_803B8A34.",
+    "Implemented sorting logic through an inline quicksort helper used by both un_8031830C and un_80318714, with recursive calls matching the symbol names used by the binary.",
+    "Implemented tyDisplay layout-generation logic visible in the excerpt: circular/ring positioning with trig/random perturbation in un_80318CB4 and grid/row-column positioning in un_80319540.",
+    "Updated Ground_801C5878 so un_8031C454 receives temp_r30, the value returned by tyDisplay_8031C2EC, before storing it in stage_info.x6E4[0].",
+    "Changed it_8027CC88's local sp1C buffer from u32[10] to s32[10] and simplified un_8031C354 calls to pass sp1C and &sp1C[temp_r3] directly rather than casts to s32(*)[].",
+    "Changed toy.h prototype for un_80305D00 from unknown return/params to float un_80305D00(void).",
+    "Updated tydisplay.h, ty/types.h, and tylist.h with additional or corrected declarations/types, though the excerpt only shows their file-level change counts."
   ],
   "smart_moves": [
-    "Recovering TyDspEntry early made multiple functions cleaner at once: un_8031B9DC can return typed entries, un_8031C354 compares entry->x04, tylist.h exposes typed table globals, and item code no longer needs array-pointer casts.",
-    "The PR kept uncertain display-state structs local to tydisplay.c while still adding enough field layout to match archive loading, camera setup, JObj transforms, and cleanup code.",
-    "Using TyDspArchNames/TyDspNameTables allowed 43-entry archive, JObj, and matanim name tables to be copied as structured locals, matching codegen patterns visible in un_8031BC54, un_8031C454, and un_8031C5E4.",
-    "A shared inline quicksort helper let the two sort wrapper symbols un_8031830C and un_80318714 share C logic while preserving the required public symbols.",
-    "The PR fixed dependent prototypes and callsites in ground.c, it_2725.c, toy.h, tydisplay.h, tylist.h, and types.h in the same slice, avoiding a header-only mismatch.",
-    "Reviewer comments were applied in the final diff: HSD_ASSERT replaced hand-written __assert(\"tydisplay.c\", line, \"0\") style code where appropriate."
+    "Kept duplicated sorting entry points un_8031830C and un_80318714 as separate exported functions while sharing implementation through an inline quicksort helper, preserving symbol-level behavior without duplicating all logic.",
+    "Used explicit layout structs with offset comments for tyDisplay state, which makes future matching work around archive holders, scene graphics, grids, and config fields easier to audit.",
+    "Typed the it_8027CC88 stack buffer as s32, allowing cleaner pointer arithmetic and removing noisy casts around un_8031C354 calls.",
+    "Converted a raw assert pattern in the visible diff to HSD_ASSERT(0xC6, 0), matching reviewer guidance and project conventions for baselib debug assertions.",
+    "Ground call-site fix suggests the decompilation clarified un_8031C454's parameter contract: the selected/display id from tyDisplay_8031C2EC is an input, not just a side-effect-free preceding call."
   ],
   "decomp_lessons": [
-    "When a recovered function signature changes, update all affected callsites immediately; un_8031C454 needed both the typed prototype and Ground_801C5878 passing temp_r30.",
-    "For stack buffers passed to recovered APIs, prefer the true element type and pointer form; s32 sp1C[10] plus &sp1C[temp_r3] was cleaner than casting to s32 (*)[].",
-    "Typed data-table recovery can unlock both matching and readability: TyDspEntry converted magic offsets x00/x04/x08/x0C into consistent field accesses while keeping unknown semantics honest.",
-    "Use HSD_ASSERT(line, condition) for HSD assert sites whose string is just condition \"0\"; this matched reviewer guidance and avoids unnecessary file/string literals.",
-    "For OSPanic sites, reviewer guidance was to use __FILE__ and declare/use the real string because it helps matching and later linking.",
-    "Distinguish full matches from partial improvements in records: this PR added 8 full matches but also left several implemented functions as high-percent unmatched improvements."
+    "When an assert in decompiled code appears as __assert(\"file\", line, \"0\"), prefer the project's HSD_ASSERT(line, 0) form when that matches the intended baselib assertion path.",
+    "For OSPanic-like sites, reviewers prefer using __FILE__ for the filename and declaring the actual panic string when needed; this can make later matching and linking easier.",
+    "Do not leave one-off static strings above a function if they can be used directly in the actual call; unnecessary static declarations can make matching/linking harder.",
+    "If a stack array is semantically signed, type it as s32 rather than u32 and avoid function-pointer/array casts; cleaner types can improve both readability and match stability.",
+    "Wrapper functions can preserve multiple binary entry points while reusing one inline implementation, but recursive calls may still need to name the real exported symbols to match generated control flow.",
+    "For data-heavy UI/display code, local structs with offset-accurate padding are useful until symbols and shared headers mature; keep names descriptive enough to be searchable but avoid overclaiming unknown fields."
   ],
   "naming_conventions": [
-    "Display-specific recovered structs use the TyDsp prefix: TyDspEntry, TyDspGrid, TyDspConfig, TyDspBgData, TyDspArchNames, TyDspNameTables, TyDspSceneGfx, and TyDspPos.",
-    "When semantics are not yet known, fields stay offset-based, such as x00, x04, x05, x08, x0C, pad_06, x04_min_x, x08_min_z, x0C_max_x, and x10_max_z.",
-    "Small helper sort records can use semantic names when clear: TySortElem has key and val.",
-    "Headers should replace UNK_RET/UNK_PARAMS with precise prototypes once callsites establish types, using forward declarations for HSD_GObj and HSD_JObj rather than pulling full headers into public headers.",
-    "Existing lifecycle suffix conventions were preserved for entrypoints such as un_803182D4_OnFrame, un_8031B9A4_OnFrame, and un_8031B460_OnEnter.",
-    "Address-based names like un_804D6F10, un_804D6F14, un_804D6F18, un_803B8988, and un_803B8A34 were retained where stronger semantic names were not proven."
+    "Local tyDisplay structs use the TyDsp prefix: TyDspBaseData, TyDspArchiveHolder, TyDspBgData, TyDspArchNames, TyDspNameTables, TyDspSceneGfx, TyDspPos, TyDspGrid, TyDspConfig.",
+    "Unknown struct fields are named by offset or rough role, such as x04_min_x, x08_min_z, x0C_max_x, x10_max_z, x75, x78, pad_04, pad_FC, and pad_106.",
+    "Function names largely remain address-based/unresolved, such as un_8031830C, un_80318714, un_80318B1C, un_80318CB4, un_80319540, un_8031C354, and un_8031C454.",
+    "Existing mixed naming is preserved for exported tyDisplay functions with partial semantic prefixes, such as tyDisplay_8031C2CC and tyDisplay_8031C2EC.",
+    "Array/table fields use descriptive plural names where evidence is clear, such as jobj_names, matanim_names, arch_names, entries, pos, and sort."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK in several routines, including quicksort/layout/camera code, to shape stack frames for matching.",
-    "Preserved odd-looking sort behavior by casting TyDspPos storage to TySortElem* where the original code sorts 8-byte records through the same key/value layout.",
-    "Preserved bit-level comparisons where needed, such as comparing *(s32*)&sort[n].val in one sort path rather than forcing a high-level float comparison.",
-    "Used explicit goto labels and small scoped blocks in layout and setup routines to control register lifetimes and branch structure.",
-    "Kept HSD archive/JObj loading calls close to original string-table access patterns, including HSD_ArchiveGetPublicAddress, lbArchive_LoadSymbols, HSD_JObjLoadJoint, and un_80306A48.",
-    "Introduced a small inline helper un_8031C5E4_inline for archive public-address lookup, likely to match call/inlining behavior in un_8031C5E4."
+    "Used PAD_STACK in implemented functions, including PAD_STACK(16), PAD_STACK(0x50), and PAD_STACK(0x28), to preserve stack layout for matching.",
+    "Used an inline quicksort helper with explicit temporary swaps, pivot selection from midpoints, and recursive calls through un_8031830C/un_80318714 to match the original control flow.",
+    "Used bit-level comparison syntax like *(s32*) &sort[n].val in the visible sorting logic, implying a match-driven treatment of values rather than a purely semantic typed comparison.",
+    "Kept gotos/retry-style control flow in collision-resolution logic, which is often necessary for matching decompiled loops with non-structured original flow.",
+    "Used concrete constants from the binary-visible behavior, including 0x125, 0x124, 0x12E4, 9.0f, 11.0f, 3.5f, 0.017453292f, 360.0f, and 2.1474836e9f.",
+    "Reviewer feedback indicates assert and panic spelling/file/string choices affect matching and future linking, not just style."
   ],
   "review_feedback": [
-    "PsiLupan requested replacing raw __assert sites with HSD_ASSERT, noting the assert string appeared to be just condition 0.",
-    "A second assert site received the same HSD_ASSERT guidance.",
-    "For an OSPanic site, PsiLupan asked to replace the filename with __FILE__ and declare/use the actual string because it makes matching and linking the file later easier.",
-    "PsiLupan also noted that a static string did not need to be declared above and should be used directly in the actual function call."
+    {
+      "file": "src/melee/ty/tydisplay.c",
+      "feedback": "Use HSD_ASSERT instead of raw __assert for an assert whose string is just condition \"0\"."
+    },
+    {
+      "file": "src/melee/ty/tydisplay.c",
+      "feedback": "Apply the same HSD_ASSERT replacement at another similar assert site."
+    },
+    {
+      "file": "src/melee/ty/tydisplay.c",
+      "feedback": "For an OSPanic site, replace the filename with __FILE__ and declare the actual string because it makes matching and linking the file later easier."
+    },
+    {
+      "file": "src/melee/ty/tydisplay.c",
+      "feedback": "A string/static should be used directly in the actual function call rather than declared as a separate static above when unnecessary."
+    }
   ],
   "searchable_terms": [
     "pr-2297",
     "tydisplay",
-    "ToyDsp",
-    "ToyDspEntry",
-    "TyDspEntry",
-    "TySortElem",
+    "tyDisplay",
+    "jurrejelle",
+    "src/melee/ty/tydisplay.c",
+    "src/melee/ty/tydisplay.h",
     "TyDspGrid",
     "TyDspConfig",
+    "TyDspPos",
     "TyDspBgData",
     "TyDspArchNames",
     "TyDspNameTables",
+    "TyDspArchiveHolder",
+    "TySortElem",
+    "quicksort",
     "un_8031830C",
     "un_80318714",
-    "quicksort",
     "un_80318B1C",
     "un_80318CB4",
     "un_80319540",
-    "un_80319994",
-    "un_80319EF0",
-    "fn_8031A4EC",
-    "fn_8031A94C",
-    "un_8031B1FC",
-    "un_8031B328",
-    "un_8031B460_OnEnter",
-    "un_8031B850",
-    "un_8031B9DC",
-    "un_8031BA78",
-    "un_8031BC54",
-    "un_8031BF34",
-    "un_8031C1D0",
     "un_8031C354",
     "un_8031C454",
-    "un_8031C5E4",
-    "un_8031C8B8",
     "tyDisplay_8031C2CC",
     "tyDisplay_8031C2EC",
     "Ground_801C5878",
+    "stage_info.x6E4",
     "it_8027CC88",
+    "sp1C",
     "un_80305D00",
     "HSD_ASSERT",
-    "OSPanics",
     "OSPanic",
     "__FILE__",
     "PAD_STACK",
-    "lbArchive_LoadSymbols",
-    "HSD_ArchiveGetPublicAddress",
-    "HSD_JObjLoadJoint",
-    "DevText",
-    "ToyDspBg_Top_joint",
-    "ToyDspPanel_Top_joint",
-    "ScMenDisplay_scene_lights",
-    "ScMenDisplay_fog"
+    "HSD_Randi",
+    "HSD_Randf",
+    "HSD_JObjSetTranslateX",
+    "HSD_JObjSetTranslateZ"
   ],
   "follow_up_queries": [
-    "Later PRs that rename or document TyDspEntry fields x00 x04 x05 x08 x0C",
-    "Remaining tydisplay partial matches after PR 2297: un_80318CB4 un_80319540 un_80319994 un_80319EF0 un_8031B460_OnEnter",
-    "HSD_ASSERT versus __assert review guidance in melee decomp PRs",
-    "un_8031C354 s32 buffer callsites and item it_8027CC88 cleanup",
-    "ToyDsp archive name tables un_803B8988 un_803B8A34 and HSD_ArchiveGetPublicAddress matching"
+    "Inspect final merged src/melee/ty/tydisplay.c to identify which additional placeholder functions beyond the excerpt were implemented and whether any remain stubbed.",
+    "Check src/melee/ty/tydisplay.h and src/melee/ty/types.h final declarations to see which TyDsp or TySortElem types should move from local C definitions into shared headers.",
+    "Review all assert and OSPanic sites in tydisplay.c for consistency with HSD_ASSERT, __FILE__, and declared panic-string conventions.",
+    "Search uses of un_8031C354 and un_8031C454 to confirm their inferred signatures and whether they can be renamed or better typed.",
+    "Verify whether un_80305D00's float void prototype enabled additional toy/tydisplay matches or should be propagated to call sites."
   ],
-  "confidence": 0.89
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

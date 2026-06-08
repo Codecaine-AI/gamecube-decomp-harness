@@ -11,126 +11,85 @@
     "merged_at": "2026-03-02T16:51:34Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched and linked the Kyasarin egg item unit by converting `src/melee/it/items/itkyasarinegg.c` from NonMatching to Matching, implementing its state table, spawn/init helpers, motion/collision callbacks, damage/contact handlers, and the supporting item-vars/attribute structs. decomp.dev reported 11 new matches for `main/melee/it/items/itkyasarinegg`, including +1756 bytes matched code, +2300 bytes linked code, and +88 bytes matched/linked data. The PR had no body and no line comments; it was approved with \"Very nice!\"",
+  "summary": "Matched and linked the Kyasarin egg item implementation by changing itkyasarinegg.c from NonMatching to Matching in configure.py, adding its item state table, spawn/setup logic, collision/physics/animation callbacks, damage interaction handlers, and required item-variable and attribute structs. The PR also updated headers and the Item item-var union so kyasarinEgg per-item state could be accessed by name.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "linking",
       "item-logic",
       "headers",
-      "struct-layout",
-      "build-config"
+      "structs",
+      "build-linkage"
     ],
     "systems": [
       "item",
-      "it",
-      "itkyasarinegg",
       "kyasarin",
-      "collision",
-      "effects",
-      "repo-root"
+      "configure"
     ]
   },
   "key_files": [
-    {
-      "path": "configure.py",
-      "role": "Changed `melee/it/items/itkyasarinegg.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)`."
-    },
-    {
-      "path": "src/melee/it/items/itkyasarinegg.c",
-      "role": "Main matching work: added `it_803F9328`, spawn/init routines, motion/collision callbacks, contact/damage callbacks, and inline shared damage logic."
-    },
-    {
-      "path": "src/melee/it/items/itkyasarinegg.h",
-      "role": "Added prototypes and corrected callback return types for the matched Kyasarin egg implementation."
-    },
-    {
-      "path": "src/melee/it/itCommonItems.h",
-      "role": "Added `itKyasarinEgg_ItemVars` and `itKyasarinEggAttributes` layouts."
-    },
-    {
-      "path": "src/melee/it/types.h",
-      "role": "Added `kyasarinEgg` to the `Item` union for `xDD4_itemVar` access."
-    }
+    "configure.py",
+    "src/melee/it/items/itkyasarinegg.c",
+    "src/melee/it/items/itkyasarinegg.h",
+    "src/melee/it/itCommonItems.h",
+    "src/melee/it/types.h"
   ],
   "what_changed": [
-    "`configure.py` now treats `melee/it/items/itkyasarinegg.c` as `Matching`, linking the newly matched item code into the build.",
-    "Added `itKyasarinEgg_ItemVars` with explicit padding and offsets through `ip+DF8`, plus `itKyasarinEggAttributes` fields `x0`, `x4`, `x8`, `xC`, and `x10` in `itCommonItems.h`.",
-    "Added the `kyasarinEgg` member to the `Item` `xDD4_itemVar` union so code can reference `egg->xDD4_itemVar.kyasarinEgg.x20` instead of raw offsets.",
-    "Defined `ItemStateTable it_803F9328[]` with five state entries using `itKyasarinegg_UnkMotion0_Coll`, `itKyasarinegg_UnkMotion1_Phys/Coll`, `itKyasarinegg_UnkMotion3_Phys/Coll`, and `itKyasarinegg_UnkMotion4_Anim`.",
-    "Implemented `it_802EFA44` to create item kind `0xEC`, set facing direction and collision facing direction, clear/set item flags and vars, and enter the egg init path.",
-    "Implemented `it_802EFB0C` to reset/init the egg, apply horizontal velocity from special attributes and facing direction, zero vertical/depth velocity, and switch to state 0.",
-    "Implemented bounce/transition helper `it_802EFCC0`, which switches to state 1, reverses X velocity, and applies Y velocity from `itKyasarinEggAttributes.x8`.",
-    "Implemented `it_802EFD84`, which calls several item cleanup/state helpers, zeroes X/Y velocity, marks `kyasarinEgg.x20 = 1`, and switches to state 4.",
-    "Added shared inline contact logic `it_damage_inline` and routed `it_2725_Logic28_DmgDealt`, `it_2725_Logic28_Clanked`, `it_2725_Logic28_HitShield`, `it_2725_Logic28_Reflected`, and `it_802F022C` through it.",
-    "The shared contact logic handles the already-settled `x20` guard, non-motion-3 bounce behavior, effect spawn `efSync_Spawn(0x4d0, ...)`, `Item_8026AE84`, random branch `HSD_Randi(ap->x10)`, `it_802EFD84`, and `it_8026F3D4`.",
-    "Updated header signatures for matching-sensitive callbacks: `itKyasarinegg_UnkMotion1_Coll` became `int`, `itKyasarinegg_UnkMotion3_Coll` became `int`, and `itKyasarinegg_UnkMotion4_Anim` became `bool`."
+    "Marked src/melee/it/items/itkyasarinegg.c as Matching instead of NonMatching in configure.py.",
+    "Added ItemStateTable it_803F9328 for the Kyasarin egg, with entries wiring motion callbacks such as itKyasarinegg_UnkMotion0_Coll, itKyasarinegg_UnkMotion1_Phys/Coll, itKyasarinegg_UnkMotion3_Phys/Coll, and itKyasarinegg_UnkMotion4_Anim.",
+    "Implemented egg creation/setup routine it_802EFA44, which spawns item kind 0xEC, sets facing_dir and mpColl facing direction, clears/set item flags and kyasarinEgg item vars, and transitions into initial motion setup via it_802EFB0C.",
+    "Implemented launch/setup routine it_802EFB0C using special attributes to set initial horizontal velocity and transition to item state 0.",
+    "Filled in motion and callback behavior for picked up, dropped, thrown, ground/air physics, collision bounce, shield bounce, damage/clank/shield/reflection handlers, and terminal cleanup/animation state.",
+    "Added itKyasarinEgg_ItemVars with padding through ip+DD4, x20 at ip+DF4, and x24 at ip+DF8, and added itKyasarinEggAttributes with fields x0, x4, x8, xC, and x10.",
+    "Added kyasarinEgg to the Item xDD4_itemVar union in src/melee/it/types.h.",
+    "Adjusted header prototypes to match actual return types: collision callbacks use int/bool as appropriate and motion 4 animation returns bool.",
+    "Added includes needed by the new implementation: efsync.h, mpcoll.h, mplib.h, and baselib/random.h."
   ],
   "smart_moves": [
-    "Used an `inline bool it_damage_inline(Item_GObj*)` helper so five externally visible contact callbacks could share identical logic while still producing separate matched functions; decomp.dev reported each of those wrappers as a new 100% match.",
-    "Added small `PAD_STACK` annotations (`0x50` in `it_802EFA44`, `0x8` in the contact wrappers) to satisfy stack-layout matching requirements.",
-    "Matched both code and data by adding the `ItemStateTable` in the C file and then flipping the build config to `Object(Matching, ...)` only after `.data` and `.sdata2` also matched.",
-    "Typed the item-var and special-attribute accesses before implementing behavior, making offset-sensitive code such as `kyasarinEgg.x20`, `ap->x4`, `ap->x8`, `ap->xC`, and `ap->x10` readable and reusable.",
-    "Preserved unidentified address-based names for functions whose semantics were not established, avoiding overconfident renaming while still progressing the match."
+    "Promoted the file to Matching only after wiring both implementation and build configuration, ensuring the object is actually linked as matched.",
+    "Introduced named item-variable and special-attribute structs instead of relying on raw offsets, making accesses like xDD4_itemVar.kyasarinEgg.x20 and xC4_article_data->x4_specialAttributes reusable and easier to audit.",
+    "Shared identical damage-response behavior across several callbacks through an inline helper it_damage_inline, then used PAD_STACK(0x8) wrappers in the exported callbacks to preserve matching-sensitive stack behavior.",
+    "Used explicit state transitions through Item_80268E5C and the item state table to encode motion-state behavior rather than leaving callback relationships implicit.",
+    "Preserved matching-sensitive details such as PAD_STACK(0x50) in the spawn path and PAD_STACK(0x8) around damage-style callbacks.",
+    "Handled facing direction consistently by setting both Item.facing_dir and mpCollSetFacingDir based on the float direction."
   ],
   "decomp_lessons": [
-    "For item object files, matching often requires coordinating three layers at once: the C implementation, the exported header prototypes, and `configure.py`'s Matching/NonMatching object status.",
-    "Item state-table data can be a matching blocker; reconstructing `ItemStateTable` entries with exact motion IDs and callback pointers can unlock `.data` matches as well as code matches.",
-    "When several item event callbacks compile to the same body, an inline helper plus tiny `PAD_STACK` wrappers can be an effective way to match repeated compiler output without duplicating hand-written code.",
-    "Adding item-specific structs to `itCommonItems.h` and the `Item` union in `types.h` is preferable to raw offset access when the layout is known enough to name fields and padding.",
-    "Callback return types are matching-sensitive. This PR changed some prototypes from `void`/`s32` to `int`/`bool` to fit the matched implementation and state-table usage.",
-    "Evidence for intent is limited because the PR body was empty and there were no line review comments; conclusions here are based mainly on the diff and the decomp.dev match report."
+    "When matching item files, update configure.py from NonMatching to Matching only alongside complete callback implementations and headers.",
+    "Item-specific xDD4 data should be represented by a typed *_ItemVars struct and added to the Item union once offsets are understood.",
+    "Article special attributes should get a named attribute struct in itCommonItems.h when multiple fields are read in behavior code.",
+    "Matching item callbacks may require exact return types in headers, even for functions whose bodies do not visibly return a value in the excerpt.",
+    "Small wrapper functions with PAD_STACK can be necessary when several externally referenced callbacks share one inline body.",
+    "State tables are central evidence for item motion callback ordering; matching work should keep table entries and callback prototypes synchronized.",
+    "Spawning item articles often requires initializing facing, collision facing direction, item flags, per-item vars, velocity, and initial motion state in a tightly ordered sequence."
   ],
   "naming_conventions": [
-    "State/motion callbacks use the existing `itKyasarinegg_UnkMotionN_{Anim,Phys,Coll}` pattern.",
-    "Logic28 callbacks use the existing item-specific `itKyasarinEgg_Logic28_*` pattern for named events such as `PickedUp`, `Dropped`, `Thrown`, and `ShieldBounced`.",
-    "Still-unknown functions remain address-named, including `it_802EFA44`, `it_802EFB0C`, `it_802EFCC0`, `it_802EFD84`, `it_802F022C`, and `it_802F0320`.",
-    "The item state table remains address-named as `it_803F9328`.",
-    "Item-specific structs use `itKyasarinEgg_ItemVars` and `itKyasarinEggAttributes`; the item union member uses lower camel-case `kyasarinEgg`.",
-    "Struct comments include both local field offsets and item-pointer-relative offsets such as `ip+DD4`, `ip+DF4`, and `ip+DF8`."
+    "Struct names follow the item-specific pattern itKyasarinEgg_ItemVars and itKyasarinEggAttributes.",
+    "Per-item union member uses lower camel case kyasarinEgg.",
+    "Logic callbacks use the pattern itKyasarinEgg_Logic28_PickedUp, Dropped, Thrown, and ShieldBounced.",
+    "Unidentified motion callbacks retain address/motion-style names such as itKyasarinegg_UnkMotion0_Coll and itKyasarinegg_UnkMotion3_Phys.",
+    "Unidentified exported functions retain address names such as it_802EFA44, it_802EFB0C, it_802EFCC0, it_802EFD84, and it_802F022C.",
+    "The PR preserves the existing mixed spelling/casing distinction between file/function prefixes itkyasarinegg, itKyasarinegg, and itKyasarinEgg rather than normalizing it without evidence."
   ],
   "assembly_or_matching_tactics": [
-    "`PAD_STACK(0x50)` was used in the spawn function `it_802EFA44`; `PAD_STACK(0x8)` was used in the small damage/contact wrappers.",
-    "`inline bool it_damage_inline` was used to reproduce repeated contact-handler bodies for `DmgDealt`, `Clanked`, `HitShield`, `Reflected`, and `it_802F022C`.",
-    "Exact state-table construction was necessary: entries use motion IDs `0`, `-1`, `-1`, `1`, and `2` with specific anim/phys/coll callback slots.",
-    "Facing direction is converted to a signed collision direction (`-1` when `facing_dir == -1.0f`, otherwise `1`) before calling `mpCollSetFacingDir`.",
-    "Bounce behavior matches by reversing `egg->x40_vel.x` and loading `egg->x40_vel.y` from `itKyasarinEggAttributes.x8`.",
-    "Randomized hit behavior uses `HSD_Randi(ap->x10) == 0` to choose between `it_802EFD84` and `it_8026F3D4`.",
-    "The source contains a local comment questioning `Item_8026AE84` inlining (`//why is this being inlined?`), which is useful evidence that inlining behavior was part of the match puzzle."
+    "Changed the object to Matching in configure.py after matching the source.",
+    "Used PAD_STACK(0x50) in it_802EFA44 and PAD_STACK(0x8) in several damage-interaction wrappers to satisfy stack layout.",
+    "Factored repeated damage behavior into inline bool it_damage_inline(Item_GObj* gobj), likely to reproduce compiler inlining across multiple callbacks.",
+    "Kept magic constants from the matched binary where names were not established, including item kind 0xEC, effect id 0x4d0, sound/effect args 0xf4/0x7f/0x40, and state IDs 0 through 4.",
+    "Used HSD_Randi(ap->x10) to reproduce randomized outcome behavior in the damage path.",
+    "Matched callback signatures in the header to the implementation, including int collision callbacks and bool animation/damage callbacks."
   ],
   "review_feedback": [
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported 11 new matches for `main/melee/it/items/itkyasarinegg`: +1756 matched code bytes, +2300 linked code bytes, and +88 matched/linked data bytes."
-    },
-    {
-      "source": "ribbanya",
-      "feedback": "Approved with the review text: \"Very nice!\""
-    },
-    {
-      "source": "pr_body_and_line_comments",
-      "feedback": "No PR body and no line review comments were present in the slice."
-    }
+    "No review comments were included in the provided PR context.",
+    "The diff contains an inline author/code comment near Item_8026AE84: \"why is this being inlined?\", suggesting uncertainty about the matching behavior of that call, but no reviewer discussion is available in the slice."
   ],
   "searchable_terms": [
     "pr-2197",
     "itkyasarinegg",
-    "Kyasarin Egg",
-    "Catherine egg",
+    "Kyasarin egg",
     "Match and Link itkyasarinegg",
-    "configure.py",
-    "Object(Matching)",
-    "src/melee/it/items/itkyasarinegg.c",
-    "src/melee/it/items/itkyasarinegg.h",
-    "src/melee/it/itCommonItems.h",
-    "src/melee/it/types.h",
+    "MarioLover63",
     "ItemStateTable",
     "it_803F9328",
-    "itKyasarinEgg_ItemVars",
-    "itKyasarinEggAttributes",
-    "kyasarinEgg",
-    "xDD4_itemVar.kyasarinEgg.x20",
     "it_802EFA44",
     "it_802EFB0C",
     "it_802EFCC0",
@@ -138,29 +97,35 @@
     "it_802F022C",
     "it_802F0320",
     "it_damage_inline",
+    "itKyasarinEgg_ItemVars",
+    "itKyasarinEggAttributes",
+    "kyasarinEgg",
+    "xDD4_itemVar",
+    "PAD_STACK",
+    "efSync_Spawn",
+    "HSD_Randi",
+    "mpCollSetFacingDir",
+    "Item_80268E5C",
     "it_2725_Logic28_DmgDealt",
     "it_2725_Logic28_Clanked",
     "it_2725_Logic28_HitShield",
     "it_2725_Logic28_Reflected",
-    "itKyasarinEgg_Logic28_ShieldBounced",
-    "itKyasarinEgg_Logic28_PickedUp",
-    "itKyasarinEgg_Logic28_Dropped",
-    "itKyasarinEgg_Logic28_Thrown",
-    "PAD_STACK",
-    "HSD_Randi",
-    "efSync_Spawn",
-    "Item_8026AE84",
-    "it_8026F3D4",
-    "mpCollSetFacingDir",
-    "item kind 0xEC",
-    "effect 0x4d0",
-    "Logic28"
+    "itKyasarinEgg_Logic28_ShieldBounced"
   ],
   "follow_up_queries": [
-    "Find later PRs that rename or document `it_802EFA44`, `it_802EFB0C`, `it_802EFCC0`, `it_802EFD84`, or `it_802F022C`.",
-    "Search for later uses of `itKyasarinEggAttributes.x0/x4/x8/xC/x10` and `itKyasarinEgg_ItemVars.x24` to recover field meanings.",
-    "Compare other item `Logic28` contact handlers that use an inline helper plus `PAD_STACK(0x8)` wrappers.",
-    "Investigate whether the `//why is this being inlined?` comment around `Item_8026AE84` was cleaned up or explained in a later matching PR."
+    "Find later PRs that rename it_802EFA44, it_802EFB0C, it_802EFCC0, it_802EFD84, or it_802F022C.",
+    "Search for follow-up discussion about the inline comment \"why is this being inlined?\" near Item_8026AE84.",
+    "Compare Kyasarin egg item state table patterns with other common item article eggs or projectiles.",
+    "Search for subsequent refinements to itKyasarinEggAttributes field names x4, x8, xC, and x10.",
+    "Check whether itKyasarinegg_UnkMotion1_Coll returning int without an explicit return was later cleaned up or required for matching."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

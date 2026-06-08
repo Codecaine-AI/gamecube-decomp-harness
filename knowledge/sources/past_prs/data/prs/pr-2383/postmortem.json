@@ -11,7 +11,7 @@
     "merged_at": "2026-04-07T00:25:17Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged continuation of Corneria stage decomp work from #2381. The PR focused on grcorneria Arwing spawning/attachment/projectile behavior, added typed Ground/Arwing overlays, and improved matching across many Corneria functions. decomp.dev reported +4492 matched bytes, 8 new 100% matches, and major partial progress on grCorneria_801DED50 and grCorneria_801DCE1C.",
+  "summary": "Continued Corneria stage decompilation from PR #2381, with a large pass over src/melee/gr/grcorneria.c and supporting Ground variable headers. The PR added/rewrote substantial Arwing and Corneria behavior logic, fully matching 8 grcorneria functions and improving 10 more, including large partial matches for grCorneria_801DED50 and grCorneria_801DCE1C. It also corrected several struct field types and added a second Corneria ground-vars overlay to model callbacks that reuse the same Ground gv union bytes with a different interpretation.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -19,74 +19,77 @@
       "headers",
       "struct-layout",
       "stage-logic",
-      "item-integration"
+      "cleanup"
     ],
     "systems": [
       "stage",
       "ground",
-      "grcorneria",
+      "corneria",
+      "arwing",
       "items",
-      "player"
+      "audio"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grcorneria.c",
-      "role": "Main Corneria stage implementation. Added/reworked Arwing scheduling, Arwing child-object initialization/update, projectile/item spawning, background/camera helper matching, assertions, and smash-taunt/dialog setup."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Ground/stage layout fixes. Added grCorneria_GroundVars2 overlay, changed grArwing_GroundVars xE0/xE4/xE8 into a Vec3, and retyped several Corneria fields."
-    }
+    "src/melee/gr/grcorneria.c",
+    "src/melee/gr/types.h"
   ],
   "what_changed": [
-    "Added includes for it/items/itarwinglaser.h and pl/player.h, supporting calls such as it_802E72E0, it_802E7654, Player_GetPlayerSlotType, and Player_LoadPlayerCoords.",
-    "Retyped grCn_StageData fields x1C, x20, x28, x2C, and x68 from s32 to f32 where the stage data is used as floating-point configuration.",
-    "Adjusted grCn_Data layout by flattening x3D8 from s32[9][3] to s32[27] and exposing x478[3] before the remaining padding.",
-    "Added grCorneria_801DCE1C in C as the Arwing spawn scheduler: it handles stage 0x46 suppression, normal versus special grCn_804D69B0 modes, arwing_gobj slot counts, timers, unique type selection, far/near checks, random group selection, and grCn_SpawnArwing calls.",
-    "Replaced the no-match marker for grCorneria_801DED50 with a large partial C implementation covering Arwing-linked child object updates, animations, position derivation from Arwing/ship joints, firing cadence, blast-zone checks, angle normalization, audio cues, Arwing laser item spawning, Great Fox laser calls, and cleanup when the parent Arwing disappears.",
-    "Matched/reworked grCorneria_801DE8E4 and grCorneria_801DF8D0 around the new gv.corneria2 overlay, including type switches for arwing_type 1-9 versus 10-13, child object creation/copying, scale setup, flags, timers, and sentinel pointer fields.",
-    "Changed grArwing_GroundVars so the former xE0/xE4/xE8 scalar floats are represented as Vec3 xE0, then updated Arwing code to use xE0.x/y/z and pass &xE0 to HSD_JObjSetTranslate.",
-    "Added struct grCorneria_GroundVars2 to the Ground gv union, documented as Arwing slot ground vars for callbacks 2 and 10, with pointer/integer fields overlapping grCorneria_GroundVars.",
-    "Improved smaller matching sites in grCorneria_801DCCFC, grCorneria_801DDAC4, grCorneria_801DDE88, grCorneria_801DE024, grCorneria_801DE568, grCorneria_801E03C8, grCorneria_801E08CC, grCorneria_801E0A74, grCorneria_801E0E40, grCorneria_801E1060, grCorneria_801E1348, grCorneria_801E1970, grCorneria_801E1BF0, grCorneria_801E2228, and grCorneria_801E25C4.",
-    "decomp.dev reported new 100% matches for grCorneria_801DE8E4, grCorneria_801DF8D0, grCorneria_801DDE88, grCorneria_801E08CC, grCorneria_801E1970, grCorneria_801E1060, grCorneria_801DCCFC, and grCorneria_801E2228."
+    "Added includes for it/items/itarwinglaser.h and pl/player.h in grcorneria.c, consistent with new Arwing laser/item spawning and player-coordinate logic in the diff.",
+    "Changed grCn_StageData fields at offsets 0x1C, 0x20, 0x28, 0x2C, and 0x68 from s32 to f32, reflecting float use in stage timing/position/chance calculations.",
+    "Refined grCn_Data layout: x3D8 changed from s32[9][3] to flat s32[27], and the former pad at 0x478 was split into x478[3] plus padding.",
+    "Added a nontrivial implementation of grCorneria_801DCE1C for Arwing spawn scheduling, slot counting, unique type selection, far/near checks, and handling the Stage_80225194() == 0x46 case by clearing Arwing gobj slots.",
+    "Reworked Arwing helper logic such as grCn_CheckFar and grCn_PickUniqueType with signed rand_id comparisons and condition-order changes that helped matching.",
+    "Implemented grCorneria_801DED50, a large Arwing/Corneria callback handling linked Arwing state, animation state/timers, position synchronization, blast-zone checks, laser firing, player targeting, audio calls, material effects, and cleanup of child gobjs.",
+    "Converted several grCorneria callbacks to use grCn_Data* data = &grCn_803E1D38 locals, reducing repeated global accesses and affecting codegen.",
+    "Converted grCorneria_801DE8E4 and grCorneria_801DF8D0 from generic grCorneria_GroundVars pointer-punning to the new grCorneria_GroundVars2 overlay, using explicit HSD_GObj* fields and switch cases for Arwing type ranges 1-9 and 10-13.",
+    "Changed grArwing_GroundVars fields xE0/xE4/xE8 from separate floats to Vec3 xE0, and updated code to write gp->gv.arwing.xE0.x/y/z and pass &gp->gv.arwing.xE0 to HSD_JObjSetTranslate.",
+    "Added struct grCorneria_GroundVars2 to types.h and added it to the Ground gv union as corneria2.",
+    "Adjusted grCorneria_GroundVars signedness and types: x10C/x110 became s32 and x118 became s8.",
+    "Introduced Fake_HSD_JObjSetTranslateX inline for grCorneria_801E1060, manually writing jobj->translate.x and dirtying the matrix to match expected codegen.",
+    "Updated existing callbacks including grCorneria_801DCCFC, grCorneria_801DDAC4, grCorneria_801DDE88, grCorneria_801DE024, grCorneria_801DE568, grCorneria_801E08CC, grCorneria_801E1060, grCorneria_801E1348, grCorneria_801E1970, grCorneria_801E2228, and grCorneria_801E2598 for better matching.",
+    "decomp.dev reported 8 new full matches and +4492 matched bytes overall for GALE01, with matched code increasing by +0.12% to 62.18%."
   ],
   "smart_moves": [
-    "Introduced grCorneria_GroundVars2 instead of continuing to force Arwing-slot state through grCorneria_GroundVars casts; this made pointer fields, counters, and slot IDs explicit while preserving the union overlay.",
-    "Grouped Arwing translation scratch fields into Vec3 xE0, enabling natural HSD_JObjSetTranslate usage and cleaner ABS/angle logic in grCorneria_801DE568.",
-    "Used a local grCn_Data* data = &grCn_803E1D38 in several functions to simplify repeated global accesses and improve generated code shape.",
-    "Added Fake_HSD_JObjSetTranslateX with direct translate.x assignment and dirty-matrix handling, then used it in grCorneria_801E1060 to match codegen where the normal HSD_JObjSetTranslateX call did not.",
-    "Preserved codegen-sensitive details such as PAD_STACK sizes, switch versus if/else choices, break versus return in switch bodies, explicit temporaries, signed casts, HSD_ASSERT/HSD_ASSERTREPORT macros, and __FILE__ in OSReport.",
-    "Converted opaque byte-pointer manipulation in grCorneria_801E25C4 to a typed grSmashTaunt_GroundVars pointer and dialog_joints indexing, improving readability while still improving match percentage."
+    "Adding grCorneria_GroundVars2 was a strong struct-modeling move: the diff explicitly documents that callbacks 2 and 10 overlap grCorneria_GroundVars in the gv union but interpret fields as pointers/integers instead of floats.",
+    "Representing grArwing_GroundVars xE0/xE4/xE8 as a Vec3 eliminated manual float-field aliasing and aligned with HSD_JObjSetTranslate usage.",
+    "Flattening x3D8 to s32[27] matched observed indexing like data->x3D8[new_state * 2 + grp_off + 15], avoiding an artificial 2D layout that did not fit all access patterns.",
+    "Using local grCn_Data* data pointers made repeated global accesses cleaner and appears to have helped code generation in multiple functions.",
+    "Replacing goto/default-style range logic with switch cases for Arwing types 1-9 and 10-13 made the behavior clearer while preserving matching-oriented control flow.",
+    "The Fake_HSD_JObjSetTranslateX inline is a targeted matching tactic: it mimics only the needed field write and matrix-dirty behavior instead of calling the library helper directly.",
+    "Condition-order and expression-shape edits such as if (-10.0f < pos.x && pos.x < 2000.0f), ABS usage, M_TAU usage, and explicit casts show careful attention to compiler output."
   ],
   "decomp_lessons": [
-    "When a Ground gv union region is reused by different callbacks, add a second overlay struct with offset comments rather than abusing unrelated fields; PR 2383’s grCorneria_GroundVars2 is the concrete pattern.",
-    "If assembly indexes a data table linearly, a flat array such as x3D8[27] may match better than a guessed multidimensional declaration like x3D8[9][3].",
-    "Do not leave unnamed config fields as s32 just because names are unknown; retype x-fields to f32 when arithmetic and callsites show float semantics.",
-    "Accessor spelling matters for matching: this PR mixes GET_GROUND, gobj->user_data, HSD_GObjGetUserData, GET_JOBJ, gobj->hsd_obj, and HSD_GObjGetHSDObj depending on the function’s needed codegen.",
-    "For stubborn stage functions, small source-shape changes can be decisive: condition order, assignment expressions inside switches, explicit modulo expansion, temporary locals for constants, separate HSD_Randf calls, and M_TAU/ABS macros all appeared in matching improvements.",
-    "Large partial decomp work can still be valuable when tied to real struct/header improvements; grCorneria_801DED50 moved from 0.00% to 66.01% while exposing reusable Arwing-state layout."
+    "When one Ground gv union region is reused by different callbacks with different field meanings, prefer adding a separate typed overlay rather than continuing to pointer-pun through unrelated fields.",
+    "Do not assume adjacent float fields are independent scalars if call sites pass their address as a vector; model them as Vec3 when translation APIs consume them together.",
+    "Stage data fields initially typed as s32 may need to become f32 when they feed float comparisons, timers, probabilities, offsets, or scale calculations.",
+    "Large stage actors such as Corneria Arwings often need both the parent stage object state and spawned child gobj state modeled in headers before functions become tractable.",
+    "For matching, sometimes an inlined fake version of a simple HSD helper can reproduce field writes and dirty-flag side effects better than calling the real helper.",
+    "Flattened arrays can match better than multidimensional arrays when the original code indexes a table with computed linear offsets.",
+    "Keep signedness honest: changes from u32/u8 to s32/s8 in types.h indicate that small field signedness can affect casts, comparisons, and calls.",
+    "Use bot match reports as evidence for prioritization: this PR turned several near matches into 100% and added two major partial decompilations, even though one .sdata item regressed slightly."
   ],
   "naming_conventions": [
-    "Existing Corneria globals retained the grCn_ prefix and address-style names, such as grCn_803E1D38, grCn_804D69A0, grCn_804D69A8, and grCn_804D69B0.",
-    "Small file-local helpers use the grCn_ prefix plus descriptive action names: grCn_RandRange, grCn_CheckFar, grCn_SpawnArwing, and grCn_PickUniqueType.",
-    "The new overlay type is named grCorneria_GroundVars2 and keeps offset-style fields xC4, xC8, xDC, xF0, etc. because semantics are still mostly unknown.",
-    "The Arwing ground vars keep offset naming but collapse adjacent position fields into Vec3 xE0 once their vector use is evidenced.",
-    "Header/type changes favor exact signedness where evidenced: grCorneria_GroundVars x10C/x110 became s32 and x118 became s8."
+    "Stage-local globals and structs retain the grCn_ prefix, such as grCn_Data, grCn_StageData, grCn_803E1D38, and grCn_804D69A0.",
+    "Unidentified functions keep address-based names such as grCorneria_801DCE1C and grCorneria_801DED50.",
+    "Helper inlines use descriptive grCn_ names when behavior is understood, e.g. grCn_RandRange, grCn_CheckFar, grCn_SpawnArwing, and grCn_PickUniqueType.",
+    "The new overlay was named grCorneria_GroundVars2 rather than overloading grCorneria_GroundVars, explicitly signaling alternate interpretation of the same union bytes.",
+    "Unidentified struct members still use offset-style names like xC8, xF4, x100, x478, and x3D8, with comments documenting byte offsets in types.h."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(8), PAD_STACK(16), and PAD_STACK(24) to reproduce stack layout in specific functions.",
-    "Replaced normal HSD_JObjSetTranslateX calls with Fake_HSD_JObjSetTranslateX in grCorneria_801E1060 to match inline behavior and dirty-flag side effects.",
-    "Reshaped control flow for codegen: grCorneria_801DCCFC changed an if/else to a switch with grCn_804D69B0 = (imax = 0); grCorneria_801DDE88 used break instead of return; grCorneria_801E03C8 changed a switch to if/else.",
-    "Used ABS and M_TAU for angle normalization instead of manual sign flips and 2.0 * M_PI expressions.",
-    "Changed assertions/reporting to HSD_ASSERT, HSD_ASSERTREPORT, and OSReport with __FILE__ where that matched better than literal file strings or raw __assert calls.",
-    "Inserted signed casts and signed field types, such as s32 rand_id and (s8) gp->gv.corneria.x119, to avoid mismatched unsigned codegen.",
-    "Used direct gobj field access in some matched functions, e.g. gobj->user_data and gobj->hsd_obj, rather than always using macros."
+    "Added PAD_STACK adjustments, including PAD_STACK(8), PAD_STACK(16), and PAD_STACK(24), to preserve expected stack layout.",
+    "Used local aliases such as grCn_Data* data = &grCn_803E1D38 to alter load patterns and reduce repeated global references.",
+    "Introduced Fake_HSD_JObjSetTranslateX to inline a jobj null check, assert path, direct translate.x write, and HSD_JObjSetMtxDirty call under JOBJ_MTX_INDEP_SRT conditions.",
+    "Changed control-flow expression shapes, including switch statements for stage IDs and Arwing type ranges, explicit default cases, and reordered comparisons.",
+    "Used ABS and M_TAU instead of hand-written negation and 2.0 * M_PI loops in grCorneria_801DE568/related angle normalization paths.",
+    "Used explicit casts such as (s32) grCn_804D69A0->x68 and (s8) gp->gv.corneria.x119 where field types or call signatures required matching.",
+    "Replaced string literal file name in OSReport with __FILE__, preserving the same reported file while improving source form/codegen.",
+    "Modeled direct user_data access in some places, e.g. Ground* gp = gobj->user_data, instead of always using GET_GROUND."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in this PR slice.",
-    "The PR body only says: \"Draft PR, continuing from #2381\"; intent beyond continuing Corneria work is not explicitly documented.",
-    "decomp.dev reported 62.18% total matched code, +0.12% overall, +4492 matched bytes, 8 new matches, 10 improvements in unmatched items, and one .sdata regression of -4 bytes."
+    "No human review comments were present in the provided slice.",
+    "The PR body only states: \"Draft PR, continuing from #2381\".",
+    "decomp.dev bot reported +4492 matched bytes, 8 new full matches, 10 unmatched-item improvements, and one .sdata regression of -4 bytes."
   ],
   "searchable_terms": [
     "pr-2383",
@@ -95,49 +98,52 @@
     "grcorneria",
     "Corneria",
     "Arwing",
-    "grCn_StageData",
-    "grCn_Data",
-    "grCn_803E1D38",
-    "grCn_804D69A0",
-    "grCn_804D69A8",
-    "grCn_804D69B0",
-    "arwing_gobj",
-    "arwing_type",
-    "arwing_group",
-    "grCorneria_GroundVars2",
-    "grArwing_GroundVars",
-    "grCn_CheckFar",
-    "grCn_PickUniqueType",
-    "grCn_SpawnArwing",
     "grCorneria_801DCE1C",
     "grCorneria_801DED50",
     "grCorneria_801DE8E4",
     "grCorneria_801DF8D0",
     "grCorneria_801DDE88",
-    "grCorneria_801DE568",
+    "grCorneria_801E08CC",
     "grCorneria_801E1060",
+    "grCorneria_801E1348",
+    "grCorneria_801E1970",
+    "grCorneria_801E2228",
+    "grCn_Data",
+    "grCn_StageData",
+    "grCorneria_GroundVars2",
+    "grArwing_GroundVars",
+    "Vec3 xE0",
+    "x3D8 flat array",
+    "x478",
     "Fake_HSD_JObjSetTranslateX",
-    "it_802E72E0",
-    "it_802E7654",
-    "it_802EAF34",
     "itarwinglaser",
-    "itgreatfoxlaser",
     "Player_LoadPlayerCoords",
     "Player_GetPlayerSlotType",
-    "HSD_ASSERTREPORT",
-    "PAD_STACK",
+    "it_802E72E0",
+    "it_802E7654",
+    "lbAudioAx_800237A8",
+    "grMaterial_801C9604",
+    "Ground_801C4A08",
+    "HSD_JObjSetTranslate",
     "M_TAU",
     "ABS",
-    "x3D8",
-    "x478",
-    ".sdata regression"
+    "PAD_STACK",
+    "stage decomp matching"
   ],
   "follow_up_queries": [
-    "Inspect PR #2381 for the preceding grcorneria scaffolding that this PR says it continues.",
-    "Search later PRs for grCorneria_801DED50 and grCorneria_801DCE1C to see whether the remaining unmatched percentages were completed.",
-    "Search for grCorneria_GroundVars2 or other GroundVars2 overlays to reuse the union-overlay typing pattern in stage decomp.",
-    "Investigate the decomp.dev .sdata regression from this PR if future work touches nearby constants or static data ordering.",
-    "Audit grCn_StageData x1C/x20/x28/x2C/x68 and grCn_Data x3D8/x478 usages for possible semantic field names."
+    "Look up PR #2381 for the previous Corneria context this PR explicitly continues from.",
+    "Search later PRs for grCorneria_GroundVars2 to see whether its fields were renamed beyond xC8/xF4/x100.",
+    "Search later PRs for grCorneria_801DED50 and grCorneria_801DCE1C to see whether the remaining unmatched portions reached 100%.",
+    "Search for Fake_HSD_JObjSetTranslateX reuse or removal after more HSD_JObj helpers were matched.",
+    "Audit subsequent changes to grCn_Data.x3D8 and x478 for better table names."
   ],
-  "confidence": 0.9
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,30 +11,31 @@
     "merged_at": "2026-04-21T06:29:15Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large gmstaffroll decomp/matching PR. It implemented fn_801AAB74 and fn_801AB200, improved gm_801AC6D8_OnEnter, added stronger Staff Roll data/text typing, and propagated the semantic baselib GX-link head name HSD_GObjGXLinkHead. The decomp.dev bot reported gmstaffroll improvements from 0.00% to about 93% for fn_801AB200, 0.00% to about 92% for fn_801AAB74, .sdata2 from 4.08% to 94.00%, and gm_801AC6D8_OnEnter from 96.48% to 99.35%. No human review comments were captured in the slice.",
+  "summary": "Large gmstaffroll decompilation PR that replaced two remaining staff-roll stubs with C implementations, improved nearby data and text/GObj typings, and propagated a baselib GObj GX-link global rename. The decomp.dev bot reported major matching progress for main/melee/gm/gmstaffroll: fn_801AB200 from 0.00% to 93.13%, fn_801AAB74 from 0.00% to 91.86%, .sdata2 from 4.08% to 94.00%, and gm_801AC6D8_OnEnter from 96.48% to 99.35%. No human review comments were present in the slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "game-mode implementation",
-      "symbol-renaming",
       "headers",
-      "cleanup"
+      "symbol-renaming",
+      "struct-typing",
+      "game-mode-logic"
     ],
     "systems": [
-      "gmstaffroll",
       "game-mode",
-      "sysdolphin-baselib-gobj",
-      "sislib-text",
+      "gmstaffroll",
+      "sysdolphin-baselib",
+      "gobj",
       "stage",
-      "config/GALE01"
+      "library",
+      "config-symbols"
     ]
   },
   "key_files": [
     "src/melee/gm/gmstaffroll.c",
     "config/GALE01/symbols.txt",
-    "src/sysdolphin/baselib/gobj.h",
     "src/sysdolphin/baselib/gobj.c",
+    "src/sysdolphin/baselib/gobj.h",
     "src/sysdolphin/baselib/gobjgxlink.c",
     "src/sysdolphin/baselib/gobjinit.c",
     "src/melee/gr/grpushon.c",
@@ -42,57 +43,53 @@
     "src/melee/lb/lbshadow.c"
   ],
   "what_changed": [
-    "Replaced the target markers for fn_801AAB74 and fn_801AB200 with C implementations in src/melee/gm/gmstaffroll.c.",
-    "fn_801AAB74 now drives the staff roll JObj animation, creates and frees HSD_Text windows for staff names/titles, applies Japanese/English page selection and unlock checks, fills staffInfoSortBuf, builds view-space matrices, and sorts visible entries by depth.",
-    "fn_801AB200 now implements the main Staff Roll frame handler: controller cursor deadzone/velocity handling, FOV-scaled cursor projection, entry hit testing, button handling, text detail windows, particle feedback, highlight colors, tally text, pause/fast-forward behavior, audio cues, and end-of-roll transitions.",
-    "gm_801AC6D8_OnEnter now allocates staffInfo and staffInfoSortBuf with named size wrapper structs, clears staffInfo by its named type, and replaces an M2C_FIELD texture-image assignment with typed mobj->tobj->imagedesc access.",
-    "The merge commit notes a fixed self-assignment bug in gm_801AC6D8_OnEnter: the US-language imagedesc path now copies from jobj_arr[1] to jobj_arr[0] instead of assigning jobj_arr[1] to itself.",
-    "Opaque text-window structs were replaced with HSD_Text* usage; render calls now use text->entity instead of a fake x54 field.",
-    "Added StaffEntryData and SortBufEntry local types plus extern declarations for related Staff Roll colors, data tables, and counters.",
-    "Renamed the baselib GX-link head global from HSD_GObj_804D7824 to HSD_GObjGXLinkHead in symbols.txt, gobj.h, gobj.c, gobjgxlink.c, gobjinit.c, and existing stage/library users.",
-    "Added a Staff Roll-side constant Gm_GObj_GXLink_PlyCursor = 9 and cleaned fn_801AA854 assertions to use HSD_ASSERT with HSD_GObjGXLinkHead.",
-    "config/GALE01/symbols.txt also renamed gm_804D67F8 to staffInfo and gm_804D67FC to staffInfoSortBuf; the local 0x803DBFD8 symbol was changed to z, while gmstaffroll.c still uses an address-style static StaffEntryData name."
+    "Implemented fn_801AAB74 in src/melee/gm/gmstaffroll.c, replacing a decomp placeholder with staff-roll JObj traversal, text-window creation/destruction, language-dependent page selection, matrix setup, and depth sorting of visible staff entries.",
+    "Implemented fn_801AB200 in src/melee/gm/gmstaffroll.c, replacing a decomp placeholder with cursor input handling, hover/selection logic, text color changes, particle/JObj interactions, projection math, and staff-entry state updates.",
+    "Added typed staff-roll data structures: staffInfo_t, staffInfoSortBuf_t, SortBufEntry, and StaffEntryData, including STATIC_ASSERTs for known sizes 0x948 and 0x2E68.",
+    "Improved staff-roll object typing by using HSD_Text* for staffInfo windows, gm_804D680C, and gm_80480D58 instead of anonymous padded structs, allowing direct access to HSD_Text fields such as entity, active_color, font_size, default_alignment, and default_kerning.",
+    "Added required includes for the newly decompiled code, including particle, controller, debug, sislib, math_ppc, trigf, psappsrt, and psstructs headers.",
+    "Renamed sbss symbols gm_804D67F8 and gm_804D67FC to staffInfo and staffInfoSortBuf in config/GALE01/symbols.txt.",
+    "Renamed the baselib global HSD_GObj_804D7824 to HSD_GObjGXLinkHead in symbols, declarations, definitions, initialization, GX-link insertion/removal helpers, render traversal code, and existing users in grpushon, grzebes, lbshadow, and gmstaffroll.",
+    "Introduced const int Gm_GObj_GXLink_PlyCursor = 9 and used it in a staff-roll HSD_ASSERT against HSD_GObjGXLinkHead.",
+    "Converted some explicit __assert calls in gmstaffroll rendering code to HSD_ASSERT with line numbers, preserving assertion semantics in a style used elsewhere in the project.",
+    "Updated config/GALE01/symbols.txt for staff-roll and GObj names, including staffInfo, staffInfoSortBuf, HSD_GObjGXLinkHead, and a local .data symbol at 0x803DBFD8 renamed to z in the symbol file while the source still uses gm_803DBFD8 for the StaffEntryData array."
   ],
   "smart_moves": [
-    "Used named but layout-preserving wrapper structs with STATIC_ASSERT for staffInfo_t and staffInfoSortBuf_t, keeping allocation sizes explicit while allowing better field typing.",
-    "Converted SisLib windows to HSD_Text*, which exposed real fields such as entity, active_color, text_color, font_size, default_alignment, and default_kerning.",
-    "Promoted HSD_GObj_804D7824 to the semantic name HSD_GObjGXLinkHead and updated all nearby consumers in one PR, reducing future confusion around GX-link list heads.",
-    "Replaced raw __assert blocks with HSD_ASSERT line-number assertions where the code already had baselib debug support.",
-    "The commit message documented known residual matching issues instead of hiding them: sqrtf inlining, -O4 corner address CSE, 0xF78 stride constant folding, and miscellaneous register allocation.",
-    "Fixed a real-looking typed-access error during matching work: the imagedesc copy was made directional from jobj_arr[1] to jobj_arr[0], not a self-assignment.",
-    "Kept unresolved static-data layout access evidence-grounded by retaining explicit offsets and casts for areas whose complete structures were not yet modeled."
+    "Used concrete HSD_Text* and HSD_JObj* fields instead of anonymous padding where the diff showed enough evidence, which made the decompiled staff-roll code more readable and reduced brittle offset-based access.",
+    "Created SortBufEntry to model the temporary render/depth-sort buffer as index, jobj, matrix, and trailing s32 fields, matching how fn_801AAB74 computes matrices and bubble-sorts by mtx[2][3].",
+    "Kept size assertions on large partially understood staff-roll buffers, preserving layout confidence while still allowing partial struct recovery.",
+    "Propagated HSD_GObjGXLinkHead rename across baselib and all immediate users in the same PR, preventing mixed old/new names for the same global.",
+    "Used language helpers lbLang_IsSavedLanguageJP, lbLang_IsSettingJP, and lbLang_IsSavedLanguageUS directly in the staff-roll logic, documenting that page selection and hitbox sizing are language-dependent.",
+    "Modeled text creation through HSD_SisLib_803A5ACC and page assignment through HSD_SisLib_803A6368, which exposes the staff-roll as SIS text-window logic rather than raw GObj manipulation."
   ],
   "decomp_lessons": [
-    "When replacing M2C_FIELD macros with struct access, verify both source and destination objects; typed rewrites can reveal self-assignment bugs that were obscured by macro-heavy code.",
-    "For SisLib/UI code, prefer HSD_Text* once enough fields are known; using text->entity is clearer than anonymous padding to an embedded GObj pointer.",
-    "Global baselib arrays should be renamed semantically only when there is enough usage evidence; HSD_GObjGXLinkHead is supported by gobjgxlink list insertion/removal and indexed render traversal.",
-    "Large OnFrame handlers can be landed with high but imperfect match percentages if the remaining differences are explicitly characterized as compiler behavior.",
-    "Use minimal local structs with padding and STATIC_ASSERT to improve readability without over-claiming unknown fields.",
-    "Language handling in Staff Roll is split between saved language and setting language; fn_801AAB74 and fn_801AB200 use lbLang_IsSavedLanguageJP/US and lbLang_IsSettingJP in different page-selection cases.",
-    "Depth-sorted UI rendering can be expressed as a sort buffer containing index, HSD_JObj*, and view-space matrix; this matched the Staff Roll code better than keeping anonymous nested structs."
+    "When a decompiled function manipulates SIS text windows through a fake struct containing an HSD_GObj pointer at offset 0x54, check whether the object is actually HSD_Text and whether the field should be named entity.",
+    "For render ordering code, a small typed sort-buffer struct with cached matrices can clarify the original algorithm and help match loops that sort visible objects by camera-space depth.",
+    "Global symbol renames in baselib should be applied consistently through symbols.txt, headers, definitions, allocation/init code, and all cross-module users in the same change.",
+    "Partial struct recovery can safely coexist with padding and STATIC_ASSERTs; this PR names the known surface area while keeping unknown large buffers constrained by exact size.",
+    "Staff-roll logic is tightly coupled to language/page data; future work should preserve separate JP/EN page computations and special-case checks instead of simplifying them away.",
+    "Replacing __assert blocks with HSD_ASSERT can be a matching/readability tactic when line numbers and expressions are known and the macro is accepted by the codebase.",
+    "The decomp.dev report can be used as objective evidence of partial-match quality even when functions are not fully matched: here the major functions reached roughly 92-93% rather than 100%."
   ],
   "naming_conventions": [
-    "HSD_GObj_804D7824 -> HSD_GObjGXLinkHead for the global array of GX-link list heads.",
-    "gm_804D67F8 -> staffInfo for the Staff Roll per-entry text/visited state allocation.",
-    "gm_804D67FC -> staffInfoSortBuf for the per-frame Staff Roll visible-entry sort buffer.",
-    "Use SortBufEntry for entries containing index, jobj, mtx, and an unknown x38 field.",
-    "Use StaffEntryData for the 0x14-byte Staff Roll entry metadata containing check, check_arg, alt_page, has_check, and still-unknown x0/x11 fields.",
-    "Use Gm_GObj_GXLink_PlyCursor for GX link index 9 instead of repeating the bare cursor-link literal in assertions.",
-    "Keep pad_* and x* names for unknown fields rather than inventing meanings not supported by the diff."
+    "Recovered staff-roll globals use camelCase descriptive names: staffInfo and staffInfoSortBuf.",
+    "Recovered local types use PascalCase or lower-camel-with-_t style depending on context: SortBufEntry, StaffEntryData, staffInfo_t, staffInfoSortBuf_t.",
+    "Baselib GObj global naming follows subsystem-prefixed descriptive form: HSD_GObjGXLinkHead instead of address-based HSD_GObj_804D7824.",
+    "GX-link constants use a game/system prefix with descriptive role: Gm_GObj_GXLink_PlyCursor.",
+    "Unknown fields still use offset-style names such as x8, x0, x11, pad_01, pad_0A, and pad_13 when semantics are not established."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(0x20) in fn_801AAB74 and PAD_STACK(0x60) in fn_801AB200 to satisfy stack layout.",
-    "Included math_ppc.h for sqrtf behavior and trigf.h for tanf; the merge commit says sqrtf inlining remained one source of unmatched output.",
-    "Preserved exact float constants such as 0.00038461538f, 0.29411763f, 2.6f clamps, 0.008726646471282037, and -0.7853981633974483.",
-    "Modeled the visible-entry ordering as a simple bubble sort by staffInfoSortBuf[*].mtx[2][3].",
-    "Kept pointer arithmetic for unresolved packed data offsets such as 0xF78, 0xF8C, 0x120C, and 0x1264 inside/near gm_803DBFD8.",
-    "Used HSD_CObjSetupViewingMtx, HSD_JObjSetupMatrix, PSMTXConcat, and PSMTXMultVec in the same matrix/projection flow needed by cursor hit testing.",
-    "The merge commit identifies remaining non-source-level diffs as corner address CSE at -O4, 0xF78 stride constant folding as addi+lfsx versus add+lfs, and register allocation.",
-    "Particle color writes still use pointer-chain casts through ptcl data, indicating those particle internals were not fully typed in this PR."
+    "Used PAD_STACK in newly implemented functions, with 0x20 in fn_801AAB74 and 0x60 in fn_801AB200, indicating stack-shaping was needed for matching.",
+    "Preserved exact float constants such as 0.209f, 0.13679999f, 0.1f, 0.00038461538f, 0.29411763f, 1.1917536, and 0.008726646471282037 in the cursor/text math.",
+    "Used explicit branchy deadzone handling for stick input instead of abstract helpers, likely to preserve original control flow.",
+    "Used direct pointer chasing through particle/app structures in fn_801AB200 where better types were not yet evident, avoiding speculative struct invention.",
+    "Used HSD_JObjSetupMatrix, HSD_CObjSetupViewingMtx, PSMTXConcat, PSMTXCopy, and PSMTXMultVec directly to mirror original camera-space matrix/projection work.",
+    "Kept simple nested-loop bubble sort for staffInfoSortBuf depth ordering rather than replacing with library sorting, preserving original algorithm shape.",
+    "The bot-reported matching improvements were partial, not complete: fn_801AB200 reached 93.13% and fn_801AAB74 reached 91.86%."
   ],
   "review_feedback": [
-    "No human review comments or review approvals were present in the captured slice.",
-    "The only captured comment was the decomp.dev bot report showing four GALE01 improvements: fn_801AB200 to 93.13%, fn_801AAB74 to 91.86%, .sdata2 to 94.00%, and gm_801AC6D8_OnEnter to 99.35%."
+    "No human review comments or formal reviews were present in this PR slice.",
+    "Automated decomp.dev feedback reported four improvements in unmatched items for main/melee/gm/gmstaffroll: fn_801AB200, fn_801AAB74, .sdata2, and gm_801AC6D8_OnEnter."
   ],
   "searchable_terms": [
     "pr-2425",
@@ -102,10 +99,6 @@
     "fn_801AAB74",
     "fn_801AB200",
     "gm_801AC6D8_OnEnter",
-    "fn_801AA854",
-    "HSD_GObjGXLinkHead",
-    "HSD_GObj_804D7824",
-    "Gm_GObj_GXLink_PlyCursor",
     "staffInfo",
     "staffInfoSortBuf",
     "staffInfo_t",
@@ -117,32 +110,39 @@
     "HSD_SisLib_803A6368",
     "HSD_SisLib_803A84BC",
     "HSD_SisLib_803A5CC4",
-    "HSD_JObjSetupMatrix",
-    "HSD_CObjSetupViewingMtx",
+    "HSD_GObjGXLinkHead",
+    "HSD_GObj_804D7824",
+    "Gm_GObj_GXLink_PlyCursor",
+    "HSD_ASSERT",
+    "PAD_STACK",
+    "lbLang_IsSavedLanguageJP",
+    "lbLang_IsSettingJP",
+    "lbLang_IsSavedLanguageUS",
     "PSMTXConcat",
     "PSMTXMultVec",
-    "sqrtf",
-    "tanf",
-    "math_ppc.h",
-    "trigf.h",
-    "M2C_FIELD",
-    "imagedesc",
-    "jobj_arr",
-    "SdStRoll.dat",
-    "SIS_StRollData",
+    "HSD_JObjSetupMatrix",
+    "HSD_CObjSetupViewingMtx",
     "gobjgxlink",
     "gobjinit",
     "grpushon",
     "grzebes",
-    "lbshadow"
+    "lbshadow",
+    "config/GALE01/symbols.txt"
   ],
   "follow_up_queries": [
-    "Find later PRs that further match fn_801AB200 or resolve the sqrtf inlining / -O4 CSE / 0xF78 stride diffs.",
-    "Search for HSD_GObjGXLinkHead usages to continue replacing old HSD_GObj_804D7824 references.",
-    "Investigate the StaffEntryData table at 0x803DBFD8 and the symbols.txt local name z before assigning stronger field names.",
-    "Look for subsequent typing of particle ptcl chains used for Staff Roll highlight color writes.",
-    "Search for SisLib HSD_Text entity usage as a pattern for replacing fake x54 text-window structs.",
-    "Audit other M2C_FIELD rewrites for self-assignment mistakes similar to the gm_801AC6D8_OnEnter imagedesc fix."
+    "Find later PRs that finish matching fn_801AB200 or fn_801AAB74 after the 93.13% and 91.86% progress reported here.",
+    "Search for subsequent cleanup of StaffEntryData, especially the pointer arithmetic around gm_803DBFD8/tree_base and particle data in fn_801AB200.",
+    "Search for other users of HSD_GObjGXLinkHead to verify the rename fully replaced HSD_GObj_804D7824 across the repository.",
+    "Investigate why config/GALE01/symbols.txt renamed the local .data symbol at 0x803DBFD8 to z while gmstaffroll.c still uses gm_803DBFD8 for StaffEntryData.",
+    "Look for later type improvements to HSD_Text, HSD_psAppSRT, HSD_Generator, and baselib particle structs that could remove remaining pointer chasing in gmstaffroll."
   ],
-  "confidence": 0.87
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

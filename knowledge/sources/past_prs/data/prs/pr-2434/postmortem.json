@@ -11,130 +11,147 @@
     "merged_at": "2026-04-28T17:50:34Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Venom stage decomp pass touching grvenom.c, grvenom.h, and gr/types.h. The main value was replacing fake/alias-based Venom ground variable handling with Venom-specific struct overlays, producing a new 100% match for grVenom_80204428 and a large partial implementation improvement for grVenom_80206874, while the bot also reported a regression in grVenom_802053B0.",
+  "summary": "Venom stage decomp work centered on src/melee/gr/grvenom.c and ground variable typing. The PR added or improved C for several grVenom routines, got grVenom_80204428 from 99.70% to a full match, and raised grVenom_80206874 from 0.00% to 82.52%. The key structural change was expanding grVenom_GroundVars and adding a grVenom_GroundVars2 overlay in types.h so code could address JObj pointers and xE0 bitfield state directly instead of fake casts through unrelated ground structs or ad hoc local typedefs. The automated report also recorded a regression in grVenom_802053B0 from 95.38% to 82.77%, so the net lesson is useful but not purely monotonic.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-layout",
-      "groundvars",
-      "stage-cleanup"
+      "struct-typing",
+      "stage-decomp"
     ],
     "systems": [
       "stage",
       "ground",
-      "Venom"
+      "Venom",
+      "gr"
     ]
   },
   "key_files": [
-    "src/melee/gr/grvenom.c",
-    "src/melee/gr/grvenom.h",
-    "src/melee/gr/types.h"
+    {
+      "path": "src/melee/gr/grvenom.c",
+      "role": "Main Venom stage C changes; matched grVenom_80204428, improved grVenom_80206874, adjusted matching tactics and typed accesses in multiple routines."
+    },
+    {
+      "path": "src/melee/gr/types.h",
+      "role": "Expanded grVenom_GroundVars with gp+F0 through gp+100 fields and added grVenom_GroundVars2 overlay for JObj pointers and xE0 bitfield state."
+    },
+    {
+      "path": "src/melee/gr/grvenom.h",
+      "role": "Updated grVenom_80205E84 prototype from Vec2* to Vec3*."
+    }
   ],
   "what_changed": [
-    "Extended src/melee/gr/types.h for Venom ground variables: grVenom_GroundVars gained xF0, xF4, xF8, xFC, and x100 fields with gp+offset comments.",
-    "Added grVenom_GroundVars2 as an alternate Venom overlay containing HSD_JObj* fields xC4 through xDC and an xE0_state union with byte bitfields b0-b7 plus a 2-bit state view.",
-    "Added the new venom2 overlay to the Ground union so Venom code can access the same memory through a stage-specific JObj/bitfield layout instead of borrowing another stage layout.",
-    "Updated grVenom_80204428 to store Ground_801C3FA4 results into gp->gv.venom2 JObj pointer fields and clear gp->gv.venom2.xE0_state bits directly; the old fake-match comment and mutecity2 bitfield aliasing were removed.",
-    "Added PAD_STACK(8) in grVenom_80204428 and small padding locals in grVenom_80204284, matching-oriented changes reflected by bot improvements.",
-    "Reworked grVenom_80204B88 lighting state access to use Ground* plus gp->gv.venom2.xE0_state instead of a local GroundVenom_ForLighting cast struct.",
-    "Changed grVenom_80205E84 from Vec2* to Vec3* in both grvenom.c and grvenom.h, and removed Vec2 casts at grVenom_802053B0 call sites.",
-    "Adjusted grVenom_802052E0 local ordering and zeroed pos with chained assignment to grVe_804DB740 instead of three explicit 0.0F stores.",
-    "Cleaned grVenom_80205AD4 raw gp+0xF0/0xF4/0xF8/0xFC/0x100 writes into named gp->gv.venom.xF0/xF4/xF8/xFC/x100 fields.",
-    "Removed the #if 0 around grVenom_80206874 and added an 82.52%-reported partial implementation: initializes Venom state, reads grVe_803E5348 table data, spawns or links another Ground_GObj, applies scale with HSD_JObjSetScaleX/Y/Z using grVe_804D6A30 offset 0x34, and initializes xD4/xF0/xF4/xF8/xFC.",
-    "In grVenom_802053B0, replaced a handwritten assert/dirty-block rotation sequence with HSD_JObjSetRotationY and switched several state accesses from pointer-punned stores to direct gp->gv.venom.xD4/xD8 field use; the bot reported this function regressed from 95.38% to 82.77%."
+    "Removed the explicit fake-match comments around grVenom_80204428 and switched its setup from gp->gv.venom casts plus mutecity2 bitfield abuse to gp->gv.venom2 typed JObj pointer fields and xE0_state bitfield access.",
+    "Added PAD_STACK(8) in grVenom_80204428, with local padding additions in grVenom_80204284, indicating stack/register-shape tuning for matching.",
+    "Deleted the local GroundVenom_ForLighting typedef in grvenom.c and rewrote grVenom_80204B88 to use Ground* plus gp->gv.venom2.xE0_state.xE0_state_pad.state for lighting/environment state.",
+    "Changed grVenom_802052E0 local declaration order and simplified the zero-vector fallback to pos->x = pos->y = pos->z = grVe_804DB740.",
+    "Changed grVenom_80205E84 and its header declaration to take Vec3* instead of Vec2*, removing casts from callers in grVenom_802053B0.",
+    "Replaced several raw pointer-offset writes at gp+F0, gp+F4, gp+F8, gp+FC, and gp+100 with named grVenom_GroundVars fields xF0, xF4, xF8, xFC, and x100.",
+    "Added a C body for grVenom_80206874 outside the prior disabled block, including animation setup, child/other ground object linkage, scale setup through HSD_JObjSetScaleX/Y/Z, and initialization of Venom ground variables.",
+    "In types.h, moved and expanded grVenom_GroundVars, added offset comments, and added grVenom_GroundVars2 to the Ground union alongside venom."
   ],
   "smart_moves": [
-    "The strongest fix was modeling the real Venom overlay instead of keeping a fake match that accessed mutecity2 bitfields at the same offset.",
-    "Using grVenom_GroundVars2 made the grVenom_80204428 match both cleaner and verified: decomp.dev reported grVenom_80204428 moving from 99.70% to 100.00%.",
-    "The xE0_state union gives both forms of access needed by the diff: individual flag clearing through b0-b6 and lighting-state access through xE0_state_pad.state.",
-    "Moving fake local layout knowledge from grvenom.c into types.h makes later Venom functions reusable and less dependent on casts to ad hoc structs.",
-    "Offset comments in grVenom_GroundVars and grVenom_GroundVars2 make the overlay relationship auditable for future stage groundvars work.",
-    "Updating the grVenom_80205E84 prototype to Vec3* aligned the header with call sites that already used Vec3 stack positions.",
-    "The PR accepted partial progress where useful: grVenom_80206874 went from disabled/#if 0 to a bot-reported 82.52% match."
+    "Solved the grVenom_80204428 fake match by modeling the actual overlapping ground-variable layout instead of borrowing mutecity2 bitfields at the same offset.",
+    "Used a second Venom-specific ground-vars overlay, grVenom_GroundVars2, to represent the same gp+C4 region as HSD_JObj* entries plus xE0 bitfields without destroying the existing numeric grVenom_GroundVars view used by other functions.",
+    "Removed a one-off local lighting struct and centralized the xE0 bitfield knowledge in types.h, making future Venom functions reuse the same layout evidence.",
+    "Promoted known gp+F0..gp+100 accesses into named struct fields, reducing brittle byte-offset casts in grvenom.c.",
+    "Updated function signatures and call sites together for grVenom_80205E84, allowing Vec3* callers to be typed directly rather than cast through Vec2*.",
+    "Kept explicit offset comments in the struct definitions, which helps reconcile gp-relative assembly offsets with C field names during future matching."
   ],
   "decomp_lessons": [
-    "When a Ground gv region is used as pointers in one function, floats or counters in another, and bitfields in a third, prefer explicit stage-specific overlays in types.h over fake aliases to another stage struct.",
-    "Bitfield layout fixes can turn near-matches into exact matches; here, replacing mutecity2.xC4_flags aliasing with venom2.xE0_state was enough to finish grVenom_80204428.",
-    "Do not hide important layout assumptions in local fake structs if the layout belongs to a shared Ground union; promote the layout once several functions need it.",
-    "Typed cleanup can affect matching both ways: the PR improved grVenom_80204428 and grVenom_80206874, but decomp.dev reported grVenom_802053B0 regressed after cleanup in that function.",
-    "Header signatures should match the real data passed by callers; changing Vec2* to Vec3* removed casts around Vec3 stack positions.",
-    "Small stack/register tactics still matter in this codebase: PAD_STACK, explicit padding locals, and local declaration ordering are all visible in this diff.",
-    "If a function comment contains a match percentage, verify it after bot results; grVenom_80206874 still had an old 32.92% @todo text while the bot reported 82.52% after the PR."
+    "If a stage-specific GroundVars region is reused with different interpretations across routines, add a stage-specific overlay in the Ground union rather than casting through an unrelated stage's struct.",
+    "Bitfields embedded in ground variable blobs should be named at the real offset; this avoids fake matches based on layout-compatible but semantically wrong structs.",
+    "Local typedefs that only exist to satisfy one function are a sign that the shared header layout may be incomplete; moving the layout to types.h can unlock cleaner matches elsewhere.",
+    "Direct field names for gp-relative values such as gp+F0 or gp+100 make later decomp work safer than repeated pointer arithmetic.",
+    "Small stack-shape changes such as PAD_STACK and local declaration ordering can be decisive for closing near-matches.",
+    "A PR can improve one function while regressing another; decomp.dev metrics should be checked per-symbol, not only by total matched-code percentage."
   ],
   "naming_conventions": [
-    "Venom stage functions keep address-style names such as grVenom_80204428, grVenom_80204B88, grVenom_802053B0, and grVenom_80206874.",
-    "Stage ground variable structs use gr<Stage>_GroundVars naming; the alternate overlay added here is grVenom_GroundVars2 and is exposed as gp->gv.venom2.",
-    "Unknown ground fields retain x-offset names such as xC4, xD8, xE0, xF8, and x100, with comments documenting relative and absolute gp offsets.",
-    "Venom data symbols retain grVe_* names such as grVe_803E5348, grVe_804D6A30, grVe_804D6A34, and grVe_804DB740.",
-    "Bitfield views used exact descriptive names xE0_state and xE0_state_pad, while unnamed flag bits remain b0 through b7.",
-    "Ground object and joint object access follows existing GET_GROUND, GET_JOBJ, Ground_GObj, HSD_GObj, and HSD_JObj conventions."
+    "Stage ground variable structs follow gr<Stage>_GroundVars, here grVenom_GroundVars and grVenom_GroundVars2.",
+    "Unknown fields retain offset-style names such as xC4, xD8, xF0, and x100, with comments documenting gp-relative offsets.",
+    "The secondary overlay name venom2 is used in the Ground union when the same stage data needs an alternate typed interpretation.",
+    "The xE0 bitfield wrapper is named xE0_state, with a nested xE0_state_pad view for the multi-bit state field and b0..b7 aliases for individual flag bits.",
+    "Temporary object relationship variables in the new grVenom_80206874 body use generic names like other and other_gp rather than overclaiming semantic names."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(8) in grVenom_80204428 to satisfy stack/codegen requirements.",
-    "Inserted u32 pad/pad2 locals in grVenom_80204284 and reordered Vec3 jobj_pos in grVenom_802052E0, indicating stack layout/register-allocation tuning.",
-    "Replaced pointer-punned JObj stores with a typed HSD_JObj* overlay so Ground_801C3FA4 assignments compile through normal field access.",
-    "Used a union for xE0_state so code can read env_flags as a byte and update a 2-bit state field at the same offset.",
-    "Used grVe_804DB740 for zeroing a Vec3 via pos->x = pos->y = pos->z, which also coincided with .sdata2 improvement in the bot report.",
-    "grVenom_80206874 uses raw table-pointer arithmetic against grVe_803E5348 with offsets like 0x2C, 0x38, 0x324, and 0x20; future work should preserve those exact access patterns until the table struct is known.",
-    "Scale setup in grVenom_80206874 deliberately reloads grVe_804D6A30 and recomputes scale before HSD_JObjSetScaleX, Y, and Z, likely for matching codegen.",
-    "The HSD_JObjSetRotationY replacement in grVenom_802053B0 is cleaner than the removed handwritten assert block, but the bot regression means this tactic should be revisited before copying it blindly."
+    "Added PAD_STACK(8) in grVenom_80204428.",
+    "Inserted unused padding locals in grVenom_80204284, likely to affect stack/register allocation.",
+    "Changed declaration order in grVenom_802052E0 by moving Vec3 jobj_pos before pointer locals.",
+    "Replaced manual assert/rotation dirtying code in grVenom_802053B0 with HSD_JObjSetRotationY(jobj, grVe_804DB740).",
+    "Used repeated reloads of grVe_804D6A30 before HSD_JObjSetScaleX/Y/Z in grVenom_80206874, matching the visible diff pattern rather than hoisting the attr read.",
+    "Used typed fields and unions to remove casts such as *(s32*)&gp->gv.venom.xD8 and casts of Vec3* to Vec2*."
   ],
   "review_feedback": [
-    "No human PR body, review comments, or reviews were present in the provided slice.",
-    "decomp.dev bot reported matched code 65.03%, a +0.01% / +284 byte overall improvement.",
-    "decomp.dev bot reported one new match: main/melee/gr/grvenom grVenom_80204428 from 99.70% to 100.00%.",
-    "decomp.dev bot reported improvements for grVenom_80206874 from 0.00% to 82.52%, .sdata2 from 10.17% to 19.53%, and grVenom_80204284 from 97.58% to 97.74%.",
-    "decomp.dev bot reported a regression for grVenom_802053B0 from 95.38% to 82.77%."
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Matched code increased by 284 bytes overall for GALE01, from 65.02% to 65.03% as reported in the PR comment."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "New full match: main/melee/gr/grvenom grVenom_80204428 improved from 99.70% to 100.00%."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Unmatched improvements included grVenom_80206874 from 0.00% to 82.52%, .sdata2 from 10.17% to 19.53%, and grVenom_80204284 from 97.58% to 97.74%."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Regression noted for grVenom_802053B0, dropping from 95.38% to 82.77%."
+    },
+    {
+      "source": "PR metadata",
+      "feedback": "No human review comments or PR body were present in the provided slice."
+    }
   ],
   "searchable_terms": [
     "pr-2434",
     "Jj/grvenom",
-    "jj/grvenom",
     "jurrejelle",
+    "grVenom",
     "grvenom.c",
     "grvenom.h",
     "types.h",
-    "grVenom_80204284",
     "grVenom_80204428",
+    "grVenom_80206874",
     "grVenom_80204B88",
     "grVenom_802052E0",
     "grVenom_802053B0",
     "grVenom_80205AD4",
     "grVenom_80205E84",
-    "grVenom_80206874",
     "grVenom_GroundVars",
     "grVenom_GroundVars2",
     "venom2",
     "xE0_state",
     "xE0_state_pad",
     "GroundVenom_ForLighting",
-    "mutecity2",
     "PAD_STACK",
-    "Ground_801C3FA4",
-    "HSD_JObj",
     "HSD_JObjSetRotationY",
     "HSD_JObjSetScaleX",
     "HSD_JObjSetScaleY",
     "HSD_JObjSetScaleZ",
-    "grVe_803E5348",
+    "Ground_801C3FA4",
     "grVe_804D6A30",
-    "grVe_804D6A34",
-    "grVe_804DB740",
+    "grVe_803E5348",
     "Vec3",
     "Vec2",
-    ".sdata2",
-    "decomp.dev",
-    "Venom stage groundvars"
+    "stage ground vars",
+    "Venom stage"
   ],
   "follow_up_queries": [
-    "Can grVenom_802053B0 recover the bot-reported 95.38% to 82.77% regression while keeping the cleaner Vec3 signature and Venom groundvar overlay?",
-    "Should grVenom_80206874's stale @todo percentage be updated from 32.92% now that decomp.dev reported 82.52%?",
-    "Can grVe_804D6A30 be expanded into a fuller attribute struct so raw offset reads at 0x2C, 0x34, and later offsets can become named fields?",
-    "Should grVenom_GroundVars xD4 and xD8 remain f32, or should future work add an integer/union view for state-like uses seen in grVenom_802053B0 and grVenom_80206874?",
-    "Can grVe_803E5348 table accesses in grVenom_80206874 be replaced with a typed spawn/table struct without losing the current 82.52% match?",
-    "Audit other stages for fake bitfield aliasing similar to the removed mutecity2 workaround and replace with stage-specific overlays."
+    "Find later PRs touching grVenom_802053B0 to see whether the 82.77% regression was recovered.",
+    "Search for other Ground union overlays named *2 that model alternate interpretations of the same gp+C4 ground variable region.",
+    "Look for follow-up work that gives semantic names to grVenom_GroundVars xF0, xF4, xF8, xFC, and x100.",
+    "Check whether grVe_804D6A30 later receives a typed attr struct with fields at offsets 0x2C and 0x34.",
+    "Search for other stage lighting functions using xE0 bitfield state to reuse the grVenom_80204B88 layout pattern."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

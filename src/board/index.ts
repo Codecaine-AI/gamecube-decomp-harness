@@ -1,2 +1,2 @@
 export { loadBoardSnapshot } from "./snapshot.js";
-export { candidateFromReportFunction, finishabilityPriority, objdiffSourceMap } from "./candidates.js";
+export { candidateFromReportFunction, closenessPriority, closenessScore, finishabilityPriority, finishabilityScore, objdiffSourceMap } from "./candidates.js";

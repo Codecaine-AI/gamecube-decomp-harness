@@ -11,137 +11,99 @@
     "merged_at": "2026-06-01T05:53:50Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched a broad set of mn/menu record-related functions across count rows, VS stat diagrams, name entry, vibration, rule-plus, data delete, special info, snapshots, and sound test. The decomp-dev report recorded 21 new matches, +7344 matched code bytes, and +624 matched data bytes; the PR body lists verification with `python configure.py --require-protos && ninja`.",
+  "summary": "Matched a broad set of `mn` menu record/statistics functions across VS Records, Name Entry, Vibration, Sound Test, Data Delete, Info, Snap, and Count menus. The PR produced 21 new matches according to the decomp.dev report, including full matches for several functions and data sections, and improved adjacent unmatched logic in `mncount`, `mninfo`, and `mnruleplus`.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "menu-records",
-      "static-data-layout",
-      "headers-prototypes",
-      "naming-cleanup",
-      "tooling-verified"
+      "headers",
+      "naming",
+      "data-layout",
+      "menu-records"
     ],
     "systems": [
-      "melee-core",
-      "mn menu",
-      "record/stat menus",
-      "controller vibration menu",
-      "rules plus menu",
-      "name entry menu",
-      "snapshot menu",
-      "sound test",
-      "data deletion menu",
-      "special info menu"
+      "mn",
+      "menu",
+      "records",
+      "vibration",
+      "sound-test",
+      "snapshots",
+      "trophies",
+      "vs-statistics"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/mn/mnvibration.c",
-      "role": "Largest change; matched mnVibration_80248444, mnVibration_80248644, mnVibration_80248ED4, mnVibration_80249174 and mnvibration data by adding MnVibrationDataLayout, assert strings, name-slot helpers, and indexed asset loading."
-    },
-    {
-      "path": "src/melee/mn/mninfo.c",
-      "role": "Matched mnInfo_80251D58, mnInfo_80251F04, mnInfo_802522B8 and improved adjacent functions using MnInfoDataLayout, date/time format data, text-slot pointer arithmetic, count helper, and adjusted inlining/stack padding."
-    },
-    {
-      "path": "src/melee/mn/mnruleplus.c",
-      "role": "Matched mn_80232D4C and improved mn_80233218/data by making rule stat/description tables explicit, adding SisLib_ClearText and mnRulePlus_GetDescIdx, and promoting constants/sdata."
-    },
-    {
-      "path": "src/melee/mn/mndiagram2.c",
-      "role": "Matched mnDiagram2_GetStatValue and mnDiagram2_UpdateScrollArrows with u16 temporary stat returns, default return shaping, HSD_GObjGetUserData, and MnDiagram2DataLayout for arrow animation data."
-    },
-    {
-      "path": "src/melee/mn/mnnamenew.c",
-      "role": "Matched AddCharacterToName and mnNameNew_8023E0D8 with MnNameNewDataLayout overlaying animation, key JObj IDs, character bytes, and glyph tables."
-    },
-    {
-      "path": "src/melee/mn/mncount.c",
-      "role": "Matched mnCount_GetRowValue_Character and improved mnCount_GetRowValue_Number by factoring unlocked character/map counting into static inline helpers."
-    },
-    {
-      "path": "src/melee/mn/mndatadel.c",
-      "role": "Matched mnDataDel_80250170 by introducing archive/assets locals and addressing StaticModelDesc assets as an array in lbArchive_LoadSections."
-    },
-    {
-      "path": "src/melee/mn/mnsnap.c",
-      "role": "Matched mnSnap_80253BE0 and fn_80257D7C through cursor/local reshaping and HSD_Text pointer-offset cleanup loops."
-    },
-    {
-      "path": "src/melee/mn/mnsoundtest.c",
-      "role": "Matched mnSoundTest_8024A790 by reordering locals and interleaving L/R trigger multiplication over HSD_PadCopyStatus entries."
-    },
-    {
-      "path": "src/melee/mn/mndiagram.c",
-      "role": "Adjusted mnDiagram stat helper prototypes and casts, including MNDIAGRAM_SOURCE guarded header behavior."
-    },
-    {
-      "path": "src/melee/mn/*.h",
-      "role": "Updated prototypes/externs in mnvibration.h, mndiagram.h, mninfo.h, mnruleplus.h, and mnnamenew.h to match new signatures and exposed data symbols."
-    }
+    "src/melee/mn/mnvibration.c",
+    "src/melee/mn/mnvibration.h",
+    "src/melee/mn/mninfo.c",
+    "src/melee/mn/mninfo.h",
+    "src/melee/mn/mnruleplus.c",
+    "src/melee/mn/mnruleplus.h",
+    "src/melee/mn/mncount.c",
+    "src/melee/mn/mnnamenew.c",
+    "src/melee/mn/mnnamenew.h",
+    "src/melee/mn/mndiagram.c",
+    "src/melee/mn/mndiagram.h",
+    "src/melee/mn/mndiagram2.c",
+    "src/melee/mn/mndatadel.c",
+    "src/melee/mn/mndatadel.static.h",
+    "src/melee/mn/mnsnap.c",
+    "src/melee/mn/mnsoundtest.c"
   ],
   "what_changed": [
-    "Matched the PR-listed functions: mn_80232D4C, AddCharacterToName, mnNameNew_8023E0D8, mnDiagram2_GetStatValue, mnDiagram2_UpdateScrollArrows, mnVibration_80248444, mnVibration_80248644, mnVibration_80248ED4, mnVibration_80249174, mnSoundTest_8024A790, mnDataDel_80250170, mnInfo_80251D58, mnInfo_80251F04, mnInfo_802522B8, mnSnap_80253BE0, fn_80257D7C, and mnCount_GetRowValue_Character.",
-    "decomp-dev reported 21 new matches, including mnvibration .data to 100%, mnruleplus .sdata to 100%, mnvibration .sdata to 100%, mninfo .sdata2 improvement, and six additional unmatched-item improvements.",
-    "mnCount gained static inline mnCount_CountUnlockedChars and mnCount_CountUnlockedMaps; SHORTEST_TIME and AVAILABLE_CHARACTERS/AVAILABLE_MAPS now reuse those helpers and mnCount_GetRowValue_Number no longer needs the old PAD_STACK(8).",
-    "mnDiagram/mnDiagram2 changed stat mode handling: some helper prototypes now take int at call boundaries while comparing `(u8) is_name_mode`; mnDiagram2_GetStatValue uses a u16 val16 temporary for several 16-bit stats and returns is_name_mode on the default path.",
-    "mnDiagram2_UpdateScrollArrows now uses HSD_GObjGetUserData and a MnDiagram2DataLayout overlay so the arrow animation setting is accessed as base->anim[1] instead of a standalone array symbol.",
-    "mnNameNew introduced MnNameNewDataLayout to access animation settings, key JObj IDs, character bytes, lower glyphs, and upper glyphs from one packed layout; AddCharacterToName and mnNameNew_8023E0D8 were rewritten around that layout.",
-    "mnInfo introduced MnInfoDataLayout over mnInfo_803EFC08 so date_format and time_format come from data; mnInfo_80251D58 gained an extra u32 argument for the saved date value, and text columns are addressed with explicit HSD_Text** slot arithmetic.",
-    "mnRulePlus converted mn_803ED2E8 from a zeroed 16x2 array into a structured stat/desc table, added reusable text clearing and description-index helpers, and moved font/position literals into named const f32 symbols exported by the header.",
-    "mnVibration added a large MnVibrationDataLayout for animation settings, name position, assert strings, and archive section names; functions now use helper wrappers for name slot and rumble data, indexed asset arrays, HSD_JObjGetChild, and HSD_GObjProc flags.",
-    "mnDataDel_80250170 and mnVibration_80249174 both shifted lbArchive_LoadSections calls toward local archive/assets pointers and array indexing of StaticModelDesc-like asset blocks.",
-    "mnSnap cleanup logic changed from direct global field references to `snap`-based pointer loops over HSD_Text arrays; mnSoundTest_8024A790 changed floating-point multiplication ordering for controller trigger values.",
-    "Headers were updated for changed prototypes and externs, including mnVibration_80248644 returning void, mnNameNew_MainInput returning void, mnInfo_80251D58 taking four parameters, and mnDiagram's guarded source/external prototype split."
+    "Matched `mn_80232D4C`, `AddCharacterToName`, `mnNameNew_8023E0D8`, `mnDiagram2_GetStatValue`, `mnDiagram2_UpdateScrollArrows`, four `mnVibration` functions, `mnSoundTest_8024A790`, `mnDataDel_80250170`, `mnInfo_80251D58`, `mnInfo_80251F04`, `mnInfo_802522B8`, `mnSnap_80253BE0`, `fn_80257D7C`, and `mnCount_GetRowValue_Character` per the PR summary.",
+    "Factored repeated unlocked-character and unlocked-stage counting logic in `mncount.c` into `static inline` helpers `mnCount_CountUnlockedChars` and `mnCount_CountUnlockedMaps`, also improving `mnCount_GetRowValue_Number`.",
+    "Adjusted `mndiagram` prototypes and call sites so `is_name_mode` is passed as `int` from external callers while preserving explicit `(u8)` tests where needed for matching.",
+    "Introduced overlay data-layout structs such as `MnDiagram2DataLayout`, `MnInfoDataLayout`, `MnNameNewDataLayout`, and `MnVibrationDataLayout` to treat packed static data as structured fields for animations, strings, SIS IDs, and format strings.",
+    "Reworked `mnDataDel_80250170` to use local `HSD_Archive* archive` and `StaticModelDesc* assets`, indexing `assets[0..2]` when loading archive sections instead of spelling each global descriptor directly.",
+    "Moved or exposed several static data items and exact literals, including animation settings, string constants, `SDATA` assert strings for `jobj.h`/`jobj`, and float suffix fixes such as `-0.1F` in `mndatadel.static.h`.",
+    "Updated `mnVibration` to add helpers for name-slot and rumble lookup, local JObj translation helpers, exact `HSD_ASSERT` behavior for included `jobj.h`, and corrected signatures/data initializers needed to match `.data` and `.sdata`.",
+    "Adjusted `mnSnap` cleanup and cursor movement logic, including using `snap->cursor_gobj` and block-scoped loops for freeing text arrays, matching `mnSnap_80253BE0` and `fn_80257D7C`.",
+    "Verified with `python configure.py --require-protos && ninja`."
   ],
   "smart_moves": [
-    "Used local typed layout overlays for packed static data instead of scattering separate externs; this made heterogeneous blobs searchable while preserving the offsets needed for matching.",
-    "Factored repeated logic into static inline helpers only where it helped codegen: unlocked character/map counts, unlocked trophy count, vibration name slot resolution, rule-plus description lookup, and SisLib text cleanup.",
-    "Preserved original narrow-type behavior by keeping wider int parameters where needed and explicitly casting to u8 at branch points, especially around is_name_mode and selected menu indices.",
-    "Replaced raw or direct object access with engine helpers where codegen wanted them, such as HSD_GObjGetUserData, HSD_JObjGetChild, and assigning HSD_GObjProc::flags_3 instead of editing a GObj flag byte.",
-    "Pulled format strings, archive section names, font sizes, and position constants out of call sites into data-backed fields/constants so the code and data sections could both improve.",
-    "Used temporaries like u16 val16 in mnDiagram2_GetStatValue and local archive/assets/layout pointers in LoadSections-heavy functions to force the desired register/control-flow shape.",
-    "Kept matching pragmas and stack controls targeted: `#pragma dont_inline`, `#pragma auto_inline off`, and adjusted PAD_STACK sizes appear only around functions that needed them."
+    "Used small `static inline` helpers to remove duplicated loops while still preserving matching codegen in nearby switch cases.",
+    "Modeled anonymous packed static blobs as layout structs, letting code reference `layout->date_format`, `layout->time_format`, or `base->anim[1]` instead of hard-coded adjacent globals; this is a reusable tactic when data symbols are really slices of one contiguous layout.",
+    "Inserted typed temporary variables such as `u16 val16` in `mnDiagram2_GetStatValue` so multiple switch cases share the same load/return shape instead of returning struct fields directly.",
+    "Used explicit casts like `(u8) is_name_mode`, `(s32) (u8) name_idx`, and `(u16) sp16` to force the original narrowing behavior.",
+    "Handled a header/prototype mismatch with `#define MNDIAGRAM_SOURCE` and conditional declarations in `mndiagram.h`, avoiding a one-size-fits-all prototype that would perturb source or caller codegen.",
+    "Kept archive-loading call shape close to the original by introducing locals (`archive`, `assets`) and array indexing, which reduced expression complexity and matched register allocation.",
+    "Matched library/assert side effects by temporarily redefining `HSD_ASSERT` around `baselib/jobj.h` include in `mnvibration.c`, preserving expected assert-file/assert-expression string data.",
+    "Tracked stack padding deliberately, removing, reducing, or adding `PAD_STACK` only where the diff showed the function needed a different frame shape."
   ],
   "decomp_lessons": [
-    "mn menu files often have packed static-data regions containing a mix of AnimLoopSettings, strings, IDs, glyph tables, and floats; defining a local `*DataLayout` struct over the base symbol is a reusable way to expose those fields without inventing unrelated globals.",
-    "For decomp matching, a helper can be an asset rather than a readability-only refactor when it creates the same call/inline pattern across adjacent switch cases.",
-    "When a boolean-like argument is passed as an int but semantically treated as a byte, keep the ABI-facing int and add explicit `(u8)` comparisons instead of narrowing every prototype.",
-    "Header prototypes may need source-only guards when the defining translation unit and external call sites require different apparent signatures for matching; this PR used MNDIAGRAM_SOURCE for that case.",
-    "Data matches can depend on literal suffixes and storage qualifiers: examples include -0.1F in mndatadel.static.h and volatile/const f32/f64 symbols in mnruleplus.",
-    "Archive loading code often matches better when consecutive StaticModelDesc globals are treated as an indexed asset array and the archive pointer is saved in a local before lbArchive_LoadSections.",
-    "Text UI cleanup in mn code may require pointer arithmetic over user_data rather than clean field access; this appears in mnInfo text columns and mnSnap HSD_Text cleanup loops.",
-    "Do not assume PAD_STACK should stay: several matches removed or resized stack padding after introducing natural locals, while mnInfo and mnSoundTest still needed targeted PAD_STACK values.",
-    "For HSD assert/string data, include order and local HSD_ASSERT macro definitions can matter; mnvibration temporarily redefined HSD_ASSERT around baselib/jobj.h to recover the expected jobj assert strings."
+    "For menu record/stat functions, direct field returns may fail to match; loading into an intermediate of the original width (`u16 val16`) can reproduce the compiler's register and extension sequence.",
+    "When a static symbol appears to contain unrelated animation settings, strings, and IDs, consider declaring a data-layout struct over the first symbol rather than treating each address as a separate independent object.",
+    "Conditional prototypes can be a practical decomp workaround when the defining translation unit and external callers require different apparent parameter types for matching.",
+    "Archive section loading often matches better when asset descriptors are treated as an array of `StaticModelDesc` and addressed with indexed fields.",
+    "Exact float literal spelling and suffixes can affect data matching; this PR changed literals like `-0.1` to `-0.1F` and similar Vec3 initializers.",
+    "The decomp.dev report is useful for catching regressions during broad matching PRs; the author explicitly paused to clean regressions before marking ready.",
+    "For functions manipulating `HSD_GObj` user data, using helper accessors like `HSD_GObjGetUserData(gobj)` may match better than direct `gobj->user_data` in some contexts."
   ],
   "naming_conventions": [
-    "New layout typedefs use PascalCase module names with a `DataLayout` suffix: MnVibrationDataLayout, MnNameNewDataLayout, MnDiagram2DataLayout, and MnInfoDataLayout.",
-    "Small local helpers use a module prefix plus verb/object name, such as mnCount_CountUnlockedChars, mnCount_CountUnlockedMaps, mnInfo_CountUnlocked, mnVibration_GetNameSlot, mnVibration_GetNameRumble, and mnRulePlus_GetDescIdx.",
-    "Generic library-oriented helpers can be named by subsystem behavior when local to a module, as with SisLib_ClearText for clearing HSD_Text pointers.",
-    "Unidentified functions and data continue to preserve address-style labels such as mnVibration_80248ED4, mn_80232D4C, fn_80257D7C, mn_803ED2E8, and mn_804DBE4C.",
-    "Structured overlays can add meaningful field names while keeping the original base symbol, e.g. mn_803ED2E8.stat/desc and layout->date_format/time_format."
+    "New local helpers use subsystem-prefixed CamelCase names: `mnCount_CountUnlockedChars`, `mnCount_CountUnlockedMaps`, `mnInfo_CountUnlocked`, `mnVibration_GetNameSlot`, `mnVibration_GetNameRumble`.",
+    "Layout structs are named after the owning module plus `DataLayout`, e.g. `MnDiagram2DataLayout`, `MnInfoDataLayout`, `MnNameNewDataLayout`, `MnVibrationDataLayout`.",
+    "Short generic helpers in `mnruleplus.c` use descriptive action names, e.g. `SisLib_ClearText` and `mnRulePlus_GetDescIdx`.",
+    "Existing address-based symbol names were preserved where no semantic name was established, such as `mnVibration_80248ED4`, `fn_80257D7C`, and `mn_80232D4C`."
   ],
   "assembly_or_matching_tactics": [
-    "Overlay packed data with local structs and cast the original symbol address, e.g. `(MnVibrationDataLayout*) &mnVibration_803EECE0`, `(MnNameNewDataLayout*) mnNameNew_803EDA58`, `(MnDiagram2DataLayout*) &mnDiagram2_803EEAD0`, and `(MnInfoDataLayout*) mnInfo_803EFC08`.",
-    "Use `#pragma dont_inline on` and `#pragma auto_inline off` around sensitive functions such as mnInfo_80251D58, mnInfo_80251F04, and mnInfo_802522B8.",
-    "Shape 16-bit loads/returns in mnDiagram2_GetStatValue by assigning branch results to a u16 temporary before returning.",
-    "Preserve byte semantics with explicit casts like `(u8) is_name_mode`, `(u8) i`, and `(s32) (u8) name_idx` instead of changing all involved variables to u8.",
-    "Use local pointer variables for archive/assets/layout before long lbArchive_LoadSections calls to influence register allocation and make contiguous asset data apparent.",
-    "Replace direct `gobj->user_data` in one matched path with HSD_GObjGetUserData and direct child access with HSD_JObjGetChild where the original codegen expected helper calls.",
-    "Promote literals into const/volatile data symbols to affect .sdata/.sdata2 matching, especially in mnruleplus font/position constants and f64 conversion constants.",
-    "For sound-test float codegen, interleave L-trigger and R-trigger products across HSD_PadCopyStatus[0..3] rather than computing each product as one expression.",
-    "For HSD_Text arrays, pointer-offset loops such as `slot += 2`, `slot += 6`, `text_p[0x3E]`, and `text_p[0x42]` can be necessary to match user_data layout traversal.",
-    "Use `--require-protos` verification to catch prototype drift after signature changes in headers."
+    "Use `static inline` helper functions to share logic without introducing out-of-line calls.",
+    "Use explicit integer-width casts in conditions and return paths to reproduce original truncation/extension.",
+    "Introduce locals only to influence register allocation and call argument ordering, as in `mnDataDel_80250170` and `mnSoundTest_8024A790`.",
+    "Use typed overlay structs over contiguous static data for animation arrays, SIS IDs, format strings, and other packed resources.",
+    "Adjust `PAD_STACK` by function based on frame-size evidence; examples include removing `PAD_STACK(8)` in `mnCount_GetRowValue_Number`, changing stack padding in `mnInfo`, and keeping `PAD_STACK(24)` where needed.",
+    "Use exact string/data placement for asserts and archive section names, including `SDATA` strings in `mnvibration.c`.",
+    "Wrap `baselib/jobj.h` inclusion with a local `HSD_ASSERT` definition to match the target assert metadata.",
+    "Use block scopes around loops and temporaries when necessary to alter lifetime/register reuse, as seen in `mnsnap.c` cleanup logic."
   ],
   "review_feedback": [
-    "No formal human reviews or review comments were present in the provided slice.",
-    "The decomp-dev bot report for GALE01 showed matched code 69.61% (+0.19%, +7344 bytes) and matched data 41.25% (+0.05%, +624 bytes), with 21 new matches and 6 improvements in unmatched items.",
-    "The author commented: `cleaning up regressions now. will mark ready once report is clean`; the slice does not include the earlier regression details, only the later positive report.",
-    "The PR body lists verification as `python configure.py --require-protos && ninja`."
+    "No human review comments were present in the provided slice.",
+    "The decomp.dev bot reported `+7344` matched code bytes and `+624` matched data bytes, with 21 new matches and 6 improvements in unmatched items.",
+    "The author commented: \"cleaning up regressions now. will mark ready once report is clean\", indicating iteration against the match report before merge."
   ],
   "searchable_terms": [
-    "PR2564",
+    "pr-2564",
+    "itsgrimetime",
     "Match mn menu record functions",
     "mn menu records",
     "mncount",
@@ -149,62 +111,56 @@
     "mnCount_GetRowValue_Number",
     "mnCount_CountUnlockedChars",
     "mnCount_CountUnlockedMaps",
-    "mndatadel",
-    "mnDataDel_80250170",
     "mndiagram",
     "mndiagram2",
     "mnDiagram2_GetStatValue",
     "mnDiagram2_UpdateScrollArrows",
-    "mnDiagram_GetHitPercentage",
-    "mnDiagram_GetPlayPercentage",
-    "mnDiagram_GetAveragePlayerCount",
     "MNDIAGRAM_SOURCE",
     "mninfo",
+    "MnInfoDataLayout",
     "mnInfo_80251D58",
     "mnInfo_80251F04",
     "mnInfo_802522B8",
-    "MnInfoDataLayout",
+    "mndatadel",
+    "mnDataDel_80250170",
+    "StaticModelDesc assets",
+    "lbArchive_LoadSections",
     "mnnamenew",
     "AddCharacterToName",
     "mnNameNew_8023E0D8",
-    "MnNameNewDataLayout",
     "mnruleplus",
     "mn_80232D4C",
-    "mnRulePlus_GetDescIdx",
-    "SisLib_ClearText",
-    "mnvibration",
-    "mnVibration_80248444",
-    "mnVibration_80248644",
-    "mnVibration_80248ED4",
-    "mnVibration_80249174",
-    "MnVibrationDataLayout",
     "mnsnap",
     "mnSnap_80253BE0",
     "fn_80257D7C",
     "mnsoundtest",
     "mnSoundTest_8024A790",
-    "lbArchive_LoadSections",
-    "StaticModelDesc",
+    "mnvibration",
+    "MnVibrationDataLayout",
+    "mnVibration_80248444",
+    "mnVibration_80248644",
+    "mnVibration_80248ED4",
+    "mnVibration_80249174",
+    "HSD_ASSERT",
+    "PAD_STACK",
     "AnimLoopSettings",
     "HSD_GObjGetUserData",
-    "HSD_JObjGetChild",
-    "HSD_SisLib_803A5CC4",
-    "HSD_SisLib_803A6B98",
-    "HSD_PadCopyStatus",
-    "PAD_STACK",
-    "require-protos",
-    "decomp-dev 21 new matches",
-    "+7344 matched code bytes",
-    "+624 matched data bytes"
+    "require-protos"
   ],
   "follow_up_queries": [
-    "rg \"DataLayout\" src/melee/mn -n",
-    "rg \"MNDIAGRAM_SOURCE|#ifdef MNDIAGRAM_SOURCE\" src/melee/mn -n",
-    "rg \"PAD_STACK\\(|#pragma dont_inline|#pragma auto_inline\" src/melee/mn -n",
-    "rg \"lbArchive_LoadSections\" src/melee/mn -n",
-    "rg \"HSD_GObjGetUserData|HSD_JObjGetChild\" src/melee/mn -n",
-    "rg \"CountUnlocked|GetDescIdx|ClearText\" src/melee/mn -n",
-    "rg \"volatile const f64|volatile f32|const f32\" src/melee/mn/mnruleplus.c src/melee/mn -n"
+    "Find later PRs that remove address-based names from matched `mn` menu record functions.",
+    "Search for other menu modules using contiguous static data that could benefit from `DataLayout` overlay structs.",
+    "Audit remaining `mninfo` and `mnruleplus` unmatched improvements mentioned by the bot report: `fn_80252548`, `fn_80251FE4`, `mn_80233218`, and `.data`/`.sdata2` sections.",
+    "Look for other conditional header prototype patterns similar to `MNDIAGRAM_SOURCE`.",
+    "Search for other `baselib/jobj.h` include sites that require local `HSD_ASSERT` redefinition for matching."
   ],
-  "confidence": 0.93
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

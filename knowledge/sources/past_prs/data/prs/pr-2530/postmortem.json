@@ -11,139 +11,126 @@
     "merged_at": "2026-05-27T23:00:55Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Advanced the stage granime decomp in src/melee/gr/granime.c, adding concrete C for grAnime_801C752C, grAnime_801C7C1C, and grAnime_801C8578 while improving nearby matching for grAnime_801C6A54, grAnime_801C7228, and grAnime_801C86D4. The PR also replaced a dont_inline pragma with _inner/_noinline inline-wrapper matching helpers, typed stage archive animation-array fields in UnkStageDat_x8_t, and tightened granime.h prototypes. The PR body and human review comments were empty; decomp.dev reported 3 new 100% matches and 3 unmatched-item improvements.",
+  "summary": "Decompiled and matched several additional ground animation routines in src/melee/gr/granime.c, including grAnime_801C752C, grAnime_801C7C1C, and grAnime_801C8578, while refining related helper calls, assertions, prototypes, and stage archive struct fields. The PR used small inline/noinline wrapper helpers to control codegen around calls that previously relied on pragma dont_inline or hand-written duplicated logic. It also replaced byte-offset archive accesses with named fields in UnkStageDat_x8_t, making later granime and stage archive work more readable and type-safe.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "struct-typing",
-      "matching-tactics",
-      "stage-animation"
+      "codegen-control",
+      "cleanup"
     ],
     "systems": [
       "stage",
-      "ground/granime",
+      "ground-animation",
       "baselib-animation",
-      "repo-root target tracking"
+      "repo-root"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/granime.c",
-      "change": "Main decomp work: +294/-59 lines; implemented and improved granime animation helpers, added inline wrapper tactics, variadic callback handling, archive animation selection, and assert macro use."
-    },
-    {
-      "path": "src/melee/gr/granime.h",
-      "change": "Updated prototypes for grAnime_801C752C from loose varargs to HSD_JObj*, s32, s32, void*, u32, ... and grAnime_801C8578 from void* placeholders to HSD_Joint*, s32*."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "change": "Replaced padding in UnkStageDat_x8_t at +4/+8/+C with typed animation-array fields: HSD_AnimJoint** unk4, HSD_MatAnimJoint** unk8, HSD_ShapeAnimJoint** unkC."
-    },
-    {
-      "path": "target_funcs.txt",
-      "change": "Added checked target list for granime functions including grAnime_801C86D4, 801C84A4, 801C8578, 801C6A54, 801C752C, 801C6C0C, 801C7228, and 801C7C1C."
-    }
+    "src/melee/gr/granime.c",
+    "src/melee/gr/granime.h",
+    "src/melee/gr/types.h",
+    "target_funcs.txt"
   ],
   "what_changed": [
-    "Implemented grAnime_801C752C as a variadic HSD_JObj animation-callback traversal helper. It builds a callbackArg from AOBJ_ARG_* type cases, applies grAnime_801C6F50/grAnime_801C70E0 to JObj/DObj/RObj paths, optionally recurses through children via grAnime_801C7228, and uses va_start/va_arg/va_end.",
-    "Implemented grAnime_801C7C1C to pull HSD_AnimJoint, HSD_MatAnimJoint, and HSD_ShapeAnimJoint arrays from grDatFiles_801C6330(map_id), gate them by arg3 bits, apply or load animations depending on arg5, request animation by flags, set animation rate, and optionally set flags from archive x28 effect flags.",
-    "Implemented grAnime_801C8578 as a recursive HSD_Joint child/next traversal driven by a decrementing s32 counter, and changed its header signature to HSD_Joint*, s32*.",
-    "Refactored grAnime_801C7228 by extracting repeated object/aobj flag logic into inline grAnime_801C6F50_wrapped and calling grAnime_801C706C_noinline where the diff needed a call rather than inlining.",
-    "Added static inline _inner and _noinline wrappers for grAnime_801C67A8, 801C683C, 801C6960, 801C69FC, 801C6A54, 801C706C, and 801C8578; removed the local #pragma dont_inline push/pop around grAnime_801C67A8.",
-    "Improved grAnime_801C86D4 frame/scheduling by replacing the local anonymous struct with scalar s32 stack locals, using HSD_ASSERT, loading the archive root joint into a scoped local, and calling grAnime_801C8578_noinline.",
-    "Replaced several explicit __assert blocks in granime.c with HSD_ASSERT or HSD_ASSERTREPORT line-number macro forms, and added baselib/debug.h, stdarg.h, and dolphin/os.h includes.",
-    "Converted archive animation access in grAnime_801C8138 from base-plus-offset casts to named fields archive->unk4->unk8[arg1].unk4/unk8/unkC.",
-    "target_funcs.txt lists grAnime_801C84A4 and grAnime_801C6C0C among completed targets, but the shown diff does not add body changes for those functions and the bot report did not list them as new matches."
+    "Implemented previously stubbed granime functions: grAnime_801C752C, grAnime_801C7C1C, and grAnime_801C8578.",
+    "Marked target_funcs.txt with completed targets in src/melee/gr/granime.c: grAnime_801C86D4, grAnime_801C84A4, grAnime_801C8578, grAnime_801C6A54, grAnime_801C752C, grAnime_801C6C0C, grAnime_801C7228, and grAnime_801C7C1C.",
+    "Added typed archive animation-pointer fields to struct UnkStageDat_x8_t: unk4 as HSD_AnimJoint**, unk8 as HSD_MatAnimJoint**, and unkC as HSD_ShapeAnimJoint**.",
+    "Updated granime.h prototypes for grAnime_801C752C from a generic variadic declaration to HSD_JObj*, s32, s32, void*, u32, ... and for grAnime_801C8578 from void*, void* to HSD_Joint*, s32*.",
+    "Replaced manual __assert calls in touched granime paths with HSD_ASSERT or HSD_ASSERTREPORT, requiring inclusion of baselib/debug.h.",
+    "Added stdarg.h and dolphin/os.h includes to support the variadic grAnime_801C752C implementation and related code.",
+    "Refactored repeated logic in grAnime_801C7228 into inline grAnime_801C6F50_wrapped, preserving assert and aobj callback behavior while reducing duplicated code.",
+    "Introduced inner/noinline wrapper patterns around several functions such as grAnime_801C67A8, grAnime_801C683C, grAnime_801C6960, grAnime_801C69FC, grAnime_801C6A54, grAnime_801C706C, and grAnime_801C8578 to influence matching code generation.",
+    "Simplified grAnime_801C6960 by calling grAnime_801C68F4 for each robj/anim pair instead of duplicating the aobj remove/load logic inline.",
+    "Changed archive access sites in grAnime_801C8138 and grAnime_801C7C1C to use named struct fields rather than pointer arithmetic offsets."
   ],
   "smart_moves": [
-    "The squash commit message explicitly calls out the inline-depth trick: use func_noinline/_inner inline wrappers instead of #pragma dont_inline to keep specific callees emitted as bl calls.",
-    "Using wrappers let grAnime_801C683C inline into grAnime_801C6A54 while preserving standalone call shape for grAnime_801C67A8 and grAnime_801C683C; the commit message says this improved grAnime_801C6A54 from 63% to 88% before later final results.",
-    "Typing UnkStageDat_x8_t fields turned raw byte-offset casts into normal field loads, making grAnime_801C7C1C and grAnime_801C8138 source cleaner and less brittle.",
-    "The shared grAnime_801C6F50_wrapped helper avoided duplicating the same assert/aobj/flags gate in grAnime_801C7228 and grAnime_801C752C, which is useful when source shape matters for repeated assembly patterns.",
-    "The grAnime_801C752C implementation handled varargs by AOBJ_ARG_* categories and used f64 for float varargs, matching C default argument promotion rather than forcing f32.",
-    "The grAnime_801C86D4 rewrite used a small noinline wrapper and local scope changes to target frame/scheduling rather than relying only on padding."
+    "Using typed fields in UnkStageDat_x8_t converted opaque offset loads at +4, +8, and +0xC into meaningful HSD_AnimJoint, HSD_MatAnimJoint, and HSD_ShapeAnimJoint arrays, reducing future decomp ambiguity.",
+    "The inline wrapper grAnime_801C6F50_wrapped isolated a repeated assert/callback/flag check sequence from grAnime_801C7228 and let the same logic be reused for the root jobj and child jobj cases.",
+    "The inner/noinline wrapper chain replaced a local #pragma dont_inline block and appears deliberately tuned for compiler output without changing the visible call graph semantics.",
+    "Keeping grAnime_801C752C's callback argument in a union-like callbackArg local and switching on AOBJ_ARG_* constants preserved the varargs dispatch pattern needed by HSD_AObjSetRate and HSD_AObjSetFlags calls.",
+    "The grAnime_801C8578 implementation made the traversal contract explicit: decrement an external counter while walking child first, then next, and return the joint when the counter reaches zero.",
+    "Updating headers alongside implementations avoided leaving decompiled functions with broad void* or underspecified variadic prototypes."
   ],
   "decomp_lessons": [
-    "When MWCC inlining control is too coarse, a static inline function plus an _inner/_noinline trampoline can preserve required bl calls without a file-scope #pragma dont_inline.",
-    "For variadic animation callbacks, first reconstruct the callback argument ABI: floats arrive as f64 in va_arg, pointer and u32 cases need separate handling, and the downstream code may expect a pointer to a callbackArg union.",
-    "Struct/header cleanup can be a matching tactic, not just readability: replacing padding with typed fields can eliminate casts and produce source closer to the original access pattern.",
-    "Do not rename unknown archive fields beyond the evidence. This PR improved types for unk4/unk8/unkC but kept generic unk-style names because semantics were not fully established.",
-    "Small stack-frame and scheduling changes can matter late in a match; grAnime_801C86D4 moved from a local struct to scalar locals and a scoped root variable before reaching a bot-reported 100%.",
-    "Use project assert macros with original line numbers when matching assert-heavy code; this PR replaced manual __assert forms with HSD_ASSERT/HSD_ASSERTREPORT.",
-    "Watch non-function sections after matching wins: decomp.dev reported a .sdata regression from 71.43% to 47.06% even though granime function matching improved."
+    "When a stage archive layout is used repeatedly through hard-coded offsets, promote those offsets into named struct fields once the pointed-to types are clear.",
+    "For matching, small static inline forwarding functions can be useful to force or prevent inlining at specific call sites, especially when old code used #pragma dont_inline.",
+    "If duplicated code is preventing a match, extracting it into an inline helper can improve both readability and codegen control, but the helper should preserve asserts and side effects exactly.",
+    "Variadic animation helpers should declare the fixed arguments precisely before ..., then use va_start on the last fixed parameter and read f64 for promoted float arguments.",
+    "Prefer project assertion macros such as HSD_ASSERT and HSD_ASSERTREPORT over raw __assert when they match existing baselib/debug conventions and expected line-number behavior.",
+    "Recursive joint traversal functions may need a pointer-to-counter parameter rather than returning an index, because mutation order affects matching and behavior."
   ],
   "naming_conventions": [
-    "Primary functions retained the address-based project convention grAnime_801Cxxxx because no semantic names were established in the evidence.",
-    "Matching helper wrappers used the explicit suffix pattern grAnime_801Cxxxx_inner and grAnime_801Cxxxx_noinline.",
-    "The extracted flags/aobj helper was named grAnime_801C6F50_wrapped, signaling that it wraps behavior around grAnime_801C6F50 rather than representing a known original symbol.",
-    "Archive struct fields remained generic but offset-oriented: unk0, unk4, unk8, unkC, x28.",
-    "Header prototypes were updated from void* placeholders to concrete HSD_Joint*, HSD_JObj*, HSD_AnimJoint*, HSD_MatAnimJoint*, HSD_ShapeAnimJoint*, s32/u32/f32 types when the diff supported them."
+    "New archive fields kept provisional offset-style names unk4, unk8, and unkC while adding precise pointer types; this is consistent with decomp practice when semantics are partially known but offsets are confirmed.",
+    "Wrapper helpers used suffixes _inner, _noinline, and _wrapped to communicate codegen role rather than final game semantics.",
+    "Unmatched or still-unknown locals retained phi_rXX/temp_rXX-style names in existing code where stronger semantic names were not evidenced.",
+    "Function names remained address-based grAnime_801Cxxxx names, indicating no semantic rename was attempted in this PR."
   ],
   "assembly_or_matching_tactics": [
-    "Replaced #pragma dont_inline with inline-wrapper trampolines to influence whether calls became bl or were inlined.",
-    "Marked grAnime_801C6960 and grAnime_801C6F50_wrapped inline, then called them through noinline wrappers where a call boundary was needed.",
-    "Removed PAD_STACK(16) from grAnime_801C6A54 after the wrapper strategy changed its match characteristics.",
-    "Used noinline wrappers for grAnime_801C67A8, 801C683C, 801C6960, 801C69FC, 801C6A54, 801C706C, and 801C8578 as targeted codegen controls.",
-    "Changed grAnime_801C86D4 local layout from an anonymous five-s32 struct to scalar stack locals and scoped archive-root access to tune frame/scheduling.",
-    "Replaced raw offset loads with named struct fields to control generated loads while improving readability."
+    "Added static inline forwarding helpers such as grAnime_801C67A8_inner plus grAnime_801C67A8_noinline to influence call inlining and stack/code shape.",
+    "Replaced a #pragma push / #pragma dont_inline on / #pragma pop section around grAnime_801C67A8 with an explicit wrapper call grAnime_801C67A8_noinline.",
+    "Marked grAnime_801C6960 and grAnime_801C6F50_wrapped as inline, suggesting the author was matching expected inlining behavior in callers.",
+    "Removed PAD_STACK(16) from grAnime_801C6A54 after refactoring, implying the matched implementation no longer required artificial stack padding.",
+    "In grAnime_801C86D4, separate s32 stack locals plus a scoped root variable replaced an anonymous stack struct, likely to better match stack layout and register allocation.",
+    "Used typed struct field accesses instead of casts like *(HSD_ShapeAnimJoint***)((u8*)&archive->unk4->unk8[arg1] + 0xC), which can improve both readability and compiler output stability."
   ],
   "review_feedback": [
-    "No human PR body, reviews, or review comments were present in the slice.",
-    "decomp.dev reported matched code 68.88% (+0.03%, +1080 bytes).",
-    "decomp.dev reported 3 new 100% matches: grAnime_801C752C (+560 bytes), grAnime_801C8578 (+348 bytes), and grAnime_801C86D4 (+11 bytes, 93.79% to 100.00%).",
-    "decomp.dev reported improvements for unmatched items: grAnime_801C7C1C from 0.00% to 83.11%, grAnime_801C6A54 from 59.00% to 99.23%, and grAnime_801C7228 from 90.10% to 97.72%.",
-    "decomp.dev also reported one unmatched-item regression: main/melee/gr/granime .sdata from 71.43% to 47.06%.",
-    "The squash commit message documents the rationale for replacing dont_inline pragmas with inline wrappers and for using named UnkStageDat_x8_t fields; there is no separate reviewer discussion in the provided data."
+    "No review comments were present in the provided PR context, and the human text excerpt was empty.",
+    "There was one issue comment recorded by counts, but its body was not included in the provided context, so no concrete reviewer feedback can be extracted."
   ],
   "searchable_terms": [
     "pr-2530",
     "Jj/granime 2",
     "jurrejelle",
     "granime",
-    "src/melee/gr/granime.c",
-    "src/melee/gr/granime.h",
-    "src/melee/gr/types.h",
-    "target_funcs.txt",
     "grAnime_801C752C",
     "grAnime_801C7C1C",
     "grAnime_801C8578",
-    "grAnime_801C86D4",
-    "grAnime_801C84A4",
+    "grAnime_801C7228",
+    "grAnime_801C6F50_wrapped",
     "grAnime_801C6A54",
     "grAnime_801C6C0C",
-    "grAnime_801C7228",
-    "grAnime_801C67A8_noinline",
-    "grAnime_801C683C_noinline",
-    "grAnime_801C6960_noinline",
-    "grAnime_801C69FC_noinline",
-    "grAnime_801C706C_noinline",
-    "grAnime_801C6F50_wrapped",
-    "HSD_JObj",
-    "HSD_Joint",
-    "HSD_AObj",
-    "HSD_RObj",
+    "grAnime_801C86D4",
+    "grAnime_801C84A4",
+    "UnkStageDat_x8_t",
+    "UnkArchiveStruct",
     "HSD_AnimJoint",
     "HSD_MatAnimJoint",
     "HSD_ShapeAnimJoint",
-    "UnkStageDat_x8_t",
-    "AOBJ_ARG_AF",
-    "AOBJ_ARG_AU",
+    "HSD_Joint",
+    "HSD_JObj",
+    "HSD_AObj",
+    "HSD_RObj",
+    "HSD_TObj",
     "callbackArg",
+    "AOBJ_ARG_A",
+    "AOBJ_ARG_AF",
+    "AOBJ_ARG_AV",
+    "AOBJ_ARG_AU",
+    "HSD_AObjSetRate",
+    "HSD_AObjSetFlags",
     "HSD_ASSERT",
     "HSD_ASSERTREPORT",
-    "inline-depth trick",
-    "dont_inline pragma",
-    "varargs",
-    "stage archive"
+    "target_funcs.txt",
+    "noinline wrapper",
+    "inner wrapper",
+    "stage archive animation arrays"
   ],
   "follow_up_queries": [
-    "Find later PRs that fully match grAnime_801C7C1C after this 83.11% improvement.",
-    "Search for other uses of _inner/_noinline wrapper trampolines replacing #pragma dont_inline in melee decomp.",
-    "Check whether the .sdata regression reported for main/melee/gr/granime was fixed in a later PR.",
-    "Look for later semantic renames of UnkStageDat_x8_t.unk4, unk8, and unkC beyond their typed animation-array forms.",
-    "Inspect AOBJ_ARG_* and callbackArg definitions when continuing grAnime_801C752C or related animation callback work."
+    "Find later PRs that rename UnkStageDat_x8_t fields unk4, unk8, or unkC to semantic names.",
+    "Check subsequent granime PRs for removal or retention of _inner/_noinline wrapper helpers once more functions matched.",
+    "Search for other varargs animation callback implementations using callbackArg and AOBJ_ARG_* to compare conventions.",
+    "Look for review or commit history around grAnime_801C7C1C to confirm whether arg names and flag masks var_r30/var_r29 were later documented."
   ],
-  "confidence": 0.9
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

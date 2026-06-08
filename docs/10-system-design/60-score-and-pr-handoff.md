@@ -43,6 +43,26 @@ the whole decompilation effort is complete; it means this batch has reached the
 point where the system should stop, report what happened, and let the next
 allocation decision happen outside the worker loop.
 
+## PR Promotion Gate
+
+Score movement and PR readiness are separate decisions. The saved-baseline
+regression report classifies the branch with a PR promotion gate after the
+regression checks run:
+
+- `pr_ready`: no regressions remain, and the report contains reviewer-worthy
+  evidence such as an exact new match or matched code/data byte movement.
+- `local_only`: the run is clean enough to keep as local evidence, but the
+  report only shows fuzzy movement or otherwise fails to meet the promotion
+  policy.
+- `blocked`: broken matches, fuzzy regressions, or metric regressions remain.
+
+This gate treats match-percent movement as diagnostic telemetry. Fuzzy-only
+improvements can still matter to the local system because they preserve
+hypotheses, target history, and future search hints, but they do not become
+maintainer-facing PRs by default. Final handoff should run `regression-check`
+with `--require-pr-promotion` so a clean local-only win fails the PR gate rather
+than consuming reviewer attention.
+
 ## PR Boundary
 
 The orchestrator does not create one PR per file, worker, symbol, or lease, and

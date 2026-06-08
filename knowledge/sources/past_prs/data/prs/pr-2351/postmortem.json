@@ -11,108 +11,126 @@
     "merged_at": "2026-03-29T20:14:10Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the lbcardgame object by completing its data representation, making small codegen-sensitive C changes, correcting a struct offset comment, updating GALE01 symbols, and flipping src/melee/lb/lbcardgame.c from NonMatching to Matching in configure.py. The decomp.dev bot reported 4 new matches: lbcardgame .data, lb_8001CC84, lb_8001C658, and lb_8001C8BC all reaching 100%.",
+  "summary": "Matched src/melee/lb/lbcardgame.c and moved it from NonMatching to Matching in configure.py. The fix was mostly small C-shape and data-shape work: fully spelling out lb_803BAB74's static initializer, adjusting fields from UNK_T to u32, changing the OS tick-to-seconds conversion expression, using a chained assignment in lb_8001CC84, correcting a struct offset comment, and updating GALE01 symbols for the emitted data/string layout.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "data-matching",
-      "function-matching",
+      "data-layout",
       "symbols",
       "headers",
-      "build-config"
+      "configuration"
     ],
     "systems": [
       "melee/lb",
       "lbcardgame",
-      "GALE01 symbols",
-      "configure.py"
+      "config/GALE01",
+      "build-config"
     ]
   },
   "key_files": [
     "src/melee/lb/lbcardgame.c",
     "src/melee/lb/lbcardgame.static.h",
-    "config/GALE01/symbols.txt",
-    "configure.py"
+    "configure.py",
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
     "configure.py changed Object(NonMatching, \"melee/lb/lbcardgame.c\") to Object(Matching, \"melee/lb/lbcardgame.c\").",
-    "lb_803BAB74 in lbcardgame.c was expanded from a zero placeholder to a full static initializer with header values {0, 3, 0, 0x1790, 0}, NULL x14, seven {0x1F2C, 1, NULL} entries, and a {-1, 0, NULL} sentinel.",
-    "The anonymous array element fields in lb_803BAB74 changed from UNK_T x0/x4 to u32 x0/x4, matching the numeric initializer usage.",
-    "lb_8001C658 changed time conversion from manual OSGetTime() / OS_TIMER_CLOCK to OSTicksToSeconds(temp_r6), then OSSecondsToTicks((u64) seconds) before OSTicksToCalendarTime.",
-    "lb_8001CC84 removed an unused local and changed the reset to lb_80433318.x10 = temp_r3 = 0, a codegen-sensitive chained assignment.",
-    "lbcardgame.static.h corrected the documented offset for lb_80433318_t._1C from /* +30 */ to /* +1C */.",
-    "config/GALE01/symbols.txt updated lbcardgame-adjacent data boundaries and labels, including changing lb_803BAB74 size from 0x28 to 0x78 and replacing several guessed global/local names with compiler-style @number labels."
+    "lb_803BAB74's anonymous static struct initialization was expanded from a placeholder zero initializer to explicit values: pad {0, 3, 0, 0x1790, 0}, NULL x14, seven repeated {0x1F2C, 1, NULL} entries, and a sentinel {-1, 0, NULL}.",
+    "The first two fields of lb_803BAB74.unk_arr entries changed from UNK_T to u32, giving the initializer concrete integer types.",
+    "lb_8001C658 now computes seconds with OSTicksToSeconds(temp_r6), stores it in a u32, then calls OSTicksToCalendarTime(OSSecondsToTicks((u64) seconds), &time) instead of dividing OSGetTime() by OS_TIMER_CLOCK directly.",
+    "lb_8001CC84 removed an unused local var_r3 and changed lb_80433318.x10 = 0 to lb_80433318.x10 = temp_r3 = 0, likely to match generated code shape.",
+    "lbcardgame.static.h corrected the offset comment for lb_80433318_t._1C from +30 to +1C without changing the field layout.",
+    "config/GALE01/symbols.txt renamed several lbArchive/lb/string symbols to compiler-style @NN labels and adjusted lb_803BAB74's data size from 0x28 to 0x78, consistent with the expanded static object."
   ],
   "smart_moves": [
-    "Matched .data by modeling the emitted blob as one structured initializer instead of leaving lb_803BAB74 as a zero todo placeholder.",
-    "Used concrete u32 field types for numeric data fields rather than preserving opaque UNK_T types, improving both layout clarity and initializer/codegen behavior.",
-    "Replaced an algebraically equivalent manual timer division with the SDK-style OSTicksToSeconds/OSSecondsToTicks sequence, which produced the needed match for lb_8001C658.",
-    "Used a chained assignment in lb_8001CC84 to force the local temp_r3 and the global state field to be cleared together, preserving expected compiler behavior.",
-    "Cleaned symbol ownership around the matched data by using anonymous @number labels for strings/constants that did not have evidence for meaningful lbArchive/lb names."
+    "Solved matching by making the static data object explicit rather than hiding it behind a placeholder initializer.",
+    "Used concrete u32 fields in the nested array where integer constants were being emitted, reducing ambiguity from UNK_T and helping data/code generation match.",
+    "Preserved SDK time-conversion semantics through OSTicksToSeconds and OSSecondsToTicks while forcing the intermediate width with u32 and u64 casts.",
+    "Used a chained assignment to make lb_80433318.x10 and temp_r3 receive zero together, a small source-level expression change that can affect register reuse and instruction ordering.",
+    "Updated symbols.txt alongside the source match so the data sections and local string labels reflected the newly matched object output."
   ],
   "decomp_lessons": [
-    "For data matching, verify whether adjacent unnamed words/strings are actually part of a larger struct object; symbol size changes can be required alongside C initializer changes.",
-    "Do not keep UNK_T when the initializer and accesses show a normal 32-bit integer field; concrete types can be necessary for matching and make later field naming safer.",
-    "SDK helper calls can matter even when arithmetic is equivalent: OS tick/time conversions should prefer the original library idiom when matching.",
-    "Small source-expression choices such as assignment chaining can be legitimate matching tactics for register/local lifetime differences.",
-    "Static header offset comments are part of decomp maintainability; fix misleading offsets when touching the struct.",
-    "A configure.py NonMatching-to-Matching flip should be paired with symbols/data cleanup and bot-confirmed 100% matches."
+    "When a file is blocked by data mismatch, inspect static initializers and object sizes; a placeholder initializer can hide the real emitted data footprint.",
+    "Replacing UNK_T with a concrete scalar type can be necessary for matching static data and expression codegen, especially when constants are known.",
+    "For time APIs, equivalent arithmetic such as ticks / OS_TIMER_CLOCK may not match the compiler output produced by SDK macros/functions; prefer the original-looking SDK conversion chain when evidence supports it.",
+    "Chained assignments can be a legitimate matching tactic for preserving a temporary's value and register lifetime.",
+    "Offset-comment fixes in static headers matter for future readers even when they do not alter the binary layout.",
+    "Symbols may need to move from guessed subsystem-prefixed names to @NN compiler/local labels once source emits data in the expected order."
   ],
   "naming_conventions": [
-    "Use @number labels in symbols.txt for anonymous compiler-generated constants/strings when there is no evidence for a semantic global name.",
-    "Keep the real data object name lb_803BAB74 for the lbcardgame static struct and update its symbol size to cover the full emitted object.",
-    "Preserve static header offset-comment style with byte offsets matching the field, e.g. /* +1C */ char _1C[0x40];.",
-    "The PR provides evidence against some guessed lbArchive_/lb_ names in this address range, replacing them with @12, @13, @23, @62, @126, @162, @163, @164, @173, @203, @204, @334, @335, @336, @341, @342, @343, and @344."
+    "Compiler-generated or local literal/data labels in symbols.txt may use @NN names such as @12, @13, @162, @334, and @336 instead of guessed lbArchive_ or lb_ address-style names.",
+    "Unidentified globals and structs continued to use address-based names such as lb_803BAB74 and lb_80433318_t.",
+    "Struct field names retained offset-style placeholders such as x10, x14, x5C, and _1C where semantic names were not established.",
+    "The PR did not provide human discussion explaining naming intent, so naming lessons are inferred from the diff only."
   ],
   "assembly_or_matching_tactics": [
-    "Static data tactic: expand lb_803BAB74 into an exact initializer and adjust symbols.txt from a 0x28 object plus adjacent data to one 0x78 object.",
-    "Time conversion tactic: use u32 seconds = OSTicksToSeconds(OSGetTime()) and cast back with OSSecondsToTicks((u64) seconds) before OSTicksToCalendarTime.",
-    "Register/lifetime tactic: assign lb_80433318.x10 = temp_r3 = 0 instead of only storing zero to the struct field.",
-    "Symbol tactic: rename anonymous data/string/float constants to @number labels to align with compiler-local symbol expectations.",
-    "Build tactic: only after the source and symbol tweaks, mark melee/lb/lbcardgame.c as Matching in configure.py."
+    "Expanded lb_803BAB74 to a 0x78-byte initialized data object, aligning source-level initialization with symbols.txt size changes.",
+    "Typed nested initializer fields as u32 instead of UNK_T to influence emitted data and expression typing.",
+    "Changed tick conversion from manual division by OS_TIMER_CLOCK to OSTicksToSeconds plus OSSecondsToTicks with explicit u32/u64 widths.",
+    "Used lb_80433318.x10 = temp_r3 = 0 to force codegen around zeroing both a struct field and a local temporary.",
+    "Removed an unused local variable in lb_8001CC84 after the matching expression no longer needed it.",
+    "Renamed/merged emitted strings and data labels in symbols.txt, including replacing several named string labels with @NN labels."
   ],
   "review_feedback": [
-    "No human review comments were present in the slice, and the PR body was empty, so reviewer intent is not evidenced.",
-    "The decomp.dev bot reported GALE01 improvements: matched code 61.14% (+0.03%, +1328 bytes), linked code 33.68% (+0.08%, +3260 bytes), matched data 37.80% (+0.03%, +360 bytes), and linked data 32.32% (+0.04%, +504 bytes).",
-    "The bot listed 4 new matches for main/melee/lb/lbcardgame: .data, lb_8001CC84, lb_8001C658, and lb_8001C8BC."
+    "No review comments were present in the provided PR slice.",
+    "One issue comment was counted, but its body was not included in the excerpt, so no evidence-grounded reviewer feedback can be extracted."
   ],
   "searchable_terms": [
-    "PR2351",
+    "pr-2351",
     "Match lbcardgame",
     "mchen91",
-    "lbcardgame",
-    "src/melee/lb/lbcardgame.c",
-    "src/melee/lb/lbcardgame.static.h",
-    "config/GALE01/symbols.txt",
+    "lbcardgame.c",
+    "lbcardgame.static.h",
     "configure.py",
-    "Object Matching",
-    "NonMatching to Matching",
+    "symbols.txt",
+    "Object(Matching)",
+    "Object(NonMatching)",
     "lb_803BAB74",
-    "lb_8001C658",
-    "lb_8001CC84",
-    "lb_8001C8BC",
+    "lb_80433318_t",
     "lb_80433318",
     "gmm_x1868",
+    "unk_arr",
+    "UNK_T",
+    "u32",
+    "OSGetTime",
     "OSTicksToSeconds",
     "OSSecondsToTicks",
     "OSTicksToCalendarTime",
-    "OSGetTime",
     "OS_TIMER_CLOCK",
+    "lb_8001C600",
+    "lb_8001C658",
+    "lb_8001CC84",
     "temp_r3",
+    "temp_r6",
+    "temp_r24",
     "chained assignment",
-    "_1C offset",
-    "u32 not UNK_T",
-    "@number symbols",
+    "static initializer",
+    "data size 0x78",
+    "sentinel -1",
+    "@12",
+    "@13",
+    "@126",
+    "@162",
+    "@334",
+    "@336",
     "lbArchive_803BA588",
-    "lb_804D7CB0",
-    "matched data 100"
+    "lbArchive_804D37C0"
   ],
   "follow_up_queries": [
-    "Search for other manual OSGetTime() / OS_TIMER_CLOCK conversions that may need OSTicksToSeconds for matching.",
-    "Inspect lb_8001C8BC if researching why it became a one-byte new match despite no direct source hunk in this slice.",
-    "Use lb_803BAB74's completed initializer as the reference point before renaming its anonymous fields.",
-    "Audit nearby GALE01 symbol labels if future lbArchive/lbDvd/lbSnap work depends on the anonymous @number constants changed here."
+    "Find other lb files where placeholder static initializers are preventing object matches.",
+    "Search for manual OSGetTime division by OS_TIMER_CLOCK that should use OSTicksToSeconds/OSSecondsToTicks for matching.",
+    "Search for UNK_T fields inside initialized static data that can be narrowed to u32 or another concrete scalar type.",
+    "Review symbols.txt entries near lbcardgame for remaining guessed lb_ or subsystem-prefixed names that should become @NN labels.",
+    "Look for cases where chained assignment can reproduce register lifetime in small state-machine functions."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,112 +11,107 @@
     "merged_at": "2026-03-01T16:32:14Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled a substantial slice of src/melee/it/items/itbombhei.c, replacing multiple placeholder functions with C for BombHei dropped/thrown/air-entry and motion-state behavior. decomp.dev reported +6020 matched code bytes, +48 matched data bytes, 11 new matches, and 7 improved still-unmatched BombHei functions; the author separately noted several remaining hard functions at roughly 90-96% match. The PR also tightened BombHei item/attribute structs, renamed ItemCommonData::x30 to x30_lifetime across common item users, and made mostly formatting/include cleanup in adjacent item/fighter/stage files.",
+  "summary": "Advanced the Bob-omb/BombHei item decompilation by replacing many placeholder stubs in src/melee/it/items/itbombhei.c with C implementations, adding/refining BombHei item variable and attribute types, and simplifying helper inlines for preserving bone transform state across item animation changes. The PR also renamed the global item parameter field x30 to x30_lifetime at call sites and made small formatting/cleanup edits in related item, fighter, and stage files. The author noted several remaining itbombhei functions were still only around 90-96% by easy_funcs, so the PR was an incremental improvement rather than a fully matched completion.",
   "change_classification": {
-    "primary_type": "item decompilation/matching",
+    "primary_type": "decomp-matching",
     "categories": [
+      "item-decomp",
       "decomp-matching",
-      "item-logic",
-      "types-structs",
       "headers",
-      "naming-cleanup",
-      "formatting-cleanup",
-      "tooling"
+      "types-structs",
+      "cleanup",
+      "naming"
     ],
     "systems": [
-      "item: itbombhei",
-      "item: common item data",
-      "item: itlikelike",
-      "item: itfreeze",
-      "item: itgshell",
-      "item: itmatadogas",
-      "fighter capture-likelike formatting",
-      "stage grinishie2 formatting"
+      "item",
+      "fighter",
+      "stage"
     ]
   },
   "key_files": [
-    "src/melee/it/items/itbombhei.c - main decomp work; added GET_ATTRS, math/lb includes, BombHei state/motion implementations, lifetime usage, preserve-bone state transitions, and Vec3 it_803B8600.",
-    "src/melee/it/items/itbombhei.static.h - refactored preserve-bone inline helpers to accept Item_80268E5C flags and added itBombhei_UpdateStatePreserveBoneFake.",
-    "src/melee/it/itCommonItems.h - corrected BombHei item-var and attribute field types; added itBombHeiAttributes::x20 Vec3.",
-    "src/melee/it/types.h - renamed ItemCommonData::x30 to x30_lifetime.",
-    "src/melee/it/item.c, src/melee/it/it_2725.c, src/melee/it/items/itfreeze.c, src/melee/it/items/itgshell.c - updated callers from it_804D6D28->x30 to x30_lifetime.",
-    "src/melee/it/items/itlikelike.c - mostly style/include/cast cleanup; relevant because the author copied its GET_ATTRS pattern.",
-    "src/melee/it/items/itmatadogas.c - include ordering and formatting around itMatadogasAttributes.",
-    "src/melee/ft/ft_0C31.c, src/melee/ft/ft_0C31.h, src/melee/gr/grinishie2.c - line wrapping/formatting only in the shown diff."
+    "src/melee/it/items/itbombhei.c",
+    "src/melee/it/items/itbombhei.static.h",
+    "src/melee/it/itCommonItems.h",
+    "src/melee/it/items/itlikelike.c",
+    "src/melee/it/item.c",
+    "src/melee/it/it_2725.c",
+    "src/melee/it/items/itfreeze.c",
+    "src/melee/it/items/itgshell.c",
+    "src/melee/it/items/itmatadogas.c",
+    "src/melee/it/items/it_27CF.c",
+    "src/melee/it/types.h",
+    "src/melee/gr/grinishie2.c",
+    "src/melee/ft/ft_0C31.c",
+    "src/melee/ft/ft_0C31.h"
   ],
   "what_changed": [
-    "Filled BombHei placeholders including it_3F14_Logic6_Dropped, it_8027E978, itBombhei_UnkMotion3_Anim, it_8027EE04, itBombhei_UnkMotion2_Anim, itBombhei_UnkMotion2_Coll, it_8027F42C, itBombhei_UnkMotion4_Anim, it_8027F8E0, fn_8027FCA8, fn_8028007C, it_3F14_Logic6_Thrown, itBombhei_UnkMotion10_Anim, fn_80280974, it_80280B60, and it_3F14_Logic6_EnteredAir.",
-    "decomp.dev marked 11 new matches: it_8027F8E0, fn_8027FCA8, it_3F14_Logic6_Thrown, it_3F14_Logic6_Dropped, it_80280B60, it_8027E978, it_8027EE04, it_8027F42C, it_3F14_Logic6_EnteredAir, .sdata2, and it_8027D670.",
-    "Several BombHei functions remained partial but improved, including fn_80280974, itBombhei_UnkMotion2_Coll, itBombhei_UnkMotion3_Anim, itBombhei_UnkMotion10_Anim, itBombhei_UnkMotion2_Anim, itBombhei_UnkMotion4_Anim, and fn_8028007C.",
-    "Changed it_8027D670 to compute facing_dir from &data.prev_pos rather than &data.pos, a small stack/addressing-sensitive matching adjustment after data.pos and data.prev_pos are both initialized from *pos.",
-    "Generalized itBombhei_UpdateStatePreserveBone from a fixed ITEM_ANIM_UPDATE helper to a helper taking flags, and replaced multiple near-duplicate helper variants with normal and fake setter forms.",
-    "Updated BombHei structs: itBombHei_ItemVars::xDF4 became float, _E04 became f32 xE04, itBombHeiAttributes::xC became float, and itBombHeiAttributes gained x20 Vec3.",
-    "Renamed common item lifetime field x30 to x30_lifetime and updated uses in item spawn/lifetime paths and shell/freezer/BombHei code.",
-    "Cleaned formatting in itlikelike, itmatadogas, it_27CF, ft_0C31, and grinishie2 without strong evidence of semantic changes there."
+    "Implemented many previously placeholder-marked BombHei routines, including it_3F14_Logic6_Dropped, it_8027E978, itBombhei_UnkMotion3_Anim, it_8027EE04, itBombhei_UnkMotion2_Anim, itBombhei_UnkMotion2_Coll, it_8027F42C, itBombhei_UnkMotion4_Anim, it_8027F8E0, fn_8027FCA8, fn_8028007C, it_3F14_Logic6_Thrown, itBombhei_UnkMotion10_Anim, fn_80280974, it_80280B60, and it_3F14_Logic6_EnteredAir.",
+    "Changed BombHei state-transition helper usage so itBombhei_UpdateStatePreserveBone takes an explicit animation flags argument instead of hardcoding ITEM_ANIM_UPDATE, and replaced several numbered helper variants with a single fake setter variant, itBombhei_UpdateStatePreserveBoneFake.",
+    "Added a local GET_ATTRS(ip) macro in itbombhei.c to cast ip->xC4_article_data->x4_specialAttributes to itBombHeiAttributes*.",
+    "Refined itBombHei_ItemVars and itBombHeiAttributes in itCommonItems.h: xDF4 changed from s32 to float, _E04 became f32 xE04, attribute xC changed from s32 to float, and a Vec3 x20 field was added.",
+    "Updated item lifetime/global parameter field references from it_804D6D28->x30 to it_804D6D28->x30_lifetime in item.c, it_2725.c, itfreeze.c, itgshell.c, itmatadogas.c, and itbombhei.c.",
+    "Adjusted BombHei spawn logic to compute facing_dir from data.prev_pos instead of data.pos.",
+    "Added includes used by the new BombHei code, including math.h, it/forward.h, and lb/lb_00F9.h.",
+    "Made mostly formatting-only cleanup in itlikelike.c, grinishie2.c, it_27CF.c, and ft_0C31 prototypes."
   ],
   "smart_moves": [
-    "Used a preserve-bone wrapper around Item_80268E5C so dynamic bone 0xB translation Y and rotation X survive state changes; the wrapper takes exact flags so ITEM_ANIM_UPDATE, ITEM_UNK_0x1, 0x12, 0x1A, and 0x104 cases can share code.",
-    "Kept a separate itBombhei_UpdateStatePreserveBoneFake path using fake_HSD_JObjSetTranslateY/fake_HSD_JObjSetRotationX, preserving a matching lever while removing four duplicated helper bodies.",
-    "Typed BombHei attributes enough to make velocity and bounds logic readable: attrs->xC drives x40_vel.x, attrs->x20.x/y are used in ABS checks before it_80280DC0, and attrs->x18/x8 feed lifetime/state variables.",
-    "Promoted the common item data lifetime guess into the explicit name x30_lifetime and updated all shown users, making later item decomp less dependent on a comment-only field name.",
-    "Tracked progress with decomp.dev and easy_funcs.py; the PR clearly separated 100% new matches from still-hard 90-96% functions instead of hiding partial-match status."
+    "Generalized the preserve-bone animation helper by passing flags explicitly; this removed duplicated helpers that differed only in ITEM_ANIM_UPDATE versus ITEM_UNK_0x1 and made call sites show the required animation mode.",
+    "Kept a separate fake setter helper when matching required fake_HSD_JObjSetTranslateY/fake_HSD_JObjSetRotationX, preserving a matching tactic without duplicating every flag-specific variant.",
+    "Captured and restored BombHei dynamic bone 0xB translation/rotation around Item_80268E5C state changes, a recurring pattern needed by multiple motion transitions.",
+    "Used attribute and item-var type corrections to enable float math in BombHei behavior, including velocity, timers, rotation increments, and Vec3 bounds checks.",
+    "Documented progress with easy_funcs output, making clear which itbombhei functions were still below 100% and where future matching work should focus."
   ],
   "decomp_lessons": [
-    "Item specialAttributes casts can improve readability and expose struct field types, but per-file GET_ATTRS macros are not settled project convention; use them cautiously and be ready to inline/break them for permuter/codegen needs.",
-    "For item animation-state transitions, preserving dynamic bone transforms around Item_80268E5C is a reusable pattern; exact setter choice, fake setter choice, and flags can affect matching.",
-    "Small source-address choices such as passing &data.prev_pos instead of &data.pos can be enough to finish a near-match even when values are semantically identical at initialization.",
-    "When an item-global field is proven by repeated use, renaming it in the shared struct and updating all callers is better than local casts or comments; x30_lifetime is the example here.",
-    "Struct field signedness/type matters for matching and meaning: BombHei xDF4 and attribute xC are floats, xE04 is f32, and a trailing Vec3 attribute x20 was needed for bounds checks.",
-    "A PR can still be valuable when several large functions are not 100%; document the remaining functions and match percentages so future decomp work knows exactly where to resume."
+    "When an item state transition needs to preserve a dynamic bone pose, read the JObj translation/rotation before Item_80268E5C and restore afterward; if matching requires fake setters, isolate that in a helper rather than spreading fake calls everywhere.",
+    "Do not assume unknown article attribute fields are integers; matching BombHei required changing xC and item-var xDF4 to float and adding a Vec3 attribute at x20.",
+    "Field renames such as x30_lifetime should be propagated across common item call sites to clarify meaning and reduce future confusion.",
+    "Local attribute macros can improve readability for repeated specialAttributes casts, but reviewers questioned whether inconsistent macro use is worth it if permuter/matching forces some call sites to break the pattern.",
+    "An incremental PR can still be valuable even when some functions remain 90-96% matched, as long as it removes stubs and exposes concrete future targets."
   ],
   "naming_conventions": [
-    "BombHei symbols in this file use itBombhei_UnkMotionN_{Anim,Phys,Coll} for unnamed motion callbacks and it_3F14_Logic6_{Dropped,Thrown,EnteredAir} for common item logic callbacks.",
-    "Unclear behavior functions stayed address-style or fn-style, such as it_8027E978, it_8027EE04, it_8027F42C, it_8027F8E0, fn_8027FCA8, fn_8028007C, fn_80280974, and it_80280B60; no semantic rename was invented.",
-    "Shared item data lifetime is now ItemCommonData::x30_lifetime rather than x30 with a lifetime comment.",
-    "BombHei data remains in xDD4_itemVar.bombhei with offset-like members, but field names/types were refined where evidence existed: xDF4 float, xE04 f32, and itBombHeiAttributes::x20 Vec3.",
-    "Reviewer mentioned a possible future generic macro shape like GET_ATTRS(ip, itBombHeiAttributes), but this PR used local GET_ATTRS(ip) and did not establish a global convention."
+    "Bob-omb item symbols use the project spelling/capitalization BombHei in types and functions: itBombHeiAttributes, itBombHei_ItemVars, itBombhei_UnkMotion*_Anim/Phys/Coll.",
+    "Known item variable fields retain offset-style names when semantics remain unknown, e.g. xDD4, xDE0, xDF8, xDFC, xE0C.",
+    "Semantic global item parameter naming improved from x30 to x30_lifetime.",
+    "The helper name itBombhei_UpdateStatePreserveBoneFake indicates the use of fake JObj setter calls for matching rather than a semantic gameplay difference.",
+    "Unmatched or unclear functions retained address-like names such as fn_8028007C and fn_80280974 rather than inventing behavior names."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(8) and PAD_STACK(0x18) in several BombHei functions to satisfy stack layout.",
-    "Used fake_HSD_JObjSetTranslateY/fake_HSD_JObjSetRotationX through itBombhei_UpdateStatePreserveBoneFake when normal setters did not match.",
-    "Preserved dynamic bone 0xB by reading HSD_JObjGetTranslationY and HSD_JObjGetRotationX before Item_80268E5C, then restoring them after the animation/state update.",
-    "Passed exact Item_80268E5C flags through helper calls instead of baking in one flag, allowing matches for ITEM_ANIM_UPDATE, ITEM_UNK_0x1, 0x12, 0x1A, and 0x104 call sites.",
-    "Kept explicit GET_ITEM reloads, temporaries, and casts in motion/collision code; examples include function-pointer casting for it_8026D8A4(gobj, (void (*)(HSD_GObj*)) it_8027F42C).",
-    "Used math.h/M_PI double arithmetic for the BombHei rotation increment in it_8027E978 and lb_800119DC in it_80280B60, adding includes only where needed.",
-    "Author noted that the GET_ATTRS macro sometimes had to be broken apart for permuter reasons, such as introducing article-data intermediates."
+    "Used PAD_STACK annotations in several BombHei implementations to shape stack layout.",
+    "Used fake_HSD_JObjSetTranslateY and fake_HSD_JObjSetRotationX in itBombhei_UpdateStatePreserveBoneFake where regular setters did not produce the desired match.",
+    "Used explicit casts around Item_80268E5C calls, e.g. (HSD_GObj*) igp/arg0, matching existing item code patterns.",
+    "Sometimes avoided or broke out the GET_ATTRS macro for permuter reasons; the author specifically noted breaking out article data in some cases to reach 100%.",
+    "Used ABS comparisons against itBombHeiAttributes.x20 Vec3 components in fn_8028007C and fn_80280974 before routing to it_80280DC0.",
+    "Author-reported easy_funcs scores showed remaining hard targets: fn_80280974 at 91.04%, itBombhei_UnkMotion2_Coll at 94.14%, itBombhei_UnkMotion3_Anim at 96.15%, itBombhei_UnkMotion10_Anim at 90.32%, itBombhei_UnkMotion8_Anim at 90.36%, itBombhei_UnkMotion2_Anim at 94.64%, itBombhei_UnkMotion4_Anim at 95.26%, and fn_8028007C at 92.53%."
   ],
   "review_feedback": [
-    "ribbanya questioned whether the local GET_ATTRS(ip) macro meaningfully fixed stack/codegen and noted that fighters have similar patterns but the project had not defined macros for them.",
-    "ribbanya said the team had considered a generic macro form such as GET_ATTRS(ip, itBombHeiAttributes), but had not implemented it.",
-    "jurrejelle replied that the pattern was copied from itlikelike, helped readability and some cases without a between-var, but had to be broken in places for permuter/matching.",
-    "ribbanya concluded that if the macro cannot be used consistently it should probably be avoided pending further investigation, though using it or not did not matter much for this PR.",
-    "No other substantive review objections are present in the slice; the PR was merged shortly after the GET_ATTRS discussion."
+    {
+      "author": "ribbanya",
+      "file": "src/melee/it/items/itbombhei.c",
+      "topic": "GET_ATTRS macro",
+      "comment": "Questioned whether the GET_ATTRS(ip) macro meaningfully fixed stack/matching issues and noted that fighter code has similar patterns without defining macros. Mentioned a possible generic form such as GET_ATTRS(ip, itBombHeiAttributes), but said it had not been implemented."
+    },
+    {
+      "author": "jurrejelle",
+      "file": "src/melee/it/items/itbombhei.c",
+      "topic": "GET_ATTRS macro rationale",
+      "comment": "Explained the macro was copied from itlikelike and made code more readable, especially when avoiding long casts like ((itBombHeiAttributes*) ip->xC4_article_data->x4_specialAttributes)->field, but also admitted it sometimes had to be broken for permuter reasons."
+    },
+    {
+      "author": "ribbanya",
+      "file": "src/melee/it/items/itbombhei.c",
+      "topic": "macro consistency",
+      "comment": "Suggested that if the macro pattern cannot be used consistently it should probably be avoided, though using it or not did not matter much pending further investigation."
+    }
   ],
   "searchable_terms": [
-    "pr-2195",
+    "PR2195",
     "itbombhei",
     "BombHei",
-    "It_Kind_BombHei",
-    "itBombHei_ItemVars",
+    "Bob-omb",
     "itBombHeiAttributes",
+    "itBombHei_ItemVars",
     "GET_ATTRS",
-    "it_3F14_Logic6_Dropped",
-    "it_3F14_Logic6_Thrown",
-    "it_3F14_Logic6_EnteredAir",
-    "it_8027E978",
-    "itBombhei_UnkMotion3_Anim",
-    "it_8027EE04",
-    "itBombhei_UnkMotion2_Anim",
-    "itBombhei_UnkMotion2_Coll",
-    "it_8027F42C",
-    "itBombhei_UnkMotion4_Anim",
-    "it_8027F8E0",
-    "fn_8027FCA8",
-    "fn_8028007C",
-    "itBombhei_UnkMotion10_Anim",
-    "fn_80280974",
-    "it_80280B60",
-    "it_803B8600",
+    "specialAttributes",
     "itBombhei_UpdateStatePreserveBone",
     "itBombhei_UpdateStatePreserveBoneFake",
     "fake_HSD_JObjSetTranslateY",
@@ -125,22 +120,35 @@
     "ITEM_ANIM_UPDATE",
     "ITEM_UNK_0x1",
     "x30_lifetime",
-    "xDF4",
-    "xE04",
-    "x20 Vec3",
-    "PAD_STACK",
-    "M_PI",
-    "lb_800119DC",
-    "easy_funcs.py",
-    "decomp.dev"
+    "it_3F14_Logic6_Dropped",
+    "it_3F14_Logic6_Thrown",
+    "it_3F14_Logic6_EnteredAir",
+    "itBombhei_UnkMotion2_Anim",
+    "itBombhei_UnkMotion2_Coll",
+    "itBombhei_UnkMotion3_Anim",
+    "itBombhei_UnkMotion4_Anim",
+    "itBombhei_UnkMotion10_Anim",
+    "fn_8028007C",
+    "fn_80280974",
+    "it_80280B60",
+    "itCommonItems.h",
+    "itlikelike",
+    "easy_funcs"
   ],
   "follow_up_queries": [
-    "Continue BombHei partials from the author/decomp.dev lists: fn_80280974, itBombhei_UnkMotion2_Coll, itBombhei_UnkMotion3_Anim, itBombhei_UnkMotion10_Anim, itBombhei_UnkMotion8_Anim, itBombhei_UnkMotion2_Anim, itBombhei_UnkMotion4_Anim, and fn_8028007C.",
-    "Investigate whether a project-wide typed attribute helper like GET_ATTRS(ip, Type) is worth adopting, or whether local GET_ATTRS macros should be avoided for consistency.",
-    "Audit remaining it_804D6D28->x30 references, if any, after the x30_lifetime rename.",
-    "Refine semantic names for BombHei attrs x0/x4/x8/xC/x14/x18/x20 and item vars xDD4/xDE0/xDF0/xE04 once behavior is understood.",
-    "Check whether preserve-bone/fake-setter helper patterns in itbombhei.static.h can be reused safely in other item decomp units without harming consistency.",
-    "Separate purely formatting cleanup in itlikelike/grinishie2/ft_0C31 from future semantic decomp PRs if those files become review-noisy."
+    "Search later PRs for itbombhei GET_ATTRS to see whether the local macro was kept, removed, or replaced by a generic GET_ATTRS(ip, type) pattern.",
+    "Search for fn_80280974 and fn_8028007C to see whether later decomp work named or fully matched these BombHei routines.",
+    "Search for x30_lifetime to confirm all former it_804D6D28->x30 uses were renamed consistently.",
+    "Search for itBombhei_UpdateStatePreserveBoneFake to determine whether fake setter helpers became accepted practice or were later eliminated.",
+    "Compare later easy_funcs output for src/melee/it/items/itbombhei.c against the 90-96% functions listed in this PR."
   ],
-  "confidence": 0.93
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

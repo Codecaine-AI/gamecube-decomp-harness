@@ -11,131 +11,170 @@
     "merged_at": "2026-05-08T22:09:17Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched and linked src/melee/vi/vi1101.c by implementing un_8031F714_OnEnter, refining un_8031F294 player/setup code, correcting vi1101 data/symbol layout, and marking vi1101.c Matching in configure.py. Ancillary changes adjusted math_ppc/sqrtf include placement and moved HSD_MtxColMagFloat inline definitions into the C files that need them; ifmagnify/mndatadel/mninfo changes are mostly formatting. decomp-dev bot reported +588 matched code bytes, +1772 linked code bytes, and vi1101 OnEnter/data/sdata/sdata2/sbss reaching 100%.",
+  "summary": "Matched `src/melee/vi/vi1101.c`, especially `un_8031F714_OnEnter`, and flipped `melee/vi/vi1101.c` from NonMatching to Matching in `configure.py`. The PR also corrected vi1101 data/sdata/sdata2 symbol layout, replaced placeholder/header declarations with concrete types, moved `HSD_MtxColMagFloat` out of `mtx.h` into C files needing it, and added targeted `MSL/math_ppc.h` includes. decomp.dev reported 12 new matches, including `main/melee/vi/vi1101` `un_8031F714_OnEnter` +588 bytes and vi1101 `.data`, `.sdata`, `.sdata2`, and `.sbss` reaching 100%. No human review feedback was present in the slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "data-layout",
-      "build-config",
       "headers",
-      "include-dependency-cleanup",
+      "symbol-map",
+      "data-layout",
+      "include-cleanup",
       "formatting"
     ],
     "systems": [
       "melee/vi",
       "melee/if",
       "melee/mn",
-      "melee/gr",
-      "melee/lb",
-      "sysdolphin/baselib",
+      "stage",
+      "baselib",
       "config"
     ]
   },
   "key_files": [
-    "src/melee/vi/vi1101.c - implemented un_8031F714_OnEnter, refined un_8031F294, added Vi1101Data/static constants/data definitions",
-    "src/melee/vi/vi1101.h - cleaned prototypes and externs",
-    "configure.py - changed melee/vi/vi1101.c from NonMatching to Matching",
-    "config/GALE01/symbols.txt - adjusted vi1101 data/sdata/sdata2 symbol sizes, scopes, and local labels",
-    "src/sysdolphin/baselib/mtx.h - removed math_ppc include and HSD_MtxColMagFloat inline",
-    "src/sysdolphin/baselib/displayfunc.c - added local HSD_MtxColMagFloat inline and math_ppc include",
-    "src/sysdolphin/baselib/robj.c - added local HSD_MtxColMagFloat inline and math_ppc include",
-    "src/melee/if/ifmagnify.c, src/melee/mn/mndatadel.c, src/melee/mn/mninfo.c - mostly ninja/style reflow",
-    "src/melee/gr/grmutecity.c, src/melee/gr/grrcruise.c, src/melee/lb/lbcollision.c, src/sysdolphin/baselib/cobj.c, jobj.c, mtx.c, particle.c - added MSL/math_ppc.h includes"
+    {
+      "file": "src/melee/vi/vi1101.c",
+      "reason": "Main matching work: added concrete data definitions, constants, archive-loading scene setup, and matched `un_8031F714_OnEnter`."
+    },
+    {
+      "file": "src/melee/vi/vi1101.h",
+      "reason": "Removed placeholder usage and tightened prototypes/externs for vi1101 symbols."
+    },
+    {
+      "file": "configure.py",
+      "reason": "Changed `Object(NonMatching, \"melee/vi/vi1101.c\")` to `Object(Matching, \"melee/vi/vi1101.c\")`."
+    },
+    {
+      "file": "config/GALE01/symbols.txt",
+      "reason": "Updated vi1101 object sizes/scopes and converted several sdata2 float symbols to local labels."
+    },
+    {
+      "file": "src/sysdolphin/baselib/mtx.h",
+      "reason": "Removed `MSL/math_ppc.h` and the static inline `HSD_MtxColMagFloat` from the header."
+    },
+    {
+      "file": "src/sysdolphin/baselib/displayfunc.c",
+      "reason": "Added `MSL/math_ppc.h` and a local inline definition of `HSD_MtxColMagFloat`."
+    },
+    {
+      "file": "src/sysdolphin/baselib/robj.c",
+      "reason": "Added `MSL/math_ppc.h` and a local inline definition of `HSD_MtxColMagFloat`."
+    },
+    {
+      "file": "src/melee/if/ifmagnify.c",
+      "reason": "Mostly formatting/signature wrapping changes adjacent to matching-sensitive code; no strong evidence of semantic changes."
+    },
+    {
+      "file": "src/melee/mn/mndatadel.c",
+      "reason": "Mostly formatting of casts/calls; likely collateral from include/style cleanup."
+    }
   ],
   "what_changed": [
-    "Replaced the placeholder for un_8031F714_OnEnter with a C implementation that initializes audio/effects, loads vi1101 archives/symbols, builds light/camera/model GObjs, animates scene JObjs/CObjs, calls un_8031F294(input[0], input[1]), and restores audio state.",
-    "Reworked un_8031F294 signatures and internals from int char_index/costume_index to s32 arg0/arg1, used VecMtxPtr for grLib_801C9A10, GET_JOBJ for player entities, named static float constants for 1.0f/0.0f/432.0f, and used un_80400200.spawns for player spawn positions.",
-    "Introduced Vi1101Data combining three Vec3 spawn positions plus the resource strings Vi1101.dat, visual1101Scene, and visual1101Cam2Scene, replacing the previous standalone Vec3 array and aligning the .data object layout.",
-    "Defined vi1101 data in C, including u8 un_804D6FD8[8], GXColor un_804D5B08 = {0, 0, 0, 0xff}, static SceneDesc/archive pointers, and static f32 constants; config/GALE01/symbols.txt was updated for object sizes and local/global symbol scope.",
-    "Marked Object(Matching, \"melee/vi/vi1101.c\") in configure.py, moving vi1101 from NonMatching to Matching.",
-    "Updated vi1101.h by removing placeholder.h and the extern for un_804D5B08, changing un_8031F294 to s32 parameters and un_8031F714_OnEnter to void*, and keeping un_804D6FD8 extern.",
-    "Moved HSD_MtxColMagFloat out of baselib/mtx.h and into displayfunc.c and robj.c, while adding explicit <MSL/math_ppc.h> includes to several files that need math_ppc/sqrtf behavior.",
-    "Applied mostly non-semantic formatting/reflow in ifmagnify.c/.h, mndatadel.c, and mninfo.c; the diff does not show behavioral changes there beyond formatting/include order."
+    "Implemented `un_8031F714_OnEnter(void* arg)` in `vi1101.c` instead of leaving it as a nonmatching placeholder comment.",
+    "Defined a `Vi1101Data` struct containing three spawn `Vec3`s and resource-name strings: `\"Vi1101.dat\"`, `\"visual1101Scene\"`, and `\"visual1101Cam2Scene\"`.",
+    "Changed vi1101 spawn access from a bare `Vec3 un_80400200[3]` to `un_80400200.spawns`, reflecting that the data symbol also contains following strings.",
+    "Added concrete small-data constants in `vi1101.c`, including `GXColor un_804D5B08 = { 0, 0, 0, 0xff }` and local float constants for `1.0f`, `0.0f`, and `432.0f`.",
+    "Adjusted `un_8031F294` arguments from named `int char_index, costume_index` to `s32 arg0, arg1`, used `VecMtxPtr`, `GET_JOBJ`, and constant symbols to satisfy matching.",
+    "Changed `fn_8031F56C` signature from one argument to `(HSD_GObj* gobj, int unused)`, matching the callback shape used by `GObj_SetupGXLinkMax`.",
+    "Updated archive loading in `un_8031F714_OnEnter` to derive symbol names by offsets into the packed `un_80400200` data block and to load character animation via `viGetCharAnimByIndex`.",
+    "Updated `symbols.txt`: shrank `un_80400200` from size `0x58` to `0x54`, added local label `...data.0`, shrank `un_804D5B08` from `0x8` to `0x4`, and converted several vi1101 sdata2 globals to local `@166`-style float labels.",
+    "Moved `HSD_MtxColMagFloat` out of `src/sysdolphin/baselib/mtx.h` and into C files that need it, while adding explicit `MSL/math_ppc.h` includes to multiple affected translation units.",
+    "Flipped vi1101 to Matching in the build configuration."
   ],
   "smart_moves": [
-    "Bundling spawn vectors and archive symbol names into Vi1101Data made the .data boundary explicit and matched the symbol-size correction from 0x58 to 0x54 with a local ...data.0 label.",
-    "The OnEnter implementation follows scene-setup structure already visible in engine APIs: load symbols by resource names, create LObj/CObj/JObj GObjs, attach GX links/procs, animate at 0.0f, then delegate character-specific setup to un_8031F294.",
-    "Keeping uncertain entity fields as unk0/unk4 instead of p1/p2 avoided overclaiming semantics while still improving the struct over raw globals.",
-    "Using static float constants for repeated animation/facing values gave the compiler concrete local sdata2 constants instead of relying on raw literals throughout the function.",
-    "Changing the audio bit mask to ((u64) 0x20 << 48) | lbAudioAx_80026E84(arg0) is a codegen-aware way to express the same high-bit constant while fitting the matched function.",
-    "Localizing HSD_MtxColMagFloat to displayfunc.c and robj.c, and adding math_ppc includes only where needed, reduced broad header side effects from baselib/mtx.h."
+    "Recognized that `un_80400200` was not only a spawn array but a packed data object containing both `Vec3` spawn positions and resource strings; modeling it as `Vi1101Data` fixed the `.data` layout.",
+    "Used local static float constants for repeated literals (`1.0f`, `0.0f`, `432.0f`) to align `.sdata2` symbol ownership with the compiler output.",
+    "Matched the audio bitmask expression as `((u64) 0x20 << 48) | lbAudioAx_80026E84(arg0)`, preserving the intended 64-bit constant construction.",
+    "Kept callback signatures honest by adding the unused second parameter for the camera GX-link callback instead of forcing an incompatible one-argument function.",
+    "Reduced header-side inline/include pollution by removing `HSD_MtxColMagFloat` from `mtx.h` and adding `math_ppc.h` only to source files that require `sqrtf` behavior.",
+    "Updated the symbol map in parallel with source changes, preventing data-size and scope mismatches from masking source-level matching progress."
   ],
   "decomp_lessons": [
-    "For VI scene files, matching often depends on data layout as much as code: packed spawn vectors plus resource strings can need a dedicated struct to reproduce .data exactly.",
-    "When a symbol becomes file-local or compiler-local, update symbols.txt scopes and names accordingly; this PR converted several sdata2 globals at 0x804DE0D8-0x804DE0F0 into local @ constants.",
-    "Header cleanup should follow ownership: remove externs for data now defined/private in the C file, and replace placeholder/UNK_T with concrete types only when the diff supports them.",
-    "Callback signatures may need unused parameters to match engine call conventions; fn_8031F56C changed from one parameter to (HSD_GObj*, int unused) for GXLink use.",
-    "Inline helpers in shared headers can disturb codegen or dependencies across many translation units; moving a sqrtf-based helper to exact users and making <MSL/math_ppc.h> includes explicit is reusable for baselib matching work.",
-    "Formatting churn from ninja apply can obscure the semantic core; future reviewers/searches should separate vi1101 matching changes from ifmagnify/mndatadel/mninfo line wrapping."
+    "When a data symbol appears larger than the visible array, check whether adjacent strings or descriptors belong to the same compiled object before splitting it into separate globals.",
+    "For matching data sections, structuring packed constants and strings can be as important as matching function control flow.",
+    "Small-data float literals may need to be represented as local constants or local symbol-map labels rather than exported `un_` globals.",
+    "Callback functions must match the arity expected by the registration API; unused parameters can be required for codegen or ABI shape.",
+    "Moving static inline math helpers out of shared headers can avoid unintended inline/codegen effects across translation units.",
+    "A PR can mark an object Matching only after source, symbol sizes, local/global scopes, and configure state are all consistent."
   ],
   "naming_conventions": [
-    "Unresolved game functions retained address-based names such as un_8031F294 and un_8031F714_OnEnter.",
-    "Scene lifecycle functions use suffixes like _OnEnter and _OnFrame, as seen with un_8031F714_OnEnter and un_8031F960_OnFrame.",
-    "Local callbacks continue to use fn_ address names, including fn_8031F548, fn_8031F56C, and fn_8031F600.",
-    "Unknown struct fields were named unk0 and unk4 rather than speculative semantic names.",
-    "The new resource/data wrapper uses a descriptive local type Vi1101Data with fields spawns, vi1101_dat, visual1101_scene, and visual1101_cam2_scene.",
-    "symbols.txt distinguishes global unknown data names like un_80400200/un_804D5B08 from local compiler labels like @166 and ...data.0."
+    "`un_8031F714_OnEnter` follows the scene lifecycle naming pattern with address prefix plus `_OnEnter` suffix.",
+    "`un_8031F960_OnFrame` remains the vi1101 frame callback naming pattern.",
+    "Unknown globals retain `un_` address-based names, e.g. `un_80400200`, `un_804D6FC0`, `un_804D6FC8`, until better semantic names are known.",
+    "Temporary struct fields remain conservative as `unk0` and `unk4` when evidence for semantic names is weak.",
+    "Local sdata2 constants in `symbols.txt` use compiler-style `@166`, `@167`, etc. labels rather than global `un_` names.",
+    "Function headers use address comments such as `/* 31F294 */` for exported vi1101 functions."
   ],
   "assembly_or_matching_tactics": [
-    "Flipped configure.py from NonMatching to Matching for melee/vi/vi1101.c only after the file linked and the bot reported 100% for the vi1101 OnEnter/data-related units.",
-    "Used a single Vi1101Data object to control exact .data layout, string offsets, and spawn-table addressing; OnEnter accesses it as a char* for lbArchive_LoadSymbols offsets 0x24, 0x30, and 0x40.",
-    "Replaced raw floating literals in player setup and animation requests with static f32 const values un_804DE0D8, un_804DE0DC, and un_804DE0E0 to align sdata2 usage.",
-    "Used temporaries and assignment-in-call patterns in OnEnter, such as new_var2 = un_804D6FC0->models[var_r31]->joint and new_var3 = HSD_GObj_804D7849, which are typical register/codegen nudges in matching code.",
-    "Changed the camera callback signature to include an unused int parameter for the GObj GX callback path.",
-    "Moved HSD_MtxColMagFloat inline definitions from mtx.h to the two C files where its generated code was needed, while adding <MSL/math_ppc.h> includes across math users."
+    "Pack related `.data` into a C struct to reproduce object size and address layout.",
+    "Use `char* data = (char*) &un_80400200` plus fixed offsets to reference embedded archive symbol strings, matching the original pointer arithmetic.",
+    "Use `VecMtxPtr` and assign `pmtx[1]`/`pmtx[2]` from spawn entries to align matrix/vector access codegen.",
+    "Use `GET_JOBJ(gobj)`/`GET_JOBJ(un_804D6FD0.unk0)` instead of raw `gobj->hsd_obj` casts where that better matches existing macros/codegen.",
+    "Represent literal animation frames and facing directions through local constants to control `.sdata2` references.",
+    "Place `HSD_MtxColMagFloat` as a non-header inline in the C files that need it to preserve per-translation-unit inlining behavior.",
+    "Add explicit `MSL/math_ppc.h` includes in source files using PPC math intrinsics or `sqrtf`-related inlines after removing the header-level include."
   ],
   "review_feedback": [
-    "No human review comments or PR body were present in the slice, so there is no direct reviewer rationale to extract.",
-    "decomp-dev bot reported GALE01 improvements: matched code 66.44% (+588 bytes), linked code 38.38% (+1772 bytes), matched data 38.77% (+472 bytes), linked data 33.03% (+160 bytes), with 12 new matches including main/melee/vi/vi1101 un_8031F714_OnEnter and vi1101 .data/.sdata/.sdata2/.sbss."
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported matched code increased by 588 bytes and linked code by 1772 bytes for GALE01."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported 12 new matches, including `main/melee/vi/vi1101` `un_8031F714_OnEnter` from 0.00% to 100.00%."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported vi1101 `.data`, `.sdata`, `.sdata2`, and `.sbss` reached 100.00%."
+    },
+    {
+      "source": "slice",
+      "feedback": "No human review comments or explicit reviewer rationale were present."
+    }
   ],
   "searchable_terms": [
     "pr-2455",
-    "jj/vi1101",
+    "Jj/vi1101",
+    "jurrejelle",
     "vi1101",
-    "src/melee/vi/vi1101.c",
-    "src/melee/vi/vi1101.h",
     "un_8031F714_OnEnter",
     "un_8031F294",
     "un_8031F960_OnFrame",
-    "fn_8031F548",
     "fn_8031F56C",
     "fn_8031F600",
     "un_80400200",
-    "un_804D5B08",
-    "un_804D6FD8",
-    "un_804DE0D8",
-    "un_804DE0DC",
-    "un_804DE0E0",
     "Vi1101Data",
     "Vi1101.dat",
     "visual1101Scene",
     "visual1101Cam2Scene",
+    "un_804D5B08",
+    "un_804DE0D8",
+    "un_804DE0DC",
+    "un_804DE0E0",
     "lbArchive_LoadSymbols",
-    "SceneDesc",
-    "HSD_GObj",
-    "HSD_JObj",
-    "HSD_CObj",
-    "GXColor",
-    "VecMtxPtr",
-    "GET_JOBJ",
+    "viGetCharAnimByIndex",
+    "GObj_SetupGXLinkMax",
     "HSD_MtxColMagFloat",
     "MSL/math_ppc.h",
-    "configure.py Matching vi1101",
-    "config/GALE01/symbols.txt",
-    "KINOKOROUTE",
-    "gm_80164840",
-    "Player_80036E20",
-    "ifmagnify",
-    "mndatadel",
-    "mninfo"
+    "configure.py Matching",
+    "sdata2 local labels",
+    "GXColor",
+    "VecMtxPtr"
   ],
   "follow_up_queries": [
-    "Search later PRs for renames or documentation of un_8031F294 and un_8031F714_OnEnter.",
-    "Compare other melee/vi OnEnter implementations that load SceneDesc data through lbArchive_LoadSymbols.",
-    "Audit whether unk0/unk4 in the vi1101 local struct later receive semantic names.",
-    "Look for later cleanup around HSD_MtxColMagFloat after its removal from baselib/mtx.h.",
-    "Check whether the broad MSL/math_ppc.h include additions affected other matching units or were later narrowed."
+    "Find later PRs that rename `Vi1101Data` fields or replace `unk0`/`unk4` with semantic names.",
+    "Search for other `vi` scene files with packed data objects containing spawn arrays plus archive symbol strings.",
+    "Check whether `HSD_MtxColMagFloat` duplication in `displayfunc.c` and `robj.c` was later consolidated or renamed.",
+    "Look for PRs that convert remaining `melee/vi/vi1201v1.c`, `vi1201v2.c`, or `vi1202.c` from NonMatching to Matching using similar scene-entry tactics.",
+    "Audit symbol-map local/global scope changes around `.sdata2` floats for other scene files."
   ],
-  "confidence": 0.86
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

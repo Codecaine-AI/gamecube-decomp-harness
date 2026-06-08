@@ -11,148 +11,153 @@
     "merged_at": "2026-03-17T20:16:57Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Brought a batch of previously 0%-match menu (`mn`) code into C, centered on event match, item switch, count, and main-rule menu helpers. The PR also retyped `mn_8022EC18` from a raw `float*` triple to `AnimLoopSettings*` and propagated that through several menu animation callers. decomp.dev reported +2768 matched bytes, +0.07% matched code, 15 new 100% matches, and several partial `mnevent` improvements. The only human review explicitly agreed that `AnimLoopSettings` was the right direction.",
+  "summary": "Matched a batch of previously 0% menu-system functions, mostly under src/melee/mn. The largest additions implemented mnevent, mnitemsw, mncount, and mnmainrule functions and replaced several UNK_RET/UNK_PARAMS declarations with concrete prototypes and local data structs. A cross-cutting change retyped mn_8022EC18 from float* animation loop triples to AnimLoopSettings*, then updated menu callers accordingly. decomp.dev reported 15 new 100% matches and +2768 matched bytes; the only human review feedback explicitly agreed that AnimLoopSettings made sense.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "types-structs",
-      "menu-ui",
-      "animation-helper-typing"
+      "menu",
+      "animation-loop-typing"
     ],
     "systems": [
-      "melee/mn menu subsystem",
-      "event match menu",
-      "item switch menu",
-      "count menu",
-      "main rules menu"
+      "mn",
+      "menu",
+      "melee-core"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/mn/mnevent.c",
-      "role": "Largest source addition; added event-menu implementations, transition procs, text/GObj cleanup, page setup, and archive section loading."
+      "reason": "Added the bulk of event menu decompilation, including mnEvent_8024CE74, mnEvent_8024D014, mnEvent_8024D0CC, mnEvent_8024D4E0, mnEvent_8024D7E0, fn_8024E1B4, fn_8024E2A0, fn_8024E34C, mnEvent_8024E420, and mnEvent_8024E838."
     },
     {
       "path": "src/melee/mn/mnevent.h",
-      "role": "Replaced many placeholder prototypes with typed signatures, added `MnEventData`, and declared event-menu globals."
+      "reason": "Introduced MnEventData with HSD_GObj/HSD_Text arrays and replaced many placeholder prototypes with typed signatures and externs."
     },
     {
       "path": "src/melee/mn/mnmain.c",
-      "role": "Changed `mn_8022EC18` to consume `AnimLoopSettings*` and use named `start_frame`, `end_frame`, and `loop_frame` fields."
+      "reason": "Changed mn_8022EC18 to take AnimLoopSettings* and use start_frame/end_frame/loop_frame field accesses."
     },
     {
       "path": "src/melee/mn/mnmain.h",
-      "role": "Updated the `mn_8022EC18` prototype to match the new `AnimLoopSettings*` type."
-    },
-    {
-      "path": "src/melee/mn/mnmainrule.c",
-      "role": "Filled in `mn_8023164C`, `mn_80231714`, and `mn_80231F80`, including menu-state transitions and rule availability checks."
-    },
-    {
-      "path": "src/melee/mn/mnitemsw.c",
-      "role": "Added matched item-switch helpers `mnItemSw_8023405C` and `mnItemSw_802358C0`."
-    },
-    {
-      "path": "src/melee/mn/mnitemsw.h",
-      "role": "Created the item-switch header with `MnItemSwData`, prototypes, and `mnItemSw_804D6BEC` extern."
+      "reason": "Updated the public prototype for mn_8022EC18 to AnimLoopSettings*."
     },
     {
       "path": "src/melee/mn/mncount.c",
-      "role": "Added matched count-menu helpers `mnCount_802513F4` and `mnCount_802517E0`."
+      "reason": "Matched mnCount_802513F4 and mnCount_802517E0 using MnCountData, JObj visibility toggles, and AnimLoopSettings."
     },
     {
       "path": "src/melee/mn/mncount.h",
-      "role": "Added `MnCountData` with explicit offsets and typed the newly matched count-menu functions."
+      "reason": "Added MnCountData layout and typed mnCount function prototypes."
     },
     {
-      "path": "src/melee/mn/mndeflicker.c, src/melee/mn/mnhyaku.c, src/melee/mn/mnlanguage.c, src/melee/mn/mnsound.c, src/melee/mn/mnvibration.c",
-      "role": "Updated existing callers/data declarations for the `mn_8022EC18` `AnimLoopSettings*` signature."
+      "path": "src/melee/mn/mnitemsw.c",
+      "reason": "Added item switch menu functions mnItemSw_8023405C and mnItemSw_802358C0."
+    },
+    {
+      "path": "src/melee/mn/mnitemsw.h",
+      "reason": "Created header guard, MnItemSwData layout, typed prototypes, and mnItemSw_804D6BEC extern."
+    },
+    {
+      "path": "src/melee/mn/mnmainrule.c",
+      "reason": "Matched mn_8023164C, mn_80231714, and mn_80231F80; added rule menu state transition logic and gm_1A3F dependency."
+    },
+    {
+      "path": "src/melee/mn/mnhyaku.c",
+      "reason": "Converted f32[3] animation triples to AnimLoopSettings and updated field access."
+    },
+    {
+      "path": "src/melee/mn/mndeflicker.c",
+      "reason": "Updated mn_8022EC18 calls to pass whole AnimLoopSettings objects rather than start_frame addresses."
+    },
+    {
+      "path": "src/melee/mn/mnlanguage.c",
+      "reason": "Adjusted existing vector-like animation data to mn_8022EC18's new AnimLoopSettings* API via casts."
+    },
+    {
+      "path": "src/melee/mn/mnvibration.c",
+      "reason": "Converted mnVibration_803EECF8 from f32[3] to AnimLoopSettings."
     }
   ],
   "what_changed": [
-    "`mnevent.c` went from effectively empty to 272 lines of C. New implementations include `mnEvent_8024CE74`, `mnEvent_8024D014`, `mnEvent_8024D0CC`, `mnEvent_8024D4E0`, `mnEvent_8024D7E0`, `fn_8024E1B4`, `fn_8024E2A0`, `fn_8024E34C`, `mnEvent_8024E420`, and `mnEvent_8024E838`.",
-    "`mnevent.h` added `MnEventData` with `page`, `first_event`, nine-entry `HSD_GObj*`, `HSD_Text*` text/icon arrays, and `name_text`/`desc_text`; it also replaced most placeholder event-menu prototypes with concrete argument and return types.",
-    "`mnitemsw.c` added `mnItemSw_8023405C`, which selects an item JObj by walking child/next links with a split at index 16, and `mnItemSw_802358C0`, which enters menu kind `0x10` and starts the item-switch GObj proc.",
-    "`mnitemsw.h` introduced `MnItemSwData` with item bytes, unknown byte fields, and `jobjs[9]`, plus item-switch prototypes and `mnItemSw_804D6BEC`.",
-    "`mncount.c` added `mnCount_802513F4`, which toggles JObj hidden flags based on count-menu cursor position, and `mnCount_802517E0`, which initializes cursor/page size and clears label/value text pointers.",
-    "`mncount.h` added `MnCountData` with explicit offsets and size `0x5C`, including `labels[10]`, `values[10]`, and `title`.",
-    "`mnmainrule.c` implemented `mn_8023164C` and `mn_80231714` menu-entry routines, including `prev_menu`, `cur_menu`, `hovered_selection`, `GObj_Create`, `HSD_GObj_SetupProc`, and `mn_80230E38(mode)` setup; `mn_80231714` additionally sets `mn_804D6BD4 = 1`.",
-    "`mnmainrule.c` implemented `mn_80231F80(u8)` as a boolean rule-availability check using `gm_801A4310`, `gmMainLib_8015EE0C`, and `gmMainLib_8015EE44`.",
-    "`mn_8022EC18` changed from raw `float*` indexing to `AnimLoopSettings*` field access, while preserving the volatile load of `start_frame` used in `HSD_JObjReqAnimAll`.",
-    "Several callers were adjusted for the new animation type: `mnhyaku` and `mnvibration` changed static `f32[3]` animation triples into `AnimLoopSettings`; `mndeflicker`, `mnsound`, and `mnlanguage` updated call sites, with `mnlanguage` using explicit casts where its data still has `x/y`-style fields.",
-    "decomp.dev reported 15 new 100% matches: major ones included `mnEvent_8024E838`, `mnEvent_8024E420`, `fn_8024E34C`, `mn_80231714`, `mnEvent_8024D4E0`, `mn_8023164C`, `mnCount_802513F4`, `mnEvent_8024D014`, `fn_8024E2A0`, `mnItemSw_8023405C`, `mn_80231F80`, `mnEvent_8024D0CC`, `mnCount_802517E0`, `mnEvent_8024D7E0`, and `mnItemSw_802358C0`.",
-    "decomp.dev also reported partial improvements in `mnevent`, notably `mnEvent_8024CE74` to 99.42% and `fn_8024E1B4` to 50.90%, plus `.data`, `.sdata2`, and `.sdata` improvements."
+    "Implemented a large portion of src/melee/mn/mnevent.c, which had previously been effectively empty in the diff slice.",
+    "Added MnEventData with page, first_event, gobjs[9], texts[9], icons[9], name_text, and desc_text fields, enabling typed access to event menu state.",
+    "Implemented event menu lifecycle and animation helpers, including visibility toggling for navigation arrows, description text creation/freeing, exit animation cleanup, event-page initialization, and archive section loading in mnEvent_8024E838.",
+    "Implemented mnEvent_8024CE74 as the event-unlock/count threshold helper; decomp.dev still reported it as 99.42%, so it was improved but not fully matched in this PR.",
+    "Added MnItemSwData and implemented mnItemSw_8023405C for locating item switch JObjs from two child chains split at index 16.",
+    "Implemented mnItemSw_802358C0 as an item switch menu entry setup routine that updates mn_804A04F0, initializes item switch state, and installs fn_80233E10 as a GObj proc.",
+    "Added MnCountData and matched mnCount_802513F4, which shows/hides count menu arrow JObjs based on cursor and then applies mnCount_803EFAA0 animation settings.",
+    "Matched mnCount_802517E0, initializing cursor, page_size, label/value text pointers, and related menu data.",
+    "Matched mnmainrule functions mn_8023164C, mn_80231714, and mn_80231F80, replacing stub comments and placeholder signatures with real menu transition/rule availability logic.",
+    "Retyped mn_8022EC18 from float* to AnimLoopSettings* and updated users in mnmain.h, mndeflicker.c, mnhyaku.c, mnlanguage.c, mnsound.c, and mnvibration.c.",
+    "Converted several f32[3] animation-loop triples to named AnimLoopSettings values, notably mnHyaku_803EF668, mnHyaku_803EF674, and mnVibration_803EECF8.",
+    "Replaced many UNK_RET/UNK_PARAMS declarations in headers with concrete return types and arguments involving HSD_GObj, HSD_JObj, HSD_Text, Vec3, s32, u8, and bool.",
+    "decomp.dev reported +0.07% matched code overall, +2768 matched bytes, and 15 new 100% matches across mnevent, mnmainrule, mncount, and mnitemsw."
   ],
   "smart_moves": [
-    "Recognized that the three-float animation ranges used by menu code are semantically `AnimLoopSettings`, not anonymous `f32[3]`, and updated the shared helper plus multiple callers accordingly.",
-    "Kept the volatile `start_frame` load inside `mn_8022EC18`, which is a strong matching clue and avoids changing generated code while improving the type.",
-    "Used explicit user-data structs (`MnEventData`, `MnItemSwData`, `MnCountData`) with offset comments and fixed array lengths so GObj user data could be expressed naturally instead of as raw pointer arithmetic.",
-    "Matched menu transition patterns by consistently updating `mn_804A04F0.prev_menu`, `cur_menu`, and `hovered_selection`, creating a proc GObj with `GObj_Create(0, 1, 0x80)`, and setting `proc->flags_3 = HSD_GObj_804D783C`.",
-    "Used `PAD_STACK` and `FORCE_PAD_STACK_4` only where the new C needed stack-shape help, rather than overcomplicating the higher-level logic.",
-    "In `mnEvent_8024E838`, used a `char*` base from `&mnEvent_803EF740` plus explicit offsets for `lbArchive_LoadSections`, a practical data-reference tactic for matching archive-section load calls."
+    "Recognized that repeated three-float animation arrays represent AnimLoopSettings, making mn_8022EC18 self-documenting through start_frame, end_frame, and loop_frame fields.",
+    "Kept matching-sensitive behavior in mn_8022EC18 by preserving the volatile float load of start_frame when requesting animation.",
+    "Used explicit struct layouts with offsets and array sizes for MnCountData, MnEventData, and MnItemSwData, which reduced placeholder usage while documenting observed memory layout.",
+    "Used PAD_STACK and FORCE_PAD_STACK_4 in functions where the match required stack-shape padding.",
+    "Maintained decomp style by naming still-anonymous internal callbacks as fn_-address while giving known menu functions mnEvent/mnCount/mnItemSw prefixes.",
+    "When existing data was not yet retyped, used targeted casts to AnimLoopSettings* in mnlanguage.c rather than forcing a broader struct/data migration without evidence.",
+    "Updated callers and headers together after the mn_8022EC18 API change, avoiding mismatched prototypes across menu files.",
+    "Modeled menu cleanup paths explicitly by freeing HSD_Text with HSD_SisLib_803A5CC4 and unlinking GObjs with HSD_GObjPLink_80390228 before nulling arrays in mnevent cleanup."
   ],
   "decomp_lessons": [
-    "When a helper takes a start frame, end frame, and loop frame, try typing the parameter as `AnimLoopSettings*`; this can improve both readability and matching across many menu files.",
-    "`loop_frame == -0.1f` is treated specially by `mn_8022EC18`: the function clamps at `end_frame` instead of looping through a new frame range.",
-    "Menu GObj user data often starts with small state bytes plus padding, followed by fixed arrays of `HSD_GObj*`, `HSD_Text*`, or `HSD_JObj*`; defining those structs can unlock many nearby functions.",
-    "Arrow and page indicator visibility in menu code often compiles cleanly as `lb_80011E24` child lookup followed by `HSD_JObjSetFlagsAll` or `HSD_JObjClearFlagsAll` with `JOBJ_HIDDEN`.",
-    "Exit/transition procs frequently clean up `HSD_Text*` objects with `HSD_SisLib_803A5CC4`, unlink child GObjs with `HSD_GObjPLink_80390228`, then replace the proc via `HSD_GObjProc_8038FE24` and `HSD_GObj_SetupProc`.",
-    "If one data declaration cannot yet be globally retyped, a local cast to `AnimLoopSettings*` can bridge the shared helper signature while preserving existing declarations, as shown in `mnlanguage.c`."
+    "Three contiguous floats used as animation start/end/loop values in menu code are strong candidates for AnimLoopSettings, especially when passed to mn_8022EC18 or mn_8022ED6C.",
+    "Changing a helper signature to a semantic struct pointer can unlock cleaner matches across many callers, but existing data may still need casts until its type is proven.",
+    "For menu data structs, pointer arrays to HSD_Text and HSD_GObj often reveal fixed list/page capacities; here MnEventData uses arrays of 9 and MnCountData uses arrays of 10.",
+    "JObj visibility toggles for menu arrows can be matched using lb_80011E24 followed by HSD_JObjSetFlagsAll/HSD_JObjClearFlagsAll with JOBJ_HIDDEN.",
+    "Menu entry functions commonly update mn_804A04F0.prev_menu, cur_menu, and hovered_selection, then create a GObj and attach a proc with HSD_GObj_SetupProc plus HSD_GObj_804D783C flags.",
+    "Archive section loading in menu init code may require treating a data-symbol address as a byte base and using offsets to reproduce the original relocation/data access pattern.",
+    "Even a nearly complete function should be recorded honestly: mnEvent_8024CE74 improved from 0% to 99.42%, not 100%, according to the automated report."
   ],
   "naming_conventions": [
-    "Menu subsystem functions keep file-based prefixes such as `mnEvent_`, `mnItemSw_`, `mnCount_`, `mnHyaku_`, `mnDeflicker_`, `mnSoundTest_`, and generic `mn_` for shared menu code.",
-    "Unknown callbacks continue to use `fn_<address>` names, e.g. `fn_8024E1B4`, `fn_8024E2A0`, `fn_8024E34C`, and `fn_80233E10`.",
-    "Prototype comments retain the address-short form, e.g. `/* 24CE74 */ s32 mnEvent_8024CE74(void);`.",
-    "Struct fields use explicit offset comments and preserve unknown names like `pad_01`, `x21`, `x23`, while known fields receive semantic names such as `cursor`, `page_size`, `labels`, `values`, `first_event`, `name_text`, and `desc_text`.",
-    "Data/global symbols remained address-based where semantics were not established, e.g. `mnEvent_803EF740`, `mnEvent_804D6C65`, `mnCount_803EFAA0`, and `mn_804A04F0`.",
-    "`AnimLoopSettings` field names `start_frame`, `end_frame`, and `loop_frame` are preferred over `arg1[0]`, `arg1[1]`, and `arg1[2]`."
+    "Menu subsystem functions retain the module prefix plus address, e.g. mnEvent_8024E838, mnCount_802517E0, mnItemSw_8023405C.",
+    "Anonymous or local callback-like functions are kept as fn_address, e.g. fn_8024E1B4, fn_8024E2A0, fn_8024E34C.",
+    "Menu data structs use module-specific CamelCase names ending in Data: MnEventData, MnCountData, MnItemSwData.",
+    "Struct fields use descriptive names when inferred from behavior, such as cursor, page_size, labels, values, title, page, first_event, name_text, and desc_text.",
+    "Known HSD types are reflected directly in prototypes and fields: HSD_GObj, HSD_JObj, HSD_Text, HSD_GObjProc, HSD_Archive.",
+    "Animation-loop globals converted to AnimLoopSettings preserve their original address-based symbol names, e.g. mnHyaku_803EF668 and mnVibration_803EECF8."
   ],
   "assembly_or_matching_tactics": [
-    "`PAD_STACK(8)`, `PAD_STACK(16)`, and `FORCE_PAD_STACK_4` were used in newly matched functions to satisfy stack layout without obscuring control flow.",
-    "`mn_8022EC18` retained `HSD_JObjReqAnimAll(arg0, *(volatile float*) &arg1->start_frame)`, indicating a deliberate volatile-load tactic for matching.",
-    "Static animation triples in `mnhyaku` and `mnvibration` were converted from `f32[3]` to `AnimLoopSettings`, while call sites pass the struct address directly.",
-    "`mnlanguage.c` uses `(AnimLoopSettings*) &mnLanguage_803EF5AC` and `(AnimLoopSettings*) &mnLanguage_803EF5A0`, showing a narrow cast when the underlying layout matches but the declaration has not yet been renamed.",
-    "`mnsound.c` changed from a broad `(f32*)` cast to passing `&mnSound_803EEED8[0]`, aligning the call with the new typed helper.",
-    "`mnEvent_8024E838` forms archive load label addresses through `char* base = (char*) &mnEvent_803EF740` plus offsets like `base + 0xA0`, `base + 0xB8`, `base + 0xD4`, `base + 0xF4`, and `base + 0x118`.",
-    "`mnItemSw_8023405C` matches item JObj selection by branching at `idx >= 16` and walking sibling links with `HSD_JObjGetChild` and `HSD_JObjGetNext`."
+    "Used PAD_STACK(8), PAD_STACK(16), and FORCE_PAD_STACK_4 to satisfy stack layout requirements in newly matched menu functions.",
+    "Preserved volatile load semantics in mn_8022EC18 with *(volatile float*) &arg1->start_frame.",
+    "Used exact HSD_TypeMask constants at call sites, such as 0x80, 0x400, and MOBJ_MASK, to preserve behavior and matching.",
+    "Retyped f32[3] arrays to AnimLoopSettings where evidence was strong, then changed indexing arg1[0]/arg1[1]/arg1[2] into field accesses start_frame/end_frame/loop_frame.",
+    "Applied casts to AnimLoopSettings* for mnLanguage globals that still appeared as other float/vector-shaped data, minimizing churn while satisfying the new helper signature.",
+    "Used child/next JObj traversal via HSD_JObjGetChild and HSD_JObjGetNext in mnItemSw_8023405C to match indexed menu item lookup.",
+    "Used address-relative char* arithmetic in mnEvent_8024E838 for lbArchive_LoadSections arguments, suggesting a match tactic for data blobs whose typed asset structure is not fully known.",
+    "Replaced placeholder prototypes with exact argument and return types after function bodies made ABI usage clear."
   ],
   "review_feedback": [
     {
-      "source": "pr_body",
+      "source": "PR body",
       "author": "lukechampine",
-      "feedback": "The author said the PR targeted remaining files with 0% match and was \"a little suspicious\" of the `AnimLoopSettings` changes."
+      "text": "Author said they were taking a crack at remaining 0% files and were a little suspicious of the AnimLoopSettings changes."
     },
     {
       "source": "review",
       "author": "ribbanya",
       "state": "APPROVED",
-      "feedback": "Reviewer approved and wrote: \"I think `AnimLoopSettings` does make sense.\""
+      "text": "I think `AnimLoopSettings` does make sense."
     },
     {
-      "source": "review_comments",
-      "feedback": "No inline review comments were present in the slice."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "Automated report showed matched code 58.59% (+0.07%, +2768 bytes), 15 new matches, and 5 unmatched-item improvements."
+      "source": "decomp.dev bot",
+      "text": "Reported matched code 58.59% (+0.07%, +2768 bytes), 15 new matches, and 5 improvements in unmatched items."
     }
   ],
   "searchable_terms": [
-    "PR2312",
+    "pr-2312",
     "mn work",
     "lukechampine",
     "ribbanya",
     "AnimLoopSettings",
     "mn_8022EC18",
     "mn_8022ED6C",
-    "start_frame",
-    "end_frame",
-    "loop_frame",
-    "mnevent.c",
-    "mnevent.h",
-    "MnEventData",
     "mnEvent_8024CE74",
     "mnEvent_8024D014",
     "mnEvent_8024D0CC",
@@ -163,44 +168,49 @@
     "fn_8024E34C",
     "mnEvent_8024E420",
     "mnEvent_8024E838",
-    "mnitemsw.c",
-    "mnitemsw.h",
-    "MnItemSwData",
-    "mnItemSw_8023405C",
-    "mnItemSw_802358C0",
-    "mncount.c",
-    "mncount.h",
-    "MnCountData",
+    "MnEventData",
     "mnCount_802513F4",
     "mnCount_802517E0",
-    "mnmainrule.c",
+    "MnCountData",
+    "mnItemSw_8023405C",
+    "mnItemSw_802358C0",
+    "MnItemSwData",
     "mn_8023164C",
     "mn_80231714",
     "mn_80231F80",
-    "mndeflicker.c",
-    "mnhyaku.c",
-    "mnlanguage.c",
-    "mnsound.c",
-    "mnvibration.c",
-    "JOBJ_HIDDEN",
-    "HSD_JObjSetFlagsAll",
-    "HSD_JObjClearFlagsAll",
-    "HSD_SisLib_803A5CC4",
-    "HSD_GObj_SetupProc",
-    "GObj_Create",
-    "lbArchive_LoadSections",
+    "mnmainrule",
+    "mnevent",
+    "mnitemsw",
+    "mncount",
+    "mnhyaku",
+    "mndeflicker",
+    "mnlanguage",
+    "mnvibration",
+    "mnsound",
     "PAD_STACK",
     "FORCE_PAD_STACK_4",
-    "0% match",
-    "+2768 bytes"
+    "JOBJ_HIDDEN",
+    "HSD_SisLib_803A5CC4",
+    "HSD_GObjPLink_80390228",
+    "lbArchive_LoadSections",
+    "HSD_GObj_SetupProc",
+    "GObj_Create",
+    "0 percent match"
   ],
   "follow_up_queries": [
-    "Find remaining `mn_8022EC18` callers still using casts or raw float arrays and consider retyping their data as `AnimLoopSettings` where the layout supports it.",
-    "Investigate the remaining mismatch in `mnEvent_8024CE74` reported at 99.42%; the source is present but not fully matching according to decomp.dev.",
-    "Investigate `fn_8024E1B4`, which was added but only reached 50.90% in the bot report.",
-    "Check whether `mnmainrule.h` should type `mn_80231714` as `void mn_80231714(void)`; this diff implemented it but left the header line as `UNK_RET mn_80231714(UNK_PARAMS)`.",
-    "Use the new `MnEventData` layout to attack remaining event-menu placeholders such as `mnEvent_8024D15C`, `mnEvent_8024D5B0`, `fn_8024D864`, and `mnEvent_8024E524`.",
-    "Refine unknown fields in `MnItemSwData` (`x21`, `x23`, `pad`) and event/menu globals once more neighboring item-switch and event-menu functions are decompiled."
+    "Find later PRs that finish mnEvent_8024CE74 from 99.42% to 100%.",
+    "Search for remaining f32[3] animation-loop arrays passed to mn_8022EC18 or mn_8022ED6C that should become AnimLoopSettings.",
+    "Audit mnlanguage globals mnLanguage_803EF5AC and mnLanguage_803EF5A0 to determine whether casts can be replaced with real AnimLoopSettings types.",
+    "Search for menu structs with fixed HSD_Text or HSD_GObj arrays to reuse MnEventData and MnCountData layout patterns.",
+    "Look for later renames of fn_8024E1B4, fn_8024E2A0, fn_8024E34C, fn_8024D864, and other anonymous event-menu callbacks."
   ],
-  "confidence": 0.92
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

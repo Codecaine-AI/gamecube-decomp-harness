@@ -11,157 +11,113 @@
     "merged_at": "2026-04-07T16:45:08Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large stage decompilation PR for Onett and Mute City. It replaced many `/// #` placeholders with typed C for Mute City car/spline/collision/light command logic and Onett building, traffic, awning, and generator behavior. It also corrected ground-variable layouts, function prototypes, and helper return types. There was no PR body or review discussion in the dump, so rationale is inferred from the diff only.",
+  "summary": "Large stage decompilation pass for Onett and Mute City. The PR replaced many placeholder functions in src/melee/gr/grmutecity.c and src/melee/gr/gronett.c with C implementations, expanded stage-specific GroundVars in gr/types.h, corrected grLib_801C9808 to return HSD_Generator*, and simplified Mute City car static state from an oversized anonymous float blob into a typed grMc_CarEntry[30]. There was no PR body or review discussion in the slice, so intent is inferred from the diff.",
   "change_classification": {
     "primary_type": "stage_decompilation",
     "categories": [
-      "stage hazard logic",
-      "C decompilation",
+      "stage_logic",
       "headers",
-      "GroundVars struct layout",
-      "function prototype correction",
-      "matching support"
+      "struct_layout",
+      "callback_wiring",
+      "matching"
     ],
     "systems": [
-      "gr",
+      "ground",
       "stage",
-      "Mute City",
       "Onett",
-      "ground collision",
-      "camera bounds",
-      "materials",
-      "generators",
+      "Mute City",
+      "grlib",
+      "collision",
+      "camera",
       "items",
-      "audio",
-      "lights"
+      "audio"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grmutecity.c",
-      "note": "+1122/-75; implements Mute City setup, command script processing, spline tracking, collision-line updates, 30-car simulation, car effects, and light color save/restore."
-    },
-    {
-      "path": "src/melee/gr/gronett.c",
-      "note": "+670/-56; implements Onett callbacks/stage data, awning physics, building state machine, car traffic state machines, item callbacks, sounds, and timed generators."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "note": "Types Mute City and Onett ground variable unions, adds GXColor support, splits Onett vars into awning/general, building, and car structs."
-    },
-    {
-      "path": "src/melee/gr/grmutecity.static.h",
-      "note": "Replaces a raw 0x528-byte float-field blob with `grMc_CarEntry` plus `grMc_8049F4B8[30]` and a size assert."
-    },
-    {
-      "path": "src/melee/gr/grmutecity.h",
-      "note": "Replaces several `UNK_RET`/`UNK_PARAMS` prototypes with typed Mute City signatures."
-    },
-    {
-      "path": "src/melee/gr/gronett.h",
-      "note": "Adds `it/forward.h` and typed prototypes for Onett item, sound, and awning functions."
-    },
-    {
-      "path": "src/melee/gr/grlib.c",
-      "note": "`grLib_801C9808` now returns the `HSD_Generator*` from `hsd_8039EFAC`."
-    },
-    {
-      "path": "src/melee/gr/grlib.h",
-      "note": "Header signature for `grLib_801C9808` updated from `void` to `HSD_Generator*`."
-    }
+    "src/melee/gr/grmutecity.c",
+    "src/melee/gr/gronett.c",
+    "src/melee/gr/types.h",
+    "src/melee/gr/grmutecity.static.h",
+    "src/melee/gr/grmutecity.h",
+    "src/melee/gr/gronett.h",
+    "src/melee/gr/grlib.c",
+    "src/melee/gr/grlib.h"
   ],
   "what_changed": [
-    "Changed `grLib_801C9808` from `void` to `HSD_Generator*`, returning the result of `hsd_8039EFAC`; callers now have the correct generator-producing signature.",
-    "Implemented Mute City `grMuteCity_801EFDF8` stage setup: starts animations, resolves car splines, caches camera/blast-zone offsets, creates related stage gobjs, registers mp joint callbacks, initializes material/light state, and hides a point light.",
-    "Implemented Mute City `grMuteCity_801F04B8` as a frame-command interpreter over `grMc_803E34E0`, handling delays, animations, mp joints, material swaps, camera/bounds/blast-zone updates, audio, and mode flags.",
-    "Added Mute City spline helpers and collision-line updates: `grMc_SplineEvalWrapped`, `grMuteCity_801F094C`, and `grMuteCity_801F0D20` evaluate wrapped splines around the 0.93/0.01 seam and update mp lines 0x31, 0x33, and 0x35.",
-    "Implemented Mute City car initialization and traffic logic via `grMuteCity_801F0F4C`, `grMuteCity_801F106C`, `grMuteCity_801F1328`, and `grMuteCity_801F1A34`, using 30 `grMc_CarEntry` records, sorted indices, speed/spacing flags, spline-based transforms, effects, item hazards, and sounds.",
-    "Converted the old Mute City static car storage from a single giant raw struct to `grMc_CarEntry grMc_8049F4B8[30]`; the 30 small age-update wrappers now index `[0]` through `[29]` instead of hard-coded offsets.",
-    "Implemented `grMuteCity_801F290C` to save and restore up to four light object colors using `saved_colors[4]` and `GXColor`, and to tint lights with `Ground.x6C` while a condition from `grLib_801C96E8` is false.",
-    "Fixed Mute City collision helper access in `grMuteCity_801F2C10` by treating `xE4` and `xF0` as `Vec3` values instead of scalar floats.",
-    "Expanded Onett `StageCallbacks` from two empty entries to six callback entries and added `StageData grOt_803E2858` for the stage.",
-    "Expanded Onett stage parameters from sparse padding into named awning physics fields (`max_velocity`, thresholds, damping, spring force/constant, max displacement) while retaining unknown `xNN` fields where semantics remain unclear.",
-    "Implemented Onett general setup `grOnett_801E3A34`, initializing awning jobjs, camera subject storage, generator timers, callbacks, collision helpers, and animation/ground updates.",
-    "Implemented Onett building behavior in `grOnett_801E3DA0` and updated `grOnett_801E40E4` to use named `onett_building` fields for state, next_state, hit_count, frame, and timer instead of unrelated/unknown union members.",
-    "Implemented Onett car setup and traffic state machines in `grOnett_801E41C8` and `grOnett_801E43E0`, including car jobj arrays, item proxies, randomized car choice, left-to-right and right-to-left states, fighter proximity checks, camera-position checks, item animation, warning/crash sounds, and hazard toggles.",
-    "Implemented Onett item/sound callbacks: `grOnett_801E5030` handles car item collision outcomes, and `grOnett_801E5194` maps car index plus sound type to SFX IDs.",
-    "Implemented Onett awning physics in `grOnett_801E5214`, applying a damped spring update to awning Y translation and triggering generator/sound effects with cooldown; `grOnett_801E54B4` now updates named awning tracking fields.",
-    "Implemented Onett timed generator logic in `grOnett_801E5538`, alternating between spawning a generator at a transformed JObj point via `grLib_801C96F8` and stopping it with `grLib_801C9834`."
+    "Implemented numerous Mute City functions that were previously listed as decomp placeholders, including grMuteCity_801EFDF8, grMuteCity_801F0290, grMuteCity_801F04B8, grMuteCity_801F094C, grMuteCity_801F0D20, grMuteCity_801F0F4C, grMuteCity_801F106C, grMuteCity_801F1328, grMuteCity_801F1A34, and grMuteCity_801F290C.",
+    "Added Mute City stage behavior covering animation setup, spline lookup and validation, camera/blast-zone offset caching, material/light toggling, command-table processing, moving collision line updates, and a 30-car traffic state array.",
+    "Added a local Mute City command entry type grMc_CmdEntry and track initialization type grMc_TrackInitData for external data arrays grMc_803E34E0 and grMc_803E3B7C.",
+    "Added a static inline Mute City helper grMc_SplineEvalWrapped to evaluate car spline positions across the wrap boundary between approximately 0.93 and 0.01.",
+    "Replaced grmutecity.static.h's old 0x528-byte float-field struct grMc_8049F4B8_t with a much smaller typed grMc_CarEntry of size 0x2C and changed storage to grMc_8049F4B8[30].",
+    "Implemented many Onett stage functions that were placeholders, including grOnett_801E3A34, grOnett_801E3DA0, grOnett_801E41C8, grOnett_801E43E0, grOnett_801E5030, grOnett_801E5194, grOnett_801E5214, and grOnett_801E5538.",
+    "Expanded Onett StageCallbacks from two empty entries to six entries wired to real callbacks and populated StageData grOt_803E2858.",
+    "Modeled Onett awning, building, traffic/car, and camera-subject state with named GroundVars fields instead of reused generic or incorrect union members such as gv.kongo3 and gv.unk.",
+    "Changed grLib_801C9808 in both grlib.c and grlib.h from void to HSD_Generator* and returned hsd_8039EFAC's result, matching callers that need the generator object.",
+    "Expanded gr/types.h with Mute City fields for HSD_GObj pointers, HSD_JObj spline pointers, Vec3 positions, HSD_LObj light pointer, cached camera/blast-zone bounds, and GXColor saved_colors for Mute City secondary state.",
+    "Changed Ground.x6C from int to GXColor, requiring inclusion of dolphin/gx/GXStruct.h in gr/types.h."
   ],
   "smart_moves": [
-    "Factoring Mute City car state into `grMc_CarEntry[30]` made a 30-record repeating layout explicit and removed hundreds of meaningless float fields from the static header.",
-    "Splitting Onett ground variables by role (`onett`, `onett_building`, `onettcar`) avoided misleading reuse of unrelated union members such as `kongo3` and `unk`.",
-    "Typing `Ground.x6C` and Mute City `saved_colors` as `GXColor` aligned the data layout with `HSD_LObjGetColor`, `HSD_LObjSetColor`, and the light tinting code.",
-    "Keeping semantic names only where the diff supports them, while retaining `xNN` names for uncertain stage parameters and fields, preserves evidence-grounded decomp progress.",
-    "The wrapped spline helper captures the special Mute City track seam behavior at constants 0.93, 0.01, and 0.07999999 instead of assuming a simple modulo spline.",
-    "Updating prototypes and includes alongside implementations reduced local externs and `UNK_RET`/`UNK_PARAMS` use, especially for `grLib_801C9808`, `grMuteCity_801F094C`, `grMuteCity_801F1A0C`, and Onett item callbacks."
+    "Correcting grLib_801C9808's return type at the shared wrapper level avoided local extern mismatches and let stage code use the HSD_Generator* returned by hsd_8039EFAC.",
+    "Replacing a giant anonymous float blob with grMc_CarEntry[30] made the Mute City traffic logic expressible as array indexing and exposed true field types such as u16 flags, bitfields, s32 counters, and f32 movement values.",
+    "Separating Onett GroundVars into grOnett_GroundVars, grOnett_Building_GroundVars, and grOnett_Car_GroundVars prevented unrelated stage objects from sharing misleading union layouts.",
+    "Caching camera and blast-zone offsets during Mute City init made later command-table handlers straightforward: command cases adjust bounds relative to stored base offsets.",
+    "The spline wrap helper isolates a subtle matching/behavior detail for Mute City track movement, interpolating over the discontinuity instead of scattering boundary special cases through car logic.",
+    "Using named fields like subject, awnings, state, next_state, hit_count, frame, car_jobjs, car_items, curr_car, and car_speed made previously opaque Onett behavior readable without claiming final semantic names for every unknown field."
   ],
   "decomp_lessons": [
-    "When a static blob repeats at a constant stride, introduce a typed element struct plus an array and `STATIC_ASSERT`; it can unlock cleaner indexing and many downstream matches.",
-    "Ground variable unions should be split by stage gobj role when callbacks reveal distinct layouts; Onett uses separate general/awning, building, and car data.",
-    "Use exact offset comments in `types.h` while migrating from unknown fields to typed fields; this keeps layout reviewable while improving readability.",
-    "Generator helpers may return useful handles even when older prototypes were `void`; check underlying HSD calls before freezing signatures.",
-    "Spline-based stage hazards can depend on hand-tuned seam interpolation constants; preserve literal constants and branch structure during decomp.",
-    "Lighting code should use concrete color structs, not integer placeholders, when interacting with LObj color APIs.",
-    "Callback signatures should be derived from the factory/registration site: Onett car material callbacks use `Item_GObj*` and `Ground*`, and Mute City material callbacks use `HSD_GObj*` and `Ground*`.",
-    "Replacing unknown union aliases with role-specific names helps future reviewers see when a function is building state, traffic state, awning physics, or camera subject code."
+    "Stage decomp often requires fixing shared library prototypes first; a wrong void return in a wrapper can block accurate reconstruction of generator-using stage code.",
+    "When a stage gobj union appears to reuse fields from another stage, split it into stage-object-specific GroundVars once evidence shows distinct roles.",
+    "Large placeholder structs filled with sequential floats are a smell; array count, element stride, and loop structure can reveal the real element type and storage shape.",
+    "For moving collision and hazards, preserve engine callback wiring through StageCallbacks, mpJointSetCb1, Ground_801C10B8, and item/material callbacks rather than treating behavior as isolated update code.",
+    "Bounds-changing stages should distinguish camera bounds from blast-zone bounds and account for Stage_UnkSetVec3TCam_Offset when caching or restoring offsets.",
+    "Use STATIC_ASSERT on newly inferred structs, as done for grMc_CarEntry, to protect matching-sensitive layout work.",
+    "Prefer local helper functions for repeated math patterns, especially spline wrap/interpolation logic and sound table lookup, when that mirrors repeated assembly structure and reduces duplicated fragile code."
   ],
   "naming_conventions": [
-    "Address-based function names remain in place (`grMuteCity_801F1A34`, `grOnett_801E43E0`) where no semantic rename is evidenced.",
-    "Stage-local prefixes follow existing convention: `grMc_` for Mute City data/helpers and `grOt_` for Onett data/helpers.",
-    "Unknown fields are retained as `xNN` or bit names such as `xD0_flags.b23` when semantics are not established by the diff.",
-    "New role-specific GroundVars names include `grOnett_AwningData`, `grOnett_GroundVars`, `grOnett_Building_GroundVars`, and `grOnett_Car_GroundVars`.",
-    "Semantically clear fields are named directly, such as `subject`, `gen`, `timer`, `awnings`, `car_jobjs`, `curr_car`, `state_a`, `timer_b`, `speed_b`, and `saved_colors`.",
-    "Helper names describe behavior without overclaiming original names: `grMc_SplineEvalWrapped` and `grOnett_SfxLookup`."
+    "Mute City stage globals and helper types use the grMc_ prefix, e.g. grMc_CmdEntry, grMc_TrackInitData, grMc_CarEntry, grMc_8049F440.",
+    "Onett stage globals and parameter structs use the grOt_ prefix, e.g. grOt_803E27E0, grOt_803E2858, grOt_804D69C0, grOt_804D69C4.",
+    "Stage-specific GroundVars are named by stage object role when known: grOnett_GroundVars for traffic/awning gobj ID 5, grOnett_Building_GroundVars for gobj ID 4, and grOnett_Car_GroundVars for gobj ID 3.",
+    "Partially understood fields retain offset-style names such as xD0_flags, x114, x108, or x22_flags, while better-understood fields receive semantic names such as subject, awnings, state, next_state, hit_count, frame, car_jobjs, car_items, curr_car, and car_speed.",
+    "Bitfield members continue the project style of b0, b1, b23 for packed flags when exact semantics remain uncertain."
   ],
   "assembly_or_matching_tactics": [
-    "Observed use of `PAD_STACK` in newly implemented functions preserves stack shape for matching-sensitive code.",
-    "Literal float constants were preserved: examples include `0.932775f`, `0.001f`, `0.0004f`, `0.93f`, `0.01f`, `0.07999999f`, `0.2617994f`, and `3.1415927f`.",
-    "Typed bitfields and exact integer widths (`s16`, `u16`, `u8`) were used for ground vars and car flags to keep offsets aligned.",
-    "The Mute City car-order routine uses an explicit sorted index array `grMc_8049F440[30]`, matching the observed traffic comparison pattern without moving car records.",
-    "Some source-level oddities, such as repeated spline wrap blocks in `grMuteCity_801F1A34` and explicit null-step patterns while walking LObjs, appear retained to preserve codegen.",
-    "Function headers were tightened from `UNK_RET`/`UNK_PARAMS` to concrete signatures only where call sites and implementations show the needed types.",
-    "Changing Mute City `xE4` and `xF0` from scalar-like fields to `Vec3` enabled natural `.x`/`.y` access and fixed slope calculations in `grMuteCity_801F2C10`."
+    "Used PAD_STACK annotations in several implemented functions to preserve stack layout while reconstructing source.",
+    "Introduced static inline helpers grMc_SplineEvalWrapped and grOnett_SfxLookup, suggesting repeated assembly patterns were factored without adding external symbols.",
+    "Preserved exact float constants and thresholds visible in stage behavior, including 0.932775f, 0.001f, 0.0004f, 0.93f, 0.01f, 0.07999999f, 0.2617994f, and 0.017453292f.",
+    "Matched stage command dispatch as a switch over grMc_CmdEntry.cmd with frame-table progression and wrap at 0x84 entries.",
+    "Kept engine macro usage such as GET_GROUND, GET_JOBJ, PAD_STACK, HSD_ASSERT, JOBJ_HIDDEN, and LOBJ_HIDDEN to align with project style and likely codegen expectations.",
+    "Used typed HSD_JObj, HSD_GObj, HSD_LObj, HSD_Generator, HSD_Spline, Item_GObj, CmSubject, GXColor, and Vec3 fields instead of raw integers where the diff provided evidence."
   ],
   "review_feedback": [
-    "No PR body, issue comments, review comments, or reviews were present in the slice; no human review feedback or reviewer intent can be extracted."
+    "No PR body, issue comments, review comments, or reviews were present in the provided slice; there is no direct human review feedback to extract."
   ],
   "searchable_terms": [
     "pr-2391",
+    "lukechampine",
     "onett + mute city work",
-    "src/melee/gr/grmutecity.c",
-    "src/melee/gr/gronett.c",
-    "src/melee/gr/grmutecity.static.h",
-    "src/melee/gr/types.h",
+    "grmutecity.c",
+    "gronett.c",
+    "grmutecity.static.h",
+    "gr/types.h",
     "grLib_801C9808",
     "HSD_Generator",
     "hsd_8039EFAC",
-    "grMc_CarEntry",
-    "grMc_8049F4B8",
-    "grMc_8049F440",
-    "grMc_CmdEntry",
-    "grMc_803E34E0",
-    "grMc_TrackInitData",
-    "grMc_803E3B7C",
-    "grMc_SplineEvalWrapped",
     "grMuteCity_801EFDF8",
     "grMuteCity_801F04B8",
     "grMuteCity_801F094C",
     "grMuteCity_801F0D20",
-    "grMuteCity_801F0F4C",
     "grMuteCity_801F106C",
     "grMuteCity_801F1328",
     "grMuteCity_801F1A34",
     "grMuteCity_801F290C",
-    "mpLineSetPos",
-    "splGetSplinePoint",
-    "lbShadow_8000E9F0",
-    "GXColor",
-    "saved_colors",
-    "HSD_LObjSetColor",
-    "grOnett_AwningData",
-    "grOnett_Building_GroundVars",
-    "grOnett_Car_GroundVars",
+    "grMc_CmdEntry",
+    "grMc_TrackInitData",
+    "grMc_CarEntry",
+    "grMc_SplineEvalWrapped",
+    "grMc_8049F4B8",
+    "grMc_8049F440",
+    "grMc_803E34E0",
+    "grMc_803E3B7C",
     "grOnett_801E3A34",
     "grOnett_801E3DA0",
     "grOnett_801E41C8",
@@ -170,21 +126,33 @@
     "grOnett_801E5194",
     "grOnett_801E5214",
     "grOnett_801E5538",
+    "grOnett_AwningData",
+    "grOnett_Building_GroundVars",
+    "grOnett_Car_GroundVars",
     "CmSubject",
-    "grMaterial_801C8CFC",
-    "Item_80268E5C",
-    "ftLib_80086644",
-    "Ground_801C5440",
-    "JOBJ_HIDDEN"
+    "GXColor",
+    "mpLineSetPos",
+    "Stage_GetCamBoundsTopOffset",
+    "Stage_GetBlastZoneRightOffset",
+    "splGetSplinePoint",
+    "lbVector_Diff",
+    "JOBJ_HIDDEN",
+    "LOBJ_HIDDEN"
   ],
   "follow_up_queries": [
-    "Search later PRs for semantic names for `grMc_CarEntry` fields `x0`, `x4`, `x8`, `xC`, `x20`, `x22_flags`, `x24`, and `x28`.",
-    "Find whether `grMc_803E34E0` command IDs 1-26 were later documented or replaced with an enum.",
-    "Check whether `grMuteCity_GroundVars.xD0_flags.b23` received a semantic name for the collision-line mode.",
-    "Search for later cleanup of duplicated spline seam interpolation in `grMuteCity_801F1A34`.",
-    "Look for follow-up PRs that rename Onett `state_a`, `state_b`, `x108`, `x110`, and `timer_b` in `grOnett_Car_GroundVars`.",
-    "Verify whether Onett stage parameter unknowns `x24` through `x64` were later named from data or behavior.",
-    "Search all call sites of `grLib_801C9808` to see whether any later code stores the returned `HSD_Generator*`."
+    "Find later PRs that rename grMuteCity_GroundVars fields xD4/xD8/xDC/xE0 or grMc_CarEntry fields to semantic names.",
+    "Search for later changes to grLib_801C9808 callers to confirm all generator-return uses were updated.",
+    "Look for subsequent Onett PRs refining grOnett_Car_GroundVars state_a/state_b and sound/traffic behavior.",
+    "Search for review or matching notes around Mute City command table grMc_803E34E0 and car track init data grMc_803E3B7C.",
+    "Find other stage PRs that convert placeholder float blobs into typed arrays with STATIC_ASSERT."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -5,7 +5,14 @@
   "type": "module",
   "scripts": {
     "orch": "bun src/bin/decomp-orchestrator.ts",
-    "check": "tsc --noEmit",
+    "ui": "bun run ui:build && bun run ui:server",
+    "ui:server": "bun src/ui/server.ts",
+    "ui:dev": "bun run ui:build && sh -c 'bun run ui:watch & WATCH_PID=$!; trap \"kill $WATCH_PID 2>/dev/null\" EXIT; ORCH_UI_HOT_RELOAD=1 bun src/ui/server.ts'",
+    "ui:dev:hot-server": "bun run ui:build && sh -c 'bun run ui:watch & WATCH_PID=$!; trap \"kill $WATCH_PID 2>/dev/null\" EXIT; ORCH_UI_HOT_RELOAD=1 bun --hot --no-clear-screen src/ui/server.ts'",
+    "ui:build": "vite build --config src/ui/app/vite.config.ts",
+    "ui:watch": "vite build --watch --config src/ui/app/vite.config.ts",
+    "ui:check": "tsc --noEmit -p src/ui/app/tsconfig.json",
+    "check": "tsc --noEmit && bun run ui:check",
     "smoke": "bun tests/smoke.ts",
     "regression-check": "bun src/bin/decomp-orchestrator.ts regression-check",
     "kg:sources": "bun src/bin/decomp-orchestrator.ts kg-sources",
@@ -31,11 +38,20 @@
     "pr:sync:all": "python3 knowledge/sources/past_prs/commands/sync_repo_and_pr_library.py --all-prs --fetch-jobs 16 --postmortem-jobs 16"
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "latest"
+    "@earendil-works/pi-coding-agent": "latest",
+    "lucide-react": "^1.17.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.0",
     "@types/node": "latest",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
     "bun-types": "latest",
-    "typescript": "latest"
+    "tailwindcss": "^4.3.0",
+    "typescript": "latest",
+    "vite": "^8.0.16"
   }
 }

@@ -11,161 +11,159 @@
     "merged_at": "2026-04-03T04:35:43Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Sprawling stage/item decomp PR centered on grZakoGenerator. It converted the zako generator from raw pointer/UNK prototypes into typed config, spawn, data, and item-var structures; implemented several core generator functions; propagated the new optional spawn-desc pointer API across many stage OnStart callsites; and added or improved several stage helper/collision functions. The bot reported +4212 matched code bytes, +56 matched data bytes, 14 new matches, and one small broken match in grCorneria_801E2738.",
+  "summary": "Large but mostly focused stage/zako generator decompilation PR. It replaced many grZakoGenerator placeholders with typed implementations, moved core grZakoGenerator structs into gr/types.h, corrected function signatures and call sites to use grZakoGenerator_SpawnDesc*, grZakoGenerator_Config*, Item_GObj*, HSD_GObj*, and NULL instead of integer/boolean zero, and added several adjacent stage matches in Corneria, Rainbow Cruise, Old Kongo, Heal, and Ice Mountain. The decomp.dev report credited 14 new matches and +4212 matched code bytes, led by grZakoGenerator_801CA8B4, grZakoGenerator_801CA43C, grZakoGenerator_801CA67C, grZakoGenerator_801CAF08, and grZakoGenerator_801CAE04, while noting one small regression in grCorneria_801E2738.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "stage-zako-generator",
-      "struct-typing",
-      "header-prototype-cleanup",
+      "decomp-matching",
+      "headers",
+      "type-recovery",
+      "stage-work",
       "item-integration",
-      "collision-callbacks",
-      "partial-stage-function-decomp"
+      "signature-cleanup"
     ],
     "systems": [
-      "gr",
-      "grzakogenerator",
+      "ground",
       "stage",
       "item",
+      "zako-generator",
       "animation",
-      "collision"
+      "Corneria",
+      "Ice Mountain",
+      "Rainbow Cruise",
+      "Old Kongo",
+      "Figure Get",
+      "Heal"
     ]
   },
   "key_files": [
-    {
-      "file": "src/melee/gr/grzakogenerator.c",
-      "why": "Core implementation of grZakoGenerator allocation, spawn interpolation, spawn table initialization, per-frame spawn loop, item cleanup callbacks, generator gobj startup, sentinel spawn registration, and cleanup."
-    },
-    {
-      "file": "src/melee/gr/grzakogenerator.h",
-      "why": "Public prototypes changed from UNK/int/void signatures to typed grZakoGenerator_Config, grZakoGenerator_SpawnDesc, Item_GObj, and HSD_GObj signatures."
-    },
-    {
-      "file": "src/melee/gr/grzakogenerator.static.h",
-      "why": "Local static global narrowed to typed grZakoGenerator_SpawnDesc* and grZakoGenerator_Data* after moving structs to shared gr/types.h."
-    },
-    {
-      "file": "src/melee/gr/types.h",
-      "why": "Introduced grZakoGenerator_SpawnDesc, Spawn, SpawnFunc, Config, Entry, Data; typed stage vars such as Corneria xC8/xCC as grZakoGenerator_Config* and expanded several ground-var structs."
-    },
-    {
-      "file": "src/melee/gr/grcorneria.c",
-      "why": "Matched grCorneria_801DD9A8, improved grCorneria_801DDDA8 with typed data layout, and wired Corneria spawn configs through grZakoGenerator_801CA43C."
-    },
-    {
-      "file": "src/melee/gr/gricemt.c and src/melee/gr/gricemt.h",
-      "why": "Typed IceMountainParams.xBC as grZakoGenerator_SpawnDesc, used NULL for disabled generator, added rand_zero helper, and fixed the grZakoGenerator_801CAEB0 argument order in the matched Ice Mountain update."
-    },
-    {
-      "file": "src/melee/gr/grrcruise.c and src/melee/gr/grrcruise.h",
-      "why": "Matched grRCruise_801FF5B4 and fn_80200460 with typed callback signatures and memory allocation details."
-    },
-    {
-      "file": "src/melee/gr/grfigureget.c and src/melee/gr/grfigureget.h",
-      "why": "Implemented near-matching grFigureGet_80219B10 coin collision handling and added typed callback parameters and ground-var storage for up to three coin item gobjs/values."
-    },
-    {
-      "file": "src/melee/gr/granime.c",
-      "why": "Improved grAnime_801C84A4 by using Ground_801C3FA4, HSD_ForeachAnim masks, setjmp handling, and AObj flag testing."
-    },
-    {
-      "file": "src/melee/it/itCharItems.h and src/melee/it/types.h",
-      "why": "Added itZako_ItemVars and exposed it through Item.xDD4_itemVar.zako so generator cleanup can use ip->xDD4_itemVar.zako.idx instead of raw offsets."
-    },
-    {
-      "file": "src/melee/it/it_2725.c, src/melee/it/items/itlikelike.c, src/melee/it/items/itpatapata.h, src/melee/it/items/itzgshell.c",
-      "why": "Aligned item destruction/spawn prototypes with grZakoGenerator_801CACB8 and the generator's item-spawning switch."
-    }
+    "src/melee/gr/grzakogenerator.c",
+    "src/melee/gr/grzakogenerator.h",
+    "src/melee/gr/grzakogenerator.static.h",
+    "src/melee/gr/types.h",
+    "src/melee/gr/grcorneria.c",
+    "src/melee/gr/grcorneria.h",
+    "src/melee/gr/grrcruise.c",
+    "src/melee/gr/groldkongo.c",
+    "src/melee/gr/gricemt.c",
+    "src/melee/gr/gricemt.h",
+    "src/melee/gr/grfigureget.c",
+    "src/melee/gr/grfigureget.h",
+    "src/melee/gr/grheal.c",
+    "src/melee/gr/granime.c",
+    "src/melee/it/itCharItems.h",
+    "src/melee/it/it_2725.c",
+    "src/melee/it/items/itlikelike.c",
+    "src/melee/it/items/itlikelike.h",
+    "src/melee/it/items/itpatapata.h",
+    "src/melee/it/items/itzgshell.c"
   ],
   "what_changed": [
-    "grZakoGenerator_801CA394 now allocates a typed grZakoGenerator_Config plus a grZakoGenerator_Spawn array, storing spawn_descs, count, callback, x10, gen, and x18 instead of filling a raw 0x1C byte buffer.",
-    "grZakoGenerator_801CA43C was implemented as a spawn-position updater: it transforms local spawn endpoint pairs through lb_8000B1CC, checks whether a moving height plane crosses each segment, interpolates a Vec3, then invokes a HSD_Generator-producing callback or updates/kills a persistent generator when x10 is negative.",
-    "grZakoGenerator_801CA67C now allocates and initializes grZakoGenerator_Data entries[80] with item IDs i + 0x20 plus a sentinel entry with x0 = -1.",
-    "grZakoGenerator_801CA8B4 now scans spawn entries against stage blast zones and camera bounds, decrements respawn delay counters, spawns configured enemies/items for kinds 0x2B, 0x2C, 0x2D, 0x2E, 0xD3, 0xD4, 0xD5, and 0xD9, and records the entry index in Item.xDD4_itemVar.zako.idx.",
-    "grZakoGenerator_801CAC14 and grZakoGenerator_801CACB8 were rewritten to use GET_ITEM, itGetKind, the typed zako item var, and the new sentinel layout; grZakoGenerator_801CACB8 remained an unmatched improvement per the bot report.",
-    "grZakoGenerator_801CAE04 now returns an HSD_GObj* and takes a grZakoGenerator_SpawnDesc*; dozens of stage startup functions were updated from 0/false to NULL when no spawn-desc table is supplied.",
-    "grZakoGenerator_801CAF08 now disables spawning and walks HSD_GObj_Entities->items to remove active generated item kinds, including kind 0x9F.",
-    "gr/types.h gained shared grZakoGenerator types and several stage ground-var layout refinements, including grCorneria_GroundVars xC8/xCC as grZakoGenerator_Config* and grZakoGenerator_Data as entries[80] plus sentinel.",
-    "Several non-zako stage functions were matched or improved: grCorneria_801DD9A8, grCorneria_801DDDA8, grRCruise_801FF5B4, fn_80200460, grOldKongo_8020F6E4, grHeal_8021F0D8, grOnett_801E40E4, grOldPupupu_8021119C, grFigureGet_80219B10, and grAnime_801C84A4.",
-    "Item-side headers and implementations were adjusted so generated item destruction callbacks and spawn helpers use Item_GObj* and typed signatures rather than Ground_GObj casts or UNK_PARAMS."
+    "Implemented major grZakoGenerator routines that were previously placeholders or untyped stubs, including grZakoGenerator_801CA43C, grZakoGenerator_801CA67C, grZakoGenerator_801CA8B4, grZakoGenerator_801CACB8, grZakoGenerator_801CAE04, and grZakoGenerator_801CAF08.",
+    "Changed grZakoGenerator_801CA394 from an int/void* allocation helper into a typed allocator returning grZakoGenerator_Config* and accepting grZakoGenerator_Spawn*, count, grZakoGenerator_SpawnFunc, and f32 probability/behavior parameter.",
+    "Added typed grZakoGenerator_SpawnDesc, grZakoGenerator_Spawn, grZakoGenerator_SpawnFunc, grZakoGenerator_Config, grZakoGenerator_Entry, and grZakoGenerator_Data definitions to gr/types.h, and simplified grzakogenerator.static.h to only define the static lbl_8049F030 state using those shared types.",
+    "Updated grZakoGenerator_801CAE04 to return HSD_GObj* and accept grZakoGenerator_SpawnDesc*, allocate generator data, create a ground GObj, install fn_801CADBC as a proc, and store global spawn descriptor/data pointers.",
+    "Mass-updated stage OnStart/init call sites from grZakoGenerator_801CAE04(0) or grZakoGenerator_801CAE04(false) to grZakoGenerator_801CAE04(NULL), reflecting the recovered pointer parameter.",
+    "Implemented grZakoGenerator_801CA8B4 as the main respawn/placement loop using stage blast-zone and camera bounds, Ground_801C2D24 position lookup, item creation for several zako kinds, and item-var index bookkeeping.",
+    "Implemented grZakoGenerator_801CAF08 to disable generator activity and destroy live zako-related item objects by walking HSD_GObj_Entities->items.",
+    "Added itZako_ItemVars with an idx field in itCharItems.h and changed grZakoGenerator destruction paths to use ip->xDD4_itemVar.zako.idx instead of raw offset access.",
+    "Corrected grZakoGenerator_801CACB8 to take Item_GObj* instead of Ground_GObj*, and updated it_8027CE44 accordingly.",
+    "Recovered grCorneria_801DD9A8, including calls to grCorneria_801E1970, grCorneria_801E2228, grZakoGenerator_801CA43C for two Corneria generator configs, several stage update helpers, five lb_8000B1CC transforms, Ground_801C2FE0, and lb_800115F4.",
+    "Typed Corneria data access by replacing raw pad indexing with grCn_Data fields indices[3] and positions[34] in grCorneria_801DDDA8.",
+    "Adjusted Corneria generator callback signatures grCorneria_801E2454 and grCorneria_801E2480 to accept Vec3* plus s32 and return HSD_Generator*.",
+    "Implemented grFigureGet_80219B10 collision/item callback logic for collecting coin Item_GObj pointers and values into figureget ground vars when coins are in a small x range.",
+    "Implemented grHeal_8021F0D8 to start stage animation and conditionally invoke grHeal_8021F79C based on gm_80473A18.x90 and grHeal_804D49D8.",
+    "Improved grIceMt_801F7080 to use a small rand_zero inline, pass grIm_804D69F4->xBC as a typed grZakoGenerator_SpawnDesc, call grZakoGenerator_801CAEB0 with Ground_801C5840()/Ground_801C5940(), and correct a grLib_801C96F8 effect ID from 0x7534 to 0x7530.",
+    "Recovered grAnime_801C84A4 to search animation AObjs via HSD_ForeachAnim, a computed HSD_TypeMask, __setjmp protection, and HSD_AObjGetFlags(result) & 0x04000000."
   ],
   "smart_moves": [
-    "Moved grZakoGenerator structs out of the static header into gr/types.h so stage structs, stage parameter blocks, and item code can share the same typed layout.",
-    "Modeled the old x3C0/x3C4/x3C8 tail fields as a real grZakoGenerator_Entry sentinel, which made grZakoGenerator_801CAEB0 and kind 0x9F cleanup more readable without changing the apparent memory layout.",
-    "Changed grZakoGenerator_801CAE04 callsites to NULL instead of 0/false, documenting that the argument is an optional pointer, not a boolean flag.",
-    "Replaced raw Item offset access at ip + 0xDD8 with itZako_ItemVars in the item union, making generated enemy cleanup and respawn delay logic reusable by item decomp work.",
-    "Used callback typedef grZakoGenerator_SpawnFunc(Vec3*, s32) and updated Corneria effect callbacks to accept the unused s32 argument, avoiding ad-hoc casts.",
-    "Kept small matching-oriented helpers such as grZakoGenerator_801CA43C_inline, rand_zero, and rand_inline where they helped codegen while still improving readability.",
-    "Typed stage binary-data layouts incrementally, e.g. grCn_Data.indices and grCn_Data.positions, instead of continuing to index into byte pads with casted offsets."
+    "Centralized recovered grZakoGenerator layouts in gr/types.h instead of leaving duplicate private struct definitions in grzakogenerator.static.h, making dependent stage and item code type-checkable.",
+    "Converted widespread integer-zero arguments to NULL after recovering grZakoGenerator_801CAE04 as a pointer-taking API; this documents intent and prevents future accidental bool/int assumptions.",
+    "Used item-specific storage ip->xDD4_itemVar.zako.idx for generator bookkeeping, avoiding brittle raw offset casts and aligning item destroy/respawn code with the project’s item-var pattern.",
+    "Recovered generator callback typing as HSD_Generator* (*)(Vec3*, s32), which explained why Corneria callbacks needed an unused s32 parameter even when the implementation ignores it.",
+    "Named the final grZakoGenerator_Data entry as a sentinel rather than preserving opaque x3C0/x3C4/x3C8 fields, clarifying the special singleton slot behavior in grZakoGenerator_801CAEB0 and destruction paths.",
+    "In grZakoGenerator_801CA43C, separated transformed spawn segments from source spawn descriptors and used interpolation along pos0/pos1 to derive spawn positions at a target height.",
+    "Preserved matching-oriented control flow idioms such as assignment inside if conditions in grIceMt_801F7080 and stack padding/PAD_STACK where needed.",
+    "Added targeted forward/type includes in stage headers and C files instead of leaving UNK_RET/UNK_PARAMS prototypes, enabling more precise cross-TU signatures."
   ],
   "decomp_lessons": [
-    "When a widely called API is discovered to take a pointer, update every 0/false callsite to NULL in the same PR; this makes future prototype regressions obvious.",
-    "For generator-like systems, shared typedefs for config, spawn descs, callbacks, entries, and sentinels can unlock matches across stage, item, and header files at once.",
-    "Do not leave item-specific scratch fields as raw xDD4/xDD8 offsets once the owning item-var union is known; adding a small itZako_ItemVars struct improved both generator and item cleanup code.",
-    "Collision callbacks in these stage files often need the full typed signature Ground*, s32 joint_id, CollData*, s32, mpLib_GroundEnum, f32; matching one callback can clarify several headers.",
-    "Stage data blobs can often be partially typed by anchoring known arrays at offsets, as with grCn_Data.indices at 0x03C and positions at 0x330.",
-    "Bot reports can reveal near-miss risk: this PR added many matches but also broke grCorneria_801E2738 by one byte, so adjacent formatting/prototype changes around matched functions should be checked carefully."
+    "When a function is called from many stage OnStart routines with 0/false, check whether the parameter is actually a pointer before propagating an integer or bool signature; after recovery, update all call sites to NULL for readability and type safety.",
+    "For stage generators, callback signatures may include an index parameter even if some callbacks ignore it; matching the callback typedef globally can unlock multiple stage files.",
+    "Opaque ground vars often become clear once the generator/item ownership chain is typed: Corneria xC8/xCC became grZakoGenerator_Config* fields, and item var DD8 became zako.idx.",
+    "Sentinel entries are often better represented as the same entry type appended after an array than as unrelated trailing scalar fields; this improved grZakoGenerator_Data from entries[80] plus raw x3C0/x3C4/x3C8 into entries[80] plus sentinel.",
+    "Replacing raw pad access with named arrays, as in grCn_Data indices and positions, can both improve readability and finish near-matches without inventing high-level semantics.",
+    "Generator cleanup code may need to traverse global item entity lists and filter by item-kind ranges; recover the range checks exactly before naming behavior too specifically.",
+    "Small helper inlines such as rand_zero can be useful matching tools when the original compiler emits a repeated ternary/random pattern.",
+    "One PR can mix exact matches and near-matches; keep bot-reported regressions visible because even a -1 byte broken match, like grCorneria_801E2738, may matter for follow-up cleanup."
   ],
   "naming_conventions": [
-    "New shared structs use the system prefix grZakoGenerator_: grZakoGenerator_SpawnDesc, grZakoGenerator_Spawn, grZakoGenerator_Config, grZakoGenerator_Entry, and grZakoGenerator_Data.",
-    "Item union scratch storage uses item-system naming: itZako_ItemVars and Item.xDD4_itemVar.zako.idx.",
-    "Unknown fields remain offset-style names such as x10, x18, xC8, xCC, and xA_b0 when semantics are not proven.",
-    "Function symbols retain address-suffixed decomp names such as grZakoGenerator_801CA43C and grRCruise_801FF5B4; no semantic renames were introduced in this slice.",
-    "Typed accessor macros GET_ITEM, GET_GROUND, and GET_JOBJ replaced raw user_data or hsd_obj access where evidence supported it."
+    "Recovered generator types use the grZakoGenerator_ prefix: grZakoGenerator_SpawnDesc, grZakoGenerator_Spawn, grZakoGenerator_SpawnFunc, grZakoGenerator_Config, grZakoGenerator_Entry, and grZakoGenerator_Data.",
+    "The shared static state remains named lbl_8049F030 in grzakogenerator.static.h, but its fields were typed rather than renamed beyond x0/x4/x8 bitfields.",
+    "The final grZakoGenerator_Data slot is named sentinel, replacing raw trailing fields x3C0, x3C4, and x3C8.",
+    "Item-specific per-item variables follow the existing it<Thing>_ItemVars convention, adding itZako_ItemVars with idx at DD8.",
+    "Stage-specific ground vars kept address-like field names such as xC8, xCC, and xD0 where semantics were still weak, but their types were improved where known.",
+    "Unmatched or uncertain functions retained address-based names such as grZakoGenerator_801CA8B4, grCorneria_801DD9A8, and grFigureGet_80219B10 rather than receiving speculative descriptive names.",
+    "Callback typedef naming uses SpawnFunc and callback fields rather than over-specific enemy/effect names, matching the evidence that callbacks create HSD_Generator effects."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK annotations in several functions, including grZakoGenerator_801CA43C, grZakoGenerator_801CA67C, grZakoGenerator_801CAF08, grOnett_801E40E4, and fn_80200460.",
-    "Kept interpolation as a static inline helper for grZakoGenerator_801CA43C; it computes x/z by linear interpolation and assigns y from the crossing height.",
-    "Preserved exact constants relevant to matching and behavior, including 0.0001f for near-horizontal spawn segments, respawn delay 0x708, effect IDs 0x7530/0x7534, and stage checks such as Stage_80225194() == 76.",
-    "For random zero checks, grIceMt_801F7080 used an inline rand_zero(s32 n) that returns true when n is zero or HSD_Randi(n) returns zero, matching the previous branch shape more cleanly.",
-    "grAnime_801C84A4 uses bit-derived HSD type masks, __setjmp(&grAnime_8049EE40), HSD_ForeachAnim, and HSD_AObjGetFlags(result) & 0x04000000; this is a useful pattern for animation-tree searches.",
-    "The item spawn switch in grZakoGenerator_801CA8B4 maps spawn-desc kinds to existing item constructors and stores the generator entry index immediately after creation."
+    "Used PAD_STACK in grZakoGenerator_801CA43C, grZakoGenerator_801CA67C, grZakoGenerator_801CA8B4, and grZakoGenerator_801CAF08 to preserve stack layout for matching.",
+    "Used an inline interpolation helper in grZakoGenerator_801CA43C to match position calculation codegen for pos->x/y/z from pos0/pos1 and t.",
+    "Preserved comma-style assignment in the inline helper for pos->y, likely for codegen matching.",
+    "Used ABS(dy) > 0.0001f and HSD_Randf branches to distinguish deterministic crossing interpolation from random interpolation for horizontal/equal-height spawn segments.",
+    "Used __assert with the literal file name grzakogenerator.c and line 0x52 in grZakoGenerator_801CA67C, matching the original assertion site.",
+    "Used OSReport with the literal 'couldn t get gobj!' error path and line 0x166 in grZakoGenerator_801CAE04.",
+    "Used HSD_GObj_SetupProc(gobj, fn_801CADBC, 0) and made fn_801CADBC accept HSD_GObj* while forwarding to grZakoGenerator_801CA8B4(0).",
+    "Used assignment-in-if style for repeated Ground_801C2BA4 lookups in grIceMt_801F7080, reducing temporary churn and matching generated code.",
+    "Recovered grAnime_801C84A4 with a local HSD_AObj* sp14, HSD_ForeachAnim, AOBJ_ARG_AV, and __setjmp guard, indicating matching depended on exact animation traversal scaffolding.",
+    "Function signature corrections in itlikelike, itpatapata, and itzgshell propagated extra s32 parameters needed by grZakoGenerator item creation calls."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the slice.",
-    "Automated decomp.dev report: matched code rose to 61.69% (+0.11%, +4212 bytes) and matched data to 37.83% (+56 bytes).",
-    "Automated report listed 14 new matches, including grZakoGenerator_801CA8B4, grZakoGenerator_801CA43C, grZakoGenerator_801CA67C, grOldKongo_8020F6E4, grCorneria_801DD9A8, grRCruise_801FF5B4, fn_80200460, grZakoGenerator_801CAF08, grZakoGenerator_801CAE04, and grHeal_8021F0D8.",
-    "Automated report flagged one broken match: grCorneria_801E2738 changed from 100.00% to 99.82% by -1 byte.",
-    "Automated report also showed near-matches/improvements, notably grFigureGet_80219B10 at 99.18%, grZakoGenerator_801CACB8 at 91.68%, grAnime_801C84A4 at 97.92%, grOnett_801E40E4 at 98.04%, and grOldPupupu_8021119C at 79.22%."
+    "No human review comments were present in the slice.",
+    "The PR body described the change as 'slightly sprawling, but mostly zako stuff', which is consistent with 81 changed files but a grZakoGenerator-centered core.",
+    "decomp.dev reported matched code increased to 61.69%, +0.11%, +4212 bytes, and matched data increased by +56 bytes.",
+    "decomp.dev listed 14 new matches, including grZakoGenerator_801CA8B4, grZakoGenerator_801CA43C, grZakoGenerator_801CA67C, grOldKongo_8020F6E4, grCorneria_801DD9A8, grRCruise_801FF5B4, fn_80200460, grZakoGenerator_801CAF08, grZakoGenerator_801CAE04, grHeal_8021F0D8, grIceMt_801F7080, and grCorneria_801DDDA8.",
+    "decomp.dev also reported 12 improvements in unmatched items, including grFigureGet_80219B10 to 99.18%, grZakoGenerator_801CACB8 to 91.68%, and grAnime_801C84A4 to 97.92%.",
+    "decomp.dev noted one broken match: grCorneria_801E2738 decreased from 100.00% to 99.82% by 1 byte."
   ],
   "searchable_terms": [
     "pr2374",
     "grzakogenerator work",
+    "lukechampine",
     "zako generator",
     "grZakoGenerator_801CA394",
     "grZakoGenerator_801CA43C",
     "grZakoGenerator_801CA67C",
     "grZakoGenerator_801CA8B4",
-    "grZakoGenerator_801CAC14",
     "grZakoGenerator_801CACB8",
-    "fn_801CADBC",
+    "grZakoGenerator_801CADBC",
     "grZakoGenerator_801CADE0",
     "grZakoGenerator_801CAE04",
     "grZakoGenerator_801CAEB0",
     "grZakoGenerator_801CAF08",
     "grZakoGenerator_SpawnDesc",
+    "grZakoGenerator_Spawn",
     "grZakoGenerator_SpawnFunc",
     "grZakoGenerator_Config",
-    "grZakoGenerator_Data",
     "grZakoGenerator_Entry",
+    "grZakoGenerator_Data",
     "itZako_ItemVars",
-    "xDD4_itemVar.zako.idx",
+    "zako.idx",
+    "sentinel",
+    "lbl_8049F030",
     "grCorneria_801DD9A8",
     "grCorneria_801DDDA8",
-    "grCorneria_801E2738",
-    "grIceMt_801F7080",
-    "grRCruise_801FF5B4",
-    "fn_80200460",
-    "grOldKongo_8020F6E4",
-    "grHeal_8021F0D8",
+    "grCn_Data",
     "grFigureGet_80219B10",
+    "grHeal_8021F0D8",
+    "grIceMt_801F7080",
     "grAnime_801C84A4",
-    "grOnett_801E40E4",
-    "grOldPupupu_8021119C",
-    "HSD_ForeachAnim",
+    "grRCruise_801FF5B4",
+    "groldkongo",
+    "Ground_801C2D24",
+    "Ground_801C3FA4",
     "lb_8000B1CC",
-    "Stage_GetBlastZoneRightOffset",
-    "HSD_GObj_Entities->items",
+    "HSD_ForeachAnim",
+    "HSD_GObj_Entities",
     "It_Kind_Kuriboh",
     "It_Kind_Octarock",
     "It_Kind_Ottosea",
@@ -173,12 +171,19 @@
     "It_Kind_Coin"
   ],
   "follow_up_queries": [
-    "Why did grCorneria_801E2738 regress by one byte after this PR?",
-    "Can grZakoGenerator_801CACB8 be brought from 91.68% to 100% by refining the item cleanup/sentinel logic?",
-    "Can grFigureGet_80219B10 be matched by adjusting duplicate coin tracking, CollData flag typing, or local variable lifetimes?",
-    "Can grAnime_801C84A4 reach 100% by refining the result NULL path or HSD_AObjGetFlags call ordering?",
-    "Search for remaining stage parameter blobs that should use grZakoGenerator_SpawnDesc instead of int/bool placeholders.",
-    "Audit grZakoGenerator_801CA8B4 item kind constants and constructor prototypes for opportunities to replace numeric kinds with enums."
+    "Check whether the one-byte grCorneria_801E2738 regression introduced by PR #2374 was fixed in a later PR.",
+    "Search later grzakogenerator work for renamed x0/x4/x8 fields in lbl_8049F030 or semantic names for grZakoGenerator_Config.x10/x18.",
+    "Look for follow-up PRs that finish grZakoGenerator_801CACB8, grZakoGenerator_801CAEB0, grFigureGet_80219B10, and grAnime_801C84A4 from near-match to full match.",
+    "Find later type recovery for grCorneria_GroundVars arwing/corneria union fields affected by xC8/xCC config pointers.",
+    "Audit other item creation functions for extra unused s32 parameters matching the pattern added to it_802DC4BC and it_802E16F8."
   ],
-  "confidence": 0.89
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

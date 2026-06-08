@@ -11,101 +11,115 @@
     "merged_at": "2026-03-01T15:56:25Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Cleaned up src/melee/it/items/it_27CF.c and matched the two remaining functions in the unit: it_27CF_UnkMotion1_Anim and it_27CF_UnkMotion0_Anim. The PR removed dead #if 0 alternate code and stale prototype/comment clutter, reduced noisy casts, preferred GET_ITEM/GET_JOBJ where possible, and kept carefully permuted source in the two anim callbacks to satisfy matching.",
+  "summary": "Cleaned up src/melee/it/items/it_27CF.c after matching the remaining functions. The PR removed a disabled #if 0 alternative implementation block and old prototype comments, simplified unnecessary HSD_GObj*/Item_GObj* casts, and standardized item access through GET_ITEM/GET_JOBJ where possible. The matching work centered on the item 27CF motion callbacks and helper routines, including lifetime countdown, effect spawn, physics/collision helpers, and damage-received lifetime adjustment.",
   "change_classification": {
-    "primary_type": "cleanup_and_decomp_matching",
+    "primary_type": "cleanup",
     "categories": [
       "cleanup",
       "decomp-matching",
-      "item-callbacks",
-      "cast-cleanup",
+      "cast-removal",
       "dead-code-removal"
     ],
     "systems": [
-      "item"
+      "item",
+      "it_27CF"
     ]
   },
   "key_files": [
     "src/melee/it/items/it_27CF.c"
   ],
   "what_changed": [
-    "Matched the remaining it_27CF item animation callbacks reported by the author and bot: it_27CF_UnkMotion1_Anim and it_27CF_UnkMotion0_Anim.",
-    "Removed a disabled #if 0 block containing an inline1 helper and alternate versions of the motion callbacks, replacing it with the final direct matched implementations.",
-    "Simplified many item object accesses by changing redundant casts such as GET_ITEM((HSD_GObj*) item_gobj) to GET_ITEM(item_gobj), and similar cleanup for GET_JOBJ and Item_80268E5C calls.",
-    "Changed it_27CF_UnkMotion1_Phys and it_802F317C to use GET_ITEM(item_gobj) instead of direct item_gobj->user_data access where the cleanup did not break matching.",
-    "Kept selective raw gobj->user_data uses in the newly matched anim functions, especially around efAsync_Spawn and xBC0, consistent with the PR body saying GET_ITEM was used where possible rather than everywhere.",
-    "Removed stale commented prototype lines and a commented alternative formula in it_27CF_Logic114_DmgReceived, shrinking the file by 100 deleted lines versus 38 added lines."
+    "Matched the two remaining functions in it_27CF.c according to the PR body.",
+    "Removed a large disabled #if 0 block containing an alternate inline1-based implementation of several motion functions.",
+    "Removed stale commented prototype annotations such as Item_GObj versions above HSD_GObj function definitions.",
+    "Replaced redundant casts like GET_ITEM((HSD_GObj*) item_gobj), Item_80268E5C((HSD_GObj*) item_gobj, ...), and it_8026B3A8((Item_GObj*) item_gobj) with direct calls where the current types already matched accepted usage.",
+    "Changed direct item_gobj->user_data access to GET_ITEM(item_gobj) in several places, including item attribute lookup and velocity reset helpers.",
+    "Kept explicit casts only where the diff indicates they were still needed for matching or type expectations, such as assigning Item_GObj* item_gobj = (Item_GObj*) gobj before it_802F3290.",
+    "Updated it_27CF_UnkMotion1_Anim and it_27CF_UnkMotion0_Anim to use a gobj parameter, local Item* ip, local HSD_JObj* item_jobj, and PAD_STACK(10), while still performing lifetime decrement, Item_8026AE84, efAsync_Spawn, and it_802F3290.",
+    "Simplified it_27CF_Logic114_DmgReceived by removing a commented alternate formula and using GET_ITEM(item_gobj) before subtracting item->xCA0 * item->xDD4_itemVar.it_27CF.x0 from xD44_lifeTimer."
   ],
   "smart_moves": [
-    "Did not force GET_ITEM everywhere; the matched anim callbacks still use raw gobj->user_data in specific spots, suggesting the author balanced readability cleanup with codegen constraints.",
-    "Duplicated the final matched source for it_27CF_UnkMotion1_Anim and it_27CF_UnkMotion0_Anim instead of relying on the removed inline1 helper, which likely avoided an inline/codegen mismatch.",
-    "Introduced an explicit Item_GObj* item_gobj temporary after casting gobj in the anim callbacks before calling it_802F3290, rather than leaving repeated inline casts.",
-    "Used a local HSD_JObj* item_jobj for gobj->hsd_obj before efAsync_Spawn, matching the final source shape used for both newly matched functions.",
-    "Cleaned noisy HSD_GObj/Item_GObj casts in already-matching or easier functions, making future item cleanup easier to read without sacrificing the reported matches."
+    "Used GET_ITEM and GET_JOBJ macros to make item/JObj retrieval explicit and reduce unsafe-looking raw user_data access.",
+    "Removed noisy dead code and commented prototypes after matching, making the file easier to search and review without changing apparent behavior.",
+    "Preserved matching-sensitive structure in the animation functions, including PAD_STACK(10), repeated user_data-derived xBC0 access inside efAsync_Spawn, and explicit Item_GObj* local conversion before calling it_802F3290.",
+    "Reduced unnecessary casts only where they were no longer needed, which improves readability without broadly changing function signatures.",
+    "Kept the same behavior for lifetime timers, velocity zeroing, fall-speed physics, collision callbacks, and animation state transitions while cleaning the surrounding code."
   ],
   "decomp_lessons": [
-    "For item code, prefer GET_ITEM and GET_JOBJ over direct ->user_data or ->hsd_obj access when that still matches; leave targeted raw field access only where the permutation requires it.",
-    "Small source-shape choices can matter for matching: local declaration order, temporary cast variables, macro versus direct field access, and stack padding were all part of the final matched callbacks.",
-    "Behaviorally identical callbacks may still need duplicated source rather than a shared inline helper if the inline abstraction does not produce the target assembly.",
-    "After a match is achieved, remove disabled exploratory variants and commented prototype guesses so the file records the final known-good source rather than the search history.",
-    "Use decomp-dev bot output to verify exactly which functions became new matches and to distinguish cosmetic cleanup from measurable matching progress."
+    "After functions are matched, remove disabled permutation attempts and stale commented signatures so future work sees the canonical implementation.",
+    "Prefer GET_ITEM(gobj) over direct gobj->user_data when equivalent; it documents intent and matches project item-access convention.",
+    "Prefer GET_JOBJ(gobj) over manual hsd_obj access when equivalent, but preserve direct hsd_obj or user_data expressions if they are required for codegen in a matched function.",
+    "Eliminating redundant casts can be part of cleanup once call-site types and function prototypes are stable.",
+    "Matching-sensitive decomp may require seemingly redundant locals or casts, such as separating HSD_GObj* gobj from Item_GObj* item_gobj or using a short Item* variable name like ip."
   ],
   "naming_conventions": [
-    "The item unit keeps the filename and symbol prefix it_27CF for this unknown item family.",
-    "Lifecycle callbacks follow the existing suffix pattern it_27CF_UnkMotionN_Anim, it_27CF_UnkMotionN_Phys, and it_27CF_UnkMotionN_Coll.",
-    "The newly matched anim functions use HSD_GObj* gobj as the generic object parameter and an Item* local named ip.",
-    "Item-specific struct fields retain x-prefixed names such as xD44_lifeTimer, xDD4_itemVar.it_27CF.x0, xCC_item_attr, x40_vel, xCA0, and xDCE_flag.b7.",
-    "The damage callback name remains it_27CF_Logic114_DmgReceived, preserving the item logic ID in the symbol."
+    "Item pointer local renamed from item to ip in matching-sensitive animation functions.",
+    "Generic object parameter named gobj where the function treats it as an HSD_GObj before deriving an Item_GObj* local.",
+    "Item_GObj* local named item_gobj is introduced only after casting from gobj for APIs that conceptually take an item object.",
+    "Project macros GET_ITEM and GET_JOBJ are preferred over raw user_data and hsd_obj access when possible.",
+    "Motion callbacks retain the existing it_27CF_UnkMotionN_Anim/Phys/Coll naming pattern."
   ],
   "assembly_or_matching_tactics": [
-    "Both matched anim callbacks include PAD_STACK(10), replacing the removed disabled helper path that used PAD_STACK(8) wrappers.",
-    "The anim callbacks first obtain the item with GET_ITEM(gobj) for the life timer decrement, then use gobj->user_data again inside the timer-expired branch.",
-    "efAsync_Spawn is called with gobj, &((Item*) gobj->user_data)->xBC0, effect id 1231, the local item_jobj, and &sp1C; this exact source shape is evidence-backed by the diff.",
-    "The matched callbacks assign item_gobj = (Item_GObj*) gobj before calling it_802F3290(item_gobj).",
-    "Elsewhere, removing unnecessary casts around item_gobj calls simplified source while preserving compatibility with item APIs such as it_8026B3A8, it_80272860, it_8026E15C, Item_80268E5C, GET_ITEM, and GET_JOBJ."
+    "Used permutation and cleanup to match the two remaining functions, as stated in the PR body.",
+    "PAD_STACK(10) was retained in it_27CF_UnkMotion1_Anim and it_27CF_UnkMotion0_Anim, indicating stack-shape sensitivity.",
+    "The animation functions keep an explicit HSD_JObj* item_jobj local and pass it to efAsync_Spawn instead of directly using gobj->hsd_obj at the call site.",
+    "The efAsync_Spawn argument for xBC0 uses &((Item*) gobj->user_data)->xBC0 even though ip exists, suggesting that this expression shape mattered for matching.",
+    "Explicit Item_GObj* item_gobj = (Item_GObj*) gobj is retained before it_802F3290, rather than casting inline.",
+    "Simplified casts elsewhere show that after prototypes/macros align, many HSD_GObj*/Item_GObj* casts can be removed without harming the match."
   ],
   "review_feedback": [
-    "No human review comments or review records were present in the slice.",
-    "The decomp-dev bot reported GALE01 matched code at 53.71%, with +0.01% and +336 bytes for the PR.",
-    "The bot listed 2 new matches in main/melee/it/items/it_27CF: it_27CF_UnkMotion1_Anim and it_27CF_UnkMotion0_Anim, both reaching 100.00% from 76.98%."
+    "No review comments were present in the provided PR slice.",
+    "The only human text evidence is the PR body: \"Matched the 2 remaining functions, permuted them + some others, general cleanup (GET_ITEM instead of ->user_data where possible etc)\"."
   ],
   "searchable_terms": [
     "pr-2193",
     "it_27cf cleanup",
-    "src/melee/it/items/it_27CF.c",
-    "it_27CF_UnkMotion1_Anim",
-    "it_27CF_UnkMotion0_Anim",
-    "it_27CF_UnkMotion1_Phys",
-    "it_27CF_UnkMotion1_Coll",
-    "it_27CF_UnkMotion0_Phys",
-    "it_27CF_UnkMotion0_Coll",
-    "it_27CF_UnkMotion2_Anim",
-    "it_27CF_Logic114_DmgReceived",
-    "it_802F3020",
-    "it_802F317C",
-    "it_802F3290",
+    "it_27CF.c",
+    "jurrejelle",
     "GET_ITEM",
     "GET_JOBJ",
+    "user_data",
     "Item_GObj",
     "HSD_GObj",
-    "HSD_JObj",
-    "PAD_STACK(10)",
+    "it_802F2F34",
+    "it_802F3020",
+    "it_27CF_UnkMotion1_Anim",
+    "it_27CF_UnkMotion1_Phys",
+    "it_27CF_UnkMotion1_Coll",
+    "it_802F317C",
+    "it_27CF_UnkMotion0_Anim",
+    "it_27CF_UnkMotion0_Phys",
+    "it_27CF_UnkMotion0_Coll",
+    "it_802F3290",
+    "it_27CF_UnkMotion2_Anim",
+    "it_27CF_Logic114_DmgReceived",
+    "PAD_STACK",
     "efAsync_Spawn",
-    "Item_8026AE84",
     "Item_80268E5C",
-    "ITEM_ANIM_UPDATE",
+    "Item_8026AE84",
+    "it_80272860",
+    "it_8026E15C",
+    "it_8026D62C",
+    "it_802756D0",
     "xD44_lifeTimer",
-    "xDD4_itemVar.it_27CF.x0",
-    "xBC0",
-    "xCA0",
-    "user_data"
+    "xDD4_itemVar.it_27CF",
+    "decomp matching",
+    "dead code removal",
+    "cast cleanup"
   ],
   "follow_up_queries": [
-    "it_27CF_UnkMotion1_Anim PAD_STACK(10) GET_ITEM gobj user_data",
-    "it_27CF_UnkMotion0_Anim efAsync_Spawn 1231 it_802F3290",
-    "GET_ITEM instead of user_data where possible Item_GObj HSD_GObj",
-    "it_802F317C x40_vel Item_80268E5C ITEM_ANIM_UPDATE",
-    "it_27CF_Logic114_DmgReceived xCA0 xDD4_itemVar.it_27CF.x0"
+    "Find other item files with direct gobj->user_data access that can be converted to GET_ITEM without breaking matches.",
+    "Search for stale #if 0 permutation blocks in matched item source files.",
+    "Compare it_27CF animation callbacks with similar item lifetime/effect-spawn callbacks to reuse the gobj/ip/item_gobj matching pattern.",
+    "Audit remaining unnecessary HSD_GObj*/Item_GObj* casts in item code after prototype cleanup."
   ],
-  "confidence": 0.91
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

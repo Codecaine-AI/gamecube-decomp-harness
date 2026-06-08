@@ -11,71 +11,64 @@
     "merged_at": "2026-06-01T03:51:54Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched two stage functions: `grGreatBay_801F60C4` and `grInishie1_801FC4A0`. Great Bay was brought from a near match to 100% via codegen-sensitive variable/scoping/clamp rewrites; Inishie1 gained a new C implementation plus added stage-data struct fields needed for the function. Automated decomp.dev reporting showed 2 new matches and +1016 matched bytes.",
+  "summary": "Matched two stage functions: `grGreatBay_801F60C4` in Great Bay and `grInishie1_801FC4A0` in Mushroom Kingdom / Inishie1. The Great Bay work was a matching-oriented rewrite that removed an extra `damage` local, moved `Vec3 pos` into the inner block, used assignment inside the `jobj` null-check, and rewrote negative clamp expressions to avoid temporary `min` locals. The Inishie1 work added fields to `grInishie1_stuff` through `unk50` and implemented a vertical easing/reset routine that moves `xF0` back toward zero using `grI1_804D69F8->unk50`, clears several state fields when the target is reached, and updates two JObj translate-Y values symmetrically.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-function-implementation",
-      "struct-layout",
-      "codegen-cleanup"
+      "stage-logic",
+      "struct-layout"
     ],
     "systems": [
       "stage",
-      "grgreatbay",
-      "grinishie1"
+      "Great Bay",
+      "Inishie1"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grgreatbay.c",
-      "notes": "Reworked `grGreatBay_801F60C4` to reach 100% match."
-    },
-    {
-      "path": "src/melee/gr/grinishie1.c",
-      "notes": "Extended `grInishie1_stuff` and implemented `grInishie1_801FC4A0`."
-    }
+    "src/melee/gr/grgreatbay.c",
+    "src/melee/gr/grinishie1.c"
   ],
   "what_changed": [
-    "`grGreatBay_801F60C4` stopped using a separate local `damage = arg3`; it mutates and reuses `arg3` directly after optional `floatfloor_landing_rate` scaling.",
-    "`grGreatBay_801F60C4` changed local lifetime/scope: `jobj` is assigned inside the null check, `Vec3 pos` moved into the inner block, and float locals were reordered/split.",
-    "`grGreatBay_801F60C4` replaced temporary `min` locals for negative clamp limits with direct comparisons and assignments using `-grGb_804D69E0.x0->floatfloor_*_limit`.",
-    "`grInishie1_stuff` gained four trailing `f32` fields: `unk44`, `unk48`, `unk4C`, and `unk50`.",
-    "`grInishie1_801FC4A0` was implemented: it moves `gp->gv.inishie1.xF0` toward zero by `grI1_804D69F8->unk50`, detects when zero is reached, clears related movement/state fields, and updates two JObj Y translations using `xFC + xF0` and `xFC - xF0`.",
-    "PR verification listed `python configure.py --require-protos && ninja`."
+    "Matched `grGreatBay_801F60C4`, a Great Bay floating floor collision/response helper using `Ground`, `CollData`, `mpLib_GroundEnum`, and Great Bay tuning parameters such as `floatfloor_landing_rate`, `floatfloor_slant_mul`, `floatfloor_slide_mul`, and their limits.",
+    "In `grGreatBay_801F60C4`, replaced a separate `damage` local with direct mutation/use of `arg3` after applying `floatfloor_landing_rate` when `arg4 == 1`.",
+    "In `grGreatBay_801F60C4`, scoped `Vec3 pos` and several float temporaries inside the `jobj` block and converted the null-check to `if ((jobj = gp->gv.greatbay3.jobj) != NULL)`.",
+    "In `grGreatBay_801F60C4`, rewrote lower-bound clamps for `translation.z`, `xD0`, and `xD4` so the comparison and assignment directly use negated limit expressions instead of creating a `f32 min` temporary.",
+    "Extended `grInishie1_stuff` with four additional `f32` fields: `unk44`, `unk48`, `unk4C`, and `unk50`.",
+    "Implemented `grInishie1_801FC4A0(HSD_GObj* gobj)`, which reads `Ground* gp = gobj->user_data`, decays `gp->gv.inishie1.xF0` toward zero by `grI1_804D69F8->unk50`, detects when zero is reached or crossed, clears movement/state fields, and updates `x108` and `x10C` JObj Y translations."
   ],
   "smart_moves": [
-    "For the near-matching Great Bay function, the fix focused on semantically small but codegen-important details: argument reuse, declaration placement, assignment-in-condition, and direct clamp expressions.",
-    "The Great Bay clamp rewrite avoided extra temporary locals, which likely better matched the original compiler's register/stack behavior.",
-    "The Inishie1 implementation kept unknown fields as offset-style names instead of inventing semantics; only the struct fields evidenced by the diff were added.",
-    "The `grInishie1_801FC4A0` implementation uses a simple `reached` flag to centralize reset behavior after the signed offset crosses zero."
+    "For the Great Bay match, the patch kept the logic equivalent but adjusted local variable lifetime and placement, which is often necessary for register allocation and stack layout in matched decompilation.",
+    "Using `arg3` directly instead of preserving a `damage` copy likely helped match original codegen where the parameter register/stack slot is reused after scaling by `floatfloor_landing_rate`.",
+    "Moving `Vec3 pos` into the inner `jobj` block and keeping float temporaries grouped near use reduced outer-scope lifetime pressure, a common matching tactic for CodeWarrior output.",
+    "The direct negative-limit clamp form avoided extra `min` locals and better reflected compiler expression lowering in the target binary.",
+    "The Inishie1 function used an explicit `zero` float local and an integer `reached` flag rather than more idiomatic boolean/early-return code, preserving likely original control flow needed for matching.",
+    "The Inishie1 implementation updates two JObjs with `xFC + xF0` and `xFC - xF0`, capturing the symmetric platform/part motion without introducing unnecessary helper abstractions."
   ],
   "decomp_lessons": [
-    "Near-matches can hinge on using the original parameter as a mutable value instead of introducing an equivalent alias local.",
-    "Local variable scope and declaration order can affect matching even when the C logic is unchanged.",
-    "For clamp code, direct comparison against a negated global/config expression can match where an equivalent temporary `min` variable does not.",
-    "When matching stage data functions, extending an unknown config struct with offset-preserving `unkXX` fields is acceptable until stronger semantic evidence appears.",
-    "A local `f32 zero = 0.0f` and comparisons against it may be a deliberate matching tactic; the PR gives no written explanation, so future work should verify before generalizing."
+    "When matching stage functions, preserving or reusing incoming parameters can matter more than introducing descriptive locals; a readable `damage` temporary was removed because direct `arg3` use matched better.",
+    "Local declaration scope is a practical matching lever: moving stack objects such as `Vec3 pos` into the branch where they are used can affect stack layout and register lifetimes.",
+    "Clamp code may need to be written in a less factored form. Introducing a temporary for `-limit` can produce different code than comparing directly against `-global->limit` and assigning the same expression.",
+    "Struct growth can unlock matches: adding `unk44` through `unk50` to `grInishie1_stuff` supplied the field used by the newly matched function.",
+    "For stage object animation routines, expect state fields in `Ground::gv` to be reset together when movement reaches a threshold, followed by direct `HSD_JObjSetTranslateY` calls to apply the resulting transform."
   ],
   "naming_conventions": [
-    "Stage functions use file/stage prefixes such as `grGreatBay_` and `grInishie1_` followed by address-style suffixes.",
-    "Stage globals retain address-style names such as `grGb_804D69E0` and `grI1_804D69F8`.",
-    "Unidentified struct and ground-state members remain offset-style: `unk44`, `unk48`, `unk4C`, `unk50`, `xF0`, `xF4`, `xE0`, `xE4`, `xEE`, `xFC`, `x108`, and `x10C`.",
-    "Existing descriptive config names in Great Bay were preserved, including `floatfloor_landing_rate`, `floatfloor_slant_mul`, `floatfloor_slide_mul`, `floatfloor_down_mul`, and the corresponding limit/add fields."
+    "Unidentified stage data structs keep stage-specific names plus `_stuff`, as seen with `grInishie1_stuff`.",
+    "Unknown struct fields remain offset-like names such as `unk44`, `unk48`, `unk4C`, and `unk50` until their meaning is proven.",
+    "Unidentified `Ground::gv` fields remain offset-style names such as `xF0`, `xF4`, `xE0`, `xE4`, `xEE`, `xFC`, `x108`, and `x10C`.",
+    "Stage globals follow existing project naming like `grGb_804D69E0` and `grI1_804D69F8`.",
+    "Matched-but-still-poorly-named functions retain symbol names like `grGreatBay_801F60C4` and `grInishie1_801FC4A0`."
   ],
   "assembly_or_matching_tactics": [
-    "Use `(jobj = gp->gv.greatbay3.jobj) != NULL` when assignment timing matters for codegen.",
-    "Prefer mutating `arg3` directly over creating a `damage` local when trying to match `grGreatBay_801F60C4`.",
-    "Move `Vec3 pos` into the narrow block where it is used to affect stack layout/lifetime.",
-    "Use direct negative-limit clamps instead of `f32 min = -limit` temporaries in this Great Bay pattern.",
-    "For `grInishie1_801FC4A0`, the matched shape includes `s32 reached = 0` and `f32 zero = 0.0f` before the signed approach-to-zero logic.",
-    "Keep `PAD_STACK(4)` in `grGreatBay_801F60C4`; the matched diff leaves it in place."
+    "Remove convenience locals if the original compiler likely reused the function argument, as with replacing `damage` by `arg3` in `grGreatBay_801F60C4`.",
+    "Use assignment inside conditionals for pointer loads when it better matches generated code: `if ((jobj = gp->gv.greatbay3.jobj) != NULL)`.",
+    "Limit the lifetime of stack aggregates by declaring them in the innermost block where they are needed.",
+    "Avoid temporary lower-bound variables for negative global limits when direct compare/assign expressions produce the desired code shape.",
+    "Use explicit float zero comparisons and a separate integer flag for threshold-crossing behavior when matching control flow, as in `grInishie1_801FC4A0`."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the provided slice.",
-    "decomp.dev bot reported GALE01 matched code increased to 69.37%, +0.03%, +1016 bytes.",
-    "Bot match report listed `grInishie1_801FC4A0` as +452 bytes, 0.00% to 100.00%.",
-    "Bot match report listed `grGreatBay_801F60C4` as +31 bytes, 94.67% to 100.00%."
+    "No review comments were present in the provided PR slice.",
+    "The PR body reports verification with `python configure.py --require-protos && ninja`."
   ],
   "searchable_terms": [
     "pr-2562",
@@ -85,7 +78,15 @@
     "grInishie1_801FC4A0",
     "src/melee/gr/grgreatbay.c",
     "src/melee/gr/grinishie1.c",
-    "grInishie1_stuff",
+    "Great Bay",
+    "Inishie1",
+    "Ground",
+    "CollData",
+    "mpLib_GroundEnum",
+    "HSD_GObj",
+    "HSD_JObj",
+    "HSD_JObjSetTranslateY",
+    "lb_8000B1CC",
     "grGb_804D69E0",
     "grI1_804D69F8",
     "floatfloor_landing_rate",
@@ -98,25 +99,35 @@
     "floatfloor_slant_limit",
     "floatfloor_slide_limit",
     "floatfloor_down_limit",
-    "HSD_JObjSetTranslateY",
-    "lb_8000B1CC",
-    "CollData cur_pos",
-    "PAD_STACK",
+    "grInishie1_stuff",
     "unk44",
     "unk48",
     "unk4C",
     "unk50",
     "xF0",
+    "xF4",
+    "xE0",
+    "xE4",
+    "xEE",
     "xFC",
     "x108",
-    "x10C"
+    "x10C",
+    "configure.py --require-protos",
+    "ninja"
   ],
   "follow_up_queries": [
-    "grGreatBay_801F60C4 arg3 damage floatfloor direct clamp",
-    "grInishie1_801FC4A0 xF0 unk50 HSD_JObjSetTranslateY",
-    "grInishie1_stuff unk44 unk48 unk4C unk50 semantics",
-    "stage function assignment in condition jobj match",
-    "floatfloor_slant_limit floatfloor_slide_limit floatfloor_down_limit clamp"
+    "Look for later PRs that rename `grInishie1_stuff` fields `unk44`, `unk48`, `unk4C`, or `unk50`.",
+    "Search for additional matches of `grInishie1_801FC664` or nearby Inishie1 functions following this PR.",
+    "Check whether later Great Bay work gives semantic names to `greatbay3.translation`, `xD0`, or `xD4`.",
+    "Compare other stage floating floor handlers for the same direct negative-limit clamp pattern."
   ],
-  "confidence": 0.9
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

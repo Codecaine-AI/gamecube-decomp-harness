@@ -1,0 +1,154 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2622",
+  "pr": {
+    "number": 2622,
+    "title": "Improvements to split up: GR",
+    "url": "https://github.com/doldecomp/melee/pull/2622",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:30:33Z",
+    "merged_at": "2026-06-08T15:59:43Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Stage/ground-directory matching slice split from PR #2617. It made small source-shape/codegen improvements across src/melee/gr, producing decomp-dev gains of +3188 matched bytes, 3 new matches, and 15 unmatched-item improvements. The final slice touched GR stage files such as granime, grbigblue, grcastle, grcorneria, grgreens, grinishie1/2, grmutecity, ground, grrcruise, grvenom, and grzebes. Review caught a gricemt HSD_ASSERT change as a regression; gricemt is not present in the final changed_files list, suggesting that problematic slice content was removed or not part of the merged final diff.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "stage-system-cleanup",
+      "codegen-shaping",
+      "split-pr-slice"
+    ],
+    "systems": [
+      "stage",
+      "ground",
+      "src/melee/gr"
+    ]
+  },
+  "key_files": [
+    "src/melee/gr/granime.c",
+    "src/melee/gr/grbigblue.c",
+    "src/melee/gr/grcastle.c",
+    "src/melee/gr/grcorneria.c",
+    "src/melee/gr/grgreens.c",
+    "src/melee/gr/grinishie1.c",
+    "src/melee/gr/grinishie2.c",
+    "src/melee/gr/grmutecity.c",
+    "src/melee/gr/ground.c",
+    "src/melee/gr/grrcruise.c",
+    "src/melee/gr/grvenom.c",
+    "src/melee/gr/grzebes.c"
+  ],
+  "what_changed": [
+    "Split the GR/stage portion of a larger matching branch into an isolated src/melee/gr PR for easier review.",
+    "decomp-dev reported 3 new matches: grInishie2_801FD9EC, Ground_801C1E94, and grBigBlue_801E8D64.",
+    "decomp-dev reported 15 improvements in unmatched items, including grBigBlue_801E6C60, grMuteCity_801F1A34, grCastle_801CFBD4, grCorneria_801E1348, Ground_801C466C, grInishie1_801FB0AC, grAnime_801C7C1C, grRCruise_801FFADC, grZebes_801D9798, and several grVenom functions.",
+    "grAnime_801C7C1C moved HSD_MatAnim and HSD_ShapeAnimDObj locals earlier and replaced conditional expressions with explicit if/else assignments before calling grAnime_801C683C_noinline.",
+    "grBigBlue_801E6C60 corrected repeated access from gp->gv.bigblue.data[i].x8 to x4 and introduced left_x/right_x temporaries around grBigBlue_801E8B84 call shaping.",
+    "grCastle_801CFBD4 replaced direct repeated grCs_803B7F28/grCs_803B7F3C indexing with cb1_src/cb2_src local pointers while preserving stack padding.",
+    "grGreens_80214FA8 renamed grid loops from k/j to row/col and propagated row/col through grGreens_80215358 calls; assertion spacing was normalized.",
+    "grInishie1_801FB0AC removed an extra bool match flag and used the loop index reaching 0x13 as the condition for no active status-3 block.",
+    "grInishie2_801FD9EC assigned temp_vec to &gp->gv.inishie23.xD8 before HSD_JObjGetTranslation, completing a new match.",
+    "grMuteCity_801F1A34 removed a speed function pointer iterator and indexed ((grMc_SpeedFn*) &grMc_803E3B7C[30])[var_r27] directly; it also used explicit u32 null checks on pointer-like integer fields x24/x28 and changed a mutecity flag access from xD0_flags.b6 to xD0_flags.b1.",
+    "Ground_801C1E94/ground.c introduced archive and stage_id locals around grDatFiles_801C6324 and stage_info.internal_stage_id, changed integer 1 to 1.0F for a float, and in Ground_801C466C used assignment-in-condition plus a Vec3* sp10p local for light position/interest setters.",
+    "grRCruise_801FFADC used assignment-in-condition patterns when loading hsd_obj from ground objects before setting translations.",
+    "grVenom changes removed redundant scale temporaries in grVenom_80205AD4 and grVenom_80206874, used typed s32* base/data indexing instead of byte-pointer arithmetic in grVenom_80206874, and removed an unused base_b in grVenom_80205F30.",
+    "grZebes_801D9798 folded delay_max assignment into the comparison against delay_min to improve codegen."
+  ],
+  "smart_moves": [
+    "Kept the PR limited to one subsystem/directory, which made a broad matching branch reviewable and allowed per-slice decomp-dev reporting.",
+    "Used small local variables to force desired register/stack behavior without changing semantics, such as archive, stage_id, sp10p, left_x/right_x, cb1_src/cb2_src, side, and lobj2.",
+    "Converted byte-offset arithmetic in grVenom_80206874 into typed s32* indexing, which is both clearer and a codegen aid when the underlying table behaves like words.",
+    "Removed unnecessary state variables where the loop index already carried the result, as in grInishie1_801FB0AC replacing bool match with i == 0x13.",
+    "Preserved or added PAD_STACK where needed instead of relying on incidental padding locals.",
+    "Used assignment inside conditionals in several places to match compiler structure while reducing extra statement shape.",
+    "Responded to review-identified regression risk around gricemt by not carrying gricemt into the final changed_files list."
+  ],
+  "decomp_lessons": [
+    "For matching work, declaration order and local lifetime can matter as much as expression semantics; moving locals to function scope or nearer use can shift codegen favorably.",
+    "Explicit if/else assignments can match better than ternary expressions even when semantically equivalent.",
+    "Typed table pointers can replace raw u8* byte arithmetic when the disassembly pattern is actually word-indexed; this improves readability and may improve matching.",
+    "Do not delete or alter asserts casually for a match. A reviewer flagged removal of HSD_ASSERT(0x258, i<ICEMT_FIELD_MAX) in gricemt as a regression.",
+    "When pointer-like fields are stored in integer slots, explicit casts such as (u32) field != 0 may be needed for matching and to document the intended codegen shape.",
+    "Loop variable names that reflect domain axes, such as row and col, make grid logic easier to audit without disturbing matching if declarations are controlled.",
+    "Comparisons can be shaped by ordering constants on the left, folding assignments into conditions, or changing literal types such as 1 to 1.0F."
+  ],
+  "naming_conventions": [
+    "Use row and col for 2D grid traversal instead of generic k/j when indexing row * 6 + col.",
+    "Use left_x and right_x for bounds passed to functions such as grBigBlue_801E8B84.",
+    "Use cb1_src and cb2_src for local aliases to static callback tables grCs_803B7F28 and grCs_803B7F3C.",
+    "Use side for gp->gv.corneria.x11A when it controls left/right branch logic.",
+    "Use lobj2 and j when a nested light-object traversal would otherwise collide with outer lobj/i variables.",
+    "Use base and data as typed table pointer names in grVenom where the table is treated as s32 entries.",
+    "Existing anonymous field names such as x4, x24, x28, xC4, xD0_flags remain heavily used; the PR did not broadly rename structs."
+  ],
+  "assembly_or_matching_tactics": [
+    "Move temporary declarations earlier or later to influence register allocation and stack layout.",
+    "Replace ternary expressions with explicit if/else assignments for noinline call arguments.",
+    "Use assignment-in-condition forms such as if ((jobj = gobj->hsd_obj) != NULL).",
+    "Introduce pointer aliases to stack locals, such as sp10p = &sp10, before repeated setter calls.",
+    "Use explicit float literals like 1.0F instead of integer literals where a float value is assigned.",
+    "Cast integer-backed pointer fields to u32 for null comparisons before casting back to HSD_GObj* for calls.",
+    "Use typed pointer indexing, e.g. s32* data with data[11], data[14], and data2[0xC9], instead of u8* plus byte offsets.",
+    "Fold assignment into comparison, as in assigning delay_max inside the grZebes delay_max > delay_min condition.",
+    "Remove redundant locals such as scl, base_b, fn_ptr, and bool match when direct expressions or loop indices match better.",
+    "Preserve explicit PAD_STACK calls when stack shape is part of the match."
+  ],
+  "review_feedback": [
+    {
+      "author": "PsiLupan",
+      "file": "src/melee/gr/gricemt.c",
+      "url": "https://github.com/doldecomp/melee/pull/2622#discussion_r3374261835",
+      "feedback": "Flagged removal/change around HSD_ASSERT(0x258, i<ICEMT_FIELD_MAX) in grIceMt_801F686C as a regression."
+    }
+  ],
+  "searchable_terms": [
+    "PR2622",
+    "Improvements to split up: GR",
+    "src/melee/gr",
+    "grAnime_801C7C1C",
+    "grBigBlue_801E6C60",
+    "grBigBlue_801E8D64",
+    "grCastle_801CFBD4",
+    "grCorneria_801DED50",
+    "grCorneria_801E1348",
+    "grGreens_80214FA8",
+    "grGreens_80215358",
+    "grInishie1_801FB0AC",
+    "grInishie2_801FD9EC",
+    "grMuteCity_801F1A34",
+    "grMuteCity_801F290C",
+    "Ground_801C1E94",
+    "Ground_801C466C",
+    "grRCruise_801FFADC",
+    "grVenom_80205AD4",
+    "grVenom_80205F30",
+    "grVenom_80206874",
+    "grZebes_801D9798",
+    "grIceMt_801F686C",
+    "HSD_ASSERT regression",
+    "PAD_STACK",
+    "assignment-in-condition",
+    "typed pointer indexing",
+    "xD0_flags.b1",
+    "grMc_SpeedFn",
+    "HSD_MatAnim",
+    "HSD_ShapeAnimDObj"
+  ],
+  "follow_up_queries": [
+    "Search later PRs for gricemt HSD_ASSERT ICEMT_FIELD_MAX to see where the regression was fixed or avoided.",
+    "Check whether gp->gv.bigblue.data[i].x4 has since received a semantic struct field name.",
+    "Look for later struct typing of grVe_803E5348 based on the s32* indexing patterns introduced here.",
+    "Review subsequent grmutecity work for naming of x24/x28 pointer-like fields and xD0_flags.b1."
+  ],
+  "confidence": 0.87,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

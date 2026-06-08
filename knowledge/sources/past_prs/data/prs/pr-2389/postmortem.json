@@ -11,94 +11,90 @@
     "merged_at": "2026-04-07T10:08:26Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled a large slice of the Item Switch menu unit, adding static data tables, typed implementations, and header prototypes for mnitemsw UI/input/GObj code. The PR mattered because decomp.dev reported +1272 bytes of newly matched code, including exact matches for mnItemSw_80233B68, mnItemSw_80235020, and mnItemSw_80233A98, plus several 93-99% near-matches in the same unit. The PR body and human review context were minimal, so intent beyond tracking/matching is inferred from the diff and bot report.",
+  "summary": "Decompiled a large portion of the Item Switch menu module, adding concrete implementations and prototypes for mnitemsw functions that manage item selection, item frequency, cursor/highlight animation, text creation/destruction, menu transitions, and GObj/JObj setup. The decomp.dev bot reported 3 new full matches totaling 1272 bytes and 8 additional near-matches/improvements in main/melee/mn/mnitemsw.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "menu-ui",
-      "data-tables",
-      "item-settings"
+      "item-switch",
+      "gobj-jobj"
     ],
     "systems": [
       "melee-core",
-      "mn menu",
-      "item switch menu",
-      "rules item settings"
+      "mn",
+      "gm",
+      "lb",
+      "baselib"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/mn/mnitemsw.c",
-      "role": "Added 812 lines implementing Item Switch menu static tables, input handling, UI animation/update logic, item JObj creation, and menu GObj construction."
-    },
-    {
-      "path": "src/melee/mn/mnitemsw.h",
-      "role": "Replaced several UNK_RET/UNK_PARAMS prototypes with typed signatures, changed mnItemSw_802351A0 to return HSD_GObj*, and exported mnItemSw_804D6BE8."
-    }
+    "src/melee/mn/mnitemsw.c",
+    "src/melee/mn/mnitemsw.h"
   ],
   "what_changed": [
-    "Added MnItemSwTable with x00 animation state triples, x30 animation/loop values, 32 item animation values, and a 32-entry item_order map, plus the two-value toggle animation table mnItemSw_804D4BA0.",
-    "Implemented mnItemSw_80233A98, including JP/non-JP language exceptions for item IDs 17 and 19, and used a dont_inline pragma around it.",
-    "Implemented mnItemSw_80233B68 to update mn_804A04F0.hovered_selection and confirmed_selection for directional button bits, including special non-item selections 0x1F and 0x20 and two-column wrapping behavior.",
-    "Added fn_80233E10 input handling for Back, A, Start, and directional movement; it writes item settings through mn_8022E978, updates gmMainLib_8015CC58()->item_freq, calls lb_8001CE00 for persistence, and routes/destroys menu GObjs.",
-    "Added near-matched UI lifecycle/update functions mnItemSw_80234104, mnItemSw_8023453C, fn_80234C24, and mnItemSw_802351A0 to build item switch JObjs, position the cursor across two columns, create SIS text labels, animate item toggles/highlights, and synchronize cached MnItemSwData with global menu state.",
-    "Added mnItemSw_80235020 to create an item entry JObj from MenMainCursorIs_Top, attach animations, set icon/toggle state, and show or hide the selected highlight.",
-    "Updated mnitemsw.h prototypes from unknown placeholders to concrete types for MnItemSwData*, HSD_GObj*, HSD_JObj*, u8, and u32 arguments/returns."
+    "Added many missing includes needed by mnitemsw.c, including baselib GObj/JObj/SisLib helpers, sysdolphin memory/debug/userdata headers, game-mode headers, language/card-game helpers, mnmainrule, and sc/types.",
+    "Introduced extern references for StaticModelDesc MenMainCursorIs_Top, StaticModelDesc MenMainConIs_Top, HSD_GObj* mnItemSw_804D6BE8, and u8 mn_804D6BB5.",
+    "Added local struct MnItemSwTable with animation/frame tables, item icon values, and item_order mapping, backed by static data mnItemSw_803ED340.",
+    "Added static f32 mnItemSw_804D4BA0[2] = { 0.0f, 1.0f } for item on/off animation values.",
+    "Implemented mnItemSw_80233A98 with a language-sensitive mapping for item IDs 17 and 19, returning alternate values 0x28 and 0x27 outside JP settings; this function was fully matched according to the bot report.",
+    "Implemented mnItemSw_80233B68 to update mn_804A04F0.hovered_selection and confirmed_selection from directional input bits, including wraparound between item columns and the special 0x1F/0x20 frequency/all-item selections; this function was fully matched.",
+    "Implemented fn_80233E10 as the Item Switch input process, reading menu inputs, handling Back/A/Start behavior, saving item settings through mn_8022E978, updating gmMainLib_8015CC58()->item_freq, triggering sound effects, and transitioning/destroying menu objects.",
+    "Implemented mnItemSw_80234104 to initialize item list visuals, update item icon animations, hide/show cursor objects, position the cursor based on column and y spacing, and clear relevant JObj flags.",
+    "Implemented mnItemSw_8023453C to update visuals when hovered or confirmed selection changes, including item highlight animations, item on/off animation, all/frequency animation, cursor position, and animation loop settings.",
+    "Implemented fn_80234C24 as the menu update/state routine, including enter/exit animation state handling, text allocation through HSD_SisLib_803A5ACC, language-sensitive text selection, object cleanup through HSD_SisLib_803A5CC4, and propagation of changed cursor/selection state into MnItemSwData.",
+    "Implemented mnItemSw_80235020 to construct an individual item JObj using MenMainCursorIs_Top, attach animations, set icon frame via mnItemSw_80233A98, set on/off state using mnItemSw_804D4BA0, and set or hide highlight visuals; this function was fully matched.",
+    "Implemented mnItemSw_802351A0 to create the Item Switch GObj, load MenMainConIs_Top, set GX/proc callbacks, allocate and initialize MnItemSwData, populate current item settings from gm_8016403C, attach item child JObjs into two columns, position cursor, initialize all-item/frequency animation, and return the new GObj.",
+    "Updated mnitemsw.h prototypes from UNK_RET/UNK_PARAMS to concrete signatures for mnItemSw_80233B68, mnItemSw_80234104, mnItemSw_8023453C, fn_80234C24, mnItemSw_80235020, and mnItemSw_802351A0, and exported mnItemSw_804D6BE8."
   ],
   "smart_moves": [
-    "Centralizing item animation values, ordering, and loop data in MnItemSwTable made the .data shape explicit and let multiple functions index the same table consistently.",
-    "The code keeps uncertain semantics as offset-style fields such as x00, x30, x21, and x23, while naming evidenced fields like items, item_order, cursor, menu_kind, and jobjs.",
-    "Special cursor IDs 0x1F and 0x20 are handled explicitly or with unsigned range checks, separating item-list entries 0x00-0x1E from item frequency/special controls.",
-    "The implementation mirrors real HSD object lifetimes: GObj_Create, HSD_JObjLoadJoint, HSD_GObjObject_80390A70, GObj_SetupGXLink, HSD_GObj_SetupProc, HSD_MemAlloc, GObj_InitUserData, and HSD_Free.",
-    "Change detection compares cached MnItemSwData cursor/items/x21 against mn_804A04F0 before playing move SFX or updating animations, avoiding unnecessary UI work and matching original menu flow.",
-    "The diff preserves matching-sensitive details such as PAD_STACK uses, explicit casts, pointer iteration over item_order, and an HSD_ASSERTREPORT with the original line number/string."
+    "Centralized magic animation/item data in a named local table struct, which made repeated JObj animation calls use the same data layout and helped expose .data matching progress.",
+    "Used explicit u8/u16 casts around hovered_selection and confirmed_selection, matching the menu state storage behavior and preserving special sentinel selections 0x1F and 0x20.",
+    "Kept mnItemSw_80233A98 under #pragma dont_inline, likely to preserve function boundary/codegen needed for its reported full match.",
+    "Modeled item list layout as two columns split at index 0x10, with y spacing derived from existing JObj translations instead of hardcoding every position.",
+    "Reused helper mnItemSw_8023405C to find per-item JObjs, reducing repeated traversal logic in visual update functions.",
+    "Stored and compared previous hovered/confirmed state before calling movement logic so sound effects only play when input actually changes selection state.",
+    "Preserved language-dependent item/icon/text behavior by checking lbLang_IsSettingJP and lbLang_IsSavedLanguageUS rather than assuming a single regional asset mapping.",
+    "Converted header prototypes to concrete argument and return types once implementations revealed the data flow, improving future callsite decompilation."
   ],
   "decomp_lessons": [
-    "For menu decomp, recover static animation/order tables early; they often control both codegen and .data matching across several functions.",
-    "Typed headers should be advanced alongside implementations: replacing UNK_RET/UNK_PARAMS exposed real caller contracts and corrected mnItemSw_802351A0 from void to HSD_GObj*.",
-    "Menu code often maintains both global UI state and per-GObj cached state; exact-ish matches depend on preserving when the cache is compared, updated, and written back.",
-    "Sentinel indices beyond the normal array range can represent non-item controls. Here 0x1F and 0x20 must not be treated like data->items indices.",
-    "Even partial UI decomp is useful when exact leaf functions are landed first: the bot showed three 100% matches while larger UI procs remained 93-99% and could be finished later.",
-    "Language-dependent asset/animation remaps belong in small helper functions such as mnItemSw_80233A98 rather than being duplicated at call sites."
+    "For menu modules, first identify the persistent user_data struct and global menu state fields; most functions become state synchronization between globals, user_data, and JObj visuals.",
+    "Special menu selections often live outside the ordinary item index range. Here 0x1F and 0x20 are treated as sentinel cursor positions for non-item controls and require separate confirmed_selection handling.",
+    "Regional language differences can affect animation/icon indices, not just strings; keep small mapping helpers isolated when matching item menu code.",
+    "Menu visual setup can often be reconstructed from StaticModelDesc assets plus child indices found through lb_80011E24.",
+    "Animation tables with x00/x30-style unknown field names are still useful when grouped into a struct with documented offsets; naming can be refined later without losing matching progress.",
+    "When the data model is only partially understood, concrete function signatures in headers are still valuable if grounded in observed callsites and user_data usage.",
+    "For HSD menu code, toggling JObj flags, requesting specific animation frames, and immediately calling HSD_JObjAnim/AnimAll is a common matching pattern.",
+    "Use HSD_MemAlloc plus HSD_ASSERTREPORT and GObj_InitUserData when reconstructing GObj-owned menu data lifetime."
   ],
   "naming_conventions": [
-    "Module symbols retain address-style names such as mnItemSw_80233A98, mnItemSw_80233B68, mnItemSw_80235020, and mnItemSw_802351A0.",
-    "Unnamed callbacks remain fn_80233E10 and fn_80234C24 rather than receiving speculative descriptive names.",
-    "Globals/static data use the project address suffix convention: mnItemSw_803ED340, mnItemSw_804D4BA0, mnItemSw_804D6BE8, and mnItemSw_804D6BEC.",
-    "Asset externs preserve source symbol casing, including MenMainCursorIs_Top and MenMainConIs_Top.",
-    "Struct fields with uncertain meaning stay offset-like, while strongly evidenced array/role names are used for items, item_order, cursor, menu_kind, and jobjs."
+    "Module-local symbols use the existing address-based mnItemSw_802xxxxx and mnItemSw_803/804xxxxx naming style.",
+    "Unidentified static data was grouped as struct MnItemSwTable with partially descriptive fields items and item_order while retaining offset-like names x00 and x30 for unknown animation arrays.",
+    "Temporary or not-yet-understood struct fields in MnItemSwData remain x21 and x23 rather than being overnamed.",
+    "The implementation uses descriptive locals such as hovered, buttons, old_hovered, old_confirmed, y_spacing, new_cursor, old_cursor, all_jobj, item_jobj, menu_changed, hovered_changed, and confirmed_changed where semantics are clear.",
+    "Function names fn_80233E10 and fn_80234C24 remain generic where no better symbol name was evidenced."
   ],
   "assembly_or_matching_tactics": [
-    "Used `#pragma dont_inline on/reset` around mnItemSw_80233A98 to preserve the expected call boundary.",
-    "Inserted `PAD_STACK(0x20)` in fn_80233E10 and `PAD_STACK(0x18)` in fn_80234C24 for stack-shape matching.",
-    "Used unsigned casts and range idioms such as `(u8)(sel - 0x1F) <= 1U`, `(u8)i < 0x1F`, and `(s32) gm_801A4310() == 1` to match compiler behavior.",
-    "Pointer-walked `item_order` in loops instead of always indexing, matching register/dataflow patterns visible in the decompiled code.",
-    "Casted portions of `tbl->x30` to `AnimLoopSettings*` for mn_8022ED6C, preserving a shared data layout instead of inventing separate typed objects.",
-    "decomp.dev evidence: exact matches for mnItemSw_80233B68 (+680 bytes), mnItemSw_80235020 (+384), and mnItemSw_80233A98 (+208); near-matches for mnItemSw_802351A0, mnItemSw_8023453C, mnItemSw_80234104, fn_80234C24, and fn_80233E10."
+    "#pragma dont_inline was applied around mnItemSw_80233A98 to preserve matching behavior.",
+    "PAD_STACK(0x20) and PAD_STACK(0x18) were used in functions with stack-sensitive codegen.",
+    "Narrow casts to u8 and u16 were used heavily around global selection fields to match comparisons, wraparound, and array indexing.",
+    "The code uses small scoped blocks to control temporary lifetimes and stack/register allocation in larger functions.",
+    "Conditionals preserve explicit sentinel checks for cursor values 0x1F and 0x20 and range checks such as (u8)(sel - 0x1F) <= 1U.",
+    "Animation updates follow the HSD pattern HSD_JObjReqAnim(All), optional mn_8022F3D8/mn_8022ED6C, then HSD_JObjAnim(All).",
+    "The decomp.dev report shows full matches for mnItemSw_80233A98, mnItemSw_80233B68, and mnItemSw_80235020, and near-matches for mnItemSw_802351A0, mnItemSw_8023453C, mnItemSw_80234104, fn_80234C24, and fn_80233E10."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the slice; the PR body only said \"Tracking PR as usual\".",
-    "decomp-dev bot reported matched code at 62.21%, up +0.03% and +1272 bytes.",
-    "Bot-reported exact new matches: mnItemSw_80233B68 at 100%, mnItemSw_80235020 at 100%, and mnItemSw_80233A98 at 100%.",
-    "Bot-reported near-match improvements remained unfinished: mnItemSw_802351A0 98.18%, mnItemSw_8023453C 98.88%, mnItemSw_80234104 97.33%, fn_80234C24 97.57%, fn_80233E10 93.41%, plus .data/.sdata/.sdata2 improvements."
+    "No human review comments were present in the provided slice.",
+    "The only issue comment was the decomp.dev bot report: matched code increased to 62.21% (+0.03%, +1272 bytes), with 3 new matches and 8 improvements in unmatched mnitemsw items."
   ],
   "searchable_terms": [
     "pr-2389",
     "Jj/mnitemsw",
-    "jj/mnitemsw",
     "jurrejelle",
+    "mnitemsw",
     "src/melee/mn/mnitemsw.c",
     "src/melee/mn/mnitemsw.h",
-    "main/melee/mn/mnitemsw",
-    "mnitemsw",
-    "MnItemSwData",
-    "MnItemSwTable",
-    "mnItemSw_803ED340",
-    "mnItemSw_804D4BA0",
-    "mnItemSw_804D6BE8",
-    "mnItemSw_804D6BEC",
     "mnItemSw_80233A98",
     "mnItemSw_80233B68",
     "fn_80233E10",
@@ -108,31 +104,47 @@
     "mnItemSw_80235020",
     "mnItemSw_802351A0",
     "mnItemSw_802358C0",
-    "item_order",
-    "item_freq",
+    "MnItemSwData",
+    "MnItemSwTable",
+    "mnItemSw_803ED340",
+    "mnItemSw_804D4BA0",
+    "mnItemSw_804D6BE8",
+    "mnItemSw_804D6BEC",
+    "mn_804A04F0",
     "hovered_selection",
     "confirmed_selection",
+    "item_order",
+    "item_freq",
     "MenMainCursorIs_Top",
     "MenMainConIs_Top",
-    "MenuInput_Back",
-    "MenuInput_AButton",
-    "MenuInput_StartButton",
     "lbLang_IsSettingJP",
     "lbLang_IsSavedLanguageUS",
-    "gmMainLib_8015CC58",
-    "mn_8022E978",
     "HSD_SisLib_803A5ACC",
+    "HSD_SisLib_803A5CC4",
+    "HSD_JObjReqAnimAll",
+    "HSD_JObjAnimAll",
+    "HSD_GObjPLink_80390228",
     "GObj_InitUserData",
-    "AnimLoopSettings",
+    "HSD_MemAlloc",
     "PAD_STACK",
-    "dont_inline"
+    "dont_inline",
+    "MenuInput_Back",
+    "MenuInput_AButton",
+    "MenuInput_StartButton"
   ],
   "follow_up_queries": [
-    "Find later PRs that finish exact matching mnItemSw_802351A0, mnItemSw_8023453C, mnItemSw_80234104, fn_80234C24, and fn_80233E10.",
-    "Search for renames or documentation of MnItemSwData fields x21 and x23 and MnItemSwTable fields x00 and x30.",
-    "Audit other mn menu screens for the same StaticModelDesc plus HSD_JObjAddChild item-list construction pattern used by mnItemSw_80235020 and mnItemSw_802351A0.",
-    "Look for follow-up work improving mnitemsw .data, .sdata, and .sdata2 from the partial bot percentages reported here.",
-    "Compare handling of special selections 0x1F/0x20 and gmMainLib_8015CC58()->item_freq with mnmainrule and other rules-menu decomp."
+    "Look for later PRs that refine names for MnItemSwData fields x21 and x23 or MnItemSwTable fields x00 and x30.",
+    "Search for later improvements to near-matched mnitemsw functions mnItemSw_802351A0, mnItemSw_8023453C, mnItemSw_80234104, fn_80234C24, and fn_80233E10.",
+    "Check related menu modules for reusable patterns around StaticModelDesc, HSD_SisLib text lifecycle, and two-column cursor positioning.",
+    "Investigate whether mnItemSw_804D6BE8 extern placement was later moved to a broader header or renamed."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

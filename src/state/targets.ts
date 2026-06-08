@@ -8,6 +8,7 @@ export interface QueueRefillResult {
   minSchedulableSources: number;
   queuedAfter: number;
   queuedBefore: number;
+  refreshed: number;
   schedulableAfter: number;
   schedulableBefore: number;
   skippedExisting: number;
@@ -151,6 +152,51 @@ function selectRefillCandidates(params: {
   return { selected, skippedExisting, skippedLockedSource, skippedMissingSource };
 }
 
+function refreshQueuedTargetPriorities(store: StateStore, runId: string, candidates: TargetCandidate[]): number {
+  const selectQueuedTarget = store.db.query(`
+    SELECT
+      targets.id AS target_id,
+      targets.source_path AS source_path,
+      targets.size AS size,
+      targets.fuzzy AS fuzzy,
+      targets.priority AS target_priority,
+      targets.reason AS target_reason,
+      queue.id AS queue_id,
+      queue.priority AS queue_priority,
+      queue.reason AS queue_reason
+    FROM targets
+    JOIN queue ON queue.target_id = targets.id
+    WHERE targets.run_id = ?
+      AND targets.unit = ?
+      AND targets.symbol = ?
+      AND queue.status = 'queued'
+    ORDER BY queue.created_at ASC
+    LIMIT 1
+  `);
+  const updateTarget = store.db.query("UPDATE targets SET source_path = ?, size = ?, fuzzy = ?, priority = ?, reason = ? WHERE id = ?");
+  const updateQueue = store.db.query("UPDATE queue SET priority = ?, reason = ? WHERE id = ?");
+
+  let refreshed = 0;
+  for (const candidate of candidates) {
+    const row = selectQueuedTarget.get(runId, candidate.unit, candidate.symbol) as Record<string, unknown> | undefined;
+    if (!row) continue;
+
+    const sameTarget =
+      String(row.source_path ?? "") === candidate.sourcePath &&
+      Number(row.size) === candidate.size &&
+      Number(row.fuzzy) === candidate.fuzzy &&
+      Number(row.target_priority) === candidate.priority &&
+      String(row.target_reason ?? "") === candidate.reason;
+    const sameQueue = Number(row.queue_priority) === candidate.priority && String(row.queue_reason ?? "") === candidate.reason;
+    if (sameTarget && sameQueue) continue;
+
+    updateTarget.run(candidate.sourcePath, candidate.size, candidate.fuzzy, candidate.priority, candidate.reason, String(row.target_id));
+    updateQueue.run(candidate.priority, candidate.reason, String(row.queue_id));
+    refreshed += 1;
+  }
+  return refreshed;
+}
+
 export function addBoardTargets(store: StateStore, runId: string, snapshot: BoardSnapshot): number {
   const insertTarget = store.db.query(
     "INSERT INTO targets (id, run_id, unit, symbol, source_path, size, fuzzy, status, priority, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -201,15 +247,19 @@ export function refillQueuedTargets(
     const minSchedulableSources = Math.max(0, Math.floor(options.minSchedulableSources ?? 0));
     const queuedBefore = queuedCount(store, runId);
     const schedulableBefore = schedulableSourceCount(store, runId);
-    const needed = Math.max(targetSize - queuedBefore, minSchedulableSources - schedulableBefore, 0);
+    const refreshed = refreshQueuedTargetPriorities(store, runId, candidates);
+    const queuedAfterRefresh = queuedCount(store, runId);
+    const schedulableAfterRefresh = schedulableSourceCount(store, runId);
+    const needed = Math.max(targetSize - queuedAfterRefresh, minSchedulableSources - schedulableAfterRefresh, 0);
     if (needed <= 0) {
       return {
         candidateCount: candidates.length,
         inserted: 0,
         minSchedulableSources,
-        queuedAfter: queuedBefore,
+        queuedAfter: queuedAfterRefresh,
         queuedBefore,
-        schedulableAfter: schedulableBefore,
+        refreshed,
+        schedulableAfter: schedulableAfterRefresh,
         schedulableBefore,
         skippedExisting: 0,
         skippedLockedSource: 0,
@@ -251,6 +301,7 @@ export function refillQueuedTargets(
       minSchedulableSources,
       queuedAfter: queuedCount(store, runId),
       queuedBefore,
+      refreshed,
       schedulableAfter: schedulableSourceCount(store, runId),
       schedulableBefore,
       skippedExisting: selected.skippedExisting,

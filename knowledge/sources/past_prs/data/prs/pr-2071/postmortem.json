@@ -11,7 +11,7 @@
     "merged_at": "2026-01-09T11:12:32Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched and improved several camera module functions in src/melee/cm, replacing placeholder declarations with C implementations and tightening camera-related prototypes. The main work landed in camera.c, adding implementations for Camera_8002CB0C, Camera_8002CDDC, Camera_8002D85C, and Camera_80030E44, plus stack/local-order tweaks in Camera_8002FEEC and formatting cleanup. The PR also refined camera.h signatures to use concrete argument and return types. Review feedback focused on declaration ownership: a non-static camera debug global should not be exposed from camera.static.h; if outside access is required, move it to camera.h instead.",
+  "summary": "Matched and improved several camera-module functions in src/melee/cm, replacing placeholder stubs for Camera_8002CB0C, Camera_8002CDDC, Camera_8002D85C, and Camera_80030E44 with C implementations, while also tightening camera.h prototypes and doing minor matching/formatting adjustments in nearby functions. The work is centered on pause/free-camera subject selection, camera transform fallback handling, FOV/interest/position smoothing, stage camera bounds, and ground/player validity checks. Review feedback focused on keeping static declarations private unless moved properly to camera.h and on running clang-format.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -23,9 +23,12 @@
       "formatting"
     ],
     "systems": [
-      "melee-core",
+      "cm",
       "camera",
-      "cm"
+      "melee-core",
+      "stage",
+      "ground",
+      "ftlib"
     ]
   },
   "key_files": [
@@ -34,57 +37,60 @@
     "src/melee/cm/camera.static.h"
   ],
   "what_changed": [
-    "Added #include \"gr/grlib.h\" in camera.c to support newly matched Camera_80030E44 logic calling grLib_801C9CEC.",
-    "Implemented Camera_8002CB0C(CameraBounds*), handling pause-camera input: reads CameraInputs via Camera_8002B694, uses 64-bit button-mask checks, applies stick deadzone thresholds, cycles camera target slot x2C4 with Camera_8002BA00, resolves player/stage subjects, resets pause eye/up vectors, updates pause_eye_distance, and dispatches zoom/pan helpers Camera_8002BAA8 and Camera_8002BD88.",
-    "Implemented Camera_8002CDDC(void* unused), including transform setup, target-slot validation loops, subject validity checks, success path through Camera_8002C5B4(&cam->x2D0), and fallback paths that update both transform and transform_copy with bounds calculations and ground/camera checks.",
-    "Implemented Camera_8002D85C(void* unused), including subject-based camera tracking, fov smoothing, pitch/yaw clamping using Stage_GetCamAngleRadians* helpers, target position calculation with sinf/cosf/tanf, fallback transform processing, bounds smoothing, and rolling bounds offset averaging.",
-    "Implemented Camera_80030E44(enum_t arg0, Vec3* arg1), setting camera object/type state, optionally initializing a ground object through grLib_801C9CEC, and filling available _B0 camera entries with either the supplied Vec3 or zero vector.",
-    "Adjusted Camera_8002FEEC local variable order and PAD_STACK size, likely to improve stack layout/matching evidence.",
-    "Updated camera.h prototypes from UNK_RET/UNK_PARAMS to stronger signatures for Camera_8002C5B4, Camera_8002CB0C, Camera_8002CDDC, Camera_8002D318, Camera_8002D85C, and Camera_8002E234.",
-    "camera.static.h briefly changed cm_80453004 from static to non-static, but review requested removing that exposure or moving any needed external declaration to camera.h."
+    "Added #include \"gr/grlib.h\" to camera.c to support Camera_80030E44's calls to grLib_801C9CEC.",
+    "Implemented Camera_8002CB0C(CameraBounds* bounds), handling camera input stick thresholds, zoom direction from input bitfields, cycling the camera subject slot via Camera_8002BA00, resolving player or stage camera targets, rejecting invalid or disallowed targets, initializing pause camera vectors, and dispatching to Camera_8002BAA8 / Camera_8002BD88.",
+    "Implemented Camera_8002CDDC(void* unused), including transform setup, current pause-camera subject validation, fallback behavior when the subject is invalid, duplicate handling for transform and transform_copy, CameraBounds recalculation, and ground Z-distance checks using Ground_801C57A4 and ftLib_80086644.",
+    "Implemented Camera_8002D85C(void* unused), including subject validation, smooth target-interest interpolation, target FOV smoothing, distance calculation from subject size and tanf, pitch/yaw clamping against Stage_GetCamAngleRadians* limits, target-position computation with sinf/cosf, and a larger fallback path using bounds, transform_copy, stage track smoothing, and rolling camera-bound offset averaging.",
+    "Implemented Camera_80030E44(enum_t arg0, Vec3* arg1), registering/initializing camera-related ground objects with grLib_801C9CEC, setting camera->_8C state values, and filling empty camera->_B0 entries with either the provided Vec3 or zero vector.",
+    "Updated camera.h prototypes from UNK_RET/UNK_PARAMS to more precise signatures, including Camera_8002C5B4(void*), Camera_8002CB0C(CameraBounds*), Camera_8002CDDC(void* unused), Camera_8002D318(void* unused), Camera_8002D85C(void* unused), and Camera_8002E234(void).",
+    "Made small local matching/formatting changes in Camera_8002E948 and Camera_8002FEEC, including function-pointer cast spacing, local variable ordering, and PAD_STACK size adjustment.",
+    "A proposed change to expose cm_80453004 from camera.static.h was challenged in review; the review suggested moving the declaration to camera.h if external access was needed, otherwise removing the change."
   ],
   "smart_moves": [
-    "Used concrete CameraBounds*, CameraTransformState*, CmSubject*, HSD_GObj*, Vec3, and CameraUnkGlobals locals rather than leaving broad unknown signatures, improving both matching readability and future type propagation.",
-    "Preserved decompiler/control-flow shape with explicit goto labels such as loop_top, loop_body, fallback_path, check_done, and fallback where structured C would likely perturb codegen.",
-    "Used pointer locals like slot_ptr, pitch_ptr, yaw_ptr, base_ptr, coeff_ptr, smooth_ptr, and transform_copy to model original register/address reuse and stack-sensitive code generation.",
-    "Matched input bit tests using union-style 64-bit field access, e.g. inputs.x18._u64 & 0x20ULL and inputs.x10._u64 & 0x400ULL, instead of assuming narrower button fields.",
-    "Kept threshold comparisons and absolute-value handling explicit for stick deadzones and z-distance checks, which helps preserve floating-point branch/codegen behavior.",
-    "Updated headers in parallel with implementations so newly matched functions expose useful prototypes instead of UNK_RET/UNK_PARAMS placeholders.",
-    "Applied formatting cleanup after review, including clang-format spacing in a function-pointer cast."
+    "Kept many control-flow shapes close to likely assembly structure by using explicit labels and gotos such as loop_top, loop_body, loop_next, check_valid, fallback_path, check_done, and fallback, which is often necessary for matching complex Metrowerks output.",
+    "Used explicit pointer temporaries like slot_ptr, x2C4_ptr, transform, transform_copy, coeff_ptr, base_ptr, pitch_ptr, yaw_ptr, smooth_ptr, and count_ptr to influence register allocation and memory access patterns.",
+    "Preserved signed 8-bit slot semantics with s8 pointers/casts for camera subject slots, including special slot values 0xA and 0xB / 10 and 11.",
+    "Used 64-bit access to input bitfields, e.g. inputs.x18._u64 & 0x20ULL and inputs.x10._u64 & 0x400ULL, which is a concrete matching tactic noted directly in comments in the added code.",
+    "Separated success paths from fallback paths for camera transform update logic, making subject-valid and fallback behavior easier to compare against disassembly.",
+    "Duplicated transform and transform_copy handling explicitly instead of over-abstracting, which likely helped match stack/register behavior and original code structure.",
+    "Updated public prototypes once function signatures were understood, reducing unknown declarations and improving type propagation for future camera work."
   ],
   "decomp_lessons": [
-    "For camera matching, expect heavy coupling between camera.c and player, stage, ground, ftlib, and grlib helpers; include dependencies should be introduced only when the matched function needs them.",
-    "Pause/debug camera routines often use sentinel slot values 0xA and 0xB/10 and 11 differently from normal player slots; preserve those checks explicitly when matching target-selection loops.",
-    "When a camera routine has both live transform and transform_copy paths, duplicate the same bounds/fov/ground-check sequence rather than over-abstracting it if the goal is matching.",
-    "Small stack details matter: local declaration order and PAD_STACK adjustments in Camera_8002FEEC were part of the matching cleanup evidence.",
-    "Header improvements are part of decomp progress: replacing UNK_RET/UNK_PARAMS with precise return/argument types documents verified ABI knowledge and helps later functions compile cleanly.",
-    "Globals in *.static.h should remain file-local unless there is clear external use; if external access is required, declare through the public module header instead of silently dropping static in the static header."
+    "For camera decomp, subject slots have important sentinel values: 10/0xA appears to represent a stage camera target path via Stage_UnkSetVec3TCam_Offset, while 11/0xB is treated as invalid/end/fallback in the added functions. Future work should verify but reuse this pattern cautiously.",
+    "Camera pause/free-camera logic repeatedly validates Player_GetEntity, ftLib_80086B74, ftLib_8008701C, Camera_8002928C, Camera_80029124, and subject flags before taking the optimized subject-follow path; invalid cases fall back to bounds/transform recalculation.",
+    "Stage camera constraints are enforced through Stage_GetCamAngleRadiansUp/Down/Left/Right, Stage_GetPauseCamZPosInit, Stage_GetCamTrackSmooth, and Stage_GetCamBounds*Offset helpers; these APIs are central to matching cm camera behavior.",
+    "Matching camera transform code may require keeping transform and transform_copy update blocks separate even when they look structurally identical.",
+    "Input-processing code may need exact integer width and union-field access; here button bits are checked through u64 fields rather than narrower fields.",
+    "Small stack-layout details matter in this module: Camera_8002FEEC changed local variable ordering and PAD_STACK from 8 to 12, showing that local ordering/padding was part of matching work.",
+    "Do not expose static globals from camera.static.h casually. If a symbol must be shared outside camera.c, reviewer guidance was to move the declaration to camera.h instead of just removing static in the static header."
   ],
   "naming_conventions": [
-    "Camera functions retain address-based names in the form Camera_8002CB0C, Camera_8002CDDC, Camera_8002D85C, Camera_80030E44.",
-    "Camera globals retain cm_ address names such as cm_80452C68, cm_80453004, and cm_803BCCA0 until better semantic names are proven.",
-    "Unknown or partially understood struct fields remain offset-style names such as x2C4, x2C5, x308, x314, x2D0, x2BC, x2C0, x2B8, x2B4, x2B0, x40, x44, x64, x68, x6C, and x70.",
-    "Local names in matched code use descriptive-but-low-risk terms such as bounds, transform, transform_copy, slot_ptr, pos_ptr, subject, stick_x, stick_y, zoom_dir, pitch_ptr, yaw_ptr, tgt_fov_ptr, and smooth_ptr.",
-    "Unused arguments are explicitly named unused in camera.h prototypes for Camera_8002CDDC, Camera_8002D318, and Camera_8002D85C.",
-    "Typed camera structs use names already established in the module: CameraBounds, CameraInputs, CameraTransformState, CameraUnkGlobals, CmSubject, and CameraDebugMode."
+    "Function names remain address-based Camera_8002CB0C, Camera_8002CDDC, Camera_8002D85C, Camera_80030E44 because semantic names were not established in the PR evidence.",
+    "Header prototypes use explicit parameter names like void* unused where the argument is present for ABI/signature matching but not semantically used.",
+    "Local variable names are mostly descriptive matching aids rather than final semantic names: bounds, bounds2, bounds3, transform, transform_copy, slot_ptr, pos_ptr, subject, pitch_ptr, yaw_ptr, tgt_fov_ptr, smooth_ptr, count_ptr.",
+    "Camera struct fields remain offset-style names such as x2C4, x2C5, x308, x314, x2D0, x2B8, x2BC, x2C0, _8C, and _B0 where semantics are not fully known.",
+    "Global camera/static data names remain address-based, including cm_80452C68 and cm_803BCCA0."
   ],
   "assembly_or_matching_tactics": [
-    "Retained goto-based loops and labels to mirror original control flow, especially in slot cycling and fallback paths.",
-    "Used explicit s8 casts and s8* slot pointers for camera slot fields to match signed-byte accesses around camera->x2C4 and camera->x2C5.",
-    "Used 64-bit masks with ULL constants for input fields, suggesting the original codegen depended on paired/64-bit access rather than separate 32-bit checks.",
-    "Kept branch patterns like if (!(x_val == 0.0f && y_val == 0.0f)) and separate if/else absolute-value blocks instead of simplifying them, likely to preserve compiler output.",
-    "Used temporary pointer locals to globals and fields to influence register allocation and load/store order.",
-    "Maintained explicit duplicate fallback sequences for transform and transform_copy rather than factoring them into helpers, which would not match original assembly.",
-    "Adjusted stack padding from PAD_STACK(8) to PAD_STACK(12) and reordered Vec3/local declarations in Camera_8002FEEC for layout-sensitive matching."
+    "Use gotos and labels to mirror assembly loops and branch targets in complex camera state machines.",
+    "Use explicit signed casts and s8 pointer storage for fields like camera->x2C4 and camera->x2C5 to preserve signed-byte behavior.",
+    "Use 64-bit union accesses for controller/input bit tests when the original code appears to load or compare wider values.",
+    "Use pointer aliases to struct fields to encourage matching loads/stores and register allocation.",
+    "Keep repeated blocks duplicated rather than extracted into helper functions when matching original code generation.",
+    "Adjust local declaration order and PAD_STACK size to recover expected stack layout.",
+    "Use exact math-library calls and expression shapes for camera transforms: tanf for FOV distance, sinf/cosf for pitch/yaw target position, sqrtf for distance length.",
+    "Preserve floating constants and comparison thresholds seen in the diff, including 0.125F stick deadzone, 45.0f and 30.0f Z thresholds, pause eye offset 5.0f/20.0f, and stage slot distance multiplier 3.0f."
   ],
   "review_feedback": [
-    "Reviewer ribbanya noted that if cm_80453004 needed access outside camera.c, its declaration should be moved to camera.h rather than made non-static in camera.static.h.",
-    "Reviewer supplied an empty suggestion on the camera.static.h hunk, effectively requesting removal of the non-static exposure/change.",
-    "PR discussion requested running clang-format, with suggested command clang-format -i -- src/**/**.{c,h}; author acknowledged precommit did not run and said they would fix it."
+    "Reviewer ribbanya on src/melee/cm/camera.static.h: If cm_80453004 needs to be accessed outside of camera.c, move the declaration to camera.h.",
+    "Reviewer ribbanya suggested deleting the attempted change that removed static from cm_80453004 in camera.static.h.",
+    "A PR comment requested running clang-format and suggested: clang-format -i -- src/**/**.{c,h}.",
+    "Author acknowledged formatting issue: precommit was supposed to run but did not, and they would fix it."
   ],
   "searchable_terms": [
     "PR2071",
     "feat(cm): match camera module functions",
+    "itsgrimetime",
     "camera.c",
     "camera.h",
     "camera.static.h",
@@ -92,26 +98,27 @@
     "Camera_8002CDDC",
     "Camera_8002D85C",
     "Camera_80030E44",
-    "Camera_8002FEEC",
     "Camera_8002C5B4",
     "Camera_8002E234",
+    "Camera_8002FEEC",
+    "Camera_8002E948",
     "CameraBounds",
     "CameraInputs",
     "CameraTransformState",
     "CameraUnkGlobals",
-    "CameraDebugMode",
     "CmSubject",
     "cm_80452C68",
-    "cm_80453004",
     "cm_803BCCA0",
+    "cm_80453004",
     "x2C4",
     "x2C5",
     "x308",
     "x314",
     "x2D0",
+    "transform_copy",
     "pause_eye_offset",
-    "pause_up",
     "pause_eye_distance",
+    "pause_up",
     "Stage_UnkSetVec3TCam_Offset",
     "Stage_GetPauseCamZPosInit",
     "Stage_GetCamAngleRadiansUp",
@@ -127,33 +134,20 @@
     "ftLib_80086644",
     "Ground_801C57A4",
     "grLib_801C9CEC",
-    "Camera_8002BA00",
-    "Camera_8002BAA8",
-    "Camera_8002BD88",
-    "Camera_80030DF8",
-    "Camera_800293E0",
-    "Camera_8002958C",
-    "Camera_80029BC4",
-    "Camera_80029CF8",
-    "Camera_8002A768",
-    "Camera_8002B0E0",
-    "Camera_8002B1F8",
-    "Camera_80029AAC",
-    "Camera_80029C88",
-    "Camera_8002A28C",
-    "Camera_8002A0C0",
-    "64-bit input mask",
-    "ULL button mask",
+    "tanf",
+    "sinf",
+    "cosf",
+    "sqrtf",
     "PAD_STACK",
     "clang-format",
-    "static header declaration"
+    "camera static header"
   ],
   "follow_up_queries": [
-    "Find later PRs touching Camera_8002CB0C, Camera_8002CDDC, Camera_8002D85C, or Camera_80030E44 to see whether these nonmatching improvements became fully matched or renamed.",
-    "Search for cm_80453004 declarations after PR 2071 to confirm whether it stayed static or moved to camera.h in a later cleanup.",
-    "Search for other camera PRs using CameraInputs x10._u64 or x18._u64 to reuse the 64-bit input-mask tactic.",
-    "Investigate whether CameraUnkGlobals fields x40/x44/x64/x68/x6C/x70 received semantic names in later struct/type cleanup.",
-    "Compare later camera.h prototypes for remaining UNK_RET/UNK_PARAMS around Camera_8002C1A8, Camera_8002E490, and related camera functions."
+    "Find later PRs that rename or type Camera_8002CB0C, Camera_8002CDDC, Camera_8002D85C, or Camera_80030E44 semantically.",
+    "Check whether cm_80453004 remained static or was later moved to camera.h following review feedback.",
+    "Search for later struct improvements to Camera, CameraInputs, CameraTransformState, CameraBounds, and CameraUnkGlobals fields used here.",
+    "Compare final matched versions of Camera_8002CDDC and Camera_8002D85C for any removal of gotos or cleanup after matching.",
+    "Look for PRs that clarify the meaning of camera slot values 10/0xA and 11/0xB."
   ],
   "confidence": 0.88,
   "agent_runtime": {

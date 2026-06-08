@@ -11,133 +11,95 @@
     "merged_at": "2026-03-16T17:52:11Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large Yoshi special-move decomp PR focused on ftYs_SpecialS, with a smaller ftYs_SpecialHi egg-throw callback improvement. It replaced many `/// #` stubs with C, expanded Yoshi attribute and motion-var layouts, typed item prototypes, and produced 9 new full matches plus 11 near/full improvements according to decomp.dev.",
+  "summary": "Large Yoshi special-move decompilation PR centered on ftYs_SpecialS, with smaller SpecialHi and header typing work. It replaced many placeholder stubs with C implementations for Yoshi Egg Roll animation, physics, collision, landing, and helper routines, added typed Yoshi attribute and motion-var fields, and corrected Yoshi thrown-egg item prototypes. The decomp.dev report showed +5484 matched bytes, 9 new 100% matches, and 11 additional unmatched-item improvements.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "fighter-action",
       "headers",
-      "struct-typing",
-      "item-api-typing",
+      "fighter-special-move",
       "callback-wiring",
-      "collision-effects"
+      "struct-field-recovery"
     ],
     "systems": [
       "fighter",
       "ftYoshi",
-      "ftYs_SpecialS",
-      "ftYs_SpecialHi",
-      "itYoshiEggThrow",
-      "collision",
+      "item",
       "effects",
-      "camera"
+      "camera",
+      "collision"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftYoshi/ftYs_SpecialS.c",
-      "role": "Main implementation work for Yoshi SpecialS handlers, helpers, physics, collision, animation, effects, and callback setup.",
-      "diff_stats": "+918/-27"
-    },
-    {
-      "path": "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c",
-      "role": "Implemented `fn_8012E110` egg item accessory callback and adjusted matching helpers/includes.",
-      "diff_stats": "+59/-16"
-    },
-    {
-      "path": "src/melee/ft/chara/ftYoshi/types.h",
-      "role": "Expanded `ftYoshiAttributes`, `ftYs_DatAttrs`, and `ftYoshi_MotionVars.specials` fields used by the new decomp.",
-      "diff_stats": "+40/-10"
-    },
-    {
-      "path": "src/melee/it/items/ityoshieggthrow.h",
-      "role": "Replaced unknown item function prototypes with concrete `it_802B28C8` and `it_802B2A10` signatures.",
-      "diff_stats": "+2/-2"
-    },
-    {
-      "path": "src/melee/ft/chara/ftYoshi/ftYs_SpecialS.h",
-      "role": "Typed `ftYs_SpecialS_8012EB48` as `void(Fighter_GObj*)`.",
-      "diff_stats": "+1/-1"
-    },
-    {
-      "path": "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.h",
-      "role": "Kept cross-header prototype for `ftYs_SpecialS_8012EB48` in sync.",
-      "diff_stats": "+1/-1"
-    }
+    "src/melee/ft/chara/ftYoshi/ftYs_SpecialS.c",
+    "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c",
+    "src/melee/ft/chara/ftYoshi/types.h",
+    "src/melee/it/items/ityoshieggthrow.h",
+    "src/melee/ft/chara/ftYoshi/ftYs_SpecialS.h",
+    "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.h"
   ],
   "what_changed": [
-    "Implemented many Yoshi `ftYs_SpecialS` functions that were previously `/// #` placeholders, including `ftYs_SpecialS_8012EB48`, `ftYs_SpecialS_8012F0DC`, `ftYs_SpecialS_8012F35C`, `ftYs_SpecialAirSLoop_0_Anim`, `ftYs_SpecialAirSLoop_2_Anim`, `ftYs_SpecialAirSLoop_3_Anim`, `ftYs_SpecialAirSLoop_0_IASA`, `ftYs_SpecialAirSLoop_0_Phys`, and `ftYs_SpecialAirSLoop_1_Phys`.",
-    "Added near-matching C for several larger SpecialS animation/collision handlers, including `ftYs_SpecialAirSLoop_1_Anim`, `ftYs_SpecialAirSEnd_Anim`, `ftYs_SpecialAirSLanding_Anim`, and `ftYs_SpecialAirSLoop_0/1/2/3_Coll`.",
-    "Added SpecialS helper routines for callback setup, wall-bounce effect spawning, shell/body visibility stepping, scale updates, rotation wrapping, and button-pressure checking.",
-    "Changed `ftYs_Unk3_803CEDA4` from a `Vec3` array shape to a single `ftCollisionBox`, enabling calls such as `ft_80082888`, `ft_80082978`, and `ft_800824A0` to use the right helper type.",
-    "Implemented `fn_8012E110` in `ftYs_SpecialHi.c`: it checks `throw_flags_b0`, spawns a Yoshi egg item with `it_802B2A10`, sets damage/death callbacks while the egg is held, throws it through `it_802B28C8`, then clears the held item pointer and callbacks.",
-    "Expanded Yoshi data layouts by replacing padding with fields in `ftYoshiAttributes` from roughly `x54` through `xE8`, `ftYs_DatAttrs` fields `x104`, `x108`, `x10C`, `x110`, and SpecialS motion vars `x4`, `x8`, `x28`, `x2C`.",
-    "Replaced `UNK_RET`/`UNK_PARAMS` prototypes for `ftYs_SpecialS_8012EB48`, `it_802B28C8`, and `it_802B2A10` with concrete signatures.",
-    "decomp.dev reported matched code at 58.47%, a +0.14% improvement and +5484 bytes, with 9 new matches and 11 improvements in unmatched items."
+    "Implemented fn_8012E110 in ftYs_SpecialHi.c, including Yoshi egg creation via it_802B2A10, accessory callback behavior, held item tracking through fp->fv.ys.x2238 and fp->x1984_heldItemSpec, and cleanup of take_dmg_cb/death2_cb after it_802B28C8 is called.",
+    "Moved setDamageCallbacks earlier in ftYs_SpecialHi.c so fn_8012E110 can use it, and added lb_00B0.h plus placeholder.h includes needed by the implementation.",
+    "Changed ftYs_SpecialS_8012DF8C to use the project MAX macro instead of a local inline max helper.",
+    "Implemented many ftYs_SpecialS.c routines previously represented by /// # stubs, including ftYs_SpecialS_8012EB48, ftYs_SpecialS_8012F0DC, ftYs_SpecialS_8012F35C, ftYs_SpecialAirSLoop_0_Anim, ftYs_SpecialAirSLoop_1_Anim, ftYs_SpecialAirSEnd_Anim, ftYs_SpecialAirSLoop_2_Anim, ftYs_SpecialAirSLoop_3_Anim, ftYs_SpecialAirSLanding_Anim, ftYs_SpecialAirSLoop_0_IASA, ftYs_SpecialAirSLoop_0_Phys, ftYs_SpecialAirSLoop_1_Phys, ftYs_SpecialAirSLoop_0_Coll, ftYs_SpecialAirSLoop_1_Coll, ftYs_SpecialAirSLoop_2_Coll, and ftYs_SpecialAirSLoop_3_Coll.",
+    "Added static inline helpers in ftYs_SpecialS.c for callback setup, wall-bounce effects, scale updates, rotation wrapping, and button-pressure checking.",
+    "Added effect and camera interactions for Egg Roll behavior, including efSync_Spawn calls for wall bounce, rolling/floor effects, and end effects, plus Camera_80030E44 for wall bounce.",
+    "Refined Yoshi collision data representation by changing ftYs_Unk3_803CEDA4 from a Vec3 array-like initializer into a single ftCollisionBox.",
+    "Expanded ftYoshiAttributes in types.h by replacing broad padding with named offset fields such as x54, x58, x60, x64, x68, x94 through xC8, xD0, xD4, xD8, xDC, xE4, and xE8.",
+    "Expanded struct ftYs_DatAttrs fields x104, x108, x10C, and x110, keeping the struct size static assert at 0x120.",
+    "Expanded ftYoshi_MotionVars.specials by replacing padding with concrete fields x4, x8, x28, and x2C.",
+    "Corrected ftYs_SpecialS_8012EB48 declarations in ftYs_SpecialHi.h and ftYs_SpecialS.h from unknown params/return to void ftYs_SpecialS_8012EB48(Fighter_GObj* gobj).",
+    "Corrected ityoshieggthrow.h prototypes for it_802B28C8 and it_802B2A10 from UNK_RET/UNK_PARAMS to typed Item_GObj/Fighter_GObj/Vec3/f32/s32 signatures."
   ],
   "smart_moves": [
-    "Typing `ftYs_Unk3_803CEDA4` as `ftCollisionBox` was a high-leverage correction because multiple collision functions shared that object.",
-    "The PR unlocked many functions by first exposing the needed Yoshi attribute and motion-var offsets instead of continuing to work around padding.",
-    "Small `static inline` helpers such as `ftYs_SpecialS_UpdateScale`, `ftYs_SpecialS_WrapAndSetRotX`, and `ftYs_SpecialS_SpawnWallBounceEffect` captured repeated compiler-shaped logic without over-naming every anonymous state field.",
-    "The `ftYs_SpecialS_8012DF8C_outline` wrapper and repeated small scopes/local temporaries show deliberate codegen control for matching rather than only source readability.",
-    "Item header typing for `it_802B28C8` and `it_802B2A10` made the SpecialHi egg item flow expressible with `Item_GObj*`, `Fighter_GObj*`, `Vec3*`, `s32`, and `f32` instead of opaque unknown params.",
-    "The implementation preserved callback lifecycle details: setting `death2_cb`, `take_dmg_cb`, `deal_dmg_cb`, and `x21F8` across transitions, and clearing held-egg damage callbacks after the egg throw."
+    "Recovered struct fields before or alongside function decompilation, making code express dataflow through fp->dat_attrs and fp->mv.ys.specials instead of relying on opaque padding.",
+    "Used small static inline helpers to isolate repeated codegen-sensitive behavior, such as scale updates, callback setup, angle wrapping, and button-pressure tests.",
+    "Kept callback semantics explicit: ftYoshi_SpecialS_SetCall assigns death2_cb, take_dmg_cb, deal_dmg_cb, and x21F8 consistently for Egg Roll state, while fn_8012E110 clears damage callbacks after egg throw release.",
+    "Turned item functions used by Yoshi SpecialHi into typed prototypes, allowing the caller to pass Vec3 velocity/position data and receive an Item_GObj* without placeholder casts.",
+    "Modeled visual behavior as part of the matched logic, including joint scale changes, part rotations, hit capsule cycling, effect spawns, and camera shake/effect calls.",
+    "Preserved matching-oriented stack/layout hints with PAD_STACK in newly implemented routines."
   ],
   "decomp_lessons": [
-    "For fighter move decomp, struct/header work can be the blocker: replacing padding with offset-accurate attribute fields and motion-vars can unlock many functions at once.",
-    "Collision helper signatures often reveal the true static-data type; a pair of `Vec3` values may actually be an `ftCollisionBox` when passed to fighter collision routines.",
-    "Callbacks are part of the behavior, not cleanup noise. Matching action-state code must preserve when `take_dmg_cb`, `death2_cb`, `deal_dmg_cb`, accessory callbacks, and `x21F8` are installed or cleared.",
-    "Wall-bounce code combines collision env flags, wall normals, ECB offsets, effect spawn IDs, camera calls, and velocity rewrites; future collision decomp should keep these concerns together.",
-    "Part indices matter for matching and semantics: this PR uses joints such as `fp->parts[4].joint` and `fp->parts[31].joint` for effect/item positions rather than generic `fp->parts->joint` access.",
-    "Near-match work is still valuable when it gives typed fields and shared helpers; the bot showed several collision/animation functions at about 98-99% even when not fully matched.",
-    "Manual-looking ABS/sign handling, duplicate `GET_FIGHTER` locals, and nested scopes may be intentional matching tactics and should not be simplified casually.",
-    "No PR body or human review comments were present in the slice, so reviewer intent beyond the merge and bot metrics is not evidenced."
+    "For fighter special moves, matching often depends on typing per-character attribute blocks and motion-vars before implementing the control-flow-heavy animation, physics, and collision callbacks.",
+    "When a previously unknown function is used across fighter and item boundaries, fixing the header prototype can remove guesswork and make both caller and callee usage clearer.",
+    "Callbacks are part of the decompiled behavior, not just plumbing; restoring take_dmg_cb, death2_cb, deal_dmg_cb, accessory4_cb, and x21F8 assignments can be required for both correctness and matching.",
+    "Static inline wrappers can be useful when the target binary appears to have outline-like or reused code patterns but the source needs to control inlining for matching.",
+    "Do not leave a local helper shadowing a common project macro if the macro better matches established style or codegen; this PR removed a local max helper in favor of MAX.",
+    "Effect and camera calls should be decompiled with their positional math intact, because wall/floor normals, ECB offsets, facing direction, and atan2f all influence matching and game behavior.",
+    "Recovering anonymous padding into offset-named fields is acceptable when semantic names are not yet known, as long as offsets and static size assertions remain accurate."
   ],
   "naming_conventions": [
-    "Unknown exported functions retained address-style names such as `ftYs_SpecialS_8012EB48`, `ftYs_SpecialS_8012F0DC`, `ftYs_SpecialS_8012F35C`, and `fn_8012E110`.",
-    "New private helpers used descriptive `ftYs_SpecialS_` names, for example `ftYs_SpecialS_UpdateScale`, `ftYs_SpecialS_WrapAndSetRotX`, `ftYs_SpecialS_CheckButtonPressure`, and `ftYs_SpecialS_SpawnWallBounceEffect`.",
-    "Yoshi attribute fields remained offset-style (`x54`, `x58`, `xA4`, `xD8`, `xE8`) where semantics were not proven.",
-    "SpecialS motion vars remained offset-style (`x0`, `x4`, `x8`, `xC`, `x10`, `x14`, `x18`, `x24`, `x28`, `x2C`, `x30`) but gained concrete scalar types and fp offset comments.",
-    "Header prototypes kept address comments while replacing unknown signatures with concrete `Fighter_GObj*`, `Item_GObj*`, `Vec3*`, `s32`, and `f32` parameters."
+    "Yoshi fighter files use the ftYs_ prefix for symbols, e.g. ftYs_SpecialS_8012EB48 and ftYs_SpecialAirSLoop_0_Anim.",
+    "Unidentified but address-known functions retain fn_8012xxxx names, e.g. fn_8012E110, fn_8012EC7C, fn_8012EDE8, and fn_8012EFC0.",
+    "Recovered but semantically unknown fields are kept as offset-style names such as x54, xD8, x2238, and mv.ys.specials.x14.",
+    "Helper routines added for readability/matching use descriptive ftYs_SpecialS_* names, such as ftYs_SpecialS_UpdateScale, ftYs_SpecialS_WrapAndSetRotX, ftYs_SpecialS_CheckButtonPressure, and ftYs_SpecialS_SpawnWallBounceEffect.",
+    "Item functions retained address-based it_802Bxxxx names while improving prototypes, e.g. it_802B28C8 and it_802B2A10."
   ],
   "assembly_or_matching_tactics": [
-    "Used `PAD_STACK` with several sizes, including 4, 8, 16, 28, and 40 bytes, to preserve stack layout.",
-    "Kept nested scopes and repeated `Fighter* fpN = GET_FIGHTER(gobj)` locals in places where a simpler source form would likely change register allocation.",
-    "Used `static inline` helpers and an explicit outline wrapper for `ftYs_SpecialS_8012DF8C` to steer inlining and call shape.",
-    "Indexed `Vec4` scale tables through `(f32*) &ftYs_Unk3_803CED84` and `(f32*) &ftYs_Unk3_803CED94`, matching data-layout/codegen expectations.",
-    "Used `M_PI`, `M_PI_2`, `atan2f`, and explicit f64-to-f32 style expressions for rotation math.",
-    "Kept magic motion IDs and flags such as `0x165`, `0x167`, `0x169`, `0x16A`, `0x16B`, `0x440012`, `0x4C4092`, `0x4C4892`, and `0x0C4C509A` where no enum naming evidence was provided.",
-    "Kept wall env-flag masks `0x3F` and `0xFC0` to distinguish facing-right and facing-left wall checks.",
-    "Used `mpLib_800569EC(fp->coll_data.floor.flags)` as a multiplier in ground physics acceleration updates.",
-    "Swapped a custom inline `max` helper for the project `MAX` macro in `ftYs_SpecialS_8012DF8C`."
+    "Used PAD_STACK annotations in several newly implemented functions to preserve stack layout for matching.",
+    "Used static inline helper functions and an explicit ftYs_SpecialS_8012DF8C_outline wrapper, suggesting codegen shaping for call/inline behavior.",
+    "Used ABS, MAX, M_PI, M_PI_2, and atan2f consistently in motion and effect-angle calculations.",
+    "Indexed Vec4 constants by casting to f32* in ftYs_SpecialS_UpdateScale, matching table-like access to ftYs_Unk3_803CED84 and ftYs_Unk3_803CED94.",
+    "Normalized rotation angles with while loops around 0 and 2 * M_PI before calling ftPartSetRotX or ftPartSetRotY.",
+    "Preserved explicit enum/integer motion IDs and flags such as 0x167, 0x169, 0x16B, and 0x440012 where semantic names were not recovered.",
+    "Changed broad padding in types.h into exact float/int fields, enabling direct field loads that likely matched the target instruction sequence."
   ],
   "review_feedback": [
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "Matched code report for GALE01 showed 58.47% matched code, +0.14%, +5484 bytes.",
-      "evidence": "Bot comment listed 9 new matches and 11 improvements."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "New full matches included `ftYs_SpecialAirSLoop_3_Anim`, `ftYs_SpecialAirSLoop_0_Anim`, `ftYs_SpecialAirSLoop_1_Phys`, `ftYs_SpecialS_8012F0DC`, `ftYs_SpecialAirSLoop_2_Anim`, `ftYs_SpecialAirSLoop_0_Phys`, `ftYs_SpecialAirSLoop_0_IASA`, `ftYs_SpecialS_8012F35C`, and `ftYs_SpecialS_8012EB48`.",
-      "evidence": "Issue comment table under `✅ 9 new matches`."
-    },
-    {
-      "source": "human-review",
-      "feedback": "No human review comments, review records, or PR body were present in the provided slice.",
-      "evidence": "Counts show 0 review comments and 0 reviews; PR body is null."
-    }
+    "No human review comments were present in the provided slice.",
+    "The decomp.dev bot reported matched code at 58.47%, a +0.14% improvement and +5484 bytes.",
+    "The decomp.dev bot reported 9 new 100% matches, all in main/melee/ft/chara/ftYoshi/ftYs_SpecialS: ftYs_SpecialAirSLoop_3_Anim, ftYs_SpecialAirSLoop_0_Anim, ftYs_SpecialAirSLoop_1_Phys, ftYs_SpecialS_8012F0DC, ftYs_SpecialAirSLoop_2_Anim, ftYs_SpecialAirSLoop_0_Phys, ftYs_SpecialAirSLoop_0_IASA, ftYs_SpecialS_8012F35C, and ftYs_SpecialS_8012EB48.",
+    "The bot also reported 11 improvements in unmatched items, including near-complete percentages for several ftYs_SpecialS collision/landing/end routines and 94.02% for ftYs_SpecialHi fn_8012E110."
   ],
   "searchable_terms": [
     "pr-2307",
     "ftYs_Special work",
     "lukechampine",
-    "ribbanya",
-    "ftYs_SpecialS.c",
-    "ftYs_SpecialHi.c",
-    "ftYoshi types.h",
-    "ityoshieggthrow.h",
+    "ftYs_SpecialS",
+    "ftYs_SpecialHi",
+    "Yoshi",
+    "Egg Roll",
+    "Yoshi Egg Throw",
     "ftYs_SpecialS_8012EB48",
     "ftYs_SpecialS_8012F0DC",
     "ftYs_SpecialS_8012F35C",
@@ -145,8 +107,6 @@
     "ftYs_SpecialAirSLoop_1_Anim",
     "ftYs_SpecialAirSLoop_2_Anim",
     "ftYs_SpecialAirSLoop_3_Anim",
-    "ftYs_SpecialAirSEnd_Anim",
-    "ftYs_SpecialAirSLanding_Anim",
     "ftYs_SpecialAirSLoop_0_IASA",
     "ftYs_SpecialAirSLoop_0_Phys",
     "ftYs_SpecialAirSLoop_1_Phys",
@@ -154,53 +114,48 @@
     "ftYs_SpecialAirSLoop_1_Coll",
     "ftYs_SpecialAirSLoop_2_Coll",
     "ftYs_SpecialAirSLoop_3_Coll",
+    "ftYs_SpecialAirSEnd_Anim",
+    "ftYs_SpecialAirSLanding_Anim",
     "fn_8012E110",
     "fn_8012EC7C",
     "fn_8012EDE8",
-    "fn_8012EFC0",
+    "fn_8012EFF4",
     "fn_8013295C",
-    "ftYs_Init_8012B918",
-    "ftYs_Init_8012BA8C",
-    "ftYs_Unk3_803CED48",
-    "ftYs_Unk3_803CED84",
-    "ftYs_Unk3_803CED94",
-    "ftYs_Unk3_803CEDA4",
-    "ftCollisionBox",
-    "ftYs_SpecialS_UpdateScale",
-    "ftYs_SpecialS_WrapAndSetRotX",
-    "ftYs_SpecialS_CheckButtonPressure",
-    "ftYs_SpecialS_SpawnWallBounceEffect",
-    "ftYoshi_SpecialS_SetCall",
     "it_802B28C8",
     "it_802B2A10",
-    "Item_GObj",
-    "Fighter_GObj",
-    "Vec3",
-    "CollData",
+    "ityoshieggthrow.h",
+    "ftYoshiAttributes",
+    "ftYs_DatAttrs",
+    "ftYoshi_MotionVars",
+    "ftCollisionBox",
+    "PAD_STACK",
     "efSync_Spawn",
     "Camera_80030E44",
-    "ftColl_8007ABD0",
+    "ftParts_80074B0C",
     "ftColl_8007AFF8",
-    "ft_80082888",
-    "ft_80082978",
-    "ft_800824A0",
-    "mpLib_800569EC",
-    "PAD_STACK",
-    "M_PI",
-    "M_PI_2",
-    "atan2f",
-    "HSD_PAD_B",
-    "throw_flags_b0",
-    "x1984_heldItemSpec",
-    "fv.ys.x2238"
+    "ftColl_8007ABD0",
+    "take_dmg_cb",
+    "death2_cb",
+    "deal_dmg_cb",
+    "accessory4_cb",
+    "x21F8",
+    "x2238",
+    "x222C"
   ],
   "follow_up_queries": [
-    "Finish or inspect remaining near-matches reported by decomp.dev: `ftYs_SpecialAirSLoop_2_Coll`, `ftYs_SpecialAirSLoop_1_Anim`, `ftYs_SpecialAirSLoop_3_Coll`, `ftYs_SpecialAirSLanding_Anim`, `ftYs_SpecialAirSEnd_Anim`, `ftYs_SpecialAirSLoop_1_Coll`, `ftYs_SpecialAirSLoop_0_Coll`, and `fn_8012E110`.",
-    "Name `ftYoshiAttributes` fields `x54` through `xE8` once SpecialS behavior semantics are confirmed.",
-    "Name SpecialS motion vars such as `x0`, `x4`, `x8`, `xC`, `x10`, `x14`, `x18`, `x24`, `x28`, `x2C`, and `x30` after mapping their timer, scale-index, rotation, turn, bounce, and speed roles.",
-    "Replace raw motion IDs and flags in this file with enums or named constants if neighboring Yoshi action states establish names.",
-    "Confirm the semantic names and parameter meanings for `it_802B28C8` and `it_802B2A10` from item-side decomp.",
-    "Investigate whether `ftYs_Unk3_803CED48`, `ftYs_Unk3_803CED84`, and `ftYs_Unk3_803CED94` can be given descriptive names tied to visibility/scale animation."
+    "Find later PRs that finish the near-matching ftYs_SpecialS collision routines reported at 98-99%.",
+    "Search for semantic renames of ftYoshiAttributes fields x54 through xE8 after PR 2307.",
+    "Search for later cleanup or naming of fn_8012E110, fn_8012EC7C, fn_8012EDE8, and fn_8013295C.",
+    "Check whether ftYs_SpecialS_SpawnWallBounceEffect or ftYs_SpecialS_CheckButtonPressure remained static inline or were refactored in later Yoshi work.",
+    "Search item PRs around it_802B28C8 and it_802B2A10 for callee-side decompilation and confirmation of the typed prototypes."
   ],
-  "confidence": 0.87
+  "confidence": 0.87,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

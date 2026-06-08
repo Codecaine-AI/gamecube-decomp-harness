@@ -11,20 +11,21 @@
     "merged_at": "2026-03-25T13:31:55Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched a large slice of Kirby copied neutral-special logic in src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c. The PR replaced multiple placeholder functions with matching C for Sheik-needle-style spawning, Mewtwo-copy charge/fire/start/loop/IASA behavior, and fn_801090D4, with small cleanup changes that finished several near-matches. decomp.dev reported 18 new matches and +6208 matched bytes, raising matched code by +0.16%.",
+  "summary": "Matched a large set of previously stubbed or partially matching functions in Kirby's copied neutral-special implementation file, especially Sheik needle and Mewtwo shadow-ball copy behavior. The PR added concrete C for item spawning, charge loops, release/recoil, IASA cancel/fire handling, SFX/effect thresholds, and cleanup callbacks, raising the decomp.dev report by 18 new matches and +6208 matched bytes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "fighter-special-move",
-      "kirby-copy-ability",
-      "item-interaction",
-      "effects-audio",
-      "matching-cleanup"
+      "fighter-action-logic",
+      "item-spawn-logic",
+      "animation-callbacks",
+      "IASA-input-logic",
+      "effects-and-sfx"
     ],
     "systems": [
       "fighter",
-      "ftKirby",
+      "Kirby",
+      "copy-abilities",
       "items",
       "effects",
       "audio"
@@ -33,61 +34,71 @@
   "key_files": [
     {
       "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c",
-      "role": "Only changed file; implemented and tuned matching C for Kirby copied neutral special routines.",
-      "diff_stats": "+637/-62, 17 hunks"
+      "added": 637,
+      "deleted": 62,
+      "role": "Only changed file; implemented matches and cleanup for Kirby copied neutral-special behavior."
     }
   ],
   "what_changed": [
-    "Added the missing item include it/items/itseakneedlethrown.h and extern declarations for ftKb_Init_803B7570, ftKb_Init_803B757C, ftKb_Init_803CB770, and ftKb_Init_803CB828.",
-    "Implemented ftKb_SpecialNSk_8010603C, spawning stored needles from fp->fv.kb.xB4 at ground/air graphic offsets via it_802AFD8C and it_802AFEA8, then clearing the count.",
-    "Implemented fn_80106DB0 for single needle release behavior using ground/air x/y offsets, ftKb_Init_803CB770 randomized y-offsets through a small HSD_Randi wrapper, efSync_Spawn(0x503), and ft_PlaySFX.",
-    "Introduced ftKb_SpecialN_set_cbs to share repeated death2_cb/take_dmg_cb assignment to ftKb_Init_800EE74C and ftKb_Init_800EE7B8 across Kirby special-N setup paths.",
-    "Implemented Mewtwo-copy helper logic: ftKb_SpecialNMt_SetRecoil, ftKb_SpecialNMt_801071FC for firing the held projectile from the right-hand joint, and ftKb_SpecialNMt_80107410 for charge-threshold SFX playback.",
-    "Reworked ftKb_SpecialNMt_80107568 and ftKb_SpecialNMt_80107638 so their ground/air start actions directly initialize cmd_vars, callbacks, timers, velocity, and animation state in matching form.",
-    "Implemented ftKb_MtSpecialNStart_Anim, ftKb_MtSpecialNLoop_Anim, ftKb_MtSpecialAirNStart_Anim, and ftKb_MtSpecialAirNLoop_Anim, including held-shadow item creation, charge accumulation, full-charge transitions, effects, and SFX-related calls.",
-    "Implemented ground and air loop IASA handlers for Mewtwo-copy special-N, including A/B release, cancel input 0x80000000, item cleanup via it_802C573C, effect cleanup via efLib_DestroyAll, and ftKirbyDmgInline calls.",
-    "Implemented fn_801090D4 using fp->cmd_vars[0] to spawn or release an item with specialn_pp spawn offsets, SFX calls, and callback setup when the item exists.",
-    "Finished smaller near-matches by using GET_FIGHTER consistently, NULL for pointer fields, local ftKb_DatAttrs* da, scoped locals in switch cases, and PAD_STACK/dummy locals where needed."
+    "Added include for `it/items/itseakneedlethrown.h` and externs for `ftKb_Init_803B7570`, `ftKb_Init_803B757C`, `ftKb_Init_803CB770`, and later `ftKb_Init_803CB828` to support item/effect/SFX table behavior.",
+    "Implemented `ftKb_SpecialNSk_8010603C`, consuming `fp->fv.kb.xB4` needle count and spawning thrown needles with `it_802AFD8C`/`it_802AFEA8` at ground/air y-offsets.",
+    "Added inline `ftKb_SpecialN_set_cbs` and reused it where multiple SpecialN start functions set `death2_cb` and `take_dmg_cb` to Kirby cleanup handlers.",
+    "Matched small Sheik-copy animation loops by changing temporary variable and switch-case structure around `ft_PlaySFX`, and changed a pointer clear from `0` to `NULL`.",
+    "Implemented `fn_80106DB0`, spawning individual Sheik needles with randomized y-offsets from `ftKb_Init_803CB770`, effect `0x503`, and SFX `0x41F3C`; it uses a local `perm_randi` wrapper around `HSD_Randi` noted as permuter-generated.",
+    "Implemented Mewtwo-copy release logic in `ftKb_SpecialNMt_801071FC`, including hand-position calculation via `lb_8000B1CC`, launch angle selection based on facing direction, `it_802C53F0`, recoil setup, saved/restored `item_gobj`, and release SFX.",
+    "Added `ftKb_SpecialNMt_SetRecoil` to apply ground or air horizontal momentum from Mewtwo charge data depending on motion/air-ground state.",
+    "Implemented `ftKb_SpecialNMt_80107410`, tracking charge ratio crossing 0, 0.25, 0.5, and 0.75 thresholds and playing entries from `ftKb_Init_803CB828`.",
+    "Reworked Mewtwo ground/air SpecialN start functions `ftKb_SpecialNMt_80107568` and `ftKb_SpecialNMt_80107638` to match directly, reset command variables and timers, set callbacks via helper, and initialize transition timing from `specialn_mt_frames_to_transition`.",
+    "Implemented Mewtwo ground and air start/loop animation functions, creating held shadow-ball items with `it_802C5000`, advancing charge with `specialn_mt_loops_to_full_charge`, switching to full-charge loop states, and spawning full-charge effects with `efSync_Spawn(0x1B, ...)`.",
+    "Implemented ground and air Mewtwo loop/full-loop IASA functions, handling A/B fire inputs, a high-bit cancel input mask `0x80000000`, item cleanup via `it_802C573C`, effect cleanup via `efLib_DestroyAll`, and `ftKirbyDmgInline` updates.",
+    "Completed `fn_801090D4` for another Kirby copy path in the same file, using `cmd_vars[0]` to spawn/release an item with `it_802C1590`/`it_802C16F8`, SFX, and callback setup.",
+    "Bot report recorded 18 new matches in `main/melee/ft/chara/ftKirby/ftKb_SpecialNZd` and one `.sdata2` improvement from 37.50% to 79.07%."
   ],
   "smart_moves": [
-    "Factored repeated special-N callback setup into an inline helper, reducing duplication while preserving matching output according to the bot report.",
-    "Used small inline helpers only where they helped codegen: ftKb_SpecialNMt_SetRecoil, ftKb_SpecialNMt_CreateHeldShadow, and the explicitly noted permuter-generated perm_randi wrapper around HSD_Randi.",
-    "Kept non-obvious decomp artifacts such as PAD_STACK calls, dummy f64 locals, u8 padding arrays, redundant GET_FIGHTER calls, and narrow local scopes to force the compiler shape needed for matches.",
-    "Separated ground and air variants where their constants and motion states differ, but reused the held-shadow creation helper where codegen allowed it.",
-    "Preserved original-looking control flow in IASA cleanup paths, including repeated gobj != NULL checks and repeated GET_FIGHTER calls, rather than over-simplifying the logic.",
-    "Used data-symbol externs for Vec3 constants and SFX/random tables instead of hardcoding equivalent literals, which also corresponded with a reported .sdata2 improvement."
+    "Factored repeated death/damage callback setup into `ftKb_SpecialN_set_cbs`, reducing duplicate code while preserving matching at call sites.",
+    "Introduced small inline helpers for repeated behavior (`ftKb_SpecialNMt_SetRecoil`, `ftKb_SpecialNMt_CreateHeldShadow`) where that helped express repeated ground/air Mewtwo-copy logic without preventing matches.",
+    "Used exact stack-shape tactics visible in the diff, including `PAD_STACK`, explicit local `Vec3` temporaries, dummy `f64` pads, and even `fp = fp = GET_FIGHTER(gobj)`/`da = da = fp->dat_attrs` patterns where needed for codegen.",
+    "Preserved and restored `fp->item_gobj` around Mewtwo shadow-ball release, a behavior-sensitive detail that likely avoided side effects while matching.",
+    "Kept ground and air loop implementations very similar but separate, using distinct full-charge motion IDs and vector constants (`ftKb_Init_803B7570` vs `ftKb_Init_803B757C`) rather than over-abstracting away codegen differences.",
+    "Acknowledged a matching-only artifact with the comment `permuter-generated helper, almost certainly fake` for `perm_randi`, making the decompromise explicit instead of presenting it as a known source-level symbol.",
+    "Replaced integer zero pointer writes with `NULL` in touched pointer fields, improving type clarity while still matching."
   ],
   "decomp_lessons": [
-    "For fighter action-state code, exact local variable lifetime, scope, and repeated loads can be required for matching; readable simplification may break codegen.",
-    "Inline helpers can be useful matching tools, but only when verified against the compiler output; this PR shows both shared real helpers and a fake permuter helper.",
-    "Pointer fields in fighter state should use NULL in matched C when the original codegen expects pointer-style zeroing.",
-    "Local dat_attrs aliases can be enough to finish partial matches, as shown by the ftKb_SpecialNIc_80108E14 cleanup from 95.52% to 100%.",
-    "Kirby copied-special work often crosses fighter state, held items, spawned projectiles, effects, animation callbacks, and SFX; matching one function may require correct includes and extern declarations for several subsystems.",
-    "Do not prematurely rename unknown functions: fn_80106DB0 and fn_801090D4 remained address-style names despite clear behavior in the implementation."
+    "For fighter action functions, matching may require deliberate local variable lifetime and stack layout control; `PAD_STACK`, extra local blocks, and duplicate `GET_FIGHTER` calls can be legitimate tools.",
+    "Do not prematurely consolidate mirrored ground/air action logic: Mewtwo-copy ground and air paths share structure but differ in motion IDs, vectors, velocity fields, freefall handling, and transition targets.",
+    "Kirby copy-ability code often coordinates fighter state, item ownership, effects, sound, callbacks, and damage-inline updates in the same action function; all of those side effects matter for faithful reconstruction.",
+    "Charge-loop code should preserve threshold-crossing semantics, not just final charge value; `ftKb_SpecialNMt_80107410` only plays SFX when charge ratio crosses configured thresholds.",
+    "When an item pointer is cleared or destroyed, also inspect associated effect pointers and callback cleanup; this PR repeatedly clears `fv.kb.x98`, destroys effects, and resets `fv.kb.xA0` in cancel paths.",
+    "Externing data constants and tables can unlock `.sdata2`/rodata progress along with code matches, as shown by the bot-reported `.sdata2` improvement.",
+    "Document permuter artifacts when a helper or wrapper is probably not source-real, so future cleanup can revisit it without losing the matching rationale."
   ],
   "naming_conventions": [
-    "Kept the ftKb_ module prefix for Kirby routines and copied-special prefixes such as SpecialNSk, SpecialNMt, SpecialNIc, MtSpecialN, and MtSpecialAirN.",
-    "Retained address-style names fn_80106DB0 and fn_801090D4 where no reviewed semantic name was provided.",
-    "Used descriptive static/inline helper names under the same module prefix, including ftKb_SpecialN_set_cbs, ftKb_SpecialNMt_SetRecoil, and ftKb_SpecialNMt_CreateHeldShadow.",
-    "Used GET_FIGHTER(gobj) as the canonical fighter accessor in rewritten code, replacing getFighter or direct HSD_GObjGetUserData forms where matching required it.",
-    "Used NULL for fighter-state item/effect pointers such as fp->fv.kb.x98, xA0, xB8, and xC0."
+    "Kirby copied neutral-special symbols use the `ftKb_SpecialN*` and `ftKb_*SpecialN*` prefixes, with copy-source abbreviations such as `Sk` for Sheik, `Mt` for Mewtwo, `Ic`, `Pp`, and `Ys` appearing in the file.",
+    "Unidentified functions retained address-style names such as `fn_80106DB0` and `fn_801090D4` when semantic names were not established.",
+    "Dat attribute fields use descriptive `specialn_<copy>_<property>` names, for example `specialn_sk_graphic_y_offset_ground`, `specialn_mt_charge_time`, `specialn_mt_loops_to_full_charge`, and `specialn_pp_air_vertical_momentum`.",
+    "Motion-state names for Kirby Mewtwo copy follow `ftKb_MS_MtSpecialN...` and `ftKb_MS_MtSpecialAirN...` ground/air variants.",
+    "Callback helper naming in this PR used lower-case internal helper style for new static inline code: `ftKb_SpecialN_set_cbs`."
   ],
   "assembly_or_matching_tactics": [
-    "Inserted PAD_STACK with sizes 4, 8, 0x10, 16, and 24 to match stack layout.",
-    "Added dummy locals such as f64 _pad1/_pad2 and u8 _[8] to influence stack/register allocation.",
-    "Used redundant assignments like Fighter* fp = fp = GET_FIGHTER(gobj) and ftKb_DatAttrs* da = da = fp->dat_attrs in some matched functions.",
-    "Scoped variables inside switch cases and nested blocks to control lifetimes and generated code.",
-    "Used a fake inline perm_randi wrapper around HSD_Randi, noted in the diff as permuter-generated and likely fake.",
-    "Used ternary assignment for specialn_mt_frames_to_transition timer setup instead of a temporary timer variable.",
-    "Kept explicit f32 casts and float constants in charge comparisons, including comparisons against da->specialn_mt_charge_time.",
-    "Referenced external data tables and constants such as ftKb_Init_803B7570, ftKb_Init_803B757C, ftKb_Init_803CB770, and ftKb_Init_803CB828 to match data access patterns.",
-    "Preserved repeated cleanup sequences in IASA functions rather than factoring them into a helper, likely because the original control flow/codegen required duplication."
+    "Used `PAD_STACK` with sizes including 4, 8, 16, 24, and `0x10` to force stack layout in newly matched functions.",
+    "Used dummy locals such as `f64 _pad1`, `f64 _pad2`, and `u8 _[8]` where needed to match generated stack allocation.",
+    "Manipulated temporary declarations and scopes, such as nested blocks around `Vec3 pos` handling and switch `case 0` blocks with a fresh `Fighter* fp`, to improve register allocation/codegen.",
+    "Kept non-idiomatic assignments like `Fighter* fp = fp = GET_FIGHTER(gobj);` and `ftKb_DatAttrs* da = da = fp->dat_attrs;` in some matched functions, indicating compiler-codegen constraints outweighed style.",
+    "Used ternary assignment for timers in start-action setup where it matched better than a separate `timer` local.",
+    "Added a wrapper `perm_randi(int n) { return HSD_Randi(n); }` specifically to satisfy permuter/matching output, with a comment warning it is probably fake.",
+    "Used explicit casts and float comparisons in charge and full-charge checks, e.g. `(f32) fp->fv.kb.x9C == da->specialn_mt_charge_time` and `(s32) da->specialn_mt_loops_to_full_charge`."
   ],
   "review_feedback": [
-    "No human review comments or review records were captured in the PR slice.",
-    "decomp.dev bot reported 18 new matches in main/melee/ft/chara/ftKirby/ftKb_SpecialNZd and +6208 matched bytes.",
-    "Largest bot-reported new matches included ftKb_SpecialNMt_801071FC (+532), ftKb_MtSpecialNLoop_Anim (+512), ftKb_MtSpecialAirNLoop_Anim (+512), ftKb_MtSpecialNLoop_IASA (+436), ftKb_MtSpecialNLoopFull_IASA (+412), and fn_80106DB0 (+404).",
-    "The bot also reported one unmatched-item improvement: .sdata2 improved by +43 bytes, from 37.50% to 79.07%."
+    {
+      "source": "decomp-dev bot issue comment",
+      "feedback": "GALE01 report showed matched code increased to 59.88% (+0.16%, +6208 bytes), with 18 new matches in `ftKb_SpecialNZd` and one `.sdata2` improvement.",
+      "action_taken": "PR was merged without visible human review comments in the provided slice."
+    },
+    {
+      "source": "available PR slice",
+      "feedback": "No human review comments or PR body text were present in the context.",
+      "action_taken": "Reviewer intent beyond the bot match report is not evidenced."
+    }
   ],
   "searchable_terms": [
     "pr-2350",
@@ -100,18 +111,16 @@
     "ftKb_SpecialNMt_80107638",
     "ftKb_MtSpecialNStart_Anim",
     "ftKb_MtSpecialNLoop_Anim",
-    "ftKb_MtSpecialNLoopFull_IASA",
     "ftKb_MtSpecialAirNStart_Anim",
     "ftKb_MtSpecialAirNLoop_Anim",
+    "ftKb_MtSpecialNLoop_IASA",
+    "ftKb_MtSpecialNLoopFull_IASA",
     "ftKb_MtSpecialAirNLoop_IASA",
     "ftKb_MtSpecialAirNLoopFull_IASA",
-    "ftKb_SpecialNIc_80108E14",
     "fn_801090D4",
     "ftKb_SpecialN_set_cbs",
     "ftKb_SpecialNMt_SetRecoil",
     "ftKb_SpecialNMt_CreateHeldShadow",
-    "perm_randi",
-    "HSD_Randi",
     "it_802AFD8C",
     "it_802AFEA8",
     "it_802C5000",
@@ -122,24 +131,33 @@
     "efSync_Spawn",
     "efLib_DestroyAll",
     "ftKirbyDmgInline",
+    "PAD_STACK",
+    "perm_randi",
+    "HSD_Randi",
+    "Mewtwo copy",
+    "Sheik needle",
+    "Kirby copy ability",
+    "specialn_mt_charge_time",
+    "specialn_sk_graphic_y_offset_ground",
+    "specialn_mt_loops_to_full_charge",
     "ftKb_Init_803B7570",
     "ftKb_Init_803B757C",
     "ftKb_Init_803CB770",
-    "ftKb_Init_803CB828",
-    "Kirby Mewtwo copy",
-    "Kirby Sheik needle",
-    "PAD_STACK",
-    "GET_FIGHTER"
+    "ftKb_Init_803CB828"
   ],
   "follow_up_queries": [
-    "ftKb_SpecialNZd ftKb_SpecialNMt_CreateHeldShadow",
-    "ftKb_SpecialNZd perm_randi HSD_Randi",
-    "ftKb_SpecialNSk_8010603C it_802AFD8C it_802AFEA8",
-    "ftKb_MtSpecialNLoop_IASA it_802C573C efLib_DestroyAll",
-    "ftKb_MtSpecialAirNLoop_Anim ftKb_Init_803B757C efSync_Spawn",
-    "ftKb_Init_803B7570 ftKb_Init_803B757C ftKb_Init_803CB770 ftKb_Init_803CB828",
-    "fn_801090D4 specialn_pp_x_spawn specialn_pp_y_spawn",
-    "ftKb_SpecialNMt_801071FC ftKb_SpecialNMt_SetRecoil item_gobj saved_item"
+    "Check whether `perm_randi` can later be removed or replaced with a source-real helper while preserving `fn_80106DB0`.",
+    "Investigate semantic names for `fn_80106DB0` and `fn_801090D4` once adjacent Kirby copy-ability behavior is better understood.",
+    "Look for duplicated held-item cleanup patterns in other Kirby copied SpecialN functions that could inform safe helper extraction without breaking matches.",
+    "Confirm data-symbol names and types for `ftKb_Init_803B7570`, `ftKb_Init_803B757C`, `ftKb_Init_803CB770`, and `ftKb_Init_803CB828` as `.sdata2`/rodata work continues."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

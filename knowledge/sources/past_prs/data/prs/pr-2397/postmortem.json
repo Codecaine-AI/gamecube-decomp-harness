@@ -11,87 +11,88 @@
     "merged_at": "2026-04-09T15:31:03Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Small ftCommon DownBound matching fix that made ftCo_80097D40 fully match. The function stopped carrying its own duplicated x2228_b2 branch logic and dummy stack array, reused the shared static inlineA1 helper, then reset fp->mv.co.downspot.x4. The decomp.dev bot reported ftCo_80097D40 improved from 0.00% to 100.00% for +72 matched bytes, with a small .sdata2 improvement.",
+  "summary": "Fixed the decompilation match for fighter common down-bound routine ftCo_80097D40 by extracting the shared branch logic into a static helper inlineA1, using GET_FIGHTER consistently, and leaving ftCo_80097D40 responsible for the final downspot field reset. The PR was small, merged quickly, and had no substantive review feedback in the provided slice.",
   "change_classification": {
-    "primary_type": "decomp-matching-fix",
+    "primary_type": "decomp-matching fix",
     "categories": [
       "decomp-matching",
       "fix",
-      "small-refactor",
-      "codegen-shaping"
+      "inline/helper refactor"
     ],
     "systems": [
       "fighter",
       "ftCommon",
-      "DownBound"
+      "down-bound"
     ]
   },
   "key_files": [
     "src/melee/ft/chara/ftCommon/ftCo_DownBound.c"
   ],
   "what_changed": [
-    "Moved/placed static void inlineA1(Fighter_GObj* gobj) before ftCo_80097D40 so ftCo_80097D40 can call it directly.",
-    "inlineA1 contains the shared dispatch: GET_FIGHTER(gobj), check fp->x2228_b2, call ftCo_80097AF4(gobj) when true, otherwise call ftCo_8009794C(gobj).",
-    "ftCo_80097D40 now obtains Fighter* fp with GET_FIGHTER(gobj), calls inlineA1(gobj), then sets fp->mv.co.downspot.x4 = 0.",
-    "Removed the prior duplicated conditional body from ftCo_80097D40.",
-    "Removed the prior local dummy stack array u8 _[8] = { 0 } from ftCo_80097D40.",
-    "Kept the SOLUTION macro wrapping only ftCo_80097D40."
+    "In src/melee/ft/chara/ftCommon/ftCo_DownBound.c, moved the branch on Fighter.x2228_b2 out of ftCo_80097D40 into a new static helper named inlineA1.",
+    "Changed the helper to fetch the Fighter pointer with GET_FIGHTER(gobj) instead of the prior direct gobj->user_data access in ftCo_80097D40.",
+    "ftCo_80097D40 now gets Fighter* fp via GET_FIGHTER(gobj), calls inlineA1(gobj), then sets fp->mv.co.downspot.x4 = 0.",
+    "Removed the prior local dummy padding array `u8 _[8] = { 0 };` from ftCo_80097D40.",
+    "Kept the existing `#define SOLUTION 1` / `#undef SOLUTION` wrapper around ftCo_80097D40, but moved it after the helper definition."
   ],
   "smart_moves": [
-    "Reused an existing helper body instead of keeping duplicate branch logic in ftCo_80097D40, matching the apparent shared behavior with ftCo_80097D88.",
-    "Separated the common x2228_b2 dispatch from the ftCo_80097D40-specific downspot.x4 reset, which produced a cleaner source shape and a full match.",
-    "Removed artificial local padding once the helper-call structure produced the desired codegen."
+    "Separated the branch/action-selection logic from the field reset so the compiler could produce the target layout for ftCo_80097D40 without artificial stack padding.",
+    "Used a small static helper for code-shape control, a common decomp tactic when an apparent inline boundary affects matching.",
+    "Used GET_FIGHTER consistently in both the helper and ftCo_80097D40, aligning with project style and avoiding direct reliance on gobj->user_data in this routine.",
+    "Preserved behavior: the x2228_b2 branch still chooses between ftCo_80097AF4 and ftCo_8009794C, and ftCo_80097D40 still clears mv.co.downspot.x4 afterward."
   ],
   "decomp_lessons": [
-    "When a target function duplicates the exact body of a nearby helper, try factoring or reusing the helper call before adding dummy stack locals.",
-    "A helper shared by adjacent functions can be the missing structure needed for matching, especially when one function adds only a small post-call side effect.",
-    "Prefer semantic source reshaping over opaque padding when the match can be achieved by aligning call structure and helper order.",
-    "Bot match reports are useful evidence: this PR specifically confirmed ftCo_80097D40 became 100% matched."
+    "When a function only fails to match because of ordering or stack-shape issues, extracting candidate inline logic into a static helper can be cleaner than keeping dummy locals or padding arrays.",
+    "Avoid fake stack-padding locals like `u8 _[8] = { 0 };` when an inline/helper boundary can explain the generated code more naturally.",
+    "For fighter code, prefer GET_FIGHTER(gobj) when retrieving Fighter* unless the evidence specifically requires direct `gobj->user_data` access.",
+    "A helper named `inlineA1` indicates the change is primarily a matching tactic, not a semantic API addition; future cleanup may rename only if stronger symbol evidence appears."
   ],
   "naming_conventions": [
-    "Common fighter functions in this file use the ftCo_ prefix, e.g. ftCo_80097D40, ftCo_80097AF4, ftCo_8009794C, ftCo_80097D88.",
-    "The local helper retained the temporary decomp-style name inlineA1; the slice gives no evidence of a more descriptive reviewed name.",
-    "Fighter object access in the final code uses GET_FIGHTER(gobj) for the edited functions."
+    "Existing generated/unknown fighter function names remained in the ftCo_80097xxx style: ftCo_80097D40, ftCo_80097AF4, ftCo_8009794C, ftCo_80097D88.",
+    "The matching helper was named `inlineA1`, following a temporary/decomp-helper convention rather than a domain-semantic name.",
+    "The Fighter object accessor macro GET_FIGHTER(gobj) was used instead of direct `gobj->user_data` access."
   ],
   "assembly_or_matching_tactics": [
-    "Turned ftCo_80097D40 into a helper call plus one field store, rather than inlining/duplicating the branch body.",
-    "Removed a dummy stack allocation u8 _[8] = { 0 } that had been used in the old nonmatching version.",
-    "Changed the source expression from direct gobj->user_data access in ftCo_80097D40 to GET_FIGHTER(gobj).",
-    "The confirmed result was +72 bytes matched for ftCo_80097D40, 0.00% to 100.00%."
+    "Introduced a static helper to influence inlining/codegen around ftCo_80097D40.",
+    "Removed an artificial 8-byte local array previously used as a matching workaround.",
+    "Kept `#define SOLUTION 1` around the target function, suggesting the file uses solution-gated matching alternatives or compiler-shape hints.",
+    "Factored the x2228_b2 conditional call sequence before the final `fp->mv.co.downspot.x4 = 0` store to match the expected instruction order/structure."
   ],
-  "review_feedback": [
-    "No human review comments or review records were present in the slice.",
-    "The only recorded feedback was the decomp.dev GALE01 bot report confirming one new match: ftCo_80097D40."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
-    "pr-2397",
-    "Gelatart",
+    "pr2397",
     "ftCo_80097D40",
     "ftCo_DownBound.c",
     "ftCommon",
     "DownBound",
-    "inlineA1",
-    "GET_FIGHTER",
+    "down-bound",
+    "fighter",
     "Fighter_GObj",
+    "GET_FIGHTER",
+    "gobj->user_data",
     "x2228_b2",
     "ftCo_80097AF4",
     "ftCo_8009794C",
     "ftCo_80097D88",
     "mv.co.downspot.x4",
+    "inlineA1",
     "SOLUTION",
-    "dummy stack",
-    "u8 _[8]",
-    "GALE01",
-    "decomp.dev",
-    "matched 72 bytes",
-    ".sdata2"
+    "dummy local array",
+    "stack padding",
+    "matching fix"
   ],
   "follow_up_queries": [
-    "ftCo_80097D40 inlineA1 downspot.x4 matching",
-    "ftCo_DownBound x2228_b2 ftCo_80097AF4 ftCo_8009794C",
-    "GET_FIGHTER versus gobj->user_data matching ftCommon",
-    "dummy stack u8 _[8] removed matching fix",
-    "ftCo_80097D88 inlineA1 shared helper"
+    "Search for other `u8 _[...]` dummy padding locals in fighter code that might be replaceable with helper extraction or inline-boundary modeling.",
+    "Check whether `inlineA1` remains a temporary helper or later PRs rename/remove it after improved symbol knowledge.",
+    "Compare other ftCo_DownBound routines using GET_FIGHTER versus direct gobj->user_data to identify consistent accessor style."
   ],
-  "confidence": 0.9
+  "confidence": 0.87,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,110 +11,115 @@
     "merged_at": "2026-03-10T21:39:46Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Cleaned up Arwing laser item code by replacing raw gobj/item pointer arithmetic in it_802E7A4C with GET_ITEM() and typed item-var access, then added the missing itArwingLaser_ItemVars layout and xDD4_itemVar union member needed for item->xDD4_itemVar.arwinglaser.xE38 to address the correct item offset.",
+  "summary": "Replaced raw pointer arithmetic in `it_802E7A4C` with project-standard item access and a typed `xDD4_itemVar.arwinglaser` union member. The key structural fix was adding `itArwingLaser_ItemVars` with explicit leading padding from item offset `0xDD4` to `0xDF4`; without that padding, `xE38` would be laid out at the wrong effective item offset and cause a hidden byte mismatch.",
   "change_classification": {
-    "primary_type": "item struct typing and pointer-arithmetic convention fix",
+    "primary_type": "struct-typing-fix",
     "categories": [
       "decomp-matching",
       "fix",
       "headers",
-      "types-structs",
       "naming",
-      "code-convention"
+      "types-structs",
+      "raw-pointer-cleanup"
     ],
     "systems": [
       "item",
-      "it",
       "itarwinglaser"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/it/itCharItems.h",
-      "role": "Added itArwingLaser_ItemVars with explicit padding and offset-annotated fields from item+0xDF4 through item+0xE44."
+      "role": "Added `itArwingLaser_ItemVars` with explicit offset-based padding and named fields through `xE44`."
     },
     {
       "path": "src/melee/it/items/itarwinglaser.c",
-      "role": "Included it/inlines.h, replaced raw gobj+0x2C with GET_ITEM(gobj), and replaced raw item+0xE38 access with item->xDD4_itemVar.arwinglaser.xE38."
+      "role": "Changed `it_802E7A4C` from raw casts and offsets to `GET_ITEM(gobj)` and `item->xDD4_itemVar.arwinglaser.xE38`."
     },
     {
       "path": "src/melee/it/types.h",
-      "role": "Added arwinglaser to the Item xDD4_itemVar union."
+      "role": "Added `arwinglaser` to the `Item::xDD4_itemVar` union."
     }
   ],
   "what_changed": [
-    "Added typedef struct itArwingLaser_ItemVars in itCharItems.h.",
-    "Modeled the item-variable region as starting at item+0xDD4, with _pad0[0xDF4 - 0xDD4] before xDF4.",
-    "Added named fields including xDF4, xE18, xE1C, xE20, xE24, xE28, xE2C, xE30, xE32_pad, xE34_pad, xE38, xE3C_pad, xE40, and xE44.",
-    "Added itArwingLaser_ItemVars arwinglaser to Item.xDD4_itemVar in types.h.",
-    "Changed it_802E7A4C to use GET_ITEM(gobj) instead of dereferencing *(Item**)((u8*) gobj + 0x2C).",
-    "Changed Item_80268E5C argument from *(int*)((u8*) item + 0xE38) to item->xDD4_itemVar.arwinglaser.xE38.",
-    "Added #include \"it/inlines.h\" to support GET_ITEM()."
+    "Included `it/inlines.h` in `itarwinglaser.c` to use `GET_ITEM`.",
+    "Replaced `item = *(Item**) ((u8*) gobj + 0x2C);` with `item = GET_ITEM(gobj);`.",
+    "Replaced `*(int*) ((u8*) item + 0xE38)` with `item->xDD4_itemVar.arwinglaser.xE38`.",
+    "Added `itArwingLaser_ItemVars` to `itCharItems.h`, including `_pad0[0xDF4 - 0xDD4]`, `_pad1[0xE18 - 0xDF8]`, and fields documented by item offsets.",
+    "Added `itArwingLaser_ItemVars arwinglaser;` to the `xDD4_itemVar` union in `types.h`."
   ],
   "smart_moves": [
-    "The PR preserved matching intent while removing raw pointer arithmetic, improving future readability without changing the function behavior described by the diff.",
-    "The important struct-layout fix was the initial padding from item+0xDD4 to item+0xDF4; the PR notes say omitting it made xE38 compile as item+0xE18 instead of item+0xE38.",
-    "Offset comments in the struct document both absolute item offsets and padding boundaries, making later item-var union work less error-prone.",
-    "The author verified a hidden mismatch via raw byte comparison after objdiff fallback display allegedly made both sides look the same."
+    "Used `GET_ITEM()` rather than manually dereferencing `gobj + 0x2C`, aligning the code with project conventions and reducing brittle raw pointer arithmetic.",
+    "Modeled the item variable region as a typed union member instead of repeatedly casting from raw item offsets.",
+    "Preserved exact item-relative layout by adding leading padding from `0xDD4` to `0xDF4`; this was the important matching detail because the union begins at `item+0xDD4`, not at the first known Arwing laser field.",
+    "Used offset-expression padding sizes such as `0xDF4 - 0xDD4` and `0xE18 - 0xDF8`, making the intended layout easier to audit than magic byte counts alone.",
+    "Verified the issue with raw byte comparison after objdiff fallback display masked the mismatch."
   ],
   "decomp_lessons": [
-    "When adding an Item.xDD4_itemVar struct member, model offsets relative to the union start at item+0xDD4, not relative to the first observed accessed field.",
-    "Raw pointer arithmetic may hide missing type information; replace it with GET_ITEM() and named union fields once the struct layout is known.",
-    "Padding fields can be the difference between a visually plausible C expression and the correct generated address.",
-    "Do not rely only on objdiff fallback display when a match is suspicious; compare raw bytes if an instruction display may be masking an offset mismatch.",
-    "PR descriptions should accurately reflect committed code; comments noted that functions mentioned in the description were not actually committed or were already in master."
+    "When adding an item-var struct under `Item::xDD4_itemVar`, struct field comments should be item-relative, but the struct layout starts at `item+0xDD4`; include padding for any gap before the first real field.",
+    "A field intended to represent `item+0xE38` inside `xDD4_itemVar` must sit at struct offset `0xE38 - 0xDD4`, not at offset `0xE38` from the start of the struct.",
+    "Objdiff display can obscure byte-level differences in fallback modes; confirm suspicious matches with raw byte comparison.",
+    "Raw pointer arithmetic cleanups are safest when paired with an accurate struct/union layout, not just replaced syntactically.",
+    "PR descriptions for decomp work should accurately list only committed functions; comments noted that functions mentioned in the description were not actually part of the committed change."
   ],
   "naming_conventions": [
-    "Item-var structs follow the pattern it<Thing>_ItemVars, here itArwingLaser_ItemVars.",
-    "The Item.xDD4_itemVar union member used the lowercase item name arwinglaser, matching nearby members such as foxblaster, foxillusion, foxlaser, freeze, and freezer.",
-    "Unknown fields retained offset-style names such as xE18 and xE38, while padding fields used _pad0, _pad1, and xE32_pad/xE34_pad/xE3C_pad.",
-    "Offset comments used item+0xNNN notation for absolute Item offsets."
+    "Item variable structs follow the pattern `it<Name>_ItemVars`, here `itArwingLaser_ItemVars`.",
+    "The corresponding `Item::xDD4_itemVar` union member used lowercase item naming: `arwinglaser`.",
+    "Unknown fields retained offset-style names such as `xDF4`, `xE18`, `xE38`, `xE40`, and `xE44`.",
+    "Padding fields were named `_pad0`, `_pad1`, `xE32_pad`, `xE34_pad`, and `xE3C_pad`, with comments documenting item offsets."
   ],
   "assembly_or_matching_tactics": [
-    "Replaced gobj+0x2C raw access with GET_ITEM(gobj), requiring it/inlines.h.",
-    "Replaced raw item+0xE38 load with typed access through item->xDD4_itemVar.arwinglaser.xE38.",
-    "Used explicit padding char _pad0[0xDF4 - 0xDD4] and _pad1[0xE18 - 0xDF8] to force fields to the correct absolute offsets.",
-    "PR notes report that raw byte comparison exposed a hidden byte mismatch that objdiff fallback display masked."
+    "Replace `*(Item**) ((u8*) gobj + 0x2C)` with `GET_ITEM(gobj)` when the access is the standard item payload lookup.",
+    "Replace raw item offset reads with typed union access only after the union member struct has correct leading padding.",
+    "For item-var structs inside `xDD4_itemVar`, calculate padding relative to the union base offset `0xDD4`.",
+    "Use raw byte comparison when objdiff appears to show identical instructions but matching still fails or a hidden mismatch is suspected."
   ],
   "review_feedback": [
-    "There were no formal review comments in the provided context.",
-    "ribbanya pointed out that functions mentioned by the author were not committed.",
-    "The author acknowledged the PR name/description were inaccurate and said they were still learning the project.",
-    "The context notes that it_802E8418 and it_802E8784 were already implemented in master, so this PR's actual committed functional cleanup centered on it_802E7A4C and the Arwing laser item-var struct."
+    {
+      "author": "ribbanya",
+      "feedback": "Pointed out that functions mentioned by the author were not committed in the PR."
+    },
+    {
+      "author": "IsaacGemal",
+      "feedback": "Acknowledged the PR name/description were misleading and apologized while learning project conventions."
+    }
   ],
   "searchable_terms": [
     "pr-2237",
     "itarwinglaser",
     "itArwingLaser_ItemVars",
     "it_802E7A4C",
-    "it_802E8418",
-    "it_802E8784",
     "GET_ITEM",
-    "it/inlines.h",
-    "Item_GObj",
-    "Item",
     "xDD4_itemVar",
     "arwinglaser",
     "xE38",
-    "xDF4",
-    "xE18",
-    "item+0xDD4",
-    "item+0xDF4",
-    "item+0xE38",
+    "0xDD4",
+    "0xDF4",
+    "0xE18",
+    "0xE38",
     "raw pointer arithmetic",
-    "objdiff fallback display",
-    "raw byte comparison",
+    "Item_80268E5C",
+    "it_8026B3A8",
     "itCharItems.h",
     "itarwinglaser.c",
     "types.h",
-    "Item_80268E5C",
-    "it_8026B3A8"
+    "objdiff fallback display",
+    "raw byte comparison",
+    "hidden byte mismatch"
   ],
   "follow_up_queries": [
-    "Find other item files still using *(Item**)((u8*) gobj + 0x2C) instead of GET_ITEM(gobj).",
-    "Find other xDD4_itemVar accesses that need a typed item-var struct rather than raw item+offset arithmetic.",
-    "Audit item-var structs whose first real field is not at item+0xDD4 to ensure initial padding is present.",
-    "Search PRs/comments for objdiff fallback display masking raw byte mismatches."
+    "Find other item code still using `*(Item**) ((u8*) gobj + 0x2C)` instead of `GET_ITEM(gobj)`.",
+    "Audit other `xDD4_itemVar` structs for missing leading padding between `item+0xDD4` and the first known field.",
+    "Search for raw reads from `item + 0xE38` that could be converted to typed item-var access.",
+    "Check whether `it_802E8418` and `it_802E8784` documentation in nearby PR descriptions accurately reflects committed changes."
   ],
-  "confidence": 0.91
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

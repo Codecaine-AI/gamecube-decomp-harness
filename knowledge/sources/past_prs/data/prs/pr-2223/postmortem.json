@@ -11,135 +11,105 @@
     "merged_at": "2026-03-05T20:32:27Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Made the gmtitle object fully matching and promoted it in configure.py from Equivalent to Matching. The source fix was a small behavior-preserving refactor in src/melee/gm/gmtitle.c: extract the title/opening-VS state test into static inline bool isActiveTitle(), change fn_801A1498_inline from static inline to static, and call the helper in the animation start-frame branch. The ninja/symbol portion localized many gmtitle literals/constants, added local section labels, and split gmtitle BSS symbols. decomp.dev reported two new data matches for main/melee/gm/gmtitle: .bss and .sdata2.",
+  "summary": "Made `src/melee/gm/gmtitle.c` matching by a small control-flow/refactoring change, updated GALE01 symbol metadata for gmtitle-related local data/BSS splits, and changed `configure.py` to build `melee/gm/gmtitle.c` as `Matching` instead of `Equivalent`. The decomp.dev bot reported 2 new matches for `main/melee/gm/gmtitle`: `.bss` improved from 50.00% to 100.00% and `.sdata2` from 87.50% to 100.00%.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "fix",
       "tooling",
-      "symbol-map-maintenance",
-      "matching-status-promotion"
+      "symbol-map-update"
     ],
     "systems": [
-      "game-mode:gmtitle",
+      "game-mode",
       "title-screen",
-      "config/GALE01/symbols",
-      "build-config:configure.py"
+      "config",
+      "build-configuration"
     ]
   },
   "key_files": [
-    "src/melee/gm/gmtitle.c — added isActiveTitle(), changed fn_801A1498_inline storage/inlining, and replaced an inline boolean branch block with a helper call.",
-    "configure.py — changed Object(Equivalent, \"melee/gm/gmtitle.c\") to Object(Matching, \"melee/gm/gmtitle.c\").",
-    "config/GALE01/symbols.txt — ninja-applied symbol updates: local @NN labels for literals/constants, local ...data.0/...bss.0 labels, and a split of gmTitle BSS objects."
-  ],
-  "what_changed": [
-    "Added static inline bool isActiveTitle() for the condition gm_801A4310() == MJ_TITLE || (gm_801A4310() == MJ_OPENING_MV && gm_801A42C4() == MN_VS), returning false for that case and true otherwise.",
-    "Changed fn_801A1498_inline from static inline void to static void, while keeping the existing function name.",
-    "Replaced the local var_r0 assignment branch in fn_801A1498_inline with if (isActiveTitle() != 0), preserving the same choice between gmTitle_803DA4FC.start_frame and 130.0F for HSD_JObjReqAnimAll.",
-    "Promoted melee/gm/gmtitle.c in configure.py from Equivalent to Matching.",
-    "Reclassified gmtitle-related strings and constants in config/GALE01/symbols.txt from generic lbl_/gmTitle_ globals to local @NN symbols with scope:local across .rodata, .data, .sdata, and .sdata2.",
-    "Added local section labels ...data.0 at .data:0x803DA4F0 and ...bss.0 at .bss:0x80479B28.",
-    "Split gmTitle_80479B28 in .bss from one global 0xA0 object into gmTitle_80479B28 size 0x10 plus local gmTitle_80479B38 size 0x10 and gmTitle_80479B48 size 0x80.",
-    "decomp-dev[bot] reported linked code +3936 bytes, matched data +192 bytes, linked data +584 bytes, and two new matches for main/melee/gm/gmtitle."
-  ],
-  "smart_moves": [
-    "Used a minimal semantic-preserving helper extraction instead of rewriting title-screen behavior; this is a good way to tune MWCC inlining/control-flow output while keeping the logic readable.",
-    "Separated the matching source change from the symbol-map cleanup but committed both together, so the object could be marked Matching only after code and data layout were aligned.",
-    "Localized private literals/constants as @NN scope:local symbols instead of leaving them as misleading lbl_ or gmTitle_ globals.",
-    "Fixed BSS granularity by splitting a 0xA0 blob into exact smaller objects, which directly contributed to the .bss match going from 50.00% to 100.00% for gmtitle.",
-    "Kept the configure.py status update explicit and easy to audit: Equivalent to Matching for only melee/gm/gmtitle.c."
-  ],
-  "decomp_lessons": [
-    "An Equivalent object may need only a tiny codegen-focused refactor plus symbol metadata corrections before it can be promoted to Matching.",
-    "For MWCC matching, moving a condition into a static inline helper and changing the caller from static inline to static can be enough to alter emitted code without changing behavior.",
-    "When literals or constants are compiler-local, prefer @NN symbols with scope:local in symbols.txt over address-style global names.",
-    "Data matching can depend on BSS object boundaries; do not leave one large global BSS symbol if the source actually emits multiple adjacent local/static objects.",
-    "After a ninja apply or other symbol-tool pass, review scope, size, align, and section labels together because all of them can affect linked/matched data accounting."
-  ],
-  "naming_conventions": [
-    "Global title assets keep the gmTitle_ prefix, e.g. gmTitle_803DA4F0, gmTitle_803DA4FC, gmTitle_803DA508, and gmTitle_80479B28.",
-    "Local compiler-generated data labels in symbols.txt use @NNN names with scope:local, e.g. @156, @173, @239, @245 through @256, @335 through @338.",
-    "Local section labels use dotted names such as ...data.0 and ...bss.0.",
-    "The PR introduced the readable helper name isActiveTitle for the title/opening-VS predicate.",
-    "The diff evidence uses MJ_TITLE, MJ_OPENING_MV, and MN_VS enum-style names in the extracted condition."
-  ],
-  "assembly_or_matching_tactics": [
-    "Extracting the title-state predicate into isActiveTitle() is the main source-level matching tactic.",
-    "Changing fn_801A1498_inline from static inline to static likely targeted inlining/code-layout differences while preserving the call site behavior; the PR title and Matching promotion support that this was for match.",
-    "Replacing the explicit var_r0 true/false branch with a helper call simplified the visible C while matching the desired output.",
-    "Ninja-applied symbol changes converted many gmtitle data items to local @NN labels and added local section labels.",
-    "BSS split tactic: gmTitle_80479B28 0xA0 became 0x10 plus gmTitle_80479B38 0x10 plus gmTitle_80479B48 0x80, enabling the reported .bss 100% match.",
-    "configure.py should only be switched from Equivalent to Matching after the object and symbol map agree with the build/report."
-  ],
-  "review_feedback": [
-    "No human review comments or reviews were captured in the slice; the PR body was empty.",
-    "decomp-dev[bot] reported GALE01 progress: linked code 31.62% (+0.10%, +3936 bytes), matched data 34.58% (+0.02%, +192 bytes), and linked data 28.99% (+0.05%, +584 bytes).",
-    "Bot report listed 2 new matches for main/melee/gm/gmtitle: .bss +80 bytes from 50.00% to 100.00%, and .sdata2 +4 bytes from 87.50% to 100.00%."
-  ],
-  "searchable_terms": [
-    "pr-2223",
-    "PsiLupan",
-    "gmtitle",
-    "gmTitle",
-    "ninja apply",
     "src/melee/gm/gmtitle.c",
     "config/GALE01/symbols.txt",
-    "configure.py",
-    "MatchingFor",
-    "Object(Equivalent, \"melee/gm/gmtitle.c\")",
-    "Object(Matching, \"melee/gm/gmtitle.c\")",
+    "configure.py"
+  ],
+  "what_changed": [
+    "Added `static inline bool isActiveTitle()` in `gmtitle.c` to isolate the title/opening-movie mode condition that returns false for `MJ_TITLE` or for `MJ_OPENING_MV` with `MN_VS`.",
+    "Changed `fn_801A1498_inline` from `static inline void` to `static void` and replaced a local `bool var_r0` conditional block with `if (isActiveTitle() != 0)` before selecting the animation frame.",
+    "Updated `configure.py` so `Object(Equivalent, \"melee/gm/gmtitle.c\")` became `Object(Matching, \"melee/gm/gmtitle.c\")`.",
+    "Converted many gmtitle-adjacent symbols in `config/GALE01/symbols.txt` from generic `lbl_...` or global `gmTitle_...` entries into local `@NNN` symbols with explicit `scope:local` metadata.",
+    "Split `gmTitle_80479B28` BSS from one global 0xA0 object into a 0x10 global object plus local BSS symbols at `gmTitle_80479B38` size 0x10 and `gmTitle_80479B48` size 0x80, with an added local `...bss.0` label.",
+    "Added a local `...data.0` label at `.data:0x803DA4F0`."
+  ],
+  "smart_moves": [
+    "The matching fix was minimal: it avoided broad semantic rewrites and instead reshaped the compiler-visible control flow by extracting the mode check into a helper.",
+    "Preserved the original condition and observable behavior while changing how the compiler likely emitted the boolean path used before `HSD_JObjReqAnimAll`.",
+    "Updated symbol-map locality and object boundaries together with the source change, which helped the object move from equivalent to fully matching instead of leaving data sections partially unmatched.",
+    "Used the build configuration state (`Equivalent` to `Matching`) as the final proof point only after source and symbol metadata were adjusted."
+  ],
+  "decomp_lessons": [
+    "For small matching gaps, extracting a repeated or awkward condition into a `static inline bool` helper can alter codegen enough to match without changing behavior.",
+    "A file may remain only equivalent because of data/BSS symbol boundaries or symbol scope, not just because of function codegen.",
+    "When data in a TU becomes matching, revisit symbol-map entries: local compiler labels such as `@156`, `@173`, or `...bss.0` may be more accurate than exported-looking `gmTitle_...` or generic `lbl_...` names.",
+    "Splitting an oversized BSS object into the actual global portion plus adjacent locals can recover section matching.",
+    "After proving a TU is fully matching, remember to update `configure.py` from `Equivalent` to `Matching` so build/reporting status reflects the new state."
+  ],
+  "naming_conventions": [
+    "Use `gmTitle_` prefix for known global title-screen objects that are intentionally exposed in the symbol map.",
+    "Use local `@NNN` labels in `symbols.txt` for compiler-local strings and constants instead of preserving generic `lbl_...` names or incorrectly global `gmTitle_...` names.",
+    "Use section-local synthetic labels such as `...data.0` and `...bss.0` when needed to describe local labels at section/object boundaries.",
+    "The helper name `isActiveTitle` is descriptive for the extracted title-state predicate, but the PR provides no review discussion confirming it as a broader naming convention."
+  ],
+  "assembly_or_matching_tactics": [
+    "Extracted a compound condition into `static inline bool isActiveTitle()` and called it from `fn_801A1498_inline` to influence generated control flow.",
+    "Changed `fn_801A1498_inline` from inline to non-inline, likely to match the original function layout/codegen.",
+    "Replaced an explicit temporary `bool var_r0` assignment block with a direct helper call in the branch condition.",
+    "Adjusted symbol scopes from global/generic labels to local `@NNN` symbols across `.rodata`, `.data`, `.sdata`, and `.sdata2`.",
+    "Corrected BSS object sizing by splitting `gmTitle_80479B28` from size 0xA0 into size 0x10 plus neighboring local objects."
+  ],
+  "review_feedback": [
+    "No human review comments were present in the provided slice.",
+    "decomp.dev bot reported GALE01 progress: linked code +3936 bytes, matched data +192 bytes, linked data +584 bytes.",
+    "decomp.dev bot reported 2 new matches for `main/melee/gm/gmtitle`: `.bss` 50.00% to 100.00% and `.sdata2` 87.50% to 100.00%."
+  ],
+  "searchable_terms": [
+    "gmtitle",
+    "gmTitle",
     "isActiveTitle",
     "fn_801A1498_inline",
-    "gm_801A4310",
-    "gm_801A42C4",
+    "gmTitle_801A146C",
+    "gmTitle_803DA4FC",
+    "gmTitle_80479B28",
+    "gmTitle_80479B38",
+    "gmTitle_80479B48",
     "MJ_TITLE",
     "MJ_OPENING_MV",
     "MN_VS",
     "HSD_JObjReqAnimAll",
-    "gmTitle_803DA4F0",
-    "gmTitle_803DA4FC",
-    "gmTitle_803DA508",
-    "gmTitle_80479B28",
-    "gmTitle_80479B38",
-    "gmTitle_80479B48",
-    "...data.0",
+    "GObj_Create",
+    "HSD_GObjProc_8038FD54",
+    "configure.py Matching",
+    "Equivalent to Matching",
+    "symbols.txt",
+    "GALE01",
+    "local @ symbol",
     "...bss.0",
-    "@156",
-    "@157",
-    "@173",
-    "@193",
-    "@195",
-    "@218",
-    "@239",
-    "@240",
-    "@245",
-    "@246",
-    "@247",
-    "@248",
-    "@249",
-    "@250",
-    "@251",
-    "@252",
-    "@253",
-    "@254",
-    "@255",
-    "@256",
-    "@335",
-    "@336",
-    "@337",
-    "@338",
-    ".bss 50.00% to 100.00%",
-    ".sdata2 87.50% to 100.00%",
-    "linked code +3936",
-    "matched data +192",
-    "linked data +584"
+    "...data.0",
+    "BSS split",
+    "sdata2 match"
   ],
   "follow_up_queries": [
-    "Search for other Object(Equivalent, \"melee/gm/*.c\") entries where a small inline/helper refactor plus symbol cleanup could promote to Matching.",
-    "Search config/GALE01/symbols.txt for remaining gmTitle_ or lbl_ gmtitle literals that should be local @NN symbols.",
-    "Audit fn_801A1498_inline for the now-unused bool var_r0 declaration left visible in the diff after replacing the branch with isActiveTitle().",
-    "Look for later PRs touching isActiveTitle, fn_801A1498_inline, or gmTitle_80479B28/gmTitle_80479B38/gmTitle_80479B48 to see whether this matching tactic was refined."
+    "Find other PRs that changed an object from Equivalent to Matching in configure.py after only small control-flow helper extraction.",
+    "Search for BSS object splits in symbols.txt where one oversized global was replaced by a smaller global plus local symbols.",
+    "Search for gmtitle follow-up PRs involving `gmTitle_80479B38`, `gmTitle_80479B48`, or `isActiveTitle`.",
+    "Find other PRs where local `@NNN` symbol scope changes caused `.sdata2` or `.bss` to become 100% matched."
   ],
-  "confidence": 0.88
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

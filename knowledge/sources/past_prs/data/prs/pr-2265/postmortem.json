@@ -11,123 +11,111 @@
     "merged_at": "2026-03-10T21:16:45Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Small lbarchive cleanup/bugfix PR. It corrected variadic argument initialization in two lbArchive loaders, renamed the archive relocation routine from the address-style lbArchive_80017340 to lbArchiveRelocate across symbols/header/call sites, removed the standalone lbArchive_LoadSections implementation, and made a minor symbol_name shadowing cleanup. PR body and human review text were absent; intent is inferred from the title and diff. decomp.dev reported a GALE01 match regression because lbArchive_LoadSections disappeared from the lbarchive unit.",
+  "summary": "Small lbarchive cleanup/fix PR that renamed lbArchive_80017340 to the descriptive lbArchiveRelocate, updated fighter call sites and symbols.txt, removed an apparently redundant non-fatal lbArchive_LoadSections implementation, fixed va_start usage in two varargs archive-loading helpers, and cleaned up a shadowed local declaration in lbArchive_vLoadSectionsFatal.",
   "change_classification": {
-    "primary_type": "bugfix_cleanup",
+    "primary_type": "fix",
     "categories": [
-      "fix",
       "cleanup",
+      "decomp-matching",
+      "fix",
       "headers",
       "symbol-rename",
-      "decomp-matching",
       "varargs"
     ],
     "systems": [
-      "library/lbarchive",
-      "fighter/ftdata",
-      "config/GALE01-symbols"
+      "library",
+      "fighter",
+      "config"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/lb/lbarchive.c",
-      "role": "Corrected va_start anchors in lbArchive_80017040 and lbArchive_800171CC, removed lbArchive_LoadSections, cleaned symbol_name shadowing, and renamed lbArchive_80017340 to lbArchiveRelocate."
-    },
-    {
-      "path": "src/melee/lb/lbarchive.h",
-      "role": "Updated the exported prototype from lbArchive_80017340 to lbArchiveRelocate."
-    },
-    {
-      "path": "src/melee/ft/ftdata.c",
-      "role": "Updated ftData_80085CD8 and ftData_80085E50 call sites to use lbArchiveRelocate for relocated copied fighter archive data."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Renamed the symbol at .text:0x80017340, size 0x17C, from lbArchive_80017340 to lbArchiveRelocate."
-    }
-  ],
-  "what_changed": [
-    "Changed va_start(args, filename) to va_start(args, symbols) in lbArchive_80017040 and lbArchive_800171CC. Since symbols is the last fixed parameter before ..., this fixes the variadic list base.",
-    "Renamed lbArchive_80017340 to lbArchiveRelocate in lbarchive.c, lbarchive.h, config/GALE01/symbols.txt, and two ftdata.c call sites.",
-    "Deleted the standalone lbArchive_LoadSections implementation from lbarchive.c; no PR body explains the deletion.",
-    "Changed lbArchive_vLoadSectionsFatal to assign to the existing outer symbol_name variable instead of redeclaring const char* symbol_name inside the loop.",
-    "Kept the ftdata relocation call arguments unchanged, including the intptr_t base offset computed from the copied x59C buffer and original x59C source."
-  ],
-  "smart_moves": [
-    "The va_start fix is a high-value correctness change: using filename would not point at the first true variadic argument for these loaders, while symbols is the correct last named parameter.",
-    "The semantic rename lbArchiveRelocate documents the function's apparent purpose while preserving the exact address and size in symbols.txt.",
-    "Updating the symbol map, C definition, header prototype, and ftdata callers in one PR avoided a half-renamed public function.",
-    "The symbol_name shadowing cleanup reduces confusing duplicate declarations in a vararg helper without changing the lookup/reporting logic."
-  ],
-  "decomp_lessons": [
-    "For C variadic decomp functions, va_start must use the last named parameter before the ellipsis; otherwise vararg pairs such as void**/const char* can be read from the wrong slot.",
-    "When promoting an address-style name to a semantic name, update config symbols, declarations, definitions, and every cross-system caller together.",
-    "Deleting a matched function from a translation unit can show up as a decomp.dev broken match even if the source cleanup was intentional; document the rationale when match percentage drops.",
-    "Small scoping changes, such as removing an inner variable redeclaration, are worth tracking because they can affect both readability and codegen/matching in decomp work.",
-    "Archive relocation call sites that copy data into a new buffer should preserve the base_addr pointer-difference pattern shown in ftdata unless the relocation API is reverified."
-  ],
-  "naming_conventions": [
-    "Use module prefix plus behavior for known lbarchive routines: lbArchiveRelocate instead of lbArchive_80017340.",
-    "Retain numbered lbArchive_80017xxx names for functions whose behavior is not yet confidently named.",
-    "C symbol names and config/GALE01/symbols.txt names should match exactly when a function receives a real name."
-  ],
-  "assembly_or_matching_tactics": [
-    "The rename at .text:0x80017340 retained the same address and size: this was a symbol/name cleanup, not a code movement.",
-    "The va_start anchor is a source-level detail with ABI/runtime consequences; verify generated vararg access after changing variadic function signatures.",
-    "Removing the inner const char* declaration in lbArchive_vLoadSectionsFatal is a codegen-sensitive cleanup knob: same logical variable, narrower diff than rewriting the loop.",
-    "decomp.dev reported GALE01 matched code 55.87% (-0.01%, -240 bytes) with one broken match: main/melee/lb/lbarchive lbArchive_LoadSections went from 100.00% to 0.00%."
-  ],
-  "review_feedback": [
-    {
-      "type": "bot_match_report",
-      "author": "decomp-dev[bot]",
-      "comment_url": "https://github.com/doldecomp/melee/pull/2265#issuecomment-4034533914",
-      "note": "GALE01 report flagged matched code decrease of -240 bytes and one broken match for lbArchive_LoadSections."
-    },
-    {
-      "type": "human_review_absent",
-      "note": "The slice contains no PR body, reviews, or review comments, so there is no human reviewer rationale to extract."
-    }
-  ],
-  "searchable_terms": [
-    "pr-2265",
-    "lbarchive bug fix and cleanup",
-    "PsiLupan",
-    "lbArchiveRelocate",
-    "lbArchive_80017340",
-    "lbArchive_LoadSections",
-    "lbArchive_vLoadSectionsFatal",
-    "lbArchive_80017040",
-    "lbArchive_800171CC",
-    "lbArchive_InitializeDAT",
-    "ftData_80085CD8",
-    "ftData_80085E50",
-    "FigaTree",
-    "Fighter x59C",
-    "HSD_Archive",
-    "HSD_ArchiveGetPublicAddress",
-    "Locate",
-    "base_addr",
-    "reloc_info",
-    "intptr_t",
-    "va_start",
-    "va_list",
-    "symbols",
-    "filename",
-    "config/GALE01/symbols.txt",
     "src/melee/lb/lbarchive.c",
     "src/melee/lb/lbarchive.h",
     "src/melee/ft/ftdata.c",
-    "GALE01",
-    "decomp-dev bot",
-    "broken match",
-    "-240 bytes"
+    "config/GALE01/symbols.txt"
+  ],
+  "what_changed": [
+    "Renamed the global function at .text:0x80017340 from lbArchive_80017340 to lbArchiveRelocate in config/GALE01/symbols.txt.",
+    "Updated the function definition and declaration from lbArchive_80017340 to lbArchiveRelocate in src/melee/lb/lbarchive.c and src/melee/lb/lbarchive.h.",
+    "Updated two fighter data call sites in ftData_80085CD8 and ftData_80085E50 to call lbArchiveRelocate when relocating copied x59C archive data.",
+    "Removed the standalone lbArchive_LoadSections implementation from lbarchive.c, deleting code that iterated varargs symbol/name pairs and OSReported missing public symbols.",
+    "Changed lbArchive_vLoadSectionsFatal to reuse the existing symbol_name local instead of redeclaring a shadowing const char* inside the loop.",
+    "Fixed va_start in lbArchive_80017040 and lbArchive_800171CC from va_start(args, filename) to va_start(args, symbols), matching the last named parameter before the varargs."
+  ],
+  "smart_moves": [
+    "The rename lbArchiveRelocate captures the actual behavior shown by the function signature and call sites: it accepts an HSD_Archive, source bytes, file size, and base address, then relocates archive contents.",
+    "The PR updates the symbol table, header, implementation, and all known call sites together, avoiding a partial rename that would break build or symbol consistency.",
+    "The varargs fix uses the correct C convention: va_start must name the final fixed parameter, which is symbols for both affected functions, not filename.",
+    "Removing the unused or redundant lbArchive_LoadSections reduced duplicate symbol-loading logic and left the fatal varargs section loader as the remaining implementation in the excerpt.",
+    "The shadowed symbol_name cleanup in lbArchive_vLoadSectionsFatal preserves behavior while simplifying the local variable lifetime and avoiding misleading duplicate declarations."
+  ],
+  "decomp_lessons": [
+    "When decompiling varargs functions, verify va_start against the function signature rather than against the parameter that conceptually starts the operation; it must use the last named argument before ellipsis.",
+    "Descriptive names should be propagated across symbols.txt, headers, implementations, and every call site in one change to keep decomp metadata and C code aligned.",
+    "Archive helper names are stronger when they describe the operation, such as Relocate, rather than preserving address-based names after behavior is understood.",
+    "Removing duplicate helper implementations can improve maintainability, but the PR context does not include discussion proving whether lbArchive_LoadSections was unused, redundant, or intentionally folded into another helper.",
+    "Small cleanup changes like removing a shadowed variable can matter in matching/decomp work because they reduce ambiguity while keeping generated code behavior stable."
+  ],
+  "naming_conventions": [
+    "Address placeholder name lbArchive_80017340 was promoted to descriptive name lbArchiveRelocate.",
+    "The new name keeps the project’s subsystem prefix style: lbArchive + Operation.",
+    "Existing unknown functions lbArchive_80017040 and lbArchive_800171CC remained address-named, indicating only the understood relocation helper was renamed.",
+    "The symbol table entry uses the same public symbol spelling as the C function: lbArchiveRelocate."
+  ],
+  "assembly_or_matching_tactics": [
+    "Used a semantic rename without changing the function address, size, or symbol scope: .text:0x80017340 remained size 0x17C global.",
+    "Kept lbArchiveRelocate signature equivalent to the old function: HSD_Archive*, u8* src, size_t file_size, intptr_t base_addr.",
+    "The va_start corrections are source-level bug fixes that may also be necessary for correct generated code around varargs traversal.",
+    "The lbArchive_vLoadSectionsFatal local declaration change avoids inner-scope redeclaration while preserving the same va_arg-based symbol lookup flow."
+  ],
+  "review_feedback": [
+    "No review comments were present in the provided PR context.",
+    "No human PR body text was included in the provided excerpt, so intent beyond the title and diff is inferred from code changes."
+  ],
+  "searchable_terms": [
+    "pr-2265",
+    "PsiLupan",
+    "lbarchive bug fix and cleanup",
+    "lbArchiveRelocate",
+    "lbArchive_80017340",
+    "lbArchive_80017040",
+    "lbArchive_800171CC",
+    "lbArchive_vLoadSectionsFatal",
+    "lbArchive_LoadSections",
+    "lbArchive_InitializeDAT",
+    "HSD_Archive",
+    "HSD_ArchiveGetPublicAddress",
+    "OSReport",
+    "va_start",
+    "va_arg",
+    "varargs",
+    "symbols",
+    "filename",
+    "src/melee/lb/lbarchive.c",
+    "src/melee/lb/lbarchive.h",
+    "src/melee/ft/ftdata.c",
+    "config/GALE01/symbols.txt",
+    "ftData_80085CD8",
+    "ftData_80085E50",
+    "FigaTree",
+    "Fighter",
+    "x59C",
+    "relocate",
+    "archive relocation"
   ],
   "follow_up_queries": [
-    "Search later PRs for lbArchive_LoadSections to see whether the decomp.dev broken match was restored or intentionally accepted.",
-    "Audit other lbArchive or lbdvd variadic wrappers for va_start using a parameter other than the last fixed argument.",
-    "Check all references to lbArchive_80017340 and lbArchiveRelocate to ensure no stale numbered-name call sites remain.",
-    "Compare lbArchiveRelocate behavior against HSD archive relocation structures to confirm the semantic name and base_addr handling."
+    "Check whether lbArchive_LoadSections had external declarations or users before removal.",
+    "Audit nearby varargs archive helpers for additional va_start calls that might use the wrong final fixed parameter.",
+    "Investigate lbArchive_80017040 and lbArchive_800171CC behavior for possible descriptive names now that their varargs handling is clearer.",
+    "Review call sites of lbArchiveRelocate to confirm base_addr calculation patterns for copied archive data."
   ],
-  "confidence": 0.84
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

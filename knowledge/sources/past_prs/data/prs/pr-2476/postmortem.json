@@ -11,113 +11,142 @@
     "merged_at": "2026-05-10T04:57:16Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked several already-complete objects by updating build object status, compiler flags, GALE01 symbols/splits, and two small C source details. The automated decomp.dev report showed +2428 linked code bytes, +336 matched data bytes, +1288 linked data bytes, and 5 new matches, mostly for sysdolphin/baselib/psappsrt extab/extabindex/bss/sbss plus bytecode .data.",
+  "summary": "Linked several already-completed or near-completed objects by updating build status, section ownership, and symbol metadata. The PR promoted MSL/math_data.c, sysdolphin/baselib/psappsrt.c, hsd_3B27.c, and hsd_3B2B.c to Matching, added -Cpp_exceptions on for psappsrt and adjacent particle/psdisp objects, corrected psappsrt data declarations and symbol sizes/scopes, moved a .sdata2 range from hsd_40FF.c to hsd_3B34.c, split a bytecode/data blob into string labels, and fixed one float-vs-double literal in mnDiagram_ConvertDistanceForDisplay. The decomp.dev bot reported +2428 linked-code bytes, +336 matched-data bytes, +1288 linked-data bytes, and 5 new matches, especially psappsrt extab/extabindex/.bss/.sbss and bytecode .data.",
   "change_classification": {
-    "primary_type": "decomp-matching/object-linking",
+    "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
-      "object-linking",
-      "build-configuration",
+      "matching-status-update",
       "symbol-map-correction",
       "section-split-correction",
-      "data-matching"
+      "data-matching",
+      "compiler-flag-tuning"
     ],
     "systems": [
-      "GALE01 config",
-      "MSL",
+      "build-config",
+      "GALE01-symbols",
+      "GALE01-splits",
       "sysdolphin/baselib",
-      "sysdolphin/baselib/psappsrt",
-      "sysdolphin/baselib/bytecode",
-      "melee/mn"
+      "MSL",
+      "melee/menu"
     ]
   },
   "key_files": [
-    "configure.py",
-    "config/GALE01/symbols.txt",
-    "config/GALE01/splits.txt",
-    "src/sysdolphin/baselib/psappsrt.c",
-    "src/melee/mn/mndiagram.c"
+    {
+      "path": "configure.py",
+      "role": "Changed object status to Matching for MSL/math_data.c, sysdolphin/baselib/psappsrt.c, hsd_3B27.c, and hsd_3B2B.c; added -Cpp_exceptions on to particle.c, psdisp.c, and psappsrt.c entries."
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Adjusted extab/extabindex local labels, split HSD_ByteCode_804074F0 into individual string labels, corrected HSD_PSAppSrt_804D10B0 size, and made PSAppSrt .sdata2 constants local @151/@152."
+    },
+    {
+      "path": "config/GALE01/splits.txt",
+      "role": "Moved .sdata2 range 0x804DEB10-0x804DEC00 from sysdolphin/baselib/hsd_40FF.c to sysdolphin/baselib/hsd_3B34.c."
+    },
+    {
+      "path": "src/sysdolphin/baselib/psappsrt.c",
+      "role": "Changed HSD_PSAppSrt_804D7958 from extern to static, defined HSD_PSAppSrt_804D10B0 instead of declaring it extern, and reordered extern declarations."
+    },
+    {
+      "path": "src/melee/mn/mndiagram.c",
+      "role": "Changed 30.4788F to 30.4788 in mnDiagram_ConvertDistanceForDisplay so the expression uses a double literal after casting distance to f64."
+    }
   ],
   "what_changed": [
-    "Promoted Object entries from NonMatching to Matching for MSL/math_data.c, sysdolphin/baselib/psappsrt.c, sysdolphin/baselib/hsd_3B27.c, and sysdolphin/baselib/hsd_3B2B.c.",
-    "Added extra_cflags=[\"-Cpp_exceptions on\"] to sysdolphin/baselib/particle.c, psdisp.c, and psappsrt.c object declarations; particle.c and psdisp.c remained NonMatching, while psappsrt.c became Matching.",
-    "Changed psappsrt.c storage declarations so HSD_PSAppSrt_804D7958 is a static u16[4] definition and HSD_PSAppSrt_804D10B0 is a global HSD_ObjAllocData definition instead of extern declarations.",
-    "Adjusted GALE01 symbols for psappsrt-related data: extab/extabindex entries became numeric local labels, HSD_PSAppSrt_804D10B0 size changed from 0x30 to 0x2C, and HSD_PSAppSrt_804DEA68/804DEA6C became local @151/@152 sdata2 symbols.",
-    "Split the monolithic HSD_ByteCode_804074F0 data symbol into several lbl_804074F0-style data:string symbols.",
-    "Moved the .sdata2 range 0x804DEB10-0x804DEC00 in splits.txt from sysdolphin/baselib/hsd_40FF.c to sysdolphin/baselib/hsd_3B34.c.",
-    "Changed mnDiagram_ConvertDistanceForDisplay to divide by unsuffixed double literal 30.4788 instead of float literal 30.4788F."
+    "Marked MSL/math_data.c as Matching in configure.py.",
+    "Marked sysdolphin/baselib/psappsrt.c as Matching and compiled it with extra_cflags=[\"-Cpp_exceptions on\"].",
+    "Marked sysdolphin/baselib/hsd_3B27.c and hsd_3B2B.c as Matching.",
+    "Added -Cpp_exceptions on to particle.c and psdisp.c even though they remained NonMatching, matching the exception-table needs of the nearby baselib objects.",
+    "Moved ownership of .sdata2 start:0x804DEB10 end:0x804DEC00 from hsd_40FF.c to hsd_3B34.c in splits.txt.",
+    "Renamed several extab/extabindex placeholders from address-style names such as @etb_80005628 and @eti_8000584C to numeric local labels such as @141, @142, @153, and related labels.",
+    "Replaced one global HSD_ByteCode_804074F0 data object of size 0xA0 with multiple global string labels lbl_804074F0 through lbl_80407574.",
+    "Corrected HSD_PSAppSrt_804D10B0 symbol size from 0x30 to 0x2C in .bss.",
+    "Changed HSD_PSAppSrt_804DEA68 and HSD_PSAppSrt_804DEA6C from global named float symbols to local @151 and @152 .sdata2 symbols.",
+    "In psappsrt.c, made HSD_PSAppSrt_804D7958 a static u16 array and emitted HSD_PSAppSrt_804D10B0 as an actual HSD_ObjAllocData definition.",
+    "In mnDiagram_ConvertDistanceForDisplay, removed the F suffix from 30.4788F, making the divisor a double literal."
   ],
   "smart_moves": [
-    "Used build metadata and symbol ownership fixes to link completed objects without unnecessary source churn.",
-    "Enabled -Cpp_exceptions on the psappsrt/particle/psdisp area, which aligned with the bot-reported psappsrt extab and extabindex matches.",
-    "Corrected C storage class and definition-vs-extern status for psappsrt globals so the compiler emits the expected bss/sbss objects.",
-    "Treated padding and symbol size precisely: HSD_PSAppSrt_804D10B0 was recorded as 0x2C rather than absorbing the full 0x30 gap before the next bss symbol.",
-    "Broke bytecode .data into individual string symbols, which the bot report indicates completed the bytecode .data match."
+    "Used build-configuration flips only after pairing them with symbol/split fixes, avoiding a superficial NonMatching-to-Matching change that would leave data sections unlinked.",
+    "Matched exception-support metadata by enabling -Cpp_exceptions on psappsrt and nearby particle/psdisp objects, which aligns with the bot report showing psappsrt extab and extabindex became 100% matched.",
+    "Recognized that HSD_ByteCode_804074F0 was not best represented as one opaque 0xA0 blob and split it into individual string symbols, yielding the reported bytecode .data completion.",
+    "Corrected symbol scope for psappsrt small data constants from global HSD_PSAppSrt_* names to local numeric labels, reducing false exported-symbol assumptions.",
+    "Fixed a literal-width mismatch in mndiagram.c with a one-character source change, a common matching tactic when an f64 expression should not contain a float-suffixed constant.",
+    "Adjusted BSS declaration/ownership in psappsrt.c and symbols.txt together: defining HSD_PSAppSrt_804D10B0 in C and correcting its symbol size to 0x2C supported the reported .bss match."
   ],
   "decomp_lessons": [
-    "Object matching can be blocked by configure.py status, compiler flags, symbols.txt, or splits.txt even when the C body is effectively done.",
-    "For CodeWarrior-style baselib objects with exception metadata, -Cpp_exceptions on can be necessary for extab/extabindex section matching.",
-    "Use actual definitions, not extern declarations, for globals/static data that must be emitted by the object currently being matched.",
-    "Static scope in C should be reflected as local symbols in symbols.txt where appropriate; exporting local constants can prevent data matching.",
-    "Do not let symbol sizes include alignment padding unless the underlying object really owns those bytes.",
-    "In f64 arithmetic, a float-suffixed literal can change codegen/data versus an unsuffixed double literal."
+    "Before marking an object Matching, audit its split ownership, local-vs-global symbol scope, BSS sizes, and exception metadata; this PR required all of those.",
+    "Extab and extabindex completion can depend on per-object compiler flags such as -Cpp_exceptions on, not only on C source control flow.",
+    "If a data blob is almost matched but off by a small amount, inspect whether it is actually multiple strings or labels rather than one named object.",
+    "A source declaration changing from extern to a real definition can be the decisive step for linking BSS/SBSS data into the intended object.",
+    "Float suffixes matter: even when a value is cast through f64, a literal written as 30.4788F can produce different constants/code than 30.4788.",
+    "Splits.txt section ownership may need to move between adjacent baselib placeholder files as objects become linkable; do not assume historical section placement is final."
   ],
   "naming_conventions": [
-    "Compiler/local exception table entries may use numeric local labels such as @141, @142, @153, and @154 instead of address-derived @etb_... or @eti_... names.",
-    "Local sdata2 constants can be represented as numeric @ labels with scope:local, as with @151 and @152 replacing HSD_PSAppSrt_804DEA68 and HSD_PSAppSrt_804DEA6C.",
-    "Unknown address-based string data can be represented as lbl_8040.... data:string symbols rather than a single semantic global object name.",
-    "HSD_PSAppSrt_804D10B0 remains a global HSD-style object name, while HSD_PSAppSrt_804D7958 is static in the C source despite its HSD-style name."
+    "Local generated labels may be represented as numeric @NNN symbols in symbols.txt when no meaningful global symbol name is warranted.",
+    "Address-style placeholder names such as @etb_80005628 and @eti_8000584C can be replaced by numeric local labels when matching recovered local exception metadata.",
+    "Use lbl_8040xxxx labels for anonymous data/string labels when a previous named object like HSD_ByteCode_804074F0 is too coarse.",
+    "Keep HSD_* names for real global baselib symbols such as HSD_PSAppSrt_804D10B0, but demote constants to local @ labels when evidence shows they are not global."
   ],
   "assembly_or_matching_tactics": [
-    "After symbol/split/flag corrections, switch completed objects from Object(NonMatching, ...) to Object(Matching, ...).",
-    "Use -Cpp_exceptions on when matching objects whose extab/extabindex output must be linked.",
-    "Fix section ownership in config/GALE01/splits.txt before promoting objects that depend on that section range.",
-    "Split large anonymous data blobs into smaller typed string symbols when evidence shows the data is a sequence of strings.",
-    "For f64 casts/divisions, test whether constants need to be unsuffixed doubles instead of float-suffixed literals."
+    "Enable -Cpp_exceptions on objects whose extab/extabindex sections need to be emitted and linked correctly.",
+    "Promote objects in configure.py from NonMatching to Matching only after confirming code and data sections match.",
+    "Use precise literal typing to influence generated floating-point constants: 30.4788F and 30.4788 are not interchangeable in f64 math.",
+    "Represent BSS objects with the correct C storage duration: static for file-local arrays, non-extern definitions for data owned by the object.",
+    "Fix section assignment in splits.txt when a matched object pulls a section range that was previously attributed to a neighboring incomplete unit."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the PR slice.",
-    "Automated decomp.dev report for GALE01 f3b89a0 -> 8563b26: linked code 38.81% (+0.06%, +2428 bytes), matched data 38.80% (+0.03%, +336 bytes), linked data 33.14% (+0.11%, +1288 bytes).",
-    "Automated report listed 5 new matches: psappsrt extabindex +72, psappsrt .bss +48, psappsrt extab +48, psappsrt .sbss +8, and bytecode .data +2."
+    "No human review comments were present in the slice.",
+    "The decomp.dev bot reported GALE01 progress from f3b89a0 to 8563b26: linked code 38.81% (+0.06%, +2428 bytes), matched data 38.80% (+0.03%, +336 bytes), and linked data 33.14% (+0.11%, +1288 bytes).",
+    "The bot listed 5 new matches: psappsrt extabindex +72, psappsrt .bss +48, psappsrt extab +48, psappsrt .sbss +8, and bytecode .data +2."
   ],
   "searchable_terms": [
     "pr-2476",
     "link misc completed objects",
     "r-burns",
     "configure.py",
-    "config/GALE01/symbols.txt",
-    "config/GALE01/splits.txt",
+    "MatchingFor",
+    "Object(Matching)",
     "MSL/math_data.c",
     "sysdolphin/baselib/psappsrt.c",
-    "sysdolphin/baselib/particle.c",
-    "sysdolphin/baselib/psdisp.c",
     "sysdolphin/baselib/hsd_3B27.c",
     "sysdolphin/baselib/hsd_3B2B.c",
-    "sysdolphin/baselib/hsd_3B34.c",
-    "sysdolphin/baselib/hsd_40FF.c",
     "-Cpp_exceptions on",
+    "config/GALE01/symbols.txt",
+    "config/GALE01/splits.txt",
     "extab",
     "extabindex",
-    "HSD_PSAppSrt_804D7958",
-    "HSD_PSAppSrt_804D10B0",
-    "HSD_PSAppSrt_804DEA68",
-    "HSD_PSAppSrt_804DEA6C",
-    "@141",
-    "@142",
-    "@151",
-    "@152",
     "HSD_ByteCode_804074F0",
     "lbl_804074F0",
+    "HSD_PSAppSrt_804D10B0",
+    "HSD_PSAppSrt_804D7958",
+    "HSD_PSAppSrt_804DEA68",
+    "HSD_PSAppSrt_804DEA6C",
+    "@151",
+    "@152",
     "mnDiagram_ConvertDistanceForDisplay",
     "30.4788F",
-    "30.4788"
+    "30.4788",
+    "hsd_3B34.c",
+    "hsd_40FF.c",
+    ".sdata2",
+    ".bss",
+    ".sbss",
+    "bytecode .data"
   ],
   "follow_up_queries": [
-    "Find remaining NonMatching baselib objects that may need -Cpp_exceptions on for extab/extabindex output.",
-    "Audit HSD_ObjAllocData symbols for sizes that incorrectly include alignment padding.",
-    "Search for monolithic bytecode or string data symbols that could be split into lbl_8040.... data:string entries.",
-    "Search for f64 calculations using float-suffixed literals that may need unsuffixed double constants.",
-    "Verify nearby sysdolphin/baselib .sdata2 ranges in splits.txt are assigned to the object that actually owns them."
+    "Find other NonMatching sysdolphin/baselib objects with extab/extabindex gaps that may need -Cpp_exceptions on.",
+    "Search for remaining HSD_ByteCode_* or large anonymous data blobs that should be split into string labels.",
+    "Audit HSD_PSAppSrt symbols for remaining incorrect global/local scope or BSS size assumptions.",
+    "Search for f64 expressions that divide by float-suffixed literals and compare against expected assembly.",
+    "Check neighboring hsd_3B2E, hsd_3A94, and hsd_40FF split ownership after hsd_3B27/hsd_3B2B/hsd_3B34 progress."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

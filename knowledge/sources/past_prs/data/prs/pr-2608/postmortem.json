@@ -1,0 +1,128 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2608",
+  "pr": {
+    "number": 2608,
+    "title": "match and link math.c",
+    "url": "https://github.com/doldecomp/melee/pull/2608",
+    "state": "MERGED",
+    "author": "lukechampine",
+    "created_at": "2026-06-07T16:43:08Z",
+    "merged_at": "2026-06-07T17:13:53Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Matched and linked MSL/math.c by converting it from NonMatching to Matching in configure.py and making targeted codegen/data-layout changes in logf and related constants. The final fix centered on placing logf constants and float special values in math.c/.sdata2, adjusting union field order, inlining polynomial temporaries, adding explicit float casts for E, and removing obsolete coefficient globals from math_data.c. The PR body notes that the remaining mismatch required \"a bit of inlining\" after automated attempts failed.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "linking",
+      "MSL-library",
+      "floating-point",
+      "data-layout"
+    ],
+    "systems": [
+      "MSL",
+      "math",
+      "build-configuration"
+    ]
+  },
+  "key_files": [
+    "configure.py",
+    "src/MSL/math.c",
+    "src/MSL/math_data.c"
+  ],
+  "what_changed": [
+    "Changed configure.py so Object(\"MSL/math.c\") is built as Matching instead of NonMatching.",
+    "Reworked src/MSL/math.c constants: replaced runtime float_nan and float_inf expressions with SECTION_SDATA2 globals, including MSL_Math_804DE1B0, MSL_Math_804DE1B4, __float_nan, and __float_huge.",
+    "Added a SECTION_SDATA2 macro gated on __MWERKS__ and not M2CTX to force selected globals into .sdata2 for the target compiler while keeping non-Metrowerks tooling compatible.",
+    "Changed FloatU32 union member order from float/u32 to u32/float, allowing initializers such as { 0x7FFFFFFF } and { 0x7F800000 } to define special float bit patterns.",
+    "Moved logf Taylor coefficient bit-pattern storage out of math_data.c and into math.c as named MSL_Math_804DE1B0 and MSL_Math_804DE1B4 globals.",
+    "Simplified and reshaped logf codegen: switched directly on (*(u32*) &x & EXP_MASK), introduced raw_fm/raw_fM declarations in the outer normal-case block, used register float temporaries for H and h2_poly, inlined the polynomial expression, and explicitly cast E to float in LN2 multiplication.",
+    "Changed exceptional logf returns to use __float_nan.f and __float_huge.f instead of float_nan and float_inf.",
+    "Removed an old explanatory nonmatching assembly note about array base-pointer generation for __one_over_F and __ln_F, implying that the previous mismatch was resolved."
+  ],
+  "smart_moves": [
+    "Used compiler/translation-unit data placement control instead of algorithmic changes: SECTION_SDATA2 preserved target layout for constants while avoiding disruption to M2CTX and non-Metrowerks builds.",
+    "Kept lookup tables in math_data.c but moved scalar coefficients into math.c, balancing the existing need to prevent compiler table coalescing with the need for matching scalar global loads.",
+    "Represented NaN and infinity through exact u32 bit patterns in a union rather than relying on platform-dependent expressions like 0.0 / 0.0 or overflowing constants.",
+    "Adjusted expression shape and temporary lifetimes in logf rather than changing the math, using inlining and register hints to steer instruction selection and scheduling.",
+    "Removed obsolete debug/nonmatching notes after the object became matching, keeping the source cleaner and more searchable for future work."
+  ],
+  "decomp_lessons": [
+    "For MSL floating-point code, exact constant placement and representation can be as important as numeric equivalence; use bit-pattern globals when target code loads constants as raw words.",
+    "When matching Metrowerks output, small C source changes such as union member order, temporary scope, explicit casts, and inlining can affect register allocation and instruction ordering enough to close final diffs.",
+    "Guard Metrowerks-specific attributes with M2CTX-aware preprocessor checks so headers/source remain usable by analysis tooling.",
+    "Separating large lookup tables into a different compilation unit can prevent unwanted compiler coalescing, but scalar constants may still need to live in the function's compilation unit to match target loads.",
+    "If an automated decomp attempt stalls on a final mismatch, inspect whether expression inlining or temporary elimination better matches the original compiler's emitted code."
+  ],
+  "naming_conventions": [
+    "Generated or address-derived MSL globals used the form MSL_Math_804DE1B0 and MSL_Math_804DE1B4.",
+    "Internal MSL special float constants used double-underscore names: __float_nan and __float_huge.",
+    "Existing lookup table naming remained double-underscore plus descriptive suffix, such as __ln_F, __one_over_F, __sincos_on_quadrant, and __sincos_poly.",
+    "Bit-cast helper and exponent/mantissa macros remained all-caps, e.g. F32_BIT_CAST, F32_UNBIASED_EXPONENT, F32_HIGH_MANTISSA_BITS, and F32_LOW_MANTISSA_BITS."
+  ],
+  "assembly_or_matching_tactics": [
+    "Changed MSL/math.c from NonMatching to Matching only after source-level codegen changes were sufficient.",
+    "Used __declspec(section \".sdata2\") under __MWERKS__ to force constants into the small-data float constant section.",
+    "Used u32 bit-pattern constants plus FloatU32 reinterpretation to produce exact special float values without relying on host/platform floating behavior.",
+    "Inlined the logf polynomial calculation as H * H * (H * *(float*) &coef[1] + *(float*) &coef[0]) instead of keeping separate C1, C0, new_var, and poly temporaries.",
+    "Added register float declarations for H and h2_poly to influence allocation/codegen in the hot logf normal path.",
+    "Applied explicit (float) E casts in LN2 multiplication to match expected floating-point conversion/codegen."
+  ],
+  "review_feedback": [
+    "No review comments were present in the provided PR slice.",
+    "The PR body states that Codex ran for over an hour but did not solve the final mismatch; the author reports the final fix was a small amount of inlining."
+  ],
+  "searchable_terms": [
+    "PR2608",
+    "match and link math.c",
+    "MSL/math.c",
+    "MSL/math_data.c",
+    "configure.py",
+    "MatchingFor",
+    "Object Matching MSL/math.c",
+    "logf",
+    "FloatU32",
+    "F32_BIT_CAST",
+    "F32_UNBIASED_EXPONENT",
+    "F32_HIGH_MANTISSA_BITS",
+    "F32_LOW_MANTISSA_BITS",
+    "SECTION_SDATA2",
+    "__declspec section .sdata2",
+    "__MWERKS__",
+    "M2CTX",
+    "MSL_Math_804DE1B0",
+    "MSL_Math_804DE1B4",
+    "__float_nan",
+    "__float_huge",
+    "__ln_F",
+    "__one_over_F",
+    "__sincos_on_quadrant",
+    "__sincos_poly",
+    "__logf_C0_bits",
+    "__logf_C1_bits",
+    "EXP_MASK",
+    "MANT_MASK",
+    "SIGN_BIT",
+    "LN2",
+    "inlining",
+    "bit pattern constants",
+    "sdata2 constants"
+  ],
+  "follow_up_queries": [
+    "Find other MSL objects still using platform-dependent NaN or infinity expressions instead of exact bit-pattern constants.",
+    "Search for remaining NonMatching MSL source files in configure.py that may need similar .sdata2 or inlining tactics.",
+    "Audit M2CTX guards around __declspec(section \".sdata2\") to ensure analysis tooling compatibility is preserved.",
+    "Compare uses of scalar coefficient globals in math/trig sources to see whether they should live with the consuming function or in a separate data compilation unit."
+  ],
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

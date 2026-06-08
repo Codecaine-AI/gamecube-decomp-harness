@@ -11,93 +11,105 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed-unmerged tooling PR that tried to add generated Ninja targets for formatting changed C/C++ lines. It added `tools/format.py` as a Python wrapper around `git clang-format`, emitted `format` and `format-check` targets from `tools/project.py`, and updated contributing docs to recommend `ninja format` / `ninja format-check`. The main review objection was that this did not satisfy the likely intent of issue #1543: Ninja should format individual files so it can track dirty inputs efficiently; wrapping the whole `git-clang-format` operation in one target provides little utility compared with the existing pre-commit hook setup.",
+  "summary": "Proposed adding generated Ninja targets `format` and `format-check` that invoke a new `tools/format.py` wrapper around `git clang-format`, plus a CONTRIBUTING.md update directing contributors to those targets. The PR was closed unmerged after feedback questioned the utility of wrapping the entire formatting operation in Python instead of using Ninja to track per-file formatting work or documenting the existing pre-commit setup.",
   "change_classification": {
     "primary_type": "tooling",
     "categories": [
+      "tooling",
+      "developer-workflow",
       "formatting",
-      "build-system",
       "documentation",
       "closed-unmerged"
     ],
     "systems": [
-      "ninja",
-      "tools/project.py",
-      "clang-format",
-      "contributing-docs"
+      "build-system",
+      "ninja-generation",
+      "formatting-tools",
+      "docs"
     ]
   },
   "key_files": [
-    "tools/format.py",
-    "tools/project.py",
     ".github/CONTRIBUTING.md",
-    ".pre-commit-config.yaml"
+    "tools/format.py",
+    "tools/project.py"
   ],
   "what_changed": [
-    "Added new `tools/format.py` script with an argparse CLI for `base`, `--check`, and `--clang-format`.",
-    "The script finds the git worktree root with `git rev-parse --show-toplevel`, checks for `clang-format` and `git-clang-format`, then runs `git clang-format --binary <clang-format>`.",
-    "`--check` mode adds `--diff` and returns failure when the produced stdout contains `diff --git`, so formatting differences fail the Ninja target without modifying files.",
-    "Updated `tools/project.py` to emit Ninja rules `clang_format` and `clang_format_check`, and build targets `format` and `format-check` with implicit dependencies on `tools/format.py` and `.clang-format`.",
-    "Updated `.github/CONTRIBUTING.md` to replace direct `git clang-format` instructions with `ninja format` and `ninja format-check` after project configuration.",
-    "Author validation included `python3 -m py_compile tools/format.py tools/project.py configure.py`, `python3 configure.py`, `git diff --check`, direct script runs, `ninja -t targets`, `ninja format-check`, and `ninja format`."
+    "Added a new `tools/format.py` script that runs `git clang-format` from the Git worktree root.",
+    "The script accepted an optional base revision, `--check`, and `--clang-format` arguments.",
+    "The script checked for missing `clang-format` and `git-clang-format` executables and printed direct errors rather than tracebacks.",
+    "For check mode, the wrapper passed `--diff` to `git clang-format` and returned failure if stdout contained a `diff --git` block.",
+    "Updated `tools/project.py` to emit Ninja rules named `clang_format` and `clang_format_check` using `$python tools/format.py` and `$python tools/format.py --check`.",
+    "Updated `tools/project.py` to emit phony-like build outputs `format` and `format-check` with implicit dependencies on `tools/format.py` and `.clang-format`.",
+    "Changed CONTRIBUTING.md auto-formatting guidance from using `git clang-format` on staged files to running `ninja format` or `ninja format-check` after configuring the project."
   ],
   "smart_moves": [
-    "Kept formatting scoped to changed C/C++ lines by reusing `git clang-format` instead of reformatting the whole repository.",
-    "Added a non-mutating `format-check` path suitable for CI or local validation.",
-    "Checked missing `clang-format`, missing `git-clang-format`, and outside-worktree failure cases to print direct errors instead of Python tracebacks.",
-    "Made `.clang-format` and the formatting script implicit dependencies of the Ninja targets, so generated build files at least know those target definitions depend on formatting config and wrapper code."
+    "Preserved the repository's existing changed-line formatting behavior by delegating to `git clang-format` instead of attempting a whole-repository format.",
+    "Included `format-check` as a non-mutating workflow suitable for local validation or CI-style checks.",
+    "Made the Ninja targets depend implicitly on the wrapper script and `.clang-format`, so generated build metadata could notice changes to formatting configuration.",
+    "Validated both direct script use and generated Ninja targets locally, including missing-tool and outside-worktree error paths."
   ],
   "decomp_lessons": [
-    "Formatting tooling in a decomp repository should avoid large unrelated whitespace churn; changed-line formatting is desirable for reviewability.",
-    "If the goal is a Ninja formatting target, wrapping one global `git-clang-format` command may not be enough: Ninja's strength is tracking file-level dirty inputs and running per-file commands incrementally.",
-    "Before adding new build targets, verify the target matches the motivating issue's workflow model; here the reviewer said issue #1543 was about per-file `clang-format` tracking, not just exposing `git-clang-format` through Ninja.",
-    "When an existing pre-commit hook already covers the workflow, a docs/dependency update may be a better fit than adding new build-system machinery."
+    "For decomp projects, formatting automation should avoid reformatting large unmatched or legacy areas; changed-line workflows reduce noisy diffs.",
+    "However, a Ninja target that shells out to a global `git clang-format` operation may not take advantage of Ninja's incremental dependency tracking.",
+    "When adding developer workflow tooling, consider whether the build system is the right integration point or whether existing hooks such as pre-commit already solve the workflow better.",
+    "Documentation changes that redirect contributor behavior should match the accepted tooling strategy; this PR's doc update became questionable once the implementation approach was challenged."
   ],
   "naming_conventions": [
-    "Public Ninja targets used hyphenated names: `format` and `format-check`.",
-    "Internal Ninja rule names used snake_case: `clang_format` and `clang_format_check`.",
-    "The wrapper script was named generically as `tools/format.py` and described its operation as formatting changed C/C++ lines using `git clang-format`.",
-    "CLI option names followed conventional long-form flags: `--check` and `--clang-format`."
+    "Used user-facing Ninja target names `format` and `format-check`.",
+    "Used internal Ninja rule names `clang_format` and `clang_format_check`.",
+    "Used Python helper names `git_root` and `run_git_clang_format`, which directly describe their wrapper responsibilities.",
+    "Kept the wrapper script under `tools/format.py`, consistent with project tooling placement."
   ],
   "assembly_or_matching_tactics": [
-    "No assembly-specific matching tactic was introduced.",
-    "Indirect matching hygiene lesson: use changed-line formatting to keep decomp diffs focused and avoid formatting churn obscuring code-matching work."
+    "No assembly or code-matching tactics were involved; this PR was limited to formatting workflow/tooling."
   ],
   "review_feedback": [
-    "ribbanya said they did not see the utility of this implementation.",
-    "Reviewer interpretation of #1543: the desired implementation was to run each file through `clang-format` individually so Ninja can track dirty files and format efficiently.",
-    "Reviewer argued that outsourcing the entire format operation to `git-clang-format` through Python was less compelling than a commit hook.",
-    "Reviewer noted a pre-commit setup already exists in `.pre-commit-config.yaml` and suggested documenting pre-commit installation and possibly adding it to `requirements.in`."
+    {
+      "author": "ribbanya",
+      "feedback": "Questioned the utility of the implementation because issue #1543 was intended to run each file through `clang-format` individually so Ninja can track dirty files and format efficiently."
+    },
+    {
+      "author": "ribbanya",
+      "feedback": "Argued that outsourcing the whole formatting operation to `git-clang-format` through a Python script was less compelling than a commit hook."
+    },
+    {
+      "author": "ribbanya",
+      "feedback": "Pointed out that pre-commit was already set up through `.pre-commit-config.yaml` and suggested documenting pre-commit setup and possibly adding it to `requirements.in`."
+    }
   ],
   "searchable_terms": [
-    "PR 2451",
-    "Add ninja format targets",
     "ninja format",
     "ninja format-check",
-    "format-check",
-    "clang_format",
-    "clang_format_check",
-    "tools/format.py",
-    "tools/project.py",
-    ".github/CONTRIBUTING.md",
-    ".clang-format",
     "git clang-format",
-    "git-clang-format",
     "clang-format",
-    "changed C/C++ lines",
-    "build.ninja",
+    "format.py",
+    "tools/project.py",
+    "CONTRIBUTING.md",
     "pre-commit",
     ".pre-commit-config.yaml",
     "requirements.in",
-    "issue #1543",
-    "no modified files to format",
-    "not inside a git worktree"
+    "changed-line formatting",
+    "formatting workflow",
+    "Ninja targets",
+    "clang_format",
+    "clang_format_check",
+    "dirty files",
+    "closed unmerged",
+    "issue 1543"
   ],
   "follow_up_queries": [
-    "Find later PRs that resolved or revisited issue #1543.",
-    "Search for later changes adding `format` or `format-check` targets to `tools/project.py`.",
-    "Search for PRs documenting pre-commit installation or adding pre-commit to `requirements.in`.",
-    "Check whether `.pre-commit-config.yaml` became the preferred clang-format workflow after this PR closed."
+    "Find later PRs that implement per-file Ninja clang-format tracking.",
+    "Find PRs that document or require pre-commit setup for formatting.",
+    "Search for changes to `.pre-commit-config.yaml` or `requirements.in` after PR #2451.",
+    "Check whether issue #1543 was later closed by a different formatting workflow implementation."
   ],
-  "confidence": 0.94
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,7 +11,7 @@
     "merged_at": "2026-03-20T00:27:15Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Stage decomp PR for Ice Mountain and Kongo Jungle. It renamed/exposed the Ice Mountain helper as `grIceMt_801F91EC`, fixed its header prototype, used zero animation offsets in its `grAnime_801C7A04` calls, and implemented `grKongo_801D8078` as an item proximity scan over `HSD_GObj_Entities->items`. The automated match report recorded `grIceMt_801F91EC` as a new 100% match and `grKongo_801D8078` as improved to 98.43%, with `gricemt` `.sdata2` also improved.",
+  "summary": "Decompiled stage-related functions in Ice Mountain and Kongo Jungle. `grIceMt_801F91EC` was promoted from an unidentified/static `FUN_801f91ec` stub to a named exported function with a concrete header prototype, matching 100% according to the report. `grKongo_801D8078` was implemented as an item scan that finds a nearby item of kind `0xDA` relative to a stage-derived position, improving that unmatched item to 98.43%. The PR body excerpt appears unrelated to this PR title/diff, so the reliable evidence is primarily the diff and automated match report.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -19,115 +19,123 @@
       "headers",
       "naming",
       "stage-logic",
-      "item-scan"
+      "item-interaction"
     ],
     "systems": [
       "stage",
       "ground",
-      "Ice Mountain",
-      "Kongo Jungle",
       "items",
-      "mpLib"
+      "animation",
+      "collision-callbacks"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/gricemt.c",
-      "role": "Renamed `FUN_801f91ec` to `grIceMt_801F91EC`, removed the nonmatching marker, and changed the `grAnime_801C7A04` fourth argument from `-20` to `0`."
+      "reason": "Renamed and implemented `grIceMt_801F91EC`; adjusted animation call arguments from `-20` to `0` for matching."
     },
     {
       "path": "src/melee/gr/gricemt.h",
-      "role": "Replaced the old `UNK_RET grIceMt_801F91EC(HSD_GObj*)` declaration with the full `void` signature using an `s16*` state block, integer parameters, and `mpLib_Callback`."
+      "reason": "Replaced incorrect/unknown one-argument `UNK_RET grIceMt_801F91EC(HSD_GObj*)` declaration with the full eight-argument `void` prototype including `s16*` and `mpLib_Callback`."
     },
     {
       "path": "src/melee/gr/grkongo.c",
-      "role": "Added `it/it_26B1.h` and implemented `grKongo_801D8078` to find a nearby item of kind `0xDA` using item positions and a squared-radius check."
+      "reason": "Added include for item helpers and implemented `grKongo_801D8078` by scanning active item GObjs and checking distance against a stage parameter radius."
     }
   ],
   "what_changed": [
-    "`grIceMt_801F91EC` became the actual named function instead of the static placeholder `FUN_801f91ec`.",
-    "The Ice Mountain helper writes a seven-slot `s16` state/parameter block, starts animation `param_3`, optionally starts animation `param_4` when it is not `-1`, and installs a joint callback via `mpJointSetCb1(param_5, gp, param_8)`.",
-    "The two Ice Mountain animation calls now pass `0` as the fourth argument to `grAnime_801C7A04` instead of `-20`, which the match report correlated with improved `gricemt` matching and `.sdata2` progress.",
-    "`gricemt.h` now has the full prototype for `grIceMt_801F91EC`: `void grIceMt_801F91EC(HSD_GObj*, s16*, int, int, int, int, int, mpLib_Callback)`.",
-    "`grKongo_801D8078` now calls `Ground_801C4DA0(&pos, &unk)`, iterates `HSD_GObj_Entities->items`, filters by `itGetKind(cur) == 0xDA`, reads item position with `it_8026B294`, and returns the first item whose squared distance from `pos` is less than `grKg_804D6980->unk28 * grKg_804D6980->unk28`.",
-    "The Kongo implementation returns `NULL` if no qualifying nearby item is found.",
-    "The PR touched 3 files with 43 additions and 12 deletions."
+    "`FUN_801f91ec` in `gricemt.c` was renamed/exported as `grIceMt_801F91EC` and no longer left behind as a `/// #grIceMt_801F91EC` undecompiled marker.",
+    "`grIceMt_801F91EC` writes a sequence of parameters into a `s16*` buffer, calls `grAnime_801C7A04` for one or two animation indices, and registers a ground joint callback through `mpJointSetCb1(param_5, gp, param_8)`.",
+    "The Ice Mountain animation helper calls changed their fourth argument from `-20` to `0`, which the match report indicates was part of reaching a 100% match for `grIceMt_801F91EC`.",
+    "`gricemt.h` now exposes the actual signature for `grIceMt_801F91EC`: `void grIceMt_801F91EC(HSD_GObj*, s16*, int, int, int, int, int, mpLib_Callback)`.",
+    "`grkongo.c` now includes `it/it_26B1.h`, enabling calls such as `itGetKind` and `it_8026B294` in the decompiled Kongo function.",
+    "`grKongo_801D8078` now calls `Ground_801C4DA0(&pos, &unk)`, iterates `HSD_GObj_Entities->items`, filters items with kind `0xDA`, gets each item position, computes squared 3D distance, compares it to `grKg_804D6980->unk28 * grKg_804D6980->unk28`, and returns the first matching item GObj or `NULL`."
   ],
   "smart_moves": [
-    "Promoted the known address-named Ice Mountain symbol into the C definition and header instead of leaving a lowercase `FUN_` placeholder and an `UNK_RET` prototype.",
-    "Kept the Ice Mountain helper signature typed enough to document cross-system behavior: `HSD_GObj*`, `s16*`, integer animation/joint/timing values, and `mpLib_Callback`.",
-    "Used the existing item helpers `itGetKind` and `it_8026B294` rather than reaching into item internals to identify and locate Kongo items.",
-    "Used a squared-distance comparison against `r * r`, avoiding a square root and matching the likely original float operation pattern.",
-    "Preserved the optional-animation sentinel `param_4 != -1`, which is a reusable pattern for helper functions that may configure one or two stage animation tracks."
+    "Used squared-distance comparison in `grKongo_801D8078` instead of a square root, matching typical game-code proximity checks and likely preserving instruction shape.",
+    "Pulled the Kongo radius value from `grKg_804D6980->unk28` into a local `r` before comparing `dx2 + dy2 + dz2 < r * r`, which keeps the expression clear and compatible with decomp matching constraints.",
+    "Separated position deltas and squared components into explicit locals (`dx`, `dy`, `dz`, `dx2`, `dy2`, `dz2`, `r`), a common tactic when matching compiler register/local allocation in decompilation.",
+    "Promoted `grIceMt_801F91EC` to a correctly named and externally declared function rather than leaving a local `FUN_` symbol, improving cross-file consistency and searchability.",
+    "Fixed the Ice Mountain header prototype at the same time as the implementation, avoiding stale `UNK_RET`/wrong-arity declarations that can mislead later decomp work."
   ],
   "decomp_lessons": [
-    "When the PR body conflicts with the title and diff, prefer the title, changed files, and match report; this PR body appears copied from unrelated `mnname.c`/`toy.c` work.",
-    "Fixing a single literal in animation setup can affect both function matching and `.sdata2` matching; here `-20` to `0` was part of the Ice Mountain match improvement.",
-    "Stage headers should be updated as soon as a real signature is known; replacing `UNK_RET` and one-argument placeholders makes later call-site and callback decomp cleaner.",
-    "Item-search stage helpers often decompile as: get a stage/world position, scan `HSD_GObj_Entities->items`, filter by item kind, fetch item position, then compare squared distance.",
-    "Do not mark a function as fully solved just because it has a plausible C body; the automated report still listed `grKongo_801D8078` at 98.43%, so later work should look for the remaining mismatch."
+    "When a function takes many untyped integer parameters, even a mostly parameter-name-only implementation can still be valuable if the call sequence, stores, and callback registration match; do not over-infer semantics without stronger evidence.",
+    "Header updates are part of matching work: replacing `UNK_RET` and wrong prototypes with concrete signatures helps future callsite cleanup and prevents accidental ABI misunderstandings.",
+    "For stage/item interaction functions, check global entity lists such as `HSD_GObj_Entities->items` and item helper APIs (`itGetKind`, `it_8026B294`) before inventing bespoke traversal logic.",
+    "Match reports should be interpreted precisely: this PR produced one new 100% match for `grIceMt_801F91EC`, while `grKongo_801D8078` only improved to 98.43%, so the Kongo function may still need final matching cleanup.",
+    "The PR body excerpt appears to describe unrelated functions (`IsNameUnique`, `un_80305D00`), so future agents should prioritize diff and automated report evidence when PR metadata is inconsistent."
   ],
   "naming_conventions": [
-    "Ground/stage functions use the stage prefix plus address form, e.g. `grIceMt_801F91EC` and `grKongo_801D8078`.",
-    "Use uppercase hex in canonical symbol names and comments, not lowercase placeholder names such as `FUN_801f91ec`.",
-    "Keep subsystem includes explicit: this PR added `it/it_26B1.h` for item helper declarations while retaining stage includes such as `gr/stage.h`.",
-    "The PR did not provide semantic names for the Ice Mountain parameters; generic `param_1` through `param_8` remained, which is appropriate when evidence for better names is weak."
+    "Stage functions keep the `gr<Stage>_<address>` form, e.g. `grIceMt_801F91EC` and `grKongo_801D8078`.",
+    "Unidentified local names like `FUN_801f91ec` should be replaced with canonical project symbol casing once the function identity is confirmed.",
+    "Ground/stage globals retain short stage prefixes, such as `grIm_` for Ice Mountain and `grKg_` for Kongo Jungle.",
+    "Unknown fields remain conservatively named, e.g. `grKg_804D6980->unk28`, when the diff does not establish a more semantic name.",
+    "Temporary decomp parameter names such as `param_1` through `param_8` remained in `grIceMt_801F91EC`, indicating semantics were not yet strong enough for meaningful names."
   ],
   "assembly_or_matching_tactics": [
-    "For `grIceMt_801F91EC`, call `grAnime_801C7A04(param_1, anim_id, 7, 0)`; using `-20` produced the wrong match behavior in this slice.",
-    "Write the `s16` state block slots explicitly before starting animations and installing the mpLib callback.",
-    "Use the `param_4 != -1` branch shape for optional second animation setup.",
-    "For `grKongo_801D8078`, scan the item linked list with `for (cur = HSD_GObj_Entities->items; cur != NULL; cur = cur->next)`.",
-    "Keep distance math scalarized as `dx`, `dy`, `dz`, squared temporaries, and `dx2 + dy2 + dz2 < r * r`; this is a useful float-ordering tactic for proximity checks.",
-    "The PR's Kongo function was only reported at 98.43%, so later matching may need stack/temporary/order refinements beyond the high-level logic shown here."
+    "Changing the final argument of `grAnime_801C7A04` from `-20` to `0` was an important matching detail for `grIceMt_801F91EC`.",
+    "The Ice Mountain function stores incoming parameters into a `s16*` array in order, starting with `param_2[0] = 0`, then parameter-derived values, which likely mirrors the original stack/register flow.",
+    "The Kongo implementation uses explicit item-list traversal via `for (cur = HSD_GObj_Entities->items; cur != NULL; cur = cur->next)`.",
+    "The Kongo proximity check avoids `sqrtf` and compares squared distance to squared radius, preserving likely original floating-point operation structure.",
+    "The automated report recorded `grIceMt_801F91EC` as a new 176-byte 100% match and `grKongo_801D8078` as a 185-byte improvement to 98.43%, so further Kongo instruction-level tuning may remain."
   ],
   "review_feedback": [
-    "No human review comments were captured for this PR.",
-    "Automated report by `encounter`: `main/melee/gr/gricemt` item `grIceMt_801F91EC` became a new 100.00% match for +176 bytes.",
-    "Automated report by `encounter`: `main/melee/gr/grkongo` item `grKongo_801D8078` improved from 0.00% to 98.43% for +185 bytes.",
-    "Automated report by `encounter`: `main/melee/gr/gricemt` `.sdata2` improved from 21.05% to 62.12% for +33 bytes.",
-    "The submitted PR body mentions `IsNameUnique` in `mnname.c` and `un_80305D00` in `toy.c`, which is inconsistent with the title, diff, and match report; treat that body text as stale or unrelated."
+    {
+      "source": "automated report by encounter",
+      "feedback": "Matched code remained at 59.10% overall with +176 bytes; `grIceMt_801F91EC` became a 100% match."
+    },
+    {
+      "source": "automated report by encounter",
+      "feedback": "`grKongo_801D8078` improved from 0.00% to 98.43% but was not reported as a full match."
+    },
+    {
+      "source": "PR text consistency note",
+      "feedback": "The human text excerpt's summary describes unrelated name-entry and trophy-viewer functions, so it should not be treated as substantive review feedback for this PR."
+    }
   ],
   "searchable_terms": [
     "pr-2325",
     "johnwinston",
-    "gr",
-    "stage",
-    "ground",
-    "Ice Mountain",
-    "Kongo Jungle",
-    "gricemt",
-    "grkongo",
     "grIceMt_801F91EC",
     "grKongo_801D8078",
     "FUN_801f91ec",
+    "gricemt.c",
+    "gricemt.h",
+    "grkongo.c",
+    "Ice Mountain",
+    "Kongo Jungle",
+    "Ground_801C4DA0",
+    "HSD_GObj_Entities",
+    "items",
+    "itGetKind",
+    "it_8026B294",
+    "it/it_26B1.h",
+    "itklap",
     "mpLib_Callback",
     "mpJointSetCb1",
     "grAnime_801C7A04",
     "GET_GROUND",
-    "Ground_801C4DA0",
-    "HSD_GObj_Entities",
-    "itGetKind",
-    "it_8026B294",
-    "it_26B1.h",
-    "itklap.h",
-    "item kind 0xDA",
-    "Vec3",
-    "s16 state block",
     "grKg_804D6980",
     "unk28",
-    "sdata2",
-    "98.43",
-    "100.00",
-    "body mismatch IsNameUnique un_80305D00"
+    "squared distance",
+    "item kind 0xDA",
+    "98.43%",
+    "100% match"
   ],
   "follow_up_queries": [
-    "grKongo_801D8078 98.43 remaining mismatch",
-    "grKongo_801D8078 itGetKind 0xDA it_8026B294 grKg_804D6980 unk28",
-    "grIceMt_801F91EC mpJointSetCb1 grAnime_801C7A04 mpLib_Callback",
-    "gricemt sdata2 grAnime_801C7A04 -20 0",
-    "FUN_801f91ec grIceMt_801F91EC placeholder rename",
-    "It_Kind_Klap 0xDA grKongo item proximity"
+    "Find later PRs that finish matching `grKongo_801D8078` beyond 98.43%.",
+    "Search for callsites of `grIceMt_801F91EC` to rename `param_1`-style arguments based on actual usage.",
+    "Investigate item kind `0xDA` in Kongo Jungle to determine whether the hardcoded kind should receive a named enum or constant.",
+    "Check whether `grKg_804D6980->unk28` can be given a semantic radius/proximity field name after more Kongo stage data is decompiled.",
+    "Audit other `grAnime_801C7A04(..., 7, -20)` versus `0` callsites for similar matching-sensitive constants."
   ],
-  "confidence": 0.84
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

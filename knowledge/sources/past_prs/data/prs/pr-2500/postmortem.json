@@ -11,198 +11,201 @@
     "merged_at": "2026-05-15T14:25:56Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Bulk merge of #2491 and #2494-#2499, mainly decomp/matching work across stage files and lb library modules. The visible build change moved src/melee/gr/grheal.c from NonMatching to Matching. decomp.dev reported 22 new matches, including grHeal_8021F180, lbMemory_8001564C, grHeal_8021F70C, several lbsnap routines, grzebesroute data/rodata/sdata/sdata2, and +5172 matched-code bytes; grZebesRoute_8020B548 was implemented to 99.97% but still listed as an unmatched improvement.",
+  "summary": "Bulk merge of PRs #2491 and #2494-#2499 that advanced matching across stage and library code. The headline change promoted src/melee/gr/grheal.c from NonMatching to Matching in configure.py after adding matched stage code/data, while also improving or matching grzebesroute lighting/data, lbmemory allocator/ARAM transfer routines, lbheap heap setup, lbsnap snapshot functions, lbarq ARQ state handling, and a small lbcardnew snapshot-entry codegen cleanup. decomp.dev reported 22 new matches, including grHeal_8021F180, lbMemory_8001564C, grHeal_8021F70C, multiple grheal/grzebesroute data sections, several lbsnap functions, and lbHeap_80015F3C.",
   "change_classification": {
-    "primary_type": "bulk_decomp_matching_merge",
+    "primary_type": "bulk decomp matching merge",
     "categories": [
       "decomp-matching",
-      "data-layout",
       "headers",
-      "codegen-tuning",
-      "library-cleanup",
-      "stage-decomp"
+      "data-layout",
+      "rodata-sdata-recovery",
+      "build-target-update",
+      "codegen-tuning"
     ],
     "systems": [
-      "configure",
-      "stage/grheal",
-      "stage/grzebesroute",
-      "lb/lbarq",
-      "lb/lbcardnew",
-      "lb/lbheap",
-      "lb/lbmemory",
-      "lb/lbsnap"
+      "stage",
+      "library",
+      "ground",
+      "memory",
+      "ARAM",
+      "snapshot",
+      "repo-root"
     ]
   },
   "key_files": [
     {
       "file": "configure.py",
-      "why": "Marks melee/gr/grheal.c as Matching instead of NonMatching."
+      "reason": "Changed melee/gr/grheal.c from Object(NonMatching, ...) to Object(Matching, ...)."
     },
     {
       "file": "src/melee/gr/grheal.c",
-      "why": "Adds inferred data-block layouts, explicit rodata/sdata/sbss symbols, grHeal_8021F180 implementation, and grHeal_8021F70C/EFEC matching adjustments."
+      "reason": "Matched grHeal_8021F180 and grHeal_8021F70C, recovered grheal data/rodata/sdata/sbss layout, added typed data blocks and stage-data wrappers."
     },
     {
       "file": "src/melee/gr/grheal.h",
-      "why": "Introduces grHeal_UnkData and extern grHeal_804D6AF0[2]."
+      "reason": "Added grHeal_UnkData and extern grHeal_804D6AF0[2] declaration used by grheal.c."
     },
     {
       "file": "src/melee/gr/grzebesroute.c",
-      "why": "Adds stage data/format strings/constants and implements grZebesRoute_8020B548 light setup nearly matching."
-    },
-    {
-      "file": "src/melee/lb/lbarq.c",
-      "why": "Reworks ARQ node state handling with enum values, stack padding, and dont_inline getter."
-    },
-    {
-      "file": "src/melee/lb/lbarq.h",
-      "why": "Defines lbArqState and concrete lbArqGlobal node array layout."
+      "reason": "Recovered route stage data, rodata, sdata, sdata2 and implemented near-matching grZebesRoute_8020B548 lighting setup."
     },
     {
       "file": "src/melee/lb/lbmemory.c",
-      "why": "Defines concrete allocator structures, named assert strings, implements lbMemory_80015320 and lbMemory_8001564C, and improves AR/DevCom alarm-copy logic."
+      "reason": "Reworked allocator structures, recovered global allocator symbol, matched lbMemory_8001564C and improved lbMemory_80015320/fn_80015184."
     },
     {
       "file": "src/melee/lb/lbmemory.h",
-      "why": "Clarifies Handle.x8_hi as either arena high bound or child allocation size."
+      "reason": "Clarified Handle::x8_hi comment as arena high bound for heap handles and allocation size for child handles."
     },
     {
       "file": "src/melee/lb/lbheap.c",
-      "why": "Introduces heap descriptor/offset-view helpers and rewrites heap reset/destroy/create flow for better matching."
+      "reason": "Introduced heap descriptor/offset-view helpers and refactored heap initialization/destruction to improve matching."
+    },
+    {
+      "file": "src/melee/lb/lbarq.c",
+      "reason": "Replaced magic ARQ state indices with lbArqState enum values, added dont_inline and PAD_STACK matching tactics."
+    },
+    {
+      "file": "src/melee/lb/lbarq.h",
+      "reason": "Added lbArqState enum, typed node state, and replaced opaque lbArqGlobal padding with lbArqNode nodes[10]."
     },
     {
       "file": "src/melee/lb/lbsnap.c",
-      "why": "Adds inline text/tiled-offset/save-data helpers and improves several snapshot-card routines."
+      "reason": "Adjusted stack padding and expression shapes to match several snapshot routines."
     },
     {
       "file": "src/melee/lb/lbsnap.h",
-      "why": "Corrects lbSnap_8001E27C signature to void(void)."
+      "reason": "Minor signature/type cleanup associated with lbsnap matching."
     },
     {
       "file": "src/melee/lb/lbcardnew.c",
-      "why": "Uses lb_80432A68.snapshot_entries directly instead of a local alias to improve lb_8001B14C."
+      "reason": "Removed local snapshot_entries alias and wrote through lb_80432A68.snapshot_entries directly for better codegen."
     }
   ],
   "what_changed": [
-    "PR body is a checklist-style bulk merge for #2491, #2494, #2495, #2496, #2497, #2498, and #2499.",
-    "configure.py changed grheal.c from Object(NonMatching, \"melee/gr/grheal.c\") to Object(Matching, \"melee/gr/grheal.c\").",
-    "grheal gained inferred composite data types grHeal_UnkVec4, grHeal_DataBlock, and grHeal_StageData with STATIC_ASSERT sizes, replacing raw/static data with explicit globals for stage callbacks, StageData-plus-format strings, assert filename text, sdata \"gobj\", and grHeal_804D6AF0[2].",
-    "grHeal_8021F180 was implemented: it animates the ground object, periodically spawns a coin using it_802F2094 after Ground_801C2D24/Ground_801C5840, builds next-player and player JObj arrays, reparents/animates next-player/player models, installs mpJointSetCb1, and resets gp->gv.flatzone2.xC4.",
-    "grHeal_8021F70C was rewritten into explicit gotos and table-walking over grHeal_803E83B8, including the character_id 0x13 -> 0x12 special case and OSReport through the inferred DataBlock report string.",
-    "grzebesroute gained grZebesRoute_LightData, explicit stage data/string/sdata/sdata2 constants, and changed OSReport/assert users to named data instead of __FILE__/literal strings.",
-    "grZebesRoute_8020B548 was implemented to configure spot/point HSD_LObj lights from scaled positions, colors, spot attenuation, and distance attenuation constants; decomp.dev still listed it as a 99.97% unmatched improvement rather than a full match.",
-    "lbarq added lbArqState enum values LB_ARQ_STATE_FREE/PENDING/DONE, typed lbArqNode.state, concrete lbArqGlobal.nodes[10], enum-indexed list handling, PAD_STACK(16), and #pragma dont_inline around lbArq_80014ABC.",
-    "lbmemory replaced anonymous padding with concrete MemEntry/LBMgr/Allocator layouts, exported lbMemory_804318B0 via g_alloc macro, added named rodata/sdata assert strings, implemented lbMemory_80015320 relocation/copy callback logic, and implemented lbMemory_8001564C AR allocator initialization under #pragma dont_inline.",
-    "lbheap introduced lbHeap_HeapDesc, lbHeap_HeapOffsetView, and inline helpers for heap reset/destroy/create, then rewrote lbHeap_80015900 and lbHeap_80015F3C around those layouts.",
-    "lbsnap added small static inline helpers for zeroing 0x21-byte text buffers, tiled RGB/Y offsets, and save-data offset calculation; several routines now use a local ret variable and direct helper calls for better codegen.",
-    "lbcardnew removed a local snapshot_entries pointer and writes through lb_80432A68.snapshot_entries directly."
+    "Marked grheal.c as Matching in configure.py.",
+    "Implemented previously nonmatching grHeal_8021F180, including coin spawn position setup, next-player jobj lookup/reparenting, player model jobj setup, and mpJointSetCb1 callback registration.",
+    "Rewrote grHeal_8021F70C with explicit base/entry pointers and goto-shaped loop control to match the original character-id-to-frame search behavior.",
+    "Recovered grheal data layout using grHeal_UnkVec4, grHeal_DataBlock, grHeal_StageData, static asserts, explicit report/assert strings, and an sbss array grHeal_804D6AF0[2].",
+    "Implemented grZebesRoute_8020B548 as a light-object setup routine using HSD_LObj APIs, recovered route light-position data, GXColor constants, float constants, and stage OSReport/assert strings.",
+    "Changed grzebesroute gobj error reporting to use recovered data strings instead of direct __FILE__ string literals.",
+    "Added lbArqState enum and replaced raw state/list indices 0, 1, 2 with LB_ARQ_STATE_FREE, LB_ARQ_STATE_PENDING, and LB_ARQ_STATE_DONE.",
+    "Typed lbArqGlobal as lbArqNode nodes[10] plus list[3] instead of a large padding blob.",
+    "Reworked lbheap with named heap descriptor and offset-view structs plus inline reset/create/destroy helpers, correcting pointer/integer treatment of arena and ARAM bounds.",
+    "Reconstructed lbmemory allocator internals with MemEntry, LBMgr, Allocator fields, recovered assertion/report strings, and exported lbMemory_804318B0 as the allocator global.",
+    "Implemented lbMemory_8001564C initialization and lbMemory_80015320 memory move/compaction behavior, including HSD_DevComRequest for one address range path and OSAlarm chunked copy for another.",
+    "Adjusted lbsnap functions through PAD_STACK changes and code-shape rewrites to produce additional full matches.",
+    "Simplified lbcardnew snapshot-entry writes to use the global object directly, improving lb_8001B14C matching."
   ],
   "smart_moves": [
-    "Using composite structs with STATIC_ASSERTs for grHeal data captured the real contiguous layout of arrays, callbacks, StageData, and format strings without pretending each symbol is independent.",
-    "Replacing magic ARQ list indices 0/1/2 with lbArqState kept the original numeric layout while making list/state intent searchable and safer.",
-    "Named rodata/sdata strings for assert and OSReport calls allowed source to express original data placement instead of relying on __FILE__ or string literal pooling.",
-    "Small static inline helpers in lbheap/lbsnap improved readability while still allowing expansion needed for matching-sensitive codegen.",
-    "The lbmemory allocator was modeled as a real 0x6F0 struct with MemEntry, Handle array, and LBMgr fields, making offset-dependent code like x6A0_mgr and free-list initialization explicit.",
-    "The PR kept exact codegen levers visible where needed: #pragma dont_inline, PAD_STACK, UNUSED locals, explicit gotos, casts, and pointer arithmetic."
+    "Used typed wrapper structs with STATIC_ASSERT sizes to encode data-section layout without losing symbol-level readability.",
+    "Recovered rodata/sdata strings as named globals and then routed OSReport/__assert calls through them, which helped data matching and avoided compiler-emitted literal placement differences.",
+    "Used an overlay/view trick in grHeal_8021EFEC: deriving StageCallbacks through a cast from grHeal_803E83B8 + 0x9C preserved the original packed data layout needed for matching.",
+    "In grheal, split a packed stage-data-plus-format-string blob into grHeal_StageData with an embedded StageData and adjacent report format, preserving layout while making access fields meaningful.",
+    "For lbarq, converted magic numeric states into an enum while keeping the exact list-index semantics, improving maintainability without sacrificing matching.",
+    "Applied #pragma dont_inline around small access/init routines and used PAD_STACK where needed, indicating deliberate compiler codegen control rather than purely semantic rewriting.",
+    "In lbheap, introduced small static inline helpers for repeated heap reset/create/destroy logic; this reduced duplicated code while still matching the target function shapes.",
+    "In lbmemory, retained low-level pointer arithmetic where the allocator layout demanded it, but replaced anonymous byte padding with named substructures where evidence was strong."
   ],
   "decomp_lessons": [
-    "For stage files, StageData often sits next to report/assert strings; matching data may require wrapper structs such as grHeal_StageData or ad hoc stage-data blobs with trailing fmt fields.",
-    "When a table is emitted as one data block, it can be legitimate to access later fields through casts or byte offsets, as in grHeal_803E83B8 + 0x9C and ((grHeal_DataBlock*) base)->report_fmt_not_found_next_player.",
-    "Do not assume cleaner C control flow will match: grHeal_8021F70C needed explicit labels/gotos and a separate loop_check/loop_compare shape.",
-    "For library allocators, concrete global layout and freelist element counts matter; replacing padding with arrays like MemEntry x8_mem[0x83] and Handle x638_heap[6] unlocks both code and data matches.",
-    "Use named small-data strings and constants when literals affect section placement or instruction selection; this PR did that in grheal, grzebesroute, and lbmemory.",
-    "Header changes should expose inferred types/globals only where cross-file use requires them, as with grHeal_UnkData/grHeal_804D6AF0 and lbArqState/lbArqGlobal.",
-    "decomp.dev can distinguish full matches from near-matches: grZebesRoute_8020B548 was a large +779-byte improvement but still not fully matched, so keep the nonmatching marker until the report reaches 100%."
+    "When matching data-heavy stage files, model adjacent arrays, strings, and StageData blocks as one or more exact-size structs; add STATIC_ASSERTs to guard against silent layout drift.",
+    "Do not assume every string literal can stay inline: original binaries often have report/assert format strings in .data/.rodata/.sdata, and calls may need to reference recovered symbols.",
+    "Enums can replace magic state values if they preserve exact underlying values and indexing behavior; this improves searchability and future review without changing codegen intent.",
+    "For stubborn loops, especially lookup-table scans, goto labels and explicit pointer increments may be necessary to mirror original control flow.",
+    "Global allocator/heap structs should be reconstructed incrementally: replace padding only when offsets, sizes, and access patterns are evidenced by diff and static asserts.",
+    "Stack-shape controls such as PAD_STACK and no-inline pragmas are legitimate matching tools, but should be localized to the functions that need them.",
+    "Sometimes a direct local alias hurts codegen; lbcardnew improved by writing through lb_80432A68.snapshot_entries directly instead of keeping a snapshot_entries local.",
+    "Header comments can carry useful uncertainty resolution: Handle::x8_hi was clarified as high bound for heap handles and size for child handles, preventing future misuse."
   ],
   "naming_conventions": [
-    "Stage globals preserve file prefixes and address-style suffixes, e.g. grHeal_803E83B8, grHeal_803E84C4, grZe_Route_803E5E0C.",
-    "Unknown/inferred structs use scoped descriptive names with Unk when semantics are incomplete: grHeal_UnkVec4, grHeal_UnkData, grZebesRoute_LightData.",
-    "Composite layout helpers are named for the owning module and purpose: grHeal_DataBlock, grHeal_StageData, lbHeap_HeapOffsetView.",
-    "ARQ state enum values use all-caps module prefix and semantic state names: LB_ARQ_STATE_FREE, LB_ARQ_STATE_PENDING, LB_ARQ_STATE_DONE.",
-    "Raw labels for known data use lbl_address style when no semantic name is available, e.g. lbl_803BA2C0 for \"lbmemory.c\".",
-    "Small-data declarations are explicit with SDATA char names such as grHeal_804D49E0, grZe_Route_804D4840, and lbMemory_804D3788.",
-    "Function declarations in headers retain address comments like /* 4D6AF0 */ extern grHeal_UnkData* grHeal_804D6AF0[2]."
+    "Stage-local unknown structs used the file/function prefix plus descriptive suffixes, e.g. grHeal_UnkVec4, grHeal_DataBlock, grHeal_StageData, grZebesRoute_LightData.",
+    "Unresolved global symbols kept address-style names such as grHeal_803E83B8, grHeal_804D6AF0, grZe_Route_804DB920, and lbMemory_804318B0.",
+    "Recovered ARQ states used uppercase enum constants with subsystem prefix: LB_ARQ_STATE_FREE, LB_ARQ_STATE_PENDING, LB_ARQ_STATE_DONE.",
+    "Small-data and string labels in lbmemory retained address-label style names such as lbl_803BA2C0 and lbMemory_804D3788 when semantic names were not evidenced.",
+    "Stage route symbols used the existing grZe_Route_ prefix rather than spelling the full file prefix everywhere, matching local file convention."
   ],
   "assembly_or_matching_tactics": [
-    "#pragma push / #pragma dont_inline on / #pragma pop was used around lbArq_80014ABC and lbMemory_8001564C.",
-    "PAD_STACK was added or adjusted in lbArq_80014BD0, lbArq_80014D2C, and lbsnap routines to shape stack frames.",
-    "Explicit gotos and labels in grHeal_8021F70C preserved the target loop structure better than a while loop.",
-    "Pointer arithmetic and casted views modeled compiler addressing: (StageCallbacks*) ((char*) grHeal_803E83B8 + 0x9C), ((s16*) grHeal_803E83B8)[i], and lbHeap_GetHeapOffsetView(offset).",
-    "UNUSED locals such as reserved_next_jobj/reserved_player_jobj and a pad array in grZebesRoute_8020B548 were kept to influence stack/register layout.",
-    "Named const float/GXColor symbols in grzebesroute moved immediates into the expected rodata/sdata2 locations.",
-    "Direct global field access, such as lb_80432A68.snapshot_entries[j], can match better than a convenient local alias."
+    "Changed configure.py object status for grheal only after code/data reached full matching.",
+    "Used #pragma push / #pragma dont_inline on / #pragma pop around lbArq_80014ABC and lbMemory_8001564C.",
+    "Inserted or adjusted PAD_STACK calls in lbarq and lbsnap to tune stack frame/codegen.",
+    "Used STATIC_ASSERT(sizeof(...)) for grHeal_DataBlock, grHeal_StageData, MemEntry, and lbMemory_804318B0 layout validation.",
+    "Used explicit casts through char* and struct overlay views to access packed data at original offsets.",
+    "Used goto-labeled loop structure in grHeal_8021F70C to match branch layout.",
+    "Recovered float constants with uppercase F suffixes and sdata2 symbols for grzebesroute lighting math.",
+    "Replaced direct string literals and __FILE__ use with recovered global string symbols in OSReport and __assert calls."
   ],
   "review_feedback": [
-    "No human reviews or review comments were present in the provided slice.",
-    "The decomp.dev bot report validated the merge with +0.13% matched code (+5172 bytes), +0.06% linked code (+2312 bytes), +0.08% matched data (+984 bytes), and +0.04% linked data (+464 bytes) for GALE01.",
-    "Bot report listed 22 new matches, including grHeal_8021F180, lbMemory_8001564C, grHeal_8021F70C, lbSnap_8001DF6C, lbSnap_8001D7B0, lbSnap_8001D5FC, lbSnap_8001E058, and grheal/grzebesroute data sections.",
-    "Bot report listed 6 unmatched improvements, notably grZebesRoute_8020B548 from 0.00% to 99.97%, lb_8001B14C to 98.77%, lbMemory_80015320 to 96.11%, lbHeap_80015900 to 96.48%, lbSnap_8001DA5C to 55.88%, and lbArq_80014BD0 to 96.55%."
+    {
+      "source": "decomp-dev bot",
+      "feedback": "Reported GALE01 matched code improvement to 67.12% (+0.13%, +5172 bytes), linked code to 38.91% (+0.06%, +2312 bytes), matched data to 39.36% (+0.08%, +984 bytes), and linked data to 33.19% (+0.04%, +464 bytes)."
+    },
+    {
+      "source": "decomp-dev bot",
+      "feedback": "Reported 22 new matches, including grHeal_8021F180, lbMemory_8001564C, grheal/grzebesroute data sections, grHeal_8021F70C, several lbsnap routines, fn_80015184, and lbHeap_80015F3C."
+    },
+    {
+      "source": "decomp-dev bot",
+      "feedback": "Reported six unmatched-item improvements, including grZebesRoute_8020B548 to 99.97%, lb_8001B14C to 98.77%, lbMemory_80015320 to 96.11%, lbHeap_80015900 to 96.48%, lbSnap_8001DA5C to 55.88%, and lbArq_80014BD0 to 96.55%."
+    },
+    {
+      "source": "human reviewers",
+      "feedback": "No human review comments were present in the provided PR slice."
+    }
   ],
   "searchable_terms": [
-    "pr-2500",
-    "#2491",
-    "#2494",
-    "#2495",
-    "#2496",
-    "#2497",
-    "#2498",
-    "#2499",
-    "MatchingFor",
-    "Object(Matching, \"melee/gr/grheal.c\")",
+    "PR2500",
+    "Merge #2491 #2494 #2495 #2496 #2497 #2498 #2499",
     "grheal",
     "grHeal_8021F180",
     "grHeal_8021F70C",
     "grHeal_8021EFEC",
     "grHeal_DataBlock",
     "grHeal_StageData",
-    "grHeal_UnkData",
     "grHeal_804D6AF0",
-    "grHeal_803E83B8",
-    "grHeal_803E84C4",
-    "itcoin",
-    "mpJointSetCb1",
+    "Object(Matching, melee/gr/grheal.c)",
     "grzebesroute",
     "grZebesRoute_8020B548",
     "grZebesRoute_LightData",
-    "grZe_Route_803B83A0",
-    "HSD_LObj",
-    "LOBJ_SPOT",
-    "LOBJ_POINT",
+    "HSD_LObjSetColor",
+    "HSD_LObjSetPosition",
+    "lbmemory",
+    "lbMemory_804318B0",
+    "lbMemory_8001564C",
+    "lbMemory_80015320",
+    "HSD_DevComRequest",
+    "OSMillisecondsToTicks",
+    "lbheap",
+    "lbHeap_80015900",
+    "lbHeap_80015F3C",
+    "lbarq",
     "lbArqState",
     "LB_ARQ_STATE_FREE",
     "LB_ARQ_STATE_PENDING",
     "LB_ARQ_STATE_DONE",
-    "lbArq_80014BD0",
-    "lbMemory_80015320",
-    "lbMemory_8001564C",
-    "lbMemory_804318B0",
-    "MemEntry",
-    "LBMgr",
-    "Allocator",
-    "HSD_DevComRequest",
-    "OSMillisecondsToTicks",
-    "lbHeap_80015900",
-    "lbHeap_80015F3C",
-    "lbHeap_HeapOffsetView",
-    "lbSnap_8001DA5C",
-    "lbSnap_8001DF6C",
-    "lbSnap_ClearText",
-    "lbSnap_GetTiledRGBOffset",
-    "lb_8001B14C",
-    "snapshot_entries",
+    "lbsnap",
+    "lbcardnew",
+    "STATIC_ASSERT",
     "PAD_STACK",
     "dont_inline",
-    "STATIC_ASSERT",
-    "SDATA char",
-    "decomp.dev 22 new matches"
+    "rodata",
+    "sdata",
+    "sdata2",
+    "sbss"
   ],
   "follow_up_queries": [
-    "Inspect constituent PRs #2491 and #2494-#2499 if individual author rationale or review discussion is needed; this bulk PR slice only shows the combined merge.",
-    "Search future PRs for grZebesRoute_8020B548 to find the final 99.97% -> 100% fix.",
-    "Search grHeal_DataBlock and grHeal_StageData for reusable patterns when StageData is adjacent to OSReport/assert strings.",
-    "Search lbHeap_HeapOffsetView and lbHeap_GetHeapOffsetView for heap-offset view tactics in other allocator code.",
-    "Search lbMemory_80015320 for later cleanup or full match status, since this PR only improved it to 96.11%.",
-    "Search lbSnap_GetTiledRGBOffset and lbSnap_GetTiledYOff for reusable tiled-texture address math in snapshot/icon code."
+    "Find the individual source PRs #2491 and #2494-#2499 for per-author rationale and any review feedback hidden by this bulk merge.",
+    "Search for later cleanup of grHeal_DataBlock/grHeal_StageData to see whether the packed-data overlay survived or was replaced by stronger types.",
+    "Search for subsequent full match of grZebesRoute_8020B548, which was reported at 99.97% rather than 100%.",
+    "Search lbMemory_80015320 and lbHeap_80015900 in later PRs for final matching tactics after these partial improvements.",
+    "Search lbarq enum usage to verify LB_ARQ_STATE_* became the standard convention for ARQ list states."
   ],
-  "confidence": 0.87
+  "confidence": 0.84,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

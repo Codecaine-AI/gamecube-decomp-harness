@@ -11,34 +11,35 @@
     "merged_at": "2026-04-13T14:54:09Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large item decompilation sweep aimed at bringing the remaining low-fuzzy-match item translation units above roughly 50%. The author explicitly described the work as Claude-assisted but heavily human-cleaned. It filled many item functions and callbacks, refined item variable/attribute structs, and adjusted a few fighter/item call sites. decomp.dev reported matched code rising to 63.04% (+0.35%, +13,772 bytes), matched data to 38.13% (+328 bytes), with 54 new matches and 47 unmatched-item improvements.",
+  "summary": "Large decomp/matching pass over the remaining low-fuzzy-match item translation units, adding substantial C implementations, item variable/attribute struct detail, header prototypes, and small call-site signature fixes across item and related fighter code. The author explicitly described the work as Claude-assisted but heavily human-cleaned, and reviewer feedback focused mainly on correcting include style for baselib and MSL math headers.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "item TU sweep",
-      "struct-layout",
-      "headers",
       "cleanup",
-      "minor fix",
-      "AI-assisted"
+      "headers",
+      "fix",
+      "ai-assisted-human-cleanup"
     ],
     "systems": [
       "item",
       "fighter",
-      "HSD/baselib"
+      "headers"
     ]
   },
   "key_files": [
     "src/melee/it/items/itseakneedlethrown.c",
     "src/melee/it/items/itdosei.c",
     "src/melee/it/items/itmewtwoshadowball.c",
+    "src/melee/it/items/itunknown.c",
     "src/melee/it/items/itpikachutjoltair.c",
     "src/melee/it/items/itkirbycutterbeam.c",
+    "src/melee/it/items/ithitodeman.c",
+    "src/melee/it/items/itzgshell.c",
+    "src/melee/it/items/itgreatfoxlaser.c",
+    "src/melee/it/items/itlipstickspore.c",
     "src/melee/it/items/itclinkmilk.c",
     "src/melee/it/items/itclimbersstring.c",
-    "src/melee/it/items/itgreatfoxlaser.c",
-    "src/melee/it/items/itunknown.c",
     "src/melee/it/itCharItems.h",
     "src/melee/it/itCommonItems.h",
     "src/melee/it/it_2725.c",
@@ -47,128 +48,138 @@
     "src/melee/ft/ft_0C31.c"
   ],
   "what_changed": [
-    "Filled or improved many previously stubbed item functions across 38 files, especially Sheik needle thrown, Mr. Saturn/Dosei, Mewtwo Shadow Ball, Pikachu Thunder Jolt air, Kirby cutter beam, Great Fox laser, Unknown, Kyasarin, Klap, Patapata, Hitodeman, ZGShell, CLink milk, and Climbers string.",
-    "Updated shared item headers with more precise item variable and attribute layouts: examples include itCLinkMilk_ItemVars, itClimbersString_ItemVars, itKirby2F23_ItemVars, itHitodemanAttributes, itPikachutJoltAir_ItemVars, expanded itSeakNeedleThrown_ItemVars, itMewtwoShadowball_DatAttrs, itGreatFoxLaser_Attrs, and refinements to Kyasarin, Dosei, Unknown, and GreatFoxLaser fields.",
-    "Changed Sheik needle thrown logic table entries in it_2725.c from it_803F6F50 to it_803F6F50.states, matching the expected state-table member access.",
-    "Simplified it_80279C48 from taking Item_GObj* plus Article* to taking only Item_GObj*, then updated Pokémon-style callers such as Chicorita and Entei to use item->xC4_article_data directly.",
-    "Adjusted fighter-side call sites to match new item signatures/types: ftSk_SpecialN.c no longer assigns the return value of it_802AFEA8, and ft_0C31.c compares it_802EAF28(...) to 0U rather than NULL after the GreatFoxLaser return type became scalar.",
-    "Implemented CLink milk and Climbers string behavior using typed per-item variables rather than unrelated union fields, including spawn setup, parent tracking, accessory callbacks, matrix/JObj handling, and cleanup paths.",
-    "decomp.dev examples of new 100% matches included it_2725_Logic7_ShieldBounced, it_802B3F88, it_2725_Logic109_Reflected, it_2725_Logic109_ShieldBounced, itKirbycutterbeam_UnkMotion0_Coll, it_802D4564, itPatapata_UnkMotion3_Phys, it_802C3950, it_802ECD3C, it_802C8B28, and it_8029A218."
+    "Raised fuzzy-match coverage for many remaining item translation units, with large additions in itseakneedlethrown.c, itdosei.c, itmewtwoshadowball.c, itunknown.c, itpikachutjoltair.c, itkirbycutterbeam.c, ithitodeman.c, itzgshell.c, itgreatfoxlaser.c, itlipstickspore.c, itclinkmilk.c, itpatapata.c, itklap.c, itclimbersstring.c, and itkyasarin.c.",
+    "Expanded item headers with more specific ItemVars and attribute structs, including itCLinkMilk_ItemVars, itHitodemanAttributes, itKirby2F23_ItemVars, itPikachutJoltAir_ItemVars, itSeakNeedleThrown_ItemVars fields, itClimbersString_ItemVars, itKyasarin_ItemVars/Attributes, itMewtwoShadowball_ItemVars/DatAttrs, itUnknown_ItemVars/Attributes, and itGreatFoxLaser_Attrs/ItemVars refinements.",
+    "Changed Sheik needle thrown logic table entries in it_2725.c from it_803F6F50 to it_803F6F50.states.",
+    "Simplified it_80279C48 signature from taking Item_GObj* plus Article* to only Item_GObj*, deriving the article/item data internally; updated itchicorita.c call site accordingly.",
+    "Adjusted ftSeak shootNeedles so the return value of it_802AFEA8 is no longer assigned back to item_gobj.",
+    "Adjusted ftCo_800C74F4 comparison from it_802EAF28(...) == NULL to == 0U, implying the function is treated as an unsigned/scalar result rather than a pointer in that context.",
+    "Added fuller implementations or partial implementations for item behavior functions such as C-Link milk spawning/parent notification, climbers string spawning/accessory handling, and Dosei helper inlines for rotation/animation speed.",
+    "Replaced some generic or incorrectly borrowed item var union usage with item-specific names, for example clinkmilk and climbersstring instead of unrelated gamewatchchef, bombhei, or it_266F-style fields."
   ],
   "smart_moves": [
-    "Treated the work as a broad fuzzy-match triage pass: many small item callbacks moved from 0% to exact or near-exact matches, producing measurable progress even where full TU matching was not guaranteed.",
-    "Used header/struct layout improvements as an enabler for source matching instead of leaving functions full of raw offsets or borrowed union fields.",
-    "Preserved common item-spawn idioms repeatedly: initialize SpawnItem, copy prev_pos/pos, zero velocities, set parent_gobj fields, set x44_flag.b0/x40, call Item_80268B18, then initialize item vars and link to owners/bones with helpers such as Item_8026AB54.",
-    "Kept exact type details where they affected codegen, such as void-return it_802AFEA8, scalar-return it_802EAF28, state-table .states access, and Item_GObj/Fighter_GObj/HSD_GObj distinctions.",
-    "Introduced small static inline helpers in Dosei for repeated JObj rotation/speed patterns, which made the generated code more manageable while still matching low-level HSD behavior.",
-    "Cleaned AI-generated output through review-driven include fixes and const/data-placement cleanup rather than merging raw Claude output as-is."
+    "The pass paired broad TU matching work with header struct refinement, which makes future matching easier by replacing opaque pads and wrong union aliases with item-specific fields at known offsets.",
+    "The it_80279C48 cleanup removed an apparently unnecessary Article* parameter and made callers rely on Item-owned article data, reducing signature noise and improving type accuracy.",
+    "Using comments with item-private offsets such as ip+DD4, ip+DF0, and explicit field offsets preserved layout evidence while still allowing incremental naming.",
+    "The work avoided overclaiming final full matches: the PR goal was fuzzy improvement over a threshold, and the author acknowledged uncertainty and human cleanup after AI-generated drafts.",
+    "Changing logic table references to .states for it_803F6F50 made the table entry use the intended state table member rather than the surrounding object/struct."
   ],
   "decomp_lessons": [
-    "AI can accelerate broad item decomp sweeps, but this PR is explicit evidence that human cleanup remained necessary; the author said Claude did not do a great job and that the human was still in the loop.",
-    "For item work, accurate xDD4_itemVar union members and attribute structs are often prerequisites for matching many callbacks in the same TU.",
-    "Do not leave borrowed item-var fields in place when a real per-item struct can be added; this PR replaced examples like gamewatchchef/bombhei-style accesses in CLink milk and Climbers string with clinkmilk/climbersstring fields.",
-    "Offset-commented structs with explicit pads, Vec3 fields, and scalar type corrections can unlock both readability and matching, but semantics should remain conservative when names are still unknown.",
-    "Exact return type and comparison form matter: pointer-style NULL comparisons can be wrong when the callee actually returns an integer-like value, as shown by the it_802EAF28/0U change.",
-    "Project include style is part of review quality for decomp PRs; MSL/baselib headers should be included explicitly and consistently, not via ambiguous quoted math.h or quoted baselib paths.",
-    "The PR title goal should be treated cautiously: the author wrote they were not sure everything actually crossed the 50% fuzzy-match line."
+    "For item TUs below a fuzzy-match threshold, a productive path is to first recover local item vars/attributes and call signatures, then clean up function bodies around those layouts.",
+    "AI-generated decomp drafts can be useful for volume but need careful human review for include style, type correctness, struct field ownership, and misleading borrowed union members.",
+    "When an item function can derive Article or attributes from Item state, prefer the narrower real signature and fix call sites rather than preserving extra guessed parameters.",
+    "Avoid assigning return values when the original code likely calls a function only for side effects; ftSk_SpecialN.c showed this with it_802AFEA8.",
+    "Scalar return comparisons should not be forced into pointer idioms; ft_0C31.c changed a NULL comparison to 0U for it_802EAF28.",
+    "Item private data often begins at xDD4/ip+DD4; preserving offset comments while adding fields helps later verification and union cleanup.",
+    "Large fuzzy-match PRs should expect review churn on mundane project conventions such as include path style."
   ],
   "naming_conventions": [
-    "Existing item callback naming was preserved: numeric symbols like it_802B3F88 and behavior callbacks like itDosei_UnkMotion0_Anim or itSeakneedlethrown_UnkMotion2_Coll stayed in project style.",
-    "Logic callback names follow the existing it_2725_LogicNN_Event pattern, e.g. it_2725_Logic109_Reflected, it_2725_Logic109_ShieldBounced, it_2725_Logic7_Reflected, and it_2725_Logic27_Reflected.",
-    "Per-item xDD4 structs use names such as itCLinkMilk_ItemVars, itClimbersString_ItemVars, itKirby2F23_ItemVars, and itPikachutJoltAir_ItemVars.",
-    "Attribute structs use conservative item-specific names such as itHitodemanAttributes, itMewtwoShadowball_DatAttrs, itGreatFoxLaser_Attrs, and itUnknownAttributes when field semantics are still mostly x-offsets.",
-    "Struct field comments retained ip+DD4-relative offsets and xNN names, with pads such as _pad, _pad2, pad_0, and x40_pad used when layout is known but semantics are not.",
-    "Reviewed include convention favored angle-bracket library includes such as <baselib/gobj.h>, <baselib/jobj.h>, <MSL/math.h>, and <MSL/trigf.h> over quoted library/math includes."
+    "Item-private union structs use item-specific names like itCLinkMilk_ItemVars, itClimbersString_ItemVars, itKirbyCutterBeam_ItemVars, itKirby2F23_ItemVars, itPikachutJoltAir_ItemVars, and itSeakNeedleThrown_ItemVars.",
+    "Attribute structs use item-specific names such as itHitodemanAttributes, itKyasarinAttributes, itMewtwoShadowball_DatAttrs, itGreatFoxLaser_Attrs, and itUnknownAttributes.",
+    "Unknown fields retained offset-based names like x0, x4, xDD4, xDF0, x1C8, and x6C, often with comments mapping both struct-relative and item-private offsets.",
+    "Inline helper names in itdosei.c used descriptive item-scoped prefixes such as itDosei_SetFacingAngle, itDosei_SetSpeed, itDosei_SetRotX, and itDosei_SetRotY.",
+    "Internal helper functions remained address-based where semantic names were not established, for example it_802C248C, fn_802C28DC, fn_802C2AF4, and it_802C33B8."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK and small temporary pads in several filled functions to preserve stack layout for matching.",
-    "Used MSL math/trig headers and functions such as atan2f plus M_PI_2/trigf-related includes where item rotation calculations needed matching codegen.",
-    "Matched HSD_JObj manipulation directly: HSD_JObjSetRotationX/Y/Z, HSD_JObjSetTranslate, HSD_JObjSetScale, HSD_JObjSetupMatrix, PSMTXIdentity, and PSMTXConcat patterns appear in the added item code.",
-    "Relied on exact item state/motion helper calls such as Item_80268E5C, Item_802694CC, Item_8026BB20, Item_8026BD6C, it_8026B894, and collision callbacks to mirror item lifecycle control flow.",
-    "Preserved exact scalar/pointer access width where needed; GreatFoxLaser changed x38 layout to s16 fields while it_802EAF28 returned an s32-like value, with a code comment noting the x38 access-width issue.",
-    "Switched it_80279C48 to compute direction from GET_ITEM(item_gobj), item->pos, item->owner, ftLib_8008627C, and ftLib_80086644, removing an unused Article parameter that did not participate in the matched logic."
+    "Introduced item-specific struct fields and corrected field types to shape codegen, for example changing itDosei_ItemVars.xDF0 from f32 to s32 and splitting arrays/pads into Vec3, f32, s16, or s32 fields.",
+    "Used small static inline wrappers around HSD_JObj operations in itdosei.c, likely to match repeated rotation/speed code patterns while keeping call sites concise.",
+    "Used PAD_STACK annotations in several newly implemented functions to preserve stack layout where needed.",
+    "Changed table initializers to reference a .states member, which can affect emitted data and match table layout.",
+    "Adjusted return-value use and comparison literals to better match expected codegen, such as dropping assignment from it_802AFEA8 and comparing to 0U.",
+    "Recovered spawn setup patterns with SpawnItem initialization, parent gobj assignment, facing_dir, zero velocity, Item_80268B18, GET_ITEM, and Item_8026AB54 attachment for item creation routines."
   ],
   "review_feedback": [
-    "PsiLupan requested gobj includes use library angle-bracket style rather than quoted baselib paths in itdosei.c and itkirby_2F23.c; the comment text wrote <baseline/gobj.h>, while the final diff shows <baselib/gobj.h>.",
-    "PsiLupan challenged leaving it_804DC878 as a TODO for .sdata2 placement: 'Is there a reason not to do it now?'; the final diff shows const f32 it_804DC878 = 0.0f without the TODO from the reviewed hunk.",
-    "PsiLupan requested explicit <MSL/math.h> for itlipstickspore.c instead of \"math.h\".",
-    "PsiLupan requested explicit <MSL/math.h> for itpikachutjoltair.c instead of generic <math.h>.",
-    "PsiLupan applied the same math-include style feedback to itseakneedlethrown.c and itunknown.c.",
-    "The visible review feedback was mostly hygiene around include style and data-placement cleanup, not objections to the broad matching approach."
+    {
+      "author": "PsiLupan",
+      "file": "src/melee/it/items/itdosei.c",
+      "feedback": "Use `#include <baseline/gobj.h>` rather than `#include \"baselib/gobj.h\"`."
+    },
+    {
+      "author": "PsiLupan",
+      "file": "src/melee/it/items/itdosei.c",
+      "feedback": "Questioned leaving `it_804DC878` as a TODO needing `.sdata2`, asking whether there was a reason not to handle it immediately."
+    },
+    {
+      "author": "PsiLupan",
+      "file": "src/melee/it/items/itkirby_2F23.c",
+      "feedback": "Same gobj include-style issue as prior comment."
+    },
+    {
+      "author": "PsiLupan",
+      "file": "src/melee/it/items/itlipstickspore.c",
+      "feedback": "If including math.h, use explicit `#include <MSL/math.h>`."
+    },
+    {
+      "author": "PsiLupan",
+      "file": "src/melee/it/items/itpikachutjoltair.c",
+      "feedback": "Use explicit `#include <MSL/math.h>`."
+    },
+    {
+      "author": "PsiLupan",
+      "file": "src/melee/it/items/itseakneedlethrown.c",
+      "feedback": "Apply the same include-style correction for math.h noted in prior comments."
+    },
+    {
+      "author": "PsiLupan",
+      "file": "src/melee/it/items/itunknown.c",
+      "feedback": "Fix include style as in previous math include comments."
+    }
   ],
   "searchable_terms": [
     "PR2409",
-    ">50% fuzzy match",
-    "remaining item TUs",
-    "Claude",
+    "fuzzy match item TUs",
+    "Claude assisted decomp",
     "human in the loop",
-    "decomp.dev",
-    "63.04 matched code",
-    "13772 bytes",
-    "54 new matches",
-    "47 improvements",
-    "itDosei",
-    "it_3F14_Logic7_DmgReceived",
-    "it_3F14_Logic7_PickedUp",
-    "itDosei_UnkMotion0_Anim",
     "itseakneedlethrown",
-    "it_802AFD8C",
-    "it_802AFEA8",
-    "it_802AFF08",
-    "it_802B00F4",
-    "it_2725_Logic109_Reflected",
-    "it_2725_Logic109_ShieldBounced",
+    "itdosei",
     "itmewtwoshadowball",
-    "itMewtwoshadowball_UnkMotion0_Anim",
-    "it_802C519C",
-    "it_802C53F0",
-    "it_802C5E5C",
-    "itpikachutjoltair",
-    "it_802B3F88",
-    "it_802B4224",
-    "it_2725_Logic107_Reflected",
-    "itkirbycutterbeam",
-    "it_2725_Logic7_ShieldBounced",
-    "it_2725_Logic7_Reflected",
-    "itclinkmilk",
-    "it_802C8B28",
-    "itClinkmilk_UnkMotion1_Anim",
-    "itclimbersstring",
-    "it_802C3950",
-    "itgreatfoxlaser",
-    "it_802EAF28",
-    "it_802EAF34",
     "itunknown",
-    "it_802CE8D0",
-    "it_802CF154",
+    "itpikachutjoltair",
+    "itkirbycutterbeam",
     "ithitodeman",
-    "itkyasarin",
-    "itklap",
-    "itpatapata",
     "itzgshell",
+    "itgreatfoxlaser",
+    "itlipstickspore",
+    "itclinkmilk",
+    "itclimbersstring",
+    "itkyasarin",
     "itCharItems.h",
     "itCommonItems.h",
-    "it_2725.c",
+    "it_2725",
     "it_80279C48",
     "it_803F6F50.states",
+    "itSeakNeedleThrown",
     "itCLinkMilk_ItemVars",
     "itClimbersString_ItemVars",
-    "itKirby2F23_ItemVars",
     "itMewtwoShadowball_DatAttrs",
     "itGreatFoxLaser_Attrs",
     "itPikachutJoltAir_ItemVars",
-    "SpawnItem",
-    "PAD_STACK",
+    "include style",
     "MSL/math.h",
-    "baselib/gobj.h"
+    "baseline/gobj.h",
+    "baselib/gobj.h",
+    "PAD_STACK",
+    "SpawnItem",
+    "Item_80268B18",
+    "Item_8026AB54",
+    "GET_ITEM",
+    "HSD_JObj",
+    "Vec3"
   ],
   "follow_up_queries": [
-    "Verify which remaining item TUs, if any, were still below the 50% fuzzy-match target after merge; the author explicitly expressed uncertainty.",
-    "Revisit near-matches from the bot report, especially Dosei, Mewtwo Shadow Ball, Unknown, GreatFoxLaser, Seak needle thrown collision callbacks, and Pikachu TJolt reflected logic.",
-    "Audit any remaining item files for ambiguous math includes such as \"math.h\" or generic <math.h> where reviewer style would prefer explicit <MSL/math.h>.",
-    "Validate newly added ItemVars and Attributes layouts as more item semantics become known; many fields are still xNN/pad placeholders.",
-    "Investigate the GreatFoxLaser x38 access-width note in it_802EAF28 and whether a cleaner struct/union representation can replace the likelike-field workaround.",
-    "Search for other item xDD4_itemVar accesses still borrowing unrelated union members after this sweep."
+    "Inspect final merged files for whether reviewer include-style requests were applied, especially `baseline/gobj.h` versus `baselib/gobj.h` and `<MSL/math.h>` versus `<math.h>`.",
+    "Check later PRs that continue matching the same item TUs after this fuzzy >50% pass.",
+    "Search for remaining uses of unrelated item var union fields in item-specific files, such as gamewatchchef, bombhei, or it_266F in nonmatching item contexts.",
+    "Verify whether `it_804DC878` placement in `.sdata2` was later resolved.",
+    "Compare `it_80279C48` callers after this PR to ensure all sites use the narrowed signature consistently."
   ],
-  "confidence": 0.89
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

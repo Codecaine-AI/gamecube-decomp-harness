@@ -11,75 +11,97 @@
     "merged_at": "2026-06-02T16:45:22Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched if_802F7E7C in src/melee/if/if_2F72.c by rewriting a do/while loop with a moving HSD_GObj** pointer into an indexed for loop over the fixed base pointer lbl_804A1340. The behavior remains the same: for six iterations, conditionally unlink two object slots per pair with HSD_GObjPLink_80390228, then memzero the base array.",
+  "summary": "Matched `if_802F7E7C` in `src/melee/if/if_2F72.c` by rewriting pointer-walking `do/while` code into an indexed `for` loop over six iterations. The logic still processes two adjacent GObj slots per iteration, calls `HSD_GObjPLink_80390228` when entries are non-null, and clears the backing table with `memzero(base, 0x34)`. decomp.dev reported one new match: `main/melee/if/if_2F72` item `if_802F7E7C`, moving from 93.12% to 100.00%.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
-      "control-flow-refactor",
-      "loop-codegen",
-      "nonfunctional-source-rewrite"
+      "control-flow rewrite",
+      "loop-shape matching",
+      "pointer-indexing cleanup",
+      "single-function match"
     ],
     "systems": [
       "melee-core",
-      "if"
+      "interface",
+      "if_2F72"
     ]
   },
   "key_files": [
-    "src/melee/if/if_2F72.c"
+    {
+      "path": "src/melee/if/if_2F72.c",
+      "reason": "Only changed file; contains the matched `if_802F7E7C` loop rewrite."
+    }
   ],
   "what_changed": [
-    "In if_802F7E7C, removed the separate advancing pointer variable data and kept only the fixed base pointer cast from lbl_804A1340.",
-    "Changed the loop from a do/while with i++ and data += 2 into for (i = 0; i < 6; i++).",
-    "Replaced data[1] and data[2] checks with base[i * 2 + 1] and base[i * 2 + 2].",
-    "Left the final memzero(base, 0x34) cleanup intact."
+    "`if_802F7E7C` no longer declares and advances a separate `HSD_GObj** data` cursor.",
+    "The previous `do { ... i++; data += 2; } while (i < 6);` loop was replaced with `for (i = 0; i < 6; i++)`.",
+    "Accesses changed from cursor-relative `data[1]` and `data[2]` to base-relative indexed expressions `base[i * 2 + 1]` and `base[i * 2 + 2]`.",
+    "The function retained the same null checks and calls to `HSD_GObjPLink_80390228` for both candidate entries per iteration.",
+    "The final `memzero(base, 0x34);` remained unchanged.",
+    "The PR added 8 lines and deleted 10 lines in one hunk."
   ],
   "smart_moves": [
-    "Used source-level loop structure as the matching lever instead of changing behavior or data layout.",
-    "Kept the stable base pointer live for both indexed access and the final memzero call, avoiding an extra pointer induction variable.",
-    "Expressed the original data += 2 stride directly in the array indices, making the six-iteration two-slot traversal explicit.",
-    "Made a minimal, localized change in a single function and file."
+    "Preserved semantics while changing loop expression shape, which is often enough to alter MWCC codegen for a match.",
+    "Used a single `base` pointer for both iteration and the final `memzero`, reducing alias/cursor state compared with separate `data` and `base` variables.",
+    "Made the fixed iteration count explicit in the `for` loop condition (`i < 6`), matching the apparent structure of a 6-entry pair traversal.",
+    "Kept the two-slot stride visible through `i * 2 + 1` and `i * 2 + 2`, avoiding manual pointer increment code that did not match."
   ],
   "decomp_lessons": [
-    "For matching, equivalent C loops are not interchangeable: a do/while with pointer increments can compile differently from a counted for loop with indexed loads.",
-    "When a function must later reuse the original base address, indexing from the base pointer can be a better match than advancing a second pointer.",
-    "Pointer-stride loops over fixed-size object tables may need to be rewritten as base[index * stride + offset] to reproduce expected compiler output.",
-    "Small control-flow rewrites can be sufficient to match a function without renaming symbols or changing semantics."
+    "For small fixed-count table traversals, try both cursor-style pointer increments and base-plus-index expressions; MWCC may prefer one loop shape for matching.",
+    "Converting a `do/while` to a `for` loop can change generated branch/setup code even when the logical iteration count is identical.",
+    "When a loop processes paired entries, representing the pair stride directly in array indexing (`i * 2 + offset`) may match better than incrementing the pointer by the stride.",
+    "If a function clears the original base pointer after iteration, keeping that base variable as the sole table reference can help avoid extra temporaries or mismatched register allocation."
   ],
   "naming_conventions": [
-    "Kept the existing generated/decomp symbol names: if_802F7E7C, if_2F72, lbl_804A1340, HSD_GObjPLink_80390228.",
-    "Used simple local names i and base; removed data once the moving pointer was no longer needed."
+    "`if_802F7E7C` follows the project convention of address-derived names for still-unnamed functions.",
+    "`lbl_804A1340` remains an address-derived global label; the PR did not introduce a semantic name for it.",
+    "`base` was used as the stable pointer to the `lbl_804A1340` table.",
+    "`i` was used as the loop counter for the fixed six-iteration traversal."
   ],
   "assembly_or_matching_tactics": [
-    "Converted a do/while loop into a for loop to influence loop setup and branch codegen.",
-    "Replaced pointer induction via data += 2 with indexed addressing from base using i * 2 plus constant offsets.",
-    "Preserved the same null checks before each HSD_GObjPLink_80390228 call.",
-    "Preserved the loop bound of six iterations and the final memzero size of 0x34."
+    "Changed loop form from post-tested `do/while` to canonical pre-tested/counting `for` loop.",
+    "Removed a separately incremented pointer cursor (`data += 2`) and replaced it with computed indexed loads from `base`.",
+    "Maintained null-check-before-call structure around `HSD_GObjPLink_80390228` to preserve control flow.",
+    "Validated by decomp.dev: `if_802F7E7C` reached 100.00% for `main/melee/if/if_2F72`, with report showing +128 matched code bytes overall and +9 bytes for the item."
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    "No human review comments were present in the provided PR slice.",
+    "Automated decomp.dev feedback reported one new match for `if_802F7E7C`."
+  ],
   "searchable_terms": [
     "pr-2570",
+    "DavidWeaverAudio",
     "if_2F72",
     "if_802F7E7C",
     "src/melee/if/if_2F72.c",
+    "lbl_804A1340",
     "HSD_GObj",
     "HSD_GObjPLink_80390228",
-    "lbl_804A1340",
     "memzero",
     "while to for loop",
     "do while",
     "for loop",
-    "pointer induction",
-    "indexed addressing",
-    "base[i * 2 + 1]",
-    "base[i * 2 + 2]",
-    "match/if_2F72",
-    "DavidWeaverAudio"
+    "loop-shape matching",
+    "pointer cursor",
+    "base indexed",
+    "i * 2 + 1",
+    "i * 2 + 2",
+    "GALE01",
+    "100.00%",
+    "93.12%"
   ],
   "follow_up_queries": [
-    "Find other unmatched functions using data += 2 style HSD_GObj** table traversal that may need indexed for loops.",
-    "Search for loops over lbl_804A1340 or similar object tables followed by memzero where keeping a stable base pointer may help matching.",
-    "Compare do/while versus for-loop codegen in nearby if_2F72 functions."
+    "Find other functions in `src/melee/if` that walk `lbl_804A1340` or similar GObj tables with pointer increments.",
+    "Search for unmatched fixed-count `do/while` loops that process two entries per iteration and try base-indexed `for` forms.",
+    "Check whether `lbl_804A1340` has enough known usage to receive a semantic global/table name in a future cleanup."
   ],
-  "confidence": 0.9
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

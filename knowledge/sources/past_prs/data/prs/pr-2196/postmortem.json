@@ -11,146 +11,96 @@
     "merged_at": "2026-03-02T21:23:57Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Aggregate decomp-matching cleanup across item code, item collision, fox blaster, and a few gm_1601 routines. The author framed it as high-fuzzy-match low-hanging fruit; the decomp.dev bot reported +0.08% matched code (+3040 bytes), 16 new 100% matches, and 7 additional improvements. Most edits tune types, locals, stack padding, branch shape, wrapper helpers, and temporary variables rather than adding new gameplay behavior.",
+  "summary": "Aggregate cleanup PR targeting high-fuzzy-match, low-hanging item code plus small gm_1601 cleanups. It raised matched code by +0.08% / +3040 bytes, with the bot reporting 16 new 100% matches and 7 additional improvements. The strongest evidence is in item collision and item utility routines: it_266F gained many small variable/control-flow/prototype tweaks, itcoll replaced a large hand-unrolled hitbox search with an ARRAY_SIZE loop, and headers were updated for more accurate signatures.",
   "change_classification": {
-    "primary_type": "decomp-matching cleanup",
+    "primary_type": "cleanup-driven decomp matching",
     "categories": [
       "cleanup",
       "decomp-matching",
       "headers",
-      "type-signature-correction",
+      "prototype-correction",
       "control-flow-shaping",
-      "stack-register-shaping"
+      "item-collision"
     ],
     "systems": [
       "item",
       "item-collision",
-      "item-random-selection",
-      "fox-blaster",
-      "game-mode"
+      "game-mode",
+      "foxblaster"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/it/it_266F.c",
-      "role": "Main item cleanup file; changed item selection helpers, collision response callbacks, wrapper helpers, stack padding, and mpCheckAllRemap call shape.",
-      "notable_symbols": [
-        "it_8026C47C",
-        "it_8026C530",
-        "it_8026C65C",
-        "it_8026E15C",
-        "it_8026E248",
-        "it_8026E32C",
-        "it_8026E414",
-        "it_8026E4D0",
-        "it_8026E5A0",
-        "it_8026E664",
-        "it_8026E71C",
-        "it_8026E7E0",
-        "it_8026EA20"
-      ]
-    },
-    {
-      "path": "src/melee/it/it_266F.h",
-      "role": "Header signature sync for it_266F changes, including int return/pointer types and declarations for new wrapper helpers."
-    },
-    {
-      "path": "src/melee/it/itcoll.c",
-      "role": "Item collision cleanup; replaced dead/unrolled alternatives in hitbox-copy search with an ARRAY_SIZE loop and adjusted bounds flipping logic.",
-      "notable_symbols": [
-        "it_8026FC00",
-        "it_8026FCF8",
-        "it_80271A58"
-      ]
-    },
-    {
-      "path": "src/melee/it/items/itfoxblaster.c",
-      "role": "Small matching tweak in fox blaster setup with an explicitly commented likely fake improvement.",
-      "notable_symbols": [
-        "it_802ADF10"
-      ]
-    },
-    {
-      "path": "src/melee/gm/gm_1601.c",
-      "role": "Small game-mode matching cleanup: include/types, local renames, branch-shape changes, buffer typing, and explicit bool compare.",
-      "notable_symbols": [
-        "gm_80162A98",
-        "gm_80163298",
-        "gm_80167470",
-        "gm_801674C4",
-        "fn_80169574",
-        "fn_8016A488"
-      ]
-    },
-    {
-      "path": "src/melee/gm/gm_1601.h",
-      "role": "Header signature update for fn_80169574 from void* buffer to s8* buffer."
-    }
-  ],
-  "what_changed": [
-    "In it_266F, the item-selection helpers were cleaned up: it_8026C530 now uses clearer midpoint/index locals and adjacent u16 table checks, while it_8026C65C changed from returning u8 to int and uses a count local plus the revised table lookup pattern.",
-    "Several it_266F collision-response routines now use extra bool temporaries such as new_var/new_val, adjusted PAD_STACK sizes, and callback calls without redundant casts in places to improve matching while preserving the repeated collision-bitmask logic.",
-    "New wrapper helpers were added for selected it_266F calls: it_8026E15C_inline1, it_8026E15C_inline2, it_8026E248_inline, and it_8026E32C_inline. They wrap it_8026DDFC or it_8026DD5C and are declared in it_266F.h.",
-    "it_8026E7E0 was wrapped with #pragma push / #pragma dont_inline on / #pragma pop and had its chk/chk2 handling reshaped with a single new_var temporary; the bot reported this function reached 100%.",
-    "it_8026EA20 changed arg4 from UNK_T* to int*, passes arg4 directly to mpCheckAllRemap instead of *arg4, adds an UNUSED int _, and reduces PAD_STACK from 8 to 4; the header signature was updated.",
-    "itcoll.c removed large #if 0/unrolled alternatives in it_8026FCF8 and replaced them with a for loop over ARRAY_SIZE(item->x5D4_hitboxes), preserving the chk flag and early return. it_8026FC00 gained an empty item_gobj->next guard as a matching artifact.",
-    "it_80271A58 now obtains the item via GET_ITEM(item_gobj) and flips left/right bounds using a temp so the signed swap is explicit instead of independently negating both sides.",
-    "gm_1601.c added gm/types.h, retuned gm_80162A98 temporaries, renamed gm_80163298 locals to index/record/save_data/offset/score while retaining pointer math with a TODO, rewrote gm_80167470 as a switch on gm_801A4310 case 0x1F, changed fn_80169574 to take s8* buf, and made fn_8016A488 compare hud_enabled == true.",
-    "itfoxblaster.c added new_var2 in it_802ADF10 for two zero assignments and explicitly comments that this is probably a fake improvement because the idiomatic for-loop form was not yet matching."
-  ],
-  "smart_moves": [
-    "Used small compiler-shape levers, not broad rewrites: temporary aliases, bool copies, adjusted stack padding, explicit casts, an empty guard, and #pragma dont_inline were enough to convert many high-fuzzy functions to matches.",
-    "Synchronized implementation and headers when types became clearer: fn_80169574 uses s8* so buf[size] = -2 no longer needs a cast, it_8026C65C returns int, and it_8026EA20 exposes int* for the remap argument.",
-    "Turned a noisy itcoll hitbox search with deleted #if attempts into a compact ARRAY_SIZE loop while still matching, showing that idiomatic loops can be recovered if the flag/break/return shape is preserved.",
-    "Left uncertainty visible instead of over-claiming: gm_80163298 keeps a TODO about pointer math being hard because of addi + lwzx, and itfoxblaster labels new_var2 as a likely fake improvement.",
-    "Validated the cleanup with automated match metrics: decomp.dev reported 16 new matches and 7 further improvements, including several item collision callbacks reaching 100%."
-  ],
-  "decomp_lessons": [
-    "Header prototypes are part of the match: changing pointer signedness or scalar width in the .h and .c together can remove casts and alter codegen in the intended way.",
-    "For repeated item collision callbacks, preserving the compiler's chosen bool/register lifetime can require explicit temporary variables before bitmask tests such as & 0xF, & 0xE, & 0xD, & 0xC, and & 1.",
-    "Do not force unclear struct access when target code wants indexed pointer math; gm_80163298 documents that the save-data offset pattern still needs investigation because the addi + lwzx sequence is hard to express cleanly.",
-    "Wrapper helpers around tiny predicates can be useful matching tools, but they should remain searchable and clearly named after the parent routine until a better inline/static story is known.",
-    "A cleanup PR can combine low-hanging fuzzy matches across nearby systems, but comments should distinguish real readability wins from matching-only artifacts such as new_var2 or empty if blocks."
-  ],
-  "naming_conventions": [
-    "Unidentified functions keep address-based names such as it_8026E7E0, gm_80167470, and fn_80169574.",
-    "New helper names use the parent symbol plus an _inline suffix, with numeric suffixes when multiple wrappers exist: it_8026E15C_inline1 and it_8026E15C_inline2.",
-    "Headers preserve address comments beside prototypes, for example /* 26C65C */ and /* 169574 */.",
-    "Where semantics are somewhat known, locals were improved to names like index, record, save_data, offset, score, mid, and count.",
-    "Where a variable is purely for matching/codegen, the diff keeps generic names such as new_var, new_val, and new_var2 rather than inventing meaning."
-  ],
-  "assembly_or_matching_tactics": [
-    "Adjusted PAD_STACK values in several item functions, including it_8026E_inline, it_8026E32C, it_8026E7E0, and it_8026EA20.",
-    "Used #pragma dont_inline around it_8026E7E0 to control function codegen.",
-    "Introduced wrapper functions for it_8026DDFC and it_8026DD5C calls to affect call/inlining shape in it_8026E15C, it_8026E248, and it_8026E32C.",
-    "Introduced temporary bool/value variables before bitmask branches to preserve register lifetimes and branch ordering.",
-    "Changed branch spelling to match target shape, including gm_80167470's switch/case form and fn_8016A488's explicit hud_enabled == true.",
-    "Used typed pointer arithmetic such as temp_r9 = temp_r10 + 1 and temp_r9[mid] in it_8026C530 instead of raw integer offset expressions.",
-    "Kept a matching-only empty if (item_gobj->next) block in it_8026FC00.",
-    "Replaced hand-unrolled hitbox checks in it_8026FCF8 with a for loop over ARRAY_SIZE while preserving chk and early-return behavior."
-  ],
-  "review_feedback": [
-    "Author PR body: this was intended as an aggregate PR for multiple files, ideally matching high-fuzzy low-hanging fruit in item files.",
-    "No human review comments or review bodies are present in the available slice.",
-    "decomp.dev bot report for GALE01: matched code reached 54.29%, up +0.08% and +3040 bytes.",
-    "Bot reported 16 new matches, including it_8026F6BC, it_8026E7E0, it_8026C65C, it_80271A58, it_8026FCF8, it_8026FC00, gm_80167470, it_8026C47C, fn_80169574, and fn_8016A488.",
-    "Bot reported additional improvements in it_8026E15C, it_8026E248, it_8026E32C, gm_801674C4, it_802ADF10, it_8026C530, and gm_80162A98."
-  ],
-  "searchable_terms": [
-    "pr-2196",
-    "Multiple item cleanup",
-    "jurrejelle",
-    "jj/it-coll",
-    "decomp.dev",
-    "GALE01",
-    "matched code +3040 bytes",
-    "high fuzzy match",
     "src/melee/it/it_266F.c",
     "src/melee/it/it_266F.h",
     "src/melee/it/itcoll.c",
     "src/melee/it/items/itfoxblaster.c",
     "src/melee/gm/gm_1601.c",
-    "src/melee/gm/gm_1601.h",
+    "src/melee/gm/gm_1601.h"
+  ],
+  "what_changed": [
+    "Cleaned and reshaped multiple functions in src/melee/it/it_266F.c, including it_8026C47C, it_8026C530, it_8026C65C, it_8026E15C, it_8026E248, it_8026E32C, it_8026E414, it_8026E4D0, it_8026E5A0, it_8026E664, it_8026E71C, it_8026E7E0, and it_8026EA20.",
+    "Updated it_8026C65C return type from u8 to int in it_266F.c and it_266F.h.",
+    "Updated it_8026EA20's fifth argument from UNK_T* to int* and passed that pointer directly to mpCheckAllRemap instead of dereferencing it.",
+    "Added small wrapper functions named it_8026E15C_inline1, it_8026E15C_inline2, it_8026E248_inline, and it_8026E32C_inline to influence inlining/call structure for matching.",
+    "Added #pragma push / #pragma dont_inline on / #pragma pop around it_8026E7E0 to control compiler behavior.",
+    "Reworked several collision-result handlers in it_266F.c by copying chk into a new bool temporary before bit tests and callback dispatch.",
+    "Rewrote it_8026C530's weighted-selection/binary-search style logic with clearer mid/temp pointer variables and fewer commented failed attempts.",
+    "Simplified itcoll.c by replacing a large manually unrolled hitbox scan in it_8026FCF8 with a for loop over ARRAY_SIZE(item->x5D4_hitboxes), while preserving hit capsule copy behavior.",
+    "Changed itcoll.c it_80271A58 to use GET_ITEM(item_gobj) and adjusted left/right collision bounds flipping with a temporary so right and left are swapped while negated.",
+    "Made small gm_1601.c matching cleanups: included gm/types.h, reused var_r31 in gm_80162A98, renamed locals in gm_80163298, reshaped gm_80167470 as a switch, changed fn_80169574 buffer type from void* to s8*, and made a hud_enabled check explicit against true.",
+    "Updated gm_1601.h to match fn_80169574(ssize_t size, s8* buf).",
+    "In itfoxblaster.c, introduced a new_var2 temporary around zero assignments in it_802ADF10 with an explicit TODO noting it may be a fake improvement and that the idiomatic for-loop version still did not fully match."
+  ],
+  "smart_moves": [
+    "Used narrow prototype corrections where they improved both readability and matching, especially void* to s8* for fn_80169574 and UNK_T* to int* for it_8026EA20.",
+    "Preserved or improved matching by introducing deliberate temporaries, such as copying chk into new_var before bitmask tests and using new_var2 for repeated zero assignment in itfoxblaster.",
+    "Replaced a brittle, manually unrolled hitbox search with ARRAY_SIZE iteration in it_8026FCF8 while still reaching 100% according to the bot report.",
+    "Documented uncertain tactics directly in code with TODO comments, including the gm_80163298 pointer-math issue and the itfoxblaster fake-improvement concern.",
+    "Used local wrapper functions and dont_inline pragmas as targeted compiler-shaping tools rather than broad rewrites.",
+    "Kept header declarations synchronized with implementation changes for return types and pointer types."
+  ],
+  "decomp_lessons": [
+    "For high-fuzzy item code, small C-shape changes can unlock many 100% matches: the bot reported 16 new matches from this aggregate cleanup.",
+    "When matching collision-result bitmask code, assigning the accumulated result to a fresh bool temporary before testing bits can affect generated code enough to matter.",
+    "A typed pointer parameter can eliminate casts and improve matching; fn_80169574 became cleaner as ssize_t size, s8* buf with buf[size] = -2.",
+    "Do not assume UNK_T* means an unknown pointed-to value is dereferenced; in it_8026EA20 the matching call passed the int* pointer itself to mpCheckAllRemap.",
+    "ARRAY_SIZE loops can sometimes replace unrolled or exploratory code without losing matching, as shown by it_8026FCF8 reaching 100%.",
+    "Compiler behavior may require explicit local wrappers for calls that look trivially inlineable, and selective #pragma dont_inline can be a valid matching tactic.",
+    "Pointer math may remain necessary when the target assembly uses addi plus indexed loads; the PR explicitly left gm_80163298 with a TODO rather than forcing a speculative struct field layout.",
+    "Evidence for author intent is limited beyond the PR body saying this was an aggregate cleanup for high-fuzzy low-hanging item matches and the bot match report."
+  ],
+  "naming_conventions": [
+    "Kept address-based unknown function names such as it_8026C530, it_8026E7E0, gm_80167470, and fn_80169574.",
+    "Used project type names Item_GObj, HSD_GObjEvent, HSD_ObjAllocUnk6, HitCapsule, CollData, ItemKind, and U8Vec4.",
+    "Preferred GET_ITEM(item_gobj) over direct item_gobj->user_data in at least one itcoll cleanup.",
+    "Introduced descriptive locals in gm_80163298: index, record, save_data, offset, and score replacing v1/v2/v3/v4/v5.",
+    "Some matching temporaries remained generic, such as new_var, new_val, new_var2, mid, and temp_r9, indicating they were matching-driven rather than semantic names.",
+    "Inline helper names followed the pattern it_<address>_inline or it_<address>_inlineN for wrapper functions used to influence matching."
+  ],
+  "assembly_or_matching_tactics": [
+    "Introduced wrapper functions around it_8026DDFC and it_8026DD5C calls to change call/inlining shape in it_8026E15C, it_8026E248, and it_8026E32C.",
+    "Used #pragma dont_inline around it_8026E7E0.",
+    "Adjusted PAD_STACK sizes in several functions, including it_8026E_inline, it_8026E32C, it_8026E7E0, and it_8026EA20.",
+    "Changed bool/control-flow form by assigning chk to a second temporary before bitmask checks.",
+    "Used explicit comparison to true for gm_8016A488's hud_enabled check.",
+    "Reshaped gm_80167470 from early-return if logic to a switch over gm_801A4310().",
+    "Reused or introduced temporaries to influence register allocation, including var_r31 reuse in gm_80162A98 and new_var2 in itfoxblaster.",
+    "Changed it_8026C530 indexing from commented pointer/integer experiments to u16* base plus offset pointer temp_r9 = temp_r10 + 1.",
+    "Left pointer math in gm_80163298 because the comment says removing it seemed hard with the addi + lwzx pattern."
+  ],
+  "review_feedback": [
+    "No human review comments were present in the provided slice.",
+    "The decomp-dev bot reported matched code improved from 54.21% to 54.29%, a +3040 byte increase.",
+    "Bot-reported new 100% matches included it_8026F6BC, it_8026E7E0, it_8026C65C, it_80271A58, it_8026E414, it_8026E4D0, it_8026EA20, it_8026FCF8, it_8026E5A0, it_8026E664, it_8026E71C, it_8026FC00, gm_80167470, it_8026C47C, fn_80169574, and fn_8016A488.",
+    "Bot-reported additional improvements included it_8026E15C to 99.92%, it_8026E248 to 99.91%, it_8026E32C to 97.33%, gm_801674C4 to 94.70%, it_802ADF10 to 98.15%, it_8026C530 to 91.20%, and gm_80162A98 to 94.56%."
+  ],
+  "searchable_terms": [
+    "Multiple item cleanup",
+    "jurrejelle",
+    "it_266F",
+    "itcoll",
+    "itfoxblaster",
+    "gm_1601",
     "it_8026C47C",
     "it_8026C530",
     "it_8026C65C",
@@ -163,13 +113,12 @@
     "it_8026E664",
     "it_8026E71C",
     "it_8026E7E0",
-    "it_8026E9A4",
     "it_8026EA20",
-    "it_8026F6BC",
     "it_8026FC00",
     "it_8026FCF8",
     "it_80271A58",
     "it_802ADF10",
+    "it_8026F6BC",
     "gm_80162A98",
     "gm_80163298",
     "gm_80167470",
@@ -178,33 +127,31 @@
     "fn_8016A488",
     "HSD_ObjAllocUnk6",
     "HSD_GObjEvent",
-    "Item_GObj",
     "HitCapsule",
-    "HitCapsule_Disabled",
     "GET_ITEM",
     "ARRAY_SIZE",
     "PAD_STACK",
     "pragma dont_inline",
     "mpCheckAllRemap",
-    "lbColl_CopyHitCapsule",
-    "gm/types.h",
-    "gmMainLib_8015EDBC",
-    "Player_GetPlayerCharacter",
+    "UNK_T to int pointer",
+    "void pointer to s8 pointer",
     "hud_enabled == true",
-    "new_var",
-    "new_val",
-    "new_var2",
-    "fake-improvement",
     "addi lwzx pointer math"
   ],
   "follow_up_queries": [
-    "gm_80163298 save_data offset pointer math addi lwzx struct field cleanup",
-    "itfoxblaster it_802ADF10 fake improvement for loop 100% match",
-    "it_8026E15C_inline1 it_8026E15C_inline2 wrapper helper static inline naming",
-    "HSD_ObjAllocUnk6 xC u16 threshold table it_8026C530 it_8026C65C type cleanup",
-    "it_8026F6BC new match reported by bot but no direct hunk visible in slice",
-    "gm_80167470 switch case 0x1F gm_801B97C4 target behavior verification",
-    "itcoll it_8026FCF8 ARRAY_SIZE loop hitbox copy matching pattern"
+    "Find later PRs that rename or remove it_8026E15C_inline1, it_8026E15C_inline2, it_8026E248_inline, or it_8026E32C_inline.",
+    "Check whether gm_80163298 later gets a proper save-data struct field replacing the pointer math at offset ((index << 2) & 0x3FC) + 0x114.",
+    "Search for later work on it_8026C530 or HSD_ObjAllocUnk6 to confirm the weighted-selection structure and field meanings.",
+    "Look for follow-up cleanup of the itfoxblaster TODO about fake improvement and the idiomatic for-loop mismatch.",
+    "Search for later itcoll changes around xAC4_ignoreItemID and x5D4_hitboxes to validate the ARRAY_SIZE loop form."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

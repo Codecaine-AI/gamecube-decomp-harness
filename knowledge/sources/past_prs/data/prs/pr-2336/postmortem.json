@@ -11,108 +11,105 @@
     "merged_at": "2026-03-21T20:19:58Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched two ftCommon Attack100 air item-scope enter functions, `fn_800D7C60` and `fn_800D81D0`, by adding C implementations in `ftCo_Attack100.c`. The PR body identifies them as the air scope rapid and air scope fire enter variants, modeled after ground counterparts and calling `ftCommon_ClampAirDrift` after `Fighter_ChangeMotionState`.",
+  "summary": "Matched two previously missing fighter common air scope item enter functions in ftCo_Attack100.c: fn_800D7C60 for ItemScopeAirRapid and fn_800D81D0 for ItemScopeAirFire. Both implementations mirror nearby ground/item-scope counterparts while adding the air-specific ftCommon_ClampAirDrift call after Fighter_ChangeMotionState.",
   "change_classification": {
-    "primary_type": "decompilation_match",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "function-implementation",
-      "fighter-motion-state",
+      "fighter-action-state",
       "item-scope"
     ],
     "systems": [
       "fighter",
       "ftCommon",
-      "Attack100"
+      "attack100",
+      "item"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
-      "role": "Added matched C bodies for `fn_800D7C60` and `fn_800D81D0`.",
-      "symbols": [
-        "fn_800D7C60",
-        "fn_800D81D0",
-        "fn_800D7BDC",
-        "fn_800D8140",
-        "Fighter_ChangeMotionState",
-        "ftCommon_ClampAirDrift"
-      ]
+      "change": "Added matched C implementations for fn_800D7C60 and fn_800D81D0."
     }
   ],
   "what_changed": [
-    "`fn_800D7C60(Fighter_GObj* gobj)` was implemented as the air scope rapid enter function, using `fn_800D769C(fp, ftCo_MS_ItemScopeAirRapid)`, `Fighter_ChangeMotionState`, `ftCommon_ClampAirDrift`, `p_ftCommonData + 0x5BC`, `fn_800D80F4`, and `fn_800D8378`.",
-    "`fn_800D81D0(Fighter_GObj* gobj, int arg1)` was implemented as the air scope fire enter function, clearing `fp->throw_flags`, using `fn_800D769C(fp, ftCo_MS_ItemScopeAirFire)`, `Fighter_ChangeMotionState`, `ftCommon_ClampAirDrift`, assigning `fp->mv.co.common.x0 = arg1`, and installing `fn_800D86B8` plus `fn_800D8378` callbacks.",
-    "Both new functions were placed near their related ground counterparts and wrapped with local `#pragma dont_inline` regions.",
-    "The decomp.dev report showed `fn_800D81D0` gaining 152 matched bytes and `fn_800D7C60` gaining 140 matched bytes, both moving from 0.00% to 100.00%."
+    "Added fn_800D7C60(Fighter_GObj* gobj), identified in the PR text as the 140-byte air scope rapid enter function and the air version of fn_800D7BDC.",
+    "fn_800D7C60 computes a motion state with fn_800D769C(fp, ftCo_MS_ItemScopeAirRapid), calls Fighter_ChangeMotionState with flag 0x02000000 and ftCo_804D9028/ftCo_804D902C float constants, clamps air drift, initializes fp->mv.co.common.x0 from p_ftCommonData + 0x5BC, and installs accessory4_cb/take_dmg_cb.",
+    "Added fn_800D81D0(Fighter_GObj* gobj, int arg1), identified in the PR text as the 152-byte air scope fire enter function and the air version of fn_800D8140.",
+    "fn_800D81D0 clears fp->throw_flags, computes a motion state with fn_800D769C(fp, ftCo_MS_ItemScopeAirFire), calls Fighter_ChangeMotionState with Ft_MF_None and ftCo_804D9030/ftCo_804D9034 float constants, clamps air drift, stores arg1 into fp->mv.co.common.x0, and installs accessory4_cb/take_dmg_cb.",
+    "Both new functions were wrapped in #pragma push / #pragma dont_inline on / #pragma pop blocks, matching the surrounding file's matching-control style."
   ],
   "smart_moves": [
-    "Used the already-matched ground variants as templates: PR text explicitly calls `fn_800D7C60` the air version of `fn_800D7BDC` and `fn_800D81D0` the air version of `fn_800D8140`.",
-    "Preserved the important air-specific behavior by calling `ftCommon_ClampAirDrift(fp)` immediately after `Fighter_ChangeMotionState` in both functions.",
-    "Used codegen-shaping locals such as `Fighter_GObj* temp_gobj`, a scoped `HSD_GObj* gobj2`, and `PAD_STACK(8)` where needed.",
-    "Matched existing nearby style for float constants by declaring `extern int ftCo_804D9028/902C/9030/9034` and loading them through `*(f32*) &symbol` casts."
+    "Used the already-matched nearby ground counterparts as templates: fn_800D7C60 follows fn_800D7BDC, and fn_800D81D0 follows fn_800D8140 with air motion-state IDs.",
+    "Preserved exact code-shape details needed for matching, including temporary gobj variables, explicit float loads via extern int symbols cast to f32 pointers, and a scoped HSD_GObj* alias in fn_800D81D0.",
+    "Placed ftCommon_ClampAirDrift immediately after Fighter_ChangeMotionState in both air enter functions, which the PR context calls out as the shared air-specific behavior.",
+    "Used PAD_STACK(8) in fn_800D81D0, indicating stack-layout sensitivity was handled rather than simplified away."
   ],
   "decomp_lessons": [
-    "For fighter ground/air motion-state pairs, cloning the structure and assignment order from the ground counterpart can be an effective matching strategy, with the air variant adding `ftCommon_ClampAirDrift` after the motion-state transition.",
-    "The order of side effects matters: compute motion ID, call `Fighter_ChangeMotionState`, clamp air drift, then write `mv.co.common.x0` and callback fields.",
-    "Seemingly redundant temporaries, scoped casts, and stack padding are valid matching tools when the target assembly requires particular register allocation or stack shape.",
-    "When semantic names are not established, keeping address-based function names is preferable to inventing labels."
+    "For air variants of already-understood fighter action-state enter functions, start from the ground counterpart and look for the minimal air-specific differences: air motion-state enum plus ftCommon_ClampAirDrift after motion-state change.",
+    "Do not remove seemingly redundant temporaries or casts during matching. In this PR, temp_gobj, gobj2, extern int float constants cast through f32*, and PAD_STACK(8) are all likely codegen-shaping artifacts.",
+    "Callback setup is part of the action-state enter contract: both matched functions assign accessory4_cb and take_dmg_cb after motion-state setup and common-data initialization.",
+    "When constants are represented as data symbols such as ftCo_804D9028, ftCo_804D902C, ftCo_804D9030, and ftCo_804D9034, preserving the original load pattern can be necessary for a match."
   ],
   "naming_conventions": [
-    "Unresolved functions kept address-style names: `fn_800D7C60`, `fn_800D81D0`, `fn_800D7BDC`, `fn_800D8140`.",
-    "Common fighter motion IDs use the `ftCo_MS_` prefix, shown here by `ftCo_MS_ItemScopeAirRapid` and `ftCo_MS_ItemScopeAirFire`.",
-    "Unresolved data symbols kept `ftCo_804D90xx` names: `ftCo_804D9028`, `ftCo_804D902C`, `ftCo_804D9030`, `ftCo_804D9034`.",
-    "Common fighter state access follows the existing `fp->mv.co.common.x0` field path."
+    "Unidentified functions retain address-style names such as fn_800D7C60 and fn_800D81D0.",
+    "Motion-state IDs use ftCo_MS_ItemScopeAirRapid and ftCo_MS_ItemScopeAirFire for the air scope rapid/fire states.",
+    "Fighter common callbacks are assigned through fields named accessory4_cb and take_dmg_cb.",
+    "The file path and symbols use the ftCo/ftCommon split: ftCo_Attack100.c contains common fighter action-state code, while ftCommon_ClampAirDrift provides shared air movement handling."
   ],
   "assembly_or_matching_tactics": [
-    "Used `#pragma push`, `#pragma dont_inline on`, and `#pragma pop` around the newly matched functions.",
-    "Used `PAD_STACK(8)` in `fn_800D81D0`.",
-    "Used raw float loads from unresolved data symbols via `*(f32*) &ftCo_804D9028`, `*(f32*) &ftCo_804D902C`, `*(f32*) &ftCo_804D9030`, and `*(f32*) &ftCo_804D9034`.",
-    "Used a raw common-data offset load: `*(s32*) ((u8*) p_ftCommonData + 0x5BC)`.",
-    "Introduced gobj temporaries (`temp_gobj`, scoped `HSD_GObj* gobj2`) to match call codegen for `Fighter_ChangeMotionState`.",
-    "Used exact motion flags from the diff: `0x02000000` for the rapid air enter and `Ft_MF_None` for the fire air enter."
+    "Applied #pragma dont_inline around each new function to prevent inlining from disturbing expected codegen.",
+    "Used PAD_STACK(8) in fn_800D81D0 to force the expected stack frame shape.",
+    "Introduced temporary object aliases, including Fighter_GObj* temp_gobj and scoped HSD_GObj* gobj2, to match register/type/codegen behavior around Fighter_ChangeMotionState.",
+    "Loaded float arguments to Fighter_ChangeMotionState through extern int symbols cast to f32 pointers rather than using literal float constants.",
+    "Kept pointer arithmetic for common data access: *(s32*)((u8*)p_ftCommonData + 0x5BC)."
   ],
   "review_feedback": [
-    "No human review comments or formal reviews were present in the slice.",
-    "decomp.dev bot reported the two target functions as new 100.00% matches: `fn_800D81D0` +152 bytes and `fn_800D7C60` +140 bytes."
+    "No review comments were present in the provided PR slice.",
+    "The only human-text evidence states that both functions match the same pattern as their ground counterparts and call ftCommon_ClampAirDrift after Fighter_ChangeMotionState."
   ],
   "searchable_terms": [
     "pr-2336",
     "Pizzahutt",
-    "ftCo_Attack100.c",
     "fn_800D7C60",
     "fn_800D81D0",
     "fn_800D7BDC",
     "fn_800D8140",
-    "air scope rapid",
-    "air scope fire",
-    "ItemScopeAirRapid",
-    "ItemScopeAirFire",
+    "ftCo_Attack100.c",
+    "ftCommon_ClampAirDrift",
+    "Fighter_ChangeMotionState",
     "ftCo_MS_ItemScopeAirRapid",
     "ftCo_MS_ItemScopeAirFire",
-    "Fighter_ChangeMotionState",
-    "ftCommon_ClampAirDrift",
     "ftCo_804D9028",
     "ftCo_804D902C",
     "ftCo_804D9030",
     "ftCo_804D9034",
     "p_ftCommonData",
-    "0x5BC",
-    "PAD_STACK",
-    "dont_inline",
     "accessory4_cb",
     "take_dmg_cb",
-    "fn_800D80F4",
-    "fn_800D86B8",
-    "fn_800D8378",
-    "throw_flags",
-    "Ft_MF_None"
+    "PAD_STACK",
+    "dont_inline",
+    "ItemScopeAirRapid",
+    "ItemScopeAirFire",
+    "fighter",
+    "ftCommon",
+    "attack100",
+    "air scope rapid",
+    "air scope fire"
   ],
   "follow_up_queries": [
-    "Search nearby ftCommon Attack100 functions for more ground/air pairs where a matched ground variant can guide an air variant.",
-    "Investigate the semantic field name for `p_ftCommonData + 0x5BC` when ftCommonData struct coverage improves.",
-    "Look for future PRs that rename or document `fn_800D7C60` and `fn_800D81D0` with semantic item-scope enter names.",
-    "Check whether `ftCo_804D9028`, `ftCo_804D902C`, `ftCo_804D9030`, and `ftCo_804D9034` later gain typed float declarations without disrupting matches."
+    "Find other ftCo_Attack100.c air item-scope functions that mirror ground counterparts and may need ftCommon_ClampAirDrift after Fighter_ChangeMotionState.",
+    "Search for uses of ftCo_MS_ItemScopeAirRapid and ftCo_MS_ItemScopeAirFire to identify remaining unnamed scope-related callbacks.",
+    "Compare fn_800D7C60 against fn_800D7BDC and fn_800D81D0 against fn_800D8140 to validate naming opportunities once surrounding symbols are understood.",
+    "Search for PAD_STACK in ftCommon action-state enter functions to identify similar stack-sensitive matching patterns."
   ],
-  "confidence": 0.92
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -10,71 +10,81 @@
     "created_at": "2026-06-07T06:54:00Z",
     "merged_at": "2026-06-07T06:57:40Z"
   },
-  "agent_status": "scaffolded_without_agent",
-  "summary": "Match and link ftco_damagefall is a merged PR touching 2 changed file(s), primarily in fighter, repo-root. Draft classification: decomp-matching.",
+  "agent_status": "agent_completed",
+  "summary": "Matched and linked the common fighter damage-fall source file by making a small local-variable adjustment in ftCo_DamageFall.c and switching the object from NonMatching to Matching in configure.py. The functional behavior appears unchanged: ftCo_80090594 now copies the FtMotionId parameter msid into a local motion_id before passing it to calcShift, which was sufficient for codegen matching.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching"
+      "decomp-matching",
+      "link-status-change",
+      "codegen-tweak"
     ],
     "systems": [
       "fighter",
-      "repo-root"
+      "ftCommon",
+      "damage"
     ]
   },
   "key_files": [
-    "src/melee/ft/chara/ftCommon/ftCo_DamageFall.c: +2/-1 across 2 hunks",
-    "configure.py: +1/-1 across 1 hunks"
+    "configure.py",
+    "src/melee/ft/chara/ftCommon/ftCo_DamageFall.c"
   ],
   "what_changed": [
-    "src/melee/ft/chara/ftCommon/ftCo_DamageFall.c: +2/-1 across 2 hunks",
-    "configure.py: +1/-1 across 1 hunks"
+    "Changed configure.py so melee/ft/chara/ftCommon/ftCo_DamageFall.c is built as Object(Matching, ...) instead of Object(NonMatching, ...).",
+    "In ftCo_80090594, introduced a local FtMotionId motion_id initialized from the msid parameter.",
+    "Changed the calcShift call from calcShift(hitlag_mul, msid, dmg) to calcShift(hitlag_mul, motion_id, dmg).",
+    "No PR body, comments, or review discussion were present in the provided slice."
   ],
-  "smart_moves": [],
+  "smart_moves": [
+    "Used a minimal source-level codegen nudge rather than restructuring logic: the only behavioral code change was introducing a local alias for msid.",
+    "Kept the matching proof explicit by updating configure.py to link ftCo_DamageFall.c as Matching once the function/codegen issue was resolved.",
+    "Preserved existing naming style for fighter motion IDs by using motion_id, matching nearby field and parameter naming conventions such as ground_or_air and hitlag_mul."
+  ],
   "decomp_lessons": [
-    "Run the Pi postmortem agent for evidence-backed lessons before relying on this draft."
+    "A parameter-to-local copy can affect register allocation or instruction scheduling enough to match, even when the C-level behavior is equivalent.",
+    "When a file becomes matching, update the build configuration from NonMatching to Matching in the same PR so link status remains synchronized with source changes.",
+    "For small matching-only changes, avoid unnecessary semantic edits; keep the diff narrow and easy to audit."
   ],
-  "naming_conventions": [],
-  "assembly_or_matching_tactics": [],
+  "naming_conventions": [
+    "FtMotionId is used for fighter motion-state identifiers.",
+    "Local variable motion_id uses snake_case and describes the FtMotionId value more explicitly than the original parameter name msid.",
+    "Existing fighter damage fields use names such as fp->dmg.x18fa_model_shift_frames and fp->dmg.x18FC; this PR did not rename those fields.",
+    "Function names in this area include generated/address-style names such as ftCo_80090594 when a better semantic name is not yet established."
+  ],
+  "assembly_or_matching_tactics": [
+    "Introduce a typed local alias, FtMotionId motion_id = msid, before later use to influence generated code without changing behavior.",
+    "Pass the local alias to a helper call, calcShift(hitlag_mul, motion_id, dmg), instead of passing the original parameter directly.",
+    "Use configure.py object status changes as the repository-level signal that a translation unit now matches."
+  ],
   "review_feedback": [],
   "searchable_terms": [
-    "psilupan",
-    "match",
-    "and",
-    "link",
+    "pr-2597",
     "ftco_damagefall",
-    "configure",
-    "src",
-    "melee",
-    "chara",
-    "ftcommon",
-    "matchingfor",
-    "object",
-    "matching",
-    "ftco_attackair",
-    "ftco_landingair",
-    "nonmatching",
-    "ftco_damage",
-    "ftco_damageice",
-    "ftco_guard",
-    "ftpickupitem",
-    "calcshift",
-    "hitlag_mul",
-    "ftmotionid",
-    "ftco_80090594",
-    "fighter",
-    "enum_t",
-    "groundorair",
-    "ground_or_air",
+    "ftCo_DamageFall.c",
+    "ftCo_80090594",
+    "calcShift",
+    "FtMotionId",
     "motion_id",
+    "msid",
+    "hitlag_mul",
+    "GroundOrAir",
+    "ground_or_air",
     "x18fa_model_shift_frames",
-    "x18fc"
+    "x18FC",
+    "Object(Matching)",
+    "Object(NonMatching)",
+    "configure.py",
+    "fighter",
+    "ftCommon",
+    "damage fall",
+    "codegen local alias"
   ],
   "follow_up_queries": [
-    "Search past PR records for files related to PR 2597",
-    "Search review comments for Match and link ftco_damagefall"
+    "Find other PRs where a function matched by copying a parameter into a local variable before a call.",
+    "Search for remaining NonMatching ftCommon damage-related files such as ftCo_Damage.c and ftCo_DamageIce.c.",
+    "Inspect ftCo_80090594 and calcShift in later history for semantic renaming opportunities once behavior is better understood."
   ],
-  "confidence": 0.25,
+  "confidence": 0.92,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

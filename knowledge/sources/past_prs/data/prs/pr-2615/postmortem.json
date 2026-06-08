@@ -1,0 +1,141 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2615",
+  "pr": {
+    "number": 2615,
+    "title": "Attempt to link `gmopening`",
+    "url": "https://github.com/doldecomp/melee/pull/2615",
+    "state": "MERGED",
+    "author": "ribbanya",
+    "created_at": "2026-06-08T11:39:31Z",
+    "merged_at": "2026-06-08T11:51:49Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "PR 2615 attempted to link src/melee/gm/gmopening.c by correcting section ownership and data layout around gmopening. The code change split a previous mixed static struct at .data:0x803DBF78 into explicit rodata Vec3 constants, bss/sbss globals, string literals used directly in sprintf, and a force-active unused float array to preserve data. The config split moved the .bss range 0x80480B38-0x80480D58 from gm_1A4C.c to gmopening.c, and symbols.txt refined gm_803DBF78 from one 0x3C global object into a 0x24 local float object plus two local string labels. The PR body notes that everything matched in objdiff, but marking the file as Matching still caused a data mismatch, so the work is best understood as a partial/linking-data cleanup rather than a fully resolved matching status change.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "data-layout",
+      "linking",
+      "decomp-matching",
+      "config-update",
+      "section-split-adjustment"
+    ],
+    "systems": [
+      "game-mode",
+      "opening",
+      "gmopening",
+      "config",
+      "GALE01"
+    ]
+  },
+  "key_files": [
+    "src/melee/gm/gmopening.c",
+    "config/GALE01/symbols.txt",
+    "config/GALE01/splits.txt"
+  ],
+  "what_changed": [
+    "Adjusted config/GALE01/splits.txt so gm_1A4C.c .bss ends at 0x80480B38 instead of 0x80480D58.",
+    "Added a .bss range for melee/gm/gmopening.c from 0x80480B38 to 0x80480D58.",
+    "Refined symbols at .data:0x803DBF78: gm_803DBF78 changed from a single 0x3C global object to a 0x24 local float object, with lbl_803DBF9C and lbl_803DBFA8 added as 0xC local string labels.",
+    "Removed the C-side aggregate struct that combined nine floats and two format strings under gm_803DBF78.",
+    "Declared gm_803B7D68 and gm_803B7D74 as static const Vec3 values near the top of gmopening.c with address comments.",
+    "Moved gmopening bss/sbss globals near the top of the file with address comments, including gm_80480B38, gm_804D67D0, gm_804D67D4, gm_804D67D8, gm_804D67DC, gm_804D67E0, gm_804D67E1, gm_804D67E2, gm_804D67E4, gm_804D67E8, gm_804D67EC, gm_804D67F0, and gm_804D67F4.",
+    "Added a static sdata2_order function that references 82.0f and 290.0f, apparently to influence sdata2 float ordering.",
+    "Added a force-active static float array named unused_floats containing the previous nine float values from gm_803DBF78.",
+    "Changed fn_801A9FCC to use direct string literals in sprintf calls instead of computing string pointers through a u8 pointer into gm_803DBF78.",
+    "Added an address comment to the gm_803DBFB4 static int array."
+  ],
+  "smart_moves": [
+    "Separated heterogeneous data that had been modeled as one synthetic struct into symbol-level pieces matching the linker map evidence: float data at gm_803DBF78 and separate string labels at lbl_803DBF9C and lbl_803DBFA8.",
+    "Used direct format-string literals in the sprintf calls once the old aggregate struct no longer represented the true data layout cleanly.",
+    "Preserved otherwise-unused float data with #pragma force_active, avoiding the compiler dropping data that is needed for section/link matching.",
+    "Adjusted splits.txt in tandem with source declarations, which is important when bss ownership crosses file boundaries.",
+    "Added explicit address comments on static data declarations, making future section-ordering and symbol-audit work easier.",
+    "Introduced a small sdata2_order function to force or document ordering of floating constants 82.0f and 290.0f in .sdata2."
+  ],
+  "decomp_lessons": [
+    "Objdiff text/function matching is not sufficient for marking a file Matching when linked data sections still disagree; verify data, bss, sbss, rodata, and sdata2 ownership as well.",
+    "Avoid overfitting unknown data as a single C struct when the symbol file and references suggest separate objects or labels; splitting objects can improve link accuracy.",
+    "When moving bss symbols between source files, update config/GALE01/splits.txt so each file owns the correct address interval.",
+    "String labels embedded after float data may need to be modeled as separate data symbols rather than fields of a synthetic struct.",
+    "Force-active pragmas can be used to keep required but unreferenced data emitted for matching, but this should be treated as a deliberate matching tactic.",
+    "Address comments on data declarations are useful breadcrumbs for maintaining order-sensitive decompilation source."
+  ],
+  "naming_conventions": [
+    "Unknown game-mode data symbols continue to use address-derived gm_XXXXXXXX names, such as gm_803DBF78 and gm_80480B38.",
+    "Local anonymous data/string labels may use lbl_XXXXXXXX names, as with lbl_803DBF9C and lbl_803DBFA8.",
+    "Order-forcing helper functions may be named descriptively after their purpose, as with sdata2_order.",
+    "Temporary or synthetic retained data can be named by role when its real semantic name is unknown, as with unused_floats.",
+    "Static data declarations in this file use address comments of the form /* 3B7D68 */ or /* 4D67D0 */ before the declaration."
+  ],
+  "assembly_or_matching_tactics": [
+    "Used #pragma push, #pragma force_active on, and #pragma pop around unused_floats to force emission of otherwise-unused float data.",
+    "Added sdata2_order with casts to void for 82.0f and 290.0f to affect or preserve ordering of .sdata2 constants.",
+    "Replaced pointer arithmetic into a synthetic data blob with direct string literals to better model the compiler's emitted string references.",
+    "Moved declarations earlier in source to match section ordering for rodata, bss, sbss, and data.",
+    "Changed symbols.txt object sizes and scopes to reflect the intended split: a 0x24 local float object followed by two 0xC local string labels.",
+    "Changed splits.txt bss boundaries to attach gm_80480B38 and subsequent bss range to gmopening.c rather than gm_1A4C.c."
+  ],
+  "review_feedback": [
+    "No review comments or reviews were present in the provided PR slice.",
+    "The PR body explicitly warns that although everything matches in objdiff, marking the file as Matching causes a data mismatch; evidence for the underlying cause is not provided in the slice."
+  ],
+  "searchable_terms": [
+    "pr-2615",
+    "Attempt to link gmopening",
+    "gmopening",
+    "gmopening.c",
+    "gm_1A4C.c",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "gm_803DBF78",
+    "lbl_803DBF9C",
+    "lbl_803DBFA8",
+    "gm_803DBFB4",
+    "gm_80480B38",
+    "gm_803B7D68",
+    "gm_803B7D74",
+    "gm_804D67D0",
+    "gm_804D67D4",
+    "gm_804D67D8",
+    "gm_804D67DC",
+    "gm_804D67E0",
+    "gm_804D67E1",
+    "gm_804D67E2",
+    "gm_804D67E4",
+    "gm_804D67E8",
+    "gm_804D67EC",
+    "gm_804D67F0",
+    "gm_804D67F4",
+    "sdata2_order",
+    "unused_floats",
+    "force_active",
+    "PerfLabelLine",
+    "lbMthp_8001F5F4",
+    "lbMthp_8001F5E4",
+    "lbMthp_8001F5D4",
+    "fn_801A9FCC",
+    "fn_801AA0E8",
+    "sdata2",
+    "bss split",
+    "data mismatch",
+    "objdiff"
+  ],
+  "follow_up_queries": [
+    "Why does gmopening still produce a data mismatch when marked Matching despite objdiff matching?",
+    "Audit gmopening.c section ordering for .data, .rodata, .bss, .sbss, and .sdata2 after PR 2615.",
+    "Check whether unused_floats and sdata2_order are still necessary or can be replaced by cleaner semantic declarations.",
+    "Verify whether lbl_803DBF9C and lbl_803DBFA8 should remain local string labels or receive semantic names once gmopening behavior is better understood.",
+    "Review neighboring gm_1A4C.c bss ownership after moving 0x80480B38-0x80480D58 to gmopening.c."
+  ],
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

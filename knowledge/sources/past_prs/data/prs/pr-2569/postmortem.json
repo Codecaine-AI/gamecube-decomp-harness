@@ -11,78 +11,68 @@
     "merged_at": "2026-06-01T22:58:08Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched one sysdolphin synth function and three Ice Mountain stage functions. The PR removed the stale residual-match note for HSD_Synth_80388DC8, tightened the HSD_Synth_8038B120 header prototype to void(void), and reshaped grIceMt_801F96E0, grIceMt_801F993C, and grIceMt_801FA0BC to reach 100.0% in the GALE01 report.",
+  "summary": "Matched one sysdolphin synth function and three Ice Mountain stage functions. The PR removed an obsolete residual-match note for HSD_Synth_80388DC8, corrected the HSD_Synth_8038B120 prototype to void HSD_Synth_8038B120(void), and reshaped gricemt.c source for grIceMt_801F96E0, grIceMt_801F993C, and grIceMt_801FA0BC until GALE01 reported all four targeted functions at 100.0%.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "tooling-verification"
+      "source-shaping",
+      "assert-matching"
     ],
     "systems": [
+      "src/melee/gr",
+      "src/sysdolphin/baselib",
       "stage/Ice Mountain",
-      "sysdolphin/baselib/synth"
+      "audio/synth"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/gricemt.c",
-      "role": "Main Ice Mountain matching work for grIceMt_801F96E0, grIceMt_801F993C, and grIceMt_801FA0BC."
-    },
-    {
-      "path": "src/sysdolphin/baselib/synth.c",
-      "role": "Removed obsolete @todo note after HSD_Synth_80388DC8 reached 100%."
-    },
-    {
-      "path": "src/sysdolphin/baselib/synth.h",
-      "role": "Changed HSD_Synth_8038B120 prototype from UNK_RET/UNK_PARAMS to void(void)."
-    }
+    "src/melee/gr/gricemt.c",
+    "src/sysdolphin/baselib/synth.c",
+    "src/sysdolphin/baselib/synth.h"
   ],
   "what_changed": [
-    "Added '#pragma auto_inline off' before grIceMt_801F71E8 in gricemt.c.",
-    "Changed several Ice Mountain HSD_ASSERT/HSD_ASSERTMSG macro uses into explicit __assert calls with grIm_803E4068 string-table offsets and literal assertion names/messages.",
-    "In grIceMt_801F993C, expanded upper_ix and under_ix range assertions into explicit conditional __assert calls using message pointers at grIm_803E4068 offsets 0x828 and 0x844.",
-    "Reworked grIceMt_801FA0BC: removed the previous grIceMt_801F71E8_inner/grIceMt_801F71E8_noinline wrappers, introduced grIceMt_FA0BC_jobjs(Ground*) returning &g->gv.icemt2.xC8, added PAD_STACK(24), renamed/retyped locals, and used direct grIceMt_801F71E8 calls.",
-    "In grIceMt_801FA0BC, replaced -20.0f * Ground_801C0498() source form with grIm_804DB570 * Ground_801C0498() to match the existing data constant usage.",
-    "In grIceMt_801FA0BC, made NULL checks explicit before __assert and changed pointer-array handling to a scoped HSD_JObj** jobjs local with explicit jobjs[n] != NULL tests.",
-    "Removed the obsolete comment saying HSD_Synth_80388DC8 was only a 97.2% match.",
-    "Updated synth.h so HSD_Synth_8038B120 is declared as void HSD_Synth_8038B120(void) instead of UNK_RET HSD_Synth_8038B120(UNK_PARAMS)."
+    "Added `#pragma auto_inline off` before `grIceMt_801F71E8`, affecting inlining behavior used by later Ice Mountain matching.",
+    "Replaced some `HSD_ASSERT` and `HSD_ASSERTMSG` macro uses in `grIceMt_801F96E0` and `grIceMt_801F993C` with explicit `if` checks calling `__assert` using string-table offsets from `grIm_803E4068`.",
+    "Reshaped `grIceMt_801FA0BC`: renamed locals, removed the previous `grIceMt_801F71E8_inner` / `grIceMt_801F71E8_noinline` inline-wrapper tactic, added `PAD_STACK(24)`, and introduced a small inline helper `grIceMt_FA0BC_jobjs(Ground* g)` returning `&g->gv.icemt2.xC8`.",
+    "Changed `grIceMt_801FA0BC` translation math from a literal `-20.0f * Ground_801C0498()` form to `grIm_804DB570 * Ground_801C0498()`, preserving source shape needed for matching.",
+    "In `grIceMt_801FA0BC`, changed null checks to explicit `== NULL` / `!= NULL` forms for gobj, jobj, and jobjs entries, and scoped the `jobjs` temporary around flag handling.",
+    "Removed the stale todo comment in `synth.c` stating `HSD_Synth_80388DC8` was only a 97.2% match.",
+    "Corrected the `synth.h` declaration of `HSD_Synth_8038B120` from `UNK_RET HSD_Synth_8038B120(UNK_PARAMS)` to `void HSD_Synth_8038B120(void)`."
   ],
   "smart_moves": [
-    "Used explicit __assert calls where assertion macros did not produce the desired source shape, preserving exact file/message pointer behavior needed for matching.",
-    "Replaced an artificial noinline-call wrapper pattern with a cleaner direct-call shape plus auto-inline control.",
-    "Introduced a tiny static inline accessor, grIceMt_FA0BC_jobjs, to influence codegen for the HSD_JObj** array without changing the underlying structure access.",
-    "Used PAD_STACK(24) as a targeted stack-frame matching tactic in grIceMt_801FA0BC.",
-    "Tightened an unknown synth prototype only after evidence from the existing definition and successful --require-protos verification.",
-    "Cleaned up stale match-status documentation in synth.c once the GALE01 report showed HSD_Synth_80388DC8 at 100.0%."
+    "Used explicit `__assert` calls with file/message string pointers instead of assertion macros where macro expansion did not produce the target codegen.",
+    "Controlled inlining globally near `grIceMt_801F71E8` with `#pragma auto_inline off` rather than relying on extra wrapper functions that were removed in the final source shape.",
+    "Introduced a tiny accessor helper, `grIceMt_FA0BC_jobjs`, to influence pointer expression/codegen for the `g->gv.icemt2.xC8` JObj array without adding broad structural changes.",
+    "Matched float expression/codegen in `grIceMt_801FA0BC` by using the existing global `grIm_804DB570` instead of an equivalent literal expression.",
+    "Cleaned up header truth while matching: the synth function prototype was tightened to the known `void (void)` signature instead of leaving generic `UNK_RET` / `UNK_PARAMS` placeholders."
   ],
   "decomp_lessons": [
-    "HSD_ASSERT and HSD_ASSERTMSG are not always source-shape neutral; expanding them into __assert can be necessary when matching exact string pointers, line numbers, or register allocation.",
-    "For stage code that indexes data tables such as grIm_803E4068, matching may require referencing known string/data offsets instead of relying on macro-generated literals.",
-    "Small accessor helpers that return a pointer to a struct subfield can be useful to reproduce pointer-array setup and aliasing behavior.",
-    "Using named data constants, such as grIm_804DB570, can match generated code better than spelling the same value as a float literal.",
-    "PAD_STACK remains a practical tactic when the compiler needs an otherwise-unused stack reservation to match the original frame.",
-    "Once a function is matched, remove stale residual-match notes and replace UNK prototypes with concrete signatures when verified by configure.py --require-protos."
+    "For stubborn stage matches, source-shape changes around asserts, temporary lifetimes, block scope, and explicit null comparisons can be decisive even when behavior is unchanged.",
+    "Do not keep obsolete partial-match comments after a function reaches 100%; stale todo notes reduce search quality and mislead future work.",
+    "Header prototypes should be narrowed when evidence is sufficient. Replacing `UNK_RET` and `UNK_PARAMS` with a concrete `void HSD_Synth_8038B120(void)` improves type information and require-protos compatibility.",
+    "Equivalent constants are not always equivalent for matching: a named data symbol such as `grIm_804DB570` may be needed instead of a literal like `-20.0f`.",
+    "Small inline helpers that return interior struct pointers can be a useful matching tactic when direct field access produces different register allocation or instruction shape."
   ],
   "naming_conventions": [
-    "Ice Mountain stage functions use the grIceMt_801Fxxxx address-based prefix, for example grIceMt_801F96E0, grIceMt_801F993C, and grIceMt_801FA0BC.",
-    "The new local helper name grIceMt_FA0BC_jobjs ties the helper to the target function suffix and the HSD_JObj** role.",
-    "Ice Mountain file-scope data symbols in this slice use the grIm_ prefix, including grIm_803E4068, grIm_804D69F4, and grIm_804DB570.",
-    "Sysdolphin synth symbols retain HSD_Synth/HSD_SynthSFX prefixes, such as HSD_Synth_80388DC8 and HSD_SynthSFXUnloadBank.",
-    "Unknown generic prototypes should be tightened from UNK_RET/UNK_PARAMS to concrete signatures when the definition is known and require-protos passes."
+    "Target Ice Mountain functions retain the `grIceMt_` prefix, e.g. `grIceMt_801F96E0`, `grIceMt_801F993C`, and `grIceMt_801FA0BC`.",
+    "The newly added helper name `grIceMt_FA0BC_jobjs` ties the helper to the parent function address suffix and describes that it returns JObj pointers.",
+    "Sysdolphin synth unknown/address-based names remain in the `HSD_Synth_8038xxxx` style until better semantic names are known.",
+    "Local names in the matched source moved toward concise semantic forms such as `gobj`, `jobj`, `gp`, `frame`, and `jobjs`."
   ],
   "assembly_or_matching_tactics": [
-    "#pragma auto_inline off near grIceMt_801F71E8 to control inlining behavior.",
-    "Explicit __assert((char*) &grIm_803E4068 + offset, line, message) calls to reproduce assert call operands.",
-    "PAD_STACK(24) in grIceMt_801FA0BC to match stack layout.",
-    "Use of a static inline helper returning &g->gv.icemt2.xC8 to shape pointer computation for jobjs.",
-    "Scoped block around HSD_JObj** jobjs and explicit NULL comparisons to shape generated control flow.",
-    "Use of grIm_804DB570 instead of a direct -20.0f literal for translate-Y calculations.",
-    "Verification commands reported by the PR: python configure.py --require-protos and ninja."
+    "`#pragma auto_inline off` was applied before `grIceMt_801F71E8` to manage inlining-sensitive codegen.",
+    "Assertion macros were expanded manually into `if` guards plus `__assert` calls to match emitted code and exact assert string operands.",
+    "`PAD_STACK(24)` was added in `grIceMt_801FA0BC`, indicating stack layout/padding was part of the match.",
+    "A helper returning `&g->gv.icemt2.xC8` was used to shape pointer handling for a four-entry JObj array.",
+    "Explicit `!= NULL` checks were used before `Ground_801C2D0C` calls for `jobjs[0]` through `jobjs[3]`.",
+    "Using `grIm_804DB570 * Ground_801C0498()` instead of a direct `-20.0f` literal was part of the final matching source shape.",
+    "Verification listed `python configure.py --require-protos`, `ninja`, and GALE01 reports showing `HSD_Synth_80388DC8`, `grIceMt_801F96E0`, `grIceMt_801F993C`, and `grIceMt_801FA0BC` at 100.0%."
   ],
   "review_feedback": [
-    "No review comments were present in the provided slice.",
-    "The PR body/comment reported GALE01 100.0% results for HSD_Synth_80388DC8, grIceMt_801F96E0, grIceMt_801F993C, and grIceMt_801FA0BC."
+    "No review comments were present in the provided PR slice.",
+    "The only human text evidence is the PR description, which documents the matched functions, prototype cleanup, and verification commands."
   ],
   "searchable_terms": [
     "PR2569",
@@ -99,32 +89,42 @@
     "grIceMt_801FA0BC",
     "grIceMt_801F71E8",
     "grIceMt_FA0BC_jobjs",
+    "Ice Mountain",
     "grIm_803E4068",
-    "grIm_804D69F4",
     "grIm_804DB570",
-    "Ground_801C2BA4",
-    "Ground_801C0498",
-    "Ground_801C2D0C",
-    "Ground_801C3214",
-    "Ground_801C2FE0",
-    "Ground_801C32AC",
-    "HSD_JObjAddTranslationY",
-    "HSD_JObjSetTranslateY",
+    "grIm_804D69F4",
     "HSD_ASSERT",
     "HSD_ASSERTMSG",
     "__assert",
-    "PAD_STACK",
+    "PAD_STACK(24)",
     "auto_inline off",
-    "ICEMT_FIELD_MAX",
-    "UnkFlagStruct",
+    "Ground_801C2BA4",
+    "Ground_801C0498",
+    "Ground_801C3214",
+    "Ground_801C2FE0",
+    "Ground_801C32AC",
+    "Ground_801C2D0C",
+    "HSD_JObjAddTranslationY",
+    "HSD_JObjSetTranslateY",
+    "UNK_RET",
+    "UNK_PARAMS",
     "require-protos",
     "GALE01 100.0%"
   ],
   "follow_up_queries": [
-    "Find other remaining HSD_ASSERT/HSD_ASSERTMSG nonmatches in gricemt.c that may need explicit __assert expansion.",
-    "Search for stale @todo residual-match comments in sysdolphin/baselib after GALE01 reports reach 100%.",
-    "Audit UNK_RET/UNK_PARAMS prototypes in synth.h against existing function definitions under --require-protos.",
-    "Look for other Ice Mountain helpers where small static inline accessors or PAD_STACK could improve matching."
+    "Look for later PRs that name or type `grIceMt_GroundVars`, `icemt2.xC4`, and `icemt2.xC8` more precisely.",
+    "Search for other stage files where replacing `HSD_ASSERT` macros with explicit `__assert` calls helped matching.",
+    "Search for other uses of `#pragma auto_inline off` around helper lookup functions in stage code.",
+    "Check whether `grIm_804DB570` is later named as a float constant for Ice Mountain vertical movement.",
+    "Find future synth PRs that further rename `HSD_Synth_80388DC8` or `HSD_Synth_8038B120`."
   ],
-  "confidence": 0.9
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

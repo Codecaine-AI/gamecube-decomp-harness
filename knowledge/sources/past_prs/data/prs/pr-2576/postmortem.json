@@ -5,113 +5,129 @@
     "number": 2576,
     "title": "Match several particle functions",
     "url": "https://github.com/doldecomp/melee/pull/2576",
-    "state": "OPEN",
+    "state": "MERGED",
     "author": "itsgrimetime",
     "created_at": "2026-06-03T23:04:34Z",
-    "merged_at": null
+    "merged_at": "2026-06-04T01:42:59Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Open PR matching four functions in `src/sysdolphin/baselib/particle.c`: `hsd_80393D2C`, `hsd_803966A0`, `hsd_80396C78`, and `fn_80397374`. The fix is mostly codegen shaping: local state pointers for global particle structs, a localized `dont_inline` pragma for call shape, and a shared `ps_remove_node` inline scheduling fold. The decomp.dev GALE01 report shows +1456 matched bytes, +0.04% matched code, four new 100.00% matches, and four nearby unmatched-function improvements.",
+  "summary": "Matched six particle/baselib functions in src/sysdolphin/baselib/particle.c and made a small API type correction so surrounding callers keep matching. The PR primarily used local pointer aliases, inline scheduling tweaks, deliberate redundant-looking null checks, and prototype widening to resolve register allocation, inlining, and caller-side narrowing issues. It also improved match reports for several nearby particle functions.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "codegen-shaping",
-      "inline-helper-folding",
-      "register-allocation",
-      "verification-report"
+      "fix",
+      "headers",
+      "types-structs",
+      "particle"
     ],
     "systems": [
-      "src",
-      "sysdolphin",
-      "baselib",
+      "sysdolphin/baselib",
+      "melee/ef",
+      "effect",
       "particle"
     ]
   },
   "key_files": [
-    "src/sysdolphin/baselib/particle.c: +25/-26 across 7 hunks; only changed file; matched particle functions by adjusting `hsd_80393D2C`, shared `ps_remove_node`, `hsd_803966A0`, `hsd_80396C78`, and `fn_80397374`."
+    "src/sysdolphin/baselib/particle.c",
+    "src/sysdolphin/baselib/particle.h",
+    "src/melee/ef/eflib.c"
   ],
   "what_changed": [
-    "Wrapped `hsd_80393D2C` in `#pragma push`, `#pragma dont_inline on`, and `#pragma pop`, and replaced direct `hsd_804CF7E8.x0_b1` accesses with a local `struct ParticleConsoleState* sp = &hsd_804CF7E8` while preserving `HSD_SetReportCallback(fn_80393C14)` and `HSD_SetReportCallback(NULL)` behavior.",
-    "Changed `ps_remove_node` so `head_ptr = &sp->xD0` is folded into the null check as `if (*(head_ptr = &sp->xD0) == NULL)`, replacing the prior separate assignment plus load.",
-    "Introduced local `struct ParticleScreenState* sp = &hsd_804CF810` in `hsd_803966A0`; repeated `(&hsd_804CF810)->xBC` writes became `sp->xBC`, and `ps_remove_node(&hsd_804CF810, data)` became `ps_remove_node(sp, data)`.",
-    "In `fn_80397374`, initialized `struct ParticleScreenState* sp = &hsd_804CF810` at declaration and used `sp->xBC`, `sp->x1C`, and `ps_remove_node(sp, data)` instead of repeated `(&hsd_804CF810)->...` global-address expressions.",
-    "Removed TODO comments that described remaining partial-match issues in `hsd_803966A0`, `hsd_80396C78`, and `fn_80397374`; the PR body and bot report identify these as now matching.",
-    "GALE01 report recorded four new matches: `hsd_80396C78` 96.49% to 100.00%, `hsd_80393D2C` 94.34% to 100.00%, `hsd_803966A0` 99.87% to 100.00%, and `fn_80397374` 99.93% to 100.00%. It also reported improvements in `hsd_80395D88`, `hsd_803962A8`, `fn_80397814`, and `hsd_80396A20`."
+    "Matched six functions in src/sysdolphin/baselib/particle.c: hsd_80393D2C, hsd_803966A0, hsd_80396C78, fn_80397374, hsd_8039EFAC, and hsd_8039F6CC.",
+    "Changed hsd_8039F05C's first parameter type from s8 to s32 in both particle.c and particle.h.",
+    "Changed efLib_CreateGenerator's local linkNo from u8 to int so the caller remains matched after hsd_8039F05C's prototype was widened.",
+    "Reworked repeated direct global accesses to hsd_804CF7E8 and hsd_804CF810 by introducing local struct pointer aliases such as struct ParticleConsoleState* sp and struct ParticleScreenState* sp.",
+    "Adjusted ps_remove_node's head pointer assignment into the if condition: if (*(head_ptr = &sp->xD0) == NULL), apparently to influence inline scheduling.",
+    "Added #pragma push / #pragma dont_inline on / #pragma pop around hsd_80393D2C.",
+    "For hsd_8039EFAC and hsd_8039F6CC, added an extra if (gen != NULL) block after an early NULL return and guarded ref_INC(jobj) with if (jobj != NULL).",
+    "Removed several stale TODO comments for now-matched functions and updated the remaining hsd_8039F05C TODO from relocation-difference wording to a .bss.0 section-anchor/register-allocation issue.",
+    "Reported additional match improvements for hsd_80395D88, hsd_803962A8, hsd_80396A20, fn_80397814, and hsd_8039F05C."
   ],
   "smart_moves": [
-    "Kept the `ps_remove_node` inline fold shared, as the PR body notes, so one helper scheduling adjustment fixed matched functions and also improved nearby partial functions.",
-    "Used typed local `sp` pointers to global state structs instead of repeated `(&global)->field` expressions, a small source rewrite that can steer register allocation without changing apparent behavior.",
-    "Applied `dont_inline` only around `hsd_80393D2C` with pragma push/pop, limiting the effect to the needed function and preserving intended caller call shape.",
-    "Validated with both project build commands from the PR body, `python configure.py --require-protos` and `ninja`, plus decomp.dev's GALE01 match report."
+    "Widening hsd_8039F05C(linkNo) from s8 to s32 aligned it with the surrounding particle API convention of int/s32 linkNo and removed spurious caller-side narrowing.",
+    "The caller-side efLib_CreateGenerator local was widened from u8 to int at the same time, avoiding a fix that would improve the callee while regressing the caller match.",
+    "Using local aliases for global state structs, especially hsd_804CF810, reduced repeated address expressions and helped match register allocation in particle screen-state functions.",
+    "The ps_remove_node assignment-in-condition form targeted a specific addi/lwz ordering problem called out by old TODO comments.",
+    "Keeping redundant-looking gen != NULL checks after an early return in hsd_8039EFAC and hsd_8039F6CC reproduced target control flow/dead-branch structure rather than simplifying the C away from the binary.",
+    "Guarding ref_INC(jobj) with a NULL check preserved safer semantics while also contributing to matching the generator creation functions.",
+    "The PR kept a clear distinction between fully matched functions and a still-unmatched hsd_8039F05C, updating its TODO with the more precise current blocker."
   ],
   "decomp_lessons": [
-    "For this translation unit, use a localized `#pragma dont_inline on` guarded by push/pop when a small function must remain out-of-line for existing caller shape.",
-    "When an inline helper mismatch is about scheduling order, moving an assignment into a condition can alter emitted `addi`/`lwz` ordering while keeping C semantics simple.",
-    "For global struct state like `hsd_804CF810` or `hsd_804CF7E8`, binding the address once to a typed local pointer can improve register allocation and reduce repeated global-address codegen.",
-    "Fixing a shared inline helper can produce report improvements beyond the named target functions; track nearby unmatched functions after helper changes.",
-    "No human review rationale is available in this slice, so the reusable lessons are inferred from the PR body, diff, and bot match report rather than reviewer comments."
+    "For particle APIs, linkNo should be treated as s32/int when surrounding functions use that convention; an overly narrow s8/u8 type can create unwanted caller-side extension or truncation code.",
+    "Local pointer aliases to global state structs can be necessary for matching, not just readability, because they influence register allocation and address materialization.",
+    "Do not automatically remove redundant NULL checks or apparently dead branches in decomp code; target binaries may contain those shapes and matching may require preserving them.",
+    "Inline helper scheduling can hinge on small source-level expression choices, such as assigning a pointer inside a condition instead of on the previous statement.",
+    "When fixing a callee prototype, inspect all callers for narrowing/sign-extension fallout and adjust local variable types if needed.",
+    "A TODO should identify the current concrete blocker, such as section-anchor hoisting or register-allocation cascade, rather than an outdated symptom like relocation differences."
   ],
   "naming_conventions": [
-    "Unmapped particle functions retain address-style names such as `hsd_80393D2C`, `hsd_803966A0`, `hsd_80396C78`, and `fn_80397374`.",
-    "Local state pointer name `sp` is used for both `struct ParticleConsoleState*` and `struct ParticleScreenState*` in this file.",
-    "`ps_remove_node` is a lower_snake_case static inline helper, contrasting with HSD-style exported names like `HSD_SetReportCallback`.",
-    "Offset-based struct fields remain named with `x` prefixes such as `x0_b1`, `xBC`, `xD0`, and `x1C`; external data labels remain address-style such as `lbl_8040BEC4`."
+    "Particle generator link number parameters are named linkNo and should use s32/int in these APIs.",
+    "Local aliases for particle state structs used the short name sp for struct ParticleConsoleState* and struct ParticleScreenState*.",
+    "Existing anonymous/unmatched symbol names were preserved, including hsd_80393D2C, hsd_803966A0, hsd_80396C78, fn_80397374, hsd_8039EFAC, hsd_8039F05C, and hsd_8039F6CC.",
+    "The public declaration in particle.h mirrors the source signature style: HSD_Generator* hsd_8039F05C(s32 linkNo, s32 bank, s32 idx)."
   ],
   "assembly_or_matching_tactics": [
-    "Use local `sp` aliases for global particle state to influence register choice and field access shape.",
-    "Use `#pragma dont_inline` with push/pop for a single function when inlining would disturb callsite matching.",
-    "Fold `head_ptr = &sp->xD0` into the `ps_remove_node` null check to match inline scheduling.",
-    "Prefer one shared inline-helper adjustment over callsite-specific hacks when several functions inline the same helper.",
-    "Remove stale partial-match TODOs only after report evidence shows the functions at 100.00%."
+    "Used #pragma dont_inline around hsd_80393D2C to control code generation.",
+    "Introduced local struct pointer aliases for globals hsd_804CF7E8 and hsd_804CF810 to guide register allocation.",
+    "Changed ps_remove_node from a separate head_ptr assignment plus NULL check to assignment inside the dereference condition to influence inline instruction ordering.",
+    "Preserved redundant control-flow shape in hsd_8039EFAC and hsd_8039F6CC with an extra gen != NULL check after an early return.",
+    "Added jobj != NULL guards before ref_INC(jobj), affecting branch layout in generator creation functions.",
+    "Changed hsd_8039F05C's parameter width from s8 to s32 to avoid caller-side narrowing and extension artifacts.",
+    "Updated hsd_8039F05C's remaining mismatch note to identify .bss.0 section anchor hoist causing a register-allocation cascade, extra saved register, and frame shift."
   ],
   "review_feedback": [
-    "No human review comments or reviews are present in the slice.",
-    "decomp-dev bot GALE01 report: matched code became 70.11% (+0.04%, +1456 bytes) with four new matches and four improvements in unmatched particle items."
+    "No review comments were present in the provided PR slice.",
+    "The PR body or summary states verification was run with python configure.py --require-protos and ninja, and that the GALE01 report showed the six listed functions at 100.0%."
   ],
   "searchable_terms": [
-    "PR2576",
-    "itsgrimetime",
-    "particle.c",
-    "sysdolphin",
-    "baselib",
     "particle",
+    "baselib particle.c",
+    "eflib.c",
+    "particle.h",
     "hsd_80393D2C",
     "hsd_803966A0",
     "hsd_80396C78",
     "fn_80397374",
+    "hsd_8039EFAC",
+    "hsd_8039F6CC",
+    "hsd_8039F05C",
     "hsd_80395D88",
     "hsd_803962A8",
     "hsd_80396A20",
     "fn_80397814",
-    "ps_remove_node",
-    "ParticleScreenState",
+    "efLib_CreateGenerator",
+    "linkNo",
+    "s8 to s32",
+    "u8 to int",
     "ParticleConsoleState",
-    "hsd_804CF810",
+    "ParticleScreenState",
     "hsd_804CF7E8",
-    "HSD_SetReportCallback",
-    "fn_80393C14",
+    "hsd_804CF810",
+    "ps_remove_node",
+    "HSD_Generator",
+    "HSD_JObj",
+    "ref_INC",
+    "HSD_SListAllocAndAppend",
     "dont_inline",
-    "inline scheduling",
     "register allocation",
-    "head_ptr",
-    "xD0",
-    "xBC",
-    "x1C",
-    "lbl_8040BEC4",
-    "spr_off",
-    "sel",
-    "GALE01",
-    "configure.py --require-protos",
-    "ninja",
-    "decomp-dev bot"
+    "section anchor",
+    ".bss.0",
+    "GALE01"
   ],
   "follow_up_queries": [
-    "ps_remove_node head_ptr = &sp->xD0 inline scheduling addi lwz particle.c",
-    "hsd_80393D2C dont_inline HSD_SetReportCallback ParticleConsoleState x0_b1",
-    "ParticleScreenState sp hsd_804CF810 xBC register allocation hsd_803966A0",
-    "fn_80397374 lbl_8040BEC4 spr_off sel x1C xBC ps_remove_node",
-    "particle.c remaining improvements hsd_80395D88 hsd_803962A8 hsd_80396A20 fn_80397814"
+    "Find other particle generator APIs where linkNo is still typed as s8 or u8 and verify whether they should be s32/int.",
+    "Inspect remaining hsd_8039F05C mismatch for .bss.0 section-anchor hoist and register-allocation cascade.",
+    "Search for TODO comments in particle.c that mention inline scheduling, dead beq instructions, or register allocation and see if similar source-shaping tactics apply.",
+    "Check other callers of hsd_8039F05C for local linkNo narrowing after the prototype change."
   ],
-  "confidence": 0.92
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,20 +11,18 @@
     "merged_at": "2026-03-10T23:44:23Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the Home-Run Contest stage function grHomeRun_8021ED74 by replacing its undecompiled placeholder with a small Bob-Omb rain setup routine. The function now initializes a BobOmbRain struct, obtains a stage JObj with Ground_801C2CF4(0x7F), reads its position into the struct via lb_8000B1CC, and spawns/starts the item effect with it_8026BE84. The header prototype was tightened from unknown return/params to void grHomeRun_8021ED74(void). PR body reports a clean ninja build and fuzzy_match_percent 100.0.",
+  "summary": "Matched the Home-Run Contest stage function grHomeRun_8021ED74 at 100%. The placeholder was replaced with a small void function that initializes a BobOmbRain item-spawn descriptor, obtains a stage JObj via Ground_801C2CF4(0x7F), extracts a position with lb_8000B1CC, and calls it_8026BE84. The header prototype was tightened from UNK_RET/UNK_PARAMS to void(void), and grhomerun.c gained the it/it_26B1.h include needed for BobOmbRain and the item spawn function.",
   "change_classification": {
-    "primary_type": "decompilation_match",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage",
       "headers",
-      "item-callsite"
+      "item-interaction"
     ],
     "systems": [
-      "grhomerun",
       "stage",
       "item",
-      "bobomb_rain"
+      "ground"
     ]
   },
   "key_files": [
@@ -32,69 +30,76 @@
     "src/melee/gr/grhomerun.h"
   ],
   "what_changed": [
-    "Added #include \"it/it_26B1.h\" to grhomerun.c so the stage code can use BobOmbRain and it_8026BE84.",
-    "Implemented grHomeRun_8021ED74 as a void function instead of leaving it as an undecompiled placeholder.",
-    "Created a local BobOmbRain struct and initialized x0 and x4 to NULL, x14 to 0xB, x18 to 0, and x1C.b0 to 1 before dispatch.",
-    "Fetched an HSD_JObj from Ground_801C2CF4(0x7F), populated bobomb_rain.x8_vec with lb_8000B1CC(jobj, NULL, &bobomb_rain.x8_vec), then called it_8026BE84(&bobomb_rain).",
-    "Updated grhomerun.h prototype from UNK_RET grHomeRun_8021ED74(UNK_PARAMS) to void grHomeRun_8021ED74(void)."
+    "Replaced the grHomeRun_8021ED74 placeholder comment with a concrete implementation.",
+    "Added #include \"it/it_26B1.h\" to grhomerun.c.",
+    "Declared and initialized a BobOmbRain local with x0 and x4 set to NULL, x14 set to 0xB, x18 set to 0, and x1C.b0 set to 1.",
+    "Fetched an HSD_JObj pointer using Ground_801C2CF4(0x7F).",
+    "Called lb_8000B1CC(jobj, NULL, &bobomb_rain.x8_vec) to fill the BobOmbRain position vector.",
+    "Called it_8026BE84(&bobomb_rain), tying the stage function to Bob-omb rain item creation.",
+    "Updated grhomerun.h prototype for grHomeRun_8021ED74 from UNK_RET grHomeRun_8021ED74(UNK_PARAMS) to void grHomeRun_8021ED74(void)."
   ],
   "smart_moves": [
-    "Used the existing item header rather than re-declaring the BobOmbRain struct or item spawn routine locally.",
-    "Tightened the public header signature once the function body made it clear there are no parameters and no return value.",
-    "Kept the implementation minimal and matched around known engine helpers: Ground_801C2CF4 for stage object lookup, lb_8000B1CC for vector extraction, and it_8026BE84 for Bob-Omb rain handling.",
-    "Explicitly initialized the local struct fields used by the item call, which is important for matching stack layout and avoiding uninitialized-field ambiguity."
+    "Used the specific item header it/it_26B1.h instead of leaving item types and functions as unknowns, allowing the stage code to express the BobOmbRain data path directly.",
+    "Converted the header declaration to an exact void(void) signature once the function body showed no inputs and no return value.",
+    "Kept the implementation compact and data-oriented: initialize the item descriptor, derive its vector from a stage JObj, then pass it to the item subsystem.",
+    "Preserved likely matching-sensitive initialization order, including separate assignments to BobOmbRain fields before the lb_8000B1CC and it_8026BE84 calls."
   ],
   "decomp_lessons": [
-    "Small stage functions may simply prepare an item/effect parameter struct and hand it to an item subsystem routine; look for nearby item headers before inventing local types.",
-    "When a previously unknown prototype becomes obvious from the matched function body, update the header immediately from UNK_RET/UNK_PARAMS to the real signature.",
-    "Position-based stage effects often use a stage JObj lookup followed by lb_8000B1CC into a Vec3 field before spawning an item or effect.",
-    "Preserve evidence for unexplained constants such as 0x7F and 0xB rather than overnaming them without broader context."
+    "Small stage functions may primarily act as bridges between ground/JObj lookup helpers and item-spawn helpers; matching them can require importing the relevant item header rather than treating calls as opaque.",
+    "When a decompiled body proves a function has no parameters and no return, update the header from UNK_RET/UNK_PARAMS immediately so downstream work benefits from the stronger signature.",
+    "For item descriptor structs, field-by-field initialization with exact constants can be important for matching and for documenting semantics even when many field names remain partially generic.",
+    "Stage object IDs such as 0x7F can be used to locate a JObj whose transform feeds a spawn vector via lb_8000B1CC."
   ],
   "naming_conventions": [
-    "Address-based stage symbol grHomeRun_8021ED74 was retained; no semantic rename was introduced in this PR.",
-    "Existing project type names were reused: BobOmbRain, HSD_JObj, Vec3-style x8_vec field.",
-    "Unknown struct members stayed offset-style, such as x0, x4, x14, x18, x1C.b0, consistent with partially understood decomp structs.",
-    "Header comments retained the address marker format, e.g. /* 21ED74 */."
+    "The PR retained the existing stage prefix and address-based name grHomeRun_8021ED74.",
+    "The local variable was named bobomb_rain, matching the BobOmbRain type and making the item-spawn intent clearer.",
+    "The HSD_JObj local was named jobj, consistent with common decomp shorthand for joint object pointers.",
+    "The item type name BobOmbRain uses the project-visible casing from it/it_26B1.h."
   ],
   "assembly_or_matching_tactics": [
-    "Converted the function to void(void), likely matching a no-argument/no-return call pattern.",
-    "Used a local BobOmbRain stack struct with direct field assignments before passing its address to it_8026BE84.",
-    "Maintained exact constants visible in the matching code: Ground_801C2CF4(0x7F) and bobomb_rain.x14 = 0xB.",
-    "Used NULL assignments and helper-call ordering in a straightforward sequence that produced a reported 100.0 fuzzy match."
+    "Matched grHomeRun_8021ED74 by using a stack-allocated BobOmbRain struct and assigning its fields individually.",
+    "Used NULL assignments for pointer fields x0 and x4 rather than alternate zeroing constructs.",
+    "Set bobomb_rain.x1C.b0 = 1 as a bitfield-style assignment, preserving the struct access form visible in the matched C.",
+    "Called lb_8000B1CC with NULL as the middle argument and &bobomb_rain.x8_vec as the output vector.",
+    "Verification reported ninja builds clean and fuzzy_match_percent: 100.0."
   ],
   "review_feedback": [
-    "No review comments were present in the provided PR context.",
-    "PR body verification states that ninja builds clean and fuzzy_match_percent is 100.0."
+    "No review comments were included in the provided PR slice.",
+    "The only human text excerpt reports the summary and verification; no reviewer rationale or requested changes are available."
   ],
   "searchable_terms": [
     "pr-2252",
     "grhomerun",
-    "Home-Run Contest",
     "grHomeRun_8021ED74",
     "src/melee/gr/grhomerun.c",
     "src/melee/gr/grhomerun.h",
-    "it/it_26B1.h",
     "BobOmbRain",
     "bobomb_rain",
+    "it_8026BE84",
+    "it/it_26B1.h",
     "Ground_801C2CF4",
     "lb_8000B1CC",
-    "it_8026BE84",
     "HSD_JObj",
     "x8_vec",
     "x1C.b0",
-    "0x7F",
-    "0xB",
-    "UNK_RET",
-    "UNK_PARAMS",
-    "void prototype",
+    "Home-Run Contest",
+    "stage item spawn",
     "fuzzy_match_percent 100.0",
-    "johnwinston"
+    "void grHomeRun_8021ED74(void)"
   ],
   "follow_up_queries": [
-    "Find other grhomerun functions that call it_8026BE84 or initialize BobOmbRain.",
-    "Investigate what stage object or joint ID 0x7F represents in Home-Run Contest.",
-    "Investigate the semantic meaning of BobOmbRain.x14 value 0xB and x1C.b0.",
-    "Check neighboring functions grHomeRun_8021EC58 and grHomeRun_8021EDD4 for related stage event or item-spawn behavior."
+    "Find other grhomerun functions that spawn items through BobOmbRain or it_8026BE84.",
+    "Search for other uses of Ground_801C2CF4(0x7F) to confirm the stage object role.",
+    "Inspect it/it_26B1.h for BobOmbRain field names that could be improved beyond x0, x4, x14, x18, x1C, and x8_vec.",
+    "Look for similar stage functions that still have UNK_RET/UNK_PARAMS but are likely void(void) item-spawn helpers."
   ],
-  "confidence": 0.9
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

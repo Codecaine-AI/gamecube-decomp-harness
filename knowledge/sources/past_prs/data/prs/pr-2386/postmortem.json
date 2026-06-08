@@ -11,87 +11,73 @@
     "merged_at": "2026-04-04T06:00:02Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Made melee/gm/gmregcommon.c a matching linked object by adding the missing lbl_803D79F0 byte table, declaring it in the header, correcting several GALE01 data symbols to local @ labels, and switching gmregcommon from NonMatching to Matching in configure.py. The automated report credited one new match and showed main/melee/gm/gmregcommon .data reaching 100.00%.",
+  "summary": "Matched and linked the game-mode registration common translation unit, gmregcommon.c. The PR switched melee/gm/gmregcommon.c from NonMatching to Matching in configure.py, added the missing data definition for lbl_803D79F0 in the C source plus an extern declaration in the header, and corrected several string symbols in symbols.txt to local @-style labels needed for the linked match.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "data-definition",
-      "symbol-map-localization",
+      "linking",
       "headers",
-      "build-config"
+      "symbol-map-cleanup",
+      "data-definition"
     ],
     "systems": [
       "game-mode",
-      "melee/gm",
       "gmregcommon",
-      "GALE01 config",
-      "repo build configuration"
+      "config",
+      "repo-root"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gm/gmregcommon.c",
-      "role": "Added the concrete u8 lbl_803D79F0 table needed for data matching."
-    },
-    {
-      "path": "src/melee/gm/gmregcommon.h",
-      "role": "Added extern declaration for lbl_803D79F0."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Changed selected data labels from global lbl_* names to local @75/@76/@77 scoped symbols."
-    },
-    {
-      "path": "configure.py",
-      "role": "Promoted melee/gm/gmregcommon.c from NonMatching to Matching."
-    }
+    "configure.py",
+    "src/melee/gm/gmregcommon.c",
+    "src/melee/gm/gmregcommon.h",
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "configure.py now lists Object(Matching, \"melee/gm/gmregcommon.c\") instead of Object(NonMatching, \"melee/gm/gmregcommon.c\").",
-    "src/melee/gm/gmregcommon.c now defines lbl_803D79F0 as a 0x18-byte u8 array with values 0 through 17 plus 20, 21, 22, 24, 25, and 33.",
-    "src/melee/gm/gmregcommon.h now declares extern u8 lbl_803D79F0[].",
-    "config/GALE01/symbols.txt changes .data:0x803D7A08 and .data:0x803D7A40 from lbl_803D7A08/lbl_803D7A40 to local @75/@76 string symbols.",
-    "config/GALE01/symbols.txt changes .sdata:0x804D4050 from lbl_804D4050 to local @77.",
-    "decomp-dev reported Linked code +580 bytes, Matched data +96 bytes, Linked data +104 bytes, and one new match: main/melee/gm/gmregcommon .data from 85.37% to 100.00%."
+    "Changed configure.py so Object(NonMatching, \"melee/gm/gmregcommon.c\") became Object(Matching, \"melee/gm/gmregcommon.c\"), linking the TU as matched.",
+    "Added a global u8 data array named lbl_803D79F0 in src/melee/gm/gmregcommon.c with 24 byte values: 0 through 17, then 20, 21, 22, 24, 25, and 33.",
+    "Added extern u8 lbl_803D79F0[]; to src/melee/gm/gmregcommon.h so the newly defined data can be referenced across translation units.",
+    "Updated config/GALE01/symbols.txt to mark several string/data labels as local symbols: lbl_803D7A08 to @75, lbl_803D7A40 to @76, and lbl_804D4050 to @77.",
+    "Preserved nearby local jump table symbols jumptable_803D7A50 and jumptable_803D7A70 while only changing the labels needed by this match."
   ],
   "smart_moves": [
-    "Kept the source change minimal: only the missing data table was added before promoting the object to Matching.",
-    "Fixed symbol scope in symbols.txt instead of leaving compiler-local strings as exported lbl_* globals.",
-    "Added the header declaration alongside the C definition, preventing the new data symbol from being hidden from other code that includes gmregcommon.h.",
-    "Used the build configuration change as the final linkage step after source and symbol-map data aligned."
+    "The PR did the minimal set of linkage changes needed for a match: promote the object in configure.py, define the missing data in the C source, expose it through the header, and adjust symbol-map locality.",
+    "Using an actual C definition for lbl_803D79F0 rather than leaving it only as a symbol-map object made gmregcommon.c self-contained enough to link as Matching.",
+    "Changing string labels in symbols.txt from global lbl_* names to local @75/@76/@77 labels aligns with how compiler-emitted local constants are represented in matched code.",
+    "The added array uses u8 and explicit byte values, matching the existing symbol-map evidence that lbl_803D79F0 is a .data byte object of size 0x18."
   ],
   "decomp_lessons": [
-    "Small data objects can be the last blocker for marking a translation unit as Matching; here a single lbl_803D79F0 byte array completed gmregcommon data matching.",
-    "symbols.txt scope is part of matching hygiene: local strings should use @NN names with scope:local when the object data is compiler-local.",
-    "When a decompiled data symbol remains semantically unknown, preserving the address-style lbl_803D79F0 name is acceptable evidence-grounded naming.",
-    "Promoting an object in configure.py should be paired with the source/data-symbol fixes that make the linked object actually match."
+    "Before switching a TU from NonMatching to Matching, verify that any referenced .data/.sdata objects are actually defined in C or otherwise correctly represented for the linker.",
+    "Symbol-map cleanup can be part of matching: compiler-local constants should often become local @N symbols with scope:local rather than remain generic global lbl_* entries.",
+    "When promoting a matched source file, update both the build configuration and any header declarations needed by other files; otherwise linkage may succeed locally but fail when other TUs reference the data.",
+    "The symbol size can guide data reconstruction: lbl_803D79F0 had size 0x18, which corresponds to the 24-byte u8 initializer added in gmregcommon.c."
   ],
   "naming_conventions": [
-    "Unidentified global data kept the address-derived lbl_803D79F0 name.",
-    "Compiler-local data labels in config/GALE01/symbols.txt were represented as @75, @76, and @77 with scope:local.",
-    "Existing gmregcommon function names were not renamed in this PR; the diff preserves names such as gm_8017BE84, gm_8017BE8C, and gmRegSetupEnemyColorTable."
+    "Unidentified global data retained the decomp placeholder name lbl_803D79F0.",
+    "Local compiler-generated constants in symbols.txt were represented with @N names such as @75, @76, and @77 and annotated with scope:local.",
+    "Existing gm function naming remained unchanged, including gm_8017BE84, gm_8017BE8C, and gmRegSetupEnemyColorTable.",
+    "The header declaration used the same placeholder symbol name as the source definition: extern u8 lbl_803D79F0[]."
   ],
   "assembly_or_matching_tactics": [
-    "Recovered raw .data as a C u8 array rather than using an assembly/data blob.",
-    "Matched symbol-map local scope by replacing global lbl_* string symbols with @NN local symbols.",
-    "Used configure.py Object(Matching) promotion to link the now-matching gmregcommon unit.",
-    "Automated decomp.dev metrics confirmed the tactic: gmregcommon .data reached 100.00%."
+    "Promote the object from NonMatching to Matching only after the required data layout and symbols are represented in source and symbols.txt.",
+    "Use the symbol map's object type and size metadata to choose the source type and initializer length; here, a .data byte object of size 0x18 became a 24-element u8 array.",
+    "Convert global-looking string labels to local @ labels when matching indicates they are function-local or compiler-local constants.",
+    "Keep local jump tables marked scope:local in symbols.txt while adjusting adjacent string constants, avoiding unnecessary churn."
   ],
   "review_feedback": [
-    "No PR body text and no inline review comments were present in the slice.",
-    "jurrejelle approved the PR without written review feedback.",
-    "decomp-dev bot validated the result with one new match and positive linked/matched byte deltas."
+    "No review comments were included in the provided PR slice.",
+    "The PR had one review and was merged quickly, but the dump does not provide reviewer text or rationale."
   ],
   "searchable_terms": [
     "pr-2386",
     "PsiLupan",
-    "gmregcommon",
     "Match and link gmregcommon",
-    "src/melee/gm/gmregcommon.c",
-    "src/melee/gm/gmregcommon.h",
-    "config/GALE01/symbols.txt",
+    "gmregcommon",
+    "gmregcommon.c",
+    "gmregcommon.h",
     "configure.py",
+    "config/GALE01/symbols.txt",
     "Object(Matching)",
     "Object(NonMatching)",
     "lbl_803D79F0",
@@ -101,22 +87,30 @@
     "@75",
     "@76",
     "@77",
-    "scope:local",
+    "jumptable_803D7A50",
+    "jumptable_803D7A70",
+    "NUM_OPPONENTS",
     "gm_8017BE84",
     "gm_8017BE8C",
     "gmRegSetupEnemyColorTable",
-    "NUM_OPPONENTS",
-    "matched data",
-    "linked code",
-    "linked data",
-    "main/melee/gm/gmregcommon"
+    "scope:local",
+    "data:string",
+    "data:byte",
+    "sdata"
   ],
   "follow_up_queries": [
-    "gmregcommon lbl_803D79F0 u8 table",
-    "symbols.txt @75 @76 @77 scope:local",
-    "Object(Matching) melee/gm/gmregcommon.c",
-    "main/melee/gm/gmregcommon .data 100.00%",
-    "gmRegSetupEnemyColorTable gmregcommon data symbols"
+    "Find later PRs that rename or type lbl_803D79F0 in gmregcommon.",
+    "Search for other PRs that switch game-mode files from NonMatching to Matching in configure.py.",
+    "Check whether @75, @76, or @77 are later given semantic names or remain local symbols.",
+    "Look for follow-up work on gmregclear.c, gm_1832.c, or gm_18A5.c, which remained NonMatching near gmregcommon in configure.py."
   ],
-  "confidence": 0.9
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

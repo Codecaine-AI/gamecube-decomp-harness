@@ -11,206 +11,164 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed-unmerged PR proposing a broad visual-effects decomp cleanup: renamed many efLib/efAsync symbols from address-based names to descriptive APIs, replaced efspecial with efalt, added efdata for shared EF allocation/sbss data, documented EF structs/enums/flags, and improved efSync_Spawn/efAsync_Dispatch matching. The bot reported +656 matched-code bytes and new matched efalt/efdata units, but also broken old unit matches from file renames and an efasync .data regression; there was no human review in the dump.",
+  "summary": "Closed, unmerged effects-system decomp/naming pass. The PR renamed and reorganized several ef units, especially replacing efspecial.c with efalt.c and eflib_alloc.c with efdata.c in splits/config, added descriptive names for many efLib and efAsync symbols, moved effect allocation/data declarations, and improved partial matching for efSync_Spawn and efAsync_Dispatch. Bot metrics showed new matches for efAlt_Spawn, efdata bss/sbss, efasync sdata, and efAsync_Spawn, but equivalent broken matches from renamed units plus a large efasync .data regression. The author explicitly framed remaining work around jump-table matching versus hardcoding and noted that the current file split may not reflect the original source layout.",
   "change_classification": {
-    "primary_type": "decomp-matching-refactor",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "naming",
       "headers",
+      "naming",
       "types-structs",
       "config-splits",
-      "tooling"
+      "effect-system"
     ],
     "systems": [
       "effect",
-      "eflib",
-      "efasync",
-      "efsync",
-      "efalt",
-      "baselib-particle",
-      "fighter",
-      "item",
-      "game-mode",
-      "visual-modes",
+      "config",
       "MSL",
-      "config"
+      "fighter",
+      "game-mode",
+      "item",
+      "stage",
+      "sysdolphin-baselib",
+      "visual-effects"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ef/efasync.c",
-      "role": "Renamed async load/queue/dispatch functions, introduced efAsync_DatEntries, used EF_QueuedEffect and EF_SpawnKind, and left TODOs for the remaining near-matching dispatcher jump tables."
-    },
-    {
-      "path": "src/melee/ef/efsync.c",
-      "role": "Renamed and documented efSync_Spawn routing by gfx_id ranges, dispatching low IDs to generators, async IDs to efAsync_Dispatch, and the alternate range to efAlt_Spawn."
-    },
-    {
-      "path": "src/melee/ef/eflib.c",
-      "role": "Converted many address-named helpers to descriptive create/update/destroy/callback APIs and documented the EF animation queue and parameter table matching issue."
-    },
-    {
-      "path": "src/melee/ef/types.h",
-      "role": "Replaced vague Effect/ef_UnkStruct names with EF_Effect, EF_EffectDesc, EF_QueuedEffect, EF_DAT_Entry, EF_SpawnKind, and explicit flag constants."
-    },
-    {
-      "path": "src/melee/ef/eflib.h",
-      "role": "Updated public EF library prototypes and struct names to match the new descriptive API."
-    },
-    {
-      "path": "src/melee/ef/efalt.c",
-      "role": "New file replacing efspecial.c for the alternate/special effect spawner; contains efAlt_Spawn and a variadic EFALT_VA_ARG helper."
-    },
-    {
-      "path": "src/melee/ef/efdata.c",
-      "role": "New shared data unit holding efLib_AllocData and efLib_LoadKind/efLib_EffectCount/efLib_AnimCount, replacing eflib_alloc.c."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Renamed many EF symbols, including efLib_Init, efLib_Create, efAsync_Dispatch, efAsync_LoadSync, efAlt_Spawn, efLib_AnimQueue, efLib_ParamTable, and efAsync_DatEntries."
-    },
-    {
-      "path": "config/GALE01/splits.txt",
-      "role": "Moved the EF allocation/data split from eflib_alloc.c to efdata.c and renamed the efspecial split to efalt.c."
-    },
-    {
-      "path": "src/sysdolphin/baselib/particle.c",
-      "role": "Renamed particle function parameters to linkNo, bank, and gfx_id for hsd_8039EFAC and hsd_8039F6CC."
-    },
-    {
-      "path": "src/MSL/math.h",
-      "role": "Added float and long variants of PI/TAU constants used by EF matching work."
-    }
+    "src/melee/ef/efasync.c",
+    "src/melee/ef/eflib.c",
+    "src/melee/ef/efsync.c",
+    "src/melee/ef/efalt.c",
+    "src/melee/ef/efspecial.c",
+    "src/melee/ef/eflib.h",
+    "src/melee/ef/types.h",
+    "src/melee/ef/efdata.c",
+    "src/melee/ef/efdata.h",
+    "src/melee/ef/efalt.h",
+    "src/melee/ef/efasync.h",
+    "src/melee/ef/forward.h",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "configure.py",
+    "src/sysdolphin/baselib/particle.h",
+    "src/sysdolphin/baselib/particle.c",
+    "src/MSL/math.h"
   ],
   "what_changed": [
-    "Updated 46 files with a large EF-focused rename/refactor spanning efasync.c, eflib.c, efsync.c, headers, symbols, splits, configure.py, and many call sites.",
-    "Renamed address-based EF APIs to descriptive names such as efLib_Init, efLib_SetFlags, efLib_Create, efLib_Create_Attach_Pos, efLib_CreateGenerator, efLib_SetParamAlpha, efAsync_Dispatch, efAsync_LoadAsync, efAsync_LoadSync, efAsync_QueueFlush, efAsync_QueueClear, and efAsync_QueueInit.",
-    "Deleted efspecial.c/efspecial.h and added efalt.c/efalt.h with efAlt_Spawn; the author said efalt was a conflict-avoidance name and could be renamed back to special after integration.",
-    "Deleted eflib_alloc.c/eflib_alloc.h and added efdata.c/efdata.h for EF allocation and shared globals, including efLib_AllocData, efAsync_AllocData externs, efLib_LoadKind, efLib_EffectCount, and efLib_AnimCount.",
-    "Reworked EF types from vague placeholder names into EF_Effect, EF_EffectDesc, EF_QueuedEffect, EF_DAT_Entry, EF_UpdateFn, EF_SpawnKind, and named state/scale/expire/load flag constants.",
-    "Documented efSync_Spawn as a gfx_id router and improved its naming; PR notes and bot report place efSync_Spawn at about 98% matching, with its associated jump table still poor.",
-    "Reworked efAsync_Dispatch naming and local variables while preserving the large switch dispatcher; PR notes and bot report place it near 98% matching, with jump table matching still unresolved.",
-    "Updated fighter, item, game-mode, visual-mode, and lbDvd call sites to use the new efAsync and efLib names.",
-    "Renamed baselib particle parameters to linkNo/bank/gfx_id and added temporary EF-local particle skip/render mask definitions with TODOs to move them once particle headers are fleshed out.",
-    "The decomp.dev bot reported 9 new matches, including efAlt_Spawn at 100%, efdata .bss/.sbss at 100%, efSync .sdata at 100%, and efAsync_Spawn at 100%, but also reported 6 broken old-unit matches caused by the efspecial/eflib_alloc rename and an efasync .data regression."
+    "Renamed the matched special-effect unit in config from melee/ef/efspecial.c to melee/ef/efalt.c; efspecial.c and efspecial.h were removed while efalt.c and efalt.h were added.",
+    "Replaced the old eflib_alloc split entry with efdata.c and adjusted bss/sbss ownership: efdata.c gained the 0x80458EB0 bss region and 0x804D64E8-0x804D64F4 sbss region.",
+    "Updated configure.py so the ef library builds efdata.c and efalt.c instead of eflib_alloc.c and efspecial.c.",
+    "Renamed many efLib symbols from address-style names to descriptive names such as efLib_Init, efLib_SetFlags, efLib_Destroy, efLib_Update, efLib_Create, efLib_Create_Attach, efLib_CreateGenerator, efLib_SpawnParticleEffect, and multiple efLib_Cb_* callback names.",
+    "Renamed async symbols from address placeholders to behavior-oriented names including efAsync_Dispatch, efAsync_LoadAsync, efAsync_OnLoad, efAsync_LoadSync, efAsync_QueueProcessDeferred, efAsync_QueueFlush, efAsync_QueueClear, and efAsync_QueueInit.",
+    "Renamed efSpecial_SpawnSpecial to efAlt_Spawn and associated local data/sdata/sdata2 labels to efAlt_* names.",
+    "Added or revised effect headers and types in eflib.h, efasync.h, efdata.h, forward.h, and types.h to support the new naming/data organization.",
+    "Added float and long double math constants in src/MSL/math.h, including M_PI_F, M_PI_2_F, M_PI_3_F, M_PI_L, M_TAU_L, M_PI_2_L, and M_PI_3_L.",
+    "Touched call sites in fighter, item, game-mode, stage/vi, grlib, lbdvd, and baselib particle/gobj code, apparently to follow the renamed effect APIs and related type changes.",
+    "Introduced temporary particle linkNo skip/render mask definitions in particle-related code according to the PR notes, with TODOs to source them from particle headers once those are fleshed out."
   ],
   "smart_moves": [
-    "Made the deferred async effect queue understandable by replacing raw eff_type cases with EF_SpawnKind values and documenting how each kind forwards variadic arguments to efSync_Spawn.",
-    "Used descriptive symbol names consistently in headers, source, symbols.txt, and cross-system call sites, making future EF work searchable without relying on 8005xxxx addresses.",
-    "Kept current split units separate for matching even though the author suspected original strings only referenced eflib.c and efasync.c; this avoided prematurely trading file-level match percentage for speculative source layout cleanup.",
-    "Centralized EF allocation/sbss globals in efdata.c and documented the suspected MWCC reverse .sbss definition-order issue.",
-    "Documented the awkward EF_ParamEntry/efLib_AnimQueue/efLib_ParamTable address-base behavior instead of hiding it, preserving a known matching constraint for later work.",
-    "Added an explicit routing table comment in efSync_Spawn for gfx_id ranges, turning a large switch/dispatcher into a reusable map for future effect work.",
-    "Preserved unknown fields such as EF_Effect x2A/x2B instead of inventing semantics, while naming fields with stronger evidence such as gobj, parent_gobj, attach_jobj, update, user_data, params, lifetime, and state_flags."
+    "Kept the efalt name temporarily to reduce merge-conflict headache, while documenting that it had previously been named special and could be renamed back after integration.",
+    "Used descriptive symbol names to replace address-based efLib and efAsync placeholders, making later call-site reasoning and effect decomp work more searchable.",
+    "Recorded the exact dispatch condition for efalt usage: the PR body says it is only called if efSync_Spawn receives a gfx_id in the range 0x478 >= gfx_id < 0x4BA; the inequality wording is odd but should be preserved as author evidence.",
+    "Separated matching pragmatism from source-layout truth: the author noted strings suggest there may only have been eflib.c and efasync.c originally, but kept separate files for matching percentages.",
+    "Called out unresolved jump-table decisions explicitly instead of silently hardcoding: efAsync_Dispatch and efSync_Spawn were both near 98% while their associated jump tables remained much lower.",
+    "Moved data ownership in splits/symbols alongside code renames, which is essential for decomp reports to attribute bss/sbss/data matches to the intended unit."
   ],
   "decomp_lessons": [
-    "For variadic dispatchers, define enums and per-case argument contracts; EF_SpawnKind is a useful pattern for documenting how queued effects consume Vec3 and f32 arguments.",
-    "Large effect dispatch switches can be mostly source-matched while still failing on jump-table data; document jump-table status separately from function percentage.",
-    "Do not collapse or rename split units solely from string evidence until matching impact is understood; this PR explicitly kept separate EF files for match-percentage reasons.",
-    "Small-data and bss layout can depend on definition order and adjacent arrays; efdata.c and the EF_ParamEntry arrays show why comments about compiler allocation behavior matter.",
-    "When two adjacent globals must share an element type or cast pattern for matching, record that hack near the declarations so later cleanup does not break the match.",
-    "Prefer descriptive action-based callback names, but mark names as tentative when the author has not validated them against reviewer consensus.",
-    "Because this PR was closed without merge and had no human review, future work should re-verify every introduced name and split decision against the current tree before reuse."
+    "Large function renames should be paired with symbols.txt updates so the semantic names become searchable project-wide and bot reports stay interpretable.",
+    "When renaming or splitting units, check bot reports for both new matches and broken matches; here efalt and efdata appeared as new matches while efspecial, eflib_alloc, and eflib sbss showed corresponding broken matches due to ownership changes.",
+    "For near-matching jump-table-heavy functions, document whether the blocker is control-flow structure, .data placement, or an artificial hardcoded jump table; this PR leaves efAsync_Dispatch and efSync_Spawn as explicit future targets.",
+    "Temporary file organization can be acceptable for matching, but leave notes when strings or evidence suggest the original source layout differed.",
+    "Effect-system work spans many consumers; API/type/header renames must be propagated through fighter, item, game-mode, stage/vi, grlib, lbdvd, and baselib particle call sites.",
+    "Particle bitmask constants should not remain duplicated indefinitely; this PR notes PTCL_SKIP_LINKNO_* and PTCL_RENDER_LINKNO_* should eventually come from a fleshed-out particle header."
   ],
   "naming_conventions": [
-    "Types and constants use an EF_ prefix: EF_Effect, EF_EffectDesc, EF_QueuedEffect, EF_DAT_Entry, EF_UpdateFn, EF_SPAWN_*, EF_LOADKIND_*, EF_STATE_*, EF_SCALE_*, and EF_DOES_*.",
-    "efLib functions were renamed as verb/noun APIs, for example efLib_Init, efLib_Destroy, efLib_Create, efLib_Create_Attach, efLib_Create_AttachChild_Scale, efLib_CreateGenerator, and efLib_CreateGenerator_AppSRT_SetFacingDir.",
-    "Effect callbacks use efLib_Cb_* names that encode either behavior or owning fighter/action, such as efLib_Cb_SetOffsetY_FromParamY, efLib_Cb_SetRotY_FromFighterDir, efLib_Cb_ftMr_SpecialLw, and efLib_Cb_ftCo_Bury.",
-    "Async operations use efAsync_LoadAsync, efAsync_LoadSync, efAsync_OnLoad, efAsync_QueueFlush, efAsync_QueueClear, efAsync_QueueProcessDeferred, efAsync_QueueInit, and efAsync_Dispatch.",
-    "Shared globals were renamed by role: efLib_LoadKind, efLib_EffectCount, efLib_AnimCount, efLib_AnimQueue, efLib_ParamTable, and efAsync_DatEntries.",
-    "Particle parameters were clarified as linkNo, bank, and gfx_id for hsd_8039EFAC/hsd_8039F6CC.",
-    "Some mixed-style names remained, including efLib_remove_user_data and efLib_render_callback; the PR had no review confirming whether those should be kept."
+    "Effect library public-ish functions use efLib_ prefix with PascalCase action names: efLib_Init, efLib_SetFlags, efLib_Destroy, efLib_Create, efLib_CreateGenerator.",
+    "Effect library callback helpers use efLib_Cb_* names, often encoding the transformed field or source parameter: efLib_Cb_SetOffsetY_FromParamY, efLib_Cb_SetScale_FromParamX, efLib_Cb_SetRotY_FromFighterDir.",
+    "Generator creation variants are named by composing operations after efLib_CreateGenerator, e.g. _Attach, _Attach_AddAppSRT, _AppSRT_SetScale, _AppSRT_SetFacingDirScale, _AppSRT_SetPos.",
+    "Async queue and loading functions use efAsync_ plus verb/object names: LoadAsync, LoadSync, OnLoad, QueueProcessDeferred, QueueFlush, QueueClear, QueueInit.",
+    "The PR has some inconsistent casing evidence, such as efLib_remove_user_data and efLib_render_callback alongside PascalCase efLib names; future cleanup should normalize only with matching evidence.",
+    "Local data labels were moved from compiler-generated @ labels to unit-scoped names like efAlt_803BF9D0 and jumptable_803BF9F8.",
+    "Global data names were made semantic where possible: efAsync_DatEntries, efLib_AnimQueue, efLib_ParamTable, efLib_LoadKind, efLib_EffectCount, efLib_AnimCount."
   ],
   "assembly_or_matching_tactics": [
-    "efAsync_Dispatch was left as the only async function still not fully matched according to the author; the PR body says it sat around 98%, with one jump table at 53% and a second one-word jump table at 88%.",
-    "efSync_Spawn was also left around 98% matching, with an associated jump table around 60%; the author explicitly questioned hardcoding versus matching it as a .data-located variable.",
-    "The symbols/splits/configure changes intentionally renamed efspecial to efalt and eflib_alloc to efdata, causing decomp.dev to report new matched units and broken old units rather than a pure net improvement.",
-    "efalt.c used an EFALT_VA_ARG macro around __va_arg and _var_arg_typeof, evidence that exact variadic argument handling was important to matching.",
-    "eflib.c used forward declarations noted as avoiding sdata2 pollution, including HSD_MtxGetScale and grLib_801C99C0.",
-    "MSL math.h added M_PI_F, M_PI_2_F, M_PI_3_F, M_PI_L, M_TAU_L, M_PI_2_L, and M_PI_3_L, likely to control constant types in EF trigonometry-heavy code.",
-    "The EF animation queue declaration deliberately kept EF_ParamEntry[0x10] and casts to HSD_JObj** because the compiler appeared to base efLib_ParamTable references off the adjacent array.",
-    "The bot report is mixed: matched code improved by +656 bytes, but efasync .data dropped from 65.93% to 24.82%, so data layout/jump table work remained a major follow-up."
+    "efAsync_Dispatch was documented as the only remaining unmatched async function, around 98% matching, with one jump table around 53% and a second one-word jump table around 88%.",
+    "efSync_Spawn was documented around 98% matching, with its associated jump table around 60%.",
+    "The author was unsure whether to hardcode jump tables or match them by restructuring C/control flow and possibly treating a jump table as a .data-located variable.",
+    "Bot report measured efSync_Spawn improving from 95.90% to 98.28% and efAsync_Dispatch improving from 98.46% to 98.60%.",
+    "Bot report showed efAsync_Spawn reached 100% and efasync .sdata reached 100%, while efasync .data regressed from 65.93% to 24.82%; future work should inspect data-table naming/layout changes before reusing the approach wholesale.",
+    "Splits were edited at exact section boundaries for efdata, eflib, efsync, efalt, and efasync, including small sdata/sbss size corrections."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the PR dump.",
-    "The author explicitly said they were not attached to the descriptive names and invited maintainers to choose better names.",
-    "The author noted efalt was named special after an earlier MR and kept as efalt here to reduce merge-conflict headache, with an invitation to rename it back after merge.",
-    "The author said efalt/efSpecial behavior is only reached from efSync_Spawn for the alternate gfx_id range; the diff's efSync_Spawn comment documents that range as roughly 0x0479-0x04BA.",
-    "The only issue comment was the decomp.dev bot report, which showed small matched-code improvement but also broken matches caused by file renames and an efasync .data regression.",
-    "The PR was closed without merge shortly after creation."
+    "No human review comments were present in the provided slice.",
+    "The only issue comment was an automated decomp-dev bot report: matched code increased by 656 bytes (+0.02%), matched data increased by 27 bytes, but six matches were reported broken due mainly to file/unit renames and efasync .data regressed.",
+    "The author invited renaming feedback, stating they were not attached to the descriptive names used in the PR.",
+    "The PR was closed without merge; the slice does not provide a human explanation for the closure."
   ],
   "searchable_terms": [
-    "PR2338",
     "ef work",
     "Savestate2A03",
     "efLib_Init",
     "efLib_SetFlags",
     "efLib_Destroy",
+    "efLib_Update",
     "efLib_Create",
     "efLib_Create_Attach",
-    "efLib_Create_Attach_Pos",
     "efLib_CreateGenerator",
-    "efLib_CreateGenerator_AppSRT_SetFacingDir",
     "efLib_SpawnParticleEffect",
-    "efLib_Cb_ParticleRender",
+    "efLib_Cb_SetOffsetY_FromParamY",
+    "efLib_Cb_SetScale_FromParamX",
+    "efLib_Cb_ftMr_SpecialLw",
+    "efLib_Cb_ftLg_SpecialLw",
+    "efLib_Cb_ftKp_SpecialHi",
+    "efLib_SetTevKonstColor",
     "efLib_SetParamAlpha",
     "efLib_SetParamGfxId",
-    "efLib_SetTevKonstColor",
-    "EF_Effect",
-    "EF_EffectDesc",
-    "EF_QueuedEffect",
-    "EF_SpawnKind",
-    "EF_DAT_Entry",
-    "EF_ParamEntry",
     "efAsync_Dispatch",
     "efAsync_LoadAsync",
-    "efAsync_LoadSync",
     "efAsync_OnLoad",
+    "efAsync_LoadSync",
     "efAsync_QueueProcessDeferred",
     "efAsync_QueueFlush",
     "efAsync_QueueClear",
     "efAsync_QueueInit",
+    "efAsync_Spawn",
     "efAsync_DatEntries",
     "efSync_Spawn",
     "efAlt_Spawn",
-    "efSpecial_SpawnSpecial",
-    "efspecial",
-    "efalt",
-    "efdata",
+    "efalt.c",
+    "efspecial.c",
+    "efdata.c",
+    "eflib_alloc.c",
+    "efLib_AnimQueue",
+    "efLib_ParamTable",
     "efLib_LoadKind",
     "efLib_EffectCount",
     "efLib_AnimCount",
-    "efLib_AnimQueue",
-    "efLib_ParamTable",
-    "HSD_Generator",
-    "HSD_psAppSRT",
-    "hsd_8039EFAC",
-    "hsd_8039F6CC",
-    "linkNo",
-    "bank",
-    "gfx_id",
+    "jumptable_803BF9F8",
+    "jumptable_803BFB28",
     "PTCL_SKIP_LINKNO_0",
     "PTCL_RENDER_LINKNO_0",
     "M_PI_F",
-    "M_PI_L",
-    "jump table",
-    "sbss reverse definition order",
-    "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
-    "configure.py"
+    "M_TAU_L",
+    "gfx_id 0x478 0x4BA",
+    "jump table hardcode",
+    "data-located variable"
   ],
   "follow_up_queries": [
-    "efAsync_Dispatch jump table 803BFB28 803C04E8 matching",
-    "efSync_Spawn jump table 803BF870 data-located variable",
-    "efAlt_Spawn efSpecial_SpawnSpecial rename special alt",
-    "EF_ParamEntry efLib_AnimQueue efLib_ParamTable address base matching",
-    "efdata.c efLib_LoadKind efLib_EffectCount efLib_AnimCount sbss order",
-    "particle linkNo skip render masks hsd_8039CEAC hsd_8039EE24 psDispParticles",
-    "efAsync_Spawn EF_SpawnKind deferred queue Fighter x60C Item xBC0",
-    "efAsync_DatEntries EfCoData.dat effCommonDataTable",
-    "efLib_Create lifetime state_flags expire_flags scale_flags",
-    "efasync data regression 24.82 percent PR2338"
+    "Find the later PR that either merged this ef work or renamed efalt back to efspecial/special.",
+    "Search for later changes to efAsync_Dispatch and efSync_Spawn jump table matching, especially around jumptable_803BFB28 and efSync jump table data.",
+    "Check whether efasync .data regression from this closed PR was fixed in a subsequent effect PR.",
+    "Look for later particle.h work that centralizes PTCL_SKIP_LINKNO_* and PTCL_RENDER_LINKNO_* constants.",
+    "Search for naming normalization of efLib_remove_user_data and efLib_render_callback versus PascalCase efLib naming."
   ],
-  "confidence": 0.83
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

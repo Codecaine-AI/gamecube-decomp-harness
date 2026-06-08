@@ -11,7 +11,7 @@
     "merged_at": "2026-05-27T14:33:57Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large item-system resplit of the monolithic src/melee/it/it_2725.c into smaller translation units: it_2725, ithitbox, itmaplib, itmaterial, iteffect, itanimlist, it_279C, and itzako. The PR body says the split was driven by repeated floats/strings plus filename evidence such as __assert(\"itmaplib.c\", ...), __assert(\"itanimlist.c\", ...), struct it_MObjInfo it_803F1F90, and the \"can t init zako pos\\n\" string. All new units were matching and linked except itmaplib, which was intentionally left NonMatching in configure.py. This improved item decomp organization and decomp.dev reported +4396 matched code bytes, +34912 linked code bytes, +17004 matched data bytes, and +17212 linked data bytes.",
+  "summary": "Large item-system resplit of the monolithic src/melee/it/it_2725.c into several topic-oriented translation units. The PR carved out ithitbox, itmaplib, itmaterial, iteffect, itanimlist, it_279C, and itzako, updated GALE01 splits/symbols and configure.py, added matching headers, and redirected includes/users across item, fighter, and ground code. The author explicitly says the split was guided by repeated floats/strings plus filename evidence from asserts/objects/strings; all new units were matching and linked except itmaplib, which remained NonMatching in configure.py. Bot metrics reported +4396 matched code bytes, +34912 linked code bytes, +17004 matched data bytes, and 157 new matches, with many apparent broken matches representing code moved out of it_2725 into the new units.",
   "change_classification": {
     "primary_type": "translation-unit-resplit",
     "categories": [
@@ -20,132 +20,93 @@
       "headers",
       "naming",
       "types-structs",
-      "symbols",
-      "build-config"
+      "config-splits",
+      "symbol-scope-cleanup"
     ],
     "systems": [
       "item",
       "fighter",
-      "ground",
       "stage",
-      "baselib",
-      "config"
+      "ground",
+      "config",
+      "build"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/it/it_2725.c",
-      "role": "original large item TU, reduced to the residual it_2725 range"
-    },
-    {
-      "path": "src/melee/it/ithitbox.c",
-      "role": "new item hitbox/setup/scaling/state/collision-query cluster"
-    },
-    {
-      "path": "src/melee/it/itmaplib.c",
-      "role": "new item map-collision TU; left NonMatching"
-    },
-    {
-      "path": "src/melee/it/itmaterial.c",
-      "role": "new HSD_MObj/HSD_TExp/render-mode/GXColor material helper TU"
-    },
-    {
-      "path": "src/melee/it/iteffect.c",
-      "role": "new item effect helper TU"
-    },
-    {
-      "path": "src/melee/it/itanimlist.c",
-      "role": "new item animation-command handler TU"
-    },
-    {
-      "path": "src/melee/it/it_279C.c",
-      "role": "new table-heavy Pokémon/character/monster/stage-item helper TU"
-    },
-    {
-      "path": "src/melee/it/itzako.c",
-      "role": "new zako/enemy-style item helper TU"
-    },
-    {
-      "path": "src/melee/it/it_2725.h",
-      "role": "prototype and extern cleanup after moving functions to module headers"
-    },
-    {
-      "path": "src/melee/it/itCommonItems.h",
-      "role": "semantic struct renames and size assertion for item attrs/vars"
-    },
-    {
-      "path": "src/melee/it/types.h",
-      "role": "Item xDD4_itemVar union updated to use semantic members"
-    },
-    {
-      "path": "config/GALE01/splits.txt",
-      "role": "new text/data/sdata/sdata2 ranges for the resplit TUs"
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "symbol scope/local-label updates for split-local literals and data"
-    },
-    {
-      "path": "configure.py",
-      "role": "build object list updated; all new item TUs Matching except itmaplib"
-    },
-    {
-      "path": "src/melee/it/it_3F14.c",
-      "role": "deleted old placeholder/data TU as data ownership moved into source splits"
-    }
+    "src/melee/it/it_2725.c",
+    "src/melee/it/it_2725.h",
+    "src/melee/it/ithitbox.c",
+    "src/melee/it/ithitbox.h",
+    "src/melee/it/itmaplib.c",
+    "src/melee/it/itmaplib.h",
+    "src/melee/it/itmaterial.c",
+    "src/melee/it/itmaterial.h",
+    "src/melee/it/iteffect.c",
+    "src/melee/it/iteffect.h",
+    "src/melee/it/itanimlist.c",
+    "src/melee/it/itanimlist.h",
+    "src/melee/it/it_279C.c",
+    "src/melee/it/it_279C.h",
+    "src/melee/it/itzako.c",
+    "src/melee/it/itzako.h",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "configure.py",
+    "src/melee/it/itCommonItems.h",
+    "src/melee/it/types.h",
+    "src/melee/it/forward.h"
   ],
   "what_changed": [
-    "Split src/melee/it/it_2725.c into eight item translation units with address ranges in splits.txt: it_2725, ithitbox, itmaplib, itmaterial, iteffect, itanimlist, it_279C, and itzako.",
-    "Added module headers it_279C.h, ithitbox.h, itmaplib.h, itmaterial.h, iteffect.h, itanimlist.h, and itzako.h, then removed many moved prototypes from it_2725.h.",
-    "Updated configure.py from one NonMatching it_2725 object to Matching it_2725 plus Matching ithitbox, itmaterial, iteffect, itanimlist, it_279C, itzako, and NonMatching itmaplib.",
-    "Deleted the old src/melee/it/it_3F14.c data/placeholder file and adjusted exported data ownership through the new TUs and headers.",
-    "Updated symbols.txt so many literals/jumptables became local @NNN labels or local-scope data after the split, and corrected some sbss object sizes for item globals.",
-    "Retargeted includes across item, fighter, and ground/stage files so callers include the narrower owner header, e.g. it_279C.h, ithitbox.h, itmaplib.h, itanimlist.h, iteffect.h, itmaterial.h, or itzako.h instead of only it_2725.h.",
-    "Renamed several address-based item structs to more semantic names: it_279D to itPokemonSpawn, it_27B5 to itZako, it_27CE to itGamewatch, it_27CF to itYoshiEggLay, it_2F28 to itUnk2, and it_2E6A_ItemVars_1 to itYaku.",
-    "Added STATIC_ASSERT(sizeof(itPokemonSpawn_DatAttrs) == 0x2BC) and gave the Pokémon spawn weights array the explicit name pokemon_spawn_weights.",
-    "Made a small baselib jobj.h cleanup by removing commented-out assert/dirty-matrix expansion around HSD_JObjAddScaleX/Y/Z while leaving the active HSD_ASSERT and JOBJ_MTX_INDEP_SRT logic."
+    "Reduced it_2725.c from a broad address range, 0x80272560-0x8027CF00, to 0x80272560-0x802753DC, leaving only the still-unclear core portion in that TU.",
+    "Added new split entries in config/GALE01/splits.txt for ithitbox.c, itmaplib.c, itmaterial.c, iteffect.c, itanimlist.c, it_279C.c, and itzako.c, with text/data/sdata/sdata2 ranges matching the original it_2725 address space.",
+    "Updated configure.py so it_2725.c, ithitbox.c, itmaterial.c, iteffect.c, itanimlist.c, it_279C.c, and itzako.c are Object(Matching), while itmaplib.c is explicitly Object(NonMatching).",
+    "Moved large bodies of code/data into new item TUs: it_279C.c added 4442 lines, itmaplib.c 1039, itzako.c 723, itmaterial.c 463, itanimlist.c 421, iteffect.c 403, and ithitbox.c 334.",
+    "Deleted src/melee/it/it_3F14.c in this resplit context, while adding the new file set and headers.",
+    "Added and adjusted headers so external users include the narrower module headers instead of depending on it_2725.h for everything.",
+    "Changed fighter and ground users to include the more specific headers where applicable, e.g. ftCo_HammerWait.c and fighter.c include it_279C.h, grzakogenerator.c includes itzako.h, and several ground files include ithitbox.h.",
+    "Updated config/GALE01/symbols.txt to reflect moved/localized data, including converting several it_* globals and jumptable names to local @NNN labels and adjusting sbss object sizes from 0x8 to 0x4 for several it_804D6D28-family symbols.",
+    "Renamed some item data/variable types visible in the excerpt, including it_27CF_DatAttrs to itYoshiEggLay_DatAttrs, it_279D_ItemVars to itPokemonSpawn_ItemVars, and it_2F28_DatAttrs to itUnk2_DatAttrs.",
+    "Bot report showed the resplit improved linked/matched coverage while causing expected per-unit 'broken matches' from symbols leaving it_2725 and reappearing under the new TUs."
   ],
   "smart_moves": [
-    "Used concrete split evidence from repeated floats/strings and embedded filename clues instead of only guessing from function order; the PR body explicitly cites __assert(\"itmaplib.c\", ...), __assert(\"itanimlist.c\", ...), struct it_MObjInfo it_803F1F90, and \"can t init zako pos\\n\".",
-    "Kept low-confidence names conservative: it_2725 remained address-like despite a suggested itcommon name, and it_279C stayed address-like despite a low-confidence itspecial suggestion.",
-    "Isolated the unsolved map-collision cluster as itmaplib and left only that TU NonMatching, allowing the other new item TUs to become Matching/linked.",
-    "Moved prototypes into per-domain headers so include dependencies document ownership and do not keep all users tied to the monolithic it_2725.h.",
-    "Localized split-owned literals and data in symbols.txt, reducing false global exposure and matching how separate TUs own their constants.",
-    "Improved type readability with semantic xDD4 itemVar union members while preserving unknown field names where the field-level meaning was still weak."
+    "Used repeated floats and strings as clustering evidence for where the original monolithic TU should be cut, rather than splitting only by arbitrary address boundaries.",
+    "Kept weak names conservative: the author noted that it_2725 purpose remained unclear and that Codex's suggested itcommon name was not adopted; likewise it_279C kept an address-style name despite a low-confidence itspecial suggestion.",
+    "Preferred source-backed filenames where available: itmaplib from __assert(\"itmaplib.c\", ...), itanimlist from __assert(\"itanimlist.c\", ...), itmaterial from the it_MObjInfo it_803F1F90 object context, and itzako inferred from the \"can t init zako pos\\n\" string.",
+    "Made the build configuration honest by marking itmaplib.c NonMatching while the other split-out TUs were marked Matching.",
+    "Introduced narrow headers for the new modules, reducing future accidental dependence on the catch-all it_2725.h.",
+    "Scoped symbols as local where the resplit made file-local compiler-generated constants/jumptables clearer, using @NNN labels instead of misleading global it_* names."
   ],
   "decomp_lessons": [
-    "When a large matched TU blocks further progress, revisit the split: repeated sdata2 floats, strings, assert filenames, and data-object names can reveal real source-file boundaries.",
-    "A resplit can temporarily show many broken old-unit matches in progress reports because symbols moved out of the old TU; evaluate paired new matches in the destination TUs.",
-    "Do not overname uncertain files just because a tool suggests a semantic label; address-style names are safer until stronger evidence appears.",
-    "After moving functions, also move prototypes, externs, and includes to the new owner headers or the old catch-all header will hide stale dependencies.",
-    "Use symbols.txt local scope and @NNN labels for per-TU literals/jumptables after a split; otherwise global placeholder names can misrepresent ownership.",
-    "Keep the one hard cluster NonMatching if necessary, but make the rest of the split link and match so future work has a smaller target."
+    "For oversized item TUs, repeated literals, asserts containing filenames, named data objects, and diagnostic strings can provide practical split boundaries even when function purposes are not fully known.",
+    "A resplit can temporarily look like many broken matches in the old unit; compare with new matches in the destination units before treating the report as a regression.",
+    "When a module's semantic name is uncertain, keeping the address-based filename is preferable to committing a speculative name that future work may need to undo.",
+    "After splitting a TU, immediately update include sites to module-specific headers so dependencies reveal the actual ownership of functions and types.",
+    "Keep NonMatching status at TU granularity when one extracted module is not fully matching; this lets the rest of the split land and improves linked-data/code accounting without overstating completion.",
+    "Symbol scope and object-size metadata in symbols.txt may need revisiting after a split because constants that were previously exposed as global placeholders can become local labels tied to the new TU."
   ],
   "naming_conventions": [
-    "New item helper filenames use short it-prefixed domain names: ithitbox, itmaplib, itmaterial, iteffect, itanimlist, and itzako.",
-    "Files with weak semantic evidence retained address-style names: it_2725 and it_279C.",
-    "Header guards introduced include GALE01_IT_2725, GALE01_IT_279C, GALE01_ITANIMLIST, GALE01_IT_EFFECT, GALE01_IT_HITBOX, GALE01_ITMAPLIB, GALE01_ITMATERIAL, and GALE01_ITZAKO.",
-    "Address-like item data structs were renamed to behavior/item-domain names: itPokemonSpawn_ItemVars, itPokemonSpawn_DatAttrs, itZako_ItemVars, itZako_DatAttrs, itGamewatch_ItemVars, itYoshiEggLay_ItemVars, itYoshiEggLay_DatAttrs, itUnk2_ItemVars, itUnk2_DatAttrs, and itYaku_ItemVars.",
-    "Item union members were updated to lowercase semantic fields such as pokemon_spawn, zako, gamewatch, yoshiegglay, unk2, and yaku.",
-    "Anonymous or still-unidentified functions kept existing address-style names such as it_8027xxxx and fn_80277D8C rather than receiving speculative names."
+    "New item module filenames use the existing item prefix: ithitbox, itmaplib, itmaterial, iteffect, itanimlist, itzako.",
+    "Address-style names remain acceptable when purpose is uncertain: it_2725 and it_279C were retained rather than renamed to speculative itcommon or itspecial.",
+    "More descriptive item-specific struct/type names were introduced where evidence was stronger, e.g. itYoshiEggLay_DatAttrs replacing it_27CF_DatAttrs and itPokemonSpawn_ItemVars replacing it_279D_ItemVars.",
+    "A generic-but-less-addressy placeholder name, itUnk2_DatAttrs, replaced it_2F28_DatAttrs in forward declarations.",
+    "Local compiler/data labels in symbols.txt use @NNN or local labels such as ...data.0 when the data should not be treated as a global named item symbol."
   ],
   "assembly_or_matching_tactics": [
-    "splits.txt carved it_2725's original text range into contiguous TUs: it_2725 0x80272560-0x802753DC, ithitbox 0x802753DC-0x80275BC8, itmaplib 0x80275BC8-0x80277D08, itmaterial 0x80277D08-0x8027870C, iteffect 0x8027870C-0x80278F2C, itanimlist 0x80278F2C-0x80279C48, it_279C 0x80279C48-0x8027B5B0, and itzako 0x8027B5B0-0x8027CF00.",
-    "configure.py encoded the practical matching state: itmaplib was the only new TU left as NonMatching.",
-    "sdata2_ordering helpers were added in moved code, including itanimlist and itzako, to preserve literal ordering for matching.",
-    "PAD_STACK/FORCE_PAD_STACK and matching-sensitive inline helpers moved with their functions instead of being simplified away.",
-    "Assert strings in code served as source-filename anchors: __assert(\"itmaplib.c\", 0x7F, \"0\") and __assert(\"itanimlist.c\", 0x8B, \"0\").",
-    "decomp.dev reported 157 new matches and progress in unmatched itmaplib functions, while many listed broken matches were from the old it_2725 unit after relocation."
+    "Resplit GALE01 address ranges in splits.txt across .text, .data, .rodata, .sdata, .sbss, and .sdata2 to preserve section layout from the original it_2725.c block.",
+    "Classified each new object separately in configure.py, allowing itmaplib.c to remain NonMatching while other extracted units count as Matching.",
+    "Used filename-bearing asserts and strings as high-confidence source-file boundary evidence.",
+    "Localized rodata/sdata/sdata2 constants and jumptables to @NNN labels to align with compiler-local data emission after the split.",
+    "Adjusted symbol metadata such as sbss sizes and scopes where the prior monolithic split obscured actual object boundaries.",
+    "Preserved matching progress by moving code/data wholesale into new TUs rather than attempting semantic rewrites first."
   ],
   "review_feedback": [
-    "ribbanya approved the PR with: \"This is really useful, thank you.\"",
-    "No inline review comments or requested changes were present in the dump.",
-    "decomp-dev bot reported GALE01 progress: matched code 68.60% (+0.11%, +4396 bytes), linked code 41.36% (+0.90%, +34912 bytes), matched data 41.17% (+1.40%, +17004 bytes), and linked data 34.93% (+1.42%, +17212 bytes)."
+    "Reviewer ribbanya approved the PR with the comment: \"This is really useful, thank you.\"",
+    "No inline review comments were present in the provided PR dump.",
+    "Automated decomp.dev report recorded positive aggregate progress: matched code 68.60% (+0.11%, +4396 bytes), linked code 41.36% (+0.90%, +34912 bytes), matched data 41.17% (+1.40%, +17004 bytes), linked data 34.93% (+1.42%, +17212 bytes)."
   ],
   "searchable_terms": [
     "PR2546",
     "resplit it_2725.c",
-    "split-2725",
     "it_2725",
     "ithitbox",
     "itmaplib",
@@ -156,30 +117,39 @@
     "itzako",
     "__assert(\"itmaplib.c\")",
     "__assert(\"itanimlist.c\")",
+    "it_MObjInfo it_803F1F90",
     "can t init zako pos",
-    "it_MObjInfo",
-    "it_803F1F90",
-    "itPokemonSpawn_DatAttrs",
-    "pokemon_spawn_weights",
-    "itZako_ItemVars",
-    "itGamewatch_ItemVars",
+    "Object(Matching, \"melee/it/it_2725.c\")",
+    "Object(NonMatching, \"melee/it/itmaplib.c\")",
+    "GALE01 splits.txt",
+    "GALE01 symbols.txt",
     "itYoshiEggLay_DatAttrs",
+    "itPokemonSpawn_ItemVars",
     "itUnk2_DatAttrs",
-    "itYaku_ItemVars",
-    "ItemLogicTable",
-    "sdata2_ordering",
-    "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
-    "Object NonMatching melee/it/itmaplib.c",
-    "remaining item TUs 20",
-    "remaining item functions 84"
+    "item hitbox setup",
+    "item map collision behavior",
+    "item material state",
+    "item effect helpers",
+    "animation-command handlers",
+    "zako enemy items",
+    "grzakogenerator",
+    "matched data",
+    "linked code"
   ],
   "follow_up_queries": [
-    "Find later PRs that make src/melee/it/itmaplib.c Matching.",
-    "Search later history for semantic renames of it_2725 or it_279C.",
-    "Search for follow-up refinements to itPokemonSpawn_DatAttrs and pokemon_spawn_weights.",
-    "Find PRs reducing the post-2546 remaining item TUs/functions count from 20/84.",
-    "Search for additional source-filename clues using __assert(\"itmaplib.c\") or __assert(\"itanimlist.c\")."
+    "Find later PRs that finish matching melee/it/itmaplib.c.",
+    "Find later PRs that rename it_2725 or clarify its module purpose.",
+    "Find later PRs that rename it_279C or split its Pokémon/character/monster/stage-item tables further.",
+    "Audit remaining broad includes of it/it_2725.h after this PR for opportunities to use ithitbox.h, it_279C.h, itzako.h, or other narrower headers.",
+    "Check whether the type renames itYoshiEggLay_DatAttrs, itPokemonSpawn_ItemVars, and itUnk2_DatAttrs were refined in subsequent item cleanup PRs."
   ],
-  "confidence": 0.93
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

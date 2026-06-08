@@ -11,125 +11,102 @@
     "merged_at": "2026-04-03T04:40:23Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked the fighter ftcolanim object by making a small codegen-oriented source tweak in ftCo_800BFFD0, updating GALE01 symbol scopes/local labels, and flipping melee/ft/ftcolanim.c from NonMatching to Matching in configure.py. The automated report confirmed 1 new match: main/melee/ft/ftcolanim ftCo_800BFFD0 improved from 97.41% to 100.00%, with linked code +2028 bytes and linked data +80 bytes.",
+  "summary": "Linked src/melee/ft/ftcolanim.c by switching it from NonMatching to Matching in configure.py, making a small source-level matching adjustment in ftCo_800BFFD0, and updating GALE01 symbol metadata so local compiler-generated constants/strings/floats are scoped correctly. The PR primarily moves the fighter color animation unit into the matching build.",
   "change_classification": {
-    "primary_type": "object-linking-match",
+    "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
-      "object-linking",
-      "source-codegen-tweak",
-      "symbol-map-cleanup"
+      "matching",
+      "linking",
+      "symbol-map-maintenance",
+      "fighter-source-cleanup"
     ],
     "systems": [
       "fighter",
       "ftcolanim",
-      "GALE01-symbols",
-      "build-config"
+      "build-config",
+      "symbols"
     ]
   },
   "key_files": [
-    {
-      "path": "configure.py",
-      "role": "Changed Object(NonMatching, \"melee/ft/ftcolanim.c\") to Object(Matching, \"melee/ft/ftcolanim.c\")."
-    },
-    {
-      "path": "src/melee/ft/ftcolanim.c",
-      "role": "Removed the unused ft/types.h include and changed ftCo_800BFFD0's arg1 subtraction/call argument expression to reach a match."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Adjusted data, bss, sdata, and sdata2 symbol names/scopes, including local @NNN literals and ...data.0/...bss.0 labels, for the linked object."
-    }
+    "configure.py",
+    "src/melee/ft/ftcolanim.c",
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "configure.py now builds/links melee/ft/ftcolanim.c as Matching instead of NonMatching.",
-    "ftCo_800BFFD0 now declares long tmp, mutates arg1 with arg1 -= (tmp = 0x7B), and passes the adjusted arg1 to lb_800144C8 instead of using a separate s32 temp_r7.",
-    "src/melee/ft/ftcolanim.c no longer includes ft/types.h.",
-    "config/GALE01/symbols.txt changed several anonymous constants/literals from global or unnamed-scope entries to scope:local entries, including @162, @334, @335, @336, @343, and multiple @NNN sdata2 floats/doubles.",
-    "Some symbols previously named as ftCo address globals were restored to anonymous local literal names, including ftCo_803C6AE8 to @248, ftCo_803C6B08 to @249, and ftCo_804D3C10 to @250.",
-    "Added local section labels ...data.0 at .data:0x803BAB60 and ...bss.0 at .bss:0x80433318."
+    "configure.py changed melee/ft/ftcolanim.c from Object(NonMatching, ...) to Object(Matching, ...), enabling the unit to link as matching.",
+    "src/melee/ft/ftcolanim.c removed an apparently unnecessary include of ft/types.h.",
+    "ftCo_800BFFD0 was rewritten slightly: a local s32 temp_r7 initialized as arg1 - 0x7B was replaced by a long tmp and an in-place subtraction, arg1 -= (tmp = 0x7B), before passing arg1 to lb_800144C8.",
+    "config/GALE01/symbols.txt updated multiple data symbols to local scope, especially compiler-style @NNN string/float/double constants in .data, .sdata, and .sdata2.",
+    "symbols.txt renamed some ftCo address-named string symbols to compiler local labels, including ftCo_803C6AE8 to @248, ftCo_803C6B08 to @249, and ftCo_804D3C10 to @250.",
+    "symbols.txt added local section labels ...data.0 at .data:0x803BAB60 and ...bss.0 at .bss:0x80433318."
   ],
   "smart_moves": [
-    "Kept the matching source change very small and isolated to ftCo_800BFFD0 before flipping the whole object to Matching.",
-    "Used the exact expression shape arg1 -= (tmp = 0x7B) to alter compiler output without changing the apparent high-level behavior of the threshold/subtraction path.",
-    "Handled symbol-map cleanup in the same PR as the link flip, avoiding a code-only match that would still leave data/linkage mismatches.",
-    "Converted local anonymous strings/floats/doubles back to @NNN scope:local symbols instead of leaving them as misleading exported ftCo_ address globals.",
-    "Relied on the automated decomp.dev report to verify both function-level matching and object-level linked code/data gains."
+    "The source change in ftCo_800BFFD0 preserved behavior while nudging register/local-variable allocation toward the original codegen; using a dummy long assignment inside the subtraction is a compact matching tactic.",
+    "The PR paired the configure.py matching flip with symbol-scope cleanup, avoiding a build/link transition that would leave generated local constants exposed as globals.",
+    "Converting address-style ftCo_* names for apparent file-local string constants back to @NNN local labels better reflects compiler-emitted local data and reduces misleading global API surface.",
+    "Removing an unused include before linking helps keep the translation unit dependency surface minimal."
   ],
   "decomp_lessons": [
-    "For final-byte fighter matches, a seemingly awkward C expression can be useful when it matches compiler register/immediate behavior better than a cleaner temporary variable.",
-    "When linking a previously NonMatching object, audit symbols.txt for local-vs-global scope; anonymous literals and constants often need @NNN scope:local entries.",
-    "Do not assume module-prefixed address names such as ftCo_803C6AE8 are true globals; this PR shows some were actually local anonymous strings.",
-    "Section-local labels like ...data.0 and ...bss.0 may be needed alongside object symbols when matching linked data layout.",
-    "A configure.py Matching flip should be paired with evidence from match/link metrics, not just source-level confidence."
+    "When converting a C file from NonMatching to Matching, update both the build object classification and the symbol map; matching source often requires local constant labels to have correct scope.",
+    "Small C expression-shape changes can affect register allocation enough to match, even when the semantic computation is unchanged.",
+    "Do not leave compiler-local literals as global ftCo_* symbols unless there is evidence they are referenced cross-TU; @NNN local labels are appropriate for local strings and constants.",
+    "Symbol scope corrections in .sdata2 for float/double constants may be required when linking a new matching object, not just source changes.",
+    "A matching PR can be small in C code but large in symbols.txt because linkability depends on precise section, label, scope, and object metadata."
   ],
   "naming_conventions": [
-    "Anonymous compiler literals/constants use @NNN names with scope:local, including strings, sjis strings, floats, and doubles.",
-    "Local section labels use ellipsis-style names such as ...data.0 and ...bss.0 with type:label scope:local.",
-    "Fighter common functions keep the ftCo_ prefix, as in ftCo_800BFFAC and ftCo_800BFFD0.",
-    "Fighter globals referenced by ftcolanim use Fighter_ address names such as Fighter_804D6538 and Fighter_804D653C.",
-    "Unidentified true globals can remain module/address named, but local literals should not be promoted to ftCo_ address globals without evidence."
+    "Use Object(Matching, \"melee/ft/ftcolanim.c\") in configure.py once the translation unit links and matches.",
+    "Compiler-generated local constants and strings are represented as @NNN labels with scope:local in symbols.txt.",
+    "Address-derived names such as ftCo_803C6AE8 or ftCo_804D3C10 should not be retained for local string constants when the evidence indicates compiler-local data.",
+    "Local section labels use ellipsis names such as ...data.0 and ...bss.0 with type:label scope:local.",
+    "Existing project-style function names remain address based where unresolved, such as ftCo_800BFFAC and ftCo_800BFFD0."
   ],
   "assembly_or_matching_tactics": [
-    "Replace a clean separate temporary, s32 temp_r7 = arg1 - 0x7B, with mutation of the parameter, arg1 -= (tmp = 0x7B), when disassembly requires that expression/register shape.",
-    "Introducing an otherwise minimal long tmp assignment inside an expression can be a targeted codegen nudge; use only with assembly verification.",
-    "Pass the mutated parameter directly to the callee when the target assembly does not preserve a separate named temporary.",
-    "Synchronize local symbol scope fixes across .data, .sdata, .sdata2, and .bss before marking the object Matching.",
-    "After a one-function final match, update configure.py so the object contributes to linked code/data progress."
+    "Use in-place mutation of an argument variable instead of introducing a separate temp when that better matches original register flow.",
+    "Introduce a dummy long temporary in an expression, as in arg1 -= (tmp = 0x7B), to influence constant materialization/register allocation without changing logic.",
+    "Remove unused includes to reduce incidental differences and keep the matching unit clean.",
+    "Correct local/global symbol scope for string and floating-point constants before linking a formerly nonmatching object."
   ],
   "review_feedback": [
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "GALE01 report showed matched code 61.58% (+164 bytes), linked code 33.79% (+2028 bytes), linked data 32.33% (+80 bytes), and 1 new match: main/melee/ft/ftcolanim ftCo_800BFFD0 from 97.41% to 100.00%."
-    },
-    {
-      "source": "slice",
-      "feedback": "No human review comments or formal reviews were present in the provided PR slice."
-    }
+    "No review comments were present in the provided PR context.",
+    "The PR had one issue comment according to counts, but no comment body was included in the provided excerpt, so no specific reviewer guidance can be extracted."
   ],
   "searchable_terms": [
-    "pr-2377",
+    "PR2377",
     "Link Ftcoloanim",
-    "ftcoloanim",
     "ftcolanim",
-    "src/melee/ft/ftcolanim.c",
-    "main/melee/ft/ftcolanim",
     "ftCo_800BFFD0",
     "ftCo_800BFFAC",
     "lb_800144C8",
     "Fighter_804D6538",
     "Fighter_804D653C",
-    "arg1 >= 0x7B",
-    "arg1 -= (tmp = 0x7B)",
-    "long tmp",
-    "s32 temp_r7",
+    "configure.py",
     "Object(Matching)",
     "Object(NonMatching)",
-    "configure.py",
-    "config/GALE01/symbols.txt",
+    "symbols.txt",
+    "GALE01",
     "scope:local",
     "@248",
     "@249",
     "@250",
-    "@334",
-    "@335",
-    "@336",
-    "@343",
     "...data.0",
     "...bss.0",
-    "ftCo_803C6AE8",
-    "ftCo_803C6B08",
-    "ftCo_804D3C10",
-    "sdata2 local float",
-    "linked code +2028",
-    "linked data +80"
+    "sdata2 local floats",
+    "fighter color animation",
+    "jellejurre"
   ],
   "follow_up_queries": [
-    "Find other fighter objects still marked Object(NonMatching) near ftcolanim.c in configure.py.",
-    "Search for remaining ftCo_ address-named symbols that are actually local @NNN string or float literals.",
-    "Look for other final-byte matches using dummy long temporaries or assignment expressions like tmp = constant.",
-    "Audit symbols.txt entries with anonymous @NNN names still marked scope:global.",
-    "Compare later ftmaterial or ftdevice linking PRs for similar symbol-scope cleanup patterns."
+    "Find other PRs that flip fighter files from NonMatching to Matching in configure.py.",
+    "Search for uses of dummy long temporaries or assignment inside arithmetic expressions for matching register allocation.",
+    "Audit remaining ftCo_* address-named symbols that may actually be local @NNN string or constant labels.",
+    "Compare other symbols.txt changes that convert @NNN labels from global to local scope during link PRs."
   ],
-  "confidence": 0.92
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

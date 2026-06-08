@@ -5,230 +5,269 @@
     "number": 2581,
     "title": "Improve matching in Melee source files",
     "url": "https://github.com/doldecomp/melee/pull/2581",
-    "state": "OPEN",
+    "state": "MERGED",
     "author": "fjooord",
     "created_at": "2026-06-05T14:12:13Z",
-    "merged_at": null
+    "merged_at": "2026-06-05T19:47:18Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Open broad matching PR touching 57 `src/melee` C files across effect, fighter, game, stage, interface, menu, library, map, and toy code. The PR body reports a saved-baseline result of matched code 70.39% (+0.24%, +9176 bytes) and matched data 41.33% (+0.06%, +712 bytes), with 13 new matches, 123 unmatched-item improvements, and no reported broken matches or unmatched regressions. Review requested changes: avoid pragma/fake-match shortcuts, convert repeated code to loops, replace pointer math/M2C artifacts with typed structs/fields, and recognize `jobj.h` assert blocks as likely inlined HSD JObj helper calls.",
+  "summary": "Large batch matching-improvement PR across 57 src/melee files, spanning effects, fighters, game mode/result/menu/interface/stage/library/toy code. The PR raised GALE01 matched code by 9176 bytes to 70.39% (+0.24%) and matched data by 712 bytes to 41.33% (+0.06%), with 13 new matches, 123 improved unmatched items, and no reported broken matches or regressions in the saved-baseline report. It also emphasized a stricter local regression gate for changes/changes_all so matching metrics fail on backward movement. Review focused on avoiding fake matches and matching-only shortcuts, preferring real source structure such as loops, avoiding pragmas and M2C_FIELD where possible, and reverting unrelated tooling changes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "source-cleanup",
-      "data-layout",
-      "types-structs",
-      "generated-code cleanup",
-      "validation",
-      "tooling-attempt",
-      "review-changes-requested"
+      "fix",
+      "headers",
+      "naming",
+      "tooling",
+      "types-structs"
     ],
     "systems": [
       "effect",
       "fighter",
       "game-mode",
+      "library",
+      "melee-core",
       "stage",
       "interface",
-      "menu",
-      "library",
-      "map-collision",
-      "trophy-toy",
-      "melee-core"
+      "menus",
+      "toy"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/mp/mplib.c",
-      "why": "Largest churn (+4102/-4094) and largest reported data improvement: `main/melee/mp/mplib` `.data` +3040 bytes from 60.80% to 94.04%; `mpGetSpeed` reached 100%. Diff shows large static data/function ordering changes around `mpLib_803BF248`, `mpLib_803BF718`, `mpLib_803BF728`, `mpLib_803BF738`, and `mpLib_803BF760`."
-    },
-    {
-      "path": "src/melee/gm/gmresult.c",
-      "why": "Major game-mode matching win: `fn_80175DC8` +2751 bytes from 8.23% to 93.22% and `fn_80174B4C` +940 bytes from 10.70% to 91.99%. Current diff models `lbl_803B7B18` as a typed struct with `lookup` and `Vec3 translate`, replacing the reviewed `M2C_FIELD` style."
-    },
-    {
-      "path": "src/melee/gm/gm_1601.c",
-      "why": "`fn_80161154` improved +339 bytes. Review flagged pragma use and repeated per-player blocks; current diff shows the repeated four-player standing/tie-break logic rewritten into `for (i = 0; i < 4; i++)` loops over `MatchPlayerData`."
-    },
-    {
-      "path": "src/melee/gr/grkongo.c",
-      "why": "Stage work with new `.rodata` and `.sdata` exact matches plus large improvements in `grKongo_801D7134` (+1408) and `grKongo_801D6AFC`. Diff adds typed table fields for `grKg_803E188C`, a typed hitbox constant `grKg_803B7FB0`, and loop cleanup after review noted repeated code."
-    },
-    {
-      "path": "src/melee/gr/grvenom.c",
-      "why": "`grVenom_80205F30` improved +769 bytes. Review explained that `jobj.h` assert/matrix-dirty blocks usually mean an inlined/run JObj function; current diff replaces direct rotate/translate mutation with `HSD_JObjSetRotationZ`, `HSD_JObjSetRotationY`, and `HSD_JObjSetTranslate`."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_09F7.c",
-      "why": "`ftCo_8009F834` improved +485 bytes. Diff replaces scalar x/y/z stack temporaries with `Vec3` stack objects, removes `M2C_BITWISE`, and simplifies multiple `efAsync_Spawn` calls by dropping generated-looking extra argument plumbing."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
-      "why": "Multiple common fighter ground/platform functions improved, including reported gains for `ftCo_800A4038`, `ftCo_800A6700`, and `ftCo_800A7AAC`. Diff expands stage/item/island checks and introduces semantic locals like `island_pos`, but still contains `#pragma dont_inline` in the slice."
-    },
-    {
-      "path": "src/melee/if/if_2FC93.c",
-      "why": "Contributed multiple new exact matches: `fn_802FDA78` +355 bytes to 100%, `un_802FE260` +21 bytes to 100%, and `.sdata` to 100%."
-    },
-    {
-      "path": "src/melee/lb/lb_00F9.c",
-      "why": "Reviewer called out a likely fake match: replacing `HSD_JObjSetRotation(jobj, &euler_quat)` with manual `jobj.h` assert plus direct `jobj->rotate` assignment should be undone."
-    }
+    "src/melee/mp/mplib.c",
+    "src/melee/gm/gmresult.c",
+    "src/melee/gm/gm_1601.c",
+    "src/melee/gm/gm_18A5.c",
+    "src/melee/gm/gm_16F1.c",
+    "src/melee/gm/gm_1BA8.c",
+    "src/melee/gm/gm_1BFA.c",
+    "src/melee/gm/gmstaffroll.c",
+    "src/melee/ft/chara/ftCommon/ftCo_09F7.c",
+    "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
+    "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+    "src/melee/ft/chara/ftCommon/ftCo_Damage.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+    "src/melee/ft/chara/ftYoshi/ftYs_SpecialS.c",
+    "src/melee/ft/ftafterimage.c",
+    "src/melee/ft/ftchangeparam.c",
+    "src/melee/ft/ftcpuattack.c",
+    "src/melee/ef/efasync.c",
+    "src/melee/ef/efsync.c",
+    "src/melee/gr/grkongo.c",
+    "src/melee/gr/grcorneria.c",
+    "src/melee/gr/grvenom.c",
+    "src/melee/gr/grgreens.c",
+    "src/melee/gr/grmutecity.c",
+    "src/melee/gr/granime.c",
+    "src/melee/gr/grinishie1.c",
+    "src/melee/gr/grpura.c",
+    "src/melee/gr/grrcruise.c",
+    "src/melee/gr/grzebes.c",
+    "src/melee/gr/grkinokoroute.c",
+    "src/melee/if/if_2FC93.c",
+    "src/melee/if/ifstock.c",
+    "src/melee/if/ifstatus.c",
+    "src/melee/if/textdraw.c",
+    "src/melee/if/textlib.c",
+    "src/melee/lb/lb_00F9.c",
+    "src/melee/lb/lbbgflash.c",
+    "src/melee/mn/mncharsel.c",
+    "src/melee/mn/mndiagram.c",
+    "src/melee/mn/mndiagram3.c",
+    "src/melee/mn/mnevent.c",
+    "src/melee/mn/mnmain.c",
+    "src/melee/mn/mnmainrule.c",
+    "src/melee/mn/mnname.c",
+    "src/melee/mn/mnnamenew.c",
+    "src/melee/mn/mnruleplus.c",
+    "src/melee/mn/mnsnap.c",
+    "src/melee/mn/mnsoundtest.c",
+    "src/melee/mn/mnstagesw.c",
+    "src/melee/mn/mnvibration.c",
+    "src/melee/pl/plbonus.c",
+    "src/melee/ty/toy.c",
+    "src/melee/ty/tylist.c"
   ],
   "what_changed": [
-    "Touched 57 `src/melee` files with +8034/-7234 lines in the current slice; no current changed-file entries for the reviewed `tools/changes_fmt.py` or `tools/project.py` paths.",
-    "PR validation stated: clean PR worktree at `ff551b3`, baseline from `dae3629`, `python3 configure.py --require-protos`, and `ninja changes_all`.",
-    "Saved-baseline report: matched code 70.39% (+9176 bytes), matched data 41.33% (+712 bytes), 13 new matches, 0 broken matches, 123 improvements in unmatched items, and 0 regressions in unmatched items.",
-    "Largest reported improvements included `mp/mplib` `.data` +3040, `gmresult` `fn_80175DC8` +2751, `gm_18A5` `fn_8018B090` +1450, `grkongo` `grKongo_801D7134` +1408, `gmresult` `fn_80174B4C` +940, `grcorneria` `grCorneria_801DED50` +896, and `grvenom` `grVenom_80205F30` +769.",
-    "New exact matches included `if_2FC93` `fn_802FDA78`, `ftafterimage` `.data`, `grkinokoroute` `.data`, `grkongo` `.rodata` and `.sdata`, `if_2FC93` `un_802FE260`, `ftchangeparam` `ftCo_800CF6E8`, `ifstock` `.sdata2`, `mpGetSpeed`, `gmstaffroll` `fn_801AA854`, and `grcorneria` `grCorneria_801DD534`.",
-    "Refactored generated-looking C patterns: scalar coordinate temporaries to `Vec3`, repeated four-slot player logic to loops, hand-expanded JObj assert/matrix-dirty code to HSD JObj setter calls, and byte-table/M2C access to typed structs.",
-    "Effect code in `efasync.c` and `efsync.c` adds intermediate float locals before `HSD_JObjSetRotationY` and adjusts queue access/casts, apparently for register/stack scheduling in effect spawn dispatch paths.",
-    "PR body said it added a strict local regression gate so `changes`/`changes_all` fail on backward movement; review comments requested reverting the `tools/changes_fmt.py` and `tools/project.py` changes, so this should be treated as contested unless confirmed in a later commit."
+    "Improved matching across a broad batch of src/melee source files: 57 changed files, 7984 additions, 7198 deletions.",
+    "Reported GALE01 progress from baseline dae3629 to PR commit ff551b3: matched code 70.39% (+9176 bytes) and matched data 41.33% (+712 bytes).",
+    "Produced 13 new full matches, including if_2FC93 fn_802FDA78, ftafterimage .data, grkinokoroute .data, grkongo .rodata/.sdata, ftchangeparam ftCo_800CF6E8, ifstock .sdata2, mpGetSpeed, gmstaffroll fn_801AA854, and grCorneria_801DD534.",
+    "Improved 123 unmatched items with no reported regressions; large examples include mplib .data (+3040 bytes), gmresult fn_80175DC8 (+2751 bytes), gm_18A5 fn_8018B090 (+1450 bytes), grkongo grKongo_801D7134 (+1408 bytes), and gmresult fn_80174B4C (+940 bytes).",
+    "Reworked gmresult fn_80175DC8 from a best-effort/nonmatching implementation into a much more detailed JObj/results-panel setup function, including a static u8 lookup table lbl_803B7B18 and explicit HSD_JObj lookup/assignment patterns.",
+    "Changed effect spawning code in efasync.c and efsync.c to introduce temporary f32 variables before HSD_JObjSetRotationY calls, a local matching tactic visible in repeated M_PI_2/rotation cases.",
+    "Changed ftCo_8009F834 to use Vec3 stack temporaries instead of separate scalar x/y/z locals, simplified some efAsync_Spawn argument lists, and replaced a suspicious ft_data pointer expression with indexed int access.",
+    "Expanded ftCo_800A2718 in ftCo_0A01.c from inline helper checks into explicit item iteration and stage-specific switch logic for STORY, ZEBES, and ONETT, with dont_inline pragmas present in the excerpt.",
+    "Changed matching shape in stage and menu/UI files, especially grkongo, grcorneria, grvenom, grgreens, ifstock, mndiagram, mndiagram3, mnvibration, and toy-related files.",
+    "PR body described a strict local saved-baseline regression gate so changes/changes_all fail if any unit, section, or function metric moves backward."
   ],
   "smart_moves": [
-    "Using a saved baseline and publishing exact code/data deltas made the matching impact auditable and caught regressions early.",
-    "The current `gmresult.c` approach of modeling `lbl_803B7B18` as `struct { u8 lookup[34][2]; Vec3 translate; }` is a reusable way to eliminate `M2C_FIELD` and preserve the mixed lookup/vector data layout.",
-    "Review-guided recognition of `jobj.h` assert blocks as inlined JObj helper calls led to cleaner `HSD_JObjSetRotationY/Z` and `HSD_JObjSetTranslate` usage in `grvenom.c`.",
-    "Converting repeated per-player blocks in `gm_1601.c` into loops over `player_standings[i]` both addressed review feedback and made the intended four-player algorithm clearer.",
-    "Replacing fake scalar triples with `Vec3` stack temporaries in fighter/common code is a good matching tactic when the assembly is operating on vector-like objects.",
-    "Reordering and typing large static data tables in `mplib.c` targeted `.data` matching directly, not just function text, and produced the largest reported data improvement."
+    "Used saved-baseline comparison as the central validation artifact, explicitly listing new matches, improved unmatched items, broken matches, and regressions.",
+    "Kept the pushed PR report no-regression: 0 broken matches and 0 regressions in unmatched items, despite touching many systems.",
+    "Targeted high-impact files where small source-shape changes yielded large matching gains, especially mplib .data, gmresult functions, and several stage functions.",
+    "Converted scalar x/y/z stack locals into Vec3 stack temporaries in ftCo_8009F834, which is a reusable tactic when matching code appears to copy or mutate vector structs as whole objects.",
+    "Introduced explicit stack temporaries for HSD_JObj pointer lookup and assignment in gmresult, matching the call pattern around lb_80011E24 and stored result pointers.",
+    "Removed some noisy best-effort comments in gmresult and replaced them with concrete source structure, static data, and explicit JObj setup code.",
+    "Recognized that matching data sections can be as important as code, with .data/.rodata/.sdata/.sdata2 improvements called out in the report.",
+    "Validated locally with python3 configure.py --require-protos and ninja changes_all."
   ],
   "decomp_lessons": [
-    "Reviewer guidance: repeated code is often an unrolled `for` loop; check for loop structure before preserving repeated m2c-style blocks.",
-    "Reviewer guidance: pointer math such as `(u8*)`, `base + offset`, and `base + offset + index * index_offset` is a red flag; prefer typed structs, arrays, `obj->field`, and `obj->field_arr[i]` when evidence supports it.",
-    "Reviewer guidance: pragmas are usually not how the original code was written; avoid `#pragma` matching shortcuts when a structural rewrite can match.",
-    "Reviewer guidance: `jobj.h` asserts generally indicate an inlined/run JObj helper, not source code that manually asserts and writes JObj fields.",
-    "Avoid fake matches: the `lb_00F9.c` review explicitly said direct `jobj->rotate` assignment in place of `HSD_JObjSetRotation` was likely a regression/fake match.",
-    "`M2C_FIELD` and `M2C_BITWISE` are cleanup targets; solving the underlying type/table shape can improve both match and maintainability.",
-    "Use local regression reports as a safety net, but keep tooling-policy changes separate or clearly agreed upon; this PR's regression-gate tool edits were explicitly requested for revert.",
-    "When a review comment is on an older hunk, check the current diff before recording it as unresolved: this slice shows some reviewed issues already addressed in later commits."
+    "For matching PRs, include a saved-baseline report with before/after metrics and explicit no-regression sections; reviewers can judge large broad changes more safely.",
+    "Avoid relying on pragmas as a first resort; reviewers asked to avoid #pragma usage where possible, including global_optimizer off and dont_inline patterns.",
+    "Repeated hand-unrolled code should be rechecked as likely loops; several reviewer comments flagged repeated player/result/stage code as probably for loops.",
+    "M2C_FIELD and M2C_BITWISE-style artifacts should be removed when real struct fields, types, or control flow can be recovered.",
+    "Do not accept matches that look like fake source regressions: a reviewer specifically asked to undo a lb_00F9.c change because the original HSD_JObj form was likely how the source was written.",
+    "Asserts mentioning jobj.h may indicate code inlined or included from jobj.c; future work should compare against HSD/JObj implementation patterns before local rewrites.",
+    "Data table reconstruction can unlock substantial matching gains in functions that initialize UI/model state.",
+    "Wide matching sweeps should avoid unrelated tooling edits unless the PR explicitly owns them; changes_fmt.py changes were requested to be reverted."
   ],
   "naming_conventions": [
-    "No broad symbol-renaming theme is evidenced; unknown functions retain address names like `fn_80175DC8`, `fn_80161154`, `fn_802FDA78`, and `un_802FE260`.",
-    "Known functions keep module prefixes: `ftCo_`, `grKongo_`, `grVenom_`, `ifStock_`, `mnDiagram_`, `mpLib_`, and `mpGetSpeed`.",
-    "HSD and common game types keep canonical capitalization: `HSD_GObj`, `HSD_JObj`, `HSD_Text`, `Vec3`, `Point3d`, `MatchEnd`, and `MatchPlayerData`.",
-    "Static data labels such as `lbl_803B7B18`, `grKg_803B7FB0`, `grKg_803E188C`, and `mpLib_803BF248` are retained, but the diff adds typed fields like `lookup`, `translate`, `damage`, `kb_angle`, and `element` where understood.",
-    "Stack temporaries still use match-driven `spXX` names where necessary, but semantic locals like `player`, `pdata`, `island_pos`, `angle`, and `kept_gobj` are introduced when the role is clear.",
-    "Stage IDs appear as all-caps enum constants such as `KONGO`, `VENOM`, `PURA`, `STORY`, `ZEBES`, `ONETT`, `FIGURE1`, `FIGURE2`, and `FIGURE3`."
+    "Effect dispatch/spawn functions used descriptive names already present in the source: efAsync_Dispatch and efSync_Spawn.",
+    "Temporary stack names in partially decompiled code retained address-like names such as sp108, sp104, spFC, spA8, and sp84 when better semantics were not evident.",
+    "Unknown or address-derived functions retained project-style names such as fn_80175DC8, fn_80161154, grKongo_801D7134, grCorneria_801DED50, and ifStock_802F7EFC.",
+    "Static data labels retained address-style names such as lbl_803B7B18 and lbl_8046DBE8 when evidence for semantic names was absent.",
+    "Struct field names in unknown structs retained offset-style names such as x24, x28, x34, x94, player_data, x0_0, and jobjs.",
+    "Stage enum names visible in the diff used all-caps identifiers such as STORY, ZEBES, and ONETT.",
+    "Fighter and stage file names followed subsystem prefixes: ftCo_, ftKb_, ftYs_, grKongo_, grCorneria_, grVenom_, ifStock_, mnDiagram_, and gm_."
   ],
   "assembly_or_matching_tactics": [
-    "Use `PAD_STACK` only as an evidence-backed stack-shape tool; this diff uses it widely, but review feedback discourages pragma-style shortcuts.",
-    "Introduce intermediate float locals when needed for register scheduling, as seen with `rot_y` to `f32_1` in `efasync.c` and `half_pi` to `va_f32_1` in `efsync.c`; reuse only with assembly proof.",
-    "Turn byte blobs plus `M2C_FIELD` into typed aggregate layouts when offsets reveal mixed data, as with `lbl_803B7B18.lookup` plus `lbl_803B7B18.translate`.",
-    "For HSD JObj code, prefer original helper calls (`HSD_JObjSetRotationY`, `HSD_JObjSetRotationZ`, `HSD_JObjSetTranslate`, `HSD_JObjSetRotation`) over manually reproducing assert and dirty-matrix logic.",
-    "For repeated slot/table code, test loop forms over fixed counts like 4 players or 0xF table entries before accepting unrolled m2c output.",
-    "Data-section matching can depend on C definition order and linkage; `mplib.c` demonstrates large `.data` gains from moving/typing static table definitions and using extern declarations where needed.",
-    "Correct element sizes and signedness matter: `grKongo.c` changes `_struct_grKg_803E188C_0x18` from a single `s32` head field to `s16 unk0` plus `s16 unk2`, matching later indexed logic.",
-    "Removing generated-looking vararg extras from `efAsync_Spawn` sites can improve C shape, but because the callee is variadic this should be checked against the specific effect/gfx-id calling convention."
+    "Use extra f32 temporaries before floating-point API calls when register allocation requires a copied value, as in efAsync_Dispatch/efSync_Spawn assigning rot_y or half_pi to f32_1/va_f32_1 before HSD_JObjSetRotationY.",
+    "Try whole-struct Vec3 stack assignments instead of scalar field locals when stack layout or copy code suggests vector temporaries.",
+    "Use PAD_STACK to tune stack size when source structure is otherwise understood, but keep it as a matching aid rather than semantic proof.",
+    "Recover static const data tables when large functions reference compact lookup data; gmresult added static const u8 lbl_803B7B18[40][2].",
+    "When repeated switch/case or copy-pasted blocks appear, test equivalent for-loop forms because reviewers repeatedly suspected loops in gm_1601.c, gmresult.c, and grkongo.c.",
+    "For HSD_JObj lookup helpers such as lb_80011E24, test whether the original source used local JObj temporaries initialized to jobj and then assigned into global/struct fields.",
+    "Avoid fake matches that distort likely original API usage; reviewer evidence says preserving an HSD_JObj form may be preferable even if another form matches locally.",
+    "Prefer replacing M2C_FIELD/M2C_BITWISE artifacts with real fields, casts, arrays, or typed temporaries once enough structure is known.",
+    "Pragmas like global_optimizer off and dont_inline may produce a match but are discouraged unless no source-shaped alternative exists."
   ],
   "review_feedback": [
     {
-      "reviewer": "jurrejelle",
-      "state": "CHANGES_REQUESTED",
-      "summary": "General guidance: repeated code is often an unrolled for-loop; pointer math should become struct fields/indices; pragmas are usually not ideal; `jobj.h` asserts usually come from inlined JObj code."
+      "file": "src/melee/gm/gm_1601.c",
+      "author": "jurrejelle",
+      "feedback": "Try to avoid #pragma's if possible.",
+      "lesson": "Do not use #pragma global_optimizer off as a default matching solution; attempt source-shaped control flow first."
     },
     {
-      "path": "src/melee/gm/gm_1601.c",
-      "comment": "Try to avoid `#pragma` if possible.",
-      "current_slice_note": "The current diff no longer shows the reviewed `#pragma push` / `#pragma global_optimizer off` hunk for this function."
+      "file": "src/melee/gm/gm_1601.c",
+      "author": "jurrejelle",
+      "feedback": "This code is most likely a for loop, same with the repeated code below here.",
+      "lesson": "Repeated player_standings/team_standings flag setup should be tested as a loop rather than manual pointer increments or unrolled code."
     },
     {
-      "path": "src/melee/gm/gm_1601.c",
-      "comment": "`fn_80161154` repeated code is most likely a for loop.",
-      "current_slice_note": "Current diff uses `for (i = 0; i < 4; i++)` loops over `arg0->player_standings[i]`."
+      "file": "src/melee/gm/gmresult.c",
+      "author": "jurrejelle",
+      "feedback": "This is probably a for loop? idk about the out-of-order 6/7 but good to check anyways.",
+      "lesson": "Large repeated JObj initialization blocks may hide loops or table-driven indexing, even when some indices appear out of order."
     },
     {
-      "path": "src/melee/gm/gmresult.c",
-      "comment": "Repeated `lb_80011E24`/slot setup may be a for loop; out-of-order 6/7 should be checked.",
-      "current_slice_note": "Current diff still uses a loop over players but contains many switch-per-slot assignments; worth rechecking."
+      "file": "src/melee/gm/gmresult.c",
+      "author": "jurrejelle",
+      "feedback": "Try to remove any M2C_FIELD if possibe.",
+      "lesson": "M2C artifacts are acceptable only as temporary scaffolding; reviewers expect real struct typing where possible."
     },
     {
-      "path": "src/melee/gm/gmresult.c",
-      "comment": "Try to remove `M2C_FIELD` if possible.",
-      "current_slice_note": "Current diff replaces the byte table with a typed `lbl_803B7B18` struct and uses `.translate`/`.lookup`."
+      "file": "src/melee/gr/grkongo.c",
+      "author": "jurrejelle",
+      "feedback": "probably a loop",
+      "lesson": "Stage logic with repeated near-identical operations should be loop-tested."
     },
     {
-      "path": "src/melee/gr/grkongo.c",
-      "comment": "Probably a loop.",
-      "current_slice_note": "Current diff includes an explicit `for (i = 0; i < 0xF; i++)` for the reviewed accumulation pattern."
+      "file": "src/melee/gr/grvenom.c",
+      "author": "jurrejelle",
+      "feedback": "Any \"jobj.h\" asserts are indications of an included/run jobj.c function.",
+      "lesson": "Use assert strings and source file references as clues for inlined/included library routines."
     },
     {
-      "path": "src/melee/gr/grvenom.c",
-      "comment": "`jobj.h` asserts are indications of an included/run `jobj.c` function.",
-      "current_slice_note": "Current diff uses HSD JObj setter calls for rotation and translation in several places."
+      "file": "src/melee/lb/lb_00F9.c",
+      "author": "jurrejelle",
+      "feedback": "Undo this, this is likely a regression/\"fake match\", the HSD_Jobj is the way it was written.",
+      "lesson": "A byte match is not enough if it makes the code less faithful to likely original source."
     },
     {
-      "path": "src/melee/lb/lb_00F9.c",
-      "comment": "Undo direct `jobj->rotate` write; reviewer called it likely a regression/fake match and said `HSD_JObj` call was likely how it was written.",
-      "current_slice_note": "Needs confirmation in latest head because this was a concrete fake-match warning."
-    },
-    {
-      "path": "tools/changes_fmt.py and tools/project.py",
-      "comment": "Revert regression-gate tool changes.",
-      "current_slice_note": "Current changed-files list and diff slice do not include these tool files, but review comments remain."
+      "file": "tools/changes_fmt.py",
+      "author": "jurrejelle",
+      "feedback": "Revert these changes.",
+      "lesson": "Keep matching PRs scoped; avoid incidental tooling changes unless needed and reviewed separately."
     }
   ],
   "searchable_terms": [
     "PR2581",
+    "Improve matching in Melee source files",
     "fjooord",
-    "melee-source-progress",
-    "dae3629",
-    "ff551b3",
-    "d27639465fa82eb0802f54137ca68690a453d776",
-    "ninja changes_all",
     "saved-baseline",
-    "fail-on-regressions",
+    "changes_all",
+    "require-protos",
     "no regressions",
-    "mpLib_803BF248",
-    "mpLib_803BF760",
+    "0 broken matches",
+    "13 new matches",
+    "123 improvements",
+    "GALE01",
+    "matched code 70.39",
+    "matched data 41.33",
+    "mplib .data",
     "mpGetSpeed",
+    "gmresult",
     "fn_80175DC8",
     "fn_80174B4C",
+    "gm_1601",
     "fn_80161154",
+    "gm_18A5",
     "fn_8018B090",
+    "grkongo",
     "grKongo_801D7134",
-    "grKongo_801D6AFC",
+    "grcorneria",
+    "grCorneria_801DED50",
+    "grvenom",
     "grVenom_80205F30",
-    "ftCo_8009F834",
-    "ftCo_800A4038",
-    "ftCo_800A6700",
-    "ftCo_800A7AAC",
+    "grgreens",
+    "grGreens_8021483C",
+    "ifstock",
+    "ifStock_802F7EFC",
+    "if_2FC93",
     "fn_802FDA78",
-    "un_802FE260",
-    "ftCo_800CF6E8",
+    "ftCo_09F7",
+    "ftCo_8009F834",
+    "ftCo_0A01",
+    "ftCo_800A2718",
+    "ftCo_800A3908",
+    "ftCo_Attack100",
     "fn_800DAADC",
+    "efAsync_Dispatch",
+    "efSync_Spawn",
     "HSD_JObjSetRotationY",
-    "HSD_JObjSetRotationZ",
-    "HSD_JObjSetTranslate",
-    "HSD_JObjSetRotation",
-    "jobj.h assert",
+    "HSD_JObjAnimAll",
+    "lb_80011E24",
+    "HSD_JObjLoadJoint",
+    "GObj_SetupGXLink",
+    "Vec3 stack temporary",
+    "PAD_STACK",
     "M2C_FIELD",
     "M2C_BITWISE",
-    "PAD_STACK",
-    "Vec3",
-    "Point3d",
-    "MatchPlayerData",
-    "ResultsPlayerData",
-    "lb_80011E24",
-    "lbl_803B7B18",
-    "grKg_803E188C",
-    "grKg_803B7FB0",
-    "efAsync_Spawn",
-    "efSync_Spawn",
-    "M_PI_2",
-    "global_optimizer off",
-    "dont_inline",
+    "pragma global_optimizer off",
+    "pragma dont_inline",
     "fake match",
-    "pointer math",
-    "unrolled for loop"
+    "jobj.h assert",
+    "probably a loop",
+    "ResultsPlayerData",
+    "lbl_803B7B18",
+    "lbl_8046DBE8"
   ],
   "follow_up_queries": [
-    "Check the latest PR head after `d27639465fa82eb0802f54137ca68690a453d776` for a new review or merge state; this slice is still open with changes requested.",
-    "Search touched files for remaining `#pragma`, especially `#pragma dont_inline` in `ftCo_0A01.c`, and justify or remove them.",
-    "Search for remaining `M2C_FIELD`, `M2C_BITWISE`, `(u8*)`, and `base + offset` patterns in the touched source files.",
-    "Verify `lb_00F9.c` keeps or restores `HSD_JObjSetRotation` rather than a direct `jobj->rotate` fake match.",
-    "Confirm the reviewed `tools/changes_fmt.py` and `tools/project.py` regression-gate edits were reverted or deliberately moved to a separate accepted PR.",
-    "Run `python3 configure.py --require-protos` and `ninja changes_all` on the latest head and compare against the saved-baseline report for zero regressions."
+    "Find later PRs that reverted or refined the #pragma global_optimizer off or dont_inline usage introduced around gm_1601.c and ftCo_0A01.c.",
+    "Search for subsequent cleanup of M2C_FIELD/M2C_BITWISE artifacts in gmresult.c and related ResultsPlayerData structures.",
+    "Check whether gmresult fn_80175DC8 was later converted from repeated switch/JObj blocks into loops or table-driven initialization.",
+    "Search grvenom and HSD/JObj assert-string discussions for guidance on recognizing included jobj.c functions.",
+    "Find follow-up changes to lb_00F9.c to see how the flagged HSD_JObj fake-match concern was resolved.",
+    "Look for later changes to tools/changes_fmt.py or the regression gate mentioned in this PR."
   ],
-  "confidence": 0.87
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

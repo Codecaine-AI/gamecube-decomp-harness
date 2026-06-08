@@ -5,6 +5,7 @@ import { isAbsolute, resolve } from "node:path";
 import {
   evaluateWorkerReportAcceptance,
   isWorkerReportType,
+  lintWorkerReviewDiff,
   parseWorkerAgentReport,
   targetPacketTarget,
   workerPacket,
@@ -152,12 +153,13 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
     const ttlSeconds = numberArg(args, "--ttl-seconds", 60 * 60);
     const repairAttempts = Math.max(0, Math.trunc(numberArg(args, "--repair-attempts", globals.dryRunAgents ? 0 : 2)));
     const postReturnCheckCommand = stringArg(args, "--post-return-check-command", "");
+    const graphDbPath = stringArg(args, "--graph-db", resourceGraphDbPath());
     const leased = leaseNextQueuedTarget({ store, runId, workerId, baseRev, ttlSeconds });
     if (!leased) throw new Error(`No queued, unlocked targets available for run ${runId}`);
 
-    const snapshot = loadBoardSnapshot(globals.repoRoot, 12);
+    const snapshot = loadBoardSnapshot(globals.repoRoot, 12, { graphDbPath });
     const target = targetPacketTarget(leased.target);
-    const knowledgeContext = buildWorkerKnowledgeContext(String(target.source_path ?? ""));
+    const knowledgeContext = buildWorkerKnowledgeContext(String(target.source_path ?? ""), graphDbPath);
     const packet = workerPacket({
       run,
       leased,
@@ -255,6 +257,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       const postAttemptDiffPath = resolve(validationDir, `attempt-${attemptIndex}.write_set.diff`);
       const postAttemptDiff = await captureWriteSetDiff(globals.repoRoot, leased.writeSet, postAttemptDiffPath);
       const writeSetDiffChanged = postAttemptDiff.stdout !== preAttemptDiff.stdout;
+      const reviewLint = lintWorkerReviewDiff(postAttemptDiff.stdout);
       const runnerValidation = await runPostReturnCheck({
         commandTemplate: postReturnCheckCommand,
         dryRun: globals.dryRunAgents,
@@ -268,7 +271,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         attemptIndex,
         shouldRun: acceptanceGate.accepted && (acceptanceGate.effectiveReportType === "progress" || acceptanceGate.effectiveReportType === "score_candidate"),
       });
-      const repairReasons = workerReturnRepairReasons({ acceptanceGate, writeSetDiffChanged, runnerValidation });
+      const repairReasons = workerReturnRepairReasons({ acceptanceGate, writeSetDiffChanged, runnerValidation, reviewLint });
       const attemptGatePath = resolve(validationDir, `attempt-${attemptIndex}.return_gate.json`);
       const evaluation: WorkerAttemptEvaluation = {
         result,
@@ -292,6 +295,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
             intended_report_type: intendedReportType,
             acceptance_gate: acceptanceGate,
             runner_validation: runnerValidation,
+            review_lint: reviewLint,
             write_set_diff: {
               baseline_path: preAttemptDiffPath,
               post_attempt_path: postAttemptDiffPath,
@@ -455,12 +459,11 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
   }
 }
 
-export function buildWorkerKnowledgeContext(sourcePath: string): Record<string, unknown> {
-  const graphDb = resourceGraphDbPath();
+export function buildWorkerKnowledgeContext(sourcePath: string, graphDb = resourceGraphDbPath()): Record<string, unknown> {
   const decompStandards = globalStandardsContext();
   const pathFacts = sourcePath ? resolvePathFactsContext(sourcePath, 5) : null;
   const lookupCommands = [
-    `bun run kg:file-card -- --source ${sourcePath}`,
+    `bun run kg:file-card -- --source ${shellQuote(sourcePath)} --graph-db ${shellQuote(graphDb)}`,
     "python3 knowledge/sources/decomp_standards/api/search.py --query <query> --limit 10 --json",
     sourcePath
       ? `python3 knowledge/sources/path_facts/api/resolve_for_path.py --path ${shellQuote(sourcePath)} --limit 5 --json`

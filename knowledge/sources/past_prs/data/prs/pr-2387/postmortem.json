@@ -11,153 +11,134 @@
     "merged_at": "2026-04-05T19:57:24Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large cm/camera decomp-matching pass. It replaces several camera placeholder stubs with C, tightens camera struct/prototype typing, and adds the include coverage needed for HSD camera rendering, refract/shadow, and mpLib draw paths. decomp.dev reported +4140 matched bytes, 8 new matches, 20 improved unmatched items, and one .data regression.",
+  "summary": "Large camera-module decompilation pass. The PR replaced multiple camera.c placeholders with C implementations, improved many existing camera functions toward matching, and refined camera structs/prototypes so pause/debug camera and related state could be represented more accurately. The decomp.dev report credited the change with +4140 bytes and +0.11% matched code, including 8 newly fully matched camera functions, though it also reported a .data matching regression.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
+      "camera",
       "headers",
       "struct-layout",
-      "camera-control",
-      "rendering-pipeline"
+      "prototype-cleanup"
     ],
     "systems": [
-      "melee/cm/camera",
-      "camera",
-      "pause-camera",
-      "free-camera",
-      "fixed-camera",
-      "HSD CObj/GObj rendering"
+      "melee-core",
+      "cm",
+      "camera"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/cm/camera.c",
-      "role": "Main matching work: implemented/fleshed out many Camera_8002xxxx functions, fn_800301D0, render callbacks, pause/free camera logic, and matching reshapes."
-    },
-    {
-      "path": "src/melee/cm/types.h",
-      "role": "Added Camera_x2D0 and replaced raw Camera x2D0-x300 fields with a typed substruct; changed x37C to an s32/f32 union."
-    },
-    {
-      "path": "src/melee/cm/camera.h",
-      "role": "Updated prototypes for Camera_8002C1A8, Camera_8002C5B4, Camera_8002E158, Camera_800311EC, Camera_80031328, removed public fn_800301D0, and exported cm_803BCCA0."
-    },
-    {
-      "path": "src/melee/cm/camera.static.h",
-      "role": "Adjusted static globals: added cm_80453004 and commented out the static cm_803BCCA0 initializer, which coincides with the bot-reported .data regression."
-    },
-    {
-      "path": "src/melee/cm/forward.h",
-      "role": "Forward-declared Camera_x2D0 for cross-header use."
-    }
-  ],
-  "what_changed": [
-    "Implemented formerly placeholder camera routines including Camera_8002C1A8, Camera_8002C5B4, Camera_8002C908, Camera_8002D318, Camera_8002E234, Camera_8002E490, Camera_8002EF14, Camera_8002F0E4, Camera_8002F4D4, fn_800301D0, Camera_800304E0, Camera_800311EC, Camera_80031328, and Camera_800313E0.",
-    "Improved existing camera routines such as Camera_80029CF8, Camera_8002A0C0, Camera_8002B0E0, Camera_8002CB0C, Camera_8002CDDC, Camera_8002DDC4, Camera_8002D85C, Camera_8002F9E4, Camera_8002FC7C, and Camera_80030E44.",
-    "Added Camera_x2D0 to group camera bounds, angle limits, min/max distance-like values, and a callback pointer; Camera now stores this as x2D0 instead of separate x2D0/x2D4/.../x300 fields.",
-    "Retyped Camera_8002C5B4 to take Camera_x2D0*, Camera_8002E158 to take three arguments instead of four, Camera_800311EC/Camera_80031328 to take u64 priority masks, and fn_800301D0 as static-only.",
-    "Added includes for baselib/displayfunc.h, baselib/lobj.h, lb/lbrefract.h, lb/lbshadow.h, and mp/mplib.h to support implemented render/camera code.",
-    "Filled camera render logic around HSD_CObjSetCurrent, screen erase color, Ground_801C4FAC, HSD_LObjDeleteCurrentAll, Camera_800310A0/Camera_80031074, lbRefract, lbShadow, HSD_FogSet, HSD_GObj_80390ED0, and optional mpLib debug drawing.",
-    "decomp.dev reported 8 new full matches: Camera_8002E490, Camera_8002E234, Camera_8002EF14, Camera_8002F0E4, Camera_8002A4AC, Camera_8003006C, Camera_8002B0E0, and Camera_80028B9C."
-  ],
-  "smart_moves": [
-    "Converted a run of raw Camera fields into Camera_x2D0, making the pause/free camera bounds, angle clamps, distance limits, and callback usage visible and reusable across signatures.",
-    "Used typed unions for storage that is used both as frame/count state and smoothing state: x37C.s32 and x37C.f32, matching the existing x378 union pattern.",
-    "Replaced magic pad bit constants with PAD_TRIGGER_R, PAD_TRIGGER_L, PAD_BUTTON_UP/DOWN/LEFT/RIGHT/X/Y/A while preserving 64-bit controller-state checks through inputs.x10._u64 and inputs.x18._u64.",
-    "Applied small matching-oriented rewrites: scoped temporaries, direct cm_803BCCA0 field loads, cached tanf results, explicit (f32) M_PI_2 casts, MAX usage, and PAD_STACK annotations.",
-    "Factored GX priority bit decisions into inline_cam_gx_b0, inline_cam_gx_b1, and inline_cam_gx_b4, making Camera_800311EC/Camera_80031328/Camera_800313E0 easier to read while matching bitwise behavior.",
-    "Kept goto-shaped control flow in slot validation/fallback paths where the diff explicitly notes TODOs to remove gotos later, prioritizing matching over cosmetic structured control flow."
-  ],
-  "decomp_lessons": [
-    "When adjacent unknown fields are always initialized and consumed together, promote them into an offset-named substruct before trying to force-match many callers; Camera_x2D0 improved both code clarity and function prototypes.",
-    "Header changes can be matching-critical: correcting Camera_8002E158's arity, Camera_8002C5B4's parameter type, and Camera_800311EC/Camera_80031328's u64 masks lined up call sites with implementation details.",
-    "For camera render callbacks, include the real libraries instead of using placeholders: displayfunc, lobj, lbrefract, lbshadow, and mplib are all needed by this implementation.",
-    "Use exact math helper choices and casts in camera code: the diff uses tanf, atan2f, sqrtf__Ff in some paths, cached tan_fov_u/tan_fov_l, and explicit (f32) M_PI_2 in HSD_ASSERTMSG comparisons.",
-    "Controller and GX-priority code can require 64-bit temporaries even when values look like small masks; this PR uses u64/s64 for pad state and gxlink_prios composition.",
-    "Watch data matching when moving globals between static definitions and extern declarations. The bot reported .data dropping from 75.21% to 37.23%, and the diff comments out the static cm_803BCCA0 initializer while adding an extern declaration."
-  ],
-  "naming_conventions": [
-    "Address-based Camera_8002xxxx names are retained; no semantic renames were introduced for most functions.",
-    "The new struct is named Camera_x2D0 after its Camera offset, while its members mix semantic names such as x_min, x_max, y_min, y_max, z_min, z_max, angle_up/down/right/left with still-unknown unk28 and unk2C.",
-    "x2C4 is documented as an unknown player slot, and x2C5 is documented as the pauser slot.",
-    "fn_800301D0 remains an address-style private helper and is made static instead of exported in camera.h.",
-    "Union members use type-suffixed accessors, for example x37C.s32 and x37C.f32, to document the storage mode used by interpolation code."
-  ],
-  "assembly_or_matching_tactics": [
-    "PAD_STACK was added in multiple functions, including Camera_80029CF8, Camera_8002B0E0, Camera_8002CB0C, Camera_8002D85C, Camera_8002DDC4, Camera_8002E490, Camera_8002F4D4, fn_800301D0, Camera_800304E0, and Camera_800313E0.",
-    "Several functions use inner scopes to constrain local lifetime and encourage desired register allocation, especially around Stage_GetCamInfoX20/X24, tanf temporaries, and transform smoothing coefficients.",
-    "Direct global field access replaced pointer temporaries in places such as Camera_8002B0E0 and Camera_8002A0C0, removing an earlier TODO about forcing cm_803BCCA0 into a register.",
-    "Some control flow intentionally remains goto-based in player-slot loops and fallback paths to match original branching before later cleanup.",
-    "The camera render path composes gxlink_prios with s64/u64 bitmasks and repeated HSD_GObj_80390ED0 calls, matching display-list phase ordering rather than abstracting it away.",
-    "The diff preserves exact sentinel values for camera slot logic, notably 0xA and 0xB, and player-slot range checks against 0..5."
-  ],
-  "review_feedback": [
-    "No human PR body, reviews, or review comments were present in the slice.",
-    "decomp.dev bot reported matched code at 61.94% (+0.11%, +4140 bytes), 8 new matches, 20 improvements in unmatched items, and one .data regression of -240 bytes."
-  ],
-  "searchable_terms": [
-    "pr-2387",
-    "cm matches",
-    "sadkellz",
     "src/melee/cm/camera.c",
     "src/melee/cm/types.h",
     "src/melee/cm/camera.h",
     "src/melee/cm/camera.static.h",
-    "src/melee/cm/forward.h",
+    "src/melee/cm/forward.h"
+  ],
+  "what_changed": [
+    "Implemented or partially implemented a large set of functions in src/melee/cm/camera.c, replacing placeholders for functions including Camera_8002C1A8, Camera_8002C5B4, Camera_8002C908, Camera_8002E234, Camera_8002E490, Camera_8002EF14, Camera_8002F0E4, and fn_800301D0.",
+    "Added camera dependencies needed by the new code, including baselib/displayfunc.h, baselib/lobj.h, lb/lbrefract.h, lb/lbshadow.h, and mp/mplib.h.",
+    "Improved existing camera math in functions such as Camera_80029CF8, Camera_8002A0C0, Camera_8002B0E0, Camera_8002BAA8, Camera_8002CB0C, Camera_8002CDDC, Camera_8002D318, Camera_8002D85C, Camera_8002DDC4, Camera_8002F4D4, Camera_8002FEEC, Camera_8003006C, Camera_800304E0, Camera_80030E44, Camera_800311EC, Camera_80031328, and Camera_800313E0.",
+    "Introduced struct Camera_x2D0 in types.h to replace a run of individual Camera fields at offsets 0x2D0 through 0x300 with a named substructure for bounds, angle limits, pause camera distance limits, and a callback pointer.",
+    "Updated Camera_8002C5B4 to take Camera_x2D0* instead of void*, and updated Camera_8002C1A8, Camera_8002E158, Camera_800311EC, and Camera_80031328 prototypes in camera.h.",
+    "Added a forward declaration for Camera_x2D0 in forward.h.",
+    "Changed cm_803BCCA0 handling by exporting it in camera.h and commenting out its static initializer in camera.static.h; the diff excerpt shows this was part of a data/layout matching adjustment but the bot still reported a .data regression.",
+    "Added CameraDebugMode cm_80453004 as a non-static BSS symbol in camera.static.h.",
+    "Used helper macros and compiler-shaping constructs such as PAD_STACK, MAX, ABS, explicit float casts, scoped temporaries, and reordered local variables to improve codegen."
+  ],
+  "smart_moves": [
+    "Recovering Camera_x2D0 was a high-leverage struct-layout fix: it grouped stage camera bounds, angle constraints, min/max pause camera Z distance, and a callback into one field of Camera, which made later camera functions express constraints directly instead of treating offsets as unrelated floats.",
+    "The PR used local scoping and temporary variables to influence register allocation and stack layout, for example in Camera_80029CF8 around Stage_GetCamInfoX24/Stage_GetCamInfoX20 and tangent calculations.",
+    "Replacing handwritten comparison blocks with MAX in Camera_80029CF8 simplified the source while preserving the intended max-distance behavior.",
+    "Camera_8002C5B4 was decomposed around vector operations: clamping position to bounds, applying x314 offset, normalizing cross products, and rotating pause_eye_offset around unit axes to enforce pitch/yaw limits.",
+    "Camera input handling in Camera_8002C1A8 separated digital buttons, analog stick thresholds, substick movement, zoom direction, and camera target switching, making a large pause/debug camera routine readable while still close enough for matching.",
+    "Header prototypes were tightened as functions became known, reducing use of UNK_RET/UNK_PARAMS and void* where the diff had evidence for concrete types."
+  ],
+  "decomp_lessons": [
+    "When a contiguous range of anonymous fields is repeatedly assigned as related stage bounds and camera angle limits, promote it into a named substruct; this can clarify call signatures and improve matching across many functions.",
+    "Do not assume old field names such as min_distance/max_distance are final: this PR replaced those with x2D0.unk28 and x2D0.unk2C once the surrounding struct was identified.",
+    "Small expression rewrites can matter for PowerPC matching: splitting multiplication chains, storing tanf results in temporaries, adding scoped locals, and using explicit casts to f32 were all used in matched/improved functions.",
+    "PAD_STACK remains a practical tactic for camera.c functions where source-equivalent logic still needs stack-shape padding to match.",
+    "Prototype cleanup should happen together with implementation work; changing Camera_8002C5B4 from void* to Camera_x2D0* and adjusting Camera_8002E158's argument list made downstream source clearer.",
+    "A PR can increase function matching while regressing data matching; track .data/.bss reports separately from code-function gains."
+  ],
+  "naming_conventions": [
+    "Newly identified struct name used offset-based placeholder style: Camera_x2D0.",
+    "Unknown fields retained offset-style names such as x2C4, x2C5, x304, x305, x314, x32C, x341_b3_b4, x35C, x368, x378, and x37C.",
+    "Where field roles were clearer but not fully named, comments were added: x2C4 is marked as an unknown player slot and x2C5 as pauser slot.",
+    "Camera functions retained address-based decomp names such as Camera_8002E234 and fn_800301D0.",
+    "Struct field comments in Camera_x2D0 used offset annotations like /* +0x00 */ y_max and /* +0x30 */ callback."
+  ],
+  "assembly_or_matching_tactics": [
+    "Inserted PAD_STACK(16), PAD_STACK(8), PAD_STACK(4), PAD_STACK(32), and PAD_STACK(56) in several camera routines to shape stack layout.",
+    "Used scoped local blocks to force temporary lifetimes and register allocation, e.g. info_x24/info_x20 in Camera_80029CF8 and idx in Camera_8002B0E0.",
+    "Reordered local declarations and swapped temporary variables to improve generated code in floating-point-heavy camera math.",
+    "Split chained expressions into intermediate assignments, such as scaling var_f31/var_f30 in Camera_8002A0C0 before multiplying by 10.0f and x2BC.",
+    "Used explicit f32 casts around M_PI_2 in HSD_ASSERTMSG comparisons.",
+    "Cached tanf(fov_u) in tan_fov_u and used a scoped tan_fov_l variable for horizontal frustum calculations.",
+    "Introduced unions for Camera fields such as x37C to allow both s32 and f32 access patterns where the diff showed mixed use.",
+    "Kept callback types explicit with void (*callback)(Camera_x2D0*) while casting known callback functions when assigning into x2D0.callback."
+  ],
+  "review_feedback": [
+    "No human review comments were present in the provided slice.",
+    "decomp.dev reported 8 new full matches: Camera_8002E490, Camera_8002E234, Camera_8002EF14, Camera_8002F0E4, Camera_8002A4AC, Camera_8003006C, Camera_8002B0E0, and Camera_80028B9C.",
+    "decomp.dev reported 20 improvements in unmatched camera items, including Camera_8002D318 to 91.52%, Camera_8002C1A8 to 92.23%, Camera_8002C5B4 to 92.41%, fn_800301D0 to 96.94%, and Camera_8002CDDC to 95.68%.",
+    "decomp.dev also reported one regression: main/melee/cm/camera .data decreased by 240 bytes, from 75.21% to 37.23%."
+  ],
+  "searchable_terms": [
+    "cm matches",
+    "sadkellz",
+    "camera.c",
+    "cm camera",
     "Camera_x2D0",
     "Camera_8002C1A8",
     "Camera_8002C5B4",
     "Camera_8002C908",
+    "Camera_8002E234",
+    "Camera_8002E490",
+    "Camera_8002EF14",
+    "Camera_8002F0E4",
+    "fn_800301D0",
+    "Camera_80029CF8",
+    "Camera_8002A0C0",
+    "Camera_8002B0E0",
+    "Camera_8002BAA8",
     "Camera_8002CB0C",
     "Camera_8002CDDC",
     "Camera_8002D318",
     "Camera_8002D85C",
     "Camera_8002DDC4",
-    "Camera_8002E158",
-    "Camera_8002E234",
-    "Camera_8002E490",
-    "Camera_8002EF14",
-    "Camera_8002F0E4",
     "Camera_8002F4D4",
-    "Camera_8002F9E4",
-    "fn_800301D0",
-    "Camera_800304E0",
+    "Camera_8003006C",
     "Camera_800311EC",
-    "Camera_80031328",
     "Camera_800313E0",
     "cm_80452C68",
     "cm_803BCCA0",
     "cm_80453004",
-    "x2D0",
-    "x37C.s32",
-    "x37C.f32",
-    "pause_eye_distance",
-    "pause_eye_offset",
-    "pause_up",
-    "gxlink_prios",
-    "HSD_CObjSetCurrent",
-    "HSD_CObjEraseScreen",
-    "HSD_GObj_80390ED0",
-    "lbRefract_8002247C",
-    "lbShadow_8000F38C",
-    "mpLib_DrawZones",
-    "mpLib_DrawSpecialPoints",
+    "pause camera",
+    "pauser slot",
     "PAD_STACK",
-    "PAD_TRIGGER_R",
-    "PAD_TRIGGER_L",
-    "PAD_BUTTON_A",
-    "sqrtf__Ff",
-    "M_PI_2",
+    "Stage_GetCamBoundsLeftOffset",
+    "Stage_GetCamAngleRadiansUp",
+    "Stage_GetPauseCamZPosMin",
+    "lbVector_RotateAboutUnitAxis",
+    "PSVECCrossProduct",
+    "lbshadow",
+    "lbrefract",
     ".data regression"
   ],
   "follow_up_queries": [
-    "Camera_x2D0 unk28 unk2C callback pause camera bounds",
-    "cm_803BCCA0 extern static initializer .data regression pr-2387",
-    "fn_800301D0 HSD_CObj render pipeline lbRefract lbShadow mpLib",
-    "Camera_8002C1A8 Camera_8002C5B4 free camera pause camera controls",
-    "Camera_8002D318 fallback z threshold 10 30 ftLib_80086B74",
-    "Camera_800311EC Camera_800313E0 gxlink_prios inline_cam_gx_b0"
+    "Check later PRs touching src/melee/cm/camera.static.h or cm_803BCCA0 to see whether the .data regression from this PR was resolved.",
+    "Search for later renames of Camera_x2D0 fields unk28 and unk2C, which appear to be pause camera distance limits.",
+    "Search for later PRs matching the remaining partial camera functions listed by decomp.dev, especially Camera_8002D318, Camera_8002C1A8, Camera_8002C5B4, fn_800301D0, and Camera_8002F4D4.",
+    "Look for review or follow-up discussion about why cm_803BCCA0 was exported and its static initializer commented out."
   ],
-  "confidence": 0.86
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

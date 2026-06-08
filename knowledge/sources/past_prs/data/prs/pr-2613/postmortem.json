@@ -1,0 +1,140 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2613",
+  "pr": {
+    "number": 2613,
+    "title": "Split and link `ftkirbyspecialpeach` and `ftkirbyspecialgamewatch`",
+    "url": "https://github.com/doldecomp/melee/pull/2613",
+    "state": "MERGED",
+    "author": "ribbanya",
+    "created_at": "2026-06-08T10:00:16Z",
+    "merged_at": "2026-06-08T10:04:46Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Split Kirby copied-special code out of the oversized `ftkirbyyoshiegg` translation unit into separate Marth, Peach, and Game & Watch files, then linked Peach and Game & Watch as matching objects while keeping Marth nonmatching. The PR updated splits, symbol scoping, build configuration, headers, and item dependencies so Kirby Peach Toad and Kirby Game & Watch Chef Pan code include their new owner headers instead of `ftkirbyyoshiegg.h`.",
+  "change_classification": {
+    "primary_type": "split_and_link",
+    "categories": [
+      "fighter_code_split",
+      "headers",
+      "build_config",
+      "symbol_map",
+      "matching_status_update",
+      "item_dependency_cleanup"
+    ],
+    "systems": [
+      "fighter",
+      "ftKirby",
+      "item",
+      "config",
+      "build"
+    ]
+  },
+  "key_files": [
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "configure.py",
+    "src/melee/ft/chara/ftKirby/ftkirby.c",
+    "src/melee/ft/chara/ftKirby/ftkirbyyoshiegg.c",
+    "src/melee/ft/chara/ftKirby/ftkirbyyoshiegg.h",
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialmars.c",
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialmars.h",
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialpeach.c",
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialpeach.h",
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialgamewatch.c",
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialgamewatch.h",
+    "src/melee/it/items/itpeachtoad.c",
+    "src/melee/it/items/itkirbygamewatchchefpan.c"
+  ],
+  "what_changed": [
+    "`config/GALE01/splits.txt` shrank `melee/ft/chara/ftKirby/ftkirbyyoshiegg.c` from text range `0x8010AA64..0x8010D740` to `0x8010AA64..0x8010B1F4` and inserted new split ranges for `ftkirbyspecialmars.c`, `ftkirbyspecialpeach.c`, and `ftkirbyspecialgamewatch.c`.",
+    "`configure.py` added `ftkirbyspecialmars.c` as `Object(NonMatching, ...)` and added `ftkirbyspecialpeach.c` plus `ftkirbyspecialgamewatch.c` as `Object(Matching, ...)`.",
+    "New source/header pairs were created for Kirby Marth copied neutral special, Kirby Peach copied special, and Kirby Game & Watch copied neutral special: `ftkirbyspecialmars.[ch]`, `ftkirbyspecialpeach.[ch]`, and `ftkirbyspecialgamewatch.[ch]`.",
+    "`ftkirbyyoshiegg.c` deleted most of the previously co-located copied-special code and retained the Yoshi egg portion; the diff shows removal of declarations for Marth/Peach/Game & Watch helper functions and extern constants from the Yoshi file.",
+    "`ftkirbyyoshiegg.h` was deleted/emptied in the diff, with exported prototypes moved into the new more specific headers.",
+    "`ftkirby.c` stopped including `ftkirbyyoshiegg.h` and now includes `ftkirbyspecialmars.h`, `ftkirbyspecialpeach.h`, and `ftkirbyspecialgamewatch.h` where those symbols are needed.",
+    "`itpeachtoad.c` now includes `ftKirby/ftkirbyspecialpeach.h` instead of `ftKirby/ftkirbyyoshiegg.h`.",
+    "`itkirbygamewatchchefpan.c` now includes `ftKirby/ftkirbyspecialgamewatch.h` instead of `ftKirby/ftkirbyyoshiegg.h`.",
+    "`symbols.txt` converted several address-named globals in the affected ranges into local labels such as `@237`, `@238`, `@247`, and `@251`, reflecting constants now owned locally by the split objects.",
+    "Some item state table formatting was compacted while touching `itpeachtoad.c` and `itkirbygamewatchchefpan.c`; this appears incidental rather than the main decomp change."
+  ],
+  "smart_moves": [
+    "The split boundaries in `splits.txt` mirror exact contiguous text ranges: Yoshi egg ends at `0x8010B1F4`, Marth runs `0x8010B1F4..0x8010C288`, Peach runs `0x8010C288..0x8010CE5C`, and Game & Watch runs `0x8010CE5C..0x8010D740`.",
+    "The PR did not force all split files to matching status: it linked Peach and Game & Watch as matching while explicitly leaving `ftkirbyspecialmars.c` nonmatching, reducing risk while still making progress.",
+    "Headers were split by feature ownership instead of keeping item code dependent on `ftkirbyyoshiegg.h`; this made `itpeachtoad.c` and `itkirbygamewatchchefpan.c` depend on the copied-special headers that actually declare the callbacks they use.",
+    "Symbol updates changed many temporary address-style globals to local `@NNN` constants, which is consistent with constants becoming file-local after object splitting.",
+    "`ftkirbyyoshiegg.c` gained a small inline helper for Yoshi egg hurtbox setup, suggesting localized refactoring to preserve matching after removing unrelated code from the file.",
+    "The new headers preserve address comments on prototypes, making the newly split functions searchable by ROM address and easier to verify against the split ranges."
+  ],
+  "decomp_lessons": [
+    "When a monolithic fighter file contains several copied-special implementations, split it along exact linker text and small-data boundaries before trying to link individual matching objects.",
+    "Do not keep umbrella headers around merely because item code used to include them; move prototypes into ownership-specific headers and update item includes to the smallest relevant header.",
+    "It is acceptable and useful to land a mixed matching/nonmatching split when only some new objects are ready to link; this PR demonstrates adding matching Peach/Game & Watch while leaving Marth nonmatching.",
+    "After a source split, revisit `symbols.txt` for constants whose scope changes from global placeholder names to local compiler-generated `@NNN` labels.",
+    "For copied-special code, maintain the project naming pattern `ftKb_<CopiedFighterSpecial>_<Address>` or state callback names like `ftKb_GwSpecialN_Anim`, `ftKb_PeSpecialLw_Coll`, and `ftKb_MsSpecialNLoop_Phys`.",
+    "Address comments in headers are useful during staged splits because they document that the prototype set matches the new split object's text range."
+  ],
+  "naming_conventions": [
+    "Kirby copied-special files use lowercase path names: `ftkirbyspecialmars.c`, `ftkirbyspecialpeach.c`, and `ftkirbyspecialgamewatch.c`.",
+    "Kirby copied-special symbol prefixes in this slice include `ftKb_SpecialNMs_` for Marth, `ftKb_SpecialNPe_` / `ftKb_PeSpecial...` for Peach, and `ftKb_SpecialNGw_` / `ftKb_GwSpecial...` for Game & Watch.",
+    "Unidentified helper functions remain address-based as `fn_8010....`, for example `fn_8010CE5C`, `fn_8010CFB0`, `fn_8010C288`, and `fn_8010B1F4`.",
+    "Header guards in the new files use the first address in the object range, e.g. `GALE01_10B1F4`, `GALE01_10C288`, and `GALE01_10D074`.",
+    "Motion callback names follow the fighter-state suffix convention: `_Anim`, `_IASA`, `_Phys`, and `_Coll` for ground and air variants."
+  ],
+  "assembly_or_matching_tactics": [
+    "Used split-file text ranges in `splits.txt` to carve one large object into four objects without moving surrounding Donkey Kong code.",
+    "Added `.sdata` and `.sdata2` subranges for the new objects, including Yoshi egg `.sdata start:0x804D3DE8 end:0x804D3E00` and separate `.sdata2` ranges per copied-special object.",
+    "Marked only verified objects as `Object(Matching, ...)` in `configure.py` and left uncertain Marth code as `Object(NonMatching, ...)`.",
+    "Preserved stack-sensitive constructs visible in the diff such as `PAD_STACK(...)`, nested scopes, and small inline helpers, which are common tactics for matching CodeWarrior output.",
+    "Converted formerly global address-named float/double symbols in affected `.sdata2` regions into local `@NNN` labels with explicit size and alignment metadata.",
+    "Adjusted an unrelated-looking `itmewtwoshadowball.c` data split start from `0x803F7760` to `0x803F7880`, likely to keep data ranges aligned after symbol/split corrections; the diff does not provide further rationale."
+  ],
+  "review_feedback": [
+    "No issue comments, review comments, or reviews were present in the provided PR slice.",
+    "The only human body text beyond the title was: \"Also split `ftkirbyspecialmars`\"."
+  ],
+  "searchable_terms": [
+    "pr-2613",
+    "ribbanya",
+    "ftkirbyspecialpeach",
+    "ftkirbyspecialgamewatch",
+    "ftkirbyspecialmars",
+    "ftkirbyyoshiegg",
+    "ftKb_SpecialNPe_8010C3C0",
+    "ftKb_SpecialNGw_8010D074",
+    "ftKb_SpecialNMs_8010B2FC",
+    "ftKb_GwSpecialN_Anim",
+    "ftKb_PeSpecialLw_Anim",
+    "ftKb_MsSpecialNLoop_Anim",
+    "itpeachtoad",
+    "itkirbygamewatchchefpan",
+    "Object(Matching)",
+    "Object(NonMatching)",
+    "GALE01_10C288",
+    "GALE01_10D074",
+    "GALE01_10B1F4",
+    "splits.txt",
+    "symbols.txt",
+    "PAD_STACK",
+    "Kirby copied special",
+    "Peach Toad",
+    "Game Watch Chef Pan",
+    "Marth copied neutral special"
+  ],
+  "follow_up_queries": [
+    "Find later PRs that convert `ftkirbyspecialmars.c` from NonMatching to Matching.",
+    "Search for follow-up renames of address-based helpers like `fn_8010CE5C`, `fn_8010CFB0`, `fn_8010C288`, and `fn_8010B1F4`.",
+    "Check whether `ftkirbyyoshiegg.h` was removed entirely from the repository or replaced by another Yoshi-specific header in later cleanup.",
+    "Review later symbol-map cleanups around `.sdata2:0x804D9580..0x804D95B0` for stable names for Kirby copied-special constants.",
+    "Search for similar copied-special split patterns in `ftkirbyspecialdonkey`, `ftkirbyspecialpikachu`, `ftkirbyspecialzelda`, and `ftkirbyspecialmewtwo`."
+  ],
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

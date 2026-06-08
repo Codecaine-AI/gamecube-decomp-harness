@@ -11,94 +11,80 @@
     "merged_at": "2026-04-25T07:37:05Z"
   },
   "agent_status": "agent_completed",
-  "summary": "One-line tooling change in tools/project.py: ProjectConfig.use_wibo now returns true only on Linux, removing Darwin/macOS from automatic wibo use. With compiler_wrapper falling back to Path(\"wine\") when no wrapper is set on non-Windows systems, the change effectively moves macOS builds away from auto-downloaded wibo and toward wine. The PR had no C/ASM changes; decomp.dev reported GALE01 \"No changes\" and two reviewers approved without written feedback.",
+  "summary": "Small tooling change in tools/project.py: macOS/darwin was removed from the platform condition that enables wibo in Project.use_wibo(), leaving wibo enabled only on Linux when the tag, architecture, and wrapper conditions are satisfied. Based on the title, this PR moved macOS builds away from wibo and toward the Wine path, but the provided slice only shows the wibo gating change.",
   "change_classification": {
-    "primary_type": "tooling_platform_wrapper_behavior",
+    "primary_type": "tooling",
     "categories": [
       "tooling",
-      "build_configuration",
-      "platform_support"
+      "build-configuration",
+      "platform-support"
     ],
     "systems": [
-      "tools/project.py",
-      "ProjectConfig.compiler_wrapper",
-      "ProjectConfig.use_wibo",
-      "wibo",
-      "wine",
-      "macOS",
-      "Linux"
+      "tooling",
+      "project.py",
+      "compiler-wrapper"
     ]
   },
   "key_files": [
-    {
-      "path": "tools/project.py",
-      "role": "Changed ProjectConfig.use_wibo platform predicate from Linux-or-Darwin to Linux-only."
-    }
+    "tools/project.py"
   ],
   "what_changed": [
-    "Removed sys.platform == \"darwin\" from the use_wibo condition.",
-    "Kept the existing requirements that wibo_tag is set, the machine is one of i386/x86_64/aarch64/arm64, and no explicit wrapper is configured.",
-    "Because compiler_wrapper only selects build/tools/wibo when use_wibo() is true and otherwise falls back to Path(\"wine\") on non-Windows systems, macOS no longer auto-selects wibo by default.",
-    "No game source, headers, assembly, or matching logic changed."
+    "Changed Project.use_wibo() so sys.platform must equal \"linux\" instead of allowing either \"linux\" or \"darwin\".",
+    "Kept the other wibo eligibility checks intact: wibo_tag must be present, platform.machine() must be one of i386/x86_64/aarch64/arm64, and self.wrapper must be None.",
+    "Net diff was one line added and one line deleted in tools/project.py."
   ],
   "smart_moves": [
-    "The platform behavior was changed at the central use_wibo gate instead of scattering macOS special cases elsewhere in build generation.",
-    "The explicit wrapper override path was preserved: if ProjectConfig.wrapper is set, use_wibo remains false and the configured wrapper can still be used.",
-    "The architecture allowlist was left untouched, minimizing the risk of changing Linux behavior while fixing macOS wrapper selection.",
-    "The PR relied on decomp.dev verification; the bot reported GALE01 \"No changes\", appropriate for a tooling-only wrapper selection change."
+    "Implemented the platform behavior change at the central wibo decision point, avoiding scattered macOS-specific conditionals elsewhere.",
+    "Preserved the existing architecture and explicit wrapper guards, minimizing risk to Linux wibo behavior while changing only macOS selection.",
+    "Used sys.platform string matching consistently with the existing code style."
   ],
   "decomp_lessons": [
-    "Keep host-tool decisions centralized in ProjectConfig.compiler_wrapper/use_wibo so platform behavior is easy to audit.",
-    "For decompilation infrastructure changes, verify that the game binary comparison remains unchanged; here the only recorded decomp.dev report was \"No changes\".",
-    "When moving a host platform from one wrapper backend to another, prefer narrowing the backend predicate rather than changing downstream compiler command construction.",
-    "Preserve user escape hatches such as an explicit wrapper path when altering default host behavior."
+    "Build-tool platform routing should be controlled in one predicate where possible; this makes future compiler-wrapper changes easier to audit.",
+    "When changing host-platform support, keep unrelated guard conditions unchanged so reviewers can see the intended behavioral delta clearly.",
+    "For macOS host tooling, be explicit about whether the path should use wibo or Wine; small platform checks can have large effects on build reproducibility."
   ],
   "naming_conventions": [
-    "Boolean helper name use_wibo clearly expresses the decision being gated.",
-    "Configuration fields use suffixes such as _tag and _path for downloadable tool version versus explicit path selection, e.g. wibo_tag and wrapper.",
-    "Host platform checks use sys.platform string comparisons, here sys.platform == \"linux\".",
-    "Machine architecture checks use platform.machine() against a tuple of accepted values: i386, x86_64, aarch64, arm64."
+    "Existing method name use_wibo() is a boolean predicate and remains unchanged.",
+    "Existing fields wibo_tag and wrapper were kept as the controlling configuration names."
   ],
-  "assembly_or_matching_tactics": [
-    "Not applicable: this PR did not modify C source, headers, assembly, or matching tactics.",
-    "Relevant verification tactic was negative: decomp.dev's GALE01 report said \"No changes\", confirming the tooling tweak did not affect output."
-  ],
+  "assembly_or_matching_tactics": [],
   "review_feedback": [
-    "No inline review comments were present in the slice.",
-    "ribbanya approved the PR on 2026-04-25 with an empty review body.",
-    "jurrejelle approved the PR on 2026-04-25 with an empty review body.",
-    "decomp-dev[bot] commented: \"Report for GALE01 ... No changes\"."
+    "No review comments were present in the provided slice.",
+    "The slice reports two reviews but includes no review-comment excerpt, so reviewer rationale cannot be inferred."
   ],
   "searchable_terms": [
+    "PR2418",
     "Move mac to wine",
     "tools/project.py",
-    "ProjectConfig",
-    "compiler_wrapper",
+    "Project.use_wibo",
     "use_wibo",
     "wibo_tag",
-    "wrapper",
+    "compiler_wrapper",
+    "sys.platform",
+    "darwin",
+    "linux",
+    "macOS",
     "wine",
     "wibo",
-    "darwin",
-    "macOS",
-    "sys.platform",
-    "linux",
     "platform.machine",
     "i386",
     "x86_64",
     "aarch64",
     "arm64",
-    "GALE01 No changes",
-    "tooling",
-    "build configuration"
+    "wrapper"
   ],
   "follow_up_queries": [
-    "use_wibo darwin",
-    "compiler_wrapper wine wibo",
-    "tools/project.py sys.platform linux",
-    "wibo_tag wrapper None",
-    "Move mac to wine",
-    "GALE01 No changes tooling PR"
+    "Find later PRs that mention macOS Wine build support or regressions after removing darwin from use_wibo().",
+    "Search tools/project.py history for other uses of sys.platform == \"darwin\" and wrapper selection.",
+    "Check whether documentation or CI configuration was updated elsewhere to describe Wine as the macOS path."
   ],
-  "confidence": 0.86
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

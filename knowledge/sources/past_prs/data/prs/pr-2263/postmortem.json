@@ -11,129 +11,87 @@
     "merged_at": "2026-03-10T22:32:15Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched six previously undecompiled stage functions across grcastle, grcorneria, grrcruise, grzebesroute, groldyoshi, and grpushon. The PR replaced UNK prototypes with typed signatures, refined several stage data/ground-variable layouts, and decomp.dev reported all six functions at 100.00% with +680 matched bytes and +0.02% overall matched code.",
+  "summary": "Matched six previously undecompiled stage-related functions across grcastle, grcorneria, grrcruise, grzebesroute, groldyoshi, and grpushon. The PR replaced UNK_RET/UNK_PARAMS placeholders with typed prototypes and implementations, added small local structs and ground-var layout refinements needed for matching, and reported clean ninja plus 100.0 fuzzy match for all six functions.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-callbacks",
       "headers",
       "struct-layout",
-      "data-section-layout",
-      "tooling-verification"
+      "stage-callbacks"
     ],
     "systems": [
       "stage",
       "ground",
-      "grcastle",
-      "grcorneria",
-      "grrcruise",
-      "grzebesroute",
-      "groldyoshi",
-      "grpushon",
       "collision",
-      "display"
+      "display",
+      "materials"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grcastle.c",
-      "role": "Matched fn_801CFB68 and split grCastleParams.x4 from f32 into s16 x4 plus s16 x6."
-    },
-    {
-      "path": "src/melee/gr/grcastle.h",
-      "role": "Added Item_GObj forward include and typed fn_801CFB68 prototype."
-    },
-    {
-      "path": "src/melee/gr/grcorneria.c",
-      "role": "Matched fn_801E12D4 beam-damage callback and added static grCn_804D69A0."
-    },
-    {
-      "path": "src/melee/gr/grrcruise.c",
-      "role": "Matched fn_80201BE0 display wrapper with camera/gamemode guards."
-    },
-    {
-      "path": "src/melee/gr/grrcruise.h",
-      "role": "Replaced fn_80201BE0 UNK prototype with void fn_80201BE0(HSD_GObj*, s32)."
-    },
-    {
-      "path": "src/melee/gr/grzebesroute.c",
-      "role": "Matched fn_8020B4D8 collision callback using PAD_STACK and stage_info flag update."
-    },
-    {
-      "path": "src/melee/gr/grzebesroute.h",
-      "role": "Added forward includes and typed fn_8020B4D8 callback prototype."
-    },
-    {
-      "path": "src/melee/gr/groldyoshi.c",
-      "role": "Matched fn_8020F2A8 collision/joint callback and declared grOy_JointPair lookup table."
-    },
-    {
-      "path": "src/melee/gr/groldyoshi.h",
-      "role": "Added forward includes and typed fn_8020F2A8 callback prototype."
-    },
-    {
-      "path": "src/melee/gr/grpushon.c",
-      "role": "Matched grPushOn_80219230 and refined grPushOn data layout with a key/value lookup table."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Added grOldYoshi_Entry, grOldYoshi_GroundVars, and the oldyoshi member in Ground.gv."
-    }
+    "src/melee/gr/grcastle.c",
+    "src/melee/gr/grcastle.h",
+    "src/melee/gr/grcorneria.c",
+    "src/melee/gr/grrcruise.c",
+    "src/melee/gr/grrcruise.h",
+    "src/melee/gr/grzebesroute.c",
+    "src/melee/gr/grzebesroute.h",
+    "src/melee/gr/groldyoshi.c",
+    "src/melee/gr/groldyoshi.h",
+    "src/melee/gr/grpushon.c",
+    "src/melee/gr/types.h"
   ],
   "what_changed": [
-    "Implemented fn_801CFB68 in grcastle: sets gp->gv.pura.xC4 to 4 and, when ftLib_80086960(gobj) is nonzero, calls ftLib_80086A4C with grCs_804D6970->x4 cast to f32.",
-    "Adjusted grCastleParams layout by changing x4 from f32 to s16 x4 plus s16 x6, which also improved grcastle .sdata2 matching per the bot report.",
-    "Implemented fn_801E12D4 in grcorneria: accumulates beam damage into gr->gv.corneria.x114, prints OSReport(\"*** Beam Damage! %f\\n\", damage), compares against M2C_FIELD(grCn_804D69A0, f32*, 0x38), sets x108 to 4, and updates left/right cannon materials.",
-    "Added static void* grCn_804D69A0 in grcorneria, contributing to a .sbss matching improvement reported by decomp.dev.",
-    "Implemented fn_80201BE0 in grrcruise: skips display if gm_801A45E8(1), gm_801A45E8(2), or Camera_8003010C() is nonzero; otherwise calls grDisplay_801C5DB0(gobj, pass).",
-    "Implemented fn_8020B4D8 in grzebesroute: checks coll->x34_flags.b1234, verifies Ground_801C57A4() equals coll->x0_gobj, checks kind == 1, then ORs stage_info.flags with 0x10.",
-    "Implemented fn_8020F2A8 in groldyoshi: for collision flag b1234 == 1, compares joint_id against grOy_803E6574 entries and sets gp->gv.oldyoshi.entries[idx].b4 when a match is found.",
-    "Added grOldYoshi_Entry and grOldYoshi_GroundVars in gr/types.h, including bitfields b0123, b4, b567 and entries[3], then wired it into the Ground.gv union.",
-    "Implemented grPushOn_80219230: scans grPushOn_804D6AB8->x10c key/value entries until key -1 or count 0x21, returns the matching value, and asserts with __assert(\"grpushon.c\", 0x35DU, \"0\") on failure.",
-    "Refined grpushon static data layout from x1c[0x21] to x1c[0x1E] plus x10c[0x21] lookup entries.",
-    "Updated headers from UNK_RET/UNK_PARAMS to concrete prototypes for the matched functions and added needed forward/include dependencies."
+    "Implemented fn_801CFB68 in grcastle: sets gp->gv.pura.xC4 to 4 and, when ftLib_80086960 returns nonzero for the passed HSD_GObj, calls ftLib_80086A4C with grCs_804D6970->x4 cast to f32.",
+    "Adjusted grCastleParams layout by splitting the prior f32 x4 field into s16 x4 and s16 x6, supporting the matched access pattern in fn_801CFB68.",
+    "Updated grcastle.h to include it/forward.h and changed fn_801CFB68 from UNK_RET/UNK_PARAMS to void fn_801CFB68(Item_GObj*, Ground*, HSD_GObj*).",
+    "Implemented fn_801E12D4 in grcorneria: accumulates beam damage into gr->gv.corneria.x114, logs the damage with OSReport, compares against a f32 at offset 0x38 from grCn_804D69A0 via M2C_FIELD, and when the threshold is reached sets x108 to 4 and applies grMaterial_801C8E28 to both cannon GObjs.",
+    "Added static void* grCn_804D69A0 in grcorneria.c, apparently to model a parameter/data blob used by the damage threshold check.",
+    "Implemented fn_80201BE0 in grrcruise: skips display when gm_801A45E8(1), gm_801A45E8(2), or Camera_8003010C is nonzero; otherwise delegates to grDisplay_801C5DB0(gobj, pass).",
+    "Updated grrcruise includes for camera, game mode, and grdisplay dependencies, and changed the fn_80201BE0 prototype to void fn_80201BE0(HSD_GObj*, s32).",
+    "Implemented fn_8020B4D8 in grzebesroute: checks collision flags, confirms the collided gobj is Ground_801C57A4(), and when the mpLib_GroundEnum kind equals 1 sets stage_info.flags |= 0x10.",
+    "Updated grzebesroute.h to include lb/forward.h and mp/forward.h and replaced the unknown prototype with void fn_8020B4D8(Ground*, s32, CollData*, s32, mpLib_GroundEnum, f32).",
+    "Implemented fn_8020F2A8 in groldyoshi: when CollData x34_flags.b1234 equals 1, scans grOy_803E6574 joint pairs for the current joint_id and sets gp->gv.oldyoshi.entries[idx].b4 for matching indices 0..2.",
+    "Added grOy_JointPair and extern grOy_803E6574[] declarations in groldyoshi.c, and added grOldYoshi_Entry/grOldYoshi_GroundVars to gr/types.h plus a Ground union member named oldyoshi.",
+    "Implemented grPushOn_80219230 in grpushon: searches a key/value lookup table x10c for arg0 until either a match or key -1, returns the mapped value on success, and asserts on failure.",
+    "Refined grpushon local state layout by changing x1c from 0x21 entries to 0x1E entries and adding a grPushOn_Lookup x10c[0x21] table."
   ],
   "smart_moves": [
-    "Matched several small callbacks by first correcting the surrounding data layout: grCastleParams, grPushOn_804D6AB8, and Ground.gv.oldyoshi were all adjusted before or alongside the function bodies.",
-    "Kept unresolved data access explicit with M2C_FIELD(grCn_804D69A0, f32*, 0x38) rather than inventing an unsupported full struct for Corneria parameters.",
-    "Used a stage-specific Ground.gv struct for Old Yoshi so fn_8020F2A8 could write a named bitfield instead of raw pointer arithmetic.",
-    "Preserved codegen-sensitive shapes: nested conditionals, assignment in a while condition, pointer pre-increment in the Old Yoshi lookup, and a PAD_STACK(16) in Zebes Route.",
-    "Added only the necessary forward/include headers to support typed prototypes, avoiding broad header churn.",
-    "Verified the match with both the PR summary's ninja/fuzzy-match claim and the decomp.dev bot report showing six 100.00% new matches."
+    "Converted unknown function declarations to typed prototypes in headers at the same time as adding implementations, making callback signatures and downstream reuse clearer.",
+    "Used small, targeted struct layout corrections instead of broad placeholder removal: grCastleParams split a field into two s16s, grPushOn separated an entry array from a lookup table, and Old Yoshi got a minimal GroundVars layout only for the accessed bitfield.",
+    "Preserved match-sensitive code shape where needed, including explicit casts, staged pointer increments in the Old Yoshi joint lookup, M2C_FIELD for an unresolved Corneria data blob offset, and PAD_STACK(16) in grZebesRoute_8020B4D8.",
+    "Added forward includes narrowly where newly typed signatures required them, such as it/forward.h, lb/forward.h, and mp/forward.h, rather than relying on placeholder signatures.",
+    "Kept functions scoped to observed behavior: several functions remain address-style fn_* names because the PR evidence did not establish semantic names beyond their stage context."
   ],
   "decomp_lessons": [
-    "For stage decomp, tiny callback bodies often depend on exact data-section and struct layout; matching may require fixing globals, arrays, and union members, not just writing the control flow.",
-    "When a callback signature repeats across stages, replace UNK_RET/UNK_PARAMS with the concrete argument pattern once evidence is clear: Ground*, s32, CollData*, s32, mpLib_GroundEnum, f32 appears in both Old Yoshi and Zebes Route here.",
-    "Bitfield names like b1234 and b4 are acceptable transitional documentation when they preserve observed layout and allow matched field writes.",
-    "Use M2C_FIELD for an unknown parameter blob when the access offset is known but the full type is not yet justified.",
-    "Compiler-shape helpers such as PAD_STACK and exact assert literals/line numbers can be necessary even in logically simple functions.",
-    "Static globals and data declarations can improve non-code section matching, as shown by decomp.dev improvements in grcastle .sdata2, grcorneria .sbss, and grpushon .sdata."
+    "When matching stage callbacks, replacing UNK_PARAMS often reveals common signatures involving Ground*, CollData*, mpLib_GroundEnum, HSD_GObj*, Item_GObj*, and f32 damage-like arguments.",
+    "Ground union additions should be minimal and stage-specific when only a small subset of fields is known; grOldYoshi_GroundVars only modeled the three entry bitfields needed by fn_8020F2A8.",
+    "A local data layout may need to be reinterpreted from a single oversized array into multiple adjacent typed arrays to match actual indexing, as in grPushOn_804D6AB8->x1c plus x10c.",
+    "Do not force full struct recovery when evidence is incomplete: using M2C_FIELD on grCn_804D69A0 retained a match for a known offset without overclaiming the containing type.",
+    "Stage collision callbacks often gate behavior on CollData flag bits and mpLib ground-kind enums before mutating stage_info or per-ground variables.",
+    "Display callbacks can be simple wrappers around grDisplay_801C5DB0 with game/camera mode early-outs; includes for camera and gm helpers may be required once the wrapper is typed."
   ],
   "naming_conventions": [
-    "Address-derived names such as fn_801CFB68, fn_801E12D4, fn_80201BE0, fn_8020B4D8, and fn_8020F2A8 were retained where no semantic name was introduced.",
-    "Stage-prefixed symbols stayed consistent: grCs for castle, grCn for corneria, grOy for old Yoshi, grPushOn for pushon, grRCruise for rainbow cruise, and grZebesRoute for zebes route.",
-    "New temporary structs were namespaced by subsystem/stage: grPushOn_Entry, grPushOn_Lookup, grOldYoshi_Entry, grOldYoshi_GroundVars, and grOy_JointPair.",
-    "Unknown fields used offset/bitfield-style names such as x1c, x10c, x114, b1234, and b4 rather than speculative semantic names.",
-    "Headers kept the existing address-comment format while replacing unknown prototypes with concrete typed prototypes."
+    "Address-based names were retained for unresolved functions: fn_801CFB68, fn_801E12D4, fn_80201BE0, fn_8020B4D8, fn_8020F2A8.",
+    "Existing stage prefixes remained consistent: grCastle_, grCorneria_, grRCruise_, grZebesRoute_, grOldYoshi_, and grPushOn_.",
+    "New local structs followed stage/file prefixes: grCastleParams, grOy_JointPair, grPushOn_Entry, grPushOn_Lookup, grOldYoshi_Entry, and grOldYoshi_GroundVars.",
+    "Ground union member naming used the stage short name style already present in gr/types.h, adding oldyoshi alongside other stage-specific ground vars.",
+    "Header prototypes retained address comments such as /* 20F2A8 */ while replacing UNK_RET/UNK_PARAMS with concrete return and parameter types."
   ],
   "assembly_or_matching_tactics": [
-    "fn_8020B4D8 used PAD_STACK(16), indicating stack shape was needed for the match.",
-    "fn_8020B4D8 used nested if statements rather than collapsing to a single compound condition, preserving likely branch order.",
-    "fn_8020F2A8 used pointer-sensitive lookup code with (++p)->x and (p + 1)->x to match the original codegen.",
-    "grPushOn_80219230 used while (i < 0x21 && (key = ... ) != -1) with a sentinel key of -1 and an exact __assert file/line/string.",
-    "fn_801E12D4 used M2C_FIELD on grCn_804D69A0 at offset 0x38 for the damage threshold instead of over-typing an unknown blob.",
-    "grPushOn_804D6AB8 layout was reshaped so x10c begins after x1c[0x1E], enabling the lookup-table access pattern.",
-    "grCastleParams changed x4 from f32 to s16 and added x6, then fn_801CFB68 explicitly cast x4 to f32 for ftLib_80086A4C."
+    "Used PAD_STACK(16) in fn_8020B4D8, indicating the exact stack frame shape mattered for matching.",
+    "Used M2C_FIELD(grCn_804D69A0, f32*, 0x38) in fn_801E12D4 to access an unresolved f32 field while preserving a 100% match.",
+    "Used explicit casts, including casting grCs_804D6970->x4 to f32 and cannon pointers to HSD_GObj*, to match call signatures/codegen.",
+    "Old Yoshi joint matching used pointer increment and fixed-index fallback logic rather than a generic loop, likely matching the original branch structure.",
+    "grPushOn_80219230 used a while condition combining table bounds, sentinel key -1, and assignment to a local key, matching a sentinel lookup-table pattern.",
+    "grRCruise_80201BE0 preserved early-return short-circuit checks for gm_801A45E8(1), gm_801A45E8(2), and Camera_8003010C before the display call."
   ],
   "review_feedback": [
-    "No human review comments or review records were present in the provided PR slice.",
-    "The decomp.dev bot reported six new 100.00% matches: fn_801E12D4, fn_8020F2A8, grPushOn_80219230, fn_80201BE0, fn_8020B4D8, and fn_801CFB68.",
-    "The bot reported overall matched code 55.96% with +0.02% and +680 bytes, plus unmatched-section improvements in grcastle .sdata2, grcorneria .sbss, and grpushon .sdata.",
-    "The PR summary states ninja builds clean and fuzzy_match_percent is 100.0 for all six functions."
+    "No review comments were present in the provided PR slice.",
+    "The PR body states verification by clean ninja and fuzzy_match_percent: 100.0 for all six functions."
   ],
   "searchable_terms": [
-    "PR 2263",
+    "PR2263",
     "stages match 6 functions",
     "johnwinston",
     "fn_801CFB68",
@@ -149,33 +107,38 @@
     "groldyoshi",
     "grpushon",
     "grCastleParams",
-    "grCs_804D6970",
-    "grCn_804D69A0",
-    "grOy_803E6574",
-    "grPushOn_804D6AB8",
+    "grOy_JointPair",
     "grOldYoshi_GroundVars",
     "grOldYoshi_Entry",
-    "Ground.gv.oldyoshi",
+    "grPushOn_Lookup",
+    "Ground union oldyoshi",
     "CollData x34_flags b1234",
     "mpLib_GroundEnum",
     "stage_info.flags 0x10",
-    "M2C_FIELD",
-    "PAD_STACK(16)",
-    "OSReport Beam Damage",
+    "M2C_FIELD grCn_804D69A0 0x38",
+    "Beam Damage OSReport",
     "grMaterial_801C8E28",
     "grDisplay_801C5DB0",
     "Camera_8003010C",
     "gm_801A45E8",
+    "PAD_STACK",
     "__assert grpushon.c 0x35D",
-    "fuzzy_match_percent 100.0",
-    "decomp.dev +680 bytes"
+    "fuzzy_match_percent 100.0"
   ],
   "follow_up_queries": [
-    "Find other stage collision callbacks with signature Ground*, s32, CollData*, s32, mpLib_GroundEnum, f32 that still use UNK_PARAMS.",
-    "Search for remaining Ground.gv stage-specific raw accesses that could become typed GroundVars structs like grOldYoshi_GroundVars.",
-    "Investigate grCn_804D69A0 parameter blob around offset 0x38 to replace M2C_FIELD with a justified Corneria params struct when more fields are known.",
-    "Search grpushon data users to validate the x1c[0x1E] plus x10c[0x21] layout and name the key/value meanings.",
-    "Look for other small stage display callbacks guarded by gm_801A45E8 and Camera_8003010C before calling grDisplay_801C5DB0."
+    "Can grCn_804D69A0 be given a concrete Corneria params struct instead of void* plus M2C_FIELD at offset 0x38?",
+    "Can fn_801E12D4 be semantically named as a Corneria beam/cannon damage callback once neighboring code confirms its role?",
+    "Can fn_8020F2A8 and fn_8020B4D8 be named as collision callbacks based on their StageCallbacks registration sites?",
+    "Can grOy_803E6574 be typed globally in a header rather than as a local extern typedef in groldyoshi.c?",
+    "Can grPushOn_804D6AB8's full state struct be promoted from a local anonymous static type if more fields are recovered?"
   ],
-  "confidence": 0.92
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

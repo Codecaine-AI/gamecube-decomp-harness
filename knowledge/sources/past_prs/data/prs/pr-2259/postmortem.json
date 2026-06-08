@@ -11,90 +11,75 @@
     "merged_at": "2026-03-10T17:48:54Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Cleaned up grdisplay and added a near-match implementation of grDisplay_801C5DB0. The PR retyped and clarified grDisplay_801C5B90, added proper grdisplay/inlines/fog/state includes, modeled stage display gating around camera, fog, fighter shadows, and JObj callbacks, typed Ground_801C1E84 as returning HSD_GObj*, and replaced a local CObj view-matrix inline in jobj.c with HSD_CObjGetViewingMtxPtrDirect. decomp.dev reported grDisplay_801C5DB0 improved to 99.58% and grDisplay_801C5B90 to 99.85%; there was no human review text in the slice.",
+  "summary": "Cleaned up grdisplay and rewrote grDisplay_801C5B90 plus grDisplay_801C5DB0 into more typed, structured C, producing a near match for grDisplay_801C5DB0. The PR also tightened Ground_801C1E84's return type from void* to HSD_GObj* and replaced a local HSD_CObj view-matrix helper in jobj.c with the existing HSD_CObjGetViewingMtxPtrDirect accessor. The decomp.dev bot reported grDisplay_801C5DB0 improving from 0.00% to 99.58%, grDisplay_801C5B90 from 99.08% to 99.85%, and grdisplay .data reaching 100%.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "cleanup",
-      "near-match",
-      "type-recovery",
+      "decomp-matching",
       "headers",
-      "baselib-api-alignment",
+      "type-correction",
       "stage-display"
     ],
     "systems": [
-      "melee/gr/grdisplay",
-      "melee/gr/ground",
-      "sysdolphin/baselib/jobj",
+      "src/melee/gr",
+      "src/sysdolphin/baselib",
+      "stage",
       "camera",
+      "jobj",
       "fog",
-      "fighter-shadows",
-      "HSD_JObj",
-      "HSD_CObj"
+      "shadow"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grdisplay.c",
-      "role": "Primary change: cleaned grDisplay_801C5B90 and added near-match grDisplay_801C5DB0 stage display logic using camera checks, fog state, shadow updates, JObj traversal, and display callbacks."
-    },
-    {
-      "path": "src/melee/gr/ground.c",
-      "role": "Changed Ground_801C1E84 return type from void* to HSD_GObj*, matching its stage_info.x12C usage as a fog gobj."
-    },
-    {
-      "path": "src/melee/gr/ground.h",
-      "role": "Header declaration updated to expose Ground_801C1E84 as HSD_GObj* instead of void*."
-    },
-    {
-      "path": "src/sysdolphin/baselib/jobj.c",
-      "role": "Removed local HSD_CObjGetViewMtx inline and used HSD_CObjGetViewingMtxPtrDirect in HSD_JObjDispAll."
-    }
+    "src/melee/gr/grdisplay.c",
+    "src/melee/gr/ground.c",
+    "src/melee/gr/ground.h",
+    "src/sysdolphin/baselib/jobj.c"
   ],
   "what_changed": [
-    "Added `#include \"grdisplay.h\"`, `#include \"inlines.h\"`, `#include \"lb/forward.h\"`, `<baselib/fog.h>`, and `<baselib/state.h>` to grdisplay.c so the file uses project declarations and typed GET_* helpers instead of ad hoc local knowledge.",
-    "Changed grDisplay_801C5B90's signature from generic `void* arg1, u32 arg2, int arg3` style to `Mtx vmtx, u32 flags, u32 rendermode`, matching HSD_JObj display conventions.",
-    "Reworked grDisplay_801C5B90 to use named JObj flag constants `JOBJ_INSTANCE` and `JOBJ_HIDDEN`, recurse over child/next JObjs, compute instance matrices with HSD_MtxInverseConcat and PSMTXConcat, and update fighter LbShadow state before HSD_JObjDisp.",
-    "Added grDisplay_801C5DB0, which gets the Ground from the gobj, gates display by `gp->x11_flags.b012 == Camera_8003108C()`, checks `gp->x18`, current camera CObj, and `Ground_801C2C8C`, then handles fog reset/state invalidation and dispatches either the custom grDisplay_801C5B90 path or HSD_GObj_JObjCallback.",
-    "In grDisplay_801C5DB0, the non-custom display path clears each fighter shadow flag and calls lbShadow_8000EEE0 before the standard JObj callback.",
-    "In grDisplay_801C5DB0, fog is cleared with HSD_FogSet(0) when `gp->x10_flags.b2 == 0`, and later restored from `GET_FOG(Ground_801C1E84())` when fog display state is active.",
-    "Changed Ground_801C1E84 from returning `void*` to returning `HSD_GObj*`, allowing typed use as a fog gobj in grdisplay.",
-    "Removed the local inline `HSD_CObjGetViewMtx` in baselib/jobj.c and replaced its only shown use with `HSD_CObjGetViewingMtxPtrDirect(cobj)`."
+    "Added grdisplay-specific and supporting includes in grdisplay.c, including grdisplay.h, inlines.h, lb/forward.h, baselib/fog.h, and baselib/state.h.",
+    "Changed grDisplay_801C5B90's signature from HSD_JObj*, void*, u32, int to HSD_JObj*, Mtx, u32 flags, u32 rendermode, making the view matrix and render mode usage explicit.",
+    "Reworked grDisplay_801C5B90 control flow around JOBJ_INSTANCE, JOBJ_HIDDEN, HSD_JObjSetupMatrix, HSD_MtxInverseConcat, HSD_CObjGetCurrent, PSMTXConcat, recursive child traversal, fighter shadow state updates, lbShadow_8000EFEC, and HSD_JObjDisp.",
+    "Introduced a decompiled near-match body for grDisplay_801C5DB0 with ground visibility/camera gating, current camera checks, fog handling, state invalidation, stage shadow setup, JObj callback dispatch, and stage fog restoration.",
+    "Used GET_GROUND, GET_COBJ, GET_JOBJ, and GET_FOG-style access macros in grDisplay_801C5DB0 to express HSD_GObj payload access more concretely.",
+    "Updated Ground_801C1E84 in ground.c and ground.h to return HSD_GObj* instead of void*, matching its use as a fog gobj source via stage_info.x12C.",
+    "Removed a local inline HSD_CObjGetViewMtx helper from jobj.c and replaced its use with HSD_CObjGetViewingMtxPtrDirect(cobj) in HSD_JObjDispAll."
   ],
   "smart_moves": [
-    "Recovered types first: using `Mtx`, `u32 flags`, `u32 rendermode`, `HSD_GObj*`, `HSD_Fog*`, and GET_* macros made the stage display code read like the engine APIs it calls and reduced anonymous casts.",
-    "Reused the existing direct CObj view-matrix accessor instead of keeping a one-off inline, aligning grdisplay and HSD_JObjDispAll around the same API and likely improving codegen consistency.",
-    "Preserved original-looking control flow in grDisplay_801C5DB0 with early returns and a `skip` label around the gp->x18/current-camera checks; this is a common useful tactic for near-matching branch layout.",
-    "Kept stage rendering side effects in a careful order: camera eligibility checks, optional fog clear, HSD_StateInvalidate, shadow preparation or custom recursive display, then optional fog restore.",
-    "Used named JObj flags for readability while preserving the unusual render-selection bit tests `(flags << 18)` and `(flags << 28)`, avoiding over-abstraction of match-sensitive behavior."
+    "Typed Ground_801C1E84 as HSD_GObj* before using its result as a fog object, avoiding repeated casts or weak void* reasoning in display code.",
+    "Reused HSD_CObjGetViewingMtxPtrDirect rather than preserving a redundant local inline accessor, aligning jobj.c with the baselib cobj API and improving consistency.",
+    "Kept the instance-JObj path in grDisplay_801C5B90 close to the existing HSD_JObjDispAll pattern: setup matrices, assert current camera, concatenate viewing matrix, then recurse into children.",
+    "Expressed render selection using named JObj flag constants such as JOBJ_INSTANCE and JOBJ_HIDDEN instead of leaving the logic as raw values like 0x1000 and 0x10.",
+    "Modeled shadow rendering side effects explicitly by iterating HSD_GObj_Entities->fighters, querying fighter positions with ftLib_80086644, toggling LbShadow.x0_b4, and calling lbShadow routines before display.",
+    "Used early returns and a labeled skip path in grDisplay_801C5DB0 to represent camera/current-object gating while preserving the matched control-flow shape."
   ],
   "decomp_lessons": [
-    "For display code, prefer matching the baselib signatures already used by HSD_JObjDisp/HSD_JObjDispAll: `Mtx vmtx`, `flags`, and `rendermode` carry more matching and documentation value than `void* argN` placeholders.",
-    "Stage display functions can depend on global camera state, the current CObj, fog globals, and fighter shadow side effects; future decomp should preserve these side effects and their ordering before trying to simplify control flow.",
-    "If a ground helper returns a gobj stored in stage_info, type it as `HSD_GObj*` in both source and header; this enables typed access through `hsd_obj` and GET_* macros.",
-    "Do not introduce local inline accessors for simple struct fields when a canonical baselib helper exists; using the shared helper can improve consistency across translation units.",
-    "Unused locals or padding arrays in near-match code may be intentional stack/register-shaping artifacts; remove them only with match evidence.",
-    "The bot-reported match gains included many grZebes items even though the PR touched grdisplay/ground/jobj; future analysis should verify object-order or dependency effects before attributing those stage matches to a specific source edit."
+    "When a stage helper returns a known HSD_GObj from stage_info, update the function prototype in both .c and .h; stronger return types can unlock cleaner display/fog decompilation.",
+    "For JObj display recursion, matching code may require preserving matrix stack shape with Mtx locals and using HSD_CObjGetViewingMtxPtrDirect rather than ad hoc field accessors.",
+    "Stage display functions often intertwine camera state, Ground flags, fog state, JObj callbacks, and fighter shadow side effects; matching one function may require correctly naming and typing all of those interactions.",
+    "Bitfield names on Ground flags, such as gp->x11_flags.b012 and gp->x10_flags.b2/b3/b5, can make large display-condition blocks understandable without fully naming the flags yet.",
+    "Near matches can still provide substantial project-wide progress: the bot reported grDisplay_801C5DB0 at 99.58%, grDisplay_801C5B90 at 99.85%, and grdisplay .data at 100% after this cleanup."
   ],
   "naming_conventions": [
-    "Address-based function names such as `grDisplay_801C5DB0`, `grDisplay_801C5B90`, and `Ground_801C1E84` were retained because better semantic names were not evidenced.",
-    "Recovered internal names used semantic engine terms: `vmtx`, `flags`, `rendermode`, `camgobj`, `foggobj`, `fighter`, `shadow`, and `vec`.",
-    "HSD object pointers keep project type prefixes: `HSD_GObj*`, `HSD_JObj*`, `HSD_CObj*`, `HSD_Fog*`, `HSD_PObj*`, and `HSD_ShapeAnim*`.",
-    "GET_* macros are the preferred convention for typed object payload access from gobj wrappers: `GET_GROUND`, `GET_COBJ`, `GET_JOBJ`, and `GET_FOG`.",
-    "Unrecovered Ground fields remained offset/bitfield names such as `x10_flags.b2`, `x10_flags.b3`, `x10_flags.b5`, `x11_flags.b012`, `x18`, `stage_info.x17C`, and `stage_info.x12C`."
+    "Kept address-based names for not-yet-renamed ground/display functions, including grDisplay_801C5B90, grDisplay_801C5DB0, Ground_801C1E84, Ground_801C2C8C, Ground_801C1E18, and Ground_801C1E84.",
+    "Used local names that reflect role rather than register ancestry: gp, camgobj, foggobj, fog, fighter, shadow, cobj, mtx, vec, flags, and rendermode.",
+    "Preferred typed HSD object names and macros such as HSD_GObj, HSD_JObj, HSD_CObj, HSD_Fog, GET_GROUND, GET_COBJ, GET_JOBJ, and GET_FOG.",
+    "Used baselib-style accessor naming HSD_CObjGetViewingMtxPtrDirect instead of introducing or retaining HSD_CObjGetViewMtx."
   ],
   "assembly_or_matching_tactics": [
-    "Converted a null early-return in grDisplay_801C5B90 into an outer `if (jobj != NULL)` body, which can better match original branch structure.",
-    "Used a `goto skip` in grDisplay_801C5DB0 to share the draw path after alternate gp->x18/current-object checks, an explicit control-flow shaping tactic visible in the diff.",
-    "Left unused locals such as `u32 unused[6]` in grDisplay_801C5B90 and `HSD_Fog* fog; int i;` in grDisplay_801C5DB0, suggesting stack/register layout was being preserved for the near match.",
-    "Replaced direct `cobj->view_mtx` access through a deleted local inline with `HSD_CObjGetViewingMtxPtrDirect(cobj)` in PSMTXConcat calls.",
-    "Matched JObj instance traversal by setting up parent and child matrices, inverse-concatenating child against parent, concatenating with the current CObj viewing matrix, and recursing into the child with the computed matrix."
+    "Changed the grDisplay_801C5B90 second parameter to Mtx and threaded it through recursive calls and HSD_JObjDisp, matching the view-matrix usage directly.",
+    "Preserved recursive traversal structure for both instance JObjs and child JObjs, with separate flag tests using flags shifted by 18 and 28.",
+    "Matched matrix-concat behavior by using HSD_MtxInverseConcat followed by PSMTXConcat with the current camera viewing matrix.",
+    "Used an explicit HSD_ASSERT after HSD_CObjGetCurrent in the matrix path, mirroring the expected baselib display assertion behavior.",
+    "In grDisplay_801C5DB0, represented difficult branch structure with early returns plus a goto skip label, a practical tactic when matching camera gating and special-case current-object checks.",
+    "Included the suspicious OSReport(\"oioi... %08x\\n\") branch around gp->x18 pointer high-bit testing as observed in the diff rather than over-normalizing it away."
   ],
   "review_feedback": [
-    "No human review comments or GitHub review records were present in the PR slice.",
-    "decomp-dev bot reported matched code 55.77% (+0.15%, +5868 bytes) and matched data 34.78% (+0.07%, +832 bytes).",
-    "decomp-dev specifically reported `main/melee/gr/grdisplay` `.data` reached 100.00% (+12 bytes), `grDisplay_801C5DB0` improved by +430 bytes to 99.58%, and `grDisplay_801C5B90` improved by +5 bytes to 99.85%.",
-    "The same bot report listed many grZebes matches and improvements; the slice does not provide human explanation for why this grdisplay cleanup affected those reported items."
+    "No human review comments were present in the provided slice.",
+    "The only issue comment was an automated decomp.dev report showing matched code +5868 bytes and matched data +832 bytes for GALE01.",
+    "The bot reported grdisplay .data reaching 100%, grDisplay_801C5DB0 improving to 99.58%, and grDisplay_801C5B90 improving to 99.85%.",
+    "The bot also reported many grzebes matches/improvements, but the changed-files evidence in this slice is limited to grdisplay, ground, ground.h, and jobj.c."
   ],
   "searchable_terms": [
     "pr-2259",
@@ -102,52 +87,61 @@
     "grdisplay",
     "grDisplay_801C5DB0",
     "grDisplay_801C5B90",
-    "grDisplay_801C5F60",
+    "near match",
     "Ground_801C1E84",
-    "Ground_801C2C8C",
-    "Ground_801C1E18",
-    "HSD_JObj",
     "HSD_GObj",
+    "HSD_JObj",
     "HSD_CObj",
     "HSD_Fog",
-    "HSD_JObjDisp",
-    "HSD_GObj_JObjCallback",
     "HSD_CObjGetViewingMtxPtrDirect",
+    "HSD_JObjDispAll",
+    "HSD_JObjDisp",
+    "HSD_JObjSetupMatrix",
+    "HSD_MtxInverseConcat",
+    "PSMTXConcat",
     "HSD_CObjGetCurrent",
     "HSD_StateInvalidate",
     "HSD_FogSet",
-    "HSD_MtxInverseConcat",
-    "PSMTXConcat",
-    "JOBJ_INSTANCE",
-    "JOBJ_HIDDEN",
     "GET_GROUND",
     "GET_COBJ",
     "GET_JOBJ",
     "GET_FOG",
+    "JOBJ_INSTANCE",
+    "JOBJ_HIDDEN",
+    "LbShadow",
+    "lbShadow_8000EFEC",
+    "lbShadow_8000EEE0",
+    "ftLib_800872B0",
+    "ftLib_80086644",
     "Camera_8003108C",
     "Camera_80030A50",
     "Camera_80030A78",
     "Camera_80030AC4",
     "Camera_80030B24",
-    "HSD_GObj_804D7818",
-    "HSD_GObj_Entities",
-    "ftLib_800872B0",
-    "ftLib_80086644",
-    "LbShadow",
-    "lbShadow_8000EFEC",
-    "lbShadow_8000EEE0",
     "stage_info.x17C",
     "stage_info.x12C",
-    "near match",
-    "Mtx vmtx",
-    "rendermode"
+    "HSD_GObj_Entities",
+    "HSD_GObj_804D7818",
+    "HSD_GObj_80390EB8",
+    "Ground_801C2C8C",
+    "Ground_801C1E18",
+    "Ground_801C1E84",
+    "OSReport oioi"
   ],
   "follow_up_queries": [
-    "Find the later PR, if any, that finishes `grDisplay_801C5DB0` from 99.58% to 100% and compare the remaining control-flow or stack-shaping changes.",
-    "Search for other local helpers or raw `cobj->view_mtx` accesses that should use `HSD_CObjGetViewingMtxPtrDirect`.",
-    "Audit all `Ground_801C1E84` callers after the return type change to confirm they consistently treat `stage_info.x12C` as an `HSD_GObj*` fog object.",
-    "Investigate why the decomp.dev report showed broad `grZebes` match gains from a PR whose changed files were grdisplay, ground, and jobj.",
-    "Look for adjacent grdisplay functions using generic `void* argN` signatures that can be retyped to HSD display conventions."
+    "Find later PRs that fully match or rename grDisplay_801C5DB0.",
+    "Search for additional uses of Ground_801C1E84 to confirm the HSD_GObj* return type and fog-object semantics.",
+    "Compare HSD_JObjDispAll and grDisplay_801C5B90 recursion patterns for reusable matrix matching tactics.",
+    "Investigate whether the OSReport(\"oioi... %08x\\n\") call in grDisplay_801C5DB0 has a missing argument or requires a matching-specific workaround.",
+    "Look for later cleanup of gp->x10_flags.b2/b3/b5 and gp->x11_flags.b012 into named Ground flag fields."
   ],
-  "confidence": 0.87
+  "confidence": 0.87,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,80 +11,82 @@
     "merged_at": "2026-05-31T09:46:58Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched stage function grInishie1_801FBC4C by introducing a local HSD_JObj* variable for gp->gv.inishie1.blocks[index].jobj2 before passing it to DOBJ_CLEAR_LOOP. The PR body says this fixed register allocation and brought the function to 100% match; no behavioral change is evident from the diff.",
+  "summary": "Matched the stage function grInishie1_801FBC4C by introducing a local HSD_JObj* variable for gp->gv.inishie1.blocks[index].jobj2 before passing it to DOBJ_CLEAR_LOOP. The stated purpose was to fix register allocation and bring the function to 100% match.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "register-allocation",
-      "small-local-refactor"
+      "fix",
+      "register-allocation"
     ],
     "systems": [
       "stage",
       "ground",
-      "grInishie1"
+      "grinishie1"
     ]
   },
   "key_files": [
-    {
-      "file": "src/melee/gr/grinishie1.c",
-      "role": "Only changed file; adjusted grInishie1_801FBC4C to use a local HSD_JObj* before DOBJ_CLEAR_LOOP."
-    }
+    "src/melee/gr/grinishie1.c"
   ],
   "what_changed": [
-    "In grInishie1_801FBC4C, replaced direct use of gp->gv.inishie1.blocks[index].jobj2 inside DOBJ_CLEAR_LOOP with a local variable: HSD_JObj* jobj2.",
-    "DOBJ_CLEAR_LOOP now receives jobj2 instead of the full nested struct expression.",
-    "Existing cleanup of gp->gv.inishie1.blocks[index].hatena_gobj via Ground_801C4A08 and assignment to NULL was left unchanged.",
-    "Net code change was very small: 2 added lines and 1 deleted line in src/melee/gr/grinishie1.c."
+    "In src/melee/gr/grinishie1.c, grInishie1_801FBC4C now assigns gp->gv.inishie1.blocks[index].jobj2 to a local HSD_JObj* named jobj2.",
+    "DOBJ_CLEAR_LOOP is now called with the local jobj2 instead of the full nested struct/member expression.",
+    "The rest of the function behavior remains unchanged: it calls Ground_801C4A08 on the block's hatena_gobj and then clears hatena_gobj to NULL."
   ],
   "smart_moves": [
-    "Used a typed local pointer to steer compiler register allocation without changing function behavior.",
-    "Kept the matching fix narrowly scoped to the expression that affected codegen.",
-    "Preserved the surrounding cleanup sequence, reducing risk while targeting only the mismatch."
+    "Used a minimal source-level refactor, adding only a local temporary, to influence compiler register allocation without changing semantics.",
+    "Kept the original data access pattern obvious by naming the temporary jobj2 after the source field gp->gv.inishie1.blocks[index].jobj2.",
+    "Targeted a very small unmatched function, making the matching effect easy to review and isolate."
   ],
   "decomp_lessons": [
-    "For stubborn one-function mismatches, splitting a nested struct field access into a local variable can be enough to change register allocation and produce a match.",
-    "Macros such as DOBJ_CLEAR_LOOP may be sensitive to whether their argument is a complex lvalue expression or a simple local pointer.",
-    "When matching stage code, local temporaries around GET_GROUND-derived fields can be legitimate codegen tools, not just readability changes.",
-    "Small, isolated PRs are useful for validating decomp matching tactics with low review burden."
+    "When a direct nested field expression passed into a macro does not match, try hoisting the field into a typed local variable to alter register allocation.",
+    "For macro calls such as DOBJ_CLEAR_LOOP, the exact expression form at the call site can affect generated code even when semantics are equivalent.",
+    "Small local temporaries can be legitimate matching tools in stage/ground code when they mirror likely compiler lifetimes."
   ],
   "naming_conventions": [
-    "The local variable was named jobj2 to mirror the existing struct field gp->gv.inishie1.blocks[index].jobj2.",
-    "The type HSD_JObj* was used explicitly for the local pointer passed to DOBJ_CLEAR_LOOP.",
-    "Existing project-style names were preserved: grInishie1_801FBC4C, Ground_801C4A08, hatena_gobj, GET_GROUND."
+    "Local HSD_JObj* temporaries may use the same semantic name as the struct field, here jobj2 for gp->gv.inishie1.blocks[index].jobj2.",
+    "The stage function and file retain the grInishie1 naming prefix used for this ground/stage unit."
   ],
   "assembly_or_matching_tactics": [
-    "Introduce a local variable for a nested field access to influence register allocation.",
-    "Prefer a simple local pointer argument to a macro when the direct nested expression causes a mismatch.",
-    "Use minimal source restructuring when the intended behavior is already correct but codegen differs."
+    "Introduced HSD_JObj* jobj2 as a local temporary specifically to fix register allocation.",
+    "Replaced DOBJ_CLEAR_LOOP(gp->gv.inishie1.blocks[index].jobj2) with DOBJ_CLEAR_LOOP(jobj2) to get a 100% match.",
+    "No assembly diff details were included beyond the stated register-allocation motivation."
   ],
   "review_feedback": [
     "No review comments were present in the provided slice.",
-    "Author comment indicated this was a small first PR to test the waters and asked reviewers to point out anything missed."
+    "The author noted this was a small PR opened to test the waters and asked to be told if anything was missed."
   ],
   "searchable_terms": [
-    "pr-2556",
-    "Match grInishie1_801FBC4C",
+    "pr2556",
     "grInishie1_801FBC4C",
+    "grInishie1",
     "grinishie1.c",
     "src/melee/gr/grinishie1.c",
+    "Ground",
+    "GET_GROUND",
+    "HSD_GObj",
     "HSD_JObj",
     "jobj2",
     "DOBJ_CLEAR_LOOP",
-    "GET_GROUND",
-    "Ground",
     "Ground_801C4A08",
     "hatena_gobj",
     "register allocation",
-    "stage",
-    "ground",
-    "inishie1",
-    "DavidWeaverAudio"
+    "local temporary",
+    "stage matching",
+    "ground matching"
   ],
   "follow_up_queries": [
-    "Find other DOBJ_CLEAR_LOOP mismatches where nested struct field access should be split into a local HSD_JObj*.",
-    "Search grInishie1.c for remaining unmatched functions using gp->gv.inishie1.blocks[index] fields directly in macros.",
-    "Compare similar stage cleanup functions that clear jobj2 and hatena_gobj for consistent local variable patterns."
+    "Find other DOBJ_CLEAR_LOOP call sites where hoisting a nested JObj expression into a local HSD_JObj* may improve matching.",
+    "Search grInishie1 functions for similar gp->gv.inishie1.blocks[index] repeated accesses that may need local temporaries for register allocation.",
+    "Compare matched stage functions that clear hatena_gobj after Ground_801C4A08 for consistent temporary naming and access patterns."
   ],
-  "confidence": 0.93
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

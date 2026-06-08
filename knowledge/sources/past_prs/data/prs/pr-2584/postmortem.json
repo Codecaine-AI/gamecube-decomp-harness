@@ -11,7 +11,7 @@
     "merged_at": "2026-06-06T10:02:10Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Updated tools/wiki_tu.py so the generated Translation Units wiki page is no longer one flat table. The script now buckets TUs into `.text in progress`, `.text matched - data / linking left`, and `Fully linked` sections, using `metadata.complete` as the canonical fully linked signal and `.text` match percentage to split remaining work. Active sections now show separate `.text %` and `data %` columns, while the obsolete combined percent/checkmark completion column was removed. The PR also cleaned formatting by using non-breaking spaces in humanfriendly size strings and normalizing Discord assignees to exactly one leading `@`.",
+  "summary": "Updated tools/wiki_tu.py so the generated Translation Units wiki page is no longer one flat table. The script now buckets TUs into `.text in progress`, `.text matched - data / linking left`, and `Fully linked`, adds separate `.text %` and `data %` columns, removes the old combined percent/checkmark status column, preserves assignee round-tripping, and tidies size and Discord-handle formatting. This was a tooling/documentation ergonomics PR rather than a code matching PR.",
   "change_classification": {
     "primary_type": "tooling",
     "categories": [
@@ -22,136 +22,109 @@
     ],
     "systems": [
       "tools",
-      "wiki_tu",
-      "translation-units-wiki"
+      "wiki",
+      "translation-units"
     ]
   },
   "key_files": [
     {
       "path": "tools/wiki_tu.py",
-      "role": "Only changed file; restructures Translation Units wiki output, row formatting, bucketing, percent display, and assignee normalization."
+      "role": "Only changed file; rewrote the wiki TU table emission logic into helpers and progress buckets."
     }
   ],
   "what_changed": [
-    "`wiki_tu.py write` changed from emitting one flat TU table to printing three progress sections: `.text in progress`, `.text matched - data / linking left`, and `Fully linked`.",
-    "Added helper functions inside `write`: `friendly_size`, `percent_cell`, `file_of`, `assignee_cells`, `percent_cells`, `row_full`, and `row_slim` to isolate formatting and row-generation logic.",
-    "Introduced TU bucketing: `metadata.complete` entries go to `linked`; non-complete TUs with `matched_code_percent >= 100` go to `data_left`; all other non-complete TUs go to `in_progress`.",
-    "Active tables now include separate `.text %` and `data %` columns, making code completion distinct from data/linking completion.",
-    "Fully linked rows use a slimmer table with `File|.text %|data %`, omitting matched/total sizes and assignee columns.",
-    "Removed the old combined `%` plus `:heavy_check_mark:` / `:x:` completion column; completion is now represented by section membership.",
-    "Section counts are printed on their own line below each header instead of being embedded in the header text, preserving stable wiki anchor URLs as counts change.",
-    "Size strings from `humanfriendly.format_size` now replace spaces with `&nbsp;` and replace `bytes` with `B`, preventing units such as `1.18 KB` from wrapping inside table cells.",
-    "Discord assignee cells are normalized to exactly one leading `@` with `@{assignee['discord'].lstrip('@')}`.",
-    "Assignee columns remain at the same positions in active/full tables so `read_wiki` can continue round-tripping existing Discord and GitHub assignee data."
+    "Replaced the single flat Translation Units markdown table with three generated sections: `.text in progress`, `.text matched - data / linking left`, and `Fully linked`.",
+    "Classified units using `metadata.complete` as the canonical fully-linked/done flag; otherwise TUs with `matched_code_percent >= 100` go into the data/linking-left bucket, and the rest go into the in-progress bucket.",
+    "Added separate `.text %` and `data %` table columns so code-matched units with remaining data work are distinguishable from completed units.",
+    "Removed the old combined `%` plus heavy-check/cross linked-status column; section membership now communicates progress state.",
+    "Kept assignee columns in the active tables so `read_wiki` can continue round-tripping Discord and GitHub assignees.",
+    "Moved repeated formatting into helpers: `friendly_size`, `percent_cell`, `file_of`, `assignee_cells`, `percent_cells`, `row_full`, and `row_slim`.",
+    "Formatted generated sizes with `&nbsp;` instead of spaces after `humanfriendly.format_size`, preventing values like `1.18 KB` from wrapping inside table cells.",
+    "Normalized Discord assignees to exactly one leading `@` by emitting `@{assignee['discord'].lstrip('@')}`.",
+    "Printed section counts on the line below each header instead of embedding counts in headers, keeping markdown header anchor URLs stable."
   ],
   "smart_moves": [
-    "Used `metadata.complete` as the highest-priority done criterion because the PR states it drives the official completed-unit count; this avoids treating 100% `.text` as fully finished when data or linking remains.",
-    "Separated `.text %` and `data %`, which makes TUs with complete code but incomplete data visibly different from genuinely complete TUs.",
-    "Kept section counts below headers so generated wiki anchors remain stable and external links to sections do not churn as TU counts change.",
-    "Factored repeated table logic into small local helpers, reducing duplicated formatting code and making future wiki output changes safer.",
-    "Preserved active-table assignee column indices, explicitly maintaining compatibility with `read_wiki` round-tripping.",
-    "Normalized Discord handles on write rather than relying on users to enter them consistently.",
-    "Used `&mdash;` for percent cells when a TU has no total for that section, avoiding misleading `0%` or divide-by-zero behavior."
+    "Used `metadata.complete` as the authoritative finished-unit signal because it drives the official completed-unit count, avoiding confusion between code matching and fully linked completion.",
+    "Separated `.text %` from `data %`, which makes the remaining work visible when code is already 100% but data or linking is not done.",
+    "Kept section header text stable while still showing counts, preventing wiki anchor links from changing whenever progress numbers change.",
+    "Preserved assignee column positions in the active tables to avoid breaking the existing `read_wiki` parsing/round-trip behavior.",
+    "Introduced small row/formatting helpers rather than expanding the original monolithic loop, making future wiki table changes easier and less error-prone.",
+    "Used an em dash for percent cells when the total for a section type is zero, avoiding misleading 0% or divide-by-zero behavior."
   ],
   "decomp_lessons": [
-    "Progress reporting should distinguish code matching, data matching, and final linking; a single percent/checkmark column can hide actionable remaining work.",
-    "For Melee TU tracking, `metadata.complete` should be treated as the canonical fully linked/done flag, not merely `matched_code_percent == 100`.",
-    "Generated wiki pages used for coordination should optimize for the currently actionable work first; moving fully linked TUs to a bottom/slim section makes unfinished work easier to find.",
-    "When changing generated wiki table schemas, preserve columns consumed by parsers such as `read_wiki` unless the parser is updated at the same time.",
-    "Avoid putting volatile counts in Markdown section headers if users may deep-link to those headers; put counts below headers to keep anchors stable.",
-    "Human-readable size formatting in narrow Markdown table cells may need non-breaking spaces to avoid awkward line wrapping."
+    "For project progress pages, separate code matching progress from data/linking completion; a 100% `.text` TU is not necessarily a finished TU.",
+    "When generating wiki sections that people link to, do not include volatile counts or emoji in the markdown header text; put counts below the header to keep anchors stable.",
+    "When maintaining editable generated wiki pages, preserve parser-sensitive table shape and column indices unless the reader/parser is updated at the same time.",
+    "Use the existing completion metadata as the canonical source of truth for fully linked/decomp-complete status rather than inferring completion from a single percentage.",
+    "Generated assignment fields should normalize user input on write, allowing contributors to enter simple plaintext while keeping the rendered wiki consistent."
   ],
   "naming_conventions": [
-    {
-      "term": ".text in progress",
-      "meaning": "Section for TUs whose `matched_code_percent` is below 100 and are not marked complete."
-    },
-    {
-      "term": ".text matched - data / linking left",
-      "meaning": "Section for non-complete TUs whose `.text` code is fully matched but data matching or linking remains."
-    },
-    {
-      "term": "Fully linked",
-      "meaning": "Section for TUs where `metadata.complete` is set."
-    },
-    {
-      "term": ".text %",
-      "meaning": "Displayed code matching percentage derived from matched/total code measures or reported `matched_code_percent`."
-    },
-    {
-      "term": "data %",
-      "meaning": "Displayed data matching percentage derived from matched/total data measures or reported `matched_data_percent`."
-    }
+    "Progress section names used in the generated wiki: `.text in progress`, `.text matched - data / linking left`, and `Fully linked`.",
+    "Column naming convention changed from a generic `%` status column to explicit `.text %` and `data %` columns.",
+    "Helper names are direct and domain-specific: `friendly_size`, `percent_cell`, `file_of`, `assignee_cells`, `percent_cells`, `row_full`, and `row_slim`.",
+    "Discord assignees are rendered with exactly one leading `@` regardless of how they were entered or parsed."
   ],
   "assembly_or_matching_tactics": [
-    "No assembly-level matching tactic was changed in this PR; the matching-related impact is in tooling presentation of TU `.text`, data, and linked completion status.",
-    "The script uses `matched_code_percent >= 100` only to identify the intermediate state where code is matched but the TU is not yet marked complete.",
-    "Future decomp progress tooling can reuse the three-state distinction: code still in progress, code matched but data/linking left, and fully linked."
+    "No assembly-level matching tactic was changed in this PR.",
+    "The relevant decomp-progress tactic is reporting `.text` matching separately from data matching and final linking, so contributors can identify what kind of work remains for each translation unit."
   ],
   "review_feedback": [
     {
       "source": "issue comment excerpt",
       "feedback": "Remove emoji from headers because they do not render in the table of contents.",
-      "outcome": "The final section headers use plain text without emoji."
+      "status": "addressed"
     },
     {
       "source": "issue comment excerpt",
-      "feedback": "Place counts below headers so section hyperlink URLs remain consistent.",
-      "outcome": "Counts are printed on a separate line after each `##` header."
+      "feedback": "Place counts below each section header so section hyperlink URLs remain consistent.",
+      "status": "addressed"
     },
     {
       "source": "issue comment excerpt",
-      "feedback": "Do not use a `details` tag; linked TUs are at the bottom and rendering the tables should not be a browser problem.",
-      "outcome": "No `details` wrapper appears in the diff excerpt."
+      "feedback": "Do not use a `details` tag; the linked TUs are already at the bottom of the page and the tables should be fine for browsers/devices to render.",
+      "status": "addressed_or_avoided"
     },
     {
       "source": "issue comment excerpt",
       "feedback": "Replace spaces in humanfriendly size strings with `&nbsp;`.",
-      "outcome": "`friendly_size` now calls `.replace(' ', '&nbsp;')`."
+      "status": "addressed"
     },
     {
       "source": "issue comment excerpt",
-      "feedback": "Discord usernames should start with exactly one `@`, whether the parsed version had one or not.",
-      "outcome": "`assignee_cells` formats Discord as `@{...lstrip('@')}`."
+      "feedback": "Discord usernames should start with exactly one `@`, whether or not one existed in the parsed value.",
+      "status": "addressed"
     }
   ],
   "searchable_terms": [
-    "PR2584",
+    "PR 2584",
     "wiki_tu.py",
     "Translation Units wiki",
-    "wiki TU list",
-    "progress sections",
+    "TU progress sections",
     ".text in progress",
-    ".text matched - data / linking left",
+    ".text matched data linking left",
     "Fully linked",
-    "metadata.complete",
     "matched_code_percent",
     "matched_data_percent",
-    "matched_code",
-    "total_code",
-    "matched_data",
-    "total_data",
-    "data_left",
-    "in_progress",
-    "linked",
-    "percent_cell",
-    "friendly_size",
-    "humanfriendly.format_size",
-    "non-breaking space",
-    "&nbsp;",
-    "Discord assignee normalization",
-    "read_wiki round-trip",
-    "section anchors",
-    "stable header URLs",
-    "assignee columns"
+    "metadata.complete",
+    "read_wiki round trip",
+    "assignee columns",
+    "Discord username normalization",
+    "humanfriendly format_size",
+    "nbsp size formatting",
+    "stable wiki anchors",
+    "data percent column",
+    "text percent column",
+    "row_full",
+    "row_slim",
+    "percent_cell"
   ],
   "follow_up_queries": [
-    "Find later PRs that modify tools/wiki_tu.py to see whether the three progress sections or table schemas changed again.",
-    "Search for read_wiki parser assumptions about assignee column indices before changing Translation Units wiki table layout.",
-    "Look for PRs that mark TUs `metadata.complete` to understand how fully linked status is maintained.",
-    "Check generated Translation-Units wiki output for whether `.text %` and `data %` remain the primary progress signals."
+    "Find later changes to tools/wiki_tu.py that modify read_wiki parsing or assignee column positions.",
+    "Search for future PRs that adjust metadata.complete semantics or the official completed-unit count.",
+    "Check whether generated Translation Units wiki sections remained stable after this PR.",
+    "Look for follow-up tooling that consumes `.text %` and `data %` separately."
   ],
-  "confidence": 0.94,
+  "confidence": 0.95,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

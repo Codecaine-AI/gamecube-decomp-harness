@@ -11,186 +11,147 @@
     "merged_at": "2026-05-30T01:25:13Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Refined item TU boundaries by splitting common-item data out of it_2725 into new it_3F14.c/.h, moving it_802759DC from ithitbox into itmaplib, and retuning itmaplib.c until it was marked Matching. The PR updated splits, symbols, build config, and broad include coverage; the bot reported +3072 matched code bytes and +8512 linked code bytes, with the PR body noting 19 remaining item TUs and 79 remaining item functions.",
+  "summary": "Split the remaining common-item data TU out of src/melee/it/it_2725.c into new matching src/melee/it/it_3F14.c, updated splits/symbols and dependent includes, and refined src/melee/it/itmaplib.c enough to mark it Matching. The PR moved it_802759DC from the previous ithitbox split range into itmaplib, added its prototype, adjusted data/sdata/sdata2/sbss ownership, and used localized matching tactics such as helper inlines, stack padding, volatile constant ordering, and selective dont_inline pragmas. Bot metrics reported +3072 matched code bytes, +8512 linked code bytes, +252 matched data bytes, +164 linked data bytes, and 13 new matches, while also flagging apparent split-boundary 'broken matches' for ithitbox/it_2725 caused by code/data relocation.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "split-refinement",
+      "splits",
+      "linking",
       "headers",
-      "data-symbols",
-      "build-config"
+      "symbols",
+      "data-matching"
     ],
     "systems": [
       "item",
       "config",
-      "build",
+      "melee-core",
       "fighter",
-      "stage",
-      "db"
+      "stage"
     ]
   },
   "key_files": [
-    {
-      "path": "config/GALE01/splits.txt",
-      "reason": "Added the it_3F14 data/bss/sbss split and moved the ithitbox/itmaplib text boundary to 0x802759DC."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "reason": "Updated data/sdata/sdata2 symbol ownership and local-label names, including it_804D6D1C size correction to 0x4."
-    },
-    {
-      "path": "configure.py",
-      "reason": "Added it_3F14.c as Matching and changed itmaplib.c from NonMatching to Matching."
-    },
-    {
-      "path": "src/melee/it/it_3F14.c",
-      "reason": "New data TU containing common item GX links, ItemLogicTable, ItCo strings, item pick tables, damage log storage, article arrays, and it_804D6D00..it_804D6D40 globals."
-    },
-    {
-      "path": "src/melee/it/it_3F14.h",
-      "reason": "New shared header for moved common-item globals and typedefs formerly exposed by it_2725.h."
-    },
-    {
-      "path": "src/melee/it/it_2725.c",
-      "reason": "Removed the large common item data block and simplified some assert/rotation helper usage after the data split."
-    },
-    {
-      "path": "src/melee/it/it_2725.h",
-      "reason": "Removed declarations for the common-item globals and typedefs that moved to it_3F14.h."
-    },
-    {
-      "path": "src/melee/it/itmaplib.c",
-      "reason": "Main matching work: absorbed it_802759DC and adjusted stack, inlining, constants, sqrt, angle, and control-flow details."
-    },
-    {
-      "path": "src/melee/it/itmaplib.h",
-      "reason": "Now owns the it_802759DC prototype."
-    },
-    {
-      "path": "src/melee/it/ithitbox.c",
-      "reason": "Lost it_802759DC because the split boundary moved that function into itmaplib."
-    },
-    {
-      "path": "src/melee/it/ithitbox.h",
-      "reason": "Dropped the it_802759DC prototype."
-    },
-    {
-      "path": "src/melee/it/it_279C.c",
-      "reason": "Added an #if 0 alternate inline version of it_8027AB64_SelectKind/SpawnWeight as non-compiled matching reference material."
-    },
-    {
-      "path": "src/melee/it/items/*.c and item users",
-      "reason": "Many item, db, fighter, and ground TUs gained #include \"it/it_3F14.h\" for the moved globals."
-    }
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "configure.py",
+    "src/melee/it/it_2725.c",
+    "src/melee/it/it_2725.h",
+    "src/melee/it/it_3F14.c",
+    "src/melee/it/it_3F14.h",
+    "src/melee/it/itmaplib.c",
+    "src/melee/it/itmaplib.h",
+    "src/melee/it/ithitbox.c",
+    "src/melee/it/ithitbox.h",
+    "src/melee/it/it_279C.c"
   ],
   "what_changed": [
-    "Added split entry melee/it/it_3F14.c owning .data 0x803F1418-0x803F1F00, .bss 0x804A0E30-0x804A0FD8, and .sbss 0x804D6D00-0x804D6D48; narrowed it_2725.c data ownership to 0x803F1F00-0x803F1F38.",
-    "Moved common item tables and globals out of it_2725.c into new it_3F14.c, including it_803F1418, it_803F14C4, it_803F1ED8, it_803F1EE4, it_803F1EF0, it_804A0E30, it_804A0E50, it_804A0E60, it_804A0E70, it_804A0F60, and sbss globals it_804D6D00 through it_804D6D40.",
-    "Created it_3F14.h and moved it_804D6D20_t, it_804D6D40_t, and the moved extern declarations there; removed the same block from it_2725.h.",
-    "Adjusted ithitbox.c .text end from 0x80275BC8 to 0x802759DC and itmaplib.c .text start from 0x80275BC8 to 0x802759DC, moving it_802759DC into itmaplib ownership.",
-    "Moved the it_802759DC prototype from ithitbox.h to itmaplib.h.",
-    "Retuned itmaplib.c with explicit padding, local temps, inlining changes, #pragma dont_inline blocks, local sqrt code, and rewritten angle/control-flow code around it_8027649C, it_802765BC, it_80276934, it_80277040, it_8027737C, and it_802775F0.",
-    "Added a static sdata2_ordering helper in itmaplib.c with volatile f32/f64 literals, matching the symbol changes that converted many sdata2 constants from address-named globals to local @NNN symbols.",
-    "Simplified it_2725.c uses of the \"translate\" assert string and replaced custom inline JObj rotation setters with HSD_JObjSetRotationX/Y/Z calls.",
-    "Marked it_3F14.c and itmaplib.c as Matching in configure.py.",
-    "Added #include \"it/it_3F14.h\" to many dependent item, fighter, stage, and db source files.",
-    "Updated symbols.txt to use local compiler-style @NNN labels for many local data/sdata/sdata2 constants and changed it_804D6D1C from size 0x1 to size 0x4.",
-    "Added an #if 0 alternate implementation in it_279C.c for it_8027AB64_SelectKind and it_8027AB64_SpawnWeight; because it is disabled, evidence for its impact is only as a matching/reference note."
+    "Added a new split unit, src/melee/it/it_3F14.c, and assigned it .data 0x803F1418-0x803F1F00, .bss 0x804A0E30-0x804A0FD8, and .sbss 0x804D6D00-0x804D6D48 in config/GALE01/splits.txt.",
+    "Removed a large block of common-item tables and data declarations from src/melee/it/it_2725.c and placed them in src/melee/it/it_3F14.c, including it_803F1418, it_803F14C4, it_803F1ED8, it_803F1EE4, and it_803F1EF0.",
+    "Added src/melee/it/it_3F14.h with externs for common item data and sbss globals such as it_804A0E30, it_804A0E50, it_804A0E70, it_804D6D20, it_804D6D28, and typed helper structs it_804D6D20_t and it_804D6D40_t.",
+    "Updated many item and item-adjacent translation units to include it/it_3F14.h after data moved out of it_2725.h/it_2725.c.",
+    "Changed configure.py to add Object(Matching, \"melee/it/it_3F14.c\") and to upgrade Object(NonMatching, \"melee/it/itmaplib.c\") to Object(Matching, \"melee/it/itmaplib.c\").",
+    "Adjusted the split boundary for ithitbox.c and itmaplib.c: ithitbox text now ends at 0x802759DC and itmaplib text now starts at 0x802759DC.",
+    "Implemented or relocated it_802759DC into itmaplib.c and added its prototype to itmaplib.h.",
+    "Updated symbols.txt so many formerly address-style local objects in the affected ranges became compiler-style local labels such as @446, @556, @196, @197, @370, and sdata2 locals @260 through @155.",
+    "Corrected the symbol size for it_804D6D1C from size 0x1 to size 0x4 and represented it in it_3F14.h as extern u8 it_804D6D1C[4].",
+    "Refined itmaplib.c functions including it_8027649C, it_802765BC, it_80276934, it_80277040, it_8027737C, it_802775F0, and sqrt helper code to improve matching."
   ],
   "smart_moves": [
-    "Separated data ownership from it_2725 by introducing an address-named data TU and shared header, reducing it_2725.h from a catch-all item-global header to a smaller function header.",
-    "Moved the split boundary and prototype ownership together for it_802759DC, so the function relocation was reflected in splits.txt, ithitbox.h, itmaplib.h, and configure.py rather than only in source code.",
-    "Treated the decomp.dev broken-match rows as expected relocation evidence: the same bytes disappeared from old units but reappeared as new matches in it_3F14 and itmaplib.",
-    "Used small C-level matching edits in itmaplib.c instead of resorting to assembly: padding, local variables, reassociated expressions, inline helpers, and selective dont_inline pragmas.",
-    "Kept moved global declarations in a dedicated it_3F14.h and updated every dependent TU include, avoiding hidden dependencies on it_2725.h.",
-    "Synchronized symbol scope with compiler reality by turning local literals into @NNN local labels instead of preserving misleading global it_804D*/it_803F* names."
+    "Separated pure/common data ownership from it_2725.c into it_3F14.c before trying to link itmaplib, reducing mixed-TU pressure and making split boundaries clearer.",
+    "Created it_3F14.h rather than leaving cross-TU data as ad hoc externs, then propagated the include to all users that depended on the moved common item tables/globals.",
+    "Kept item logic table entries and comment labels together in the new TU, preserving the common item index ordering while changing file ownership.",
+    "Recognized that the it_802759DC range belonged to itmaplib rather than ithitbox and moved the split boundary accordingly.",
+    "Used compiler-style local symbol names for local strings/constants in symbols.txt instead of forcing global it_80xxxxxx names where scope was local.",
+    "Matched itmaplib by factoring repeated collision-normal/angle logic into a static inline reference helper and calling the shared it_80276408 helper, instead of duplicating large branches in each caller.",
+    "Used targeted stack padding and variable reordering in itmaplib.c, including PAD_STACK and explicit u8 pad arrays, to satisfy remaining codegen differences.",
+    "Used volatile local constants in sdata2_ordering to force sdata2 constant order without giving those constants misleading semantic global names.",
+    "Replaced local assert string globals from it_2725 with literal assert strings like \"translate\" after moving the data TU, avoiding stale symbol dependencies.",
+    "Applied #pragma dont_inline only around specific functions where codegen required it, rather than globally constraining the whole file."
   ],
   "decomp_lessons": [
-    "When a data-only item TU is split out, move both the storage definitions and the extern declarations; leaving globals in the old header makes future TU ownership harder to reason about.",
-    "A decomp progress bot may show broken matches when ranges move. Cross-check for equal-or-larger new matches in the new owner before treating them as regressions.",
-    "Small-data and small-data2 ordering can be as important as text matching; local literal labels, sizes, alignment, and deliberate ordering helpers should be reviewed with splits/symbols changes.",
-    "Function ownership changes need matching header ownership changes. Here, it_802759DC moved from ithitbox.h/c to itmaplib.h/c with the split boundary.",
-    "For CodeWarrior matching, PAD_STACK, explicit unused pads, temp variable ordering, reassociation of arithmetic, and selective #pragma dont_inline remain reusable tactics.",
-    "Prefer shared SDK helpers such as HSD_JObjSetRotationX/Y/Z when their assert strings and inlining match; custom inline copies can tie a function to old local data symbols.",
-    "Disabled #if 0 candidate code can preserve a useful matching hypothesis, but it should be described as non-compiled evidence unless the PR shows it affected output."
+    "When a large TU contains data tables that actually form their own split, move the tables and their data/sbss ranges first; this can unblock matching/linking in neighboring code TUs.",
+    "Split-boundary changes may appear as broken matches in old units while still being correct overall; verify by checking the new owner unit and total matched/linked deltas.",
+    "A new data split needs synchronized changes across splits.txt, symbols.txt, headers, configure.py, and all dependent includes.",
+    "Local strings and constants should often be represented as local @NNN symbols in symbols.txt rather than stable global address names, especially once TU ownership is corrected.",
+    "Data size corrections in symbols.txt should be reflected in headers with matching C declarations; this PR changed it_804D6D1C to a 4-byte object and declared it as u8[4].",
+    "For matching repeated math/collision code, an inline helper can reproduce shared compiler structure better than hand-expanding similar code in each branch.",
+    "The decomp.dev report is useful for distinguishing real regressions from intentional ownership transfers across split ranges."
   ],
   "naming_conventions": [
-    "New data split file/header used the address-derived name it_3F14.c and it_3F14.h, matching the 0x803F1418 data start.",
-    "Header guard for the new item data header is GALE01_IT_3F14.",
-    "Moved extern declarations keep address comments such as /* 3F1418 */, /* 4A0E30 */, and /* 4D6D40 */.",
-    "Common-item logic callbacks keep the existing it<Item>_LogicN_Event naming, with shared/default callbacks named it_3F14_LogicN_Event.",
-    "Global typedefs tied to sbss symbols retained address-based names, including it_804D6D20_t and it_804D6D40_t.",
-    "Local data/sdata/sdata2 constants in symbols.txt were renamed to compiler-style @NNN labels, sometimes with ...data.0 local labels, instead of fake global it_804D*/it_803F* names."
+    "New split file followed the project address-range placeholder naming pattern: it_3F14.c / it_3F14.h for data beginning near 0x803F1418.",
+    "Common item callback names retained item-specific LogicN naming, e.g. itCapsule_Logic0_Spawned, itTaru_Logic2_PickedUp, itBombhei_Logic6_Spawned.",
+    "Unknown data structs were named from their anchor symbol addresses, e.g. it_804D6D20_t and it_804D6D40_t, with offset-style fields x0, x4, x8, xC.",
+    "Local data/sdata/sdata2 symbols in symbols.txt used compiler local @NNN labels after the split refinement, while confirmed global data kept it_80xxxxxx names.",
+    "The new header guard used GALE01_IT_3F14."
   ],
   "assembly_or_matching_tactics": [
-    "Inserted static f32 sdata2_ordering(void) with volatile f32/f64 literals such as -1.0f, 1.0f, 4503601774854144.0, 1.5f, 0.00001f, 0.5, 3.0, 0.85f, and 0.01f to stabilize literal emission/order.",
-    "In moved it_802759DC, replaced prior it_804DC73C zero-constant use with local f32 zero = 0.0f and adjusted stack padding from u8 _1[12] to a zero temp plus u8 _1[8].",
-    "Removed #pragma dont_inline around it_80276408 but added dont_inline blocks around it_80276CB8 and it_80277040, showing per-function inlining control rather than blanket pragmas.",
-    "Factored repeated collision-angle code into static inline it_8027649C_ref, including PAD_STACK(4) and a ret temp noted in the diff as permuterslop.",
-    "Reworked it_802765BC stack layout by changing pad sizes, variable order, and using six Vec3 locals passed into it_8027649C_ref.",
-    "Reassociated arithmetic in it_80276934 into multiple assignments so the compiler emitted the desired operation order.",
-    "In it_80277040, used explicit temp_f3 = 0.0f comparisons, adjusted temp_f30/temp_f31 order, and used item_gobj->user_data directly.",
-    "Flattened it_8027737C with an early return for inactive motion flags, preserving later vector math while changing branch structure.",
-    "Added sqrtf_accurate_local using __frsqrte refinement and changed return_sqrt_value to call it, replacing reliance on the removed math_ppc include.",
-    "Used explicit f32 comparisons in it_802775F0, e.g. spin_spd != 0.0f and facing/argument comparisons against 0.0f.",
-    "Changed it_2725.c assertions from an external it_803F1F00 string symbol to literal \"translate\" and used HSD_JObjSetRotationX/Y/Z directly."
+    "Moved it_802759DC into itmaplib.c by changing the ithitbox/itmaplib text split boundary from 0x80275BC8 to 0x802759DC.",
+    "Added static f32 sdata2_ordering(void) with volatile f32/f64 locals to control constant ordering in .sdata2.",
+    "Used PAD_STACK and explicit padding arrays in itmaplib functions to align stack frame layout.",
+    "Introduced static inline f32 it_8027649C_ref(Item_GObj*, Vec3*, Vec3*) to share the angle-normal computation used by it_802765BC branches.",
+    "Refactored it_8027649C to call it_80276408 for collision normal selection rather than open-coding the env_flags checks.",
+    "Changed multiplication sequencing in it_80276934 by assigning intermediate angle values, likely to match instruction order.",
+    "Changed boolean/zero comparisons to explicit floating-point comparisons such as item1->x94.x != temp_f3 and item->spin_spd != temp_sqrt.",
+    "Inverted early-return structure in it_8027737C so the main body executes after checking item->xDC8_word.flags.x1F and item->xD5C.",
+    "Added sqrtf_accurate_local using __frsqrte Newton iterations and a volatile store, then used it through return_sqrt_value.",
+    "Used #pragma push / #pragma dont_inline on / #pragma pop around it_80276CB8 and it_80277040."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the PR slice.",
-    "decomp-dev bot reported GALE01 matched code 68.96% (+0.08%, +3072 bytes), linked code 41.78% (+0.22%, +8512 bytes), matched data 41.20% (+0.02%, +252 bytes), and linked data 34.94% (+0.01%, +164 bytes).",
-    "Bot listed 13 new matches, including it_3F14 .data/.bss/.sbss at 100%, itmaplib it_802759DC at 100%, and itmaplib .sdata2/.data reaching 100%.",
-    "Bot also listed broken old-owner matches for ithitbox it_802759DC and it_2725 .bss/.sbss; given the split changes, these appear to be relocation artifacts rather than separately evidenced regressions."
+    "No human review comments were present in the provided PR slice.",
+    "The decomp.dev bot reported GALE01 improvements: matched code 68.96% (+0.08%, +3072 bytes), linked code 41.78% (+0.22%, +8512 bytes), matched data 41.20% (+0.02%, +252 bytes), and linked data 34.94% (+0.01%, +164 bytes).",
+    "The bot listed 13 new matches including it_3F14 .data/.bss/.sbss at 100%, itmaplib it_802759DC, it_802765BC, it_8027737C, .data, .sdata2, it_80276934, and it_80277040.",
+    "The bot also flagged two broken matches and one unmatched-item regression in the previous owners: ithitbox it_802759DC, it_2725 .bss, and it_2725 .sbss; these align with the intentional split/data ownership moves."
   ],
   "searchable_terms": [
-    "pr-2549",
-    "lukechampine",
-    "refine splits",
-    "match itmaplib",
-    "link itmaplib",
-    "it_3F14",
+    "PR2549",
+    "itmaplib.c",
     "it_3F14.c",
     "it_3F14.h",
-    "GALE01_IT_3F14",
-    "it_2725",
-    "itmaplib",
-    "ithitbox",
+    "it_2725.c",
+    "ithitbox.c",
     "it_802759DC",
+    "it_80276408",
+    "it_8027649C",
+    "it_802765BC",
+    "it_80276934",
+    "it_80277040",
+    "it_8027737C",
+    "it_802775F0",
     "it_803F1418",
     "it_803F14C4",
-    "ItemLogicTable",
-    "sdata_ItemGXLink",
     "it_803F1ED8",
     "it_803F1EE4",
     "it_803F1EF0",
-    "it_804A0E30",
-    "RandomItemSpawner",
-    "ItemPickTable",
-    "DamageLogEntry",
     "it_804D6D1C",
     "it_804D6D20_t",
     "it_804D6D40_t",
+    "ItemLogicTable",
+    "sdata_ItemGXLink",
     "sdata2_ordering",
-    "it_8027649C_ref",
-    "it_80277040",
-    "it_8027737C",
     "sqrtf_accurate_local",
-    "__frsqrte",
+    "it_8027649C_ref",
+    "Object(Matching, \"melee/it/itmaplib.c\")",
+    "Object(Matching, \"melee/it/it_3F14.c\")",
+    "common items",
+    "split boundary",
+    "local @ symbols",
     "PAD_STACK",
-    "#pragma dont_inline",
-    "HSD_JObjSetRotationX",
-    "HSD_JObjSetRotationY",
-    "HSD_JObjSetRotationZ",
-    "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
-    "configure.py Matching"
+    "dont_inline"
   ],
   "follow_up_queries": [
-    "Search future item split PRs for globals still declared in it_2725.h that should live in address-named data headers.",
-    "Audit item TUs that include it_2725.h only for common-item globals and switch them to it_3F14.h when appropriate.",
-    "Before editing itmaplib sdata2 constants, inspect sdata2_ordering and symbols.txt @NNN labels to avoid literal-order regressions.",
-    "When decomp.dev reports broken matches after split changes, compare old and new split ranges before filing a regression.",
-    "Continue tracking remaining item decomp work using the PR body baseline of 19 remaining item TUs and 79 remaining item functions."
+    "Which remaining 19 item TUs and 79 item functions were left after PR #2549?",
+    "Audit all users of it_3F14.h to see whether some includes can later be replaced by narrower forward declarations.",
+    "Check later PRs for semantic renames of it_3F14.c globals and structs such as it_804D6D20_t and it_804D6D40_t.",
+    "Review whether sdata2_ordering remained necessary after subsequent item TU splits or symbol cleanups.",
+    "Look for later fixes around it_8027AB64_SelectKind in it_279C.c, where this PR added a disabled #if 0 alternative implementation."
   ],
-  "confidence": 0.92
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,84 +11,103 @@
     "merged_at": "2026-05-15T20:16:55Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Improved matching in src/melee/lb/lbcollision by bringing lbColl_80005C44 and lbColl_80009DD4 to 100%, restoring/improving lbColl_8000A78C and nearby collision/debug draw helpers, and fixing lbColl_80006E58 so collision distance is written through the explicit float output parameter. The decomp.dev bot reported +1016 matched bytes overall, with 2 new matches and 7 unmatched-item improvements.",
+  "summary": "Improved matching in the library collision module, with two new matches reported by decomp.dev: lbColl_80005C44 and lbColl_80009DD4. The PR also substantially improved several still-unmatched lbcollision helpers, especially lbColl_8000A78C, lbColl_80006E58, lbColl_80006094, and lbColl_800067F8, and corrected stale lbcollision.h prototypes. A concrete behavior/signature fix moved lbColl_80006E58's collision-distance output to an explicit trailing float* parameter and updated callers so the computed distance is written through arg0->coll_distance rather than accidentally through a Vec3 field.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "bugfix",
+      "library-collision",
       "headers",
       "types-structs",
+      "bugfix",
       "debug-draw",
-      "collision"
+      "sdata-matching"
     ],
     "systems": [
-      "library",
       "lb",
-      "lbcollision"
+      "lbcollision",
+      "library"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/lb/lbcollision.c",
-      "why": "Primary matching work: changed collision math/layout in lbColl_80005C44, lbColl_80006094, lbColl_800067F8, lbColl_80006E58, debug draw helpers, JObj matrix access, constants, and call sites."
+      "role": "Main matching work: stack/layout rewrites, literal/sdata handling, helper restoration, lbColl_80006E58 signature/call-site fix, JObj matrix helper, debug draw improvements."
     },
     {
       "path": "src/melee/lb/lbcollision.h",
-      "why": "Updated stale prototypes for matched helpers, replacing UNK_RET with void for lbColl_80008DA4 and lbColl_80009DD4."
+      "role": "Updated stale public prototypes for lbColl_80008DA4 and lbColl_80009DD4 from UNK_RET to void with typed arguments."
     }
   ],
   "what_changed": [
-    "Matched lbColl_80005C44 and lbColl_80009DD4; decomp.dev reported lbColl_80005C44 moving from 94.77% to 100.00% and lbColl_80009DD4 from 99.11% to 100.00%.",
-    "Improved several still-unmatched lbcollision items: lbColl_8000A78C from 0.00% to 99.86%, lbColl_80006E58 from 64.88% to 81.05%, lbColl_80006094 from 65.34% to 78.74%, lbColl_800067F8 from 65.47% to 78.71%, plus .sdata and small lbColl_8000A584/lbColl_8000A95C gains.",
-    "Changed lbColl_80006E58's parameter order so float* arg8 moved after scl, arg10, and arg11, then updated call sites such as lbColl_80007BCC, lbColl_80007ECC, lbColl_8000805C, and lbColl_80008248.",
-    "Fixed lbColl_80006E58's collision-distance write: the diff changed writes from arg2->x to *arg8, matching the PR body's note that distance should be written through the explicit output parameter.",
-    "Added local static inline lbColl_JObjGetMtxPtr with local assert strings \"jobj.h\" and \"jobj\", calls HSD_JObjSetupMatrix, and returns jobj->mtx; many direct HSD_JObjGetMtxPtr uses were replaced with this local helper.",
-    "Added GXColor sdata symbols lbColl_804D36C4 and lbColl_804D36C8 and restored lbColl_8000A78C, using those colors in lbColl_800096B4 debug draw output.",
-    "Removed the generic between helper and changed nearzero to load thresholds from existing lbColl constants through volatile const float pointers; replaced approximatelyZero calls with nearzero in several collision routines.",
-    "Reworked Vec3/local-stack layout and scalar temporaries across collision math, including d2_x/d2_y/d2_z in lbColl_80005C44, Vec3 sp11C/sp110/sp104 in lbColl_80006E58, by-value Vec3 copies, PAD_STACK changes, and reordered locals."
+    "Matched lbColl_80005C44 and lbColl_80009DD4 according to both the PR summary and decomp.dev report.",
+    "Restored or improved lbColl_8000A78C and nearby collision/debug draw helpers; the bot reported lbColl_8000A78C improving from 0.00% to 99.86%.",
+    "Changed the static lbColl_80006E58 prototype and definition so the float* collision-distance output parameter comes after scl, arg10, and arg11.",
+    "Updated lbColl_80006E58 call sites in hit/hurt collision wrappers, including lbColl_80007BCC, lbColl_80007ECC, lbColl_8000805C, and lbColl_80008248, to pass &arg0->coll_distance as the final argument.",
+    "Fixed lbColl_80006E58 writes from arg2->x to *arg8 for the computed collision distance.",
+    "Converted groups of loose stack floats in lbColl_80006E58 into Vec3 temporaries such as sp11C, sp110, and sp104, reducing PAD_STACK from 144 to 112 in the shown diff.",
+    "Adjusted stack padding and Vec3 copy style in lbColl_80006094 and lbColl_800067F8, including PAD_STACK changes and direct Vec3 initialization from pointed-to inputs.",
+    "Replaced an inline between helper and several approximatelyZero calls with a nearzero helper using volatile loads from lbColl_804D79F0 and lbColl_804D79F4.",
+    "Added static GXColor sdata constants lbColl_804D36C4 and lbColl_804D36C8.",
+    "Added local assert strings lbColl_804D3700/804D3708 and a static inline lbColl_JObjGetMtxPtr wrapper that asserts, calls HSD_JObjSetupMatrix, and returns jobj->mtx.",
+    "Replaced HSD_JObjGetMtxPtr uses in several debug/collision helpers with lbColl_JObjGetMtxPtr, likely to match the original inline/assert expansion.",
+    "Updated lbcollision.h declarations: lbColl_80008DA4 is now void lbColl_80008DA4(GXColor* arg0, GXColor* arg1), and lbColl_80009DD4 is now void lbColl_80009DD4(Vec3* v0, Vec3* v1, GXColor* clr)."
   ],
   "smart_moves": [
-    "Used a file-local lbColl_JObjGetMtxPtr inline instead of relying on the existing HSD_JObjGetMtxPtr symbol, preserving the assert text, setup call, and matrix access sequence needed for matching.",
-    "Treated the function signature of lbColl_80006E58 as both a matching lever and a semantic fix: moving the float* output parameter clarified call-site order and made the distance write go to arg0->coll_distance instead of corrupting a Vec3 field.",
-    "Loaded floating constants through volatile pointers to named data symbols such as lbColl_804D79F0, lbColl_804D79F4, lbColl_804D79F8, lbColl_804D7A00, and lbColl_804D7A10, avoiding compiler folding or wrong-width literal emission.",
-    "Scalarized selected Vec3 temporaries and used whole-struct Vec3 copies where the compiler's stack/register behavior needed nudging, rather than only changing algebraic expressions.",
-    "Inlined simple early-out tests and adjusted parentheses around dot-product/division expressions to force codegen closer to the target assembly.",
-    "Synchronized the public header once functions were matched, preventing stale UNK_RET prototypes from lingering for lbColl_80008DA4 and lbColl_80009DD4."
+    "Used volatile const float/f64 loads from existing sdata symbols for threshold and clamp constants, which is a common Melee matching tactic when immediate literals or constant pooling differ.",
+    "Scalarized the second vector in lbColl_80005C44 into d2_x, d2_y, and d2_z, avoiding an unwanted Vec3 temporary while preserving the geometry calculation.",
+    "Grouped related coordinate stack slots back into Vec3 locals in lbColl_80006E58 where that better matched stack layout and made the code reflect collision segment math more clearly.",
+    "Introduced a local lbColl_JObjGetMtxPtr inline with exact assert file/name strings instead of relying on a generic HSD_JObjGetMtxPtr call, preserving expected assert/setup/matrix access codegen.",
+    "Fixed the output-parameter ordering for lbColl_80006E58 and propagated it through all call sites, making the dataflow explicit and preventing collision distance from being confused with a position Vec3.",
+    "Inlined simple axis rejection tests in lbColl_80006094 instead of keeping testPlusX/testMinusX helper calls, giving the compiler a shape closer to the target assembly.",
+    "Adjusted arithmetic grouping in projection/division expressions in lbColl_80006094 and lbColl_800067F8, which can be critical for matching floating-point instruction order on PPC."
   ],
   "decomp_lessons": [
-    "For lbcollision, small source-level choices around Vec3 copies, scalar temporaries, local declaration order, and PAD_STACK size have large effects on stack layout and FPR allocation.",
-    "When a helper function looks semantically equivalent but does not match, check whether the original code likely inlined an assert/setup sequence; recreating that inline locally can recover sdata and call order.",
-    "Use existing rodata/sdata symbols for magic floats when exact load behavior matters; volatile casts can stop the compiler from turning a load into an immediate or different constant path.",
-    "Do not ignore prototype/order mismatches: lbColl_80006E58's signature change both improved matching and exposed a real output-parameter bug.",
-    "Header cleanup is part of decomp completion. Once a function's return type and parameters are known, replace UNK_RET/anonymous prototypes with the matched signature.",
-    "The PR body explicitly records remaining known blockers; future work should continue from lbColl_80006094, lbColl_800067F8, lbColl_80006E58, lbColl_800077A0, and the shared by-value Vec3 temporary mismatch family."
+    "For collision math, whether a temporary is represented as a Vec3 or as three scalar floats can materially affect stack layout and FPR/register allocation; switch representation based on evidence rather than readability alone.",
+    "Small helpers like between or approximatelyZero can block matching if the original code used shared sdata constants or volatile-style loads; matching may require reusing the same constant symbols.",
+    "When a function has many Vec3* and float* parameters, verify call-site semantics before trusting an old prototype. Here the distance output belonged to an explicit float* and stale ordering caused misleading writes.",
+    "Header prototypes should be updated as functions are matched; replacing UNK_RET with void and naming typed parameters reduces future call-site ambiguity.",
+    "Local inline wrappers around HSD helpers may be necessary when the original object code included assert strings and setup calls rather than a clean library call.",
+    "Keep known nonmatches documented: this PR explicitly notes remaining stack/FPR drift and Vec3 by-value temporary layout mismatches, which is useful for future search and regression checks."
   ],
   "naming_conventions": [
-    "Function names follow the project address-style lbColl_800XXXXX convention, e.g. lbColl_80005C44, lbColl_80006E58, lbColl_80009DD4, and lbColl_8000A78C.",
-    "Data symbols use address-style lbColl_804Dxxxx or lbl_803Bxxxx names until better semantic names are known, e.g. lbColl_804D36C4, lbColl_804D36C8, lbColl_804D79F0, and lbl_803B9E20.",
-    "The local inline helper was named lbColl_JObjGetMtxPtr, keeping the lbColl prefix while describing its HSD_JObj matrix access role.",
-    "Matched header prototypes use concrete return types and parameter names where known, e.g. void lbColl_80009DD4(Vec3* v0, Vec3* v1, GXColor* clr).",
-    "Unmatched structural work mostly retained argN/temp/sp-style names, which is appropriate when semantics are still uncertain and stack matching is the priority."
+    "Preserved address-based lbColl_* names for unmatched or partially matched functions, such as lbColl_80006E58, lbColl_80006094, and lbColl_800067F8.",
+    "Used descriptive but local scalar names for vector components and projection math, including d2_x, d2_y, d2_z, d1_dot_d1, d1_dot_d2, scl_e, scl_f, and sum_pq.",
+    "Named the local JObj matrix accessor lbColl_JObjGetMtxPtr, mirroring HSD_JObjGetMtxPtr while making the lbcollision-specific inline explicit.",
+    "Header prototype parameters were given short semantic names for matched debug drawing helpers, e.g. Vec3* v0, Vec3* v1, GXColor* clr for lbColl_80009DD4.",
+    "Static data retained address-style names such as lbColl_804D36C4, lbColl_804D36C8, lbColl_804D3700, and lbColl_804D3708."
   ],
   "assembly_or_matching_tactics": [
-    "Adjusted PAD_STACK values, including lbColl_80006094 from 64 to 56, lbColl_800067F8 from 16 to 24, and lbColl_80006E58 from 144 to 112.",
-    "Changed Vec3 storage strategy: whole-struct initializers like Vec3 vec4 = *arg0 and Vec3 c0 = *c were introduced, while some temporary vectors were scalarized into individual floats.",
-    "Reordered local declarations, including lbColl_80009DD4's float locals and lbColl_8000A584's Mtx sp40 placement, to influence stack offsets.",
-    "Replaced approximatelyZero/between-style abstractions with nearzero using volatile loads from named constants, aligning branch and constant-load behavior.",
-    "Parenthesized vector projection formulas so division applies to the full dot-product numerator/denominator, matching intended assembly order rather than C precedence surprises.",
-    "Restored actual HSD_MtxInverse and PSMTXMultVec calls in lbColl_80006E58 using a local Mtx sp9C where the old code had commented-out matrix operations.",
-    "Updated many PSMTXConcat/HSD_JObjGetMtxPtr call sites to use lbColl_JObjGetMtxPtr so the same inline matrix setup pattern is emitted consistently."
+    "Used PAD_STACK tuning: examples in the diff include lbColl_80006094 changing PAD_STACK(64) to PAD_STACK(56), lbColl_800067F8 using PAD_STACK(24), and lbColl_80006E58 changing PAD_STACK(144) to PAD_STACK(112).",
+    "Replaced numeric literals such as 1e-5, 0.0, and 1.0 in sensitive branches with loads through lbColl_804D79F0, lbColl_804D79F4, lbColl_804D79F8, lbColl_804D7A00, lbColl_804D7A08, and lbColl_804D7A10.",
+    "Changed variable declaration/order in lbColl_80009DD4 from x0, y0, z0, x1, y1 to x1, x0, y0, z0, y1 to improve register or stack ordering.",
+    "Re-associated floating-point expressions with extra parentheses to match PPC evaluation order, especially in scale/projection computations.",
+    "Used direct Vec3 copy initialization, such as Vec3 a0 = *a and Vec3 c0 = *c, where it better matched load/store order than field-by-field assignment.",
+    "Substituted a collision-local inline for HSD_JObjGetMtxPtr to reproduce assert string references and HSD_JObjSetupMatrix before returning jobj->mtx.",
+    "Added missing .sdata GXColor constants to improve the .sdata match, which decomp.dev reported improving from 23.61% to 42.13%."
   ],
   "review_feedback": [
-    "No human review comments were present in the dump.",
-    "The decomp.dev bot reported overall matched code at 67.14%, +0.03%, +1016 bytes for GALE01.",
-    "The bot confirmed 2 new matches: lbColl_80005C44 and lbColl_80009DD4.",
-    "The bot confirmed 7 improvements in unmatched items, led by lbColl_8000A78C, lbColl_80006E58, lbColl_80006094, and lbColl_800067F8.",
-    "The PR body states verification was python configure.py && ninja plus pre-commit checks during commit."
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported matched code increased to 67.14%, +0.03%, +1016 bytes."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported 2 new matches: lbColl_80005C44 (+34 bytes, 94.77% to 100.00%) and lbColl_80009DD4 (+4 bytes, 99.11% to 100.00%)."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported 7 improvements in unmatched items: lbColl_8000A78C, lbColl_80006E58, lbColl_80006094, lbColl_800067F8, .sdata, lbColl_8000A584, and lbColl_8000A95C."
+    },
+    {
+      "source": "human review",
+      "feedback": "No human review comments were present in the provided PR slice."
+    }
   ],
   "searchable_terms": [
+    "pr-2503",
     "lb: improve lbcollision matching",
+    "itsgrimetime",
     "lbcollision",
     "src/melee/lb/lbcollision.c",
     "src/melee/lb/lbcollision.h",
@@ -103,46 +122,59 @@
     "lbColl_8000A584",
     "lbColl_8000A95C",
     "lbColl_8000AB2C",
-    "lbColl_80007BCC",
-    "lbColl_80007ECC",
-    "lbColl_8000805C",
-    "lbColl_80008248",
+    "lbColl_80008DA4",
     "lbColl_JObjGetMtxPtr",
-    "HSD_JObjGetMtxPtr",
     "HSD_JObjSetupMatrix",
-    "__assert",
+    "HSD_JObjGetMtxPtr",
     "jobj.h",
     "jobj",
+    "GXColor",
+    "Vec3",
+    "MtxPtr",
+    "Mtx",
+    "PAD_STACK",
     "nearzero",
     "approximatelyZero",
-    "between",
-    "PAD_STACK",
-    "Vec3",
-    "Mtx",
-    "MtxPtr",
-    "GXColor",
+    "volatile const float",
+    "volatile const f64",
     "lbColl_804D36C4",
     "lbColl_804D36C8",
+    "lbColl_804D3700",
+    "lbColl_804D3708",
     "lbColl_804D79F0",
     "lbColl_804D79F4",
     "lbColl_804D79F8",
     "lbColl_804D7A00",
+    "lbColl_804D7A08",
     "lbColl_804D7A10",
-    "PSMTXConcat",
-    "HSD_MtxInverse",
-    "PSMTXMultVec",
     "coll_distance",
     "hurt_coll_pos",
+    "HitCapsule",
+    "HurtCapsule",
+    "HitResult",
     "debug draw",
+    "sdata",
+    "stack drift",
+    "FPR drift",
+    "sqrt spill",
     "by-value Vec3 temporary layout mismatch"
   ],
   "follow_up_queries": [
-    "Continue lbColl_80006094 stack/FPR drift investigation using the Vec3 copy and PAD_STACK tactics from this PR.",
-    "Continue lbColl_800067F8 structural drift investigation, especially nearzero calls and projection formula parenthesization.",
-    "Finish lbColl_80006E58 after the output-parameter fix; PR body says it still has structural stack/FPR drift.",
-    "Resolve lbColl_800077A0 sqrt spill/register difference noted in the PR body.",
-    "Investigate shared by-value Vec3 temporary layout mismatch in lbColl_8000A244, lbColl_8000A584, lbColl_8000A78C, lbColl_8000A95C, and lbColl_8000AB2C.",
-    "Audit future lbcollision call sites for lbColl_80006E58 argument order: Vec3 output, scale floats, then float* distance output."
+    "Inspect remaining lbColl_80006094 stack/FPR drift after PR #2503.",
+    "Resolve lbColl_800067F8 structural stack/FPR drift using the Vec3 copy and nearzero tactics from PR #2503.",
+    "Continue lbColl_80006E58 matching now that the float* output parameter and Vec3 local grouping are corrected.",
+    "Investigate lbColl_800077A0 sqrt spill/register difference mentioned as remaining work.",
+    "Compare lbColl_8000A244, lbColl_8000A584, lbColl_8000A78C, lbColl_8000A95C, and lbColl_8000AB2C for shared by-value Vec3 temporary layout mismatch.",
+    "Search for other stale lbcollision.h UNK_RET prototypes that can be converted after matching.",
+    "Look for other HSD_JObjGetMtxPtr call sites that need local inline assert/setup expansion for matching."
   ],
-  "confidence": 0.93
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,14 +11,13 @@
     "merged_at": "2026-03-10T15:12:16Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the ftCommon rebirth animation callback ftCo_Rebirth_Anim. The implementation loads Fighter from Fighter_GObj user_data, calls ftCo_8008A7A8 with fp->ft_data->x24, decrements fp->mv.co.common.x0, and transitions through ftCo_800D5600 when the counter reaches zero. The PR also tightened ftCo_800D5600's header prototype from unknown return/params to void ftCo_800D5600(Fighter_GObj* gobj). Reported verification was a clean ninja build and 100.0 fuzzy match.",
+  "summary": "Matched the ftCommon rebirth animation callback ftCo_Rebirth_Anim. The stub marker in src/melee/ft/ft_0D31.c was replaced with a small implementation that reads Fighter from gobj->user_data, calls ftCo_8008A7A8 with fp->ft_data->x24, decrements fp->mv.co.common.x0, and transitions via ftCo_800D5600 when the counter reaches zero. The header prototype for ftCo_800D5600 was also upgraded from UNK_RET/UNK_PARAMS to void ftCo_800D5600(Fighter_GObj* gobj). PR body reports a clean ninja build and fuzzy_match_percent 100.0.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "fighter-state-callback",
       "headers",
-      "prototype-cleanup"
+      "fighter-state-callback"
     ],
     "systems": [
       "fighter",
@@ -31,65 +30,74 @@
     "src/melee/ft/ft_0D31.h"
   ],
   "what_changed": [
-    "Replaced the placeholder /// #ftCo_Rebirth_Anim in src/melee/ft/ft_0D31.c with a matching C implementation.",
+    "Replaced the /// #ftCo_Rebirth_Anim placeholder with a matching C implementation.",
     "Implemented ftCo_Rebirth_Anim(Fighter_GObj* gobj) using Fighter* fp = gobj->user_data.",
-    "Called ftCo_8008A7A8(gobj, fp->ft_data->x24) before updating the rebirth common state counter.",
-    "Decremented fp->mv.co.common.x0 and called ftCo_800D5600(gobj) once that field becomes zero.",
-    "Updated the ftCo_800D5600 declaration in src/melee/ft/ft_0D31.h from UNK_RET/UNK_PARAMS to void ftCo_800D5600(Fighter_GObj* gobj)."
+    "Called ftCo_8008A7A8(gobj, fp->ft_data->x24) during the rebirth animation callback.",
+    "Decremented the common movement counter fp->mv.co.common.x0 and called ftCo_800D5600(gobj) when it reached zero.",
+    "Refined the declaration of ftCo_800D5600 from UNK_RET ftCo_800D5600(UNK_PARAMS) to void ftCo_800D5600(Fighter_GObj* gobj)."
   ],
   "smart_moves": [
-    "Used the local call site in ftCo_Rebirth_Anim to prove a concrete ftCo_800D5600 signature instead of leaving the header as UNK_RET/UNK_PARAMS.",
-    "Kept the callback minimal and ordered exactly as the match required: helper call, counter decrement, zero check, then transition helper.",
-    "Reused established fighter callback conventions: Fighter_GObj* parameter, Fighter* from gobj->user_data, and state data under fp->mv.co.common."
+    "Kept the matched animation callback minimal and state-machine oriented, avoiding unnecessary temporaries beyond the Fighter* local visible in the diff.",
+    "Used existing fighter object access patterns: Fighter_GObj* input, gobj->user_data to Fighter*, and nested ft_data/common movement fields.",
+    "Resolved a neighboring unknown prototype only as far as required by the new callsite, improving type information without broad unrelated header churn.",
+    "Validated the match with both a clean ninja build and reported fuzzy_match_percent: 100.0."
   ],
   "decomp_lessons": [
-    "Small action-state animation callbacks can be matched by identifying the per-frame helper call plus a countdown field in fp->mv.co.common.",
-    "When a formerly unknown helper is called directly from a newly matched function, update the header prototype at the same time if the argument and return evidence is clear.",
-    "For ftCommon rebirth callbacks, fp->mv.co.common.x0 acts as a countdown in this function; future work should verify nearby rebirth/wait callbacks for the same common-field usage before renaming.",
-    "A 100% fuzzy match with a clean ninja build is useful evidence, but this PR includes no reviewer discussion, so broader naming intent beyond the changed symbols is not evidenced."
+    "Small fighter animation callbacks may be driven by a countdown stored under fp->mv.co.common.x0; when the counter reaches zero they transition to the next common-state helper.",
+    "When decompiling a callback, inspect its outgoing calls: matching the callback can justify replacing UNK_RET/UNK_PARAMS prototypes with exact Fighter_GObj* signatures.",
+    "Use ft_data fields directly when the generated code needs to pass fighter-specific data into common helper routines; here fp->ft_data->x24 was the argument to ftCo_8008A7A8.",
+    "For ftCommon state callbacks, preserving the canonical signatures void func(Fighter_GObj* gobj) is important for header consistency and call matching."
   ],
   "naming_conventions": [
-    "Matched public callback name uses the ftCo_Rebirth_Anim pattern for ftCommon action-state animation callbacks.",
-    "Related callbacks in the same header follow the suffix convention _Anim, _IASA, _Phys, and _Coll.",
-    "The helper remains address-style named ftCo_800D5600 even after its prototype was clarified, indicating no semantic name was established in this PR.",
-    "Unidentified struct members remained provisional names such as ft_data->x24 and mv.co.common.x0 rather than being over-renamed."
+    "Common fighter-state callbacks use the ftCo_ prefix and state/action suffixes such as Rebirth_Anim, Rebirth_IASA, Rebirth_Phys, and Rebirth_Coll.",
+    "Unidentified address-based helper names such as ftCo_800D5600 remain until behavior is understood, but their prototypes should still be typed when evidence permits.",
+    "Fighter object parameters are named gobj, and the Fighter* extracted from gobj->user_data is named fp."
   ],
   "assembly_or_matching_tactics": [
-    "Express the countdown as fp->mv.co.common.x0 -= 1 followed by an equality check against zero.",
-    "Preserve call order: ftCo_8008A7A8(gobj, fp->ft_data->x24) must occur before decrementing x0 and before the conditional ftCo_800D5600 call.",
-    "Use a typed Fighter_GObj* parameter and gobj->user_data load to produce the expected fighter pointer access pattern.",
-    "The matching evidence reported in the PR body was fuzzy_match_percent: 100.0."
+    "Matched by expressing the state timer as an in-place decrement of fp->mv.co.common.x0 followed by an equality check against zero.",
+    "Used the exact typed call ftCo_800D5600(gobj), which required replacing the previous UNK_PARAMS prototype.",
+    "Relied on the standard Fighter_GObj to Fighter user_data load pattern to line up the field accesses."
   ],
   "review_feedback": [
     "No review comments were present in the provided PR slice.",
-    "The PR body states that ninja built clean and the function reached a 100.0 fuzzy match."
+    "The PR body states: Decompile ftCo_Rebirth_Anim — 100% match.",
+    "The PR body states verification with ninja builds clean and fuzzy_match_percent: 100.0."
   ],
   "searchable_terms": [
     "pr-2255",
     "ftCommon",
     "ftCo_Rebirth_Anim",
-    "ftCo_8008A7A8",
-    "ftCo_800D5600",
+    "ft_0D31.c",
+    "ft_0D31.h",
     "Fighter_GObj",
-    "gobj->user_data",
     "Fighter",
+    "gobj->user_data",
+    "ftCo_8008A7A8",
     "ft_data->x24",
     "mv.co.common.x0",
+    "ftCo_800D5600",
+    "ftCo_Rebirth_IASA",
+    "ftCo_Rebirth_Phys",
+    "ftCo_Rebirth_Coll",
     "Rebirth",
-    "Rebirth_Anim",
-    "src/melee/ft/ft_0D31.c",
-    "src/melee/ft/ft_0D31.h",
-    "UNK_RET",
-    "UNK_PARAMS",
     "fuzzy_match_percent 100.0",
     "ninja builds clean",
-    "johnwinston"
+    "UNK_RET",
+    "UNK_PARAMS"
   ],
   "follow_up_queries": [
-    "Audit nearby rebirth callbacks ftCo_Rebirth_IASA, ftCo_Rebirth_Phys, ftCo_Rebirth_Coll, and ftCo_RebirthWait_* for related mv.co.common.x0 semantics.",
-    "Look for additional ftCo_800D5600 call sites to confirm whether the void ftCo_800D5600(Fighter_GObj*) prototype is globally sufficient.",
-    "Investigate whether fp->ft_data->x24 has a known semantic name used by other ftCommon animation callbacks.",
-    "Check whether mv.co.common.x0 can eventually be renamed to a rebirth timer/countdown field once more action states are matched."
+    "Find later PRs that rename or document ftCo_800D5600.",
+    "Search for other ftCommon callbacks that decrement fp->mv.co.common.x0 before transitioning.",
+    "Inspect ftCo_8008A7A8 callsites to clarify the meaning of fp->ft_data->x24.",
+    "Compare Rebirth_Anim and RebirthWait_Anim implementations for shared state-machine patterns."
   ],
-  "confidence": 0.91
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

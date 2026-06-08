@@ -11,9 +11,9 @@
     "merged_at": "2026-01-24T19:14:00Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched and renamed a large set of VS Records mndiagram functions, expanded mndiagram.c substantially, and propagated clearer persistent stats/name-tag types through gm headers and call sites. The PR also renamed multiple symbols in config/GALE01/symbols.txt from address/fn-style names to behavior names such as mnDiagram_GetHitPercentage, mnDiagram_FormatTime, mnDiagram_InputProc, and mnDiagram_UpdateScrollArrowVisibility. Review focused on enforcing module prefixes for non-static functions, moving user-data layouts into mn/types.h, keeping link-sensitive definitions near the top or in .static.h, and recognizing an inline of mnDiagram_UpdateScrollArrowVisibility.",
+  "summary": "Matched and heavily expanded src/melee/mn/mndiagram.c while renaming many VS Records diagram functions and related game-mode persistent data types. The PR converted numerous address-based or generic symbols into descriptive mnDiagram_ names, added/updated headers and symbols, introduced clearer persistent fighter/name-tag structs, and propagated those types through gmmain_lib and menu users. Review focused on enforcing module-prefixed public names, moving user-data structs into mn/types.h, keeping definitions/linkage-friendly at the top or in .static.h, and recognizing an inline of mnDiagram_UpdateScrollArrowVisibility.",
   "change_classification": {
-    "primary_type": "decomp-matching",
+    "primary_type": "decomp-matching-and-renaming",
     "categories": [
       "decomp-matching",
       "naming",
@@ -23,11 +23,12 @@
       "fix"
     ],
     "systems": [
-      "menu",
+      "mn",
       "mndiagram",
-      "game-mode",
-      "persistent-stats",
-      "config-symbols"
+      "gm",
+      "gmmain_lib",
+      "config-symbols",
+      "baselib"
     ]
   },
   "key_files": [
@@ -37,9 +38,9 @@
     "src/melee/mn/types.h",
     "src/melee/mn/mndiagram2.h",
     "src/melee/mn/mndiagram3.h",
+    "src/melee/mn/mncount.c",
     "src/melee/mn/mnmain.c",
     "src/melee/mn/mnmain.h",
-    "src/melee/mn/mncount.c",
     "src/melee/mn/mnname.c",
     "src/melee/mn/mnname.h",
     "src/melee/mn/forward.h",
@@ -51,86 +52,85 @@
     "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "Expanded src/melee/mn/mndiagram.c from a mostly stubbed file into a much larger decompilation slice, adding over two thousand lines and matching/naming many mndiagram helper and proc functions.",
-    "Renamed mndiagram symbol entries in config/GALE01/symbols.txt from address-based names such as mnDiagram_8023EA2C and fn_8023FE30 to descriptive names such as mnDiagram_GetFighterByIndex, mnDiagram_GetNameByIndex, mnDiagram_InputProc, mnDiagram_PopupCleanup, mnDiagram_OnFrame, and mnDiagram_CursorProc.",
-    "Renamed generic/global helpers in the mn range, including mn_8022E950 to mn_IsFighterUnlocked, mn_8022EB24 to mn_GetDigitAt, and mn_8022EB78 to mn_GetDigitCount.",
-    "Introduced or used clearer persistent game data type names in gm code, replacing anonymous/offset-style names like gmm_x1F2C and gmm_x2FF8_inner with FighterData, NameTagDataBank, and NameTagData in gmmain_lib.c, gmmain_lib.h, gm_17BA.c, and gm/types.h.",
-    "Updated GetPersistentFighterData to return struct FighterData* instead of void*, and GetPersistentNameData to return struct NameTagData* instead of an offset-style struct.",
-    "Adjusted GameRules initializer formatting in gmmain_lib.c from nested anonymous initializer blocks to explicit scalar fields with comments such as unk_xc, xD, xE, xF, unk_x10, x11, x12, and x13.",
-    "Added mndiagram-related declarations and forward/type plumbing across mndiagram.h, mndiagram.static.h, mn/types.h, mndiagram2.h, mndiagram3.h, mnmain.h, mnname.h, and forward.h.",
-    "Added baselib/gobjproc.h support needed by the mndiagram work."
+    "Expanded mndiagram.c from a small set of stubs/address-named functions into a much larger implementation slice, with the PR context reporting 2158 added and 47 deleted lines in that file.",
+    "Renamed many mndiagram symbols in config/GALE01/symbols.txt from address-based names or generic fn_ names to descriptive public names such as mnDiagram_GetFighterByIndex, mnDiagram_GetNameByIndex, mnDiagram_IsDistanceOverflow, mnDiagram_ConvertDistanceForDisplay, mnDiagram_GetHitPercentage, mnDiagram_FormatTime, mnDiagram_InputProc, mnDiagram_OnFrame, and mnDiagram_CursorProc.",
+    "Renamed generic mndiagram statistic helpers from unprefixed names like GetHitPercentage, GetPlayPercentage, GetAveragePlayerCount, GetNameTotalKOs, GetFighterTotalFalls to module-prefixed mnDiagram_ equivalents.",
+    "Renamed menu helper symbols outside mndiagram, including mn_8022E950 to mn_IsFighterUnlocked, mn_8022EB24 to mn_GetDigitAt, and mn_8022EB78 to mn_GetDigitCount.",
+    "Added or adjusted mndiagram helper logic for sorted fighter/name lookup, distance display overflow, distance conversion, hit/play percentages, KO/fall totals, number/time formatting, cursor navigation, ranked fighter lookup, popup/input/on-frame callbacks, and scroll-arrow visibility based on the symbol and diff evidence.",
+    "Refined game-mode persistent data types: GetPersistentFighterData now returns struct FighterData*, GetPersistentNameData now returns struct NameTagData*, and gmmain_lib.c call sites changed from gmm_x1F2C and gmm_x2FF8_inner/gmm_x2FF8 to FighterData, NameTagData, and NameTagDataBank.",
+    "Flattened or clarified the GameRules initializer in gmmain_lib.c by replacing nested anonymous initializer blocks with named/commented scalar fields such as unk_xc, xD, xE, xF, unk_x10, x11, x12, and x13.",
+    "Added mn-side type/header support, including changes to mn/types.h, mndiagram.h, mndiagram.static.h, mndiagram2.h, mndiagram3.h, forward.h, and related mnmain/mnname headers.",
+    "The author noted the work was based on Dolphin debugging, mostly produced with Claude then manually cleaned up, with some functions matched unassisted; the author also acknowledged broken/regressed matches and planned to fix them."
   ],
   "smart_moves": [
-    "Used Dolphin debugging to infer behavior-based names for many menu/stat functions instead of leaving address-only names.",
-    "Converted high-traffic persistent stats accessors to typed returns, making downstream decomp in mndiagram and gm code less dependent on casts and opaque offset structs.",
-    "Captured display-specific behavior in names such as mnDiagram_IsDistanceOverflow and mnDiagram_ConvertDistanceForDisplay, including locale-dependent US vs non-US distance thresholds evident in the diff excerpt.",
-    "Grouped related VS Records/stat helpers under the mnDiagram_ module prefix after review feedback, improving symbol searchability and consistency.",
-    "Added static asserts for inferred mndiagram structs in the excerpt, which is useful for preserving layout assumptions while decompiling code that overlays arrays, archive pointers, and GObj user data.",
-    "Identified likely proc/callback roles in formerly fn_ symbols, e.g. PopupInputProc, InputProc, PopupCleanup, PopupAnimProc, ExitAnimProc, OnFrame, and CursorProc."
+    "Converted symbol-table names at the same time as source/header prototypes, making the renamed mndiagram functions searchable and keeping config/GALE01/symbols.txt aligned with decompiled code.",
+    "Used descriptive names that encode observed behavior rather than just addresses, especially for statistics helpers, popup/input procs, cursor procs, and distance-formatting helpers.",
+    "Propagated persistent data type improvements through gm code instead of leaving mndiagram to cast anonymous or address-derived structs locally.",
+    "Added size-checked structs for inferred layouts in the mndiagram area according to the review excerpt, using STATIC_ASSERT to guard layout assumptions.",
+    "Asked for naming guidance during review and applied the project convention that non-static functions should carry the module prefix.",
+    "Identified a likely inline of mnDiagram_UpdateScrollArrowVisibility, which is a useful matching clue for nearby control-flow and call-site cleanup."
   ],
   "decomp_lessons": [
-    "For this codebase, non-static functions should be prefixed with the module name; the reviewer explicitly said to use mnDiagram_ for non-static mndiagram functions.",
-    "When a GObj user-data layout becomes known, prefer adding a named type in the appropriate module types header, here mn/types.h, rather than keeping ad hoc local structs in the C file.",
-    "Typed persistent-save structures are worth propagating through accessors and callers once the layout is understood; this reduces casts and clarifies all later stat reads/writes.",
-    "Keep link-sensitive definitions near the top of the file or in the module .static.h when linking/matching is easier that way.",
-    "Look for repeated helper logic that may actually be an inline; one reviewer noted code looked like an inline of mnDiagram_UpdateScrollArrowVisibility.",
-    "Behavioral names from in-game debugging are valuable but should still respect repository naming conventions before merge.",
-    "Large AI-assisted decomp output still needed manual cleanup and match regression fixes; the author noted broken/regressed matches would be fixed."
+    "For public/non-static functions in a module, use the module prefix consistently; in this PR the reviewer explicitly said all non-static mndiagram functions should be prefixed with mnDiagram_.",
+    "When a callback or GObj user-data blob has a stable layout, promote it into a named type in the appropriate module types header rather than keeping ad hoc local typedefs or casts in a C file.",
+    "For decomp matching in UI/menu files, descriptive callback names such as InputProc, PopupInputProc, PopupCleanup, PopupAnimProc, OnFrame, CursorProc, and ExitAnimProc can document lifecycle roles while preserving address mapping in symbols.txt.",
+    "Keep definitions needed for linking near the top of the file or in the module .static.h; review noted this makes linking easier.",
+    "If a function body appears duplicated at a call site, consider whether the original had an inline helper; the review noted code looked like an inline of mnDiagram_UpdateScrollArrowVisibility.",
+    "Struct renaming in core persistent-data areas should be propagated to accessor return types and all call sites to reduce void* usage and improve later decomp readability.",
+    "Debugging in Dolphin can inform semantic renames, but AI-generated or partially matched functions still need manual cleanup and match-regression checks."
   ],
   "naming_conventions": [
-    "Use mnDiagram_ as the prefix for all non-static functions in the mndiagram module.",
-    "Use descriptive PascalCase after the module prefix for mndiagram functions, as shown by mnDiagram_GetFighterByIndex, mnDiagram_GetPlayPercentage, mnDiagram_FormatDecimalNumber, and mnDiagram_UpdateScrollArrowVisibility.",
-    "Use mn_ for broader menu helpers outside the specific mndiagram module, as shown by mn_IsFighterUnlocked, mn_GetDigitAt, and mn_GetDigitCount.",
-    "Prefer domain types such as FighterData, NameTagData, and NameTagDataBank over offset-style temporary names such as gmm_x1F2C, gmm_x2FF8, and gmm_x2FF8_inner.",
-    "Proc/callback functions were named with role suffixes such as InputProc, PopupInputProc, PopupCleanup, PopupAnimProc, ExitAnimProc, OnFrame, and CursorProc.",
-    "The review suggested a simple user-data type name such as Diagram in mn/types.h, though the final exact type name is not fully evidenced by the excerpt."
+    "All non-static mndiagram functions should use the module prefix mnDiagram_.",
+    "Previously unprefixed helpers like GetHitPercentage and GetPlayPercentage were renamed to mnDiagram_GetHitPercentage and mnDiagram_GetPlayPercentage.",
+    "Address-based mndiagram names were replaced with behavior names where evidence was strong, e.g. mnDiagram_8023EA2C to mnDiagram_GetFighterByIndex and mnDiagram_8023EA40 to mnDiagram_GetNameByIndex.",
+    "Generic fn_ callback symbols were renamed with role suffixes such as Proc, Cleanup, OnFrame, and CursorProc.",
+    "Game-mode persistent data structs were renamed away from offset-derived names toward semantic names: gmm_x1F2C to FighterData, gmm_x2FF8_inner to NameTagData, and gmm_x2FF8 to NameTagDataBank.",
+    "Menu helper functions outside mndiagram used the mn_ prefix with descriptive verbs, e.g. mn_IsFighterUnlocked, mn_GetDigitAt, and mn_GetDigitCount."
   ],
   "assembly_or_matching_tactics": [
-    "Used Dolphin debugging to assign behavior names to matched functions.",
-    "Used STATIC_ASSERT on inferred structs to lock sizes such as 0x1C, 0x78, 0x108, and 0x50 in the diff excerpt.",
-    "Represented overlapping or callback-specific user data with overlay structs in the excerpt, such as cleanup data accessing only text objects and anim data accessing only a JObj at a known offset.",
-    "Preserved array dimensions and modulo/division patterns for name data banking, including indexing name data by arg0 / 19 and arg0 % 19.",
-    "Matched display conversion logic with exact constants and casts, including US distance overflow threshold 0x274A6, non-US threshold 0x186A0, division by 160934 or 100000, and a floating conversion by about 30.4788.",
-    "Flattened a struct initializer to named scalar fields where that better matched the actual GameRules layout.",
-    "Reviewer feedback indicates that moving definitions to the top of the file or .static.h can make linking easier."
+    "Preserved exact address mappings and sizes in config/GALE01/symbols.txt while renaming functions, allowing semantic source names without losing binary correspondence.",
+    "Used inferred structs with explicit offsets and STATIC_ASSERT size checks for mndiagram data/assets layouts, reducing fragile raw-offset access.",
+    "Moved toward typed accessors for persistent fighter and name data, which can make pointer arithmetic and array indexing easier to match and reason about.",
+    "Review suggested placing definitions at the top of the file or in .static.h to simplify linking.",
+    "Review identified a likely inline of mnDiagram_UpdateScrollArrowVisibility, indicating that future matching should test inline extraction rather than forcing duplicated standalone code.",
+    "The PR body says several unmatched functions were still only 70-90% complete, so the exact matching tactics for those bodies are only partially evidenced in the provided slice."
   ],
   "review_feedback": [
     {
       "author": "itsgrimetime",
       "file": "src/melee/mn/mndiagram.c",
-      "comment": "Asked whether all newly named functions should be prefixed with mn_ because existing names were inconsistent."
+      "feedback": "Asked whether newly named functions should all be prefixed, noting inconsistent use of mn_ or existing names."
     },
     {
       "author": "ribbanya",
       "file": "src/melee/mn/mndiagram.c",
-      "comment": "All non-static functions should be prefixed with the module name, mnDiagram_."
+      "feedback": "All non-static functions should be prefixed with the module name, mnDiagram_."
     },
     {
       "author": "ribbanya",
       "file": "src/melee/mn/mndiagram.c",
-      "comment": "The user data should be a new type in mn/types.h, maybe called Diagram for now."
+      "feedback": "The user data should be a new type in mn/types.h, possibly called Diagram for now."
     },
     {
-      "author": "unknown from excerpt",
+      "author": "ribbanya",
       "file": "src/melee/mn/mndiagram.c",
-      "comment": "When linking, definitions are easier if placed at the top of the file or in .static.h."
+      "feedback": "When linking, definitions are easier to handle if placed at the top of the file or in .static.h."
     },
     {
-      "author": "unknown from excerpt",
+      "author": "ribbanya",
       "file": "src/melee/mn/mndiagram.c",
-      "comment": "A code pattern looked like an inline of mnDiagram_UpdateScrollArrowVisibility."
+      "feedback": "A code region looked like an inline of mnDiagram_UpdateScrollArrowVisibility."
     },
     {
       "author": "itsgrimetime",
       "file": null,
-      "comment": "Acknowledged broken and regressed matches and said they would be fixed."
+      "feedback": "Acknowledged broken and regressed matches and said they would fix them."
     }
   ],
   "searchable_terms": [
     "pr-2125",
-    "mndiagram functions & renaming",
-    "itsgrimetime",
-    "mnDiagram_",
+    "mndiagram",
+    "mnDiagram",
     "mnDiagram_GetFighterByIndex",
     "mnDiagram_GetNameByIndex",
     "mnDiagram_IsDistanceOverflow",
@@ -171,22 +171,21 @@
     "GetPersistentNameData",
     "mn/types.h",
     "mndiagram.static.h",
-    "VS Records",
     "Dolphin debugging",
+    "module prefix",
+    "non-static functions",
     "STATIC_ASSERT",
-    "GObj user data",
-    "distance overflow",
-    "lbLang_IsSavedLanguageUS"
+    "user data",
+    "inline helper"
   ],
   "follow_up_queries": [
-    "Check final src/melee/mn/types.h for the exact mndiagram user-data type name chosen after review.",
-    "Search for remaining unprefixed non-static mndiagram functions and rename them to mnDiagram_* if evidence supports it.",
-    "Look for repeated call sites or duplicated code around mnDiagram_UpdateScrollArrowVisibility that should use an inline.",
-    "Audit mndiagram2 and mndiagram3 for the same module-prefix and user-data/header lessons, since the PR body says work would continue there.",
-    "Verify whether any ugly 70-90% unmatched functions mentioned in the PR body were later cleaned up or split into smaller follow-up PRs.",
-    "Search for remaining gmm_x1F2C, gmm_x2FF8, and gmm_x2FF8_inner uses to propagate FighterData, NameTagDataBank, and NameTagData consistently."
+    "Find later PRs touching src/melee/mn/mndiagram.c after PR 2125 to see whether the remaining 70-90% unmatched functions were completed.",
+    "Search for mnDiagram_UpdateScrollArrowVisibility to verify where it was inlined and whether later decomp work extracted or renamed related call sites.",
+    "Search for struct Diagram or mn Diagram user-data types in mn/types.h to confirm how the reviewer suggestion was finalized.",
+    "Search for FighterData, NameTagData, and NameTagDataBank to see how persistent game-mode structs evolved after this rename.",
+    "Review later symbols.txt changes around 0x8023EA2C-0x802437E8 for additional mndiagram semantic renames."
   ],
-  "confidence": 0.91,
+  "confidence": 0.88,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

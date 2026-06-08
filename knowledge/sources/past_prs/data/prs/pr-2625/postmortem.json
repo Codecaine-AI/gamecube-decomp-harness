@@ -1,0 +1,145 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2625",
+  "pr": {
+    "number": 2625,
+    "title": "Improvements to split up: LB",
+    "url": "https://github.com/doldecomp/melee/pull/2625",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:30:41Z",
+    "merged_at": "2026-06-08T15:14:06Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Directory-scoped LB slice split from a larger matching-improvement branch. The PR made small expression-ordering, temporary-variable, stack-padding, and arithmetic rewrites across src/melee/lb to improve decompilation matching/reviewability without introducing reported regressions. Human review feedback was minimal but positive: PsiLupan commented that the changes LGTM.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "matching improvements",
+      "codegen cleanup",
+      "directory split",
+      "local-variable ordering",
+      "expression reshaping"
+    ],
+    "systems": [
+      "library",
+      "lb",
+      "refract",
+      "collision",
+      "dvd",
+      "background flash",
+      "JObj utilities"
+    ]
+  },
+  "key_files": [
+    "src/melee/lb/lb_00CE.c",
+    "src/melee/lb/lb_00F9.c",
+    "src/melee/lb/lbbgflash.c",
+    "src/melee/lb/lbcollision.c",
+    "src/melee/lb/lbdvd.c",
+    "src/melee/lb/lbrefract.c"
+  ],
+  "what_changed": [
+    "In lb_8000D148, reordered local declarations and changed squared-distance construction to square diff_02_x/diff_12_x in place before summing with squared y components.",
+    "In lb_80011E24, removed the redundant out alias for result, wrote directly through result, reordered locals, and added PAD_STACK(4).",
+    "In lb_80012994, rewrote blur-size scaling from multiplication by 0.015625f to division by 64.0f.",
+    "In lbBgFlash_80020E38, inlined the temporary z variable into HSD_JObjSetRotationZ(jobj, angle + HSD_JObjGetRotationZ(jobj)).",
+    "In lbColl_800077A0, moved dot_diff_cb calculation after diff_ba component assignment.",
+    "In lbDvd_80018254, removed an unused struct lbDvd_803B72C0_t* var_r26 local while retaining existing PAD_STACK(0x18).",
+    "In lbRefract_80021CE8, reordered y_tex declaration, folded dist_sq assignment into the if condition, and introduced abs_dist/abs_param0 temporaries around fabsf comparisons before the remainder calculation.",
+    "The PR was explicitly scoped to src/melee/lb as a split from #2617, intended to make a larger set of matching improvements easier to review."
+  ],
+  "smart_moves": [
+    "Kept the PR small and directory-scoped, which reduced reviewer burden for a larger unsplit matching branch.",
+    "Used source-preserving expression reshapes rather than semantic rewrites: temporary removal, assignment folding, declaration ordering, and equivalent arithmetic forms.",
+    "Added explicit PAD_STACK(4) in lb_80011E24 instead of relying on an unrelated local alias to influence stack/codegen shape.",
+    "Preferred direct result pointer mutation over an extra HSD_JObj** alias when the alias was only serving matching/codegen needs.",
+    "Introduced local abs_dist and abs_param0 temporaries in lbRefract_80021CE8, likely to better match compiler scheduling/register allocation while also clarifying the comparison.",
+    "Removed an unused local in lbDvd_80018254, tightening the decompiled C while preserving the existing stack pad."
+  ],
+  "decomp_lessons": [
+    "For matching work, declaration order and whether a temporary exists can materially affect generated code even when C semantics are unchanged.",
+    "Equivalent floating-point constants can produce different codegen; try both multiplication by a reciprocal and division by the literal denominator when chasing a match.",
+    "Assignment inside a conditional, as in if ((dist_sq = x * x + y_sq) > 0.0f), can be a useful tactic when matching original evaluation order.",
+    "When removing an alias or unused local changes stack layout, explicit PAD_STACK can preserve the required frame shape more honestly.",
+    "Small in-place squaring transformations, such as diff_x *= diff_x followed by sum construction, can better reflect original instruction ordering than assigning dist = diff_x * diff_x first.",
+    "Split large matching branches by directory/subsystem when possible; this PR body shows that isolated path slices with diff-check results are easier to review and merge.",
+    "Do not infer semantic intent from these changes beyond matching/codegen cleanup; the PR context frames the work as matching improvements and gives no evidence of gameplay or algorithm changes."
+  ],
+  "naming_conventions": [
+    "LB library functions use file/subsystem-prefixed names such as lb_8000D148, lb_80011E24, lb_80012994, lbBgFlash_80020E38, lbColl_800077A0, lbDvd_80018254, and lbRefract_80021CE8.",
+    "Temporary geometry variables are named descriptively by point pair and axis, such as diff_02_x, diff_02_y, diff_12_x, diff_12_y, dist_squared_02, and dist_squared_12.",
+    "Matrix temporaries use CamelCase-like names matching HSD conventions, such as quatMtx and rotMtx.",
+    "Callback and data types retain subsystem prefixes, such as lbRefract_CallbackData, PreloadEntry, and lbDvd_803B72C0_t.",
+    "Stack-padding macros are written as PAD_STACK(byte_count), seen here as PAD_STACK(4) and PAD_STACK(0x18)."
+  ],
+  "assembly_or_matching_tactics": [
+    "Reorder local declarations to influence register allocation and stack layout.",
+    "Remove redundant aliases when direct pointer mutation gives better matching codegen.",
+    "Use PAD_STACK to compensate for stack-frame shape after local-variable cleanup.",
+    "Inline single-use temporaries when the original code likely computed directly into a call argument.",
+    "Move independent calculations across nearby assignments to match instruction scheduling.",
+    "Fold an assignment into an if condition to constrain evaluation order.",
+    "Introduce small nested scopes and explicit abs_* temporaries around __fabsf calls to influence lifetime and register reuse.",
+    "Try division by a power-of-two float literal, such as / 64.0f, instead of multiplication by its decimal reciprocal when matching floating-point code."
+  ],
+  "review_feedback": [
+    {
+      "author": "PsiLupan",
+      "feedback": "Changes here LGTM.",
+      "impact": "Approved the scoped LB matching changes without requesting further revisions."
+    }
+  ],
+  "searchable_terms": [
+    "PR2625",
+    "Improvements to split up: LB",
+    "src/melee/lb",
+    "lb_00CE.c",
+    "lb_00F9.c",
+    "lbbgflash.c",
+    "lbcollision.c",
+    "lbdvd.c",
+    "lbrefract.c",
+    "lb_8000D148",
+    "lb_80011E24",
+    "lb_80012994",
+    "lbBgFlash_80020E38",
+    "lbColl_800077A0",
+    "lbDvd_80018254",
+    "lbRefract_80021CE8",
+    "PAD_STACK",
+    "diff_02_x",
+    "diff_12_x",
+    "dist_squared_02",
+    "dot_diff_cb",
+    "dist_sq",
+    "__frsqrte",
+    "__fabsf",
+    "abs_dist",
+    "abs_param0",
+    "JOBJ_USE_QUATERNION",
+    "HSD_JObjSetRotationZ",
+    "HSD_JObjGetRotationZ",
+    "blur_size",
+    "64.0f",
+    "0.015625f",
+    "directory split",
+    "matching improvements"
+  ],
+  "follow_up_queries": [
+    "Find other PRs split from #2617 for subsystem-specific matching tactics.",
+    "Search for PAD_STACK additions paired with removal of unused locals or pointer aliases.",
+    "Search for cases where reciprocal multiplication was changed to division by a float literal for matching.",
+    "Compare lbRefract_80021CE8 matching history around __frsqrte and __fabsf codegen.",
+    "Review future lb_80011E24 changes for result pointer aliasing and stack-layout sensitivity."
+  ],
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

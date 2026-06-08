@@ -11,139 +11,133 @@
     "merged_at": "2026-04-30T20:10:02Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled and data-reconstructed significant portions of the Old Pupupu stage file. The PR added Old Pupupu StageData/static tables, migrated stage state out of gv.unk into typed GroundVars, implemented the previously stubbed grOldPupupu_80210D10 and grOldPupupu_802113E0, and brought fn_802112F4 to 100% according to the decomp.dev report. Evidence is mostly diff and bot metrics; the PR body was empty and there were no human review comments.",
+  "summary": "Decompiled and improved Old Dream Land / Old Pupupu stage code, primarily in src/melee/gr/groldpupupu.c. The PR replaced several placeholder markers with C for grOldPupupu_80210D10 and grOldPupupu_802113E0, completed fn_802112F4, added Old Pupupu stage data/static data tables, and introduced explicit Ground gv structs for oldpupupu/oldpupupu2 in gr/types.h. The decomp.dev report showed 2 new matches, including .sdata2 and fn_802112F4 reaching 100%, and large partial progress on grOldPupupu_802113E0 and grOldPupupu_80210D10. There was no human PR body or review feedback in the slice; small changes in groldkongo.c and grkinokoroute.c appear to be formatting/matching-preserving cleanup.",
   "change_classification": {
-    "primary_type": "stage decomp/matching",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-data-reconstruction",
       "headers",
-      "groundvars",
-      "partial-matches",
-      "minor-formatting"
+      "stage-data",
+      "ground-vars",
+      "partial-function-decomp",
+      "formatting-cleanup"
     ],
     "systems": [
       "stage",
       "Old Pupupu",
       "ground",
       "camera",
-      "audio",
-      "fighter interaction"
+      "stage-animation",
+      "audio"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/groldpupupu.c",
-      "role": "primary Old Pupupu decomp work: new data symbols, includes, ground-var migration, implemented 80210D10/802113E0, fn_802112F4 cleanup"
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "added grOldPupupu_GroundVars and grOldPupupu_GroundVars2 to the Ground union"
-    },
-    {
-      "path": "src/melee/gr/groldkongo.c",
-      "role": "minor line-wrap/formatting changes only in the shown diff"
-    },
-    {
-      "path": "src/melee/gr/grkinokoroute.c",
-      "role": "minor line-wrap/formatting change only in the shown diff"
-    }
+    "src/melee/gr/groldpupupu.c",
+    "src/melee/gr/types.h",
+    "src/melee/gr/groldkongo.c",
+    "src/melee/gr/grkinokoroute.c"
   ],
   "what_changed": [
-    "Added Old Pupupu static data in groldpupupu.c: grOp_803E673C = \"/GrOp.dat\", StageData grOp_803E6748 for OLDPUPUPU, spawn descriptor table grOp_803E67B0, phase table grOp_803E67D8, side vector table grOp_803E67E4, and duplicate animation index arrays grOp_804D48C8/grOp_804D48D0/grOp_804D48D8.",
-    "Expanded the grOp_804D6A98 parameter struct with x2C and x30, used later as random range bounds in grOldPupupu_802113E0.",
-    "Replaced many gp->gv.unk accesses with gp->gv.oldpupupu or gp->gv.oldpupupu2 and added matching structs in types.h: grOldPupupu_GroundVars with s32 fields xC4 through xE0 and grOldPupupu_GroundVars2 with s16 xC4/xC6.",
-    "Implemented grOldPupupu_80210D10, which decrements a respawn timer, uses Camera_800307D0 and Ground_801C0498 to choose off-screen spawn placement, randomizes spawn descriptors/count, calls grOldPupupu_802108B4_noinline(2), sets JObj translation, starts animation with grAnime_801C7FF8, and unhides a child JObj via Ground_801C3FA4/JOBJ_HIDDEN.",
-    "Implemented grOldPupupu_802113E0 as a large Old Pupupu state machine over xC8 states 0/1/2, controlling animation transitions, random timers, side changes via ftLib_800864A8, synchronization to Ground_801C2BA4(1), wind/velocity state xDC, camera call Camera_80030E44, effect call lb_80011A50, and audio call lbAudioAx_800237A8.",
-    "Cleaned fn_802112F4 by using GET_GROUND(gobj), switching on gp->gv.oldpupupu.xDC, and applying left/right x velocity only when grOldPupupu_8021128C reports the fighter is inside configured bounds.",
-    "Added needed includes for implemented logic, including camera, ftdevice, grdisplay, lbaudio_ax, baselib debug/gobjgxlink/gobjproc, and placeholder.h.",
-    "The merge commit message records staged matching attempts for grOldPupupu_802108B4, grOldPupupu_8021119C, fn_802112F4, grOldPupupu_80210D10, and grOldPupupu_802113E0, plus fixes for offset issues and ground-var migration.",
-    "decomp.dev reported 2 new matches: groldpupupu .sdata2 to 100% and fn_802112F4 to 100%; it also reported improvements for grOldPupupu_802113E0 to 87.16%, grOldPupupu_80210D10 to 85.46%, .data to 86.86%, and .sdata to 80.88%.",
-    "grOldKongo and grKinokoRoute changes visible in the slice are formatting/line wrapping, not substantive decomp changes."
+    "Added includes needed by the newly decompiled Old Pupupu logic, including camera, ftdevice, grdisplay, lbaudio_ax, baselib debug/gobjgxlink/gobjproc, and placeholder.h.",
+    "Expanded the static parameter struct behind grOp_804D6A98 with x2C and x30 float fields used as random timing/range inputs in grOldPupupu_802113E0.",
+    "Added Old Pupupu data symbols in groldpupupu.c: duplicate animation index tables grOp_804D48C8/grOp_804D48D0/grOp_804D48D8, /GrOp.dat string grOp_803E673C, StageData grOp_803E6748, grOldPupupuSpawnDesc, spawn descriptor table grOp_803E67B0, state sequence table grOp_803E67D8, and side-direction Vec3 table grOp_803E67E4.",
+    "Introduced struct grOldPupupu_GroundVars and struct grOldPupupu_GroundVars2 in src/melee/gr/types.h and added them to the Ground gv union.",
+    "Replaced generic gp->gv.unk accesses in Old Pupupu code with gp->gv.oldpupupu and gp->gv.oldpupupu2 fields.",
+    "Added a dont_inline wrapper, grOldPupupu_802108B4_noinline, used by grOldPupupu_80210D10 when spawning child ground objects.",
+    "Implemented grOldPupupu_80210D10, covering a respawn timer, camera bounds lookup via Camera_800307D0, randomized spawn descriptors, HSD_JObj translation setup, grAnime_801C7FF8 animation setup, hidden-flag clearing through Ground_801C3FA4, and respawn timer reseeding.",
+    "Completed fn_802112F4 by removing the temporary user_data assignment pattern, using GET_GROUND(gobj), switching on gp->gv.oldpupupu.xDC, and preserving fighter-position/velocity handling.",
+    "Implemented most of grOldPupupu_802113E0 as a state machine over gp->gv.oldpupupu.xC8, including animation transitions, shared-state writes to another ground object from Ground_801C2BA4(1), player-side checks through ftLib_800864A8, camera/audio/effect triggers, and state cycling through grOp_803E67D8.",
+    "Updated grOldPupupu_80211C1C to read the renamed oldpupupu ground vars from another ground object instead of gv.unk.",
+    "Applied formatting-only or matching-style line wrapping changes in grkinokoroute.c and groldkongo.c."
   ],
   "smart_moves": [
-    "Migrating Old Pupupu state out of gv.unk into stage-specific GroundVars made the code more readable and avoided offset-cast noise such as *(s16*) &gp->gv.unk.xC4.",
-    "Using a second struct, grOldPupupu_GroundVars2, preserved the fact that one Old Pupupu object interprets the same ground-var area as an s16 timer rather than the main s32 state machine.",
-    "Reconstructing data tables instead of hardcoding values improved data matching: the bot credited .sdata2 reaching 100% and .data/.sdata moving substantially upward.",
-    "The noinline wrapper grOldPupupu_802108B4_noinline is a targeted codegen tactic for grOldPupupu_80210D10: it forces a call boundary even though the wrapper simply returns grOldPupupu_802108B4(arg0).",
-    "The fn_802112F4 cleanup shows that tiny access-pattern changes, such as GET_GROUND(gobj) and removing an artificial temporary/PAD_STACK, can finish an almost-matched function.",
-    "The implementation keeps unknown fields as offset names where semantics are not proven, while still giving the containing structs and typedefs meaningful Old Pupupu names."
+    "Added named Ground gv structs before replacing gv.unk accesses, making later Old Pupupu decomp work easier to search and reason about without claiming semantic field names prematurely.",
+    "Kept uncertain struct fields as offset-style names such as xC4, xC8, xD0, x2C, and x30, which preserves evidence-grounded naming while still separating Old Pupupu layouts from the generic unk union.",
+    "Used a small grOldPupupuSpawnDesc typedef to document the layout of the 10-entry spawn table instead of leaving the table as raw bytes or ints.",
+    "Used a noinline forwarding wrapper around grOldPupupu_802108B4, a practical matching tactic when a direct call/inlining decision would disturb code generation.",
+    "Preserved low-level matching details such as PAD_STACK, HSD_ASSERT line number 0x216, float constants, explicit casts, and direct user_data/GET_GROUND patterns where needed.",
+    "Factored repeated stage configuration into StageData and StageCallbacks data matching the stage data conventions used elsewhere in the ground system."
   ],
   "decomp_lessons": [
-    "For stage files, adding typed GroundVars is often a prerequisite for matching larger callbacks and should be done before trying to polish every control-flow detail.",
-    "If different stage objects share the Ground union but interpret offsets differently, model that explicitly with separate union members instead of forcing one struct or using casts.",
-    "Data matching may require separate static symbols for identical-looking arrays; do not assume duplicate tables can be collapsed if the original binary stores them separately.",
-    "Large stage hazard state machines often synchronize state into another Ground object via Ground_801C2BA4; matching attempts should track both the controlling object and the display/helper object.",
-    "Camera-bounded random spawns can match better when expressed with explicit camera left/center/right locals, HSD_Randi/HSD_Randf, and original-looking float constants rather than simplified algebra.",
-    "Machine-reported percentages should be recorded precisely: this PR improved grOldPupupu_80210D10 and grOldPupupu_802113E0 but did not make them 100% in the bot report."
+    "For stage files, adding a specific GroundVars struct to gr/types.h can unlock cleaner matching work in multiple functions while keeping field names offset-based until behavior is understood.",
+    "Stage object state machines may mirror state between multiple Ground objects via Ground_801C2BA4; when decompiling these, preserve the repeated copy pattern rather than prematurely abstracting it.",
+    "Stage spawn logic often depends on camera bounds, randomized tables, JObj transforms, hidden flags, and animation calls; matching may require recovering the static descriptor tables and constants alongside the function body.",
+    "When a function call's inlining behavior blocks matching, a local dont_inline wrapper can be an acceptable decomp tactic if clearly scoped and named as a wrapper.",
+    "Completing small support functions like fn_802112F4 and .sdata/.sdata2 tables can produce measurable decomp.dev gains even if larger functions remain partial.",
+    "No human review comments were present, so reusable lessons come from the diff and bot match report rather than reviewer rationale."
   ],
   "naming_conventions": [
-    "Stage functions use the existing address-suffixed form grOldPupupu_80210D10, grOldPupupu_802113E0, fn_802112F4; the PR did not invent semantic function names.",
-    "Old Pupupu data symbols use the grOp_ prefix, e.g. grOp_803E6748, grOp_803E67B0, grOp_804D48C8.",
-    "The stage data path string is named grOp_803E673C and contains \"/GrOp.dat\"; StageData grOp_803E6748 uses enum OLDPUPUPU.",
-    "Typed ground vars are named grOldPupupu_GroundVars and grOldPupupu_GroundVars2, with Ground union fields oldpupupu and oldpupupu2.",
-    "The spawn table typedef is grOldPupupuSpawnDesc, but its fields remain x0/x1/x2 because their exact meanings were not proven in the diff."
+    "Old Pupupu stage functions use the grOldPupupu_802xxxxx naming pattern.",
+    "Old Pupupu data symbols use the grOp_ prefix, e.g. grOp_804D6A98, grOp_803E6748, and grOp_803E67B0.",
+    "Stage data symbol grOp_803E6748 pairs the OLDPUPUPU stage enum with /GrOp.dat and the Old Pupupu callbacks.",
+    "New Ground gv union members are named oldpupupu and oldpupupu2, following the stage-specific lower-case convention used by nearby entries such as oldkongo.",
+    "Unidentified struct fields remain offset-style names such as xC4, xC8, xD4, xDC, xE0, x2C, and x30 rather than speculative semantic names."
   ],
   "assembly_or_matching_tactics": [
-    "Used #pragma dont_inline around grOldPupupu_802108B4_noinline to prevent inlining at a sensitive callsite.",
-    "Used PAD_STACK(0x10) in grOldPupupu_80210D10, indicating stack layout was part of that partial match.",
-    "Changed fn_802112F4 from a manual gobj->user_data temporary to GET_GROUND(gobj), which coincides with the bot-reported 100% match for that function.",
-    "Added x2C/x30 to the static parameter struct to fix later field offsets used by rand_range in grOldPupupu_802113E0.",
-    "Recovered static .data/.sdata/.sdata2 objects, including Vec3 constants and duplicate animation tables, to improve data-section matching.",
-    "Kept float constants and ordering visible in spawn/camera math, such as 200.0F, 50.0F, 10.0F, -150.0F, 40.0F, and the HSD_Randf expression."
+    "Used #pragma push / #pragma dont_inline on / #pragma dont_inline reset / #pragma pop to force grOldPupupu_802108B4_noinline not to inline.",
+    "Kept PAD_STACK(0x10) in grOldPupupu_80210D10, indicating stack layout still mattered for matching.",
+    "Kept HSD_ASSERT(0x216, jobj) with the original line constant in the spawn setup path.",
+    "Used explicit float constants and casts such as 10.0F, 50.0F, -150.0F, 40.0F * (f32) i, and casts from grOp_804D6A98 fields to s32 in random range calls.",
+    "Converted a temporary user_data expression in fn_802112F4 into GET_GROUND(gobj), which the bot report says helped bring fn_802112F4 to 100%.",
+    "Introduced static data tables alongside code so .data, .sdata, and .sdata2 matching improved, according to the decomp.dev report."
   ],
   "review_feedback": [
-    "No human review comments were present in the slice, and the PR body was empty, so reviewer intent cannot be inferred.",
-    "decomp-dev bot reported GALE01 matched code 65.05% (+0.01%, +236 bytes) and matched data 38.57% (+0.00%, +56 bytes).",
-    "decomp-dev bot listed new matches for main/melee/gr/groldpupupu .sdata2 at 100.00% and fn_802112F4 at 100.00%, plus partial improvements for grOldPupupu_802113E0, grOldPupupu_80210D10, .data, and .sdata."
+    "No human review comments or PR body were present in the provided slice.",
+    "decomp.dev bot reported matched code increased by 236 bytes and matched data by 56 bytes.",
+    "decomp.dev bot reported 2 new matches: main/melee/gr/groldpupupu .sdata2 reached 100.00%, and fn_802112F4 reached 100.00%.",
+    "decomp.dev bot reported partial improvements: grOldPupupu_802113E0 reached 87.16%, grOldPupupu_80210D10 reached 85.46%, .data reached 86.86%, and .sdata reached 80.88%."
   ],
   "searchable_terms": [
-    "pr-2437",
+    "PR2437",
     "Jj/groldpupupu",
     "jurrejelle",
-    "groldpupupu",
-    "Old Pupupu",
+    "groldpupupu.c",
+    "grOldPupupu",
     "OLDPUPUPU",
-    "/GrOp.dat",
-    "grOldPupupu_802108B4",
-    "grOldPupupu_802108B4_noinline",
-    "grOldPupupu_80210D10",
-    "grOldPupupu_8021119C",
-    "fn_802112F4",
-    "grOldPupupu_802113E0",
-    "grOldPupupu_GroundVars",
-    "grOldPupupu_GroundVars2",
-    "oldpupupu",
-    "oldpupupu2",
+    "GrOp.dat",
+    "grOp_804D6A98",
+    "grOp_804D6A9C",
     "grOp_803E6748",
     "grOp_803E67B0",
-    "grOp_803E67D8",
-    "grOp_803E67E4",
-    "grOp_804D48C8",
-    "grOp_804D48D0",
-    "grOp_804D48D8",
+    "grOldPupupuSpawnDesc",
+    "grOldPupupu_80210D10",
+    "grOldPupupu_802113E0",
+    "fn_802112F4",
+    "grOldPupupu_802108B4_noinline",
+    "oldpupupu",
+    "oldpupupu2",
+    "GroundVars",
+    "StageData",
+    "StageCallbacks",
     "Camera_800307D0",
     "Camera_80030E44",
     "lbAudioAx_800237A8",
-    "lb_80011A50",
     "Ground_801C2BA4",
     "Ground_801C3FA4",
-    "GET_GROUND",
-    "HSD_JObjClearFlagsAll",
-    "JOBJ_HIDDEN",
+    "grAnime_801C7FF8",
+    "grAnime_801C8138",
+    "grAnime_801C83D0",
     "ftLib_800864A8",
     "ftLib_80086644",
-    "ftCo_800C06E8",
-    ".sdata2",
-    ".data",
-    ".sdata"
+    "HSD_Randi",
+    "HSD_Randf",
+    "dont_inline",
+    "PAD_STACK"
   ],
   "follow_up_queries": [
-    "Find later PRs that finish grOldPupupu_80210D10 or grOldPupupu_802113E0 after the 85.46%/87.16% bot-reported state.",
-    "Search other stage files for gv.unk accesses that could be migrated to typed GroundVars like oldpupupu/oldpupupu2.",
-    "Look for later semantic renames of grOldPupupuSpawnDesc fields x0/x1/x2 and grOldPupupu_GroundVars fields xC4-xE0.",
-    "Compare grOp_804D48A0/A8/B0 with grOp_804D48C8/D0/D8 to confirm why duplicate static animation tables are required for data matching.",
-    "Audit other stage spawn managers for the same noinline-wrapper tactic around object creation helpers."
+    "Find later PRs touching grOldPupupu_80210D10 to see how the remaining mismatch from 85.46% was resolved.",
+    "Find later PRs touching grOldPupupu_802113E0 to see whether the 87.16% partial implementation became a full match.",
+    "Search for oldpupupu.xC4/xC8/xD0/xD4/xD8/xDC/xE0 to refine semantic field names once more behavior is understood.",
+    "Compare grOldPupupu spawn descriptor patterns with other stage spawn systems using Camera_800307D0 and Ground_801C3FA4.",
+    "Review subsequent changes to grOp_804D6A98 layout fields x2C and x30 for better parameter naming."
   ],
-  "confidence": 0.86
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

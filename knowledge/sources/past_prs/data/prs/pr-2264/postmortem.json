@@ -11,17 +11,16 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed, unmerged gmregclear decomp PR that matched two functions, fn_8017DE54 and fn_8017F14C, updated their header prototypes, and exposed a s16 field at lbl_80472D28_t offset 0x10A. The PR body claimed clean ninja and 100.0 fuzzy match for all functions. A later comment says the work was consolidated into other PRs, so this slice is useful mainly as evidence for matching tactics and type/layout decisions rather than as a merged change.",
+  "summary": "Closed unmerged PR that decompiled two gmregclear functions, `fn_8017DE54` and `fn_8017F14C`, with claimed 100% fuzzy matches and clean `ninja` verification. The work also refined an internal gmregclear struct layout by splitting padding to expose an `s16 x10A` field used by `fn_8017F14C`, and updated header prototypes from `UNK_RET/UNK_PARAMS` to concrete signatures. A later comment says the work was consolidated into other PRs.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "function-decompilation",
       "headers",
       "types-structs",
       "naming",
-      "closed-unmerged",
-      "consolidated-work"
+      "pointer-math",
+      "closed-unmerged"
     ],
     "systems": [
       "game-mode",
@@ -29,72 +28,56 @@
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gm/gmregclear.c",
-      "reason": "Replaced nonmatching placeholders for fn_8017DE54 and fn_8017F14C and refined lbl_80472D28_t layout."
-    },
-    {
-      "path": "src/melee/gm/gmregclear.h",
-      "reason": "Changed fn_8017DE54 and fn_8017F14C prototypes from UNK_RET/UNK_PARAMS to typed signatures."
-    }
+    "src/melee/gm/gmregclear.c",
+    "src/melee/gm/gmregclear.h"
   ],
   "what_changed": [
-    "Added a C implementation for fn_8017DE54 with signature s32 fn_8017DE54(u8 arg0, u8* arg1). The logic checks bit flags in arg0: bit 0x20 returns 0, bit 0x10 counts entries among arg1[0..2] that are not 0x21 and returns 3 - count, bit 0x2 returns 2, otherwise returns 0.",
-    "Added a C implementation for fn_8017F14C with signature s32 fn_8017F14C(void* arg0). It checks gm_8016AE38()->x24C8.x4_7, reads an s32 from arg0 + 0x98, clamps values above 9999, multiplies by lbl_80472D28.x10A, and otherwise returns 0.",
-    "Refined struct lbl_80472D28_t by splitting padding at offset 0x108 to expose a s16 field named x10A at offset 0x10A before x116.",
-    "Updated gmregclear.h prototypes for fn_8017DE54 and fn_8017F14C from unknown return/parameter macros to concrete s32 return types and explicit parameters.",
-    "The PR was closed without merge; the author comment states it was consolidated into other PRs."
+    "Implemented `fn_8017DE54(u8 arg0, u8* arg1)` returning an `s32`; logic checks flag bits `0x20`, `0x10`, and `2`, counts entries in a three-byte array that are not `0x21`, and returns either `0`, `2`, or `3 - count` depending on flags.",
+    "Implemented `fn_8017F14C(void* arg0)` returning an `s32`; logic gates on `gm_8016AE38()->x24C8.x4_7`, reads a signed 32-bit value at byte offset `0x98` from `arg0`, clamps it to `9999`, multiplies by `lbl_80472D28.x10A`, and otherwise returns `0`.",
+    "Refined `struct lbl_80472D28_t` by splitting prior padding at `+0x108` into `pad_108[0x2]`, a new `s16 x10A` field at `+0x10A`, and `pad_10C[0xA]`, preserving the later `x116` field.",
+    "Updated gmregclear header declarations for `fn_8017DE54` and `fn_8017F14C` from unknown placeholder prototypes to concrete return and argument types.",
+    "PR body reported `ninja` builds clean and `fuzzy_match_percent: 100.0` for both decompiled functions.",
+    "PR was closed without merge; an author comment states it was consolidated into other PRs."
   ],
   "smart_moves": [
-    "Exposed the known global data field at offset 0x10A as x10A instead of leaving all of the area as anonymous padding, which made fn_8017F14C cleaner while preserving offset-based naming.",
-    "Kept the arg0 + 0x98 access in fn_8017F14C as explicit pointer math because the parameter remained void* and no known decompiled callers established a safe struct type.",
-    "Documented why a tempting struct-field replacement was not made: offset 0x98 fell inside unnamed padding in the closest candidate struct, so inventing a field would be overconfident.",
-    "Used narrow/offset-driven prototypes and field names rather than semantic names not supported by the available evidence.",
-    "Updated the header prototypes in the same PR as the function bodies, making the decompilation reusable by later code."
+    "Exposed only the struct field required by matching evidence (`x10A`) while leaving surrounding bytes as padding, avoiding over-asserting unknown layout.",
+    "Kept `fn_8017F14C` parameter as `void*` and used explicit byte-offset pointer math for offset `0x98` because the actual caller/type was not known in decompiled code.",
+    "Converted `UNK_RET/UNK_PARAMS` prototypes to concrete signatures once the functions were matched, improving downstream type information.",
+    "Used a conservative clamp expression in `fn_8017F14C` matching the observed behavior: values above `9999` are capped before multiplication."
   ],
   "decomp_lessons": [
-    "When a pointer argument has unknown concrete type and no known callers, explicit u8* pointer arithmetic can be the safest matching representation.",
-    "Do not promote an offset inside another struct's unnamed padding to a named field unless the actual struct ownership is known.",
-    "For global/static data layouts, splitting padding to expose a single confirmed field is acceptable when the offset and type are needed for a matching function.",
-    "Keep placeholder-style names such as fn_8017F14C and x10A when behavior or semantics are not yet established.",
-    "Closed/unmerged PRs can still preserve useful matching patterns, but final symbol status should be checked in the later consolidated PRs."
+    "When a function reads a field from a parameter whose true struct type is unknown and no known decompiled callers prove the type, keeping `void*` plus explicit byte offset access can be preferable to inventing a struct field.",
+    "Struct padding should be split only where there is direct evidence for a field; in this PR, `lbl_80472D28_t` gained `s16 x10A` while nearby bytes remained named padding.",
+    "Small flag/counting routines can often be matched with simple typed parameters (`u8`, `u8*`) and explicit constants rather than broader unknown parameter macros.",
+    "A PR can contain valid matching work but still be closed unmerged if its contents are later consolidated elsewhere; future archaeology should search successor PRs before treating this slice as landed."
   ],
   "naming_conventions": [
-    "Unidentified functions stayed in address-based form, e.g. fn_8017DE54 and fn_8017F14C.",
-    "Anonymous data structs used label-derived names such as lbl_80472D28_t and global lbl_80472D28.",
-    "Unidentified struct members used offset names such as x10A, with padding names such as pad_108 and pad_10C.",
-    "Header comments retained address markers like /* 17DE54 */ and /* 17F14C */ beside prototypes."
+    "Unidentified functions retained address-based names such as `fn_8017DE54` and `fn_8017F14C`.",
+    "Unknown global/struct types retained label-based names such as `lbl_80472D28_t` and `lbl_80472D28`.",
+    "Partially known struct fields used offset-style names like `x10A`, with padding fields named by offset such as `pad_108` and `pad_10C`.",
+    "Header comments preserved address tags like `/* 17DE54 */` and `/* 17F14C */` beside prototypes."
   ],
   "assembly_or_matching_tactics": [
-    "Preserved byte/word access patterns with u8 arguments and u8* indexing in fn_8017DE54.",
-    "Used explicit casts to s32 around byte comparisons against 0x21, likely to control generated comparison/codegen shape.",
-    "Introduced a temporary pointer p = &arg1[1] in fn_8017DE54, matching the access sequence for arg1[1] and arg1[2].",
-    "Implemented fn_8017F14C's unknown-struct access as *(s32*) ((u8*) arg0 + 0x98), keeping exact byte offset arithmetic.",
-    "Clamped the loaded value to 9999 before multiplying by the s16 global field x10A.",
-    "The PR body reports ninja builds clean and fuzzy_match_percent 100.0 for the matched functions."
+    "Used exact-width argument and return types (`u8`, `u8*`, `s32`) to replace generic unknown prototypes and satisfy matching constraints.",
+    "Used byte-pointer arithmetic and cast `*(s32*) ((u8*) arg0 + 0x98)` to force a load from an exact offset without assuming a struct type.",
+    "Introduced a local pointer `p = &arg1[1]` in `fn_8017DE54`, likely to match compiler register/addressing behavior while checking adjacent bytes.",
+    "Split a struct padding region to create an `s16` field at an exact offset needed for the generated load/multiply in `fn_8017F14C`.",
+    "Reported verification was based on a clean `ninja` build and `fuzzy_match_percent: 100.0` for all changed functions."
   ],
   "review_feedback": [
-    {
-      "type": "issue-comment",
-      "text": "The author noted pointer math would be fixed soon, then followed up that the pointer math in fn_8017F14C could not be replaced with struct field access because arg0 is void*, has no known decompiled callers, and offset 0x98 lies in unnamed padding in the closest candidate struct."
-    },
-    {
-      "type": "closure-note",
-      "text": "A later comment says the PR was consolidated into other PRs."
-    },
-    {
-      "type": "review-status",
-      "text": "No review comments or formal reviews were present in this slice."
-    }
+    "Author noted: \"Will fix pointer math soon.\"",
+    "Follow-up comment explained that pointer math in `fn_8017F14C` could not be replaced with struct field access because `arg0` is `void*`, there are no known decompiled callers, and offset `0x98` falls within unnamed padding in the closest candidate struct.",
+    "No formal review comments or reviews were present in the provided slice.",
+    "Final comment stated: \"Consolidated into other PRs.\""
   ],
   "searchable_terms": [
     "pr-2264",
     "gmregclear",
-    "johnwinston",
     "fn_8017DE54",
     "fn_8017F14C",
-    "src/melee/gm/gmregclear.c",
-    "src/melee/gm/gmregclear.h",
+    "fn_8017DD7C",
+    "fn_8017F09C",
+    "fn_8017F1B8",
     "lbl_80472D28_t",
     "lbl_80472D28",
     "x10A",
@@ -103,22 +86,26 @@
     "gm_8016AE38",
     "x24C8",
     "x4_7",
-    "arg0+0x98",
-    "0x98",
-    "0x21",
-    "9999",
+    "offset 0x98",
     "pointer math",
-    "void*",
-    "UNK_RET",
-    "UNK_PARAMS",
+    "void* arg0",
     "fuzzy_match_percent 100.0",
-    "consolidated into other PRs"
+    "ninja builds clean",
+    "consolidated into other PRs",
+    "johnwinston"
   ],
   "follow_up_queries": [
-    "Find the later consolidated PRs that absorbed fn_8017DE54 and fn_8017F14C.",
-    "Check current master for the final signatures and implementations of fn_8017DE54 and fn_8017F14C.",
-    "Search for decompiled callers of fn_8017F14C to identify the real type of its void* arg0 and the field at offset 0x98.",
-    "Verify whether lbl_80472D28_t.x10A kept the same type and offset after consolidation."
+    "Search later or parallel PRs that consolidated `fn_8017DE54` and `fn_8017F14C` to verify the final landed implementations.",
+    "Look for decompiled callers of `fn_8017F14C` or uses of offset `0x98` to eventually replace `void*` pointer math with a real struct type if evidence appears.",
+    "Audit `lbl_80472D28_t` in subsequent PRs to see whether `x10A` gained a semantic name or additional neighboring fields were identified."
   ],
-  "confidence": 0.89
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,89 +11,91 @@
     "merged_at": "2026-06-01T04:39:26Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Implemented the previously unmatched `fn_8003F294` in `src/melee/pl/plbonuslib.c`, producing a 680-byte 100% match. The function reads player action stats and stale-move-table state, runs a sequence of bonus/stat threshold checks through `pl_8003906C` and `pl_80039238`, and updates `table->xDD1.bit5`/`table->xD5C` state after a final condition.",
+  "summary": "Matched `fn_8003F294` in `src/melee/pl/plbonuslib.c`, replacing a placeholder comment with a full C implementation. The function updates multiple player bonus/stale-move-table fields using action stats, threshold values from `pl_804D6470`, helper calls such as `pl_8003906C` and `pl_80039238`, and a final bitfield update around `table->xDD1.bit5`. The PR reports local objdiff success for `fn_8003F294`: 680 bytes, 100.0%.",
   "change_classification": {
-    "primary_type": "decompilation-match",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "function-implementation",
-      "objdiff-verified",
-      "tooling-verification"
+      "player-bonus-logic",
+      "object-match"
     ],
     "systems": [
       "melee-core",
-      "plbonuslib",
-      "player action stats",
-      "stale move table"
+      "player",
+      "plbonuslib"
     ]
   },
   "key_files": [
     {
-      "path": "src/melee/pl/plbonuslib.c",
-      "role": "Replaced the `/// fn_8003F294` placeholder with a matched C implementation plus the local inline helper `plBonusLib_8003F294_inline`; +74/-1 lines."
+      "file": "src/melee/pl/plbonuslib.c",
+      "added_lines": 74,
+      "deleted_lines": 1,
+      "role": "Implemented and matched `fn_8003F294`; added a small inline wrapper used to preserve matching call/codegen behavior."
     }
   ],
   "what_changed": [
-    "Added `inline unsigned int plBonusLib_8003F294_inline(plActionStats* stats, int attack)`, a thin wrapper around `pl_800386D8(stats, attack)` used by the matched function.",
-    "Added `void fn_8003F294(int slot, int index)`, obtaining `pl_StaleMoveTableExt_t*` via `Player_GetStaleMoveTableIndexPtr2(slot)` and `plActionStats*` via `Player_GetActionStats(slot)` after an ignored `Player_GetEntityAtIndex(slot, index)` call.",
-    "Preserved an early return for `index == 1` using a `do { ... } while (0)` shape.",
-    "Implemented repeated `pl_8003906C` bonus/stat checks using thresholds from `pl_804D6470` and values from `stats` or `table`, writing results to fields including `xD9C`, `xDA0`, `xDA4`, `xDA8`, `xDAC`, `xDB0`, `xDB4`, `xDB8`, and `xDBC`.",
-    "Computed a magnitude with `sqrtf__Ff` from `x0_staleMoveTable.xCDC` and `x0_staleMoveTable.xCE0`, then called `pl_80039238` for the `0x44` check writing `table->xDC0`.",
-    "Added final conditional handling around `pl_8003906C(... table->xCF4, &table->xDC4)`, comparing `pl_804D6470->xB8` with `gm_8016AEDC()`, toggling `table->xDD1.bit5`, and resetting `table->xD5C` to `-1`.",
-    "PR verification reported `fn_8003F294`: 680 bytes, 100.0% local objdiff match; the decomp.dev bot reported +680 matched bytes and one new match."
+    "Replaced the `/// fn_8003F294` placeholder in `plbonuslib.c` with a complete implementation of `void fn_8003F294(int slot, int index)`.",
+    "Added `inline unsigned int plBonusLib_8003F294_inline(plActionStats* stats, int attack)` as a wrapper around `pl_800386D8(stats, attack)`.",
+    "Retrieves the extended stale move table with `Player_GetStaleMoveTableIndexPtr2(slot)` and action stats with `Player_GetActionStats(slot)`.",
+    "Calls `Player_GetEntityAtIndex(slot, index)` even though its return value is unused, likely to preserve original side effects or call ordering.",
+    "Early-returns when `index == 1`, expressed through a `do { ... } while (0)` shape in the matched source.",
+    "Populates or checks many bonus/stat counters through repeated `pl_8003906C` calls targeting fields such as `xD9C`, `xDA0`, `xDA4`, `xDA8`, `xDAC`, `xDB0`, `xDB4`, `xDB8`, `xDBC`, and `xDC4`.",
+    "Computes a magnitude from `xCDC` and `xCE0` using `sqrtf__Ff` and passes it to `pl_80039238` for the `xDC0` update.",
+    "Handles a conditional bonus path after a `pl_8003906C` call involving `xDCC`, `xB8`, `xBC`, `xCF4`, and `xDC4`, comparing against `gm_8016AEDC()` and updating `table->xDD1.bit5` and `table->xD5C`."
   ],
   "smart_moves": [
-    "Used a tiny function-local inline wrapper, `plBonusLib_8003F294_inline`, to express repeated `pl_800386D8` calls in a compiler-friendly way for the match.",
-    "Kept several match-oriented C shapes visible in the diff: `PAD_STACK(24)`, scoped local blocks, assignment expressions inside call arguments, and an otherwise unusual `do { if (...) return; } while (0)` early-return form.",
-    "Introduced short-lived locals such as `threshold`, `threshold2`, `new_var`, `e8`, `t2`, `mag`, and `x8c` in places that likely control evaluation order, register allocation, or stack layout.",
-    "Re-fetched the stale move table into `t2` for the vector magnitude calculation instead of only reusing the earlier `table` pointer, preserving the load pattern shown by the matched implementation.",
-    "Used explicit casts such as `(unsigned int*) &table->xDC8`, `(unsigned int*) &table->xDCC`, `(pl_800386E8_arg0_t*) stats`, and `*((f32*) &pl_804D6470->x8C)` rather than forcing broader struct/type changes in this PR."
+    "Used a dedicated inline wrapper, `plBonusLib_8003F294_inline`, around `pl_800386D8`; this is a common matching tactic when direct calls or repeated expressions do not produce the desired codegen.",
+    "Kept seemingly awkward temporary assignments inside argument lists, such as `threshold2 = pl_804D6470->x74`, `threshold = pl_804D6470->x94`, and `new_var = pl_804D6470->xBC`, indicating deliberate source shaping for register/evaluation-order matching.",
+    "Inserted `PAD_STACK(24)`, showing the match required explicit stack padding rather than relying on natural local allocation.",
+    "Preserved an otherwise unusual `do { if (index == 1) return; } while (0);` structure, suggesting the author prioritized matching control-flow shape over source-level cleanliness.",
+    "Reloaded the stale move table into a separate local `t2` before the `sqrtf__Ff` calculation, likely to reproduce original load/register behavior.",
+    "Used an explicit float reinterpret cast, `*((f32*) &pl_804D6470->x8C)`, to match the expected floating-point load/use for a config field."
   ],
   "decomp_lessons": [
-    "For small CodeWarrior matches, source that looks unnatural in modern C can be the correct decomp shape: stack padding, dummy locals, scoped blocks, assignment-in-argument expressions, and wrapper inlines are all reusable tactics when objdiff is close.",
-    "When global config data like `pl_804D6470` is still partly offset-named, preserving exact offset accesses and casts can be safer than prematurely renaming or retyping the backing struct.",
-    "For player bonus/stat routines, matching may depend on the exact order of table pointer fetches, action-stat queries, threshold loads, and result-field writes.",
-    "The PR is a good example of validating a single-function match with both object-specific build (`ninja build/GALE01/src/melee/pl/plbonuslib.o`) and full build (`ninja`) plus `--require-protos`."
+    "For stubborn matches, small local inline wrappers can be useful to control whether a helper call is emitted or inlined in the same way as the original.",
+    "Argument-list assignments can be a practical matching tool in MWCC-era code because evaluation order and temporary lifetimes affect register allocation.",
+    "Do not remove unused-looking calls during decompilation: `Player_GetEntityAtIndex(slot, index)` is retained despite no visible return use.",
+    "Explicit stack padding with `PAD_STACK` remains appropriate when the logical C locals do not naturally reproduce the original stack frame.",
+    "Bitfield updates, especially fields like `table->xDD1.bit5`, may need to be modeled directly rather than hidden behind helper abstractions if the goal is exact codegen.",
+    "When config structures contain mixed typed data or uncertain field types, explicit casts such as pointer-to-`f32` reinterpretation may be necessary until the struct is better typed."
   ],
   "naming_conventions": [
-    "The matched function keeps the address-style name `fn_8003F294`, indicating no semantic symbol name was established in this PR.",
-    "The local helper follows a module-plus-address convention: `plBonusLib_8003F294_inline`.",
-    "Existing project prefixes are retained: `Player_` for player accessors, `pl_` for player/bonus library internals, and `gm_` for game/global routines.",
-    "Struct members remain offset-style names such as `xD9C`, `xDA0`, `xDC4`, `xDD1.bit5`, and `x0_staleMoveTable`, so the PR does not claim new semantic field names."
+    "The matched function retains its placeholder symbol name `fn_8003F294`, consistent with unresolved or not-yet-semantically-named functions.",
+    "The inline helper is named with the module prefix and address, `plBonusLib_8003F294_inline`, making it searchable and clearly tied to the matching workaround for this function.",
+    "Existing project-style prefixes are preserved: `Player_` for player accessors, `pl_` for player/library internals, and `gm_` for game-manager functionality.",
+    "Unidentified struct members remain offset-style names such as `xD9C`, `xDA0`, `xD5C`, and `xDD1`, avoiding invented semantic names."
   ],
   "assembly_or_matching_tactics": [
-    "`PAD_STACK(24)` was required in the function body, suggesting stack-frame size/alignment was part of the match.",
-    "Assignment expressions in function-call arguments, e.g. `threshold = pl_804D6470->x94` and `new_var = pl_804D6470->xBC`, were used to preserve compiler evaluation/codegen behavior.",
-    "The inline wrapper around `pl_800386D8` was likely used as an inlining/codegen lever rather than for semantic abstraction.",
-    "Scoped blocks around `e8` and the `sqrtf__Ff` magnitude calculation limit local lifetimes and can influence register allocation.",
-    "Pointer punning for `pl_804D6470->x8C` as `f32` and casts of table fields to `unsigned int*` were kept at the use sites for match fidelity.",
-    "Automated and local reports both show the function reached 100.00% match for 680 bytes."
+    "Reported verification included `python configure.py --require-protos`, `ninja build/GALE01/src/melee/pl/plbonuslib.o`, and full `ninja`.",
+    "The PR body reports `fn_8003F294`: 680 bytes, 100.0% in the local objdiff report.",
+    "Used `PAD_STACK(24)` to force the expected stack layout.",
+    "Used inline wrapper `plBonusLib_8003F294_inline` to influence code generation around `pl_800386D8` calls.",
+    "Used assignments embedded in call arguments to shape temporary variable lifetimes and register allocation.",
+    "Used a scoped temporary block for the `pl_800386E8` result and another for the magnitude calculation, likely to constrain local variable lifetimes.",
+    "Used explicit casts to `unsigned int*`, `pl_800386E8_arg0_t*`, and `f32*` where needed for matching existing prototypes or load behavior."
   ],
   "review_feedback": [
-    "No human reviews or review comments are present in the slice.",
-    "The decomp.dev bot reported GALE01 matched code increased by +0.02% / +680 bytes, with `main/melee/pl/plbonuslib` item `fn_8003F294` moving from 0.00% to 100.00%."
+    "No review comments were present in the provided PR slice.",
+    "One issue comment/body record documents the match target and verification commands; no requested changes or naming feedback were captured."
   ],
   "searchable_terms": [
     "pr-2565",
     "plbonuslib",
-    "plbonuslib.c",
     "fn_8003F294",
     "plBonusLib_8003F294_inline",
-    "plActionStats",
-    "pl_StaleMoveTableExt_t",
+    "pl_800386D8",
+    "pl_8003906C",
+    "pl_80039238",
+    "pl_800386E8",
     "Player_GetStaleMoveTableIndexPtr2",
     "Player_GetEntityAtIndex",
     "Player_GetActionStats",
-    "pl_800386D8",
-    "pl_800386E8",
-    "pl_800386E8_arg0_t",
-    "pl_8003906C",
-    "pl_80039238",
+    "pl_StaleMoveTableExt_t",
+    "plActionStats",
     "pl_804D6470",
     "gm_8016AEDC",
     "sqrtf__Ff",
     "PAD_STACK",
-    "x0_staleMoveTable",
     "xD9C",
     "xDA0",
     "xDA4",
@@ -107,16 +109,23 @@
     "xDC4",
     "xDCC",
     "xDD1.bit5",
-    "xD5C",
-    "objdiff",
-    "680 bytes",
-    "100.0%"
+    "objdiff 100.0%",
+    "GALE01"
   ],
   "follow_up_queries": [
-    "Can `fn_8003F294` receive a semantic name after neighboring `plbonuslib` routines such as `fn_8003EE2C` and `fn_8003F53C` are better understood?",
-    "Can `pl_804D6470` fields like `x18`, `x1C`, `x70`, `x74`, `x8C`, `xB8`, `xBC`, and `x130` be named and typed from the bonus configuration data?",
-    "Can stale-move-table extension fields `xD9C` through `xDD1` be semantically named based on the bonus IDs passed to `pl_8003906C`?",
-    "Is `plBonusLib_8003F294_inline` still required for the match after future struct typing or compiler cleanup, or is it purely a temporary codegen helper?"
+    "Look for later PRs that semantically rename `fn_8003F294` or fields in `pl_StaleMoveTableExt_t` touched here.",
+    "Search for other `plbonuslib.c` matches using inline wrappers or `PAD_STACK` to compare matching patterns.",
+    "Investigate whether `pl_804D6470` fields such as `x70`, `x74`, `x8C`, `xB8`, and `xBC` have since received typed names.",
+    "Search for subsequent cleanup of the `*((f32*) &pl_804D6470->x8C)` cast or better typing of that config field.",
+    "Check whether other bonus/stat functions near `fn_8003EE2C` and `fn_8003F53C` follow the same `pl_8003906C` threshold-update pattern."
   ],
-  "confidence": 0.9
+  "confidence": 0.87,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

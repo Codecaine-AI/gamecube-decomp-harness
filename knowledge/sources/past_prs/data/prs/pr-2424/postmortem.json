@@ -11,87 +11,95 @@
     "merged_at": "2026-04-21T06:24:07Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged decomp progress for the gm_1A4C game-mode slice, centered on Tyfall/registry-style display setup. The PR replaced several stubs with C implementations, exposed shared gmregtyfall scene globals through headers, and improved matching enough for the bot to report +1112 matched bytes, including new 100% matches for gm_801A8D54 and fn_801A7FB4.",
+  "summary": "Matched several previously stubbed functions in src/melee/gm/gm_1A4C.c for the Ty Fall/game-mode sequence, replacing UNK_RET/UNK_PARAMS declarations with typed prototypes and exposing shared gmregtyfall scene/archive globals needed by the new implementations. The work builds GObj-based fog, light, camera, background, and character-display setup paths, adds character ordering/placement logic, and uses helper inlines/fake setters/tree-walks to preserve matching behavior.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "global-symbol-linkage",
-      "game-mode-scene-setup"
+      "game-mode setup",
+      "data linkage"
     ],
     "systems": [
       "game-mode",
       "gm_1A4C",
       "gmregtyfall",
-      "tyfall-display",
-      "HSD-GObj",
-      "HSD-JObj",
-      "HSD-camera-light-fog"
+      "Ty Fall display",
+      "HSD GObj/JObj/CObj/Fog/LObj"
     ]
   },
   "key_files": [
-    "src/melee/gm/gm_1A4C.c",
-    "src/melee/gm/gm_1A4C.h",
-    "src/melee/gm/gmregtyfall.c",
-    "src/melee/gm/gmregtyfall.h"
+    {
+      "path": "src/melee/gm/gm_1A4C.c",
+      "reason": "Main decompilation target; replaced stubs with implementations for gm_801A7B00, gm_801A85E4, gm_801A8D54, gm_801A9094, gm_801A9630 and refactored fn_801A7FB4 loops through inline helpers."
+    },
+    {
+      "path": "src/melee/gm/gm_1A4C.h",
+      "reason": "Updated public prototypes from UNK_RET/UNK_PARAMS to typed signatures for newly matched functions."
+    },
+    {
+      "path": "src/melee/gm/gmregtyfall.c",
+      "reason": "Changed several scene/archive/static data objects from static to externally visible so gm_1A4C.c can reference shared assets."
+    },
+    {
+      "path": "src/melee/gm/gmregtyfall.h",
+      "reason": "Added extern declarations for gm_804D6798, gm_804D679C, gm_804D67A0, gm_804D67A4, gm_804D67A8, and gm_804D67AC, plus sc forward include for SceneDesc."
+    }
   ],
   "what_changed": [
-    "Implemented formerly stubbed gm_1A4C routines: gm_801A7B00, gm_801A85E4, gm_801A8D54, gm_801A9094, and gm_801A9630.",
-    "gm_801A7B00 now builds light, camera, main JObj, and character-display GObjs; loads joints and animations; applies character translate/rotation/scale data through fake_tyfall_HSD_JObjSet* wrappers; then constrains the display JObj to a walked JObj-tree target with lb_8000C1C0 and lb_8000C290.",
-    "fn_801A7FB4 was refactored to call two inline helpers that count enabled entries with un_803048C0(gm_801A659C(i)); the automated report says this moved fn_801A7FB4 from 99.14% to 100%.",
-    "gm_801A85E4 now computes JObj placement using range-specific angle formulas, HSD_Randf, cosf, sinf, and hard-coded fallback positions for later indices.",
-    "Added gm_80480A00 and gm_80480AD0 static arrays in gm_1A4C.c for character-display GObjs and random sort/order state.",
-    "gm_801A8D54 now builds a 0x1A-entry candidate list using sentinel 0x1A, filters enabled characters, handles CKIND_ZELDA and CKIND_SEAK cases separately for indices 0x12/0x13, excludes the current character in the general case, and sorts candidates by gm_80480AD0.",
-    "gm_801A9094 now creates display stand GObjs from TyDspEntry data, resolves joints and material animations from gm_804D679C with HSD_ArchiveGetPublicAddress, loads ToyDspStand_Top_joint, attaches/animates child JOBJs, and positions roots through gm_801A85E4.",
-    "gm_801A9630 now initializes display state, assigns random ordering values with HSD_Randi, creates fog/light/camera/background JObjs, runs character display setup through gm_801A9094 and gm_801A4B90, then creates and constrains the selected-character JObj.",
-    "gm_1A4C.h replaced several UNK_RET/UNK_PARAMS declarations with concrete signatures for gm_801A7B00, gm_801A85E4, gm_801A8D54, gm_801A9094, and gm_801A9630.",
-    "gmregtyfall.c changed gm_804D6798, gm_804D679C, gm_804D67A0, gm_804D67A4, gm_804D67A8, and gm_804D67AC from static file-local globals to exported globals, and gmregtyfall.h added matching extern declarations plus a sc forward include."
+    "Implemented gm_801A7B00, which creates and wires light, camera, main JObj, and character-display GObjs using HSD object callbacks, animation setup, and a deep JObj child/next walk for lb_8000C1C0/lb_8000C290 constraints.",
+    "Implemented gm_801A85E4, which places a JObj at randomized angular positions based on rank/index buckets, using cosf/sinf and fixed fallback positions for later indices.",
+    "Implemented gm_801A8D54, which builds a filtered list of valid character indices, special-cases Zelda/Sheik-related indices, and sorts entries using gm_80480AD0 random/order weights.",
+    "Implemented gm_801A9094, which creates display GObjs for sorted character/toy display entries, loads joints and material animations from gm_804D679C archive public addresses, attaches a stand joint, scales the root, applies animation frames, and calls gm_801A85E4 for placement.",
+    "Implemented gm_801A9630, which initializes per-character random weights, then creates fog, light, camera, background, character display, and constrained character JObj GObjs for the sequence.",
+    "Split repeated live-character-counting logic in fn_801A7FB4 into two inline helper functions, apparently to satisfy matching/codegen constraints while keeping the same loop behavior.",
+    "Added required includes for ft/forward.h, gm_1BA8.h, tydisplay.h, archive/cobj/gobj/gobjproc/random, gmregtyfall.static.h, lb_00B0.h, lb_00F9.h, sc/types.h, and MSL math support.",
+    "Converted gm_1A4C.h prototypes for gm_801A7B00, gm_801A85E4, gm_801A8D54, gm_801A9094, and gm_801A9630 from placeholder unknown signatures to typed void signatures.",
+    "Made gmregtyfall scene/archive globals externally linkable and declared them in gmregtyfall.h for reuse by gm_1A4C.c."
   ],
   "smart_moves": [
-    "Promoted the gmregtyfall scene/asset globals to header-visible externs instead of duplicating unknown declarations in gm_1A4C, making the split-file dependency explicit.",
-    "Converted unknown public prototypes to typed signatures once the implementations revealed void returns and HSD_JObj/s32 parameters.",
-    "Preserved exact HSD setup ordering: GObj_Create, HSD_GObjObject_80390A70, GX link setup, animation add/request/interpret, then HSD_GObj_SetupProc.",
-    "Used sentinel-filled fixed-size arrays and address-named BSS symbols to model the original character list and randomized ordering state.",
-    "Kept two separate inline count helpers for fn_801A7FB4 even though they are logically identical, which is supported by the bot reporting a full match for that function.",
-    "Used archive public-address lookups for display assets rather than hardcoding concrete asset structures, matching how this code obtains per-character display joints and matanims."
+    "Kept asset pointers such as gm_804D6798, gm_804D679C, and gm_804D67A0-gm_804D67AC owned in gmregtyfall.c but exposed through extern declarations instead of duplicating or inventing new storage.",
+    "Used small inline wrappers/helpers, including gm_801A8114_inline and duplicated fn_801A7FB4_inline variants, to influence inlining/code generation without changing the apparent runtime logic.",
+    "Preserved decomp-sensitive ternary boolean patterns like `un_803048C0(gm_801A659C(i)) ? true : false`, which are often necessary for matching compiler output even when redundant in normal C.",
+    "Used explicit JObj tree walks rather than abstracting traversal, which likely mirrors the original fixed asset hierarchy and helps retain instruction ordering.",
+    "Added concrete typed prototypes once function shapes were known, improving downstream type propagation and reducing placeholder usage."
   ],
   "decomp_lessons": [
-    "For game-mode scene setup code, matching often depends on preserving object creation order, gxlink callback choice, gxlink priority values such as 0x801, and proc priorities such as 0x17.",
-    "If a later split unit needs assets loaded by an earlier unit, expose the owning unit's globals through a real header with forward declarations rather than leaving them static.",
-    "Use concrete headers and types as soon as evidence supports them; replacing UNK_RET/UNK_PARAMS with HSD_JObj*, s32*, and void signatures improves both call-site readability and future matching work.",
-    "Artificial inline wrappers can be justified when they recover instruction layout; this PR's duplicate fn_801A7FB4_inline helpers are a reusable pattern for small repeated loops that must codegen differently at distinct call sites.",
-    "Keep decompiler-looking control flow when needed for matching, including ternary bool normalization, empty branches, odd loop initializers, and verbose compare expressions.",
-    "Character roster/list routines in this area use 0x1A as both loop bound and sentinel, and special-case Zelda/Sheik character kinds with CKIND_ZELDA and CKIND_SEAK."
+    "For game-mode setup functions, matching often requires reconstructing the exact sequence of GObj creation, object attachment, GX link setup, animation requests, animation evaluation, and proc registration.",
+    "When two translation units share assets initialized in one file, remove `static` only for the specific required globals and add precise extern declarations in the corresponding header.",
+    "Do not simplify apparently redundant boolean ternaries, loop initializers such as `for (i = count; i < 0x1A; i++)`, or empty null branches if they are present for codegen matching.",
+    "Fixed-depth asset hierarchy traversal can be part of the match; avoid replacing repeated HSD_JObjGetChild/HSD_JObjGetNext calls with generic helpers unless the generated code still matches.",
+    "Small inline functions or wrapper calls can be useful matching tools when repeated source logic would otherwise generate nonmatching code in different call-site contexts.",
+    "Typed headers should be updated alongside decomped functions so later files can rely on real signatures instead of UNK_RET/UNK_PARAMS placeholders."
   ],
   "naming_conventions": [
-    "Unidentified game-mode functions keep address-based names such as gm_801A7B00, gm_801A85E4, gm_801A8D54, gm_801A9094, and gm_801A9630.",
-    "Local callback-like functions retain fn_ address names such as fn_801A7FB4, fn_801A7A44, fn_801A7A68, and fn_801A7A8C.",
-    "Globals remain address-based, for example gm_804D6798, gm_804D679C, gm_804D67A0, gm_804D67A4, gm_804D67A8, gm_804D67AC, gm_80480A00, and gm_80480AD0.",
-    "Header comments preserve symbol addresses next to declarations, e.g. /* 1A7B00 */ and /* 4D6798 */.",
-    "Artificial helpers use explicit _inline suffixes, e.g. fn_801A7FB4_inline, fn_801A7FB4_inline2, and gm_801A8114_inline.",
-    "The fake_tyfall_HSD_JObjSet* prefix marks wrapper setter calls used in this Tyfall matching context instead of plain HSD_JObjSet* calls."
+    "Address-based names were retained for unknown or not-yet-renamed functions and data, e.g. gm_801A7B00, gm_801A85E4, gm_80480A00, gm_80480AD0, gm_804D67B8.",
+    "Local helper names used the existing function-address plus `_inline` suffix pattern, e.g. fn_801A7FB4_inline, fn_801A7FB4_inline2, and gm_801A8114_inline.",
+    "Temporary fake setter names were preserved for matching-specific behavior in Ty Fall code, e.g. fake_tyfall_HSD_JObjSetTranslateX/Y/Z and fake_tyfall_HSD_JObjSetScaleX/Y/Z.",
+    "Public declarations in headers kept the file's address-comment convention, such as `/* 1A7B00 */ void gm_801A7B00(void);` and `/* 4D6798 */ extern HSD_Joint* gm_804D6798;`."
   ],
   "assembly_or_matching_tactics": [
-    "Inserted PAD_STACK values in newly decompiled routines, including 0x30, 0x20, 0x68, 0x88, and 8, to control stack layout.",
-    "Split identical count loops into two inline functions for fn_801A7FB4; the bot reported fn_801A7FB4 reached 100%.",
-    "Preserved odd source constructs such as un_803048C0(...) ? true : false, for-loops initialized with i = count, and an empty if (jobj == NULL) branch.",
-    "Used a verbose conditional expression in the gm_801A8D54 sort comparison instead of simplifying it, likely to preserve codegen shape.",
-    "Added a one-call gm_801A8114_inline wrapper before gm_801A9630's selected-character setup, another inline/codegen steering tactic.",
-    "Retained explicit repeated HSD_JObjGetChild calls to walk fixed-depth JObj trees before applying lb_8000C1C0 and lb_8000C290 constraints.",
-    "Included <MSL/math.h> and used cosf/sinf with degree-to-radian constant 0.017453292f for gm_801A85E4 placement formulas."
+    "Used PAD_STACK annotations with exact sizes such as 0x30, 0x20, 0x68, 0x88, and 8 to shape stack frames.",
+    "Introduced inline helpers for repeated counting loops in fn_801A7FB4 to control emitted code at two separate sites.",
+    "Kept manual casts to HSD_CameraDescPerspective*, HSD_JObj*, u8 object-kind constants, and const char* archive names where the diff shows they were needed.",
+    "Included MSL math locally before gm_801A85E4-era code to use cosf/sinf in the expected form.",
+    "Used explicit `__assert(\"jobj.h\", line, \"joint\"/\"jobj\")` calls around HSD_JObjLoadJoint setup to mirror baselib macro behavior.",
+    "Maintained unusual compare expression in sort logic, `(gm_80480AD0[sp84[i]] < gm_80480AD0[sp84[j]] ? 1 : 2) == 2`, instead of simplifying it."
   ],
   "review_feedback": [
-    "No PR body, human reviews, or review comments were present in the slice, so reviewer intent is not available.",
-    "The decomp-dev bot reported GALE01 matched code at 64.46% (+0.03%, +1112 bytes), with 2 new matches: gm_801A8D54 at 100% (+832 bytes) and fn_801A7FB4 at 100% (+3 bytes).",
-    "The same bot report listed partial improvements for gm_801A85E4 at 99.60%, gm_801A9630 at 96.16%, gm_801A7B00 at 97.59%, gm_801A9094 at 96.65%, and data-section improvements in .bss, .sdata2, .sdata, and .sbss."
+    {
+      "source": "PR metadata",
+      "feedback": "No review comments or review bodies were present in the provided slice; there is no explicit reviewer rationale to extract."
+    }
   ],
   "searchable_terms": [
     "pr-2424",
     "Jj/gm 1 a4 c",
     "jurrejelle",
-    "gm_1A4C",
-    "gmregtyfall",
+    "gm_1A4C.c",
+    "gm_1A4C.h",
+    "gmregtyfall.c",
+    "gmregtyfall.h",
     "gm_801A7B00",
     "fn_801A7FB4",
     "fn_801A7FB4_inline",
@@ -109,34 +117,47 @@
     "gm_804D67A4",
     "gm_804D67A8",
     "gm_804D67AC",
-    "HSD_GObj",
-    "HSD_JObj",
-    "HSD_CObj",
-    "HSD_Fog",
-    "HSD_LObj",
+    "gm_804D67B8",
+    "gm_804D67BC",
+    "gm_804D67C0",
+    "TyDspEntry",
+    "un_8031B9DC",
+    "un_8031BB34",
+    "un_8031BB94",
+    "un_803048C0",
+    "un_803060BC",
+    "fake_tyfall_HSD_JObjSetTranslateX",
+    "HSD_ArchiveGetPublicAddress",
+    "HSD_JObjLoadJoint",
+    "HSD_JObjAddChild",
+    "HSD_JObjAddAnimAll",
+    "HSD_FogLoadDesc",
+    "HSD_Randf",
+    "HSD_Randi",
     "GObj_Create",
     "GObj_SetupGXLink",
     "GObj_SetupGXLinkMax",
-    "HSD_ArchiveGetPublicAddress",
-    "ToyDspStand_Top_joint",
-    "TyDspEntry",
+    "HSD_GObj_SetupProc",
+    "GET_JOBJ",
+    "GET_FOG",
+    "SceneDesc",
     "CKIND_ZELDA",
     "CKIND_SEAK",
-    "fake_tyfall_HSD_JObjSetTranslateX",
-    "lb_8000C1C0",
-    "lb_8000C290",
-    "HSD_Randi",
-    "HSD_Randf",
-    "cosf",
-    "sinf"
+    "ToyDspStand_Top_joint"
   ],
   "follow_up_queries": [
-    "gm_801A85E4 99.60 cosf sinf HSD_Randf placement matching",
-    "gm_801A9630 96.16 fog light camera GObj gxlink_prios 0x801",
-    "gm_801A7B00 fake_tyfall_HSD_JObjSetTranslate constraint target HSD_JObjGetChild",
-    "gm_801A9094 TyDspEntry HSD_ArchiveGetPublicAddress ToyDspStand_Top_joint",
-    "gm_801A8D54 sentinel 0x1A CKIND_ZELDA CKIND_SEAK gm_80480AD0 sort",
-    "gmregtyfall extern SceneDesc gm_804D6798 gm_804D679C"
+    "Find later PRs that rename gm_801A7B00, gm_801A85E4, gm_801A8D54, gm_801A9094, or gm_801A9630 to semantic Ty Fall names.",
+    "Search for subsequent cleanup of fake_tyfall_HSD_JObjSet* helpers or replacement with regular HSD_JObjSet* calls.",
+    "Look for PRs touching gmregtyfall.static.h or gm_804D6798/gm_804D679C to clarify ownership of Ty Fall scene/archive globals.",
+    "Check whether gm_80480A00 and gm_80480AD0 later receive struct names or become part of a typed Ty Fall display state."
   ],
-  "confidence": 0.87
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

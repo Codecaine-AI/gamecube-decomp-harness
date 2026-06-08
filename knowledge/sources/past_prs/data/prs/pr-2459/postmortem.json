@@ -11,81 +11,93 @@
     "merged_at": "2026-05-04T14:57:31Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched `lbHeap_80015DF8` by adding the original extra `p->size` vararg to a final `OSReport` call in `src/melee/lb/lbheap.c`. The format string only consumes `p->size / 1024`, but retaining the unused-looking extra argument reproduced target codegen and moved the function from 99.87654% to 100.0% with size still 324/324 bytes.",
+  "summary": "Matched the lbHeap report function `lbHeap_80015DF8` by preserving an apparently unused extra vararg in an `OSReport` call. The format string only prints `p->size / 1024`, but passing `p->size` as an additional argument reproduces target codegen and takes the function from 99.87654% to 100.0% while keeping function size 324/324 bytes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "cleanup",
-      "verification"
+      "tooling-verification"
     ],
     "systems": [
       "library",
-      "lbHeap",
+      "lb",
+      "heap",
       "OSReport"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/lb/lbheap.c",
-      "reason": "One-line change in `lbHeap_80015DF8`: `OSReport(\" / %5d KB\\n\", p->size / 1024)` became `OSReport(\" / %5d KB\\n\", p->size / 1024, p->size)`."
-    }
+    "src/melee/lb/lbheap.c"
   ],
   "what_changed": [
-    "Added `p->size` as an extra argument to the final `OSReport` call inside the heap report loop in `lbHeap_80015DF8`.",
-    "No functional formatting change is implied by the format string, which only consumes the divided KB value.",
-    "The change matched the target function exactly: `lbHeap_80015DF8` improved from 99.87654% to 100.0%, while function size remained 324/324 bytes."
+    "In `src/melee/lb/lbheap.c`, updated the final per-block `OSReport` inside `lbHeap_80015DF8` from `OSReport(\" / %5d KB\\n\", p->size / 1024);` to `OSReport(\" / %5d KB\\n\", p->size / 1024, p->size);`.",
+    "The added `p->size` argument is not consumed by the format string, but was retained because it matches the target binary's vararg calling pattern.",
+    "Reported matching result for `main/melee/lb/lbheap`: `lbHeap_80015DF8` improved from 99.87654% to 100.0%.",
+    "Function size remained unchanged at 324/324 bytes."
   ],
   "smart_moves": [
-    "Recognized that an apparently unused vararg can still be required for matching because it affects the generated call sequence/register setup.",
-    "Kept the fix minimal and localized to the mismatching `OSReport` call instead of restructuring the report function.",
-    "Documented why the extra argument exists so future cleanup does not remove it as redundant."
+    "Recognized that matching required modeling the original call signature/codegen rather than only the logical behavior implied by the format string.",
+    "Kept an extra vararg to `OSReport` even though it is semantically unused by the printed string, preserving ABI-level/codegen evidence from the target.",
+    "Verified the minimal one-line change with both object build and objdiff, then ran `melee-issues` to check that no issues were introduced in `src/melee/lb/lbheap.c`."
   ],
   "decomp_lessons": [
-    "For vararg functions such as `OSReport`, do not assume every passed argument is consumed by the format string in the retail binary.",
-    "Unused-looking varargs can be intentional matching artifacts; preserving them may be necessary for byte-accurate codegen.",
-    "When matching report/debug-style functions, compare the call-site argument list against target codegen, not only against semantic C formatting behavior.",
-    "A 100% match can depend on retaining semantically redundant source details."
+    "For variadic functions like `OSReport`, unused extra arguments can still be necessary for an exact match because the compiler emits argument setup even if the format string does not consume them.",
+    "Do not remove or omit suspicious-looking extra varargs solely because they appear redundant at the C semantic level; compare against target codegen first.",
+    "Small decomp fixes can hinge on reproducing call-site argument evaluation rather than changing control flow, data structures, or formatting strings.",
+    "When matching report/debug functions, preserve target quirks in `OSReport` calls, including excess arguments, if they affect generated assembly."
   ],
   "naming_conventions": [
-    "No new names were introduced.",
-    "The PR retained existing decomp names and fields: `lbHeap_80015DF8`, `lbHeap_80431FA0`, `arena_hi`, `arena_lo`, and `p->size`."
+    "Existing function name retained: `lbHeap_80015DF8`.",
+    "Existing heap globals retained: `lbHeap_80431FA0`, with `arena_hi` and `arena_lo` referenced after the changed loop.",
+    "No new symbols or renames were introduced in this PR."
   ],
   "assembly_or_matching_tactics": [
-    "Added an unconsumed vararg to `OSReport` to reproduce target codegen.",
-    "Confirmed the function remained 324/324 bytes after the change.",
-    "Verified with `ninja build/GALE01/src/melee/lb/lbheap.o`.",
-    "Verified with `objdiff-cli diff -p . -u main/melee/lb/lbheap`.",
-    "Ran `DYLD_LIBRARY_PATH=/Library/Developer/CommandLineTools/usr/lib cargo run -p melee-issues`; reported issues were existing elsewhere and not from `src/melee/lb/lbheap.c`."
+    "Use extra arguments to variadic calls as a matching tactic when target assembly shows additional argument setup.",
+    "The target codegen apparently evaluates/passes both `p->size / 1024` and raw `p->size` for the final `OSReport`, despite the format string only consuming the KB value.",
+    "Validated with `ninja build/GALE01/src/melee/lb/lbheap.o`.",
+    "Validated with `objdiff-cli diff -p . -u main/melee/lb/lbheap`.",
+    "Ran `DYLD_LIBRARY_PATH=/Library/Developer/CommandLineTools/usr/lib cargo run -p melee-issues`; reported 117 pre-existing issues elsewhere and none from `src/melee/lb/lbheap.c`."
   ],
   "review_feedback": [
     "No review comments were present in the provided PR slice.",
-    "The PR body explicitly explains that the extra `p->size` vararg is needed to match target codegen despite the format string not consuming it."
+    "The PR body explicitly documents the key rationale: the extra `p->size` vararg is consumed by codegen but not by the format string, and keeping it matches the target."
   ],
   "searchable_terms": [
-    "PR2459",
+    "pr-2459",
+    "dberweger2017",
+    "Match lbHeap report function",
     "lbHeap_80015DF8",
-    "lbHeap report",
-    "lbheap.c",
     "src/melee/lb/lbheap.c",
-    "OSReport",
-    "unused vararg",
-    "extra vararg",
-    "p->size",
-    "p->size / 1024",
-    "match codegen",
-    "function size 324",
+    "lbheap",
     "lbHeap_80431FA0",
     "arena_hi",
     "arena_lo",
-    "objdiff-cli",
+    "OSReport",
+    "variadic",
+    "vararg",
+    "extra argument",
+    "unused argument",
+    "p->size",
+    "p->size / 1024",
+    "KB",
+    "objdiff",
     "melee-issues",
-    "GALE01"
+    "GALE01",
+    "main/melee/lb/lbheap",
+    "100.0% match"
   ],
   "follow_up_queries": [
-    "Find other `OSReport` calls where the retail binary may pass extra unused varargs.",
-    "Search for report/debug functions stuck near 100% where call-site argument count differs from the apparent format string.",
-    "Audit future cleanup PRs for accidental removal of semantically redundant varargs needed for matching."
+    "Find other `OSReport` or variadic callsites where unused extra arguments may be needed for matching.",
+    "Search for unmatched lbHeap functions with near-100% objdiff scores where argument setup differs from source semantics.",
+    "Audit report/debug print functions for format strings that consume fewer arguments than are passed in target codegen."
   ],
-  "confidence": 0.95
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,111 +11,99 @@
     "merged_at": "2026-03-28T17:22:10Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large Castle stage decompilation PR centered on src/melee/gr/grcastle.c. It replaced many placeholder functions with C, expanded Castle-specific Ground gv overlays and parameter/table structs, tightened grcastle.h prototypes, and adjusted lb_800103B8 to return float for new wind/vector code. decomp.dev reported +6764 matched bytes, +0.17% overall matched code, 16 new matches, and 9 improved unmatched items. Human discussion only called out an inline rlwimi/rwlimi asm block, which maintainers accepted because it was guarded by MWERKS_GEKKO.",
+  "summary": "Large grCastle decompilation PR replacing many placeholder functions and raw offset accesses with typed C for the Princess Peach's Castle stage logic. The work added detailed grCastle parameter/table structs, expanded Castle-specific Ground union variants, updated grcastle.h prototypes, and corrected lb_800103B8's return type to float. The diff shows matching-oriented code with typed offsets, static data tables, MWERKS_GEKKO-guarded rlwimi inline asm, dont_inline pragmas, and helper/wrapper functions where needed.",
   "change_classification": {
-    "primary_type": "stage decompilation and matching",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "placeholder-removal",
+      "stage-decomp",
       "headers",
       "struct-typing",
+      "prototype-fix",
       "matching-tactics"
     ],
     "systems": [
       "stage",
       "ground",
+      "library",
       "grcastle",
-      "baselib/HSD",
-      "camera",
-      "items/materials",
-      "lb/vector"
+      "lb"
     ]
   },
   "key_files": [
     {
-      "file": "src/melee/gr/grcastle.c",
-      "role": "Main implementation; +1447/-55 lines, replacing many /// # placeholders and adding Castle parameters, rodata tables, state machines, camera/material logic, dynamics setup, and vector/wind behavior."
+      "path": "src/melee/gr/grcastle.c",
+      "role": "Main stage implementation; added ~1447 lines replacing placeholders with typed grCastle logic, local params/tables, dynamics setup, platform movement, spawning/camera/material/item-related behavior, and matching helpers."
     },
     {
-      "file": "src/melee/gr/types.h",
-      "role": "Added Castle-specific Ground gv overlay structs grCastle_GroundVars4 through grCastle_GroundVars12 plus grCastle_Platform."
+      "path": "src/melee/gr/types.h",
+      "role": "Added Castle-specific Ground variable structs grCastle_GroundVars4 through grCastle_GroundVars12 and union entries, allowing grcastle.c to replace raw gp+offset accesses with named fields."
     },
     {
-      "file": "src/melee/gr/grcastle.h",
-      "role": "Changed several prototypes from UNK_RET/UNK_PARAMS to typed signatures for newly decompiled functions."
+      "path": "src/melee/gr/grcastle.h",
+      "role": "Updated prototypes from UNK_RET/UNK_PARAMS to concrete signatures for functions such as grCastle_801CE054, grCastle_801CE3AC, grCastle_801CF868, grCastle_801CFBD4, grCastle_801D0298, grCastle_801D02B8, grCastle_801D09B8, grCastle_801D0BBC, and grCastle_801D0D84."
     },
     {
-      "file": "src/melee/lb/lb_00F9.c",
+      "path": "src/melee/lb/lb_00F9.c",
       "role": "Changed lb_800103B8 implementation signature from void to float."
     },
     {
-      "file": "src/melee/lb/lb_00F9.h",
-      "role": "Updated lb_800103B8 declaration to float lb_800103B8(Vec3*, Vec3*)."
+      "path": "src/melee/lb/lb_00F9.h",
+      "role": "Changed lb_800103B8 declaration from void to float to match call/ABI needs."
     }
   ],
   "what_changed": [
-    "Implemented many grCastle functions, with decomp.dev listing full new matches for grCastle_801CEACC, grCastle_801CE578, grCastle_801D0D84, grCastle_801D02B8, grCastle_801CDA0C, grCastle_801CF0F4, grCastle_801CEF04, grCastle_801D0BBC, grCastle_801CE054, grCastle_801CE260, grCastle_801CE8E8, grCastle_801D09B8, grCastle_801CE9E8, grCastle_801CE19C, grCastle_801D0B0C, and grCastle_801CD8A8.",
-    "Improved but did not fully match several large functions according to the bot: grCastle_801CFBD4, grCastle_801CF308, grCastle_801CDC44, grCastle_801CF868, grCastle_801CD658, grCastle_801CE3AC, plus .rodata/.sdata2/.sdata.",
-    "Expanded grCastleParams from a mostly opaque blob into offset-annotated fields, a grCastleParams_Entry entries[9] array, x12C[4], and multiple float/counter fields used by stage behavior.",
-    "Added local Castle table structs and constants: identity Quaternion grCs_803B7EB8, blink table grCs_803B7EC8, dynamics entries grCs_803B7EA8, y offsets grCs_803B7F50, weight table grCs_803B7EF0, target table grCs_803B7EFC, and static angle step grCs_804D45E0.",
-    "Added typed Ground gv overlays for multiple Castle object roles, including platform state, dynamics arrays, timers, bitfields, camera/material handles, target slots, and jobj/effect arrays.",
-    "Replaced several raw gp offset writes with typed gv fields, such as gp->gv.castle9.xDE, xD4/xD6/xD8/xDA/xDC, dynamics[i], gp->gv.castle8.plat[idx].wind, and gp->gv.castle3.x1C[i].data.",
-    "Added archive-driven dynamics setup in grCastle_801CD658 using grDatFiles_801C6324, HSD_ArchiveGetPublicAddress, dynamicsdata_flag3, dynamicsdata_flag4, dynamicsdata_flag6, Ground_801C3FA4, and grLib_801C9B20.",
-    "Added platform/wind movement logic around grCastle_801CDA0C, grCastle_801CDC44, and grCastle_801CF750, including platform jobjs, state/timer fields, wind accumulation, speed caps, and HSD_JObjSetTranslateY.",
-    "Added camera and material object lifecycle code in functions such as grCastle_801CE260, grCastle_801CE578, grCastle_801CE8E8, and grCastle_801CE9E8 using Camera_80029044/Camera_800290D4, grMaterial_801C8CFC, grMaterial_801C8CDC, and it_80275414.",
-    "Added obstacle/effect toggling logic around grCastle_801CEACC, grCastle_801CEF04, grCastle_801CFBD4, grCastle_801D0298, and grCastle_801D02B8, including per-map cases for PURA, SHRINE, and GARDEN.",
-    "Added wind/vector behavior in grCastle_801D09B8, grCastle_801D0BBC, and grCastle_801D0D84 using ftLib position/velocity helpers, lb_800103B8, lbVector_Normalize, lbVector_Angle, PSVECCrossProduct, atan2f, cosf, and sinf."
+    "Implemented many previously placeholder-marked grCastle functions, including grCastle_801CD658, grCastle_801CDA0C, grCastle_801CDC44, grCastle_801CE054, grCastle_801CE19C, grCastle_801CE260, grCastle_801CE3AC, grCastle_801CE578, grCastle_801CE8E8, grCastle_801CE9E8, grCastle_801CEACC, grCastle_801CEF04, grCastle_801CF0F4, grCastle_801CF308, grCastle_801CFBD4, grCastle_801D0298, grCastle_801D02B8, grCastle_801D09B8, grCastle_801D0BBC, and grCastle_801D0D84.",
+    "Expanded grCastleParams from a mostly opaque block to a detailed offset-annotated parameter struct with fields through 0x140 and a nested grCastleParams_Entry entries[9] array.",
+    "Added local typed static data/table wrappers for constants such as grCs_803B7EB8 quaternion, grCs_803B7E9C Vec3, grCs_803B7EA8 dynamic entries, blink/y-offset/weight/target tables, and grCs_804D45E0 degree-to-radian constant.",
+    "Replaced raw Ground byte/halfword offset accesses in visible excerpts, such as gp+0xDE and gp+0xD4 through gp+0xDC, with typed fields under gp->gv.castle9 or related Castle-specific Ground variable structs.",
+    "Added Castle GroundVars variants in types.h for stage subobjects/state, including platform arrays, dynamics descriptors, timers, object pointers, and small state fields.",
+    "Updated stage code to pass Ground_GObj* into functions that previously had unknown or missing signatures, for example changing grCastle_801CF868() to grCastle_801CF868(gobj).",
+    "Corrected cleanup/iteration logic to operate on gp->gv.castle3.x1C[i].data and pass HSD_JObj pointers to grCastle_801D0D84 instead of using an earlier totalLength-like expression.",
+    "Added logic for dynamics archive public addresses named dynamicsdata_flag3, dynamicsdata_flag4, and dynamicsdata_flag6 and links them to JOBJs through grLib_801C9B20.",
+    "Changed lb_800103B8 from void to float in both source and header, despite the shown body still delegating to lb_800101C8; exact ABI motivation is implied by matching but not explicitly discussed."
   ],
   "smart_moves": [
-    "The PR first made the Castle data model more explicit: expanding grCastleParams and adding many grCastle_GroundVars overlays let later functions use stable typed accesses instead of fragile raw byte offsets.",
-    "Small rodata tables were wrapped in local structs and copied to stack locals, such as grCastle_DynEntries entries_s, grCastle_BlinkTable tbl, grCastle_YOffsets offsets, grCastle_WeightTable weights, and grCastle_TargetTable targets. This is a reusable tactic when array-copy codegen matters.",
-    "The inline rlwimi bit manipulation was isolated behind #ifdef MWERKS_GEKKO with NOT_IMPLEMENTED outside that compiler path, limiting portability fallout while preserving the matching sequence.",
-    "Matching-only structure was kept local and obvious: #pragma dont_inline around grCastle_801CDF54, a grCastle_801CE3AC_dontinline trampoline, PAD_STACK calls, dummy stack allocation, UNUSED locals, and a fake_HSD_JObjSetTranslate inline all signal codegen-shaping rather than semantic API design.",
-    "The fake_HSD_JObjSetTranslate reproduces HSD_JObjSetTranslate side effects with jobj.h-style HSD_ASSERT file context and ftCo_800C6AFC invalidation, a concrete example of inlining a library helper when the real call shape does not match.",
-    "Header prototypes were updated alongside implementation work, reducing UNK_RET/UNK_PARAMS usage and making cross-file call sites more informative."
+    "Using offset-annotated structs made the Castle stage state much more searchable and safer than raw casts like ((u8*) gp)[0xDE] or *(s16*)((u8*)gp+0xD4).",
+    "Splitting the many Castle Ground state layouts into grCastle_GroundVars4 through grCastle_GroundVars12 preserved per-map/per-subobject interpretations without forcing one inaccurate monolithic struct.",
+    "Encoding small rodata arrays as named table structs, such as grCastle_DynEntries and grCastle_TargetTable, documents array sizes and helps stabilize data layout for matching.",
+    "The rlwimi bit manipulation was isolated under #ifdef MWERKS_GEKKO with a non-MWERKS NOT_IMPLEMENTED fallback, keeping the matching compiler path intact while acknowledging portability limitations.",
+    "The PR used matching controls such as #pragma dont_inline and wrapper/helper functions like grCastle_801CE3AC_dontinline and fake_HSD_JObjSetTranslate where the diff suggests inlining or call shape mattered.",
+    "Function prototypes were tightened in grcastle.h as matching evidence improved, reducing dependence on UNK_RET and UNK_PARAMS."
   ],
   "decomp_lessons": [
-    "For stage modules, typing the Ground gv union is often the unlock: named overlays with offset comments can convert pointer arithmetic into readable code and expose state machines, timers, handles, and arrays.",
-    "Do not over-name unknown fields too early. This PR keeps xC4/xD8/pad_xNN names for uncertain fields while naming clear roles such as jobj, pos, state, timer, wind, map_id, jobj_idx, entries, and dynamics.",
-    "When rodata arrays are copied to stack before use, model them as small struct wrappers rather than loose arrays if that is what the compiler wants.",
-    "Bitfield writes can require targeted inline assembly for exact rlwimi output; if used, guard it by compiler and keep the surrounding typed field access clear.",
-    "Matching can require helper prototypes that reflect ABI/codegen behavior, not just obvious C semantics. The lb_800103B8 change to float is used by grCastle_801D0D84, but the diff body still has no explicit return, so future cleanup should verify the intended ABI behavior before generalizing.",
-    "Reviewable matching hacks should be isolated and easy to search, especially fake inlines, dont_inline trampolines, PAD_STACK, and guarded asm."
+    "For stage files with many map-specific states, introduce multiple union variants in Ground rather than overloading one partially known struct; this supports typed accesses while knowledge is still incomplete.",
+    "When a parameter blob becomes important to many functions, progressively type every observed offset and keep padding explicit; this PR expanded grCastleParams with exact offsets and pads.",
+    "Small stage data tables should be given local wrapper typedefs when array lengths are known from use sites; this improves rodata matching and makes future references searchable.",
+    "Bitfield/bit-insertion instructions may require compiler-specific inline asm for exact matching; guard those blocks and document through surrounding typed assignments.",
+    "Header prototype cleanup is part of matching work: once a function is implemented, update callers and declarations to concrete return and parameter types.",
+    "Do not assume the most semantically nice helper call will match; the presence of dont_inline pragmas, fake inline helpers, stack padding, and wrapper calls shows this PR prioritized generated code shape."
   ],
   "naming_conventions": [
-    "Castle static data uses the grCs_ prefix, e.g. grCs_803B7EFC, grCs_803B7F50, grCs_804D6970, and grCs_804D45E0.",
-    "Stage-local helper types use grCastle_ prefixes with descriptive suffixes, e.g. grCastleParams_Entry, grCastle_DynEntry, grCastle_DynEntries, grCastle_YOffsets, grCastle_WeightTable, grCastle_TargetEntry, and grCastle_TargetTable.",
-    "Ground gv overlays are numbered by discovered Castle object role: grCastle_GroundVars4 through grCastle_GroundVars12 were added rather than forcing one monolithic struct.",
-    "Offset comments are preserved in structs, including both local offsets and gp-relative offsets in gr/types.h.",
-    "Unknown fields remain xNN/pad_xNN until semantics are strong; clearer fields use role names such as plat, jobj, pos, timer, wind, effect_a, effect_b, baseY, map_id, and jobj_idx.",
-    "grcastle.h continues the project convention of address comments before prototypes."
+    "Stage functions retain address-based names in the grCastle_801Cxxxx/grCastle_801Dxxxx style until semantic names are known.",
+    "Static data symbols use the existing grCs_803Bxxxx and grCs_804Dxxxx address-based naming convention.",
+    "Unknown struct fields use offset-style names such as xD4, xD6, xDE, x110, x12C, and pad_x1C until semantics are confirmed.",
+    "New local structs use grCastle_* names with descriptive suffixes where possible, including grCastleParams_Entry, grCastle_DynEntry, grCastle_DynEntries, grCastle_YOffsets, grCastle_WeightTable, grCastle_TargetEntry, and grCastle_TargetTable.",
+    "Castle Ground union variants are numbered grCastle_GroundVars4 through grCastle_GroundVars12, matching the existing numbered pattern rather than inventing semantics prematurely."
   ],
   "assembly_or_matching_tactics": [
-    "Inline asm uses rlwimi byte, one, 7, 24, 24 and rlwimi byte, zero, 7, 24, 24 to set/clear bit 7 of gp->gv.castle9.xDE under #ifdef MWERKS_GEKKO.",
-    "#pragma push / #pragma dont_inline on / #pragma pop was added around grCastle_801CDF54.",
-    "A grCastle_801CE3AC_dontinline wrapper calls grCastle_801CE3AC to force call/inlining shape.",
-    "fake_HSD_JObjSetTranslate inlines HSD_ASSERT line numbers 916/917 with __FILE__ forced to jobj.h and then assigns jobj->translate plus ftCo_800C6AFC invalidation.",
-    "PAD_STACK and dummy local stack blocks are used in multiple functions to shape stack layout.",
-    "Several constants are materialized through local struct copies from static const tables rather than direct global indexing.",
-    "The diff includes a comment on grCastle_801D09B8: Weird parameter stuff, but it matches?",
-    "MSL trigf and MetroTRK intrinsics headers were added to support matching math and intrinsic usage."
+    "Used MWERKS_GEKKO-gated inline asm for rlwimi bit insertion on gp->gv.castle9.xDE.",
+    "Added #pragma push / #pragma dont_inline on / #pragma pop around at least grCastle_801CDF54.",
+    "Added grCastle_801CE3AC_dontinline as a wrapper around grCastle_801CE3AC.",
+    "Used PAD_STACK markers and unusual local temporaries/control flow in several functions, indicating stack/codegen matching pressure.",
+    "Added fake_HSD_JObjSetTranslate inline with HSD_ASSERT line/file manipulation and direct JObj translate assignment, likely to match inlined baselib behavior in one call site.",
+    "Kept some low-level casts between Ground state storage and other pointer/integer types where the exact union interpretation or ABI shape required it."
   ],
   "review_feedback": [
     {
-      "source": "decomp-dev bot",
-      "feedback": "GALE01 report showed matched code 61.02%, +0.17%, +6764 bytes, with 16 new matches and 9 improvements in unmatched items."
-    },
-    {
       "author": "PsiLupan",
-      "feedback": "Pointed out that there was inline asm for an rwlimi/rlwimi call in one function and that they could not comment directly on it."
+      "text": "Noted there was inline asm for an rwlimi/rlwimi call in one function and that it could not be commented on directly.",
+      "outcome": "Acknowledged in discussion; no blocking review comments recorded in the slice."
     },
     {
       "author": "ribbanya",
-      "feedback": "Responded that the inline asm was seen but surrounded by #ifdef MWERKS_GEKKO, so they were not worried about it at the time."
-    },
-    {
-      "source": "PR metadata",
-      "feedback": "No inline review comments or formal reviews were present in the slice; PR body only said Draft PR as usual."
+      "text": "Responded that the inline asm was surrounded by #ifdef MWERKS_GEKKO, so they were not worried about it at the moment.",
+      "outcome": "PR merged with the guarded inline asm present in the diff excerpt."
     }
   ],
   "searchable_terms": [
@@ -126,7 +114,7 @@
     "src/melee/gr/grcastle.c",
     "src/melee/gr/types.h",
     "src/melee/gr/grcastle.h",
-    "lb_800103B8",
+    "src/melee/lb/lb_00F9.c",
     "grCastleParams",
     "grCastleParams_Entry",
     "grCastle_GroundVars4",
@@ -138,50 +126,59 @@
     "grCastle_GroundVars10",
     "grCastle_GroundVars11",
     "grCastle_GroundVars12",
-    "grCastle_Platform",
     "grCs_804D6970",
+    "grCs_804D6974",
+    "grCs_803B7EB8",
+    "grCs_803B7E9C",
     "grCs_803B7EA8",
-    "grCs_803B7EC8",
+    "grCs_803B7F50",
+    "grCs_803B7EF0",
     "grCs_803B7EFC",
-    "dynamicsdata_flag3",
-    "dynamicsdata_flag4",
-    "dynamicsdata_flag6",
     "grCastle_801CD658",
     "grCastle_801CDA0C",
     "grCastle_801CDC44",
     "grCastle_801CE054",
     "grCastle_801CE19C",
     "grCastle_801CE260",
+    "grCastle_801CE3AC",
     "grCastle_801CE578",
+    "grCastle_801CE8E8",
+    "grCastle_801CE9E8",
     "grCastle_801CEACC",
     "grCastle_801CEF04",
+    "grCastle_801CF0F4",
     "grCastle_801CF308",
-    "grCastle_801CF868",
     "grCastle_801CFBD4",
     "grCastle_801D0298",
     "grCastle_801D02B8",
     "grCastle_801D09B8",
     "grCastle_801D0BBC",
     "grCastle_801D0D84",
+    "lb_800103B8",
+    "dynamicsdata_flag3",
+    "dynamicsdata_flag4",
+    "dynamicsdata_flag6",
     "MWERKS_GEKKO",
     "rlwimi",
     "rwlimi",
-    "PAD_STACK",
     "dont_inline",
     "fake_HSD_JObjSetTranslate",
-    "HSD_ArchiveGetPublicAddress",
-    "Camera_80029044",
-    "grMaterial_801C8CFC",
-    "PSVECCrossProduct",
-    "lbVector_Angle"
+    "Princess Peach's Castle"
   ],
   "follow_up_queries": [
-    "Search later PRs touching grCastle_GroundVars10 or grCastle_GroundVars11 to see whether xNN fields received semantic names.",
-    "Search for rlwimi or rwlimi in grcastle to see whether the guarded inline asm was later removed or replaced with portable C.",
-    "Check later history of lb_800103B8 to confirm whether the float return type and no-explicit-return body were retained, documented, or corrected.",
-    "Find later PRs for remaining high-percent unmatched functions from this bot report: grCastle_801CFBD4, grCastle_801CF308, grCastle_801CDC44, grCastle_801CF868, grCastle_801CD658, and grCastle_801CE3AC.",
-    "Search for fake_HSD_JObjSetTranslate or __FILE__ jobj.h to reuse or retire that inline-assert matching pattern.",
-    "Search for grCastleParams x10/x14/x18/x38/x3C/x48/x4C/x50/x110 semantic renames in future stage work."
+    "Look for later PRs that rename grCastle_GroundVars4-12 fields from x-offset names to semantic Castle names.",
+    "Search for follow-up changes to remove or replace the MWERKS_GEKKO rlwimi inline asm in grcastle.c.",
+    "Search later history for lb_800103B8 return type corrections or callers that explain why it became float.",
+    "Search for subsequent grCastle PRs that finish semantic naming for grCastleParams fields and the entries[9] table.",
+    "Check whether fake_HSD_JObjSetTranslate or grCastle_801CE3AC_dontinline were later simplified after matching improvements."
   ],
-  "confidence": 0.86
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,84 +11,96 @@
     "merged_at": "2026-04-08T22:26:15Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large lbmthp decompilation pass for the movie/THP playback library. The PR replaced many address-stub placeholders in src/melee/lb/lbmthp.c with C implementations for streaming callbacks, buffer setup, THP decode, frame advancement, playback startup, GX texture upload/draw, cleanup support, and one-shot THP decode. It also refined lbmthp.h and lbmthp.static.h struct layouts/prototypes, including renaming the static player singleton to Movieplayer. The decomp.dev bot reported 11 matching improvements, with several formerly 0% functions reaching high partial or near-complete match percentages.",
+  "summary": "Decompiled a large portion of src/melee/lb/lbmthp, the THP/movie playback library unit. The PR replaced many placeholder functions with C implementations for THP frame-buffer setup, asynchronous DevCom streaming callbacks, frame advancement, decode/update logic, texture upload/render setup, movie start/stop, and one-shot THP image decode. It also expanded lbmthp.h and lbmthp.static.h with more accurate THPDecComp and static Movieplayer layout fields, THP decoder prototypes, OSAlarm/GXTexObj members, and renamed the static global from lbl_804333E0 to Movieplayer. Automated decomp.dev output reported 11 unmatched-item improvements, including several functions rising from 0% to high match percentages and .data improving from 24.85% to 91.42%. Human review evidence is minimal: the PR body only says it is a tracking PR and there are no review comments.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "struct-layout",
-      "runtime-integration"
+      "library-runtime",
+      "movie-playback"
     ],
     "systems": [
-      "library",
+      "lb",
       "lbmthp",
-      "THP movie playback",
-      "GX texture rendering",
-      "DevCom/DVD streaming"
+      "THP",
+      "movieplayer",
+      "DevCom",
+      "GX texture",
+      "OS alarm/cache"
     ]
   },
   "key_files": [
-    "src/melee/lb/lbmthp.c",
-    "src/melee/lb/lbmthp.h",
-    "src/melee/lb/lbmthp.static.h"
+    {
+      "path": "src/melee/lb/lbmthp.c",
+      "role": "Main implementation file; added C bodies for numerous previously stubbed lbmthp/THP movie playback functions and switched existing accessors from lbl_804333E0 to Movieplayer."
+    },
+    {
+      "path": "src/melee/lb/lbmthp.h",
+      "role": "Public/internal header updates; added THP decoder prototypes and filled in THPDecComp fields used by the new implementations."
+    },
+    {
+      "path": "src/melee/lb/lbmthp.static.h",
+      "role": "Static-layout header; expanded struct lbl_804333E0_t with Movieplayer fields such as frame buffers, stream indices, current packed size, OSAlarm, GXTexObj objects, and power flag."
+    }
   ],
   "what_changed": [
-    "Implemented fn_8001E910 as the asynchronous movie-stream callback: asserts against cancel, tracks OS ticks, updates packed-frame offsets/sizes, advances circular read indices, and schedules the next HSD_DevComRequest under interrupt protection.",
-    "Added PAD_STACK(16) to fn_8001EBF0, improving that existing function's match from 98.63% to 98.77% according to the bot report.",
-    "Implemented fn_8001ECF4 to lay out the playback buffer: frame pointer table, preloaded packed frame chunks via lbFile_800161C4, Y/U/V decode planes, cache invalidation, packed-size bookkeeping, and original debug/assert report strings.",
-    "Implemented fn_8001EF5C to decode a new THP frame with THPVideoDecode, run the width-specific YUV conversion path, perform cache stores for the 0x280-width path, update decoded-frame state, and queue more streaming via fn_8001F13C.",
-    "Implemented fn_8001F13C as the guarded read-request scheduler using OSDisableInterrupts/OSRestoreInterrupts, HSD_ASSERTREPORT, HSD_DevComRequest, ALIGN_32, and circular buffering.",
-    "Implemented fn_8001F2A4 as the periodic alarm/frame-advance handler, including rate-table-to-frame conversion, loop/end-of-movie handling, and dispatch to fn_8001F06C when the visible frame changes.",
-    "Implemented lbMthp_8001F410 playback startup: asserts Movieplayer is not already powered, opens/initializes the THP stream, computes required memory, uses caller-provided or allocated heap memory, initializes buffers, sets loop/display flags, creates an OSAlarm, and installs fn_8001F2A4 at a 1/60-second period.",
-    "Implemented lbMthp_8001F67C to decode/update the movie frame and bind three GX_TF_I8 texture objects for Y, U, and V planes before calling HSD_SObjLib_803A49E0 when rendering is enabled.",
-    "Reworked simple accessors/cleanup paths from raw lbl_804333E0 references and pointer arithmetic to field-based Movieplayer access, including power, unk_70, unk_140, and unk_150.",
-    "Implemented lbMthp8001FAA0 for one-shot THP image decode: initializes THP, loads file data, allocates YUV planes/context/decode buffer, calls THPVideoDecode, selects THPDec_80331340 or THPDec_803313D0 based on width, and frees temporary buffers.",
-    "Updated lbmthp.h with THP decoder prototypes and a more detailed THPDecComp layout, replacing padding with typed fields such as unk_18, unk_20, unk_28, unk_4C, YUV plane pointers, unk_120, currPackedSize, unk_138, and unk_13C.",
-    "Updated lbmthp.static.h to include OSAlarm, expand struct lbl_804333E0_t through the movie player state, rename the static instance from lbl_804333E0 to Movieplayer, name offset 0x14C as power, and expose GXTexObj fields at 0x178/0x198/0x1B8."
+    "Implemented fn_8001E910 as a DevCom completion/callback-style routine that records OS tick deltas, advances packed-frame offsets and ring-buffer indices, asserts nonzero currPackedSize, and queues HSD_DevComRequest when playback/streaming conditions allow.",
+    "Implemented fn_8001ECF4 to initialize frame pointer tables and Y/U/V output buffers inside a caller-provided buffer, preload packed frame data through lbFile_800161C4, align packed sizes to 32 bytes, invalidate cache ranges, and emit diagnostic OSReport output before an assert on invalid zero sizes.",
+    "Implemented fn_8001EF5C to decode the current THP frame using THPVideoDecode under interrupt protection, convert decoded output through THPDec_80331340 for 0x280-wide frames or THPDec_803313D0 otherwise, store cache ranges for the 0x280 path, update decoded-frame state, and then request the next stream read via fn_8001F13C.",
+    "Implemented fn_8001F13C to schedule the next asynchronous packed-frame read when the stream is active, not already busy, and not caught up to the decode index.",
+    "Implemented fn_8001F2A4 as the periodic alarm handler/frame advancement routine, including repeated conversion from tick count to frame number using an optional rate table and loop/end-of-movie handling via Movieplayer.unk_68 and Movieplayer.unk_144.",
+    "Implemented lbMthp_8001F410 to start movie playback: assert the player is not already powered, read/init THP metadata, compute required memory, use caller memory or allocate via HSD_MemAlloc, set looping, initialize buffers, create an OS alarm, and install fn_8001F2A4 as a periodic alarm handler.",
+    "Implemented lbMthp_8001F67C to decode/update a movie frame and, if rendering is enabled, initialize/load three GX I8 textures for Y, U, and V planes before calling HSD_SObjLib_803A49E0.",
+    "Implemented lbMthp8001FAA0 as a one-shot THP decode path that initializes THP, loads file data, allocates Y/U/V output planes and decoder context/buffer, calls THPVideoDecode, converts to planar outputs with width-dependent conversion routines, then frees temporary buffers.",
+    "Reworked lbMthp_8001F800, fn_8001F294, lbMthp_8001F87C, and small accessors to use named Movieplayer fields such as power, unk_70, unk_110, unk_140, and OSAlarm instead of byte-offset pointer arithmetic or lbl_804333E0 access.",
+    "Added needed includes for Runtime/runtime.h, MSL/string.h, OSCache, baselib debug/devcom, and OSAlarm support."
   ],
   "smart_moves": [
-    "Promoting proven offsets out of padding in both THPDecComp and lbl_804333E0_t made the decomp readable and allowed the C code to use normal field accesses instead of casts and byte-offset pointer arithmetic.",
-    "Renaming the static singleton from lbl_804333E0 to Movieplayer captured the module's role without over-renaming most still-unknown fields.",
-    "Only semantically supported fields received clearer names, notably currPackedSize and power; many fields remained unk_XX where the evidence was still weak.",
-    "The code preserved interrupt boundaries around shared movie-stream state and decode/request transitions, which is important for matching asynchronous DevCom/alarm behavior.",
-    "The buffer setup mirrors hardware constraints with 32-byte alignment plus DCInvalidateRange/DCStoreRange calls for THP data and YUV planes.",
-    "The implementation kept special-case behavior for 0x280-wide frames by using THPDec_80331340 and cache stores, while other widths use THPDec_803313D0.",
-    "The PR added the precise Dolphin/HSD includes needed by the decompiled code instead of relying on broad unknown declarations."
+    "Renaming the static global to Movieplayer made many formerly opaque lbl_804333E0 field accesses easier to reason about without claiming all individual fields are semantically known.",
+    "The struct work was incremental and evidence-driven: fields that were needed by the new matching code were split out while still preserving unknown/pad regions and STATIC_ASSERT size checks.",
+    "The implementations preserve hardware-facing details that commonly affect matching and correctness on GameCube: OSDisableInterrupts/OSRestoreInterrupts around shared decode/stream state, 32-byte alignment for DevCom/lbFile reads, and DCInvalidateRange/DCStoreRange for YUV planes.",
+    "For THP output conversion, the code captures the observed width-specialized branch: 0x280-wide frames use THPDec_80331340 and cache stores, while other widths use THPDec_803313D0.",
+    "The frame-rate/rate-table conversion logic in fn_8001F2A4 was kept explicit and repeated rather than over-abstracted, which likely helped preserve codegen shape for matching.",
+    "The PR updated headers and static headers alongside the C bodies, avoiding local-only guesses and making newly required THP decoder, OSAlarm, and GXTexObj types available to future work."
   ],
   "decomp_lessons": [
-    "For lbmthp-style streaming code, struct layout progress is a matching enabler: once the frame table, YUV planes, offsets, packed-size, alarm, and GX texture fields are typed, many stubs can be expressed as straightforward C.",
-    "Do not over-name fields just because they are now typed; this PR shows a conservative pattern of naming clear concepts like Movieplayer, power, and currPackedSize while leaving uncertain offsets as unk_XX.",
-    "Asynchronous movie playback code often requires exact OSDisableInterrupts/OSRestoreInterrupts scopes around state changes, especially when an alarm handler, DevCom callback, and renderer share the same global player state.",
-    "THP decode buffers need explicit cache maintenance in decomp code. Cache invalidation after allocation/layout and storeback after conversion can be part of both correctness and matching.",
-    "Frame advancement may need duplicated arithmetic rather than helper extraction when matching original compiler output; fn_8001F2A4 repeats the rate-table conversion in multiple phases.",
-    "Magic constants can be meaningful matching anchors: 0x20 frame slots, 0x1F/0xFFFFFFE0 alignment, 0x280 width, 0x800000F8 bus-clock access, and the 0.016666668f alarm period all appear in the decompiled logic.",
-    "Near-complete matches can still coexist with lower-confidence functions; the bot report showed fn_8001F13C, lbMthp8001FAA0, and fn_8001EF5C near 100%, while fn_8001E910 and lbMthp_8001F67C remained substantially partial."
+    "For decompiling streaming media code, identify ring-buffer indices, current packed size, file offset, busy flag, loop flag, and decoded-frame index before trying to simplify control flow; these fields drive both matching and correctness.",
+    "Avoid replacing repeated frame-number conversion blocks with helpers unless the original code clearly shared a helper; repeated source may be necessary for matching compiler output.",
+    "Cache management calls are not incidental in THP/GX code. DCInvalidateRange and DCStoreRange placement can be part of both functional behavior and matching.",
+    "Asynchronous file/device reads often require both interrupt masking and callback function signatures to match the surrounding library conventions. Here fn_8001E910 was typed as void fn_8001E910(int, int, void*, bool).",
+    "When global static structs are still mostly unknown, a useful middle ground is to name the global semantically, expose only proven fields, keep padding for the rest, and retain size assertions.",
+    "For YUV texture upload paths, expect three GX_TF_I8 texture objects: one full-size luma plane and two half-width/half-height chroma planes."
   ],
   "naming_conventions": [
-    "Static data label lbl_804333E0 was replaced by the file-local variable name Movieplayer in lbmthp.static.h and throughout lbmthp.c.",
-    "The struct tag lbl_804333E0_t remained address-derived, while the instance name became semantic.",
-    "Offset 0x14C in the movie player static struct was named power, matching its use as the active/initialized flag in lbMthp_8001F410, lbMthp_8001F800, and lbMthp_8001F87C.",
-    "Offset 0x124 was named currPackedSize, matching repeated uses in DevCom request sizing and packed-frame offset advancement.",
-    "Function names remained address-based, such as fn_8001E910, fn_8001ECF4, fn_8001EF5C, fn_8001F13C, fn_8001F2A4, lbMthp_8001F410, lbMthp_8001F67C, and lbMthp8001FAA0.",
-    "THPDecComp kept mostly unk_XX field names but replaced padding with typed u32, s32, pointer, and YUV-plane fields at documented offsets.",
-    "The single-frame/static helper struct lbl_804335B8_t gained explicit unk94 and unk98 fields for the lbFile_80016760 outputs while preserving the existing xNN naming style."
+    "The static global at 0x4333E0 was renamed from lbl_804333E0 to Movieplayer, while the underlying struct tag remained struct lbl_804333E0_t.",
+    "A field at offset 0x124 was given the semantic name currPackedSize, reflecting its use in aligned packed-frame reads and asserts.",
+    "A field at offset 0x14C was named power, replacing prior raw unk_14C usage in start/stop/power-state checks.",
+    "Most newly exposed fields remain offset-style unk_XX names, indicating insufficient evidence for stronger semantic names.",
+    "THPDecComp gained explicit field names for width and height at offsets 0x44 and 0x48, while many other fields are still unk_XX."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(16) in fn_8001EBF0 and PAD_STACK(8) in fn_8001ECF4 to satisfy stack layout requirements.",
-    "Used explicit u32/s32 casts throughout comparisons and arithmetic, matching the signedness-sensitive style visible in the diff.",
-    "Used 32-byte alignment idioms both as manual bit math, `(size + 0x1F) & 0xFFFFFFE0`, and as ALIGN_32 for request sizes.",
-    "Kept low-level alarm timing expression with `__cvt_dbl_usll((f64)(0.016666668f * (f32)(*(u32*)0x800000F8 >> 2)))` rather than abstracting it.",
-    "Scoped temporary variables and small inner blocks, such as `next` index updates and the local `struct lbl_804333E0_t streamPlayer = Movieplayer`, appear to be used to preserve compiler code shape.",
-    "Repeated the rate-table conversion logic in fn_8001F2A4 instead of factoring it out, likely to match the original control flow.",
-    "Used THPVideoDecode argument types as raw pointers/integers in the header and call sites, reflecting incomplete external THP type information while enabling progress.",
-    "Preserved OSReport/HSD_ASSERT strings in fn_8001ECF4, which likely contributed to .data matching improvements."
+    "Used PAD_STACK additions in fn_8001EBF0 and fn_8001ECF4 to influence stack layout for matching.",
+    "Preserved explicit casts between u32, s32, pointers, and uintptr_t in DevCom and frame-index code to match signedness and codegen-sensitive comparisons.",
+    "Used ALIGN_32 or equivalent ((size + 0x1F) & 0xFFFFFFE0) expressions for packed THP read sizes.",
+    "Kept interrupt save/restore pairs around shared state changes and THPVideoDecode calls to reproduce the expected critical sections.",
+    "Used a local copy `struct lbl_804333E0_t streamPlayer = Movieplayer` inside fn_8001E910 before HSD_ASSERTREPORT, which appears to be a codegen/matching tactic rather than a semantic necessity based on the diff.",
+    "Maintained width-specific branches for THPDec_80331340 versus THPDec_803313D0 instead of generalizing the decode conversion path."
   ],
   "review_feedback": [
-    "No human review comments or formal review records were present in this PR slice.",
-    "The PR body only said: \"Tracking PR as usual\"; rationale is therefore inferred from the diff and bot report.",
-    "decomp.dev reported 11 improvements in main/melee/lb/lbmthp.",
-    "Bot-highlighted improvements included fn_8001ECF4 from 0.00% to 94.05%, fn_8001E910 from 0.00% to 81.22%, .data from 24.85% to 91.42%, lbMthp8001FAA0 from 0.00% to 99.74%, fn_8001F13C from 0.00% to 99.98%, lbMthp_8001F410 from 0.00% to 95.41%, fn_8001F2A4 from 0.00% to 90.79%, lbMthp_8001F67C from 0.00% to 83.79%, and fn_8001EF5C from 0.00% to 99.85%."
+    {
+      "source": "PR body",
+      "feedback": "Only says \"Tracking PR as usual\"; no technical rationale was provided."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported 11 improvements in unmatched items for main/melee/lb/lbmthp, including fn_8001ECF4 to 94.05%, fn_8001E910 to 81.22%, .data to 91.42%, lbMthp8001FAA0 to 99.74%, fn_8001F13C to 99.98%, lbMthp_8001F410 to 95.41%, fn_8001F2A4 to 90.79%, lbMthp_8001F67C to 83.79%, fn_8001EF5C to 99.85%, .sdata2 to 83.33%, and fn_8001EBF0 from 98.63% to 98.77%."
+    },
+    {
+      "source": "review comments",
+      "feedback": "No human review comments were present in the provided PR slice."
+    }
   ],
   "searchable_terms": [
     "pr-2394",
@@ -97,58 +109,54 @@
     "lbmthp",
     "Movieplayer",
     "lbl_804333E0",
-    "lbl_804333E0_t",
-    "lbl_804335B8_t",
     "THPDecComp",
-    "THPInit",
     "THPVideoDecode",
     "THPDec_8032F8D4",
     "THPDec_8032FD40",
     "THPDec_80331340",
     "THPDec_803313D0",
     "fn_8001E910",
-    "fn_8001EBF0",
     "fn_8001ECF4",
     "fn_8001EF5C",
     "fn_8001F13C",
     "fn_8001F2A4",
-    "fn_8001F294",
     "lbMthp_8001F410",
     "lbMthp_8001F67C",
-    "lbMthp_8001F800",
     "lbMthp8001FAA0",
     "HSD_DevComRequest",
     "lbFile_800161C4",
     "lbFile_80016760",
-    "OSSetPeriodicAlarm",
-    "OSCreateAlarm",
-    "OSCancelAlarm",
     "OSDisableInterrupts",
     "OSRestoreInterrupts",
     "OSGetTick",
+    "OSCreateAlarm",
+    "OSSetPeriodicAlarm",
+    "OSCancelAlarm",
     "DCInvalidateRange",
     "DCStoreRange",
     "GXInitTexObj",
-    "GXInitTexObjLOD",
     "GXLoadTexObj",
     "GX_TF_I8",
     "currPackedSize",
     "power",
     "rate_table",
-    "YUV planes",
-    "HSD_ASSERTREPORT",
-    "PAD_STACK",
-    "ALIGN_32"
+    "YUV",
+    "THP movie playback"
   ],
   "follow_up_queries": [
-    "lbmthp Movieplayer currPackedSize unk_120 HSD_DevComRequest",
-    "src/melee/lb/lbmthp.c fn_8001F2A4 rate table frame conversion",
-    "THPDecComp unk_50 unk_54 unk_58 YUV plane naming",
-    "lbMthp_8001F67C GX_TF_I8 Movieplayer unk_178 unk_198 unk_1B8",
-    "THPVideoDecode THPDec_80331340 width 0x280 DCStoreRange",
-    "fn_8001E910 cancelflag DevCom callback OSGetTick",
-    "lbMthp_8001F410 OSSetPeriodicAlarm 0x800000F8 0.016666668f",
-    "lbMthp8001FAA0 one-shot THP decode lbl_804335B8"
+    "Find later PRs that rename THPDecComp unk_XX fields to semantic names after this lbmthp struct expansion.",
+    "Search for follow-up work improving fn_8001E910 and lbMthp_8001F67C match percentages beyond the 81-84% range reported here.",
+    "Compare other movie/THP-related decomp PRs for the same THPDec_80331340 versus THPDec_803313D0 width-dependent conversion pattern.",
+    "Look for later review or cleanup of the local struct copy in fn_8001E910 to confirm whether it was purely a matching workaround.",
+    "Search for PRs touching Movieplayer.power, currPackedSize, or lbmthp.static.h to track naming stabilization."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

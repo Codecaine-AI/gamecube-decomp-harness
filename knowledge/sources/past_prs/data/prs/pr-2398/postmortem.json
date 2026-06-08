@@ -11,129 +11,102 @@
     "merged_at": "2026-04-09T22:36:35Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large fighter-collision decomp PR focused on src/melee/ft/ftcoll.c. It replaced many NOT_IMPLEMENTED stubs with typed fighter/item collision, damage-log, knockback, hurtbox-init, shield/absorb/reflect, stale-move, and effect-spawn logic, then updated ftcoll.h and ft/types.h to support the new code. decomp.dev reported +1688 matched-code bytes with 8 new full matches and 13 improved unmatched ftcoll items, but also reported a small .sdata match regression.",
+  "summary": "Large fighter-collision decompilation PR centered on src/melee/ft/ftcoll.c. It replaced many NOT_IMPLEMENTED stubs, improved several near-matching routines, corrected prototypes and struct fields needed by collision/damage-log logic, and raised decomp.dev matched code by +1688 bytes. The bot reported 8 new full function matches in main/melee/ft/ftcoll, 13 unmatched-item improvements, and one small .sdata regression.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "fighter-collision",
-      "item-collision",
       "headers",
-      "struct-typing",
-      "assertion-cleanup"
+      "struct-layout",
+      "collision",
+      "damage-calculation"
     ],
     "systems": [
       "fighter",
-      "item",
-      "collision",
-      "damage",
-      "effects",
-      "player-stale-move-tracking"
+      "fighter-collision",
+      "item-collision",
+      "damage-log",
+      "hurtbox"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/ftcoll.c",
-      "role": "Main decomp work; 1816 additions / 101 deletions across 27 hunks. Implemented or improved ftColl collision/damage/effect routines and added matching scaffolding."
-    },
-    {
-      "path": "src/melee/ft/ftcoll.h",
-      "role": "Replaced several UNK_RET/UNK_PARAMS or loose prototypes with typed signatures for ftColl_80077970, ftColl_80077C60, ftColl_80078538, ftColl_80078998, and ftColl_80079C70."
-    },
-    {
-      "path": "src/melee/ft/types.h",
-      "role": "Typed ftData.x30 as a count/inits hurtbox-init structure, ftDynamics.x8 as struct ftData_x38*, Fighter.x1670[0].x24 as int, and DmgLogEntry.x20 as float."
-    },
-    {
-      "path": "src/melee/ft/forward.h",
-      "role": "Added EntityKind_UNKNOWN to enum EntityKind for ftcoll damage-log switch/default handling."
-    }
+    "src/melee/ft/ftcoll.c",
+    "src/melee/ft/ftcoll.h",
+    "src/melee/ft/types.h",
+    "src/melee/ft/forward.h"
   ],
   "what_changed": [
-    "Implemented multiple previously stubbed ftcoll routines, including ftColl_80077688, ftColl_80077970, ftColl_80077C60, ftColl_80078538, ftColl_800787B4, ftColl_8007891C, ftColl_80078998, ftColl_80079AB0, ftColl_80079C70, ftColl_80079EA8, ftColl_8007A06C, ftColl_8007ABD0, ftColl_8007AC9C, ftColl_8007B320, ftColl_8007B4E0, ftColl_8007BAC0, and ftColl_8007BC90.",
-    "Added item-versus-fighter collision handling in ftColl_8007925C, covering item hitboxes against fighter hit capsules/hurt capsules, team/owner filtering, reflect, absorb, shield, catch-like item interactions, and SFX/effect side effects.",
-    "Added item shield and hitbox interaction routines: ftColl_80077688 records shield damage, outgoing damage direction, owner/player attribution, and shield-hit effects; ftColl_80077970 handles hitbox clank-style item/fighter interactions; ftColl_80077C60 handles item damage application, tip logs, special item pickup/counter cases, and stale-move updates through ftColl_80078998.",
-    "Implemented damage-result processing in ftColl_8007A06C, selecting the highest knockback damage-log entry, computing direction/angle/element/source/damage output, spawning appropriate effects, and dispatching ftColl_8007861C for fighter, item, or environment damage sources.",
-    "Added knockback/damage helper formulas in ftColl_80079AB0, ftColl_80079C70, and ftColl_80079EA8 using fighter weight, Player_GetAttackRatio, Player_GetDefenseRatio, gm_8016B248 stage scaling, hit x24/x28/x2C data, percent/temp damage, and p_ftCommonData caps.",
-    "Updated ftColl_80076ED8 matching/control flow and corrected one damage-log write from dmg_log1/dmg_log1_idx to dmg_log0/dmg_log0_idx in the damage-log0 path.",
-    "Converted several OSReport + HSD_ASSERT or __assert pairs into HSD_ASSERTREPORT with explicit line constants such as 0xB7, 0xE3, 0xF9, 0x110, 0x888, 0x8C9, and 0x8DF.",
-    "Added required includes for newly referenced fighter, item, player, collision, and math APIs, including ft_0881.h, ft_0DF0.h, ftchangeparam.h, it_2725.h, pl_040D.h, player.h, pltrick.h, and MSL/trigf.h."
+    "Added a substantial amount of real implementation code in src/melee/ft/ftcoll.c, replacing numerous NOT_IMPLEMENTED stubs in the ftColl_80077688 through ftColl_8007BE3C region.",
+    "Implemented item-vs-fighter collision paths such as ftColl_80077688, ftColl_80077970, ftColl_80077C60, and the large ftColl_8007925C item collision scanner, including shield, reflect, absorb, hit/hurt capsule, catch-element, and item hitbox interactions.",
+    "Implemented damage/knockback helper routines ftColl_80079AB0, ftColl_80079C70, and ftColl_80079EA8 using ftCommonData values, player attack/defense ratios, weight, stage multiplier, hit capsule fields, and percent/temp damage.",
+    "Implemented damage-log processing in ftColl_8007A06C, including choosing entries, computing knockback, spawning effects, and handling fighter/item sources based on DmgLogEntry.",
+    "Implemented smaller routines that became full matches according to the bot, including ftColl_80078538, ftColl_800787B4, ftColl_8007891C, ftColl_80078998, ftColl_8007AC9C, ftColl_8007B320, ftColl_8007B4E0, ftColl_8007BAC0, ftColl_8007BBCC, and ftColl_8007BC90.",
+    "Changed damage log indices dmg_log0_idx and dmg_log1_idx from size_t to int in ftcoll.c.",
+    "Replaced several OSReport plus HSD_ASSERT sequences with HSD_ASSERTREPORT at original line-number-style constants, including attack-power, damage-log, tip-log, illegal hit status, and hurt-capsule count assertions.",
+    "Corrected a damage-log write bug in ftColl_80076ED8 by writing the normal damage entry to dmg_log0[dmg_log0_idx] instead of dmg_log1[dmg_log1_idx].",
+    "Restructured ftColl_80076ED8 with PAD_STACK(32), explicit early goto retfalse flow, and HSD_ASSERTREPORT calls, improving its reported match from 94.35% to 97.73%.",
+    "Updated ftcoll.h prototypes from UNK_RET/UNK_PARAMS or imprecise parameter types to concrete signatures for ftColl_80077970, ftColl_80077C60, ftColl_80078538, ftColl_80078998, and ftColl_80079C70.",
+    "Added EntityKind_UNKNOWN to enum EntityKind in src/melee/ft/forward.h and used it as a default damage-log kind case in ftColl_8007BBCC.",
+    "Refined src/melee/ft/types.h layouts: ftData.x30 became a typed struct containing a count and ftHurtboxInit pointer; Fighter.x1670 element offset +0x24 became int x24 instead of padding; ftDynamics.x8 became struct ftData_x38*; DmgLogEntry.x20 became float."
   ],
   "smart_moves": [
-    "Typed public ftcoll prototypes as soon as implementations revealed real parameters, reducing UNK usage and making later call-site work safer.",
-    "Used struct discoveries from the implementations to improve headers: ftData_x30 exposes hurtbox-init count/inits, ftDynamics.x8 is no longer void*, and DmgLogEntry.x20 is correctly treated as float for fractional/tip damage.",
-    "Preserved matching-sensitive control flow with PAD_STACK, #pragma dont_inline, explicit goto labels such as retfalse/catch_path/catch_elem_path, and duplicated inline math where needed.",
-    "Kept damage source handling explicit by tagging DmgLogEntry.x0 and branching for fighter, item, and environment-style entries in ftColl_8007A06C.",
-    "Fixed a high-risk log-array mismatch in ftColl_80076ED8 by writing damage-log0 entries to dmg_log0[dmg_log0_idx] instead of dmg_log1[dmg_log1_idx].",
-    "Centralized report/assert behavior into HSD_ASSERTREPORT calls, which better matches emitted code than separate OSReport and assert calls in several ftcoll paths."
+    "Used the decomp.dev bot results to validate broad progress: 8 new full matches and 13 improved unmatched items in main/melee/ft/ftcoll, rather than only relying on local code shape.",
+    "Promoted unknown public interfaces to typed function signatures in ftcoll.h as implementation evidence became available, reducing future UNK_PARAMS churn.",
+    "Treated DmgLogEntry.x20 as float, matching how the diff stores temp damage and damage-log values, instead of keeping it as int.",
+    "Added a typed ftData_x30 wrapper for hurtbox initialization data, enabling ftColl_8007B320 and ftColl_8007B4E0 to read count/inits cleanly.",
+    "Matched assertion codegen by using HSD_ASSERTREPORT directly with numeric source-line constants, avoiding mismatching OSReport plus assert sequences.",
+    "Used PAD_STACK, #pragma dont_inline, #pragma push/pop, clang-format off, and explicit goto labels in hot collision routines where C structure needed to mirror original control flow.",
+    "Kept comments cautious where evidence was incomplete, for example the comment that ftColl_80078538's dmg parameter is probably a u32."
   ],
   "decomp_lessons": [
-    "Collision decomp often forces header progress: once a routine walks data tables, replace opaque pointers with minimal structs that expose only proven fields, as done for ftData_x30 and ftDynamics.x8.",
-    "Damage logs should preserve float damage until the assembly clearly truncates; this PR changed DmgLogEntry.x20 from int to float and only casts at specific call sites.",
-    "For ftcoll matching, source entity kind matters: fighter, item, and environment-like damage entries share final result output but require different attack ratios, direction logic, owner attribution, and effect dispatch.",
-    "Small type choices can affect matching; dmg_log0_idx and dmg_log1_idx were changed from size_t to int even though the arrays are indexed by bounded counts.",
-    "Item collision code is cross-system code. Future work should expect dependencies on item owner, teams, stale moves, player stats, effects, shield state, absorb/reflect state, and game-mode checks.",
-    "Generated decomp.dev reports are useful for balancing progress against regressions: this PR gained many function matches but left a .sdata break that future work should investigate."
+    "For ft collision work, struct/header corrections often unlock many function bodies at once; this PR's typed ftData.x30, ftDynamics.x8, and DmgLogEntry.x20 changes support multiple collision and damage-log implementations.",
+    "Damage-log arrays should distinguish normal damage and tip damage carefully: ftColl_80076ED8 writes normal entries to dmg_log0 and tip entries to dmg_log1.",
+    "When matching assert-heavy code, HSD_ASSERTREPORT may be the original form even if earlier code used OSReport followed by HSD_ASSERT.",
+    "Item/fighter collision scans may require preserving original early-exit and goto structure; simplifying the logic risks codegen drift in nested shield/reflect/absorb/catch paths.",
+    "Function signatures should be tightened as soon as callsites and implementations prove parameter types; this reduces casts and clarifies later matching work.",
+    "Small enum additions like EntityKind_UNKNOWN can be necessary to express original default cases and prevent misleading fallthrough behavior.",
+    "The bot can report a net matched-code improvement while also flagging a data regression; future PRs should inspect .sdata movement when adding extern constants or changing local static types."
   ],
   "naming_conventions": [
-    "Address-based ftColl_* function names were retained, but prototypes now use domain types such as Item*, HitCapsule*, Fighter*, Fighter_GObj*, HSD_GObj*, and Vec3* instead of UNK_PARAMS.",
-    "The new enum value is named EntityKind_UNKNOWN, using an all-caps UNKNOWN suffix alongside EntityKind_None, EntityKind_Fighter, and EntityKind_Item.",
-    "New struct naming follows existing placeholder style: struct ftData_x30 contains count and inits, while ftDynamics.x8 is typed as struct ftData_x38*.",
-    "Damage-log globals keep the existing dmg_log0/dmg_log1 and dmg_log0_idx/dmg_log1_idx naming rather than introducing semantic names.",
-    "Evidence-backed field names such as xC34_damageDealt, xCB8_outDamageDirection, x19A0_shieldDamageTaken, and xCF4_fighterGObjUnk are reused rather than renamed speculatively."
+    "Retained address-based ftColl_* names such as ftColl_8007925C and ftColl_8007A06C because the PR did not provide semantic names.",
+    "Used established project macros/types such as Fighter_GObj, Item_GObj, HSD_GObj, GET_FIGHTER, HitCapsule, FighterHurtCapsule, ftCommonData, and PAD_STACK.",
+    "Named new enum value EntityKind_UNKNOWN in all caps for UNKNOWN, matching the diff exactly rather than normalizing it to EntityKind_Unknown.",
+    "Used field names that preserve current decomp uncertainty, such as x221B_b5, x189C_unk_num_frames, xDCE_flag.b5, shield_unk1, and unk_count.",
+    "Introduced local descriptive variables in implementations where the original symbols remain unknown, such as dmg_count, midpoint, coll_pos, coll_dist, best_entry, and scaled_dmg.",
+    "Header prototypes use concrete project types instead of UNK_RET/UNK_PARAMS once known: Item*, Fighter*, HitCapsule*, Vec3*, HSD_GObj*, bool, u32, and float."
   ],
   "assembly_or_matching_tactics": [
-    "Inserted PAD_STACK with several exact sizes, including 8, 16, 20, 24, 32, 46, and 0xB0, to shape stack frames for matching.",
-    "Used #pragma dont_inline around matching-sensitive functions such as ftColl_8007891C, ftColl_80078998, ftColl_8007925C, ftColl_8007BC90, and ftColl_8007BE3C.",
-    "Used labels and gotos to reproduce original control flow, including retfalse in ftColl_80076ED8 and skip_hit_loop/catch_path/catch_elem_path in ftColl_8007925C.",
-    "Relied on named float constants like ftColl_804D82E0, ftColl_804D82E8, ftColl_804D82EC, ftColl_804D82F0, ftColl_804D8314, ftColl_804D8318, and ftColl_804D831C instead of simplifying to literals.",
-    "Kept explicit casts among float, int, u32, and size_t in damage and knockback formulas, especially around hit->damage, hit->unk_count, hit->x24, hit->x28, and DmgLogEntry.size_of_xC.",
-    "Used MSL trig functions cosf, sinf, and atanf in collision/effect angle paths rather than replacing them with approximate helpers."
+    "Inserted PAD_STACK with specific byte counts, including 8, 16, 20, 24, 32, 46, and 0xB0, to control stack layout for matching.",
+    "Used #pragma dont_inline on/off and #pragma push/pop around functions such as ftColl_8007891C, ftColl_80078998, ftColl_8007925C, ftColl_8007BC90, and ftColl_8007BE3C.",
+    "Used explicit goto labels like retfalse, skip_hit_loop, catch_path, catch_elem_path, check_b3, next_item, and end to preserve original branch structure.",
+    "Disabled clang formatting around large structured functions where indentation and labels were likely shaped for matching rather than readability.",
+    "Replaced assert-report sequences with HSD_ASSERTREPORT calls using numeric constants such as 0xB7, 0xF9, 0x110, 0xE3, 0x888, 0x8C9, and 0x8DF.",
+    "Used casts to u32, s32, u8, int, and float around hit capsule and common-data math to influence codegen and preserve original arithmetic behavior.",
+    "Used MSL/trigf.h cosf/sinf in shield/item response code, suggesting explicit library selection mattered for emitted calls."
   ],
   "review_feedback": [
-    {
-      "source": "decomp-dev bot",
-      "feedback": "Matched code for GALE01 increased to 62.55% (+0.04%, +1688 bytes); matched data was 38.10% (-8 bytes)."
-    },
-    {
-      "source": "decomp-dev bot",
-      "feedback": "Reported 8 new full matches in main/melee/ft/ftcoll: ftColl_8007BC90, ftColl_800787B4, ftColl_80078538, ftColl_8007ABD0, ftColl_80078998, ftColl_8007891C, ftColl_8007AC9C, and ftColl_8007BBCC."
-    },
-    {
-      "source": "decomp-dev bot",
-      "feedback": "Reported 13 improvements in unmatched ftcoll items, including ftColl_8007A06C to 87.21%, ftColl_8007925C to 97.54%, ftColl_80077C60 to 97.11%, ftColl_80077970 to 96.62%, and ftColl_80077688 to 92.44%."
-    },
-    {
-      "source": "decomp-dev bot",
-      "feedback": "Reported one broken match: main/melee/ft/ftcoll .sdata dropped from 100.00% to 28.57% (-6 bytes)."
-    },
-    {
-      "source": "slice metadata",
-      "feedback": "No human reviews or review comments were captured for this PR, so reviewer intent beyond the bot report is not evidenced."
-    }
+    "No human review comments were present in the provided PR slice.",
+    "The decomp.dev bot reported matched code 62.55% (+0.04%, +1688 bytes) and matched data 38.10% (-0.00%, -8 bytes).",
+    "The bot reported 8 new full matches: ftColl_8007BC90, ftColl_800787B4, ftColl_80078538, ftColl_8007ABD0, ftColl_80078998, ftColl_8007891C, ftColl_8007AC9C, and ftColl_8007BBCC.",
+    "The bot reported 13 improvements in unmatched items, including ftColl_8007A06C to 87.21%, ftColl_8007925C to 97.54%, ftColl_80077C60 to 97.11%, ftColl_80077970 to 96.62%, ftColl_80077688 to 92.44%, ftColl_80079C70 to 96.54%, ftColl_8007B320 to 97.69%, ftColl_80079AB0 to 95.58%, ftColl_80079EA8 to 88.11%, ftColl_8007BAC0 to 98.96%, ftColl_8007B4E0 to 96.76%, ftColl_80076ED8 to 97.73%, and ftColl_8007BE3C to 90.57%.",
+    "The bot also reported one broken match: main/melee/ft/ftcoll .sdata dropped from 100.00% to 28.57%."
   ],
   "searchable_terms": [
     "pr-2398",
     "Jj/ftcoll",
     "jurrejelle",
+    "ftcoll",
     "src/melee/ft/ftcoll.c",
     "src/melee/ft/ftcoll.h",
     "src/melee/ft/types.h",
     "src/melee/ft/forward.h",
-    "ftcoll",
-    "fighter collision",
-    "item collision",
-    "damage log",
+    "EntityKind_UNKNOWN",
+    "DmgLogEntry",
     "dmg_log0",
     "dmg_log1",
     "dmg_log0_idx",
     "dmg_log1_idx",
-    "DmgLogEntry",
-    "EntityKind_UNKNOWN",
-    "ftData_x30",
-    "ftDynamics.x8",
-    "ftData_x38",
-    "ftHurtboxInit",
+    "ftColl_80076ED8",
     "ftColl_80077688",
     "ftColl_80077970",
     "ftColl_80077C60",
@@ -146,39 +119,44 @@
     "ftColl_80079C70",
     "ftColl_80079EA8",
     "ftColl_8007A06C",
-    "ftColl_8007ABD0",
     "ftColl_8007AC9C",
     "ftColl_8007B320",
     "ftColl_8007B4E0",
     "ftColl_8007BAC0",
     "ftColl_8007BBCC",
     "ftColl_8007BC90",
-    "ftColl_8007BE3C",
     "HSD_ASSERTREPORT",
     "PAD_STACK",
-    "pragma dont_inline",
     "HitCapsule",
     "HurtCapsule",
-    "shield damage",
-    "absorb hit",
-    "reflect hit",
-    "Player_GetAttackRatio",
-    "Player_GetDefenseRatio",
-    "plStale_UpdateStaleMovesFromItem",
-    "plStale_UpdateStaleMovesFromFighter",
-    "efSync_Spawn",
+    "FighterHurtCapsule",
+    "ftData_x30",
+    "ftDynamics",
     "it_8026FAC4",
+    "it_8026FC00",
     "it_8026B1D4",
     "lbColl_80007BCC",
-    "lbColl_8000805C"
+    "lbColl_8000805C",
+    "lbColl_80008248",
+    "Player_GetAttackRatio",
+    "Player_GetDefenseRatio",
+    "plStale_UpdateStaleMovesFromFighter",
+    "plStale_UpdateStaleMovesFromItem"
   ],
   "follow_up_queries": [
-    "Find later PRs that fix the ftcoll .sdata regression reported after PR 2398.",
-    "Search for later edits to DmgLogEntry.x20, dmg_log0_idx, or dmg_log1_idx to confirm the float/int typing held.",
-    "Search for ftData_x30 and ftDynamics.x8 usage in later fighter-data/hurtbox decomp PRs.",
-    "Search for future work on ftColl_8007925C because PR 2398 brought it to 97.54% but not a full match.",
-    "Search for HSD_ASSERTREPORT conversions in ftcoll.c to reuse exact report/assert matching patterns.",
-    "Search for later renames or documentation of EntityKind_UNKNOWN and DmgLogEntry.x0 values."
+    "Investigate the .sdata regression reported by decomp.dev for main/melee/ft/ftcoll after this PR.",
+    "Search later PRs for semantic names or cleanup around ftColl_8007925C, ftColl_8007A06C, and ftColl_80077C60.",
+    "Check whether EntityKind_UNKNOWN was later renamed or expanded after this PR.",
+    "Look for later struct-layout refinements to ftData_x30, ftData_x38, ftDynamics.x8, Fighter.x1670, and DmgLogEntry.x20.",
+    "Compare subsequent matching tactics for the large item-vs-fighter collision scanner to see whether gotos/PAD_STACK pragmas were reduced after more symbols became known."
   ],
-  "confidence": 0.87
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

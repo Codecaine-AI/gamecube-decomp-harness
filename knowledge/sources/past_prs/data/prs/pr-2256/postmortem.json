@@ -11,87 +11,72 @@
     "merged_at": "2026-03-10T23:01:12Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched two mnname functions, `fn_80238540` and `mnName_80239FFC`, with clean build verification and 100.0 fuzzy match for all changed functions. The work replaced placeholders with typed menu input/cleanup logic, added a local `MnName_GObj` overlay, and updated related headers so HSD_GObj/HSD_JObj/HSD_Text usage is explicit.",
+  "summary": "Matched two mnname functions, fn_80238540 and mnName_80239FFC, with header/type updates needed to express the call targets and GObj/JObj/Text layout. The PR reports clean ninja verification and 100.0 fuzzy match for all functions. Review specifically pushed the implementation away from raw pointer arithmetic toward using the actual jobj/GObj struct fields.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "types-structs",
-      "signature-cleanup",
-      "review-cleanup"
+      "naming",
+      "types-structs"
     ],
     "systems": [
-      "melee-core",
-      "menu-name-entry",
       "mnname",
-      "mnnamenew",
-      "baselib-gobj-jobj-sislib"
+      "menu-name-entry",
+      "melee-core"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/mn/mnname.c",
-      "reason": "Implemented `fn_80238540` and `mnName_80239FFC`; added includes for `mnmain.h`, `mnnamenew.h`, and baselib GObj support."
-    },
-    {
-      "path": "src/melee/mn/mnname.h",
-      "reason": "Added `MnName_GObj` struct and converted several `UNK_PARAMS` declarations to typed `HSD_GObj*` signatures."
-    },
-    {
-      "path": "src/melee/mn/mnnamenew.h",
-      "reason": "Added baselib forward include and changed `mnNameNew_MainInput` to take `HSD_GObj*`."
-    }
+    "src/melee/mn/mnname.c",
+    "src/melee/mn/mnname.h",
+    "src/melee/mn/mnnamenew.h"
   ],
   "what_changed": [
-    "`fn_80238540` was decompiled as an `HSD_GObj*` input dispatcher switching on `(s32) mn_804A04F0.x10`.",
-    "Dispatcher cases call `mnName_MainInput(gobj)`, `mnNameNew_MainInput(gobj)`, or `mnName_ConfirmNameDeleteInput(gobj)` for states 0, 1, and 2 respectively.",
-    "`mnName_80239FFC` was decompiled as a cleanup routine that casts the object to `MnName_GObj`, extracts a JObj, removes its child tree with `HSD_JObjRemoveAll`, frees `mn->text` with `HSD_SisLib_803A5CC4`, and nulls the text pointer.",
-    "Added `typedef struct MnName_GObj` with `HSD_GObj gobj` at +0x00, unknown `x38`, and `HSD_Text* text` at +0x3C.",
-    "Updated prototypes for `mnName_ConfirmNameDeleteInput`, `mnName_MainInput`, `fn_80238540`, `mnName_80239FFC`, and `mnNameNew_MainInput` away from generic `UNK_PARAMS` where evidence supported `HSD_GObj*`."
+    "Decompiled fn_80238540 as a dispatcher on mn_804A04F0.x10, calling mnName_MainInput, mnNameNew_MainInput, or mnName_ConfirmNameDeleteInput for cases 0, 1, and 2 respectively.",
+    "Decompiled mnName_80239FFC to retrieve a JObj from the menu-name GObj data, remove all children from its child JObj with HSD_JObjRemoveAll, and free/reset associated HSD_Text with HSD_SisLib_803A5CC4 when present.",
+    "Added includes in mnname.c for mnmain.h, mnnamenew.h, and baselib/gobj.h so the newly decompiled functions could use concrete declarations.",
+    "Introduced MnName_GObj in mnname.h with an embedded HSD_GObj, an x38 field, and an HSD_Text* text field.",
+    "Updated prototypes from UNK_PARAMS to typed HSD_GObj* signatures for mnName_ConfirmNameDeleteInput, mnName_MainInput, fn_80238540, mnName_80239FFC, and mnNameNew_MainInput."
   ],
   "smart_moves": [
-    "Typed the cross-module input path with `HSD_GObj*`, making the dispatcher and called input handlers line up cleanly.",
-    "Introduced a named struct overlay for the extended GObj data instead of leaving all access as raw offsets.",
-    "Preserved matching-sensitive control flow in `fn_80238540`: an integer cast on the global state, direct switch cases, and no visible default case.",
-    "Used explicit null handling in the cleanup path before calling `HSD_JObjRemoveAll` and before freeing the SIS text object.",
-    "Responded to review direction by moving away from byte-pointer arithmetic and toward actual GObj/JObj struct field access."
+    "Converted dispatcher callees to typed HSD_GObj* prototypes across mnname.h and mnnamenew.h, avoiding mismatched placeholder signatures once fn_80238540 called them directly.",
+    "Modeled the menu-name object wrapper as MnName_GObj instead of leaving all accesses as byte offsets, making the text cleanup field explicit.",
+    "Handled the possible NULL JObj before accessing jobj->child, matching the safe control flow shown in the diff.",
+    "Set mn->text to NULL after freeing it, preserving the cleanup semantics visible in mnName_80239FFC.",
+    "Responded to review direction by avoiding raw pointer math in favor of actual struct usage where possible."
   ],
   "decomp_lessons": [
-    "When an input dispatcher is blocked, first type the neighboring handlers; replacing `UNK_PARAMS` with `HSD_GObj*` can expose the simple switch/call structure.",
-    "For GObj-backed menu objects, define small local wrapper structs with offset comments when only a few fields are known.",
-    "Avoid pointer math against `HSD_GObj` when existing baselib structs or local overlays can describe the access.",
-    "Cleanup/destructor-like menu routines may require exact ordering: derive child JObj, remove it, then conditionally free text and clear the field.",
-    "Cross-header typing matters: `mnname.c` needed declarations from `mnnamenew.h`, and `mnnamenew.h` needed baselib forward declarations once `HSD_GObj*` appeared in its prototype."
+    "Small menu dispatcher functions can often be matched cleanly by typing the global state field used in the switch and by correcting prototypes for all branch targets.",
+    "When a GObj callback needs data beyond the base HSD_GObj, define a wrapper struct with the embedded HSD_GObj at offset 0 rather than repeatedly casting to u8* and using offsets.",
+    "Reviewers prefer concrete HSD struct field access, such as jobj->child, over pointer arithmetic, even when pointer arithmetic may produce a match.",
+    "Cleanup functions should preserve both resource-freeing behavior and post-free state updates, such as clearing HSD_Text pointers.",
+    "Header cleanup is part of matching work: replacing UNK_PARAMS with typed HSD_GObj* signatures can unlock direct calls and improve future decomp readability."
   ],
   "naming_conventions": [
-    "Unnamed functions continue to use address-style `fn_80238540` naming.",
-    "Known menu name functions use the `mnName_` prefix.",
-    "New-name-entry functions use the `mnNameNew_` prefix.",
-    "Struct wrapper name `MnName_GObj` follows subsystem plus wrapped baselib type.",
-    "Unknown struct fields remain generic, e.g. `x38`, with offset comments documenting layout evidence."
+    "Preserved existing address-based names for still-unknown functions, such as fn_80238540 and mnName_80239FFC.",
+    "Used subsystem prefixes consistently: mnName_* for existing name menu functions and mnNameNew_* for new-name-entry functions.",
+    "Named the wrapper struct MnName_GObj to indicate it represents mnname-specific data layered on top of HSD_GObj.",
+    "Kept unknown struct member naming as x38 where the field purpose was not evidenced."
   ],
   "assembly_or_matching_tactics": [
-    "Verification reported `fuzzy_match_percent: 100.0` for all functions.",
-    "decomp.dev reported 2 new matches in `main/melee/mn/mnname`: `fn_80238540` at +96 bytes and `mnName_80239FFC` at +92 bytes, +188 bytes total matched code.",
-    "The matching dispatcher uses `switch ((s32) mn_804A04F0.x10)` with cases 0, 1, and 2.",
-    "`mnName_80239FFC` uses an explicit `if (jobj == NULL) child = NULL; else child = jobj->child;` shape before `HSD_JObjRemoveAll(child)`.",
-    "The final diff accesses JObj child data through `HSD_JObj*` rather than the reviewed raw `u8*` plus offset pattern."
+    "Used a switch on (s32) mn_804A04F0.x10 to reproduce the input-state dispatcher for fn_80238540.",
+    "Matched mnName_80239FFC by casting HSD_GObj* to a mnname-specific wrapper struct and using HSD_JObj/HSD_Text APIs rather than opaque placeholders.",
+    "Added exact baselib forward/type includes needed to make typed prototypes and field accesses compile.",
+    "Verified by reported clean ninja build and fuzzy_match_percent 100.0 for the decompiled functions."
   ],
   "review_feedback": [
     {
-      "reviewer": "PsiLupan",
       "file": "src/melee/mn/mnname.c",
-      "feedback": "For `mnName_80239FFC`, use the actual `jobj` struct, not pointer math.",
-      "evidence": "Review hunk objected to `u8* p = (u8*) gobj;` and `jobj = *(HSD_JObj**) (p + 0x30);`; final diff uses `MnName_GObj*`, `HSD_JObj*`, and `jobj->child`."
+      "author": "PsiLupan",
+      "comment": "This should use the actual `jobj` struct, not pointer math.",
+      "lesson": "Prefer actual HSD_JObj/HSD_GObj struct fields over byte-offset casts when the struct layout is known."
     }
   ],
   "searchable_terms": [
     "pr-2256",
     "mnname",
-    "mnnamenew",
-    "fn_80238540",
     "mnName_80239FFC",
+    "fn_80238540",
     "mnName_MainInput",
     "mnNameNew_MainInput",
     "mnName_ConfirmNameDeleteInput",
@@ -102,19 +87,26 @@
     "HSD_Text",
     "HSD_JObjRemoveAll",
     "HSD_SisLib_803A5CC4",
-    "user_data_remove_func",
+    "jobj->child",
     "pointer math",
-    "jobj struct",
     "UNK_PARAMS",
-    "fuzzy_match_percent 100.0",
-    "GALE01"
+    "mnnamenew.h",
+    "mnname.h",
+    "fuzzy_match_percent 100.0"
   ],
   "follow_up_queries": [
-    "Find remaining `mnname.h` or `mnnamenew.h` prototypes still using `UNK_PARAMS` that likely take `HSD_GObj*`.",
-    "Search for other menu cleanup functions that pair `HSD_JObjRemoveAll` with `HSD_SisLib_803A5CC4`.",
-    "Look for GObj extension overlays similar to `MnName_GObj` to standardize field naming around +0x38 and +0x3C.",
-    "Compare `fn_80238540` with other menu state dispatchers using a global state field and switch cases.",
-    "Audit any remaining raw pointer math against `HSD_GObj` in mn/menu code and replace it with struct-backed access where evidence allows."
+    "Find later PRs that refine MnName_GObj fields, especially x38 or the source of the JObj pointer.",
+    "Search for other mnname functions still using UNK_PARAMS that can be typed as HSD_GObj* or HSD_JObj* callbacks.",
+    "Look for similar menu cleanup functions using HSD_JObjRemoveAll and HSD_SisLib_803A5CC4 to standardize resource teardown patterns.",
+    "Audit remaining raw pointer arithmetic around HSD_GObj user data in menu code and replace with known struct fields where supported."
   ],
-  "confidence": 0.94
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

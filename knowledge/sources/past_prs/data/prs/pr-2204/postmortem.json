@@ -11,111 +11,122 @@
     "merged_at": "2026-03-04T16:53:24Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Fixed remaining itbox matching issues and promoted src/melee/it/items/itbox.c from NonMatching to Matching. The patch added/placed ItemStateTable it_803F5850, moved itBox_Logic1_Spawned/Destroyed below it_80286088, corrected spawned_gobj cleanup from efLib_DestroyAll to grKongo_801D8058, and adjusted MAX_ROT_VEL to the exact matching literal. decomp.dev reported a new 100% .data match for main/melee/it/items/itbox and a small .sdata2 improvement.",
+  "summary": "Fixed remaining itbox matching issues and changed src/melee/it/items/itbox.c from NonMatching to Matching in configure.py. The diff primarily reorders the item state table into the expected data position, swaps the box accessory cleanup call from efLib_DestroyAll to grKongo_801D8058 with the corresponding include change, and adjusts MAX_ROT_VEL to a more exact floating-point literal. The decomp.dev bot reported one new GALE01 match for main/melee/it/items/itbox .data, from 0.00% to 100.00%, plus a .sdata2 improvement from 94.12% to 98.04%. No PR body or human review feedback was present in the slice.",
   "change_classification": {
-    "primary_type": "decomp-matching-fix",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "fix",
-      "item-state-table",
-      "data-match",
+      "data-layout",
+      "constant-tuning",
       "build-config"
     ],
     "systems": [
-      "item/itbox",
-      "build configuration",
-      "gr/kongo helper"
+      "item",
+      "itbox",
+      "grkongo",
+      "configure"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/it/items/itbox.c",
-      "role": "Main itbox implementation; changed includes, added ItemStateTable it_803F5850, corrected destruction helper, and adjusted MAX_ROT_VEL."
+      "role": "Main item source update: state table placement, cleanup call correction, include change, and floating-point constant adjustment."
     },
     {
       "path": "configure.py",
-      "role": "Changed Object(NonMatching, \"melee/it/items/itbox.c\") to Object(Matching, \"melee/it/items/itbox.c\")."
+      "role": "Marks melee/it/items/itbox.c as Matching instead of NonMatching."
     }
   ],
   "what_changed": [
-    "Marked melee/it/items/itbox.c as Matching in configure.py.",
-    "Replaced the ef/eflib.h include with gr/grkongo.h in itbox.c.",
-    "Added ItemStateTable it_803F5850 near the top of itbox.c with nine rows of itBox_UnkMotionN Anim/Phys/Coll callbacks.",
-    "Moved itBox_Logic1_Spawned and itBox_Logic1_Destroyed to appear after it_80286088 in source order.",
-    "Changed itBox_Logic1_Destroyed so non-NULL xDD4_itemVar.box.spawned_gobj is passed to grKongo_801D8058 instead of efLib_DestroyAll before clearing the pointer.",
-    "Changed MAX_ROT_VEL from 0.05235987901687622 to 0.05235987715423107.",
-    "Automated report showed main/melee/it/items/itbox .data improved from 0.00% to 100.00% (+144 bytes) and .sdata2 from 94.12% to 98.04% (+4 bytes)."
+    "Changed configure.py entry for melee/it/items/itbox.c from Object(NonMatching, ...) to Object(Matching, ...).",
+    "Removed include of ef/eflib.h and added include of gr/grkongo.h in itbox.c.",
+    "Moved/introduced ItemStateTable it_803F5850[] near the top of itbox.c before itBox_Logic1_Spawned and itBox_Logic1_Destroyed, defining nine motion-state entries using itBox_UnkMotion*_Anim/Phys/Coll callbacks.",
+    "Relocated itBox_Logic1_Spawned and itBox_Logic1_Destroyed after it_80286088 in source order.",
+    "Changed itBox_Logic1_Destroyed cleanup for ip->xDD4_itemVar.box.spawned_gobj from efLib_DestroyAll(...) to grKongo_801D8058(...), then still nulls spawned_gobj.",
+    "Adjusted MAX_ROT_VEL from 0.05235987901687622 to 0.05235987715423107.",
+    "Bot-reported result: itbox .data became a new 100% match, adding 144 matched data bytes; itbox .sdata2 improved by 4 bytes."
   ],
   "smart_moves": [
-    "Matched the emitted data by representing it_803F5850 as an ItemStateTable of function pointers rather than leaving the table absent/implicit.",
-    "Used the grKongo-specific cleanup symbol indicated by the corrected include and call site, avoiding the previous generic efLib_DestroyAll dependency.",
-    "Tuned a single floating-point constant to the bit-sensitive literal needed for .sdata2 progress.",
-    "Kept unknown behavior names as address/UnkMotion symbols instead of inventing semantics while still allowing the object to match.",
-    "Updated the build configuration only for the targeted object, making the matching-status change easy to audit."
+    "The fix targeted both symbol behavior and binary layout: the state table placement was important for .data matching, not just code readability.",
+    "Replacing efLib_DestroyAll with grKongo_801D8058 suggests the spawned accessory cleanup path needed the stage/ground-specific function used by the original binary, and the include was updated accordingly.",
+    "The tiny MAX_ROT_VEL literal correction shows attention to exact double/float constant identity, which is often necessary for .sdata2 matching.",
+    "Only after the targeted fixes were made was the object flipped to Matching in configure.py, tying the build configuration change to verified match output."
   ],
   "decomp_lessons": [
-    "For item files, ItemStateTable placement and function-pointer contents can be the deciding factor for .data matching.",
-    "Data and text order both matter: moving logic callbacks relative to spawn code and placing the state table early were part of the successful match strategy.",
-    "Subsystem-specific cleanup calls can affect matching; a plausible generic destroy helper is not necessarily the original function.",
-    "Floating-point literals should be chosen for exact binary output, not just mathematical equivalence.",
-    "When an item object becomes matching, remember to update configure.py from Object(NonMatching, ...) to Object(Matching, ...).",
-    "decomp.dev bot reports are useful evidence for deciding whether a PR truly improved matching; here the strongest evidence is automated, not human review text."
+    "For item files, source-order placement of ItemStateTable data can be decisive for .data matching; do not assume tables can be placed anywhere without affecting match status.",
+    "When a cleanup function is semantically plausible but not matching, compare the called subsystem carefully. Here the matching call was grKongo_801D8058 rather than efLib_DestroyAll.",
+    "Micro differences in numeric literals can block or reduce .sdata2 matching; preserve exact recovered constants such as 0.05235987715423107.",
+    "When marking a unit as Matching, include the configure.py status flip in the same PR as the evidence-producing source fixes.",
+    "Bot match reports are useful evidence for validating data-section work: this PR's measurable win was .data 0.00% to 100.00% for main/melee/it/items/itbox."
   ],
   "naming_conventions": [
-    "Item lifecycle callbacks use itBox_Logic1_Spawned and itBox_Logic1_Destroyed.",
-    "State callbacks follow the pattern itBox_UnkMotionN_Anim, itBox_UnkMotionN_Phys, and itBox_UnkMotionN_Coll.",
-    "Unresolved or address-derived symbols were retained as it_803F5850, it_80286088, and it_8028655C.",
-    "Box-specific item state lives under xDD4_itemVar.box, including opened, spawned_gobj, rot_vel_x, and rot_vel_y.",
-    "configure.py matching status uses Object(Matching, \"melee/it/items/itbox.c\") inside MatchingFor."
+    "Item logic callbacks use the existing itBox_Logic1_Spawned and itBox_Logic1_Destroyed naming pattern.",
+    "Unknown motion callbacks remain in the itBox_UnkMotionN_Anim/Phys/Coll style, reflecting unresolved but consistently grouped item state behavior.",
+    "The item state table retains its address-style generated name it_803F5850.",
+    "Item variable access follows the existing field path ip->xDD4_itemVar.box.spawned_gobj and ip->xDD4_itemVar.box.opened."
   ],
   "assembly_or_matching_tactics": [
-    "Declare the state table explicitly as ItemStateTable it_803F5850[] with exact state IDs and callback pointers, including NULL where the collision callback is absent.",
-    "Use precise constants for sdata2: MAX_ROT_VEL needed 0.05235987715423107 rather than the nearby 0.05235987901687622.",
-    "Replace a mismatching call target even when behavior seems similar: efLib_DestroyAll was replaced by grKongo_801D8058.",
-    "Let the required include follow the true call target: ef/eflib.h was dropped and gr/grkongo.h was added.",
-    "Validate data progress separately from code progress; the bot reported both a new .data match and an .sdata2 improvement."
+    "Reorder data declarations to match the binary's expected .data layout before changing build status to Matching.",
+    "Use exact floating-point literals for constants involved in matched .sdata2 output; here MAX_ROT_VEL required 0.05235987715423107.",
+    "Check callee identity for destructor/cleanup routines, since a same-signature or semantically similar helper can still fail matching.",
+    "Use decomp.dev output to confirm section-level effects: .data reached 100.00%, while .sdata2 improved but was still reported as 98.04% for the unit."
   ],
   "review_feedback": [
-    "No human review comments were present in the slice.",
-    "The PR body was empty, so intent is inferred from the title, diff, and automated report.",
-    "decomp-dev[bot] reported for GALE01: linked code 30.83% (+0.13%, +5072 bytes), matched data 20.96% (+0.01%, +144 bytes), and linked data 28.84% (+0.02%, +264 bytes).",
-    "decomp-dev[bot] listed one new match: main/melee/it/items/itbox .data +144 bytes, 0.00% to 100.00%.",
-    "decomp-dev[bot] listed one improvement in an unmatched item: main/melee/it/items/itbox .sdata2 +4 bytes, 94.12% to 98.04%."
+    {
+      "source": "decomp-dev[bot]",
+      "feedback": "GALE01 report showed linked code +5072 bytes, matched data +144 bytes, linked data +264 bytes; one new match for main/melee/it/items/itbox .data from 0.00% to 100.00%, and .sdata2 improvement from 94.12% to 98.04%."
+    },
+    {
+      "source": "slice",
+      "feedback": "No human review comments or PR body rationale were present, so reviewer intent cannot be inferred."
+    }
   ],
   "searchable_terms": [
     "pr-2204",
-    "Fix itbox issues mark as matching",
+    "PsiLupan",
     "itbox",
+    "Fix itbox issues",
+    "mark as matching",
     "src/melee/it/items/itbox.c",
     "configure.py",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "MatchingFor",
+    "Object(Matching, \"melee/it/items/itbox.c\")",
+    "Object(NonMatching, \"melee/it/items/itbox.c\")",
     "ItemStateTable",
     "it_803F5850",
-    "it_80286088",
-    "it_8028655C",
     "itBox_Logic1_Spawned",
     "itBox_Logic1_Destroyed",
-    "itBox_UnkMotion0_Anim",
-    "itBox_UnkMotion8_Phys",
-    "xDD4_itemVar.box.spawned_gobj",
-    "efLib_DestroyAll",
+    "it_80286088",
+    "it_8028655C",
     "grKongo_801D8058",
+    "efLib_DestroyAll",
     "gr/grkongo.h",
     "ef/eflib.h",
     "MAX_ROT_VEL",
+    "0.05235987715423107",
+    "0.05235987901687622",
     "ROT_VEL_SCALE",
     "DEG_TO_RAD",
-    ".data 100%",
-    ".sdata2 98.04%",
-    "GALE01"
+    "xDD4_itemVar.box.spawned_gobj",
+    "xDD4_itemVar.box.opened",
+    "xDCE_flag.b7",
+    "GALE01",
+    ".data match",
+    ".sdata2 improvement"
   ],
   "follow_up_queries": [
-    "Search other item destructor callbacks for efLib_DestroyAll calls that may actually need subsystem-specific cleanup helpers.",
-    "Audit remaining itbox .sdata2 mismatch after the reported 98.04% result.",
-    "Look for other item files with missing or misplaced ItemStateTable data blocking .data matches.",
-    "When semantics are clearer, consider whether it_803F5850 and itBox_UnkMotionN names can be promoted beyond address/unknown names."
+    "Find other item files where ItemStateTable declaration order affects .data matching.",
+    "Search for efLib_DestroyAll calls in item destructors that may need a more specific cleanup routine.",
+    "Compare grKongo_801D8058 usage across item accessory or spawned_gobj cleanup paths.",
+    "Audit remaining .sdata2 mismatches in itbox after MAX_ROT_VEL was corrected."
   ],
-  "confidence": 0.88
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

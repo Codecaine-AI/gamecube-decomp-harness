@@ -11,117 +11,128 @@
     "merged_at": "2026-03-16T00:06:52Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Implemented and typed several gm/mn utility functions in game-mode, Rules menu, and Name Entry code. The diff replaces stubs for fn_8018846C, mn_80232458, mnName_GetPageCount, mnName_GetColumnCount, and mnName_802388D4, updates headers, and adds supporting Rules-menu data arrays. decomp-dev reported 4 new full matches totaling +620 matched bytes; mnName_GetColumnCount was listed as a 98.72% improvement despite the PR body claiming all functions were verified 100% via objdiff.",
+  "summary": "Matched a small set of game-mode and menu functions across gm_1832, mnname, and mnruleplus. The PR replaced placeholder decomp comments with typed C implementations for fn_8018846C, mnName_GetPageCount, mnName_GetColumnCount, mnName_802388D4, and mn_80232458, updated their headers from UNK_RET/UNK_PARAMS to concrete signatures, and added supporting static/global data arrays in mnruleplus. The body states the functions were verified as 100% matching in objdiff and that ninja built cleanly.",
   "change_classification": {
-    "primary_type": "decompilation_match",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "data-matching",
       "naming",
-      "tooling"
+      "menu-logic",
+      "game-mode-logic"
     ],
     "systems": [
       "game-mode",
-      "menu",
+      "menus",
       "name-entry",
-      "rules-menu"
+      "rules-menu",
+      "results-ranking-flow"
     ]
   },
   "key_files": [
-    "src/melee/gm/gm_1832.c — implemented fn_8018846C result/ranking-flow callback logic using lbl_80473700, pl_8004134C, and Player_GetPlayerCharacter",
-    "src/melee/gm/gm_1832.h — replaced UNK_RET/UNK_PARAMS prototype with int fn_8018846C(void)",
-    "src/melee/mn/mnname.c — implemented Name Entry page count, column count, and HSD_JObj lookup/layout helper",
-    "src/melee/mn/mnname.h — added concrete prototypes for mnName_GetPageCount, mnName_GetColumnCount, and mnName_802388D4",
-    "src/melee/mn/mnruleplus.c — added zero-initialized AnimLoopSettings/data arrays and implemented mn_80232458 Rules-menu animation-loop selector"
-  ],
-  "what_changed": [
-    "fn_8018846C now returns int, calls pl_8004134C(0), updates a per-character slot in lbl_80473700 using Player_GetPlayerCharacter(0) + 2, caches nonzero results in lbl_80473700[67]/[68], and returns the cached result when present.",
-    "mnName_GetPageCount now counts valid name slots over 0x78 entries using IsNameValid((u8)i) and returns ceil(valid_count / 24), matching the PR body’s Name Entry pagination description.",
-    "mnName_GetColumnCount now counts the same 0x78 valid name slots and returns ceil(valid_count / 6); the implementation includes PAD_STACK(16), indicating a stack-shaping match tactic.",
-    "mnName_802388D4 now maps Name Entry layout indices to HSD_JObj pointers: indices below 0x18 walk the child/next chain from the JObj pointer at gobj + 0x30, while indices 0x18, 0x19, and 0x1A return JObj pointers from gobj offsets 0x24, 0x18, and 0x1C.",
-    "mn_80232458 now returns an AnimLoopSettings pointer for Rules-menu options 1 through 4, rejects other options with NULL, reads mn_803ED2E8[option][1], and selects from mn_803ED270 or mn_803ED294 based on direction and value.",
-    "mnruleplus.c gained supporting zero-initialized globals mn_803ED270[3], mn_803ED294[7], and mn_803ED2E8[16][2], improving the unit’s .data match according to the bot report.",
-    "Headers were synchronized with concrete return and argument types, replacing generic UNK_RET/UNK_PARAMS declarations."
-  ],
-  "smart_moves": [
-    "Kept implementation and header prototypes in sync, converting unknown declarations to concrete signatures as soon as the function behavior was understood.",
-    "Used simple loop-and-remainder ceiling division for Name Entry pagination instead of algebraic shortcuts, preserving the likely original compiler structure.",
-    "Preserved unsigned-byte behavior with explicit u8 casts on Name Entry indices, which matters for comparisons, loop limits, and switch cases.",
-    "Handled JObj traversal defensively with NULL-propagating child/next access, matching both HSD object semantics and likely branch structure.",
-    "Added the exact supporting Rules-menu data arrays needed by mn_80232458 rather than treating the function body in isolation; this also moved .data closer to matching.",
-    "Used PAD_STACK(16) in mnName_GetColumnCount as a targeted decomp stack-layout tactic."
-  ],
-  "decomp_lessons": [
-    "For menu pagination code, the Name Entry roster evidence in this PR uses 0x78 total slots, pages of 24, and groups of 6; future mnName work should reuse those constants cautiously where the same list is being counted.",
-    "When a function returns a pointer into HSD_GObj-owned data before the struct is fully named, raw u8* offset access can be an acceptable interim matching tactic, but follow-up struct field recovery is still desirable.",
-    "Data matching can be required for a function match: mn_80232458 depended on newly declared AnimLoopSettings arrays and a u8 lookup table, and the bot separately reported a mnruleplus .data improvement.",
-    "Concrete prototypes are useful decomp evidence. This PR narrowed fn_8018846C to int(void), mnName_GetPageCount and mnName_GetColumnCount to s32(void), and mnName_802388D4 to HSD_JObj*(HSD_GObj*, u8).",
-    "Do not rely on PR titles or bodies alone for exact match counts. Here the title and bot report say 4 new full matches, while the body lists five functions and claims all were 100%; mnName_GetColumnCount appears only as a 98.72% improvement in the bot output."
-  ],
-  "naming_conventions": [
-    "Module prefixes were preserved: gm_ / fn_ for game-mode symbols, mnName_ for Name Entry helpers, and mn_ for broader menu/rules code.",
-    "Descriptive names were used where behavior was clear: mnName_GetPageCount and mnName_GetColumnCount describe the counted pagination results.",
-    "Address-suffixed placeholder names remained where semantics were not fully established, such as fn_8018846C, mnName_802388D4, mn_80232458, mn_803ED270, mn_803ED294, and mn_803ED2E8.",
-    "Known no-argument functions were declared with explicit void rather than UNK_PARAMS.",
-    "Unknown global storage such as lbl_80473700 was left under its existing label name rather than over-naming weakly understood state."
-  ],
-  "assembly_or_matching_tactics": [
-    "PAD_STACK(16) was inserted in mnName_GetColumnCount to shape stack usage.",
-    "Ceiling division was expressed as a modulo test assigning an extra variable, then count / divisor + extra, matching a common original-code pattern.",
-    "Explicit casts to u8 were retained for loop arguments and index comparisons in mnName code.",
-    "JObj chain traversal used ternary NULL checks for child and next links, likely preserving branch/codegen shape.",
-    "mn_80232458 used direct array indexing and pointer returns into fixed-size AnimLoopSettings arrays, with option validation written as chained != comparisons.",
-    "fn_8018846C used local pointer aliases into lbl_80473700, including ptr[67] and ptr[68], rather than abstracting the global state into a new struct."
-  ],
-  "review_feedback": [
-    "No human review comments were present in the slice.",
-    "decomp-dev[bot] reported GALE01 matched code at 58.00% (+0.02%, +620 bytes). New full matches: mnName_GetPageCount (+196), mnName_802388D4 (+144), fn_8018846C (+140), and mn_80232458 (+140).",
-    "decomp-dev[bot] also reported mnName_GetColumnCount as an unmatched-item improvement to 98.72% (+185) and mnruleplus .data as improved from 59.85% to 67.65% (+28).",
-    "The PR body states all functions were verified 100% via objdiff and ninja built cleanly; this conflicts with the bot’s mnName_GetColumnCount percentage, so the exact final status of that symbol is uncertain from this slice."
-  ],
-  "searchable_terms": [
-    "pr-2303",
-    "gm/mn match 4 functions",
-    "johnwinston",
     "src/melee/gm/gm_1832.c",
     "src/melee/gm/gm_1832.h",
     "src/melee/mn/mnname.c",
     "src/melee/mn/mnname.h",
-    "src/melee/mn/mnruleplus.c",
+    "src/melee/mn/mnruleplus.c"
+  ],
+  "what_changed": [
+    "Implemented fn_8018846C in gm_1832.c as an int-returning no-argument function that reads pl_8004134C(0), indexes lbl_80473700 using Player_GetPlayerCharacter(0) + 2, stores a max value for that character slot, and uses lbl_80473700[67]/[68] as cached or stateful result fields.",
+    "Updated gm_1832.h prototype for fn_8018846C from UNK_RET fn_8018846C(UNK_PARAMS) to int fn_8018846C(void).",
+    "Implemented mnName_GetPageCount by counting valid name slots over 0x78 entries using IsNameValid((u8) i) and returning a rounded-up count divided by 24.",
+    "Implemented mnName_GetColumnCount similarly over 0x78 name slots, returning a rounded-up count divided by 6 and requiring PAD_STACK(16) for matching.",
+    "Implemented mnName_802388D4 as an HSD_JObj lookup callback taking HSD_GObj* and u8 index. For indices below 0x18 it walks the child/next chain from the JObj at gobj offset 0x30; indices 0x18, 0x19, and 0x1A return JObjs at gobj offsets 0x24, 0x18, and 0x1C respectively; other indices return the gobj cast as HSD_JObj*.",
+    "Updated mnname.h signatures for mnName_GetPageCount, mnName_GetColumnCount, and mnName_802388D4 to concrete return and parameter types.",
+    "Added mnruleplus data definitions mn_803ED270, mn_803ED294, and mn_803ED2E8 using AnimLoopSettings arrays and a zeroed u8[16][2] table.",
+    "Implemented mn_80232458 in mnruleplus.c as a Rules menu helper returning an AnimLoopSettings* selected by option, value, and direction, with options outside 1 through 4 returning NULL."
+  ],
+  "smart_moves": [
+    "Converted unknown prototypes to concrete signatures in the headers at the same time as the C implementations, improving call-site type information for future matching work.",
+    "Used direct count-and-round-up arithmetic for Name Entry pagination, preserving the observed page size of 24 and column grouping of 6 from the PR description.",
+    "Kept the matching-sensitive PAD_STACK(16) in mnName_GetColumnCount, documenting by code shape that the extra stack padding was required for an exact match.",
+    "Modeled mnName_802388D4 around actual HSD_GObj/HSD_JObj relationships while still using byte-offset access where the exact gobj payload struct was not established, avoiding premature or unsupported struct invention.",
+    "Added explicit AnimLoopSettings data arrays before implementing mn_80232458, making the matched function reference typed data instead of opaque addresses.",
+    "Used u8 casts on loop indices and index comparisons where needed, likely preserving the original narrow argument behavior and matching codegen."
+  ],
+  "decomp_lessons": [
+    "When a function is matched, update both the source implementation and public header prototype from UNK_RET/UNK_PARAMS to the best-supported concrete types.",
+    "For menu list pagination, count only valid entries with the existing validity predicate and use explicit rounded-up division when that reflects the original codegen.",
+    "Small stack padding macros such as PAD_STACK can be necessary even in simple arithmetic functions; retain them when objdiff requires stack layout alignment.",
+    "If a menu object layout is not fully typed, byte-offset field access from HSD_GObj can be an acceptable interim matching tactic, but the returned values should still use meaningful types such as HSD_JObj*.",
+    "Array sizes and constants are useful semantic anchors: this PR identifies a 0x78/120-slot name list, pages of 24, and column groups of 6.",
+    "Rules/menu helper functions may depend on companion data tables being declared with the right type and dimensions before the function itself can be cleanly expressed."
+  ],
+  "naming_conventions": [
+    "Functions still lacking semantic names kept address-based names such as fn_8018846C, mnName_802388D4, and mn_80232458.",
+    "Name Entry functions with clear behavior used descriptive CamelCase-style names in the existing module convention: mnName_GetPageCount and mnName_GetColumnCount.",
+    "Menu module globals retained address-derived names such as mn_803ED270, mn_803ED294, mn_803ED2E8, and mn_804DBE48.",
+    "The PR used concrete project types in signatures where known: s32, u8, HSD_GObj*, HSD_JObj*, and AnimLoopSettings*."
+  ],
+  "assembly_or_matching_tactics": [
+    "Replaced placeholder '#function' comments with C implementations verified by objdiff according to the PR body.",
+    "Used PAD_STACK(16) in mnName_GetColumnCount as an explicit stack-shape matching tactic.",
+    "Preserved narrow integer behavior with casts such as IsNameValid((u8) i) and switch/index checks on (u8) index.",
+    "Used pointer arithmetic against lbl_80473700 in fn_8018846C, including ptr + Player_GetPlayerCharacter(0) + 2 and fixed indices 67 and 68.",
+    "For mnName_802388D4, traversed HSD_JObj sibling links with null checks using child then next pointers, matching a layout callback pattern without fully defining the owner object.",
+    "For mn_80232458, encoded exact option filtering and array indexing formulas: direction selects between mn_803ED270 and mn_803ED294, with value == 0 returning mn_803ED270[count] and the reverse direction returning mn_803ED294[count - value]."
+  ],
+  "review_feedback": [
+    "No review comments were present in the provided PR slice.",
+    "The PR body reports all functions verified as 100% matches via objdiff during an overnight run and a clean ninja build.",
+    "There was one issue comment counted in the context, but no substantive review-comment excerpt was provided, so no specific reviewer intent can be extracted."
+  ],
+  "searchable_terms": [
+    "pr-2303",
+    "gm/mn: match 4 functions",
+    "johnwinston",
+    "gm_1832",
+    "gm_1832.c",
+    "gm_1832.h",
     "fn_8018846C",
     "gm_80188454",
     "lbl_80473700",
     "pl_8004134C",
     "Player_GetPlayerCharacter",
+    "mnname",
+    "mnname.c",
+    "mnname.h",
+    "mnName_GetPageCount",
+    "mnName_GetColumnCount",
+    "mnName_802388D4",
+    "IsNameValid",
+    "PAD_STACK",
+    "HSD_GObj",
+    "HSD_JObj",
+    "Name Entry",
+    "name list",
+    "pagination",
+    "120-slot name list",
+    "pages of 24",
+    "columns of 6",
+    "mnruleplus",
+    "mnruleplus.c",
     "mn_80232458",
     "mn_803ED270",
     "mn_803ED294",
     "mn_803ED2E8",
     "AnimLoopSettings",
-    "mnName_GetPageCount",
-    "mnName_GetColumnCount",
-    "mnName_802388D4",
-    "IsNameValid",
-    "PAD_STACK(16)",
-    "HSD_GObj",
-    "HSD_JObj",
-    "Name Entry",
     "Rules menu",
-    "0x78 name slots",
-    "24 per page",
-    "6 per column",
     "objdiff",
-    "ninja",
-    "decomp-dev bot",
-    "GALE01"
+    "ninja"
   ],
   "follow_up_queries": [
-    "Verify final merged match status for mnName_GetColumnCount, because the PR body says 100% but the decomp-dev report lists 98.72%.",
-    "Recover or confirm MnName_GObj field names for raw offsets 0x18, 0x1C, 0x24, and 0x30 used by mnName_802388D4.",
-    "Investigate semantic names for mn_803ED270, mn_803ED294, and mn_803ED2E8 in Rules-menu animation-loop logic.",
-    "Trace callers of fn_8018846C to identify the meaning of lbl_80473700 slots 67 and 68 in the results/ranking flow.",
-    "Check whether the title’s '4 functions' intentionally excludes mnName_GetColumnCount as a near-match rather than a full match."
+    "Search for later PRs that rename fn_8018846C or mn_80232458 to semantic names after more game-mode or Rules menu context is understood.",
+    "Look for follow-up work that replaces byte-offset access in mnName_802388D4 with a concrete MnName_GObj or menu layout struct.",
+    "Check whether mn_803ED270, mn_803ED294, and mn_803ED2E8 later gain semantic names or nonzero initializer documentation.",
+    "Search for call sites of mnName_GetPageCount and mnName_GetColumnCount to confirm how the 120-slot, 24-per-page, 6-per-column assumptions propagate through Name Entry UI code."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

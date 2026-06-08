@@ -11,96 +11,82 @@
     "merged_at": "2026-05-31T13:28:55Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Implemented and improved several src/melee/if/ifstatus damage/status HUD routines. The PR replaced multiple NOT_IMPLEMENTED stubs or placeholders, updated real function prototypes, and corrected IfDamageState damage fields to signed s16 for -1 sentinels. decomp.dev reported GALE01 matched code +0.04% / +1664 bytes with four new ifstatus matches; there was no PR body or human review text in the slice, so intent is inferred from the diff and automated match report.",
+  "summary": "Matched and substantially improved several HUD status/damage-percent routines in src/melee/if/ifstatus.c, replacing multiple NOT_IMPLEMENTED stubs and the asm-only marker for ifStatus_802F6EA4. The PR also corrected ifstatus prototypes and changed IfDamageState damage fields from unsigned to signed 16-bit to support sentinel values such as -1. Bot results reported 4 new matches in ifstatus, including ifStatus_802F4B84, ifStatus_802F5B48, ifStatus_802F6508, and ifStatus_802F6EA4, plus improvements to ifStatus_802F61FC, ifStatus_802F5EC0, ifStatus_802F4EDC, and ifStatus_802F66A4.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "interface-hud",
-      "function-implementation",
-      "header-prototype-update",
-      "struct-field-typing"
+      "headers",
+      "struct-field-correction",
+      "hud-status",
+      "not-implemented-replacement"
     ],
     "systems": [
-      "src/melee/if/ifstatus",
-      "damage percent HUD",
-      "player damage and stamina display",
-      "stock HUD integration",
-      "if status elements"
+      "melee-core",
+      "interface-hud",
+      "damage-percent-display",
+      "stock-status"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/if/ifstatus.c",
-      "role": "Main implementation work: digit shake, damage/HP update proc, HUD number setup, player mark setup, player HUD initialization, archive section loading, and ifStatus_802F6EA4 status element setup."
-    },
-    {
-      "path": "src/melee/if/ifstatus.h",
-      "role": "Changed prototypes from void-only stubs to real signatures for ifStatus_802F5B48(HSD_GObj*), ifStatus_802F5EC0(IfDamageState*, s32), and ifStatus_802F61FC(IfDamageState*, s32)."
-    },
-    {
-      "path": "src/melee/if/types.h",
-      "role": "Changed IfDamageState.damage_percent and old_damage from u16 to s16, matching code that stores -1 and clamps against negative values."
-    }
+    "src/melee/if/ifstatus.c",
+    "src/melee/if/ifstatus.h",
+    "src/melee/if/types.h"
   ],
   "what_changed": [
-    "Added include dependencies for implemented code paths, including if/ifcoget.h, lb/lb_00F9.h, lb/lbaudio_ax.h, baselib/gobjgxlink.h, baselib/gobjobject.h, and baselib/gobjproc.h.",
-    "Implemented ifStatus_802F4B84 as damage digit shake logic using frames_of_shake_remaining, cached translation_x/translation_y, HSD_Randf()-0.5f offsets, damage_from_last_attack scaling, and clamps around 0.1014f and 1.5207f.",
-    "Refactored ifStatus_802F4EDC matching shape: finds the IfDamageState by scanning six HUD players for HUD_parent_entity, directly walks hud->janim_selection_joints child chains to feed HSD_TObjAddAnimAll, updates ones/tens/hundreds digit texture frames, hides leading tens/hundreds via flag 0x10, and changes interpolated GXColor component casts from u8 to s8.",
-    "Added static inline find_player_by_entity and implemented ifStatus_802F5B48 as the per-HUD update proc for damage_percent/old_damage, stamina HP via Player_GetRemainingHP, normal damage via Player_GetDamage, force_digit_shake, unk10, damage_from_last_attack, and an unk9 timeout path to ifStatus_802F6788.",
-    "Implemented ifStatus_802F5EC0 to create or reuse the damage-number GObj, load hud->unk258 joints, set GX link/procs, load DmgNum animations, position the HUD with ifAll_802F3424, cache four digit JObjs and their base translations, initialize the percent sign TObj, and call the update/render routines.",
-    "Implemented ifStatus_802F61FC to create or reuse the player mark GObj, load hud->unk268, animate the mark texture from Player_GetPlayerCharacter/gm_80168B34, handle special character remapping to CKIND_BOY for listed cases, position the mark, and apply team/player HUD color to material diffuse RGB.",
-    "Implemented ifStatus_802F6508 to initialize one player's IfDamageState, reset damage and flags, call ifStatus_802F61FC and ifStatus_802F5EC0, optionally call un_802FF364, and select stock HUD mode with ifStock_802F98E8 based on StartMeleeRules.",
-    "Implemented ifStatus_802F66A4 to load DmgNum_scene_models and DmgMrk_scene_models through lbArchive_LoadSections and populate HudIndex resource pointers such as unk258, jobj_desc_parent, janim_selection_joints, janim_selection_textures, unk268, unk26C, unk270, and unk274.",
-    "Implemented ifStatus_802F6EA4, replacing the placeholder comment with status element GObj/JObj setup, callback storage, optional old-GObj removal, lb_80011C18/lb_8000C0E8 animation setup, and a sentinel arg0 == 8 path that invokes callbacks with -1 and plays audio through lbAudioAx_800237A8."
+    "Implemented ifStatus_802F4B84 as the damage digit shake routine, using frames_of_shake_remaining, damage_from_last_attack, stored digit translations, HSD_Randf-derived offsets, magnitude clamping, and final translation reset when the shake ends.",
+    "Reworked ifStatus_802F4EDC around explicit HudIndex/player lookup, digit texture animation setup, JObj/TObj animation calls, hiding tens/hundreds digits with 0x10 flags, and color interpolation for the damage percent materials.",
+    "Added static inline find_player_by_entity(HSD_GObj*) and used it in ifStatus_802F5B48 to locate the IfDamageState for a HUD parent gobj.",
+    "Implemented ifStatus_802F5B48(HSD_GObj*) as the per-HUD damage update proc, reading either remaining HP for stamina-like mode or damage percent for normal mode, clamping to 0..999, comparing old_damage, setting force_digit_shake/unk10 flags, and recording damage_from_last_attack.",
+    "Implemented ifStatus_802F5EC0(IfDamageState*, s32) to create or reuse the damage-number HUD gobj, load joints/anims, set GX link/procs, cache digit JObjs and base translations, set the percent-sign texture based on Player_GetMoreFlagsBit2, and force initial damage update/render.",
+    "Implemented ifStatus_802F61FC(IfDamageState*, s32) for player mark setup, creating/reusing a mark gobj, loading DmgMrk assets, selecting character icon animation, positioning via ifAll_802F3424, and applying player/team HUD color.",
+    "Converted the previous forward declaration of ifStatus_802F6508 into an implementation that initializes a player's HUD state, calls mark and damage HUD setup, optionally initializes related UI, and chooses stock display mode from StartMeleeRules.",
+    "Implemented ifStatus_802F66A4 to load DmgNum_scene_models and DmgMrk_scene_models from the interface archive and populate HudIndex asset pointers.",
+    "Implemented ifStatus_802F6EA4, replacing an asm placeholder marker, to either fire callbacks/audio for arg0 == 8 or create/configure an animated gobj from ifStatus_803F9628 element data.",
+    "Updated ifstatus.h prototypes for ifStatus_802F5B48, ifStatus_802F5EC0, and ifStatus_802F61FC to take the arguments used by the new C implementations.",
+    "Updated IfDamageState.damage_percent and IfDamageState.old_damage in if/types.h from u16 to s16."
   ],
   "smart_moves": [
-    "The s16 change for damage_percent and old_damage is a high-leverage type fix: the new code explicitly uses -1 as an uninitialized sentinel and compares values against 0 after Player_GetDamage/Player_GetRemainingHP.",
-    "The PR updated public prototypes at the same time as wiring functions into HSD_GObj_SetupProc, preventing ABI/signature drift between ifstatus.c and ifstatus.h.",
-    "Caching each digit JObj's base translation during ifStatus_802F5EC0 made ifStatus_802F4B84 able to restore exact positions after shake frames finish.",
-    "Using direct HSD child/member chains for TObj texture animation avoided extra local MatAnimJoint/DObj temporaries and produced better matching in ifStatus_802F4EDC.",
-    "The implementation preserved exact low-level details useful for matching, including PAD_STACK calls, literal float constants, exact flag bit behavior, GObj link priorities, and even the assert strings in ifStatus_802F61FC."
+    "Changing damage_percent and old_damage to s16 is supported by the implementation’s use of -1 as an initialization/sentinel value; leaving these as u16 would obscure comparisons like old_damage != -1 and signed clamping below zero.",
+    "The damage shake routine preserves original translation_x/translation_y per digit and restores them when frames_of_shake_remaining reaches 1, avoiding accumulated random offsets.",
+    "The implementation uses explicit digit enum-style indices such as Ones, Tens, Hundreds, and Percent in ifStatus_802F4EDC, making the HUD digit logic searchable and less dependent on raw numeric child positions.",
+    "The asset-loading routine centralizes DmgNum and DmgMrk archive section extraction into HudIndex fields before the setup routines consume those joint/anims/matanims/shapeanims pointers.",
+    "The PR adjusted headers at the same time as implementing call sites, preventing stale void(void) prototypes for proc functions that actually receive HSD_GObj or state/player parameters."
   ],
   "decomp_lessons": [
-    "If a HUD value can be initialized to -1, the backing struct field should be signed; using u16 for damage-like fields can block matching and hide sentinel semantics.",
-    "For HSD proc callbacks, fix the header signature before installing the function with HSD_GObj_SetupProc; a previous void prototype can be wrong even when the function name/address is known.",
-    "HUD archive model fields may need to be treated according to how the original code walks the data, not just by broad semantic guesses. This PR accesses texture animations via hud->janim_selection_joints child chains and fobjdesc casts.",
-    "Leading-zero suppression in HUD digits was matched by explicit HSD_JObjSetFlagsAll/HSD_JObjClearFlagsAll on Tens and Hundreds with flag 0x10, not by changing digit values.",
-    "Damage and stamina modes invert the meaning of a 'bad change': normal percent increase triggers force_digit_shake, while stamina HP decrease triggers force_digit_shake. Keep both branches separate.",
-    "Automated matching can expose cross-unit effects: this ifstatus-only diff improved several mncharsel items but also produced two tiny broken matches, so global data/type edits should be checked beyond the edited source file."
+    "When a field is initialized to -1 or compared against -1 in decompiled logic, verify the struct field signedness in types.h rather than forcing casts around unsigned fields.",
+    "For HSD HUD routines, matching often requires following actual archive layout chains such as janim_selection_joints->child->child->...->aobjdesc->fobjdesc instead of introducing convenient temporary HSD_MatAnimJoint or HSD_TexAnim variables.",
+    "Per-frame GObj proc callbacks may need their real HSD_GObj* argument reflected in headers; using void prototypes can hide important matching and call-convention evidence.",
+    "Damage HUD digit rendering combines JObj animation, TObj texture frame requests, AObj rate zeroing, and JObj visibility flags; future status work should treat these as a repeated pattern.",
+    "Preserving original local structure, explicit repeated expressions, and PAD_STACK calls can be necessary for matching even when the C could be simplified."
   ],
   "naming_conventions": [
-    "Address-style function names were retained for unnamed routines: ifStatus_802F4B84, ifStatus_802F5B48, ifStatus_802F5EC0, ifStatus_802F61FC, ifStatus_802F6508, ifStatus_802F66A4, and ifStatus_802F6EA4.",
-    "Semantic IfDamageState fields were used where evidence was clear: damage_percent, old_damage, damage_from_last_attack, frames_of_shake_remaining, translation_x, translation_y, HUD_parent_entity, and player_slot.",
-    "Uncertain fields remained conservative as unk names, including unk9, flags.unk10, HudIndex unk258/unk268/unk26C/unk270/unk274, and local resource names tied to offsets.",
-    "HUD digit indexing names Ones, Tens, Hundreds, and Percent make the digit-update code searchable and understandable while preserving the low-level HSD_JObj operations."
+    "Existing project prefix style is retained: ifStatus_802Fxxxx for unresolved status functions, ifAll_802Fxxxx for shared interface helpers, ifStock_802Fxxxx for stock UI, and gm_8016xxxx for game-mode helpers.",
+    "New helper find_player_by_entity describes the lookup behavior but remains static inline and local to ifstatus.c.",
+    "The helper offset_rand is named for its behavior, returning HSD_Randf() - 0.5f, but evidence is weak that this is a final project-preferred name.",
+    "Struct fields remain partly unknown where evidence is insufficient, such as unk9, unk10, unk258, unk268, unk26C, unk270, and unk274.",
+    "Digit indices use semantic names already present in the code/diff: Ones, Tens, Hundreds, Percent."
   ],
   "assembly_or_matching_tactics": [
-    "Used small inline helpers, including offset_rand() and find_player_by_entity(), to shape generated code while keeping logic readable.",
-    "Kept PAD_STACK markers in newly implemented routines, including PAD_STACK(8), PAD_STACK(0x18), and PAD_STACK(0x10), where stack layout mattered.",
-    "Used exact constants from the original behavior: 0.1014f, 1.5207f, 0.2028f, 2.0F digit texture frame scaling, 0.5f character texture offset, 0.1f TObj rate, 0x3E7 damage cap, 0xC8 unk9 timeout, and JObj flag 0x10.",
-    "Changed color interpolation casts from u8 to s8 in ifStatus_802F4EDC, a small signedness detail likely relevant to instruction selection.",
-    "Matched HSD object setup order: GObj_Create, HSD_JObjLoadJoint, HSD_GObjObject_80390A70, GObj_SetupGXLink, optional HSD_GObj_SetupProc, animation load/request, then HSD_JObjAnimAll or TObj animation calls.",
-    "A conspicuous cast in ifStatus_802F6508, ifStatus_802F5EC0(hud_player, (u8) ((unsigned long long)arg0)), appears to be expression-shape tuning rather than semantic cleanup."
+    "Replaced NOT_IMPLEMENTED in ifStatus_802F4B84, ifStatus_802F5B48, ifStatus_802F5EC0, ifStatus_802F61FC, and ifStatus_802F66A4 with C implementations.",
+    "Replaced the asm-placeholder comment /// #ifStatus_802F6EA4 with a C implementation that bot-reported as a 100% new match.",
+    "Used PAD_STACK(8), PAD_STACK(0x18), and PAD_STACK(0x10) in implemented functions to satisfy stack layout/matching constraints.",
+    "Kept explicit casts to HSD_AnimJoint**, HSD_MatAnimJoint**, HSD_ShapeAnimJoint**, HSD_TexAnim*, and proc callback signatures around lb_8000C07C, GObj_SetupGXLink, and HSD_GObj_SetupProc.",
+    "Used repeated direct dereferences such as digit_jobj->u.dobj->mobj->tobj and state->jobjs[...] rather than abstracting all digit update logic, likely preserving instruction order for ifStatus_802F4EDC matching.",
+    "Used magic constants visible in the diff, including 0.1014f, 1.5207f, 0.2028f for shake magnitude/offsets; 0x3E7 for damage clamp; 0x10 for digit hide flags; and 0xE/0xF/0xB/0x11 for GObj setup."
   ],
   "review_feedback": [
-    "No human review comments or review records were present in the slice.",
-    "Automated decomp.dev report for GALE01 showed matched code 69.23%, +0.04%, +1664 bytes.",
-    "decomp.dev reported four new 100% matches: ifStatus_802F4B84 (+851), ifStatus_802F5B48 (+659), ifStatus_802F6EA4 (+400), and ifStatus_802F6508 (+340).",
-    "decomp.dev also reported ifstatus improvements that were not full matches: ifStatus_802F61FC to 96.36%, ifStatus_802F5EC0 to 95.20%, ifStatus_802F4EDC to 80.38%, and ifStatus_802F66A4 to 98.25%.",
-    "Automated report noted two tiny broken matches: mnCharSel_8026688C_OnEnter from 100.00% to 99.90% and ifStatus_802F7134 from 100.00% to 99.98%, plus an ifstatus .sdata2 regression of -4 bytes."
+    "No human review comments were present in the provided slice.",
+    "decomp-dev bot reported matched code improved by +0.04% / +1664 bytes for GALE01.",
+    "Bot reported 4 new matches: ifStatus_802F4B84 (+851 bytes), ifStatus_802F5B48 (+659 bytes), ifStatus_802F6EA4 (+400 bytes), and ifStatus_802F6508 (+340 bytes), all to 100.00%.",
+    "Bot reported improvements in unmatched ifstatus items: ifStatus_802F61FC to 96.36%, ifStatus_802F5EC0 to 95.20%, ifStatus_802F4EDC to 80.38%, and ifStatus_802F66A4 to 98.25%.",
+    "Bot also reported two broken matches/regressions outside or adjacent to the main work: mnCharSel_8026688C_OnEnter from 100.00% to 99.90%, ifStatus_802F7134 from 100.00% to 99.98%, and an ifstatus .sdata2 unmatched regression."
   ],
   "searchable_terms": [
     "pr-2537",
     "Jj/ifstatus",
     "jurrejelle",
-    "src/melee/if/ifstatus.c",
-    "src/melee/if/ifstatus.h",
-    "src/melee/if/types.h",
-    "IfDamageState",
-    "HudIndex",
-    "damage_percent s16",
-    "old_damage s16",
+    "ifstatus",
     "ifStatus_802F4B84",
     "ifStatus_802F4EDC",
     "ifStatus_802F5B48",
@@ -109,31 +95,49 @@
     "ifStatus_802F6508",
     "ifStatus_802F66A4",
     "ifStatus_802F6EA4",
-    "frames_of_shake_remaining",
+    "IfDamageState",
+    "HudIndex",
+    "damage_percent",
+    "old_damage",
     "damage_from_last_attack",
-    "Player_GetRemainingHP",
-    "Player_GetDamage",
-    "Player_GetMoreFlagsBit2",
-    "ifStatus_HudInfo",
-    "janim_selection_joints",
-    "janim_selection_textures",
-    "DmgNum_scene_models",
-    "DmgMrk_scene_models",
-    "lbArchive_LoadSections",
+    "frames_of_shake_remaining",
+    "force_digit_shake",
+    "explode_animation",
+    "find_player_by_entity",
+    "offset_rand",
+    "HSD_Randf",
+    "HSD_JObjSetTranslateX",
+    "HSD_JObjSetTranslateY",
     "HSD_TObjAddAnimAll",
     "HSD_TObjReqAnimAll",
-    "HSD_GObj_SetupProc",
-    "GObj_SetupGXLink",
+    "HSD_AObjSetRate",
+    "HSD_JObjSetFlagsAll",
+    "HSD_JObjClearFlagsAll",
+    "lb_8000C07C",
+    "lbArchive_LoadSections",
+    "DmgNum_scene_models",
+    "DmgMrk_scene_models",
+    "Player_GetMoreFlagsBit2",
+    "Player_GetRemainingHP",
+    "Player_GetDamage",
     "ifStock_802F98E8",
-    "lbAudioAx_800237A8",
-    "GALE01 +1664 matched bytes"
+    "s16 damage_percent",
+    "s16 old_damage"
   ],
   "follow_up_queries": [
-    "Investigate remaining unmatched portions of ifStatus_802F61FC, ifStatus_802F5EC0, ifStatus_802F4EDC, and ifStatus_802F66A4 after PR 2537.",
-    "Check why PR 2537 caused tiny broken matches in ifStatus_802F7134 and mnCharSel_8026688C_OnEnter.",
-    "Audit the ifStatus_802F6EA4 sentinel audio path: the diff checks arg1 >= 0 before both lbAudioAx_800237A8(arg1, ...) and lbAudioAx_800237A8(arg2, ...); verify whether this is required for matching or an unresolved condition name issue.",
-    "Rename HudIndex unk258/unk268/unk26C/unk270/unk274 once DmgNum_scene_models and DmgMrk_scene_models resource roles are confirmed.",
-    "Revisit the ifStatus_802F66A4 local reset workaround comment after configure/no-warn-error constraints change."
+    "Inspect later PRs touching ifStatus_802F4EDC or ifStatus_802F7134 to see whether the bot-reported broken match was recovered.",
+    "Search for renames or struct refinements for IfDamageState fields unk9, unk10, unk258, unk268, unk26C, unk270, and unk274.",
+    "Compare future damage HUD work for reuse of the signed damage_percent/old_damage sentinel pattern.",
+    "Check whether offset_rand or find_player_by_entity were later renamed or inlined differently for style/matching reasons.",
+    "Investigate why this PR affected mncharsel matching metrics despite only changing ifstatus-related files in the slice."
   ],
-  "confidence": 0.86
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

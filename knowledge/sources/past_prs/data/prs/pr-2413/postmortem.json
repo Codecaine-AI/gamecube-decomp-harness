@@ -11,219 +11,168 @@
     "merged_at": "2026-04-14T09:24:36Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Broad signature-correction pass across 63 files, driven by an asm type-inference script described by the author as noisy but useful. The PR removed false parameters, corrected return types, tightened callback and pointer types, synchronized headers with implementations, and adjusted call sites. The decomp.dev report showed +292 matched bytes, 2 new full matches in gm_1601, and 11 other matching improvements.",
+  "summary": "Broad cleanup of function signatures across camera, fighter, game-mode, stage, item, lb, and baselib code. The author used Claude-generated scripts to infer types from asm, then applied legitimate findings: converting integer returns to bool or void, removing unused parameters, correcting parameter order/types, adding return types for item-spawning helpers, and syncing headers/struct callback fields. The decomp.dev bot reported +0.01% matched code, +292 bytes, two new full matches in gm_1601, and multiple unmatched-item improvements.",
   "change_classification": {
-    "primary_type": "function-signature-fix",
+    "primary_type": "function-signature-correction",
     "categories": [
       "decomp-matching",
+      "fix",
       "headers",
       "types-structs",
-      "callback-types",
-      "return-types",
-      "cleanup",
       "tool-assisted-audit"
     ],
     "systems": [
       "camera",
       "fighter",
       "game-mode",
-      "stage",
       "item",
+      "stage",
       "library",
       "baselib"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/cm/camera.c",
-      "reason": "Changed Camera_8002E158 and Camera_8002E234 from s32 to bool and propagated boolean locals/returns."
-    },
-    {
-      "path": "src/melee/cm/camera.h",
-      "reason": "Header prototypes updated to match camera bool return fixes."
-    },
-    {
-      "path": "src/melee/ft/fighter.c",
-      "reason": "Removed unused third parameter from Fighter_8006CDA4, used bool literals, and relied on PAD_STACK for stack shape."
-    },
-    {
-      "path": "src/melee/ft/fighter.h",
-      "reason": "Prototype synchronized for Fighter_8006CDA4(Fighter*, s32)."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_AirCatch.c",
-      "reason": "Updated Link/Samus tether calls after it_802A78B8 and it_802BAAE4 lost unused f32 parameters."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
-      "reason": "Updated tether call sites and replaced volatile dummy padding with PAD_STACK."
-    },
-    {
-      "path": "src/melee/gm/gm_1601.c",
-      "reason": "Typed gm_801674C4/fn_80169434 callback as bool (*)(s32), made fn_80168A6C void, and changed fn_80169444 to accept bool."
-    },
-    {
-      "path": "src/melee/gm/gm_1601.static.h",
-      "reason": "Changed lbl_8046B488.x1B8 from int (*)(void) to bool (*)(s32)."
-    },
-    {
-      "path": "src/melee/gm/gm_18A5.c",
-      "reason": "Made fn_80192E6C and fn_801967E0 void where asm did not require returned values."
-    },
-    {
-      "path": "src/melee/gr/gricemt.c",
-      "reason": "Added Ground_GObj* parameters for grIceMt_801F96E0/grIceMt_801F9ACC and changed grIceMt_801FA0BC argument to s16*."
-    },
-    {
-      "path": "src/melee/gr/grshrineroute.c",
-      "reason": "Largest edited file; mostly formatting plus grShrineRoute_8020AD24 argument changed from bool to s32."
-    },
-    {
-      "path": "src/melee/it/it_2725.c",
-      "reason": "Changed itColl_BounceOffVictim to void and it_80274EE8 to void(void), removing misleading returns/arguments."
-    },
-    {
-      "path": "src/melee/it/items/itlinkhookshot.c",
-      "reason": "Removed unused f32 parameter from it_802A78B8."
-    },
-    {
-      "path": "src/melee/it/items/itsamusgrapple.c",
-      "reason": "Removed unused f32 parameter from it_802BAAE4."
-    },
-    {
-      "path": "src/melee/it/items/itgreatfoxlaser.c",
-      "reason": "Changed it_802EAF34 from void to Item_GObj* and returned the spawned item object."
-    },
-    {
-      "path": "src/melee/it/items/itlgunbeam.c",
-      "reason": "Changed it_802996D0 from void to Item_GObj* and returned the spawned projectile object."
-    },
-    {
-      "path": "src/melee/it/items/itmewtwoshadowball.c",
-      "reason": "Changed it_802C519C from void to Item_GObj* and returned the created shadowball object."
-    },
-    {
-      "path": "src/melee/lb/lb_00F9.c",
-      "reason": "Typed lb_800138CC second parameter as HSD_GObjEvent and included baselib/psstructs.h."
-    },
-    {
-      "path": "src/melee/lb/types.h",
-      "reason": "Changed struct lb_800138D8_t.x18 from int to HSD_GObjEvent."
-    },
-    {
-      "path": "src/sysdolphin/baselib/hsd_3AA7.h",
-      "reason": "Moved/used CardState typedef earlier and changed fn_803AC258/fn_803B1338 prototypes to CardState*."
-    }
+    "src/melee/cm/camera.c",
+    "src/melee/cm/camera.h",
+    "src/melee/ft/fighter.c",
+    "src/melee/ft/fighter.h",
+    "src/melee/ft/chara/ftCommon/ftCo_AirCatch.c",
+    "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+    "src/melee/ft/chara/ftCommon/ftCo_Damage.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+    "src/melee/ft/chara/ftKirby/ftKb_Init.h",
+    "src/melee/ft/chara/ftYoshi/ftYs_SpecialN.c",
+    "src/melee/ft/chara/ftYoshi/ftYs_SpecialN.h",
+    "src/melee/gm/gm_1601.c",
+    "src/melee/gm/gm_1601.h",
+    "src/melee/gm/gm_1601.static.h",
+    "src/melee/gm/gm_18A5.c",
+    "src/melee/gm/gm_18A5.h",
+    "src/melee/gr/gricemt.c",
+    "src/melee/gr/gricemt.h",
+    "src/melee/gr/grshrineroute.c",
+    "src/melee/gr/grshrineroute.h",
+    "src/melee/gr/grkinokoroute.c",
+    "src/melee/gr/grkinokoroute.h",
+    "src/melee/gr/gryorster.c",
+    "src/melee/gr/gryorster.h",
+    "src/melee/it/it_2725.c",
+    "src/melee/it/it_2725.h",
+    "src/melee/it/items/itgreatfoxlaser.c",
+    "src/melee/it/items/itlgunbeam.c",
+    "src/melee/it/items/itlikelike.c",
+    "src/melee/it/items/itmewtwoshadowball.c",
+    "src/melee/it/items/itpikachuthunder.c",
+    "src/melee/it/items/itrshell.c",
+    "src/melee/it/items/itsamusmissile.c",
+    "src/melee/it/items/itseakchain.c",
+    "src/melee/it/items/itsscope.c",
+    "src/melee/lb/lb_00F9.c",
+    "src/melee/lb/types.h",
+    "src/sysdolphin/baselib/hsd_3AA7.c",
+    "src/sysdolphin/baselib/hsd_3AA7.h"
   ],
   "what_changed": [
-    "Corrected many prototypes and definitions where asm implied a different argument count, return type, callback type, or pointer type than the current C.",
-    "Updated call sites to match removed dummy parameters, including Fighter_8006CDA4(fp, percent), ftKb_SpecialN_800F5898(thrower_gobj), ftYs_SpecialN_GetExtAttr28(), it_802A78B8(gobj, &pos), and it_802BAAE4(gobj, &pos).",
-    "Changed predicate-style integer returns to bool in camera functions: Camera_8002E158 and Camera_8002E234.",
-    "Changed several functions from non-void to void when their apparent return value was bogus or unused by the original ABI, including fn_80168A6C, fn_80192E6C, fn_801967E0, itColl_BounceOffVictim, it_802B1FC8, it_802B22B8, it_8028D390, it_802B64FC, it_802B6A60, it_802BBC38, and it_80291CCC.",
-    "Changed several item spawn helpers from void to returning Item_GObj*, including it_802EAF34, it_802996D0, and it_802C519C.",
-    "Corrected argument order for Ness yoyo creation: it_802BE9D8(gobj, fp->facing_dir, &sp10, fp->motion_id).",
-    "Typed gm_1601 callback plumbing more precisely: gm_801674C4 and fn_80169434 now use bool (*)(s32), fn_80169444 accepts bool, and lbl_8046B488.x1B8 stores bool (*)(s32).",
-    "Typed library/baselib callbacks and state pointers more precisely: lb_800138CC takes HSD_GObjEvent, lb_800138D8_t.x18 is HSD_GObjEvent, fn_803AC258 and fn_803B1338 use CardState*.",
-    "Used PAD_STACK in places where removing dummy arguments or temporary variables still needed the stack layout to match, including ftCo_ThrownMewtwo, Fighter_8006CDA4, ftCo_Attack100, and item functions.",
-    "Kept many edits as header/implementation synchronization and low-risk formatting/cast cleanup rather than committing the noisy inference scripts."
+    "Changed Camera_8002E158 and Camera_8002E234 from s32 returns to bool and updated camera.h prototypes; local accumulator variables were renamed/typed as bool ret and initialized with false/true.",
+    "Removed unused parameters from several functions and call sites, including Fighter_8006CDA4(Fighter*, s32), ftKb_SpecialN_800F5898(Fighter_GObj*), ftYs_SpecialN_GetExtAttr28(void), it_802A78B8(HSD_GObj*, Vec3*), it_802BAAE4(Item_GObj*, Vec3*), and fn_801CFAFC(..., HSD_GObj*).",
+    "Corrected function return types where asm/call behavior indicated no meaningful return, including fn_80168A6C to void, fn_80192E6C to void, fn_801967E0 to void, itColl_BounceOffVictim to void, it_802B1FC8 to void, it_802B22B8 to void, it_8028D390 to void, it_802B64FC to void, it_802B6A60 to void, it_802BBC38 to void, and it_80291CCC to void.",
+    "Corrected item factory/spawn helpers to return Item_GObj* where the created object was returned, including it_802EAF34, it_802996D0, it_802C519C, and the it_802B338C prototype.",
+    "Corrected argument types and order in game/stage callbacks: gm_801674C4 takes bool (*)(s32), fn_80169434 stores a bool (*)(s32), gm static struct field x1B8 became bool (*)(s32), grIceMt_801F96E0/grIceMt_801F9ACC take a Ground_GObj/HSD_GObj plus y, grKinokoRoute_80208480 and grShrineRoute_8020AD24 take s32 rather than bool, and grYorster_802022A4 takes a ground object argument.",
+    "Fixed call-site ordering for it_802BE9D8 in Ness yoyo creation from (facing_dir, gobj, pos, motion_id) to (gobj, facing_dir, pos, motion_id).",
+    "Updated library/baselib typing: lb_800138CC now takes HSD_GObjEvent and the related lb struct gained an HSD_GObjEvent field x18; baselib memory-card helpers such as fn_803AC258/fn_803B1338 now use CardState* instead of raw s32.",
+    "Replaced dummy stack arrays and solution preprocessor scaffolding with PAD_STACK in places such as fighter.c and ftCo_ThrownMewtwo.c.",
+    "Large formatting and cast-spacing cleanup accompanied the signature changes, especially in grshrineroute.c and lb_00F9.c."
   ],
   "smart_moves": [
-    "The author used asm-derived type inference as a broad audit tool, then manually filtered noisy output instead of committing the tool or trusting it wholesale.",
-    "Signature changes were propagated through definitions, headers, struct fields, and call sites in the same PR, reducing risk of stale prototypes.",
-    "Returning Item_GObj* from item spawn helpers preserved the object already constructed in the function instead of treating a real return register as void.",
-    "Removing fake trailing parameters simplified call sites while PAD_STACK preserved required stack allocation where matching still depended on it.",
-    "Replacing s32/int with bool or HSD_GObjEvent made the code express ABI behavior and callback intent more directly without changing symbol names.",
-    "The gm_1601 callback fix did more than change a prototype: it corrected the storage field type and the callback invocation to pass the bool/s32 argument."
+    "Used asm-driven type inference as a broad audit tool, but the PR body explicitly notes the scripts produced false positives and false negatives, so the committed changes appear curated rather than blindly automated.",
+    "Synchronized C definitions, headers, and struct callback fields in the same PR, preventing later prototype drift across call sites.",
+    "Converted integer flag returns to bool only where the code was already operating on true/false semantics, such as Camera_8002E158/Camera_8002E234 and gm callback fields.",
+    "Removed fake unused parameters instead of preserving misleading signatures; call sites were then simplified, reducing temporary variables that existed only to feed bogus arguments.",
+    "Used PAD_STACK to retain matching stack layout after removing unused parameters or dummy local arrays, avoiding regression from cleaner source.",
+    "Promoted raw integer callback storage in gm_1601.static.h to a typed function pointer, making later decomp work less dependent on M2C_FIELD-style casts."
   ],
   "decomp_lessons": [
-    "When a decompiler emits extra unused parameters, verify against register use in asm; fake parameters can harm both readability and matching.",
-    "Do not assume a function returning a nonzero expression in C truly returns a value in the original; several functions matched better as void.",
-    "Conversely, item spawn functions that create and keep a gobj may need to return Item_GObj* even when earlier decomp code used void.",
-    "Boolean predicates should use bool in both prototypes and locals when the asm is storing/combining 0/1 results.",
-    "Callback fields must be typed at the storage site as well as at setter/caller functions; otherwise casts and M2C_FIELD workarounds hide real ABI evidence.",
-    "Global/ext-attribute getter functions may not need a gobj parameter if the implementation uses global data, as with ftYs_SpecialN_GetExtAttr28(void).",
-    "Use project padding macros like PAD_STACK instead of dummy volatile arrays or fake parameters when the issue is stack shape rather than semantics.",
-    "Header fixes are part of matching work: mismatched declarations can force casts, wrong call order, or incorrect return handling across unrelated files.",
-    "Tool-assisted asm audits are useful for finding candidate mismatches, but the PR body explicitly notes false positives/negatives, so each finding still needs local validation."
+    "When a function only returns 0/1 and callers combine results with boolean logic, changing s32 to bool can improve both readability and matching, but headers must be updated simultaneously.",
+    "Unused parameters inferred by decompilation can be artifacts; verify against asm call setup before accepting them as real signature members.",
+    "If a function's return register is ignored or not meaningfully set, a void return may be the correct signature and can eliminate bogus return expressions.",
+    "Factory functions that call item creation routines often should return Item_GObj*; preserving that return type can expose object ownership patterns and help callers match.",
+    "Callback fields in structs should be given exact function-pointer types as soon as call signatures are known; raw s32/int storage hides useful type constraints.",
+    "Stack padding macros are preferable to fake unused variables or preprocessor solution blocks when the only remaining purpose is preserving stack shape.",
+    "Tool-assisted signature scans are useful for finding real mismatches across many subsystems, but they need manual filtering because the author reported substantial script noise."
   ],
   "naming_conventions": [
-    "No broad symbol renaming occurred; the PR preserved existing address-based names such as Camera_8002E158, fn_80168A6C, and it_802EAF34.",
-    "Use typed object aliases in signatures when known: Fighter_GObj*, Item_GObj*, Ground_GObj*, HSD_GObj*, and CardState*.",
-    "Use bool for true/false return values and callback results instead of s32/int when the code treats values as booleans.",
-    "Use HSD_GObjEvent for gobj event callback storage/parameters instead of plain int.",
-    "Use void parameter lists for no-argument functions, e.g. ftYs_SpecialN_GetExtAttr28(void) and it_80274EE8(void)."
+    "Use bool for true/false return values and locals, with true/false literals instead of 1/0 where source structure permits.",
+    "Use void for no-argument functions whose asm signature does not consume an argument, e.g. ftYs_SpecialN_GetExtAttr28(void) and it_80274EE8(void).",
+    "Use subsystem object pointer aliases in signatures rather than raw integers where known, such as Ground_GObj*/HSD_GObj*, Item_GObj*, Fighter_GObj*, CardState*, and HSD_GObjEvent.",
+    "For callback fields and parameters, spell the function pointer type directly, e.g. bool (*fn)(s32) or bool (*arg4)(s32), instead of s32/int placeholders.",
+    "Use PAD_STACK(n) for intentional stack padding rather than local u8 arrays named underscore or volatile padding variables.",
+    "Keep address-comment prototype declarations in headers synchronized with the corresponding C definition."
   ],
   "assembly_or_matching_tactics": [
-    "Author described a Claude-written script that inferred types by examining asm; it was not committed because it was noisy and partly garbage after the cleanup.",
-    "Validate inferred signatures by checking whether arguments are actually consumed and whether return registers are meaningful at call sites.",
-    "Replace bogus return variables with void returns when asm/control flow does not require a returned value.",
-    "Use PAD_STACK to preserve stack size after removing fake locals, fake args, or old workaround branches.",
-    "For callbacks, infer both the function pointer type and the callback invocation signature from asm, as shown by lbl_8046B488.x1B8 and fn_80169444.",
-    "For pointer-vs-integer mismatches, prefer the real struct pointer type when downstream calls immediately cast/use it as that pointer, as with CardState*."
+    "Infer signatures by examining asm for argument setup, return register use, and callback invocation shape.",
+    "Remove unused call arguments when asm indicates the callee does not consume them; this can eliminate artificial temporaries and improve codegen.",
+    "Convert functions to void when no return value is semantically produced, avoiding forced casts like return (s32) fn(...).",
+    "Use bool returns for functions that set only 0/1 and are consumed through comparisons or bitwise/boolean accumulation.",
+    "Preserve stack layout with PAD_STACK after source simplification so matching does not depend on fake locals.",
+    "Correct parameter order when call-site asm contradicts earlier guesses, as with it_802BE9D8 taking the owner gobj before facing_dir.",
+    "Typed callback fields can remove M2C_FIELD raw stores and make indirect calls match with explicit parameters."
   ],
   "review_feedback": [
-    "No human review comments or review records were present in the PR slice.",
-    "decomp.dev bot reported GALE01 matched code at 63.10%, +0.01%, +292 bytes.",
-    "decomp.dev bot reported 2 new matches: main/melee/gm/gm_1601 fn_80168A6C and fn_80169444 reached 100%.",
-    "decomp.dev bot reported 11 improvements in unmatched items, including ftCo_8008DCE0, it_802BBC38, grIceMt_801F7728, it_802B64FC, ftCo_800BDB58, ftCo_800BE000, it_802996D0, it_802C519C, it_802EAF34, it_802B22B8, and it_802DC4BC."
+    "No human review comments were present in the slice.",
+    "The PR body says the type-inference scripts were Claude-written, uncommitted, and noisy, but useful for finding legitimate mismatches.",
+    "decomp.dev bot report for GALE01 showed matched code 63.10% (+0.01%, +292 bytes), with new full matches for gm_1601 fn_80168A6C and fn_80169444.",
+    "Bot also reported improvements in ftCo_8008DCE0, it_802BBC38, grIceMt_801F7728, it_802B64FC, ftCo_800BDB58, ftCo_800BE000, it_802996D0, it_802C519C, it_802EAF34, it_802B22B8, and it_802DC4BC."
   ],
   "searchable_terms": [
-    "PR 2413",
     "Fix various function signatures",
-    "lukechampine",
-    "Claude asm type inference",
-    "function signature audit",
-    "false parameters",
-    "return type fix",
+    "function signature correction",
+    "asm inferred types",
+    "Claude script type inference",
+    "false positives false negatives",
+    "bool return",
+    "void return",
+    "unused parameter removal",
     "PAD_STACK",
     "Camera_8002E158",
     "Camera_8002E234",
     "Fighter_8006CDA4",
     "ftKb_SpecialN_800F5898",
     "ftYs_SpecialN_GetExtAttr28",
+    "it_802A78B8",
+    "it_802BAAE4",
+    "it_802BE9D8",
     "gm_801674C4",
     "fn_80168A6C",
     "fn_80169434",
     "fn_80169444",
-    "fn_80192E6C",
-    "fn_801967E0",
-    "lbl_8046B488.x1B8",
     "grIceMt_801F96E0",
     "grIceMt_801F9ACC",
-    "grIceMt_801FA0BC",
-    "grKinokoRoute_80208480",
     "grShrineRoute_8020AD24",
-    "grYorster_802022A4",
+    "grKinokoRoute_80208480",
     "itColl_BounceOffVictim",
-    "it_80274EE8",
     "it_802EAF34",
     "it_802996D0",
-    "it_802A78B8",
-    "it_802BAAE4",
     "it_802C519C",
-    "it_802BE9D8",
-    "it_802B1FC8",
-    "it_802B22B8",
-    "it_8028D390",
-    "it_802B64FC",
-    "it_802B6A60",
-    "it_802BBC38",
-    "it_80291CCC",
+    "it_802B338C",
     "lb_800138CC",
     "HSD_GObjEvent",
     "CardState",
-    "fn_803AC258",
-    "fn_803B1338",
-    "Item_GObj return",
-    "bool callback"
+    "gm_1601 new matches"
   ],
   "follow_up_queries": [
-    "Search for remaining prototypes with unused trailing parameters that are not consumed in asm.",
-    "Audit item spawn helpers currently declared void to see whether they actually return Item_GObj*.",
-    "Search for callback fields still typed int, s32, or void* where call sites imply HSD_GObjEvent or bool (*)(s32).",
-    "Check other global/ext-attribute getters for unnecessary gobj parameters.",
-    "Review remaining s32 predicate returns in camera, ground, and item code for possible bool conversion.",
-    "Look for fake return values in unmatched functions where decompiler output returns a local or pointer only to satisfy a guessed signature."
+    "Find later PRs that continue asm-inferred function signature fixes from PR 2413.",
+    "Audit remaining functions with s32 returns that only produce 0/1 for possible bool signatures.",
+    "Search for remaining fake unused parameters in item factory/spawn functions.",
+    "Search for remaining raw s32 callback fields that should be typed as function pointers.",
+    "Compare PR 2413 PAD_STACK replacements with later stack-padding conventions."
   ],
-  "confidence": 0.91
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

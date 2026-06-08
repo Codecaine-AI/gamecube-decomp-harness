@@ -11,24 +11,23 @@
     "merged_at": "2026-05-07T21:48:42Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Code-quality sweep to satisfy local `melee-issues` diagnostics without changing GALE01 output. The diff mainly converts old/no-argument C definitions to strict prototypes, cleans a Zebes `StageCallbacks` initializer, removes or reorders small header/style issues, and normalizes formatting across fighter, game-mode, stage, item, and menu code. The PR body was empty, so intent is inferred from the title, code-quality label, diff, and bot report.",
+  "summary": "Small cleanup PR to satisfy local `melee-issues` checks across fighter, game-mode, stage, item, menu, and ground header files. The diff mainly modernized no-argument function declarations to `(void)`, removed an unused include, fixed an old K&R-style function definition, adjusted local linkage, simplified stage callback initializers/casts in `grzebes.c`, and applied formatting-only churn. The decomp.dev bot reported `No changes` for GALE01, indicating the cleanup preserved matching output.",
   "change_classification": {
-    "primary_type": "code-quality/lint-fix",
+    "primary_type": "tooling_lint_fix",
     "categories": [
       "fix",
-      "code-quality",
-      "lint",
-      "strict-prototypes",
-      "formatting",
-      "headers"
+      "headers",
+      "style_cleanup",
+      "prototype_cleanup",
+      "no_codegen_change"
     ],
     "systems": [
-      "tooling/melee-issues",
       "fighter",
       "game-mode",
       "stage",
       "item",
-      "menu"
+      "menu",
+      "melee-core"
     ]
   },
   "key_files": [
@@ -49,91 +48,86 @@
     "src/melee/mn/mnname.c"
   ],
   "what_changed": [
-    "Converted old or non-prototype function definitions to strict C prototypes, including `fn_800DBED4(gobj) Fighter_GObj* gobj;` to `void fn_800DBED4(Fighter_GObj* gobj)` and several `func()` definitions to `func(void)`.",
-    "Updated no-argument inline/static helpers such as `fn_801A7FB4_inline`, `fn_801A7FB4_inline2`, `isActiveTitle`, `grShrineRoute_8020A8A4_rand`, `ordering_func`, and `GetNumNameList` to use `(void)`.",
-    "In `gm_1832.c`, collapsed `fn_8018846C_noInline` from a separate declaration plus old-style definition into `static int fn_8018846C_noInline(void)`.",
-    "In `grzebes.c`, moved early Zebes lifecycle definitions below the stage data block and rewrote `grZe_callbacks` entries to use direct callback names and scalar flags instead of casts and `{ 0 }` union-style initializers.",
-    "Removed `#include \"mp/mplib.h\"` from `ftCo_Attack100.c`, reordered `itwhispyapple.h` in `grgreens.c`, and removed an extra blank line in `grmaterial.h`.",
-    "Normalized formatting, cast spacing, and line wrapping in `ftdynamics.c`, `grgreens.c`, `grbigblueroute.c`, and `ftPp_SpecialS.c` without evidence of behavior changes.",
-    "decomp-dev bot reported `No changes` for GALE01 after the PR."
+    "Converted no-argument functions from empty parameter lists to explicit `(void)`, including `fn_80171DC4`, `fn_80188644`, `fn_801A7FB4_inline`, `fn_801A7FB4_inline2`, `isActiveTitle`, `grCastle_801D0BBC`, `grCastle_801D0D24`, `grShrineRoute_8020A8A4_rand`, `ordering_func`, and `GetNumNameList`.",
+    "Replaced the K&R-style definition `void fn_800DBED4(gobj) Fighter_GObj* gobj;` with an ANSI prototype definition `void fn_800DBED4(Fighter_GObj* gobj)`.",
+    "Removed the unused `mp/mplib.h` include from `ftCo_Attack100.c`.",
+    "Changed `fn_8018846C_noInline` in `gm_1832.c` from a separate external-style declaration plus definition into `static int fn_8018846C_noInline(void)`.",
+    "In `grzebes.c`, moved several early `grZebes_*` function definitions after the callback/data tables and simplified `StageCallbacks grZe_callbacks` entries by removing explicit function-pointer casts and `{ 0 }` flag initializers in favor of direct symbols and scalar `0`/`0xC0000000` flags.",
+    "Applied formatting-only cleanup in files such as `ftdynamics.c`, `grbigblueroute.c`, `grgreens.c`, and `grmaterial.h`, including cast spacing, line wrapping, include ordering, and removal of an extra blank line."
   ],
   "smart_moves": [
-    "Fixed strict-prototype-style diagnostics at the source level instead of suppressing warnings, preserving the project’s libclang-based `melee-issues` signal.",
-    "Kept bodies and control flow unchanged while changing declarations/prototypes, which is a low-risk way to make lint fixes codegen-neutral.",
-    "Used existing typed declarations for stage callbacks in `grzebes.c` rather than keeping redundant casts around `StageCallbacks` entries.",
-    "Made the `fn_8018846C_noInline` helper local with `static` while also giving it a strict `(void)` prototype, matching its apparent file-local wrapper role.",
-    "Relied on decomp.dev’s no-diff report to validate that style/prototype cleanup did not perturb the matched binary."
+    "Kept the PR scoped to local issue/lint cleanup rather than mixing in decomp logic changes.",
+    "Used explicit `(void)` for no-argument functions, which avoids old-C ambiguous empty parameter lists while preserving generated code.",
+    "Preserved matching: the decomp.dev bot comment reported `No changes` for GALE01.",
+    "Removed unnecessary function-pointer casts in `grzebes.c` callback tables, making type expectations clearer instead of hiding mismatches behind casts.",
+    "Made the no-inline wrapper in `gm_1832.c` `static`, reflecting file-local usage and avoiding needless external linkage."
   ],
   "decomp_lessons": [
-    "`void func()` is not a strict C prototype; use `void func(void)` for no-argument functions, including inline helpers and ordering/noinline helpers.",
-    "Old K&R-style parameter definitions can usually be converted to modern prototypes with the same typed parameters without changing generated code.",
-    "Callback tables should prefer direct, type-compatible function names over casts when headers or typedefs already describe the right signature.",
-    "Union/scalar flag fields in stage callback tables can be initialized with scalar constants such as `0` or `0xC0000000` when that matches the struct definition.",
-    "Lint-only PRs should still be checked with decomp.dev or equivalent matching reports; here the bot’s `No changes` comment is the main verification evidence.",
-    "When a PR has no body or human comments, document that intent is inferred from title and diff rather than reviewer discussion."
+    "Local quality checks can be fixed with source-level prototype, linkage, include, and formatting cleanups without changing the decompiled binary output.",
+    "Prefer ANSI-style function definitions over K&R syntax even when the old syntax happens to match; it avoids parser/tooling issues and makes signatures searchable.",
+    "For functions that take no arguments, use `(void)` consistently in definitions and inline helpers.",
+    "Avoid masking callback-table type problems with explicit casts when the table can be made to type-check directly.",
+    "After broad cleanup touching many systems, rely on the matching report to confirm the changes are codegen-neutral."
   ],
   "naming_conventions": [
-    "No broad renaming was performed; address-based decomp names such as `fn_80171DC4`, `grZebes_801D84A4`, and `grGreens_80213C10` were preserved.",
-    "Helper suffixes such as `_inline`, `_inline2`, and `_noInline` were preserved while fixing their prototypes.",
-    "Use `(void)` for no-argument C functions and inline helpers rather than empty parameter lists.",
-    "Stage callback arrays retain stage-specific prefixes such as `grZe_callbacks` and function prefixes such as `grZebes_`."
+    "No new semantic names were introduced; existing address-style names such as `fn_800DBED4`, `fn_80188644`, and `grZebes_801D84A4` were retained.",
+    "Inline helper names with suffixes such as `_inline`, `_inline2`, `_rand`, and `_noInline` were preserved; the PR only corrected their signatures/linkage.",
+    "No-argument helpers should be declared as `name(void)`, including static inline helpers and local ordering/no-inline helpers."
   ],
   "assembly_or_matching_tactics": [
-    "Prototype-only changes such as `func()` to `func(void)` and K&R-to-prototype conversion are useful lint fixes because they need not alter codegen.",
-    "Preserving `PAD_STACK(4)` and the existing inline wrapper call in `fn_800DBED4` avoided disturbing a matched stack/layout tactic while cleaning the declaration.",
-    "For `StageCallbacks`, keep callback order and flag constants unchanged when removing casts or changing initializer syntax; table layout is the matching-sensitive part.",
-    "Formatting changes to casts, wrapping, and braces should be paired with a no-diff check because they are intended to be source hygiene only.",
-    "The decomp.dev `No changes` report is evidence that this PR’s edits were binary-neutral for GALE01."
+    "Prototype modernization from `()` to `(void)` and K&R-to-ANSI conversion was used as a no-codegen cleanup tactic.",
+    "A local wrapper was marked `static` while retaining the body `return fn_8018846C();`, preserving the no-inline/matching role evidenced by the function name.",
+    "Formatting changes included cast spacing like `(u8*) gp->...` and `(s32) arg3`; these were style/tooling fixes rather than algorithmic changes.",
+    "Stage callback initializers in `grzebes.c` were simplified to direct function symbols and scalar flag values, reducing casts while maintaining table contents.",
+    "The bot report `No changes` is direct evidence that the PR did not alter the GALE01 comparison output."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the slice.",
-    "The PR body was empty.",
-    "decomp-dev[bot] commented: `Report for GALE01 (955ba9e - 3b29df3)\\n\\nNo changes`."
+    "No human review comments were present in the slice.",
+    "Automated decomp.dev comment: `Report for GALE01 (955ba9e - 3b29df3) No changes`."
   ],
   "searchable_terms": [
     "melee-issues",
-    "code-quality",
-    "strict-prototypes",
-    "-Wstrict-prototypes",
-    "old-style function definition",
+    "local melee-issues",
+    "no argument function void",
+    "empty parameter list",
     "K&R function definition",
-    "fn(void)",
+    "ANSI prototype",
     "fn_800DBED4",
-    "Fighter_GObj",
-    "PAD_STACK",
     "fn_80171DC4",
     "fn_80188644",
     "fn_8018846C_noInline",
     "fn_801A7FB4_inline",
-    "fn_801A7FB4_inline2",
     "isActiveTitle",
     "grCastle_801D0BBC",
     "grCastle_801D0D24",
     "grShrineRoute_8020A8A4_rand",
     "ordering_func",
     "GetNumNameList",
+    "grZebes callbacks",
     "StageCallbacks",
     "grZe_callbacks",
-    "grZebes_801D9F30",
-    "grZebes_801D9F84",
-    "grZebes_801D9100",
-    "grZebes_801D925C",
-    "grGreens_80213C10",
-    "grBigBlueRoute_8020C530",
-    "ftCo_8009CB40",
-    "ftCo_8009DB50",
-    "itwhispyapple.h",
+    "function pointer casts",
+    "unused include",
     "mp/mplib.h",
-    "grmaterial.h",
-    "decomp-dev No changes",
-    "GALE01"
+    "itwhispyapple include",
+    "grmaterial.h blank line",
+    "no changes GALE01",
+    "static noInline wrapper"
   ],
   "follow_up_queries": [
-    "Find other PRs fixing `melee-issues` or `-Wstrict-prototypes` diagnostics",
-    "Search for remaining `void func()` no-argument definitions in src/melee",
-    "Search for old K&R-style function definitions in matched fighter code",
-    "Find StageCallbacks initializers still using casts or `{ 0 }` flag initializers",
-    "Compare other no-diff code-quality PRs with decomp-dev `No changes` reports"
+    "Find remaining functions declared with empty parameter lists `()` that should be `(void)`.",
+    "Search for K&R-style function definitions that local `melee-issues` still flags.",
+    "Audit callback tables that rely on explicit function-pointer casts instead of type-correct function signatures.",
+    "Check for unused includes similar to the removed `mp/mplib.h` include in `ftCo_Attack100.c`.",
+    "Look for local wrappers named `_noInline` that should have `static` linkage."
   ],
-  "confidence": 0.84
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

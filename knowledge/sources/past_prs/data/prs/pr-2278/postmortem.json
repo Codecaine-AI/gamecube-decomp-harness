@@ -11,13 +11,12 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed, unmerged PR that decompiled five small stubs across gmregclear, grcastle, groldpupupu, and tydisplay while also adding substantial Claude/overnight automation docs and scripts. The C/header changes removed stub markers, added typed prototypes, exposed one gmregclear struct field, and the PR body claims `ninja`, `ninja diff`, and 100% objdiff matches. The only recorded feedback is a decomp.dev GALE01 bot report saying \"No changes\"; no human review explains why the PR was closed without merge.",
+  "summary": "Closed, apparently unmerged PR that decompiled five small miscellaneous functions across gmregclear, groldpupupu, grcastle, and tydisplay, while also adding a large Claude/decomp automation support layer. The PR body claimed `ninja`, `ninja diff`, and objdiff 100% matches for all functions; the decomp.dev bot reported GALE01 \"No changes\". There was no human review feedback in the slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-layout",
       "tooling",
       "docs",
       "closed-unmerged"
@@ -27,167 +26,136 @@
       "stage",
       "trophy",
       "scripts",
-      "docs",
-      "repo-root"
+      "repo-root",
+      "docs"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gm/gmregclear.c",
-      "role": "Decompiled `fn_8017DE54` and `gm_80180BA0`; split `lbl_80472E48_t` padding to expose `x14[0x1B]` at offset 0x14."
-    },
-    {
-      "path": "src/melee/gm/gmregclear.h",
-      "role": "Updated prototypes from `UNK_RET/UNK_PARAMS` to `s32 fn_8017DE54(u8, u8*)` and `void gm_80180BA0(void)`."
-    },
-    {
-      "path": "src/melee/gr/grcastle.c",
-      "role": "Decompiled `fn_801CFAFC`, including a castle ground field write and conditional ftLib call."
-    },
-    {
-      "path": "src/melee/gr/grcastle.h",
-      "role": "Added `<melee/it/forward.h>` and typed `fn_801CFAFC(Item_GObj*, Ground*, Vec3*, HSD_GObj*, f32)`; also changed `fn_801CFB68` back to `UNK_RET/UNK_PARAMS` with no explanation in the slice."
-    },
-    {
-      "path": "src/melee/gr/groldpupupu.c",
-      "role": "Decompiled `grOldPupupu_80211C1C`, added static `grOp_804D48E0[1][2]`, and used `PAD_STACK(8)`."
-    },
-    {
-      "path": "src/melee/ty/tydisplay.c",
-      "role": "Decompiled `un_8031BB34` as an index-to-`ToyDsp..._Top_joint` string-table lookup with `idx == -1` normalized to 0."
-    },
-    {
-      "path": "CLAUDE.md",
-      "role": "New Claude Code/decompilation guide covering build commands, style, naming, matching tactics, objdiff, and permuter notes."
-    },
-    {
-      "path": "scripts/decomp_overnight.sh",
-      "role": "New autonomous overnight decomp runner using stubs, GitHub conflict checks, worktrees, Claude sessions, build/match checks, retries, logs, and optional PR creation."
-    },
-    {
-      "path": "scripts/decomp_helpers.py",
-      "role": "New helper subcommands for progress display, stream-json parsing, token usage, stub filtering, context trimming, asm extraction, progress tracking, and rate-limit handling."
-    },
-    {
-      "path": "scripts/find_stubs.py",
-      "role": "New JSON stub scanner using `/// #function` markers and `config/GALE01/symbols.txt` sizes."
-    },
-    {
-      "path": "scripts/find_all_stubs.sh",
-      "role": "Wrapper to scan all `src/melee/*.c` files containing stub markers."
-    },
-    {
-      "path": "scripts/schedule_overnight.sh",
-      "role": "New macOS launchd scheduler for the overnight decomp runner."
-    },
-    {
-      "path": ".gitignore",
-      "role": "Ignored `scripts/logs/`."
-    }
+    "src/melee/gm/gmregclear.c",
+    "src/melee/gm/gmregclear.h",
+    "src/melee/gr/groldpupupu.c",
+    "src/melee/gr/grcastle.c",
+    "src/melee/gr/grcastle.h",
+    "src/melee/ty/tydisplay.c",
+    "scripts/decomp_helpers.py",
+    "scripts/decomp_overnight.sh",
+    "scripts/find_stubs.py",
+    "scripts/find_all_stubs.sh",
+    "scripts/schedule_overnight.sh",
+    "CLAUDE.md",
+    ".gitignore"
   ],
   "what_changed": [
-    "Replaced five `/// #...` stubs with C implementations: `gm_80180BA0`, `fn_8017DE54`, `grOldPupupu_80211C1C`, `fn_801CFAFC`, and `un_8031BB34`.",
-    "`fn_8017DE54(u8 arg0, u8* arg1)` now returns counts based on flag bits `0x20`, `0x10`, and `2`, comparing up to three `arg1` bytes against `0x21`.",
-    "`gm_80180BA0` loops over 0x1B entries, uses `gm_80164024`, and writes `lbl_80472E48.x14[idx] * 0xA` through `gmMainLib_8015D06C`.",
-    "`grOldPupupu_80211C1C` retrieves another ground object via `Ground_801C2BA4(7)`, checks `other_gp->gv.unk.xC8 == 2` and `xD4 != 0`, then calls `grAnime_801C8138` using `grOp_804D48E0[other_gp->gv.unk.xCC][other_gp->gv.unk.xD8]`.",
-    "`fn_801CFAFC` writes `4` as an `s16` through `&gp->gv.castle2.xC4` and calls `ftLib_80086A4C(gobj, (f32) grCs_804D6970->x4)` when `ftLib_80086960(gobj)` is true.",
-    "`un_8031BB34(s8 idx)` builds a local table of trophy display joint-name strings such as `ToyDspQues_Top_joint`, maps `idx == -1` to 0, and returns the selected pointer cast to `s32`.",
-    "Header updates removed unknown prototypes for the newly implemented gm/gr functions and added the missing item forward declaration needed by `Item_GObj*`.",
-    "Large unadvertised tooling/docs additions introduced `CLAUDE.md`, an autonomous decomp runner, helper commands, stub scanners, a launchd scheduler, and ignored `scripts/logs/`."
+    "Replaced stubs for `fn_8017DE54` and `gm_80180BA0` in `src/melee/gm/gmregclear.c` and updated their prototypes in `gmregclear.h`.",
+    "`fn_8017DE54(u8 arg0, u8* arg1)` implements bitflag handling: returns 0 for `arg0 & 0x20`, counts entries not equal to `0x21` when `arg0 & 0x10`, returns `2` for `arg0 & 2`, otherwise 0.",
+    "`gm_80180BA0(void)` loops over 0x1B entries, maps each index through `gm_80164024`, and writes `lbl_80472E48.x14[idx] * 0xA` via `gmMainLib_8015D06C`.",
+    "Split `struct lbl_80472E48_t` padding in `gmregclear.c` from a large unknown `pad_C[0x74]` into `pad_C[0x8]` plus `s32 x14[0x1B]`, preserving the asserted 0x80 byte size.",
+    "Replaced the `grOldPupupu_80211C1C` stub with logic that obtains the current `Ground`, fetches another ground object with `Ground_801C2BA4(7)`, uses `PAD_STACK(8)`, and conditionally calls `grAnime_801C8138` through a new static `grOp_804D48E0[1][2]` table.",
+    "Replaced `fn_801CFAFC` in `grcastle.c` with a typed callback-like function taking `Item_GObj*`, `Ground*`, `Vec3*`, `HSD_GObj*`, and `f32`, setting castle ground state and conditionally calling `ftLib_80086A4C` when `ftLib_80086960(gobj)` is true.",
+    "Updated `grcastle.h` to include `<melee/it/forward.h>` for `Item_GObj*` and changed the `fn_801CFAFC` prototype from `UNK_RET/UNK_PARAMS` to typed parameters. The nearby `fn_801CFB68` prototype was changed back to `UNK_RET fn_801CFB68(UNK_PARAMS)`, despite the C file showing a typed definition immediately after.",
+    "Replaced `un_8031BB34(s8 idx)` in `tydisplay.c` with a local string table of trophy display joint names such as `ToyDspQues_Top_joint`, `ToyDspMycharaCmA_Top_joint`, `ToyDspMapA_Top_joint`, `ToyDspFgseriesA_Top_joint`, `ToyDspPokemonA_Top_joint`, `ToyDspItemA_Top_joint`, and `ToyDspStand_Top_joint`; `idx == -1` is normalized to 0 and the selected string pointer is returned as `s32`.",
+    "Added Claude/decomp workflow documentation in `CLAUDE.md`, including build commands, style rules, module prefixes, decomp workflow, objdiff advice, matching notes, and decomp-permuter notes.",
+    "Added automation scripts for overnight decompilation and stub discovery: `scripts/decomp_overnight.sh`, `scripts/decomp_helpers.py`, `scripts/find_stubs.py`, `scripts/find_all_stubs.sh`, and `scripts/schedule_overnight.sh`.",
+    "Added `scripts/logs/` to `.gitignore`, consistent with the newly added automation scripts producing log files."
   ],
   "smart_moves": [
-    "Exposed `lbl_80472E48_t.x14[0x1B]` by splitting padding instead of indexing into a raw byte blob, while keeping the existing `STATIC_ASSERT(sizeof(...) == 0x80)` guard.",
-    "Updated prototypes and includes alongside decompiled bodies so callers and headers reflect real return/argument types instead of `UNK_RET/UNK_PARAMS` for the new functions.",
-    "Used `PAD_STACK(8)` in `grOldPupupu_80211C1C`, a common matching tactic when code is logically correct but frame size is short.",
-    "Kept narrow casts and explicit types in matching-sensitive code: `(u8) i`, `(s32) arg1[...]`, `(f32) grCs_804D6970->x4`, and an `s16` write to the castle field.",
-    "The automation scripts had practical safeguards: require a clean worktree, filter functions mentioned in open PRs/issues, avoid already-tried functions, batch small same-file stubs, and build only the target object in Claude worktrees.",
-    "`decomp_helpers.py` parsed Claude stream JSON result events instead of relying only on grep over conversational text, which is a more robust automation pattern.",
-    "Verification was explicitly recorded in the PR body: `ninja`, `ninja diff`, and all functions 100% in objdiff; the decomp.dev bot also reported GALE01 \"No changes\"."
+    "Typed previously unknown function prototypes in headers where the implementation made the ABI clear, reducing `UNK_PARAMS` surface for future work.",
+    "Preserved struct size with `STATIC_ASSERT(sizeof(struct lbl_80472E48_t) == 0x80)` while exposing the needed `x14` array field instead of leaving all bytes as opaque padding.",
+    "Used `PAD_STACK(8)` in `grOldPupupu_80211C1C`, indicating a stack-size matching tactic rather than contorting surrounding logic.",
+    "The `un_8031BB34` implementation keeps the string table local to the function, matching a simple lookup-table pattern and handling the sentinel `idx == -1` case explicitly.",
+    "The added `CLAUDE.md` captures project-wide decomp conventions and matching heuristics in one place, including true-match preference, avoiding raw pointer arithmetic, register-swap tolerance, `PAD_STACK`, `ABS`, `MIN`, and `MAX` tactics.",
+    "The helper script design separates shell orchestration from Python subcommands such as `parse-result`, `token-usage`, `extract-asm`, `filter-stubs`, and progress tracking, making automated decomp runs easier to debug."
   ],
   "decomp_lessons": [
-    "When assembly indexes a previously padded global, split the pad into a typed field at the observed offset and preserve the struct size with `STATIC_ASSERT`.",
-    "For small stage callbacks, compare stack frames; a single `PAD_STACK(8)` can be the difference between a semantic match and a binary match.",
-    "Typed prototypes should accompany stub removals, and missing forward headers should be added at the header level when a signature introduces types like `Item_GObj*`.",
-    "If a raw field cast such as `*(s16*) &gp->gv.castle2.xC4` is needed to match, consider a later struct/type cleanup so future work can avoid raw offset casting.",
-    "Local pointer/string tables can be a valid way to match lookup functions like `un_8031BB34`; handle signed sentinel indices before indexing.",
-    "The slice gives no closure reason, but this PR mixed 5-function decomp work with over 1,200 lines of local automation/docs. Future work should strongly consider splitting matching C/header changes from agent tooling unless maintainers explicitly request both.",
-    "Changing a neighboring function prototype from typed to `UNK_RET/UNK_PARAMS` should be documented or avoided; `grcastle.h` did this for `fn_801CFB68` even though the slice shows an existing typed C definition."
+    "When a match needs data inside a formerly opaque struct region, split padding into named offset fields or arrays while preserving total size with a static assert.",
+    "Small flag-checking functions often match cleanly with early returns and explicit bitmask tests, as shown by `fn_8017DE54`.",
+    "Stage callbacks may require cross-object ground lookups and small local tables; keep the table dimensions and indices as close to observed assembly behavior as possible.",
+    "Header cleanup should accompany decompiled implementations: add forward declarations/includes for newly typed pointer parameters and replace `UNK_RET/UNK_PARAMS` only when signatures are evidenced.",
+    "If stack frame size is the only mismatch, `PAD_STACK(n)` is an accepted local matching tool in this codebase.",
+    "The PR itself added documentation that future agents should prefer readable, likely-original C over fake matches, avoid unnecessary gotos and raw pointer arithmetic, and use normal loops where possible.",
+    "Evidence is weak on reviewer intent because there were no review comments and the PR was closed without a merge timestamp."
   ],
   "naming_conventions": [
-    "The PR title uses subsystem prefixes `gm/gr/ty` for game-mode, ground/stage, and trophy work.",
-    "Implemented symbols keep existing project/address names: `gm_80180BA0`, `fn_8017DE54`, `grOldPupupu_80211C1C`, `fn_801CFAFC`, and `un_8031BB34`; no new descriptive renames were introduced.",
-    "New static stage data follows the local stage prefix style: `grOp_804D48E0` in `groldpupupu.c`.",
-    "The new gmregclear struct member uses the offset-derived unknown-field style `x14` after `pad_C`.",
-    "Added `CLAUDE.md` states broader project conventions: file names lowerCamelCase, functions with module/file prefixes and UpperCamelCase examples, module prefixes like `ft`, `it`, `gr`, `gm`, `lb`, and struct members annotated with hex offsets."
+    "Functions are generally prefixed by file/module, e.g. `gm_80180BA0`, `grOldPupupu_80211C1C`, `grCastle_801CF7B0`, and `un_8031BB34`.",
+    "Module prefixes documented in `CLAUDE.md`: `ft` fighter, `it` item, `gr` ground/stage, `gm` game, `lb` library, `cm` camera, `db` debug, `ef` effect, `if` interface, `mn` menu, `mp` map/collision, `pl` player, `sc` scene, `ty` trophy, `vi` visual.",
+    "Struct fields documented in `CLAUDE.md` should carry offset-prefixed names such as `x10_thing`; this PR follows that style by adding `x14` at offset 0x14 in `lbl_80472E48_t`.",
+    "The new static table name `grOp_804D48E0` follows the local stage abbreviation plus address-like symbol convention used for unknown/static data.",
+    "File names are documented as lowerCamelCase and function names as UpperCamelCase after the module/file prefix, though many still-addressed unknown functions retain address-based names."
   ],
   "assembly_or_matching_tactics": [
-    "`grOldPupupu_80211C1C` uses `PAD_STACK(8)` to satisfy stack/frame matching.",
-    "`gm_80180BA0` keeps the submitted call pattern with `gm_80164024((u8) i)` assigned to `idx` and called again for `gmMainLib_8015D06C`; the diff does not explain whether this was for regalloc/call-order matching.",
-    "`fn_8017DE54` uses a pointer temp `p = &arg1[1]` plus explicit `(s32)` casts before byte comparisons to `0x21`.",
-    "`fn_801CFAFC` uses an `s16` lvalue cast on a ground union field and an explicit `(f32)` cast for the ftLib argument.",
-    "`un_8031BB34` represents the lookup as a stack/local `char* table[]` of fixed string literals and returns the pointer as `s32`.",
-    "The added automation prompt in `decomp_overnight.sh` encodes matching tactics for future agents: use nearby source style, verify enum numeric values, check bitfield LSB order, compare stack frame sizes for `PAD_STACK`, build the target object only, and inspect objdiff/report data."
+    "Claimed validation: `ninja` succeeded, `ninja diff` showed no regressions, and all five functions were 100% matches in objdiff.",
+    "decomp.dev bot comment for GALE01 reported \"No changes\", supporting that the build/diff result did not alter final DOL matching status.",
+    "Used `PAD_STACK(8)` in `grOldPupupu_80211C1C` to align stack behavior.",
+    "Used explicit casts such as `(u8) i`, `(s32) arg1[0]`, `(f32) grCs_804D6970->x4`, and `(s32) table[idx]` where likely needed for matching generated code.",
+    "Used a local automatic `char* table[]` in `un_8031BB34`, which can be important for matching stack/data placement of string pointer tables.",
+    "Used repeated call structure in `gm_80180BA0`: computes `idx = gm_80164024((u8) i)` but also calls `gm_80164024((u8) i)` again for `gmMainLib_8015D06C`, suggesting the expression shape was chosen for matching rather than simplified reuse.",
+    "The PR-added documentation recommends enabling objdiff's \"Relax relocation diffs\", ignoring pure register swaps until permuter work, using decomp-permuter when regalloc remains, and using `PERM_GENERAL`/`PERM_RANDOMIZE` macros for alternatives."
   ],
   "review_feedback": [
-    "No human review comments and no review records are present in the slice.",
-    "The only issue comment is from `decomp-dev[bot]`: `Report for GALE01 (8446da7 - d93e838) No changes`.",
-    "The PR was closed about three minutes after creation and was not merged; the slice does not state why."
+    "No human review comments were present in the provided slice.",
+    "decomp.dev bot commented: `Report for GALE01 (8446da7 - d93e838): No changes`.",
+    "The PR was closed with `merged_at: null`; the slice does not explain why it was closed unmerged."
   ],
   "searchable_terms": [
-    "PR 2278",
+    "pr-2278",
     "johnwinston",
-    "gm/gr/ty",
-    "closed unmerged",
+    "gm/gr/ty: decompile 5 misc functions",
     "gmregclear",
     "gm_80180BA0",
     "fn_8017DE54",
     "lbl_80472E48_t",
-    "x14[0x1B]",
-    "gm_80164024",
+    "lbl_80472E48.x14",
     "gmMainLib_8015D06C",
-    "grcastle",
-    "fn_801CFAFC",
-    "castle2.xC4",
-    "ftLib_80086960",
-    "ftLib_80086A4C",
-    "grCs_804D6970",
+    "gm_80164024",
     "groldpupupu",
     "grOldPupupu_80211C1C",
     "grOp_804D48E0",
     "Ground_801C2BA4",
     "grAnime_801C8138",
-    "PAD_STACK(8)",
+    "PAD_STACK",
+    "grcastle",
+    "fn_801CFAFC",
+    "Item_GObj",
+    "Ground",
+    "Vec3",
+    "HSD_GObj",
+    "ftLib_80086960",
+    "ftLib_80086A4C",
+    "grCs_804D6970",
     "tydisplay",
     "un_8031BB34",
     "ToyDspQues_Top_joint",
     "ToyDspMycharaCmA_Top_joint",
+    "ToyDspMapA_Top_joint",
+    "ToyDspFgseriesA_Top_joint",
+    "ToyDspPokemonA_Top_joint",
+    "ToyDspItemA_Top_joint",
     "ToyDspStand_Top_joint",
     "CLAUDE.md",
-    "Claude Code",
-    "scripts/decomp_overnight.sh",
-    "scripts/decomp_helpers.py",
-    "scripts/find_stubs.py",
-    "scripts/find_all_stubs.sh",
-    "scripts/schedule_overnight.sh",
+    "decomp_overnight.sh",
+    "decomp_helpers.py",
+    "find_stubs.py",
+    "find_all_stubs.sh",
+    "schedule_overnight.sh",
     "scripts/logs",
-    "overnight decomp runner",
-    "stream-json",
-    "parse-result",
-    "trim-context",
-    "find stubs",
-    "launchd",
-    "m2c",
-    "objdiff 100%",
-    "ninja diff",
-    "decomp-dev No changes"
+    "objdiff 100% matches",
+    "ninja diff no regressions",
+    "closed unmerged"
   ],
   "follow_up_queries": [
-    "Why was PR #2278 closed without merge despite the bot reporting no GALE01 changes?",
-    "Were `CLAUDE.md` and the `scripts/decomp_overnight*` automation files intended for the main repo, or should they remain out-of-tree/local?",
-    "If resurrecting the decomp work, split the five C/header matches from the automation/docs changes into separate PRs.",
-    "Audit `src/melee/gr/grcastle.h`: should `fn_801CFB68` remain typed instead of being changed back to `UNK_RET(UNK_PARAMS)`?",
-    "Can `gp->gv.castle2.xC4` be modeled as an `s16` field to remove the raw cast in `fn_801CFAFC`?",
-    "Validate the data shape and linkage for `grOp_804D48E0[1][2] = {{0, 0}}` against the original data section before reusing."
+    "Why was PR #2278 closed without a merge despite the claimed 100% matches and decomp.dev no-change report?",
+    "Was the large addition of `CLAUDE.md` and overnight automation scripts rejected, split out, or superseded by another PR?",
+    "Check later PRs for the same functions: `fn_8017DE54`, `gm_80180BA0`, `grOldPupupu_80211C1C`, `fn_801CFAFC`, and `un_8031BB34`.",
+    "Verify whether the `grcastle.h` change that made `fn_801CFB68` unknown again was intentional or an artifact.",
+    "Compare later accepted implementations for `fn_801CFAFC`, especially the raw `*(s16*) &gp->gv.castle2.xC4 = 4` access, against project preference for proper struct fields."
   ],
-  "confidence": 0.85
+  "confidence": 0.78,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

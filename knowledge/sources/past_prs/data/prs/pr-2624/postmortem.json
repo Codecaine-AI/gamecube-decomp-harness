@@ -1,0 +1,150 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2624",
+  "pr": {
+    "number": 2624,
+    "title": "Improvements to split up: IT",
+    "url": "https://github.com/doldecomp/melee/pull/2624",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:30:38Z",
+    "merged_at": "2026-06-08T16:16:35Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Item-system matching-improvement slice split out from PR #2617 for easier review. The PR touched seven files under src/melee/it, mostly small C reshapes for declaration/order/codegen: item collision ordering, Arwing laser absolute-value handling, Kyasarin helper argument passing, Link hookshot JObj access, Samus grapple hitbox/animation/link handling, Seak chain stick/velocity expression structure, and Seak needle thrown aliasing. The slice was reported as coming from a larger branch with no regressions before split, but review identified one local regression in itseakchain.c where replacing constant 1.0f with variable it_804DD0E0 hurt ordering.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "codegen-cleanup",
+      "item-behavior-source-reshaping",
+      "split-pr-slice"
+    ],
+    "systems": [
+      "item",
+      "item-collision",
+      "hookshot-chain-items",
+      "samus-grapple",
+      "seak-chain",
+      "seak-needle",
+      "kyasarin",
+      "arwing-laser"
+    ]
+  },
+  "key_files": [
+    "src/melee/it/itcoll.c",
+    "src/melee/it/items/itarwinglaser.c",
+    "src/melee/it/items/itkyasarin.c",
+    "src/melee/it/items/itlinkhookshot.c",
+    "src/melee/it/items/itsamusgrapple.c",
+    "src/melee/it/items/itseakchain.c",
+    "src/melee/it/items/itseakneedlethrown.c"
+  ],
+  "what_changed": [
+    "Split src/melee/it matching improvements from a larger branch/PR into a focused item-subsystem review slice.",
+    "Reordered locals in it_802706D0 in itcoll.c, including Item*, HSD_GObj*, HitCapsule*, and hit_index declarations, likely to affect stack/register ordering.",
+    "Changed itarwinglaser.c z-position absolute-value logic in it_802E72E0 by introducing z_abs and assigning z = -z_abs instead of mutating z through the absolute-value step.",
+    "Changed itKyasarin_FlipAndFall from fetching GET_ITEM/GET_JOBJ internally to taking HSD_JObj* jobj and Item* ip as explicit arguments at call sites in it_802EDDC0.",
+    "Replaced direct link->gobj->hsd_obj access with GET_JOBJ(link->gobj) in two places in itlinkhookshot.c.",
+    "In itsamusgrapple.c, introduced a local struct spawn_hitbox_4* hitbox_data4 to shorten repeated data->create_hitbox.create_hitbox_4 accesses when filling HitCapsule fields.",
+    "In fn_802B7E34, replaced a samus_grapple_anim(gobj) call with its apparent inline expansion: refresh GET_ITEM, animate GET_JOBJ(gobj), walk ItemLink chain, and call HSD_JObjAnimAll on each link gobj hsd_obj.",
+    "In fn_802B8384, delayed initialization of link and fp locals until after declarations/PAD_STACK to adjust ordering.",
+    "In itseakchain.c, flattened inner stick_x/stick_y temporary blocks and accessed fp->fv.sk.lstick_delta.x/y directly in threshold/sign/multiply logic.",
+    "In itseakchain.c, removed vy_limit/vy_bias temporaries in favor of direct attrs->x18 and attrs->x28 expressions for vertical velocity wrap logic.",
+    "In itseakneedlethrown.c HitShield logic, introduced Item* ip2 alias and initialized attr at declaration; velocity writes and it_802762BC now use ip2."
+  ],
+  "smart_moves": [
+    "Kept the PR scoped to src/melee/it so reviewers could evaluate item-only matching changes rather than a broad cross-subsystem diff.",
+    "Used tiny source-level reshapes rather than semantic rewrites: local declaration ordering, temporary introduction/removal, helper parameterization, and macro use.",
+    "Parameterized itKyasarin_FlipAndFall with already-needed GET_JOBJ/GET_ITEM results, a common decomp tactic when call-site evaluation/order matters.",
+    "Introduced hitbox_data4 in Samus grapple to control repeated nested struct access and likely improve register allocation or instruction ordering.",
+    "Expanded samus_grapple_anim inline in fn_802B7E34 where a helper call likely obscured the original function's code shape.",
+    "Used an alias pointer ip2 in Seak needle thrown to influence alias/register behavior without changing observed item velocity behavior."
+  ],
+  "decomp_lessons": [
+    "For item matching, declaration order and initialization timing can matter even when C semantics are unchanged.",
+    "Inlining or un-inlining helpers should be treated as a matching tactic, not a readability-only decision; fn_802B7E34 shows helper expansion can be useful.",
+    "Replacing direct hsd_obj access with GET_JOBJ can be accepted when it preserves expected source conventions and codegen, but confirm macro expansion effects.",
+    "Introducing a pointer to a nested sub-struct, such as create_hitbox_4, can reduce repeated long access paths and alter generated code favorably.",
+    "Removing local float temporaries may improve one ordering case, but constants should not be replaced by variable globals if it causes regression.",
+    "PR slicing by directory/subsystem is useful for large matching-improvement branches because it isolates review and CI/decomp-dev reporting."
+  ],
+  "naming_conventions": [
+    "Item object locals commonly use ip for Item* and gobj or item_gobj for Item_GObj*/HSD_GObj*.",
+    "JObj locals use jobj and should often be obtained via GET_JOBJ(gobj) when matching/conventions allow.",
+    "Fighter locals use fp and owner for the owning Fighter_GObj.",
+    "ItemLink traversal uses link, cur, iter, prev_link, head_link, and tail_link depending on role in the chain.",
+    "Temporary names such as z_abs and hitbox_data4 describe codegen-oriented aliases rather than new game concepts.",
+    "Existing autogenerated/unknown field names remain in use, such as xDD4_itemVar, x378_itemColl, x40_vel, xDCC_flag, x18, x28, x2C, and x43_b0."
+  ],
+  "assembly_or_matching_tactics": [
+    "Reorder local declarations to affect stack layout/register allocation, as in it_802706D0 and it_802BAF2C.",
+    "Move initialization after PAD_STACK or after declarations to match original ordering, as in fn_802B8384.",
+    "Introduce temporaries for absolute-value handling when the compiler needs a separate value from the final signed result, as with z_abs in itarwinglaser.c.",
+    "Pass GET_ITEM/GET_JOBJ values into static inline helpers rather than fetching inside them when call-site expression order affects matching.",
+    "Use sub-structure pointer aliases for nested data fields to alter address calculation and repeated load shape.",
+    "Inline a helper manually when the original function appears to contain the loop/calls directly, shown by replacing samus_grapple_anim with HSD_JObjAnimAll calls over the grapple link chain.",
+    "Use pointer aliases such as ip2 to influence register choice or aliasing in small item-state update functions.",
+    "Avoid swapping literal constants for global float variables solely for ordering; review flagged this as a regression for it_802A24D0(link, 1.0f)."
+  ],
+  "review_feedback": [
+    {
+      "file": "src/melee/it/items/itseakchain.c",
+      "author": "PsiLupan",
+      "comment": "Regression - don't replace the constant with a variable for ordering. We can address this later.",
+      "evidence": "Review comment on hunk changing it_802A24D0(link, 1.0f) to it_802A24D0(link, it_804DD0E0)."
+    }
+  ],
+  "searchable_terms": [
+    "PR2624",
+    "Improvements to split up IT",
+    "src/melee/it",
+    "item matching improvements",
+    "split from PR2617",
+    "itcoll.c",
+    "it_802706D0",
+    "itarwinglaser.c",
+    "it_802E72E0",
+    "z_abs",
+    "itkyasarin.c",
+    "itKyasarin_FlipAndFall",
+    "it_802EDDC0",
+    "itlinkhookshot.c",
+    "it_802A7384",
+    "GET_JOBJ",
+    "itsamusgrapple.c",
+    "it_802B7160",
+    "spawn_hitbox_4",
+    "hitbox_data4",
+    "fn_802B7E34",
+    "samus_grapple_anim",
+    "HSD_JObjAnimAll",
+    "fn_802B8384",
+    "itseakchain.c",
+    "it_802BAF2C",
+    "it_802BC080",
+    "it_802A24D0",
+    "it_804DD0E0",
+    "itseakneedlethrown.c",
+    "it_2725_Logic109_HitShield",
+    "ip2",
+    "ItemLink",
+    "HitCapsule",
+    "PAD_STACK"
+  ],
+  "follow_up_queries": [
+    "Check whether the review regression in itseakchain.c was fixed before merge or left for a later PR.",
+    "Search later PRs for it_802A24D0(link, 1.0f) versus it_804DD0E0 to see how the constant/global ordering issue was resolved.",
+    "Look for subsequent Samus grapple matching work around samus_grapple_anim, fn_802B7E34, and HSD_JObjAnimAll link traversal.",
+    "Compare item chain files using GET_JOBJ(link->gobj) versus direct link->gobj->hsd_obj to determine the preferred convention when matching."
+  ],
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

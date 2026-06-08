@@ -8,90 +8,115 @@
     "state": "CLOSED",
     "author": "itsgrimetime",
     "created_at": "2026-05-15T12:32:08Z",
-    "merged_at": null
+    "merged_at": ""
   },
   "agent_status": "agent_completed",
-  "summary": "Closed-unmerged lbmemory matching PR that introduced typed allocator/layout fields, explicit data and sdata string symbols, and decompiled relocation/init paths. The bot reported +924 matched code bytes and +216 matched data bytes, with new matches for lbMemory_8001564C, fn_80015184, .data, and .sdata, plus lbMemory_80015320 improved to 96.11%. The PR body says the TU reached 10/12 matched functions, with lbMemory_80014FC8 and lbMemory_80015320 still differing in saved-register allocation and instruction scheduling.",
+  "summary": "Improved matching for the lbmemory translation unit by replacing opaque allocator padding with structured fields, adding exact string/data references, decompiling the relocation callback path and ARAM allocator init routine, and clarifying verified Handle semantics. The PR was closed without a recorded merge, but the bot report showed 4 new matches and one major unmatched-function improvement.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "data-matching",
-      "types-structs",
       "headers",
-      "tooling-verification"
+      "types-structs",
+      "data-matching",
+      "library-memory"
     ],
     "systems": [
       "library",
       "lb",
       "lbmemory",
       "ARAM",
-      "baselib-devcom",
-      "OSAlarm"
+      "allocator"
     ]
   },
   "key_files": [
-    "src/melee/lb/lbmemory.c",
-    "src/melee/lb/lbmemory.h"
+    {
+      "path": "src/melee/lb/lbmemory.c",
+      "role": "Main decompilation work: allocator struct refinement, string/data symbol placement, relocation/alarm callback decompilation, ARAM allocator initialization, and assertion/codegen adjustments."
+    },
+    {
+      "path": "src/melee/lb/lbmemory.h",
+      "role": "Handle field comment update clarifying that x8_hi is an arena high bound for heap handles and allocation size for child handles."
+    }
   ],
   "what_changed": [
-    "Replaced opaque Allocator byte padding with typed fields: MemEntry x8_mem[0x83], Handle x638_heap[6], and LBMgr x6A0_mgr, while preserving sizeof(lbMemory_804318B0) == 0x6F0.",
-    "Promoted the allocator storage to the named global symbol lbMemory_804318B0 and kept local code readable through #define g_alloc lbMemory_804318B0.",
-    "Added exact static/sdata string symbols for lbmemory asserts and OSReport text, replacing __FILE__ and literal uses with labels such as lbl_803BA2C0, lbl_803BA2CC, lbl_803BA344, lbMemory_804D3788, and lbMemory_804D3794.",
-    "Implemented lbMemory_80015320 as the relocation/copy continuation routine: it updates the current destination pointer, dispatches HSD_DevComRequest for low-address copies, otherwise configures LBMgr and OSAlarm scheduling, and calls the stored completion callback when handles are exhausted.",
-    "Improved fn_80015184 by accessing &g_alloc.x6A0_mgr directly and replacing a raw tick constant/NULL callback with OSSetAlarm(..., OSMillisecondsToTicks(3), fn_80015184).",
-    "Added lbMemory_8001564C init code using ARAlloc, ARFree, ARGetSize, freelist setup for x8_mem and heap handles, initial arena handle creation, and #pragma dont_inline control.",
-    "Updated lbmemory.h to document Handle::x8_hi as context-dependent: arena high bound for heap handles and allocation size for child handles.",
-    "Removed speculative comments from lbmemory.c while keeping verified behavior notes in the header."
+    "Added typed internal structures for lbmemory: MemEntry, LBMgr, and a more detailed Allocator layout.",
+    "Replaced several allocator padding byte arrays with typed fields: x8_mem[0x83], x638_heap[6], and x6A0_mgr.",
+    "Changed the allocator global from a static anonymous g_alloc to symbol-backed lbMemory_804318B0 with #define g_alloc lbMemory_804318B0.",
+    "Added STATIC_ASSERT checks for sizeof(struct MemEntry) == 0xC and sizeof(lbMemory_804318B0) == 0x6F0.",
+    "Added explicit .data and .sdata string symbols used by assertions and OSReport, including lbl_803BA2C0, lbl_803BA2CC, lbl_803BA2DC, lbl_803BA328, lbl_803BA338, lbl_803BA344, lbl_803BA368, lbMemory_804D3788, lbMemory_804D3790, and lbMemory_804D3794.",
+    "Updated assertions to use the explicit string symbols instead of __FILE__ or literal strings where that improved data matching.",
+    "Moved LBMgr access from pointer arithmetic on &g_alloc + 0x6A0 to the typed field &g_alloc.x6A0_mgr.",
+    "Improved fn_80015184 to use typed LBMgr fields and changed OSSetAlarm from a literal tick value/NULL callback to OSMillisecondsToTicks(3) and fn_80015184.",
+    "Added a decompiled body for lbMemory_80015320, handling relocation of handles via HSD_DevComRequest for addresses below 0x80000000 and staged alarm-driven copy setup for other addresses.",
+    "Added lbMemory_8001564C, initializing ARAM bounds, free MemEntry list, free heap handles, x69C, and related allocator counters/fields.",
+    "Used #pragma dont_inline around lbMemory_8001564C, indicating inlining control was relevant to matching.",
+    "Removed speculative comments in lbmemory.c around list behavior, malloc behavior, alignment, and Handle interpretation.",
+    "Updated lbmemory.h so Handle::x8_hi is documented as dual-use: arena high bound for heap handles and allocation size for child handles."
   ],
   "smart_moves": [
-    "Typed the allocator layout only with size guards, using STATIC_ASSERT(sizeof(struct MemEntry) == 0xC) and STATIC_ASSERT(sizeof(lbMemory_804318B0) == 0x6F0) to prevent layout drift.",
-    "Matched data references by introducing explicit labels and SDATA strings instead of relying on compiler placement for string literals.",
-    "Kept the named global symbol required by the binary while preserving the established g_alloc source idiom through a macro alias.",
-    "Converted the alarm delay from a magic constant to OSMillisecondsToTicks(3), revealing SDK intent and contributing to fn_80015184 reaching 100%.",
-    "Used field access for the LBMgr subobject once the allocator layout was known, avoiding raw offset casts like (u8*) &g_alloc + 0x6A0.",
-    "Used #pragma dont_inline around lbMemory_8001564C as an explicit matching lever for the init routine.",
-    "Documented remaining mismatches with exact percentages and suspected causes rather than claiming full function matches."
+    "Replacing raw padding with typed arrays made later code expressible through field access while preserving the exact allocator size with static assertions.",
+    "Symbolizing assertion and report strings helped recover .data/.sdata matches instead of relying on compiler-generated or merged literals.",
+    "Using a real LBMgr field avoided brittle pointer arithmetic at offset 0x6A0 and made fn_80015184/lbMemory_80015320 easier to reason about.",
+    "The Handle::x8_hi comment was narrowed to behavior evidenced by code instead of leaving a speculative 'hi or size' question.",
+    "The PR separated fully matched gains from partial work: bot output showed lbMemory_8001564C, fn_80015184, .data, and .sdata at 100%, while lbMemory_80015320 remained partial.",
+    "Using OSMillisecondsToTicks(3) instead of a raw constant improved semantic clarity while still matching the alarm timing expression.",
+    "The lbMemory_80015320 implementation captured asynchronous relocation structure: immediate DevCom request for one address class, alarm-managed chunk copy for the other, then final callback through alloc->x6E8.",
+    "Leaving lbMemory_80014FC8 and lbMemory_80015320 listed as remaining non-perfect matches prevented overclaiming and documented the exact remaining matching blockers."
   ],
   "decomp_lessons": [
-    "Allocator and manager byte blobs should be converted into typed structs when repeated offsets are known; this improves readability and can unlock better matching, but must be protected by sizeof asserts.",
-    "String placement is part of matching. For asserts and OSReport calls, exact .data/.sdata labels can matter as much as control flow.",
-    "Address-named globals such as lbMemory_804318B0 can coexist with readable aliases when symbol identity and code clarity both matter.",
-    "Do not over-name fields with mixed semantics: Handle::x8_hi needed a qualified comment because it is a high bound for heap handles but a size for child allocations.",
-    "SDK macros can explain magic constants and improve codegen; OSMillisecondsToTicks(3) replaced 0x10624DD3 in this slice.",
-    "Async relocation code may split between DevCom callbacks and OSAlarm-driven chunk copies; modeling the manager struct and callback fields makes that control flow tractable.",
-    "For near-matches, saved-register allocation and instruction scheduling may remain the blocker even when control-flow and size shape look correct."
+    "When a global allocator is mostly known, gradually replace padding with typed fields and guard layout with STATIC_ASSERTs to avoid silent offset drift.",
+    "For data-section matching, explicit named string objects can be necessary even when ordinary string literals are semantically equivalent.",
+    "Dual-purpose struct fields should be documented by observed behavior, not guessed names; this PR records x8_hi as high-bound for heap handles and size for child handles.",
+    "Typed access to embedded structs often improves both readability and codegen compared with repeated base-plus-offset casts.",
+    "Use project macros/functions such as OSMillisecondsToTicks when they express the original constant and produce matching code.",
+    "Do not keep speculative comments once a field or list behavior has been verified; noisy guesses can mislead later decomp work.",
+    "For allocator initialization functions, matching may require explicit manual initialization of freelist links and base-offset stores rather than abstract helper loops for every field.",
+    "Partial matches should be documented with exact percentages and the suspected cause, such as saved-register allocation or instruction scheduling, so future attempts can resume efficiently."
   ],
   "naming_conventions": [
-    "Unknown or partially understood struct fields use offset-prefixed names such as x0_arenaLo, x4_arenaHi, x62C_free_mem, x638_heap, x6A0_mgr, and x6E4.",
-    "Unidentified functions, globals, and labels retain address-based names such as lbMemory_80015320, lbMemory_8001564C, lbMemory_804318B0, lbl_803BA2C0, and lbMemory_804D3794.",
-    "New local struct names used domain-style names: MemEntry, LBMgr, and Allocator.",
-    "Freelist helper macros use uppercase names: PUSH_HANDLE and POP_HANDLE.",
-    "Header comments should record verified dual-use field semantics rather than speculative questions."
+    "Internal unknown/partially known struct fields kept offset-style names such as x0_next, x4_lo, x8_hi, x62C_free_mem, x638_heap, x6A0_mgr, and x6E8.",
+    "Recovered global symbols followed the lbMemory address naming pattern, e.g. lbMemory_804318B0, lbMemory_804D3788, lbMemory_804D3790, and lbMemory_804D3794.",
+    "Anonymous data labels retained linker-style names such as lbl_803BA2C0 and lbl_803BA344 when semantic names were not established.",
+    "Function names stayed address-based for still-unnamed functions, e.g. lbMemory_80015320 and lbMemory_8001564C.",
+    "The local macro PUSH_HANDLE remained uppercase macro style for freelist push behavior.",
+    "Struct type names used concise semantic names where evidence was strong: MemEntry, LBMgr, and Allocator."
   ],
   "assembly_or_matching_tactics": [
-    "Use explicit static char arrays with exact sizes for .data strings and SDATA char arrays for small .sdata strings when literal placement affects matches.",
-    "Pack related string literals into one labeled array when the binary appears to address substrings, as with lbl_803BA368 containing !p->size and !cancelflag.",
-    "Prefer typed subobject access after layout recovery; &g_alloc.x6A0_mgr replaced a raw 0x6A0 offset cast.",
-    "Retain low-level base+offset stores where necessary for init-code codegen, as lbMemory_8001564C still writes heap freelist links through base + 0x638 through base + 0x688.",
-    "Control compiler behavior with #pragma push / #pragma dont_inline on / #pragma pop around sensitive functions.",
-    "Match async copy logic with the actual SDK APIs: HSD_DevComRequest for one path and OSCreateAlarm/OSSetAlarm with OSMillisecondsToTicks(3) for the alarm path.",
-    "Remaining stated blockers were lbMemory_80014FC8 at 99.324326% and lbMemory_80015320 at 96.106800%, with saved-register allocation and instruction scheduling still off."
+    "Added explicit char arrays with exact sizes for string data to force expected .data/.sdata layout.",
+    "Used STATIC_ASSERTs to verify recovered struct sizes and prevent layout regressions.",
+    "Introduced #pragma push / #pragma dont_inline on / #pragma pop around lbMemory_8001564C to control code generation.",
+    "Preserved some raw base-offset writes in lbMemory_8001564C, such as writes at base + 0x638 through base + 0x688 and base + 0x6D0, likely because direct struct/member abstraction did not yet produce the desired codegen.",
+    "Used 32-byte alignment expression ((size + 0x1F) & 0xFFFFFFE0) for allocation and relocation sizes.",
+    "Matched assertion callsites by passing explicit recovered strings rather than __FILE__ and string literals.",
+    "Changed fn_80015184 alarm scheduling to OSSetAlarm(&mgr->alarm, OSMillisecondsToTicks(3), fn_80015184), matching both semantics and likely expected call shape.",
+    "Bot report measured new matches: lbMemory_8001564C at 100%, fn_80015184 at 100%, .data at 100%, .sdata at 100%, and lbMemory_80015320 improved to 96.11%."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the slice.",
-    "decomp-dev[bot] reported matched code increased to 67.01% (+0.02%, +924 bytes) and matched data to 39.30% (+0.02%, +216 bytes).",
-    "Bot-reported new matches were lbMemory_8001564C, fn_80015184, .data, and .sdata in main/melee/lb/lbmemory.",
-    "Bot reported lbMemory_80015320 improved from 0.00% to 96.11%.",
-    "The PR was closed with merged_at null; no rationale for closing without merge is present in the provided context."
+    {
+      "source": "decomp-dev bot",
+      "feedback": "Matched code increased by 924 bytes and matched data by 216 bytes for GALE01."
+    },
+    {
+      "source": "decomp-dev bot",
+      "feedback": "Reported 4 new matches: lbMemory_8001564C, fn_80015184, .data, and .sdata in main/melee/lb/lbmemory."
+    },
+    {
+      "source": "decomp-dev bot",
+      "feedback": "Reported lbMemory_80015320 improved from 0.00% to 96.11% but remained unmatched."
+    },
+    {
+      "source": "PR body",
+      "feedback": "Remaining issues were explicitly identified as lbMemory_80014FC8 at 99.324326% and lbMemory_80015320 at 96.106800%, with differences attributed to saved-register allocation and instruction scheduling."
+    },
+    {
+      "source": "human review",
+      "feedback": "No human review comments were present in the provided slice."
+    }
   ],
   "searchable_terms": [
     "pr-2498",
     "lbmemory",
-    "lb: improve lbmemory matching",
-    "itsgrimetime",
-    "src/melee/lb/lbmemory.c",
-    "src/melee/lb/lbmemory.h",
     "lbMemory_80015320",
     "lbMemory_8001564C",
     "lbMemory_80014FC8",
@@ -103,10 +128,13 @@
     "LBMgr",
     "Handle",
     "x8_hi",
-    "x8_mem",
     "x62C_free_mem",
     "x638_heap",
     "x6A0_mgr",
+    "ARAM",
+    "ARAlloc",
+    "ARFree",
+    "ARGetSize",
     "HSD_DevComRequest",
     "HSD_DevComCallback",
     "OSAlarm",
@@ -114,27 +142,40 @@
     "OSMillisecondsToTicks",
     "OSDisableInterrupts",
     "OSRestoreInterrupts",
-    "ARAlloc",
-    "ARFree",
-    "ARGetSize",
-    "__assert",
     "OSReport",
-    "SDATA",
-    "lbl_803BA2C0",
-    "lbl_803BA368",
+    "__assert",
+    "STATIC_ASSERT",
     "PUSH_HANDLE",
-    "POP_HANDLE",
-    "data match",
-    "sdata match",
+    "lbl_803BA2C0",
+    "lbl_803BA2CC",
+    "lbl_803BA2DC",
+    "lbl_803BA328",
+    "lbl_803BA338",
+    "lbl_803BA344",
+    "lbl_803BA368",
+    "lbMemory_804D3788",
+    "lbMemory_804D3790",
+    "lbMemory_804D3794",
     "saved-register allocation",
-    "instruction scheduling"
+    "instruction scheduling",
+    "dont_inline",
+    "32 byte alignment"
   ],
   "follow_up_queries": [
-    "Why was PR #2498 closed without merge, and was the lbmemory work reapplied in a later PR?",
-    "Search later history for lbMemory_80015320, lbMemory_8001564C, lbMemory_804318B0, and x6A0_mgr.",
-    "Investigate the saved-register allocation and instruction scheduling mismatches remaining in lbMemory_80014FC8 and lbMemory_80015320.",
-    "Validate Handle::x8_hi semantics across all callers before replacing offset-style field names with stronger semantic names.",
-    "Check whether the explicit .data/.sdata string labels from this PR are still required after later lbmemory changes."
+    "Find later PRs that merged or superseded pr-2498 lbmemory matching work.",
+    "Search for subsequent changes to lbMemory_80015320 to see how the saved-register allocation and instruction scheduling mismatch was resolved.",
+    "Search for subsequent changes to lbMemory_80014FC8 after its 99.324326% partial match.",
+    "Inspect whether lbMemory_804318B0 remained a named global or was later moved to a shared header.",
+    "Look for later refinements of Handle::x8_hi naming or a split between heap-handle and child-allocation semantics.",
+    "Search for other PRs using explicit char arrays for assertion string matching in .data/.sdata."
   ],
-  "confidence": 0.9
+  "confidence": 0.87,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,85 +11,97 @@
     "merged_at": "2026-03-19T23:07:37Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decomp/matching PR for the mpIsland map-collision module. The single changed file, src/melee/mp/mpisland.c, replaces raw decompiler temporaries in mpIsland_8005A728 with typed map/collision traversal, implements the formerly stubbed mpIsland_8005B004, and makes small matching/data-order cleanups. The PR body only says \"tracking PR\", so intent is inferred from the diff and decomp.dev report.",
+  "summary": "Decompiled and cleaned up src/melee/mp/mpisland.c, mainly replacing pseudo-C in mpIsland_8005A728 with typed collision/map traversal code and adding a substantial C implementation of mpIsland_8005B004. The PR also adjusted static data placement for mpIsland_804D8158 and included baselib/debug.h for HSD_ASSERT. Decomp.dev reported mpisland data sections reaching 100%, mpIsland_8005ACE8 reaching 100%, mpIsland_8005A728 improving from 53.62% to 90.36%, and mpIsland_8005B004 improving from 0% to 94.81%. Human PR text was only 'tracking PR' and there were no review comments, so intent is inferred mostly from the diff and bot match report.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "function-implementation",
-      "typed-rewrite",
-      "collision-geometry",
-      "data-matching-cleanup"
+      "pseudo-C cleanup",
+      "function implementation",
+      "data-section matching",
+      "collision-map traversal"
     ],
     "systems": [
-      "melee/mp",
+      "melee-core",
+      "mp",
       "mpIsland",
       "map-collision",
-      "stage-collision"
+      "ground-collision"
     ]
   },
   "key_files": [
     "src/melee/mp/mpisland.c"
   ],
   "what_changed": [
-    "Added <baselib/debug.h> and used HSD_ASSERT in newly typed code paths.",
-    "Moved the address-commented static float mpIsland_804D8158 near the other mpIsland globals before mpIsland_80458E88.",
-    "Rewrote mpIsland_8005A728 from raw short/int pointer arithmetic and commented-out offset writes into named MapCollData, CollLine, CollVtx, and mp_UnkStruct0 operations.",
-    "mpIsland_8005A728 now explicitly processes floor and ceiling segments using floor_count/floor_start and ceiling_count/ceiling_start, a visited[0x600] bitmap, LINE_FLAG_ENABLED, LINE_FLAG_HIDDEN, CollLine_Floor, CollLine_Ceiling, next_id0/prev_id0 links, and mpJointFromLine.",
-    "Implemented mpIsland_8005B004 in C, replacing the /// #mpIsland_8005B004 placeholder. The implementation rebuilds/reuses mp_UnkStruct0 entries for a CollJoint's dynamic line range, filters lines by (flags & 0x1F) == (arg3 | 0x10), follows prev/next links, handles loop cases, and populates endpoints/Vec3 fields from CollVtx data.",
-    "Made a small local declaration-order change in mpIsland_8005ACE8 by declaring CollJoint* temp_r3 with the other locals before assignment.",
-    "decomp.dev reported mpisland .sdata and .sdata2 reaching 100%, mpIsland_8005ACE8 reaching 100%, mpIsland_8005A728 improving from 53.62% to 90.36%, and mpIsland_8005B004 improving from 0.00% to 94.81%."
+    "Added #include <baselib/debug.h> so mpisland.c can use HSD_ASSERT instead of raw __assert calls.",
+    "Moved/declared static float mpIsland_804D8158 near the other mpIsland globals, with address comment /* 4D8158 */, contributing to sdata/sdata2 matching.",
+    "Rewrote mpIsland_8005A728 from register-style pseudo-C into typed C using MapCollData, CollLine, CollVtx, mp_UnkStruct0, named counters, visited[0x600], and PAD_STACK(0x10).",
+    "mpIsland_8005A728 now explicitly processes floor segments using map->floor_count/map->floor_start and line x0->next_id0 links gated by CollLine_Floor.",
+    "mpIsland_8005A728 now explicitly processes ceiling segments using map->ceiling_count/map->ceiling_start and line x0->prev_id0 links gated by CollLine_Ceiling.",
+    "Both floor and ceiling segment builders allocate 0x2C-byte mp_UnkStruct0 nodes, assert allocation success, fill endpoints, vertex positions, z values from mpIsland_804D8158, x20 hidden/enabled state, and x28 via mpJointFromLine or joint index.",
+    "Small declaration-order adjustment in mpIsland_8005ACE8 moved CollJoint* temp_r3 above later locals and decomp.dev reported that function reaching 100%.",
+    "Implemented mpIsland_8005B004 in C, replacing the prior /// #mpIsland_8005B004 placeholder.",
+    "mpIsland_8005B004 reuses existing mp_UnkStruct0 nodes from one list to another for a target joint, scans dynamic collision lines inside a CollJoint/MapJoint range, tracks visited lines, detects loops, and allocates/reuses segment nodes for matching line flag groups.",
+    "Decomp.dev bot reported +3644 matched code bytes and +48 matched data bytes overall for GALE01, including mpisland .sdata and .sdata2 reaching 100%."
   ],
   "smart_moves": [
-    "Converted decompiler-style casts and offset math into existing collision-domain structs, making semantics searchable without renaming still-unknown mp_UnkStruct0 fields prematurely.",
-    "Preserved low-level matching details while improving readability: HSD_MemAlloc(0x2C), explicit field stores, visited bitmap size, HSD_ASSERT line numbers, and stack padding were kept visible.",
-    "Separated floor and ceiling traversal into parallel typed blocks, making the endpoint direction differences clear: floors use start v0/end v1, while ceilings use start v1/end v0.",
-    "Used project flag names for known bits, especially LINE_FLAG_ENABLED, LINE_FLAG_HIDDEN, CollLine_Floor, and CollLine_Ceiling, instead of leaving raw 0x10000/0x40000/hi_flags tests everywhere.",
-    "In mpIsland_8005B004, first moves existing nodes for the target joint into a reuse/free list before allocating new mp_UnkStruct0 nodes, preserving original list-recycling behavior instead of always allocating.",
-    "Kept PAD_STACK next to the 0x600-byte visited buffers, signaling that stack-frame shape was part of the match strategy."
+    "Converted byte/offset-heavy pseudo-C into struct-field reads such as map->floor_count, lines[end_idx].x0->next_id0, lines[end_idx].x0->hi_flags, and vtx[mpisp->x4].pos.x, making the traversal logic reviewable without losing matching-sensitive details.",
+    "Kept explicit allocation size 0x2C and HSD_ASSERT line immediates 62 and 0x3E, which preserves evidence from the original assert sites while improving source readability.",
+    "Used a fixed u8 visited[0x600] buffer plus PAD_STACK to preserve stack shape while naming the algorithm as a visited-line scan.",
+    "Separated floor and ceiling processing into mirrored blocks but preserved their directional differences: floors follow next_id0 and use v0_idx to v1_idx, ceilings follow prev_id0 and reverse the vertex endpoints.",
+    "Used symbolic collision constants where available, including LINE_FLAG_ENABLED, LINE_FLAG_HIDDEN, CollLine_Floor, and CollLine_Ceiling, instead of raw magic flag tests.",
+    "For mpIsland_8005B004, preserved a matching-oriented goto label after_alloc and narrow local scopes around loop variables, suggesting source was shaped around compiler output rather than only high-level style.",
+    "Recycled nodes from *arg1 before allocating new mp_UnkStruct0 nodes in mpIsland_8005B004, matching the apparent original list-management behavior."
   ],
   "decomp_lessons": [
-    "When mpLib_8004D164 data is being indexed as shorts, try mapping it to MapCollData fields before continuing pointer arithmetic; floor_start/floor_count and ceiling_start/ceiling_count made mpIsland_8005A728 much clearer.",
-    "For ground collision line chains, MapLine next_id0 and prev_id0 plus hi_flags are enough to express floor/ceiling continuation checks in readable C.",
-    "CollLine flags and MapLine hi_flags represent different concepts in this code: flags are used for enabled/hidden/type filtering, while hi_flags are used to test CollLine_Floor or CollLine_Ceiling.",
-    "A fixed visited[0x600] byte array plus post-segment skipping is a recurring tactic for line-chain grouping; preserve its exact size and scan structure when matching related map code.",
-    "For matching partial decomp functions, it can be valuable to land a typed 90-95% implementation instead of leaving a /// # stub, especially when it documents control flow and struct relationships.",
-    "Do not over-normalize unknown list globals too early. mpIsland_80458E88 still has xN fields, but typed local names and member usage expose likely head/tail semantics for later cleanup."
+    "For map/collision decomp, replacing pointer arithmetic with known structs can unlock large match improvements while simultaneously documenting traversal semantics.",
+    "When a function walks linked collision lines, keep the exact traversal direction explicit: floor chains used next_id0, ceiling chains used prev_id0, and dynamic scans in mpIsland_8005B004 use both directions depending on loop detection.",
+    "A visited bitmap is useful both algorithmically and for matching; preserving its exact size, zeroing call, and skip-loop shape can matter.",
+    "Static data placement can be part of the match. Moving mpIsland_804D8158 to the global declaration area with an address comment coincided with mpisland sdata/sdata2 gains.",
+    "Use project macros like HSD_ASSERT when the original code asserted allocation success; include baselib/debug.h rather than open-coding __assert.",
+    "Partial decomp is still valuable: mpIsland_8005B004 went from 0% to 94.81% even though it did not fully match.",
+    "Declaration order can affect matching in near-matched functions, as shown by the small mpIsland_8005ACE8 local declaration reorder associated with a 99.81% to 100% report.",
+    "Preserve original control-flow artifacts such as local blocks, break conditions, and goto labels when needed to maintain compiler-compatible codegen."
   ],
   "naming_conventions": [
-    "Existing symbol-address naming was retained: mpIsland_8005A728, mpIsland_8005B004, mpIsland_8005ACE8, mpIsland_804D8158, and mpIsland_80458E88.",
-    "Domain locals use concise collision/map terms: map, lines, vtx, joints, inner, line_idx, end_idx, start_idx, end_total, visited, hidden, type_flag, link, and z_val.",
-    "The allocated island segment node is named mpisp, matching the original assert concept/string while using mp_UnkStruct0* as the typed pointer.",
-    "Known collision constants are named through project macros/enums: LINE_FLAG_ENABLED, LINE_FLAG_HIDDEN, CollLine_Floor, and CollLine_Ceiling.",
-    "Unknown struct fields remain xN-style, such as mp_UnkStruct0.x20/x24/x26/x28 and mpIsland_80458E88.x8/xC, rather than inventing names without stronger evidence."
+    "Address-named globals follow the existing style: mpIsland_804D8158 and mpIsland_80458E88, with address comments such as /* 4D8158 */ and /* 458E88 */.",
+    "Function names remain address-based mpIsland symbols, such as mpIsland_8005A728, mpIsland_8005ACE8, mpIsland_8005B004, and mpIsland_8005B334.",
+    "Typed locals use short semantic names: map, lines, vtx, joints, inner, mpisp, prev, next, count, line_idx, end_idx, start_idx, hidden, visited, z_val.",
+    "Collision flags and line classes are represented with symbolic constants where known: LINE_FLAG_ENABLED, LINE_FLAG_HIDDEN, CollLine_Floor, CollLine_Ceiling.",
+    "mp_UnkStruct0 fields remain partially unknown/x-prefixed, such as next, x4, x6, x8, x14, x20, x24, x26, and x28, rather than inventing unsupported semantic names."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(0x10) in mpIsland_8005A728 and PAD_STACK(16) in mpIsland_8005B004 after u8 visited[0x600] to preserve stack layout.",
-    "Kept explicit memzero(visited, 0x600u) and pointer-based visited scanning loops instead of simplifying to higher-level iteration.",
-    "Used HSD_ASSERT with observed line constants such as 62, 0x3E, and 0x206 after adding <baselib/debug.h>.",
-    "Preserved HSD_MemAlloc(0x2C) and direct member-by-member initialization of mp_UnkStruct0 nodes, which likely helps instruction order and register allocation.",
-    "mpIsland_8005B004 uses explicit infinite loops, link break checks, a loop flag, and a goto label after_alloc, suggesting control-flow shape was chosen for matching.",
-    "Small local declaration ordering in mpIsland_8005ACE8 was enough for the bot to report the function moving from 99.81% to 100%."
+    "Added PAD_STACK(0x10) / PAD_STACK(16) alongside u8 visited[0x600] to preserve stack layout.",
+    "Used HSD_ASSERT with explicit source line constants, including 62, 0x3E, and 0x206.",
+    "Kept exact HSD_MemAlloc(0x2C) allocation size for mp_UnkStruct0 nodes.",
+    "Used memzero(visited, 0x600u) rather than a higher-level initializer.",
+    "Preserved matching-sensitive skip loops over visited entries with pointer p and counter ctr inside inner scopes.",
+    "Used type_flag = arg3 | 0x10 and line flag masking with (lines[line_idx].flags & 0x1F) in mpIsland_8005B004.",
+    "Retained a goto after_alloc path in mpIsland_8005B004 around loop/assert handling.",
+    "Filled Vec3 components field-by-field from CollVtx positions and mpIsland_804D8158 rather than using aggregate assignment.",
+    "Used s16 link/next variables for line linkage values, matching the signed -1 sentinel checks."
   ],
   "review_feedback": [
-    "No human review comments or review records were present in the PR slice.",
-    "The PR body only says \"tracking PR\", so there is no explicit author explanation beyond the title and diff.",
-    "decomp.dev bot reported GALE01 matched code 59.08% (+0.09%, +3644 bytes) and matched data 37.69% (+48 bytes). The bot report also listed unrelated itsamusgrapple matches, but the only changed source file in this PR was mpisland.c."
+    "No human review comments were present in the provided slice.",
+    "The PR body contained only 'tracking PR', so no detailed author rationale was available.",
+    "Decomp.dev bot reported GALE01 matched code improved by +0.09% (+3644 bytes) and matched data by +48 bytes.",
+    "Bot report listed mpisland .sdata2 from 50.00% to 100.00%, mpisland .sdata from 60.00% to 100.00%, mpIsland_8005ACE8 from 99.81% to 100.00%, mpIsland_8005A728 from 53.62% to 90.36%, and mpIsland_8005B004 from 0.00% to 94.81%."
   ],
   "searchable_terms": [
+    "pr-2327",
     "mpIsland",
     "mpisland.c",
+    "jurrejelle",
     "mpIsland_8005A728",
     "mpIsland_8005B004",
     "mpIsland_8005ACE8",
     "mpIsland_804D8158",
     "mpIsland_80458E88",
     "MapCollData",
-    "MapJoint",
     "CollLine",
-    "MapLine",
     "CollVtx",
     "CollJoint",
+    "MapJoint",
     "mp_UnkStruct0",
     "mpLib_8004D164",
     "mpGetGroundCollLine",
@@ -100,27 +112,34 @@
     "LINE_FLAG_HIDDEN",
     "CollLine_Floor",
     "CollLine_Ceiling",
+    "floor_count",
+    "floor_start",
+    "ceiling_count",
+    "ceiling_start",
+    "dynamic_start",
+    "dynamic_count",
     "visited[0x600]",
     "PAD_STACK",
     "HSD_ASSERT",
     "HSD_MemAlloc",
-    "F32_MAX",
-    "dynamic_start",
-    "dynamic_count",
-    "floor_count",
-    "ceiling_count",
-    "prev_id0",
-    "next_id0",
-    "hi_flags",
-    "flags & 0x1F",
+    "sdata",
+    "sdata2",
     "GALE01"
   ],
   "follow_up_queries": [
-    "Search later PRs for mp_UnkStruct0 field renames, especially x20, x24, x26, x28, and the mpIsland_80458E88 list fields.",
-    "Compare later mpIsland_8005B004 work to see what closed the remaining gap from 94.81% to a full match.",
-    "Verify whether mpIsland_8005B004's unused arg4 and arg5 receive names or semantic explanations in later decomp work.",
-    "Look for other map-collision functions that group lines with visited[0x600], next_id0/prev_id0, LINE_FLAG_ENABLED, and LINE_FLAG_HIDDEN.",
-    "Audit the mpIsland_8005A728 floor/ceiling head-tail assignments against later cleanup before renaming mpIsland_80458E88.x8 or xC."
+    "Find later PRs that fully match mpIsland_8005B004 after this 94.81% implementation.",
+    "Search for mp_UnkStruct0 field naming improvements around x20, x24, x26, and x28.",
+    "Look for other mp collision PRs that use visited[0x600] and PAD_STACK to match traversal functions.",
+    "Check whether mpIsland_804D8158 gained a semantic name in later map/collision work.",
+    "Compare floor and ceiling line traversal patterns in other mp modules using next_id0, prev_id0, CollLine_Floor, and CollLine_Ceiling."
   ],
-  "confidence": 0.86
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

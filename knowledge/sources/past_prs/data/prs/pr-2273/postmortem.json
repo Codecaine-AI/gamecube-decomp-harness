@@ -11,121 +11,92 @@
     "merged_at": "2026-03-12T05:17:34Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled a large slice of the Kraid stage file, replacing several grkraid.c placeholder functions with C implementations and recovering related config/ground-var layouts. The automated decomp.dev report showed grkraid .data becoming a new 100% match and major per-function improvements, with the PR title indicating grkraid.c reached 97%. There was no PR body and no human review feedback in the slice.",
+  "summary": "Decompiled a large portion of the Kraid stage ground module, raising grkraid.c toward 97% and adding typed support for Kraid map rotation, hand-triggered camera/events, Kraid wait/position state, and per-stage ground variables. The PR replaced several placeholder functions in src/melee/gr/grkraid.c with C implementations and updated grkraid.h/types.h so the config table and Ground::gv unions had enough structure to express the behavior. The only recorded feedback was the decomp.dev report, which showed one new .data match and major improvements for grKraid_801FEA00, grKraid_801FE440, grKraid_801FEE54, grKraid_801FE818, and grKraid_801FE6D8.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-logic",
       "headers",
-      "struct-layout",
+      "struct-recovery",
+      "stage-behavior",
       "data-matching"
     ],
     "systems": [
       "stage",
       "ground",
-      "gr",
-      "Kraid"
+      "grkraid",
+      "Kraid stage"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grkraid.c",
-      "role": "Main decomp work: added includes, rand_inline, a zero Vec constant, implementations for grKraid_801FE440, grKraid_801FE6D8, grKraid_801FE818, grKraid_801FEA00, grKraid_801FEE54, and changed grKraid_801FF150 to take a Ground_GObj*."
-    },
-    {
-      "path": "src/melee/gr/grkraid.h",
-      "role": "Recovered grKr_804D6A08_t fields and replaced several UNK_RET/UNK_PARAMS declarations with concrete Kraid function prototypes."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Expanded grKraid_GroundVars and grKraid_GroundVars2 from padding/unknown fields into offset-preserving state fields and HSD_JObj* members."
-    }
+    "src/melee/gr/grkraid.c",
+    "src/melee/gr/grkraid.h",
+    "src/melee/gr/types.h"
   ],
   "what_changed": [
-    "Replaced the undecompiled marker for grKraid_801FE440 with map-rotation update logic using gv.kraid state fields, random wait time from grKr_804D6A08, grAnime_801C7FF8/grAnime_801C83D0, HSD_JObjAddRotationZ, Camera_80030E44, lb_800115F4, Ground_801C2FE0, and grKraid_801FF150(gobj).",
-    "Added static inline rand_inline(int a, int b), which picks a random value between two bounds using HSD_Randi and explicitly handles equal/zero ranges.",
-    "Added const Vec grKr_803B8278 = {0,0,0} and used it as the camera position argument in grKraid_801FE440.",
-    "Implemented grKraid_801FE6D8(HSD_JObj* hand, float param2), which reads a hand world position with lb_8000B1CC, reports \"Kraid Hand Pos\", computes/clamps map rotation speed from map_rot_spd_min/map_rot_spd_max/map_time_acl, triggers Ground_801C53EC(420005), and calls Camera_80030E44.",
-    "Implemented grKraid_801FE818 initialization for Kraid state: caches JObjs 31 and 47, scans grKr_804D6A08->kraid_pos_x[0..5] to identify extreme left/right slots, seeds kraid_wait_time plus optional random wait add, and initializes kraid2 state bytes/floats.",
-    "Implemented grKraid_801FEA00 as a multi-state Kraid animation/attack controller using gp->gv.kraid2.x0, animation completion checks, frame counters, HSD_JObjClearFlagsAll/HSD_JObjSetFlagsAll with flag 0x10, sound/event IDs 420000 through 420008, hand attack windows, and calls to grKraid_801FE6D8.",
-    "Implemented grKraid_801FEE54 to choose a new Kraid x-position with HSD_Randi, avoid repeating the previous position when x5 is set, set translate X on the Kraid JObj and related Ground_801C2BA4(1)->hsd_obj, and derive side/direction state from kraid_pos_x.",
-    "Added includes for cm/camera.h, gr/grlib.h, lb/lb_00B0.h, lb/lb_00F9.h, and baselib/random.h to support the newly decompiled calls.",
-    "Recovered grKr_804D6A08_t from a void* unk into map_time_min, map_time_max, map_time_acl, map_rot_spd_min, map_rot_spd_max, kraid_wait_time, kraid_wait_time_add, and kraid_pos_x[6].",
-    "Updated grKraid function prototypes in grkraid.h, including grKraid_801FE6D8(HSD_JObj*, float), grKraid_801FEE54(Ground_GObj*), and grKraid_801FF150(Ground_GObj*).",
-    "Expanded grKraid_GroundVars with x10 at gp+D4 and grKraid_GroundVars2 with byte state fields x0..x5, f32 x8, s32 xC, and HSD_JObj* x10/x14."
+    "Added implementations for previously placeholder Kraid-stage functions: grKraid_801FE440, grKraid_801FE6D8, grKraid_801FE818, grKraid_801FEA00, and grKraid_801FEE54.",
+    "Added required includes for camera, grlib, lb_00B0, lb_00F9, and baselib/random to support camera shake/callback calls, JObj position lookup, stack padding, and HSD_Randi usage.",
+    "Introduced static inline rand_inline(int a, int b) to reproduce bounded random range behavior used by Kraid map timing.",
+    "Added const Vec grKr_803B8278 = {0,0,0}; for the zero vector passed to Camera_80030E44 in map-rotation handling.",
+    "Expanded grKr_804D6A08_t from an opaque void* field into named configuration fields: map_time_min, map_time_max, map_time_acl, map_rot_spd_min, map_rot_spd_max, kraid_wait_time, kraid_wait_time_add, and kraid_pos_x[6].",
+    "Expanded struct grKraid_GroundVars with x10 and struct grKraid_GroundVars2 with byte-sized state fields, a float selector x8, timer xC, and hand JObj pointers x10/x14.",
+    "Changed function prototypes in grkraid.h from UNK_RET/UNK_PARAMS placeholders to typed signatures for grKraid_801FE6D8(HSD_JObj*, float), grKraid_801FEE54(Ground_GObj*), and grKraid_801FF150(Ground_GObj*).",
+    "Changed grKraid_801FF150 from a no-argument stub to an empty function accepting Ground_GObj*, matching its call site in grKraid_801FE440."
   ],
   "smart_moves": [
-    "Recovering grKr_804D6A08_t gave meaningful names to stage config data and coincided with the bot reporting main/melee/gr/grkraid .data as a new 100% match.",
-    "The diff keeps offset-sensitive GroundVars layouts in types.h instead of using anonymous padding, which gives the C code typed access while preserving the known gp+C4/gp+D8 layout.",
-    "The random range helper avoids calling HSD_Randi with a zero bound and handles reversed min/max inputs, matching the observed need to call rand_inline(map_time_max, map_time_min).",
-    "The Kraid position scan in grKraid_801FE818 is manually unrolled across all six kraid_pos_x entries, a common matching-friendly shape when the compiler did not emit a loop.",
-    "PAD_STACK(0x70) in grKraid_801FEA00 and PAD_STACK(0x10) in grKraid_801FEE54 show explicit stack-shape control for near matches.",
-    "The implementation preserves exact side effects likely relevant to matching and behavior: OSReport string, camera calls, animation IDs, JObj flag toggles, and Ground_801C53EC event IDs.",
-    "Updating grKraid_801FF150 from a no-argument stub to a Ground_GObj* signature aligned it with the newly decompiled caller while leaving the function body empty."
+    "Recovered the stage config table before leaning on the code: naming map_time_min/max, map_time_acl, rotation speed bounds, wait times, and kraid_pos_x made the stage logic readable and likely helped the .data section reach 100%.",
+    "Modeled Kraid behavior as explicit GroundVars and GroundVars2 fields instead of leaving a byte blob, enabling direct expression of state machines, timers, selected positions, and cached hand JObjs.",
+    "Kept matching-sensitive artifacts such as PAD_STACK calls in grKraid_801FEA00 and grKraid_801FEE54, which is a common tactic when the source-level logic is understood but stack layout still matters.",
+    "Used a local inline RNG wrapper to match range-order behavior for both ascending and descending bounds rather than simplifying to a single min/max formula that might alter generated code.",
+    "Preserved hardware/runtime side effects in the stage behavior: HSD_JObj flag changes, HSD_JObjSetTranslateX, Camera_80030E44, Ground_801C53EC/5440/5544 event calls, OSReport, and animation completion checks.",
+    "Cached hand JObjs during initialization using Ground_801C3FA4(gobj, 31) and Ground_801C3FA4(gobj, 47), then reused them in the attack/rotation state machine."
   ],
   "decomp_lessons": [
-    "For stage files, recover the stage parameter struct early; fields like map_time_min/map_time_max/map_rot_spd_min/map_rot_spd_max/kraid_wait_time directly explain state-machine constants and make later code readable.",
-    "Ground vars can be incrementally recovered with address-offset comments and placeholder xN names; exact signedness and width of small state fields can matter for generated code.",
-    "Near-matching stage state machines often need explicit animation-completion checks, frame-counter event timing, JObj visibility flag changes, and sound/camera side effects in the same order as the original.",
-    "Use PAD_STACK when a function is logically understood but stack layout is still preventing a match.",
-    "Manual absolute-value branches, explicit casts such as (int)map->gv.kraid.x4 == 0, and literal float expressions such as 3.14159265f/180 can be more matching-friendly than cleaner library/helper abstractions.",
-    "Concrete prototypes in headers are part of decomp progress: replacing UNK_RET/UNK_PARAMS lets callers and callees settle on the right argument/return ABI.",
-    "A PR can be valuable even when individual functions remain below 100%; here the bot still reported grKraid_801FEA00 at 99.78%, grKraid_801FE440 at 97.82%, grKraid_801FEE54 at 99.85%, grKraid_801FE818 at 90.70%, and grKraid_801FE6D8 at 88.93%."
+    "For stage files, matching often depends on recovering both behavior code and the per-stage parameter struct; here the header update for grKr_804D6A08_t was tied directly to .data matching and readable code.",
+    "Ground variable unions should be incrementally converted from raw padding to typed fields as soon as the state machine reveals byte, timer, float, and pointer roles.",
+    "When a stage object coordinates with other ground GObjs, keep Ground_801C2BA4 index usage visible and evidence-grounded; this PR shows Kraid code accessing map object index 3 and companion object index 1.",
+    "Do not prematurely rename unknown gv fields beyond the evidence. This PR still uses x0/x1/x2-style names for recovered layout fields while giving clearer names to config-table fields whose purpose was more obvious.",
+    "Animation state machines in gr modules commonly combine grAnime_801C7FF8 setup, grAnime_801C83D0 completion checks, frame counters, sound/effect IDs through Ground_801C53EC, and JObj visibility flags.",
+    "Signed small fields matter: struct grKraid_GroundVars2 uses s8/u8 fields at exact offsets, so byte signedness and offset preservation are part of matching, not just style.",
+    "Even empty stubs should have the correct signature once call sites are known; grKraid_801FF150(Ground_GObj*) remained empty but its prototype was corrected."
   ],
   "naming_conventions": [
-    "Existing unrecovered functions keep address-based names such as grKraid_801FE440 and grKraid_801FEA00.",
-    "Stage data globals/typedefs follow the grKr_ address pattern, e.g. grKr_804D6A08 and grKr_804D6A08_t.",
-    "Recovered config fields use behavior-based names: map_time_min, map_time_max, map_time_acl, map_rot_spd_min, map_rot_spd_max, kraid_wait_time, kraid_wait_time_add, kraid_pos_x.",
-    "GroundVars fields remain provisional xN names with offset comments, e.g. x0, x1, x8, xC, x10, x14.",
-    "Local variables follow common decomp shorthand: gp for Ground*, map for the map Ground*, jobj for HSD_JObj*, and cVar/iVar/fVar-style temporaries where names were not yet semantically recovered.",
-    "No human reviewer naming feedback was present in the slice."
+    "Stage module functions retain address-based names with the grKraid_ prefix, e.g. grKraid_801FE440 and grKraid_801FEA00.",
+    "The recovered global config type is named after its symbol address as grKr_804D6A08_t, while its fields receive semantic names when evidence supports them.",
+    "Ground variable structs follow the existing grKraid_GroundVars and grKraid_GroundVars2 convention, with offset-preserving placeholder field names x0, x4, x8, xC, etc.",
+    "Config fields use descriptive snake_case names such as map_time_min, map_time_max, map_rot_spd_min, map_rot_spd_max, kraid_wait_time, kraid_wait_time_add, and kraid_pos_x.",
+    "Local decomp variables in the diff remain compiler/decompiler-style where semantics are uncertain, e.g. fVar1, fVar2, fVar3, iVar3, cVar3."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(0x70) in grKraid_801FEA00 and PAD_STACK(0x10) in grKraid_801FEE54.",
-    "Introduced rand_inline to reproduce bounded HSD_Randi behavior with explicit min/max/equal cases.",
-    "Stored the zero camera vector as const Vec grKr_803B8278 and copied it into a local Vec before Camera_80030E44.",
-    "Used manual absolute-value branches for floats rather than fabsf.",
-    "Used an unrolled six-entry scan of grKr_804D6A08->kraid_pos_x in grKraid_801FE818.",
-    "Kept exact event/frame constants such as 80, 45, 55, 123..138, 147..169, 161, 246, and event IDs 420000-420008.",
-    "Used HSD_JObjClearFlagsAll and HSD_JObjSetFlagsAll with flag 0x10 on both the current Kraid JObj and Ground_801C2BA4(1)->hsd_obj.",
-    "Used explicit decrement style gp->gv.kraid.x10 += -1 and gp->gv.kraid2.xC += -1 in places instead of cleaner -- syntax."
+    "Used PAD_STACK(0x70) in grKraid_801FEA00 and PAD_STACK(0x10) in grKraid_801FEE54 to influence stack layout.",
+    "Added a static inline rand_inline helper around HSD_Randi to reproduce conditional random interval code paths for map timing.",
+    "Introduced a const zero Vec in sdata/rodata context and copied it into a local Vec before passing it to Camera_80030E44.",
+    "Preserved explicit floating-point comparisons against 0.0f and manual absolute-value patterns instead of replacing everything with library helpers.",
+    "Used direct frame-count comparisons such as xC == 80, 45, 55, 161, 246 and windows such as 147..169 or 123..138, reflecting the original animation/event timing.",
+    "Kept JObj flag operations and object-index lookups in-line with the state transitions, likely helping instruction ordering.",
+    "Typed the config struct and ground vars to recover data references and offsets rather than relying on casts from opaque memory."
   ],
   "review_feedback": [
-    {
-      "type": "automated_decomp_report",
-      "source": "decomp-dev[bot]",
-      "feedback": "Matched data for GALE01 increased to 37.56% (+0.03%, +304 bytes). main/melee/gr/grkraid .data became a new 100.00% match, +13 bytes."
-    },
-    {
-      "type": "automated_decomp_report",
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported unmatched-item improvements: grKraid_801FEA00 0.00% -> 99.78% (+1105), grKraid_801FE440 0.00% -> 97.82% (+645), grKraid_801FEE54 0.00% -> 99.85% (+531), grKraid_801FE818 0.00% -> 90.70% (+435), grKraid_801FE6D8 0.00% -> 88.93% (+284), .rodata 0.00% -> 85.71%, .sdata2 40.00% -> 80.00%."
-    },
-    {
-      "type": "human_review",
-      "source": "PR slice",
-      "feedback": "No human review comments or reviews were present; PR body was empty."
-    }
+    "No human review comments were present in the provided slice.",
+    "decomp.dev reported matched data for GALE01 improved by +304 bytes overall.",
+    "decomp.dev reported one new match: main/melee/gr/grkraid .data improved from 95.79% to 100.00% (+13 bytes).",
+    "decomp.dev reported grKraid_801FEA00 improved from 0.00% to 99.78% (+1105 bytes).",
+    "decomp.dev reported grKraid_801FE440 improved from 0.00% to 97.82% (+645 bytes).",
+    "decomp.dev reported grKraid_801FEE54 improved from 0.00% to 99.85% (+531 bytes).",
+    "decomp.dev reported grKraid_801FE818 improved from 0.00% to 90.70% (+435 bytes).",
+    "decomp.dev reported grKraid_801FE6D8 improved from 0.00% to 88.93% (+284 bytes)."
   ],
   "searchable_terms": [
     "pr-2273",
     "grkraid.c 97%",
     "MarioLover63",
-    "src/melee/gr/grkraid.c",
-    "src/melee/gr/grkraid.h",
-    "src/melee/gr/types.h",
-    "main/melee/gr/grkraid",
-    "Kraid",
+    "grkraid",
     "grKraid_801FE440",
     "grKraid_801FE6D8",
     "grKraid_801FE818",
     "grKraid_801FEA00",
     "grKraid_801FEE54",
     "grKraid_801FF150",
-    "grKraid_801FF068",
-    "grKraid_801FF0E0",
-    "grKr_804D6A08",
     "grKr_804D6A08_t",
     "grKr_803B8278",
     "grKraid_GroundVars",
@@ -140,10 +111,6 @@
     "kraid_pos_x",
     "rand_inline",
     "HSD_Randi",
-    "HSD_JObjAddRotationZ",
-    "HSD_JObjSetTranslateX",
-    "HSD_JObjClearFlagsAll",
-    "HSD_JObjSetFlagsAll",
     "Ground_801C2BA4",
     "Ground_801C3FA4",
     "Ground_801C53EC",
@@ -152,28 +119,33 @@
     "grAnime_801C7FF8",
     "grAnime_801C83D0",
     "Camera_80030E44",
+    "HSD_JObjAddRotationZ",
+    "HSD_JObjSetTranslateX",
+    "HSD_JObjClearFlagsAll",
+    "HSD_JObjSetFlagsAll",
     "lb_8000B1CC",
     "lb_800115F4",
     "OSReport",
-    "Kraid Hand Pos",
     "PAD_STACK",
-    "420000",
-    "420001",
-    "420002",
-    "420003",
-    "420004",
-    "420005",
-    "420007",
-    "420008"
+    "Kraid Hand Pos",
+    "stage",
+    "ground",
+    "Kraid"
   ],
   "follow_up_queries": [
-    "grKraid_801FE6D8 88.93% map_rot_spd formula handpos OSReport Kraid Hand Pos",
-    "grKraid_801FE818 90.70% kraid_pos_x unrolled min max scan",
-    "grKraid_801FE440 97.82% rand_inline map_time_min map_time_max Camera_80030E44",
-    "grKraid_801FEA00 99.78% state machine frame constants 123 147 161 246",
-    "grKraid_801FEE54 99.85% HSD_Randi position selection x3 x4 x5",
-    "grKraid_GroundVars2 signedness x0 x1 x2 x3 x4 x5 x8 xC x10 x14",
-    "grKraid_801FF150 Ground_GObj parameter empty stub later callers"
+    "Find later PRs that finish grKraid_801FE440, grKraid_801FE6D8, or grKraid_801FE818 from their remaining non-100% match percentages.",
+    "Search for uses of grKr_804D6A08_t to see whether field names or types were refined after this PR.",
+    "Look for subsequent cleanup of grKraid_GroundVars2 x0/x1/x2/x3/x4/x5 into semantic state-machine field names.",
+    "Compare other gr stage modules that use rand_inline or HSD_Randi range helpers for matching random wait timers.",
+    "Search for PRs involving Ground_801C2BA4 object indices in grkraid to verify object index meanings for map and companion GObjs."
   ],
-  "confidence": 0.9
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

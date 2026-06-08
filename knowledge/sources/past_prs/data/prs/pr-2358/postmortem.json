@@ -11,143 +11,129 @@
     "merged_at": "2026-03-28T17:26:35Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked `src/melee/gr/grfzerocar.c` by moving it from NonMatching to Matching, updating GALE01 symbols, and applying small codegen/data-ordering fixes around F-Zero car stage data, `grFZeroCar_801CAFBC`, `.data`, `.sdata`, and `.sdata2`. The PR used an explicit `\"archive\"` assert string, a dummy `fakeFunc(Vec3)` workaround for `.sdata2` constant ordering, local layout/codegen adjustments, and an expanded scale-multiply block. decomp.dev reported 4 new matches, including 100% for `main/melee/gr/grfzerocar` `.sdata`, `.sdata2`, `.data`, and `grFZeroCar_801CAFBC`.",
+  "summary": "Linked the F-Zero car stage unit by converting src/melee/gr/grfzerocar.c from NonMatching to Matching in configure.py, adjusting symbol metadata for its rodata/data/sdata/sdata2 objects, and making source-level matching fixes in grfzerocar.c. The main tactics were replacing placeholder/broad includes with specific headers, using an explicit assert message string, preserving required sdata2 ordering with a fake function, changing casts and object access patterns, adding stack padding/local reordering, and inlining scale multiplication instead of relying on multiplyScale.",
   "change_classification": {
-    "primary_type": "decomp-linking",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-link",
-      "data-matching",
+      "link",
+      "fix",
       "symbol-map-update",
-      "build-config-update"
+      "stage-unit"
     ],
     "systems": [
-      "melee/gr/grfzerocar",
       "stage",
       "ground",
-      "GALE01 symbols",
-      "configure.py"
+      "grfzerocar",
+      "config",
+      "symbols"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grfzerocar.c",
-      "role": "Source changes to make the F-Zero car ground/stage object match and link."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Updated `.rodata`, `.data`, `.sdata`, and `.sdata2` labels, scopes, and object sizes for grFZeroCar data."
-    },
-    {
-      "path": "configure.py",
-      "role": "Changed `Object(NonMatching, \"melee/gr/grfzerocar.c\")` to `Object(Matching, \"melee/gr/grfzerocar.c\")`."
-    }
+    "src/melee/gr/grfzerocar.c",
+    "config/GALE01/symbols.txt",
+    "configure.py"
   ],
   "what_changed": [
-    "Marked `melee/gr/grfzerocar.c` as Matching in `configure.py`.",
-    "Removed placeholder/platform and unused baselib includes from `grfzerocar.c`, keeping the needed ground, anime, datfiles, lb, sc, mtx, and jobj includes.",
-    "Added `static char grFZeroCar_804D4598[8] = \"archive\";` and changed `HSD_ASSERT(95, archive)` to `HSD_ASSERTMSG(95, archive, grFZeroCar_804D4598)`.",
-    "Added a dummy `static void fakeFunc(Vec3)` that assigns `0.0f` and `1.0` values, explicitly documented in the PR as being for `.sdata2` ordering.",
-    "Adjusted `setup_car_child` pointer arithmetic from `(u8*) archive->unk4->unk8 + offset` to `(u8*) offset + (uintptr_t) archive->unk4->unk8`.",
-    "In `grFZeroCar_801CAFBC`, reordered locals, added six `u32 pad` locals, and changed `root = GET_JOBJ(gobj)` to `root = gobj->hsd_obj`.",
-    "Replaced `multiplyScale(tra_jobj, ground_scale)` with an explicit block using `HSD_JObjGetScale`, multiplying `scl.x/y/z`, then `HSD_JObjSetScale`.",
-    "Updated symbol metadata: `grFZeroCar_803E0BD8` size changed from `0x188` to `0x168`, local string symbols `@403` and `@404` were inserted before `grIz_803E0D60`, and multiple grFZeroCar small-data symbols were converted to local `@NNN` labels.",
-    "Added local section labels such as `...rodata.0` and `...data.0` in `config/GALE01/symbols.txt`."
+    "Changed configure.py so melee/gr/grfzerocar.c is built as Object(Matching, ...) instead of Object(NonMatching, ...).",
+    "Updated config/GALE01/symbols.txt around grFZeroCar rodata, data, sdata, and sdata2 entries, including changing several grFZeroCar_* globals into local @ labels and adding local section labels such as ...rodata.0 and ...data.0.",
+    "Reduced or corrected includes in src/melee/gr/grfzerocar.c by removing placeholder.h, platform.h, gr/types.h, baselib/aobj.h, baselib/gobj.h, and baselib/object.h while retaining specific dependencies such as granime, grdatfiles, ground, lb_00F9, sc/types, dolphin/mtx, and baselib/jobj.",
+    "Added static char grFZeroCar_804D4598[8] = \"archive\" and changed HSD_ASSERT(95, archive) to HSD_ASSERTMSG(95, archive, grFZeroCar_804D4598).",
+    "Added a fakeFunc(Vec3) specifically documented as being for sdata2 ordering; it references 1.0 as f64 and 0.0f through Vec3 fields.",
+    "Changed DynamicModelDesc pointer construction from adding offset to a u8* pointer to adding offset to a uintptr_t cast of archive->unk4->unk8.",
+    "Changed root initialization from GET_JOBJ(gobj) to gobj->hsd_obj.",
+    "Reordered locals and added six u32 pad locals in grFZeroCar_801CAFBC, apparently to satisfy stack/codegen matching.",
+    "Replaced multiplyScale(tra_jobj, ground_scale) with an explicit scoped block that calls HSD_JObjGetScale, multiplies scl.x/y/z by ground_scale, and calls HSD_JObjSetScale."
   ],
   "smart_moves": [
-    "Used `HSD_ASSERTMSG` with a named `\"archive\"` string to materialize the expected assert-message data instead of relying on a bare `HSD_ASSERT`.",
-    "Kept the `.sdata2` ordering workaround localized and explicitly commented as a fake function, making the matching hack easy to find and revisit.",
-    "Expanded `multiplyScale` into the exact `HSD_JObjGetScale`/component multiply/`HSD_JObjSetScale` sequence, avoiding helper abstraction when it prevented full function matching.",
-    "Updated symbol scopes to local `@NNN` names where the diff indicates the strings/constants were not true global `grFZeroCar_` symbols.",
-    "Changed the build configuration only after the object had enough source and data fixes to be treated as Matching; the bot report confirms the object sections reached 100% for the reported matches."
+    "Used the build configuration flip to make the linked status explicit and searchable: grfzerocar.c is now marked Matching in configure.py.",
+    "Localized symbol-map corrections to the affected grFZeroCar address ranges rather than broadly renaming unrelated stage symbols.",
+    "Introduced the \"archive\" string as a named static char and routed the assert through HSD_ASSERTMSG, matching the emitted string/reference behavior more closely than a plain HSD_ASSERT.",
+    "When helper-call codegen did not match, expanded multiplyScale manually into get-scale, component multiply, and set-scale operations, a common decomp tactic for recovering exact instruction sequences.",
+    "Used stack/local layout nudges, including explicit padding, to force a match in grFZeroCar_801CAFBC.",
+    "Documented the sdata2-ordering hack inline, making the non-obvious fake function easier for future reviewers and decompilers to understand."
   ],
   "decomp_lessons": [
-    "Linking a stage object can require finishing small data and symbol-map details, not just matching C control flow.",
-    "For `.sdata` and `.sdata2`, symbol order and scope are part of the match. Use local `@NNN` labels for compiler-local constants/strings when the evidence supports it, rather than over-naming everything as module globals.",
-    "Assertion macro choice affects emitted data. Switching from `HSD_ASSERT` to `HSD_ASSERTMSG` can be necessary when the original binary contains an assert string such as `\"archive\"`.",
-    "Dummy static functions can be used as a last-resort ordering shim for small-data constants, but this PR's author and reviewer both treated ordering as uncertain; future work should prefer a cleaner ordering tactic if one is known.",
-    "Equivalent-looking C expressions can affect generated code. This PR used unusual pointer arithmetic and direct `gobj->hsd_obj` access to satisfy matching constraints.",
-    "Inlining a helper by hand can recover remaining bytes when helper use changes codegen; here, replacing `multiplyScale` with explicit JObj scale get/mutate/set helped finish `grFZeroCar_801CAFBC`."
+    "For stage files, moving a unit to Matching often requires synchronized changes in source, configure.py, and config/GALE01/symbols.txt; all three were touched here.",
+    "Small-data and small-data2 ordering can be a blocker even when function logic is understood; constants may need source references in otherwise artificial code to land in the expected order.",
+    "Assert macros affect data/string ordering and emitted references. If a plain HSD_ASSERT does not match, check whether the original used an assert message string via HSD_ASSERTMSG.",
+    "Do not assume existing helper functions produce the same codegen as the original. Manual expansion of simple helpers like scale multiplication can be necessary.",
+    "Pointer arithmetic spelling matters for matching. Rewriting casts through uintptr_t versus u8* can change generated code while preserving semantics.",
+    "Macro convenience such as GET_JOBJ may not always match direct field access; direct gobj->hsd_obj access was used here.",
+    "Symbol scope can change as a file becomes linked: several grFZeroCar_* sdata/sdata2 names became local @ labels in symbols.txt."
   ],
   "naming_conventions": [
-    "Module globals use the `grFZeroCar_<address>` pattern, e.g. `grFZeroCar_803E0BD8`, `grFZeroCar_803B7E50`, and `grFZeroCar_804D4598`.",
-    "Compiler-local data and constants in `symbols.txt` use `@NNN` labels, e.g. `@401`, `@402`, `@405`, `@142`, `@143`, `@406`, `@407`, and `@408`.",
-    "Section-local labels use names like `...rodata.0` and `...data.0`.",
-    "The local struct name `grFZeroCarEntry` follows the module name plus logical role pattern.",
-    "The assert-message string was represented as `static char grFZeroCar_804D4598[8] = \"archive\";`, matching the address-based module global naming style."
+    "Stage unit uses the camel-cased prefix grFZeroCar_ for known symbols, e.g. grFZeroCar_803E0BD8, grFZeroCar_804D4598, and grFZeroCar_801CAFBC.",
+    "The file path and configure object use lowercase stage module naming: melee/gr/grfzerocar.c.",
+    "Unknown local compiler-generated constants/strings are represented as @NNN labels in symbols.txt, such as @401, @402, @405, @406, @407, and @408.",
+    "Local section boundary labels use ellipsis-style names in symbols.txt, such as ...rodata.0 and ...data.0.",
+    "The added helper was named fakeFunc and explicitly commented as a matching/order workaround rather than as real game logic."
   ],
   "assembly_or_matching_tactics": [
-    "Use a commented fake static function that references `Vec3`, `0.0f`, and `1.0` to force `.sdata2` float/double ordering when necessary.",
-    "Try `HSD_ASSERTMSG` instead of `HSD_ASSERT` when a string must appear in `.sdata` at the correct point.",
-    "Direct field access such as `gobj->hsd_obj` may match differently than a macro such as `GET_JOBJ(gobj)`.",
-    "Dummy padding locals and local-variable declaration order can be used to influence stack/register layout.",
-    "Manual expansion of helper behavior can match the original instruction sequence better than a helper call.",
-    "Pointer arithmetic written in an unusual but equivalent form can affect compiler output; preserve only when matching evidence supports it."
+    "Added a fake static function taking Vec3 and assigning 0.0f and a f64 1.0 to influence sdata2 constant ordering.",
+    "Changed HSD_ASSERT to HSD_ASSERTMSG with a static \"archive\" string to affect string/data emission.",
+    "Inserted explicit u32 pad locals and reordered variables to influence stack layout.",
+    "Used direct gobj->hsd_obj access instead of GET_JOBJ(gobj).",
+    "Replaced multiplyScale with explicit HSD_JObjGetScale/HSD_JObjSetScale operations on a local Vec3.",
+    "Used uintptr_t in pointer arithmetic for DynamicModelDesc address calculation.",
+    "Adjusted symbols.txt to reflect local labels and correct object sizes/order after linking."
   ],
   "review_feedback": [
     {
+      "author": "ribbanya",
+      "file": "src/melee/gr/grfzerocar.c",
+      "comment": "@PsiLupan @r-burns Do you know how to fix this string ordering? I tried a bunch of things with inlines and pragmas and can't get it to behave.",
+      "lesson": "String/sdata ordering was an active review concern, and the final solution relied on source-level ordering hacks rather than a clearly documented preferred project-wide method."
+    },
+    {
       "author": "jellejurre",
-      "type": "author_note",
-      "body": "The author was unsure how to do `.sdata2` ordering properly and used a `fakeFunc(Vec3)` workaround found from an earlier message."
-    },
-    {
-      "author": "ribbanya",
-      "type": "review_comment",
-      "body": "Reviewer asked `@PsiLupan @r-burns` how to fix string ordering, noting they tried inlines and pragmas but could not get it to behave."
-    },
-    {
-      "author": "ribbanya",
-      "type": "review_state",
-      "body": "One review was CHANGES_REQUESTED with no body, followed by an APPROVED review with no body. The dump does not include a documented final explanation for the string-ordering issue."
+      "file": "src/melee/gr/grfzerocar.c",
+      "comment": "PR body says the author was unsure how to do sdata2 ordering properly and used a fake function based on an earlier message.",
+      "lesson": "Evidence for the sdata2 fake-function method is explicit but tentative; future work should confirm whether a better accepted ordering technique exists."
     }
   ],
   "searchable_terms": [
-    "pr-2358",
     "Link grfzerocar",
-    "jellejurre",
-    "ribbanya",
-    "grfzerocar.c",
+    "grfzerocar",
     "grFZeroCar",
-    "grFZeroCar_801CAFBC",
-    "grFZeroCar_803E0BD8",
-    "grFZeroCar_803B7E50",
-    "grFZeroCar_804D4598",
-    "archive",
-    "fakeFunc",
-    "Vec3",
+    "melee/gr/grfzerocar.c",
+    "Object(Matching, \"melee/gr/grfzerocar.c\")",
+    "Object(NonMatching, \"melee/gr/grfzerocar.c\")",
+    "config/GALE01/symbols.txt",
+    "configure.py",
     "sdata2 ordering",
-    "string ordering",
+    "fakeFunc(Vec3)",
     "HSD_ASSERTMSG",
     "HSD_ASSERT",
-    "grDatFiles_801C6330",
-    "Ground_801C13D0",
-    "Ground_801C0498",
-    "grAnime_801C6C0C",
+    "archive",
+    "grFZeroCar_804D4598",
+    "grFZeroCar_803E0BD8",
+    "grFZeroCar_801CAFBC",
+    "DynamicModelDesc",
+    "uintptr_t",
     "GET_JOBJ",
     "gobj->hsd_obj",
     "multiplyScale",
     "HSD_JObjGetScale",
     "HSD_JObjSetScale",
-    "MatchingFor",
-    "Object(Matching)",
-    "config/GALE01/symbols.txt",
-    ".sdata",
-    ".sdata2",
-    ".data",
-    ".rodata",
-    "@401",
-    "@402",
-    "@405",
-    "@406",
-    "@407",
-    "@408"
+    "Ground_801C13D0",
+    "grDatFiles_801C6330",
+    "grAnime_801C6C0C"
   ],
   "follow_up_queries": [
-    "fakeFunc Vec3 sdata2 ordering",
-    "HSD_ASSERTMSG archive string ordering grFZeroCar_804D4598",
-    "grFZeroCar_801CAFBC multiplyScale HSD_JObjGetScale HSD_JObjSetScale",
-    "grFZeroCar_803E0BD8 size 0x168 @403 @404",
-    "string ordering inlines pragmas grfzerocar ribbanya"
+    "Find later PRs that remove or replace fakeFunc(Vec3) sdata2-ordering hacks.",
+    "Search for other stage files using HSD_ASSERTMSG with a static \"archive\" string.",
+    "Search for multiplyScale replacements with explicit HSD_JObjGetScale/HSD_JObjSetScale blocks.",
+    "Check whether project conventions changed for sdata2 ordering after PR #2358.",
+    "Compare grfzerocar.c symbol-map treatment with other linked individual stage units."
   ],
-  "confidence": 0.88
+  "confidence": 0.87,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

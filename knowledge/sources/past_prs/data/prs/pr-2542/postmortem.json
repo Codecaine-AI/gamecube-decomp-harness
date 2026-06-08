@@ -11,101 +11,98 @@
     "merged_at": "2026-05-27T15:01:25Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Added a dedicated assembly split for the MetroTRK exception vector table in `.init`, covering `0x80003298` through `0x800051CC`. The PR represented the region as `src/MetroTRK/__exception.s` rather than C because it is layout-sensitive and mixes embedded bytes, labels, instructions, and fixed-size gaps. It also updated GALE01 splits and fixed the Nix build by passing a packaged binutils path to `configure.py`, avoiding dtk's network-time assembler download in the sandboxed Nix build. decomp.dev reported one new 100% match worth 7988 bytes.",
+  "summary": "Added a dedicated assembly split for the MetroTRK exception vector table in .init, mapping 0x80003298-0x800051CC to src/MetroTRK/__exception.s. The PR represented this region in assembly rather than C because it is layout-sensitive and mixes embedded bytes, fixed-size gaps, labels, and instructions in one contiguous block. It also updated the GALE01 split file and taught the Nix configure step to pass devkitPPC binutils so dtk can assemble the new source without network downloads.",
   "change_classification": {
-    "primary_type": "assembly_split_decomp_matching",
+    "primary_type": "decomp-matching",
     "categories": [
+      "assembly-split",
       "decomp-matching",
-      "assembly",
-      "layout-sensitive-region",
       "tooling",
-      "build-config",
-      "cleanup"
+      "nix",
+      "layout-sensitive-code",
+      "MetroTRK"
     ],
     "systems": [
       "MetroTRK",
-      "MetroTRK exception vectors",
       ".init",
-      "GALE01 splits",
+      "config/GALE01",
       "Nix build",
-      "decomp-toolkit/binutils"
+      "dtk/binutils"
     ]
   },
   "key_files": [
-    {
-      "path": "src/MetroTRK/__exception.s",
-      "role": "New assembly source for the MetroTRK interrupt/exception vector table, including macros, labels, `.skip` padding, and vector entries."
-    },
-    {
-      "path": "config/GALE01/splits.txt",
-      "role": "Added `MetroTRK/__exception.s` as an `.init` split from `0x80003298` to `0x800051CC`."
-    },
-    {
-      "path": ".nix/melee.nix",
-      "role": "Passed `--binutils ${devkitppc}/bin` to `configure.py` so the Nix build uses an in-sandbox assembler."
-    }
+    "src/MetroTRK/__exception.s",
+    "config/GALE01/splits.txt",
+    ".nix/melee.nix"
   ],
   "what_changed": [
-    "Created `src/MetroTRK/__exception.s` with `.section .init, \"ax\"` and global labels `gTRKInterruptVectorTable` and `gTRKInterruptVectorTableEnd`.",
-    "Encoded the vector-table header string `Metrowerks Target Resident Kernel for PowerPC`, fixed alignment, vector comments, branch targets, and `.skip` gaps directly in assembly.",
-    "Added `trk_redirect` and `trk_tlb_redirect` assembly macros for repeated exception redirection sequences to `TRKInterruptHandler`.",
-    "Covered exception vectors such as system reset, machine check, DSI, ISI, external interrupt, alignment, program, FPU unavailable, decrementer, syscall, trace, FP assist, performance monitor, AltiVec unavailable, PPC603E TLB misses, breakpoints, thermal management, and non-maskable development port.",
-    "Inserted a GALE01 split entry `MetroTRK/__exception.s: comment:0` for `.init start:0x80003298 end:0x800051CC`, immediately before `MetroTRK/dolphin_trk.c`.",
-    "Updated the Nix derivation configure step to provide `--binutils ${devkitppc}/bin`.",
-    "decomp.dev reported matched code and linked code each increased by 7988 bytes, with `main/MetroTRK/__exception` / `pad_00_80003298_init` moving from 0.00% to 100.00%."
+    "Created src/MetroTRK/__exception.s as a new 156-line assembly file for the MetroTRK exception vector table.",
+    "Added a GALE01 split entry for MetroTRK/__exception.s covering .init start:0x80003298 end:0x800051CC with comment:0.",
+    "Moved the following .init range boundary so MetroTRK/dolphin_trk.c now begins at 0x800051CC after the new exception-vector split.",
+    "Defined gTRKInterruptVectorTable and gTRKInterruptVectorTableEnd labels around the contiguous vector-table block.",
+    "Encoded the table contents with .asciz, .balign, .skip padding, branch instructions, and exception-vector comments for offsets such as 0x0100, 0x0200, 0x0300, 0x0F00, 0x1000, and 0x1F00.",
+    "Introduced assembly macros trk_redirect and trk_tlb_redirect to avoid repeatedly spelling out the PowerPC redirect prologue and TLB-specific CR/MSR handling.",
+    "Updated .nix/melee.nix to pass --binutils ${devkitppc}/bin to configure.py, allowing dtk to use sandbox-available binutils instead of attempting an on-the-fly download."
   ],
   "smart_moves": [
-    "Used assembly instead of C for a region that the PR body explicitly identified as layout-sensitive, avoiding artificial C for a contiguous table with embedded bytes, labels, fixed gaps, and instructions.",
-    "Kept repeated low-level redirect code readable with small macros instead of copy-pasting every vector entry.",
-    "Used named SPR constants such as `SPRG1`, `SPRG2`, `SPRG3`, `SRR0`, and `SRR1` in the assembly, improving auditability over raw numeric SPR operands.",
-    "Preserved vector spacing with explicit `.skip` counts and `.balign 4`, a direct tactic for matching fixed-address exception-table layouts.",
-    "Added the missing hermetic-build wiring for binutils in Nix rather than relying on dtk to download assembler binaries during the build.",
-    "Leveraged an existing reference from OOT GC Decomp while adapting the result into Melee's split and build configuration."
+    "Chose assembly for a layout-sensitive .init exception-vector region instead of forcing a C representation that would be brittle or misleading.",
+    "Used .skip counts to preserve fixed-size gaps between exception vectors and keep the contiguous table layout aligned to hardware vector offsets.",
+    "Factored repeated exception redirect code into trk_redirect and trk_tlb_redirect macros, making a large assembly table more auditable while preserving exact emitted code patterns.",
+    "Named global bounds as gTRKInterruptVectorTable and gTRKInterruptVectorTableEnd, making the split searchable and giving future code/linker references stable symbols.",
+    "Handled the Nix failure by wiring the existing devkitPPC binutils path into configure.py, preserving reproducible non-networked builds rather than relying on dtk downloading binaries.",
+    "Referenced a similar OOT GC decomp MetroTRK __exception.s implementation as precedent, which is useful for cross-project decomp patterns."
   ],
   "decomp_lessons": [
-    "Low-level exception/vector regions are good candidates for handwritten assembly when their identity is the byte layout, not recoverable high-level control flow.",
-    "When adding `.s` files that require an assembler through dtk, check all build modes; normal builds may download tools lazily, while Nix must receive dependencies explicitly for reproducibility.",
-    "Use exact split start/end addresses for contiguous init blobs so later files, here `MetroTRK/dolphin_trk.c` starting at `0x800051CC`, remain correctly placed.",
-    "For fixed vector slots, combine descriptive offset comments with `.skip` padding so future contributors can see both semantic exception names and matching layout constraints.",
-    "A tooling dependency may be reviewed on cost even if the matching gain is real; this PR's discussion weighed binutils against an unused MetroTRK component before deciding the match and build fix were worthwhile."
+    "For exception vectors and other hardware tables, exact layout may matter more than high-level source representation; assembly can be the right decomp artifact when the region mixes data, padding, labels, and instructions.",
+    "When adding assembly sources that require external assembler support, check sandboxed/reproducible build environments early; a normal build may silently download tools that Nix will correctly reject.",
+    "A new split can expose latent tooling dependencies. Document or configure those dependencies explicitly rather than relying on implicit dtk behavior.",
+    "Macros are acceptable and useful in hand-written matching assembly when they reduce repeated boilerplate without hiding layout-critical padding or labels.",
+    "Split boundaries should be updated carefully around .init regions so the next source file starts exactly at the new end address.",
+    "Cross-referencing equivalent decomp projects can guide representation of vendor/runtime components like MetroTRK, but the PR evidence only directly cites OOT GC as a reference, not as proof of identical code."
   ],
   "naming_conventions": [
-    "`src/MetroTRK/__exception.s` and split name `MetroTRK/__exception.s` follow the double-underscore exception-file naming used for this low-level MetroTRK component.",
-    "Global table symbols use the `gTRK...` prefix: `gTRKInterruptVectorTable` and `gTRKInterruptVectorTableEnd`.",
-    "Assembly macros are lowercase and descriptive: `trk_redirect` and `trk_tlb_redirect`.",
-    "Local assembly labels use `.L_` names, including `.L_restore_cr_\\@` for a macro-local label and `.L_perf_monitor` for the performance monitor branch target.",
-    "Exception-vector comments use the pattern `# 0xNNNN: Descriptive Exception Name`, making fixed offsets searchable."
+    "MetroTRK exception assembly file named src/MetroTRK/__exception.s, matching the double-underscore style used for low-level runtime/exception components.",
+    "Global table symbols use g-prefixed CamelCase names: gTRKInterruptVectorTable and gTRKInterruptVectorTableEnd.",
+    "Assembly macros use lowercase snake_case descriptive names: trk_redirect and trk_tlb_redirect.",
+    "Local labels use .L_ prefix, with macro-unique suffixing via \\@ for .L_restore_cr_\\@.",
+    "Exception-vector comments include explicit hexadecimal vector offsets and human-readable exception names, e.g. '# 0x0300: DSI Exception'."
   ],
   "assembly_or_matching_tactics": [
-    "Declared the source in `.section .init, \"ax\"` to match the executable init region.",
-    "Used `.asciz`, `.balign 4`, and `.skip` to represent embedded text, alignment, and fixed-size gaps in one contiguous block.",
-    "Used macro parameterization for vector codes, e.g. `trk_redirect 0x300` and `trk_tlb_redirect 0x1000`, so repeated vector handlers differ only by the exception number.",
-    "Used `\\@` in `.L_restore_cr_\\@` inside `trk_tlb_redirect` to create unique local labels per macro expansion.",
-    "Redirect macro saves registers to SPRGs, reads `SRR0`/`SRR1`, sets up `SRR0` to `TRKInterruptHandler`, places the vector number in `r3`, and exits with `rfi`.",
-    "TLB redirect macro preserves/restores CR via `mfcr`/`mtcrf` and manipulates MSR with `sync`/`mtmsr` before falling into the common redirect.",
-    "Special cases are encoded with direct branches, including system reset branching to `__TRK_reset` and the performance-monitor/AltiVec layout using `.L_perf_monitor`."
+    "Used .section .init, \"ax\" to place the vector table in the executable init section.",
+    "Used .balign 4 before the table and after the initial .asciz string to maintain 4-byte alignment.",
+    "Used .asciz \"Metrowerks Target Resident Kernel for PowerPC\" followed by .skip padding to represent embedded string data inside the vector region.",
+    "Used .skip with exact byte counts to land subsequent snippets at expected exception vector offsets.",
+    "Used PowerPC special-purpose registers SPRG1, SPRG2, SPRG3, SRR0, and SRR1 in the redirect macro to save registers/state and redirect to TRKInterruptHandler.",
+    "Used rfi after setting SRR0/SRR1 to transfer control to TRKInterruptHandler with the vector number loaded in r3.",
+    "Used a specialized trk_tlb_redirect path for PPC603E TLB miss vectors that saves/restores CR and manipulates MSR with sync/mtmsr before falling through to trk_redirect.",
+    "Represented the 0x0F00 Performance Monitor / 0x0F20 AltiVec Unavailable overlap with a branch to .L_perf_monitor, a 28-byte skip, and separate redirect sequences.",
+    "Preserved reset handling as a direct branch to __TRK_reset at vector 0x0100.",
+    "Passed --binutils ${devkitppc}/bin in Nix so the assembler required for this .s file is available to dtk under sandboxed builds."
   ],
   "review_feedback": [
-    "No inline review comments were present in the slice; discussion happened in issue comments and one approving review.",
-    "ribbanya noticed Nix was consistently failing on this PR and asked r-burns to investigate.",
-    "r-burns explained the failure: adding assembly introduced a binutils/assembler dependency; regular builds could let dtk download binaries on the fly, but Nix is sandboxed and non-networked for reproducibility.",
-    "r-burns questioned whether adding all of binutils was worth it for an unused MetroTRK component, noting he had previously avoided pushing a similar cleanup for that reason.",
-    "ribbanya asked whether dtk needed all of binutils or just the assembler and said it was worthwhile to make the build work.",
-    "r-burns concluded it looked like dtk only needed the assembler, preferred using upstream binutils packaged for Nix over fetching precompiled `gc-wii-binutils` binaries, and fixed the Nix expression.",
-    "r-burns approved the PR after CI was green and welcomed the first-time decomp contributor."
+    {
+      "author": "r-burns",
+      "feedback": "Nix failed because the PR added a binutils/assembler dependency; regular builds download dtk binaries on the fly, but Nix disallows network access for reproducibility.",
+      "outcome": "The Nix expression was updated to pass the devkitPPC binutils directory to configure.py."
+    },
+    {
+      "author": "r-burns",
+      "feedback": "Questioned whether adding all of binutils was worthwhile for an unused MetroTRK component, but noted the sandbox likely already had binutils and configure just needed to be told to use it.",
+      "outcome": "The dependency was accepted after discussion and fixed with a simple Nix configure flag."
+    },
+    {
+      "author": "ribbanya",
+      "feedback": "Asked whether dtk required all of binutils or only the assembler, and suggested using gc-wii-binutils if needed.",
+      "outcome": "r-burns replied that only the assembler appeared necessary and that upstream binutils were already packaged for Nix."
+    }
   ],
   "searchable_terms": [
-    "pr-2542",
+    "PR 2542",
     "MetroTRK",
     "__exception.s",
-    "MetroTRK/__exception.s",
     "exception vector table",
-    "interrupt vector table",
     "gTRKInterruptVectorTable",
     "gTRKInterruptVectorTableEnd",
-    ".init",
-    "0x80003298",
-    "0x800051CC",
     "TRKInterruptHandler",
     "__TRK_reset",
     "trk_redirect",
@@ -116,27 +113,35 @@
     "SRR0",
     "SRR1",
     "rfi",
-    "PPC603E",
-    "TLB miss",
-    "AltiVec Unavailable",
-    "Performance Monitor",
-    "pad_00_80003298_init",
-    "7988 bytes",
+    ".init",
+    "0x80003298",
+    "0x800051CC",
+    "config/GALE01/splits.txt",
+    ".nix/melee.nix",
     "binutils",
     "devkitppc",
-    "Nix",
-    "decomp-toolkit",
     "dtk",
-    "configure.py --binutils",
-    "gc-wii-binutils",
-    "OOT GC Decomp"
+    "Nix sandbox",
+    "reproducible build",
+    "PowerPC exception vectors",
+    "PPC603E TLB Miss",
+    "Performance Monitor",
+    "AltiVec Unavailable"
   ],
   "follow_up_queries": [
-    "Find other layout-sensitive `.init` regions that should be represented as assembly instead of C.",
-    "Search for PRs that added assembly files and required `--binutils` or other build-tool changes.",
-    "Look for MetroTRK splits adjacent to `dolphin_trk.c` and exception vector table boundaries.",
-    "Compare `trk_redirect` and `trk_tlb_redirect` patterns with other GameCube MetroTRK decomp repositories.",
-    "Audit Nix build configuration whenever dtk starts invoking assembler, objdump, readelf, or other binutils tools."
+    "Find other layout-sensitive .init or exception-vector regions that should be represented as assembly rather than C.",
+    "Check whether all build environments pass an explicit binutils path when dtk needs to assemble .s files.",
+    "Search for MetroTRK split boundaries around 0x80003298 and 0x800051CC to confirm later PRs did not regress this layout.",
+    "Look for additional MetroTRK low-level runtime components where OOT GC decomp has comparable assembly references.",
+    "Audit whether comments on exception vector offsets remain accurate if any .skip counts are edited."
   ],
-  "confidence": 0.94
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -1,0 +1,165 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2607",
+  "pr": {
+    "number": 2607,
+    "title": "[codex] Add PR review QA standards",
+    "url": "https://github.com/doldecomp/melee/pull/2607",
+    "state": "CLOSED",
+    "author": "fjooord",
+    "created_at": "2026-06-07T15:18:13Z",
+    "merged_at": null
+  },
+  "agent_status": "agent_completed",
+  "summary": "Documentation-only PR adding docs/standards.md, a decomp PR and worker-output review checklist. It codified expectations for natural C source recovery, matching tactics, data and naming discipline, truthful headers/includes, reviewable formatting, and verification with local builds plus objdiff/checkdiff evidence. The PR was closed without merge, so these standards should be treated as proposed guidance from this slice rather than adopted repository policy.",
+  "change_classification": {
+    "primary_type": "documentation",
+    "categories": [
+      "decomp-matching",
+      "review-standards",
+      "qa-checklist",
+      "worker-guidance"
+    ],
+    "systems": [
+      "docs",
+      "project-standards"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "docs/standards.md",
+      "change": "new file",
+      "added_lines": 256,
+      "deleted_lines": 0,
+      "notes": "Introduced Melee PR Review QA Standards covering source rules, matching tactic rules, data/naming/file rules, and verification rules."
+    }
+  ],
+  "what_changed": [
+    "Added a new docs/standards.md review checklist for decomp PRs and worker output.",
+    "Defined source-style rules encouraging maintainable original-looking C over generated-looking matching artifacts.",
+    "Documented preference order for data access: real struct fields, correct GroundVars/FighterVars/ItemVars union arms, temporary padded structs, M2C_FIELD, then raw pointer arithmetic only as a last resort.",
+    "Added guidance for recognizing header inlines, especially HSD_JObj helpers and jobj.h assert line numbers.",
+    "Specified project assert/report macro usage, including HSD_ASSERT, HSD_ASSERTMSG, HSD_ASSERTREPORT, OSReport, and OSPanic.",
+    "Warned against inventing fake assert strings, report globals, dummy storage, static literals, or data anchors solely to force matches.",
+    "Outlined matching tactic safeguards for PAD_STACK, FORCE_PAD_STACK, declaration order changes, widened local lifetimes, dummy stack locals, volatile locals, manual inline expansion, direct global access, and temporary padded structs.",
+    "Added rules against casually introducing new pragmas, register steering, dont_inline pragmas, global_optimizer off, or inline assembly outside SDK-like cases.",
+    "Codified data section and TU split review rules for .sdata, .sdata2, .sbss, .rodata, .data, symbols.txt metadata, local @NNN labels, assert filenames, string clusters, object names, and float groups.",
+    "Added naming rules: use semantic names only when evidenced; otherwise keep fn_<addr>, lbl_<addr>, or module-address names; prefer clear short role locals like fp, ip, gp, gobj, and jobj.",
+    "Added header/include rules requiring truthful prototypes, removal of stale UNK_RET/UNK_PARAMS, declarations in owning headers, established include style, and configure.py --require-protos when applicable.",
+    "Added verification expectations: narrow touched-object builds, full ninja for wider blast radius, objdiff/checkdiff for claimed matches, adjacent-function inspection for risky changes, and explicit regression reporting."
+  ],
+  "smart_moves": [
+    "The document separates natural source recovery from match-only tactics, making it easier for reviewers to reject code that matches but preserves generated or fake structure.",
+    "It treats M2C_FIELD and raw pointer math as temporary bridges rather than acceptable final source style, which encourages real type recovery.",
+    "It explicitly ties risky matching tactics to required local evidence, reducing the chance of cargo-culted PAD_STACK, pragma, dummy-local, or lifetime hacks.",
+    "The guidance distinguishes data ownership evidence from generated-address artifacts, discouraging fake named symbols and dummy storage.",
+    "The checklist calls out adjacent-function effects from pragmas, includes, data, literals, and TU ownership changes, which is important because matching fixes can regress neighboring code.",
+    "It encodes conservative naming rules that balance searchability and honesty: semantic names when supported, address-style names when not.",
+    "It emphasizes truthful headers and prototype recovery, including requiring real owning headers instead of source-local declarations that hide missing prototypes."
+  ],
+  "decomp_lessons": [
+    "Prefer maintainable original-looking C first; keep unrolled or goto-heavy generated code only after cleaner loop or structured forms were tested and failed.",
+    "When repeated blocks differ only by an index, pointer, or counter, try for/while/do-while forms and exact int counters for MWCC loop-unrolling behavior.",
+    "Do not mutate the only copy of a base pointer if later code still needs the original address; index from the original base where needed.",
+    "Recover real struct fields and correct union arms before resorting to M2C_FIELD or raw offset arithmetic.",
+    "Use header inline helpers when identifiable from assert file and line evidence; do not manually expand inlines just to match unless objdiff evidence supports it.",
+    "Use existing project macros for asserts, reports, and common expressions when they represent the source-level operation.",
+    "Keep literals inline unless symbol metadata, section placement, or surrounding source proves named data ownership.",
+    "Treat data section placement and TU split evidence as matching-relevant, not cosmetic.",
+    "Separate broad formatting or mechanical rename sweeps from semantic matching work when possible.",
+    "Every claimed match should be backed by local build plus objdiff/checkdiff evidence, not just a broad builds-locally claim."
+  ],
+  "naming_conventions": [
+    "Use semantic names only when the role is evidenced.",
+    "Keep fn_<addr>, lbl_<addr>, or module-address names when semantics are not proven.",
+    "Use short local role names such as fp, ip, gp, gobj, and jobj when those roles are clear.",
+    "Clean up generated temp_rXX-style names once the role is known.",
+    "Do not invent semantic names from guesses or rename address-style symbols before source meaning is supported.",
+    "Use local @NNN labels for compiler-local data when appropriate."
+  ],
+  "assembly_or_matching_tactics": [
+    "Require targeted evidence before keeping PAD_STACK or FORCE_PAD_STACK.",
+    "Require evidence for declaration-order changes, branch-local or widened local lifetimes, dummy stack locals, volatile locals, manual inline expansion, direct global or extern access instead of a struct path, and temporary structs with offset padding.",
+    "Do not keep a matching tactic if it shifts nearby functions, changes data order, or hides a real type.",
+    "Scope unavoidable pragmas tightly and prove they do not affect adjacent functions.",
+    "Avoid new #pragma global_optimizer off, unexplained #pragma dont_inline, unbalanced pragma push/pop blocks, register steering, and inline assembly unless no reasonable C alternative exists.",
+    "Use grouped switches, ternaries, ABS, MIN, MAX, CLAMP, and structured control flow when assembly shape suggests natural source forms.",
+    "Run objdiff or checkdiff for every claimed matched symbol or unit and inspect adjacent functions for risky changes."
+  ],
+  "review_feedback": [
+    {
+      "source": "PR activity",
+      "feedback": "No review comments or reviews were present in the provided slice."
+    },
+    {
+      "source": "PR summary",
+      "feedback": "Validation reported git diff --cached --check; build/tests were not run because the change was documentation-only."
+    },
+    {
+      "source": "PR state",
+      "feedback": "The PR was closed with merged_at null, so there is no evidence in this slice that the standards were accepted into master."
+    }
+  ],
+  "searchable_terms": [
+    "docs/standards.md",
+    "Melee PR Review QA Standards",
+    "decomp PR review checklist",
+    "worker output QA",
+    "Recover Natural Loops",
+    "Prefer Typed Fields Over Pointer Math",
+    "GroundVars",
+    "FighterVars",
+    "ItemVars",
+    "M2C_FIELD",
+    "raw pointer arithmetic",
+    "Recognize Header Inlines",
+    "jobj.h",
+    "HSD_JObjSet",
+    "HSD_JObjGet",
+    "GET_JOBJ",
+    "HSD_ASSERT",
+    "HSD_ASSERTMSG",
+    "HSD_ASSERTREPORT",
+    "OSReport",
+    "OSPanic",
+    "Keep Literals Inline",
+    "Canonical Control Flow",
+    "PAD_STACK",
+    "FORCE_PAD_STACK",
+    "pragma global_optimizer off",
+    "pragma dont_inline",
+    "inline assembly",
+    "data sections",
+    ".sdata",
+    ".sdata2",
+    ".sbss",
+    ".rodata",
+    ".data",
+    "symbols.txt",
+    "TU splits",
+    "fn_<addr>",
+    "lbl_<addr>",
+    "UNK_RET",
+    "UNK_PARAMS",
+    "configure.py --require-protos",
+    "objdiff",
+    "checkdiff",
+    "ninja"
+  ],
+  "follow_up_queries": [
+    "Find later PRs that merged or replaced docs/standards.md.",
+    "Search for PR comments citing PAD_STACK or FORCE_PAD_STACK evidence requirements.",
+    "Search for decomp PRs where reviewers asked to replace M2C_FIELD or raw pointer math with typed fields.",
+    "Search for PRs involving HSD_JObj inline recognition from jobj.h assert line numbers.",
+    "Search for standards or agent instructions that reference PR #2607."
+  ],
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

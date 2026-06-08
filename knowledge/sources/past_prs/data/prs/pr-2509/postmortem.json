@@ -11,78 +11,78 @@
     "merged_at": "2026-05-17T02:02:49Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched `fn_80026650` in `lbaudio_ax.c` by using direct named extern arrays instead of fields off the `lbl_80433710` struct anchor, modestly improved `fn_800268B4` with the same extern swap plus a pointer-increment loop form, and improved `lb_8000FD48` by extracting repeated `DynamicsData` free-list pop logic into `popDynamicsData`. The PR was verified with `python configure.py && ninja` and per-function `tools/checkdiff.py`; the slice contains no human review comments.",
+  "summary": "Matched lb audio function fn_80026650 to 100% and made small matching improvements to fn_800268B4 and lb_8000FD48. The audio changes replaced access through the lbl_80433710 struct anchor with direct named extern arrays lbl_804338A4 and lbl_80433984, and rewrote one loop to use pointer increments. The dynamics change factored repeated free-list pop logic into a static inline popDynamicsData, mirroring an existing inline pattern and improving generated code.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "codegen-refactor",
       "naming",
-      "tooling-verification",
-      "types-structs"
+      "types-structs",
+      "refactor"
     ],
     "systems": [
       "library",
       "lb",
-      "lbaudio_ax",
-      "lb_00F9",
       "audio",
-      "dynamics-data"
+      "dynamics"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/lb/lbaudio_ax.c",
-      "role": "Matched `fn_80026650` and improved `fn_800268B4` by replacing `lbl_80433710.x194` / `lbl_80433710.x274` accesses with direct externs `lbl_804338A4` / `lbl_80433984`, and by changing `fn_800268B4` to pointer-increment array traversal."
+      "reason": "Matched fn_80026650 and improved fn_800268B4 by changing extern/global access and loop form."
     },
     {
       "path": "src/melee/lb/lb_00F9.c",
-      "role": "Improved `lb_8000FD48` by replacing duplicated free-list pop code with a `static inline struct DynamicsData* popDynamicsData(void)` helper."
+      "reason": "Improved lb_8000FD48 by extracting repeated DynamicsData free-list pop code into a static inline helper."
     }
   ],
   "what_changed": [
-    "`fn_80026650` changed local array pointers from `lbl_80433710.x194` and `lbl_80433710.x274` to direct named externs `lbl_804338A4` and `lbl_80433984`; PR body reports this moved the function to 100%.",
-    "`fn_800268B4` now initializes `arr_38a4` and `arr_3984` from `lbl_804338A4` and `lbl_80433984` instead of the `lbl_80433710` struct anchor.",
-    "`fn_800268B4` loop changed from indexed accesses like `arr_38a4[i]`, `arr_3984[i]`, and `arr_4e4[i][0]` to dereference-and-increment style using `*arr_38a4`, `*arr_3984`, `(*arr_4e4)[0]`, followed by `arr_38a4++`, `arr_3984++`, and `arr_4e4++`.",
-    "`lb_8000FD48` removed two duplicated blocks that popped `cur_data` and nulled `entry->next`, replacing them with `popDynamicsData()` calls for the head and subsequent list nodes.",
-    "The decomp.dev bot reported one new match, `main/melee/lb/lbaudio_ax` `fn_80026650`, and two unmatched-item improvements: `lb_8000FD48` and `fn_800268B4`."
+    "In fn_80026650, array pointers arr_38a4 and arr_3984 now use direct named externs lbl_804338A4 and lbl_80433984 instead of fields lbl_80433710.x194 and lbl_80433710.x274.",
+    "fn_80026650 was reported as improving from 78.6% to a 100% match.",
+    "In fn_800268B4, the same named-extern swap was applied for arr_38a4 and arr_3984.",
+    "fn_800268B4 loop structure changed from indexed array accesses to pointer-dereference plus post-body pointer increments for arr_38a4, arr_3984, and arr_4e4.",
+    "fn_800268B4 loop condition changed from i > 0 to i != 0, supporting a CTR-loop/prologue layout noted in the PR summary.",
+    "fn_800268B4 was reported as improving from 88.5% to 88.7%.",
+    "Added static inline struct DynamicsData* popDynamicsData(void), which pops cur_data from a free list, clears entry->next, and returns NULL when no entry exists.",
+    "lb_8000FD48 now calls popDynamicsData for the first and subsequent entries instead of duplicating the free-list pop sequence inline.",
+    "lb_8000FD48 was reported as improving from 93.7% to 94.2%."
   ],
   "smart_moves": [
-    "Used direct named externs for the two target arrays when struct-field access through `lbl_80433710` generated worse code; this is explicitly credited in the PR body for the `fn_80026650` match.",
-    "For `fn_800268B4`, matched the apparent original loop shape by carrying moving pointers through the loop rather than repeatedly indexing from base pointers.",
-    "Extracted the free-list pop into a small `static inline` helper, preserving the null check, `cur_data` advance, and `entry->next = NULL` side effect while improving `lb_8000FD48` codegen.",
-    "Mirrored an existing inline-helper pattern (`inlineA0`, per PR body) instead of introducing an unrelated control-flow style.",
-    "Recorded both build verification and per-function `checkdiff.py` verification, making the match-percent claims auditable."
+    "Using direct named externs for lbl_804338A4 and lbl_80433984 avoided forcing accesses through the broader lbl_80433710 struct anchor, which produced better codegen for fn_80026650 and fn_800268B4.",
+    "The pointer-increment form in fn_800268B4 aligned the C source with the expected assembly traversal pattern, including the reported bdnz/mtctr CTR-loop behavior.",
+    "Extracting popDynamicsData as a static inline preserved the repeated free-list semantics while giving the compiler a reusable shape similar to an existing inlineA0 pattern.",
+    "The PR verified both whole-project build health with python configure.py && ninja and per-function match percentages with tools/checkdiff.py."
   ],
   "decomp_lessons": [
-    "When a global struct anchor is only a convenience overlay, direct named externs for individual arrays can produce better address-generation/codegen and may unlock a match.",
-    "For fixed-count array scans, try pointer-increment loops (`*ptr` plus `ptr++`) and `i != 0` countdown conditions when the target assembly suggests a CTR loop.",
-    "Small `static inline` helpers can improve matching when repeated source blocks need to compile as the same inlined sequence; this worked for the repeated `DynamicsData` free-list pop in `lb_8000FD48`.",
-    "Do not treat a semantically clearer indexed loop as always equivalent for matching; the chosen source expression form can affect prologue and loop layout.",
-    "Keep function-specific match percentages in the PR body and confirm them with `tools/checkdiff.py`, especially when only small byte improvements are expected."
+    "When a global struct anchor causes poor matching, try naming and using the underlying extern arrays directly if evidence supports that layout.",
+    "For fixed-count array walks, pointer increments may match assembly better than indexing, especially when the target uses CTR loops and repeated dereferences.",
+    "Small source-level loop condition changes such as i > 0 versus i != 0 can matter for PowerPC loop/prologue generation.",
+    "Repeated logic can sometimes be improved for matching by extracting a static inline helper, particularly when it mirrors an already-successful inline pattern elsewhere in the file.",
+    "For free-list operations, clearing the popped node's next pointer inside the helper made the intended mutation explicit while preserving behavior."
   ],
   "naming_conventions": [
-    "The PR intentionally uses address-style named externs `lbl_804338A4` and `lbl_80433984` directly rather than accessing them as `lbl_80433710.x194` and `lbl_80433710.x274`.",
-    "`popDynamicsData` is a descriptive static inline helper name for removing one node from the `DynamicsData` free list headed by `cur_data`.",
-    "Existing anonymous/address labels such as `lbl_804D6450`, `lbl_804D644C`, `lbl_804D6448`, and `offsets_arr_803BC4E4` were left intact; the PR did not attempt broader semantic renaming."
+    "Introduced or used descriptive helper name popDynamicsData for popping struct DynamicsData entries from cur_data.",
+    "Kept temporary pointer names arr_38a4, arr_3984, and arr_4e4 tied to their underlying address/offset-derived global names.",
+    "Used direct global labels lbl_804338A4 and lbl_80433984 where those labels better described actual storage than lbl_80433710.x194 and lbl_80433710.x274.",
+    "No reviewer-driven naming feedback was present in the provided PR slice."
   ],
   "assembly_or_matching_tactics": [
-    "Direct extern swap: `lbl_80433710.x194` -> `lbl_804338A4` and `lbl_80433710.x274` -> `lbl_80433984` in `lbaudio_ax.c`.",
-    "Loop-shape tactic in `fn_800268B4`: `for (i = 0x37; i != 0; i--)` with pointer increments, rather than `for (i = 0x37; i > 0; i--)` with indexed array loads.",
-    "PR body states the pointer-increment form made the `fn_800268B4` prologue use `bdnz` / `mtctr` CTR-loop layout and improved the function from 88.5% to 88.7%.",
-    "Inline-helper tactic in `lb_8000FD48`: move repeated free-list pop code into `static inline popDynamicsData()` to alter inlining/code shape while keeping behavior.",
-    "Verification tactic: run `python configure.py && ninja`, then recheck each touched function with `tools/checkdiff.py`."
+    "Replace struct-field global accesses with direct named extern array accesses when the assembly appears to reference the arrays independently.",
+    "Rewrite indexed loops into pointer-walk loops using *ptr and ptr++ to encourage matching load/update order.",
+    "Use i != 0 for countdown loops when trying to encourage CTR-loop-like codegen.",
+    "Extract repeated code into a static inline helper when the inline boundary and expression shape better match the compiler's expected output.",
+    "Validate changes using tools/checkdiff.py per touched function after confirming the full build still succeeds."
   ],
   "review_feedback": [
-    "No human review comments or reviews are present in the provided slice.",
-    "decomp.dev bot reported matched code at 67.17% overall, +0.01% and +352 bytes for GALE01.",
-    "decomp.dev bot reported `fn_80026650` improved from 96.08% to 100.00% in `main/melee/lb/lbaudio_ax`.",
-    "decomp.dev bot reported `lb_8000FD48` improved from 93.66% to 94.19% and `fn_800268B4` improved from 88.47% to 88.71%."
+    "No review comments were present in the provided context.",
+    "The only human text evidence was the PR summary and verification notes."
   ],
   "searchable_terms": [
     "pr-2509",
     "itsgrimetime",
     "lb",
+    "library",
     "lbaudio_ax.c",
     "lb_00F9.c",
     "fn_80026650",
@@ -96,31 +96,31 @@
     "lbl_80433710",
     "lbl_804338A4",
     "lbl_80433984",
-    "x194",
-    "x274",
     "s32_arr_803BB5D0",
     "offsets_arr_803BC4E4",
     "lbl_804D6450",
     "lbl_804D644C",
     "lbl_804D6448",
-    "arr_38a4",
-    "arr_3984",
-    "arr_4e4",
     "pointer increment loop",
     "CTR loop",
     "bdnz",
     "mtctr",
-    "checkdiff.py",
-    "python configure.py",
-    "ninja",
-    "GALE01"
+    "checkdiff",
+    "100% match"
   ],
   "follow_up_queries": [
-    "fn_80026650 lbl_804338A4 lbl_80433984 lbl_80433710 x194 x274",
-    "fn_800268B4 pointer increment bdnz mtctr arr_38a4 arr_3984 arr_4e4",
-    "lb_8000FD48 popDynamicsData DynamicsData cur_data inlineA0",
-    "lbaudio_ax direct named extern struct anchor matching",
-    "tools/checkdiff.py fn_80026650 fn_800268B4 lb_8000FD48"
+    "Find other uses of lbl_80433710 fields that may match better as direct named extern arrays.",
+    "Search for countdown indexed loops in lbaudio_ax.c that could improve with pointer-increment traversal.",
+    "Compare popDynamicsData with the existing inlineA0 pattern mentioned in the PR summary for reusable inline matching style.",
+    "Audit other cur_data free-list pop sequences in lb_00F9.c for duplicated logic or matching opportunities."
   ],
-  "confidence": 0.94
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

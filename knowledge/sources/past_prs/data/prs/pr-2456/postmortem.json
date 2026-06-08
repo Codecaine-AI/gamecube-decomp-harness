@@ -11,132 +11,97 @@
     "merged_at": "2026-05-08T22:01:06Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Near-complete decompilation of the vi1201v2 scene enter routine. The PR added a C body for un_80320A40_OnEnter, expanded contiguous data/string layout around un_80400304, typed the fog erase color as GXColor, and updated the header signature from UNK_T to void*. decomp-dev reported un_80320A40_OnEnter improving from 0.00% to 97.14%, with .sdata reaching 100%.",
+  "summary": "Implemented a substantial matching/decompilation slice for src/melee/vi/vi1201v2.c, centered on un_80320A40_OnEnter and related data/header fixes. The PR replaces a simple Vec3 at un_80400304 with a structured data blob containing the player spawn Vec3 plus embedded asset/assertion strings, adds archive/scene/model/fog/camera setup logic, introduces local HSD_JObj setter variants needed for matching, and corrects un_804D7028 from u8 to GXColor so erase color handling uses named RGBA fields.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "function-implementation",
       "headers",
       "data-layout",
+      "asset-loading",
       "scene-setup"
     ],
     "systems": [
-      "vi",
       "melee-core",
-      "baselib/HSD",
+      "vi",
+      "baselib",
+      "lb",
       "effects",
       "audio",
-      "player",
-      "toy/ty"
+      "player"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/vi/vi1201v2.c",
-      "role": "implementation",
-      "notable_changes": [
-        "Added un_80320A40_OnEnter(void*) implementation",
-        "Added un_80400304_t contiguous data/string struct",
-        "Added scene/archive/joint/GObj globals",
-        "Added static HSD_JObj transform setter shims with matching asserts",
-        "Changed erase color handling to GXColor fields"
-      ]
-    },
-    {
-      "path": "src/melee/vi/vi1201v2.h",
-      "role": "header",
-      "notable_changes": [
-        "Included dolphin/gx/GXStruct.h",
-        "Changed un_804D7028 extern type from u8 to GXColor",
-        "Changed un_80320A40_OnEnter declaration from UNK_T to void*"
-      ]
-    }
+    "src/melee/vi/vi1201v2.c",
+    "src/melee/vi/vi1201v2.h"
   ],
   "what_changed": [
-    "Added includes for effect async/lib, ft_0C31, lbArchive/lb_00B0, baselib forward declarations, and toy/ty headers needed by the new scene setup body.",
-    "Replaced the standalone Vec3 un_80400304 with un_80400304_t containing player_spawn plus embedded assert and asset/symbol strings such as Vi1201v2.dat, visual1201v2Scene, TyKoopa.dat, ToyKoopaModel_TopN_joint, GmRgStnd.dat, and standScene.",
-    "Updated Player_80032768 to pass &un_80400304.player_spawn after the data symbol was widened into a struct.",
-    "Added globals for the additional scene descriptors, joint, fog color, state value, and two exported HSD_GObj pointers: un_804D7014, un_804D7020, un_804D7028, un_804D702C, un_804D7030, and un_804D7034.",
-    "Implemented un_80320A40_OnEnter: initializes effects/audio, reads input bytes for character/variant data, loads scene and model archives, creates camera/model/fog/light GObjs, sets up callbacks/procs, applies child joint translation/rotation/scale from un_803060BC, and restores the audio state at exit.",
-    "Added local HSD_JObjSetRotationY_2, HSD_JObjSetScaleX/Y/Z_2, and HSD_JObjSetTranslateX/Y/Z_2 helpers that directly mutate JObj transform fields and call ftCo_800C6AFC unless JOBJ_MTX_INDEP_SRT is set.",
-    "Changed un_803208F0 color handling from u8* byte indexing to GXColor* with r/g/b/a fields before calling HSD_SetEraseColor."
+    "Added missing includes for baselib forwards, effects, ft_0C31, lb_00B0, lbarchive, toy/tylist, and GXColor support used by the newly decompiled code.",
+    "Changed un_80400304 from a Vec3 into an un_80400304_t struct containing player_spawn plus embedded strings such as \"!(jobj->flags & JOBJ_USE_QUATERNION)\", \"Vi1201v2.dat\", \"visual1201v2Scene\", \"TyKoopa.dat\", \"ToyKoopaModel_TopN_joint\", \"GmRgStnd.dat\", and \"standScene\".",
+    "Updated Player_80032768 call sites to pass &un_80400304.player_spawn instead of the old whole-symbol Vec3 address.",
+    "Added static/global state for additional scene resources and objects: un_804D7014, un_804D7020, un_804D7028, un_804D702C, un_804D7030, and un_804D7034.",
+    "Corrected un_804D7028 from a byte-like color symbol to GXColor and changed un_803208F0 to call HSD_SetEraseColor(colors->r, colors->g, colors->b, colors->a).",
+    "Decompiled un_80320A40_OnEnter, including effect initialization, synchronous effect loading, audio state changes, archive symbol loads, camera object creation, player/demo setup, Koopa/model scene object setup, fog setup, light setup, and final audio restore.",
+    "Added local static HSD_JObjSetRotationY_2, HSD_JObjSetScaleX_2/Y_2/Z_2, and HSD_JObjSetTranslateX_2/Y_2/Z_2 helper variants that directly mutate JObj fields and conditionally call ftCo_800C6AFC unless JOBJ_MTX_INDEP_SRT is set.",
+    "Changed the header prototype for un_80320A40_OnEnter from UNK_T to void* and exported un_804D7028 as GXColor."
   ],
   "smart_moves": [
-    "Modeling un_80400304 as a packed local struct preserved the existing player spawn data while exposing nearby embedded strings needed by offset-based references in un_80320A40_OnEnter.",
-    "Typing un_804D7028 as GXColor matched the fog color source and made HSD_SetEraseColor argument order explicit through colors->r, colors->g, colors->b, and colors->a.",
-    "The static *_2 JObj setter helpers reproduce assert strings, jobj.h line numbers, direct field writes, and matrix invalidation behavior, which is useful when ordinary library calls or macros do not produce matching code.",
-    "Using a char* base of &un_804002F8 plus numeric offsets kept the data-reference pattern visible for archive symbol loads and the quaternion assert string.",
-    "The header cleanup followed evidence from the implementation: void* for the raw scene argument and GXColor for the exported erase/fog color."
+    "Recognized that un_80400304 was not only a Vec3 but the start of a larger rodata/data blob; modeling it as a struct preserved offsets for both the spawn vector and nearby embedded strings.",
+    "Used a named GXColor type for un_804D7028, which made the erase-color call structurally correct and avoided treating the color bytes as an untyped u8 array.",
+    "Kept the assertion string address expression in HSD_JObjSetRotationY_2 as (char*) &un_804002F8 + 0x18, matching the observed layout rather than inventing a cleaner but potentially non-matching string reference.",
+    "Introduced local setter clones with exact assertion line numbers and direct field writes, a common matching tactic when the original inline/static behavior differs from public baselib helper calls.",
+    "Named newly understood fields conservatively around evidence from embedded asset names and usage, such as player_spawn, vi1201v2_dat, visual1201v2_scene, tykoopa_dat, toykoopa_model_topn_joint, gmrgstnd_dat, and stand_scene."
   ],
   "decomp_lessons": [
-    "When a previously typed data symbol is followed by strings or other constants, widen it into a struct with named subfields rather than leaving adjacent data anonymous; update existing users to the relevant subfield.",
-    "Fixed-size char arrays can be a matching tactic for packed data blobs; future work should treat these as layout-sensitive data, not necessarily independent high-level strings.",
-    "Prefer concrete types such as GXColor once the implementation shows field-level usage, especially for globals exported through headers.",
-    "Scene OnEnter matches often need broad subsystem includes because they touch archives, camera, GObj setup, effects, audio, player setup, fog, lights, and model joints in one routine.",
-    "For inline HSD/JObj APIs, local helper clones with exact asserts and flag checks can be a practical bridge when matching compiler output.",
-    "Bot progress reports should be recorded with nuance: this PR greatly improved function/data matching but still left un_80320A40_OnEnter at 97.14% and reported a small .sdata2 regression."
+    "If a global initially appears to be a Vec3 but later references access nearby string offsets, re-evaluate it as the first field of a larger structured data blob rather than as isolated symbols.",
+    "Embedded asset filenames and scene symbol names are strong evidence for struct field boundaries and semantic field names in vi/demo scene code.",
+    "For color globals passed to GX/HSD screen erase APIs, prefer GXColor over u8 arrays when the code consumes r/g/b/a fields.",
+    "Matching HSD_JObj setter code may require local variants that reproduce assert behavior, source line numbers, direct field mutation, and the matrix-update condition instead of calling exported setters.",
+    "When OnEnter code consumes a void* argument as indexed bytes, changing the prototype from UNK_T to void* and casting locally can improve type clarity without overcommitting to a full struct."
   ],
   "naming_conventions": [
-    "Address-based unknown names were preserved: un_80320A40_OnEnter, un_80400304, un_804D7028, un_804D7030, and related symbols.",
-    "Scene callback suffixes follow existing convention: _OnEnter and _OnFrame.",
-    "Static matching helper clones use the original HSD-style name plus _2, for example HSD_JObjSetTranslateX_2 and HSD_JObjSetScaleZ_2.",
-    "Temporary struct fields use descriptive snake_case for embedded data roles: player_spawn, use_quaternion_assert, vi1201v2_dat, visual1201v2_scene, tykoopa_dat, toykoopa_model_topn_joint, gmrgstnd_dat, and stand_scene.",
-    "Asset string contents retain original game capitalization, such as TyKoopa.dat and ToyKoopaModel_TopN_joint."
+    "Unknown globals retained address-based names such as un_804D7010, un_804D7014, un_804D7018, un_804D701C, un_804D7020, un_804D7024, un_804D7028, un_804D702C, un_804D7030, and un_804D7034.",
+    "Struct fields derived from embedded strings use lowercase snake_case forms of asset/symbol names: vi1201v2_dat, visual1201v2_scene, tykoopa_dat, toykoopa_model_topn_joint, gmrgstnd_dat, stand_scene.",
+    "The decompiled entrypoint keeps the module/address style name un_80320A40_OnEnter.",
+    "Local helper clones are suffixed with _2, for example HSD_JObjSetRotationY_2 and HSD_JObjSetTranslateX_2, indicating matching-specific variants rather than canonical baselib APIs.",
+    "Function names with known subsystems remain prefixed by their subsystem names, such as Player_SetPlayerId, lbArchive_LoadSymbols, efLib_Init, and lbAudioAx_80024E50."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(24) in un_80320A40_OnEnter.",
-    "Casts the raw OnEnter argument to u8* and reads input[0] and input[1].",
-    "Uses char* data = (char*) &un_804002F8 and offsets 0x40, 0x50, 0x64, 0x70, 0x8C, and 0x9C for lbArchive_LoadSymbols calls.",
-    "Quaternion assertion passes the message address as (char*) &un_804002F8 + 0x18.",
-    "JObj helper shims explicitly call __assert(\"jobj.h\", line, \"jobj\") and test JOBJ_USE_QUATERNION or JOBJ_MTX_INDEP_SRT before direct field writes.",
-    "Changed the erase-color match from colors[0..3] byte indexing to GXColor field access.",
-    "Uses callback/object setup casts such as GObj_SetupGXLinkMax(gobj, (void (*)(HSD_GObj*, int)) un_803208F0, 8)."
+    "Modeled contiguous data beginning at un_80400304 as one struct so references like data + 0x40, data + 0x50, data + 0x64, data + 0x70, data + 0x8C, and data + 0x9C line up with embedded asset and symbol strings.",
+    "Used a local u8* input = arg pattern for un_80320A40_OnEnter so byte accesses input[0] and input[1] match the caller-provided argument usage.",
+    "Inserted PAD_STACK(24), suggesting stack layout/padding was needed for matching.",
+    "Recreated JObj setters with explicit __assert calls using jobj.h line numbers 660, 661, 776, 791, 806, 932, 947, and 962.",
+    "Preserved conditional ftCo_800C6AFC(jobj) calls only when !(jobj->flags & JOBJ_MTX_INDEP_SRT), matching matrix-update side effects in the setter variants.",
+    "For the quaternion assertion string, used an address into the adjacent data blob instead of directly naming the struct field, likely to satisfy generated code or relocation shape.",
+    "Used typed scene resource loads via lbArchive_LoadSymbols with SceneDesc, HSD_Joint, and archive globals to reconstruct scene/model initialization order."
   ],
   "review_feedback": [
-    {
-      "source": "human_review",
-      "note": "No human review comments or reviews were present in the provided PR slice."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "note": "Reported .sdata as a new match for main/melee/vi/vi1201v2: +16 bytes, 0.00% to 100.00%."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "note": "Reported un_80320A40_OnEnter improvement: +1659 bytes, 0.00% to 97.14%."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "note": "Reported .data improvement to 98.80% and .sbss improvement to 91.67%, plus a .sdata2 regression of -2 bytes from 76.92% to 71.43%."
-    }
+    "No review comments were present in the provided PR slice.",
+    "The PR had one issue comment count in metadata, but no human text excerpt was included, so reviewer intent or discussion cannot be inferred."
   ],
   "searchable_terms": [
     "pr-2456",
     "vi1201v2",
-    "un_80320A40_OnEnter",
+    "jurrejelle",
     "src/melee/vi/vi1201v2.c",
     "src/melee/vi/vi1201v2.h",
+    "un_80320A40_OnEnter",
+    "un_803208F0",
     "un_80400304_t",
-    "un_80400304.player_spawn",
+    "un_80400304",
     "player_spawn",
-    "use_quaternion_assert",
     "Vi1201v2.dat",
     "visual1201v2Scene",
     "TyKoopa.dat",
     "ToyKoopaModel_TopN_joint",
     "GmRgStnd.dat",
     "standScene",
-    "un_804D7028",
     "GXColor",
+    "un_804D7028",
     "HSD_SetEraseColor",
     "HSD_JObjSetRotationY_2",
     "HSD_JObjSetScaleX_2",
-    "HSD_JObjSetScaleY_2",
-    "HSD_JObjSetScaleZ_2",
     "HSD_JObjSetTranslateX_2",
-    "HSD_JObjSetTranslateY_2",
-    "HSD_JObjSetTranslateZ_2",
     "JOBJ_USE_QUATERNION",
     "JOBJ_MTX_INDEP_SRT",
     "ftCo_800C6AFC",
@@ -146,18 +111,23 @@
     "lbAudioAx_80023F28",
     "lbAudioAx_80024E50",
     "HSD_FogLoadDesc",
-    "HSD_GObj_FogCallback",
-    "HSD_GObj_LObjCallback",
-    "un_803060BC",
-    "PAD_STACK(24)",
-    "97.14%"
+    "HSD_CObjSetCurrent",
+    "GObj_Create"
   ],
   "follow_up_queries": [
-    "Find later PRs that complete the remaining mismatch in un_80320A40_OnEnter for vi1201v2.",
-    "Search for other vi scene PRs using packed data structs with embedded archive/symbol strings.",
-    "Audit whether HSD_JObjSet*_2 helper clones are still needed or can be replaced after broader matching improvements.",
-    "Check if the .sdata2 regression reported by decomp-dev in PR 2456 was later recovered.",
-    "Look for later naming/type refinements of un_80400304_t, un_804D702C, un_804D7030, and un_804D7034."
+    "Find later PRs that rename or type un_80400304_t fields in vi1201v2.c.",
+    "Search for other vi scene OnEnter functions that use embedded asset string blobs and lbArchive_LoadSymbols offsets.",
+    "Look for subsequent work replacing HSD_JObjSet*_2 local helpers with shared inline/static definitions.",
+    "Check whether un_804D7014, un_804D7020, un_804D702C, un_804D7030, and un_804D7034 receive semantic names in later PRs.",
+    "Compare other uses of GXColor erase-color globals around HSD_SetEraseColor for consistent typing."
   ],
-  "confidence": 0.88
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

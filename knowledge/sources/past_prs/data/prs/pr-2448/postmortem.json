@@ -11,115 +11,101 @@
     "merged_at": "2026-05-08T19:22:49Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled a large slice of the Data Delete menu module, with decomp.dev reporting a new 100% match for `mnDataDel_8024E940` and `.bss`, plus sizable partial improvements across the menu input/proc, setup, data, and animation paths. The PR also tightened `mndatadel.static.h` layout by turning adjacent scalar fields into `x3C[6]` and adding an explicit `MnDataDelGObjUserData` layout. `mnevent.c` and `mnsoundtest.c` changes appear to be formatting/include-order touchups only.",
+  "summary": "Decompiled a large slice of the Data Delete menu implementation in src/melee/mn/mndatadel.c, replacing several placeholder asm stubs with C and adding the supporting static header structure definitions needed to model menu state, animation data, loaded JObjs, text objects, and archive assets. The decomp.dev bot reported 2 new matches, including full match for mnDataDel_8024E940 and mndatadel .bss, plus substantial partial improvements for fn_8024F318, fn_8024F840, fn_8024FD40, mnDataDel_8024EA6C, mnDataDel_8024FE4C, mnDataDel_80250170, data, and sdata2. Small mnevent.c and mnsoundtest.c changes appear to be formatting/include-order cleanup rather than functional work.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "menu-state-machine",
-      "data-struct-layout",
-      "formatting-touchups"
+      "menu-state-reconstruction",
+      "data-layout-reconstruction",
+      "formatting-cleanup"
     ],
     "systems": [
       "melee-core",
-      "mn menu",
-      "main/melee/mn/mndatadel",
-      "data-delete menu"
+      "mn",
+      "menus",
+      "data-delete-menu",
+      "game-data-reset",
+      "baselib-jobj",
+      "sislib-text",
+      "audio"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/mn/mndatadel.c",
-      "role": "Primary decomp work; replaced stubs and improved Data Delete menu animation/input/setup functions.",
-      "added": 514,
-      "deleted": 12
-    },
-    {
-      "path": "src/melee/mn/mndatadel.static.h",
-      "role": "Static layout/header changes for `MnDataDelData`, `MnDataDelGObjUserData`, model descriptors, and extern data.",
-      "added": 19,
-      "deleted": 6
-    },
-    {
-      "path": "src/melee/mn/mnevent.c",
-      "role": "Formatting/include-order touchups visible in the diff.",
-      "added": 7,
-      "deleted": 5
-    },
-    {
-      "path": "src/melee/mn/mnsoundtest.c",
-      "role": "Formatting-only line wrapping touchups visible in the diff.",
-      "added": 6,
-      "deleted": 7
-    }
+    "src/melee/mn/mndatadel.c",
+    "src/melee/mn/mndatadel.static.h",
+    "src/melee/mn/mnevent.c",
+    "src/melee/mn/mnsoundtest.c"
   ],
   "what_changed": [
-    "Implemented `mnDataDel_8024E940`, which decomp.dev reported as a new 100% function match worth +300 bytes.",
-    "Added C for previously stubbed `mnDataDel_8024EA6C`, `fn_8024F318`, `fn_8024F840`, `fn_8024FD40`, `mnDataDel_8024FE4C`, and `mnDataDel_80250170`, all reported as partial matching improvements rather than complete matches.",
-    "Updated `fn_8024ECCC` to use a local `struct MnDataDelData* anim_data = &mnDataDel_803EF870` and access `anim_data->x30` instead of direct `mnDataDel_803EF8A0` references.",
-    "Modeled Data Delete menu object user data as `struct MnDataDelGObjUserData` with byte flags, an `HSD_Text* xC`, and `HSD_JObj* x10[8]`.",
-    "Changed consecutive `MnDataDelData` fields `x3C` through `x50` into `s32 x3C[6]`, enabling loop/indexed access for menu entries.",
-    "Added static descriptors `mnDataDel_804A0918` and `mnDataDel_804A0928` and extern data `mnDataDel_803EF8AC[2]` in `mndatadel.static.h`.",
-    "Added dependencies used by the new code, including `gobjuserdata`, `memory`, `gm_*`, `gmmain_lib`, `lbarchive`, `lbaudio_ax`, `lbcardgame`, `debug`, and `ty/toy` headers.",
-    "Implemented menu asset loading for `MenMainConDl_Top`, `MenMainCursorDl_Top`, and `MenMainWarCmn_Top` assets in `mnDataDel_80250170`.",
-    "Touched `mnevent.c` and `mnsoundtest.c` with line wrapping/include ordering; no functional behavior change is evident from the shown hunks."
+    "Implemented mnDataDel_8024E940, which animates the relevant Data Delete cursor/item joint, marks a user-data flag, calls gm_801647D0 and gmMainLib_8015F490, scans a 0x1D-entry game-data range with gm_801641CC/gm_80164430/gm_80164250, conditionally calls gm_801641E4, then commits/refreshes state through gm_801729EC and lb_8001CE00.",
+    "Implemented mnDataDel_8024EA6C, which iterates six Data Delete option joints via mnDataDel_803EF870.x3C, applies the enabled animation state to each child joint, marks the corresponding per-option flags in gobj user data, preserves/restores saved language around gmMainLib_8015FBA4 and gm_801A3EF4, and plays different audio depending on whether language changed.",
+    "Implemented the confirmation/input procedure fn_8024F318, handling A/B and left/right style input bits, confirmation toggling through user_data->x2, cancel behavior, return to fn_8024F840, text prompts via HSD_SisLib, and per-cursor delete/reset actions for cursors 0 through 4 plus a special cursor 5 path.",
+    "Implemented the normal Data Delete menu input procedure fn_8024F840, including cooldown handling, exit-to-previous-menu behavior, entering confirmation mode, cursor wraparound across six entries, cursor animation updates through mnDataDel_8024EBC8, description text replacement, and SIS ID lookup from mnDataDel_803EF870.x58.",
+    "Implemented fn_8024FD40 as the opening/transition animation procedure, advancing the root and six child option joints with mn_8022EE84 and switching to fn_8024FC48 when the animation reaches end_frame.",
+    "Implemented mnDataDel_8024FE4C, which creates the Data Delete GObj, loads the root JObj and animations from StaticModelDesc assets, allocates and initializes a 0x30-byte MnDataDelGObjUserData block, caches eight child JObjs, creates the six cursor option JObjs, attaches them under configured offsets, applies enabled/selected animation state, and creates the initial description text.",
+    "Implemented mnDataDel_80250170, which enters menu ID 0x18, initializes menu globals, loads Data Delete archive sections named MenMainConDl_Top_*, MenMainCursorDl_Top_*, and MenMainWarCmn_Top_*, creates the Data Delete menu object, and starts fn_8024F840 on a controller/input GObj.",
+    "Refactored fn_8024ECCC slightly to access warning animation settings through a local struct MnDataDelData* anim_data and anim_data->x30 instead of directly using mnDataDel_803EF8A0, improving match percentage according to bot output.",
+    "Updated mndatadel.static.h so MnDataDelData uses x3C[6] instead of six separate scalar fields, added struct MnDataDelGObjUserData with explicit byte offsets and JObj/text fields, declared mnDataDel_803EF8AC, and added StaticModelDesc globals mnDataDel_804A0918 and mnDataDel_804A0928.",
+    "Adjusted mnevent.c and mnsoundtest.c formatting/include ordering only, based on the diff excerpt: line wrapping, include order for baselib/debug.h, and comma-expression formatting."
   ],
   "smart_moves": [
-    "Converting adjacent offset fields into `x3C[6]` let the code express cursor-indexed menu entry access and loops in a way that improved both readability and matching.",
-    "The explicit `MnDataDelGObjUserData` struct captured the real GObj user-data layout, including flag bytes, padding, text pointer, and cached joints, which was necessary for `.bss` and function matching progress.",
-    "Repeated animation toggles preserve the current frame with `mn_8022F298`, apply a temporary state via `HSD_JObjReqAnimAll` and `MOBJ_MASK`, animate, then restore with type mask `0x480`; this pattern is reusable for matching menu highlight/enable state code.",
-    "The code keeps menu proc transitions in the observed order: kill the active global proc with `HSD_GObjProc_8038FE24(HSD_GObj_804D7838)`, set up the next proc, then copy `HSD_GObj_804D783C` into `proc->flags_3`.",
-    "The implementation used exact-layout tactics such as `PAD_STACK`, byte-pointer flag indexing like `((u8*) &user_data->x3)[i]`, and local struct pointers to shape generated code."
+    "Converted six adjacent MnDataDelData fields into x3C[6], allowing loops over menu option joint indices and matching code patterns that naturally index through the table.",
+    "Introduced MnDataDelGObjUserData with explicit offsets, making the repeated byte-flag accesses and x10 JObj cache understandable while preserving low-level layout needed for matching.",
+    "Used a tiny inline wrapper mnDataDel_8024E940_inline around mn_8022F298, likely to control inlining/codegen for mnDataDel_8024E940 without changing the visible behavior.",
+    "Preserved current JObj animation frame before applying enabled/disabled animation state, then restored the previous frame and material/type-mask animation state; this pattern appears repeatedly and is important for matching UI-state updates.",
+    "Used pointer/array casts such as ((u8*) &user_data->x3)[i] and ((u16*) &mnDataDel_803EF870.x58)[cursor] where the original code appears to treat packed fields as contiguous arrays.",
+    "Kept decomp-sensitive constructs such as PAD_STACK, comma expressions like HSD_JObjReqAnimAll(sp18, (0, 1.0f)), and explicit enum _HSD_TypeMask casts where needed to match generated code."
   ],
   "decomp_lessons": [
-    "For menu data tables, look for runs of scalar fields that are actually indexed arrays; refactoring them into arrays can unlock loops and improve matching.",
-    "When menu GObj code repeatedly accesses raw `user_data`, define an offset-preserving struct early, even if fields remain named `x0`, `x1`, etc.",
-    "Menu animation matching often depends on preserving and restoring JObj frame state around material/object mask animation updates.",
-    "Screen setup functions commonly load multiple `StaticModelDesc` asset groups, build a root JObj, attach cursor children, initialize user data, and then install a proc; keep that lifecycle order intact.",
-    "Automated match reports are strong evidence for what matched, but this PR had no human review discussion, so intent behind odd codegen choices should be treated as inferred from the diff rather than confirmed."
+    "When a static data struct has repeated adjacent fields that drive menu items, model them as an array once call sites show loop/index behavior; this can unlock both code and data matching.",
+    "For menu GObj user data, define the real packed layout early, even with provisional xN names, because byte flags, text pointers, and cached JObj arrays are often accessed through offset-based patterns.",
+    "Data Delete menu actions mix UI animation updates with persistent game-data operations; matching code must preserve the exact order of animation, flag writes, gmMainLib/gm calls, audio calls, and lb_8001CE00/gm_801729EC commits.",
+    "SIS text handling in menus often destroys the previous HSD_Text before allocating a new one and then sets font_size/alignment before HSD_SisLib_803A6368; reuse that sequence for similar menu decomp work.",
+    "Cooldown and GObjProc transitions are part of matching control flow in menu input procedures; record proc->flags_3 = HSD_GObj_804D783C after HSD_GObj_SetupProc where the assembly expects it.",
+    "Weakly named fields like x0/x1/x2/x3 remain acceptable when semantics are not proven, but explicit offsets and arrays still provide matching value and future rename targets."
   ],
   "naming_conventions": [
-    "Module symbols use the `mnDataDel_` prefix plus address suffix, such as `mnDataDel_8024E940`, `mnDataDel_803EF870`, and `mnDataDel_804D6C68`.",
-    "Unidentified internal callbacks/procs remain address-based `fn_8024....` names, including `fn_8024F318`, `fn_8024F840`, and `fn_8024FD40`.",
-    "Structs use module-and-role names: `MnDataDelData` and `MnDataDelGObjUserData`.",
-    "Unknown struct fields preserve offset-style names such as `x0`, `x3C`, `x58`, and `x10`; the array `x3C[6]` preserves the base offset after replacing separate scalar fields.",
-    "Subsystem function prefixes remain intact: `HSD_*`, `gm_*`, `gmMainLib_*`, `lbAudioAx_*`, `lbArchive_*`, and `mn_*`."
+    "Newly decompiled local functions keep address-based names: mnDataDel_8024E940, mnDataDel_8024EA6C, fn_8024F318, fn_8024F840, fn_8024FD40, mnDataDel_8024FE4C, mnDataDel_80250170.",
+    "Module static globals follow the project address suffix convention: mnDataDel_803EF870, mnDataDel_803EF8A0, mnDataDel_803EF8AC, mnDataDel_804A0918, mnDataDel_804A0928, mnDataDel_804A0938, mnDataDel_804D6C68, mnDataDel_804D6C6C.",
+    "Structs added in the static header use module-qualified CamelCase names: MnDataDelData and MnDataDelGObjUserData.",
+    "Unknown struct fields retain offset-derived names such as x0, x3C, x58, x64, x68, x6C, and pad_x9, with comments giving explicit offsets in MnDataDelGObjUserData.",
+    "Archive section names are retained as exact asset strings, e.g. MenMainConDl_Top_joint, MenMainCursorDl_Top_animjoint, and MenMainWarCmn_Top_shapeanim_joint."
   ],
   "assembly_or_matching_tactics": [
-    "`mnDataDel_8024E940_inline` wraps `mn_8022F298`; from the diff this appears to be a codegen-shaping inline used for the matched `mnDataDel_8024E940`.",
-    "Used `PAD_STACK(24)` and `PAD_STACK(16)` plus unused pad locals to control stack layout.",
-    "Used explicit casts to `struct mn_80231634_t*`, `HSD_JObj*`, `s32`, and `enum _HSD_TypeMask` to match call signatures and generated code.",
-    "Kept unusual comma expressions such as `(0, 1.0f)` and `(0, sp18)` in `mnDataDel_8024E940`, likely because they affected the exact output.",
-    "Repeated constants `0xFFU`, `MOBJ_MASK`, and `(enum _HSD_TypeMask) 0x480` around `mn_8022F3D8`/`HSD_JObjAnimAll` calls are part of the menu animation matching pattern.",
-    "Pointer iteration over `mnDataDel_803EF870.x3C` and byte indexing into `user_data` flags reproduced the original memory layout closely enough to improve multiple functions."
+    "Added PAD_STACK(24) and PAD_STACK(16) in functions where stack shape mattered.",
+    "Used explicit casts to struct mn_80231634_t*, HSD_JObj*, s32*, u16*, u8*, and enum _HSD_TypeMask to steer generated loads, calls, and argument types.",
+    "Applied array/pointer arithmetic over packed fields, especially mnDataDel_803EF870.x3C, user_data->x10, ((u8*) &user_data->x3), and ((u16*) &mnDataDel_803EF870.x58).",
+    "Repeated the JObj state-update sequence: get child with lb_80011E24, save frame with mn_8022F298, request animation frame 1.0f or enabled value, apply mn_8022F3D8 with MOBJ_MASK, animate, restore saved frame, apply type mask 0x480, and animate again.",
+    "Used HSD_MemAlloc plus HSD_ASSERTREPORT and GObj_InitUserData with HSD_Free to match user-data lifetime setup.",
+    "Used HSD_GObjProc_8038FE24 before HSD_GObj_SetupProc when switching menu procedures, then copied HSD_GObj_804D783C into proc->flags_3.",
+    "The bot report confirms one exact function match and multiple high-percentage partial matches rather than full decomp of every touched function."
   ],
   "review_feedback": [
-    "No human PR body, reviews, or review comments were present in the slice.",
-    "decomp.dev bot reported matched code at 66.41% (+0.01%, +300 bytes) and matched data at 38.72% (+0.00%, +48 bytes) for GALE01.",
-    "Bot reported 2 new matches: `main/melee/mn/mndatadel` `mnDataDel_8024E940` from 0.00% to 100.00%, and `.bss` from 33.33% to 100.00%.",
-    "Bot reported unmatched-item improvements for `fn_8024F318` to 88.08%, `mnDataDel_8024FE4C` to 92.99%, `fn_8024F840` to 80.21%, `.data` to 89.03%, `mnDataDel_8024EA6C` to 93.13%, `mnDataDel_80250170` to 75.62%, `fn_8024FD40` to 92.52%, `fn_8024ECCC` to 96.38%, and `.sdata2` to 68.52%."
+    "No human review comments or PR body were present in the provided slice.",
+    "decomp.dev bot reported matched code increased to 66.41% (+0.01%, +300 bytes) and matched data to 38.72% (+48 bytes).",
+    "decomp.dev bot reported 2 new matches: mnDataDel_8024E940 at 100% (+300 bytes) and main/melee/mn/mndatadel .bss from 33.33% to 100%.",
+    "decomp.dev bot reported 9 unmatched-item improvements, including fn_8024F318 to 88.08%, mnDataDel_8024FE4C to 92.99%, fn_8024F840 to 80.21%, .data to 89.03%, mnDataDel_8024EA6C to 93.13%, mnDataDel_80250170 to 75.62%, fn_8024FD40 to 92.52%, fn_8024ECCC to 96.38%, and .sdata2 to 68.52%."
   ],
   "searchable_terms": [
     "pr-2448",
     "Jj/mndatadel",
-    "jj/mndatadel",
+    "jurrejelle",
     "mndatadel",
-    "Data Delete menu",
-    "main/melee/mn/mndatadel",
     "mnDataDel_8024E940",
     "mnDataDel_8024E940_inline",
     "mnDataDel_8024EA6C",
-    "fn_8024ECCC",
     "fn_8024F318",
     "fn_8024F840",
     "fn_8024FD40",
     "mnDataDel_8024FE4C",
     "mnDataDel_80250170",
+    "fn_8024ECCC",
     "MnDataDelData",
     "MnDataDelGObjUserData",
     "mnDataDel_803EF870",
-    "mnDataDel_803EF870.x3C",
+    "mnDataDel_803EF8A0",
     "mnDataDel_803EF8AC",
     "mnDataDel_804A0918",
     "mnDataDel_804A0928",
@@ -129,28 +115,39 @@
     "MenMainConDl_Top_joint",
     "MenMainCursorDl_Top_joint",
     "MenMainWarCmn_Top_joint",
+    "lbArchive_LoadSections",
+    "HSD_JObjReqAnimAll",
+    "HSD_JObjAnimAll",
+    "mn_8022F3D8",
+    "MOBJ_MASK",
+    "HSD_SisLib_803A5ACC",
+    "HSD_SisLib_803A6368",
     "HSD_GObj_SetupProc",
     "GObj_InitUserData",
     "HSD_MemAlloc",
-    "HSD_ASSERTREPORT",
-    "HSD_SisLib_803A5ACC",
-    "HSD_SisLib_803A6368",
-    "HSD_JObjReqAnimAll",
-    "HSD_JObjAnimAll",
-    "MOBJ_MASK",
-    "lbArchive_LoadSections",
     "lbAudioAx_800237A8",
+    "lbAudioAx_80024030",
+    "lbLang_GetSavedLanguage",
+    "lbLang_SetSavedLanguage",
     "gmMainLib_8015F490",
     "gmMainLib_8015FBA4",
-    "mnevent formatting",
-    "mnsoundtest formatting",
-    "GALE01"
+    "gm_801729EC",
+    "lb_8001CE00"
   ],
   "follow_up_queries": [
-    "Can the partially matched functions `fn_8024F318`, `fn_8024F840`, `fn_8024FD40`, `mnDataDel_8024FE4C`, and `mnDataDel_80250170` be pushed to 100% by factoring or reordering the repeated selection-animation code?",
-    "Should `MnDataDelGObjUserData` fields be semantically renamed once the cursor, confirmation state, disabled flags, text pointer, and cached joint meanings are verified?",
-    "Verify the relationship between `mnDataDel_803EF8A0` and `mnDataDel_803EF870.x30`; the diff changed use sites to `anim_data->x30` while the static symbol remains declared with a comment tying it to `mnDataDel_803EF870`.",
-    "Check whether future mndatadel-only PRs should avoid incidental formatting-only edits in `mnevent.c` and `mnsoundtest.c` to keep diffs focused."
+    "Find later PRs that rename MnDataDelGObjUserData fields x0/x1/x2/x3-x8 to semantic names.",
+    "Search for subsequent work completing fn_8024F318, fn_8024F840, mnDataDel_8024FE4C, and mnDataDel_80250170 to 100%.",
+    "Compare Data Delete menu GObj user-data layout with other mn menu modules that cache JObjs and SIS text.",
+    "Search for uses of mnDataDel_803EF8AC and whether its unsigned long long declaration was later refined.",
+    "Look for later cleanup of mnevent.c and mnsoundtest.c formatting-only changes if separating decomp changes from style churn matters."
   ],
-  "confidence": 0.86
+  "confidence": 0.84,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

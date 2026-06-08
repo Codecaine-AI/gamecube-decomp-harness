@@ -11,21 +11,26 @@
     "merged_at": "2026-03-02T03:13:39Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large decomp-matching batch across fighter, item, stage, menu/game-mode, toy, and audio code. The PR replaced many placeholder `/// #...` stubs with C implementations, updated headers/prototypes, and adjusted small-data/static declarations. decomp.dev reported +9176 bytes matched code and 69 new 100% matches, with reviewer follow-up focused on eliminating matching regressions against both `master` and a pre-merge baseline. Final approval noted the remaining regressions were mostly false positives.",
+  "summary": "Large decompilation/matching batch across fighter, item, stage, menu, game-mode, and library code. The decomp.dev report credited the PR with +9176 matched bytes, 69 new 100% matches, and 14 unmatched-item improvements, with most work replacing placeholder `/// #...` stubs with C implementations and cleaning related prototypes/headers. Review initially requested fixing regressions against both `master` and a pre-merge commit using `ninja baseline`/`ninja changes`; the final remaining regressions were accepted as more or less false positives.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
+      "stub-removal",
       "headers",
       "naming",
-      "regression-fix",
-      "tooling-validation"
+      "regression-checking",
+      "tooling"
     ],
     "systems": [
       "fighter",
+      "fighter-common",
+      "kirby",
+      "crazy-hand",
+      "popo",
+      "game-mode",
       "item",
       "stage",
-      "game-mode",
       "menu",
       "library-audio",
       "toy"
@@ -47,82 +52,86 @@
     "src/melee/it/types.h",
     "src/melee/it/itCommonItems.h",
     "src/melee/it/items/itoldkuri.c",
-    "src/melee/it/items/itdosei.c",
     "src/melee/gr/grzakogenerator.c",
-    "src/melee/mn/mnname.c",
-    "src/melee/ty/toy.c"
+    "src/melee/mn/mnname.c"
   ],
   "what_changed": [
-    "Implemented multiple previously stubbed fighter common functions in `ftCo_Attack100.c`, including `fn_800D86E0`, `fn_800DA2B0`, `fn_800DA4FC`, and `ftCo_800DA698`, with corresponding callback assignments, motion-state changes, velocity setup, and stack/register matching aids.",
-    "Expanded `ftCo_Attack100.h` with address-ordered prototypes and corrected/added declarations such as `fn_800D86E0`, `fn_800D9930`, `fn_800DA190`, `fn_800DA1D8`, `fn_800DAA40`, `fn_800DB6C8`, and `fn_800DBED4`.",
-    "Implemented `ftCo_80094098` in guard code using `gobj->user_data`, `lb_8000B1CC`, fighter part/joint lookup, and `inlineB0` return behavior.",
-    "Filled in Crazy Hand init/behavior helpers in `ftCh_Init.c`, including `fn_80156F6C`, `ftCh_Init_8015A2B0`, `ftCh_Init_8015A3F4`, `ftCh_Init_8015A560`, and `ftCh_Fail_Anim`.",
-    "Implemented Kirby copy/hat-related code such as `ftKb_SpecialN_800EF040`, Captain Kirby collision transitions `ftKb_CaSpecialN_Coll` and `ftKb_CaSpecialAirN_Coll`, and Fox/Falco Kirby special-N index logic in `ftKb_SpecialNFx_800FDD4C`.",
-    "Adjusted Kirby hat-loading functions `ftKb_SpecialN_800F0FC0` and `ftKb_SpecialN_800F130C` with `#pragma dont_inline`, direct `gobj->user_data` access, and changed stack padding to recover prior matching.",
-    "Added many smaller matches across items, stages, menu/game-mode, toy, and audio; bot output listed 69 new matches, including `fn_800259EC`, `fn_80025A98`, `grZakoGenerator_801CA394`, `grMuteCity_801F2AB0`, `grZebesRoute_8020B42C`, `it_802D43EC`, `mnName_80238964`, and `mnNameNew_EnterFromMnName`.",
-    "Updated item, game-mode, stage, menu, toy, and audio headers/static headers to keep prototypes, externs, and type declarations aligned with newly decompiled functions."
+    "Implemented many previously stubbed functions across 68 files, with 1437 added and 217 deleted lines in the slice metadata.",
+    "Matched several fighter-common routines in `ftCo_Attack100.c`, including `fn_800D86E0`, `fn_800DA2B0`, `fn_800DA4FC`, and `ftCo_800DA698`, covering item-scope end, catch-wait, catch-attack, and catch-cut transitions.",
+    "Implemented `ftCo_80094098` in `ftCo_Guard.c`, using a fighter part joint lookup through `fp->parts[fp->ft_data->x8->x11].joint`, `lb_8000B1CC`, and `inlineB0(fp)`.",
+    "Added Crazy Hand routines in `ftCh_Init.c`, including `fn_80156F6C`, `ftCh_Init_8015A2B0`, `ftCh_Init_8015A3F4`, `ftCh_Init_8015A560`, and `ftCh_Fail_Anim`.",
+    "Added Kirby copy-ability and hat-related implementations: `ftKb_SpecialN_800EF040`, collision transitions for Captain/Ganondorf-style neutral special variants, and `ftKb_SpecialNFx_800FDD4C` special-N index selection.",
+    "Updated headers to expose newly implemented or newly referenced symbols and to correct signatures, including changing `ftKb_SpecialN_800EF040` from `UNK_RET` to `void`.",
+    "Touched many item and stage files with small decomp matches or data/prototype adjustments, including old Kuri, Tincle, Dosei, Hitodeman, Ness yoyo, Zako generator, Mute City, Zebes Route, and others.",
+    "The bot report recorded 69 new matches and 14 improvements, including examples such as `fn_800259EC`, `fn_80025A98`, `ftCo_800DA698`, `ftKb_CaSpecialN_Coll`, `ftKb_SpecialNFx_800FDD4C`, `grZakoGenerator_801CA394`, and `ftKb_SpecialN_800EF040`."
   ],
   "smart_moves": [
-    "Used `#pragma push`, `#pragma dont_inline on`, and `#pragma pop` locally around sensitive functions rather than making broad compiler-behavior changes.",
-    "Preserved known register-allocation quirks in Kirby hat-loading code, including the documented self-assignment pattern and switching to `gobj->user_data` where it helped matching.",
-    "Kept unknown or not-yet-stabilized declarations as `UNK_RET`/`UNK_PARAMS` in headers while still inserting them at the correct address locations, avoiding premature type claims.",
-    "Used raw motion-state constants with comments in `ftKb_SpecialNFx_800FDD4C` because the diff explicitly notes the `ftKb_MS` enum was not yet safe due to a `#ftCo_MS_Count` mismatch.",
-    "Validated the large batch with `ninja baseline` and `ninja changes`, comparing both against `master` and a pre-merge commit to catch regressions introduced by matching tactics."
+    "Used local `#pragma push`, `#pragma dont_inline on`, and `#pragma pop` blocks only around functions that needed codegen control, instead of globally changing compilation behavior.",
+    "Preserved register/codegen-sensitive patterns in Kirby hat loaders, including the documented self-assignment style and switching to `gobj->user_data` plus adjusted `PAD_STACK(8)` where needed for matching.",
+    "Kept address comments on prototypes and function declarations, making the header changes easier to audit against the map and matching reports.",
+    "Used numeric motion IDs with inline comments in `ftKb_SpecialNFx_800FDD4C` where enum use was known to be unsafe because of the documented `ftKb_MS` / `ftCo_MS_Count` mismatch.",
+    "Matched transition routines by preserving callbacks and side effects such as `pre_hitlag_cb`, `post_hitlag_cb`, `take_dmg_cb`, `accessory1_cb`, velocity fields, and `Fighter_ChangeMotionState` arguments.",
+    "Ran or responded to decomp.dev / ninja comparison tooling rather than relying only on local function-level matches."
   ],
   "decomp_lessons": [
-    "Large decomp PRs should be checked against both current `master` and the pre-merge baseline; a function can improve total matched bytes while still causing localized fuzzy-match regressions.",
-    "When enum definitions are known to be unstable, prefer numeric motion IDs plus explanatory comments over forcing enum names that could encode a wrong layout.",
-    "For CodeWarrior matching, direct `gobj->user_data` access versus helper macros like `GET_FIGHTER` can affect register allocation and should be tried deliberately.",
-    "`PAD_STACK` size and `#pragma dont_inline` are reusable tactics for recovering matches in functions with fragile stack/register layout.",
-    "Header cleanup matters for decomp velocity: adding address-tagged prototypes prevents duplicate local forward declarations and makes future symbol work searchable.",
-    "Small-data and static-data changes can improve or regress `.sdata`, `.sdata2`, and `.sbss` matching; track those sections separately from function matches."
+    "For large matching PRs, compare against both current `master` and the pre-merge baseline; a PR can improve matched bytes while still regressing previously matched functions.",
+    "Small helper access differences such as `GET_FIGHTER(gobj)` versus `gobj->user_data` can matter for matching and register allocation.",
+    "`PAD_STACK` and `dont_inline` pragmas remain practical tools for isolated codegen fixes, but should be scoped narrowly.",
+    "When an enum is known to have a count or offset mismatch, numeric IDs with explicit comments can be safer than forcing misleading enum names.",
+    "Header cleanup is part of matching: adding address-ordered prototypes, correcting return types, and moving declarations from ad hoc positions reduces future mismatch and include friction.",
+    "Bot-reported fuzzy-match regressions may be false positives, but they still need explicit review and documentation before merge.",
+    "Large cross-system batches should preserve function addresses and subsystem prefixes so future search can connect reports, headers, and source implementations."
   ],
   "naming_conventions": [
-    "Kept address-derived unknown names such as `fn_800D86E0`, `fn_80156F6C`, and `it_802D43EC` where semantic names were not evidenced.",
-    "Used subsystem-prefixed semantic names when already established, such as `ftCo_`, `ftKb_`, `ftCh_`, `grZakoGenerator_`, `mnName_`, and `itOldottosea_`.",
-    "Maintained address comments in prototypes, e.g. `/* 0D86E0 */`, to preserve ordering and make unresolved functions searchable by ROM address.",
-    "Used temporary numeric comments for motion states in Kirby FX code, e.g. `/* ftKb_MS_FxSpecialNStart */`, when enum names were intentionally not used."
+    "Unidentified functions kept address-based names such as `fn_800D86E0`, `fn_80156F6C`, and `fn_8024FBA4`.",
+    "Subsystem-qualified names were preserved where known, such as `ftCo_`, `ftKb_`, `ftCh_`, `grZakoGenerator_`, `grMuteCity_`, `mnName_`, and item file prefixes.",
+    "Headers use address comments of the form `/* 0D86E0 */` before prototypes.",
+    "Unknown signatures remain marked with `UNK_RET` and `UNK_PARAMS` until evidence is stronger.",
+    "Motion-state constants use established names where reliable, such as `ftCo_MS_ItemScopeEnd`, `ftCo_MS_CatchWait`, `ftCo_MS_CatchAttack`, and `ftCo_MS_CatchCut`; numeric constants were retained where enum definitions were suspect."
   ],
   "assembly_or_matching_tactics": [
-    "`#pragma dont_inline on` around `fn_800D86E0`, `ftCo_CatchAttack_Anim`, `ftCo_800DA698`, `ftKb_SpecialN_800F0FC0`, and `ftKb_SpecialN_800F130C`-style functions.",
-    "`PAD_STACK(8)` and adjusted stack padding in fragile functions such as `ftCo_800DA698`, `ftCh_Fail_Anim`, and Kirby hat loaders.",
-    "Direct fighter extraction via `Fighter* fp = gobj->user_data` used in places where it matched better than macro-based access.",
-    "Preserved odd source patterns like `Fighter* fp = fp = gobj->user_data` in Kirby hat-loading functions for register allocation.",
-    "Used decomp.dev plus `ninja baseline`/`ninja changes` reports to identify regressions in `ftKb_Init`, `gmmultiman`, `itfreeze`, `ithitodeman`, and other units before approval."
+    "Scoped `#pragma dont_inline on` around sensitive functions including `fn_800D86E0`, `ftCo_CatchAttack_Anim`, `ftCo_800DA698`, `ftKb_SpecialN_800F0FC0`, and `ftKb_SpecialN_800F130C`.",
+    "Inserted `PAD_STACK(8)` in functions where stack shape affected matching, including fighter catch-cut and Kirby special-N code.",
+    "Used `gobj->user_data` directly in some functions to influence register allocation.",
+    "Preserved an explicit self-assignment idiom in Kirby hat-loading routines as noted by the in-code comment.",
+    "Maintained exact `Fighter_ChangeMotionState` parameter ordering and float literals such as `0.0F`, `1.0F`, and `0.0f` to match generated code.",
+    "Used `ninja baseline` and `ninja changes` as the review workflow for identifying regressions against `master` and a pre-merge commit.",
+    "Accepted a small set of final fuzzy-match changes only after reviewer assessment that they were mostly false positives."
   ],
   "review_feedback": [
     {
       "reviewer": "ribbanya",
       "state": "CHANGES_REQUESTED",
-      "submitted_at": "2026-03-01T17:55:31Z",
-      "feedback": "Requested fixing regressions relative to both `master` and pre-merge commit `2ecbc73630c5c584dc369367e3dd23d51b38bfff` using `ninja baseline` and `ninja changes`."
-    },
-    {
-      "reviewer": "ribbanya",
-      "state": "comment",
-      "submitted_at": "2026-03-01T20:30:04Z",
-      "feedback": "Said changes against `master` were good to go, while listing remaining pre-merge fuzzy-match deltas such as `gm_8016A164`, `fn_801F5914`, `mnDiagram_80242C0C`, `fn_80393C14`, and `hsd_80393DA0`."
+      "feedback": "Requested fixing all regressions relative to both `master` and pre-merge commit `2ecbc73630c5c584dc369367e3dd23d51b38bfff`, using `ninja baseline` and `ninja changes`."
     },
     {
       "reviewer": "ribbanya",
       "state": "APPROVED",
-      "submitted_at": "2026-03-02T03:12:19Z",
-      "feedback": "Approved after concluding the last regressions were more or less false positives."
+      "feedback": "Approved after noting the last regressions were more or less false positives."
+    },
+    {
+      "reviewer": "ribbanya",
+      "state": "comment",
+      "feedback": "Final comment said changes against `master` were good to go, while listing a few remaining fuzzy-match deltas versus the pre-merge commit."
     }
   ],
   "searchable_terms": [
+    "pr-2184",
     "Pr 13",
+    "stephenjayakar",
+    "ribbanya",
     "ninja baseline",
     "ninja changes",
     "false positives",
-    "69 new matches",
-    "matched code +9176 bytes",
+    "decomp.dev 69 new matches",
+    "+9176 bytes",
     "ftCo_Attack100",
     "ftCo_800DA698",
     "fn_800D86E0",
     "fn_800DA2B0",
     "fn_800DA4FC",
     "ftCo_80094098",
+    "ftCo_Guard",
     "ftCh_Init",
     "fn_80156F6C",
     "ftCh_Init_8015A2B0",
@@ -134,30 +143,27 @@
     "ftKb_CaSpecialN_Coll",
     "ftKb_CaSpecialAirN_Coll",
     "ftKb_SpecialNFx_800FDD4C",
-    "ftKb_MS enum",
+    "ftKb_MS enum fixed",
     "ftCo_MS_Count mismatch",
-    "gobj->user_data",
-    "GET_FIGHTER",
-    "PAD_STACK",
-    "#pragma dont_inline",
-    "grZakoGenerator_801CA394",
-    "grMuteCity_801F2AB0",
-    "grZebesRoute_8020B42C",
-    "it_802D43EC",
-    "mnName_80238964",
-    "mnNameNew_EnterFromMnName",
+    "ftPp_SpecialS",
+    "gm_17C0",
     "lbaudio_ax",
-    "it/types.h",
-    ".sdata2",
-    ".sbss"
+    "itoldkuri",
+    "grzakogenerator",
+    "mnname",
+    "PAD_STACK",
+    "dont_inline",
+    "gobj->user_data",
+    "Fighter_ChangeMotionState"
   ],
   "follow_up_queries": [
-    "Find later PRs that fix the `ftKb_MS` enum / `ftCo_MS_Count` mismatch so numeric Kirby motion IDs can be replaced safely.",
-    "Search for later cleanup of remaining pre-merge fuzzy regressions: `gm_8016A164`, `fn_801F5914`, `mnDiagram_80242C0C`, `fn_80393C14`, and `hsd_80393DA0`.",
-    "Look for other PRs using `gobj->user_data` instead of `GET_FIGHTER` for register allocation in matched fighter code.",
-    "Search for follow-up semantic renames of address-based functions introduced here, especially `fn_800D86E0`, `fn_80156F6C`, and item `it_802D...` symbols."
+    "Find PRs that use `#pragma dont_inline` plus `PAD_STACK` for matching fighter functions.",
+    "Find later fixes for the `ftKb_MS` enum and `ftCo_MS_Count` mismatch mentioned in `ftKb_SpecialNFx_800FDD4C`.",
+    "Search for follow-up PRs touching `ftKb_SpecialN_800F0FC0` or `ftKb_SpecialN_800F130C` after the initial regression review.",
+    "Compare later cleanup of address-based `fn_800D86E0`, `fn_80156F6C`, and other newly matched symbols for real names.",
+    "Look for additional PRs where decomp.dev fuzzy-match regressions were accepted as false positives."
   ],
-  "confidence": 0.86,
+  "confidence": 0.84,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

@@ -11,16 +11,15 @@
     "merged_at": "2026-03-04T19:15:05Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the Chikorita Pokémon item unit by folding the former itchicoritaleaf source/header into itchicorita, marking itchicorita.c Matching, and updating GALE01 splits/symbols. The PR also refactored duplicated Chikorita physics callbacks through a static inline helper. decomp-dev reported net progress of +368 matched code bytes, +1976 linked code bytes, and +72 linked data bytes; the old itchicoritaleaf unit shows broken matches only because it was removed as a separate object.",
+  "summary": "Matched the Chikorita Pokémon item code by folding the separately split itchicoritaleaf translation unit into itchicorita.c, marking itchicorita.c as Matching, and updating splits/symbols/configuration accordingly. The PR removes itchicoritaleaf.c/.h, moves its state table and leaf behavior prototypes into itchicorita.c/.h, and deduplicates duplicated Chikorita physics into a static inline helper used by multiple motion states.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "translation-unit-merge",
-      "file-removal",
       "headers",
-      "build-config",
-      "symbol-scope"
+      "configuration-cleanup",
+      "item-behavior"
     ],
     "systems": [
       "item",
@@ -35,63 +34,57 @@
     "src/melee/it/items/itchicoritaleaf.c",
     "src/melee/it/items/itchicoritaleaf.h",
     "src/melee/it/it_2725.c",
-    "configure.py",
     "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt"
+    "config/GALE01/symbols.txt",
+    "configure.py"
   ],
   "what_changed": [
-    "Merged the previous itchicoritaleaf text/data ranges into itchicorita.c in config/GALE01/splits.txt: .text now spans 0x802C9588-0x802C9D40 and .data spans 0x803F7A98-0x803F7AD8.",
-    "Changed configure.py from two NonMatching objects, itchicorita.c and itchicoritaleaf.c, to one Matching object for melee/it/items/itchicorita.c.",
-    "Deleted src/melee/it/items/itchicoritaleaf.c and itchicoritaleaf.h.",
-    "Moved the leaf ItemStateTable it_803F7AC8 and leaf routines into itchicorita.c, including it_802C9B20, itChicoritaLeaf_Logic30_* callbacks, it_802C9CC0, and itChicoritaleaf_UnkMotion0_* callbacks.",
-    "Expanded itchicorita.h with the leaf prototypes and extern declaration for it_803F7AC8, replacing the removed leaf header.",
-    "Removed the itchicoritaleaf.h include from src/melee/it/it_2725.c.",
-    "Refactored duplicate itChicorita_UnkMotion0_Phys and itChicorita_UnkMotion1_Phys bodies into static inline itChicorita_Phys with thin exported wrappers.",
-    "Changed sdata2 symbols at 0x804DD330 and 0x804DD334 from globals it_804DD330/it_804DD334 to local labels @153 and @274."
+    "Merged the former itchicoritaleaf.c text/data range into itchicorita.c in config/GALE01/splits.txt, changing itchicorita.c from 0x802C9588-0x802C9B20 and 0x803F7A98-0x803F7AC8 to the combined 0x802C9588-0x802C9D40 and 0x803F7A98-0x803F7AD8 ranges.",
+    "Changed configure.py so melee/it/items/itchicorita.c is Object(Matching) and removed the separate Object(NonMatching, \"melee/it/items/itchicoritaleaf.c\") entry.",
+    "Deleted src/melee/it/items/itchicoritaleaf.c and src/melee/it/items/itchicoritaleaf.h.",
+    "Moved the Chikorita leaf item state table it_803F7AC8 and leaf functions such as it_802C9B20, itChicoritaLeaf_Logic30_Spawned, it_802C9CC0, and itChicoritaleaf_UnkMotion0_* into itchicorita.c.",
+    "Moved the deleted leaf header declarations into itchicorita.h, including the it_803F7AC8 extern.",
+    "Removed the itchicoritaleaf.h include from src/melee/it/it_2725.c and itchicorita.c.",
+    "Changed symbols.txt entries at 0x804DD330 and 0x804DD334 from global names it_804DD330/it_804DD334 to local float labels @153 and @274.",
+    "Refactored duplicated Chikorita motion physics code into static inline void itChicorita_Phys(HSD_GObj* item_gobj), used by itChicorita_UnkMotion0_Phys and itChicorita_UnkMotion1_Phys."
   ],
   "smart_moves": [
-    "Recognized that the leaf article belonged in the same translation unit as Chikorita for matching, then aligned source layout, splits.txt, configure.py, and headers in one PR.",
-    "Used a static inline helper for the two identical Chikorita physics callbacks, preserving both public callback symbols while sharing the exact C shape needed for codegen.",
-    "Kept address-commented prototypes for the moved leaf functions in itchicorita.h so existing item registration code can include one parent item header.",
-    "Updated local/global sdata2 labeling alongside the source move, avoiding stale global symbol names for floats that are now local to the matched object.",
-    "Accepted that decomp.dev would list broken matches for the removed itchicoritaleaf unit because the same functions became new matches under itchicorita."
+    "Treating Chikorita and Chikorita Leaf as one contiguous translation unit matched the observed address layout and allowed the whole combined item source to be marked Matching.",
+    "Removing the artificial itchicoritaleaf source/header split simplified include dependencies and avoided keeping a nonmatching object for a small contiguous leaf behavior range.",
+    "The shared static inline itChicorita_Phys helper preserved two call sites while eliminating duplicated physics logic, a useful decomp tactic when identical source bodies need to produce matching generated code.",
+    "The physics rewrite keeps the original branch/goto shape with block_11, suggesting matching was prioritized over stylistic simplification.",
+    "Updating splits.txt, symbols.txt, configure.py, and headers together kept the build configuration, linker symbols, and public declarations consistent with the new translation-unit boundary."
   ],
   "decomp_lessons": [
-    "When a child article file is contiguous with its parent item in .text/.data and decomp.dev shows progress under the parent object, merging the files can be the correct matching move rather than preserving an artificial split.",
-    "For duplicated callbacks, a static inline implementation plus small wrappers can both reduce source duplication and satisfy per-symbol matching.",
-    "Small C-shape changes such as ternary sign checks, direct field access through item->xCC_item_attr, and a retained goto label can be relevant to closing near-matches.",
-    "Deleting a source/header pair requires synchronized cleanup in includes, exported prototypes, configure.py object lists, and GALE01 split ranges.",
-    "sdata2 scope annotations in symbols.txt should be reviewed when changing translation-unit boundaries; local float labels may replace temporary global it_804Dxxxx names."
+    "If two adjacent item files are split at an artificial boundary but share one logical translation unit in the original binary, merging them can be necessary for a match.",
+    "When deleting a small helper item file, move both its functions and its ItemStateTable externs into the surviving item header so central item dispatch code can continue to reference them.",
+    "Matching work may require converting global-looking sdata2 float symbols back to local labels when the constants become local to the newly matched translation unit.",
+    "Inline helpers can be useful for matching duplicated functions, but the helper may need to be static inline rather than a normal out-of-line function to preserve expected code generation.",
+    "For item physics routines, preserving sign checks, fall-speed max checks, and explicit goto labels can matter for matching even when the logic could be expressed more cleanly."
   ],
   "naming_conventions": [
-    "Parent item routines use the itChicorita_* prefix, for example itChicorita_UnkMotion0_Phys and itChicorita_UnkMotion2_Coll.",
-    "Leaf logic callbacks use itChicoritaLeaf_Logic30_* names, for example itChicoritaLeaf_Logic30_Spawned, HitShield, EvtUnk, and Reflected.",
-    "Leaf motion callbacks preserved the existing mixed-case itChicoritaleaf_* spelling, for example itChicoritaleaf_UnkMotion0_Anim.",
-    "Unknown/address-based functions remain named by address, such as it_802C9B20 and it_802C9CC0.",
-    "Headers retain address comments on declarations, such as /* 2C9B20 */ and /* 3F7AC8 */.",
-    "ItemStateTable globals use it_803F7A98 for Chikorita and it_803F7AC8 for the leaf article."
+    "Main item functions use the existing itChicorita_* prefix, while leaf-specific logic uses itChicoritaLeaf_Logic30_* and itChicoritaleaf_UnkMotion0_* spellings as already present in the deleted header.",
+    "Address-named functions such as it_802C9B20 and it_802C9CC0 were retained rather than renamed without stronger semantic evidence.",
+    "The moved state table kept the existing symbol name it_803F7AC8.",
+    "The helper name itChicorita_Phys reflects shared internal physics behavior and was made file-local with static inline."
   ],
   "assembly_or_matching_tactics": [
-    "Collapsed itchicorita and itchicoritaleaf into one object to match the full 0x802C9588-0x802C9D40 code range.",
-    "Introduced static inline itChicorita_Phys so both itChicorita_UnkMotion0_Phys and itChicorita_UnkMotion1_Phys can emit matching code through wrappers.",
-    "Kept the branch-shaping goto label block_11 in the physics helper.",
-    "Used direct item->xCC_item_attr field accesses and ternary sign computations instead of extra ItemAttr/fall_speed temporaries in the matched physics code.",
-    "Preserved PAD_STACK(12) in itChicoritaLeaf_Logic30_Spawned.",
-    "Localized .sdata2 float labels @153 and @274 after the translation-unit merge."
+    "Merged contiguous .text/.data split ranges for itchicorita.c and itchicoritaleaf.c into one object to match the original translation-unit layout.",
+    "Marked itchicorita.c as Matching in configure.py only after absorbing the leaf code and removing the separate leaf object.",
+    "Used a static inline helper to share duplicated physics logic without introducing a separate emitted function.",
+    "Preserved a goto label named block_11 in the physics helper to maintain the compiler's branch structure.",
+    "Adjusted sdata2 symbols from global it_804DD330/it_804DD334 to local labels @153/@274, consistent with constants local to the matched object."
   ],
   "review_feedback": [
-    "No human review comments were present in the slice.",
-    "The decomp-dev bot reported GALE01 matched code 54.48% (+0.01%, +368 bytes), linked code 30.97% (+0.05%, +1976 bytes), and linked data 28.87% (+0.01%, +72 bytes).",
-    "The bot listed 13 new matches in main/melee/it/items/itchicorita, including it_802C9B20, itChicoritaLeaf_Logic30_Spawned, itChicoritaleaf_UnkMotion0_Anim, .data, .sdata2, and both Chikorita physics callbacks reaching 100%.",
-    "The bot also listed 11 broken matches under main/melee/it/items/itchicoritaleaf, consistent with that object being removed rather than a functional regression."
+    "No review comments were present in the provided excerpt. The PR appears to have merged quickly, but there is no evidence in the slice of specific reviewer feedback or requested changes."
   ],
   "searchable_terms": [
     "pr-2209",
     "PsiLupan",
     "itchicorita",
     "itchicoritaleaf",
-    "Chicorita",
     "Chikorita",
+    "Chikorita Leaf",
     "Pokemon_Chicorita_Leaf",
     "it_802C9B20",
     "it_802C9CC0",
@@ -109,30 +102,29 @@
     "itChicoritaleaf_UnkMotion0_Coll",
     "ItemStateTable",
     "SpawnItem",
-    "GET_ITEM",
-    "PAD_STACK",
-    "ITEM_ANIM_UPDATE",
     "Item_80268B18",
-    "Item_8026AE84",
+    "Item_80268E5C",
     "it_8026DFB0",
-    "it_80273030",
-    "it_8026B894",
-    "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
+    "splits.txt",
+    "symbols.txt",
     "configure.py",
-    "MatchingFor",
     "Object(Matching)",
-    "sdata2",
-    "@153",
-    "@274",
-    "it_804DD330",
-    "it_804DD334"
+    "translation unit merge",
+    "sdata2 local labels"
   ],
   "follow_up_queries": [
-    "Search for other Pokémon item article files with contiguous .text/.data ranges that may be artificial splits like itchicoritaleaf.",
-    "Audit remaining Pokémon item NonMatching objects near itkabigon, itkamex, and itmatadogas for duplicate callbacks that could use static inline wrapper tactics.",
-    "Check whether mixed-case itChicoritaleaf_* names should remain as symbol-preserving placeholders until stronger naming evidence exists.",
-    "Review nearby sdata2 globals after 0x804DD338 for additional local-label opportunities when later item units are matched."
+    "Find other Pokémon item PRs that merged projectile/child item files into a parent item file for matching.",
+    "Search for other artificial item translation-unit splits around adjacent .text/.data ranges in config/GALE01/splits.txt.",
+    "Look for uses of static inline helpers to deduplicate physics functions while preserving matching codegen.",
+    "Check future renaming opportunities for it_802C9B20 and it_802C9CC0 if stronger Chikorita leaf spawn/reset semantics are established."
   ],
-  "confidence": 0.93
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

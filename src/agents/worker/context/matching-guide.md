@@ -7,10 +7,12 @@ compiler shape.
 ## Tactic Order
 
 1. Start from natural source and local repo idioms.
-2. Match the first concrete mismatch, not the whole function at once.
-3. Change one source-shape axis per attempt and verify immediately.
-4. Compare target and affected neighbors after every retained edit.
-5. Prefer understandable source that can survive review over a fake local match.
+2. Infer likely original developer conventions from matched siblings, nearby
+   files, headers, macros, naming habits, and historical PR evidence.
+3. Match the first concrete mismatch, not the whole function at once.
+4. Change one source-shape axis per attempt and verify immediately.
+5. Compare target and affected neighbors after every retained edit.
+6. Prefer understandable source that can survive review over a fake local match.
 
 ## Common Levers
 
@@ -25,8 +27,15 @@ compiler shape.
   proven.
 - Inlines/macros: prefer existing header inlines and canonical assert/report
   macros before manual expansion.
-- Data/literals: check section ownership, literal order, static declarations,
-  relocation targets, and split boundaries before adding or moving data.
+- Data/literals: treat these as high-risk secondary work. Check section
+  ownership, literal order, static declarations, relocation targets, and split
+  boundaries before adding or moving data, and do not chase data parity before
+  the translation unit's text section is complete. Do not replace inline string
+  literals with generated/global symbols unless explicit data-ownership evidence
+  and scope require it.
+- Globals/externs: use one canonical evidence-backed name. Do not introduce
+  `#define` aliases for renamed variables or duplicate address-commented
+  externs under different names.
 - Duplicate adaptation: use matched siblings or duplicate assembly groups as
   evidence, then adjust names/types to the current subsystem instead of copying
   blindly.
@@ -81,6 +90,11 @@ register/operand cascade, or compound evidence before editing.
   packet explicitly allows a broader tradeoff and the report names it.
 - Do not introduce fake statics, fake helpers, undefined behavior, or macro
   redefinitions to force a match.
+- Do not retain data, literal, symbol, or split edits that create section
+  regression noise unless they are required for the code match or explicitly
+  scoped as data cleanup.
+- Do not replace source string literals with data symbols to chase data parity.
+- Do not use defines to make guessed global names look canonical.
 - Forced MWCC/debug outputs are hypothesis tests, not source proof. Keep only
   source shapes that reproduce the improvement through an unforced local
   build/objdiff check.

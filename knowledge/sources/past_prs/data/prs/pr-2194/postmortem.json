@@ -11,84 +11,78 @@
     "merged_at": "2026-03-01T16:00:13Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled and exposed more of the Game & Watch Judge item article, adding spawn/orientation/animation-removal logic and reordering functions to match binary layout. The decomp-dev bot reported five unmatched-item improvements, including itGamewatchjudge_UnkMotion0_Anim to 95.73%, it_802C78B8 to 97.82%, and it_802C7774 to 90.86%. No human review comments were present in the slice.",
+  "summary": "Small matching/decomp pass over the Mr. Game & Watch Judge item file. The PR added several previously undecompiled or unexposed functions in itgamewatchjudge.c/h, including the Judge item spawn helper at 802C7774, orientation update helper at 802C78B8, animation/remove logic at 802C7B54, and moved existing functions to better match binary layout. The body explicitly notes that functions were reordered to match binary layout.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "function-ordering",
-      "item-article-logic"
+      "item-behavior"
     ],
     "systems": [
       "item",
-      "Game & Watch Judge",
-      "ftGameWatch SpecialS"
+      "GameWatch",
+      "Judge item"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/it/items/itgamewatchjudge.c",
-      "role": "Added implementations for Judge item spawn, facing/orientation update, animation removal check, and reordered callbacks."
-    },
-    {
-      "path": "src/melee/it/items/itgamewatchjudge.h",
-      "role": "Added address-tagged prototypes for it_802C7774, it_802C78B8, and itGamewatchjudge_UnkMotion0_Anim."
-    }
+    "src/melee/it/items/itgamewatchjudge.c",
+    "src/melee/it/items/itgamewatchjudge.h"
   ],
   "what_changed": [
-    "Added it_802C7774, a Game & Watch Judge item spawn helper that fills a SpawnItem for It_Kind_GameWatch_Judge, sets parent pointers, facing direction, zero velocity/damage, x44_flag.b0, and then calls item setup helpers including Item_80268B18, Item_8026AB54, it_80273670, it_802C78B8, db_80225DD8, and it_8027CE64.",
-    "Added it_802C78B8, which reads the item's owner, gets owner facing through ftLib_800865C0, obtains a JObj grandchild, and sets Y rotation to M_PI when facing is 1.0f or 0.0f otherwise.",
-    "Added itGamewatchjudge_UnkMotion0_Anim, which refreshes the Judge item's facing-dependent rotation, checks ftGw_SpecialS_ItemCheckJudgementRemove when an owner exists, treats missing owner as removable, sets the Game & Watch judgement flag before removal, and returns whether the item should be removed.",
-    "Moved itGameWatchJudge_Logic77_Destroyed earlier and itGameWatchJudge_Logic77_EvtUnk later in the source, matching the stated goal of reordering functions to match binary layout.",
-    "Added required includes for math, db, ftlib, it/forward, and it/it_2725 support used by the new functions.",
-    "Updated itgamewatchjudge.h with prototypes and address comments for the newly decompiled functions."
+    "Added includes needed for the new implementation: math.h, db/db.h, ft/ftlib.h, it/forward.h, and it/it_2725.h.",
+    "Implemented it_802C7774, a spawn helper for It_Kind_GameWatch_Judge using SpawnItem setup, Item_80268B18, Item_8026AB54, it_80273670, it_802C78B8, db_80225DD8, and it_8027CE64.",
+    "Implemented it_802C78B8 to orient a child JObj based on the owner fighter facing direction from ftLib_800865C0, setting rotation Y to M_PI when facing is 1.0f and 0.0f otherwise.",
+    "Moved itGameWatchJudge_Logic77_Destroyed earlier in the file to match the binary address/order and preserved its behavior of setting the Game & Watch judgment flag when the item has an owner.",
+    "Added itGamewatchjudge_UnkMotion0_Anim, which updates item orientation, checks ftGw_SpecialS_ItemCheckJudgementRemove, sets the judgment flag before removal when appropriate, and returns whether the item should be removed.",
+    "Moved itGameWatchJudge_Logic77_EvtUnk later in the file after the newly added animation function, consistent with the PR note about matching binary layout.",
+    "Updated itgamewatchjudge.h with prototypes and address comments for it_802C7774, it_802C78B8, and itGamewatchjudge_UnkMotion0_Anim."
   ],
   "smart_moves": [
-    "Kept functions in binary/address order, matching the PR body note that functions were reordered to match binary layout.",
-    "Used existing item and fighter helpers rather than open-coding article behavior: Item_80268B18, Item_8026AB54, it_80273670, db_80225DD8, it_8027CE64, ftLib_800865C0, and itGetJObjGrandchild.",
-    "Preserved owner-null guards in destroy, animation, and orientation paths, avoiding item cleanup behavior that would dereference a missing owner.",
-    "Used explicit PAD_STACK calls and an awkward temporary assignment in itGamewatchjudge_UnkMotion0_Anim, which are likely matching-oriented choices supported by the diff.",
-    "Exposed new prototypes with address comments in the header so other files can call the decompiled item article helpers while retaining address-based traceability."
+    "Reordered functions to align source order with binary layout, making address-commented headers and future matching work easier to reason about.",
+    "Factored facing-dependent child JObj rotation into it_802C78B8 and reused the same orientation logic in the animation function, preserving observed behavior around owner facing.",
+    "Used explicit SpawnItem field initialization for the Judge item, including prev_pos/pos mirroring, kind, facing_dir, zero velocity, parent pointers, damage, and spawn flags.",
+    "Kept owner-null checks around Game & Watch special-state callbacks, avoiding unconditional calls into fighter-specific logic when the item has no owner.",
+    "Exposed new functions in the header with address comments matching the project's convention for item files."
   ],
   "decomp_lessons": [
-    "For item article spawn helpers, fully initialize SpawnItem fields in the same order as the target code: prev_pos/pos, kind, facing_dir, damage, velocity, parent gobj slots, flags, and x40.",
-    "Facing-based article model orientation can be matched through owner facing from ftLib_800865C0 and a grandchild JObj rotation using HSD_JObjSetRotationY with M_PI or 0.0f.",
-    "Do not assume duplicated-looking logic should be factored out during matching work; it_802C78B8 and itGamewatchjudge_UnkMotion0_Anim both contain similar facing-rotation code, likely because the binary does.",
-    "Function definition order can matter for decomp workflow and binary layout comparison; this PR explicitly reordered callbacks to match layout.",
-    "Awkward locals, inner scopes, casts, and PAD_STACK usage are valid matching tactics when trying to recover function percentages before cleanup or renaming."
+    "For item source files, matching can require not only implementing missing functions but also reordering existing functions to follow the binary layout.",
+    "When decompiling spawn helpers, initialize SpawnItem fields in the order and style that matches the target, even for zeroed velocity and duplicated parent fields.",
+    "Game & Watch Judge item logic couples item lifecycle to fighter special-state flags; removal paths should preserve calls to ftGw_SpecialS_ItemJudgementSetFlag when an owner exists.",
+    "Facing-based model fixes may depend on ftLib_800865C0 and HSD_JObjSetRotationY with M_PI/0.0f rather than changing item facing directly.",
+    "Address comments in headers are useful anchors when adding prototypes for newly matched functions."
   ],
   "naming_conventions": [
-    "Unknown or not-yet-semantic item helpers stayed address-based: it_802C7774 and it_802C78B8.",
-    "Callbacks use item logic naming such as itGameWatchJudge_Logic77_Destroyed and itGameWatchJudge_Logic77_EvtUnk.",
-    "The new animation callback is named itGamewatchjudge_UnkMotion0_Anim in the diff; note its casing differs from itGameWatchJudge.",
-    "Header parameter names are more semantic than the C definition in one case: owner_gobj, bone_index, and judge_num correspond to parent_gobj, part, and arg4 in the implementation.",
-    "The item kind constant used for spawning is It_Kind_GameWatch_Judge."
+    "Unidentified item functions retain address-style names such as it_802C7774, it_802C78B8, it_802C7A84, it_802C7AD0, and it_802C7AF0.",
+    "Logic callbacks use descriptive item-prefixed names such as itGameWatchJudge_Logic77_Destroyed and itGameWatchJudge_Logic77_EvtUnk.",
+    "The newly added animation callback is named itGamewatchjudge_UnkMotion0_Anim, preserving an uncertain/placeholder 'UnkMotion0' label.",
+    "Header prototypes include address comments such as /* 2C7774 */, /* 2C78B8 */, and /* 2C7B54 */.",
+    "Parameter names in the header use semantic labels where known, such as owner_gobj, bone_index, and judge_num, even when the C implementation uses more generic names like parent_gobj, part, and arg4."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(4) in it_802C7774 and PAD_STACK(8) in itGamewatchjudge_UnkMotion0_Anim.",
-    "Reordered functions by address: new prototypes show 2C7774, 2C78B8, 2C7A54, 2C7A84, 2C7AD0, 2C7AF0, 2C7B10, 2C7B54, and 2C7D40 layout.",
-    "Used the matching-oriented expression owner = (new_var = GET_ITEM(item_gobj))->owner even though new_var is otherwise not semantically meaningful in the excerpt.",
-    "Used explicit casts such as (Fighter_GObj*) parent_gobj and (Item_GObj*) jobj to satisfy call signatures and likely match codegen.",
-    "Converted judge argument with (float) (arg4 + 1) before passing it to it_80273670.",
-    "Retrieved special attributes as void** and passed *special_attrs to it_8027CE64, preserving the observed pointer-indirection pattern."
+    "Inserted PAD_STACK(4) in it_802C7774 and PAD_STACK(8) in itGamewatchjudge_UnkMotion0_Anim, indicating stack-shape adjustments for matching.",
+    "Used a temporary Item* variable named new_var in itGamewatchjudge_UnkMotion0_Anim, likely to preserve compiler output or register/stack behavior.",
+    "Kept casts such as (float) (arg4 + 1), (Fighter_GObj*) parent_gobj, and (Item_GObj*) jobj as written in the matched code path.",
+    "Preserved exact float comparisons against 1.0f for facing direction and exact rotation constants M_PI and 0.0f.",
+    "Function ordering was deliberately adjusted to match binary layout, according to the PR body."
   ],
   "review_feedback": [
-    "Author note/body: \"reordered some funcs to match binary layout too\".",
-    "decomp-dev bot reported five GALE01 improvements for main/melee/it/items/itgamewatchjudge: itGamewatchjudge_UnkMotion0_Anim 0.00% to 95.73%, it_802C78B8 0.00% to 97.82%, it_802C7774 0.00% to 90.86%, plus .sdata2 and .sdata improvements.",
-    "No human review comments or formal reviews were present in the provided PR slice."
+    "No review comments were present in the supplied PR context.",
+    "The only human-text rationale captured was: 'reordered some funcs to match binary layout too'."
   ],
   "searchable_terms": [
     "pr-2194",
     "itgamewatchjudge",
     "GameWatch Judge",
-    "Mr Game and Watch Judge",
-    "It_Kind_GameWatch_Judge",
+    "Mr Game Watch Judge",
     "it_802C7774",
     "it_802C78B8",
     "itGamewatchjudge_UnkMotion0_Anim",
     "itGameWatchJudge_Logic77_Destroyed",
     "itGameWatchJudge_Logic77_EvtUnk",
+    "it_2725_Logic77_PickedUp",
+    "It_Kind_GameWatch_Judge",
     "SpawnItem",
     "Item_80268B18",
     "Item_8026AB54",
@@ -99,17 +93,27 @@
     "itGetJObjGrandchild",
     "HSD_JObjSetRotationY",
     "M_PI",
-    "ftGw_SpecialS_ItemCheckJudgementRemove",
     "ftGw_SpecialS_ItemJudgementSetFlag",
+    "ftGw_SpecialS_ItemCheckJudgementRemove",
     "PAD_STACK",
     "binary layout",
-    "GALE01 unmatched items"
+    "src/melee/it/items/itgamewatchjudge.c",
+    "src/melee/it/items/itgamewatchjudge.h"
   ],
   "follow_up_queries": [
-    "Search later PRs for renames or semantic cleanup of it_802C7774, it_802C78B8, and itGamewatchjudge_UnkMotion0_Anim.",
-    "Check Game & Watch SpecialS callsites to confirm the semantics of bone_index/part and judge_num/arg4 in it_802C7774.",
-    "Look for subsequent matching passes that raise it_802C7774, it_802C78B8, or itGamewatchjudge_UnkMotion0_Anim from the reported 90-98% range to full match.",
-    "Compare other item article spawn helpers for reusable SpawnItem initialization and post-spawn setup order."
+    "Find later PRs that rename it_802C7774, it_802C78B8, or itGamewatchjudge_UnkMotion0_Anim.",
+    "Check whether the duplicated facing-orientation logic between it_802C78B8 and itGamewatchjudge_UnkMotion0_Anim was later factored or renamed.",
+    "Search for other item PRs where functions were reordered to match binary layout.",
+    "Look for later review or cleanup around the placeholder variable name new_var in itGamewatchjudge_UnkMotion0_Anim.",
+    "Compare this Judge item spawn helper pattern against other Game & Watch item spawn helpers."
   ],
-  "confidence": 0.9
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

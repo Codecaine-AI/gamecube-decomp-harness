@@ -11,140 +11,100 @@
     "merged_at": "2026-03-10T22:32:58Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Replaced six fighter assembly placeholder stubs with matching C across Kirby copy-special code, Crazy Hand slap animation code, and Popo special cleanup code. The PR body reported clean `ninja` verification and `fuzzy_match_percent: 100.0` for all six functions; the decomp.dev bot confirmed 6 new 100% matches worth +652 bytes.",
+  "summary": "Matched six previously undecompiled fighter functions across Kirby copy-special files, Popo special cleanup, and Crazy Hand slap animation. The PR replaced placeholder comments with concise C implementations and reported clean ninja verification plus 100.0 fuzzy_match_percent for all targeted functions.",
   "change_classification": {
-    "primary_type": "decompilation-match",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "fighter-state-callbacks",
-      "collision-state-transitions",
-      "effect-cleanup",
-      "tooling-verification"
+      "fighter-behavior",
+      "callback-state-restoration",
+      "collision-transition",
+      "verification"
     ],
     "systems": [
       "fighter",
-      "ftKirby",
-      "ftCrazyHand",
-      "ftPopo"
+      "Kirby",
+      "Popo",
+      "CrazyHand"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftCrazyHand/ftCh_Init.c",
-      "functions": [
-        "ftCh_Slap_Anim"
-      ],
-      "role": "Matched Crazy Hand slap animation callback; changes motion state when animation ends and restores accessory callback."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
-      "functions": [
-        "ftKb_LgSpecialN_Coll",
-        "ftKb_LgSpecialAirN_Coll"
-      ],
-      "role": "Matched paired Kirby Luigi-copy neutral-special collision callbacks for ground/air motion-state transitions."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c",
-      "functions": [
-        "ftKb_SpecialNFx_800FDC00"
-      ],
-      "role": "Matched Kirby Pikachu-copy effect/vector helper using a local offset transformed from `parts[44].joint`."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c",
-      "functions": [
-        "ftKb_SpecialNMt_80106FEC"
-      ],
-      "role": "Matched Kirby Mewtwo-copy motion-state predicate over eight ground/air neutral-special motion IDs."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
-      "functions": [
-        "ftPp_SpecialHi_80122898"
-      ],
-      "role": "Matched Popo SpecialHi cleanup helper gated by `fp->fv.pp.x2230_b0`."
-    }
+    "src/melee/ft/chara/ftCrazyHand/ftCh_Init.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c",
+    "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c"
   ],
   "what_changed": [
-    "Implemented `ftCh_Slap_Anim`: when `ftAnim_IsFramesRemaining(gobj) == 0`, it gets the fighter, changes to motion state `0x15D`, calls `ftAnim_8006EBA4`, and sets `fp->accessory4_cb = fn_801577B4`.",
-    "Implemented `ftKb_LgSpecialN_Coll`: on the `ft_80082708(gobj) == GA_Ground` condition, it calls `ftCommon_8007D5D4`, changes to `ftKb_MS_LgSpecialAirN` with flags `0x5000` and `fp->cur_anim_frame`, then restores `accessory4_cb` to `fn_800F98F4`.",
-    "Implemented `ftKb_LgSpecialAirN_Coll`: on the `ft_80081D0C(gobj) != GA_Ground` condition, it calls `ftCommon_8007D7FC`, changes to `ftKb_MS_LgSpecialN` with flags `0x5000` and `fp->cur_anim_frame`, then restores `accessory4_cb` to `fn_800F98F4`.",
-    "Implemented `ftKb_SpecialNFx_800FDC00`: validates `gobj` and fighter data, builds a local `Vec3` offset `{ 0.0f, 1.45f, 5.016f }`, transforms it from `fp->parts[44].joint` via `lb_8000B1CC`, and otherwise writes a zero vector to the output.",
-    "Implemented `ftKb_SpecialNMt_80106FEC`: returns `false` for eight Mewtwo-copy neutral-special motion IDs and `true` otherwise, including the null-`gobj` case.",
-    "Implemented `ftPp_SpecialHi_80122898`: uses `PAD_STACK(16)`, checks `fp->fv.pp.x2230_b0`, destroys effects with `efLib_DestroyAll`, clears the flag, nulls `death2_cb` and `take_dmg_cb`, and resets part rotation through `ftPartSetRotX`."
+    "Implemented `ftCh_Slap_Anim`, which waits for animation completion, changes Crazy Hand to motion state `0x15D`, calls `ftAnim_8006EBA4`, and restores `fp->accessory4_cb` to `fn_801577B4`.",
+    "Implemented Kirby large neutral special collision transitions: `ftKb_LgSpecialN_Coll` switches from ground to air state when `ft_80082708(gobj) == GA_Ground`, and `ftKb_LgSpecialAirN_Coll` switches from air to ground state when `ft_80081D0C(gobj) != GA_Ground`.",
+    "Both Kirby large neutral special collision functions preserve `fp->cur_anim_frame`, use motion flag `0x5000`, call the appropriate ground/air conversion helper (`ftCommon_8007D5D4` or `ftCommon_8007D7FC`), and restore `fp->accessory4_cb = fn_800F98F4` after the motion-state change.",
+    "Implemented `ftKb_SpecialNFx_800FDC00`, computing an effect/world position from Kirby fighter part joint `fp->parts[44].joint` using local offset `{0.0f, 1.45f, 5.016f}` and `lb_8000B1CC`; it zeroes the output vector if `gobj` or `fp` is null.",
+    "Implemented `ftKb_SpecialNMt_80106FEC`, returning false for Mewtwo-copy neutral special start/loop/full/end motion IDs in both ground and air variants, and true otherwise or when `gobj` is null.",
+    "Implemented `ftPp_SpecialHi_80122898`, which conditionally destroys effects and clears Popo-specific state when `fp->fv.pp.x2230_b0` is set, then resets `death2_cb`, `take_dmg_cb`, and part rotation via `ftPartSetRotX`."
   ],
   "smart_moves": [
-    "Kept paired ground/air collision callbacks symmetric: both preserve `fp->cur_anim_frame`, use the same `0x5000` motion-state flag, and restore the same accessory callback after changing motion state.",
-    "Matched null behavior explicitly in `ftKb_SpecialNFx_800FDC00` and `ftKb_SpecialNMt_80106FEC`; the vector helper zeroes the output on failure, while the Mewtwo-copy predicate defaults to `true`.",
-    "Used grouped `switch` cases for the eight Mewtwo-copy motion IDs, which reflects the binary logic without inventing extra helper abstractions.",
-    "Retained matching-sensitive details in `ftPp_SpecialHi_80122898`, including `PAD_STACK(16)` and reloading `fp = gobj->user_data` after `efLib_DestroyAll(gobj)`.",
-    "Preserved existing anonymous callback names such as `fn_800F98F4` and `fn_801577B4` instead of assigning unsupported semantic names."
+    "Kept the matched functions small and idiomatic, replacing `/// #symbol` placeholders without broad refactoring or unrelated cleanup.",
+    "Preserved animation frame continuity during ground/air collision transitions by passing `fp->cur_anim_frame` into `Fighter_ChangeMotionState`.",
+    "Restored accessory callbacks after motion-state changes in both Crazy Hand and Kirby code, matching the existing callback-driven fighter architecture.",
+    "Handled null `gobj`/`Fighter` cases explicitly in `ftKb_SpecialNFx_800FDC00`, using an all-zero output vector as the fallback.",
+    "Used a direct switch over known Kirby Mewtwo-copy motion IDs to encode the predicate in `ftKb_SpecialNMt_80106FEC`, which is clear and likely matching-friendly."
   ],
   "decomp_lessons": [
-    "Fighter collision callbacks often need to pair environment helper calls, `Fighter_ChangeMotionState`, preserved animation frame, and callback reinstallation to match.",
-    "When a function changes motion state and then relies on accessory callbacks, check whether the callback must be restored immediately after the state change.",
-    "Do not simplify away matching artifacts such as `PAD_STACK`, pointer reloads after calls with side effects, or output-field assignment order unless the generated code still matches.",
-    "Small helper functions may encode important null/default behavior; preserve exact fallback returns and zero-vector writes.",
-    "For copied Kirby special moves, grouping motion-state enum cases by copy ability can produce concise matching predicates while retaining existing `ftKb_MS_*` names."
+    "For fighter collision callbacks, matching often requires preserving current animation frame and motion flags exactly when switching between ground and air motion states.",
+    "After `Fighter_ChangeMotionState`, callback fields such as `accessory4_cb` may need to be reassigned because the state transition can reset or overwrite fighter callbacks.",
+    "Small status-predicate functions can match cleanly as a switch over `motion_id` enum cases, especially when the function returns one value for a compact set of states and the opposite for the default case.",
+    "Effect-position helper functions may need explicit null guards and manual component-wise zeroing of `Vec3` outputs to match original codegen.",
+    "`PAD_STACK(16)` may be necessary even in a short cleanup routine when matching stack layout for functions such as `ftPp_SpecialHi_80122898`.",
+    "State cleanup functions should clear both gameplay flags and callback hooks; Popo's cleanup resets `x2230_b0`, effect ownership, death/damage callbacks, and part rotation together."
   ],
   "naming_conventions": [
-    "Fighter function names keep the character/module prefix and move family, e.g. `ftKb_`, `ftCh_`, and `ftPp_`.",
-    "Unresolved or less-semantic functions retain address suffixes such as `ftKb_SpecialNMt_80106FEC`, `ftKb_SpecialNFx_800FDC00`, and `ftPp_SpecialHi_80122898`.",
-    "Callback role suffixes are consistent with existing fighter code: `Anim` for animation callback, `Coll` for collision callback, `Phys` for physics callback, and `IASA` for interrupt logic.",
-    "Motion-state enum names use the `ftKb_MS_*` pattern and encode character copy/move phases such as `MtSpecialNStart`, `MtSpecialNLoopFull`, and `LgSpecialAirN`.",
-    "Existing file-local callback placeholder names like `fn_800F98F4` and `fn_801577B4` were reused rather than renamed."
+    "Fighter action functions follow character/module prefixes such as `ftKb_` for Kirby, `ftPp_` for Popo, and `ftCh_` for Crazy Hand.",
+    "Kirby copy-special symbols encode copied character abbreviations and move families, for example `ftKb_SpecialNMt_...` for Mewtwo neutral special copy and `ftKb_SpecialNFx_...` for Fox neutral special copy.",
+    "Motion-state enum names use the `ftKb_MS_` prefix and distinguish ground/air forms, e.g. `ftKb_MS_LgSpecialN` and `ftKb_MS_LgSpecialAirN`.",
+    "Callback-style fighter functions use suffixes like `_Anim`, `_Coll`, and `_Phys` to indicate animation, collision, and physics handlers.",
+    "Unidentified field names remain evidence-preserving, such as Popo's `fp->fv.pp.x2230_b0`, rather than being renamed speculatively."
   ],
   "assembly_or_matching_tactics": [
-    "Use `PAD_STACK(16)` when the matched function requires stack padding, as in `ftPp_SpecialHi_80122898`.",
-    "Reload `Fighter* fp` from `gobj->user_data` after calls such as `efLib_DestroyAll(gobj)` if that matches the original instruction flow.",
-    "Preserve exact motion-state transition arguments: target motion ID, flag `0x5000`, `fp->cur_anim_frame`, rate `1.0f`, blend/start `0.0f`, and `NULL` where shown.",
-    "For vector helpers, keep literal float constants and fallback write order visible; this PR used `0.0f`, `1.45f`, `5.016f`, `lb_8000B1CC`, and explicit zero writes.",
-    "Use grouped `case` labels and early returns to match boolean predicates over motion IDs.",
-    "Verification evidence came from both local `ninja` and decomp.dev reporting all six new functions at 100.00%."
+    "Used `PAD_STACK(16)` in `ftPp_SpecialHi_80122898` to satisfy stack-shape requirements.",
+    "Used exact floating constants `0.0f`, `1.0f`, `1.45f`, and `5.016f` in calls and vector initialization.",
+    "Used explicit component-wise zeroing order for fallback `Vec3` output in `ftKb_SpecialNFx_800FDC00`: `z`, then `y`, then `x`.",
+    "Stored `gobj->user_data` into a `Fighter* fp` local around state changes and cleanup operations, including reloading `fp` after `efLib_DestroyAll(gobj)` in the Popo cleanup.",
+    "Matched ground/air tests with existing helper return comparisons: `ft_80082708(gobj) == GA_Ground` and `ft_80081D0C(gobj) != GA_Ground`.",
+    "Verified by reported clean `ninja` build and `fuzzy_match_percent: 100.0` for all six functions."
   ],
   "review_feedback": [
-    "No human review comments were present in the provided slice.",
-    "decomp.dev bot reported matched code increased to 55.96% (+0.02%, +652 bytes).",
-    "decomp.dev bot listed 6 new 100.00% matches: `ftKb_LgSpecialN_Coll`, `ftKb_LgSpecialAirN_Coll`, `ftCh_Slap_Anim`, `ftKb_SpecialNFx_800FDC00`, `ftPp_SpecialHi_80122898`, and `ftKb_SpecialNMt_80106FEC`.",
-    "decomp.dev bot also reported one `.sdata2` improvement in `main/melee/ft/chara/ftKirby/ftKb_SpecialNPk` from 14.29% to 18.33%."
+    "No review comments were present in the provided PR slice.",
+    "The only human-text evidence beyond the diff is the PR summary stating all six functions were decompiled and verified at 100.0 fuzzy match."
   ],
   "searchable_terms": [
-    "PR2262",
-    "fighters: match 6 functions",
+    "pr-2262",
+    "fighters match 6 functions",
     "johnwinston",
     "ftCh_Slap_Anim",
-    "ftCh_Init.c",
-    "ftKb_LgSpecialN_Coll",
-    "ftKb_LgSpecialAirN_Coll",
-    "ftKb_SpecialN.c",
-    "ftKb_SpecialNFx_800FDC00",
-    "ftKb_SpecialNPk.c",
-    "ftKb_SpecialNMt_80106FEC",
-    "ftKb_SpecialNZd.c",
-    "ftPp_SpecialHi_80122898",
-    "ftPp_SpecialS.c",
+    "ftCh_Init_8015764C",
+    "fn_801577B4",
+    "accessory4_cb",
     "Fighter_ChangeMotionState",
     "ftAnim_IsFramesRemaining",
     "ftAnim_8006EBA4",
-    "accessory4_cb",
-    "fn_801577B4",
-    "fn_800F98F4",
+    "ftKb_LgSpecialN_Coll",
+    "ftKb_LgSpecialAirN_Coll",
+    "ftKb_LgSpecialAirN_Phys",
     "ft_80082708",
     "ft_80081D0C",
     "GA_Ground",
     "ftCommon_8007D5D4",
     "ftCommon_8007D7FC",
-    "ftKb_MS_LgSpecialAirN",
     "ftKb_MS_LgSpecialN",
+    "ftKb_MS_LgSpecialAirN",
+    "fn_800F98F4",
     "cur_anim_frame",
-    "0x5000",
+    "ftKb_SpecialNFx_800FDC00",
+    "Vec3",
     "lb_8000B1CC",
     "parts[44].joint",
-    "Vec3",
-    "1.45f",
-    "5.016f",
-    "Mewtwo copy",
+    "ftKb_SpecialNMt_80106FEC",
     "ftKb_MS_MtSpecialNStart",
     "ftKb_MS_MtSpecialNLoop",
     "ftKb_MS_MtSpecialNLoopFull",
@@ -153,21 +113,29 @@
     "ftKb_MS_MtSpecialAirNLoop",
     "ftKb_MS_MtSpecialAirNLoopFull",
     "ftKb_MS_MtSpecialAirNEnd",
-    "PAD_STACK(16)",
-    "x2230_b0",
+    "ftPp_SpecialHi_80122898",
+    "PAD_STACK",
     "efLib_DestroyAll",
     "death2_cb",
     "take_dmg_cb",
     "ftPartSetRotX",
-    "fuzzy_match_percent 100.0",
-    "decomp.dev +652 bytes"
+    "x2230_b0",
+    "fuzzy_match_percent 100.0"
   ],
   "follow_up_queries": [
-    "Find adjacent `/// #` stubs in `src/melee/ft/chara/ftKirby/ftKb_SpecialN.c` that resemble paired ground/air collision callbacks.",
-    "Search for other fighter functions that call `Fighter_ChangeMotionState` and then restore `accessory4_cb`.",
-    "Look for more effect-position helpers using `lb_8000B1CC` with `fp->parts[*].joint` and hard-coded `Vec3` offsets.",
-    "Inspect other Popo/Nana cleanup helpers that gate on `fv.pp` flags and clear `death2_cb` or `take_dmg_cb`.",
-    "Search Kirby copy-special predicates for grouped `ftKb_MS_*SpecialN*` motion-state switch patterns."
+    "Find similar fighter collision callbacks that preserve `cur_anim_frame` while transitioning between ground and air motion states.",
+    "Search for functions that reassign `accessory4_cb` immediately after `Fighter_ChangeMotionState`.",
+    "Look for other Popo/Nana cleanup routines using `efLib_DestroyAll`, `death2_cb`, `take_dmg_cb`, or `ftPartSetRotX`.",
+    "Compare Kirby copy-special effect-position helpers that use `lb_8000B1CC` and fighter part joints.",
+    "Search for remaining `/// #ftKb_` placeholders in Kirby copy-special source files."
   ],
-  "confidence": 0.93
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

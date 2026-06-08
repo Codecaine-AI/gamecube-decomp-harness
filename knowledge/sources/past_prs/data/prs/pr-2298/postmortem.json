@@ -11,108 +11,94 @@
     "merged_at": "2026-03-15T22:04:48Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Advanced grRCruise stage decompilation by replacing several asm-placeholder routines with typed C, adding the stage callback table and initialization flow, refining grRCruise Ground vars, and widening mpLib collision callback storage so GObj/Ground payload ambiguity is represented more accurately.",
+  "summary": "Matched several Rainbow Cruise stage functions and promoted previously anonymous symbols to grRCruise-prefixed names. The PR implemented stage setup/helper logic in src/melee/gr/grrcruise.c, added the Rainbow Cruise StageCallbacks table, refined Ground union vars for rcruise/rcruise2, and generalized mpLib callback storage to void* because the callback payload can be either a Ground* or a GObj. There were no PR body notes or review comments in the slice, so intent beyond the diff is inferred from code changes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-logic",
       "headers",
       "symbol-renaming",
-      "type-refinement"
+      "struct-typing",
+      "stage-callbacks",
+      "mpLib-callback-signature"
     ],
     "systems": [
-      "stage/grRCruise",
+      "stage",
       "ground",
-      "mpLib/collision",
-      "GALE01 symbols"
+      "mpLib",
+      "config",
+      "melee-core"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grrcruise.c",
-      "role": "Main matching work: added StageCallbacks table, implemented grRCruise_801FF168, grRCruise_801FF2C8, grRCruise_801FF444, grRCruise_801FF7A4, and renamed fn_802010A4."
-    },
-    {
-      "path": "src/melee/gr/grrcruise.h",
-      "role": "Replaced UNK prototypes with HSD_GObj/Ground_GObj/CollData/mpLib_GroundEnum-aware signatures."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Expanded grRCruise_GroundVars and added grRCruise_GroundVars2 for DynamicsDesc and linked GObj fields."
-    },
-    {
-      "path": "src/melee/mp/mplib.c",
-      "role": "Changed mpJointSetCb1 context parameter from Ground* to void*."
-    },
-    {
-      "path": "src/melee/mp/mplib.h",
-      "role": "Updated mpJointSetCb1 declaration to accept void* context."
-    },
-    {
-      "path": "src/melee/mp/types.h",
-      "role": "Changed CollJoint.x28 from Ground* to void*."
-    },
-    {
-      "path": "src/melee/mp/forward.h",
-      "role": "Documented mpLib_Callback first-argument ambiguity with a TODO noting it can be GObj or Ground*."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Renamed fn_801FF444, fn_80200578, and fn_802010A4 to grRCruise_* symbols and marked grRc_803E4F44 as string data."
-    }
+    "src/melee/gr/grrcruise.c",
+    "src/melee/gr/grrcruise.h",
+    "src/melee/gr/types.h",
+    "src/melee/mp/forward.h",
+    "src/melee/mp/mplib.c",
+    "src/melee/mp/mplib.h",
+    "src/melee/mp/types.h",
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "Added StageCallbacks grRc_803E4E34[7], wiring stage object IDs 0 through 6 to their create/update/destruct-style callbacks and flags.",
-    "Implemented grRCruise_801FF168: initializes stage data via Ground_801C49F8, sets stage_info.unk8C bits, creates multiple stage GObjs, hides one JObj with JOBJ_HIDDEN, links rcruise2.xEC, runs Ground_801C39C0/Ground_801C3BB4 and per-object setup calls, then calls mpLib_80057BC0(11).",
-    "Implemented grRCruise_801FF2C8(int): fetches Ground_GetStageGObj, clears Ground callback slots, installs the GX link with grDisplay_801C5DB0, assigns callback3 to gp->x1C_callback, runs callback0, sets up callback2 as a GObj proc, and OSReports a missing GObj.",
-    "Implemented grRCruise_801FF444: registers mpJointSetCb1 handlers for joint 5 and joints 27 through 43, using grRCruise_80200578 and grRCruise_802010A4, then resets gp->gv.rcruise.x10.",
-    "Implemented grRCruise_801FF7A4: performs animation/JObj setup, looks up dynamicsdata_shipflag from the stage archive, initializes dynamics via grLib_801C9B20 when present, nulls the DynamicsDesc data field when absent, and registers JObjs 10 through 13 with Ground_801C2D0C.",
-    "Renamed generic fn_* symbols/prototypes to module-owned grRCruise_* names for 801FF444, 80200578, and 802010A4; fn_80200578 still appears as an asm placeholder but gained a typed prototype.",
-    "Refined grRCruise_GroundVars from padding into bitfields and offset-named fields, added grRCruise_GroundVars2 with DynamicsDesc xC4/xD0 and HSD_GObj* xEC, and added rcruise2 to the Ground union.",
-    "Changed mpJointSetCb1 and CollJoint.x28 from Ground* storage to void* storage, matching the PR's TODO that callback context may be either a GObj or a Ground*."
+    "Implemented grRCruise_801FF168, the Rainbow Cruise stage initialization routine, including Ground_801C49F8 setup, stage_info.unk8C bit assignments, construction of multiple stage GObjs via grRCruise_801FF2C8, hiding one JObj with HSD_JObjSetFlagsAll(..., JOBJ_HIDDEN), calling Ground_801C39C0/Ground_801C3BB4, initializing selected ground objects, and calling mpLib_80057BC0(11).",
+    "Implemented grRCruise_801FF2C8 as a stage GObj fetch/setup helper using Ground_GetStageGObj, a local StageCallbacks table, GObj_SetupGXLink, optional callback assignment to gp->x1C_callback, optional callback0 invocation, optional HSD_GObj_SetupProc, and an OSReport fallback when a gobj id cannot be fetched.",
+    "Added StageCallbacks grRc_803E4E34[7] in grrcruise.c, mapping seven Rainbow Cruise stage object ids to their init/update/proc callbacks and flags.",
+    "Implemented grRCruise_801FF444, registering mpJointSetCb1 callbacks for joint 5 with grRCruise_80200578 and for joints 27 through 43 and 28 through 35 with grRCruise_802010A4, then initializing gp->gv.rcruise.x10 to 0.",
+    "Implemented grRCruise_801FF7A4, including animation setup, archive lookup for public address \"dynamicsdata_shipflag\", dynamic data setup through grLib_801C9B20, fallback nulling of gp->gv.rcruise2.xC4.data, and registration of several child JObjs with Ground_801C2D0C.",
+    "Renamed symbols fn_801FF444, fn_80200578, and fn_802010A4 to grRCruise_801FF444, grRCruise_80200578, and grRCruise_802010A4 in symbols.txt and headers.",
+    "Updated grrcruise.h prototypes from UNK_RET/UNK_PARAMS to typed signatures for grRCruise_801FF2C8, grRCruise_801FF444, grRCruise_80200578, and grRCruise_802010A4.",
+    "Expanded struct grRCruise_GroundVars to expose bitfield xC4, fields x0C and x10, while preserving later float/vector/entry fields.",
+    "Added struct grRCruise_GroundVars2 with DynamicsDesc xC4, DynamicsDesc xD0, and HSD_GObj* xEC, and added rcruise2 to the Ground gv union.",
+    "Changed CollJoint.x28 and mpJointSetCb1's stored object argument from Ground* to void*, with a TODO noting mpLib_Callback's first argument should eventually be fixed from Ground* to void* because it can be a GObj or Ground*.",
+    "Marked grRc_803E4F44 in symbols.txt as data:string."
   ],
   "smart_moves": [
-    "The mpLib void* storage change is narrowly scoped to the stored callback payload, avoiding a false Ground* type while leaving the wider mpLib_Callback typedef TODO visible for future cleanup.",
-    "The StageCallbacks table lets grRCruise_801FF2C8 share one generic setup path across all stage GObj IDs instead of duplicating callback/GX/proc setup logic.",
-    "The code preserves ambiguous decomp knowledge rather than overclaiming it: grRCruise_80200578 gets a better name/signature but remains a /// # placeholder, and mpLib_Callback keeps a TODO for the unresolved first-argument type.",
-    "Adding a separate grRCruise_GroundVars2 overlay avoids forcing DynamicsDesc and linked-GObj fields into the existing rcruise movement/state struct with misleading types.",
-    "The archive lookup for dynamicsdata_shipflag is guarded by null checks and explicitly clears gp->gv.rcruise2.xC4.data on failure, matching a plausible original error-tolerant path without assuming the asset always exists.",
-    "Callback registrations preserve the observed joint order, including the non-sorted sequence 27, 36-43, then 28-35, which is often important for matching compiler output and original behavior."
+    "Matched stage object construction by introducing the concrete StageCallbacks table before implementing the generic gobj setup helper; this let multiple callback-driven functions reference the same evidence-backed table.",
+    "Kept the mpLib ABI/storage behavior by widening only the stored callback payload to void* rather than forcing all call sites to pretend the payload is always Ground*.",
+    "Used targeted casts to mpLib_Callback for grRCruise_802010A4 registrations where the callback signature evidence did not line up cleanly with the existing typedef.",
+    "Preserved a matching-sensitive inline helper for grRCruise_802010A4 instead of replacing it with GET_GROUND when the comment says calling GET_GROUND directly did not work.",
+    "Encoded rcruise-specific Ground union fields only as far as the matched code needed: a bitfield for xC4 flags, named scalar fields x0C/x10, DynamicsDesc storage for rcruise2, and HSD_GObj* xEC.",
+    "Handled optional archive/public-address data defensively in grRCruise_801FF7A4 by assigning NULL to the dynamic data pointer on failure, matching the observed control flow."
   ],
   "decomp_lessons": [
-    "For stage files, define the StageCallbacks data table early; once callback ownership is known, helper routines like Ground_GetStageGObj setup become much easier to type and match.",
-    "When a field is used as callback context by multiple systems, inspect call sites before assigning a concrete pointer type; CollJoint.x28 needed void* because it can carry GObj as well as Ground-style payloads.",
-    "Ground union overlays may need multiple per-stage structs when the same gp+C4 region has distinct interpretations across stage objects; adding rcruise2 was cleaner than overloading rcruise fields.",
-    "Address-suffixed names remain acceptable for unknown semantics, but replacing fn_<addr> with grRCruise_<addr> is useful once module ownership is established and should be done consistently in symbols and headers.",
-    "If a macro such as GET_GROUND changes codegen, a tiny inline helper returning gobj->user_data can be a legitimate matching tactic, as shown by grRCruise_802010A4_inline and its TODO.",
-    "Keep asset-public-address strings such as dynamicsdata_shipflag exact and route them through HSD_ArchiveGetPublicAddress rather than hardcoding inferred data pointers."
+    "Stage matching often depends on reconstructing the callback table first; StageCallbacks arrays can reveal the intended signatures and object-id ordering for init/update/proc functions.",
+    "For Ground gv union work, split stage-specific variants when one map object uses one layout and another object uses a different layout, as with rcruise and rcruise2.",
+    "Do not over-specialize common engine callback payload fields too early. mpLib joint callbacks can store non-Ground objects, so void* may be more truthful than Ground* for storage even if the callback typedef is not fully corrected yet.",
+    "When an inline accessor is matching-sensitive, keep the local inline with a clear TODO rather than replacing it with a macro that changes codegen.",
+    "Symbol promotion from fn_-address to module-prefixed names should be synchronized across symbols.txt, source labels, and public headers.",
+    "Archive lookup patterns can be matched with comma-expression style condition checks when the compiler's control flow requires testing both archive and public-address results in one condition."
   ],
   "naming_conventions": [
-    "Stage functions use the module prefix plus address form: grRCruise_801FF444, grRCruise_80200578, grRCruise_802010A4.",
-    "grRCruise data symbols use the shorter grRc_<addr> prefix, e.g. grRc_803E4E34 and grRc_804D6A10.",
-    "Stage Ground variable structs use module-prefixed names, including grRCruise_GroundVars and grRCruise_GroundVars2.",
-    "Unknown fields remain offset-based names such as xC4, x10, xEC and bitfield names b0 through b7 until semantics are known.",
-    "Header prototypes retain address comments like /* 1FF2C8 */ alongside improved concrete C signatures."
+    "Rainbow Cruise stage functions use the module prefix grRCruise_ followed by the function address, e.g. grRCruise_801FF444, grRCruise_80200578, and grRCruise_802010A4.",
+    "Rainbow Cruise data symbols use the grRc_ prefix, e.g. grRc_803E4E34 and grRc_804D6A10.",
+    "Stage-specific Ground union variants are named after the stage, with numbered variants when multiple layouts are needed: rcruise and rcruise2.",
+    "Stage-specific structs follow grRCruise_* names, e.g. grRCruise_GroundVars and grRCruise_GroundVars2.",
+    "Anonymous fn_ symbols are replaced by module-prefixed names once their ownership is established."
   ],
   "assembly_or_matching_tactics": [
-    "Converted /// # placeholders into C for grRCruise_801FF168, grRCruise_801FF2C8, grRCruise_801FF444, and grRCruise_801FF7A4.",
-    "Used comma-operator assignment inside the archive/data null-check condition for grRCruise_801FF7A4, a common tactic for matching original control flow/codegen.",
-    "Used explicit (mpLib_Callback) casts when registering grRCruise_802010A4 because its GObj-oriented signature does not match the still-imperfect mpLib_Callback typedef.",
-    "Kept a direct inline user_data accessor in grRCruise_802010A4_inline after noting that calling GET_GROUND directly did not match.",
-    "Preserved the OSReport failure path in grRCruise_801FF2C8, including __FILE__, source line 290, and the gobj_id parameter.",
-    "Matched callback setup through GObj_SetupGXLink and HSD_GObj_SetupProc rather than hiding those effects in higher-level helpers."
+    "Introduced a local inline grRCruise_802010A4_inline returning arg0->user_data because a direct GET_GROUND macro reportedly did not match.",
+    "Used explicit callback casts to mpLib_Callback for grRCruise_802010A4 when registering it through mpJointSetCb1.",
+    "Preserved exact stage callback setup order in grRCruise_801FF168, including repeated calls to grRCruise_801FF2C8 for specific object ids and immediate follow-up Ground_801C2FE0/Ground_801C32AC calls.",
+    "Used OSReport with __FILE__ and a hardcoded source line value in grRCruise_801FF2C8 to match the original diagnostic path.",
+    "Modeled the first byte of grRCruise_GroundVars as individual bitfields to support assignments like gp->gv.rcruise.xC4.b0 = 1."
   ],
-  "review_feedback": [
-    "No issue comments, review comments, or reviews were present in the slice; rationale is inferred from the title and diff only."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
-    "pr2298",
+    "pr-2298",
     "grRCruise matches",
     "PsiLupan",
+    "grrcruise",
+    "Rainbow Cruise",
     "src/melee/gr/grrcruise.c",
-    "grRc_803E4E34",
+    "src/melee/gr/grrcruise.h",
+    "src/melee/gr/types.h",
+    "src/melee/mp/mplib.c",
+    "src/melee/mp/forward.h",
+    "src/melee/mp/types.h",
+    "config/GALE01/symbols.txt",
     "StageCallbacks",
+    "grRc_803E4E34",
     "grRc_804D6A10",
     "grRCruise_801FF168",
     "grRCruise_801FF2C8",
@@ -123,31 +109,37 @@
     "fn_801FF444",
     "fn_80200578",
     "fn_802010A4",
-    "Ground_GetStageGObj",
-    "GObj_SetupGXLink",
-    "HSD_GObj_SetupProc",
-    "Ground_801C49F8",
-    "stage_info.unk8C",
-    "JOBJ_HIDDEN",
     "mpJointSetCb1",
     "mpLib_Callback",
     "CollJoint.x28",
-    "void* callback context",
+    "void* callback payload",
+    "DynamicsDesc",
     "dynamicsdata_shipflag",
-    "grDatFiles_801C6324",
-    "HSD_ArchiveGetPublicAddress",
-    "grLib_801C9B20",
-    "grRCruise_GroundVars",
-    "grRCruise_GroundVars2",
-    "rcruise2.xEC",
-    "GALE01 symbols"
+    "Ground_GetStageGObj",
+    "GObj_SetupGXLink",
+    "HSD_GObj_SetupProc",
+    "HSD_JObjSetFlagsAll",
+    "JOBJ_HIDDEN",
+    "GET_GROUND",
+    "GET_JOBJ",
+    "Ground_801C49F8",
+    "stage_info.unk8C",
+    "grRc_803E4F44 data:string"
   ],
   "follow_up_queries": [
-    "Search remaining grRCruise /// # or UNK_RET entries after this PR, especially fn_80200460, grRCruise_80200578, grRCruise_80200B48, grRCruise_80201288, and grRCruise_80201410.",
-    "Audit other mpJointSetCb1 callers for GObj-vs-Ground callback context and decide whether mpLib_Callback's first parameter should become void*.",
-    "Compare grRc_803E4E34 against other stage StageCallbacks tables to validate callback ordering and flag meanings such as 0xC0000000.",
-    "Investigate grRCruise_GroundVars2.xD0 and the dynamicsdata_shipflag setup to assign semantic field names beyond xC4/xD0/xEC.",
-    "Check whether grRCruise_80200578's typed prototype should use Ground*, Ground_GObj*, or void* once its asm body is decompiled."
+    "Find later PRs that complete grRCruise_80200578, grRCruise_8020071C, grRCruise_80200B48, grRCruise_80201288, or grRCruise_80201410.",
+    "Search for follow-up work resolving the TODO in mp/forward.h about changing mpLib_Callback's first parameter from Ground* to void*.",
+    "Look for other stage PRs that use StageCallbacks tables to match Ground_GetStageGObj setup helpers.",
+    "Check whether CollJoint.x28 and mpJointGetCb1 were later fully generalized from Ground** to void** or otherwise reconciled.",
+    "Search for additional Rainbow Cruise GroundVars field naming after rcruise.x0C, rcruise.x10, and rcruise2.xEC."
   ],
-  "confidence": 0.87
+  "confidence": 0.87,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

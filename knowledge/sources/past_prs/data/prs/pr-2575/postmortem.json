@@ -11,172 +11,181 @@
     "merged_at": "2026-06-03T21:16:05Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Batch decomp PR that matched six functions and improved twelve more partial/unmatched items across camera, fighter, game-mode/results/opening, stage, interface text/HUD, menu, and toy/trophy code. The decomp.dev GALE01 report recorded matched code at 69.96%, up +0.06% and +2216 bytes, with new 100% matches for Camera_80030E44, ftAction_80073008, fn_8017A9B4, un_80318B1C, ftNn_Init_80123954, and gm_801A9DD0. The diff is mostly matching-focused codegen tuning: exact narrow types and casts, local lifetime/register-shape changes, loop-shape changes, helper/inlining control, direct global access, and small header/prototype corrections.",
+  "summary": "Batch decomp PR that matched six functions and improved twelve more partials across camera, fighter, game mode/results/opening, interface text/stock, stage, menu, and trophy/toy code. The verified GALE01 report credited +2216 matched bytes and raised matched code by +0.06%, with new 100% matches for Camera_80030E44, ftAction_80073008, fn_8017A9B4, un_80318B1C, ftNn_Init_80123954, and gm_801A9DD0.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "partial-match-improvement",
-      "type-and-prototype-correction",
-      "header-update",
-      "codegen-shaping",
-      "verification"
+      "headers-prototypes",
+      "codegen-tuning",
+      "tool-verification"
     ],
     "systems": [
       "camera",
       "fighter",
+      "fighter-kirby",
+      "fighter-nana-ice-climbers",
       "game-mode",
-      "game-mode-opening",
-      "game-mode-results",
-      "stage",
+      "results-screen",
+      "opening",
+      "stage-inishie2",
       "interface",
       "menu",
       "toy-trophy"
     ]
   },
   "key_files": [
-    "src/melee/cm/camera.c",
-    "src/melee/ft/ftaction.c",
-    "src/melee/ft/chara/ftNana/ftNn_Init.c",
-    "src/melee/ft/chara/ftKirby/ftKb_Init.c",
-    "src/melee/ft/ft_0852.c",
-    "src/melee/gm/gmopening.c",
-    "src/melee/gm/gmopening.h",
-    "src/melee/gm/gmcamera.c",
-    "src/melee/gm/gmresult.c",
-    "src/melee/gm/gmresultplayer.c",
-    "src/melee/gr/grinishie2.c",
-    "src/melee/if/ifcoget.c",
-    "src/melee/if/ifstock.c",
-    "src/melee/if/textlib.c",
-    "src/melee/mn/mnmainrule.c",
-    "src/melee/ty/tydisplay.c",
-    "src/melee/ty/tylist.c",
-    "src/melee/ty/toy.h"
+    {
+      "path": "src/melee/cm/camera.c",
+      "reason": "Matched Camera_80030E44 by changing access patterns from a local Camera* to direct cm_80452C68 field references."
+    },
+    {
+      "path": "src/melee/ft/ftaction.c",
+      "reason": "Matched ftAction_80073008 by correcting float/local usage, argument order, and explicit cast of color_anim to s32 for ftCo_800DEE84."
+    },
+    {
+      "path": "src/melee/ft/chara/ftNana/ftNn_Init.c",
+      "reason": "Matched ftNn_Init_80123954 with local declarations, branch restructuring, distance-square calculation, and corrected calls for Nana/Popo ground-air transitions."
+    },
+    {
+      "path": "src/melee/gm/gmopening.c",
+      "reason": "Matched gm_801A9DD0 by adjusting parameter type, local float temporaries, viewport/scissor layout, and HSD_CObj setup call shapes."
+    },
+    {
+      "path": "src/melee/gm/gmopening.h",
+      "reason": "Updated gm_801A9DD0 prototype so arg2 is u16 instead of int, matching the implementation and required-protos verification."
+    },
+    {
+      "path": "src/melee/gm/gmresultplayer.c",
+      "reason": "Matched fn_8017A9B4 by introducing a static inline helper around HSD_ImageDesc initialization and lb_800121FC calls."
+    },
+    {
+      "path": "src/melee/ty/tydisplay.c",
+      "reason": "Matched un_80318B1C by storing pointer-like values through an s32* cast into grid->sort[start].val."
+    },
+    {
+      "path": "src/melee/gm/gmresult.c",
+      "reason": "Improved fn_80175A94 from 8.25% to 99.66% through field fixes, temporary variables, and if/else reshaping."
+    },
+    {
+      "path": "src/melee/if/textlib.c",
+      "reason": "Improved un_80303FD4 from 50.37% to 93.04% with #pragma dont_inline, pointer temporaries, and loop reshaping."
+    },
+    {
+      "path": "src/melee/if/ifstock.c",
+      "reason": "Improved fn_802FA6C4 by changing loop compare form and reverse cleanup iteration."
+    },
+    {
+      "path": "src/melee/gm/gmcamera.c",
+      "reason": "Improved gmCamera_801A292C by using a struct pointer alias, table pointer alias, gmCamera_801A25C8 helper call, and MIN macro."
+    },
+    {
+      "path": "src/melee/ft/ft_0852.c",
+      "reason": "Improved ft_800852B0 by deriving adjacent ftData_UnkCountStruct arrays from CostumeListsForeachCharacter with casts/offsets and reworking loop locals."
+    },
+    {
+      "path": "src/melee/gr/grinishie2.c",
+      "reason": "Improved grInishie2_801FD9EC by changing local ordering, using GET_GROUND reloads, and introducing Vec3* temporaries for JObj translation calls."
+    },
+    {
+      "path": "src/melee/ty/toy.h",
+      "reason": "Changed un_804D5A8C declaration from unsized char array to char[4], a small header/data typing fix used by toy/trophy code."
+    }
   ],
   "what_changed": [
-    "Matched Camera_80030E44 by removing the local Camera* alias and accessing cm_80452C68 fields directly.",
-    "Matched ftAction_80073008 by changing color_anim to f32, removing PAD_STACK, computing a damage multiplier from charge_rate, casting color_anim to s32 at the call, and passing charge_frames as the second float argument.",
-    "Matched ftNn_Init_80123954 by reshaping locals, removing PAD_STACK, using ftIceClimberAttributes earlier, splitting dx/dy squares, casting the distance threshold, adjusting the switch/default coverage, and changing the Nana ground/air transition call sequence.",
-    "Matched gm_801A9DD0 and updated gmopening.h by changing the height argument from int to u16, using Scissor-shaped viewport storage cast to HSD_RectS16*, and introducing explicit roll/near/far/top/bottom locals.",
-    "Matched fn_8017A9B4 by introducing a static inline helper for HSD_ImageDesc setup and passing dimension pointers through u16* casts.",
-    "Matched un_80318B1C by storing sort values through *(s32*) &grid->sort[start].val instead of direct val assignment.",
-    "Improved gmCamera_801A292C by replacing an inlined snapshot update loop with gmCamera_801A25C8(), adding local aliases for gmCamera_80479BC8.gcus and gmCamera_803DA630, and using MIN for x44.",
-    "Improved fn_80175A94 from 8.25% to 99.66% by changing result text position sources, using jobjs[12] instead of jobjs[10] for mode x5==3, using x4C[slot].x instead of y, reshaping switch logic into if/else chains, and nesting fn_8017AD78(fn_8017ADA8(slot)).",
-    "Improved ft_800852B0 by modeling ftData_UnkCountStruct pointers via casts and byte offsets from CostumeListsForeachCharacter, using direct indexed CostumeListsForeachCharacter access, and preserving a zero local new_var for loop initialization and reset calls.",
-    "Improved grInishie2_801FD9EC with GET_GROUND(gobj) reloads, temp_vec aliases for stage translation vectors, and reordered locals.",
-    "Improved un_80303FD4 in textlib with #pragma push / #pragma dont_inline on, assignment-expression initialization, cached loop values, pointer iteration over sentinel-terminated x8 entries, and local aliases.",
-    "Improved fn_802FA6C4 by changing one loop to i != 130 and making the cleanup loop count down from 129 to 0.",
-    "Improved un_802FF570 by introducing a struct pointer and HSD_Text* local before testing and hiding text.",
-    "Improved un_803147C4 by memzeroing the raw data offset before casting to HSD_GObj**, and by assigning the GObj object kind through a u8 temporary.",
-    "Improved mn_8022FB88 by copying arg0 into an int local before computing the tens and ones digit animation requests.",
-    "Improved ftKb_SpecialN_800EED50 with an explicit (u8) cast before efAsync_LoadSync.",
-    "Updated toy.h so extern char un_804D5A8C[] became extern char un_804D5A8C[4]."
+    "Added six confirmed 100% matches: Camera_80030E44, ftAction_80073008, fn_8017A9B4, un_80318B1C, ftNn_Init_80123954, and gm_801A9DD0.",
+    "Improved twelve unmatched items according to the decomp.dev bot report, including fn_80175A94 to 99.66%, fn_802FA6C4 to 99.13%, un_803147C4 to 99.38%, and grInishie2_801FD9EC to 98.13%.",
+    "Updated gm_801A9DD0's header and implementation signature from an int third parameter to u16, matching its viewport/scissor usage.",
+    "Reworked several functions primarily through type casts, local-variable lifetimes, pointer aliases, loop-direction changes, inline extraction, and condition restructuring rather than large semantic rewrites.",
+    "Verification evidence in the PR body lists python configure.py --require-protos and ninja, and the GALE01 bot report confirms the matching deltas."
   ],
   "smart_moves": [
-    "Used exact-width types and casts where the assembly was sensitive: gm_801A9DD0 height as u16, efAsync_LoadSync argument as u8, color_anim as f32 with s32 cast, and sort value stores through s32*.",
-    "Treated local aliases as codegen levers rather than purely readability choices: Camera_80030E44 matched only after direct cm_80452C68 field access, while other functions improved with carefully placed aliases such as unk, tbl, temp_vec, thing, and new_var.",
-    "Reused an existing helper, gmCamera_801A25C8(), instead of open-coding the same snapshot loop in gmCamera_801A292C, which significantly improved that partial match.",
-    "Introduced a static inline helper in gmresultplayer to force the repeated HSD_ImageDesc initialization pattern for fn_8017A9B4.",
-    "Controlled loop shape directly where MWCC branch structure mattered: i != 130, reverse cleanup from 129, pointer-walking until sentinel 9, and cached condition values.",
-    "Kept header declarations in sync with matching discoveries, especially gm_801A9DD0's u16 prototype and the fixed-size un_804D5A8C[4] extern."
+    "Used direct global field references in Camera_80030E44 instead of a local camera pointer, which was enough to remove the final mismatch.",
+    "Removed obsolete PAD_STACK/todo scaffolding from ftAction_80073008 after identifying the correct f32 locals and final ftCo_800DEE84 argument types.",
+    "Introduced a tiny static inline helper in gmresultplayer.c to force duplicated image descriptor initialization into the expected code shape for fn_8017A9B4.",
+    "Used #pragma push / #pragma dont_inline on / #pragma pop around un_80303FD4, containing an inlining-control tactic to the one function being improved.",
+    "Replaced hand-written clamp logic in gmCamera_801A292C with MIN(unk->x30, unk->x40), producing a closer match while making intent clearer.",
+    "Changed ifStock cleanup to iterate from 129 down to 0, a useful reminder that destruction order can be codegen-relevant."
   ],
   "decomp_lessons": [
-    "Do not assume a temporary pointer to a global is harmless; direct global field access can be required for the right load/register pattern.",
-    "Small type corrections can unlock full matches. Narrow argument types, float-to-int conversions, and explicit pointer casts should be tested before adding artificial stack padding.",
-    "For repeated descriptor setup code, a small static inline wrapper can produce a closer duplicate code pattern than manually repeating the statements.",
-    "Header and extern declarations are part of matching work: prototype widths and array sizes can change downstream codegen and should be updated when evidence supports them.",
-    "Loop form is a matching primitive. Equivalent C loops using <, !=, decrementing order, or pointer iteration can produce different branches and register allocation.",
-    "When a manual block resembles an existing local helper, try calling the helper; it may match the original source structure better than preserving a decompiled inline loop.",
-    "Use pragmas sparingly but deliberately when the diff shows MWCC inlining behavior blocking progress; this PR used #pragma dont_inline around un_80303FD4.",
-    "Placeholder locals such as new_var can be legitimate matching scaffolding, but future cleanup should rename them if better semantics become known."
+    "For close matches, local pointer aliases versus direct global references can affect generated code even when behavior is equivalent.",
+    "Prototype accuracy matters: changing gm_801A9DD0's dimension argument to u16 in both .c and .h aligned casts, viewport fields, and required-protos checking.",
+    "Explicit narrow casts can be match-critical, as shown by efAsync_LoadSync((u8) ftKb_Init_803CB46C[arg0]) and HSD_GObjObject_80390A70(..., new_var = (u8) HSD_GObj_804D784A, ...).",
+    "Pointer punning/cast stores may be necessary where struct field typing is still approximate, as in tydisplay.c storing through *(s32*) &grid->sort[start].val.",
+    "Loop form matters: i != limit, reverse iteration, pointer-walk loops, and resetting i inside a loop all appeared as tactics for improving partials.",
+    "Sometimes better matching requires intentionally awkward temporaries such as new_var, new_var2, or local f32 holders; keep these evidence-grounded until surrounding types are better understood.",
+    "When data tables are not yet fully typed, deriving adjacent arrays through byte offsets or casts, as in ft_800852B0, can improve matches but should be revisited when the data layout is understood."
   ],
   "naming_conventions": [
-    "Preserved project address-suffixed unknown function names such as gm_801A9DD0, fn_8017A9B4, un_80318B1C, un_80303FD4, and fn_802FA6C4.",
-    "Kept subsystem prefixes consistent with existing code: Camera_, ftAction_, ftNn_Init_, ftKb_SpecialN_, gmCamera_, grInishie2_, mn_, and un_.",
-    "Header declarations retained address comments such as /* 1A9DD0 */ in gmopening.h.",
-    "The diff introduced temporary matching names like new_var, new_var2, new_var3, new_var4, and inline1; evidence does not show semantic reviewer-approved names for those locals."
+    "The PR kept existing address-based placeholder names such as fn_80175A94, un_80303FD4, and gm_801A9DD0 rather than inventing semantic names.",
+    "Subsystem prefixes remained consistent: Camera_ for camera, ftAction_/ftKb_/ftNn_ for fighter code, gm/gmCamera for game-mode code, grInishie2 for stage code, if for interface code, mn for menu code, and ty/un for toy/trophy code.",
+    "New helper name inline1 is purely mechanical and not semantic; future cleanup should rename only when stronger evidence exists.",
+    "Temporary names like new_var, unk, tbl, pairs, and thing were used as matching scaffolding and should not be treated as stable semantic naming evidence."
   ],
   "assembly_or_matching_tactics": [
-    "Direct global access: cm_80452C68.xA0, cm_80452C68._8C, and cm_80452C68._B0 replaced a Camera* local in Camera_80030E44.",
-    "Exact conversion order: ftAction_80073008 computes dmg_mult = (1 / 256.0f) * charge_rate and passes (s32) color_anim, charge_frames, dmg_mult.",
-    "Prototype narrowing: gm_801A9DD0 changed from (HSD_GObj*, u16, int, int, int) to (HSD_GObj*, u16, u16, int, int).",
-    "Viewport storage trick: gm_801A9DD0 fills a Scissor-like struct and casts it to HSD_RectS16* for HSD_CObjSetViewport.",
-    "Inline helper extraction: fn_8017A9B4 uses inline1(HSD_ImageDesc* imgs, int slot, u16* w, u16* h) to reset image_ptr and call lb_800121FC.",
-    "Pointer-cast array indexing: fn_8017A9B4 passes (u16*) disp->state.dim_w1 + lookup and similar height pointers.",
-    "Type-punned stores: un_80318B1C writes *(s32*) &grid->sort[start].val = (s32) un_803060BC(...).",
-    "Contiguous data modeling: ft_800852B0 derives ftData_UnkCountStruct* ranges from CostumeListsForeachCharacter[FTKIND_MAX] and a byte offset of 5940.",
-    "Loop branch shaping: ifstock changed for (i = 0; i < 130; i++) to i != 130 and changed cleanup to for (i = 129; i >= 0; i--).",
-    "Sentinel pointer walking: textlib's un_80303FD4 iterates x8 entries with a pointer until x0 == 9.",
-    "Local reloads/macros: grInishie2_801FD9EC uses GET_GROUND(gobj) in specific expressions and before translation vector updates.",
-    "Inlining control: un_80303FD4 is wrapped with #pragma push, #pragma dont_inline on, and #pragma pop."
+    "Direct global access: Camera_80030E44 replaced Camera* camera = &cm_80452C68 with repeated cm_80452C68.field access.",
+    "Float/int shaping: ftAction_80073008 changed color_anim to f32, computed dmg_mult as (1 / 256.0f) * charge_rate, and cast color_anim to s32 at the call.",
+    "Struct layout casting: gm_801A9DD0 builds a Scissor-shaped viewport and casts it to HSD_RectS16* for HSD_CObjSetViewport.",
+    "Inline helper extraction: fn_8017A9B4 moved repeated image initialization into static inline void inline1(HSD_ImageDesc* imgs, int slot, u16* w, u16* h).",
+    "No-inline pragma: un_80303FD4 was wrapped with #pragma dont_inline to control codegen.",
+    "Loop reshaping: ifStock used i != 130 and a reverse i = 129; i >= 0 loop; textlib used a pointer-walk while loop over x8 entries.",
+    "Macro substitution: gmCamera_801A292C used MIN(unk->x30, unk->x40) instead of a temporary compare/assign sequence.",
+    "Cast-based data/table access: ft_800852B0 computes ftData_UnkCountStruct* from CostumeListsForeachCharacter[FTKIND_MAX] and byte offset 5940."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the provided slice.",
-    "decomp.dev bot reported 6 new 100% matches and 12 improvements in unmatched items.",
-    "Bot report headline: GALE01 matched code 69.96% (+0.06%, +2216 bytes).",
-    "Author-listed verification: python configure.py --require-protos and ninja."
+    {
+      "source": "decomp-dev bot",
+      "feedback": "GALE01 report showed matched code increased to 69.96% (+0.06%, +2216 bytes), with six new matches and twelve improvements."
+    },
+    {
+      "source": "human reviewers",
+      "feedback": "No human review comments were present in the provided PR slice."
+    }
   ],
   "searchable_terms": [
-    "pr-2575",
+    "PR2575",
     "itsgrimetime",
-    "Match and improve several functions",
-    "GALE01",
-    "69.96%",
-    "+2216 bytes",
     "Camera_80030E44",
     "ftAction_80073008",
     "fn_8017A9B4",
     "un_80318B1C",
     "ftNn_Init_80123954",
     "gm_801A9DD0",
-    "mn_8022FB88",
-    "grInishie2_801FD9EC",
-    "un_803147C4",
-    "un_80303FD4",
-    "un_802FF570",
-    "gmCamera_801A292C",
-    "ftKb_SpecialN_800EED50",
-    "fn_802FA6C4",
-    "ft_800852B0",
     "fn_80175A94",
-    "src/melee/cm/camera.c",
-    "src/melee/ft/ftaction.c",
-    "src/melee/ft/chara/ftNana/ftNn_Init.c",
-    "src/melee/gm/gmopening.c",
-    "src/melee/gm/gmopening.h",
-    "src/melee/gm/gmcamera.c",
-    "src/melee/gm/gmresult.c",
-    "src/melee/gm/gmresultplayer.c",
-    "src/melee/gr/grinishie2.c",
-    "src/melee/if/textlib.c",
-    "src/melee/if/ifstock.c",
-    "src/melee/ty/tydisplay.c",
-    "src/melee/ty/tylist.c",
-    "src/melee/ty/toy.h",
-    "cm_80452C68",
-    "gmCamera_801A25C8",
+    "un_80303FD4",
+    "fn_802FA6C4",
+    "gmCamera_801A292C",
+    "un_803147C4",
+    "grInishie2_801FD9EC",
+    "ft_800852B0",
+    "un_802FF570",
+    "ftKb_SpecialN_800EED50",
+    "mn_8022FB88",
+    "gmopening.h u16",
     "HSD_CObjSetViewport",
-    "HSD_RectS16",
-    "Scissor",
-    "HSD_ImageDesc",
-    "lb_800121FC",
-    "efAsync_LoadSync",
-    "CostumeListsForeachCharacter",
-    "FTKIND_MAX",
-    "GET_GROUND",
-    "GET_FIGHTER",
+    "HSD_ImageDesc inline1",
     "pragma dont_inline",
-    "python configure.py --require-protos",
-    "ninja"
+    "MIN macro",
+    "PAD_STACK removal",
+    "CostumeListsForeachCharacter",
+    "GET_GROUND",
+    "grid->sort[start].val"
   ],
   "follow_up_queries": [
-    "Search for other viewport/setup functions where HSD_RectS16 versus Scissor field layout and u16 dimensions may affect matching.",
-    "Audit callers and prototypes of gm_801A9DD0 to ensure the second dimension is consistently treated as u16.",
-    "Investigate the contiguous layout around CostumeListsForeachCharacter, ftData_Table_Unk0, and ftData_UnkIntPairs, especially the 5940-byte offset used in ft_800852B0.",
-    "Revisit near-matches fn_80175A94, fn_802FA6C4, un_803147C4, mn_8022FB88, and gmCamera_801A292C for final cleanup if later context appears.",
-    "Check the real type of grid->sort[start].val in toy/trophy code because un_80318B1C required s32 pointer stores to match.",
-    "Rename placeholder matching locals like new_var and inline1 if later struct or source evidence reveals semantic names."
+    "Find later PRs that rename or better type inline1 in gmresultplayer.c.",
+    "Search for follow-up typing of un_804D5A8C char[4] and grid->sort[start].val in toy/trophy code.",
+    "Look for later cleanup of ft_800852B0 data layout around CostumeListsForeachCharacter, ftData_Table_Unk0, and ftData_UnkIntPairs.",
+    "Search for additional matches using #pragma dont_inline in interface/textlib functions.",
+    "Check later work on fn_80175A94, which was improved to 99.66% but not fully matched in this PR."
   ],
-  "confidence": 0.93
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

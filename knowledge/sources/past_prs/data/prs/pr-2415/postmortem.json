@@ -11,104 +11,122 @@
     "merged_at": "2026-04-14T21:37:35Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Made `src/melee/ft/ftdrawcommon.c` a matching object: `configure.py` flips it from `NonMatching` to `Matching`, while the C diff reshapes fighter draw code around an inline copy of `ftDrawCommon_8008051C` and stack-local adjustments in `ftDrawCommon_800805C8` and `ftDrawCommon_80080C28`. The symbol map was also corrected for local constants and one `ftDrawCommon_804D8370` size. The PR body says `ftDrawCommon_800805C8` was a huge function that was close to a register-swap issue and hard for the permuter; there were no review comments in the slice.",
+  "summary": "Finished enough ftdrawcommon work to move src/melee/ft/ftdrawcommon.c from NonMatching to Matching. The core source change introduced a static inline helper, ftDrawCommon_8008051C_inline, that reproduces the matrix setup done by ftDrawCommon_8008051C using caller-provided stack locals, then used it inside the large ftDrawCommon_800805C8 and ftDrawCommon_80080C28 paths to control stack layout/register behavior. The PR also corrected symbols.txt entries, mostly demoting compiler-generated local constants/strings from broad ftDrawCommon_/it_ labels to local @NNN labels and fixing ftDrawCommon_804D8370 size from 0x8 to 0x4. The body notes that ftDrawCommon_800805C8 was 'one tiny regswap away' but too large for the permuter to handle well.",
   "change_classification": {
-    "primary_type": "decompilation_matching",
+    "primary_type": "matching-progress",
     "categories": [
       "code-change",
       "matching",
-      "build-config",
-      "symbol-map-maintenance"
+      "symbol-map-cleanup",
+      "inline-helper",
+      "stack-layout"
     ],
     "systems": [
       "fighter",
       "ftdrawcommon",
-      "fighter-draw-rendering",
-      "matrix-camera",
-      "config-GALE01"
+      "config",
+      "build-configuration",
+      "symbols"
     ]
   },
   "key_files": [
-    "src/melee/ft/ftdrawcommon.c",
-    "configure.py",
-    "config/GALE01/symbols.txt"
+    {
+      "path": "src/melee/ft/ftdrawcommon.c",
+      "role": "Main source changes: added ftDrawCommon_8008051C_inline and adjusted local declarations/calls in ftDrawCommon_800805C8 and ftDrawCommon_80080C28 for matching."
+    },
+    {
+      "path": "configure.py",
+      "role": "Changed melee/ft/ftdrawcommon.c from Object(NonMatching, ...) to Object(Matching, ...)."
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Updated symbol names/scopes/sizes for local constants and strings related to ftdrawcommon and item data."
+    }
   ],
   "what_changed": [
-    "`src/melee/ft/ftdrawcommon.c`: added `static inline MtxPtr ftDrawCommon_8008051C_inline(...)`, which zeroes two `Vec3` temporaries, calls `ftLib_80087074`, reads `HSD_CObjGetCurrent()->view_mtx`, initializes a matrix with `PSMTXIdentity`, writes translation components through `mtx_thing_2`, and returns the `PSMTXConcat` output matrix or `NULL`.",
-    "`ftDrawCommon_800805C8`: replaced the call to `ftDrawCommon_8008051C(gobj, sp78)` with `ftDrawCommon_8008051C_inline(gobj, &sp54, &v, sp18, sp78)`, hoisted `Mtx sp78` out of the block, added `Mtx sp18`, `Vec3 sp54`, `Vec3 v`, `_pad[12]`, and changed `PAD_STACK(0x18)` to `PAD_STACK(12)`.",
-    "`ftDrawCommon_80080C28`: added scratch `Mtx sp18`, `Vec3 sp54`, and `Vec3 v`, removed the explicit `phi_r28 = NULL`, and changed the matrix acquisition to the new inline helper.",
-    "`configure.py`: changed `Object(NonMatching, \"melee/ft/ftdrawcommon.c\")` to `Object(Matching, \"melee/ft/ftdrawcommon.c\")`.",
-    "`config/GALE01/symbols.txt`: converted several address-named string/float/double symbols to local `@NNN` labels, including `ftDrawCommon_803C0EB0 -> @463`, `ftDrawCommon_804D3A94 -> @461`, `ftDrawCommon_804D3A9C -> @462`, `it_803F67A8 -> @239`, `it_804D5350 -> @237`, `it_804D5358 -> @238`, and many `it_804DCCxx` sdata2 constants.",
-    "`config/GALE01/symbols.txt`: corrected `ftDrawCommon_804D8370` from size `0x8` to size `0x4`."
+    "Added static inline MtxPtr ftDrawCommon_8008051C_inline(HSD_GObj* gobj, Vec3* sp54, Vec3* v, Mtx sp18, Mtx sp70), which zeroes two Vec3s, calls ftLib_80087074, obtains HSD_CObjGetCurrent()->view_mtx, builds an identity/translation matrix with mtx_thing_2, concatenates it with PSMTXConcat, and returns sp70 or NULL.",
+    "In ftDrawCommon_800805C8, introduced explicit stack locals Mtx sp78, Mtx sp18, Vec3 sp54, Vec3 v, and adjusted padding from PAD_STACK(0x18) to PAD_STACK(12).",
+    "In ftDrawCommon_800805C8, replaced the call mtx = ftDrawCommon_8008051C(gobj, sp78) with ftDrawCommon_8008051C_inline(gobj, &sp54, &v, sp18, sp78).",
+    "In ftDrawCommon_80080C28, added Mtx sp18, Vec3 sp54, and Vec3 v locals and replaced the ftDrawCommon_8008051C call with the new inline helper.",
+    "Removed an explicit phi_r28 = NULL assignment before the helper call in ftDrawCommon_80080C28, likely because the inline helper and local layout made it unnecessary for matching.",
+    "Updated configure.py so melee/ft/ftdrawcommon.c is now built as Matching instead of NonMatching.",
+    "Renamed several symbols in config/GALE01/symbols.txt from guessed global/module-prefixed names to local @NNN compiler labels, including ftDrawCommon_803C0EB0 to @463, ftDrawCommon_804D3A94 to @461, ftDrawCommon_804D3A9C to @462, and several it_* constants to @NNN labels.",
+    "Corrected ftDrawCommon_804D8370 in symbols.txt from size 0x8 to size 0x4."
   ],
   "smart_moves": [
-    "Kept the real out-of-line `ftDrawCommon_8008051C` symbol intact while adding an inline variant for call sites that needed different codegen.",
-    "Used caller-owned scratch `Mtx` and `Vec3` locals in the inline helper, giving the large draw functions control over stack layout and register allocation.",
-    "Targeted declaration order, explicit padding, and `PAD_STACK` size instead of trying to brute-force a huge `ftDrawCommon_800805C8` permutation; this matches the PR body's note that the permuter struggled with the large function.",
-    "Removed a redundant `phi_r28 = NULL` in `ftDrawCommon_80080C28`, which likely avoided an unwanted store when matching the emitted code.",
-    "Paired the source-code matching work with symbol-map cleanup and the `configure.py` object-status flip, so the object could be treated as matching by the build."
+    "Used an inline clone of a small helper rather than relying on a normal function call, giving the compiler more similar code shape inside the large draw routines and helping resolve the reported near-match/regswap issue.",
+    "Passed stack locals into the inline helper explicitly instead of declaring them inside the helper, preserving caller stack-slot names and layout such as sp54, sp18, and sp78/sp70.",
+    "Tuned local declaration order and PAD_STACK sizes around the large ftDrawCommon_800805C8 function, a common decomp matching lever when only register allocation or stack layout remains off.",
+    "Promoted the object to Matching only after source and symbol map corrections were made together, avoiding a stale config state where the code appears matching but symbols still imply wrong ownership/scope.",
+    "Converted anonymous local constants/strings to @NNN labels where evidence indicated they were compiler-generated locals, reducing misleading global/module-prefixed names in the symbol map."
   ],
   "decomp_lessons": [
-    "When a large function is down to a small register-allocation mismatch, look for callee inlining and caller stack-frame effects before running broad permutations.",
-    "A `static inline` clone that takes explicit scratch temporaries can be a useful matching tool when the original function symbol still needs to exist separately.",
-    "Stack-slot-shaped names such as `sp78`, `sp54`, `sp18`, plus explicit `_pad` and `PAD_STACK`, are legitimate decomp tactics when type information is still weak and frame layout matters.",
-    "Do not leave anonymous compiler constants as misleading global address names; local `@NNN` symbols with correct scope, alignment, and size make the linker map more accurate.",
-    "Only flip an object from `NonMatching` to `Matching` after source and symbol data have been reconciled; this PR demonstrates that code changes and symbol-map maintenance can be part of the same match."
+    "For huge functions where the permuter struggles, isolating a repeated helper body as a static inline can be more practical than searching permutations over the whole function.",
+    "Inlining a known helper manually can fix small register allocation differences while keeping behavior equivalent, especially when matrix setup code needs caller-owned stack temporaries.",
+    "Stack local ordering matters: moving Mtx and Vec3 declarations out of inner scopes and adjusting PAD_STACK can be the difference between nonmatching and matching.",
+    "Do not preserve guessed names for local string/float/double constants once evidence shows they are anonymous local labels; symbols.txt should reflect @NNN local labels and accurate scope.",
+    "Symbol size corrections matter for matching metadata and future analysis; ftDrawCommon_804D8370 being 0x4 rather than 0x8 is a concrete example.",
+    "When a function is described as one regswap away, review stack locals, inlining, and call boundaries before relying on brute-force permutation."
   ],
   "naming_conventions": [
-    "Real functions keep the module/address form `ftDrawCommon_800xxxxx`.",
-    "The helper uses an `_inline` suffix, `ftDrawCommon_8008051C_inline`, to indicate it is not a separate original symbol.",
-    "Unknown or stack-derived locals continue to use stack-slot names such as `spAC`, `spA8`, `sp78`, `sp54`, and `sp18`.",
-    "Compiler-generated local data in `symbols.txt` is represented with `@NNN` labels and `scope:local` rather than fabricated global names like `it_804DCCB0` when evidence says it is local."
+    "Module functions use the ftDrawCommon_800xxxxx naming pattern, e.g. ftDrawCommon_8008051C, ftDrawCommon_800805C8, and ftDrawCommon_80080C28.",
+    "The added helper was named ftDrawCommon_8008051C_inline, explicitly tying it to the existing function whose body/behavior it duplicates inline.",
+    "Compiler-generated local symbols in symbols.txt use @NNN names with scope:local, rather than guessed module/global names such as ftDrawCommon_803C0EB0 or it_804DCCB0.",
+    "Stack-local placeholder names in the source preserve decomp stack offset information, such as spAC, spA8, sp78, sp70, sp54, sp18, and v.",
+    "Matrix pointer and vector types are named with project conventions such as MtxPtr, Mtx, Vec3, HSD_GObj, HSD_CObj, and HSD_JObj."
   ],
   "assembly_or_matching_tactics": [
-    "Inline a small matrix-building helper into the problematic draw paths instead of changing the standalone helper function.",
-    "Pass scratch matrices/vectors into the inline helper to force caller frame layout: `Mtx sp18`, `Mtx sp78` or `sp70`, `Vec3 sp54`, and `Vec3 v`.",
-    "Hoist block-local declarations to function scope when stack allocation order matters for matching.",
-    "Use explicit padding (`u8 _pad[12]`) and adjusted `PAD_STACK(12)` to shape the stack frame.",
-    "Remove source-level initializations that would emit extra instructions not present in the target assembly.",
-    "Correct symbol sizes/scopes for local constants, including the `ftDrawCommon_804D8370` size change from `0x8` to `0x4`."
+    "Changed ftdrawcommon.c from NonMatching to Matching in configure.py.",
+    "Used a static inline helper to reproduce ftDrawCommon_8008051C behavior at call sites in ftDrawCommon_800805C8 and ftDrawCommon_80080C28.",
+    "Controlled stack layout by introducing caller-level Mtx and Vec3 temporaries and passing them by pointer/value to the inline helper.",
+    "Adjusted PAD_STACK in ftDrawCommon_800805C8 from 0x18 to 12 and kept PAD_STACK(4) in ftDrawCommon_80080C28 while changing surrounding locals.",
+    "Moved Mtx sp78 out of an inner block in ftDrawCommon_800805C8 so it participates in the full function's stack frame.",
+    "Removed an unnecessary phi_r28 initialization in ftDrawCommon_80080C28 after restructuring the helper call.",
+    "Matched local constant metadata by changing symbols from global/module-prefixed names to local @NNN labels and correcting a .sdata2 object size."
   ],
-  "review_feedback": [
-    "No issue comments, review comments, or reviews were present in the slice; no reviewer-specific feedback could be extracted."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
-    "ftdrawcommon",
+    "pr-2415",
+    "ftdrawcommon work",
+    "lukechampine",
     "ftDrawCommon_800805C8",
     "ftDrawCommon_8008051C",
     "ftDrawCommon_8008051C_inline",
     "ftDrawCommon_80080C28",
-    "regswap",
-    "permuter",
-    "Object(Matching, \"melee/ft/ftdrawcommon.c\")",
-    "Object(NonMatching, \"melee/ft/ftdrawcommon.c\")",
-    "Mtx",
+    "ftdrawcommon.c Matching",
+    "NonMatching to Matching",
+    "one tiny regswap away",
+    "permuter struggles",
     "MtxPtr",
-    "Vec3",
+    "Mtx sp18",
+    "Mtx sp78",
+    "Mtx sp70",
+    "Vec3 sp54",
     "PAD_STACK",
     "PSMTXIdentity",
     "PSMTXConcat",
     "HSD_CObjGetCurrent",
     "view_mtx",
-    "HSD_JObjDispAll",
-    "HSD_GObj_80390EB8",
+    "mtx_thing_2",
     "ftLib_80087074",
-    "ftParts_800750C8",
-    "ftDrawCommon_804D8370",
-    "ftDrawCommon_803C0EB0",
-    "ftDrawCommon_804D3A94",
-    "ftDrawCommon_804D3A9C",
-    "it_804DCCB0",
-    "symbols.txt local @NNN"
+    "HSD_JObjDispAll",
+    "symbols.txt @NNN local labels",
+    "ftDrawCommon_804D8370 size 0x4",
+    "configure.py Object Matching melee/ft/ftdrawcommon.c"
   ],
   "follow_up_queries": [
-    "ftDrawCommon_800805C8 regswap permuter",
-    "ftDrawCommon_8008051C_inline stack layout",
-    "Object(NonMatching, \"melee/ft/ftdrawcommon.c\")",
-    "Object(Matching, \"melee/ft/ftdrawcommon.c\")",
-    "symbols.txt ftDrawCommon_804D8370 size 0x4",
-    "static inline helper caller-owned Mtx Vec3 matching",
-    "PAD_STACK _pad Vec3 Mtx decomp matching tactic"
+    "Find later PRs touching ftDrawCommon_800805C8 for final naming, cleanup, or removal of placeholder locals.",
+    "Search for other PRs that used static inline wrappers to solve regswap issues in large fighter functions.",
+    "Audit symbols.txt entries near ftDrawCommon_804D8370 and adjacent @252/@253 labels for whether constants were later typed or named.",
+    "Look for discussion or commits explaining why ftDrawCommon_8008051C_inline was preferred over calling ftDrawCommon_8008051C directly."
   ],
-  "confidence": 0.9
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,29 +11,27 @@
     "merged_at": "2026-03-09T19:01:02Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Renamed the Pokemon Stadium ground module from grstadium to grpstadium so file/assert paths line up with the embedded grpstadium.c strings, updated build/split/include references, and cleaned repeated manual asserts into HSD_ASSERT calls. The PR also named TextWrapper HSD_Text pointers as win_static_p/win_dynamic_p and permuter-matched grStadium_801D3138, with decomp.dev reporting a net +408 matched bytes.",
+  "summary": "Renamed the Pokemon Stadium ground source from grstadium.c to grpstadium.c so assert file names align with the expected original file string, updated build/split config and includes, then cleaned repeated literal __assert calls into HSD_ASSERT. The PR also made local naming and small statement-order/permuter-driven changes in grpstadium.c, notably around TextWrapper fields and grStadium_801D3138, improving matching while preserving the grStadium_* symbol prefix.",
   "change_classification": {
-    "primary_type": "stage-module-rename-assert-cleanup-and-decomp-match",
+    "primary_type": "naming-and-decomp-matching-cleanup",
     "categories": [
-      "naming",
+      "file-rename",
       "assert-cleanup",
       "decomp-matching",
-      "build-config-update",
-      "header-rename",
-      "readability-refactor"
+      "local-variable-naming",
+      "build-config-update"
     ],
     "systems": [
       "stage",
       "ground",
-      "Pokemon Stadium",
-      "build configuration",
-      "fighter include users",
-      "game-mode include users"
+      "pokemon-stadium",
+      "config",
+      "fighter",
+      "game-mode"
     ]
   },
   "key_files": [
-    "src/melee/gr/grstadium.c -> src/melee/gr/grpstadium.c",
-    "src/melee/gr/grstadium.h -> src/melee/gr/grpstadium.h",
+    "src/melee/gr/grpstadium.c",
     "config/GALE01/splits.txt",
     "configure.py",
     "src/melee/ft/chara/ftPurin/ftPr_SpecialHi.c",
@@ -41,93 +39,100 @@
     "src/melee/gr/ground.c"
   ],
   "what_changed": [
-    "Renamed src/melee/gr/grstadium.c to src/melee/gr/grpstadium.c and src/melee/gr/grstadium.h to src/melee/gr/grpstadium.h; the old TODO saying the file needed to be named grpstadium.c for asserts was removed.",
-    "Updated config/GALE01/splits.txt and configure.py from melee/gr/grstadium.c to melee/gr/grpstadium.c.",
-    "Updated include users in ftPr_SpecialHi.c, gm_16AE.c, and ground.c from grstadium.h to grpstadium.h.",
-    "Changed grStadium_801D10F8's OSReport path argument from the literal grpstadium.c to __FILE__.",
-    "Converted many manual `if (...) __assert(\"grpstadium.c\", line, \"expr\")` blocks to `HSD_ASSERT(line, expr)` while preserving line constants.",
-    "Renamed TextWrapper fields x18 and x1C to win_static_p and win_dynamic_p and propagated those names through HSD_SisLib calls.",
-    "Adjusted grStadium_801D3138's local/decomp shape; decomp.dev listed main/melee/gr/grpstadium grStadium_801D3138 as a +408-byte 100% match."
+    "Renamed src/melee/gr/grstadium.c to src/melee/gr/grpstadium.c; the removed file header explicitly said the file needed to be named grpstadium.c for asserts.",
+    "Updated config/GALE01/splits.txt from melee/gr/grstadium.c to melee/gr/grpstadium.c for the same text/rodata/data/bss/sbss/sdata2 ranges.",
+    "Updated configure.py object list from Object(NonMatching, \"melee/gr/grstadium.c\") to Object(NonMatching, \"melee/gr/grpstadium.c\").",
+    "Updated includes in ftPr_SpecialHi.c, gm_16AE.c, and ground.c from grstadium.h to grpstadium.h.",
+    "Changed an OSReport in grStadium_801D10F8 from a hardcoded \"grpstadium.c\" filename argument to __FILE__, enabled by the source-file rename.",
+    "Replaced many manual if-null blocks that called __assert(\"grpstadium.c\", line, expr) with HSD_ASSERT(line, expr), including checks for vision_gobj, gp2, gp2->win_static_p, and gp2->win_dynamic_p.",
+    "Renamed TextWrapper fields x18 and x1C to win_static_p and win_dynamic_p and propagated those names through stadium display/text code.",
+    "In grStadium_801D3138, reordered local declarations and inserted an empty conditional on jobj->flags, apparently as a matching/permuter tactic.",
+    "Renamed some temporary locals in display text code, for example temp_r30/temp_r31 to gp2 where they represented TextWrapper user data.",
+    "Bot report showed the rename caused decomp.dev to report many matches under main/melee/gr/grpstadium and corresponding losses under main/melee/gr/grstadium; net matched code improved by +408 bytes (+0.01%)."
   ],
   "smart_moves": [
-    "Fixed the module's physical filename instead of continuing to hardcode grpstadium.c in asserts, making __FILE__ and HSD_ASSERT usable.",
-    "Used existing assert expression strings as naming evidence: old asserts referenced gp2->win_static_p and gp2->win_dynamic_p even while the struct fields were still x18/x1C.",
-    "Performed the rename atomically across splits.txt, configure.py, the C file, the header, and direct include users.",
-    "Kept public/internal function names like grStadium_801D3138 unchanged while changing only the file/header identity to grpstadium, avoiding unnecessary symbol churn.",
-    "Interpreted matching output as rename churn plus one real gain: the bot showed 74 new matches and 73 broken matches due to the unit path move, with net +408 matched bytes."
+    "Renaming the physical source file instead of continuing to hardcode \"grpstadium.c\" let HSD_ASSERT and __FILE__ produce the desired assert filename naturally.",
+    "The split table and configure.py object path were updated with the rename, avoiding build/decomp accounting drift between the source tree and GALE01 split metadata.",
+    "The PR kept function symbols as grStadium_* while changing the file/module path to grpstadium, separating symbol naming from original assert-file naming.",
+    "Replacing handwritten __assert blocks with HSD_ASSERT reduced clutter while preserving the line numbers required for matching/assert behavior.",
+    "Semantic field names win_static_p and win_dynamic_p made HSD_SisLib usage clearer than x18/x1C without changing struct layout.",
+    "A tiny permuter-style no-op conditional in grStadium_801D3138 was used narrowly to affect codegen rather than rewriting larger logic."
   ],
   "decomp_lessons": [
-    "Original assert file strings can require repository filenames to match exactly; once the file is correctly named, prefer HSD_ASSERT/__FILE__ over duplicated string literals.",
-    "Assert expression text is strong semantic evidence for struct fields and local roles, especially when it names fields not yet represented in the decompiled struct.",
-    "When cleaning assert blocks, preserve original line constants such as 0x6D2, 0x780, 0x969, and 0xA44 to keep behavior and matching stable.",
-    "File/module renames can dominate decomp.dev reports; compare old and new unit names and look for the net byte delta before claiming broad new matching progress.",
-    "Permuter-derived no-op or odd-looking code-shape artifacts can be a valid matching tactic, but should remain easy to search and revisit."
+    "For functions with original assert strings, the C filename can be part of the match surface; use the correct source filename so HSD_ASSERT/__FILE__ expand to the expected string.",
+    "File renames in decomp repos must be mirrored in split metadata, build object lists, and all include users or matching reports may become misleading.",
+    "Prefer HSD_ASSERT(line, expr) when it captures the same filename/line/expression behavior as manual __assert calls; it improves readability and reduces duplicate string literals.",
+    "Field renames are safe matching cleanups when offsets are unchanged; choose names derived from observed API roles, such as static vs dynamic HSD_Text windows.",
+    "Small declaration-order changes and empty conditionals may be legitimate matching tactics when isolated and evidence-backed by permuter results, but they should be kept local and searchable.",
+    "Decomp.dev match reports after renames may appear as many new matches and many broken matches because the unit name changed; interpret the net code-size delta and renamed unit path together."
   ],
   "naming_conventions": [
-    "Use grpstadium.c/grpstadium.h and build path melee/gr/grpstadium.c for the Pokemon Stadium ground module, while retaining the existing grStadium_* function prefix.",
-    "TextWrapper.win_static_p names the static SIS text/window pointer initialized by HSD_SisLib_803A5ACC.",
-    "TextWrapper.win_dynamic_p names the dynamic HSD_Text pointer initialized by HSD_SisLib_803A6754.",
-    "Readable locals such as map_gobj, text_gobj, gp, and gp2 replaced temp_rXX names where object roles were clear from surrounding asserts.",
-    "Resource casing SIS_GrPStadiumData aligns with the GrPStadium/grpstadium module spelling."
+    "Pokemon Stadium ground module path uses grpstadium.c/grpstadium.h, while exported/decompiled functions in this slice still use the grStadium_* prefix.",
+    "TextWrapper.x18 was renamed to win_static_p.",
+    "TextWrapper.x1C was renamed to win_dynamic_p.",
+    "Temporary user-data variables representing the TextWrapper were sometimes renamed to gp2 in local display routines.",
+    "Assert cleanup expresses checks as HSD_ASSERT(line_hex, expression) rather than __assert(\"grpstadium.c\", line, \"expression\")."
   ],
   "assembly_or_matching_tactics": [
-    "The title attributes a function match to the permuter; the diff shows grStadium_801D3138 changed local declaration order and inserted an empty `if ((jobj->flags && jobj->flags)) {}` before the mobj NULL check.",
-    "HSD_ASSERT replacements removed explicit compare/branch/__assert boilerplate while keeping line-number operands intact.",
-    "After the physical rename, `OSReport(..., __FILE__, 0x120, id)` replaced a literal file string without needing a bespoke hardcoded path.",
-    "Decomp.dev reported GALE01 matched code at 55.56% (+0.01%, +408 bytes); most per-function new/broken entries were the grstadium-to-grpstadium unit rename."
+    "Used the physical source rename to make __FILE__/HSD_ASSERT produce grpstadium.c instead of hardcoding the filename in every assert.",
+    "Converted manual null-check-and-__assert sequences to HSD_ASSERT while preserving original line constants such as 0x6D2, 0x6D3, 0x780, 0x781, 0x812, and 0x813.",
+    "In grStadium_801D3138, moved HSD_DObj* dobj below HSD_JObj* jobj and added an empty if ((jobj->flags && jobj->flags)) block before the mobj null check, likely to influence generated assembly.",
+    "The bot reported grStadium_801D3138 improved from 98.43% in the old grstadium unit to a 100% match under grpstadium, consistent with the title's permuter-match claim.",
+    "Renaming the unit generated decomp.dev accounting churn: 74 new matches under main/melee/gr/grpstadium and 73 broken matches under main/melee/gr/grstadium, plus unmatched-item improvements/regressions mirrored by the unit rename."
   ],
   "review_feedback": [
-    "No human reviews or review comments were present in the slice.",
-    "The decomp.dev bot reported 74 new matches under main/melee/gr/grpstadium and 73 broken matches under main/melee/gr/grstadium, indicating mostly rename attribution churn plus the net +408-byte improvement."
+    "No human review comments were present in the slice.",
+    "The only issue comment was a decomp-dev bot report for GALE01 showing matched code 55.56% with +0.01% and +408 bytes.",
+    "Bot report highlighted new matches including grStadium_801D2528, grStadium_801D3460, grStadium_801D1EF8, grStadium_801D1B48, grStadium_801D2344, grStadium_801D3138, grStadium_801D2BEC, fn_801D2ED0, and others under main/melee/gr/grpstadium."
   ],
   "searchable_terms": [
-    "pr-2246",
+    "pr2246",
     "PsiLupan",
     "grstadium",
     "grpstadium",
-    "grpstadium.c",
+    "Pokemon Stadium",
+    "GrPStadium",
+    "SIS_GrPStadiumData",
+    "src/melee/gr/grpstadium.c",
+    "src/melee/gr/grstadium.c",
     "grpstadium.h",
-    "grStadium_801D3138",
     "grStadium_801D10F8",
     "grStadium_801D2528",
+    "grStadium_801D2BEC",
+    "grStadium_801D3138",
     "grStadium_801D3460",
     "grStadium_801D3BBC",
-    "grStadium_801D4548",
     "fn_801D2ED0",
     "fn_801D2FD0",
     "fn_801D3084",
-    "fn_801D4220",
-    "TextWrapper",
-    "win_static_p",
-    "win_dynamic_p",
     "HSD_ASSERT",
     "__assert",
     "__FILE__",
     "OSReport",
-    "SIS_GrPStadiumData",
-    "HSD_SisLib_803A5ACC",
-    "HSD_SisLib_803A6754",
+    "TextWrapper",
+    "win_static_p",
+    "win_dynamic_p",
+    "HSD_Text",
     "HSD_SisLib_803A7664",
     "HSD_SisLib_803A6368",
-    "Ground_801C2BA4",
-    "GET_GROUND",
-    "PsType_Display",
-    "StadiumGrType",
-    "config/GALE01/splits.txt",
-    "configure.py",
-    "ftPr_SpecialHi.c",
-    "gm_16AE.c",
-    "ground.c",
     "permuter",
-    "decomp.dev",
-    "GALE01",
-    "Pokemon Stadium"
+    "splits.txt",
+    "configure.py"
   ],
   "follow_up_queries": [
-    "Search for remaining grstadium path/include/assert strings after the rename.",
-    "Find later grpstadium PRs that finish near-matches such as grStadium_801D4548, grStadium_801D3BBC, grStadium_801D435C, and grStadium_801D2A60.",
-    "Audit other ground files for hardcoded assert filename literals or TODOs that can be fixed by renaming the file and using HSD_ASSERT.",
-    "Revisit the empty `if ((jobj->flags && jobj->flags)) {}` in grStadium_801D3138 if a clearer matching construct becomes known."
+    "Look for later PRs that rename grStadium_* symbols or further clean grpstadium.c naming after the file rename.",
+    "Search for other files with TODOs saying the filename is wrong for asserts and apply the same source-file rename plus split/config update pattern.",
+    "Review other manual __assert(\"file.c\", line, \"expr\") blocks that can safely become HSD_ASSERT after filename alignment.",
+    "Investigate grStadium_801D4548, grStadium_801D3BBC, grStadium_801D435C, grStadium_801D2A60, fn_801D2FD0, and fn_801D3084, which the bot still reported as partial matches under grpstadium.",
+    "Search for x18/x1C HSD_Text wrapper fields in related stage display code that may benefit from win_static_p/win_dynamic_p-style names."
   ],
-  "confidence": 0.92
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

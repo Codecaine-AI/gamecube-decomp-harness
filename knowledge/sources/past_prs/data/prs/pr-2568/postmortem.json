@@ -11,7 +11,7 @@
     "merged_at": "2026-06-01T19:01:14Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched `fn_8003F654` in `src/melee/pl/plbonuslib.c` and changed `plbonuslib.c` from `NonMatching` to `Matching` in `configure.py`. The key matching fix was an inline `my_sqrtf` using `__frsqrte` with local double constants, plus removal of unused `MSL/math_ppc.h`, to keep `.sdata2` layout aligned with the target object. The PR body reports `fn_8003F654` at 100.0% and `plbonuslib.c` `.text`, `.data`, and `.sdata2` all at 100.0%.",
+  "summary": "Matched fn_8003F654 in src/melee/pl/plbonuslib.c and promoted plbonuslib.c from NonMatching to Matching in configure.py. The change rewrote the function with codegen-oriented local variable ordering/control flow, added a local inline my_sqrtf using __frsqrte/Newton iterations, removed the unused MSL/math_ppc.h include, and verified the whole translation unit at 100% for .text, .data, and .sdata2.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -19,98 +19,97 @@
       "translation-unit-linking",
       "headers",
       "sdata2-layout",
-      "build-config"
+      "math-codegen"
     ],
     "systems": [
-      "melee/pl/plbonuslib",
-      "player-bonus-statistics",
-      "repo-build-configuration"
+      "player",
+      "plbonuslib",
+      "melee-core",
+      "build-configuration"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/pl/plbonuslib.c",
-      "role": "Matched `fn_8003F654`, added `my_sqrtf`, removed `MSL/math_ppc.h`, and rewrote local/control-flow shape around stale-move table updates."
+      "reason": "Matched fn_8003F654, added my_sqrtf helper, removed MSL/math_ppc.h include, and adjusted local/control-flow structure for codegen."
     },
     {
       "path": "configure.py",
-      "role": "Changed `Object(NonMatching, \"melee/pl/plbonuslib.c\")` to `Object(Matching, \"melee/pl/plbonuslib.c\")`."
+      "reason": "Changed melee/pl/plbonuslib.c object classification from NonMatching to Matching."
     }
   ],
   "what_changed": [
-    "`configure.py` now links `melee/pl/plbonuslib.c` as `Matching` instead of `NonMatching`.",
-    "`src/melee/pl/plbonuslib.c` removed the unused `#include <MSL/math_ppc.h>` while keeping `MSL/math.h` and `MetroTRK/intrinsics.h`.",
-    "Added a static inline `my_sqrtf(float x)` using `__frsqrte`, local `const double half = 0.5`, local `const double three = 3.0`, three Newton-style refinement steps, a `volatile float y`, and a small local `u8 _[4] = { 0 }`.",
-    "Reworked `fn_8003F654` from a mostly direct semantic version into a matching-shaped implementation using locals such as `table`, `entity`, `b34_result`, `teammate_slot`, `avg_sum`, `other_pos`, and `cam_pos`.",
-    "`fn_8003F654` now calls helper-style routines visible in the diff, including `pl_Verify_gm_8016AEDC`, `pl_CheckIfSameTeam`, and `pl_CalculateAverage`, instead of open-coding all of the prior boolean/team/average expressions.",
-    "The function still updates stale-move table fields such as `xD74`, `xD78`, `xD7C`, `xD80`, `xD84`, `xD88`, `xD8C`, `xD90`, `xD94`, and `xD98`, but with branch, temporary, and averaging forms adjusted for the match."
+    "configure.py now marks Object(Matching, \"melee/pl/plbonuslib.c\") instead of Object(NonMatching, \"melee/pl/plbonuslib.c\").",
+    "Added static inline float my_sqrtf(float x), implemented with __frsqrte on a double cast and three Newton refinement steps using local double constants half = 0.5 and three = 3.0.",
+    "Removed #include <MSL/math_ppc.h>; the PR body states this avoided disturbing the generated .sdata2 layout.",
+    "Reworked fn_8003F654 from a semantically clear but nonmatching version into a matching implementation using renamed locals, explicit branches for absolute values, helper calls pl_Verify_gm_8016AEDC, pl_CheckIfSameTeam, and pl_CalculateAverage, and stack Vec3 locals other_pos and cam_pos.",
+    "Distance calculation in the type==1 path now uses my_sqrtf instead of sqrtf to match target math codegen.",
+    "Average updates for xD8C and xD94 were rewritten through pl_CalculateAverage rather than direct division expressions.",
+    "Verification reported by the PR: python configure.py --require-protos, ninja, fn_8003F654 at 100.0%, and plbonuslib.c .text/.data/.sdata2 all 100.0%."
   ],
   "smart_moves": [
-    "Used local double constants inside `my_sqrtf` specifically to get the desired codegen without adding extra `.sdata2` local statics, as stated in the PR body.",
-    "Removed an otherwise unused math header because even an include-level detail affected generated `.sdata2` layout for the target object.",
-    "Avoided relying on plain `sqrtf` and instead introduced a local `__frsqrte`-based helper whose refinement sequence could be shaped to the original compiler output.",
-    "Only flipped the translation unit to `Matching` after verification showed `fn_8003F654` and the relevant `plbonuslib.c` sections at 100.0%.",
-    "Preserved matching-sensitive expression shape with explicit absolute-value branches, helper calls for average calculation, and a switch/default-return around `ftLib_8008732C(entity)`."
+    "Used local double constants inside my_sqrtf instead of adding extra file-scope constants, preserving .sdata2 layout while still matching sqrt codegen.",
+    "Removed an unused math_ppc include because even unused includes can affect generated local statics or section layout in this codebase.",
+    "Matched at translation-unit level, not only function level: after fn_8003F654 matched, the PR linked plbonuslib.c as Matching and verified .text, .data, and .sdata2.",
+    "Introduced small wrapper/helper usage such as pl_CalculateAverage and pl_CheckIfSameTeam where the target codegen apparently favored call structure over inlined arithmetic/conditions.",
+    "Kept codegen-sensitive temporaries such as new_var, b34_result, prev_pos2, pos_x2, and abs rather than simplifying them away, which is often necessary for stack/register matching."
   ],
   "decomp_lessons": [
-    "For `.sdata2`-sensitive matches, constant placement matters: local constants can be preferable to file-level or header-provided statics if the target object did not emit those extra constants.",
-    "Unused includes can still perturb generated data layout; when `.sdata2` is close but not exact, audit math and inline-helper headers as well as source statements.",
-    "Matching a mathematically simple operation may require recreating the original compiler idiom, such as `frsqrte` plus repeated refinement, rather than using the cleanest library call.",
-    "Do not promote a translation unit in `configure.py` until both code and data sections have been verified; this PR used `python configure.py --require-protos`, `ninja`, and section-level 100.0% checks.",
-    "When semantic code is already close, remaining match work may be in temporary variable lifetimes, branch shape, volatile stores, stack padding, and helper selection rather than in game logic."
+    "For math-heavy matching, replacing a library sqrtf call with an inline __frsqrte-based implementation can be necessary when the original target used PPC reciprocal-square-root codegen.",
+    "Local constants can be a section-layout tactic: putting half and three inside the helper avoided adding extra .sdata2 local statics according to the PR body.",
+    "Do not assume unused includes are harmless; header changes can affect emitted constants and .sdata2 matching.",
+    "When promoting a file to Matching, verify every relevant section, not just the newly matched function.",
+    "Average/absolute-value expressions may need to be written in verbose branch form to reproduce original compiler output.",
+    "Wrapper functions such as pl_Verify_gm_8016AEDC, pl_CheckIfSameTeam, and pl_CalculateAverage can improve matching by matching original call boundaries and expression structure."
   ],
   "naming_conventions": [
-    "Still-unknown functions retain address-style names such as `fn_8003F654` and `fn_8003F53C`.",
-    "Known module functions use the `plBonusLib_` prefix, as seen with `plBonusLib_8003D514`.",
-    "Player and fighter-library calls preserve existing subsystem prefixes such as `Player_`, `ftLib_`, `ft_`, `gm_`, and `Stage_`.",
-    "New/local helper names in this diff use `pl_` prefixes for player-library utilities: `pl_Verify_gm_8016AEDC`, `pl_CheckIfSameTeam`, and `pl_CalculateAverage`.",
-    "Unidentified struct fields in `pl_StaleMoveTableExt_t` remain offset-style names like `xD74`, `xD80`, `xD8C`, and `xD98` rather than speculative semantic names."
+    "Matched helper uses project-style static inline lowercase name my_sqrtf, but evidence does not show whether this is an intended final symbol name or a temporary matching helper.",
+    "Player/stale-move table fields retain offset-style names such as xD74, xD78, xD7C, xD80, xD84, xD88, xD8C, xD90, xD94, and xD98.",
+    "Existing decomp placeholder/function names remain, including fn_8003F654 and fn_8003F53C.",
+    "The rewrite favored descriptive locals like table, entity, teammate_slot, teammate_table, other_pos, and cam_pos alongside codegen-driven temporaries like new_var, b34_result, and abs.",
+    "Type naming uses project types such as pl_StaleMoveTableExt_t, Fighter_GObj, and Vec3."
   ],
   "assembly_or_matching_tactics": [
-    "Inline replacement for `sqrtf`: `my_sqrtf` uses `__frsqrte((double) x)` and three repeated `half * guess * (three - guess * guess * x)` refinements.",
-    "Local `const double half` and `const double three` were used to avoid extra `.sdata2` local statics.",
-    "Removing `MSL/math_ppc.h` was part of the `.sdata2` matching tactic.",
-    "The added `volatile float y` and local `u8 _[4] = { 0 }` in `my_sqrtf` are visible stack/codegen-shaping details in the diff.",
-    "Control flow was reshaped with `switch (ftLib_8008732C(entity))`, `case 0: break`, and `default: return`.",
-    "Explicit absolute-value branches and repeated temporary assignments replaced terser ternary-style expressions to match generated code.",
-    "`pl_CalculateAverage` replaced inline division/cast average expressions in the matched version."
+    "Inline PPC sqrt approximation: __frsqrte((double)x), three Newton iterations, then y = (float)(x * guess) through a volatile float.",
+    "Used local double constants half and three to avoid extra .sdata2 local statics.",
+    "Inserted u8 _[4] = { 0 }; and volatile float y in my_sqrtf, likely for stack/codegen shape; exact reviewer rationale is not present.",
+    "Removed MSL/math_ppc.h to keep .sdata2 layout matching.",
+    "Replaced direct sqrtf(dist) with my_sqrtf(expression) for the distance computation.",
+    "Expanded ternary absolute-value operations into explicit if/else assignments, including no-op unary plus assignments, to match generated branches.",
+    "Used intermediate temporaries and preserved redundant-looking aliases such as prev_pos2 = prevPos and b34 = b34_result for codegen.",
+    "Changed loop and condition shape for the six-player scan to a nested/compound condition using pl_CheckIfSameTeam(slot, i).",
+    "Replaced direct division-average formulas with pl_CalculateAverage calls for matching."
   ],
   "review_feedback": [
-    "No human review comments or formal reviews are present in the provided slice.",
-    "The decomp.dev bot reported GALE01 matched code increased by 1108 bytes and linked code increased by 14536 bytes.",
-    "The bot reported 2 new matches: `main/melee/pl/plbonuslib` `fn_8003F654` improved from 75.24% to 100.00% for +275 bytes, and `.sdata2` improved from 83.33% to 100.00% for +7 bytes.",
-    "The PR body verification listed `python configure.py --require-protos`, `ninja`, `fn_8003F654`: 100.0%, and `plbonuslib.c`: `.text`, `.data`, and `.sdata2` all 100.0%."
+    "No review comments were present in the supplied PR context.",
+    "The PR body explicitly documented why local double constants and include removal mattered for .sdata2 matching."
   ],
   "searchable_terms": [
     "pr-2568",
-    "itsgrimetime",
     "plbonuslib",
     "plbonuslib.c",
     "fn_8003F654",
-    "fn_8003F53C",
-    "plBonusLib_8003D514",
-    "configure.py",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "MatchingFor",
     "my_sqrtf",
     "__frsqrte",
     "MSL/math_ppc.h",
     "MSL/math.h",
-    "MetroTRK/intrinsics.h",
-    ".sdata2",
-    "pl_StaleMoveTableExt_t",
-    "Player_GetStaleMoveTableIndexPtr2",
-    "Player_GetEntityAtIndex",
-    "Fighter_GObj",
-    "ftLib_8008732C",
-    "ft_80087B34",
-    "ftLib_80087300",
-    "ftLib_800865CC",
+    "sdata2",
+    "Object(Matching)",
+    "Object(NonMatching)",
+    "configure.py",
     "pl_Verify_gm_8016AEDC",
     "pl_CheckIfSameTeam",
     "pl_CalculateAverage",
+    "Player_GetStaleMoveTableIndexPtr2",
+    "Player_GetEntityAtIndex",
+    "ft_80087B34",
+    "ftLib_8008732C",
+    "ftLib_80087300",
+    "ftLib_800865CC",
     "Stage_UnkSetVec3TCam_Offset",
+    "pl_StaleMoveTableExt_t",
+    "Fighter_GObj",
+    "Vec3",
     "xD74",
     "xD78",
     "xD7C",
@@ -120,14 +119,25 @@
     "xD8C",
     "xD90",
     "xD94",
-    "xD98"
+    "xD98",
+    "translation unit matching",
+    "math codegen",
+    "local double constants"
   ],
   "follow_up_queries": [
-    "Find other melee decomp PRs where removing a math header or unused include fixed `.sdata2` layout.",
-    "Search for other `sqrtf` or reciprocal-square-root matches that used `__frsqrte` and local double constants.",
-    "Audit remaining offset-style fields in `pl_StaleMoveTableExt_t` around `xD74` through `xD98` for future semantic naming.",
-    "Look for later PRs that rename `fn_8003F654`, `my_sqrtf`, `pl_CalculateAverage`, or the stale-move table fields.",
-    "Search for other translation units flipped from `NonMatching` to `Matching` after final function and data-section cleanup."
+    "Find other PRs that add local inline sqrt helpers using __frsqrte for matching.",
+    "Search for cases where removing an unused include fixed .sdata2 layout.",
+    "Look for other plbonuslib.c matching PRs involving stale move table fields xD74 through xD98.",
+    "Check whether my_sqrtf was later renamed, shared, or replaced by a common helper.",
+    "Find uses of pl_CalculateAverage and pl_CheckIfSameTeam introduced specifically for codegen matching."
   ],
-  "confidence": 0.95
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

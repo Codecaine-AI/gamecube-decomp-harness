@@ -11,14 +11,14 @@
     "merged_at": "2026-06-05T00:39:33Z"
   },
   "agent_status": "agent_completed",
-  "summary": "A small item-system matching PR applying wins found by a new permuter. It touched Link boomerang, Link hookshot, and Ness yoyo item code, mostly by adding tiny helper inlines, changing local declaration/order patterns, inserting temporary variables, and adjusting stack padding to improve or recover matches. The PR body states the motivation directly: \"New permuter yielded a few wins\" and reports progress as \"Remaining item TUs: 21\" and \"Remaining item functions: 69\".",
+  "summary": "Small item-code matching PR driven by a new permuter, touching Link boomerang, Link hookshot, and Ness yoyo. The changes are mostly local source-shape adjustments: temporary aliases, inline helper extraction, declaration/order reshuffling, stack padding changes, boolean cleanup, and one suspicious-looking hookshot argument correction from fp->x40 to attr->x40. The PR body says the new permuter yielded a few wins and reports remaining item work as 21 item TUs and 69 item functions.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "fix",
-      "permuter-driven cleanup",
-      "item TU progress"
+      "permuter-result",
+      "item-code-cleanup"
     ],
     "systems": [
       "item",
@@ -28,93 +28,90 @@
     ]
   },
   "key_files": [
+    "src/melee/it/items/itlinkboomerang.c",
     "src/melee/it/items/itlinkhookshot.c",
-    "src/melee/it/items/itnessyoyo.c",
-    "src/melee/it/items/itlinkboomerang.c"
+    "src/melee/it/items/itnessyoyo.c"
   ],
   "what_changed": [
-    "In itlinkboomerang.c, it_802A0534 now assigns gobj->hsd_obj through an intermediate HSD_JObj* jobj_tmp before assigning jobj, a local-shaping change intended for matching.",
-    "In itlinkhookshot.c, fn_802A33A0 gained a small static inline helper fn_802A33A0_GetFighter(Item* item) returning item->owner->user_data, and the local declaration order was changed.",
-    "In fn_802A33A0, the it_802A5E28 call changed its final argument from fp->x40 to attr->x40. The diff does not explain whether this is a semantic bug fix, a discovered field equivalence, or a corrected decompilation; it is the most behavior-relevant-looking change in the slice.",
-    "In it_802A39FC, locals were initialized closer to declaration, an int var_r0 collision flag became bool chk, stack padding was removed from the shown region, and a nested y_delta temporary was introduced before assigning temp_f30.",
-    "In it_802A39FC, the two mpCheckAllRemap checks now set chk true/false and the branch tests if (chk), preserving the apparent control-flow intent while changing local typing and codegen shape.",
-    "In it_802A4758, a static inline it_802A4758_permuterslop(ItemLink* link_0) was added to return &link_0->pos, and test_comp now receives that helper result instead of &link_0->pos directly.",
-    "In itnessyoyo.c, rotation update logic from itNessyoyo_UnkMotion3_Anim was split into static inline itNessyoyo_UnkMotion3_Anim_UpdateRotation(Item* ip).",
-    "In itNessyoyo_UnkMotion3_Anim, the function now gets Item* ip, keeps PAD_STACK(16), calls the new UpdateRotation inline, then continues with itNessyoyo_UnkMotion3_Anim_inline and it_802BE958_inline."
+    "In itlinkboomerang.c, it_802A0534 now initializes gobj->hsd_obj through an intermediate HSD_JObj* jobj_tmp before assigning jobj, a source-shape tweak likely found by the permuter.",
+    "In itlinkhookshot.c, fn_802A33A0 gained a static inline helper fn_802A33A0_GetFighter(Item*) returning item->owner->user_data; local declarations were reordered around Item, Fighter, attributes, and ItemLink.",
+    "In fn_802A33A0, the call to it_802A5E28 changed its final argument from fp->x40 to attr->x40.",
+    "In it_802A39FC, Item* item and itLinkHookshotAttributes* attr are initialized at declaration time, the temporary collision/check variable changed from int var_r0 to bool chk, PAD_STACK(4) was removed, and a small scoped y_delta temporary was inserted before assigning temp_f30.",
+    "In it_802A4758, a static inline helper it_802A4758_permuterslop(ItemLink*) was added to return &link_0->pos, and test_comp now receives that helper result instead of &link_0->pos directly.",
+    "In itnessyoyo.c, the rotation update portion of itNessyoyo_UnkMotion3_Anim was extracted into static inline itNessyoyo_UnkMotion3_Anim_UpdateRotation(Item*), with PAD_STACK adjusted from 24 in the old function body to 16 in the helper plus 16 in the caller.",
+    "The PR reduced remaining item work according to the body: 21 remaining item translation units and 69 remaining item functions."
   ],
   "smart_moves": [
-    "Used very small static inline helpers to influence instruction selection/register allocation without changing the apparent high-level algorithm.",
-    "Preserved suspicious matching-only changes with explicit comments such as \"// permuterslop\", making it easier for future maintainers to distinguish decompilation shaping from intentional domain abstraction.",
-    "Isolated a yoyo rotation block into an inline helper, a common tactic for matching when the compiler wants a separate lifetime/stack shape while still inlining into the caller.",
-    "Replaced an integer flag with bool chk in the hookshot collision path, making the source closer to the binary's likely boolean branch pattern while preserving readability.",
-    "Introduced intermediate temporaries like jobj_tmp and y_delta only where needed, keeping the patches narrow and targeted to permuter-discovered wins."
+    "Used very small static inline wrappers to affect compiler codegen without changing runtime behavior, e.g. fn_802A33A0_GetFighter and it_802A4758_permuterslop.",
+    "Preserved evidence of intentionally awkward matching-only code with comments such as '// permuterslop' and the commented-out candidate helper call '// it_802A39FC_InitState(gobj, &item, &attr, &fp);'.",
+    "Changed an integer flag used as a boolean into bool chk, matching the apparent true/false control-flow shape while keeping behavior equivalent.",
+    "Extracted Ness yoyo JObj rotation update into a separate inline, giving the compiler a different stack/local layout while keeping the public animation function behavior intact.",
+    "Inserted narrow temporary scopes and aliases, such as y_delta and jobj_tmp, which are common decomp matching tactics for influencing register allocation and stack layout."
   ],
   "decomp_lessons": [
-    "Permuter output can reveal that trivial-looking source rewrites, such as assigning through an extra local or passing a field address through an inline helper, are enough to produce the desired codegen.",
-    "For item code, local declaration order and initialization placement can matter for stack/register layout; moving GET_ITEM-derived initializations to declarations may improve matching.",
-    "Tiny inline accessors are useful when direct field/member expressions produce the wrong code shape, especially around owner/user_data retrieval and struct member address-taking.",
-    "When a source expression semantically names the same kind of data but emits differently, try wrapping it in a static inline rather than larger control-flow rewrites.",
-    "Stack padding values may need to be adjusted after extracting inline helpers; this PR changed Ness yoyo padding from a larger single-function shape to PAD_STACK(16) in both helper/caller context.",
-    "Keep permuter-motivated artifacts localized and named clearly so they can be revisited after surrounding functions or types improve."
+    "Permuter wins may involve intentionally non-idiomatic source shapes: temporary aliases, single-purpose inline accessors, scoped locals, and declaration reordering can matter for matching.",
+    "When matching item functions, keep owner/item/fighter access patterns flexible; wrapping item->owner->user_data in a static inline can improve codegen while preserving semantics.",
+    "Stack padding may need to move when code is extracted into an inline helper; in this PR, Ness yoyo rotation logic changed from one PAD_STACK(24) site to PAD_STACK(16) in both helper/caller contexts.",
+    "A direct address expression such as &link_0->pos may not compile the same as a helper returning that address; consider helper indirection when a stubborn expression fails to match.",
+    "Declaration order and initialization timing can be matching-relevant, as shown by initializing item and attr at declaration in it_802A39FC and reordering fp/item_link locals in fn_802A33A0.",
+    "The diff includes one semantic-looking argument change from fp->x40 to attr->x40; future readers should verify this against symbols/struct fields before treating it as merely cosmetic permuter slop."
   ],
   "naming_conventions": [
-    "New helper names were tied to the parent function, e.g. fn_802A33A0_GetFighter and it_802A4758_permuterslop.",
-    "The PR uses explicit matching-workaround terminology in names/comments such as it_802A4758_permuterslop and \"// permuterslop\".",
-    "Extracted yoyo helper used a descriptive suffix: itNessyoyo_UnkMotion3_Anim_UpdateRotation.",
-    "Temporary locals were named mechanically after decompiler/permuter needs, such as jobj_tmp, temp_f30_2, y_delta, and chk."
+    "Matching-only helper names in this slice are function-scoped or callsite-scoped, e.g. fn_802A33A0_GetFighter and it_802A4758_permuterslop.",
+    "The suffix '_permuterslop' is used explicitly for a helper that exists to satisfy compiler/permuter shape rather than to encode domain meaning.",
+    "Extracted helper names follow the parent function name plus a descriptive action, e.g. itNessyoyo_UnkMotion3_Anim_UpdateRotation.",
+    "Temporary names such as jobj_tmp, y_delta, chk, link_0, and link_1 reflect local codegen/matching intent rather than high-level gameplay semantics."
   ],
   "assembly_or_matching_tactics": [
-    "Add an intermediate pointer local before using an object field: gobj->hsd_obj -> jobj_tmp -> jobj.",
-    "Create static inline wrappers around field access or address-taking to alter emitted code while keeping the operation inline.",
-    "Reorder local declarations and move initialization to declarations to affect variable lifetimes and register allocation.",
-    "Use a bool flag for conditional collision checks instead of an int when the emitted branch pattern benefits.",
-    "Introduce nested-scope temporaries, such as y_delta, to influence floating-point register lifetimes.",
-    "Split a chunk of logic into a static inline helper and call it from the original function to reshape stack padding and local lifetimes.",
-    "Adjust PAD_STACK after helper extraction; the Ness yoyo diff shows PAD_STACK(24) being replaced by PAD_STACK(16) in the extracted rotation helper path and PAD_STACK(16) in the caller."
+    "Introduce a redundant local alias before use: HSD_JObj* jobj_tmp = gobj->hsd_obj; HSD_JObj* jobj = jobj_tmp.",
+    "Replace a direct field access with a static inline getter to alter inlining/register behavior: fn_802A33A0_GetFighter(item).",
+    "Use a static inline that returns a field address to change how an address expression is materialized: it_802A4758_permuterslop(link_0) returning &link_0->pos.",
+    "Move local initialization into declarations to alter lifetime/order, as with Item* item = gobj->user_data and attr initialization in it_802A39FC.",
+    "Use bool true/false assignments instead of integer 1/0 when the compiler shape benefits from explicit boolean control flow.",
+    "Introduce nested scopes and one-use temporaries, such as f32 y_delta, to steer float register assignment or store timing.",
+    "Extract a block of logic into a static inline helper while adjusting PAD_STACK to preserve caller/helper stack layout."
   ],
   "review_feedback": [
-    "No review comments were present in the provided PR slice.",
-    "The PR body comment from the author says: \"New permuter yielded a few wins. :)\" and reports remaining item work counts.",
-    "There is no evidence in the provided slice of reviewer-requested naming, struct, or semantic changes."
+    "No review comments or formal review feedback were present in the provided PR slice.",
+    "The only human body text says: 'New permuter yielded a few wins. :)' and reports remaining item TUs/functions."
   ],
   "searchable_terms": [
-    "PR2579",
+    "pr-2579",
     "permuter-driven fixes",
+    "lukechampine",
     "permuter",
     "permuterslop",
+    "item",
     "item matching",
-    "item TU",
-    "Link hookshot",
-    "Link boomerang",
-    "Ness yoyo",
-    "itlinkhookshot.c",
-    "itlinkboomerang.c",
-    "itnessyoyo.c",
+    "src/melee/it/items/itlinkboomerang.c",
+    "src/melee/it/items/itlinkhookshot.c",
+    "src/melee/it/items/itnessyoyo.c",
     "it_802A0534",
+    "itLinkhookshot_UnkMotion3_Phys",
     "fn_802A33A0",
     "fn_802A33A0_GetFighter",
+    "it_802A5E28",
+    "fp->x40",
+    "attr->x40",
     "it_802A39FC",
-    "it_802A4758",
-    "it_802A4758_permuterslop",
-    "itNessyoyo_UnkMotion3_Anim",
-    "itNessyoyo_UnkMotion3_Anim_UpdateRotation",
     "mpCheckAllRemap",
     "ftCo_80090780",
-    "it_802A5E28",
-    "PAD_STACK",
-    "HSD_JObjSetRotationX",
-    "GET_ITEM",
-    "GET_FIGHTER",
+    "it_802A4758",
+    "it_802A4758_permuterslop",
+    "test_comp",
     "ItemLink",
-    "itLinkHookshotAttributes"
+    "itNessyoyo_UnkMotion3_Anim",
+    "itNessyoyo_UnkMotion3_Anim_UpdateRotation",
+    "HSD_JObjSetRotationX",
+    "PAD_STACK"
   ],
   "follow_up_queries": [
-    "Search later PRs for removal or renaming of helpers marked permuterslop.",
-    "Check whether attr->x40 in fn_802A33A0 was documented or validated in later hookshot attribute struct work.",
-    "Look for subsequent item TU progress reports to see which of the remaining 21 item TUs or 69 functions were closed next.",
-    "Search for similar static inline accessor tactics around owner->user_data and member address-taking in other item files."
+    "Check whether the fn_802A33A0 it_802A5E28 argument change from fp->x40 to attr->x40 was required for correctness, matching, or both.",
+    "Look for later PRs that remove or rename helpers marked permuterslop after surrounding item TUs become better understood.",
+    "Search for other item matching PRs by lukechampine using static inline wrappers to influence address-taking or owner/fighter access.",
+    "Compare remaining item TU/function counts before and after PR #2579 to identify exactly which functions became matched."
   ],
-  "confidence": 0.88,
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

@@ -11,94 +11,91 @@
     "merged_at": "2026-05-08T16:17:28Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large mnmainrule decompilation pass for the main rules menu. The PR replaced several `/// #...` stubs with C, expanded the shared menu-rule user_data layout, typed function prototypes, and improved matching in `main/melee/mn/mnmainrule`; decomp.dev reported two new 100% matches and ten other improvements. The only grhomerun changes in the slice are formatting reflows, not evidence of logic changes.",
+  "summary": "Large mnmainrule decompilation PR replacing multiple placeholder stubs with C implementations and expanding the menu rule data structures/prototypes needed to type those functions. The automated decomp.dev report showed 2 new full matches, including mn_80230198 and mn_802307F8, plus sizable improvements for fn_8022F538, mn_80230274, fn_802309F0, mn_8022FEC8, mn_8022FB88, mn_8022FD18, and mn_80230E38. The grhomerun changes appear to be formatting-only cleanup and not central to the PR.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-layout",
-      "menu-ui",
-      "game-rules-state",
-      "formatting-cleanup"
+      "struct-typing",
+      "menu-logic",
+      "jobj-animation"
     ],
     "systems": [
-      "mn/main-rule-menu",
-      "gm/game-rules",
-      "baselib-gobj-jobj-sislib",
-      "gr/homerun-formatting-only"
+      "mnmainrule",
+      "menus",
+      "game-rules",
+      "baselib-jobj",
+      "sislib-text",
+      "grhomerun"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/mn/mnmainrule.c",
-      "role": "Primary decompilation work; implemented rule-menu input handling, option animation/update helpers, menu GObj creation, and supporting data/extern declarations."
-    },
-    {
-      "path": "src/melee/mn/mnmainrule.h",
-      "role": "Expanded `struct mn_802307F8_t` layout and replaced several `UNK_RET`/`UNK_PARAMS` declarations with typed prototypes."
-    },
-    {
-      "path": "src/melee/gr/grhomerun.c",
-      "role": "Formatting-only line wrapping/reflow in shown diff; no logic change evident."
-    }
+    "src/melee/mn/mnmainrule.c",
+    "src/melee/mn/mnmainrule.h",
+    "src/melee/gr/grhomerun.c"
   ],
   "what_changed": [
-    "Implemented C bodies for previously stubbed mnmainrule functions including `fn_8022F538`, `mn_8022FB88`, `mn_8022FD18`, `mn_8022FEC8`, `mn_80230198`, `mn_80230274`, `fn_802309F0`, and `mn_80230E38`.",
-    "Added local helper layouts such as `struct mn_803EC818_t`, `struct mn_8022FB88_arg1_t`, and `struct mn_8022FEC8_jobj_ref_t`, plus animation-loop tables `mn_803EC734` and `mn_803EC770`.",
-    "Reworked `mn_802307F8` from a partial text-label helper into a fully matched typed implementation that frees/recreates `HSD_Text`, selects a label index from `mn_803EC818`/`mn_804D4B96`, and uses external f32 globals for SisLib placement/font constants.",
-    "Replaced the local `mn_80230D18_t` with the shared header struct `mn_802307F8_t`; `mn_80230D18` now initializes menu state from `mn_804A04F0` and `GameRules`, handles the `gm_801A4310() == 0x1B` time-limit special case, records text/user_data state, and populates JObj slots with `lb_80011E24`.",
-    "Added `mn_80230E38` logic to create and configure the main-rule menu GObj, load `MenMainConRl_Top`, add animations, allocate/free user_data through `HSD_MemAlloc`/`GObj_InitUserData`, build cursor/option JObjs, and initialize option visuals.",
-    "Added `fn_8022F538` and `fn_802309F0` logic for controller input, selected/confirmed option updates, menu transitions, audio feedback, GameRules writes, and per-frame animation state updates.",
-    "Expanded `struct mn_802307F8_t` in the header with explicit byte fields `x3`, `x4`, `x5`, `x6`, `x9`, a union overlay for flat `xC[17]` JObj slots and nested option roots `x34[7]`, and the `HSD_Text* text` at offset 0x130.",
-    "Typed prototypes for `mn_8022FB88`, `mn_8022FD18`, `mn_8022FEC8`, `mn_80230198`, `mn_80230274`, `fn_802309F0`, and `mn_80230D18` instead of leaving them as unknown signatures.",
-    "Adjusted `src/melee/gr/grhomerun.c` formatting around long casts, loops, and `HSD_JObjSetTranslateX` calls; the diff excerpt does not show semantic changes there."
+    "Implemented fn_8022F538, the main rules menu input handler, replacing a decomp placeholder with logic for button handling, hovered/confirmed selection changes, entering item switch/special menu paths, backing out, writing GameRules fields, and playing menu audio.",
+    "Implemented helper/update functions mn_8022FB88, mn_8022FD18, mn_8022FEC8, mn_80230198, mn_80230274, mn_802307F8, fn_802309F0, and mn_80230E38, with several still reported as partial improvements rather than full matches by decomp.dev.",
+    "Expanded mnmainrule.h's struct mn_802307F8_t from broad padding into named byte fields x3, x4, x5, x6, x9, xA, a union exposing HSD_JObj* xC[17], xC0[10], and x34[7], and the HSD_Text* text at 0x130.",
+    "Replaced UNK_RET/UNK_PARAMS prototypes for mnmainrule functions with typed signatures such as void mn_8022FB88(u8, void*), void mn_8022FD18(u8), void mn_8022FEC8(HSD_GObj*, HSD_JObj*, u8, u8), void mn_80230198(HSD_GObj*, HSD_JObj*, u8), void mn_80230274(HSD_GObj*, int, int), and void fn_802309F0(HSD_GObj*).",
+    "Added local temporary structs in mnmainrule.c for inferred layout access, including mn_803EC818_t, mn_8022FB88_arg1_t, and mn_8022FEC8_jobj_ref_t.",
+    "Added data definitions for AnimLoopSettings arrays mn_803EC734[5] and mn_803EC770[9], plus many externs for menu constants/globals used by the new implementations.",
+    "Updated mn_80230D18 to use struct mn_802307F8_t directly instead of the removed local mn_80230D18_t, preserving initialization of menu state and JObj slots while using the refined field names.",
+    "Used JObj creation/loading, animation requests, flag toggling, and child attachment for menu cursor/options through HSD_JObjLoadJoint, HSD_JObjAddAnimAll, HSD_JObjReqAnim/ReqAnimAll, HSD_JObjAnim/AnimAll, HSD_JObjSetFlagsAll, HSD_JObjClearFlagsAll, and HSD_JObjAddChild.",
+    "Updated text creation in mn_802307F8 to use extern float globals mn_804DBE18 through mn_804DBE2C instead of hardcoded constants in the prior partial implementation.",
+    "Adjusted grhomerun formatting around long casts/calls/expressions without apparent behavioral changes."
   ],
   "smart_moves": [
-    "Modeling `mn_803EC818` as a 5-byte-stride struct with an `x0` byte and padding let the code express both first-entry and indexed-byte accesses without pretending the data was a simple flat `u8[]`.",
-    "The header union for `mn_802307F8_t` keeps one canonical allocation layout while allowing both flat child-slot access (`xC[17]`) and per-option access (`x34[7]`), avoiding duplicate local structs for the same user_data.",
-    "The PR preserved decompiler-shaped control flow where needed for matching, including `PAD_STACK(8)`, explicit gotos in `mn_80230198`, repeated state-switch logic, and low-level pointer casts instead of over-cleaning the C.",
-    "Animation selection is centralized around `AnimLoopSettings` and `mn_803EC600` offset casts, which made rule-option visual state easier to express consistently across creation and update paths.",
-    "The code writes changed menu choices back into `GameRules` through `gmMainLib_8015CC34()` in both input/transition and update paths, matching the UI's role as the source of rule settings.",
-    "The implementation keeps special cases visible rather than hiding them: mode `0x1B` skips option 4 and changes time-limit behavior, `mn_804D6BD4` disables handicap value 1, and mode/time/stock handling differs when rule mode is 1."
+    "Promoted opaque header prototypes to typed signatures as functions were decompiled, reducing UNK_PARAMS propagation and making later callers easier to match.",
+    "Kept partially-understood layouts honest by using offset-style field names such as x0, x1, x2, x9, xA, xC, and x34 rather than inventing semantic names not supported by the diff.",
+    "Used unions/overlayed structs in mn_802307F8_t to express two observed views of the same JObj region: a flat xC[17] array and grouped xC0/x34 access, which helps match pointer arithmetic while documenting layout.",
+    "Extracted animation frame ranges into AnimLoopSettings arrays and reused existing helpers mn_8022ED6C and mn_8022F298 for frame-loop behavior instead of open-coding all animation state checks.",
+    "Preserved byte-packing behavior with stack locals and casts such as u8* over u16/s32 values for packed JObj indices, a common tactic when matching code that iterates over bytes of constants.",
+    "Used existing game/menu globals and helper functions instead of introducing abstractions, which is often important for matching: mn_804A04F0, gmMainLib_8015CC34, gm_801A4310, mn_803EC600, mn_803EC7DC, and mn_803EB6B0.",
+    "Matched special menu behavior for gm_801A4310() == 0x1B by skipping option index 4 in selection loops and handling time-limit constraints, preserving mode-specific branch shape."
   ],
   "decomp_lessons": [
-    "When a user_data struct is discovered across multiple functions, move the real shared layout into the header and remove throwaway local structs; this PR replaced `mn_80230D18_t` with `mn_802307F8_t`.",
-    "For menu files, JObj trees often need dual representations: a raw child-slot array for `lb_80011E24`/`lb_8001204C`, and semantic-ish grouped fields for option-specific roots. A union overlay can preserve offsets while improving call-site clarity.",
-    "Do not force semantic names too early. The PR keeps offset-based fields such as `x0`, `x1`, `x34`, `x58`, `xA8`, and `pad_*` where the exact meaning is still weak, but still types pointers and sizes enough to unblock matching.",
-    "Packed byte-index data may need stack copies and byte-pointer iteration to reproduce the original load pattern; examples include loops over `u16`, `s32`, and pointer-sized temporaries used as JObj index lists.",
-    "External f32/data labels can be preferable to literal constants when the original code references SDA/data objects; `mn_802307F8` now uses `mn_804DBE18` through `mn_804DBE2C` for text creation and font size.",
-    "A bot-reported full match for a small helper can still require broad surrounding structure work: `mn_802307F8` only gained +35 matched bytes, but the diff also clarified the header layout and data access pattern used by larger functions.",
-    "Leave known nonmatching larger bodies clearly decompiler-shaped until all data and control-flow details are understood; decomp.dev showed many large improvements but not full matches for functions such as `mn_80230E38`, `fn_8022F538`, and `mn_80230274`."
+    "For menu decompilation, a useful first step is to type the per-menu user_data struct enough to replace byte offsets with xN fields while retaining exact offsets in comments.",
+    "Do not over-name menu rule fields until semantics are clear; offset-derived names remain searchable and prevent misleading future work.",
+    "JObj-heavy UI functions often need arrays of child roots gathered by lb_8001204C/lb_80011E24 and then indexed by packed byte constants; modeling those packed indices can unlock otherwise awkward loops.",
+    "Existing sdata/sdata2 floats may need to be declared as externs and used directly for matching instead of replacing them with literal constants, as seen in mn_802307F8 text placement/font-size updates.",
+    "GameRules synchronization appears repeatedly after confirmed menu changes; future work should look for repeated assignments to mode, time_limit, handicap, damage_ratio, unk_x7, and stock_count as a matching pattern.",
+    "Partial matches can still be valuable when they expose struct layout and call graph shape; decomp.dev reported large byte improvements even where functions remained below 100%.",
+    "When a mode hides a menu option, preserve the original skip logic in both traversal and visible-index calculation; here the 0x1B mode skipped option 4 in several loops.",
+    "Small unrelated formatting changes can be present in decomp PRs; separate them from the substantive matching record unless they affect codegen."
   ],
   "naming_conventions": [
-    "Menu functions retain address-based `mn_802xxxxx` names until semantics are known; unnamed callbacks/procs use the `fn_802xxxxx` convention.",
-    "Helper structs are named by owning symbol/address and role, e.g. `mn_8022FB88_arg1_t`, `mn_8022FEC8_jobj_ref_t`, and `mn_803EC818_t`.",
-    "Unknown struct fields use offset-style `xN` names and explicit `pad_*` arrays, preserving layout evidence without inventing meanings.",
-    "Asset globals use existing descriptive resource names such as `MenMainConRl_Top`, `MenMainCursorRl_Top`, `MenMainNmRl_Top`, `MenMainCursorIs_Top`, and `MenMainConSs_Top`.",
-    "Data symbols remain address-based (`mn_803EC600`, `mn_803EC734`, `mn_803EC770`, `mn_804DBE18`, etc.) when no semantic name is evidenced."
+    "Unidentified menu functions kept address-based names such as fn_8022F538, mn_8022FB88, mn_8022FD18, mn_8022FEC8, mn_80230198, mn_80230274, fn_802309F0, mn_80230D18, and mn_80230E38.",
+    "Inferred struct fields used offset-style names, for example x0, x1, x2, x3, x4, x5, x6, x9, xA, xC, x34, text.",
+    "Temporary inferred types used function/address-scoped names such as mn_8022FB88_arg1_t and mn_8022FEC8_jobj_ref_t.",
+    "Globals retained project address-style names such as mn_804D6BD0, mn_804A04F0, mn_803EC600, mn_803EC734, mn_803EC770, mn_803EC7DC, and mn_804DBE18.",
+    "Header prototypes include address comments like /* 22FB88 */ and use concrete types once known."
   ],
   "assembly_or_matching_tactics": [
-    "`mn_80230198` uses `PAD_STACK(8)` and explicit branch labels/gotos (`seven`, `func`) to match the original control flow instead of idiomatic C.",
-    "Several routines cast `mn_803EC600` plus hard-coded offsets to `f32*`, `AnimLoopSettings*`, or `StaticModelDesc**`, preserving the original table layout and relocation behavior.",
-    "The code iterates over byte views of stack temporaries such as `sp14`, `spC`, `bytes4`, and `bytes2` to feed JObj index lists, a useful tactic when the source data is packed or awkwardly typed.",
-    "`mn_80230274` and `mn_80230E38` repeatedly use `lb_8001204C(..., roots, indices, 0x11)` to recover JObj child roots and then drive exact animation/frame calls on specific root indices.",
-    "`fn_8022F538` writes controller state through `((u32*) &mn_804A04F0.buttons)[...]`, preserving the apparent memory layout of the global menu-state object.",
-    "The PR retains repeated checks and switches, such as multiple `gm_801A4310()` branches and duplicated animation-state switch blocks in `fn_802309F0`, which is often necessary before a larger function fully matches."
+    "Used PAD_STACK(8) in mn_80230198, indicating explicit stack-shape control for matching.",
+    "Used byte-wise pointer iteration over stack copies of packed constants/globals, for example casting addresses of u16/s32 locals to u8* before indexing.",
+    "Used casts into mn_803EC600 at fixed offsets to recover float animation settings and tables without fully naming the underlying data blob.",
+    "Used goto labels and intentionally direct control flow in mn_80230198 to reproduce compiler branch structure.",
+    "Used repeated gm_801A4310() checks and explicit comparisons rather than abstracting mode logic, preserving likely emitted branch patterns.",
+    "Used HSD_ASSERTREPORT after HSD_MemAlloc in mn_80230E38 for user_data allocation, preserving runtime assertion behavior and likely string reference.",
+    "Used direct writes through casted button storage, e.g. ((u32*) &mn_804A04F0.buttons)[1] and [0], to match the original data layout."
   ],
   "review_feedback": [
-    "No human review comments or formal reviews are present in the slice; intent is inferred from the diff and decomp.dev report.",
-    "decomp.dev GALE01 report: overall matched code increased to 66.33% (+0.01%, +468 bytes).",
-    "decomp.dev reported two new full matches in `main/melee/mn/mnmainrule`: `mn_80230198` (+220 bytes, 0% to 100%) and `mn_802307F8` (+35 bytes, 85.89% to 100%).",
-    "decomp.dev reported major unmatched-function improvements: `mn_80230E38` to 69.26%, `fn_8022F538` to 84.02%, `mn_80230274` to 71.56%, `fn_802309F0` to 93.99%, `mn_8022FEC8` to 81.66%, `mn_8022FB88` to 99.50%, and `mn_8022FD18` to 88.20%.",
-    "decomp.dev also reported a `.sdata2` regression of -10 bytes, from 50.00% to 36.36%, so future work should re-check constant/data placement around this file."
+    "No human review comments were present in the slice.",
+    "The only issue comment was the automated decomp.dev report: matched code increased to 66.33% (+0.01%, +468 bytes), with 2 new matches and 10 improvements in unmatched items.",
+    "decomp.dev reported full matches for mn_80230198 (+220 bytes, 0.00% to 100.00%) and mn_802307F8 (+35 bytes, 85.89% to 100.00%).",
+    "decomp.dev reported large partial improvements for mn_80230E38 (+1415 bytes to 69.26%), fn_8022F538 (+1357 bytes to 84.02%), mn_80230274 (+1010 bytes to 71.56%), fn_802309F0 (+759 bytes to 93.99%), mn_8022FEC8 (+587 bytes to 81.66%), mn_8022FB88 (+398 bytes to 99.50%), and mn_8022FD18 (+381 bytes to 88.20%).",
+    "decomp.dev also reported a small .sdata2 regression (-10 bytes, 50.00% to 36.36%)."
   ],
   "searchable_terms": [
     "pr-2444",
     "Jj/mnmainrule",
+    "jurrejelle",
+    "mnmainrule",
     "mnmainrule.c",
     "mnmainrule.h",
-    "grhomerun.c",
     "fn_8022F538",
     "mn_8022FB88",
     "mn_8022FD18",
@@ -112,18 +109,17 @@
     "mn_80230E38",
     "mn_80231634",
     "mn_8023164C",
-    "mn_803EC600",
+    "struct mn_802307F8_t",
+    "mn_8022FB88_arg1_t",
+    "mn_8022FEC8_jobj_ref_t",
     "mn_803EC734",
     "mn_803EC770",
+    "AnimLoopSettings",
+    "mn_803EC600",
+    "mn_803EC7DC",
     "mn_803EC818",
     "mn_804A04F0",
     "mn_804D6BD0",
-    "mn_804D6BD4",
-    "mn_804D4B96",
-    "mn_804DBE18",
-    "mn_802307F8_t",
-    "mn_8022FB88_arg1_t",
-    "mn_8022FEC8_jobj_ref_t",
     "GameRules",
     "gmMainLib_8015CC34",
     "gm_801A4310",
@@ -133,26 +129,30 @@
     "mnCharSel_80264070",
     "mnCharSel_802640A0",
     "HSD_JObjReqAnimAll",
+    "HSD_JObjAnimAll",
     "HSD_JObjSetFlagsAll",
+    "HSD_JObjClearFlagsAll",
     "HSD_SisLib_803A5ACC",
-    "HSD_GObjPLink_80390228",
+    "HSD_SisLib_803A6368",
     "GObj_InitUserData",
     "HSD_MemAlloc",
-    "lb_8001204C",
-    "lb_80011E24",
-    "MenMainConRl_Top",
-    "MenMainCursorRl_Top",
-    "MenMainNmRl_Top",
-    "PAD_STACK"
+    "PAD_STACK",
+    "grhomerun"
   ],
   "follow_up_queries": [
-    "mnmainrule mn_80230E38 69.26 remaining mismatch",
-    "fn_8022F538 GameRules button handling gm_801A4310 duplicate branch",
-    "mn_80230274 option_roots xC x34 union JObj animation mismatch",
-    "mn_8022FB88 99.50 packed JObj index bytes",
-    "mn_803EC600 offsets 0x134 0x170 0x1DD AnimLoopSettings",
-    "mnmainrule .sdata2 regression PR 2444",
-    "mn_803EC818_t stride 5 label index table"
+    "Find later PRs that finish matching fn_8022F538, mn_80230274, fn_802309F0, mn_8022FEC8, mn_8022FB88, mn_8022FD18, or mn_80230E38.",
+    "Search for subsequent renames or semantic field names for struct mn_802307F8_t fields x2/x3/x4/x5/x6/x9/xA.",
+    "Look for PRs that replace mn_803EC600 offset casts with a typed data/table struct.",
+    "Investigate whether the .sdata2 regression reported by decomp.dev was addressed in a follow-up PR.",
+    "Search for other menu-rule decomp PRs that use packed byte index iteration over u16/s32 globals for JObj arrays."
   ],
-  "confidence": 0.9
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

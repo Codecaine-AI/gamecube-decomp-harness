@@ -11,7 +11,7 @@
     "merged_at": "2026-03-27T17:39:48Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked `src/melee/ft/ftwaitanim.c` by switching it from NonMatching to Matching and making `ftCo_8008A7A8` reach 100%. The match was achieved with control-flow/codegen shaping in `ftwaitanim.c`, a manual inline of `ftCo_8008A6D8`, cleanup of wait-animation data typing, and symbol-table updates for newly linked data. decomp.dev reported `main/melee/ft/ftwaitanim` / `ftCo_8008A7A8` improved from 99.86% to 100%, with +592 matched code bytes, +864 linked code bytes, and +72 linked data bytes.",
+  "summary": "Linked `src/melee/ft/ftwaitanim.c` by moving it from NonMatching to Matching in `configure.py`, with the main matching work completing `ftCo_8008A7A8`. The PR also cleaned up fighter wait-animation typing by replacing temporary `S_TEMP4`/`ftSubactionList` names with `Fighter_WaitAnimData` and `union CmdUnion*`, adjusted related uses in `fighter.c` and `ftdata.c`, and refreshed GALE01 symbol labels/scopes. The decomp.dev bot reported one new match in `main/melee/ft/ftwaitanim`, taking `ftCo_8008A7A8` from 99.86% to 100.00%, with +592 matched code bytes, +864 linked code bytes, and +72 linked data bytes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -19,137 +19,142 @@
       "linking",
       "headers",
       "type-cleanup",
-      "symbols",
-      "build-config"
+      "symbols"
     ],
     "systems": [
       "fighter",
-      "fighter-wait-animation",
       "ftwaitanim",
       "ftdata",
-      "config/GALE01"
+      "config",
+      "GALE01"
     ]
   },
   "key_files": [
     {
-      "path": "src/melee/ft/ftwaitanim.c",
-      "role": "Primary matching work for `ftCo_8008A6D8`, `getAnimID`, and especially `ftCo_8008A7A8`; includes manual inline and assert macro change."
+      "path": "configure.py",
+      "why_it_matters": "Changed `Object(NonMatching, \"melee/ft/ftwaitanim.c\")` to `Object(Matching, \"melee/ft/ftwaitanim.c\")`, officially linking the unit."
     },
     {
-      "path": "configure.py",
-      "role": "Changed `Object(NonMatching, \"melee/ft/ftwaitanim.c\")` to `Object(Matching, \"melee/ft/ftwaitanim.c\")`."
+      "path": "src/melee/ft/ftwaitanim.c",
+      "why_it_matters": "Contained the function-level matching changes for `ftCo_8008A7A8`, including a manual inline of `ftCo_8008A6D8` and an assert macro adjustment."
     },
     {
       "path": "src/melee/ft/types.h",
-      "role": "Renamed `struct S_TEMP4` to `struct Fighter_WaitAnimData`, typed its `xC` field as `union CmdUnion*`, updated `ftData` and `Fighter` fields, and removed `ftSubactionList`."
+      "why_it_matters": "Renamed the temporary wait-animation struct to `Fighter_WaitAnimData`, changed its script pointer field to `union CmdUnion*`, updated `ftData` and `Fighter` fields, and removed the now-unused `ftSubactionList` struct."
     },
     {
       "path": "src/melee/ft/ftdata.c",
-      "role": "Updated local/cast types from `S_TEMP4` to `Fighter_WaitAnimData` for wait animation data access."
+      "why_it_matters": "Updated wait-animation data casts and locals from `struct S_TEMP4*` to `struct Fighter_WaitAnimData*`."
     },
     {
       "path": "src/melee/ft/fighter.c",
-      "role": "Updated `Fighter_ChangeMotionState` local type to `struct Fighter_WaitAnimData*`."
+      "why_it_matters": "Updated `Fighter_ChangeMotionState` local typing to use `struct Fighter_WaitAnimData*`."
     },
     {
       "path": "src/melee/ft/forward.h",
-      "role": "Removed now-unused forward typedef for `ftSubactionList`."
+      "why_it_matters": "Removed the obsolete forward typedef for `ftSubactionList`."
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Adjusted local data/sdata/sdata2/BSS symbol names and scopes after linking."
+      "why_it_matters": "Updated symbol labels/scopes for data affected by linking, including replacing several `efAlt_*` local names with compiler-style `@NNN` labels and adding local data/bss labels."
     }
   ],
   "what_changed": [
-    "`ftwaitanim.c` was promoted to Matching in `configure.py`.",
-    "`ftCo_8008A7A8` was reshaped: the no-wait-data/item-held branch now stores `fp->anim_id` in a temporary, calls `ftCo_8008A6D8`, and returns early.",
-    "The randomized wait-animation selection path now uses `temp` and `anim_id` locals in the do/while condition, then manually inlines the body of `ftCo_8008A6D8` instead of calling it.",
-    "`ftCo_8008A6D8` now uses `struct Fighter_WaitAnimData*` and assigns `anim->xC` directly to `fp->x3E4_fighterCmdScript.u` instead of casting from `ftSubactionList*`.",
-    "`getAnimID` replaced the explicit `OSReport(...); __assert(\"ftwaitanim.c\", 86, \"0\")` sequence with `HSD_ASSERTREPORT(86, 0, \"wait anim data illegal!!\\n\", max)`.",
-    "`struct S_TEMP4` was renamed to `struct Fighter_WaitAnimData`; its command-script pointer field changed from `ftSubactionList*` to `union CmdUnion*`.",
-    "`ftData`, `Fighter`, `fighter.c`, and `ftdata.c` were updated to use `struct Fighter_WaitAnimData*` consistently.",
-    "`struct ftSubactionList` and its forward typedef were removed.",
-    "`config/GALE01/symbols.txt` renamed several formerly semantic local symbols such as `efAlt_803BF9D0` and `efAlt_804D81D0` to compiler-style local labels like `@707`, `@702`, and added local labels such as `...data.0` and `...bss.0`."
+    "`ftwaitanim.c` was marked Matching in the build configuration.",
+    "`ftCo_8008A7A8` was completed to 100% matching according to the decomp.dev report.",
+    "`ftCo_8008A7A8` was restructured so the branch that chooses a new wait animation manually inlines the behavior of `ftCo_8008A6D8`; the diff includes a TODO noting this was done because it was the only way the author could make it match.",
+    "`OSReport(\"wait anim data illegal!!\\n\", max); __assert(\"ftwaitanim.c\", 86, \"0\");` was replaced with `HSD_ASSERTREPORT(86, 0, \"wait anim data illegal!!\\n\", max);`.",
+    "Temporary type name `struct S_TEMP4` was replaced throughout touched fighter code with `struct Fighter_WaitAnimData`.",
+    "`Fighter_WaitAnimData::xC` was typed as `union CmdUnion*`, allowing assignments such as `fp->x3E4_fighterCmdScript.u = anim->xC` without a cast.",
+    "The unused `ftSubactionList` forward declaration and struct definition were removed.",
+    "GALE01 symbols were regenerated/adjusted for linked data, including local-scope annotations and compiler-style local labels."
   ],
   "smart_moves": [
-    "The PR explicitly documents the matching workaround: `ftCo_8008A7A8` manually inlines `ftCo_8008A6D8` with a `@todo` note saying it was \"not clean but only way I could make it match.\"",
-    "Using `HSD_ASSERTREPORT` captured the assert/report pattern at the macro level instead of forcing separate `OSReport` and `__assert` calls.",
-    "Changing `Fighter_WaitAnimData.xC` to `union CmdUnion*` removed a cast at the command-script assignment site and better matched the actual consumer type.",
-    "The type cleanup was propagated through `types.h`, `ftdata.c`, and `fighter.c` before marking the object Matching, reducing local casts and temporary placeholder names.",
-    "The symbol updates correctly treated many compiler-generated constants and jump/data labels as local `@NNN` or `...section.N` symbols, which is typical churn when an object becomes linked."
+    "Gave an anonymous temporary struct a domain-specific name, `Fighter_WaitAnimData`, making later fighter wait-animation work easier to search and reason about.",
+    "Typed the command-script pointer field as `union CmdUnion*` instead of preserving a placeholder `ftSubactionList*`, reducing casts and aligning the field with `fighterCmdScript.u` usage.",
+    "Used `HSD_ASSERTREPORT` to combine the report/assert pattern in a way that matches the original codegen for the illegal wait-animation-data path.",
+    "Accepted a local manual inline in `ftCo_8008A7A8` and documented it with a TODO rather than hiding the matching trick; this makes the match reproducible for future cleanup.",
+    "Updated all adjacent users of the wait-animation data type (`ftwaitanim.c`, `ftdata.c`, `fighter.c`, `types.h`) instead of only changing the matching function."
   ],
   "decomp_lessons": [
-    "For tiny wrapper-like fighter code, a direct call to a helper may not match even when semantically correct; manually inlining the helper can be required to reproduce original codegen.",
-    "MWCC-sensitive locals matter: introducing a seemingly unused `enum_t temp`, preserving `anim_id`, and structuring a do/while around the exact temporary can affect register allocation and branch shape.",
-    "When an `OSReport` plus `__assert` sequence appears, check whether the original source likely used `HSD_ASSERTREPORT`; the macro may produce the expected layout more cleanly.",
-    "Replace placeholder struct names such as `S_TEMP4` when enough usage context exists. Here the data was used by wait animation selection and command-script setup, justifying `Fighter_WaitAnimData`.",
-    "If a struct field is always consumed as `union CmdUnion*`, type the field that way rather than preserving a dummy one-byte subaction-list struct and casting at every use.",
-    "Linking a previously nonmatching object can require broad symbol-file adjustments for local literals, jumptables, floats/doubles, and section labels; these are not necessarily behavioral changes."
+    "For stubborn near-matches, inlining a small helper at one callsite can be necessary even when it is less clean C; document the reason with a TODO so future decompilers know it is intentional.",
+    "Replacing `OSReport` plus `__assert` with the project macro `HSD_ASSERTREPORT` can be required for matching assertion/reporting codegen.",
+    "Once a data struct’s role is understood, propagate the real name through headers and users; this improves both match quality and future reverse-engineering clarity.",
+    "If a pointer field is ultimately assigned into a known union-backed script field, type it as the target union pointer (`union CmdUnion*`) instead of inventing a single-byte placeholder struct.",
+    "Linking a previously nonmatching object may require symbol table cleanup for local data labels and scopes, not just C source edits."
   ],
   "naming_conventions": [
-    "`struct S_TEMP4` was replaced with the domain-specific name `struct Fighter_WaitAnimData`.",
-    "`Fighter_WaitAnimData` follows the existing fighter-system style of prefixing shared fighter structs with `Fighter_` and describing their role.",
-    "The field name `x10_animCurrFlags` was retained, suggesting partial semantic knowledge while preserving offset-based naming for less-understood fields.",
-    "`ftSubactionList` was removed rather than retained as a misleading placeholder type.",
-    "Local compiler-generated data symbols in `symbols.txt` use `@NNN` with `scope:local`, while section labels use forms such as `...data.0` and `...bss.0`."
+    {
+      "old": "struct S_TEMP4",
+      "new": "struct Fighter_WaitAnimData",
+      "lesson": "Prefer descriptive fighter-domain struct names once the role is known."
+    },
+    {
+      "old": "ftSubactionList*",
+      "new": "union CmdUnion*",
+      "lesson": "Use the project’s existing command-script union type for fighter script pointers."
+    },
+    {
+      "old": "efAlt_803BF9D0 / efAlt_804D39D8 / efAlt_804D81D0-style local names",
+      "new": "@707 / @705 / @702-style local labels",
+      "lesson": "When linking exposes compiler-local data, prefer generated local labels and correct `scope:local` annotations over misleading global-looking subsystem names."
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Manual inline of `ftCo_8008A6D8` inside `ftCo_8008A7A8` to match final codegen.",
-    "Early return after the `arg1 == NULL` / item-held branch to shape the surrounding control flow.",
-    "Preserved separate `temp` and `anim_id` locals in the wait-animation do/while path to match assignment and comparison behavior.",
-    "Used `HSD_ASSERTREPORT` for the illegal wait-animation-data assert/report path.",
-    "Typed `anim->xC` as `union CmdUnion*` to avoid an explicit cast in the matched assignment to `fp->x3E4_fighterCmdScript.u`.",
-    "Updated `configure.py` only after the unit was matching, moving `melee/ft/ftwaitanim.c` from `NonMatching` to `Matching`."
+    "Marked `melee/ft/ftwaitanim.c` as Matching only after `ftCo_8008A7A8` reached 100%.",
+    "Manually inlined `ftCo_8008A6D8` inside `ftCo_8008A7A8` for the selected-animation path to satisfy codegen.",
+    "Introduced scoped temporaries (`temp`, `anim_id`) around the `getAnimID` loop to match register/lifetime behavior; evidence is the diff structure, but exact register intent is not available in the PR text.",
+    "Used `HSD_ASSERTREPORT(86, 0, ...)` to match the assert/report sequence at line 86.",
+    "Updated symbol labels in `.data`, `.sdata`, `.sdata2`, and `.bss` to reflect the linked output."
   ],
   "review_feedback": [
     {
       "source": "decomp-dev[bot]",
-      "feedback": "Reported GALE01 improvements: matched code 60.82% (+0.02%, +592 bytes), linked code 33.47% (+0.02%, +864 bytes), linked data 32.23% (+0.01%, +72 bytes)."
+      "url": "https://github.com/doldecomp/melee/pull/2361#issuecomment-4143926448",
+      "feedback": "Automated report showed matched code 60.82% (+0.02%, +592 bytes), linked code 33.47% (+0.02%, +864 bytes), linked data 32.23% (+0.01%, +72 bytes), and one new match: `main/melee/ft/ftwaitanim` / `ftCo_8008A7A8` from 99.86% to 100.00%."
     },
     {
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported one new match: `main/melee/ft/ftwaitanim` item `ftCo_8008A7A8` went from 99.86% to 100.00%."
-    },
-    {
-      "source": "slice",
-      "feedback": "No human review comments were present in the provided PR dump; the only comment evidence is the automated decomp.dev report."
+      "source": "human_review",
+      "feedback": "No human review comments or PR body rationale were present in the provided slice."
     }
   ],
   "searchable_terms": [
     "pr-2361",
     "Link ftwaitanim",
     "jellejurre",
-    "ftwaitanim.c",
+    "ftwaitanim",
     "ftCo_8008A7A8",
     "ftCo_8008A6D8",
-    "getAnimID",
     "Fighter_WaitAnimData",
     "S_TEMP4",
     "ftSubactionList",
-    "union CmdUnion",
-    "x3E4_fighterCmdScript",
-    "x10_animCurrFlags",
+    "CmdUnion",
+    "HSD_ASSERTREPORT",
+    "wait anim data illegal",
     "ftData_80085CD8",
     "ftCo_8009E7B4",
     "ftAnim_8006EBE8",
     "ftAnim_8006EBA4",
-    "HSD_ASSERTREPORT",
-    "wait anim data illegal",
-    "MatchingFor",
-    "Object(Matching, \"melee/ft/ftwaitanim.c\")",
-    "config/GALE01/symbols.txt",
-    "efAlt_803BF9D0",
-    "efAlt_804D81D0",
-    "...data.0",
-    "...bss.0",
-    "main/melee/ft/ftwaitanim"
+    "Fighter_ChangeMotionState",
+    "configure.py Matching",
+    "GALE01 symbols",
+    "manual inline",
+    "fighter wait animation"
   ],
   "follow_up_queries": [
-    "Find later PRs that remove the manual inline in `ftCo_8008A7A8` or clean up the `@todo` in `ftwaitanim.c`.",
-    "Search for other uses of `HSD_ASSERTREPORT` replacing `OSReport` plus `__assert` in matched fighter code.",
-    "Search for additional placeholder struct renames from `S_TEMP*` to domain-specific `Fighter_*` names.",
-    "Look for subsequent PRs improving `Fighter_WaitAnimData` field names beyond `x0`, `x4`, `x8`, and `x14`.",
-    "Search symbol-file changes involving `...data.0`, `...bss.0`, and local `@NNN` labels when linking nonmatching objects."
+    "Find later PRs that clean up the TODO manual inline in `ftCo_8008A7A8`.",
+    "Search for remaining uses of `S_TEMP4` to ensure `Fighter_WaitAnimData` was fully propagated.",
+    "Search for remaining placeholder script structs like `ftSubactionList` that should use `union CmdUnion*`.",
+    "Compare other assertion/reporting near-matches that may need `HSD_ASSERTREPORT` instead of explicit `OSReport` plus `__assert`.",
+    "Audit other nonmatching fighter common files for helper-call versus manual-inline codegen issues."
   ],
-  "confidence": 0.92
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

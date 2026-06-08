@@ -11,126 +11,168 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Draft, closed-unmerged PR that advanced decompilation of the name-entry/name-list menu code in src/melee/mn/mnname.c and cleaned up related prototypes. The diff replaces multiple mnName placeholders with C implementations, converts many mnname.h declarations from UNK_RET/UNK_PARAMS to concrete signatures, updates persistent-name data access to use struct gmm_x2FF8_inner fields, and adds cross-header declarations for name menu input and persistent-name initialization. Automated decomp.dev feedback reported 3 newly matched mnname functions and 9 partial improvements, but there was no human review text in the slice.",
+  "summary": "Draft, closed-unmerged PR that advanced decompilation of the name-entry/name-list menu area. It replaced several mnname.c placeholders with C implementations, tightened mnname.h and related prototypes, and moved name persistent-data access from raw offsets to gmm_x2FF8_inner fields. The decomp.dev report showed 3 new 100% matches, IsNameNotAllowed, CreateNameAtIndex, and mnName_8023A058, plus 9 partial improvements in mnname functions, for +316 matched bytes. There was no human review text in the slice, so intent beyond the diff and bot report is not evidenced.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "naming"
+      "naming",
+      "menu-name-system",
+      "prototype-cleanup"
     ],
     "systems": [
+      "mn",
+      "mnname",
+      "mnnamenew",
+      "mndiagram",
+      "gm",
       "game-mode",
-      "melee-core",
-      "menus",
-      "name-entry"
+      "melee-core"
     ]
   },
   "key_files": [
-    "src/melee/mn/mnname.c",
-    "src/melee/mn/mnname.h",
-    "src/melee/gm/gmmain_lib.h",
-    "src/melee/mn/mndiagram.c",
-    "src/melee/mn/mnnamenew.h"
+    {
+      "path": "src/melee/mn/mnname.c",
+      "role": "Main decompilation work; added implementations for name-list helpers, input dispatcher, page/column counting, JObj animation/cleanup helpers, and disallowed-name checks."
+    },
+    {
+      "path": "src/melee/mn/mnname.h",
+      "role": "Replaced many UNK_RET/UNK_PARAMS prototypes with typed signatures for mnName functions."
+    },
+    {
+      "path": "src/melee/gm/gmmain_lib.h",
+      "role": "Typed InitializePersistentNameData as void InitializePersistentNameData(u8 slot)."
+    },
+    {
+      "path": "src/melee/mn/mndiagram.c",
+      "role": "Added include of mnname.h, likely to satisfy newly typed cross-file declarations."
+    },
+    {
+      "path": "src/melee/mn/mnnamenew.h",
+      "role": "Typed mnNameNew_MainInput as void mnNameNew_MainInput(void)."
+    }
   ],
   "what_changed": [
-    "Implemented several previously stubbed mnName routines in src/melee/mn/mnname.c, including mnName_8023749C, CreateNameAtIndex, fn_80238540, mnName_GetPageCount, mnName_GetColumnCount, mnName_802388D4, mnName_80238A04, mnName_80239EBC, mnName_80239F5C, mnName_80239FFC, mnName_8023A058, and IsNameNotAllowed.",
-    "Reworked GetNameText and IsNameValid to access GetPersistentNameData(slot)->namedata instead of byte-offset arithmetic at +0x198.",
-    "Added a concrete prototype for InitializePersistentNameData in gmmain_lib.h: void InitializePersistentNameData(u8 slot).",
-    "Added a concrete prototype for mnNameNew_MainInput(void) in mnnamenew.h so fn_80238540 can dispatch to it.",
-    "Updated mnname.h to replace many UNK_RET/UNK_PARAMS declarations with typed returns and parameters, including bool IsNameUnique(char* name), void DeleteName(u8 slot), void CreateNameAtIndex(u8 slot), s32 mnName_GetPageCount(void), s32 mnName_GetColumnCount(void), and bool IsNameNotAllowed(char* name).",
-    "Added mnname.h include to mndiagram.c, likely because newly typed declarations became needed across the mn subsystem.",
-    "Introduced local inferred structs in mnname.c for menu/JObj data access, including MnName88D4Data and MnNameData, to express offsets like x14, x18, x1C, x24, x30, and x3C.",
-    "The PR was closed without merge and marked draft in the GitHub metadata."
+    "Implemented mnName_8023749C to select between US and non-US name text tables using lbLang_IsSavedLanguageUS, scan entries until the string terminator, and return NULL when the indexed entry is the terminator.",
+    "Changed GetNameText and IsNameValid to use GetPersistentNameData(slot)->namedata instead of pointer arithmetic at offset 0x198.",
+    "Implemented CreateNameAtIndex to initialize a name slot by setting namedata[0] to mnName_StringTerminator, setting x1A1 to 1, and calling InitializePersistentNameData(slot).",
+    "Implemented fn_80238540 as a switch dispatcher over mn_804A04F0.x10, calling mnName_MainInput, mnNameNew_MainInput, or mnName_ConfirmNameDeleteInput.",
+    "Implemented mnName_GetPageCount and mnName_GetColumnCount by counting valid persistent names over 0x78 slots and rounding up by page sizes 24 and 6 respectively.",
+    "Added local structs MnName88D4Data and MnNameData to model menu object/JObj-related data enough for matching helper functions.",
+    "Implemented mnName_802388D4 to retrieve child/next JObj entries for indices below 0x18 and special fields x24, x18, x1C for indices 0x18 through 0x1A.",
+    "Implemented mnName_80238A04 to request and apply animations on name menu JObjs using mnName_80238964 and mnName_803ED538 animation-frame table entries.",
+    "Implemented mnName_80239EBC and mnName_80239F5C to set JObj translate.z and translate.x, preserve assert behavior, and mark matrices dirty unless flags suppress it.",
+    "Implemented mnName_80239FFC and mnName_8023A058 cleanup paths that remove child JObjs and free SisLib resources via HSD_SisLib_803A5CC4; mnName_8023A058 then calls mnName_80239A24.",
+    "Implemented IsNameNotAllowed by iterating NotAllowedNamesList until mnNameNew_NullCharacter and using CompareNameStrings to detect banned names.",
+    "Updated function declarations across mnname.h, mnnamenew.h, and gmmain_lib.h to remove broad UNK_RET/UNK_PARAMS where argument and return types were inferred."
   ],
   "smart_moves": [
-    "Using struct gmm_x2FF8_inner and its namedata field instead of hard-coded +0x198 pointer math made persistent-name logic clearer and improved type evidence for related functions.",
-    "CreateNameAtIndex was small but important: it writes the name terminator into namedata[0], sets x1A1 to 1, then calls InitializePersistentNameData(slot), matching the persistent-name initialization flow with a concrete u8 slot parameter.",
-    "fn_80238540 models a simple menu-state dispatcher on mn_804A04F0.x10, routing cases to mnName_MainInput, mnNameNew_MainInput, and mnName_ConfirmNameDeleteInput; this exposes the relationship between name-list, new-name, and delete-confirm input modes.",
-    "mnName_GetPageCount and mnName_GetColumnCount share the same valid-name counting loop over 0x78 persistent slots but use different page/column divisors, preserving the likely original control-flow style with explicit remainder flags.",
-    "IsNameNotAllowed iterates the NotAllowedNamesList until mnNameNew_NullCharacter and uses CompareNameStrings, which cleanly connects banned-name validation with existing string comparison behavior.",
-    "The JObj helper functions preserve HSD-style null/assert/flag dirty-matrix behavior rather than over-simplifying it, which is often necessary for matching baselib object manipulation code."
+    "Using the existing gmm_x2FF8_inner structure and namedata/x1A1 fields made persistent name manipulation clearer and less brittle than raw byte offsets.",
+    "Typing InitializePersistentNameData(u8 slot) and mnNameNew_MainInput(void) enabled cleaner cross-module calls from the newly implemented mnname code.",
+    "The page and column count implementations deliberately recompute validity from the persistent name terminator, matching the existing IsNameValid semantics rather than introducing a separate cached count.",
+    "The JObj translate helpers preserved the original assert and flag-check patterns before calling HSD_JObjSetMtxDirtySub, which is often important for matching baselib-adjacent code.",
+    "For table scanning, mnName_8023749C retained explicit terminator handling and language-table selection, avoiding assumptions that every index maps to a valid string.",
+    "The banned-name check used the same CompareNameStrings routine as the rest of the name system, avoiding duplicate string comparison semantics."
   ],
   "decomp_lessons": [
-    "When a persistent game data struct is known, replace byte offsets with field access early; it improves downstream signatures and often makes small functions like GetNameText, IsNameValid, and CreateNameAtIndex easier to match.",
-    "Typed headers can unlock or stabilize adjacent decompilation: this PR changed prototypes in mnname.h, mnnamenew.h, and gmmain_lib.h alongside C implementations.",
-    "Menu dispatch functions can often be expressed directly as switch statements over a global menu state, but the exact return types of the called input functions should be fixed in headers first.",
-    "For list scans over sentinel-terminated tables, keep the sentinel variable and casts close to the original code when matching requires it; mnName_8023749C and IsNameNotAllowed both compare against explicit terminator globals.",
-    "For UI/JObj code, preserving repeated null checks, assert line numbers, HSD_JObjSetMtxDirtySub conditions, and HSD_JObjReqAnimAll/HSD_JObjAnimAll sequencing may matter more than writing idiomatic simplified C.",
-    "Even partially matched implementations are useful if they establish struct layouts and signatures; the bot report showed many functions improved to about 85–99% despite not all being 100% matches."
+    "When a persistent save/menu struct is partially known, replacing magic offsets with named fields can unlock multiple small matches and improve nearby header types.",
+    "Menu name code uses sentinel characters heavily: mnName_StringTerminator marks empty persistent name slots and mnNameNew_NullCharacter terminates the not-allowed-name list.",
+    "For name-list UI counts, evidence in this PR points to 0x78 total name slots, 24 names per page, and 6 names per column/page subdivision.",
+    "Input dispatcher functions can often be matched as simple state switches over global menu state; here mn_804A04F0.x10 selected main, new-name, or delete-confirmation input.",
+    "HSD_JObj child traversal patterns should preserve NULL checks before walking child/next chains; this helped implement mnName_802388D4.",
+    "JObj property setters in Melee often include assert-line artifacts and matrix-dirty flag logic; keep those details rather than simplifying them away if matching is the goal.",
+    "Local temporary structs with only known offsets, such as MnName88D4Data and MnNameData, are useful stepping stones, but should be revisited once the enclosing menu data layout is better understood.",
+    "Bot match reports are useful evidence for what actually matched: in this slice only IsNameNotAllowed, CreateNameAtIndex, and mnName_8023A058 reached 100%; other added functions remained partial."
   ],
   "naming_conventions": [
-    "Project-visible name menu APIs use descriptive names where behavior is known: GetNameText, GetNameCount, IsNameListFull, CompareNameStrings, IsNameUnique, DeleteName, IsNameValid, CreateNameAtIndex, IsNameNotAllowed.",
-    "Unidentified menu functions remain address-based with the mnName_802xxxxx or fn_802xxxxx convention.",
-    "Persistent-name data fields were referenced through inferred struct fields such as namedata and x1A1, while less understood local menu structs retained offset-style names like x14, x18, x1C, x24, x30, and x3C.",
-    "HSD object variables use conventional names like HSD_GObj* gobj and HSD_JObj* jobj, with local obj/temp/result variables for child/next traversal.",
-    "Globals retain symbol-address style names when semantic names are not yet known, such as mnName_803ED538, mnName_804D4BF4, mnName_804D4BFC, mnNameNew_803EE724, and mnNameNew_803EE720."
+    "Existing exported symbols keep address-based names when behavior is not yet understood, e.g. mnName_8023749C, mnName_802388D4, mnName_80239EBC.",
+    "Readable names are used for understood public helpers, e.g. GetNameText, GetNameCount, IsNameValid, CreateNameAtIndex, IsNameNotAllowed.",
+    "Struct field names remain offset-based when semantics are unknown, e.g. x14, x18, x1C, x24, x30, x3C, while known persistent-name fields use namedata and x1A1.",
+    "Local variables in the diff often encode matching intent or observed roles, e.g. first_char, terminator, nullChar, firstChar, table, ptr, rem.",
+    "Header prototypes follow exact C types once known: bool for predicates, void for procedures, s32 for integer return helpers, u8 for slot/index bytes, and HSD_GObj*/HSD_JObj* for object APIs."
   ],
   "assembly_or_matching_tactics": [
-    "Used explicit gotos in mnName_8023749C to model loop_cond/loop_body control flow, suggesting matching required preserving a non-idiomatic loop shape.",
-    "Used u8 and s8 casts in index and terminator comparisons, including (u8) idx, (u8) arg1, and (s8) terminator, to control signedness and generated code.",
-    "Kept explicit remainder variables in page/column count functions instead of replacing them with compact arithmetic, likely to better match original codegen.",
-    "Used child/next traversal of HSD_JObj trees in mnName_802388D4 and cleanup helpers, with NULL handling before accessing child or next.",
-    "Preserved assert calls with source-line constants in mnName_80239EBC and mnName_80239F5C, plus the HSD_JObj flag tests before HSD_JObjSetMtxDirtySub.",
-    "Automated matching report showed exact matches for IsNameNotAllowed, CreateNameAtIndex, and mnName_8023A058, and near-matches for functions including fn_80238540, mnName_GetPageCount, mnName_GetColumnCount, mnName_8023749C, mnName_802388D4, mnName_80238A04, mnName_80239EBC, mnName_80239F5C, and mnName_80239FFC."
+    "Used explicit goto labels in mnName_8023749C to reproduce a table-scanning loop shape.",
+    "Introduced extra locals such as zero, valid, rem, term, and first_char in count functions, likely to guide register allocation and control-flow shape.",
+    "Preserved repeated NULL checks and assert calls in JObj setters, even where they look redundant in source, because they reflect baselib macro/codegen patterns.",
+    "Used casts between void*, s32, HSD_JObj*, and local struct types where the decompilation still lacked final data types but needed matching-compatible access.",
+    "Implemented modulo-based round-up as count / page_size plus a conditional remainder flag instead of using a helper macro or arithmetic shortcut.",
+    "Kept table lookup and animation calls explicit in mnName_80238A04, including f32 animation-frame table mnName_803ED538 and HSD_JObjReqAnimAll/HSD_JObjAnimAll sequencing."
   ],
   "review_feedback": [
-    "No human review comments or review records were present in the slice.",
-    "decomp.dev bot reported GALE01 matched code improving by +0.01% / +316 bytes.",
-    "decomp.dev bot reported 3 new 100% matches: IsNameNotAllowed (+116 bytes), CreateNameAtIndex (+100 bytes), and mnName_8023A058 (+100 bytes).",
-    "decomp.dev bot reported 9 improved but still unmatched mnname functions, with after percentages ranging from about 85.72% to 99.17%."
+    {
+      "source": "decomp.dev bot",
+      "feedback": "GALE01 report showed +0.01% matched code and +316 bytes."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "New 100% matches: IsNameNotAllowed (+116 bytes), CreateNameAtIndex (+100 bytes), and mnName_8023A058 (+100 bytes)."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Partial improvements remained for mnName_80238A04, mnName_GetPageCount, mnName_GetColumnCount, mnName_8023749C, mnName_80239EBC, mnName_80239F5C, mnName_802388D4, fn_80238540, and mnName_80239FFC."
+    },
+    {
+      "source": "slice limitation",
+      "feedback": "No human issue comments, review comments, or review approvals/changes were present in the provided slice; PR was draft and closed without merge."
+    }
   ],
   "searchable_terms": [
     "pr-2079",
     "Pr/mn name",
     "itsgrimetime",
+    "mnname",
     "mnname.c",
     "mnname.h",
     "mnnamenew.h",
     "mndiagram.c",
     "gmmain_lib.h",
     "GetNameText",
+    "GetNameCount",
     "IsNameValid",
     "CreateNameAtIndex",
     "InitializePersistentNameData",
-    "GetPersistentNameData",
-    "gmm_x2FF8_inner",
-    "namedata",
-    "x1A1",
     "IsNameNotAllowed",
-    "NotAllowedNamesList",
     "CompareNameStrings",
-    "mnNameNew_NullCharacter",
+    "mnName_8023749C",
     "fn_80238540",
-    "mnName_MainInput",
-    "mnNameNew_MainInput",
-    "mnName_ConfirmNameDeleteInput",
     "mnName_GetPageCount",
     "mnName_GetColumnCount",
-    "mnName_8023749C",
     "mnName_802388D4",
     "mnName_80238A04",
     "mnName_80239EBC",
     "mnName_80239F5C",
     "mnName_80239FFC",
     "mnName_8023A058",
+    "mnName_StringTerminator",
+    "mnNameNew_NullCharacter",
+    "NotAllowedNamesList",
+    "mnNameNew_MainInput",
+    "mnName_ConfirmNameDeleteInput",
+    "mn_804A04F0",
+    "gmm_x2FF8_inner",
+    "namedata",
+    "x1A1",
     "HSD_JObj",
     "HSD_GObj",
     "HSD_JObjReqAnimAll",
     "HSD_JObjAnimAll",
-    "HSD_JObjRemoveAll",
     "HSD_JObjSetMtxDirtySub",
+    "HSD_JObjRemoveAll",
     "HSD_SisLib_803A5CC4",
     "lbLang_IsSavedLanguageUS",
-    "name menu",
-    "persistent name data"
+    "persistent name data",
+    "name list",
+    "name entry menu",
+    "disallowed names"
   ],
   "follow_up_queries": [
-    "Check whether later PRs merged or reworked the mnName functions from closed draft PR #2079.",
-    "Search for subsequent stabilization of struct gmm_x2FF8_inner fields, especially namedata and x1A1.",
-    "Look for later reviews or merged commits involving mnName_GetPageCount, mnName_GetColumnCount, and mnName_8023749C to see how the near-matches were completed.",
-    "Investigate whether local structs MnName88D4Data and MnNameData were later moved to shared headers or renamed with semantic field names.",
-    "Search for follow-up changes to mnNameNew_MainInput and InitializePersistentNameData prototypes to confirm final accepted signatures."
+    "Find later PRs that merged or replaced this mnname work, especially implementations for the partial functions reported here.",
+    "Search for final definitions of gmm_x2FF8_inner to confirm namedata and x1A1 offsets used by GetPersistentNameData.",
+    "Look for review or commit history around mnName_80239EBC and mnName_80239F5C to see how the remaining JObj setter mismatches were resolved.",
+    "Search for NotAllowedNamesList and CompareNameStrings to document the exact name-string comparison and banned-name table format.",
+    "Check whether local structs MnName88D4Data and MnNameData were later promoted to shared headers or renamed with semantic field names."
   ],
   "confidence": 0.86,
   "agent_runtime": {

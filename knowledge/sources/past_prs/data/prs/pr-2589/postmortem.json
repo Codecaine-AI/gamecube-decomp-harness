@@ -5,106 +5,93 @@
     "number": 2589,
     "title": "link some free files",
     "url": "https://github.com/doldecomp/melee/pull/2589",
-    "state": "open",
+    "state": "CLOSED",
     "author": "BR-",
     "created_at": "2026-06-06T19:12:59Z",
-    "merged_at": ""
+    "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "This open PR was a small build-configuration/linkage update: it edited only configure.py to move several existing object files from NonMatching to Matching, thereby linking them into the matching build. The decomp.dev bot reported a sizeable progress increase for GALE01: linked code rose to 43.26% (+0.90%, +35120 bytes) and linked data to 35.06% (+0.07%, +824 bytes), with no reported changes.",
+  "summary": "Small configure.py-only PR that attempted to mark several already-free/nonmatching object files as Matching in the build configuration, plus removed one NonMatching ft_3C61.c entry. The PR was closed without merge; a comment from PsiLupan says the handling was moved to a separate PR.",
   "change_classification": {
-    "primary_type": "build-configuration-linkage",
+    "primary_type": "build_configuration_matching_status_update",
     "categories": [
       "code-change",
-      "matching-status-update",
-      "configure.py-only",
-      "progress-accounting"
+      "configure.py",
+      "matching-status",
+      "linking"
     ],
     "systems": [
       "repo-root",
       "player",
       "fighter",
-      "ice-climbers",
+      "ftCommon",
+      "ftPopo",
       "sysdolphin-baselib"
     ]
   },
   "key_files": [
-    "configure.py",
-    "melee/pl/plattack.c",
-    "melee/pl/plbonus.c",
-    "melee/ft/ftchangeparam.c",
-    "melee/ft/chara/ftPp_SpecialS.c",
-    "sysdolphin/baselib/bytecode.c",
-    "melee/ft/ft_3C61.c"
+    "configure.py"
   ],
   "what_changed": [
-    "In configure.py, Object(NonMatching, \"melee/pl/plattack.c\") was changed to Object(Matching, \"melee/pl/plattack.c\").",
-    "In configure.py, Object(NonMatching, \"melee/pl/plbonus.c\") was changed to Object(Matching, \"melee/pl/plbonus.c\").",
-    "In configure.py, Object(NonMatching, \"melee/ft/ftchangeparam.c\") was changed to Object(Matching, \"melee/ft/ftchangeparam.c\").",
-    "In configure.py, Object(NonMatching, \"melee/ft/chara/ftPp_SpecialS.c\") was changed to Object(Matching, \"melee/ft/chara/ftPp_SpecialS.c\").",
-    "In configure.py, Object(NonMatching, \"sysdolphin/baselib/bytecode.c\") was changed to Object(Matching, \"sysdolphin/baselib/bytecode.c\").",
-    "The NonMatching entry for \"melee/ft/ft_3C61.c\" was removed from the object list near the ftCommon Kirby-capture entries. The PR slice does not explain whether this was because the file became redundant, relocated, or otherwise no longer needed in that position.",
-    "No C source or header files were changed in this slice; the functional impact is through the build object's Matching/NonMatching classification."
+    "Changed Object(NonMatching, \"melee/pl/plattack.c\") to Object(Matching, \"melee/pl/plattack.c\").",
+    "Changed Object(NonMatching, \"melee/pl/plbonus.c\") to Object(Matching, \"melee/pl/plbonus.c\").",
+    "Removed the Object(NonMatching, \"melee/ft/ft_3C61.c\") entry from the MatchingFor list.",
+    "Changed Object(NonMatching, \"melee/ft/ftchangeparam.c\") to Object(Matching, \"melee/ft/ftchangeparam.c\").",
+    "Changed Object(NonMatching, \"melee/ft/chara/ftPp_SpecialS.c\") to Object(Matching, \"melee/ft/chara/ftPp_SpecialS.c\").",
+    "Changed Object(NonMatching, \"sysdolphin/baselib/bytecode.c\") to Object(Matching, \"sysdolphin/baselib/bytecode.c\")."
   ],
   "smart_moves": [
-    "Kept the PR minimal by touching only configure.py, which is appropriate when the source files already match and only need to be linked as Matching objects.",
-    "Batched several 'free' object promotions in one small configure change, immediately converting existing matching work into measurable linked-code and linked-data progress.",
-    "Relied on the project’s existing Object(Matching, path) convention rather than changing source to force progress.",
-    "The decomp.dev report provided quick validation that the linkage-only change increased linked code/data and reported 'No changes', suggesting no behavioral diff was introduced by this configuration update."
+    "Kept the change narrowly scoped to configure.py, avoiding unrelated source edits while only updating build/link matching status.",
+    "Grouped several 'free' files into one linking-status sweep, making the matching-progress update easy to audit from the diff.",
+    "Separated this handling into its own PR according to the visible issue comment, which is useful for isolating link-status churn from functional decomp changes."
   ],
   "decomp_lessons": [
-    "When a decompiled C file is already matching but still listed as NonMatching in configure.py, progress can be unlocked by flipping only the Object status to Matching.",
-    "Linkage PRs should be evidence-backed by progress reports; here the bot quantified the exact GALE01 linked-code and linked-data gains.",
-    "A configure-only PR is a low-noise way to land completed matching work, but removals such as the deleted ft_3C61.c entry should ideally be explained in the PR body or comments if the reason is not obvious from the diff.",
-    "Future sweeps can search configure.py for stale Object(NonMatching, ...) entries whose corresponding source has become matchable, then promote them without unrelated source churn."
+    "When an object file is confirmed linkable/matching without source changes, the decomp progress update may be just a configure.py Object(NonMatching) to Object(Matching) flip.",
+    "Matching-status-only PRs should be easy to review because they encode a build/link verification result rather than new decompiled logic.",
+    "If a NonMatching object entry is removed instead of converted to Matching, future readers should verify whether the object was moved, became covered elsewhere, or was intentionally no longer linked; this PR slice does not provide the reason."
   ],
   "naming_conventions": [
-    "Build object entries use Object(Matching, \"path/to/file.c\") and Object(NonMatching, \"path/to/file.c\") in configure.py.",
-    "Player subsystem files in this slice use lowercase pl-prefixed names such as melee/pl/plattack.c, melee/pl/plbonus.c, melee/pl/plbonuslib.c, and melee/pl/pl_040D.c.",
-    "Fighter common files in this area include ftCo_ CamelCase action names such as ftCo_CaptureKirby.c and ftCo_ItemParasolFall.c.",
-    "Ice Climbers/Popo action files use ftPp_ prefixes, including melee/ft/chara/ftPopo/ftPp_SpecialS.c and the promoted melee/ft/chara/ftPp_SpecialS.c path as shown in the diff.",
-    "sysdolphin baselib object entries use lowercase module names such as shadow.c, archive.c, random.c, bytecode.c, class.c, hash.c, and texp.c."
+    "configure.py uses Object(Matching, \"path/to/file.c\") and Object(NonMatching, \"path/to/file.c\") to encode per-object matching/link status.",
+    "Player files in this area use lowercase pl prefixes such as melee/pl/plattack.c, melee/pl/plbonus.c, and melee/pl/plbonuslib.c.",
+    "Fighter common action files use ftCo_ prefixes, e.g. ftCo_CaptureKirby.c and ftCo_ItemParasolFall.c.",
+    "Popo/Nana fighter files use ftPp_ and ftNn_ prefixes; the diff includes ftPp_SpecialS.c and nearby ftNn_Init.c / ftNn_Unk0.c.",
+    "Sysdolphin baselib files are listed under sysdolphin/baselib/ with lowercase module filenames such as bytecode.c, class.c, and hash.c."
   ],
   "assembly_or_matching_tactics": [
-    "No assembly edits or source-level matching tactics are visible in the PR slice.",
-    "The matching tactic evidenced here is configuration promotion: convert known-good decompiled objects from NonMatching to Matching once they are safe to link.",
-    "Use decomp.dev linked-code/data deltas as a sanity check after configure.py object-status changes."
+    "Primary tactic was build-list promotion: flip known-good objects from NonMatching to Matching in configure.py once they can be linked as matching.",
+    "No assembly-level tricks, function rewrites, register-allocation workarounds, or source matching tactics are shown in the slice.",
+    "Because only configure.py changed, the evidence indicates these were already solved/free files rather than newly matched functions in this PR."
   ],
   "review_feedback": [
-    "No human review comments were present in the PR slice.",
-    "The only comment was from decomp-dev[bot]: 'Report for GALE01 (8b90263 - 9a8eaa8)' with linked code 43.26% (+0.90%, +35120 bytes), linked data 35.06% (+0.07%, +824 bytes), and 'No changes'."
+    "No formal reviews or inline review comments are present in the provided slice.",
+    "Visible issue comment from PsiLupan: \"Handling this in a separate PR.\"",
+    "The PR was closed without merge, so future researchers should look for the follow-up/separate PR for the final accepted handling."
   ],
   "searchable_terms": [
-    "pr-2589",
+    "PR2589",
     "link some free files",
-    "BR-",
     "configure.py",
     "MatchingFor",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "free files",
-    "linked code",
-    "linked data",
-    "GALE01",
-    "plattack",
-    "plbonus",
-    "ftchangeparam",
-    "ftPp_SpecialS",
+    "Object Matching",
+    "Object NonMatching",
+    "plattack.c",
+    "plbonus.c",
+    "ft_3C61.c",
+    "ftchangeparam.c",
+    "ftPp_SpecialS.c",
     "bytecode.c",
-    "ft_3C61",
-    "sysdolphin",
-    "baselib",
-    "player",
-    "fighter",
-    "Popo",
-    "Ice Climbers",
-    "decomp.dev"
+    "ftCommon",
+    "ftPopo",
+    "ftNana",
+    "sysdolphin baselib",
+    "free files",
+    "linking",
+    "matching status"
   ],
   "follow_up_queries": [
-    "Find other configure.py entries still marked Object(NonMatching, ...) whose source files may now be matchable.",
-    "Check history around melee/ft/ft_3C61.c to understand why its NonMatching object entry was removed instead of changed to Matching.",
-    "Verify whether melee/ft/chara/ftPp_SpecialS.c is intentionally outside the ftPopo directory or whether the path reflects an existing project layout convention.",
-    "Look for subsequent PRs or reviews that merged or adjusted this open linkage PR."
+    "Find the separate PR referenced by PsiLupan's comment for the final accepted handling of these free file link-status changes.",
+    "Check whether melee/ft/ft_3C61.c was moved, linked elsewhere, or intentionally removed from the configure.py object list.",
+    "Verify the eventual matching status of plattack.c, plbonus.c, ftchangeparam.c, ftPp_SpecialS.c, and sysdolphin/baselib/bytecode.c on master after this closed PR."
   ],
   "confidence": 0.86,
   "agent_runtime": {

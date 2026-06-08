@@ -11,87 +11,82 @@
     "merged_at": "2026-03-11T05:04:55Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched four previously placeholder fighter functions in Kirby and Yoshi special-move code. The PR replaced `/// #...` markers with C implementations for `ftKb_SpecialAirHi2_Anim`, `ftKb_SpecialNLg_800F951C`, `ftYs_SpecialHi_Enter`, and `ftYs_SpecialAirHi_Enter`; the decomp-dev bot reported all four as 100% matched, adding +484 matched bytes and +0.01% matched code for GALE01.",
+  "summary": "Matched four fighter functions in Kirby and Yoshi special-move code: Kirby SpecialAirHi2 animation transition, Kirby SpecialNLg motion-state setup, and Yoshi grounded/aerial SpecialHi enter routines. The PR replaced placeholder decomp markers with C implementations and reported all four as 100% matched.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "fighter-special-move-logic",
-      "stub-replacement"
+      "fighter-behavior",
+      "motion-state",
+      "callback-setup"
     ],
     "systems": [
       "fighter",
       "Kirby",
       "Yoshi",
-      "special-move-state"
+      "special-moves"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
-      "role": "Matched Kirby special-N/special-air-hi routines: `ftKb_SpecialAirHi2_Anim` and `ftKb_SpecialNLg_800F951C`."
-    },
-    {
-      "path": "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c",
-      "role": "Matched Yoshi special-hi enter routines: `ftYs_SpecialHi_Enter` and `ftYs_SpecialAirHi_Enter`."
-    }
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+    "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c"
   ],
   "what_changed": [
-    "Implemented `ftKb_SpecialAirHi2_Anim`: checks `ftAnim_IsFramesRemaining`, changes to `ftKb_MS_SpecialAirHi3` when animation ends, then installs `efLib_PauseAll`/`efLib_ResumeAll` as hitlag callbacks.",
-    "Implemented `ftKb_SpecialNLg_800F951C`: calls `ftCommon_8007D5D4`, preserves `cur_anim_frame`, chooses motion id `0x190` or `0x201` based on `fp2->fv.kb.hat.kind`, changes motion state with flags `0x5000`, then sets `accessory4_cb = fn_800F9260`.",
-    "Implemented `ftYs_SpecialHi_Enter`: clears Yoshi special-hi move variables, clears `fv.ys.x2238`, `throw_flags`, and `cmd_vars[0]`, changes to `ftYs_MS_SpecialHi`, sets `accessory4_cb = fn_8012E110`, and calls `ftAnim_8006EBA4`.",
-    "Implemented `ftYs_SpecialAirHi_Enter` with the same initialization sequence as the grounded enter routine, differing in the motion state `ftYs_MS_SpecialAirHi`.",
-    "Automated report confirmed four new matches: Kirby functions at +124 and +120 bytes, and each Yoshi enter function at +120 bytes."
+    "Implemented `ftKb_SpecialAirHi2_Anim`, replacing a `/// #ftKb_SpecialAirHi2_Anim` placeholder.",
+    "`ftKb_SpecialAirHi2_Anim` checks `ftAnim_IsFramesRemaining`; when the animation ends it changes to `ftKb_MS_SpecialAirHi3` with flags `0xA`, then installs `efLib_PauseAll` and `efLib_ResumeAll` as hitlag callbacks.",
+    "Implemented `ftKb_SpecialNLg_800F951C`, replacing a placeholder in `ftKb_SpecialN.c`.",
+    "`ftKb_SpecialNLg_800F951C` calls `ftCommon_8007D5D4`, preserves `cur_anim_frame`, selects motion id `0x190` or `0x201` based on `fp2->fv.kb.hat.kind`, changes motion state with flags `0x5000`, and assigns `fn_800F9260` to `accessory4_cb`.",
+    "Implemented `ftYs_SpecialHi_Enter` for grounded Yoshi Egg Throw startup.",
+    "Implemented `ftYs_SpecialAirHi_Enter` for aerial Yoshi Egg Throw startup.",
+    "Both Yoshi enter functions reset `mv.ys.specialhi.x0`, `mv.ys.specialhi.x4`, `fv.ys.x2238`, `throw_flags`, and `cmd_vars[0]`, then enter the appropriate ground or air motion state, install `fn_8012E110` as `accessory4_cb`, and call `ftAnim_8006EBA4`."
   ],
   "smart_moves": [
-    "Kept the two Yoshi enter functions structurally parallel, changing only the grounded versus aerial motion-state constant; this makes the duplicated state-init pattern obvious and match-friendly.",
-    "Preserved exact operation order around `Fighter_ChangeMotionState` and callback assignment: Yoshi sets `accessory4_cb` after changing state, and Kirby installs hitlag callbacks after entering `ftKb_MS_SpecialAirHi3`.",
-    "Used explicit locals in `ftKb_SpecialNLg_800F951C` (`fp2`, `motion_id`, `anim_frame`) instead of collapsing expressions, which is likely important for reproducing compiler codegen and branch shape.",
-    "Included the otherwise-unused `u8 _[24]` stack padding in both Yoshi enter functions, a direct matching tactic for stack frame/layout reproduction."
+    "The Yoshi grounded and aerial enter routines were matched as near-identical paired functions, differing only in the motion-state enum (`ftYs_MS_SpecialHi` versus `ftYs_MS_SpecialAirHi`). This preserves the common setup pattern while keeping the functions explicit.",
+    "The Kirby SpecialAirHi2 animation function uses the existing animation-completion helper and only installs hitlag pause/resume callbacks after transitioning into `ftKb_MS_SpecialAirHi3`, matching the behavior implied by the diff.",
+    "The Kirby SpecialNLg function preserves the current animation frame before changing motion state, avoiding an accidental animation restart when switching between copied/hat-dependent motion states.",
+    "The Yoshi functions include an explicit `u8 _[24];` stack-padding declaration, indicating a deliberate matching tactic for stack layout rather than a semantic gameplay variable."
   ],
   "decomp_lessons": [
-    "For fighter enter/anim callbacks, matching often depends on preserving exact sequencing of state initialization, `Fighter_ChangeMotionState`, callback assignment, and animation helper calls.",
-    "Near-duplicate grounded/aerial routines should be matched by first identifying the common body and then isolating the motion-state constant difference.",
-    "Do not over-inline temporary values when matching older Metrowerks output; named locals for motion id, current animation frame, and duplicate fighter pointers can be necessary to obtain the expected register/stack shape.",
-    "Placeholder markers of the form `/// #function_name` are removed once a function is 100% matched; this PR is a clean example of converting four such markers to C.",
-    "When a routine uses unexplained stack padding like `u8 _[24]`, keep it documented by leaving the explicit dummy local until a cleaner struct/typing explanation is proven."
+    "For fighter enter-state routines, compare grounded and aerial variants together; they often share all initialization logic and differ only in the target motion-state ID.",
+    "When matching fighter motion transitions, preserve exact flag constants, start frame, animation rate, blend value, and callback assignments; these details are often necessary for a 100% match.",
+    "Do not remove seemingly unused stack padding if it is required for matching; this PR used `u8 _[24];` in both Yoshi enter functions.",
+    "Accessing fighter data may appear both as `gobj->user_data` and via `GET_FIGHTER(gobj)` in the same function; preserve the observed sequence when it affects matching.",
+    "Hat/copy-state conditionals in Kirby code can select between numeric motion IDs before calling `Fighter_ChangeMotionState`; avoid over-renaming or abstracting these constants without stronger evidence."
   ],
   "naming_conventions": [
-    "Character-specific fighter functions use prefixes such as `ftKb_` for Kirby and `ftYs_` for Yoshi.",
-    "Action callback suffixes in these files include `_Anim` for animation callbacks and `_Enter` for state-entry routines.",
-    "Motion-state constants follow `ft<Char>_MS_<State>` naming, e.g. `ftKb_MS_SpecialAirHi3`, `ftYs_MS_SpecialHi`, and `ftYs_MS_SpecialAirHi`.",
-    "Still-unnamed static callbacks retain address-style names such as `fn_800F9260` and `fn_8012E110`.",
-    "Unidentified fighter variable fields remain offset-style names such as `mv.ys.specialhi.x0`, `mv.ys.specialhi.x4`, and `fv.ys.x2238`."
+    "Matched functions keep existing project-style fighter prefixes: `ftKb_` for Kirby and `ftYs_` for Yoshi.",
+    "Motion-state enum names follow character and action naming such as `ftKb_MS_SpecialAirHi3`, `ftYs_MS_SpecialHi`, and `ftYs_MS_SpecialAirHi`.",
+    "Unidentified static helpers remain address-style names, e.g. `fn_800F98F4`, `fn_800F9260`, and `fn_8012E110`.",
+    "Unknown or partially understood fighter struct fields remain offset-style names such as `mv.ys.specialhi.x0`, `mv.ys.specialhi.x4`, and `fv.ys.x2238`.",
+    "Stack padding was named `_`, matching a common convention for intentional unused match-only local storage."
   ],
   "assembly_or_matching_tactics": [
-    "Both Yoshi enter matches use `u8 _[24];` dummy stack padding, indicating stack-frame shape mattered.",
-    "`ftKb_SpecialNLg_800F951C` stores `fp->cur_anim_frame` into a local `anim_frame` before `Fighter_ChangeMotionState`, rather than passing the field access directly.",
-    "`ftKb_SpecialNLg_800F951C` initializes `motion_id` to `0x190` and conditionally rewrites it to `0x201` based on Kirby hat kind, matching a simple branch-and-select pattern.",
-    "The Kirby routine keeps both `GET_FIGHTER(gobj)` and a later `gobj->user_data` assignment to `fp2`; this redundant-looking local structure should be reused cautiously when similar functions need matching.",
-    "Float literals are written as `0.0F` and `1.0F`, matching local style around `Fighter_ChangeMotionState` calls."
+    "Used explicit stack padding `u8 _[24];` in both Yoshi enter routines to satisfy stack-layout/codegen requirements.",
+    "Preserved reassignment from `gobj->user_data` to `GET_FIGHTER(gobj)` after `Fighter_ChangeMotionState` in the Yoshi routines.",
+    "Stored `motion_id` and `anim_frame` locals in `ftKb_SpecialNLg_800F951C` before the motion-state call, likely matching register/local ordering in the target assembly.",
+    "Used literal flag constants `0xA` and `0x5000` in `Fighter_ChangeMotionState` calls where no named flag abstraction was introduced.",
+    "Matched callback writes directly to fighter fields: `pre_hitlag_cb`, `post_hitlag_cb`, and `accessory4_cb`."
   ],
   "review_feedback": [
-    "No human review comments or requested changes were present in the PR slice.",
-    "Automated decomp-dev report for GALE01 confirmed +484 matched bytes, +0.01% matched code, and four new 100% matches."
+    "No review comments were present in the provided PR context.",
+    "The PR body stated that `ftKb_SpecialAirHi2_Anim`, `ftKb_SpecialNLg_800F951C`, `ftYs_SpecialHi_Enter`, and `ftYs_SpecialAirHi_Enter` were all 100% matched."
   ],
   "searchable_terms": [
-    "pr-2269",
-    "johnwinston",
-    "fighters: match 4 functions",
-    "ftKb_SpecialN.c",
-    "ftYs_SpecialHi.c",
+    "fighters match 4 functions",
     "ftKb_SpecialAirHi2_Anim",
     "ftKb_SpecialNLg_800F951C",
     "ftYs_SpecialHi_Enter",
     "ftYs_SpecialAirHi_Enter",
+    "ftKb_SpecialN.c",
+    "ftYs_SpecialHi.c",
+    "Kirby SpecialAirHi",
+    "Kirby SpecialNLg",
+    "Yoshi SpecialHi",
+    "Egg Throw",
     "Fighter_ChangeMotionState",
     "ftAnim_IsFramesRemaining",
     "ftAnim_8006EBA4",
     "ftCommon_8007D5D4",
-    "GET_FIGHTER",
-    "ftKb_MS_SpecialAirHi3",
-    "ftYs_MS_SpecialHi",
-    "ftYs_MS_SpecialAirHi",
     "efLib_PauseAll",
     "efLib_ResumeAll",
     "pre_hitlag_cb",
@@ -99,21 +94,25 @@
     "accessory4_cb",
     "fn_800F9260",
     "fn_8012E110",
-    "cur_anim_frame",
-    "hat.kind",
-    "throw_flags",
+    "stack padding u8 _[24]",
     "cmd_vars",
-    "u8 _[24]",
-    "0x5000",
-    "0x190",
-    "0x201"
+    "throw_flags",
+    "hat.kind",
+    "cur_anim_frame"
   ],
   "follow_up_queries": [
-    "Search for other Yoshi special-hi enter routines or callbacks using `u8 _[24]` stack padding.",
-    "Compare `ftKb_SpecialNLg_800F951C` with neighboring Kirby neutral-B/hat routines that choose motion ids based on `fv.kb.hat.kind`.",
-    "Search for `pre_hitlag_cb = efLib_PauseAll` and `post_hitlag_cb = efLib_ResumeAll` to reuse the callback ordering pattern.",
-    "Look for remaining `/// #ftKb_` or `/// #ftYs_` placeholders in fighter special-move files with similar state-init bodies.",
-    "Audit whether `mv.ys.specialhi.x0`, `mv.ys.specialhi.x4`, and `fv.ys.x2238` can be renamed once more Yoshi egg-throw behavior is decompiled."
+    "Find later PRs that rename or document `fn_800F9260` or `fn_8012E110`.",
+    "Search for other Yoshi SpecialHi functions using `mv.ys.specialhi.x0`, `mv.ys.specialhi.x4`, or `fv.ys.x2238` to infer field meanings.",
+    "Search Kirby copy/hat logic around `fp->fv.kb.hat.kind` and motion IDs `0x190` and `0x201` for possible enum naming opportunities.",
+    "Compare other fighter enter routines that use `u8 _[24];` stack padding to identify recurring matching patterns."
   ],
-  "confidence": 0.93
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,128 +11,103 @@
     "merged_at": "2026-05-08T18:41:15Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged a large decomp-matching update for the event match menu in src/melee/mn/mnevent.c, adding data constants and implementations for event row rendering, selected-event result text, menu object setup, cleanup, and controller navigation. decomp.dev reported +796 matched bytes: mnEvent_8024D5B0 and fn_8024E1B4 became 100% matches, with partial improvements for fn_8024D864, mnEvent_8024D15C, and mnEvent_8024E524. The slice contains no human review discussion.",
+  "summary": "Large matching-oriented expansion of src/melee/mn/mnevent.c for the Event Match menu, adding static data, menu row/icon/text creation, event-name/time display logic, event menu construction, and input navigation handling. A small vi1201v2.c inline helper rename was also included, likely for local matching/name-shaping reasons. The PR had no visible review discussion in the provided slice, so intent is inferred mainly from the diff.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "menu-ui",
-      "event-menu",
-      "data-section-recovery",
-      "matching-tactics"
+      "menu-logic",
+      "ui-text",
+      "asset-jobj-setup",
+      "input-handling"
     ],
     "systems": [
-      "mn/mnevent",
-      "event match menu",
-      "HSD GObj/JObj/SisLib",
-      "gm event library",
-      "vi/vi1201v2"
+      "mn",
+      "mnevent",
+      "event-match-menu",
+      "vi1201v2",
+      "melee-core"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/mn/mnevent.c",
-      "role": "Primary PR target; +436/-12 lines. Added static data and several event-menu functions, plus a cleanup rewrite that reached 100% match."
+      "role": "Primary decompilation work: added Event Match menu statics and several functions for row rendering, selected event text, menu construction, cleanup, and navigation."
     },
     {
       "path": "src/melee/vi/vi1201v2.c",
-      "role": "Minor matching/naming change; renamed inline_fn to GET_EVENTDATA and updated its one callsite. The diff shows no behavior change."
+      "role": "Small inline helper rename from inline_fn to GET_EVENTDATA while preserving behavior of GObj_Create(0xE, 0xF, 0)."
     }
   ],
   "what_changed": [
-    "Added baselib/debug.h to mnevent.c so the new HSD_ASSERTREPORT call in mnEvent_8024E524 can compile and match.",
-    "Added mnevent static data: Vec3 offsets mnEvent_803EF764 and mnEvent_803EF770, Shift-JIS/format byte strings such as mnEvent_803EF77C, mnEvent_803EF794, and mnEvent_803EF7A0, color words mnEvent_804D5028 and mnEvent_804D502C, asset pointer globals mnEvent_804A08F8 and mnEvent_804A0908, and small format/placeholder strings mnEvent_804D5040 and mnEvent_804D5044.",
-    "Implemented mnEvent_8024D15C as an event-list row renderer: it finds JObj markers 0xA and 0xC, computes row spacing, removes old row GObjs/text/icons, checks unlock state with gmMainLib_8015CEFC, creates an icon GObj from mnEvent_804A0908 when unlocked, and creates HSD_Text entries for event number and icon glyph.",
-    "Implemented mnEvent_8024D5B0 for the selected event's name_text/result display. It recreates the HSD_Text, sets position/color/alignment/font size, uses gmMainLib_8015CF5C and gm_801BEB8C/gmMainLib_8015CEFC to decide time-vs-number-vs-locked formatting, and emits text through HSD_SisLib_803A6B98.",
-    "Reworked fn_8024E1B4 cleanup to use a new inline GET_EVENTDATA(gobj), cache gobj->hsd_obj as tree, and iterate through gobjs/texts/icons using a 4-byte pointer-step alias before deleting the parent GObj.",
-    "Implemented mnEvent_8024E524 to create and initialize the event menu GObj: load joint/animation assets from mnEvent_804A08F8, allocate MnEventData with HSD_MemAlloc and HSD_ASSERTREPORT, initialize user data, position the page/cursor JObj 0xB from JObj 0xA/0xC spacing, install fn_8024E34C as a process, populate nine visible rows, and refresh selected event panels/animations.",
-    "Implemented fn_8024D864 as the event menu input handler: handles cooldown, Back, Confirm, X/Y page jumps, Up/Down cursor movement and scrolling, audio feedback, event selection via gm_801BEB74/gm_801677E8/mn_80229860, row repopulation, and repeated selected-event UI refreshes.",
-    "Renamed vi1201v2.c inline helper inline_fn to GET_EVENTDATA and updated the call in un_803207C4; the helper still returns GObj_Create(0xE, 0xF, 0), so the diff only supports treating this as a matching/naming artifact."
+    "Added <baselib/debug.h> to mnevent.c and used HSD_ASSERTREPORT when allocating MnEventData user_data.",
+    "Added new static Vec3 positioning constants, Shift-JIS/string format buffers, color constants, asset pointer globals mnEvent_804A08F8 and mnEvent_804A0908, and text format strings for Event Match UI.",
+    "Implemented mnEvent_8024D15C(idx, event_id), which refreshes one visible event row: computes row position from JObj translations, deletes old row GObj/text/icon entries, conditionally creates an unlock icon GObj, creates event number text, and creates icon text based on gm_801BEBA8.",
+    "Implemented mnEvent_8024D5B0(gobj, event), which rebuilds the selected event's name/time/value text using gmMainLib_8015CF5C, gm_801BEB8C, gmMainLib_8015CEFC, mn_8022EA78, and SIS text formatting.",
+    "Added an inline GET_EVENTDATA(HSD_GObj*) in mnevent.c returning gobj->user_data and used it in fn_8024E1B4.",
+    "Reworked fn_8024E1B4 cleanup to use pointer iteration over MnEventData-sized row offsets, clearing gobjs/texts/icons and destroying the menu GObj after the animation reaches mnEvent_803EF74C.end_frame.",
+    "Implemented mnEvent_8024E524(event_idx), which creates the main Event Match menu GObj, loads joint/animation assets from mnEvent_804A08F8, allocates and initializes MnEventData, positions the selector JObj using page and JObj translation deltas, creates all nine visible rows, initializes selected-event display, and starts its update proc.",
+    "Implemented fn_8024D864(gobj), which handles Event Match menu input: cooldown, back, menu creation delay, confirm transition, X/Y page jumps by nine events, and up/down selection/scroll behavior, refreshing row text/icons and selected-event display after changes.",
+    "Renamed vi1201v2.c inline helper inline_fn(void) to GET_EVENTDATA(void) and updated its single call site; behavior remains a GObj_Create wrapper."
   ],
   "smart_moves": [
-    "Used JObj locator nodes 0xA, 0xC, 0xB, and 0x9 to derive list spacing, cursor position, and selected-event animation state from the menu asset instead of hardcoding every position.",
-    "Preserved exact packed color writes with *(s32*) &text->text_color for HSD_Text, matching the original style of writing RGBA-like color words.",
-    "Declared exact-size byte arrays for Shift-JIS strings, placeholders, format strings, and adjacent debug/asset-name data, improving data-section matching rather than approximating with normal C string literals only.",
-    "Used a small inline GET_EVENTDATA wrapper in fn_8024E1B4; the bot report shows that function improved from 50.90% to 100%, making this an example of inline-helper-driven codegen matching.",
-    "Matched awkward pointer arithmetic over MnEventData with row = (MnEventData*) ((u8*) data + idx * 4) and iter = (MnEventData*) ((u8*) iter + 4), even though ordinary data->gobjs[idx] style would be cleaner.",
-    "Kept the refresh call order consistent after every selection/page movement: rebuild rows when needed, compute event through gm_801BEBA8, update mnEvent_8024D0CC/mnEvent_8024D7E0/mnEvent_8024D5B0, animate JObj 9, then call mnEvent_8024D014."
+    "Used JObj translation differences between child joints 0xA and 0xC to derive vertical row spacing instead of hardcoding every row coordinate, which preserves asset-driven layout behavior.",
+    "Row refresh in mnEvent_8024D15C explicitly destroys previous GObjs and SIS text objects before replacing them, matching menu code patterns that avoid stale UI objects.",
+    "Menu construction in mnEvent_8024E524 centralizes the repeated initial refresh sequence: create rows, update portrait/name/details via mnEvent_8024D0CC, mnEvent_8024D7E0, mnEvent_8024D5B0, update animation frame on JObj 9, and call mnEvent_8024D014.",
+    "The selected-event display function separates unlocked/time-trial-style display from locked/placeholder display using game-state helpers, making the decompiled control flow explicit even though symbol names remain mostly address-based.",
+    "The added HSD_ASSERTREPORT captures the original debug/report strings around MnEventData allocation, which can be important for .rodata layout and matching."
   ],
   "decomp_lessons": [
-    "For menu decomp, asset-space JObj child IDs can be the key to reconstructing list spacing and cursor motion; preserve the lb_80011E24 lookup IDs while semantics are still uncertain.",
-    "When the original compiler indexes parallel pointer arrays by byte offset, matching may require struct-pointer alias tricks rather than idiomatic array indexing.",
-    "Do not over-rename gm_801BEBxx/gmMainLib calls based only on local behavior; this PR kept most unknown gm functions address-named while exposing their use in event unlock/result logic.",
-    "HSD_ASSERTREPORT matching needs the debug header, exact line value, and exact message text; here mnEvent_8024E524 adds HSD_ASSERTREPORT(0x39B, user_data, \"Can't get user_data.\\n\").",
-    "Stack buffer sizes can matter for text formatting; mnEvent_8024D5B0 uses three char[4] buffers with mn_8022EA78 for two-digit time pieces.",
-    "Small helper names can be codegen artifacts. The vi1201v2 GET_EVENTDATA helper returns GObj_Create, so future readers should not infer semantics from that name without more evidence.",
-    "The decomp.dev bot report is strong evidence for matching progress, but absence of human PR body/review means intent and naming rationale remain weakly evidenced."
+    "For menu decompilation, derive positions from loaded JObj translations when the original code appears asset-driven; this often matches better than introducing equivalent constants.",
+    "SIS text objects generally need lifecycle management mirroring the original code: check existing pointer, destroy with HSD_SisLib_803A5CC4, then allocate and store the replacement.",
+    "When arrays in a struct do not decompile cleanly as normal indexing, pointer iteration over byte offsets, as seen with iter = (MnEventData*) ((u8*) iter + 4), may be a matching tactic for the compiler's chosen addressing mode.",
+    "Preserve exact string storage, including Shift-JIS byte arrays, padding, and debug strings, when they affect rodata ordering or match quality.",
+    "Menu input handlers often repeat a full UI refresh sequence after each state mutation; keeping that repetition rather than prematurely factoring it may be necessary for matching.",
+    "Small inline helper renames can matter for matching or inlining shape even when the helper body is trivial, as shown by vi1201v2.c's inline_fn to GET_EVENTDATA rename."
   ],
   "naming_conventions": [
-    "Address-based function names were retained for newly decompiled mnevent functions: mnEvent_8024D15C, mnEvent_8024D5B0, mnEvent_8024E524, and fn_8024D864.",
-    "Callback/proc-style functions remained fn_8024xxxx where semantics were not confidently named, such as fn_8024D864 and fn_8024E1B4.",
-    "Static data kept address-derived names like mnEvent_803EF764, mnEvent_803EF77C, mnEvent_804D5028, mnEvent_804A08F8, and mnEvent_804A0908.",
-    "Local JObj names such as jobj_0A, jobj_0C, jobj_0B, and jobj_09 mirror lb_80011E24 child IDs and are useful temporary names before asset-node semantics are known.",
-    "GET_EVENTDATA was introduced as an inline helper in mnevent.c for gobj->user_data access; the same name appearing in vi1201v2.c is not semantically reliable based on this diff."
+    "Newly decompiled mnevent symbols largely retain address-based names such as mnEvent_8024D15C, mnEvent_8024D5B0, mnEvent_8024E524, and fn_8024D864, indicating functionality was added before semantic names were known.",
+    "Static data follows the project/address convention mnEvent_803EFxxx or mnEvent_804Dxxxx for rodata/data/bss-like objects.",
+    "Local variable names in the diff are mixed: some semantic names such as event_id, icon_pos, is_unlocked, first_event, page, and event appear alongside compiler-temporary names such as temp_r3_2 and temp_r28.",
+    "The inline helper name GET_EVENTDATA appears in both mnevent.c and vi1201v2.c in the diff, but with different signatures and behavior; future work should verify whether this naming was purely a matching artifact before treating it as a semantic convention."
   ],
   "assembly_or_matching_tactics": [
-    "Inline helper tactic: inline MnEventData* GET_EVENTDATA(HSD_GObj* gobj) { return gobj->user_data; } was used in fn_8024E1B4, which the bot reported as a new 100% match.",
-    "Codegen-sensitive caching: fn_8024E1B4 stores gobj->hsd_obj in a local tree before calling mn_8022EC18 instead of repeatedly using gobj->hsd_obj.",
-    "Pointer-step cleanup loop: fn_8024E1B4 uses both tmp->gobjs[i]/texts[i]/icons[i] and iter->gobjs[0]/texts[0]/icons[0], then advances iter by 4 bytes per iteration.",
-    "Preserved casts and masks in gm calls, including u8 event truncation and expressions like event & 0xFFFFFFFFu / 0xFFFFFFFFFFFFFFFFu, likely for exact register/compare behavior.",
-    "Used exact floating constants for text and layout, including 0.035f, 0.03f, 17.0f, 364.68332f, 38.38772f, 3.8f, 4.25f, and 6.9f.",
-    "Recovered data sections with exact arrays and symbol placement; decomp.dev reported .data improvement from 26.29% to 91.29%, .bss from 0.00% to 66.67%, .sdata2 from 61.67% to 70.00%, and .sbss from 0.00% to 50.00%."
+    "Used inline wrapper GET_EVENTDATA(gobj) around gobj->user_data in mnevent.c, likely to influence inlining/register allocation in fn_8024E1B4.",
+    "Maintained explicit casts through u8* for data row offset computation: row = (MnEventData*) ((u8*) data + idx * 4), suggesting struct layout or compiler addressing was not yet fully semantically modeled.",
+    "Kept exact float constants such as 0.035f, 0.03f, 17.0f, 364.68332f, and 38.38772f in UI text creation calls.",
+    "Stored packed text colors by writing through *(s32*) &text->text_color, matching the original memory representation rather than assigning color channels separately.",
+    "Preserved unusual widened masks/casts in event handling expressions, such as event & 0xFFFFFFFFu and event & 0xFFFFFFFFFFFFFFFFu, which may have been required for matching generated code.",
+    "Inserted static char arrays for Shift-JIS strings and debug/error text instead of converting all strings to readable literals, preserving byte-exact data."
   ],
   "review_feedback": [
-    "No human PR body text was provided.",
-    "No human review comments or review records were present in the slice.",
-    "decomp.dev bot reported GALE01 matched code 66.40% (+0.02%, +796 bytes).",
-    "decomp.dev bot reported 2 new matches: mnEvent_8024D5B0 +560 bytes from 0.00% to 100.00%, and fn_8024E1B4 +116 bytes from 50.90% to 100.00%.",
-    "decomp.dev bot reported 7 unmatched-item improvements: fn_8024D864 to 80.67%, mnEvent_8024D15C to 81.16%, mnEvent_8024E524 to 83.09%, plus .data/.bss/.sdata2/.sbss improvements.",
-    "decomp.dev bot reported one small unmatched-item regression: main/melee/mn/mnevent .sdata -1 byte, 57.78% to 55.56%."
+    {
+      "type": "none-visible",
+      "note": "The provided PR slice reports one issue comment but includes no human_text_excerpt, no review_comments_excerpt, and no review feedback examples, so no concrete reviewer guidance can be extracted."
+    }
   ],
   "searchable_terms": [
     "pr-2447",
     "Jj/mnevent",
     "jurrejelle",
     "mnevent",
-    "src/melee/mn/mnevent.c",
-    "src/melee/vi/vi1201v2.c",
     "mnEvent_8024D15C",
     "mnEvent_8024D5B0",
     "mnEvent_8024E524",
     "fn_8024D864",
     "fn_8024E1B4",
-    "GET_EVENTDATA",
-    "inline_fn",
-    "MnEventData",
     "mnEvent_804D6C60",
-    "mnEvent_804D6C64",
-    "mnEvent_804D6C65",
-    "mnEvent_804A08F8",
-    "mnEvent_804A0908",
-    "mnEvent_803EF764",
-    "mnEvent_803EF770",
-    "mnEvent_803EF77C",
-    "mnEvent_803EF794",
-    "mnEvent_803EF7A0",
-    "mnEvent_804D5028",
-    "mnEvent_804D502C",
+    "MnEventData",
+    "GET_EVENTDATA",
     "HSD_ASSERTREPORT",
-    "Can't get user_data",
-    "HSD_JObjLoadJoint",
-    "HSD_JObjAddAnimAll",
-    "HSD_JObjReqAnimAll",
-    "HSD_JObjAnimAll",
-    "HSD_JObjSetTranslateY",
-    "HSD_JObjGetTranslationY",
     "HSD_SisLib_803A6754",
-    "HSD_SisLib_803A6B98",
-    "HSD_SisLib_803A5CC4",
     "HSD_SisLib_803A5ACC",
-    "HSD_SisLib_803A6368",
-    "GObj_Create",
-    "GObj_SetupGXLink",
-    "GObj_InitUserData",
+    "HSD_SisLib_803A5CC4",
+    "HSD_SisLib_803A6B98",
+    "HSD_JObjGetTranslationY",
+    "HSD_JObjSetTranslateY",
+    "HSD_JObjLoadJoint",
     "HSD_GObjPLink_80390228",
+    "GObj_Create",
     "MenuInput_Back",
     "MenuInput_Confirm",
     "MenuInput_XButton",
@@ -145,20 +120,22 @@
     "gm_801BEB8C",
     "gm_801BEBC0",
     "gm_801BEBF8",
-    "gm_801BEB74",
-    "mn_8022EA78",
-    "event match menu",
-    "Shift-JIS",
-    "data section matching"
+    "vi1201v2.c",
+    "inline_fn"
   ],
   "follow_up_queries": [
-    "mnevent mnEvent_8024D15C row = (MnEventData*) ((u8*) data + data_offset)",
-    "mnevent fn_8024E1B4 GET_EVENTDATA 100.00%",
-    "mnEvent_8024D5B0 HSD_SisLib_803A6B98 mnEvent_803EF794",
-    "mnEvent_8024E524 HSD_ASSERTREPORT 0x39B Can't get user_data",
-    "fn_8024D864 MenuInput_XButton MenuInput_YButton MenuInput_Up MenuInput_Down",
-    "mnEvent_804A08F8 HSD_JObjAddAnimAll event menu assets",
-    "vi1201v2 inline_fn GET_EVENTDATA GObj_Create"
+    "Inspect later PRs touching src/melee/mn/mnevent.c for semantic renames of mnEvent_8024D15C, mnEvent_8024D5B0, mnEvent_8024E524, and fn_8024D864.",
+    "Check whether MnEventData was later restructured to replace byte-offset row iteration with clearer arrays or row structs.",
+    "Verify whether the duplicate GET_EVENTDATA helper name in vi1201v2.c was kept, renamed, or identified as an accidental/matching-only name.",
+    "Look for comments or commits around mnevent rodata strings to determine whether the Shift-JIS byte arrays were later decoded or named."
   ],
-  "confidence": 0.84
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

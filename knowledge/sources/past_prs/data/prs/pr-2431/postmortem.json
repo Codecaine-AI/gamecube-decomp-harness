@@ -11,7 +11,7 @@
     "merged_at": "2026-04-28T11:02:47Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged decomp PR for the grYorster stage module. It replaced stubs/unknown signatures with C for several Yorster callbacks, fully matched grYorster_802024F0, improved grYorster_802022A4 and grYorster_8020266C to high partial matches, and expanded the stage-specific parameter and track-element layouts needed by those functions.",
+  "summary": "Decompiled additional Yoshi's Story ground/stage behavior in gryorster, replacing stubs/UNK signatures with typed implementations for track element setup, collision/material callbacks, and per-frame track element state updates. The PR also refined Yorster-related parameter and GroundVars structs so the new code could address meaningful fields instead of padding.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -23,71 +23,61 @@
     "systems": [
       "stage",
       "ground",
-      "gryorster",
-      "material",
+      "materials",
       "collision",
       "animation"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/gryorster.c",
-      "role": "Main implementation changes for grYorster_802022A4, grYorster_80202428, grYorster_802024F0, and grYorster_8020266C; added dependencies on grlib, grmaterial, item, lb, and JObj APIs."
-    },
-    {
-      "path": "src/melee/gr/gryorster.h",
-      "role": "Replaced grYorster_802024F0 UNK_RET/UNK_PARAMS with a typed collision callback prototype and added mp forward declarations."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Expanded grYorster_TrackElement from mostly padding into offset-preserving fields x00, x01, x04, x08, x0C, x10, x14, x18, and x1C."
-    }
+    "src/melee/gr/gryorster.c",
+    "src/melee/gr/gryorster.h",
+    "src/melee/gr/types.h"
   ],
   "what_changed": [
-    "Expanded YorsterParams from padding plus x14 into typed fields x00, x04, x08, x0C, x10, x14, x18, and x1C, and added pad_04 to grYt_804D6A20_t.",
-    "Implemented grYorster_802022A4 to initialize nine track elements using joints 0xA through 0x12, store each element's JObj and material GObj, register grYorster_80202428 as a material callback, register grYorster_802024F0 through mpJointSetCb2, and start ground animation state 1.",
-    "Improved grYorster_80202428 so material interactions accumulate value into the matching track element's x04 field, while retaining the existing fighter check and ftLib_80086A4C call.",
-    "Replaced the grYorster_802024F0 placeholder with a typed collision callback taking Ground, joint id, CollData, an unused s32, mpLib_GroundEnum, and f32 value. The function filters CollData env flags, handles fighter and item cases via ftLib and it_8026B718 calls, and accumulates collision value into the matching element's x08 field.",
-    "Implemented grYorster_8020266C as a per-element state machine using track-element counters, material enable/disable calls, grAnime_801C7FF8, mpLib_80057BC0, mpJointListAdd, lbGetJObjEndFrame, HSD_JObjGetTranslation, grLib_801C9EE8, and Ground_801C53EC.",
-    "Updated gryorster.h to include mp/forward.h and expose the concrete grYorster_802024F0 signature instead of UNK_PARAMS.",
-    "Updated gr/types.h with a concrete grYorster_TrackElement layout that preserves offsets while exposing the JObj pointer at x18 and material GObj pointer at x1C."
+    "Added required includes in gryorster.c for grlib, grmaterial, it_26B1, lb_00B0, and baselib/jobj to support the newly decompiled code.",
+    "Expanded YorsterParams from mostly padding plus x14 into typed fields x00, x04, x08, x0C, x10, x14, x18, and x1C, reflecting the parameter table used by the track logic.",
+    "Added pad_04[4] to grYt_804D6A20_t after its YorsterParams pointer, preserving global struct layout.",
+    "Implemented grYorster_802022A4, initializing nine Yorster track elements for joints 0xA through 0x12, creating material objects for each, registering mpJointSetCb2 collision callbacks, configuring materials, and starting ground animation 7.",
+    "Extended grYorster_80202428 so material interaction accumulates value into the matching track element's x04 field while still applying ftLib_80086A4C to fighters.",
+    "Replaced the grYorster_802024F0 UNK stub with a typed collision callback taking Ground, joint_id, CollData, unused, mpLib_GroundEnum, and f32 value parameters.",
+    "Implemented grYorster_802024F0 collision handling for environment kinds 1, 2, and 3, using ftLib and item knockback/velocity helpers when collision values exceed YorsterParams thresholds, and accumulating per-joint values into track element x08.",
+    "Implemented grYorster_8020266C as the per-frame state machine over nine track elements, coordinating material activation, animation frame selection, mp joint list updates/removals, translation checks, and reset behavior.",
+    "Updated gryorster.h to include mp/forward.h and replace UNK_RET/UNK_PARAMS for grYorster_802024F0 with a concrete prototype.",
+    "Expanded struct grYorster_TrackElement in gr/types.h from padding plus x4/x1C into named offset fields x00, x01, x04, x08, x0C, x10, x14, x18, and x1C."
   ],
   "smart_moves": [
-    "Tied together initialization, material callback accumulation, collision callback accumulation, and the per-frame updater through the same nine-element grYorster_TrackElement array, which makes the stage behavior traceable across callbacks.",
-    "Used an explicit joint-id table for joints 0xA through 0x12 in grYorster_802022A4, then derived map joints with Ground_801C32D4 at callback/update sites instead of hard-coding the derived values.",
-    "Converted grYorster_802024F0 from an unknown prototype to a concrete callback signature, allowing CollData fields and mpLib_GroundEnum to be represented in headers.",
-    "Kept uncertain struct members as offset-style xNN names and explicit padding rather than over-naming fields with weak evidence.",
-    "Preserved match-sensitive details such as PAD_STACK(8), casts, exact float constants, and state values while still making the control flow readable.",
-    "The decomp.dev report shows the work produced 4 new matches, including grYorster_802024F0 and .sdata/.data/.sbss for the gryorster unit."
+    "Used a fixed local joints array for the nine Yorster track elements, making the repeated joint setup explicit and keeping joint IDs tied to element indices.",
+    "Preserved offset-oriented field names such as x04, x08, x0C, x10, x14, x18, and x1C where semantic names were not yet evidenced, avoiding overclaiming while still eliminating opaque padding.",
+    "Converted the collision callback from an unknown signature to a typed signature only after adding the required forward declaration for mpLib_GroundEnum.",
+    "Matched the state machine with explicit integer states in entry->x01 rather than prematurely inventing enum names, which keeps the decomp evidence-grounded.",
+    "Handled animation end-frame clamping through lbGetJObjEndFrame before computing frame advances, reflecting a careful reconstruction of runtime behavior.",
+    "Used PAD_STACK(8) in grYorster_802024F0, indicating an assembly-matching tactic for stack layout rather than purely source-level cleanup."
   ],
   "decomp_lessons": [
-    "For stage modules with callback-heavy behavior, recover the shared ground-vars struct first enough to connect initialization, collision callbacks, material callbacks, and update loops.",
-    "When a callback is registered through an engine function such as mpJointSetCb2, its call site can justify replacing UNK_RET/UNK_PARAMS with a real prototype and adding only the needed forward declarations to the header.",
-    "Offset-style names like x04, x08, x0C, and x10 are acceptable when semantics are not yet proven; preserving layout is more important than speculative names.",
-    "Data-section matching can improve from small struct and global layout fixes, not only from function bodies; this PR's bot report showed .data, .sdata, and .sbss gains.",
-    "Material and collision interactions may need separate accumulators: this PR uses x04 for material callback accumulation and x08 for collision callback accumulation before the updater consumes them.",
-    "Exact stack padding, casts, comma-expression oddities, and floating-point constants can be necessary in partially matched functions and should be retained when they are present in the matching diff."
+    "When decompiling stage-specific GroundVars, first recover the per-element struct layout enough to express loops and callbacks; this PR shows that replacing padding with offset fields can unlock several related functions at once.",
+    "Stage collision callback signatures can often be inferred from mpJointSetCb2 call sites and CollData usage; once typed, downstream code becomes much clearer.",
+    "For stage mechanics driven by map joints, keep map-space joint IDs and resolved mpLib joint IDs distinct: this PR stores the map joint in x14 and resolves it with Ground_801C32D4 when needed.",
+    "Material callback objects created with grMaterial_801C8CFC can carry per-element identity by comparing the callback's item_gobj against stored HSD_GObj pointers.",
+    "Do not force semantic names when the PR evidence only proves offsets and rough roles; x04/x08 accumulation fields and x01 state are useful stepping stones for later naming.",
+    "Per-frame stage update code may interleave animation, material, collision, and visibility/position checks; matching it often requires headers across grmaterial, grlib, lb, mp, ft, item, and baselib jobj."
   ],
   "naming_conventions": [
-    "Stage functions keep address-based names such as grYorster_802022A4, grYorster_802024F0, and grYorster_8020266C.",
-    "Yorster globals use the grYt_ prefix, as in grYt_803E5198, grYt_803E51CC, and grYt_804D6A20.",
-    "The stage-specific track struct is named grYorster_TrackElement, while uncertain members remain offset-named x00, x01, x04, x08, x0C, x10, x14, x18, and x1C.",
-    "Headers use forward includes for referenced types, shown by adding mp/forward.h for mpLib_GroundEnum.",
-    "Local names mix semantic names and matching-style names, such as gp, gobj, coll_data, joint_id, entry, and temp_r28."
+    "Stage symbols keep the address-based grYorster_8020XXXX naming style.",
+    "Data symbols use the existing grYt_803E5198, grYt_803E51CC, and grYt_804D6A20 naming convention.",
+    "Newly exposed struct fields retain offset-style names where semantics are not proven, such as YorsterParams.x00/x04/x08/x0C/x10/x14/x18/x1C and grYorster_TrackElement.x00/x01/x04/x08/x0C/x10/x14/x18/x1C.",
+    "The per-element type is named struct grYorster_TrackElement, aligning the type with the stage module and its apparent track-element role.",
+    "Function prototypes use project typedefs and forward-declared engine types such as Ground, CollData, mpLib_GroundEnum, HSD_GObj, HSD_JObj, Vec3, DynamicsDesc, and enum_t."
   ],
   "assembly_or_matching_tactics": [
-    "grYorster_802024F0 includes PAD_STACK(8), indicating stack layout was match-sensitive.",
-    "The code preserves the unusual ftLib_800873F4((0, coll_data->x0_gobj)) expression seen in the diff, likely to match generated code shape.",
-    "grYorster_802022A4 uses a local s32 joints[9] initializer with values 0xA through 0x12, matching the looped initialization pattern.",
-    "The update state machine uses explicit state values 2, 3, and 4 plus a default case, preserving observed control-flow shape rather than abstracting it away.",
-    "Frame calculations retain casts to s32 and f32 and exact constants such as 10.0f, 0.3f, 1.0f, 0x143, and 0x19.",
-    "The grYorster_80202428 cast removal from ftLib_80086A4C's second argument is documented in the diff as a tiny matching cleanup."
+    "Inserted PAD_STACK(8) in grYorster_802024F0 to satisfy stack matching constraints.",
+    "Kept odd expression form ftLib_800873F4((0, coll_data->x0_gobj)), which likely preserves a compiler/codegen quirk needed for matching.",
+    "Used explicit casts to f32 and s32 around parameter fields and computed frame counts to mirror expected code generation.",
+    "Used switch cases on (s8) entry->x01, preserving signed-byte state behavior.",
+    "Retained numeric constants such as joints 0xA-0x12, animation id 7, states 1-4, frame thresholds 0x143 and 0x19, and scale factors 10.0f, 5.0f, 1.0f, 0.3f, and 0.5f rather than inventing unsupported constants.",
+    "Called lbGetJObjEndFrame twice in the clamping branches rather than caching it, matching the source pattern shown in the diff."
   ],
   "review_feedback": [
-    "No human PR body, review comments, or reviewer feedback were captured in this slice.",
-    "The only captured comment was the decomp.dev report for GALE01, which reported matched code at 65.02% (+380 bytes) and matched data at 38.57% (+200 bytes).",
-    "The bot report listed 4 new matches: grYorster_802024F0 at 100.00%, .sdata at 100.00%, .data at 100.00%, and .sbss at 100.00% for main/melee/gr/gryorster.",
-    "The bot report listed unmatched-item improvements: grYorster_8020266C to 86.66%, grYorster_802022A4 to 87.45%, .rodata to 94.74%, .sdata2 to 83.33%, and grYorster_80202428 to 99.40%."
+    "No review comments were included in the provided PR context, and the human text excerpt is empty; no reviewer guidance can be extracted from this slice."
   ],
   "searchable_terms": [
     "pr-2431",
@@ -98,13 +88,14 @@
     "grYorster_80202428",
     "grYorster_802024F0",
     "grYorster_8020266C",
-    "YorsterParams",
     "grYorster_TrackElement",
+    "YorsterParams",
     "grYt_804D6A20",
-    "CollData",
-    "mpLib_GroundEnum",
-    "mpJointSetCb2",
-    "mpJointListAdd",
+    "grYt_803E5198",
+    "grYt_803E51CC",
+    "Ground_801C3FA4",
+    "Ground_801C32D4",
+    "Ground_801C53EC",
     "grMaterial_801C8CFC",
     "grMaterial_801C8E68",
     "grMaterial_801C8DE0",
@@ -112,23 +103,37 @@
     "grMaterial_801C8E28",
     "grAnime_801C7FF8",
     "grAnime_801C84A4",
+    "mpJointSetCb2",
+    "mpJointListAdd",
+    "mpLib_80057BC0",
+    "CollData",
+    "mpLib_GroundEnum",
+    "ftLib_80086960",
     "ftLib_80086A4C",
-    "ftLib_80086BEC",
     "ftLib_800873F4",
+    "ftLib_80086BEC",
     "it_8026B718",
     "lbGetJObjEndFrame",
     "HSD_JObjGetTranslation",
     "grLib_801C9EE8",
-    "Ground_801C32D4",
-    "Ground_801C3FA4",
+    "Yoshi's Story",
+    "stage ground collision",
+    "stage material callback",
     "PAD_STACK"
   ],
   "follow_up_queries": [
-    "Find later PRs that finish matching grYorster_802022A4 or grYorster_8020266C after this PR's 87.45% and 86.66% partials.",
-    "Search for mpJointSetCb2 callback signatures in other stage modules to validate grYorster_802024F0's typed prototype.",
-    "Look for later renames of grYorster_TrackElement fields x04, x08, x0C, x10, x14, x18, and x1C once semantics are better established.",
-    "Compare other grMaterial_801C8CFC callback users to understand the material-hit accumulation pattern used by grYorster_80202428.",
-    "Search for OSReport(\"*** End Frame = %d\\n\") in grYorster-related work to see whether it remains intentional or is later cleaned up."
+    "Look for later PRs that rename grYorster_TrackElement fields x04, x08, x0C, x10, x14, x18, or x1C to semantic names.",
+    "Search for other stage modules using grMaterial_801C8CFC and mpJointSetCb2 together as a pattern for decompiling material-triggered collision mechanics.",
+    "Compare grYorster_8020266C against matching assembly or later cleanup to confirm the meaning of states 1, 2, 3, and 4 in entry->x01.",
+    "Search for documentation or later struct updates for YorsterParams to identify what x00, x04, x08, x0C, x10, x14, x18, and x1C represent."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

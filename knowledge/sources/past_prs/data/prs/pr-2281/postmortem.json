@@ -11,18 +11,20 @@
     "merged_at": "2026-03-14T21:35:05Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Batch item decompilation PR across many item files. The PR body describes 24 item functions and a clean `ninja`, `ninja diff`, and objdiff test plan; the final diff slice visibly replaces 18 `/// #` placeholders with C and the decomp.dev report records +1996 matched bytes, +0.05%, 14 new 100% matches plus several improved items. The main reusable outcome is the review-driven move from overloading generic Pokemon item vars to adding a dedicated `itKabigon_ItemVars` struct and `kabigon` union member.",
+  "summary": "Decompiled 24 functions across many item modules, mainly Pokémon and fighter projectile/item behavior files. The PR replaced placeholder markers with matching C implementations, added or refined item variable and attribute structs in itCommonItems.h, upgraded several item headers from UNK_RET/UNK_PARAMS to typed prototypes, and adjusted includes needed for baselib random, effects, stage, debug link, and character-specific item callbacks. The submitter reported successful ninja, ninja diff, and 100% objdiff matches. Review feedback identified an important struct-design issue: do not overload a generic Pokémon ItemVars union with incompatible field unions; create separate ItemVars unions for each Pokémon type.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "item-function-decompilation",
       "decomp-matching",
       "headers",
       "types-structs",
-      "review-fix"
+      "item-behavior",
+      "tooling"
     ],
     "systems": [
-      "item"
+      "item",
+      "pokemon-items",
+      "fighter-projectiles"
     ]
   },
   "key_files": [
@@ -34,6 +36,9 @@
     "src/melee/it/items/itkabigon.h",
     "src/melee/it/items/itlugia.c",
     "src/melee/it/items/itlugia.h",
+    "src/melee/it/items/itnesspkflush.c",
+    "src/melee/it/items/itnesspkthundertrail.c",
+    "src/melee/it/items/itnesspkthundertrail.h",
     "src/melee/it/items/itnessyoyo.c",
     "src/melee/it/items/itoldottosea.c",
     "src/melee/it/items/itpatapata.c",
@@ -41,66 +46,82 @@
     "src/melee/it/items/itpikachutjoltair.c",
     "src/melee/it/items/itpikachutjoltair.h",
     "src/melee/it/items/ittincle.c",
-    "src/melee/it/items/itwhitebea.c",
-    "src/melee/it/items/itnesspkflush.c",
-    "src/melee/it/items/itnesspkthundertrail.c",
-    "src/melee/it/items/itnesspkthundertrail.h"
+    "src/melee/it/items/itwhitebea.c"
   ],
   "what_changed": [
-    "Implemented item callbacks/logic routines in the final diff for `it_3F14_Logic7_Thrown`, `it_3F14_Logic7_DmgDealt`, `itGreatfoxlaser_UnkMotion1_Phys`, `it_802C9D40`, `itKabigon_UnkMotion0_Anim`, `it_802CA3F4`, `itLugia_UnkMotion4_Phys`, `it_802BE5D8`, `it_802BE958`, `itOldottosea_UnkMotion7_Coll`, `it_802E0D9C`, `it_802B43D0`, `itTincle_UnkMotion4_Phys`, `itTincle_UnkMotion7_Coll`, `itWhitebea_UnkMotion1_Anim`, `it_802E3DA0`, `it_802E4464`, and `it_2725_Logic9_Dropped`.",
-    "Added and adjusted item data layouts in `itCommonItems.h`: extended `itLugiaAttributes`, changed `itDosei_ItemVars.xDE0` from `s32` to `f32`, added `itTincleAttributes`, added `itKabigon_ItemVars`, and extended `itWhiteBea_ItemVars`/`itWhiteBeaAttributes`.",
-    "Added `itKabigon_ItemVars kabigon` to the `Item` item-var union in `src/melee/it/types.h`, and updated Kabigon code to use `ip->xDD4_itemVar.kabigon` instead of generic Pokemon fields.",
-    "Replaced several `UNK_RET`/`UNK_PARAMS` header declarations with typed prototypes, including `it_802CA074(Item_GObj*)`, `it_802D1A44(Item_GObj*)`, `it_802E0D9C(Item_GObj*)`, and `it_802B43D0(Item_GObj*, HSD_GObj*)`; `itlugia.h` also exposes `extern f32 it_804DD450`.",
-    "Touched Ness PK Flash and PK Thunder Trail code mostly for include/prototype/float-literal cleanup in the visible diff; the title/body list these files as part of the batch, but the strongest placeholder-to-C evidence is in the other item files.",
-    "decomp.dev reported 14 new 100% matches and 7 improvements in unmatched items; the PR body claims all functions are 100% matches in objdiff, so there is some evidence mismatch between bot summary and PR text."
+    "Replaced placeholder markers for item functions across itgreatfoxlaser, itkabigon, itlugia, itnesspkthundertrail, itoldottosea, ittincle, itnesspkflush, itdosei, itpikachutjoltair, itnessyoyo, itpatapata, and itwhitebea.",
+    "Added or refined special-attribute and per-item variable layouts in itCommonItems.h, including itLugiaAttributes extra f32 fields at +0x14/+0x18, itTincleAttributes, itKabigon_ItemVars, itWhiteBea_ItemVars x44, and itWhiteBeaAttributes x10.",
+    "Changed itdosei item variable xDE0 from s32 to f32, matching later use as a floating parameter passed through ip->xDD4_itemVar.dosei.xDE0.",
+    "Implemented itdosei thrown and damage-dealt behavior, including motion-state transition, revealing hidden child JObj, animation frame speed setup, random sound/effect selection through HSD_Randi, and bounce-off-victim handling when msid is 5.",
+    "Implemented Great Fox laser physics for a pending direction flip: invert facing_dir, update item orientation, reset state variables x34/x36, and request animation state 1.",
+    "Implemented Kabigon setup, animation, timer/effect logic, and effect spawning using item attributes, stage blast-zone checks, HSD_Randf, and efSync_Spawn.",
+    "Corrected Kabigon code to use ip->xDD4_itemVar.kabigon fields rather than generic pokemon fields for xE44 timing.",
+    "Implemented Lugia motion 4 physics using special attributes, vertical velocity accumulation, a cap against extern f32 it_804DD450, and transition via it_802D1A44 when capped.",
+    "Implemented Ness yoyo callbacks for applying material animation to a stored JObj and cleanup/unlink behavior that notifies Ness via ftNs_AttackHi4_YoyoItemSetFlag and deletes linked GObjs.",
+    "Implemented collision/transition helpers for Old Ottosea, Patapata, and Pikachu thunder jolt air, including DB linking via db_80225DD8 and item state setup calls.",
+    "Updated item headers to replace untyped prototypes with concrete signatures, such as it_802CA074(Item_GObj*), it_802D1A44(Item_GObj*), it_802E0D9C(Item_GObj*), it_802B43D0(Item_GObj*, HSD_GObj*), and a fully named it_802AC43C signature.",
+    "Adjusted float literal casing in Ness PK Flash and PK Thunder Trail code from 0.0f/1.0f/2.0f to 0.0F/1.0F/2.0F, likely for project style or matching consistency."
   ],
   "smart_moves": [
-    "Resolved reviewer concern by using a species-specific `itKabigon_ItemVars` layout rather than type-punning several Pokemon-specific fields through anonymous unions in the generic `itPokemon_ItemVars`.",
-    "Kept item behavior expressed through existing engine helpers such as item state changes, collision helpers, JObj animation calls, `efSync_Spawn`, `Stage_GetBlastZoneTopOffset`, and mp collision facing updates instead of open-coding subsystem behavior.",
-    "Updated headers and includes alongside implementations, which turns formerly opaque calls into typed interfaces and reduces future dependence on placeholder prototypes.",
-    "Preserved match-sensitive control flow and stack/layout artifacts where needed, including `PAD_STACK(8)`, nested null checks, temporary variables, explicit casts, and literal suffix choices.",
-    "Annotated new struct fields with item-var offsets such as `ip+DD4`, `ip+E34`, and `ip+E48`, making the new layouts easier to audit against item memory."
+    "Used specific item variable namespaces such as ip->xDD4_itemVar.kabigon, dosei, lugia, patapata, and nesspkthundertrail instead of treating all item storage as generic raw memory.",
+    "Promoted placeholder prototypes to typed function signatures in headers as each function became understood, improving future callsite matching and reducing UNK_RET/UNK_PARAMS spread.",
+    "Localized new includes to the files needing them: baselib/random for HSD_Randi/HSD_Randf, ef/efsync for effect spawning, gr/stage for blast-zone checks, db/db for debug owner linking, and fighter headers for Ness yoyo callbacks.",
+    "Matched item behavior by preserving engine helper calls and side effects: Item_80268E5C state changes, it_8026B3A8 reset, it_80272940 item setup, lb_8000BA0C animation speed, HSD_JObj animation functions, and HSD_GObjPLink deletion.",
+    "For Kabigon effects, copied ip->pos to a local Vec3 before randomizing effect spawn coordinates, a common matching pattern when assembly uses stack-local position temporaries.",
+    "For yoyo cleanup, iterated the ItemLink list by saving link->next before deleting the current linked GObj, avoiding invalid traversal."
   ],
   "decomp_lessons": [
-    "Pokemon item variables are not safely interchangeable: when a species needs different field types or semantics, create a dedicated ItemVars type and union member rather than widening a shared Pokemon struct with ambiguous unions.",
-    "Special-attributes discoveries should be captured in named item attribute structs even when field names remain unknown; offset comments are valuable until semantics are known.",
-    "When decompiling item callbacks, update the corresponding `.h` prototypes from `UNK_RET`/`UNK_PARAMS` at the same time so later PRs can reuse correct signatures.",
-    "For item matching, small expression-shape details can matter: local variable lifetimes, scoped temporaries, exact literal forms, and apparently redundant branches may all be intentional matching tactics.",
-    "Bot match reports and PR summaries can diverge; future reviewers should verify final diff and objdiff/decomp.dev status before relying on the claimed function count."
+    "Per-Pokémon item variable storage should be modeled as distinct ItemVars unions/struct entries when fields differ; forcing multiple Pokémon into a single generic itPokemon_ItemVars with anonymous type punning can be structurally wrong even if it helps one function match.",
+    "When an item's specialAttributes are read at fixed offsets, introduce a local attributes struct only to the degree supported by the function evidence, and keep unknown fields named by offsets until semantics are known.",
+    "Using exact item state helpers and flags is often the key to matching item behavior functions: msid checks, xDAC/xDB0/xDB4 itcmd vars, xDCC_flag.b3, xDC8_word flags, and x5D0_animFrameSpeed all affect codegen and behavior.",
+    "Stage/environment helpers such as Stage_GetBlastZoneTopOffset can explain transition conditions in Pokémon item animation code.",
+    "Randomized visual/audio effects often reveal both required baselib includes and attribute field types; HSD_Randi implies integer table indexing while HSD_Randf with arithmetic around an attribute strongly suggests f32 radius/range fields.",
+    "Header cleanup is not just cosmetic in decomp work: replacing UNK signatures can unlock typed callsites and prevent later accidental casts.",
+    "Float literal style and exact F suffixes can be relevant for consistency and sometimes matching in this codebase.",
+    "PAD_STACK remains an accepted matching tactic where stack shape is not yet naturally reproduced, as seen in Old Ottosea and Ness yoyo snippets."
   ],
   "naming_conventions": [
-    "Species/item variable structs follow `it<ItemName>_ItemVars`, e.g. `itKabigon_ItemVars`, with a lower-case union member in `Item`, e.g. `kabigon`.",
-    "Attribute structs follow `it<ItemName>Attributes`, e.g. `itTincleAttributes`, `itWhiteBeaAttributes`, and local `itKabigonAttributes`.",
-    "Unknown fields remain offset-style names such as `x44`, `x48`, `xE44`, and `xE48`, often paired with offset comments rather than speculative semantic names.",
-    "Unknown functions retain address-style names like `it_802E3DA0`, while known callbacks use item/motion suffixes such as `itTincle_UnkMotion4_Phys` and `itWhitebea_UnkMotion1_Anim`.",
-    "Header declarations retain address comments and should prefer typed arguments over `UNK_PARAMS` once call signatures are established."
+    "Item behavior functions retain address-style names when semantics are unknown, e.g. it_802C9D40, it_802CA3F4, it_802B43D0, and it_802E0D9C.",
+    "Known motion callbacks use item and state names such as itLugia_UnkMotion4_Phys, itKabigon_UnkMotion0_Anim, itGreatfoxlaser_UnkMotion1_Phys, and itTincle_UnkMotion4_Phys.",
+    "Per-item variable structs follow item-specific names such as itDosei_ItemVars, itKabigon_ItemVars, itTincle_ItemVars, and itWhiteBea_ItemVars.",
+    "Attribute structs use item-specific names such as itLugiaAttributes, itTincleAttributes, itKabigonAttributes, and itWhiteBeaAttributes.",
+    "Unknown fields are kept as offset-style names like x0, x4, x18, xDD4, xDE0, xE44, and xE48 rather than inventing semantics.",
+    "Header prototypes include address comments, e.g. /* 2CA074 */ void it_802CA074(Item_GObj* gobj);",
+    "Function parameters were often named for role once understood, e.g. Fighter_GObj* gobj, Item_GObj* ball, Vec3* pos, s32 trail_idx, and f32 facing_dir in it_802AC43C."
   ],
   "assembly_or_matching_tactics": [
-    "`PAD_STACK(8)` appears in several implemented routines and should be considered a deliberate stack-match aid, not dead code.",
-    "The Kabigon effect spawn uses repeated `r = HSD_Randf();` assignments and the expression `2.0F * attr->x18 * r - attr->x18`, preserving a match-friendly arithmetic shape.",
-    "Dosei thrown logic keeps a scoped `f32 speed = attr->unk0` before assigning animation frame speed and calling `lb_8000BA0C`, likely to preserve scheduling/register behavior.",
-    "WhiteBea facing changes use explicit `int_dir` branches and comparisons like `-1.0f == ip->facing_dir` before `mpCollSetFacingDir`, preserving exact control-flow shape.",
-    "Yoyo cleanup preserves nested null checks and iterates `ItemLink` before calling `HSD_GObjPLink_80390228`, then destroys the item with `Item_8026A8EC`.",
-    "Some functions require explicit casts such as `(HSD_GObj*) gobj` and callback casts to match existing helper signatures."
+    "Used typed access through GET_ITEM(gobj) or gobj->user_data to align item pointer loads with expected codegen.",
+    "Used local scoped temporaries such as f32 speed and Vec3 pos where needed to match assembly stack/register behavior.",
+    "Used PAD_STACK(8) in at least itOldottosea_UnkMotion7_Coll and it_802BE958 to preserve stack layout.",
+    "Preserved exact helper-call ordering in state transitions, such as it_8026B390, HSD_JObjClearFlagsAll, Item_80268E5C, animation speed assignment, lb_8000BA0C, and it_80274484 in itdosei thrown behavior.",
+    "Used explicit casts where call signatures still cross HSD_GObj/Item_GObj boundaries, e.g. Item_80268E5C((HSD_GObj*) gobj, 0, 2).",
+    "Modeled random range math as repeated HSD_Randf calls assigned to a local f32 r before modifying Vec3 coordinates.",
+    "Kept extern globals where needed for matching, including it_803F56B8[] and it_804DD450.",
+    "Represented animation material data with specific baselib types such as HSD_MatAnimJoint* when applying yoyo JObj animation."
   ],
   "review_feedback": [
-    "ribbanya on `src/melee/it/itCommonItems.h`: \"This is wrong; create a new `ItemVars` union for each type of Pokémon.\" The final diff reflects this by adding `itKabigon_ItemVars` and `ip->xDD4_itemVar.kabigon` usage instead of broadening generic Pokemon vars with anonymous unions."
+    {
+      "author": "ribbanya",
+      "file": "src/melee/it/itCommonItems.h",
+      "comment": "This is wrong; create a new `ItemVars` union for each type of Pokémon.",
+      "lesson": "Avoid broad anonymous unions inside a generic Pokémon ItemVars struct to cover incompatible layouts; create separate item-specific ItemVars entries for each Pokémon type."
+    }
   ],
   "searchable_terms": [
-    "pr-2281",
-    "it: decompile 24 item functions",
+    "PR2281",
     "johnwinston",
-    "decomp-dev +1996 bytes",
+    "it decompile 24 item functions",
     "item decomp",
-    "Pokemon ItemVars",
-    "Pokemon item vars",
-    "itPokemon_ItemVars",
+    "itCommonItems.h",
+    "itDosei_ItemVars",
     "itKabigon_ItemVars",
-    "itKabigonAttributes",
+    "itPokemon_ItemVars",
+    "itTincle_ItemVars",
+    "itWhiteBea_ItemVars",
+    "itLugiaAttributes",
     "itTincleAttributes",
     "itWhiteBeaAttributes",
-    "itLugiaAttributes",
-    "itDosei_ItemVars",
+    "create a new ItemVars union for each type of Pokémon",
     "it_3F14_Logic7_Thrown",
     "it_3F14_Logic7_DmgDealt",
     "itGreatfoxlaser_UnkMotion1_Phys",
@@ -114,41 +135,30 @@
     "it_802E0D9C",
     "it_802B43D0",
     "itTincle_UnkMotion4_Phys",
-    "itTincle_UnkMotion7_Coll",
-    "itWhitebea_UnkMotion1_Anim",
-    "it_802E3DA0",
-    "it_802E4464",
-    "it_2725_Logic9_Dropped",
-    "itwhitebea",
-    "itkabigon",
-    "itnessyoyo",
-    "itdosei",
-    "ittincle",
-    "itgreatfoxlaser",
-    "itlugia",
-    "itoldottosea",
-    "itpatapata",
-    "itpikachutjoltair",
-    "itnesspkflush",
-    "itnesspkthundertrail",
-    "PAD_STACK(8)",
-    "UNK_RET",
-    "UNK_PARAMS",
-    "HSD_Randf",
     "HSD_Randi",
+    "HSD_Randf",
     "efSync_Spawn",
     "Stage_GetBlastZoneTopOffset",
-    "mpCollSetFacingDir",
-    "mpLineGetFlags",
-    "mpLib_80056A1C",
-    "it_804DD450"
+    "HSD_GObjPLink_80390228",
+    "PAD_STACK",
+    "UNK_RET UNK_PARAMS",
+    "ninja diff",
+    "objdiff 100% match"
   ],
   "follow_up_queries": [
-    "Find later PRs that add species-specific Pokemon `ItemVars` members after this review feedback.",
-    "Search for remaining uses of generic `itPokemon_ItemVars` where a per-Pokemon struct would be more accurate.",
-    "Audit whether the bot-reported partial matches for `it_3F14_Logic7_Thrown`, `itWhitebea_UnkMotion1_Anim`, `itLugia_UnkMotion4_Phys`, and `itOldottosea_UnkMotion7_Coll` were later made 100%.",
-    "Search item decomp PRs for `PAD_STACK(8)` and nested null-check patterns to reuse matching tactics.",
-    "Compare PR title/body count of 24 functions with final diff placeholder replacements and decomp.dev report before using the count as authoritative."
+    "Find later PRs that refactor itPokemon_ItemVars into separate Pokémon ItemVars unions after ribbanya review feedback.",
+    "Search for itKabigon_ItemVars usages to confirm the final accepted layout of Kabigon timer/xE44/xE48 fields.",
+    "Search for itWhiteBeaAttributes x10 and itWhiteBea_ItemVars x44 to see whether later PRs assigned semantic names.",
+    "Search for remaining /// # placeholders in the same item files after PR 2281.",
+    "Search for other PRs using PAD_STACK in item decomp functions to compare matching tactics."
   ],
-  "confidence": 0.82
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

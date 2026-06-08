@@ -11,22 +11,22 @@
     "merged_at": "2026-06-06T18:28:27Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched `itLinkarrow_UnkMotion1_Anim` in the Link Arrow item code and renamed the related `0x802A850C` helper from an address-style symbol to `itLinkArrow_802A850C`. The PR made small but important source-shape changes in `itlinkarrow.c`, updated the item header and symbol map, and adjusted Link/Kirby callsites to use the new symbol name.",
+  "summary": "Matched Link Arrow's itLinkarrow_UnkMotion1_Anim by tightening local variable choices, stack padding, accessor macros, and related inline helper names in itlinkarrow.c. The PR also renamed the 0x802A850C Link Arrow function from generic it_802A850C to itLinkArrow_802A850C across symbols, header, and Link/Kirby callsites.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "symbol-renaming",
       "headers",
-      "callsite-update",
-      "stack-shape-cleanup"
+      "item-logic-cleanup",
+      "fighter-callsite-update"
     ],
     "systems": [
       "item",
       "fighter",
       "Link",
       "Kirby",
-      "config"
+      "config-symbols"
     ]
   },
   "key_files": [
@@ -37,86 +37,80 @@
     "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "Renamed symbol `it_802A850C` to `itLinkArrow_802A850C` in `config/GALE01/symbols.txt`, preserving address `.text:0x802A850C` and size `0x478`.",
-    "Updated the declaration in `src/melee/it/items/itlinkarrow.h` from `it_802A850C` to `itLinkArrow_802A850C`.",
-    "Updated Link's neutral special collision/end handling in `ftLk_SpecialN.c` to call `itLinkArrow_802A850C` instead of the old address-style name.",
-    "Updated Kirby's copied Link neutral special path in `ftKb_SpecialNPk.c` to call `itLinkArrow_802A850C`.",
-    "Renamed local inline helpers in `itlinkarrow.c` from `it_802A850C_inline` and `it_802A850C_inline_2` to `itLinkArrow_802A850C_inline` and `itLinkArrow_802A850C_inline_2`.",
-    "Adjusted local variable names in `itLinkArrow_802A850C`, including `var_r30` to `jobj` and `sp60` to `flags`, improving semantic clarity without changing the evidenced signature.",
-    "Changed `itLinkarrow_UnkMotion1_Anim_inline` to initialize `Item* item` and `HSD_JObj* jobj` at declaration time and to use `GET_JOBJ(gobj)` rather than directly reading `gobj->hsd_obj`.",
-    "Changed `itLinkarrow_UnkMotion1_Anim` to use `GET_ITEM(gobj)` instead of direct `gobj->user_data` access.",
-    "Adjusted padding/stack-shaping declarations around `itLinkarrow_UnkMotion1_Anim`, replacing `PAD_STACK(16)` with explicit small pad arrays in the shown diff."
+    "Renamed symbol it_802A850C to itLinkArrow_802A850C in config/GALE01/symbols.txt while preserving address .text:0x802A850C and size 0x478.",
+    "Updated the itlinkarrow.h declaration from it_802A850C to itLinkArrow_802A850C.",
+    "Updated Link and Kirby special-N arrow callsites to call itLinkArrow_802A850C instead of the generic address-style name.",
+    "Renamed local inline helpers it_802A850C_inline and it_802A850C_inline_2 to itLinkArrow_802A850C_inline and itLinkArrow_802A850C_inline_2.",
+    "Adjusted local variable naming inside 0x802A850C: var_r30 became jobj and sp60 became flags.",
+    "Changed itLinkarrow_UnkMotion1_Anim helper code to initialize Item* and HSD_JObj* at declaration, using GET_ITEM(gobj) and GET_JOBJ(gobj).",
+    "Changed itLinkarrow_UnkMotion1_Anim from reading gobj->user_data directly to using GET_ITEM(gobj).",
+    "Modified stack padding declarations in itLinkarrow_UnkMotion1_Anim, replacing PAD_STACK(16) with explicit u8 pad[4] and u8 _pad[4] layout."
   ],
   "smart_moves": [
-    "Kept the behavior-facing callsites in Link and Kirby synchronized with the renamed item function, preventing header/symbol drift.",
-    "Used project accessor macros like `GET_ITEM` and `GET_JOBJ` in the matching target, which often helps express the same load pattern in a more canonical decomp style.",
-    "Renamed the exported function in symbols, header, implementation, and all visible callers in one PR, making the partially identified Link Arrow code easier to search and reuse.",
-    "Improved variable names only where the diff had clear semantic evidence, such as `jobj` for an `HSD_JObj*` and `flags` for the output parameter passed to `it_8026EA20`."
+    "The PR did not only change the target animation function; it also propagated the newly identified Link Arrow function name through symbols, headers, and all known fighter callsites, keeping declarations and references consistent.",
+    "Using GET_ITEM and GET_JOBJ instead of direct field access likely helped produce the desired code shape while aligning with project accessor conventions.",
+    "Renaming sp60 to flags documents the final out-parameter of it_8026EA20 without changing behavior, improving readability in a matched function.",
+    "The local padding change in itLinkarrow_UnkMotion1_Anim shows attention to exact stack layout, a common requirement for matching small animation callbacks.",
+    "Inline helper renames kept the 0x802A850C-related helper names tied to the now-named parent function, preserving grepability."
   ],
   "decomp_lessons": [
-    "For item animation matches, small source-shape changes such as declaration placement, accessor macro choice, and explicit padding can be decisive without requiring algorithmic rewrites.",
-    "When a function remains partly unknown but is clearly item-specific, renaming from `it_802A850C` to a module-qualified name like `itLinkArrow_802A850C` improves navigability while preserving the address suffix.",
-    "Keep copied-character codepaths in sync with the source fighter's item helpers; Kirby's copied Link bow code needed the same function rename as Link's own neutral special.",
-    "Accessor macros such as `GET_ITEM(gobj)` and `GET_JOBJ(gobj)` can be preferable to direct field access when they produce the expected codegen and match local project style.",
-    "Stack padding may need to be represented as explicit local arrays rather than `PAD_STACK` depending on the target function's stack layout."
+    "For item animation callbacks, direct gobj->user_data or gobj->hsd_obj access may not match as well as project macros such as GET_ITEM, GET_JOBJ, or HSD_GObjGetHSDObj; test accessor choices when the logic is equivalent.",
+    "Stack padding can be decisive for matching: replacing a generic PAD_STACK with explicit u8 padding variables may be necessary to reproduce the compiler's frame layout.",
+    "When a previously anonymous item function becomes understood, update the symbol map, header prototype, implementation, and every callsite in the same PR to avoid stale it_ address names.",
+    "Inline helper naming can be used as a decomp organization tactic: keep helper names scoped to the parent function when their identity is still based on the parent address.",
+    "Small local variable renames such as jobj, item, flags, and pad can clarify inferred semantics without disturbing generated code when done carefully."
   ],
   "naming_conventions": [
-    "Use `itLinkArrow_` prefix for identified Link Arrow item functions, even when retaining the address suffix for incompletely named behavior, as in `itLinkArrow_802A850C`.",
-    "Inline helpers tied to a named function followed the parent function name: `itLinkArrow_802A850C_inline` and `itLinkArrow_802A850C_inline_2`.",
-    "Existing animation function spelling in this slice is `itLinkarrow_UnkMotion1_Anim` with lowercase `a` in `Linkarrow`; the PR did not normalize that spelling.",
-    "Semantic locals like `jobj`, `item`, and `flags` were favored over decompiler temporaries such as `var_r30` and `sp60` where type/use made meaning clear."
+    "Named Link Arrow item functions use the prefix itLinkArrow_ for address-based global functions, as in itLinkArrow_802A850C.",
+    "Existing Link Arrow logic callbacks use mixed-case names such as itLinkArrow_Logic98_Destroyed and itLinkArrow_Logic98_PickedUp.",
+    "The target animation function in this slice is spelled itLinkarrow_UnkMotion1_Anim, with lowercase 'arrow' after Link in the existing function name.",
+    "Function-local inline helpers for a named function may append _inline and _inline_2 to the parent function name.",
+    "Generic temporary names like var_r30 and sp60 were replaced by semantic or conventional locals such as jobj and flags."
   ],
   "assembly_or_matching_tactics": [
-    "Replaced direct `gobj->user_data` with `GET_ITEM(gobj)` in `itLinkarrow_UnkMotion1_Anim`.",
-    "Replaced direct `gobj->hsd_obj` access with `GET_JOBJ(gobj)` in the inline animation helper.",
-    "Moved declarations into initializer form for `Item* item = GET_ITEM(gobj);` and `HSD_JObj* jobj = GET_JOBJ(gobj);`.",
-    "Changed padding representation near `itLinkarrow_UnkMotion1_Anim` from `u8 _pad[4]; PAD_STACK(16);` to explicit `u8 pad[4];` and `u8 _pad[4];` in the shown source.",
-    "Adjusted line wrapping and expression formatting around pointer arithmetic such as `&item->xDD4_itemVar.linkarrow.x30 + i`, likely preserving source shape while satisfying style."
+    "Use GET_ITEM(gobj) rather than gobj->user_data when the macro form yields the expected code for item callbacks.",
+    "Use GET_JOBJ(gobj) instead of directly reading gobj->hsd_obj in helper code when matching requires the macro/access pattern.",
+    "Tune stack layout with explicit byte padding variables when PAD_STACK changes the frame shape unfavorably.",
+    "Declare and initialize locals in one statement where it matches the compiler output, as done for Item* item and HSD_JObj* jobj in itLinkarrow_UnkMotion1_Anim_inline.",
+    "Preserve inline helper structure around HSD_JObjLoadJoint and quaternion setup while renaming helpers, indicating the match did not require algorithmic changes."
   ],
-  "review_feedback": [
-    "No review comments were present in the provided PR context.",
-    "The PR had one issue comment according to counts, but no comment body was included in the slice, so no reviewer intent can be extracted."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
-    "PR2587",
-    "Match itLinkarrow_UnkMotion1_Anim",
+    "pr-2587",
     "PsiLupan",
+    "Match itLinkarrow_UnkMotion1_Anim",
     "itLinkarrow_UnkMotion1_Anim",
     "itLinkArrow_802A850C",
     "it_802A850C",
-    "itLinkArrow_802A850C_inline",
-    "itLinkArrow_802A850C_inline_2",
     "itlinkarrow.c",
     "itlinkarrow.h",
     "ftLk_SpecialN.c",
     "ftKb_SpecialNPk.c",
     "GET_ITEM",
     "GET_JOBJ",
-    "HSD_JObj",
     "HSD_GObjGetHSDObj",
+    "HSD_JObjLoadJoint",
     "HSD_JObjSetTranslateWithMtxDirty",
     "HSD_JObjSetRotationWithMtxDirty",
     "HSD_JObjGetScale",
-    "it_80272A18",
-    "it_8026EA20",
+    "PAD_STACK",
     "Link Arrow",
-    "Kirby copied Link neutral special",
-    "symbols.txt",
-    "0x802A850C"
+    "Kirby Link arrow",
+    "config/GALE01/symbols.txt"
   ],
   "follow_up_queries": [
-    "Look for later PRs that fully name `itLinkArrow_802A850C` beyond the address suffix.",
-    "Search for additional Link Arrow animation functions using `GET_ITEM` or `GET_JOBJ` matching tactics.",
-    "Check whether `itLinkarrow_UnkMotion1_Anim` spelling is later normalized to `itLinkArrow_UnkMotion1_Anim`.",
-    "Investigate nearby symbols `it_802A8330`, `it_802A8398`, `it_802A83E0`, and `it_802A8A7C` for further Link Arrow cleanup."
+    "Find later PRs that further rename itLinkarrow_UnkMotion1_Anim or resolve the UnkMotion1 name.",
+    "Search for other itlinkarrow.c functions still using generic it_802A names near 0x802A8330 through 0x802A8A7C.",
+    "Look for matching examples where GET_ITEM or GET_JOBJ replaced direct gobj field access.",
+    "Check whether other item animation callbacks require explicit u8 padding instead of PAD_STACK."
   ],
-  "confidence": 0.92,
+  "confidence": 0.88,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
-    "agent_timeout_seconds": 300,
+    "agent_timeout_seconds": 900,
     "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
   }
 }

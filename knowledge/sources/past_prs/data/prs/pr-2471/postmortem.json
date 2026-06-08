@@ -11,158 +11,114 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Draft, unmerged SObjLib decomp PR. It matched `HSD_SObjLib_803A477C`, added a large mostly-matching implementation of `HSD_SObjLib_803A4A68`, and corrected `HSD_SObj` color fields from individual bytes to `GXColor`. The decomp.dev bot reported one new full match and a major partial improvement, but also a small `HSD_SObjLib_803A54EC` regression plus data-section regressions. The PR was closed after being superseded by PR #2485.",
+  "summary": "Unmerged SObj library decompilation work that replaced two asm placeholder functions in src/sysdolphin/baselib/sobjlib.c with C implementations, refined HSD_SObj color fields in sobjlib.h from individual bytes into GXColor members, and updated gmregtyfall.c call sites to use .r/.g/.b/.a color component names. The PR was closed after being superseded by PR #2485, so it should be treated as useful historical evidence rather than the final accepted version.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-typing",
-      "graphics-gx",
-      "regression-followup",
-      "superseded-draft"
+      "graphics",
+      "struct-layout",
+      "superseded"
     ],
     "systems": [
-      "sysdolphin/baselib/sobjlib",
-      "sysdolphin/baselib",
-      "GX/TEV rendering",
-      "melee/gm/gmregtyfall"
+      "sysdolphin",
+      "baselib",
+      "sobjlib",
+      "melee/gm"
     ]
   },
   "key_files": [
-    {
-      "path": "src/sysdolphin/baselib/sobjlib.c",
-      "role": "Main decomp work: added `HSD_SObjLib_803A477C`, replaced the `HSD_SObjLib_803A4A68` placeholder with a large GX/TEV renderer implementation, added includes, local structs, and packed color constants.",
-      "diff_stats": "+373/-21"
-    },
-    {
-      "path": "src/sysdolphin/baselib/sobjlib.h",
-      "role": "Header typing update: replaced byte fields at offsets 0x38-0x3F with `GXColor x38` and `GXColor x3C`; changed `HSD_SObjLib_803A477C` priority parameter to `u8`.",
-      "diff_stats": "+3/-10"
-    },
-    {
-      "path": "src/melee/gm/gmregtyfall.c",
-      "role": "Callsite adjustment for the new `GXColor` struct fields in `fn_801A6664`, changing raw byte writes to `.r/.g/.b/.a` component access.",
-      "diff_stats": "+6/-6"
-    }
-  ],
-  "what_changed": [
-    "Implemented `HSD_SObjLib_803A477C`, replacing a `/// #HSD_SObjLib_803A477C` placeholder. The new code allocates an `HSD_SObj`, asserts allocation, initializes texture/TLUT objects with `GXInitTlutObj`, `GXInitTexObjCI`, or `GXInitTexObj`, optionally initializes a second texture when `use_x8` is set, initializes SObj defaults, computes UV bounds with `GXGetTexObjWidth` and `GXGetTexObjHeight`, and links the SObj via `HSD_SObjLib_803A44D4`.",
-    "Replaced the `/// #HSD_SObjLib_803A4A68` placeholder with a long GX drawing routine that configures vertex descriptors, Z texture state, culling, TEV stages, TLUT/texture loads, alpha/blend modes, emits a textured quad through the GP FIFO, and restores HSD render state.",
-    "Changed `struct HSD_SObj` color storage from eight separate `u8` fields (`x38` through `x3F`) into two packed `GXColor` fields, `x38` and `x3C`.",
-    "Updated `gmregtyfall.c` to use `temp_r3->x3C.a` and `temp_r3_2->x3C.r/g/b/a` instead of raw byte fields.",
-    "Adjusted `HSD_SObjLib_803A477C`'s priority argument from `int` to `u8` in both source and header.",
-    "Added `tobj.h`, `baselib/debug.h`, `baselib/pobj.h`, and `<MSL/trigf.h>` includes for texture descriptors, assertions, GX-related data, and `sinf`/`cosf`.",
-    "Converted several color constants from extern `HSD_SObjLib_804DEA80`-style declarations to file-local `static s32 lbl_804DEA80` through `lbl_804DEA90` definitions.",
-    "Removed duplicate `@todo` comments on `HSD_SObjLib_803A44D4` and removed a `data_pad_jumptable` placeholder.",
-    "The PR was closed unmerged; a final comment says it was superseded by `https://github.com/doldecomp/melee/pull/2485`."
-  ],
-  "smart_moves": [
-    "Modeling `HSD_SObj` color blocks as `GXColor` made the code align with GX APIs such as `GXSetTevColor` and turned ambiguous byte writes into clear `.r/.g/.b/.a` assignments.",
-    "The `HSD_SObjLib_803A477C` implementation preserved narrow argument behavior with `u8 priority` and `(u8) use_x8` checks, which likely helped the function reach a 100% match per the bot report.",
-    "The constructor code handled both CI/TLUT and non-TLUT texture paths explicitly, matching the two GX initialization families rather than forcing a single abstraction.",
-    "The renderer restored global render state at the end with `HSD_StateInvalidate`, `HSD_StateInitTev`, `HSD_ClearVtxDesc`, and `HSD_StateSetZMode`, which is important for baselib draw routines that leave GX state dirty.",
-    "The TEV color setup used packed `s32` constants copied through stack temporaries and cast to `GXColor`/`GXColorS10`, a useful tactic when the original code treats color data as packed words.",
-    "Keeping offset-style temporary structs such as `SObjLibSObjDesc` let the decomp express descriptor layout without overclaiming semantic names."
-  ],
-  "decomp_lessons": [
-    "When a struct is really carrying GX colors, prefer `GXColor` fields over four independent bytes; then update every caller to component access so the header and use sites remain consistent.",
-    "Small type-width corrections in function prototypes can matter for matching. This PR changed the `priority` argument of `HSD_SObjLib_803A477C` from `int` to `u8` and used explicit `(u8)` casts in flag checks.",
-    "Rendering functions may need direct GX state sequencing rather than helper abstractions; the diff preserves detailed `GXSetTev*`, `GXSetBlendMode`, `GXSetZTexture`, and FIFO-write order.",
-    "Unsigned byte-range tests such as `(u8) (temp_r29 - 8) <= 1U` are worth preserving when matching compiler output for format checks.",
-    "Data-section layout is fragile: the bot reported code gains but also `.data` and `.sbss` regressions, so static/extern constant and table changes need section-level verification.",
-    "Do not treat this PR as the accepted final version without checking PR #2485, because this one was explicitly superseded."
-  ],
-  "naming_conventions": [
-    "Unknown baselib functions remained in address-suffixed form, e.g. `HSD_SObjLib_803A477C` and `HSD_SObjLib_803A4A68`.",
-    "Offset-based struct member names were retained where semantics were still unclear, e.g. `x0`, `x4`, `x8`, `x38`, and `x3C`.",
-    "Packed color fields use `GXColor` member names and then `.r`, `.g`, `.b`, `.a` for channel access at call sites.",
-    "File-local anonymous constants in this diff used `lbl_804DEA80`-style address labels rather than exported `HSD_SObjLib_804DEA80` names.",
-    "The introduced local descriptor type was named `SObjLibSObjDesc` and kept offset members for `HSD_ImageDesc*` and `HSD_TlutDesc*`; there was no reviewer feedback confirming these names."
-  ],
-  "assembly_or_matching_tactics": [
-    "Used `u8 priority` and `(u8) use_x8 != 0` in `HSD_SObjLib_803A477C` to preserve narrow comparison behavior.",
-    "Used `PAD_STACK(0x10)` plus explicit stack locals `sp50` through `sp74` in `HSD_SObjLib_803A4A68`, suggesting stack layout was part of the matching attempt.",
-    "Copied packed static `s32` color constants into stack locals before casting to `GXColor` or `GXColorS10` for `GXSetTevKColor` and `GXSetTevColorS10`.",
-    "Grouped `GXGetTexObjFmt` switch cases by raw format values: `0/1`, `2/3`, `4`, and `5/6/8/9/10/14`.",
-    "Loaded TLUTs using the compact unsigned check `(u8) (temp_r29 - 8) <= 1U`.",
-    "Emitted vertices and texture coordinates with volatile writes to `0xCC008000` after `GXBegin(GX_QUADS, GX_VTXFMT0, 4U)`.",
-    "Used `<MSL/trigf.h>` `sinf` and `cosf` calls with `0.5F` factors for rotated quad coordinate computation.",
-    "Bot evidence says the tactics fully matched `HSD_SObjLib_803A477C`, while `HSD_SObjLib_803A4A68` only reached 97.28% in this PR."
-  ],
-  "review_feedback": [
-    "No human review comments or reviews were present in the slice.",
-    "decomp.dev bot reported matched code at 66.48%, up 0.01% and +372 bytes.",
-    "decomp.dev bot reported one new full match: `main/sysdolphin/baselib/sobjlib` `HSD_SObjLib_803A477C`, +612 bytes, 0.00% to 100.00%.",
-    "decomp.dev bot reported `HSD_SObjLib_803A4A68` improved by +2618 bytes from 0.00% to 97.28%, with `.sdata2` and `.sdata` also improving.",
-    "decomp.dev bot also reported one broken match: `HSD_SObjLib_803A54EC`, 100.00% to 99.95%, plus `.data` and `.sbss` regressions.",
-    "Author comment: `regression will be fixed when linking`.",
-    "Final comment by `jellejurre`: `Superseded by https://github.com/doldecomp/melee/pull/2485`."
-  ],
-  "searchable_terms": [
-    "pr-2471",
-    "Jj/sobjlib",
-    "jurrejelle",
-    "jellejurre",
-    "sobjlib",
     "src/sysdolphin/baselib/sobjlib.c",
     "src/sysdolphin/baselib/sobjlib.h",
-    "src/melee/gm/gmregtyfall.c",
-    "fn_801A6664",
+    "src/melee/gm/gmregtyfall.c"
+  ],
+  "what_changed": [
+    "Added C code for HSD_SObjLib_803A477C, replacing a prior asm placeholder marker. The function allocates an HSD_SObj, asserts allocation success, initializes GX texture and optional TLUT objects, initializes transform/color/default state fields, links the SObj to an HSD_GObj, computes texture coordinate scale values from GXGetTexObjWidth/Height, and returns the created SObj.",
+    "Added a large C implementation for HSD_SObjLib_803A4A68, replacing another asm placeholder marker. The function configures GX/HSD render state, TEV stages, texture loading, TLUT loading, blend mode, z-texture behavior, vertex descriptors, and emits quad vertices through the 0xCC008000 FIFO using sinf/cosf-based rotation math.",
+    "Changed HSD_SObj struct layout in sobjlib.h so offsets 0x38 and 0x3C are represented as GXColor x38 and GXColor x3C instead of eight separate u8 fields x38 through x3F.",
+    "Updated gmregtyfall.c to match the new HSD_SObj color representation, replacing direct byte-field writes such as x3C/x3D/x3E/x3F with GXColor component writes x3C.r, x3C.g, x3C.b, and x3C.a.",
+    "Adjusted HSD_SObjLib_803A477C prototype so the priority parameter is u8 instead of int.",
+    "Added includes needed by the new C implementation, including tobj.h, baselib/debug.h, baselib/pobj.h, and MSL/trigf.h.",
+    "Introduced local helper structs SObjLibData and SObjLibSObjDesc in sobjlib.c to describe data blobs/descriptors used by SObj creation.",
+    "Converted several formerly extern constant color/immediate values around lbl_804DEA80 through lbl_804DEA90 into static s32 definitions in sobjlib.c."
+  ],
+  "smart_moves": [
+    "Representing adjacent color bytes as GXColor made downstream code clearer and aligned the SObj layout with GX APIs such as GXSetTevColor and GXSetTevKColor.",
+    "The gmregtyfall.c edits demonstrate a safe migration pattern after a struct field refinement: update users to named color components rather than preserving raw offset-byte writes.",
+    "The SObj creation implementation initializes all major default fields explicitly, including linked-list pointers, transform values, color defaults, callback, flags, dimensions, and UV extents, which makes the inferred object lifecycle easier to audit.",
+    "The rendering implementation preserves low-level GX semantics directly, including TEV setup and FIFO writes, rather than over-abstracting behavior that is likely sensitive for matching.",
+    "Casting small control parameters to u8 in conditions and API calls reflects attention to the original ABI/codegen constraints visible in decomp work."
+  ],
+  "decomp_lessons": [
+    "When a struct contains byte fields that feed directly into GX color APIs, grouping them into GXColor can improve both type accuracy and matching readability, but all offset users must be updated together.",
+    "Prototype refinements such as changing an int parameter to u8 can matter for register use, casts, and generated code around call sites.",
+    "Large GX render functions often need to mirror original state sequencing closely: z mode, cull mode, texgen/TEV counts, TLUT and texture loading, blend mode, vertex descriptor setup, FIFO writes, and state cleanup all appear order-sensitive.",
+    "For decompiling texture-object constructors, model descriptor blobs explicitly enough to name image, tlut, and optional secondary-image fields; this makes use_x8-style conditionals understandable.",
+    "Keep evidence from superseded PRs separate from final accepted code. This PR had useful matching attempts, but the comment says it was superseded by PR #2485."
+  ],
+  "naming_conventions": [
+    "Unidentified static constants were named with lbl_804DEA80-style labels rather than HSD_SObjLib_804DEA80-style extern names after being defined locally.",
+    "Temporary inferred structs used descriptive but local names: SObjLibData and SObjLibSObjDesc.",
+    "Unknown struct members retained offset-based names such as x40, x48, x4C_callback, x70_tlutobj, x7C_texobj, while known GXColor members were accessed via r/g/b/a.",
+    "The HSD_SObj color convention after this PR is x38 and x3C as GXColor values, accessed as x38.r/x38.g/x38.b/x38.a and x3C.r/x3C.g/x3C.b/x3C.a where individual components are needed."
+  ],
+  "assembly_or_matching_tactics": [
+    "Replaced asm placeholders for HSD_SObjLib_803A477C and HSD_SObjLib_803A4A68 with C implementations.",
+    "Used volatile writes to address 0xCC008000 for GX FIFO vertex emission, preserving low-level ordering of position and texture-coordinate writes.",
+    "Used PAD_STACK(0x10) in HSD_SObjLib_803A4A68, indicating stack-shape padding was needed for matching or near-matching.",
+    "Used temporary stack integers and pointer casts to GXColor/GXColorS10 when setting TEV constants from packed s32 values.",
+    "Included MSL/trigf.h and used sinf/cosf for rotation math in the quad drawing path.",
+    "A PR comment noted that a regression would be fixed when linking, but no detailed matching explanation was provided in the available excerpt."
+  ],
+  "review_feedback": [
+    "No formal review comments are present in the slice.",
+    "Author/comment text says: \"regression will be fixed when linking\".",
+    "A later comment says the PR was superseded by https://github.com/doldecomp/melee/pull/2485."
+  ],
+  "searchable_terms": [
+    "PR2471",
+    "Jj/sobjlib",
+    "sobjlib",
     "HSD_SObj",
     "HSD_SObjLib_803A477C",
     "HSD_SObjLib_803A4A68",
-    "HSD_SObjLib_803A54EC",
     "HSD_SObjLib_803A44D4",
-    "HSD_SObjLib_804D10E0",
-    "HSD_SObjLib_804D7960",
     "GXColor",
-    "GXColorS10",
     "x38",
     "x3C",
     "x3C.r",
     "x3C.g",
     "x3C.b",
     "x3C.a",
-    "SObjLibData",
-    "SObjLibSObjDesc",
-    "HSD_ImageDesc",
-    "HSD_TlutDesc",
-    "GXInitTlutObj",
-    "GXInitTexObjCI",
     "GXInitTexObj",
-    "GXGetTexObjWidth",
-    "GXGetTexObjHeight",
-    "GXGetTexObjFmt",
-    "GXLoadTlut",
-    "GXLoadTexObj",
+    "GXInitTexObjCI",
+    "GXInitTlutObj",
     "GXSetTevColor",
-    "GXSetTevColorS10",
     "GXSetTevKColor",
+    "GXSetTevColorS10",
     "GXSetZTexture",
-    "GXSetNumTevStages",
     "GXBegin",
     "0xCC008000",
-    "HSD_StateSetZMode",
-    "HSD_StateInvalidate",
-    "HSD_ClearVtxDesc",
     "PAD_STACK",
-    "MSL/trigf.h",
-    "sinf",
-    "cosf",
-    "lbl_804DEA80",
-    "lbl_804DEA84",
-    "lbl_804DEA88",
-    "lbl_804DEA8C",
-    "lbl_804DEA90",
-    "superseded by PR 2485"
+    "SObjLibSObjDesc",
+    "gmregtyfall",
+    "fn_801A6664",
+    "superseded by PR2485"
   ],
   "follow_up_queries": [
-    "Inspect PR #2485 for the accepted or later superseding SObjLib solution.",
-    "Check whether `HSD_SObjLib_803A54EC` and the `.data`/`.sbss` regressions were resolved after linking or in PR #2485.",
-    "Search current code for `HSD_SObj` raw byte color accesses to ensure all callers use `GXColor` component fields.",
-    "Compare current `HSD_SObjLib_803A4A68` against this 97.28% draft to see which GX/TEV details finished the match.",
-    "Verify whether the `lbl_804DEA80` through `lbl_804DEA90` static constants remained file-local or were renamed/reorganized in the final merged work."
+    "Compare PR #2485 against this PR to identify which sobjlib changes were accepted, renamed, or corrected.",
+    "Check final HSD_SObj struct layout for GXColor x38/x3C and update any remaining raw byte-field references if they still exist.",
+    "Review final matching status of HSD_SObjLib_803A477C and HSD_SObjLib_803A4A68 after linking, since this PR mentioned an unresolved regression.",
+    "Search for uses of HSD_SObjLib_803A477C priority argument to confirm u8 is the accepted prototype."
   ],
-  "confidence": 0.86
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

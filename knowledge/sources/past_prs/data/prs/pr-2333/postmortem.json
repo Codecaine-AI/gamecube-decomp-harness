@@ -11,81 +11,75 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed, unmerged no-diff PR used as a match-progress report. It recorded 5 fully matched Kirby ftKb_SpecialN animation functions, 1 pending toy.c function, and 7 failed or partial match attempts across stage, player, UI, and unknown/generated-symbol areas. Because there were no changed files or diff bytes, this should be treated as tracking evidence rather than landed code.",
+  "summary": "Closed, unmerged progress-report PR with no changed files or diff in the slice. The PR body reports an automated matching run: 5 functions matched, 7 failed, and 1 pending. All reported 100% matches are Kirby SpecialN animation functions in ftKb_SpecialN.c; failures span stage, player, UI, and unknown functions. Evidence is limited to the PR text because the slice contains no file changes, reviews, or diff.",
   "change_classification": {
     "primary_type": "decomp-matching-progress-report",
     "categories": [
       "decomp-matching",
-      "progress-tracking",
       "naming",
-      "no-diff-pr",
-      "unmerged"
+      "automation-report",
+      "unmerged-pr"
     ],
     "systems": [
-      "ftKb Kirby SpecialN",
-      "toy",
-      "stage grPura",
-      "stage grOnett",
-      "stage grCastle",
-      "player pl",
-      "name-entry-ui",
-      "unknown fn/un symbols"
+      "fighter-kirby",
+      "stages",
+      "player",
+      "ui",
+      "unknown"
     ]
   },
   "key_files": [
     {
       "path": "ftKb_SpecialN.c",
-      "role": "Referenced as the file containing the 5 reported 100% matched Kirby SpecialN animation functions."
+      "reason": "Referenced in the PR body as containing all five reported 100% matched functions: ftKb_SpecialNSpit_Anim, ftKb_SpecialAirNSpit_Anim, ftKb_SpecialNDrink0_Anim, ftKb_SpecialNDrink1_Anim, and ftKb_SpecialNDrink_Anim. No actual diff was present in the slice."
     },
     {
       "path": "toy.c",
-      "role": "Referenced as containing pending function un_80307828."
+      "reason": "Referenced as the file for pending function un_80307828. No actual diff was present in the slice."
     }
   ],
   "what_changed": [
-    "No repository files changed in the captured PR slice; changed_files was 0 and diff_bytes was 0.",
-    "The PR body/comment reported 5 matched functions, 7 failed functions, and 1 in-progress function.",
-    "Reported matched functions in ftKb_SpecialN.c: ftKb_SpecialNSpit_Anim, ftKb_SpecialAirNSpit_Anim, ftKb_SpecialNDrink0_Anim, ftKb_SpecialNDrink1_Anim, and ftKb_SpecialNDrink_Anim.",
-    "Reported pending function: toy.c / un_80307828.",
-    "Reported failed or partial attempts: grPura_80212FC0 failed 3x; grOnett_801E5194 best 78.1%; pl_80038628 best 55.6%; fn_8021E994 best 97.4%; grCastle_801CE19C best 91.8%; InitNameEntryUIState best 37.3%; grOnett_801E40E4 best 96.1%.",
-    "The PR was closed without merge."
+    "No repository files changed in the available PR slice: changed_files is empty and diff_bytes is 0.",
+    "The PR text recorded matching progress: 5 matched, 7 failed, and 1 in progress.",
+    "Reported matched functions were ftKb_SpecialNSpit_Anim, ftKb_SpecialAirNSpit_Anim, ftKb_SpecialNDrink0_Anim, ftKb_SpecialNDrink1_Anim, and ftKb_SpecialNDrink_Anim in ftKb_SpecialN.c.",
+    "Reported pending work was toy.c function un_80307828.",
+    "Reported failed or partial candidates were grPura_80212FC0, grOnett_801E5194, pl_80038628, fn_8021E994, grCastle_801CE19C, InitNameEntryUIState, and grOnett_801E40E4."
   ],
   "smart_moves": [
-    "The progress report grouped work into matched, pending, and failed sections, making it easy to triage follow-up decomp work.",
-    "The matched work was clustered around related Kirby SpecialN animation callbacks, which is useful because nearby fighter action-state routines often share naming, control flow, and data-access patterns.",
-    "Failed attempts preserved best observed match percentages, which helps future contributors prioritize near-matches such as fn_8021E994 at 97.4% and grOnett_801E40E4 at 96.1%.",
-    "The report kept exact symbol names and file names where known, making later searches straightforward."
+    "The PR body separated automated matching outcomes into matched, failed, and in-progress buckets, making it easy to triage which symbols are ready versus which need more manual work.",
+    "Including best-match percentages for failed functions helps prioritize near-matches such as fn_8021E994 at 97.4%, grOnett_801E40E4 at 96.1%, and grCastle_801CE19C at 91.8%.",
+    "Grouping all successful matches in ftKb_SpecialN.c suggests focusing related Kirby neutral-special animation functions together can be an effective matching unit."
   ],
   "decomp_lessons": [
-    "Do not treat a closed no-diff progress PR as landed code; verify later commits or PRs before relying on these matches.",
-    "Progress tracking is still useful when it records exact function names, match percentages, and failed attempts.",
-    "Related fighter callback clusters, such as ftKb_SpecialN animation functions, are good batching targets because solved routines may reveal shared naming and structural patterns.",
-    "Near-matches with high percentages should be revisited with focused attention on small ordering, float, register-allocation, or type/struct-layout differences, but this PR did not include diff evidence for the specific cause."
+    "Progress-only PRs can still be useful as matching telemetry, but without a diff they should not be treated as evidence of landed code.",
+    "Near-match percentages are valuable for future decomp work: functions above roughly 90% may be good candidates for targeted cleanup, control-flow adjustment, or local variable/layout investigation.",
+    "When multiple related animation callbacks in one fighter-special file match together, reuse the successful style and structure for adjacent callbacks in the same subsystem.",
+    "Keep automated match reports searchable by exact symbol names, file names, and percentages so later agents can recover promising unfinished targets."
   ],
   "naming_conventions": [
-    "Kirby fighter functions used the ftKb_ prefix.",
-    "Kirby SpecialN routine names used action-oriented names such as SpecialNSpit, SpecialAirNSpit, SpecialNDrink0, SpecialNDrink1, and SpecialNDrink.",
-    "Animation callbacks were suffixed with _Anim.",
-    "Grounded and aerial variants were distinguished with SpecialN versus SpecialAirN.",
-    "Unresolved or address-based symbols retained module/prefix plus address forms such as grPura_80212FC0, grOnett_801E5194, pl_80038628, fn_8021E994, and un_80307828.",
-    "InitNameEntryUIState appeared as a descriptive UI-state initializer name rather than an address-only symbol."
+    "Kirby fighter functions use the ftKb_ prefix and CamelCase-like action names, as in ftKb_SpecialNSpit_Anim and ftKb_SpecialAirNSpit_Anim.",
+    "Animation callbacks are suffixed with _Anim.",
+    "Air variants are named with SpecialAirN while grounded variants use SpecialN.",
+    "Unresolved or address-based symbols remain in forms such as un_80307828, fn_8021E994, grPura_80212FC0, grOnett_801E5194, grCastle_801CE19C, and pl_80038628.",
+    "Stage-related unresolved names in the report use gr prefixes, including grPura, grOnett, and grCastle.",
+    "The UI-related name InitNameEntryUIState appears as a descriptive named function rather than an address-style placeholder."
   ],
   "assembly_or_matching_tactics": [
-    "Use 100% match status as a signal that exact functions may be reusable reference points for adjacent routines.",
-    "Retain failed-attempt counts and best percentages to avoid repeating known unsuccessful attempts.",
-    "Prioritize high-percentage failures first when looking for quick wins: fn_8021E994 at 97.4%, grOnett_801E40E4 at 96.1%, and grCastle_801CE19C at 91.8%.",
-    "The slice provides no assembly diff, source diff, or reviewer discussion, so no concrete code-generation tactic can be confirmed."
+    "Use the reported 100% Kirby matches as reference patterns for nearby ftKb_SpecialN.c animation callbacks.",
+    "Prioritize high-percentage failures for manual intervention: fn_8021E994 at 97.4%, grOnett_801E40E4 at 96.1%, and grCastle_801CE19C at 91.8%.",
+    "Lower-percentage failures such as InitNameEntryUIState at 37.3% and pl_80038628 at 55.6% likely need more structural recovery before fine-grained matching tactics are useful.",
+    "A function marked failed multiple times, grPura_80212FC0 failed 3x, should be treated as needing a different hypothesis rather than repeated identical automated attempts."
   ],
   "review_feedback": [
-    "No review comments were present in the captured slice.",
-    "No reviewer feedback or requested code changes can be inferred.",
-    "The only human-text evidence was a generated progress report noting match statuses."
+    "No review comments were present in the slice.",
+    "No maintainer feedback or requested changes were available.",
+    "The PR was closed quickly and not merged, but the slice does not state why."
   ],
   "searchable_terms": [
     "PR2333",
     "Match progress",
     "johnwinston",
-    "wip/pending-matches",
+    "Claude Code",
     "ftKb_SpecialN.c",
     "ftKb_SpecialNSpit_Anim",
     "ftKb_SpecialAirNSpit_Anim",
@@ -102,15 +96,26 @@
     "InitNameEntryUIState",
     "grOnett_801E40E4",
     "Kirby SpecialN",
-    "no diff",
-    "closed unmerged"
+    "fighter-kirby",
+    "matching progress",
+    "100% match",
+    "best 97.4%",
+    "best 96.1%",
+    "best 91.8%"
   ],
   "follow_up_queries": [
-    "Search later PRs or commits for ftKb_SpecialNSpit_Anim and the other ftKb_SpecialN matched functions to confirm where they actually landed.",
-    "Search for un_80307828 in toy.c to see whether the pending function was later matched.",
-    "Revisit high-percentage failed functions fn_8021E994, grOnett_801E40E4, and grCastle_801CE19C for potential near-match fixes.",
-    "Check whether wip/pending-matches produced another PR with an actual diff.",
-    "Look for later renames of address-based symbols listed in this progress report."
+    "Find later PRs that actually changed ftKb_SpecialN.c around ftKb_SpecialNSpit_Anim, ftKb_SpecialAirNSpit_Anim, ftKb_SpecialNDrink0_Anim, ftKb_SpecialNDrink1_Anim, or ftKb_SpecialNDrink_Anim.",
+    "Search for later successful matches of fn_8021E994, grOnett_801E40E4, and grCastle_801CE19C, since this report listed them as high-percentage failures.",
+    "Check whether un_80307828 in toy.c was completed in a subsequent PR.",
+    "Investigate why PR #2333 was closed unmerged if surrounding issue comments or branch history are available outside this slice."
   ],
-  "confidence": 0.78
+  "confidence": 0.72,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

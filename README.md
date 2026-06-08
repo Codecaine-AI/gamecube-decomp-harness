@@ -132,8 +132,10 @@ Read the diagram from the outside in:
 | `docs/` | The deeper three-layer documentation set: foundation, system design, and implementation details. |
 | `testdata/smoke_repo/` | Fixture Melee-like repo used by the smoke test. |
 
-Generated run state defaults to `<repo-root>/.decomp-orchestrator-state/`, not
-inside this package. Local package outputs such as `node_modules/`, `dist/`, and
+Generated run state defaults to `<cwd>/.decomp-orchestrator-state/`. In the
+normal nested setup, run commands from `decomp-orchestrator/` so `--repo-root`
+can point at the parent Melee checkout while the durable board and artifacts
+stay package-owned. Local package outputs such as `node_modules/`, `dist/`, and
 `init-run/` are ignored.
 
 ## Quick Start
@@ -156,6 +158,19 @@ Use the package command entry point for everything else:
 ```sh
 bun run orch -- --help
 ```
+
+For a local dashboard and process control surface:
+
+```sh
+bun run ui
+```
+
+The viewer opens a dense run dashboard at `http://localhost:8787`. It reads the
+orchestrator-owned state directory, shows starting/current report measures,
+touched files, recent worker reports, events, process logs, and can start or
+stop the supervised run from the package root. Default UI launch settings are
+16 workers, medium director and worker thinking, goal value 100, and power-of-two
+candidate/queue sizes.
 
 ## Required Tools
 
@@ -195,11 +210,15 @@ PR knowledge refresh needs authenticated GitHub CLI access to
 
 ## Run Shape
 
+Run these commands from `decomp-orchestrator/`. If `--state-dir` is omitted, the
+CLI uses `.decomp-orchestrator-state/` under this package; set it explicitly
+when you want a named live-run ledger.
+
 Initialize a run against a Melee checkout:
 
 ```sh
 REPO_ROOT="/path/to/melee"
-STATE_DIR="$REPO_ROOT/.decomp-orchestrator-state"
+STATE_DIR="$PWD/.decomp-orchestrator-state/live"
 
 bun run orch -- --repo-root "$REPO_ROOT" --state-dir "$STATE_DIR" init-run \
   --desired-workers 16 \
@@ -237,7 +256,7 @@ watermarks separate:
 
 ```sh
 REPO_ROOT="/path/to/melee"
-STATE_DIR="$REPO_ROOT/.decomp-orchestrator-state/live-32-workers-low"
+STATE_DIR="$PWD/.decomp-orchestrator-state/live-32-workers-low"
 
 bun run orch -- \
   --repo-root "$REPO_ROOT" \
@@ -248,22 +267,29 @@ bun run orch -- \
   babysit \
   --max-workers 32 \
   --worker-thinking-level low \
-  --candidate-limit 128 \
-  --queue-target-size 128 \
+  --candidate-limit 64 \
+  --queue-target-size 64 \
   --candidate-window 512 \
-  --queue-low-watermark 32 \
+  --queue-refresh-interval-ms 60000 \
+  --queue-low-watermark 16 \
   --schedulable-low-watermark 32 \
   --active-low-watermark 24 \
   --force-recover-leases
 ```
 
-In this shape, `--candidate-limit 128` remains the operator's ready-pool size
-when `--queue-target-size` is omitted. `--queue-target-size 128` makes that
-invariant explicit, and `--candidate-window 512` lets refills scan beyond the
-current pool for fresh candidates that have not already been queued, leased, or
-reported. Each refill reads the latest `build/GALE01/report.json` and
-`objdiff.json`; rebuilding those artifacts is the step that refreshes the
-underlying score data.
+In this shape, `--queue-target-size 64` keeps roughly two queued targets per
+worker, while `--candidate-window 512` lets refills scan much farther down the
+current graph-ranked board for fresh candidates that have not already been
+queued, leased, or reported. `--queue-refresh-interval-ms 60000` also refreshes
+priorities for queued-but-not-leased targets from the latest graph-ranked board,
+so new knowledge can change lease order before the old pool fully drains. If the
+initial scan window is exhausted, refill automatically expands the scan until it
+either restores the pool target or reaches the end of the ranked board. Each
+refill reads the latest `build/GALE01/report.json` and `objdiff.json`;
+rebuilding those artifacts is the step that refreshes the underlying score data.
+When a knowledge graph database is present, board ranking also uses graph
+connectivity, resource evidence, historical lessons, and linked incomplete
+functions before falling back to capped finishability.
 
 Use bounded flags for local dry runs:
 
@@ -290,6 +316,11 @@ bun run orch -- --repo-root testdata/smoke_repo --state-dir "$(mktemp -d)" \
 | `pr-split-plan` | Group branch/worktree changes into smaller subsystem-scoped PR slices, label independence risk, and emit isolation-check commands for review handoff. |
 | `status` | Print run, queue, lease, event, and report summaries. |
 
+`bun run ui` launches the package-local viewer for the same state. The UI keeps
+`--repo-root` and `--state-dir` editable, exposes the common trigger settings,
+and uses `recover-leases --force` after a UI stop request so interrupted leases
+return to durable stalled reports.
+
 ## Regression Gate
 
 Workers perform local target validation while they work. Global score and PR
@@ -308,9 +339,16 @@ bun run --cwd decomp-orchestrator regression-check -- --repo-root "$PWD"
 ```
 
 `regression-check` wraps `ninja changes_all`, writes artifacts under
-`.decomp-orchestrator-state/regression_checks/`, parses
+`decomp-orchestrator/.decomp-orchestrator-state/regression_checks/` when run
+with `bun run --cwd decomp-orchestrator`, parses
 `build/GALE01/report_changes.json`, fails on regressions, and writes a PR-style
 Markdown report at `<artifact-dir>/pr_report.md`.
+
+The report also runs a PR promotion gate. By default, clean fuzzy-only movement
+is classified as local evidence, not PR-ready evidence; promotion requires no
+regressions plus an exact new match or real matched code/data byte movement.
+Use `--require-pr-promotion` for final handoff checks so a clean but local-only
+run exits nonzero instead of becoming maintainer-facing work by accident.
 
 ## PR Knowledge Refresh
 
@@ -333,6 +371,11 @@ PR refresh is not run automatically by `init-run`, `tick`, `worker`, or
 `trigger-agent`.
 
 ## State And Artifacts
+
+By default, `<state-dir>` is `<cwd>/.decomp-orchestrator-state/`, where `cwd`
+should be the package directory for normal Melee orchestration. This keeps the
+durable board in the orchestrator-owned repo while `--repo-root` points at the
+checkout being decompiled.
 
 Typical state layout:
 
@@ -373,6 +416,10 @@ it so runs can be inspected after the process exits.
 - `matched_code_percent` is the long-term progress metric. Run checkpoints such
   as `--goal-value 72` are batch pause/handoff thresholds, not the final project
   goal.
+- The default work product is reviewable text-section/source code fixes,
+  code-match blockers, or reusable source-shape facts. Data, literal, symbol,
+  and split cleanup is secondary unless it is explicitly scoped, required for a
+  code match, or blocking code-match validation.
 - PR packaging is a separate handoff step. `pr-split-plan` can propose
   directory-scoped review slices and isolation checks, but the orchestrator does
   not publish PRs or create one PR per worker, lease, target, or file.

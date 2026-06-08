@@ -11,66 +11,67 @@
     "merged_at": "2026-03-04T23:17:35Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Restored matching status in configure.py for several item object files that had been marked NonMatching by PR#2203. The change is metadata/build-list only: it flips specific melee/it/items Object entries back to Matching and removes the separate itchicoritaleaf.c Object line. decomp.dev reported GALE01 linked code/data increases after merge, but there was no PR body or human review discussion explaining the regression.",
+  "summary": "PR 2213 was a small configure.py-only restoration that marked several item source files as Matching again after they had been changed to NonMatching by PR #2203. The affected files were all under melee/it/items and included common items, special move/projectile items, and Pokémon-related item files. The decomp.dev bot reported a GALE01 linked-code increase of +0.41% / +15772 bytes and linked-data increase of +0.08% / +1008 bytes.",
   "change_classification": {
-    "primary_type": "decomp-matching-regression-fix",
+    "primary_type": "matching-status restoration",
     "categories": [
       "decomp-matching",
       "build-configuration",
-      "progress-restoration",
       "regression-fix"
     ],
     "systems": [
       "configure.py",
-      "item objects",
-      "melee/it/items",
-      "Pokemon items"
+      "item-system",
+      "pokemon-items"
     ]
   },
   "key_files": [
-    "configure.py"
+    {
+      "path": "configure.py",
+      "reason": "Only changed file; restored Matching/NonMatching object declarations in the item object list."
+    }
   ],
   "what_changed": [
-    "In configure.py's MatchingFor object list, restored Object(Matching, ...) for melee/it/items/itheart.c.",
-    "Restored Object(Matching, ...) for melee/it/items/ittomato.c.",
-    "Restored Object(Matching, ...) for melee/it/items/itbox.c.",
-    "Restored Object(Matching, ...) for melee/it/items/itharisen.c.",
-    "Restored Object(Matching, ...) for melee/it/items/itlipstick.c.",
-    "Restored Object(Matching, ...) for melee/it/items/itmariocape.c.",
-    "In the Pokemon item section, restored Object(Matching, ...) for melee/it/items/itchicorita.c.",
-    "Removed the separate Object(NonMatching, \"melee/it/items/itchicoritaleaf.c\") line from the configure.py object list.",
-    "Restored Object(Matching, ...) for melee/it/items/itthunder.c and melee/it/items/itfushigibana.c."
+    "Changed Object(NonMatching, \"melee/it/items/itheart.c\") back to Object(Matching, ...).",
+    "Changed Object(NonMatching, \"melee/it/items/ittomato.c\") back to Object(Matching, ...).",
+    "Changed Object(NonMatching, \"melee/it/items/itbox.c\") back to Object(Matching, ...).",
+    "Changed Object(NonMatching, \"melee/it/items/itharisen.c\") back to Object(Matching, ...).",
+    "Changed Object(NonMatching, \"melee/it/items/itlipstick.c\") back to Object(Matching, ...).",
+    "Changed Object(NonMatching, \"melee/it/items/itmariocape.c\") back to Object(Matching, ...).",
+    "Changed Object(NonMatching, \"melee/it/items/itchicorita.c\") back to Object(Matching, ...).",
+    "Removed the separate Object(NonMatching, \"melee/it/items/itchicoritaleaf.c\") entry from configure.py in the Pokémon item section.",
+    "Changed Object(NonMatching, \"melee/it/items/itthunder.c\") back to Object(Matching, ...).",
+    "Changed Object(NonMatching, \"melee/it/items/itfushigibana.c\") back to Object(Matching, ...)."
   ],
   "smart_moves": [
-    "Kept the fix limited to configure.py object classification, which directly addressed removed match accounting without touching C source.",
-    "Restored known-matching item objects by flipping Object(NonMatching, path) back to Object(Matching, path), making the intent easy to audit.",
-    "Grouped the restoration in the existing item and Pokemon sections of MatchingFor instead of reorganizing the object list.",
-    "Let the decomp.dev GALE01 report validate the effect: linked code rose by 15772 bytes and linked data by 1008 bytes."
+    "Kept the fix narrow: no source changes, only the build/matching manifest in configure.py.",
+    "Restored known matching units directly in the Object(Matching, path) list instead of reworking item code.",
+    "Used the project’s matching status mechanism as the repair point, which made the regression easy to audit in the diff.",
+    "Preserved surrounding object ordering and comments, limiting churn to the affected item entries."
   ],
   "decomp_lessons": [
-    "Matching progress can regress from build metadata changes alone; check configure.py Object(Matching)/Object(NonMatching) status when reported linked-code percentages unexpectedly drop.",
-    "Small configure-only PRs are useful for restoring accounting when source already matches and a prior PR accidentally demoted object files.",
-    "When modifying item object lists, audit neighboring entries for linked or combined build-unit assumptions; this PR removed itchicoritaleaf.c while restoring itchicorita.c, but the dump does not include a human explanation for that choice.",
-    "Future restorations should cite the prior regression PR and rely on decomp.dev linked-code/data deltas to confirm that matching status was restored."
+    "Matching status in configure.py is part of the decompilation state and can regress even when C source files are unchanged.",
+    "When a PR unexpectedly lowers linked code/data, inspect Object(Matching) vs Object(NonMatching) declarations for accidental demotions.",
+    "A config-only PR can recover measurable progress when matching units were incorrectly excluded from linked matching accounting.",
+    "For item work, keep per-item source paths stable in the object list so future matching-status diffs remain easy to review."
   ],
   "naming_conventions": [
-    "Item source files live under melee/it/items and use the it* prefix, such as itheart.c, ittomato.c, itbox.c, itharisen.c, itlipstick.c, and itmariocape.c.",
-    "Pokemon item/object filenames in this area include Japanese/species-derived names such as ittosakinto.c, itchicorita.c, itkabigon.c, itkamex.c, itmatadogas.c, itlizardon.c, itthunder.c, itfreezer.c, ithassam.c, itporygon2.c, itmaril.c, and itfushigibana.c.",
-    "configure.py tracks per-object match status with Object(Matching, \"path\") and Object(NonMatching, \"path\") inside MatchingFor(*versions)."
+    "Item source files use the it-prefixed lowercase naming convention under melee/it/items, such as itheart.c, ittomato.c, itmariocape.c, and itfushigibana.c.",
+    "configure.py represents match state with Object(Matching, \"path\") and Object(NonMatching, \"path\") entries.",
+    "The PR title uses an explicit cross-reference, \"PR#2203\", to identify the regression source."
   ],
   "assembly_or_matching_tactics": [
-    "No assembly or C matching tactics were shown in the PR; the matching tactic was restoring build/configure classifications.",
-    "Use configure.py status flips as the appropriate fix when an object is already matching but was accidentally counted as NonMatching.",
-    "Use decomp.dev's GALE01 linked code/data report as a sanity check for matching-accounting changes."
+    "No assembly changes or function-level matching tactics are visible in this slice.",
+    "The relevant matching tactic was to restore object-level Matching declarations for files already believed to match.",
+    "The decomp.dev report showed the practical effect on GALE01 linked code/data after the manifest correction."
   ],
   "review_feedback": [
-    "No human review comments were present in the PR slice.",
-    "decomp-dev[bot] reported for GALE01: linked code 31.03% (+0.41%, +15772 bytes) and linked data 28.88% (+0.08%, +1008 bytes)."
+    "No human review comments were present in the slice.",
+    "decomp-dev[bot] reported for GALE01: linked code 31.03% (+0.41%, +15772 bytes) and linked data 28.88% (+0.08%, +1008 bytes).",
+    "The bot comment also included the text \"No changes\", but the same report recorded positive linked code/data deltas."
   ],
   "searchable_terms": [
     "PR2213",
-    "PR#2213",
-    "PR#2203",
     "Restore matches removed by PR#2203",
     "configure.py",
     "MatchingFor",
@@ -87,17 +88,25 @@
     "itchicoritaleaf.c",
     "itthunder.c",
     "itfushigibana.c",
-    "Pokemon items",
     "GALE01",
     "linked code",
     "linked data",
-    "decomp-dev report"
+    "PsiLupan",
+    "fix-matches"
   ],
   "follow_up_queries": [
-    "Why did PR#2203 demote these item objects from Matching to NonMatching?",
-    "Verify whether itchicoritaleaf.c is intentionally folded into or excluded alongside itchicorita.c in the current configure.py object list.",
-    "Audit recent configure.py changes for accidental Object(Matching) to Object(NonMatching) regressions in melee/it/items.",
-    "Compare decomp.dev GALE01 reports before and after PR#2213 to confirm restored matching accounting."
+    "PR 2203 configure.py Object NonMatching items regression",
+    "why was itchicoritaleaf.c removed from configure.py in PR 2213",
+    "configure.py MatchingFor melee/it/items matching status history",
+    "decomp.dev GALE01 linked code +15772 PR 2213"
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

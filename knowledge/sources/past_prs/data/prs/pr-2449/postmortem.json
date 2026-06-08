@@ -11,97 +11,116 @@
     "merged_at": "2026-05-08T19:53:26Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Filled in a substantial `src/melee/mn/mninfo` decomp slice, replacing several placeholder functions with C for the Data/Special info menu flow, text creation, scrolling input, model/proc setup, and cleanup. The header moved those routines from `UNK_RET/UNK_PARAMS` to concrete prototypes. decomp.dev reported `.bss` for `main/melee/mn/mninfo` newly matched at 100% and large partial match improvements for six functions, but the bot report shows most new functions were still not perfect matches.",
+  "summary": "Matched a large portion of the mninfo menu module by replacing multiple placeholder functions with C implementations and updating mninfo.h prototypes from UNK_RET/UNK_PARAMS to typed signatures. The work covers trophy/info sorting, date/time text creation, right-column text setup, menu input handling for scrolling/back, menu transition cleanup, model/animation setup, user_data initialization, and archive/text resource setup. Evidence is limited to the diff; no PR body or review comments were present.",
   "change_classification": {
-    "primary_type": "menu decompilation / matching progress",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "menu-code",
-      "data-matching",
-      "partial-function-matches"
+      "menu-logic",
+      "ui-text",
+      "resource-loading"
     ],
     "systems": [
-      "mn menu",
-      "mninfo",
+      "mn",
       "melee-core",
-      "HSD GObj/SisLib text"
+      "baselib",
+      "gm",
+      "lb"
     ]
   },
   "key_files": [
-    "src/melee/mn/mninfo.c - added globals, a local text-cursor overlay struct, includes, and implementations for mninfo menu initialization, scrolling, text rendering, model/proc lifecycle, and cleanup",
-    "src/melee/mn/mninfo.h - replaced unknown prototypes for mninfo functions/callbacks with concrete return and parameter types"
+    {
+      "path": "src/melee/mn/mninfo.c",
+      "role": "Main implementation file; replaced placeholders with matched C for mninfo menu behavior, text setup, scrolling, cleanup, and initialization."
+    },
+    {
+      "path": "src/melee/mn/mninfo.h",
+      "role": "Header cleanup; changed unknown prototypes to typed function declarations for newly decompiled functions."
+    }
   ],
   "what_changed": [
-    "Added supporting includes for game/main, archive, audio, language, menu inline, scene/types, and HSD debug/GObj/proc/object/GX/memory APIs needed by the newly decompiled menu code.",
-    "Introduced `MnInfoTextCursor` with explicit padding to expose `HSD_Text* left` at offset `0x08` and `HSD_Text* right` at offset `0x18`, plus globals `mnInfo_804A0958`, `mnInfo_804A0968[0x48]`, and `mnInfo_804D6C78`.",
-    "Implemented `mnInfo_80251AFC` to initialize and sort the 0x42-entry `mnInfo_804A0968` list using `mnInfo_80251A08` and `gmMainLib_8015D804`.",
-    "Implemented `mnInfo_80251D58` to recreate a left-column `HSD_Text`, format date/time via `gm_801692E8` and `mn_8022EA78`, and switch date order based on `lbLang_IsSavedLanguageUS`.",
-    "Adjusted `mnInfo_80251F04` to use `MenuInfo_GObj*`, free/recreate the right-column text slot, set font/fitting, look up text with `un_802FE3F8`, and emit it through SisLib.",
-    "Implemented `fn_80251FE4` as the menu input handler: cooldown handling, Back transition with audio/menu state updates, Up/Down scrolling through visible rows, row text cleanup, and row regeneration.",
-    "Implemented `fn_802523D8` and `fn_80252548` for menu-object lifecycle: transition cleanup when leaving `MENU_KIND_DATA_SPECIAL`, arrow visibility based on scroll bounds, animation updates, first-row population after `anim_timer`, model loading, GX link setup, and proc switching.",
-    "Implemented `mnInfo_80252758` to enter the menu, load `MenMainConSs_Top_*` archive sections, allocate/init `MnInfoData`, install GObj procs, create the description text, and create the separate input proc.",
-    "Updated `mninfo.h` prototypes for `mnInfo_80251AFC`, `mnInfo_80251D58`, `fn_80251FE4`, `fn_802523D8`, `fn_80252548`, and `mnInfo_80252758` from unknown signatures to concrete types."
+    "Added required includes for gm_1601, gm/types, lbarchive, lbaudio_ax, mn/inlines, sc/types, baselib debug/gobjgxlink/gobjobject/gobjproc/memory, supporting the newly decompiled code.",
+    "Introduced a local MnInfoTextCursor struct with padded fields and HSD_Text pointers at offsets 0x08 and 0x18, used to walk and clear paired left/right text slots through pointer arithmetic.",
+    "Declared file-scope symbols used by the menu implementation: StaticModelDesc mnInfo_804A0958, u8 mnInfo_804A0968[0x48], HSD_GObj* mnInfo_804D6C78, and extern GXColor mn_804D4B64.",
+    "Wrapped mnInfo_80251A08, mnInfo_80251D58, mnInfo_80251F04, and mnInfo_80252720 in dont_inline pragmas, indicating inlining behavior was important for matching.",
+    "Implemented mnInfo_80251AFC as a two-pass ordering routine over 0x42 trophy/info IDs stored in mnInfo_804A0968, first moving unavailable entries and then sorting available entries by data referenced through gmMainLib_8015D804.",
+    "Implemented mnInfo_80251D58 to recreate a left-column HSD_Text entry, format saved date/time via gm_801692E8 and mn_8022EA78, and choose US versus non-US date ordering with lbLang_IsSavedLanguageUS.",
+    "Refined mnInfo_80251F04 signature to MenuInfo_GObj* and implemented right-column HSD_Text creation, font/fitting setup, lookup through un_802FE3F8, and SIS text assignment.",
+    "Implemented fn_80251FE4 as the input/update proc for the info menu: handles cooldown, back input, up/down scrolling, audio feedback, clearing old left/right text entries, and repopulating the visible four rows.",
+    "Implemented fn_802523D8 as the per-frame model/menu state handler: transitions out if current menu changes, clears text resources, frees description text, toggles arrow JObj visibility based on scroll bounds, and applies mnInfo_803EFC08 animation loop settings.",
+    "Implemented fn_80252548 as the delayed setup proc: after anim_timer expires it creates the first visible text rows, loads the menu joint/model, attaches animation, initializes arrow hidden state, and switches to fn_802523D8.",
+    "Implemented mnInfo_80252758 as the menu entry function: sets global menu state, loads archive sections for MenMainConSs_Top joint/anim/matanim/shapeanim, sorts entries, creates the main GObj, allocates and initializes MnInfoData, creates description text, and installs the input proc.",
+    "Updated mninfo.h prototypes for mnInfo_80251AFC, mnInfo_80251D58, fn_80251FE4, fn_802523D8, fn_80252548, and mnInfo_80252758 from unknown signatures to concrete return and parameter types."
   ],
   "smart_moves": [
-    "Used `#pragma dont_inline` around small or sensitive functions (`mnInfo_80251A08`, `mnInfo_80251D58`, `mnInfo_80251F04`, `mnInfo_80252720`) to control codegen instead of letting the compiler reshape call boundaries.",
-    "Kept a narrow `MnInfoTextCursor` overlay with padding rather than overclaiming the full `MnInfoData` layout; this was useful for matching the repeated left/right text cleanup loops that advance by 4 bytes.",
-    "Preserved duplicated Up/Down repaint logic in `fn_80251FE4` instead of prematurely factoring it, which is a common matching tactic for menu input handlers.",
-    "Freed existing SisLib text objects before overwriting text pointers and nulled pointers during cleanup, matching the lifecycle pattern visible in the diff.",
-    "Sorted valid entries in two passes: first pushed entries with `mnInfo_80251A08(...) != 0` forward, then ordered valid entries by the value behind `gmMainLib_8015D804`, avoiding assumptions that valid IDs are contiguous.",
-    "Tightened public prototypes only after implementations supplied evidence for argument and return types, reducing `UNK_RET/UNK_PARAMS` in the header."
+    "Used a small padded cursor struct, MnInfoTextCursor, to express non-obvious repeated pointer stepping through MnInfoData while preserving the apparent memory layout needed for matching.",
+    "Kept dont_inline pragmas around functions where compiler inlining would likely perturb codegen, rather than trying to force source reshaping alone.",
+    "Separated left-column date/time text creation from right-column text lookup/rendering, giving mnInfo_80251D58 and mnInfo_80251F04 precise responsibilities and cleaner header signatures.",
+    "Preserved UI resource lifecycle behavior by explicitly destroying existing HSD_Text objects before replacing or clearing them, including during scroll changes and menu transitions.",
+    "Matched localized date formatting behavior by checking lbLang_IsSavedLanguageUS and emitting either month.day.year or year.month.day ordering.",
+    "Used the same visible-row repopulation pattern for both up and down scroll paths, including clearing four rows and then reading from mnInfo_804A0968 starting at scroll_idx.",
+    "Modeled menu setup as a staged proc sequence: entry function creates data/resources, fn_80252548 waits on anim_timer and creates the model/text, then fn_802523D8 handles steady-state animation and arrows."
   ],
   "decomp_lessons": [
-    "For menu screens with repeated text slots, lightweight overlay structs with explicit padding can be safer than renaming or expanding an entire user-data struct before all fields are known.",
-    "Menu decomp often needs both UI behavior and object lifecycle modeled: input proc, display/model proc, user-data allocation, HSD object setup, and cleanup when `cur_menu` changes must line up together.",
-    "Locale branches matter for matching and behavior; this code preserves US vs non-US date formatting through `lbLang_IsSavedLanguageUS`.",
-    "HSD SisLib text objects should be treated as owned resources: call `HSD_SisLib_803A5CC4` before replacing slots and again when tearing down on menu exit.",
-    "Exact archive section strings are part of the match surface: `MenMainConSs_Top_joint`, `MenMainConSs_Top_animjoint`, `MenMainConSs_Top_matanim_joint`, and `MenMainConSs_Top_shapeanim_joint` were loaded directly in `mnInfo_80252758`.",
-    "Bot evidence shows this PR was progress rather than completion for most functions: `.bss` reached 100%, while `fn_80251FE4`, `mnInfo_80251AFC`, `fn_80252548`, `mnInfo_80251D58`, `mnInfo_80252758`, and `fn_802523D8` remained partial matches."
+    "When a struct layout is only partially understood, a local padded helper struct can make pointer-offset behavior explicit without overclaiming a full type definition.",
+    "For menu/UI modules, matching often depends on exact resource cleanup order: clear old SIS text objects, NULL the stored pointers, then recreate visible entries.",
+    "Header prototype updates should follow successful matching work; replacing UNK_RET/UNK_PARAMS with concrete GObj, MenuInfo_GObj, MnInfoData, and scalar types makes later callsites easier to decompile.",
+    "Global menu state variables such as mn_804A04F0 and mn_804D6BC8 can drive both control flow and matching-sensitive early returns; represent their cooldown/current-menu checks directly.",
+    "Use existing game/library helpers for formatting and lookup rather than hand-rolling behavior: gm_801692E8 for datetime, mn_8022EA78 for fixed-width numeric strings, un_802FE3F8 for message IDs, and SISLib for text rendering.",
+    "Archive/model setup in menu entry functions may require loading all joint, animjoint, matanim_joint, and shapeanim_joint sections together and storing them in a StaticModelDesc.",
+    "Scroll arrow visibility is tied to row bounds: hide the up arrow at scroll_idx == 0 and hide the down arrow when scroll_idx + 4 is no longer below the available-entry count."
   ],
   "naming_conventions": [
-    "Address-based names were retained for unknown/non-semantic functions and globals, e.g. `mnInfo_80251AFC`, `fn_80251FE4`, `mnInfo_804A0958`, `mnInfo_804A0968`, and `mnInfo_804D6C78`.",
-    "`mnInfo_` prefixes mark mninfo-owned symbols; `fn_` prefixes remain for callback-like routines without known semantic names.",
-    "The header keeps address comments such as `/* 251AFC */` while replacing `UNK_RET/UNK_PARAMS` with concrete signatures.",
-    "`MenuInfo_GObj` is a typedef over `HSD_GObj` and is used where the function immediately treats `gobj->user_data` as `MnInfoData`.",
-    "The local overlay uses padding fields named by offset (`pad_x0`, `pad_xC`) to document known layout gaps without inventing field meanings.",
-    "Many locals remain compiler/decompiler-style (`temp_r3_2`, `var_r28`, `var_r26`), indicating semantic naming evidence was still weak in this slice."
+    "Matched symbols retain address-based mnInfo_802xxxxx and fn_802xxxxx names where no semantic name is established.",
+    "Module globals use the project’s address-derived convention, such as mnInfo_804A0958, mnInfo_804A0968, and mnInfo_804D6C78.",
+    "The newly introduced helper type follows subsystem CamelCase style: MnInfoTextCursor.",
+    "Header declarations keep address comments in the form /* 251AFC */ next to each function prototype.",
+    "Existing project type aliases are preferred in signatures, including HSD_GObj, MenuInfo_GObj, MnInfoData, HSD_Text, HSD_GObjProc, and HSD_JObj."
   ],
   "assembly_or_matching_tactics": [
-    "Applied `#pragma push`, `#pragma dont_inline on`, and `#pragma pop` around selected functions to preserve expected call structure.",
-    "Used `PAD_STACK(16)` in `fn_802523D8`, indicating stack layout padding was needed for matching.",
-    "Declared stack temporaries with explicit sizes and stack-like names (`char sp34[5]`, `char sp30[3]`, `datetime sp18`, `s16 sp16`) to reproduce formatted date/time and lookup call layouts.",
-    "Casted `MnInfoData*` to `MnInfoTextCursor*` and advanced via `(u8*) cursor + 4` to match pointer-walking cleanup loops over left/right text pointers.",
-    "Kept exact float constants for text placement and sizing, such as `3.45f`, `-5.8f`, `17.0f`, `514.2857f`, `142.85715f`, and `0.0521f`, which likely helped the `.sdata2` improvement reported by decomp.dev.",
-    "Used explicit callback casts like `(HSD_GObjEvent) fn_80252548` and returned `(s32) temp_r3` from `mnInfo_80252758`, matching the existing ABI/prototype constraints."
+    "Applied #pragma push / #pragma dont_inline on / #pragma pop around several small functions to preserve expected call boundaries.",
+    "Used PAD_STACK(16) in fn_802523D8, suggesting stack shape needed explicit padding for the match.",
+    "Kept temporary-style variable names in several implementations, such as temp_r3_2, temp_r31, var_r28, var_r26, and sp1C, which is common while stabilizing codegen.",
+    "Used explicit casts between MnInfoData, MnInfoTextCursor, u8*, MenuInfo_GObj*, and scalar types to reproduce pointer arithmetic and call signatures.",
+    "Used fixed floating-point constants for SIS text positions, sizes, and fitting dimensions, preserving layout and likely instruction immediates.",
+    "Used do-while loops and manual pointer increments by 4 bytes to match repeated clearing of four visible text entries.",
+    "Stored and swapped trophy IDs as u8 values in mnInfo_804A0968, matching the byte array representation rather than widening the backing storage."
   ],
   "review_feedback": [
-    "No human review comments were present in the provided slice.",
-    "decomp.dev bot report for GALE01 said matched data rose to 38.73% (+0.01%, +88 bytes).",
-    "Bot reported one new match: `main/melee/mn/mninfo` `.bss` +88 bytes, 0.00% to 100.00%.",
-    "Bot reported partial improvements: `fn_80251FE4` to 83.01%, `mnInfo_80251AFC` to 88.81%, `fn_80252548` to 86.69%, `mnInfo_80251D58` to 92.99%, `mnInfo_80252758` to 90.15%, `fn_802523D8` to 94.18%, `.sdata2` to 93.02%, `.sbss` to 50.00%, and `mnInfo_80251F04` to 76.88%."
+    {
+      "type": "absence",
+      "text": "No review comments were included in the provided PR slice, and the human_text_excerpt was empty."
+    }
   ],
   "searchable_terms": [
     "pr-2449",
     "jj/mninfo",
     "jurrejelle",
+    "mninfo",
     "src/melee/mn/mninfo.c",
     "src/melee/mn/mninfo.h",
-    "mninfo",
     "mnInfo_80251AFC",
     "mnInfo_80251D58",
     "mnInfo_80251F04",
     "fn_80251FE4",
     "fn_802523D8",
     "fn_80252548",
+    "mnInfo_80252720",
     "mnInfo_80252758",
+    "MnInfoTextCursor",
+    "MnInfoData",
+    "MenuInfo_GObj",
     "mnInfo_804A0958",
     "mnInfo_804A0968",
     "mnInfo_804D6C78",
-    "MnInfoData",
-    "MnInfoTextCursor",
-    "MenuInfo_GObj",
-    "HSD_Text",
+    "mn_804D4B64",
+    "mn_804A04F0",
+    "mn_804D6BC8",
+    "MENU_KIND_DATA_SPECIAL",
+    "MenuInput_Back",
+    "MenuInput_Up",
+    "MenuInput_Down",
     "HSD_SisLib_803A5CC4",
     "HSD_SisLib_803A5ACC",
     "HSD_SisLib_803A6754",
@@ -112,24 +131,28 @@
     "lbLang_IsSavedLanguageUS",
     "gmMainLib_8015D804",
     "gm_801692E8",
-    "MenuInput_Back",
-    "MenuInput_Up",
-    "MenuInput_Down",
-    "MENU_KIND_DATA_SPECIAL",
-    "MenMainConSs_Top_joint",
-    "JOBJ_HIDDEN",
+    "mn_8022EA78",
+    "mn_8022ED6C",
+    "un_802FE3F8",
+    "dont_inline",
     "PAD_STACK",
-    ".bss",
-    ".sdata2",
-    "decomp.dev"
+    "StaticModelDesc",
+    "MenMainConSs_Top_joint"
   ],
   "follow_up_queries": [
-    "mninfo fn_80251FE4 scroll_idx MenuInput_Up MenuInput_Down MnInfoTextCursor",
-    "mnInfo_80251AFC 0x42 gmMainLib_8015D804 sorting trophy ids",
-    "mnInfo_80251D58 datetime lbLang_IsSavedLanguageUS HSD_Text",
-    "fn_802523D8 PAD_STACK JOBJ_HIDDEN mn_8022ED6C arrows",
-    "mnInfo_80252758 MenMainConSs_Top_joint GObj_Create HSD_MemAlloc",
-    "main/melee/mn/mninfo decomp.dev partial match 83.01 94.18"
+    "Find later PRs touching MnInfoData layout to see whether MnInfoTextCursor was replaced by a fuller struct definition.",
+    "Search for follow-up renames of fn_80251FE4, fn_802523D8, and fn_80252548 to more semantic menu proc names.",
+    "Check whether mnInfo_804A0968’s 0x48 size and 0x42 iteration bound were later documented as a trophy/info ID count.",
+    "Compare other mn menu modules for the same staged proc pattern using anim_timer, HSD_GObj_SetupProc, and HSD_GObj_804D783C flags.",
+    "Look for subsequent review or cleanup PRs that reduce temp_r variable names in mninfo.c."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

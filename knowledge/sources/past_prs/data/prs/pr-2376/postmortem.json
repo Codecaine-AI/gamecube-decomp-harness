@@ -11,102 +11,91 @@
     "merged_at": "2026-04-02T20:38:30Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled a large slice of the Arwing Laser item implementation, adding its state table, physics/collision callbacks, spawn helpers, reflect/mirror handlers, and a more complete xDD4 item-var layout. The bot reported +2992 matched code bytes, +224 matched data bytes, 10 new 100% matches, and three newly near-matching functions.",
+  "summary": "Matched and filled out a substantial portion of the Arwing laser item implementation, adding spawn/setup routines, state table entries, physics and collision callbacks, reflection/mirror handlers, and expanded item variable layout needed by the implementation. The PR primarily advances item decompilation for src/melee/it/items/itarwinglaser.c and its headers, with little human review discussion beyond tracking.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "item-state-table",
-      "item-physics",
       "item-collision",
-      "data-matching"
+      "item-physics"
     ],
     "systems": [
       "item",
-      "itarwinglaser",
-      "collision",
+      "stage",
       "ground",
-      "stage-corneria",
-      "fighter-reflect"
+      "collision",
+      "effects"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/it/items/itarwinglaser.c",
-      "role": "Main Arwing Laser decomp work: state table, attrs, spawn helpers, physics, collision, reflect/mirror handlers."
-    },
-    {
-      "path": "src/melee/it/itCharItems.h",
-      "role": "Expanded itArwingLaser_ItemVars from padded placeholders into explicit fields through ip+0xE4C."
-    },
-    {
-      "path": "src/melee/it/items/itarwinglaser.h",
-      "role": "Exported new public prototypes and cleaned a duplicate it_802E838C declaration."
-    }
-  ],
-  "what_changed": [
-    "Added ArwingLaserAttr with ItemAttr pointer plus x4/x8 float fields, and added dependencies for ftlib, ground/stage/Corneria, item collision helpers, lbvector, mplib, trig/math, and JObj operations.",
-    "Added ItemStateTable it_803F8DE8 with six Arwing Laser states: states 0/2 use UnkMotion2 anim/phys/coll, states 1/3 use UnkMotion3 anim/phys/coll, and states 4/5 use UnkMotion5_Coll only.",
-    "Added static Vec2 it_803F8E48 cardinal probe offsets of +/-200 units used by collision probing.",
-    "Implemented it_802E70BC as a line/collision probe around the laser bone position using lb_8000B1CC, it_8026EA9C, mpGetSpeed, mpLineGetFlags, and xE48 as an argument to the item collision helper; bot reported it at 90.59%, not fully matched.",
-    "Implemented it_802E72E0 as an Arwing Laser spawn helper for type 0/2 and child type 4/5 lasers, initializing SpawnItem kind 0xEA, bone/world position, parent and bone links, scale fields, lifetime, JObj rotation, and recursive child side-beam objects; bot reported it at 96.95%.",
-    "Implemented it_802E7654 as a directed laser spawn helper from a bone toward a target Vec3, normalizing xE0C direction, deriving facing_dir, setting JObj rotations with atan2f, calling it_802E7A4C/it_802750F8, and storing owner/type/arg4/scale state; bot reported it at 98.00%.",
-    "Implemented matched physics callbacks itArwinglaser_UnkMotion2_Phys and itArwinglaser_UnkMotion3_Phys, including bone-following before launch, throw-speed velocity, scale from Ground_801C0498 and xE34, attrs->x8 scale stretching, and Corneria stage offset handling through Stage_8022519C/Stage_80225194/grCorneria_801DDCF0.",
-    "Implemented matched collision callbacks itArwinglaser_UnkMotion2_Coll, itArwinglaser_UnkMotion3_Coll, and itArwinglaser_UnkMotion5_Coll, covering previous/current bone positions, z-flattened collision checks, effects via efSync_Spawn(0x40E), sound/effect calls through Item_8026AE84, first-hit xE4C logic, and child laser transform synchronization to the parent beam.",
-    "Implemented matched reflect/mirror handlers it_802E8420 and it_802E85F4, setting xE3C, updating owner/reflect gobj context, reversing facing/velocity for type 0/2, using ftLib_800865C0 for reflected directed lasers, and lbVector_Mirror for shield/ground-style mirroring.",
-    "Expanded itArwingLaser_ItemVars to include xDF8 HSD_JObj*, xDFC/xE00/xE04/xE08 floats, xE0C direction Vec3, xE34 scale float, xE3C flag/state, xE48 argument field, and xE4C counter, replacing prior padding around these offsets."
-  ],
-  "smart_moves": [
-    "The item-var header work made the code readable and matchable by replacing broad padding with explicit offset fields while preserving placeholder offset names where semantics were not proven.",
-    "The state table was reconstructed alongside the code, yielding data matches and documenting how the same anim/phys/coll pairs are reused for paired states 0/2, 1/3, and child states 4/5.",
-    "The spawn helpers carefully preserve parent-child relationships: type 0 creates hidden/attached type 4 and 5 child lasers, records xE40/xE44, and uses signed z handling for the side beams.",
-    "The physics code accounts for moving stage behavior by applying Corneria offsets only for stage ID 14 and falling through/returning for stage ID 15, a detail that likely matters for both behavior and matching.",
-    "The collision implementation reuses existing item and map primitives rather than inventing new logic: it_8026EA20/it_8026EA9C for line checks, mpGetSpeed for surface velocity, mpLineGetFlags to filter lines, and Item_8026AE84/efSync_Spawn for hit feedback."
-  ],
-  "decomp_lessons": [
-    "For item decomp, establish the xDD4 item-var layout early; even placeholder offset fields are better than padding when multiple callbacks share state across spawn, physics, collision, reflection, and child objects.",
-    "State tables and small static data arrays can produce clean data/sdata/sdata2 matches even when large spawn helpers remain only near-matched.",
-    "Item spawn functions often need exact SpawnItem initialization order, explicit velocity zeroing, parent/bone fields, lifetime calls like it_80275158, and immediate state setup in xDD4_itemVar before motion-state entry.",
-    "Arwing Laser behavior is tightly coupled to bone world positions from lb_8000B1CC; future similar item work should track previous/current bone endpoints and intentionally flatten z when the collision is planar.",
-    "Stage-specific offsets and moving-ground helpers can be required inside item physics, not just stage code; check gr/stage dependencies when an item appears to drift with stage geometry.",
-    "No human review rationale was recorded, so lessons about intent are inferred from the diff and decomp-dev matching report rather than reviewer comments."
-  ],
-  "naming_conventions": [
-    "Static callbacks follow the existing placeholder pattern itArwinglaser_UnkMotionN_Anim/Phys/Coll, with the exact mixed-case spelling `itArwinglaser`.",
-    "Public functions remain address-based names such as it_802E70BC, it_802E72E0, it_802E7654, it_802E8420, and it_802E85F4 until semantics are established.",
-    "Struct fields in itArwingLaser_ItemVars keep offset-style names xDF4 through xE4C, with comments showing both struct-relative offsets and absolute `ip+0x...` item offsets.",
-    "Special-attribute fields are locally named ArwingLaserAttr with placeholder members x0, x4, and x8 because the diff does not prove semantic names.",
-    "Header cleanup removed a duplicate it_802E838C prototype and kept exports in numeric-address order around the existing declarations."
-  ],
-  "assembly_or_matching_tactics": [
-    "State table entries cast callback functions to HSD_GObjPredicate and HSD_GObjEvent, matching the expected ItemStateTable function-pointer types.",
-    "The code preserves matching-oriented temporaries and pads such as unused float locals in itArwinglaser_UnkMotion2_Phys plus `u32 pad` and `u8 pad` locals in other functions.",
-    "Rotation Y for horizontal beams uses `(f32) (1.5707963267948966 * (f64) ip->facing_dir)`, preserving the double constant and cast pattern rather than simplifying to a float macro.",
-    "Vector and SpawnItem initialization is written explicitly, including separate z/y/x velocity zero assignments and repeated Vec3 copies, which may be important for codegen.",
-    "Collision checks intentionally zero z components before calling map/item line tests, while child beam spawn types 4/5 preserve mirrored signed z values.",
-    "The Corneria stage branch uses a switch with `case 14` applying grCorneria_801DDCF0 offsets and falling through to `case 15: return;`, an exact control-flow detail worth reusing for matching.",
-    "it_802E8420 distinguishes owner versus xC64_reflectGObj using xDCC_flag.b1 before calling ftLib_800865C0, while it_802E85F4 uses lbVector_Mirror against ip->xC58; these are separate reflect/mirror idioms."
-  ],
-  "review_feedback": [
-    "PR body only said: \"Tracking PR as usual\".",
-    "No line review comments were present.",
-    "One blank approval review was submitted by jellejurre at 2026-04-02T20:38:15Z.",
-    "decomp-dev bot reported matched code 61.58% (+0.08%, +2992 bytes) and matched data 37.83% (+0.02%, +224 bytes).",
-    "Bot listed 10 new 100% matches: itArwinglaser_UnkMotion5_Coll, it_802E8420, itArwinglaser_UnkMotion3_Phys, it_802E85F4, itArwinglaser_UnkMotion2_Phys, itArwinglaser_UnkMotion2_Coll, itArwinglaser_UnkMotion3_Coll, .data, .sdata2, and .sdata.",
-    "Bot listed three new but not fully matched functions: it_802E7654 at 98.00%, it_802E72E0 at 96.95%, and it_802E70BC at 90.59%."
-  ],
-  "searchable_terms": [
-    "pr2376",
-    "itarwinglaser",
-    "Arwing Laser",
     "src/melee/it/items/itarwinglaser.c",
     "src/melee/it/items/itarwinglaser.h",
-    "src/melee/it/itCharItems.h",
-    "itArwingLaser_ItemVars",
+    "src/melee/it/itCharItems.h"
+  ],
+  "what_changed": [
+    "Expanded itArwinglaser implementation by adding approximately 515 lines to src/melee/it/items/itarwinglaser.c.",
+    "Added ArwingLaserAttr local struct with ItemAttr pointer and two f32 fields used for laser speed/scale calculations.",
+    "Defined ItemStateTable it_803F8DE8 with six states mapping motion IDs 0-5 to animation, physics, and collision callbacks.",
+    "Added static Vec2 offset table it_803F8E48 with four 200-unit cardinal directions for collision probing.",
+    "Implemented it_802E70BC collision helper using bone 4 position, previous laser position xE18, it_8026EA9C line tests, mpGetSpeed, mpLineGetFlags, and a hit-count fallback across four direction probes.",
+    "Implemented it_802E72E0 spawning path for Arwing laser item kind 0xEA from a parent/bone, including type-specific z handling for types 0, 2, 4, and 5, recursive side-beam child creation for type 0, and initialization of arwinglaser item variables.",
+    "Implemented it_802E7654 spawning path that creates a laser from an owner, bone, target vector, type, arg4, and scale, normalizes direction xE0C, sets facing_dir, sets JObj rotations using atan2f, and disables xDCC_flag.b3 after setup.",
+    "Added physics callbacks itArwinglaser_UnkMotion2_Phys and itArwinglaser_UnkMotion3_Phys, including attached-to-bone behavior before launch, velocity setup from item attributes, scale setup using Ground_801C0498-derived scale and xE34, and Corneria stage offset handling.",
+    "Added collision callbacks itArwinglaser_UnkMotion2_Coll, itArwinglaser_UnkMotion3_Coll, and itArwinglaser_UnkMotion5_Coll, including line collision tests, effect spawn 0x40E, Item_8026AE84 hit/sound calls, parent-child side-laser transform synchronization, and despawn/continue return behavior.",
+    "Added reflection and shield/mirror style handlers it_802E8420 and it_802E85F4, updating arwinglaser flags, positions, velocities, facing direction, and JObj rotation.",
+    "Expanded itArwinglaser_ItemVars in src/melee/it/itCharItems.h from a sparsely padded layout to explicit fields from ip+0xDF8 through ip+0xE4C, including HSD_JObj pointer, floats, Vec3 direction/state fields, type/status integers, and child Item_GObj pointers.",
+    "Updated src/melee/it/items/itarwinglaser.h with prototypes for newly implemented exported functions it_802E70BC, it_802E72E0, and it_802E7654, and removed a duplicate it_802E838C prototype."
+  ],
+  "smart_moves": [
+    "Replaced opaque padding in itArwinglaser_ItemVars with explicit offsets only where the implementation proved usage, preserving offset comments both relative to the union member and to the Item pointer.",
+    "Kept unknown function names and motion names address-based or descriptive rather than over-naming behavior that is not fully identified, e.g. itArwinglaser_UnkMotion2_Phys and it_802E70BC.",
+    "Used a local ArwingLaserAttr struct in the C file for special attributes, avoiding broader header exposure until the layout and naming are better understood.",
+    "Modeled the six-state item state table directly with callback casts matching existing ItemStateTable conventions.",
+    "Handled laser variants through xE38 type switches instead of duplicating spawn/physics logic across separate functions.",
+    "For child side lasers, synchronized translation, scale, and rotation from the parent beam's dynamic bone, which captures the apparent parent-child visual relationship while keeping separate item objects.",
+    "Preserved stage-specific behavior by checking Stage_8022519C(Stage_80225194()) and applying grCorneria_801DDCF0 offset for Corneria-related stage IDs."
+  ],
+  "decomp_lessons": [
+    "Item variable structs should be expanded as real fields once code accesses offsets; accurate offset comments are valuable for future matching and review.",
+    "For item article special attributes, a minimal local struct can be sufficient when only a few fields are proven by the matched function.",
+    "Arwing laser behavior uses multiple object types stored in one item kind, with xE38 acting as a variant selector; future work should inspect type values before splitting behavior conceptually.",
+    "Collision matching may require reproducing multi-pass line tests in both forward and reverse directions and honoring mpLineGetFlags filtering such as flag 0x100.",
+    "When a projectile is bone-attached before launch, physics may zero velocity and continuously recompute position from the source JObj until an internal launch counter/state changes.",
+    "Projectile reflection/mirroring handlers should update both velocity/facing and stored previous/current beam positions to keep collision traces consistent.",
+    "Visual scale for item beams may combine global stage scale from Ground_801C0498 with per-spawn scale multipliers and article attributes."
+  ],
+  "naming_conventions": [
+    "Item variable union member is named arwinglaser, matching itArwinglaser_ItemVars.",
+    "Unknown exported functions retain address-style names such as it_802E70BC, it_802E72E0, it_802E7654, it_802E8420, and it_802E85F4.",
+    "Static callbacks use item/motion-style names: itArwinglaser_UnkMotion2_Anim, itArwinglaser_UnkMotion2_Phys, itArwinglaser_UnkMotion2_Coll, etc.",
+    "Struct field names in itArwinglaser_ItemVars remain offset-based, e.g. xDF4, xDF8, xDFC, xE0C, xE18, xE24, xE30, xE34, xE38, xE3C, xE40, xE44, xE48, xE4C.",
+    "Header prototypes omit parameter names and use project typedefs such as Item_GObj, HSD_JObj, Vec3, s32, f32, and bool."
+  ],
+  "assembly_or_matching_tactics": [
+    "Used explicit temporary Vec3 stack variables and copies for line-collision setup, likely to preserve ordering and stack behavior.",
+    "Kept exact double constant expression for 90-degree Y rotation: 1.5707963267948966 cast through f64/f32 multiplied by facing_dir.",
+    "Used switch fallthrough in stage handling with an explicit comment before case 15.",
+    "Used small scoped blocks around float calculations, which can help reproduce compiler live ranges and register allocation.",
+    "Used ternary expressions for facing direction decisions based on normalized direction or velocity sign.",
+    "Preserved casts to callback types in ItemStateTable entries: HSD_GObjPredicate and HSD_GObjEvent.",
+    "Used type-specific switch cases with grouped labels, including case orders such as case 2 then case 0 in some paths, which may be matching-sensitive."
+  ],
+  "review_feedback": [
+    "No review comments were present in the provided PR slice.",
+    "Human text excerpt only states: \"Tracking PR as usual\".",
+    "Evidence for reviewer intent or requested changes is weak; the PR appears to have merged without visible review-comment discussion in this slice."
+  ],
+  "searchable_terms": [
+    "pr-2376",
+    "it/items/itarwinglaser",
+    "itarwinglaser.c",
+    "itarwinglaser.h",
+    "itCharItems.h",
+    "itArwinglaser_ItemVars",
     "ArwingLaserAttr",
     "it_803F8DE8",
-    "ItemStateTable",
     "it_803F8E48",
     "it_802E70BC",
     "it_802E72E0",
@@ -118,53 +107,39 @@
     "itArwinglaser_UnkMotion2_Coll",
     "itArwinglaser_UnkMotion3_Coll",
     "itArwinglaser_UnkMotion5_Coll",
-    "xDD4_itemVar.arwinglaser",
-    "xDF4",
-    "xDF8",
-    "xDFC",
-    "xE0C",
-    "xE18",
-    "xE24",
-    "xE30",
-    "xE34",
-    "xE38",
-    "xE3C",
-    "xE40",
-    "xE44",
-    "xE48",
-    "xE4C",
-    "SpawnItem",
+    "ItemStateTable",
     "Item_80268B18",
-    "it_80275158",
-    "it_802750F8",
-    "it_8026EA20",
-    "it_8026EA9C",
+    "SpawnItem",
+    "Ground_801C0498",
+    "grCorneria_801DDCF0",
+    "Stage_8022519C",
     "mpGetSpeed",
     "mpLineGetFlags",
-    "Ground_801C0498",
-    "Stage_8022519C",
-    "Stage_80225194",
-    "grCorneria_801DDCF0",
-    "lb_8000B1CC",
-    "lbVector_Normalize",
-    "lbVector_Mirror",
-    "ftLib_800865C0",
+    "it_8026EA9C",
+    "it_8026EA20",
     "efSync_Spawn",
     "Item_8026AE84",
+    "lbVector_Normalize",
+    "lbVector_Mirror",
     "HSD_JObjSetRotationY",
     "HSD_JObjSetScale",
-    "reflection",
-    "collision",
-    "Corneria"
+    "arwinglaser xE38",
+    "item kind 0xEA"
   ],
   "follow_up_queries": [
-    "Investigate remaining mismatch in it_802E70BC, which bot reported at 90.59%.",
-    "Investigate remaining mismatch in it_802E72E0, which bot reported at 96.95%.",
-    "Investigate remaining mismatch in it_802E7654, which bot reported at 98.00%.",
-    "Search callsites of it_802E72E0 and it_802E7654 to name parameters currently represented as parent, owner, bone, type, arg4, scale, and scale_mult.",
-    "Map itArwingLaser_ItemVars fields xDF4/xDF8/xDFC/xE0C/xE34/xE38/xE3C/xE48/xE4C to semantic names once more Arwing or Corneria code is decompiled.",
-    "Confirm whether ArwingLaserAttr should remain local to itarwinglaser.c or move to a shared item attribute header when neighboring article data is understood.",
-    "Look for other item collision code using it_8026EA9C with mpLineGetFlags & 0x100 to clarify the line-filter semantics."
+    "Find later PRs that rename or document ArwingLaserAttr fields x4 and x8.",
+    "Find later PRs that replace it_802E70BC, it_802E72E0, or it_802E7654 with semantic names.",
+    "Investigate what arwinglaser xE38 type values 0, 1, 2, 3, 4, and 5 represent.",
+    "Check whether item variable fields xE3C, xE48, and xE4C gain meaningful names in subsequent item PRs.",
+    "Search for other item PRs that use Ground_801C0498 scale and Corneria stage offsets for projectiles."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

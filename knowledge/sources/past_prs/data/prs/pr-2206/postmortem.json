@@ -11,14 +11,14 @@
     "merged_at": "2026-03-04T17:13:00Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the lipstick item source by adding its ItemStateTable definition in src/melee/it/items/itlipstick.c, adding the forward typedef include needed for ItemStateTable, correcting one GALE01 sdata2 symbol from a global it_804DCB68 name to the local @158 label, and flipping itlipstick.c from NonMatching to Matching in configure.py.",
+  "summary": "Matched the lipstick item object by moving src/melee/it/items/itlipstick.c from NonMatching to Matching, adding the lipstick ItemStateTable definition in C, including the item forward declarations header needed for state callback references, and correcting one sdata2 float symbol from a global it_804DCB68 name to a local @158 label.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "item-state-table",
-      "build-config-update",
-      "symbol-map-update"
+      "symbol-map-cleanup",
+      "build-config-update"
     ],
     "systems": [
       "item",
@@ -33,63 +33,87 @@
     "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "Added #include \"it/items/forward.h\" to itlipstick.c before defining an ItemStateTable.",
-    "Defined ItemStateTable it_803F6310[] with six entries, wiring the lipstick motion states to existing itLipstick_UnkMotion*_Anim, *_Phys, and *_Coll callbacks, including one NULL collision callback for motion 2.",
-    "Updated configure.py so Object(NonMatching, \"melee/it/items/itlipstick.c\") became Object(Matching, \"melee/it/items/itlipstick.c\").",
-    "Changed the symbol at .sdata2:0x804DCB68 in config/GALE01/symbols.txt from global it_804DCB68 to local @158 while preserving type, size, alignment, and float data annotation."
+    "In configure.py, changed Object(NonMatching, \"melee/it/items/itlipstick.c\") to Object(Matching, \"melee/it/items/itlipstick.c\"), marking the lipstick item as matching.",
+    "In src/melee/it/items/itlipstick.c, added #include \"it/items/forward.h\" before using item motion callback symbols.",
+    "In src/melee/it/items/itlipstick.c, added global ItemStateTable it_803F6310[] with six entries for lipstick animation, physics, and collision callbacks, including one NULL collision callback in the third entry.",
+    "In config/GALE01/symbols.txt, changed .sdata2:0x804DCB68 from global symbol it_804DCB68 to local symbol @158, preserving type object, size 0x4, align 4, data float."
   ],
   "smart_moves": [
-    "The matching fix was small and targeted: reconstruct the item state table in C instead of disturbing the already-existing lipstick behavior functions.",
-    "The added forward.h include supplies the ItemStateTable type without introducing broader item-item header dependencies in the diff.",
-    "The symbol-map update recognizes that the 0x804DCB68 float should be treated as a compiler-style local @ label rather than a named global, reducing symbol-scope mismatch risk.",
-    "The PR paired the source/data match with the configure.py status flip, making the build system reflect the new matching state immediately."
+    "The fix centers on data reconstruction rather than forcing code changes: adding the missing ItemStateTable likely resolved object layout and relocation expectations for the item file.",
+    "Using it/items/forward.h is a compact way to make the callback symbols visible without introducing broad or unrelated includes.",
+    "The symbol-map adjustment from it_804DCB68 to @158 indicates the matched output required treating that float constant as compiler-local data instead of an exported global symbol.",
+    "The configure.py change was limited to the single object after the source and symbol data were updated, making the matching status explicit and easy to audit."
   ],
   "decomp_lessons": [
-    "For item object matches, missing ItemStateTable data can be the remaining blocker even when the callback functions already exist and match.",
-    "When reconstructing item state tables, preserve the exact callback ordering, flag values, and NULL entries; the table layout is part of the match.",
-    "Matching may require symbol-scope corrections in config/GALE01/symbols.txt, not only C source edits.",
-    "After an object matches, remember to move it from NonMatching to Matching in configure.py so future builds enforce the match."
+    "For item files, matching may depend on reconstructing the per-item ItemStateTable with the exact callback ordering and flag values, not only function bodies.",
+    "When state callbacks are referenced before or outside their definitions, use the established forward declaration header rather than ad hoc prototypes when that is the project convention.",
+    "Do not assume every named sdata2 constant should remain global; matching can require demoting constants to local @NNN labels when the compiler emitted them as local literals.",
+    "After an item file is matched, remember to update configure.py from NonMatching to Matching so the build system enforces the new status."
   ],
   "naming_conventions": [
-    "Lipstick callbacks use the project’s item naming pattern: itLipstick_UnkMotionN_Anim, itLipstick_UnkMotionN_Phys, and itLipstick_UnkMotionN_Coll.",
-    "The item state table keeps an address-based name, it_803F6310, because no semantic table name was introduced in this PR.",
-    "Compiler-local sdata symbols may be represented with @NNN labels, as shown by changing it_804DCB68 to @158."
+    "Item state table symbol used the address-style name it_803F6310, consistent with unresolved or data-symbol naming in the project.",
+    "Lipstick callbacks follow the pattern itLipstick_UnkMotionN_{Anim,Phys,Coll}.",
+    "The item spawn logic function uses the pattern itLipstick_Logic23_Spawned(Item_GObj* gobj).",
+    "Item-specific attributes are accessed through a GET_ATTRS(ip) macro casting xC4_article_data->x4_specialAttributes to itLipstickAttributes*.",
+    "Local float constants in symbols.txt may use @NNN labels, as shown by @158 at .sdata2:0x804DCB68."
   ],
   "assembly_or_matching_tactics": [
-    "Materialize the rodata/data table in C with exact ItemStateTable entries to satisfy the object match.",
-    "Use NULL explicitly in table slots where the original callback pointer is absent.",
-    "Adjust local/global symbol treatment in symbols.txt when the disassembly indicates a local float constant rather than a reusable global.",
-    "Only after source and symbol changes are in place, mark the object Matching in configure.py."
+    "Recreate static data tables exactly: it_803F6310 has six ItemStateTable entries with specific first-field values 0 or 1, callback pointer order, and a NULL collision callback for the third state.",
+    "Fix symbol visibility/classification in config/GALE01/symbols.txt when data label scope affects matching; here a global float symbol became a local @158 label.",
+    "Use project-level matching configuration as the final indicator: moving itlipstick.c to Object(Matching, ...) in configure.py after source changes.",
+    "Evidence is limited to the diff; no PR body or review comments explain the precise mismatch, so the inferred tactic is based on the added table and symbol-map change."
   ],
-  "review_feedback": [
-    "No PR body, issue comments, review comments, or review records were present in the slice; there is no explicit reviewer feedback to extract."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
     "pr-2206",
     "Match itlipstick",
     "PsiLupan",
+    "itlipstick",
     "itlipstick.c",
-    "itLipstick",
+    "melee/it/items/itlipstick.c",
     "ItemStateTable",
     "it_803F6310",
+    "it/items/forward.h",
+    "itLipstick_UnkMotion0_Anim",
+    "itLipstick_UnkMotion0_Phys",
+    "itLipstick_UnkMotion0_Coll",
+    "itLipstick_UnkMotion4_Anim",
+    "itLipstick_UnkMotion1_Phys",
+    "itLipstick_UnkMotion1_Coll",
+    "itLipstick_UnkMotion2_Anim",
+    "itLipstick_UnkMotion2_Phys",
+    "itLipstick_UnkMotion4_Phys",
+    "itLipstick_UnkMotion3_Coll",
+    "itLipstick_UnkMotion4_Coll",
+    "itLipstick_UnkMotion5_Anim",
+    "itLipstick_UnkMotion5_Phys",
+    "itLipstick_UnkMotion5_Coll",
+    "itLipstick_Logic23_Spawned",
+    "Item_GObj",
+    "GET_ATTRS",
+    "itLipstickAttributes",
+    "xC4_article_data",
+    "x4_specialAttributes",
     "it_804DCB68",
     "@158",
     "sdata2",
     "configure.py",
     "Object(Matching)",
-    "Object(NonMatching)",
-    "itLipstick_UnkMotion0_Anim",
-    "itLipstick_UnkMotion4_Anim",
-    "itLipstick_UnkMotion2_Anim",
-    "itLipstick_UnkMotion5_Coll",
-    "it/items/forward.h",
-    "GET_ATTRS",
-    "itLipstick_Logic23_Spawned"
+    "Object(NonMatching)"
   ],
   "follow_up_queries": [
-    "Find other item files still marked Object(NonMatching) in configure.py that may only need an ItemStateTable definition.",
-    "Search symbols.txt for remaining it_804D* float globals near item code that should be compiler-local @ labels.",
-    "Compare other matched item state tables for callback ordering and flag patterns reusable in remaining item matches."
+    "Look for nearby item PRs that add ItemStateTable definitions before switching files from NonMatching to Matching.",
+    "Search for uses of it/items/forward.h in matched item files to confirm include-order and declaration conventions.",
+    "Search symbols.txt changes from it_804* globals to @NNN local labels to identify recurring sdata2 matching cleanup patterns.",
+    "Compare itlipstick.c against other item files with UnkMotionN callback tables for shared state table reconstruction patterns."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

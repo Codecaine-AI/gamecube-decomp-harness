@@ -11,141 +11,87 @@
     "merged_at": "2026-05-08T09:07:00Z"
   },
   "agent_status": "agent_completed",
-  "summary": "PR 2443 primarily decompiled and matched more of the Home-Run Contest ground/stage unit `main/melee/gr/grhomerun`. The PR body was empty and there were no human review comments, but the diff shows new C implementations for major stage setup/update/object-factory/collision-callback functions plus header/type fixes. The decomp-dev bot reported GALE01 matched code rising to 66.32% (+0.02%, +748 bytes), with 4 new full matches and large partial improvements for `grHomeRun_8021CB20`, `grHomeRun_8021D680`, and `grHomeRun_8021E500`.",
+  "summary": "Large Home-Run Contest stage decomp PR centered on src/melee/gr/grhomerun.c. It implemented previously stubbed grHomeRun functions, added concrete Home-Run stage local state layout and signatures, fixed nearby grhomerun header/types declarations, and made a few formatting-only cleanups in unrelated files. The decomp.dev bot reported 4 new full matches and 5 improved unmatched items, with matched code increasing by +748 bytes.",
   "change_classification": {
-    "primary_type": "decomp-matching",
+    "primary_type": "stage decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-decompilation",
       "headers",
+      "stage-logic",
       "struct-layout",
-      "codegen-tactics",
-      "style-cleanup"
+      "matching-tactics",
+      "formatting-cleanup"
     ],
     "systems": [
       "stage",
       "ground",
-      "grhomerun",
-      "home-run-contest",
       "camera",
-      "collision-mplib",
-      "sislib-text",
-      "fighter",
+      "collision",
+      "baselib",
       "game-mode",
+      "fighter",
       "library"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grhomerun.c",
-      "role": "Main work: added Home-Run stage includes/data, a `grHomeRun_MainGroundVars` overlay, implemented `grHomeRun_8021CB20`, `grHomeRun_8021D680`, `grHomeRun_8021E500`, and `fn_8021E994`, and made matching-sensitive tweaks to `grHomeRun_8021EA30`, `grHomeRun_8021EC58`, and `grHomeRun_8021EDD4`."
-    },
-    {
-      "path": "src/melee/gr/grhomerun.h",
-      "role": "Replaced `UNK_RET`/`UNK_PARAMS` prototypes with exact signatures for `grHomeRun_8021E500`, `fn_8021E994`, `grHomeRun_8021EC58`, and `grHomeRun_8021EDD4`; added `mp/forward.h`."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Extended `struct grHomeRun_GroundVars` with an `f32 xD0` field used by the new ground segment object positioning code."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPopo/ftPp_SpecialLw.c",
-      "role": "Include-order cleanup around Popo special headers."
-    },
-    {
-      "path": "src/melee/gm/gm_18A5.c",
-      "role": "Formatting cleanup for `GXColor` compound literals in `fn_8018DF68`."
-    },
-    {
-      "path": "src/melee/gm/gmclassic.c",
-      "role": "Formatting cleanup for function-pointer casts in `gmClassic_801B3500`."
-    },
-    {
-      "path": "src/melee/gr/gricemt.c",
-      "role": "Formatting cleanup for a function-pointer cast in `grIceMt_801FA364`."
-    },
-    {
-      "path": "src/melee/gm/gmresultplayer.c",
-      "role": "Blank-line cleanup only in the shown hunk."
-    },
-    {
-      "path": "src/melee/lb/lbbgflash.c",
-      "role": "Blank-line cleanup only in the shown hunk."
-    },
-    {
-      "path": "src/melee/mn/mnnamenew.c",
-      "role": "Blank-line cleanup only in the shown hunk."
-    },
-    {
-      "path": "src/melee/ty/tydisplay.c",
-      "role": "Blank-line cleanup only in the shown hunk."
-    }
+    "src/melee/gr/grhomerun.c",
+    "src/melee/gr/grhomerun.h",
+    "src/melee/gr/types.h",
+    "src/melee/gm/gm_18A5.c",
+    "src/melee/gm/gmclassic.c",
+    "src/melee/gr/gricemt.c",
+    "src/melee/ft/chara/ftPopo/ftPp_SpecialLw.c"
   ],
   "what_changed": [
-    "Replaced nonmatching markers for `grHomeRun_8021CB20`, `grHomeRun_8021D680`, `grHomeRun_8021E500`, and `fn_8021E994` with C implementations in `grhomerun.c`.",
-    "`grHomeRun_8021CB20` now sets up the main Home-Run ground object: allocates object arrays, scales JOBJs, installs `mpJointSetCb1`, creates a camera/text GObj, loads `SIS_GrHomerunData`, creates/repositions repeating foreground/rear stage objects, and initializes text/flag state.",
-    "`grHomeRun_8021D680` now updates Home-Run stage state each frame: pulls fighter/item positions, updates camera subjects, computes displayed distance through `grHomeRun_8021EA30`, creates the text object lazily, streams ground segment GObjs based on `Camera_GetTransformInterest`, moves rear background GObjs, and updates mpLib/joint bounds.",
-    "`grHomeRun_8021E500` now chooses a ground object id from `arg0`, `grHr_804D6ADC`, and a four-part pattern, creates the GObj through `grHomeRun_8021C82C_noinline`, scales and positions its JObj, and stores `xC4`, `xC6`, and `xD0` in the Home-Run ground vars.",
-    "`fn_8021E994` is now typed as an mpLib callback and sets the main Home-Run vars flag `xE8_flags.b0` when the Home-Run bat/target GObj collision condition matches the shown `collKind`/ground enum checks.",
-    "`grHomeRun_8021C754` now calls `grHomeRun_8021EDD4()` with no argument, and the header prototype was updated accordingly.",
-    "`grHomeRun_8021EA30` was adjusted with explicit temporaries and multiplication order changes; the bot reported it moved from 99.20% to 100.00% matched.",
-    "`grHomeRun_8021EC58` changed from `u32 score` to `s32 arg0`, uses a static `grHr_804D49D0` `\"%d\"` format string, sets text `pos_z` to `0.0F`, and keeps repeated scale calculations in matching-sensitive form.",
-    "Added exact prototypes and forward declarations for `HSD_GObj* grHomeRun_8021E500(s16)` and `void fn_8021E994(Ground*, s32, CollData*, s32, mpLib_GroundEnum, f32)`.",
-    "Several unrelated files only received include-order, cast-spacing, compound-literal spacing, or blank-line cleanup."
+    "Implemented grHomeRun_8021CB20, a large initialization routine that sets up stage JObjs, allocates arrays for scrolling ground objects and jobj gobjs, creates a camera GObj/SIS text context, installs mpJointSetCb1, creates rear background objects, scales JObjs by grHr_804D6AE4, and initializes Home-Run stage flags.",
+    "Implemented grHomeRun_8021D680, the per-frame/update routine that tracks fighter/bat-related GObjs, updates camera subject flags, creates distance text on demand, scrolls/recycles generated ground segments based on camera interest, repositions rear background strips, updates bounds, and calls mpLib/mpJoint update helpers.",
+    "Implemented grHomeRun_8021E500, a ground segment factory that selects map object ids from arg0 modulo grHr_804D6ADC, creates the object, applies scale/translation, records gv.homerun.xD0, xC6, and xC4, and returns the generated HSD_GObj.",
+    "Implemented fn_8021E994 as a typed collision callback using CollData and mpLib_GroundEnum; it looks up ground object 0xA and sets the Home-Run main vars xE8_flags.b0 when a specific collision condition involving gm_80180AF4 is observed.",
+    "Added a local grHomeRun_MainGroundVars overlay in grhomerun.c for fields stored inside gp->gv.homerun, including arrays of HSD_GObj pointers, text/JObj/GObj pointers for UI/rear layers, and bitflags.",
+    "Added grHomeRun_8021C82C_noinline using #pragma dont_inline to force an out-of-line wrapper around grHomeRun_8021C82C for matching-sensitive call sites.",
+    "Changed grHomeRun_8021EDD4 from taking an unused int to void and updated grHomeRun_8021C754 to call it without an argument.",
+    "Adjusted grHomeRun_8021EA30 expression structure by introducing a float temporary for the grHr_804D6ADC * 160.0F * scale denominator and simplifying the US-language conversion to result *= 0.304788; bot output says this reached 100%.",
+    "Reworked grHomeRun_8021EC58 to use typed s32 input, a static \"%d\" string grHr_804D49D0, external GXColor/f32 constants, pos_z 0.0F, and explicit repeated Ground_801C0498 scale expressions.",
+    "Updated grhomerun.h prototypes from UNK_RET/UNK_PARAMS to concrete signatures for grHomeRun_8021E500, fn_8021E994, grHomeRun_8021EC58, and grHomeRun_8021EDD4; added mp/forward.h for mpLib_GroundEnum.",
+    "Extended struct grHomeRun_GroundVars in src/melee/gr/types.h with f32 xD0.",
+    "Made minor formatting/include-order cleanups in ftPp_SpecialLw.c, gm_18A5.c, gmclassic.c, gricemt.c, gmresultplayer.c, lbbgflash.c, mnnamenew.c, and tydisplay.c."
   ],
   "smart_moves": [
-    "Introduced `grHomeRun_8021C82C_noinline` under `#pragma dont_inline` so call sites can force a non-inlined call shape while still reusing `grHomeRun_8021C82C`.",
-    "Used a local `grHomeRun_MainGroundVars` overlay for the main stage object instead of over-renaming every global ground union field; the diff only added the concrete `xD0` field needed by segment objects in `gr/types.h`.",
-    "Matched callback plumbing by giving `fn_8021E994` an exact mpLib-style signature and adding `mp/forward.h` rather than leaving it as `UNK_PARAMS`.",
-    "Kept matching-sensitive oddities visible, including line-numbered `HSD_ASSERT` calls, explicit casts, repeated `Ground_801C0498()` calls, and the no-op `arg2->x34_flags = arg2->x34_flags` in the null-ground branch.",
-    "Modeled Home-Run ground streaming with fixed-size allocations matching the evidence (`HSD_MemAlloc(0x100)` for 64 GObj slots and `HSD_MemAlloc(0x40)` for 16 JObj GObj slots).",
-    "Moved the text format string to a static `grHr_804D49D0[] = \"%d\"`, helping `.sdata` placement instead of embedding the literal directly in the call.",
-    "Split float expressions into temporaries (`new_var`, `temp_f31`, `temp_f31_2`) where the diff shows algebraically equivalent code was not enough for matching.",
-    "Preserved stage-specific constants such as `2400.0F`, `160.0F`, `2150.99F`, `0.85F`, `0.304788`, `30.0F`, and `1.4F` directly in the new C, making future comparison against assembly easier."
+    "Used a local overlay struct for Home-Run main ground variables rather than prematurely reshaping the global grHomeRun_GroundVars for every field; this allowed matching of current functions while keeping uncertain layout scoped.",
+    "Introduced a noinline wrapper for grHomeRun_8021C82C, which is a targeted codegen tactic for preserving original call structure in repeated object-creation paths.",
+    "Converted callback and factory prototypes from unknown macros to real types only where the diff had enough evidence, especially HSD_GObj*, Ground*, CollData*, mpLib_GroundEnum, and f32.",
+    "Kept line-numbered HSD_ASSERT calls in newly decompiled functions, preserving source-line-sensitive matching behavior common in Melee decomp.",
+    "Matched float code by preserving repeated calls and temporaries instead of over-simplifying algebraically equivalent expressions.",
+    "Let decomp.dev metrics guide scope: the PR accepted partial progress for large functions while fully matching smaller adjacent functions."
   ],
   "decomp_lessons": [
-    "For stage ground code, separate the main stage-object vars from per-segment ground vars when the same union member is reused at different callback indices; a local overlay can be useful while names remain uncertain.",
-    "Do not collapse repeated scale/time calls or simplify float algebra too aggressively in matching work; the `grHomeRun_8021EA30` and `grHomeRun_8021EC58` changes show expression shape can decide a final few bytes.",
-    "`#pragma dont_inline` wrapper functions are acceptable tactical tools when a real helper must remain callable but certain call sites need a non-inlined code shape.",
-    "When replacing `UNK_PARAMS`, include the exact forward header needed by the new signature; here `mp/forward.h` enabled the `mpLib_GroundEnum` callback prototype.",
-    "Line-numbered `HSD_ASSERT` macros can be part of matching evidence; keep their constants aligned with the target instead of treating them as generic safety checks.",
-    "Static data placement matters: pulling `\"%d\"` into `grHr_804D49D0` and declaring `grHr_804DBC74/78/7C/80/84` as externs contributed to `.sdata`/`.sdata2` improvement per the bot report.",
-    "Header signature changes should be propagated with call-site cleanup, as shown by converting `grHomeRun_8021EDD4(int)` to `grHomeRun_8021EDD4(void)` and updating `grHomeRun_8021C754`."
+    "For stage files with scrolling/background object pools, reconstruct the runtime local state first: arrays of generated GObjs, rear layer GObjs, text pointers, and bitfields can unlock large update/init routines.",
+    "Do not assume unused parameters are real; grHomeRun_8021EDD4 matched after changing the signature from int to void and updating callers.",
+    "Function-pointer and callback signatures should be made concrete once their call sites reveal the callback ABI; here mpJointSetCb1 required an mpLib callback signature with CollData and mpLib_GroundEnum.",
+    "Matching floating-point arithmetic may require explicit temporaries and repeated helper calls rather than natural C simplification.",
+    "Static format strings such as \"%d\" can be necessary for matching SIS/text routines and sdata layout.",
+    "When recursive or helper creation calls inline incorrectly, a pragma noinline shim can be cleaner than distorting the main function logic.",
+    "Header improvements should include forward headers for newly concrete types; grhomerun.h needed mp/forward.h once mpLib_GroundEnum appeared in a public prototype."
   ],
   "naming_conventions": [
-    "`grHomeRun_8021....` address-based names were retained for not-yet-semantic Home-Run functions.",
-    "`fn_8021E994` retained the generic `fn_` prefix even after typing, indicating the symbol still lacked a stronger semantic name in this PR.",
-    "`grHr_804D....` is used for Home-Run stage globals and static data such as `grHr_804D49D0` and `grHr_804D6AE4`.",
-    "`grHomeRun_MainGroundVars` names a local stage-specific overlay while uncertain fields keep offset-style names like `xCC`, `xD0`, and `xE8_flags`.",
-    "Bitfields in the local overlay use `b0` through `b7`, matching the project habit of preserving bit positions when semantics are still unknown.",
-    "The helper suffix `_noinline` explicitly documents a codegen/matching wrapper rather than a gameplay abstraction.",
-    "Headers keep address comments such as `/* 21E500 */` beside declarations.",
-    "Style cleanups favor spaced function-pointer casts like `u8 (*)(s32, s32, u8)` and spaced compound literals like `(GXColor) { 255, 255, 0, 255 }`."
+    "Stage functions keep the grHomeRun_8021XXXX address-based naming until semantic names are known.",
+    "File-scope Home-Run globals use the grHr_804DXXXX / grHr_804DBCXX address-derived convention.",
+    "Unknown struct fields retain offset names such as xCC, xD0, xD4, and xE8_flags until behavior is better understood.",
+    "Bitfields inside temporary layout overlays are named b0 through b7 when semantics are not yet proven.",
+    "Typed callback still uses fn_8021E994 because no semantic name was evidenced in the PR."
   ],
   "assembly_or_matching_tactics": [
-    "Used `#pragma push`, `#pragma dont_inline on`, `#pragma dont_inline reset`, and `#pragma pop` around `grHomeRun_8021C82C_noinline`.",
-    "Inserted `PAD_STACK(8)` in `grHomeRun_8021CB20`, consistent with stack-shape matching tactics used elsewhere in the project.",
-    "Preserved explicit `HSD_ASSERT` line constants including `0x17A`, `0x17B`, `0x1A2`, `0x1AB`, `0x239`, and `0x3D5`-`0x3D7`.",
-    "Used explicit cast/order forms such as `(s32) (f32) arg0`, `(f32) i < ...`, `(mpLib_Callback) fn_8021E994`, and `*(u8*) &gp->x10_flags |= 4`.",
-    "Split the distance normalization in `grHomeRun_8021EA30` into `new_var = 160.0F * time; new_var = ((f32) grHr_804D6ADC) * new_var; result /= grHr_804D6AE4 * new_var;`.",
-    "Kept repeated `Ground_801C0498()` calls instead of caching one scale value across all text/camera/background calculations.",
-    "Declared `static HSD_CameraDescPerspective cobj_desc` inside `grHomeRun_8021CB20` to match static camera descriptor data.",
-    "Used `HSD_MemAlloc(0x100)` and `HSD_MemAlloc(0x40)` literal sizes rather than count-based `sizeof` expressions.",
-    "Retained the unusual self-assignment `arg2->x34_flags = arg2->x34_flags` in `fn_8021E994`, likely because it affected emitted code in the matched callback."
+    "#pragma push / #pragma dont_inline on / #pragma dont_inline reset / #pragma pop around grHomeRun_8021C82C_noinline to preserve call boundaries.",
+    "Use of PAD_STACK(8) in grHomeRun_8021CB20 and existing PAD_STACK cleanups where needed for stack shape.",
+    "HSD_ASSERT calls with exact-looking line numbers such as 0x17A, 0x1A2, 0x239, and 0x3D5 were retained in new code.",
+    "Expression splitting in grHomeRun_8021EA30 with float new_var improved matching.",
+    "Function-pointer cast spacing and GXColor compound literal spacing were normalized in adjacent files, likely style/formatting rather than semantic changes.",
+    "External sdata/sdata2 symbols grHr_804DBC74, grHr_804DBC78, grHr_804DBC7C, grHr_804DBC80, and grHr_804DBC84 were used to drive text setup without inventing semantic names."
   ],
   "review_feedback": [
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "GALE01 report: matched code became 66.32% (+0.02%, +748 bytes). New 100% matches were `fn_8021E994` (+156), `grHomeRun_8021C754` (+6), `grHomeRun_8021EA30` (+2), and `grHomeRun_8021EDD4` (+1)."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "Unmatched improvements were `grHomeRun_8021CB20` to 88.42% (+2567), `grHomeRun_8021D680` to 90.03% (+1887), `grHomeRun_8021E500` to 93.52% (+1096), `.sdata2` to 89.66% (+50), and `.sdata` to 54.10% (+3)."
-    },
-    {
-      "source": "human review",
-      "feedback": "No human review comments or inline review feedback were present in the provided slice."
-    }
+    "No human review comments or reviews were present in the slice.",
+    "decomp.dev bot reported 4 new full matches: fn_8021E994 (+156 bytes), grHomeRun_8021C754 (+6), grHomeRun_8021EA30 (+2), and grHomeRun_8021EDD4 (+1).",
+    "decomp.dev bot reported partial improvements: grHomeRun_8021CB20 to 88.42%, grHomeRun_8021D680 to 90.03%, grHomeRun_8021E500 to 93.52%, .sdata2 to 89.66%, and .sdata to 54.10%."
   ],
   "searchable_terms": [
     "pr-2443",
@@ -153,63 +99,45 @@
     "jurrejelle",
     "grhomerun",
     "Home-Run Contest",
-    "src/melee/gr/grhomerun.c",
-    "src/melee/gr/grhomerun.h",
-    "src/melee/gr/types.h",
-    "main/melee/gr/grhomerun",
     "grHomeRun_8021CB20",
     "grHomeRun_8021D680",
     "grHomeRun_8021E500",
     "fn_8021E994",
-    "grHomeRun_8021C754",
     "grHomeRun_8021EA30",
     "grHomeRun_8021EC58",
     "grHomeRun_8021EDD4",
-    "grHomeRun_8021C82C_noinline",
     "grHomeRun_MainGroundVars",
-    "grHomeRun_GroundVars",
-    "xD0",
-    "xE8_flags",
-    "rear_gobj",
-    "rear2_gobj",
-    "rear3_gobj",
-    "rear4_gobj",
+    "grHomeRun_8021C82C_noinline",
+    "mpJointSetCb1",
+    "mpLib_GroundEnum",
+    "CollData",
+    "HSD_Text",
     "HSD_CameraDescPerspective",
-    "SIS_GrHomerunData",
-    "HSD_SisLib_803A611C",
-    "HSD_SisLib_803A6754",
     "HSD_SisLib_803A6B98",
-    "HSD_SisLib_804D1124",
-    "HSD_ArchiveGetPublicAddress",
     "Ground_801C0498",
-    "Ground_801C4A08",
     "Ground_801C57A4",
     "Ground_801C57C8",
-    "Camera_GetTransformInterest",
-    "mpJointSetCb1",
-    "mpJointUpdateBounding",
-    "mpLib_80056758",
-    "mpLib_GroundEnum",
-    "ftLib_80086644",
-    "ftLib_80086B74",
     "gm_80180AF4",
     "grHr_804D49D0",
-    "grHr_804D6ADC",
-    "grHr_804D6AE0",
-    "grHr_804D6AE4",
-    ".sdata",
-    ".sdata2",
-    "pragma dont_inline"
+    "grHr_804DBC74",
+    "grHomeRun_GroundVars xD0",
+    "dont_inline",
+    "HSD_ASSERT"
   ],
   "follow_up_queries": [
-    "grHomeRun_8021CB20 grHomeRun_MainGroundVars HSD_CameraDescPerspective SIS_GrHomerunData",
-    "grHomeRun_8021D680 Camera_GetTransformInterest rear_gobj mpLib_80056758 mpJointUpdateBounding",
-    "grHomeRun_8021E500 grHr_804D6ADC gobj_id xC4 xC6 xD0",
-    "fn_8021E994 mpJointSetCb1 mpLib_GroundEnum collKind arg2->x34_flags",
-    "grHomeRun_8021EC58 grHr_804D49D0 HSD_SisLib_803A6B98 .sdata",
-    "grHomeRun_8021EA30 new_var 0.304788 Ground_801C0498",
-    "grHomeRun_8021C82C_noinline pragma dont_inline matching wrapper",
-    "Home-Run Contest grhomerun .sdata2 constants 2150.99 2400.0 160.0"
+    "Find later PRs that finish matching grHomeRun_8021CB20 after this 88.42% version.",
+    "Find later PRs that finish matching grHomeRun_8021D680 after this 90.03% version.",
+    "Find later PRs that finish matching grHomeRun_8021E500 after this 93.52% version.",
+    "Search whether grHomeRun_MainGroundVars fields xCC/xD0/xD4/rear_gobj/xE8_flags.b0 later receive semantic names.",
+    "Search for other stage PRs using noinline wrappers around object factory functions for matching."
   ],
-  "confidence": 0.86
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

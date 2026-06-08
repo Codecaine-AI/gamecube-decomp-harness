@@ -1,0 +1,134 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2616",
+  "pr": {
+    "number": 2616,
+    "title": "Split and link `ftkirbyattackdash`",
+    "url": "https://github.com/doldecomp/melee/pull/2616",
+    "state": "MERGED",
+    "author": "ribbanya",
+    "created_at": "2026-06-08T14:05:36Z",
+    "merged_at": "2026-06-08T14:10:03Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Split Kirby AttackDash code out of broader Kirby/SpecialN translation units into a new matching object `melee/ft/chara/ftKirby/ftkirbyattackdash.c`, added a dedicated header, adjusted splits/build configuration, and updated consumers to include the narrower header. The extracted text range is 0x800F1F68-0x800F21E8 with sdata2 0x804D9368-0x804D9370, allowing this slice to be marked Matching while adjacent Kirby files remain NonMatching.",
+  "change_classification": {
+    "primary_type": "code_split_and_link",
+    "categories": [
+      "headers",
+      "matching",
+      "splits",
+      "build_config",
+      "fighter_code_organization"
+    ],
+    "systems": [
+      "config",
+      "fighter",
+      "kirby",
+      "ftCommon",
+      "item"
+    ]
+  },
+  "key_files": [
+    "config/GALE01/splits.txt",
+    "configure.py",
+    "src/melee/ft/chara/ftKirby/ftkirbyattackdash.c",
+    "src/melee/ft/chara/ftKirby/ftkirbyattackdash.h",
+    "src/melee/ft/chara/ftKirby/ftkirby.c",
+    "src/melee/ft/chara/ftKirby/ftkirby.h",
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialn.c",
+    "src/melee/ft/chara/ftCommon/ftCo_AttackDash.c",
+    "src/melee/it/items/itkirbycutterbeam.c"
+  ],
+  "what_changed": [
+    "Added new source file `src/melee/ft/chara/ftKirby/ftkirbyattackdash.c` containing Kirby AttackDash and AttackDashAir routines from address range 0x800F1F68-0x800F21C0.",
+    "Added new public header `ftkirbyattackdash.h` declaring `ftKb_SpecialN_800F1F68`, `ftKb_AttackDash_*`, and `ftKb_AttackDashAir_*` entry points.",
+    "Moved `ftKb_SpecialN_800F1F68` out of `ftkirby.c` and moved AttackDash-related functions out of `ftkirbyspecialn.c`.",
+    "Removed AttackDash prototypes from broad `ftkirby.h`, leaving later SpecialN/AttackDashAir helper declarations such as `fn_800F21E8` and `ftKb_AttackDashAir_800F22D4` there.",
+    "Updated `config/GALE01/splits.txt` so `ftkirby.c` ends at 0x800F1F68, the new `ftkirbyattackdash.c` covers 0x800F1F68-0x800F21E8 plus sdata2 0x804D9368-0x804D9370, and `ftkirbyspecialn.c` starts at 0x800F21E8.",
+    "Added `Object(Matching, \"melee/ft/chara/ftKirby/ftkirbyattackdash.c\")` to `configure.py` while keeping neighboring `ftkirby.c` and `ftkirbyspecialn.c` as NonMatching.",
+    "Changed include users in `ftCo_AttackDash.c` and `itkirbycutterbeam.c` from broad `ftKirby/ftkirby.h` to dedicated `ftKirby/ftkirbyattackdash.h`.",
+    "In the new split, replaced external float constants `ftKb_Init_804D9368` and `ftKb_Init_804D936C` with direct float literals `0.0f` and `1.0f` in `ftKb_SpecialN_800F1F68`, consistent with the new sdata2 split.",
+    "Kept local transition callbacks `fn_800F1FDC` and `fn_800F20C4` as file-local static forward declarations in the new source file.",
+    "Added default no-op branches to two switch statements in `ftkirbyspecialn.c`'s `ftKb_CaSpecialN_Phys` and `ftKb_CaSpecialAirN_Phys`, likely to preserve matching after the extraction."
+  ],
+  "smart_moves": [
+    "Used a focused header for AttackDash exports instead of continuing to expose unrelated Kirby declarations through `ftkirby.h`, reducing unnecessary dependencies.",
+    "Marked only the extracted `ftkirbyattackdash.c` object as Matching, avoiding overclaiming matching status for larger adjacent Kirby files.",
+    "Kept internal helper callbacks static in the new translation unit where possible, making the public ABI surface smaller.",
+    "Updated the split boundaries and build object list together, which is essential for successful link-order and section-address preservation in this project.",
+    "Moved only the address-contiguous AttackDash range, preserving the next function boundary at 0x800F21E8 for `ftkirbyspecialn.c`."
+  ],
+  "decomp_lessons": [
+    "When a contiguous subrange of a large nonmatching fighter file matches, it can be split into its own object and independently marked Matching in `configure.py`.",
+    "Always update `config/GALE01/splits.txt` text and small-data boundaries when extracting a new translation unit; here both `.text` and `.sdata2` moved across Kirby file boundaries.",
+    "Prefer narrow per-feature headers such as `ftkirbyattackdash.h` over umbrella fighter headers when external users only need a small set of callbacks.",
+    "File-local transition callbacks should remain `static` after a split if they are only used inside the new source file.",
+    "Direct literals like `0.0f` and `1.0f` may be preferable to external small-data symbols after a split, but this should be validated by matching output.",
+    "Small source-level changes outside the moved block, such as adding empty `default` cases, can be part of maintaining or recovering match after translation-unit boundary changes."
+  ],
+  "naming_conventions": [
+    "New Kirby feature file follows existing lowercase path/name style: `ftkirbyattackdash.c` and `ftkirbyattackdash.h` under `src/melee/ft/chara/ftKirby/`.",
+    "Public Kirby symbols retain the `ftKb_` prefix, e.g. `ftKb_AttackDash_Anim` and `ftKb_AttackDashAir_Coll`.",
+    "Address-only or unnamed helpers retain placeholder names such as `fn_800F1FDC` and `fn_800F20C4` when no semantic name is evidenced.",
+    "Header prototypes preserve address comments like `/* 0F203C */`, matching existing project convention.",
+    "Header guard uses address-style form `GALE01_0F1FDC`, consistent with generated/address-based guards seen in this codebase."
+  ],
+  "assembly_or_matching_tactics": [
+    "Created a new object for the exact address interval 0x800F1F68-0x800F21E8 and registered it as `Object(Matching, ...)`.",
+    "Adjusted neighboring split endpoints so `ftkirby.c`, `ftkirbyattackdash.c`, and `ftkirbyspecialn.c` form contiguous non-overlapping ranges.",
+    "Included only the dependencies needed by the extracted functions, including `ftCo_AttackDash.h`, `ftCo_Fall.h`, `ftparts.h`, `ftanim.h`, and low-level fighter helpers.",
+    "Used wrapper functions that delegate to common AttackDash behavior (`ftCo_AttackDash_Anim`, `ftCo_AttackDash_IASA`) while preserving Kirby-specific motion-state transition wrappers.",
+    "Made callback helpers static in the new TU to constrain symbol visibility and match expected linkage where external references are not needed.",
+    "Added explicit `default: break;` cases in SpecialN physics switch statements, likely as a codegen/matching adjustment after removing the AttackDash block."
+  ],
+  "review_feedback": [],
+  "searchable_terms": [
+    "pr-2616",
+    "ftkirbyattackdash",
+    "ftkirbyattackdash.c",
+    "ftkirbyattackdash.h",
+    "Split and link ftkirbyattackdash",
+    "Kirby AttackDash",
+    "Kirby AttackDashAir",
+    "ftKb_SpecialN_800F1F68",
+    "fn_800F1FDC",
+    "fn_800F20C4",
+    "ftKb_AttackDash_Anim",
+    "ftKb_AttackDash_IASA",
+    "ftKb_AttackDash_Phys",
+    "ftKb_AttackDash_Coll",
+    "ftKb_AttackDashAir_Anim",
+    "ftKb_AttackDashAir_IASA",
+    "ftKb_AttackDashAir_Phys",
+    "ftKb_AttackDashAir_Coll",
+    "ftKb_AttackDashAir_800F21C0",
+    "ftKb_MS_AttackDash",
+    "ftKb_MS_AttackDashAir",
+    "ftCo_AttackDash",
+    "ftkirbyspecialn",
+    "ftkirby.c",
+    "config/GALE01/splits.txt",
+    "Object(Matching)",
+    "0x800F1F68",
+    "0x800F21E8",
+    "0x804D9368",
+    "0x804D9370"
+  ],
+  "follow_up_queries": [
+    "Find other PRs that split small matching fighter action ranges out of larger NonMatching character files.",
+    "Search for additional Kirby feature headers that replaced broad includes of `ftkirby.h`.",
+    "Compare use of address-style header guards like `GALE01_0F1FDC` in other newly split files.",
+    "Look for matching fixes involving adding explicit `default: break;` to switch statements.",
+    "Search for other PRs that adjusted `.sdata2` boundaries when splitting fighter files."
+  ],
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

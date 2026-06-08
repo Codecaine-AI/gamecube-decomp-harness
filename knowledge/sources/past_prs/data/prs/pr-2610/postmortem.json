@@ -1,0 +1,111 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2610",
+  "pr": {
+    "number": 2610,
+    "title": "Fixup ftmaterial function call, cleanup itdrop",
+    "url": "https://github.com/doldecomp/melee/pull/2610",
+    "state": "MERGED",
+    "author": "PsiLupan",
+    "created_at": "2026-06-07T23:45:24Z",
+    "merged_at": "2026-06-07T23:49:05Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Small merged cleanup/fix PR touching fighter material initialization and item drop code. In ftmaterial.c, ftMaterial_800BF260 now passes hsdMObj.parent as the parent class argument to hsdInitClassInfo instead of ftMObj.parent, correcting the class hierarchy setup for ft_mobj. In itdrop.c, direct item_gobj->user_data casts/accesses were replaced with the GET_ITEM macro after including inlines.h, making item access consistent with project conventions.",
+  "change_classification": {
+    "primary_type": "fix_and_cleanup",
+    "categories": [
+      "fix",
+      "cleanup",
+      "macro-adoption",
+      "class-initialization"
+    ],
+    "systems": [
+      "fighter",
+      "item",
+      "HSD object/class system"
+    ]
+  },
+  "key_files": [
+    "src/melee/ft/ftmaterial.c",
+    "src/melee/it/itdrop.c"
+  ],
+  "what_changed": [
+    {
+      "file": "src/melee/ft/ftmaterial.c",
+      "change": "Changed ftMaterial_800BF260 so hsdInitClassInfo initializes ftMObj.parent with &hsdMObj.parent as the base/parent class parameter rather than &ftMObj.parent.",
+      "why_it_matters": "This better represents ft_mobj inheriting from or being based on the existing HSD_MObj class metadata instead of self-referencing ftMObj.parent during class registration."
+    },
+    {
+      "file": "src/melee/it/itdrop.c",
+      "change": "Added #include \"inlines.h\".",
+      "why_it_matters": "Needed to use the GET_ITEM helper macro."
+    },
+    {
+      "file": "src/melee/it/itdrop.c",
+      "change": "Replaced three direct item GObj user_data accesses with GET_ITEM(item_gobj) or GET_ITEM(spawned_item_gobj).",
+      "why_it_matters": "Centralizes item payload extraction behind the established inline/macro convention and avoids open-coded user_data access in item code."
+    }
+  ],
+  "smart_moves": [
+    "The ftmaterial fix is minimal but semantically important: only the parent class argument to hsdInitClassInfo changed, preserving the rest of the function and likely minimizing matching risk.",
+    "The itdrop cleanup uses the existing GET_ITEM abstraction rather than introducing new casts or helper names.",
+    "Adding inlines.h locally in itdrop.c keeps the macro dependency explicit at the file using GET_ITEM."
+  ],
+  "decomp_lessons": [
+    "When registering HSD class info, verify that the parent/base class pointer is the existing parent class metadata, not the struct being initialized. Self-referential class initialization can be a subtle decomp or cleanup error.",
+    "Prefer project-provided access macros such as GET_ITEM over direct gobj->user_data access when retrieving typed item data.",
+    "Small semantic fixes can be isolated to a single argument change to avoid disturbing surrounding matched code."
+  ],
+  "naming_conventions": [
+    "Fighter material functions in this area retain generated-address names such as ftMaterial_800BF260 and ftMaterial_800BF2B8.",
+    "Item drop functions retain generated-address names such as it_8026F3D4, it_8026F6BC, and it_8026F7C8.",
+    "Typed item object variables use names like item, spawned_item, item_gobj, and spawned_item_gobj.",
+    "The item accessor macro is named GET_ITEM and expects an item GObj."
+  ],
+  "assembly_or_matching_tactics": [
+    "For class initialization calls, matching may depend on passing the correct global class info symbol as an argument; here &hsdMObj.parent replaced &ftMObj.parent.",
+    "Macro replacement from gobj->user_data to GET_ITEM should be checked for codegen equivalence, but the diff suggests this was intended as a cleanup rather than a behavior rewrite.",
+    "No assembly diff, permuter notes, or reviewer matching discussion were present in the PR slice."
+  ],
+  "review_feedback": [],
+  "searchable_terms": [
+    "pr-2610",
+    "PsiLupan",
+    "ftmaterial",
+    "ftMaterial_800BF260",
+    "ftMaterial_800BF2B8",
+    "ftMObj",
+    "hsdMObj",
+    "HSD_MObjInfo",
+    "HSD_MObj",
+    "hsdInitClassInfo",
+    "sysdolphin_base_library",
+    "ft_mobj",
+    "itdrop",
+    "GET_ITEM",
+    "user_data",
+    "inlines.h",
+    "Item_GObj",
+    "it_8026F3D4",
+    "it_8026F6BC",
+    "it_8026F7C8",
+    "spawned_item_gobj",
+    "xCC_item_attr",
+    "HSD_Randf"
+  ],
+  "follow_up_queries": [
+    "Find other direct item_gobj->user_data accesses that should use GET_ITEM.",
+    "Audit other hsdInitClassInfo calls for accidental self-parent arguments.",
+    "Check whether other fighter-specific HSD object info structs use hsdMObj.parent or equivalent parent metadata consistently."
+  ],
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

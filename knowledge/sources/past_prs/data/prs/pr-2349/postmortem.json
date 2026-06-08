@@ -11,7 +11,7 @@
     "merged_at": "2026-03-24T21:33:55Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched Kirby's copied Fox/Falco blaster special code in ftkirbyspecialfox.c. The PR implemented ftKb_SpecialNFx_800FDF30, completed ftKb_SpecialNFx_800FE100 and ftKb_SpecialNFx_800FE240, and centralized several ftKb_Init data declarations. decomp.dev reported +1040 matched bytes, +0.03% overall matched code, 3 new function matches, and an .sdata2 improvement. Review focused on avoiding an obviously artificial goto-based match and preserving proper OSReport/HSD_ASSERT usage.",
+  "summary": "Matched more of Kirby's copied Fox/Falco neutral-special code in src/melee/ft/chara/ftKirby/ftkirbyspecialfox.c, most notably implementing ftKb_SpecialNFx_800FDF30 instead of leaving it as an unmatched stub and preserving ftKb_SpecialNFx_CreateBlasterShot as a wrapper. The change added item/projectile creation logic for Fox and Falco hats, moved blaster item-id selection inline into the ground and air start functions, added needed includes for ft_0877 and itfoxlaser, and promoted several ftKb_Init externs into ftKb_Init.h. Review centered on whether the initial goto-based match was too fake; the author revised to a goto-less conditional form. Review also pushed back against replacing proper OSReport/HSD_ASSERT usage with raw string/assert symbol calls.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -24,89 +24,99 @@
     "systems": [
       "fighter",
       "Kirby",
-      "Fox/Falco copied SpecialN",
-      "items/projectiles"
+      "items"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialfox.c",
-      "role": "Implemented the Kirby Fox/Falco blaster shot function and adjusted ground/air start functions to reach 100% matches."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.h",
-      "role": "Added shared declarations for ftKb_Init_804D3DB8, ftKb_Init_804D3DC0, ftKb_Init_804D9478, and ftKb_Init_804D9480."
-    }
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialfox.c",
+    "src/melee/ft/chara/ftKirby/ftKb_Init.h"
   ],
   "what_changed": [
-    "Replaced the placeholder for ftKb_SpecialNFx_800FDF30 with a real implementation; ftKb_SpecialNFx_CreateBlasterShot remains as a wrapper that calls ftKb_SpecialNFx_800FDF30.",
-    "ftKb_SpecialNFx_800FDF30 now checks fp->cmd_vars[2], clears it, computes a blaster shot position from FtPart_R3rdNa via lb_8000B1CC using offsets 0.0f, 1.45f, and 5.016f, zeros sp2C.z, then branches on fp->fv.kb.hat.kind.",
-    "For FTKIND_FOX and FTKIND_FALCO, the new code selects the corresponding ftKb_DatAttrs launch angle, launch speed, projectile id, and SFX array; it mirrors the launch angle with M_PI - angle when facing left, calls it_8029C6A4, calls it_802AE1D0 on fp->fv.kb.xB0, and plays SFX with ft_PlaySFX.",
-    "Removed inline helper ftKbGetBlasterId and instead computes blaster_id locally in ftKb_SpecialNFx_800FE100 and ftKb_SpecialNFx_800FE240 before calling it_802AE8A8.",
-    "Added includes for ft/ft_0877.h and it/items/itfoxlaser.h to support newly referenced functions/items.",
-    "Moved ftKb_Init_804D9478 and ftKb_Init_804D9480 declarations out of the C file into ftKb_Init.h, and added header declarations for the two u32 SFX arrays ftKb_Init_804D3DB8 and ftKb_Init_804D3DC0.",
-    "decomp.dev reported ftKb_SpecialNFx_800FDF30 moved from 0.00% to 100.00% (+432 bytes), ftKb_SpecialNFx_800FE100 from 98.62% to 100.00% (+5 bytes), ftKb_SpecialNFx_800FE240 from 98.75% to 100.00% (+4 bytes), plus .sdata2 from 57.14% to 84.21% (+11 bytes)."
+    "Implemented ftKb_SpecialNFx_800FDF30 in ftkirbyspecialfox.c, replacing a placeholder unmatched marker and moving the previous direct call into ftKb_SpecialNFx_CreateBlasterShot.",
+    "ftKb_SpecialNFx_800FDF30 now checks fp->cmd_vars[2], computes the blaster shot spawn position from FtPart_R3rdNa via lb_8000B1CC when possible, clears sp2C.z, and dispatches Fox/Falco-specific projectile creation.",
+    "Fox hat path uses da->specialn_fx_launch_angle, specialn_fx_launch_speed, specialn_fx_blaster_projectile_id, it_8029C6A4, it_802AE1D0, and ftKb_Init_804D3DB8 indexed by facing direction for SFX.",
+    "Falco hat path uses da->specialn_fc_launch_angle, specialn_fc_launch_speed, specialn_fc_blaster_projectile_id, it_8029C6A4, it_802AE1D0, and ftKb_Init_804D3DC0 indexed by facing direction for SFX.",
+    "Removed inline helper ftKbGetBlasterId and duplicated the Fox/Falco blaster item-id switch at the call sites in ftKb_SpecialNFx_800FE100 and ftKb_SpecialNFx_800FE240 to satisfy matching constraints.",
+    "Added includes for ft/ft_0877.h and it/items/itfoxlaser.h.",
+    "Added extern declarations for ftKb_Init_804D3DB8, ftKb_Init_804D3DC0, ftKb_Init_804D9478, and ftKb_Init_804D9480 to ftKb_Init.h, and removed local extern declarations for the two float symbols from ftkirbyspecialfox.c."
   ],
   "smart_moves": [
-    "Accepted a less artificial goto-less version after review while still preserving the match; the final form uses a compound condition with fp2 = GET_FIGHTER(gobj) rather than a visible goto path.",
-    "Kept the public/named ftKb_SpecialNFx_CreateBlasterShot wrapper while moving the actual matched body into ftKb_SpecialNFx_800FDF30, minimizing call-site churn.",
-    "Centralized address-named ftKb_Init globals in ftKb_Init.h instead of leaving ad hoc local externs in ftkirbyspecialfox.c.",
-    "Used explicit Fox/Falco hat-kind switches in the functions where codegen needed them, even though that repeats a small blaster_id selection block.",
-    "Responded to maintainer feedback by not leaving the intermediate raw __assert/string-extern form for the blaster creation failure path; project-preferred OSReport/HSD_ASSERT usage was preserved."
+    "Kept ftKb_SpecialNFx_CreateBlasterShot as a small wrapper around ftKb_SpecialNFx_800FDF30, preserving the existing named entry point while matching the underlying function.",
+    "Used explicit Fox/Falco switch cases tied to fp->fv.kb.hat.kind so copied Kirby blaster behavior can select correct launch parameters, projectile ids, item ids, and SFX ids from ftKb_DatAttrs and ftKb_Init data.",
+    "Accepted reviewer feedback and replaced the initial goto-based structure with a cleaner goto-less conditional that still matched, reducing the obvious fake-match smell.",
+    "Moved global data externs from a C file into ftKb_Init.h, making the symbols reusable and easier to locate for future Kirby work.",
+    "Preserved PAD_STACK only as a matching tactic; review discussion treats it as tolerated technical debt rather than desirable source style."
   ],
   "decomp_lessons": [
-    "A match can still be reviewed as too 'fake' if the structure is visibly unlikely original source, especially a goto used only to force codegen. If an equivalent structured form matches, prefer that over adding a fake-match comment.",
-    "PAD_STACK was discussed as technically artificial but widely present and expected to be cleaned up near the end of decomp; do not treat every PAD_STACK as requiring a fake-match warning by itself.",
-    "Preserve project-level readability wrappers like OSReport and HSD_ASSERT when reviewers identify them as the proper source-level form; do not lower them to __assert or extern string symbols just for convenience unless unavoidable.",
-    "The author noted that the temporary fp2 variable suggested an inlined helper, but factoring it out did not restore the match. Treat such inlining hypotheses as tentative unless the diff/review proves the original source shape.",
-    "For shared address-named data, prefer header declarations with address comments over repeated local externs; this PR added ftKb_Init_804D3DB8/804D3DC0/804D9478/804D9480 to ftKb_Init.h."
+    "A match that uses a goto in a place where original source likely did not should be considered suspicious; if an equivalent structured conditional also matches, prefer the structured version.",
+    "Reviewer tolerance for 'fake matches' is contextual: PAD_STACK is widely accepted as temporary project-wide cleanup debt, while contrived gotos, M2C_FIELD-style constructs, or comma-assignment tricks invite scrutiny.",
+    "When a helper function prevents matching, inlining its switch logic at multiple call sites may be an acceptable match tactic, but it should be recognized as less clean source reconstruction.",
+    "Do not regress readable runtime diagnostics just to expose raw data symbols: reviewers preferred keeping proper OSReport(\"...\") and HSD_ASSERT usage over raw OSReport(symbol) and __assert(file,line,msg) forms.",
+    "For copied-character special moves, Kirby hat kind often gates both behavior and data-field selection; matching work should check both FTKIND_FOX and FTKIND_FALCO paths explicitly.",
+    "If review questions whether a match is fake and there is no clean solution, a decomp.me scratch or explanatory comment may be useful, but this PR shows reviewers may prefer simply landing a cleaner structured match without labeling obvious temporary weirdness."
   ],
   "naming_conventions": [
-    "Kirby copied-Fox special symbols use the ftKb_SpecialNFx_* prefix, with ftKb_SpecialNFx_CreateBlasterShot as the descriptive wrapper and ftKb_SpecialNFx_800FDF30 as the address-style matched function.",
-    "ftKb_DatAttrs fields distinguish Fox and Falco data with specialn_fx_* versus specialn_fc_* names, e.g. specialn_fx_launch_angle, specialn_fc_launch_angle, specialn_fx_blaster_projectile_id, and specialn_fc_blaster_projectile_id.",
-    "Unknown ftKb_Init data keeps address-derived names such as ftKb_Init_804D3DB8, ftKb_Init_804D3DC0, ftKb_Init_804D9478, and ftKb_Init_804D9480, declared in the init header with address comments.",
-    "Hat-kind dispatch uses FTKIND_FOX and FTKIND_FALCO, while blaster attachment uses the existing part enum FtPart_R3rdNa."
+    "Kirby copied Fox special functions use the ftKb_SpecialNFx_* prefix for Fox/Falco blaster-related neutral special logic.",
+    "The wrapper name ftKb_SpecialNFx_CreateBlasterShot is preserved as a descriptive alias while the matched address-style implementation remains ftKb_SpecialNFx_800FDF30.",
+    "Kirby init/global symbols follow ftKb_Init_80XXXXXX address-style names until better semantic names are available.",
+    "Kirby copied-move attribute fields distinguish Fox and Falco with fx/fc infixes, e.g. specialn_fx_launch_angle versus specialn_fc_launch_angle and specialn_fx_blaster_item_id versus specialn_fc_blaster_item_id.",
+    "Hat kind comparisons use FTKIND_FOX and FTKIND_FALCO to select behavior for copied specials."
   ],
   "assembly_or_matching_tactics": [
-    "PAD_STACK(4) was needed in ftKb_SpecialNFx_800FDF30's local layout.",
-    "The final goto-less match uses assignment in a condition: (gobj != NULL) && (fp2 = GET_FIGHTER(gobj)) != NULL.",
-    "A local f64 launchAngle and explicit M_PI - attribute calculation are used for the facing-direction-dependent projectile angle.",
-    "The SFX array index uses the boolean expression [-1 == fp->facing_dir] against two-entry u32 arrays, matching a compact compare-to-index idiom.",
-    "The small blaster_id switch was duplicated in ftKb_SpecialNFx_800FE100 and ftKb_SpecialNFx_800FE240 instead of using the previous inline ftKbGetBlasterId helper, apparently to satisfy exact codegen for those near-matching functions.",
-    "The projectile spawn position is produced through lb_8000B1CC on fp2->parts[FtPart_R3rdNa].joint with a fixed Vec3 local, then sp2C.z is forced to zero before spawning the laser."
+    "Used PAD_STACK(4) in ftKb_SpecialNFx_800FDF30 to satisfy stack/layout matching.",
+    "Used f64 launchAngle for angle math involving M_PI and dat attribute launch angles.",
+    "Indexed two-element SFX id arrays with the boolean expression -1 == fp->facing_dir to select direction-specific sound ids.",
+    "Set fallback Vec3 components with chained assignments sp2C.x = sp2C.y = sp2C.z = 0.0f, then explicitly forced sp2C.z = 0 after the position calculation path.",
+    "Replaced an initial goto/label match shape with a structured if/else using assignment inside the condition: if ((gobj != NULL) && (fp2 = GET_FIGHTER(gobj)) != NULL).",
+    "Removed an inline helper and repeated switch-based blaster id selection because the factored helper did not match according to the author."
   ],
   "review_feedback": [
-    "ThePlayerRolo initially called the goto-based implementation a fake match and suggested adding a decomp.me scratch/comment if it could not be solved.",
-    "lukechampine questioned what counts as fake, compared the issue to M2C_FIELD, comma assignments, and PAD_STACK, and proposed a cleaner goto-less alternative while noting the result still might not be original source.",
-    "ThePlayerRolo clarified that the goto was the concern because the original likely did not use one; they also said PAD_STACK is so widespread that it is likely an end-of-decomp cleanup concern.",
-    "jurrejelle argued that a fake-match comment would not add much here, because the suspicious goto would be obvious, and said the cleaner 'less fake' option was good enough for now.",
-    "lukechampine then pushed the goto-less version.",
-    "PsiLupan requested not undoing proper OSReport/HSD_ASSERT usage in both ftKb_SpecialNFx_800FE100 and ftKb_SpecialNFx_800FE240; the final merged code preserved the macro-style failure paths."
+    {
+      "author": "ThePlayerRolo",
+      "feedback": "Called the initial goto-based ftKb_SpecialNFx_800FDF30 implementation a likely fake match and suggested including a decomp.me scratch or comment if it could not be solved."
+    },
+    {
+      "author": "lukechampine",
+      "feedback": "Asked what qualifies as a fake match, noting that M2C_FIELD and comma assignments feel clearly fake while PAD_STACK is tolerated; proposed a cleaner goto-less alternative and said fp2 suggested an inlined function but factoring it out did not restore the match."
+    },
+    {
+      "author": "ThePlayerRolo",
+      "feedback": "Clarified that the goto looked fake because the original code probably did not use a goto; PAD_STACK was considered a broader project cleanup issue not worth flagging everywhere."
+    },
+    {
+      "author": "jurrejelle",
+      "feedback": "Argued that adding a 'fake match' comment would not add much because the goto issue was obvious, and preferred landing the cleaner goto-less option as an improvement over the previous unmatched code."
+    },
+    {
+      "author": "lukechampine",
+      "feedback": "Pushed the goto-less version in response to the discussion."
+    },
+    {
+      "author": "PsiLupan",
+      "feedback": "Requested not to undo proper OSReport/HSD_ASSERT usage; same feedback applied to multiple hunks where raw string/assert symbols were introduced."
+    }
   ],
   "searchable_terms": [
     "pr-2349",
-    "lukechampine",
-    "ftkirbyspecialfox",
-    "ftkirbyspecialfox.c",
-    "ftKb_Init.h",
+    "ftkirbyspecialfox.c matches",
     "ftKb_SpecialNFx_800FDF30",
     "ftKb_SpecialNFx_CreateBlasterShot",
     "ftKb_SpecialNFx_800FE100",
     "ftKb_SpecialNFx_800FE240",
     "ftKbGetBlasterId",
     "ftKb_DatAttrs",
+    "specialn_fx_launch_angle",
+    "specialn_fc_launch_angle",
+    "specialn_fx_launch_speed",
+    "specialn_fc_launch_speed",
+    "specialn_fx_blaster_projectile_id",
+    "specialn_fc_blaster_projectile_id",
+    "specialn_fx_blaster_item_id",
+    "specialn_fc_blaster_item_id",
     "ftKb_Init_804D3DB8",
     "ftKb_Init_804D3DC0",
     "ftKb_Init_804D9478",
     "ftKb_Init_804D9480",
-    "specialn_fx_launch_angle",
-    "specialn_fx_launch_speed",
-    "specialn_fx_blaster_projectile_id",
-    "specialn_fx_blaster_item_id",
-    "specialn_fc_launch_angle",
-    "specialn_fc_launch_speed",
-    "specialn_fc_blaster_projectile_id",
-    "specialn_fc_blaster_item_id",
     "FTKIND_FOX",
     "FTKIND_FALCO",
     "FtPart_R3rdNa",
@@ -114,25 +124,26 @@
     "it_8029C6A4",
     "it_802AE1D0",
     "it_802AE8A8",
-    "itfoxblaster",
     "itfoxlaser",
-    "ft_PlaySFX",
     "PAD_STACK",
-    "M_PI",
-    "cmd_vars[2]",
     "fake match",
-    "goto-less",
+    "goto-less version",
     "OSReport",
-    "HSD_ASSERT",
-    ".sdata2",
-    "GALE01"
+    "HSD_ASSERT"
   ],
   "follow_up_queries": [
-    "Find other Kirby copied-Fox/Falco SpecialN functions still using /// # placeholders or wrapper-only stubs.",
-    "Search for remaining local extern declarations of ftKb_Init_804D* data that should be promoted to ftKb_Init.h.",
-    "Look for other fake-match review discussions involving goto, M2C_FIELD, comma assignments, or PAD_STACK to derive project style rules.",
-    "Audit other places where OSReport/HSD_ASSERT were lowered to raw __assert or extern strings and consider restoring the preferred macros.",
-    "After matching cleanup is allowed, revisit duplicated Fox/Falco blaster_id switches and the fp2/GET_FIGHTER pattern to see whether a real helper can be recovered without breaking matches."
+    "Check the final merged ftkirbyspecialfox.c to confirm whether OSReport/HSD_ASSERT usage was restored after PsiLupan's review comments.",
+    "Search for other Kirby copied special files that duplicate helper switch logic for hat.kind and may need a shared cleanup after matching.",
+    "Look for remaining PAD_STACK and goto-like fake-match constructs in ftKirby files that could be cleaned after more surrounding functions are matched.",
+    "Investigate whether the fp2 pattern in ftKb_SpecialNFx_800FDF30 corresponds to an inlined helper for joint-position lookup."
   ],
-  "confidence": 0.93
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

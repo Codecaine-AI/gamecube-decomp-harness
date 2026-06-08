@@ -11,138 +11,142 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed-unmerged, Claude-generated PR proposing a batch of pointer-math-heavy decompilations across gm, gr, and it code. The PR body says the functions used M2C_FIELD, raw pointer arithmetic, and u8* casts and were grouped separately because match quality versus code style might need discussion. It also bundled large new local automation/docs files. The slice has no reviewer comments and no explicit closure reason, so treat the implementations as experimental/unaccepted evidence rather than merged project practice.",
+  "summary": "Closed, apparently unmerged PR that claimed to decompile a batch of pointer-math-heavy functions across gmresultplayer, gmregclear, grmaterial, grcastle, grrcruise, itkamex, and itzgshell. The PR body explicitly grouped these because the matches used M2C_FIELD, raw pointer arithmetic, and u8* casts that might need discussion on match quality versus code style. It also added substantial Claude/overnight decomp automation documentation and scripts. The test plan claimed successful ninja, ninja diff, and 100% objdiff matches, but there were no issue comments, reviews, or review comments in the slice, and the PR was closed shortly after creation without merge evidence.",
   "change_classification": {
-    "primary_type": "unmerged_decompilation_proposal",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "pointer-math",
       "headers",
       "types-structs",
       "tooling",
-      "docs",
-      "unmerged"
+      "documentation",
+      "cleanup"
     ],
     "systems": [
-      "game-mode/results",
-      "game-mode/register-clear",
-      "stage/ground",
-      "stage/material",
-      "stage/rcruise",
-      "item/kamex",
-      "item/zgshell",
+      "game-mode",
+      "stage",
+      "item",
       "scripts",
-      "repo-docs"
+      "docs",
+      "repo-root"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gm/gmresultplayer.c",
-      "role": "Replaced stubs for fn_80179F84 and fn_8017A9B4 using HSD_JObj child/next traversal, result-player globals, HSD_ImageDesc setup, and byte-offset table lookup."
+      "role": "Implemented fn_80179F84 and fn_8017A9B4, added tobj include, externs for result globals, and a bitfield/padded type for lbl_8046E3AC."
     },
     {
       "path": "src/melee/gm/gmregclear.c",
-      "role": "Split lbl_80472D28 padding to expose s16 x10A and implemented fn_8017F14C with a capped value read from arg0+0x98."
+      "role": "Implemented fn_8017F14C and refined lbl_80472D28_t padding to expose x10A."
     },
     {
       "path": "src/melee/gr/grcastle.c",
-      "role": "Implemented grCastle_801CD960 and grCastle_801CF750 with Ground byte-offset math, a 12-entry loop, CollData flag check, and PAD_STACK."
+      "role": "Implemented grCastle_801CD960 and grCastle_801CF750 using Ground user_data, byte-offset access, and PAD_STACK."
     },
     {
       "path": "src/melee/gr/grmaterial.c",
-      "role": "Changed grMaterial_801C9470/801C9490 to Item_GObj plus CommandInfo, implemented material command value extraction and ColorOverlay callback setup in grMaterial_801C9604/801C9698."
+      "role": "Implemented grMaterial_801C9490, grMaterial_801C9604, and grMaterial_801C9698; changed grMaterial_801C9470 from HSD_JObj wrapper shape to Item_GObj/CommandInfo forwarding."
     },
     {
       "path": "src/melee/gr/grrcruise.c",
-      "role": "Implemented fn_802010A4 as a 17-entry table scan using gp->gv.pad_0+0x6C and bit extraction from arg2[0x34]."
+      "role": "Implemented fn_802010A4 with table traversal via gp->gv.pad_0 plus byte-offset entry fields."
     },
     {
       "path": "src/melee/it/items/itkamex.c",
-      "role": "Implemented it_802CA49C, it_802CA6A0, and itKamex_UnkMotion1_Phys using Pokemon item vars, item callbacks, M2C_FIELD offsets 0xE3C/0xE40, and fall-speed physics."
+      "role": "Implemented it_802CA49C, it_802CA6A0, and itKamex_UnkMotion1_Phys using item/article data and M2C_FIELD offsets."
     },
     {
       "path": "src/melee/it/items/itzgshell.c",
-      "role": "Added itGShell_HurtInit and implemented five Z/green shell functions covering init, entered-air transition, two collision callbacks, and hurt-capsule setup."
+      "role": "Implemented several zgshell motion/collision/helper functions and added itGShell_HurtInit local struct."
     },
     {
-      "path": "src/melee/*/*.h",
-      "role": "Updated several UNK_RET/UNK_PARAMS declarations to concrete return and parameter types, including gmresultplayer, gmregclear, grrcruise, and grmaterial headers."
+      "path": "scripts/decomp_helpers.py",
+      "role": "New helper script for overnight decomp workflow: stream JSON parsing, result parsing, token usage, stub filtering, context trimming, asm extraction, cutoff/progress helpers."
     },
     {
-      "path": "CLAUDE.md and scripts/decomp_*.sh/scripts/*.py",
-      "role": "Added unmerged Claude/decomp workflow documentation plus overnight automation, stub finding, stream-log parsing, progress tracking, and scripts/logs/ gitignore entry."
+      "path": "scripts/decomp_overnight.sh",
+      "role": "Large new automation script for batch/overnight decomp attempts."
+    },
+    {
+      "path": "CLAUDE.md",
+      "role": "New repository guide for Claude Code covering build commands, style, naming, architecture, workflow, matching tips, and permuter usage."
+    },
+    {
+      "path": ".gitignore",
+      "role": "Added scripts/logs/ ignore entry."
     }
   ],
   "what_changed": [
-    "The PR body claims 18 decompiled pointer-math functions; the diff visibly replaces 17 stub markers plus changes the existing grMaterial_801C9470 wrapper signature. The named targets are fn_80179F84, fn_8017A9B4, fn_802010A4, fn_8017F14C, grMaterial_801C9490, grMaterial_801C9698, grMaterial_801C9604, grCastle_801CD960, grCastle_801CF750, it_802CA49C, it_802CA6A0, itKamex_UnkMotion1_Phys, and five itzgshell functions.",
-    "gmresultplayer gained extern declarations for lbl_8046E1B0, lbl_8046E38C, lbl_8046E39C, lbl_8046E3AC, an HSD_TObj include, a local bitfield struct for lbl_8046E3AC, JObj sibling capture in fn_80179F84, and HSD_ImageDesc table setup in fn_8017A9B4.",
-    "gmregclear exposed lbl_80472D28.x10A inside prior padding and used it as a multiplier in fn_8017F14C after checking gm_8016AE38()->x24C8.x4_7 and capping a value from arg0+0x98 at 9999.",
-    "Stage changes used raw Ground offsets for castle collision/material state: grCastle_801CD960 iterates 12 records at gp+0xE0+i*0x14; grCastle_801CF750 conditionally increments a float at gp+idx*16+0xD0; grMaterial_801C9490 writes gp+0xC0 and flags b6; grMaterial_801C9604/9698 configure ColorOverlay at gp+0x40.",
-    "grrcruise fn_802010A4 scans 17 entries from a pointer stored under gp->gv.pad_0+0x6C, matches a s16 id at entry+2, initializes entry+4/entry[0], and increments entry+8 when a collision flag nibble indicates value 1.",
-    "itkamex changes initialize Pokemon item state and callbacks and read/write item/article special attributes through M2C_FIELD at offsets 0x4, 0x18, 0x1C, 0xE3C, and 0xE40.",
-    "itzgshell changes add a local itGShell_HurtInit struct, include itcoll.h, reset shell velocities/state on init, handle entered-air transitions, share similar GA_Air collision logic for motion 10/11, and build a HurtCapsule from item offset 0xE2C.",
-    "The PR adds large automation/documentation files unrelated to the C stubs: CLAUDE.md, decomp_overnight.sh, decomp_helpers.py, find_stubs.py, find_all_stubs.sh, schedule_overnight.sh, and a scripts/logs/ ignore rule."
+    "Replaced multiple /// # stubs with C implementations in game-mode, stage, and item modules; the PR body named functions including fn_80179F84, fn_8017A9B4, fn_802010A4, it_802CA49C, it_802CA6A0, itKamex_UnkMotion1_Phys, fn_8017F14C, grMaterial_801C9490, grMaterial_801C9698, grMaterial_801C9604, grCastle_801CD960, and grCastle_801CF750.",
+    "Updated headers for newly typed function signatures, replacing several UNK_RET/UNK_PARAMS declarations with concrete return/argument types such as void fn_80179F84(HSD_JObj*), void fn_8017A9B4(int), s32 fn_8017F14C(void*), and void fn_802010A4(Ground_GObj*, s32, u8*).",
+    "Added or refined local types/externs where needed: gmregclear exposed lbl_80472D28_t.x10A by splitting padding; gmresultplayer added externs for lbl_8046E1B0, lbl_8046E38C, lbl_8046E39C, and lbl_8046E3AC_t; itzgshell added itGShell_HurtInit.",
+    "Used explicit pointer arithmetic and field-offset access in several matches: casts like (u8*) gp + 0xE0, (u8*) gp + 0xD0, gp->gv.pad_0 + 0x6C, and M2C_FIELD(ip, f32*, 0xE3C/0xE40).",
+    "Added PAD_STACK in functions where the generated C needed stack-frame adjustment, including grCastle_801CF750, it_802CA49C, and it_802DE0F0.",
+    "Added substantial automation/tooling files for Claude-assisted decomp batches: decomp_helpers.py, decomp_overnight.sh, schedule_overnight.sh, find_stubs.py, find_all_stubs.sh, and CLAUDE.md.",
+    "The PR body claimed ninja builds, ninja diff no regressions, and 100% objdiff matches for all targeted functions."
   ],
   "smart_moves": [
-    "The author explicitly isolated these as pointer-math-heavy cases and warned they may need match-quality versus style discussion, which is useful triage for reviewers.",
-    "The diff updates headers from UNK_RET/UNK_PARAMS to concrete types where possible instead of only changing C bodies.",
-    "Some raw pads were narrowed into named fields or small structs, notably lbl_80472D28.x10A and itGShell_HurtInit, showing a path from offset-based matches toward typed structure recovery.",
-    "Known project types were used where available: HSD_JObj, HSD_ImageDesc, Ground, CollData, ColorOverlay, CommandInfo, Item_GObj, Article, Item, and HurtCapsule.",
-    "The implementations preserve recognizable high-level loop/table shapes instead of fully unrolled assembly: JObj sibling iteration, a 12-record castle loop, and a 17-entry Rainbow Cruise table scan.",
-    "The tooling additions, while unmerged and broad, tried to make automation more testable by moving shell-inline Python into decomp_helpers.py subcommands and parsing Claude stream JSON result events structurally instead of relying only on grep-like text matching."
+    "The author explicitly called out the risk area: these matches used M2C_FIELD, raw pointer arithmetic, and u8* casts, so the PR framed them as needing possible discussion on match quality versus source style rather than presenting them as unquestioned final-quality decomp.",
+    "Header prototypes were updated alongside C implementations, reducing future ambiguity around call signatures and making the newly decompiled functions more searchable.",
+    "Splitting gmregclear struct padding to add x10A is a reusable tactic when one known field can be recovered without fully solving the surrounding global layout.",
+    "The grMaterial_801C9470 change preserved the wrapper behavior while adapting its signature to pass Item_GObj* and CommandInfo* through to grMaterial_801C9490, suggesting attention to call-site semantics rather than only the callee body.",
+    "The new CLAUDE.md captured project-wide style and matching guidance, including avoiding raw pointer arithmetic in ideal decomp code, preferring true matches, using PAD_STACK for frame-size fixes, and proper struct/padding practices.",
+    "decomp_helpers.py moved overnight automation logic into testable subcommands and parsed Claude stream JSON result events structurally rather than relying only on grep-style conversational text matching."
   ],
   "decomp_lessons": [
-    "Raw pointer arithmetic can be useful as a matching scaffold, but this PR demonstrates why it should usually be converted into proper structs/fields before merge; examples include M2C_FIELD(ip, ..., 0xE3C/0xE40), (u8*) gp + offsets, and gp->gv.pad_0 + 0x6C.",
-    "When a function match depends on an unknown byte offset, split pads surgically and name the discovered member with its offset, as done with lbl_80472D28.x10A; future work should continue by identifying surrounding fields rather than leaving long-term casts.",
-    "Changing callback signatures can uncover the actual data flow: grMaterial_801C9470/801C9490 moved from HSD_JObj* to Item_GObj*, CommandInfo*, which made the command bytecode extraction visible.",
-    "Melee decomp PRs should keep scope reviewable. This PR mixed C decompilation with over 1,200 lines of Claude/overnight tooling and docs; there is no reviewer statement, but future work should likely split automation/docs from function matches.",
-    "Verify PR body counts against the diff. Here the title/body say 18 functions, while the provided list and stub replacements account for 17 plus one existing wrapper signature change.",
-    "The added CLAUDE.md itself says to avoid raw pointer arithmetic and prefer true matches/proper structs; that guidance conflicts with much of the C diff and captures the central tension of this PR."
+    "Pointer-math matches can be useful to remove stubs, but this PR is evidence that they should be treated as a separate review class: matching assembly alone may not mean the C is acceptable long-term style.",
+    "When an accessed field is hidden inside padding, a minimal struct refinement can improve clarity without requiring a complete struct recovery; gmregclear’s x10A field is the clearest example in this slice.",
+    "Ground and item code often exposes decomp pressure around partially known data: gobj->user_data, gp->gv.pad_0, and item variable unions may need temporary byte-offset access until better structs exist.",
+    "PAD_STACK should be documented at the function where it is required and kept narrow; this PR used it in a few specific decompiled functions rather than globally changing stack behavior.",
+    "If a function uses raw offsets such as 0xE3C, 0xE40, 0xE2C, 0xC0, 0xD0, or 0x40, a future cleanup query should try to recover the owning struct fields and replace M2C_FIELD/casts with named members.",
+    "Large automation/documentation additions mixed into a decomp PR can make review harder; future work may want separate PRs for tooling/docs versus actual function decompilation."
   ],
   "naming_conventions": [
-    "Stub markers use the project form /// #function_name, and replacement functions retain address-derived names when no semantic name is known, e.g. fn_8017F14C and fn_802010A4.",
-    "Headers and local prototypes use address comments such as /* 17F14C */ and /* 1C9470 */ before declarations.",
-    "Module prefixes visible in the diff: gm for game mode/results/register clear, gr for ground/stage code, and it for item code; unnamed functions keep fn_ plus address.",
-    "The added CLAUDE.md states project naming guidance: file names lowerCamelCase, function names UpperCamelCase with file/module prefixes, and standard-library reimplementations lowercase. Because the PR was unmerged, treat this as author-added guidance, not evidence of acceptance from this PR.",
-    "Struct and pad fields follow offset-bearing names such as x10A, pad_10C, x0_4, xE1C_b0, and comments like /* 0x00 */ in itGShell_HurtInit.",
-    "Item motion/callback names follow existing style such as itKamex_UnkMotion1_Phys, itZrshell_UnkMotion10_Coll, itZrshell_UnkMotion11_Coll, and it_2725_Logic11_EnteredAir."
+    "The added CLAUDE.md states that functions should be prefixed with their file/module name, with examples like ftCo_Attack100_Enter, lbVector_sin, and ftFox_LaserOnDeath.",
+    "The added CLAUDE.md states file names use lowerCamelCase while function names use UpperCamelCase, with standard library reimplementations using lowercase.",
+    "The added CLAUDE.md lists module prefixes such as ft for fighter, it for item, gr for ground/stage, gm for game, lb for library, cm for camera, ef for effect, if for interface, mn for menu, mp for map/collision, pl for player, sc for scene, ty for trophy, and vi for visual.",
+    "The added CLAUDE.md recommends struct members be labeled with hex offsets and unknown/padding names such as x10_thing and pad_xx.",
+    "Existing placeholder naming remained for many decompiled functions, such as fn_80179F84, fn_8017A9B4, fn_8017F14C, and fn_802010A4, indicating behavior was not yet confidently named."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(16) in grCastle_801CF750 and it_802CA49C, and PAD_STACK(8) in it_802DE0F0, indicating stack-size matching pressure.",
-    "Used M2C_FIELD for unresolved item/article fields: ip+0xE3C, ip+0xE40, ip+0xE2C, attrs+0x4, attrs+0x18, and attrs+0x1C.",
-    "Used raw u8* casts for addressable struct offsets: arg0+0x98, gp+0xE0+i*0x14, gp+idx*16+0xD0, gp+0xC0, gp+0x40, and table entries at entry+0/2/4/8.",
-    "Matched branch/bitfield idioms with explicit casts and bit extraction: ((arg2[0x34] >> 3) & 0xF) != 1, cd->x34_flags.b1234 == 1, and (*(u16*) cmd->ptr[0] >> 2) & 0xFF.",
-    "For fn_80179F84, used a pointer-to-pointer cursor over lbl_8046E39C and *++p assignment to store up to four JObj child/next pointers while handling NULL child chains.",
-    "For fn_8017A9B4, built HSD_ImageDesc pointers at base+0x104/base+0x164 plus slot*0x18, cleared image_ptr, then called lb_800121FC with u16 table values from lookup-derived tbl offsets.",
-    "For grMaterial_801C9604/9698, mapped Ground+0x40 to ColorOverlay and used lb_80014258 with fn_801C9664 as a callback to set gp->x10_flags.b4 on completion."
+    "Use M2C_FIELD for hard-to-type recovered offsets when exact matching is possible but owning struct layout is not yet established.",
+    "Use u8* casts for byte-granular offset math when accessing partially understood structures or packed tables, as seen in grCastle, grMaterial, grRCruise, gmresultplayer, and gmregclear.",
+    "Use PAD_STACK(n) when the C body matches semantically but the stack frame is off by a known byte count; examples in the diff include PAD_STACK(16) and PAD_STACK(8).",
+    "For table scans, model loop stride explicitly: fn_802010A4 walks 17 entries with entry size 0x18 and checks a s16 id at entry + 2.",
+    "For small wrapper functions, preserve forwarding shape and update signatures to match the actual command callback type, as in grMaterial_801C9470 forwarding to grMaterial_801C9490.",
+    "The added automation script guidance mentions ignoring pure register swaps until permuter work, using ABS/MIN/MAX for common patterns, and preferring structured for/while control flow over goto/labels, but those are from the added CLAUDE.md rather than reviewer feedback."
   ],
   "review_feedback": [
-    "No issue comments, review comments, or reviews are present in the slice; there is no explicit human reviewer feedback to extract.",
-    "The PR was closed unmerged about four minutes after creation, but the dump gives no closure rationale.",
-    "The only style warning in the evidence is author-supplied in the PR body: these pointer-math patterns were grouped separately because they may need discussion on match quality versus code style."
+    {
+      "source": "pr_activity",
+      "feedback": "No issue comments, review comments, or reviews were present in this slice."
+    },
+    {
+      "source": "pr_body",
+      "feedback": "The only explicit quality note is from the PR author: these pointer-math functions were grouped separately because M2C_FIELD/raw pointer arithmetic/u8* casts may need discussion on match quality versus code style."
+    }
   ],
   "searchable_terms": [
-    "pr-2279",
-    "johnwinston",
-    "Decompile 18 functions pointer math",
-    "closed unmerged",
-    "Claude Code",
+    "PR2279",
+    "pointer math",
     "M2C_FIELD",
     "raw pointer arithmetic",
     "u8* casts",
     "PAD_STACK",
-    "UNK_RET",
-    "UNK_PARAMS",
     "fn_80179F84",
     "fn_8017A9B4",
-    "fn_802010A4",
     "fn_8017F14C",
-    "grMaterial_801C9470",
+    "fn_802010A4",
+    "gmresultplayer",
+    "gmregclear",
     "grMaterial_801C9490",
     "grMaterial_801C9604",
     "grMaterial_801C9698",
     "grCastle_801CD960",
     "grCastle_801CF750",
+    "grrcruise",
     "it_802CA49C",
     "it_802CA6A0",
     "itKamex_UnkMotion1_Phys",
@@ -151,45 +155,28 @@
     "itZrshell_UnkMotion11_Coll",
     "itZrshell_UnkMotion10_Coll",
     "it_802DFF14",
-    "gmresultplayer",
-    "gmregclear",
-    "grrcruise",
-    "grcastle",
-    "grmaterial",
+    "itGShell_HurtInit",
     "itkamex",
     "itzgshell",
-    "lbl_80472D28",
-    "x10A",
-    "lbl_8046E1B0",
-    "lbl_8046E39C",
-    "lbl_8046E3AC",
-    "HSD_JObj",
-    "HSD_ImageDesc",
-    "lb_800121FC",
-    "Ground",
-    "CollData",
-    "ColorOverlay",
-    "CommandInfo",
-    "lb_80014258",
-    "Item_GObj",
-    "GET_ITEM",
-    "Article",
-    "HurtCapsule",
-    "itGShell_HurtInit",
-    "itcoll.h",
-    "scripts/decomp_overnight.sh",
-    "scripts/decomp_helpers.py",
-    "scripts/find_stubs.py",
+    "decomp_helpers.py",
+    "decomp_overnight.sh",
     "CLAUDE.md",
     "scripts/logs"
   ],
   "follow_up_queries": [
-    "Search later merged PRs for fn_80179F84, fn_8017A9B4, fn_8017F14C, and fn_802010A4 to see whether these pointer-math implementations were rewritten into typed structs.",
-    "Look for accepted definitions of item fields around Item offsets 0xE2C, 0xE3C, and 0xE40 in itkamex/itzgshell before reusing M2C_FIELD forms.",
-    "Investigate the Rainbow Cruise table behind gp->gv.pad_0+0x6C and whether it has a named struct replacing entry+0/2/4/8 accesses.",
-    "Check grMaterial_801C9470/801C9490 history for the accepted callback signature involving Item_GObj and CommandInfo.",
-    "Search for a later accepted itGShell_HurtInit or HurtCapsule initialization pattern before reusing the local struct from this unmerged PR.",
-    "If closure reason matters, inspect GitHub events or author follow-up PRs; this dump contains no review explanation."
+    "Find later PRs that replaced M2C_FIELD offsets 0xE3C and 0xE40 in itkamex with named Item or Pokemon fields.",
+    "Check whether fn_80179F84, fn_8017A9B4, fn_8017F14C, and fn_802010A4 were later merged, renamed, or reworked with better structs.",
+    "Search for later struct recovery around Ground offsets 0x40, 0xC0, 0xD0, and gp->gv.pad_0 + 0x6C used by grmaterial, grcastle, and grrcruise.",
+    "Determine whether the Claude/overnight scripts and CLAUDE.md were intentionally accepted elsewhere or dropped because this PR was closed unmerged.",
+    "Compare this PR against any successor branch/PR from johnwinston to see if the pointer-math decomp batch was split into cleaner reviewable pieces."
   ],
-  "confidence": 0.78
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

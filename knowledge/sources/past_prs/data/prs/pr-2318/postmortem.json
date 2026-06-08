@@ -11,135 +11,100 @@
     "merged_at": "2026-03-18T17:34:43Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged stage decomp PR replacing placeholder stubs with C implementations across Corneria, Great Bay, Home Run Contest, Inishie1, Old Kongo, and Old Pupupu. The diff added stage behavior for moving collision vertices, Arwing sequencing, Great Fox surface checks, Home Run marker text placement, item/block respawn callbacks, and random timer/spawn initialization. decomp.dev reported +1440 matched bytes, 8 new 100% matches, and 3 additional near-match/improvement rows for implemented functions in the captured bot report.",
+  "summary": "Matched 11 previously stubbed stage functions across Corneria, Great Bay, Home Run Contest, Mushroom Kingdom/Dream Land 64, Jungle Japes, and Dream Land 64 past stages. The PR replaced placeholder `/// #...` markers with C implementations, refined a few stage-specific data types and prototypes, and added a Home Run Contest ground-vars overlay. All listed functions were reported with `fuzzy_match_percent: 100.0`; there were no review comments in the provided slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-functions",
       "headers",
       "types-structs",
+      "stage-logic",
       "collision-geometry",
       "randomization",
-      "text-positioning"
+      "ui-text-positioning"
     ],
     "systems": [
       "stage",
-      "gr",
+      "ground",
+      "collision",
+      "baselib",
+      "items",
+      "Home Run Contest",
       "Corneria",
       "Great Bay",
-      "Home Run Contest",
-      "Inishie1",
-      "Old Kongo",
-      "Old Pupupu"
+      "Dream Land 64",
+      "Jungle Japes",
+      "Mushroom Kingdom"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grcorneria.c",
-      "role": "Matched three Corneria functions for Great Fox Y adjustment, Arwing attack sequencing, and stage-specific standable surface checks."
-    },
-    {
-      "path": "src/melee/gr/grgreatbay.c",
-      "role": "Added grGb_803E4048 JObj/collision-vertex mapping table and grGreatBay_801F660C to push animated JObj world positions into collision vertices."
-    },
-    {
-      "path": "src/melee/gr/grgreatbay.h",
-      "role": "Replaced placeholder grGreatBay_801F660C declaration with void grGreatBay_801F660C(Ground_GObj*)."
-    },
-    {
-      "path": "src/melee/gr/grhomerun.c",
-      "role": "Added grHr_804D6AE4 and four near-identical Home Run Contest text marker positioning callbacks."
-    },
-    {
-      "path": "src/melee/gr/grhomerun.h",
-      "role": "Added lb/forward.h include and typed grHomeRun_8021EC58 as void* grHomeRun_8021EC58(u16)."
-    },
-    {
-      "path": "src/melee/gr/grinishie1.c",
-      "role": "Implemented fn_801FBF6C item callback that finds a matching block JObj and respawns/reinitializes the block state."
-    },
-    {
-      "path": "src/melee/gr/groldkongo.c",
-      "role": "Narrowed stage config struct fields to s16, added random/JObj includes, and implemented grOldKongo_8021005C random range initialization with JObj flags."
-    },
-    {
-      "path": "src/melee/gr/groldpupupu.c",
-      "role": "Narrowed stage config struct fields to s16 and implemented grOldPupupu_80210C7C random range timer selection."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Added grHomeRun_GroundVars and inserted homerun into the Ground gv union."
-    }
+    "src/melee/gr/grcorneria.c",
+    "src/melee/gr/grgreatbay.c",
+    "src/melee/gr/grgreatbay.h",
+    "src/melee/gr/grhomerun.c",
+    "src/melee/gr/grhomerun.h",
+    "src/melee/gr/grinishie1.c",
+    "src/melee/gr/groldkongo.c",
+    "src/melee/gr/groldpupupu.c",
+    "src/melee/gr/types.h"
   ],
   "what_changed": [
-    "grCorneria_801E0D30 now checks gobj->hsd_obj and sets the JObj translate Y to -grCorneria_801E2EA0().",
-    "grCorneria_801E0F6C now drives Corneria Arwing sequencing: calls ifStatus_802F6898 and un_802FF570, checks whether ground object 5 exists, uses gp->gv.arwing fields as pattern/timer state, creates/initializes an Arwing object through grCorneria_801DD534 and grCorneria_801E2738, increments xC8, and falls back to Ground_801C4A08 when the sequence is exhausted.",
-    "grCorneria_801E2D90 now returns true only on CORNERIA for nonnegative line IDs whose mpJointFromLine result is one of joints 0, 1, 2, 5, 6, or 7.",
-    "grGreatBay_801F660C now loops over seven pairs in grGb_803E4048, resolves each animated JObj with Ground_801C3FA4, asserts it exists, reads its world position with lb_8000B1CC, and updates the matching collision vertex with mpVtxSetPos.",
-    "grHomeRun_8021DF50, grHomeRun_8021E0D4, grHomeRun_8021E258, and grHomeRun_8021E3DC now lazily create or fetch HSD_Text via grHomeRun_8021EC58, read a JObj position from gp->gv.unk.xCC, apply Ground_801C0498 scale with grHr_804D6AE4 offsets, and write HSD_Text pos_x, pos_y, and pos_z for field distance markers.",
-    "types.h gained struct grHomeRun_GroundVars with u16 xC4, u16 xC6, int xC8, and int xCC, then added a homerun union member under Ground::gv.",
-    "fn_801FBF6C now scans 19 Inishie1 blocks for the JObj pointer stored in the item's it_266F item variable, returns if none match, asserts ground object 3 exists, then calls grInishie1_801FB0AC and grInishie1_801FBCEC to reset the matching block.",
-    "grOldKongo_8021005C now sets all JObj flags 0x10 and stores a random value chosen from the s16 range in grOk_804D6A90->x2/x0 into gp->gv.unk.xC4.",
-    "grOldPupupu_80210C7C now stores a random s16 selected from grOp_804D6A98->x2/x0 into the low halfword of gp->gv.unk.xC4.",
-    "groldkongo.c and groldpupupu.c changed their stage config structs from a single int x0 to packed s16 x0 and s16 x2, matching the random-range loads used by the new functions."
+    "Implemented `grCorneria_801E0D30` to set a ground object's JObj Y translation to the negative of `grCorneria_801E2EA0()` when `gobj->hsd_obj` is non-null.",
+    "Implemented `grCorneria_801E0F6C` as Arwing flyby sequencing logic using `ifStatus_802F6898`, `un_802FF570`, `Ground_801C2BA4`, `grCorneria_801E2598`, `grCorneria_801DD534`, `grCorneria_801E2738`, and `Ground_801C4A08`.",
+    "Implemented `grCorneria_801E2D90` to identify standable Great Fox collision joints on Corneria by checking `stage_info.internal_stage_id == CORNERIA`, rejecting `line_id == -1`, mapping lines with `mpJointFromLine`, and accepting joints 0, 1, 2, 5, 6, and 7.",
+    "Added `grGb_803E4048`, a local Great Bay table mapping collision vertex IDs to JObj IDs, and implemented `grGreatBay_801F660C` to update seven map vertices from animated JObj world positions via `Ground_801C3FA4`, `lb_8000B1CC`, and `mpVtxSetPos`.",
+    "Updated `grgreatbay.h` prototype for `grGreatBay_801F660C` from `UNK_RET/UNK_PARAMS` to `void grGreatBay_801F660C(Ground_GObj*)`.",
+    "Added global `f32 grHr_804D6AE4` and implemented four near-identical Home Run Contest functions: `grHomeRun_8021DF50`, `grHomeRun_8021E0D4`, `grHomeRun_8021E258`, and `grHomeRun_8021E3DC`. Each lazily creates or retrieves an `HSD_Text*` using `grHomeRun_8021EC58`, reads a JObj position with `lb_8000B1CC`, applies `Ground_801C0498()` scaling, and writes text `pos_x`, `pos_y`, and `pos_z`.",
+    "Updated `grhomerun.h` by including `lb/forward.h` and changing `grHomeRun_8021EC58` from an unknown signature to `void* grHomeRun_8021EC58(u16)`.",
+    "Implemented `fn_801FBF6C` in `grinishie1.c` as an item callback that searches 19 ? Block entries for the JObj associated with the collected/destroyed item, retrieves ground object 3, asserts it exists, and calls `grInishie1_801FB0AC` and `grInishie1_801FBCEC` to restore/reactivate the matching block.",
+    "Changed Old Kongo and Old Pupupu config structs from one `int x0` to two `s16` fields `x0` and `x2`, matching the range data used by random selection logic.",
+    "Implemented `grOldKongo_8021005C` to hide or flag a JObj with `HSD_JObjSetFlagsAll(jobj, 0x10)` and initialize `gp->gv.unk.xC4` from a random value between `grOk_804D6A90->x2` and `grOk_804D6A90->x0` via a local `rand_inline` helper.",
+    "Implemented `grOldPupupu_80210C7C` to choose a random Whispy Woods wait/wind timer value between `grOp_804D6A98->x2` and `grOp_804D6A98->x0` using `HSD_Randi`, storing through `gp->gv.unk.xC4` as an `s16`.",
+    "Added `struct grHomeRun_GroundVars` with `u16 xC4`, `u16 xC6`, `int xC8`, and `int xCC`, and added it to the `Ground` union as `homerun`."
   ],
   "smart_moves": [
-    "Kept Home Run text placement code intentionally repetitive, including repeated Ground_801C0498 calls and zero-multiplied float terms, which is likely important for matching compiler scheduling and float codegen.",
-    "Introduced a precise grHomeRun_GroundVars overlay while still using existing gv.unk accesses where the diff needed the old word-typed storage pattern, avoiding over-renaming that could disturb matching.",
-    "Used s16 config fields for Old Kongo and Old Pupupu instead of treating range data as an int, exposing the packed stage parameter layout needed by HSD_Randi range selection.",
-    "Encoded Great Bay moving collision alignment as a small s16 data table plus loop, matching both code and .data behavior instead of hard-coding repeated vertex updates.",
-    "Preserved source-level match details such as HSD_ASSERT(1398, jobj), __assert(\"grinishie1.c\", 0x425, \"new_gobj\"), PAD_STACK(16), and explicit casts.",
-    "Typed headers only where implementation evidence supported it, replacing UNK_RET/UNK_PARAMS for grGreatBay_801F660C and grHomeRun_8021EC58 without broad speculative signature cleanup."
+    "Converted unknown function prototypes to concrete signatures only where the matched code provided evidence, e.g. `grGreatBay_801F660C(Ground_GObj*)` and `grHomeRun_8021EC58(u16)`.",
+    "Introduced a stage-specific `grHomeRun_GroundVars` overlay instead of continuing to access all fields through the generic `unk` overlay; this made the newly matched Home Run text functions able to reference `gp->gv.homerun.xC6` while preserving existing `unk` accesses where necessary.",
+    "Matched Great Bay moving collision by expressing the hardcoded vertex/JObj relationship as a compact `s16[][2]` table, then iterating the first seven entries; this mirrors data-driven stage collision update patterns and avoids seven duplicated update blocks.",
+    "Handled random range selection in both ascending and descending order for Old Kongo and Old Pupupu, preserving behavior when config endpoints appear in either order.",
+    "Used existing engine helpers and macros (`GET_GROUND`, `GET_JOBJ`, `Ground_801C3FA4`, `lb_8000B1CC`, `mpVtxSetPos`, `HSD_ASSERT`, `__assert`) rather than open-coding object access or coordinate extraction.",
+    "For Corneria standability, checked both stage ID and invalid line ID before mapping the line to a joint, keeping the helper safely constrained to Corneria-specific line semantics.",
+    "The Home Run Contest functions intentionally retain repeated calls to `Ground_801C0498()` and no-op `0.0F * (...)` terms, which are likely matching-sensitive and should not be simplified unless verified."
   ],
   "decomp_lessons": [
-    "Moving stage collision is often synchronized by resolving animated JObjs, reading world-space Vec3 positions through lb_8000B1CC, then writing collision vertices with mpVtxSetPos.",
-    "Stage hazard timers and spawn ranges may be packed as halfwords inside static stage data; verify s16/u16 layout before assuming word-sized Ground vars.",
-    "For matching, do not simplify repeated scale calls, redundant zero float math, nested conditionals, post-decrement timer checks, or temporary boolean locals unless the assembly proves it is safe.",
-    "Stage item callbacks can identify source geometry by comparing embedded item JObj pointers against stage block JObjs, not just by item kind or index.",
-    "Stage-specific collision behavior should be guarded with stage_info.internal_stage_id and mpJointFromLine when determining line or joint rules.",
-    "When a function reveals a real signature, update the corresponding header and forward includes immediately so future PRs can reuse typed prototypes."
+    "Stage config blobs that initially look like a single `int` may need to be split into `s16` fields when matched code reads range endpoints separately.",
+    "For stage collision linked to animated geometry, look for a table mapping map vertex IDs to JObj IDs, then use JObj world positions to update collision vertices with `mpVtxSetPos`.",
+    "Ground variable unions should gain stage-specific overlays when multiple functions reveal consistent field meaning; however, generic overlays may still be needed for fields whose names or ownership remain weakly understood.",
+    "Matching-sensitive arithmetic may include apparently redundant float operations, such as multiplying by `0.0F` or repeatedly reloading a scale helper. Preserve these forms when they are needed for instruction order or float codegen.",
+    "Random timer initialization often uses exclusive-range `HSD_Randi(abs(diff))` added to the lower endpoint, with a separate equal-endpoint case.",
+    "Callbacks from item systems back into stage logic can identify the affected stage element by comparing JObj pointers stored in item variables against stage block data.",
+    "When a function's behavior is stage-specific, guard by `stage_info.internal_stage_id` and sentinel IDs before interpreting collision line or joint numbers.",
+    "Inline helpers can be useful for matching repeated ternary/randomization patterns, as shown by `rand_inline` in `groldkongo.c`, but evidence is limited to this PR slice."
   ],
   "naming_conventions": [
-    "Stage functions continue to use the project address-based form grStageName_Address, such as grCorneria_801E0D30, grGreatBay_801F660C, and grHomeRun_8021DF50.",
-    "Static stage globals use short module prefixes plus addresses, including grGb_803E4048, grHr_804D6AE4, grOk_804D6A90, and grOp_804D6A98.",
-    "Semantically unresolved callbacks may remain fn_Address, as with fn_801FBF6C, when the slice has no review evidence requesting a better name.",
-    "New stage-specific Ground union overlays should use struct grStage_GroundVars and a lowercase union member, as shown by struct grHomeRun_GroundVars and gv.homerun.",
-    "Offset-style member names xC4, xC6, xC8, and xCC were retained where semantics were still not fully named."
+    "Stage-local globals follow the existing abbreviation-plus-address pattern, e.g. `grGb_803E4048`, `grHr_804D6AE4`, `grOk_804D6A90`, and `grOp_804D6A98`.",
+    "New stage-specific ground-vars struct is named `struct grHomeRun_GroundVars` and union member `homerun`, matching the stage name rather than using only `unk`.",
+    "Unidentified fields remain address-style or offset-style names such as `xC4`, `xC6`, `xC8`, `xCC`, `x0`, and `x2`; the PR did not attempt speculative semantic names.",
+    "Unmatched or weakly identified functions keep address-based names such as `fn_801FBF6C` and `grCorneria_801E0F6C`.",
+    "Headers use address comments and concrete prototypes when known, replacing `UNK_RET`/`UNK_PARAMS` as signatures are established."
   ],
   "assembly_or_matching_tactics": [
-    "Use explicit casts such as (u32) gp->gv.unk.xCC != 0, (int) grHomeRun_8021EC58(...), (HSD_JObj*) gp->gv.unk.xCC, and (s32) gp->gv.arwing.xCC-- < 0 to preserve compare and load shapes.",
-    "For halfword writes into generic Ground storage, the Old Pupupu implementation uses *(s16*) &gp->gv.unk.xC4 rather than changing the whole storage access.",
-    "The Old Kongo rand_inline branches separately for a > b, a < b, and equality, with HSD_Randi guarded by delta != 0; this pattern is reusable for matching random range helpers.",
-    "Great Bay uses u32 loop index i and s16 grGb_803E4048[][2] data pairs; the table includes a {0, 0} terminator even though the loop runs seven active entries.",
-    "Corneria grCorneria_801E2D90 keeps a local s32 result and nested if(result) return instead of collapsing the whitelist into a direct boolean return.",
-    "fn_801FBF6C includes PAD_STACK(16), a casted (u32) i == 19 check, and exact assert metadata, all likely used to satisfy stack and control-flow matching."
+    "Preserved explicit casts such as `(u32) gp->gv.unk.xCC != 0`, `(int) grHomeRun_8021EC58(...)`, `(HSD_Text*) gp->gv.unk.xC8`, and `(HSD_JObj*) gp->gv.unk.xCC`, likely to match register and comparison behavior.",
+    "Used ternary expressions for Old Pupupu's random range logic and a static inline helper for Old Kongo's similar logic, reflecting matching constraints rather than purely stylistic C.",
+    "Kept `PAD_STACK(16)` at the end of `fn_801FBF6C`, indicating stack-shape matching was required.",
+    "Added `HSD_ASSERT(1398, jobj)` in Great Bay and `__assert(\"grinishie1.c\", 0x425, \"new_gobj\")` in Inishie1, preserving file/line assert metadata that often affects rodata and match.",
+    "In Home Run text positioning, retained repeated `Ground_801C0498()` calls and explicit intermediate `scale`, `y`, and `z` locals rather than algebraically simplifying them.",
+    "Corneria Arwing logic uses post-decrement comparisons cast to `s32`, e.g. `(s32) gp->gv.arwing.xCC-- < 0`, a likely matching-sensitive control-flow detail.",
+    "Great Bay's vertex/JObj table includes a `{ 0, 0 }` terminator-like entry but the loop uses `i < 7`, so the apparent sentinel is intentionally not used by the implementation in this slice."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in this slice.",
-    "The decomp.dev bot reported matched code 58.78% (+0.04%, +1440 bytes).",
-    "The bot report listed 8 new 100% matches and 6 improvement rows; the implemented fn_801FBF6C, grOldKongo_8021005C, and grGreatBay_801F660C appeared as near-match/improvement rows in that captured report rather than new 100% rows.",
-    "The PR body/human text claims fuzzy_match_percent 100.0 for all functions, but the bot report excerpt is more nuanced, so future reuse should verify final match status from build artifacts if exact percentages matter."
+    "No review comments or review feedback were present in the provided PR slice.",
+    "The PR body reports `fuzzy_match_percent: 100.0` for all matched functions; no independent reviewer validation text is included in the slice."
   ],
   "searchable_terms": [
-    "pr-2318",
-    "johnwinston",
+    "PR2318",
     "Match 11 stage functions",
-    "stage",
-    "gr",
-    "Ground_GObj",
-    "Ground",
-    "GET_GROUND",
-    "HSD_JObj",
-    "HSD_Text",
-    "Vec3",
-    "lb_8000B1CC",
-    "Ground_801C0498",
-    "mpVtxSetPos",
-    "mpJointFromLine",
-    "HSD_Randi",
-    "PAD_STACK",
-    "HSD_ASSERT",
+    "johnwinston",
     "grCorneria_801E0D30",
     "grCorneria_801E0F6C",
     "grCorneria_801E2D90",
@@ -150,34 +115,46 @@
     "grHomeRun_8021E258",
     "grHomeRun_8021E3DC",
     "grHomeRun_8021EC58",
-    "grHr_804D6AE4",
-    "grHomeRun_GroundVars",
     "fn_801FBF6C",
     "grOldKongo_8021005C",
     "grOldPupupu_80210C7C",
-    "grOk_804D6A90",
-    "grOp_804D6A98",
-    "Corneria",
-    "Arwing",
-    "Great Fox",
-    "Great Bay",
-    "Tingle balloon",
-    "Home Run Contest",
-    "distance marker text",
-    "Inishie1",
-    "question block",
-    "Old Kongo",
-    "Jungle Japes",
-    "Old Pupupu",
-    "Dream Land 64",
-    "Whispy Woods"
+    "grHomeRun_GroundVars",
+    "Ground_GObj",
+    "GET_GROUND",
+    "GET_JOBJ",
+    "HSD_JObjSetTranslateY",
+    "HSD_JObjSetFlagsAll",
+    "HSD_Randi",
+    "mpVtxSetPos",
+    "mpJointFromLine",
+    "Ground_801C3FA4",
+    "lb_8000B1CC",
+    "HSD_Text",
+    "stage_info.internal_stage_id",
+    "CORNERIA",
+    "Great Bay moving collision",
+    "Tingle balloon collision",
+    "Home Run Contest distance marker text",
+    "Whispy Woods random wait",
+    "Jungle Japes barrel hazard",
+    "Inishie1 block respawn",
+    "fuzzy_match_percent 100.0"
   ],
   "follow_up_queries": [
-    "Verify the PR body mention of fn_8021E994: it appears in the generated human summary but not in the provided diff or decomp.dev function rows.",
-    "Search for other stage functions using lb_8000B1CC plus mpVtxSetPos to reuse the Great Bay moving-collision pattern.",
-    "Audit other Old Kongo and Old Pupupu stage data structs for packed s16 range fields that may currently be modeled as int.",
-    "Once more Home Run Contest functions are matched, consider semantic names for grHomeRun_GroundVars fields xC4/xC6/xC8/xCC.",
-    "Compare future random-range helpers against rand_inline and the Old Pupupu ternary form before simplifying, because branch shape appears match-sensitive."
+    "Find later PRs that rename `grHomeRun_GroundVars` fields `xC4`, `xC6`, `xC8`, or `xCC` to semantic names.",
+    "Search for other stages that update collision vertices from animated JObjs using `mpVtxSetPos` and `lb_8000B1CC`.",
+    "Look for follow-up work on `grCorneria_801E2598`, `grCorneria_801E2738`, and Arwing ground-vars to clarify `xC4`, `xC8`, and `xCC` meanings.",
+    "Check whether Old Kongo and Old Pupupu random range structs are later given named fields for min/max timers or spawn ranges.",
+    "Search for additional `fn_801FBF6C` callers or item callback signatures to confirm the item callback parameter names and semantics.",
+    "Compare Home Run Contest marker functions to see whether they can later be factored or whether duplication is required for matching."
   ],
-  "confidence": 0.88
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

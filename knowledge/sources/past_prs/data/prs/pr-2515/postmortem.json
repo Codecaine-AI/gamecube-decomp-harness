@@ -11,16 +11,16 @@
     "merged_at": "2026-05-19T21:57:50Z"
   },
   "agent_status": "agent_completed",
-  "summary": "One-file lbcollision matching pass focused on capsule/capsule collision math. The PR renamed and documented the 3D capsule solver lbColl_80006E58 by hit/hurt roles, rewrote closest-point and broadphase locals to improve MWCC register/stack behavior, removed the local lbColl_JObjGetMtxPtr wrapper in favor of HSD_JObjGetMtxPtr, factored repeated debug drawing into lbColl_DrawHitResult, and improved multiple match percentages. Four draw-related functions reached 100%; lbColl_80006094, lbColl_800067F8, and lbColl_80006E58 remained below 100% due to residual float-register-allocation mismatches.",
+  "summary": "Improved matching in `src/melee/lb/lbcollision.c`, focused on capsule/capsule or capsule-collision helpers. Four near-matching functions reached 100% (`lbColl_8000A244`, `lbColl_8000A78C`, `lbColl_8000A95C`, `lbColl_8000AB2C`) and several larger functions improved but remained below 100%, especially `lbColl_80006094`, `lbColl_800067F8`, and `lbColl_80006E58`. The work mainly reshaped local variable lifetimes, stack layout, constant usage, and parameter naming rather than changing documented behavior.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "naming",
-      "refactor",
       "types-structs",
-      "matching-regression-fix",
-      "collision-math"
+      "local-variable-lifetime",
+      "float-register-allocation",
+      "cleanup"
     ],
     "systems": [
       "library",
@@ -29,71 +29,84 @@
     ]
   },
   "key_files": [
-    "src/melee/lb/lbcollision.c (+670/-621, 50 hunks): capsule collision solver, 2D/3D closest-point math, hurt/hit debug draw helpers"
+    {
+      "file": "src/melee/lb/lbcollision.c",
+      "added": 670,
+      "deleted": 621,
+      "role": "Only changed file; capsule collision matching, parameter naming, Vec3/local reshaping, constants/assert cleanup."
+    }
   ],
   "what_changed": [
-    "Changed only src/melee/lb/lbcollision.c.",
-    "lbColl_80006E58 was given semantic parameters and comments: hit_start/hit_end, hurt_start/hurt_end, hit_closest/hurt_closest, hurt_mtx, out_contact_pos, out_overlap, hit_radius, hurt_radius, broadphase_scale.",
-    "lbColl_80006E58 call sites were updated for the new argument order, moving out_overlap before hit_radius/hurt_radius/broadphase_scale.",
-    "The 3D capsule narrow-phase in lbColl_80006E58 was rewritten around named broadphase_radius, segment_dot, hit_len_sq, hurt_len_sq, closest_denom, hit_param, hurt_param, closest_dist, local_dist, and related local-space radius calculations.",
-    "The custom static inline lbColl_JObjGetMtxPtr and its lbColl_804D3700/lbColl_804D3708 assert strings were removed; call sites now use HSD_JObjGetMtxPtr.",
-    "Added lbColl_DrawHitResult to share the HSD_MtxInverse + PSMTXMultVec + lbColl_800096B4 path used by several hit/hurt debug draw functions.",
-    "Four functions became 100% matches: lbColl_8000A244, lbColl_8000A78C, lbColl_8000A95C, and lbColl_8000AB2C.",
-    "Unmatched functions improved: lbColl_80006094 78.7% to 91.4%, lbColl_800067F8 78.7% to 89.4%, lbColl_80006E58 81.0% to 95.4%, and lbColl_8000A584 99.7% to 99.8%.",
-    "lbColl_80005C44 was cleaned up with scoped dot/scale locals, literal clamp values, and SQ() usage; an attempted Vec3 local reshuffle caused a temporary 99.99% regression and was fixed by restoring the stack-sensitive local layout.",
-    "lbColl_80006094 and lbColl_800067F8 received stack-padding/local-scope reshuffles, Vec3 copies in selected branches, approximatelyZero calls, and explicit lbColl_804D79F8/lbColl_804D7A08/lbColl_804D7A10/lbColl_804D7A18 constants for clamp and midpoint behavior."
+    "Renamed the static `lbColl_80006E58` parameters from generic `arg0`-style names to role-based names: `hit_start`, `hit_end`, `hurt_start`, `hurt_end`, `hit_closest`, `hurt_closest`, `hurt_mtx`, `out_contact_pos`, `out_overlap`, `hit_radius`, `hurt_radius`, and `broadphase_scale`.",
+    "Removed the unused inline `lbColl_JObjGetMtxPtr` helper and its associated assert strings `lbColl_804D3700` and `lbColl_804D3708`, because the helper was no longer referenced.",
+    "Added a small `between(float x, float lo, float hi)` helper and changed `nearzero` to use direct literals `1e-5F` and `-1e-5F` in the excerpted code.",
+    "Reworked `lbColl_80005C44` by narrowing temporary lifetimes inside nested scopes, using scoped `d1_dot_d1`, `d1_dot_d2`, and `scale`, and replacing some volatile constant loads with direct `0.0f` and `1.0` comparisons.",
+    "Collapsed several explicit scalar x/y/z stack temporaries into `Vec3` locals in multiple functions, matching the PR body note about `lbColl_80005C44` and parallel-axes branches of `lbColl_80006E58`.",
+    "Adjusted stack padding in larger functions, including `lbColl_80006094` changing from `PAD_STACK(56)` to `PAD_STACK(80)` and `lbColl_800067F8` using `PAD_STACK(72)` in the diff excerpt.",
+    "Changed many clamp comparisons in collision parameter solves to use existing floating constants such as `lbColl_804D7A00`, `lbColl_804D7A08`, `lbColl_804D7A10`, and `lbColl_804D79F8` instead of direct casts like `(float) 1.0` and `(float) 0.0` in some hot matching sections.",
+    "Restructured closest-point/distance calculations with nested blocks, copied `Vec3` temporaries, and explicit `dot` variables to influence register allocation and stack layout.",
+    "Used `SQ(...)` in at least one squared-distance comparison in `lbColl_80005C44`.",
+    "PR body reports new 100% matches for `lbColl_8000A244`, `lbColl_8000A78C`, `lbColl_8000A95C`, and `lbColl_8000AB2C`; improvements but not full matches for `lbColl_80006094`, `lbColl_800067F8`, `lbColl_80006E58`, and `lbColl_8000A584`."
   ],
   "smart_moves": [
-    "Naming lbColl_80006E58 by collision role made a long, pointer-heavy signature safer to reason about and made call-site comments self-documenting.",
-    "Deleting lbColl_JObjGetMtxPtr removed a duplicate JObj matrix accessor and unused assert strings instead of preserving dead matching scaffolding.",
-    "Factoring lbColl_DrawHitResult avoided repeating inverse-transform draw setup and helped several near-matching debug draw functions reach 100%.",
-    "The closest-point solve kept both hit_param and hit_param_candidate live with an assignment expression, a targeted tactic to avoid redundant float moves.",
-    "Caching the 1.0 constant in a callee-save float for repeated *_param = 1.0 branches directly targeted float register allocation.",
-    "The PR used named geometry concepts such as broadphase_radius, closest_denom, local_dist_sq, scaled_hurt_radius, contact_lerp, and out_overlap rather than leaving the 3D capsule solve as temp_f-style math."
+    "Gave `lbColl_80006E58` semantic parameter names that document the collision roles: hit capsule segment endpoints, hurt capsule segment endpoints, closest-point outputs, hurt matrix, contact output, overlap output, radii, and broadphase scale.",
+    "Used `Vec3` locals to replace loose scalar coordinate triplets where that better matched stack/register behavior and made geometric intent clearer.",
+    "Narrowed variable lifetimes with nested scopes so the compiler could allocate temporaries more like the target assembly.",
+    "Preserved or reintroduced specific sdata/sdata2 float constants in matching-sensitive branches where direct literals produced worse codegen.",
+    "Cached or reused `1.0` according to the PR body to avoid repeated reloads across `*_param = 1.0` branches in `lbColl_80006E58`.",
+    "Removed dead inline JObj matrix helper/assert strings after they became unreferenced, reducing misleading symbols in `lbcollision.c`.",
+    "Accepted that remaining sub-100% functions were blocked by residual float-register-allocation differences rather than overclaiming full behavioral understanding."
   ],
   "decomp_lessons": [
-    "Do not assume converting float x/y/z triplets into Vec3 is free: the merge notes say moving Vec3 locals and replacing a three-float d2 triplet in lbColl_80005C44 expanded the frame by 8 bytes and shifted stack offsets, breaking a 100% match by one byte.",
-    "For stack-sensitive functions, preserve declaration order and local shape even when a Vec3 abstraction is semantically cleaner.",
-    "Scoped locals and extra braces can be useful MWCC controls: this PR repeatedly used block scope to affect lifetimes, stack slots, and float register allocation.",
-    "Use exact constants according to the match site: some functions matched better with lbColl_804D* constants, while lbColl_80005C44 cleanup used literal 0.0f/1.0f and SQ().",
-    "Automated decomp.dev reports are important regression checks; the bot caught lbColl_80005C44 falling from 100.00% to 99.99%, and the final history documents restoring the local layout.",
-    "Residual mismatch notes are valuable: the PR explicitly left lbColl_80006094, lbColl_800067F8, and lbColl_80006E58 below 100% because remaining issues were float-register-allocation mismatches."
+    "For collision math, naming endpoints and output vectors by geometric role can make large matching functions easier to reason about without requiring a full algorithm rewrite.",
+    "When a function is mostly matched but blocked by float register allocation, try scoped temporaries, nested blocks, and `Vec3` aggregate copies to tune local lifetimes.",
+    "Do not assume replacing symbolic float constants with literals always helps; in matching-sensitive code, using the same global/sdata constant can be necessary for codegen.",
+    "Conversely, some small helpers like `nearzero` may match better or read better with direct float literals when evidence supports it.",
+    "Stack padding changes are part of legitimate matching work in this codebase; record them alongside the local-variable reshaping that made them necessary.",
+    "Large geometric functions may improve incrementally: reaching 100% in small surrounding functions while leaving big closest-point solvers below 100% is still useful progress.",
+    "Removing unreferenced inline helpers and assert strings is acceptable when the diff evidence shows they are no longer referenced, but avoid inferring broader API removal beyond the file."
   ],
   "naming_conventions": [
-    "Use hit_start and hit_end for the hit capsule axis endpoints.",
-    "Use hurt_start and hurt_end for hurt/shield capsule axis endpoints.",
-    "Use hit_closest and hurt_closest for closest points produced by segment/capsule solves.",
-    "Use hurt_mtx for the matrix used to evaluate hurt radius in local space.",
-    "Use out_contact_pos and out_overlap for collision result outputs.",
-    "Use hit_radius, hurt_radius, and broadphase_scale for radius inputs instead of generic scl/arg10/arg11.",
-    "Use *_param for segment interpolation factors and candidate_*_param for projected alternatives.",
-    "Use *_delta, *_len_sq, *_dist_sq, closest_denom, and broadphase_radius for collision geometry quantities.",
-    "Use is_* flags for degenerate, parallel, and zero-distance cases."
+    "Use `hit_*` for the attacking or hit capsule inputs and outputs, e.g. `hit_start`, `hit_end`, `hit_closest`, `hit_radius`.",
+    "Use `hurt_*` for the defending or hurt capsule inputs and related matrix/radius values, e.g. `hurt_start`, `hurt_end`, `hurt_closest`, `hurt_mtx`, `hurt_radius`.",
+    "Use `out_*` for output parameters, shown by `out_contact_pos` and `out_overlap`.",
+    "Use `*_scl` or `*_param` style names for clamped segment parameters/scales when solving closest points along segments.",
+    "Temporary vector copies may be named after their source/role (`arg4_offset`, `arg5_offset`, `arg2_copy`) when no stronger semantic name is proven."
   ],
   "assembly_or_matching_tactics": [
-    "PAD_STACK was adjusted in the heavily unmatched functions, including lbColl_80006094 from 56 to 80, lbColl_800067F8 from 24 to 72, and lbColl_80006E58 from 112 to 64.",
-    "Use of assignment expression hit_param = (hit_param_candidate = ...) was intentional to keep both float values live without an extra fmr.",
-    "A reused local was used to cache lbColl_804D7A08/1.0 across several hit_param and hurt_param clamp branches.",
-    "Vec3 temporaries were introduced selectively in parallel-axis branches where the assembly appeared to treat x/y/z as a unit, but this tactic was rolled back for lbColl_80005C44 where it hurt stack layout.",
-    "Volatile float stack temporaries were used around frsqrte/Newton distance calculations in lbColl_80006E58 to preserve store/reload and rounding behavior.",
-    "Several nearzero calls in lbColl_80006094 and lbColl_800067F8 were replaced with the existing approximatelyZero helper.",
-    "The local draw helper lbColl_DrawHitResult changed repeated inline inverse-transform code into one shared inline-like pattern that matched multiple 99.9% functions.",
-    "SQ() was used in lbColl_80005C44 to express repeated multiplication in the form that matched."
+    "Introduced nested scopes to shorten live ranges for floats and vector copies.",
+    "Changed separate coordinate stack slots into `Vec3` aggregate locals to alter stack layout and loads/stores.",
+    "Adjusted `PAD_STACK` amounts in large functions to match expected stack frame shape.",
+    "Used existing float constants such as `lbColl_804D7A00`, `lbColl_804D7A08`, `lbColl_804D7A10`, `lbColl_804D79F8`, and `lbColl_804D7A18` in some branches to influence load behavior.",
+    "Folded assignment expressions in the closest-points solve according to the PR body: `hit_param = (hit_param_candidate = ...)`.",
+    "Cached `1.0` in a callee-save float in `lbColl_80006E58` according to the PR body, avoiding reloads across branches assigning `*_param = 1.0`.",
+    "Used explicit `dot` temporaries before division in closest-point calculations, likely to guide float-register scheduling.",
+    "Replaced repeated multiplication patterns with `SQ(...)` in at least one distance comparison."
   ],
   "review_feedback": [
-    "No formal reviews or inline review comments were present in the slice.",
-    "The author commented that the PR was opened prematurely.",
-    "decomp.dev reported matched code 67.68% (+0.03%, +1300 bytes), four new matches, and one broken match: lbColl_80005C44 fell from 100.00% to 99.99%.",
-    "The author replied that they would fix the regressions.",
-    "The final merge history documents the lbColl_80005C44 regression fix: restore the original declaration order and three-float d2 locals because the Vec3 reshuffle changed the stack frame from -0x48 to -0x50.",
-    "The author noted an editorconfig check could not be re-run locally because of a network error while downloading nix packages."
+    {
+      "source": "author comment",
+      "text": "Author noted the PR was opened prematurely."
+    },
+    {
+      "source": "author comment",
+      "text": "Author said they would fix regressions."
+    },
+    {
+      "source": "author comment",
+      "text": "Author reported editorconfig checks failed due to a network error downloading nix packages and could not be rerun locally."
+    },
+    {
+      "source": "review metadata",
+      "text": "No review comments were present in the provided slice."
+    }
   ],
   "searchable_terms": [
     "pr-2515",
-    "lb lbcollision capsule collision",
-    "src/melee/lb/lbcollision.c",
-    "capsule-vs-capsule",
-    "3D segment capsule narrow phase",
+    "lb collision",
+    "lbcollision.c",
+    "capsule collision",
+    "capsule-collision matching",
     "lbColl_80006E58",
     "lbColl_80006094",
     "lbColl_800067F8",
@@ -104,43 +117,48 @@
     "lbColl_8000AB2C",
     "lbColl_8000A584",
     "HitCapsule",
-    "HurtCapsule",
-    "HitResult",
-    "HSD_JObjGetMtxPtr",
-    "lbColl_JObjGetMtxPtr",
-    "lbColl_DrawHitResult",
-    "HSD_MtxInverse",
-    "PSMTXMultVec",
-    "PSMTXConcat",
-    "lbColl_800096B4",
-    "approximatelyZero",
-    "nearzero",
-    "between",
     "Vec3",
     "MtxPtr",
-    "PAD_STACK",
-    "frsqrte",
-    "float register allocation",
-    "stack layout",
     "hit_start",
     "hit_end",
     "hurt_start",
     "hurt_end",
     "hit_closest",
     "hurt_closest",
+    "hurt_mtx",
     "out_contact_pos",
     "out_overlap",
+    "hit_radius",
+    "hurt_radius",
     "broadphase_scale",
-    "decomp.dev broken match",
-    "editorconfig nix network timeout"
+    "nearzero",
+    "approximatelyZero",
+    "between",
+    "PAD_STACK",
+    "float register allocation",
+    "closest points",
+    "parallel axes",
+    "lbColl_JObjGetMtxPtr",
+    "HSD_JObjSetupMatrix",
+    "lbColl_804D7A00",
+    "lbColl_804D7A08",
+    "lbColl_804D7A10",
+    "lbColl_804D79F8",
+    "lbColl_804D7A18"
   ],
   "follow_up_queries": [
-    "Search later lbcollision PRs for lbColl_80006E58 float register allocation fixes after 95.4%.",
-    "Investigate remaining mismatches in lbColl_80006094 and lbColl_800067F8, especially clamp branches and approximatelyZero/constant choices.",
-    "When proposing Vec3 cleanup in matched functions, verify stack frame size and local offset stability before merging.",
-    "Check whether the added static inline between helper is used in later closest-point solve cleanup or can be removed/applied.",
-    "Look for other local wrappers around HSD_JObjGetMtxPtr that can be removed without changing matching.",
-    "Compare subsequent changes to lbColl_DrawHitResult and the debug draw functions that reached 100% in this PR."
+    "Check later PRs touching `src/melee/lb/lbcollision.c` for final 100% matches of `lbColl_80006094`, `lbColl_800067F8`, and `lbColl_80006E58`.",
+    "Search for subsequent renames of `hit_*` and `hurt_*` capsule fields or parameters to confirm whether this naming convention persisted.",
+    "Look for PRs resolving residual float-register-allocation mismatches in closest-point segment/capsule collision code.",
+    "Verify whether `lbColl_JObjGetMtxPtr` stayed removed or was replaced by a shared JObj matrix access helper elsewhere."
   ],
-  "confidence": 0.94
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

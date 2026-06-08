@@ -11,20 +11,19 @@
     "merged_at": "2026-03-14T21:43:29Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Removed an empty fake function, fn_80386230, from sysdolphin baselib texpdag and folded its 4-byte symbol range into the preceding real function make_full_dependancy_mtx. The source stub was deleted and config/GALE01/symbols.txt now records make_full_dependancy_mtx as size 0x134 instead of 0x130, with HSD_TExpSchedule still starting at 0x80386234.",
+  "summary": "Removed a fake 4-byte empty function split in sysdolphin baselib texpdag. The placeholder symbol fn_80386230 and its empty C stub were deleted, and make_full_dependancy_mtx was resized in config/GALE01/symbols.txt from 0x130 to 0x134 so the bytes formerly attributed to the fake function belong to the preceding function.",
   "change_classification": {
-    "primary_type": "decomp-matching",
+    "primary_type": "decomp-matching-symbol-boundary-cleanup",
     "categories": [
-      "symbol-map-correction",
-      "fake-function-removal",
-      "function-boundary-fix",
-      "source-cleanup"
+      "decomp-matching",
+      "symbol-map-cleanup",
+      "fake-function-removal"
     ],
     "systems": [
+      "config",
       "sysdolphin",
       "baselib",
-      "texpdag",
-      "config/GALE01"
+      "texpdag"
     ]
   },
   "key_files": [
@@ -32,61 +31,69 @@
     "src/sysdolphin/baselib/texpdag.c"
   ],
   "what_changed": [
-    "Deleted the empty source stub `void fn_80386230(void) {}` from `src/sysdolphin/baselib/texpdag.c`.",
-    "Removed the separate `fn_80386230 = .text:0x80386230; // type:function size:0x4` symbol entry.",
-    "Updated `make_full_dependancy_mtx` in `config/GALE01/symbols.txt` from size `0x130` to `0x134`, absorbing the 4 bytes previously assigned to the fake function.",
-    "Kept `HSD_TExpSchedule` starting at `.text:0x80386234`, so this was a boundary/symbol-size correction rather than a shift of later functions."
+    "Deleted the empty stub `void fn_80386230(void) {}` from `src/sysdolphin/baselib/texpdag.c`.",
+    "Removed the `fn_80386230 = .text:0x80386230; // type:function size:0x4` symbol entry from `config/GALE01/symbols.txt`.",
+    "Updated `make_full_dependancy_mtx` in `symbols.txt` from size `0x130` to `0x134`, keeping its start address at `.text:0x80386100`.",
+    "Left `HSD_TExpSchedule` starting at `.text:0x80386234`, so the deleted fake function's 4 bytes are absorbed by the preceding function rather than moving later symbols."
   ],
   "smart_moves": [
-    "Resolved a fake one-instruction function by extending the preceding real function instead of keeping an artificial empty C function.",
-    "Kept source and symbol-map boundaries consistent: deleting the stub was paired with a matching symbol size update.",
-    "Made a minimal targeted cleanup with only two affected files and no unnecessary renaming or logic changes."
+    "Fixed the fake function at the symbol-boundary level instead of preserving a meaningless empty C function.",
+    "Adjusted only the preceding function size, avoiding churn to the following `HSD_TExpSchedule` address and later texpdag symbols.",
+    "Kept the source cleanup minimal: deleting the stub while preserving the surrounding static padding declaration."
   ],
   "decomp_lessons": [
-    "A tiny `fn_<address>` symbol, especially size `0x4`, adjacent to a known function can be a false function split rather than a real routine.",
-    "When removing a fake function, check whether its bytes belong to the preceding function and update the preceding symbol size accordingly.",
-    "Function-boundary fixes should preserve the next known function address unless there is evidence that later boundaries also changed.",
-    "Do not keep empty C stubs solely to satisfy an incorrect symbol split once the surrounding function size can account for the bytes."
+    "A 4-byte placeholder `fn_XXXXXXXX` between real functions may just be a mis-split terminator or tail byte of the previous function; verify boundaries before modeling it as a real empty function.",
+    "When removing a fake function, update `config/GALE01/symbols.txt` so adjacent function sizes still cover the same address range.",
+    "Progress reports can show a removed fake function as a broken/deleted match even when the cleanup improves the neighboring unmatched item; interpret function-count reductions in context."
   ],
   "naming_conventions": [
-    "`fn_80386230` followed the generic address-based placeholder convention for unknown or fake functions; this PR shows such names should be removed when the symbol is proven non-real.",
-    "Existing baselib function names such as `HSD_TExpMakeDag`, `HSD_TExpSchedule`, `SimplifySrc`, and `SimplifyThis` remain unchanged.",
-    "`make_full_dependancy_mtx` retains the existing spelling used in the source/symbol map; the PR did not attempt a naming cleanup."
+    "Address-derived placeholder name `fn_80386230` was removed rather than promoted to a named function.",
+    "Existing project spelling `make_full_dependancy_mtx` was retained exactly; this PR did not attempt a naming or typo cleanup.",
+    "Existing HSD-style exported names such as `HSD_TExpMakeDag` and `HSD_TExpSchedule` were left unchanged."
   ],
   "assembly_or_matching_tactics": [
-    "Folded a 4-byte fake function at `.text:0x80386230` into `make_full_dependancy_mtx` by changing its symbol size from `0x130` to `0x134`.",
-    "Deleted the corresponding empty C function so the source no longer creates an artificial symbol at the old boundary.",
-    "Maintained the following function boundary for `HSD_TExpSchedule` at `.text:0x80386234`."
+    "Folded the 4-byte range at `0x80386230` into `make_full_dependancy_mtx` by increasing its symbol size from `0x130` to `0x134`.",
+    "Maintained the next function boundary at `HSD_TExpSchedule = .text:0x80386234`.",
+    "Used symbol-table correction plus source deletion to eliminate an artificial empty-function match."
   ],
   "review_feedback": [
-    "No review comments were present in the provided PR slice.",
-    "No human body text or reviewer rationale was captured, so the inferred rationale is based on the title and diff only."
+    "No human review comments were present in the slice.",
+    "decomp.dev reported total functions `19830 (-1)` and matched code `57.57% (-0.00%, -4 bytes)`.",
+    "decomp.dev listed `fn_80386230` as a broken/removed 4-byte match and `make_full_dependancy_mtx` as an unmatched-item improvement from `97.50%` to `98.83%` with `+8` bytes."
   ],
   "searchable_terms": [
     "pr-2287",
     "Remove fake function in texpdag",
     "PsiLupan",
     "texpdag",
-    "src/sysdolphin/baselib/texpdag.c",
+    "sysdolphin",
+    "baselib",
     "config/GALE01/symbols.txt",
-    "fn_80386230",
+    "src/sysdolphin/baselib/texpdag.c",
     "make_full_dependancy_mtx",
+    "fn_80386230",
     "HSD_TExpSchedule",
     "HSD_TExpMakeDag",
     "fake function",
-    "function boundary",
     "symbol size",
+    "0x80386100",
     "0x80386230",
     "0x80386234",
     "0x130",
-    "0x134",
-    "sysdolphin",
-    "baselib"
+    "0x134"
   ],
   "follow_up_queries": [
-    "Find other size 0x4 `fn_` symbols adjacent to named functions that may be fake function splits.",
-    "Search `src/sysdolphin/baselib` for empty placeholder functions that only exist to satisfy current symbol boundaries.",
-    "Audit `config/GALE01/symbols.txt` around texpdag for additional suspicious one-instruction function entries."
+    "Search for other 4-byte `fn_XXXXXXXX` placeholders adjacent to unmatched functions that may be fake symbol splits.",
+    "Audit texpdag function boundaries around `make_full_dependancy_mtx` and `HSD_TExpSchedule` if future matching changes touch this range.",
+    "Check whether other symbol entries can be cleaned up by resizing neighboring functions instead of carrying empty stubs."
   ],
-  "confidence": 0.94
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

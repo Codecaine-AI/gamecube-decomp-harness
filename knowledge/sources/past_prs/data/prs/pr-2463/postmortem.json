@@ -11,141 +11,125 @@
     "merged_at": "2026-05-06T21:16:00Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Code-style/tooling PR that added pre-commit to the dev requirements, scoped the existing clang-format pre-commit hook to C/C++ source under src, updated CONTRIBUTING with pre-commit-based formatting instructions, regenerated reqs/dev.txt, and applied clang-format across 92 source/header files. The decomp.dev bot reported GALE01 had \"No changes\", supporting that the large source churn was formatting-only for matching output purposes.",
+  "summary": "Added pre-commit as a development dependency, scoped the clang-format pre-commit hook to C/C++ source/header files under src, updated contributing documentation with pre-commit setup commands, regenerated reqs/dev.txt, and applied clang-format-driven formatting across a large set of existing source and header files. The PR resolved issue #1543 and was primarily repository tooling plus mechanical formatting cleanup rather than semantic decompilation work.",
   "change_classification": {
-    "primary_type": "code_style_tooling",
+    "primary_type": "tooling_formatting_cleanup",
     "categories": [
       "cleanup",
-      "code-style",
       "tooling",
       "documentation",
-      "dependency-update",
       "formatting",
-      "headers"
+      "requirements"
     ],
     "systems": [
       "docs",
       "repo-root",
       "reqs",
       "src",
-      "menu",
       "effect",
       "fighter",
       "game-mode",
-      "stage",
       "item",
       "library",
-      "player",
-      "ty",
-      "sysdolphin"
+      "menu",
+      "stage",
+      "sysdolphin-baselib"
     ]
   },
   "key_files": [
-    {
-      "path": ".github/CONTRIBUTING.md",
-      "note": "Auto Formatting section changed from git clang-format guidance to pre-commit workflow and says clang-format should run on all C code in src."
-    },
-    {
-      "path": ".pre-commit-config.yaml",
-      "note": "clang-format hook kept at v18.1.8 and given files regex ^src/.*\\.(c|h|cpp)$."
-    },
-    {
-      "path": "reqs/dev.in",
-      "note": "Added pre-commit to the input dev dependency list."
-    },
-    {
-      "path": "reqs/dev.txt",
-      "note": "Regenerated pinned dev requirements, including pre-commit==4.6.0 and transitive dependencies such as cfgv, identify, nodeenv, pyyaml, and virtualenv."
-    },
-    {
-      "path": "src/melee/mn/mncharsel.c",
-      "note": "Largest formatting churn in the PR: 1001 additions and 580 deletions."
-    },
-    {
-      "path": "src/melee/gr/grbigblue.c",
-      "note": "Large clang-format reflow in stage code."
-    },
-    {
-      "path": "src/melee/gm/gmregclear.c",
-      "note": "Large clang-format reflow in game-mode code."
-    },
-    {
-      "path": "src/melee/ef/efalt.c",
-      "note": "Representative formatter changes: long calls split, switch/goto label indentation adjusted, casts spaced."
-    },
-    {
-      "path": "src/melee/db/dballoc.c",
-      "note": "Diff also drops #include \"ef/efdata.h\"; no PR discussion explains this beyond the cleanup/formatting context."
-    }
+    ".github/CONTRIBUTING.md",
+    ".pre-commit-config.yaml",
+    "reqs/dev.in",
+    "reqs/dev.txt",
+    "src/melee/db/dballoc.c",
+    "src/melee/ef/efalt.c",
+    "src/melee/ef/efasync.c",
+    "src/melee/ef/efasync.h",
+    "src/melee/ef/eflib.c",
+    "src/melee/ef/types.h",
+    "src/melee/mn/mncharsel.c",
+    "src/melee/gr/grbigblue.c",
+    "src/melee/gm/gmregclear.c",
+    "src/melee/ft/ftcoll.c",
+    "src/sysdolphin/baselib/particle.h"
   ],
   "what_changed": [
     "Added `pre-commit` to `reqs/dev.in`.",
-    "Regenerated `reqs/dev.txt`; the header changed from pip-compile with Python 3.11/`--strip-extras` to Python 3.12/`--output-file=reqs/dev.txt`, and the lock now includes `pre-commit==4.6.0` plus its dependencies.",
-    "Updated `.pre-commit-config.yaml` so the clang-format hook only targets `^src/.*\\.(c|h|cpp)$`.",
-    "Rewrote the CONTRIBUTING auto-formatting instructions to recommend installing dev packages, running the pre-commit hook, and running `pre-commit run --all-files` on existing code.",
-    "Applied clang-format-style mechanical reflow to 92 source/header files with 3778 added and 3374 deleted lines, especially under `src/melee/mn`, `src/melee/gm`, `src/melee/gr`, `src/melee/ef`, `src/melee/ft`, `src/melee/it`, and `src/melee/lb`.",
-    "The bot comment reported `Report for GALE01 ... No changes`, indicating the formatting sweep did not alter the built target output."
+    "Regenerated `reqs/dev.txt`, adding pre-commit and its dependencies such as cfgv, identify, nodeenv, pyyaml, virtualenv, distlib, and filelock; the generated header changed from Python 3.11 / `pip-compile --strip-extras reqs/dev.in` to Python 3.12 / `pip-compile --output-file=reqs/dev.txt reqs/dev.in`.",
+    "Updated `.pre-commit-config.yaml` so the clang-format hook only runs on files matching `^src/.*\\.(c|h|cpp)$`.",
+    "Updated `.github/CONTRIBUTING.md` to recommend installing dev requirements, installing the pre-commit hook, and running `pre-commit run --all-files` for existing code.",
+    "Applied broad clang-format cleanup across 92 files, with large mechanical changes in menu, stage, game-mode, effect, fighter, item, and library files.",
+    "Formatting changes included line wrapping long calls and prototypes, adjusting indentation, removing extra blank lines between includes, and reflowing complex expressions without evidence of intended behavioral changes.",
+    "One visible include cleanup removed `#include \"ef/efdata.h\"` from `src/melee/db/dballoc.c`; the provided context does not prove whether this was purely formatter-adjacent or an independently necessary unused-include cleanup."
   ],
   "smart_moves": [
-    "The tooling change was made in the full dependency path: source requirement (`reqs/dev.in`), compiled lockfile (`reqs/dev.txt`), hook config, and contributor docs were all updated together.",
-    "The hook was narrowly scoped to `src` C/C++/header extensions, reducing the risk that pre-commit would format unrelated files when contributors run it on all files.",
-    "The initial formatting sweep was bundled with the hook rollout, so future PRs can be held to the automated style without every contributor rediscovering old unformatted regions.",
-    "Keeping this as a code-style PR made the decomp.dev `No changes` report meaningful: reviewers can treat the huge diff as mechanical rather than as a matching or behavior change."
+    "Scoped the pre-commit clang-format hook to `src` C/C++ files, avoiding accidental formatting of non-source files or tooling files outside the intended area.",
+    "Bundled the dependency addition with documentation, making the expected contributor workflow explicit instead of only changing config.",
+    "Ran the formatter over existing files after enabling the hook, reducing the chance that future contributors hit unrelated formatting diffs on their first commit.",
+    "Used generated requirements output rather than only editing `reqs/dev.in`, keeping pinned development dependencies reproducible."
   ],
   "decomp_lessons": [
-    "For decomp repositories, introduce formatting automation in a dedicated PR and verify with the project’s binary/matching bot; here GALE01 reported no output changes.",
-    "When a hook changes formatting expectations, update both `reqs/dev.in` and the generated lockfile so contributors get the same tool through documented setup commands.",
-    "Use a path/extension filter for formatting hooks; broad all-file hooks can create unrelated churn in generated files, assets, or non-C sources.",
-    "Large clang-format diffs may reflow long function calls, prototypes, casts, macro-heavy expressions, switch cases, and labels without changing semantics; future matching work should not infer behavior from this PR’s mechanical line changes.",
-    "Avoid mixing meaningful decomp work, naming, or new matches into a repo-wide formatting sweep unless the diff and bot output make those semantics explicit."
+    "For decompilation repositories, introduce formatting enforcement with a one-time bulk formatting pass so later matching/naming PRs are not polluted by style-only churn.",
+    "Keep formatting-only PRs separate from semantic matching work whenever possible; this PR's huge diff is best treated as mechanical cleanup, not evidence for function behavior or symbol intent.",
+    "When reviewing future diffs after this PR, beware that many line-wrapping and indentation changes are formatter fallout and should not be interpreted as decomp progress.",
+    "Document the exact contributor command sequence for hooks; relying on implicit knowledge of `git clang-format` or pre-commit setup creates inconsistent formatting across PRs.",
+    "Hook file filters matter: in this repo, restricting clang-format to `src/.*\\.(c|h|cpp)` helps preserve intended scope."
   ],
   "naming_conventions": [
-    "No new symbol names or decomp naming conventions were introduced by this PR.",
-    "The CONTRIBUTING diff context still shows the existing guidance: avoid naming a function that you are not matching; this PR did not alter that rule."
+    "No new decomp naming convention is evidenced by the excerpt.",
+    "The contributing documentation retained the existing naming warning: avoid naming a function that is not matched or understood; do not assume prior unnamed/misnamed symbols were understood by someone else."
   ],
   "assembly_or_matching_tactics": [
-    "No assembly-level or matching tactic was introduced; the relevant matching evidence is the decomp.dev bot comment saying GALE01 had `No changes`.",
-    "The reusable tactic is process-oriented: isolate mechanical formatting, then rely on the build/matching report to prove no binary output change.",
-    "Formatting touched headers and prototypes, but the PR provides no evidence that those edits were intended to affect matching."
+    "No assembly matching tactic is evidenced; the PR is tooling and mechanical clang-format cleanup.",
+    "Mechanical formatting can change source layout substantially without implying new matches, new control-flow understanding, or intentional register/stack matching tactics."
   ],
   "review_feedback": [
-    "No human review comments or reviews are present in the slice.",
-    "PR body only says `Resolves #1543.`",
-    "The only issue comment is from decomp-dev[bot]: `Report for GALE01 ... No changes`."
+    "No review comments were included in the provided context.",
+    "The PR body only states `Resolves #1543.`; no reviewer rationale or requested changes are available in the slice."
   ],
   "searchable_terms": [
-    "PR 2463",
+    "pr-2463",
     "pre-commit",
     "clang-format",
-    "code-style",
-    ".pre-commit-config.yaml",
-    "files regex ^src/.*\\.(c|h|cpp)$",
+    "auto formatting",
     "reqs/dev.in",
     "reqs/dev.txt",
-    "pre-commit==4.6.0",
-    "pip-compile Python 3.12",
+    ".pre-commit-config.yaml",
     ".github/CONTRIBUTING.md",
-    "Auto Formatting",
-    "pre-commit run --all-files",
+    "pip-compile",
+    "Python 3.12",
+    "pre-commit==4.6.0",
+    "cfgv",
+    "identify",
+    "nodeenv",
+    "pyyaml",
+    "virtualenv",
+    "format code",
+    "mechanical formatting",
     "Resolves #1543",
-    "GALE01 No changes",
-    "mncharsel.c",
-    "gmregclear.c",
-    "grbigblue.c",
-    "efalt.c",
-    "efasync.c",
-    "eflib.c",
-    "efsync.c",
-    "ftcoll.c",
-    "lbaudio_ax.c",
-    "itCommonItems.h",
+    "src/melee/ef/efalt.c",
+    "src/melee/ef/efasync.c",
+    "src/melee/ef/eflib.c",
+    "src/melee/mn/mncharsel.c",
+    "src/melee/gr/grbigblue.c",
+    "src/melee/gm/gmregclear.c",
+    "src/melee/ft/ftcoll.c",
     "src/sysdolphin/baselib/particle.h"
   ],
   "follow_up_queries": [
-    "Look up issue #1543 for the original formatting/pre-commit motivation.",
-    "When reviewing later formatting diffs, compare against this PR as the baseline clang-format sweep.",
-    "Check future PRs that modify `.pre-commit-config.yaml`, clang-format rev v18.1.8, or the `^src/.*\\.(c|h|cpp)$` hook scope.",
-    "Search for post-2463 PRs where decomp.dev reports changes despite formatting-only claims."
+    "PR 2463 issue 1543 pre-commit clang-format rationale",
+    "pre-commit-config.yaml clang-format files src c h cpp",
+    "reqs/dev.in pre-commit dev requirements",
+    "bulk clang-format PR melee decomp",
+    "formatting-only PR decomp review guidance"
   ],
-  "confidence": 0.93
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

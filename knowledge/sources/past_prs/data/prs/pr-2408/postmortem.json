@@ -11,188 +11,183 @@
     "merged_at": "2026-04-14T15:10:01Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the ft_0D31 death/rebirth area by completing multiple death-state functions, splitting the 0x800D4DD4+ rebirth tail into a new matching ft_0D4D.c unit, and updating build splits, symbols, headers, includes, and shared motion-var typing. The decomp.dev bot reported +6896 matched code bytes, +10644 linked code bytes, and 34 new matches; the apparent broken ft_0D31 matches were primarily functions moved into the new ft_0D4D unit.",
+  "summary": "Matched the ft_0D31 death/rebirth block by splitting the original ft_0D31 object at 0x800D4DD4 into a new matching ft_0D4D.c unit, implementing multiple previously nonmatching common-fighter death and respawn routines, and updating splits, symbols, headers, includes, and build configuration. The decomp.dev report showed +6896 matched code bytes, +10644 linked code bytes, and 34 new matches; its listed broken ft_0D31 matches are mostly functions moved into the new ft_0D4D unit rather than true source loss.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "file-split",
+      "object-split",
       "headers",
-      "build-config",
-      "struct-layout",
-      "data-symbols"
+      "symbols",
+      "fighter-common",
+      "data-layout"
     ],
     "systems": [
       "fighter",
       "ftCommon",
-      "effect",
       "player",
+      "effect",
       "config",
-      "melee-core"
+      "build"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ft/ft_0D31.c",
-      "role": "Completed/matched death-state code including ftCo_800D3950, ftCo_800D3BC8, ftCo_800D3E40, ftCo_DeadUpStar_Anim, ftCo_800D4580, ftCo_800D481C, and ftCo_DeadUpFall_Anim; moved rebirth tail out."
+      "role": "Main decomp target retained for 0x800D3158-0x800D4DD4; added matched death-direction and DeadUpStar/DeadUpFall animation logic and adjusted shared motion-var access."
     },
     {
       "path": "src/melee/ft/ft_0D4D.c",
-      "role": "New matching translation unit for 0x800D4DD4-0x800D5AEC rebirth/dead-up-fall tail functions."
+      "role": "New split source unit for 0x800D4DD4-0x800D5AEC containing rebirth/death-camera/respawn helper functions."
     },
     {
       "path": "src/melee/ft/ft_0D31.h",
-      "role": "Removed moved rebirth declarations and tightened ftCo_800D481C from UNK_RET/UNK_PARAMS to a typed prototype."
+      "role": "Removed declarations now owned by ft_0D4D.h and refined ftCo_800D481C prototype."
     },
     {
       "path": "src/melee/ft/ft_0D4D.h",
-      "role": "New header for fn_800D4DD4, ftCo_800D4E50, ftCo_800D4FF4, Rebirth, and RebirthWait declarations."
+      "role": "New header for the split rebirth/death functions."
     },
     {
       "path": "config/GALE01/splits.txt",
-      "role": "Split ft_0D31 at 0x800D4DD4, added ft_0D4D text/sdata/sdata2 ranges, and shifted following ftCo_Attack100 rodata/sdata ranges."
+      "role": "Split ft_0D31 text/data ranges and inserted ft_0D4D ranges; shifted following ftCo_Attack100 rodata/sdata starts."
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Renamed local sdata/sdata2 constants from ftCo_804D... aliases to anonymous @NNN labels for the split units."
+      "role": "Updated local @-style data labels for sdata/sdata2 constants around the new split."
     },
     {
       "path": "configure.py",
-      "role": "Changed ft_0D31 from NonMatching to Matching and added ft_0D4D as Matching."
+      "role": "Changed ft_0D31.c from NonMatching to Matching and added ft_0D4D.c as Matching."
     },
     {
       "path": "src/melee/ft/chara/ftCommon/types.h",
-      "role": "Refined ftCommon_MotionVars.common offsets x4/x8/xC into Vec3 x4."
+      "role": "Changed ftCommon_MotionVars common fields at fp+2344 from separate x4/x8/xC fields into a Vec3 x4."
     },
     {
       "path": "src/melee/ef/eflib.c",
-      "role": "Updated effect callbacks to the new common.x4 Vec3 layout while preserving integer bit checks on x4.z."
+      "role": "Adjusted effect callbacks to use the new Vec3 motion-var layout."
     },
     {
       "path": "src/melee/pl/player.c",
-      "role": "Changed Player_GetUnk45 return type from u8 to u32 to match indexing/codegen used by death-effect color lookup."
+      "role": "Changed Player_GetUnk45 return type from u8 to u32 for color/index calculations."
     }
   ],
   "what_changed": [
-    "configure.py now builds melee/ft/ft_0D31.c as Matching instead of NonMatching and adds melee/ft/ft_0D4D.c as a Matching object.",
-    "config/GALE01/splits.txt divides ft_0D31.c into text 0x800D3158-0x800D4DD4 plus rodata/sdata/sdata2, then adds ft_0D4D.c for text 0x800D4DD4-0x800D5AEC with its own sdata/sdata2 ranges.",
-    "src/melee/ft/ft_0D31.c replaces several /// # nonmatching stubs with C for directional death and dead-up states, including left/right/down/up setup, star/fall animations, effect spawning, sound/camera setup, and dead-up-fall physics store-order fixes.",
-    "The rebirth/dead-up-fall tail formerly in ft_0D31.c was moved into new src/melee/ft/ft_0D4D.c with a new ft_0D4D.h header.",
-    "ft_0D4D.c contains matched implementations for fn_800D4DD4, ftCo_DeadUpFall_Cam, ftCo_800D4E50, ftCo_800D4F24, ftCo_800D4FF4, ftCo_Rebirth_Anim/IASA/Phys/Coll/Cam, ftCo_800D5600, ftCo_RebirthWait_Anim/IASA/Phys/Coll, and fn_800D5A30.",
-    "Dependent files that needed moved rebirth declarations were switched from including ft/ft_0D31.h to ft/ft_0D4D.h, including ftCrazyHand/ftCh_Init.c, ftMasterHand/ftMh_Damage_0.c, ft_0C8C.c, ftdata.c, ftlib.c, ftmaterial.c, and player.c; ftmotionstates.c now includes ft_0D4D.h too.",
-    "ftCommon_MotionVars.common changed from separate x4/x8/xC fields to Vec3 x4, and accesses were updated in ft_0C31.c, ft_0D4D.c, and eflib.c.",
-    "Player_GetUnk45 now returns u32 instead of u8, matching its use as a shifted offset into Fighter_804D650C/Fighter_804D6508 color arrays.",
-    "config/GALE01/symbols.txt updates the affected local sdata and sdata2 constants to anonymous labels such as @403, @404, @290, and @406 instead of ftCo_804D... address-style aliases."
+    "Split the old ft_0D31 object in config/GALE01/splits.txt from a single 0x800D3158-0x800D5AEC range into ft_0D31.c ending at 0x800D4DD4 and a new ft_0D4D.c covering 0x800D4DD4-0x800D5AEC.",
+    "Added src/melee/ft/ft_0D4D.c with implementations for fn_800D4DD4, ftCo_DeadUpFall_Cam, ftCo_800D4E50, ftCo_800D4F24, ftCo_800D4FF4, ftCo_Rebirth_* routines, ftCo_RebirthWait_* routines, fn_800D54A4, fn_800D55B4, fn_800D5A30, and ftCo_Rebirth_Cam.",
+    "Implemented or completed several ft_0D31 death animation/death transition routines including ftCo_800D3950, ftCo_800D3BC8, ftCo_800D3E40, ftCo_DeadUpStar_Anim, ftCo_800D4580, ftCo_800D481C, and ftCo_DeadUpFall_Anim.",
+    "Moved rebirth/death declarations from ft_0D31.h to a new ft_0D4D.h and updated includes in ftCrazyHand, ftMasterHand, ft_0C8C, ftdata, ftlib, ftmaterial, player, and ftmotionstates users.",
+    "Changed ftCommon_MotionVars.common at fp+2344 from f32 x4 plus unknown x8/xC members into Vec3 x4, then updated callers to use x4.x, x4.y, and x4.z.",
+    "Adjusted eflib effect callbacks: efLib_Cb_SetRotYZ_FromFighter now reads fighter->mv.co.common.x4.x, and Mario/Luigi SpecialLw callbacks test the integer representation at x4.z.",
+    "Changed Player_GetUnk45 from returning u8 to u32 and used it in ft_0D31 color lookup logic with an index multiplied by 4.",
+    "Updated local data symbols in symbols.txt from ftCo_804D... names to compiler-style @ labels for constants now belonging to the split units.",
+    "Marked both melee/ft/ft_0D31.c and melee/ft/ft_0D4D.c as Matching in configure.py."
   ],
   "smart_moves": [
-    "Splitting ft_0D4D into its own translation unit made the build configuration reflect the real code/data boundary and let both ft_0D31 and the moved rebirth functions be marked Matching.",
-    "The PR treated the bot's ft_0D31 broken matches as relocation fallout: the same functions reappear as new matches in main/melee/ft/ft_0D4D rather than being actual lost matches.",
-    "Modeling common.x4/x8/xC as a Vec3 clarified rebirth target-position math and camera code, while the eflib casts preserved the old integer test on the z slot where codegen required it.",
-    "The death-effect color packing was rewritten around Player_GetUnk45(slot) << 2 and explicit RGB assembly from Fighter_804D650C/Fighter_804D6508, matching the generated indexing pattern.",
-    "The new ft_0D4D.h kept moved declarations out of ft_0D31.h and let dependent files include the narrower address-range header.",
-    "Local data labels were not over-named: symbols.txt switched them to compiler-style @NNN locals where semantic names were not established.",
-    "The decomp used targeted codegen controls and artifacts, including #pragma dont_inline, dummy stack arrays, comma expressions, and temporary variables, only where needed to land matches."
+    "The object split separated the rebirth block into ft_0D4D.c, allowing the build system and split config to account for distinct text, rodata, sdata, and sdata2 ranges instead of forcing everything through ft_0D31.c.",
+    "Moving declarations into ft_0D4D.h kept include dependencies aligned with ownership of the moved functions and avoided leaving rebirth APIs in the earlier ft_0D31 header.",
+    "Representing fp+2344/fp+2348/fp+234C as a Vec3 made the rebirth position target and camera-box code much cleaner while still preserving access to individual scalar fields where needed.",
+    "The diff used local compiler labels such as @290, @406, and @574 for split-unit constants rather than keeping misleading ftCo_804D... global-looking names.",
+    "Several hard-to-match routines used explicit stack padding, scoped temporaries, comma expressions such as (0, temp_r28_2->x4), and #pragma dont_inline to control codegen without changing apparent behavior.",
+    "Color packing in death effect spawning was expressed through byte-base pointers and a Player_GetUnk45-derived offset, matching the observed RGB construction rather than using a guessed high-level color struct."
   ],
   "decomp_lessons": [
-    "When a file split is needed for matching, update splits.txt, symbols.txt, configure.py, the new header, and all includes together; otherwise data ranges and apparent match status become misleading.",
-    "A bot report can show broken matches in the old unit after a split; verify whether those symbols were re-homed and rematched in the new unit before treating them as regressions.",
-    "Adjacent anonymous motion-var fields should be revisited as typed aggregates when multiple functions use them as coordinates; here x4/x8/xC became Vec3 x4.",
-    "Do not remove unnatural-looking decomp constructs too early. Constructs such as (0, expr), new_var temporaries, new_var++/--, dummy u8 stack padding, and explicit store order were used to satisfy MWCC codegen.",
-    "Use typed prototypes to replace UNK_RET/UNK_PARAMS once call sites and argument types are known; ftCo_800D481C became void ftCo_800D481C(Fighter_GObj*, s32).",
-    "Bitfield selection matters for matching and semantics: death setup calls changed pl_8003DF44 to use x221F_b4 rather than x221F_b2.",
-    "When modeling a field as Vec3, update cross-system users such as effect callbacks and camera code, not only the fighter file that motivated the change."
+    "When a file boundary cuts through a run of already-known functions, update splits.txt, symbols.txt, configure.py, headers, and includes together; decomp.dev may report moved functions as broken in the old unit and new matches in the new unit.",
+    "For common fighter motion vars, grouping adjacent floats/unknowns into Vec3 can unlock cleaner matches across multiple systems, but all existing field users must be audited for x/y/z replacement and type punning.",
+    "Camera and respawn logic frequently stores target positions in mv.co.common.x4; after this PR the searchable convention is mv.co.common.x4.x/y/z rather than mv.co.common.x4 plus x8/xC.",
+    "Do not assume decomp.dev broken-match tables are semantic regressions when a PR intentionally splits an object; compare unit names and addresses to detect relocated matches.",
+    "Small API type changes such as u8 to u32 on Player_GetUnk45 can be matching-relevant because callers may need full-width arithmetic or shifted indexing."
   ],
   "naming_conventions": [
-    "New address-range files follow the ft_0D4D.c / ft_0D4D.h pattern for code beginning at 0x800D4DD4.",
-    "The new ft_0D4D.h include guard is GALE01_0D4DD4, matching the address-style convention.",
-    "Common fighter functions keep the ftCo_ prefix; still-unknown helpers retain fn_800D.... names.",
-    "The file-local quaternion is named lbl_803B7500, consistent with address-label naming for unnamed rodata.",
-    "Anonymous local data symbols in symbols.txt use @NNN labels rather than invented ftCo_804D... names when no semantic name is justified.",
-    "Motion-variable fields kept placeholder names but gained a typed aggregate: mv.co.common.x4 is a Vec3 accessed through .x, .y, and .z."
+    "New split file and header follow address-based names: ft_0D4D.c and ft_0D4D.h for the block starting at 0x800D4DD4.",
+    "Function declarations retain address comments such as /* 0D4DD4 */ and unresolved names remain address-style fn_800D4DD4 or ftCo_800D4E50.",
+    "Moved rebirth functions use ftCo_Rebirth_* and ftCo_RebirthWait_* names in ft_0D4D.h.",
+    "Local data constants in symbols.txt use compiler-generated @NNN labels when they are local sdata/sdata2 literals rather than meaningful exported names.",
+    "The shared motion-var field is now named x4 but typed Vec3, with component accesses x4.x, x4.y, and x4.z."
   ],
   "assembly_or_matching_tactics": [
     "Used #pragma push / #pragma dont_inline on / #pragma pop around ftCo_800D3950, ftCo_800D3BC8, and ftCo_800D3E40 to control inlining.",
-    "Used comma expressions such as (0, temp_r28_2->x4), (0, &p_ftCommonData->x504), and (0, (Fighter*) HSD_GObjGetUserData(gobj)) to shape codegen.",
-    "Introduced artificial temporaries such as new_var and even new_var++ followed by new_var-- in ftCo_800D41C4 to preserve register/lifetime behavior.",
-    "Kept dummy stack storage like u8 _[24], u8 _[8], and PAD_STACK-style padding in matched functions.",
-    "Read p_ftCommonData blocks as s32* and cast selected entries to f32 for dead-up timing, velocity, and rotation constants.",
-    "Matched store order in ftCo_DeadUpFall_Phys by zeroing x5C.z, then x5C.y, then x5C.x.",
-    "Used local scopes around var_r3 and color array base pointers to guide register allocation for efSync_Spawn calls.",
-    "Preserved integer bit-pattern tests after the Vec3 refactor with *(s32*) &fighter->mv.co.common.x4.z in eflib callbacks."
+    "Inserted explicit unused stack arrays and PAD_STACK to influence stack frame layout in matched functions.",
+    "Used scoped blocks and temporary aliases such as new_var to shape register allocation.",
+    "Used type punning (*(s32*) &fighter->mv.co.common.x4.z) for integer tests on a Vec3 component in eflib callbacks.",
+    "Used comma expression (0, temp_r28_2->x4) when passing SFX data to ftCo_800D38B8, likely for codegen matching.",
+    "Recomputed packed RGB values from Fighter_804D650C/Fighter_804D6508 byte arrays with Player_GetUnk45(player_id) << 2 offsets.",
+    "Maintained exact split data ranges for .rodata, .sdata, and .sdata2 to keep later ftCo_Attack100 data addresses correct."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the PR slice.",
-    "The decomp.dev bot reported for GALE01: matched code 63.28% (+0.18%, +6896 bytes), linked code 34.36% (+0.27%, +10644 bytes), matched data +104 bytes, and linked data +104 bytes.",
-    "The bot listed 34 new matches, including ftCo_800D4FF4, ftCo_DeadUpFall_Anim, ftCo_DeadUpStar_Anim, ftCo_800D3950, ftCo_800D3BC8, ftCo_800D3E40, ftCo_800D4580, ftCo_800D481C, and many ft_0D4D rebirth functions.",
-    "The bot also listed 15 broken ft_0D31 matches, but the diff shows those rebirth/dead-up-fall tail functions were moved to the new ft_0D4D unit."
+    {
+      "source": "decomp-dev bot",
+      "feedback": "Reported +0.18% matched code, +6896 matched code bytes, +10644 linked code bytes, and 34 new matches for GALE01.",
+      "details": "Largest new matches included ftCo_800D4FF4, ftCo_DeadUpFall_Anim, ftCo_DeadUpStar_Anim, ftCo_800D3950, ftCo_800D3BC8, ftCo_800D3E40, ftCo_800D4580, ftCo_800D481C, and multiple ftCo_Rebirth/ftCo_RebirthWait functions."
+    },
+    {
+      "source": "decomp-dev bot",
+      "feedback": "Listed 15 broken matches in main/melee/ft/ft_0D31.",
+      "details": "Evidence indicates these were functions moved into main/melee/ft/ft_0D4D, including ftCo_Rebirth_Phys, fn_800D54A4, ftCo_800D5600, ftCo_800D4E50, ftCo_800D4F24, ftCo_Rebirth_Cam, and related rebirth routines."
+    },
+    {
+      "source": "human review",
+      "feedback": "No human review comments or PR body were present in the provided slice."
+    }
   ],
   "searchable_terms": [
     "pr-2408",
     "Jj/ft 0 d31",
-    "jj/ft_0D31",
+    "jurrejelle",
     "ft_0D31",
     "ft_0D4D",
     "0x800D4DD4",
-    "configure.py Matching",
-    "NonMatching to Matching",
-    "splits.txt",
-    "symbols.txt",
-    "ftCo_800D3680",
     "ftCo_800D3950",
     "ftCo_800D3BC8",
     "ftCo_800D3E40",
-    "ftCo_800D40B8",
-    "ftCo_800D41C4",
     "ftCo_DeadUpStar_Anim",
+    "ftCo_DeadUpFall_Anim",
     "ftCo_800D4580",
     "ftCo_800D481C",
-    "ftCo_DeadUpFall_Anim",
-    "ftCo_DeadUpFall_Phys",
-    "fn_800D4DD4",
-    "ftCo_DeadUpFall_Cam",
     "ftCo_800D4E50",
     "ftCo_800D4F24",
     "ftCo_800D4FF4",
     "ftCo_Rebirth_Anim",
-    "ftCo_Rebirth_IASA",
     "ftCo_Rebirth_Phys",
     "ftCo_Rebirth_Coll",
+    "ftCo_Rebirth_Cam",
     "ftCo_RebirthWait_Anim",
     "ftCo_RebirthWait_IASA",
     "ftCo_RebirthWait_Phys",
     "ftCo_RebirthWait_Coll",
-    "ftCo_Rebirth_Cam",
+    "fn_800D4DD4",
+    "fn_800D54A4",
+    "fn_800D55B4",
+    "fn_800D5A30",
     "ftCommon_MotionVars",
+    "mv.co.common.x4",
     "Vec3 x4",
-    "common.x4.x",
-    "common.x4.z",
+    "Player_GetUnk45",
     "efLib_Cb_SetRotYZ_FromFighter",
     "efLib_Cb_ftMr_SpecialLw",
     "efLib_Cb_ftLg_SpecialLw",
-    "Player_GetUnk45",
-    "Fighter_804D650C",
-    "Fighter_804D6508",
-    "lbl_803B7500",
-    "Quaternion",
-    "M_PI_2_F",
-    "HSD_JObjSetRotation",
-    "HSD_JObjAddRotationX",
-    "efSync_Spawn",
-    "efAsync_Spawn",
-    "Stage_GetBlastZone",
-    "Stage_GetCamBounds",
-    "x221F_b4",
-    "x221F_b2",
-    "#pragma dont_inline",
-    "sdata2 local labels"
+    "splits.txt",
+    "symbols.txt",
+    "configure.py",
+    "MatchingFor",
+    "pragma dont_inline",
+    "PAD_STACK"
   ],
   "follow_up_queries": [
-    "ft_0D31 ftCo_800D3950 ftCo_800D3BC8 ftCo_800D3E40 efSync_Spawn color1 color2",
-    "ft_0D31 ftCo_DeadUpStar_Anim ftCo_DeadUpFall_Anim p_ftCommonData x504 x520",
-    "ft_0D4D ftCo_RebirthWait_IASA ftCo_RebirthWait_Phys common.x4 Vec3",
-    "Player_GetUnk45 u32 Fighter_804D650C Fighter_804D6508 RGB packing",
-    "#pragma dont_inline ftCo_800D3950 ftCo_800D3BC8 ftCo_800D3E40 MWCC matching",
-    "splits.txt ft_0D31 ft_0D4D 0x800D4DD4 symbols.txt @403 @406"
+    "Find later PRs that rename ft_0D31 or ft_0D4D functions from address-style names to semantic names.",
+    "Search for remaining uses of mv.co.common.x4.z type punning to see whether ftCommon_MotionVars got a more precise union/struct later.",
+    "Check whether Player_GetUnk45 kept u32 return type or was later renamed/documented based on color/team-costume usage.",
+    "Review later object-split PRs for the same pattern of decomp.dev broken matches caused by moving functions into a new unit.",
+    "Search for subsequent cleanup of #pragma dont_inline, PAD_STACK, comma expressions, or new_var temporaries in ft_0D31/ft_0D4D."
   ],
-  "confidence": 0.88
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,104 +11,132 @@
     "merged_at": "2026-03-04T19:37:43Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched and linked the item compilation unit for itfushigibana. The PR changed one ItemStateTable value, moved two identical static helper definitions earlier in itfushigibana.c, corrected two .sdata2 symbols from global it_804DD580/it_804DD584 names to local @154/@155 labels, and promoted the object from NonMatching to Matching. The decomp.dev report confirmed +1024 linked code bytes and new 100% matches for the unit's .sdata2 and .data sections.",
+  "summary": "Matched and linked the Fushigibana item unit by making small source-order, state-table, symbol-scope, and build-config changes. The PR changed itfushigibana.c from NonMatching to Matching in configure.py, converted two .sdata2 float symbols from global it_804DD580/it_804DD584 names to local @154/@155 labels, adjusted the final ItemStateTable motion id from 2 to -1, and moved two static helper functions earlier in the source. The decomp.dev report confirmed linked code increased by 1024 bytes and the itfushigibana unit gained 2 new data matches: .sdata2 reached 100% and .data reached 100%. No human review feedback was present in the slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
-      "object-linking",
-      "data-matching",
-      "symbol-scope-correction",
-      "item-state-table-adjustment",
-      "build-config-update"
+      "match-and-link",
+      "item-data-match",
+      "build-config-update",
+      "symbol-map-cleanup",
+      "source-order-codegen-adjustment"
     ],
     "systems": [
       "item",
-      "itfushigibana",
-      "Pokemon item",
-      "GALE01 symbols",
-      "configure.py matching list"
+      "config",
+      "build",
+      "symbols",
+      "GALE01"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/it/items/itfushigibana.c",
-      "role": "Primary decomp source; changed the third ItemStateTable entry first field from 2 to -1 and moved itFushigibana_UnkMotion1_Anim_inline1/inline2 earlier in the file without changing their bodies."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Symbol table update; changed .sdata2 constants at 0x804DD580 and 0x804DD584 from global it_804DD580/it_804DD584 symbols to local @154/@155 labels."
+      "role": "Primary item source matched by changing ItemStateTable data and moving static helper definitions before the spawned/update logic."
     },
     {
       "path": "configure.py",
-      "role": "Build configuration update; changed Object(NonMatching, \"melee/it/items/itfushigibana.c\") to Object(Matching, ...)."
+      "role": "Changed melee/it/items/itfushigibana.c from Object(NonMatching, ...) to Object(Matching, ...), enabling the unit to link as matched."
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Updated two .sdata2 float entries at 0x804DD580 and 0x804DD584 from global it_804DD580/it_804DD584 symbols to local @154/@155 labels."
     }
   ],
   "what_changed": [
-    "In ItemStateTable it_803F82F0, the third motion entry's first value changed from 2 to -1.",
-    "Static helpers itFushigibana_UnkMotion1_Anim_inline1 and itFushigibana_UnkMotion1_Anim_inline2 were moved from after it_802D718C to near the top of itfushigibana.c before itFushigibana_Logic29_Spawned; their function bodies stayed the same in the diff.",
-    "The .sdata2 symbols it_804DD580 and it_804DD584 were reclassified as local labels @154 and @155.",
-    "configure.py now treats melee/it/items/itfushigibana.c as Matching instead of NonMatching.",
-    "The bot reported linked code improving by +1024 bytes and matched/linked data improving by +56 bytes for GALE01."
+    "Marked melee/it/items/itfushigibana.c as Matching in configure.py.",
+    "In ItemStateTable it_803F82F0, changed the third entry motion/state id from 2 to -1 while keeping itFushigibana_UnkMotion2_Anim, itFushigibana_UnkMotion2_Phys, and itFushigibana_UnkMotion2_Coll.",
+    "Moved static helper itFushigibana_UnkMotion1_Anim_inline1 above itFushigibana_Logic29_Spawned.",
+    "Moved static helper itFushigibana_UnkMotion1_Anim_inline2 above itFushigibana_Logic29_Spawned.",
+    "Kept the helper bodies unchanged: inline1 calls Item_80268E5C, sets hitlag callbacks to efLib_PauseAll/efLib_ResumeAll, and sets fushigibana.x60.b0; inline2 decrements xD44_lifeTimer by 1.0f and returns whether it reached zero.",
+    "Renamed .sdata2 symbols it_804DD580 and it_804DD584 to local labels @154 and @155 in config/GALE01/symbols.txt.",
+    "The decomp.dev bot reported GALE01 linked code at 31.03% with +1024 bytes, matched data at 20.99% with +56 bytes, and linked data at 28.88% with +56 bytes.",
+    "The decomp.dev bot reported 2 new matches for main/melee/it/items/itfushigibana: .sdata2 +4 bytes from 50.00% to 100.00%, and .data +3 bytes from 95.24% to 100.00%."
   ],
   "smart_moves": [
-    "The PR finished the match as a complete unit-level change: C source, symbol metadata, and configure.py were updated together so the object could be linked.",
-    "Reclassifying two float constants as local @NNN labels targeted .sdata2 matching and avoided leaving unnecessary global it_804DDxxx symbols.",
-    "The source change preserved behavior for the two helper bodies and used placement/order plus a table literal correction as low-noise matching fixes.",
-    "The final configure.py promotion was backed by the bot report showing the itfushigibana .sdata2 section at 100% and .data section at 100%."
+    "Used a minimal patch to finish the unit: only 3 files changed and the source file change was mostly a relocation of existing static helpers plus a single table constant correction.",
+    "Treated the item state table value as data that must match exactly; changing 2 to -1 was enough to close the remaining .data mismatch reported for the unit.",
+    "Moved static helper definitions earlier rather than rewriting their bodies, suggesting the mismatch was sensitive to source order/codegen placement rather than logic.",
+    "Corrected symbol-map scope for compiler-generated float constants by using local @ labels instead of forcing global it_804DD580/it_804DD584 names.",
+    "Only flipped configure.py to Matching after the source and symbol changes were in place, tying the build configuration to verified matching status."
   ],
   "decomp_lessons": [
-    "For item unit data matches, small ItemStateTable literals can be decisive; verify unknown motion/state table values against the original binary instead of assuming sequential IDs.",
-    "When .sdata2 remains unmatched, check whether constants should be local @NNN labels rather than exported it_804xxxxx globals.",
-    "In MWCC-style matching work, moving identical static helper definitions can be a code/object layout tactic; this PR provides evidence of such a move but no reviewer explanation of the exact compiler effect.",
-    "Only mark an item source file as Matching in configure.py after source and symbol changes account for the relevant code and data sections."
+    "For item units, ItemStateTable sentinel or motion-id values can be responsible for tiny .data mismatches; verify negative sentinel values instead of assuming sequential state ids.",
+    "Static helper placement can matter for matching and linking, especially when helpers are intended to correspond to inlined or compiler-emitted local routines.",
+    "If .sdata2 constants are emitted as local compiler labels, the symbol map should use @NNN local labels rather than global it_XXXXXXXX names.",
+    "A unit can be functionally unchanged yet become matchable through source ordering and data-symbol fixes; avoid unnecessary logic rewrites when the remaining mismatch is small.",
+    "Use decomp.dev section-level reports to identify whether the remaining obstacle is code, .data, or .sdata2 before changing broader source structure."
   ],
   "naming_conventions": [
-    "Item-specific callbacks use the itFushigibana_ prefix, for example itFushigibana_UnkMotion1_Anim, _Phys, and _Coll.",
-    "Unrenamed address-style routines remain in the it_802Dxxxx form, for example it_802D718C and it_802D7328.",
-    "Static helper names in this file encode the caller context and inline index: itFushigibana_UnkMotion1_Anim_inline1 and itFushigibana_UnkMotion1_Anim_inline2.",
-    "Local .sdata2 constants in symbols.txt may use @NNN labels, while remaining unresolved/exported globals use it_804DDxxx-style names."
+    "Item file and symbols use the item name prefix itFushigibana_ for known functions and itfushigibana for the itemVar union member.",
+    "Unknown item motions retain UnkMotionN naming: itFushigibana_UnkMotion0_Coll, itFushigibana_UnkMotion1_Anim, itFushigibana_UnkMotion2_Phys, etc.",
+    "Small extracted/static helpers were named after the consuming routine with inline suffixes: itFushigibana_UnkMotion1_Anim_inline1 and itFushigibana_UnkMotion1_Anim_inline2.",
+    "Address-based global data names use it_XXXXXXXX, but compiler-local constants in symbols.txt may use @NNN labels when evidence indicates local scope.",
+    "The build configuration records matched status with Object(Matching, \"melee/it/items/itfushigibana.c\") and unmatched status with Object(NonMatching, ...)."
   ],
   "assembly_or_matching_tactics": [
-    "Changed a single ItemStateTable constant from 2 to -1 to improve .data matching for it_803F82F0.",
-    "Converted .sdata2 entries at 0x804DD580 and 0x804DD584 from global symbols to local labels, which corresponded with the bot's .sdata2 new match report.",
-    "Moved static helper definitions earlier in the translation unit; the diff does not explain whether the benefit was function ordering, inlining visibility, or another MWCC codegen sensitivity.",
-    "Promoted the object to Matching only after the source/symbol corrections made the unit linkable."
+    "Reordered static helper definitions earlier in the C file to influence emitted code/order without changing helper semantics.",
+    "Adjusted an ItemStateTable integer from 2 to -1 to match the target .data bytes.",
+    "Converted two .sdata2 float constants from global symbols to local labels to match symbol scope and data matching expectations.",
+    "Promoted the object to Matching only after the unit matched sufficiently to link.",
+    "Relied on section-level decomp.dev output to validate that .sdata2 and .data reached 100% for main/melee/it/items/itfushigibana."
   ],
   "review_feedback": [
-    "No human PR body, reviews, or review comments were present in the slice.",
-    "decomp.dev bot report for GALE01 (77db288 - 2c93910): linked code 31.03% (+0.03%, +1024 bytes), matched data 20.99% (+0.00%, +56 bytes), linked data 28.88% (+0.00%, +56 bytes).",
-    "Bot listed 2 new matches for main/melee/it/items/itfushigibana: .sdata2 +4 bytes from 50.00% to 100.00%, and .data +3 bytes from 95.24% to 100.00%."
+    {
+      "source": "decomp-dev[bot]",
+      "type": "match_report",
+      "feedback": "GALE01 report showed linked code +1024 bytes, matched data +56 bytes, linked data +56 bytes, and 2 new matches for main/melee/it/items/itfushigibana."
+    },
+    {
+      "source": "human_review",
+      "type": "none_present",
+      "feedback": "No human review comments or review decisions were present in the provided slice."
+    }
   ],
   "searchable_terms": [
     "pr-2211",
     "itfushigibana",
-    "itFushigibana",
-    "itfushigibana.c",
+    "Fushigibana",
+    "itfushigibana match & link",
+    "PsiLupan",
+    "src/melee/it/items/itfushigibana.c",
+    "configure.py",
+    "config/GALE01/symbols.txt",
+    "Object(Matching)",
+    "Object(NonMatching)",
     "ItemStateTable",
     "it_803F82F0",
     "itFushigibana_UnkMotion1_Anim_inline1",
     "itFushigibana_UnkMotion1_Anim_inline2",
     "itFushigibana_Logic29_Spawned",
     "it_802D718C",
-    "it_802D7328",
     "it_804DD580",
     "it_804DD584",
     "@154",
     "@155",
     ".sdata2",
     ".data",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "GALE01 symbols",
-    "Pokemon item",
-    "PsiLupan"
+    "xD44_lifeTimer",
+    "xDD4_itemVar.fushigibana.x60.b0",
+    "efLib_PauseAll",
+    "efLib_ResumeAll",
+    "Item_80268E5C",
+    "ITEM_ANIM_UPDATE",
+    "GET_ITEM"
   ],
   "follow_up_queries": [
-    "Find other PRs that convert item objects from NonMatching to Matching with small ItemStateTable changes.",
-    "Search GALE01/symbols.txt history for .sdata2 globals converted to @NNN local labels.",
-    "Look for other item files where static _inline1/_inline2 helpers were moved to satisfy matching.",
-    "Check nearby Pokemon item decomp PRs for similar ItemStateTable first-field values of -1 versus sequential motion IDs."
+    "Look for other item units with tiny .data mismatches in ItemStateTable entries where a final motion/state id may need -1.",
+    "Search for global it_XXXXXXXX .sdata2 float symbols that should be local @ labels.",
+    "Compare other item PRs where moving static helper definitions earlier changed match/link status.",
+    "Audit remaining NonMatching item files near itporygon2, ithinoarashi, itmaril, itoldkuri, and itmato for similar source-order and symbol-scope fixes."
   ],
-  "confidence": 0.9
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

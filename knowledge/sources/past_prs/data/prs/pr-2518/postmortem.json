@@ -11,149 +11,115 @@
     "merged_at": "2026-05-21T13:58:44Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked the Zebes route stage object by changing `melee/gr/grzebesroute.c` from NonMatching to Matching and finishing `grZebesRoute_8020B548`. The fix used inline helper wrappers, `HSD_ASSERT`, `__FILE__`, direct float/GXColor literals, and symbol-map demotions to local compiler labels. decomp.dev reported one new match: `main/melee/gr/grzebesroute` / `grZebesRoute_8020B548` improved from 99.97% to 100.00%, with linked code/data increases.",
+  "summary": "Linked `src/melee/gr/grzebesroute.c` by changing it from NonMatching to Matching in `configure.py`. The matching work mainly replaced manually named local constants and strings with compiler-friendly local literals, `__FILE__`, `HSD_ASSERT`, and small inline helper wrappers around light-object accessors/field reads. Symbol metadata was updated so former global `grZe_Route_*` constants/strings became local labels like `@211`, `@270`, and local section labels, reflecting that the C now emits them as local data rather than exported globals.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "stage-object-linking",
-      "function-match",
-      "symbol-map-update",
-      "build-config-update",
-      "local-constant-cleanup"
+      "decomp-matching",
+      "linking",
+      "symbol-scope-cleanup",
+      "stage-route-code"
     ],
     "systems": [
       "stage",
       "ground",
-      "Zebes route",
       "lighting",
-      "HSD baselib",
-      "GALE01 symbols",
-      "configure.py"
+      "config",
+      "symbols"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grzebesroute.c",
-      "role": "Main source changes; completed `grZebesRoute_8020B548`, removed fake globals for constants/assert strings, added inline helpers and direct literals."
-    },
-    {
-      "path": "configure.py",
-      "role": "Changed `Object(NonMatching, \"melee/gr/grzebesroute.c\")` to `Object(Matching, \"melee/gr/grzebesroute.c\")`."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Updated symbol scopes/labels for the newly linked object, including local `@NNN` constants and `...rodata.0` / `...data.0` labels."
-    }
+    "src/melee/gr/grzebesroute.c",
+    "config/GALE01/symbols.txt",
+    "configure.py"
   ],
   "what_changed": [
-    "`configure.py` now treats `melee/gr/grzebesroute.c` as `Matching` instead of `NonMatching`.",
-    "`grZebesRoute_8020B548` lost its nonmatching marker and gained a C implementation shape that matches: inline wrappers for `light_gobj->hsd_obj`, `HSD_LObjGetNext`, and `lobj->flags & LOBJ_TYPE_MASK`.",
-    "The light traversal loop was rewritten as a `for` loop with the `HSD_LObjGetNext` call in the update expression.",
-    "Explicit globals for `\"grzebesroute.c\"`, `\"gobj\"`, `\"0\"`, float constants, and `GXColor` constants were removed from `grzebesroute.c`.",
-    "Calls now use `__FILE__` and `HSD_ASSERT(0x169, gobj)` / `HSD_ASSERT(0x174, 0)` instead of manually calling `__assert` with named string globals.",
-    "Named constant references such as `grZe_Route_804DB918`, `grZe_Route_804DB92C`, and `grZe_Route_804DB944` were replaced with direct literals like `-50.0f`, `600.0f`, `500.0f`, `45.0f`, `0.99f`, and `0.03f`.",
-    "`GXColor` values are now local aggregate initializers inside the spot/point light branches.",
-    "`symbols.txt` demoted many former `grZe_Route_*` data symbols to local compiler-style labels such as `@187`, `@270`, `@211` through `@278`, and added local labels at `grZe_Route_803B83A0` and `grZe_Route_803E5DB0`.",
-    "decomp.dev reported `Matched code: 67.72% (+0.02%, +780 bytes)`, `Linked code: 39.11% (+0.05%, +1796 bytes)`, and `Linked data: 33.24% (+0.03%, +336 bytes)`."
+    "`configure.py` changed `Object(NonMatching, \"melee/gr/grzebesroute.c\")` to `Object(Matching, \"melee/gr/grzebesroute.c\")`.",
+    "`grzebesroute.c` gained includes for `placeholder.h`, `baselib/forward.h`, and `dolphin/mtx.h`.",
+    "Several explicit global/static data definitions were removed from C: the file-name string `grZe_Route_803E5E64`, sdata assertion strings `grZe_Route_804D4840` and `grZe_Route_804D4848`, and multiple `sdata2` float/GXColor constants from `grZe_Route_804DB918` through `grZe_Route_804DB944`.",
+    "`OSReport` now passes `__FILE__` instead of the manually declared `grZe_Route_803E5E64` file-name string.",
+    "The clamp and camera-position code in `grZebesRoute_8020B42C` now uses direct literals `-50.0f` and `0.0f` instead of named sdata2 globals.",
+    "`grZebesRoute_8020B548` was converted from a nonmatching stub-commented function into a matching implementation using direct float literals, local `GXColor` initializers, `HSD_ASSERT`, and inline helper functions.",
+    "The light update loop in `grZebesRoute_8020B548` was rewritten as a `for` loop advancing through `HSD_LObjGetNext`, handling spot lights and upper/lower point lights with scaled positions and distance attenuation.",
+    "`config/GALE01/symbols.txt` was adjusted to mark many previously global `grZe_Route_*` constants/strings as local labels such as `@187`, `@211`, `@270`, `@274`, and `@278`, and to add local labels `...rodata.0` and `...data.0` at existing route data addresses."
   ],
   "smart_moves": [
-    "Used tiny inline wrappers to influence MWCC code generation without changing the apparent logic of light-object access and traversal.",
-    "Switched from explicit `__assert` calls to `HSD_ASSERT`, letting the project macro supply the correct assert expansion and local strings.",
-    "Replaced named globals for constants with direct literals/local initializers, matching the compiler's emitted local constant style instead of preserving artificial global symbols.",
-    "Updated the symbol map in the same PR as the source match, preventing stale global `grZe_Route_*` labels from conflicting with compiler-generated local data.",
-    "Made the object Matching only after the last reported mismatch in `grZebesRoute_8020B548` was resolved."
+    "Using `__FILE__` and `HSD_ASSERT` let the compiler generate local file/assertion strings instead of requiring explicit globally named string objects.",
+    "Inlining small wrappers around `light_gobj->hsd_obj`, `HSD_LObjGetNext`, and `lobj->flags & LOBJ_TYPE_MASK` appears to have been used as a targeted codegen-shaping tactic for the formerly nonmatching lighting routine.",
+    "Replacing named constants with immediate float literals and local `GXColor` initializers reduced unnecessary global symbol pressure and aligned emitted local data with the linker map.",
+    "Updating `symbols.txt` scopes at the same time as the C changes kept the configuration consistent with the new object output, especially for local compiler-emitted constants in `.data`, `.sdata`, and `.sdata2`.",
+    "The implementation preserves stage-lighting behavior while reshaping source expression form: spot light color/position/interest, upper point light, and lower point light handling remain explicit and readable."
   ],
   "decomp_lessons": [
-    "For late-stage near-matches, very small C-shape changes such as inline helper wrappers can be enough to close the final byte-level gap.",
-    "If constants are compiler-emitted as local `@NNN` data, avoid keeping descriptive fake globals in C; direct literals and local aggregate initializers may be the correct representation.",
-    "`HSD_ASSERT(line, expr)` can match better than spelling out `__assert(__FILE__, line, string)` by hand, especially when assert expression strings are local data.",
-    "Loop form matters for matching: moving iterator advancement into the `for` update expression changed the code shape for the light-object traversal.",
-    "When linking an object, audit `symbols.txt` for stale global data names and convert them to local labels when the source no longer defines those globals.",
-    "PR evidence is mostly diff-based; the PR body was empty and there were no inline review comments explaining the author's reasoning."
+    "For matching work, do not automatically preserve every discovered `grZe_Route_*` data symbol as a named global; if the compiler can emit it as a local literal or local aggregate, update symbol scope accordingly.",
+    "`__FILE__` can be preferable to a manually declared file-name string when matching assert/report callsites that use source-file metadata.",
+    "`HSD_ASSERT(line, expr)` may better match original debug/assert codegen than hand-written `if` plus `__assert(file, line, string)` patterns.",
+    "Small inline helper functions can be useful for forcing desired loads/calls around HSD object access without changing observable behavior.",
+    "Local aggregate initialization of `GXColor` inside branches can match better than referencing separate global `const GXColor` objects.",
+    "When linking a stage route file, expect paired changes in `configure.py` and `config/GALE01/symbols.txt`; codegen fixes may require symbol visibility/local-label cleanup, not just C edits."
   ],
   "naming_conventions": [
-    "Stage route functions in this file use the prefix `grZebesRoute_` plus address-style suffixes, e.g. `grZebesRoute_8020B548`.",
-    "Existing global data names use the route abbreviation `grZe_Route_` plus address, e.g. `grZe_Route_804D6A60`.",
-    "Compiler-local data/constants are represented in `symbols.txt` as local labels like `@187`, `@270`, `@211`, `@278` rather than descriptive globals.",
-    "Local same-address section labels may appear as `...rodata.0` or `...data.0` beside a global object symbol.",
-    "The source uses `__FILE__` instead of a named file-string global for `grzebesroute.c`."
+    "Stage route functions in this file use the `grZebesRoute_8020Bxxx` naming pattern.",
+    "Route data symbols use the stage prefix `grZe_Route_` followed by an address, for example `grZe_Route_804D6A60`.",
+    "Compiler/local labels in `symbols.txt` are represented with names like `@187`, `@211`, `@270`, and section-local labels like `...rodata.0` and `...data.0`.",
+    "Inline helpers added for matching were named after the containing function with a numeric suffix: `grZebesRoute_8020B548_inline1`, `grZebesRoute_8020B548_inline2`, and `grZebesRoute_8020B548_inline3`."
   ],
   "assembly_or_matching_tactics": [
-    "Added `inline HSD_LObj* grZebesRoute_8020B548_inline1(HSD_GObj*)` to cast `hsd_obj` to `HSD_LObj*`.",
-    "Added `inline HSD_LObj* grZebesRoute_8020B548_inline2(HSD_LObj*)` wrapping `HSD_LObjGetNext`.",
-    "Added `inline int grZebesRoute_8020B548_inline3(HSD_LObj*)` wrapping `lobj->flags & LOBJ_TYPE_MASK`.",
-    "Used direct constants for light distances/attenuation and camera clamp values instead of loading from named `sdata2` globals.",
-    "Used branch-local `GXColor color = { ... }` initializers for spot, upper point, and lower point lights.",
-    "Changed assert sites to `HSD_ASSERT(0x169, gobj)` and `HSD_ASSERT(0x174, 0)`.",
-    "Converted the `while (i < 3 && lobj != NULL)` loop to a `for` loop with `i++` and next-light traversal in the update clause."
+    "Changed object status from NonMatching to Matching only after code and symbol-scope updates.",
+    "Converted global float constants such as `-50.0F`, `0.0F`, `600.0F`, `1000.0F`, `400.0F`, `45.0F`, `0.99F`, `500.0F`, and `0.03F` into direct literals at use sites.",
+    "Converted global color constants into local `GXColor color = { ... }` initializers inside the relevant light-type branches.",
+    "Used a `for` loop with update expression `i++, lobj = grZebesRoute_8020B548_inline2(lobj)` instead of a `while` loop with manual increment/update at the bottom.",
+    "Used inline wrappers to influence expression lowering for HSD light object retrieval, next-object traversal, and light-type flag masking.",
+    "Replaced explicit `__assert(grZe_Route_803E5E64, line, string)` calls with `HSD_ASSERT(line, expr)` forms.",
+    "Adjusted `symbols.txt` from global `grZe_Route_*` entries to local labels where the matching object emits local constants rather than externally visible symbols."
   ],
   "review_feedback": [
-    {
-      "source": "review",
-      "author": "jurrejelle",
-      "state": "APPROVED",
-      "body": "",
-      "note": "Approved with no written review feedback."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "note": "Reported 1 new match: `main/melee/gr/grzebesroute` item `grZebesRoute_8020B548`, 99.97% to 100.00%."
-    },
-    {
-      "source": "pr_body",
-      "note": "PR body was empty, so rationale is inferred only from diff and bot report."
-    }
+    "No review comments were present in the provided PR slice.",
+    "The PR was merged quickly after creation; the provided context includes no human discussion explaining reviewer rationale."
   ],
   "searchable_terms": [
     "pr-2518",
     "Link grzebesroute",
-    "grzebesroute",
+    "jellejurre",
+    "grzebesroute.c",
     "grZebesRoute_8020B548",
     "grZebesRoute_8020B42C",
     "grZebesRoute_8020B260",
-    "melee/gr/grzebesroute.c",
-    "Object(Matching, \"melee/gr/grzebesroute.c\")",
-    "GALE01 symbols.txt",
-    "grZe_Route_803B83A0",
-    "grZe_Route_803E5DB0",
     "grZe_Route_804D6A60",
     "HSD_ASSERT",
     "__FILE__",
-    "__assert",
+    "HSD_LObj",
     "HSD_LObjGetNext",
+    "HSD_LObjSetColor",
+    "HSD_LObjSetDistAttn",
     "HSD_GObjGXLinkHead",
-    "LOJB",
+    "LOBJ_TYPE_MASK",
     "LOBJ_SPOT",
     "LOBJ_POINT",
-    "LOJB_TYPE_MASK",
-    "LOBJ_TYPE_MASK",
     "GXColor",
     "Ground_801C0498",
     "Ground_801C38BC",
     "ftLib_80086644",
-    "sdata2 local constants",
-    "@211",
-    "@212",
-    "@233",
-    "@239",
-    "@245",
-    "@271",
-    "@272",
-    "@273",
-    "@275",
-    "@276",
-    "@277",
-    "@278",
-    "...rodata.0",
-    "...data.0"
+    "MatchingFor",
+    "Object(Matching, \"melee/gr/grzebesroute.c\")",
+    "symbols.txt",
+    "sdata2 local labels",
+    "grZe_Route_804DB918",
+    "grZe_Route_804DB944"
   ],
   "follow_up_queries": [
-    "grZebesRoute_8020B548 inline HSD_LObjGetNext LOBJ_TYPE_MASK",
-    "grzebesroute HSD_ASSERT __FILE__ grZe_Route_803E5E64",
-    "grZe_Route_804DB918 @211 sdata2 local constants",
-    "Object(Matching, \"melee/gr/grzebesroute.c\")",
-    "GXColor local initializer matching stage route lights",
-    "symbols.txt ...rodata.0 ...data.0 local label"
+    "Find other stage route files still marked NonMatching near `grzebesroute.c` in `configure.py` that may benefit from the same local literal and assert cleanup tactics.",
+    "Search for manually declared file-name strings passed to `OSReport` or `__assert` that could be replaced by `__FILE__` or `HSD_ASSERT` for matching.",
+    "Search for global `GXColor` or float constants in route files that should become local literals/local labels during matching.",
+    "Compare `grkinokoroute.c`, `grshrineroute.c`, and `grbigblueroute.c` for similar HSD light traversal patterns and possible inline-helper codegen tactics."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

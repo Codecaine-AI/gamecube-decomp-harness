@@ -11,115 +11,83 @@
     "merged_at": "2026-05-13T05:57:26Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged SObjLib decompilation PR implementing the SObj setup path and most of the SObj render path. The PR body reports HSD_SObjLib_803A477C and HSD_SObjLib_803A55DC at 100%, HSD_SObjLib_803A4A68 as a 99.88707% near-match, and .data/.sdata2 at 100%. It also added SObj descriptor/color typing and corrected Dolphin GX texture format typing so CI texture setup can use GXTexFmt directly.",
+  "summary": "Decompiled major SObj setup/render paths in sysdolphin baselib: HSD_SObjLib_803A477C and HSD_SObjLib_803A55DC reached 100%, while HSD_SObjLib_803A4A68 was added as a 99.88707% near-match. The work added typed SObj descriptor/color fields, texture/TLUT setup logic, GX/TEV render-state programming, and small Dolphin GX SDK type adjustments needed by the implementation. Verification included pre-commit, configure+ninja, object rebuild, and objdiff evidence for the changed functions and data.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "rendering",
       "external-sdk",
+      "rendering",
       "tooling"
     ],
     "systems": [
-      "src/sysdolphin/baselib/sobjlib",
-      "src/sysdolphin/baselib/tobj",
-      "extern/dolphin/gx",
-      "SObj",
-      "GX/TEV rendering"
+      "src/sysdolphin/baselib",
+      "extern/dolphin/gx"
     ]
   },
   "key_files": [
-    {
-      "path": "src/sysdolphin/baselib/sobjlib.c",
-      "role": "Main implementation: added SOBJLIB_INTERNAL, decompiled HSD_SObjLib_803A477C, near-matched HSD_SObjLib_803A4A68, added SObjLib constants, and changed HSD_SObjLib_803A55DC far_val to load the 2.0F constant through HSD_SObjLib_804DEA98."
-    },
-    {
-      "path": "src/sysdolphin/baselib/sobjlib.h",
-      "role": "Added HSD_SObjDesc, GXColor union overlays for SObj fields at 0x38 and 0x3C, and an internal typed prototype for HSD_SObjLib_803A477C gated by SOBJLIB_INTERNAL."
-    },
-    {
-      "path": "extern/dolphin/include/dolphin/gx/GXEnum.h",
-      "role": "Folded CI texture format values GX_TF_C4, GX_TF_C8, and GX_TF_C14X2 into GXTexFmt and removed separate GXCITexFmt typedef."
-    },
-    {
-      "path": "extern/dolphin/include/dolphin/gx/GXTexture.h",
-      "role": "Changed GXInitTexObjCI format parameter from GXCITexFmt to GXTexFmt."
-    },
-    {
-      "path": "extern/dolphin/src/dolphin/gx/GXTexture.c",
-      "role": "Updated GXInitTexObjCI definition to match the GXTexFmt signature."
-    },
-    {
-      "path": "src/sysdolphin/baselib/tobj.c",
-      "role": "Removed the now-unnecessary GXCITexFmt cast when passing imagedesc->format to GXInitTexObjCI."
-    },
-    {
-      "path": "extern/.clang-format",
-      "role": "Added DisableFormat: true and SortIncludes: false for the extern tree."
-    }
+    "src/sysdolphin/baselib/sobjlib.c",
+    "src/sysdolphin/baselib/sobjlib.h",
+    "src/sysdolphin/baselib/tobj.c",
+    "extern/dolphin/include/dolphin/gx/GXEnum.h",
+    "extern/dolphin/include/dolphin/gx/GXTexture.h",
+    "extern/dolphin/src/dolphin/gx/GXTexture.c",
+    "extern/.clang-format"
   ],
   "what_changed": [
-    "Implemented HSD_SObjLib_803A477C as a typed SObj setup/allocation routine: selects primary/secondary image descriptors, allocates via HSD_ObjAlloc, asserts on NULL, initializes GX texture/TLUT objects, initializes SObj fields/colors/flags, computes normalized texture coordinates from GX texture object dimensions, links the SObj to its GObj with HSD_SObjLib_803A44D4, and returns the new SObj.",
-    "Implemented HSD_SObjLib_803A4A68 as a large GX render routine and documented it as a 99.88707% near-match in the PR body. The code handles SObj flags at x40, optional Z texture/secondary texture handling, TLUT loading for CI formats, TEV stage setup, alpha/blend state, format-specific TEV color/alpha cases, rotated/scaled quad vertex emission, and render-state cleanup.",
-    "Completed HSD_SObjLib_803A55DC according to the PR body. The diff changes far_val from literal 2.0f to a volatile load from HSD_SObjLib_804DEA98, while the surrounding code builds an orthographic CObj/viewport/scissor setup and installs the GX link.",
-    "Added SObjLib constants HSD_SObjLib_804DEA80 through HSD_SObjLib_804DEA98, including packed color constants and f32 constants 0.5F and 2.0F, replacing the prior data_pad_jumptable placeholder.",
-    "Added HSD_SObjDesc with fields image, tlut, and image2, allowing the setup function to use HSD_ImageDesc and HSD_Tlut types instead of opaque integer arguments internally.",
-    "Changed SObj color storage at offsets 0x38 and 0x3C into unions that preserve raw byte fields x38-x3F while also allowing GXColor access as x38_color and x3C_color.",
-    "Used SOBJLIB_INTERNAL so sobjlib.c sees the accurate typed HSD_SObjLib_803A477C prototype while non-internal includes still see the older placeholder int-based signature.",
-    "Unified GX CI texture formats under GXTexFmt by removing GXCITexFmt and updating GXInitTexObjCI plus the TObj call site.",
-    "Added extern/.clang-format to disable formatting and include sorting under extern, keeping external SDK-like files from being reformatted by local tooling.",
-    "Verification in the PR body included pre-commit on sobjlib files, configure.py plus ninja via wibo, sobjlib.o build, and objdiff results for the touched functions/data."
+    "Added a full C implementation of HSD_SObjLib_803A477C, allocating an HSD_SObj, initializing primary and optional secondary texture objects, handling optional TLUT-backed CI textures, setting default transform/color/state fields, computing normalized texture extents, linking the SObj to a GObj, and returning the initialized object.",
+    "Added a large C implementation of HSD_SObjLib_803A4A68 for SObj rendering. The function configures GX vertex descriptors, texture loading, Z texture behavior, culling, TEV stages, alpha/blend state, per-format color/alpha behavior, rotated quad geometry, texture coordinates, and final HSD/GX state cleanup.",
+    "Converted HSD_SObjLib_803A55DC from a near-match/todo state to a 100% match, including use of a volatile load from HSD_SObjLib_804DEA98 for the 2.0f far value.",
+    "Added data constants in sobjlib.c for TEV/k-color values and float constants 0.5f and 2.0f, including HSD_SObjLib_804DEA80 through HSD_SObjLib_804DEA98.",
+    "Defined SOBJLIB_INTERNAL before including sobjlib.h, implying the header exposes internal struct details only to the implementation.",
+    "Expanded sobjlib.h with SObj descriptor/color typing required by the new implementations.",
+    "Updated Dolphin GX texture format typing by folding GX_TF_C4, GX_TF_C8, and GX_TF_C14X2 into GXTexFmt instead of a separate GXCITexFmt, and changed GXInitTexObjCI declarations/definitions to take GXTexFmt.",
+    "Added extern/.clang-format with DisableFormat: true and SortIncludes: false to prevent auto-formatting or include sorting in the external SDK area.",
+    "Made a small tobj.c adjustment related to the GX texture format type changes."
   ],
   "smart_moves": [
-    "The SOBJLIB_INTERNAL gate let the PR introduce accurate internal types for decompilation without forcing a broad public prototype churn at all call sites.",
-    "The GXColor union overlays improved readability for TEV color calls while preserving byte-accurate SObj layout and existing xNN field access.",
-    "Unifying GXCITexFmt into GXTexFmt removed casts at real call sites and matched the fact that HSD_ImageDesc->format is passed to both regular and CI texture initialization.",
-    "The volatile const f32 load from HSD_SObjLib_804DEA98 is a targeted matching fix for HSD_SObjLib_803A55DC, avoiding a literal 2.0f codegen shape that did not match.",
-    "The render implementation keeps explicit GX state setup and cleanup in one path, including HSD_StateInvalidate, HSD_StateInitTev, HSD_ClearVtxDesc, and restoring Z mode after drawing.",
-    "The PR reported exact and near-match percentages, plus a build caveat for the known Wine server crash path, making the matching status auditable."
+    "Used SOBJLIB_INTERNAL to keep internal SObj layout/type exposure scoped to sobjlib.c rather than broadly exposing private implementation details.",
+    "Matched GXInitTexObjCI to the real usage pattern by accepting GXTexFmt, allowing CI texture formats and ordinary texture format values to share one enum where the decompiled code expects a single format field.",
+    "Preserved external SDK formatting with a local extern/.clang-format disabling formatting and include sorting, reducing noisy or authenticity-breaking changes under extern/dolphin.",
+    "Used objdiff percentages in the PR body to clearly distinguish fully matched functions from the remaining near-match: 803A477C 100%, 803A4A68 99.88707%, 803A55DC 100%, and .data/.sdata2 100%.",
+    "Used a volatile const f32 load from HSD_SObjLib_804DEA98 for the 2.0f constant in HSD_SObjLib_803A55DC, a targeted matching tactic for codegen/data reference behavior.",
+    "Centralized render constants as named address-derived symbols rather than raw literals throughout the new TEV/color setup."
   ],
   "decomp_lessons": [
-    "For baselib render functions, matching requires reconstructing the full GX/TEV state machine and the cleanup tail, not just the draw calls.",
-    "When a struct field is byte-initialized but later consumed as a GXColor, a union overlay can be the least invasive way to improve type correctness without changing layout.",
-    "Header/API typing can be a decomp blocker: if a shared image format field feeds both GXInitTexObj and GXInitTexObjCI, keeping CI formats in GXTexFmt can reduce casts and produce cleaner code.",
-    "Internal-only typed prototypes are useful when a function is decompiled before all external call sites have enough type information.",
-    "Small constant-load choices matter for exact matching; referencing an address-named f32 through a volatile const pointer can force the desired load sequence.",
-    "Near-matches should preserve the exact objdiff percentage in the PR record; here HSD_SObjLib_803A4A68 is explicitly not claimed as a full match."
+    "For baselib render paths, matching often requires modeling both high-level object behavior and exact GX/TEV state sequencing; cleanup calls such as HSD_StateInvalidate, HSD_StateInitTev, HSD_ClearVtxDesc, and restoring Z mode are part of the function’s observable codegen/state pattern.",
+    "Texture format typing in SDK headers can block decompilation if the inferred game structs store one shared format type; adjust headers cautiously when multiple Dolphin APIs actually consume the same enum values.",
+    "Optional secondary textures and TLUT-backed image paths should be represented in the data model rather than forced through placeholder fields; this PR added descriptor/color typing to support cleaner setup/render code.",
+    "When a float literal causes mismatch, loading it through an address-backed const, and in this case volatile, can reproduce the original compiler behavior.",
+    "Near-matches should be explicitly retained as such when evidence shows they are not yet exact; this PR reports HSD_SObjLib_803A4A68 at 99.88707% rather than overstating completion.",
+    "External SDK directories may need local clang-format controls to avoid formatter churn that obscures decomp-relevant type/header changes."
   ],
   "naming_conventions": [
-    "The PR kept address-based function names such as HSD_SObjLib_803A477C, HSD_SObjLib_803A4A68, and HSD_SObjLib_803A55DC rather than inventing semantic names.",
-    "New descriptor typing uses HSD_SObjDesc with simple field names image, tlut, and image2.",
-    "Unknown SObj fields remain xNN-style, while typed overlays use suffixes such as x38_color and x3C_color.",
-    "Address-based data symbols HSD_SObjLib_804DEA80 through HSD_SObjLib_804DEA98 remain unnamed semantically, reflecting limited evidence about their meaning.",
-    "SOBJLIB_INTERNAL is used as the macro name for internal-only type exposure.",
-    "CI texture formats are represented as GX_TF_C4, GX_TF_C8, and GX_TF_C14X2 inside GXTexFmt; GXCITexFmt was removed."
+    "Preserved existing address-style symbol names for unknown baselib functions and data, such as HSD_SObjLib_803A477C, HSD_SObjLib_803A4A68, HSD_SObjLib_803A55DC, and HSD_SObjLib_804DEA98.",
+    "Used field names that encode struct offsets where semantics are not fully known, such as x50_texobj, x70_tlutobj, x7C_texobj, x38_color, x3C_color, and x4C_callback.",
+    "Used descriptive local variable names for inferred render/setup roles, including image, tlut, image2, inv_width, inv_height, origin_x, origin_y, tex_s, tex_t, tex_s_max, tex_t_max, obj_width, obj_height, and tex_fmt.",
+    "Used HSD_SObjDesc, HSD_ImageDesc, and HSD_Tlut names for typed SObj setup inputs, consistent with SysDolphin baselib naming."
   ],
   "assembly_or_matching_tactics": [
-    "HSD_SObjLib_803A4A68 uses PAD_STACK(0x20), indicating an explicit stack-shape tactic for the near-match.",
-    "HSD_SObjLib_803A55DC uses far_val = *(volatile const f32*) &HSD_SObjLib_804DEA98 to force a load of the 2.0F constant from the named data symbol.",
-    "Packed constants are moved into GXColorS10/GXColor via u32 pointer casts before GXSetTevColorS10 and GXSetTevKColor, matching the data/register setup more directly than field-by-field assignment.",
-    "The render path uses explicit local ordering for sinf/cosf-derived half-angle products and emits GXPosition2f32/GXTexCoord2f32 calls in quad order, preserving the observed geometry code shape.",
-    "The TLUT load condition is expressed as (u8)(tex_fmt - GX_TF_C4) <= 1U, a compact range check over CI texture formats in the decompiled render routine.",
-    "Replacing the data_pad_jumptable placeholder with real constants and the decompiled switch/state logic contributed to .data/.sdata/.sdata2 matching reported by the PR/bot."
+    "Reached 100% on HSD_SObjLib_803A477C by expressing allocation, assert, TLUT/texture initialization, default field initialization, flag setup, reciprocal texture-size math, and list insertion in C.",
+    "Reached 100% on HSD_SObjLib_803A55DC by replacing a direct 2.0f literal with `*(volatile const f32*) &HSD_SObjLib_804DEA98`, forcing the desired constant/data access behavior.",
+    "Used explicit casts such as `(u8) image->mipmap` and float casts around width/height calculations to match expected argument and arithmetic types.",
+    "Used `PAD_STACK(0x20)` in HSD_SObjLib_803A4A68, indicating a deliberate stack-shape/codegen matching aid for the large render function.",
+    "Used packed writes/casts for GXColorS10 and GXColor setup, such as assigning through `((u32*) &tev_color)` and `*(u32*) &k_color`, to reproduce the original data movement for TEV color constants.",
+    "Represented 0.5f and 2.0f as address-backed constants HSD_SObjLib_804DEA94 and HSD_SObjLib_804DEA98, contributing to .data/.sdata2 matching."
   ],
   "review_feedback": [
-    "No human reviews or review comments were present in the slice.",
-    "decomp-dev[bot] reported matched code 66.75% (+0.02%, +612 bytes) and matched data 39.02% (+0.03%, +304 bytes).",
-    "The bot listed new matches for HSD_SObjLib_803A477C, .data, .sdata2, and .sdata, plus an improvement for HSD_SObjLib_803A4A68 from 0.00% to 99.89%."
+    "No review comments were present in the provided PR slice.",
+    "The only human text evidence is the PR summary/verification note; no reviewer intent or requested changes can be inferred."
   ],
   "searchable_terms": [
-    "pr-2485",
     "sobjlib",
     "SObj",
     "HSD_SObj",
     "HSD_SObjDesc",
-    "HSD_ImageDesc",
-    "HSD_Tlut",
     "HSD_SObjLib_803A477C",
     "HSD_SObjLib_803A4A68",
     "HSD_SObjLib_803A55DC",
-    "HSD_SObjLib_803A44D4",
     "HSD_SObjLib_804DEA80",
     "HSD_SObjLib_804DEA84",
     "HSD_SObjLib_804DEA88",
@@ -127,41 +95,41 @@
     "HSD_SObjLib_804DEA90",
     "HSD_SObjLib_804DEA94",
     "HSD_SObjLib_804DEA98",
-    "HSD_ObjAlloc",
     "GXInitTexObj",
     "GXInitTexObjCI",
-    "GXInitTlutObj",
-    "GXLoadTlut",
-    "GXLoadTexObj",
     "GXTexFmt",
     "GXCITexFmt",
     "GX_TF_C4",
     "GX_TF_C8",
     "GX_TF_C14X2",
-    "GX_ZT_REPLACE",
+    "GXLoadTlut",
+    "GXLoadTexObj",
     "GXSetZTexture",
-    "GXSetTevOrder",
+    "GXSetNumTevStages",
     "GXSetTevColorIn",
     "GXSetTevAlphaIn",
-    "GXSetTevKColor",
-    "GXColor",
-    "GXColorS10",
-    "SOBJLIB_INTERNAL",
+    "GXSetBlendMode",
+    "GXBegin",
     "PAD_STACK",
     "volatile const f32",
-    "extern/.clang-format",
-    "tobj.c",
-    "objdiff",
-    "wibo",
-    "99.88707",
-    ".sdata2"
+    "SOBJLIB_INTERNAL",
+    "extern clang-format DisableFormat",
+    "objdiff 99.88707"
   ],
   "follow_up_queries": [
-    "Did a later PR exact-match HSD_SObjLib_803A4A68 beyond 99.88707%?",
-    "Were the SObj x40 flag bits 1, 2, 4, 8, and 0x10 later given semantic names?",
-    "Did later SObj work rename image2 or clarify the secondary texture/Z texture behavior?",
-    "Did the GXTexFmt versus GXCITexFmt consolidation require fixes in other Dolphin GX call sites?",
-    "Are there other exact-match fixes using volatile const f32 loads from address-named .sdata2 symbols?"
+    "Find later PRs that complete the HSD_SObjLib_803A4A68 near-match from 99.88707% to 100%.",
+    "Search for SOBJLIB_INTERNAL usage to see how internal baselib struct exposure is handled elsewhere.",
+    "Search for volatile const f32 matching tactics around sdata2 constants in other sysdolphin modules.",
+    "Check follow-up changes to GXTexFmt/GXCITexFmt to confirm whether merging CI formats into GXTexFmt remained stable.",
+    "Look for later renames of SObj offset fields such as x40 flags, x38_color, x3C_color, x50_texobj, x70_tlutobj, and x7C_texobj."
   ],
-  "confidence": 0.93
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

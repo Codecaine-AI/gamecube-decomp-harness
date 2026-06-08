@@ -11,14 +11,15 @@
     "merged_at": "2026-03-18T02:16:02Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large stage decomp PR for grfzerocar: filled previously empty src/melee/gr/grfzerocar.c with F-Zero car data tables, default scale/translate/rotate data, a setup_car_child helper, and grFZeroCar_801CAFBC. It also made grAnime_801C6C0C non-static and exported it in granime.h so grfzerocar could reuse the animation-binding path. decomp.dev reported one new .rodata match and grFZeroCar_801CAFBC improving from 0.00% to 98.74%. Human review evidence is minimal; the only human note says this was a very large function attempted with Claude.",
+  "summary": "Implemented a large portion of F-Zero car stage object setup in src/melee/gr/grfzerocar.c and exposed grAnime_801C6C0C through granime.h so the car code could attach animation data to JObjs. The new code builds car child JObj structures, applies default scale/translate/rotation state, handles ground scaling, loads archive animation pointers, and attaches up to four configured child car objects per table entry. The PR body explicitly notes this was a large Claude-assisted function; there was no substantive review discussion in the provided slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
+      "stage-object-logic",
       "headers",
-      "stage-object-setup",
-      "animation"
+      "animation-wiring",
+      "data-tables"
     ],
     "systems": [
       "stage",
@@ -30,108 +31,131 @@
   },
   "key_files": [
     {
-      "file": "src/melee/gr/grfzerocar.c",
-      "role": "Added the main grfzerocar implementation, data tables, default RST constant, setup_car_child helper, and grFZeroCar_801CAFBC."
+      "path": "src/melee/gr/grfzerocar.c",
+      "reason": "Main implementation added; defines grFZeroCarEntry, grFZeroCar_RST, default RST data, a 30-entry child mapping table, setup_car_child, and grFZeroCar_801CAFBC."
     },
     {
-      "file": "src/melee/gr/granime.c",
-      "role": "Changed grAnime_801C6C0C from static to externally visible."
+      "path": "src/melee/gr/granime.c",
+      "reason": "Changed grAnime_801C6C0C from static to externally visible so grfzerocar.c can call it."
     },
     {
-      "file": "src/melee/gr/granime.h",
-      "role": "Added the public prototype for grAnime_801C6C0C."
+      "path": "src/melee/gr/granime.h",
+      "reason": "Added prototype for grAnime_801C6C0C with HSD_AnimJoint, HSD_MatAnimJoint, and HSD_ShapeAnimJoint parameters."
     }
   ],
   "what_changed": [
-    "Implemented grFZeroCar_801CAFBC in grfzerocar.c, building and modifying a tree of HSD_JObj objects for F-Zero car stage content.",
-    "Added grFZeroCarEntry with two s16 fields and four child indices, plus a 30-entry grFZeroCar_803E0BD8 table using -1 sentinels for absent child slots.",
-    "Added struct grFZeroCar_RST and const grFZeroCar_803B7E50 containing identity scale, zero translation, and identity quaternion rotation.",
-    "Added static inline setup_car_child, which loads an archive via grDatFiles_801C6330, fetches a JObj via Ground_801C13D0, applies animation and material animation through grAnime_801C6C0C, requests animation with HSD_JObjReqAnimAllByFlags, sets AObj rate with HSD_ForeachAnim/HSD_AObjSetRate, attaches the JObj, and scales the parent X/Y.",
-    "grFZeroCar_801CAFBC now resets root scale, optionally calls lb_8000F9F8 when mode is nonzero, allocates translation JObjs, initializes matrices with PSMTXIdentity, sets scl to NULL, and attaches nodes with HSD_JObjAddNext/HSD_JObjAddChild.",
-    "The function applies Ground_801C0498 ground scale to inserted translation JObjs and uses Ground_801C4100 traversal to select child attachment points listed in grFZeroCar_803E0BD8.",
-    "grAnime_801C6C0C was promoted from a file-local static function to a public granime API and declared in granime.h.",
-    "decomp.dev reported matched data +40 bytes, grFZeroCar_801CAFBC +2977 bytes to 98.74%, .data +388 bytes to 99.10%, plus smaller .sdata2 and .sdata improvements."
+    "Populated previously empty grfzerocar.c with 248 lines of implementation for F-Zero car object setup.",
+    "Added local data structures grFZeroCarEntry and grFZeroCar_RST to model child attachment entries and default scale/translate/rotation values.",
+    "Added const grFZeroCar_803B7E50 default transform data: unit scale, zero translation, identity quaternion.",
+    "Added grFZeroCar_803E0BD8, a 30-entry table mapping each car entry to up to four child indices, using -1 sentinels for absent children.",
+    "Added setup_car_child as a static inline helper that retrieves archive data with grDatFiles_801C6330, gets a JObj with Ground_801C13D0, extracts animation and material animation pointers from archive entry offsets, applies grAnime_801C6C0C, requests animation, sets AObj rate, attaches the child, and scales the parent X/Y.",
+    "Implemented grFZeroCar_801CAFBC to initialize the root JObj, optionally process children with lb_8000F9F8 when mode is nonzero, allocate transform JObjs, iterate 30 car entries, reset local transform state, apply ground scale, find configured child nodes via Ground_801C4100 traversal, and call setup_car_child for each active child.",
+    "Made grAnime_801C6C0C non-static in granime.c.",
+    "Exported grAnime_801C6C0C in granime.h for reuse outside granime.c."
   ],
   "smart_moves": [
-    "Reused the existing grAnime_801C6C0C animation setup instead of duplicating granime internals in grfzerocar, requiring only a targeted static-to-public header change.",
-    "Captured the car-child topology as a data table, which made the repeated child-selection behavior explicit and helped recover .data matching.",
-    "Kept a small setup_car_child helper for the repeated archive/JObj/animation/scale sequence while marking it static inline, a common compromise between readability and preserving generated code shape.",
-    "Preserved low-level HSD object setup details visible in the diff: identity matrix initialization, scl = NULL, AddNext before attaching to the root, and explicit scale/translate/rotation setter calls.",
-    "Used local Vec3 and Quaternion copies from grFZeroCar_803B7E50 before calling HSD_JObj setters, which is the kind of temporary-lifetime detail that often matters for matching.",
-    "Included PAD_STACK(0x18) and specific HSD_ASSERT call sites, indicating attention to stack shape and assert metadata."
+    "Factored repeated archive-animation attachment logic into setup_car_child rather than duplicating it four times for c0 through c3.",
+    "Used a compact table-driven child mapping grFZeroCar_803E0BD8 instead of hardcoding per-car child attachment branches inside the main loop.",
+    "Preserved explicit HSD_ASSERT checks after archive lookup and JObj allocation, matching common decomp style and helping document expected non-null engine state.",
+    "Kept the previously internal grAnime_801C6C0C implementation intact and only changed linkage/prototype visibility, avoiding reimplementing animation setup in grfzerocar.c.",
+    "Copied default transform structs into locals before passing to JObj setters, a common tactic when matching codegen involving aggregate Vec3 and Quaternion assignments.",
+    "Used PAD_STACK(0x18), scoped local Vec3 scale adjustment, and explicit temporary variables, suggesting the implementation was shaped around matching stack/register behavior."
   ],
   "decomp_lessons": [
-    "When a stage module needs an internal animation helper from granime, prefer exporting the existing addressed symbol in the header if the callsite evidence supports it.",
-    "Large HSD_JObj setup functions can often be decomposed by first reconstructing constant transform data and topology tables; here the table work produced near-complete .data and .rodata matching.",
-    "Do not flatten repeated child-selection blocks too aggressively: the diff uses four explicit Ground_801C4100 traversal blocks for c0 through c3, which may reflect compiler shape needed for a large near-match.",
-    "For ground/stage object construction, synthetic JObjs may need exact initialization order: allocate, assert, PSMTXIdentity, clear scl, then link with HSD_JObjAddNext/HSD_JObjAddChild.",
-    "Archive entries can contain animation and material animation pointers that must be null-checked separately before calling grAnime_801C6C0C and HSD animation APIs.",
-    "Scale behavior was table-dependent: active child count selected scale_factor values of 1.1 for one active child, 1.0 for two or three, and 0.9 for four. Keep this logic data-driven rather than guessing from object names."
+    "When another stage module needs an existing animation helper, prefer promoting the helper from static and adding a header prototype over duplicating equivalent animation setup logic.",
+    "Large stage object setup functions often combine archive pointer arithmetic, JObj hierarchy construction, animation binding, and data-table-driven child lookup; isolating repeated setup into a small helper can make the decomp tractable.",
+    "Use sentinel values such as -1 in decompiled data tables when the original data clearly encodes absent child nodes; this keeps traversal logic close to the binary behavior.",
+    "For JObj transform setup, preserving separate scale, translation, and quaternion locals may be important for matching even when the values come from a constant default RST structure.",
+    "Ground object code may require both asset JObjs from Ground_801C13D0 and wrapper/transform JObjs allocated manually with HSD_JObjAlloc, identity matrices, and AddNext/AddChild wiring.",
+    "Archive data access in this slice uses byte offset arithmetic into archive->unk4->unk8 and then dereferences animation/material animation pointer slots; future work should verify these offsets against archive layout before renaming fields."
   ],
   "naming_conventions": [
-    "Stage module symbols use the grFZeroCar_ address naming pattern, e.g. grFZeroCar_801CAFBC, grFZeroCar_803B7E50, and grFZeroCar_803E0BD8.",
-    "Local recovered structs used module-prefixed names: grFZeroCarEntry and grFZeroCar_RST.",
-    "Unknown struct fields remained conservative as unk0 and unk2 rather than invented semantic names.",
-    "The helper setup_car_child was descriptive and lower_snake_case because it was file-local, unlike address-bearing exported symbols.",
-    "granime public symbols follow grAnime_<address>, and the header prototype retained the address comment /* 1C6C0C */."
+    "New local structs follow subsystem-prefixed names: grFZeroCarEntry and grFZeroCar_RST.",
+    "DOL-addressed globals and functions retain project convention names such as grFZeroCar_803B7E50, grFZeroCar_803E0BD8, and grFZeroCar_801CAFBC.",
+    "The helper name setup_car_child is descriptive but not address-based, indicating a local factoring helper rather than a known symbol.",
+    "Unknown fields remain named unk0, unk2, unk4, and unk8 where semantic evidence is insufficient.",
+    "Temporary child JObj variables are named c0, c1, c2, and c3 to mirror the four table child slots without overclaiming semantics."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(0x18) in grFZeroCar_801CAFBC.",
-    "Made setup_car_child static inline, likely to allow helper structure in source without forcing an extra emitted function.",
-    "Kept ext_count as s16 cast from count and computed offset as ext_count * 0x34 before archive entry access.",
-    "Used s16* data_ptr and grFZeroCarEntry* tbl advanced together in a fixed 30-iteration loop.",
-    "Used explicit pointer casts and offsets into archive data: archive->unk4->unk8 + offset, then entry + 4 for animation and entry + 8 for material animation.",
-    "Preserved HSD_ASSERT constants 95, 172, 186, and 195.",
-    "Allocated HSD_JObj translation nodes, initialized their matrices with PSMTXIdentity, and set tra_jobj->scl = NULL.",
-    "Applied HSD_JObjReqAnimAllByFlags with flags 0x497 and HSD_ForeachAnim with flags 0x76a4, HSD_AObjSetRate, AOBJ_ARG_AF, and rate 1.0.",
-    "Used Ground_801C4100 traversal loops from child for each nonnegative table child index instead of abstracting the traversal into an array loop."
+    "Inserted PAD_STACK(0x18) in grFZeroCar_801CAFBC, likely to satisfy stack layout/codegen requirements.",
+    "Used static inline setup_car_child, suggesting the helper was intended to organize source while still matching inlined original code.",
+    "Preserved explicit casts through u8* and void** for archive entry pointer arithmetic at offset ext_count * 0x34.",
+    "Separated child-index traversal into repeated blocks for children[0] through children[3] rather than an array loop, likely because the original code or matching constraints favored unrolled control flow.",
+    "Counted active children explicitly across four slots to derive scale_factor values 1.1f, 1.0f, or 0.9f.",
+    "Allocated JObjs, initialized matrices with PSMTXIdentity, nulled scl, and linked with HSD_JObjAddNext/HSD_JObjAddChild in a precise sequence that may be codegen-sensitive."
   ],
   "review_feedback": [
-    "No human review comments or review records were captured in the PR slice.",
-    "The author wrote: \"This might be the largest function I've sicced Claude on yet, ha\", suggesting the large function was AI-assisted, but no detailed rationale was provided.",
-    "decomp.dev bot reported GALE01 progress: one new match for main/melee/gr/grfzerocar .rodata (+40 bytes, 0.00% to 100.00%).",
-    "decomp.dev bot reported grFZeroCar_801CAFBC improved by +2977 bytes from 0.00% to 98.74%, with .data, .sdata2, and .sdata also improved."
+    {
+      "type": "pr_body",
+      "author": "lukechampine",
+      "text": "This might be the largest function I've sicced Claude on yet, ha",
+      "impact": "Indicates the implementation was AI-assisted and unusually large for that workflow; no technical reviewer guidance was present in the provided slice."
+    },
+    {
+      "type": "absence",
+      "text": "No review comments or approval notes were included in the slice.",
+      "impact": "No direct reviewer naming, matching, or style feedback can be inferred."
+    }
   ],
   "searchable_terms": [
     "pr-2316",
     "grfzerocar work",
-    "lukechampine",
     "grFZeroCar_801CAFBC",
-    "grfzerocar.c",
-    "grAnime_801C6C0C",
-    "granime.h",
-    "grFZeroCarEntry",
-    "grFZeroCar_RST",
     "grFZeroCar_803B7E50",
     "grFZeroCar_803E0BD8",
+    "grFZeroCarEntry",
+    "grFZeroCar_RST",
     "setup_car_child",
+    "grAnime_801C6C0C",
+    "grAnime_801C65B0",
+    "grAnime_801C752C",
+    "grAnime_801C775C",
+    "grAnime_801C77FC",
+    "granime.h",
+    "granime.c",
+    "grfzerocar.c",
     "Ground_801C13D0",
     "Ground_801C0498",
     "Ground_801C4100",
     "grDatFiles_801C6330",
     "HSD_JObj",
     "HSD_JObjAlloc",
-    "HSD_JObjAddNext",
     "HSD_JObjAddChild",
+    "HSD_JObjAddNext",
     "HSD_JObjSetScale",
+    "HSD_JObjSetScaleX",
+    "HSD_JObjSetScaleY",
     "HSD_JObjSetTranslate",
     "HSD_JObjSetRotation",
+    "HSD_JObjGetChild",
+    "HSD_JObjGetScale",
     "HSD_JObjReqAnimAllByFlags",
     "HSD_ForeachAnim",
     "HSD_AObjSetRate",
+    "HSD_AnimJoint",
+    "HSD_MatAnimJoint",
+    "HSD_ShapeAnimJoint",
     "AOBJ_ARG_AF",
     "JOBJ_TYPE",
     "PSMTXIdentity",
-    "PAD_STACK",
     "lb_8000F9F8",
-    "Claude"
+    "PAD_STACK",
+    "Claude-assisted"
   ],
   "follow_up_queries": [
-    "grFZeroCar_801CAFBC Ground_801C13D0 HSD_JObjAddNext",
-    "grFZeroCar_803E0BD8 children table -1 scale_factor",
-    "setup_car_child grAnime_801C6C0C HSD_ForeachAnim AOBJ_ARG_AF",
-    "grAnime_801C6C0C static public granime.h",
-    "grfzerocar .data .rodata match decomp.dev 98.74"
+    "Find later PRs that rename grFZeroCarEntry fields unk0/unk2 or explain the 30-entry grFZeroCar_803E0BD8 table semantics.",
+    "Search for additional users of grAnime_801C6C0C after it was exported from granime.c.",
+    "Check whether grFZeroCar_801CAFBC later received cleanup from repeated c0/c1/c2/c3 traversal to a loop, or whether unrolling was required for matching.",
+    "Look for follow-up PRs touching archive->unk4->unk8 offsets or defining the archive entry layout used by setup_car_child.",
+    "Verify whether PRs after 2316 improved naming for ext_count, offset, mode, count, or grFZeroCar_RST."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

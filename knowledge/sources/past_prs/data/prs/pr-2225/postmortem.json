@@ -11,26 +11,28 @@
     "merged_at": "2026-03-05T21:23:17Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Small multi-system decomp matching PR that finished 9 functions and improved 11 more, according to the decomp.dev report: matched code rose to 55.19% (+0.05%, +2064 bytes). The changes are mostly source-shaping edits: stack padding, declaration order, direct field access, prototype width fixes, branch/cast tweaks, and removal of extra stores. The PR body was empty; intent is inferred from the title, diff, and match report.",
+  "summary": "Small multi-system decomp-matching cleanup PR that finished or improved several stubborn functions across Kirby specials, memory card code, random stage switch logic, stage code, sound test, fighter collision, and Link boomerang math. The changes are mostly tactical matching edits: correcting prototypes and return values, moving declarations, adding PAD_STACK, introducing casts to force codegen, removing or avoiding stores, changing struct field access, and reshaping control flow. Author explicitly offered to revert smaller gains if they were noise or fake matches; reviewer ribbanya replied that the changes were fine.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "function-completion",
       "headers",
       "prototype-correction",
-      "stack-register-shaping",
-      "struct-field-shaping"
+      "stack-padding",
+      "control-flow-reshaping",
+      "type-cast-codegen",
+      "struct-field-correction"
     ],
     "systems": [
       "fighter",
-      "fighter-kirby",
+      "kirby",
       "game-mode",
       "item",
       "library",
-      "melee-core",
+      "memory-card",
       "stage",
-      "interface-soundtest"
+      "soundtest",
+      "collision"
     ]
   },
   "key_files": [
@@ -48,101 +50,112 @@
     "src/melee/lb/lbcardnew.h"
   ],
   "what_changed": [
-    "Finished `grBigBlueRoute_8020C238` by reshaping locals and control flow: `Ground* gp` now comes from `gobj->user_data`, `jobj` is declared separately, and redundant-looking null branches were introduced to match codegen.",
-    "Finished `ftKb_SpecialN_800F598C` by replacing `mpUpdateFloorSkip(&fp->coll_data)` with `ftKb_SpecialS_800F6BB0(gobj)` before applying Kirby stop momentum.",
-    "Finished Kirby `ftKb_SkSpecialNCancel_Coll` and `ftKb_SkSpecialNEnd_Coll` by adding `PAD_STACK` and changing the `ftCo_80096900` float argument from `0.0F` to `1.0F`.",
-    "Improved Kirby special-N functions with stack padding and declaration/register-shaping edits, including `ftKb_MsSpecialNLoop_Anim`, `ftKb_MsSpecialNEnd_Anim`, `ftKb_MsSpecialAirNEnd_Anim`, and `ftKb_SkSpecialAirNLoop_Anim`.",
-    "Adjusted `ftColl_8007BBCC` to switch on `DmgLogEntry.x0` instead of `DmgLogEntry.kind`, a small struct-field/codegen improvement.",
-    "Changed `gm_80164330` and its header prototype from `u8` to `s32`, then added explicit `(u8)` and `(u16)` casts around table indexing and stage-mask shifts.",
-    "In `grPura_80211D00`, added static sbss global `grPu_804D6AA0` and stored the return from `Ground_801C49F8()` there, improving the function and `.sbss` match.",
-    "Finished `un_80301634` in `soundtest.c` by including `placeholder.h`, adding `PAD_STACK(8)`, and removing an explicit `gobj->user_data = NULL` store.",
-    "Adjusted Link boomerang angle normalization by using `f64 angle` and flipping the `facing_dir == 1.0f` branch shape.",
-    "Changed `lb_8001B760` from `void` to `int` in both `lbcardnew.c` and `lbcardnew.h`, returning the final result after polling.",
-    "Collapsed repeated `lbcardnew` polling loops into assignment-in-condition `do { } while ((result = lb_8001B6F8()) == 0xB);` forms and changed one local result type to `s32`."
+    "Changed ftKb_SpecialN_800F598C to call ftKb_SpecialS_800F6BB0(gobj) instead of mpUpdateFloorSkip(&fp->coll_data) before applying Kirby special-N stop momentum on the ground.",
+    "Adjusted Kirby Marth-copy special-N code in ftKb_SpecialNYs.c by moving the charge pointer declaration before other locals and adding PAD_STACK(24) in both ftKb_MsSpecialNEnd_Anim and ftKb_MsSpecialAirNEnd_Anim.",
+    "Adjusted Kirby Sheik/Zelda-copy special-N code in ftKb_SpecialNZd.c: initialized a local Fighter* alias, replaced a volatile pad with PAD_STACK(8), routed ft_PlaySFX through that alias, changed later writes back to fp, added PAD_STACK in collision callbacks, and changed ftCo_80096900 argument from 0.0F to 1.0F in two freefall-toggle paths.",
+    "Corrected ftColl_8007BBCC to switch on DmgLogEntry field x0 instead of kind when checking for EntityKind_Fighter and HitElement_Lipstick.",
+    "Changed gm_80164330 signature and header declaration from bool gm_80164330(u8) to bool gm_80164330(s32), while casting the index to u8 and shift amounts to u16 where needed for matching RandomStageSwitch codegen.",
+    "In grBigBlueRoute_8020C238, used gobj->user_data instead of GET_GROUND(gobj), split HSD_JObj* jobj declaration, added redundant-looking NULL checks, and reshaped next-child traversal to address the noted r30/r31 register swap issue.",
+    "In grPura_80211D00, introduced static HSD_GObj* grPu_804D6AA0 and stored Ground_801C49F8() into it instead of discarding the return value; also simplified an extra pair of parentheses in a camera-bound expression.",
+    "In soundtest.c, included placeholder.h, added PAD_STACK(8) in un_80301634, and removed an explicit gobj->user_data = NULL store.",
+    "In itlinkboomerang.c, changed norm_xF74 local angle from f32 to f64 and inverted the facing_dir branch condition to check == 1.0f first.",
+    "In lbcardnew.c and lbcardnew.h, changed lb_8001B760 from void to int, returned the final result, and rewrote repeated polling loops as assignment-inside-while forms like while ((result = lb_8001B6F8()) == 0xB).",
+    "Minor local type adjustment in lb_8001B8C8 changed result from int to s32."
   ],
   "smart_moves": [
-    "Used `PAD_STACK` instead of ad-hoc volatile padding, and added `placeholder.h` where needed for the macro.",
-    "Synchronized header and implementation when changing `lb_8001B760` return type, avoiding a prototype mismatch.",
-    "Matched target integer-promotion behavior in `gm_80164330` with a wider `s32` parameter plus explicit narrower casts at the actual use sites.",
-    "Preferred direct field access (`gobj->user_data`) over a helper macro in `grBigBlueRoute_8020C238` when the macro-shaped code produced the wrong register allocation.",
-    "Accepted source shapes that look redundant at C level, such as null checks inside an already non-null branch, because they improved assembly matching.",
-    "Removed an apparently unnecessary `gobj->user_data = NULL` store in `soundtest.c`, showing that fewer source operations can be required for a match.",
-    "Captured `Ground_801C49F8()` into a named static global in `grpura.c`, improving both function code and sbss data matching."
+    "Kept header prototypes synchronized with implementation changes for gm_80164330 and lb_8001B760, avoiding ABI/type drift between C files and headers.",
+    "Used narrow casts at exact expression sites, such as lbl_803B7808[(u8) arg0] and shifts by (u16) i or (u16) arg0, instead of forcing the whole function back to a narrower parameter type.",
+    "Centralized the memory-card retry-loop idiom by rewriting several loops into assignment-in-condition form, a common decomp tactic for matching branch/register lifetimes without changing apparent behavior.",
+    "Used PAD_STACK instead of ad hoc volatile padding in Kirby and soundtest functions, making stack-shape intent explicit and consistent with project matching conventions.",
+    "For grBigBlueRoute_8020C238, reshaped local declarations and NULL-control-flow even where logically redundant, indicating the goal was register allocation/control-flow matching rather than source prettiness.",
+    "Recognized that lb_8001B760 should return the final polled result rather than be void, which improves semantic accuracy and header correctness while likely helping matching."
   ],
   "decomp_lessons": [
-    "Tiny local-order, cast-width, and stack-padding changes can move functions from mid-90% to 100% without broad rewrites.",
-    "For matching, prototype parameter width matters independently from logical domain size; a stage index can still need an `s32` parameter with explicit narrow casts later.",
-    "Repeated polling loops may need the assignment inside the `while` condition to match the original instruction schedule.",
-    "Do not assume helper macros preserve match quality; direct struct field access can produce different register allocation.",
-    "When struct understanding is incomplete, offset-style fields such as `x0` may be more match-stable than premature semantic names like `kind`.",
-    "A stale-looking local or sbss object can be real evidence of the original binary storing a returned object globally.",
-    "Double precision temporaries (`f64`) versus single precision temporaries (`f32`) are important in item math matches.",
-    "Removing extra high-level initialization stores can be as important as adding missing operations."
+    "When a function's call sites or assembly imply a returned status, fix the prototype and header together; lb_8001B760 is evidence that a void placeholder can hide a real result value.",
+    "Assignment inside a loop condition can be necessary to match original retry/polling codegen, especially for status loops that repeat while a sentinel value such as 0xB is returned.",
+    "Prefer PAD_STACK(n) for intentional stack layout pressure over unnamed volatile dummy variables; this documents that the padding is a matching tactic.",
+    "Parameter type alone is not always the right way to model original codegen: gm_80164330 uses an s32 parameter but explicit u8/u16 casts at indexing and shift sites.",
+    "Field names in partially understood structs should remain provisional; ftColl_8007BBCC switching from entry->kind to entry->x0 suggests the prior semantic name was not sufficiently supported by layout/use evidence.",
+    "Redundant NULL checks and reordered child traversal can be legitimate in decomp source when they repair register allocation or branch layout, as shown in grBigBlueRoute_8020C238.",
+    "Small numeric literal changes in function calls, such as 0.0F to 1.0F in ftCo_80096900 paths, should be treated as behavior-relevant unless backed by matching evidence; this PR does not include detailed explanation beyond the diff."
   ],
   "naming_conventions": [
-    "New static stage global follows project address-prefix style: `/* 4D6AA0 */ static HSD_GObj* grPu_804D6AA0;`.",
-    "Headers retain address comments beside unresolved symbol names, e.g. `/* 164330 */ bool gm_80164330(s32);` and `/* 01B760 */ int lb_8001B760(int result);`.",
-    "Unresolved functions remain address-based (`gm_80164330`, `lb_8001B760`, `un_80301634`) when no stronger semantic name is established.",
-    "Offset-style struct fields such as `DmgLogEntry.x0` are acceptable when semantic field names hurt evidence-grounded matching."
+    "Kirby special functions retain project-style prefixes such as ftKb_, ftKb_MsSpecial*, and ftKb_SkSpecial* for copied character specials.",
+    "Unidentified or weakly understood functions continue to use address-style names such as gm_80164330, lb_8001B760, grBigBlueRoute_8020C238, and un_80301634.",
+    "Static data and globals follow address-derived labels such as grPu_804D6AA0, lbl_803B7808, and un_804D6E08.",
+    "Uncertain struct fields may use offset-style names such as DmgLogEntry.x0 rather than overconfident semantic names like kind.",
+    "Ground/stage code follows stage-specific prefixes such as grBigBlueRoute_ and grPura_/grPu_."
   ],
   "assembly_or_matching_tactics": [
-    "`PAD_STACK(8)`, `PAD_STACK(16)`, and `PAD_STACK(24)` were used across Kirby and soundtest functions to shape stack frames.",
-    "Variable declaration order was adjusted in `ftKb_MsSpecialNLoop_Anim` and `grBigBlueRoute_8020C238` to influence register allocation.",
-    "Pointer aliasing was introduced in `ftKb_SkSpecialAirNLoop_Anim` by initializing `Fighter* new_var = fp` and using it for `ft_PlaySFX`.",
-    "Explicit casts to `(u8)` for table indexing and `(u16)` for bit shifts were used in `gm_80164330`.",
-    "Assignment-in-condition polling loops were reused in multiple `lbcardnew` functions for result code `0xB`.",
-    "Direct `gobj->user_data` access replaced `GET_GROUND(gobj)` in `grBigBlueRoute_8020C238`.",
-    "A redundant-looking null-check pattern around `root_jobj` and `jobj` was kept because it completed `grBigBlueRoute_8020C238`.",
-    "`f64` was used for Link boomerang angle normalization where `f32` did not match."
+    "Added PAD_STACK(8), PAD_STACK(16), and PAD_STACK(24) in functions where stack layout needed to match.",
+    "Replaced volatile unsigned char padding with PAD_STACK for clearer intentional stack padding.",
+    "Moved local declarations earlier or split declarations, including u32* charge and HSD_JObj* jobj, to affect register allocation/lifetime.",
+    "Introduced and initialized a local alias Fighter* new_var = fp in ftKb_SkSpecialAirNLoop_Anim to influence register use around ft_PlaySFX and later updates.",
+    "Used assignment expressions in do/while conditions for lbcardnew status polling loops.",
+    "Changed integer and floating local types, such as f32 to f64 in itlinkboomerang norm_xF74 and int to s32 in lb_8001B8C8, to better match original arithmetic/register behavior.",
+    "Inserted explicit casts to u8 and u16 in gm_80164330 to match indexing and shift codegen while keeping the public parameter as s32.",
+    "Removed an explicit gobj->user_data = NULL store in soundtest initialization, likely because the original code did not emit that write.",
+    "Added redundant-looking NULL branches in grBigBlueRoute_8020C238 to shape control flow and address an existing comment about a 96.39% match with an r30/r31 register swap."
   ],
   "review_feedback": [
-    "decomp.dev reported 9 new matches and 11 improvements, including 100% for `grBigBlueRoute_8020C238`, `it_802A15EC`, `it_802A2320`, `lb_8001B8C8`, `un_80301634`, `lb_8001B760`, `ftKb_SpecialN_800F598C`, `ftKb_SkSpecialNCancel_Coll`, and `ftKb_SkSpecialNEnd_Coll`.",
-    "Author malvarezcastillo noted: \"I can revert the smaller gains if they're just noise / fake matches\".",
-    "Maintainer ribbanya replied: \"It's fine.\"",
-    "There were no inline review comments in the provided PR slice."
+    {
+      "author": "malvarezcastillo",
+      "text": "I can revert the smaller gains if they're just noise / fake matches",
+      "interpretation": "Author acknowledged that some small matching gains might be questionable and offered to revert if reviewers considered them noise."
+    },
+    {
+      "author": "ribbanya",
+      "text": "It's fine.",
+      "interpretation": "Reviewer accepted the small gains; no detailed review comments were present in the provided context."
+    }
   ],
   "searchable_terms": [
     "PR2225",
     "Finish some functions",
     "malvarezcastillo",
     "ribbanya",
-    "PAD_STACK",
-    "placeholder.h",
     "ftKb_SpecialN_800F598C",
     "ftKb_SpecialS_800F6BB0",
+    "mpUpdateFloorSkip",
     "ftKb_MsSpecialNLoop_Anim",
     "ftKb_MsSpecialNEnd_Anim",
     "ftKb_MsSpecialAirNEnd_Anim",
     "ftKb_SkSpecialAirNLoop_Anim",
     "ftKb_SkSpecialNCancel_Coll",
     "ftKb_SkSpecialNEnd_Coll",
+    "PAD_STACK",
     "ftCo_80096900",
     "ftColl_8007BBCC",
-    "DmgLogEntry.x0",
+    "DmgLogEntry x0",
+    "HitElement_Lipstick",
     "gm_80164330",
     "RandomStageSwitch",
     "stage_mask",
-    "grBigBlueRoute_8020C238",
-    "GET_GROUND",
-    "gobj->user_data",
-    "grPura_80211D00",
-    "grPu_804D6AA0",
-    "Ground_801C49F8",
-    "un_80301634",
-    "itlinkboomerang",
-    "f64 angle",
-    "lbcardnew",
     "lb_8001B760",
     "lb_8001B6F8",
-    "result == 0xB"
+    "lbcardnew",
+    "assignment in while",
+    "grBigBlueRoute_8020C238",
+    "r30 r31 register swap",
+    "grPu_804D6AA0",
+    "un_80301634",
+    "itlinkboomerang norm_xF74",
+    "f64 angle"
   ],
   "follow_up_queries": [
-    "Check whether the `grBigBlueRoute_8020C238` todo comment claiming a 96% match remained after this PR despite the decomp.dev 100% report.",
-    "Search for other `lbcardnew` result-code `0xB` polling loops that may need assignment-in-condition reshaping.",
-    "Audit callers of `lb_8001B760` after its return type changed from `void` to `int`.",
-    "Revisit `DmgLogEntry.x0` versus `kind` once the damage log struct is better understood.",
-    "Look for other stage-index APIs where parameter width should be `s32` but individual uses require explicit `u8` or `u16` casts.",
-    "Compare other item angle-normalization helpers for `f64` temporaries and `facing_dir` branch direction."
+    "Find later PRs touching lb_8001B760 or lbcardnew retry loops to see whether the int return type and assignment-in-condition idiom remained stable.",
+    "Search for gm_80164330 call sites to confirm whether s32 is consistently the best parameter type despite u8 indexing.",
+    "Check subsequent changes to DmgLogEntry fields to see whether x0 received a better semantic name after ftColl_8007BBCC.",
+    "Look for later work on grBigBlueRoute_8020C238 to see whether the r30/r31 register swap was fully resolved.",
+    "Search Kirby ftKb_SpecialNZd follow-ups to verify the 1.0F ftCo_80096900 argument and PAD_STACK additions were retained."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

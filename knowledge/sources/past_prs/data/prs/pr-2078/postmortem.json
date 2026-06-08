@@ -11,26 +11,20 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Draft PR for decompiling the mnDataDel/data-delete menu. It replaced many mndatadel.c placeholder stubs with C implementations for menu initialization, input handling, confirmation dialogs, item deletion, animation updates, text/SIS label handling, and archive/model setup. The PR was closed unmerged, but the decomp.dev bot reported 3 new matches and broad partial-match improvements in main/melee/mn/mndatadel.",
+  "summary": "Draft PR adding a large partial decompilation of the data-delete menu module `src/melee/mn/mndatadel.c`, plus more specific `mndatadel` static/header types. It was closed without merge and had no human review text in the slice. The decomp.dev bot reported +672 matched code bytes, +48 matched data bytes, 3 new matches, and 11 unmatched-function improvements, with one small `.sdata2` regression.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "menu-logic",
-      "struct-reconstruction",
-      "animation",
-      "input-handling"
+      "menu-ui",
+      "save-data"
     ],
     "systems": [
       "mn",
       "mndatadel",
       "menu",
-      "data-delete",
-      "save-data",
-      "baselib",
-      "gm",
-      "lb"
+      "melee-core"
     ]
   },
   "key_files": [
@@ -40,60 +34,51 @@
     "src/melee/mn/mnmain.h"
   ],
   "what_changed": [
-    "Implemented previously stubbed mnDataDel functions in src/melee/mn/mndatadel.c, including mnDataDel_8024E940, mnDataDel_8024EA6C, mnDataDel_8024EBC8, fn_8024F1D4, fn_8024F318, fn_8024F840, fn_8024FBA4, fn_8024FC48, mnDataDel_8024FE4C, and mnDataDel_80250170, with fn_8024ECCC also adjusted.",
-    "Added includes for gobj user data, memory, sislib, gm modules, archive/audio/card/language libraries, and toy support needed by the decompiled menu code.",
-    "Added local declarations for gm_1601 functions with specific signatures: gm_801647D0, gm_801641CC, gm_80164430, gm_80164250, gm_801641E4, gm_801603B0, and gm_8016505C.",
-    "Reconstructed data-delete menu user state as struct MnDataDelUserData with selected_item, confirm_active, item_deleted flags, label_text, and menu_joints fields.",
-    "Reworked struct MnDataDelData layout by replacing individual scalar fields x3C..x54 and x58..x62 with arrays x3C[7] for joint indices and x58[6] for SIS label IDs.",
-    "Added struct MnDataDelSelectData and extern declarations for mnDataDel_803EF8AC and several sdata2 float constants such as mnDataDel_804DC1A8 through mnDataDel_804DC1D0.",
-    "Added a static inline SetItemChildAnim helper that preserves a child JObj's animation frame, requests a target enabled/disabled frame, applies masks, then restores the saved frame.",
-    "Updated mndatadel.h prototypes from UNK_PARAMS/anonymous parameters to typed signatures, notably mnDataDel_8024EBC8(HSD_JObj* root, u8 arg1, u8 arg2, u8 arg3).",
-    "Added HSD_JObj include to mndatadel.h for the newly typed prototype.",
-    "Only comment/documentation changes were made to MenuInputState fields in mnmain.h, describing cooldown, x2, and x4 behavior."
+    "Replaced many `/// #...` stubs in `mndatadel.c` with C implementations for data-delete menu behavior, including `mnDataDel_8024E940`, `mnDataDel_8024EA6C`, `mnDataDel_8024EBC8`, `fn_8024F1D4`, `fn_8024F318`, `fn_8024F840`, `fn_8024FBA4`, `fn_8024FC48`, `mnDataDel_8024FE4C`, and `mnDataDel_80250170`.",
+    "Added local declarations for several `gm_1601` functions with signatures used by the new code: `gm_801647D0`, `gm_801641CC`, `gm_80164430`, `gm_80164250`, `gm_801641E4`, `gm_801603B0`, and `gm_8016505C`.",
+    "Added includes needed by the new menu logic, including `baselib/gobjuserdata.h`, `baselib/memory.h`, `baselib/sislib.h`, `gm/gm_16F1.h`, `gm/gm_1A3F.h`, `gm/gmmain_lib.h`, `lb/lbarchive.h`, `lb/lbaudio_ax.h`, `lb/lbcardgame.h`, and `ty/toy.h`.",
+    "Introduced `struct MnDataDelSelectData` and `struct MnDataDelUserData` in `mndatadel.static.h`, with fields for selected item, confirmation state, deleted-item flags, label text, and cached menu joints.",
+    "Refined `struct WarnCmnData` comments and changed `struct MnDataDelData` scalar sequences into arrays: `x3C[7]` for menu item joint indices and `x58[6]` for SIS label IDs.",
+    "Added static inline helper `SetItemChildAnim` to preserve a child JObj's current frame, request enabled/disabled animation frames, apply `mn_8022F3D8` with material/object masks, and restore the saved frame.",
+    "Updated public prototypes in `mndatadel.h`, replacing `UNK_PARAMS` for `mnDataDel_8024EBC8` with `HSD_JObj* root, u8 arg1, u8 arg2, u8 arg3`, and giving several callbacks explicit `HSD_GObj*` parameter names.",
+    "Added comments to `MenuInputState` fields in `mnmain.h`, describing `cooldown` as an input cooldown timer and noting `x2`/`x4` reset behavior as TODOs.",
+    "Implemented archive/model setup in `mnDataDel_80250170`, including loading sections from `mn_804D6BB8`, setting menu state `cur_menu = 0x18`, initializing cooldown, creating menu objects, and installing `fn_8024F840` as a process.",
+    "Implemented user-data allocation and initialization in `mnDataDel_8024FE4C`, including `HSD_MemAlloc(0x30)`, an assert on failure, `GObj_InitUserData` with `HSD_Free`, cached JObj lookup, item model creation, item animation setup, and SIS label creation."
   ],
   "smart_moves": [
-    "Converted adjacent anonymous struct fields into arrays for joint indices and SIS label IDs, making repeated menu-item logic indexable and closer to the assembly's table-driven access patterns.",
-    "Used local gm_1601 function declarations with corrected signatures instead of forcing uncertain global header changes, reducing blast radius while enabling calls to match.",
-    "Preserved current animation frames while temporarily applying target frames and masks; this pattern appears repeatedly for deletion visual state and helped reconstruct menu animation behavior.",
-    "Kept an explicitly unused mnDataDel_8024EBC8 argument with a comment that it affects caller register allocation, documenting a matching constraint rather than removing the argument.",
-    "Introduced menu_data local pointers and, in fn_8024ECCC, an end_frame_ptr temporary to shape generated code around expected data loads.",
-    "Centralized repeated child animation behavior in SetItemChildAnim, while still preserving exact operations: lb_80011E24 child lookup, HSD_JObjReqAnimAll, mn_8022F3D8 masks, and HSD_JObjAnimAll.",
-    "Threaded HSD_GObjProc transitions and proc->flags_3 assignments through confirm/cancel paths, matching the menu's process-state machine behavior.",
-    "Managed SIS text lifetimes by freeing existing HSD_Text pointers before assigning new label or confirmation text objects."
+    "Converted repeated per-item joint and label fields into arrays, making later menu-selection code indexable instead of relying on many separate `x3C`, `x40`, `x44`, etc. fields.",
+    "Centralized a repeated item-child animation sequence in `SetItemChildAnim`, preserving the active animation frame before toggling the child state and then restoring it.",
+    "Used explicit `HSD_GObj*` and `HSD_JObj*` parameters in headers rather than opaque `UNK_PARAMS`, improving call-site documentation and future type propagation.",
+    "Preserved subtle matching details in the decompiled functions, such as padding locals, temporary aliases like `root_copy`, an unused `arg3` cast noted as affecting caller register allocation, and seemingly redundant casts/indexing where needed.",
+    "Kept menu UI state in a dedicated `MnDataDelUserData` allocation attached to the GObj, with fields for current selection, confirmation visibility, deleted-item flags, label text, and cached joints.",
+    "The code reuses existing menu helper functions for frame queries and animation loops (`mn_8022F298`, `mn_8022EFD8`, `mn_8022EE84`, `mn_8022F3D8`) rather than open-coding lower-level JObj animation handling."
   ],
   "decomp_lessons": [
-    "For menu decomp, arrays inside reconstructed data structs can be more accurate and easier to match than a sequence of named xNN fields when assembly indexes through repeated menu entries.",
-    "Do not discard apparently unused function parameters if callers or register allocation depend on them; preserving signature shape can matter for matching.",
-    "Animation-state helpers often need to save the current frame, request a frame for material/texture state, run animation, then restore and apply the runtime frame.",
-    "Menu confirmation handlers often combine input cooldown state, audio feedback, proc replacement, dialog visibility flags, and SIS text updates; matching one branch may require modeling the whole state machine.",
-    "Using explicit typed prototypes in public headers removes UNK_PARAMS and can unblock better call-site codegen, but it requires adding the corresponding forward/base includes.",
-    "Static/header reconstruction may improve both code and data matching: this PR reported .bss reaching 100% and .data improving, but .sdata2 slightly regressed.",
-    "Closed-unmerged draft PRs can still contain useful matching tactics, but future work should validate all partial matches and signatures against current master before reuse."
+    "For menu modules, reconstructing user-data structs can unlock many callbacks at once because process callbacks repeatedly access the same selected-item, cursor, text, and joint fields.",
+    "Arrays should be preferred when adjacent unknown fields are used with indexed access patterns; here `x3C[7]` and `x58[6]` made joint and SIS label access clearer and closer to the generated code.",
+    "When matching animation code, save the current JObj frame, request a temporary state frame, apply a mask with `mn_8022F3D8`, animate, then restore the saved frame and apply the runtime mask.",
+    "Button-handling callbacks often need exact cooldown and process handoff behavior: this PR repeatedly sets `mn_804D6BC8.cooldown`, kills the old process with `HSD_GObjProc_8038FE24`, installs a new one with `HSD_GObjProc_8038FD54`, and copies `HSD_GObj_804D783C` into `proc->flags_3`.",
+    "SIS text lifetime matters in menu decomp: existing `HSD_Text*` values are freed with `HSD_SisLib_803A5CC4` before replacement and nulled when dialogs close.",
+    "Closed draft PRs can still contain useful partial matches, but future work should treat the exact code as provisional because it was not merged and had no human reviewer validation in the slice."
   ],
   "naming_conventions": [
-    "Retained address-based symbol names for unresolved functions and globals, e.g. mnDataDel_8024E940, fn_8024F840, mnDataDel_803EF870, mnDataDel_804D6C68.",
-    "Used descriptive field names where evidence was strong in user-data structs: selected_item, confirm_active, item_deleted, label_text, menu_joints, visible, cursor_idx.",
-    "Kept uncertain struct/data fields as xNN names such as x0, x2, x3C, x58, x64, x68, x6C rather than inventing semantics.",
-    "Named local variables around observed roles where clear, including menu_data, user_data, select_ptr, saved_lang, cursor_yes, cursor_no, end_frame_ptr, archive, and model.",
-    "Maintained project function-prefix conventions: mnDataDel_* for module functions, fn_* for local/static-address functions, gmMainLib_* and lbAudioAx_* for subsystem calls."
+    "Module symbols keep the project-address convention, e.g. `mnDataDel_8024E940`, `mnDataDel_80250170`, and callback-style `fn_8024F840`.",
+    "Unknown-but-structured fields remain offset-like (`x0`, `x2`, `x3C`, `x58`) while comments document observed roles such as selected item, dialog visibility, and SIS label IDs.",
+    "New local struct names follow module context: `MnDataDelSelectData`, `MnDataDelUserData`, and `MnDataDelData`.",
+    "Callback parameters are named by role when evidence supports it (`gobj`, `root`) and left generic where less clear (`arg0`, `arg1`, `arg2`, `arg3`).",
+    "Static asset/model descriptors retain address-style names such as `mnDataDel_804A0918`, `mnDataDel_804A0928`, and `mnDataDel_804A0938`."
   ],
   "assembly_or_matching_tactics": [
-    "Inserted stack padding locals such as u8 _pad[8], u8 _pad[16], u8 _pad[0x34], and u8 _pad[0x58] to influence stack layout/register allocation.",
-    "Used casts through u8* and indexed offsets, e.g. ((u8*) data)[offset] = 1, when struct field access needed to match byte-level layout.",
-    "Used local aliases like root_copy, a1/a2, data_tbl, data2, zero, and saved constants to guide code generation.",
-    "Used do-while loops and explicit casts to u8/u16/s32 in places where the assembly likely required narrower operations.",
-    "Preserved redundant-looking or odd constructs such as if ((!menu_data && !menu_data) && !menu_data) in the diff excerpt, suggesting matching-oriented code shaping.",
-    "Stored mn_80229624 input results into mn_804A04F0.buttons as u64 in some handlers to mirror global input-state writes.",
-    "Applied JObj masks MOBJ_MASK, TOBJ_MASK, 0x80, and 0x480 in specific animation sequences.",
-    "Used explicit HSD_GObjProc_8038FE24/HSD_GObjProc_8038FD54 process replacement plus proc->flags_3 = HSD_GObj_804D783C across state transitions."
+    "Added explicit stack padding locals such as `_pad[8]`, `_pad[16]`, and `_pad[0x58]` to influence stack layout and matching.",
+    "Used temporary variables and aliases (`root_copy`, `const_zero`, `select_ptr`, `end_frame_ptr`, `data_tbl`, `data2`) to shape register allocation and load ordering.",
+    "Included a `(void) arg3` note in `mnDataDel_8024EBC8` because the unused parameter affects caller register allocation.",
+    "Used casts through raw pointers or array views, e.g. `((u8*) data)[offset]`, `((s32*) &menu_data->x3C)[i]`, and `((u16*) &menu_data->x58)[selected_item]`, to match known layout/access patterns.",
+    "Used XOR-with-zero style boolean checks in `fn_8024F840`, preserving compiler-like branch structure for button flags.",
+    "Kept local declarations for `gm_1601` functions in `mndatadel.c` to supply exact signatures before broader header cleanup."
   ],
   "review_feedback": [
-    "No human review comments or reviews are present in the slice.",
-    "The decomp.dev bot reported matched code improved by +0.02% / +672 bytes and matched data by +48 bytes for GALE01.",
-    "Bot reported 3 new matches: mnDataDel_80250170 (+348 bytes), fn_8024F1D4 (+324 bytes), and mndatadel .bss reaching 100%.",
-    "Bot reported 11 improvements in unmatched functions/data, including fn_8024F318 to 89.17%, mnDataDel_8024FE4C to 95.67%, fn_8024F840 to 83.19%, mnDataDel_8024EBC8 to 95.09%, fn_8024FBA4 to 97.54%, and fn_8024ECCC to 97.03%.",
-    "Bot reported a small .sdata2 regression from 42.11% to 36.36%.",
-    "PR was draft and closed without merge, so the changes should be treated as exploratory rather than accepted reviewer-approved code."
+    "No human review comments or reviews were present in the PR slice.",
+    "The only feedback-like evidence was the decomp.dev bot report: 3 new matches (`mnDataDel_80250170`, `fn_8024F1D4`, `.bss`), 11 improvements in unmatched functions, and one `.sdata2` regression."
   ],
   "searchable_terms": [
     "pr-2078",
@@ -101,6 +86,10 @@
     "itsgrimetime",
     "mndatadel",
     "mnDataDel",
+    "src/melee/mn/mndatadel.c",
+    "src/melee/mn/mndatadel.static.h",
+    "src/melee/mn/mndatadel.h",
+    "src/melee/mn/mnmain.h",
     "mnDataDel_8024E940",
     "mnDataDel_8024EA6C",
     "mnDataDel_8024EBC8",
@@ -114,43 +103,42 @@
     "mnDataDel_8024FE4C",
     "mnDataDel_80250170",
     "MnDataDelUserData",
-    "MnDataDelData",
     "MnDataDelSelectData",
     "WarnCmnData",
     "SetItemChildAnim",
     "MenuInputState",
-    "mn_804D6BC8",
-    "mn_804A04F0",
-    "mnDataDel_803EF870",
-    "mnDataDel_803EF8AC",
-    "mnDataDel_804D6C68",
-    "mnDataDel_804D6C6C",
-    "mnDataDel_804DC1A8",
     "HSD_SisLib_803A5ACC",
     "HSD_SisLib_803A5CC4",
-    "HSD_JObjReqAnimAll",
-    "HSD_JObjAnimAll",
-    "mn_8022F3D8",
-    "lb_80011E24",
+    "HSD_GObjProc_8038FD54",
+    "HSD_GObjProc_8038FE24",
+    "GObj_InitUserData",
+    "HSD_MemAlloc",
+    "HSD_Free",
     "lbArchive_LoadSections",
     "lbAudioAx_800237A8",
+    "lbAudioAx_80027AB0",
     "gmMainLib_8015F490",
+    "gmMainLib_8015FBA4",
     "gm_801647D0",
     "gm_801641CC",
+    "gm_80164430",
+    "gm_80164250",
+    "gm_801641E4",
+    "gm_801603B0",
+    "gm_8016505C",
+    "cur_menu 0x18",
     "data delete menu",
-    "save data deletion",
     "SIS label IDs",
-    "JObj animation masks",
-    "closed unmerged draft"
+    "menu item deleted flags"
   ],
   "follow_up_queries": [
-    "Find later PRs that merged mnDataDel or data-delete menu decomp work after PR 2078 closed.",
-    "Search for current definitions of MnDataDelUserData, MnDataDelData, and SetItemChildAnim to see which struct layout decisions survived.",
-    "Look for PRs touching gm_1601 prototypes such as gm_801647D0, gm_801641CC, gm_80164430, gm_80164250, gm_801641E4, gm_801603B0, and gm_8016505C.",
-    "Compare current mndatadel.c against this draft for reuse of the unused-argument/register-allocation tactic in mnDataDel_8024EBC8.",
-    "Investigate .sdata2 constants around mnDataDel_804DC1A8 through mnDataDel_804DC1D0 because this draft improved many functions but regressed .sdata2 matching."
+    "Find the later merged PR or commit that completed or superseded `pr/mn-datadel`.",
+    "Search for `MnDataDelUserData` or `SetItemChildAnim` in current master to see whether these struct/helper names survived review.",
+    "Check whether the local `gm_1601` declarations were later moved into proper `gm` headers.",
+    "Investigate the `.sdata2` regression reported by decomp.dev before reusing the exact float/static-data layout.",
+    "Compare current `mndatadel.c` against this draft for improved matches in `fn_8024F318`, `fn_8024F840`, and `mnDataDel_8024FE4C`."
   ],
-  "confidence": 0.82,
+  "confidence": 0.84,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

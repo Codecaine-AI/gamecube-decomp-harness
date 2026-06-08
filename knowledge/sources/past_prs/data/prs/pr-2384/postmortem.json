@@ -11,109 +11,125 @@
     "merged_at": "2026-04-06T23:32:35Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large Shrine Route stage/ground decomp PR. It replaced several grshrineroute placeholders with C, added typed prototypes, and reworked the stage GroundVars layouts needed for symbol effects, platform/camera tracking, route state transitions, dynamic lighting, and callbacks. decomp.dev reported GALE01 matched code at 62.06% with +1980 bytes, 6 new 100% matches, and 7 additional improvements.",
+  "summary": "Large Shrine Route stage decompilation PR. It replaced several grshrineroute.c placeholder stubs with C, improved the Shrine Route ground variable layouts in src/melee/gr/types.h, and tightened grshrineroute.h prototypes. The decomp.dev bot reported 6 new full matches and 7 partial-match improvements, raising matched code by +1980 bytes. Most work centered on Shrine Route state-machine logic, route symbols, platforms, camera tracking, materials, lighting, effects, player callbacks, and mpLib joint/collision interaction.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-layout",
-      "stage-behavior",
-      "lighting",
-      "camera",
-      "callbacks"
+      "stage-state-machine",
+      "struct-layout"
     ],
     "systems": [
-      "stage/gr",
-      "grshrineroute",
-      "Ground/GroundVars",
-      "HSD_JObj/HSD_LObj",
-      "mpLib collision joints",
-      "grAnime/grMaterial",
+      "stage",
+      "ground",
+      "Shrine Route",
       "camera",
-      "fighter/player interaction",
-      "grZakoGenerator"
+      "lighting",
+      "mpLib",
+      "materials",
+      "effects"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grshrineroute.c",
-      "note": "971 added lines; implemented Shrine Route init/state/camera/light/platform/symbol logic, added required includes and extern data declarations, and corrected symbol hiding behavior."
-    },
-    {
-      "path": "src/melee/gr/grshrineroute.h",
-      "note": "Typed fn_80208A38 as void(HSD_GObj*) and grShrineRoute_8020AE08 as s32(HSD_GObj*, HSD_GObj*, s32*) instead of UNK prototypes."
+      "added": 971,
+      "deleted": 20,
+      "role": "Main implementation work for Shrine Route functions, including route symbol setup, stage initialization, route interaction state machine, light setup, platform/camera handling, and helper callbacks."
     },
     {
       "path": "src/melee/gr/types.h",
-      "note": "Reworked grShrineroute_GroundVars, grShrineroute_GroundVars2, and grShrineroute_GroundVars3 into offset-annotated fields, arrays, platforms, symbols, and light-object storage."
+      "added": 24,
+      "deleted": 14,
+      "role": "Refined grShrineroute_GroundVars, grShrineroute_GroundVars2, and grShrineroute_GroundVars3 layouts to expose timers, bitmasks, object arrays, platform offsets, light arrays, and motion fields used by the C implementation."
+    },
+    {
+      "path": "src/melee/gr/grshrineroute.h",
+      "added": 2,
+      "deleted": 2,
+      "role": "Replaced UNK prototypes with typed signatures for fn_80208A38(HSD_GObj*) and grShrineRoute_8020AE08(HSD_GObj*, HSD_GObj*, s32*)."
     }
   ],
   "what_changed": [
-    "Added dependencies used by the new C, including cm/camera.h, gm/gm_1601.h, gr/granime.h, gr/grlib.h, gr/stage.h, lb/lb_00F9.h, ft/ftdevice.h, lb/lbvector.h, MSL/math_ppc.h, and MSL/trigf.h.",
-    "Corrected grSh_Route_804D6A58 fields x1C and x20 from int to f32 and declared additional extern data, including HSD_LightDesc symbols, Vec3 constants, and a local grSh_Route_LightConfig table using GXColor, Vec3, spot, and attenuation fields.",
-    "Implemented fn_80208A38 to initialize six route symbols at joints/nodes 0xBD through 0xC2, randomly choose one special symbol, spawn symbol GObjs via grShrineRoute_802088C0, position them with lb_8000B1CC, and apply scale from grSh_Route_804D6A58->x14.",
-    "Implemented grShrineRoute_80208D14 as stage init/setup: resets shrineroute state fields, clears symbols, sets stage_info.x6DC to 0, installs ftCo_800C07F8 and mpJointSetCb1 callbacks, computes platform offsets relative to node 0x94, and schedules fn_80208A38 through Ground_801C10B8.",
-    "Added a large C version of grShrineRoute_80208F70 covering the main route state machine: route-point detection with Ground_801C3DB4, visited-symbol bitmasking in xC6, JObj hide/show flags, mpLib joint disable/re-add calls, grMaterial changes, grZakoGenerator calls, gm/player handoff calls, stage_info.x6DC/flags changes, camera target smoothing through xCE, and platform translation from camera offset.",
-    "Implemented grShrineRoute_80209BEC and grShrineRoute_8020A8A4 for rotating/floating route objects: random angular velocities, damping, clamp constants, sinf/cosf placement, full-turn wrapping, and a reset call when lb_8000B134 reports completion.",
-    "Implemented dynamic light behavior in grShrineRoute_8020A21C and light setup in grShrineRoute_8020AA40 and grShrineRoute_8020AB58: cache HSD_LObj arrays, sort lights by distance to the player, enable the closest six, compute a spotlight direction/interest/color, configure 15 table-driven lights, and append an extra light from HSD_LObjLoadDesc.",
-    "Implemented grShrineRoute_8020AE08 as a typed callback that ignores states 1 and 3, scales bounding Vec3s by Ground_801C0498, checks the player position, writes grSh_Route_804D6A58->x10 to out, and returns a boolean-like s32 result.",
-    "Implemented grShrineRoute_8020AF38 to spawn effect 0x428 at the selected symbol joint, scale it based on the symbol Ground map_id, destroy the symbol GObj, clear the symbols slot, and call ftLib_80086C18 on the player when present.",
-    "Updated grShrineRoute_8020B020 to iterate gp->gv.shrineroute.symbols[i] directly instead of using the previous shrineroute2.x108/pointer-walk pattern; also changed grShrineRoute_8020A104 to use GroundVars2 arrays xC8[] and x118[]."
+    "Implemented fn_80208A38 as a Shrine Route symbol-spawn callback: it picks one of six flags with HSD_Randi, creates symbol ground/effect objects via grShrineRoute_802088C0, positions them from Ground_801C2CF4/lb_8000B1CC, and applies configured scale.",
+    "Implemented grShrineRoute_80208D14 initialization: starts map animation, clears callbacks, initializes shrineroute state fields, clears symbol slots, configures ftCo_800C07F8 and mpJointSetCb1 callbacks, stores moving-platform JObj offsets relative to a center point, and schedules fn_80208A38 through Ground_801C10B8.",
+    "Added a large near-match implementation for grShrineRoute_80208F70, covering the Shrine Route route-interaction state machine: detecting route triggers, hiding/revealing joints, disabling/enabling mp joints, spawning/removing route symbols, updating stage_info.x6DC, driving animations/material changes, invoking Zako generator calls, invoking player/game callbacks, camera target smoothing, and moving platform tracking.",
+    "Implemented or improved additional Shrine Route helpers including grShrineRoute_8020A8A4, grShrineRoute_8020AA40, grShrineRoute_8020AB58, grShrineRoute_8020AE08, grShrineRoute_8020AF38, and grShrineRoute_8020B020.",
+    "Added explicit externs and a local grSh_Route_LightConfig structure for light data such as grSh_Route_803E5D74, grSh_Route_803B8360, grSh_Route_803B836C, grSh_Route_803B8384, grSh_Route_803B8390, and grSh_Route_803E5A58.",
+    "Adjusted a static stage-data struct so fields x1C and x20 are f32 instead of int, matching their use as scaled radius/distance values.",
+    "Expanded includes for camera, game, ground animation/lib/stage, ftdevice, lbvector, math_ppc, trigf, and other dependencies needed by the newly decompiled code.",
+    "Changed grShrineroute_GroundVars from sparse/incorrect fields into a documented layout with xC4 state, xC6 completion bitmask, xC8 selected route id, xCE/xD0 timers, xD4 effect object pointer, platforms[3], and symbols[6].",
+    "Changed grShrineroute_GroundVars2 to model arrays of HSD_LObj* and u32 values at xC8 and x118 instead of opaque padding and single fields.",
+    "Extended grShrineroute_GroundVars3 with additional f32 fields xD8, xDC, xE0 and HSD_JObj* xE4.",
+    "decomp.dev reported new 100% matches for grShrineRoute_80208D14, grShrineRoute_8020A8A4, grShrineRoute_8020AE08, grShrineRoute_8020AA40, grShrineRoute_8020AB58, and grShrineRoute_80209AF0."
   ],
   "smart_moves": [
-    "The PR first made the GroundVars layout believable: symbols[6], platforms[3], xC8[20], and x118[20] replaced opaque scalars and padding, which made loops and pointer arithmetic line up with the decompiled behavior.",
-    "It preserved exact-looking repeated calls and magic IDs instead of prematurely abstracting them, such as repeated grMaterial_801C94D8/HSD_JObjSetFlagsAll calls and explicit mpLib_80057BC0/mpJointListAdd sequences for joints 0 through 0xD.",
-    "The camera/platform code stores platform offsets relative to a center node once, then reapplies the current camera offset each frame; that is a good pattern for decompiling stage geometry that follows camera transforms.",
-    "The dynamic lighting code uses stack arrays and an explicit selection sort, matching the kind of simple assembly structure expected from the original while still documenting the algorithm with comments.",
-    "The small inline grShrineRoute_8020A8A4_rand wrapper around HSD_Randf, PAD_STACK usage, and unused locals show targeted codegen control for matching rather than purely idiomatic C.",
-    "The f32/f64 handling is careful in places where it matters for codegen and semantics, including precise radian constants, sqrtf/cosf/sinf usage, and double 2π comparisons before casting back to f32.",
-    "Typing callback signatures in the header reduced UNK usage and made call sites such as ftCo_800C07F8 easier to reason about."
+    "The struct-layout work in types.h made the main state-machine implementation much more natural: symbols[6] replaced repeated opaque access, platforms[3] captured the offset/JObj pair used by platform tracking, and xC6 was exposed as the bitmask for completed routes.",
+    "The implementation preserved matching-sensitive artifacts where needed, including PAD_STACK uses, unused local floats, explicit casts, and exact-looking constants such as 0xBD route IDs, 0x3C timers, 30.0f camera/platform offsets, and small radian velocity limits.",
+    "Separating grSh_Route_LightConfig from raw extern data allowed grShrineRoute_8020AA40 to express color, position, distance attenuation, interest, spot, and flags setup cleanly while keeping field names offset-based due to weak semantic evidence.",
+    "Typed header prototypes removed UNK_RET/UNK_PARAMS for functions whose call signatures were now understood, improving future compile-time checking and making later stage work easier to call safely.",
+    "The route state machine was kept evidence-grounded with offset names like xC4, xC6, xC8, xCE, and xD4 rather than inventing semantic names prematurely.",
+    "A tiny inline wrapper grShrineRoute_8020A8A4_rand returning HSD_Randf appears to have been used as a matching tactic for random-based expression/codegen behavior."
   ],
   "decomp_lessons": [
-    "For stage modules, map gp->gv.<stage> offsets before attacking large functions; state fields, timers, bitmasks, GObj handles, and arrays often share the same Ground user-data region.",
-    "When loops index repeated resources, prefer real arrays over fake padding or address-of-field indexing. This PR's symbols[6], platforms[3], and HSD_LObj arrays made later code clearer and avoided the old symbol-hiding pointer walk.",
-    "Large stage state machines often need exact side-effect order across mpLib, grMaterial, grAnime, stage_info, camera, fighter, and generator systems; preserving explicit calls can matter more than cleanup.",
-    "Dynamic light matching may require direct HSD_LObj flag manipulation, color aliasing through integer storage, stack sorting buffers, and exact distance/weight calculations.",
-    "Callback prototypes are decomp evidence. grShrineRoute_8020AE08's s32(HSD_GObj*, HSD_GObj*, s32*) signature follows from how ftCo_800C07F8 uses it and should be reused when searching similar stage/fighter hooks.",
-    "Data tables can remain address-named while still gaining useful structure: grSh_Route_LightConfig records color, position, interest, type, spot, and attenuation fields even though the member names are still offsets.",
-    "Do not assume numeric config fields are integers; this PR changed x1C and x20 in grSh_Route_804D6A58 to f32 after they were used as scaled distance/radius parameters."
+    "For stage files, correct Ground->gv union layouts are often the unlock for large decompilation chunks; replacing padding with arrays and nested structs can turn hard pointer arithmetic into readable C and expose state-machine structure.",
+    "When a stage state machine uses map IDs or joint IDs as externally meaningful constants, preserve the raw constants until names are justified. This PR keeps IDs such as 0xBD through 0xC2 and joint indices 8 through 0xD visible.",
+    "Camera-follow code may need to combine player position, stage camera target helpers, timer-based interpolation, and special platform-tracking modes; matching such code benefits from explicit Vec3 temporaries and lbVector_Add/Sub calls.",
+    "Callback signatures matter: ftCo_800C07F8 and mpJointSetCb1 usage helped establish grShrineRoute_8020AE08 and grShrineRoute_8020AD58 types.",
+    "For lighting decompilation, model the data table first. A table-backed config struct can make repeated HSD_LObjSetColor/Position/DistAttn/Spot calls straightforward while preserving exact offsets.",
+    "Use typed arrays in structs when repeated operations reveal cardinality, such as six route symbols, three platform trackers, and twenty light/object entries in Shrine Route ground vars.",
+    "Do not rename offset fields too aggressively when behavior is only partially understood; offset names remain searchable and safer for future refinements."
   ],
   "naming_conventions": [
-    "Address-suffixed stage function names were retained, such as grShrineRoute_80208F70, grShrineRoute_8020A21C, and grShrineRoute_8020AE08, because semantic names were not established.",
-    "Unnamed/internal callback naming stayed as fn_80208A38, but its header prototype was made concrete.",
-    "Stage-specific GroundVars structs use the module name grShrineroute_GroundVars, grShrineroute_GroundVars2, and grShrineroute_GroundVars3 with offset-style field names xC4, xC6, xCE, xD4, etc.",
-    "Partially understood collections received semantic array names where evidence was strong: platforms[3] and symbols[6].",
-    "The local data-table type uses a module-prefixed name, grSh_Route_LightConfig, while keeping offset member names x0, x4, x10, x1C, x20, x24, x28, x2C, and x30.",
-    "Extern data symbols continue the existing grSh_Route_80xxxxxx and grNKr_80xxxxxx address-name convention."
+    "Stage functions retain the project’s address-based naming style: grShrineRoute_80208D14, grShrineRoute_80208F70, grShrineRoute_8020AE08, etc.",
+    "Internal callback keeps fn_80208A38 naming because no semantic name was proven.",
+    "Ground variable structs use grShrineroute_GroundVars, grShrineroute_GroundVars2, and grShrineroute_GroundVars3 with offset-style field names such as xC4, xC6, xC8, xCE, xD4.",
+    "New nested fields use meaningful names only where evidence is strong: platforms[3].offset, platforms[3].jobj, and symbols[6].",
+    "External data symbols keep address-based names like grSh_Route_803E5A58 and grSh_Route_803B8384.",
+    "The local light data struct is named grSh_Route_LightConfig but its members remain offset-based x0, x4, x10, x1C, etc."
   ],
   "assembly_or_matching_tactics": [
-    "decomp.dev reported new 100% matches for grShrineRoute_80208D14 (+504 bytes), grShrineRoute_8020A8A4 (+412), grShrineRoute_8020AE08 (+304), grShrineRoute_8020AA40 (+280), grShrineRoute_8020AB58 (+236), and grShrineRoute_80209AF0 (+1).",
-    "The same bot report listed near-match/improved items: grShrineRoute_80208F70 at 98.56%, grShrineRoute_8020A21C at 91.29%, grShrineRoute_80209BEC at 97.05%, fn_80208A38 at 97.84%, grShrineRoute_8020AF38 at 76.97%, plus .sdata2 and .sdata improvements.",
-    "Stack arrays such as u8 flags[6], s32 sorted[20], and f32 distances[20], plus pointer-walk locals sp/dp, were used to mirror original loop structure.",
-    "The code keeps explicit casts between HSD_GObj*, Ground_GObj*, HSD_LObj*, HSD_JObj*, u32 handles, and Ground* user_data, which is often necessary in this codebase's stage modules.",
-    "PAD_STACK and unused locals appear in the newly decompiled functions, while an obsolete PAD_STACK(8) was removed from grShrineRoute_80209AF0 after matching.",
-    "Float constants were written with exact-looking values, including 0.0008726646f, 0.2617994f, 0.17453292f, 0.04363323f, and 6.283185307179586."
+    "Used PAD_STACK in several newly implemented functions, including fn_80208A38, grShrineRoute_80208D14, grShrineRoute_80208F70, and grShrineRoute_8020AB58, indicating stack-shape preservation for matching.",
+    "Kept unused float locals in grShrineRoute_8020AE08 and fn_80208A38, likely to maintain stack/register behavior.",
+    "Used an inline HSD_Randf wrapper in grShrineRoute_8020A8A4_rand, apparently to influence random-call codegen in grShrineRoute_8020A8A4.",
+    "Used explicit casts between HSD_GObj*, Ground_GObj*, Ground*, HSD_JObj*, and callback types to match existing engine APIs and function-pointer expectations.",
+    "Preserved literal constants and exact float constants, including 6.283185307179586, 0.04363323f, 0.0008726646f, 0.99f, 0.7f, 300.0f, and 30.0f.",
+    "Reworked grShrineRoute_8020B020 from a suspicious single x108 object field into iteration over gp->gv.shrineroute.symbols[i], removing an odd gp reassignment at loop end."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the slice.",
-    "The PR body only said: Tracking PR as usual.",
-    "The decomp-dev bot report is the main feedback evidence: matched code moved to 62.06% (+0.05%, +1980 bytes), with 6 new matches and 7 improved unmatched items."
+    {
+      "source": "PR body",
+      "feedback": "Only says \"Tracking PR as usual\"; no technical rationale was provided by the author."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported matched code improved to 62.06%, +0.05%, +1980 bytes, with 6 new matches and 7 partial improvements."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "New full matches listed: grShrineRoute_80208D14 (+504), grShrineRoute_8020A8A4 (+412), grShrineRoute_8020AE08 (+304), grShrineRoute_8020AA40 (+280), grShrineRoute_8020AB58 (+236), and grShrineRoute_80209AF0 (+1)."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Partial improvements included grShrineRoute_80208F70 at 98.56%, grShrineRoute_8020A21C at 91.29%, grShrineRoute_80209BEC at 97.05%, fn_80208A38 at 97.84%, and grShrineRoute_8020AF38 at 76.97%."
+    },
+    {
+      "source": "GitHub review data",
+      "feedback": "No human review comments were present in the slice."
+    }
   ],
   "searchable_terms": [
     "pr-2384",
     "Jj/grshrineroute",
     "jurrejelle",
-    "grshrineroute",
-    "Shrine Route",
-    "src/melee/gr/grshrineroute.c",
-    "src/melee/gr/grshrineroute.h",
+    "grshrineroute.c",
+    "grshrineroute.h",
     "src/melee/gr/types.h",
-    "fn_80208A38",
+    "Shrine Route",
     "grShrineRoute_80208D14",
     "grShrineRoute_80208F70",
-    "grShrineRoute_80209BEC",
-    "grShrineRoute_8020A21C",
+    "fn_80208A38",
     "grShrineRoute_8020A8A4",
     "grShrineRoute_8020AA40",
     "grShrineRoute_8020AB58",
@@ -123,35 +139,39 @@
     "grShrineroute_GroundVars",
     "grShrineroute_GroundVars2",
     "grShrineroute_GroundVars3",
-    "grSh_Route_LightConfig",
-    "grSh_Route_803E5A58",
-    "HSD_JObj",
-    "HSD_LObj",
-    "HSD_LightDesc",
-    "GXColor",
-    "mpJointSetCb1",
-    "mpJointListAdd",
-    "Ground_801C3DB4",
-    "Ground_801C2D24",
-    "Stage_UnkSetVec3TCam_Offset",
-    "Camera_80030AE0",
-    "stage_info.x6DC",
-    "grZakoGenerator",
-    "ftCo_800C07F8",
-    "ftLib_80086644",
-    "HSD_Randf",
-    "HSD_Randi",
-    "PAD_STACK",
     "symbols[6]",
     "platforms[3]",
-    "dynamic light selection"
+    "grSh_Route_LightConfig",
+    "grSh_Route_803E5A58",
+    "HSD_LObj",
+    "HSD_JObj",
+    "mpJointSetCb1",
+    "mpLib_80057BC0",
+    "mpJointListAdd",
+    "Stage_UnkSetVec3TCam_Offset",
+    "Camera_80030AE0",
+    "Ground_801C38BC",
+    "grZakoGenerator_801CAF08",
+    "grZakoGenerator_801CAEF0",
+    "ftCo_800C07F8",
+    "ftLib_80086644",
+    "decomp.dev",
+    "PAD_STACK"
   ],
   "follow_up_queries": [
-    "Find later PRs that bring grShrineRoute_80208F70, grShrineRoute_8020A21C, grShrineRoute_80209BEC, fn_80208A38, or grShrineRoute_8020AF38 from near-match to 100%.",
-    "Search for semantic renames of grShrineroute_GroundVars fields xC4, xC6, xCE, xD4, platforms, and symbols.",
-    "Compare other gr stage modules that cache HSD_LObj arrays and select nearest lights to a player.",
-    "Search for ftCo_800C07F8 callbacks with signature s32(HSD_GObj*, HSD_GObj*, s32*) for reusable callback patterns.",
-    "Audit any remaining grshrineroute symbol or light code for old fake-padding/pointer-walk assumptions after the GroundVars layout change."
+    "Find later PRs that finish grShrineRoute_80208F70 from 98.56% to 100%.",
+    "Find later PRs that rename grShrineroute_GroundVars fields xC4, xC6, xC8, xCE, or xD4 with semantic names.",
+    "Search for other stage PRs using typed symbols arrays or platform offset arrays in GroundVars.",
+    "Search for grSh_Route_LightConfig or HSD_LObj light table decomp patterns in other ground/stage files.",
+    "Look for follow-up work on grShrineRoute_8020A21C, grShrineRoute_80209BEC, fn_80208A38, or grShrineRoute_8020AF38 partial matches."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

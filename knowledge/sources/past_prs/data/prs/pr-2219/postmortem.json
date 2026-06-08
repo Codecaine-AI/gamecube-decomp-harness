@@ -11,107 +11,143 @@
     "merged_at": "2026-03-05T16:16:15Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged decomp-matching sweep across 24 files, dominated by Kirby copied-special codegen fixes plus smaller game-mode, stage, item, trophy, and baselib cleanups. The decomp.dev bot reported 55.12% matched code overall, +0.32% and +12392 bytes, with 52 new matches and one additional grFourside improvement.",
+  "summary": "Small, broad decomp cleanup PR that converted many near-matches into matches, led by Kirby copied-special routines plus smaller fixes in game-mode, ground, item, trophy/list, and sysdolphin code. The decomp.dev bot reported 52 new matches and one unmatched-item improvement, raising GALE01 matched code by 0.32% / 12392 bytes. Changes were mostly expression, type, struct-field, stack-padding, and temporary-variable adjustments rather than large rewrites.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "struct-layout",
-      "prototype-correction",
-      "stack-layout",
-      "local-codegen-cleanup"
+      "stack-padding",
+      "type-correction",
+      "codegen-cleanup"
     ],
     "systems": [
       "fighter",
-      "fighter-Kirby",
+      "kirby",
       "game-mode",
-      "stage",
+      "ground",
       "item",
-      "trophy-toy",
-      "sysdolphin-baselib"
+      "trophy",
+      "sysdolphin",
+      "baselib"
     ]
   },
   "key_files": [
-    "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
-    "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
-    "src/melee/ft/chara/ftKirby/ftKb_Init.c",
-    "src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c",
-    "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
-    "src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c",
-    "src/melee/ft/chara/ftKirby/ftKb_SpecialNFx.c",
-    "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
-    "src/melee/ft/ftchangeparam.c",
-    "src/melee/gm/gm_18A5.c",
-    "src/melee/gm/types.h",
-    "src/melee/gm/gm_1BA8.c",
-    "src/melee/gm/gm_1BA8.h",
-    "src/melee/gr/grfourside.c",
-    "src/melee/gr/gricemt.c",
-    "src/melee/gr/grkongo.c",
-    "src/melee/gr/grvenom.c",
-    "src/melee/it/items/it_2E5A.c",
-    "src/melee/ty/toy.c",
-    "src/melee/ty/tylist.c",
-    "src/melee/ty/tylist.h",
-    "src/melee/ty/types.h",
-    "src/sysdolphin/baselib/hsd_3AA7.c",
-    "src/sysdolphin/baselib/sislib.c"
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
+      "reason": "Main matching work for Kirby Donkey Kong copied neutral special; decomp.dev listed six DK/Kirby functions reaching 100%, mostly through stack padding and callback-store expression changes."
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+      "reason": "Many one-byte Kirby neutral-special and related action matches through condition tweaks, field selection, PAD_STACK adjustments, Vec3 local ordering, and motion-state parameter correction."
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.c",
+      "reason": "Corrected Kirby copied Koopa special field initialization from specialn_kp_lowest_charge_graphic_size to specialn_kp_flame_scale."
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c",
+      "reason": "Matched several Kirby copied Koopa/Sheik-like special functions by adding PAD_STACK sizes."
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
+      "reason": "Matched Marth/Roy copied special logic by casting charge comparison and replacing a raw numeric motion-state assignment with ftKb_MS_FeSpecialAirNLoop."
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c",
+      "reason": "Cleaned unnecessary temporaries, direct cmd_vars[3] assignment, NULL assignment, and added PAD_STACK for copied-special matches."
+    },
+    {
+      "path": "src/melee/ft/ftchangeparam.c",
+      "reason": "Matched ftCo_800D105C by using fp->x34_scale.y as a scoped local for x2C4 scaling instead of reusing temp_f1."
+    },
+    {
+      "path": "src/melee/gm/gm_18A5.c",
+      "reason": "Replaced raw pointer arithmetic over TmData offset 0x524 with typed td->x524 array accesses, adding PAD_STACK(24)."
+    },
+    {
+      "path": "src/melee/gm/types.h",
+      "reason": "Exposed TmData offset 0x524 as HSD_Text* x524[4] instead of opaque padding, enabling typed accesses in gm_18A5.c."
+    },
+    {
+      "path": "src/melee/ty/tylist.c",
+      "reason": "Changed un_80312834 to return char* and return the final buffer cursor; bot reported it as a new match."
+    },
+    {
+      "path": "src/sysdolphin/baselib/sislib.c",
+      "reason": "Matched HSD_SisLib_803A6048 with chained assignment to two globals after HSD_MemAlloc."
+    }
   ],
   "what_changed": [
-    "Kirby Special-N-family code received many small matching fixes: PAD_STACK additions/removals/resizes, local variable reordering, direct constants/enums, and small expression changes in ftKb_SpecialN.c, ftKb_SpecialNNs.c, ftKb_SpecialNPk.c, ftKb_SpecialNYs.c, and ftKb_SpecialNZd.c.",
-    "ftKb_Init changed fp->fv.kb.x88 initialization from da->specialn_kp_lowest_charge_graphic_size to da->specialn_kp_flame_scale.",
-    "ftKb_SpecialN.c changed several Kirby logic/codegen details, including specialhi xC check to == 1, ftKirbyDmgInline to ftKirbyDmgInline2, hat ability-loss flag access from fp->fv.kb.xF4_b0 to fp->fv.kb.hat.x8_b0, EatTurn motion-state speed from 0.0f to 1.0f, and PAD_STACK sizing around captured/copy ability functions.",
-    "ftKb_SpecialNNs.c matched DK copied-neutral-special animation functions by clearing pre_hitlag_cb/post_hitlag_cb through a scoped Fighter* fp2 = gobj->user_data reload and by tuning stack padding, including u8 _[32] in ftKb_DkSpecialNFull_Anim.",
-    "gm/types.h replaced TmData pad_x524 with HSD_Text* x524[4], and gm_18A5.c then used td->x524[2] and td->x524[3] directly instead of casting td+0x524 to HSD_Text**.",
-    "gm_1BA8 changed gm_801BEFA4 from s8 ckind to int ckind in both implementation and header.",
-    "ftchangeparam.c changed ftCo_800D105C so fp->x2C4.x/y are multiplied by a local scale_y = fp->x34_scale.y rather than temp_f1.",
-    "Stage files received small codegen fixes: grFourside/grVenom added PAD_STACK(8), grIceMt changed an UnkFlagStruct bitfield write from b7 to b0 and simplified a user_data assignment, and grKongo rewrote a branch to subtract unk52 before testing and asserting.",
-    "Item/toy/baselib fixes included it_802E5F8C passing item_gobj instead of NULL as the first it_802E614C argument, un_80312834 returning char* with header update, TyListState::x2A1 changing from u8 to s8, toy.c shrinking a stack buffer from 80 to 72 bytes, hsd_3AA7.c reassociating extra_size = base_size + extra_size, and sislib.c using a chained assignment from HSD_MemAlloc."
+    "Converted 52 functions/items to new matches according to the decomp.dev bot report, with matched code increasing by +12392 bytes.",
+    "Focused heavily on Kirby copied-neutral-special files: ftKb_SpecialN.c, ftKb_SpecialNNs.c, ftKb_SpecialNPk.c, ftKb_SpecialNYs.c, ftKb_SpecialNZd.c, ftKb_SpecialNFx.c, and ftKb_Init.c.",
+    "Adjusted many stack layouts by adding, removing, or resizing PAD_STACK/local padding, including PAD_STACK(8), PAD_STACK(16), PAD_STACK(24), and PAD_STACK(4 * 12).",
+    "Replaced several artificial or noisy locals with direct expressions, such as fp2->fv.kb.xC0 = NULL, fp->cmd_vars[3] = new_var, and Ground* gp = gobj->user_data.",
+    "Corrected field references in Kirby data and fighter state, including specialn_kp_flame_scale instead of specialn_kp_lowest_charge_graphic_size and fp->fv.kb.hat.x8_b0 instead of fp->fv.kb.xF4_b0.",
+    "Changed ftKb_EatTurn_Anim to call Fighter_ChangeMotionState with anim rate 1.0f instead of 0.0f.",
+    "Changed ftKb_SpecialLw_IASA to call ftKirbyDmgInline2 rather than ftKirbyDmgInline.",
+    "Reworked DK copied-special callback clearing to assign through a fresh Fighter* fp2 = gobj->user_data scoped block before nulling pre_hitlag_cb and post_hitlag_cb.",
+    "Improved game-mode type information by replacing TmData padding at 0x524 with HSD_Text* x524[4] and then using td->x524 indexes directly in fn_80198C60.",
+    "Changed gm_801BEFA4 signature from s8 ckind to int ckind in both source and header.",
+    "Changed TyListState::x2A1 from u8 to s8 and un_80312834 from void to char* with a return value.",
+    "Made smaller matching fixes in ground files grfourside.c, gricemt.c, grkongo.c, and grvenom.c, item file it_2E5A.c, toy.c, hsd_3AA7.c, and sislib.c."
   ],
   "smart_moves": [
-    "Converted a raw offset cast in gm_18A5 into a typed TmData::x524[4] field, improving both matching and future struct readability.",
-    "Reused a scoped gobj->user_data reload before callback stores across multiple DK copied-special functions, a targeted way to influence MWCC codegen without changing behavior.",
-    "Treated PAD_STACK as a per-function matching knob: some pads were added, some removed, and some resized instead of blindly padding every near-match.",
-    "Replaced magic or awkward temporaries with named enum/field expressions where evidence allowed, such as ftKb_MS_FeSpecialAirNLoop and fp->fv.kb.hat.x8_b0.",
-    "Kept prototype/header changes synchronized with implementation changes for gm_801BEFA4 and un_80312834."
+    "Used typed struct recovery instead of pointer arithmetic in gm_18A5.c: TmData::x524[4] made the code clearer and still matched.",
+    "Preferred semantically meaningful motion-state constants over raw numeric temporaries, replacing 0x217 with ftKb_MS_FeSpecialAirNLoop.",
+    "Recognized that exact codegen sometimes depends on introducing a short scoped local, such as scale_y in ftCo_800D105C or fp2 = gobj->user_data before clearing callbacks.",
+    "Removed fake temporaries and fake padding where no longer needed, but also added precise PAD_STACK where matching required it.",
+    "Synchronized source/header/type changes together for signature and struct changes, avoiding mismatches between gm_1BA8.c/gm_1BA8.h and tylist.c/tylist.h.",
+    "Targeted many near-100% functions with minimal edits, producing a large aggregate matching gain from small localized changes."
   ],
   "decomp_lessons": [
-    "When an offset’s type becomes clear, promote padding to a typed struct field and update callers; this can eliminate pointer arithmetic while preserving matching.",
-    "Small source-level expression choices matter for MWCC output: chained assignments, reassociation order, scoped locals, and reloads from gobj->user_data can be decisive.",
-    "Stack matching is not monotonic; deleting a dummy local or shrinking PAD_STACK can be as useful as adding padding.",
-    "Signedness and return-type corrections in headers can unlock matches outside the immediate function body, as shown by TyListState::x2A1 and un_80312834.",
-    "For fighter special-move code, verify copied-ability state fields carefully before naming or moving them; this PR corrected accesses such as hat.x8_b0 and specialn_kp_flame_scale."
+    "When a function is already very close, try local ordering, exact stack pad size, and scoped temporary lifetime before changing control flow.",
+    "Struct-field recovery can be both a documentation improvement and a matching tactic; replacing opaque padding with a typed array can remove casts while matching.",
+    "Use exact signedness and return types in headers and structs. Here, int vs s8, char* vs void, and s8 vs u8 changes affected matching.",
+    "For bitfields, verify the bit index carefully; grIceMt changed an UnkFlagStruct access from b7 to b0.",
+    "Raw constants that represent motion states should be replaced with named enum values once identified; this helps searchability and reduces magic-number drift.",
+    "Expression form matters: base_size + extra_size did not codegen the same as extra_size += base_size in hsd_803AC340.",
+    "Chained assignments to globals can be required to reproduce original store ordering, as in HSD_SisLib_803A6048.",
+    "Do not assume temporary reuse is harmless; ftCo_800D105C matched by using fp->x34_scale.y in a separate local for later scaling."
   ],
   "naming_conventions": [
-    "Kirby fighter code uses ftKb_* function prefixes and copied-ability abbreviations such as Dk, Kp, Ca, Ms, Fe, Sk, Mt, Pp, Ss, Fx, and Ns in function and motion-state names.",
-    "Offset-derived struct fields remain xNNN-style until semantic names are known, exemplified by TmData::x524 and TyListState::x2A1.",
-    "Header prototypes should mirror implementation types exactly: gm_801BEFA4(int ckind) and char* un_80312834(char* buf, u32 num).",
-    "When a bitfield’s owner substructure is known, prefer the more specific path, as in fp->fv.kb.hat.x8_b0 rather than a top-level fp->fv.kb.xF4_b0.",
-    "Named motion-state constants are preferred over raw numeric IDs when available, as in ftKb_MS_FeSpecialAirNLoop replacing 0x217."
+    "Kirby copied-special files use ftKb_SpecialN plus copy-source suffixes such as Ns, Pk, Ys, Zd, and Fx.",
+    "Kirby motion-state constants use ftKb_MS_* names, for example ftKb_MS_FeSpecialAirNLoop and ftKb_MS_CaSpecialAirN.",
+    "Recovered struct fields at known offsets keep offset-style names when semantics are still unknown, such as TmData::x524 and TyListState::x2A1.",
+    "Data attribute names use descriptive specialn_* fields when known, such as specialn_kp_flame_scale and specialn_odds_lose_ability_on_hit.",
+    "Unknown functions retain address-style names such as ftKb_SpecialN_800F5D04, gm_801BEFA4, un_80312834, and HSD_SisLib_803A6048."
   ],
   "assembly_or_matching_tactics": [
-    "PAD_STACK values were tuned at several granularities, including 8, 16, 24, and 4 * 12 bytes, and some obsolete dummy pads were removed.",
-    "ftKb_SpecialN_800F5D04 matched by ordering Vec3 vel before Vec3 pos and adding PAD_STACK(8).",
-    "Multiple DK copied-special functions forced callback-store codegen by using a scoped Fighter* fp2 = gobj->user_data before setting pre_hitlag_cb and post_hitlag_cb to NULL.",
-    "sislib.c matched HSD_SisLib_803A6048 by using chained global assignment: HSD_SisLib_804D796C = HSD_SisLib_804D7970 = HSD_MemAlloc(...).",
-    "gm_18A5.c matched through typed array access td->x524[n] plus PAD_STACK(24) instead of an HSD_Text** cast from td+0x524.",
-    "Other micro-tactics included expression reassociation in hsd_803AC340, explicit cast (s32)(*charge * 30), direct fp->cmd_vars[3] indexing, and nested branch restructuring in grKongo_801D8314."
+    "Add/remove/resize PAD_STACK declarations to tune stack frames in near-matching functions.",
+    "Reorder local declarations, e.g. Vec3 vel before Vec3 pos, to match stack allocation/order.",
+    "Use scoped blocks to force local variable lifetime and store ordering, as with fp2 = gobj->user_data and scale_y = fp->x34_scale.y.",
+    "Replace fake pad arrays or volatile pads when they are no longer required, such as removing u8 _[8] and volatile short pad2.",
+    "Use explicit casts in comparisons when required, e.g. (s32)(*charge * 30) in ftKb_MsSpecialAirNLoop_Anim.",
+    "Prefer direct constant indexing and NULL assignment over artificial intermediate variables when codegen allows it.",
+    "Chained assignment can match dual-global initialization better than storing through a named temporary.",
+    "Small expression rewrites can matter: extra_size = base_size + extra_size, nested if after subtracting grKg_804D6980->unk52, and passing item_gobj instead of NULL to it_802E614C all appeared in matching fixes."
   ],
   "review_feedback": [
-    "No human review comments or review approvals were present in the slice.",
-    "The only PR comment was the decomp.dev bot report showing +12392 matched bytes, 52 new matches, and one grFourside_801F2F34 improvement.",
-    "Merged by ribbanya shortly after the bot report; no recorded requested changes in the available context."
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported GALE01 matched code 55.12%, +0.32%, +12392 bytes, with 52 new matches."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Highlighted major new matches including ftKb_DkSpecialN_Anim, ftCo_800D105C, multiple ftKb_DkSpecialN variants, it_802E5F8C, HSD_SisLib_803A6048, ftKb_EatTurn_Anim, ftKb_MsSpecialAirNLoop_Anim, and tylist functions."
+    },
+    {
+      "source": "human review",
+      "feedback": "No human review comments were present in the provided PR slice."
+    }
   ],
   "searchable_terms": [
     "pr-2219",
     "Scooping up some functions",
     "malvarezcastillo",
-    "decomp-dev bot",
-    "55.12%",
-    "12392 bytes",
     "52 new matches",
-    "ftKb_SpecialN",
+    "12392 bytes",
     "ftKb_SpecialNNs",
     "ftKb_DkSpecialN_Anim",
     "ftKb_DkSpecialNLoop_Anim",
@@ -119,38 +155,50 @@
     "ftKb_DkSpecialAirNLoop_Anim",
     "ftKb_DkSpecialAirN_Anim",
     "ftKb_DkSpecialAirNFull_Anim",
-    "ftKb_SpecialN_800F190C",
-    "specialn_kp_flame_scale",
-    "specialn_kp_lowest_charge_graphic_size",
+    "ftKb_SpecialN",
+    "ftKb_EatTurn_Anim",
     "ftKb_SpecialHi_800F346C",
     "ftKb_SpecialLw_IASA",
     "ftKirbyDmgInline2",
-    "fp->fv.kb.hat.x8_b0",
-    "ftKb_EatTurn_Anim",
+    "ftKb_SpecialN_800F5BA4",
+    "ftKb_SpecialN_800F5C34",
+    "ftKb_SpecialN_800F5D04",
+    "ftKb_SpecialN_800F5F68",
+    "ftKb_SpecialN_800F6070",
+    "ftKb_CaSpecialAirN_Phys",
+    "ftKb_SpecialNKp_800FA8B4",
+    "ftKb_KpSpecialN_IASA",
+    "ftKb_MsSpecialAirNLoop_Anim",
     "ftKb_MS_FeSpecialAirNLoop",
+    "specialn_kp_flame_scale",
+    "hat.x8_b0",
     "ftCo_800D105C",
     "TmData x524",
-    "gm_18A5",
     "fn_80198C60",
-    "gm_801BEFA4",
-    "grFourside_801F2F34",
-    "grIceMt_801F785C",
-    "grKongo_801D8314",
-    "grVenom_80203FD4",
-    "it_802E5F8C",
-    "it_802E614C",
-    "un_80312834",
-    "TyListState x2A1",
+    "gm_801BEFA4 int ckind",
+    "un_80312834 char*",
+    "TyListState x2A1 s8",
     "HSD_SisLib_803A6048",
     "hsd_803AC340",
+    "it_802E5F8C",
+    "grIceMt_801F785C",
+    "grFourside_801F2F34",
     "PAD_STACK"
   ],
   "follow_up_queries": [
-    "Find later PRs that rename or further type TmData::x524 or nearby x518/x534 text arrays.",
-    "Search for subsequent fixes to Kirby fp->fv.kb.x88, specialn_kp_flame_scale, and copied-ability hat bitfields.",
-    "Look for other DK copied-special functions that need the scoped gobj->user_data callback-clearing pattern.",
-    "Audit nearby Kirby SpecialN PAD_STACK values to see whether later PRs removed temporary padding after better struct/local typing.",
-    "Investigate the 22 omitted decomp.dev new matches not listed in the truncated bot table if exact per-function match attribution is needed."
+    "Look for other TmData padding regions that can be replaced by typed HSD_Text* arrays.",
+    "Audit Kirby copied-special hat fields for remaining uses of fp->fv.kb.xF4_b0 versus fp->fv.kb.hat.x8_b0.",
+    "Search for near-matches where callback clearing through gobj->user_data changes codegen compared with using an existing Fighter* local.",
+    "Review remaining tylist/trophy functions for return-type or signedness mismatches similar to un_80312834 and TyListState::x2A1.",
+    "Search sysdolphin/baselib global initialization functions for chained assignment opportunities."
   ],
-  "confidence": 0.9
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

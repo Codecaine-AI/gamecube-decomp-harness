@@ -11,15 +11,14 @@
     "merged_at": "2026-03-16T00:17:13Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Renamed the matching effect translation unit from `ef_061D` to `efspecial` and the global function at 0x80061D70 from `ef_80061D70` to `efSpecial_SpawnSpecial`. The PR kept build and matching metadata in sync by updating `splits.txt`, `symbols.txt`, `configure.py`, the renamed source/header include, and the `efSync_Spawn` extern/call site. It also contains small mechanical formatting/include-order cleanups in Kirby and item files. The decomp.dev bot report showed the expected rename accounting: `main/melee/ef/efspecial` became 100% matched while the old `main/melee/ef/ef_061D` unit became 0%.",
+  "summary": "Renamed the effect unit `melee/ef/ef_061D.c`/`.h` to `melee/ef/efspecial.c`/`.h` and renamed the global effect-spawn function at 0x80061D70 from `ef_80061D70` to `efSpecial_SpawnSpecial`. The PR propagated the rename through build/config metadata, symbols, the header include, and the `efSync_Spawn` callsite. Minor formatting/include-order churn also appears in Kirby and item files, but the substantive change is naming/documentation of an already matching effect unit.",
   "change_classification": {
-    "primary_type": "effect_symbol_and_translation_unit_rename",
+    "primary_type": "rename",
     "categories": [
       "naming",
       "headers",
       "decomp-matching",
-      "build-config",
-      "mechanical-formatting"
+      "config"
     ],
     "systems": [
       "effect",
@@ -30,127 +29,88 @@
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ef/efspecial.c",
-      "role": "Renamed from `src/melee/ef/ef_061D.c`; include changed to `efspecial.h`; function definition renamed to `efSpecial_SpawnSpecial`."
-    },
-    {
-      "path": "src/melee/ef/efspecial.h",
-      "role": "Renamed from `ef_061D.h`; declaration updated from `ef_80061D70` to `efSpecial_SpawnSpecial`."
-    },
-    {
-      "path": "src/melee/ef/efsync.c",
-      "role": "Updated extern declaration and the `gfx_id < 0x4BA` dispatch path in `efSync_Spawn` to call `efSpecial_SpawnSpecial`."
-    },
-    {
-      "path": "config/GALE01/splits.txt",
-      "role": "Renamed the split entry from `melee/ef/ef_061D.c` to `melee/ef/efspecial.c` while preserving the same text/data/sdata/sdata2 address ranges."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Renamed the symbol at `.text:0x80061D70` from `ef_80061D70` to `efSpecial_SpawnSpecial` with the same size `0x1BC0`."
-    },
-    {
-      "path": "configure.py",
-      "role": "Changed the matching object path from `melee/ef/ef_061D.c` to `melee/ef/efspecial.c`."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
-      "role": "Style-only line wrapping around `Fighter_ChangeMotionState` calls."
-    },
-    {
-      "path": "src/melee/it/items/ithouou.c",
-      "role": "Style-only line wrapping around `it_8027ADEC` calls."
-    },
-    {
-      "path": "src/melee/it/items/itoldkuri.c",
-      "role": "Style-only line wrapping for `itOldkuriAttributes* attr` and velocity assignment."
-    },
-    {
-      "path": "src/melee/it/items/itpikachuthunder.c",
-      "role": "Moved `<placeholder.h>` include near the top of the include block."
-    }
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "configure.py",
+    "src/melee/ef/efspecial.c",
+    "src/melee/ef/efspecial.h",
+    "src/melee/ef/efsync.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+    "src/melee/it/items/ithouou.c",
+    "src/melee/it/items/itoldkuri.c",
+    "src/melee/it/items/itpikachuthunder.c"
   ],
   "what_changed": [
-    "`src/melee/ef/ef_061D.c` was renamed to `src/melee/ef/efspecial.c` with 99% similarity.",
-    "`src/melee/ef/ef_061D.h` was renamed to `src/melee/ef/efspecial.h`.",
-    "The function `ef_80061D70(s32 gfx_id, HSD_GObj* gobj, va_list vlist)` was renamed to `efSpecial_SpawnSpecial(...)` without changing the visible signature in the diff.",
-    "`config/GALE01/symbols.txt` now maps `.text:0x80061D70` size `0x1BC0` to `efSpecial_SpawnSpecial` instead of `ef_80061D70`.",
-    "`config/GALE01/splits.txt` and `configure.py` now reference the renamed `melee/ef/efspecial.c` matching unit.",
-    "`efSync_Spawn` now declares and calls `efSpecial_SpawnSpecial` for the `gfx_id < 0x4BA` branch.",
-    "The nearby commented-out alternative call in `efsync.c` was also renamed for consistency.",
-    "Unrelated mechanical formatting/include-order edits were made in `ftKb_SpecialN.c`, `ithouou.c`, `itoldkuri.c`, and `itpikachuthunder.c`."
+    "Renamed `src/melee/ef/ef_061D.c` to `src/melee/ef/efspecial.c` and updated its self-include from `ef_061D.h` to `efspecial.h`.",
+    "Renamed `src/melee/ef/ef_061D.h` to `src/melee/ef/efspecial.h` and changed the exported declaration from `ef_80061D70` to `efSpecial_SpawnSpecial`.",
+    "Updated `config/GALE01/splits.txt` so the section covering `.text` 0x80061D70-0x80063930 and associated data sections is named `melee/ef/efspecial.c` instead of `melee/ef/ef_061D.c`.",
+    "Updated `config/GALE01/symbols.txt` so `.text:0x80061D70` is named `efSpecial_SpawnSpecial` instead of `ef_80061D70`, preserving the same function size 0x1BC0.",
+    "Updated `configure.py` to build `Object(Matching, \"melee/ef/efspecial.c\")` in place of `melee/ef/ef_061D.c`.",
+    "Updated `src/melee/ef/efsync.c` extern declaration and dispatch call inside `efSync_Spawn` to use `efSpecial_SpawnSpecial` for `gfx_id < 0x4BA`.",
+    "Applied incidental formatting/include-order edits in `ftKb_SpecialN.c`, `ithouou.c`, `itoldkuri.c`, and `itpikachuthunder.c`; the diff does not show behavioral changes there."
   ],
   "smart_moves": [
-    "The rename was propagated through all important decomp surfaces: source filename, header filename, include, declaration, caller extern, caller invocation, symbols file, splits file, and build object list.",
-    "The matching address ranges and symbol size were preserved, making this a naming/config migration rather than a behavioral rewrite.",
-    "Updating `configure.py` alongside `splits.txt` avoided leaving the matching build pointed at the old `ef_061D.c` path.",
-    "The decomp.dev report verified the expected rename pattern: new `efspecial` unit entries became 100% matched and old `ef_061D` entries became broken because the old unit name disappeared."
+    "The rename was propagated across all places needed for a matched unit: source path, header path, configure object list, split metadata, symbol name, extern declaration, and callsite.",
+    "The new symbol name describes the function's role in the `efSync_Spawn` dispatch path better than the raw-address placeholder `ef_80061D70`.",
+    "The PR preserved the original address, size, and matching status while improving searchable names, making the change useful for future effect-system work without destabilizing the decomp.",
+    "The decomp.dev bot report showed the old unit becoming broken and the new unit becoming matched with the same byte counts, which is consistent with a pure rename of a matched object rather than a code-generation change."
   ],
   "decomp_lessons": [
-    "When renaming a matching translation unit, update `config/GALE01/splits.txt` and the `Object(Matching, ...)` entry in `configure.py` in the same PR.",
-    "When replacing an address-based symbol name, update `symbols.txt`, the header declaration, any local externs, call sites, and nearby comments to prevent mixed old/new names.",
-    "A decomp.dev report showing new matches for the renamed unit and broken matches for the old unit can be expected rename churn rather than a matching regression.",
-    "Prefer a domain-oriented effect name such as `efspecial` / `efSpecial_SpawnSpecial` once the role is known instead of keeping an address-derived placeholder like `ef_061D` / `ef_80061D70`.",
-    "The PR body and human review text provide no explanation beyond the title, so the reason for the `Special` naming is not evidenced in this slice."
+    "When renaming a matched source unit, update `splits.txt`, `symbols.txt`, and `configure.py` together; otherwise build/decomp metadata will refer to stale unit names.",
+    "Address-placeholder function names such as `ef_80061D70` should be replaced with subsystem-scoped descriptive names once behavior is known well enough.",
+    "For dispatcher functions like `efSync_Spawn`, renaming the target function should include the extern declaration, active call, and any explanatory commented-out call forms to keep future readers aligned.",
+    "A decomp.dev report showing equal-size 'new matches' and 'broken matches' under old/new names can be interpreted as successful rename churn, not a regression, when the addresses and byte counts match."
   ],
   "naming_conventions": [
-    "Effect source/header filenames use lowercase subsystem/domain form: `efspecial.c` and `efspecial.h`.",
-    "Effect function names use a module-style prefix plus verb phrase: `efSpecial_SpawnSpecial`.",
-    "Address-derived placeholder names such as `ef_80061D70` and file stems such as `ef_061D` are candidates for replacement when a more meaningful domain name is established.",
-    "The header basename should track the source basename; the renamed source includes `\"efspecial.h\"`.",
-    "The existing neighboring prefixes visible in the diff remain distinct: `efLib_`, `efSync_`, `efSpecial_`, and `efAsync_`."
+    "`ef_061D.c` was replaced by the lower-case module-style filename `efspecial.c` under `src/melee/ef/`.",
+    "`ef_80061D70` was replaced by `efSpecial_SpawnSpecial`, using the effect subsystem prefix `efSpecial_` plus a descriptive action name.",
+    "The header name mirrors the source filename: `efspecial.h` for `efspecial.c`.",
+    "The config split name uses the same path stem as the source file: `melee/ef/efspecial.c`."
   ],
   "assembly_or_matching_tactics": [
-    "Preserve the split address ranges while renaming a matching unit: `.text` remained `0x80061D70` to `0x80063930`, with `.data`, `.sdata`, and `.sdata2` ranges unchanged.",
-    "Preserve the symbol address and size while renaming: `efSpecial_SpawnSpecial = .text:0x80061D70` with size `0x1BC0`.",
-    "Keep the `va_list` forwarding shape unchanged in `efSync_Spawn`; the diff only renames the callee used for the `gfx_id < 0x4BA` branch.",
-    "Use bot match reports carefully after renames: this slice reports `+7104` text bytes and data/sdata/sdata2 matches under `main/melee/ef/efspecial`, mirrored by losses under `main/melee/ef/ef_061D`."
+    "The function at `.text:0x80061D70` remained size `0x1BC0`; only its symbol name changed from `ef_80061D70` to `efSpecial_SpawnSpecial`.",
+    "The unit remained marked `Object(Matching, ...)` after the file rename, indicating the matching status was preserved.",
+    "The bot reported `main/melee/ef/efspecial` `efSpecial_SpawnSpecial` as 100.00% matched for +7104 bytes, while the old `main/melee/ef/ef_061D` `ef_80061D70` entry dropped by the same 7104 bytes, reinforcing that this was a metadata/name migration.",
+    "No evidence in the diff excerpt indicates a new matching trick or codegen-sensitive rewrite; the core function body was not substantively changed."
   ],
   "review_feedback": [
-    "No human review comments were present in the slice.",
-    "The PR body was empty, so there is no author-provided rationale beyond the title.",
-    "The only comment was the decomp.dev GALE01 report, which showed 4 new matches for `main/melee/ef/efspecial` and 4 broken matches for the old `main/melee/ef/ef_061D` unit."
+    "No human review comments were present in the provided slice.",
+    "decomp-dev[bot] reported 4 new matches for `main/melee/ef/efspecial` and 4 broken matches for the old `main/melee/ef/ef_061D` unit, consistent with the unit rename."
   ],
   "searchable_terms": [
     "pr-2306",
     "ribbanya",
     "efspecial",
     "ef_061D",
-    "efSpecial_SpawnSpecial",
     "ef_80061D70",
+    "efSpecial_SpawnSpecial",
     "efSync_Spawn",
     "efsync.c",
     "efspecial.c",
     "efspecial.h",
-    "ef_061D.c",
-    "ef_061D.h",
-    "0x80061D70",
-    "0x80063930",
-    "0x1BC0",
-    "gfx_id < 0x4BA",
-    "va_list",
-    "HSD_GObj",
-    "Effect",
-    "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
+    "splits.txt",
+    "symbols.txt",
     "configure.py",
-    "Object(Matching)",
-    "main/melee/ef/efspecial",
-    "main/melee/ef/ef_061D",
-    "ftKb_SpecialN.c",
-    "ithouou.c",
-    "itoldkuri.c",
-    "itpikachuthunder.c",
-    "placeholder.h",
-    "decomp-dev bot"
+    "0x80061D70",
+    "0x1BC0",
+    "gfx_id",
+    "va_list",
+    "effect",
+    "matching rename",
+    "decomp.dev"
   ],
   "follow_up_queries": [
-    "ef_061D efspecial rename",
-    "ef_80061D70 efSpecial_SpawnSpecial",
-    "efSync_Spawn gfx_id 0x4BA va_list",
-    "config splits symbols configure.py rename matching object",
-    "main/melee/ef/efspecial decomp-dev 100.00"
+    "Look for later PRs that further document or split `efspecial.c` or `efSpecial_SpawnSpecial`.",
+    "Search for remaining raw-address effect symbols named like `ef_8*` that may be candidates for subsystem-scoped names.",
+    "Check whether `efSpecial_SpawnSpecial`'s parameters beyond `gfx_id`, `HSD_GObj*`, and `va_list` were later named or typed more precisely."
   ],
-  "confidence": 0.9
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

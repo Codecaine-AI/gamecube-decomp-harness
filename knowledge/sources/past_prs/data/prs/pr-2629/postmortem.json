@@ -1,0 +1,121 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2629",
+  "pr": {
+    "number": 2629,
+    "title": "Improvements to split up: TY",
+    "url": "https://github.com/doldecomp/melee/pull/2629",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:30:54Z",
+    "merged_at": "2026-06-08T15:54:42Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Small merged decomp-matching slice for src/melee/ty, split from a larger matching-improvement branch to make TY subsystem changes easier to review. The diff adjusts local variable ordering/aliasing in tydisplay.c and rewrites several TyList state field accesses in tylist.c from previously named struct members or array aliases to offset-style fields such as x270, x274, x278, and x288, likely to better match the current struct layout and generated code. Evidence for exact match impact in this isolated slice is limited to the PR body's preliminary report from the unsplit branch and the diff excerpt; no review comments were present.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "struct-layout-adjustment",
+      "local-variable-ordering",
+      "path-sliced-pr"
+    ],
+    "systems": [
+      "melee-core",
+      "ty",
+      "trophy-ui"
+    ]
+  },
+  "key_files": [
+    "src/melee/ty/tydisplay.c",
+    "src/melee/ty/tylist.c"
+  ],
+  "what_changed": [
+    "In src/melee/ty/tydisplay.c, un_8031BC54 now introduces a local s32 id initialized from arg0 and uses id for calls to un_8031B9DC and un_8031BF34.",
+    "In un_8031BC54, the TyDspArchNames locals jobj_names and matanim_names were moved lower in the local declaration order, after the TyDspBgData pointer initialization, suggesting a stack/local-order matching adjustment.",
+    "In src/melee/ty/tylist.c, fn_80313BD8 now uses offset-style TyList state fields including state->x288, state->x274, state->x270, and state->x278 instead of state->jobj and some state->entries[...] access patterns.",
+    "The upward/downward trophy-list navigation logic was kept semantically similar but rewritten around x274 and x270 pointer fields rather than entries[0] and a temporary idx local.",
+    "The selection path now assigns state->x278 = p instead of state->entries[10].links[0] = (TyListArg*) p, and uses state->x288 for HSD_JObjSetTranslateY.",
+    "The PR body states this was split from PR #2617 by directory/subsystem and scoped to src/melee/ty, although the listed files included toy.c while the changed_files list for this slice only records tydisplay.c and tylist.c."
+  ],
+  "smart_moves": [
+    "The branch was path-sliced by subsystem so reviewers could inspect the TY-specific matching changes without the noise of the full unsplit branch.",
+    "The tydisplay.c change preserves arg0 semantics through an explicit id alias, a common matching tactic when the compiler wants a separate local copy of a parameter.",
+    "The tylist.c changes avoid forcing possibly incorrect semantic struct names when the evidence supports raw offset-style fields; this can improve matching while preventing misleading documentation of the layout.",
+    "Removing the temporary s16 idx in the downward navigation branch made the source closer to the target code shape implied by the diff.",
+    "The PR body documented local checks, including applying the slice from origin/master and running git diff --check, which is useful for validating clean path-sliced decomp changes."
+  ],
+  "decomp_lessons": [
+    "For matching work, declaration order can matter: moving TyDspArchNames locals relative to pointer locals in un_8031BC54 was part of the improvement.",
+    "When a struct layout is not fully proven, offset-style field names such as x270, x274, x278, and x288 may be preferable to speculative names like jobj or entries-derived aliases.",
+    "Parameter alias locals, such as s32 id = arg0, can be necessary to reproduce compiler register/stack behavior even when they look redundant at the C level.",
+    "Array-member aliases in structs can be dangerous if the underlying layout is not settled; this PR replaced entries[0] and entries[10].links[0] usages with direct pointer fields.",
+    "Small subsystem slices are an effective workflow for large matching-improvement branches because they isolate review scope and make regressions easier to attribute."
+  ],
+  "naming_conventions": [
+    "Unconfirmed struct fields in TY code use offset-style names like x270, x274, x278, x288, x29E, and x2B8.",
+    "Existing unknown functions retain un_ or fn_ prefixes, such as un_8031BC54, un_8031B9DC, un_8031BF34, fn_80313BD8, and un_80313358.",
+    "Known library/HSD calls keep their subsystem prefixes, such as HSD_JObjSetFlagsAll, HSD_JObjSetTranslateY, HSD_JObjAlloc, GObj_Create, and DevText_Print.",
+    "The newly introduced local name id is a neutral alias for arg0 in un_8031BC54 rather than a stronger semantic rename."
+  ],
+  "assembly_or_matching_tactics": [
+    "Introduce a local copy of a function argument and use that alias at callsites to influence codegen/register lifetime.",
+    "Reorder local declarations to better match stack layout or compiler allocation order.",
+    "Replace named or array-based struct access with direct offset-backed fields when that better reflects the binary layout.",
+    "Eliminate a temporary local variable when direct field use better matches the expected code shape.",
+    "Keep behavior-preserving control flow while changing the source expression shape around struct fields and casts."
+  ],
+  "review_feedback": [
+    "No review comments were present in the provided PR context.",
+    "The PR body's only process guidance was that the change was split from #2617 by directory/subsystem to make matching improvements easier to review.",
+    "The preliminary matching report was for the full unsplit source branch, not necessarily the exact isolated TY slice, so exact per-slice matching impact is not evidenced here."
+  ],
+  "searchable_terms": [
+    "PR2629",
+    "Improvements to split up TY",
+    "src/melee/ty",
+    "tydisplay.c",
+    "tylist.c",
+    "un_8031BC54",
+    "un_8031BBF4",
+    "un_8031B9DC",
+    "un_8031BF34",
+    "fn_80313BD8",
+    "un_80313358",
+    "TyDspArchNames",
+    "TyDspEntry",
+    "TyDspBgData",
+    "TyListArg",
+    "HSD_GObj",
+    "HSD_JObj",
+    "HSD_JObjSetFlagsAll",
+    "HSD_JObjSetTranslateY",
+    "GObj_Create",
+    "DevText_Print",
+    "un_GetTrophyTotal",
+    "state->x270",
+    "state->x274",
+    "state->x278",
+    "state->x288",
+    "parameter alias",
+    "local declaration order",
+    "struct offset fields",
+    "path slice",
+    "decomp matching"
+  ],
+  "follow_up_queries": [
+    "Check the final per-PR CI or decomp-dev report for PR #2629 to determine exact isolated TY slice match impact.",
+    "Inspect the TyList state struct definition to confirm whether x270, x274, x278, and x288 later received semantic names.",
+    "Compare PR #2617 and other split-up subsystem PRs for repeated matching tactics involving parameter aliases and struct offset fields.",
+    "Search later TY PRs for un_8031BC54 and fn_80313BD8 to see whether these functions gained names or fuller struct documentation."
+  ],
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

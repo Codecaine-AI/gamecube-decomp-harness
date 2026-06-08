@@ -11,100 +11,103 @@
     "merged_at": "2026-03-05T20:14:24Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Renamed the game-mode module and header from the address-derived provisional name gm_17C0 to gmregclear. The diff is almost entirely a coordinated file/include/config rename: split metadata, configure.py object registration, exported gm headers, direct consumers, and one documentation comment were updated while the object remained NonMatching. The title says the new name is based on an assert, but the slice does not include the assert text or location.",
+  "summary": "Renamed the game-mode source/header pair from address-based gm_17C0 to the assert-derived name gmregclear, and propagated the new filename through build configuration, split metadata, includes, aggregate game-mode header exports, and a comment reference. No code behavior appears to have changed; this was a naming/organization cleanup preserving the existing nonmatching object status.",
   "change_classification": {
-    "primary_type": "module_rename",
+    "primary_type": "symbol/file rename",
     "categories": [
       "naming",
       "headers",
       "build-config",
-      "split-config",
-      "documentation-comment"
+      "split-metadata"
     ],
     "systems": [
       "game-mode",
       "config",
-      "melee-core",
       "stage",
       "library",
       "video"
     ]
   },
   "key_files": [
+    "config/GALE01/splits.txt",
+    "configure.py",
     "src/melee/gm/gmregclear.c",
     "src/melee/gm/gmregclear.h",
     "src/melee/gm/gm_unsplit.h",
     "src/melee/gm/gm_1601.h",
-    "config/GALE01/splits.txt",
-    "configure.py",
     "src/melee/gr/grcorneria.c",
     "src/melee/lb/lbbgflash.c",
     "src/melee/vi/vi0401.c"
   ],
   "what_changed": [
-    "Renamed src/melee/gm/gm_17C0.c to src/melee/gm/gmregclear.c and changed its self-include from gm_17C0.h to gmregclear.h.",
-    "Renamed src/melee/gm/gm_17C0.h to src/melee/gm/gmregclear.h and updated the header guard from MELEE_GM_17C0_H to MELEE_gmregclear_H.",
-    "Updated config/GALE01/splits.txt so the same text/rodata/data ranges are attributed to melee/gm/gmregclear.c instead of melee/gm/gm_17C0.c.",
-    "Updated configure.py so the object list now uses Object(NonMatching, \"melee/gm/gmregclear.c\") instead of the old gm_17C0.c path.",
-    "Replaced old gm_17C0.h include paths in gm_1601.h, gm_unsplit.h, grcorneria.c, and vi0401.c with gmregclear.h.",
-    "Kept gmregclear.h exported through gm_unsplit.h with the IWYU pragma and updated a lbbgflash.c comment that listed gm_17C0.c as a game-mode caller."
+    "Renamed split entry `melee/gm/gm_17C0.c` to `melee/gm/gmregclear.c` while keeping the same section ranges, including `.text` start `0x8017C0C8` end `0x8018325C`.",
+    "Updated `configure.py` object list from `Object(NonMatching, \"melee/gm/gm_17C0.c\")` to `Object(NonMatching, \"melee/gm/gmregclear.c\")`.",
+    "Renamed `src/melee/gm/gm_17C0.c` to `src/melee/gm/gmregclear.c` and changed its self-include from `gm_17C0.h` to `gmregclear.h`.",
+    "Renamed `src/melee/gm/gm_17C0.h` to `src/melee/gm/gmregclear.h` and updated the include guard from `MELEE_GM_17C0_H` to `MELEE_gmregclear_H`.",
+    "Replaced includes of `gm_17C0.h` with `gmregclear.h` in `gm_1601.h`, `grcorneria.c`, and `vi0401.c`.",
+    "Updated `gm_unsplit.h` IWYU export includes to export `gmregclear.h` instead of `gm_17C0.h`; the hunk also aligned spacing around the IWYU comments.",
+    "Updated an `lbbgflash.c` file comment so the list of game-mode callers names `gmregclear.c` instead of `gm_17C0.c`."
   ],
   "smart_moves": [
-    "The rename was propagated through both source includes and build/split metadata, avoiding the common decomp rename failure where the C file changes but the object map still references the old basename.",
-    "The PR preserved the object's NonMatching status and the split address ranges, making the change a low-risk provenance/name cleanup rather than a matching claim.",
-    "Updating gm_unsplit.h maintained the umbrella game-mode header export path for downstream files that rely on transitive gm includes.",
-    "Updating lbbgflash.c's comment removed a stale grep hit for the provisional gm_17C0 name, which helps future searches converge on the assert-derived module name."
+    "The rename was propagated across both build inputs (`configure.py`) and split metadata (`config/GALE01/splits.txt`), avoiding a common partial-rename failure where the source compiles locally but object/split bookkeeping still uses the old address-based name.",
+    "The PR preserved the object's `NonMatching` status in `configure.py`, correctly treating this as a naming improvement rather than implying any matching progress.",
+    "Updating direct includes, the aggregate `gm_unsplit.h` export header, and documentation comments made the new name searchable and consistent across call sites.",
+    "The title records the evidence source for the name: the rename was based on an assert. The diff excerpt does not show the assert itself, so the exact string is not independently verifiable from this slice."
   ],
   "decomp_lessons": [
-    "Assert strings can justify replacing address-based module names with more meaningful original or near-original names, but future records should capture the exact assert text/location when available.",
-    "A file/module rename in this repository needs synchronized edits in configure.py, config/GALE01/splits.txt, the .c self-include, the .h guard, umbrella headers, and direct consumer includes.",
-    "Renames can improve source organization and symbol provenance even when the object remains NonMatching; do not conflate naming cleanup with codegen progress.",
-    "After renaming a provisional gm_<address> module, grep for the old basename in comments as well as include directives and build config.",
-    "When changing exported headers, preserve IWYU pragma annotations so include-cleanup tooling and transitive header expectations remain stable."
+    "When an assert or embedded string reveals a better module name, prefer replacing address-placeholder filenames like `gm_17C0` with the recovered semantic name, but update all build/split/include references in the same PR.",
+    "A file-level rename in this repo needs coordination between `src/...`, `config/GALE01/splits.txt`, and `configure.py`; changing only the C/H files is not enough.",
+    "Keep matching classification separate from naming cleanup: a renamed file can remain `NonMatching` until its functions actually match.",
+    "Aggregate headers such as `gm_unsplit.h` must be kept in sync with renamed module headers, especially when they use `IWYU pragma: export`.",
+    "Comments that mention module names are useful search surfaces and should be updated during renames, even when they do not affect compilation."
   ],
   "naming_conventions": [
-    "gm_17C0 was treated as an address-derived provisional game-mode module name.",
-    "gmregclear is the new lowercase module basename, similar in style to nearby gmregcommon.c.",
-    "Public include paths changed from <melee/gm/gm_17C0.h> or \"gm/gm_17C0.h\" to gmregclear.h equivalents.",
-    "The header guard was updated to MELEE_gmregclear_H as shown in the diff; no review text in the slice explains the mixed-case guard style."
+    "`gm_17C0` was an address-derived placeholder name for a game-mode module; `gmregclear` is the recovered semantic module name used for both `.c` and `.h`.",
+    "The include path convention after the rename is `#include \"gm/gmregclear.h\"` for local project includes and `<melee/gm/gmregclear.h>` in exported game-mode headers.",
+    "The split/config object path follows the source path without the `src/` prefix: `melee/gm/gmregclear.c`.",
+    "The new header guard in the diff is `MELEE_gmregclear_H`; this is evidence from the PR, though it is less stylistically consistent than the old all-caps `MELEE_GM_17C0_H` guard."
   ],
   "assembly_or_matching_tactics": [
-    "No assembly rewrite or function-level matching tactic is present in the diff.",
-    "The split entry kept the same section ranges, including .text 0x8017C0C8-0x8018325C and .data 0x803D7A50-0x803D9248, indicating a metadata-only rename.",
-    "configure.py continued to mark the object as NonMatching after the rename."
+    "No assembly or function-level matching tactics are shown in the slice.",
+    "The PR is explicitly a rename of a still-`NonMatching` object in `configure.py`, indicating no matching-status change.",
+    "The split section addresses were preserved, which is the right tactic for a pure file rename: keep object layout metadata identical while changing only the module path."
   ],
-  "review_feedback": [
-    "No PR body, issue comments, review comments, or reviews were present in the slice.",
-    "The only evidence for the assert-derived name is the PR title; the exact assert was not included in the provided context."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
     "pr-2222",
+    "PsiLupan",
     "gm_17C0",
     "gmregclear",
-    "gmregcommon",
-    "game-mode rename",
     "assert-derived name",
-    "src/melee/gm/gmregclear.c",
-    "src/melee/gm/gmregclear.h",
-    "src/melee/gm/gm_unsplit.h",
-    "src/melee/gm/gm_1601.h",
-    "config/GALE01/splits.txt",
+    "game mode",
+    "gm_unsplit.h",
+    "gm_1601.h",
+    "gmregcommon",
     "configure.py",
+    "MatchingFor",
     "Object(NonMatching)",
-    "IWYU pragma export",
+    "config/GALE01/splits.txt",
+    "IWYU pragma: export",
     "grcorneria.c",
     "lbbgflash.c",
     "vi0401.c",
     "MELEE_gmregclear_H",
     "0x8017C0C8",
-    "0x8018325C"
+    "rename placeholder file"
   ],
   "follow_up_queries": [
-    "Search the current tree for gm_17C0 to verify no stale references remain.",
-    "Find the assert string or source line that identifies the module as gmregclear and document it beside the rename.",
-    "Audit gmregclear.h header guard casing against current project conventions.",
-    "Look for other gm_<address> modules near gmregcommon/gmregclear that have assert-derived names available.",
-    "Use the gmregclear name to guide future function and struct naming inside the renamed NonMatching object."
+    "Search for remaining references to `gm_17C0` after the rename to catch stale comments, includes, or scripts.",
+    "Look for the assert string that motivated `gmregclear` to document the source of the recovered module name more explicitly.",
+    "Consider normalizing the new header guard style if the project expects all-caps guards such as `MELEE_GMREGCLEAR_H`.",
+    "Check whether additional symbols inside `gmregclear.c` can now be renamed using the same assert-derived context."
   ],
-  "confidence": 0.86
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

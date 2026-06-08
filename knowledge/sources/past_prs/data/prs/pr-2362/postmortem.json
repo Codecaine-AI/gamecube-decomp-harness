@@ -11,93 +11,70 @@
     "merged_at": "2026-03-27T22:13:47Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked the item module `melee/it/items/itsonans.c` by changing it from NonMatching to Matching after small source, symbol, and header cleanups. The PR finished two previously near-matching functions, `it_802CD4FC` and `it_802CD7D4`, corrected/localized several data symbols, removed header-defined numeric constants, and updated the item state table symbol to `it_803F7CA0`. The decomp.dev bot reported 5 new matches for GALE01, including `.sdata2`, `.sdata`, `.data`, `it_802CD4FC`, and `it_802CD7D4`, with +972 matched code bytes and +1940 linked code bytes.",
+  "summary": "Linked the Wobbuffet/Sonans item unit by changing `melee/it/items/itsonans.c` from NonMatching to Matching and cleaning up the small code/data mismatches that blocked linkage. The PR matched `it_802CD4FC`, `it_802CD7D4`, and the remaining local data in `.data`, `.sdata`, and `.sdata2`; the bot reported +972 matched code bytes, +1940 linked code bytes, and 5 new matches for `main/melee/it/items/itsonans`.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "linking",
-      "headers",
-      "symbols",
-      "data-symbol-scope",
-      "item-state-table"
+      "item-linking",
+      "data-symbol-correction",
+      "headers"
     ],
     "systems": [
       "item",
       "config",
-      "build"
+      "repo-root"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/it/items/itsonans.c",
-      "role": "Main matching work: source rewrites, includes, item state table correction, literal/ABS/codegen changes."
-    },
-    {
-      "path": "src/melee/it/items/itsonans.h",
-      "role": "Header cleanup: removed definitions of `it_804DD3D0` and `it_804DD3C8`; kept extern state table declaration."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Changed several former global data symbols to local `@NNN` symbols for strings, floats, and doubles used by this module."
-    },
-    {
-      "path": "configure.py",
-      "role": "Changed `melee/it/items/itsonans.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)`."
-    }
+    "configure.py",
+    "config/GALE01/symbols.txt",
+    "src/melee/it/items/itsonans.c",
+    "src/melee/it/items/itsonans.h"
   ],
   "what_changed": [
-    "`configure.py` now lists `melee/it/items/itsonans.c` as `Object(Matching, ...)` instead of `Object(NonMatching, ...)`.",
-    "In `itsonans.c`, added `math.h` and `it/itCommonItems.h` includes.",
-    "Renamed/corrected the item state table definition from `it_803F7C70[]` to `it_803F7CA0[]`, matching the header declaration, and changed the third state table ID from `2` to `-1`.",
-    "Reworked `it_802CD4FC`: replaced manual absolute-value branches with `ABS(...)`, changed constant references to direct literals `-0.9` and `0.017453292f`, and removed the old near-match comment.",
-    "Reworked `it_802CD7D4`: removed temporary locals, compared `ABS` magnitudes directly, and assigned `x68` from either the clamped attr value or the direct `item->xCA0 * attrs->x4` expression.",
-    "Removed the local C definition `f32 it_804DD3B8 = 0.0f;` and rewrote `itSonans_UnkMotion1_Anim` to decrement via a `f32 lifetime` local and compare against an `int zero`.",
-    "Removed header definitions of `f32 it_804DD3D0 = 0.017453292f;` and `f64 it_804DD3C8 = -0.9;`, avoiding data definitions in the header.",
-    "In `symbols.txt`, converted related `.data`, `.sdata`, and `.sdata2` entries from global `it_XXXXXXXX` names to local `@NNN` symbols."
+    "In `configure.py`, changed `Object(NonMatching, \"melee/it/items/itsonans.c\")` to `Object(Matching, \"melee/it/items/itsonans.c\")`.",
+    "In `config/GALE01/symbols.txt`, converted several formerly global `it_...` data labels for itsonans constants/strings to local compiler-style labels such as `@228`, `@229`, `@230`, `@159`, `@161`, `@226`, `@227`, `@233`, and `@259`.",
+    "Renamed the item state table definition in `itsonans.c` from `it_803F7C70[]` to the header-declared `it_803F7CA0[]` and changed the third state ID from `2` to `-1`.",
+    "Added `math.h` and `it/itCommonItems.h` includes in `itsonans.c`.",
+    "Rewrote absolute-value handling in `it_802CD4FC` and `it_802CD7D4` using `ABS(...)`, replacing manual sign checks and temporary variables.",
+    "Replaced references to header-defined/global constants such as `it_804DD3C8` and `it_804DD3D0` with literal constants `-0.9` and `0.017453292f`, helping the related data become local/matched instead of exported globals.",
+    "Simplified `it_802CD7D4` by directly comparing/scaling `item->xCA0 * attrs->x4` rather than storing it in a separate `temp`.",
+    "Adjusted `itSonans_UnkMotion1_Anim` to decrement `xD44_lifeTimer` through a `lifetime` local and compare against an integer local `zero`, replacing a comparison against a global float zero.",
+    "Removed erroneous data definitions from `itsonans.h`: `f32 it_804DD3D0 = 0.017453292f;` and `f64 it_804DD3C8 = -0.9;`."
   ],
   "smart_moves": [
-    "Used the existing `ABS` style instead of hand-expanded sign checks, which made the near-matching functions shorter and apparently aligned the emitted code with the original.",
-    "Stopped exposing numeric constants as header-defined globals; using direct literals let the compiler emit/localize the constants while avoiding multiple-definition or fake-global patterns.",
-    "Localized data symbols in `symbols.txt` once the C no longer needed global names, improving symbol hygiene while also finishing data matches.",
-    "Matched the state table declaration/definition to the actual exported address symbol `it_803F7CA0`, keeping the `.h` and `.c` consistent.",
-    "The `itSonans_UnkMotion1_Anim` rewrite preserves the countdown behavior while shaping the temporary type/order explicitly, a useful tactic for exact float/int comparison codegen."
+    "Turned near-matching functions into exact matches by focusing on expression shape rather than algorithmic changes: `ABS(...)` replaced hand-written absolute-value branches in both remaining non-100% functions.",
+    "Eliminated bogus globally visible data by using literals/local constants in C and updating `symbols.txt` to local `@NNN` labels, which matched the compiler's treatment of strings/floats/doubles for this unit.",
+    "Removed variable definitions from a header, avoiding accidental global definitions and aligning constants with their actual local/literal usage.",
+    "Used a small code-shape tactic in `itSonans_UnkMotion1_Anim` (`int zero`, `f32 lifetime`) to reproduce the expected comparison/decrement pattern while preserving behavior.",
+    "Linked only after both code and data were clean: the configure flip was paired with symbol-scope corrections and function rewrites, not just a build-list change."
   ],
   "decomp_lessons": [
-    "When a file is almost matching because of constants, check whether the constants should be direct literals/local `@NNN` data instead of named global objects or header definitions.",
-    "Manual absolute-value logic can be the wrong codegen shape; try project macros such as `ABS` when the original compiler likely emitted a canonical abs pattern.",
-    "Do not define data objects in headers just to make references compile; if a constant belongs to a translation unit/local literal pool, remove the header definition and update `symbols.txt` scope accordingly.",
-    "For item state tables, verify both the address-named symbol and individual state IDs. Here the table needed `it_803F7CA0` and the last motion entry used `-1`, not `2`.",
-    "Small expression-shaping changes, such as recomputing an expression instead of storing a temp or comparing a `f32` result to an `int zero`, can be enough to move 99% functions to 100%."
+    "For item units that are already above 99%, remaining mismatches may be caused by expression form, local constant emission, or symbol scope rather than misunderstood behavior.",
+    "Do not keep initialized data definitions in headers unless the original binary truly has an exported object; such definitions can create false globals and block data matching.",
+    "When constants are only used locally, prefer literals or local compiler labels over invented global `it_...` symbols, and update `symbols.txt` scope accordingly.",
+    "The `ABS` macro can produce the compiler shape needed for float absolute-value comparisons and may match better than manual `if (x < 0) x = -x` logic.",
+    "Item state table labels and state IDs must match the actual data address/content; an off-by-one-address table name or wrong state ID can keep `.data` from reaching 100%.",
+    "Bot match reports are useful evidence for linkage PRs: here they verified `.sdata2`, `.sdata`, `.data`, `it_802CD4FC`, and `it_802CD7D4` reached 100%."
   ],
   "naming_conventions": [
-    "Item motion callbacks in this file use `itSonans_UnkMotionN_Anim`, `itSonans_UnkMotionN_Phys`, and `itSonans_UnkMotionN_Coll`.",
-    "Unknown item functions remain address-named, such as `it_802CD4FC`, `it_802CD7D4`, and `it_802CD9C0`, when no semantic name is evidenced.",
-    "The item state table is exported with an address-style symbol, `it_803F7CA0`, and the header comment uses the matching address marker `/* 3F7CA0 */`.",
-    "Local data symbols in `config/GALE01/symbols.txt` are represented as `@NNN` rather than global `it_XXXXXXXX` names when they are strings/floats/doubles not meant to be C globals.",
-    "The object path in build config follows the lowercase module path `melee/it/items/itsonans.c`."
+    "Use address-based `it_...` names only for real global data symbols; local data emitted by the compiler should use local labels like `@228`, `@229`, `@230`, `@159`, `@161`, `@226`, `@227`, `@233`, and `@259` in `symbols.txt`.",
+    "The item state table for this unit is declared/defined as `it_803F7CA0[]`, matching the address comment in `itsonans.h`.",
+    "Existing item callback naming remains `itSonans_UnkMotion{0,1,2}_{Anim,Phys,Coll}` and logic function naming remains `itSonans_Logic9_DmgDealt`.",
+    "Avoid defining constants such as `it_804DD3D0` or `it_804DD3C8` in item headers when the matched code uses literals/local data instead."
   ],
   "assembly_or_matching_tactics": [
-    "Replace explicit `if (x < 0) x = -x;` patterns with `ABS(x)` when trying to match item math code.",
-    "Use direct literals such as `-0.9` and `0.017453292f` instead of named extern constants when the original data should be local literal data.",
-    "For clamping/magnitude comparisons, direct expression use can match better than introducing temps, as shown in `it_802CD7D4`.",
-    "For lifetime countdowns, control the temporary type and compare form explicitly: this PR used `f32 lifetime = ip->xD44_lifeTimer - 1.0f;`, assigned it back, and returned `(lifetime == zero) ? true : false;`.",
-    "After source-side constants are fixed, update `symbols.txt` from global `it_XXXXXXXX` entries to local `@NNN` entries for the matching `.data`, `.sdata`, and `.sdata2` objects.",
-    "Only flip the build object to `Matching` after the translation unit and its affected data sections are actually matching; the bot confirmed 100% for the affected itsonans sections/functions."
+    "Use `ABS(ip->xDD4_itemVar.sonans.x64)` and `ABS(ip->xDD4_itemVar.sonans.x60)` to match the absolute-value comparison pattern in `it_802CD4FC`.",
+    "Use `ABS(item->xDD4_itemVar.sonans.x60) < ABS(attrs->x8 * (item->xCA0 * item->xCCC_incDamageDirection))` to match `it_802CD7D4` without extra sign-normalizing temporaries.",
+    "Inline multiply constants as `ip->xDD4_itemVar.sonans.x60 *= -0.9` and `0.017453292f * ip->xDD4_itemVar.sonans.x64` instead of referencing fabricated global constants.",
+    "For the lifetime countdown animation callback, assign `f32 lifetime = ip->xD44_lifeTimer - 1.0f`, store it back, and compare to a local `int zero` to produce the matched form.",
+    "Correct data symbol scope in `symbols.txt` alongside C rewrites; this PR changed relevant strings/floats/doubles from global `it_...` names to local `@NNN` labels."
   ],
   "review_feedback": [
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "GALE01 report showed matched code 60.85% (+0.03%, +972 bytes), linked code 33.52% (+0.05%, +1940 bytes), matched data 37.73% (+0.01%, +144 bytes), and linked data 32.24% (+0.01%, +144 bytes)."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported 5 new matches: `main/melee/it/items/itsonans` `.sdata2` to 100%, `.sdata` to 100%, `.data` to 100%, `it_802CD4FC` to 100%, and `it_802CD7D4` to 100%."
-    },
-    {
-      "source": "human_review",
-      "feedback": "No human review comments or requested changes were present in the provided slice."
-    }
+    "No human review comments were present in the provided slice.",
+    "The decomp-dev bot reported GALE01 improvements: matched code 60.85% (+0.03%, +972 bytes), linked code 33.52% (+0.05%, +1940 bytes), matched data 37.73% (+0.01%, +144 bytes), and linked data 32.24% (+0.01%, +144 bytes).",
+    "The bot listed 5 new matches for `main/melee/it/items/itsonans`: `.sdata2`, `.sdata`, `.data`, `it_802CD4FC`, and `it_802CD7D4` all reached 100%."
   ],
   "searchable_terms": [
     "pr-2362",
@@ -105,49 +82,58 @@
     "jellejurre",
     "itsonans",
     "itSonans",
-    "src/melee/it/items/itsonans.c",
-    "src/melee/it/items/itsonans.h",
+    "Wobbuffet",
+    "Sonans",
     "melee/it/items/itsonans.c",
+    "src/melee/it/items/itsonans.h",
     "configure.py",
     "config/GALE01/symbols.txt",
-    "MatchingFor",
     "Object(Matching)",
     "Object(NonMatching)",
+    "it_802CD4FC",
+    "it_802CD7D4",
+    "itSonans_UnkMotion1_Anim",
+    "itSonans_Logic9_DmgDealt",
     "ItemStateTable",
     "it_803F7CA0",
     "it_803F7C70",
-    "it_802CD4FC",
-    "it_802CD7D4",
-    "it_802CD9C0",
-    "itSonans_Logic9_DmgDealt",
-    "itSonans_UnkMotion1_Anim",
-    "itSonans_UnkMotion2_Coll",
+    "it_804DD3C8",
+    "it_804DD3D0",
+    "ABS",
+    "math.h",
+    "itCommonItems.h",
     "xDD4_itemVar.sonans",
     "xD44_lifeTimer",
     "xDAC_itcmd_var0",
     "xCA0",
     "xCCC_incDamageDirection",
     "HSD_JObjSetRotationZ",
-    "it_80272460",
-    "ABS",
-    "math.h",
-    "itCommonItems.h",
-    "it_804DD3B8",
-    "it_804DD3C8",
-    "it_804DD3D0",
-    "0.017453292f",
-    "-0.9",
-    ".data",
-    ".sdata",
-    ".sdata2",
-    "local @ symbols"
+    "sdata2",
+    "sdata",
+    "data local labels",
+    "@228",
+    "@229",
+    "@230",
+    "@159",
+    "@161",
+    "@226",
+    "@227",
+    "@233",
+    "@259"
   ],
   "follow_up_queries": [
-    "Find other item files that still define numeric constants in headers instead of using local literal data symbols.",
-    "Search for manual absolute-value branches in near-matching item functions where `ABS` may produce the matching codegen.",
-    "Audit nearby item state tables for address-symbol mismatches like `it_803F7C70` versus `it_803F7CA0` and sentinel state IDs such as `-1`.",
-    "Look for other 99% item functions where removing temps or recomputing expressions may match compiler scheduling/codegen.",
-    "Review `symbols.txt` global `it_XXXXXXXX` string/float/double symbols around item modules to see whether they should be localized to `@NNN`."
+    "Find other item units still using header-defined initialized constants like `f32 it_... = ...` or `f64 it_... = ...`.",
+    "Search for other near-matching item functions with manual float absolute-value branches that could be rewritten with `ABS(...)`.",
+    "Audit `symbols.txt` for invented global `it_...` labels that should be local `@NNN` string/float/double labels.",
+    "Compare other Pokémon item state tables for state ID `-1` versus numeric terminal state IDs to avoid `.data` mismatches."
   ],
-  "confidence": 0.91
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

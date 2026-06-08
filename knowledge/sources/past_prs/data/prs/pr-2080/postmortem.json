@@ -11,121 +11,129 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Unmerged WIP PR adding several matched or partially typed functions across the mn diagram files and tightening related menu headers. The author described it as work-in-progress for cleaning up and gathering matched functions, then closed it to reorganize with more matches across mndiagram, mndiagram2, and mndiagram3. Main value is evidence of menu-diagram matching approaches: replacing UNK_RET/UNK_PARAMS with concrete prototypes, adding baselib forward declarations, using small dummy locals and pointer arithmetic to satisfy codegen, and wiring GObj/JObj/SisLib cleanup and animation-end callbacks.",
+  "summary": "Unmerged WIP PR adding and typing a batch of matches across the menu diagram files mndiagram, mndiagram2, and mndiagram3. The work replaced many placeholder prototypes with concrete signatures, implemented several menu/stat helper functions, added cleanup/destructor and animation-end callbacks, and introduced needed baselib/menu includes and externs. The author closed it to reorganize with additional matches across the same files, so the changes are useful as evidence of matching approaches but were not accepted as-is.",
   "change_classification": {
-    "primary_type": "unmerged-wip-decomp-matching",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "naming",
-      "menu"
+      "menu-stats",
+      "WIP-unmerged"
     ],
     "systems": [
       "mn",
+      "menu",
       "mndiagram",
       "mndiagram2",
       "mndiagram3",
       "mnname",
-      "mnmainrule"
+      "mnmainrule",
+      "baselib"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/mn/mndiagram.c",
-      "reason": "Largest implementation change; replaces multiple placeholder stubs with matched C for stat totals, navigation helpers, SIS cleanup, animation/GObj lifecycle, and joint object setup."
+      "role": "Main source file for newly implemented mnDiagram functions, stat totals, navigation helpers, destructor callbacks, animation callback, and GObj/JObj setup."
     },
     {
       "path": "src/melee/mn/mndiagram.h",
-      "reason": "Converts many diagram APIs from UNK_RET/UNK_PARAMS to concrete return and parameter types, including HSD_GObj signatures."
+      "role": "Converted many UNK_RET/UNK_PARAMS declarations to concrete signatures using s32, u8, void, HSD_GObj, and typed arguments."
     },
     {
       "path": "src/melee/mn/mndiagram2.c",
-      "reason": "Adds first substantive mndiagram2 implementations including animation-end GObj unlink, SIS/free cleanup, and diagram2 flow initialization."
+      "role": "Added first batch of mndiagram2 implementations including animation-end callback, SisLib cleanup, and menu-flow initialization/GObj proc setup."
     },
     {
       "path": "src/melee/mn/mndiagram2.h",
-      "reason": "Introduces a proper header guard, baselib forward include, and prototypes for the new mndiagram2 functions."
+      "role": "Created header guard and prototypes for fn_80244D20, fn_80245028, and mnDiagram2_802453B0."
     },
     {
       "path": "src/melee/mn/mndiagram3.c",
-      "reason": "Adds fn_80246E04 animation-end unlink callback using mn_8022ED6C and existing mnDiagram3 animation table."
+      "role": "Added fn_80246E04 animation callback that checks mn_8022ED6C against an end-frame table and unlinks the GObj."
     },
     {
       "path": "src/melee/mn/mndiagram3.h",
-      "reason": "Adds address-commented prototype for fn_80246E04 and preserves fn_80246F0C."
-    },
-    {
-      "path": "src/melee/mn/mnname.h",
-      "reason": "Tightens many name-entry function prototypes, supporting mndiagram use of GetNameText and persistent name data."
-    },
-    {
-      "path": "src/melee/mn/mnmainrule.h",
-      "reason": "Tightens menu-rule prototypes from placeholder signatures to typed HSD_GObj/u8/s32/void signatures."
+      "role": "Added address-commented prototype for fn_80246E04 and retained fn_80246F0C."
     },
     {
       "path": "src/melee/mn/mndiagram.static.h",
-      "reason": "Adds extern for mnDiagram_803EE774 animation-loop data."
+      "role": "Added extern for mnDiagram_803EE774 animation loop settings/table."
+    },
+    {
+      "path": "src/melee/mn/mnmainrule.h",
+      "role": "Expanded typed prototypes for menu rule functions used or adjacent to diagram matching."
+    },
+    {
+      "path": "src/melee/mn/mnname.h",
+      "role": "Replaced numerous placeholder name-menu function prototypes with concrete return and argument types."
     },
     {
       "path": "src/melee/mn/mnnamenew.h",
-      "reason": "Minor prototype/header adjustment noted in changed files; diff excerpt provides limited detail."
+      "role": "Small prototype/header adjustment; exact details are not present in the provided excerpt."
     }
   ],
   "what_changed": [
-    "Implemented mnDiagram_8023EA54 as a language-dependent threshold check using lbLang_IsSavedLanguageUS, returning true above 0x274A6 for US saved language and above 0x186A0 otherwise.",
-    "Implemented stat aggregation helpers GetNameTotalKOs, GetNameTotalFalls, GetFighterTotalKOs, and GetFighterTotalFalls using GetPersistentNameData/GetPersistentFighterData, GetNameText, and mn_8022E950 filtering.",
-    "Implemented mnDiagram_8023F334 to write decimal digits for an integer using mn_8022EB78 and mn_8022EB24, then terminate with mnDiagram_804D4FA4.",
-    "Implemented navigation helpers mnDiagram_8023F3A8, mnDiagram_8023F45C, and mnDiagram_8023F4CC to scan backward/forward to the previous valid name or fighter entry, returning the original index when none is found.",
-    "Implemented mnDiagram_8023FDD8 to count valid fighters over the 0x19 fighter range with mn_8022E950.",
-    "Implemented fn_80240B18 cleanup over object fields at offsets 0x38 through 0x48, freeing SIS entries with HSD_SisLib_803A5CC4 before HSD_Free.",
-    "Implemented fn_80241AE8 and mndiagram2/mndiagram3 equivalents as animation-loop callbacks that call mn_8022ED6C and unlink the GObj via HSD_GObjPLink_80390228 when the animation reaches its end frame.",
-    "Implemented mnDiagram_802433AC to create a GObj, load a joint from mnDiagram_804A0814, attach it with HSD_GObjObject_80390A70, set up GX link, and install fn_80243038 as a proc.",
-    "Implemented mndiagram2 functions fn_80244D20, fn_80245028, and mnDiagram2_802453B0, including MenuFlow initialization and direct manipulation of a GObj byte at offset 0xD using HSD_GObj_804D783C bits.",
-    "Updated mndiagram.h, mnmainrule.h, mnname.h, mndiagram2.h, and mndiagram3.h to replace many placeholder signatures with concrete return types and parameters.",
-    "The PR was closed unmerged; author said they would reorganize it with more matches across mndiagram, mndiagram2, and mndiagram3."
+    "Implemented mnDiagram_8023EA54 as a language-dependent threshold check using lbLang_IsSavedLanguageUS, returning true at 0x274A6 for US language and 0x186A0 otherwise.",
+    "Implemented stat aggregation helpers GetNameTotalKOs, GetNameTotalFalls, GetFighterTotalKOs, and GetFighterTotalFalls using GetPersistentNameData/GetPersistentFighterData, GetNameText or mn_8022E950 validity checks, u16 reads, and loop bounds 0x78 for names and 0x19 for fighters.",
+    "Added clamping in GetNameTotalFalls to cap totals above 999999.",
+    "Implemented mnDiagram_8023F334 to write decimal digits into a buffer using mn_8022EB78 for digit count, mn_8022EB24 for digit extraction, and mnDiagram_804D4FA4 as the terminator.",
+    "Implemented previous/next selection helpers mnDiagram_8023F3A8, mnDiagram_8023F45C, and mnDiagram_8023F4CC that scan backward or forward until a valid name/fighter entry is found, returning the original index if no valid entry is found.",
+    "Implemented mnDiagram_8023FDD8 to count valid fighter entries by looping over 0x19 and calling mn_8022E950.",
+    "Implemented fn_80240B18 as a destructor/free routine that conditionally releases several SisLib objects at offsets 0x38 through 0x48 with HSD_SisLib_803A5CC4 before HSD_Free.",
+    "Implemented fn_80241AE8, fn_80244D20, and fn_80246E04 as animation callbacks that read per-GObj data at offset 0x2C, fetch a JObj at data offset 0x0C, call mn_8022ED6C, and unlink with HSD_GObjPLink_80390228 when the current frame reaches the table end frame.",
+    "Implemented mnDiagram_802433AC to create a GObj, load a joint from mnDiagram_804A0814, attach the JObj, set up GX link with HSD_GObj_JObjCallback, and install fn_80243038 as a process.",
+    "Implemented mnDiagram2_802453B0 to initialize MenuFlow fields, call mnDiagram2_80245178(0), create a GObj/proc, and copy bits from HSD_GObj_804D783C into the GObj flags byte at offset 0xD.",
+    "Added concrete prototypes and baselib forward includes in mndiagram.h, mndiagram2.h, mndiagram3.h, mnmainrule.h, and mnname.h.",
+    "The PR remained WIP and was closed by the author for reorganization rather than merged."
   ],
   "smart_moves": [
-    "Converted broad placeholder prototypes into concrete signatures, which makes downstream matching easier and reduces repeated UNK_RET/UNK_PARAMS ambiguity.",
-    "Used baselib forward declarations in headers for HSD_GObj/HSD_JObj-style types rather than forcing heavier includes into public headers.",
-    "Kept address comments next to prototypes, preserving decomp navigation/searchability while refining types.",
-    "Matched cleanup functions by explicitly checking each possible SIS pointer field for NULL before freeing and then freeing the parent allocation.",
-    "Reused the same animation-end callback pattern across mndiagram, mndiagram2, and mndiagram3: fetch user data from gobj + 0x2C, fetch jobj from data + 0x0C, call mn_8022ED6C, compare against end frame, then unlink the object.",
-    "Used local dummy arrays/variables and explicit casts/pointer arithmetic where needed, suggesting codegen-sensitive matching rather than only semantic cleanup.",
-    "Introduced a temporary GetNameText_u8 macro alias to reconcile a u8-call-site signature with the existing GetNameText naming in a localized part of mndiagram.c."
+    "Replaced broad UNK_RET/UNK_PARAMS declarations with concrete signatures once call-site behavior and argument sizes were inferred, improving type pressure for adjacent matches.",
+    "Used address-commented prototypes in headers, preserving the decomp convention that links functions to DOL offsets while refining types.",
+    "Grouped similar animation-end callbacks across mndiagram, mndiagram2, and mndiagram3 around the same pattern: read GObj user data, find JObj, use mn_8022ED6C with an animation settings table, then unlink on end-frame.",
+    "Used small dummy stack arrays or dummy locals in several functions, which suggests stack-shape preservation for matching where the source logic alone may not emit the original frame layout.",
+    "Handled cleanup defensively by null-checking SisLib object pointers before releasing them and freeing the parent allocation afterward.",
+    "Introduced local extern declarations only for symbols needed by the current matches, allowing incremental matching before full header cleanup.",
+    "Used u8 casts and explicit byte-pointer arithmetic around persistent stats and selection arrays, matching the observed small-index storage and packed-data access patterns."
   ],
   "decomp_lessons": [
-    "For menu modules, header work can be as important as C bodies: replacing placeholder signatures exposes real dependencies and enables other files to match.",
-    "When matching GObj callbacks, preserve raw offset access if the backing struct is not yet known; naming the pattern is useful, but inventing a struct too early could destabilize matches.",
-    "Animation table typing may vary by confidence: mndiagram.static.h used extern f32 mnDiagram_803EE774[], while mndiagram2 used an AnimLoopSettings extern and mndiagram3 used a two-f32 array. Future work should normalize only when evidence is strong.",
-    "Menu cleanup routines often free several optional SIS handles before the container; this pattern should be reused for similarly shaped menu data blocks.",
-    "Index-scanning helpers for names/fighters return the original index if no valid previous/next entry exists; this behavior matters for UI navigation matching.",
-    "Persistent stat functions distinguish name-indexed and fighter-indexed storage and use u16 offsets, with loops bounded by 0x78 for names and 0x19 for fighters.",
-    "Because this PR was intentionally closed for reorganization, treat its code as useful matching evidence but not merged project truth."
+    "Menu diagram stat helpers use fixed loop counts: 0x78 for name slots and 0x19 for fighter entries; preserving these bounds is likely important for matching and semantics.",
+    "Persistent stat data is accessed as u16 arrays behind void pointers, with index-derived byte offsets; use explicit u8* pointer arithmetic and u16 loads rather than inventing structs too early when layout evidence is incomplete.",
+    "When converting headers away from UNK_RET/UNK_PARAMS, include baselib forward headers so HSD_GObj and related pointer types can be named without pulling full definitions.",
+    "Animation callbacks in these menu files share a reusable idiom: data = gobj + 0x2C, jobj = data + 0x0C, compare mn_8022ED6C result to an end-frame field/table entry, then call HSD_GObjPLink_80390228.",
+    "For GObj/JObj setup functions, the matching order matters: create GObj, load joint, attach object, set GX link, then create the process callback.",
+    "Language-dependent numeric thresholds can be simple decompable branches rather than table lookups; mnDiagram_8023EA54 checks lbLang_IsSavedLanguageUS before choosing the threshold.",
+    "If a PR is a broad WIP sweep across several files, reorganizing into smaller batches may make review and integration easier; the author explicitly closed this PR to reorganize with more matches."
   ],
   "naming_conventions": [
-    "Address-based names are retained for unknown functions: mnDiagram_8023EA54, fn_80240B18, mnDiagram2_802453B0, fn_80246E04.",
-    "User-facing/stat helper names use descriptive PascalCase-style verbs already present in the project: GetNameTotalKOs, GetNameTotalFalls, GetFighterTotalKOs, GetFighterTotalFalls, GetHitPercentage, GetPlayPercentage.",
-    "Module globals use module prefix plus address: mnDiagram_804A0750, mnDiagram_804A076C, mnDiagram_803EE774, mnDiagram2_803EEB60, mnDiagram3_803EEC10.",
-    "Headers keep address comments in the form /* 23EA54 */ before prototypes.",
-    "Baselib object types are exposed as HSD_GObj* and HSD_JObj* where known; otherwise void* is left in place."
+    "Unidentified menu diagram functions retain the project’s address-based names such as mnDiagram_8023F334, fn_80240B18, mnDiagram2_802453B0, and fn_80246E04.",
+    "Extern data symbols follow file/address naming such as mnDiagram_804D4FA4, mnDiagram_804A0814, mnDiagram2_803EEB60, and mnDiagram3_803EEC10.",
+    "Header prototypes are prefixed with address comments like /* 23FDD8 */ and /* 2453B0 */.",
+    "Known semantic helpers keep descriptive names such as GetNameTotalKOs, GetFighterTotalFalls, GetHitPercentage, GetPlayPercentage, GetAveragePlayerCount, GetNameText, and IsNameUnique.",
+    "The PR uses mixed file-prefix capitalization already present in the codebase: mnDiagram for main diagram symbols and mnDiagram2/mnDiagram3 for related files."
   ],
   "assembly_or_matching_tactics": [
-    "Inserted dummy stack locals such as s32 dummy[4], s32 dummy[8], and int dummy to influence stack layout/codegen.",
-    "Used explicit byte pointer arithmetic for structure fields and arrays, e.g. gobj + 0x2C, data + 0x0C, arg0 + 0x38, and byte mutation at gobj + 0xD.",
-    "Used u8 casts and masked field_index with 0xFF to force narrow argument behavior.",
-    "Represented stat table entries as u16 loads from computed offsets, matching likely halfword access in assembly.",
-    "Used do/while decrement/increment loops for previous/next selection helpers to match control flow and return original index fallback.",
-    "Added local extern declarations for unresolved symbols instead of broad header churn where dependencies were not yet fully modeled.",
-    "Used a localized macro alias, #define GetNameText GetNameText_u8, then #undef, to control symbol/signature behavior without renaming the public API."
+    "Used explicit casts to u8 for indices and pointer arithmetic to control load sizes and offsets.",
+    "Inserted unused dummy locals or arrays, e.g. dummy[4], dummy[8], and dummy = 0, likely to force original stack layout or instruction scheduling.",
+    "Used do-while scans in selection helpers to match decrement/increment-before-check control flow.",
+    "Temporarily defined GetNameText as GetNameText_u8 around GetNameTotalKOs, suggesting a type/signature workaround to match a call requiring an unsigned-byte argument form.",
+    "Kept local function and data externs in source files for symbols not yet fully represented in shared headers.",
+    "Manipulated a GObj flags byte directly with masking and shifting: *ptr = (*ptr & ~0x30) | ((val & 3) << 4), preserving packed bitfield behavior without naming the structure field.",
+    "Used table representations flexibly: AnimLoopSettings for known tables and f32 arrays where the excerpt only supports raw indexing."
   ],
   "review_feedback": [
     {
-      "source": "author issue comment",
+      "source": "PR body",
+      "text": "Author described the PR as WIP while cleaning up and gathering functions with matches."
+    },
+    {
+      "source": "issue comment",
       "text": "Author closed the PR to reorganize it with more matches across mndiagram, mndiagram2, and mndiagram3."
     },
     {
       "source": "review comments",
-      "text": "No review comments were present in the provided PR slice."
+      "text": "No review comments or formal reviews are present in the provided context."
     }
   ],
   "searchable_terms": [
@@ -136,45 +144,53 @@
     "mndiagram2",
     "mndiagram3",
     "mnDiagram_8023EA54",
-    "GetNameTotalKOs",
-    "GetNameTotalFalls",
-    "GetFighterTotalKOs",
-    "GetFighterTotalFalls",
     "mnDiagram_8023F334",
     "mnDiagram_8023F3A8",
     "mnDiagram_8023F45C",
     "mnDiagram_8023F4CC",
     "mnDiagram_8023FDD8",
+    "mnDiagram_802433AC",
     "fn_80240B18",
     "fn_80241AE8",
-    "mnDiagram_802433AC",
     "fn_80244D20",
     "fn_80245028",
-    "mnDiagram2_802453B0",
     "fn_80246E04",
-    "HSD_SisLib_803A5CC4",
-    "HSD_GObjPLink_80390228",
-    "HSD_JObjLoadJoint",
-    "GObj_SetupGXLink",
-    "HSD_GObjProc_8038FD54",
-    "mn_8022ED6C",
-    "mn_8022E950",
+    "mnDiagram2_802453B0",
+    "GetNameTotalKOs",
+    "GetNameTotalFalls",
+    "GetFighterTotalKOs",
+    "GetFighterTotalFalls",
+    "GetHitPercentage",
+    "GetPlayPercentage",
+    "GetAveragePlayerCount",
     "GetPersistentNameData",
     "GetPersistentFighterData",
+    "GetNameText",
+    "mn_8022E950",
+    "mn_8022ED6C",
     "lbLang_IsSavedLanguageUS",
-    "UNK_RET",
-    "UNK_PARAMS",
+    "HSD_SisLib_803A5CC4",
+    "HSD_Free",
+    "HSD_GObjPLink_80390228",
+    "HSD_JObjLoadJoint",
+    "GObj_Create",
+    "GObj_SetupGXLink",
+    "HSD_GObjProc_8038FD54",
+    "HSD_GObj_JObjCallback",
+    "AnimLoopSettings",
     "MenuFlow",
-    "AnimLoopSettings"
+    "UNKing prototypes",
+    "header typing",
+    "WIP closed unmerged"
   ],
   "follow_up_queries": [
-    "Find later PRs by itsgrimetime that reorganized or merged mndiagram, mndiagram2, or mndiagram3 matches after PR #2080.",
-    "Search for merged implementations of fn_80240B18, fn_80241AE8, fn_80244D20, fn_80245028, mnDiagram2_802453B0, and fn_80246E04 to compare final signatures.",
-    "Check whether mnDiagram_803EE774, mnDiagram2_803EEB60, and mnDiagram3_803EEC10 were later standardized as AnimLoopSettings or f32 arrays.",
-    "Look for reviewer guidance in later mn header PRs about replacing UNK_RET/UNK_PARAMS and using baselib forward declarations.",
-    "Verify final naming and signatures for GetNameText_u8/GetNameText and persistent name/fighter stat helpers."
+    "Find the reorganized successor PRs by itsgrimetime touching src/melee/mn/mndiagram.c, mndiagram2.c, or mndiagram3.c after PR 2080 closed.",
+    "Check whether mnDiagram_8023EA54 and the stat total helpers later merged with the same signatures and constants.",
+    "Search later PRs for finalized struct definitions replacing the raw offsets used in fn_80240B18, fn_80241AE8, fn_80244D20, and fn_80246E04.",
+    "Verify whether the GetNameText_u8 macro workaround was preserved, replaced by a proper prototype, or removed during reorganization.",
+    "Look for review or merge feedback in successor PRs about the dummy stack locals and local extern declarations used here."
   ],
-  "confidence": 0.78,
+  "confidence": 0.83,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

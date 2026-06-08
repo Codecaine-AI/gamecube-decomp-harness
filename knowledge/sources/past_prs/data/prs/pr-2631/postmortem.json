@@ -1,0 +1,139 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2631",
+  "pr": {
+    "number": 2631,
+    "title": "Improvements to split up: SysDolphin",
+    "url": "https://github.com/doldecomp/melee/pull/2631",
+    "state": "CLOSED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:31:01Z",
+    "merged_at": ""
+  },
+  "agent_status": "agent_completed",
+  "summary": "Closed, unmerged SysDolphin baselib matching-improvement slice split from a larger branch. The slice targeted src/sysdolphin/baselib and mainly adjusted string/data relocation handling and small code-shape details in particle.c, with minor matching tweaks in cobj.c, hsd_3B34.c, sislib.c, and synth.c. It was superseded by PR #2632, which combined Dolphin support changes for easier review and CI.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "split-pr",
+      "data-relocation",
+      "string-pool-reconstruction",
+      "codegen-tuning"
+    ],
+    "systems": [
+      "src/sysdolphin/baselib",
+      "SysDolphin",
+      "baselib",
+      "particle",
+      "cobj",
+      "sislib",
+      "synth"
+    ]
+  },
+  "key_files": [
+    "src/sysdolphin/baselib/particle.c",
+    "src/sysdolphin/baselib/cobj.c",
+    "src/sysdolphin/baselib/hsd_3B34.c",
+    "src/sysdolphin/baselib/sislib.c",
+    "src/sysdolphin/baselib/synth.c"
+  ],
+  "what_changed": [
+    "Added PAD_STACK(4) in HSD_CObjSetUpVector in cobj.c, likely to tune stack layout for matching.",
+    "Reordered local assignments in hsd_803B46D4 so sp8/spC loads from lbl_804DEB88 occur before assigning jmp_buf and temp_r4.",
+    "In particle.c, introduced a static byte array lbl_8040A540 containing packed MCC error/report strings and replaced many direct string literals in fn_80392CD8 with offsets into that array.",
+    "Changed MCC error OSReport format strings in fn_80392CD8 to use lbl_8040A540 offsets instead of inline literals.",
+    "Added extern references to lbl_8040A8E0 and lbl_8040A904 and used them for hsd_803931A4 EXI/MCC initialization OSReport messages.",
+    "Changed Exception_ReportStackTrace and Exception_ReportCodeline to reference strings through lbl_8040AB00 offsets, matching known TODO notes about string relocation differences.",
+    "Simplified case 6 handling in hsd_80395D88 by accessing sp->xD4 directly instead of through a temporary OSContext** ctx_ptr.",
+    "Changed sislib.c OSPanic empty-string arguments from literal \"\" to (char*) HSD_SisLib_804D6390 in three allocation error paths.",
+    "Changed a synth.c sentinel comparison from arithmetic cast form to a direct signed constant comparison: x8 == -0x10001.",
+    "The PR body reports this was an isolated path slice created from origin/master and that git diff --check passed; full unsplit source branch had green CI before splitting."
+  ],
+  "smart_moves": [
+    "For string relocation mismatches, the patch grouped adjacent literal data into label-based byte arrays and used explicit offsets, preserving exact data layout rather than relying on compiler literal pooling.",
+    "The particle.c changes target functions already annotated as near-matches with relocation differences, making the slice narrowly focused on known matching blockers.",
+    "Using extern labels such as lbl_8040AB00, lbl_8040A8E0, and lbl_8040A904 allowed code to reuse existing data addresses instead of emitting duplicate string literals.",
+    "Small expression rewrites, such as removing ctx_ptr indirection and changing the synth sentinel comparison, show codegen-focused tuning without changing apparent behavior.",
+    "The author split the larger branch by directory/subsystem to make matching improvements easier to review, and closed this PR once a better combined Dolphin support split was created."
+  ],
+  "decomp_lessons": [
+    "When a function's instructions match but relocation encoding differs, inspect whether string literals need to be represented as a shared labeled blob with manual offsets.",
+    "Direct string literals can be semantically clearer, but exact matching may require label-plus-offset references to reproduce original rodata layout and relocations.",
+    "Near-match TODOs should document the exact remaining issue, as seen in comments noting BSS relocation or string relocation differences.",
+    "Small source-order changes in local assignments can affect register allocation or load scheduling enough to matter for matching.",
+    "Stack padding macros such as PAD_STACK can be appropriate for isolated stack-frame discrepancies, but should be localized to the affected function.",
+    "Replacing temporary pointer-to-pointer locals with direct struct-field access can alter generated code while preserving behavior; this is a useful matching tactic to test.",
+    "Path-sliced PRs help review focused decomp improvements, but related support changes may be better combined when review and CI need shared context."
+  ],
+  "naming_conventions": [
+    "Unidentified data labels use lbl_XXXXXXXX names, for example lbl_8040A540, lbl_8040A8E0, lbl_8040A904, and lbl_8040AB00.",
+    "Unidentified or provisional functions retain fn_XXXXXXXX or hsd_XXXXXXXX names, for example fn_80392CD8, hsd_803931A4, and hsd_80395D88.",
+    "SysDolphin public-style baselib symbols use HSD_ prefixes, for example HSD_CObjSetUpVector, HSD_SisLib_803A5798, and HSD_Synth_8038ADD0.",
+    "Global data labels in this area use subsystem-prefixed HSD_*_804D* names when partially identified, for example HSD_SisLib_804D6390."
+  ],
+  "assembly_or_matching_tactics": [
+    "Use PAD_STACK(n) to force stack-frame shape when normal declarations do not produce the expected frame.",
+    "Represent packed rodata/string tables as explicit byte arrays when the compiler's normal string literal emission produces wrong relocations.",
+    "Reference string tables via base label plus constant offsets to match original relocations.",
+    "Use extern declarations for already-existing rodata labels to avoid duplicate literals and steer relocations to the expected address.",
+    "Try reordering independent local assignments to influence emitted load/store order.",
+    "Try direct field access instead of pointer-to-pointer temporaries when the extra local changes register or memory access codegen.",
+    "Rewrite constant comparisons into equivalent signed/unsigned forms to match the original instruction sequence.",
+    "Use shared empty-string storage for panic/report arguments when literal \"\" produces the wrong data reference."
+  ],
+  "review_feedback": [
+    "No formal review comments were present in the provided context.",
+    "Issue comment states the PR was superseded by combined Dolphin support split PR #2632, which keeps support changes together for review and CI.",
+    "The PR was closed without merge."
+  ],
+  "searchable_terms": [
+    "PR2631",
+    "SysDolphin",
+    "baselib",
+    "split from #2617",
+    "superseded by #2632",
+    "src/sysdolphin/baselib/particle.c",
+    "src/sysdolphin/baselib/cobj.c",
+    "src/sysdolphin/baselib/hsd_3B34.c",
+    "src/sysdolphin/baselib/sislib.c",
+    "src/sysdolphin/baselib/synth.c",
+    "HSD_CObjSetUpVector",
+    "PAD_STACK",
+    "hsd_803B46D4",
+    "lbl_8040A540",
+    "fn_80392CD8",
+    "MCC Error",
+    "MCCGetLastError",
+    "MCCInit",
+    "EXI initialized",
+    "lbl_8040A8E0",
+    "lbl_8040A904",
+    "Exception_ReportStackTrace",
+    "Exception_ReportCodeline",
+    "lbl_8040AB00",
+    "string relocations",
+    "BSS relocation encoding difference",
+    "HSD_SisLib_803A5798",
+    "HSD_SisLib_804D6390",
+    "HSD_Synth_8038ADD0",
+    "-0x10001",
+    "OSReport",
+    "OSPanic"
+  ],
+  "follow_up_queries": [
+    "Check PR #2632 for the merged or reviewed version of these Dolphin support matching changes.",
+    "Search for remaining TODO comments mentioning string relocation differences in src/sysdolphin/baselib/particle.c.",
+    "Audit whether lbl_8040A540 and lbl_8040AB00 offsets were later replaced with named string table structures or kept as raw labels.",
+    "Compare the final merged diff from #2632 against this closed slice to see which tactics survived review."
+  ],
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

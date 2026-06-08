@@ -11,120 +11,126 @@
     "merged_at": "2026-03-20T14:51:26Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked the Kraid ground/stage object by making src/melee/gr/grkraid.c matching and flipping it from NonMatching to Matching in configure.py. The work combined small MWCC-oriented C rewrites with symbols.txt fixes for rodata/data/sdata/sdata2 scopes, sizes, and alignments, resolving reported string-offset and padding issues around grKr data.",
+  "summary": "Linked the Kraid stage module by switching src/melee/gr/grkraid.c from NonMatching to Matching and adjusting code plus symbol metadata so data, rodata, sdata, sbss, and sdata2 layout matched. The PR body notes that the remaining blockers were section placement and padding issues for strings and small data; these were fixed before merge, including a described janky hack for a 4-byte offset.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "linking",
       "decomp-matching",
-      "data-symbol-fix",
-      "padding-alignment",
-      "build-config"
+      "stage-module-link",
+      "symbols",
+      "data-layout",
+      "rodata",
+      "sdata",
+      "sdata2",
+      "sbss",
+      "minor-codegen-shaping"
     ],
     "systems": [
       "stage",
       "ground",
-      "kraid",
+      "Kraid",
       "config",
-      "symbols"
+      "build"
     ]
   },
   "key_files": [
-    {
-      "file": "src/melee/gr/grkraid.c",
-      "role": "Main matching work: include cleanup plus codegen-sensitive edits in grKraid_801FE440, grKraid_801FE6D8, and grKraid_801FE818."
-    },
-    {
-      "file": "config/GALE01/symbols.txt",
-      "role": "Adjusted grKr section symbols: local labels, object sizes, scope changes, exact string offsets, and align:8 markers for following grRc data."
-    },
-    {
-      "file": "configure.py",
-      "role": "Changed Object(NonMatching, \"melee/gr/grkraid.c\") to Object(Matching, \"melee/gr/grkraid.c\")."
-    }
+    "src/melee/gr/grkraid.c",
+    "config/GALE01/symbols.txt",
+    "configure.py"
   ],
   "what_changed": [
-    "Marked melee/gr/grkraid.c as Matching in configure.py.",
-    "Added const Vec grKr_803B8278 = { 0.0f, 0.0f, 0.0f } and changed grKraid_801FE440 to initialize Vec pos from that rodata symbol.",
-    "Removed helper getMapRotation and expanded its calculation inside grKraid_801FE6D8 using local min and max temporaries.",
-    "Added a redundant self-assignment grKr_804D6A08->map_rot_spd_min = grKr_804D6A08->map_rot_spd_min in grKraid_801FE6D8, matching the PR body's note about a janky offset/codegen hack.",
-    "Adjusted grKraid_801FE818 temporary variable ordering, initialized fVar1 and fVar3 together, removed repeated else-side fVar3 assignments, and used an s8 temp initialized through a u8 cast before assigning x2 and x1.",
-    "Changed grKr_803B8278 rodata size from 0x10 to 0xC and gave the next grRc rodata symbol align:8.",
-    "Split and relabeled grKr .data around 0x803E4D00-0x803E4D8C using local @ labels, including @171 at .data:0x803E4D64, to preserve the needed string offset.",
-    "Changed grKr .sdata strings at 0x804D4770 and 0x804D4778 to local @189 and @190 labels, and aligned the following grRc_804D4780 symbol to 8.",
-    "Changed grKr sbss symbols grKr_804D6A08 and grKr_804D6A0C from global to local scope.",
-    "Changed several grKr sdata2 float/double symbols from named global grKr_* entries to local @ labels with explicit alignments."
+    "configure.py changed the build object entry for melee/gr/grkraid.c from Object(NonMatching, \"melee/gr/grkraid.c\") to Object(Matching, \"melee/gr/grkraid.c\"), linking the module as matching.",
+    "src/melee/gr/grkraid.c had include cleanup and ordering changes, replacing broad or local includes such as types.h, platform.h, forward.h, and several baselib/gr headers with the includes needed for the matched source, including gr/forward.h and mn/forward.h.",
+    "A file-scope const Vec grKr_803B8278 = { 0.0f, 0.0f, 0.0f } was added and grKraid_801FE440 now initializes Vec pos from that symbol instead of an inline local zero vector, matching the rodata symbol layout.",
+    "The helper getMapRotation was removed/inlined into grKraid_801FE6D8. The rewritten code introduces local max and min temporaries, computes rot in two statements, and includes a self-assignment to grKr_804D6A08->map_rot_spd_min, apparently to shape generated code.",
+    "grKraid_801FE818 was rewritten slightly to alter local-variable ordering and initialization, including fVar1 = (fVar3 = 0.0f), removing repeated fVar3 = fVar1 assignments, changing an int variable to s8 iVar, and assigning gp->gv.kraid2.x2 and x1 through a casted temporary.",
+    "config/GALE01/symbols.txt was updated for grkraid-related data layout: several grKr symbols became local @NNN symbols, sizes were corrected, and alignments were added for adjacent grRc symbols to preserve section boundaries and padding.",
+    "The data symbol at 0x803E4D64 was represented as a local string @171 of size 0xA, addressing the PR body's noted issue where a string needed to be placed with an offset instead of starting at an undesired location.",
+    "sdata, sbss, and sdata2 grKr entries were retagged from global grKr_* names to local @NNN labels or local scope where appropriate, while some following grRc entries gained align:8 metadata."
   ],
   "smart_moves": [
-    "Solved the reported string-offset and padding problems mostly in symbols.txt rather than forcing incorrect C-level names or object sizes.",
-    "Used local @ labels for compiler-local strings and constants, which better reflects how MWCC-emitted data should be represented.",
-    "Adjusted the next-section/next-object alignments, especially align:8 on grRc symbols, to account for padding after shortened or split grKr data.",
-    "Converted a stack zero-vector initializer into a named const Vec rodata object, matching the corrected 0xC rodata symbol.",
-    "Used small, targeted codegen nudges in grKraid_801FE6D8 and grKraid_801FE818 instead of large rewrites."
+    "Solved matching as a combined source-code and symbol-layout problem rather than only changing C code; the PR adjusts config/GALE01/symbols.txt across rodata, data, sdata, sbss, and sdata2 to make the linker reproduce the original layout.",
+    "Used a file-scope const Vec for the zero vector in grKraid_801FE440, which forces the zero vector into rodata instead of leaving it as a stack/local initializer, aligning with the symbol table change for grKr_803B8278.",
+    "Converted several compiler-sensitive expressions into temporaries in grKraid_801FE6D8 and grKraid_801FE818, a common matching tactic for influencing register allocation, expression ordering, and stores without changing apparent runtime behavior.",
+    "Preserved anonymous/local constants as @NNN symbols in symbols.txt instead of over-naming them as global grKr_* symbols, which better represents compiler-emitted local literals and avoids disturbing nearby modules.",
+    "Added explicit align metadata to adjacent symbols such as grRc_803B8288, grRc_803E4DA8, and grRc_804D4780 to account for required padding when grkraid data sizes changed."
   ],
   "decomp_lessons": [
-    "If a string needs to land at a non-obvious offset such as 0x803E4D64, check whether a surrounding data object should be split and whether the string should be a local @ label instead of a global grKr_* symbol.",
-    "For rodata/sdata padding mismatches, inspect symbol size, scope, and following-symbol alignment before changing source semantics.",
-    "A three-float Vec constant should occupy 0xC bytes; if the next rodata symbol needs 8-byte alignment, represent that alignment explicitly in symbols.txt.",
-    "Compiler-local floats, doubles, and strings in sdata2/sdata are often best represented as scope:local @NNN labels, not named stage globals.",
-    "Tiny MWCC matches can depend on helper inlining, temporary variable order, exact signed byte temporaries, chained initialization, and even no-op assignments.",
-    "After data and code match, remember to update configure.py so the object is actually linked as Matching."
+    "When linking a stage file, matching can depend on accurate section metadata for neighboring symbols, not just the target file's functions. Shrinking or localizing one grKr object may require adding align metadata to the following grRc object.",
+    "If a string or object must appear at a nontrivial offset inside a data cluster, representing surrounding items as local @NNN labels with exact sizes may be more effective than forcing all entries to named globals.",
+    "Small zero vectors used in code may need to be materialized as const rodata symbols to match original layout and instruction selection.",
+    "Inlining or de-inlining helpers can affect matching. Here, replacing getMapRotation with explicit local temporaries inside grKraid_801FE6D8 was part of the matching diff.",
+    "Seemingly redundant operations, such as assigning a struct field to itself, can be intentional codegen anchors in decomp work. Treat them as matching artifacts unless later evidence proves they are removable.",
+    "For small integer fields, matching may require narrowing casts and shared temporaries, as seen with assigning kraid2.x2 and kraid2.x1 through an s8 temporary derived from a float-zero value."
   ],
   "naming_conventions": [
-    "Kraid stage symbols and functions use the grKr/grKraid prefix, e.g. grKr_803B8278 and grKraid_801FE6D8.",
-    "Compiler-local constants and strings in symbols.txt use @NNN labels with scope:local, e.g. @171 at .data:0x803E4D64.",
-    "A local section label can use the ...data.N form, shown by ...data.0 at .data:0x803E4C78.",
-    "Adjacent stage objects keep their own prefixes, such as grRc_* for the next symbols after the grKr data block.",
-    "Includes were normalized toward path-qualified forward headers such as gr/forward.h and mn/forward.h."
+    "Stage Kraid symbols use the grKr prefix for named globals, e.g. grKr_803B8278, grKr_803E4C78, and grKr_804D6A08.",
+    "Anonymous compiler-emitted constants and strings are represented as local @NNN labels in config/GALE01/symbols.txt, e.g. @147, @170, @171, @198, @287, @224, and @431.",
+    "Neighboring stage prefixes remain distinct in symbols.txt, such as grRc for Rainbow Cruise, grI2 for Icicle Mountain/Inishie-related entries, and grYt for Yoshi's Story/Yorster entries; align changes to neighboring symbols should preserve those prefixes.",
+    "Function names in the source keep the grKraid_80xxxxxx address-style convention, e.g. grKraid_801FE440, grKraid_801FE6D8, and grKraid_801FE818.",
+    "Ground object parameters are typed as Ground_GObj* and local ground data is accessed with GET_GROUND(gobj), consistent with surrounding ground/stage code."
   ],
   "assembly_or_matching_tactics": [
-    "Represented the zero vector as const Vec grKr_803B8278 and loaded it into the local Vec pos.",
-    "Inlined getMapRotation into grKraid_801FE6D8 and introduced explicit min/max f32 locals to influence generated code.",
-    "Used a redundant self-assignment to grKr_804D6A08->map_rot_spd_min as a deliberate codegen/offset hack noted by the PR author.",
-    "Changed grKraid_801FE818 initialization to fVar1 = (fVar3 = 0.0f), preserving compiler-like temporary behavior.",
-    "Used s8 iVar plus iVar = (u8) fVar2 before assigning gp->gv.kraid2.x2 and x1.",
-    "Set exact symbol scopes and alignments in symbols.txt to make .rodata, .data, .sdata, and .sdata2 match."
+    "Changed a local Vec zero initializer into a global const Vec load to match rodata use.",
+    "Removed a standalone getMapRotation helper and expanded its arithmetic at the call site to affect emitted code shape.",
+    "Split arithmetic into explicit max, min, and rot temporaries: max = ..., min = ..., rot = (max / min) / 132.0f; rot = rot * min.",
+    "Inserted a no-op-looking field self-assignment to influence code generation: grKr_804D6A08->map_rot_spd_min = grKr_804D6A08->map_rot_spd_min.",
+    "Adjusted local declaration order and types in grKraid_801FE818, including changing an integer temporary to s8 and initializing two byte fields through the same narrowed value.",
+    "Used symbols.txt size, scope, local-label, and align annotations to force exact placement of data/rodata/sdata/sdata2/sbss objects.",
+    "Marked grkraid sdata2 float/double constants as local @NNN entries rather than global grKr_* symbols, matching compiler-local literal behavior."
   ],
   "review_feedback": [
-    "The PR body asked for help with a .data string whose intended offset was not coming through, specifically around 0x803E4D64.",
-    "The PR body also called out zero-byte padding issues in .sdata and a similar padding issue in .rodata.",
-    "The author later edited the PR to say all issues were fixed, crediting 桜 in Discord.",
-    "No human GitHub review comments were present in the slice.",
-    "The decomp.dev bot reported 4 new matches: grKraid_801FE818, .sdata2, .rodata, and grKraid_801FE6D8, with matched code +800 bytes and linked code +4460 bytes."
+    "No formal review comments were present in the provided context.",
+    "The PR body records that remaining section placement and padding problems were resolved with help from 桜 on Discord.",
+    "The author explicitly called the final 4-byte offset solution a janky hack, suggesting the fix was pragmatic and matching-focused rather than a clean semantic refactor."
   ],
   "searchable_terms": [
-    "pr-2332",
     "Link grkraid",
-    "grkraid.c",
+    "grkraid",
+    "grKraid",
     "melee/gr/grkraid.c",
-    "Kraid",
+    "Object(Matching, \"melee/gr/grkraid.c\")",
+    "Object(NonMatching, \"melee/gr/grkraid.c\")",
+    "config/GALE01/symbols.txt",
+    "grKr_803B8278",
+    "grKr_803E4C78",
+    "grKr_803E4D64",
+    "@171",
+    "grKr_804D4770",
+    "grKr_804D6A08",
+    "grKr_804DB620",
     "grKraid_801FE440",
     "grKraid_801FE6D8",
     "grKraid_801FE818",
     "getMapRotation",
-    "grKr_803B8278",
-    "grKr_803E4D64",
-    "@171",
-    "grKr_804D6A08",
-    "map_rot_spd_min",
-    "map_rot_spd_max",
-    ".rodata",
-    ".data",
-    ".sdata",
-    ".sdata2",
+    "Ground_GObj",
+    "S16Vec3",
+    "Vec pos",
+    "const Vec",
+    "sdata padding",
+    "rodata padding",
+    "data string offset",
     "align:8",
-    "scope:local",
-    "string offset",
-    "zero padding",
-    "Object(Matching)",
-    "MatchingFor"
+    "local symbol",
+    "sdata2 constants",
+    "Kraid Hand Pos",
+    "map_rot_spd_min",
+    "map_rot_spd_max"
   ],
   "follow_up_queries": [
-    "grkraid 0x803E4D64 string offset local @171",
-    "grKr_803B8278 Vec rodata size 0xC align 8",
-    "grKraid_801FE6D8 map_rot_spd_min self assignment matching",
-    "grKraid_801FE818 s8 iVar u8 cast matching",
-    "symbols.txt grKr sdata2 local float double labels"
+    "Find other PRs that link ground stage files by converting Object(NonMatching) to Object(Matching).",
+    "Search for PRs that use const Vec globals to force rodata placement of zero vectors.",
+    "Search symbols.txt history for data string offset fixes involving local @NNN labels and align:8 metadata.",
+    "Look for other matching hacks involving self-assignment to a struct field.",
+    "Compare grkraid.c matching tactics with later cleanup PRs to see whether the janky 4-byte offset hack was replaced."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,75 +11,84 @@
     "merged_at": "2026-05-16T21:24:35Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Improved the fuzzy match for lb audio function fn_80027488 by referencing standalone extern arrays at known symbol addresses instead of struct-field aliases, and cleaned several lb headers by replacing UNK_RET/UNK_PARAMS placeholders with explicit void signatures already used by the C files. No function reached 100%, but decomp.dev reported fn_80027488 improving from 89.55% to 94.86%, with build verification green.",
+  "summary": "Improved fuzzy matching for lb audio function fn_80027488 by replacing synthetic struct-field accesses through lbl_80433710 with direct references to the standalone extern arrays lbl_804338A4 and lbl_80433984, whose addresses correspond to those former offsets. The PR also cleaned several lb header declarations by replacing UNK_RET/UNK_PARAMS placeholders with explicit void signatures already used by the corresponding C implementations. Build verification passed, but fn_80027488 was still not a full match.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "function-prototypes",
       "naming",
-      "tooling-verification"
+      "types-structs",
+      "abi-signatures"
     ],
     "systems": [
+      "library",
       "lb",
-      "lb-audio",
-      "lb-cardgame",
-      "library"
+      "audio",
+      "cardgame"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/lb/lbaudio_ax.c",
-      "role": "Changed fn_80027488 locals from lbl_80433710.x194/x274 struct-field accesses to direct lbl_804338A4/lbl_80433984 extern array references."
-    },
-    {
-      "path": "src/melee/lb/lb_00F9.h",
-      "role": "Replaced UNK_RET/UNK_PARAMS with explicit void signatures for lb_8000FA94 and lb_80014534."
-    },
-    {
-      "path": "src/melee/lb/lb_0192.h",
-      "role": "Replaced UNK_RET/UNK_PARAMS with explicit void signatures for lb_8001955C, fn_800195FC, lb_800198E0, and lb_80019900."
-    },
-    {
-      "path": "src/melee/lb/lbcardgame.h",
-      "role": "Replaced UNK_RET/UNK_PARAMS with explicit void signatures for lb_8001C600, lb_8001C658, lb_8001CF18, and lb_8001D1F4."
-    }
+    "src/melee/lb/lbaudio_ax.c",
+    "src/melee/lb/lb_00F9.h",
+    "src/melee/lb/lb_0192.h",
+    "src/melee/lb/lbcardgame.h"
   ],
   "what_changed": [
-    "In fn_80027488, changed int* a = lbl_80433710.x194 and int* b = lbl_80433710.x274 to direct extern references int* b = lbl_80433984 and int* a = lbl_804338A4.",
-    "Declared b before a in fn_80027488 so MWCC materializes the two addresses in the order expected by the original code.",
-    "Tidied lb_00F9.h, lb_0192.h, and lbcardgame.h by replacing UNK_RET/UNK_PARAMS placeholder prototypes with concrete void return/parameter signatures.",
-    "Header changes were described as compile-time no-ops because the macros already expand to void, but they make the ABI clearer and align headers with existing C definitions.",
-    "decomp.dev reported one unmatched-item improvement: main/melee/lb/lbaudio_ax fn_80027488 improved from 89.55% to 94.86% fuzzy match."
+    {
+      "file": "src/melee/lb/lbaudio_ax.c",
+      "details": [
+        "In fn_80027488, changed int* a from lbl_80433710.x194 to direct extern lbl_804338A4.",
+        "Changed int* b from lbl_80433710.x274 to direct extern lbl_80433984.",
+        "Declared b before a so MWCC materializes addresses in an order closer to the original code."
+      ]
+    },
+    {
+      "file": "src/melee/lb/lb_00F9.h",
+      "details": [
+        "Changed lb_8000FA94 from UNK_RET lb_8000FA94(UNK_PARAMS) to void lb_8000FA94(void).",
+        "Changed lb_80014534 from UNK_RET lb_80014534(UNK_PARAMS) to void lb_80014534(void)."
+      ]
+    },
+    {
+      "file": "src/melee/lb/lb_0192.h",
+      "details": [
+        "Changed lb_8001955C, fn_800195FC, lb_800198E0, and lb_80019900 from UNK_RET/UNK_PARAMS placeholders to explicit void(void) declarations."
+      ]
+    },
+    {
+      "file": "src/melee/lb/lbcardgame.h",
+      "details": [
+        "Changed lb_8001C600, lb_8001CF18, and lb_8001D1F4 to explicit void(void) declarations.",
+        "Changed lb_8001C658 from const char* lb_8001C658(UNK_PARAMS) to const char* lb_8001C658(void)."
+      ]
+    }
   ],
   "smart_moves": [
-    "Used symbol-address knowledge to avoid treating lbl_804338A4 and lbl_80433984 as fields of lbl_80433710 when direct extern arrays better reflect the addresses used by the original binary.",
-    "Adjusted local declaration order as a matching lever, not just as source style, to influence MWCC address materialization order.",
-    "Separated a matching improvement from low-risk header cleanup; the header edits clarified prototypes without changing generated code.",
-    "Verified the change with python configure.py && ninja and a decomp.dev report showing no other lbaudio_ax regressions."
+    "Used symbol-address knowledge from symbols.txt to model lbl_804338A4 and lbl_80433984 as standalone arrays rather than as fields inside lbl_80433710, reducing artificial struct coupling and improving codegen.",
+    "Reordered local declarations in fn_80027488, declaring b before a, to influence MWCC address materialization order toward the original binary.",
+    "Kept header cleanups ABI-neutral: replacing UNK_RET and UNK_PARAMS with void did not change compilation semantics because the macros already expanded to void, but it made the declarations more truthful and searchable."
   ],
   "decomp_lessons": [
-    "If a field access into an aggregate lands exactly on separately named symbols, try direct extern references; it can produce assembly closer to the original than an artificial struct-field path.",
-    "Local variable declaration order can affect MWCC register choice and address-load ordering, especially when multiple global addresses are materialized near a function prologue.",
-    "Replacing UNK_RET/UNK_PARAMS with explicit void signatures is worthwhile when the implementation already proves the ABI; it improves header truthfulness even when codegen is unchanged.",
-    "A fuzzy-match gain is useful even when not 100%; this PR documents the remaining mismatch so future work can focus on MWCC register cascade behavior instead of redoing solved symbol-address work."
+    "When a symbol appears as an offset into a larger guessed struct, check whether symbols.txt also names the exact address as a standalone object; direct externs can produce closer matching code.",
+    "Local variable declaration order can affect MWCC register/address setup order, especially around multiple global-address loads.",
+    "Header declarations should be tightened from UNK_RET/UNK_PARAMS to explicit signatures when matching C definitions already prove the ABI.",
+    "A decomp improvement can be worth landing even without a 100% function match if it materially improves fuzzy similarity and does not regress nearby functions."
   ],
   "naming_conventions": [
-    "Unidentified functions remained address-based, e.g. fn_80027488 and fn_800195FC, rather than receiving speculative semantic names.",
-    "Unidentified global labels remained lbl_804338A4 and lbl_80433984; the PR did not invent semantic names for the arrays.",
-    "lb library functions retained the project’s address-derived lb_800xxxxx naming pattern.",
-    "Header prototypes prefer explicit void return/argument forms over UNK_RET/UNK_PARAMS when the real signature is known."
+    "Standalone global labels are kept in lbl_XXXXXXXX form when semantic names are not yet known, e.g. lbl_804338A4 and lbl_80433984.",
+    "Library functions in lb headers continue using address-derived names such as lb_8001955C, while unidentified non-library-local functions may use fn_XXXXXXXX, such as fn_800195FC and fn_80027488.",
+    "Use explicit void parameter lists for no-argument C prototypes instead of UNK_PARAMS once confirmed."
   ],
   "assembly_or_matching_tactics": [
-    "For fn_80027488, direct extern references to lbl_804338A4 and lbl_80433984 improved matching over lbl_80433710.x194 and lbl_80433710.x274 struct-field accesses.",
-    "Declaring b before a was used to make MWCC materialize lbl_80433984 before lbl_804338A4, matching the original address order more closely.",
-    "The remaining documented mismatch was one extra prologue/register-cascade difference: MWCC produced lis r3/lis r3 for two HA halves while the original used lis r4/lis r3.",
-    "No 100% matches were achieved; fn_80027488 improved from 89.55% to 94.86% fuzzy."
+    "Replacing struct-field global accesses with direct extern array references improved fn_80027488 fuzzy match from 89.55% to 94.86%.",
+    "Declaration order was deliberately used to affect MWCC emitted address-load order.",
+    "Remaining mismatch was reported as an extra prologue/register-cascade difference: MWCC emitted lis r3/lis r3 for two HA halves while the original used lis r4/lis r3.",
+    "Verification included python configure.py && ninja with build/GALE01/main.dol OK and no reported lbaudio_ax.c regressions."
   ],
   "review_feedback": [
-    "No human review comments or formal reviews were present in the PR slice.",
-    "decomp.dev bot reported one improvement in an unmatched item for GALE01: fn_80027488 in main/melee/lb/lbaudio_ax improved from 89.55% to 94.86%."
+    "No review comments were present in the provided PR slice.",
+    "The PR summary explicitly documented that fn_80027488 was not a full 100% match and identified the remaining compiler-codegen mismatch."
   ],
   "searchable_terms": [
     "pr-2507",
@@ -89,22 +98,19 @@
     "fn_80027488",
     "lbAudioAx_80027168",
     "lbl_80433710",
-    "lbl_80433710.x194",
-    "lbl_80433710.x274",
     "lbl_804338A4",
     "lbl_80433984",
+    "x194",
+    "x274",
     "MWCC",
-    "address materialization",
-    "register cascade",
     "lis r3",
     "lis r4",
-    "HA halves",
     "fuzzy match",
-    "89.55%",
-    "94.86%",
+    "89.55",
+    "94.86",
     "UNK_RET",
     "UNK_PARAMS",
-    "void prototype",
+    "void signatures",
     "lb_00F9.h",
     "lb_0192.h",
     "lbcardgame.h",
@@ -118,13 +124,21 @@
     "lb_8001C658",
     "lb_8001CF18",
     "lb_8001D1F4",
-    "GALE01 main.dol OK"
+    "symbols.txt",
+    "GALE01"
   ],
   "follow_up_queries": [
-    "Find later PRs touching fn_80027488 or lbaudio_ax.c to see whether the remaining lis register-cascade mismatch was solved.",
-    "Search for other uses of lbl_80433710 fields that overlap standalone lbl_ symbols and may benefit from direct extern references.",
-    "Search headers for remaining UNK_RET or UNK_PARAMS prototypes whose C definitions already establish void signatures.",
-    "Investigate MWCC local declaration order effects on address materialization and register allocation in similar unmatched lb functions."
+    "Search for other lbl_80433710 field accesses that correspond to standalone symbols and may match better as extern arrays.",
+    "Audit lb headers for remaining UNK_RET or UNK_PARAMS declarations where the C implementation already proves void(void) or another concrete ABI.",
+    "Investigate whether fn_80027488 can eliminate the remaining MWCC prologue/register-cascade mismatch involving lis r3/lis r3 versus lis r4/lis r3."
   ],
-  "confidence": 0.94
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

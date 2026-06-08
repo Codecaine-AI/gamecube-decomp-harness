@@ -1,0 +1,125 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2627",
+  "pr": {
+    "number": 2627,
+    "title": "Improvements to split up: MP",
+    "url": "https://github.com/doldecomp/melee/pull/2627",
+    "state": "CLOSED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:30:47Z",
+    "merged_at": null
+  },
+  "agent_status": "agent_completed",
+  "summary": "Closed, unmerged MP subsystem split from a larger matching-improvement branch. The slice touched src/melee/mp/mpcoll.c and src/melee/mp/mplib.c, attempting a stack/local declaration adjustment in mpColl_80046224_LeftWall and a data-layout change that merged several spawn vertex ID arrays into one larger mpLib_ItemSpawnVtxIds array with pointer-like macros for enemy, trophy, and exit IDs. Reviewer feedback said the changes looked incorrect: the defines implied wrong field/array sizing based on offsets, and using defines this way was considered a regression, so the PR was closed.",
+  "change_classification": {
+    "primary_type": "rejected-decomp-matching-change",
+    "categories": [
+      "decomp-matching",
+      "fix",
+      "types-structs",
+      "data-layout",
+      "review-rejected"
+    ],
+    "systems": [
+      "melee-core",
+      "mp",
+      "collision",
+      "stage-spawn-data"
+    ]
+  },
+  "key_files": [
+    "src/melee/mp/mpcoll.c",
+    "src/melee/mp/mplib.c"
+  ],
+  "what_changed": [
+    "In src/melee/mp/mpcoll.c, moved the declarations of Vec3 nrm and PAD_STACK(0x44) upward inside mpColl_80046224_LeftWall, before mpLeftWallGetTop and before the conditional that previously contained them.",
+    "In src/melee/mp/mplib.c, replaced separate static s16 arrays mpLib_ItemSpawnVtxIds[0x15], mpLib_EnemySpawnVtxIds[0x50], mpLib_TrophySpawnVtxIds[0x19], and mpLib_ExitVtxIds[0x2E] with one larger static s16 mpLib_ItemSpawnVtxIds[0xAE].",
+    "Inserted explicit zero separators in the merged mpLib_ItemSpawnVtxIds data between the former item/enemy/trophy/exit regions.",
+    "Added macros mapping the former array names to offsets inside mpLib_ItemSpawnVtxIds: mpLib_EnemySpawnVtxIds at +0x16, mpLib_TrophySpawnVtxIds at +0x66, and mpLib_ExitVtxIds at +0x80.",
+    "The PR was created as an isolated path slice for src/melee/mp from a larger branch, with the body reporting no broken matches in the unsplit post-rebase report, but it was closed after review."
+  ],
+  "smart_moves": [
+    "The PR was scoped narrowly to src/melee/mp and split from a larger branch to make subsystem review easier.",
+    "The body documented local hygiene checks, including applying the slice from origin/master and passing git diff --check.",
+    "The diff attempted to preserve existing symbol names for former spawn vertex arrays through aliases, which suggests an effort to keep call sites/source references stable while changing data layout; however, reviewer feedback judged this approach incorrect."
+  ],
+  "decomp_lessons": [
+    "Do not merge adjacent data arrays into one backing array purely to force a match unless the symbol sizes, offsets, and referenced field sizes are independently supported by evidence.",
+    "Macro aliases for data symbols can be a regression in decomp code when they hide real object boundaries or imply incorrect array sizes.",
+    "When reconstructing static data, array lengths and offset relationships matter as much as byte contents; reviewers may reject a byte-layout trick if it misrepresents source-level objects.",
+    "Stack/PAD_STACK relocation in matching work should be treated cautiously and reviewed against generated code, since moving locals across control-flow scopes can alter stack lifetime assumptions even if the local is only used later.",
+    "Directory-split PRs still need each slice to be semantically defensible on its own; green CI or an unsplit branch report is not enough if the slice introduces questionable source modeling."
+  ],
+  "naming_conventions": [
+    "Existing MP collision function names use the mpColl_800NNNNN_DescriptiveName form, as shown by mpColl_80046224_LeftWall.",
+    "MP library helper/data names use the mpLib_ prefix, including mpLib_DrawCrosses, mpLib_ItemSpawnVtxIds, mpLib_EnemySpawnVtxIds, mpLib_TrophySpawnVtxIds, mpLib_ExitVtxIds, mpLib_SpawnVtxIds, and mpLib_RespawnVtxIds.",
+    "Collision line constants in the excerpt use CollLine_ names such as CollLine_Ceiling and CollLine_LeftWall.",
+    "The proposed macro aliases reused former data-symbol names exactly, but review feedback indicates that preserving names via preprocessor defines is not necessarily acceptable when it obscures real data layout."
+  ],
+  "assembly_or_matching_tactics": [
+    "The mpcoll.c hunk used local declaration and PAD_STACK placement as a stack-shaping tactic around Vec3 nrm in mpColl_80046224_LeftWall.",
+    "The mplib.c hunk used contiguous static data coalescing plus offset macros as a data-layout/matching tactic.",
+    "The reviewer explicitly rejected the define-based tactic because the offsets/sizes appeared wrong and the define usage was considered a regression.",
+    "Future matching work should prefer accurately declared static objects over macro-offset aliases unless there is strong binary evidence that the original source modeled the data that way."
+  ],
+  "review_feedback": [
+    {
+      "author": "PsiLupan",
+      "type": "blocking",
+      "text": "Overall, these changes look incorrect. The defines even show that the size changes of the particular fields being referenced would be wrong based on offset."
+    },
+    {
+      "author": "PsiLupan",
+      "type": "blocking",
+      "text": "Likewise, the usage of the define is a regression, so I'm closing this PR."
+    }
+  ],
+  "searchable_terms": [
+    "pr-2627",
+    "Improvements to split up: MP",
+    "fjooord",
+    "PsiLupan",
+    "src/melee/mp/mpcoll.c",
+    "src/melee/mp/mplib.c",
+    "mpColl_80046224_LeftWall",
+    "CollData",
+    "mpLineGetKind",
+    "CollLine_Ceiling",
+    "CollLine_LeftWall",
+    "Vec3 nrm",
+    "PAD_STACK(0x44)",
+    "mpLeftWallGetTop",
+    "mpLinePrevNonCeiling",
+    "mpLib_80054ED8",
+    "mpLineGetNormal",
+    "mpLib_DrawCrosses",
+    "mpLib_ItemSpawnVtxIds",
+    "mpLib_EnemySpawnVtxIds",
+    "mpLib_TrophySpawnVtxIds",
+    "mpLib_ExitVtxIds",
+    "mpLib_SpawnVtxIds",
+    "mpLib_RespawnVtxIds",
+    "spawn vertex ids",
+    "data coalescing",
+    "offset macros",
+    "define regression",
+    "array size regression",
+    "closed unmerged"
+  ],
+  "follow_up_queries": [
+    "Check later PRs touching mpLib_ItemSpawnVtxIds, mpLib_EnemySpawnVtxIds, mpLib_TrophySpawnVtxIds, or mpLib_ExitVtxIds for the accepted data-layout model.",
+    "Search for subsequent accepted changes to mpColl_80046224_LeftWall to see whether the Vec3 nrm/PAD_STACK placement was fixed differently.",
+    "Compare the generated map/symbol sizes for the spawn vertex ID arrays before attempting another coalescing or split-data change.",
+    "Look for project guidance or review precedent on using #define aliases for data symbols in matching PRs."
+  ],
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

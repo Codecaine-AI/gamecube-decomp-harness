@@ -1,0 +1,131 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2634",
+  "pr": {
+    "number": 2634,
+    "title": "match and link itsamusmissile.c",
+    "url": "https://github.com/doldecomp/melee/pull/2634",
+    "state": "MERGED",
+    "author": "lukechampine",
+    "created_at": "2026-06-08T15:58:13Z",
+    "merged_at": "2026-06-08T16:05:33Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Matched and linked Samus missile item translation unit by switching itsamusmissile.c from NonMatching to Matching in configure.py, reorganizing local function order, tightening item-specific prototypes, and applying small control-flow/type cleanups needed for matching. The PR also adjusted itlinkbomb.c with equivalent boolean-style conditionals and an inline-helper replacement, likely to preserve matching after shared item/header changes. No review discussion was present; PR body only noted remaining item TUs/functions.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "headers",
+      "item-state-table",
+      "control-flow-cleanup",
+      "linking"
+    ],
+    "systems": [
+      "item",
+      "Samus items",
+      "Link bomb item",
+      "build configuration"
+    ]
+  },
+  "key_files": [
+    "configure.py",
+    "src/melee/it/items/itsamusmissile.c",
+    "src/melee/it/items/itsamusmissile.h",
+    "src/melee/it/items/itlinkbomb.c"
+  ],
+  "what_changed": [
+    "Changed configure.py entry for melee/it/items/itsamusmissile.c from Object(NonMatching, ...) to Object(Matching, ...), linking the TU as matching.",
+    "Moved the Samus missile ItemStateTable definition it_803F7340 near the top of itsamusmissile.c, with states 0 and 1 using Samus missile anim/phys/coll callbacks and states 2 and 3 using itSamusmissile_UnkMotion3_Anim.",
+    "Reordered small Samus missile callbacks in itsamusmissile.c: collision callbacks and itSamusmissile_UnkMotion3_Anim were moved closer to their related motion code instead of being defined before the factory/lifetime functions.",
+    "Changed itSamusmissile_UnkMotion0_Anim and itSamusmissile_UnkMotion1_Anim return types from s32/long-style declarations to bool while still returning false.",
+    "Updated itsamusmissile.h prototypes to prefer Item_GObj* over HSD_GObj* for several item-local functions, including it_802B63F8, it_802B66A8, it_802B6A60, and the motion anim callbacks.",
+    "Simplified it_802B64FC control flow by replacing goto-to-return blocks with direct early returns while preserving vector/angle logic.",
+    "Adjusted includes in itsamusmissile.c: removed unused baselib/jobj.h, math.h, and it/it_266F.h from the shown excerpt; added it/itgroundcoll.h; kept baselib/mtx.h via angle-bracket include.",
+    "In itlinkbomb.c, changed repeated `it_80272C6C(gobj) == 0` checks to `!it_80272C6C(gobj)`.",
+    "In itlinkbomb.c, removed a static inline helper for motion 3 and replaced its call site with existing function it_8029EC34(gobj); also changed inline2 to call fn_8029E21C(gobj) instead of it_8029D9A4(gobj, 1, 0) when the guard is false."
+  ],
+  "smart_moves": [
+    "Promoted the TU to Matching only after aligning function signatures, state-table placement, and local control flow, rather than only toggling configure.py.",
+    "Used bool callback return types for item animation/collision functions that semantically return false, matching common ItemStateTable callback style.",
+    "Reduced goto noise in it_802B64FC with early returns, a common decomp cleanup that can preserve generated code shape when branch structure permits it.",
+    "Reused existing it_8029EC34 in itlinkbomb.c instead of maintaining a duplicated static inline helper, reducing local inline complexity.",
+    "Kept item APIs item-specific by using Item_GObj* in the header for functions that operate on item objects, while GET_ITEM still handles the underlying object access in implementation."
+  ],
+  "decomp_lessons": [
+    "For item TUs, matching may require the global ItemStateTable to appear in the correct source order relative to functions, not merely to contain the right callback entries.",
+    "When an item callback always returns false, declaring it as bool can better match the state-table callback type and clean up header consistency.",
+    "Replacing `func(...) == 0` with `!func(...)` can be a matching-relevant source expression change in this codebase, especially around item animation guards.",
+    "Existing helper functions can sometimes replace static inline clones and produce a better or equivalent match with less code.",
+    "Header prototype cleanup is part of matching work: mismatched HSD_GObj*/Item_GObj* declarations and long/s32/bool callback types can obstruct clean linking or future reuse.",
+    "Evidence for why each exact reorder was required is limited because there were no review comments and the PR body was minimal."
+  ],
+  "naming_conventions": [
+    "Samus missile item symbols use the mixed-case item prefix `itSamusmissile_` for motion callbacks and address-style names such as `it_802B63F8` for unnamed functions.",
+    "Motion callback names retain `UnkMotionN_Anim`, `UnkMotionN_Phys`, and `UnkMotionN_Coll` until better semantic names are known.",
+    "The Samus missile state table keeps an address-style global name, `it_803F7340`, rather than inventing a descriptive name.",
+    "Item-specific attributes are named `itSamusMissileAttributes* attrs` or `sa` in the implementation.",
+    "Item object parameters in the header are preferably typed as `Item_GObj* gobj` for item functions; generic `HSD_GObj*` is avoided where item-specific typing is known."
+  ],
+  "assembly_or_matching_tactics": [
+    "Switch the build configuration from NonMatching to Matching only after source-level shape changes are in place.",
+    "Move small callback definitions to positions that satisfy the compiler/linker ordering needed for a matching TU.",
+    "Use direct early returns instead of labels/gotos when they produce the same branch structure and cleaner C.",
+    "Use `!predicate` instead of `predicate == 0` in item guard conditions where that expression form matches expected output.",
+    "Add or remove includes to match actual dependencies and avoid placeholder or obsolete declarations leaking into a matched TU.",
+    "Preserve PAD_STACK use where still needed, as seen in nearby item functions such as itlinkbomb and it_802B70A0 in the excerpt."
+  ],
+  "review_feedback": [],
+  "searchable_terms": [
+    "pr-2634",
+    "itsamusmissile.c",
+    "itsamusmissile.h",
+    "itlinkbomb.c",
+    "configure.py",
+    "Samus missile",
+    "match and link itsamusmissile.c",
+    "Object(Matching)",
+    "Object(NonMatching)",
+    "ItemStateTable",
+    "it_803F7340",
+    "it_802B62D0",
+    "it_802B63F8",
+    "it_802B64FC",
+    "it_802B66A8",
+    "itSamusmissile_UnkMotion0_Anim",
+    "itSamusmissile_UnkMotion0_Phys",
+    "itSamusmissile_UnkMotion0_Coll",
+    "it_802B6A60",
+    "itSamusmissile_UnkMotion1_Anim",
+    "itSamusmissile_UnkMotion1_Phys",
+    "itSamusmissile_UnkMotion1_Coll",
+    "itSamusmissile_UnkMotion3_Anim",
+    "it_802B701C",
+    "it_802B70A0",
+    "itSamusMissileAttributes",
+    "is_smash_missile",
+    "efLib_DestroyAll",
+    "it_80272C6C",
+    "it_8029EC34",
+    "fn_8029E21C",
+    "Item_GObj",
+    "HSD_GObj",
+    "bool callback"
+  ],
+  "follow_up_queries": [
+    "Find later PRs that rename Samus missile motion callbacks from UnkMotion names to semantic names.",
+    "Search for other item TUs promoted from NonMatching to Matching by changing configure.py Object entries.",
+    "Look for matching PRs that move ItemStateTable definitions to resolve ordering or linking issues.",
+    "Search for follow-up changes to itlinkbomb.c around it_8029EC34, fn_8029E21C, or motion 3 animation behavior.",
+    "Check whether other item headers were converted from HSD_GObj* to Item_GObj* for item-local function prototypes."
+  ],
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

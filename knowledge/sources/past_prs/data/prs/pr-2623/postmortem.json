@@ -1,0 +1,120 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2623",
+  "pr": {
+    "number": 2623,
+    "title": "Improvements to split up: IF",
+    "url": "https://github.com/doldecomp/melee/pull/2623",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:30:36Z",
+    "merged_at": "2026-06-08T15:46:36Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Small IF subsystem matching-improvement slice split from PR #2617. The final recorded diff changed src/melee/if/soundtest.c by giving the file-scope object un_803FA258 an explicit zero initializer. Review discussion also referenced attempted src/melee/if/textlib.c edits, but reviewer feedback objected to renaming variables and replacing them with defines; the final changed-files list only shows soundtest.c, suggesting those textlib changes were not part of the merged slice or were removed before merge.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "data-layout",
+      "small-slice-cleanup",
+      "review-driven-cleanup"
+    ],
+    "systems": [
+      "melee-core",
+      "if",
+      "soundtest"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/if/soundtest.c",
+      "reason": "Only file in the final changed-files list; changed un_803FA258 from an uninitialized file-scope object declaration to an explicitly zero-initialized definition."
+    },
+    {
+      "path": "src/melee/if/textlib.c",
+      "reason": "Mentioned in PR body and review comments, but not in the final changed-files list. Review feedback warned against variable renames and define-substitution patterns there."
+    }
+  ],
+  "what_changed": [
+    "In src/melee/if/soundtest.c, the global/static aggregate-like object named un_803FA258 was changed from `} un_803FA258;` to `} un_803FA258 = { 0 };`.",
+    "The PR was created as an isolated path slice for `src/melee/if` from a larger matching-improvement branch, with the stated goal of making subsystem changes easier to review.",
+    "The PR body reported no broken matches or regressions in the source branch before splitting, and local `git diff --check` passed for the slice.",
+    "Review comments on src/melee/if/textlib.c criticized renaming variables and using defines in their place; those textlib edits are not present in the final one-file diff excerpt."
+  ],
+  "smart_moves": [
+    "Kept the merged change extremely small: a one-line initializer adjustment in soundtest.c, reducing review and regression risk.",
+    "Used an explicit `{ 0 }` initializer on an otherwise anonymous/unmatched object, a common decomp tactic when the BSS/data placement or emitted object form depends on whether the symbol is treated as initialized.",
+    "Split the larger #2617 work by directory/subsystem, making IF-specific matching changes easier to validate independently.",
+    "Appears to have respected review pressure against speculative naming/define churn by leaving only the minimal soundtest.c change in the final recorded diff."
+  ],
+  "decomp_lessons": [
+    "For file-scope objects in decomp work, an explicit zero initializer can matter for matching even when it is semantically equivalent in C; verify whether the target symbol belongs in the initialized-data form expected by the binary.",
+    "Do not rename poorly understood globals or replace names with defines solely for convenience. Reviewers prefer preserving provisional `un_...` symbols until there is stronger evidence for semantic names.",
+    "Small directory-sliced PRs are useful when a larger branch has many matching improvements; they isolate risk and simplify reviewer attention.",
+    "If a PR body lists files from the planned slice but the final diff contains fewer files, trust the final changed-files/diff as the evidence for what merged."
+  ],
+  "naming_conventions": [
+    "The merged soundtest symbol stayed as `un_803FA258`, preserving the address-derived unknown-symbol naming convention.",
+    "Nearby symbols in the diff also use address-derived names such as `un_803FA348`, `un_803FA34C`, and `un_803FA32C`.",
+    "Review feedback explicitly discouraged speculative renaming of variables in textlib.c and replacing original variable names with defines.",
+    "When semantics are uncertain, keep `un_`-prefixed names rather than inventing descriptive names."
+  ],
+  "assembly_or_matching_tactics": [
+    "Use explicit zero initialization (`= { 0 }`) for aggregate/file-scope objects when needed to reproduce the original object emission or data-section behavior.",
+    "Prefer minimal source edits that target the exact mismatch instead of broader refactors in adjacent IF files.",
+    "Validate split branches with `git diff --check` and CI/decomp-dev reporting after extracting from a larger matching branch."
+  ],
+  "review_feedback": [
+    {
+      "file": "src/melee/if/textlib.c",
+      "reviewer": "PsiLupan",
+      "comment": "Avoid renaming variables and using defines in their place.",
+      "lesson": "Do not introduce speculative variable renames or define aliases in decomp cleanup without strong evidence."
+    },
+    {
+      "file": "src/melee/if/textlib.c",
+      "reviewer": "PsiLupan",
+      "comment": "Same comment as above. Avoid renaming variables and using defines in their place.",
+      "lesson": "The same naming/define concern applied to color/global-symbol edits in textlib.c."
+    }
+  ],
+  "searchable_terms": [
+    "pr-2623",
+    "Improvements to split up: IF",
+    "fjooord",
+    "src/melee/if",
+    "src/melee/if/soundtest.c",
+    "src/melee/if/textlib.c",
+    "soundtest",
+    "textlib",
+    "un_803FA258",
+    "un_803FA348",
+    "un_803FA34C",
+    "un_803FA32C",
+    "zero initializer",
+    "{ 0 }",
+    "BSS",
+    "initialized data",
+    "avoid renaming variables",
+    "avoid defines",
+    "PsiLupan",
+    "split from #2617",
+    "decomp-matching"
+  ],
+  "follow_up_queries": [
+    "Find other PRs where explicit `= { 0 }` initializers were used to fix matching or section placement.",
+    "Search for reviewer guidance from PsiLupan about avoiding speculative variable renames and define aliases.",
+    "Check subsequent IF/textlib.c PRs for accepted naming of devtext globals and GXColor globals.",
+    "Compare PR #2617 and its split PRs to see which IF matching changes were separated or reverted."
+  ],
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

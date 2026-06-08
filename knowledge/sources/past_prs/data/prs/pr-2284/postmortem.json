@@ -11,180 +11,152 @@
     "merged_at": "2026-03-14T10:49:17Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched a large batch of Ness item code, explicitly excluding yoyo, across Ness bat, PK Fire, PK Flash/PK Flush, PK Flush explode, PK Thunder ball, and PK Thunder trail. The PR replaced many placeholder decomp stubs with C, tightened item variable structs and prototypes, and produced an automated decomp.dev report of 37 new matches, +9524 matched code bytes, and +200 matched data bytes.",
+  "summary": "Matched a large batch of previously placeholder Ness item functions, covering PK Thunder ball/trail, PK Flash/Flush and explosion, PK Fire, and Ness bat, while explicitly leaving yoyo out of scope. The PR replaced many `/// #...` placeholders with C implementations, adjusted item-var structs and headers to support those implementations, and made a small Ness fighter-side stack/type correction for PK Thunder collision. decomp.dev reported 37 new matches, +9524 matched code bytes, and +200 matched data bytes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "item implementation",
+      "decomp-matching",
+      "items",
       "headers",
-      "struct typing",
-      "matching cleanup",
-      "agent-assisted/tooling"
+      "struct-layout",
+      "fighter-item-integration",
+      "agent-assisted-decomp"
     ],
     "systems": [
       "item",
       "fighter",
       "Ness",
-      "Kirby copied Ness special",
       "PK Thunder",
-      "PK Flash/PK Flush",
+      "PK Flash",
       "PK Fire",
       "Ness bat"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/it/items/itnesspkthunderball.c",
-      "role": "Largest change; matched PK Thunder ball spawn, setup, animation, physics, rebound/cleanup, and history tracking routines."
-    },
-    {
-      "path": "src/melee/it/items/itnesspkflush.c",
-      "role": "Matched PK Flash/PK Flush spawn, destroy cleanup, setup, anim, physics, and collision behavior, including Ness/Kirby owner handling."
-    },
-    {
-      "path": "src/melee/it/items/itnessbat.c",
-      "role": "Matched Ness bat spawn paths and animation owner cleanup/scale behavior."
-    },
-    {
-      "path": "src/melee/it/items/itnesspkthundertrail.c",
-      "role": "Matched PK Thunder trail spawning plus anim/phys code using ball position and angle history."
-    },
-    {
-      "path": "src/melee/it/items/itnesspkflushexplode.c",
-      "role": "Matched PK Flush explosion spawn/setup/anim scaling, hitbox damage scaling, and camera/sfx thresholds."
-    },
-    {
-      "path": "src/melee/it/items/itnesspkfire.c",
-      "role": "Matched PK Fire spawn and shield-bounce rotation behavior."
-    },
-    {
-      "path": "src/melee/it/itPKThunder.h",
-      "role": "Refactored PK Thunder item vars from many offset-named Vec3/float fields into positions[16] and angles[16]."
-    },
-    {
-      "path": "src/melee/it/itCharItems.h",
-      "role": "Typed Ness bat owner storage as HSD_GObj* and added itNesspkthundertrail_ItemVars."
-    },
-    {
-      "path": "src/melee/it/itPKFlash.h",
-      "role": "Corrected itPKFlushExplode_ItemVars.xDD8 from s32 to float."
-    },
-    {
-      "path": "src/melee/ft/chara/ftNess/ftNs_SpecialHi.c",
-      "role": "Adjusted PK Thunder/Ness collision helper locals from Vec2 to Vec3 and stack padding for a proper match."
-    }
+    "src/melee/it/items/itnesspkthunderball.c",
+    "src/melee/it/items/itnesspkflush.c",
+    "src/melee/it/items/itnessbat.c",
+    "src/melee/it/items/itnesspkthundertrail.c",
+    "src/melee/it/items/itnesspkflushexplode.c",
+    "src/melee/it/items/itnesspkfire.c",
+    "src/melee/it/itPKThunder.h",
+    "src/melee/it/itPKFlash.h",
+    "src/melee/it/itCharItems.h",
+    "src/melee/ft/chara/ftNess/ftNs_SpecialHi.c"
   ],
   "what_changed": [
-    "Replaced placeholder `/// #...` bodies with matched C implementations in Ness item modules for bat, PK Fire, PK Flush, PK Flush explode, PK Thunder ball, and PK Thunder trail.",
-    "Implemented item spawning patterns using `SpawnItem`, `Item_80268B18`, parent gobj fields, facing direction, zeroed velocities, item command vars, lifetime setup via `it_80275158`, and debug owner registration via `db_80225DD8` where used.",
-    "Added Ness bat owner-reference management: `itNessbat_ClearOwnerRef`, removal checks through `ftNs_AttackS4_CheckNessBatRemove`, `ftNs_AttackS4_ItemNessBatSetNULL`, and `Item_8026AB54` attachment to `Fighter_Part`.",
-    "Matched PK Fire creation in `it_802AA054` and shield bounce behavior in `it_2725_Logic23_ShieldBounced`, including negating JObj rotation Z before `itColl_BounceOffShield`.",
-    "Matched PK Flush/PK Flash lifecycle: spawn/setup, growth scaling, hold-release detection, explosion delay, stick control, gravity cap, collision transition, and destroy-time owner NULLing for both Ness and Kirby copied versions.",
-    "Matched PK Flush explosion creation and animation scaling, including charge-derived hitbox damage and charge-ratio camera/sfx behavior in `it_802AFA70`.",
-    "Matched PK Thunder ball logic: spawn/setup, 16-entry position and angle history, trail spawning, hold checks, stick-directed turning, velocity recomputation with trig, rebound state reset in `it_802AC098`, and cleanup of spawned trail objects.",
-    "Matched PK Thunder trail logic: `it_802AC43C` chooses item kinds from `it_803F6C18`, stores the parent ball and trail index, toggles JObj visibility flags, then reads ball position/radius history to update scale Z and rotation X.",
-    "Updated headers and prototypes away from weak types such as `UNK_RET`, `UNK_PARAMS`, `void*`, `enum_t`, `float`, and `s32` toward `Item_GObj*`, `HSD_GObj*`, `Vec3*`, `ItemKind`, `Fighter_Part`, and `f32` where evidenced by the diff.",
-    "Refined item variable layout: `itPKThunder_ItemVars` now uses `Vec3 positions[16]` and `f32 angles[16]`; `itPKFlushExplode_ItemVars.xDD8` is `float`; Ness bat item var stores an `HSD_GObj*`; and the item union now includes `itNesspkthundertrail_ItemVars`."
+    "Implemented many Ness item functions that were previously `/// #...` placeholders, especially in `itnesspkthunderball.c`, `itnesspkflush.c`, `itnessbat.c`, `itnesspkthundertrail.c`, `itnesspkflushexplode.c`, and `itnesspkfire.c`.",
+    "Matched PK Thunder ball behavior including spawn/setup, animation, physics steering, angle normalization, trail position/angle history shifting, collision bounce handling, and related helper logic.",
+    "Matched PK Thunder trail behavior, adding `itNesspkthundertrail_ItemVars` with an owner/item reference and state fields in `itCharItems.h`.",
+    "Matched PK Flash/Flush behavior including item spawn, lifetime setup, owner linkage, charge/growth scale calculation, release/explosion transition, owner cleanup on destroy, held-input checks for Ness and Kirby-Ness variants, physics control, and collision handling.",
+    "Matched PK Flash explosion behavior including explosion item spawn/setup and animation-time scaling/ratio logic; changed `itPKFlushExplode_ItemVars.xDD8` from `s32` to `float`.",
+    "Matched Ness bat spawn and animation behavior, including item owner reference management, clearing fighter-side bat references through `ftNs_AttackS4_ItemNessBatSetNULL`, visibility flag toggling via JObj child flags, and copying scale from the owner when appropriate.",
+    "Matched PK Fire spawn and shield-bounce behavior, including setting the projectile rotation and negating JObj rotation Z when shield-bounced before calling `itColl_BounceOffShield`.",
+    "Simplified `itPKThunder_ItemVars` from many individually named `Vec3 xDEC`, `Vec3 xDFC`, etc. fields and angle scalar fields into `Vec3 positions[16]` and `f32 angles[16]`, plus corrected several later fields to `f32`/`s32` where the diff showed type changes.",
+    "Adjusted `ftNs_SpecialHi_ItemPKThunder_CheckNessCollide` stack-local modeling by changing collision helper arguments and locals from `Vec2` to `Vec3`, reducing adjacent explicit padding arrays accordingly.",
+    "Updated headers to expose corrected prototypes and item-var types, including `it_802AD478(Item_GObj*, Vec3*, Fighter_Part, f32)`."
   ],
   "smart_moves": [
-    "Recognized the PK Thunder ball’s repeated offset fields as real arrays (`positions[16]` and `angles[16]`), which made history-shift loops and trail lookup code natural and matchable.",
-    "Used small static inline helpers for repeated codegen-sensitive patterns such as PK Flush scale calculation, Ness bat owner cleanup, JObj scale copying, and PK Thunder history shifting.",
-    "Tightened prototypes and item var types before or alongside implementation work, reducing casts and raw offset access while preserving layout.",
-    "Kept fighter-item ownership cleanup explicit: Ness bat, PK Flush, and PK Thunder all clear or notify their owning fighter when items are destroyed or detached.",
-    "Handled Kirby’s copied Ness PK Flush paths in the same matched code via item-kind switches, instead of hardcoding only Ness behavior.",
-    "Replaced raw `user_data`/byte-manipulation style in the PK Thunder trail cleanup with `GET_ITEM`, typed item vars, owner NULLing, and bitfield flag access.",
-    "Used exact math and graphics-side operations shown in the diff: `cosf`, `sinf`, `atan2f`, `M_PI`, `M_PI_2`, `M_TAU`, `HSD_JObjSetScale`, `HSD_JObjSetRotationX/Z`, and child flag toggles."
+    "Recognized repeated PK Thunder history fields as arrays: replacing a long sequence of offset-named `Vec3` and float fields with `positions[16]` and `angles[16]` made the implementation natural and supported loops for initialization, shifting, and reset.",
+    "Used small `static inline` helpers for repeated matching-sensitive logic, such as clearing Ness bat owner references, removing bat items, copying JObj scale, setting PK Flash scale, and shifting PK Thunder positions/angles.",
+    "Kept owner cleanup explicit across item/fighter boundaries: PK Flash destroy clears Ness or Kirby-Ness owner state depending on item kind, and Ness bat animation clears fighter-side bat references before nulling item owner fields.",
+    "Modeled spawn setup in full rather than relying on partial initialization: functions fill `SpawnItem` fields such as kind, prev/pos, facing direction, parent gobj fields, damage, velocity, and flags before `Item_80268B18`.",
+    "Preserved stack-sensitive matching details with `PAD_STACK(...)` and by correcting local vector widths in the Ness PK Thunder collision function.",
+    "Used article special attributes for behavior formulas instead of hardcoding derived values, for example PK Flash lifetime, graphic growth, hitbox growth, explosion delay, control, and PK Thunder speed/turn parameters.",
+    "Handled both Ness and Kirby-Ness PK Flash variants in the same matched logic by switching on item kind and calling the corresponding fighter hold/cleanup functions."
   ],
   "decomp_lessons": [
-    "When an item var struct has many adjacent offset-named fields with identical types, test whether the original code used arrays; matching loops often becomes easier and clearer.",
-    "Header typing can be a matching unlock, not just cleanup: changing `void*` to `Vec3*`, `enum_t` to `ItemKind`, `s32` to pointer/float, and `UNK_RET` to concrete returns makes callsites and load/store widths line up.",
-    "For item/fighter interactions, decomp should model owner refs in item vars and verify all destroy/remove callbacks clear both item-side and fighter-side pointers.",
-    "SpawnItem setup is highly patterned in item code; future item decomp can reuse the sequence of kind, prev_pos with z forced to 0, parent gobjs, facing_dir, zero velocity, x44 flags, x40, then `Item_80268B18`.",
-    "Motion callbacks often mix animation state with gameplay state; PK Flush and PK Thunder both required scaling/rotation/visibility updates plus lifetime or input checks in the same matched routines.",
-    "Stack layout still matters in otherwise high-level C: the PR uses `PAD_STACK(...)` and adjusted unused local arrays, and the SpecialHi change from `Vec2` locals to `Vec3` locals changed padding for a proper match.",
-    "Do not over-name semantics prematurely: several fields remain `xEF8`, `xEFC`, `xF00`, etc., while clearer repeated structures were safely renamed to `positions` and `angles`."
+    "When many item-var fields at consecutive offsets have identical type and repeated use, try remodeling them as arrays; this can unlock loop-shaped source and reduce artificial offset-field clutter.",
+    "Item decomp often depends on correct fighter-item ownership semantics. Matched code may need both item-side owner/nulling and fighter-side callbacks to clear article references.",
+    "Struct field type corrections matter for matching: this PR changed examples such as `itNessbat_ItemVars.x0` from `s32` to `HSD_GObj*`, `itPKFlushExplode_ItemVars.xDD8` from `s32` to `float`, and PK Thunder trailing fields from `HSD_GObj*` guesses to `s32` where indicated.",
+    "Use `Vec3` rather than `Vec2` when the original stack layout includes z components, even if only x/y are compared; the `ftNs_SpecialHi` change shows this can alter nearby padding and matching.",
+    "For item spawn functions, matching often requires exact initialization order and explicit zeroing of velocity and itcmd vars.",
+    "For visual item behavior, JObj calls such as `HSD_JObjSetScale`, `HSD_JObjGetScaleY`, `HSD_JObjSetRotationZ`, `HSD_JObjGetRotationZ`, and child flag operations can be central to matching animation callbacks.",
+    "The author noted that an item-decomp harness/skill plus Claude could now handle larger functions; this is evidence that guided tooling around item conventions was useful for this PR."
   ],
   "naming_conventions": [
-    "Unidentified functions remain address-style, e.g. `it_802AB58C`, `it_802AA8C0`, `it_802AF940`, while matched motion callbacks use `itNess..._UnkMotionN_Anim/Phys/Coll`.",
-    "Item logic callbacks follow the existing `it_2725_LogicNN_Action` convention, e.g. `it_2725_Logic23_ShieldBounced`, `it_2725_Logic102_Destroyed`, and `it_2725_Logic103_Destroyed`.",
-    "Ness item filenames and symbols use lowercase item prefixes such as `itnesspkflush`, `itnesspkthunderball`, `itnesspkthundertrail`, `itnesspkflushexplode`, and `itnessbat`.",
-    "The codebase uses `pkflush` identifiers for the PK Flash/PK Flush item family while attribute types still use `itFlashAttributes` and `itFlashExplAttributes`.",
-    "Struct names follow item-family naming: `itNessbat_ItemVars`, `itNesspkthundertrail_ItemVars`, `itPKThunder_ItemVars`, `itPKFlush_ItemVars`, and `itPKFlushExplode_ItemVars`.",
-    "New or refined prototypes prefer project typedefs: `Item_GObj*`, `Fighter_GObj*`, `HSD_GObj*`, `Vec3*`, `ItemKind`, `Fighter_Part`, and `f32`."
+    "Kept existing address-style function names where no semantic name was available, such as `it_802AB58C`, `it_802AA8C0`, `it_802AF940`, and `it_802AD478`.",
+    "Used item motion callback naming in the existing style: `itNesspkflush_UnkMotion0_Anim`, `itNesspkthunderball_UnkMotion0_Phys`, `itNessbat_UnkMotion1_Anim`, etc.",
+    "Named new item-var structs with item-specific prefixes, e.g. `itNesspkthundertrail_ItemVars` and `itNessbat_ItemVars`.",
+    "Used descriptive array names `positions[16]` and `angles[16]` in `itPKThunder_ItemVars` instead of many offset-only names for repeated trail history state.",
+    "Retained offset-style placeholder member names where semantics remained unclear, e.g. `xDD4`, `xEEC`, `xEF0`, and PK Flash fields like `xDD8_PKFlash`.",
+    "Header prototype cleanup preferred project typedefs such as `Fighter_Part` and `f32` over generic `s32` and `float` where the diff showed stronger type evidence."
   ],
   "assembly_or_matching_tactics": [
-    "Used `PAD_STACK` in newly matched routines and adjusted dummy local arrays in `ftNs_SpecialHi_ItemPKThunder_CheckNessCollide` to preserve stack layout.",
-    "Changed `check_distance` and local pair variables from `Vec2` to `Vec3`, with corresponding padding changes, matching the function comment’s existing 'Proper match' context.",
-    "Converted PK Thunder offset fields into arrays so the compiler emitted loops for initialization, shifting, and reset instead of many bespoke field accesses.",
-    "Used static inline helpers for repeated operations likely sensitive to inlining and register allocation, such as PK Flush scale calculation and PK Thunder history shifts.",
-    "Preserved exact float constants and casts in math-heavy item code, including `0.017453292f`, `(f32) M_PI_2`, `M_PI`, `M_TAU`, and charge threshold constants like `0.84999996f`.",
-    "Used typed bitfield writes such as `ip->xDC8_word.flags.x13 = 0` and `ip->xDCC_flag.b3 = false` instead of retaining raw byte/asm-style manipulation.",
-    "Retained item-kind switches for Ness versus Kirby PK Flush cases, which avoids speculative abstraction while matching the original branch structure."
+    "Used `PAD_STACK` in multiple newly matched functions to preserve expected stack layout, including Ness bat spawn/anim helpers, PK Flash functions, PK Thunder animation/physics/collision helpers, and explosion functions.",
+    "Converted `ftNs_SpecialHi` collision locals from `Vec2` to `Vec3`, with corresponding padding changes, to match the stack shape implied by the original.",
+    "Used inline helpers to influence code generation while keeping repeated logic readable.",
+    "Normalized and wrapped angles explicitly in PK Thunder logic, using constants such as `M_PI`, `M_TAU`, and trigonometric calls `cosf`, `sinf`, and `atan2f` where shown in the diff.",
+    "Matched repeated history updates by shifting arrays backwards from index 14 to 0 and then writing the current position/angle at index 0.",
+    "Used decomp.me/auto-decomp evidence for at least one fighter-side function: the diff retained the comment `based on auto-decomp // https://decomp.me/scratch/hwphL // Proper match` near `ftNs_SpecialHi_ItemPKThunder_CheckNessCollide`."
   ],
   "review_feedback": [
-    "No human review comments or review records were present in this PR slice.",
-    "Automated decomp.dev report for GALE01 recorded matched code 57.38% (+0.25%, +9524 bytes) and matched data 37.65% (+0.02%, +200 bytes).",
-    "The same automated report listed 37 new matches, including large functions such as `it_802AB58C`, `itNesspkthunderball_UnkMotion0_Phys`, `it_802AC098`, `itNesspkthundertrail_UnkMotion0_Phys`, `itNesspkflush_UnkMotion0_Anim`, `itNesspkflushexplode_UnkMotion0_Anim`, `it_802AA054`, and `itNessbat_UnkMotion0_Anim`.",
-    "Author context notes this was Claude-assisted and that larger functions were now within reach of the author's harness; the author planned to focus on `ft/` and a future `fighter-decomp` skill."
+    "No human review comments were present in the provided context.",
+    "The decomp.dev bot reported GALE01 improvements: matched code 57.38% (+0.25%, +9524 bytes), matched data 37.65% (+0.02%, +200 bytes), and 37 new matches.",
+    "The bot's listed new matches included large functions in `itnesspkthunderball`, `itnesspkflush`, `itnesspkflushexplode`, `itnesspkthundertrail`, `itnesspkfire`, and `itnessbat`."
   ],
   "searchable_terms": [
     "PR 2284",
     "Match remaining Ness items except yoyo",
     "lukechampine",
-    "Claude items",
-    "decomp.dev 37 new matches",
-    "src/melee/it/items/itnesspkthunderball.c",
-    "src/melee/it/items/itnesspkthundertrail.c",
-    "src/melee/it/items/itnesspkflush.c",
-    "src/melee/it/items/itnesspkflushexplode.c",
-    "src/melee/it/items/itnesspkfire.c",
-    "src/melee/it/items/itnessbat.c",
-    "src/melee/it/itPKThunder.h",
-    "src/melee/it/itPKFlash.h",
-    "src/melee/it/itCharItems.h",
-    "src/melee/ft/chara/ftNess/ftNs_SpecialHi.c",
+    "Ness items",
+    "Ness bat",
+    "PK Fire",
+    "PK Flash",
+    "PK Flush",
+    "PK Thunder",
+    "PK Thunder ball",
+    "PK Thunder trail",
+    "PK Flash explode",
+    "itnesspkthunderball.c",
+    "itnesspkflush.c",
+    "itnessbat.c",
+    "itnesspkthundertrail.c",
+    "itnesspkflushexplode.c",
+    "itnesspkfire.c",
+    "itPKThunder.h",
+    "itPKFlash.h",
+    "itCharItems.h",
+    "ftNs_SpecialHi_ItemPKThunder_CheckNessCollide",
     "it_802AB58C",
-    "it_802AB90C",
-    "it_802AB9C0",
-    "it_802ABA4C",
-    "itNesspkthunderball_UnkMotion0_Anim",
     "itNesspkthunderball_UnkMotion0_Phys",
     "it_802AC098",
-    "it_802AC43C",
-    "itNesspkthundertrail_UnkMotion0_Anim",
     "itNesspkthundertrail_UnkMotion0_Phys",
-    "it_802AA8C0",
-    "it_2725_Logic102_Destroyed",
-    "it_802AAA80",
     "itNesspkflush_UnkMotion0_Anim",
     "itNesspkflush_UnkMotion1_Anim",
-    "itNesspkflush_UnkMotion2_Anim",
-    "itNesspkflush_UnkMotion0_Phys",
-    "itNesspkflush_UnkMotion0_Coll",
-    "it_802AF940",
-    "it_802AFA70",
     "itNesspkflushexplode_UnkMotion0_Anim",
     "it_802AA054",
-    "it_2725_Logic23_ShieldBounced",
-    "it_802AD478",
-    "it_802AD590",
     "itNessbat_UnkMotion0_Anim",
-    "itNessbat_UnkMotion1_Anim",
-    "itPKThunder_ItemVars positions angles",
-    "itNesspkthundertrail_ItemVars",
-    "SpawnItem",
+    "it_802AD590",
+    "it_802AD478",
+    "it_2725_Logic23_ShieldBounced",
+    "it_802AF940",
+    "positions[16]",
+    "angles[16]",
     "PAD_STACK",
-    "Fighter_Part",
-    "ItemKind",
-    "Vec3"
+    "SpawnItem",
+    "Item_80268B18",
+    "HSD_JObjSetScale",
+    "HSD_JObjSetRotationZ",
+    "owner cleanup",
+    "fighter-decomp Skill",
+    "item-decomp harness",
+    "Claude larger functions"
   ],
   "follow_up_queries": [
-    "Find remaining unmatched Ness yoyo item functions after PR 2284.",
-    "Search for `itnessyoyo` placeholders and compare with the item-decomp patterns used here.",
-    "Audit `itPKThunder_ItemVars` fields `xEF8`, `xEFC`, `xF00`, `xF04`, and `xF08` for future semantic naming once more context is available.",
-    "Look for `ft/` PRs after this one that build on the author's planned fighter-decomp skill.",
-    "Search for other item vars with repeated offset fields that could be converted into arrays like PK Thunder `positions[16]` and `angles[16]`.",
-    "Review Kirby copied-special item cleanup paths for consistency with the PK Flush Ness/Kirby switch pattern."
+    "Find later PRs that match Ness yoyo after PR 2284.",
+    "Search for reuse of `itPKThunder_ItemVars.positions` and `angles` in later PK Thunder cleanup or renaming PRs.",
+    "Check whether later reviews renamed `it_802AB58C`, `it_802AA8C0`, `it_802AF940`, or other address-style Ness item functions.",
+    "Look for later `fighter-decomp` Skill PRs or comments by lukechampine following this item-decomp batch.",
+    "Compare other character item PRs for the same SpawnItem initialization and owner cleanup patterns."
   ],
-  "confidence": 0.93
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

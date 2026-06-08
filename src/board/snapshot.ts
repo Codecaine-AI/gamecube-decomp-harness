@@ -1,18 +1,29 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { graphDbExists, knowledgeSourcesRoot, openKnowledgeGraph, rankFeatureForSourcePath, resourceGraphDbPath } from "../knowledge/index.js";
-import type { BoardMeasures, BoardSnapshot, TargetCandidate } from "../types/index.js";
-import { candidateFromReportFunction, finishabilityPriority, objdiffSourceMap } from "./candidates.js";
+import type { BoardMeasures, BoardRankBreakdown, BoardSnapshot, TargetCandidate } from "../types/index.js";
+import type { GraphRankFeature } from "../knowledge/index.js";
+import { candidateFromReportFunction, closenessPriority, closenessScore, objdiffSourceMap } from "./candidates.js";
 import { asArray, asObject, numberValue, stringValue, type JsonObject } from "./json.js";
+
+const HIGH_ACCURACY_BONUS_WEIGHT = 0.4;
+const ACCURACY_READINESS_READINESS_WEIGHT = 0.35;
+const ACCURACY_READINESS_INFORMATION_WEIGHT = 0.1;
+const MAX_ACCURACY_READINESS_BONUS = 18;
+const MAX_CLOSENESS_FALLBACK_SCORE = 3;
 
 function readJson(path: string): JsonObject {
   return JSON.parse(readFileSync(path, "utf8")) as JsonObject;
 }
 
-export function loadBoardSnapshot(repoRoot: string, limit: number): BoardSnapshot {
+export interface LoadBoardSnapshotOptions {
+  graphDbPath?: string;
+}
+
+export function loadBoardSnapshot(repoRoot: string, limit: number, options: LoadBoardSnapshotOptions = {}): BoardSnapshot {
   const reportPath = resolve(repoRoot, "build/GALE01/report.json");
   const objdiffPath = resolve(repoRoot, "objdiff.json");
-  if (!existsSync(reportPath) || !existsSync(objdiffPath)) return loadBoardSnapshotFromCodeGraphIndex(limit, reportPath, objdiffPath);
+  if (!existsSync(reportPath) || !existsSync(objdiffPath)) return loadBoardSnapshotFromCodeGraphIndex(limit, reportPath, objdiffPath, options);
 
   const report = readJson(reportPath);
   const objdiff = readJson(objdiffPath);
@@ -35,7 +46,7 @@ export function loadBoardSnapshot(repoRoot: string, limit: number): BoardSnapsho
     }
   }
 
-  applyGraphFeatures(candidates);
+  rankBoardCandidates(candidates, options.graphDbPath);
   candidates.sort((left, right) => right.priority - left.priority);
   const measures = asObject(report.measures) as BoardMeasures;
   return {
@@ -47,7 +58,12 @@ export function loadBoardSnapshot(repoRoot: string, limit: number): BoardSnapsho
   };
 }
 
-function loadBoardSnapshotFromCodeGraphIndex(limit: number, reportPath: string, objdiffPath: string): BoardSnapshot {
+function loadBoardSnapshotFromCodeGraphIndex(
+  limit: number,
+  reportPath: string,
+  objdiffPath: string,
+  options: LoadBoardSnapshotOptions = {},
+): BoardSnapshot {
   const functionsIndex = resolve(knowledgeSourcesRoot(), "code_graph/indexes/functions.jsonl");
   if (!existsSync(functionsIndex)) {
     const missing = [reportPath, objdiffPath, functionsIndex].filter((path) => !existsSync(path));
@@ -81,14 +97,14 @@ function loadBoardSnapshotFromCodeGraphIndex(limit: number, reportPath: string, 
       symbol,
       size,
       fuzzy,
-      priority: finishabilityPriority(size, fuzzy),
+      priority: closenessPriority(size, fuzzy),
       reason: `code_graph index finish candidate: ${size} bytes at ${fuzzy.toFixed(5)}% fuzzy, ${Math.max(0, 100 - fuzzy).toFixed(
         5,
       )}% gap to exact`,
     });
   }
 
-  applyGraphFeatures(candidates);
+  rankBoardCandidates(candidates, options.graphDbPath);
   candidates.sort((left, right) => right.priority - left.priority);
   const measures: BoardMeasures = {
     matched_functions_percent: percent(matchedFunctions, totalFunctions),
@@ -118,9 +134,12 @@ function percent(part: number, whole: number): number {
   return Number(((part / whole) * 100).toFixed(5));
 }
 
-function applyGraphFeatures(candidates: TargetCandidate[]): void {
-  const dbPath = resourceGraphDbPath();
-  if (!graphDbExists(dbPath) || candidates.length === 0) return;
+function rankBoardCandidates(candidates: TargetCandidate[], graphDbPath = resourceGraphDbPath()): void {
+  if (!graphDbExists(graphDbPath) || candidates.length === 0) {
+    for (const candidate of candidates) applyCandidateRank(candidate);
+    return;
+  }
+  const dbPath = graphDbPath;
   const store = openKnowledgeGraph(dbPath);
   try {
     for (let index = candidates.length - 1; index >= 0; index -= 1) {
@@ -134,12 +153,82 @@ function applyGraphFeatures(candidates: TargetCandidate[]): void {
         candidates.splice(index, 1);
         continue;
       }
-      if (feature.priority_bonus !== 0) {
-        candidate.priority += feature.priority_bonus;
-        candidate.reason = `${candidate.reason}; graph bonus ${feature.priority_bonus.toFixed(2)} (${feature.explanation.join(", ")})`;
-      }
+      applyCandidateRank(candidate, feature);
     }
   } finally {
     store.db.close();
   }
+}
+
+function applyCandidateRank(candidate: TargetCandidate, graph?: GraphRankFeature): void {
+  const rawCloseness = closenessPriority(candidate.size, candidate.fuzzy);
+  const localClosenessScore = closenessScore(candidate.size, candidate.fuzzy);
+  const graphScore = graph?.priority_bonus ?? 0;
+  const hasInformationSignals =
+    graph &&
+    (graphScore > 0 ||
+      (graph.information_gain_score ?? 0) > 0 ||
+      (graph.unlock_score ?? 0) > 0 ||
+      (graph.context_quality_score ?? 0) > 0 ||
+      (graph.completion_readiness_score ?? 0) > 0);
+  const highAccuracyBonus = graph && hasInformationSignals ? roundScore(localClosenessScore * HIGH_ACCURACY_BONUS_WEIGHT) : graph ? 0 : localClosenessScore;
+  const closenessFallbackScore = graph && !hasInformationSignals ? fallbackClosenessScore(candidate, rawCloseness) : 0;
+  const accuracyReadinessBonus = graph
+    ? roundScore(
+        Math.min(
+          MAX_ACCURACY_READINESS_BONUS,
+          (localClosenessScore / 30) *
+            ((graph.completion_readiness_score ?? 0) * ACCURACY_READINESS_READINESS_WEIGHT +
+              (graph.information_gain_score ?? 0) * ACCURACY_READINESS_INFORMATION_WEIGHT),
+        ),
+      )
+    : 0;
+  const rank: BoardRankBreakdown = {
+    raw_finishability_priority: roundScore(rawCloseness),
+    finishability_score: localClosenessScore,
+    closeness_score: localClosenessScore,
+    information_gain_score: graph?.information_gain_score ?? 0,
+    unlock_score: graph?.unlock_score ?? 0,
+    context_quality_score: graph?.context_quality_score ?? 0,
+    completion_readiness_score: graph?.completion_readiness_score ?? 0,
+    information_value_score: graph?.information_value_score ?? 0,
+    information_priority_score: graphScore,
+    high_accuracy_bonus: highAccuracyBonus,
+    accuracy_readiness_bonus: accuracyReadinessBonus,
+    closeness_fallback_score: closenessFallbackScore,
+    risk_penalty: graph?.risk_penalty ?? 0,
+    graph_score: graphScore,
+    total_priority: roundScore(graphScore + highAccuracyBonus + accuracyReadinessBonus + closenessFallbackScore),
+    explanation: graph ? [...graph.explanation, hasInformationSignals ? "information_signals=present" : "information_signals=absent"] : ["graph_db=unavailable"],
+  };
+  candidate.priority = rank.total_priority;
+  candidate.rank = rank;
+  candidate.reason = `${candidate.reason}; board rank ${rank.total_priority.toFixed(2)} = information priority ${rank.information_priority_score.toFixed(
+    2,
+  )} + high-accuracy bonus ${rank.high_accuracy_bonus.toFixed(2)} + accuracy/readiness bonus ${rank.accuracy_readiness_bonus.toFixed(
+    2,
+  )} + closeness fallback ${rank.closeness_fallback_score.toFixed(
+    2,
+  )}; signals: closeness ${rank.closeness_score.toFixed(2)}, information gain ${rank.information_gain_score.toFixed(
+    2,
+  )}, unlock ${rank.unlock_score.toFixed(2)}, readiness ${rank.completion_readiness_score.toFixed(
+    2,
+  )}, context ${rank.context_quality_score.toFixed(2)}, risk ${rank.risk_penalty.toFixed(2)}`;
+}
+
+function fallbackClosenessScore(candidate: TargetCandidate, rawCloseness: number): number {
+  const gap = Math.max(0, 100 - candidate.fuzzy);
+  const fuzzyComponent = Math.exp(-gap / 0.08);
+  const rawComponent = clamp((Math.log1p(Math.max(0, rawCloseness)) - 6) / 6);
+  const sizeComponent = clamp(Math.log1p(Math.max(0, candidate.size)) / Math.log1p(4096));
+  return roundScore(Math.min(MAX_CLOSENESS_FALLBACK_SCORE, 0.2 + fuzzyComponent * 1.8 + rawComponent * 0.7 + sizeComponent * 0.3));
+}
+
+function clamp(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+}
+
+function roundScore(value: number): number {
+  return Number(value.toFixed(4));
 }

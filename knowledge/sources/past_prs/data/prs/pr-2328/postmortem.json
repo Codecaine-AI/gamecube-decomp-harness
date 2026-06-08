@@ -11,7 +11,7 @@
     "merged_at": "2026-03-19T22:48:01Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large Samus grapple item decomp slice. The PR filled in many src/melee/it/items/itsamusgrapple.c functions, added typed Samus grapple item attributes and prototypes, corrected ItemLink-based item vars, and adjusted ftSamus data/motion var typing needed by the grapple logic. decomp.dev reported +3336 matched-code bytes, +16 matched-data bytes, 9 new matches, and 13 near-match improvements; the author explicitly noted many remaining near-matches and duplicated code.",
+  "summary": "Large Samus Grapple item decompilation pass. The PR replaced many placeholders in itsamusgrapple.c with typed implementations and near-matches, added/typed Samus grapple attribute and item-var structures, improved function prototypes in itsamusgrapple.h, and refined a few ftSamus data-attribute and motion-var fields. The author explicitly noted many near-matches and duplicated code, suggesting that better semantic organization of the grapple behavior would help resolve remaining matches. decomp.dev reported +3336 matched code bytes, +16 matched data bytes, 9 new full matches, and 13 substantial unmatched-item improvements.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -19,103 +19,82 @@
       "headers",
       "struct-typing",
       "item-logic",
-      "fighter-integration"
+      "fighter-item-integration",
+      "near-match-cleanup"
     ],
     "systems": [
       "item",
       "fighter",
       "Samus",
-      "Samus grapple",
-      "HSD/JObj",
-      "collision"
+      "Samus Grapple",
+      "collision",
+      "animation",
+      "baselib"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/it/items/itsamusgrapple.c",
-      "delta": "+1018/-30",
-      "role": "Main Samus grapple implementation work: many former placeholders became C functions and static inlines for link setup, animation, collision, chain movement, state updates, and fighter callbacks."
-    },
-    {
-      "path": "src/melee/it/itCharItems.h",
-      "delta": "+46/-2",
-      "role": "Changed itSamusGrapple_ItemVars x0/x4 from f32 to ItemLink* and added itSamusGrappleAttributes with floats plus HSD_Joint and animation pointer fields."
-    },
-    {
-      "path": "src/melee/it/items/itsamusgrapple.h",
-      "delta": "+24/-13",
-      "role": "Replaced many UNK_RET/UNK_PARAMS declarations with typed prototypes using ItemLink, Vec3, Fighter, bool, s32, and itSamusGrappleAttributes."
-    },
-    {
-      "path": "src/melee/ft/chara/ftSamus/types.h",
-      "delta": "+8/-3",
-      "role": "Typed ftSs_DatAttrs xA0/xB0 as s32 and xCC as f32, and added an unknown ftSamus_State7Vars motion var containing f32 x0."
-    }
+    "src/melee/it/items/itsamusgrapple.c",
+    "src/melee/it/items/itsamusgrapple.h",
+    "src/melee/it/itCharItems.h",
+    "src/melee/ft/chara/ftSamus/types.h"
   ],
   "what_changed": [
-    "Implemented or substantially decompiled many Samus grapple symbols in itsamusgrapple.c, including it_802B743C, fn_802B7E34, fn_802B805C, fn_802B8384, fn_802B8524, fn_802B8684, fn_802B8814, fn_802B895C, fn_802B8B54, fn_802B8D38, it_802B900C, it_802B91C4, it_802B9CE8, it_802B9FD4, it_802BA194, it_802BA2D8, it_802BA3BC, it_802BA5DC, it_802BA760, and it_802BACC4.",
-    "Added local helpers such as samus_grapple_fighter_compare, samus_grapple_init_link, samus_grapple_calc_grav, samus_grapple_setup_pos, samus_grapple_anim, samus_grapple_state_sync, fn_802B7E34_inline, and fn_802B895C_inline.",
-    "Modeled the grapple as an ItemLink chain: x0/x4 in itSamusGrapple_ItemVars are now ItemLink* instead of f32, and existing code was corrected from xDD4_itemVar.linkhookshot.x0 to xDD4_itemVar.samusgrapple.x0 in Samus grapple paths.",
-    "Added itSamusGrappleAttributes, covering offsets +00 through +A0 with many f32 parameters, one s32 at +34, HSD_Joint* model assets, and HSD_AnimJoint/HSD_MatAnimJoint/HSD_ShapeAnimJoint pointer tables.",
-    "Typed public prototypes in itsamusgrapple.h for collision/check functions and chain update helpers, replacing unknown signatures with ItemLink*, Vec3*, itSamusGrappleAttributes*, Fighter*, f32, bool, and s32 return types.",
-    "Implemented HSD object and animation setup in it_802B743C using HSD_JObjLoadJoint, HSD_GObjObject_80390A70, GObj_SetupGXLink, HSD_JObjAddAnimAll, and HSD_JObjReqAnimAll with null-guarded animation pointer loads.",
-    "Implemented tether/chain physics helpers that update positions, velocities, distance constraints, collision data, retraction, floor/wall reflection, and random gravity-like perturbation using ItemLink prev/next traversal.",
-    "Integrated Samus grapple item behavior with fighter state through callbacks and checks involving motion_id values, held inputs, ground_or_air, ftCommon, ftCo, ftCliffCommon, ftColl, effects, and fp->fv.ss.x223C.",
-    "decomp.dev reported 9 new matches: it_802B9CE8, it_802BACC4, it_802B743C, it_802B900C, it_802B91C4, fn_802B8524, fn_802B8814, it_802BA2D8, and .sdata.",
-    "decomp.dev also reported 13 improved but still unmatched items, including fn_802B805C, fn_802B8D38, it_802BA3BC, fn_802B7E34, it_802BA760, fn_802B895C, fn_802B8B54, it_802B9FD4, fn_802B8384, it_802BA5DC, fn_802B8684, it_802BA194, and .sdata2."
+    "Implemented a large amount of src/melee/it/items/itsamusgrapple.c, adding typed code for grapple setup, animation/state sync helpers, motion physics callbacks, collision/retraction helpers, and item/fighter interaction routines.",
+    "Added itSamusGrappleAttributes in itCharItems.h with many float tuning fields plus HSD_Joint, HSD_AnimJoint, HSD_MatAnimJoint, and HSD_ShapeAnimJoint pointer fields used by grapple article setup.",
+    "Corrected itSamusGrapple_ItemVars fields x0 and x4 from f32 to ItemLink* and used the samusgrapple item-var union member where the old code had referenced linkhookshot.x0.",
+    "Replaced many UNK_RET/UNK_PARAMS prototypes in itsamusgrapple.h with typed signatures using ItemLink*, Vec3*, itSamusGrappleAttributes*, Fighter*, Fighter_GObj*, HSD_GObj*, Item*, s32, bool, and f32.",
+    "Typed ftSamus data attributes at offsets xA0 and xB0 as s32 and xCC as f32, and added a new ftSamus_State7Vars motion-var union member with a TODO for the proper state name.",
+    "Added many dependencies needed by the reconstructed code, including ftCommon, ftCo_AirCatch, ftCo_CliffJump, ftCo_DamageFall, ft_081B, ftcliffcommon, mpcoll, mplib, lbvector, baselib/jobj, baselib/random, and efsync.",
+    "decomp.dev reported full matches for it_802B9CE8, it_802BACC4, it_802B743C, it_802B900C, it_802B91C4, fn_802B8524, fn_802B8814, it_802BA2D8, and .sdata.",
+    "decomp.dev reported major near-match improvements for fn_802B805C, fn_802B8D38, it_802BA3BC, fn_802B7E34, it_802BA760, fn_802B895C, fn_802B8B54, it_802B9FD4, fn_802B8384, it_802BA5DC, fn_802B8684, it_802BA194, and .sdata2."
   ],
   "smart_moves": [
-    "The PR first improved structure knowledge: changing Samus grapple item vars to ItemLink* and defining itSamusGrappleAttributes gave the implementation type information needed for meaningful pointer traversal and header prototypes.",
-    "It preserved unknown semantic names where evidence was weak: fields stayed as xNN and the new ftSamus_State7Vars member was explicitly marked with a TODO for a proper state name instead of inventing terminology.",
-    "Repeated low-level behavior was factored into static inline helpers for motion checks, JObj matrix-to-position setup, animation traversal, input state sync, and collision/path checks, matching the author's note that the file has duplicated code.",
-    "The implementation kept HSD/JObj asset setup data-driven through the special attributes table, with separate joint and anim/matanim/shapeanim pointer slots selected by type.",
-    "The chain simulation consistently used ItemLink prev/next traversal plus shared distance helpers, making the articulated tether behavior readable even while many symbols remain address-named.",
-    "Header signatures were upgraded from unknown prototypes to typed prototypes, which makes later decomp work safer and gives reviewers concrete ABI expectations."
+    "Typed the Samus grapple item vars as ItemLink* before building out logic around linked grapple segments, making the later code much more expressive than raw f32/UNK usage.",
+    "Introduced a dedicated itSamusGrappleAttributes struct so article special attributes could be accessed consistently for physics constants, joint resources, and animation-resource arrays.",
+    "Factored repeated matching-sensitive behavior into static inline helpers such as samus_grapple_fighter_compare, samus_grapple_setup_pos, samus_grapple_anim, samus_grapple_state_sync, samus_grapple_init_link, and samus_grapple_calc_grav.",
+    "Kept local helper names semantic where possible while retaining address-based names for still-unknown functions, preserving searchability and decomp continuity.",
+    "Used exact-looking prototype recovery in the public header rather than leaving UNK_RET/UNK_PARAMS, which enables downstream work to call and reason about these routines safely.",
+    "Recognized repeated animation-loading patterns for the three grapple article types in it_802B743C and mapped the corresponding joint/anim/matanim/shapeanim attribute fields.",
+    "Preserved matching tactics such as explicit NULL branches, temporary scopes, stack padding, and local-variable layout hints where needed for near-matches."
   ],
   "decomp_lessons": [
-    "Do not assume similar character items share the same itemVar union member: this PR corrected Samus grapple paths from linkhookshot to samusgrapple and typed x0/x4 as ItemLink*.",
-    "For character tether items, define the special-attributes struct early; HSD_Joint and animation pointer table offsets are essential for matching constructors and animation setup.",
-    "Typed ftSamus dat attributes can be inferred from use sites: this PR changed xA0/xB0 to s32 for comparisons, xCC to f32 for a fighter action call, and added an f32 motion var used by grapple timing logic.",
-    "Near-matches in large item systems may require semantic cleanup beyond line-by-line translation; the PR body explicitly says semantic understanding may help organize duplicated code and resolve matches.",
-    "Static inline wrappers and explicit local stack padding are useful but can leave near-matches; keep helpers small and verify whether the compiler emits an inline body or a call.",
-    "When real names are not known, keep address-based symbols and xNN fields but improve types and prototypes; this still unlocks matches and future readability."
+    "For highly duplicated item code, semantic helper extraction can improve both readability and matching work, but the PR author warned that remaining near-matches likely need deeper behavioral understanding rather than mechanical rewriting alone.",
+    "Typing item-specific xDD4 item vars early pays off: once x0/x4 were ItemLink* rather than generic/floating fields, linked-chain traversal, animation, collision, and cleanup logic became much clearer.",
+    "Article special-attribute structs often mix physics constants and resource pointers; recovering the resource-pointer tail can unlock HSD_JObjLoadJoint and HSD_JObjAddAnimAll setup code.",
+    "When an item is a fighter accessory, matching work must coordinate item state, Fighter motion IDs, fighter callbacks, collision checks, cliff/common transitions, and effect spawns.",
+    "Header prototype cleanup is not just cosmetic: replacing UNK signatures with Vec3, ItemLink, Fighter, and attribute pointers documents call contracts and reduces future reverse-engineering ambiguity.",
+    "Do not over-name unknown fighter motion vars prematurely; this PR used an explicit TODO for the newly added ftSamus_State7Vars because the proper state name was not yet known.",
+    "Address-based names remain acceptable for unmatched or not-yet-understood code, especially when combined with small semantic helper names around repeated behavior."
   ],
   "naming_conventions": [
-    "New semantic type names followed existing item style: itSamusGrapple_ItemVars and itSamusGrappleAttributes.",
-    "Unresolved functions retained address-based names such as it_802B900C, it_802BA760, and fn_802B7E34.",
-    "Local helper names used lowercase samus_grapple_* for file-private behavior, such as samus_grapple_setup_pos and samus_grapple_state_sync.",
-    "Unknown struct fields remained offset-based xNN names, and the unknown Samus motion var stayed unk7 with a TODO for a proper state name.",
-    "Existing callback names like itSamusgrapple_UnkMotionN_Phys were preserved rather than renamed without evidence.",
-    "itsamusgrapple.h kept address comments next to declarations while upgrading the C types."
+    "Item-specific struct names use the existing pattern itSamusGrapple_ItemVars and itSamusGrappleAttributes.",
+    "Local semantic helpers use snake_case with a samus_grapple_ prefix, e.g. samus_grapple_anim and samus_grapple_state_sync.",
+    "Unresolved functions retain address-style names such as it_802B900C, it_802BA3BC, and fn_802B895C.",
+    "Motion callback wrappers keep existing names such as itSamusgrapple_UnkMotionN_Phys, indicating the motion/state semantics were not fully named.",
+    "Unknown struct fields remain offset-style xNN names, but recovered types were applied where evidence existed, such as ItemLink*, s32, and f32.",
+    "The new ftSamus_State7Vars union member is deliberately named unk7 with a TODO for a proper state name."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK and explicit u8 _pad arrays around Vec3 and Mtx locals to influence stack layout for matching.",
-    "Used static inline helpers for code that appears repeatedly, while fn_802B7E34 still contains an explicit animation block and a commented-out samus_grapple_anim call, suggesting call-vs-inline shape mattered there.",
-    "Wrote vector updates field-by-field and sometimes used pointer aliases such as dir_ptr, which is a common tactic for matching register allocation and emitted instruction order.",
-    "Kept explicit null checks before dereferencing animation pointer tables in it_802B743C, matching the control-flow shape for anim, matanim, and shapeanim selection.",
-    "Separated similar chain-update helpers it_802B900C and it_802B91C4 even though they are duplicated, preserving behavioral/codegen differences such as random gravity adjustment versus attrs->x44 gravity.",
-    "Converted unknown prototypes to exact bool/s32/void return types where branch usage made the ABI clear."
+    "Used PAD_STACK and explicit u8 padding locals to influence stack layout for near-matches.",
+    "Used static inline helpers to share repeated code while still allowing compiler inlining behavior needed for matching.",
+    "Preserved explicit if/else NULL assignments before HSD_JObjAddAnimAll rather than collapsing to terser expressions, likely to maintain codegen shape.",
+    "Used temporary scopes and variable shadowing, such as reloading Item* ip inside fn_802B7E34, to match original register/stack behavior.",
+    "Used explicit float constants and motion-ID comparisons, including the helper that checks motion IDs 0x165, 0x166, 0xD4, and 0xD6.",
+    "Matched HSD matrix setup flow with PSMTXIdentity, HSD_JObjSetupMatrix, PSMTXConcat, HSD_JObjCopyMtx, flag writes, and HSD_JObjSetMtxDirty.",
+    "Collision helpers call mpColl_80041EE4, mpColl_SetECBSource_Fixed, mpCheckAllRemap, lbVector_Normalize, and lbVector_Mirror in ways that model grapple segment movement and reflection."
   ],
   "review_feedback": [
     "No human review comments were present in the slice.",
-    "The PR body says: lots of near-matches, lots of duplicated code, and semantic understanding would likely help organize the code and resolve matches.",
-    "decomp.dev bot reported matched code 59.07% (+0.09%, +3336 bytes) and matched data 37.69% (+16 bytes) for GALE01 from 02eef58 to d2e6663.",
-    "Bot feedback showed the work was valuable even though incomplete: 9 new matches and 13 improvements in still-unmatched items."
+    "The PR body/commentary says there are many near-matches and much duplicated code, and that semantic understanding of the grapple behavior would likely help organize the code and resolve more matches.",
+    "decomp.dev reported a positive matching result: matched code increased by 3336 bytes and matched data by 16 bytes, with 9 new matches and 13 improved unmatched items."
   ],
   "searchable_terms": [
-    "pr-2328",
     "itsamusgrapple",
-    "Samus grapple",
+    "Samus Grapple",
     "itSamusGrappleAttributes",
     "itSamusGrapple_ItemVars",
     "ItemLink",
-    "linkhookshot union correction",
-    "ftSs_DatAttrs",
-    "ftSamus_State7Vars",
-    "samus_grapple_setup_pos",
-    "samus_grapple_state_sync",
-    "samus_grapple_anim",
-    "samus_grapple_calc_grav",
+    "xDD4_itemVar.samusgrapple",
     "it_802B743C",
     "fn_802B7E34",
     "fn_802B805C",
@@ -136,19 +115,34 @@
     "it_802BA5DC",
     "it_802BA760",
     "it_802BACC4",
+    "samus_grapple_fighter_compare",
+    "samus_grapple_setup_pos",
+    "samus_grapple_anim",
+    "samus_grapple_state_sync",
+    "ftSamus_State7Vars",
+    "ftSs_DatAttrs",
     "HSD_JObjLoadJoint",
     "HSD_JObjAddAnimAll",
     "mpColl_80041EE4",
     "mpCheckAllRemap",
-    "PAD_STACK"
+    "lbVector_Mirror",
+    "near-matches",
+    "duplicated code"
   ],
   "follow_up_queries": [
-    "Search later PRs for semantic names for ftSamus_State7Vars unk7 and ftSs_DatAttrs xA0 xB0 xCC.",
-    "Search later PRs for it_802B9328 and it_802B99A0, which remained placeholders/typed prototypes in this slice.",
-    "Compare later itsamusgrapple.c changes against this PR to see which near-matches from decomp.dev were resolved.",
-    "Look for follow-up cleanup of duplicated chain traversal code in it_802B900C, it_802B91C4, it_802BA194, it_802BA3BC, and it_802BA5DC.",
-    "Search ItemLink x2C_b0 x2C_b1 x2C_b2 naming work across hookshot/grapple items.",
-    "Check whether later PRs replace raw motion_id constants 0x165, 0x166, 0xD4, and 0xD6 with named FtMotionId constants."
+    "Look for later PRs that rename ftSamus_State7Vars or itSamusgrapple_UnkMotionN_Phys to semantic state names.",
+    "Search subsequent itsamusgrapple.c changes for resolution of the near-matches listed by decomp.dev in PR #2328.",
+    "Compare this Samus grapple implementation with itlinkhookshot for reusable ItemLink chain, collision, and animation patterns.",
+    "Audit uses of xDD4_itemVar.linkhookshot versus xDD4_itemVar.samusgrapple to avoid union-member copy/paste mistakes.",
+    "Investigate the meaning of itSamusGrappleAttributes fields x0 through xA0 using article data and behavior-specific constants."
   ],
-  "confidence": 0.88
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,169 +11,151 @@
     "merged_at": "2026-03-27T14:59:15Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large mncount decompilation pass for the Data / Records / Misc Records menu. The PR replaced much of the remaining placeholder/unmatched mncount code with typed C, semantic row/stat names, menu text creation, scrolling input handling, arrow indicator updates, and setup/init/free logic. It also renamed related gmMainLib/gm/textlib symbols and updated call sites. decomp.dev reported +1724 matched code bytes, +16 matched data bytes, 4 new matches, and many mncount functions improved into the 91-99% range.",
+  "summary": "Large mncount decompilation pass for the Data / Melee Records / Misc Records menu. The PR replaced many placeholder or address-based mnCount functions with typed implementations, row enums, menu userdata fields, SIS text creation, scrolling/input handling, arrow indicator updates, and named stat getter helpers. It also propagated better names for related gmMainLib stats getters, gm play-time/match-total helpers, power count/time helpers, and un_GetTrophyTotal across callers. The decomp.dev bot reported +1724 matched code bytes and +16 matched data bytes, with new full matches for mnCount_HandleUserInput, mnCount_8025072C, mncount .bss, and mnCount_8025035C, plus near-complete improvements for several remaining mncount functions.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "mncount implementation",
-      "symbol-renames",
       "headers",
-      "records-menu",
-      "persistent-stats"
+      "symbol-renaming",
+      "menu-records",
+      "userdata-structuring"
     ],
     "systems": [
-      "mn/menu-records",
-      "gm/persistent-record-stats",
-      "if/textlib",
-      "ty/trophy",
-      "lb/cardgame",
-      "config/GALE01"
+      "mncount",
+      "menu",
+      "records",
+      "game-mode",
+      "gmMainLib",
+      "trophy",
+      "text/SIS"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/mn/mncount.c",
-      "role": "Main decomp target; added typed includes, static data, row helpers, stat getters, row value selection, text row creation, input handling, arrow updates, user-data init, and menu creation."
-    },
-    {
-      "path": "src/melee/mn/mncount.h",
-      "role": "Expanded MnCountData, added MNCOUNT_VISIBLE_ROWS, GET_MNCOUNT, mnCount_row enum, and typed prototypes for newly matched/renamed mncount functions."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Renamed many address-based symbols to semantic names for mncount, gmMainLib stat accessors, gm aggregate stat functions, and un_GetTrophyTotal."
-    },
-    {
-      "path": "src/melee/gm/gmmain_lib.c",
-      "role": "Renamed persistent-record pointer accessors such as gmMainLib_GetVsPlayTime, gmMainLib_GetPowerCount, gmMainLib_GetTotalDamage, gmMainLib_GetKOTotal."
-    },
-    {
-      "path": "src/melee/gm/gm_1601.c",
-      "role": "Renamed and updated aggregate stat helpers including gm_GetVsPlayMatchTotal, gm_GetPlayTime, and gm_IncrementPowerCount."
-    },
-    {
-      "path": "src/melee/gm/gm_16F1.c",
-      "role": "Updated unlock/check logic to use semantic names gm_GetVsPlayMatchTotal and un_GetTrophyTotal."
-    },
-    {
-      "path": "src/melee/if/textlib.c",
-      "role": "Renamed un_80304870 to un_GetTrophyTotal."
-    },
-    {
-      "path": "src/melee/mn/mnmain.c",
-      "role": "Updated Records Misc menu entry point from mnCount_8025186C to mnCount_Create."
-    }
+    "src/melee/mn/mncount.c",
+    "src/melee/mn/mncount.h",
+    "config/GALE01/symbols.txt",
+    "src/melee/gm/gm_1601.c",
+    "src/melee/gm/gm_1601.h",
+    "src/melee/gm/gm_16F1.c",
+    "src/melee/gm/gmmain_lib.c",
+    "src/melee/gm/gmmain_lib.h",
+    "src/melee/mn/mnmain.c",
+    "src/melee/ty/tydisplay.c",
+    "src/melee/ty/tylist.c",
+    "src/melee/lb/lbcardgame.c"
   ],
   "what_changed": [
-    "Replaced old local opaque fighter data access in mncount with typed persistent fields from GetPersistentFighterData, including play_time, sd_count, victories, losses, damage_dealt, and damage_taken.",
-    "Added semantic mncount getter functions for record rows: mnCount_GetMatchTime, mnCount_GetKOKingpin, mnCount_GetNoDefenseNelly, mnCount_GetDisasterMaster, mnCount_GetSmashChamp, mnCount_GetSmashSap, mnCount_GetSlugMeister, and mnCount_GetPunchingBag.",
-    "Implemented/rerouted row selection logic through mnCount_GetRowValue_Character and mnCount_GetRowValue_Number, covering rows such as POWER_COUNT, PLAY_TIME, VS_PLAY_MATCH_TOTAL, TROPHY_TOTAL, NAME_TOTAL, LONGEST_TIME, SMASH_CHAMP, and DISASTER_MASTER.",
-    "Implemented mnCount_CreateRow to create/free HSD_Text labels and values, choose time/character/number formatting, use mnCount_sis_idx text IDs, and display '-' for unavailable/tied character rows.",
-    "Implemented mnCount_HandleUserInput for Records Misc navigation: back returns to records, up/down changes scroll_pos, and rows are regenerated after scrolling.",
-    "Renamed mnCount_802513F4 to mnCount_UpdateArrowIndicators and implemented visibility of up/down arrows based on scroll_pos and MAX_SCROLL.",
-    "Renamed mnCount_802517E0 to mnCount_InitUserData and mnCount_8025186C to mnCount_Create; creation now loads MenMainConCo archive sections, creates GObjs/procs, allocates MnCountData, initializes text title, and installs input processing.",
-    "Expanded mncount.h with MnCountData.scroll_pos, expand_anim_duration, labels/values arrays, title, a GET_MNCOUNT macro, MNCOUNT_VISIBLE_ROWS, and the mnCount_row enum.",
-    "Renamed gmMainLib persistent stat accessors from address names to semantic names such as gmMainLib_GetVsPlayContestants, gmMainLib_GetVsPlayTime, gmMainLib_GetTimeMatchTotal, gmMainLib_GetStockMatchTotal, gmMainLib_GetCoinMatchTotal, gmMainLib_GetBonusMatchTotal, gmMainLib_GetSingleplayerTime, gmMainLib_GetPowerCount, gmMainLib_GetTotalDamage, gmMainLib_GetKOTotal, and gmMainLib_GetSelfDestructTotal.",
-    "Renamed gm_8016279C to gm_GetVsPlayMatchTotal, gm_80162A00 to gm_GetPlayTime, gm_80162B98 to gm_IncrementPowerCount, and un_80304870 to un_GetTrophyTotal, with call sites updated across gm, soundtest, textlib, lbcardgame, mnmain, trophy display/list code, and symbols.txt.",
-    "decomp.dev reported new full matches for mnCount_HandleUserInput, mnCount_8025072C, mncount .bss, and mnCount_8025035C; it also reported near-matches for mnCount_8025092C, mnCount_CreateRow, mnCount_GetRowValue_Number, fn_80251640, mnCount_Create, mnCount_GetRowValue_Character, and fn_802514D8."
+    "Implemented most of src/melee/mn/mncount.c, expanding it from small placeholder-style functions into typed menu logic for the records-count screen.",
+    "Added mnCount_row enum covering visible record rows such as POWER_COUNT, PLAY_TIME, VS_PLAY_MATCH_TOTAL, TROPHY_TOTAL, LONGEST_TIME, SMASH_CHAMP, KO_KINGPIN, NO_DEFENSE_NELLY, and DISASTER_MASTER.",
+    "Reworked MnCountData from cursor/page_size fields into scroll_pos, expand_anim_duration, labels[10], values[10], and title, with MNCOUNT_VISIBLE_ROWS set to 10.",
+    "Added row value helpers: mnCount_GetRowValue_Character, mnCount_GetRowValue_Number, mnCount_CreateRow, mnCount_HandleUserInput, mnCount_UpdateArrowIndicators, mnCount_InitUserData, and mnCount_Create.",
+    "Replaced local placeholder fighter-data offsets with named persistent fighter data fields such as play_time, sd_count, victories, losses, damage_dealt, and damage_taken.",
+    "Added getter wrappers for character-stat rows: mnCount_GetMatchTime, mnCount_GetKOKingpin, mnCount_GetNoDefenseNelly, mnCount_GetDisasterMaster, mnCount_GetSmashChamp, mnCount_GetSmashSap, mnCount_GetSlugMeister, and mnCount_GetPunchingBag.",
+    "Implemented rank/tie-resolution helpers around CountEntry arrays for record leader rows, including mnCount_8025035C, mnCount_8025072C, and mnCount_8025092C.",
+    "Created SIS text rows with HSD_SisLib_803A5ACC/HSD_SisLib_803A6754, row label IDs from mnCount_sis_idx, formatted time rows, numeric rows, and character-name rows.",
+    "Renamed address-style gmMainLib stat accessors to semantic names like gmMainLib_GetVsPlayTime, gmMainLib_GetTimeMatchTotal, gmMainLib_GetPowerCount, gmMainLib_GetTotalDamage, gmMainLib_GetKOTotal, and gmMainLib_GetSelfDestructTotal.",
+    "Renamed gm_8016279C to gm_GetVsPlayMatchTotal, gm_80162A00 to gm_GetPlayTime, gm_80162B98 to gm_IncrementPowerCount, and un_80304870 to un_GetTrophyTotal, updating cross-file callers.",
+    "Updated config/GALE01/symbols.txt to reflect the new semantic symbol names for gmMainLib, gm, mnCount, and trophy functions."
   ],
   "smart_moves": [
-    "The PR used semantic stat accessor names before wiring mncount row logic, making the record menu code read as game-stat logic instead of raw x1Axx field offsets.",
-    "Replacing LocalFighterData padding/unk fields with persistent fighter data field names made character-record rows much easier to audit and likely helped match small getter functions cleanly.",
-    "The mnCount_row enum documents the exact row order and labels for the Misc Records screen, which ties together SIS text IDs, scroll limits, and value computation.",
-    "Splitting value computation into character rows, time rows, and numeric rows kept mnCount_CreateRow simple enough to match while making the menu behavior understandable.",
-    "The implementation preserved match-sensitive structure with explicit inline helpers, noinline wrapper shims, and stack padding where needed instead of only pursuing source readability.",
-    "Updating symbols.txt and all dependent call sites in the same change avoided semantic names diverging from linker symbols."
+    "Introduced mnCount_row to make a table-like records menu understandable, replacing magic row numbers with meaningful row categories.",
+    "Centralized numeric row computation in mnCount_GetRowValue_Number and character row selection in mnCount_GetRowValue_Character, which makes menu rendering independent from stat lookup details.",
+    "Used small semantic getter functions for persistent fighter stats, letting generic ranking code accept function pointers without hard-coding each record type.",
+    "Preserved matching-sensitive behavior with explicit inline helpers and noinline wrappers, including mnCount_UpdateArrowIndicators_noinline and mnCount_InitUserData_noinline.",
+    "Kept GET_MNCOUNT conditional for M2C, suggesting compatibility with both normal typed GObj userdata access and m2c-generated casts.",
+    "Matched UI behavior by freeing/recreating HSD_Text objects for labels and values when rows update, rather than mutating all existing row text in place.",
+    "Applied saturation/clamping logic for displayable numeric values, with separate limits for time rows and non-time rows.",
+    "Propagated semantic renames across gm, ty, if, lb, and mn callers in the same PR so the symbol table, headers, and call sites stayed consistent."
   ],
   "decomp_lessons": [
-    "For records/stat menus, name the underlying persistent-stat accessors first; semantic accessors reveal what each menu row is supposed to display.",
-    "Typed save/persistent-data structs are high leverage: replacing manual padded local structs with real fields can unlock both matching and reviewability.",
-    "A row enum with comments is useful when UI code indexes labels, scroll positions, and switch statements by the same ordinal values.",
-    "When decompiling menu pages, model the full lifecycle: archive load, GObj creation, user-data allocation/init, proc installation, text creation/freeing, input polling, and exit cleanup.",
-    "Keep visible-row count and max-scroll constants explicit; here 30 total mnCount_row entries, 10 visible rows, and MAX_SCROLL 20 describe the Records Misc list behavior.",
-    "If a helper must inline or must not inline to match, capture that in source structure with static inline helpers or wrapper functions rather than hiding the tactic.",
-    "When evidence is weak for a function's purpose, leaving names like fn_802514D8 and fn_80251640 is safer than inventing semantics; this PR only renamed functions with clearer evidence."
+    "For menu-record screens, first identify the row taxonomy and encode it as an enum; it makes rendering, input, and stat lookup code much easier to match and review.",
+    "Replacing anonymous local offset structs with existing persistent-data structs can unlock both readability and matching, as seen with GetPersistentFighterData fields.",
+    "Generic ranking helpers can be matched cleanly with function pointers when each stat has a tiny named getter.",
+    "When decompiling HSD/SIS UI code, track object lifetime carefully: this PR frees labels/values/title text before recreating or leaving the screen.",
+    "Cross-module stat accessors should be renamed as soon as their target fields are understood; downstream menu and achievement code becomes self-documenting.",
+    "Semantic renames should be synchronized across symbols.txt, C definitions, headers, and all call sites to avoid stale address-style names.",
+    "Matching menu code may require intentional inlining/noinlining structure, not just logically equivalent C.",
+    "Documenting constants such as NUM_CHARACTERS, NUM_STAGES, MAX_SCROLL, and MNCOUNT_VISIBLE_ROWS reduces magic numbers and helps preserve array sizes."
   ],
   "naming_conventions": [
-    "mncount semantic functions use the module prefix plus Pascal-style verb/object names, e.g. mnCount_GetRowValue_Number, mnCount_CreateRow, mnCount_HandleUserInput, mnCount_UpdateArrowIndicators, mnCount_InitUserData, and mnCount_Create.",
-    "Record row enum constants use all-caps menu/stat labels such as POWER_COUNT, VS_PLAY_MATCH_TOTAL, SELFDESTRUCT_TOTAL, AVAILABLE_CHARACTERS, KO_KINGPIN, NO_DEFENSE_NELLY, and DISASTER_MASTER.",
-    "gmMainLib_Get* names identify pointer accessors into persistent global record data, e.g. gmMainLib_GetVsPlayTime and gmMainLib_GetKOTotal.",
-    "gm_Get* names identify higher-level aggregate values such as gm_GetVsPlayMatchTotal and gm_GetPlayTime; gm_IncrementPowerCount names a mutating helper.",
-    "un_GetTrophyTotal replaced the raw address name un_80304870 and was propagated to textlib, trophy display/list, and unlock-check call sites.",
-    "Address comments in headers were retained while prototypes were renamed, preserving decomp navigation between addresses and semantic symbols."
+    "mnCount_GetX is used for stat getter helpers, for example mnCount_GetMatchTime, mnCount_GetSmashChamp, and mnCount_GetPunchingBag.",
+    "mnCount_GetRowValue_Character and mnCount_GetRowValue_Number distinguish rows that display a character result from rows that display a numeric result.",
+    "gmMainLib_GetX names are used for accessors that return pointers into gmMainLib persistent stats, such as gmMainLib_GetVsPlayContestants and gmMainLib_GetSingleplayerTime.",
+    "gm_GetX or gm_IncrementX names are used for higher-level game-mode aggregate operations, such as gm_GetVsPlayMatchTotal, gm_GetPlayTime, and gm_IncrementPowerCount.",
+    "un_GetTrophyTotal replaced un_80304870, using a semantic getter name for trophy collection count.",
+    "mnCount_row enum values are all-caps row labels matching displayed record concepts, such as POWER_TIME, AVAILABLE_CHARACTERS, NO_DEFENSE_NELLY, and DISASTER_MASTER.",
+    "The macro GET_MNCOUNT(gobj) standardizes typed access to MnCountData userdata."
   ],
   "assembly_or_matching_tactics": [
-    "mnCount_8025035C kept PAD_STACK(4), indicating stack layout remained match-sensitive even after semantic cleanup.",
-    "mnCount_UpdateArrowIndicators contains an explicit note that GET_JOBJ breaks the match, so it uses gobj->hsd_obj directly.",
-    "Static inline helpers were used for row classification, row refresh, text freeing, title creation, and zero-play-time checks, matching likely inlined code shapes.",
-    "Noinline wrapper functions such as mnCount_UpdateArrowIndicators_noinline and mnCount_InitUserData_noinline were introduced to force call boundaries where needed.",
-    "The code uses small macros GET_KOS and GET_FALLS around tie-breaker logic in mnCount_8025072C, keeping repeated getter expressions consistent.",
-    "Static globals such as model_desc, menu_gobj, menu_jobj, and mnCount_sis_idx contributed to data/BSS progress; the bot reported mncount .bss became 100% matched."
+    "Used static inline helpers for row classification and repeated UI operations: inline_is_row_time, inline_is_row_char, inline_update_entries, and inline_free_text.",
+    "Added explicit noinline wrapper functions around otherwise simple calls to influence codegen and matching: mnCount_UpdateArrowIndicators_noinline and mnCount_InitUserData_noinline.",
+    "Left matching-sensitive comments such as 'GET_JOBJ breaks this' near direct gobj->hsd_obj access in mnCount_UpdateArrowIndicators.",
+    "Kept stack-control artifacts such as PAD_STACK in nearby matched ranking code, indicating attention to stack layout.",
+    "Used macros GET_KOS and GET_FALLS locally inside mnCount_8025072C to express repeated stat lookups while preserving compact generated code.",
+    "Preserved HSD object/proc setup order in mnCount_Create and fn_80251640: load archive sections, create GObj, allocate userdata, initialize userdata, setup procs, create title text, then create input GObj.",
+    "Used explicit constants and unsigned clamping for time/numeric display bounds, likely reflecting original overflow/saturation behavior."
   ],
   "review_feedback": [
-    "No human PR body, reviews, or inline review comments were present in the slice.",
-    "decomp.dev bot reported GALE01 matched code increased to 60.62% with +0.04% / +1724 bytes and matched data increased by +16 bytes.",
-    "decomp.dev bot listed 4 new full matches: mnCount_HandleUserInput, mnCount_8025072C, mncount .bss, and mnCount_8025035C.",
-    "decomp.dev bot listed 10 improved but not fully matched items, including mnCount_8025092C at 99.35%, mnCount_CreateRow at 96.51%, mnCount_GetRowValue_Number at 95.47%, fn_80251640 at 96.30%, mnCount_Create at 91.24%, mnCount_GetRowValue_Character at 99.33%, and fn_802514D8 at 96.27%."
+    "No human review comments were present in the provided slice.",
+    "decomp.dev bot reported matched code increased to 60.62% (+0.04%, +1724 bytes) and matched data to 37.72% (+16 bytes).",
+    "Bot-reported new full matches: mnCount_HandleUserInput, mnCount_8025072C, mncount .bss, and mnCount_8025035C.",
+    "Bot-reported near-complete improvements included mnCount_8025092C at 99.35%, mnCount_CreateRow at 96.51%, mnCount_GetRowValue_Number at 95.47%, fn_80251640 at 96.30%, mnCount_Create at 91.24%, and mnCount_GetRowValue_Character at 99.33%."
   ],
   "searchable_terms": [
-    "pr-2360",
-    "match most of mncount",
+    "PR2360",
     "mncount",
-    "mnCount_row",
-    "MNCOUNT_VISIBLE_ROWS",
-    "MAX_SCROLL",
-    "mnCount_sis_idx",
-    "mnCount_GetMatchTime",
-    "mnCount_GetKOKingpin",
-    "mnCount_GetNoDefenseNelly",
-    "mnCount_GetDisasterMaster",
-    "mnCount_GetSmashChamp",
-    "mnCount_GetSmashSap",
-    "mnCount_GetSlugMeister",
-    "mnCount_GetPunchingBag",
-    "mnCount_8025035C",
-    "mnCount_8025072C",
-    "mnCount_8025092C",
-    "mnCount_GetRowValue_Character",
-    "mnCount_GetRowValue_Number",
-    "mnCount_CreateRow",
+    "match most of mncount",
     "mnCount_HandleUserInput",
+    "mnCount_CreateRow",
+    "mnCount_GetRowValue_Number",
+    "mnCount_GetRowValue_Character",
     "mnCount_UpdateArrowIndicators",
     "mnCount_InitUserData",
     "mnCount_Create",
+    "mnCount_8025035C",
+    "mnCount_8025072C",
+    "mnCount_8025092C",
+    "mnCount_row",
+    "MNCOUNT_VISIBLE_ROWS",
     "GET_MNCOUNT",
-    "GET_JOBJ breaks this",
-    "gmMainLib_GetVsPlayContestants",
+    "POWER_COUNT",
+    "PLAY_TIME",
+    "VS_PLAY_MATCH_TOTAL",
+    "TROPHY_TOTAL",
+    "SMASH_CHAMP",
+    "SMASH_SAP",
+    "SLUG_MEISTER",
+    "PUNCHING_BAG",
+    "KO_KINGPIN",
+    "NO_DEFENSE_NELLY",
+    "DISASTER_MASTER",
     "gmMainLib_GetVsPlayTime",
     "gmMainLib_GetCombinedVSPlayTime",
-    "gmMainLib_GetTimeMatchTotal",
-    "gmMainLib_GetStockMatchTotal",
-    "gmMainLib_GetCoinMatchTotal",
-    "gmMainLib_GetBonusMatchTotal",
-    "gmMainLib_GetSingleplayerTime",
     "gmMainLib_GetPowerCount",
     "gm_GetPowerTime",
-    "gmMainLib_GetTotalDamage",
-    "gmMainLib_GetKOTotal",
-    "gmMainLib_GetSelfDestructTotal",
     "gm_GetVsPlayMatchTotal",
     "gm_GetPlayTime",
     "gm_IncrementPowerCount",
     "un_GetTrophyTotal",
+    "HSD_SisLib",
     "Records Misc",
-    "Data Records Misc Records",
-    "MenMainConCo_Top_joint"
+    "Melee Records"
   ],
   "follow_up_queries": [
-    "mnCount_8025092C remaining mismatch 99.35 tie breaker sort ranking",
-    "mnCount_CreateRow remaining mismatch HSD_SisLib text formatting time rows",
-    "mnCount_GetRowValue_Number remaining mismatch stat clamps 3599999940 999999999",
-    "fn_802514D8 fn_80251640 mncount remaining menu lifecycle matches",
-    "mncount .data only 3.12% mnCount_sis_idx StaticModelDesc",
-    "gmMainLib_8015CD5C remaining unnamed persistent record stat",
-    "GET_JOBJ breaks this mnCount_UpdateArrowIndicators matching"
+    "Check later PRs that finish the remaining near-matches in mnCount_Create, fn_802514D8, fn_80251640, mnCount_CreateRow, and mnCount_GetRowValue_Number.",
+    "Search for follow-up renames of remaining address-style mnCount functions fn_802514B8, fn_802514D8, fn_80251640, mnCount_8025035C, and mnCount_8025092C.",
+    "Look for subsequent cleanup of placeholder.h includes or replacement with narrower headers in mncount.c.",
+    "Search for further typing of gmMainLib_804D3EE0->thing fields around x1A18 through x1A60.",
+    "Compare later mncount matching work for additional noinline/inline tactics around HSD text creation and arrow indicator updates."
   ],
-  "confidence": 0.88
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

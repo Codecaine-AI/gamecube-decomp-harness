@@ -1,0 +1,137 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2612",
+  "pr": {
+    "number": 2612,
+    "title": "itdosei: Remove unnecessary stack pad, remove unnecessary const, cleanup function names and add GET_* usage",
+    "url": "https://github.com/doldecomp/melee/pull/2612",
+    "state": "MERGED",
+    "author": "PsiLupan",
+    "created_at": "2026-06-08T05:22:19Z",
+    "merged_at": "2026-06-08T05:28:43Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Cleanup-focused itDosei PR that renamed several remaining generic it_3F14, it_8028xxxx, and fn_8028xxxx symbols to the item-specific itDosei_* namespace, updated the Dosei item logic table and symbols.txt accordingly, removed an unnecessary const zero float, removed at least one unnecessary stack pad, and replaced direct gobj field access with GET_ITEM/GET_JOBJ where matching allowed. The changes improve symbol clarity and item-local naming consistency without evidence of behavioral changes.",
+  "change_classification": {
+    "primary_type": "cleanup",
+    "categories": [
+      "cleanup",
+      "decomp-matching",
+      "headers",
+      "naming",
+      "symbol-map-maintenance",
+      "macro-usage"
+    ],
+    "systems": [
+      "item",
+      "config"
+    ]
+  },
+  "key_files": [
+    "src/melee/it/items/itdosei.c",
+    "src/melee/it/items/itdosei.h",
+    "src/melee/it/it_3F14.c",
+    "config/GALE01/symbols.txt"
+  ],
+  "what_changed": [
+    "Renamed Dosei logic callbacks from the generic it_3F14_Logic7_* namespace to item-specific names such as itDosei_Logic7_Spawned, itDosei_Logic7_PickedUp, itDosei_Logic7_Dropped, itDosei_Logic7_Thrown, itDosei_Logic7_EnteredAir, itDosei_Logic7_DmgReceived, and itDosei_Logic7_DmgDealt.",
+    "Renamed generic helper symbols such as fn_80281390, fn_80281734, fn_80282CD4, it_802817A0, it_80281C6C, it_80282074, it_80282BFC, and it_80282DE4 to itDosei_80281390, itDosei_80281734, itDosei_80282CD4, itDosei_802817A0, itDosei_80281C6C, itDosei_80282074, itDosei_80282BFC, and itDosei_80282DE4.",
+    "Updated the Dosei entry in src/melee/it/it_3F14.c's item logic table to use the new itDosei_Logic7_* callback names.",
+    "Updated config/GALE01/symbols.txt so the linker/symbol map names match the renamed C functions at the same addresses.",
+    "Updated src/melee/it/items/itdosei.h declarations to match the renamed functions.",
+    "Removed the file-scope const f32 it_804DC878 = 0.0f and replaced its uses in itDosei_FacingAngle calls with the literal 0.0f.",
+    "Replaced several direct accesses like gobj->user_data and gobj->hsd_obj with GET_ITEM(gobj) and GET_JOBJ(gobj), where shown in the diff.",
+    "Simplified some decomp-shaping code, including removing an unnecessary PAD_STACK(8) in itDosei_Logic7_Spawned and collapsing an artificial scoped int not_msid_4 temporary into a direct if (ip->msid != 4) check."
+  ],
+  "smart_moves": [
+    "Kept symbols.txt, the public header, implementation names, and the it_3F14 item logic table synchronized, avoiding stale symbol references after renaming.",
+    "Used the item-specific itDosei_* prefix for previously generic addresses, making call sites and callback tables easier to search by item.",
+    "Removed a dedicated const-zero sdata symbol once it was not needed for matching, reducing artificial decomp artifacts while preserving the same call argument value.",
+    "Applied GET_ITEM and GET_JOBJ macros in places that still matched, aligning the file with common project style and making object access more explicit.",
+    "Cleaned matching scaffolding incrementally rather than changing behavior: callback wiring, function bodies, and collision/animation flow appear preserved while names and minor expression forms were improved."
+  ],
+  "decomp_lessons": [
+    "When a generic item-bank symbol is confidently tied to a concrete item, rename it across the C file, header, logic table, and symbols.txt in the same PR.",
+    "A temporary sdata const such as a standalone 0.0f can sometimes be replaced by a literal once matching no longer requires preserving the symbol.",
+    "GET_ITEM(gobj) and GET_JOBJ(gobj) are preferred readability/style macros when they do not disturb the match.",
+    "Artificial locals and scopes introduced for matching, such as a one-use boolean/int temporary around an if condition, should be removed once a cleaner expression still matches.",
+    "Unnecessary PAD_STACK calls should be revisited during cleanup; some stack pads may be historical matching aids that are no longer required.",
+    "Function-pointer callback sites are high-value rename targets because table entries document an item's lifecycle behavior and make item logic easier to navigate."
+  ],
+  "naming_conventions": [
+    "Use the concrete item prefix itDosei_ for Dosei item functions instead of generic it_3F14_, it_8028xxxx, or fn_8028xxxx names when the function ownership is known.",
+    "Lifecycle callback names follow the pattern itDosei_Logic7_<Event>, with events shown in this PR including Spawned, PickedUp, Dropped, Thrown, EnteredAir, DmgReceived, DmgDealt, Reflected, Clanked, and HitShield.",
+    "Unidentified motion callbacks retain the existing itDosei_UnkMotionN_{Anim,Phys,Coll} pattern.",
+    "Address-suffixed names such as itDosei_802817A0 remain acceptable for item-owned functions whose semantic name is not yet known.",
+    "Header prototypes and symbols.txt entries should mirror implementation names exactly after a rename."
+  ],
+  "assembly_or_matching_tactics": [
+    "Removed an unnecessary PAD_STACK(8) in itDosei_Logic7_Spawned while preserving the function's behavior.",
+    "Removed the const f32 zero symbol it_804DC878 and used literal 0.0f at itDosei_FacingAngle call sites, indicating the literal form matched or was otherwise no longer an obstacle.",
+    "Converted some direct field reads to GET_ITEM/GET_JOBJ macros without changing generated behavior in the shown diff.",
+    "Simplified rotation reset code by removing an extra artificial block around HSD_JObjSetRotationX/Y/ZWithMtxDirty calls.",
+    "Collapsed a temporary not_msid_4 variable into a direct ip->msid != 4 conditional, a common cleanup once the compiler output remains compatible."
+  ],
+  "review_feedback": [
+    "No review comments were present in the provided PR slice.",
+    "The PR had one issue comment according to counts, but no human text excerpt was provided, so no specific reviewer guidance can be extracted."
+  ],
+  "searchable_terms": [
+    "pr-2612",
+    "PsiLupan",
+    "itdosei-cleanup",
+    "itDosei",
+    "Dosei",
+    "it_3F14",
+    "it_3F14_Logic7_Spawned",
+    "itDosei_Logic7_Spawned",
+    "itDosei_Logic7_PickedUp",
+    "itDosei_Logic7_Dropped",
+    "itDosei_Logic7_Thrown",
+    "itDosei_Logic7_EnteredAir",
+    "itDosei_Logic7_DmgReceived",
+    "itDosei_Logic7_DmgDealt",
+    "fn_80281390",
+    "itDosei_80281390",
+    "fn_80281734",
+    "itDosei_80281734",
+    "it_802817A0",
+    "itDosei_802817A0",
+    "it_80281C6C",
+    "itDosei_80281C6C",
+    "it_80282074",
+    "itDosei_80282074",
+    "it_80282BFC",
+    "itDosei_80282BFC",
+    "fn_80282CD4",
+    "itDosei_80282CD4",
+    "it_80282DE4",
+    "itDosei_80282DE4",
+    "it_804DC878",
+    "PAD_STACK",
+    "GET_ITEM",
+    "GET_JOBJ",
+    "symbols.txt",
+    "itdosei.c",
+    "itdosei.h",
+    "ItemLogicTable",
+    "it_803F14C4",
+    "it_803F55D0"
+  ],
+  "follow_up_queries": [
+    "Find other item files with generic it_3F14_Logic* names that can be renamed to item-specific prefixes.",
+    "Search for remaining fn_8028xxxx symbols in item files that have clear item ownership.",
+    "Search for const f32 zero globals used only as 0.0f arguments and verify whether they can be removed without breaking the match.",
+    "Audit direct gobj->user_data and gobj->hsd_obj access in item code for safe GET_ITEM/GET_JOBJ macro cleanup.",
+    "Check remaining PAD_STACK calls in itdosei.c to distinguish required matching pads from removable artifacts."
+  ],
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

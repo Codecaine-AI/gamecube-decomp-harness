@@ -11,101 +11,120 @@
     "merged_at": "2026-04-28T18:56:45Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled and typed a substantial slice of the Kinoko Route ground module, replacing several grKinokoRoute target stubs with C, adding stage data/static data, and introducing stage-specific Ground gv structs. The decomp.dev bot reported +760 matched code bytes and +16 matched data bytes, including new 100% matches for grKinokoRoute_8020836C, .sdata, grKinokoRoute_8020754C, and grKinokoRoute_80208564, while larger route/camera callbacks improved but remained partial.",
+  "summary": "Decompiled and typed a large slice of the Kinoko Route ground/stage implementation. The PR replaced several grkinokoroute.c placeholder functions with C implementations, added the stage data object and local static data, introduced Kinoko Route-specific Ground union structs in gr/types.h, and updated the grKinokoRoute_8020836C prototype. The decomp.dev report shows 4 new matches, including grKinokoRoute_8020836C and .sdata, plus major partial-match improvements for camera/route functions such as grKinokoRoute_80207C88, grKinokoRoute_80207634, grKinokoRoute_802078F0, and grKinokoRoute_80207B5C.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "stage-data",
-      "ground-vars",
-      "partial-matching"
+      "ground-vars-typing",
+      "camera-control",
+      "material-collision-toggle"
     ],
     "systems": [
       "stage",
       "ground",
-      "grkinokoroute",
       "camera",
-      "collision-mp",
-      "items",
-      "zako-generator"
+      "item",
+      "material",
+      "collision",
+      "fighter-position"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grkinokoroute.c",
-      "role": "Main decomp work: added grNKr static data, StageData, and C implementations for multiple grKinokoRoute callbacks."
+      "role": "Main decompilation target; added Kinoko Route stage data, local static data, and C implementations for multiple route/camera/material functions."
     },
     {
       "path": "src/melee/gr/types.h",
-      "role": "Added grKinokoRoute_GroundVars, grKinokoRoute_GroundVars2, and union entries on Ground::gv."
+      "role": "Added grKinokoRoute_GroundVars, grKinokoRoute_GroundVars2, and their Ground union entries."
     },
     {
       "path": "src/melee/gr/grkinokoroute.h",
-      "role": "Replaced unknown prototype for grKinokoRoute_8020836C with void grKinokoRoute_8020836C(HSD_GObj*, s32)."
+      "role": "Replaced an unknown prototype for grKinokoRoute_8020836C with void grKinokoRoute_8020836C(HSD_GObj*, s32)."
     }
   ],
   "what_changed": [
-    "Replaced target markers with C for grKinokoRoute_80207634, grKinokoRoute_802078F0, grKinokoRoute_80207B5C, grKinokoRoute_80207C88, and grKinokoRoute_8020836C.",
-    "Added grNKr static data: zero Vec3 grNKr_803B82E8, 51-entry depth table grNKr_803B82F4 wrapped in grNKr_Depths, file path string \"/GrNKr.dat\", and StageData grNKr_803E584C for KINOKOROUTE.",
-    "Added Kinoko Route ground variable structs with entries[4] holding Vec3 pos plus HSD_JObj*, and kinokoroute2 state fields flags, phase, spawn_idx, zone_idx, cam_timer, and reb0_pos.",
-    "grKinokoRoute_80207634 now records four route JObjs 0x7F-0x82 relative to origin JObj 0x94 and adjusts camera bounds using Stage_GetCamBounds*Offset and Ground_801C3880/3890/38A0/38AC.",
-    "grKinokoRoute_802078F0 now tracks the current fighter position via Ground_801C57A4 and ftLib_80086644, applies inverse stage scale from Ground_801C0498, and updates the stored route JObj translations.",
-    "grKinokoRoute_80207B5C now initializes a route ground object: map animation, callbacks, flags, kinokoroute2 phase/timer/spawn state, material setup through grKinokoRoute_80208564, and saved reb0_pos from JObj 4.",
-    "grKinokoRoute_80207C88 now implements a large route/camera state update: fighter position clamping, spawn_idx detection through Ground_801C3DB4, stage_info.x6DC zone updates, ground object refreshes, camera target interpolation, grZakoGenerator calls, and mpLib refresh on a one-shot flag.",
-    "grKinokoRoute_8020836C now toggles JObj 0x53 visibility/collision-material state, adds/removes mp joints 0x3C, 0x33, and 0xC-0xF, and iterates HSD_GObj_Entities->items for item kind 0xA0 material changes.",
-    "grKinokoRoute_80208564 was refined to use GET_GROUND(gobj) and a static grNKr_Depths copy instead of a direct gobj->user_data access and local depth literal."
+    "Added missing includes needed by the new decompiled logic, including gm/gm_1601.h, gr/stage.h, it/it_26B1.h, lb/lb_00F9.h, lb/lbvector.h, mp/mplib.h, and baselib/debug.h.",
+    "Added a local grNKr_Depths struct wrapping an s16[51] table and moved the depth list used by grKinokoRoute_80208564 into static const data grNKr_803B82F4.",
+    "Added static const Vec3 grNKr_803B82E8 as a zero vector used for fighter position initialization in grKinokoRoute_80207C88.",
+    "Added grNKr_803E5840 as the stage file string \"/GrNKr.dat\" and grNKr_803E584C as the StageData definition for KINOKOROUTE.",
+    "Implemented grKinokoRoute_80207634 to cache four route-related JObjs, compute their positions relative to an origin JObj, and widen camera bounds using Stage_GetCamBounds*Offset values after applying the current camera offset.",
+    "Implemented grKinokoRoute_802078F0 to follow the current fighter: it obtains fighter position through ftLib_80086644, scales by Ground_801C0498, and updates cached JObj translate X/Y values.",
+    "Implemented grKinokoRoute_80207B5C to initialize a Kinoko Route ground object, set callbacks and flags, initialize phase/zone/camera/spawn state, call grKinokoRoute_80208564, and store the initial translation of JObj 4 in reb0_pos.",
+    "Implemented most of grKinokoRoute_80207C88, handling fighter/camera tracking, clamped route movement, phase changes, spawn index detection, zone index updates, stage_info.x6DC, JObj repositioning, ground object refreshes, zako generator transitions, camera smoothing via cam_timer, and a one-shot mpLib_80058560 update flag.",
+    "Implemented grKinokoRoute_8020836C to hide/show a JObj subtree, add/remove map joints, and update material state for item kind 0xA0 while iterating HSD_GObj_Entities->items.",
+    "Changed grKinokoRoute_80208564 to use GET_GROUND(gobj) instead of directly reading gobj->user_data, and to copy from the static grNKr_803B82F4 depth table before indexing depths.x[i].",
+    "Added typed Kinoko Route ground variable structs: an entries[4] structure containing Vec3 pos plus HSD_JObj* jobj, and a second state struct containing flags, phase, spawn_idx, zone_idx, cam_timer, and reb0_pos."
   ],
   "smart_moves": [
-    "Promoted inferred per-stage state into typed Ground gv structs before using it throughout the callbacks, making offsets such as gp+C4, gp+C6, gp+C8, gp+CA, gp+CC, and gp+D0 explicit and reusable.",
-    "Moved the 51-entry depth list into a static const wrapped struct and copied it locally in grKinokoRoute_80208564, a common data/codegen tactic for matching stack and rodata behavior.",
-    "Added the missing StageData and \"/GrNKr.dat\" string alongside existing StageCallbacks, which improved .data/.sdata matching instead of only focusing on function bodies.",
-    "Kept exact low-level matching aids where needed: PAD_STACK(16) in grKinokoRoute_8020836C and HSD_ASSERT line numbers 467, 617, and 654 around required JObj assumptions.",
-    "Used project conventions such as GET_GROUND(gobj), typed HSD_GObj/Ground_GObj arguments, and an explicit StageData function-pointer cast for grKinokoRoute_8020741C rather than leaving UNK_RET/UNK_PARAMS."
+    "Typed the ground state before using it heavily, which made the new C read like real stage logic instead of offset arithmetic and enabled safer access through gp->gv.kinokoroute and gp->gv.kinokoroute2.",
+    "Used a small wrapper struct for the 51-entry depth table, likely to force static data layout/copy behavior matching the original rather than leaving the array as a stack initializer.",
+    "Preserved stage-specific state names that reflect observed behavior, such as phase, spawn_idx, zone_idx, cam_timer, and reb0_pos, without overclaiming higher-level game design names.",
+    "Kept JObj null checks and HSD_ASSERT calls where the original logic required them, including assertions for the route/reb0 JObjs in grKinokoRoute_80207B5C and grKinokoRoute_80207C88.",
+    "Used GET_GROUND consistently in touched code, aligning the file with project access macros and avoiding raw user_data casts.",
+    "Modeled camera movement with explicit Vec3 arithmetic and timer-based interpolation, making a complex route camera routine partially match while remaining understandable.",
+    "Updated the public header prototype once grKinokoRoute_8020836C's argument and return types were known, reducing future reliance on UNK_RET/UNK_PARAMS."
   ],
   "decomp_lessons": [
-    "Stage decomp often requires matching the module data table and asset path string, not just replacing target stubs; grNKr_803E584C and grNKr_803E5840 contributed to data matching here.",
-    "When a Ground::gv layout becomes clear, add small stage-specific structs in types.h and wire them into the union; this makes callback code cleaner and tends to stabilize future matching work.",
-    "For arrays that originally live in data/rodata, wrapping the array in a named struct can reproduce compiler layout and access patterns better than a plain local literal.",
-    "Route/camera stage callbacks may combine fighter-state queries, camera offset helpers, collision/spawn index helpers, and stage_info fields; preserving exact integer field widths and magic constants matters for partial matches.",
-    "Visibility/collision toggles can involve both JObj flags and mp joint list changes plus item material updates; search item iteration and itGetKind checks before naming such helper behavior too narrowly.",
-    "The evidence has no human PR body or review discussion, so intent beyond the diff and bot match report should be treated as inferred."
+    "For stage files, matching may require reconstructing not only functions but also StageData, stage file path strings, .sdata2 zero vectors, and rodata tables used by helper loops.",
+    "When a local array initializer resists matching, test whether the original used a static const object copied into a local struct; grKinokoRoute_80208564 improved after using grNKr_803B82F4 through grNKr_Depths.",
+    "Stage ground variables should be added to the Ground union as typed structs once repeated offsets are understood; this supports both matching and reviewability.",
+    "Route/camera functions often combine fighter-position queries, stage camera offset accessors, bounds clamping, map joint toggles, and ground object refresh calls; preserving call order is critical.",
+    "Use existing project helpers such as lbVector_Sub, lbVector_Diff, lbVector_Normalize, lbVector_Add, Stage_UnkSetVec3TCam_Offset, and Ground_801C38BC rather than open-coding vector math if the original appears to call library routines.",
+    "For item/material side effects, iterate HSD_GObj_Entities->items and use item kind checks when the original targets a specific item class; here kind 0xA0 triggers grMaterial_801C8E08/grMaterial_801C8E28.",
+    "Camera timer smoothing can be matched by computing a reciprocal step from the remaining timer, applying vector delta toward the target, writing the camera position, and decrementing the timer after the write."
   ],
   "naming_conventions": [
-    "Stage globals retained address-style grNKr_* names, e.g. grNKr_803B82E8, grNKr_803B82F4, grNKr_803E5840, and grNKr_803E584C.",
-    "Functions retained the established grKinokoRoute_8020xxxx naming pattern until semantic names are known.",
-    "New ground variable types use struct grKinokoRoute_GroundVars, struct grKinokoRoute_GroundVars_Entry, and struct grKinokoRoute_GroundVars2, with lowercase Ground::gv union fields kinokoroute and kinokoroute2.",
-    "Meaningful inferred fields were named phase, spawn_idx, zone_idx, cam_timer, and reb0_pos; less-certain bit state remained flags with explicit padding.",
-    "The static depth table type was named grNKr_Depths with member x[51], reflecting weak semantic knowledge while preserving layout."
+    "Stage-local symbols use the grNKr_ prefix for Kinoko Route data, such as grNKr_803B82E8, grNKr_803B82F4, grNKr_803E5840, and grNKr_803E584C.",
+    "Function names remain address-based grKinokoRoute_8020xxxx names because no semantic names were introduced in this PR.",
+    "Ground variable structs are named by stage and purpose: grKinokoRoute_GroundVars, grKinokoRoute_GroundVars_Entry, and grKinokoRoute_GroundVars2.",
+    "Ground union members use lower-case stage identifiers: kinokoroute and kinokoroute2.",
+    "Field names are conservative behavior labels rather than speculative names: pos, jobj, flags, phase, spawn_idx, zone_idx, cam_timer, reb0_pos."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(16) in grKinokoRoute_8020836C to satisfy stack layout.",
-    "Used static const Vec3 grNKr_803B82E8 as a zero initializer for local fighter_pos in grKinokoRoute_80207C88.",
-    "Used grNKr_Depths depths = grNKr_803B82F4 and depths.x[i] in grKinokoRoute_80208564 to match the depth-table access pattern.",
-    "Preserved exact magic constants and JObj/map IDs such as 0x94, 0x7F-0x82, 4, 0xBD, 0x53, 0x3C, 0x33, 0xC-0xF, item kind 0xA0, and timer 0x3C.",
-    "Kept HSD_ASSERT calls with original-looking line numbers and boolean shapes for required JObjs.",
-    "Used an explicit cast in StageData: (void (*)(int)) grKinokoRoute_8020741C."
+    "Replaced placeholder comments for grKinokoRoute_80207634, grKinokoRoute_802078F0, grKinokoRoute_80207B5C, grKinokoRoute_80207C88, and grKinokoRoute_8020836C with C implementations.",
+    "Introduced a static const zero Vec3 for initialization instead of manually assigning zero components in grKinokoRoute_80207C88.",
+    "Used a struct-wrapped static const s16 depth table copied into a local variable in grKinokoRoute_80208564, improving data and code matching.",
+    "Inserted PAD_STACK(16) in grKinokoRoute_8020836C, indicating stack layout padding was needed for a match.",
+    "Used explicit HSD_ASSERT line numbers, such as 467, 617, and 654, to preserve debug/assert layout.",
+    "Preserved boolean and integer constants directly where evidence exists, including phase comparisons, spawn_idx == -1, cam_timer = 0x3C, item kind 0xA0, and route JObj/map joint IDs.",
+    "Bot evidence: decomp.dev reported grKinokoRoute_8020836C at 100.00%, .sdata at 100.00%, grKinokoRoute_8020754C and grKinokoRoute_80208564 at 100.00%, and large unmatched improvements for grKinokoRoute_80207C88, grKinokoRoute_80207634, grKinokoRoute_802078F0, and grKinokoRoute_80207B5C."
   ],
   "review_feedback": [
-    "No human review comments or PR body were present in the slice.",
-    "The decomp.dev bot reported matched code 65.04% (+0.02%, +760 bytes) and matched data 38.57% (+16 bytes).",
-    "Bot-reported new 100% matches: grKinokoRoute_8020836C, .sdata, grKinokoRoute_8020754C, and grKinokoRoute_80208564.",
-    "Bot-reported partial improvements included grKinokoRoute_80207C88 to 85.48%, grKinokoRoute_80207634 to 92.71%, grKinokoRoute_802078F0 to 95.98%, grKinokoRoute_80207B5C to 91.15%, .data to 88.68%, .sdata2 to 71.79%, and .rodata to 97.44%."
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Matched code increased by 760 bytes (+0.02%) and matched data by 16 bytes.",
+      "details": "4 new matches: grKinokoRoute_8020836C, .sdata, grKinokoRoute_8020754C, and grKinokoRoute_80208564."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "7 unmatched items improved.",
+      "details": "grKinokoRoute_80207C88 reached 85.48%, grKinokoRoute_80207634 reached 92.71%, grKinokoRoute_802078F0 reached 95.98%, grKinokoRoute_80207B5C reached 91.15%, .data reached 88.68%, .sdata2 reached 71.79%, and .rodata reached 97.44%."
+    },
+    {
+      "source": "human review",
+      "feedback": "No human review comments or PR body were present in the provided slice.",
+      "details": "The only issue comment in the slice was the decomp.dev report."
+    }
   ],
   "searchable_terms": [
     "pr-2435",
     "Jj/grkinokoroute",
-    "jj/grkinokoroute",
     "jurrejelle",
     "grkinokoroute",
-    "grKinokoRoute",
-    "grNKr",
-    "GrNKr.dat",
+    "Kinoko Route",
     "KINOKOROUTE",
+    "GrNKr.dat",
+    "grNKr_803E584C",
+    "grNKr_803E5840",
+    "grNKr_803B82E8",
+    "grNKr_803B82F4",
+    "grNKr_Depths",
     "StageData",
     "StageCallbacks",
-    "Ground_GObj",
-    "GET_GROUND",
     "grKinokoRoute_80207634",
     "grKinokoRoute_802078F0",
     "grKinokoRoute_80207B5C",
@@ -116,42 +135,33 @@
     "grKinokoRoute_GroundVars2",
     "kinokoroute",
     "kinokoroute2",
-    "phase",
+    "cam_timer",
     "spawn_idx",
     "zone_idx",
-    "cam_timer",
     "reb0_pos",
-    "stage_info.x6DC",
-    "Ground_801C38BC",
-    "Ground_801C3DB4",
-    "Ground_801C2D24",
+    "GET_GROUND",
     "Stage_UnkSetVec3TCam_Offset",
-    "ftLib_80086644",
-    "ftLib_80086EC0",
-    "ftLib_8008732C",
-    "gm_801674C4",
-    "grZakoGenerator_801CAF08",
-    "grZakoGenerator_801CAEF0",
-    "grMaterial_801C8E08",
-    "grMaterial_801C8E28",
+    "Ground_801C38BC",
     "mpJointListAdd",
     "mpLib_80057BC0",
-    "mpLib_80058560",
-    "HSD_ASSERT",
-    "PAD_STACK",
-    "lbVector_Sub",
-    "lbVector_Diff",
-    "lbVector_Normalize",
-    "Camera_80030AE0",
-    "itGetKind",
-    "item kind 0xA0"
+    "grMaterial_801C8E08",
+    "grMaterial_801C8E28",
+    "PAD_STACK"
   ],
   "follow_up_queries": [
-    "Find later PRs that finish or rename grKinokoRoute_80207C88 after this 85.48% partial match.",
-    "Search grKinokoRoute_GroundVars2 or kinokoroute2 to validate field names and offsets against later decomp work.",
-    "Search grNKr_803E584C and \"/GrNKr.dat\" for final StageData naming conventions in other stage modules.",
-    "Search stage_info.x6DC plus zone_idx to understand how route stages expose camera/zone state globally.",
-    "Search grKinokoRoute_8020836C, item kind 0xA0, grMaterial_801C8E08, and grMaterial_801C8E28 for the material/collision toggle pattern."
+    "Check later PRs touching grkinokoroute.c for completion of grKinokoRoute_80207C88 from 85.48% to full match.",
+    "Search for other stage files that use struct-wrapped static depth tables to match local array copy behavior.",
+    "Compare grKinokoRoute_GroundVars2 layout against remaining unknown Ground union members for similar camera/phase state patterns.",
+    "Look for later renames of phase, zone_idx, spawn_idx, cam_timer, and reb0_pos if more semantic route behavior becomes known.",
+    "Audit whether grNKr_803E584C StageData becomes declared in a header or referenced by stage-loader tables in subsequent PRs."
   ],
-  "confidence": 0.88
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

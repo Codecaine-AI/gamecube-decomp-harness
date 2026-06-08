@@ -11,24 +11,22 @@
     "merged_at": "2026-01-06T23:31:39Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched several trophy/toy-mode functions and improved partial matching by replacing raw M2C-style field access with a new TyModeState struct, adding trophy data string symbols, and tightening archive/global types. The PR summary reports un_80306D14, fn_80315574, and un_80312018_OnFrame at 100%, and un_803102D0 improved from 0% to 72.38%. Changes were concentrated in src/melee/ty/toy.c, tyfigupon.c, tydisplay.c, tylist.c, headers, and GALE01 symbols.",
+  "summary": "Matched several trophy/toy subsystem functions and improved one partial match by replacing raw M2C pointer arithmetic with small inferred structs and typed globals. The PR matched un_80306D14, fn_80315574, and un_80312018_OnFrame at 100%, and improved un_803102D0 from 0% to 72.38%. It also split data symbols for trophy archive filenames, added TyModeState in ty/types.h, typed un_804D6ECC as HSD_Archive*, and made minor header prototype cleanup.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "types-structs",
-      "symbol-splitting",
+      "data-symbols",
       "m2c-cleanup"
     ],
     "systems": [
-      "ty",
       "trophy",
       "toy",
-      "figupon",
-      "display",
-      "archive-loading",
-      "audio"
+      "ty",
+      "melee-core",
+      "config"
     ]
   },
   "key_files": [
@@ -43,51 +41,52 @@
     "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "Implemented un_80306D14 in toy.c using TyModeState at un_804A284C; state->x0 selects sound effect 0xAA or 0xAB through lbAudioAx_800237A8.",
-    "Implemented un_80312018_OnFrame in toy.c using TyModeState; when state->x4 is nonzero it calls un_80311F5C and gm_801A4B60.",
-    "Implemented a partial un_803102D0 in toy.c that lazily loads trophy data symbols with lbArchive_LoadSymbols when un_804D6ECC is NULL.",
-    "Split the previous un_803FE678 data object in config/GALE01/symbols.txt from size 0x128 to 0xF8 and introduced explicit string symbols str_TyDataf_dat, str_tyModelFileTbl, and str_tyModelFileUsTbl.",
-    "Added extern declarations for str_TyDataf_dat, str_tyModelFileTbl, and str_tyModelFileUsTbl to toy.h for use by the archive-loading function.",
-    "Added TyModeState to src/melee/ty/types.h, replacing raw M2C_FIELD access for fields at offsets 0 and 4 in several toy/display functions.",
-    "Updated tydisplay.c to include ty/types.h and use TyModeState in un_803182D4_OnFrame and un_8031B9A4_OnFrame instead of M2C_FIELD(un_804A284C, s8*, 4).",
-    "Implemented fn_80315574 in tyfigupon.c with local placeholder structs TyFiguponData and TyFiguponInner; it decrements x24 or, when zero, sets inner->x4D, clears x10, and calls HSD_GObjProc_8038FE24(HSD_GObj_804D7838).",
-    "Changed un_804D6ECC from void* to HSD_Archive* in tylist.c and added baselib/forward.h while removing baselib/gobj.h.",
-    "Cleaned several header prototypes by omitting parameter names without changing the apparent signatures."
+    "Implemented un_80306D14 in toy.c using TyModeState at un_804A284C; it plays sound 0xAA when state->x0 is 1 and sound 0xAB when state->x0 is 2 via lbAudioAx_800237A8.",
+    "Implemented un_80312018_OnFrame in toy.c using TyModeState->x4 as the frame-exit condition; when nonzero it calls un_80311F5C and gm_801A4B60.",
+    "Implemented fn_80315574 in tyfigupon.c with local inferred TyFiguponData and TyFiguponInner structs; it decrements x24 until zero, then sets inner->x4D, clears data->x10, and calls HSD_GObjProc_8038FE24 on HSD_GObj_804D7838.",
+    "Replaced M2C_FIELD access to un_804A284C offset 4 in tydisplay.c with a typed TyModeState* and state->x4 checks in un_803182D4_OnFrame and un_8031B9A4_OnFrame.",
+    "Added TyModeState to src/melee/ty/types.h with fields x0, x1, x2, x4, x5, x6, x8, and xA, enabling cleaner matching of mode state checks.",
+    "Partially implemented un_803102D0 in toy.c to lazily load trophy archive symbols with lbArchive_LoadSymbols when un_804D6ECC is NULL.",
+    "Adjusted config/GALE01/symbols.txt by reducing un_803FE678 from size 0x128 to 0xF8 and splitting out string symbols str_TyDataf_dat, str_tyModelFileTbl, and str_tyModelFileUsTbl.",
+    "Declared the new trophy data/model table string globals in toy.h.",
+    "Typed un_804D6ECC as HSD_Archive* in toy.c and tylist.c instead of void*.",
+    "Performed minor prototype cleanup in headers by removing parameter names from Toy_RemoveUserData, tyFigupon_80314BE4, and fn_80314504 declarations.",
+    "Added placeholder comments for additional unmatched tydisplay functions: un_8031C354, un_8031C454, un_8031C5E4, and un_8031C8B8."
   ],
   "smart_moves": [
-    "The author moved from raw pointer arithmetic/M2C_FIELD access toward a named TyModeState struct, which both helped matching and made repeated state checks readable across toy.c and tydisplay.c.",
-    "Splitting the data symbol around .data:0x803FE770 exposed three concrete string symbols used by lbArchive_LoadSymbols, enabling a more faithful un_803102D0 implementation.",
-    "The lazy-load guard in un_803102D0 preserves the original pattern of loading the archive only when un_804D6ECC is NULL.",
-    "Typing un_804D6ECC as HSD_Archive* instead of void* made archive ownership/use clearer and aligned with the return type of lbArchive_LoadSymbols.",
-    "For fn_80315574, small local structs with explicit padding captured only the fields needed for the match, avoiding premature over-definition of unknown trophy/figupon data layouts."
+    "The author explicitly switched the PR to draft to clean up pointer arithmetic and try to extract a struct, which is reflected in the final diff by replacing M2C_FIELD usages with TyModeState.",
+    "Introducing TyModeState centralized repeated access patterns against un_804A284C and made multiple OnFrame functions cleaner and more reusable for future ty work.",
+    "Splitting the large data symbol un_803FE678 into named string symbols gave lbArchive_LoadSymbols proper named arguments, improving readability and likely helping matching of un_803102D0.",
+    "Keeping small local inferred structs TyFiguponData and TyFiguponInner in tyfigupon.c allowed fn_80315574 to match without overcommitting to a public header layout that may still be incomplete.",
+    "Typing un_804D6ECC as HSD_Archive* aligned the global with its use as the return of lbArchive_LoadSymbols and improved cross-file type consistency."
   ],
   "decomp_lessons": [
-    "When several functions read the same global state block by offset, extract a minimal shared struct in types.h even if field names are still offset-style; this can remove M2C_FIELD noise and improve matches.",
-    "String symbol boundaries in symbols.txt can directly affect function matching, especially archive-loading code that passes string labels and output pointers to lbArchive_LoadSymbols.",
-    "It is acceptable to introduce partial placeholder structs with padding for matched fields, but evidence should remain limited to the accessed offsets until the wider layout is known.",
-    "OnFrame handlers in this ty area commonly check a mode-state flag at offset 0x4 before calling a local update function and gm_801A4B60.",
-    "Header cleanups should keep signatures consistent while reducing unnecessary parameter-name churn in declarations.",
-    "A partially matched function can still be worth landing when it creates correct symbols/types that enable future decomp progress; here un_803102D0 improved to 72.38% while other functions reached 100%."
+    "When several functions read the same global state block at fixed offsets, extract even a minimal struct such as TyModeState instead of leaving repeated M2C_FIELD pointer arithmetic.",
+    "Archive-loading functions often depend on correctly split string/data symbols; revisit symbols.txt when a decompiled call has awkward address arithmetic or unnamed string references.",
+    "It is acceptable to introduce narrow, local structs for matching a single function when the full structure is not yet known, but the names and fields should remain conservative.",
+    "Frame callbacks in the ty subsystem can share a pattern of checking TyModeState->x4 and then calling a subsystem-specific cleanup/update function followed by gm_801A4B60.",
+    "Improving type declarations for globals, such as using HSD_Archive* instead of void*, can unlock cleaner decompilation without changing behavior.",
+    "Header declarations in this project commonly omit parameter names when names do not add stable information."
   ],
   "naming_conventions": [
-    "New strings use descriptive data names: str_TyDataf_dat, str_tyModelFileTbl, and str_tyModelFileUsTbl.",
-    "The shared state struct is named TyModeState and keeps unknown fields as offset-derived names such as x0, x4, x8, and xA.",
-    "Temporary/local data layout structs in tyfigupon.c use subsystem-specific names TyFiguponData and TyFiguponInner with offset-style field names.",
-    "Unmatched or not-yet-understood functions retain address-based names such as un_80306D14, un_803102D0, and fn_80315574.",
-    "Lifecycle callbacks retain suffix conventions like _OnFrame and _OnInit, as in un_80312018_OnFrame and un_803122D0_OnInit."
+    "New data string symbols use descriptive str_* names tied to observed filenames/table labels: str_TyDataf_dat, str_tyModelFileTbl, and str_tyModelFileUsTbl.",
+    "The new shared mode-state type is named TyModeState and uses offset-style field names x0, x1, x2, x4, x5, x6, x8, and xA because semantic names are not yet evidenced.",
+    "Local inferred tyfigupon structs were named TyFiguponData and TyFiguponInner, with offset-style members x10, x18, x24, and x4D.",
+    "Existing unknown function names such as un_80306D14 and fn_80315574 were preserved rather than renamed without stronger semantic evidence.",
+    "OnFrame suffix naming was retained for frame callbacks such as un_80312018_OnFrame, un_803182D4_OnFrame, and un_8031B9A4_OnFrame."
   ],
   "assembly_or_matching_tactics": [
-    "Replace M2C_FIELD(global, type, offset) with a cast to a minimal struct and direct field access when multiple offsets are known.",
-    "Use explicit extern symbols for adjacent data strings so compiler output matches archive-loading call operands.",
-    "Use local padded structs to force exact field offsets for small matched callbacks when full struct definitions are not available.",
-    "Preserve null-check/lazy-initialization control flow around global archive pointers.",
-    "Use precise pointer types such as HSD_Archive* when a known library function return type establishes the global's type."
+    "Replace M2C_FIELD(global, type*, offset) with a cast to a minimally inferred struct when repeated offsets are stable.",
+    "Use exact-width fields and padding to preserve offsets in inferred structs, as shown by TyFiguponData and TyFiguponInner.",
+    "For lazy archive loading, match the null-check pattern on the archive global before calling lbArchive_LoadSymbols with named string symbols and output pointer globals.",
+    "Model state-driven branches directly with small integer comparisons, such as state->x0 == 1 and state->x0 == 2 for sound selection.",
+    "For countdown logic, express the zero case and decrement case in C with explicit struct fields to match the control flow of fn_80315574."
   ],
   "review_feedback": [
     {
-      "source": "author issue comment",
-      "text": "The author switched the PR to draft while cleaning up pointer arithmetic and considering extracting a struct.",
-      "impact": "The final diff reflects that cleanup by adding TyModeState and replacing some raw offset access."
+      "source": "author comment",
+      "text": "The author said they were switching to draft while cleaning up pointer arithmetic and possibly pulling out a struct.",
+      "impact": "The merged diff did introduce TyModeState and removed some raw M2C_FIELD accesses, suggesting the cleanup direction was applied."
     }
   ],
   "searchable_terms": [
@@ -95,7 +94,7 @@
     "ty",
     "trophy",
     "toy",
-    "figupon",
+    "ty-functions-1",
     "itsgrimetime",
     "un_80306D14",
     "fn_80315574",
@@ -104,33 +103,31 @@
     "TyModeState",
     "TyFiguponData",
     "TyFiguponInner",
+    "un_804A284C",
+    "un_804D6ECC",
+    "HSD_Archive",
+    "lbArchive_LoadSymbols",
     "str_TyDataf_dat",
     "str_tyModelFileTbl",
     "str_tyModelFileUsTbl",
-    "lbArchive_LoadSymbols",
     "lbAudioAx_800237A8",
     "gm_801A4B60",
-    "HSD_Archive",
-    "un_804A284C",
-    "un_804D6ECC",
-    "un_804D6EA8",
-    "un_804D6EA4",
-    "un_804D6EF0",
     "M2C_FIELD",
-    "symbols.txt",
-    "tydisplay.c",
-    "tyfigupon.c",
+    "tydisplay",
+    "tyfigupon",
+    "tylist",
     "toy.c",
-    "types.h"
+    "types.h",
+    "symbols.txt"
   ],
   "follow_up_queries": [
-    "Find later PRs that expand TyModeState fields beyond x0/x4/x8/xA or rename them semantically.",
-    "Find follow-up trophy/toy PRs matching the rest of un_803102D0 after its 72.38% state.",
-    "Search for later movement of TyFiguponData or TyFiguponInner from local tyfigupon.c typedefs into a shared header.",
-    "Check whether str_TyDataf_dat, str_tyModelFileTbl, and str_tyModelFileUsTbl are reused by additional archive-loading functions.",
-    "Look for other ty OnFrame functions that share the state->x4 guard plus gm_801A4B60 pattern."
+    "Look for later PRs that extend TyModeState with semantic field names or additional fields beyond x0 through xA.",
+    "Search for future work matching the remaining tydisplay placeholders un_8031C354, un_8031C454, un_8031C5E4, and un_8031C8B8.",
+    "Check whether TyFiguponData and TyFiguponInner were later moved into a shared header or renamed with stronger semantics.",
+    "Investigate subsequent PRs improving un_803102D0 beyond 72.38% after the string symbol split.",
+    "Search for additional ty archive globals around un_804D6EA4, un_804D6EA8, and un_804D6ECC to consolidate trophy archive loading types."
   ],
-  "confidence": 0.9,
+  "confidence": 0.91,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

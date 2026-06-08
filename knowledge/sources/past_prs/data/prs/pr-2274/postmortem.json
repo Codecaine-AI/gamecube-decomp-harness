@@ -11,202 +11,155 @@
     "merged_at": "2026-03-12T19:04:20Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged effect-system matching PR that made `eflib`, new `eflib_alloc`, and `ef_061D` matching, while correcting effect allocator ownership, varargs prototypes, symbol/split boundaries, and related baselib particle/AppSRT declarations.",
+  "summary": "Matched the visual-effects units `eflib`, new `eflib_alloc`, and `ef_061D`, moving them to `Object(Matching, ...)` in `configure.py`. The PR also corrected effect/particle symbol names and section boundaries, split the effect object allocator BSS out of `eflib.c`, cleaned up related headers/types, and made small baselib particle/psappsrt signature and static-symbol adjustments needed by the match. decomp.dev reported +24,216 matched code bytes, +25,828 linked code bytes, and 45 new matches, with a small remaining regression in unmatched `efAsync_80063930`.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "new-source-file",
       "headers",
-      "config-splits-symbols",
-      "symbol-renames",
-      "struct-cleanup",
-      "varargs-signature-fix"
+      "symbol-renaming",
+      "section-split",
+      "effect-system",
+      "baselib-support"
     ],
     "systems": [
       "effect",
-      "sysdolphin-baselib-particle",
+      "eflib",
+      "ef_061D",
+      "eflib_alloc",
+      "efasync",
+      "efsync",
+      "sysdolphin-baselib",
+      "particle",
+      "psappsrt",
       "dballoc",
-      "config/GALE01",
-      "build-config"
+      "config"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ef/eflib.c",
-      "role": "Main effect library rewrite/match; large cleanup of helpers, effect allocation/freeing, callbacks, assertions, varargs wrappers, and AppSRT generator attachment."
-    },
-    {
-      "path": "src/melee/ef/ef_061D.c",
-      "role": "New 518-line matching implementation of `ef_80061D70`, a switch dispatcher for effect gfx IDs using `va_list` arguments."
-    },
-    {
-      "path": "src/melee/ef/eflib_alloc.c",
-      "role": "New matching object containing `HSD_ObjAllocData efLib_AllocData` at BSS 0x80458EB0."
-    },
-    {
-      "path": "src/melee/ef/eflib_alloc.h",
-      "role": "New public header exporting `efLib_AllocData` so non-eflib users do not include all of `eflib.h`."
-    },
-    {
-      "path": "src/melee/ef/eflib.h",
-      "role": "Header guard cleanup, typed `_struct_efLib_80458EE0`, renamed `efLib_RemoveUserData`, corrected prototypes to `va_list`, `bool`, `u8`, and `u16` where evidenced."
-    },
-    {
-      "path": "src/melee/ef/types.h",
-      "role": "Shared effect types cleanup: `Effect` flags changed to unsigned bytes, `ef_Symbols` typedef added, async objalloc struct moved here with static asserts."
-    },
-    {
-      "path": "src/melee/ef/efasync.c",
-      "role": "Adjusted async effect code to use `ef_Symbols`, `va_list`, local `efAsync_AllocData`, and renamed fields such as `x0_gobj`."
-    },
-    {
-      "path": "src/melee/ef/efsync.c",
-      "role": "Adjusted externs for `ef_Symbols`, `ef_80061D70(..., va_list)`, and `efLib_80458EE0` field naming."
-    },
-    {
-      "path": "src/melee/db/dballoc.c",
-      "role": "Switched allocation limiter from `Effect_AllocData` to `efLib_AllocData` through the new allocation header."
-    },
-    {
-      "path": "src/sysdolphin/baselib/psappsrt.c",
-      "role": "Renamed `HSD_PSAppSrt_803A425C` to `psAddParticleAppSRT_begin` and changed it to return the created `HSD_psAppSRT*`."
-    },
-    {
-      "path": "src/sysdolphin/baselib/particle.c",
-      "role": "Renamed local particle reference table uses from `ptclref` to `ptclref_804D0E5C`."
-    },
-    {
-      "path": "src/sysdolphin/baselib/psstructs.h",
-      "role": "Reformatted/annotated `HSD_Particle` layout with explicit offsets, preserving size 0x98."
-    },
-    {
-      "path": "config/GALE01/splits.txt",
-      "role": "Added `melee/ef/eflib_alloc.c` split and adjusted eflib/ef_061D/efasync data and BSS boundaries."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Renamed functions/data, fixed allocator sizes, and changed many ef data symbols from global to local scope."
-    },
-    {
-      "path": "configure.py",
-      "role": "Marked `melee/ef/eflib_alloc.c`, `melee/ef/eflib.c`, and `melee/ef/ef_061D.c` as Matching in the ef library list."
-    }
+    "src/melee/ef/eflib.c",
+    "src/melee/ef/ef_061D.c",
+    "src/melee/ef/eflib_alloc.c",
+    "src/melee/ef/eflib.h",
+    "src/melee/ef/eflib_alloc.h",
+    "src/melee/ef/ef_061D.h",
+    "src/melee/ef/types.h",
+    "src/melee/ef/efasync.c",
+    "src/melee/ef/efasync.h",
+    "src/melee/ef/efasync.static.h",
+    "src/melee/ef/efsync.c",
+    "src/sysdolphin/baselib/psstructs.h",
+    "src/sysdolphin/baselib/particle.c",
+    "src/sysdolphin/baselib/particle.static.h",
+    "src/sysdolphin/baselib/psappsrt.c",
+    "src/sysdolphin/baselib/psappsrt.h",
+    "src/melee/db/dballoc.c",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "configure.py"
   ],
   "what_changed": [
-    "PR body states it matches `eflib`, new `eflib_alloc`, and `ef_061D`; `configure.py` changed those objects from NonMatching/new to Matching while leaving `efsync.c` and `efasync.c` NonMatching.",
-    "Added `src/melee/ef/eflib_alloc.c` and `.h` to own the effect allocator as `efLib_AllocData`; `splits.txt` gives it `.bss start:0x80458EB0 end:0x80458EDC`, and `symbols.txt` changes `Effect_AllocData` size from 0x30 to `efLib_AllocData` size 0x2C.",
-    "Updated `dballoc.c` to include `ef/eflib_alloc.h` and apply allocation limits to `efLib_AllocData` instead of the old `Effect_AllocData`.",
-    "Implemented `ef_80061D70(s32 gfx_id, HSD_GObj* gobj, va_list vlist)` in `ef_061D.c`; it dispatches many gfx IDs, uses `EF061D_VA_ARG`, calls eflib creation helpers and `hsd_8039EFAC`, and drains `efLib_80458EE0` animation work before returning.",
-    "Reworked `eflib.c` from heavily placeholder/commented code into typed C using `Effect`, `ef_Symbols`, `_struct_efLib_80458EE0`, helper inlines/macros, `HSD_ASSERTREPORT`, and real effect allocator/free paths.",
-    "Renamed eflib symbols in config and headers: `Effect_RemoveUserData` became `efLib_RemoveUserData`, `fn_8005C904` became `efLib_RenderCallback`, and allocator references became `efLib_AllocData`.",
-    "Corrected varargs-related signatures: `efAsync_80063930` and `ef_80061D70` take `va_list`; `efLib_8005CD2C`, `efLib_8005CE48`, `efLib_8005CF40`, and `efLib_8005D044` now take `va_list` instead of `void*`.",
-    "Deleted `efasync.static.h`; moved its async objalloc struct/static assert into shared types and made the allocator a local `static HSD_ObjAllocData efAsync_AllocData` in `efasync.c`.",
-    "Adjusted `efasync` BSS naming from misleading `efSync_80458FA0` to `efAsync_AllocData`, including `HSD_ObjAlloc`, `HSD_ObjFree`, and `HSD_ObjAllocInit` call sites.",
-    "Renamed `HSD_PSAppSrt_803A425C` to `psAddParticleAppSRT_begin` and changed it from void to returning the assigned `HSD_psAppSRT*`, matching the generator-side `psAddGeneratorAppSRT_begin` pattern.",
-    "Renamed baselib particle static table `ptclref` to `ptclref_804D0E5C` across `particle.c`, `particle.static.h`, and `symbols.txt`.",
-    "Config data symbols were tightened: multiple efLib and ef_061D string/float symbols changed to local scope with corrected sizes/alignment, moving eflib `.data`, `.sdata`, `.sdata2`, and async BSS ends.",
-    "decomp.dev bot reported GALE01 matched code +0.62% / +24216 bytes, linked code +0.67% / +25828 bytes, 45 new matches, and full 100% matches for `main/melee/ef/ef_061D`, `main/melee/ef/eflib` data/items, and `main/melee/ef/eflib_alloc` BSS."
+    "`configure.py` changed `melee/ef/eflib.c` and `melee/ef/ef_061D.c` from `NonMatching` to `Matching`, and added `melee/ef/eflib_alloc.c` as a matching object.",
+    "Added a new `eflib_alloc.c`/`eflib_alloc.h` unit for `efLib_AllocData`, with `splits.txt` assigning `.bss start:0x80458EB0 end:0x80458EDC`; `eflib.c` BSS now starts at `0x80458EE0`.",
+    "Implemented `ef_061D.c` from an empty file to a 518-line matched effect dispatch function centered on `ef_80061D70`, using a large `gfx_id` switch and calls into `efLib_*`, `hsd_8039EFAC`, and JObj rotation helpers.",
+    "Reworked `eflib.c` heavily, with decomp.dev listing many newly 100% matched `efLib_*` functions and matched `.data`, `.sdata`, and `.sdata2` for the unit.",
+    "Renamed effect symbols to match ownership/function purpose, including `Effect_RemoveUserData` to `efLib_RemoveUserData`, `fn_8005C904` to `efLib_RenderCallback`, and `Effect_AllocData` to `efLib_AllocData`.",
+    "Adjusted symbol scopes and sizes for many effect strings/constants from global to local in `symbols.txt`, and refined `splits.txt` section endpoints for `eflib`, `ef_061D`, and `efasync`.",
+    "Updated `dballoc.c` to include `ef/eflib_alloc.h` and to use `efLib_AllocData` for object-allocation limit toggling instead of the old `Effect_AllocData` name.",
+    "Cleaned up baselib particle naming by renaming static `ptclref` to address-qualified `ptclref_804D0E5C` in `particle.static.h`, `particle.c`, and `symbols.txt`.",
+    "Changed `psAddParticleAppSRT_begin` from the placeholder name `HSD_PSAppSrt_803A425C`, and changed its signature to return `HSD_psAppSRT*` while assigning `pp->appsrt`.",
+    "Simplified/rewrote parts of `psstructs.h`, including a formatted `HSD_Particle` layout, typedef `ef_Symbols` with `STATIC_ASSERT(sizeof(ef_Symbols) == 0xC)`, and an asserted `efAsync_80067980_objalloc_t` size of `0x24`."
   ],
   "smart_moves": [
-    "Split the allocator into `eflib_alloc.c` before `eflib.c` in both `splits.txt` and `configure.py`, which isolated BSS layout and let other modules depend only on the allocator header.",
-    "Renamed allocator ownership from generic `Effect_AllocData` to module-prefixed `efLib_AllocData`, reducing ambiguous cross-module includes and making `dballoc.c` dependency narrower.",
-    "Used shared typedefs and static asserts (`ef_Symbols`, `_struct_efLib_80458EE0`, async objalloc struct) instead of duplicate anonymous placeholder structs across eflib, efsync, and efasync.",
-    "Converted internal effect dispatch APIs to `va_list` rather than `void*`/ellipsis, matching the way sync/async spawners forward already-started varargs.",
-    "Left explicit matching aids in place where needed: `PAD_STACK`, hard-coded constants, copied `va_list` handling, and a `WALK_TO_ROOT` macro with a TODO explaining the inline did not yet keep a match.",
-    "Updated config symbol scopes from global to local for static ef strings/floats, which matters for exact data section size and for avoiding accidental public symbol assumptions.",
-    "Forward-declared selected functions in `eflib.c` with an explicit comment to avoid `sdata2` pollution, showing attention to data-section side effects from includes.",
-    "Made `psAddParticleAppSRT_begin` return the created AppSRT pointer, enabling eflib helper code to both attach and immediately validate/setup the returned structure."
+    "Isolating `efLib_AllocData` into `eflib_alloc.c` made the allocator BSS a separately matched object instead of leaving it embedded in `eflib.c`; this also let `dballoc.c` depend on a small allocator header rather than the whole effect library header.",
+    "The PR matched data as well as code by fixing section boundaries, symbol sizes, alignment, and local/global scope; the decomp.dev report shows matched data also improved rather than only text.",
+    "Renaming placeholder/legacy symbols to subsystem-owned names (`efLib_*`, `psAddParticleAppSRT_begin`, `ptclref_804D0E5C`) made cross-file dependencies clearer and reduced ambiguous generic names.",
+    "Adding `STATIC_ASSERT`s for inferred particle/effect structs kept header cleanup tied to layout evidence, which is important when matching code that is sensitive to offsets.",
+    "The `ef_061D` implementation preserved varargs behavior through a dedicated `EF061D_VA_ARG(t)` macro, avoiding repeated low-level `__va_arg` boilerplate in a large switch."
   ],
   "decomp_lessons": [
-    "For effect-system matches, source changes and `config/GALE01/splits.txt`/`symbols.txt` changes must land together; object boundaries, BSS starts, local/global symbol scopes, and string sizes directly affect match status.",
-    "Allocator globals often deserve their own translation unit if the original binary layout has a standalone BSS slice; do not keep them inside the nearest logical C file if splits show otherwise.",
-    "When a function forwards variadic effect-spawn arguments, model internal helpers as `va_list` consumers and keep callers/headers consistent; mixing `void*`, ellipsis, and `va_list` can block matches or create unsafe ABI assumptions.",
-    "MWCC varargs and stack layout sometimes require non-idiomatic constructs such as typed `__va_arg` macros and `PAD_STACK`; preserve those locally and leave comments rather than over-cleaning a fragile match.",
-    "Static data should be marked local in `symbols.txt` when it is not genuinely exported; over-globalizing strings/floats can hide section-size and relocation problems.",
-    "If helper extraction changes codegen, use a macro/goto pattern temporarily and document the desired cleanup, as done around `WALK_TO_ROOT`.",
-    "Shared struct definitions with `STATIC_ASSERT(sizeof(...))` are reusable matching infrastructure; they prevent later files from reintroducing anonymous placeholder structs with subtly wrong layout.",
-    "Renaming misleading cross-module symbols can reveal real ownership: `efSync_80458FA0` was actually async allocation data, and `Effect_AllocData` belonged to eflib allocation.",
-    "Header guards and includes were modernized away from address-based `GALE01_*` guards and broad `<placeholder.h>` includes; future decomp work should keep headers minimal and ownership-specific.",
-    "The PR evidence includes a WIP comment in `ef_061D.c` (`WIP CLEAN THIS UP AND SYNC`), so future cleanup should verify that later refactors preserve the exact varargs and animation-drain behavior."
+    "For Melee effect work, allocator data may belong in its own object split even if adjacent to a larger library in memory; check `.bss` ranges before assuming ownership by the nearest C file.",
+    "When a match requires data fixes, update `symbols.txt` scopes/sizes and `splits.txt` endpoints together; code matching alone can leave data accounting wrong.",
+    "Headers used by unrelated systems should expose the narrowest symbol needed: `dballoc.c` only needed the effect allocator, so a dedicated `eflib_alloc.h` was preferable to including `eflib.h`.",
+    "Large effect dispatchers using varargs can be matched by centralizing typed vararg extraction in a macro and keeping argument consumption order explicit per switch case.",
+    "Baselib support structs such as `HSD_Particle` should keep offset comments and layout assertions because downstream effect matches depend on precise field offsets.",
+    "Address-suffixed names such as `ptclref_804D0E5C` are acceptable when a more semantic name is not yet proven and help distinguish local static data in generated symbol tables.",
+    "Changing a helper's return type can be part of a match if call sites consume the assigned object; here `psAddParticleAppSRT_begin` returns the assigned `HSD_psAppSRT*`."
   ],
   "naming_conventions": [
-    "Use module prefix `efLib_` for eflib-owned functions/globals: `Effect_RemoveUserData` -> `efLib_RemoveUserData`, `Effect_AllocData` -> `efLib_AllocData`.",
-    "Name async allocator data by actual owner: `efAsync_AllocData`, not the misleading previous `efSync_80458FA0`.",
-    "Pair begin-style AppSRT helpers consistently: `psAddParticleAppSRT_begin` mirrors `psAddGeneratorAppSRT_begin` and returns `HSD_psAppSRT*`.",
-    "Use modern path-based header guards such as `MELEE_EF_EFLIB_H`, `MELEE_EF_EFASYNC_H`, and `MELEE_EF_EFALLOC_H` rather than address-derived `GALE01_*` guards.",
-    "Use shared descriptive typedefs when layout is understood enough: `_struct_efAsync_803C025C_0xC` became `ef_Symbols`.",
-    "For still-unknown locals, keep module/address names and mark local scope in symbols, e.g. `efLib_803BF7A0`, `ef_804D81D0`, and `ptclref_804D0E5C`.",
-    "Use field names that encode partial knowledge without overclaiming, such as `x0_gobj`, `x4_unk`, and `x6_unk` for `_struct_efLib_80458EE0`.",
-    "Keep public eflib APIs in `eflib.h`, but move standalone allocator exports to `eflib_alloc.h` when other modules only need allocation data."
+    "Effect library globals/functions use the `efLib_` prefix, e.g. `efLib_AllocData`, `efLib_RemoveUserData`, and `efLib_RenderCallback`.",
+    "File/module-specific unresolved data keeps module prefix plus address, e.g. `efLib_803BF7A0`, `ef_803BF9D0`, and `ptclref_804D0E5C`.",
+    "Particle SRT helper names use descriptive `ps*` prefixes and `_begin` suffix for begin/attach setup helpers, e.g. `psAddParticleAppSRT_begin` and `psAddGeneratorAppSRT_begin`.",
+    "Keep function names in symbol files synchronized with header prototypes when replacing placeholder names such as `fn_8005C904` or `HSD_PSAppSrt_803A425C`.",
+    "Prefer subsystem ownership in names over generic `Effect_*` when the symbol is specifically part of `eflib`."
   ],
   "assembly_or_matching_tactics": [
-    "`EF061D_VA_ARG(t)` wraps `__va_arg(vlist_arg, _var_arg_typeof(t))` to pull typed arguments from a copied `va_list` in `ef_80061D70`.",
-    "`ef_80061D70` starts with `efLib_804D64E8 = 1` and `PAD_STACK(80)`, then drains pending `efLib_80458EE0` animation entries before returning; this ordering is part of the matched implementation evidence.",
-    "Hard-coded constants such as `-1.5707963267948966`, `1.5707963267948966`, and `1.5707964F` replaced more symbolic `M_PI_2` forms in matching-sensitive rotation code.",
-    "`efLib_8005D174` uses `PAD_STACK(28)` and a `WALK_TO_ROOT` macro with generated goto labels; the diff comment says an inline version still needed work to keep 100%.",
-    "The eflib source explicitly forward-declares `HSD_MtxGetScale` and `grLib_801C99C0` to avoid `sdata2` pollution from broader includes.",
-    "Repeated generator/AppSRT setup was centralized in `eflib_attach_gfx` and `efLib_EnsureGeneratorAppSRT_inline`, but the PR kept codegen-sensitive cases explicit where needed.",
-    "BSS sizes were corrected for allocators: `efLib_AllocData` size 0x2C at 0x80458EB0 and `efAsync_AllocData` size 0x2C at 0x80458FA0, instead of previous 0x30-sized placeholders.",
-    "Data matching required local scope and exact alignment for efLib/ef_061D string and float symbols in `.data`, `.sdata`, and `.sdata2`.",
-    "The PR used `HSD_ASSERTREPORT` with original messages like `Duplicate Free %08X`, `error no parent gobj!`, and `Over Anime Call` to preserve assert/report behavior while cleaning old OSReport/assert sequences."
+    "`ef_061D.c` uses `#define EF061D_VA_ARG(t) (*((t*) __va_arg(vlist_arg, _var_arg_typeof(t))))` to reproduce compiler vararg access patterns.",
+    "`ef_80061D70` includes `PAD_STACK(80)`, indicating stack-shape padding was needed for the match.",
+    "The implementation uses explicit double constants for ±1.5707963267948966 before assigning to `f32` rotation values, preserving the original conversion pattern.",
+    "Data matching relied on converting many constants/strings from global to local symbol scope and correcting exact object sizes/alignments in `symbols.txt`.",
+    "Matched-object registration in `configure.py` was updated only after the object split and section ranges were corrected.",
+    "The PR used layout assertions in headers (`STATIC_ASSERT`) to lock inferred struct/object sizes while matching code that indexes fields by offset."
   ],
   "review_feedback": [
-    "No formal reviews or inline review comments are present in the slice.",
-    "PR body explicitly asked reviewers to point out anything missed or not kosher, suggesting the author expected style/process feedback, but none is captured in review comments.",
-    "decomp.dev bot report is the only substantive feedback-like record: it reported +24216 matched code bytes, 45 new matches, and one unmatched-item regression for `main/melee/ef/efasync` `efAsync_80063930` (-22 bytes, 98.61% to 98.46%).",
-    "The author later commented `womp womp, will fix tomorrow`; the slice does not provide enough evidence to tie that comment to a specific review request beyond its timing after the bot report.",
-    "PR was merged the same day by PsiLupan with no captured human review discussion."
+    "No formal review comments were present in the slice.",
+    "The author noted in the PR body that they had not done this in a while and asked reviewers to flag anything not kosher.",
+    "A decomp.dev bot report showed 45 new matches and one small unmatched regression in `main/melee/ef/efasync` item `efAsync_80063930` (-22 bytes, 98.61% to 98.46%).",
+    "The author later commented: \"womp womp, will fix tomorrow\"; the slice does not identify the exact issue being acknowledged."
   ],
   "searchable_terms": [
     "pr-2274",
     "Savestate2A03",
     "eflib",
-    "efLib_8005B4B8",
-    "efLib_8005BE88",
-    "efLib_8005D174",
-    "efLib_8005F990",
-    "efLib_RemoveUserData",
-    "efLib_RenderCallback",
+    "ef_061D",
     "eflib_alloc",
     "efLib_AllocData",
     "Effect_AllocData",
-    "ef_061D",
+    "efLib_RemoveUserData",
+    "Effect_RemoveUserData",
+    "efLib_RenderCallback",
+    "fn_8005C904",
     "ef_80061D70",
     "EF061D_VA_ARG",
-    "efasync",
-    "efAsync_80063930",
-    "efAsync_AllocData",
-    "efsync",
-    "efSync_Spawn",
-    "ef_Symbols",
-    "HSD_ObjAllocData",
-    "HSD_Generator",
-    "HSD_psAppSRT",
-    "psAddParticleAppSRT_begin",
-    "psAddGeneratorAppSRT_begin",
-    "HSD_Particle",
-    "ptclref_804D0E5C",
-    "psstructs.h",
-    "particle.c",
-    "WALK_TO_ROOT",
     "PAD_STACK",
-    "va_list",
-    "sdata2 pollution",
+    "efLib_8005C9FC",
+    "efLib_8005C1B4",
+    "efLib_8005C3DC",
+    "efLib_8005C814",
+    "efLib_8005C5C4",
+    "hsd_8039EFAC",
+    "psAddParticleAppSRT_begin",
+    "HSD_PSAppSrt_803A425C",
+    "ptclref_804D0E5C",
+    "ptclref",
+    "HSD_Particle",
+    "ef_Symbols",
+    "efAsync_80067980_objalloc_t",
+    "dballoc",
+    "HSD_ObjAllocSetNumLimit",
+    "HSD_ObjAllocGetPeak",
+    "HSD_ObjAllocEnableNumLimit",
+    "HSD_ObjAllocDisableNumLimit",
     "config/GALE01/splits.txt",
     "config/GALE01/symbols.txt",
     "configure.py",
-    "45 new matches",
-    "+24216 matched code bytes"
+    "Object(Matching)",
+    "visual effects"
   ],
   "follow_up_queries": [
-    "Find later PRs cleaning the `// WIP CLEAN THIS UP AND SYNC` comment in `src/melee/ef/ef_061D.c`.",
-    "Search for later `efsync`/`efasync` matching PRs after #2274, especially any fix for the bot-reported `efAsync_80063930` regression.",
-    "Check whether `WALK_TO_ROOT` in `efLib_8005D174` was later converted from a macro/goto matching tactic into an inline without losing match.",
-    "Search for future renames of `efLib_8005D174`, `eflib_attach_gfx`, and the remaining `efLib_8005*` unknown functions once behavior was better understood.",
-    "Verify later handling of `efLib_804D64F0` declarations across `eflib.c`, `efsync.c`, and `ef_061D.c`, since this PR used matching-sensitive extern/array-style access patterns.",
-    "Look for later PRs that further type `ef_Symbols.unk8`, `_struct_efLib_80458EE0`, and `Effect` fields `x24` through `x2B`.",
-    "Search future baselib particle work around `ptclref_804D0E5C` and `psAddParticleAppSRT_begin` to see whether address-suffixed or behavior-based names won out."
+    "Inspect later PRs by Savestate2A03 touching `efsync` or `efasync`, since this PR body says those were being worked on separately.",
+    "Search for subsequent changes to `ef_061D.c` cleanup because the added file contains the comment `WIP CLEAN THIS UP AND SYNC`.",
+    "Check whether the decomp.dev-reported `efAsync_80063930` regression was fixed in a later effect PR.",
+    "Look for future renames of remaining address-based `efLib_*` and `ef_*` data symbols once semantics are known.",
+    "Compare later `psstructs.h` edits to see whether the `HSD_Particle` layout and `ef_Symbols` typedef stabilized."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

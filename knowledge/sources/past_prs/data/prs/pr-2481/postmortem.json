@@ -11,134 +11,94 @@
     "merged_at": "2026-05-11T00:26:51Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Split the tail of lbmthp into a new matching lb_01F8 translation unit, moved the THP texture/SObj helper functions and their bss/sdata2 into that split, and fixed several lb data/string/layout details. The bot report showed +1232 matched code bytes, +480 matched data bytes, and 13 new matches, with apparent lbmthp regressions corresponding to functions moved into lb_01F8.",
+  "summary": "Split the tail of lbmthp into a new matching lb_01F8 translation unit, corrected several lb data/symbol boundaries, and made small source/header fixes that improved matching for miscellaneous lb library data. The decomp.dev report shows +1232 matched code bytes, +480 matched data bytes, 13 new matches, and new 100% matches for lb_01F8 text, bss, and sdata2.",
   "change_classification": {
-    "primary_type": "decomp-matching split and data-layout fix",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "split-boundary",
-      "data-layout",
+      "data-boundary-fix",
       "headers",
-      "prototype-fix",
-      "assert-string-fix"
+      "splits",
+      "symbols",
+      "prototype-fix"
     ],
     "systems": [
-      "lb",
+      "melee/lb",
       "lbmthp",
       "lb_01F8",
       "lb_00F9",
-      "lbshadow",
       "lbsnap",
+      "lbshadow",
       "lbrefract",
-      "config"
+      "config/GALE01"
     ]
   },
   "key_files": [
-    {
-      "path": "config/GALE01/splits.txt",
-      "why": "Shortened lbmthp ranges and introduced melee/lb/lb_01F8.c for text 0x8001F890-0x8001FC08, bss 0x804335B8-0x80433658, and sdata2 0x804D7CE0-0x804D7CE8."
-    },
-    {
-      "path": "configure.py",
-      "why": "Added Object(Matching, \"melee/lb/lb_01F8.c\") while lbmthp remained NonMatching."
-    },
-    {
-      "path": "src/melee/lb/lb_01F8.c",
-      "why": "New matching unit containing lbl_804335B8_t and lbMthp8001F890, lbMthp8001F928, lbMthp8001FAA0."
-    },
-    {
-      "path": "src/melee/lb/lbmthp.c",
-      "why": "Removed the moved tail functions and adjusted codegen-sensitive details in fn_8001E910, fn_8001EF5C, and fn_8001F13C."
-    },
-    {
-      "path": "src/melee/lb/lbmthp.h",
-      "why": "Changed THPVideoDecode third parameter to void* and promoted lbl_804333E0_t layout with GXTexObj fields and STATIC_ASSERT."
-    },
-    {
-      "path": "src/melee/lb/lbmthp.static.h",
-      "why": "Stopped owning the shared struct definition and the lbl_804335B8 bss object after the split."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "why": "Broke aggregate lb/lbshadow/lbsnap/lbmthp data blobs into correctly sized individual string/SJIS labels."
-    },
-    {
-      "path": "src/melee/lb/lb_00F9.c",
-      "why": "Adjusted __FILE__, Vec3 constness, and local float initializers for lbspdisplay rodata/code matching."
-    },
-    {
-      "path": "src/melee/lb/lbsnap.static.h",
-      "why": "Refined Unk803BACC8 layout and initializer to improve lbsnap data matching."
-    },
-    {
-      "path": "src/melee/lb/lbshadow.c",
-      "why": "Matched assertion condition/string data, including the original typo-like text."
-    },
-    {
-      "path": "src/melee/lb/lbrefract.c",
-      "why": "Changed HSD_ASSERTREPORT condition from NULL to 0 for matching."
-    }
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "configure.py",
+    "src/melee/lb/lb_01F8.c",
+    "src/melee/lb/lbmthp.c",
+    "src/melee/lb/lbmthp.h",
+    "src/melee/lb/lbmthp.static.h",
+    "src/melee/lb/lb_00F9.c",
+    "src/melee/lb/lbsnap.static.h",
+    "src/melee/lb/lbrefract.c",
+    "src/melee/lb/lbshadow.c"
   ],
   "what_changed": [
-    "Added a new source file src/melee/lb/lb_01F8.c and registered it as a matching object.",
-    "Moved lbMthp8001F890, lbMthp8001F928, and lbMthp8001FAA0 out of lbmthp.c into lb_01F8.c.",
-    "Moved the 0xA0-byte lbl_804335B8_t static bss state into lb_01F8.c and kept a STATIC_ASSERT on its size.",
-    "Updated GALE01 splits so lbmthp text ends at 0x8001F890 and lb_01F8 owns 0x8001F890-0x8001FC08, plus the corresponding bss and sdata2 tail ranges.",
-    "Changed THPVideoDecode declaration from s32 third argument to void* and updated call sites/casts accordingly.",
-    "Moved struct lbl_804333E0_t from lbmthp.static.h to lbmthp.h and added the GXStruct include needed for GXTexObj fields.",
-    "In lbmthp.c, changed one Movieplayer access pattern from a stack copy to a pointer, removed a newline from the sugano assert report string, and adjusted formatting/casts around HSD_ASSERTREPORT.",
-    "In symbols.txt, split lbShadow_803BA0FC from size 0x54 to size 0x30 plus lbl_803BA12C, split lbSnap_803BAD00 into four string/SJIS labels, and split lbmthp string arrays at 0x803BADB0 and 0x803BAE3C into individual lbl_* strings.",
-    "In lb_00F9.c, overrode __FILE__ to \"lbspdisplay.c\", made two Vec3 objects static const, and swapped far/ortho_bot initial values.",
-    "In lbsnap.static.h, changed Unk803BACC8 so x1C is void*, added x20 and padding, and inserted an initializer 0 before the -1 pointer.",
-    "In lbrefract.c and lbshadow.c, changed HSD_ASSERTREPORT false conditions from NULL to 0; lbshadow also changed the report text to \"coudn t get light position ...\\n\"."
+    "Added a new file src/melee/lb/lb_01F8.c containing lbMthp8001F890, lbMthp8001F928, and lbMthp8001FAA0, which were removed from the end of src/melee/lb/lbmthp.c.",
+    "Updated config/GALE01/splits.txt so lbmthp.c ends at text 0x8001F890, bss 0x804335B8, and sdata2 0x804D7CE0, then added lb_01F8.c covering text 0x8001F890-0x8001FC08, bss 0x804335B8-0x80433658, and sdata2 0x804D7CE0-0x804D7CE8.",
+    "Added Object(Matching, \"melee/lb/lb_01F8.c\") to configure.py while lbmthp.c remains NonMatching.",
+    "Moved struct lbl_804333E0_t from lbmthp.static.h into lbmthp.h and kept a STATIC_ASSERT size check at 0x1D8 so the new lb_01F8.c can reference Movieplayer's type.",
+    "Kept lbl_804335B8_t local to the new lb_01F8.c with a STATIC_ASSERT size check at 0xA0 and an extern declaration for Movieplayer.",
+    "Changed THPVideoDecode's prototype from taking an s32 decode-buffer parameter to a void* parameter, and adjusted calls in lbmthp.c and lb_01F8.c accordingly.",
+    "Adjusted lbmthp matching details: used a pointer to Movieplayer rather than copying the struct in fn_8001E910, removed an extra newline from an HSD_ASSERTREPORT format string in fn_8001F13C, and used 0.0F literals instead of the old lbl_804D7CE0 float references in moved lb_01F8 functions.",
+    "Refined config/GALE01/symbols.txt data objects: split aggregate symbols such as lbSnap_803BAD00, str_arr_803BADB0, and str_arr_803BAE3C into individual lbl_* string symbols with explicit sizes and data:string or data:sjis annotations; also corrected lbShadow_803BA0FC size and added lbl_803BA12C.",
+    "Changed lb_00F9.c to define __FILE__ as \"lbspdisplay.c\", made two Vec3 constants static const, and swapped local far/ortho_bot initializers in lb_800138EC.",
+    "Adjusted small data-matching details in lbrefract.c and lbshadow.c by changing HSD_ASSERTREPORT condition arguments from NULL to 0 and, in lbshadow.c, changing the assertion message string to match the original data.",
+    "Updated lbsnap.static.h's Unk803BACC8 layout and initializer, replacing x1C with a void* plus x20 and pad fields to fit the corrected data layout."
   ],
   "smart_moves": [
-    "Recognized that the nearly matched lbmthp tail actually belonged in a separate address-named translation unit; moving the split converted the three moved functions, .bss, and .sdata2 into full lb_01F8 matches.",
-    "Updated splits.txt and configure.py together, avoiding the common mistake of moving source without giving the linker/decomp configuration a matching object and section ownership.",
-    "Kept unknown names address-based instead of inventing semantics, while still separating aggregate data into exact labels so the matcher could account for each string and SJIS blob.",
-    "Promoted only the needed struct layout to the public header while leaving static object ownership in the static header/new source file.",
-    "Preserved codegen-sensitive string details, including missing/newline differences and typo-like assertion text, instead of normalizing them for readability.",
-    "Used a pointer to Movieplayer rather than copying the entire struct in fn_8001E910, matching the original access pattern and improving that function without broad rewrites."
+    "Used a split-file approach for lbmthp: carving out the already-matchable 0x8001F890-0x8001FC08 range let lb_01F8 become a matching object without forcing the rest of lbmthp.c to match.",
+    "Aligned source splits, configure.py object status, and symbols.txt together; the PR did not only move code but also taught the build system and symbol map about the new translation unit and data boundaries.",
+    "Promoted the shared Movieplayer struct definition from a static header to the public lbmthp.h only because the new file needed the type, while leaving the Movieplayer storage itself static in lbmthp.static.h and referenced externally from lb_01F8.c.",
+    "Preserved struct layout confidence with STATIC_ASSERT checks for both lbl_804333E0_t and lbl_804335B8_t.",
+    "Converted broad data blobs and string arrays into precise symbol entries, including SJIS marking where applicable, which produced several small data-section matches across lbmthp, lbsnap, lbshadow, and lbrefract.",
+    "Fixed function prototypes to reflect actual pointer semantics, especially THPVideoDecode's decode buffer parameter, rather than relying on integer casts everywhere."
   ],
   "decomp_lessons": [
-    "When a block of functions at the end of a nonmatching file has its own bss/sdata2 tail, try a translation-unit split at the exact text boundary before over-tuning local code.",
-    "Move split boundaries in all relevant sections, not just .text; here bss and sdata2 ownership changed with the new lb_01F8 object.",
-    "Data matching can require splitting symbol-table aggregate arrays into individual strings with exact sizes and encodings such as data:string versus data:sjis.",
-    "Original assert/report strings are data, not comments: exact punctuation, typos, and trailing newlines can determine .data/.sdata matches.",
-    "Header promotion is useful when multiple files need a struct type, but keep actual static symbols scoped to their owning translation unit where possible.",
-    "Pointer-typed library prototypes matter for matching; changing THPVideoDecode's third argument to void* made call sites represent decode buffers directly.",
-    "Small C-source details such as static const, __FILE__ overrides, and local initializer order can move constants between rodata/sdata2 and affect matches."
+    "When a nonmatching file contains a contiguous range that can match independently, consider creating a new split/object for that address range instead of keeping the entire original file as one nonmatching unit.",
+    "A split change must be synchronized across splits.txt, configure.py, source files, and the symbol map; otherwise code/data ownership can become inconsistent.",
+    "Do not leave data as coarse str_arr_* or module-sized blobs once individual string boundaries are known. Splitting them into lbl_ADDRESS entries can unlock matched data and improve nearby code matches.",
+    "For cross-file statics, move only the type definition to a shared header when needed; keep actual storage and linkage decisions explicit.",
+    "Exact assertion strings and __FILE__ values affect rodata/data matching. Even punctuation, newlines, typos, and file-name macros may need to mirror the original binary.",
+    "Pointer-vs-integer prototype accuracy matters for matching. A wrong s32 parameter for a pointer can force noisy casts and can affect generated code.",
+    "Const qualification can move small vector data to the expected section and fix rodata matching."
   ],
   "naming_conventions": [
-    "New unknown source split was named by address as lb_01F8.c.",
-    "Moved functions retained existing lbMthp address-style names: lbMthp8001F890, lbMthp8001F928, and lbMthp8001FAA0.",
-    "Unknown data labels used address-based lbl_* names such as lbl_803BAD00 and lbl_803BAE3C.",
-    "Subsystem-owned data labels kept subsystem prefixes where already known, such as lbShadow_803BA0FC and lbSnap_803BACC8.",
-    "Struct layouts used address-style temporary names and offset fields, e.g. struct lbl_804335B8_t with x6C, x6E, unk94, and pad_9C.",
-    "Known diagnostic strings used str_* naming when available, e.g. str_Warning_frame_offsets_not_supported.",
-    "__FILE__ was explicitly set to the original source filename string \"lbspdisplay.c\" even though the current file is lb_00F9.c."
+    "New split file used the address-style name lb_01F8.c corresponding to the 0x8001F890 range and existing lb naming practice.",
+    "Unidentified data/string symbols were named lbl_803Bxxxx rather than pretending semantic names, while known module symbols kept prefixes such as lbSnap_ and lbShadow_.",
+    "The public Movieplayer type retained the address-derived name struct lbl_804333E0_t because semantic field names remain mostly unknown.",
+    "The new local THP display/decode state type used struct lbl_804335B8_t and fields like x6C, x6E, x90, unk94, and unk98, preserving offset-based placeholder naming.",
+    "Function names for unknown lbmthp routines retained address suffixes, such as lbMthp8001F890, lbMthp8001F928, and lbMthp8001FAA0."
   ],
   "assembly_or_matching_tactics": [
-    "Created a matching object for lb_01F8 while leaving lbmthp as NonMatching, converting moved code into 100% matched items without claiming all of lbmthp.",
-    "Used exact split addresses: lbmthp .text 0x8001E910-0x8001F890 and lb_01F8 .text 0x8001F890-0x8001FC08.",
-    "Used exact bss split: lbmthp 0x804333E0-0x804335B8 and lb_01F8 0x804335B8-0x80433658.",
-    "Used exact sdata2 split: lbmthp 0x804D7CC8-0x804D7CE0 and lb_01F8 0x804D7CE0-0x804D7CE8.",
-    "Replaced use of lbl_804D7CE0 in moved code with 0.0F literals in lb_01F8.c to fit the new object's sdata2 ownership.",
-    "Changed THPVideoDecode call arguments so decode buffers are passed as void* rather than s32.",
-    "Made lb_803B72A8 and lb_803B72B4 static const Vec3 in lb_00F9.c to match read-only data placement.",
-    "Changed HSD_ASSERTREPORT conditions from NULL to integer 0 where the generated code/data required it.",
-    "Adjusted struct Unk803BACC8 field types and padding so the lbsnap initializer matched the target data layout."
+    "Carved out lb_01F8 as a separate Matching object to isolate matchable functions from nonmatching lbmthp.c.",
+    "Used local variable/type tweaks for codegen: pointer-to-Movieplayer instead of struct copy, void* casts for THPVideoDecode, direct 0.0F literals, and precise u16 width/height handling.",
+    "Matched rodata/data by exact string content, including removing a newline from \"filnum = %d, ofs = %d, by sugano.\" and reproducing lbshadow's original typo-like assertion string \"coudn t get light position ...\\n\".",
+    "Set __FILE__ to \"lbspdisplay.c\" inside lb_00F9.c to reproduce original assertion/file string data despite the decomp file's current name.",
+    "Used const on static Vec3 literals in lb_00F9.c to place them in the expected read-only data section.",
+    "Modeled YUV texture state in lbl_804335B8_t with three GXTexObj fields and image pointers, matching the bss range 0x804335B8-0x80433658."
   ],
   "review_feedback": [
-    "No human PR body, review comments, or reviews were present in the slice.",
-    "decomp-dev bot reported GALE01 matched code 66.55% (+0.03%, +1232 bytes), linked code 38.85% (+0.02%, +888 bytes), matched data 38.85% (+0.04%, +480 bytes), and linked data 33.15% (+0.01%, +168 bytes).",
-    "Bot listed 13 new matches, including lb_01F8 functions lbMthp8001F928, lbMthp8001FAA0, lbMthp8001F890, lb_01F8 .bss/.sdata2, lb_00F9 .rodata, lbshadow data/sdata, lbsnap data, lbrefract sdata, and lbmthp fn_8001F13C.",
-    "Bot listed lbmthp regressions for lbMthp8001F928, lbMthp8001FAA0, and lbMthp8001F890, but these correspond to the same functions being removed from lbmthp and rematched under lb_01F8."
+    "No human review comments were present in the provided PR slice.",
+    "The decomp.dev bot reported GALE01 improvements: matched code 66.55% (+0.03%, +1232 bytes), linked code 38.85% (+0.02%, +888 bytes), matched data 38.85% (+0.04%, +480 bytes), and linked data 33.15% (+0.01%, +168 bytes).",
+    "The bot listed 13 new matches, including lb_01F8 lbMthp8001F928, lbMthp8001FAA0, lbMthp8001F890, lb_01F8 .bss, lb_01F8 .sdata2, lb_00F9 .rodata, lbshadow .data/.sdata, lbsnap .data, lbrefract .sdata, and lbmthp fn_8001F13C/.sdata2."
   ],
   "searchable_terms": [
-    "PR2481",
+    "pr-2481",
     "fixup misc lb data",
-    "r-burns",
     "lb_01F8.c",
     "lbmthp.c",
     "lbmthp.h",
@@ -146,39 +106,51 @@
     "lbMthp8001F890",
     "lbMthp8001F928",
     "lbMthp8001FAA0",
-    "lbl_804335B8_t",
-    "lbl_804335B8",
     "Movieplayer",
     "lbl_804333E0_t",
+    "lbl_804335B8_t",
     "THPVideoDecode",
+    "THPInit",
     "THPDec_8032F8D4",
     "THPDec_8032FD40",
     "THPDec_80331340",
     "THPDec_803313D0",
-    "HSD_SObjLib_803A477C",
-    "HSD_SObjLib_803A49E0",
     "GXInitTexObj",
     "GXInitTexObjLOD",
     "GXLoadTexObj",
+    "HSD_SObjLib_803A477C",
+    "HSD_SObjLib_803A49E0",
+    "lbFile_80016760",
     "lbspdisplay.c",
-    "str_Warning_frame_offsets_not_supported",
-    "lbShadow_803BA0FC",
-    "lbSnap_803BAD00",
+    "lb_00F9.c",
+    "lb_800138EC",
+    "lbRefract_80022BD0",
+    "lbShadow_8000F38C",
+    "lbsnap.static.h",
     "Unk803BACC8",
-    "coudn t get light position",
-    "lbRefSetUnuse error",
+    "str_Warning_frame_offsets_not_supported",
+    "lbl_803BAD00",
+    "lbl_803BAD1C",
+    "lbl_803BAE3C",
     "data:sjis",
     "splits.txt",
-    "symbols.txt"
+    "symbols.txt",
+    "Object(Matching, \"melee/lb/lb_01F8.c\")"
   ],
   "follow_up_queries": [
-    "lb_01F8.c lbMthp8001F890 lbMthp8001F928 lbMthp8001FAA0",
-    "lbl_804335B8_t GXTexObj THPVideoDecode HSD_SObjLib_803A477C",
-    "config/GALE01/splits.txt 0x8001F890 0x804335B8 0x804D7CE0",
-    "symbols.txt str_arr_803BAE3C lbl_803BAE3C data:sjis",
-    "HSD_ASSERTREPORT NULL 0 coudn t get light position",
-    "__FILE__ lbspdisplay.c static const Vec3 lb_803B72A8",
-    "Unk803BACC8 x1C x20 lbSnap_803BACC8 initializer"
+    "Find other nonmatching files where a matching tail range can be split into an address-named Matching object.",
+    "Audit remaining str_arr_* symbols in config/GALE01/symbols.txt for possible splitting into exact string labels.",
+    "Search for THPVideoDecode declarations or calls that still treat pointer arguments as s32.",
+    "Check other lb assertion strings for exact punctuation, newlines, __FILE__ macro values, and typo preservation needed for data matching.",
+    "Review lbmthp remaining nonmatching functions after lb_01F8 was split out, especially fn_8001E910 and lbMthp_8001F410."
   ],
-  "confidence": 0.88
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

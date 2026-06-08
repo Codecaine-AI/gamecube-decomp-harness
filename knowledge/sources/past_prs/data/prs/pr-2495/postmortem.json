@@ -11,96 +11,112 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed, unmerged PR that improved `src/melee/lb/lbsnap.c` matching by replacing placeholder-style code and signatures with typed helpers, clearer control flow, and register-allocation-oriented locals. The PR body reports `main/melee/lb/lbsnap` at 20/22 functions 100%, with remaining blockers `lbSnap_8001DA5C` at 55.87963% and `lbSnap_8001DF20` at 98.15790%. The decomp.dev bot reported five new matches and one additional improvement in `lbSnap_8001DA5C`.",
+  "summary": "Improved matching in the lbSnap library code by replacing placeholder-style implementations/signatures with more structured C, extracting small inline helpers, and reducing lbsnap's unmatched surface to two functions. The PR was closed without merge in the provided context, but decomp.dev reported five new 100% matches and one additional improvement in lbSnap_8001DA5C.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "signature-cleanup",
-      "header-prototype-cleanup",
-      "control-flow-refactor",
-      "helper-extraction",
-      "register-allocation-tuning"
+      "headers",
+      "tooling-verification"
     ],
     "systems": [
       "library",
       "lb",
       "lbsnap",
-      "memory-card-snapshots",
-      "snapshot-icon-data"
+      "memory-card-snapshot"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/lb/lbsnap.c",
-      "role": "Main matching work: added static inline helpers, rewrote repeated text clearing and return flow, refined tiled RGB offset math, adjusted time conversion typing, and reused save-data offset computation."
+      "role": "Main matching work for lbSnap functions, helper extraction, RGB/tiled-offset cleanup, return-flow reshaping, and save-data offset factoring."
     },
     {
       "path": "src/melee/lb/lbsnap.h",
-      "role": "Header cleanup: changed `lbSnap_8001E27C` from `UNK_RET lbSnap_8001E27C(UNK_PARAMS)` to `void lbSnap_8001E27C(void)`."
+      "role": "Header signature cleanup for lbSnap_8001E27C."
     }
   ],
   "what_changed": [
-    "Added `static inline void lbSnap_ClearText(char* text)` and used it to replace repeated 0x21-byte manual zeroing loops in `lbSnap_8001D5FC`, `lbSnap_8001D7B0`, and `lbSnap_8001E058`.",
-    "Changed several card-result wrappers to cache `ptr->card_result` in a local `ret`, run the operation only when `ret == 0`, assign the callee result back to `ret`, and return once.",
-    "Reworked `lbSnap_8001DA5C` from register-named temporaries (`r4`, `r5`, `r6`, etc.) into typed and semantically named locals such as `dst`, `dst_x`, `src_x`, `dst_col`, `tile_column`, `dst_y`, `src_y_accum`, and `pixel`.",
-    "Added tiled texture address helpers `lbSnap_GetTiledRGBOffset(int x, int y, int tile_stride)` and `lbSnap_GetTiledYOff(int tile_column, int y)` for the RGB565-to-RGB5A3 icon conversion path.",
-    "Adjusted `lbSnap_8001DC0C` time conversion by storing `OSTicksToSeconds(ticks)` in a `u32 seconds` and calling `OSTicksToCalendarTime(OSSecondsToTicks((u64) seconds), &time)` inline.",
-    "Added `lbSnap_GetSaveDataOffset(struct Unk80433380_0* snap)` and reused it in `lbSnap_8001DF20` and `lbSnap_8001DF6C` instead of repeating the offset arithmetic inline.",
-    "In `lbSnap_8001DF6C`, introduced local `struct Unk803BACC8* desc = &lbSnap_803BACC8` and `int chan_arg = chan`, removed a `PAD_STACK(8)`, and passed `&desc->x14`/`desc` into `lb_8001BB48`.",
-    "Updated the header declaration for `lbSnap_8001E27C` to the concrete signature `void lbSnap_8001E27C(void)`.",
-    "Verification in the PR body claimed `python configure.py && ninja` and `main/melee/lb/lbsnap`: 20/22 functions at 100%. The bot report listed five new 100% matches: `lbSnap_8001DF6C`, `lbSnap_8001D7B0`, `lbSnap_8001D5FC`, `lbSnap_8001E058`, and `lbSnap_8001DC0C`."
+    "Added static inline lbSnap_ClearText(char* text) to replace repeated loops clearing 0x21-byte local text buffers in lbSnap_8001D5FC, lbSnap_8001D7B0, and lbSnap_8001E058.",
+    "Reshaped several card-result functions to cache ptr->card_result in a local ret, only call the memory-card operation when ret is zero, and return ret at the end instead of using early return/else patterns.",
+    "Refactored lbSnap_8001DA5C from register-like temporaries into named variables such as dst, dst_x, src_x, dst_col, tile_column, dst_y, src_y_accum, and pixel.",
+    "Added static inline tiled image offset helpers lbSnap_GetTiledRGBOffset and lbSnap_GetTiledYOff for RGB/tiled pixel addressing.",
+    "Kept the RGB565_TO_RGB5A3 conversion macro and made its use clearer inside lbSnap_8001DA5C while improving that function from 47.05% to 55.88% according to the bot report.",
+    "Changed lbSnap_8001DC0C to use u32 seconds and call OSTicksToCalendarTime(OSSecondsToTicks((u64) seconds), &time) directly, which brought the function to 100% in the bot report.",
+    "Added static inline lbSnap_GetSaveDataOffset(struct Unk80433380_0* snap) to factor the previously commented offset expression used for lbSnap_803BACC8.x14.",
+    "Reworked lbSnap_8001DF20 to use a local snap pointer and lbSnap_GetSaveDataOffset; the PR notes this function remained at 98.15790% due to register allocation only.",
+    "Reworked lbSnap_8001DF6C to use a local descriptor pointer desc, a chan_arg local, lbSnap_GetSaveDataOffset, and desc field references; decomp.dev reported this function improved from 86.41% to 100%.",
+    "Updated the public header declaration for lbSnap_8001E27C from UNK_RET lbSnap_8001E27C(UNK_PARAMS) to void lbSnap_8001E27C(void)."
   ],
   "smart_moves": [
-    "Factoring the repeated fixed-size text clear into a static inline helper let multiple near-identical functions share the same code shape without changing behavior.",
-    "Using a `ret` local and a single return path matched several card-result wrappers better than returning directly from both branches.",
-    "Replacing opaque register temporaries in `lbSnap_8001DA5C` with typed pointer math made the tiled texture sampling logic searchable and easier to continue, even though that function remained unmatched.",
-    "The tiled offset helpers captured the GameCube-style 4x4 tile addressing formula in one place, reducing repeated arithmetic noise during matching work.",
-    "The save-data offset helper made the `xC + (&x38 - base)` pattern explicit and reusable across `lbSnap_8001DF20` and `lbSnap_8001DF6C`.",
-    "The `OSTicksToSeconds`/`OSSecondsToTicks` type adjustment in `lbSnap_8001DC0C` was small but enough for the bot to report that function moving from 99.97% to 100%.",
-    "Introducing local aliases like `desc` and `chan_arg` in `lbSnap_8001DF6C` is a typical ralloc-sensitive tactic for matching MWCC output."
+    "Extracting lbSnap_ClearText turned repeated manual zeroing loops into an inline helper while preserving the exact fixed 0x21-byte behavior needed for matching.",
+    "Using a ret local for card_result paths avoided duplicated returns and matched codegen for several nearly identical functions.",
+    "Factoring the save-data offset expression into lbSnap_GetSaveDataOffset documented the apparent offsetof-style computation without relying on an unsafe or unproven struct annotation in the diff.",
+    "Replacing register-named temporaries in lbSnap_8001DA5C with semantic image-coordinate names made the remaining unmatched function easier to reason about without pretending it was fully solved.",
+    "The tiled-offset helpers separated address arithmetic from conversion logic, making the RGB565-to-RGB5A3 icon-generation path more searchable and reusable.",
+    "The author included concrete verification evidence: configure plus ninja, 20/22 lbsnap functions at 100%, and the two remaining blockers with percentages."
   ],
   "decomp_lessons": [
-    "For repeated stack-buffer clearing, try a `static inline` helper before forcing each function to carry its own hand-written loop.",
-    "When a wrapper checks a status field and either returns it or calls another function, caching the status in `ret` and using one final return can be important for matching.",
-    "Prefer typed base pointers for offset expressions: `snap->xC + ((int) &snap->x38 - (int) snap)` is clearer and more reusable than ad hoc references through nested globals.",
-    "Small integer type choices matter in OS time code; assigning seconds to `u32` and casting back to `u64` at the call site affected matching in `lbSnap_8001DC0C`.",
-    "For tiled texture copies, extract the tile-stride and intra-tile address math into helpers so later work can focus on loop structure and register allocation.",
-    "Do not assume cleanup equals a full match: `lbSnap_8001DA5C` became much clearer but was still only reported at 55.87963%, and `lbSnap_8001DF20` still had a register-allocation-only blocker.",
-    "When the implementation signature is known, replace `UNK_RET`/`UNK_PARAMS` header placeholders with explicit prototypes to reduce future ambiguity."
+    "For repeated stack text buffers, a small static inline helper can improve both readability and matching if it preserves the exact loop bounds and call placement.",
+    "When multiple functions share card_result/stateChanged gating logic, matching may depend on assigning the result to a local before the conditional and returning that local after the operation.",
+    "For image/tile conversion functions, replacing register placeholders with domain names such as src_x, dst_y, tile_column, and src_y_accum can expose the original algorithm and make further matching easier.",
+    "Offset expressions that look like offsetof plus a runtime base field can be wrapped in an inline helper to reduce duplication while keeping uncertain struct semantics explicit.",
+    "Small type changes around OS time conversion can matter for matching; here OSTime seconds became u32 seconds with an explicit u64 cast into OSSecondsToTicks.",
+    "A partially matched large loop can still be valuable if it improves decompilation percentage and gives future contributors better variable names and helper boundaries."
   ],
   "naming_conventions": [
-    "`lbSnap_*` functions use the library prefix plus address-style suffix, e.g. `lbSnap_8001D5FC`, `lbSnap_8001DA5C`, and `lbSnap_8001DF20`.",
-    "New internal helpers used `lbSnap_` plus PascalCase descriptive names: `lbSnap_ClearText`, `lbSnap_GetTiledRGBOffset`, `lbSnap_GetTiledYOff`, and `lbSnap_GetSaveDataOffset`.",
-    "Unknown structs retained address/offset-style names such as `Unk80433380_48`, `Unk80433380_0`, and `Unk803BACC8`.",
-    "Partially understood fields kept `xNN` offset notation while adding semantic suffixes where available, e.g. `x54_stateChanged`, `x44_LbMcSnap_MemSnapIconData`, and `x4_string`.",
-    "The diff moved away from raw register placeholder names in `lbSnap_8001DA5C` toward role names: `dst_x`, `src_x`, `dst_col`, `tile_column`, `dst_y`, `src_y_accum`, and `pixel`.",
-    "Known status fields used direct semantic names such as `card_result`, `num`, `entries`, and `time`.",
-    "Header declarations should prefer explicit signatures like `void lbSnap_8001E27C(void)` once known, instead of `UNK_RET` and `UNK_PARAMS`."
+    "New helper names use the project symbol prefix and Pascal-style component after it: lbSnap_ClearText, lbSnap_GetTiledRGBOffset, lbSnap_GetTiledYOff, lbSnap_GetSaveDataOffset.",
+    "Function symbols retain address-based decomp names such as lbSnap_8001D5FC, lbSnap_8001DA5C, lbSnap_8001DF20, and lbSnap_8001E058.",
+    "Locals in refactored code moved away from register-like names r4/r5/r6/r7/r9/r10/r25/r27/r28 toward semantic names like dst, dst_x, src_x, dst_col, tile_column, dst_y, src_y_accum, pixel, snap, desc, and chan_arg.",
+    "Header cleanup replaced placeholder signature macros UNK_RET/UNK_PARAMS with an exact void lbSnap_8001E27C(void) declaration."
   ],
   "assembly_or_matching_tactics": [
-    "Static inline helpers were used to preserve reusable codegen patterns while simplifying source.",
-    "Several functions switched from branch-local direct returns to `ret` assignment plus one final `return ret;`.",
-    "`PAD_STACK` usage was adjusted: the new helper-based code kept `PAD_STACK(8)` in several stack-buffer functions, reduced `lbSnap_8001DA5C` from `PAD_STACK(16)` to `PAD_STACK(8)`, and removed `PAD_STACK(8)` from `lbSnap_8001DF6C`.",
-    "Pointer aliases such as `struct Unk803BACC8* desc` and local copies such as `int chan_arg = chan` were introduced, likely to influence register allocation in matched functions.",
-    "The RGB path used explicit `u8*` and `u16*` casts plus address-of indexed byte arrays: `*(u16*) &((u8*) arg0)[offset]` and `*(u16*) &dst_col[offset]`.",
-    "The RGB565-to-RGB5A3 conversion macro remained central, while the surrounding tiled address math was factored into `lbSnap_GetTiledRGBOffset` and `lbSnap_GetTiledYOff`.",
-    "The bot report gives concrete matching evidence: `lbSnap_8001DF6C`, `lbSnap_8001D7B0`, `lbSnap_8001D5FC`, `lbSnap_8001E058`, and `lbSnap_8001DC0C` reached 100%; `lbSnap_8001DA5C` improved from 47.05% to 55.88%."
+    "Introduce static inline helpers rather than out-of-line functions when abstracting repeated logic needed for matching.",
+    "Cache global or struct field reads into locals to influence register allocation and return-flow shape.",
+    "Use final-return ret patterns instead of early returns when the original codegen appears to preserve a result register/local through the branch.",
+    "Use PAD_STACK only where needed for stack-shape matching; lbSnap_8001DF6C removed a PAD_STACK(8) while other functions retained PAD_STACK(8), and lbSnap_8001DA5C changed from PAD_STACK(16) to PAD_STACK(8).",
+    "Convert pointer arithmetic to byte-pointer indexed loads/stores, e.g. u8* plus helper-computed offsets, while casting at the final u16 access.",
+    "For tiled texture/icon data, isolate formulas involving x / 4, y / 4, x % 4, y % 4, tile stride, shifts by 5, and 2-byte pixel offsets.",
+    "Use explicit casts around OSSecondsToTicks((u64) seconds) when matching time conversion code."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the slice.",
-    "The PR was closed without being merged, so these changes should be treated as useful evidence rather than accepted project history unless found elsewhere.",
-    "The decomp.dev bot reported GALE01 matched code at 67.05%, a +0.06% change and +2424 bytes.",
-    "The bot reported five new matches in `main/melee/lb/lbsnap`: `lbSnap_8001DF6C`, `lbSnap_8001D7B0`, `lbSnap_8001D5FC`, `lbSnap_8001E058`, and `lbSnap_8001DC0C`.",
-    "The PR body listed remaining blockers as `lbSnap_8001DA5C`: 55.87963% and `lbSnap_8001DF20`: 98.15790% with register allocation only."
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Matched code increased by 0.06% / 2424 bytes for GALE01 c59a5c6 - 3dd9ec7."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "New 100% matches reported for lbSnap_8001DF6C, lbSnap_8001D7B0, lbSnap_8001D5FC, lbSnap_8001E058, and lbSnap_8001DC0C."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "lbSnap_8001DA5C improved from 47.05% to 55.88% but remained unmatched."
+    },
+    {
+      "source": "PR body",
+      "feedback": "Verification listed as python configure.py && ninja, with main/melee/lb/lbsnap at 20/22 functions at 100%."
+    },
+    {
+      "source": "PR body",
+      "feedback": "Remaining blockers were lbSnap_8001DA5C at 55.87963% and lbSnap_8001DF20 at 98.15790%, with lbSnap_8001DF20 described as register allocation only."
+    },
+    {
+      "source": "review comments",
+      "feedback": "No human review comments were present in the provided slice."
+    }
   ],
   "searchable_terms": [
     "pr-2495",
     "lb: improve lbsnap matching",
     "itsgrimetime",
     "lbsnap",
+    "lbSnap",
     "src/melee/lb/lbsnap.c",
     "src/melee/lb/lbsnap.h",
+    "lbSnap_ClearText",
+    "lbSnap_GetTiledRGBOffset",
+    "lbSnap_GetTiledYOff",
+    "lbSnap_GetSaveDataOffset",
     "lbSnap_8001D5FC",
     "lbSnap_8001D7B0",
     "lbSnap_8001DA5C",
@@ -109,45 +125,41 @@
     "lbSnap_8001DF6C",
     "lbSnap_8001E058",
     "lbSnap_8001E27C",
-    "lbSnap_ClearText",
-    "lbSnap_GetTiledRGBOffset",
-    "lbSnap_GetTiledYOff",
-    "lbSnap_GetSaveDataOffset",
-    "lbSnap_80433380",
-    "lbSnap_803BACC8",
-    "Unk80433380_48",
-    "Unk80433380_0",
-    "Unk803BACC8",
-    "x54_stateChanged",
-    "card_result",
-    "x44_LbMcSnap_MemSnapIconData",
     "RGB565_TO_RGB5A3",
-    "RGB5A3_MASK_A",
-    "PAD_STACK",
-    "HSD_ASSERTMSG",
+    "RGB5A3",
+    "RGB565",
+    "tiled RGB offset",
+    "tiled icon data",
+    "card_result",
+    "x54_stateChanged",
+    "LbMcSnap_MemSnapIconData",
     "OSGetTime",
     "OSTicksToSeconds",
     "OSSecondsToTicks",
     "OSTicksToCalendarTime",
+    "PAD_STACK",
+    "HSD_ASSERTMSG",
     "lb_8001B99C",
     "lb_8001C0F4",
     "lb_8001C4A8",
     "lb_8001BB48",
     "lb_8001BF04",
     "UNK_RET",
-    "UNK_PARAMS",
-    "void lbSnap_8001E27C(void)",
-    "20/22 functions at 100%",
-    "GALE01",
-    "matched code +2424 bytes"
+    "UNK_PARAMS"
   ],
   "follow_up_queries": [
-    "Search later merged PRs for `lbSnap_8001DA5C` to see whether the tiled RGB/icon-copy loop was finally matched.",
-    "Search later merged PRs for `lbSnap_8001DF20` register allocation fixes.",
-    "Check whether `lbSnap_ClearText` or the `ret` single-return pattern was reused in accepted `lbsnap` work.",
-    "Look for a merged version of the `lbSnap_8001E27C(void)` header prototype change.",
-    "Compare current `src/melee/lb/lbsnap.c` against PR #2495 to see which closed-PR tactics were cherry-picked or superseded.",
-    "Investigate whether the `lbSnap_GetSaveDataOffset` expression reveals a better name or layout for `Unk80433380_0::xC` and `x38`."
+    "Find later PRs that finish matching lbSnap_8001DA5C or reuse lbSnap_GetTiledRGBOffset/lbSnap_GetTiledYOff.",
+    "Find later PRs that resolve lbSnap_8001DF20 register allocation after lbSnap_GetSaveDataOffset was introduced.",
+    "Search for other lbsnap functions using card_result ret-local patterns to compare matching tactics.",
+    "Search for additional header cleanup replacing UNK_RET/UNK_PARAMS with concrete void signatures."
   ],
-  "confidence": 0.91
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

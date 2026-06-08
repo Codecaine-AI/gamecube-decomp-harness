@@ -11,100 +11,96 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Draft, closed-unmerged WIP on the trophy-list UI decomp. The main work rewrote large parts of src/melee/ty/tylist.c with typed TyListArg/TyListState access, added a C body for un_80313774, tightened tylist prototypes/structs, and made small formatting-only cast-spacing edits in gm/gr files. decomp.dev reported a net +792 matched bytes, including new 100% matches for un_8031263C and un_803124BC, but also several tylist regressions, which is important context because there was no PR body or human review feedback.",
+  "summary": "Closed, unmerged PR focused on the trophy list module `src/melee/ty/tylist.c` and related `ty` headers. It attempted to improve decompilation/readability by typing `TyListArg`/`TyListState` fields, adding small local structs for archive/camera/display state, replacing raw JObj translation/dirty-flag code with HSD setter calls, converting string literals to offsets into existing string data, and implementing `un_80313774`. The decomp.dev bot showed a small net matched-code gain (+0.02%, +792 bytes) with new 100% matches for `un_8031263C` and `un_803124BC`, but also several significant regressions in other `tylist` functions, which likely made the PR unsuitable as-is. There were no human review comments in the slice.",
   "change_classification": {
-    "primary_type": "decomp-matching-wip",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-typing",
-      "ui-state-refactor",
-      "code-style-cleanup"
+      "typing",
+      "cleanup",
+      "closed-unmerged"
     ],
     "systems": [
-      "ty/trophy-list",
+      "ty",
+      "trophy-list",
       "ui",
-      "baselib-jobj",
-      "sis-text",
+      "melee-core",
       "game-mode",
       "stage"
     ]
   },
   "key_files": [
     {
-      "path": "src/melee/ty/tylist.c",
-      "role": "Primary rewrite of trophy list logic; added local archive/camera/display structs, implemented un_80313774, refactored scrolling, selection, text placement, camera setup, and JObj translation code."
+      "file": "src/melee/ty/tylist.c",
+      "change": "Major rewrite/refactor of trophy list decompilation; added local structs, typed function bodies, implemented `un_80313774`, adjusted archive symbol loading, text positioning, list scrolling, camera/scissor setup, and JObj animation/translation handling."
     },
     {
-      "path": "src/melee/ty/types.h",
-      "role": "Reshaped TyListArg and TyListState fields: links[3], jobjs[3], texts[3], typed TyListArg pointers, and signed scroll/cooldown fields."
+      "file": "src/melee/ty/types.h",
+      "change": "Refined `TyListArg` layout from individually named raw fields to grouped `links[3]`, `jobjs[3]`, and `texts[3]`; adjusted signedness and padding in `TyListArg`/`TyListState`."
     },
     {
-      "path": "src/melee/ty/tylist.h",
-      "role": "Updated function prototypes to use TyListArg*/TyListState* directly and removed fn_80313BD8 from the public header after making it static in tylist.c."
+      "file": "src/melee/ty/tylist.h",
+      "change": "Updated prototypes to use `TyListArg*` and `TyListState*`; changed `un_8031305C` signature and removed public declaration of local/static `fn_80313BD8`."
     },
     {
-      "path": "src/melee/gm/gm_18A5.c",
-      "role": "Formatting-only compound literal spacing for GXColor casts."
+      "file": "src/melee/gm/gm_18A5.c",
+      "change": "Formatting-only change to compound literal style for `GXColor` casts."
     },
     {
-      "path": "src/melee/gm/gmclassic.c",
-      "role": "Formatting-only function-pointer cast spacing in gmClassic_801B3500."
+      "file": "src/melee/gm/gmclassic.c",
+      "change": "Formatting-only change to function pointer cast spacing."
     },
     {
-      "path": "src/melee/gr/gricemt.c",
-      "role": "Formatting-only function-pointer cast spacing in grIceMt_801FA364."
+      "file": "src/melee/gr/gricemt.c",
+      "change": "Formatting-only change to function pointer cast spacing."
     }
   ],
   "what_changed": [
-    "Added tylist-local helper structs TyListArchiveAnimData, TyListWaitData, TyListCameraState, TyListDispEntry, and TyListDispState to replace raw offsets around archive animation data, camera GObjs, display state, and wait data.",
-    "Added includes for sc/forward.h and baselib/aobj.h, consistent with the new Scissor use and direct HSD_AObjSetRate calls.",
-    "Changed un_803124BC and un_8031263C archive/symbol loading to use offsets from un_803FDD18, such as data + 0x608, data + 0x614, data + 0x9DC, data + 0xA58, instead of direct string literals like \"TyDatai.dat\" and \"tyInitModelTbl\".",
-    "Replaced a placeholder/nonmatched un_80313774 with C code that initializes TyListState, builds circular TyListArg links, creates list row JObjs/text objects, sets selection pointers, and calls un_80312BAC.",
-    "Refactored un_80312904 to take TyListArg* instead of void*, use arg->jobjs and arg->texts arrays, compute text positions from JObj translations, update colors, and populate trophy name/count text.",
-    "Refactored un_80312BAC, un_80312E88, un_8031305C, fn_80313BD8, fn_8031438C, un_8031457C, and un_803147C4 around typed state fields, array indexing, and clearer scroll/selection/camera logic.",
-    "Replaced large manual JObj translate/dirty-flag blocks in several places with HSD_JObjSetTranslateX, HSD_JObjSetTranslateY, and HSD_JObjSetTranslateZ.",
-    "Updated TyListArg layout from individual x0/x4/xC/x10/x14 fields and padding to links[3], jobjs[3], texts[3], x24, x25, idx, x28, x2C, and x30.",
-    "Updated TyListState field types for x270/x274/x278 to TyListArg*, made x29D and x2A0 signed s8, and retained unknown xNN-style names where semantics were not resolved.",
-    "Small unrelated style edits changed cast spacing to the project style `(GXColor) { ... }` and `(u8 (*)(...))` in gm_18A5.c, gmclassic.c, and gricemt.c."
+    "`un_803124BC` and `un_8031263C` changed archive/file/symbol string arguments from direct string literals such as `\"TyDatai.dat\"`, `\"TyDatai.usd\"`, `\"tyInitModelTbl\"`, etc. to offsets from `un_803FDD18` such as `data + 0x608`, `data + 0x9DC`, and related offsets; bot reported both became 100% matched.",
+    "Added local helper/overlay structs in `tylist.c`: `TyListArchiveAnimData`, `TyListWaitData`, `TyListCameraState`, `TyListDispEntry`, and `TyListDispState`.",
+    "Changed `un_80312904` from a `void*` row argument and local duplicate `TyListRow` struct to `TyListArg*`, using `jobjs[0]` and `texts[0..2]` for trophy list text placement and colors.",
+    "Reworked `un_80312BAC` to iterate typed `TyListArg` entries via `links[1]`, set selected/list indices, call `un_80312904`/`un_80313464`, use `HSD_JObjSetTranslateY`, and drive archive animation jobjs through `archive->jobjs[i]`.",
+    "Split repeated JObj translation update logic around `un_80312E88` into an inline helper `un_80312E88_inline`, replacing raw translation writes and dirty flag blocks with `HSD_JObjSetTranslateY`.",
+    "Implemented previously stubbed `un_80313774`, which bot reported improved from 0.00% to 61.66%. The diff shows it initializes `TyListState`, sets entry counts, links list entries, creates display/text/JObj objects, and configures camera/scissor/text resources.",
+    "Simplified raw JObj translation setter code in `un_80313508` by using `HSD_JObjSetTranslateX/Y/Z` instead of expanded assert/dirty-flag sequences.",
+    "Adjusted `un_803147C4` to use byte offsets from `un_804A2AC0` for state clearing and light-object gobj storage, rather than fully typed state members, apparently for matching/codegen.",
+    "Minor unrelated formatting updates changed cast spacing for `GXColor` and function-pointer casts in gm/gr files."
   ],
   "smart_moves": [
-    "Grouping parallel TyListArg fields into links[3], jobjs[3], and texts[3] matches the way the code iterates over neighboring entries, JObjs, and text slots, and makes ring-list traversal much easier to read.",
-    "Using existing HSD_JObjSetTranslate* helpers instead of open-coded translate assignments plus dirty-matrix flag logic reduced large repeated blocks while preserving the intended engine-side dirty behavior.",
-    "Referencing archive and symbol names through the existing un_803FDD18 string blob was a strong matching tactic for un_803124BC and un_8031263C; the bot reported both became 100% matches.",
-    "Making fn_80313BD8 static and tightening tylist.h prototypes reduced header surface area and replaced void* signatures with TyListArg*/TyListState* where the types were known.",
-    "The un_80313774 rewrite captured the list initialization pattern as circular links plus current/top/bottom selection pointers, which is reusable for other menu-list decomp work."
+    "Using grouped arrays (`links[3]`, `jobjs[3]`, `texts[3]`) in `TyListArg` captures repeated 3-slot patterns and makes later decompilation easier than scattered `x0/x4/x8`, `xC/x10/x14`, and text field guesses.",
+    "Converting archive symbol names to offsets into a known string blob is a useful matching tactic when direct string literals alter `.data`/relocations or string pooling behavior.",
+    "Replacing inlined JObj translation/dirty logic with official HSD setters (`HSD_JObjSetTranslateX/Y/Z`, `HSD_AObjSetRate`) greatly improves readability and may match when the original calls library helpers rather than open-coded field writes.",
+    "Introducing precise small structs for archive animation data, camera state, and display state reduces pointer arithmetic where the layout evidence is strong enough.",
+    "Keeping `fn_80313BD8` static in `tylist.c` while removing it from the public header avoids exposing an internal callback when only local use is evident."
   ],
   "decomp_lessons": [
-    "When a function loads many archive symbols, the compiler/data-layout match may require using offsets into an existing string table rather than new standalone C string literals.",
-    "For UI list structs, arrays are often better evidence than many separate xNN fields when the assembly indexes slots with a loop or fixed stride.",
-    "Prefer engine helper macros/functions such as GET_JOBJ and HSD_JObjSetTranslate* when they collapse expected assert/dirty-flag boilerplate and improve readability.",
-    "Signedness on small state bytes matters: this PR changed fields like x29D and x2A0 to s8 and removed many explicit casts around x29B/x29C/x29E/x29F-style UI state.",
-    "A net match gain can still hide risky regressions; this PR improved total matched code by +792 bytes but regressed several previously high-percentage tylist functions and was closed without merge.",
-    "Keep unknown fields as xNN/pad_NN until semantics are proven, but promote groups to named arrays or local structs when access patterns justify it."
+    "A small number of new matches can be outweighed by regressions elsewhere; here the bot showed +792 bytes overall but large drops for `un_8031305C`, `fn_80313BD8`, `un_80312BAC`, `un_8031457C`, `un_80312904`, `.data`, and `fn_8031438C`.",
+    "For UI/list code, field signedness matters: this PR changed some `u8` padding/unknowns to `s8` (`x28`, `x29D`, `x2A0`) and removed casts in places like `state->x29B`, which can affect codegen.",
+    "Typed structs improve maintainability, but using a too-typed struct can worsen matching; the diff keeps some byte-pointer operations such as `char* data = un_804A2AC0` and `memzero(data + 0x2AC, 0x18)` where exact codegen needed raw offsets.",
+    "String literal placement is part of matching. Reusing existing string tables by offset can fix functions that are otherwise semantically identical.",
+    "Library setter calls are preferable when they correspond to the original binary, but replacing expanded m2c-style field writes with setters must be checked function-by-function because it can move bytes between matches and regressions."
   ],
   "naming_conventions": [
-    "New local type names used the TyList prefix: TyListArchiveAnimData, TyListWaitData, TyListCameraState, TyListDispEntry, and TyListDispState.",
-    "TyListArg kept offset-based unknowns like x24, x25, x28, x2C, and x30, but promoted known groups to links, jobjs, and texts.",
-    "Function prototypes were tightened from void* or extra unused parameters to domain types, e.g. un_80312904(TyListArg* arg, s8 arg1) and un_8031305C(TyListState* state, s8 arg2).",
-    "Parameter names moved toward role names such as state, entry, arg, gobj, cam_desc, viewport, and scissor, while unresolved globals retained un_80xxxxxx names.",
-    "Formatting followed the style with a space after casts to compound literals and function-pointer casts: `(GXColor) { ... }`, `(u8 (*)(s32, s32, u8))`, and `(s32 (*)(HSD_GObj*, s32*))`."
+    "Local inferred types used subsystem-prefixed names: `TyListArchiveAnimData`, `TyListWaitData`, `TyListCameraState`, `TyListDispEntry`, `TyListDispState`.",
+    "For partially understood structs, the PR kept offset-style member names such as `x24`, `x25`, `idx`, `x28`, `x2C`, `x30`, `x29B`, `x29C`, preserving decomp convention when semantic names were not proven.",
+    "Repeated same-kind fields were renamed to plural arrays: `links[3]`, `jobjs[3]`, and `texts[3]`.",
+    "Public prototypes in `tylist.h` favor exact pointer types (`struct TyListArg*`, `TyListState*`) instead of `void*` once layout evidence is available.",
+    "Formatting convention shown in incidental files uses a space between cast type and compound literal/function-pointer declarator, e.g. `(GXColor) { ... }` and `(u8 (*)(s32, s32, u8))`."
   ],
   "assembly_or_matching_tactics": [
-    "Use a local `char* data = un_803FDD18` and constant offsets for archive and symbol strings to reproduce existing data references.",
-    "Replace manual field-offset access with typed local structs only after the observed offsets are stable; examples include archive->jobjs[i], un_804A2D6C.x0/x4/x16, and disp->x140->x10.",
-    "Use literal float constants where the diff showed extern float symbols being removed, including values such as 6.5f, 0.41f, 0.028f, 0.029f, 1.0f, 0.0f, 999.0f, -0.8f, 0.8f, -0.6f, and 0.6f.",
-    "Model circular UI rows with predecessor/successor links and then advance via entry->links[0]/entry->links[1] or entry++ depending on the observed traversal.",
-    "Extracting un_80312E88_inline isolated the repeated JObj Y-translation update loop, though the bot still reported a small regression for un_80312E88.",
-    "HSD_AObjSetRate was changed to operate on anim_jobj->aobj with a literal 0.0f, replacing deeper raw object traversal in the old code."
+    "Use offsets into existing string data (`un_803FDD18 + offset`) to reproduce expected string-address references in archive loading calls.",
+    "Use HSD helper calls (`HSD_JObjSetTranslateX/Y/Z`, `HSD_JObjReqAnim`, `HSD_AObjSetRate`, `HSD_JObjAnim`) instead of open-coded struct writes when the binary likely called helpers.",
+    "Sometimes cast global state to `char*` and operate by byte offsets to force exact address arithmetic and `memzero` call shapes.",
+    "Use inline helpers for repeated small loops over `TyListArg` JObjs when codegen benefits, as attempted with `un_80312E88_inline`.",
+    "Represent consecutive link/JObj/text fields as arrays to encourage indexed access and loop codegen rather than separate scalar temporaries."
   ],
   "review_feedback": [
-    "No human review comments were present in the slice, and the PR body was empty.",
-    "decomp.dev bot reported matched code for GALE01 at 67.20%, a net +0.02% and +792 bytes.",
-    "decomp.dev reported 2 new matches in main/melee/ty/tylist: un_8031263C improved from 91.40% to 100.00%, and un_803124BC improved from 99.29% to 100.00%.",
-    "decomp.dev reported improvements for un_80313774 from 0.00% to 61.66%, .sdata2 from 12.90% to 91.23%, un_803147C4 from 78.58% to 85.97%, and un_80313508 from 98.71% to 99.29%.",
-    "decomp.dev also reported regressions for un_8031305C, fn_80313BD8, un_80312BAC, un_8031457C, un_80312904, .data, fn_8031438C, un_80312E88, and .sdata.",
-    "The PR was draft and closed unmerged, so future reuse should treat the code as a useful experiment rather than accepted final project state."
+    "No human review comments or reviews were present in the slice.",
+    "decomp.dev bot reported matched code for GALE01 increased to 67.20% (+0.02%, +792 bytes).",
+    "Bot reported 2 new matches: `main/melee/ty/tylist` `un_8031263C` from 91.40% to 100.00% (+36 bytes) and `un_803124BC` from 99.29% to 100.00% (+3 bytes).",
+    "Bot reported improvements in unmatched items: `un_80313774` +693 bytes to 61.66%, `.sdata2` +94 bytes to 91.23%, `un_803147C4` +21 bytes to 85.97%, and `un_80313508` +3 bytes to 99.29%.",
+    "Bot also reported regressions: `un_8031305C` -284 bytes, `fn_80313BD8` -189 bytes, `un_80312BAC` -118 bytes, `un_8031457C` -89 bytes, `un_80312904` -71 bytes, `.data` -63 bytes, `fn_8031438C` -54 bytes, `un_80312E88` -2 bytes, and `.sdata` -1 byte."
   ],
   "searchable_terms": [
     "pr-2454",
@@ -119,6 +115,7 @@
     "TyListArchiveAnimData",
     "TyListWaitData",
     "TyListCameraState",
+    "TyListDispEntry",
     "TyListDispState",
     "links[3]",
     "jobjs[3]",
@@ -128,30 +125,43 @@
     "un_80312904",
     "un_80312BAC",
     "un_80312E88",
+    "un_80312E88_inline",
     "un_8031305C",
-    "un_80313358",
-    "un_80313464",
     "un_80313508",
     "un_80313774",
     "fn_80313BD8",
     "fn_8031438C",
     "un_8031457C",
     "un_803147C4",
+    "lbArchive_LoadSymbols",
+    "TyDatai.dat",
+    "TyDatai.usd",
+    "tyInitModelTbl",
+    "tyDisplayModelUsTbl",
     "un_803FDD18",
     "un_803FE880",
-    "lbArchive_LoadSymbols",
     "HSD_JObjSetTranslateY",
+    "HSD_JObjSetTranslateX",
+    "HSD_JObjSetTranslateZ",
     "HSD_AObjSetRate",
-    "HSD_SisLib_803A5ACC",
+    "HSD_SisLib_803A6368",
     "trophy list",
-    "decomp.dev +792 bytes"
+    "decomp.dev regression"
   ],
   "follow_up_queries": [
-    "Find later accepted tylist PRs that reused TyListArg links/jobjs/texts from PR 2454.",
-    "Search for fixes to the PR 2454 regressions in un_8031305C, fn_80313BD8, un_80312BAC, and fn_8031438C.",
-    "Compare final tylist handling of un_803FDD18 string offsets against this PR's archive symbol loading changes.",
-    "Check whether HSD_JObjSetTranslate* replacements were kept in later matching work for un_80313508 and related functions.",
-    "Look for a merged PR that completes un_80313774 after this WIP reached 61.66%."
+    "Look for later merged PRs touching `src/melee/ty/tylist.c` that recovered `un_80313774` or reused the `TyListArg` array layout.",
+    "Search subsequent history for `TyListArchiveAnimData`, `TyListCameraState`, or `links[3]` to see whether these struct names/layouts survived review.",
+    "Investigate why direct string literals versus `un_803FDD18` offsets affected `.data` and `un_803124BC`/`un_8031263C` matching.",
+    "Compare later versions of `un_80312BAC`, `un_80312904`, and `fn_80313BD8` against this PR to identify which readability rewrites caused regressions.",
+    "Check whether the incidental formatting-only changes in gm/gr files were from automated clang-format or branch noise."
   ],
-  "confidence": 0.82
+  "confidence": 0.78,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,17 +11,15 @@
     "merged_at": "2026-05-10T23:33:16Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Batch match-progress PR that reported 14 matched functions and 8 failed attempts across stages, items, game/menu code, and status/HUD code. The final merged diff was small and focused: it rewrote mn_80230198 in mnmainrule.c into a switch-based mode dispatch, expanded grHomeRun_GroundVars layout with padding and bitfields, adjusted a gm_1601.h prototype from s32 to int, and added an explicit default break in itlugia.c. The author later noted the work was split into subsystem draft PRs for easier review and that several commits were dropped because equivalent or better decompilations were already upstream.",
+  "summary": "Broad match-progress PR that recorded 14 matched functions and 8 failed attempts, but the merged diff slice only shows small decomp-enabling cleanups across menu, game-mode, stage type, and item code. The concrete changes include refactoring mn_80230198 into a clearer switch over menu mode while preserving matching behavior, adding documented offsets and bitfields to grHomeRun_GroundVars, changing a gm_1601.h prototype parameter from s32 to int, and adding an explicit default case in itlugia.c. A later comment says this large PR was split into smaller subsystem draft PRs for review, with some commits dropped because equivalent or better decompilations were already upstream.",
   "change_classification": {
-    "primary_type": "decomp-matching-progress",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-layout",
       "naming",
-      "menu-animation",
-      "item-control-flow",
-      "process-splitting"
+      "control-flow-cleanup",
+      "struct-layout"
     ],
     "systems": [
       "game-mode",
@@ -31,166 +29,115 @@
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/mn/mnmainrule.c",
-      "role": "Menu rules animation matching cleanup for mn_80230198",
-      "symbols": [
-        "mn_80230198",
-        "mn_803EC734",
-        "mn_803EC770",
-        "AnimLoopSettings",
-        "mn_8022F298",
-        "mn_8022ED6C"
-      ]
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Stage GroundVars layout expansion for Home-Run Contest related work",
-      "symbols": [
-        "grHomeRun_GroundVars",
-        "pad_D4",
-        "xE8",
-        "xE8_b0",
-        "xE8_b7"
-      ]
-    },
-    {
-      "path": "src/melee/gm/gm_1601.h",
-      "role": "Game-mode header prototype adjustment",
-      "symbols": [
-        "fn_80161C90",
-        "MatchEnd"
-      ]
-    },
-    {
-      "path": "src/melee/it/items/itlugia.c",
-      "role": "Item switch-control-flow cleanup",
-      "symbols": [
-        "it_802D24A0",
-        "it_802D1830",
-        "Item_GObj",
-        "x40_vel"
-      ]
-    }
+    "src/melee/mn/mnmainrule.c",
+    "src/melee/gr/types.h",
+    "src/melee/gm/gm_1601.h",
+    "src/melee/it/items/itlugia.c"
   ],
   "what_changed": [
-    "PR body reported 14 matched functions: grOldKongo_80210650, it_802EB6DC, fn_8021E994, mn_80230198, gm_80164910, it_802D1830, ifStatus_802F7034, itMatadogas_UnkMotion1_Anim, fn_80162068, it_802E2470, itOldottosea_UnkMotion7_Phys, mn_80230D18, it_2725_Logic8_DmgReceived, and itZrshell_UnkMotion10_Anim.",
-    "PR body also recorded 8 failed attempts, including grPura_80212FC0 at best 10.3% and fn_8024FD40 at best 27.9%, with several others listed as unknown percentage.",
-    "mnmainrule.c changed mn_80230198 from a nested conditional/goto-shaped implementation using arg2/option into a switch on a renamed mode parameter. Active cases 0, 2, and 4 perform the frame lookup; cases 1, 3, 5, and 6 break without work.",
-    "mnmainrule.c kept the frame-range table strategy: read the current frame with mn_8022F298, scan the first five entries of mn_803EC770 and mn_803EC734, then call mn_8022ED6C with the selected AnimLoopSettings pointer.",
-    "mnmainrule.c normalized float literals in mn_803EC734 and mn_803EC770 from lowercase f suffixes to uppercase F suffixes.",
-    "gr/types.h expanded grHomeRun_GroundVars with explicit gp-relative offset comments, pad_D4[0x14], and a union exposing xE8 both as a raw byte and as bitfields xE8_b0 through xE8_b7.",
-    "gm_1601.h changed fn_80161C90's second parameter type from s32 to int.",
-    "itlugia.c added an explicit default: break arm to the switch in it_802D24A0 before applying the selected multiplier to ip->x40_vel.z.",
-    "Issue comment said the large PR was split into four smaller draft PRs by subsystem: #2402 ft fighters, #2404 gr stages, #2405 gm+mn game loop/menu, and #2406 it items.",
-    "Issue comment said commits for lbAudioAx_800243F4/fn_800244F4, grOldPupupu_8021119C, and fn_8023DAEC in mnnamenew.c were dropped because upstream already had equivalent or better decompilations."
+    "In src/melee/mn/mnmainrule.c, mn_80230198 was rewritten from goto-heavy range checks on arg2 into a switch over a renamed mode parameter. Modes 0, 2, and 4 perform frame lookup and call mn_8022ED6C; modes 1, 3, 5, and 6 do nothing.",
+    "In mnmainrule.c, AnimLoopSettings float literals in mn_803EC734 and mn_803EC770 were changed from lowercase f suffixes to uppercase F suffixes.",
+    "In src/melee/gr/types.h, grHomeRun_GroundVars gained offset comments, an explicit pad_D4[0x14], and a union exposing byte xE8 plus named one-bit fields xE8_b0 through xE8_b7.",
+    "In src/melee/gm/gm_1601.h, fn_80161C90's second parameter type changed from s32 to int.",
+    "In src/melee/it/items/itlugia.c, it_802D24A0's switch over item cases gained an explicit default: break before applying multiplier to ip->x40_vel.z.",
+    "The PR body listed many additional matched functions across groldkongo.c, ittincle.c, grhomerun.c, gm_1601.c, ifstatus.c, itmatadogas.c, itoldottosea.c, mnmainrule.c, and itzgshell.c, but those files/functions are not all present in this diff slice."
   ],
   "smart_moves": [
-    "Converted mn_80230198's sparse mode checks into a clear switch while preserving the matching behavior shown in the diff; this makes the accepted modes 0, 2, and 4 explicit and avoids carrying misleading goto labels forward.",
-    "Renamed the mn_80230198 third parameter from arg2 to mode, a small semantic naming improvement supported by the new switch structure.",
-    "Modeled grHomeRun_GroundVars with both raw-byte and bitfield access for xE8, which is a reusable pattern when a field must match layout but future code may need individual flag bits.",
-    "Inserted explicit padding in grHomeRun_GroundVars rather than leaving the gap implicit, making the gp+C4 through gp+E8 layout searchable and less error-prone.",
-    "Added a default break in the Lugia item switch, likely preserving intentional no-op behavior for unhandled cases without changing the later multiplier application.",
-    "Split a broad cross-subsystem match-progress branch into smaller subsystem PRs for easier review, and dropped commits already superseded upstream instead of preserving duplicate or worse decompilations."
+    "Converted brittle goto/range-test control flow in mn_80230198 into a compact switch that documents the exact active and no-op modes while keeping the same observable behavior for matching.",
+    "Renamed mn_80230198's arg2 to mode, improving local intent without overclaiming a higher-level semantic name.",
+    "Preserved the matching-sensitive PAD_STACK(8) in mn_80230198 while cleaning up variable types and loop form.",
+    "Added explicit layout documentation to grHomeRun_GroundVars with both relative struct offsets and ground-parameter offsets, making future stage decomp work less dependent on guessing raw xC4/xE8 fields.",
+    "Represented xE8 both as a raw byte and as bitfields, which lets future code match either bytewise operations or individual flag tests without losing layout clarity.",
+    "Added a default switch arm in itlugia.c rather than changing multiplier behavior, a minimal source-level adjustment likely aimed at matching compiler control flow."
   ],
   "decomp_lessons": [
-    "For menu animation code, a clean switch over sparse mode values can still match and is preferable to preserving an artificial nested-if/goto reconstruction when the control-flow shape allows it.",
-    "Frame-range lookup code can be matched by keeping the table order and pointer assignment pattern intact: check one animation table, then the alternate table, and pass the selected settings pointer to the animation helper.",
-    "Unknown stage data should be locked down with explicit padding, offset comments, and raw/bitfield unions when a match depends on exact GroundVars layout.",
-    "Plain int versus project typedefs such as s32 may matter for source-shape consistency in headers even when the ABI size is equivalent; align prototypes with the matched implementation.",
-    "Large generated or WIP match batches are vulnerable to upstream drift. Before finalizing, compare against upstream and remove equivalent or better decompilations rather than resolving conflicts around obsolete work.",
-    "When a PR body records many matches but the final diff is much smaller, future archaeology should inspect split follow-up PRs and merge commit text before assuming every listed match landed in this PR's final file diff."
+    "When a decompiled function has tangled gotos that only encode a small set of accepted enum-like values, a switch with grouped cases can be both clearer and match-preserving.",
+    "Keep stack-padding macros such as PAD_STACK when simplifying source; they may still be required for stack layout even after control-flow cleanup.",
+    "For stage ground variables, explicit offset comments and padding fields help stabilize struct layout and make later field naming safer.",
+    "Use unions for unknown flag bytes when both whole-byte access and bit-level access may be needed by different functions.",
+    "Small prototype type changes, such as s32 to int, can matter for consistency with recovered code style or matching signatures, but this slice does not provide enough evidence to infer the exact compiler effect.",
+    "Large multi-subsystem match-progress PRs can become hard to review; splitting by subsystem was explicitly recommended/applied here."
   ],
   "naming_conventions": [
-    "Keep address-based names for unresolved functions, e.g. mn_80230198, gm_80164910, fn_80162068, it_802D1830, and grOldKongo_80210650.",
-    "Use semantic parameter names when evidence is available from control flow; this PR changed arg2 to mode in mn_80230198.",
-    "Unknown struct members follow x-offset names such as xC4, xC6, xC8, xCC, xD0, and xE8.",
-    "Padding fields use pad_OFFSET style, shown here as pad_D4.",
-    "Bitfields derived from an unknown byte use xOFFSET_bN names, shown here as xE8_b0 through xE8_b7.",
-    "Item motion function names combine item identity and motion role when known, e.g. itMatadogas_UnkMotion1_Anim, itOldottosea_UnkMotion7_Phys, and itZrshell_UnkMotion10_Anim.",
-    "Project casing is preserved across subsystem prefixes, e.g. ifStatus_802F7034, ftKb_SpecialN_800F11F0, and gmClassic_801B3A34."
+    "Function names remain address-based where semantics are not recovered, e.g. mn_80230198, fn_80161C90, fn_80162068, and it_802D24A0.",
+    "A generic parameter arg2 was renamed to mode in mn_80230198 when local control flow showed it selected behavior.",
+    "Unknown grHomeRun_GroundVars fields retain offset-style names such as xC4, xC6, xC8, xCC, xD0, and xE8.",
+    "Padding is named by offset as pad_D4.",
+    "Bitfields for an unknown byte are named xE8_b0 through xE8_b7, preserving both the byte offset and bit index.",
+    "Existing type names such as AnimLoopSettings, JObjIndices, MenuKindData, HSD_GObj, HSD_JObj, and Item_GObj are reused rather than replaced with speculative names."
   ],
   "assembly_or_matching_tactics": [
-    "Use switch-case grouping to express sparse accepted values while matching the original branch behavior.",
-    "Keep PAD_STACK(8) in mn_80230198, indicating stack layout still mattered for the match.",
-    "Use an i < 5 loop bound for the animation table scan in mn_80230198 rather than the previous i != 5 spelling.",
-    "Assign the candidate AnimLoopSettings pointer before each frame-range test so the selected pointer is already available when the loop breaks.",
-    "Add explicit default: break cases in switches when unhandled values should produce no extra action but the source shape needs a default arm.",
-    "Represent gp-relative stage memory with explicit pad arrays and bitfield unions to make loads/stores around unknown flags match without inventing semantic field names."
+    "Grouped switch cases in mn_80230198 replace an equivalent web of comparisons and gotos, reducing source complexity while maintaining which modes execute the frame-setting path.",
+    "Loop condition in mn_80230198 was normalized from i != 5 to i < 5.",
+    "The frame-selection loop checks mn_803EC770[i] first, then mn_803EC734[i], assigning settings to the matching range before calling mn_8022ED6C.",
+    "PAD_STACK(8) was retained in mn_80230198, indicating stack layout remained matching-sensitive.",
+    "Explicit default: break in itlugia.c can be used to influence switch codegen without changing the post-switch velocity scaling.",
+    "Uppercase float suffixes were used in static animation tables; the slice does not prove whether this was style-only or matching-relevant."
   ],
   "review_feedback": [
-    "No review comments and no formal reviews were present in the slice.",
-    "decomp-dev bot reported for GALE01: No changes.",
-    "Author process comment said to split the PR into four smaller subsystem draft PRs for easier review: #2402 ft, #2404 gr, #2405 gm+mn, and #2406 it.",
-    "Author process comment said several commits were dropped because upstream already had equivalent or better decompilations.",
-    "Evidence note: the author comment says 'Closing this PR in favor of the split ones,' but the PR metadata in the slice says the PR was merged on 2026-05-10."
+    "A PR comment says the large PR was split into four smaller draft PRs by subsystem for easier review: #2402 for ft/ fighters, #2404 for gr/ stages, #2405 for gm/ + mn/ game loop/menu, and #2406 for it/ items.",
+    "The same comment says commits for lbAudioAx_800243F4, fn_800244F4, grOldPupupu_8021119C, and fn_8023DAEC in mnnamenew.c were dropped because upstream already had equivalent or better decompilations.",
+    "No inline review comments or formal review records were present in the provided context."
   ],
   "searchable_terms": [
-    "PR2345",
+    "pr-2345",
     "Match progress",
     "johnwinston",
-    "wip/pending-matches",
     "mnmainrule.c",
     "mn_80230198",
-    "mn_80230D18",
-    "AnimLoopSettings",
-    "mn_803EC734",
-    "mn_803EC770",
     "mn_8022F298",
     "mn_8022ED6C",
+    "mn_803EC734",
+    "mn_803EC770",
+    "AnimLoopSettings",
+    "JObjIndices",
+    "MenuKindData",
     "HSD_GObj",
     "HSD_JObj",
-    "JObjIndices",
+    "PAD_STACK",
+    "gr/types.h",
     "grHomeRun_GroundVars",
-    "grhomerun.c",
-    "fn_8021E994",
     "pad_D4",
-    "xE8",
     "xE8_b0",
+    "xE8_b1",
+    "xE8_b2",
+    "xE8_b3",
+    "xE8_b4",
+    "xE8_b5",
+    "xE8_b6",
     "xE8_b7",
     "gm_1601.h",
-    "gm_1601.c",
-    "MatchEnd",
     "fn_80161C90",
     "fn_80162068",
-    "gm_80164910",
+    "MatchEnd",
     "itlugia.c",
     "it_802D24A0",
-    "it_802D1830",
     "Item_GObj",
-    "x40_vel.z",
+    "x40_vel",
     "default break",
-    "grOldKongo_80210650",
-    "it_802EB6DC",
-    "ifStatus_802F7034",
-    "itMatadogas_UnkMotion1_Anim",
-    "it_802E2470",
-    "itOldottosea_UnkMotion7_Phys",
-    "it_2725_Logic8_DmgReceived",
-    "itZrshell_UnkMotion10_Anim",
-    "grPura_80212FC0",
-    "ftKb_SpecialN_800F11F0",
-    "ftCo_800B6208",
-    "gmClassic_801B3A34",
-    "un_803067BC",
-    "subsystem split",
-    "PR2402",
-    "PR2404",
-    "PR2405",
-    "PR2406",
-    "lbAudioAx_800243F4",
-    "fn_800244F4",
-    "grOldPupupu_8021119C",
-    "fn_8023DAEC",
-    "GALE01"
+    "split PR",
+    "draft PR #2402",
+    "draft PR #2404",
+    "draft PR #2405",
+    "draft PR #2406",
+    "decomp matching",
+    "struct layout",
+    "bitfields"
   ],
   "follow_up_queries": [
-    "Inspect PR #2402 for the ft/ fighter matches split out of this batch.",
-    "Inspect PR #2404 for the gr/ stage matches split out of this batch, especially grHomeRun_GroundVars and fn_8021E994.",
-    "Inspect PR #2405 for the gm/ + mn/ game-loop and menu matches, including mn_80230198 and mn_80230D18.",
-    "Inspect PR #2406 for the it/ item matches, including itlugia, itoldottosea, itmatadogas, ittincle, and itzgshell functions.",
-    "Search upstream history for lbAudioAx_800243F4, fn_800244F4, grOldPupupu_8021119C, and fn_8023DAEC to understand which better decompilations replaced dropped commits.",
-    "Check later uses of grHomeRun_GroundVars.xE8_b* to see whether the bitfield names gained semantic names."
+    "Inspect split PR #2405 for the full gm_1601 and mnmainrule matching work that came from this PR.",
+    "Inspect split PR #2404 for grHomeRun_GroundVars usage and any follow-up naming of xE8 flags.",
+    "Inspect split PR #2406 for the itlugia.c default-case tactic and other item matches.",
+    "Check whether mn_80230198's mode values have an enum or menu-rule semantic name elsewhere before renaming beyond mode.",
+    "Search for xE8_b0 through xE8_b7 references to determine which grHomeRun_GroundVars flags can be named semantically."
   ],
-  "confidence": 0.82
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,109 +11,112 @@
     "merged_at": "2026-03-19T21:50:05Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the remaining function in ftKb_SpecialNPk by making small, non-semantic C-shaping changes inside ftKb_SsSpecialNHold_Anim. The patch introduced extra Fighter pointer aliases, adjusted PAD_STACK sizing, and used the alias for later charge-state accesses to reach a 100% match for the function while deferring broader linking because the file is split from ftKb_Init.",
+  "summary": "Finished matching the remaining function in Kirby's copied Pikachu neutral special file, specifically ftKb_SsSpecialNHold_Anim in src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c. The change was small and matching-focused: it introduced extra Fighter pointer temporaries, adjusted stack padding, and routed later field accesses through a duplicate pointer to reproduce codegen. The PR author noted they wanted to link the split file back with ftkb_init, but that was hard because the function lives in a split file.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "function-match",
-      "non-semantic-codegen-shaping",
-      "stack-padding-adjustment",
-      "fighter-code"
+      "decomp-matching",
+      "codegen-shaping",
+      "fighter-special-move"
     ],
     "systems": [
       "fighter",
+      "Kirby",
+      "copied-specials",
       "ftKirby",
       "ftKb_SpecialNPk"
     ]
   },
   "key_files": [
-    {
-      "file": "src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c",
-      "symbols": [
-        "ftKb_SsSpecialNHold_Anim",
-        "ftKb_Init_804D9448",
-        "ftKb_Init_803CB6C0",
-        "ftKb_ChargeShot_inline"
-      ],
-      "change": "Only changed file; adjusted locals, stack padding, and Fighter pointer usage in the animation callback."
-    }
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c"
   ],
   "what_changed": [
-    "Finished matching ftKb_SsSpecialNHold_Anim in src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c.",
-    "Added extra Fighter pointer locals fp2 and fp3, with fp3 assigned through fp3 = (fp2 = fp).",
-    "Changed PAD_STACK from 28 bytes to 0x18 bytes.",
-    "Changed the later charge-counter and charge-cap logic to access Fighter state through fp3 instead of fp, including mv.kb.specialhi.x4, fv.kb.xA8, and the ftCo_800BFFD0 call.",
-    "Left the earlier command-variable and sound-index logic on fp, preserving the source-level behavior while changing compiler-visible pointer lifetimes.",
-    "Did not add broader linking work; the PR body says linking looked hard because this is a split file from ftKb_Init."
+    "Updated ftKb_SsSpecialNHold_Anim, the last unmatched function in ftKb_SpecialNPk.c according to the PR title.",
+    "Added Fighter pointer temporaries fp2 and fp3 alongside the existing fp obtained from GET_FIGHTER(gobj).",
+    "Changed the stack padding from PAD_STACK(28) to PAD_STACK(0x18).",
+    "Inserted the assignment pattern fp3 = (fp2 = fp), apparently to force the compiler to preserve the desired register/stack behavior.",
+    "Changed the charge timer and charge count updates in the latter half of the function from fp->... to fp3->..., including mv.kb.specialhi.x4, fv.kb.xA8, and the ftCo_800BFFD0 call.",
+    "Kept the gameplay logic effectively the same: Kirby's copied Pikachu Skull Bash hold animation still increments charge frames, advances charge level, clamps to specialn_ss_charge_time, transitions to ftKb_MS_SsSpecialNCancel, and calls ftKb_ChargeShot_inline."
   ],
   "smart_moves": [
-    "Used redundant Fighter pointer aliases as a targeted register/lifetime matching tactic rather than changing the function logic.",
-    "Kept the patch scoped to one function and one file, which was enough for the decomp.dev report to show ftKb_SsSpecialNHold_Anim reaching 100.00%.",
-    "Separated the source match from the harder file-linking problem instead of blocking the function match on split-file cleanup.",
-    "Adjusted PAD_STACK by the exact small amount needed for the match, reducing the prior padding from decimal 28 to 0x18."
+    "Used redundant-looking Fighter pointer aliases to shape generated code without altering the apparent game logic.",
+    "Limited the change to the one problematic function and one source file, reducing risk for a matching-only PR.",
+    "Adjusted PAD_STACK size in tandem with local-variable changes, showing that stack layout was part of the matching constraint.",
+    "Preserved existing symbols and behavior-relevant calls such as ft_80088510, ftCo_800BFFD0, Fighter_ChangeMotionState, and ftKb_ChargeShot_inline rather than refactoring the routine."
   ],
   "decomp_lessons": [
-    "For stubborn final fighter-function matches, introducing apparently redundant aliases can be the decisive way to reproduce the original compiler's register allocation.",
-    "Which local pointer is used for later struct field accesses can matter even when all aliases point to the same Fighter object.",
-    "Stack padding should be treated as part of the match surface; small PAD_STACK changes can accompany local-lifetime fixes.",
-    "Split files from a larger original unit can make linking harder than matching an individual function, so document the split-origin constraint and land the match separately when appropriate.",
-    "Automated before/after decomp reports are useful evidence: this PR's bot report listed one new match and ftKb_SsSpecialNHold_Anim moving from 97.36% to 100.00%."
+    "For stubborn fighter animation functions, introducing extra pointer temporaries can be a valid matching tactic when direct field access through a single fp variable does not reproduce target codegen.",
+    "Assignments like fp3 = (fp2 = fp) may look semantically unnecessary but can be useful for register allocation or stack-layout matching in Metrowerks-style decompilation.",
+    "PAD_STACK values should be revisited after local-variable changes; matching can depend on both explicit padding and the compiler's treatment of locals.",
+    "When files are split from a larger original compilation unit, linking or fully validating the split against the original unit can be difficult; it is still useful to land isolated function matches when evidence supports them.",
+    "Avoid cleanup refactors in matching PRs: unchanged gameplay logic with carefully shaped locals is preferable to more idiomatic C if the goal is byte-for-byte assembly."
   ],
   "naming_conventions": [
-    "Kirby fighter code uses the ftKb_ prefix, as in ftKb_SsSpecialNHold_Anim and ftKb_ChargeShot_inline.",
-    "Animation callbacks use the _Anim suffix.",
-    "Fighter object locals follow the common fp naming pattern after GET_FIGHTER(gobj).",
-    "Kirby data attributes are accessed as ftKb_DatAttrs* da = fp->dat_attrs.",
-    "Kirby motion-state constants use the ftKb_MS_ prefix, as in ftKb_MS_SsSpecialNCancel.",
-    "Unresolved or external data labels in this area retain address-style names such as ftKb_Init_804D9448 and ftKb_Init_803CB6C0."
+    "Kirby copied-special functions use the ftKb_ prefix.",
+    "The file name ftKb_SpecialNPk.c indicates Kirby's copied Pikachu neutral special implementation.",
+    "Special move state names in this area include forms such as ftKb_SsSpecialNHold_Anim and ftKb_MS_SsSpecialNCancel.",
+    "Kirby-specific fighter variables are accessed under fp->fv.kb and movement state storage under fp->mv.kb.",
+    "Data attributes for Kirby copied specials use ftKb_DatAttrs and fields such as specialn_ss_frames_per_charge_level and specialn_ss_charge_time."
   ],
   "assembly_or_matching_tactics": [
-    "Introduce duplicate Fighter* locals, including a second GET_FIGHTER(gobj) local and a chained assignment fp3 = (fp2 = fp), to influence generated code.",
-    "Use one alias for the early command/sound logic and another alias for later mv/fv field updates to shape variable lifetimes.",
-    "Tune PAD_STACK from 28 to 0x18 to match expected stack layout.",
-    "Prefer source-level aliasing and padding adjustments over inline assembly; no asm was introduced in the shown diff."
+    "Introduced extra Fighter* locals fp2 and fp3 to influence code generation.",
+    "Used chained assignment fp3 = (fp2 = fp) as a deliberate codegen-shaping construct.",
+    "Changed later field references from fp to fp3 to affect register choice or aliasing behavior while preserving semantics.",
+    "Adjusted explicit padding from PAD_STACK(28) to PAD_STACK(0x18).",
+    "Kept constants and call ordering stable, including 0x7F, 0x40, 0x36, ftKb_MS_SsSpecialNCancel, and the final ftKb_ChargeShot_inline call."
   ],
   "review_feedback": [
-    "No human review comments were present in the provided slice.",
-    "The author noted: wanted to also link, but that seemed hard because the file is split from ftKb_Init.",
-    "The decomp.dev bot reported GALE01 matched code increased by +0.01% / +456 bytes and listed one new match: main/melee/ft/chara/ftKirby/ftKb_SpecialNPk ftKb_SsSpecialNHold_Anim from 97.36% to 100.00%."
+    "No formal review comments were present in the provided PR slice.",
+    "The only human context from the PR body was the author's note: they wanted to also link the work, but that seemed hard because the file is split from ftkb_init."
   ],
   "searchable_terms": [
-    "PR2330",
-    "ftkb_specialnpk",
+    "pr-2330",
+    "Finish last function of ftkb_specialnpk",
+    "jellejurre",
     "ftKb_SpecialNPk.c",
     "ftKb_SsSpecialNHold_Anim",
-    "ftKb_Init",
     "ftKb_Init_804D9448",
     "ftKb_Init_803CB6C0",
-    "ftKb_ChargeShot_inline",
-    "ftKb_MS_SsSpecialNCancel",
-    "Fighter_GObj",
-    "GET_FIGHTER",
-    "Fighter",
     "ftKb_DatAttrs",
-    "dat_attrs",
-    "PAD_STACK",
-    "PAD_STACK(0x18)",
+    "GET_FIGHTER",
+    "Fighter_GObj",
+    "Fighter",
     "fp2",
     "fp3",
+    "PAD_STACK",
+    "PAD_STACK(0x18)",
     "cmd_vars",
+    "fv.kb.xA8",
+    "mv.kb.specialhi.x4",
     "specialn_ss_frames_per_charge_level",
     "specialn_ss_charge_time",
-    "mv.kb.specialhi.x4",
-    "fv.kb.xA8",
     "ft_80088510",
     "ftCo_800BFFD0",
     "Fighter_ChangeMotionState",
-    "GALE01",
+    "ftKb_MS_SsSpecialNCancel",
+    "ftKb_ChargeShot_inline",
+    "Kirby",
+    "Pikachu",
+    "copied special",
+    "neutral special",
     "split file",
-    "function match"
+    "ftkb_init",
+    "decomp matching"
   ],
   "follow_up_queries": [
-    "Find other PRs that use redundant Fighter* aliases like fp2 or fp3 to force register allocation.",
-    "Find PRs mentioning split files from ftKb_Init or deferred linking work.",
-    "Find remaining ftKirby SpecialN or ftKb_SpecialNPk matching/linking tasks.",
-    "Compare other PAD_STACK adjustments in fighter animation callbacks."
+    "Find other PRs that used redundant Fighter pointer temporaries to match codegen.",
+    "Search for PAD_STACK adjustments in ftKirby special move files.",
+    "Look for later PRs linking or reorganizing split files from ftkb_init.",
+    "Compare ftKb_SsSpecialNHold_Anim against equivalent Pikachu neutral special hold logic for naming and structure reuse.",
+    "Search for other uses of fp3 = (fp2 = fp) or similar chained assignment matching tactics."
   ],
-  "confidence": 0.91
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -7,6 +7,25 @@ export interface BoardMeasures {
   complete_units?: number;
 }
 
+export interface BoardRankBreakdown {
+  raw_finishability_priority: number;
+  finishability_score: number;
+  closeness_score: number;
+  information_gain_score: number;
+  unlock_score: number;
+  context_quality_score: number;
+  completion_readiness_score: number;
+  information_value_score: number;
+  information_priority_score: number;
+  high_accuracy_bonus: number;
+  accuracy_readiness_bonus: number;
+  closeness_fallback_score: number;
+  risk_penalty: number;
+  graph_score: number;
+  total_priority: number;
+  explanation: string[];
+}
+
 export interface TargetCandidate {
   unit: string;
   sourcePath: string;
@@ -15,6 +34,7 @@ export interface TargetCandidate {
   fuzzy: number;
   priority: number;
   reason: string;
+  rank?: BoardRankBreakdown;
 }
 
 export interface BoardSnapshot {

@@ -11,91 +11,76 @@
     "merged_at": "2026-05-31T17:54:11Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched two remaining decomp targets across fighter and stage code: ftCo_CaptureWaitKirby_IASA in ftCommon/Kirby capture logic and grGreens_80214B58 in Green Greens stage logic. The decomp.dev report recorded 2 new matches, +1644 matched bytes, with ftCo_CaptureWaitKirby_IASA moving from 63.61% to 100.00% and grGreens_80214B58 from 99.26% to 100.00%. Discussion noted that CaptureWaitKirby shares strings with thrownkirby, and reviewer guidance was that shared strings require the units to be merged.",
+  "summary": "Matched two small decomp targets spanning fighter and stage code: `ftCo_CaptureWaitKirby.c` and `grgreens.c`. The CaptureWaitKirby work removed placeholder/local constant scaffolding, tightened includes, adjusted Kirby capture wait IASA behavior and ordering with a deliberate noinline wrapper, fixed argument/scale usage, and improved stick-direction handling. The Green Greens work reshaped `grGreens_80214B58` initialization and `BOMB` random-selection expression to better match generated code. PR discussion noted that CaptureWaitKirby could not be linked independently because it shares strings with thrownkirby; reviewer feedback stated shared strings require the units to be merged.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "function-match",
-      "fighter-logic",
-      "stage-logic",
-      "codegen-shaping",
-      "cleanup"
+      "decomp-matching",
+      "fighter-action-state",
+      "stage-function-match",
+      "include-cleanup",
+      "codegen-shaping"
     ],
     "systems": [
       "fighter",
       "ftCommon",
-      "Kirby capture",
+      "Kirby",
       "stage",
-      "Green Greens"
+      "Green Greens",
+      "ground"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_CaptureWaitKirby.c",
-      "role": "Matched CaptureWaitKirby IASA behavior with helper-call reshaping, local variable/codegen adjustments, scale source correction, and include/static-data cleanup."
-    },
-    {
-      "path": "src/melee/gr/grgreens.c",
-      "role": "Matched grGreens_80214B58 by reshaping bomb RNG assignment and array zero-initialization code."
-    }
+    "src/melee/ft/chara/ftCommon/ftCo_CaptureWaitKirby.c",
+    "src/melee/gr/grgreens.c"
   ],
   "what_changed": [
-    "Removed unused placeholder/platform/types/ftanim/throw/baselib includes and removed local static float/double constants from ftCo_CaptureWaitKirby.c.",
-    "Added ftCo_800BD6EC_noinline as a wrapper that calls ftCo_800BD6EC, then used it inside ftCo_CaptureWaitKirby_IASA.",
-    "Changed inlineB0 to compute a signed s32 value of -1 or 1 from lstick.x and pass that to ftKb_SpecialN_800F5A04, instead of only calling the helper on negative input with the absolute stick magnitude.",
-    "Changed ftKb_SpecialN_800F5A38 call in ftCo_CaptureWaitKirby_IASA to pass gobj->user_data rather than the cached Fighter* fp.",
-    "Changed CaptureWaitKirby scale restoration to call HSD_JObjSetScale with fp->mv.co.capturekirby.scale instead of jobj->scale.",
-    "In grgreens.c, collapsed BOMB's local c/r temporaries into a direct ternary assignment using grGr_params->x20 and HSD_Randi.",
-    "Changed grGreens_80214B58 zeroing from a single i < 0x20 loop to an i < 24 loop plus explicit stores for grGr_8049F9E0[0x18] through [0x1D]."
+    "In `ftCo_CaptureWaitKirby.c`, removed placeholder/platform/type and baselib include clutter plus local float/double constants `ftCo_804D8BB8`, `ftCo_804D8BBC`, `ftCo_804D8BC0`, and `ftCo_804D8BC8`, indicating data/scaffolding cleanup for a closer match.",
+    "Added a forward declaration and definition of `ftCo_800BD6EC_noinline`, a wrapper that only calls `ftCo_800BD6EC(gobj)`, then used it from `ftCo_CaptureWaitKirby_IASA`.",
+    "In `inlineB0`, introduced an `s32 value` and changed the call to `ftKb_SpecialN_800F5A04(fp->victim_gobj, value)` where `value` is `-1` or `1` based on stick direction, instead of passing the absolute stick magnitude.",
+    "Changed the stick sign comparison from `fp->input.lstick.x < 0` to `fp->input.lstick.x < 0.0f`, preserving float comparison intent.",
+    "In `ftCo_CaptureWaitKirby_IASA`, added an `s32 pad`, changed `ftKb_SpecialN_800F5A38`'s second argument from `fp` to `gobj->user_data`, and moved the `ftCo_800BD6EC` behavior before `inlineB0` via the noinline wrapper.",
+    "Changed `HSD_JObjSetScale` to use `&fp->mv.co.capturekirby.scale` rather than `&jobj->scale` when CaptureWaitKirby exits to CaptureCut.",
+    "In `grgreens.c`, rewrote `BOMB(int idx)` from temporary locals `c` and `r` into a single nested conditional expression assigning `grGr_8049F9E0[idx]`.",
+    "In `grGreens_80214B58`, removed unused locals, changed the zeroing loop from `i < 0x20` to `i < 24`, then explicitly zeroed array entries `0x18` through `0x1D` before calling `BOMB` on selected indices."
   ],
   "smart_moves": [
-    "Used a noinline wrapper around ftCo_800BD6EC to preserve a separate call shape without changing the underlying helper's behavior.",
-    "Introduced small local-variable and typing changes, including s32 value, s32 pad, and 0.0f comparison, to guide register/stack allocation toward the target assembly.",
-    "Preserved semantic zeroing in grGreens_80214B58 while splitting the stores into a loop plus explicit assignments, a common tactic when the original compiler did not emit the simplest loop form.",
-    "Removed unnecessary includes and static constants after the match no longer needed placeholder data, reducing noise in the decompiled source."
+    "Used a trivial noinline wrapper around `ftCo_800BD6EC` to influence call emission/order without changing runtime behavior, a common matching tactic when direct inlining/call placement differs from target assembly.",
+    "Replaced broad placeholder and type includes with narrower functional dependencies, reducing artificial scaffolding once real symbols and headers were known.",
+    "Preserved source-level semantics while reshaping codegen in `grgreens.c`: the explicit zero stores after a shorter loop likely mirror the compiler's emitted store pattern better than a simple 0x20 loop.",
+    "Separated stick magnitude testing from stick direction reporting: the code still checks the absolute x-stick threshold, but passes only a signed direction value to `ftKb_SpecialN_800F5A04`.",
+    "Used `gobj->user_data` where the target likely expects the fighter pointer, avoiding a direct local `fp` argument form that did not match."
   ],
   "decomp_lessons": [
-    "For matching, a semantically equivalent helper call may still need a wrapper or call-order change to reproduce the original codegen.",
-    "When a function uses object user data, using gobj->user_data directly can differ from reusing a typed local pointer even if they refer to the same data.",
-    "Array clearing code should be matched to the emitted store pattern, not just the high-level intent; a shorter loop plus explicit stores may match where a wider loop does not.",
-    "Shared strings or shared rodata across apparent units can force translation units to be merged; the PR discussion explicitly says shared strings with thrownkirby mean they have to be merged.",
-    "Do not keep placeholder constants/includes once actual data/code shape is known, unless they are still required for rodata matching."
+    "When a file cannot be linked because it shares string data with another translation unit, the practical fix may require merging the units rather than trying to force an isolated link. This was explicitly called out in PR discussion for CaptureWaitKirby and thrownkirby.",
+    "Tiny codegen details can matter for matching: adding a dummy padding local, using a noinline wrapper, changing call order, and choosing `0.0f` over integer `0` comparisons can all affect generated assembly.",
+    "Array initialization that looks naturally expressible as one loop may need to be split into a loop plus explicit stores to match the original compiler output.",
+    "For action-state code, verify whether helper calls expect the `Fighter*`, `Fighter_GObj*`, or `gobj->user_data`; these can be equivalent at runtime in some contexts but not equivalent for matching or type clarity.",
+    "Do not assume current JObj scale is the intended source for `HSD_JObjSetScale`; this PR provides evidence that CaptureWaitKirby uses saved move-state scale data from `fp->mv.co.capturekirby.scale`."
   ],
   "naming_conventions": [
-    "ftCo_* prefix for ftCommon fighter functions, e.g. ftCo_CaptureWaitKirby_IASA and ftCo_800BD6EC.",
-    "ftKb_SpecialN_* prefix for Kirby neutral-special helper functions used by CaptureWaitKirby.",
-    "grGreens_* prefix for Green Greens stage functions, e.g. grGreens_80214B58.",
-    "Address-suffixed names such as ftCo_800BD6EC and grGreens_80214B58 are retained for not-yet-renamed decomp symbols.",
-    "A local wrapper was named with a _noinline suffix: ftCo_800BD6EC_noinline.",
-    "BOMB is an all-caps static inline helper local to grgreens.c."
+    "Matched fighter action callbacks retain the ftCommon prefix and state suffix style: `ftCo_CaptureWaitKirby_Anim`, `ftCo_CaptureWaitKirby_IASA`.",
+    "Temporary codegen helpers can use a clear suffix such as `_noinline` when their purpose is to force call behavior, as in `ftCo_800BD6EC_noinline`.",
+    "Stage functions keep the ground/stage prefix and address-derived name when not semantically renamed: `grGreens_80214B58`, `grGreens_8021483C`.",
+    "The local inline helper in `grgreens.c` is uppercase `BOMB`, matching the existing local macro-like helper style shown in the diff."
   ],
   "assembly_or_matching_tactics": [
-    "Added a noinline wrapper function to force a call boundary for ftCo_800BD6EC.",
-    "Added dummy/local variables such as s32 pad and s32 value to influence stack layout and register allocation.",
-    "Used an explicit float literal comparison, fp->input.lstick.x < 0.0f, in stick-direction code.",
-    "Passed an integer sign value to ftKb_SpecialN_800F5A04 to match the observed call convention/code shape.",
-    "Replaced local temporaries in BOMB with a nested ternary expression to alter generated code.",
-    "Split a 0x20-element clear loop into a 24-iteration loop plus explicit stores at indices 0x18 through 0x1D."
+    "Introduced `ftCo_800BD6EC_noinline` as a call-through wrapper to prevent or alter inlining and match call layout.",
+    "Added an otherwise unexplained `s32 pad` local in `ftCo_CaptureWaitKirby_IASA`, likely for stack/codegen matching; evidence is only the diff, not explicit PR commentary.",
+    "Changed `BOMB` to one compound assignment expression instead of using locals, likely to alter register allocation/control flow for matching.",
+    "Split `grGr_8049F9E0` clearing into a `for (i = 0; i < 24; i++)` loop plus explicit assignments for indices `0x18` to `0x1D`, likely reproducing the target store sequence.",
+    "Used float literal `0.0f` for stick comparison to preserve float compare codegen.",
+    "Removed unused locals `c` and `r` in `grGreens_80214B58` after moving their logic into `BOMB`."
   ],
   "review_feedback": [
-    {
-      "author": "ribbanya",
-      "url": "https://github.com/doldecomp/melee/pull/2559#issuecomment-4587254028",
-      "feedback": "If CaptureWaitKirby and thrownkirby share strings, then the units have to be merged."
-    },
-    {
-      "author": "ribbanya",
-      "url": "https://github.com/doldecomp/melee/pull/2559#pullrequestreview-4397202976",
-      "feedback": "Approved with no review body."
-    }
+    "PR author note: `CaptureWaitKirby` could be linked if data was figured out, but it shares strings with thrownkirby, preventing straightforward isolated linking.",
+    "Reviewer/commenter ribbanya stated: \"If they share strings then they have to be merged.\" No line-level review comments were present in the provided context."
   ],
   "searchable_terms": [
     "pr-2559",
     "CaptureWaitKirby",
-    "ThrownKirby",
-    "shared strings",
-    "shared rodata",
-    "ftCo_CaptureWaitKirby.c",
+    "ftCo_CaptureWaitKirby",
+    "ftCo_CaptureWaitKirby_Anim",
     "ftCo_CaptureWaitKirby_IASA",
     "ftCo_800BD6EC",
     "ftCo_800BD6EC_noinline",
@@ -104,24 +89,38 @@
     "ftKb_SpecialN_800F5A38",
     "ftKb_SpecialN_800F5B00",
     "ftKb_SpecialN_800F5A60",
+    "ftCo_CaptureCut_Enter",
+    "ftCo_800DA698",
     "HSD_JObjSetScale",
     "capturekirby.scale",
-    "grgreens.c",
+    "gobj->user_data",
+    "x670_timer_lstick_tilt_x",
+    "grgreens",
     "grGreens_80214B58",
     "grGreens_8021483C",
     "BOMB",
     "grGr_8049F9E0",
-    "grGr_params",
+    "grGr_params->x20",
     "HSD_Randi",
-    "GALE01",
-    "decomp-dev report",
-    "100.00%"
+    "shared strings",
+    "thrownkirby",
+    "noinline wrapper",
+    "explicit zero stores"
   ],
   "follow_up_queries": [
-    "Check whether CaptureWaitKirby and thrownkirby still share strings or rodata that should be handled by merging translation units.",
-    "Search for other ftCommon/Kirby capture functions where gobj->user_data versus cached Fighter* affects matching.",
-    "Look for other Green Greens initialization routines where array clears need to be split into loop-plus-explicit-store patterns.",
-    "Audit noinline wrapper usage around ftCo_800BD6EC-like helpers to see whether the same tactic applies to nearby unmatched functions."
+    "Find the eventual PR or commit that merges CaptureWaitKirby with thrownkirby due to shared strings.",
+    "Check whether `ftCo_800BD6EC_noinline` remains after neighboring translation units are merged or whether it was only a temporary matching shim.",
+    "Compare `grGreens_80214B58` assembly around the `grGr_8049F9E0` initialization to confirm why indices `0x1E` and `0x1F` are no longer zeroed in the loop shown in this diff.",
+    "Audit other Kirby capture/thrown files for the same `gobj->user_data` versus `Fighter* fp` helper-call pattern.",
+    "Look for other Green Greens `BOMB` or hazard initialization functions that use nested conditional `HSD_Randi` expressions for matching."
   ],
-  "confidence": 0.9
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

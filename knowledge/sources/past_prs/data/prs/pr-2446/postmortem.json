@@ -11,130 +11,168 @@
     "merged_at": "2026-05-08T18:32:09Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Advanced the Sound Test menu decomp in src/melee/mn/mnsoundtest.c by adding/typing several functions, data definitions, archive asset descriptors, and concrete header prototypes. The decomp.dev bot reported +1604 matched code bytes and +96 matched data bytes, with new matches for fn_8024B8B4, fn_8024BAF0, fn_8024B7E4, .sdata2, .bss, and mnSoundTest_8024AA70. Neighboring mnmainrule and mnstagesw edits in the visible diff are mostly include-order and formatting cleanup.",
+  "summary": "Decompiled and improved matching for the Main Menu Sound Test code, primarily in src/melee/mn/mnsoundtest.c. The PR added implementations/prototypes for Sound Test menu procs and setup routines, introduced typed animation-loop/model descriptor data, loaded MenMainConTs archive sections by named strings, and tightened user-data/text handling. The decomp.dev bot reported +1604 matched code bytes, +96 matched data bytes, 6 new matches, and 5 improved unmatched items, including full matches for fn_8024B8B4, fn_8024BAF0, fn_8024B7E4, .sdata2, .bss, and mnSoundTest_8024AA70; fn_8024B2B0 improved to 77.42%. Other touched mn files are mostly formatting/include-order cleanup plus small header typing changes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "menu-decomp",
       "headers",
-      "data-typing",
-      "formatting-cleanup"
+      "menu-code",
+      "data-matching",
+      "prototype-cleanup"
     ],
     "systems": [
-      "melee-core",
-      "mn-menu",
+      "melee-mn",
+      "mnsoundtest",
+      "main-menu",
       "sound-test",
       "audio",
-      "HSD",
-      "SISLib"
+      "HSD-GObj",
+      "HSD-JObj",
+      "SIS-text"
     ]
   },
   "key_files": [
-    "src/melee/mn/mnsoundtest.c — primary change; added SoundTestModelDesc, debug/assert strings, AnimLoopSettings constants, and implementations for fn_8024B2B0, fn_8024B7E4, fn_8024B8B4, fn_8024BAF0, mnSoundTest_8024BCA0, and mnSoundTest_8024BEE0.",
-    "src/melee/mn/mnsoundtest.h — replaced UNK_RET/UNK_PARAMS prototypes with concrete signatures and typed soundtest_user_data.unk10 as HSD_Text*.",
-    "src/melee/mn/mnmainrule.c — formatting/include-order changes around existing menu animation code; no clear functional change in the excerpt.",
-    "src/melee/mn/mnmainrule.h — spacing cleanup in padding array expressions.",
-    "src/melee/mn/mnstagesw.c — formatting/include-order/line-wrap cleanup in stage-switch menu code; no clear functional change in the excerpt."
+    {
+      "path": "src/melee/mn/mnsoundtest.c",
+      "role": "Main decomp target; adds Sound Test input/update procs, enter/exit animation procs, menu object construction, archive section loading, typed animation settings, strings, and matching-oriented local/pad adjustments."
+    },
+    {
+      "path": "src/melee/mn/mnsoundtest.h",
+      "role": "Header cleanup; types soundtest_user_data::unk10 as HSD_Text* and replaces UNK_RET/UNK_PARAMS with concrete prototypes for fn_8024B8B4, fn_8024BAF0, mnSoundTest_8024BCA0, and mnSoundTest_8024BEE0."
+    },
+    {
+      "path": "src/melee/mn/mnmainrule.c",
+      "role": "Incidental formatting/include-order cleanup around menu-rule animation settings and JObj operations; no clear functional decomp change shown beyond readability/matching-safe style."
+    },
+    {
+      "path": "src/melee/mn/mnmainrule.h",
+      "role": "Padding expression formatting in mn_802307F8_t."
+    },
+    {
+      "path": "src/melee/mn/mnstagesw.c",
+      "role": "Incidental formatting/include-order cleanup in stage switch menu code."
+    }
   ],
   "what_changed": [
-    "Converted the first six frame triples in mnsoundtest from Vec3-style constants to AnimLoopSettings, enabling uses like vec_2.start_frame and vec_3.end_frame while leaving vec_6 and vec_7 as position Vec3 values.",
-    "Removed the disabled #if 0 mnSoundTest_803EF0A8 array and removed floats_2; exposed the needed constants as individual globals/static data that matched .sdata2/.data better according to the bot report.",
-    "Added static SoundTestModelDesc mnSoundTest_804A08C8 to hold archive-loaded MenMainConTs_Top joint, animjoint, matanim_joint, and shapeanim_joint pointers.",
-    "Added string constants for mnsoundtest archive section names and debug/assert messages: \"Can't get user_data.\\n\", \"mnsoundtest.c\", \"user_data\", and MenMainConTs_Top_* section names.",
-    "Implemented Sound Test control/update behavior in fn_8024B2B0: cooldown handling, input polling via mn_80229624, menu exit, state toggling, sound/effect playback calls, selection wrapping, and proc swap back to fn_8024AED0 for one state.",
-    "Implemented transition/animation helpers fn_8024B7E4, fn_8024B8B4, and fn_8024BAF0 using HSD_JObj animation helpers, lb_80011E24 JObj lookup, HSD_GObj_SetupProc, and HSD_Text cleanup.",
-    "Implemented mnSoundTest_8024BCA0 to create the Sound Test GObj/JObj, attach archive animations, allocate/init soundtest_user_data, create title text, and initialize menu animation state.",
-    "Implemented mnSoundTest_8024BEE0 to enter the Sound Test menu, set mn_804A04F0 menu fields, remember current audio settings, load MenMainConTs_Top archive sections, create the Sound Test object, and install fn_8024B2B0 as a proc.",
-    "Updated mnsoundtest.h signatures from unknown placeholders to concrete forms: fn_8024B8B4(HSD_GObj*, f32), fn_8024BAF0(HSD_GObj*), mnSoundTest_8024BCA0(int), and s32 mnSoundTest_8024BEE0(s32)."
+    "Added a local SoundTestModelDesc struct with joint, animjoint, matanim_joint, and shapeanim_joint fields and a static mnSoundTest_804A08C8 descriptor for Sound Test model resources.",
+    "Changed vec_0 through vec_5 from Vec3 declarations to AnimLoopSettings declarations, allowing call sites to use semantic fields such as start_frame and end_frame instead of x/y.",
+    "Kept vec_6 and vec_7 as Vec3 position constants and removed an unused floats_2 array from the visible diff.",
+    "Added static strings for Sound Test assertions and archive lookups: \"Can't get user_data.\\n\", \"mnsoundtest.c\", \"user_data\", and MenMainConTs_Top_* joint/anim names.",
+    "Implemented fn_8024B2B0 as the Sound Test main input/update proc, handling cooldown, menu exit, mode toggling, sound playback/stop triggers, sound index navigation, music/fanfare style selection, animation refresh, and volume update calls.",
+    "Implemented fn_8024B7E4 as an exit/unload animation proc that advances several JObjs with vec_1 and deletes the GObj when the end frame is reached.",
+    "Implemented fn_8024B8B4 and fn_8024BAF0 as Sound Test animation/update procs that switch processes, clean up HSD_Text handles, request JObj animations, and transition from entry animation to steady-state update.",
+    "Implemented mnSoundTest_8024BCA0 to create the Sound Test GObj, load its JObj from mnSoundTest_804A08C8, attach animations, allocate/init 0x20 bytes of soundtest_user_data, create the title text, initialize selection state, and set the initial character/category animation.",
+    "Implemented mnSoundTest_8024BEE0 to enter menu id 0x1B, set cooldown and previous/current menu globals, cache current audio volume IDs, load MenMainConTs archive sections, create the menu object, and set up fn_8024B2B0 as a proc.",
+    "Updated text deletion paths to null out or reuse HSD_Text* fields when Sound Test text objects are recreated or destroyed.",
+    "Updated mnsoundtest.h prototypes to concrete function signatures and changed user_data->unk10 from UNK_T to HSD_Text*.",
+    "Performed formatting/include-order cleanup in mnmainrule.c, mnmainrule.h, and mnstagesw.c, including spacing around padding-size expressions and wrapped long JObj/SisLib expressions."
   ],
   "smart_moves": [
-    "Reclassified frame-range triples as AnimLoopSettings rather than Vec3, preserving layout while making call sites use semantically correct start_frame/end_frame names.",
-    "Kept exact archive section strings and grouped the loaded joint/anim pointers in SoundTestModelDesc, making lbArchive_LoadSections call structure easier to understand and reuse.",
-    "Used existing shared menu helpers instead of open-coding animation behavior: mn_8022EFD8, mn_8022EE84, mn_8022EC18, mn_8022F3D8, mn_8022F298, lb_80011E24, and HSD_GObj_SetupProc.",
-    "Managed HSD_Text lifetime explicitly during menu transitions by freeing non-null text handles with HSD_SisLib_803A5CC4 and nulling fields in exit paths.",
-    "Promoted header prototypes and user_data fields only where the implementation provided evidence, while keeping still-unknown fields as unk* rather than inventing names."
+    "Reclassifying animation frame triples as AnimLoopSettings made call sites self-documenting and helped avoid opaque Vec3 x/y use for start/end frames.",
+    "Adding concrete prototypes in mnsoundtest.h reduced reliance on UNK_RET/UNK_PARAMS and made proc signatures explicit enough for future callers and matching work.",
+    "Using a SoundTestModelDesc mirrors the loaded archive-section layout and keeps joint/animjoint/matanim/shapeanim resources grouped rather than scattered as raw void* globals.",
+    "Capturing archive section names as static strings preserves data-section evidence and supports matching of .data/.sdata2 while making lbArchive_LoadSections calls easier to audit.",
+    "The implementation keeps matching-oriented temporaries, dummy pad variables, and assignment patterns such as new_var aliases where needed, rather than over-simplifying into cleaner but non-matching C.",
+    "The text cleanup paths systematically call HSD_SisLib_803A5CC4 before replacing HSD_Text handles, preventing stale text objects while also matching observed menu lifecycle behavior.",
+    "The PR advances from partial to complete matches by solving both code and data shape: .sdata2 and .bss reached 100%, and several procs became exact matches."
   ],
   "decomp_lessons": [
-    "Animation-frame data that initially looks like Vec3 may actually be an AnimLoopSettings-style triple; using start_frame/end_frame names can improve both readability and matching without changing binary layout.",
-    "For menu procs, exact HSD_GObjProc setup order and flags_3 assignment are match-sensitive and recur across Sound Test/menu code.",
-    "SISLib text handles in menu user_data structs should be typed as HSD_Text* once their allocation/free sites are known.",
-    "Archive-loaded menu models often come as joint, animjoint, matanim_joint, and shapeanim_joint groups; a local descriptor struct is a useful intermediate before stronger asset types are known.",
-    "Do not infer behavior from broad PR titles alone: this PR had no body or human review, so evidence should come from the diff and the decomp.dev match report.",
-    "Formatting-only changes in neighboring menu files should be recorded as cleanup, not treated as behavioral decomp progress unless the diff shows codegen-relevant changes."
+    "When constants are actually animation loop triples, model them as AnimLoopSettings with start_frame/end_frame fields; this can improve both readability and matching without changing storage size.",
+    "Menu setup functions often need resource-name strings in .data for lbArchive_LoadSections; include the exact archive labels rather than hiding them behind anonymous constants.",
+    "For HSD menu code, GObj proc transitions are part of the match: HSD_GObjProc_8038FE24, HSD_GObj_SetupProc, and flags_3 assignments should be preserved in the same control-flow spots.",
+    "SIS text fields in menu user_data should be typed as HSD_Text* once evidence is available; this enables safer cleanup/recreation and clearer headers.",
+    "Matching menu update loops may require preserving unusual input bit masks, sentinel values, and wraparound constants, such as menu id 0x1B, sound sentinel 0x50, sound count 0x50, and category count 0x1E.",
+    "Local variable aliases, explicit unused locals, and padding variables can be legitimate matching tactics in Metrowerks decompilation; do not remove them just for style if they affect stack/register allocation.",
+    "Small formatting-only churn in neighboring menu files should be separated mentally from the substantive matching work; here the measurable gains came from mnsoundtest.c/.h."
   ],
   "naming_conventions": [
-    "Sound Test symbols use the mnSoundTest_ prefix for module statics and functions, with address-based suffixes retained for globals like mnSoundTest_804D6C40, mnSoundTest_804D6C44, and mnSoundTest_804A08C8.",
-    "Unidentified local/static functions remain address-named as fn_8024B2B0, fn_8024B7E4, fn_8024B8B4, and fn_8024BAF0 until a behavior name is justified.",
-    "Existing unknown fields in soundtest_user_data remain unk0, unk1, unk2, etc.; only pointer type information was improved where supported by HSD_Text usage.",
-    "Archive section strings preserve game asset capitalization: MenMainConTs_Top_joint, MenMainConTs_Top_animjoint, MenMainConTs_Top_matanim_joint, and MenMainConTs_Top_shapeanim_joint.",
-    "Concrete header signatures replace UNK_RET/UNK_PARAMS when argument and return types are evidenced by the implementation."
+    "Static Sound Test globals follow the existing file prefix/address convention, e.g. mnSoundTest_804D6C40, mnSoundTest_804D6C44, mnSoundTest_804A08C8, and mnSoundTest_803EF528.",
+    "Unidentified functions retain address-based names such as fn_8024B2B0, fn_8024B7E4, fn_8024B8B4, and fn_8024BAF0.",
+    "Partially identified functions use the file prefix plus address, e.g. mnSoundTest_8024BCA0 and mnSoundTest_8024BEE0.",
+    "Archive resource string symbols are named by file prefix and address, while string contents preserve the original asset labels such as MenMainConTs_Top_joint and MenMainConTs_Top_shapeanim_joint.",
+    "Animation constants named vec_0 through vec_5 were not semantically renamed, but their type changed to AnimLoopSettings; field access now conveys start_frame/end_frame intent."
   ],
   "assembly_or_matching_tactics": [
-    "Added unused f32/u32 locals and pad variables in mnsoundtest functions to influence stack layout/register allocation.",
-    "Used helper pointer aliases such as new_var assignments and exact temporary variables around HSD_Text fields to steer generated code toward the target.",
-    "Preserved match-sensitive casts and comparisons, including (u8) user_data fields, (u16) cooldown checks, and expressions like (u8)(-(s32) state == 0).",
-    "Used comma-expression grouping around multiple lb_80011E24 calls in animation setup functions, likely to match original evaluation/order patterns.",
-    "Changed arithmetic/frame uses from vec_X.x/y to vec_X.start_frame/end_frame while retaining the same three-f32 storage layout.",
-    "Included exact debug/assert strings and __assert call in mnSoundTest_8024BCA0 for data and code matching."
+    "Changed Vec3-based animation constants to AnimLoopSettings and updated uses from .x/.y to .start_frame/.end_frame to match how helper functions consume frame ranges.",
+    "Used inline arithmetic expressions in mnSoundTest_8024A790 instead of separate temp_f1/temp_f1_2 locals, likely to better match generated floating-point code.",
+    "Introduced explicit unused f32 locals and u32 pad variables in mnSoundTest_8024A958, mnSoundTest_8024AA70, fn_8024B7E4, fn_8024BAF0, and other routines to control stack layout/register allocation.",
+    "Used comma expressions around repeated lb_80011E24 calls in fn_8024B7E4, fn_8024B8B4, and fn_8024BAF0, preserving compact control-flow/codegen shape.",
+    "Kept casts for proc setup where signatures differ, e.g. casting fn_8024B8B4 and fn_8024BAF0 to HSD_GObj proc-compatible function pointer types.",
+    "Preserved exact constants and masks in JObj animation calls, including MOBJ_MASK, 0xFFU, 0xA0, child indices such as 0xB/0x15, and input masks such as 0x20, 0x100, and 0x200.",
+    "Typed header prototypes were used to reduce unknown signatures without changing address-based naming before full semantic names are known."
   ],
   "review_feedback": [
-    "No human PR body, reviews, or review comments were present in the slice.",
-    "The only issue comment was the decomp.dev bot report for GALE01 b70db66..a614b86: matched code 66.38% (+0.04%, +1604 bytes) and matched data 38.72% (+0.01%, +96 bytes).",
-    "Bot-reported new matches were all in main/melee/mn/mnsoundtest: fn_8024B8B4, fn_8024BAF0, fn_8024B7E4, .sdata2, .bss, and mnSoundTest_8024AA70.",
-    "Bot-reported partial improvements remained for fn_8024B2B0, mnSoundTest_8024BCA0, mnSoundTest_8024BEE0, .data, and mnSoundTest_8024A958, so this PR did not fully finish every added function."
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported matched code improved to 66.38% (+0.04%, +1604 bytes) and matched data to 38.72% (+0.01%, +96 bytes)."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported 6 new matches: fn_8024B8B4, fn_8024BAF0, fn_8024B7E4, .sdata2, .bss, and mnSoundTest_8024AA70."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported 5 improved unmatched items: fn_8024B2B0 to 77.42%, mnSoundTest_8024BCA0 to 93.90%, mnSoundTest_8024BEE0 to 79.06%, .data to 99.41%, and mnSoundTest_8024A958 to 99.97%."
+    },
+    {
+      "source": "human review",
+      "feedback": "No human review comments or PR body were present in the provided slice."
+    }
   ],
   "searchable_terms": [
     "pr-2446",
     "Jj/mnsoundtest",
     "jurrejelle",
     "mnsoundtest",
-    "src/melee/mn/mnsoundtest.c",
-    "src/melee/mn/mnsoundtest.h",
+    "mnSoundTest_8024BEE0",
+    "mnSoundTest_8024BCA0",
     "fn_8024B2B0",
     "fn_8024B7E4",
     "fn_8024B8B4",
     "fn_8024BAF0",
-    "mnSoundTest_8024BCA0",
-    "mnSoundTest_8024BEE0",
-    "mnSoundTest_8024A958",
     "mnSoundTest_8024AA70",
-    "mnSoundTest_8024A790",
-    "fn_8024AED0",
-    "AnimLoopSettings",
+    "mnSoundTest_8024A958",
     "SoundTestModelDesc",
     "soundtest_user_data",
+    "AnimLoopSettings",
+    "vec_0",
+    "vec_1",
+    "vec_2",
+    "vec_3",
+    "vec_4",
+    "vec_5",
     "MenMainConTs_Top_joint",
     "MenMainConTs_Top_animjoint",
     "MenMainConTs_Top_matanim_joint",
     "MenMainConTs_Top_shapeanim_joint",
     "lbArchive_LoadSections",
-    "lb_80011E24",
-    "HSD_GObj_SetupProc",
-    "HSD_GObjProc_8038FE24",
-    "HSD_SisLib_803A5ACC",
+    "lbAudioAx_80023F28",
+    "lbAudioAx_80023694",
+    "lbAudioAx_800236DC",
     "HSD_SisLib_803A5CC4",
+    "HSD_SisLib_803A5ACC",
+    "HSD_GObj_SetupProc",
     "HSD_JObjReqAnimAll",
     "HSD_JObjAnimAll",
-    "lbAudioAx_80023F28",
-    "gmMainLib_8015ED74",
-    "mn_8022EFD8",
-    "mn_8022EE84",
-    "mn_8022EC18",
-    "mn_8022F3D8",
-    "MOBJ_MASK",
-    "mnmainrule",
-    "mnstagesw",
-    "decomp.dev",
-    "GALE01"
+    "mn_804A04F0.cur_menu",
+    "menu id 0x1B",
+    "sound sentinel 0x50"
   ],
   "follow_up_queries": [
-    "Find later PRs that finish matching fn_8024B2B0, mnSoundTest_8024BCA0, and mnSoundTest_8024BEE0 after this partial improvement.",
-    "Search soundtest_user_data usages to replace unk0/unk1/unk2/unk3/unk4/unk8/unkC with behavior-backed field names.",
-    "Search SoundTestModelDesc and MenMainConTs_Top assets to determine whether joint/animjoint/matanim_joint/shapeanim_joint can use stronger HSD types instead of void*.",
-    "Investigate data_2, text_ids, and data_4 in mnsoundtest for struct recovery and table naming opportunities.",
-    "Compare other mn menu modules for the same AnimLoopSettings conversion pattern from Vec3-style frame triples.",
-    "Check whether the mnmainrule.c and mnstagesw.c formatting edits were purely style cleanup or were required by later matching work."
+    "Find later PRs that finish matching fn_8024B2B0, mnSoundTest_8024BCA0, or mnSoundTest_8024BEE0.",
+    "Search for other mn menu files that convert Vec3 frame triples to AnimLoopSettings.",
+    "Search for SoundTestModelDesc or MenMainConTs_Top resource usage in later cleanup/renaming PRs.",
+    "Check whether soundtest_user_data fields unk0, unk1, unk2, unk3, unk4, unk8, unkC, unk10, unk14, unk18, and unk1C receive semantic names later.",
+    "Look for follow-up PRs that rename fn_8024B2B0/fn_8024B7E4/fn_8024B8B4/fn_8024BAF0 after full Sound Test matching."
   ],
-  "confidence": 0.86
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,133 +11,120 @@
     "merged_at": "2026-04-08T14:33:00Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large decompilation and typing pass for src/melee/lb/lb_00F9, covering library dynamics, JObj traversal helpers, GX image/camera-blur rendering, and color overlay command handling. The PR replaced several stubs or weak prototypes with C implementations and refined shared DynamicsData layout; decomp.dev reported +3012 matched bytes, 7 new matches, and 11 unmatched-item improvements. Human review evidence is weak in this slice: the PR body only says \"Tracking PR as usual\" and there are no human review comments.",
+  "summary": "Large lb_00F9 decompilation/matching PR centered on dynamics data, JObj traversal, GX/camera blur rendering, and header/type cleanup. The decomp.dev bot reported +3012 matched bytes, 7 new full matches in main/melee/lb/lb_00F9, and 11 additional unmatched-item improvements. The PR also renamed the polymorphic dynamics descriptor field from ft_unk to lb_unk0 and updated fighter/stage users accordingly, reflecting that the structure is library-owned rather than fighter-specific.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-layout",
-      "dynamics",
-      "GX-rendering"
+      "struct-refinement",
+      "library-dynamics",
+      "graphics-gx",
+      "camera-rendering"
     ],
     "systems": [
-      "lb_00F9 library",
-      "fighter dynamics",
-      "ground Castle stage",
-      "camera blur",
-      "color overlay",
-      "lbvector"
+      "library",
+      "fighter",
+      "stage",
+      "graphics",
+      "baselib"
     ]
   },
   "key_files": [
     {
       "file": "src/melee/lb/lb_00F9.c",
-      "role": "Main decompilation work: dynamics setup/update functions, JObj traversal, image/GX blur helpers, color overlay update, and GX drawing helpers."
+      "why": "Main implementation work: replaced many nonmatching stubs/partial solutions with C for dynamics initialization/update, JObj traversal helpers, texture/GX setup, blur rendering, camera GObj creation, and utility callbacks."
     },
     {
       "file": "src/melee/lb/types.h",
-      "role": "Retyped DynamicsData and PolymorphicDesc layouts, removed ftDynamics-specific union member, typed global pool arrays, and refined camera blur data fields."
+      "why": "Refined lb_00F9-related structs/unions: expanded lb_00F9_UnkDesc0, changed embedded fields to Quaternion/Vec3 where appropriate, removed ftDynamics_UnkDesc alias, added DynamicsData::unk_94, and typed static pool structs as entries arrays."
     },
     {
       "file": "src/melee/lb/lb_00F9.h",
-      "role": "Replaced UNK prototypes with typed signatures for lb_800122F0 and lb_800138EC."
+      "why": "Updated public prototypes, including lb_800122F0 and the concrete signature for lb_800138EC."
     },
     {
       "file": "src/melee/lb/lb_00F9.static.h",
-      "role": "Added static globals for colors and a dynamics pause/flag byte: lb_804D3768, lb_804D376C, lb_804D63B8."
+      "why": "Added static data declarations for lb_804D3768, lb_804D376C, and lb_804D63B8 used by the newly decompiled code."
     },
     {
       "file": "src/melee/lb/lbvector.c",
-      "role": "Changed lbVector_CreateEulerMatrix parameter type from Vec3* to Quaternion*."
+      "why": "Changed lbVector_CreateEulerMatrix parameter type from Vec3* to Quaternion*, matching how lb_00F9 stores rotations."
     },
     {
       "file": "src/melee/lb/lbvector.h",
-      "role": "Header signature synchronized with the Quaternion-based lbVector_CreateEulerMatrix implementation."
+      "why": "Header signature synchronized with lbvector.c for Quaternion-based Euler matrix creation."
     },
     {
       "file": "src/melee/ft/ftdynamics.c",
-      "role": "Updated fighter dynamic-bone references from desc.ft_unk.jobj to desc.lb_unk0.jobj."
+      "why": "Updated fighter dynamics call sites from desc.ft_unk.jobj to desc.lb_unk0.jobj."
     },
     {
       "file": "src/melee/gr/grcastle.c",
-      "role": "Updated Castle stage dynamic-data reference from desc.ft_unk.jobj to desc.lb_unk0.jobj."
+      "why": "Updated castle stage dynamics call site from desc.ft_unk.jobj to desc.lb_unk0.jobj."
     }
   ],
   "what_changed": [
-    "Implemented or substantially decompiled many lb_00F9 functions, including lb_8000FA94, lb_8000FD48, lb_8001044C, lb_80011C18, lb_80011E24, lb_8001204C, lb_800122F0, lb_80012994, fn_80013614, lb_800138EC, lb_80014258, and lb_80014770.",
-    "decomp.dev reported 7 new full matches in main/melee/lb/lb_00F9: lb_80014770, lb_80014258, lb_800138EC, lb_8001204C, lb_80011710, lb_8001271C, and lb_800100B0.",
-    "decomp.dev also reported large partial improvements for unmatched items such as lb_8001044C from 0.00% to 81.26%, lb_80012994 from 0.00% to 99.57%, lb_800122F0 from 0.00% to 91.72%, and lb_8000FD48 from 0.00% to 93.66%.",
-    "DynamicsData was expanded from 0x94 to 0x98 with unk_94, and its union member for dynamic bones was generalized from ft_unk to lb_unk0. Existing fighter and Castle references were updated to the new name.",
-    "lb_00F9_UnkDesc0 was given concrete HSD_JObj, Quaternion, Vec3, and f32/s32 fields for saved rotation, translation, scale, world position, angular state, segment length, limits, and gravity/force parameters.",
-    "lb_804D63A0_t and lb_804D63A8_t changed from raw padding to typed entries arrays: DynamicsData entries[0x140] and lb_80011A50_t entries[8], preserving their static asserted sizes.",
-    "lb_8000FA94 now initializes linked free lists for the DynamicsData and lb_80011A50_t pools and clears globals such as cur_data, lb_804D63AC, lb_804D63B0, and lb_804D63B4.",
-    "lb_8000FD48 now builds a linked DynamicsData chain from a JObj child chain, saves initial JObj transforms, computes world positions, segment lengths, and dominant axes.",
-    "lb_8001044C became a large C dynamics solver using matrices, vector normalization/cross products, quaternions, stiffness/gravity/force blending, collider avoidance, floor checks, and JObj rotation updates.",
-    "GX/camera-blur work added lb_800122F0 TEV setup, lb_80012994 multi-offset blur drawing, fn_80013614 render callback logic, and lb_800138EC setup of a camera GObj and user data.",
-    "Color overlay command stepping was decompiled in lb_80014258 using Command_Execute and the lb_803BA248 handler table, then blending color/light channels and lifetime counters.",
-    "lbVector_CreateEulerMatrix was retyped to accept Quaternion* instead of Vec3*, matching the JObj rotation and saved rotation fields now used by lb_00F9 dynamics."
+    "Implemented lb_8000FA94 to initialize/free-list the global DynamicsData pool of 0x140 entries and the lb_80011A50_t pool of 8 entries, setting cur_data, lb_804D63AC, lb_804D63B0, and lb_804D63B4.",
+    "Implemented lb_8000FD48 for building a DynamicsDesc chain from a child JObj sequence, caching rotate/scale/translate/world-position data, computing segment lengths, and deriving a dominant-axis indicator.",
+    "Added a large partial implementation of lb_8001044C, covering dynamic bone simulation pieces such as parent matrix setup, natural/current/link direction computation, stiffness, gravity, interaction forces, angular velocity, angle constraints, collider avoidance, and ground/floor checks.",
+    "Implemented lb_80011C18 as a recursive JObj/DObj rendermode flag propagator using checkJObjFlags and lb_80011B74.",
+    "Implemented lb_80011E24 as a variadic JObj lookup helper that walks a JObj tree by requested indices until -1.",
+    "Implemented lb_8001204C as an indexed JObj lookup helper taking a u16 indices array and count, reusing traversal state when indices are monotonic.",
+    "Implemented lb_800122F0 to configure GX texture/TEV state for drawing image textures, including optional multi-stage color-factor setup.",
+    "Improved lb_8001271C matching by restructuring the GX quad draw with explicit intermediate variables and a smaller PAD_STACK.",
+    "Implemented lb_80012994 to draw a blur-like multi-sample texture pass around a source image using repeated lb_8001271C calls with varying offsets and alpha values.",
+    "Implemented fn_80013614 for camera blur render behavior, setting current CObj, z mode, texture coordinate generation, channels, optional scissor, and drawing either blur or normal textured output.",
+    "Implemented lb_800138EC to allocate/setup an orthographic camera GObj and associated user data, using a default fn_80013614 render callback when none is supplied.",
+    "Implemented/matched additional lb_00F9 functions reported by the bot: lb_80014770, lb_80014258, lb_800138EC, lb_8001204C, lb_80011710, lb_8001271C, and lb_800100B0 reached 100% after the PR.",
+    "Renamed dynamics union access from desc.ft_unk to desc.lb_unk0 in ftdynamics.c and grcastle.c, and removed the ftDynamics_UnkDesc union member from types.h.",
+    "Changed lbVector_CreateEulerMatrix to accept Quaternion* instead of Vec3*, aligning the API with lb_00F9 rotation storage and call sites."
   ],
   "smart_moves": [
-    "Renaming the shared union member from ft_unk to lb_unk0 avoided a fighter-specific name for data that is also used by lb_00F9 and grcastle, making the type model less misleading for future library and stage work.",
-    "Typing the global pool storage as arrays of real structs, while preserving STATIC_ASSERT sizes, made allocator/free-list code in lb_8000FA94 and lb_8000FD48 understandable without sacrificing layout guarantees.",
-    "Changing lbVector_CreateEulerMatrix to Quaternion* captured the actual semantics of HSD_JObj rotation fields even though the helper name says Euler, reducing casts and improving downstream typing.",
-    "The JObj index lookup helpers reuse the previous traversal index when requested indices are increasing and reset to root when indices decrease; this matches the visible control-flow intent and avoids repeatedly traversing from root unnecessarily.",
-    "Landing a high-quality C skeleton for the huge lb_8001044C dynamics solver exposed many field meanings and call dependencies even though the bot still classified it as an unmatched improvement.",
-    "The GX blur code was written with explicit repeated draw calls and alpha constants rather than an abstract loop, which is often necessary for matching original codegen in small rendering helpers."
+    "The ft_unk to lb_unk0 rename avoided leaving a library-owned polymorphic descriptor named after the fighter subsystem; this made fighter and stage users share the same neutral lb naming.",
+    "Typing lb_804D63A0_t and lb_804D63A8_t as real entries arrays instead of opaque padding made pool initialization code in lb_8000FA94 straightforward and searchable.",
+    "Splitting JObj index lookup into variadic lb_80011E24 and array-based lb_8001204C preserved two caller-facing APIs while sharing the same traversal model and monotonic-index optimization.",
+    "Using Quaternion and Vec3 fields in lb_00F9_UnkDesc0/Inner clarified offsets enough to support matrix/vector-heavy dynamics code without excessive casts.",
+    "The GX blur implementation was built from smaller helpers: lb_800122F0 configures texture/TEV state, lb_8001271C draws one quad, and lb_80012994 composes the repeated offset passes.",
+    "The decomp used explicit temporaries, casts, PAD_STACK annotations, and inline_depth pragmas where needed, indicating matching-driven source shaping rather than only semantic cleanup."
   ],
   "decomp_lessons": [
-    "When a union member is shared across subsystems, prefer a neutral library-scoped name such as lb_unk0 over a guessed subsystem name like ft_unk.",
-    "For data-pool globals, replacing padding with typed entries arrays is safe when accompanied by exact STATIC_ASSERT size checks and can unlock allocator/deallocator matches.",
-    "Do not rely only on structural compatibility between Vec3 and Quaternion; use the semantic type that matches call sites and HSD fields.",
-    "Large physics/dynamics functions can teach struct layouts before they fully match; record partial match percentages so future work knows what is still unresolved.",
-    "GX helper matches are sensitive to exact state setup order, TEV stage choices, stack padding, and unrolled drawing patterns.",
-    "Cross-file cleanup is required after union/layout changes: fighter and stage users had to move from desc.ft_unk.jobj to desc.lb_unk0.jobj in the same PR."
+    "When an unknown union member is used by multiple systems, prefer a neutral library-scoped name over a subsystem-specific guess; desc.lb_unk0 was more appropriate than desc.ft_unk once grcastle also used it.",
+    "Pool-backed linked lists often become much easier to match after the backing static allocation is typed as an array of real entries rather than char padding.",
+    "For JObj traversal helpers, preserving traversal state across sorted or monotonic index requests can match original code structure and avoid restarting from root unnecessarily.",
+    "Quaternion-vs-Vec3 distinctions matter even when fields expose x/y/z names; lbVector_CreateEulerMatrix needed Quaternion* to line up with the rotation fields used by lb_00F9.",
+    "GX/TEV matching benefits from decomposing setup and draw passes into helpers that mirror original reuse: initialize texture state once, draw repeated quads through a shared primitive routine.",
+    "Large dynamics functions can be advanced substantially by first stabilizing struct offsets, saved JObj transforms, and small vector helpers before trying to finish every physics branch."
   ],
   "naming_conventions": [
-    "Address-based function names were retained for unknown functions: lb_8000FD48, lb_8001044C, fn_80013614, lb_80014770.",
-    "Static globals keep address-style names and comments in static headers, e.g. lb_804D3768, lb_804D376C, lb_804D63B8.",
-    "Unknown struct fields remain offset-oriented unk_XX names, but typed fields such as jobj, rotate, translate, and scale were introduced when evidence was clear.",
-    "PolymorphicDesc variants use lb_unk0 and lb_unk1 after removing the misleading ftDynamics_UnkDesc/ft_unk member.",
-    "Public prototypes in lb_00F9.h keep address comments like /* 0122F0 */ while replacing UNK_RET/UNK_PARAMS when signatures become known.",
-    "Helper/local types use library-scoped names such as struct lb_Collider and struct lb_800138D8_t."
+    "Renamed union member ft_unk to lb_unk0 for library-owned dynamics data.",
+    "Kept unknown lb_00F9 fields in offset-style names such as unk_2C, unk_38, unk_44, unk_48, unk_54, unk_58, unk_68, and unk_8C when semantics were not proven.",
+    "Used lb_00F9_UnkDesc0 and lb_00F9_UnkDesc1/Inner for two alternative PolymorphicDesc layouts rather than overclaiming semantic names.",
+    "Named static globals by address-style project convention, e.g. lb_804D63A0, cur_data, lb_804D63AC, lb_804D63B0, lb_804D63B4, and lb_804D63B8.",
+    "Kept generated/address function names such as lb_8001044C, fn_80013614, and lb_800138EC because stronger semantic names were not evidenced in the PR."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK in multiple functions, including PAD_STACK(0x20), PAD_STACK(88), PAD_STACK(16), and PAD_STACK(8), to satisfy stack/codegen constraints.",
-    "Applied #pragma inline_depth(2) around lb_80011C18 and restored #pragma inline_depth(8), indicating inline-depth control was part of the matching strategy.",
-    "Adjusted signedness and return value in inlineA1: s32 max, explicit casts against cur->x1, and returning ret instead of cur.",
-    "Preserved exact casts and branch shapes such as (u8) lb_804D63B8, (s32) desc->count < (s32) max_count, and (u32) arg1 == 2U.",
-    "Used explicit PSMTXTrans, PSMTXConcat, PSMTXScale, PSMTXQuat, EulerToQuat, PSVECCrossProduct, and lbVector_RotateAboutUnitAxis calls to mirror the original dynamics math pipeline.",
-    "Kept unrolled GX draw calls and TEV/alpha state changes in lb_80012994 rather than abstracting the repeated blur samples into a loop.",
-    "Introduced static vector/color constants such as lb_803B7280, lb_803B72A8, lb_803B72B4, lb_804D3768, and lb_804D376C to account for rodata/sdata/sbss changes."
+    "Used PAD_STACK annotations in sensitive functions such as lb_8000FD48, lb_8001044C, lb_800122F0/lb_80012994 paths, and fn_80013614 to control stack layout.",
+    "Used #pragma inline_depth around lb_80011C18, suggesting inline-depth tuning was needed around recursive JObj/DObj flag handling.",
+    "Introduced explicit signed casts and s32 temporaries for loop comparisons and fields, for example in dynamics count handling and inlineA1's max comparison.",
+    "Restructured lb_8001271C with deliberately placed temporaries and an odd-looking dead conditional to improve matching of GX quad emission.",
+    "Preserved floating-point literal forms and casts, including f32/f64 mixes in dynamics rotation calculations and constants like 0.015625f, 120.0f, 179.0f, and 26.099998f in GX color setup.",
+    "Replaced opaque padding with typed structs only where offsets/size assertions were maintained, including STATIC_ASSERT(sizeof(struct DynamicsData) == 0x98) and pool sizes."
   ],
   "review_feedback": [
-    "No human review comments or GitHub reviews are present in the slice.",
-    "PR body was minimal: \"Tracking PR as usual\".",
-    "Automated decomp.dev report for GALE01 showed matched code at 62.41%, +0.08%, +3012 bytes.",
-    "Automated report listed 7 new matches and 11 improvements in unmatched items, validating that the large lb_00F9 pass improved matching even where some functions remained partial."
+    "No human review comments were present in the slice.",
+    "The only feedback was the decomp.dev bot report: matched code became 62.41%, +0.08%, +3012 bytes.",
+    "Bot reported 7 new full matches in main/melee/lb/lb_00F9: lb_80014770, lb_80014258, lb_800138EC, lb_8001204C, lb_80011710, lb_8001271C, and lb_800100B0.",
+    "Bot reported 11 additional improvements, notably lb_8001044C to 81.26%, lb_80012994 to 99.57%, lb_800122F0 to 91.72%, lb_8000FD48 to 93.66%, fn_80013614 to 99.07%, and lb_8000FA94 to 95.75%."
   ],
   "searchable_terms": [
     "pr-2393",
     "Jj/lb 00 f9",
-    "jj/lb_00F9",
-    "src/melee/lb/lb_00F9.c",
-    "src/melee/lb/types.h",
-    "DynamicsData",
-    "DynamicsDesc",
-    "PolymorphicDesc",
-    "lb_00F9_UnkDesc0",
-    "lb_00F9_UnkDesc1Inner",
-    "lb_unk0",
-    "ft_unk",
-    "HSD_JObj",
-    "Quaternion",
-    "Vec3",
-    "lbVector_CreateEulerMatrix",
+    "jurrejelle",
+    "lb_00F9",
     "lb_8000FA94",
     "lb_8000FD48",
     "lb_8001044C",
-    "lb_80011710",
     "lb_80011C18",
     "lb_80011E24",
     "lb_8001204C",
@@ -148,24 +135,41 @@
     "lb_800138EC",
     "lb_80014258",
     "lb_80014770",
-    "ftCo_8009DD94",
-    "ftCo_8009E318",
-    "grCastle_801CD8A8",
-    "ColorOverlay",
-    "Command_Execute",
-    "GXTev",
+    "DynamicsData",
+    "DynamicsDesc",
+    "PolymorphicDesc",
+    "lb_00F9_UnkDesc0",
+    "lb_00F9_UnkDesc1Inner",
+    "ft_unk",
+    "lb_unk0",
+    "ftdynamics",
+    "grcastle",
+    "lbVector_CreateEulerMatrix",
+    "Quaternion",
+    "Vec3",
+    "HSD_JObj",
+    "HSD_DObj",
+    "GXTexObj",
+    "GXSetTevOrder",
+    "GXSetTevColor",
     "camera blur",
-    "dynamic bones",
-    "decomp.dev +3012 bytes"
+    "PAD_STACK",
+    "inline_depth"
   ],
   "follow_up_queries": [
-    "lb_00F9 DynamicsData lb_unk0 Quaternion dynamic bones",
-    "desc.ft_unk.jobj to desc.lb_unk0.jobj ftdynamics grcastle",
-    "lb_8001044C dynamics solver collider floor Quaternion",
-    "lbVector_CreateEulerMatrix Quaternion Vec3 signature change",
-    "lb_80012994 fn_80013614 camera blur GX TEV",
-    "lb_80011E24 lb_8001204C HSD_JObj index traversal",
-    "lb_804D63A0 entries DynamicsData free list lb_8000FA94"
+    "Find later PRs that finish lb_8001044C after this 81.26% partial match.",
+    "Search for later renames of lb_00F9_UnkDesc0 fields such as unk_48, unk_54, unk_58, unk_68, and unk_8C once dynamics semantics are understood.",
+    "Check callers of lb_800138EC and fn_80013614 to determine whether lb_800138D8_t/CameraBlurData field names can be made semantic.",
+    "Review subsequent lbvector changes to see whether Quaternion* for lbVector_CreateEulerMatrix propagated cleanly to all call sites.",
+    "Look for later PRs replacing lb_unk0 with a semantic name for dynamics chain/bone data."
   ],
-  "confidence": 0.86
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

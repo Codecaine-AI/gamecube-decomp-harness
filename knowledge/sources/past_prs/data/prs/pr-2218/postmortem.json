@@ -11,96 +11,90 @@
     "merged_at": "2026-03-05T07:40:30Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched and linked the green-shell item object `src/melee/it/items/itgshell.c`. The PR made small codegen-oriented edits, factored shared shell-hit behavior into a `static inline` helper, corrected local constant symbol labels, and flipped `itgshell.c` from `NonMatching` to `Matching` in `configure.py`. The decomp.dev bot reported 4 new 100% function matches and GALE01 gains of +1320 matched-code bytes, +5896 linked-code bytes, and +197 linked-data bytes.",
+  "summary": "Matched and linked the green shell item source by converting src/melee/it/items/itgshell.c from NonMatching to Matching in configure.py. The source changes are small but targeted: introduce temporaries to improve codegen around facing direction and random bounds, remove an unnecessary PAD_STACK, and factor duplicated hit-response logic into a static inline helper shellHit used by clank and shield-hit paths. Symbols for several local string/float/double constants were corrected from global it_* names to local @ labels in config/GALE01/symbols.txt.",
   "change_classification": {
-    "primary_type": "decompilation matching and linking",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "linking",
-      "build-config",
-      "symbol-map-cleanup",
-      "item-behavior"
+      "item-behavior-cleanup",
+      "symbol-scope-correction"
     ],
     "systems": [
       "item",
-      "itgshell",
-      "melee/it/items",
-      "GALE01 symbols",
-      "configure.py MatchingFor"
+      "items/itgshell",
+      "config",
+      "symbols",
+      "build-configuration"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/it/items/itgshell.c",
-      "role": "Primary matched source; adjusted locals, stack padding, random masking, and shared clank/hitshield logic."
-    },
-    {
-      "path": "configure.py",
-      "role": "Changed `Object(NonMatching, \"melee/it/items/itgshell.c\")` to `Object(Matching, \"melee/it/items/itgshell.c\")`."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Reclassified several itgshell-adjacent sdata/sdata2 constants from global `it_804D...` names to local `@NNN` labels."
-    }
+    "src/melee/it/items/itgshell.c",
+    "configure.py",
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "`it_8028B8D8` now uses an explicit `f32 temp` for `-ip->facing_dir` before multiplying `v.x`, instead of doing the negated multiply inline.",
-    "`it_8028BC2C` now masks `it_804D6D28->x48_byte` through a `u8 rand_max` local with `rand_max &= 0xF` before calling `HSD_Randi(rand_max)`.",
-    "`itGshell_UnkMotion6_Anim` removed a `PAD_STACK(8)` shim.",
-    "The duplicated post-hit shell response sequence from `itGShell_Logic14_Clanked` and `itGShell_Logic14_HitShield` was moved into `static inline void shellHit(HSD_GObj* gobj)` and called from both functions.",
-    "`shellHit` contains the shared rebound/reset sequence: `it_802756D0`, `it_80275444`, randomized x velocity, y velocity from attrs, random state update through `xDE8`, `it_802762BC`, `Item_80268E5C(..., ITEM_ANIM_UPDATE)`, `it_80274C88`, and updates to `xDEC_b3` and `xDE4`.",
-    "`itGShell_Logic14_HitShield` keeps the shield-bounce branch for `msid == 3 || msid == 4`, and delegates the `ip->msid - 5u <= 3` case to `shellHit`.",
-    "`configure.py` now links `melee/it/items/itgshell.c` as a matching object.",
-    "`symbols.txt` changed `it_804D5270`, `it_804D5278`, `it_804DCA38`, `it_804DCA3C`, `it_804DCA40`, and `it_804DCA48` from global symbols to local labels `@265`, `@266`, `@168`, `@169`, `@207`, and `@329`."
+    "Changed configure.py so melee/it/items/itgshell.c is built as Object(Matching, ...) instead of Object(NonMatching, ...).",
+    "Adjusted it_8028B8D8 by introducing a f32 temp for -ip->facing_dir before multiplying v.x, likely to match compiler evaluation/codegen.",
+    "Adjusted random selection in it_8028BC2C and the shared hit path by assigning it_804D6D28->x48_byte to a u8 rand_max, masking it with 0xF, then passing it to HSD_Randi.",
+    "Removed PAD_STACK(8) from itGshell_UnkMotion6_Anim.",
+    "Factored duplicated green-shell hit response logic into static inline void shellHit(HSD_GObj* gobj).",
+    "Reused shellHit in itGShell_Logic14_Clanked and in the non-bounce branch of itGShell_Logic14_HitShield.",
+    "Updated config/GALE01/symbols.txt so constants at 0x804D5270, 0x804D5278, 0x804DCA38, 0x804DCA3C, 0x804DCA40, and 0x804DCA48 are local @ labels rather than global it_* symbols."
   ],
   "smart_moves": [
-    "Used exact-width temporaries, especially `u8 rand_max`, to influence instruction selection and argument preparation for `HSD_Randi` without changing behavior.",
-    "Replaced duplicated callback code with a `static inline` helper, preserving callsite inlining while making the source smaller and easier to keep consistent.",
-    "Removed stale `PAD_STACK` padding once local declarations and refactoring produced the desired stack layout.",
-    "Updated the build configuration only after the object reached matching status, avoiding premature linking of a still-nonmatching item file.",
-    "Adjusted symbol scope for compiler-local constants instead of leaving them as misleading exported `it_804D...` globals."
+    "Used small local temporaries rather than semantic rewrites to steer compiler output for matching.",
+    "Converted repeated clank/shield-hit behavior into a static inline helper, preserving inlined codegen while reducing duplicated source.",
+    "Kept the shield-hit control flow behavior intact: msid 3 or 4 still calls itColl_BounceOffVictim, while msid 5 through 8 uses the shellHit response.",
+    "Updated symbol scope alongside the source match so local constants are represented as local @ labels instead of misleading global it_* names.",
+    "Linked the object only after matching by moving itgshell.c to the Matching object list."
   ],
   "decomp_lessons": [
-    "Algebraically equivalent expressions can differ in MWCC output; splitting `v.x *= -ip->facing_dir` into a temporary assignment was part of the successful match.",
-    "For byte fields used in bitmasks, preserve the apparent intermediate type. `u8 rand_max = it_804D6D28->x48_byte; rand_max &= 0xF;` matched where an inline `x48_byte & 0xF` did not.",
-    "`static inline` is useful when two functions share a machine-code sequence but the final object still needs duplicated inlined code rather than an emitted helper call.",
-    "Treat `PAD_STACK` as a temporary matching crutch; remove it when real locals/control flow can explain the stack frame.",
-    "When a source file becomes matching/linkable, revisit `config/GALE01/symbols.txt` so file-local strings/floats/doubles use local `@NNN` labels instead of global address names."
+    "For item source matching, local variable extraction can be necessary even when the expression is equivalent, such as splitting -ip->facing_dir into a f32 temp before use.",
+    "For rand-mask patterns, assigning a byte field to a u8 local and masking the local can produce different codegen than passing a masked expression directly to HSD_Randi.",
+    "Static inline helpers can remove source duplication without forcing an out-of-line function, useful when two callbacks share identical compiled behavior.",
+    "PAD_STACK markers should be removed when no longer required for the final match; they are scaffolding, not semantic logic.",
+    "Matching a file may require symbol table cleanup for local constants, not just C source edits."
   ],
   "naming_conventions": [
-    "Existing exported item callbacks kept the project’s address/name style, such as `it_8028BC2C`, `itGShell_Logic14_Clanked`, and `itGShell_Logic14_HitShield`.",
-    "The file already uses mixed `itGShell`/`itGshell` capitalization; this PR preserved names such as `itGshell_UnkMotion6_Anim` rather than renaming for style.",
-    "The new helper was file-local lower camelCase, `shellHit`, and marked `static inline` rather than exported.",
-    "Local constants in `symbols.txt` use anonymous `@NNN` labels, while true globals retain `it_804D...` address-style names.",
-    "Green-shell item state continues to be accessed through `ip->xDD4_itemVar.gshell` fields such as `xDDC`, `xDD8`, `xDE8`, `xDEC_b0`, `xDEC_b3`, and `xDE4`."
+    "New helper uses descriptive camel-case style shellHit rather than an address-based name.",
+    "Temporary random bound variable is named rand_max and typed u8, reflecting both purpose and storage width.",
+    "Local constants in symbols.txt use @number labels, while exported/global symbols keep it_* names.",
+    "Existing item callback names such as itGShell_Logic14_Clanked and itGShell_Logic14_HitShield were preserved."
   ],
   "assembly_or_matching_tactics": [
-    "Introduce a named `f32` temporary for a negated float member before a vector multiply to match evaluation/register behavior.",
-    "Mask a byte value in a `u8` local before passing it to `HSD_Randi`; do not assume an inline bitwise expression will compile identically.",
-    "Use `static inline` extraction to share source while still allowing duplicated machine code in the callers.",
-    "Remove unnecessary `PAD_STACK` after the true frame shape is recovered.",
-    "Convert matched object constants in `.sdata` and `.sdata2` to local `@NNN` symbols so the linked data layout matches."
+    "Introduce a f32 temporary for unary negation before multiplication to influence floating-point codegen.",
+    "Use a u8 temporary for it_804D6D28->x48_byte, then apply rand_max &= 0xF before HSD_Randi(rand_max).",
+    "Replace duplicated code with a static inline helper to maintain inline callsite behavior while aligning shared logic.",
+    "Remove obsolete PAD_STACK once stack padding is no longer needed for the match.",
+    "Correct local/global symbol annotations for small data and small-data2 constants after matching exposes their true scope."
   ],
   "review_feedback": [
-    "No human PR body or human review comments were present in the slice.",
-    "The automated decomp.dev report for GALE01 showed matched code at 54.57% (+0.03%, +1320 bytes), linked code at 31.45% (+0.15%, +5896 bytes), and linked data at 28.94% (+0.02%, +197 bytes).",
-    "The automated report listed 4 new matches: `itGShell_Logic14_HitShield`, `it_8028BC2C`, `itGshell_UnkMotion6_Anim`, and `itGShell_Logic14_Clanked`, all reaching 100.00%."
+    "No review comments were present in the provided PR slice.",
+    "There was one issue/comment text record counted, but no body excerpt was provided, so no substantive reviewer feedback can be extracted."
   ],
   "searchable_terms": [
     "pr-2218",
+    "Match and link itgshell",
+    "PsiLupan",
     "itgshell",
     "green shell",
     "src/melee/it/items/itgshell.c",
+    "configure.py",
+    "config/GALE01/symbols.txt",
+    "Object(Matching)",
+    "Object(NonMatching)",
     "it_8028B8D8",
     "it_8028BC2C",
+    "it_8028C3A8",
     "itGshell_UnkMotion6_Anim",
+    "itGShell_Logic14_Reflected",
     "itGShell_Logic14_Clanked",
     "itGShell_Logic14_HitShield",
     "shellHit",
     "HSD_Randi",
     "HSD_Randf",
     "it_804D6D28",
-    "x48_byte",
     "rand_max",
     "PAD_STACK",
     "GET_ITEM",
@@ -109,27 +103,30 @@
     "itColl_BounceOffVictim",
     "Item_80268E5C",
     "ITEM_ANIM_UPDATE",
-    "it_802756D0",
-    "it_80275444",
-    "it_802762BC",
-    "it_80274C88",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "config/GALE01/symbols.txt",
+    "local @ symbols",
     "sdata",
     "sdata2",
-    "@265",
-    "@266",
-    "@168",
-    "@169",
-    "@207",
-    "@329"
+    "it_804D5270",
+    "it_804D5278",
+    "it_804DCA38",
+    "it_804DCA3C",
+    "it_804DCA40",
+    "it_804DCA48"
   ],
   "follow_up_queries": [
-    "Search remaining item files for `HSD_Randi(... & 0xF)` patterns that may need a `u8` temporary for matching.",
-    "Compare `itgshell` shell-hit/clank logic with `itrshell` or other shell item files for similar `static inline` matching opportunities.",
-    "Audit item-object `it_804D...` constants in `symbols.txt` after future matches to identify globals that should become local `@NNN` labels.",
-    "Look for remaining `PAD_STACK` shims in nearly matched item callbacks that can be removed by recovering locals or control-flow structure."
+    "Find other item files where duplicated clank and shield-hit logic can be factored into static inline helpers for matching.",
+    "Search for HSD_Randi calls using masked byte fields that may need u8 temporaries for matching.",
+    "Audit remaining global it_* constants in symbols.txt near item files to see whether any should be local @ labels.",
+    "Compare itgshell and itrshell matching tactics, especially shell collision and bounce logic.",
+    "Search for PAD_STACK in matched item files to identify removable stack-padding remnants."
   ],
-  "confidence": 0.9
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

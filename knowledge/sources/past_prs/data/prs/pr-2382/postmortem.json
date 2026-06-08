@@ -11,101 +11,88 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Unmerged Corneria stage decomp progress branch. The author explicitly opened it as a handoff/progress record because it would be superseded by another PR by nemo. It added substantial C work in src/melee/gr/grcorneria.c, tightened a few grcorneria.h prototypes, expanded grArwing_GroundVars with flag unions, and added a target_funcs.txt checklist. decomp.dev reported one new full match, grCorneria_801E2110, plus many near-matches in grcorneria, but also a small .sdata regression.",
+  "summary": "Unmerged Corneria stage decompilation work that implemented a batch of grcorneria.c functions and supporting type/header changes. The author explicitly opened it as a progress/reference PR that would be superseded by another PR by nemo. The decomp.dev bot reported one new full match, grCorneria_801E2110, and many near-matches for Corneria stage behavior, arwing/platform movement, stage section selection, color setup, and conversion/joint setup routines.",
   "change_classification": {
-    "primary_type": "stage-decomp-progress",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "struct-layout",
-      "worklist-handoff",
-      "unmerged"
+      "stage-behavior",
+      "work-in-progress-reference"
     ],
     "systems": [
       "stage",
       "ground",
-      "corneria",
+      "grcorneria",
       "arwing",
-      "repo-root"
+      "camera",
+      "audio",
+      "animation"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grcorneria.c",
-      "role": "Main Corneria stage decomp work; added local data structs, globals, lbaudio_ax include, and implementations/near-implementations for many grCorneria functions."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Expanded grArwing_GroundVars with xC4/xC6/xE0 flag bitfield unions and changed xD4/xD8 from f32 to s32."
-    },
-    {
-      "path": "src/melee/gr/grcorneria.h",
-      "role": "Replaced several UNK_RET/UNK_PARAMS prototypes with concrete signatures for grCorneria_801DCCFC, grCorneria_801DDE88, grCorneria_801E03C8, and grCorneria_801E08CC."
-    },
-    {
-      "path": "target_funcs.txt",
-      "role": "Added a repo-root checklist of grcorneria functions marked complete or still pending."
-    }
+    "src/melee/gr/grcorneria.c",
+    "src/melee/gr/grcorneria.h",
+    "src/melee/gr/types.h",
+    "target_funcs.txt"
   ],
   "what_changed": [
-    "Implemented or substantially drafted many previously placeholder Corneria functions, including grCorneria_801DCCFC, grCorneria_801DD350, grCorneria_801DDAC4, grCorneria_801DDE88, grCorneria_801DFC98, grCorneria_801DFF20, grCorneria_801E01A8, grCorneria_801E0678, grCorneria_801E08CC, grCorneria_801E2110, grCorneria_801E2228, and grCorneria_801E25C4.",
-    "Added Corneria-local data modeling: grCn_Entry, grCn_JointPair, grCn_ConvData, and a larger grCn_Data layout with x30, indices, x48, positions, joint_pairs, and entries fields.",
-    "Added static Corneria globals grCn_804D69A8 and grCn_804D69B0, plus static s32 color constants grCn_804DB218 through grCn_804DB238 used by grCorneria_801E2110.",
-    "Added lb/lbaudio_ax.h and used lbAudioAx_800237A8 in grCorneria_801DDE88 for Arwing-related audio state transitions.",
-    "Modeled Corneria initialization and object setup through Ground_801C49F8, grCorneria_801DD534, Ground_801C39C0, Ground_801C3BB4, mpLib_80057BC0, HSD_JObj scale/translation calls, and stage_info flag writes.",
-    "Added camera-position based region selection in grCorneria_801E08CC using Camera_GetTransformInterest, Ground_801C2BA4, HSD_JObjGetTranslationX, Ground_801C0498, and an assert fallback.",
-    "Added grCorneria_801E2110 color/lighting selection based on grCorneria_801E08CC, feeding GXColor-cast stack locals into Ground_801C058C, Ground_801C05EC, Ground_801C05A4, Ground_801C055C, Ground_801C05BC, and Ground_801C0574.",
-    "Added target_funcs.txt with checked functions such as grCorneria_801DD534, grCorneria_801E1878, grCorneria_801E2110, grCorneria_801DCCFC, grCorneria_801DD350, grCorneria_801E25C4, grCorneria_801DDE88, grCorneria_801E08CC, grCorneria_801DFC98, grCorneria_801DFF20, grCorneria_801E01A8, grCorneria_801DDAC4, grCorneria_801E2228, and grCorneria_801E0678, with additional unchecked targets."
+    "Replaced many grcorneria.c nonmatching placeholders with C implementations, including grCorneria_801DCCFC, grCorneria_801DD350, grCorneria_801DDAC4, grCorneria_801DDE88, grCorneria_801DFC98, grCorneria_801DFF20, grCorneria_801E01A8, grCorneria_801E0678, grCorneria_801E08CC, grCorneria_801E2110, grCorneria_801E2228, and grCorneria_801E25C4.",
+    "Added local Corneria helper/data structs in grcorneria.c: grCn_Entry, grCn_JointPair, grCn_ConvData, and a more detailed grCn_Data layout with x30, indices, x48, positions, joint_pairs, and entries fields.",
+    "Added static globals grCn_804D69A8 and grCn_804D69B0, plus static sdata color constants grCn_804DB218 through grCn_804DB238 used by grCorneria_801E2110.",
+    "Included lb/lbaudio_ax.h and used lbAudioAx_800237A8 for Corneria arwing/audio state transitions in grCorneria_801DDE88.",
+    "Updated grcorneria.h prototypes from UNK_RET/UNK_PARAMS to known signatures for several functions, including grCorneria_801DCCFC returning s32, grCorneria_801DDE88 taking HSD_GObj* and returning s32, grCorneria_801E03C8 taking Ground_GObj* and s32, and grCorneria_801E08CC returning s32.",
+    "Expanded struct grArwing_GroundVars in src/melee/gr/types.h with byte/bitfield views of xC4, xC6, and xE0, and changed xD4 and xD8 from f32 to s32 based on observed usage.",
+    "Added target_funcs.txt listing completed and remaining grcorneria.c functions, marking 14 functions checked off and leaving items such as grCorneria_801E1060, grCorneria_801E1970, grCorneria_801E03C8, grCorneria_801E277C, and grCorneria_801DED50 unchecked.",
+    "Adjusted one existing PAD_STACK usage in grCorneria_801E1878 from PAD_STACK(16) to PAD_STACK(12), indicating stack-layout tuning for matching."
   ],
   "smart_moves": [
-    "The PR treated the branch as reusable handoff material rather than final merge material; the body says it was opened to track progress and preserve useful work for a superseding PR.",
-    "The improved grCn_Data layout replaced an earlier smaller local typedef block and gave later functions shared names for indices, positions, joint_pairs, and entries instead of repeating raw offsets everywhere.",
-    "Flag unions in grArwing_GroundVars made byte/bit tests such as xC4_flags_b1, xC4_flags_b2, xC6_flags_b0, and xE0_flags_b0 expressible while preserving access to the full storage word.",
-    "Header prototypes were tightened only where the diff had concrete evidence from new callers/definitions, reducing use of UNK_RET and UNK_PARAMS without over-renaming the whole stage.",
-    "The color function grCorneria_801E2110 used static s32 RGBA constants and stack locals cast to GXColor*, which decomp.dev confirmed as a 100% new match.",
-    "The worklist in target_funcs.txt made clear which functions were believed complete and which remained unfinished, useful for a successor PR even though this branch closed unmerged."
+    "Pulled repeated offset access into named local structs for Corneria data tables and conversion state instead of leaving every access as opaque pointer arithmetic.",
+    "Modeled arwing ground variables with unions and bitfields so code could express flag manipulation such as xC4_flags_b1, xC4_flags_b2, xC6_flags_b0, and xE0_flags_b0 while preserving the underlying packed layout.",
+    "Kept M2C_FIELD and raw byte accesses where the struct knowledge was still incomplete, which allowed progress without overcommitting uncertain field names or types.",
+    "Used explicit static color constants in .sdata for grCorneria_801E2110, which produced the only fully matched new function reported by the bot.",
+    "Captured remaining function status in target_funcs.txt, making the PR useful as a handoff/reference despite being superseded.",
+    "Updated public prototypes when return types and parameters became known, reducing downstream UNK_RET/UNK_PARAMS usage."
   ],
   "decomp_lessons": [
-    "For stage files with many interconnected placeholders, a partial struct layout can unlock multiple functions at once; here grCn_Data and grArwing_GroundVars informed object init, movement, camera selection, and animation setup.",
-    "Bitfield overlays are useful when decompiled code alternates between full-word fields and byte flag checks, but this PR still uses raw u8* casts in several functions, so future cleanup should verify endian/bit ordering and field ownership carefully.",
-    "M2C_FIELD is a practical bridge for unknown data tables such as grCn_804D69A0 offsets 0x3C, 0x40, 0x70, and 0x88, but the next pass should replace those offsets with named asset/config structs when evidence is available.",
-    "Near-matching C is valuable handoff material: decomp.dev listed many functions above 99% but not exact, so successor work should inspect codegen details rather than restart from scratch.",
-    "Watch data-section side effects separately from text matches; the bot reported a .sdata regression even though text matching improved.",
-    "When adding concrete prototypes in headers, keep the existing address comments and only replace UNK signatures for functions whose return and parameters are supported by definitions or callers."
+    "For stage files with many related callbacks, partial local structs can unlock many functions at once, but uncertain fields should remain conservatively named or accessed with M2C_FIELD until verified.",
+    "Ground variable unions are useful when a field is used both as a whole word and as packed flag bytes; this PR demonstrates that bitfield views can make decompiled stage logic clearer.",
+    "Near-matches can still be valuable handoff material when a superseding PR is expected, especially if the PR documents which functions were attempted and what match percentages were achieved.",
+    "Bot match reports should be read carefully: this PR added substantial source but only one new function reached 100%, while many others remained around 93-99% and therefore still needed matching cleanup.",
+    "Header signature cleanup should accompany function decompilation so future work can reuse typed calls rather than propagating unknown prototypes."
   ],
   "naming_conventions": [
-    "Corneria stage globals and local types use the grCn_ prefix, while functions keep the grCorneria_ address-suffixed naming convention.",
-    "Unknown struct fields use offset-style names such as x30, x48, xC4, xD0, xE0 and padding names such as pad_00, pad_54, and pad_4B0.",
-    "More meaningful names were introduced only where supported by use, such as indices, positions, joint_pairs, and entries in grCn_Data.",
-    "Flag bitfields follow the pattern xOFFSET_flags_bN, for example xC4_flags_b1, xC6_flags_b0, and xE0_flags_b0.",
-    "Small stage helper typedefs are stage-prefixed and descriptive enough for reuse: grCn_Entry, grCn_JointPair, grCn_ConvData, and grCn_Data.",
-    "Public prototypes in grcorneria.h preserve the address comment format, e.g. /* 1DCCFC */ s32 grCorneria_801DCCFC(void)."
+    "Corneria file-local symbols use the grCn_ prefix for data and static globals, for example grCn_803E1D38, grCn_803E2204, grCn_804D69A8, and grCn_804DB218.",
+    "Corneria functions retain address-based names with the grCorneria_ prefix, such as grCorneria_801E08CC and grCorneria_801E2110.",
+    "New temporary structs use address/domain-based names rather than semantic final names when meaning is uncertain: grCn_Entry, grCn_JointPair, grCn_ConvData, and grCn_Data.",
+    "Unknown or partially understood fields are named by offset, such as xC4, xC8, xD4, xD8, xE0, x30, x48, xC, x10, x14, and x1C.",
+    "Packed flag bitfields are named with field offset and bit index, for example xC4_flags_b0 through xC4_flags_b7, xC6_flags_b0 through xC6_flags_b7, and xE0_flags_b0 through xE0_flags_b7."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK with exact byte counts in several functions; one existing padding site in grCorneria_801E1878 changed from PAD_STACK(16) to PAD_STACK(12).",
-    "Kept repeated Ground_801C0498 calls and magic float constants such as 3200.0f, 4800.0f, 1400.0f, 50.0f, 250.0f, 0.005f, and -0.0025f rather than prematurely simplifying expressions.",
-    "Used M2C_FIELD for untyped memory reads from grCn_804D69A0 and grCn_Data when exact asset/config structures were not established.",
-    "Used raw byte and typed reinterpret casts on Ground/GroundVars storage where the generated code appears to access flags or overlaid values by byte or alternate type.",
-    "Modeled state machines with explicit switch cases and integer state fields, especially grCorneria_801DDE88 and grCorneria_801E2228.",
-    "For grCorneria_801E25C4, matched joint setup by iterating grCn_803E1D38.joint_pairs, hiding non-selected JObjs with JOBJ_HIDDEN, storing selected joint pointers in grCn_ConvData, starting grAnime_801C8098 animations, and calling HSD_JObjAnimAll.",
-    "For grCorneria_801E2110, loaded static color words into stack locals before passing them as GXColor pointers, a pattern confirmed by the bot as fully matching."
+    "Used PAD_STACK with sizes such as 8, 12, 16, and 32 to influence stack layout and matching.",
+    "Used M2C_FIELD for still-unknown data at fixed offsets in grCn_804D69A0 and grCn_Data, including offsets such as 0x3C, 0x40, 0x70, 0x88, and computed table access near 0x3D8.",
+    "Used raw u8* casts of Ground data to test and write byte offsets such as 0xC4, 0xC5, 0xC6, and 0xE0 when the precise typed layout was not fully settled.",
+    "Used explicit casts between Ground_GObj*, HSD_GObj*, Ground*, HSD_JObj*, GXColor*, and raw scalar pointers to mirror the original code's memory interpretation.",
+    "Used static s32 constants for packed GXColor values, then passed their stack copies as GXColor* to Ground_801C058C, Ground_801C05EC, Ground_801C05A4, Ground_801C055C, Ground_801C05BC, and Ground_801C0574.",
+    "Matched switch/state-machine style logic for arwing behavior, including xD8 states in grCorneria_801DDE88 and xC5 stage/platform movement states in grCorneria_801DFC98, grCorneria_801DFF20, and grCorneria_801E01A8.",
+    "Relied on HSD_JObj translation and scale helpers, Ground_801C2BA4/Ground_801C3FA4 lookups, Camera_GetTransformInterest, HSD_Randi, and lbAudioAx_800237A8 to reconstruct stage behavior."
   ],
   "review_feedback": [
-    "No human review comments or review approvals were present in the slice.",
-    "Author note: \"Will be superceded by another PR by nemo, opening to keep track of how far we got and to see if there's anything useful in here for them\".",
-    "decomp.dev report for GALE01 f08c19a -> 10ce85e: matched code rose to 61.73%, +0.01%, +280 bytes.",
-    "decomp.dev reported one new full match: main/melee/gr/grcorneria grCorneria_801E2110, +280 bytes, 0.00% to 100.00%.",
-    "decomp.dev reported 13 improvements in unmatched grcorneria items, including grCorneria_801E0678 at 99.73%, grCorneria_801E2228 at 99.93%, grCorneria_801DD350 at 99.88%, and grCorneria_801E25C4 at 93.55%.",
-    "decomp.dev also reported one regression: main/melee/gr/grcorneria .sdata, -11 bytes, 70.97% to 51.16%."
+    "No human review comments were present in the supplied slice.",
+    "Author note: the PR would be superseded by another PR by nemo and was opened to track progress and preserve anything useful.",
+    "decomp.dev bot reported matched code changed to 61.73%, +0.01% and +280 bytes.",
+    "decomp.dev bot reported 1 new full match: main/melee/gr/grcorneria grCorneria_801E2110, +280 bytes, 0.00% to 100.00%.",
+    "decomp.dev bot reported 13 unmatched-item improvements, including grCorneria_801E0678 at 99.73%, grCorneria_801E2228 at 99.93%, grCorneria_801DFC98/grCorneria_801DFF20/grCorneria_801E01A8 at 99.85%, grCorneria_801DDAC4 at 98.28%, grCorneria_801E08CC at 99.42%, grCorneria_801DDE88 at 97.77%, grCorneria_801E25C4 at 93.55%, grCorneria_801DD350 at 99.88%, and grCorneria_801DCCFC at 95.69%.",
+    "decomp.dev bot also reported a .sdata regression from 70.97% to 51.16%, so the added static data was not fully aligned with existing data matching."
   ],
   "searchable_terms": [
-    "PR 2382",
+    "PR2382",
     "Jj/grcorneria",
     "jurrejelle",
-    "nemo",
-    "superseded",
-    "Corneria",
+    "nemo superseded",
     "grcorneria",
+    "Corneria",
     "src/melee/gr/grcorneria.c",
     "src/melee/gr/grcorneria.h",
     "src/melee/gr/types.h",
@@ -128,27 +115,33 @@
     "grCn_ConvData",
     "grArwing_GroundVars",
     "xC4_flags_b1",
-    "xC4_flags_b2",
     "xC6_flags_b0",
     "xE0_flags_b0",
     "M2C_FIELD",
     "PAD_STACK",
-    "lbaudio_ax",
     "lbAudioAx_800237A8",
+    "Ground_801C2BA4",
+    "Ground_801C3FA4",
+    "Ground_801C0498",
     "Camera_GetTransformInterest",
+    "HSD_JObjSetTranslateX",
     "GXColor",
-    "Ground_801C058C",
-    "Ground_801C05EC",
-    ".sdata regression",
-    "decomp.dev"
+    "grCn_804DB218"
   ],
   "follow_up_queries": [
-    "Find Nemo's superseding grcorneria PR and compare against PR 2382's near-matching functions.",
-    "Check whether grCorneria_801E2110 static GXColor s32 constant pattern survived in the merged code.",
-    "Audit grArwing_GroundVars xC4/xC6/xE0 bitfield unions against raw u8* accesses in grcorneria.c.",
-    "Investigate decomp.dev .sdata regression caused by PR 2382's static color/global changes.",
-    "Use PR 2382 target_funcs.txt as a checklist for remaining grCorneria_801E1060 grCorneria_801E1970 grCorneria_801E03C8 grCorneria_801E277C work.",
-    "Replace M2C_FIELD grCn_804D69A0 offsets 0x3C 0x40 0x70 0x88 with named Corneria asset/config struct fields if later evidence exists."
+    "Find the superseding nemo Corneria PR and compare which near-matches from PR #2382 were reused or replaced.",
+    "Search later grcorneria.c history for grCorneria_801E2110 to see whether the static GXColor constant approach survived review.",
+    "Check subsequent changes to grArwing_GroundVars to validate whether xD4/xD8 as s32 and the xC4/xC6/xE0 bitfield layout were retained.",
+    "Investigate unresolved target_funcs.txt entries from this PR, especially grCorneria_801E03C8, grCorneria_801E1060, grCorneria_801E1970, and grCorneria_801DED50.",
+    "Review later .sdata/.sdata2 matching changes for grcorneria to understand and fix the bot-reported .sdata regression."
   ],
-  "confidence": 0.84
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

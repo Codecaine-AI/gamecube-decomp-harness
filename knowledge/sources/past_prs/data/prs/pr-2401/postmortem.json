@@ -11,151 +11,147 @@
     "merged_at": "2026-04-13T21:15:27Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled a chunk of src/melee/ft/ft_0892.c, adding full matches for ft_800892D4, ft_80089460, and fn_8008998C, plus near-complete implementations for ft_800895E0 and ft_80089B08. The PR also typed supporting fighter data by adding IKState, a forward declaration, a typed fn_8008998C prototype, and missing x2085 fighter bitfields. decomp.dev reported +1160 matched code bytes, +16 matched data bytes, and improved ft_80089B08 to 97.81% and ft_800895E0 to 98.86%. No PR body or human review feedback was present in the slice.",
+  "summary": "Decompiled several functions in the fighter ft_0892 unit and added supporting fighter type/header declarations. The PR fully matched ft_800892D4, ft_80089460, and fn_8008998C, added a 97.81% ft_80089B08 implementation, and improved ft_800895E0 to 98.86% according to the decomp.dev bot report. The changes centered on fighter damage/flag state initialization, hit/attack state packing, and ground IK/slope adjustment logic using newly declared IKState and x2085 bitfields.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-typing",
+      "struct-layout",
       "bitfields",
-      "fighter-ik"
+      "fighter-state",
+      "partial-match"
     ],
     "systems": [
       "fighter",
-      "fighter-damage-state",
-      "inverse-kinematics",
-      "stage-collision",
-      "items"
+      "ft_0892",
+      "collision-ground",
+      "IK",
+      "items",
+      "math"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/ft_0892.c",
-      "role": "Main decompilation work: implemented ft_800892D4, ft_80089460, ft_800895E0, fn_8008998C, and ft_80089B08; added needed item, lb, mp, MSL, and JObj includes plus a local ftData_x58_t layout."
-    },
-    {
-      "path": "src/melee/ft/types.h",
-      "role": "Added x2085_b0 through x2085_b7 bitfields in the fighter x2074 area and introduced struct IKState with JObj pointers, Vec3 positions, lengths, and angle limits."
-    },
-    {
-      "path": "src/melee/ft/ft_0892.h",
-      "role": "Replaced the unknown fn_8008998C declaration with a typed prototype: s32 fn_8008998C(Fighter*, IKState*, Vec3*)."
-    },
-    {
-      "path": "src/melee/ft/forward.h",
-      "role": "Added a forward typedef for IKState so headers can expose the typed helper prototype."
-    }
+    "src/melee/ft/ft_0892.c",
+    "src/melee/ft/types.h",
+    "src/melee/ft/ft_0892.h",
+    "src/melee/ft/forward.h"
   ],
   "what_changed": [
-    "Implemented ft_800892D4 as a reset/initialization routine for Fighter damage/bonus state and x2070/x2074 fields, including clearing many x2084/x2085 bitfields and x18d8 damage subfields.",
-    "Implemented ft_80089460 to clear x2074 vector/bitfield state, store the fighter percent into x2074_vec.x as an integer, and set state flags based on is_metal, x197C, x221D_b6, x2226_b4, x2220_b5, and x2220_b6.",
-    "Added a near-matching ft_800895E0 that treats arg1 through union Struct2070, refreshes x2088 via plAttack_80037B08 when the message/state id changes, handles a Luigi x2073 == 0x71 special case, handles an item_gobj/it_8026B6C8 case for x2073 == 0x62, then rebuilds x2074 flags.",
-    "Implemented fn_8008998C as a matched helper that queries floor height/normal through mpLib_8004DD90_Floor or mpFloorGetLeft/mpFloorGetRight, clamps vertical adjustment by a 0.45 slope cap, updates ik->pos4.y, and returns whether an adjustment was applied.",
-    "Added a near-complete ft_80089B08 for grounded fighter pose/IK handling: it gates on x2219_b5, GA_Ground, db_804D4AF8, and x221C_u16_y bits; builds IKState from ft_data->x58 bone indices and lengths; calls lbVector, lbBgFlash, and JObj helpers; restores saved joint rotations; and applies floor-angle-based ftPartSetRotX with small-line neighbor normal handling.",
-    "Added local ftData_x58_t with offset-commented fields used to index fighter parts and limb length data from fp->ft_data->x58.",
-    "Extended Fighter x2074 bitfield coverage with x2085_b0 through x2085_b7, enabling direct assignments such as x2085_b3 and x2085_b4.",
-    "Updated headers so IKState is forward-declared and fn_8008998C is no longer UNK_RET/UNK_PARAMS."
+    "Implemented ft_800892D4, replacing a placeholder with initialization of Fighter damage/bonus-bit state, x2070/x2074 packed state, bitfields, knockback-related fields, and x2088.",
+    "Implemented ft_80089460, clearing x2074 vector/flag state and then deriving x2074 flags from fighter percent, metal state, x197C, and several x221D/x2226/x2220 bitflags.",
+    "Implemented ft_800895E0 as a near-match: accepts an int packed state, updates x2088 via plAttack_80037B08 when the packed subfield changes, special-cases Luigi state 0x71 to 0x240063, special-cases state 0x62 with held item/it_8026B6C8 to 0x44003D, then refreshes x2074 state.",
+    "Implemented fn_8008998C with a concrete prototype s32 fn_8008998C(Fighter*, IKState*, Vec3*); it computes an IK target vertical adjustment against the current floor using mpLib_8004DD90_Floor, mpFloorGetLeft/Right fallback points, and clamps slope contribution to +/-0.45.",
+    "Added a large mostly matching ft_80089B08 body for grounded fighter IK and body rotation: uses ft_data->x58 as a local ftData_x58_t layout, builds IKState for left/right limb paths under x221C_u16_y flags, calls lbBgFlash IK helpers, restores saved JObj rotations, and rotates fighter part 0 based on floor normal/adjacent line angle capped by p_ftCommonData->x804.",
+    "Added ftData_x58_t as a local struct in ft_0892.c to describe offsets used from fp->ft_data->x58, including joint indices and limb lengths.",
+    "Extended the x2074 union/struct in src/melee/ft/types.h with x2085_b0 through x2085_b7 bitfields.",
+    "Added struct IKState to src/melee/ft/types.h and forward-declared IKState in src/melee/ft/forward.h.",
+    "Updated ft_0892.h to replace fn_8008998C(UNK_PARAMS) with the typed Fighter*, IKState*, Vec3* prototype.",
+    "Added dependencies/includes for item, lb vector/BG flash, mpLib, MSL math/trig, and baselib JObj needed by the new implementations."
   ],
   "smart_moves": [
-    "Used a small local ftData_x58_t with explicit offsets to unblock matching of ft_80089B08 without pretending the whole ft_data->x58 payload is fully understood.",
-    "Promoted IKState into types.h and forward.h instead of keeping it hidden locally, because fn_8008998C now has a typed public prototype in ft_0892.h and lbBgFlash helpers operate on the same structure.",
-    "Modeled the second byte of x2074 flags as x2085_b0 through x2085_b7, which let the decomp assign individual bits instead of relying on opaque byte stores.",
-    "Kept the TODO on ft_800895E0's arg1 type, explicitly noting uncertainty about whether it is just Struct2070; this preserves evidence without over-naming an uncertain interface.",
-    "Used union Struct2070 temporaries and pointer reinterpret casts for x2070, UnkPlBonusBits, and Vec2/f32 storage to reproduce original store shapes closely enough to match several functions.",
-    "Duplicated the left/right IK setup paths in ft_80089B08 rather than abstracting them, preserving stack/local ordering and helping keep the function near-matching.",
-    "Saved and restored JObj rotation quaternions around the IK adjustment calls, matching the apparent original side-effect pattern while still using typed HSD_JObj fields."
+    "Kept the unknown ft_data->x58 layout local as ftData_x58_t instead of prematurely promoting a weakly understood data structure globally.",
+    "Used explicit packed-state unions and casts around x2070/x2074 fields, which matches the evidence that these fighter fields are overlayed integers/vectors/bitfields rather than simple typed members.",
+    "Documented uncertainty directly with the TODO comment on ft_800895E0: \"is arg1 not just a Struct2070?\", preserving a useful future investigation point instead of overclaiming the parameter type.",
+    "Handled MWCC big-endian bitfield ordering explicitly via the existing local UnkStruct89768 comment and added x2085 bitfields in the same packed fighter-state area.",
+    "In ft_80089B08, saved and restored JObj rotations around IK helper calls, avoiding accidental persistent transform mutation while still using helper routines to compute/adjust IK.",
+    "For short floor lines, sampled adjacent floor normals and blended/overrode the angle only when the difference exceeded a small threshold, reflecting careful reconstruction of edge-case slope behavior."
   ],
   "decomp_lessons": [
-    "For fighter bitfields, adding the missing named bits to shared types.h can be necessary before seemingly simple reset functions will match cleanly.",
-    "When exposing a newly understood helper signature in a header, add the forward typedef first; this PR introduced IKState in forward.h before using IKState* in ft_0892.h.",
-    "Offset-commented provisional structs are useful for progress, but names like ftData_x58_t and fields x0/x4/xC/x18 should be revisited when the asset/data layout becomes clearer.",
-    "Grounded IK and floor-adjustment code tends to depend on several subsystems at once: HSD_JObj, lbVector, lbBgFlash, mpLib/mpFloor/mpLine, MSL trig/math, and fighter common data.",
-    "Near matches still provide value in this project: decomp.dev credited ft_80089B08 at 97.81% and ft_800895E0 at 98.86%, while three neighboring functions became full matches.",
-    "Be careful with MWCC bitfield and stack behavior; this file already documents reversed bitfield order for big-endian local bitfields, and the new code uses padding locals and PAD_STACK to steer stack layout.",
-    "Do not over-semantically rename unknown packed states too early; the PR retains Struct2070-style naming and a TODO for ft_800895E0's argument."
+    "When fighter state fields are represented both as integer packets and named bitfields, matching code may require unions and pointer casts to force the same stores as the original compiler.",
+    "Big-endian MWCC bitfield order matters; comments and field ordering around bitfield structs are important evidence for future struct work.",
+    "Do not globally name or finalize data-file layouts too early; a local temporary struct such as ftData_x58_t can unblock matching while signaling that the layout is still provisional.",
+    "Ground IK code often depends on exact stack layout, temporary Vec3/Quaternion ordering, and helper-call side effects; preserving local variable structure and explicit rotation saves can be necessary for matching.",
+    "Near-matches can still add valuable type information: ft_800895E0 and ft_80089B08 were below 100%, but the PR exposed useful packed-state and IK structure details for later cleanup.",
+    "Use decomp.dev match reports as evidence of progress and residual work: this PR produced 4 new matches while leaving ft_80089B08 and ft_800895E0 as improvement targets."
   ],
   "naming_conventions": [
-    "Address-based function names remain in use for this ft_0892 area: ft_800892D4, ft_80089460, ft_800895E0, fn_8008998C, and ft_80089B08.",
-    "Unknown fighter fields use offset/bit naming such as x2070, x2073, x2074_vec, x2084_b1, x2085_b3, x221C_u16_y, and x2219_b5.",
-    "The newly added IKState has semi-semantic field names for repeated elements: jobj0/jobj1/jobj2, pos0 through pos4, len0/len1, angle_max, and angle_limit.",
-    "The local ftData_x58_t follows project-style offset placeholders: x0, x1, x4, x8, x9, xC, x10, x11, x18, with pad_02, pad_0A, and pad_12.",
-    "The code keeps existing decomp placeholder style for uncertain types, including union Struct2070 and the TODO questioning whether ft_800895E0 arg1 should be Struct2070."
+    "Unknown address-based functions remained address-named: ft_800892D4, ft_80089460, ft_800895E0, fn_8008998C, ft_80089B08.",
+    "The helper with no clear subsystem prefix stayed as fn_8008998C rather than being given a speculative semantic name.",
+    "Unknown struct/data layouts used placeholder names with offset hints such as ftData_x58_t, UnkStruct89768, and Struct2070.",
+    "Fighter bitfields retained offset-style names such as x2084_b1, x2085_b3, x221D_b6, and x2220_b5.",
+    "The new IKState type is semantically named because its fields and use in lbBgFlash IK helpers made the role clear enough.",
+    "Header prototypes use concrete project types where known: Fighter*, Fighter_GObj*, IKState*, Vec3*."
   ],
   "assembly_or_matching_tactics": [
-    "Used union Struct2070 stack temporaries spC, sp18, and sp14 to force exact packed-state assignments and special-case constants such as 0x240063 and 0x44003D.",
-    "Used pointer casts like *(s32*) &fp->x2074.x2074_vec.x and *(f32*) &fp->x2074.x207C.x to match bitwise stores into fields typed as vectors/floats.",
-    "Inserted explicit unnamed u8 padding arrays in fn_8008998C and ft_80089B08 and ended ft_80089B08 with PAD_STACK(16), indicating stack-shape matching pressure.",
-    "Kept literal float constants visible for matching, including 0.0001f, 0.45f, M_PI_2_F, 1.2217305f, 0.34906584f, 0.17453292f, and 0.017453292f.",
-    "Used inner scopes with local temporaries such as len, diff, and max_angle to influence lifetime/order and preserve closer compiler output.",
-    "Relied on existing library calls instead of open-coding math and collision behavior: mpLib_8004DD90_Floor, mpFloorGetLeft/Right, mpLineGetV0Pos/V1Pos, mpLineGetNormal, lbVector_Diff, lbVector_Normalize, lbVector_Add, lbBgFlash_80021410, and lbBgFlash_80020E38."
+    "Used casts like *(s32*) &fp->x2074.x2074_vec.x = 0 and *(s32*) &fp->x2074.x2074_vec.x = (s32) fp->dmg.x1830_percent to force exact integer stores into vector/packed storage.",
+    "Used union Struct2070 temporaries on stack for packed integer assignments and subfield checks, likely to reproduce original register/stack behavior around x2070 state.",
+    "Used explicit float constants for radians and thresholds, including 0.0001f, 0.45f, 1.2217305f, 0.34906584f, 0.17453292f, and 0.017453292f * p_ftCommonData->x804.",
+    "Included MSL math_ppc/trigf and called atan2f/sqrtf rather than replacing with approximations, matching the original math library behavior.",
+    "Inserted PAD_STACK(16) at the end of ft_80089B08, indicating stack-shape padding was needed for the partial match.",
+    "Declared unused byte arrays in fn_8008998C and ft_80089B08 local stacks, suggesting local padding/stack layout was used to improve matching."
   ],
   "review_feedback": [
-    "No human review comments or review approvals were present in the PR slice.",
-    "decomp-dev bot reported overall matched code at 63.09%, up +0.03% / +1160 bytes, and matched data at 38.13%, up +16 bytes.",
-    "decomp-dev bot reported 4 new matches: ft_800892D4 (+396 bytes), ft_80089460 (+384 bytes), fn_8008998C (+380 bytes), and .sdata (+16 bytes).",
-    "decomp-dev bot reported 3 improved unmatched items: ft_80089B08 (+1674 bytes, 97.81%), ft_800895E0 (+387 bytes, 98.86%), and .sdata2 (+56 bytes, 81.82%)."
+    "No human review comments were present in the provided slice.",
+    "The only issue comment was the decomp.dev bot report: matched code increased by 1160 bytes (+0.03%) and matched data by 16 bytes; new full matches were ft_800892D4, ft_80089460, fn_8008998C, and .sdata; ft_80089B08 and ft_800895E0 remained partial at 97.81% and 98.86% respectively."
   ],
   "searchable_terms": [
     "pr-2401",
     "Jj/ft 0892",
     "jurrejelle",
-    "jj/ft_0892",
-    "src/melee/ft/ft_0892.c",
-    "src/melee/ft/types.h",
-    "src/melee/ft/ft_0892.h",
-    "src/melee/ft/forward.h",
+    "ft_0892",
     "ft_800892D4",
     "ft_80089460",
     "ft_800895E0",
     "fn_8008998C",
     "ft_80089B08",
-    "ft_80089768",
-    "Struct2070",
-    "UnkPlBonusBits",
-    "UnkStruct89768",
     "IKState",
     "ftData_x58_t",
+    "Struct2070",
+    "UnkStruct89768",
     "x2070",
-    "x2073",
     "x2074",
-    "x2074_vec",
     "x2084_b0",
     "x2085_b3",
     "x2088",
     "x18d4",
     "x18d8",
+    "kb_applied1",
     "x18ec_instancehitby",
     "x1830_percent",
     "is_metal",
-    "item_gobj",
-    "it_8026B6C8",
-    "plAttack_80037B08",
-    "db_804D4AF8",
-    "GA_Ground",
+    "x197C",
     "x221C_u16_y",
-    "HSD_JObj",
-    "HSD_JObjGetTranslation2",
+    "x2219_b5",
+    "ground_or_air",
+    "GA_Ground",
+    "mpLib_8004DD90_Floor",
+    "mpFloorGetLeft",
+    "mpFloorGetRight",
+    "mpLineGetV1Pos",
+    "mpLineGetV0Pos",
+    "mpLineGetNext",
+    "mpLineGetPrev",
+    "mpLineGetNormal",
+    "mpLineGetKind",
     "lbBgFlash_80021410",
     "lbBgFlash_80020E38",
     "lbVector_Diff",
     "lbVector_Normalize",
-    "mpLib_8004DD90_Floor",
-    "mpFloorGetLeft",
-    "mpFloorGetRight",
-    "mpLineGetNext",
-    "mpLineGetPrev",
+    "lbVector_Add",
+    "lb_8000B1CC",
     "ftPartSetRotX",
-    "PAD_STACK"
+    "plAttack_80037B08",
+    "it_8026B6C8",
+    "FTKIND_LUIGI",
+    "p_ftCommonData",
+    "MWCC big-endian bitfields"
   ],
   "follow_up_queries": [
-    "ft_80089B08 IKState remaining mismatch 97.81",
-    "ft_800895E0 Struct2070 arg1 TODO",
-    "ftData_x58_t fighter ft_data x58 bone index layout",
-    "x2074 x2084 x2085 fighter bitfield naming",
-    "db_804D4AF8 grounded IK gate",
-    "fn_8008998C floor normal IK pos4 delta_y",
-    "ft_0892 .sdata2 constants 0.34906584 1.2217305 0.017453292"
+    "Investigate whether ft_800895E0 arg1 should be typed as union Struct2070 instead of int, as noted by the in-code TODO.",
+    "Finish matching ft_80089B08 from 97.81% to 100%, focusing on stack padding, local ordering, IKState construction, and floor-line angle adjustment.",
+    "Finish matching ft_800895E0 from 98.86% to 100%, focusing on packed Struct2070 temporaries and special-case constants 0x240063 and 0x44003D.",
+    "Validate whether local ftData_x58_t should become a shared named fighter data attribute struct once more x58 usages are understood.",
+    "Check downstream uses of the newly added x2085_b0 through x2085_b7 bitfields to improve naming beyond offset-style placeholders.",
+    "Confirm the semantics of db_804D4AF8 gating the IK path in ft_80089B08."
   ],
-  "confidence": 0.87
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

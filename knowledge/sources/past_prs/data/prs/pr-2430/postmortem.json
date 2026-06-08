@@ -11,139 +11,148 @@
     "merged_at": "2026-04-22T19:55:50Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Raised item translation-unit matching coverage, with five item source files flipped from NonMatching to Matching in configure.py: itrshell, itkabigon, itmatadogas, itpatapata, and ittools. The decomp.dev report recorded +5460 matched code bytes, +17576 linked code bytes, +744 matched data bytes, 23 new matches, and six fuzzy improvements in the still-unmatched itsamusgrapple TU. The PR also corrected item attribute layouts, added concrete ItemStateTable data initializers, localized several symbols in GALE01 symbols.txt, and implemented multiple previously stubbed item motion/physics/collision routines.",
+  "summary": "Raised item translation-unit match coverage by reconstructing several remaining item modules and moving them to Matching in configure.py: itrshell, itkabigon, itmatadogas, itpatapata, and ittools. The PR also made large fuzzy-match progress in itsamusgrapple without marking that TU fully matching, updated item attribute/header layouts, and corrected many symbol entries from global it_* labels to local @NNN labels where the diff showed local rodata/data/sdata/sdata2 constants. decomp.dev reported +5460 matched-code bytes, +17576 linked-code bytes, and 23 new 100% matches, plus six improved itsamusgrapple fuzzy matches.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "symbols",
-      "configure",
-      "item-state-tables"
+      "build-config",
+      "item-behavior"
     ],
     "systems": [
       "item",
-      "common-items",
-      "character-items",
       "config",
-      "samus-grapple"
+      "symbols",
+      "samus-grapple",
+      "pokemon-items",
+      "shell-items"
     ]
   },
   "key_files": [
     "configure.py",
     "config/GALE01/symbols.txt",
+    "src/melee/it/items/itsamusgrapple.c",
+    "src/melee/it/items/itsamusgrapple.h",
+    "src/melee/it/items/itrshell.c",
+    "src/melee/it/items/itpatapata.c",
+    "src/melee/it/items/ittools.c",
+    "src/melee/it/items/itmatadogas.c",
+    "src/melee/it/items/itkabigon.c",
     "src/melee/it/itCharItems.h",
     "src/melee/it/itCommonItems.h",
-    "src/melee/it/items/itrshell.c",
-    "src/melee/it/items/itkabigon.c",
-    "src/melee/it/items/itmatadogas.c",
-    "src/melee/it/items/itpatapata.c",
-    "src/melee/it/items/itpatapata.h",
-    "src/melee/it/items/ittools.c",
-    "src/melee/it/items/itsamusgrapple.c",
-    "src/melee/it/items/itsamusgrapple.h"
+    "src/melee/it/items/itpatapata.h"
   ],
   "what_changed": [
-    "configure.py changed itrshell.c, itkabigon.c, itmatadogas.c, itpatapata.c, and ittools.c from Object(NonMatching, ...) to Object(Matching, ...).",
-    "config/GALE01/symbols.txt converted many item data labels from global it_-address symbols to local @NNN labels across .rodata, .data, .sdata, and .sdata2, including local string/float/double constants and a rodata size adjustment at 0x803B8708 from 0x10 global to 0xC local.",
-    "itCharItems.h corrected itSamusGrappleAttributes field x0C from f32 to s32, added xA4/xA8/xAC animation pointer fields, and replaced itToolsAttrEntry with itToolsMotionAttrs under itToolsAttributes::motions[1]; itToolsAttributes::xC became s32.",
-    "itCommonItems.h refined itPatapataAttributes by changing x28 to f32 and replacing pad_30 with f32 x30 and x34, and moved/added an itKabigonAttributes struct with f32/f32/f32/f32/s32/s32/f32 layout.",
-    "itkabigon.c removed placeholder/platform includes, moved the Kabigon attribute struct to the shared header, added ItemStateTable it_803F7AD8, and implemented itKabigon_UnkMotion1_Anim plus an inline helper for scale, hitlag callbacks, blast-zone handling, and camera trigger behavior.",
-    "itmatadogas.c removed placeholder/platform/debug includes, added math support and ItemStateTable initializers, implemented itMatadogas_UnkMotion1_Anim, added a PAD_STACK adjustment in UnkMotion2_Phys, implemented it_802CB4F0 item spawning with random circular velocity using cosf/sinf, and added a one-entry state table it_803F7BB0.",
-    "itpatapata.c added ItemStateTable it_803F88C0, implemented it_802E0734 and it_802E11E0, corrected the it_802E11E0 prototype to void it_802E11E0(Item_GObj*), adjusted Patapata collision code with explicit temporaries and a gobj alias marked permuterslop, and replaced an extern zero vector with a local Vec3 vel = { 0 }.",
-    "itrshell.c added x40 to the shell attrs layout, added ItemStateTable it_803F5C48, implemented velocity clamp and stop-init helpers, matched it_8028DAE4, itRshell_UnkMotion5_Phys, itRshell_UnkMotion5_Coll, and it_8028E170, using multiple static inline helpers and #pragma inline_depth(8).",
-    "ittools.c added ItemStateTable it_803F9260, changed attribute access from treating specialAttributes as an entry array to a typed itToolsAttributes wrapper with motions[], implemented itTools_UnkMotion4_Anim and it_802EF548, and updated damage/clank/shield/absorb paths to use the new typed attrs.",
-    "itsamusgrapple.h replaced an opaque hitbox-data placeholder with itSamusGrapple_HitboxData containing spawn_hitbox_0 through spawn_hitbox_4 data and bitfields; it_802B7160 now takes this typed struct.",
-    "itsamusgrapple.c added major fuzzy decompilation work for it_802B7160, it_802B75FC, it_802B7C18, it_802B9328, and it_802B99A0, plus related includes and animation hookup changes, but the TU remained in the decomp.dev report as an unmatched item with fuzzy improvements rather than being flipped to Matching."
+    "Changed configure.py entries for src/melee/it/items/itrshell.c, itkabigon.c, itmatadogas.c, itpatapata.c, and ittools.c from Object(NonMatching, ...) to Object(Matching, ...).",
+    "Reconstructed previously stubbed or partially unmatched item functions across itrshell, itpatapata, ittools, itmatadogas, and itkabigon; bot output listed 23 new matches including itRshell_UnkMotion5_Phys, itRshell_UnkMotion5_Coll, it_8028DAE4, it_8028E170, it_802E0734, it_802E11E0, it_802EF548, it_802CB4F0, itKabigon_UnkMotion1_Anim, and multiple item .data/.rodata/.sdata2 sections.",
+    "Made substantial but not complete itsamusgrapple progress, replacing placeholders with C for functions such as it_802B7160 and it_802B75FC and improving bot-reported fuzzy matches for it_802B9328, it_802B75FC, it_802B99A0, it_802B7160, it_802B7C18, and .sdata2.",
+    "Updated item headers to support matching: itSamusGrappleAttributes changed xC from f32 to s32 and gained xA4/xA8/xAC animation pointer fields; itToolsAttrEntry was renamed to itToolsMotionAttrs and used as itToolsAttributes.motions; itToolsAttributes.xC changed to s32; itPatapataAttributes field types/layout changed around x28-x34; itKabigonAttributes was added.",
+    "Updated config/GALE01/symbols.txt to change many rodata/data/sdata/sdata2 entries from global it_803*/it_804* names to local @NNN labels, with corrected sizes/scopes for item constants and strings.",
+    "Added item state table definitions in matched item C files, such as it_803F7AD8 for Kabigon, it_803F7B58 for Matadogas, it_803F88C0 for Patapata, and it_803F5C48 for Red Shell."
   ],
   "smart_moves": [
-    "Converted newly matched TUs in configure.py only after backing them with both code matches and data/state-table matches, rather than leaving them as fuzzy-only improvements.",
-    "Matched item .data by adding concrete ItemStateTable arrays next to each item implementation, preserving the standard {motion id, Anim, Phys, Coll} table shape.",
-    "Used typed attribute wrappers for Tools and Patapata to expose real field types and offsets; this let later code index attrs->motions[...] instead of pointer-arithmetic over an ambiguous entry array.",
-    "Moved itKabigonAttributes and itSamusGrapple_HitboxData into headers where callers and item code can share the same layout instead of duplicating local placeholder structs.",
-    "For Rshell, split difficult behavior into static inline helpers and used #pragma inline_depth(8), making velocity clamp, stop-init, acceleration, braking, reverse, and ground-spin logic easier to permute while preserving codegen.",
-    "Localized constants in symbols.txt to @NNN labels where the matched code/data no longer needed global it_ labels, reducing symbol-scope mismatches.",
-    "Removed unverified semantic comments from itTools attribute fields after review feedback; the final diff keeps the safer offset-style unknown field names."
+    "Separated fully matching item TUs from still-fuzzy Samus Grapple work: five item modules were promoted to Matching, while itsamusgrapple received large source reconstruction but was not shown as promoted in configure.py.",
+    "Used header layout corrections to unblock matching rather than forcing local casts everywhere: examples include s32-vs-f32 fixes in itSamusGrappleAttributes, itToolsAttributes, and itPatapataAttributes.",
+    "Kept symbol metadata aligned with the compiler/linker reality by demoting many anonymous constants and strings to local @NNN symbols instead of preserving misleading global it_* names.",
+    "Introduced small static inline helpers in item logic, including red shell velocity/stop/acceleration helpers and Kabigon animation helper, which is a common matching tactic when source needs to reproduce repeated instruction patterns.",
+    "For itrshell.c, used #pragma inline_depth(8) near it_8028DAE4, indicating deliberate inline-depth control to get the generated code shape to match."
   ],
   "decomp_lessons": [
-    "A TU flip to Matching may require data-section work as much as function work: this PR matched .data/.sdata2 by adding ItemStateTable initializers and correcting local/global symbol scope.",
-    "Attribute structs should be corrected by observed layout and access types, not by guessed names; this PR accepted type/layout changes such as s32 vs f32 and named nested motion arrays, but review pushed back on invented explanatory comments.",
-    "For item matching, state tables and motion callbacks often move together: adding missing tables for itrshell, itpatapata, itmatadogas, itkabigon, and ittools made the functions and data match as complete TUs.",
-    "When decompiling physics/collision code, explicit signed temporaries, casts, ABS usage, and seemingly redundant aliases can be necessary to match compiler output.",
-    "Large character-item code such as Samus grapple can still be valuable as fuzzy progress without being marked Matching; the bot showed five Samus grapple functions reaching roughly 90-98% while configure.py left the TU nonmatching.",
-    "Do not treat AI-inferred field comments as authoritative. If semantics are not verified, retain offset/xN naming or clearly mark uncertainty rather than adding confident gameplay descriptions."
+    "For item TUs, reaching TU-level Matching often requires synchronizing C source, item state tables, attribute structs, and config/symbol metadata together; source-only changes may not be enough.",
+    "When a decomp type field is really an integer in the original data, leaving it as f32 can block matching or force worse codegen. This PR corrected several such attribute fields to s32.",
+    "Anonymous constants should stay anonymous/local in symbols.txt when evidence shows local scope; over-globalizing constants creates misleading names and can fight section matching.",
+    "Header comments describing unknown fields must be evidence-backed. Review explicitly called out AI-guessed comments on itTools attribute fields as non-authoritative.",
+    "Large generated-looking decomp changes need review scrutiny for semantic comments and names; field names like x0/x4 are safer than confident but unverified descriptions."
   ],
   "naming_conventions": [
-    "Item motion callbacks continue to use it<Name>_UnkMotionN_Anim, it<Name>_UnkMotionN_Phys, and it<Name>_UnkMotionN_Coll naming, for example itRshell_UnkMotion5_Phys and itTools_UnkMotion4_Anim.",
-    "Unidentified functions remain address-based, such as it_8028DAE4, it_8028E170, it_802E0734, it_802E11E0, it_802EF548, it_802CB4F0, and Samus grapple functions it_802B7160/it_802B75FC/it_802B9328/it_802B99A0.",
-    "State table globals retain address-based names such as it_803F5C48, it_803F7AD8, it_803F7B58, it_803F7BB0, it_803F88C0, and it_803F9260.",
-    "Struct fields remain offset-style x0/x4/xC/etc. when semantics are not confirmed; type corrections are still made where needed for matching.",
-    "The PR introduced itToolsMotionAttrs and itToolsAttributes::motions[1] to express a repeated per-motion attribute entry without overclaiming individual field semantics.",
-    "Local data symbols in config/GALE01/symbols.txt use @NNN labels when the object should be local rather than globally named it_XXXXXXXX."
+    "Maintained address-based unknown function names such as it_802B7160, it_802B75FC, it_802E0734, it_802E11E0, it_802EF548, and it_802CB4F0 where no stronger name evidence was provided.",
+    "Used item-prefixed motion callback names already present in the project style, such as itRshell_UnkMotion5_Phys, itRshell_UnkMotion5_Coll, itKabigon_UnkMotion1_Anim, itMatadogas_UnkMotion1_Anim, and itTools_UnkMotion4_Anim.",
+    "Renamed itToolsAttrEntry to itToolsMotionAttrs and the containing array from entries to motions, but the semantic comments originally proposed for each field were challenged and removed in the final diff excerpt.",
+    "Kept unknown struct fields in x-offset style, such as x0, x4, xC, xA4, and xDD4_itemVar fields, when exact semantics were not proven.",
+    "Symbols for anonymous local constants followed @NNN label style in config/GALE01/symbols.txt rather than address-derived global it_803*/it_804* names."
   ],
   "assembly_or_matching_tactics": [
-    "Used static inline helper functions extensively to control inlining and register/stack shape in matched functions, especially in itrshell.c and itsamusgrapple.c.",
-    "Inserted PAD_STACK(...) in several functions to match stack frame size/alignment, including Matadogas, Patapata, Rshell, Tools, and Samus grapple code.",
-    "Used #pragma inline_depth(8) before it_8028DAE4 in itrshell.c to influence helper inlining for matching.",
-    "Added explicit temporaries and casts, such as s32 sign variables before multiplying floats, s32 frame counters in Patapata, and u32 casts for Tools damage caps.",
-    "Used a deliberate local alias in Patapata collision code, Item_GObj* gobj2 = gobj, annotated as permuterslop, to affect generated code without changing behavior.",
-    "Replaced an extern zero-vector reference with a local Vec3 vel = { 0 } in itpatapata.c, matching the symbol/local-constant changes in symbols.txt.",
-    "Preserved item hit state during Rshell motion changes by selecting ITEM_ANIM_UPDATE versus ITEM_ANIM_UPDATE | ITEM_HIT_PRESERVE depending on msid."
+    "Promoted only item TUs that reached 100% matching according to configure.py changes and decomp.dev results.",
+    "Used static inline helper functions to reproduce compiler inlining and reduce duplicated codegen-sensitive logic in item motion callbacks.",
+    "Used #pragma inline_depth(8) in itrshell.c around reconstructed shell logic.",
+    "Added PAD_STACK calls/padding in reconstructed Samus Grapple code where stack layout was codegen-sensitive.",
+    "Represented fixed-point or packed hitbox command data in itsamusgrapple via structured fields and explicit /256.0f conversions, matching observed hitbox setup behavior without naming beyond the evidence.",
+    "Corrected local/global symbol scope and constant sizes in symbols.txt to match section data and avoid unwanted global symbol references."
   ],
   "review_feedback": [
-    "jellejurre questioned the semantic comments added to itToolsMotionAttrs and itToolsAttributes: \"Are these comments made up by a human or by AI?\"",
-    "lukechampine replied: \"good catch, definitely AI guesswork that should not be taken as authoritative\".",
-    "The final diff for itCharItems.h retains the layout/type/rename changes but not the questioned explanatory field comments, making this a clear precedent against unverified AI-generated comments.",
-    "The PR was approved by jellejurre before merge and later also approved by Ari4ka; no other substantive review feedback is present in the slice."
+    {
+      "author": "jellejurre",
+      "file": "src/melee/it/itCharItems.h",
+      "feedback": "Questioned whether detailed comments on itToolsMotionAttrs/itToolsAttributes fields were human-derived or AI-generated."
+    },
+    {
+      "author": "lukechampine",
+      "file": "src/melee/it/itCharItems.h",
+      "feedback": "Acknowledged the comments were AI guesswork and should not be treated as authoritative."
+    },
+    {
+      "author": "jellejurre",
+      "file": null,
+      "feedback": "Approved after the comment issue was addressed, according to review records."
+    },
+    {
+      "author": "Ari4ka",
+      "file": null,
+      "feedback": "Approved after merge-time commit, according to review records."
+    }
   ],
   "searchable_terms": [
+    "PR2430",
     "All item TUs > 80% fuzzy match",
     "itrshell",
-    "itkabigon",
-    "itmatadogas",
     "itpatapata",
     "ittools",
+    "itmatadogas",
+    "itkabigon",
     "itsamusgrapple",
-    "configure.py Matching",
-    "ItemStateTable",
-    "it_803F5C48",
-    "it_803F7AD8",
-    "it_803F7B58",
-    "it_803F7BB0",
-    "it_803F88C0",
-    "it_803F9260",
-    "itToolsMotionAttrs",
-    "itToolsAttributes",
-    "itKabigonAttributes",
-    "itSamusGrapple_HitboxData",
-    "it_8028DAE4",
-    "it_8028E170",
     "itRshell_UnkMotion5_Phys",
     "itRshell_UnkMotion5_Coll",
     "itKabigon_UnkMotion1_Anim",
     "itMatadogas_UnkMotion1_Anim",
-    "it_802CB4F0",
+    "itTools_UnkMotion4_Anim",
+    "it_8028DAE4",
+    "it_8028E170",
     "it_802E0734",
     "it_802E11E0",
-    "itTools_UnkMotion4_Anim",
     "it_802EF548",
+    "it_802CB4F0",
     "it_802B7160",
     "it_802B75FC",
-    "it_802B7C18",
     "it_802B9328",
     "it_802B99A0",
+    "it_802B7C18",
+    "itToolsMotionAttrs",
+    "itToolsAttributes",
+    "itPatapataAttributes",
+    "itKabigonAttributes",
+    "itSamusGrappleAttributes",
+    "config/GALE01/symbols.txt",
+    "local @NNN symbols",
+    "Object(Matching)",
+    "inline_depth",
     "PAD_STACK",
-    "permuterslop",
-    "AI guesswork comments",
-    "jellejurre",
-    "lukechampine"
+    "AI guesswork comments"
   ],
   "follow_up_queries": [
-    "Find later PRs that finish matching src/melee/it/items/itsamusgrapple.c after the fuzzy improvements to it_802B7160, it_802B75FC, it_802B9328, and it_802B99A0.",
-    "Search for other item TUs where ItemStateTable data additions enabled a configure.py flip from NonMatching to Matching.",
-    "Audit header comments introduced by AI-assisted PRs for unverified semantic claims similar to the itToolsMotionAttrs review thread.",
-    "Compare Patapata, Rshell, and Tools matching tactics for reusable PAD_STACK, inline helper, and local symbol-scope patterns.",
-    "Search for permuterslop annotations in item collision code to identify known compiler-shape workarounds."
+    "Check later PRs for completion of src/melee/it/items/itsamusgrapple.c after the 90-98% fuzzy improvements in PR 2430.",
+    "Search for final authoritative naming of itToolsMotionAttrs fields before adding semantic comments to itCharItems.h.",
+    "Audit remaining NonMatching item TUs near configure.py item list after itrshell, itkabigon, itmatadogas, itpatapata, and ittools were promoted.",
+    "Look for follow-up symbol cleanup around it_803B8708, it_803F7B88, it_803F9300, it_804DCA50, and it_804DD948 local @NNN labels."
   ],
-  "confidence": 0.93
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

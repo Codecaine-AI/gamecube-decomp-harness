@@ -11,15 +11,15 @@
     "merged_at": "2026-03-10T15:56:44Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched two near-complete units: `main/melee/if/iftime` via `ifTime_CreateTimers` and `main/sysdolphin/baselib/devcom` via `HSD_DevComARAMWakeUp`. The PR changed local temporaries and pointer usage to reach matching codegen, flipped both source files from `NonMatching` to `Matching` in `configure.py`, and corrected anonymous symbol metadata in `config/GALE01/symbols.txt`. Review clarified that a build size mismatch for `@260` at `0x804D5790` should be fixed in `symbols.txt`, not by adding an artificial C object.",
+  "summary": "Matched two previously nonmatching objects: `src/melee/if/iftime.c` and `src/sysdolphin/baselib/devcom.c`. The PR promoted both files to `Object(Matching, ...)` in `configure.py`, adjusted local-variable structure in `ifTime_CreateTimers`, rewrote `HSD_DevComARAMWakeUp` to use direct relay-buffer expressions and narrower variable lifetimes, and updated `config/GALE01/symbols.txt` to use compiler-style local labels for several `ifTime` constants and strings. A build size-mismatch issue around `@260`/0x804D5790 was resolved by correcting the symbol size in `symbols.txt` rather than adding a fake 4-byte C object.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "matching-status-flip",
-      "symbol-map-correction",
-      "naming",
-      "build-metadata"
+      "configure-update",
+      "symbol-map-update",
+      "local-variable-scoping",
+      "review-fix"
     ],
     "systems": [
       "melee/if",
@@ -29,108 +29,101 @@
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/if/iftime.c",
-      "role": "Matched `ifTime_CreateTimers` by changing local variable usage around timer model animations and digit JObj traversal."
-    },
-    {
-      "path": "src/sysdolphin/baselib/devcom.c",
-      "role": "Matched `HSD_DevComARAMWakeUp` by narrowing variable scope and using `HSD_DevCom_804C6330_bufs[req_idx]` directly for relay buffer operations."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Renamed several data/sdata/sdata2 labels to anonymous `@NNN` symbols and corrected size metadata, including `@260` at `0x804D5790` to `size:0x1`."
-    },
-    {
-      "path": "configure.py",
-      "role": "Changed `melee/if/iftime.c` and `sysdolphin/baselib/devcom.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)`."
-    }
+    "configure.py",
+    "config/GALE01/symbols.txt",
+    "src/melee/if/iftime.c",
+    "src/sysdolphin/baselib/devcom.c"
   ],
   "what_changed": [
-    "`configure.py` now treats `melee/if/iftime.c` and `sysdolphin/baselib/devcom.c` as matching objects.",
-    "`ifTime_CreateTimers` added a separate `HSD_JObj* digit` local, replaced an unused `DynamicModelDesc** ScInfTim_scene_models` declaration with `void *anims, *matanims, *shapeanims`, stores `ifTime_match_timer_models` fields into those locals before `lb_8000C07C`, and walks digit children with `digit` instead of mutating `jobj`.",
-    "`HSD_DevComARAMWakeUp` removed the top-level `void* buf`, moved `u32 xfer_size` into the `aramDC->type == 3` branch, uses `HSD_DevCom_804C6330_bufs[req_idx]` directly in cache and ARQ calls, and zeros the relay buffer through that named buffer array rather than pointer arithmetic from `devComStatus`.",
-    "`symbols.txt` changed several iftime-adjacent labels from `lbl_*` or `ifTime_*` names to anonymous `@NNN` labels in `.data`, `.sdata`, and `.sdata2`.",
-    "The decomp.dev report recorded 2 new matches: `ifTime_CreateTimers` reached 100.00% from 96.94% and `HSD_DevComARAMWakeUp` reached 100.00% from 99.02%."
+    "`configure.py` changed `melee/if/iftime.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)` in the user-interface object list.",
+    "`configure.py` changed `sysdolphin/baselib/devcom.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)` in the baselib object list.",
+    "`src/melee/if/iftime.c` adjusted `ifTime_CreateTimers`: introduced a separate `HSD_JObj* digit` cursor for digit traversal instead of reusing `jobj`, replaced a typed `DynamicModelDesc** ScInfTim_scene_models` temporary with `void *anims, *matanims, *shapeanims`, and loaded `ifTime_match_timer_models` fields into temporaries before calling `lb_8000C07C`.",
+    "`src/sysdolphin/baselib/devcom.c` adjusted `HSD_DevComARAMWakeUp`: removed broad-scope `buf` and `xfer_size` locals, scoped `xfer_size` inside the `type == 3` branch, replaced pointer arithmetic through `devComStatus` with `HSD_DevCom_804C6330_bufs[req_idx]`, and passed that buffer expression directly to `DCStoreRange`, `DCInvalidateRange`, and `ARQPostRequest`.",
+    "`config/GALE01/symbols.txt` renamed several generated string/constant symbols from semantic/global-style names such as `lbl_803F94E8`, `ifTime_804D5788`, `ifTime_804DDA38`, and `ifTime_804DDA40` to local compiler labels such as `@151`, `@152`, `@184`, `@186`, `@258`, `@259`, `@260`, `@261`, `@262`, `@263`, `@309`, and `@310`.",
+    "`config/GALE01/symbols.txt` corrected the 0x804D5790 object entry to `@260 = .sdata:0x804D5790; // type:object size:0x1 scope:global`, resolving a reported build size mismatch for that auto-sized symbol."
   ],
   "smart_moves": [
-    "Used local variable lifetime and naming changes to affect codegen without changing visible behavior.",
-    "Kept the root `jobj` separate from the digit traversal pointer, which is a useful matching tactic when child/next JObj iteration changes register allocation or live ranges.",
-    "Materialized `anims`, `matanims`, and `shapeanims` locals before the `lb_8000C07C` call, likely matching the compiler's argument setup more closely than direct chained field accesses.",
-    "Replaced manual address arithmetic for the devcom relay buffer with the existing `HSD_DevCom_804C6330_bufs[req_idx]` symbol, making the source clearer and matching the generated code.",
-    "Accepted review guidance to fix the `@260` size mismatch in symbol metadata instead of forcing the C source to emit a larger dummy object."
+    "Used a separate `digit` pointer in `ifTime_CreateTimers` so the root `jobj` value remains distinct from the child/next traversal cursor; this is a common matching tactic when register allocation or variable live ranges depend on not reusing the same local.",
+    "Pulled `ifTime_match_timer_models.anims`, `.matanims`, and `.shapeanims` into `void*` temporaries before the `lb_8000C07C` call, likely to force the compiler to emit the same load/order/register pattern as the target.",
+    "In `devcom.c`, removed the reusable `buf` temporary and inlined `HSD_DevCom_804C6330_bufs[req_idx]` at cache and ARQ call sites, matching codegen more directly than preserving a source-level convenience variable.",
+    "Scoped `xfer_size` only inside the branch that needs it, reducing live ranges and helping match register allocation in `HSD_DevComARAMWakeUp`.",
+    "Replaced manual arithmetic from `devComStatus` to a relay-buffer pointer with the named `HSD_DevCom_804C6330_bufs[req_idx]`, improving both readability and matching.",
+    "Resolved the `@260` size mismatch in the symbol map rather than adding an artificial C declaration, following reviewer guidance that symbol address/size/type metadata should be fixed at the source."
   ],
   "decomp_lessons": [
-    "When a build reports `ERROR Size mismatch` for an object symbol, check `symbols.txt` address, size, and type metadata before adding C padding or dummy declarations.",
-    "Anonymous compiler-generated constants may need `@NNN` symbol names and exact size/align metadata for the object to build and match cleanly.",
-    "Near-100% functions can be finished by small source-shape edits: narrowing variable scope, removing temporaries, introducing traversal locals, or preloading struct fields into locals.",
-    "After matching a unit, update `configure.py` from `Object(NonMatching, ...)` to `Object(Matching, ...)` so the build system and progress tracking reflect the match.",
-    "For low-level baselib code, prefer known buffer symbols over reconstructed pointer arithmetic when the symbol map supports it."
+    "When a build reports `ERROR Size mismatch ... Expected 0x4, found 0x1` for an autogenerated symbol, inspect `config/GALE01/symbols.txt` first; the correct fix may be symbol size/type metadata rather than adding padding or dummy C objects.",
+    "Compiler-generated local constants and strings often should remain as `@NNN` labels in `symbols.txt` rather than being promoted to semantic `ifTime_...` or `lbl_...` names without strong evidence.",
+    "Matching can hinge on local variable lifetime and aliasing details: introducing a second pointer variable or narrowing a variable's scope can change register allocation enough to match.",
+    "For baselib/device communication code, direct use of indexed global buffer arrays at call sites can match better than storing the pointer in a shared `void* buf` local.",
+    "Preserve exact cache-management and ARQ request call argument structure when matching low-level ARAM transfer code; small source simplifications may perturb codegen."
   ],
   "naming_conventions": [
-    "This PR used anonymous `@NNN` labels for generated data/string/float symbols such as `@151`, `@152`, `@260`, `@261`, `@262`, `@184`, and `@186` instead of module-prefixed `ifTime_*` or generic `lbl_*` names.",
-    "Function names retained subsystem prefixes already present in the codebase, including `ifTime_` for interface timer code and `HSD_DevCom` for baselib devcom code.",
-    "The temporary JObj traversal variable was named `digit`, reflecting its role in populating `ifTime_data.digits[]`."
+    "Use compiler-style local labels like `@151`, `@152`, `@184`, `@186`, `@258`, `@259`, `@260`, `@261`, `@262`, `@263`, `@309`, and `@310` for unnamed local constants/strings when no meaningful source name is established.",
+    "Avoid inventing semantic names such as `ifTime_804D5788` or `ifTime_804DDA38` for anonymous constants solely because they are referenced from `iftime.c`.",
+    "Known subsystem globals still retain descriptive names where evidence exists, e.g. `ifStatus_803F9598`, `ifStatus_804D57A8`, and `HSD_DevCom_804C6330_bufs`."
   ],
   "assembly_or_matching_tactics": [
-    "Introduce a distinct traversal local (`digit`) instead of reusing `jobj` through `HSD_JObjGetChild` and `HSD_JObjGetNext`.",
-    "Assign struct fields from `ifTime_match_timer_models` into local `void*` variables before passing them to `lb_8000C07C`.",
-    "Narrow `xfer_size` scope inside the `aramDC->type == 3` branch to alter local lifetime/stack/register behavior.",
-    "Remove the `buf` temporary and pass `HSD_DevCom_804C6330_bufs[req_idx]` directly to `DCStoreRange`, `DCInvalidateRange`, and `ARQPostRequest`.",
-    "Use `symbols.txt` to correct anonymous object size metadata, specifically `@260` at `.sdata:0x804D5790` with `size:0x1`."
+    "Narrow variable scope to reduce live ranges, shown by moving `u32 xfer_size` into the `aramDC->type == 3` branch.",
+    "Remove unnecessary pointer temporaries when the target appears to recompute or directly use an indexed global expression.",
+    "Introduce separate traversal cursor variables, shown by using `HSD_JObj* digit` for child/next digit iteration instead of overwriting `jobj`.",
+    "Materialize struct fields into simple temporaries before a function call to influence load ordering and register assignment.",
+    "Use the symbol map to control generated object sizes for anonymous data symbols instead of forcing source declarations that do not correspond to real code."
   ],
   "review_feedback": [
     {
       "author": "mchen91",
-      "topic": "build size mismatch",
-      "feedback": "Reported `ERROR Size mismatch for @260 (type Object) at 0x804D5790: Expected 0x4, found 0x1` and asked whether adding `static char ifTime_804D5790[4] = \"\";` was the right fix."
+      "file": "src/melee/if/iftime.c",
+      "feedback": "Reported a build error: `ERROR Size mismatch for @260 (type Object) at 0x804D5790: Expected 0x4, found 0x1`, and asked whether adding `static char ifTime_804D5790[4] = \"\";` was the right fix."
     },
     {
       "author": "PsiLupan",
-      "topic": "symbols metadata",
-      "feedback": "Explained that `symbols.txt` stores symbols, addresses, sizes, and types; the auto-size should be corrected there to resolve the mismatch."
+      "file": "src/melee/if/iftime.c",
+      "feedback": "Explained that `symbols.txt` contains symbol address, size, and type metadata, and that correcting the auto-size there should resolve the mismatch."
     },
     {
       "author": "mchen91",
-      "topic": "resolution",
-      "feedback": "Updated the symbol size in `symbols.txt` after review."
+      "file": "src/melee/if/iftime.c",
+      "feedback": "Confirmed the fix was updated in the symbols file."
     }
   ],
   "searchable_terms": [
     "pr-2247",
     "mchen91",
-    "PsiLupan",
-    "devcom",
-    "iftime",
+    "Match devcom and iftime",
+    "iftime.c matching",
+    "devcom.c matching",
     "ifTime_CreateTimers",
     "HSD_DevComARAMWakeUp",
-    "configure.py",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "config/GALE01/symbols.txt",
-    "@260",
-    "0x804D5790",
-    "size mismatch",
-    "auto-size",
-    "ifTime_804D5790",
     "HSD_DevCom_804C6330_bufs",
     "DEVCOM_BUF_SIZE",
     "ARQPostRequest",
     "DCStoreRange",
     "DCInvalidateRange",
-    "getRelayBufIdx",
-    "ifTime_match_timer_models",
     "lb_8000C07C",
+    "ifTime_match_timer_models",
     "HSD_JObjGetChild",
     "HSD_JObjGetNext",
-    "sdata",
-    "sdata2"
+    "configure.py Object Matching",
+    "symbols.txt @260",
+    "0x804D5790",
+    "size mismatch Expected 0x4 found 0x1",
+    "compiler local labels",
+    "sdata symbol size",
+    "ifTime_804D5790"
   ],
   "follow_up_queries": [
-    "Find other PRs that fixed `ERROR Size mismatch` by correcting `symbols.txt` metadata instead of adding C padding.",
-    "Find matching PRs where introducing a separate traversal local changed codegen enough to match.",
-    "Review other `ifTime` anonymous `@NNN` symbols around `.sdata` and `.sdata2` for exact size and align metadata.",
-    "Inspect other `HSD_DevCom_804C6330_bufs` usages to keep devcom relay buffer naming consistent."
+    "Look for other PRs that resolved size mismatch errors by correcting `config/GALE01/symbols.txt` rather than adding dummy C objects.",
+    "Search for matching fixes in `melee/if` that introduce separate `HSD_JObj*` cursor variables for child traversal.",
+    "Search for baselib ARAM or ARQ matching PRs involving `HSD_DevComARAMWakeUp`, `ARQPostRequest`, `DCStoreRange`, or `DCInvalidateRange`.",
+    "Audit remaining semantic-looking `ifTime_804D...` or `lbl_...` symbols to determine whether they should be compiler local `@NNN` labels."
   ],
-  "confidence": 0.91
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

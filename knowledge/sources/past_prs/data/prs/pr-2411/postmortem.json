@@ -11,134 +11,90 @@
     "merged_at": "2026-04-16T22:21:14Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large gm_16F1 decompilation PR for post-match decision/bonus logic. It replaced several gm_16F1 stubs with C implementations, added typed prototypes and struct fields needed by the code, corrected a gm_16AE callsite for fn_80171DC4, and tuned gmregclear fn_8017F1B8 to match. decomp-dev reported +2080 matched bytes, five new 100% matches, and major partial matches for remaining large gm_16F1 functions; there was no PR body or human review text captured.",
+  "summary": "Large gm_16F1 decompilation pass focused on match-result/decision and bonus/award logic. The PR replaced several placeholders with C, tightened function prototypes, expanded game/player result structs, and added static data needed for matching. decomp.dev reported +2080 matched bytes overall, with 5 new full matches and several high-percentage partial improvements in gm_16F1.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "function-implementation",
+      "decomp-matching",
       "headers",
       "struct-layout",
-      "prototype-fix",
-      "matching-tactics",
-      "callsite-fix"
+      "prototype-cleanup",
+      "game-logic"
     ],
     "systems": [
       "game-mode",
-      "gm_16F1 decision-results",
+      "melee-core",
+      "gm_16F1",
       "gmregclear",
-      "player-statistics",
-      "HSD text/SIS"
+      "player-types"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gm/gm_16F1.c",
-      "role": "Main implementation work: fn_8016F39C, fn_8016F548, fn_8016F740, fn_8016F9A8, fn_8016FAD4, fn_8016FFD4, fn_801701C0, fn_80171BA4, fn_80171DC4, plus fn_8016F870/fn_80170110 flag-lookup cleanup.",
-      "diff": "+1192/-42"
-    },
-    {
-      "path": "src/melee/gm/gm_16F1.h",
-      "role": "Replaced UNK_RET/UNK_PARAMS with typed prototypes and corrected fn_8016F1F0 and fn_80171DC4 signatures.",
-      "diff": "+9/-9"
-    },
-    {
-      "path": "src/melee/gm/gm_16F1.static.h",
-      "role": "Added static sdata-like labels and lbl_803B7A60_t zero/threshold tables used by the new ranking/special-decision code.",
-      "diff": "+30/-0"
-    },
-    {
-      "path": "src/melee/gm/types.h",
-      "role": "Expanded lbl_8046B6A0_24C_t layout with x7 and x58 subfields xA and x40 while preserving offset padding.",
-      "diff": "+7/-2"
-    },
-    {
-      "path": "src/melee/pl/types.h",
-      "role": "Split pl_804D6470_t padding to expose x13C and x140 thresholds used by fn_801701C0.",
-      "diff": "+3/-1"
-    },
-    {
-      "path": "src/melee/gm/gmregclear.c",
-      "role": "Adjusted fn_8017F1B8 mask/flag temporary to reach a 100% match per bot report.",
-      "diff": "+5/-2"
-    },
-    {
-      "path": "src/melee/gm/gm_16AE.c",
-      "role": "Updated fn_8016C7D0 to call no-argument fn_80171DC4().",
-      "diff": "+1/-1"
-    }
+    "src/melee/gm/gm_16F1.c",
+    "src/melee/gm/gm_16F1.h",
+    "src/melee/gm/gm_16F1.static.h",
+    "src/melee/gm/types.h",
+    "src/melee/pl/types.h",
+    "src/melee/gm/gmregclear.c",
+    "src/melee/gm/gm_16AE.c"
   ],
   "what_changed": [
-    "Implemented gm_16F1 decision list/search/count helpers: fn_8016F39C fills HSD_Text entries with item IDs, fn_8016F548 searches forward then wraps backward, fn_8016F740 searches after the current entry, and fn_8016F9A8 counts matching entries.",
-    "Implemented scoring/evaluation functions fn_8016FAD4 and fn_8016FFD4. They use lbl_803D5A4C metadata, lbl_803D5648 score values, per-player x58 stats, rankings, masks, and pl_80039418/fn_801701C0 predicates.",
-    "Implemented large special-decision predicate fn_801701C0 for kinds 0xD7 through 0xFF, using rules->pad3F0 flags, x58 per-player results, Player/pl stat APIs, small sorted arrays, rankings, and self-calls to exclude stronger related awards.",
-    "Implemented fn_80171BA4 to compute six-slot player scores/rankings from KOs, falls, suicides, team membership, and match suicide multiplier; implemented fn_80171DC4 to set or clear winner/loser tracking flags in lbl_8046DBC8 based on lbl_804D65A8 and lbl_804D65B0.",
-    "Simplified repeated lbl_803D5A4C flag-table scans in fn_8016F870 and fn_80170110 by using fn_8016F180 for the decision flags.",
-    "Corrected public prototypes: fn_8016F1F0 now returns s32 instead of short; several gm_16F1 functions now have typed parameter lists; fn_80171DC4 is void(void), causing gm_16AE.c to drop an unused HSD_GObj argument.",
-    "Added structure fields needed by the implementation: lbl_8046B6A0_24C_t.x7, x58[].xA, x58[].x40, and pl_804D6470_t.x13C/x140.",
-    "Adjusted gmregclear fn_8017F1B8 by storing the u8 fn_8016F180 result in a local output variable and checking output & mask; decomp-dev reported this item improved from 97.73% to 100.00%."
+    "Implemented multiple gm_16F1 functions that were previously placeholders, including fn_8016F39C, fn_8016F548, fn_8016F740, fn_8016F9A8, fn_8016FAD4, fn_8016FFD4, fn_801701C0, fn_80171BA4, and fn_80171DC4.",
+    "Updated gm_16F1.h prototypes from UNK_RET/UNK_PARAMS or incorrect types to concrete signatures, including s32 fn_8016F1F0(int), int fn_8016F39C(HSD_Text**, void*, u8, u16, u8, u8), int fn_8016F548(void*, u16, u8, u8), int fn_8016F740(void*, u16, u8, u8), int fn_8016F9A8(void*, u16, u8, u8), int fn_8016FAD4(struct lbl_8046B6A0_24C_t*, u32, int, u8), int fn_8016FFD4(struct lbl_8046B6A0_24C_t*, int, u8), int fn_80171BA4(void*), and void fn_80171DC4(void).",
+    "Changed gm_16AE.c call site fn_8016C7D0 so fn_80171DC4 is called without passing the HSD_GObj argument, matching the updated void prototype.",
+    "Added includes in gm_16F1.c for gm_16AE.h, plbonuslib.h, pl/types.h, and player.h to support newly decompiled logic.",
+    "Added static data declarations in gm_16F1.static.h, including lbl_804DA2E8/lbl_804DA2EC/lbl_804DA2EE, lbl_804DA2F0/lbl_804DA2F4/lbl_804DA2F6, lbl_804DA2F8, lbl_804DA2FC, and struct lbl_803B7A60_t initialized with zero/default arrays.",
+    "Expanded struct lbl_8046B6A0_24C_t in gm/types.h with x7 and fields inside x58 entries including xA, x40, and adjusted padding around x8, x30, and x44.",
+    "Expanded pl_804D6470_t in pl/types.h by splitting padding at +0x138 and naming unsigned int fields x13C and x140.",
+    "Adjusted gmregclear fn_8017F1B8 mask comparison by storing fn_8016F180(i) in an output variable and checking output & mask, contributing to a full match."
   ],
   "smart_moves": [
-    "The code consistently splits ordinary decision kinds below 0xD7 from special kinds at or above 0xD7, routing the former through pl_80039418 and the latter through fn_801701C0. This pattern is reused across list, search, count, and scoring functions.",
-    "Replacing manual sentinel scans of lbl_803D5A4C with fn_8016F180 reduced duplicated control flow and made the intended table flag lookup explicit.",
-    "Prototype fixes were applied with their callsites: fn_80171DC4 became a no-argument function and gm_16AE.c was updated in the same PR, avoiding a mismatched callback-style signature.",
-    "The struct/header changes expose only the offsets proven necessary by the decomp while preserving anonymous padding, which is safer than inventing semantic names too early.",
-    "The implementation uses matching-friendly local arrays, explicit u8/u16/s32 casts, pointer induction variables, and PAD_STACK markers where the diff needed stack-shape control.",
-    "Static initializer labels and the lbl_803B7A60 zero/threshold table were introduced in gm_16F1.static.h so stack arrays in fn_8016FAD4/fn_801701C0 can be initialized in a way that resembles the original code."
+    "Centralized repeated table-flag lookup through fn_8016F180 in paths such as fn_8016F870 and fn_80170110 instead of open-coding a scan of lbl_803D5A4C each time.",
+    "Separated regular player-stat checks from extended result checks: kinds below 0xD7 use pl_80039418, while kinds at or above 0xD7 use fn_801701C0.",
+    "Preserved matching-sensitive stack behavior with PAD_STACK calls after returns in several functions, including fn_8016F39C, fn_8016F548, fn_8016F740, fn_8016F9A8, and fn_8016FFD4.",
+    "Introduced a static zero/default table struct lbl_803B7A60_t to model repeated default arrays used by fn_801701C0 rather than scattering magic initializer values.",
+    "Updated call sites and headers together when fn_80171DC4 was discovered to take no HSD_GObj argument, preventing signature drift.",
+    "Used explicit u8/u16/s32 casts and temporary locals for masks, rankings, and score calculations, which is often necessary for Melee MWCC matching."
   ],
   "decomp_lessons": [
-    "When a gm result function repeatedly checks decision-table flags, first identify the helper that returns the table field; reusing it can remove brittle duplicate sentinel loops.",
-    "For callback-looking functions, do not assume the HSD_GObj argument is consumed. fn_80171DC4 matched as void(void), even though it is called from fn_8016C7D0(HSD_GObj*).",
-    "Complex result/bonus functions may require filling adjacent struct offsets in both gm and pl type headers before the C can be expressed cleanly.",
-    "Rank/score code in this area uses six player slots but many decision predicates iterate four active result entries; preserve those loop bounds as observed.",
-    "Small local ranking arrays are sensitive to initialization width and signedness. The PR copied sdata labels into u8 arrays and used explicit casts to steer MWCC output.",
-    "Bot reports should be checked for collateral regressions: this PR improved gm_16F1 heavily but also reported a small unmatched-item regression in gmresult fn_80174468."
+    "When a result/bonus routine has many similar cases, first identify shared ranking and score setup; fn_801701C0 computes rankings once and then switches over special result kinds.",
+    "For decomping gm result logic, distinguish normal bonus IDs from special decision/result IDs by threshold checks such as kind < 0xD7.",
+    "Struct layout progress can unlock function progress: adding xA and x40 inside lbl_8046B6A0_24C_t::x58 made death/suicide/score formulas expressible in C.",
+    "Prototype corrections matter for matching beyond the local file; changing fn_80171DC4 to void required fixing gm_16AE.c.",
+    "Small expression-order changes can fully match a nearly matched function: gmregclear fn_8017F1B8 improved by computing output = (u8) fn_8016F180(i) and then checking output & mask.",
+    "Locale-sensitive UI/data handling appeared in fn_8016F39C: item id 0xDE maps to 0x102 when lbLang_IsSettingUS() is true."
   ],
   "naming_conventions": [
-    "The PR preserved doldecomp placeholder naming for unknown functions and labels, such as fn_801701C0, lbl_803D5A4C, lbl_8046DBC8, and lbl_804DA2F0.",
-    "New struct fields use offset-style names like x7, xA, x40, x13C, and x140, with pad fields split to maintain layout.",
-    "Header prototypes retain address comments such as /* 16F39C */ and use concrete primitive/HSD types once signatures are known.",
-    "No semantic renames were introduced for the newly implemented functions; the evidence is decomp/matching progress rather than naming cleanup."
+    "Unknown functions retained address-based names such as fn_8016F39C, fn_801701C0, fn_80171BA4, and fn_80171DC4.",
+    "Unknown static data retained lbl_ address names such as lbl_803D5A4C, lbl_803B7A60, lbl_804D65A0, lbl_804D65A8, lbl_804D65B0, and lbl_804DA2F0.",
+    "Struct fields remained offset-style names such as x0, x5, xA, x20, x24, x40, pad3F0, and x58 when semantic names were not yet proven.",
+    "Function parameters used mixed generic and tentative semantic names; examples include arg0/arg1 for unclear values and mask/player_id/player/rules/kind/flags where usage was clearer."
   ],
   "assembly_or_matching_tactics": [
-    "decomp-dev reported five new 100% matches: gm_16F1 fn_80171DC4, fn_8016F548, fn_8016F740, fn_8016F9A8, and gmregclear fn_8017F1B8.",
-    "decomp-dev reported large partial improvements for gm_16F1: fn_801701C0 to 91.77%, fn_8016FAD4 to 95.15%, fn_80171BA4 to 94.43%, fn_8016F39C to 92.99%, and fn_8016FFD4 to 99.30%.",
-    "The squash commit notes mention remaining diffs such as register allocation/scheduling cosmetics, stack frame size, sdata2 relocations, mullw operand order, and dead code eliminated by MWCC; these are commit-message evidence rather than review comments.",
-    "Several functions end with PAD_STACK even after return, indicating stack-frame padding was used as a deliberate matching tactic.",
-    "fn_8017F1B8 used a temporary output variable and operand order output & mask to obtain the final gmregclear match.",
-    "fn_801701C0 encodes related award exclusions with self-calls, such as checking 0xD9/0xDA before 0xD7/0xD8 and checking 0xDB/0xDD/0xDF/0xE1 before weaker related cases."
+    "Used PAD_STACK with explicit byte counts to reproduce stack frame shape in otherwise valid C functions.",
+    "Used do/while loops for fixed player loops in fn_80171BA4, matching patterns over 6 player slots.",
+    "Used pointer-walking locals over arrays, including score_ptr, x58_p, sc_p, rk_p, and struct lbl_8046B6A0_24C_58_t* p/q, to guide codegen.",
+    "Used typed bulk copies through casts for compact local initialization, such as assigning rankings from lbl_804DA2E8/lbl_804DA2EC/lbl_804DA2EE and a local typedef copy_t in fn_801701C0.",
+    "Used explicit unsigned casts in conditions such as (unsigned) fn_801701C0(...) != 0 and (u32) index bounds checks.",
+    "Used branch factoring around mask checks and helper calls to match compiler output, notably output & mask in gmregclear fn_8017F1B8."
   ],
   "review_feedback": [
-    {
-      "source": "pr_metadata",
-      "detail": "PR body was empty/null and no human review comments or reviews were captured in the slice."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "detail": "Matched code became 63.80% (+0.05%, +2080 bytes) for GALE01."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "detail": "New 100% matches: fn_80171DC4 (+752 bytes), fn_8016F548 (+504), fn_8016F740 (+304), fn_8016F9A8 (+300), and gmregclear fn_8017F1B8 (+6)."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "detail": "Unmatched improvements included fn_801701C0 (+5821 bytes, 91.77%), fn_8016FAD4 (+1217, 95.15%), fn_80171BA4 (+513, 94.43%), fn_8016F39C (+397, 92.99%), and fn_8016FFD4 (+313, 99.30%)."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "detail": "One reported regression: main/melee/gm/gmresult fn_80174468 decreased by 4 bytes, from 89.84% to 89.49%."
-    }
+    "No human review comments were present in the provided PR slice.",
+    "decomp.dev reported matched code improved to 63.80%, +0.05%, +2080 bytes.",
+    "decomp.dev reported 5 new full matches: gm_16F1 fn_80171DC4 (+752), fn_8016F548 (+504), fn_8016F740 (+304), fn_8016F9A8 (+300), and gmregclear fn_8017F1B8 (+6).",
+    "decomp.dev reported 6 improved unmatched items: gm_16F1 fn_801701C0 to 91.77%, fn_8016FAD4 to 95.15%, fn_80171BA4 to 94.43%, fn_8016F39C to 92.99%, fn_8016FFD4 to 99.30%, and .sdata2 to 50.00%.",
+    "decomp.dev reported one unrelated-looking regression in gmresult fn_80174468, from 89.84% to 89.49%, -4 bytes."
   ],
   "searchable_terms": [
     "pr-2411",
     "Jj/gm 16 f1",
+    "jurrejelle",
     "gm_16F1",
     "gm_16AE",
     "gmregclear",
     "fn_8016F39C",
     "fn_8016F548",
     "fn_8016F740",
-    "fn_8016F870",
     "fn_8016F9A8",
     "fn_8016FAD4",
     "fn_8016FFD4",
@@ -148,44 +104,44 @@
     "fn_8017F1B8",
     "fn_8016F180",
     "fn_8016F1F0",
-    "fn_80170110",
+    "pl_80039418",
+    "Player_GetPlayerSlotType",
+    "Player_GetFalls",
+    "Player_GetSuicideCount",
+    "Player_GetKOsByPlayerIndex",
+    "Player_GetTeam",
+    "HSD_SisLib_803A6368",
+    "lbLang_IsSettingUS",
     "lbl_803D5A4C",
     "lbl_803B7A60",
     "lbl_8046B6A0_24C_t",
     "lbl_8046B6A0_24C_58_t",
-    "lbl_8046DBC8",
     "lbl_804D65A8",
     "lbl_804D65B0",
     "lbl_804DA2E8",
     "lbl_804DA2F0",
-    "pad3F0",
-    "x58",
-    "x13C",
-    "x140",
-    "pl_80039418",
-    "Player_GetKOsByPlayerIndex",
-    "Player_GetFalls",
-    "Player_GetSuicideCount",
-    "Player_GetTeam",
-    "pl_800407C8",
-    "pl_80040870",
-    "pl_80040894",
-    "pl_800408B8",
-    "pl_800408DC",
-    "HSD_Text",
-    "HSD_SisLib_803A6368",
-    "lbLang_IsSettingUS",
     "PAD_STACK",
-    "decision bonuses",
-    "post-match rankings",
-    "winner loser flags"
+    "match mode",
+    "is_teams",
+    "rankings",
+    "scores",
+    "bonus logic",
+    "result logic"
   ],
   "follow_up_queries": [
-    "How did PR 2411 implement gm_16F1 fn_801701C0 special decision kinds 0xD7 through 0xFF?",
-    "Which gm/types.h and pl/types.h offsets were exposed for gm_16F1 result matching?",
-    "Why is fn_80171DC4 declared void(void) and called without HSD_GObj from gm_16AE fn_8016C7D0?",
-    "What matching tactics were used for gmregclear fn_8017F1B8 output & mask?",
-    "What caused or later fixed the gmresult fn_80174468 regression reported alongside PR 2411?"
+    "Investigate remaining non-matching portions of gm_16F1 fn_801701C0, especially switch cases and local initialization patterns.",
+    "Investigate remaining non-matching portions of fn_8016FAD4, fn_80171BA4, fn_8016F39C, and fn_8016FFD4.",
+    "Check whether lbl_8046B6A0_24C_t::x58 fields xA, x20, x24, and x40 can receive semantic names from result-screen or player-stat usage.",
+    "Audit the reported gmresult fn_80174468 -4 byte regression to see whether it was caused by header/prototype or struct-layout changes.",
+    "Look for opportunities to replace remaining arg0/arg1 parameters with semantic names once gm_16F1 result rules are better understood."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

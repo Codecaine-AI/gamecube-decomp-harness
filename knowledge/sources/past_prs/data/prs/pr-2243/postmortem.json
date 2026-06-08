@@ -11,20 +11,21 @@
     "merged_at": "2026-03-08T21:21:15Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Small codegen-focused edits in ftCommon damage code matched `ftCo_Damage_OnExitHitlag` and `ftCo_Damage_Coll` for GALE01, with symbol-map relabeling of nearby `.sdata2` constants. The title also names `ftCo_Damage_Anim`, but the available diff and decomp.dev report only directly confirm new matches for `OnExitHitlag` and `Coll`.",
+  "summary": "Small ftCommon damage matching PR. It removed a helper wrapper around a stick-magnitude check in `ftCo_Damage_OnExitHitlag`, used `GET_FIGHTER(gobj)` instead of direct `gobj->user_data` access in two damage functions, and relabeled several `.sdata2` constants in `config/GALE01/symbols.txt` from generic `lbl_` names to compiler-style local `@` symbols. The decomp.dev report confirmed two new full matches: `ftCo_Damage_OnExitHitlag` and `ftCo_Damage_Coll`, with GALE01 matched code increasing by 804 bytes. Although the PR title also names `ftCo_Damage_Anim`, the available diff excerpt and bot report do not show a source hunk or reported new match for that function.",
   "change_classification": {
-    "primary_type": "decompilation_match",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "function-match",
-      "codegen-tuning",
-      "symbol-map-cleanup"
+      "fighter-code-cleanup",
+      "symbol-map-adjustment",
+      "minor-control-flow-shaping"
     ],
     "systems": [
       "fighter",
       "ftCommon",
       "damage",
-      "GALE01 config"
+      "config",
+      "GALE01 symbols"
     ]
   },
   "key_files": [
@@ -32,55 +33,58 @@
     "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "`ftCo_Damage_OnExitHitlag` was rewritten to use `GET_FIGHTER(gobj)` instead of direct `gobj->user_data` access.",
-    "Removed the local `static bool isPointInCircle(float x, float y, float radius)` helper and inlined the stick-magnitude threshold check using `VEC2_SQ_LEN(fp->input.lstick) >= SQ(p_ftCommonData->sdi_min_stick_mag)`.",
-    "Introduced an explicit local `bool isPointInCircle` before the existing `if (isPointInCircle || ftCo_800DF608(fp))` branch, preserving a codegen-relevant conditional shape.",
-    "`ftCo_Damage_Coll` was changed from `Fighter* fp = gobj->user_data;` to `Fighter* fp = GET_FIGHTER(gobj);` while leaving the ground/air collision logic intact.",
-    "`config/GALE01/symbols.txt` relabeled `.sdata2` constants `lbl_804D84D4`, `lbl_804D84D8`, `lbl_804D8500`, and `lbl_804D8508` as `@217`, `@218`, `@522`, and `@523` respectively.",
-    "decomp.dev reported GALE01 matched code at 55.49%, +0.02% and +804 bytes, with 2 new matches: `ftCo_Damage_OnExitHitlag` from 99.90% to 100.00% and `ftCo_Damage_Coll` from 99.97% to 100.00%."
+    "`ftCo_Damage_OnExitHitlag` now gets the fighter pointer with `GET_FIGHTER(gobj)` rather than `gobj->user_data`.",
+    "A file-local helper named `isPointInCircle(float x, float y, float radius)` was removed. Its logic was inlined into `ftCo_Damage_OnExitHitlag` as a local boolean named `isPointInCircle` using `VEC2_SQ_LEN(fp->input.lstick) >= SQ(p_ftCommonData->sdi_min_stick_mag)`.",
+    "`ftCo_Damage_OnExitHitlag` still gates the SDI/exit-hitlag handling on the stick magnitude test or `ftCo_800DF608(fp)`, but the expression shape changed to match codegen.",
+    "`ftCo_Damage_Coll` now also uses `GET_FIGHTER(gobj)` instead of direct `gobj->user_data` access before checking `fp->ground_or_air == GA_Ground`.",
+    "`config/GALE01/symbols.txt` renamed `.sdata2` entries at `0x804D84D4`, `0x804D84D8`, `0x804D8500`, and `0x804D8508` from `lbl_804D...` names to `@217`, `@218`, `@522`, and `@523`.",
+    "The bot report recorded `ftCo_Damage_OnExitHitlag` moving from 99.90% to 100.00% and `ftCo_Damage_Coll` from 99.97% to 100.00%."
   ],
   "smart_moves": [
-    "Inlining the squared stick-length comparison avoided a helper function abstraction that was semantically simple but apparently wrong for matching the target code shape.",
-    "Keeping an explicit boolean temporary for `isPointInCircle` likely helped reproduce the original branch/register structure instead of relying on a single compound expression.",
-    "Using the project macro `GET_FIGHTER(gobj)` made the fighter pointer load both stylistically canonical and matching-friendly.",
-    "The PR was intentionally narrow: only two source hunks and one symbol-map hunk were needed to finish the reported function matches.",
-    "Relabeling anonymous `.sdata2` constants to `@NNN` symbols avoided overcommitting meaningless `lbl_804D...` names where local/generated constant labels were sufficient."
+    "Inlining the small magnitude helper avoided an extra abstraction that apparently disturbed matching; preserving the explicit bool assignment created the shape needed for `ftCo_Damage_OnExitHitlag`.",
+    "Using the project macro `GET_FIGHTER(gobj)` instead of raw `gobj->user_data` improved consistency and affected codegen enough to complete matches in both touched functions.",
+    "The stick test was expressed with existing math macros, `VEC2_SQ_LEN` and `SQ`, rather than manually summing squared components through a custom helper.",
+    "Updating `symbols.txt` alongside the C change kept local floating-point constants aligned with the compiler/decompilation view, replacing anonymous global-looking labels with local `@` names where appropriate."
   ],
   "decomp_lessons": [
-    "For close fighter callback matches, do not assume a helper function is harmless; the compiler-visible expression shape can matter more than C-level factoring.",
-    "Stick magnitude checks should prefer established macros like `VEC2_SQ_LEN` and `SQ` when they match the codebase's expected expansion.",
-    "When a target branch appears to materialize a boolean before use, an explicit local `bool` can be a useful matching tactic.",
-    "Prefer `GET_FIGHTER(gobj)` over raw `gobj->user_data` in fighter code when either style is possible; it can affect matching and follows project convention.",
-    "Symbol-map-only changes in `.sdata2` can be part of a matching PR, especially when constants should be represented as generated/local `@NNN` labels rather than named global labels.",
-    "No struct or header changes were present in this slice."
+    "For fighter callbacks that receive `Fighter_GObj*`, try `GET_FIGHTER(gobj)` before raw `gobj->user_data`; the macro can be both more idiomatic and better for matching.",
+    "A helper function can prevent a match even when its semantics are simple. If the original code likely used an inline expression, rewrite as local conditionals or temporary booleans to reproduce codegen.",
+    "For vector magnitude threshold checks, `VEC2_SQ_LEN(vec) >= SQ(threshold)` is a reusable pattern and may match better than passing squared components into a custom predicate.",
+    "Symbol-map constant naming can matter for matching and readability. When constants are local to compiler output, use the `@NNN` style shown by surrounding `.sdata2` entries instead of forcing `lbl_804D...` names.",
+    "Bot reports are useful ground truth for what actually matched: here the title mentions three functions, but the automated report only confirms two new matches."
   ],
   "naming_conventions": [
-    "`ftCo_Damage_*` names are used for common fighter damage callbacks such as `ftCo_Damage_OnExitHitlag` and `ftCo_Damage_Coll`.",
-    "`GET_FIGHTER(gobj)` is the canonical macro form for retrieving `Fighter*` from a `Fighter_GObj*` in these source hunks.",
-    "Unresolved helper functions remain address-style names such as `ftCo_800DF608`, `ftCo_8008FC94`, `ft_800848DC`, and `ft_80081DD4`.",
-    "Anonymous or generated `.sdata2` constants can be named with `@NNN` entries, as shown by `@217`, `@218`, `@522`, and `@523`, instead of `lbl_804D...` labels."
+    "`ftCo_Damage_*` names are used for common fighter damage callbacks such as `ftCo_Damage_OnExitHitlag`, `ftCo_Damage_Coll`, and the title-referenced `ftCo_Damage_Anim`.",
+    "`GET_FIGHTER(gobj)` is the preferred accessor pattern in these fighter callback contexts.",
+    "Compiler/local floating constants in `config/GALE01/symbols.txt` may use `@NNN` names, e.g. `@217`, `@218`, `@522`, `@523`, instead of address-derived `lbl_804D...` labels.",
+    "Project math macro names used here include `VEC2_SQ_LEN` for squared 2D vector length and `SQ` for squaring scalar thresholds.",
+    "Ground-state comparisons use `fp->ground_or_air == GA_Ground` in `ftCo_Damage_Coll`."
   ],
   "assembly_or_matching_tactics": [
-    "Replace a helper call with the exact macro-expanded arithmetic expression needed by the target: `VEC2_SQ_LEN(fp->input.lstick) >= SQ(p_ftCommonData->sdi_min_stick_mag)`.",
-    "Use an explicit `if/else` assignment to a `bool` temporary when a direct compound condition does not match.",
-    "Swap direct `gobj->user_data` access to `GET_FIGHTER(gobj)` to change the emitted code while preserving source-level meaning.",
-    "Keep unrelated collision dispatch code unchanged when only the fighter pointer load is needed to match.",
-    "Adjust `.sdata2` symbol ownership/names alongside source changes so constants line up with the matched functions."
+    "Replace raw `gobj->user_data` loads with `GET_FIGHTER(gobj)` to test whether macro expansion matches expected instruction/register allocation.",
+    "Inline tiny boolean predicates when the original code likely did not emit a callable helper.",
+    "Introduce an explicit local `bool` temporary and assign it in an `if/else` rather than collapsing directly into a single expression when matching branch structure matters.",
+    "Use squared-distance comparisons to avoid sqrt-style logic and mirror the existing fixed-point/vector macro idioms.",
+    "Relabel `.sdata2` constants to local `@` symbols when a function match reveals that the constants should be scoped/named like compiler-generated locals."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the slice.",
-    "Automated decomp.dev feedback confirmed 2 new GALE01 matches and the matched-code increase.",
-    "Evidence for `ftCo_Damage_Anim` is weak in this slice: it appears in the PR title, but no source hunk or decomp.dev new-match row confirms it."
+    "No human review comments were present in the slice.",
+    "The automated decomp.dev comment reported GALE01 matched code improved to 55.49%, a +0.02% change and +804 bytes.",
+    "The automated report listed 2 new matches: `ftCo_Damage_OnExitHitlag` and `ftCo_Damage_Coll`."
   ],
   "searchable_terms": [
     "pr-2243",
     "mchen91",
     "damage-funcs2",
-    "ftCo_Damage.c",
-    "ftCommon",
     "ftCo_Damage_OnExitHitlag",
     "ftCo_Damage_Coll",
     "ftCo_Damage_Anim",
+    "ftCo_Damage.c",
+    "ftCommon",
+    "fighter",
+    "damage",
+    "hitlag",
+    "collision",
     "GET_FIGHTER",
     "gobj->user_data",
     "Fighter_GObj",
@@ -89,16 +93,16 @@
     "SQ",
     "p_ftCommonData",
     "sdi_min_stick_mag",
-    "input.lstick",
-    "isPointInCircle",
     "ftCo_800DF608",
-    "ftCo_8008FC94",
-    "ft_800848DC",
-    "ft_80081DD4",
+    "ftCo_Damage_Phys",
     "ground_or_air",
     "GA_Ground",
-    "symbols.txt",
-    ".sdata2",
+    "ft_800848DC",
+    "ftCo_8008FC94",
+    "ft_80081DD4",
+    "isPointInCircle",
+    "config/GALE01/symbols.txt",
+    "sdata2",
     "lbl_804D84D4",
     "lbl_804D84D8",
     "lbl_804D8500",
@@ -107,14 +111,22 @@
     "@218",
     "@522",
     "@523",
-    "hitlag",
-    "SDI"
+    "matched code",
+    "decomp.dev"
   ],
   "follow_up_queries": [
-    "Check whether `ftCo_Damage_Anim` was affected only by `.sdata2` symbol relabeling or was already matched before PR 2243.",
-    "Search other ftCommon callbacks for `gobj->user_data` loads that may need `GET_FIGHTER(gobj)` for matching.",
-    "Look for stick-magnitude checks factored into helpers where `VEC2_SQ_LEN` plus an explicit boolean temporary may improve codegen.",
-    "Audit nearby `ftCo_Damage` `.sdata2` constants to ensure `@NNN` versus `lbl_804D...` naming reflects actual symbol ownership."
+    "Find later PRs touching `ftCo_Damage_Anim` to verify whether the title-referenced match was completed through symbol relabeling or omitted from the bot report.",
+    "Search for other fighter callbacks still using `gobj->user_data` directly where `GET_FIGHTER(gobj)` might improve matching.",
+    "Search for custom point-in-circle or stick-magnitude helpers that could be replaced by `VEC2_SQ_LEN(vec) >= SQ(threshold)`.",
+    "Audit nearby `.sdata2` `lbl_804D...` constants in `ftCo_Damage.c` for candidates that should be local `@NNN` symbols."
   ],
-  "confidence": 0.87
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

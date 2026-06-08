@@ -11,91 +11,85 @@
     "merged_at": "2026-05-31T13:41:42Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Advanced matching for sysdolphin/baselib sislib by implementing and cleaning several SIS text encoding, append/replace, state-stack, line-measure, and renderer opcode paths. The PR changed src/sysdolphin/baselib/sislib.c and the HSD_SisLib_803A7684 prototype in sislib.h; decomp-dev reported seven unmatched-item improvements, including HSD_SisLib_803A7684 0.00%->55.05%, HSD_SisLib_803A70A0 0.00%->78.79%, HSD_SisLib_803A6B98 51.49%->87.35%, HSD_SisLib_803A7F0C 67.41%->97.87%, and HSD_SisLib_803A84BC 66.31%->89.15%.",
+  "summary": "Advanced the sysdolphin baselib sislib decompilation by replacing large dead-register/#if-0 scaffolding with structured C for SIS text encoding, formatted text insertion/replacement, text-state stack save/restore, and SIS render parsing. The PR added a real implementation for HSD_SisLib_803A70A0, rewrote HSD_SisLib_803A67EC and HSD_SisLib_803A6B98 into clearer buffer/encoded-byte logic, split HSD_SisLib_803A7684 out as a typed helper, improved HSD_SisLib_803A7F0C and HSD_SisLib_803A8134, and refined HSD_SisLib_803A84BC call sites. decomp.dev reported seven item-match improvements in main/sysdolphin/baselib/sislib, including HSD_SisLib_803A7684 from 0.00% to 55.05%, HSD_SisLib_803A70A0 from 0.00% to 78.79%, HSD_SisLib_803A84BC from 66.31% to 89.15%, and HSD_SisLib_803A7F0C from 67.41% to 97.87%.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
+      "cleanup",
       "text-rendering",
-      "packed-byte-streams",
       "allocator-buffer-management"
     ],
     "systems": [
-      "src",
-      "sysdolphin",
-      "baselib",
-      "sislib"
+      "src/sysdolphin/baselib/sislib"
     ]
   },
   "key_files": [
     {
       "path": "src/sysdolphin/baselib/sislib.c",
-      "role": "Main sislib matching work: SIS text encoding, append/replace entry handling, state push/pop stack, line measurement, renderer opcode reads, and allocator/free todo notes."
+      "role": "Main sislib decompilation work: rewrote encoding, insertion/replacement, state-stack, measurement, and render parser logic."
     },
     {
       "path": "src/sysdolphin/baselib/sislib.h",
-      "role": "Updated HSD_SisLib_803A7684 declaration from unknown/value arguments to HSD_Text*, u8* cursor, u8 flags."
+      "role": "Updated HSD_SisLib_803A7684 prototype from UNK_T/u8/u8 to HSD_Text*/u8*/u8."
     }
   ],
   "what_changed": [
-    "Updated HSD_SisLib_803A5798 and HSD_SisLib_803A594C todo comments with more specific remaining diffs: regalloc/literal pooling for 803A5798 and coalesce-block regalloc/scheduling for 803A594C.",
-    "Reworked HSD_SisLib_803A67EC from dead temporaries, goto scaffolding, and #if 0 blocks into a real ASCII-to-SIS converter: scans up to 0x80 input bytes, handles punctuation/digits/letters/SJIS pairs, emits kerning prefix bytes for space/dot/digit/colon, and looks up SJIS pairs through lbl_8040C8C0 to HSD_SisLib_8040C680.",
-    "Cleaned HSD_SisLib_803A6B98 append-entry logic: formats via vsnprintf, encodes into a local encoded buffer, grows the allocation in 0x80-rounded chunks, writes the opcode 7 entry header with s16 x/y and RGB/scale bytes, bulk/tail-copies encoded bytes, appends terminators, and returns the entry counter.",
-    "Added an implementation of HSD_SisLib_803A70A0 that finds an existing SIS entry via fn_803A6FEC, re-encodes formatted text, grows or shrinks the packed buffer, shifts the tail, copies the new encoded text, writes the 0xF terminator, and returns success.",
-    "Adjusted HSD_SisLib_803A8134 line measurement: uses u8* cursor, u16 kern_enabled, s32 clear_idx, PAD_STACK(0x8), passes cursor pointers to HSD_SisLib_803A7684, reads scale/spacing/glyph data with s16/u16 halfword casts, and clears string_buffer with a while loop.",
-    "Implemented HSD_SisLib_803A7684 as a five-case push-state function for spacing, color, scale, alignment, and value/cursor states. It grows text->string_buffer by 0x10 when needed, bulk-copies existing bytes, zero-fills, and pushes bytes through text->x6C.",
-    "Collapsed the prior HSD_SisLib_803A7F0C inline-helper shape into a direct scanner over text->string_buffer bytes, restoring state for entry types 1-5 and removing matching stack entries with byte copies and zero-fill.",
-    "Updated HSD_SisLib_803A84BC opcode handling to call HSD_SisLib_803A8134 for opcode 7 line measurement, read delays/positions/spacing/scale as halfwords, and pass sis_cursor pointers to HSD_SisLib_803A7684 for relevant state-push opcodes.",
-    "Changed the HSD_SisLib_803A7684 header prototype to void HSD_SisLib_803A7684(HSD_Text*, u8*, u8)."
+    "Updated todo comments for HSD_SisLib_803A5798 and HSD_SisLib_803A594C to document remaining register-allocation, scheduling, and literal-pooling issues rather than treating them as unknown broad mismatches.",
+    "Reworked HSD_SisLib_803A67EC from goto-heavy/dead-register scaffolding into a for-loop encoder that converts ASCII-like input to SIS encoded byte pairs using Shift-JIS high/low byte selection and lookup tables lbl_8040C8C0 and HSD_SisLib_8040C680.",
+    "Reworked HSD_SisLib_803A6B98 to use local buffer[256] and encoded[128], call vsnprintf plus HSD_SisLib_803A67EC, grow the SIS buffer in 0x80-byte increments through HSD_SisLib_803A5798/HSD_SisLib_803A594C, emit position/color/scale control bytes through a data_0 cursor, bulk-copy encoded bytes in 8-byte chunks plus tail bytes, and return ((sisLib_803A7664_t*) alloc)->xC++.",
+    "Added HSD_SisLib_803A70A0, which finds an existing SIS entry with fn_803A6FEC, formats and encodes replacement text, grows or shrinks the data segment as needed, shifts the trailing bytes forward or backward, writes the new encoded payload, terminates it with 0xF, and returns success/failure.",
+    "Changed HSD_SisLib_803A8134 to call HSD_SisLib_803A7684 with a cursor pointer rather than the byte value at the cursor, improved typed reads for s16/u16 control values, and replaced a clear-loop goto with a while loop.",
+    "Replaced a static inline HSD_SisLib_803A7F0C_inline helper plus wrapper with a direct HSD_SisLib_803A7F0C implementation that scans text->string_buffer as bytes, restores spacing/color/scale/alignment/value state based on flags, removes matched stack entries, compacts remaining bytes, and zero-fills the tail.",
+    "Implemented HSD_SisLib_803A7684 as a non-inline typed function taking HSD_Text*, u8* cursor, and u8 flags. It saves current text state entries into text->string_buffer, grows that buffer by 0x10 when needed, copies old bytes in 8-byte chunks plus tail bytes, zero-fills the new capacity, and writes entries for spacing, active color, scale, alignment, or value depending on flags.",
+    "Adjusted HSD_SisLib_803A84BC to use the typed HSD_SisLib_803A7684 calls, call HSD_SisLib_803A8134 for line measurement in case 7, add a line_height_out local, and perform more accurate s16/u16 cursor-based control reads.",
+    "Updated sislib.h declaration for HSD_SisLib_803A7684 from void HSD_SisLib_803A7684(UNK_T, u8, u8) to void HSD_SisLib_803A7684(HSD_Text*, u8*, u8)."
   ],
   "smart_moves": [
-    "Modeled the SIS data and text->string_buffer state stack as packed u8 streams instead of forcing wider s32, GXColor, or float-like accesses; this matched the observed opcode layout and reduced wrong cursor math.",
-    "Used explicit signed-vs-unsigned halfword loads at opcode offsets: s16 for positions/spacing and u16 for scales/glyph codes, matching commit-message notes about byte/float read fixes.",
-    "Kept handwritten copy loops with 8-byte bulk sections plus tail loops, including reverse tail shifting when growing HSD_SisLib_803A70A0 entries and forward shifting when shrinking, rather than replacing them with library calls.",
-    "Wrote HSD_SisLib_803A6B98 through a u8** cursor tied to alloc->data_0 so each byte append advances the stored buffer cursor, a pattern called out in the merge commit as important for matching.",
-    "Merged the pointer-parameter inline logic into HSD_SisLib_803A7F0C so pos/result/remove_size live in the main function rather than through helper out-parameters.",
-    "Documented residual non-semantic diffs instead of hiding them: remaining issues include register allocation, literal pooling, CTR-vs-manual loop form, SDA-vs-hoist cascades, and add reassociation."
+    "Converted many fake dead_r*/dead_sp* variables and #if 0 pseudo-code blocks into direct byte-buffer operations while preserving matching-sensitive manual copy loops.",
+    "Kept compiler-shaped 8-byte bulk-copy loops followed by scalar tail loops instead of replacing them with memcpy, which is important for matching old Metrowerks output.",
+    "Used pointer-to-cursor style writes, including u8** cur = (u8**) &alloc->data_0 in HSD_SisLib_803A6B98, to model code that advances an embedded buffer cursor while updating the owning allocation structure.",
+    "Documented remaining allocator mismatches precisely as register allocation/scheduling and literal-pooling issues, making future matching work easier to triage.",
+    "Improved function typing at the header boundary for HSD_SisLib_803A7684, which allowed call sites to pass the SIS cursor pointer and use proper HSD_Text state instead of opaque UNK_T and incorrect u8 arguments.",
+    "Handled SIS text replacement in HSD_SisLib_803A70A0 in both growth and shrink directions, including reallocating the containing SIS buffer only when required and recomputing playhead after relocation."
   ],
   "decomp_lessons": [
-    "For sislib, treat SIS entries as packed opcode byte streams first; only introduce structs once the byte layout is proven.",
-    "State push/pop in text->string_buffer uses low 7 flag bits for state type and the high bit for removal behavior. The implemented sizes are 5 bytes for spacing/scale/value, 4 for color, and 2 for alignment.",
-    "HSD_SisLib_803A67EC maps ASCII to Shift-JIS byte pairs and then through lookup tables; space/dot/digit/colon kerning-prefix behavior is part of the real data format, not dead code.",
-    "Manual allocator growth patterns matter for matching: SIS buffers round required growth by 0x80 chunks, while string_buffer growth in HSD_SisLib_803A7684 uses 0x10 increments.",
-    "When a target function appears to have an inlined helper, compare whether a helper abstraction changes register lifetimes; in this PR, removing the helper shape improved HSD_SisLib_803A7F0C.",
-    "Leave precise @todo notes for remaining link/regalloc-only mismatches so future work does not waste time overfitting source to non-source issues."
+    "For SIS/text bytecode code, byte-pointer types are often more truthful and more match-friendly than treating buffers as s32* or struct-like fake fields.",
+    "When a function appends to or rewrites variable-length byte streams, preserve the original manual bulk-copy shape: old compiler output may use explicit 8-byte unrolled copy loops plus residual-byte loops.",
+    "A helper prototype can materially affect matching and correctness. Passing u8* cursor to HSD_SisLib_803A7684 fixed call sites that had been passing *cursor as a byte.",
+    "Do not remove apparent redundant buffer-growth/copy/zero-fill code too aggressively; it may be modeling a state stack used by text layout and render parsing.",
+    "Explicitly naming remaining diffs as regalloc, scheduling, reassociation, or literal-pooling issues is useful when the C is semantically close but not exactly matching.",
+    "Replacing fake inline helpers with one direct function can improve match quality when the original binary did not preserve the same abstraction boundary."
   ],
   "naming_conventions": [
-    "Unresolved baselib functions remain address-based HSD_SisLib_803Axxxx names; the internal scanner remains fn_803A6FEC.",
-    "Unknown struct/member names were not overinterpreted: sislib_UnkAllocData, data_0, data_1, x6C, and x6E remain in use where semantics are still uncertain.",
-    "Byte-stream locals were made descriptive: cursor, sis_cursor, playhead, entry, encoded, buffer, lut_ptr, out_ptr, bulk_src, tail_src, bulk_count.",
-    "Reallocation and gap-shift locals use explicit size/diff names: old_buf, new_buf, old_size, required_size, grow_diff, shrink_diff, tail_len.",
-    "HSD_SisLib_803A7684 naming now reflects its real call shape: HSD_Text* text, u8* cursor, u8 flags."
+    "Retained address-based names for unknown/non-symbolized functions: HSD_SisLib_803A67EC, HSD_SisLib_803A6B98, HSD_SisLib_803A70A0, HSD_SisLib_803A7684, HSD_SisLib_803A7F0C, HSD_SisLib_803A8134, HSD_SisLib_803A84BC.",
+    "Used descriptive local names for byte-stream work: buffer, encoded, playhead, cursor, old_buf, new_buf, copy_src, copy_dst, bulk_src, tail_src, tail_count, required_size, encoded_len, old_size, new_size.",
+    "Used state-oriented names for SIS encoding: has_kerning, state_dot, state_colon, state_digit, out_idx, in_idx, lut_ptr, lut_idx, sjis_hi, sjis_lo.",
+    "Used text-state names already present in HSD_Text fields: string_buffer, sis_buffer, active_color, text_color, alignment, x6C, x6E, x78, x80.",
+    "Header conventions prefer typed parameters once known: HSD_Text* and u8* replaced UNK_T and raw u8 for HSD_SisLib_803A7684."
   ],
   "assembly_or_matching_tactics": [
-    "For HSD_SisLib_803A5798, the PR records remaining diffs as HSD_SisLib_804D7970 pointer register allocation r3 vs r4 plus empty-string literal pooling to HSD_SisLib_804D6390.",
-    "For HSD_SisLib_803A594C, the PR records remaining diffs as coalesce-block register allocation/scheduling around new_size, old_next, free_cur, and alloc_cur->size.",
-    "Use byte-indexed string_buffer access for HSD_SisLib_803A7F0C; type 1 state restores signed s16 spacing, while type 3 restores unsigned u16 scale.",
-    "Pass cursor pointers to HSD_SisLib_803A7684 from HSD_SisLib_803A8134 and HSD_SisLib_803A84BC; the old u8 value parameter lost necessary packed-data context.",
-    "Use do-while decrement loops and explicit 8-byte unrolled copy bodies to approximate target compiler copy loops; remaining diffs are noted as CTR-loop or bulk-unroll style mismatches.",
-    "In HSD_SisLib_803A67EC, a for-loop over input plus a do-while LUT scan replaced goto/#if0 scaffolding while preserving the SJIS lookup behavior.",
-    "HSD_SisLib_803A8134 used PAD_STACK(0x8) and control-flow labels block_33/block_done to match frame/control-flow shape.",
-    "Opcode reads in HSD_SisLib_803A84BC and HSD_SisLib_803A8134 should use exact offset casts: delay case 5/6 as u16, line x/y as s16, spacing as s16, scale as u16."
+    "Modeled register/scheduling-sensitive allocator functions with comments rather than overfitting unrelated logic: HSD_SisLib_803A5798 remained around 99.40% with regalloc/literal-pooling notes; HSD_SisLib_803A594C around 92.57% with coalesce-block scheduling notes.",
+    "Used explicit pointer arithmetic and casts, such as *(s16*) (cursor + 1), *(u16*) (cursor + 3), and (u8*) HSD_SisLib_8040C680 + lut_idx * 2, to match bytecode parsing patterns.",
+    "Preserved do/while loops with decrementing bulk_count and separate tail loops for encoded-byte copies and buffer moves.",
+    "For growth in HSD_SisLib_803A70A0, shifted trailing bytes backward from the end using negative indexing so overlapping moves behave like the original handwritten memmove.",
+    "For shrinking in HSD_SisLib_803A70A0, shifted trailing bytes forward from playhead + shrink_diff and then adjusted alloc->data_0 backward.",
+    "Used fixed-size stack buffers buffer[256] and encoded[128] for formatted text encoding rather than heap allocation.",
+    "Maintained 0x80-byte allocation growth for SIS data buffers and 0x10-byte growth for text->string_buffer state stack."
   ],
   "review_feedback": [
-    "No human PR body, review comments, or reviews were captured in the slice.",
-    "Automated decomp-dev feedback reported seven GALE01 unmatched-item improvements: HSD_SisLib_803A7684 0.00%->55.05%, HSD_SisLib_803A84BC 66.31%->89.15%, HSD_SisLib_803A70A0 0.00%->78.79%, HSD_SisLib_803A6B98 51.49%->87.35%, HSD_SisLib_803A67EC 35.58%->60.71%, HSD_SisLib_803A7F0C 67.41%->97.87%, HSD_SisLib_803A8134 82.88%->94.84%."
+    {
+      "source": "decomp-dev[bot]",
+      "feedback": "Reported 7 improvements in unmatched items for main/sysdolphin/baselib/sislib: HSD_SisLib_803A7684 0.00%→55.05%, HSD_SisLib_803A84BC 66.31%→89.15%, HSD_SisLib_803A70A0 0.00%→78.79%, HSD_SisLib_803A6B98 51.49%→87.35%, HSD_SisLib_803A67EC 35.58%→60.71%, HSD_SisLib_803A7F0C 67.41%→97.87%, and HSD_SisLib_803A8134 82.88%→94.84%."
+    },
+    {
+      "source": "human-review",
+      "feedback": "No human review comments were present in the provided PR slice."
+    }
   ],
   "searchable_terms": [
-    "pr-2540",
-    "Jj/sislib",
-    "jj/sislib",
-    "jurrejelle",
     "sislib",
-    "sysdolphin",
-    "baselib",
-    "SIS",
-    "HSD_Text",
     "HSD_SisLib_803A5798",
     "HSD_SisLib_803A594C",
     "HSD_SisLib_803A67EC",
@@ -105,36 +99,44 @@
     "HSD_SisLib_803A7F0C",
     "HSD_SisLib_803A8134",
     "HSD_SisLib_803A84BC",
-    "fn_803A6FEC",
+    "HSD_Text",
+    "SIS",
+    "sis_buffer",
+    "string_buffer",
     "sislib_UnkAllocData",
     "sisLib_803A7664_t",
-    "ASCII-to-SIS",
-    "Shift-JIS",
-    "SJIS",
-    "kerning",
-    "string_buffer",
-    "text->x6C",
-    "text->x6E",
+    "fn_803A6FEC",
     "lbl_8040C8C0",
     "HSD_SisLib_8040C680",
-    "HSD_SisLib_8040CB00",
-    "HSD_SisLib_8040CD40",
-    "HSD_SisLib_804D7970",
     "HSD_SisLib_804D6390",
-    "opcode 7",
-    "opcode 10",
-    "opcode 14",
-    "vsnprintf",
-    "PAD_STACK(0x8)",
-    "manual 8-byte copy",
-    "CTR loop diff"
+    "Shift-JIS",
+    "kerning",
+    "text_color",
+    "active_color",
+    "alignment",
+    "x6C",
+    "x6E",
+    "x78",
+    "x80",
+    "bulk copy",
+    "8-byte copy loop",
+    "regalloc",
+    "literal pooling",
+    "coalesce block"
   ],
   "follow_up_queries": [
-    "Can CTR-loop forms or alternative bulk-copy shapes close the remaining HSD_SisLib_803A67EC, HSD_SisLib_803A6B98, HSD_SisLib_803A70A0, and HSD_SisLib_803A7684 loop diffs?",
-    "Can linker/SDA/literal-pooling changes resolve the noted HSD_SisLib_803A5798, HSD_SisLib_803A594C, HSD_SisLib_8040CB00, and HSD_SisLib_8040CD40 cascades without source contortions?",
-    "Can sislib_UnkAllocData, data_0/data_1, text->x6C, and text->x6E be renamed once the allocation cursor and state-stack layouts are fully proven?",
-    "Audit remaining HSD_SisLib_803A84BC commented line-measure call sites after opcode 26/default handling to see whether more HSD_SisLib_803A8134 integration is needed.",
-    "Compare HSD_SisLib_803A7684 push-state cases against all renderer opcodes to confirm the five state types and byte counts are complete."
+    "Look for later PRs that finish matching HSD_SisLib_803A5798 literal pooling or HSD_SisLib_803A594C coalesce-block regalloc.",
+    "Search for subsequent renames or struct recovery around sislib_UnkAllocData and sisLib_803A7664_t.",
+    "Check whether HSD_SisLib_803A70A0, HSD_SisLib_803A7684, and HSD_SisLib_803A84BC received symbol/field naming improvements after this PR.",
+    "Compare later sislib.c changes for replacement of address-based HSD_SisLib_* names with semantic names."
   ],
-  "confidence": 0.92
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,110 +11,96 @@
     "merged_at": "2026-05-31T16:07:24Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Implemented five scratch items resolved by PR body links #2550 through #2554 across camera, Flatzone, DevText, and particle code. The diff is mostly source-shaping for decomp matching: local aliases, scoped dont_inline pragmas, stack padding, byte masking, and equivalent control-flow rewrites. The decomp.dev bot reported GALE01 \"No changes\", supporting that these were matching/source reconstruction changes rather than intentional game behavior changes.",
+  "summary": "Implemented several small scratch fixes across camera, Flat Zone, dev text, and particle code. The PR appears to resolve five scratch issues (#2550 through #2554) by making localized matching-oriented edits: introducing temporaries and pointer aliases in gmCamera, reshaping a Flat Zone JObj null check, adding dont_inline pragmas around small DevText helpers, adding stack padding and narrowing a render-priority argument, and simplifying particle bin iteration to direct array indexing.",
   "change_classification": {
-    "primary_type": "decomp-matching-source-implementation",
+    "primary_type": "matching-scratch-implementation",
     "categories": [
       "code-change",
       "scratch-resolution",
-      "matching",
-      "no-binary-change-reported",
-      "codegen-shaping"
+      "decompilation-matching",
+      "control-flow-shaping",
+      "compiler-behavior"
     ],
     "systems": [
-      "game-mode-camera",
-      "stage-flatzone",
-      "interface-devtext",
-      "sysdolphin-baselib-particle"
+      "game-mode",
+      "camera",
+      "stage",
+      "Flat Zone",
+      "interface",
+      "dev text",
+      "sysdolphin",
+      "baselib",
+      "particle"
     ]
   },
   "key_files": [
-    {
-      "file": "src/melee/gm/gmcamera.c",
-      "role": "Reshaped gmCamera_801A30E4 with local struct and field pointer aliases plus a comma expression around gcus->x8."
-    },
-    {
-      "file": "src/melee/gr/grflatzone.c",
-      "role": "Simplified grFlatzone_80218260 scope/control flow by hoisting HSD_JObj declaration and using assignment in the NULL check."
-    },
-    {
-      "file": "src/melee/if/textdraw.c",
-      "role": "Added scoped dont_inline pragmas to DevText_InitPool and DevText_CreateCObj; added PAD_STACK(8) and masked render priority in DevText_Setup."
-    },
-    {
-      "file": "src/melee/if/textlib.c",
-      "role": "Added scoped dont_inline pragmas to small DevText flag/background/text/erase helpers."
-    },
-    {
-      "file": "src/sysdolphin/baselib/particle.c",
-      "role": "Rewrote hsd_8039CEAC to index hsd_804D0908 directly instead of walking a bins pointer."
-    }
+    "src/melee/gm/gmcamera.c",
+    "src/melee/gr/grflatzone.c",
+    "src/melee/if/textdraw.c",
+    "src/melee/if/textlib.c",
+    "src/sysdolphin/baselib/particle.c"
   ],
   "what_changed": [
-    "gmCamera_801A30E4 now introduces gmCameraUnkStruct* gcus, s32* pxc, and HSD_JObj** px8 to access gmCamera_80479BC8.gcus fields through locals instead of repeatedly spelling the global field chain.",
-    "gmCamera_801A30E4 now uses *pxc for gmCamera_803DA6B4 indexing, gcus->x4 for JOBJ_HIDDEN flag toggles, *px8 for lb_80011E24, and HSD_JObjSetFlagsAll((0, gcus->x8), JOBJ_HIDDEN).",
-    "grFlatzone_80218260 now declares HSD_JObj* jobj before setting gp->gv.flatzone.xC7 and uses if ((jobj = GET_JOBJ(gobj)) != NULL) before hiding the JObj.",
-    "DevText_InitPool, DevText_CreateCObj, DevText_ShowBackground, DevText_HideBackground, DevText_ShowText, DevText_HideText, and DevText_Erase were wrapped in #pragma push / #pragma dont_inline on / #pragma pop.",
-    "DevText_Setup gained PAD_STACK(8) and passes devtext_setup_render_priority & 0xFF to GObj_SetupGXLink.",
-    "hsd_8039CEAC removed the void** bins temporary and bins++ loop increment, replacing *bins tests and loads with hsd_804D0908[i]."
+    "In `gmCamera_801A30E4`, repeated accesses to `gmCamera_80479BC8.gcus` were rewritten through local aliases: `gmCameraUnkStruct* gcus`, `s32* pxc`, and `HSD_JObj** px8`.",
+    "In `gmCamera_801A30E4`, `gmCamera_803DA6B4[gmCamera_80479BC8.gcus.xC]` became `gmCamera_803DA6B4[*pxc]`, and calls using `gcus->x4`/`*px8` replaced longer global-field expressions.",
+    "In `gmCamera_801A30E4`, `HSD_JObjSetFlagsAll(gcus->x8, JOBJ_HIDDEN)` was changed to `HSD_JObjSetFlagsAll((0, gcus->x8), JOBJ_HIDDEN)`, indicating an expression-shaping tactic for matching.",
+    "In `grFlatzone_80218260`, the local `HSD_JObj* jobj` declaration was hoisted and the nested block was collapsed into an assignment-in-condition null check: `if ((jobj = GET_JOBJ(gobj)) != NULL)`.",
+    "In `textdraw.c`, `DevText_InitPool` and `DevText_CreateCObj` were wrapped in `#pragma push`, `#pragma dont_inline on`, and `#pragma pop`.",
+    "In `DevText_Setup`, `PAD_STACK(8)` was added and the `GObj_SetupGXLink` render-priority argument was masked to `devtext_setup_render_priority & 0xFF`.",
+    "In `textlib.c`, small DevText flag helpers `DevText_ShowBackground`, `DevText_HideBackground`, `DevText_ShowText`, `DevText_HideText`, and `DevText_Erase` were marked `dont_inline` using pragma push/pop blocks.",
+    "In `hsd_8039CEAC`, the separate `bins` pointer variable and increment were removed; the loop now indexes `hsd_804D0908[i]` directly for bin head reads and comparisons."
   ],
   "smart_moves": [
-    "Scoped the dont_inline matching tactic with #pragma push/pop so only the targeted small DevText functions are affected.",
-    "Used local aliases and pointer-to-field temporaries in gmCamera_801A30E4 to tune code generation without changing apparent behavior.",
-    "Applied a narrow & 0xFF mask at the GObj_SetupGXLink call site, a precise way to force byte-width behavior for a render priority argument.",
-    "Used PAD_STACK(8) only in DevText_Setup, indicating a localized stack-layout match rather than broader structural churn.",
-    "Changed hsd_8039CEAC from pointer iteration to array indexing, showing that equivalent loop forms can be chosen based on the compiler output needed.",
-    "Kept unknown names such as gmCameraUnkStruct fields x4/x8/xC/x14 and hsd_8039CEAC rather than over-renaming without evidence."
+    "Used local pointer aliases in camera code to influence generated addressing without changing the apparent runtime behavior.",
+    "Applied `#pragma dont_inline` narrowly around specific DevText helper functions rather than globally changing compiler behavior.",
+    "Used `PAD_STACK(8)` only in `DevText_Setup`, suggesting the stack-frame mismatch was localized and corrected with minimal disruption.",
+    "Masked `devtext_setup_render_priority` with `0xFF` at the callsite, preserving the intended byte-sized argument behavior for `GObj_SetupGXLink`.",
+    "Rewrote particle bin traversal from pointer walking to explicit array indexing, which can alter register allocation and address generation while keeping loop semantics recognizable.",
+    "Flattened the Flat Zone JObj block into assignment-in-condition form, a common decomp tactic when matching original control flow or variable lifetime."
   ],
   "decomp_lessons": [
-    "When behavior is already understood but matching is blocked, equivalent C rewrites such as local aliases, indexed arrays, assignment-in-condition, and declaration hoisting can be decisive.",
-    "Small helper functions may need explicit dont_inline pragmas to preserve original function boundaries; use push/pop to avoid leaking the pragma state.",
-    "Stack padding via PAD_STACK should be applied narrowly and documented by the diff context because it is a codegen tactic, not business logic.",
-    "If a callee or original code path treats an int-like value as a byte, an explicit & 0xFF at the call site may match the original narrowing.",
-    "Do not assume pointer-walk C is closer to original assembly than indexed array C; compare generated code and choose the form that matches.",
-    "A decomp.dev \"No changes\" report is useful evidence that source-shaping changes preserved the GALE01 output."
+    "For scratch resolutions, small source-shape changes can be sufficient: local aliases, declaration placement, assignment-in-condition, and direct indexing may affect generated code more than algorithmic changes.",
+    "When small helper functions are unexpectedly inlined, use scoped `#pragma push` / `#pragma dont_inline on` / `#pragma pop` around only the affected functions.",
+    "Stack mismatches can sometimes be resolved with targeted `PAD_STACK` rather than broader refactors.",
+    "If a function argument is semantically byte-sized but stored in a wider temporary, explicitly masking with `& 0xFF` may be needed to reproduce the original codegen.",
+    "Pointer-iteration and array-indexing forms are not interchangeable for matching; choosing one over the other can affect register pressure and emitted loads.",
+    "Hoisting a local declaration or shortening a nested block can be a valid matching tactic, especially around macro-returned values like `GET_JOBJ`."
   ],
   "naming_conventions": [
-    "Camera code retained the gmCamera_ prefix and unknown-field style, including gmCamera_801A30E4, gmCamera_80479BC8.gcus, gmCamera_803DA6B4, and fields x4, x8, xC, x14.",
-    "The new local name gcus abbreviates gmCameraUnkStruct and pxc/px8 indicate pointer-to-field temporaries; evidence is limited to this diff and should not be generalized too far.",
-    "Dev text functions use the DevText_ prefix with descriptive PascalCase suffixes such as DevText_ShowBackground, DevText_HideText, and DevText_Erase.",
-    "Flatzone stage functions keep the grFlatzone_ address-style naming convention, e.g. grFlatzone_80218260 and grFlatzone_802182B4.",
-    "SysDolphin baselib particle functions and globals remain address-named where semantics are still unknown, e.g. hsd_8039930C, hsd_8039CEAC, and hsd_804D0908.",
-    "HSD object and graphics types/macros follow existing uppercase/type-prefix conventions: HSD_JObj, HSD_GObj, GXColor, GET_GROUND, GET_JOBJ, JOBJ_HIDDEN."
+    "Existing project-style symbol names are preserved: `gmCamera_801A30E4`, `grFlatzone_80218260`, `DevText_*`, and `hsd_8039CEAC`.",
+    "Temporary names in scratch code are terse and structure-derived, such as `gcus`, `pxc`, and `px8`, reflecting pointer aliases to fields rather than newly understood semantic names.",
+    "The diff does not provide evidence of new public naming conventions or renamed symbols."
   ],
   "assembly_or_matching_tactics": [
-    "#pragma push / #pragma dont_inline on / #pragma pop around targeted functions",
-    "PAD_STACK(8) in DevText_Setup",
-    "Explicit byte narrowing with devtext_setup_render_priority & 0xFF",
-    "Pointer-to-field temporaries such as s32* pxc = &gcus->xC and HSD_JObj** px8",
-    "Comma expression HSD_JObjSetFlagsAll((0, gcus->x8), JOBJ_HIDDEN)",
-    "Assignment expression in condition: if ((jobj = GET_JOBJ(gobj)) != NULL)",
-    "Array indexing hsd_804D0908[i] instead of incrementing a void** bins pointer",
-    "Local alias for a global substructure: gmCameraUnkStruct* gcus = &gmCamera_80479BC8.gcus"
+    "Introduce pointer aliases to global struct fields to alter load/store sequences: `gmCameraUnkStruct* gcus = &gmCamera_80479BC8.gcus` and `s32* pxc = &gcus->xC`.",
+    "Use pointer-to-field aliasing for JObj access: `HSD_JObj** px8 = &gcus->x8` followed by `*px8` in the child lookup call.",
+    "Use the comma operator in an argument expression, `(0, gcus->x8)`, as a deliberate source-shaping trick.",
+    "Hoist declarations and combine assignment with null check to match expected control flow: `(jobj = GET_JOBJ(gobj)) != NULL`.",
+    "Apply scoped `#pragma dont_inline on` to prevent inlining of small DevText helpers.",
+    "Insert `PAD_STACK(8)` to correct stack layout in `DevText_Setup`.",
+    "Mask a call argument with `& 0xFF` to force byte-width behavior or codegen.",
+    "Prefer direct array indexing `hsd_804D0908[i]` over maintaining and incrementing a `bins` pointer when that form better matches."
   ],
   "review_feedback": [
-    "No human review comments or reviews were captured in the PR slice.",
-    "PR body lists completed resolutions for #2550, #2551, #2552, #2553, and #2554.",
-    "decomp.dev bot comment reported: \"Report for GALE01 ... No changes\"."
+    "No review comments were present in the provided PR context.",
+    "The PR body explicitly checked off that it resolves #2550, #2551, #2552, #2553, and #2554."
   ],
   "searchable_terms": [
-    "PR2560",
     "Implement scratches",
-    "scratches",
-    "Resolves #2550",
-    "Resolves #2551",
-    "Resolves #2552",
-    "Resolves #2553",
-    "Resolves #2554",
+    "scratch",
+    "resolves #2550",
+    "resolves #2551",
+    "resolves #2552",
+    "resolves #2553",
+    "resolves #2554",
     "gmCamera_801A30E4",
     "gmCameraUnkStruct",
     "gmCamera_80479BC8",
     "gmCamera_803DA6B4",
-    "gm_801A45E8",
     "HSD_JObjClearFlagsAll",
     "HSD_JObjSetFlagsAll",
-    "lb_80011E24",
     "JOBJ_HIDDEN",
+    "lb_80011E24",
     "grFlatzone_80218260",
     "GET_GROUND",
     "GET_JOBJ",
@@ -126,21 +112,27 @@
     "DevText_ShowText",
     "DevText_HideText",
     "DevText_Erase",
+    "pragma dont_inline",
     "PAD_STACK",
-    "dont_inline",
     "GObj_SetupGXLink",
-    "render_priority & 0xFF",
-    "hsd_8039930C",
+    "devtext_setup_render_priority",
     "hsd_8039CEAC",
     "hsd_804D0908",
-    "GALE01 No changes"
+    "particle bins"
   ],
   "follow_up_queries": [
-    "PR 2560 scratches #2550 #2551 #2552 #2553 #2554",
-    "gmCamera_801A30E4 gcus pxc px8 comma expression matching",
-    "DevText dont_inline PAD_STACK render_priority 0xFF",
-    "hsd_8039CEAC hsd_804D0908 indexed array bins pointer",
-    "grFlatzone_80218260 GET_JOBJ assignment condition JOBJ_HIDDEN"
+    "Look up issues #2550 through #2554 to map each scratch to the exact function and matching problem.",
+    "Check whether the comma-expression use `(0, gcus->x8)` in `gmCamera_801A30E4` corresponds to a known compiler-codegen workaround in this project.",
+    "Search for other DevText functions requiring `#pragma dont_inline` or `PAD_STACK` to keep interface text matching consistent.",
+    "Compare `hsd_8039CEAC` before and after matching output to determine why direct indexing of `hsd_804D0908[i]` was preferable to pointer walking."
   ],
-  "confidence": 0.87
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

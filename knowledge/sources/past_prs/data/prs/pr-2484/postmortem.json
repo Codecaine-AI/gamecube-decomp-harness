@@ -11,91 +11,72 @@
     "merged_at": "2026-05-12T00:44:34Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched HSD_ByteCodeEval in sysdolphin/baselib/bytecode.c through small codegen-sensitive rewrites, local type/signature cleanup, and synchronized prototypes in bytecode.h and robj.c. The decomp.dev report confirmed HSD_ByteCodeEval moved from 99.92% to 100.00% and the overall GALE01 matched-code metric increased by 5640 bytes.",
+  "summary": "Matched HSD_ByteCodeEval in src/sysdolphin/baselib/bytecode.c with small signature/header cleanup and an extern update in robj.c. The match involved type normalization to platform typedefs, local-variable ordering/type adjustments, simplifying control-flow artifacts, and reshaping a local fmodf helper to match expected codegen.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "cleanup",
-      "headers",
-      "prototype-consistency",
-      "verification"
+      "headers"
     ],
     "systems": [
-      "sysdolphin/baselib/bytecode",
-      "sysdolphin/baselib/robj"
+      "sysdolphin",
+      "baselib",
+      "bytecode",
+      "robj"
     ]
   },
   "key_files": [
-    {
-      "path": "src/sysdolphin/baselib/bytecode.c",
-      "role": "Main match work for HSD_ByteCodeEval, including fmodf rewrite, local type adjustments, stack operand lifetime changes, atan2 branch cleanup, and boolean-expression simplification."
-    },
-    {
-      "path": "src/sysdolphin/baselib/bytecode.h",
-      "role": "Updated HSD_ByteCodeEval declaration from float*/int to f32*/s32."
-    },
-    {
-      "path": "src/sysdolphin/baselib/robj.c",
-      "role": "Updated the local extern declaration of HSD_ByteCodeEval used near expEvaluate to match the f32*/s32 signature."
-    }
+    "src/sysdolphin/baselib/bytecode.c",
+    "src/sysdolphin/baselib/bytecode.h",
+    "src/sysdolphin/baselib/robj.c"
   ],
   "what_changed": [
-    "Changed HSD_ByteCodeEval signature from float HSD_ByteCodeEval(u8* bytecode, float* args, int nb_args) to float HSD_ByteCodeEval(u8* bytecode, f32* args, s32 nb_args).",
-    "Synchronized the HSD_ByteCodeEval prototype in bytecode.h and the extern declaration in robj.c to use f32* args and s32 nb_args.",
-    "Rewrote the local static inline fmodf helper from a one-line ternary into an explicit f32 fmodf(f32 divisor, f32 dividend) with a long long quotient temporary and early return when fabs(divisor) > fabs(dividend).",
-    "Adjusted HSD_ByteCodeEval local declarations: split HSD_SList* stack and list declarations, used s32 for operand_count/d0/d1, and changed i from u32 to int.",
-    "In the modulo bytecode case, removed the f1 temporary and passed the remaining stack value directly into fmodf after HSD_SListRemove.",
-    "Removed extra nested braces around the fabsf_bitwise/atan2f RAD_TO_DEG angle calculation while preserving the explicit ±90.0F zero-x special case.",
-    "Simplified case 0x32 boolean logic from nested bool temporaries into the direct expression (d0 == 0 && d1 != 0) || (d0 != 0 && d1 == 0).",
-    "Verification listed by the PR author: ninja -j8, clang-format pre-commit on the touched files, and full pre-commit on the touched files."
+    "Changed HSD_ByteCodeEval parameter types from float*/int to f32*/s32 in bytecode.c and bytecode.h.",
+    "Updated the matching extern declaration in robj.c from extern float HSD_ByteCodeEval(u8*, float*, u32) to extern float HSD_ByteCodeEval(u8*, f32*, s32).",
+    "Reworked the local static inline fmodf helper: renamed parameters to divisor/dividend, introduced an explicit long long quotient local, used an early return when fabs(divisor) > fabs(dividend), and computed dividend - divisor * quotient.",
+    "Adjusted HSD_ByteCodeEval local declarations, including splitting HSD_SList* stack and list declarations, using int for loop index i, and using s32 for operand_count, d0, and d1.",
+    "Removed extra nested scopes around atan2f/RAD_TO_DEG handling while preserving the fabsf_bitwise(f0) == 0.0F special case that returns +/-90.0F.",
+    "Simplified boolean XOR-like integer logic for bytecode case 0x32 into a direct expression: (d0 == 0 && d1 != 0) || (d0 != 0 && d1 == 0).",
+    "In the fmod bytecode case, avoided storing the second stack float in f1 and passed ((ByteCodeVal*) &stack->data)->f directly to fmodf."
   ],
   "smart_moves": [
-    "Used project typedefs f32 and s32 consistently across implementation, public header, and robj.c extern declaration, avoiding mixed float/int/u32 prototypes.",
-    "Made fmodf codegen more controllable by naming the operands, introducing an explicit long long quotient, and separating the early-return branch from the remainder calculation.",
-    "Preserved semantics in stack VM cases while changing temporary lifetime and expression shape, which is often decisive for matching Metrowerks output.",
-    "Collapsed a convoluted nested boolean construction into a direct xor-like zero/nonzero expression, reducing source noise while still matching.",
-    "Kept the angle edge-case behavior explicit with fabsf_bitwise(f0) == 0.0F and ±90.0F instead of relying only on atan2f.",
-    "Backed the change with both local build/pre-commit verification and the decomp.dev matching report."
+    "Normalized public and external signatures consistently across the implementation, header, and robj.c call-site declaration, avoiding mismatched prototype drift.",
+    "Used platform typedefs f32 and s32 where the decompiled SDK-style code likely expects them, improving both consistency and matching chances.",
+    "Introduced an explicit quotient local in fmodf rather than relying on a dense expression, which can influence register allocation and instruction scheduling for matching.",
+    "Removed artificial nested blocks and temporary booleans once they were no longer needed for matching, leaving clearer source while preserving equivalent codegen.",
+    "Kept the atan2f zero-divisor special case explicit, preserving behavior for f0 == 0.0F instead of reducing it to a naïve atan2f-only expression."
   ],
   "decomp_lessons": [
-    "In baselib signatures, fixed-width/platform typedefs such as f32 and s32 can matter for matching and should be kept consistent between .c files, headers, and extern declarations.",
-    "For evaluator/bytecode-stack code, matching may depend on whether a popped stack operand is stored in a named temporary or read inline after HSD_SListRemove.",
-    "A helper function written as a compact ternary can produce different codegen than an explicit if plus assigned integer quotient; use explicit temporaries when the target code suggests them.",
-    "Extra lexical scopes and bool temporaries are not always needed for matching; simpler source can match when it better reflects the compiler's optimized control flow.",
-    "When changing a function's apparent type signature for a match, search for hand-written extern declarations as well as the public header.",
-    "Automated AI/Codex renaming can introduce questionable churn; keep renames minimal unless they are supported by matching or project conventions."
+    "For matching work, function signatures must be synchronized in the .c implementation, exported header, and any local extern declarations; even integer signedness like u32 versus s32 can matter.",
+    "Small local declaration changes, including declaration order and splitting combined declarations, can be part of a successful match when they affect stack layout or register allocation.",
+    "Equivalent boolean logic can often be collapsed after matching pressure is resolved; direct C expressions may still match better than compiler-artifact-style temporary bool chains.",
+    "Inline helper functions are matching-sensitive: parameter order/names do not affect semantics, but expression shape, temporaries, casts, and early returns can affect generated assembly.",
+    "When manipulating stack data through ByteCodeVal casts and HSD_SListRemove, avoid introducing unnecessary temporaries if the target code appears to read directly from the current stack node."
   ],
   "naming_conventions": [
-    "Function name kept as HSD_ByteCodeEval.",
-    "ByteCodeVal remains the union used to reinterpret stack data as f32 or integer data.",
-    "Use project aliases f32 and s32 in HSD_ByteCodeEval declarations rather than raw float and int where the matched source expects platform typedefs.",
-    "The rewritten fmodf helper uses operand names divisor and dividend, matching the revised calculation order.",
-    "Pointer formatting follows project clang-format style such as HSD_SList* stack rather than HSD_SList *stack."
+    "HSD_ByteCodeEval uses HSD_ prefix and CamelCase SDK-style naming.",
+    "Platform typedefs f32 and s32 were preferred over raw float and int in the matched signature.",
+    "The helper kept the standard-library-like name fmodf as a static inline local implementation, with parameters renamed to divisor and dividend in this PR.",
+    "Existing bytecode locals use short decomp-style names such as fv, f0, f1, d0, d1, operand_count, and last_command."
   ],
   "assembly_or_matching_tactics": [
-    "Introduced long long quotient in fmodf and assigned quotient = dividend / divisor before returning dividend - divisor * quotient.",
-    "Changed fmodf from return __fabsf(x) > __fabsf(m) ? x : ... to an explicit if branch, which likely helped reproduce target branch and temporary behavior.",
-    "Removed the f1 local in the modulo case and called fmodf(f0, ((ByteCodeVal*) &stack->data)->f) directly to alter operand lifetime/register allocation.",
-    "Changed local signedness and declaration order in HSD_ByteCodeEval, including s32 operand_count and s32 d0/d1.",
-    "Flattened nested atan2 calculation blocks without changing the fabsf_bitwise zero special case.",
-    "Replaced nested bool c/val control flow with a direct zero/nonzero boolean expression for case 0x32.",
-    "Kept HSD_ASSERT and HSD_ASSERTMSG stack checks intact around stack operations."
+    "Changed fmodf from a single conditional-expression implementation into explicit control flow with a long long quotient local.",
+    "Changed HSD_ByteCodeEval local variable types and declaration ordering to improve match behavior.",
+    "Removed temporary f1 in one fmod path and passed the stack-derived float directly.",
+    "Flattened nested scopes around case 0x2F atan2f logic.",
+    "Replaced a multi-step bool/temporary implementation of an exclusive-or-style condition with a direct boolean expression.",
+    "Ran verification commands reported in the PR body: ninja -j8, clang-format pre-commit on bytecode.c/bytecode.h/robj.c, and pre-commit run on those files."
   ],
   "review_feedback": [
     {
-      "source": "author review comment on src/sysdolphin/baselib/bytecode.c",
-      "text": "idk why codex insisted on renaming this everywhere. can clean up if preferred",
-      "lesson": "The only human review comment in the slice was a self-note questioning Codex-driven renaming churn; there is no evidence of an external reviewer requiring cleanup."
-    },
-    {
-      "source": "decomp.dev bot issue comment",
-      "text": "GALE01 report: HSD_ByteCodeEval changed from 99.92% to 100.00%; matched code +0.15%, +5640 bytes overall.",
-      "lesson": "The automated report confirms the PR achieved the intended function match."
+      "author": "itsgrimetime",
+      "file": "src/sysdolphin/baselib/bytecode.c",
+      "comment": "idk why codex insisted on renaming this everywhere. can clean up if preferred",
+      "interpretation": "The only review-comment evidence is from the author noting that an automated/Codex-assisted rename may have been unnecessary and offering to clean it up. No reviewer-requested change is visible in the provided slice."
     }
   ],
   "searchable_terms": [
-    "PR 2484",
     "HSD_ByteCodeEval",
     "bytecode.c",
     "bytecode.h",
@@ -104,10 +85,6 @@
     "baselib",
     "ByteCodeVal",
     "fmodf",
-    "divisor",
-    "dividend",
-    "quotient",
-    "__fabsf",
     "fabsf_bitwise",
     "RAD_TO_DEG",
     "atan2f",
@@ -115,27 +92,29 @@
     "HSD_SListRemove",
     "HSD_ASSERT",
     "HSD_ASSERTMSG",
-    "operand_count",
-    "nb_args",
+    "HSD_RObjFree",
+    "HSD_RObj_80406F14",
+    "expEvaluate",
     "f32",
     "s32",
-    "expEvaluate",
-    "HSD_RObj",
-    "HSD_Exp",
-    "HSD_ObjUpdateFunc",
-    "case 0x32",
-    "boolean xor",
-    "Codex renaming",
-    "GALE01",
-    "decomp.dev"
+    "operand_count",
+    "last_command",
+    "nb_args",
+    "decomp matching",
+    "pr/bytecode-eval"
   ],
   "follow_up_queries": [
-    "HSD_ByteCodeEval fmodf divisor dividend quotient",
-    "HSD_ByteCodeEval f32 args s32 nb_args robj extern",
-    "bytecode.c case 0x32 d0 d1 boolean xor",
-    "fabsf_bitwise RAD_TO_DEG atan2f HSD_ByteCodeEval",
-    "HSD_SListRemove stack operand lifetime fmodf",
-    "PR 2484 Codex renaming bytecode.c"
+    "Look for later PRs touching HSD_ByteCodeEval to see whether the Codex-driven renaming mentioned by the author was kept or cleaned up.",
+    "Search for other baselib functions with local extern declarations that may need synchronization with headers.",
+    "Compare other inline math helper matches for patterns involving explicit quotient locals and f32/s32 typedef normalization."
   ],
-  "confidence": 0.93
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

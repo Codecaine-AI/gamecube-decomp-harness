@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { loadBoardSnapshot } from "../../board/index.js";
+import { resourceGraphDbPath } from "../../knowledge/index.js";
 import {
   activeWorkerCount,
   addEvent,
@@ -87,6 +88,7 @@ export interface TriggerAgentResult {
   maxWorkers: number;
   directorTicks: number;
   queueRefills: number;
+  queuePriorityRefreshes: number;
   queueTargetsAdded: number;
   lastQueueRefill?: QueueRefillResult;
   workersStarted: number;
@@ -160,13 +162,22 @@ function nonNegativeInt(value: number): number {
   return Math.max(0, Math.floor(value));
 }
 
-function queueTargetSizeArg(args: Map<string, string | true>, candidateLimit: number): number {
-  return nonNegativeInt(numberArg(args, "--queue-target-size", candidateLimit));
+function candidateLimitArg(args: Map<string, string | true>, maxWorkers: number): number {
+  return nonNegativeInt(numberArg(args, "--candidate-limit", Math.max(32, maxWorkers * 2)));
+}
+
+function queueTargetSizeArg(args: Map<string, string | true>, params: { candidateLimit: number; maxWorkers: number }): number {
+  return nonNegativeInt(numberArg(args, "--queue-target-size", Math.max(params.candidateLimit, params.maxWorkers * 2)));
 }
 
 function candidateWindowArg(args: Map<string, string | true>, params: { candidateLimit: number; queueTargetSize: number }): number {
-  const fallback = Math.max(params.candidateLimit, params.queueTargetSize * 4);
+  const fallback = Math.max(params.candidateLimit, params.queueTargetSize * 8);
   return Math.max(params.candidateLimit, params.queueTargetSize, nonNegativeInt(numberArg(args, "--candidate-window", fallback)));
+}
+
+function nextCandidateWindow(current: number): number {
+  if (current <= 0) return 1;
+  return current * 2;
 }
 
 function replanPolicy(args: Map<string, string | true>, params: { maxWorkers: number; queueTargetSize: number }): ReplanPolicy {
@@ -223,19 +234,50 @@ function shouldAttemptQueueRefill(snapshot: QueuePressureSnapshot, policy: Repla
   );
 }
 
-function refillQueueFromBoard(params: {
+function combineRefillResults(previous: QueueRefillResult | null, next: QueueRefillResult): QueueRefillResult {
+  if (!previous) return next;
+  return {
+    ...next,
+    inserted: previous.inserted + next.inserted,
+    refreshed: previous.refreshed + next.refreshed,
+    queuedBefore: previous.queuedBefore,
+    schedulableBefore: previous.schedulableBefore,
+  };
+}
+
+export function refillQueueFromBoard(params: {
+  forceRefresh?: boolean;
   globals: GlobalArgs;
+  graphDbPath?: string;
   policy: ReplanPolicy;
   runId: string;
   snapshot: QueuePressureSnapshot;
   store: StateStore;
 }): QueueRefillResult | null {
-  if (!shouldAttemptQueueRefill(params.snapshot, params.policy)) return null;
-  const board = loadBoardSnapshot(params.globals.repoRoot, params.snapshot.candidateWindow);
-  return refillQueuedTargets(params.store, params.runId, board.candidates, {
-    targetSize: params.snapshot.queueTargetSize,
-    minSchedulableSources: Math.min(params.snapshot.maxWorkers, params.policy.schedulableLowWatermark),
-  });
+  if (!shouldAttemptQueueRefill(params.snapshot, params.policy) && !params.forceRefresh) return null;
+  const targetSize = params.snapshot.queueTargetSize;
+  const minSchedulableSources = Math.min(params.snapshot.maxWorkers, params.policy.schedulableLowWatermark);
+  let candidateWindow = params.snapshot.candidateWindow;
+  let combined: QueueRefillResult | null = null;
+
+  for (;;) {
+    const board = loadBoardSnapshot(params.globals.repoRoot, candidateWindow, {
+      graphDbPath: params.graphDbPath ?? resourceGraphDbPath(),
+    });
+    const refill = refillQueuedTargets(params.store, params.runId, board.candidates, {
+      targetSize,
+      minSchedulableSources,
+    });
+    combined = combineRefillResults(combined, refill);
+
+    const targetSatisfied = combined.queuedAfter >= targetSize && combined.schedulableAfter >= minSchedulableSources;
+    const boardExhausted = board.candidates.length < candidateWindow;
+    if (targetSatisfied || boardExhausted) return combined;
+
+    const nextWindow = nextCandidateWindow(candidateWindow);
+    if (nextWindow <= candidateWindow) return combined;
+    candidateWindow = nextWindow;
+  }
 }
 
 function exhaustedRefillDecision(refill: QueueRefillResult | null | undefined, longTailSinceMs: number | null): ReplanDecision | null {
@@ -369,6 +411,7 @@ function workerCommand(
     thinkingLevel: string;
     repairAttempts: number;
     postReturnCheckCommand: string;
+    graphDbPath: string;
   },
 ): string[] {
   const packageRoot = resolve(import.meta.dir, "../../..");
@@ -405,6 +448,7 @@ function workerCommand(
     String(params.repairAttempts),
   );
   if (params.postReturnCheckCommand) command.push("--post-return-check-command", params.postReturnCheckCommand);
+  command.push("--graph-db", params.graphDbPath);
   return command;
 }
 
@@ -419,6 +463,7 @@ async function runWorkerProcess(
     thinkingLevel: string;
     repairAttempts: number;
     postReturnCheckCommand: string;
+    graphDbPath: string;
   },
 ): Promise<WorkerCycleResult> {
   const packageRoot = resolve(import.meta.dir, "../../..");
@@ -474,29 +519,33 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
     if (!run) throw new Error(`Run not found: ${runId}`);
     assertSchedulableRun(run, "trigger-agent");
 
-    const candidateLimit = nonNegativeInt(numberArg(args, "--candidate-limit", 50));
-    const queueTargetSize = queueTargetSizeArg(args, candidateLimit);
-    const candidateWindow = candidateWindowArg(args, { candidateLimit, queueTargetSize });
     const maxIterations = booleanArg(args, "--once") ? 1 : numberArg(args, "--max-iterations", 0);
     const maxIdleIterations = numberArg(args, "--max-idle-iterations", 0);
     const idleSleepMs = numberArg(args, "--idle-sleep-ms", 5_000);
     const maxWorkers = Math.max(0, Math.min(run.desiredWorkers, numberArg(args, "--max-workers", run.desiredWorkers)));
+    const candidateLimit = candidateLimitArg(args, maxWorkers);
+    const queueTargetSize = queueTargetSizeArg(args, { candidateLimit, maxWorkers });
+    const candidateWindow = candidateWindowArg(args, { candidateLimit, queueTargetSize });
     const reportType = workerReportTypeArg(args, "--report-type", "stalled_no_useful_guess");
     const baseRev = stringArg(args, "--base-rev", "unknown");
     const ttlSeconds = numberArg(args, "--ttl-seconds", 60 * 60);
     const repairAttempts = Math.max(0, Math.trunc(numberArg(args, "--repair-attempts", globals.dryRunAgents ? 0 : 2)));
     const postReturnCheckCommand = stringArg(args, "--post-return-check-command", "");
+    const graphDbPath = stringArg(args, "--graph-db", resourceGraphDbPath());
     const exitOnWorkerError = booleanArg(args, "--exit-on-worker-error");
     const workerThinkingLevel = stringArg(args, "--worker-thinking-level", globals.thinkingLevel);
     const maintenanceIntervalMs = knowledgeMaintenanceIntervalMs(globals, args);
     const policy = replanPolicy(args, { maxWorkers, queueTargetSize });
     let queueRefills = 0;
+    let queuePriorityRefreshes = 0;
     let queueTargetsAdded = 0;
     let lastQueueRefill: QueueRefillResult | undefined;
     let lastReplanRequestMs = 0;
     let lastPeriodicReplanMs = Date.now();
     let longTailSinceMs: number | null = null;
     let lastKnowledgeMaintenanceMs = maintenanceIntervalMs > 0 ? 0 : Date.now();
+    const queueRefreshIntervalMs = nonNegativeInt(numberArg(args, "--queue-refresh-interval-ms", 60_000));
+    let lastQueueRefreshMs = queueRefreshIntervalMs > 0 ? 0 : Date.now();
 
     while (!stopRequested) {
       let didWork = false;
@@ -528,12 +577,17 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
         runId,
         store,
       });
-      const refill = refillQueueFromBoard({ globals, policy, runId, snapshot: beforeRefill, store });
+      const nowMs = Date.now();
+      const refillNeeded = shouldAttemptQueueRefill(beforeRefill, policy);
+      const refreshDue = queueRefreshIntervalMs > 0 && beforeRefill.queuedTargets > 0 && nowMs - lastQueueRefreshMs >= queueRefreshIntervalMs;
+      const refill = refillQueueFromBoard({ forceRefresh: refreshDue, globals, graphDbPath, policy, runId, snapshot: beforeRefill, store });
       if (refill) {
-        queueRefills += 1;
+        if (refillNeeded) queueRefills += 1;
+        if (refill.refreshed > 0) queuePriorityRefreshes += refill.refreshed;
         queueTargetsAdded += refill.inserted;
-        lastQueueRefill = refill;
-        if (refill.inserted > 0) didWork = true;
+        if (refillNeeded) lastQueueRefill = refill;
+        if (refreshDue) lastQueueRefreshMs = nowMs;
+        if (refill.inserted > 0 || refill.refreshed > 0) didWork = true;
       }
 
       const replanSnapshot = queueSnapshot({
@@ -588,6 +642,7 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
             thinkingLevel: workerThinkingLevel,
             repairAttempts,
             postReturnCheckCommand,
+            graphDbPath,
           },
         )
           .then((result) => {
@@ -636,7 +691,7 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
       if (didWork || runningWorkers.size > 0) idleIterations = 0;
       else idleIterations += 1;
 
-      if (maxIdleIterations > 0 && idleIterations >= maxIdleIterations) {
+      if (maxIdleIterations > 0 && idleIterations >= maxIdleIterations && unhandledEventCount(store, runId) === 0) {
         stoppedReason = "idle";
         break;
       }
@@ -663,6 +718,7 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
       maxWorkers,
       directorTicks: directorResults.filter((result) => result.status !== "no_unhandled_events").length,
       queueRefills,
+      queuePriorityRefreshes,
       queueTargetsAdded,
       lastQueueRefill,
       workersStarted,

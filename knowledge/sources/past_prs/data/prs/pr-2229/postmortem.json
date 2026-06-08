@@ -11,148 +11,119 @@
     "merged_at": "2026-03-06T23:38:07Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched and linked the event Yoshi Egg item object by implementing key code/data in `src/melee/it/items/itevyoshiegg.c`, adding EvYoshiEgg-specific item vars/dat attrs, renaming identified symbols, and switching the object from `NonMatching` to `Matching`. The decomp-dev bot reported 5 new matches: `itEvYoshiEgg_Logic42_DmgReceived`, `itEvYoshiEgg_Spawn`, `.data`, `itEvyoshiegg_UnkMotion5_Anim`, and `.sdata2`.",
+  "summary": "Matched and linked the Event Yoshi Egg item implementation by replacing placeholder/nonmatching functions in itevyoshiegg with typed code, adding item vars and special-attribute structs, wiring the file as Matching in configure.py, and renaming key symbols from generic it_8029*/it_3F14 names to itEvYoshiEgg-specific names. The implementation adds the item state table, spawn routine, damage-received behavior, countdown animation behavior, and correct xDD4_itemVar union access for evyoshiegg.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "item decompilation",
-      "linking",
+      "decomp-matching",
+      "item-implementation",
       "headers",
-      "structs",
-      "symbols",
-      "build configuration",
-      "data matching"
+      "symbol-renaming",
+      "build-config"
     ],
     "systems": [
       "item",
-      "event Yoshi Egg",
-      "config/GALE01",
-      "configure.py",
-      "baselib JObj/GObj",
-      "effects",
-      "gm_1BA8"
+      "common-items",
+      "config",
+      "symbols"
     ]
   },
   "key_files": [
-    {
-      "file": "src/melee/it/items/itevyoshiegg.c",
-      "role": "Main implementation: added item state table, spawn function, motion-5 animation, damage-received logic, and EvYoshiEgg item-var accesses."
-    },
-    {
-      "file": "src/melee/it/itCommonItems.h",
-      "role": "Added `itEvYoshiEgg_DatAttrs` and `itEvYoshiEgg_ItemVars` definitions."
-    },
-    {
-      "file": "src/melee/it/types.h",
-      "role": "Added `evyoshiegg` member to the `Item::xDD4_itemVar` union."
-    },
-    {
-      "file": "src/melee/it/items/itevyoshiegg.h",
-      "role": "Replaced placeholder/old prototypes with `itEvYoshiEgg_Spawn` and `itEvYoshiEgg_Logic42_DmgReceived`."
-    },
-    {
-      "file": "src/melee/it/it_2725.c",
-      "role": "Updated item logic table to call `itEvYoshiEgg_Logic42_DmgReceived`."
-    },
-    {
-      "file": "src/melee/it/it_3F14.c",
-      "role": "Kept the preserved/commented logic-table reference in sync with the renamed damage callback."
-    },
-    {
-      "file": "config/GALE01/symbols.txt",
-      "role": "Renamed matched functions and converted related `.sdata2` labels from global `it_804DCCxx` names to local compiler-style `@` labels."
-    },
-    {
-      "file": "configure.py",
-      "role": "Changed `melee/it/items/itevyoshiegg.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)`."
-    }
+    "src/melee/it/items/itevyoshiegg.c",
+    "src/melee/it/items/itevyoshiegg.h",
+    "src/melee/it/itCommonItems.h",
+    "src/melee/it/types.h",
+    "src/melee/it/it_2725.c",
+    "src/melee/it/it_3F14.c",
+    "config/GALE01/symbols.txt",
+    "configure.py"
   ],
   "what_changed": [
-    "Implemented `itEvYoshiEgg_Spawn(Vec3*)`, constructing a `SpawnItem` for `It_Kind_EvYoshiEgg`, copying position into `prev_pos` and `pos`, setting facing/velocity/parent/flag fields, spawning with `Item_80268B18`, then initializing the item through `it_8029B268` and resetting `evyoshiegg.xDD4`.",
-    "Added `ItemStateTable it_803F6728` with six EvYoshiEgg state entries using the existing `itEvyoshiegg_UnkMotionN_{Anim,Phys,Coll}` callbacks.",
-    "Implemented `itEvyoshiegg_UnkMotion5_Anim`: checks `evyoshiegg.xDD8`, calls `gm_801BEB68(1)` when the timer is 40, decrements the timer, returns `false` while positive, and `true` once the timer expires.",
-    "Implemented `itEvYoshiEgg_Logic42_DmgReceived`: early-outs if already processed (`evyoshiegg.xDD4 != 0`) or if `ip->xC9C` is below `itEvYoshiEgg_DatAttrs.x0`; otherwise spawns effect `1231` twice with local scale `1.5f`, calls `Item_8026AE84(ip, 244, 0x7F, 0x40)`, and transitions through a helper.",
-    "Added inline damage-transition helper that hides the model with `HSD_JObjSetFlagsAll(..., JOBJ_HIDDEN)`, calls `it_802756D0`, zeros X/Y velocity, sets `evyoshiegg.xDD4 = 1` and `evyoshiegg.xDD8 = 60`, calls `it_8026B3A8`, and changes to state 5 with `Item_80268E5C(..., ITEM_ANIM_UPDATE)`.",
-    "Replaced prior placeholder use of `it->xDD4_itemVar.bombhei.xDD4` in EvYoshiEgg spawned logic with `it->xDD4_itemVar.evyoshiegg.xDD4`.",
-    "Renamed `it_8029B0C8` to `itEvYoshiEgg_Spawn` and `it_3F14_Logic42_DmgReceived` to `itEvYoshiEgg_Logic42_DmgReceived` across symbols, headers, and logic-table references.",
-    "Updated `.sdata2` symbols at `0x804DCC88`, `0x804DCC8C`, and `0x804DCC90` from global `it_804DCCxx` names to local labels `@153`, `@154`, and `@195`.",
-    "Marked `src/melee/it/items/itevyoshiegg.c` as matching in `configure.py`."
+    "Changed configure.py entry for melee/it/items/itevyoshiegg.c from Object(NonMatching, ...) to Object(Matching, ...), linking the file into the matched build.",
+    "Added ItemStateTable it_803F6728 in itevyoshiegg.c with six states using itEvyoshiegg_UnkMotion0 through UnkMotion5 callbacks.",
+    "Implemented itEvYoshiEgg_Spawn(Vec3* pos), replacing the prior placeholder symbol it_8029B0C8. The routine initializes a SpawnItem for It_Kind_EvYoshiEgg, zeroes velocity and damage, sets parent pointers/null flags, calls Item_80268B18, then initializes evyoshiegg item vars and state setup when spawn succeeds.",
+    "Changed Logic42_Spawned to use it->xDD4_itemVar.evyoshiegg.xDD4 instead of the previous bombhei union member, removing a comment that indicated the old access was only a stand-in.",
+    "Implemented itEvyoshiegg_UnkMotion5_Anim as a countdown behavior using evyoshiegg.xDD8, calling gm_801BEB68(1) when the counter equals 40, decrementing the counter, and returning true when the counter expires.",
+    "Implemented itEvYoshiEgg_Logic42_DmgReceived, replacing the generic it_3F14_Logic42_DmgReceived name. It checks whether the egg has already entered the damage state, compares accumulated damage xC9C against special attribute x0, spawns effect 1231 twice with scale 1.5f, plays sound/effect Item_8026AE84(ip, 244, 0x7F, 0x40), then transitions through a helper that hides the JObj, clears velocity, sets evyoshiegg vars, and changes to item state 5.",
+    "Added itEvYoshiEgg_DatAttrs and itEvYoshiEgg_ItemVars to itCommonItems.h, with the item vars containing xDD4 and xDD8 fields used by the matched code.",
+    "Added itEvYoshiEgg_ItemVars evyoshiegg to the Item xDD4_itemVar union in src/melee/it/types.h.",
+    "Updated itevyoshiegg.h prototypes to type itEvYoshiEgg_Spawn(Vec3*) and rename the damage-received prototype to itEvYoshiEgg_Logic42_DmgReceived.",
+    "Updated item logic table references in it_2725.c and an adjacent documentation/comment block in it_3F14.c to use itEvYoshiEgg_Logic42_DmgReceived.",
+    "Updated config/GALE01/symbols.txt to rename it_8029B0C8 to itEvYoshiEgg_Spawn and it_3F14_Logic42_DmgReceived to itEvYoshiEgg_Logic42_DmgReceived, and converted three sdata2 float symbols at 0x804DCC88, 0x804DCC8C, and 0x804DCC90 from global it_804DCCxx names to local @153, @154, and @195 labels."
   ],
   "smart_moves": [
-    "Introduced item-specific `itEvYoshiEgg_ItemVars` instead of continuing to borrow the `bombhei` union member; this improves semantic accuracy while preserving the shared `xDD4_itemVar` layout.",
-    "Matched both code and data: the PR did not stop at function bodies, but also added the EvYoshiEgg `ItemStateTable`, which the bot reported as a new `.data` match.",
-    "Kept symbol map, header prototypes, live logic table, and preserved/commented table reference in sync when renaming the damage callback.",
-    "Used an item-prefixed name for behavior that had been hidden behind a file/section-derived name, making ownership clear: `itEvYoshiEgg_Logic42_DmgReceived` instead of `it_3F14_Logic42_DmgReceived`.",
-    "Localized compiler-owned float constants in `symbols.txt` once the C source owned the constants, avoiding artificial global data names."
+    "Introduced item-specific xDD4_itemVar.evyoshiegg storage before replacing placeholder union access, which makes the matched behavior safer and more self-documenting than continuing to reuse bombhei fields.",
+    "Renamed only the functions with strong item-specific evidence, while leaving unrelated/shared generic functions such as it_3F14_Logic42_DmgDealt, Reflected, Clanked, and HitShield unchanged.",
+    "Kept the damage-received transition setup in a static inline helper, likely to preserve codegen while isolating the repeated state-change sequence: hide model, stop/clear item behavior, zero velocity, set counters, and switch item state.",
+    "Updated symbols, headers, item logic tables, and configure.py together, avoiding the common failure mode where a matched C implementation is present but not linked or still referenced by stale generic names.",
+    "Localized float constants in symbols.txt as compiler-generated local labels instead of preserving misleading global it_804DCCxx names."
   ],
   "decomp_lessons": [
-    "When an item file reaches matching status, update `configure.py` only after all dependent pieces are aligned: C implementation, state tables, symbols, headers, and logic-table call sites.",
-    "For `Item::xDD4_itemVar` work, add a proper per-item union member in `types.h` and a typedef in `itCommonItems.h`; avoid using another item’s member as a placeholder once ownership is known.",
-    "Item matching often requires reconstructing state-table `.data`, not just replacing `/// #function` placeholders with C code.",
-    "If a callback name came from a broad source bucket like `it_3F14`, rename it to the owning item prefix once the logic table and behavior identify it.",
-    "Unknown fields can remain offset-style (`x0`, `x4`, `xDD4`, `xDD8`) while still improving structure ownership and matching; do not over-name semantics without stronger evidence.",
-    "Timer/latch item behavior can be expressed with item vars: here `xDD4` acts as a processed flag and `xDD8` as a countdown in the matched source, though exact semantic names were not proven in the PR."
+    "When matching an item file, complete the plumbing: mark the object Matching in configure.py, update config symbols, add prototypes, add item-var union members, and update item logic table references.",
+    "If existing code accesses an unrelated union member as a placeholder, add a correctly named item-specific var struct and switch all accesses to that member before treating the file as matched.",
+    "Item special attributes should be modeled with a typed DatAttrs struct once the function clearly reads xC4_article_data->x4_specialAttributes; even partial field names such as x0/x4 are preferable to untyped pointer arithmetic when evidence is limited.",
+    "Event item damage behavior can depend on an item-specific latch flag plus damage threshold: this PR checks evyoshiegg.xDD4, compares ip->xC9C with a data attribute, then transitions into a hidden/countdown state.",
+    "State tables are often required for matching item files; define the ItemStateTable near the item implementation and use NULL where the original callback slot is empty.",
+    "Rename symbols to item-specific names when call sites and logic table slots identify ownership, but do not over-rename adjacent shared it_3F14 callbacks without direct evidence."
   ],
   "naming_conventions": [
-    "Global identified event Yoshi Egg functions use `itEvYoshiEgg_` prefix, e.g. `itEvYoshiEgg_Spawn` and `itEvYoshiEgg_Logic42_DmgReceived`.",
-    "Existing motion callbacks retain the spelling `itEvyoshiegg_UnkMotionN_{Anim,Phys,Coll}`; the PR preserves that convention rather than normalizing all names to `itEvYoshiEgg`.",
-    "Logic callbacks use `Logic42_*` suffixes for this item’s table entries, such as `Destroyed`, `Spawned`, `DmgReceived`, and `EnteredAir`.",
-    "Per-item structs follow `itEvYoshiEgg_DatAttrs` and `itEvYoshiEgg_ItemVars`; the union member is lowercase `evyoshiegg`.",
-    "Unknown struct fields remain offset-style (`x0`, `x4`, `xDD4`, `xDD8`) where the diff does not prove names.",
-    "Local float/data symbols in `symbols.txt` use compiler-style `@NNN` labels when they are not true globals."
+    "Event Yoshi Egg function names use the prefix itEvYoshiEgg_ for logic and spawn functions, for example itEvYoshiEgg_Spawn and itEvYoshiEgg_Logic42_DmgReceived.",
+    "Existing motion callback names in this slice use the mixed-case prefix itEvyoshiegg_UnkMotionN_Anim/Phys/Coll, preserving the file's established symbol casing rather than normalizing all names in this PR.",
+    "Item-specific data structs follow item prefix plus role: itEvYoshiEgg_DatAttrs and itEvYoshiEgg_ItemVars.",
+    "xDD4_itemVar union member name is lowercase item name evyoshiegg.",
+    "Unknown fields remain offset-style names such as x0, x4, xDD4, and xDD8 when no semantic name is evidenced."
   ],
   "assembly_or_matching_tactics": [
-    "The source uses direct `SpawnItem` field assignments, chained zeroing of velocity components, and parent-gobj aliasing (`x4_parent_gobj2 = x0_parent_gobj`), which is the kind of exact statement shaping commonly needed for item spawn matches.",
-    "A `static inline` helper isolates the damage-received state transition while allowing the emitted code to inline into `itEvYoshiEgg_Logic42_DmgReceived`.",
-    "The damage function keeps early-return guard order explicit: already-processed check first, damage-threshold check second, then effect/sound-or-item-event calls and state transition.",
-    "The matched effect setup uses a local `f32 val = 1.5f` and two identical `efSync_Spawn(1231, ...)` calls; this correlates with the `.sdata2` constant-symbol cleanup in the same PR.",
-    "The state table entry order and exact callbacks, including a `NULL` collision callback in one state, were added to recover `.data` matching.",
-    "Evidence for unused-local matching intent is weak, but the diff includes unused local declarations such as `itEvYoshiEgg_ItemVars* attrs;` in spawn and `f32* unused;` in damage-received; do not remove similar oddities without checking codegen."
+    "Used chained assignment for zeroing spawn velocity components: spawn.vel.x = spawn.vel.y = spawn.vel.z = 0.0f, matching likely compiler output for initialization.",
+    "Preserved a static inline helper for the damage-received transition, suggesting code-shape control while keeping the main function readable.",
+    "Called efSync_Spawn twice with the same effect id 1231 and same scale variable, indicating the match required two identical effect spawns rather than a loop or helper abstraction.",
+    "Kept an apparently unused local f32* unused in itEvYoshiEgg_Logic42_DmgReceived, likely because local variable layout or debug/codegen requirements affected matching.",
+    "Used Item_80268E5C(gobj, 5, ITEM_ANIM_UPDATE) to enter the newly defined state table index 5 after setting the countdown fields.",
+    "Changed sdata2 float labels from global it_804DCCxx to local @number labels to align the symbol map with compiler-emitted local constants."
   ],
   "review_feedback": [
-    "No human PR body, reviews, or review comments were present in the slice.",
-    "decomp-dev bot reported GALE01 progress: matched code 55.29% (+0.01%, +548 bytes), linked code 31.82% (+0.04%, +1584 bytes), matched data 34.60% (+0.01%, +112 bytes), linked data 29.18% (+0.01%, +112 bytes).",
-    "Bot-listed new matches: `itEvYoshiEgg_Logic42_DmgReceived` (+260 bytes), `itEvYoshiEgg_Spawn` (+192 bytes), `.data` (+96 bytes), `itEvyoshiegg_UnkMotion5_Anim` (+96 bytes), and `.sdata2` (+4 bytes)."
+    "No review comments were provided in the PR context. The PR merged quickly and the available dump has no human text excerpt, so reviewer rationale is not evidenced."
   ],
   "searchable_terms": [
     "pr-2229",
     "PsiLupan",
-    "Match & link itevyoshiegg",
     "itevyoshiegg",
     "itEvYoshiEgg",
     "itEvYoshiEgg_Spawn",
+    "it_8029B0C8",
     "itEvYoshiEgg_Logic42_DmgReceived",
+    "it_3F14_Logic42_DmgReceived",
     "itEvyoshiegg_UnkMotion5_Anim",
     "it_803F6728",
     "ItemStateTable",
-    "It_Kind_EvYoshiEgg",
-    "SpawnItem",
-    "Item_80268B18",
-    "Item_80268E5C",
-    "ITEM_ANIM_UPDATE",
-    "HSD_JObjSetFlagsAll",
-    "JOBJ_HIDDEN",
-    "efSync_Spawn",
-    "gm_801BEB68",
     "itEvYoshiEgg_DatAttrs",
     "itEvYoshiEgg_ItemVars",
     "xDD4_itemVar.evyoshiegg",
-    "it_8029B0C8",
-    "it_3F14_Logic42_DmgReceived",
+    "It_Kind_EvYoshiEgg",
+    "Item_80268B18",
+    "Item_80268E5C",
+    "ITEM_ANIM_UPDATE",
+    "efSync_Spawn",
+    "gm_801BEB68",
+    "HSD_JObjSetFlagsAll",
+    "JOBJ_HIDDEN",
+    "configure.py Matching",
     "config/GALE01/symbols.txt",
-    "configure.py",
-    "Object(Matching)",
-    "sdata2",
-    "@153",
-    "@154",
-    "@195"
+    "sdata2 local labels"
   ],
   "follow_up_queries": [
-    "Search for other item files still borrowing the wrong `xDD4_itemVar` union member as a placeholder.",
-    "Find remaining `it_3F14_Logic42_*` callbacks that may deserve item-specific prefixes.",
-    "Audit `itEvYoshiEgg_DatAttrs.x0`/`x4` and `itEvYoshiEgg_ItemVars.xDD4`/`xDD8` once stronger semantic evidence is available.",
-    "Compare `itEvyoshiegg_UnkMotion*` spelling against `itEvYoshiEgg_*` if future naming-cleanup policy allows consistency changes.",
-    "Look for other nonmatching item objects where adding the `ItemStateTable` `.data` may unlock matching/linking progress."
+    "Look for later PRs that rename itEvyoshiegg_UnkMotion* callbacks to more semantic state names.",
+    "Search for usages of itEvYoshiEgg_DatAttrs.x0 and x4 to determine proper field names for the damage threshold and pointer field.",
+    "Compare other event item damage-received implementations that hide the JObj, clear velocity, set countdown vars, and enter a delayed destruction state.",
+    "Check whether it_8029B1D8 and remaining it_3F14 Logic42 shared callbacks were later attributed to Event Yoshi Egg or kept shared across items."
   ],
-  "confidence": 0.89
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

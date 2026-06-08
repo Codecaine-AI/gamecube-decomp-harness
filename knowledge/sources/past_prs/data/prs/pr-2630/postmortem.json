@@ -1,0 +1,135 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2630",
+  "pr": {
+    "number": 2630,
+    "title": "Improvements to split up: VI",
+    "url": "https://github.com/doldecomp/melee/pull/2630",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:30:57Z",
+    "merged_at": "2026-06-08T15:04:54Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Path-sliced VI matching cleanup from a larger split-up branch, touching only src/melee/vi/vi0502.c. The change refactors un_8031E444_OnEnter locals to more specific names and types, treats the entry argument as a ViCharaDesc instead of raw u8 input, and applies several small expression/formatting changes that likely supported matching without broad subsystem changes.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "local-variable-refactor",
+      "type-recovery",
+      "path-sliced-review"
+    ],
+    "systems": [
+      "melee-core",
+      "vi",
+      "visual-scene"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/vi/vi0502.c",
+      "role": "Only changed file; updates un_8031E444_OnEnter in the VI 0502 visual scene setup path."
+    }
+  ],
+  "what_changed": [
+    "Changed un_8031E444_OnEnter argument handling from a raw u8* input to a ViCharaDesc* desc.",
+    "Replaced char_kind/input indexing with named descriptor fields: p1_char_index, p1_costume_index, and p2_costume_index.",
+    "Renamed a reused generic HSD_GObj* gobj local into role-specific locals: fog_gobj, light_gobj, camera_gobj, and model_gobj.",
+    "Changed the character animation archive lookup to use viGetCharAnimByIndex(char_index), where char_index is desc->p1_char_index.",
+    "Removed the GXColor pointer cast assignment to erase_colors_vi0502 and assigned fog->color directly.",
+    "Introduced an extra HSD_JObj* local named new_var and routed some model object setup and animation calls through it.",
+    "Adjusted small matching-sensitive expressions and literals, including 0.0f to 0.0F and gm_8016895C's third argument from 0 to (un_804D6F90->models[i] != NULL) * 0.",
+    "PR body states this was split from #2617 by directory/subsystem to make matching improvements easier to review, with scope limited to src/melee/vi."
+  ],
+  "smart_moves": [
+    "Kept the slice narrowly scoped to src/melee/vi/vi0502.c, reducing review risk for a larger matching-improvement branch.",
+    "Recovered the semantic type of the scene-entry argument as ViCharaDesc, replacing magic byte offsets with named fields.",
+    "Used role-specific GObj local names to document scene construction order: fog, light, camera, then models.",
+    "Preserved behavior while making decompilation intent clearer around character archive loading and final vi0502_8031E124 setup arguments.",
+    "Used local variable and expression shaping rather than broad logic changes, a common safer tactic for matching-oriented PRs."
+  ],
+  "decomp_lessons": [
+    "When an entry argument is actually a known descriptor struct, prefer casting once to that descriptor type and using named fields instead of raw byte indexing.",
+    "Splitting a larger matching branch by directory/subsystem can make small decomp improvements easier to review and merge.",
+    "Generic reused locals can be renamed to object-role locals without changing behavior, improving readability and making future matching work less error-prone.",
+    "Matching-sensitive code may require apparently redundant aliases or expressions, such as assigning jobj to another local or multiplying a known non-null check by zero.",
+    "Direct struct assignment can replace casted pointer assignment when the destination type is already known, as with erase_colors_vi0502 = fog->color."
+  ],
+  "naming_conventions": [
+    "Use *_gobj suffixes for HSD_GObj* locals whose role is known, e.g. fog_gobj, light_gobj, camera_gobj, model_gobj.",
+    "Use char_index for a character-animation index when the code calls viGetCharAnimByIndex, rather than a broader CharacterKind name if evidence points to an index field.",
+    "Use descriptor field names from ViCharaDesc such as p1_char_index, p1_costume_index, and p2_costume_index instead of input[0], input[1], and input[3].",
+    "The introduced name new_var is not semantically strong; evidence suggests it was likely retained for matching/local allocation rather than as a final naming ideal."
+  ],
+  "assembly_or_matching_tactics": [
+    "Recovered a struct pointer cast for arg: desc = (ViCharaDesc*) arg.",
+    "Replaced raw array accesses with struct-field accesses while preserving the same data flow into viGetCharAnimByIndex and vi0502_8031E124.",
+    "Split one reused gobj local into several typed role locals, likely influencing register allocation/lifetimes while clarifying object ownership.",
+    "Introduced a jobj alias new_var before HSD_GObjObject_80390A70 and HSD_JObjReqAnimAll, likely to shape local lifetimes or register use.",
+    "Used the no-op expression (un_804D6F90->models[i] != NULL) * 0 instead of literal 0 in gm_8016895C, suggesting a matching-motivated expression form.",
+    "Changed floating constants from 0.0f to 0.0F; this is stylistically equivalent in C but appears in the matching diff."
+  ],
+  "review_feedback": [
+    {
+      "source": "pr_body",
+      "feedback": "The PR was explicitly split from #2617 by directory/subsystem so matching improvements were easier to review."
+    },
+    {
+      "source": "review_comments",
+      "feedback": "No inline review comments or formal review feedback were present in the provided slice."
+    }
+  ],
+  "searchable_terms": [
+    "pr-2630",
+    "Improvements to split up: VI",
+    "fjooord",
+    "src/melee/vi/vi0502.c",
+    "vi0502",
+    "vi0502_RunFrame",
+    "un_8031E444_OnEnter",
+    "ViCharaDesc",
+    "p1_char_index",
+    "p1_costume_index",
+    "p2_costume_index",
+    "viGetCharAnimByIndex",
+    "vi0502_8031E124",
+    "lbArchive_LoadSymbols",
+    "visual0502Scene",
+    "IrAls.dat",
+    "HSD_GObj",
+    "HSD_Fog",
+    "HSD_LObj",
+    "HSD_CObj",
+    "HSD_JObj",
+    "fog_gobj",
+    "light_gobj",
+    "camera_gobj",
+    "model_gobj",
+    "erase_colors_vi0502",
+    "GObj_Create",
+    "GObj_SetupGXLink",
+    "GObj_SetupGXLinkMax",
+    "HSD_GObjObject_80390A70",
+    "HSD_CObjReqAnim",
+    "HSD_JObjReqAnimAll",
+    "gm_8016895C",
+    "path slice",
+    "decomp matching"
+  ],
+  "follow_up_queries": [
+    "Find later PRs that rename or eliminate the temporary new_var local in src/melee/vi/vi0502.c.",
+    "Search for other OnEnter functions that still treat descriptor arguments as raw u8* arrays.",
+    "Compare PR #2617 for the full unsplit matching branch context and any related VI changes.",
+    "Check whether ViCharaDesc is documented in headers and whether all p1/p2 costume fields are consistently named across VI scenes."
+  ],
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

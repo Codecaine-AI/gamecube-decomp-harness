@@ -1,0 +1,146 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2632",
+  "pr": {
+    "number": 2632,
+    "title": "Improvements to split up: Dolphin support",
+    "url": "https://github.com/doldecomp/melee/pull/2632",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:32:46Z",
+    "merged_at": "2026-06-08T16:11:45Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Support-directory slice split from PR #2617, focused on Dolphin THP decoder code and sysdolphin baselib matching cleanups. The merged diff mainly refactored THPDec MCU row decompression to use a local THPFileInfo pointer consistently and a typed THPFileInfoMCUBufferView cast instead of a raw offset-derived THPCoeff**. Smaller baselib changes adjusted statement ordering in hsd_3B34.c, simplified a synth sentinel comparison to the direct signed constant -0x10001, and removed a blank line in cobj.c after review rejected a PAD_STACK-based attempt as not a real improvement. Review also pushed back on an inaccurate particle.c string-label/table attempt, which does not appear in the final changed files.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "codegen-cleanup",
+      "support-library",
+      "review-driven-revert"
+    ],
+    "systems": [
+      "extern/dolphin",
+      "dolphin-thp",
+      "sysdolphin",
+      "baselib",
+      "synth",
+      "camera-object"
+    ]
+  },
+  "key_files": [
+    "extern/dolphin/src/dolphin/thp/THPDec.c",
+    "src/sysdolphin/baselib/hsd_3B34.c",
+    "src/sysdolphin/baselib/synth.c",
+    "src/sysdolphin/baselib/cobj.c",
+    "src/sysdolphin/baselib/particle.c"
+  ],
+  "what_changed": [
+    "In extern/dolphin/src/dolphin/thp/THPDec.c, __THPDecompressiMCURowNxN now stores __THPInfo in a local THPFileInfo* info and uses info->xPixelSize, info->components, and info->quantTabs rather than repeatedly referencing __THPInfo.",
+    "The THP MCU buffer access in __THPDecompressiMCURowNxN changed from a local raw pointer cast, THPCoeff** mcuBuffer = (THPCoeff**)((u8*)info + 0x10), to repeated typed casts through THPFileInfoMCUBufferView and its mcuBuffer field.",
+    "The THP decode and inverse-DCT calls now pass ((THPFileInfoMCUBufferView*) info)->mcuBuffer[N] directly for Y, U, and V components.",
+    "In src/sysdolphin/baselib/hsd_3B34.c, assignments to jmp_buf and temp_r4 were moved after reads from lbl_804DEB88, apparently to improve matching-sensitive instruction ordering.",
+    "In src/sysdolphin/baselib/synth.c, a sentinel check changed from (u32)(x8 + 0x10000) == -1U to the simpler direct comparison x8 == -0x10001.",
+    "In src/sysdolphin/baselib/cobj.c, the final merged diff only removes a blank line in HSD_CObjSetUpVector; a reviewed PAD_STACK(4) attempt was rejected and is not present in the final diff.",
+    "Review excerpts show a particle.c change attempted to replace direct string literals with a large byte-array label, but reviewers called it inaccurate/regressive and particle.c is absent from the final changed_files list, implying that work was dropped from the merged slice."
+  ],
+  "smart_moves": [
+    "Splitting the larger matching-improvement branch by support directory made the changes easier to review and helped isolate Dolphin/support code from unrelated work.",
+    "Using a typed THPFileInfoMCUBufferView view communicates the structure overlay being relied on better than a magic +0x10 raw pointer cast.",
+    "Caching __THPInfo in a local info pointer and consistently reusing it reduces repeated global references while preserving the same THP decoder logic.",
+    "The synth comparison rewrite expresses the intended sentinel value directly, which is clearer than relying on unsigned wraparound arithmetic.",
+    "Reviewer pushback was incorporated by avoiding questionable particle string-label work and avoiding a PAD_STACK-only cobj change that did not address deeper function issues."
+  ],
+  "decomp_lessons": [
+    "For Dolphin SDK overlays or partially known structs, prefer introducing a named view type for a known field layout over burying offsets in raw casts, provided the layout evidence is strong.",
+    "Small source-order changes can matter for matching; moving loads or assignments may be a valid tactic when it reflects codegen order rather than cosmetic preference.",
+    "Do not turn obvious direct string literals into large anonymous byte arrays just to force data layout unless there is evidence the original code used a table or packed blob.",
+    "A stack-padding macro is not automatically an improvement; if a function has fundamental issues, reviewers may reject PAD_STACK churn as masking rather than solving the mismatch.",
+    "When slicing a large PR, make sure the final file list reflects what actually merged; planned-path files such as particle.c, sislib.c, or other baselib files may have been dropped during review."
+  ],
+  "naming_conventions": [
+    "Typed view name observed: THPFileInfoMCUBufferView for accessing mcuBuffer within THPFileInfo storage.",
+    "Existing Dolphin THP naming retained: __THPDecompressiMCURowNxN, __THPHuffDecodeDCTCompY, __THPHuffDecodeDCTCompU, __THPHuffDecodeDCTCompV, __THPInverseDCTNoYPos, __THPInverseDCTY8.",
+    "Existing sysdolphin/baselib names retained: HSD_CObjSetUpVector, HSD_CObjGetUpVector, hsd_803B46D4, HSD_Synth_8038ADD0.",
+    "Temporary/generated labels remain in use where symbols are still unknown, including lbl_804DEB88 and lbl_804C4540.",
+    "Reviewer feedback discourages replacing readable string literals with opaque labels like lbl_8040A540 when that is likely inaccurate to original developer source."
+  ],
+  "assembly_or_matching_tactics": [
+    "Replace repeated global __THPInfo accesses with a local pointer when that produces better register allocation or load ordering.",
+    "Use a typed struct/view cast to access data at a known offset instead of introducing a local raw pointer that may alter codegen.",
+    "Reorder local assignments around memory reads in hsd_3B34.c to match the target instruction schedule.",
+    "Simplify unsigned wraparound sentinel checks into signed literal comparisons when that produces the desired match and is semantically clearer.",
+    "Avoid PAD_STACK as a superficial matching tactic when the surrounding function has unresolved structural/codegen problems."
+  ],
+  "review_feedback": [
+    {
+      "file": "src/sysdolphin/baselib/particle.c",
+      "author": "ThePlayerRolo",
+      "feedback": "The large byte-array label for MCC/HIO error strings was most likely inaccurate to what the original developers did. Suggested trying a const char* table if it matched, otherwise reverting because direct string literals were more likely."
+    },
+    {
+      "file": "src/sysdolphin/baselib/particle.c",
+      "author": "PsiLupan",
+      "feedback": "Changing a case from the direct string \"MCC is no initialize\" to lbl_8040A540 caused a regression due to not using the string."
+    },
+    {
+      "file": "src/sysdolphin/baselib/cobj.c",
+      "author": "PsiLupan",
+      "feedback": "Adding PAD_STACK(4) in HSD_CObjSetUpVector was not considered an improvement because the function has other fundamental issues."
+    }
+  ],
+  "searchable_terms": [
+    "PR2632",
+    "split up Dolphin support",
+    "extern/dolphin/src/dolphin/thp/THPDec.c",
+    "__THPDecompressiMCURowNxN",
+    "THPFileInfoMCUBufferView",
+    "mcuBuffer",
+    "THPCoeff",
+    "THPComponent",
+    "THPMCURowFields",
+    "THPRestartFields",
+    "LCQueueWait",
+    "__THPHuffDecodeDCTCompY",
+    "__THPHuffDecodeDCTCompU",
+    "__THPHuffDecodeDCTCompV",
+    "__THPInverseDCTNoYPos",
+    "__THPInverseDCTY8",
+    "src/sysdolphin/baselib/hsd_3B34.c",
+    "hsd_803B46D4",
+    "lbl_804DEB88",
+    "hsd_804D2648",
+    "hsd_804D79A0",
+    "src/sysdolphin/baselib/synth.c",
+    "HSD_Synth_8038ADD0",
+    "HSD_Synth_804D7770",
+    "HSD_Synth_804D776C",
+    "lbl_804C4540",
+    "AXSetVoiceLoop",
+    "-0x10001",
+    "src/sysdolphin/baselib/cobj.c",
+    "HSD_CObjSetUpVector",
+    "PAD_STACK",
+    "src/sysdolphin/baselib/particle.c",
+    "MCC is no initialize",
+    "HIO mailbox",
+    "const char* table"
+  ],
+  "follow_up_queries": [
+    "Inspect the definition of THPFileInfoMCUBufferView and confirm whether the mcuBuffer offset/layout is documented well enough for future THP work.",
+    "Revisit HSD_CObjSetUpVector for the fundamental issues mentioned by PsiLupan rather than relying on PAD_STACK.",
+    "For particle.c MCC/HIO error strings, test direct literals versus a const char* table before introducing packed byte-array labels.",
+    "Compare this support-directory slice against the source PR #2617 to identify which planned files were intentionally dropped before merge.",
+    "Check decomp-dev CI results for the final slice to quantify the exact matched-code/data effect after review changes."
+  ],
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

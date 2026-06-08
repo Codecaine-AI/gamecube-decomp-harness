@@ -11,159 +11,169 @@
     "merged_at": "2026-04-09T20:46:49Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large lbaudio_ax decomp/matching PR focused on Melee's AX audio library: filled many lbAudioAx stubs, recovered more audio object/userdata and pool state, fixed public prototypes, and renamed an AX aux-heap helper. decomp.dev reported +1780 matched code bytes, +40 matched data bytes, and 6 new matches, but also noted regressions in .bss, fn_80023254, .sdata, fn_800268B4, and the renamed AXDriver_8038E034 item.",
+  "summary": "Large lbaudio_ax decompilation/matching PR focused on Melee's lb audio AX layer. It replaced many placeholder stubs with C for sound-bank remapping/loading, sound object update callbacks, pan/volume interpolation, background/aux audio setup, and several near-matching functions. The decomp.dev bot reported +1780 matched code bytes, +40 matched data bytes, 6 new matches, and 16 unmatched-item improvements, while also noting regressions in .bss, AXDriver_8038E034 after renaming, fn_80023254, .sdata, and fn_800268B4.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "audio",
       "decomp-matching",
+      "audio",
       "headers",
-      "struct-recovery",
-      "data-layout",
-      "symbol-rename"
+      "struct-layout",
+      "symbol-renaming"
     ],
     "systems": [
-      "melee/lb/lbaudio_ax",
-      "sysdolphin/baselib/axdriver",
-      "melee/ft/ftcoll"
+      "melee/lb",
+      "sysdolphin/baselib",
+      "fighter"
     ]
   },
   "key_files": [
     {
-      "path": "src/melee/lb/lbaudio_ax.c",
-      "notes": "Main implementation work: 1321 added lines replacing many /// stubs and reshaping existing functions for match."
+      "file": "src/melee/lb/lbaudio_ax.c",
+      "why": "Main decompilation target; added most of the PR's code, including implementations for lbAudioAx_800233EC, lbAudioAx_80023B24, lbAudioAx_800243F4, fn_800253D8, fn_800256BC, fn_80025FAC, fn_800262A0, fn_80026650, fn_800269AC, fn_80026C04, lbAudioAx_80027168, lbAudioAx_80027648, lbAudioAx_8002785C, lbAudioAx_80027AB0, lbAudioAx_80027DF8, lbAudioAx_8002838C, and lbAudioAx_80028690."
     },
     {
-      "path": "src/melee/lb/lbaudio_ax.static.h",
-      "notes": "Recovered lbAudioAx_UserData fields and expanded lbAudioAx_PoolAlloc from a small allocator wrapper to a 0x1F554-sized state/heap struct with bank arrays and aux buffers."
+      "file": "src/melee/lb/lbaudio_ax.static.h",
+      "why": "Expanded lbAudioAx_UserData and lbAudioAx_PoolAlloc layouts, added/static-adjusted globals such as lbl_804D38D0, sfx_remap_803BC6A4, lbl_804D3870, and lbl_804D3878, and exposed several old array symbols as externs."
     },
     {
-      "path": "src/melee/lb/lbaudio_ax.h",
-      "notes": "Updated signatures from UNK_RET/UNK_PARAMS or incorrect types to concrete s32/void parameterized prototypes."
+      "file": "src/melee/lb/lbaudio_ax.h",
+      "why": "Updated public prototypes away from UNK_RET/UNK_PARAMS and corrected return types/signatures for several lbAudioAx and fn_80026xxx functions."
     },
     {
-      "path": "src/sysdolphin/baselib/axdriver.c",
-      "notes": "Renamed AXDriver_8038E034 to HSD_AudioGetAuxHeapSize."
+      "file": "src/sysdolphin/baselib/axdriver.c",
+      "why": "Renamed AXDriver_8038E034 to HSD_AudioGetAuxHeapSize, matching the newly used semantic name for aux effect heap sizing."
     },
     {
-      "path": "src/sysdolphin/baselib/axdriver.h",
-      "notes": "Exported the renamed HSD_AudioGetAuxHeapSize prototype."
+      "file": "src/sysdolphin/baselib/axdriver.h",
+      "why": "Updated the declaration for HSD_AudioGetAuxHeapSize at address 38E034."
     },
     {
-      "path": "src/melee/ft/ftcoll.c",
-      "notes": "Added <baselib/random.h> include."
+      "file": "src/melee/ft/ftcoll.c",
+      "why": "Added baselib/random.h include, likely required after random API header cleanup or dependency exposure."
     }
   ],
   "what_changed": [
-    "Replaced stubs or large unmatched regions in lbaudio_ax.c with C for lbAudioAx_800233EC, lbAudioAx_80023B24, lbAudioAx_800243F4, fn_800253D8, fn_800256BC, fn_80025FAC, fn_800262A0, fn_80026650, fn_800269AC, fn_80026C04, lbAudioAx_80027168, fn_80027488, lbAudioAx_80027648, lbAudioAx_8002785C, lbAudioAx_80027AB0, lbAudioAx_80027DF8, lbAudioAx_8002838C, and lbAudioAx_80028690.",
-    "decomp.dev reported new 100% matches for fn_800262A0, lbAudioAx_800243F4, fn_800251EC, fn_80025B44, fn_80025CBC, and lbaudio_ax .sdata2.",
-    "Added concrete audio bank/load state behavior: SFX key-off, bank unload/load, pending-load cancellation/waiting, language-dependent audio paths, and stage/player-driven SFX bank selection.",
-    "Recovered more of the sound object lifecycle: SoundParams setup, lbAudioAx_UserData initialization, per-frame callback dispatch through ud->x10, pan/volume clamping, and AXDriver pan/volume update calls.",
-    "Recovered or reshaped spatial audio pan logic around HSD_GObj user data, entity->classifier, ftLib_80086644 for fighters, and it_8026B294 for items.",
-    "Expanded lbAudioAx_PoolAlloc to contain xB4/x194/x274/x354/x434 arrays, AR buffer x514, reverb heap x554, and delay heap xD954; added lbl_804D38D0, lbl_804D3870, lbl_804D3878, and sfx_remap_803BC6A4 data.",
-    "Changed public prototypes such as lbAudioAx_80023B24 from f32 to s32, lbAudioAx_800243F4 from UNK_RET to s32, fn_80026650/fn_80027488/lbAudioAx_8002785C/lbAudioAx_80028690 to s32(void), and fn_800269AC/lbAudioAx_80027DF8 to void(void).",
-    "Renamed AXDriver_8038E034 to HSD_AudioGetAuxHeapSize and used that semantic name in lbaudio_ax aux heap assertions.",
-    "Adjusted data layout, including shrinking data_pad_0 to 0x144 and moving formerly separate lbl_804337C4/lbl_804338A4/lbl_80433984/lbl_80433A64/lbl_80433B44-style arrays into or alongside the recovered pool allocation state."
+    "Implemented several previously stubbed lbaudio_ax functions, with decomp.dev reporting full matches for fn_800262A0 and lbAudioAx_800243F4.",
+    "Improved multiple large unmatched lbaudio_ax functions, including lbAudioAx_80027DF8, lbAudioAx_80028690, lbAudioAx_80027AB0, lbAudioAx_8002838C, lbAudioAx_80023B24, fn_80025FAC, fn_800253D8, fn_800256BC, lbAudioAx_800233EC, lbAudioAx_8002785C, lbAudioAx_80027168, fn_800269AC, fn_80026C04, lbAudioAx_80027648, fn_80027488, and fn_80026650.",
+    "Reworked lbaudio_ax state access from raw global array symbols like lbl_80433B44/lbl_804338A4/lbl_80433984 into fields on lbl_80433710, especially x194, x274, x354, and x434.",
+    "Expanded lbAudioAx_PoolAlloc from a small allocator-plus-arrays struct into a large 0x1F554-byte struct containing bank state arrays and aux effect heaps x554 and xD954.",
+    "Expanded lbAudioAx_UserData from mostly padding into named fields for owning gobj, entity, callback, sfx id, start/end values, pan fields, current/end frames, direction scalar x3C, group x40, and voice id.",
+    "Added a local SoundParams struct in lbaudio_ax.c and used it to initialize lbAudioAx_UserData in fn_80025FAC.",
+    "Added audio-related includes to lbaudio_ax.c, including dolphin/ai.h, dolphin/ar.h, dolphin/axfx.h, baselib/debug.h, baselib/random.h, gm_16AE.h, lb_0192.h, and player.h.",
+    "Renamed AXDriver_8038E034 to HSD_AudioGetAuxHeapSize in axdriver.c and axdriver.h.",
+    "Changed lbaudio_ax.h prototypes to concrete return types, for example lbAudioAx_80023B24 from f32 to s32, lbAudioAx_800243F4 to s32, fn_80026650 to s32 fn_80026650(void), fn_800269AC to void, fn_80026C04 to s32, lbAudioAx_80027DF8 to void, and lbAudioAx_80028690 to s32.",
+    "Introduced or refined pan/volume update logic that clamps values to 0..0x7F before sending doubled/even values to AXDriver_8038D2B4 and AXDriver_8038D3B8.",
+    "Added aux effect setup code using AXFX_REVERBSTD, AXFX_DELAY, AXDriver_8038E498, AXDriver_8038E37C, and AXDriver_8038E30C.",
+    "The bot report recorded regressions in lbaudio_ax .bss, AXDriver_8038E034/HSD_AudioGetAuxHeapSize matching, fn_80023254, lbaudio_ax .sdata, and fn_800268B4."
   ],
   "smart_moves": [
-    "Recovered structs before chasing every function: replacing raw lbl_80433710 pointer arithmetic with lbAudioAx_PoolAlloc fields made later bank-state and heap code much more searchable and reusable.",
-    "Kept uncertain semantics conservative: address-based lbAudioAx_800xxxxx/fn_800xxxxx names remained where no better name was evidenced, while AXDriver_8038E034 was renamed only where the use as an aux heap-size query was clear.",
-    "Used path-prefix length lbl_804D38D0 to handle both /audio/ and /audio/us/ string construction without duplicating load logic.",
-    "Centralized sound-object initialization through SoundParams and lbAudioAx_UserData fields, then updated pan/volume every frame with explicit 0..0x7F clamps before AXDriver_8038D2B4/AXDriver_8038D3B8.",
-    "Preserved compiler-sensitive control flow for matching, such as fallthrough switch increments in lbAudioAx_800243F4 and expression/order tweaks in fn_800251EC instead of over-cleaning the code."
+    "Promoting the global audio pool from loose address arithmetic into lbAudioAx_PoolAlloc fields made repeated accesses like x194/x274/x354/x434 more readable and reusable across functions.",
+    "Typing lbAudioAx_UserData unlocked clearer callback and update code: entity classifier access, callback dispatch through x10, frame interpolation fields, pan fields, and voice_id are now represented directly instead of as opaque padding.",
+    "The lbAudioAx_800243F4 implementation used an intentional fallthrough switch with repeated increments to reproduce a table-like ID mapping while preserving codegen-sensitive control flow.",
+    "The pan/volume update routines explicitly clamp to the AX 0..0x7F domain and then pass `(value * 2) & 0xFE`, documenting the conversion from game-side 7-bit values to AX driver values.",
+    "Renaming AXDriver_8038E034 to HSD_AudioGetAuxHeapSize captured a semantic function name based on its aux effect heap-size role, even though the bot noted it regressed that function's current match percentage.",
+    "Moving SoundParams before fn_80025FAC allowed the initializer function to be written with structured field access rather than anonymous stack/parameter offsets.",
+    "The PR preserved match-oriented oddities where needed, such as duplicated interpolation blocks and empty `if (ud && ud) {}` blocks in fn_80025B44/fn_80025CBC, which appear codegen-motivated from the diff context."
   ],
   "decomp_lessons": [
-    "Large BSS struct recovery can improve source clarity while temporarily hurting automated data-match reporting; this PR's bot report shows .bss dropping by 56951 bytes after lbAudioAx_PoolAlloc expansion.",
-    "When a function's role becomes clear from call sites, a semantic rename can be worthwhile even if the match bot tracks the old address-based item as a regression; here AXDriver_8038E034 became HSD_AudioGetAuxHeapSize.",
-    "Public headers should be updated as soon as signatures are known; replacing UNK_RET/UNK_PARAMS and wrong return types helps downstream functions compile and decompile against the right ABI.",
-    "Audio pan/volume code repeatedly clamps logical 0..0x7F values and sends even-scaled values via (value * 2) & 0xFE to AXDriver; future lbaudio work should reuse that idiom.",
-    "For HSD_GObj audio callbacks, prefer recovered struct fields like user_data, entity, classifier, current_frame, end_frame, pan_left, and pan_right over raw casts when evidence supports them.",
-    "Comments like TODO: This is 100% permute-able are useful breadcrumbs: they mark regions where many statement permutations may affect scheduling without changing semantics."
+    "For lbaudio_ax, many globals around lbl_80433710 are probably contiguous fields of one large pool/manager object; prefer testing a struct layout before proliferating separate array globals.",
+    "Audio object update callbacks depend strongly on lbAudioAx_UserData layout. Naming fields like current_frame, end_frame, pan_left, pan_right, start_val, end_val, voice_id, entity, and callback clarifies later matching work.",
+    "When an address-named baselib function's behavior is understood, a semantic HSD_* name can be introduced, but the resulting match regression should be tracked and revisited.",
+    "Fallthrough-heavy switch statements can be a useful matching tactic for sparse audio/SFX ID remap logic where a lookup table would not match original codegen.",
+    "Repeated nearly identical interpolation code may be necessary for matching; avoid prematurely factoring helper functions if the original compiler emitted duplicated blocks.",
+    "Struct expansion can improve source quality but may destabilize data matching, as shown by the bot-reported .bss and .sdata regressions. Keep data-section changes under review when consolidating globals.",
+    "AX driver calls often expect clamped and scaled pan/volume values; reuse the clamp-to-0x7F then `(value * 2) & 0xFE` idiom where evidence supports it."
   ],
   "naming_conventions": [
-    "Retain lbAudioAx_800xxxxx and fn_800xxxxx names for functions whose semantic names are not yet proven.",
-    "Use semantic HSD_* naming for baselib audio helpers when the behavior is evidenced; AXDriver_8038E034 was renamed to HSD_AudioGetAuxHeapSize.",
-    "Keep address-commented prototypes in lbaudio_ax.h, e.g. /* 023B24 */ and /* 028690 */, while replacing unknown types with concrete signatures.",
-    "Use offset-style field names such as xB4, x194, x274, x354, x434, x514, x554, and xD954 inside recovered structs when field purpose is still uncertain.",
-    "Static/global labels stayed in lbl_80xxxxxx form unless the PR had enough evidence for a better name."
+    "Use lbAudioAx_* for known library-audio AX functions and retain address suffixes when semantic names are not known.",
+    "Use fn_800xxxxx for internal/static or still-unknown functions where no semantic name is available.",
+    "Use HSD_Audio* for semantically identified sysdolphin/baselib audio APIs, as in HSD_AudioGetAuxHeapSize.",
+    "Keep placeholder field names with offset-style identifiers such as x10, x20, x2C, x3C, x40 when field semantics are not fully proven, but name fields with clear behavior such as gobj, entity, start_val, end_val, current_frame, end_frame, pan_left, pan_right, pan, and voice_id.",
+    "Use address-suffixed global labels like lbl_80433710, lbl_803BB300, lbl_803BB8D4, and lbl_804D38D0 when full semantic names are not established."
   ],
   "assembly_or_matching_tactics": [
-    "lbAudioAx_800243F4 uses a long fallthrough switch that increments var_r6 for specific SFX IDs, preserving case order and fallthrough comments to match generated control flow.",
-    "fn_800251EC was tuned with local variable/pad ordering, entity->classifier access, reordered zero assignments, split float multiplication, and ternary absolute value to move from 97.02% to 100%.",
-    "fn_80025B44 and fn_80025CBC include tiny no-op-looking blocks `if (ud && ud) {}` and changed comparisons from `<` to `<=`, matching evidence that codegen shape mattered.",
-    "Array initialization and shifting use fixed-count loops and unrolled chunks over 0x38-slot state arrays, reflecting compiler-friendly matching rather than idiomatic container code.",
-    "Some data remains accessed through char-pointer offsets from lbl_803BB300/lbl_803BB340 where the underlying archive/table structs are not yet fully recovered.",
-    "The lbaudio data section was aligned by explicit padding/data declarations such as data_pad_0[0x144] and sfx_remap_803BC6A4[0x4A][2].",
-    "Callback signatures were made concrete enough for calls like HSD_SynthSFXLoad(..., fn_80026C04, ...) while still using casts where the original ABI/codegen needed them."
+    "Used intentional `goto` labels and fallthrough switch comments to preserve codegen-sensitive control flow.",
+    "Converted some do/while decrement loops into for-loops where that matched better in fn_80023254, while that function still regressed according to the bot.",
+    "Used direct struct field access on lbl_80433710 instead of pointer arithmetic against a char* base for better matching/readability in several functions.",
+    "Kept duplicated interpolation implementations in fn_800253D8 and fn_800256BC rather than abstracting them, likely to preserve generated code shape.",
+    "Inserted no-op-looking empty `if (ud && ud) {}` blocks in fn_80025B44 and fn_80025CBC, suggesting a stack/register scheduling or branch-shape matching tactic.",
+    "Used local scoped blocks and temporary variables around float interpolation and clamp calculations to control expression ordering.",
+    "Used typed AXFX_REVERBSTD and AXFX_DELAY stack structs for aux setup rather than opaque buffers."
   ],
   "review_feedback": [
-    "No human review comments or GitHub reviews were present in the slice; the PR body only said: Tracking PR as usual.",
-    "Automated decomp.dev report for GALE01 showed matched code 62.51% (+0.05%, +1780 bytes) and matched data 38.05% (+40 bytes).",
-    "Automated report listed 6 new matches: fn_800262A0, lbAudioAx_800243F4, fn_800251EC, fn_80025B44, fn_80025CBC, and lbaudio_ax .sdata2.",
-    "Automated report listed 16 improved unmatched lbaudio_ax items, led by lbAudioAx_80027DF8 (+1300 bytes to 94.22%), lbAudioAx_80028690 (+1122 bytes to 95.13%), lbAudioAx_80027AB0, lbAudioAx_8002838C, and lbAudioAx_80023B24.",
-    "Automated report also flagged regressions: lbaudio_ax .bss, sysdolphin/baselib/axdriver AXDriver_8038E034, fn_80023254, lbaudio_ax .sdata, and fn_800268B4."
+    {
+      "source": "PR body",
+      "feedback": "Only says \"Tracking PR as usual\"; no detailed human rationale was provided."
+    },
+    {
+      "source": "review comments",
+      "feedback": "No review comments were present in the provided slice."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported 6 new matches and 16 improvements, but also highlighted regressions: lbaudio_ax .bss, AXDriver_8038E034/HSD_AudioGetAuxHeapSize, fn_80023254, lbaudio_ax .sdata, and fn_800268B4."
+    }
   ],
   "searchable_terms": [
     "pr-2396",
     "Jj/lbaudio_ax",
     "jurrejelle",
-    "lbaudio_ax.c",
-    "lbaudio_ax.static.h",
-    "lbAudioAx",
-    "lbAudioAx_PoolAlloc",
-    "lbAudioAx_UserData",
-    "SoundParams",
-    "lbl_80433710",
-    "lbl_804D38D0",
-    "lbl_804D3870",
-    "lbl_804D3878",
-    "data_pad_0",
-    "sfx_remap_803BC6A4",
-    "HSD_AudioGetAuxHeapSize",
-    "AXDriver_8038E034",
-    "AXDRIVER_AUX_REVERB_STD",
-    "AXDRIVER_AUX_DELAY",
-    "HSD_SynthSFXLoad",
-    "HSD_SynthSFXUnloadBank",
-    "HSD_SynthSFXWaitForLoadCompletion",
-    "HSD_SynthSFXCancelLoad",
-    "HSD_AudioSFXKeyOffAll",
-    "ARInit",
-    "ARQInit",
-    "AIInit",
-    "fn_800262A0",
+    "lbaudio_ax",
+    "lbAudioAx_800233EC",
+    "lbAudioAx_80023B24",
     "lbAudioAx_800243F4",
     "fn_800251EC",
-    "fn_80025B44",
-    "fn_80025CBC",
-    "fn_80025FAC",
     "fn_800253D8",
     "fn_800256BC",
-    "fn_80025E38",
-    "lbAudioAx_80023B24",
-    "lbAudioAx_800233EC",
+    "fn_80025FAC",
+    "fn_800262A0",
+    "fn_80026650",
+    "fn_800269AC",
+    "fn_80026C04",
+    "lbAudioAx_80027168",
+    "lbAudioAx_80027648",
     "lbAudioAx_8002785C",
     "lbAudioAx_80027AB0",
     "lbAudioAx_80027DF8",
     "lbAudioAx_8002838C",
     "lbAudioAx_80028690",
-    "fn_800269AC",
-    "fn_80026C04",
-    "fn_80026650",
-    "fn_80027488",
-    "ftLib_80086644",
-    "it_8026B294",
-    "baselib/random.h"
+    "lbAudioAx_UserData",
+    "lbAudioAx_PoolAlloc",
+    "SoundParams",
+    "HSD_AudioGetAuxHeapSize",
+    "AXDriver_8038E034",
+    "AXDriver_8038D2B4",
+    "AXDriver_8038D3B8",
+    "AXDriver_8038E30C",
+    "AXDriver_8038E37C",
+    "AXFX_REVERBSTD",
+    "AXFX_DELAY",
+    "HSD_SynthSFXLoad",
+    "HSD_SynthSFXUnloadBank",
+    "HSD_AudioSFXKeyOffAll",
+    "lbl_80433710",
+    "lbl_803BB300",
+    "lbl_803BB8D4",
+    "sfx_remap_803BC6A4",
+    "pan interpolation",
+    "audio aux heap",
+    "matched code 62.51"
   ],
   "follow_up_queries": [
-    "pr 2396 lbaudio_ax .bss regression PoolAlloc 0x1F554",
-    "lbAudioAx_800243F4 fallthrough switch var_r6 SFX IDs",
-    "fn_800251EC pan matching entity classifier ftLib_80086644 it_8026B294",
-    "HSD_AudioGetAuxHeapSize AXDriver_8038E034 aux heap size rename",
-    "lbAudioAx_80023B24 bank 2 HSD_SynthSFXUnloadBank x274 x354",
-    "fn_80025E38 TODO 100% permute-able lbaudio_ax",
-    "lbAudioAx_8002838C ARInit AXFX_REVERBSTD AXFX_DELAY heap setup",
-    "lbAudioAx_80028690 language path /audio/us/ lbl_804D38D0"
+    "Check later PRs touching lbaudio_ax .bss or .sdata regressions introduced around lbAudioAx_PoolAlloc expansion.",
+    "Search for follow-up work on HSD_AudioGetAuxHeapSize / AXDriver_8038E034 to recover the 53.61% match regression.",
+    "Look for later PRs renaming lbAudioAx_UserData fields x10, x20, x3C, x40, and x44 to semantic names.",
+    "Find later lbaudio_ax PRs resolving the TODO comment \"This is 100% permute-able\" in fn_80025E38.",
+    "Search for later matching of lbAudioAx_80023B24 and lbAudioAx_800233EC, which this PR improved but did not fully match."
   ],
-  "confidence": 0.86
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

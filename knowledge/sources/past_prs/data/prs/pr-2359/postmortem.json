@@ -11,7 +11,7 @@
     "merged_at": "2026-03-27T16:22:24Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Multi-character fighter decomp/matching PR covering Crazy Hand, Kirby, and Ice Climbers/Popo/Nana code. It replaced many `/// #...` stubs with matching C, corrected fighter/item headers and attribute structs, and added item/effect declarations needed by the new implementations. decomp-dev reported matched code rising to 60.76% (+0.18%, +7136 bytes), with 20 new 100% matches and 8 partial improvements; PR body and human review comments were absent.",
+  "summary": "Broad fighter decompilation/matching work across Crazy Hand, Kirby, Popo/Nana, and Ice Climbers item headers. The PR replaced many placeholder `/// #...` stubs with matching C implementations, corrected several fighter attribute field types, added missing item/function prototypes, and used stack-padding/inlining/data-layout tactics to improve matching. decomp.dev reported +7136 matched bytes, 20 new matches, and a GALE01 matched-code increase to 60.76% (+0.18%). There was no PR body and no human review discussion in the slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -19,191 +19,144 @@
       "headers",
       "struct-typing",
       "fighter-logic",
-      "item-integration",
-      "matching-tactics"
+      "item-integration"
     ],
     "systems": [
       "fighter",
-      "ftCrazyHand",
-      "ftKirby",
-      "ftPopo",
-      "ftNana",
-      "Ice Climbers",
       "item",
-      "effects"
+      "Crazy Hand",
+      "Kirby",
+      "Popo",
+      "Nana",
+      "Ice Climbers"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftCrazyHand/ftCh_Init.c",
-      "role": "Major Crazy Hand matching work: wait/AI selection, player-button dispatch, bomb spawning, grab/capture setup, and typed action-selection table."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCrazyHand/types.h",
-      "role": "Corrected several Crazy Hand dat-attribute offsets from s32 to float for position/velocity/offset arithmetic."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.c",
-      "role": "Implemented Kirby hat/special-N routines including `ftKb_UnkIntBoolFunc0` and `ftKb_SpecialN_800F1BAC`."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.h",
-      "role": "Fixed Kirby special-N/Yoshi helper prototypes, including adding `Fighter_GObj*` to `ftKb_SpecialN_800F16D0` and removing unused gobj args from several getter declarations."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
-      "role": "Implemented Kirby/Yoshi capture animation handlers and `ftCo_KirbyYoshiEgg_Anim`; added effect/item includes and matching pragmas/padding."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
-      "role": "Large Ice Climbers/Popo matching pass for side-B string handling, up-B start/throw physics and collisions, and down-B/blizzard accessory behavior."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPopo/types.h",
-      "role": "Filled Ice Climber attribute holes with named float offsets x7C, x9C, xA0, xB8, xBC, and xC0."
-    },
-    {
-      "path": "src/melee/ft/chara/ftNana/ftNn_Init.c",
-      "role": "Small stack-padding changes improving Nana SpecialS collision matches."
-    },
-    {
-      "path": "src/melee/ft/chara/ftNana/ftNn_Init.h",
-      "role": "Declared `ftNn_Init_8012300C`, used by Popo/Nana range checks."
-    },
-    {
-      "path": "src/melee/it/itCharItems.h",
-      "role": "Added `itClimbersStringAttributes` layout for Ice Climbers string item command data."
-    },
-    {
-      "path": "src/melee/it/items/itclimbersstring.h",
-      "role": "Exposed missing climbers-string item functions `it_802C3864` and `it_802C3950`."
-    }
+    "src/melee/ft/chara/ftCrazyHand/ftCh_Init.c",
+    "src/melee/ft/chara/ftCrazyHand/types.h",
+    "src/melee/ft/chara/ftKirby/ftKb_Init.c",
+    "src/melee/ft/chara/ftKirby/ftKb_Init.h",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
+    "src/melee/ft/chara/ftNana/ftNn_Init.c",
+    "src/melee/ft/chara/ftNana/ftNn_Init.h",
+    "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
+    "src/melee/ft/chara/ftPopo/types.h",
+    "src/melee/it/itCharItems.h",
+    "src/melee/it/items/itclimbersstring.h"
   ],
   "what_changed": [
-    "Replaced Crazy Hand stubs with C for `ftCh_Init_80156198`, `ftCh_Init_80156310`, `ftCh_Wait1_0_Anim`, `ftCh_Init_80156AD8`, `fn_801588B8`, and `fn_8015B548`; bot report shows all but `ftCh_Init_80156AD8` reached 100%, with `ftCh_Init_80156AD8` at 98.86%.",
-    "Typed `ftCh_Init_803D4878` as `struct ftCh_Init_803D4878_t` with `states[18]`, `x48[20]`, `u8_pair x5C[6]`, and `x68[32]`, replacing a flat anonymous `asids/bytes` table.",
-    "Crazy Hand wait logic now branches on `Player_GetPlayerSlotType`; slot type 0 uses `HSD_PadMasterStatus[3]` button combinations through `btn_pressed`, while the other path uses boss timers/random tables and dispatches `ftMh_MS_*` actions.",
-    "Crazy Hand bomb logic in `fn_801588B8` spawns `It_Kind_CrazyHand_Bomb` from multiple hand/body joints via `it_802F0F6C` and plays SFX when command variables are set.",
-    "Crazy Hand capture setup in `fn_8015B548` uses common grab/capture helpers, sets victim references/callbacks, changes motion state, hides the fighter, and updates hit/collision state.",
-    "Kirby work implemented `ftKb_UnkIntBoolFunc0`, `ftKb_SpecialN_800F1BAC`, four Yoshi capture animation handlers, and `ftCo_KirbyYoshiEgg_Anim`; it also simplified several Yoshi-special getter functions to take no `gobj` argument.",
-    "Ice Climbers/Popo work implemented `ftPp_SpecialS_80120FE0`, `ftPp_SpecialHiStart_0_Anim`, `ftPp_SpecialAirHiStart_0_Anim`, `ftPp_SpecialAirHiThrow_0_Phys`, `ftPp_SpecialAirHiThrow2_Phys`, `ftPp_SpecialAirHiThrow2_Coll`, `ftPp_SpecialLw_Coll`, and `fn_80122D2C`.",
-    "Popo/Nana code now uses `ftNn_Init_8012300C` and `Player_GetEntityAtIndex(player_id, 1)` to check Nana availability/range before up-B partner behavior.",
-    "Item headers gained `itClimbersStringAttributes` and climbers-string prototypes so Popo side-B code can read item special attributes and call item state functions.",
-    "decomp-dev reported 20 new matches, including `ftCh_Wait1_0_Anim`, `fn_801588B8`, `fn_80122D2C`, `ftCo_KirbyYoshiEgg_Anim`, `ftKb_UnkIntBoolFunc0`, `ftPp_SpecialAirHiThrow2_Phys`, and `ftPp_SpecialAirHiThrow2_Coll`."
+    "Implemented several Crazy Hand routines in `ftCh_Init.c`, including `ftCh_Init_80156198`, `ftCh_Init_80156310`, `ftCh_Wait1_0_Anim`, `ftCh_Init_80156AD8`, `fn_801588B8`, and `fn_8015B548`.",
+    "Crazy Hand wait AI/control logic now uses a typed local/global table `struct ftCh_Init_803D4878_t` with state indices, `u8_pair` ranges, and selection bytes instead of an anonymous flat byte array.",
+    "Crazy Hand attribute fields in `types.h` were corrected from `s32` to `float` for positions/offsets such as `x20`, `x6C`, `x70`, `x84`, `x90`, `x94`, `xA0`, `xB0`, and `xB4`.",
+    "Crazy Hand bomb spawning logic in `fn_801588B8` was implemented using joint positions from `FtPart_RLegJA`, `FtPart_BustN`, `FtPart_LHandN`, and `FtPart_L3rdNa`, then spawning `It_Kind_CrazyHand_Bomb` via `it_802F0F6C`.",
+    "Kirby init work implemented `ftKb_UnkIntBoolFunc0` for hat part/dobj swapping and `ftKb_SpecialN_800F1BAC` for changing copied-special hat kind, callbacks, SFX, and death callbacks.",
+    "Kirby headers were corrected so several `ftKb_SpecialNYs_801092DC`-style helper prototypes take `void` rather than an unused `Fighter_GObj*`, and `ftKb_SpecialN_800F16D0` gained the `Fighter_GObj*` parameter reflected by callers.",
+    "Kirby Yoshi-copy special logic gained implementations for capture transition animation functions and `ftCo_KirbyYoshiEgg_Anim`, including grab timer reduction, mash handling, egg breakout effect spawn, iframe setup, and fall transition.",
+    "Popo/Ice Climbers side/up/down special work implemented or improved `ftPp_SpecialS_80120E68`, `ftPp_SpecialS_80120FE0`, `ftPp_SpecialHiStart_0_Anim`, `ftPp_SpecialAirHiStart_0_Anim`, `ftPp_SpecialAirHiThrow_0_Phys`, `ftPp_SpecialAirHiThrow2_Phys`, `ftPp_SpecialAirHiThrow2_Coll`, `ftPp_SpecialLw_Coll`, and `fn_80122D2C`.",
+    "Popo attributes in `types.h` were refined by replacing padding with named float fields `x7C`, `x9C`, `xA0`, `xB8`, `xBC`, and `xC0` used by the new special-move logic.",
+    "Nana collision functions gained small stack padding arrays, and `ftNn_Init_8012300C` was exposed in `ftNn_Init.h` for Popo's partner range/status check.",
+    "Ice Climbers item headers gained `itClimbersStringAttributes` and prototypes for `it_802C3864` and `it_802C3950`, enabling Popo string-item event dispatch."
   ],
   "smart_moves": [
-    "The Crazy Hand action table was not left as opaque bytes: splitting it into state IDs, selection ranges, `u8_pair` entries, and random-transition bytes made the AI-selection code expressible while preserving layout.",
-    "Attribute struct corrections were tied directly to observed arithmetic: Crazy Hand and Popo offsets used as positions, velocities, distances, or timers were promoted from padding/s32 to float fields.",
-    "Header fixes were made alongside implementations, preventing signature drift; notably `ftKb_SpecialN_800F16D0` gained the `Fighter_GObj*` argument used at call sites, while pure Kirby Yoshi attribute getters dropped unused parameters.",
-    "Matching-sensitive helper code was localized: `btn_pressed`, `doAnim0`, `doAnim1`, `checkNanaInRange`, `ftPp_set_cbs`, and small physics helpers reduce duplication without forcing broad renames.",
-    "The Popo custom `my_sqrtf` uses `__frsqrte`, three Newton-style refinements, stack padding, and a volatile float return path, showing a targeted PPC codegen tactic rather than a semantic rewrite.",
-    "`#pragma dont_inline` around `ftCo_KirbyYoshiEgg_Anim`, `PAD_STACK` calls, dummy `u8` arrays, and retained odd control-flow comments were used only where matching required them.",
-    "Cross-system dependencies were added explicitly: Crazy Hand bomb item, Kirby/GameWatch/Yoshi effects/items, Ice Climbers blizzard/string items, and common fighter helpers."
+    "Re-typed attribute offsets from integers to floats where the new code uses them in position, velocity, and random-placement math, which is both semantically clearer and matching-relevant.",
+    "Split Crazy Hand's previously flat selection table into `states`, `x48`, `x5C` range pairs, and `x68`, making the random AI state selection readable while preserving the original data layout.",
+    "Used small inline helper functions for repeated matching-sensitive sequences, such as Crazy Hand animation transitions, Popo callback setup, fall physics, Nana range checking, and Popo collision landing transitions.",
+    "Added explicit stack padding (`PAD_STACK`, `u8 _[...]`) in several functions where local layout mattered for matching, including Kirby Yoshi egg and Nana/Popo routines.",
+    "Used `#pragma dont_inline` around `ftCo_KirbyYoshiEgg_Anim`, indicating a targeted compiler-codegen control to keep the function matching.",
+    "Kept address-derived unknown names for not-yet-understood routines while still making type/prototype improvements, avoiding speculative semantic renames.",
+    "Connected fighter code to item headers instead of leaving item functions implicit, notably for Crazy Hand bombs, Kirby/Game & Watch chef items, and Ice Climbers string/blizzard articles."
   ],
   "decomp_lessons": [
-    "When a dat-attribute offset participates in float math or vector construction, prefer correcting the struct field type over casting at use sites; this PR did that for Crazy Hand and Ice Climber attributes.",
-    "Opaque data tables often need intermediate structs to match cleanly. The `ftCh_Init_803D4878_t` split is a reusable pattern for tables that mix state IDs, index ranges, and random transition pools.",
-    "Partner-character code should guard entity and joint access with `Player_GetEntityAtIndex` null checks and motion-state ranges; the Popo/Nana up-B throw code demonstrates this.",
-    "Do not keep unused parameters in prototypes once evidence shows the function reads globals only; Kirby Yoshi special getters became `void`-argument functions.",
-    "Conversely, add object parameters when callbacks/state initializers actually need fighter context; `ftKb_SpecialN_800F16D0` was corrected to accept `Fighter_GObj*`.",
-    "For matching, stack shape matters: `PAD_STACK`, dummy locals, and even `gobj->user_data` versus `GET_FIGHTER` can be deliberate codegen choices, not cleanup opportunities.",
-    "Effect and item spawning routines often force header work first: add the item attribute struct/prototypes so fighter logic can use the real item APIs instead of placeholder declarations.",
-    "Partial matches and data regressions should be tracked honestly; this PR still left `ftCh_Init_80156AD8` at 98.86%, Popo start/down-B routines below 100%, and two small `.sdata2` regressions."
+    "When a decompiled routine consumes DAT attributes as positions, offsets, or multipliers, revisit the struct field types; changing `s32` padding/fields to `float` can unlock many downstream matches.",
+    "Anonymous byte blobs can often be decomposed into small typed helper structs without changing layout; this improves readability and makes random table indexing easier to reason about.",
+    "For fighter animation-state code, preserving exact motion-state arguments, callback assignment order, and command-variable resets is matching-sensitive.",
+    "Header prototypes should reflect whether helper functions truly consume a `Fighter_GObj*`; removing unused parameters in declarations and definitions can be necessary for matching and call-site cleanup.",
+    "Partner-character logic for Ice Climbers often needs explicit `Player_GetEntityAtIndex(player_id, 1)` checks and motion-id range checks before reading Nana joint positions.",
+    "Stack-shape hacks remain useful evidence-backed tactics: this PR used `PAD_STACK`, dummy `u8` arrays, and scoped locals to satisfy matching constraints.",
+    "Item article attributes may need small local structs in shared item headers so fighter code can dispatch article events without opaque pointer arithmetic."
   ],
   "naming_conventions": [
-    "`ftCh_` is used for Crazy Hand functions, with remaining unknowns kept as address-suffixed names such as `fn_801588B8` and `fn_8015B548`.",
-    "`ftKb_` prefixes Kirby work; Kirby copied-special/Yoshi functions keep long descriptive names like `ftKb_YsSpecialAirNCapture1_Anim` rather than speculative semantic renames.",
-    "`ftPp_` covers Popo/Ice Climbers shared routines, while Nana declarations live under `ftNn_`; partner checks still call `ftNn_Init_8012300C` from Popo code.",
-    "Motion state names use existing enums such as `ftMh_MS_*`, `ftKb_MS_*`, and `ftPp_MS_*`; numeric states remain where the diff did not rename them.",
-    "Attribute structs retain offset-style field names (`x7C`, `x9C`, `xB8`, etc.) until semantics are known, with `_pos` suffixes used for known vector-like fields.",
-    "Item APIs retain address-style names where unknown (`it_802C3864`, `it_802C3950`) and use typed attribute names when layout is known (`itClimbersStringAttributes`)."
+    "Unknown or partially understood functions retained project address-style names such as `ftCh_Init_80156AD8`, `fn_801588B8`, `ftPp_SpecialS_80120FE0`, and `fn_80122D2C`.",
+    "Motion-state constants use fighter prefixes such as `ftMh_MS_*`, `ftKb_MS_*`, and `ftPp_MS_*`.",
+    "DAT/ext-attribute locals commonly use short names like `da`, while fighter pointers use `fp`, `fp2`, `nana_fp`, and item pointers use `ip`.",
+    "Position-bearing struct fields gained `_pos` suffixes where already present, such as `x30_pos2`, `x88_pos`, `xA8_pos`, and `xBC_pos`; newly exposed unknown fields stayed offset-based.",
+    "Small local helper names are descriptive but scoped to the file, e.g. `checkNanaInRange`, `incrementMvAndCheck`, `doFallPhys`, `ftPp_set_cbs`, and `ftPp_SpecialLw_Coll_Land`."
   ],
   "assembly_or_matching_tactics": [
-    "Used `PAD_STACK(8/12/16/48)` and local dummy arrays such as `u8 _[16]`, `u8 _[4]`, and `u8 __[20]` to tune stack frame layout.",
-    "Added `#pragma dont_inline on/reset` around `ftCo_KirbyYoshiEgg_Anim` to prevent unwanted inlining for the matched function.",
-    "Implemented `my_sqrtf` with PPC `__frsqrte`, repeated refinement, static double constants, and `volatile float y` to match generated sqrt code in Popo side-B velocity math.",
-    "Kept some direct `gobj->user_data` accesses and even a `/// @todo #GET_FIGHTER` note where macro expansion would alter codegen.",
-    "Used typed table fields and `u8_pair` indexing for Crazy Hand random action selection instead of pointer arithmetic over an anonymous byte blob.",
-    "Used ternary assignment plus `PAD_STACK(16)` in `ftKb_SpecialNPe_8010BF90` and `ftKb_SpecialNPe_8010C06C`, improving both functions to 99.82%.",
-    "Preserved suspicious original control flow in `ftPp_SpecialS_80120FE0`, including an `end` label with a comment that original code returns without a value."
+    "Inserted `PAD_STACK(16)`, `PAD_STACK(12)`, `PAD_STACK(8)`, and dummy `u8 _[...]` locals to match stack frame layout.",
+    "Used `#pragma dont_inline on/reset` around `ftCo_KirbyYoshiEgg_Anim`.",
+    "Introduced custom `my_sqrtf` using `__frsqrte` refinement and volatile storage in Popo side-special velocity code, likely to match the original PPC sqrt sequence.",
+    "Used explicit inline wrappers for repeated codegen-sensitive chunks instead of only semantic refactoring.",
+    "Changed some conditionals to ternary expressions and adjusted literal types (`1.0f`, `0.0f`) where the diff indicates matching refinements.",
+    "Preserved odd control flow where necessary, including a labeled `end` block in `ftPp_SpecialS_80120FE0` with the note that original code returns without a value.",
+    "Added `u8_pair` and a typed Crazy Hand table to preserve exact global data layout while making index/range accesses clearer."
   ],
   "review_feedback": [
-    {
-      "source": "decomp-dev[bot]",
-      "created_at": "2026-03-27T02:17:49Z",
-      "note": "Reported GALE01 matched code 60.76% (+0.18%, +7136 bytes), 20 new matches, 8 improvements in unmatched items, and 2 `.sdata2` regressions."
-    },
-    {
-      "source": "github",
-      "note": "No human review comments or reviews were present in the slice, and the PR body was empty. The squash auto-merge message listed `ftKirby work`, `ftCh_Init.c work`, and `Ice Climbers work`."
-    }
+    "No human review comments were present in the slice.",
+    "Automated decomp.dev report: GALE01 matched code increased to 60.76% (+0.18%, +7136 bytes).",
+    "Automated decomp.dev report listed 20 new matches, including `ftCh_Wait1_0_Anim`, `fn_801588B8`, `fn_80122D2C`, `ftCh_Init_80156198`, `ftCo_KirbyYoshiEgg_Anim`, `ftKb_UnkIntBoolFunc0`, `ftPp_SpecialAirHiThrow2_Phys`, and `fn_8015B548`.",
+    "Automated report also listed 8 improvements in unmatched items, including `ftCh_Init_80156AD8` reaching 98.86%, Popo start/collision routines improving, and two small `.sdata2` regressions."
   ],
   "searchable_terms": [
     "pr-2359",
     "Various fighter work",
     "lukechampine",
-    "claude-ft",
     "ftCrazyHand",
     "ftCh_Init.c",
-    "ftCrazyHand_DatAttrs",
+    "ftCh_Wait1_0_Anim",
     "ftCh_Init_80156198",
     "ftCh_Init_80156310",
-    "ftCh_Wait1_0_Anim",
     "ftCh_Init_80156AD8",
-    "btn_pressed",
-    "HSD_PadMasterStatus",
-    "ftCh_Init_803D4878",
-    "u8_pair",
-    "ftBossLib_8015BD24",
-    "ftBossLib_8015C2E0",
-    "ftCh_GrabUnk1_8015BA34",
     "fn_801588B8",
-    "It_Kind_CrazyHand_Bomb",
     "fn_8015B548",
-    "ftCommon_InitGrab",
+    "ftCh_Init_803D4878_t",
+    "u8_pair",
+    "It_Kind_CrazyHand_Bomb",
+    "ftKirby",
     "ftKb_Init.c",
     "ftKb_UnkIntBoolFunc0",
     "ftKb_SpecialN_800F1BAC",
-    "ftKb_SpecialN_800F16D0",
-    "ftKb_SpecialNYs.c",
+    "ftKb_SpecialNYs",
+    "ftCo_KirbyYoshiEgg_Anim",
     "ftKb_YsSpecialNCapture1_Anim",
     "ftKb_YsSpecialAirNCapture1_Anim",
     "ftKb_YsSpecialAirCapture1_Anim",
     "ftKb_YsSpecialAirCapture2_Anim",
-    "ftCo_KirbyYoshiEgg_Anim",
-    "ftCommon_GrabMash",
-    "efAsync_Spawn",
-    "#pragma dont_inline",
+    "ftPopo",
     "ftPp_SpecialS.c",
-    "my_sqrtf",
-    "__frsqrte",
     "ftPp_SpecialS_80120E68",
     "ftPp_SpecialS_80120FE0",
-    "itClimbersStringAttributes",
-    "it_802C3950",
-    "it_802C3864",
     "ftPp_SpecialHiStart_0_Anim",
-    "checkNanaInRange",
-    "ftNn_Init_8012300C",
+    "ftPp_SpecialAirHiStart_0_Anim",
+    "ftPp_SpecialAirHiThrow_0_Phys",
     "ftPp_SpecialAirHiThrow2_Phys",
     "ftPp_SpecialAirHiThrow2_Coll",
     "ftPp_SpecialLw_Coll",
     "fn_80122D2C",
+    "ftNana",
+    "ftNn_Init_8012300C",
+    "itClimbersStringAttributes",
+    "itclimbersstring",
     "itClimbersBlizzard_Spawn",
     "PAD_STACK",
-    "sdata2 regression"
+    "dont_inline",
+    "__frsqrte",
+    "my_sqrtf"
   ],
   "follow_up_queries": [
-    "ftCh_Init_803D4878 u8_pair Crazy Hand action selection",
-    "ftCh_Init_80156AD8 98.86 HSD_PadMasterStatus button dispatch",
-    "fn_801588B8 CrazyHand bomb It_Kind_CrazyHand_Bomb",
-    "ftKb_SpecialN_800F1BAC Kirby hat kind callbacks SFX",
-    "ftCo_KirbyYoshiEgg_Anim dont_inline grab_timer ftCommon_GrabMash",
-    "ftPp_SpecialS_80120FE0 itClimbersStringAttributes original code returns without value",
-    "ftPp_SpecialHiStart_0_Anim checkNanaInRange ftNn_Init_8012300C",
-    "ftPp_SpecialAirHiThrow2_Phys Nana L4thNb joint x2240",
-    "ftPp_SpecialLw_Coll fn_80122D2C blizzard spawn",
-    ".sdata2 regression ftPp_SpecialS ftCh_Init"
+    "Inspect later PRs touching `ftCh_Init_80156AD8`, which was reported as 98.86% but not fully matched in this PR.",
+    "Search for subsequent cleanup of `ftPp_SpecialS_80120FE0` and its noted missing return-value behavior.",
+    "Look for later semantic renames of address-style helpers introduced here, especially `fn_801588B8`, `fn_8015B548`, and `fn_80122D2C`.",
+    "Check whether the Popo `.sdata2` and Crazy Hand `.sdata2` regressions from the automated report were resolved in follow-up work.",
+    "Search for further struct refinement of `ftIceClimberAttributes`, `ftCrazyHand_DatAttrs`, and `itClimbersStringAttributes`."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

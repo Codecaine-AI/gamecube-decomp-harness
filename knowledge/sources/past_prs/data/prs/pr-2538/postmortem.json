@@ -11,120 +11,115 @@
     "merged_at": "2026-05-31T13:32:36Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Reconstructed major parts of src/melee/if/ifprize.c, replacing placeholder calls with real prize-interface state-machine, setup, text, audio, and cleanup logic. The decomp.dev report recorded +1116 matched bytes: fn_802FE470 and un_802FE6A8 became 100% matches, while un_802FE918 and un_802FEBE0_OnEnter improved to near-match status; the only noted downside was a .data regression.",
+  "summary": "Matched more of src/melee/if/ifprize.c by replacing placeholder call stubs with real prize-screen UI/control-flow logic, refining the main ifprize state struct, adding the OnEnter linked-list argument struct, storing created camera/light/UI/text objects in global state, and using inline-wrapper tricks to prevent an unwanted inline in un_802FEBE0_OnEnter.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "function-reconstruction",
+      "control-flow-reconstruction",
       "struct-layout-refinement",
-      "ui-screen-reconstruction",
-      "matching-tactics"
+      "ui-scene-code"
     ],
     "systems": [
-      "src/melee/if/ifprize.c",
-      "interface prize screen",
-      "HSD GObj/JObj/Text",
-      "gm main/lib",
-      "lb audio/lang"
+      "if",
+      "ifprize",
+      "melee-core",
+      "HSD_GObj",
+      "HSD_JObj",
+      "HSD_Text",
+      "SisLib"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/if/ifprize.c",
-      "role": "Only changed file; refined ifprize global state and reconstructed the setup, update callback, display text/audio, and OnEnter initialization paths."
-    }
+    "src/melee/if/ifprize.c"
   ],
   "what_changed": [
-    "Added placeholder.h include, used by the file for stack-padding helpers such as PAD_STACK.",
-    "Moved and expanded struct un_802FEBE0_OnEnter_arg0 to include x0, x2, x4, and a self-referential x8 pointer, matching the linked-list style traversal used by fn_802FE470.",
-    "Refined global state struct un_803F9D48 from padding/void/int fields into typed offsets: HSD_JObj, HSD_GObj, HSD_Text pointers, linked arg pointers, unsigned-short text/id fields, and x30[3] initialized to 0x43, 0x44, 0x45.",
-    "Replaced placeholder body of fn_802FE470 with a state machine over un_803F9D48.x1: delayed initial display, input handling via gm_801A36A0(4) & 0x1100, linked prize advancement, transition to fade/exit, GObj/archive cleanup, and JObj/DObj animation requests.",
-    "Completed un_802FE6A8 setup logic for camera, light, and UI GObjs from SceneDesc data; stored created GObjs/JObj/Text handles in un_803F9D48 for later update and teardown; configured SisLib text fitting, alignment, kerning, and color.",
-    "Replaced un_802FE918 placeholder calls with display logic: audio trigger selection from un_803F9D48.x30, random next sound index, prize-table lookup through un_803F9B30/un_803F9A00, special handling for a == 0x3E, SisLib text updates, date/time retrieval, US vs non-US sprintf formatting, and positioned date text.",
-    "Improved un_802FEBE0_OnEnter initialization by storing arg0/x2C pointers, choosing an initial random x3, setting state flags/fields, changing arg0x0 typing/order, and routing the un_802FE3F8 call through a wrapper intended to avoid unwanted inlining."
+    "Added include of placeholder.h, likely to support remaining unresolved placeholders or matching scaffolding in this file.",
+    "Introduced struct un_802FEBE0_OnEnter_arg0 with x0, x2, x4, and linked-list pointer x8, replacing the prior weaker arg struct shape near the OnEnter function.",
+    "Refined struct un_803F9D48 from broad padding and integer fields into typed fields: HSD_JObj*, HSD_GObj*, HSD_Text*, linked-list pointers, and an x30[3] array initialized to prize IDs 0x43, 0x44, 0x45.",
+    "Replaced the prior pragma dont_inline around un_802FE3F8 with static inline wrapper functions un_802FE3F8_inner and un_802FE3F8_noinline, then called the wrapper from un_802FEBE0_OnEnter to preserve matching behavior.",
+    "Implemented fn_802FE470 as a state machine over un_803F9D48.x1, including delay states, input handling via gm_801A36A0(4), linked-list advancement through x2C, cleanup of created GObjs and archive, and animation requests.",
+    "Updated un_802FE6A8 to save camera, light, UI gobj, JObj, and HSD_Text pointers into un_803F9D48, use & 0xFF on HSD_GObj object-class constants for matching, and scope GXColor/PAD_STACK near text setup.",
+    "Implemented un_802FE918 prize display behavior: audio selection, random non-repeating x3 selection, gmMainLib call, lookup through un_803F9B30/un_803F9A00, special handling for prize 0x3E, SisLib text updates, date/time formatting, language-dependent date order, and text drawing at 320/316.",
+    "Adjusted un_802FEBE0_OnEnter locals and initialization order, storing arg0 linked list state in un_803F9D48.x28/x2C, initializing x3 from HSD_Randi(3), setting state flags, computing animation/text index, and invoking un_802FE3F8_noinline."
   ],
   "smart_moves": [
-    "Turning un_803F9D48's anonymous padding into a typed scene-state struct made later functions straightforward: setup stores camera/light/UI/text handles, the callback animates and tears them down, and text rendering reuses the same HSD_Text pointers.",
-    "The arg struct was modeled as a self-linked list, which explains why fn_802FE470 can advance un_803F9D48.x2C after each input-triggered prize display.",
-    "The old broad #pragma dont_inline around un_802FE3F8 was replaced with a targeted two-layer inline wrapper, un_802FE3F8_inner and un_802FE3F8_noinline, documented with the same inlining constraint for un_802FEBE0_OnEnter.",
-    "Stack-sensitive setup code in un_802FE6A8 was isolated in an inner block with GXColor and PAD_STACK(0x14), preserving local lifetime/order while still letting text handles live in the global state.",
-    "Matching details were handled with narrow casts and exact temporaries: HSD_GObj_804D784B/A masked with & 0xFF, animation frame cast through (s8) before f32, text id fields passed through short pointers, and a local unsigned-short v_x8 in the special text path.",
-    "The callback uses an early return after state-3 cleanup, avoiding the animation-update tail for destroyed objects and matching the logical teardown boundary."
+    "Typed the global state struct progressively instead of leaving padding and raw ints, which made later gobj/text/jobj cleanup and animation code expressible and easier to verify.",
+    "Used small inline wrapper layers around un_802FE3F8 to control compiler inlining at a specific callsite without relying on a global pragma block.",
+    "Stored created camera, light, UI, and text objects in the persistent ifprize state so fn_802FE470 could accurately clean up and update them later.",
+    "Preserved matching-sensitive stack/layout behavior by scoping GXColor with PAD_STACK(0x14) inside a nested block and using casts such as HSD_GObj_804D784B & 0xFF.",
+    "Reconstructed real user-facing behavior instead of leaving dummy placeholder calls: prize text lookup, randomized audio, date formatting, and language-specific formatting were all restored."
   ],
   "decomp_lessons": [
-    "For UI/state files, replace padding with typed state fields as soon as cross-function usage proves the layout; persistent HSD_GObj, HSD_JObj, and HSD_Text handles often explain update and cleanup functions.",
-    "Self-referential argument structs can reveal screen queues or chained entries; watch for arg->x8 patterns before treating tail fields as plain ints.",
-    "MWCC inlining problems do not always require file-wide pragmas; small wrapper layers can influence one call site while leaving the real helper normal.",
-    "Stack layout in setup functions may depend on scoping locals and explicit PAD_STACK sizes, especially around GXColor and text-construction calls.",
-    "When matching animation/text code, signedness and width are important: unsigned-short state fields, short* casts, and (s8)-to-f32 casts can be the difference between near-match and match.",
-    "Bot metrics can hide tradeoffs: this PR gained large code matches but regressed .data by 31 bytes, so struct initializers and data layout should be revisited after function work lands."
+    "When replacing a call-stub block, first refine the owning global state struct; typed fields often reveal lifecycle relationships between setup, per-frame callback, and teardown functions.",
+    "Linked-list argument structs should be modeled explicitly when OnEnter-style scene entry data chains through later UI updates.",
+    "For matching, local declaration order, nested scopes, casts to narrower object-kind values, and explicit PAD_STACK sizes can matter as much as high-level logic.",
+    "If a callee must remain out-of-line for one caller but normal pragmas are awkward or undesirable, an inline wrapper/noinline indirection pattern can shape the compiler output.",
+    "UI decomp work often couples scene object setup with SisLib text state; keep HSD_Text pointers in the same persistent struct as the gobj/jobj pointers if the frame callback mutates them."
   ],
   "naming_conventions": [
-    "Unknown symbols kept address-based names such as fn_802FE470, un_802FE918, un_802FEBE0_OnEnter, and un_803F9D48.",
-    "The temporary arg struct was named after the known consumer, un_802FEBE0_OnEnter_arg0, which is useful before semantic names are known.",
-    "Global state fields follow x-offset naming, with arrays such as x30[3] for contiguous data.",
-    "Known library/object types were used in the struct even while field names stayed unknown: HSD_JObj*, HSD_GObj*, HSD_Text*, HSD_Archive*, and SceneDesc*.",
-    "Local names are role-based where evidence is clear, such as gobj_camera, gobj_light, gobj_ui, jobj_ui, color, new_x3, sp1C, and sp14."
+    "Unknown functions and globals retain address-based names such as un_802FE918, un_803F9D48, and un_804D6D98.",
+    "Temporary struct names encode their known use site, e.g. struct un_802FEBE0_OnEnter_arg0.",
+    "Struct members remain offset-style names like x0a, x0b, x10, x28, and x30 when semantic names are not proven.",
+    "Helper wrappers use suffixes that explain matching intent, e.g. un_802FE3F8_inner and un_802FE3F8_noinline."
   ],
   "assembly_or_matching_tactics": [
-    "Used un_802FE3F8_inner plus un_802FE3F8_noinline wrapper to prevent or redirect unwanted inlining into un_802FEBE0_OnEnter.",
-    "Used PAD_STACK(0x14) inside a nested block in un_802FE6A8 after moving GXColor into that block.",
-    "Masked HSD_GObj_804D784B and HSD_GObj_804D784A with & 0xFF before HSD_GObjObject_80390A70 calls.",
-    "Used (f32)(s8) un_803F9D48.x2 for HSD_JObjReqAnimAll while using (f32) un_803F9D48.x4 for DObj animation calls.",
-    "Passed unsigned-short state fields through (short*) casts to un_802FE3F8 and stored x8 in a local unsigned short before SisLib calls.",
-    "Used goto found and explicit i = 0 fallback in table lookup loops over un_803F9B30.",
-    "Changed OnEnter local ordering/typing by making arg0x0 an int and assigning i = 0 before reading arg0->x0.",
-    "Preserved date-format branches with exact sprintf format strings for lbLang_IsSavedLanguageUS versus non-US layouts."
+    "Replaced #pragma dont_inline with a pair of static inline wrappers to keep un_802FE3F8 from being inlined into un_802FEBE0_OnEnter.",
+    "Used explicit casts to short* when writing unsigned-short fields through un_802FE3F8, preserving the inferred field storage while satisfying the function signature.",
+    "Used HSD_GObj_804D784B & 0xFF and HSD_GObj_804D784A & 0xFF in object attachment calls, indicating the generated code needed byte-sized behavior.",
+    "Moved GXColor and PAD_STACK into a nested scope in un_802FE6A8 to shape stack allocation/lifetime.",
+    "Introduced local temporaries such as v_x8 and sp1C[0x104] to match data movement and stack layout around SisLib text/date formatting."
   ],
   "review_feedback": [
-    "No human PR body or review comments were present in the slice.",
-    "decomp-dev[bot] reported GALE01 matched code at 69.20%, +0.03%, +1116 bytes.",
-    "Bot listed 2 new matches: fn_802FE470 +459 bytes, 19.28% to 100.00%; un_802FE6A8 +95 bytes, 82.77% to 100.00%.",
-    "Bot listed 2 improved unmatched items: un_802FE918 +542 bytes, 23.11% to 99.23%; un_802FEBE0_OnEnter +15 bytes, 95.00% to 99.93%.",
-    "Bot noted 1 regression: main/melee/if/ifprize .data -31 bytes, 96.59% to 93.59%."
+    "No review comments were present in the provided PR slice.",
+    "The PR had one issue comment according to counts, but the provided human_text_excerpt was empty, so no reviewer intent or discussion can be extracted."
   ],
   "searchable_terms": [
     "pr-2538",
     "Jj/ifprize",
-    "ifprize",
+    "jurrejelle",
     "src/melee/if/ifprize.c",
+    "ifprize",
+    "un_802FEBE0_OnEnter",
+    "un_802FEBE0_OnEnter_arg0",
+    "un_803F9D48",
+    "un_802FE3F8",
+    "un_802FE3F8_noinline",
+    "un_802FE3F8_inner",
     "fn_802FE470",
     "un_802FE6A8",
     "un_802FE918",
-    "un_802FEBE0_OnEnter",
-    "un_802FE3F8",
-    "un_802FE3F8_inner",
-    "un_802FE3F8_noinline",
-    "un_803F9D48",
-    "un_802FEBE0_OnEnter_arg0",
-    "un_803F9B30",
-    "un_803F9A00",
+    "un_802FE8CC",
     "HSD_GObj",
     "HSD_JObj",
     "HSD_Text",
     "HSD_SisLib_803A5ACC",
+    "HSD_SisLib_803A6754",
     "HSD_SisLib_803A6B98",
-    "HSD_Randi",
+    "HSD_GObjPLink_80390228",
+    "lbArchive_80016EFC",
     "gm_801A36A0",
     "gmMainLib_8015D8B0",
     "gm_801692E8",
     "lbLang_IsSavedLanguageUS",
-    "HSD_GObjPLink_80390228",
-    "lbArchive_80016EFC",
     "PAD_STACK",
-    "placeholder.h",
-    "SceneDesc",
-    "0x1100",
-    "a == 0x3E",
-    ".data regression"
+    "dont_inline",
+    "placeholder.h"
   ],
   "follow_up_queries": [
-    "Find later PRs touching ifprize .data or un_803F9D48 initializer layout after PR 2538.",
-    "Search for future semantic renames of fn_802FE470, un_802FE918, un_802FE6A8, and un_802FEBE0_OnEnter.",
-    "Look for other PRs using wrapper layers to avoid MWCC inlining instead of #pragma dont_inline.",
-    "Compare HSD_SisLib date/time formatting patterns in other interface screens.",
-    "Investigate the real semantics of un_802FEBE0_OnEnter_arg0 fields x0, x2, x4, and linked x8."
+    "Find later PRs that rename un_803F9D48 fields or give semantic names to ifprize state members.",
+    "Search for other uses of un_802FEBE0_OnEnter_arg0 to confirm the linked-list argument layout and x2 semantics.",
+    "Compare other UI scene PRs that use inline wrapper tricks instead of #pragma dont_inline.",
+    "Look for later cleanup of placeholder.h in src/melee/if/ifprize.c.",
+    "Search for similar HSD_GObj_804D784A/B & 0xFF matching casts in other scene setup files."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

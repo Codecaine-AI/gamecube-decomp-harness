@@ -11,100 +11,99 @@
     "merged_at": "2026-04-02T13:49:05Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large gmresultplayer decompilation/matching pass for the results screen. The PR replaced many placeholders in src/melee/gm/gmresultplayer.c with typed C, added/updated prototypes and result data bitfields, and adjusted GALE01 symbols for newly understood data/table boundaries. decomp.dev reported +1772 matched bytes, 5 new full matches, and 14 improved unmatched items; one fn_8017A9B4 regression was explicitly accepted because the rewrite cleaned up pointer math and left mostly regswaps.",
+  "summary": "Large gmresultplayer decompilation PR that replaced many placeholder prototypes and raw data assumptions with C implementations, typed structs, bitfields, and corrected symbols. The decomp.dev report showed +1772 matched bytes overall, 5 new function matches in main/melee/gm/gmresultplayer, and 14 improvements, with one accepted regression. The main review note explicitly accepted the regression because the PR cleaned up pointer math and left mostly regswaps.",
   "change_classification": {
-    "primary_type": "decomp-matching",
+    "primary_type": "game-mode decompilation",
     "categories": [
       "decomp-matching",
       "headers",
       "struct-layout",
-      "symbol-map",
-      "matching-cleanup"
+      "symbol-map-cleanup",
+      "results-screen"
     ],
     "systems": [
       "game-mode",
-      "results-screen",
       "gmresultplayer",
       "gmresult",
-      "config/GALE01"
+      "results-ui",
+      "config"
     ]
   },
   "key_files": [
-    "src/melee/gm/gmresultplayer.c (+1299/-56): main results-player decomp pass, replacing placeholders for fn_80178050, fn_801785B0, fn_80178BB4, fn_801791E4, fn_80179350, fn_801795D4, fn_801796F0, fn_80179854, fn_80179990, fn_8017A078, fn_8017A318, fn_8017A67C, fn_8017AA78 and cleaning fn_80179F84/fn_8017A9B4.",
-    "src/melee/gm/gmresultplayer.h: replaced several UNK_RET/UNK_PARAMS declarations with concrete signatures for the newly decompiled functions.",
-    "src/melee/gm/types.h: split ResultsPlayerData.x0 and ResultsData.x0 flags into bitfields and exposed ResultsData.x3.",
-    "src/melee/gm/gmresult.c and src/melee/gm/gmresult.h: changed fn_80174A60 return type from u8 to s32 and rewrote results-player scroll/page flags through bitfields.",
-    "config/GALE01/symbols.txt: adjusted data/sdata symbol extents, including splitting lbl_803D6A18/lbl_803D6A28 and coalescing lbl_804D3FD4 into a 0x20 table-like object."
+    "src/melee/gm/gmresultplayer.c",
+    "src/melee/gm/gmresultplayer.h",
+    "src/melee/gm/gmresult.c",
+    "src/melee/gm/gmresult.h",
+    "src/melee/gm/types.h",
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "Added local typed layouts for previously raw results-player globals/data, including CharScaleEntry, ResultsRenderFuncs, ResultsPlayerConfig, CameraKindParams, CameraKindData, lbl_8046E3AC_t, and ResultsDisplayData around lbl_8046E1B0/lbl_8046E3AC.",
-    "Implemented results flow logic in fn_80178050 and fn_80179350: animation frame gates, per-slot confirmation/scroll handling, JObj visibility flags, audio triggers, state transitions, and final transition via gm_801A4B60.",
-    "Implemented results presentation/setup functions for animations, result banner/texture frames, player/rank/taunt JObjs, background flash, image descriptors, camera CObjs, player model setup, and EFB image capture.",
-    "Matched small helper functions according to bot report: fn_801791E4, fn_801796F0, fn_801795D4, fn_80179F84, and fn_80177DD0 reached 100%.",
-    "Improved many larger gmresultplayer functions but did not fully match all of them; bot listed fn_80178BB4, fn_801785B0, fn_80178050, fn_8017A67C, fn_80179990, fn_8017A318, fn_80179350, fn_8017A078, fn_8017AA78, and fn_80179854 as improved but still not all 100%.",
-    "Replaced manual bitmask writes such as pdata->x0 |= 0x10 and pdata->x0 &= ~0x20 with named bitfields x0_1 through x0_4 in ResultsPlayerData.",
-    "Changed fn_80174A60 count handling from u8 to s32, aligning the header and callers with the decompiled usage."
+    "Implemented a large block of gmresultplayer.c functionality, adding concrete functions such as fn_80178050, fn_801785B0, fn_80178BB4, fn_801791E4, fn_801795D4, fn_801796F0, fn_80179854, fn_8017A078, fn_8017A318, fn_8017A67C, and fn_8017AA78.",
+    "Updated gmresultplayer.h prototypes from UNK_RET/UNK_PARAMS to concrete signatures for multiple functions, including HSD_GObj*, bool, int, s32, CharacterKind, and Fighter_GObj* return/argument types.",
+    "Added many required includes for HSD animation/object/camera/display types and gameplay subsystems used by the results-player code, including baselib aobj/cobj/dobj/jobj/mobj/random and melee ef, ftdemo, gm_1601, gm_1A45, ground, stage, item, archive, audio, bgflash, menu, collision, and player headers.",
+    "Introduced local typed views over data blobs in gmresultplayer.c, including CharScaleEntry, ResultsRenderFuncs, ResultsPlayerConfig, CameraKindParams, CameraKindData, lbl_8046E3AC_t, and ResultsDisplayData.",
+    "Changed ResultsPlayerData in types.h from a raw u8 x0 flags byte to named bitfields x0_0 through x0_4 plus x0_567, with x0_0 documented as the confirmed flag.",
+    "Changed ResultsData in types.h by grouping x0_2/x0_3 into x0_23 as a 2-bit phase field documented as idle/init/active, and exposed byte x3 instead of a padding byte.",
+    "Updated gmresult.c and gmresult.h so fn_80174A60 returns s32 instead of u8 and uses an s32 count local.",
+    "Rewrote gmresult.c flag manipulation in fn_80174B4C from raw masks on pdata->x0 to named bitfield assignments x0_1, x0_2, x0_3, and x0_4.",
+    "Adjusted GALE01 symbols so lbl_803D6A18 was split into a 0x10 object plus new lbl_803D6A28 of size 0x5F0, and collapsed multiple adjacent sdata labels lbl_804D3FD4-lbl_804D3FF0 into a single 0x20 object.",
+    "The bot report recorded 5 new full matches: fn_801791E4, fn_801796F0, fn_801795D4, fn_80179F84, and fn_80177DD0."
   ],
   "smart_moves": [
-    "Typed the large lbl_8046E1B0 blob as ResultsDisplayData so image descriptors, GObjs, JObjs, and embedded state fields could be accessed directly instead of raw byte offsets.",
-    "Accepted a known matching regression in fn_8017A9B4 to remove opaque pointer math; the review explicitly notes this cleanup was worthwhile because remaining differences were mostly regswaps.",
-    "Used bitfields for partially understood flag bytes while preserving offset-style names, giving future work better semantics without overnaming uncertain behavior.",
-    "Promoted function signatures in headers as soon as enough call information was known, reducing UNK_RET/UNK_PARAMS spread and improving type pressure for later decompilation.",
-    "Kept narrowly scoped local structs with offset field names such as x24/x30/x3C when full semantic names were not yet justified, avoiding speculative naming.",
-    "Documented one odd cast in fn_80177DD0 as permuter slop, making clear that the unsigned long long slot cast is a matching artifact rather than intended API design."
+    "Replacing raw flag masks with bitfields made cross-file results logic clearer while preserving matching constraints.",
+    "Correcting fn_80174A60 from u8 to s32 aligned the helper with its count local and downstream arithmetic, reducing type friction in callers.",
+    "Creating narrow local structs for known data layouts let the PR remove pointer math without prematurely requiring globally polished names.",
+    "The symbols.txt edits treated adjacent anonymous data as structured objects where the new C code needed array-like access, avoiding a mismatch between code assumptions and symbol boundaries.",
+    "The author annotated a suspicious cast in fn_80177DD0 as permuter slop, documenting that the unsigned long long slot cast was a matching artifact rather than semantic intent.",
+    "The PR accepted a small matching regression in one unmatched item to unlock much larger readability and matching improvements elsewhere."
   ],
   "decomp_lessons": [
-    "For large result/menu globals, first carve the storage into image descriptors, object pointers, copied match data, and per-slot tables; this can unlock many functions that otherwise look like pointer arithmetic soup.",
-    "Bitfielding flag bytes can improve both readability and matching, but keep conservative x0_N names until flag meanings are confirmed; comments like confirmed flag or phase are useful where evidence exists.",
-    "A small symbol-map boundary correction can matter: splitting/coalescing data objects in symbols.txt should accompany typed tables in C so future references point at the right object sizes.",
-    "Clean C that slightly regresses one function may still be a net win if it replaces raw offsets and exposes structure layout that improves neighboring functions.",
-    "decomp.dev per-function reports are useful triage: this PR shows a mix of full matches, high-percent improvements, and one accepted regression rather than an all-or-nothing pass."
+    "For results-screen work, converting a flags byte into ordered bitfields can enable cleaner source and improve downstream decomp without changing layout.",
+    "When a function is used in arithmetic, verify return width against actual generated code; an overly narrow return type such as u8 can force awkward mismatches.",
+    "Large UI/state data blobs can often be advanced by introducing offset-commented partial structs with padding, arrays, and known terminal fields instead of leaving everything as byte pointers.",
+    "Symbol boundaries matter: if C code treats adjacent data as a table, symbols.txt may need to split or merge labels to reflect the actual object layout.",
+    "Document permuter-only casts or stack padding so future cleanup knows what is semantic and what is only present for matching.",
+    "A small regression can be acceptable when it replaces inscrutable pointer math with structured access and leaves remaining mismatch mostly as register swaps, but that tradeoff should be explicit."
   ],
   "naming_conventions": [
-    "Address-based function names fn_8017xxxx were retained; no semantic function names were introduced by this PR.",
-    "New local types use PascalCase nouns for inferred layouts: CharScaleEntry, ResultsRenderFuncs, ResultsPlayerConfig, CameraKindParams, CameraKindData, ResultsDisplayData.",
-    "Partially understood struct fields keep offset-style names such as x24, x30, x3C, x74, x0_0, x0_23, with comments only where evidence is present.",
-    "Known enum/API names were used where available, e.g. Gm_PKind_Human, Gm_PKind_Demo, CKIND_SEAK, CKIND_ZELDA, CKIND_GAMEWATCH.",
-    "Per-slot arrays are consistently indexed by slot/arg0/arg2 and kept as fixed-size 4-element tables where the result screen works over player slots."
+    "Unknown functions remain address-based fn_801xxxxx names until semantic names are known.",
+    "Partial structs use offset-style field names such as x20, x24, x30, x3C, x6, x22F4, and pad_00/pad_000 when semantics are not yet known.",
+    "Typed helper structs use descriptive interim names when evidence is strong enough, such as CharScaleEntry, ResultsRenderFuncs, ResultsPlayerConfig, CameraKindParams, CameraKindData, ResultsDisplayData, and ResultsPlayerData.",
+    "Bitfields retain x0_N-style names when semantics are incomplete, with comments added for known meanings such as confirmed flag and phase.",
+    "Function declarations keep address comments such as /* 178050 */ beside prototypes in headers."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(8) and PAD_STACK(16) in several functions to satisfy stack layout/matching constraints.",
-    "Used explicit casts to u8, s8, s32, and an unsigned long long slot cast in fn_80177DD0, with a comment that the latter is permuter slop.",
-    "Preserved repeated variant clamp expressions like variant <= 2 ? variant : 3 rather than prematurely abstracting them, likely to keep register/codegen behavior.",
-    "Used do-while loops and fixed iteration counts over 4 slots or 6 player_data entries to mirror the original control flow.",
-    "Used typed static data such as lbl_804D3FD0[4][2] and extern table declarations for lbl_803D7018/lbl_803D7038/lbl_803D6A18/lbl_803D7058 to turn indexed loads into readable table accesses.",
-    "For float/data copies, retained bitwise-looking assignments such as *(s32*)&cx = *(s32*)&config->x74 where that shape helped matching.",
-    "Introduced fn_80179350_inline as a small wrapper around fn_801791E4, indicating an inlining/codegen tactic rather than a semantic abstraction."
+    "Used PAD_STACK(8) in fn_80177B7C and PAD_STACK(16) in fn_80178050 to satisfy stack layout requirements.",
+    "Used an explicitly noted unsigned long long cast in a fn_801748EC call from fn_80177DD0 as permuter slop.",
+    "Modeled contiguous sdata entries as a static s32 lbl_804D3FD0[4][2] table, supported by collapsing symbols.txt entries into a single 0x20 object.",
+    "Converted raw bitmask OR/AND operations into equivalent bitfield assignments in fn_80174B4C.",
+    "Used offset-commented structs and arrays to express data access patterns while keeping unknown fields padded.",
+    "Kept some C shaped for matching, including explicit casts, do-while loops, and temporary variables visible in the diff."
   ],
   "review_feedback": [
-    "No line review comments were present in the slice.",
-    "PR body was minimal: \"Tracking PR as usual\".",
-    "decomp.dev reported matched code 61.45% (+0.05%, +1772 bytes), 5 new matches, 14 improvements, and 1 regression.",
-    "Human review note: \"Regression is fine since it cleaned up a lot of pointer math and most of the remaining bits are regswaps.\" This refers to accepting cleanup despite the reported fn_8017A9B4 regression."
+    {
+      "source": "pull_request_review",
+      "author": "jurrejelle",
+      "submitted_at": "2026-04-02T13:48:58Z",
+      "body": "Regression is fine since it cleaned up a lot of pointer math and most of the remaining bits are regswaps."
+    },
+    {
+      "source": "decomp.dev report",
+      "body": "Matched code increased by +0.05% / +1772 bytes, with 5 new matches and 14 improvements in unmatched gmresultplayer items; one unmatched item, fn_8017A9B4, regressed by 72 bytes from 94.27% to 57.18%."
+    }
   ],
   "searchable_terms": [
-    "pr-2372",
-    "Jj/gmresultplayer",
-    "jurrejelle",
     "gmresultplayer",
     "gmresult",
-    "ResultsDisplayData",
     "ResultsPlayerData",
     "ResultsData",
+    "ResultsDisplayData",
     "ResultsPlayerConfig",
+    "ResultsRenderFuncs",
+    "CameraKindParams",
     "CameraKindData",
     "CharScaleEntry",
-    "lbl_8046E1B0",
-    "lbl_8046E3AC",
-    "lbl_803B7B68",
-    "lbl_803D6A08",
-    "lbl_803D6A18",
-    "lbl_803D6A28",
-    "lbl_803D7018",
-    "lbl_803D7038",
-    "lbl_804D3FC8",
-    "lbl_804D3FD0",
-    "fn_80177DD0",
+    "MatchEnd",
     "fn_80178050",
     "fn_801785B0",
     "fn_80178BB4",
@@ -118,22 +117,34 @@
     "fn_8017A078",
     "fn_8017A318",
     "fn_8017A67C",
-    "fn_8017A9B4",
     "fn_8017AA78",
-    "PAD_STACK",
+    "fn_80174A60",
+    "fn_80174B4C",
+    "lbl_803D6A18",
+    "lbl_803D6A28",
+    "lbl_804D3FD0",
+    "lbl_804D3FC8",
+    "x0_23",
+    "confirmed flag",
     "permuter slop",
+    "PAD_STACK",
     "pointer math",
     "regswaps",
-    "EFB",
-    "HSD_ImageDesc",
-    "HSD_CObj",
-    "HSD_JObj"
+    "symbols.txt"
   ],
   "follow_up_queries": [
-    "Look for later PRs that rename gmresultplayer fn_80178050/fn_80178BB4/fn_8017A67C after this struct groundwork.",
-    "Search for uses of ResultsDisplayData or lbl_8046E1B0 to see whether the local struct was promoted to a shared header.",
-    "Check subsequent changes to fn_8017A9B4 to see whether the accepted pointer-math cleanup regression was recovered.",
-    "Search for additional GALE01 symbols.txt corrections around lbl_803D6A18, lbl_803D6A28, and lbl_804D3FD4 after table typing matured."
+    "Find later PRs that semantically rename gmresultplayer fn_80178050 or related results-screen functions.",
+    "Search for future cleanup of ResultsPlayerData bitfields x0_1 through x0_4 and ResultsData phase field x0_23.",
+    "Check whether lbl_804D3FD0, lbl_803D6A18, lbl_803D6A28, or CameraKindData receive final names or global struct definitions.",
+    "Look for follow-up PRs resolving the accepted fn_8017A9B4 regression or remaining gmresultplayer regswaps."
   ],
-  "confidence": 0.87
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

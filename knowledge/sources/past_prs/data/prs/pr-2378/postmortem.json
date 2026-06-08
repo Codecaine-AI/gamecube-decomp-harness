@@ -11,91 +11,111 @@
     "merged_at": "2026-04-03T05:38:20Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked the common fighter item-pickup translation unit by making src/melee/ft/chara/ftCommon/ftpickupitem.c build as Matching. The source change was small but targeted: ftpickupitem_800942A0 now gets fp->x294_itPickup through a new inline helper, which made that function report 100.00% matched. The PR also adjusted GALE01 symbol ownership for local strings, local float constants, and a local data label used by the linked object.",
+  "summary": "Linked the common fighter item pickup translation unit by making `src/melee/ft/chara/ftCommon/ftpickupitem.c` fully matching. The substantive code change introduced a small inline accessor for `Fighter::x294_itPickup` and used it in `ftpickupitem_800942A0`, which moved that function from 99.54% to 100.00% according to the decomp.dev report. The PR then flipped the object from `NonMatching` to `Matching` in `configure.py` and updated GALE01 symbol names/scopes for local data and sdata2 entries.",
   "change_classification": {
-    "primary_type": "decomp-matching/linking",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "object-linking",
+      "linking",
       "build-config",
-      "symbol-map-adjustment"
+      "symbol-map-cleanup",
+      "fighter-common"
     ],
     "systems": [
       "fighter",
       "ftCommon",
-      "item pickup",
-      "GALE01 config",
+      "item-pickup",
+      "config",
+      "GALE01",
       "repo-root"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ft/chara/ftCommon/ftpickupitem.c",
-      "role": "Added ftpickupitem_800942A0_inline and used it in ftpickupitem_800942A0 to close the remaining match gap."
+      "role": "Implemented the matching tactic: added `inline itPickup* ftpickupitem_800942A0_inline(Fighter* fp)` returning `&fp->x294_itPickup` and replaced the direct address expression in `ftpickupitem_800942A0`."
     },
     {
       "path": "configure.py",
-      "role": "Changed melee/ft/chara/ftCommon/ftpickupitem.c from Object(NonMatching, ...) to Object(Matching, ...)."
+      "role": "Changed `Object(NonMatching, \"melee/ft/chara/ftCommon/ftpickupitem.c\")` to `Object(Matching, \"melee/ft/chara/ftCommon/ftpickupitem.c\")`, linking the translation unit."
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Updated local data/sdata2 symbol names and added ...data.0 so the newly linked object's symbols matched expected scope/naming."
+      "role": "Updated local symbol records around `.data:0x803C5580` and `.sdata2:0x804D8580` through `.sdata2:0x804D8588`, including replacing some named globals with local `@NNN` labels and adding `...data.0`."
     }
   ],
   "what_changed": [
-    "In configure.py, ftpickupitem.c was promoted from NonMatching to Matching.",
-    "In ftpickupitem.c, a new inline helper ftpickupitem_800942A0_inline(Fighter* fp) returns &fp->x294_itPickup.",
-    "ftpickupitem_800942A0 now assigns pickup via ftpickupitem_800942A0_inline(fp) instead of directly using &fp->x294_itPickup.",
-    "In symbols.txt, ftItemPickup_803C5580/assert_msg1/assert_msg2 were replaced by local compiler-style symbols @273/@274/@275, with ...data.0 added at 0x803C5580.",
-    "In symbols.txt, ftCo_804D8580, ftCo_804D8584, and ftCo_804D8588 were changed from global ftCo_* float symbols to local @253, @293, and @294 sdata2 symbols."
+    "Added an inline helper named `ftpickupitem_800942A0_inline` that takes a `Fighter*` and returns `&fp->x294_itPickup`.",
+    "Changed `ftpickupitem_800942A0` to obtain `pickup` through the new inline helper instead of assigning `&fp->x294_itPickup` directly.",
+    "Marked `melee/ft/chara/ftCommon/ftpickupitem.c` as `Matching` in the build configuration.",
+    "Renamed/localized symbol map entries: `ftItemPickup_803C5580`, `assert_msg1`, and `assert_msg2` became local-style `@273`, `@274`, and `@275`, with a new local label `...data.0` at `0x803C5580`.",
+    "Changed three `.sdata2` float symbols at `0x804D8580`, `0x804D8584`, and `0x804D8588` from global `ftCo_804D8580/8584/8588` names to local `@253`, `@293`, and `@294` labels.",
+    "The decomp.dev bot reported one new match: `main/melee/ft/chara/ftCommon/ftpickupitem` item `ftpickupitem_800942A0`, moving from 99.54% to 100.00%."
   ],
   "smart_moves": [
-    "Used a minimal inline accessor around fp->x294_itPickup rather than rewriting the surrounding item-search logic, preserving readable semantics while changing codegen enough to match.",
-    "Linked the object only after updating both build classification and the symbol map, avoiding a partial source-only match that would fail at link/symbol ownership.",
-    "Demoted data symbols that behaved like local compiler-generated constants/strings instead of keeping misleading global ftCo_* or assert-style names."
+    "Used a minimal source-level perturbation, an inline accessor around a struct member address, rather than rewriting the pickup search logic.",
+    "Kept the behavior of `ftpickupitem_800942A0` unchanged while influencing code generation enough to close the last matching gap.",
+    "Only flipped the object to `Matching` after the unit reached a reported 100% match.",
+    "Updated symbol scope/name expectations alongside the linking change, avoiding stale globally named data symbols for entries now treated as local."
   ],
   "decomp_lessons": [
-    "For a nearly matching function, introducing a tiny inline helper around a struct-field address can affect generated code without changing behavior.",
-    "When promoting a TU to Matching, audit GALE01/symbols.txt for local-vs-global scope corrections; named globals may need to become @NNN locals.",
-    "A single function reaching 100% can be enough to justify flipping an entire object to Matching if the rest of the unit is already compatible.",
-    "Use the decomp.dev report as objective evidence: this PR reported 1 new match, ftpickupitem_800942A0 moving from 99.54% to 100.00%."
+    "When a function is nearly matching and the mismatch involves taking the address of a struct member, wrapping that address computation in a tiny inline helper can alter inlining/codegen in the desired way without semantic churn.",
+    "A successful file-linking PR may require symbol map cleanup, especially converting guessed or temporary global names back to local `@NNN` labels when the compiler/linker evidence supports local scope.",
+    "Do not preserve descriptive names like `assert_msg1` or `ftItemPickup_803C5580` if the symbol map evidence indicates anonymous local objects are the correct representation.",
+    "The build configuration change from `NonMatching` to `Matching` is the final step; the code and symbols must already support a clean match."
   ],
   "naming_conventions": [
-    "Inline matching shim used the pattern <function_name>_inline: ftpickupitem_800942A0_inline.",
-    "Local data/string/float symbols in symbols.txt used compiler-style @NNN names such as @273, @274, @275, @253, @293, and @294.",
-    "The added local data label used the generated label spelling ...data.0 at the same address as @273.",
-    "Address-suffixed decomp names such as ftpickupitem_800942A0 and ftCo_804D8580 remained important search anchors, even when some symbols were demoted to locals."
+    "The added helper follows the pattern `<function_name>_inline`, here `ftpickupitem_800942A0_inline`, to document that it exists for inlining/matching support near a specific function.",
+    "Anonymous local data labels use the `@NNN` convention in `config/GALE01/symbols.txt`.",
+    "Compiler-generated/local labels may use names like `...data.0` for a local label at a data address.",
+    "Existing fighter common symbols retain `ftCo_` prefixes when they are global, but this PR demonstrates demoting some `.sdata2` entries to local `@NNN` labels when appropriate."
   ],
   "assembly_or_matching_tactics": [
-    "Wrapped &fp->x294_itPickup in inline itPickup* ftpickupitem_800942A0_inline(Fighter* fp) to influence the emitted code for ftpickupitem_800942A0.",
-    "Kept the existing ground/air offset selection structure using fp->ground_or_air == GA_Ground ? &pickup->gr_light_offset : &pickup->air_light_offset.",
-    "Adjusted symbol scope for local strings and sdata2 float constants so linked data matched the object layout.",
-    "After source and symbol fixes, changed the build object entry to Object(Matching, \"melee/ft/chara/ftCommon/ftpickupitem.c\")."
+    "Inline helper tactic: replace direct member address expression `&fp->x294_itPickup` with a call to an inline function returning the same address.",
+    "Preserve surrounding control flow and data use: `GET_FIGHTER(gobj)`, `ground_or_air == GA_Ground`, `gr_light_offset`, `air_light_offset`, and the later `ftCo_800A2040(fp)` / `fp->x1A88.xC == 28` check were not otherwise changed.",
+    "Use symbol map scope corrections as part of linking a formerly nonmatching object: local strings/floats were represented with `@` labels instead of exported-looking names.",
+    "Evidence from the bot report indicates the tactic closed the final small gap in `ftpickupitem_800942A0`, adding 3 bytes for that item and bringing it to 100.00%."
   ],
   "review_feedback": [
-    "No human PR body or review comments were present in the slice.",
-    "The decomp-dev bot reported GALE01 improvements: matched code 61.71% (+0.01%, +476 bytes), linked code 33.88% (+0.09%, +3332 bytes), and linked data 32.34% (+0.01%, +80 bytes).",
-    "The bot reported 1 new match: main/melee/ft/chara/ftCommon/ftpickupitem item ftpickupitem_800942A0, +3 bytes, 99.54% to 100.00%."
+    {
+      "source": "decomp-dev[bot]",
+      "feedback": "Reported matched code 61.71% (+0.01%, +476 bytes), linked code 33.88% (+0.09%, +3332 bytes), linked data 32.34% (+0.01%, +80 bytes), and one new match for `ftpickupitem_800942A0` from 99.54% to 100.00%."
+    },
+    {
+      "source": "human review",
+      "feedback": "No human review comments or PR body rationale were present in the provided slice."
+    }
   ],
   "searchable_terms": [
+    "pr-2378",
     "Link Ftpickupitem",
+    "jellejurre",
+    "ftpickupitem",
     "ftpickupitem.c",
     "ftpickupitem_800942A0",
     "ftpickupitem_800942A0_inline",
-    "x294_itPickup",
-    "itPickup",
+    "ftpickupitem_80094150",
+    "Fighter",
     "Fighter_GObj",
     "Item_GObj",
-    "GET_FIGHTER",
+    "itPickup",
+    "x294_itPickup",
+    "ground_or_air",
     "GA_Ground",
     "gr_light_offset",
     "air_light_offset",
     "ftCo_800A2040",
-    "configure.py Object(Matching)",
+    "x1A88",
+    "configure.py",
+    "Object(Matching)",
+    "Object(NonMatching)",
     "config/GALE01/symbols.txt",
     "ftItemPickup_803C5580",
     "assert_msg1",
     "assert_msg2",
+    "ftCo_804D8580",
+    "ftCo_804D8584",
+    "ftCo_804D8588",
     "...data.0",
     "@273",
     "@274",
@@ -103,16 +123,23 @@
     "@253",
     "@293",
     "@294",
-    "ftCo_804D8580",
-    "ftCo_804D8584",
-    "ftCo_804D8588"
+    "linked code",
+    "linked data",
+    "new match"
   ],
   "follow_up_queries": [
-    "ftpickupitem_800942A0_inline x294_itPickup",
-    "ftpickupitem_800942A0 GA_Ground gr_light_offset air_light_offset",
-    "\"...data.0\" \"@273\" ftpickupitem",
-    "\"Object(Matching, \\\"melee/ft/chara/ftCommon/ftpickupitem.c\\\")\"",
-    "ftCo_804D8580 @253 @293 @294"
+    "Find other near-matching fighter common functions where taking the address of a struct member directly may need a small inline accessor to match codegen.",
+    "Audit nearby `ftCommon` symbol map entries for descriptive global names that should actually be local `@NNN` labels after linking.",
+    "Search for other translation units still marked `NonMatching` in `configure.py` with bot reports near 100% where a minimal inline helper could finish the match.",
+    "Compare `ftpickupitem_800942A0` generated assembly before and after the inline helper to document the exact instruction/register difference if more evidence is needed."
   ],
-  "confidence": 0.9
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

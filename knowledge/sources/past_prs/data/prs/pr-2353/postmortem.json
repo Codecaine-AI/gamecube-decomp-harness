@@ -11,136 +11,118 @@
     "merged_at": "2026-03-25T18:39:15Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large decompilation/matching PR for Kirby copied neutral-special code in src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c. It replaced many placeholder asm stubs with C implementations, especially the ftKb_PrSpecialN* animation/IASA/physics/collision path, plus smaller Ns and Dk special-N matches. The decomp.dev bot reported 42 new matches and +19284 matched bytes, bringing matched code to 60.38% (+0.50%). Header and struct changes supported the matches, notably converting three scalar Kirby fighter-vars fields x8C/x90/x94 into a Vec3 x8C used as stored JObj scale.",
+  "summary": "Matched a large portion of Kirby copied-neutral-special code in `ftKb_SpecialNNs.c`, primarily filling previously placeholdered Ness, Donkey Kong, and `Pr` special-N routines. The decomp.dev bot reported 42 new matches and +19,284 matched bytes, with the unit `main/melee/ft/chara/ftKirby/ftKb_SpecialNNs` gaining many 100% functions. Supporting changes corrected Kirby fighter var layout by replacing three adjacent floats with a `Vec3 x8C`, updated initialization to write `.x/.y/.z`, and fixed the public prototype for `ftKb_SpecialNPr_8010140C` to take a `bool` argument.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "struct-layout",
-      "fighter-state-logic",
-      "collision-logic"
+      "fighter-action-logic"
     ],
     "systems": [
       "fighter",
-      "ftKirby",
-      "Kirby copied neutral specials",
-      "items/effects"
+      "Kirby",
+      "copied-specials",
+      "items",
+      "effects",
+      "collision"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
-      "role": "Main matching work: added 1349 lines and removed many placeholder markers for NsSpecial, DkSpecial, and especially PrSpecialN handlers, helpers, callbacks, physics, collision, effects, scale/rotation code."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/types.h",
-      "role": "Changed ftKb_FighterVars offsets 0x8C/0x90/0x94 from three floats into Vec3 x8C, enabling JObj scale save/restore code to typecheck and match."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.c",
-      "role": "Updated initialization of fp->fv.kb.x8C from scalar assignments to x/y/z Vec3 component assignments."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.h",
-      "role": "Updated ftKb_SpecialNPr_8010140C prototype to take a bool arg1."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.dox",
-      "role": "Kept Doxygen prototype for ftKb_SpecialNPr_8010140C in sync with the new bool parameter."
-    }
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
+    "src/melee/ft/chara/ftKirby/types.h",
+    "src/melee/ft/chara/ftKirby/ftKb_Init.c",
+    "src/melee/ft/chara/ftKirby/ftKb_Init.h",
+    "src/melee/ft/chara/ftKirby/ftKb_Init.dox"
   ],
   "what_changed": [
-    "Matched 42 items in main/melee/ft/chara/ftKirby/ftKb_SpecialNNs according to the decomp.dev bot; top reported matches included ftKb_PrSpecialAirN_Coll, ftKb_PrSpecialAirN_Anim, ftKb_PrSpecialN1_Anim, ftKb_PrSpecialN1_Coll, ftKb_PrSpecialNTurn_Phys, ftKb_PrSpecialNTurn_Anim, ftKb_PrSpecialAirNEndR_Anim, ftKb_PrSpecialNEnd_Anim, ftKb_PrSpecialN_Anim, ftKb_PrSpecialNHit_Anim, ftKb_SpecialNPr_801010D4, and fn_80100E0C.",
-    "Implemented ftKb_NsSpecialAirNStart_Anim and ftKb_NsSpecialAirNHold_Anim and factored shared flash-item spawning into ftKb_NsSpecialNStart_Anim_inline using lb_8000B1CC and it_802AA8C0.",
-    "Implemented Dk copied special-N entry helpers ftKb_SpecialNDk_800FF8EC and ftKb_SpecialNDk_800FFA10, including full-charge branch selection, command/move-var reset, callbacks, hitlag effect pause/resume callbacks, and ftAnim_8006EBA4.",
-    "Implemented a large PrSpecialN/Rollout-like flow: setup helpers ftKb_SpecialNPr_8010131C, damage/hitbox helper ftKb_SpecialNPr_80100F94, end-state helper ftKb_SpecialNPr_801010D4, roll-sound/angle helper ftKb_SpecialNPr_8010140C, animation handlers, IASA handlers, physics handlers, ground/air collision handlers, hit collision, wall-bounce effect handling, and callback reset helpers.",
-    "Added local static inline 'fake HSD_JObj helpers' for get/set scale, dirty-matrix checks, and Y rotation, including __assert call shapes and JOBJ flag checks.",
-    "Added helper routines for repeated PrSpecialN behavior: ftKb_PrScaleAnimStep, ftKb_AirScaleAnimStep, ftKb_PrRestoreScale, ftKb_PrSetCallbacks, ftKb_PrNormalizeAndSetRollAngle, ftKb_PrHitCapsuleToggle, ftKb_PrSetFacingDir, and ftKb_PrWallBounceEffect.",
-    "Updated includes needed by the new matches, including camera, landing, ft_0877, ftcliffcommon, mpLib, and MSL trig support.",
-    "Reworked existing air Ns physics to call ftKb_NsSpecialAirNStart_Phys from hold/end variants with PAD_STACK, replacing earlier fake-match comma/regalloc comments.",
-    "Updated ftKb_SpecialNPr_8010140C declaration in both header and dox from one parameter to two parameters: Fighter_GObj* gobj and bool arg1."
+    "Replaced many `/// #...` placeholders in `ftKb_SpecialNNs.c` with matched C implementations, including Ness air neutral-special start/hold animation logic, Donkey Kong neutral-special entry helpers, and many `Pr` special-N animation, IASA, physics, and collision callbacks.",
+    "Added local static inline helpers for recurring matching-sensitive behavior: fake `HSD_JObj` scale/rotation wrappers, scale animation stepping, Ness flash item spawning, `Pr` scale restoration, callback setup, roll SFX playback, hit-capsule toggling, facing direction, and wall-bounce effect handling.",
+    "Changed `struct ftKb_FighterVars` layout from separate floats `x8C`, `x90`, `x94` to one `Vec3 x8C`, then updated `ftKb_SpecialN_800F190C` initialization to assign `x8C.x`, `x8C.y`, and `x8C.z` to `1.0F`.",
+    "Updated `ftKb_SpecialNPr_8010140C` declarations in `ftKb_Init.h` and `ftKb_Init.dox` from `void ftKb_SpecialNPr_8010140C(Fighter_GObj* gobj)` to `void ftKb_SpecialNPr_8010140C(Fighter_GObj* gobj, bool arg1)`.",
+    "Implemented `fn_80100E0C` as a damage/deal-damage callback that switches `Pr` special-N states into hit behavior, adjusts velocity, resets callbacks, rotates the top joint, and plays SFX according to the diff excerpt.",
+    "The bot report recorded 42 new matches, including high-byte wins such as `ftKb_PrSpecialAirN_Coll`, `ftKb_PrSpecialAirN_Anim`, `ftKb_PrSpecialN1_Anim`, `ftKb_PrSpecialN1_Coll`, `ftKb_PrSpecialNTurn_Phys`, `ftKb_PrSpecialNTurn_Anim`, and `ftKb_PrSpecialAirNEndR_Anim`.",
+    "The bot also reported `.sdata2` improvement in the same unit, from 42.50% to 75.93%, consistent with added float constants and static motion-flag data."
   ],
   "smart_moves": [
-    "A struct-layout insight converted fp->fv.kb.x8C/x90/x94 into Vec3 x8C, which made scale save/restore code natural and removed awkward scalar treatment at adjacent offsets.",
-    "Repeated callback assignments were centralized in ftKb_PrSetCallbacks, preserving death/take-damage/deal-damage/x21F8 callback behavior while keeping C code readable.",
-    "Scale and rotation behavior was isolated into inline helpers that mimic HSD_JObj operations, including assert strings and matrix-dirty flag behavior, rather than scattering raw field writes everywhere.",
-    "Ground and air PrSpecialN variants reused paired helper logic where possible but still preserved distinct motion IDs, motion flags, velocities, and fall/freefall behavior.",
-    "The match uses explicit small stack pads, local Vec3 temporaries, static motion-flag constants, and carefully shaped inline helpers to satisfy MWCC/regalloc constraints without leaving placeholder stubs.",
-    "Collision handling preserves specific environment-bit tests for left/right wall cases, effect spawning, camera shake, SFX, cliff checks, and landing/freefall transitions instead of simplifying gameplay-visible behavior."
+    "Recognized that three adjacent fighter-var floats were actually a vector scale, enabling cleaner and matching-sensitive `Vec3` usage for JObj scale storage/restoration.",
+    "Used file-local fake `HSD_JObj` helper inlines with exact assert behavior and JObj dirty-matrix flag checks instead of calling generic helpers directly, likely to preserve original inlining/codegen patterns.",
+    "Factored repeated code into static inline helpers while still matching, e.g. shared Ness flash-item creation between ground and air start animations and shared `Pr` callback/scale/angle helpers.",
+    "Reduced duplicated air-physics implementations by making hold/end variants call the start physics body with small `PAD_STACK` adjustments, preserving stack/regalloc needs visible in the diff.",
+    "Promoted `ftKb_SpecialNPr_8010140C` to accept a `bool` mode argument, allowing the same roll-SFX/angle-wrap helper to serve both normal and turn-related callers.",
+    "Kept unknown or address-derived names where intent was not fully recovered, such as `fn_80100E0C` and `ftKb_SpecialNPr_8010140C`, avoiding premature semantic renaming."
   ],
   "decomp_lessons": [
-    "Adjacent unknown floats at stable offsets may actually be a vector; confirming usage through JObj scale code can unlock cleaner and more matchable struct definitions.",
-    "For decomp matching, local inline wrappers around library-like behavior can be useful when the exact call/assert/dirty-flag shape matters more than API cleanliness.",
-    "When multiple action states share identical physics, small wrapper functions plus PAD_STACK can match better than duplicating large bodies or using fake comma-operator regalloc tricks.",
-    "Motion-state code often needs exact bitmask constants, callback restoration, and current-frame/anim-rate handling; helper extraction is safe only when the compiler inlines into the expected shape.",
-    "Kirby copied-special code crosses fighter, item, effect, camera, cliff, and stage-collision systems, so includes and prototypes often need to be fixed along with the C body.",
-    "Keep header/dox prototypes synchronized immediately when a matched function reveals an extra parameter, as happened with ftKb_SpecialNPr_8010140C(gobj, bool arg1)."
+    "Adjacent anonymous floats in fighter vars may be latent vector fields; verify by usage patterns such as `JObj` scale get/set before locking in scalar names.",
+    "For matching HSD/JObj-heavy code, reproducing assert strings, line numbers, flag checks, and dirty-matrix behavior in local inline wrappers can be more important than using cleaner library calls.",
+    "When several action callbacks share near-identical setup/teardown, try small static inline helpers first; this PR shows helpers can improve readability without sacrificing matches.",
+    "Prototype fixes can be required by matching work: here the newly decompiled implementation proved `ftKb_SpecialNPr_8010140C` takes a boolean second parameter, and headers/docs had to follow.",
+    "Preserve stack padding explicitly when needed. The diff uses `PAD_STACK(20)`, `PAD_STACK(12)`, `PAD_STACK(8)`, and `PAD_STACK(4)` around otherwise straightforward code paths.",
+    "Copied-special code crosses several subsystems: fighter state, item spawning, effects pause/resume callbacks, collision hit capsules, stage/cliff collision, and JObj transforms. Matching these routines often requires adding the exact includes rather than relying on placeholders."
   ],
   "naming_conventions": [
-    "Kirby symbols use the ftKb_ prefix, with copied-special groups encoded in names such as NsSpecial, DkSpecial, and PrSpecialN.",
-    "Motion state symbols follow ftKb_MS_* names with explicit ground/air and phase suffixes, such as ftKb_MS_PrSpecialNLoop, ftKb_MS_PrSpecialAirNLoop, ftKb_MS_PrSpecialNFull, ftKb_MS_PrSpecialNTurn, and ftKb_MS_PrSpecialNHit.",
-    "Per-character data attributes remain in the specialn_pr_* and specialn_ns_* style; unknowns are still named conservatively, e.g. specialn_pr_unk, specialn_pr_unk10, x0, x2C, x34.",
-    "New local helpers use descriptive ftKb_Pr* names for repeated behavior: ftKb_PrSetCallbacks, ftKb_PrRestoreScale, ftKb_PrScaleAnimStep, ftKb_PrNormalizeAndSetRollAngle, ftKb_PrWallBounceEffect.",
-    "The PR did not rename many unknown move variables; it preserved existing xNN field names where semantic evidence was weak."
+    "File and symbol prefix `ftKb_` identifies Kirby-specific fighter code.",
+    "Copied neutral-special variants appear encoded in the symbol middle: `Ns` for Ness copied neutral special, `Dk` for Donkey Kong copied neutral special, and `Pr` for the `Pr` special-N family as shown by existing symbol names.",
+    "Action callback suffixes follow the fighter convention: `_Anim`, `_IASA`, `_Phys`, and `_Coll`.",
+    "Address-based names were retained for uncertain helpers and non-semantic routines, e.g. `ftKb_SpecialNDk_800FF8EC`, `ftKb_SpecialNPr_80100F94`, `ftKb_SpecialNPr_8010140C`, and `fn_80100E0C`.",
+    "Shared helper names introduced in the diff are descriptive but scoped `static inline`, e.g. `ftKb_PrScaleAnimStep`, `ftKb_PrRestoreScale`, `ftKb_PrSetCallbacks`, and `ftKb_NsSpecialNStart_Anim_inline`.",
+    "Anonymous fighter-var fields remain `xNN`-style when not semantically identified, but the aggregate type can still be improved, as with `Vec3 x8C`."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK with explicit byte sizes and occasional u8 pad arrays to shape stack layout.",
-    "Used static inline helper functions to force inlining for JObj scale/rotation helpers and repeated PrSpecialN behaviors.",
-    "Used static u32 const motion-flag bitmasks instead of ad hoc numeric literals in several matched handlers.",
-    "Preserved exact float/math forms such as M_PI, M_PI_2, deg_to_rad, 0.017453292f, ABS, SIGNF, atan2f, and small constants like 0.0001f and -0.05f.",
-    "Replaced previous fake comma-operator regalloc comments in Ns air physics with explicit locals and PAD_STACK.",
-    "Matched library-like JObj behavior by reproducing __assert calls and JOBJ_USER_DEF_MTX, JOBJ_MTX_DIRTY, JOBJ_MTX_INDEP_SRT, and JOBJ_USE_QUATERNION flag checks.",
-    "Kept ground/air collision branches separate enough to preserve calls to ft_80082708, ft_80081D0C, ft_80082888, ft_8008239C, ft_800824A0, ftCliffCommon_80081298, and ftCliffCommon_80081370."
+    "Used `PAD_STACK` to tune stack layout/regalloc in multiple matched functions.",
+    "Used `static u32 const mf` bitmask locals for `Fighter_ChangeMotionState` flags in `Pr` state transitions.",
+    "Introduced static inline fake JObj accessors that copy `HSD_JObj` assert behavior and matrix-dirty checks: `ftKb_JObjGetScale`, `ftKb_JObjMtxIsDirty`, `ftKb_JObjSetScale`, and `ftKb_JObjSetRotationY`.",
+    "Normalized roll angles by looping within `0` to `M_PI * 2`, then applied rotations with `ftPartSetRotX`, `ftPartSetRotY`, and `M_PI_2`.",
+    "Used frame-indexed scale tables `ftKb_Init_803CB710` and `ftKb_Init_803CB720` to reproduce per-frame scale animation in `Pr` routines.",
+    "Matched item/effect lifecycle details: Ness flash item creation via `it_802AA8C0`, ownership checks via `it_802AA7E4`/`it_802AA7F0`, and effect pause/resume callbacks via `efLib_PauseAll`/`efLib_ResumeAll`.",
+    "Computed hit damage from current ground or air velocity and dat-attr multipliers in `ftKb_SpecialNPr_80100F94`, including disabling/enabling the hit capsule around a velocity threshold."
   ],
   "review_feedback": [
-    "No human review comments or PR body text were present in the slice.",
-    "The decomp.dev bot reported matched code 60.38% (+0.50%, +19284 bytes), 42 new matches in ftKb_SpecialNNs, and one .sdata2 improvement from 42.50% to 75.93%."
+    "No human review comments were present in the provided slice.",
+    "The only comment was the automated decomp.dev report for GALE01, reporting matched code increased to 60.38% (+0.50%, +19,284 bytes), 42 new matches, and one `.sdata2` improvement."
   ],
   "searchable_terms": [
     "pr-2353",
     "ftKb_SpecialNNs.c",
-    "ftKb_Init.c",
-    "ftKb_Init.h",
-    "ftKb_Init.dox",
-    "ftKirby types.h",
-    "ftKb_FighterVars x8C Vec3",
+    "ftKb_SpecialNNs",
+    "ftKirby",
+    "Kirby copied neutral special",
     "ftKb_NsSpecialAirNStart_Anim",
     "ftKb_NsSpecialAirNHold_Anim",
-    "ftKb_NsSpecialNStart_Anim_inline",
     "ftKb_SpecialNDk_800FF8EC",
     "ftKb_SpecialNDk_800FFA10",
     "fn_80100E0C",
     "ftKb_SpecialNPr_80100F94",
     "ftKb_SpecialNPr_801010D4",
     "ftKb_SpecialNPr_8010131C",
-    "ftKb_SpecialNPr_8010140C bool arg1",
+    "ftKb_SpecialNPr_8010140C",
     "ftKb_PrSpecialNStart_Anim",
-    "ftKb_PrSpecialNLoop_Anim",
-    "ftKb_PrSpecialNFull_Anim",
-    "ftKb_PrSpecialN1_Anim",
-    "ftKb_PrSpecialNTurn_Anim",
-    "ftKb_PrSpecialNEnd_Anim",
-    "ftKb_PrSpecialAirN_Anim",
     "ftKb_PrSpecialAirN_Coll",
-    "ftKb_PrSpecialN1_Coll",
     "ftKb_PrSpecialNTurn_Phys",
-    "ftKb_PrWallBounceEffect",
-    "ftKb_PrSetCallbacks",
-    "ftKb_PrRestoreScale",
-    "ftKb_JObjSetScale",
-    "ftKb_JObjGetScale",
-    "ftKb_JObjSetRotationY",
+    "Vec3 x8C",
+    "HSD_JObj scale",
     "PAD_STACK",
     "JOBJ_MTX_DIRTY",
-    "Kirby copied neutral special"
+    "JOBJ_MTX_INDEP_SRT",
+    "JOBJ_USE_QUATERNION",
+    "decomp.dev 42 new matches",
+    "19284 bytes"
   ],
   "follow_up_queries": [
-    "Look for later PRs that replace the local fake HSD_JObj helpers in ftKb_SpecialNNs.c with shared baselib helpers or better-known inline patterns.",
-    "Search for follow-up renames of ftKb_FighterVars.x8C and mv.pr.specialn x-fields after the Vec3 scale discovery.",
-    "Check whether the remaining .sdata2 in main/melee/ft/chara/ftKirby/ftKb_SpecialNNs was fully matched after this PR.",
-    "Compare PrSpecialN/Rollout helper patterns in ftKb_SpecialNNs.c with native ftPr SpecialN code for reusable naming and behavior evidence.",
-    "Search for other Kirby copied-special files where adjacent float fields should become Vec3 or where callback setup can be centralized similarly."
+    "Search for remaining `/// #` placeholders in `src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c` after this PR.",
+    "Audit other Kirby copied-special fighter vars for adjacent floats that should be `Vec3` or another aggregate type.",
+    "Look for other local fake HSD/JObj helper patterns that can be reused or centralized only if doing so does not break matching.",
+    "Review callers of `ftKb_SpecialNPr_8010140C` to see whether `arg1` can eventually receive a semantic name once the `Pr` roll/turn behavior is better understood.",
+    "Compare `Pr` special-N callbacks with the source fighter's corresponding neutral-special implementation to improve names for `x0`, `x4`, `x8`, `x14`, and `x34` fields."
   ],
-  "confidence": 0.87
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

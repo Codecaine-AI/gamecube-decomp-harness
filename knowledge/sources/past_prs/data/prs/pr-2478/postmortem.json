@@ -11,155 +11,170 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Unmerged/superseded HSD 3AA7 decomp PR centered on sysdolphin baselib memory-card/CARD file-block handling. The diff rewrote fn_803AC3F8 to reach a bot-reported 100% match, added large partial C implementations for fn_803ADF90, fn_803AE7F8, and fn_803B0E9C, refined hsd_3AA7 header prototypes and CardState-like layouts, and made mostly style/formatting edits in psdisp, gm, and gr files. decomp.dev reported +352 matched bytes but also a fn_803B21E8 regression; the PR was closed without merge after a comment saying it was superseded by PR #2512.",
+  "summary": "Unmerged/superseded decomp PR for sysdolphin baselib hsd_3AA7. It added large partial implementations around the CARD/save-file command path, fully matched fn_803AC3F8, and improved fn_803ADF90, fn_803AE7F8, and fn_803B0E9C according to the decomp.dev bot. It also refined hsd_3AA7.h prototypes and struct typing, plus made mostly formatting-only changes in psdisp.c and minor cast-spacing style fixes in gm/gr files. The PR was closed after the author noted it was superseded by PR #2512, so future reuse should verify against the successor PR before copying details.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
-      "partial-decompilation",
-      "headers",
-      "prototype-correction",
-      "struct-layout",
-      "formatting"
+      "baselib CARD/save-file decompilation",
+      "partial function implementation",
+      "header/prototype refinement",
+      "struct typing",
+      "formatting/style cleanup",
+      "superseded-unmerged"
     ],
     "systems": [
-      "sysdolphin/baselib/hsd_3AA7",
-      "dolphin CARD memory-card I/O",
-      "sysdolphin/baselib/psdisp",
+      "sysdolphin/baselib",
+      "hsd_3AA7",
+      "psdisp",
       "melee/gm",
       "melee/gr"
     ]
   },
   "key_files": [
     {
-      "file": "src/sysdolphin/baselib/hsd_3AA7.c",
-      "role": "primary decomp work",
-      "evidence": "845 additions / 83 deletions; added CardStateExt/HsdCmdEntry-related local types, rewrote fn_803AC3F8, added fn_803ADF90, fn_803AE7F8, fn_803B0E9C bodies, and changed fn_803B21E8 typing/field access."
+      "path": "src/sysdolphin/baselib/hsd_3AA7.c",
+      "role": "Main decomp work: added HsdCmdEntry/CardStateExt helpers, included hsd_3B2B.h, matched fn_803AC3F8, and added large partial bodies for fn_803ADF90, fn_803AE7F8, and fn_803B0E9C."
     },
     {
-      "file": "src/sysdolphin/baselib/hsd_3AA7.h",
-      "role": "header and prototype cleanup",
-      "evidence": "Changed hsd_803AAA48/fn_803AD16C away from UNK declarations and gave several fn_803ADF90-family functions state/file_id/data/async/callback-style prototypes."
+      "path": "src/sysdolphin/baselib/hsd_3AA7.h",
+      "role": "Header cleanup: replaced UNK prototypes for hsd_803AAA48 and fn_803AD16C, gave typed state/data/async/callback signatures to several hsd_3AA7 functions, and exposed a more detailed hsd_803AC3E0_arg0_t layout."
     },
     {
-      "file": "src/sysdolphin/baselib/psdisp.c",
-      "role": "formatting/include ordering",
-      "evidence": "275 additions / 102 deletions, largely line wrapping in psDispParticles plus a small include reorder; no decomp.dev match change was attributed to psdisp."
+      "path": "src/sysdolphin/baselib/psdisp.c",
+      "role": "Mostly formatting/readability changes in psDispParticles and include ordering; no clear matching impact is shown in the excerpt."
     },
     {
-      "file": "src/melee/gm/gm_18A5.c",
-      "role": "style-only cleanup",
-      "evidence": "Adjusted GXColor compound literal spacing in fn_8018DF68."
+      "path": "src/melee/gm/gm_18A5.c",
+      "role": "Style-only spacing change for GXColor compound literals."
     },
     {
-      "file": "src/melee/gm/gmclassic.c",
-      "role": "style-only cleanup",
-      "evidence": "Adjusted function-pointer cast spacing in gmClassic_801B3500."
+      "path": "src/melee/gm/gmclassic.c",
+      "role": "Style-only spacing change for function pointer casts."
     },
     {
-      "file": "src/melee/gr/gricemt.c",
-      "role": "style-only cleanup",
-      "evidence": "Adjusted function-pointer cast spacing in grIceMt_801FA364."
+      "path": "src/melee/gr/gricemt.c",
+      "role": "Style-only spacing change for a function pointer cast."
     }
   ],
   "what_changed": [
-    "Implemented or partially implemented hsd_3AA7 memory-card routines fn_803ADF90, fn_803AE7F8, and fn_803B0E9C, replacing nearby placeholder comments in the diff.",
-    "Reworked fn_803AC3F8 from a larger manual zero-fill/unroll shape into a simple three-entry loop plus tail-zero loop; decomp.dev reported it improved from 82.55% to 100.00% (+62 bytes).",
-    "Added hsd_3B2B.h include and used hsd_803B2B20 in fn_803B0E9C digest/checksum-like block handling.",
-    "Introduced local layout helpers/types such as HsdCmdEntry, Hsd803B2550Ctx, CardStateExt, and changed CardQueueEntry.x4 from s32 to void* with explicit casts where needed.",
-    "Added sync/async CARD I/O logic in the new functions: OSDisableInterrupts/OSRestoreInterrupts busy checks, CARDFastOpen/CARDRead/CARDWrite/CARDClose retry loops, block maps, sequence checks, and queued s32 cmd[9] operations through fn_803AC168.",
-    "Changed fn_803B21E8 signature from raw s32 card_state to struct hsd_803AC3E0_arg0_t* and updated command/entry payloads to use card_state->x0; decomp.dev reported this item regressed by 8 bytes.",
-    "Updated hsd_3AA7.h prototypes to use typed CardState or hsd_803AC3E0_arg0_t pointers and more descriptive argument names for state/file_id/data/async/callback on several functions.",
-    "Applied formatting-only changes to compound literals/function pointer casts in gm_18A5, gmclassic, and gricemt, and extensive line wrapping in psdisp."
+    "Added hsd_3B2B.h include in hsd_3AA7.c, likely to use hsd_803B2B20 for digest/checksum work in fn_803B0E9C.",
+    "Changed CardQueueEntry.x4 from s32 to void*, then cast it back where fn_803AA790 needs an integer command argument.",
+    "Introduced HsdCmdEntry and CardStateExt local structs, including CARDFileInfo, block maps, data buffers, and fields such as x170/x270/x370/x3B0/x460.",
+    "Added CMD_QUEUE(base) macro for treating an offset from a base pointer as an HsdCmdEntry array.",
+    "Reworked fn_803AC3F8 from a partially matched version with manual remaining/unroll cleanup into a concise 100% match that writes up to three file descriptor entries and zero-fills the remainder.",
+    "Removed placeholder markers for fn_803ADF90, fn_803AE7F8, and fn_803B0E9C and replaced them with large partial implementations covering block mapping, sequence checks, CARDRead/CARDWrite/CARDFastOpen/CARDClose retry loops, async command submission through fn_803AC168, memcpy/memset payload handling, and digest generation.",
+    "Adjusted fn_803B1F78 and fn_803B21E8 call sites/signatures to pass typed hsd_803AC3E0_arg0_t/CardState-related pointers rather than raw s32 card_state values.",
+    "Updated hsd_3AA7.h to make hsd_803AAA48 return s32 with no args, fn_803AD16C take CardState*, and several file operations take struct hsd_803AC3E0_arg0_t* plus file_id/data/async/callback-style arguments.",
+    "Applied formatting-only spacing changes to GXColor compound literals and function pointer casts in gm_18A5.c, gmclassic.c, and gricemt.c.",
+    "Reformatted many long lines in psdisp.c, including matrix/projection calculations, GXSetArray/GXSetVtxAttrFmt/GXSetBlendMode/GXSetAlphaCompare/GXSetChanCtrl calls, and color arithmetic."
   ],
   "smart_moves": [
-    "The fn_803AC3F8 rewrite demonstrates that removing artificial unrolled zeroing can improve MWCC matching; the simpler loop matched fully according to the bot.",
-    "Using a CardStateExt overlay with offset-named arrays x28/x4C/x70/x170/x270 allowed the author to express block/file metadata while preserving unknown layout gaps with pad fields.",
-    "The new hsd_3AA7 code models both synchronous direct CARD calls and asynchronous command-queue paths in the same routines, matching the dispatcher-style structure suggested by fn_803AC168 and numeric command buffers.",
-    "The added prototypes in hsd_3AA7.h made call sites more type-aware, especially for state pointers and callback/data parameters, reducing reliance on raw s32/UNK declarations.",
-    "The implementation keeps repeated CARD API retry loops local and explicit, which is useful evidence for future matching of adjacent memory-card functions.",
-    "The diff isolates unrelated style churn to obvious formatting changes, making the substantive hsd_3AA7 matching work easier to identify despite the large line count."
+    "Using a local CardStateExt overlay let the author name and index the save/card state fields needed by several functions without prematurely committing to a globally perfect public struct.",
+    "The fn_803AC3F8 fix simplified zero-fill control flow instead of preserving an artificial unrolled cleanup path, which the bot confirmed as a full match.",
+    "Typed header prototypes made call sites express state pointer/data/async/callback roles, reducing raw s32 ambiguity in later hsd_3AA7 work.",
+    "The implementations consistently model CARD busy retry behavior with bounded retry loops around CARDRead, CARDWrite, CARDFastOpen, and CARDClose.",
+    "The async path is kept structurally distinct from the sync CARD API path by building 9-word command buffers and routing through fn_803AC168.",
+    "The block-repair/read logic records physical/logical block maps and sequence numbers separately, which is useful for future work on this save-file subsystem."
   ],
   "decomp_lessons": [
-    "For hsd_3AA7/CARD work, struct overlays with known offsets plus pad arrays are a practical bridge between raw decomp and final names; keep fields like x4C/x170/x270 until semantics are proven.",
-    "Typed prototypes can improve readability and call-site correctness, but they can also perturb codegen: fn_803B21E8's pointer signature change coincided with a bot-reported regression from 94.85% to 92.73%.",
-    "When matching MWCC, prefer the simplest C shape that produces the observed code before adding manual unrolls; fn_803AC3F8 became a full match after simplifying the zero-fill path.",
-    "Async HSD card commands in this area appear as 9-word stack buffers with cmd[0] opcodes and state/data/offset/size slots; future decomp should reuse this command-buffer pattern but avoid assigning semantic opcode names until confirmed.",
-    "The unusual expression in fn_803AC3F8, `>> ((0, 0x10))`, is likely a codegen/matching nudge; reuse only with local assembly confirmation rather than as normal style.",
-    "Because this PR was closed unmerged and superseded by #2512, treat its exact code as intermediate evidence and verify against the accepted successor before copying implementation details."
+    "For CARD/save decomp, separate physical block number, logical file block index, sequence number, and file_id variables; this made fn_803ADF90 and fn_803AE7F8 easier to reason about than raw argN-only code.",
+    "A partial overlay struct can unlock multiple functions in a subsystem, but future work should validate offsets before promoting it to a public header.",
+    "When a function writes fixed-size table entries, a simple counted loop plus explicit zero-fill can match better than hand-preserved unrolled code from an earlier guess.",
+    "Header prototypes should reflect pointer identity as soon as it is known; changing raw s32 parameters to struct hsd_803AC3E0_arg0_t* clarified fn_803ADF90/fn_803AE7F8/fn_803B21E8 usage.",
+    "Keep @todo comments for known nonmatching causes, such as volatile load scheduling, rlwimi emission, and stwx-vs-stw+disp rollback differences, because they preserve matching context for the next pass.",
+    "Because this PR was superseded and unmerged, treat it as a research snapshot rather than canonical project history; compare against PR #2512 before reusing implementation details."
   ],
   "naming_conventions": [
-    "Address-based function names remain dominant: fn_803AC3F8, fn_803ADF90, fn_803AE7F8, fn_803B0E9C, fn_803B21E8, hsd_803AAA48.",
-    "Temporary/local type names combine subsystem or address hints with generic roles: CardBufEntry, CardQueueEntry, HsdCmdEntry, Hsd803B2550Ctx, CardStateExt.",
-    "Unknown struct members stayed offset-style with x-prefixed names and pads: x0, x4, x8, x24, x4C, x170, x270, x3B0, pad_94, pad_3B1.",
-    "Header prototypes began moving from raw s32/UNK_PARAMS toward semantic argument names such as state, file_id, data, async, and callback.",
-    "Style convention in nearby gm/gr cleanup places a space between the pointed-to type and `(*...)` in function pointer casts, e.g. `(u8 (*)(s32, s32, u8))`, and formats compound literals as `(GXColor) { ... }`."
+    "Local overlay structs used CamelCase names such as HsdCmdEntry, Hsd803B2550Ctx, and CardStateExt.",
+    "Unknown fields remained offset-style names such as x0, x4C, x170, x270, x370, x3B0, and x460.",
+    "Function parameters were improved from generic idx to file_idx where the role was known.",
+    "Header prototypes used semantic names like state, file_id, data, async, and callback for newly typed hsd_3AA7 operations.",
+    "Function pointer cast formatting followed the style `(u8 (*)(s32, s32, u8))` and `(s32 (*)(HSD_GObj*, s32*))` with a space before `(*)`."
   ],
   "assembly_or_matching_tactics": [
-    "decomp.dev report: overall matched code 67.19%, +0.01%, +352 bytes for GALE01 c14d251 -> 383f9af.",
-    "New full match: main/sysdolphin/baselib/hsd_3AA7 fn_803AC3F8, +62 bytes, 82.55% -> 100.00%.",
-    "Partial improvements: fn_803AE7F8 +1299 bytes, 0.00% -> 42.42%; fn_803ADF90 +1213 bytes, 0.00% -> 56.38%; fn_803B0E9C +578 bytes, 0.00% -> 49.05%.",
-    "Regression to investigate: fn_803B21E8 -8 bytes, 94.85% -> 92.73%, near a signature change and card_state->x0 command payload change.",
-    "fn_803AC3F8 matching tactics visible in diff include explicit u32 casts before shifts, a simple bounded loop over three metadata entries, a separate tail-zero loop, and the `((0, 0x10))` shift-count expression.",
-    "New CARD routines use fixed-size stack arrays `s32 cmd[9] = { 0 }` and pass them to fn_803AC168 with opcodes including 1, 2, 4, 5, 6, 9, and 10.",
-    "Sync paths repeatedly retry CARDRead/CARDWrite/CARDFastOpen/CARDClose while result is -1, usually capped at 10 attempts, which may be important for matching control flow."
+    "fn_803AC3F8 reached 100% by changing the descriptor loop expression, using `file_idx`, casting x4C to u32 for shifts, preserving the unusual comma-expression shift `>> ((0, 0x10))`, and replacing a manual unroll cleanup with a `for (; i < 3; i++)` zero-fill.",
+    "Existing todo notes identify remaining matching blockers: fn_803AC168 has volatile load scheduling issues in a critical section, fn_803AC6B8 has an mwcc `rlwimi. r6,r0,8,10,23` emission issue, and fn_803ADE4C/fn_803B1F78 have stwx versus stw+disp rollback differences.",
+    "Async command submission used stack arrays of nine s32 words with command IDs such as 2, 4, 5, 6, 8, 9, and 10, then called fn_803AC168.",
+    "Synchronous CARD access modeled hardware/API behavior with retry loops that break when the CARD result is not -1 and cap retries at 10.",
+    "The fn_803B0E9C partial used hsd_803B2B20 digest generation over sector-sized chunks and appended digest bytes before CARDWrite."
   ],
   "review_feedback": [
-    "There were no GitHub review comments and reviews.json/review_comments.json are empty; human rationale is weak because the PR body was empty.",
-    "decomp-dev[bot] reported one new match, three unmatched-item improvements, and one unmatched-item regression, all in main/sysdolphin/baselib/hsd_3AA7.",
-    "A later issue comment by jellejurre stated: `Superseded by https://github.com/doldecomp/melee/pull/2512`; the PR was closed without merge."
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Matched code increased to 67.19% (+0.01%, +352 bytes). One new match: hsd_3AA7 fn_803AC3F8 from 82.55% to 100.00%."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported three unmatched improvements: fn_803AE7F8 from 0.00% to 42.42%, fn_803ADF90 from 0.00% to 56.38%, and fn_803B0E9C from 0.00% to 49.05%."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Reported one regression: fn_803B21E8 from 94.85% to 92.73% (-8 bytes)."
+    },
+    {
+      "source": "author comment",
+      "feedback": "PR was closed as superseded by https://github.com/doldecomp/melee/pull/2512."
+    },
+    {
+      "source": "review thread",
+      "feedback": "No human review comments or reviews were present in the supplied slice."
+    }
   ],
   "searchable_terms": [
-    "pr-2478",
+    "PR2478",
     "Jj/hsd 3 aa7",
     "hsd_3AA7",
-    "hsd_3AA7.c",
-    "hsd_3AA7.h",
     "sysdolphin",
     "baselib",
-    "memory card",
-    "Dolphin CARD",
+    "CARD",
     "CardState",
     "CardStateExt",
-    "CardBufEntry",
+    "CARDFileInfo",
     "CardQueueEntry",
+    "CardBufEntry",
     "HsdCmdEntry",
-    "Hsd803B2550Ctx",
     "CMD_QUEUE",
+    "fn_803AA790",
+    "hsd_803AAA48",
+    "fn_803AC168",
     "fn_803AC3F8",
+    "fn_803AC6B8",
+    "fn_803AC7DC",
+    "fn_803AD16C",
     "fn_803ADF90",
     "fn_803AE7F8",
     "fn_803B0E9C",
+    "fn_803B1F78",
     "fn_803B21E8",
-    "fn_803AC168",
-    "fn_803ACFC0",
-    "fn_803ACB74",
-    "fn_803AC7DC",
-    "fn_803AD16C",
+    "hsd_803B2B20",
+    "hsd_803B31CC",
     "CARDFastOpen",
     "CARDRead",
     "CARDWrite",
     "CARDClose",
     "OSDisableInterrupts",
     "OSRestoreInterrupts",
-    "hsd_803B2B20",
-    "hsd_803B31CC",
+    "psdisp",
     "psDispParticles",
-    "psdisp.c",
-    "gm_18A5.c",
-    "gmclassic.c",
-    "gricemt.c",
-    "GXColor compound literal spacing",
-    "function pointer cast spacing",
-    "superseded by PR 2512",
-    "fn_803B21E8 regression"
+    "GXSetVtxAttrFmt",
+    "GXSetAlphaCompare",
+    "GXSetChanCtrl",
+    "superseded by PR2512"
   ],
   "follow_up_queries": [
-    "PR #2512 hsd_3AA7 successor final accepted changes",
-    "fn_803B21E8 regression card_state pointer x0 command payload",
-    "fn_803AC3F8 100% match loop shift ((0, 0x10))",
-    "hsd_3AA7 CardStateExt x170 x270 block map sequence numbers",
-    "fn_803AC168 cmd[9] opcode mapping hsd_3AA7 async CARD queue"
+    "Compare PR #2478 against superseding PR #2512 to identify which hsd_3AA7 implementations and struct fields were kept, renamed, or discarded.",
+    "Search for later changes to CardStateExt or hsd_803AC3E0_arg0_t to determine the canonical struct layout for the hsd_3AA7 CARD/save subsystem.",
+    "Check whether fn_803ADF90, fn_803AE7F8, and fn_803B0E9C eventually matched and which matching tactics resolved the remaining percentages.",
+    "Investigate the fn_803B21E8 regression noted by decomp.dev and whether typed card_state access was later adjusted.",
+    "Review future PRs touching fn_803AC168 for the volatile load scheduling issue documented in the todo comment."
   ],
-  "confidence": 0.78
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

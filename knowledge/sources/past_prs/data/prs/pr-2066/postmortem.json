@@ -11,27 +11,26 @@
     "merged_at": "2026-01-06T23:43:30Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Repository-wide cleanup PR that ran clang-format over src. It touched 287 files across melee and sysdolphin code, with formatting-only edits such as line wrapping, brace placement, cast spacing, comment spacing, removal of excess blank lines, and reflowing long expressions. No PR body, review comments, or explicit rationale were present in the slice, so the value is inferred from the title and diff: normalize style across source files to reduce manual formatting noise in future decomp work.",
+  "summary": "Large mechanical formatting-only cleanup that ran clang-format across `src`, touching 287 files with no recorded discussion or review comments. The diff excerpt shows whitespace, brace placement, line wrapping, cast spacing, function signature wrapping, comment spacing, and blank-line normalization in camera code, with similarly broad churn across fighter, item, stage, menu, library, game-mode, effect, and sysdolphin baselib files. The value of the PR was standardizing source layout so later decomp PRs inherit consistent formatting and avoid noisy style-only diffs.",
   "change_classification": {
-    "primary_type": "formatting_cleanup",
+    "primary_type": "formatting",
     "categories": [
       "cleanup",
       "headers",
-      "style-only",
-      "clang-format"
+      "clang-format",
+      "style-only"
     ],
     "systems": [
-      "effect",
-      "fighter",
-      "game-mode",
-      "item",
-      "library",
-      "melee-core",
-      "menu",
-      "stage",
+      "src",
       "camera",
-      "sysdolphin-baselib",
-      "src"
+      "fighter",
+      "item",
+      "stage",
+      "menu",
+      "library",
+      "game-mode",
+      "effect",
+      "sysdolphin-baselib"
     ]
   },
   "key_files": [
@@ -46,76 +45,70 @@
     "src/melee/lb/lbheap.c",
     "src/melee/mn/mndatadel.c",
     "src/melee/it/items/itnesspkfirepillar.c",
-    "src/melee/gm/gm_18A5.static.h",
     "src/sysdolphin/baselib/devcom.c",
     "src/sysdolphin/baselib/sislib.c",
     "src/sysdolphin/baselib/sislib.h"
   ],
   "what_changed": [
-    "Ran clang-format over src, affecting 287 changed files with 2198 additions and 1719 deletions according to the PR slice.",
-    "Reflowed long arithmetic, ternary, assignment, and function-call expressions, especially visible in src/melee/cm/camera.c.",
-    "Normalized function definitions such as inline helpers by splitting long parameter lists and placing opening braces according to the configured style.",
-    "Expanded empty infinite loops from single-line form to brace bodies, e.g. `while (true) { }` style in camera.c.",
-    "Adjusted cast spacing in several examples from forms like `(u8*)&value` to `(u8*) &value`, `(s32)fn` to `(s32) fn`, and function-pointer casts like `(s32(*)(Vec3*)) cb`.",
-    "Removed extra blank lines and normalized comment spacing, e.g. `cm_803BCCA0; // Force load`.",
-    "Applied formatting to both C implementation files and headers, including forward/type headers and static headers."
+    "Ran clang-format over `src`, producing 2198 added and 1719 deleted lines across 287 changed files.",
+    "Rewrapped long expressions and assignments, especially in `src/melee/cm/camera.c`, including camera bounds calculations, fov calculations, vector interpolation, and pause-camera math.",
+    "Normalized empty loop formatting from single-line `while (true) {};` to a braced multi-line loop body in `Camera_80029044`.",
+    "Reformatted inline function definitions such as `get_follow_speed`, `get_delta`, and `get_slot_pad` so wrapped parameters and opening braces follow the configured style.",
+    "Normalized cast spacing examples in the excerpt, including `(u32) Camera_80029124(...)`, `(u8*) &cm_80452C68.x304`, `(s32) fn_8002F908`, and function pointer cast spacing `(s32(*)(Vec3*)) cb`.",
+    "Removed or collapsed excess blank lines in `camera.c` and standardized inline comment spacing, e.g. `cm_803BCCA0; // Force load`.",
+    "Applied the same formatting pass to headers and source files in fighter, menu, camera, item, stage, library, game-mode, effect, video, interface, player, and sysdolphin baselib areas."
   ],
   "smart_moves": [
-    "Isolated formatting as its own PR, making it easier to review as mechanical cleanup rather than mixing style churn with semantic decomp changes.",
-    "Used clang-format consistently across a broad source tree instead of hand-formatting individual files, reducing subjective style drift.",
-    "Merged quickly with no recorded review discussion, consistent with a mechanical formatting pass where the title and diff make the intent obvious.",
-    "By normalizing existing code before more decomp work, future functional PRs can have smaller diffs that are less cluttered by unrelated whitespace and wrapping changes."
+    "Kept the PR explicitly scoped to a mechanical formatting pass, making the massive diff easier to interpret as style churn rather than logic work.",
+    "Merged quickly with no review discussion, suggesting the change was treated as an infrastructure/style baseline rather than a semantic patch.",
+    "Formatted the entire `src` tree in one pass, which avoids a long tail of unrelated formatting churn leaking into future matching or cleanup PRs.",
+    "Preserved existing code constructs and even comments like `/// @remarks permuter jank`, indicating this was not a rewrite of decomp-sensitive expressions."
   ],
   "decomp_lessons": [
-    "For large decomp repositories, run formatter-only changes separately from matching or symbol-renaming work; otherwise reviewers cannot easily distinguish semantic edits from style churn.",
-    "Do not infer algorithmic or matching changes from this PR: the slice evidence shows mechanical clang-format output, not behavior changes.",
-    "Formatting can touch sensitive matching code without intending to affect generated code; future authors should still verify builds/matches after formatter sweeps because C source layout can interact with decomp-permuter-era constructs and macro-heavy code.",
-    "Expect clang-format to rewrap long expressions in camera, fighter, item, stage, menu, and baselib files; future patches should follow the formatted baseline to avoid needless diff noise.",
-    "Header formatting is part of source hygiene too: forward declarations, type headers, static headers, and function prototypes were included in the formatting pass."
+    "After a repository-wide clang-format baseline, future decomp PRs should run the same formatting before review so diffs emphasize symbol, type, and matching changes rather than whitespace.",
+    "For matching-sensitive code, clang-format can alter visual layout without changing semantics; reviewers should distinguish mechanical wrapping from expression rewrites.",
+    "Large formatting-only PRs are best isolated from functional decomp changes because they invalidate surrounding line context and can complicate blame/review if mixed with logic edits.",
+    "Headers and source files should both be included in style baselines; this PR touched `.c`, `.h`, and `.static.h` files.",
+    "Existing matching notes and permuter-jank comments should be preserved through mechanical cleanup, as shown in the camera excerpt."
   ],
   "naming_conventions": [
-    "No new symbol naming convention was introduced by the evidence in this slice.",
-    "Existing subsystem prefixes remained unchanged, including `Camera_`, `Stage_`, `ft`, `gm`, `mn`, `it`, `lb`, `gr`, and `HSD_` names.",
-    "Existing decomp-style anonymous or address-derived names such as `cm_80452C68`, `cm_803BCCA0`, and `fn_8002F908` were preserved; this PR did not rename them."
+    "No new symbol naming convention is evidenced; the PR preserves existing decomp-style names such as `Camera_8002B3D4`, `cm_80452C68`, `cm_803BCCA0`, and `Stage_GetCamBoundsBottomOffset`.",
+    "The changed file list reflects existing subsystem prefixes and directory naming: `ft` for fighter, `cm` for camera, `mn` for menu, `it` for item, `gr` for ground/stage, `lb` for library, `gm` for game-mode, and `ef` for effects.",
+    "Existing character/action file naming remained unchanged, such as `ftKb_Init.c`, `ftKp_SpecialS.c`, `ftFx_SpecialLw.c`, and `ftCo_DamageScrew.c`."
   ],
   "assembly_or_matching_tactics": [
-    "No assembly matching tactic was explicitly documented in the PR text or review comments.",
-    "The diff preserves visible decomp/permuter notes such as `/// @remarks permuter jank` and `// Force load`; clang-format changed spacing/wrapping around them but did not replace the underlying matching workaround.",
-    "Formatter changes around casts, long expressions, and inline functions should be treated as mechanical unless a future build/match check indicates otherwise."
+    "No explicit assembly or matching tactic was discussed in the PR text or reviews.",
+    "The diff excerpt shows clang-format preserving casts, inline functions, forced-load statements, and comments used around matching-sensitive code rather than replacing them with clearer but potentially nonmatching constructs.",
+    "Formatting changes included expression wrapping and cast-spacing normalization; future matching work should verify that such style-only edits do not hide semantic modifications when reviewing large diffs."
   ],
   "review_feedback": [
-    "No issue comments, review comments, or reviews were present in the provided slice.",
-    "There is no recorded reviewer rationale or requested change to extract."
+    "No issue comments, review comments, or reviews were present in the provided PR context.",
+    "No reviewer-requested naming, struct, header, or matching feedback is evidenced."
   ],
   "searchable_terms": [
     "pr-2066",
     "clang-format",
     "format src",
-    "formatting cleanup",
-    "style-only",
-    "mechanical cleanup",
+    "style-only cleanup",
+    "mechanical formatting",
     "src/melee/cm/camera.c",
     "src/melee/ft/ftaction.c",
     "src/melee/mn/mnmain.c",
     "src/melee/ft/fighter.h",
     "src/sysdolphin/baselib",
+    "camera bounds formatting",
     "cast spacing",
-    "line wrapping",
-    "brace placement",
-    "headers",
-    "forward.h",
-    "types.h",
-    "static.h",
-    "permuter jank",
-    "Force load"
+    "function signature wrapping",
+    "blank line normalization",
+    "permuter jank comment preserved",
+    "ribbanya"
   ],
   "follow_up_queries": [
-    "Find later PRs that mention clang-format regressions or matching fallout after PR 2066.",
-    "Search for repository clang-format configuration changes near January 2026.",
-    "Search future review comments for requests to keep formatter-only changes separate from semantic changes.",
-    "Compare post-PR formatting conventions for casts, inline functions, and long ternary expressions in src/melee/cm/camera.c."
+    "Look for later PRs that mention clang-format regressions or style conflicts after PR 2066.",
+    "Search subsequent matching PRs touching `camera.c` to see whether the formatting baseline affected permuter or matching workflows.",
+    "Check repository tooling around January 2026 for `.clang-format` or CI changes that made this formatting pass reproducible."
   ],
-  "confidence": 0.91,
+  "confidence": 0.93,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

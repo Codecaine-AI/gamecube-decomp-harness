@@ -1,0 +1,124 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2611",
+  "pr": {
+    "number": 2611,
+    "title": "match and link itdosei.c",
+    "url": "https://github.com/doldecomp/melee/pull/2611",
+    "state": "MERGED",
+    "author": "lukechampine",
+    "created_at": "2026-06-08T03:59:13Z",
+    "merged_at": "2026-06-08T04:26:05Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Matched and linked the Dosei item translation unit by converting configure.py from NonMatching to Matching for src/melee/it/items/itdosei.c and adjusting C source shape to satisfy the linker/matcher. The source changes mostly replace ad-hoc inline rotation setters and PAD_STACK padding with better-shaped helper inlines, explicit HSD_JObj rotation calls, sdata2 ordering control, user_data access in several functions, and small function-order/code-shape tweaks.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "linking",
+      "item-behavior",
+      "code-shape-cleanup"
+    ],
+    "systems": [
+      "item",
+      "dosei",
+      "build-configuration",
+      "baselib-jobj"
+    ]
+  },
+  "key_files": [
+    "configure.py",
+    "src/melee/it/items/itdosei.c"
+  ],
+  "what_changed": [
+    "Changed configure.py so melee/it/items/itdosei.c is built as Object(Matching, ...) instead of Object(NonMatching, ...).",
+    "Added a static sdata2_ordering helper containing volatile float/double constants including 1.0f, 0.5f, 0.0f, M_PI_2, M_PI / 4.0f, M_PI, 4503601774854144.0, and 60.0f, apparently to force constant ordering needed for matching.",
+    "Removed placeholder/platform and some unused includes while adding it/itgroundcoll.h; the file now relies on existing item and baselib headers rather than placeholder scaffolding.",
+    "Replaced custom inline rotation setters itDosei_SetRotX/Y/Z and itDosei_SetFacingAngle/SetFacingAngleFC with a smaller itDosei_FacingAngle helper returning the computed angle, plus direct calls to HSD_JObjSetRotationY or HSD_JObjSetRotationYWithMtxDirty.",
+    "Introduced HSD_JObjSetRotationZeroWithMtxDirty to call HSD_JObjSetRotationXWithMtxDirty, HSD_JObjSetRotationYWithMtxDirty, and HSD_JObjSetRotationZWithMtxDirty on gobj->hsd_obj.",
+    "Removed multiple PAD_STACK calls once matching was achieved through better source shaping.",
+    "Changed several Item pointer fetches from GET_ITEM(gobj) to direct gobj->user_data in picked-up, dropped, motion 9 anim, and damage-received paths.",
+    "Added small helper inlines around itDosei_UnkMotion4_Anim, including itDosei_UnkMotion4_Anim_inline, itDosei_UnkMotion4_GetAnimSpeed, and itDosei_UnkMotion4_GetAttrs, and included a noted 'permuterslop' null-check shape.",
+    "Moved itDosei_UnkMotion10_Phys and itDosei_UnkMotion10_Coll to after itDosei_UnkMotion10_Anim without changing their visible behavior.",
+    "PR body recorded project progress after the merge: Remaining item TUs: 18; Remaining item functions: 63."
+  ],
+  "smart_moves": [
+    "Converted inline setters that duplicated HSD_JObj assert/dirty logic into calls to the canonical HSD_JObjSetRotation* and HSD_JObjSetRotation*WithMtxDirty APIs, reducing handwritten baselib internals while preserving matched code shape.",
+    "Separated angle calculation into itDosei_FacingAngle, allowing call sites to choose whether to use normal rotation setters or mtx-dirty rotation setters while sharing the same facing_dir math.",
+    "Used volatile constants in sdata2_ordering to influence .sdata2 ordering, a common tactic when source code is close but constant pool layout prevents linking/matching.",
+    "Eliminated PAD_STACK padding by finding more natural source-level changes, such as helper inlines, direct gobj->user_data access, and function ordering.",
+    "Kept behavior-oriented calls explicit at call sites, for example HSD_JObjSetRotationY(gobj->hsd_obj, itDosei_FacingAngle(...)), which documents that the helper only computes the angle."
+  ],
+  "decomp_lessons": [
+    "For item TUs, a successful match may require both C expression shaping and build configuration changes; remember to flip configure.py from NonMatching to Matching only after the object links.",
+    "When matching JObj rotation code, prefer existing HSD_JObjSetRotationX/Y/Z and WithMtxDirty APIs over manually reproducing assert and dirty-flag logic unless the original shape demands otherwise.",
+    "If a constant pool ordering mismatch blocks a match, a dedicated volatile helper can force float/double constants into the required order, but this should be treated as a matching tactic rather than gameplay logic.",
+    "Direct gobj->user_data access can sometimes match where GET_ITEM(gobj) macro expansion does not; use evidence from generated code before choosing between them.",
+    "Small inline helper extraction can be enough to remove artificial PAD_STACK usage and align register/stack behavior.",
+    "Function order within a C file can matter for matching/linking in this project, as shown by moving Motion10 Phys/Coll after Motion10 Anim."
+  ],
+  "naming_conventions": [
+    "Existing item symbol naming was preserved: itDosei_UnkMotionN_Anim, itDosei_UnkMotionN_Phys, itDosei_UnkMotionN_Coll, and it_3F14_Logic7_*.",
+    "New helpers follow local camel-case item style with the item prefix, such as itDosei_FacingAngle, itDosei_UnkMotion4_GetAnimSpeed, and itDosei_UnkMotion4_GetAttrs.",
+    "The matching-only constant-order helper is named sdata2_ordering, explicitly describing its section-ordering purpose rather than gameplay behavior.",
+    "Helper names distinguish dirty-matrix variants with the suffix WithMtxDirty, matching baselib HSD_JObj naming."
+  ],
+  "assembly_or_matching_tactics": [
+    "Inserted volatile float and double constants in sdata2_ordering to control .sdata2 ordering.",
+    "Removed PAD_STACK calls after source reshaping produced the required stack layout naturally.",
+    "Used direct HSD_JObjSetRotationY and HSD_JObjSetRotationYWithMtxDirty calls with a separate angle helper to affect inlining/register allocation.",
+    "Replaced macro GET_ITEM(gobj) with gobj->user_data in selected functions to match codegen.",
+    "Added tiny accessor helpers for attributes and animation speed in itDosei_UnkMotion4_Anim to influence expression ordering/inlining.",
+    "Included an explicit empty nested null check on jobj marked by an inline comment as 'permuterslop', evidence that source-shape permutation was used for matching.",
+    "Reordered Motion10 Phys/Coll definitions relative to Motion10 Anim.",
+    "Switched custom manual JObj rotation writes to WithMtxDirty baselib functions where dirty matrix behavior was part of the matched code shape."
+  ],
+  "review_feedback": [
+    "No review comments were present in the provided PR slice.",
+    "The only human text excerpt beyond the title records progress counts: Remaining item TUs: 18 and Remaining item functions: 63."
+  ],
+  "searchable_terms": [
+    "PR2611",
+    "itdosei.c",
+    "Dosei",
+    "match and link itdosei.c",
+    "Object Matching itdosei",
+    "Object NonMatching itdosei",
+    "configure.py",
+    "sdata2_ordering",
+    "volatile constants",
+    "M_PI_2",
+    "M_PI",
+    "HSD_JObjSetRotationZeroWithMtxDirty",
+    "HSD_JObjSetRotationYWithMtxDirty",
+    "HSD_JObjSetRotationY",
+    "itDosei_FacingAngle",
+    "itDosei_UnkMotion4_Anim_inline",
+    "itDosei_UnkMotion4_GetAnimSpeed",
+    "itDosei_UnkMotion4_GetAttrs",
+    "PAD_STACK removal",
+    "gobj->user_data",
+    "GET_ITEM",
+    "permuterslop",
+    "item matching",
+    "remaining item TUs 18",
+    "remaining item functions 63"
+  ],
+  "follow_up_queries": [
+    "Find other item PRs that use sdata2_ordering or volatile constants to fix .sdata2 layout.",
+    "Search for remaining PAD_STACK usages in src/melee/it/items and compare whether helper extraction can remove them.",
+    "Search for Dosei functions still named UnkMotion to identify future naming/behavior documentation work.",
+    "Compare GET_ITEM(gobj) versus gobj->user_data usage in matched item TUs for codegen-sensitive conventions.",
+    "Look for other JObj rotation code that manually writes rotate.x/y/z and can be replaced with HSD_JObjSetRotation*WithMtxDirty."
+  ],
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

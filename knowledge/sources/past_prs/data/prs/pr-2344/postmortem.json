@@ -11,262 +11,167 @@
     "merged_at": "2026-03-22T16:16:29Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged multi-system decomp PR. The supplied diff replaces stubs with C for eight visible functions: `ftCo_800C0134`, `fn_800DA1D8`, `ftCh_Damage2_Anim`, `ftPp_SpecialAirHiThrow_0_Anim`, `pl_80037DF4`, `fn_8017F1B8`, `mnName_80238A04`, and `fn_8001F06C`, plus related header, prototype, include, and `THPDecComp` layout fixes. The PR body says nine functions and lists `un_80307828` in `toy.c`, but `toy.c` is absent from the provided changed-files/diff slice, so that item is only body-evidenced here. Review feedback caught an unscoped `#pragma dont_inline on` in `mnname.c`; the final diff wraps it with `#pragma push`/`#pragma pop`.",
+  "summary": "Decompiled a mixed batch of fighter, game-mode, library, player-stat, and menu functions, replacing several `/// #symbol` stubs and `UNK_RET/UNK_PARAMS` prototypes with typed C implementations. The PR body says all 9 functions matched; the provided diff evidence covers 8 decompiled functions plus related prototype/struct fixes, while the listed trophy viewer function `un_80307828` is mentioned in the body but not present in the changed-file list or diff excerpt.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "headers-prototypes",
+      "headers",
       "types-structs",
-      "compiler-pragmas",
-      "fighter-state-logic",
-      "game-event-dispatch",
-      "menu-animation",
-      "library-video-decoder",
-      "player-stat-tracking"
+      "naming",
+      "fix",
+      "pragma-scope"
     ],
     "systems": [
-      "fighter/common",
-      "fighter/collision-animation",
-      "fighter/crazy-hand",
-      "fighter/ice-climbers",
-      "game-mode/events",
-      "library/THP",
-      "menu/name-entry",
-      "player/stats"
+      "fighter",
+      "game-mode",
+      "library",
+      "menu",
+      "player-stats",
+      "melee-core"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/ftcolanim.c",
-      "symbols": [
-        "ftCo_800C0134"
-      ],
-      "notes": "Decompiled collision-animation reset/update logic; uses scoped `#pragma auto_inline off` and `#pragma global_optimizer off`."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
-      "symbols": [
-        "fn_800DA1D8"
-      ],
-      "notes": "Decompiled CatchWait/grab setup, callback assignment, grabbed-joint storage, grab effect spawn, and victim update."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_Attack100.h",
-      "symbols": [
-        "fn_800DA1D8"
-      ],
-      "notes": "Changed prototype from `UNK_RET fn_800DA1D8(UNK_PARAMS)` to `void fn_800DA1D8(Fighter_GObj* gobj)`."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCrazyHand/ftCh_Init.c",
-      "symbols": [
-        "ftCh_Damage2_Anim"
-      ],
-      "notes": "Decompiled Crazy Hand damage animation completion logic and added `mp/mplib.h` for `mpFloorGetRight`."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
-      "symbols": [
-        "ftPp_SpecialAirHiThrow_0_Anim"
-      ],
-      "notes": "Decompiled Popo aerial up-special throw animation, including animation-complete knockback call and Nana availability follow-up check."
-    },
-    {
-      "path": "src/melee/pl/pltrick.c",
-      "symbols": [
-        "pl_80037DF4"
-      ],
-      "notes": "Decompiled attack-stat counter update for totals, attack type, thrown items, aerials, specials, and two unknown counters."
-    },
-    {
-      "path": "src/melee/gm/gmregclear.c",
-      "symbols": [
-        "fn_8017F1B8"
-      ],
-      "notes": "Decompiled 256-slot game event dispatch loop using input masks and event handler checks."
-    },
-    {
-      "path": "src/melee/gm/gmregclear.h",
-      "symbols": [
-        "fn_8017F1B8"
-      ],
-      "notes": "Changed prototype to `void fn_8017F1B8(void)`."
-    },
-    {
-      "path": "src/melee/gm/gm_16AE.c",
-      "symbols": [
-        "fn_8016F160"
-      ],
-      "notes": "Changed helper from void wrapper to `int` return, returning `pl_80039418(arg0, arg1)` for use by `fn_8017F1B8`."
-    },
-    {
-      "path": "src/melee/gm/gm_16AE.h",
-      "symbols": [
-        "fn_8016F160"
-      ],
-      "notes": "Header prototype updated to match the new `int` return type."
-    },
-    {
-      "path": "src/melee/gm/gm_16F1.h",
-      "symbols": [
-        "fn_8016FFD4"
-      ],
-      "notes": "Replaced unknown prototype with `void fn_8016FFD4(struct lbl_8046B6A0_24C_t*, int, int)`."
-    },
-    {
-      "path": "src/melee/lb/lbmthp.c",
-      "symbols": [
-        "fn_8001F06C"
-      ],
-      "notes": "Decompiled THP playback/decode counter update inside an interrupt-disabled critical section."
-    },
-    {
-      "path": "src/melee/lb/lbmthp.h",
-      "symbols": [
-        "THPDecComp",
-        "fn_8001F06C"
-      ],
-      "notes": "Refined `THPDecComp` fields at 0x68, 0x6C, 0x108, and 0x10C and changed `fn_8001F06C` to `s32 fn_8001F06C(THPDecComp* data)`."
-    },
-    {
-      "path": "src/melee/mn/mnname.c",
-      "symbols": [
-        "mnName_80238A04"
-      ],
-      "notes": "Decompiled name-entry slot animation updater; final diff scopes `#pragma dont_inline on` with push/pop after review."
-    },
-    {
-      "path": "src/melee/mn/mnname.h",
-      "symbols": [
-        "mnName_80238A04"
-      ],
-      "notes": "Changed prototype to `void mnName_80238A04(HSD_GObj* gobj, u8 target, u8 flag)`."
-    }
+    "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+    "src/melee/ft/chara/ftCommon/ftCo_Attack100.h",
+    "src/melee/ft/chara/ftCrazyHand/ftCh_Init.c",
+    "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
+    "src/melee/ft/ftcolanim.c",
+    "src/melee/gm/gm_16AE.c",
+    "src/melee/gm/gm_16AE.h",
+    "src/melee/gm/gm_16F1.h",
+    "src/melee/gm/gmregclear.c",
+    "src/melee/gm/gmregclear.h",
+    "src/melee/lb/lbmthp.c",
+    "src/melee/lb/lbmthp.h",
+    "src/melee/mn/mnname.c",
+    "src/melee/mn/mnname.h",
+    "src/melee/pl/pltrick.c"
   ],
   "what_changed": [
-    "Replaced `/// #` stubs with concrete C implementations for the eight functions visible in the diff: `ftCo_800C0134`, `fn_800DA1D8`, `ftCh_Damage2_Anim`, `ftPp_SpecialAirHiThrow_0_Anim`, `pl_80037DF4`, `fn_8017F1B8`, `mnName_80238A04`, and `fn_8001F06C`.",
-    "Updated decompiled-function headers from `UNK_RET`/`UNK_PARAMS` to typed signatures for `fn_800DA1D8`, `fn_8017F1B8`, `fn_8001F06C`, and `mnName_80238A04`.",
-    "Fixed supporting game prototypes: `fn_8016F160` now returns `int` and returns `pl_80039418`, and `fn_8016FFD4` now takes `struct lbl_8046B6A0_24C_t*` plus two `int` arguments.",
-    "Expanded `THPDecComp` layout by converting padding into typed fields: signed fields at 0x68 and 0x6C, plus signed counters at 0x108 and 0x10C.",
-    "Added `mp/mplib.h` in Crazy Hand init code to support `mpFloorGetRight` used by `ftCh_Damage2_Anim`.",
-    "Scoped compiler pragmas in decompiled functions: `ftcolanim.c` uses push/pop around optimizer settings, and `mnname.c` was fixed after review to wrap `#pragma dont_inline on` with push/pop.",
-    "Verification evidence is mixed in the slice: the PR body claims all 9 functions were 100% matched by an overnight script, while the visible decomp-dev bot report shows +844 bytes and, at that run, 4 new 100% matches plus 4 near-matches."
+    "Implemented `fn_800DA1D8(Fighter_GObj* gobj)` in `ftCo_Attack100.c`, setting up CatchWait after a grab: clears ground velocity, changes motion state to `ftCo_MS_CatchWait`, installs accessory and damage callbacks, stores a capturedamage joint, spawns effect `0x41D`, updates fighter state helpers, and notifies the victim via `fn_800DB6C8`.",
+    "Updated `ftCo_Attack100.h` prototype for `fn_800DA1D8` from unknown return/params to `void fn_800DA1D8(Fighter_GObj* gobj)`.",
+    "Implemented `ftCh_Damage2_Anim(HSD_GObj* gobj)` in `ftCh_Init.c`, including `mp/mplib.h`; on animation end it compares Crazy Hand position against `mpFloorGetRight`, either transitions through `ftCh_Init_8015737C` if off the right side or computes recovery position fields, changes to `ftMh_MS_Damage`, restarts animation, and plays SFX `0x4E207`.",
+    "Implemented `ftPp_SpecialAirHiThrow_0_Anim(Fighter_GObj* gobj)` in `ftPp_SpecialS.c`, handling Popo aerial up-special throw completion, using Ice Climber attributes for `ftCo_80096900`, checking command variable `cmd_vars[1]`, querying Nana with `Player_GetEntityAtIndex` and `ftNn_Init_8012309C`, optionally triggering `ftPp_SpecialHi_8012280C`, and incrementing `mv.pp.unk_80123954.x0` before `ftPp_SpecialS_80120FE0`.",
+    "Implemented `ftCo_800C0134(Fighter* fp)` in `ftcolanim.c`, resetting collision animation state with `lb_80014498`, calling a character-specific callback from `ftData_UnkMotionStates4`, checking `ftCo_800C53E4`, and selecting the correct color animation storage among `x488`, `x508`, and `x408` via `lb_800144C8` and `Fighter_804D653C` metadata.",
+    "Changed `fn_8016F160` in `gm_16AE.c/.h` from `void` to `int` and made it return `pl_80039418(arg0, arg1)`, enabling callers such as the newly decompiled event loop to test its result.",
+    "Typed `fn_8016FFD4` in `gm_16F1.h` as `void fn_8016FFD4(struct lbl_8046B6A0_24C_t*, int, int)` instead of `UNK_RET fn_8016FFD4(UNK_PARAMS)`.",
+    "Implemented `fn_8017F1B8(void)` in `gmregclear.c`, looping over 256 registered event slots, checking `fn_8016F1F0`, input masks from `fn_8017F008` and `fn_8016F180`, dispatching through either `fn_8016F160` or `fn_801701C0`, calling `fn_8016F140` on success, then forwarding the final mask to `fn_8016FFD4(gm_8016B774(), mask, 0)`.",
+    "Updated `gmregclear.h` prototype for `fn_8017F1B8` to `void fn_8017F1B8(void)`.",
+    "Implemented `fn_8001F06C(THPDecComp* data)` in `lbmthp.c`, disabling interrupts, advancing THP counters, handling wrap/end behavior based on fields such as `unk_40`, `unk_68`, `unk_78`, `unk_88`, `unk_104`, `unk_108`, and `unk_10C`, restoring interrupts, and returning `1`.",
+    "Refined `THPDecComp` in `lbmthp.h` by splitting padding into actual signed fields `unk_6C`, `unk_108`, and `unk_10C`, changing `unk_68` to `s32`, and typing `fn_8001F06C` as `s32 fn_8001F06C(THPDecComp* data)`.",
+    "Implemented `mnName_80238A04(HSD_GObj* gobj, u8 target, u8 flag)` in `mnname.c`, requesting and playing animations for name-entry JObjs `0x18..0x1A`, then choosing highlight/confirm animation frames from `mnName_803ED538` for the `prev_gx` JObj based on `target` and `flag`.",
+    "Updated `mnname.h` prototype for `mnName_80238A04` from unknown params to `void mnName_80238A04(HSD_GObj* gobj, u8 target, u8 flag)`.",
+    "Implemented `pl_80037DF4(HSD_GObj* gobj, union Struct2070* ev)` in `pltrick.c`, copying the event locally and incrementing player action-stat counters for total attacks, attack type index `x2073`, thrown items, aerials, specials, and two additional counters `x1A0_count` and `x1A4_count`.",
+    "PR body also lists `un_80307828` in `toy.c` as a decompiled trophy viewer reset function, but that file/function is not included in the provided changed-file list or diff excerpt, so details are only weakly evidenced by the body text."
   ],
   "smart_moves": [
-    "Typed the prototypes alongside the decomp work instead of leaving `UNK_RET`/`UNK_PARAMS`, which made call sites such as `fn_8017F1B8` able to branch on real `int` return values.",
-    "Used function-local pragma scoping for match-sensitive code, preventing optimizer or inlining settings from leaking into unrelated functions.",
-    "Refined `THPDecComp` fields rather than accessing raw padding, making `fn_8001F06C` express frame/decode counters directly while preserving offsets.",
-    "Matched interrupt-sensitive THP control flow with `OSDisableInterrupts`, a shared `end:` label, and guaranteed `OSRestoreInterrupts` before returning.",
-    "Preserved match-sensitive source shape where needed: `PAD_STACK(8)`, `PAD_STACK(40)`, nested scopes, local redeclarations, explicit casts, and a local copy of `union Struct2070`.",
-    "Kept fighter callback/state details explicit in `fn_800DA1D8`, including `accessory1_cb`, `take_dmg_cb`, grabbed joint storage, effect spawn, and victim update."
+    "Converted unknown prototypes alongside implementations, which allowed new decompiled code to make typed calls and expose real return values, notably `fn_8016F160` returning an `int` for the game event dispatcher.",
+    "Updated struct layout in `THPDecComp` only where fields were needed by the decompiled interrupt-safe THP counter routine, preserving offsets while replacing padding with named signed fields.",
+    "Used local pragma blocks around matching-sensitive functions, including `#pragma push`/`#pragma pop` after review feedback, so optimizer/inline settings did not leak into unrelated functions.",
+    "For `fn_8001F06C`, preserved interrupt safety with `OSDisableInterrupts` and `OSRestoreInterrupts`, matching the expected critical-section behavior for THP playback state updates.",
+    "For fighter functions, reused existing engine helper calls and state fields rather than open-coding behavior: `Fighter_ChangeMotionState`, `ftAnim_IsFramesRemaining`, `efAsync_Spawn`, `Player_GetEntityAtIndex`, `HSD_JObjReqAnimAll`, and `HSD_JObjAnimAll`.",
+    "Matched nontrivial control flow using explicit temporaries and casts where needed, such as the `found` variable in Popo's Nana check, `(u8)` mask casts in `fn_8017F1B8`, and a `goto end` in the THP handler."
   ],
   "decomp_lessons": [
-    "Function-specific pragmas must be surrounded by `#pragma push` and `#pragma pop`; an unscoped `#pragma dont_inline on` affects every later function in the file.",
-    "When a matched function depends on a helper's return value, update the helper implementation and declaration together rather than casting around an unknown or void prototype.",
-    "Struct padding should be converted to typed fields when a decompiled function proves offsets, signedness, or comparisons; this PR used `s32` for THP fields compared against zero.",
-    "Game event dispatch code can require repeated mask calls and explicit `(u8)`/`(u32)` casts to reproduce original codegen.",
-    "Fighter state-transition decomp often needs exact callback slots, JObj selection, and move-state storage, not just the high-level `Fighter_ChangeMotionState` call.",
-    "Cross-check PR-body match claims against changed files and bot reports; here `un_80307828`/`toy.c` appears in the body but not in the provided diff slice."
+    "When decompiling a dispatcher, propagate accurate return types into wrapper functions first; `fn_8016F160` had to return the result of `pl_80039418` so `fn_8017F1B8` could match its conditional dispatch logic.",
+    "Struct padding should be split into real fields only with offset evidence from matched code; `THPDecComp` demonstrates replacing broad padding with signed counters at `0x6C`, `0x108`, and `0x10C` while keeping surrounding offsets stable.",
+    "Pragma settings used for matching must be scoped with `#pragma push` and `#pragma pop`; an unscoped `#pragma dont_inline on` can incorrectly affect every later function in a file.",
+    "Matching fighter animation routines often depends on preserving state-machine helper call order, callback assignments, and motion-state parameters exactly.",
+    "Menu animation routines can match by identifying JObj traversal and animation-frame tables rather than naming every structure field; here `mnName_803ED538` supplied frame choices based on `target` and `flag`.",
+    "For low-level library code touching shared decoder state, interrupt disable/restore structure is part of the behavioral and matching evidence, not just a safety wrapper.",
+    "Use existing unknown field names when semantics are not yet proven. This PR kept names such as `unk_108`, `mv.pp.unk_80123954.x0`, and `count_x1A0`, avoiding overclaiming."
   ],
   "naming_conventions": [
-    "`ftCo_*` denotes common fighter code, `ftCh_*` Crazy Hand, `ftPp_*` Popo, and `ftNn_*` Nana/Ice Climbers partner code.",
-    "`gm_*` and `fn_8016*`/`fn_8017*` names are retained for game-mode/event functions that still lack semantic names.",
-    "`mnName_*` is used for name-entry menu functions; `lbmthp` contains THP video-library functions; `pl_*` names are used for player/stat tracking code.",
-    "Unresolved functions keep address-based names such as `fn_800DA1D8`, `fn_8017F1B8`, and `fn_8001F06C`, with address comments in headers like `/* 0DA1D8 */`.",
-    "Local fighter naming follows project style: `Fighter_GObj* gobj`, `Fighter* fp`, HSD joint pointers `jobj`/`jobj2`, and data attributes as `da` or `attrs`.",
-    "Unknown fields retain offset-like names such as `unk_108`, `unk_10C`, `x221B_b7`, and `mv.pp.unk_80123954.x0` until stronger semantic evidence exists."
+    "Function names retained project-address style where semantics were still unknown or only partially known, such as `fn_800DA1D8`, `fn_8017F1B8`, and `fn_8001F06C`.",
+    "Known subsystem prefixes were preserved: `ftCo_` for common fighter, `ftCh_` for Crazy Hand, `ftPp_` for Popo, `gm`/`fn_8016` for game-mode code, `mnName_` for name-entry menu, `pl_` for player/stat tracking, and `lbmthp` for THP library code.",
+    "Headers were updated from `UNK_RET name(UNK_PARAMS)` to concrete signatures once implementations established argument and return types.",
+    "Struct fields remained conservative where semantics were unclear, using `unk_` field names and offset-like names rather than speculative names.",
+    "Typedefs and project standard types were used consistently in signatures and locals: `Fighter_GObj*`, `HSD_GObj*`, `HSD_JObj*`, `Fighter*`, `Vec3`, `s32`, `u8`, `BOOL`, and `THPDecComp*`."
   ],
   "assembly_or_matching_tactics": [
-    "`PAD_STACK(8)` in `fn_800DA1D8` and `PAD_STACK(40)` in `ftPp_SpecialAirHiThrow_0_Anim` were used for stack-shape matching.",
-    "`#pragma push`/`#pragma auto_inline off`/`#pragma global_optimizer off` were applied only around `ftCo_800C0134`.",
-    "`#pragma push`/`#pragma dont_inline on`/`#pragma pop` were applied around `mnName_80238A04` after review.",
-    "`fn_8001F06C` uses a `goto end` early-exit path so interrupt restoration occurs at a single matching epilogue.",
-    "Visible casts such as `(u8) fn_8016F180(i)`, `(u32) fn_8016F160(0, i)`, `(u8) target`, and `(u8) flag` were kept in source to match comparisons and masks.",
-    "Nested blocks and local redeclarations in `ftPp_SpecialAirHiThrow_0_Anim` likely help preserve original register/stack lifetimes while checking Nana availability.",
-    "`ftCh_Damage2_Anim` uses an assignment expression inside `Fighter_ChangeMotionState` arguments for `fp->mv.ch.unk0.xC.z = ftCh_Init_804DA070`, preserving ordering visible in the matched source."
+    "Used `PAD_STACK(8)` in `fn_800DA1D8` and `PAD_STACK(40)` in `ftPp_SpecialAirHiThrow_0_Anim`, indicating stack-shape padding was needed for matching.",
+    "Scoped `#pragma auto_inline off` and `#pragma global_optimizer off` around `ftCo_800C0134` to control compiler behavior for a sensitive match.",
+    "Scoped `#pragma dont_inline on` around `mnName_80238A04`; initial review caught that it needed push/pop wrapping to avoid affecting the rest of `mnname.c`.",
+    "Used explicit `goto end` in `fn_8001F06C` to preserve the interrupt-restore exit path and likely match original branch structure.",
+    "Used explicit casts such as `(u8) fn_8016F180(i)`, `(u32) fn_8016F160(0, i)`, and `(u8) target`/`(u8) flag` to reproduce comparison and masking behavior.",
+    "Introduced temporary locals such as `arg1`, `entry`, `mask`, `local_ev`, `jobj`, `jobj2`, and `found` where the diff suggests they were needed for matching codegen.",
+    "Used assignment inside an argument expression in `ftCh_Damage2_Anim` for `fp->mv.ch.unk0.xC.z = ftCh_Init_804DA070`, a code-shape tactic likely required by the matching output."
   ],
   "review_feedback": [
     {
-      "author": "PsiLupan",
-      "type": "review_comment",
       "file": "src/melee/mn/mnname.c",
-      "feedback": "`#pragma dont_inline on` lacked a preceding `#pragma push` and trailing `#pragma pop`, so it would incorrectly affect all later functions in the file.",
-      "resolution": "johnwinston replied that it was fixed; the final diff shows `#pragma push`, `#pragma dont_inline on`, `mnName_80238A04`, then `#pragma pop`."
+      "author": "PsiLupan",
+      "feedback": "The added `#pragma dont_inline on` lacked a preceding `#pragma push` and trailing `#pragma pop`, so it incorrectly affected all following functions in the file."
     },
     {
-      "author": "decomp-dev[bot]",
-      "type": "match_report",
-      "file": null,
-      "feedback": "Intermediate GALE01 report showed matched code 59.42% (+0.02%, +844 bytes), with 4 new 100% matches and 4 visible functions still near-matching at that run.",
-      "resolution": "PR body later states all 9 functions were 100% matched by overnight script; the slice does not provide a later bot table for the body-only `toy.c` item."
+      "file": "src/melee/mn/mnname.c",
+      "author": "johnwinston",
+      "feedback": "Fixed by adding `#pragma push` / `#pragma pop` wrapping around the matching pragma."
     }
   ],
   "searchable_terms": [
     "pr-2344",
     "johnwinston",
-    "PsiLupan",
-    "decomp-dev",
-    "100% match",
-    "overnight script",
+    "decompile 9 fighter library game menu functions",
     "ftCo_800C0134",
     "ftcolanim.c",
-    "ftData_UnkMotionStates4",
-    "ftCo_800C53E4",
-    "Fighter_804D653C",
-    "lb_80014498",
-    "lb_800144C8",
     "fn_800DA1D8",
     "ftCo_Attack100.c",
     "ftCo_MS_CatchWait",
-    "CatchWait",
     "efAsync_Spawn",
-    "capturedamage",
+    "fn_800DB6C8",
     "ftCh_Damage2_Anim",
-    "ftCrazyHand",
+    "ftCh_Init.c",
+    "Crazy Hand damage recovery",
     "mpFloorGetRight",
     "ftMh_MS_Damage",
     "ftPp_SpecialAirHiThrow_0_Anim",
-    "ftPopo",
-    "Ice Climbers",
-    "Nana",
+    "ftPp_SpecialS.c",
+    "Ice Climbers aerial throw",
+    "Nana follow-up",
     "ftNn_Init_8012309C",
-    "Player_GetEntityAtIndex",
-    "pl_80037DF4",
-    "Struct2070",
-    "plActionStats",
-    "by_attack_counts",
+    "ftPp_SpecialHi_8012280C",
     "fn_8017F1B8",
-    "gmregclear",
-    "fn_8016F160",
-    "fn_8016FFD4",
-    "gm_8016B774",
-    "mnName_80238A04",
-    "mnname.c",
-    "AnimLoopSettings",
-    "HSD_JObjReqAnimAll",
-    "HSD_JObjAnimAll",
+    "gmregclear.c",
+    "game event dispatch",
+    "fn_8016F160 returns int",
+    "fn_8016FFD4 typed prototype",
     "fn_8001F06C",
-    "lbmthp",
+    "lbmthp.c",
     "THPDecComp",
     "OSDisableInterrupts",
     "OSRestoreInterrupts",
-    "pragma push",
-    "pragma pop",
-    "dont_inline",
-    "auto_inline off",
-    "global_optimizer off",
+    "mnName_80238A04",
+    "mnname.c",
+    "name entry menu animation",
+    "pl_80037DF4",
+    "pltrick.c",
+    "player attack stats",
+    "Struct2070",
     "PAD_STACK",
+    "#pragma push",
+    "#pragma pop",
+    "#pragma dont_inline on",
+    "#pragma auto_inline off",
+    "#pragma global_optimizer off",
     "un_80307828",
-    "toy.c body-only"
+    "toy.c"
   ],
   "follow_up_queries": [
-    "Search for other unscoped `#pragma dont_inline`, `#pragma auto_inline`, or optimizer pragmas and wrap function-local uses with `#pragma push`/`#pragma pop`.",
-    "Audit `THPDecComp` uses around offsets 0x68, 0x6C, 0x108, and 0x10C to derive better semantic field names for playback/frame counters.",
-    "Review `gm_16AE.h`, `gm_16F1.h`, and nearby game-event functions for more `UNK_RET` prototypes that should become typed return values or typed state-pointer arguments.",
-    "Verify whether `un_80307828` in `toy.c` landed in another commit or PR, because it is in this PR body but absent from the supplied changed-files/diff slice.",
-    "Use `pl_80037DF4` as a reference pattern for decompiling other player action/stat counter functions using `union Struct2070` flag fields.",
-    "Compare `ftPp_SpecialHiThrow_0_Anim` and `ftPp_SpecialAirHiThrow_0_Anim` for reusable Ice Climbers partner/Nana follow-up control flow."
+    "Check the full PR diff or repository history for the missing `toy.c` / `un_80307828` changes mentioned in the PR body but absent from the provided changed-file list.",
+    "Look for later PRs that rename `fn_800DA1D8`, `fn_8017F1B8`, `fn_8001F06C`, or newly exposed `THPDecComp` fields after more semantics were established.",
+    "Search for other unscoped matching pragmas in menu files after this review pattern: `#pragma dont_inline on` without nearby `#pragma push` and `#pragma pop`.",
+    "Investigate `THPDecComp` field names at offsets `0x68`, `0x6C`, `0x108`, and `0x10C` once more THP decoder functions are decompiled.",
+    "Use `fn_8017F1B8` as a reference when decompiling nearby `gmregclear` event-registration functions that share `fn_8016F1F0`, `fn_8016F180`, `fn_801701C0`, and `fn_8016FFD4`."
   ],
-  "confidence": 0.86
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

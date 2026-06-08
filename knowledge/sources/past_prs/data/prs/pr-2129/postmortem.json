@@ -11,24 +11,24 @@
     "merged_at": "2026-01-27T02:26:27Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Follow-up to PR #2125 that matched and documented a large block of VS Records diagram code, especially mndiagram2, then applied the resulting matching lessons back to mndiagram. The PR replaced many address-based mnDiagram2 symbols with semantic names, added Diagram2-related types/prototypes/static declarations, filled out mndiagram2.c with matched functions, and adjusted mndiagram.c implementation details for better matching. The author states the mndiagram2 function and struct names were based on validation in Dolphin debugger.",
+  "summary": "Follow-up to PR #2125 that substantially decompiled and named the VS Records mndiagram2 page while feeding matching discoveries back into mndiagram. The PR replaced many address-style mnDiagram2 symbols with behavior names, added Diagram2 typing/headers/static declarations, implemented many mndiagram2 functions, and refactored mndiagram helpers to improve matches. The author states that mndiagram2 functions and structs were documented/named based on validation in Dolphin debugger.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
+      "cleanup",
       "decomp-matching",
+      "headers",
       "naming",
       "types-structs",
-      "headers",
-      "cleanup",
-      "fix"
+      "documentation"
     ],
     "systems": [
       "mn",
       "mndiagram",
       "mndiagram2",
-      "vs-records",
+      "VS Records",
       "game-mode",
-      "config-symbols"
+      "config/symbols"
     ]
   },
   "key_files": [
@@ -44,56 +44,58 @@
     "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "Expanded src/melee/mn/mndiagram2.c from a tiny stub-like file into a large matched implementation, with about 1391 added lines according to the PR slice.",
-    "Renamed mnDiagram2 address-based symbols in config/GALE01/symbols.txt to semantic functions such as mnDiagram2_IsTimeStat, mnDiagram2_IsDistanceStat, mnDiagram2_IsPercentageStat, mnDiagram2_IsIconOnlyStat, mnDiagram2_ClearStatRows, mnDiagram2_UpdateHeader, mnDiagram2_HandleInput, mnDiagram2_GetStatValue, mnDiagram2_CreateStatRow, mnDiagram2_PopulateStatRows, mnDiagram2_UpdateScrollArrows, mnDiagram2_Create, mnDiagram2_Init, mnDiagram2_GetRankedFighter, mnDiagram2_GetRankedName, mnDiagram2_GetAggregatedFighterRank, and mnDiagram2_ClearDetailView.",
-    "Added mndiagram2 static/header declarations and a Diagram2 forward declaration, indicating that the mndiagram2 code now had explicit local static data and typed user data instead of relying only on unknown addresses.",
-    "Added or updated Diagram2-related structs in src/melee/mn/types.h, with the diff excerpt showing fields such as row_labels, row_values, row_icons, header_text, mode headers, selection indices, scroll_offset, and name/fighter mode state in use.",
-    "Changed src/melee/gm/gm_1601.h prototype for gm_80160C90 from UNK_RET/UNK_PARAMS to a concrete signature: void gm_80160C90(HSD_Text* text, u8 fighter_id, s32 arg2).",
-    "Reworked mndiagram.c formatting and ranking/helper logic to improve matching, including inline helper splits for name/fighter fall sums, decimal/time/string formatting loops, prev/next name and fighter index parameter typing, and ranked fighter tie/all-zero handling.",
-    "mndiagram.c started including mndiagram2.static.h and gm/gmmain_lib.h, implying reuse of mndiagram2 discoveries or shared stat/menu state details."
+    "Added a large mndiagram2.c implementation, growing it from a stub-like file into roughly 1400 lines with includes, local helper macros, documented functions, and inferred local structs.",
+    "Renamed 21 mndiagram2 symbols in config/GALE01/symbols.txt from address placeholders such as mnDiagram2_80243A3C and fn_80243D40 to descriptive names such as mnDiagram2_IsTimeStat, mnDiagram2_ClearStatRows, mnDiagram2_HandleInput, mnDiagram2_GetStatValue, mnDiagram2_CreateStatRow, mnDiagram2_PopulateStatRows, mnDiagram2_Create, mnDiagram2_Init, mnDiagram2_GetRankedFighter, mnDiagram2_GetRankedName, mnDiagram2_GetAggregatedFighterRank, and mnDiagram2_ClearDetailView.",
+    "Added mnDiagram2 classification helpers for VS Records stat display modes: time stats, distance stats, percentage stats, and icon-only stats.",
+    "Implemented UI/data-management routines for mndiagram2 including clearing stat row text/icons, updating the header, handling controller input, refreshing/populating stat rows, updating scroll arrows, animation callbacks, userdata init/free, create/init, ranking helpers, and detail-view cleanup.",
+    "Added Diagram2 forward declaration and moved/defined Diagram2-related structure information in mn/types.h and mndiagram2 headers/static headers.",
+    "Changed gm_80160C90 declaration from unknown return/params to a typed prototype: void gm_80160C90(HSD_Text* text, u8 fighter_id, s32 arg2).",
+    "Refactored mndiagram.c using lessons from mndiagram2: added static data tables, included mndiagram2.static.h and gmmain_lib.h, adjusted integer types and casts, split fall-summing logic into static inline helpers, and rewrote formatting/index/ranking helpers to match better.",
+    "Updated mndiagram formatting helpers to use direct buffer indexing instead of pointer-walking in mnDiagram_FormatDecimalNumber, mnDiagram_FormatTime, and mnDiagram_IntToStr.",
+    "Changed name/fighter previous/next index helpers to accept s32 indices while still returning u8, preserving original-on-failure behavior and using explicit NULL checks/casts around GetNameText.",
+    "Added or refined doxygen-style comments describing mndiagram and mndiagram2 functions, parameters, return values, and UI behavior."
   ],
   "smart_moves": [
-    "Used semantic names in the symbol map for every newly understood mndiagram2 function, turning a dense run of mnDiagram2_80243A3C-style labels into searchable behavior names.",
-    "Validated mndiagram2 functions and structs in Dolphin debugger before naming them, according to the PR body, which is a strong practice for menu/UI decomp work where field meaning often depends on runtime object layout.",
-    "Separated stat classification helpers into clear boolean functions: IsTimeStat, IsDistanceStat, IsPercentageStat, and IsIconOnlyStat. This makes later stat formatting and row rendering code easier to reason about and search.",
-    "Introduced small inline helpers and wrappers where they improved matching, such as mnDiagram2_RefreshStatRows, mnDiagram_GetEntityByIndex, mnDiagram_SumNameFalls, mnDiagram_SumFighterFalls, CheckAllZeroPlayTime, and CountTiedFighters.",
-    "Preserved known matching-sensitive patterns such as explicit casts to u8, use of signed s32 loop indices for prev/next navigation, PAD_STACK where needed, and local helper split-outs to control stack/codegen.",
-    "Applied lessons from matching mndiagram2 back to mndiagram instead of treating the two files independently, which helped improve older mndiagram matches."
+    "Used Dolphin debugger validation as stated PR evidence for naming all mndiagram2 functions and structs instead of relying only on guesswork from addresses.",
+    "Converted address-named symbols to intent-revealing names in both code and symbols.txt, making later PRs much easier to search by behavior rather than raw address.",
+    "Fed matching discoveries from mndiagram2 back into mndiagram, showing that similar menu pages can cross-inform control flow, struct layout, helper extraction, and typing.",
+    "Introduced small display-classification helpers such as mnDiagram2_IsTimeStat and mnDiagram2_IsIconOnlyStat, isolating stat-type policy from rendering/population code.",
+    "Used static inline wrappers/helpers to influence matching while still giving logic meaningful names, e.g. sum/check helpers around totals and row refresh behavior.",
+    "Separated shared/forward types from static implementation details by adding Diagram2 to forward.h, adding public/static headers, and placing structure definitions where other menu code can reference them.",
+    "Improved known external prototypes, especially gm_80160C90, so callsites can become clearer and less dependent on UNK_RET/UNK_PARAMS."
   ],
   "decomp_lessons": [
-    "For menu decomp, runtime validation in Dolphin debugger can justify naming UI object fields and function purposes, especially for GObj user data, JObj containers, HSD_Text objects, row arrays, header objects, and mode state.",
-    "When converting address-named symbols, update config/GALE01/symbols.txt in the same PR so future searches and cross-file references use the new semantic names.",
-    "Small static inline helper functions can be a matching tactic, not just a readability choice; they can isolate stack padding, repeated sums, or refresh logic while preserving generated code.",
-    "Signed-versus-unsigned parameter choices matter for matching navigation logic. The diff changes several prev/next index helpers from u8 to s32 parameters while still returning u8.",
-    "Use explicit u8 casts when indexing persistent name/fighter data if the original code truncated loop counters or entity IDs.",
-    "Tie-handling and all-zero sentinel cases in ranking functions should be modeled explicitly. This PR uses sentinel fighter/name result values such as 0x19 when no unique ranked fighter is available.",
-    "Concrete library prototypes discovered from callsites should be pushed into headers, as with gm_80160C90, so future matching can avoid UNK_RET/UNK_PARAMS and improve type propagation."
+    "For menu decomp, nearby pages with similar behavior can be used as matching templates; PR evidence says mndiagram2 learnings improved mndiagram matches.",
+    "Naming should be driven by observed UI behavior and debugger validation when possible; here mndiagram2 function names describe VS Records details-page behavior such as input handling, stat row creation, ranking, and detail clearing.",
+    "When a function only matches with stack padding or helper boundaries, extracting static inline helpers can preserve both readability and codegen, as seen with fall-summing and play-time checks.",
+    "Unsigned byte inputs often need explicit s32 temporaries and casts for matching loops, especially when walking backward and checking bounds before returning a u8 index.",
+    "For UI text formatting, direct buffer indexing can produce cleaner/more matchable code than maintaining an extra pointer variable, depending on target codegen.",
+    "For persistent-name/fighter data loops, explicit casts such as i & 0xFF or (u8) i may be required to match the original byte-indexed access pattern.",
+    "When replacing UNK_PARAMS prototypes, update dependent headers at the same time as callsites so future matching work benefits from typed HSD_Text/fighter-id signatures.",
+    "Keep static data arrays and constants near the decompiled file when they are part of matching the menu page's original data layout."
   ],
   "naming_conventions": [
-    "mnDiagram2_* functions were renamed from address-based labels to PascalCase verb phrases under the existing module prefix, e.g. mnDiagram2_ClearStatRows, mnDiagram2_UpdateHeader, mnDiagram2_HandleInput, mnDiagram2_GetStatValue.",
-    "Boolean stat classifier names use the Is*Stat pattern: mnDiagram2_IsTimeStat, mnDiagram2_IsDistanceStat, mnDiagram2_IsPercentageStat, mnDiagram2_IsIconOnlyStat.",
-    "Lifecycle and GObj/user-data functions use direct action names: InitUserData, FreeUserData, Create, Init, Think, OnAnimComplete.",
-    "Ranking helpers use GetRanked* and GetAggregated* naming for VS Records rank lookups: mnDiagram2_GetRankedFighter, mnDiagram2_GetRankedName, mnDiagram2_GetAggregatedFighterRank.",
-    "The PR keeps module prefixes distinct: mnDiagram for the first VS Records diagram page, mnDiagram2 for the second, and mnDiagram3 for the third.",
-    "Struct/type names observed in the diff include Diagram2, mnDiagram2_SortEntry, JObjContainer, Diagram2DetailView, RankEntry, AnimLoopSettings, CountEntry, Diagram, and CSSData."
+    "mndiagram2 functions were renamed from address forms to Pascal-like verb phrases under the mnDiagram2_ prefix, e.g. mnDiagram2_HandleInput, mnDiagram2_UpdateHeader, mnDiagram2_GetStatValue, mnDiagram2_CreateStatRow.",
+    "Boolean predicate helpers use the Is* pattern, e.g. mnDiagram2_IsTimeStat, mnDiagram2_IsDistanceStat, mnDiagram2_IsPercentageStat, mnDiagram2_IsIconOnlyStat.",
+    "Lifecycle-style routines use Init/Create/Think/FreeUserData naming, e.g. mnDiagram2_InitUserData, mnDiagram2_Create, mnDiagram2_Init, mnDiagram2_Think.",
+    "Ranking helpers use GetRanked* and GetAggregated* names, e.g. mnDiagram2_GetRankedFighter, mnDiagram2_GetRankedName, mnDiagram2_GetAggregatedFighterRank.",
+    "Static inline local helpers in mndiagram use descriptive implementation names such as mnDiagram_SumNameFalls, mnDiagram_SumFighterFalls, CountTiedFighters, and CheckAllZeroPlayTime.",
+    "Struct names reflect page/UI roles where known: Diagram2, Diagram2DetailView, JObjContainer, mnDiagram2_SortEntry. Some comments explicitly mark uncertain inferred types, e.g. JObjContainer may be archive-related.",
+    "Stat enum values use VSSTAT_* names such as VSSTAT_PLAY_TIME, VSSTAT_WALK_DISTANCE, VSSTAT_HIT_PERCENTAGE, VSSTAT_MOST_PLAYED, based on the review comment and diff excerpt."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK in functions where stack shape needed to match, including examples in mndiagram.c and mndiagram2.c.",
-    "Introduced static inline helpers to influence inlining and stack/register behavior while making code more understandable.",
-    "Kept some wrapper macros around index functions, such as mnDiagram_GetNameByIndex_s and mnDiagram_GetFighterByIndex_s, apparently to control signedness or cast behavior in generated code.",
-    "Used a union mnDiagram2_SortEntry with f64 and u64 views for 64-bit sorting operations, suggesting a matching tactic for sort/key manipulation.",
-    "Changed pointer-walking prev/next fighter index functions to operate with signed indices and pointer decrement/increment, matching original bounds behavior.",
-    "Rewrote number/time/string formatting loops to index directly into buffers instead of pointer increments, which the diff suggests improved matching.",
-    "Split fall-total calculations into static inline sum helpers plus public wrapper functions with PAD_STACK, likely to preserve call-visible stack layout while sharing cleaner loop bodies.",
-    "Reviewer feedback pointed out that switch cases should use enum values directly, reinforcing that semantic enum constants are preferred over raw numeric cases once stat-type enums are known."
+    "Used PAD_STACK in wrapper functions such as mnDiagram_GetNameTotalFalls and mnDiagram_GetFighterTotalFalls to preserve stack shape while moving the summation logic into static inline helpers.",
+    "Introduced inline wrappers/macros for index functions in mndiagram2, including mnDiagram_GetNameByIndex_s, mnDiagram_GetFighterByIndex_s, and mnDiagram_GetFighterByIndex_BBC, likely to influence signedness/register/codegen behavior.",
+    "Used a union mnDiagram2_SortEntry containing byte fields, f64 views, and u64 value access for 64-bit sorting operations, preserving type punning needed by the original code.",
+    "Changed loop counters and function parameters between u8, s32, int, and explicit casts to match original signed comparisons and byte indexing behavior.",
+    "Rewrote formatting loops to use array indexing and combined increment expressions, a common codegen-sensitive cleanup for matching.",
+    "Added static tables such as mnDiagram_803EE74C and Point3d mnDiagram_803EE728 in mndiagram.c, indicating recovered original data needed for matching.",
+    "Used exact NULL comparisons and HSD cleanup calls for UI resources: HSD_SisLib_803A5CC4 for text/icon objects, HSD_JObjRemoveAll for child removal, and HSD_GObjGetUserData/user_data access patterns.",
+    "Review feedback specifically suggested using enum values directly in switch cases instead of numeric case literals; the excerpt already shows VSSTAT_* enum case labels in the stat classification helpers."
   ],
   "review_feedback": [
-    {
-      "author": "ribbanya",
-      "file": "src/melee/mn/mndiagram2.c",
-      "comment": "Why not just use the enum values in the case?",
-      "lesson": "Prefer enum constants in switch cases when the enum is known; this improves readability and validates semantic stat naming."
-    }
+    "ribbanya asked on src/melee/mn/mndiagram2.c: \"Why not just use the enum values in the `case`?\" This indicates a preference for VSSTAT_* enum names in switch statements over raw numeric literals.",
+    "No other detailed review feedback is present in the provided slice beyond approvals/reviews counts."
   ],
   "searchable_terms": [
     "pr-2129",
@@ -101,8 +103,9 @@
     "mndiagram",
     "mndiagram2",
     "VS Records",
-    "Dolphin debugger",
     "Diagram2",
+    "Diagram2DetailView",
+    "JObjContainer",
     "mnDiagram2_IsTimeStat",
     "mnDiagram2_IsDistanceStat",
     "mnDiagram2_IsPercentageStat",
@@ -124,9 +127,7 @@
     "mnDiagram2_GetRankedName",
     "mnDiagram2_GetAggregatedFighterRank",
     "mnDiagram2_ClearDetailView",
-    "mnDiagram_GetNameTotalKOs",
     "mnDiagram_GetNameTotalFalls",
-    "mnDiagram_GetFighterTotalKOs",
     "mnDiagram_GetFighterTotalFalls",
     "mnDiagram_FormatDecimalNumber",
     "mnDiagram_FormatTime",
@@ -138,15 +139,10 @@
     "mnDiagram_GetRankedFighterForName",
     "mnDiagram_GetLeastPlayedFighter",
     "gm_80160C90",
-    "HSD_Text",
-    "HSD_GObj",
-    "HSD_JObj",
-    "HSD_SisLib",
-    "GetPersistentNameData",
-    "GetPersistentFighterData",
-    "GetNameText",
-    "GetNameCount",
-    "mn_IsFighterUnlocked",
+    "gm_1601.h",
+    "mndiagram2.static.h",
+    "symbols.txt",
+    "Dolphin debugger",
     "VSSTAT_PLAY_TIME",
     "VSSTAT_WALK_DISTANCE",
     "VSSTAT_RUN_DISTANCE",
@@ -160,13 +156,13 @@
     "VSSTAT_LEAST_PLAYED"
   ],
   "follow_up_queries": [
-    "Find later PRs touching src/melee/mn/mndiagram2.c to see whether the Dolphin-validated Diagram2 field names were refined.",
-    "Search for remaining fn_80243D40-style or mnDiagram3 address-based labels around the VS Records diagram modules.",
-    "Look for PRs that replace raw VSSTAT numeric cases with enum constants after ribbanya's review feedback.",
-    "Search gm_80160C90 callsites to confirm the concrete prototype propagated correctly across menu code.",
-    "Compare PR #2125 with PR #2129 to identify which mndiagram2 matching lessons were applied back to mndiagram."
+    "Look for later PRs touching mndiagram2.c to see whether inferred structs like JObjContainer or Diagram2DetailView were renamed or moved after more archive/type information was recovered.",
+    "Search for VSSTAT_* enum definitions and later review comments to confirm the final naming/location of the VS Records stat type enum.",
+    "Check follow-up changes to gm_80160C90 and gm_80160B40 for fuller typing of gm_1601.h text/fighter display helpers.",
+    "Compare PR #2125 with this PR to identify which exact mndiagram2 matching tactics were learned and reused.",
+    "Search for mnDiagram2_GetAggregatedFighterRank and mnDiagram2_GetRankedName in later PRs to verify ranking semantics and tie-handling behavior."
   ],
-  "confidence": 0.88,
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

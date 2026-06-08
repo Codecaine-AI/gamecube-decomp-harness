@@ -11,105 +11,108 @@
     "merged_at": "2026-06-06T11:39:52Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Added an `update-wiki` GitHub Actions job to `.github/workflows/build.yml` that regenerates the wiki `Translation-Units.md` page after successful default-branch builds. The job downloads the existing `GALE01_report` artifact, runs `tools/wiki_tu.py`, compares the regenerated wiki page against the current wiki clone, and commits/pushes only when there is a real change. The PR matters because Translation Units wiki data previously drifted unless someone manually ran the generator.",
+  "summary": "Added a GitHub Actions `update-wiki` job to `.github/workflows/build.yml` that regenerates the wiki `Translation-Units.md` page from the existing `GALE01_report` artifact after successful default-branch pushes to `doldecomp/melee`. The job checks out only needed paths, installs `tools/wiki_tu.py` dependencies from `reqs/misc.txt`, clones the repository wiki using the built-in `GITHUB_TOKEN` with `contents: write`, preserves current-page data via the generator, commits only when the generated page changes, and uses a dedicated concurrency group to avoid racing wiki pushes.",
   "change_classification": {
     "primary_type": "ci-tooling",
     "categories": [
       "tooling",
-      "automation",
-      "github-actions",
-      "wiki-maintenance",
-      "decomp-progress-reporting"
+      "ci",
+      "wiki-automation",
+      "documentation-generation",
+      "project-maintenance"
     ],
     "systems": [
       ".github",
+      "GitHub Actions",
       "wiki",
       "tools/wiki_tu.py",
-      "GALE01_report"
+      "Translation Units report"
     ]
   },
   "key_files": [
     {
       "path": ".github/workflows/build.yml",
-      "reason": "Adds the new `update-wiki` workflow job that regenerates and pushes the Translation Units wiki page."
+      "reason": "Added the `update-wiki` GitHub Actions job that downloads `GALE01_report`, runs `tools/wiki_tu.py`, and pushes changes to the repository wiki."
     }
   ],
   "what_changed": [
-    "Added an `update-wiki` job named `Update wiki TU list` to the existing build workflow.",
-    "The job is gated to run only on pushes to the repository default branch and only for `doldecomp/melee`, skipping pull requests and forks.",
-    "The job depends on `build-ninja`, so it reuses the successful build output instead of triggering a separate build.",
-    "The workflow grants `contents: write` and `actions: read` permissions, allowing the built-in `GITHUB_TOKEN` to download artifacts and push to the repository wiki.",
-    "The checkout step uses sparse checkout for `tools` and `reqs`, limiting the workspace to files needed by the wiki generator and its dependencies.",
-    "Python 3.x is installed and generator dependencies are installed with `pip install -r reqs/misc.txt`.",
-    "The job downloads the `GALE01_report` artifact into `report`.",
-    "The workflow clones the repository wiki via `https://x-access-token:${GH_TOKEN}@github.com/${repo}.wiki.git`.",
-    "The workflow runs `python tools/wiki_tu.py write report/report.json \"wiki/Translation-Units.md\"` and writes through a temporary `.new` file before replacing the page.",
-    "Before committing, the job checks `git diff --quiet -- Translation-Units.md` and exits without pushing if the page is already current.",
-    "When changed, the job commits as `github-actions[bot]` with a message including the source commit SHA and pushes to the wiki `master` branch.",
-    "A dedicated concurrency group `update-wiki` was added with `cancel-in-progress: false` to avoid racing wiki pushes from multiple master updates."
+    "Added an `update-wiki` job that depends on `build-ninja`, so the wiki page is regenerated only after a successful build artifact is available.",
+    "Restricted the job to pushes on the repository default branch and to `github.repository == 'doldecomp/melee'`, skipping PRs and forks.",
+    "Granted job-level permissions `contents: write` and `actions: read`, allowing the built-in GitHub token to read artifacts and push to the repo's own wiki.",
+    "Used `actions/checkout@v4` with sparse checkout for `tools` and `reqs`, minimizing checkout scope while including the generator and dependency file.",
+    "Installed generator dependencies with `pip install -r reqs/misc.txt` after review feedback replaced hardcoded package pins.",
+    "Downloaded the existing `GALE01_report` artifact into `report` instead of rebuilding or recomputing report data.",
+    "Cloned `${{ github.repository }}.wiki.git` with `https://x-access-token:${GH_TOKEN}@github.com/${repo}.wiki.git` and regenerated `Translation-Units.md` from `report/report.json`.",
+    "Wrote generated output to a temporary `.new` file, moved it into place, and used `git diff --quiet` to skip commits when the page is already current.",
+    "Configured commits as `github-actions[bot]` and pushed the wiki update to `master` with a commit message containing the source `${{ github.sha }}`.",
+    "Added a separate `concurrency` group named `update-wiki` with `cancel-in-progress: false` to prevent overlapping wiki updates from racing."
   ],
   "smart_moves": [
-    "Reused the existing `GALE01_report` artifact, avoiding extra build time and keeping the wiki update tied to the same build data.",
-    "Limited execution to pushes on the default branch of `doldecomp/melee`, which avoids unsafe or noisy wiki writes from PRs and forks.",
-    "Used the built-in `${{ github.token }}` with job-level `contents: write`, avoiding a personal access token, machine user, GitHub App, or additional repository secret.",
-    "Pushed only when `git diff` detected a page change, preventing empty commits and wiki churn.",
-    "Used sparse checkout for `tools` and `reqs` to keep the CI job focused and lightweight.",
-    "Placed wiki updates in a dedicated concurrency group so multiple default-branch pushes do not race each other while pushing to the wiki.",
-    "Validated the token and wiki-push behavior end-to-end on a fork before merge, according to the PR discussion."
+    "Reused the already-produced `GALE01_report` artifact rather than adding another build or report-generation path.",
+    "Limited execution to default-branch pushes in the canonical repository, which avoids untrusted PR/fork write attempts and unnecessary wiki churn.",
+    "Used the built-in `${{ github.token }}` plus `contents: write` instead of introducing a PAT, machine user, or GitHub App secret.",
+    "Committed only when `git diff` detected a change, keeping wiki history clean and avoiding no-op commits.",
+    "Preserved assignees by generating from the current wiki page first, according to the PR body, reducing the risk of automation overwriting human-maintained metadata.",
+    "Separated the wiki update into its own concurrency group so multiple master pushes cannot simultaneously push conflicting wiki commits.",
+    "Responded to dependency review by using the repository-maintained `reqs/misc.txt` file rather than duplicating package names in the workflow.",
+    "Verified the token and wiki-push behavior end-to-end on a fork before merge, addressing reviewer uncertainty about authentication."
   ],
   "decomp_lessons": [
-    "Generated project-status documentation should be automated in CI when it is derived from build artifacts; otherwise it will drift from actual decomp progress.",
-    "For wiki or report generation jobs, consume existing build artifacts such as `GALE01_report` instead of rebuilding or duplicating the reporting pipeline.",
-    "CI jobs that mutate repository-adjacent state, such as a GitHub wiki, should be tightly gated to trusted branches and the canonical repository.",
-    "When a generator depends on manually preserved content, the workflow should read or clone the current generated target first; the PR body notes this preserves assignees by reading the current page.",
-    "Prefer repository-tracked dependency lists such as `reqs/misc.txt` over hard-coded pip package pins inside workflow YAML."
+    "For decomp progress/status pages that derive from build artifacts, wire generation into CI so wiki or documentation state does not drift from the current matching report.",
+    "Prefer consuming existing artifacts like `GALE01_report` for downstream documentation automation; it avoids redundant work and keeps the generated page tied to the validated build output.",
+    "When automating wiki writes, guard the job by event, branch, and canonical repository checks to avoid unsafe writes from PRs or forks.",
+    "Use repository dependency manifests such as `reqs/misc.txt` in CI instead of hardcoding Python package lists in workflow YAML, unless deliberately splitting dependencies into a smaller manifest.",
+    "For generated docs with human-editable fields, design generators to read the current page and preserve manual data before overwriting generated sections.",
+    "Generated documentation jobs should be idempotent: generate, diff, and skip commits if output is unchanged.",
+    "GitHub's built-in token can be sufficient for pushing to the same repository's wiki when the job has `contents: write`; extra long-lived secrets should be avoided when unnecessary."
   ],
   "naming_conventions": [
-    "`update-wiki` is the workflow job key for wiki regeneration.",
-    "`Update wiki TU list` is the human-readable job name.",
-    "`Translation-Units.md` is the wiki page filename used by the automation.",
+    "`update-wiki` was used as the workflow job id.",
+    "`Update wiki TU list` was used as the human-readable job name.",
     "`GALE01_report` is the artifact name consumed by the wiki update job.",
-    "`GH_TOKEN` is the environment variable used to pass `${{ github.token }}` into the shell script.",
-    "`github-actions[bot]` and `41898282+github-actions[bot]@users.noreply.github.com` are used for automated wiki commits.",
-    "The wiki update commit message format is `Update Translation Units list for ${{ github.sha }}`."
+    "`Translation-Units.md` is the wiki page filename generated by `tools/wiki_tu.py`.",
+    "`GH_TOKEN` was used as the environment variable passed from `${{ github.token }}`.",
+    "The wiki commit author was configured as `github-actions[bot]` with the standard noreply bot email.",
+    "The generated wiki commit message format is `Update Translation Units list for ${{ github.sha }}`."
   ],
-  "assembly_or_matching_tactics": [],
+  "assembly_or_matching_tactics": [
+    "No assembly-level or function-matching tactics were changed in this PR.",
+    "The decomp-relevant tactic was process automation: keep the Translation Units wiki page synchronized with the build's `GALE01_report` instead of relying on manual regeneration."
+  ],
   "review_feedback": [
     {
       "author": "ribbanya",
       "file": ".github/workflows/build.yml",
-      "feedback": "The dependency installation should use `pip install -r reqs/misc.txt` rather than hard-coded packages; optionally dependencies could be separated further to reduce CI dependencies.",
-      "resolution_evidence": "The final diff installs with `pip install -r reqs/misc.txt` and sparse-checks out `reqs` as well as `tools`."
+      "feedback": "The dependency install step should run `pip install -r reqs/misc.txt`; optionally dependencies could be separated out to reduce CI dependency scope.",
+      "outcome": "Final diff uses sparse checkout for both `tools` and `reqs` and installs with `pip install -r reqs/misc.txt`."
     },
     {
-      "author": "review discussion",
-      "feedback": "A reviewer asked whether the wiki push/token setup had been tested on a fork and raised uncertainty around using a non-personal token.",
-      "resolution_evidence": "The author replied that no separate token was needed, validated use of `${{ github.token }}` with `contents: write`, and linked a fork wiki page plus a GitHub Actions run."
+      "author": "reviewer/commenter",
+      "feedback": "Asked whether the workflow had been tested on a fork and discussed uncertainty around non-user tokens for org automation.",
+      "outcome": "Author confirmed no extra token was needed, validated the workflow with `${{ github.token }}` and `contents: write`, and linked a fork wiki/check run."
     },
     {
       "author": "ribbanya",
-      "feedback": "Post-review comment: `Nice work on these, thanks.`",
-      "resolution_evidence": "Indicates approval/acceptance, but does not add technical requirements."
+      "feedback": "Commented: `Nice work on these, thanks.`",
+      "outcome": "PR was merged."
     }
   ],
   "searchable_terms": [
     "PR2585",
-    "Auto-regenerate the wiki Translation Units page in CI",
-    "Translation Units wiki",
+    "update-wiki",
+    "Update wiki TU list",
+    "Translation Units",
     "Translation-Units.md",
     "tools/wiki_tu.py",
     "wiki_tu.py",
-    "update-wiki",
-    "Update wiki TU list",
-    ".github/workflows/build.yml",
     "GALE01_report",
     "report/report.json",
+    ".github/workflows/build.yml",
     "GitHub Actions",
     "GITHUB_TOKEN",
-    "github.token",
+    "GH_TOKEN",
     "contents: write",
     "actions: read",
-    "wiki.git",
     "github-actions[bot]",
     "reqs/misc.txt",
     "pip install -r reqs/misc.txt",
@@ -118,20 +121,22 @@
     "actions/setup-python@v5",
     "sparse-checkout",
     "concurrency update-wiki",
-    "default branch",
-    "doldecomp/melee",
-    "wiki drift",
-    "assignees preserved",
-    "build-ninja"
+    "wiki automation",
+    "default branch push",
+    "doldecomp/melee wiki",
+    "master wiki push",
+    "preserve assignees",
+    "generated documentation",
+    "CI artifact reuse"
   ],
   "follow_up_queries": [
-    "Find other PRs touching `tools/wiki_tu.py` or the Translation Units wiki generator.",
-    "Find CI workflow changes that use `GITHUB_TOKEN` with `contents: write`.",
-    "Find automation that consumes `GALE01_report` artifacts.",
-    "Find PR #2584 for the related Translation Units generator changes mentioned in this PR body.",
-    "Check whether future workflow refactors preserve the `update-wiki` default-branch and canonical-repository guard."
+    "Find future PRs that modify `tools/wiki_tu.py` and verify they remain compatible with the CI `update-wiki` job.",
+    "Check whether `reqs/misc.txt` grows large enough to justify the reviewer's suggested split for wiki-generator dependencies.",
+    "Audit whether other generated wiki or documentation pages still require manual regeneration and could reuse this artifact-driven CI pattern.",
+    "Verify that wiki branch naming remains `master`; if GitHub wiki behavior changes, update the push target accordingly.",
+    "Confirm that `GALE01_report` artifact naming and path `report/report.json` remain stable across build workflow changes."
   ],
-  "confidence": 0.93,
+  "confidence": 0.92,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

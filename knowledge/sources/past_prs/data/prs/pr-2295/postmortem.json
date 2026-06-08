@@ -11,87 +11,79 @@
     "merged_at": "2026-03-15T18:43:39Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large Kirby copied-neutral-special decomp pass centered on src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c. It replaced many asm/stub markers with C for Pikachu/Pichu, Koopa/Giga Bowser, Link/Young Link, and Samus-copy neutral-B behavior, plus small header/type fixes. The decomp.dev bot reported +10,360 matched code bytes and 44 new matches; the author explicitly noted one remaining regswap issue in ftKb_SsSpecialNHold_Anim, which the bot showed at 97.36% rather than 100%.",
+  "summary": "Large decompilation/matching PR for Kirby copied neutral-special logic in src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c. It replaced many placeholder markers with C implementations for Pikachu/Pichu collision transitions, Koopa/Giga Bowser flame handling, Link/Young Link bow/arrow state handling, and Samus charge-shot handling. Supporting header fixes changed two Link helper prototypes from void to bool, exposed ftKb_Init_803CB540, and corrected ftKb_DatAttrs::specialn_ss_frames_per_charge_level from u32 to s32. The author noted one remaining unresolved register-swap issue in ftKb_SsSpecialNHold_Anim; decomp.dev reported +10360 matched code bytes, 44 new matches, and ftKb_SsSpecialNHold_Anim improved to 97.36%.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "fighter-specials",
       "headers",
-      "types",
-      "item-integration",
-      "animation-iasa-collision"
+      "fighter-specials",
+      "kirby-copy-abilities"
     ],
     "systems": [
       "fighter",
       "ftKirby",
-      "motion-states",
       "items",
-      "collision",
       "animation",
-      "IASA"
+      "collision"
     ]
   },
   "key_files": [
-    "src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c - main decomp/matching work; 1019 additions, many formerly stubbed Kirby copied neutral-B functions implemented",
-    "src/melee/ft/chara/ftKirby/ftKb_Init.h - updated Link-copy helper prototypes from void to bool and exposed ftKb_Init_803CB540",
-    "src/melee/ft/chara/ftKirby/types.h - changed specialn_ss_frames_per_charge_level from u32 to s32"
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c",
+    "src/melee/ft/chara/ftKirby/ftKb_Init.h",
+    "src/melee/ft/chara/ftKirby/types.h"
   ],
   "what_changed": [
-    "Implemented ftKb_PkSpecialAirN_Coll and adjusted Pikachu/Pichu copied neutral-B ground/air collision transitions to preserve animation frame and select ftKb_MS_Pk/Pc motion states.",
-    "Implemented Koopa-copy flame spawning and air collision handlers: ftKb_SpecialNKp_800FA588, ftKb_KpSpecialAirNStart_Coll, ftKb_KpSpecialAirN_Coll, and ftKb_KpSpecialAirNEnd_Coll, including itKoopaFlame_Spawn, random direction table ftKb_Init_803CB540, charge-size SFX choice, and Koopa/Giga Bowser motion-state switches.",
-    "Implemented a large Link/Young Link copied bow/arrow block: bow and arrow spawn helpers ftKb_SpecialNLk800FB500 and ftKb_SpecialNLk800FB5F4 now return bool, ftKb_SpecialNLk800FB6DC fires/releases the arrow, start helper functions ftKb_SpecialNLk800FB880 and ftKb_SpecialNLk800FBA00 enter ground/air start states, and Link start/loop/end Anim/IASA/Coll functions were filled in.",
-    "Implemented Samus-copy charge-shot cleanup and firing helpers, including ftKb_SpecialNSs_800FCDE0, ftKb_SsSpecialNStart_Anim, ftKb_SsSpecialNHold_Anim, ftKb_SsSpecialAirNStart_Anim, and ftKb_SsSpecialNHold_IASA; charge-shot item/effect cleanup was factored into small static inline helpers.",
-    "Reworked several existing functions for matching: changed local motion-state variable types from FtMotionId to s32 in places, moved declarations/scopes, used explicit hat.kind switch cases instead of default fallthroughs, removed/avoided an inline dat_attrs accessor, and added PAD_STACK/dummy stack locals.",
-    "Added includes for it/forward.h and it/items/itkoopaflame.h and added extern references for data/constants such as ftKb_Init_804D9420, ftKb_Init_803B7548, ftKb_Init_803CB6C0, ftKb_Init_804D9448, and ftKb_Init_804D9450/804D9454/804D9458.",
-    "Updated ftKb_SpecialNFx_800FDC00 to use extern float constants for its offset/default vector values instead of hardcoded literals.",
-    "decomp.dev reported GALE01 matched code at 57.96% (+0.27%, +10360 bytes) and matched data at 37.65% (+24 bytes), with 44 new matches and 19 improvements in unmatched items."
+    "Implemented many previously unmatched functions in ftKb_SpecialNPk.c, including ftKb_PkSpecialAirN_Coll, ftKb_SpecialNKp_800FA588, Koopa air/ground collision helpers, Link/Young Link bow helpers, Link/Young Link start/loop/end Anim/IASA/Phys/Coll functions, and Samus charge-shot helpers.",
+    "Added item dependencies needed by the new code, notably it/forward.h and it/items/itkoopaflame.h.",
+    "Implemented Koopa flame spawning in ftKb_SpecialNKp_800FA588 using ftKb_Init_803CB540 direction data, HSD_Randi, itKoopaFlame_Spawn, dat attribute offsets/scales, item allocation, and charge-dependent SFX selection.",
+    "Implemented Link/Young Link copied neutral-B bow and arrow lifecycle: bow/arrow item creation, charge/release handling, motion-state transitions, anim-rate setup, cleanup paths, and ground/air transition logic.",
+    "Implemented Samus copied charge-shot logic, including charge-shot item/effect cleanup helpers, shot firing through it_802B56E4, recoil application in air, charge-level sound selection in ftKb_SsSpecialNHold_Anim, and hold IASA transitions.",
+    "Updated ftKb_Init.h prototypes for ftKb_SpecialNLk800FB500 and ftKb_SpecialNLk800FB5F4 from void to bool to reflect failure/cleanup signaling used by callers.",
+    "Declared extern enum_t ftKb_Init_803CB540[] in ftKb_Init.h for Koopa flame direction lookup.",
+    "Changed ftKb_DatAttrs::specialn_ss_frames_per_charge_level from u32 to s32 in types.h.",
+    "Reworked several matching-sensitive local variable patterns: used s32 motion-state temporaries instead of FtMotionId in some transitions, split declarations from assignments, introduced small static inline helpers, added PAD_STACK/u8 padding locals, and used explicit float literals."
   ],
   "smart_moves": [
-    "The PR made helper return types match control flow: ftKb_SpecialNLk800FB500 and ftKb_SpecialNLk800FB5F4 return bool so callers can cleanly bail out and unset bow/arrow state when item spawning fails.",
-    "It reused the same hat.kind-driven pattern across copied-special variants: Link vs CLINK, Koopa vs GKOOPS, and Pikachu vs Pichu all choose motion IDs and dat_attrs through small switches rather than duplicating full functions.",
-    "The code preserves item ownership state around item operations, notably saving/restoring fp->item_gobj around arrow release and calling ftpickupitem_80094818 after ftKb_SpecialNLk_UnsetArrow.",
-    "The Samus-copy cleanup path was decomposed into static inline helpers for charge-shot item cleanup, effect cleanup, and facing-angle conversion, which makes the decompiled behavior readable while still serving matching constraints.",
-    "Using extern data symbols for random direction tables, vec groups, sound/offset constants, and sdata2 floats avoided baking in literals that would hurt data/rodata matching.",
-    "Collision functions consistently preserve cur_anim_frame and call ftKirbyDmgInline/ftAnim_8006EBA4 where needed after motion changes, keeping Kirby-copy callbacks and animation state aligned."
+    "Kept copied-special variants in shared patterns: switches on fp->fv.kb.hat.kind select the correct Pikachu/Pichu, Koopa/Giga Bowser, and Link/Young Link motion IDs while preserving the same transition skeleton.",
+    "Factored repeated Samus charge-shot cleanup into small inline helpers such as ftKb_SpecialNSs_DestroyChargeShot and ftKb_ChargeShot_inline, which both reduced duplication and supported matching-sensitive codegen.",
+    "Corrected function return types for Link bow/arrow setup helpers to bool, matching call sites that need to abort and clean up when item spawn fails.",
+    "Preserved item_gobj across arrow/charge-shot fire calls before invoking pickup/item cleanup, which is an important behavioral detail visible in the diff.",
+    "Used data-attribute fields for item loader IDs, item IDs, max charge, charge speed, recoil, and freefall toggles rather than hardcoding gameplay constants.",
+    "Added explicit externs for float/data symbols used to replace literals in matching-sensitive Samus position helper code."
   ],
   "decomp_lessons": [
-    "For Kirby copied-special code, expect one source file to contain many character-specific neutral-B variants; matching often requires understanding both Kirby state and the original character's item/state helpers.",
-    "Header prototypes should be corrected as soon as decompiled control flow reveals success/failure semantics; the void-to-bool change for Link-copy bow/arrow spawn helpers was necessary for callers and matching.",
-    "Use dat_attrs fields rather than hardcoded constants when copied specials differ by source character or clone, such as Link vs Young Link charge speed/max charge/freefall and Samus charge timing.",
-    "When collision functions are near-identical ground/air mirrors, preserve the exact ground/air helper pairing: ft_80082708 with ftCommon_8007D5D4 for leaving ground, and ft_80081D0C with ftCommon_8007D7FC for landing/air transitions.",
-    "Small signedness fixes in structs can matter: specialn_ss_frames_per_charge_level was changed from u32 to s32, matching the arithmetic/comparisons in Samus charge code.",
-    "Be explicit about remaining nonmatches. The PR title says almost 100%, and the body names ftKb_SsSpecialNHold_Anim as the unresolved regswap; future work should not assume it was fully solved."
+    "For Kirby copied specials, many functions are variant selectors over the copied fighter kind; matching often requires leaving the default motion ID initialized to the base fighter and only changing it for alternate hats.",
+    "If a helper is used as a spawn-or-fail predicate, the header prototype must reflect bool return type; otherwise later cleanup/control-flow matching will be misleading.",
+    "Ground/air collision transition helpers commonly preserve cur_anim_frame and call ftCommon_8007D5D4 or ftCommon_8007D7FC before Fighter_ChangeMotionState with specific bitflag masks.",
+    "Item-spawn/firing functions often require world positions from lb_8000B1CC on specific fighter parts, z-zeroing, saved item_gobj restoration, and damage/death callback setup via a shared Kirby helper.",
+    "Small local-layout choices matter: PAD_STACK, dummy u8 arrays, declaration ordering, s32 vs enum typedefs, and inline wrappers were all used in this PR to improve matching.",
+    "Signedness in dat attrs can be significant for codegen; specialn_ss_frames_per_charge_level matched as s32 rather than u32.",
+    "Remaining near-match problems may reduce to register allocation, as the author specifically called out an unresolved regswap in ftKb_SsSpecialNHold_Anim."
   ],
   "naming_conventions": [
-    "Kirby copied-special functions retain the ftKb_ prefix and append abbreviated source-character tags such as Pk, Pc, Kp, Gk, Lk, Cl, and Ss in motion-state/function names.",
-    "Address-suffixed helper names such as ftKb_SpecialNKp_800FA588, ftKb_SpecialNLk800FB500, and ftKb_SpecialNSs_800FCDE0 were preserved where semantic names were not yet known.",
-    "Motion states follow ftKb_MS_<source-copy><ground-or-air><phase>, for example ftKb_MS_LkSpecialNStart, ftKb_MS_ClSpecialAirNLoop, ftKb_MS_KpSpecialAirNEnd, and ftKb_MS_SsSpecialNHold.",
-    "DatAttrs fields encode the copied move and source character, such as specialn_lk_arrow_charge_speed, specialn_cl_max_charge, specialn_kp_breath_x_offset, specialn_ss_charge_time, and specialn_ss_frames_per_charge_level.",
-    "Small static inline helpers were named semantically where possible, e.g. ftKb_SpecialNSs_DestroyChargeShot, ftKb_ChargeShot_inline, facing_to_angle, and ftKb_SpecialNSs_UnsetChargeShot."
+    "Kirby copied-special functions retain ftKb_ prefix and encode copied fighter abbreviations in the middle, such as Pk, Kp, Lk, Cl, and Ss.",
+    "Unidentified address-suffixed functions remain named with their address, e.g. ftKb_SpecialNKp_800FA588, ftKb_SpecialNLk800FB500, ftKb_SpecialNLk800FB5F4, ftKb_SpecialNLk800FB6DC, ftKb_SpecialNLk800FB880, and ftKb_SpecialNLk800FBA00.",
+    "Motion-state names follow ftKb_MS_<copied fighter><Special state> patterns, e.g. ftKb_MS_LkSpecialNStart, ftKb_MS_ClSpecialAirNStart, ftKb_MS_KpSpecialAirNEnd, ftKb_MS_GkSpecialNEnd, ftKb_MS_SsSpecialNHold.",
+    "Dat attribute fields use descriptive specialn_<fighter abbreviation>_<purpose> names, such as specialn_lk_bow_item_loader_id, specialn_cl_bow_item_id, specialn_kp_breath_x_offset, specialn_ss_charge_time, and specialn_ss_frames_per_charge_level.",
+    "Inline helper names in this PR are descriptive but still local to the file, e.g. ftKb_SpecialNSs_DestroyChargeShot, ftKb_ChargeShot_inline, and facing_to_angle."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK and dummy u8 stack arrays to reproduce stack frame layout in newly matched functions.",
-    "Changed local motion-state variables from enum-like FtMotionId to s32 in several collision paths, likely to influence register allocation/codegen.",
-    "Preserved compiler-sensitive declaration scopes and repeated GET_FIGHTER(gobj) calls inside switch blocks instead of always reusing an existing Fighter*.",
-    "Used explicit switch cases with empty break bodies for the default source character, rather than relying on default labels, to shape generated code.",
-    "Introduced small static inline wrappers for Samus charge-shot cleanup and recoil logic; these inline boundaries can help reproduce original call/branch/register behavior while keeping readable C.",
-    "Moved constants into extern sdata2/data symbols such as ftKb_Init_804D9420 and ftKb_Init_804D9450/54/58 to improve data/float matching.",
-    "For Link bow animation, copied ftKb_Init_803B7548 Vec3 values into local Vec3 variables and computed atan2f from the local copies, matching the expected access/order pattern.",
-    "Author-reported unresolved tactic: ftKb_SsSpecialNHold_Anim still had a register-swap mismatch despite reaching 97.36% match in the bot report."
+    "Inserted PAD_STACK and dummy u8 padding locals to influence stack layout in newly matched functions.",
+    "Used small static inline helpers to shape repeated cleanup/recoil/angle code without introducing out-of-line calls.",
+    "Changed some FtMotionId locals to s32 to match expected codegen in switch-based motion-state selection.",
+    "Separated declaration from assignment in some blocks, especially dat_attrs locals, to adjust register allocation.",
+    "Used explicit NULL comparisons and assignments, saved temporary item pointers, and exact float literals such as 0.08726646f, 0.3333f, and 0.6666f where visible in the diff.",
+    "Author-reported unresolved tactic: ftKb_SsSpecialNHold_Anim still had a register swap and was not fully matched."
   ],
   "review_feedback": [
-    "No human review comments or formal reviews were present in the slice.",
-    "The author's PR body explicitly called out the remaining issue: \"Couldn't figure out the regswap on ftKb_SsSpecialNHold_Anim\".",
-    "decomp-dev bot feedback confirmed the impact: 44 new matches, 19 unmatched-item improvements, and ftKb_SsSpecialNHold_Anim improved to 97.36% rather than full match."
+    "No human review comments were present in the slice.",
+    "Author note in PR body: \"Couldn't figure out the regswap on ftKb_SsSpecialNHold_Anim 😔\".",
+    "decomp.dev bot reported matched code increased by 10360 bytes, matched data by 24 bytes, and listed 44 new matches. It specifically reported ftKb_SsSpecialNHold_Anim as improved from 0.00% to 97.36%, not 100%."
   ],
   "searchable_terms": [
-    "PR 2295",
-    "Almost 100% match ftKb_SpecialNPk.c",
-    "lukechampine",
+    "PR2295",
     "ftKb_SpecialNPk.c",
-    "ftKb_Init.h",
-    "ftKirby types.h",
     "Kirby copied neutral special",
     "ftKb_PkSpecialAirN_Coll",
     "ftKb_SpecialNKp_800FA588",
@@ -106,47 +98,32 @@
     "ftKb_SpecialNLk800FB880",
     "ftKb_SpecialNLk800FBA00",
     "ftKb_LkSpecialNStart_Anim",
-    "ftKb_LkSpecialNLoop_Anim",
     "ftKb_LkSpecialAirNStart_Anim",
-    "ftKb_LkSpecialAirNLoop_Anim",
-    "ftKb_LkSpecialNStart_IASA",
     "ftKb_LkSpecialNLoop_IASA",
-    "ftKb_LkSpecialAirNStart_IASA",
-    "ftKb_LkSpecialAirNLoop_IASA",
-    "ftKb_LkSpecialNStart_Coll",
-    "ftKb_LkSpecialNLoop_Coll",
-    "ftKb_LkSpecialNEnd_Coll",
-    "ftKb_LkSpecialAirNStart_Coll",
     "ftKb_LkSpecialAirNLoop_Coll",
-    "ftKb_LkSpecialAirNEnd_Coll",
     "ftKb_SpecialNSs_800FCDE0",
     "ftKb_SsSpecialNStart_Anim",
     "ftKb_SsSpecialNHold_Anim",
-    "ftKb_SsSpecialAirNStart_Anim",
     "ftKb_SsSpecialNHold_IASA",
     "Samus charge shot Kirby",
     "Link bow Kirby",
-    "Young Link bow Kirby",
     "Koopa flame Kirby",
-    "Pikachu Pichu Kirby",
-    "regswap",
-    "PAD_STACK",
-    "s32 motion id",
     "specialn_ss_frames_per_charge_level",
-    "ftKb_Init_803B7548",
-    "ftKb_Init_803CB6C0",
-    "ftKb_Init_804D9420",
-    "ftKb_Init_804D9448",
-    "ftKb_Init_804D9450",
-    "GALE01 +10360 matched code"
+    "regswap"
   ],
   "follow_up_queries": [
-    "ftKb_SsSpecialNHold_Anim regswap unresolved",
-    "ftKb_SpecialNPk.c remaining unmatched after PR 2295",
-    "Kirby Samus charge shot ftKb_SpecialNSs cleanup inline matching",
-    "ftKb_Init_803CB540 Koopa flame random direction table",
-    "ftKb_SpecialNLk800FB500 bool spawn failure callers",
-    "specialn_ss_frames_per_charge_level signedness decomp"
+    "Look for the later PR that fully matches ftKb_SsSpecialNHold_Anim or resolves its register swap.",
+    "Check whether address-named helpers ftKb_SpecialNLk800FB500, ftKb_SpecialNLk800FB5F4, ftKb_SpecialNLk800FB6DC, ftKb_SpecialNLk800FB880, and ftKb_SpecialNLk800FBA00 later received semantic names.",
+    "Compare other Kirby copied neutral-special files for the same ground/air collision transition pattern and bool item-spawn helper convention.",
+    "Search later changes touching ftKb_Init_803CB540, ftKb_Init_804D9420, ftKb_Init_803CB6C0, or ftKb_Init_804D9448 for data-symbol naming improvements."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

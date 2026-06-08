@@ -11,209 +11,161 @@
     "merged_at": "2026-03-18T18:07:07Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Broad item decompilation sweep replacing many item placeholder stubs with matching C, tightening item headers and item-var/attribute layouts, and typing several formerly unknown prototypes. The decomp.dev bot reported +8716 matched code bytes, +48 matched data bytes, and 51 new matches; the PR body was empty and no human review comments were captured.",
+  "summary": "Broad item decomp pass that replaced many placeholder stubs with matched C implementations, tightened item attribute/item-var structs, and updated headers from UNK_RET/UNK_PARAMS to typed prototypes. The decomp.dev report recorded +8716 matched code bytes, +48 matched data bytes, and 51 new matches, mostly under src/melee/it/items. The work centered on common and character items such as Flipper, Tools, White Bear, Hinoarashi, Arwing Laser, Game & Watch Chef/Parachute, Yoshi Egg Throw, Mewtwo Shadow Ball, Tincle, SS Scope, Patapata, Klap, and Zako Green Shell.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
+      "decomp-matching",
       "headers",
-      "item-behavior",
-      "matching-tactics",
-      "prototype-cleanup",
-      "spawn-helpers",
       "struct-layout",
-      "tooling-report"
+      "item-behavior",
+      "spawn/helpers"
     ],
     "systems": [
       "item",
-      "it/items",
-      "itCharItems",
-      "itCommonItems",
-      "collision",
+      "character-items",
+      "common-items",
       "effects",
-      "fighter-item callbacks"
+      "fighter-item-interactions"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/it/itCharItems.h",
-      "role": "Expanded character-item structs, including Climbers Ice attributes, Arwing laser Vec3 fields, Gamewatch parachute attributes, and Hinoarashi item vars/attributes."
-    },
-    {
-      "path": "src/melee/it/itCommonItems.h",
-      "role": "Expanded common-item attributes/item vars for Flipper, Tincle, ZGShell, Mewtwo Shadow Ball, and White Bea."
-    },
-    {
-      "path": "src/melee/it/types.h",
-      "role": "Added the hinoarashi item-var union member to Item."
-    },
-    {
-      "path": "src/melee/it/items/itflipper.c",
-      "role": "Matched Flipper angle update, motion 3 physics/collision, state reset, and clank/hit-shield handlers."
-    },
-    {
-      "path": "src/melee/it/items/ittools.c",
-      "role": "Matched Tools spawn/setup, landing transition, collision, clank, hit-shield, and absorbed handlers."
-    },
-    {
-      "path": "src/melee/it/items/itwhitebea.c",
-      "role": "Matched multiple White Bea behavior transitions and physics functions."
-    },
-    {
-      "path": "src/melee/it/items/ithinoarashi.c",
-      "role": "Matched Hinoarashi setup, accessory/motion, damage-received, and effect-spawn behavior."
-    },
-    {
-      "path": "src/melee/it/items/itarwinglaser.c",
-      "role": "Matched Arwing laser cleanup, motion animation helpers, and a bone-position effect/audio helper."
-    },
-    {
-      "path": "src/melee/it/items/itgamewatchchef.c",
-      "role": "Matched Game & Watch Chef item spawn helper with parent/debug/link setup."
-    },
-    {
-      "path": "src/melee/it/items/itgamewatchparachute.c",
-      "role": "Matched Game & Watch Parachute spawn helper and motion-1 animation removal/flag logic."
-    },
-    {
-      "path": "src/melee/it/items/itmewtwoshadowball.c",
-      "role": "Matched Mewtwo/Kirby Shadow Ball destroyed cleanup and shield-bounce velocity-angle update."
-    },
-    {
-      "path": "src/melee/it/items/ityoshieggthrow.c",
-      "role": "Matched Yoshi egg throw spawn helper and effect/audio initialization."
-    },
-    {
-      "path": "src/melee/it/items/itsscope.c",
-      "role": "Matched Super Scope charge-cost lookup and adjusted velocity reset helper usage."
-    },
-    {
-      "path": "src/melee/it/items/itzgshell.c",
-      "role": "Matched ZGShell initialization and clanked response."
-    }
-  ],
-  "what_changed": [
-    "Replaced numerous placeholder markers with concrete matching implementations across item modules, including Flipper, Tools, White Bea, Hinoarashi, Gamewatch Chef/Parachute, Yoshi Egg Throw, Arwing Laser, Mewtwo Shadow Ball, Klap, Patapata, SScope, Tincle, and ZGShell.",
-    "Expanded item attribute and item-var structs instead of leaving opaque padding, notably itFlipper_DatAttrs, itTincle_ItemVars, itTincleAttributes, itWhiteBeaAttributes, itHinoarashi_ItemVars, itHinoarashiAttributes, itGamewatchparachuteAttributes, and itMewtwoShadowball_ItemVars.",
-    "Promoted Arwing laser item vars at xE18/xE24 from six s32 slots to two Vec3 fields, enabling code that copies bone/world positions and stores previous positions.",
-    "Changed Mewtwo Shadow Ball item vars so x2C is an HSD_GObj* followed by a smaller float array, matching owner cleanup logic in it_2725_Logic101_Destroyed.",
-    "Added the hinoarashi member to the Item item-var union, making newly added Hinoarashi code access typed item variables instead of anonymous storage.",
-    "Typed several headers that previously used UNK_RET/UNK_PARAMS, including it_802C1854, it_80290C38, it_80290CE8, it_8028EB88, it_802E1C84, it_8029A31C, it_80291D38, it_802EBD14, it_802EEFA8, and it_802EF098.",
-    "Implemented common SpawnItem initialization patterns for item creation helpers such as it_802C837C, it_802C6C38, it_802B2A10, and it_802EEFA8.",
-    "Added effect, audio, and owner-link behavior where needed, using efSync_Spawn, efAsync_Spawn, efLib_DestroyAll, Item_8026AE84, db_80225DD8, Item_8026AB54, and fighter callbacks.",
-    "The decomp.dev bot reported matched code increasing to 58.97% (+0.22%) and matched data to 37.69% (+48 bytes), with 51 new matches."
-  ],
-  "smart_moves": [
-    "Struct/header work was done alongside function decompilation, so new C could use typed fields like attrs->x24, attrs->xE, hinoarashi.x60.b0, and mewtwoshadowball.x2C instead of brittle casts or raw padding.",
-    "Spawn helpers followed the recurring Item_80268B18 pattern: fill SpawnItem, zero velocities, set parent fields, set x44_flag.b0, then run item-specific parent/link setup only after a non-NULL gobj is returned.",
-    "Owner cleanup was carefully preserved for linked projectiles: Climbers string clears owner and linked item gobjs, Arwing laser clears neighbor backreferences, and Mewtwo Shadow Ball calls the appropriate Mewtwo/Kirby cleanup callback before nulling x2C.",
-    "Matching-only scaffolding was used where evidence required it, including PAD_STACK calls, an unused local array in it_802C2750, a static outline wrapper for it_80291D38, and #pragma dont_inline around duplicate Flipper clank/shield handlers.",
-    "The diff reused existing engine helpers such as itResetVelocity, itColl_BounceOffVictim, lbVector_Mirror, lb_8000B1CC, mpCollSetFacingDir, and item collision/animation helpers rather than open-coding all behavior.",
-    "Duplicate event-handler behavior was intentionally kept duplicated for matching in Flipper and Tools instead of prematurely abstracting it into shared helpers that might change codegen."
-  ],
-  "decomp_lessons": [
-    "For item work, matching C often depends on first recovering the item-specific attribute layout; partial padding splits are useful when only some offsets are known.",
-    "Do not leave UNK_RET/UNK_PARAMS once callsites and return values are understood; typed prototypes can unlock downstream matches and reduce unsafe assumptions.",
-    "When item vars contain vectors or object pointers, promote them from integer/float blobs as soon as code evidence shows Vec3 assignment or HSD_GObj ownership semantics.",
-    "Projectile/item spawn helpers in this codebase have a recognizable initialization order; future work should copy the established SpawnItem field order and post-spawn parent/link calls.",
-    "PAD_STACK, local dummy variables, outline wrappers, and dont_inline pragmas remain legitimate matching tools when the generated stack frame or call shape is otherwise wrong.",
-    "Repeated clank, hit-shield, and absorbed handlers may need near-identical bodies with different stack padding to match; avoid deduplicating before confirming codegen.",
-    "Effect and audio side effects are part of the match, not just gameplay polish: numeric effect IDs and Item_8026AE84 calls were included in several matched item functions.",
-    "When no PR body or review comments exist, rely on diff and decomp.dev metrics only; do not infer reviewer intent beyond the merge and bot report."
-  ],
-  "naming_conventions": [
-    "Unknown functions retain address-style names like it_80290C38, it_802EEFA8, and it_2725_Logic22_Absorbed until semantics are clearer.",
-    "Motion callbacks use the established pattern it<Item>_UnkMotionN_Anim, it<Item>_UnkMotionN_Phys, and it<Item>_UnkMotionN_Coll when the item and motion slot are known.",
-    "Item event callbacks use LogicNN plus event names such as Logic20_Clanked, Logic20_HitShield, Logic101_Destroyed, and Logic27_DmgReceived.",
-    "Struct fields with unknown semantics keep offset-based names such as x4, xC, xE18, xE1C_b0, and pad_08 while preserving offset comments.",
-    "Item-specific types use module prefixes such as itFlipper_DatAttrs, itWhiteBeaAttributes, itHinoarashi_ItemVars, itGamewatchparachuteAttributes, and itMewtwoShadowball_ItemVars.",
-    "Headers retain address comments before prototypes, for example /* 290C38 */ void it_80290C38(Item_GObj*, Vec3*, f32);."
-  ],
-  "assembly_or_matching_tactics": [
-    "Used PAD_STACK with several sizes, including 4, 8, 12, 16, and 24 bytes, to preserve stack layout in newly matched functions.",
-    "Used #pragma dont_inline on/reset around it_3F14_Logic20_Clanked and it_3F14_Logic20_HitShield to keep Flipper handlers matching.",
-    "Added a static s32 it_80291D38_outline wrapper so it_80291FA8 calls the cost helper through the expected outline shape.",
-    "Added a static inline itTools_UnkMotion9_Coll_inline helper for the landing transition while keeping the collision function's generated code shape.",
-    "Kept exact float constants and comparisons visible, including 30.0f animation-frame checks, 0.17453292f random angle spread, 0.2f White Bea bounce scaling, 10.0f Tincle divisor, and M_TAU angle wrapping.",
-    "Used explicit effect/audio IDs from the diff, such as efSync_Spawn(0x40E), efSync_Spawn(arg1 + 0x44E), efAsync_Spawn 0x4CE/0x4CF, Item_8026AE84 0x2734, and Item_8026AE84 0x44618.",
-    "Matched pointer/owner cleanup by checking NULLs and exact ownership relationships before clearing fields.",
-    "Used HSD_Randf and HSD_Randi with ABS-derived ranges to preserve random behavior and codegen in Klap, White Bea, and ZGShell."
-  ],
-  "review_feedback": [
-    "No human review comments or formal reviews were present in the slice.",
-    "The PR body was empty, so rationale is inferred only from the title, diff, and decomp.dev report.",
-    "decomp.dev reported 51 new matches, +8716 matched code bytes, and +48 matched data bytes for GALE01.",
-    "The bot report listed some stage-unit match changes as well as item-unit matches, but the changed files in this PR slice are all under src/melee/it."
-  ],
-  "searchable_terms": [
-    "pr-2317",
-    "Misc item work",
-    "lukechampine",
-    "decomp-dev",
-    "GALE01",
-    "matched code +8716",
-    "51 new matches",
     "src/melee/it/itCharItems.h",
     "src/melee/it/itCommonItems.h",
     "src/melee/it/types.h",
+    "src/melee/it/items/itflipper.c",
+    "src/melee/it/items/ittools.c",
+    "src/melee/it/items/itwhitebea.c",
+    "src/melee/it/items/ithinoarashi.c",
+    "src/melee/it/items/itarwinglaser.c",
+    "src/melee/it/items/itgamewatchparachute.c",
+    "src/melee/it/items/itgamewatchchef.c",
+    "src/melee/it/items/ityoshieggthrow.c",
+    "src/melee/it/items/itmewtwoshadowball.c",
+    "src/melee/it/items/itsscope.c",
+    "src/melee/it/items/itzgshell.c",
+    "src/melee/it/items/itclimbersstring.c"
+  ],
+  "what_changed": [
+    "Implemented numerous previously stubbed item functions marked with /// #..., including it_80290C38, itFlipper_UnkMotion3_Phys, itFlipper_UnkMotion3_Coll, it_80291254, it_3F14_Logic20_Clanked, and it_3F14_Logic20_HitShield in itflipper.c.",
+    "Added Tools item spawn/setup/collision/reaction logic: it_802EEFA8, it_802EF098, it_802EF320, itTools_UnkMotion9_Coll, it_2725_Logic22_Clanked, it_2725_Logic22_HitShield, and it_2725_Logic22_Absorbed.",
+    "Added White Bear behavior functions it_802E37BC, it_802E3AC8, itWhitebea_UnkMotion1_Phys, and it_802E3ED0, using facing direction, floor/collision helpers, random timers, and typed WhiteBea attributes.",
+    "Added Hinoarashi item vars/attributes and behavior for spawn/init, motion 1 animation, damage received transition, accessory/effect setup, and effect spawning via efSync_Spawn.",
+    "Added item spawn helper implementations for Game & Watch Chef it_802C837C, Game & Watch Parachute it_802C6C38, Tools it_802EEFA8, and Yoshi Egg Throw it_802B2A10 using SpawnItem and Item_80268B18.",
+    "Added Game & Watch Parachute animation removal/check logic in itGamewatchparachute_UnkMotion1_Anim, including owner callbacks ftGw_AttackAirN_ItemParachuteSetFlag and ftGw_AttackAirN_ItemCheckParachuteRemove.",
+    "Added Arwing Laser cleanup/effect/animation helpers, including relationship nulling between linked item gobjs, Vec3 position storage, lb_8000B1CC bone position lookup, efSync_Spawn, and Item_8026AE84 audio/effect call.",
+    "Added Mewtwo Shadow Ball destroy and shield-bounce logic, including owner cleanup for Mewtwo/Kirby variants and angle normalization with atan2f and M_TAU after lbVector_Mirror.",
+    "Added Patapata, Tincle, SS Scope, Klap, Climbers String, and Zako Green Shell matched functions or prototype/header improvements.",
+    "Refined struct layouts in itCharItems.h and itCommonItems.h: split padding into typed fields for itClimbersIceAttributes, Arwing Laser item vars as Vec3 xE18/xE24, itFlipper_DatAttrs fields through x24, itTincle item vars/attributes, itMewtwoShadowball_ItemVars x2C as HSD_GObj*, and itWhiteBeaAttributes s16 fields x8/xA/xC/xE.",
+    "Updated headers to replace generic unknown prototypes with typed signatures, e.g. it_802C1854(void) returns bool, it_8028EB88 returns Item_GObj*, it_80290C38 takes Item_GObj*/Vec3*/f32, it_802EEFA8 returns Item_GObj*, and it_802EF098 takes Item_GObj*/s32."
+  ],
+  "smart_moves": [
+    "Used struct-layout discoveries to unlock multiple matches: e.g. converting Arwing Laser six s32 slots to two Vec3s made subsequent position-copy code natural and matchable.",
+    "Kept item spawn helpers consistent with existing project patterns: fill SpawnItem fields explicitly, zero velocity components, set parent fields and x44_flag.b0, call Item_80268B18, then attach/link with item-specific helpers only if the gobj is non-NULL.",
+    "Used small wrapper/outline functions and stack padding where needed for matching, notably it_80291D38_outline plus PAD_STACK in SS Scope and PAD_STACK in several reaction handlers.",
+    "Used inline helper extraction in itTools_UnkMotion9_Coll_inline to share the repeated collision landing transition while still preserving matching-sensitive structure.",
+    "Preserved duplicated-looking logic in paired callbacks such as Flipper Clanked/HitShield and Tools Clanked/HitShield/Absorbed rather than over-abstracting in ways that could disturb codegen.",
+    "Updated headers immediately alongside implementations, reducing future reliance on UNK_RET/UNK_PARAMS and making item/fighter/effect cross-calls type-checkable."
+  ],
+  "decomp_lessons": [
+    "When an item var block repeatedly copies three adjacent scalars, test whether the underlying layout is a Vec3 rather than separate s32/f32 fields; this PR did that for Arwing Laser xE18/xE24.",
+    "Item attributes often start as padding but should be split incrementally as functions reveal exact scalar use; this PR refined Flipper, Tincle, WhiteBea, Climbers Ice, Game & Watch Parachute, and Hinoarashi attributes.",
+    "Matched item spawn routines usually require exact SpawnItem field ordering and explicit zeroing of all velocity components, even when semantically redundant.",
+    "Owner cleanup code for character items must account for fighter-specific callbacks and variant item kinds, as seen in Climbers String owner cleanup and Mewtwo/Kirby Shadow Ball cleanup.",
+    "For collision/reaction item code, preserving the exact ordering of velocity updates, state changes, animation changes, and effect cleanup calls matters; many functions here are short but order-sensitive.",
+    "Facing direction updates often require both item facing_dir and mpCollSetFacingDir on x378_itemColl, with -1.0f mapped to -1 and all other cases to 1.",
+    "Effect-bearing items commonly pair state transitions with efLib_PauseAll/ResumeAll, efLib_DestroyAll, efSync_Spawn, or efAsync_Spawn; include the correct effect headers rather than leaving placeholders."
+  ],
+  "naming_conventions": [
+    "Used existing item motion naming style for typed matches: itFlipper_UnkMotion3_Phys, itFlipper_UnkMotion3_Coll, itGamewatchparachute_UnkMotion1_Anim, itHinoarashi_UnkMotion1_Anim, itPatapata_UnkMotion3_Anim, itWhitebea_UnkMotion1_Phys.",
+    "Kept address-derived names where semantic names were not known, such as it_80290C38, it_802EBD14, it_802EEFA8, it_802E37BC, and it_802B2C38.",
+    "Kept project item callback naming patterns: LogicXX_DmgDealt, LogicXX_Clanked, LogicXX_HitShield, LogicXX_Absorbed, LogicXX_Destroyed, LogicXX_DmgReceived, and LogicXX_ShieldBounced.",
+    "Struct fields remain offset-style names when semantics are unknown, e.g. x0, x4, xC, xDD4_itemVar.*.x60, x64, xE1C_b0, matching the project convention.",
+    "Attribute structs use item-specific typedefs with item name prefixes, e.g. itFlipper_DatAttrs, itHinoarashiAttributes, itGamewatchparachuteAttributes, itWhiteBeaAttributes."
+  ],
+  "assembly_or_matching_tactics": [
+    "Inserted PAD_STACK with specific byte counts in several functions to satisfy stack layout/codegen, including Flipper reaction handlers, Game & Watch spawn helpers, Tools functions, SS Scope, Tincle, WhiteBea, and Yoshi Egg Throw.",
+    "Used #pragma dont_inline around Flipper Clanked/HitShield, indicating inlining control was required for matching those callbacks.",
+    "Introduced a static outline wrapper it_80291D38_outline for SS Scope so it_80291FA8 calls through a separate function and matches expected codegen.",
+    "Used static inline helper itTools_UnkMotion9_Coll_inline to reproduce a repeated transition sequence while matching the collision callback shape.",
+    "Preserved explicit float constants and casts such as 1.0f, 0.0f, 0.2f, M_TAU, and casts between s32/f32 for life timers and attributes.",
+    "Maintained exact switch/case and if-else structures in item cleanup and collision response code, including null checks before owner/link cleanup.",
+    "Used typed prototypes in headers to let compiler calls match expected ABI instead of relying on UNK_PARAMS."
+  ],
+  "review_feedback": [
+    "No human review comments were present in the slice.",
+    "The only visible PR comment was the decomp.dev bot report showing GALE01 progress: matched code 58.97% (+0.22%, +8716 bytes), matched data 37.69% (+48 bytes), and 51 new matches.",
+    "The bot report highlighted major new item matches including itgamewatchparachute it_802C6C38, itgamewatchchef it_802C837C, ityoshieggthrow it_802B2C38, itwhitebea it_802E3AC8/it_802E3ED0, itflipper functions, ittools functions, ithinoarashi itHinoarashi_UnkMotion1_Anim, ittincle it_802EBD14, and itzgshell functions."
+  ],
+  "searchable_terms": [
+    "PR2317",
+    "Misc item work",
+    "lukechampine",
+    "item decomp",
+    "itflipper",
     "itFlipper_DatAttrs",
-    "itTincle_ItemVars",
-    "itTincleAttributes",
-    "itWhiteBeaAttributes",
-    "itHinoarashi_ItemVars",
-    "itHinoarashiAttributes",
-    "itGamewatchparachuteAttributes",
-    "itMewtwoShadowball_ItemVars",
     "it_80290C38",
     "itFlipper_UnkMotion3_Phys",
     "itFlipper_UnkMotion3_Coll",
-    "it_80291254",
     "it_3F14_Logic20_Clanked",
     "it_3F14_Logic20_HitShield",
+    "ittools",
     "it_802EEFA8",
-    "it_802EF098",
-    "it_802EF320",
     "itTools_UnkMotion9_Coll",
-    "it_2725_Logic22_Clanked",
-    "it_2725_Logic22_HitShield",
     "it_2725_Logic22_Absorbed",
+    "itwhitebea",
+    "itWhiteBeaAttributes",
     "it_802E37BC",
     "it_802E3AC8",
     "itWhitebea_UnkMotion1_Phys",
-    "it_802E3ED0",
-    "it_802D5CF8",
-    "it_802D5F34",
+    "ithinoarashi",
+    "itHinoarashi_ItemVars",
+    "itHinoarashiAttributes",
     "itHinoarashi_UnkMotion1_Anim",
-    "it_2725_Logic27_DmgReceived",
-    "it_802D6674",
-    "it_802C837C",
-    "it_802C6C38",
-    "itGamewatchparachute_UnkMotion1_Anim",
-    "it_802B2A10",
-    "it_802B2C38",
+    "itarwinglaser",
     "it_802E79C8",
     "it_802E838C",
+    "itgamewatchchef",
+    "it_802C837C",
+    "itgamewatchparachute",
+    "it_802C6C38",
+    "itGamewatchparachute_UnkMotion1_Anim",
+    "ityoshieggthrow",
+    "it_802B2A10",
+    "it_802B2C38",
+    "itmewtwoshadowball",
     "it_2725_Logic101_Destroyed",
     "it_2725_Logic101_ShieldBounced",
-    "it_80291D38",
+    "itsscope",
+    "it_80291D38_outline",
+    "ittincle",
     "it_802EBD14",
+    "itpatapata",
+    "itPatapata_UnkMotion3_Anim",
+    "itzgshell",
     "it_802DE040",
     "it_2725_Logic11_Clanked",
+    "itClimbersIceAttributes",
+    "SpawnItem",
     "PAD_STACK",
     "dont_inline",
-    "SpawnItem",
-    "Item_80268B18",
-    "efSync_Spawn",
-    "efAsync_Spawn",
-    "efLib_DestroyAll"
+    "Vec3 item vars",
+    "UNK_RET replacement"
   ],
   "follow_up_queries": [
-    "PR 2317 Flipper PAD_STACK dont_inline clanked hitshield",
-    "PR 2317 SpawnItem Item_80268B18 Gamewatch parachute chef Yoshi Tools",
-    "PR 2317 hinoarashi item vars UnkFlagStruct x60 x64",
-    "PR 2317 Mewtwo Shadow Ball x2C HSD_GObj owner cleanup",
-    "PR 2317 Arwing laser Vec3 xE18 xE24 efSync_Spawn 0x40E",
-    "PR 2317 itCommonItems attribute layout Flipper Tincle WhiteBea",
-    "PR 2317 decomp.dev 51 new matches +8716 bytes"
+    "Look for later PRs that rename or semantically identify offset-style fields introduced here, especially itFlipper_DatAttrs x8-x24, itHinoarashiAttributes x0/x4/x8, itWhiteBeaAttributes x8/xA/xC/xE, and itTincleAttributes x24/x28/x2C.",
+    "Search for follow-up work on remaining stubs in the same files, such as it_80290A7C, it_80290CE8, it_80291DAC, it_802EF548, it_802DDEB4, and Yoshi Egg Throw functions after it_802B2C38.",
+    "Compare spawn helper patterns from this PR with future character item spawns to reuse SpawnItem initialization ordering and parent/link calls.",
+    "Check whether any later review or cleanup replaced PAD_STACK/#pragma dont_inline tactics with cleaner struct/prototype fixes.",
+    "Investigate decomp.dev-reported incidental grcorneria/grhomerun/greatbay matching improvements if they were caused by shared headers or unrelated context not shown in the changed-file list."
   ],
-  "confidence": 0.91
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,121 +11,112 @@
     "merged_at": "2026-05-10T03:27:51Z"
   },
   "agent_status": "agent_completed",
-  "summary": "PR 2475 split the tail range 0x80084E1C-0x8008521C out of `ft_081B` into a new fighter unit, `ft_084E`, and linked both objects as matching. The change moved 14 existing fighter movement/velocity helper functions into `src/melee/ft/ft_084E.c`, added `ft_084E.h`, adjusted GALE01 text and `.sdata2` split ranges/symbols, and changed `configure.py` so `ft_081B.c` and `ft_084E.c` are both `Object(Matching, ...)`; the decomp.dev bot reported +14052 linked-code bytes and 16 new matches.",
+  "summary": "Split the tail of the fighter unit ft_081B into a new linked, matching unit ft_084E. The PR moved functions from ft_80084E1C through ft_80085204 into src/melee/ft/ft_084E.c, added ft_084E.h prototypes, updated splits and symbols for the new text/sdata2 ranges, and changed configure.py so both ft_081B.c and ft_084E.c build as Matching objects. The decomp.dev report showed +14052 bytes linked code and 16 new matches, with the apparent broken ft_081B matches corresponding to functions intentionally relocated into ft_084E.",
   "change_classification": {
-    "primary_type": "decomp_matching_module_split",
+    "primary_type": "split-and-link-matching-unit",
     "categories": [
       "decomp-matching",
-      "module-split",
-      "link-config",
       "headers",
-      "sdata2-symbols"
+      "build-config",
+      "split-boundary-update",
+      "symbol-map-update"
     ],
     "systems": [
       "fighter",
       "config/GALE01",
-      "configure.py"
+      "build"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ft/ft_084E.c",
-      "role": "New C unit containing the moved functions from `ft_80084E1C` through `ft_80085204`."
-    },
-    {
-      "path": "src/melee/ft/ft_084E.h",
-      "role": "New header with address-commented prototypes for the new `ft_084E` unit."
+      "role": "New split source file containing the moved matching fighter routines ft_80084E1C through ft_80085204."
     },
     {
       "path": "src/melee/ft/ft_081B.c",
-      "role": "Removed the tail block of 14 functions now owned by `ft_084E.c`."
+      "role": "Original source file shortened to end at ft_80084DB0 after removing the relocated 084E-0852 functions."
+    },
+    {
+      "path": "src/melee/ft/ft_084E.h",
+      "role": "New header declaring the relocated ft_084E function prototypes."
     },
     {
       "path": "src/melee/ft/ft_081B.h",
-      "role": "Removed the moved prototypes and temporarily included `ft_084E.h` with a TODO noting a transitive include hack."
+      "role": "Removed relocated prototypes and temporarily includes ft_084E.h as a transitive include hack."
     },
     {
       "path": "config/GALE01/splits.txt",
-      "role": "Changed `ft_081B.c` to end at text 0x80084E1C and `.sdata2` 0x804D83B8, then added `ft_084E.c` from text 0x80084E1C-0x8008521C and `.sdata2` 0x804D83B8-0x804D83C0."
+      "role": "Adjusted ft_081B text/sdata2 end addresses and introduced the ft_084E split range."
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Retagged local `.sdata2` labels at 0x804D83A8-0x804D83B8 from `ft_804D83A8`-style names to `@195`, `@333`, `@1111`, `@1153`, and `@204`."
+      "role": "Updated local sdata2 symbols around 0x804D83A8-0x804D83B8 from ft_* names to compiler-style @ labels."
     },
     {
       "path": "configure.py",
-      "role": "Changed `melee/ft/ft_081B.c` from `NonMatching` to `Matching` and added `melee/ft/ft_084E.c` as `Matching`."
+      "role": "Changed ft_081B from NonMatching to Matching and added ft_084E as a Matching object."
     }
   ],
   "what_changed": [
-    "Created `src/melee/ft/ft_084E.c` and moved the functions `ft_80084E1C`, `ft_80084EEC`, `ft_80084F3C`, `ft_80084FA8`, `ft_80085004`, `ft_80085030`, `ft_80085088`, `ft_800850B4`, `ft_800850E0`, `ft_80085134`, `ft_80085154`, `ft_800851C0`, `ft_800851D0`, and `ft_80085204` out of `ft_081B.c`.",
-    "Added `src/melee/ft/ft_084E.h` with prototypes for the new split unit and kept the address-comment convention such as `/* 084E1C */`.",
-    "Removed those moved prototypes from `ft_081B.h`, while adding `#include <melee/ft/ft_084E.h>` with the explicit comment `TODO transitive include hack, should be included directly by dependers`.",
-    "Split the GALE01 ranges so `melee/ft/ft_081B.c` covers text 0x80081B38-0x80084E1C and `.sdata2` 0x804D83A8-0x804D83B8, while `melee/ft/ft_084E.c` covers text 0x80084E1C-0x8008521C and `.sdata2` 0x804D83B8-0x804D83C0.",
-    "Updated `configure.py` so `ft_081B.c` is now linked as `Matching` instead of `NonMatching`, and the new `ft_084E.c` is also linked as `Matching`.",
-    "Updated `.sdata2` symbol records near 0x804D83A8-0x804D83B8 from file-address placeholder names to local `@NNN` labels."
+    "Created melee/ft/ft_084E.c with 14 moved routines: ft_80084E1C, ft_80084EEC, ft_80084F3C, ft_80084FA8, ft_80085004, ft_80085030, ft_80085088, ft_800850B4, ft_800850E0, ft_80085134, ft_80085154, ft_800851C0, ft_800851D0, and ft_80085204.",
+    "Removed those same routines from ft_081B.c so ft_081B.c now covers text 0x80081B38-0x80084E1C instead of 0x80081B38-0x8008521C.",
+    "Added splits.txt entry for melee/ft/ft_084E.c with text 0x80084E1C-0x8008521C and sdata2 0x804D83B8-0x804D83C0.",
+    "Narrowed ft_081B.c sdata2 range from 0x804D83A8-0x804D83C0 to 0x804D83A8-0x804D83B8.",
+    "Reclassified ft_081B.c as Matching in configure.py and added ft_084E.c as a Matching object.",
+    "Moved prototypes for the relocated functions into new ft_084E.h.",
+    "Left a TODO in ft_081B.h noting that including ft_084E.h there is a transitive include hack and direct dependers should include ft_084E.h themselves."
   ],
   "smart_moves": [
-    "The PR used an object-boundary split rather than rewriting the functions: the moved bodies stayed essentially the same while the split/link configuration made the units match.",
-    "It updated all three required link surfaces together: `splits.txt` ranges, `symbols.txt` local data labels, and `configure.py` object matching status.",
-    "The split boundary was placed exactly at `ft_80084E1C`, producing a clean `ft_084E` unit and allowing the remaining `ft_081B` unit to become `Matching`.",
-    "The temporary transitive include in `ft_081B.h` avoided breaking dependers immediately, but the TODO clearly records that future cleanup should include `ft_084E.h` directly.",
-    "The `.sdata2` range was split with the code range, which preserved local constant ownership for the new object."
+    "Performed a clean range split at address 0x80084E1C, preserving function ordering and matching the new source filename to the split boundary.",
+    "Updated source, header, splits, symbols, and configure.py together, which is required for a split to become linked code rather than just copied source.",
+    "Kept the relocated code essentially intact, minimizing behavioral or matching risk while moving it into the new object.",
+    "Used a temporary transitive include in ft_081B.h to avoid breaking existing dependers immediately, while documenting that this should eventually be replaced by direct includes.",
+    "Converted both affected units to Matching only after the split boundaries and local sdata2 ownership were aligned."
   ],
   "decomp_lessons": [
-    "When carving out a new decompilation unit, update text ranges, `.sdata2` ranges, local symbol labels, headers, and `configure.py` in one PR; missing any one of those can leave the object nonmatching or unlinked.",
-    "A decomp.dev report showing old-unit broken matches can be expected after moving functions to a new unit; here the same functions reappeared as 100% matches under `main/melee/ft/ft_084E`.",
-    "For split files named by address range, keep function names and prototype address comments unchanged so call sites and symbol search remain stable.",
-    "Transitive include hacks can be used as a staged migration, but they should be explicitly marked so later PRs can replace indirect header dependencies.",
-    "Local `.sdata2` symbols may need to be renamed from address-style placeholders to compiler-local `@NNN` symbols when a unit boundary changes."
+    "When splitting an already partially decompiled file, adjust both .text and .sdata2 ranges in splits.txt; local float constants may need to move with the new object boundary.",
+    "A decomp.dev report may show relocated functions as broken matches in the old unit and new matches in the new unit; interpret this as expected during file splits if the functions reappear at 100% in the new unit.",
+    "After moving functions into a new split unit, move their declarations into a new header named for that unit and remove stale declarations from the old header.",
+    "If existing downstream files still include the old header, a transitive include can be used as a temporary migration tactic, but it should be marked as a hack and later replaced with direct includes.",
+    "Build configuration must reflect the new object list and matching status; otherwise a correct source split will not link as intended."
   ],
   "naming_conventions": [
-    "New split file follows the address-prefix convention: `ft_084E.c` and `ft_084E.h` start at the 0x80084E1C region.",
-    "Functions retained address-based names such as `ft_80084E1C`, `ft_80085030`, and `ft_80085204`.",
-    "Header guard for the new header is `MELEE_FT_084E_H`.",
-    "Prototypes use address comments like `/* 085030 */ void ft_80085030(...)`.",
-    "Local `.sdata2` symbols in `symbols.txt` use `@195`, `@333`, `@1111`, `@1153`, and `@204` rather than `ft_804D83A8`-style names after the split."
+    "New split source/header followed the address-based fighter unit naming pattern: ft_084E.c and ft_084E.h for functions beginning at ft_80084E1C.",
+    "Function names remained address-based ft_80084E1C through ft_80085204; no semantic renaming was attempted in this PR.",
+    "Header guard used the project-style path-based macro MELEE_FT_084E_H.",
+    "Local sdata2 symbol names were changed from ft_804D83A8-style address labels to compiler-style local labels such as @195, @333, @1111, @1153, and @204."
   ],
   "assembly_or_matching_tactics": [
-    "Matched by splitting/linking the correct object range instead of changing the function logic.",
-    "Preserved matching-sensitive source details in the moved code, including `PAD_STACK(8)` in `ft_80084F3C`.",
-    "Kept the same float style and control flow in moved functions, including `0.0F`, `ABS(...)`, `cosf`, and `sinf` usage.",
-    "Aligned `.sdata2` ownership with the new text unit boundary at 0x80084E1C/0x804D83B8.",
-    "Changed `Object(NonMatching, \"melee/ft/ft_081B.c\")` to `Object(Matching, ...)` and added `Object(Matching, \"melee/ft/ft_084E.c\")` only after the split ranges were declared."
+    "Split object ranges exactly at function boundary 0x80084E1C and next unit boundary 0x8008521C.",
+    "Preserved stack-padding-sensitive code such as PAD_STACK(8) in ft_80084F3C during the move.",
+    "Retained float literal spelling with 0.0F and existing f32/float local typing to avoid perturbing codegen.",
+    "Maintained direct field access patterns such as gobj->user_data in ft_80085030 and ft_800850E0 rather than normalizing everything to GET_FIGHTER, likely preserving matching behavior.",
+    "Included <math.h> in ft_084E.c for cosf and sinf used by ft_80085154.",
+    "Configured the split units as Object(Matching, ...) in configure.py after matching was confirmed."
   ],
   "review_feedback": [
     {
-      "source": "human reviewers",
-      "feedback": "No human review comments or review records were present in this PR slice."
+      "source": "decomp.dev bot report",
+      "feedback": "GALE01 linked code increased to 38.75%, +0.36% and +14052 bytes; matched data stayed effectively unchanged while linked data gained +24 bytes."
     },
     {
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported GALE01 linked code at 38.75% with +0.36% and +14052 bytes, matched data +24 bytes, and linked data +24 bytes."
+      "source": "decomp.dev bot report",
+      "feedback": "Reported 16 new matches, including 14 functions in main/melee/ft/ft_084E, ft_084E .sdata2, and ft_081B .sdata2 reaching 100%."
     },
     {
-      "source": "decomp-dev[bot]",
-      "feedback": "Listed 16 new matches, including 14 functions and `.sdata2` under `main/melee/ft/ft_084E`, plus `main/melee/ft/ft_081B` `.sdata2` reaching 100%."
+      "source": "decomp.dev bot report",
+      "feedback": "Reported 14 broken matches in main/melee/ft/ft_081B for the moved functions; context indicates these are relocations into ft_084E rather than regressions."
     },
     {
-      "source": "decomp-dev[bot]",
-      "feedback": "Listed 14 broken matches under the old `main/melee/ft/ft_081B` ownership for the same moved functions; based on the diff, these are relocation artifacts rather than evidence of lost matching."
+      "source": "human review",
+      "feedback": "No human review comments were present in the provided slice."
     }
   ],
   "searchable_terms": [
     "pr-2475",
-    "r-burns",
     "split & link ft_081B ft_084E",
     "ft_081B",
     "ft_084E",
-    "src/melee/ft/ft_084E.c",
-    "src/melee/ft/ft_084E.h",
-    "src/melee/ft/ft_081B.c",
-    "src/melee/ft/ft_081B.h",
-    "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
-    "configure.py",
-    "Object(Matching)",
-    "Object(NonMatching)",
     "ft_80084E1C",
     "ft_80084EEC",
     "ft_80084F3C",
@@ -140,35 +131,33 @@
     "ft_800851C0",
     "ft_800851D0",
     "ft_80085204",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "configure.py",
+    "Object(Matching)",
+    "transitive include hack",
+    "sdata2",
     "Fighter_GObj",
-    "GET_FIGHTER",
     "ftCo_DatAttrs",
-    "getFtAttrs",
-    "ftCommon_CheckFallFast",
-    "ftCommon_FallFast",
     "ftCommon_Fall",
-    "ftCommon_8007D140",
-    "ftCommon_ApplyFrictionAir",
     "ftCommon_ApplyFrictionGround",
     "ftCommon_ApplyGroundMovement",
-    "p_ftCommonData",
-    "PAD_STACK(8)",
     "x6A4_transNOffset",
-    "x594_b0",
-    "Fighter_804D6520",
-    "sdata2",
-    "0x80084E1C",
-    "0x8008521C",
-    "0x804D83B8",
-    "MELEE_FT_084E_H",
-    "transitive include hack"
+    "PAD_STACK"
   ],
   "follow_up_queries": [
-    "Find files still relying on `ft_081B.h` to obtain `ft_084E.h` declarations and include `ft_084E.h` directly.",
-    "Search for later PRs that remove the `TODO transitive include hack` from `src/melee/ft/ft_081B.h`.",
-    "Look for similar fighter split PRs where a nonmatching object becomes matching by moving a tail address range into `ft_XXXX.c`.",
-    "Check whether the local `.sdata2` labels `@195`, `@333`, `@1111`, `@1153`, and `@204` later receive semantic names.",
-    "Compare future splits around neighboring files `ft_0819.c`, `ft_084E.c`, and `ft_0852.c` for reusable range/symbol update patterns."
+    "Find later PRs that remove the transitive include hack from src/melee/ft/ft_081B.h.",
+    "Search for direct dependers of ft_80084E1C through ft_80085204 that should include ft_084E.h directly.",
+    "Compare nearby split PRs for ft_0819.c and ft_0852.c to see if the same split-and-link pattern was reused.",
+    "Audit local sdata2 labels around 0x804D83A8-0x804D83C0 for ownership after adjacent fighter splits."
   ],
-  "confidence": 0.91
+  "confidence": 0.94,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

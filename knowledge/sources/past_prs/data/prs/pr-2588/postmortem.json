@@ -11,23 +11,23 @@
     "merged_at": "2026-06-06T20:02:45Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Split the crowd sound-effect code out of vi1202 into a new melee/sfx/crowdsfx translation unit, updated split/symbol/config metadata, moved public crowd SFX declarations into a dedicated header, and cleaned vi static JObj helper duplication by using existing HSD_JObj*WithMtxDirty helpers. The PR made vi1202 a Matching object and linked 25 crowd SFX items under the new sfx/crowdsfx unit, with decomp.dev reporting +2036 linked code bytes.",
+  "summary": "Split the crowd sound-effect manager code out of src/melee/vi/vi1202.c into a new src/melee/sfx/crowdsfx.c/.h unit, updated splits/configure/symbols so vi1202 became Matching, and cleaned duplicated static JObj setter helpers in the vi files by using existing WithMtxDirty helpers and a small vi1202_SetupChild helper. The PR author explicitly said matching vi1202 required introducing a logically separate crowdsfx.c split.",
   "change_classification": {
-    "primary_type": "decomp-matching",
+    "primary_type": "decomp-matching-split-cleanup",
     "categories": [
       "cleanup",
       "decomp-matching",
-      "translation-unit-split",
       "headers",
-      "symbol-map-update",
-      "build-config"
+      "split-boundary",
+      "symbol-scope-cleanup"
     ],
     "systems": [
       "vi",
       "sfx",
       "fighter",
       "game-mode",
-      "config"
+      "build-config",
+      "symbols"
     ]
   },
   "key_files": [
@@ -47,54 +47,51 @@
     "src/melee/gm/gm_16AE.c"
   ],
   "what_changed": [
-    "Shortened the vi1202 split range from 0x8032110C-0x80322620 to 0x8032110C-0x80321900 and added a new melee/sfx/crowdsfx.c split covering text 0x80321900-0x80322620 plus the related bss, sbss, and sdata2 ranges.",
-    "Added src/melee/sfx/crowdsfx.c with the extracted crowd reaction / crowd SFX functions from 0x80321900 onward, including un_80321900, fn_803219AC, un_80321A00, un_80321AF4, un_80321D30, un_80321EBC, un_8032201C, un_8032233C, un_803224DC, and un_80322598.",
-    "Added src/melee/sfx/crowdsfx.h containing CrowdSFX_UnkStruct, CrowdConfig, gCrowdConfig, and prototypes for the extracted crowd SFX functions.",
-    "Removed CrowdConfig and crowd SFX function declarations from vi1202.h, leaving vi1202.h focused on vi1202 scene functions.",
-    "Changed fighter and game-mode includes that used vi/vi1202.h for crowd functions to include sfx/crowdsfx.h instead.",
-    "Changed configure.py so melee/vi/vi1202.c is built as Matching and added a new MeleeLib entry for sfx (Sound effects) containing melee/sfx/crowdsfx.c as NonMatching.",
-    "Updated symbols.txt for vi1202-local data/sdata/sdata2 labels, converting several previously global un_/lbl_ symbols to local @ labels around 0x804003A0, 0x804D5B30, and 0x804DE138.",
-    "Removed duplicated static HSD_JObjSet* wrapper functions from vi1201v1, vi1201v2, and vi1202, replacing calls with existing HSD_JObjSetTranslate*WithMtxDirty, HSD_JObjSetRotationYWithMtxDirty, and HSD_JObjSetScale*WithMtxDirty helpers.",
-    "In vi1202.c, introduced a small static vi1202_SetupChild helper to group repeated child JObj translation, rotation, and scale setup while preserving matching with a PAD_STACK adjustment."
+    "Changed config/GALE01/splits.txt so melee/vi/vi1202.c ends at text 0x80321900 instead of 0x80322620, and added a new melee/sfx/crowdsfx.c split covering text 0x80321900-0x80322620 plus the moved .bss/.sbss/.sdata2 ranges.",
+    "Changed configure.py to mark Object(Matching, \"melee/vi/vi1202.c\") instead of NonMatching, and added a new MeleeLib section for \"sfx (Sound effects)\" with Object(NonMatching, \"melee/sfx/crowdsfx.c\").",
+    "Moved the large crowd/gasp/cheer sound-effect manager block from vi1202.c into new src/melee/sfx/crowdsfx.c, including un_80321900 through un_80322598, CrowdSFX_UnkStruct state, gCrowdConfig use, lbAudioAx calls, fighter/player checks, and mpLib blast-zone accesses.",
+    "Added src/melee/sfx/crowdsfx.h with CrowdSFX_UnkStruct, CrowdConfig, gCrowdConfig, and public prototypes for the un_80321900-range crowd SFX functions.",
+    "Replaced vi1202.h includes in fighter and game-mode call sites with sfx/crowdsfx.h because those users depended on the moved crowd SFX declarations rather than vi1202 scene declarations.",
+    "Cleaned vi1202.c by removing the embedded vi1202_UnkStruct/crowd globals and crowd functions, removing redundant ft/pl includes, and adding vi1202_SetupChild to wrap child JObj transform setup.",
+    "Removed local duplicated static HSD_JObjSetRotationY_2, HSD_JObjSetScale*_2, and HSD_JObjSetTranslate*_2 helper copies in vi1201v1.c, vi1201v2.c, and vi1202.c, replacing the vi1202 call path with HSD_JObjSet*WithMtxDirty helpers.",
+    "Updated config/GALE01/symbols.txt so vi1202-local string/float symbols became local @216-@321-style symbols rather than global un_/lbl_ names where appropriate."
   ],
   "smart_moves": [
-    "Separated the crowd SFX logic into sfx/crowdsfx because the PR author stated that matching vi1202 required a split and the new file made logical sense; this reduced vi1202 to the actual vi scene portion and let vi1202 become Matching.",
-    "Kept address-based unknown function names for extracted routines while adding semantic type names and comments for CrowdConfig, avoiding unsupported full renaming while still improving future searchability.",
-    "Moved downstream includes from vi1202.h to crowdsfx.h, which prevents fighter and game-mode code from depending on a vi scene header just to call crowd SFX routines.",
-    "Used existing HSD_JObj*WithMtxDirty API helpers instead of duplicated local static wrappers, reducing local statics and avoiding repeated assert/dirty-matrix boilerplate.",
-    "Preserved matching-sensitive code patterns in crowdsfx.c, including #pragma dont_inline, M2C_FIELD accesses, PAD_STACK, gotos, and small inline/static caller helpers where the diff shows they were needed.",
-    "Updated splits.txt, symbols.txt, and configure.py together with the source move, avoiding a source/config mismatch for the new translation unit."
+    "Used a file split instead of forcing unrelated crowd SFX logic to remain in vi1202; this preserved a more logical subsystem boundary and made vi1202 itself match/link cleanly.",
+    "Kept external users honest by switching includes from vi/vi1202.h to sfx/crowdsfx.h in fighter and gm files, reducing accidental coupling to the vi scene file.",
+    "Recorded naming evidence directly in crowdsfx.h: the header comments cite UnclePunch Training Mode map names, lbAudio_PlayCrowdSFX, and observed crowd gasp/cheer behavior as evidence for the Crowd/CrowdSFX terminology.",
+    "Used local symbol scope for compiler-generated or file-local constants in symbols.txt instead of leaving them as misleading global un_/lbl_ symbols.",
+    "Abstracted repeated vi1202 child transform setup into vi1202_SetupChild while relying on existing HSD_JObjSet*WithMtxDirty helper names rather than maintaining duplicated inline static setter bodies."
   ],
   "decomp_lessons": [
-    "When a scene file contains a logically separate system at a contiguous address range, a translation-unit split can be the cleanest route to both better ownership and matching progress.",
-    "Header ownership matters: declarations for a gameplay/audio subsystem should live with that subsystem, not in a scene header used only incidentally by callers.",
-    "Before duplicating SDK-style static helpers to force codegen, check whether shared helpers already exist with the same dirty-matrix behavior; replacing duplicates can clean up statics without losing match.",
-    "A split requires coordinated edits to splits.txt, symbols.txt, configure.py, source files, and include users; partial changes can make progress accounting misleading or break dependencies.",
-    "Local data symbols in symbols.txt should be scoped as local @ labels when evidence indicates they belong to one object rather than globally named un_/lbl_ symbols.",
-    "Semantic struct naming can be justified with external map evidence and behavior comments, even if function names remain address-based pending stronger symbol evidence."
+    "When a range inside an existing file is functionally a distinct subsystem, a new split can be the cleanest way to both match code and improve source organization.",
+    "After splitting code, update all three axes together: splits.txt address ranges, configure.py object/library membership, and include/header ownership at call sites.",
+    "Do not leave declarations in the old owner header just to avoid include churn; move declarations to the subsystem header and update dependents.",
+    "Duplicated local versions of common baselib setters can often be removed in favor of established project helper wrappers, but stack padding and helper extraction may need adjustment to preserve matching.",
+    "Use comments in new headers to document why an otherwise uncertain subsystem name is being adopted, especially when evidence comes from external symbol maps or gameplay behavior.",
+    "Moving code between objects may look like broken matches in the old unit and new matches in the new unit; interpret decomp.dev reports in terms of the intended split boundary, not just per-old-unit regressions."
   ],
   "naming_conventions": [
-    "New subsystem path uses src/melee/sfx/crowdsfx.c and src/melee/sfx/crowdsfx.h for crowd sound effects.",
-    "Header guard for the moved vi header was normalized from GALE01_32110C to MELEE_VI_VI1202_H.",
-    "The new crowd header uses MELEE_CROWD_CROWDSFX_H as its guard, though the path is melee/sfx/crowdsfx.h.",
-    "Types introduced or moved use Crowd-prefixed names: CrowdSFX_UnkStruct and CrowdConfig.",
-    "Unknown functions retained address-style names such as un_80321900 and fn_803219AC, while parameter names like spawn_id, pos_x, kb_mag, mag, and angle were used where behavior was clearer.",
-    "CrowdConfig fields mix semantic names where inferred, such as kb_threshold_low, cheer_limit, max_gasp_count, horiz_margin, fighters_near_blastzone, and blastzone_y_offset, with xNN placeholders where names remain uncertain."
+    "New subsystem/file name: sfx/crowdsfx.c and sfx/crowdsfx.h for crowd gasp/cheer sound effects.",
+    "New types use descriptive Crowd-prefixed names: CrowdSFX_UnkStruct for the still-unknown manager state and CrowdConfig for configuration data.",
+    "Known-but-still-unidentified functions retained address-based un_8032xxxx names, while a per-frame callback kept fn_803219AC naming.",
+    "Compiler/local constants in symbols.txt were renamed to local @216, @217, @218, etc. instead of global un_804D5B30/un_804D5B38/un_804003A0-style names.",
+    "The new header guard was MELEE_CROWD_CROWDSFX_H, despite the file living under melee/sfx; this is evidence from the diff, not necessarily a reusable convention."
   ],
   "assembly_or_matching_tactics": [
-    "Created a new object boundary at 0x80321900 so vi1202 text ends before the crowd SFX manager code and crowdsfx.c owns 0x80321900-0x80322620.",
-    "Left crowdsfx.c as NonMatching in configure.py while vi1202.c became Matching, allowing the split to link extracted functions without claiming the new unit is fully source-matched in the build config.",
-    "Used #pragma push / #pragma dont_inline on / #pragma pop around un_80321C70 and un_80321CA4, indicating inlining control was matching-sensitive.",
-    "Kept an inline-like static copy un_80321C70_inline and static caller un_80321CE8_caller to reproduce call/inlining behavior around repeated audio stop/play patterns.",
-    "Preserved M2C_FIELD accesses to mpLib_80458868 offsets 0x14, 0x18, and 0x1C where stronger typing was not yet established.",
-    "Used PAD_STACK adjustments in vi1202_OnEnter and PAD_STACK in crowdsfx functions to maintain stack layout.",
-    "Converted many vi1202 data symbols to local @ labels in symbols.txt after the split, matching object-local data ownership."
+    "Changed vi1202 from NonMatching to Matching after splitting out the 0x80321900-0x80322620 crowd SFX range.",
+    "Used a new object boundary at 0x80321900 so functions un_80321900 through un_80322598 belong to melee/sfx/crowdsfx instead of melee/vi/vi1202.",
+    "Moved .bss 0x804A2F08-0x804A2F38, .sbss 0x804D7050-0x804D7054, and .sdata2 0x804DE148-0x804DE160 to the new crowdsfx split while leaving earlier vi1202 sections in vi1202.",
+    "Kept matching-sensitive constructs in crowdsfx.c such as #pragma dont_inline around un_80321C70/un_80321CA4, static inline/caller helper variants, goto labels, M2C_FIELD accesses, and PAD_STACK where needed.",
+    "Reduced vi1202 OnEnter stack padding from PAD_STACK(24) to PAD_STACK(16) after moving transform setup into vi1202_SetupChild.",
+    "Replaced hand-written HSD_JObjSet*_2 copies with HSD_JObjSetTranslateXWithMtxDirty, HSD_JObjSetRotationYWithMtxDirty, and HSD_JObjSetScale*WithMtxDirty calls in the vi1202 setup path."
   ],
   "review_feedback": [
     "No human review comments were present in the slice.",
-    "The decomp.dev bot reported linked code improved to 42.41% (+0.05%, +2036 bytes), linked data improved to 35.01% (+0.02%, +192 bytes), and matched data slightly decreased to 41.43% (-0.01%, -144 bytes).",
-    "The bot listed 25 new matches under main/melee/sfx/crowdsfx, including .bss and .sbss, while showing the same routines as broken matches under main/melee/vi/vi1202 because they moved object ownership.",
-    "The bot also noted unmatched-item regressions for vi1201v1 .data and vi1201v2 .data/on-enter metrics; the slice does not include human discussion of these small regressions."
+    "The decomp.dev bot reported linked code increased to 42.41% (+0.05%, +2036 bytes), linked data increased to 35.01% (+0.02%, +192 bytes), and matched data slightly decreased to 41.43% (-0.01%, -144 bytes).",
+    "The bot listed 25 new matches under main/melee/sfx/crowdsfx, including un_8032233C, un_80321D30, un_80321EBC, un_8032201C, un_80321AF4, un_80321A00, un_80322178, un_803224DC, un_80322598, .bss, and .sbss.",
+    "The bot also listed the same functions as broken under main/melee/vi/vi1202, which is consistent with the deliberate split rather than evidence of a functional regression.",
+    "The report noted vi1202 .sdata2 improved from 66.67% to 100% and vi1201v2 un_80320A40_OnEnter improved slightly from 97.41% to 97.68%."
   ],
   "searchable_terms": [
     "pr-2588",
@@ -102,51 +99,46 @@
     "cleanup statics in vi",
     "match vi1202",
     "link vi1202",
-    "crowdsfx",
+    "crowdsfx.c",
+    "crowdsfx.h",
     "CrowdSFX_UnkStruct",
     "CrowdConfig",
     "gCrowdConfig",
-    "melee/sfx/crowdsfx.c",
-    "melee/sfx/crowdsfx.h",
-    "vi1202.c",
-    "vi1202.h",
-    "0x80321900",
     "un_80321900",
     "fn_803219AC",
     "un_80321A00",
     "un_80321AF4",
+    "un_80321C70",
     "un_80321D30",
     "un_80321EBC",
     "un_8032201C",
     "un_8032233C",
     "un_803224DC",
     "un_80322598",
+    "lbAudioAx_8002411C",
+    "lbAudio_PlayCrowdSFX",
+    "mpLib_80458868",
     "HSD_JObjSetTranslateXWithMtxDirty",
     "HSD_JObjSetRotationYWithMtxDirty",
-    "HSD_JObjSetScaleXWithMtxDirty",
-    "M2C_FIELD",
-    "PAD_STACK",
-    "pragma dont_inline",
-    "splits.txt",
-    "symbols.txt",
-    "configure.py",
-    "UnclePunch Training Mode map",
-    "lbAudio_PlayCrowdSFX"
+    "vi1202_SetupChild",
+    "config/GALE01/splits.txt",
+    "configure.py MeleeLib sfx",
+    "symbol local @216 @217 @218"
   ],
   "follow_up_queries": [
-    "Find later PRs that rename un_80321900+ CrowdSFXManager functions or improve CrowdSFX_UnkStruct field names.",
-    "Check whether crowdsfx.c was later changed from NonMatching to Matching in configure.py.",
-    "Search for subsequent cleanup of mpLib_80458868 M2C_FIELD accesses in crowd SFX out-of-bounds and blastzone checks.",
-    "Look for PRs resolving the small vi1201v1/vi1201v2 data regressions noted by decomp.dev after this split.",
-    "Search for consistency changes to the MELEE_CROWD_CROWDSFX_H guard versus the sfx path naming."
+    "Find later PRs that rename un_80321900-range crowd SFX functions or resolve CrowdSFX_UnkStruct fields.",
+    "Search for subsequent changes to gCrowdConfig or CrowdConfig field names to validate the header comments and thresholds.",
+    "Check whether the MELEE_CROWD_CROWDSFX_H guard was later normalized to an sfx-based guard.",
+    "Look for PRs that apply the same split-boundary tactic to other vi files or sound-effect manager code.",
+    "Search for later cleanup of vi1201v1/vi1201v2 JObj setter statics and remaining nonmatching percentages."
   ],
-  "confidence": 0.92,
+  "confidence": 0.89,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
-    "agent_timeout_seconds": 300,
+    "agent_timeout_seconds": 900,
     "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
   }
 }

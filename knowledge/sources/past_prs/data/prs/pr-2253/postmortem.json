@@ -11,164 +11,128 @@
     "merged_at": "2026-03-10T18:52:26Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled five ftKirby SpecialN/copy-ability functions across four files. The PR body and decomp.dev bot both reported 100% matches; the bot credited +776 bytes of matched code and +0.02% GALE01 matched code.",
+  "summary": "Matched five previously undecompiled ftKirby special-N-related functions across Kirby copy-ability files: EatWalk IASA, Link-copy air end animation, two motion-state predicate helpers, and a Yoshi-copy grab/timer helper. The PR reports clean ninja verification and 100% fuzzy match for all five functions.",
   "change_classification": {
-    "primary_type": "function_decompilation_match",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "fighter-behavior",
-      "kirby-copy-abilities",
-      "build-verified"
+      "fighter-logic",
+      "copy-ability-specialn"
     ],
     "systems": [
       "fighter",
       "ftKirby",
-      "Kirby SpecialN",
-      "ftCommon interop"
+      "specialN"
     ]
   },
   "key_files": [
-    {
-      "file": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
-      "matched_functions": [
-        "ftKb_EatWalk_IASA"
-      ],
-      "notes": "Adds EatWalk IASA logic for jump input, EatJump1/EatWait transitions, common animation/state setup, and walk fallback."
-    },
-    {
-      "file": "src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c",
-      "matched_functions": [
-        "ftKb_LkSpecialAirNEnd_Anim",
-        "ftKb_SpecialNSs_800FCC6C"
-      ],
-      "notes": "Adds Link/Clink copied neutral-special air end animation behavior and a boolean SpecialNSs motion-state guard."
-    },
-    {
-      "file": "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
-      "matched_functions": [
-        "fn_8010B16C"
-      ],
-      "notes": "Adds grab-timer update helper and includes ftCo_Bury.h for ftCo_800C0C88."
-    },
-    {
-      "file": "src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c",
-      "matched_functions": [
-        "ftKb_SpecialNMt_80106F9C"
-      ],
-      "notes": "Adds Mewtwo copied neutral-special motion-state guard using ftKb_MS_MtSpecialN* and ftKb_MS_MtSpecialAirN* constants."
-    }
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c"
   ],
   "what_changed": [
-    {
-      "function": "ftKb_EatWalk_IASA",
-      "details": "Replaced a nonmatching marker with logic that reads ftCo_Jump_GetInput, stores non-none jump input into fp->mv.kb.specialhi.x4, transitions to ftKb_MS_EatJump1 with KeepGfx/SkipModel/SkipMatAnim, otherwise checks ft_8008A1FC for EatWait or falls back to ftWalkCommon_800DFEC8."
-    },
-    {
-      "function": "ftKb_LkSpecialAirNEnd_Anim",
-      "details": "On animation completion, unsets Kirby Link bow/arrow state, chooses Link or Clink freefall toggle from ftKb_DatAttrs, then either enters normal fall or calls ftCo_80096900 with the toggle value."
-    },
-    {
-      "function": "ftKb_SpecialNSs_800FCC6C",
-      "details": "Added a bool helper that returns true for null/default cases but, for motion ids 0x197 through 0x19C, returns whether fp->x2070.x2071_b6 is set."
-    },
-    {
-      "function": "fn_8010B16C",
-      "details": "Added a dont_inline helper that decreases grab_timer by percentTemp times ftKb_SpecialNYs_80109380, clears grab_timer for a specific dmg.x18CC/ftCo_800C0C88 condition, and sets fp->x1828 to 4."
-    },
-    {
-      "function": "ftKb_SpecialNMt_80106F9C",
-      "details": "Added a bool helper that returns true for null/default cases but gates Mewtwo copied neutral-special ground/air Start, Loop, LoopFull, Cancel, and End motion states on fp->x2070.x2071_b6."
-    }
+    "Implemented ftKb_EatWalk_IASA in ftKb_SpecialN.c, handling jump input from Kirby's eat-walk state, motion changes to ftKb_MS_EatJump1 or ftKb_MS_EatWait, shared SpecialN setup calls, and walk common fallback via ftWalkCommon_800DFEC8.",
+    "Implemented ftKb_LkSpecialAirNEnd_Anim in ftKb_SpecialNPk.c, unsetting Link-copy arrow and bow state when animation ends, then selecting fall or controlled freefall behavior based on Link/Young Link copy dat_attrs toggles.",
+    "Implemented ftKb_SpecialNSs_800FCC6C as a bool helper that returns false only for a specific 0x197-0x19C motion-id range when fp->x2070.x2071_b6 is not set; NULL and default cases return true.",
+    "Implemented fn_8010B16C in ftKb_SpecialNYs.c, adjusting grab_timer by percentTemp-scaled damage logic, forcing it to zero under a bury-related condition, and setting fp->x1828 to 4.",
+    "Added ftCo_Bury.h include in ftKb_SpecialNYs.c to support the newly decompiled bury-related helper call.",
+    "Implemented ftKb_SpecialNMt_80106F9C in ftKb_SpecialNZd.c as a Mewtwo-copy special-N motion-state predicate, checking ground and air start/loop/full/cancel/end motion IDs and fp->x2070.x2071_b6.",
+    "Replaced five placeholder decomp markers with C implementations that the PR summary says match at 100% fuzzy_match_percent."
   ],
   "smart_moves": [
-    "Used small matching artifacts instead of over-cleaning: PAD_STACK(8) in ftKb_EatWalk_IASA, PAD_STACK(24) in ftKb_LkSpecialAirNEnd_Anim, and #pragma dont_inline around fn_8010B16C.",
-    "Preserved branch shape in ftKb_EatWalk_IASA with an explicit s32 var rather than simplifying directly to early returns, which likely helped match compiler output.",
-    "Used a goto end_true label in ftKb_SpecialNSs_800FCC6C to share the null-object true return path with the default true behavior.",
-    "Kept unknown or partially understood names such as fn_8010B16C and raw SpecialNSs motion ids 0x197-0x19C rather than inventing semantics not proven by the diff.",
-    "Added the narrow header dependency ft/chara/ftCommon/ftCo_Bury.h only where ftCo_800C0C88 was needed."
+    "Preserved matching-sensitive stack behavior with PAD_STACK in ftKb_EatWalk_IASA and ftKb_LkSpecialAirNEnd_Anim.",
+    "Used #pragma dont_inline around fn_8010B16C, indicating inlining had to be explicitly controlled to match the original codegen.",
+    "Kept the odd-looking control flow in ftKb_SpecialNSs_800FCC6C, including a goto end_true for the NULL path, rather than simplifying it away and risking a mismatch.",
+    "Encoded motion-state predicate helpers as switch statements with explicit cases, matching the apparent original branching structure for copy-ability state checks.",
+    "Used dat_attrs fields for Link and Young Link freefall toggles instead of hardcoding behavior, preserving character-specific copy-ability data flow."
   ],
   "decomp_lessons": [
-    "Kirby SpecialN IASA callbacks can require exact post-transition helper ordering: Fighter_ChangeMotionState, ftKb_SpecialN_800F9070, ftAnim_8006EBA4, then ftCommon_8007E2F4(fp, 0x1FF).",
-    "Copied-neutral-special guard helpers may return true for null/default objects and only consult fp->x2070.x2071_b6 for a narrow active motion-state range.",
-    "For Kirby copied Link/Clink air-end behavior, freefall behavior is data-driven through ftKb_DatAttrs fields specialn_lk_freefall_toggle and specialn_cl_freefall_toggle after unsetting arrow and bow state.",
-    "Match quality sometimes depends on preserving access style: this PR uses both GET_FIGHTER(gobj) and gobj->user_data in different functions.",
-    "Do not remove apparently awkward control flow, stack padding, or inlining pragmas when they are serving the match."
+    "For ftKirby copy-ability predicates, NULL gobj paths may intentionally return true; do not assume NULL should be false without evidence from the target function.",
+    "Kirby copied-special helpers often gate behavior on fp->x2070.x2071_b6 only within specific motion-state ranges, while default motion states return true.",
+    "Matching IASA functions may require temporary variables such as var in ftKb_EatWalk_IASA even when the logic could be simplified, because the original control flow matters.",
+    "Animation-end handlers should mirror cleanup order before state transition; ftKb_LkSpecialAirNEnd_Anim unsets arrow and bow before entering fall/freefall.",
+    "When decompiling timer/damage helpers, preserve field casts and comparisons such as (s32) fp->dmg.x18CC == 3 because these can be codegen-significant.",
+    "Headers should be added narrowly when a matched function introduces a dependency; this PR added ftCo_Bury.h only where the bury-related call was needed."
   ],
   "naming_conventions": [
-    "Kirby functions use the ftKb_ prefix.",
-    "Callback suffixes such as _IASA and _Anim identify action-state callback roles.",
-    "Copied-character shorthand appears in function names: Lk for Link, NSs for Samus-related SpecialN, NYs for Yoshi-related SpecialN, and NMt for Mewtwo-related SpecialN.",
-    "Address-suffixed helpers such as ftKb_SpecialNSs_800FCC6C and ftKb_SpecialNMt_80106F9C are retained when no better semantic name is established.",
-    "Unknown helper fn_8010B16C remains an fn_ address-name, consistent with not guessing behavior names.",
-    "Local names follow common fighter decomp style: Fighter_GObj* gobj, Fighter* fp, ftKb_DatAttrs* da."
+    "ftKb_* prefix is used for Kirby fighter-specific functions.",
+    "Copy-ability file suffixes indicate copied special-N sources, such as SpecialNPk for Link/Pichu/Pikachu-related grouping in the file name context, SpecialNYs for Yoshi, and SpecialNZd for Mewtwo/Zelda-related grouping in the file name context; exact grouping beyond changed filenames is not established by the excerpt.",
+    "Motion-state constants use ftKb_MS_* names for Kirby motion states, for example ftKb_MS_EatJump1, ftKb_MS_EatWait, and ftKb_MS_MtSpecialNLoopFull.",
+    "Unidentified or local helper functions remain with address-style names such as fn_8010B16C, ftKb_SpecialNSs_800FCC6C, and ftKb_SpecialNMt_80106F9C when stronger semantic names are not evident.",
+    "Fighter field names such as fp->x2070.x2071_b6, fp->dmg.x1838_percentTemp, and fp->grab_timer were reused as existing struct names rather than renamed in this PR."
   ],
   "assembly_or_matching_tactics": [
-    "PAD_STACK(8) used in ftKb_EatWalk_IASA.",
-    "PAD_STACK(24) used in ftKb_LkSpecialAirNEnd_Anim.",
-    "#pragma dont_inline on/reset used around fn_8010B16C.",
-    "Explicit temporary var in ftKb_EatWalk_IASA preserved branch/control-flow shape.",
-    "goto end_true in ftKb_SpecialNSs_800FCC6C preserved shared true-return layout.",
-    "Switch-case ordering was kept explicit for motion-state ranges and copied-character kind checks.",
-    "Float comparison against 0.0f and literal call arguments to ftCo_80096900 were kept as shown in the matched code."
+    "PAD_STACK(8) was used in ftKb_EatWalk_IASA.",
+    "PAD_STACK(24) was used in ftKb_LkSpecialAirNEnd_Anim.",
+    "#pragma dont_inline on/reset was used around fn_8010B16C to preserve non-inlined code shape.",
+    "A goto label end_true was retained in ftKb_SpecialNSs_800FCC6C for matching-sensitive NULL/default return behavior.",
+    "Switch-case motion-id classification was used for predicate helpers instead of condensed range checks in the Mewtwo-copy function, likely to match original branching.",
+    "Boolean helpers explicitly return true/false rather than returning the flag expression directly, preserving original-style control flow."
   ],
   "review_feedback": [
-    {
-      "source": "PR body",
-      "feedback": "Author reported ninja builds clean and fuzzy_match_percent: 100.0 for all five functions."
-    },
-    {
-      "source": "decomp.dev bot",
-      "feedback": "Reported 5 new matches totaling +776 bytes: ftKb_EatWalk_IASA +256, ftKb_LkSpecialAirNEnd_Anim +256, fn_8010B16C +104, ftKb_SpecialNSs_800FCC6C +80, and ftKb_SpecialNMt_80106F9C +80."
-    },
-    {
-      "source": "GitHub reviews/comments",
-      "feedback": "No human review comments or review records were present in the slice."
-    }
+    "No review comments were present in the provided PR slice.",
+    "The PR body reports verification with ninja and fuzzy_match_percent: 100.0 for all functions."
   ],
   "searchable_terms": [
     "pr-2253",
-    "johnwinston",
     "ftKirby",
-    "ftKb_SpecialN.c",
-    "ftKb_SpecialNPk.c",
-    "ftKb_SpecialNYs.c",
-    "ftKb_SpecialNZd.c",
+    "johnwinston",
     "ftKb_EatWalk_IASA",
+    "ftKb_SpecialAirNCaptureWait_IASA",
     "ftKb_LkSpecialAirNEnd_Anim",
     "ftKb_SpecialNSs_800FCC6C",
     "fn_8010B16C",
     "ftKb_SpecialNMt_80106F9C",
+    "ftKb_SpecialN.c",
+    "ftKb_SpecialNPk.c",
+    "ftKb_SpecialNYs.c",
+    "ftKb_SpecialNZd.c",
     "ftCo_Jump_GetInput",
     "JumpInput_None",
+    "Fighter_ChangeMotionState",
     "ftKb_MS_EatJump1",
     "ftKb_MS_EatWait",
     "ftWalkCommon_800DFEC8",
-    "fn_800F64C8",
+    "ftKb_SpecialN_800F9070",
+    "ftAnim_8006EBA4",
+    "ftCommon_8007E2F4",
+    "ftAnim_IsFramesRemaining",
     "ftKb_SpecialNLk_UnsetArrow",
     "ftKb_SpecialNLk_UnsetBow",
     "FTKIND_LINK",
     "FTKIND_CLINK",
     "specialn_lk_freefall_toggle",
     "specialn_cl_freefall_toggle",
+    "ftCo_Fall_Enter",
     "ftCo_80096900",
-    "ftCo_Bury.h",
-    "ftCo_800C0C88",
+    "x2071_b6",
     "grab_timer",
     "x1838_percentTemp",
-    "x2070.x2071_b6",
+    "ftCo_800C0C88",
+    "ftCo_Bury.h",
     "ftKb_MS_MtSpecialNStart",
-    "ftKb_MS_MtSpecialAirNEnd",
+    "ftKb_MS_MtSpecialNLoop",
+    "ftKb_MS_MtSpecialNLoopFull",
+    "ftKb_MS_MtSpecialNCancel",
+    "ftKb_MS_MtSpecialNEnd",
     "PAD_STACK",
     "dont_inline",
-    "fuzzy_match_percent 100.0",
-    "GALE01"
+    "fuzzy_match_percent 100.0"
   ],
   "follow_up_queries": [
-    "Find other ftKb copied-neutral-special helpers that return true for null/default gobj and gate active motion states on fp->x2070.x2071_b6.",
-    "Compare ftKb_EatWalk_IASA with nearby EatJump/EatWait callbacks to refine names for fp->mv.kb.specialhi.x0 and x4.",
-    "Look for callers of fn_8010B16C to determine whether grab_timer, x1828, dmg.x18CC, and dmg.x18D0 can be given stronger semantic names.",
-    "Check whether the raw ftKb_SpecialNSs motion ids 0x197-0x19C have enum names available elsewhere.",
-    "Search Link/Clink copied SpecialN air-end callbacks for the same unset-arrow/unset-bow/freefall-toggle sequence."
+    "Search for other ftKirby copy-ability predicate helpers that check fp->x2070.x2071_b6 inside motion-state switches.",
+    "Compare ftKb_SpecialNSs_800FCC6C and ftKb_SpecialNMt_80106F9C against similar copied special-N helpers for naming or abstraction opportunities.",
+    "Look for additional fn_8010B16C callsites to clarify whether the helper should eventually receive a semantic name tied to Yoshi-copy swallow, bury, or grab timer behavior.",
+    "Check whether ftKb_LkSpecialNEnd_Anim and ftKb_LkSpecialAirNEnd_Anim share cleanup/freefall patterns useful for future Link-copy matches."
   ],
-  "confidence": 0.89
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

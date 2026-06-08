@@ -11,123 +11,101 @@
     "merged_at": "2026-03-20T01:15:33Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged a small matching decompilation PR for `IsNameUnique` in `mnname` and `un_80305D00` in `toy`, plus the `IsNameUnique` header prototype. The match bot reported both new functions at 100% and +316 bytes overall. The PR body appears stale or copied from another PR because it describes unrelated stage functions, so this record relies on the title, diff, and match report.",
+  "summary": "Decompiled two small functions: `IsNameUnique` in the name-entry/menu name system and `un_80305D00` in toy input code. The PR replaced nonmatching placeholders with C implementations and tightened the `IsNameUnique` header prototype from unknown return/params to `bool IsNameUnique(s32 slot)`. The automated match report credited 2 new 100% matches, +316 matched bytes total. The PR body excerpt appears inconsistent with the actual diff, describing unrelated stage functions, so the reliable evidence is the title, diff, changed files, and match report.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "function decompilation",
-      "header prototype cleanup",
-      "unknown macro removal",
-      "menu name-entry logic",
-      "pad input helper"
+      "decomp-matching",
+      "headers",
+      "naming",
+      "input",
+      "menu-name-system"
     ],
     "systems": [
-      "mn/name-entry",
-      "ty/toy",
-      "HSD pad input",
+      "mn",
+      "ty",
       "melee-core"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/mn/mnname.c",
-      "symbols": [
-        "IsNameUnique"
-      ],
-      "change": "Replaced the `/// #IsNameUnique` placeholder with a bool implementation that scans persistent name data and compares strings."
-    },
-    {
-      "path": "src/melee/mn/mnname.h",
-      "symbols": [
-        "IsNameUnique"
-      ],
-      "change": "Changed the prototype from `UNK_RET IsNameUnique(UNK_PARAMS)` to `bool IsNameUnique(s32 slot)` in this PR."
-    },
-    {
-      "path": "src/melee/ty/toy.c",
-      "symbols": [
-        "un_80305D00"
-      ],
-      "change": "Replaced the `/// #un_80305D00` placeholder with a float helper reading `HSD_PadCopyStatus[].nml_stickX`."
-    }
+    "src/melee/mn/mnname.c",
+    "src/melee/mn/mnname.h",
+    "src/melee/ty/toy.c"
   ],
   "what_changed": [
-    "`IsNameUnique(s32 slot)` now loops over up to `0x78` name entries, calls `IsNameValid(i & 0xFF)`, retrieves `GetPersistentNameData((u8) i)->namedata` for valid entries, breaks on NULL name data, and returns true when `CompareNameStrings(namedata, slot) == 0`.",
-    "`mnname.h` was updated to expose `IsNameUnique` as a concrete `bool`-returning function instead of an `UNK_RET`/`UNK_PARAMS` declaration.",
-    "`un_80305D00(void)` now loops over four pad statuses, reads the signed `nml_stickX` value, checks its absolute magnitude against `0.1F`, breaks on the first controller over that threshold, and returns the original signed stick-X value stored in `ret`.",
-    "The automatic match report listed two new 100% matches: `main/melee/ty/toy::un_80305D00` (+176 bytes) and `main/melee/mn/mnname::IsNameUnique` (+140 bytes)."
+    "`src/melee/mn/mnname.c`: replaced `/// #IsNameUnique` with a matching implementation of `bool IsNameUnique(s32 slot)`.",
+    "`IsNameUnique` loops over up to `0x78` name slots, checks validity with `IsNameValid(i & 0xFF)`, obtains `GetPersistentNameData((u8) i)->namedata` for valid entries, stops when `namedata == NULL`, and returns `true` when `CompareNameStrings(namedata, slot) == 0`; otherwise returns `false`.",
+    "`src/melee/mn/mnname.h`: updated the declaration from `UNK_RET IsNameUnique(UNK_PARAMS)` to `bool IsNameUnique(s32 slot)`.",
+    "`src/melee/ty/toy.c`: replaced `/// #un_80305D00` with a matching implementation returning a `float` stick-X value.",
+    "`un_80305D00` scans four pads via `HSD_PadCopyStatus[(u8) i].nml_stickX`, keeps the signed stick value in `ret`, compares the absolute value against `0.1F`, breaks on the first pad beyond the threshold, and returns the signed value.",
+    "Automation reported 2 new full matches: `main/melee/ty/toy` `un_80305D00` at +176 bytes and `main/melee/mn/mnname` `IsNameUnique` at +140 bytes."
   ],
   "smart_moves": [
-    "The implementation and header prototype were updated together, reducing unknown ABI surface around `IsNameUnique`.",
-    "The name scan reused established helpers (`IsNameValid`, `GetPersistentNameData`, `CompareNameStrings`) instead of open-coding persistent-name storage details.",
-    "The name loop preserved byte-width casts (`i & 0xFF`, `(u8) i`), which are likely important for matching helper calls and generated code.",
-    "`un_80305D00` keeps a separate `ret` for the original signed stick value while using `val` only for the absolute-value threshold test, preserving return semantics and matching the control flow.",
-    "The PR stayed narrowly scoped to two small placeholders, making the match report easy to verify."
+    "Preserved signed return semantics in `un_80305D00` by assigning `ret = val` before taking the absolute value for threshold testing.",
+    "Used explicit `(u8)` casts in both functions where the underlying code appears to index or pass byte-sized slot/pad values, helping match codegen.",
+    "Updated the public header prototype for `IsNameUnique` at the same time as the implementation, reducing future reliance on `UNK_RET` and `UNK_PARAMS`.",
+    "Modeled `IsNameUnique` with a `namedata == NULL` early break rather than scanning all 0x78 entries unconditionally, matching the observed control flow."
   ],
   "decomp_lessons": [
-    "For menu name-table scans, an invalid or NULL name entry can be a loop sentinel; do not casually rewrite this pattern as a continue-over-invalid scan without assembly or caller evidence.",
-    "When a function name is semantically suggestive (`IsNameUnique`) but the code returns true on a string compare result of zero, preserve the observed behavior and verify naming/parameter meaning from callers later.",
-    "Concrete header prototypes should be landed with matching implementations, but this slice alone does not prove a richer semantic type for the `slot` parameter beyond the PR's `s32` declaration.",
-    "For analog input helpers, exact float literals (`0.0F`, `0.1F`), manual absolute-value logic, and temp ordering can matter for matching.",
-    "If a PR body conflicts with changed files and the match report, prefer the diff/title/report as evidence and record the body mismatch explicitly."
+    "For name-system functions, preserve byte truncation in loop indices when existing callees or data formats expect `u8` slots, even if the loop variable is an `int`.",
+    "When matching analog-stick helper logic, separate the signed value returned from the absolute value used for deadzone comparison.",
+    "Small decomp PRs should include header cleanup when a function signature becomes known; replacing `UNK_RET`/`UNK_PARAMS` is part of the decomp win.",
+    "Be cautious with PR body text in generated dumps: this slice's summary mentions unrelated `grIceMt_801F91EC` and `grKongo_801D8078`, while the diff and match report clearly concern `IsNameUnique` and `un_80305D00`."
   ],
   "naming_conventions": [
-    "The PR title uses subsystem shorthand `mn/ty` for changes under `src/melee/mn` and `src/melee/ty`.",
-    "Known menu predicates use PascalCase `Is...` names and bool returns, consistent with nearby `IsNameListFull` and `IsNameValid`.",
-    "The name-entry argument is called `slot` in this PR's prototype and implementation, but its deeper semantic meaning should be checked against callers.",
-    "Still-unknown toy helpers retain address-based `un_80305Dxx` names (`un_80305D00`, adjacent to `un_80305C44` and `un_80305DB0`) rather than receiving speculative semantic names.",
-    "The header keeps address comments such as `/* 2377A8 */` beside prototypes while replacing unknown macros."
+    "`IsNameUnique` uses PascalCase-style naming already present in `mnname` APIs such as `IsNameListFull`, `CompareNameStrings`, `GetPersistentNameData`, `DeleteName`, `IsNameValid`, and `CreateNameAtIndex`.",
+    "The parameter name `slot` was chosen for `IsNameUnique`, consistent with nearby name-entry functions that operate on name slots.",
+    "`un_80305D00` remained unnamed with its address-based `un_` symbol, indicating the PR matched behavior without claiming a semantic name."
   ],
   "assembly_or_matching_tactics": [
-    "Use explicit `(u8) i` and `i & 0xFF` casts in loops when the original code narrows loop indices before calls or data access.",
-    "The `namedata = condition ? NULL : ...` ternary followed by a NULL break preserves the observed control-flow shape for `IsNameUnique`.",
-    "Use manual float absolute value (`if (val < 0.0F) val = -val;`) rather than `fabsf` when matching old compiler output.",
-    "Keep loop bounds and thresholds exact: `0x78` name slots, `4` pad entries, and `0.1F` stick deadzone.",
-    "Assign the return temp before destructive normalization when the branch condition uses magnitude but the return value must keep its sign."
+    "Use `int i` loop counters with explicit `(u8)` casts at call/index sites to reproduce byte truncation while keeping normal C loop structure.",
+    "For float absolute-value comparisons, a manual `if (val < 0.0F) { val = -val; }` pattern can match codegen while retaining the original signed value separately.",
+    "A threshold literal of `0.1F` was used for the stick deadzone check in `un_80305D00`.",
+    "The name loop bound `0x78` and `i & 0xFF` expression were preserved exactly in `IsNameUnique`, suggesting these forms were important for matching."
   ],
   "review_feedback": [
-    "No human reviews or inline review comments were present in the slice.",
-    "The only issue comment was the automated match report from `encounter`, showing overall matched code `59.18%` with `+0.01%` and `+316 bytes`.",
-    "The automated report confirmed both new functions at `100.00%` after this PR.",
-    "Source-quality note: the PR body mentions `grIceMt_801F91EC` and `grKongo_801D8078`, which do not match the title or diff for this PR."
+    "No human review comments were present in the provided slice.",
+    "Automated report by encounter showed matched code increased by 0.01%, +316 bytes, with both touched functions moving from 0.00% to 100.00%."
   ],
   "searchable_terms": [
     "pr-2323",
     "johnwinston",
     "mn/ty",
-    "src/melee/mn/mnname.c",
-    "src/melee/mn/mnname.h",
-    "src/melee/ty/toy.c",
-    "main/melee/mn/mnname",
-    "main/melee/ty/toy",
+    "mnname",
+    "toy",
     "IsNameUnique",
-    "bool IsNameUnique(s32 slot)",
-    "IsNameListFull",
-    "IsNameValid",
-    "GetPersistentNameData",
-    "CompareNameStrings",
-    "namedata",
-    "0x78",
-    "UNK_RET",
-    "UNK_PARAMS",
     "un_80305D00",
-    "un_80305C44",
-    "un_80305DB0",
+    "IsNameListFull",
+    "CompareNameStrings",
+    "GetPersistentNameData",
+    "IsNameValid",
+    "namedata",
+    "DeleteName",
+    "CreateNameAtIndex",
     "HSD_PadCopyStatus",
     "nml_stickX",
+    "analog stick",
+    "deadzone",
     "0.1F",
-    "pad input",
-    "stick X",
-    "100.00% match",
-    "+316 bytes",
-    "grIceMt_801F91EC body mismatch",
-    "grKongo_801D8078 body mismatch"
+    "UNK_RET",
+    "UNK_PARAMS",
+    "bool IsNameUnique(s32 slot)",
+    "GALE01",
+    "100% match"
   ],
   "follow_up_queries": [
-    "Find callers of `IsNameUnique` to verify whether the PR's `s32 slot` parameter represents an index, a pointer-sized string value, or another semantic type.",
-    "Search callers of `un_80305D00` and adjacent toy helpers (`un_80305DB0`, `un_80305EB4`, `un_80305FB8`) to derive a non-speculative semantic name for the stick-X helper.",
-    "Check remaining `UNK_RET`/`UNK_PARAMS` declarations near `DeleteName` in `mnname.h` for similar small decomp/prototype cleanup opportunities.",
-    "Do not reuse the PR body's Icicle Mountain/Kongo Jungle summary for PR 2323 without checking whether it came from a different PR."
+    "Find later PRs that rename or document `un_80305D00` based on its analog-stick scan behavior.",
+    "Check callers of `IsNameUnique` to confirm whether its return value means duplicate found despite the name suggesting uniqueness.",
+    "Search for other `mnname.h` declarations still using `UNK_RET` or `UNK_PARAMS` near `DeleteName` for similar cleanup opportunities.",
+    "Investigate whether the inconsistent PR body text came from a copied or generated summary and should be ignored in downstream knowledge records."
   ],
-  "confidence": 0.86
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

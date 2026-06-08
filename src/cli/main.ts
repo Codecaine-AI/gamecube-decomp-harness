@@ -15,6 +15,7 @@ import {
   prSplitPlan,
   recoverLeases,
   regressionCheck,
+  reportRun,
   status,
   tick,
   triggerAgent,
@@ -32,6 +33,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   else if (command === "trigger-agent" || command === "bootstrap") await triggerAgent(globals, args);
   else if (command === "babysit") await babysit(globals, args);
   else if (command === "recover-leases") await recoverLeases(globals, args);
+  else if (command === "report-run") await reportRun(globals, args);
   else if (command === "regression-check") await regressionCheck(globals, args);
   else if (command === "pr-split-plan") await prSplitPlan(globals, args);
   else if (command === "kg-sources") await kgSources();

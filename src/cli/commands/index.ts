@@ -14,6 +14,7 @@ export {
   runKnowledgeMaintenance,
 } from "./kg.js";
 export { recoverLeases } from "./recover-leases.js";
+export { reportRun } from "./report-run.js";
 export { prSplitPlan } from "./pr-split-plan.js";
 export { regressionCheck } from "./regression-check.js";
 export { status } from "./status.js";

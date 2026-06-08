@@ -11,111 +11,118 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Unmerged PR attempting to finish-match the special-effects dispatcher at 0x80061D70 and rename ef_80061D70/ef_061D toward efSync_SpawnSpecial/efspecial. The diff rewrote the large gfx_id switch around direct va_arg use, named several local data/sdata2 constants, updated symbols and callsites, and used assert/include macro tricks around jobj.h to match. Reviewers flagged the macro/inline approach and merge-conflict/rename handling, then closed the PR because the function had already been matched upstream and this version did not improve code quality; rename-only work was suggested as a separate PR.",
+  "summary": "Attempted to fully match the effect function at 0x80061D70, rename it from ef_80061D70/ef_061D toward efSync_SpawnSpecial/efspecial, and update related effect symbols. The PR rewrote the large special-effect spawn switch to use direct va_arg reads, named constants, Fighter/FighterBone accessors, JObj setters/getters, and explicit local symbol names. It was closed unmerged because reviewers said the function had already been matched upstream and this version did not improve code quality; the rename was suggested as a separate PR.",
   "change_classification": {
-    "primary_type": "closed-unmerged decomp-matching and naming attempt",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "naming",
       "headers",
-      "symbol-map",
-      "review-rejected",
-      "tooling"
+      "code-quality-review",
+      "tooling-assisted-decomp"
     ],
     "systems": [
       "effect",
       "efsync",
       "efasync",
-      "baselib-jobj",
-      "config"
+      "config/symbols",
+      "baselib/jobj"
     ]
   },
   "key_files": [
-    "config/GALE01/symbols.txt",
     "src/melee/ef/ef_061D.c",
     "src/melee/ef/ef_061D.h",
     "src/melee/ef/efsync.c",
     "src/melee/ef/efasync.c",
-    "src/melee/ef/efspecial.c"
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "Renamed the symbol at .text:0x80061D70 from ef_80061D70 to efSync_SpawnSpecial in config/GALE01/symbols.txt.",
-    "Named local string/data symbols used by the function, including ef_803BF9D0, ef_804D39D8, ef_804D39E0, and sdata2 constants ef_804D81D0 through ef_804D81F0.",
-    "Reworked src/melee/ef/ef_061D.c around void* efSync_SpawnSpecial(s32 gfx_id, HSD_GObj* arg_gobj, void* vlist), replacing the prior ef_80061D70 signature and EF061D_VA_ARG helper with direct va_arg calls.",
-    "Added baselib and Dolphin includes plus ft/inlines.h, introduced HSD_ASSERT macro overrides before including baselib/jobj.h, and restored HSD_ASSERT afterward.",
-    "Added explicit match-oriented stack shaping with PAD_STACK(0x98), pad arrays, and locals such as ret_obj, eff_1, eff_2, jobj_1, jobj_2, f64_1, f32_1, and cnt.",
-    "Converted some raw fighter/user_data access in the effect switch to GET_FIGHTER(arg_gobj), FighterBone parts, and joint indexing.",
-    "Added constants at the end of the function file for 0.0f, +/-M_PI_2, and 6.0f.",
-    "Changed src/melee/ef/ef_061D.h guard from MELEE_EF_EF061D70_H to MELEE_EF_EFSPECIAL_H and declared efSync_SpawnSpecial with an address comment.",
-    "Updated efSync_Spawn to include ef_061D.h and call efSync_SpawnSpecial for gfx_id < 0x4BA instead of the old ef_80061D70 extern.",
-    "Changed HSD_JObjAnimAll calls in ef_061D.c, efsync.c, and efasync.c to use ((HSD_JObj**) &efLib_80458EE0)[cnt] instead of field access through the previous struct-like view.",
-    "The PR title and review paths refer to efspecial.c, but the final changed_files slice still lists ef_061D.c/h; evidence for the file rename in the final diff is mixed."
+    "Renamed the global symbol at .text:0x80061D70 from ef_80061D70 to efSync_SpawnSpecial in config/GALE01/symbols.txt.",
+    "Reworked the large special-effect spawn function signature from ef_80061D70(s32 gfx_id, HSD_GObj* gobj, va_list vlist) to efSync_SpawnSpecial(s32 gfx_id, HSD_GObj* arg_gobj, void* vlist).",
+    "Replaced the local EF061D_VA_ARG macro and vlist_arg temporary with direct va_arg(vlist, type) usage throughout the switch.",
+    "Added includes for math.h, baselib/class.h, baselib/debug.h, baselib/list.h, baselib/object.h, baselib/pobj.h, dolphin/mtx.h, and ft/inlines.h to support a more complete C version.",
+    "Introduced or named local data/sdata/sdata2 symbols such as ef_803BF9D0, ef_804D39D8, ef_804D39E0, ef_804D81D0, ef_804D81D8, ef_804D81E0, ef_804D81E8, ef_804D81EC, and ef_804D81F0.",
+    "Added a custom efSpecial_HSD_ASSERT_MSG macro and temporarily redefined HSD_ASSERT before including baselib/jobj.h so inlined JObj assertions would use original jobj.h file/assert strings.",
+    "Changed many effect-spawn cases to use Effect* temporaries, HSD_JObj* temporaries, GET_JOBJ, GET_FIGHTER, FighterBone arrays, and named rotation/scale constants instead of raw local casts and literals.",
+    "Updated references in efsync.c, efasync.c, and the ef_061D header to align with the proposed efSync_SpawnSpecial naming."
   ],
   "smart_moves": [
-    "Tried to give the 0x80061D70 helper a semantic name, efSync_SpawnSpecial, matching its role as the special-effect branch called from efSync_Spawn.",
-    "Moved magic float/double values such as +/-M_PI_2 and 6.0f into named sdata2 symbols to preserve data layout while making comparisons and rotations searchable.",
-    "Used existing fighter/JObj helper macros such as GET_FIGHTER and GET_JOBJ in places where the older code used raw offsets, which was a readability improvement in the attempted match.",
-    "Kept the caller relationship explicit by adding an ef_061D.h prototype and including it from efsync.c rather than relying on a local extern declaration.",
-    "The author reported using local tooling and a final game-file hash check; that is a good validation habit, although reviewers still rejected the code-quality tradeoffs."
+    "Preserved exact float/double constant placement by giving anonymous local constants stable ef_804D81xx symbol names rather than relying only on literals.",
+    "Used named baselib and fighter accessors such as GET_JOBJ and GET_FIGHTER, which made some object graph accesses clearer than raw user_data offset arithmetic.",
+    "Moved from a custom vararg extraction macro toward ordinary va_arg calls, reducing a local decomp-only abstraction.",
+    "Kept evidence of matching discipline: the author reported the final game file had the same hash and that local tooling considered it clean.",
+    "Identified that jobj.h inlines and their assertion strings were central to matching this function, even though the chosen macro override approach was later criticized."
   ],
   "decomp_lessons": [
-    "Do not let a 100% match make the source less maintainable: this PR was closed because reviewers judged it did not improve code quality and the function had already been matched upstream.",
-    "Before landing a large match, re-check current upstream/master to avoid duplicating work that has already been solved.",
-    "Avoid macro/include hackery around shared headers when the pattern likely comes from an existing inline; reviewer feedback specifically said a jobj.h inline should not need to be redefined.",
-    "Separate mechanical file renames from matching work, or delay renames until just before merge, to reduce conflicts and make review cleaner.",
-    "If exact assert strings from inlined baselib functions are needed, prefer fixing or using the real header inline behavior over redefining HSD_ASSERT for one translation unit.",
-    "Match-oriented casts like ((HSD_JObj**) &efLib_80458EE0)[cnt] may be useful clues, but future cleanup should investigate the correct declaration/type rather than leaving opaque casts.",
-    "Changing va_list-facing prototypes to void* can be a matching tactic, but it should be documented and reconciled with callers because efSync_Spawn passes an active va_list through this helper."
+    "A 100% matching rewrite is not sufficient if it makes the C source more brittle or uglier than existing/upstream code; code quality and maintainability still matter.",
+    "If a function has already been matched upstream, prefer syncing or submitting only the remaining rename/cleanup rather than carrying a competing large rewrite.",
+    "Do not redefine inline behavior from headers when the match issue indicates a real inline exists; include and use the original inline where possible.",
+    "Matching assertion string/file behavior from inlined headers can be tempting to solve with HSD_ASSERT macro hacks, but reviewers may reject that as too invasive.",
+    "Large effect switch functions benefit from isolating semantic renames from mechanical matching changes so reviewers can accept naming improvements independently.",
+    "When using AI/tooling-generated decomp output, explicitly audit for brittle macros, duplicated inlines, and local hacks before review."
   ],
   "naming_conventions": [
-    "ef_80061D70 -> efSync_SpawnSpecial for the sync special-effect dispatcher.",
-    "Planned module/file name: efspecial for special effects, though the final slice still shows ef_061D.c/h.",
-    "Header guard target changed to MELEE_EF_EFSPECIAL_H.",
-    "Address-backed unknown data names used the module/address style: ef_803BF9D0, ef_804D39D8, ef_804D39E0, ef_804D81D0, ef_804D81D8, ef_804D81E0, ef_804D81E8, ef_804D81EC, ef_804D81F0.",
-    "Shared switch-case join label used a function-scoped descriptive form: efSync_SpawnSpecial_case_4B6_4B7.",
-    "Temporary decomp locals followed generic matching names such as eff_1, eff_2, jobj_1, jobj_2, f64_1, and f32_1; reviewers did not endorse these as final-quality names."
+    "Function at 0x80061D70 was proposed as efSync_SpawnSpecial, matching the existing efSync_Spawn naming pattern and the PR title's 'special effects' interpretation.",
+    "Local data symbols in the effect module used ef_ address-style names, e.g. ef_803BF9D0 for the JOBJ_USE_QUATERNION assertion string.",
+    "Effect module constants in .sdata2 were named by address, e.g. ef_804D81D0 through ef_804D81F0, where semantic names were not established.",
+    "Temporary variables in the rewrite used numbered role names such as eff_1, eff_2, jobj_1, jobj_2, f64_1, and f32_1; this matched mechanically but did not add much semantic clarity.",
+    "Reviewer feedback implied that file/module rename from ef_061D to efspecial should be handled separately from matching changes."
   ],
   "assembly_or_matching_tactics": [
-    "Used direct va_arg(vlist, Type*) extraction for Vec3*, HSD_JObj*, f32*, and void* arguments in the large gfx_id switch.",
-    "Added PAD_STACK(0x98) plus explicit stack pad arrays and a Vec3 local to shape the stack frame.",
-    "Promoted literal constants to exact-address sdata2 globals for float/double loads and rodata/sdata ordering.",
-    "Temporarily redefined HSD_ASSERT before including baselib/jobj.h so inlined JObj setters/getters would emit original-looking assert file/message strings; this was specifically criticized in review.",
-    "Used a goto label to share the common tail for cases 0x4B6 and 0x4B7.",
-    "Used pointer reinterpretation of efLib_80458EE0 for HSD_JObjAnimAll calls to match the generated access pattern.",
-    "Included ft/inlines.h to access helper inlines/macros such as GET_FIGHTER and GET_JOBJ."
+    "Direct va_arg(vlist, T) ordering was used to reproduce switch-case argument consumption and replace a custom EF061D_VA_ARG wrapper.",
+    "A manual PAD_STACK(0x98) plus explicit stack padding locals such as sp_pad128, sp130, and sp_pad130 were used to control stack layout.",
+    "Float sign tests selected between two double constants, then narrowed through a f32 temporary before calling HSD_JObjSetRotationY, preserving the original conversion pattern.",
+    "Extern address-named constants were used for 0.0f and +/- pi-over-two style values rather than embedding all literals directly.",
+    "The rewrite relied on JObj inline setters/getters such as HSD_JObjSetRotationY, HSD_JObjSetRotationZ, HSD_JObjSetScaleX/Y/Z, HSD_JObjGetScaleY, HSD_JObjGetChild, and HSD_JObjGetTranslationZ.",
+    "Custom HSD_ASSERT redefinition around baselib/jobj.h attempted to force inlined JObj assertion metadata to match original strings and line numbers."
   ],
   "review_feedback": [
-    "PsiLupan: the redefined pattern was indicative of an inline from jobj.h and should not require redefining it.",
-    "hourianto clarified that the ugly macro hackery was at the top of the file, used instead of many defines or duplicating inline functions, and described some in-function inline matching as extremely brittle.",
-    "ribbanya review: merge conflicts needed to be resolved more cleanly, and the file rename should probably wait until just before merging.",
-    "ribbanya review comment: a TODO had been added because the issue did not seem straightforward.",
-    "ribbanya closing comment: the PR did not improve the function's code quality, the function was already matched upstream, and the file rename could be done separately.",
-    "decomp.dev bot reported only small unmatched-item improvements in efSync_Spawn and efAsync_80063930, not a decisive quality signal."
+    {
+      "author": "PsiLupan",
+      "file": "src/melee/ef/efspecial.c",
+      "feedback": "The custom/redefined code was indicative of an inline from jobj.h and should not require redefining it."
+    },
+    {
+      "author": "hourianto",
+      "feedback": "The author acknowledged the macro hackery with defines/includes at the top of the file was ugly and brittle, and said they would see whether using the inlines was now stable enough."
+    },
+    {
+      "author": "ribbanya",
+      "feedback": "The PR did not improve code quality for the function, the function had already been matched upstream, and the file rename should be submitted separately."
+    },
+    {
+      "author": "unknown/review excerpt",
+      "file": "src/melee/ef/efspecial.c",
+      "feedback": "A TODO comment was added; reviewer/author noted the inline-related cleanup did not seem straightforward."
+    }
   ],
   "searchable_terms": [
     "pr-2241",
-    "hourianto",
     "ef_061D",
     "efspecial",
-    "efspecial-submit",
+    "special effects",
     "ef_80061D70",
     "efSync_SpawnSpecial",
     "efSync_Spawn",
-    "efAsync_80063930",
-    "config/GALE01/symbols.txt",
-    "src/melee/ef/ef_061D.c",
-    "src/melee/ef/ef_061D.h",
-    "src/melee/ef/efsync.c",
-    "src/melee/ef/efasync.c",
-    "src/melee/ef/efspecial.c",
+    "efAsync",
+    "eflib",
+    "efLib_8005C9FC",
+    "efLib_8005C1B4",
+    "efLib_8005C3DC",
+    "efLib_8005C814",
+    "efLib_8005CF40",
+    "hsd_8039EFAC",
     "HSD_ASSERT",
     "efSpecial_HSD_ASSERT_MSG",
-    "jobj.h",
-    "baselib/jobj.h",
+    "jobj.h inline",
+    "HSD_JObjSetRotationY",
+    "HSD_JObjSetRotationZ",
+    "HSD_JObjSetScaleX",
+    "GET_JOBJ",
+    "GET_FIGHTER",
     "va_arg",
     "EF061D_VA_ARG",
     "PAD_STACK",
-    "M_PI_2",
     "ef_803BF9D0",
     "ef_804D39D8",
     "ef_804D39E0",
@@ -125,26 +132,23 @@
     "ef_804D81E8",
     "ef_804D81EC",
     "ef_804D81F0",
-    "efLib_80458EE0",
-    "efLib_804D64E8",
-    "efLib_804D64F0",
-    "HSD_JObjAnimAll",
-    "GET_FIGHTER",
-    "GET_JOBJ",
-    "FighterBone",
-    "hsd_8039EFAC",
-    "macro hackery",
-    "inline from jobj.h",
+    "upstream matched",
     "rename separate PR",
-    "already matched upstream",
-    "closed unmerged"
+    "macro hackery"
   ],
   "follow_up_queries": [
-    "Find the upstream PR or commit that matched ef_061D/efSync_SpawnSpecial and compare its cleaner solution.",
-    "Audit baselib/jobj.h inline/assert handling so effect code does not need local HSD_ASSERT redefinitions.",
-    "Split any remaining ef_061D -> efspecial file rename into a rename-only PR after conflicts are resolved.",
-    "Investigate the correct type/declaration for efLib_80458EE0 to remove opaque HSD_JObj** casts.",
-    "Check whether efSync_SpawnSpecial should keep a va_list prototype instead of void* while still matching."
+    "Find the upstream PR or commit that matched ef_80061D70 / efSync_SpawnSpecial before this PR was closed.",
+    "Search for a later PR that only renames ef_061D.c to efspecial.c or ef_061D.h to efspecial.h.",
+    "Inspect baselib/jobj.h inlines used by HSD_JObjSetRotationY/SetScale/GetChild to avoid redefining HSD_ASSERT in future matching work.",
+    "Look for accepted patterns in other modules for matching inline assertion file strings without macro hackery."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

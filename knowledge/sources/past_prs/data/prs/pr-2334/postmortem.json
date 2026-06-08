@@ -11,13 +11,13 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Implemented `fn_800DC070` in `src/melee/ft/chara/ftCommon/ftCo_Attack100.c` as the CaptureJump enter routine. The PR body identifies it as handling the transition when a buried fighter escapes from the burier's grab, with a reported `fuzzy_match_percent: 100.0`. The PR was closed without merge and had no review comments in the provided slice.",
+  "summary": "Matched `fn_800DC070` in `src/melee/ft/chara/ftCommon/ftCo_Attack100.c`, replacing an unmatched stub comment with the CaptureJump enter function. The PR was closed without merge and had no visible review discussion in the provided slice, so the implementation details are evidence-grounded from the PR body and diff rather than reviewer confirmation.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "function-match",
-      "fighter-common",
-      "motion-state-transition"
+      "fighter-state",
+      "common-fighter-logic"
     ],
     "systems": [
       "fighter",
@@ -27,59 +27,64 @@
     ]
   },
   "key_files": [
-    "src/melee/ft/chara/ftCommon/ftCo_Attack100.c"
+    {
+      "path": "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+      "role": "Implemented previously stubbed `fn_800DC070` as the CaptureJump enter routine."
+    }
   ],
   "what_changed": [
-    "Replaced the placeholder comment `/// #fn_800DC070` with a concrete `void fn_800DC070(Fighter_GObj* gobj)` implementation.",
-    "Fetches the fighter with `GET_FIGHTER(gobj)` and stores `fp->victim_gobj` as the victim object.",
-    "Calls `ftCommon_8007D5D4(fp)` before applying CaptureJump velocity/state changes.",
-    "Sets `fp->self_vel.x` to `-fp->facing_dir * p_ftCommonData->x374` and `fp->self_vel.y` to `p_ftCommonData->x378`.",
-    "Resets `fp->mv.co.buryjump.x0` to `0.0F`.",
-    "Calls `ftCo_800DC920(victim, gobj)` before entering the `ftCo_MS_CaptureJump` motion state.",
-    "Transitions with `Fighter_ChangeMotionState(gobj, ftCo_MS_CaptureJump, 0, 0.0F, 1.0F, 0.0F, NULL)`."
+    "Replaced `/// #fn_800DC070` with a C implementation of `void fn_800DC070(Fighter_GObj* gobj)`.",
+    "Fetched the fighter with `GET_FIGHTER(gobj)` and cached `fp->victim_gobj` as `victim` before resetting common state.",
+    "Called `ftCommon_8007D5D4(fp)` to reset common fighter state.",
+    "Set launch velocity for the attacker: `self_vel.x = -facing_dir * p_ftCommonData->x374` and `self_vel.y = p_ftCommonData->x378`.",
+    "Reset `fp->mv.co.buryjump.x0` to `0.0F`.",
+    "Called `ftCo_800DC920(victim, gobj)` before transitioning motion state.",
+    "Transitioned the fighter into `ftCo_MS_CaptureJump` using `Fighter_ChangeMotionState(gobj, ftCo_MS_CaptureJump, 0, 0.0F, 1.0F, 0.0F, NULL)`."
   ],
   "smart_moves": [
-    "Kept the implementation minimal and localized to the previously stubbed function, avoiding unrelated fighter-common edits.",
-    "Cached `fp->victim_gobj` before resetting common fighter state, matching the PR body's described flow for releasing/reacting the victim.",
-    "Used existing named globals/enums/macros such as `GET_FIGHTER`, `p_ftCommonData`, `ftCo_MS_CaptureJump`, and `Fighter_ChangeMotionState` instead of introducing new names.",
-    "Preserved the apparent gameplay ordering: reset common state, assign launch velocities, reset buryjump state, notify/release victim, then change motion state."
+    "Cached `victim_gobj` before calling `ftCommon_8007D5D4(fp)`, which is important because common-state reset helpers may mutate fighter fields; the diff preserves access to the victim object needed later by `ftCo_800DC920`.",
+    "Used existing project idioms and symbols: `GET_FIGHTER`, `Fighter_GObj`, `p_ftCommonData`, `ftCo_MS_CaptureJump`, and `Fighter_ChangeMotionState`.",
+    "Kept the implementation small and direct, matching the behavior described by the PR body rather than adding speculative abstractions.",
+    "Used named motion-state enum `ftCo_MS_CaptureJump` instead of the raw state value `0xE6` mentioned in the PR summary."
   ],
   "decomp_lessons": [
-    "For fighter enter-state functions, matching often depends on preserving side-effect order rather than just final state values.",
-    "When a function uses `fp->victim_gobj` and then calls a reset/common-state helper, caching the victim pointer first can be important for both semantics and codegen.",
-    "Movement constants from `p_ftCommonData` should be left as struct-offset fields when no stronger names are evidenced; here the matching fields were `x374` and `x378`.",
-    "Motion-state enter routines commonly end in `Fighter_ChangeMotionState` with explicit float literals and `NULL`; matching attempts should preserve these call arguments exactly.",
-    "The slice provides no header, struct, or reviewer evidence beyond this implementation, so broader naming or struct conclusions should not be inferred from this PR alone."
+    "For enter-state functions, the operation order can matter for matching and correctness: read dependent object pointers first, perform reset/setup helpers, update movement/state variables, call release/react helpers, then change motion state.",
+    "When a common reset helper is involved, preserve any needed pre-reset fighter fields in locals if they are consumed later.",
+    "Motion-state transitions in ftCommon should prefer existing enum names and canonical `Fighter_ChangeMotionState` argument patterns when available.",
+    "Global common-data fields such as `p_ftCommonData->x374` and `x378` may encode state-specific velocity constants even when field names are still anonymous.",
+    "The PR reports `fuzzy_match_percent: 100.0`, but because the PR was closed unmerged and no review comments are present, future work should verify the function against current assembly before reusing it wholesale."
   ],
   "naming_conventions": [
-    "`fn_800DC070` remained unnamed as an address-based function despite the PR body describing it as a CaptureJump enter function.",
-    "Existing fighter-common names use the `ftCo_` prefix for common fighter routines and `ftCo_MS_` for common fighter motion-state enum names.",
-    "The move-state substructure path used here is `fp->mv.co.buryjump.x0`, retaining an anonymous `x0` field name due to lack of stronger evidence.",
-    "Common-data offsets remained named as raw offset-style fields `p_ftCommonData->x374` and `p_ftCommonData->x378`."
+    "`fn_800DC070` remained address-based, indicating no stable semantic name was introduced in this slice.",
+    "The local variable for `fp->victim_gobj` was named `victim`, a concise semantic name matching the PR body's description of the escaping/buried fighter.",
+    "Motion state used the existing enum-style name `ftCo_MS_CaptureJump`.",
+    "The move-state field remained anonymous/partially named as `fp->mv.co.buryjump.x0`, showing that struct-field naming was not resolved by this PR."
   ],
   "assembly_or_matching_tactics": [
-    "Use local temporaries in the same order as the target: `Fighter* fp = GET_FIGHTER(gobj);` followed by `Fighter_GObj* victim = fp->victim_gobj;`.",
-    "Compute horizontal velocity as `-fp->facing_dir * p_ftCommonData->x374`, not as an algebraically equivalent reordered expression, to preserve likely float operation order.",
-    "Use explicit float literals `0.0F` and `1.0F` in the state transition call.",
-    "Call `ftCo_800DC920(victim, gobj)` before `Fighter_ChangeMotionState`.",
-    "The PR body reports `fuzzy_match_percent: 100.0`, but the provided slice does not include assembly output or a review confirming exact matching."
+    "Implemented the exact control-flow sequence for a state enter function: load fighter, save victim, reset common state, assign velocities, zero move-state counter, call release helper, then change motion state.",
+    "Used float literals matching common decomp style: `0.0F` and `1.0F`.",
+    "Passed `NULL` as the final `Fighter_ChangeMotionState` argument and used zeroed start/blend values consistent with many matched state-transition calls.",
+    "Computed backward horizontal velocity with unary negation of `facing_dir` multiplied by a common-data constant, matching the described launch-back behavior."
   ],
   "review_feedback": [
-    "No issue comments, review comments, or reviews were present in the provided PR slice.",
-    "The PR was closed with `merged_at: null`, so this record should not be treated as evidence of an accepted upstream merge."
+    "No issue comments, review comments, or review records were present in the provided PR slice.",
+    "The PR was closed with `merged_at: null`; the slice does not explain why it was closed."
   ],
   "searchable_terms": [
     "pr-2334",
     "Pizzahutt",
-    "ft/ftCommon: match fn_800DC070",
-    "fn_800DC070",
+    "ft/ftCommon",
+    "ftCommon",
     "ftCo_Attack100.c",
+    "fn_800DC070",
+    "fn_800DC044",
+    "ftCo_CaptureJump_Anim",
     "CaptureJump",
     "ftCo_MS_CaptureJump",
-    "ftCo_CaptureJump_Anim",
     "Fighter_ChangeMotionState",
     "GET_FIGHTER",
     "Fighter_GObj",
+    "Fighter",
     "victim_gobj",
     "ftCommon_8007D5D4",
     "ftCo_800DC920",
@@ -89,15 +94,22 @@
     "x374",
     "x378",
     "buryjump",
-    "mv.co.buryjump.x0",
     "decomp-matching",
     "fuzzy_match_percent 100.0"
   ],
   "follow_up_queries": [
-    "Check whether a later PR re-opened or superseded PR #2334 and merged `fn_800DC070`.",
-    "Search for nearby `ftCo_Attack100.c` CaptureJump routines to determine whether `fn_800DC070` later received a semantic name.",
-    "Investigate whether `p_ftCommonData->x374` and `p_ftCommonData->x378` were later named as CaptureJump horizontal and vertical velocity parameters.",
-    "Verify against assembly whether the reported fuzzy match was accepted outside this closed, unmerged PR."
+    "Check whether `fn_800DC070` was later merged or reimplemented in another PR.",
+    "Search for later naming of `fn_800DC070` or `mv.co.buryjump.x0` to replace address-based and anonymous field names.",
+    "Verify current assembly for `fn_800DC070` because this PR was closed unmerged despite reporting a 100.0 fuzzy match.",
+    "Compare nearby CaptureJump functions such as `ftCo_CaptureJump_Anim` and helper `ftCo_800DC920` for consistent ordering and naming."
   ],
-  "confidence": 0.86
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

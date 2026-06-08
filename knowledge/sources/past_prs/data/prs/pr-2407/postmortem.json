@@ -11,91 +11,113 @@
     "merged_at": "2026-04-13T20:44:32Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Implemented the main sword-afterimage rendering routine in src/melee/ft/ftafterimage.c, taking ftCo_800C2600 from a NOT_IMPLEMENTED stub to an 88.71% unmatched-item improvement and finishing ftCo_800C2FD8 from 98.99% to 100.00% per the decomp-dev bot. The PR also exposed the early sword-afterimage parameter fields in itSword_UnkBytes and Marth/Roy SwordAttrs as f32 scale values plus color/alpha bytes, and replaced an OSReport/__assert pattern with HSD_ASSERTREPORT for matching.",
+  "summary": "Implemented most of the fighter afterimage draw path in src/melee/ft/ftafterimage.c, replacing ftCo_800C2600's NOT_IMPLEMENTED stub with GX state setup, afterimage vertex construction, sword/item parameter lookup, curve subdivision using lbVector helpers, and triangle-strip emission. The PR also refined sword attribute layouts in ftMars/types.h and it/items/types.h so the afterimage code could read scale/color/alpha fields with plausible offsets. decomp.dev reported ftCo_800C2FD8 reached 100% and ftCo_800C2600 improved from 0.22% to 88.71%, but there were no human review comments in the slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "graphics-rendering",
       "headers",
       "struct-layout",
-      "assert-matching"
+      "rendering",
+      "fighter-item-integration"
     ],
     "systems": [
       "fighter",
       "item",
-      "GX",
-      "sword-afterimage"
+      "GX rendering",
+      "afterimage",
+      "sword attributes"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ft/ftafterimage.c",
-      "role": "Implemented ftCo_800C2600 afterimage rendering and adjusted ftCo_800C2FD8 sword-item assertion/control flow."
-    },
-    {
-      "path": "src/melee/it/items/types.h",
-      "role": "Changed itSword_UnkBytes offsets +0/+4 from byte fields to f32 x0/x4, matching afterimage scale parameters."
+      "role": "Main decompilation work: ftCo_800C2600 afterimage rendering implementation and ftCo_800C2FD8 assertion/control-flow adjustment."
     },
     {
       "path": "src/melee/ft/chara/ftMars/types.h",
-      "role": "Expanded SwordAttrs header fields at offsets 0x0-0x10 so Marth/Roy attributes can share the sword-afterimage layout."
+      "role": "Expanded SwordAttrs from opaque padding into f32 and u8 fields used by the afterimage parameter interpretation."
+    },
+    {
+      "path": "src/melee/it/items/types.h",
+      "role": "Changed itSword_UnkBytes offsets +0 and +4 from individual bytes to f32 fields, aligning item sword data with afterimage scale usage."
     }
   ],
   "what_changed": [
-    "Replaced NOT_IMPLEMENTED in ftCo_800C2600 with a GX rendering path for sword afterimages: GX state setup, ring-buffer traversal, vertex generation, triangle-strip submission, and HSD_StateInvalidate(-1).",
-    "Added local AfterimageVtx with position plus RGBA fields and defined AFTERIMAGE_ANGLE_STEP as 0.0872664600610733f.",
-    "ftCo_800C2600 now early-returns unless arg1 == 2 and the fighter has more than one afterimage entry via (s8)(u8)fp->x2100.",
-    "The afterimage parameter source is selected from either a held It_Kind_Sword item via it_80285300, Link/Young Link dat_attrs at x64, or Marth/Roy dat_attrs at x78; many non-sword fighter kinds fall through without a parameter assignment in the diff evidence.",
-    "Generated inner/outer afterimage vertices from fp->x20B0 ring entries, fp->x20F8/x20FC scale values, cumulative distance, alpha interpolation from params->x8/x9, and colors from params->xA-x10.",
-    "Inserted curved subdivisions between afterimage entries using lbVector_CrossprodNormalized, lbVector_Angle, and lbVector_RotateAboutUnitAxis when the angle exceeds the AFTERIMAGE_ANGLE_STEP-derived subdivision threshold.",
-    "Changed ftCo_800C2FD8's held-item check from if/else plus OSReport/__assert to a switch on itGetKind with HSD_ASSERTREPORT(0x16D, 0, \"no afterimage item!\\n\") in the default case.",
-    "Changed itSword_UnkBytes so offsets +0 and +4 are f32 x0 and f32 x4 instead of eight separate u8 fields.",
-    "Expanded ftMars SwordAttrs from pad_x0[0x14] to f32 x0, f32 x4, u8 x8 through x10, then pad_x11[3], preserving later x14/x18/x1C fields."
+    "Replaced ftCo_800C2600's NOT_IMPLEMENTED with a large partial/mostly matching implementation for drawing fighter afterimages.",
+    "Added local AfterimageVtx with position floats and RGBA bytes for the generated GX vertex buffer.",
+    "Added AFTERIMAGE_ANGLE_STEP constant set to 0.0872664600610733f for angle-based subdivision between stored afterimage directions.",
+    "Configured GX state for translucent, untextured vertex-color rendering: color update on, alpha update off, blend mode src alpha/inv src alpha, alpha compare, z mode, TEV pass color, one color channel, and no culling.",
+    "Looked up afterimage parameter data either from a held sword item via it_80285300 when fp->x2101_bits_8 is set, or from fighter dat_attrs for Link/Young Link and Marth/Roy style sword users.",
+    "Preserved a switch over many non-sword fighter kinds that simply break in the parameter lookup path, while Link/CLINK use ftLk_DatAttrs x64 and Mars/Emblem use MarsAttributes x78 cast to itSword_UnkBytes.",
+    "Computed cumulative distances over the fighter x20B0 ring buffer using x2101_bits_0to6 and x2100, with fallback totalDist = 1.0f for tiny movement.",
+    "Generated paired inner/outer vertices using params->x0/x4 scale fields, params->x8/x9 alpha range, and params->xA/xB/xC plus xE/xF/x10 color bytes.",
+    "Inserted intermediate vertices when adjacent direction vectors have a valid normalized cross product, using lbVector_Angle and lbVector_RotateAboutUnitAxis for smooth afterimage curvature.",
+    "Emitted the generated vertices through GXBegin(GX_TRIANGLESTRIP, GX_VTXFMT0, numVerts + 1), including a manually unrolled loop processing four vertices at a time plus a remainder path.",
+    "Invalidated HSD state at the end with HSD_StateInvalidate(-1).",
+    "Changed ftCo_800C2FD8's item-kind check from if/else OSReport plus __assert to a switch on itGetKind, using HSD_ASSERTREPORT for the default non-sword case.",
+    "decomp.dev reported ftCo_800C2FD8 became a new full match, improving from 98.99% to 100.00%.",
+    "decomp.dev reported ftCo_800C2600 improved from 0.22% to 88.71%, and .sdata2 improved from 0.00% to 87.50%."
   ],
   "smart_moves": [
-    "Recognized that item swords, Link/Young Link sword attributes, and Marth/Roy sword attributes share the same early afterimage-parameter layout, allowing casts to itSword_UnkBytes* rather than duplicating layouts.",
-    "Used explicit offset-commented header fields while keeping placeholder names, improving type correctness for matching without overclaiming semantics for unknown fields.",
-    "Preserved match-sensitive signed byte behavior with casts like (s8)(u8)fp->x2100 around the afterimage-entry count.",
-    "Guarded distance interpolation with totalDist < 0.00001f -> 1.0f, avoiding a divide-by-near-zero path while matching the observed algorithm.",
-    "Reproduced the low-level GX state sequence and direct vertex submission instead of abstracting the renderer, which matters for decompilation codegen and side effects.",
-    "Kept the vertex-output loop shape, including four-at-a-time emission and a remainder label/goto, a likely codegen tactic for the original loop structure.",
-    "Switched the assertion path to HSD_ASSERTREPORT, which the merge commit and diff indicate was needed to finish ftCo_800C2FD8."
+    "The PR aligned item and fighter sword attribute structs around the same observed layout: f32 fields at +0 and +4 followed by byte-sized alpha/color fields, allowing the same itSword_UnkBytes interpretation for held sword items and fighter dat_attrs.",
+    "Using casts from Link and Marth/Roy dat_attrs to itSword_UnkBytes avoided duplicating the afterimage rendering logic for character-owned sword attributes and item-owned sword attributes.",
+    "The implementation preserved low-level GX setup and direct vertex submission patterns, which are often necessary for matching rendering code rather than replacing it with higher-level abstractions.",
+    "The ring-buffer traversal explicitly handles wraparound at index 0 back to 2, matching the apparent three-entry afterimage history stored in Fighter.x20B0.",
+    "The vertex emission loop includes a four-at-a-time unrolled path plus a remainder label, a common decomp tactic when the compiler generated partially unrolled loops.",
+    "Replacing OSReport plus __assert with HSD_ASSERTREPORT in ftCo_800C2FD8 matched enough control/data shape to finish that function according to the bot report."
   ],
   "decomp_lessons": [
-    "Header typing can be the key to a function match: changing opaque byte fields to f32 at offsets +0/+4 made the afterimage scale math express naturally in both item and fighter attribute layouts.",
-    "When the same binary data layout appears in item and fighter dat_attrs, define one shared-compatible struct but avoid semantic names until the fields are proven.",
-    "GX-heavy functions often need exact state-call order, direct GXPosition/GXColor emission, and final HSD_StateInvalidate calls; helper abstraction may harm matching.",
-    "Ring-buffer wrap logic can be match-sensitive. This PR preserves the three-entry wrap from index 0 back to 2 using x2101_bits_0to6 and nextIdx-style temporaries.",
-    "For near-complete functions, assertion macro choice and control-flow shape can be the last difference: ftCo_800C2FD8 reached 100% after the HSD_ASSERTREPORT/switch rewrite.",
-    "Distance-based and angle-based interpolation code may require explicit temporaries, nested scopes, and casts to reproduce original PowerPC register/stack lifetimes."
+    "When decompiling rendering effects, struct recovery and function matching are tightly coupled: ftCo_800C2600 needed meaningful sword parameter field widths before scale, alpha, and color math could be expressed correctly.",
+    "Opaque byte padding may hide f32 fields; here itSword_UnkBytes +0/+4 and SwordAttrs +0/+4 became f32s because the code uses them in floating-point interpolation.",
+    "Do not over-generalize item/fighter attribute layouts too early, but shared casts can be useful when the same binary routine treats several sources as an equivalent parameter block.",
+    "GX matching often requires reproducing exact state setup order and direct GXPosition/GXColor emission rather than only matching the visual behavior.",
+    "For history/ribbon effects, preserve circular-buffer index arithmetic and signed/unsigned casts around small state fields such as x2100 and x2101 bitfields.",
+    "Vector helper calls such as lbVector_CrossprodNormalized, lbVector_Angle, and lbVector_RotateAboutUnitAxis can encode high-level geometric intent while still matching if the surrounding temporaries and loop structure are shaped carefully.",
+    "A small adjacent cleanup in an already-near-matching function can yield a full match; in this PR ftCo_800C2FD8 reached 100% while ftCo_800C2600 remained partial."
   ],
   "naming_conventions": [
-    "Kept address-based function names ftCo_800C2600 and ftCo_800C2FD8; no semantic rename evidence was present.",
-    "Used uppercase macro style for AFTERIMAGE_ANGLE_STEP.",
-    "Introduced a small local-format typedef named AfterimageVtx with x/y/z and r/g/b/a fields.",
-    "Retained placeholder offset field names x0, x4, x8, x9, xA, etc. for itSword_UnkBytes and SwordAttrs rather than inventing semantic names.",
-    "Used offset comments in struct definitions, e.g. /* +0x0 */ f32 x0 and /*   +0 */ f32 x0, matching existing decomp header style."
+    "Temporary recovered struct fields keep offset-based names such as x0, x4, x8, xA, x10, x14, x18, and x1C until semantic names are known.",
+    "Padding remains offset-named, e.g. pad_x11[3], after replacing the earlier pad_x0[0x14] with typed fields.",
+    "Local helper type AfterimageVtx uses a semantic name while its members are simple component names x, y, z, r, g, b, a.",
+    "The macro AFTERIMAGE_ANGLE_STEP is named for the effect and constant role rather than the raw literal.",
+    "Existing project symbol conventions are retained: ftCo_800C2600, ftCo_800C2FD8, it_80285300, it_80285314, lbVector_CrossprodNormalized, and FTKIND_* enums."
   ],
   "assembly_or_matching_tactics": [
-    "Use HSD_ASSERTREPORT instead of OSReport plus __assert when matching HSD-style assertions with fixed line numbers such as 0x7C and 0x16D.",
-    "Keep explicit casts such as (s8)(u8)fp->x2100 for signed-byte comparisons and loop bounds.",
-    "Use MSL/math_ppc sqrtf and existing lbVector helpers rather than hand-inlined vector math.",
-    "Preserve unusual triangle-strip setup details from the diff, including GXBegin(GX_TRIANGLESTRIP, GX_VTXFMT0, numVerts + 1) and initial vtx_buf[0] then vtx_buf[2] emission.",
-    "Maintain local stack buffers and sizes visible in the implementation, notably AfterimageVtx vtx_buf[152] and f32 cumDist[3].",
-    "Nested scopes and many single-purpose temporaries are useful for matching complex rendering code with interpolation and ring-buffer state.",
-    "A switch on itGetKind with a default assertion matched better than an if/else for ftCo_800C2FD8."
+    "Use exact primitive GX setup calls in apparent binary order to match render-state side effects.",
+    "Represent vertex data with a stack buffer of structs matching direct GX output fields, here AfterimageVtx vtx_buf[152].",
+    "Preserve explicit signed casts such as (s8)(u8)fp->x2100 where the original code likely used byte-sized state.",
+    "Use manual ring-buffer wraparound conditionals instead of modulo arithmetic when the disassembly suggests branches around a three-slot buffer.",
+    "Keep nested scopes and many short-lived locals to influence register allocation and lifetime in a large rendering function.",
+    "Use goto-style remainder handling for an unrolled loop when matching compiler output for direct GX vertex submission.",
+    "Use HSD_ASSERTREPORT with observed line numbers/messages instead of semantically equivalent OSReport/__assert sequences when that matches the binary."
   ],
   "review_feedback": [
-    "No human review comments were present in the slice; evidence is from the diff, merge metadata, and the decomp-dev bot report.",
-    "decomp-dev bot reported overall matched code 62.56% (+0.01%, +436 bytes).",
-    "decomp-dev bot reported one new match: main/melee/ft/ftafterimage ftCo_800C2FD8 from 98.99% to 100.00%.",
-    "decomp-dev bot reported ftCo_800C2600 improved from 0.22% to 88.71% (+2230 bytes) and .sdata2 from 0.00% to 87.50%.",
-    "Merge commit message notes: Match ftCo_800C2FD8, Match ftCo_800C2600, Remove target funcs, 100% of ftCo_800C2FD8, and Use HSD_ASSERTREPORT."
+    {
+      "source": "decomp-dev[bot]",
+      "url": "https://github.com/doldecomp/melee/pull/2407#issuecomment-4229175203",
+      "feedback": "Matched code improved to 62.56% overall for GALE01, +0.01% and +436 bytes."
+    },
+    {
+      "source": "decomp-dev[bot]",
+      "url": "https://github.com/doldecomp/melee/pull/2407#issuecomment-4229175203",
+      "feedback": "Reported 1 new match: main/melee/ft/ftafterimage ftCo_800C2FD8 improved from 98.99% to 100.00%."
+    },
+    {
+      "source": "decomp-dev[bot]",
+      "url": "https://github.com/doldecomp/melee/pull/2407#issuecomment-4229175203",
+      "feedback": "Reported unmatched improvements: ftCo_800C2600 from 0.22% to 88.71%, and .sdata2 from 0.00% to 87.50%."
+    },
+    {
+      "source": "slice",
+      "url": "",
+      "feedback": "No human review comments or human PR-body rationale were present in the provided slice."
+    }
   ],
   "searchable_terms": [
     "pr-2407",
     "Jj/ftafterimage",
+    "jurrejelle",
     "ftafterimage",
     "ftCo_800C2600",
     "ftCo_800C2FD8",
@@ -105,40 +127,51 @@
     "SwordAttrs",
     "MarsAttributes",
     "ftLk_DatAttrs",
+    "fp->x20B0",
+    "fp->x20F8",
+    "fp->x20FC",
+    "fp->x2100",
+    "fp->x2101_bits_0to6",
+    "fp->x2101_bits_8",
+    "GXBegin",
     "GX_TRIANGLESTRIP",
-    "GXSetBlendMode",
-    "GXSetAlphaCompare",
-    "GXSetVtxAttrFmt",
     "GXPosition3f32",
     "GXColor4u8",
-    "HSD_ASSERTREPORT",
+    "GXSetBlendMode",
+    "GXSetTevOp",
+    "GXSetChanCtrl",
+    "GXSetCullMode",
     "HSD_StateInvalidate",
+    "HSD_ASSERTREPORT",
     "lbVector_CrossprodNormalized",
     "lbVector_Angle",
     "lbVector_RotateAboutUnitAxis",
-    "Fighter_x20B0_t",
-    "x2100",
-    "x2101_bits_0to6",
-    "x2101_bits_8",
-    "It_Kind_Sword",
     "it_80285300",
     "it_802852B8",
     "it_80285314",
+    "It_Kind_Sword",
     "FTKIND_LINK",
     "FTKIND_CLINK",
     "FTKIND_MARS",
     "FTKIND_EMBLEM",
-    "src/melee/ft/ftafterimage.c",
-    "src/melee/it/items/types.h",
-    "src/melee/ft/chara/ftMars/types.h",
-    "GALE01"
+    "afterimage item",
+    "sword afterimage",
+    "GX vertex color ribbon"
   ],
   "follow_up_queries": [
     "Find later PRs that finish ftCo_800C2600 from 88.71% to 100%.",
-    "Search for semantic renames or further typing of itSword_UnkBytes fields x0, x4, x8-x10.",
-    "Check later Link, Young Link, Marth, and Roy attribute layout work around ftLk_DatAttrs x64 and MarsAttributes/SwordAttrs x78.",
-    "Search for other GX afterimage or trail rendering functions that reuse AfterimageVtx-style direct GX emission.",
-    "Find PRs replacing OSReport/__assert with HSD_ASSERTREPORT for final matching bytes."
+    "Search for semantic renames of itSword_UnkBytes fields x0, x4, x8, x9, xA, xB, xC, xE, xF, and x10.",
+    "Check whether SwordAttrs in ftMars/types.h and itSword_UnkBytes in it/items/types.h remain layout-compatible after later header cleanup.",
+    "Look for other afterimage users or fighter ribbon effects that reuse fp->x20B0, x20F8, x20FC, x2100, and x2101 bitfields.",
+    "Search future PRs for HSD_ASSERTREPORT replacements that help match assertion-heavy code."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

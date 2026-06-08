@@ -11,151 +11,117 @@
     "merged_at": "2026-05-31T10:10:56Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Big Blue Route stage work that replaced several raw Ground offset accesses with typed route/car struct views, implemented the previously stubbed grBigBlueRoute_8020CD20 route-entry update state machine, and improved multiple matching targets. The decomp.dev bot reported four new 100% function matches in grbigblueroute, CD20 rising from 0.00% to 89.73%, and C85C improving slightly, with a remaining .sdata regression.",
+  "summary": "Advanced Big Blue Route stage decompilation by typing more Ground storage, replacing raw gp offset access with structured fields, and adding a large partial decomp of grBigBlueRoute_8020CD20. The decomp.dev report credited 4 new function matches and a large unmatched improvement for grBigBlueRoute_8020CD20, with only weak/no human review evidence in the slice.",
   "change_classification": {
-    "primary_type": "stage decompilation/matching",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-logic-implementation",
       "headers",
-      "struct-layout",
-      "data-pool-alignment"
+      "struct-typing",
+      "stage-logic"
     ],
     "systems": [
       "stage",
       "ground",
-      "Big Blue",
-      "Big Blue Route",
-      "F-Zero car route"
+      "Big Blue Route"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grbigblueroute.c",
-      "role": "Main implementation and matching work for Big Blue Route functions, including CD20, C85C, BC68, BF38, C530, DAB4, and DED4."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Added typed Ground variable views for Big Blue Route tracks and car route state."
-    },
-    {
-      "path": "src/melee/gr/grbigblueroute.h",
-      "role": "Updated RouteEntry layout and CD20 prototype."
-    }
+    "src/melee/gr/grbigblueroute.c",
+    "src/melee/gr/types.h",
+    "src/melee/gr/grbigblueroute.h"
   ],
   "what_changed": [
-    "Added a real void implementation of grBigBlueRoute_8020CD20, replacing the stub marker. The new code iterates 31 RouteEntry slots, advances four route states through road/air transitions, samples splines, computes tangents and rotations, applies JObj transforms, and triggers nearby camera/sound behavior.",
-    "Introduced typed route storage: struct grBigBlueRoute_Track with Vec3 offset plus HSD_JObj* jobj, struct grBigBlueRoute_GroundVars2 for checkpoint/track data, and gp->u.car for the car route state previously accessed through gv.bigblueroute/raw offsets.",
-    "Renamed the old grBigBlueRoute_GroundVars xC8 pointer to car_info and consistently uses gp->u.car.car_info as a RouteEntry array allocated with HSD_MemAlloc(0x554), zeroed, and freed.",
-    "Changed RouteEntry offset 0x24 from padding to f32 x24 so CD20 can store transition progress, and changed grBigBlueRoute_8020CD20's declaration from UNK_RET to void.",
-    "Reworked grBigBlueRoute_8020BC68 and grBigBlueRoute_8020BF38 to use gp->gv.bigblueroute2.tracks[i].jobj/offset instead of manual pointer arithmetic at gp+0xD8, gp+0xE4, etc.",
-    "Reworked car-route setup functions grBigBlueRoute_8020C140, grBigBlueRoute_8020C210, and grBigBlueRoute_8020C238 to use gp->u.car fields for the F-Zero car gobj, splines, endpoints, counters, and timers.",
-    "Reworked grBigBlueRoute_8020C530 and grBigBlueRoute_8020C85C around typed RouteEntry access, including flags.b0/b1/b2_5/b6 and the special route_idx 30 entry.",
-    "Adjusted constants and data references: removed extern float/s16 tricks for several values, used literals such as 30.0f, 4000.0f, 20.0f, 250.0f, -3.0f, 5.2359877f, and 2.6179938f, and writes the route checkpoint counter to stage_info.x6DC.",
-    "Added baselib/debug.h, lb/lbshadow.h, and trigf.h includes for HSD_ASSERT, lbShadow_8000E9F0, and atan2f."
+    "Reworked grbigblueroute.c to use typed Ground fields such as gp->u.car.car_info, gp->u.car.xCC/xD0/xD4, gp->u.car.x108/x10A, and gp->gv.bigblueroute2.tracks instead of many raw byte-offset casts from Ground.",
+    "Added a substantial C implementation of grBigBlueRoute_8020CD20, replacing the placeholder marker. The implementation iterates route entries, advances route-entry state, samples splines, computes tangents/orientation, and updates JObjs/items using helpers including splGetSplinePoint, lbShadow_8000E9F0, atan2f, PSVECCrossProduct, lbVector_RotateAboutUnitAxis, and grBigBlueRoute_8020DD64.",
+    "Introduced typed route-track support in types.h: grBigBlueRoute_Track with Vec3 offset and HSD_JObj* jobj, and grBigBlueRoute_GroundVars2 for the gp+C4 layout used by track-following logic.",
+    "Renamed grBigBlueRoute_GroundVars field xC8 to car_info and added a separate car union member for the original Big Blue Route car data layout.",
+    "Changed grBigBlueRoute_8020CD20 prototype in grbigblueroute.h from UNK_RET to void.",
+    "Converted assertion/debug usage toward HSD_ASSERT and __FILE__, removed a local grbigblueroute.c filename string symbol, and added includes for baselib/debug.h, lbshadow.h, and trigf.h.",
+    "Improved already-decompiled functions including grBigBlueRoute_8020BC68, grBigBlueRoute_8020BF38, grBigBlueRoute_8020C530, grBigBlueRoute_8020C85C, and grBigBlueRoute_8020DAB4, mostly through better struct access and matching-oriented expression forms."
   ],
   "smart_moves": [
-    "Using two typed Ground views was a strong matching/readability move: gp->gv.bigblueroute2 matches the track/checkpoint layout used by BC68/BF38, while gp->u.car matches the car route/spline/RouteEntry layout used by C140 onward.",
-    "Replacing raw byte-offset RouteEntry access with a typed RouteEntry array made flag semantics visible while still preserving compiler-shaping expressions where needed.",
-    "Inlining float literals instead of referencing extern float symbols intentionally repaired sdata2 pool ordering; the merge notes explicitly call out 30/4000 and the route angle constants as pool-order fixes.",
-    "The RE_ENTRY macro in CD20 deliberately reloads the RouteEntry base per field access, matching the target's addressing style better than a cleaner cached pointer.",
-    "The C85C early-out was expressed as !((f32) gp->u.car.x108 < limit) to steer the generated float branch toward the target bge form.",
-    "Switching __assert-style code to HSD_ASSERT and using __FILE__ was used as a data/string-pool matching tactic, not just a style cleanup.",
-    "Including trigf.h and lbshadow.h avoided implicit declaration/type mismatches for atan2f and lbShadow_8000E9F0 in the newly implemented route math."
+    "Split the two overlapping Big Blue Route Ground layouts instead of forcing one misleading struct: gp->gv.bigblueroute2 for track/checkpoint data and gp->u.car for the car/route-entry data.",
+    "Promoted the route-entry array from byte arithmetic to RouteEntry indexing, making flags.b0/b1/b2_5/b6 and fields like x4/x8/x10/x14/x18/x20/x28 searchable and safer while preserving matching-sensitive repeated address expressions.",
+    "Used a local RE_ENTRY macro for grBigBlueRoute_8020CD20 to keep repeated route-entry access readable without hiding the target-like indexed access pattern.",
+    "Kept matching notes in @todo comments, explicitly identifying remaining causes such as string-pool symbol differences, register allocation, addressing-mode choices, float-constant hoisting, and register pressure.",
+    "Replaced raw extern data references with clearer literals or known globals where evidence allowed, such as Ground_801C3D44(0, 30.0f, 4000.0f) and stage_info.x6DC.",
+    "Used domain-specific helper calls for spline tangents/orientation rather than open-coding vector math, which made grBigBlueRoute_8020CD20 readable and moved a large function from 0% to a high partial match according to the bot report."
   ],
   "decomp_lessons": [
-    "Do not force one GroundVars struct to explain every offset in a stage file; overlapping union views can be the cleaner way to match distinct logical uses at the same Ground storage area.",
-    "sdata2 order is fragile. If the target emits constants in the current unit, using extern symbol placeholders can shift later constants and hurt unrelated functions.",
-    "Source-level boolean spelling matters for PPC matching: a mathematically equivalent >= comparison may emit cror+beq while a negated < can produce the desired bge.",
-    "For MWCC register allocation, a less idiomatic repeated field expression or macro can be preferable to a cached pointer when the target repeatedly recomputes an address.",
-    "Route-entry state machines should expose state fields incrementally: x24 became a real f32 only once CD20 revealed it stores transition progress.",
-    "Function prototype cleanup matters: replacing UNK_RET with void for a formerly stubbed function records real control-flow behavior and reduces future uncertainty.",
-    "Pool/string behavior around __FILE__, HSD_ASSERT, and anonymous string literals can be a matching constraint; keep an eye on rodata/sdata reports after assertion cleanup."
+    "When a Ground union layout appears to conflict across callbacks, consider that multiple stage-specific overlays may share the same gp offsets; adding a second named layout can unlock typed access without corrupting the first layout.",
+    "Replacing byte-offset casts with struct fields can improve both readability and match quality, but preserve repeated loads or address recomputation when the target appears to do so.",
+    "For route/vehicle stage code, identify heap arrays by allocation size and stride first. Here HSD_MemAlloc(0x554) and 0x2C-sized RouteEntry access supported treating car_info as a RouteEntry array.",
+    "Bitfield names for route state are useful even while semantics are unknown; flags.b0, flags.b1, flags.b2_5, and flags.b6 made state-machine code in grBigBlueRoute_8020C85C/CD20 much easier to follow.",
+    "Do not assume better C expression style gives better matching: this PR’s comments call out register allocation, addressing modes, float-constant hoisting, and stack/FPR pressure as remaining systemic blockers.",
+    "Use HSD_ASSERT and project debug headers when target code used the engine assertion path; direct __assert forms may create different string/data behavior.",
+    "Float constants in decomp should be evidence-driven. The diff changed random angular spread to 5.2359877f * rand - 2.6179938f, matching a +/-2.6179938 rad range rather than the previous +/-1.0 expression."
   ],
   "naming_conventions": [
-    "Use gp->u.car for Big Blue Route car state: xC4, car_info, xCC/xD0/xD4 splines, xD8/xE4/xF0/xFC endpoints, x108 counter, and x10A timer.",
-    "Use gp->gv.bigblueroute2 for the separate track/checkpoint view: xC8 checkpoint counter, xCC base translation, and tracks[4].offset/jobj.",
-    "Name the dynamically allocated RouteEntry pointer car_info instead of generic xC8 once its role is known.",
-    "Keep RouteEntry flag bits as flags.b0, flags.b1, flags.b2_5, and flags.b6 until more semantic names are evidenced.",
-    "Use grBigBlueRoute_Track and grBigBlueRoute_GroundVars2 for newly discovered Big Blue Route-specific layout rather than overloading the older grBigBlueRoute_GroundVars name."
+    "Stage functions retain address-based names: grBigBlueRoute_8020BC68, grBigBlueRoute_8020BF38, grBigBlueRoute_8020C530, grBigBlueRoute_8020C85C, grBigBlueRoute_8020CD20, grBigBlueRoute_8020DAB4.",
+    "Ground layout structs use stage-specific names: grBigBlueRoute_GroundVars, grBigBlueRoute_GroundVars2, and grBigBlueRoute_Track.",
+    "Uncertain fields remain offset-style names such as xC4, xC8, xCC, x108, x10A, while one clearer field was promoted from xC8 to car_info.",
+    "Typed but semantically unknown route-entry flags keep bitfield-style names: b0, b1, b2_5, b6.",
+    "The diff uses gp->u.car for the car route layout and gp->gv.bigblueroute2 for the separate track/checkpoint overlay."
   ],
   "assembly_or_matching_tactics": [
-    "grBigBlueRoute_8020BC68: struct-field access to tracks[i].jobj and tracks[i].offset helped move the function from a low-90% match to a bot-reported 100% match.",
-    "grBigBlueRoute_8020BF38: literals 30.0f and 4000.0f replaced extern float references, and typed track access plus stage_info.x6DC replaced raw offsets/extern s16 storage.",
-    "grBigBlueRoute_8020C530: using ((RouteEntry*) gp->u.car.car_info)[i].flags.b0 and HSD_ASSERT(0X2E5, NULL) yielded a bot-reported 100% match.",
-    "grBigBlueRoute_8020C85C: the branch was rewritten as a negated less-than, RouteEntry stores were expressed through repeated array indexing, and angle randomization changed from 2.0f*rand-1.0f to 5.2359877f*rand-2.6179938f.",
-    "grBigBlueRoute_8020CD20: the remaining source note identifies systemic diffs from float-constant hoisting order and register pressure, specifically the target spilling rot to stack while the source keeps it in FPRs.",
-    "grBigBlueRoute_8020DAB4: matching changes included declaring arr earlier, breaking when *arr is NULL instead of continuing, and using HSD_GObjGetHSDObj(gobj).",
-    "grBigBlueRoute_8020DED4: camera clamp constants were emitted as literals 20.0f, 250.0f, and -3.0f instead of extern sdata2 symbols."
+    "Use structured field access to recover target addressing while avoiding raw pointer casts; the bot report showed new 100% matches for grBigBlueRoute_8020BC68, grBigBlueRoute_8020BF38, grBigBlueRoute_8020C530, and grBigBlueRoute_8020DAB4.",
+    "A negative comparison form was used in grBigBlueRoute_8020C85C: !((f32) gp->u.car.x108 < 1.0f + grBb_Route_804D6A68->x40), likely to influence branch/compare codegen.",
+    "Repeatedly reassigning re = &((RouteEntry*) gp->u.car.car_info)[route_idx] was kept in grBigBlueRoute_8020C85C, suggesting target-like reload/addressing mattered more than minimizing C source.",
+    "grBigBlueRoute_8020CD20 documents remaining non-match causes as float-constant hoisting order and register pressure, specifically target spills rot to stack while this C keeps it in FPRs.",
+    "grBigBlueRoute_8020BF38 matching notes identify remaining register allocation differences: an extra mr through r0 for first loop jobj load and index computation.",
+    "grBigBlueRoute_8020C85C matching notes identify addressing-mode choices for RouteEntry stores as a blocker.",
+    "String-pool behavior can matter: grBigBlueRoute_8020BC68 had notes about anonymous string-pool symbols versus the target's single grBb_Route_803E61D4."
   ],
   "review_feedback": [
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported matched code 69.03% (+0.07%, +2728 bytes) and matched data 41.19% (-0.00%, -40 bytes)."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported 4 new 100% matches in main/melee/gr/grbigblueroute: grBigBlueRoute_8020BC68, grBigBlueRoute_8020BF38, grBigBlueRoute_8020DAB4, and grBigBlueRoute_8020C530."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported grBigBlueRoute_8020CD20 improving from 0.00% to 89.73%, .sdata2 from 51.61% to 88.89%, .rodata from 0.00% to 85.71%, .data from 95.57% to 96.23%, and grBigBlueRoute_8020C85C from 91.77% to 92.12%."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "Flagged one broken match: .sdata in main/melee/gr/grbigblueroute fell from 100.00% to 92.86%."
-    },
-    {
-      "source": "human review",
-      "feedback": "No human review comments were present in the slice, and the PR body was empty."
-    }
+    "No human review comments were present in this PR slice.",
+    "The decomp.dev bot reported matched code 69.03% (+0.07%, +2728 bytes), 4 new matches, 5 improvements in unmatched items, and 1 broken .sdata match.",
+    "Bot-listed new matches: grBigBlueRoute_8020BC68, grBigBlueRoute_8020BF38, grBigBlueRoute_8020DAB4, and grBigBlueRoute_8020C530 reached 100.00%.",
+    "Bot-listed unmatched improvements included grBigBlueRoute_8020CD20 from 0.00% to 89.73%, .sdata2 to 88.89%, .rodata to 85.71%, .data to 96.23%, and grBigBlueRoute_8020C85C to 92.12%.",
+    "Bot-listed regression: main/melee/gr/grbigblueroute .sdata dropped from 100.00% to 92.86%."
   ],
   "searchable_terms": [
-    "pr-2532",
-    "Jj/grbigblueroute 2",
-    "jurrejelle",
     "grbigblueroute",
     "Big Blue Route",
-    "src/melee/gr/grbigblueroute.c",
-    "src/melee/gr/grbigblueroute.h",
-    "src/melee/gr/types.h",
+    "grBigBlueRoute_8020CD20",
     "grBigBlueRoute_8020BC68",
     "grBigBlueRoute_8020BF38",
     "grBigBlueRoute_8020C530",
     "grBigBlueRoute_8020C85C",
-    "grBigBlueRoute_8020CD20",
     "grBigBlueRoute_8020DAB4",
-    "grBigBlueRoute_8020DED4",
     "grBigBlueRoute_GroundVars",
     "grBigBlueRoute_GroundVars2",
     "grBigBlueRoute_Track",
     "RouteEntry",
     "RouteEntryFlags",
     "car_info",
+    "bigblueroute2",
     "gp->u.car",
-    "gp->gv.bigblueroute2",
     "tracks",
-    "stage_info.x6DC",
-    "HSD_ASSERT",
-    "__FILE__",
-    "HSD_GObjGetHSDObj",
-    "HSD_MemAlloc",
-    "HSD_Free",
+    "HSD_Spline",
     "splGetSplinePoint",
     "lbShadow_8000E9F0",
-    "lbVector_RotateAboutUnitAxis",
     "atan2f",
-    "trigf.h",
-    "lbshadow.h",
-    "sdata2 pool order",
-    ".sdata regression"
+    "HSD_Randf",
+    "HSD_ASSERT",
+    "stage_info.x6DC",
+    "float-constant hoisting",
+    "register pressure",
+    "addressing-mode choices"
   ],
   "follow_up_queries": [
-    "Investigate the decomp.dev-reported .sdata regression in main/melee/gr/grbigblueroute from 100.00% to 92.86%.",
-    "Revisit grBigBlueRoute_8020CD20 remaining 89.73% diffs, especially float-constant hoisting order and rot stack/FPR register pressure noted in the source.",
-    "Continue improving grBigBlueRoute_8020C85C addressing-mode/register-allocation differences around RouteEntry stores.",
-    "Audit whether RouteEntry fields x4, x8, xC, x10, x14, x18, x1C, x20, x24, and x28 can receive semantic names after CD20 behavior is better understood.",
-    "When editing this unit again, verify that literal constants, __FILE__/HSD_ASSERT usage, and string-pool placement do not shift .sdata/.sdata2."
+    "Find later PRs touching grBigBlueRoute_8020CD20 to see whether the 89% partial match was completed and how float-constant hoisting/register pressure were resolved.",
+    "Search for follow-up fixes to the .sdata regression caused by string-pool or filename-symbol changes in grbigblueroute.c.",
+    "Look for PRs renaming RouteEntry fields x4/x8/x10/x14/x18/x20/x28 or flags b0/b1/b2_5/b6 to semantic names.",
+    "Compare other F-Zero/Big Blue stage route decomp PRs for reusable car_info and spline-orientation patterns."
   ],
-  "confidence": 0.89
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

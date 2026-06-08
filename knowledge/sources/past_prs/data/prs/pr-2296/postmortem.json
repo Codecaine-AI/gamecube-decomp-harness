@@ -11,130 +11,133 @@
     "merged_at": "2026-03-15T18:56:02Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Stage-focused matching PR that implemented two Shrine Route functions, partially advanced Kinoko Route, and performed broad semantic renames of common GObj helpers. decomp.dev reported matched code rising to 57.96% (+0.01%, +316 bytes), with `grShrineRoute_8020AD58` and `grShrineRoute_8020B020` newly 100% matched; `grKinokoRoute_8020754C` improved to 99.97% and Kinoko route `.data` to 33.47%. The diff also renamed `Ground_801C14D0` to `Ground_GetStageGObj` and `HSD_GObjProc_8038FD54` to `HSD_GObj_SetupProc` across symbols, headers, implementations, and many call sites.",
+  "summary": "Matched two Shrine Route stage functions and improved Kinoko Route while also applying broad function renames for common ground and baselib GObj process helpers. The decomp.dev report credited +316 matched bytes and two new matches: grShrineRoute_8020AD58 and grShrineRoute_8020B020; grKinokoRoute_8020754C improved to 99.97% and its .data improved to 33.47%. The large diff is dominated by mechanical callsite renames from Ground_801C14D0 to Ground_GetStageGObj and HSD_GObjProc_8038FD54 to HSD_GObj_SetupProc plus include/order/formatting cleanup across many systems.",
   "change_classification": {
-    "primary_type": "stage-route decomp matching",
+    "primary_type": "stage decomp matching and symbol renaming",
     "categories": [
       "decomp-matching",
-      "function-implementation",
-      "symbol-renaming",
-      "header-prototype-typing",
+      "function-renaming",
+      "headers",
       "struct-layout",
-      "mechanical-callsite-update",
-      "formatting-cleanup"
+      "mechanical-refactor",
+      "formatting"
     ],
     "systems": [
-      "stage-ground",
-      "grshrineroute",
-      "grkinokoroute",
-      "sysdolphin-baselib-gobjproc",
-      "config-GALE01-symbols",
-      "camera",
-      "effect",
+      "stage",
+      "ground",
+      "baselib",
       "fighter",
+      "effect",
       "game-mode",
       "item",
       "menu",
-      "interface",
-      "victory-mode"
+      "camera",
+      "interface"
     ]
   },
   "key_files": [
-    "config/GALE01/symbols.txt",
     "src/melee/gr/grshrineroute.c",
     "src/melee/gr/grshrineroute.h",
     "src/melee/gr/grkinokoroute.c",
     "src/melee/gr/grkinokoroute.h",
     "src/melee/gr/types.h",
+    "config/GALE01/symbols.txt",
     "src/melee/gr/ground.c",
-    "src/melee/gr/ground.h",
-    "src/sysdolphin/baselib/gobjproc.c",
     "src/sysdolphin/baselib/gobjproc.h",
-    "src/melee/gr/grbigblueroute.c"
+    "src/sysdolphin/baselib/psstructs.h",
+    "src/melee/ft/fighter.c",
+    "src/melee/ef/eflib.c"
   ],
   "what_changed": [
-    "Replaced `/// #grShrineRoute_8020AD58` with a typed implementation taking `Ground*`, `CollData*`, and integer parameters; it checks `CollData.x34_flags.b1234`, uses `ftLib_80086BE0`, `Player_GetEntity`, `Player_GetEntityAtIndex`, and `ftLib_8008731C`, and sets `gp->gv.shrineroute.xCA` / `xCC`.",
-    "Replaced `/// #grShrineRoute_8020B020` with a hide/show routine that iterates six route-related `Ground` records, skips `r4 - 189` unless `r4 == -1`, and toggles `JOBJ_HIDDEN` via `HSD_JObjSetFlagsAll` / `HSD_JObjClearFlagsAll` through `gp->gv.shrineroute2.x108`.",
-    "Refined `struct grShrineroute_GroundVars2` in `src/melee/gr/types.h` by splitting padding and adding `HSD_GObj* x108` at the needed offset before `x118`.",
-    "Added `StageCallbacks grNKr_803E57F0[4]` and implemented `grKinokoRoute_8020754C` as a standard stage GObj setup routine using `Ground_GetStageGObj`, `GObj_SetupGXLink(..., grDisplay_801C5DB0, 3, 0)`, callback0/callback2/callback3 wiring, and OSReport failure handling.",
-    "Changed `grKinokoRoute_8020754C`'s header prototype from `void` return to `HSD_GObj*`; changed `grShrineRoute_8020AD58` from `UNK_RET/UNK_PARAMS` to explicit parameter types.",
-    "Renamed `Ground_801C14D0` to `Ground_GetStageGObj` in `config/GALE01/symbols.txt`, `ground.c`, `ground.h`, and many stage constructor call sites.",
-    "Renamed `HSD_GObjProc_8038FD54` to `HSD_GObj_SetupProc` in `config/GALE01/symbols.txt`, baselib `gobjproc.c/h`, and broad call sites across camera, effects, fighters, game modes, stages, items, menus, interface, and VI files.",
-    "Annotated `grBb_Route_803E623C` as `data:string` and changed `grBigBlueRoute_8020C238` assert usage from address-named extern strings to `__FILE__` and the literal `gp->u.car.car_info`; this is evidenced in the diff but was not discussed in PR text.",
-    "A large fraction of the 191 changed files are mechanical rename, include-order, wrapping, or formatting churn rather than new logic."
+    "Implemented grShrineRoute_8020AD58 with a typed signature void grShrineRoute_8020AD58(Ground*, int, CollData*, int, int), using CollData flags, ftLib_80086BE0, Player_GetEntity, Player_GetEntityAtIndex, and ftLib_8008731C to set shrineroute ground vars xCA and xCC.",
+    "Implemented grShrineRoute_8020B020 with a typed HSD_GObj-based signature, iterating six entries and toggling JOBJ_HIDDEN via HSD_JObjSetFlagsAll/HSD_JObjClearFlagsAll using gp->gv.shrineroute2.x108.",
+    "Updated grShrineroute_GroundVars2 in src/melee/gr/types.h to expose the HSD_GObj* x108 field at the offset needed by grShrineRoute_8020B020, replacing part of a padding blob while preserving later offsets.",
+    "Implemented grKinokoRoute_8020754C as an HSD_GObj* returning stage-object setup function and added the grNKr_803E57F0 StageCallbacks table in grkinokoroute.c.",
+    "Changed grKinokoRoute_8020754C's header prototype from void-returning to HSD_GObj* returning.",
+    "Renamed Ground_801C14D0 to Ground_GetStageGObj in config/GALE01/symbols.txt and propagated the callsite rename through many stage constructors.",
+    "Renamed HSD_GObjProc_8038FD54 to HSD_GObj_SetupProc in config/GALE01/symbols.txt and propagated the callsite rename across camera, effects, fighter, game mode, ground, item, menu, interface, and other code.",
+    "Marked grBb_Route_803E623C as data:string in symbols.txt.",
+    "Performed widespread include reordering and formatting-only cleanup in many touched files, which accounts for much of the 191-file diff."
   ],
   "smart_moves": [
-    "The Kinoko route work reused the project-wide stage callback setup idiom: indexed `StageCallbacks`, `Ground_GetStageGObj`, clearing `x8_callback`/`xC_callback`, installing `x1C_callback`, calling callback0 immediately, and scheduling callback2 at priority 4.",
-    "The Shrine Route hide/show match was made cleaner by naming the `x108` GObj field in the stage-specific ground-vars struct before using it, instead of leaving a raw padding access pattern hidden in code.",
-    "The symbol renames were synchronized across `symbols.txt`, declarations, definitions, and call sites in the same PR, reducing the risk of a mixed numeric-name/semantic-name codebase.",
-    "The completed Shrine functions preserved matching-sensitive control flow and stack-shaping details such as `PAD_STACK(0x10)`, nested entity checks, early return after `ftLib_8008731C`, and the unusual `gp = (Ground*) &gp->gobj` iteration form.",
-    "The PR made broad semantic names for two heavily reused helpers, which improves future review/search: `Ground_GetStageGObj` describes the stage GObj helper, and `HSD_GObj_SetupProc` describes a proc attachment helper taking a GObj, event callback, and priority."
+    "Used high-level semantic names for two very common helpers, Ground_GetStageGObj and HSD_GObj_SetupProc, making repeated stage-object setup patterns much easier to identify and reuse.",
+    "Matched Shrine Route behavior by typing the collision callback arguments enough to use CollData, player entity helpers, and ground vars instead of leaving an UNK_PARAMS placeholder.",
+    "Exposed only the newly understood x108 field inside grShrineroute_GroundVars2 while retaining explicit padding around it, minimizing risk to later known offsets.",
+    "Reconstructed Kinoko Route's setup function around the standard StageCallbacks pattern: get the stage GObj, clear callbacks, install grDisplay_801C5DB0 GX link, copy callback3, call callback0, and register callback2 as a process.",
+    "Kept route headers synchronized with newly typed function signatures, avoiding hidden ABI drift between C files and declarations.",
+    "Applied symbol renames globally in one PR so future decomp work can search for meaningful setup helpers rather than address-based names."
   ],
   "decomp_lessons": [
-    "When a stage route constructor is still unknown, compare it against other `StageCallbacks` constructors: most follow the same order of GObj acquisition, Ground callback clearing, GX link setup, callback3 storage, callback0 call, callback2 process setup, and OSReport-on-null.",
-    "Expose typed fields inside stage-specific ground-vars structs as soon as a function proves an offset's use; here `HSD_GObj* x108` enabled readable Shrine Route JObj hiding logic.",
-    "Do not overclaim near matches: the PR title mentions Kinoko matches, but decomp.dev only reports `grKinokoRoute_8020754C` at 99.97%, while the two Shrine Route functions reached 100%.",
-    "Semantic helper renames should be performed atomically across map symbols, headers, implementation, comments, and all call sites; otherwise future matching diffs become noisy and hard to search.",
-    "Known assert strings can sometimes replace address-named extern rodata placeholders; this PR changed a Big Blue Route assert to use `__FILE__` and a literal string while marking the backing symbol as `data:string`.",
-    "Large style/formatting sweeps can hide the important matching changes; future reviewers should isolate the actual logic changes in `grshrineroute.c`, `grkinokoroute.c`, `gr/types.h`, `ground.*`, and `gobjproc.*` first."
+    "Stage route setup functions often share a recognizable template: StageCallbacks table lookup, Ground_GetStageGObj, user_data as Ground, callback initialization, GObj_SetupGXLink, optional callback0 invocation, and HSD_GObj_SetupProc for callback2.",
+    "When a matched function needs a field in an otherwise unknown ground-var struct, split padding just enough to name the field and preserve all subsequent offsets.",
+    "Common baselib and ground helper renames can unlock readability across unrelated systems because the same GObj process setup idiom appears in fighters, effects, camera, menus, and stages.",
+    "A PR titled as multiple matches may include partial improvements; here decomp.dev reported Shrine Route functions as 100% matched, while Kinoko Route function grKinokoRoute_8020754C was only 99.97%.",
+    "Large decomp PRs with many callsite renames should separate semantic changes in the summary because raw added/deleted counts are inflated by mechanical renames and formatting."
   ],
   "naming_conventions": [
-    "`Ground_801C14D0` became `Ground_GetStageGObj`: subsystem prefix + action + object, replacing the address suffix once behavior was understood.",
-    "`HSD_GObjProc_8038FD54` became `HSD_GObj_SetupProc`: keeps the HSD/GObj namespace and names the operation instead of the address.",
-    "Unmatched or not-yet-understood route functions retained the existing stage-prefix/address pattern, e.g. `grShrineRoute_8020AE08` and `grShrineRoute_8020AF38` stayed as address-suffixed placeholders.",
-    "Stage callback data kept the stage abbreviation plus address convention, e.g. `grNKr_803E57F0`, while gaining the concrete `StageCallbacks` type.",
-    "Headers moved away from `UNK_RET`/`UNK_PARAMS` where evidence was strong, using explicit `HSD_GObj*`, `Ground*`, and `CollData*` signatures."
+    "Ground_801C14D0 -> Ground_GetStageGObj for the stage GObj lookup helper.",
+    "HSD_GObjProc_8038FD54 -> HSD_GObj_SetupProc for registering a GObj process callback with a priority/order argument.",
+    "Route-stage callback tables use stage-prefixed data names such as grNKr_803E57F0 for Kinoko Route and grSh_Route_803E58F0 for Shrine Route.",
+    "Newly understood ground variable fields retain offset-style names such as x108 when purpose is still unknown.",
+    "Stage functions continue to use module-prefixed names with addresses, such as grShrineRoute_8020AD58 and grKinokoRoute_8020754C, until stronger semantic names are known."
   ],
   "assembly_or_matching_tactics": [
-    "`grShrineRoute_8020AD58` includes `PAD_STACK(0x10)`, suggesting stack padding was needed for the 100% match.",
-    "`grShrineRoute_8020B020` keeps the compare shape `comp = r4 - 189` and `if (r4 == -1 || i != comp)` before toggling hidden flags, rather than simplifying the condition.",
-    "`grShrineRoute_8020B020` advances through related `Ground` storage with `gp = (Ground*) &gp->gobj`; this odd-looking pointer progression is likely matching-sensitive and should not be casually rewritten.",
-    "The Kinoko constructor preserves the standard callback setup order and uses `HSD_GObj_SetupProc(gobj, callbacks->callback2, 4)` only after callback0/callback3 handling.",
-    "Project-wide rename from `HSD_GObjProc_8038FD54` to `HSD_GObj_SetupProc` is source-only but improves grepability for all GObj process scheduling sites and their priority values."
+    "Used PAD_STACK(0x10) in grShrineRoute_8020AD58 to satisfy stack/layout requirements for matching.",
+    "Preserved pointer/offset-sensitive struct layout by replacing padding with HSD_GObj* x108 and recalculating adjacent padding arrays.",
+    "Used the standard GET_GROUND and GET_JOBJ macros where they matched expected access patterns.",
+    "For grShrineRoute_8020B020, advanced through related Ground records with gp = (Ground*) &gp->gobj, an unusual pointer step that appears evidence-grounded in the matched source.",
+    "Added includes only as needed for newly typed calls and macros, including ft/ftlib.h, pl/player.h, baselib/jobj.h, gr/grdisplay.h, and baselib GObj headers."
   ],
   "review_feedback": [
-    "No PR body was provided.",
-    "No inline review comments were present.",
-    "decomp-dev[bot] reported GALE01 matched code 57.96% (+0.01%, +316 bytes), with two new full matches: `grShrineRoute_8020AD58` (+176 bytes) and `grShrineRoute_8020B020` (+140 bytes).",
-    "decomp-dev[bot] also reported two partial improvements: `grKinokoRoute_8020754C` (+231 bytes, 0.00% to 99.97%) and `main/melee/gr/grkinokoroute` `.data` (+80 bytes, 0.00% to 33.47%).",
-    "There was one empty dismissed review by `ribbanya`; no actionable human feedback or reviewer rationale is available in the slice."
+    "No substantive human review comments were present in the slice; the only review record shown was an empty dismissed review by ribbanya.",
+    "decomp.dev bot reported matched code increased to 57.96% (+0.01%, +316 bytes).",
+    "decomp.dev bot reported two new 100% matches: main/melee/gr/grshrineroute grShrineRoute_8020AD58 (+176 bytes) and grShrineRoute_8020B020 (+140 bytes).",
+    "decomp.dev bot reported improvements, not full matches, for main/melee/gr/grkinokoroute grKinokoRoute_8020754C (+231 bytes, 99.97%) and .data (+80 bytes, 33.47%)."
   ],
   "searchable_terms": [
     "pr-2296",
     "PsiLupan",
-    "grmatches",
-    "Shrineroute",
-    "Kinokoroute",
+    "gr Shrineroute and Kinokoroute matches",
+    "grshrineroute",
+    "grkinokoroute",
     "grShrineRoute_8020AD58",
     "grShrineRoute_8020B020",
     "grKinokoRoute_8020754C",
-    "grNKr_803E57F0",
-    "StageCallbacks",
     "Ground_GetStageGObj",
     "Ground_801C14D0",
     "HSD_GObj_SetupProc",
     "HSD_GObjProc_8038FD54",
+    "StageCallbacks",
+    "grNKr_803E57F0",
+    "grSh_Route_803E58F0",
     "grShrineroute_GroundVars2",
-    "x108",
-    "CollData",
+    "shrineroute2.x108",
+    "JOBJ_HIDDEN",
+    "HSD_JObjSetFlagsAll",
+    "HSD_JObjClearFlagsAll",
     "Player_GetEntity",
     "Player_GetEntityAtIndex",
     "ftLib_80086BE0",
     "ftLib_8008731C",
-    "JOBJ_HIDDEN",
+    "PAD_STACK",
+    "CollData",
     "GObj_SetupGXLink",
-    "grDisplay_801C5DB0",
-    "grBigBlueRoute_8020C238",
-    "data:string",
-    "GALE01 symbols.txt",
-    "matched code +316 bytes"
+    "grDisplay_801C5DB0"
   ],
   "follow_up_queries": [
-    "Why does `grKinokoRoute_8020754C` remain at 99.97% after this PR, and what small codegen/detail prevents 100%?",
-    "Search remaining stage route constructors for the same `StageCallbacks` setup pattern used by `grKinokoRoute_8020754C`.",
-    "Audit stage-specific ground-vars structs for padding that should become typed GObj/JObj/LObj fields like `grShrineroute_GroundVars2.x108`.",
-    "Check downstream branches or old workspaces for lingering `Ground_801C14D0` and `HSD_GObjProc_8038FD54` names.",
-    "When cherry-picking, separate the semantic stage/proc renames from large formatting-only hunks in `gm_18A5.c`, `groldyoshi.c`, `grzebes.c`, and `tyfigupon.c`."
+    "Find other route-stage setup functions still using address-based names around StageCallbacks and Ground_GetStageGObj.",
+    "Investigate why grKinokoRoute_8020754C remained at 99.97% instead of a full match.",
+    "Search for remaining HSD_GObjProc_8038FD54 or Ground_801C14D0 references after this rename.",
+    "Refine the semantics of grShrineroute_GroundVars2.x108 and the xCA/xCC flags set by grShrineRoute_8020AD58.",
+    "Audit grBb_Route_803E623C and neighboring route data now that it is marked data:string."
   ],
-  "confidence": 0.86
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

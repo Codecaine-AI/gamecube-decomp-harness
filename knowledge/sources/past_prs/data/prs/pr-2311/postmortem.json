@@ -11,19 +11,20 @@
     "merged_at": "2026-03-16T22:58:04Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Mechanical clang-format cleanup merged across 36 files, mainly ground/stage sources plus small effect and menu touches. The diff reorders includes, wraps or unwraps long lines, reformats repeated initializer entries, and adjusts comments/prototypes without evidence of semantic logic changes. No PR body, review comments, or issue comments were present in the slice.",
+  "summary": "Mechanical formatting-only PR that ran clang-format across 36 files, mostly stage/ground source files plus one effect file and one header. Changes normalized include ordering, wrapped or unwrapped long lines according to project formatting, and standardized many repeated OSReport call layouts in stage object creation helpers. There were no PR body notes, review comments, or explicit reviewer feedback in the provided slice.",
   "change_classification": {
-    "primary_type": "formatting_cleanup",
+    "primary_type": "formatting",
     "categories": [
       "cleanup",
-      "formatting",
+      "clang-format",
       "headers",
-      "non_semantic_churn"
+      "include-order",
+      "no-behavior-change"
     ],
     "systems": [
       "effect",
-      "stage",
       "ground",
+      "stage",
       "menu"
     ]
   },
@@ -38,12 +39,12 @@
     "src/melee/gr/grpushon.h",
     "src/melee/gr/grshrine.c",
     "src/melee/gr/grstory.c",
+    "src/melee/gr/grtest.c",
     "src/melee/gr/grtcaptain.c",
     "src/melee/gr/grtclink.c",
     "src/melee/gr/grtdonkey.c",
     "src/melee/gr/grtdrmario.c",
     "src/melee/gr/grtemblem.c",
-    "src/melee/gr/grtest.c",
     "src/melee/gr/grtfox.c",
     "src/melee/gr/grtgamewatch.c",
     "src/melee/gr/grtganon.c",
@@ -66,59 +67,59 @@
     "src/melee/mn/mnruleplus.c"
   ],
   "what_changed": [
-    "Ran clang-format over 36 files with 48 added and 78 deleted lines.",
-    "Reflowed many ground/stage OSReport calls for failed HSD_GObj allocation from split argument lists into one-line calls when they fit, preserving message strings and arguments.",
-    "Sorted or regrouped include blocks in several ground files, including moving gr/grzakogenerator.h before gr/inlines.h and placing <dolphin/os/OSError.h> before baselib includes in touched files.",
-    "Moved \"sysdolphin/baselib/lobj.h\" into the quoted include block in src/melee/gr/grpushon.c.",
-    "Wrapped a long commented-out efSpecial_SpawnSpecial/va_arg line in efSync_Spawn.",
-    "Wrapped the long fn_802190A0 declaration in src/melee/gr/grpushon.h while preserving parameter order and the address comment.",
-    "Condensed repeated zero AnimLoopSettings initializers in mn_803ED294 in src/melee/mn/mnruleplus.c."
+    "Ran clang-format over a broad set of touched files: 36 files with 48 added lines and 78 deleted lines.",
+    "Normalized include ordering in multiple ground/stage files, for example moving <dolphin/os/OSError.h> before baselib includes in grgarden.c, grstory.c, grtclink.c, grtest.c, grtgamewatch.c, grtganon.c, grtpikachu.c, and grtpurin.c.",
+    "Adjusted local project include ordering in several figure and target-test stage files, for example placing \"gr/grzakogenerator.h\" before \"gr/inlines.h\" in grfigure2.c, grfigure3.c, grshrine.c, grtkoopa.c, grtmars.c, and grtness.c.",
+    "Collapsed many two-line OSReport calls into one line where they fit, especially repeated stage object allocation failure messages like \"couldn t get gobj(id=%d)\" in grfigure*.c, grgarden.c, grstory.c, and many grt*.c files.",
+    "Wrapped long declarations/comments when they exceeded format width, including the fn_802190A0 prototype in grpushon.h and a commented efSpecial_SpawnSpecial call in efsync.c.",
+    "Moved \"sysdolphin/baselib/lobj.h\" in grpushon.c from the external include block into the quoted project include group."
   ],
   "smart_moves": [
-    "Kept formatting-only churn isolated in a dedicated PR, making the change quick to inspect and reducing noise for later semantic decompilation work.",
-    "Applied the formatter consistently across related stage factory files, normalizing repeated OSReport/Ground_SetupStageCallbacks patterns.",
-    "Preserved existing symbols, comments with address labels, string literals, and function call arguments; the diff evidence points to style-only edits.",
-    "Used clang-format to settle include-order and line-wrapping questions mechanically instead of relying on one-off manual formatting."
+    "Kept the PR narrowly scoped to formatting, which reduces review risk and avoids mixing style churn with matching or semantic changes.",
+    "Applied formatting consistently across repeated ground/stage boilerplate, making future diffs in these files less noisy.",
+    "Let clang-format determine line wrapping for both active code and comments, avoiding hand-tuned inconsistent style in near-identical stage constructors.",
+    "Preserved existing symbols, function names, literals, line-number constants, and behavior while cleaning presentation."
   ],
   "decomp_lessons": [
-    "Separate clang-format churn from matching or naming PRs so reviewers can distinguish mechanical whitespace/include changes from decompilation logic.",
-    "Do not infer semantic meaning from line breaks in OSReport calls, long prototypes, initializer lists, or comments; clang-format may reflow them automatically.",
-    "When touching stage files, expect repeated factory helpers around HSD_GObj creation and Ground_SetupStageCallbacks to be formatted consistently.",
-    "Header declarations with address comments, such as fn_802190A0 in grpushon.h, can be wrapped by clang-format while retaining the address annotation and signature.",
-    "Include ordering is part of the project style; future PRs should run the formatter rather than hand-sorting touched include blocks."
+    "Formatting-only PRs are useful cleanup checkpoints in decomp projects because they reduce future mechanical diff noise without changing matching logic.",
+    "Run clang-format before or after large batches of stage boilerplate edits so future functional PRs can focus on codegen-relevant changes.",
+    "Include grouping matters: clang-format may reorder headers within the project's configured categories, so future edits should follow the formatted ordering rather than local ad hoc ordering.",
+    "For repeated OSReport failure paths in ground/stage gobj creation helpers, prefer the project formatter's one-line call when arguments fit; do not manually split unless required by line length.",
+    "Long function prototypes in headers, such as callbacks or helpers taking Ground, CollData, mpLib_GroundEnum, and f32 parameters, should be left to clang-format's continuation indentation."
   ],
   "naming_conventions": [
-    "No new naming convention was introduced by this PR.",
-    "Existing prefixes were preserved: efSync_/efAsync_/efSpecial_/efLib_ for effect code, grFigure*/grT*/grPushOn_ for ground/stage code, and mn_803ED* for menu data symbols.",
-    "Existing decomp address-style names and comments were retained, including fn_802190A0 and grPushOn_80218ED0-style declarations.",
-    "The PR did not normalize parameter names; existing names such as gobj_id, arg0, id, and index remained as they were in their respective files."
+    "No new naming conventions were introduced.",
+    "Existing address-suffixed decomp names were preserved, such as grFigure1_8020E080, grGarden_80202C78, grStory_801E30D8, grPushOn_80218ED0, fn_802190A0, and many grT* stage helper names.",
+    "Existing subsystem prefixes were preserved: efSync_/efSpecial_/efAsync_ for effects, gr*/Ground_* for stage and ground code, and mn* for menu code."
   ],
   "assembly_or_matching_tactics": [
-    "No assembly matching tactic or code-generation strategy was documented in the PR slice.",
-    "The useful matching workflow lesson is procedural: land formatter-only changes separately so future matching diffs are not polluted by clang-format output.",
-    "Because this is a formatting PR, future reuse should be limited to style baselining and diff hygiene, not inferred compiler-behavior fixes."
+    "No assembly or code-matching tactic is directly evidenced beyond mechanical formatting.",
+    "The PR appears intended to be behavior-neutral; it only changes whitespace, include order, and line wrapping in the provided diff excerpt.",
+    "Future matching work should avoid treating this PR as evidence for semantic changes in efSync_Spawn, Ground_SetupStageCallbacks, OSReport error paths, or stage callback behavior."
   ],
   "review_feedback": [
-    "No issue comments, review comments, reviews, or PR body text were present in the provided slice.",
-    "Merged within minutes, suggesting the repository accepted this as mechanical formatting cleanup; no explicit reviewer rationale is available."
+    "No issue comments, review comments, review records, or PR body text were present in the provided context.",
+    "No explicit reviewer rationale or requested changes are available for this PR."
   ],
   "searchable_terms": [
-    "pr-2311",
+    "PR2311",
     "clang-format",
-    "formatting cleanup",
+    "formatting",
+    "cleanup",
     "include order",
     "OSReport",
-    "OSError.h",
-    "HSD_GObj",
+    "couldn t get gobj",
     "Ground_SetupStageCallbacks",
     "StageCallbacks",
     "efSync_Spawn",
     "efSpecial_SpawnSpecial",
-    "va_arg",
+    "efAsync_80063930",
     "grPushOn_80218ED0",
     "fn_802190A0",
-    "AnimLoopSettings",
-    "mn_803ED294",
+    "mpLib_GroundEnum",
+    "CollData",
+    "HSD_GObj",
+    "HSD_LObj",
     "grfigure1",
     "grfigure2",
     "grfigure3",
@@ -128,6 +129,7 @@
     "grshrine",
     "grstory",
     "grtest",
+    "target test stages",
     "grtcaptain",
     "grtclink",
     "grtdonkey",
@@ -155,10 +157,18 @@
     "mnruleplus"
   ],
   "follow_up_queries": [
-    "git log -- src/melee/gr src/melee/ef src/melee/mn after PR 2311 to find semantic changes that used this formatting baseline",
-    "grep for OSReport(\"%s:%d: couldn t get gobj in src/melee/gr to compare remaining stage factory formatting patterns",
-    "review .clang-format include category rules before manually changing <dolphin/os/OSError.h>, baselib, or sysdolphin include order",
-    "search future PRs for mixed clang-format churn plus matching changes to identify review-risk patterns"
+    "Find later PRs that modify these same grt*.c stage object creation helpers after clang-format cleanup.",
+    "Search for future functional changes to efSync_Spawn near the commented efSpecial_SpawnSpecial varargs call.",
+    "Check whether include ordering changes from clang-format affected any subsequent header dependency cleanup.",
+    "Look for repository clang-format configuration changes around March 2026 if formatting behavior appears inconsistent with older PRs."
   ],
-  "confidence": 0.94
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

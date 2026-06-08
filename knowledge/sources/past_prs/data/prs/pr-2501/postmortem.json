@@ -11,112 +11,112 @@
     "merged_at": "2026-05-15T16:27:50Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Improved matching in src/melee/lb/lbshadow.c for lbShadow_8000E9F0 and lbShadow_8000F38C. The PR adjusted spline parameter handling and tangent math, replaced a sqrtf call with a file-local __frsqrte-based helper, and made several variable lifetime/order changes to improve shadow update codegen. Automated decomp.dev reported lbShadow_8000E9F0 improving from 93.27% to 95.81% and lbShadow_8000F38C from 99.15% to 99.70%.",
+  "summary": "Improved matching for lbshadow spline tangent and shadow update code in src/melee/lb/lbshadow.c. The PR body reports lbShadow_8000E9F0 improved to 95.80645% and lbShadow_8000F38C to 99.69586%, verified with configure/ninja and checkdiff on both functions.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "math-codegen",
-      "stack-register-shaping",
-      "tooling-verification"
+      "math-intrinsics",
+      "stack-layout",
+      "local-variable-lifetime",
+      "library"
     ],
     "systems": [
-      "library",
       "lb",
       "lbshadow",
+      "library",
       "shadow",
       "spline"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/lb/lbshadow.c",
-      "reason": "Only changed file; contains matching improvements for lbShadow_8000E9F0 spline tangent code and lbShadow_8000F38C shadow update code."
-    }
+    "src/melee/lb/lbshadow.c"
   ],
   "what_changed": [
-    "In lbShadow_8000E9F0, preserved the original spline parameter as orig_u before scaling u by spline->numcv - 1, then used orig_u for the exact endpoint check against 1.0F.",
-    "In lbShadow_8000E9F0, changed the scaled-parameter flow from t = u * (...) to mutating u, deriving idx from u, and computing t as the fractional remainder.",
-    "In the spline type 1 tangent math, reordered and algebraically rewrote bez1 from -((4.0F * t) - 1.0F) to 1.0F - (4.0F * t), with t2 computed first.",
-    "Added static inline f32 lbShadow_Sqrtf(f32 x), using __frsqrte on a f64 cast, three Newton-style refinement steps with f64 half/three constants, a volatile f32 y, and a local u8 padding array.",
-    "Replaced the guarded sqrtf(dist) block in lbShadow_8000F38C with dist = lbShadow_Sqrtf(dist).",
-    "Adjusted lbShadow_8000F38C local declarations by hoisting nextGx, hasObj, i, and shadow2 to the function-scope local block.",
-    "Reduced PAD_STACK in lbShadow_8000F38C from 0x48 to 0x10.",
-    "Changed several code-shaping details in lbShadow_8000F38C: reusing nextGx instead of declaring it inside the GX link loop, assigning upVec.x before upVec.y, splitting the HSD_JObj cast into a jobj local before HSD_ShadowAddObject, and reusing hoisted shadow2 and i locals."
+    "In lbShadow_8000E9F0, preserved the original spline parameter in a new orig_u local before scaling u by spline->numcv - 1, then used orig_u for the exact 1.0F endpoint check.",
+    "In lbShadow_8000E9F0, rewrote the Bezier tangent coefficient expression from -((4.0F * t) - 1.0F) to 1.0F - (4.0F * t), an algebraically equivalent form chosen for codegen.",
+    "Added a static inline lbShadow_Sqrtf helper that uses __frsqrte plus three Newton-Raphson refinement steps, volatile f32 storage, static f64 constants, and a local 0x38-byte initialized stack buffer.",
+    "Replaced the conditional sqrtf(dist) call in lbShadow_8000F38C with lbShadow_Sqrtf(dist).",
+    "Adjusted lbShadow_8000F38C stack padding from PAD_STACK(0x48) to PAD_STACK(0x10).",
+    "Hoisted several locals in lbShadow_8000F38C, including nextGx, hasObj, i, and shadow2, from inner scopes to the function-level local declaration area.",
+    "Changed a few local assignment patterns in lbShadow_8000F38C, including using a temporary HSD_JObj* jobj before HSD_ShadowAddObject and reusing hoisted shadow2 and i locals.",
+    "Reordered assignment to upVec.x and upVec.y while leaving values unchanged."
   ],
   "smart_moves": [
-    "Kept orig_u separate from scaled u so the endpoint comparison still tests the original normalized spline parameter while allowing the scaled value to drive idx and t, a useful way to match both logic and instruction flow.",
-    "Used algebraic equivalence and statement reordering in the bezier tangent path to influence generated code without changing the apparent math.",
-    "Matched the target sqrt behavior with an inline __frsqrte refinement sequence instead of a library sqrtf call, including volatile/local-stack details that can affect instruction selection and stack layout.",
-    "Hoisted locals out of inner blocks to steer register allocation and stack layout in a nearly matched function.",
-    "Made small ordering changes, such as upVec assignment order and introducing a jobj temporary, which are typical late-stage decomp tactics when semantics are already understood but codegen still differs.",
-    "Documented verification with python configure.py && ninja and tools/checkdiff.py for both touched functions."
+    "Preserving orig_u separately from the scaled u lets the code use the unmodified parameter for the spline endpoint special case while still matching the later index/tangent calculations.",
+    "The custom lbShadow_Sqrtf avoids library sqrtf codegen differences and reproduces the target style using __frsqrte refinement, which is a common matching tactic on PowerPC/GameCube code.",
+    "Hoisting nextGx, hasObj, shadow2, and i out of nested blocks likely helped align stack slot allocation and lifetime with the original binary without changing behavior.",
+    "Small algebraic rewrites and assignment reordering were used as low-risk codegen nudges while keeping the math behavior equivalent.",
+    "The PR included explicit checkdiff commands for both touched functions, giving concrete evidence that the matching changes targeted lbShadow_8000E9F0 and lbShadow_8000F38C specifically."
   ],
   "decomp_lessons": [
-    "For spline code, preserve original normalized parameters when endpoint behavior depends on pre-scaled u; matching may require both original and scaled forms to exist as distinct locals.",
-    "Late-stage matching can hinge on algebraically equivalent expressions and assignment order, not only on larger control-flow structure.",
-    "Do not assume sqrtf calls match the original binary; PowerPC-era code may require explicit __frsqrte plus refinement and float-store behavior to reproduce codegen.",
-    "Variable scope is a matching lever: hoisting a temporary from an inner block to the parent function can alter register allocation enough to improve similarity.",
-    "PAD_STACK values may need to be revisited after adding/removing locals or changing inline math helpers; this PR reduced lbShadow_8000F38C padding from 0x48 to 0x10.",
-    "Use decomp.dev/checkdiff byte and percentage deltas to confirm that small code-shaping edits actually improve the target functions."
+    "When a function scales an input parameter for indexing but later needs to compare the original parameter value, introducing an orig_* local can both clarify intent and improve matchability.",
+    "For math-heavy decompilation, equivalent C expressions can generate different instruction sequences; expression spelling such as 1.0F - 4.0F * t versus a negated parenthesized expression can matter.",
+    "Replacing standard math library calls with local inline helpers using platform intrinsics may be necessary when the original binary used reciprocal-square-root estimate sequences instead of a direct sqrtf call.",
+    "Local variable scope can affect stack layout and register allocation; moving variables to outer scope is a valid matching tactic when behavior remains unchanged.",
+    "PAD_STACK values should be revisited after variable lifetime and helper-function changes because stack layout improvements can reduce or alter manual padding requirements."
   ],
   "naming_conventions": [
-    "Existing unmatched functions keep the project address-style subsystem naming: lbShadow_8000E9F0 and lbShadow_8000F38C.",
-    "The new helper uses the subsystem prefix and math role, lbShadow_Sqrtf, and is static inline because it is a file-local matching helper rather than a known external symbol.",
-    "orig_u clearly names the unscaled spline parameter while u is reused for the scaled segment parameter.",
-    "Temporary names in the diff follow local purpose or existing project style: nextGx for next_gx traversal, hasObj for shadow object state, shadow2 for an additional HSD_Shadow pointer, and jobj for an HSD_JObj cast."
+    "Used orig_u to name the preserved unscaled copy of parameter u.",
+    "Named the local sqrt helper lbShadow_Sqrtf, following the module/function prefix style used by lbShadow symbols.",
+    "Used nextGx for a hoisted copy of lgobj->next_gx.",
+    "Used hasObj as a boolean-like s32 tracking whether any object was added to a shadow.",
+    "Used shadow2 for a second HSD_Shadow* local where the existing shadow local name was unavailable or unsuitable.",
+    "Used jobj for a temporary HSD_JObj* cast from gobj->hsd_obj before passing it to HSD_ShadowAddObject."
   ],
   "assembly_or_matching_tactics": [
-    "Mutate u in place after saving orig_u to change temporary lifetime and likely register use around idx/t calculation.",
-    "Rewrite -((4.0F * t) - 1.0F) as 1.0F - (4.0F * t) and move t2 calculation earlier to affect floating-point instruction ordering.",
-    "Inline a custom sqrt approximation using __frsqrte, f64 constants, repeated refinement, and a volatile f32 store to avoid the prior sqrtf call shape.",
-    "Use a dummy local u8 _[0x38] = { 0 } inside lbShadow_Sqrtf, apparently as a stack/codegen shaper.",
-    "Hoist nextGx, hasObj, i, and shadow2 declarations to the outer local list to influence register allocation and stack layout.",
-    "Introduce HSD_JObj* jobj before HSD_ShadowAddObject rather than casting directly at the call site.",
-    "Reduce PAD_STACK in lbShadow_8000F38C after local and helper changes."
+    "Stored the original u in orig_u before mutating u, then compared orig_u against 1.0F for the endpoint branch.",
+    "Changed algebraic form of Bezier coefficient computation to influence generated floating-point operations.",
+    "Implemented sqrt via __frsqrte and repeated Newton-Raphson refinement rather than relying on sqrtf.",
+    "Used volatile f32 y in lbShadow_Sqrtf to force a float store/load or rounding behavior consistent with target codegen.",
+    "Included static const f64 half and three constants in the sqrt helper, likely to steer constant type and load behavior.",
+    "Inserted a zero-initialized local u8 _[0x38] buffer inside lbShadow_Sqrtf, likely as a deliberate stack/codegen matching pad.",
+    "Reduced PAD_STACK in lbShadow_8000F38C from 0x48 to 0x10 after other stack-shaping changes.",
+    "Hoisted locals from inner scopes to outer scope to adjust lifetime/register allocation."
   ],
   "review_feedback": [
-    "No human review comments were present in the slice.",
-    "The automated decomp.dev report for GALE01 listed two unmatched-item improvements: lbShadow_8000E9F0 gained +22 bytes, 93.27% to 95.81%; lbShadow_8000F38C gained +9 bytes, 99.15% to 99.70%."
+    "No review comments were present in the provided PR slice.",
+    "No explicit reviewer rationale was available beyond the PR body and diff."
   ],
   "searchable_terms": [
     "pr-2501",
-    "lbshadow matching",
-    "src/melee/lb/lbshadow.c",
+    "lbshadow",
     "lbShadow_8000E9F0",
     "lbShadow_8000F38C",
     "lbShadow_Sqrtf",
-    "__frsqrte",
-    "sqrtf",
+    "src/melee/lb/lbshadow.c",
     "HSD_Spline",
     "orig_u",
     "spline tangent",
-    "bez1",
+    "Bezier tangent",
+    "__frsqrte",
+    "sqrtf",
+    "Newton-Raphson",
     "PAD_STACK",
     "HSD_Shadow",
-    "HSD_GObjGXLinkHead",
-    "next_gx",
-    "nextGx",
-    "HSD_LObj",
-    "HSD_JObj",
-    "jobj",
     "HSD_ShadowAddObject",
     "HSD_ShadowDeleteObject",
     "HSD_ViewingRect",
     "HSD_ViewingRectInit",
-    "lbVector_Diff",
-    "lbVector_Normalize",
-    "upVec",
-    "noLight",
+    "HSD_GObjGXLinkHead",
+    "HSD_LObj",
+    "Fighter",
     "Ground_801C0508",
-    "checkdiff",
-    "GALE01"
+    "checkdiff"
   ],
   "follow_up_queries": [
-    "Search for other unmatched sqrtf calls that may need __frsqrte-based inline helpers.",
-    "Continue lbShadow_8000E9F0 matching around HSD_Spline endpoint and tangent calculations.",
-    "Review remaining lbShadow_8000F38C mismatches for variable scope, PAD_STACK, and temporary-cast codegen effects.",
-    "Compare nearby lbshadow functions for repeated shadow update patterns involving HSD_ShadowAddObject, HSD_ShadowDeleteObject, and HSD_ViewingRectInit."
+    "Find other PRs that replace sqrtf with __frsqrte-based inline helpers for PowerPC matching.",
+    "Find lbshadow PRs that adjust PAD_STACK or hoist locals to improve lbShadow_8000F38C.",
+    "Search for uses of orig_u or preserved original parameters in spline interpolation/tangent functions.",
+    "Compare later lbShadow_8000E9F0 and lbShadow_8000F38C matching percentages after this PR."
   ],
-  "confidence": 0.9
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

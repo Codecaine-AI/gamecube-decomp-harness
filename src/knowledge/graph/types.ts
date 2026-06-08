@@ -108,12 +108,27 @@ export interface GraphRankFeature {
   source_path: string;
   editability: "editable" | "read_only_complete" | "locked" | "blocked" | "unknown";
   graph_degree: number;
+  function_graph_degree: number;
   fresh_edges_since_last_attempt: number;
   relevant_pr_count: number;
   review_risk_count: number;
   duplicate_reference_count: number;
   linked_unlock_potential: number;
+  connected_incomplete_function_count: number;
+  connected_matched_reference_count: number;
+  resource_evidence_count: number;
+  tool_finding_count: number;
+  path_fact_count: number;
+  historical_lesson_count: number;
+  curated_signal_count: number;
+  proposal_fact_count: number;
   stale_fact_count: number;
+  information_gain_score: number;
+  unlock_score: number;
+  context_quality_score: number;
+  completion_readiness_score: number;
+  information_value_score: number;
+  risk_penalty: number;
   priority_bonus: number;
   explanation: string[];
 }

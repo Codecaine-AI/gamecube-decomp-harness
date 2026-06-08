@@ -110,6 +110,52 @@ Do not:
 - Move literals out of source without checking `.data`, `.rodata`, `.sdata`, or
   `.sdata2` ownership.
 
+### Do Not Replace String Literals With Data Symbols
+
+Do:
+
+- Keep source string literals inline when they are ordinary asset names, table
+  labels, assert text, report text, or resource names.
+- Treat a string-literal-to-symbol change as data work that needs explicit
+  ownership evidence and PR scope.
+- Prefer the code match that leaves the literal in place when the alternative is
+  only a data-section relocation change.
+
+Do not:
+
+- Replace a literal such as `"MenMainBack_Top_joint"` with a symbol such as
+  `mnNameNew_803EE38C` to chase data parity.
+- Convert strings into named globals because generated output exposed an address
+  or because another data section looks closer.
+- Keep a string-symbol replacement that creates report noise unless the PR is
+  explicitly about data ownership and the evidence explains the tradeoff.
+
+### Match Text Before Chasing Data
+
+Do:
+
+- Treat text-section function progress as the primary acceptance signal for
+  matching PRs.
+- Keep data, literal, symbol, or split edits only when they are required for the
+  claimed code match, backed by section ownership or symbol metadata, or
+  explicitly scoped as data cleanup.
+- Narrow or revert data edits that create noisy report regressions or
+  false-positive section movement when the code match can land without them.
+- Wait until a translation unit's text section is complete before spending broad
+  effort on remaining data sections, unless a data owner issue is blocking the
+  code match.
+
+Do not:
+
+- Chase data-section parity as routine matching work before the translation
+  unit's text section is complete.
+- Add or move static data, literal externs, local assert overrides, fake helpers,
+  fake anchors, or split churn solely to quiet a data diff.
+- Mix a focused code match with unrelated `.sdata`, `.sdata2`, `.rodata`, or
+  symbol cleanup.
+- Retain data changes that create section-regression noise unless the PR is
+  explicitly about data and the evidence explains the tradeoff.
+
 ### Use Canonical Control Flow And Macros
 
 Do:
@@ -202,6 +248,27 @@ Do not:
 - Invent semantic names from guesses.
 - Rename address-style symbols before the source meaning is supported.
 - Leave `temp_rXX`-style names when a clear local role is known.
+
+### Do Not Alias Global Renames With Defines
+
+Do:
+
+- Preserve existing global, data, and extern names unless the rename itself is
+  supported by local source, symbol, map, or review evidence.
+- Keep one canonical declaration for one known data address in the owning scope.
+- Use a real rename only when the evidence supports it and update references
+  directly in the same scoped change.
+
+Do not:
+
+- Add `#define old_name new_name` or `#define new_name old_name` to hide a
+  renamed variable.
+- Keep two extern declarations with different names for the same address-commented
+  data symbol.
+- Rename address-style globals to semantic names because an external mirror,
+  decompiler, or AI output guessed the role.
+- Use a define as an alias to avoid updating call sites or to make a guessed
+  semantic name appear accepted.
 
 ### Keep Headers And Includes Truthful
 

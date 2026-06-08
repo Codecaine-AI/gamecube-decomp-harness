@@ -11,87 +11,67 @@
     "merged_at": "2026-03-08T21:14:22Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched fighter function ft_80083E64 in src/melee/ft/ft_081B.c. The PR replaced a simple ft_800824A0 call plus PAD_STACK(8) with a static inline helper that uses an anonymous stack struct containing an 8-byte pad before a ftCollisionBox, manually updates CollData positions, calls ft_80082838 and mpColl_8004730C, then preserves the callback wrapper behavior. The decomp.dev bot reported ft_80083E64 moving from 99.90% to 100.00%.",
+  "summary": "Matched fighter function ft_80083E64 in src/melee/ft/ft_081B.c by replacing a compact wrapper around ft_800824A0 plus PAD_STACK(8) with an explicit static inline helper that reconstructs the collision-update sequence and uses an anonymous stack struct containing 8 bytes of padding before an ftCollisionBox. The public ft_80083E64 now only calls the callback when the inline helper returns true. The decomp.dev bot reported one new match: main/melee/ft/ft_081B ft_80083E64 moved from 99.90% to 100.00%, with matched code increasing by 292 bytes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "types-structs",
       "stack-layout",
-      "control-flow-preservation"
+      "fighter-collision"
     ],
     "systems": [
-      "fighter",
-      "collision"
+      "fighter"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/ft_081B.c",
-      "role": "Only changed file; matched ft_80083E64 by introducing ft_80083E64_inline and an anonymous stack struct for the local collision box.",
-      "symbols": [
-        "ft_80083E64",
-        "ft_80083E64_inline",
-        "ft_800824A0",
-        "ft_80082838",
-        "mpColl_8004730C",
-        "ft_80081A00"
-      ]
-    }
+    "src/melee/ft/ft_081B.c"
   ],
   "what_changed": [
-    "Changed ft_80083E64 from directly calling ft_800824A0(gobj, ecb), using PAD_STACK(8), and invoking cb(gobj) on the result, into a wrapper around a new static inline bool ft_80083E64_inline(Fighter_GObj* gobj, ftCollisionBox* ecb).",
-    "Added an anonymous local stack struct named sp with u8 pad[8] followed by ftCollisionBox collbox.",
-    "The inline helper now obtains Fighter* fp via GET_FIGHTER(gobj), uses CollData* coll = &fp->coll_data, copies coll->last_pos = coll->cur_pos, updates coll->cur_pos = fp->cur_pos, builds a collision box with ft_80082838(&sp.collbox, ecb, fp->facing_dir), runs mpColl_8004730C(coll, box), and writes fp->cur_pos = coll->cur_pos.",
-    "The helper returns false if ft_80081A00(gobj) is true, otherwise returns true only when the mpColl_8004730C result stored in temp_r31 is true.",
-    "The public ft_80083E64 signature and callback behavior remain: cb(gobj) is called only when ft_80083E64_inline returns true."
+    "Changed ft_80083E64 from directly computing bool do_cb = ft_800824A0(gobj, ecb), using PAD_STACK(8), and conditionally calling cb(gobj), into a wrapper around a new static inline bool ft_80083E64_inline(Fighter_GObj* gobj, ftCollisionBox* ecb).",
+    "The new inline helper declares an anonymous local stack struct with u8 pad[8] followed by ftCollisionBox collbox, replacing the prior PAD_STACK(8) approach.",
+    "The helper explicitly performs the collision-position update sequence: obtains Fighter* via GET_FIGHTER(gobj), uses CollData* coll = &fp->coll_data, assigns coll->last_pos = coll->cur_pos, assigns coll->cur_pos = fp->cur_pos, builds a facing-adjusted collision box via ft_80082838(&sp.collbox, ecb, fp->facing_dir), calls mpColl_8004730C(coll, box), writes fp->cur_pos = coll->cur_pos, then checks ft_80081A00(gobj).",
+    "The callback behavior remains at the ft_80083E64 boundary: cb(gobj) is called only if ft_80083E64_inline returns true.",
+    "The PR body says several approaches were tried, including pad stack macros, but the anonymous struct approach was the one that produced a 100% match."
   ],
   "smart_moves": [
-    "Used a typed anonymous stack struct with an explicit 8-byte pad before ftCollisionBox; the PR body says pad stack macros were tried, but only this anonymous struct approach produced a 100% match.",
-    "Separated the matching-sensitive logic into a static inline helper while preserving the public HSD_GObjEvent callback wrapper, giving the compiler a different inlining/register-allocation shape without changing the externally visible function signature.",
-    "Kept an explicit temp_r31 boolean and branchy true/false return sequence instead of simplifying to a direct boolean return, which is a common decomp tactic for preserving register lifetime and emitted control flow.",
-    "Expanded the collision-position update sequence directly in ft_80083E64_inline rather than relying on the previous ft_800824A0 wrapper call, allowing this caller to match exactly."
+    "Expanded the previously abstracted ft_800824A0 call into the exact operations needed for ft_80083E64, which gave the compiler more faithful local-variable and stack-layout behavior for this callsite.",
+    "Used a local anonymous struct to force 8 bytes of stack padding immediately before the ftCollisionBox local, preserving a specific stack arrangement that PAD_STACK(8) did not match here.",
+    "Kept the matched reconstruction isolated in a static inline helper, allowing ft_80083E64 itself to stay semantically simple as the callback gate while still producing the target code shape.",
+    "Stored the mpColl_8004730C result in a bool named temp_r31 and checked ft_80081A00 before returning it, reflecting the apparent register/lifetime constraint needed for matching."
   ],
   "decomp_lessons": [
-    "When PAD_STACK(n) alone fails to reproduce a stack layout, consider a local anonymous struct that places padding and the real local object in one typed aggregate; this can force the local object's offset relative to the padding.",
-    "For fighter collision code, preserve the observed ordering of position synchronization: update CollData last_pos and cur_pos, build the facing-adjusted ftCollisionBox, run mpColl, write back fp->cur_pos, then run the ft_80081A00 gate.",
-    "A small static inline helper can be useful when a public callback function needs to keep its signature but the matching body needs a different codegen shape.",
-    "Do not over-clean branchy boolean code during matching; explicit temporaries such as temp_r31 and if/return chains may be required for a 100% match."
+    "When PAD_STACK macros do not yield the required stack layout, an anonymous local struct can be a more precise way to anchor padding and a typed local object together.",
+    "For small wrapper-like functions, matching may require inlining or locally re-expressing a callee's logic rather than relying on an existing helper call, even if the higher-level behavior is equivalent.",
+    "Collision code around Fighter::coll_data is sensitive to ordering: update last_pos, set cur_pos from fp->cur_pos, build the collision box using facing_dir, call mpColl_8004730C, then copy coll->cur_pos back to fp->cur_pos.",
+    "A static inline helper can be a practical tactic for shaping generated code while preserving the exported function signature and callback-facing control flow.",
+    "The evidence for intent is mostly from the PR body and diff; there were no human review comments explaining broader style preferences."
   ],
   "naming_conventions": [
-    "Address-based unknown symbol naming was retained: ft_80083E64.",
-    "The new helper followed the local convention of suffixing the target function name with _inline: ft_80083E64_inline.",
-    "Fighter locals used common short names: fp for Fighter*, coll for CollData*, box for ftCollisionBox*.",
-    "The register-shaped temporary name temp_r31 was kept, signaling a matching-oriented local tied to register/lifetime behavior.",
-    "Existing project types and macros were used without renaming: Fighter_GObj, ftCollisionBox, HSD_GObjEvent, GET_FIGHTER, CollData."
+    "New helper followed the local-address function naming style with suffix: ft_80083E64_inline.",
+    "Temporary register-sensitive boolean was named temp_r31, matching a common decomp convention for values believed to live in a specific register.",
+    "Local pointers used short subsystem names already common in the fighter code: fp for Fighter*, coll for CollData*, box for ftCollisionBox*.",
+    "The local anonymous stack-struct instance was named sp, making its role as stack storage explicit."
   ],
   "assembly_or_matching_tactics": [
-    "Anonymous stack struct tactic: struct { u8 pad[8]; ftCollisionBox collbox; } sp; placed the ftCollisionBox after exactly 8 bytes of local padding.",
-    "The author explicitly reported that Codex tried multiple approaches, including PAD_STACK macros, and that the anonymous struct was the only approach that produced a 100% match.",
-    "Inlining tactic: new static inline bool helper lets the collision logic appear in the generated code shape while the outer function remains a small callback dispatcher.",
-    "Control-flow tactic: preserve explicit if (ft_80081A00(gobj)) return false; if (temp_r31) return true; return false; rather than simplifying the boolean expression.",
-    "Bot evidence: decomp.dev reported one new match for main/melee/ft/ft_081B item ft_80083E64, from 99.90% before to 100.00% after."
+    "Replace PAD_STACK(8) with an anonymous struct containing u8 pad[8] and ftCollisionBox collbox to control local stack layout.",
+    "Use static inline to encourage the compiler to emit the helper body in the desired context while leaving ft_80083E64 as a small callback wrapper.",
+    "Preserve value lifetime by assigning mpColl_8004730C(coll, box) into temp_r31 before calling ft_80081A00(gobj), then returning false if ft_80081A00 succeeds and true only if temp_r31 is true.",
+    "Use &sp.collbox as the destination object passed to ft_80082838 so the stack-local ftCollisionBox is materialized in the expected location.",
+    "Decomp.dev reported the tactic achieved a new 100.00% match for ft_80083E64 in main/melee/ft/ft_081B."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the provided slice.",
-    "Author note: this was an experiment using Codex with GPT 5.4 and the author said they would understand if the change was unwanted.",
-    "Author note: several matching approaches were tried, including pad stack macros; only the anonymous struct approach matched.",
-    "decomp.dev bot report for GALE01: matched code increased by 0.01% and +292 bytes, with ft_80083E64 reaching 100.00%."
+    "No human review comments were present in the PR slice.",
+    "The PR author noted this was generated/tested while trying Codex with GPT 5.4 and said the anonymous struct approach was the only attempted approach that produced a 100% match.",
+    "The decomp.dev bot reported matched code increased to 55.47% overall, +292 bytes, with ft_80083E64 moving from 99.90% to 100.00%."
   ],
   "searchable_terms": [
-    "pr-2240",
-    "Match ft_80083E64",
-    "hourianto",
-    "src/melee/ft/ft_081B.c",
     "ft_80083E64",
     "ft_80083E64_inline",
-    "ft_800824A0",
-    "PAD_STACK(8)",
-    "anonymous struct",
-    "u8 pad[8]",
-    "ftCollisionBox",
-    "collbox",
+    "ft_081B.c",
+    "src/melee/ft/ft_081B.c",
     "Fighter_GObj",
+    "ftCollisionBox",
     "HSD_GObjEvent",
     "GET_FIGHTER",
     "Fighter",
@@ -103,22 +83,30 @@
     "ft_80082838",
     "mpColl_8004730C",
     "ft_80081A00",
+    "ft_800824A0",
+    "PAD_STACK",
+    "anonymous struct",
+    "u8 pad[8]",
     "temp_r31",
-    "callback",
-    "cb(gobj)",
-    "Codex",
-    "GPT 5.4",
+    "fighter collision",
+    "stack layout",
+    "100% match",
     "GALE01",
-    "decomp-dev",
-    "99.90%",
-    "100.00%",
-    "+292 bytes"
+    "Codex"
   ],
   "follow_up_queries": [
-    "Find other fighter collision callback wrappers around ft_800824A0 that are close to matching and may need an inline expansion plus stack-struct local.",
-    "Search for PAD_STACK uses near ftCollisionBox locals where an anonymous struct with explicit padding could improve stack layout matching.",
-    "Compare ft_80083E64_inline's collision-position sequence against nearby ft_081B functions to identify shared behavior or future named helpers once more functions are understood.",
-    "Look for other PRs mentioning temp_r31 or register-named boolean temporaries to collect patterns for preserving branch/register lifetimes."
+    "Find other fighter collision functions using PAD_STACK near ftCollisionBox locals that may need anonymous struct stack layout.",
+    "Search for ft_800824A0 callsites that are nearly matching and may require explicit inlined collision-position logic.",
+    "Compare ft_80083E64_inline against neighboring ft_081B.c functions for reusable CollData update patterns.",
+    "Look for temp_r31 boolean lifetimes around collision callbacks where a call to ft_80081A00 occurs before callback dispatch."
   ],
-  "confidence": 0.9
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

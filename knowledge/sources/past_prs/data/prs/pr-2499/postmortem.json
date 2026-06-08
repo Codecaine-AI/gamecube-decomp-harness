@@ -11,16 +11,15 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed, unmerged PR that improved lbarq decompilation by giving the ARQ node pool and state machine concrete types, replacing magic state/list indices with named enum values, and applying targeted matching controls such as scoped dont_inline and PAD_STACK. The PR body reported 100% matches for lbArq_80014ABC and lbArq_80014D2C, with lbArq_80014AC4 and lbArq_80014BD0 still partially drifting; the automated decomp.dev report confirmed lbArq_80014BD0 improved from 93.97% to 96.55%.",
+  "summary": "Unmerged PR improving lbArq decompilation quality by replacing opaque global padding with a concrete 10-node ARQ pool, adding typed ARQ node states, and adjusting codegen for several lbarq functions. The PR reported 100% matches for lbArq_80014ABC and lbArq_80014D2C, with lbArq_80014AC4 and lbArq_80014BD0 still slightly drifting due to list-address calculation order, saved-register allocation, and an extra move around the free-list head.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
+      "cleanup",
       "decomp-matching",
-      "types-structs",
       "headers",
       "naming",
-      "cleanup",
-      "verification"
+      "types-structs"
     ],
     "systems": [
       "library",
@@ -30,73 +29,60 @@
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/lb/lbarq.c",
-      "role": "Implementation changes for lbarq state transitions, node-pool initialization, matching pragmas, and stack padding."
-    },
-    {
-      "path": "src/melee/lb/lbarq.h",
-      "role": "Header changes adding lbArqState, typing lbArqNode.state, and replacing lbArqGlobal opaque padding with nodes[10]."
-    }
+    "src/melee/lb/lbarq.c",
+    "src/melee/lb/lbarq.h"
   ],
   "what_changed": [
-    "Added typedef enum lbArqState with LB_ARQ_STATE_FREE = 0, LB_ARQ_STATE_PENDING = 1, and LB_ARQ_STATE_DONE = 2.",
-    "Changed lbArqNode.state from u32 to lbArqState and changed lbArq_80014ABC to return lbArqState instead of u32.",
-    "Replaced lbArqGlobal's opaque u8 pad[0x1E0] with lbArqNode nodes[10], while keeping list[3] at offset 0x1E0.",
-    "Updated lbArq_80014AC4, lbArq_80014BD0, and lbArq_80014D2C to use LB_ARQ_STATE_* constants instead of raw list/state values 0, 1, and 2.",
-    "Updated lbArq_80014D2C initialization to use global->nodes instead of casting the global object to lbArqNode*.",
-    "Wrapped lbArq_80014ABC in scoped #pragma push / #pragma dont_inline on / #pragma pop to keep the helper out-of-line.",
-    "Added PAD_STACK(16) in lbArq_80014BD0 to improve stack/codegen matching.",
-    "Reported matching results: lbArq_80014ABC 100%, lbArq_80014D2C 100%, lbArq_80014AC4 96.9403%, and lbArq_80014BD0 96.55173%."
+    "Added enum lbArqState with LB_ARQ_STATE_FREE, LB_ARQ_STATE_PENDING, and LB_ARQ_STATE_DONE values replacing raw state constants 0, 1, and 2.",
+    "Changed lbArqNode::state from u32 to lbArqState and changed lbArq_80014ABC to return lbArqState.",
+    "Replaced lbArqGlobal's opaque u8 pad[0x1E0] with lbArqNode nodes[10], preserving the list array at offset 0x1E0.",
+    "Updated list indexing in lbarq.c to use LB_ARQ_STATE_FREE, LB_ARQ_STATE_PENDING, and LB_ARQ_STATE_DONE instead of numeric indices.",
+    "Changed lbArq_80014D2C initialization from casting the global struct to lbArqNode* to using global->nodes directly.",
+    "Added #pragma dont_inline around lbArq_80014ABC to keep the trivial state accessor out-of-line.",
+    "Added PAD_STACK(16) in lbArq_80014BD0 and retained PAD_STACK(8) in lbArq_80014D2C to influence stack/codegen matching.",
+    "Kept the free, pending, and done list behavior intact while making the queue state transitions more explicit."
   ],
   "smart_moves": [
-    "Replacing opaque global padding with a real 10-node lbArqNode pool improved type knowledge without changing the documented offset of the list array.",
-    "Using enum constants preserved the verified numeric state values while making the relationship between node state and global->list indexing explicit.",
-    "The scoped dont_inline pragma was narrowly applied to lbArq_80014ABC, avoiding a broad compiler-behavior change while preserving the intended out-of-line call pattern.",
-    "PAD_STACK(16) was used as a localized matching knob in lbArq_80014BD0 after structural cleanup, rather than obscuring the logic.",
-    "The PR documented both successful matches and remaining drift causes, making future work easier to target."
+    "The enum both documents the verified state meanings and improves matching readability without changing the underlying integer values used for list indexing.",
+    "Modeling the lbArq global as nodes[10] plus list[3] removes misleading padding while preserving the observed 0x1E0 boundary for the list array.",
+    "Using the enum constants as list indices captures the apparent design where a node's state corresponds directly to its list slot.",
+    "The dont_inline pragma on lbArq_80014ABC is a precise codegen control for a tiny accessor that the compiler might otherwise inline.",
+    "The stack padding in lbArq_80014BD0 is an explicit matching tactic aimed at improving generated stack/register layout.",
+    "The PR documented per-function checkdiff percentages and the specific remaining causes of drift, making the partial-match status reusable for future work."
   ],
   "decomp_lessons": [
-    "When a padded global is understood, replace the padding with concrete arrays or structs while preserving offset comments and layout constraints.",
-    "If a state value doubles as a list index, encode the exact numeric values in an enum so the semantics are clearer and codegen can stay equivalent.",
-    "Use scoped pragmas such as #pragma push/#pragma dont_inline/#pragma pop when a small helper must remain out-of-line for matching.",
-    "PAD_STACK can be useful for stack/codegen tuning, but remaining drift should still be documented rather than hidden.",
-    "Function-by-function checkdiff output is valuable context: here it separated fully matched helpers from lbArq_80014AC4 and lbArq_80014BD0, which still had known drift.",
-    "Because this PR was closed unmerged and has no human review comments in the slice, treat it as useful matching evidence rather than accepted final project state."
+    "When a global starts as opaque padding but is immediately treated as an array of nodes, promote it to a concrete typed pool once offsets support the layout.",
+    "If state values double as list indices, prefer an enum with exact numeric values over raw integer comments such as list[2].",
+    "Small accessors may need #pragma dont_inline to match retail code shape, especially when call sites spin on the accessor result.",
+    "PAD_STACK can be used deliberately to affect stack frame/codegen in stubborn partial matches, but the evidence should be tied to checkdiff output.",
+    "For queue/list decompilation, naming the state transitions can make callback completion, synchronous wait, and free-list return logic much easier to audit.",
+    "Partial matches are still valuable when the PR records the precise remaining mismatch type, such as address-calculation order or saved-register allocation."
   ],
   "naming_conventions": [
-    "New enum type uses project-style mixed-case typedef naming: lbArqState.",
-    "Enum constants use uppercase subsystem-prefixed names: LB_ARQ_STATE_FREE, LB_ARQ_STATE_PENDING, LB_ARQ_STATE_DONE.",
-    "Existing address-based symbol names were retained for unmatched/unnamed functions and globals, such as lbArq_80014ABC and lbArq_804316C0.",
-    "Struct fields use lower_snake_case for descriptive members such as callback_arg, while short established fields like next, state, arq, nodes, and list remain simple.",
-    "Comments were simplified from explicit list indices, such as list[2], to semantic names like Add to done list once enum constants represented the indices."
+    "State enum type: lbArqState.",
+    "State constants use subsystem-prefixed uppercase names: LB_ARQ_STATE_FREE, LB_ARQ_STATE_PENDING, LB_ARQ_STATE_DONE.",
+    "Node pool field is named nodes in lbArqGlobal.",
+    "Existing symbol names remain address-based for unknown library functions: lbArq_80014ABC, lbArq_80014AC4, lbArq_80014BD0, lbArq_80014D2C, lbArq_804316C0.",
+    "Callback typedef remains lbArqCallback and callback argument field remains callback_arg."
   ],
   "assembly_or_matching_tactics": [
-    "Applied #pragma dont_inline specifically to lbArq_80014ABC to keep a small state getter emitted as a callable function.",
-    "Inserted PAD_STACK(16) in lbArq_80014BD0 to improve stack/codegen matching.",
-    "Kept PAD_STACK(8) in lbArq_80014D2C while changing initialization to use global->nodes.",
-    "Preserved enum values 0, 1, and 2 so replacements for raw list indices should not change state/list semantics.",
-    "Verified with python tools/checkdiff.py for lbArq_80014ABC, lbArq_80014AC4, lbArq_80014BD0, and lbArq_80014D2C, plus python configure.py && ninja.",
-    "Remaining documented drift: lbArq_80014AC4 had one first-list address calculation order issue; lbArq_80014BD0 had saved-register allocation drift plus one extra move around the free-list head."
+    "#pragma push / #pragma dont_inline on / #pragma pop was used to keep lbArq_80014ABC emitted out-of-line.",
+    "PAD_STACK(16) was inserted in lbArq_80014BD0 to improve stack/codegen behavior.",
+    "The PR reported checkdiff verification for lbArq_80014ABC, lbArq_80014AC4, lbArq_80014BD0, and lbArq_80014D2C.",
+    "Reported full matches: lbArq_80014ABC at 100% and lbArq_80014D2C at 100%.",
+    "Reported near matches: lbArq_80014AC4 at 96.9403% with remaining drift in first-list address calculation order; lbArq_80014BD0 at 96.55173% with remaining drift in saved-register allocation plus one extra move around the free-list head.",
+    "Using global->nodes instead of casting the global to lbArqNode* made the concrete pool layout explicit while retaining the intended initialization sequence."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the provided slice.",
-    "Automated decomp.dev report for GALE01 showed one unmatched-item improvement: main/melee/lb/lbarq lbArq_80014BD0 improved by +10 bytes, from 93.97% before to 96.55% after.",
-    "PR was closed without merge, so downstream reuse should verify whether the same changes landed in a later PR."
+    "No review comments were present in the provided PR slice.",
+    "The PR was closed without a merge timestamp, so the proposed changes should be treated as unmerged evidence rather than accepted project state."
   ],
   "searchable_terms": [
     "pr-2499",
+    "lb: improve lbarq matching",
     "itsgrimetime",
-    "lb",
     "lbarq",
-    "lbarq matching",
-    "src/melee/lb/lbarq.c",
-    "src/melee/lb/lbarq.h",
-    "lbArq_80014ABC",
-    "lbArq_80014AC4",
-    "lbArq_80014BD0",
-    "lbArq_80014D2C",
-    "lbArq_804316C0",
+    "lbArq",
     "lbArqState",
     "LB_ARQ_STATE_FREE",
     "LB_ARQ_STATE_PENDING",
@@ -105,6 +91,11 @@
     "lbArqGlobal",
     "lbArqHandle",
     "lbArqCallback",
+    "lbArq_80014ABC",
+    "lbArq_80014AC4",
+    "lbArq_80014BD0",
+    "lbArq_80014D2C",
+    "lbArq_804316C0",
     "ARQRequest",
     "ARQPostRequest",
     "ARQCallback",
@@ -114,21 +105,27 @@
     "HSD_ASSERT",
     "PAD_STACK",
     "dont_inline",
+    "nodes[10]",
+    "list[3]",
     "free list",
     "pending list",
     "done list",
-    "10-node pool",
-    "global->nodes",
-    "list[rp->state]",
-    "checkdiff",
-    "GALE01",
-    "decomp.dev"
+    "checkdiff"
   ],
   "follow_up_queries": [
-    "Search later PRs for lbarq, lbArqState, or LB_ARQ_STATE_* to see whether this closed work was superseded or merged elsewhere.",
-    "Investigate the remaining lbArq_80014AC4 first-list address calculation order mismatch.",
-    "Investigate lbArq_80014BD0 saved-register allocation drift and the extra move around the free-list head.",
-    "Compare other library ARQ matching PRs that use PAD_STACK or scoped #pragma dont_inline for small helper functions."
+    "Check whether a later merged PR incorporated lbArqState or the concrete lbArqGlobal nodes[10] layout.",
+    "Search for subsequent lbarq matching work resolving lbArq_80014AC4 address-calculation order drift.",
+    "Search for subsequent lbarq matching work resolving lbArq_80014BD0 saved-register allocation and free-list head move drift.",
+    "Verify current src/melee/lb/lbarq.h before reusing these names, because this PR was closed unmerged.",
+    "Compare later ARQ/lb decomp PRs for whether enum state-as-list-index naming became the accepted convention."
   ],
-  "confidence": 0.9
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

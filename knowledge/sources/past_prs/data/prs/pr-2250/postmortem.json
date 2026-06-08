@@ -11,85 +11,68 @@
     "merged_at": "2026-03-10T22:40:15Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled and matched two Mute City stage functions, `fn_801F2B58` and `grMuteCity_801F2BBC`, updating the local static data layout and header prototypes needed for typed collision/dynamics logic. The PR report states `ninja` built clean and `fuzzy_match_percent: 100.0`; the decomp.dev bot reported +184 matched code bytes and a `.sbss` match improvement.",
+  "summary": "Matched two Mute City stage functions, `fn_801F2B58` and `grMuteCity_801F2BBC`, replacing placeholder declarations with typed C and updating the header signature. The PR reports a clean `ninja` build and 100% fuzzy match for all functions.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "stage decompilation",
-      "function matching",
-      "header typing",
-      "static data layout",
-      "collision logic"
+      "decomp-matching",
+      "headers",
+      "stage-collision",
+      "stage-dynamics"
     ],
     "systems": [
       "stage",
       "ground",
-      "grmutecity",
       "mpLib",
-      "collision"
+      "Mute City"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grmutecity.c",
-      "role": "Replaced two unmatched stubs with matched C implementations and expanded local static globals used by those functions."
-    },
-    {
-      "path": "src/melee/gr/grmutecity.h",
-      "role": "Added `mp/forward.h` and changed `fn_801F2B58` from `UNK_RET/UNK_PARAMS` to a typed prototype."
-    }
+    "src/melee/gr/grmutecity.c",
+    "src/melee/gr/grmutecity.h"
   ],
   "what_changed": [
-    "Implemented `fn_801F2B58(Ground*, s32, CollData*, s32, mpLib_GroundEnum, f32)` in place of the `/// #fn_801F2B58` marker.",
-    "`fn_801F2B58` now checks `grMc_804D69D4`, `cd->x34_flags.b1234`, `mpLib_GroundEnum_Unk2`, `cd->x0_gobj`, and `cd->x0_gobj->p_link`, then sets `cd->x34_flags.b7 = 1` when the match conditions pass.",
-    "Implemented `grMuteCity_801F2BBC(enum_t)` to return `DynamicsDesc*` values from `grMc_804D69D0->x8` or `grMc_804D69D0->xC` for specific enum ranges when `grMc_804D69D4 == 1`, otherwise returning `NULL`.",
-    "Expanded the anonymous static struct behind `grMc_804D69D0` from only `int x0` to include `void* x4`, `DynamicsDesc* x8`, and `DynamicsDesc* xC`.",
-    "Added static `s32 grMc_804D69D4`, which the bot report counted as part of the `.sbss` matching improvement.",
-    "Updated the header to include `mp/forward.h` so `mpLib_GroundEnum` can appear in the typed declaration for `fn_801F2B58`."
+    "Expanded the anonymous static state pointed to by `grMc_804D69D0` from only `x0` to include `x4`, `x8`, and `xC`, with `x8` and `xC` typed as `DynamicsDesc*`.",
+    "Added static `s32 grMc_804D69D4`, used as a state gate in both newly matched functions.",
+    "Implemented `fn_801F2B58(Ground* gp, s32 arg1, CollData* cd, s32 arg3, mpLib_GroundEnum arg4, f32 arg5)`.",
+    "`fn_801F2B58` returns early unless `grMc_804D69D4 == 1`, `cd->x34_flags.b1234` is 2, 3, or 5, `arg4 == mpLib_GroundEnum_Unk2`, `cd->x0_gobj` is non-null, and `cd->x0_gobj->p_link == 9`; when all checks pass it sets `cd->x34_flags.b7 = 1`.",
+    "Implemented `grMuteCity_801F2BBC(enum_t arg0)` to return one of the stored `DynamicsDesc*` entries depending on the argument when `grMc_804D69D4 == 1`; it returns `x8` for `0x31` or `0x35`, `xC` for `0x32` through `0x34`, and `NULL` otherwise.",
+    "Updated `grmutecity.h` to include `mp/forward.h` and replace the `UNK_RET fn_801F2B58(UNK_PARAMS)` declaration with the typed function signature."
   ],
   "smart_moves": [
-    "Kept compiler-shaped unsigned range checks such as `(u32) (b1234 - 2) > 1` and `(u32) (arg0 - 0x32) <= 2`, which are matching-oriented forms rather than cleaned-up high-level conditions.",
-    "Preserved the redundant-looking second `cd->x0_gobj == NULL` guard before setting `b7`; this likely reflects the original control flow and avoided over-refactoring a matched function.",
-    "Promoted `fn_801F2B58` from unknown parameters to a useful typed signature while only adding the minimal forward include required by the new type.",
-    "Expanded the static `grMc_804D69D0` layout just enough to model observed offsets `x4`, `x8`, and `xC` without inventing semantic field names.",
-    "Resolved both function code and adjacent static data evidence together, producing 100% matches for the two functions and `.sbss` according to the bot report."
+    "Used range checks that match compact PowerPC-style comparisons: `(u32) (b1234 - 2) > 1 && b1234 != 5` for allowed flag values 2, 3, and 5, and `(u32) (arg0 - 0x32) <= 2` for IDs 0x32 through 0x34.",
+    "Preserved explicit early-return structure in `fn_801F2B58`, which is likely important for matching branch layout.",
+    "Typed only the newly proven fields in the static stage state struct as `DynamicsDesc*`, avoiding over-claiming the meaning of `x4`.",
+    "Added the minimal forward include needed for `mpLib_GroundEnum` rather than pulling in a heavier header."
   ],
   "decomp_lessons": [
-    "For small stage functions, matching may depend on representing anonymous static globals and SBSS state variables before their semantics are fully understood.",
-    "Do not simplify duplicated null checks or range-test idioms in freshly matched code unless there is evidence the compiler would still emit the same control flow.",
-    "When a decompiled function introduces an enum type in a public header, add the narrow forward header rather than broad includes; here `mp/forward.h` supports `mpLib_GroundEnum`.",
-    "Offset-based placeholder names like `x8` and `xC` are acceptable intermediate struct work when they unblock matching but the field meaning remains weakly evidenced.",
-    "A function can be meaningfully typed even if its final descriptive name is unknown; this PR keeps `fn_801F2B58` while improving its parameters and return type."
+    "For stage files, matching a function may require first expanding local static anonymous structs enough to expose the fields returned or checked by the function.",
+    "Ground/collision callbacks can often be typed from their use of `Ground*`, `CollData*`, `mpLib_GroundEnum`, and flag fields even when many arguments are unused.",
+    "When matching collision flag filters, unsigned subtract-and-compare idioms are useful for preserving compiler output while expressing small accepted numeric ranges.",
+    "Header cleanup should accompany function matching: replacing `UNK_PARAMS` with a real signature may require adding only forward declarations such as `mp/forward.h`."
   ],
   "naming_conventions": [
-    "`grMuteCity_` remains the prefix for named Mute City stage functions, as in `grMuteCity_801F2BBC`.",
-    "`grMc_` is used for Mute City stage data/statics, as in `grMc_803E33DC`, `grMc_804D69D0`, and `grMc_804D69D4`.",
-    "The unnamed function remains address-based as `fn_801F2B58` rather than receiving an invented semantic name.",
-    "Unknown struct fields are kept as offset-style names `x0`, `x4`, `x8`, and `xC` until their purpose is known.",
-    "Existing collision bitfield names are reused directly: `cd->x34_flags.b1234` and `cd->x34_flags.b7`."
+    "Kept unresolved file-static globals under generated names such as `grMc_804D69D0` and `grMc_804D69D4`.",
+    "Retained the local callback name `fn_801F2B58` rather than inventing a semantic name not supported by the PR evidence.",
+    "Used existing project type names including `Ground`, `CollData`, `mpLib_GroundEnum`, `DynamicsDesc`, `HSD_JObj`, and `enum_t`.",
+    "Anonymous struct fields remain offset-style names (`x0`, `x4`, `x8`, `xC`) where semantics are not established."
   ],
   "assembly_or_matching_tactics": [
-    "Use unsigned arithmetic casts for compact range checks when matching CodeWarrior output: `(u32) (b1234 - 2) > 1` and `(u32) (arg0 - 0x32) <= 2`.",
-    "Keep a local `s32 b1234 = cd->x34_flags.b1234;` rather than repeatedly accessing the bitfield if that matches the target load pattern.",
-    "Represent enum dispatch as exact comparisons plus an unsigned range check: `0x31` and `0x35` map to `x8`, while `0x32` through `0x34` map to `xC`.",
-    "Model accessed static struct offsets with placeholder fields of the correct apparent type, here `DynamicsDesc*` at offsets `x8` and `xC`.",
-    "Treat suspicious duplicate guards as potential branch-structure requirements for the match, especially in collision callback-style code."
+    "Early returns were used instead of nested conditionals in `fn_801F2B58`, likely matching original branch ordering.",
+    "Allowed-value checks were encoded with unsigned arithmetic range tests, including `(u32) (b1234 - 2) > 1` and `(u32) (arg0 - 0x32) <= 2`.",
+    "The code intentionally repeats the `cd->x0_gobj == NULL` guard before setting `b7`, suggesting this redundant-looking check was needed or retained for match fidelity.",
+    "Function signatures were refined only as far as the diff supports; several parameters in `fn_801F2B58` remain unused but typed to match the apparent callback ABI."
   ],
   "review_feedback": [
-    "No human review comments were present in the provided PR slice.",
-    "The PR body reported `ninja` builds clean and `fuzzy_match_percent: 100.0` for all functions.",
-    "The decomp.dev bot reported 3 new matches: `fn_801F2B58` (+100 bytes), `grMuteCity_801F2BBC` (+84 bytes), and `main/melee/gr/grmutecity` `.sbss` improving from 66.67% to 100.00%."
+    "No review comments were present in the provided PR context.",
+    "The PR body reports verification via clean `ninja` build and `fuzzy_match_percent: 100.0` for all functions."
   ],
   "searchable_terms": [
     "pr-2250",
     "grmutecity",
     "Mute City",
-    "src/melee/gr/grmutecity.c",
-    "src/melee/gr/grmutecity.h",
-    "fn_801F2B58",
     "grMuteCity_801F2BBC",
-    "grMuteCity_801F2AB0",
-    "grMc_803E33DC",
+    "fn_801F2B58",
     "grMc_804D69D0",
     "grMc_804D69D4",
     "DynamicsDesc",
@@ -97,21 +80,29 @@
     "CollData",
     "mpLib_GroundEnum",
     "mpLib_GroundEnum_Unk2",
-    "x34_flags.b1234",
-    "x34_flags.b7",
+    "x34_flags",
+    "b1234",
+    "b7",
     "x0_gobj",
     "p_link",
-    ".sbss",
-    "fuzzy_match_percent",
-    "GALE01",
-    "johnwinston"
+    "stage collision",
+    "stage dynamics",
+    "100% match",
+    "ninja builds clean"
   ],
   "follow_up_queries": [
-    "Where is `grMc_804D69D4` initialized or toggled, and can it receive a semantic name?",
-    "Can the anonymous struct behind `grMc_804D69D0` be identified and renamed beyond `x0`, `x4`, `x8`, and `xC`?",
-    "What stage objects or ground IDs correspond to enum values `0x31` through `0x35` in `grMuteCity_801F2BBC`?",
-    "Can `fn_801F2B58` be given a descriptive name once its registration site or callback role is decompiled?",
-    "Are the `DynamicsDesc*` returns from `grMc_804D69D0->x8` and `grMc_804D69D0->xC` shared with similar logic in other F-Zero or moving-ground stages?"
+    "Find later PRs that rename or further type `grMc_804D69D0` or `grMc_804D69D4` in `grmutecity.c`.",
+    "Search for other stage collision callbacks using `CollData->x34_flags.b7` and `mpLib_GroundEnum_Unk2`.",
+    "Compare `grMuteCity_801F2BBC` with other stage functions returning `DynamicsDesc*` by map or ground enum IDs.",
+    "Look for later review or cleanup of the duplicate `cd->x0_gobj == NULL` check in `fn_801F2B58`."
   ],
-  "confidence": 0.9
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

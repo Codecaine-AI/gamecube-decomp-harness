@@ -11,13 +11,14 @@
     "merged_at": "2026-03-26T16:17:10Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Small fighter common matching fix for `ftCo_80097D88` in `ftCo_DownBound.c`. The previous function body was factored into a local `static void inlineA1(Fighter_GObj* gobj)` helper, the fighter pointer load was changed from direct `gobj->user_data` to `GET_FIGHTER(gobj)`, and `ftCo_80097D88` became a thin wrapper calling `inlineA1(gobj)`. decomp.dev reported this produced one new GALE01 match: `ftCo_80097D88` improved from 0.00% to 100.00%, +56 bytes.",
+  "summary": "Small fighter decomp matching fix for ftCo_80097D88 in ftCo_DownBound.c. The PR split the original function body into a new static helper named inlineA1, changed Fighter access from direct gobj->user_data to GET_FIGHTER(gobj), and made ftCo_80097D88 call the helper. Evidence indicates this was done specifically to fix matching for ftCo_80097D88.",
   "change_classification": {
     "primary_type": "decomp-matching fix",
     "categories": [
       "decomp-matching",
-      "codegen-refactor",
-      "small-fix"
+      "fix",
+      "code-reshaping",
+      "fighter-common"
     ],
     "systems": [
       "fighter",
@@ -29,62 +30,68 @@
     "src/melee/ft/chara/ftCommon/ftCo_DownBound.c"
   ],
   "what_changed": [
-    "Renamed/factored the old `ftCo_80097D88(Fighter_GObj* gobj)` body into `static void inlineA1(Fighter_GObj* gobj)`.",
-    "Changed the local fighter pointer initialization inside the factored body from `Fighter* fp = gobj->user_data;` to `Fighter* fp = GET_FIGHTER(gobj);`.",
-    "Added a new `void ftCo_80097D88(Fighter_GObj* gobj)` wrapper whose only statement is `inlineA1(gobj);`.",
-    "Preserved the behavioral branch: if `fp->x2228_b2` is set, call `ftCo_80097AF4(gobj)`; otherwise call `ftCo_8009794C(gobj)`.",
-    "decomp.dev reported one new match for `main/melee/ft/chara/ftCommon/ftCo_DownBound` item `ftCo_80097D88`, +56 bytes, 0.00% before to 100.00% after."
+    "Renamed the previous ftCo_80097D88 implementation body into a new static helper function inlineA1.",
+    "Reintroduced ftCo_80097D88 as a wrapper that only calls inlineA1(gobj).",
+    "Changed local Fighter pointer initialization inside the helper from gobj->user_data to GET_FIGHTER(gobj).",
+    "Preserved the DownBound branch behavior: if fp->x2228_b2 is set, call ftCo_80097AF4(gobj); otherwise call ftCo_80097B24(gobj)."
   ],
   "smart_moves": [
-    "Kept the known `ftCo_80097D88` function signature intact while using a local static helper to influence compiler output without changing the apparent game logic.",
-    "Used the project accessor macro `GET_FIGHTER(gobj)` instead of raw `gobj->user_data`, a small source-level difference that mattered for matching-sensitive codegen.",
-    "Made the matching fix narrowly: one C file, unchanged branch targets, and a bot-verifiable +56 byte match."
+    "Used a wrapper/helper split to influence generated code while keeping the externally visible ftCo_80097D88 symbol present.",
+    "Used the project macro GET_FIGHTER(gobj) instead of direct user_data access, which likely better matches existing decomp idioms and generated code expectations.",
+    "Kept the logic change minimal: the behavioral branch stayed identical, limiting risk while addressing matching."
   ],
   "decomp_lessons": [
-    "When a tiny fighter function will not match as a direct body, try factoring the body into a `static` `inlineA#` helper and making the target symbol a wrapper; this can change inlining or call-shape enough to match.",
-    "Do not treat `gobj->user_data` and `GET_FIGHTER(gobj)` as always interchangeable for decomp purposes; even equivalent-looking access patterns can affect generated code.",
-    "For PRs this small, the decomp.dev per-item report is strong evidence of success: here it specifically identifies `ftCo_80097D88` as newly 100% matched."
+    "For stubborn matching issues, wrapping the function body in a static helper can alter inlining/call structure without changing runtime behavior.",
+    "Direct field access such as gobj->user_data and helper macros such as GET_FIGHTER(gobj) may compile differently or better express intended project conventions; try the macro form when matching fighter code.",
+    "Preserving the named target symbol as a thin wrapper can satisfy symbol boundaries while allowing compiler shaping through a local static helper.",
+    "A very small source restructure can be enough to fix matching when the control flow is already semantically correct."
   ],
   "naming_conventions": [
-    "`inlineA1` was used as a local static helper name for factored inline/matching logic.",
-    "The known address-style symbol name `ftCo_80097D88` was preserved for the matched function.",
-    "`GET_FIGHTER(gobj)` is the accessor idiom used in the final matching code for obtaining `Fighter*` from `Fighter_GObj*`."
+    "Target function retained the existing unresolved-style name ftCo_80097D88.",
+    "Temporary/static helper was named inlineA1, following a matching-oriented helper naming pattern rather than a semantic gameplay name.",
+    "Fighter object parameter uses the common Fighter_GObj* gobj convention.",
+    "Fighter pointer local uses the common fp convention."
   ],
   "assembly_or_matching_tactics": [
-    "Static helper plus wrapper refactor to alter compiler code generation while preserving source-level behavior.",
-    "Accessor macro substitution (`GET_FIGHTER`) instead of direct struct member access (`gobj->user_data`) to obtain matching codegen.",
-    "Validated by decomp.dev GALE01 report: `ftCo_80097D88` moved from 0.00% to 100.00% matched, +56 bytes."
+    "Introduced a static helper to encourage or model an inline/call boundary needed for matching.",
+    "Converted ftCo_80097D88 into a one-call wrapper around inlineA1.",
+    "Replaced direct gobj->user_data load with GET_FIGHTER(gobj), likely to align with expected macro expansion or project-wide fighter access style.",
+    "No assembly excerpt or explicit compiler explanation was provided, so the exact codegen reason is inferred only from the diff and PR title."
   ],
   "review_feedback": [
-    "No human review comments or formal reviews were present in the slice.",
-    "The only feedback captured was the decomp.dev bot report confirming 1 new match for `ftCo_80097D88`."
+    "No review comments were present in the provided slice.",
+    "There was one issue comment counted, but no body text was included in the excerpt, so no concrete reviewer guidance can be extracted."
   ],
   "searchable_terms": [
-    "pr-2356",
-    "Fixed matching for ftCo_80097D88",
+    "PR2356",
     "ftCo_80097D88",
     "ftCo_DownBound.c",
-    "ftCo_DownBound",
-    "ftCommon",
-    "fighter",
-    "Fighter_GObj",
-    "Fighter",
+    "ftCo_80097D40",
+    "ftCo_80097AF4",
+    "ftCo_80097B24",
+    "ftCo_DownBound_Anim",
     "GET_FIGHTER",
     "gobj->user_data",
-    "inlineA1",
+    "Fighter_GObj",
     "x2228_b2",
-    "ftCo_80097AF4",
-    "ftCo_8009794C",
-    "GALE01",
-    "new match",
-    "+56 bytes",
-    "0.00% to 100.00%"
+    "inlineA1",
+    "DownBound",
+    "fighter matching",
+    "wrapper helper matching"
   ],
   "follow_up_queries": [
-    "Search for other `inlineA1` or `inlineA#` helper refactors used to match small fighter functions.",
-    "Search fighter code for direct `gobj->user_data` loads in nonmatching functions where `GET_FIGHTER(gobj)` may affect codegen.",
-    "Look for other `ftCo_DownBound.c` functions near `ftCo_80097D40` and `ftCo_80097D88` that share the same `x2228_b2` branch logic.",
-    "Compare future or adjacent PRs touching `ftCo_DownBound.c` to see whether this helper pattern was reused or renamed."
+    "Find other PRs that introduce inlineA1 or similar static helper wrappers for matching.",
+    "Search for cases replacing gobj->user_data with GET_FIGHTER(gobj) in fighter code.",
+    "Compare ftCo_80097D88 matching before and after wrapper extraction.",
+    "Look for DownBound functions near ftCo_80097D40 and ftCo_DownBound_Anim for related matching patterns."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

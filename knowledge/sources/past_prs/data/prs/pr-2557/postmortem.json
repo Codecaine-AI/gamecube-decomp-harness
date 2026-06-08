@@ -11,120 +11,117 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed, unmerged PR intended to match grInishie1_801FA9B4 to 100% by copying the _StageData structure pattern from grHeal. The main Inishie1 change modeled stage data as a wrapper struct containing StageData plus an OSReport format string, added adjacent globals for /GrI1.dat and grinishie1.c, and changed grInishie1_801FA9B4 to reference that data layout. The branch also contained grYorster and lbSnap matching rewrites from earlier commits; the author closed the PR to resubmit only the stage data fix.",
+  "summary": "Closed, unmerged matching attempt for `grInishie1_801FA9B4`. The stated main idea was to match the function by modeling Inishie1 stage data with the same `_StageData`-wrapping structure pattern used in `grHeal`, exposing embedded literals such as the `/GrI1.dat` path and OSReport format string as fields adjacent to `StageData`. The PR also contained extra matching-oriented changes in `gryorster.c` and `lbsnap.c`; the author commented that earlier commits were pushed accidentally and closed the PR to submit only the stage-data fix.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-data-layout",
       "types-structs",
-      "global-data-ordering",
-      "closed-unmerged",
-      "unrelated-commits"
+      "stage-data-layout",
+      "cleanup-by-resubmission"
     ],
     "systems": [
-      "stage/grInishie1",
-      "stage/grYorster",
-      "library/lbSnap",
-      "ground"
+      "stage",
+      "ground",
+      "library"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grinishie1.c",
-      "role": "Primary intended stage match. Added Inishie1 stage data globals and wrapper struct, rewired grInishie1_801FA9B4 global references, and adjusted one DOBJ_CLEAR_LOOP call through a local."
-    },
-    {
-      "path": "src/melee/gr/gryorster.c",
-      "role": "Likely unrelated earlier matching tweak included in the branch; rewrote grYorster_80202428 loop, pointer comparison, and float accumulation temporaries."
-    },
-    {
-      "path": "src/melee/lb/lbsnap.c",
-      "role": "Likely unrelated earlier matching tweak included in the branch; rewrote lbSnap_8001DF20 around descPtr and offset locals."
-    }
+    "src/melee/gr/grinishie1.c",
+    "src/melee/gr/gryorster.c",
+    "src/melee/lb/lbsnap.c"
   ],
   "what_changed": [
-    "Added s16 grI1_803E48C8[22], a stage block/index pattern table later cast to S16Vec3* in StageData.",
-    "Added char grI1_803E4944[] = \"/GrI1.dat\" and char grI1_803E49A8[] = \"grinishie1.c\".",
-    "Introduced typedef struct grInishie1_StageData containing StageData stage_data plus char report_fmt_get_gobj[0x24].",
-    "Initialized grI1_803E4950 with INISHIE1 stage metadata, the /GrI1.dat path, grI1_803E48C8 as stage coordinate data, count 7, and the get-gobj OSReport format string.",
-    "Changed grInishie1_801FA9B4 to derive StageCallbacks through a byte-offset cast from grI1_803E48C8 + 0x2c instead of directly indexing grI1_803E48F4.",
-    "Changed grInishie1_801FA9B4 OSReport from inline string literals to grI1_803E4950.report_fmt_get_gobj and grI1_803E49A8.",
-    "Changed grInishie1_801FBC4C to store gp->gv.inishie1.blocks[index].jobj2 in a local HSD_JObj* before DOBJ_CLEAR_LOOP.",
-    "Also changed grYorster_80202428 to use a manual-increment loop, integer/pointer casts for item_gobj comparison, and a f32 newValue temporary.",
-    "Also changed lbSnap_8001DF20 to use a local descPtr to lbSnap_803BACC8 plus a separate offset variable before calling lb_8001C4A8."
+    "In `src/melee/gr/grinishie1.c`, added `grI1_803E48C8`, a 22-element `s16` array containing block/pattern data cast later to `S16Vec3*` inside stage data.",
+    "Added `/GrI1.dat` as `grI1_803E4944` and introduced `typedef struct grInishie1_StageData { StageData stage_data; char report_fmt_get_gobj[0x24]; } grInishie1_StageData;`.",
+    "Defined `grI1_803E4950` as a wrapped stage-data object containing `StageData` for `INISHIE1` plus the embedded report format string `\"%s:%d: couldn t get gobj(id=%d)\\n\"`.",
+    "Added `grI1_803E49A8` as the file-name string `\"grinishie1.c\"` and changed the `OSReport` call in `grInishie1_801FA9B4` to reference `grI1_803E4950.report_fmt_get_gobj` and `grI1_803E49A8` instead of inline string literals.",
+    "Changed callback lookup in `grInishie1_801FA9B4` from direct `&grI1_803E48F4[arg0]` to pointer arithmetic from `grI1_803E48C8 + 0x2c`, relying on the contiguous stage-data/static-data layout to produce the desired codegen.",
+    "In `grInishie1_801FBC4C`, split `gp->gv.inishie1.blocks[index].jobj2` into a local `HSD_JObj* jobj2` before `DOBJ_CLEAR_LOOP`, likely for matching expression evaluation/register allocation.",
+    "In `src/melee/gr/gryorster.c`, rewrote a loop in `grYorster_80202428` with manual increment, temporary integer load through `*(s32*)&...x1C`, pointer-to-`u32` comparison, and a `newValue` local for the float accumulation.",
+    "In `src/melee/lb/lbsnap.c`, rewrote `lbSnap_8001DF20` to use a local descriptor pointer `descPtr`, local `offset`, and assignments through `descPtr` before calling `lb_8001C4A8`."
   ],
   "smart_moves": [
-    "The main matching insight was to compare against grHeal and copy its larger _StageData wrapper pattern instead of treating StageData as an isolated object.",
-    "Modeling the trailing OSReport format as part of grInishie1_StageData made the function reference the same global data layout the original binary likely used.",
-    "Separating /GrI1.dat, the report format, and grinishie1.c into named globals gave the compiler concrete symbols to load instead of emitting direct literal references.",
-    "The PR recognized that a function match can depend on nearby data layout and symbol adjacency, not only on the C control flow inside the function.",
-    "The author self-closed after noticing earlier commits were included, preserving a cleaner review path for a future stage-data-only submission."
+    "Modeled static stage data as a larger wrapper struct instead of treating adjacent strings as unrelated globals; this can make compiler references to strings and `StageData` fields line up with the original binary layout.",
+    "Reused an existing project pattern from `grHeal` for `_StageData`, according to the PR body, rather than inventing a one-off layout for Inishie1.",
+    "Moved string literals into named data symbols so `OSReport` used data-section addresses, a common requirement when matching functions whose literals are embedded near stage data.",
+    "Used local temporaries and explicit casts in side changes to influence instruction ordering and register choices, although these were later identified as accidental extra commits rather than the intended final PR scope."
   ],
   "decomp_lessons": [
-    "For stage files, inspect similar already-matched stages when StageData or callback references look wrong; here grHeal provided the decisive _StageData shape.",
-    "When a function mismatch involves global address loads, verify the surrounding data declarations and rodata/data ordering before forcing more local code changes.",
-    "A stage-specific wrapper struct can preserve the common StageData prefix while accurately representing adjacent per-file data such as report strings.",
-    "Use casts and byte offsets only as evidence-driven matching tactics; document what object layout they are trying to recover because they can obscure normal typed relationships.",
-    "Keep decomp PRs narrowly scoped. This PR was closed because grYorster and lbSnap changes from earlier commits polluted a grInishie1-focused branch.",
-    "Because merged_at is null and there were no reviews, treat the exact code style as an unaccepted attempt unless a later successor PR confirms it."
+    "For stage files, a function mismatch can be caused by incorrect surrounding data layout, not just the function body. Reconstructing the original `StageData` aggregate and adjacent strings may fix references and pointer arithmetic.",
+    "If a stage has embedded report strings immediately after stage data, consider a wrapper struct with `StageData stage_data` followed by fixed-size char arrays; compare with known matched files such as `grHeal` before choosing the layout.",
+    "Callback tables may need to be accessed through the same base object/pointer arithmetic as the original compiler emitted, even when a cleaner direct array reference is semantically equivalent.",
+    "Keep matching PRs scoped tightly. This PR was closed because unrelated earlier commits for `gryorster.c` and `lbsnap.c` were included, which obscured the intended stage-data fix.",
+    "Introducing locals for macro arguments, pointer comparisons, and result assignments can be a valid matching tactic, but such changes should be justified by the target function and separated from unrelated matches."
   ],
   "naming_conventions": [
-    "Inishie1 data symbols use the grI1_ address-style prefix, e.g. grI1_803E48C8, grI1_803E48F4, grI1_803E4950.",
-    "The stage-specific wrapper type was named grInishie1_StageData, pairing the source module name with the StageData role.",
-    "The wrapper kept the common member name stage_data for the embedded StageData prefix and used the descriptive trailing member name report_fmt_get_gobj.",
-    "Stage function names follow the existing module-address convention, e.g. grInishie1_801FA9B4 and grYorster_80202428.",
-    "Local temporaries introduced for matching used purpose-oriented names such as jobj2, descPtr, offset, and newValue, but these were not reviewed as final naming."
+    "Stage-specific data symbols used the `grI1_` prefix for Inishie1 globals, e.g. `grI1_803E48C8`, `grI1_803E4944`, `grI1_803E4950`, and `grI1_803E49A8`.",
+    "The wrapper type was named `grInishie1_StageData`, pairing the full stage source prefix with the role of the struct.",
+    "The embedded report-format field was named descriptively as `report_fmt_get_gobj`, reflecting the `couldn't get gobj` OSReport use.",
+    "The existing stage callback table name `grI1_803E48F4` and function names such as `grInishie1_801FA9B4` remained address-based, consistent with ongoing decomp naming before full semantic names are known.",
+    "Temporary matching locals in side changes used names like `descPtr`, `offset`, `temp`, and `newValue`; these names are evidence from the diff but not necessarily accepted project style because the PR was not merged."
   ],
   "assembly_or_matching_tactics": [
-    "Used `(StageCallbacks*) ((char*) grI1_803E48C8 + 0x2c) + arg0` to make callback lookup depend on the contiguous data layout rather than a direct `&grI1_803E48F4[arg0]` expression.",
-    "Replaced inline OSReport literals with loads from global data: `grI1_803E4950.report_fmt_get_gobj` and `grI1_803E49A8`.",
-    "Split a macro argument into `HSD_JObj* jobj2` before calling `DOBJ_CLEAR_LOOP(jobj2)` to influence expression evaluation/register use.",
-    "In grYorster_80202428, used manual loop increment, an integer temporary read from the element pointer slot, u32 casts for comparison, and a f32 accumulation temporary to shape codegen.",
-    "In lbSnap_8001DF20, used a local descriptor pointer and separate offset variable to avoid repeated global accesses and alter assignment/call sequencing."
+    "Use a wrapper struct to force data-section adjacency and enable references like `grI1_803E4950.report_fmt_get_gobj` instead of independent literals.",
+    "Cast an `s16` data array to `S16Vec3*` when filling `StageData` if the original data is laid out as short triples but currently represented as raw `s16` values.",
+    "Use byte-pointer arithmetic, here `(StageCallbacks*) ((char*) grI1_803E48C8 + 0x2c) + arg0`, to reproduce original base-address calculations for callback table access.",
+    "Split macro/member-chain arguments into typed locals, as shown with `HSD_JObj* jobj2`, to affect generated loads and macro expansion codegen.",
+    "For pointer comparisons, the side `gryorster.c` change used an integer temporary and `(u32)` casts to match comparison behavior; this is a codegen tactic but was part of the accidental extra commits.",
+    "For call setup, the side `lbsnap.c` change used a descriptor pointer local so field stores and call arguments referenced `descPtr` consistently."
   ],
   "review_feedback": [
-    "No formal reviews or review comments were present in the PR slice.",
-    "Author close comment: \"Pushed some earlier commits, closing to submit just the stage data fix\".",
-    "The only explicit process feedback is self-reported: isolate the grInishie1 stage data fix from unrelated grYorster and lbSnap matching changes.",
-    "The claimed 100% match for grInishie1_801FA9B4 comes from the PR body, but the PR was closed unmerged, so acceptance is unconfirmed."
+    {
+      "source": "author issue comment",
+      "feedback": "The author stated: \"Pushed some earlier commits, closing to submit just the stage data fix.\"",
+      "impact": "The PR was closed unmerged; the intended reusable part appears to be the `grInishie1` stage-data layout fix, while `gryorster.c` and `lbsnap.c` changes should not be assumed to have been reviewed or accepted."
+    },
+    {
+      "source": "review state",
+      "feedback": "No review comments or reviews were present in the provided slice.",
+      "impact": "There is no reviewer-confirmed validation of naming, struct layout, or matching tactics beyond the author's stated rationale."
+    }
   ],
   "searchable_terms": [
     "pr-2557",
-    "DavidWeaverAudio",
     "Match grInishie1_801FA9B4",
+    "DavidWeaverAudio",
     "grInishie1_801FA9B4",
     "grinishie1.c",
+    "grInishie1_StageData",
+    "StageData",
+    "_StageData",
+    "grHeal",
     "grI1_803E48C8",
     "grI1_803E48F4",
     "grI1_803E4944",
     "grI1_803E4950",
     "grI1_803E49A8",
-    "grInishie1_StageData",
-    "StageData",
-    "_StageData",
-    "grHeal",
-    "report_fmt_get_gobj",
-    "INISHIE1",
     "/GrI1.dat",
-    "S16Vec3",
-    "StageCallbacks",
-    "Ground_GetStageGObj",
+    "report_fmt_get_gobj",
+    "couldn't get gobj",
     "OSReport",
+    "Ground_GetStageGObj",
+    "StageCallbacks",
+    "S16Vec3",
     "DOBJ_CLEAR_LOOP",
-    "grInishie1_801FBC4C",
     "grYorster_80202428",
     "lbSnap_8001DF20",
-    "lbSnap_GetSaveDataOffset",
     "closed unmerged",
     "stage data fix"
   ],
   "follow_up_queries": [
-    "Find the successor PR that resubmitted only the grInishie1 stage data fix after PR #2557.",
-    "Search for grHeal _StageData wrapper usage to compare the accepted struct layout pattern.",
-    "Check whether grI1_803E4950 and grInishie1_StageData were later merged with the same report_fmt_get_gobj layout.",
-    "Check whether the grYorster_80202428 and lbSnap_8001DF20 matching rewrites were resubmitted or accepted in separate PRs.",
-    "Audit other stage files where StageData may need a stage-specific wrapper carrying adjacent report strings or paths."
+    "Find the resubmitted PR after #2557 that contains only the `grInishie1` stage-data fix.",
+    "Compare `grInishie1_StageData` with the `grHeal` `_StageData` pattern referenced in the PR body.",
+    "Check whether `grI1_803E4950` and the callback pointer arithmetic were accepted in a later merged PR.",
+    "Search for other stage files where embedded OSReport strings are modeled as fields after `StageData`."
   ],
-  "confidence": 0.86
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

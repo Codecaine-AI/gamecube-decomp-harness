@@ -11,134 +11,90 @@
     "merged_at": "2026-04-14T16:58:02Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked `itkirbycutterbeam.c` by adding its item state table and switching the object from NonMatching to Matching in `configure.py`. The PR also filled in previously missed item work for Ness yoyo and Ice Climbers string articles, replacing several `/// #...` stubs and `UNK` prototypes with typed implementations. decomp.dev reported +1908 matched code bytes, +2588 linked code bytes, +56 matched data bytes, 8 new matches, and 10 near-match improvements.",
+  "summary": "Linked `itkirbycutterbeam.c` by moving it from NonMatching to Matching and defining its `ItemStateTable` data, while also filling in several previously stubbed or partially typed item functions for Ness yoyo and Ice Climbers string. The author described this as matching some missed item files from the prior PR. The decomp.dev report credited 8 new matches, including `it_802C0010`, `it_802BF180`, `itNessyoyo_UnkMotion1_Phys`, `itNessyoyo_UnkMotion2_Phys`, `fn_802C28DC`, `fn_802C29E8`, `fn_802C2AF4`, and `itkirbycutterbeam` `.data`, plus 10 improvements in still-unmatched item code.",
   "change_classification": {
-    "primary_type": "decomp-matching-and-linking",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "object-linking",
       "headers",
-      "item-article-logic",
-      "data-table"
+      "item-data-linking",
+      "prototype-typing",
+      "partial-matching"
     ],
     "systems": [
       "item",
       "fighter-related-items",
-      "Kirby cutter beam",
-      "Ness yoyo",
-      "Ice Climbers string",
-      "build configuration"
+      "kirby",
+      "ness",
+      "ice-climbers",
+      "repo-build-configuration"
     ]
   },
   "key_files": [
-    {
-      "path": "configure.py",
-      "role": "Changed `melee/it/items/itkirbycutterbeam.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)`."
-    },
-    {
-      "path": "src/melee/it/items/itkirbycutterbeam.c",
-      "role": "Added `ItemStateTable it_803F6798[]` for Kirby cutter beam and removed now-unneeded broad placeholder/platform/type includes."
-    },
-    {
-      "path": "src/melee/it/items/itnessyoyo.c",
-      "role": "Implemented multiple Ness yoyo motion, chain, collision, cleanup, and matrix helper functions."
-    },
-    {
-      "path": "src/melee/it/items/itnessyoyo.h",
-      "role": "Replaced several `UNK_RET`/`UNK_PARAMS` or vague prototypes with concrete `ItemLink*`, `Vec3*`, `itYoyoAttributes*`, `Item*`, and `Item_GObj*` signatures."
-    },
-    {
-      "path": "src/melee/it/items/itclimbersstring.c",
-      "role": "Implemented Ice Climbers string chain update, cleanup, and motion callbacks."
-    },
-    {
-      "path": "src/melee/it/items/itclimbersstring.h",
-      "role": "Moved/added declarations for Climbers string helpers and exposed typed `ItemLink`/attribute helper prototypes."
-    },
-    {
-      "path": "src/melee/it/itCharItems.h",
-      "role": "Split `itClimbersStringAttributes` padding to expose `f32 x8` and `f32 x14` while preserving later offsets."
-    }
+    "configure.py",
+    "src/melee/it/items/itkirbycutterbeam.c",
+    "src/melee/it/items/itnessyoyo.c",
+    "src/melee/it/items/itnessyoyo.h",
+    "src/melee/it/items/itclimbersstring.c",
+    "src/melee/it/items/itclimbersstring.h",
+    "src/melee/it/itCharItems.h"
   ],
   "what_changed": [
-    "`configure.py` now treats `melee/it/items/itkirbycutterbeam.c` as Matching instead of NonMatching.",
-    "`itkirbycutterbeam.c` gained `ItemStateTable it_803F6798[] = { NULL, itKirbycutterbeam_UnkMotion0_Anim, itKirbycutterbeam_UnkMotion0_Phys, itKirbycutterbeam_UnkMotion0_Coll }`, which decomp.dev reported as a new `.data` match worth +56 bytes.",
-    "`itCharItems.h` refined `itClimbersStringAttributes`: the old `pad_00[0x18]` became `pad_00[0x8]`, `f32 x8`, `pad_0C[0x8]`, and `f32 x14`, leaving `x18`, `x1C`, and `x20` at their documented offsets.",
-    "`itclimbersstring.c` added `ft/ftlib.h` and `it/items/itlinkhookshot.h`, then implemented `fn_802C28DC`, `fn_802C29E8`, `fn_802C2AF4`, `it_802C2CA8`, `it_802C2DB0`, `it_802C32D4`, and `itClimbersstring_UnkMotion3_Anim`.",
-    "`itclimbersstring.c` added an inline cleanup helper that notifies `ftPp_SpecialS_8012114C`, clears owner/item-var links, and destroys each linked segment gobj with `HSD_GObjPLink_80390228`.",
-    "`itclimbersstring.h` gained typed prototypes for the chain helpers and motion callback, including `ItemLink*`, `Vec3*`, `itClimbersStringAttributes*`, and `Item*` parameters.",
-    "`itnessyoyo.c` added includes for `ft/ftlib.h`, `it/items/itlinkhookshot.h`, `mp/mpcoll.h`, and `MSL/math_ppc.h` to support typed fighter scaling, link-chain, collision, and math logic.",
-    "`itnessyoyo.c` implemented `itNessyoyo_UnkMotion1_Phys`, `itNessyoyo_UnkMotion2_Phys`, `itNessyoyo_UnkMotion3_Anim`, `it_802BF030`, `it_802BF180`, `it_802BF800`, `it_802BF900`, `it_802BFEC4`, and `it_802C0010`.",
-    "`itnessyoyo.h` replaced ambiguous signatures for `it_802BF030`, `it_802BF180`, `it_802BF28C`, `it_802BFEC4`, and `it_802C0010` with concrete typed declarations.",
-    "The PR body says this also matched item files missed in the previous PR; no further human rationale was present in the slice."
+    "`configure.py` changed `melee/it/items/itkirbycutterbeam.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)`, making the PR title's link target explicit.",
+    "`itkirbycutterbeam.c` removed placeholder/platform/type includes that were no longer needed and added `ItemStateTable it_803F6798[]` with the motion callbacks `itKirbycutterbeam_UnkMotion0_Anim`, `Phys`, and `Coll`; decomp.dev reported the unit's `.data` became a new 56-byte 100% match.",
+    "`itclimbersstring.c` replaced several forward-only placeholder declarations with real implementations for string/link update routines including `fn_802C28DC`, `fn_802C29E8`, `fn_802C2AF4`, `it_802C2CA8`, `it_802C2DB0`, `it_802C32D4`, and `itClimbersstring_UnkMotion3_Anim`.",
+    "`itclimbersstring.h` gained prototypes for the newly exposed link/string helpers, including signatures using `ItemLink`, `Vec3`, `itClimbersStringAttributes`, `Item`, and `f32`.",
+    "`itCharItems.h` refined `itClimbersStringAttributes`: the old `pad_00[0x18]` was split into `pad_00[0x8]`, `f32 x8`, `pad_0C[0x8]`, and `f32 x14`, enabling code to reference string segment spacing/physics fields instead of raw padding.",
+    "`itnessyoyo.c` filled in multiple yoyo physics/animation/link routines, including `itNessyoyo_UnkMotion1_Phys`, `itNessyoyo_UnkMotion2_Phys`, `itNessyoyo_UnkMotion3_Anim`, `it_802BF030`, `it_802BF180`, `it_802BF800`, `it_802BF900`, `it_802BFEC4`, and `it_802C0010`.",
+    "`itnessyoyo.h` replaced several `UNK_RET`/`UNK_PARAMS` or loose `void*` declarations with typed prototypes involving `ItemLink`, `Vec3`, `itYoyoAttributes`, `Item_GObj`, `Item`, `s32`, `f32`, and `bool`."
   ],
   "smart_moves": [
-    "Linked Kirby cutter beam by fixing both the build configuration and the missing `.data` state table, rather than only flipping the configure flag.",
-    "Reused the existing `ItemLink` abstraction via `itlinkhookshot.h` for yoyo/string segment chains, making prev/next traversal and segment cleanup explicit.",
-    "Unlocked Climbers string physics by identifying real floats inside `itClimbersStringAttributes` at offsets `+08` and `+14` instead of leaving the whole leading region as padding.",
-    "Converted unknown header prototypes to typed `ItemLink`/`Vec3`/attribute signatures, which documents ABI expectations and helps nearby files call helpers without `UNK_PARAMS`.",
-    "Matched repeated article-endpoint code with the same matrix pattern: identity matrix, translation setup, `HSD_JObjSetupMatrix`, `PSMTXConcat`, then extracting `m[0][3]`, `m[1][3]`, and `m[2][3]` into a `Vec3`.",
-    "Kept owner-action lifetime checks local to animation callbacks: Ness yoyo uses `ftLib_80086C0C` range `0x156..0x15B`, while Climbers string uses `0x15B..0x164`.",
-    "Used inline cleanup helpers for the article-gobj destruction loops, preserving item owner cleanup behavior while keeping the public motion callbacks focused on whether cleanup should happen."
+    "The PR used typed struct fields to unlock matching: `itClimbersStringAttributes` gained concrete `f32 x8` and `f32 x14` members exactly where the new climbers string code reads segment length/gravity-like values.",
+    "The new yoyo and climbers string code follows a repeated item-link pattern: derive a world position from `HSD_JObjSetupMatrix` plus `PSMTXIdentity`/`PSMTXConcat`, copy translation components into `Vec3`, then update `ItemLink` chains and item display state.",
+    "Cleanup helpers were kept local as `static inline` in the C files, preserving ownership cleanup behavior while likely helping codegen for `itNessyoyo_UnkMotion3_Anim` and `itClimbersstring_UnkMotion3_Anim`.",
+    "The PR did not overclaim full unit completion: the bot report shows several yoyo/climbers functions improved but still below 100%, while the exact `itkirbycutterbeam.c` file was safely promoted to Matching.",
+    "Header cleanup was paired with implementation work, so future callsites can use typed prototypes instead of `UNK_PARAMS` for yoyo link/collision helpers."
   ],
   "decomp_lessons": [
-    "For item articles, object linking may depend on small data declarations such as `ItemStateTable` arrays; check `.data` before marking a file Matching in `configure.py`.",
-    "Do not leave attribute structs as large padding when functions reveal accessed offsets; exposing `f32` fields by offset can unblock physics/chain code and improve matching.",
-    "Rope-like item articles share reusable patterns: `ItemLink` prev/next traversal, `x2C_b0` segment-active flags, per-segment velocity/collision updates, and gobj destruction through `HSD_GObjPLink_80390228`.",
-    "Typed headers are part of decomp progress: replacing `UNK_RET` and `UNK_PARAMS` with concrete signatures can stabilize call sites and make later matching easier.",
-    "Animation callbacks for spawned fighter articles often need to verify the owning fighter is still in the expected action-state range, then clear ownership and notify the fighter-specific special-move code if not.",
-    "Near matches are still valuable: the bot reported several 91-99% improvements in yoyo and Climbers string functions even though only a subset became exact matches in this PR."
+    "For item chain mechanics such as yoyo, climbers string, hookshot-like links, and grapple-like item vars, compare sibling implementations: this PR includes `it/items/itlinkhookshot.h` in both yoyo and climbers string files, suggesting shared `ItemLink` behavior was useful evidence.",
+    "When matching item physics that read JObj transforms, the exact sequence of `PSMTXIdentity`, setting translation slots, `HSD_JObjSetupMatrix`, `PSMTXConcat`, and copying `m[0][3..]` into a `Vec3` can be important for instruction order and stack shape.",
+    "Replacing padding with named-but-still-unknown fields such as `x8` and `x14` is a useful intermediate step: it records real offsets and types without inventing semantic names not yet proven.",
+    "Action-range checks against `ftLib_80086C0C(owner)` are a recurring cleanup guard for spawned fighter articles; here Ness yoyo checks actions `0x156..0x15B`, while climbers string checks `0x15B..0x164`.",
+    "The decomp.dev match report is valuable evidence for triage: it separated exact new matches from near-matches, helping future work focus on `it_802BF900`, `itNessyoyo_UnkMotion3_Anim`, `it_802BFEC4`, `it_802BF030`, `it_802BF800`, and climbers string helpers that remained imperfect."
   ],
   "naming_conventions": [
-    "Preserved item state naming pattern: `itKirbycutterbeam_UnkMotion0_Anim`, `_Phys`, and `_Coll` in `it_803F6798`.",
-    "Used address-based names for unnamed item helpers, e.g. `it_802BF030`, `it_802BF180`, `it_802C2CA8`, and `fn_802C28DC`.",
-    "Kept project motion callback names such as `itNessyoyo_UnkMotion1_Phys`, `itNessyoyo_UnkMotion2_Phys`, and `itNessyoyo_UnkMotion3_Anim`.",
-    "Used the existing exact casing `itClimbersstring_UnkMotion3_Anim` and cleanup helper `itClimbersstring_Cleanup` rather than normalizing to a different capitalization.",
-    "Unknown struct fields remained offset-style names (`x8`, `x14`, `x18`, `x1C`, `x20`) with explicit padding names like `pad_00` and `pad_0C`."
+    "Unidentified functions kept address-based names like `it_802BF030`, `it_802C2CA8`, and `fn_802C28DC`, matching the project's convention when behavior is not yet confidently named.",
+    "Item motion callback names follow the item-prefixed pattern, e.g. `itNessyoyo_UnkMotion1_Phys`, `itNessyoyo_UnkMotion3_Anim`, and `itKirbycutterbeam_UnkMotion0_Coll`.",
+    "Struct fields that are typed but not semantically identified remain offset-style names such as `itClimbersStringAttributes.x8`, `x14`, and item-var fields like `xDD4_itemVar.samusgrapple.x8`.",
+    "Header address comments were preserved and expanded, e.g. `/* 2BF030 */`, `/* 2C2CA8 */`, and `/* 2C32D4 */`, keeping symbol lookup searchable by ROM address."
   ],
   "assembly_or_matching_tactics": [
-    "Inserted local padding arrays such as `f32 pad[1]`, `pad_top`, `pad_mid`, and `pad_bottom` in several functions to shape stack layout.",
-    "Left `PAD_STACK(8)` in `itClimbersstring_UnkMotion3_Anim`, indicating stack-size/codegen sensitivity even after the visible return path.",
-    "Repeated matrix extraction order was important: initialize `Mtx`, write translation constants, call `HSD_JObjSetupMatrix`, concatenate with the jobj matrix, then copy translation components into `Vec3`.",
-    "Used `it_804DD150` as the zero-like float constant for Ness yoyo matrix translations, while Climbers string used literal `0.0f`.",
-    "For yoyo collision, `it_802BF030` updates `CollData` positions, calls `mpColl_800471F8`, checks `env_flags` masks `0x18000`, `0xFFF`, and returns `env_flags & 0x18FFF`.",
-    "For chain shortening, both yoyo and Climbers string walk backward through `prev`, skip inactive links via `x2C_b0`, compute distance with `it_802A3C98`, clamp the step, then call the chain-relaxation helper.",
-    "`it_802BF900` applies owner scale from `ftLib_80086A0C`, composes translation/scale matrices, copies to a target JObj, ORs `JOBJ_USER_DEF_MTX | JOBJ_MTX_INDEP_PARENT | JOBJ_MTX_INDEP_SRT`, and marks the matrix dirty."
+    "Used small stack padding arrays such as `f32 pad[1]`, `pad_top`, `pad_mid`, and `pad_bottom`, plus `PAD_STACK(8)`, indicating stack-layout tuning for MWERKS/Gekko matching.",
+    "Explicitly initialized matrix translation components to `0.0f` or `it_804DD150` before JObj matrix concatenation to mirror original constant usage and instruction order.",
+    "Kept nested scopes around temporaries in cleanup and distance calculations, which can affect lifetime, stack reuse, and generated code shape.",
+    "Used direct bit checks and boolean flags on `ItemLink` collision/link state (`x2C_b0`, `x2C_b1`, `x2C_b2`) rather than abstracting them away, preserving low-level control flow for matching.",
+    "For `it_802BF900`, built translation and scale matrices manually and set JObj flags `JOBJ_USER_DEF_MTX | JOBJ_MTX_INDEP_PARENT | JOBJ_MTX_INDEP_SRT`, matching low-level rendering state manipulation."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the provided slice.",
-    "decomp.dev reported for GALE01: matched code 63.33% (+0.05%, +1908 bytes), linked code 34.42% (+0.07%, +2588 bytes), matched data 38.14% (+56 bytes), linked data 32.45% (+136 bytes).",
-    "decomp.dev listed 8 new matches: `itnessyoyo` `it_802C0010`, `it_802BF180`, `itNessyoyo_UnkMotion1_Phys`, `itNessyoyo_UnkMotion2_Phys`; `itclimbersstring` `fn_802C28DC`, `fn_802C29E8`, `fn_802C2AF4`; and `itkirbycutterbeam` `.data`.",
-    "decomp.dev listed 10 improvements in unmatched items, including `itnessyoyo` `it_802BF900` at 99.81%, `itNessyoyo_UnkMotion3_Anim` at 98.04%, `it_802BFEC4` at 99.98%, `it_802BF030` at 97.50%, and Climbers string helpers in the 91-99% range."
+    "No human review comments were present in the provided slice.",
+    "The decomp.dev bot reported measurable progress: matched code +1908 bytes, linked code +2588 bytes, matched data +56 bytes, linked data +136 bytes.",
+    "Bot-listed exact new matches were `it_802C0010`, `it_802BF180`, `fn_802C28DC`, `fn_802C29E8`, `itNessyoyo_UnkMotion1_Phys`, `itNessyoyo_UnkMotion2_Phys`, `fn_802C2AF4`, and `itkirbycutterbeam` `.data`."
   ],
   "searchable_terms": [
-    "pr-2412",
     "Link kirbycutterbeam",
-    "lukechampine",
-    "configure.py",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "itkirbycutterbeam.c",
+    "itkirbycutterbeam",
     "it_803F6798",
     "ItemStateTable",
-    "itKirbycutterbeam_UnkMotion0_Anim",
-    "itKirbycutterbeam_UnkMotion0_Phys",
-    "itKirbycutterbeam_UnkMotion0_Coll",
-    "itnessyoyo.c",
-    "itnessyoyo.h",
-    "itNessyoyo_UnkMotion1_Phys",
-    "itNessyoyo_UnkMotion2_Phys",
-    "itNessyoyo_UnkMotion3_Anim",
+    "Object(Matching)",
+    "itNessyoyo",
     "it_802BF030",
     "it_802BF180",
     "it_802BF800",
     "it_802BF900",
     "it_802BFEC4",
     "it_802C0010",
-    "itclimbersstring.c",
-    "itclimbersstring.h",
+    "itClimbersstring",
     "itClimbersStringAttributes",
-    "itClimbersstring_UnkMotion3_Anim",
     "it_802C2CA8",
     "it_802C2DB0",
     "it_802C32D4",
@@ -146,8 +102,6 @@
     "fn_802C29E8",
     "fn_802C2AF4",
     "ItemLink",
-    "Vec3",
-    "Mtx",
     "PSMTXIdentity",
     "PSMTXConcat",
     "HSD_JObjSetupMatrix",
@@ -155,18 +109,22 @@
     "ftLib_80086C0C",
     "ftLib_80086A0C",
     "mpColl_800471F8",
-    "itlinkhookshot.h",
-    "it_804DD150",
-    "it_803B86A4",
     "JOBJ_USER_DEF_MTX",
-    "PAD_STACK(8)"
+    "PAD_STACK"
   ],
   "follow_up_queries": [
-    "Find the previous PR referenced by the body text to see what item files were missed and whether patterns carry over.",
-    "Search remaining `/// #it_802BF28C`, `/// #it_802BF4A0`, and `/// #it_802BFAFC` work in `itnessyoyo.c`.",
-    "Investigate why `it_802C2CA8`, `it_802C2DB0`, `it_802C32D4`, and `itClimbersstring_UnkMotion3_Anim` were only near-matches in the bot report.",
-    "Audit `ItemLink` fields used here (`prev`, `next`, `pos`, `vel`, `x2C_b0`, `x2C_b1`, `x2C_b2`) for better names across hookshot, yoyo, and Climbers string articles.",
-    "Search for remaining fighter-related item files still marked NonMatching near `itkirbycutterbeam.c`, especially `itlinkbomb.c`."
+    "Find later PRs that finish the near-matches in `src/melee/it/items/itnessyoyo.c`, especially `it_802BF900`, `itNessyoyo_UnkMotion3_Anim`, `it_802BFEC4`, `it_802BF030`, and `it_802BF800`.",
+    "Find later PRs that replace `itClimbersStringAttributes.x8` and `x14` with semantic field names.",
+    "Search for other item chain implementations using `ItemLink`, `itlinkhookshot.h`, `PSMTXConcat`, and `HSD_JObjSetupMatrix` as matching references.",
+    "Check whether the static function declarations added to `itclimbersstring.h` were later moved back to C files or kept for matching/header ordering reasons."
   ],
-  "confidence": 0.92
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

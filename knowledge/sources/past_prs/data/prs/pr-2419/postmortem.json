@@ -11,129 +11,111 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed unmerged draft/prototype for adding Transmuter workflow support. It added two shell scripts to prepare a Melee single-TU .ctx.c input and compile Transmuter candidates with the Melee mwcc_sjis-style environment, then intentionally broke ifTime_GetCountdownSeconds as a demo target. decomp.dev reported two broken matches and a collaborator asked for resubmission when the tooling was more complete and better explained.",
+  "summary": "Unmerged tooling PR proposing helper scripts for using Transmuter against Melee single translation units. It added a prepare script to generate/copy a `.ctx` file to `.ctx.c` and print a `transmuter match` command, plus a compile wrapper that invokes the repo's MWCC/SJIS toolchain with Melee-like CFLAGS. The PR also intentionally reordered two calls in `ifTime_GetCountdownSeconds` to create a mismatch demo. It was closed after feedback asking for resubmission in a more complete state with clearer usage documentation.",
   "change_classification": {
-    "primary_type": "tooling-prototype",
+    "primary_type": "tooling",
     "categories": [
       "tooling",
       "decomp-matching",
-      "prototype",
-      "demo-regression",
-      "documentation-needed",
-      "closed-unmerged"
+      "cleanup",
+      "demo-only source perturbation"
     ],
     "systems": [
-      "tooling",
+      "tools",
       "build",
-      "GALE01",
-      "melee-if",
-      "iftime"
+      "melee-if"
     ]
   },
   "key_files": [
-    {
-      "path": "tools/transmuter-prepare.sh",
-      "role": "new Transmuter preparation helper",
-      "notes": "Runs ninja for build/GALE01/<src>.ctx, copies it to .ctx.c, computes the target object path, supports TRANSMUTER override, and prints a suggested transmuter match command."
-    },
-    {
-      "path": "tools/transmuter-compile.sh",
-      "role": "new Transmuter compiler wrapper",
-      "notes": "Compiles a single preprocessed input to an object with sjiswrap.exe and mwcceppc.exe GC/1.2.5n, Melee-like CFLAGS, include paths, and wibo/wine wrapper selection."
-    },
-    {
-      "path": "src/melee/if/iftime.c",
-      "role": "demo mismatch target",
-      "notes": "Reordered gm_8016AEEC and gm_8016AF0C calls in ifTime_GetCountdownSeconds; PR body states this was a deliberate break to demo Transmuter."
-    }
-  ],
-  "what_changed": [
-    "Added tools/transmuter-prepare.sh with usage tools/transmuter-prepare.sh <src/path/to/file.c> <function_name>.",
-    "prepare.sh validates that the source exists under src/, derives build/GALE01/... .ctx and build/GALE01/obj/... .o paths, requires the target object to exist, invokes ninja on the .ctx, and copies .ctx to .ctx.c.",
-    "prepare.sh prints a node transmuter match invocation using --target, --function, --compiler \"tools/transmuter-compile.sh {{inputPath}} {{outputPath}}\", --cwd, --isolate, --no-reduce, concurrency, max-iterations, and timeout.",
-    "Added tools/transmuter-compile.sh to wrap CodeWarrior compilation for Transmuter candidate files using sjiswrap.exe, mwcceppc.exe, MW_VERSION=GC/1.2.5n, GALE01 defines, Melee include paths, and repo-root cwd.",
-    "compile.sh selects wibo on Linux when available, otherwise falls back to wine; non-Linux defaults to wine.",
-    "Changed src/melee/if/iftime.c by moving int seconds = gm_8016AEEC() before int centiseconds = gm_8016AF0C() inside ifTime_GetCountdownSeconds.",
-    "The PR body explicitly says the ifTime_GetCountdownSeconds change was intentionally breaking the function to demo Transmuter.",
-    "decomp.dev reported matched code decreased by 260 bytes with broken matches for ifTime_UpdateCountdown and ifTime_GetCountdownSeconds.",
-    "The PR was closed without merge."
-  ],
-  "smart_moves": [
-    "Mirrored the project compiler environment instead of using a generic compiler command; the wrapper preserved CodeWarrior version, optimization flags, GALE01 defines, include paths, sjiswrap, and repo-root cwd.",
-    "Converted ninja-generated .ctx to .ctx.c so both mwcc and Transmuter accept the preprocessed file extension while leaving the original .ctx reusable.",
-    "Computed target object paths from src/ paths, making the prepare helper applicable to any source under src/ rather than hardcoding iftime.c.",
-    "Used --isolate in the suggested Transmuter invocation; the script comments state it strips non-target/non-inline bodies and may reduce search iterations by about 30-50% in practice on Melee.",
-    "Allowed TRANSMUTER to override the assumed neighboring transmuter checkout path, which avoids hardcoding one developer's filesystem.",
-    "Used a small call-order change in ifTime_GetCountdownSeconds as a controlled demo mismatch, although that choice was not suitable for a mergeable PR."
-  ],
-  "decomp_lessons": [
-    "Tooling PRs should avoid leaving intentional match regressions in normal source files; use a fixture, branch-only demo, or very clear separation when demonstrating a matcher.",
-    "For automated matching tools, candidate compilation must match the project build rule closely: compiler version, flags, defines, include order, sjis handling, and cwd all matter.",
-    "A practical Transmuter workflow for Melee starts from ninja-generated build/GALE01/... .ctx, copies it to .ctx.c, and compares against build/GALE01/obj/... .o.",
-    "Search-space reduction matters: isolating the target function before mutation can make iterative matching faster and more stable.",
-    "Even a small source-order change can break matching, and CI may report breakage in both the edited function and related functions in the same unit.",
-    "Reviewer feedback shows that new decomp tooling needs a complete state and clear usage explanation before it is acceptable for resubmission."
-  ],
-  "naming_conventions": [
-    "Tool scripts were named with the transmuter- prefix under tools/: transmuter-prepare.sh and transmuter-compile.sh.",
-    "The demo followed existing Melee interface naming with ifTime_GetCountdownSeconds and ifTime_ShowTimers.",
-    "Undecompiled/address-style game manager symbols retained uppercase hex names: gm_8016AF0C and gm_8016AEEC.",
-    "Build artifact naming mapped src/melee/if/iftime.c to build/GALE01/src/melee/if/iftime.ctx, build/GALE01/src/melee/if/iftime.ctx.c, and build/GALE01/obj/melee/if/iftime.o.",
-    "Transmuter compiler placeholders used {{inputPath}} and {{outputPath}} in the --compiler string.",
-    "The prepare helper used TRANSMUTER as the environment-variable override for the CLI path."
-  ],
-  "assembly_or_matching_tactics": [
-    "Use call/local initialization order as a matching search dimension; this PR's demo mismatch swapped gm_8016AF0C and gm_8016AEEC initialization order.",
-    "Compile Transmuter candidates through sjiswrap.exe and mwcceppc.exe rather than bypassing the project's sjis/CodeWarrior wrapper behavior.",
-    "Preserve Melee compile flags such as -O4,p, -inline auto, -fp_contract on, -str reuse, -enum int, -proc gekko, and GALE01 build defines when matching generated objects.",
-    "Run Transmuter against a preprocessed .ctx.c single translation unit and the extracted target .o object.",
-    "Use --isolate to strip unrelated bodies before search; optionally drop --no-reduce if further reducer trimming is desired.",
-    "The PR body included a more manual command with --no-cleanup and --seed 42, while prepare.sh's printed command omitted those options; future docs should resolve that discrepancy."
-  ],
-  "review_feedback": [
-    "decomp.dev bot reported GALE01 matched code dropped to 66.29%, -0.01% and -260 bytes.",
-    "decomp.dev listed two broken matches: main/melee/if/iftime ifTime_UpdateCountdown changed from 100.00% to 85.67%, and ifTime_GetCountdownSeconds changed from 100.00% to 79.00%.",
-    "ribbanya commented: \"Please resubmit this when it's in a more complete state and with a clearer explanation of its usage.\"",
-    "No inline review comments were present in the slice."
-  ],
-  "searchable_terms": [
-    "pr-2419",
-    "Add transmuter",
-    "Transmuter",
-    "macabeus",
-    "ribbanya",
     "tools/transmuter-prepare.sh",
     "tools/transmuter-compile.sh",
-    "src/melee/if/iftime.c",
+    "src/melee/if/iftime.c"
+  ],
+  "what_changed": [
+    "Added `tools/transmuter-prepare.sh`, a Bash helper that accepts `<src/path/to/file.c> <function_name>`, checks that the source is under `src/`, maps it to `build/GALE01/...`, runs `ninja` for the `.ctx`, copies it to `.ctx.c`, validates the target object path, locates a Transmuter CLI path, and prints a suggested `node ... match` command.",
+    "Added `tools/transmuter-compile.sh`, a Bash compile wrapper for Transmuter that accepts `<input.c> <output.o>`, expects repo root as CWD, chooses `wibo` on Linux when available or falls back to `wine`, and runs `sjiswrap.exe` plus `mwcceppc.exe` using a hardcoded `GC/1.2.5n` MWCC version and Melee-style C flags/includes.",
+    "Modified `src/melee/if/iftime.c` inside `ifTime_GetCountdownSeconds` by swapping the order of `gm_8016AF0C()` and `gm_8016AEEC()` assignment calls. The PR body says this was purposely done to break the function as a Transmuter demo, not as a production code change.",
+    "Documented a sample Transmuter invocation in the PR body using `build/GALE01/src/melee/if/iftime.ctx.c`, target object `build/GALE01/obj/melee/if/iftime.o`, `--function ifTime_GetCountdownSeconds`, the compile wrapper, `--cwd`, `--isolate`, `--no-reduce`, `--no-cleanup`, concurrency, timeout, iteration limit, and seed."
+  ],
+  "smart_moves": [
+    "The compile wrapper tried to mirror the existing `mwcc_sjis` ninja rule rather than inventing a separate compile environment, which is the right direction for matching-sensitive tooling.",
+    "The prepare script automated the path mapping from `src/.../*.c` to `build/GALE01/.../*.ctx`, `*.ctx.c`, and `build/GALE01/obj/.../*.o`, reducing manual mistakes when setting up Transmuter runs.",
+    "Copying `.ctx` to `.ctx.c` addressed extension expectations from both MWCC and Transmuter while preserving the original generated `.ctx` for reuse.",
+    "The helper surfaced `--isolate` as a default tactic and documented that it strips non-target/non-inline bodies and may reduce compile/search work.",
+    "The wrapper included practical platform handling for `wibo` versus `wine`, matching the kind of host-environment friction common in Melee decomp tooling."
+  ],
+  "decomp_lessons": [
+    "Matching-search tools need a compile wrapper that is as close as possible to the project's real compiler invocation; mismatched CFLAGS, include paths, MWCC version, or wrapper selection can invalidate search results.",
+    "For single-function mutation/search workflows, first generate a preprocessed ctx-style source from ninja, then target the extracted object from the normal build tree.",
+    "Demo PRs that intentionally break matched source should clearly separate demonstration-only perturbations from intended project changes, or avoid committing the broken source at all.",
+    "Tooling additions should include complete, maintainable usage documentation before review; this PR was closed specifically for being incomplete and unclear.",
+    "Environment assumptions such as Transmuter checkout location, `TRANSMUTER` override, `wibo`/`wine`, and required prior `ninja` build should be explicit in docs or scripts."
+  ],
+  "naming_conventions": [
+    "Helper scripts used the `tools/transmuter-*.sh` naming pattern: `transmuter-prepare.sh` for setup and `transmuter-compile.sh` for compiler integration.",
+    "Generated ctx copy convention in the script was `build/GALE01/<src-without-.c>.ctx.c`, derived from ninja's `build/GALE01/<src-without-.c>.ctx`.",
+    "Target object path convention was `build/GALE01/obj/${SRC#src/}` with `.c` replaced by `.o`, e.g. `src/melee/if/iftime.c` to `build/GALE01/obj/melee/if/iftime.o`.",
+    "The demonstration function retained existing project symbol casing: `ifTime_GetCountdownSeconds`, `ifTime_ShowTimers`, `gm_8016AF0C`, and `gm_8016AEEC`."
+  ],
+  "assembly_or_matching_tactics": [
+    "Use `ninja <build/GALE01/...>.ctx` to generate the preprocessed translation unit for the source file under investigation.",
+    "Feed Transmuter a `.ctx.c` copy of the generated ctx source so the compiler and Transmuter accept the input extension.",
+    "Use `--target <object.o>` and `--function <function_name>` to constrain Transmuter to the target function/object.",
+    "Pass a compiler command template like `tools/transmuter-compile.sh {{inputPath}} {{outputPath}}` so Transmuter can compile candidate sources with the repo's MWCC setup.",
+    "Run Transmuter with `--cwd \"$(pwd)\"` from the repo root so include paths and relative tool paths resolve.",
+    "Consider `--isolate` to strip non-target, non-inline function bodies from the ctx before search. The script comments claim this can make compiles modestly faster and reduce iterations, but the PR provides only anecdotal evidence.",
+    "The example used bounded search parameters such as `--concurrency 4`, `--max-iterations 2000`, `--timeout 180000`, and optionally `--seed 42` for reproducibility."
+  ],
+  "review_feedback": [
+    {
+      "author": "ribbanya",
+      "feedback": "Please resubmit this when it's in a more complete state and with a clearer explanation of its usage.",
+      "impact": "The PR was closed unmerged; future Transmuter tooling should return with clearer docs and a more complete integration story."
+    }
+  ],
+  "searchable_terms": [
+    "transmuter",
+    "Transmuter CLI",
+    "tools/transmuter-prepare.sh",
+    "tools/transmuter-compile.sh",
     "ifTime_GetCountdownSeconds",
-    "ifTime_UpdateCountdown",
-    "gm_8016AF0C",
-    "gm_8016AEEC",
+    "src/melee/if/iftime.c",
+    "iftime.ctx",
+    "iftime.ctx.c",
     "mwcc_sjis",
     "sjiswrap.exe",
     "mwcceppc.exe",
     "GC/1.2.5n",
     "wibo",
     "wine",
-    "build/GALE01",
-    ".ctx",
-    ".ctx.c",
-    "single-TU",
-    "CodeWarrior",
-    "--isolate",
-    "--no-reduce",
-    "--no-cleanup",
-    "--seed 42",
-    "TRANSMUTER",
-    "broken matches",
-    "closed unmerged"
+    "ctx",
+    "ctx.c",
+    "single TU",
+    "preprocessed TU",
+    "match",
+    "isolate",
+    "no-reduce",
+    "gm_8016AF0C",
+    "gm_8016AEEC",
+    "GALE01",
+    "BUILD_VERSION",
+    "VERSION_GALE01",
+    "macabeus",
+    "ribbanya"
   ],
   "follow_up_queries": [
-    "Find a later resubmission or merged PR that adds Transmuter tooling with complete usage documentation.",
-    "Search current master for transmuter-prepare.sh, transmuter-compile.sh, or other Transmuter integration.",
-    "Compare any future Transmuter compiler wrapper against the actual mwcc_sjis ninja rule and configure.py wrapper selection.",
-    "Check whether ifTime_GetCountdownSeconds remained matched in master after this unmerged demo PR.",
-    "Look for later PRs using Transmuter to fix call-order or local-order matching issues in Melee functions."
+    "Look for later PRs that reintroduced Transmuter tooling with fuller documentation.",
+    "Search for `transmuter-prepare.sh` or `transmuter-compile.sh` in subsequent commits to see whether this approach was revised or merged elsewhere.",
+    "Compare this hardcoded compile wrapper against the current ninja `mwcc_sjis` rule before reusing it, especially MWCC version, include paths, and flags.",
+    "If adopting Transmuter workflows, document expected installation path, `TRANSMUTER` environment override, build prerequisites, and examples that do not intentionally break matched source."
   ],
-  "confidence": 0.93
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

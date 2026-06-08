@@ -11,75 +11,69 @@
     "merged_at": "2026-03-05T20:49:19Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the Adventure mode game-mode object by refactoring a repeated gm_8016A22C setup sequence in gmadventure.c into a shared static helper, then flipping melee/gm/gmadventure.c from NonMatching to Matching in configure.py. The PR also updated GALE01 local .sdata2 symbol labels from address-style gm_804DACxx names to compiler-style @NN labels. decomp.dev reported one new match: main/melee/gm/gmadventure gm_801B4974 reached 100.00%.",
+  "summary": "Matched src/melee/gm/gmadventure.c by factoring a repeated gm_8016A22C setup sequence into a shared helper, updating local sdata2 symbols to compiler-style @ labels, and flipping gmadventure.c from NonMatching to Matching in configure.py. The decomp.dev report credited one new match, gm_801B4974, moving main/melee/gm/gmadventure to 100% for that item and increasing matched code by 436 bytes.",
   "change_classification": {
-    "primary_type": "decompilation_match",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "build-config",
-      "symbol-map-update",
-      "tooling-apply"
+      "tooling",
+      "symbol-map-maintenance",
+      "refactor-for-match"
     ],
     "systems": [
-      "gm",
-      "gmadventure",
+      "game-mode",
       "adventure-mode",
-      "GALE01-symbols",
-      "configure.py"
+      "config",
+      "build-configuration"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gm/gmadventure.c",
-      "role": "Refactored repeated Adventure setup code into gm_8016A22C_inline and used it from gm_801B4974 and inline0."
-    },
-    {
-      "path": "configure.py",
-      "role": "Changed Object(NonMatching, \"melee/gm/gmadventure.c\") to Object(Matching, \"melee/gm/gmadventure.c\")."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Renamed six local .sdata2 symbols at 0x804DAC18-0x804DAC2C from gm_804DACxx to @217, @218, @244, @306, @307, and @330."
-    }
+    "src/melee/gm/gmadventure.c",
+    "config/GALE01/symbols.txt",
+    "configure.py"
   ],
   "what_changed": [
-    "Added static helper gm_8016A22C_inline(MinorScene* arg0, UnkAdventureData* temp_r29) to gather the gm_8017E48C count, load gm_803DE650_t via gm_8017E4C4(arg0->idx), call gm_8016A22C with the same Adventure data fields, and set temp_r29->x0.xC.x11 = 1.",
-    "Replaced the inlined gm_8016A22C setup block inside gm_801B4974 with gm_8016A22C_inline(arg0, temp_r29), removing local temp_r25_2 usage there.",
-    "Replaced the same setup block inside inline0 with gm_8016A22C_inline(scene, adv_data), while preserving the preceding gm_80169520 and gm_80169540 unused calls inside the x11 guard.",
-    "Promoted melee/gm/gmadventure.c to Matching in configure.py.",
-    "Updated GALE01 .sdata2 local symbols gm_804DAC18, gm_804DAC1C, gm_804DAC20, gm_804DAC24, gm_804DAC28, and gm_804DAC2C to @217, @218, @244, @306, @307, and @330.",
-    "decomp.dev reported matched code 55.14% (+0.01%, +436 bytes), linked code 31.75% (+0.13%, +5092 bytes), linked data 29.16% (+0.16%, +1996 bytes), and gm_801B4974 improving from 99.04% to 100.00%."
+    "Added static helper gm_8016A22C_inline(MinorScene* arg0, UnkAdventureData* temp_r29) in gmadventure.c.",
+    "Moved the repeated gm_8017E48C, gm_8017E4C4, gm_8016A22C argument setup, and x0.xC.x11 assignment into gm_8016A22C_inline.",
+    "Replaced an inlined gm_8016A22C call sequence in gm_801B4974 with gm_8016A22C_inline(arg0, temp_r29).",
+    "Replaced the same repeated call sequence inside inline0 with gm_8016A22C_inline(scene, adv_data).",
+    "Removed now-unneeded local variable temp_r25_2 from gm_801B4974.",
+    "Changed configure.py entry for melee/gm/gmadventure.c from Object(NonMatching, ...) to Object(Matching, ...).",
+    "Renamed six local .sdata2 symbols at 0x804DAC18 through 0x804DAC2C from gm_804DACxx-style generated names to local @217, @218, @244, @306, @307, and @330 labels."
   ],
   "smart_moves": [
-    "Factored a duplicated, long-argument gm_8016A22C call sequence into one helper instead of trying to separately tune two copies; this reduced local-variable pressure and made both call sites share the same byte-sensitive expression ordering.",
-    "Kept the x0.xC.x11 flag write in the helper with the setup call, matching the original logical unit and avoiding divergence between gm_801B4974 and inline0.",
-    "Preserved the apparently unused gm_80169520 and gm_80169540 calls in inline0 before the helper call, which is important for matching call order and potential side effects.",
-    "Completed the decomp workflow by updating configure.py to mark the now-matching object as Matching, which is what drove the linked-code/linkable-object metric improvement.",
-    "Let local data labels use @NN names for compiler-local .sdata2 objects instead of address-derived gm_804DACxx placeholders."
+    "Recognized that two similar long gm_8016A22C setup blocks should be represented as a shared helper, likely matching the original compiler's inline/static helper structure better than duplicated hand-written code.",
+    "Kept the helper narrow: it only computes the adventure count, retrieves gm_803DE650_t from the MinorScene index, performs the gm_8016A22C call, and marks x0.xC.x11 as initialized.",
+    "Preserved the apparently order-sensitive dummy calls in inline0 to gm_80169520 and gm_80169540 while only replacing the repeated setup block, reducing risk to matching-sensitive scheduling/register allocation.",
+    "Updated configure.py immediately after achieving the object match so build metadata reflects that gmadventure.c is now a matching object.",
+    "Converted unnamed/local constants in symbols.txt back to @-style local labels, avoiding misleading global-looking gm_804DACxx names for local .sdata2 data."
   ],
   "decomp_lessons": [
-    "When a nearly matching function contains a repeated call setup also present in an inline helper path, extracting a shared static helper can be a matching tactic, not just a readability cleanup.",
-    "For long calls with many struct-field arguments and function-pointer calls, matching can depend on where temporaries are introduced; moving count and gm_803DE650_t lookup into a helper changed the source shape enough for gm_801B4974 to match.",
-    "Do not remove unused-looking calls during cleanup if they existed in the matching path; gm_80169520 and gm_80169540 remained in inline0 even after the actual setup was moved.",
-    "After code reaches 100%, update the build object classification from NonMatching to Matching so the object contributes to linked-code progress.",
-    "Ninja/decomp apply workflows may require symbol map cleanup: local compiler literals in .sdata2 should be represented as @NN labels when that is what the matching output expects."
+    "When a nonmatching function contains a long call setup also present elsewhere, test whether the original source used a shared inline/static helper; factoring it can improve register allocation and instruction ordering.",
+    "For matching work, duplicated source can be less accurate than a small helper if the compiler emitted the same sequence at multiple call sites.",
+    "Do not delete unused-looking calls blindly in nonmatching code: calls like gm_80169520 and gm_80169540 remained in inline0 even though their results are assigned to unused temporaries, suggesting they were needed for codegen or side effects.",
+    "After a file becomes fully matching, remember to change its configure.py Object state from NonMatching to Matching.",
+    "Local .sdata2 constants should use local @ labels when evidence supports them; address-derived gm_804Dxxxx names can be placeholders rather than stable symbol names."
   ],
   "naming_conventions": [
-    "Compiler-local .sdata2 labels use @NN form, as shown by @217, @218, @244, @306, @307, and @330 replacing gm_804DAC18-style local placeholders.",
-    "The new helper used an address-based function name plus _inline suffix, gm_8016A22C_inline, indicating an inferred helper around the gm_8016A22C call rather than a known semantic name.",
-    "Existing unknown structure and field names were retained, including UnkAdventureData, gm_803DE650_t, xA, xD, xE, xF, x4C, x64, x68, and x0.xC.x11; the PR did not attempt semantic renaming."
+    "The new helper was named gm_8016A22C_inline, tying it to the callee sequence it wraps and marking it as an inline-style matching artifact.",
+    "Local .sdata2 entries were represented with @NNN labels rather than gm_804DACxx names when they are local compiler constants.",
+    "Existing temporary-style names such as temp_r29, temp_r30, temp_r24_2, and temp_r31 were retained; this PR did not attempt broader semantic renaming."
   ],
   "assembly_or_matching_tactics": [
-    "Use a small static helper to encapsulate a duplicated setup sequence when two source sites need identical generated code around a long call.",
-    "Keep argument order exactly aligned with the original call: stage data from gm_803DE650_t, character kind/color/cpu_level from UnkAdventureData, function-pointer results x4C/x64/x68, and gm_8017BE8C(temp_r25_2->xA).",
-    "Move local temporaries such as count and temp_r25_2 into the helper to affect lifetime/register allocation at the caller.",
-    "Preserve guarded side-effect calls before refactored setup code rather than treating them as dead just because their assigned UNK_T variables are unused.",
-    "Update symbols.txt local labels after applying matching output so local floats/bytes in .sdata2 line up with generated assembly labels."
+    "Factored the gm_8016A22C argument construction into a static helper to alter inlining/codegen shape for gm_801B4974 and inline0.",
+    "Removed a local variable from gm_801B4974 after its work moved into the helper, changing register pressure at the caller.",
+    "Kept helper parameters as MinorScene* and UnkAdventureData*, allowing the helper to recompute count and gm_803DE650_t internally rather than passing many precomputed values.",
+    "Adjusted local data labels in symbols.txt to match expected local constant references.",
+    "Marked gmadventure.c Matching only after the decomp.dev report showed a new match for gm_801B4974."
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    "No human review comments were present in the provided slice.",
+    "Automated decomp.dev report for GALE01 reported matched code 55.14% (+0.01%, +436 bytes), linked code 31.75% (+0.13%, +5092 bytes), linked data 29.16% (+0.16%, +1996 bytes).",
+    "Automated report listed one new match: main/melee/gm/gmadventure item gm_801B4974, +5 bytes, from 99.04% to 100.00%."
+  ],
   "searchable_terms": [
-    "pr-2224",
-    "PsiLupan",
+    "PR2224",
     "gmadventure",
     "gm_801B4974",
     "gm_8016A22C_inline",
@@ -87,43 +81,41 @@
     "gm_8017E48C",
     "gm_8017E4C4",
     "gm_8017BE8C",
-    "gm_80169520",
-    "gm_80169540",
-    "UnkAdventureData",
     "gm_803DE650_t",
+    "UnkAdventureData",
     "MinorScene",
-    "inline0",
+    "adv_data",
     "x0.xC.x11",
-    "x4C",
-    "x64",
-    "x68",
-    "configure.py",
+    "configure.py Matching",
     "Object(Matching)",
     "Object(NonMatching)",
-    "config/GALE01/symbols.txt",
-    "gm_804DAC18",
-    "gm_804DAC1C",
-    "gm_804DAC20",
-    "gm_804DAC24",
-    "gm_804DAC28",
-    "gm_804DAC2C",
+    "symbols.txt",
+    "sdata2",
     "@217",
     "@218",
     "@244",
     "@306",
     "@307",
     "@330",
-    "ninja apply",
-    "decomp.dev",
-    "GALE01",
-    "linked code",
-    "linked data"
+    "0x804DAC18",
+    "0x804DAC1C",
+    "0x804DAC20",
+    "0x804DAC24",
+    "0x804DAC28",
+    "0x804DAC2C"
   ],
   "follow_up_queries": [
-    "Search gmadventure.c for other duplicated gm_8016A22C setup blocks that might benefit from the same helper pattern.",
-    "Audit remaining local .sdata2 gm_804DACxx-style symbols and decide whether they should be compiler-local @NN labels.",
-    "Investigate whether gm_8016A22C_inline can receive a semantic name once UnkAdventureData and gm_803DE650_t fields are better understood.",
-    "Review remaining NonMatching gm files near gmadventure in configure.py, especially gmclassic and gmallstar, for similar helper-extraction opportunities."
+    "Look for other gmadventure functions with repeated gm_8016A22C setup that may also want gm_8016A22C_inline or a similar helper.",
+    "Audit remaining gm_804Dxxxx local .sdata2 placeholder names near gmadventure for possible conversion to @ local labels when matching evidence appears.",
+    "Search for unused temporary calls retained for matching, such as gm_80169520 and gm_80169540, before removing them in cleanup PRs."
   ],
-  "confidence": 0.91
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

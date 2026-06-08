@@ -11,85 +11,80 @@
     "merged_at": "2026-05-10T05:50:10Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Fixed SObjLib data layout and related prototypes by replacing a fake aggregate SObjLibData view with discrete globals/static data that better match the binary: GObjFunc/GObjFuncs tables, filename/string data, padding for the jumptable area, two HSD_Chan initializers, direct OSReport strings, and u16 width/height parameters for HSD_SObjLib_803A55DC. The automated decomp.dev report showed sobjlib .rodata reaching 100%, HSD_SObjLib_803A55DC reaching 100%, and improvements to .data and .sbss.",
+  "summary": "Fixed SObjLib data/rodata modeling by replacing an over-broad synthetic SObjLibData aggregate with explicit globals, strings, padding, GObjFuncs, and HSD_Chan initializers. The PR also corrected the HSD_SObjLib_803A55DC signature to use u16 width/height, simplified casts accordingly, and updated GALE01 symbols to split one 0x78 data blob into two 0x30 channel structs plus a string. decomp.dev reported new matches for sobjlib .rodata and HSD_SObjLib_803A55DC, plus improvements in .data and .sbss.",
   "change_classification": {
-    "primary_type": "decomp-matching data-layout fix",
+    "primary_type": "data-layout-fix",
     "categories": [
       "decomp-matching",
-      "data-definition",
-      "symbol-map",
-      "header-prototype",
-      "fix"
+      "fix",
+      "headers",
+      "data",
+      "rodata",
+      "symbols"
     ],
     "systems": [
       "sysdolphin",
       "baselib",
       "sobjlib",
-      "GALE01 config"
+      "config/GALE01"
     ]
   },
   "key_files": [
-    {
-      "path": "src/sysdolphin/baselib/sobjlib.c",
-      "role": "Main implementation/data fix: removed fake SObjLibData, added concrete data objects, direct strings, HSD_Chan statics, and u16 parameter types."
-    },
-    {
-      "path": "src/sysdolphin/baselib/sobjlib.h",
-      "role": "Header synchronization: included gobj.h and changed HSD_SObjLib_803A55DC width/height parameters from int to u16."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Symbol map correction: split one 0x78 data label into two 0x30 channel objects plus a 0x16 string label."
-    }
+    "config/GALE01/symbols.txt",
+    "src/sysdolphin/baselib/sobjlib.c",
+    "src/sysdolphin/baselib/sobjlib.h"
   ],
   "what_changed": [
-    "Changed HSD_SObjLib_804D7960 from an extern declaration to a defining u8 object in sobjlib.c.",
-    "Removed the local SObjLibData struct that bundled multiple adjacent data objects into one artificial aggregate.",
-    "Added HSD_SObjLib_8040C3A0 as a GObjFunc array containing HSD_SObjLib_803A4740 and defined HSD_SObjLib_8040C3A4 as a GObjFuncs table pointing at it.",
-    "Added static data for filename = \"sobjlib.c\" and a zeroed data_pad_jumptable[0x3C].",
-    "Replaced accesses through the fake SObjLibData fields with direct objects: OSReport now uses literal messages and HSD_SetupChannel uses two static HSD_Chan initializers.",
-    "Added static HSD_Chan lbl_8040C418 for GX_COLOR0 and lbl_8040C448 for GX_ALPHA0 with explicit GX channel fields.",
-    "Changed HSD_SObjLib_803A55DC signature from int width/height to u16 width/height in both source and header, allowing simpler bottom/right calculations.",
-    "Changed HSD_SObjLib_803A55DC Vec3 setup from extern Vec3 data references to local initializers for eye {0,0,1} and interest {0,0,0}.",
-    "Updated GALE01 symbols so lbl_8040C418 is size 0x30, with new lbl_8040C448 size 0x30 and lbl_8040C478 size 0x16 data:string."
+    "In config/GALE01/symbols.txt, changed lbl_8040C418 from a single 0x78 object to a 0x30 object, then added lbl_8040C448 as another 0x30 object and lbl_8040C478 as a 0x16 string.",
+    "In sobjlib.c, removed the local SObjLibData aggregate typedef that combined GObjFuncs, filename, error strings, jump table padding, two HSD_Chan values, and another error string into one struct.",
+    "Defined HSD_SObjLib_8040C3A0 as a GObjFunc array containing HSD_SObjLib_803A4740 and defined HSD_SObjLib_8040C3A4 as a real GObjFuncs initializer.",
+    "Changed HSD_SObjLib_804D7960 from an extern declaration to an actual u8 definition in sobjlib.c.",
+    "Added static char filename[] = \"sobjlib.c\" and static u8 data_pad_jumptable[0x3C] = { 0 } to preserve/data-match layout around known strings and jump table space.",
+    "Replaced uses of data-backed error-string externs/struct fields with direct string literals: \"BadOBJ for SOBJ-displayfunc\\n\" and \"Out CameraDisp Range\\n\".",
+    "Added two explicit static HSD_Chan initializers, lbl_8040C418 for GX_COLOR0 and lbl_8040C448 for GX_ALPHA0, and used them directly in HSD_SObjLib_803A54EC via HSD_SetupChannel.",
+    "Changed HSD_SObjLib_803A55DC parameters from int width, int height to u16 width, u16 height in both sobjlib.c and sobjlib.h.",
+    "Initialized eye and interest vectors inline as { 0, 0, 1 } and { 0, 0, 0 } instead of loading extern Vec3 data symbols.",
+    "Included <sysdolphin/baselib/gobj.h> in sobjlib.h to support the exposed GObjFuncs declaration."
   ],
   "smart_moves": [
-    "Split a contiguous data blob into the actual C objects used by code instead of continuing to model it as one wide synthetic struct.",
-    "Kept address-based names for uncertain local data while still giving the compiler typed HSD_Chan and GObjFuncs initializers where the structure was known.",
-    "Synchronized source, header, and symbols.txt in one PR, avoiding a partial match where data layout and public prototypes disagree.",
-    "Used fixed-width u16 parameters for viewport dimensions, which matched the function's intended conversion behavior better than int placeholders.",
-    "Preserved unexplained data space explicitly with data_pad_jumptable[0x3C] rather than deleting or over-typing it."
+    "Split the old inferred 0x78 data region into two typed HSD_Chan objects, matching the symbol table sizes and making HSD_SetupChannel calls use real typed data instead of struct-field offsets.",
+    "Used explicit static data objects and padding to model the data section order without forcing unrelated objects into a fake monolithic struct.",
+    "Changing width and height to u16 let the function naturally express the same truncation that had previously been forced with casts, helping HSD_SObjLib_803A55DC reach a reported 100% match.",
+    "Inlining small Vec3 constants and OSReport strings avoided unnecessary extern data symbols while preserving the expected rodata/data layout.",
+    "Kept symbol metadata synchronized with source changes, especially the split of lbl_8040C418/lbl_8040C448/lbl_8040C478."
   ],
   "decomp_lessons": [
-    "Do not leave independent data objects hidden inside a catch-all struct once object boundaries are known; it can obscure symbol sizes and force unnatural field references.",
-    "When a symbol-map label spans multiple real objects, split the label into object-sized entries so later data matching has stable anchors.",
-    "Near-match functions can be fixed by correcting parameter widths in both the C definition and header, not just by local expression tweaking.",
-    "Direct string literals or static char arrays may be a better match than routing OSReport messages through fields of an invented data struct.",
-    "Data-layout cleanup can unlock code matches too: this PR improved sobjlib .data/.sbss and also took HSD_SObjLib_803A55DC to 100%."
+    "Do not overfit adjacent data into a single synthetic struct when the real layout is several independent globals; explicit typed objects plus named padding can improve both readability and matching.",
+    "If a function takes dimensions that are semantically 16-bit, changing the prototype to u16 can remove noisy casts and fix codegen around arithmetic conversions.",
+    "For data-section matching, update symbols.txt at the same time as source declarations so object boundaries, sizes, and string annotations reflect the reconstructed layout.",
+    "HSD_Chan initializers should be represented as real HSD_Chan globals when channel setup code takes their addresses directly.",
+    "Bot match reports are useful evidence for small data-layout PRs: this one showed .rodata becoming 100%, HSD_SObjLib_803A55DC becoming 100%, and .data/.sbss improving."
   ],
   "naming_conventions": [
-    "Exported unknown-address globals kept the HSD_SObjLib_8040Cxxx naming style, e.g. HSD_SObjLib_8040C3A0 and HSD_SObjLib_8040C3A4.",
-    "Local static data retained lbl_8040Cxxx address-label names when no semantic name was evident, e.g. lbl_8040C418 and lbl_8040C448.",
-    "The temporary filler object was named data_pad_jumptable to document its role as data-space padding around the jumptable region.",
-    "Function prototypes should use fixed-width Dolphin/project typedefs such as u16 when the original ABI behavior depends on width."
+    "Unidentified data labels retained address-style names such as lbl_8040C418 and lbl_8040C448.",
+    "SObjLib globals keep the project’s address-derived HSD_SObjLib_80xxxxxx naming style until better semantic names are known.",
+    "Temporary layout-preserving padding was named descriptively as data_pad_jumptable.",
+    "The file-local source filename string was named filename.",
+    "Function symbols remain address-style names such as HSD_SObjLib_803A55DC and HSD_SObjLib_803A54EC."
   ],
   "assembly_or_matching_tactics": [
-    "Replace a fake overlay struct with separate C declarations to match individual data object boundaries and relocations.",
-    "Use typed aggregate initializers for HSD_Chan objects so the emitted .data matches channel defaults exactly.",
-    "Use u16 width/height parameters to avoid extra casts in HSD_SObjLib_803A55DC and reach the target codegen.",
-    "Use local Vec3 initializers for eye and interest instead of extern Vec3 symbols where that matches the function and .rodata layout.",
-    "Represent unknown/padding data explicitly with a zeroed byte array when the binary contains a fixed data range that is not yet fully typed."
+    "Replaced an artificial aggregate data struct with separate definitions to match actual .data object boundaries.",
+    "Used static zero padding of size 0x3C to occupy the jump-table-sized gap in data layout.",
+    "Corrected parameter types to u16 to avoid explicit cast patterns for width/height and improve HSD_SObjLib_803A55DC codegen.",
+    "Initialized Vec3 constants locally rather than loading them from extern data symbols.",
+    "Represented error messages as string literals at use sites, contributing to the reported .rodata match.",
+    "Declared HSD_SObjLib_804D7960 and HSD_ObjAllocData storage in the C file to improve .sbss/.bss-style data matching."
   ],
   "review_feedback": [
-    "No human review comments or PR body were present in the slice.",
-    "decomp-dev bot reported GALE01 matched code 66.47% (+0.01%, +444 bytes) and matched data 38.80% (+0.00%, +24 bytes).",
-    "decomp-dev bot reported 2 new matches: main/sysdolphin/baselib/sobjlib .rodata from 0.00% to 100.00%, and HSD_SObjLib_803A55DC from 99.84% to 100.00%.",
-    "decomp-dev bot reported unmatched-item improvements for sobjlib .data (+115 bytes, 0.00% to 48.07%) and .sbss (+4 bytes, 0.00% to 50.00%)."
+    "No human review comments were present in the available slice.",
+    "decomp.dev bot reported matched code increasing by 444 bytes and matched data increasing by 24 bytes.",
+    "decomp.dev bot reported two new matches: sobjlib .rodata at 100% (+24 bytes) and HSD_SObjLib_803A55DC at 100% (+1 byte).",
+    "decomp.dev bot reported unmatched-item improvements for sobjlib .data (+115 bytes, 48.07%) and .sbss (+4 bytes, 50.00%)."
   ],
   "searchable_terms": [
     "fixup sobjlib data",
     "sobjlib",
-    "sysdolphin baselib",
+    "SObjLibData",
     "HSD_SObjLib_8040C3A0",
     "HSD_SObjLib_8040C3A4",
     "HSD_SObjLib_804D7960",
@@ -98,28 +93,41 @@
     "HSD_SObjLib_803A49E0",
     "HSD_SObjLib_803A54EC",
     "HSD_SObjLib_803A55DC",
-    "GObjFunc",
-    "GObjFuncs",
-    "HSD_Chan",
     "lbl_8040C418",
     "lbl_8040C448",
     "lbl_8040C478",
+    "jumptable_8040C3DC",
     "data_pad_jumptable",
-    "BadOBJ for SOBJ-displayfunc",
-    "Out CameraDisp Range",
+    "HSD_Chan",
+    "GObjFunc",
+    "GObjFuncs",
     "GX_COLOR0",
     "GX_ALPHA0",
+    "GX_SRC_REG",
+    "GX_LIGHT_NULL",
+    "GX_DF_CLAMP",
+    "GX_AF_NONE",
+    "BadOBJ for SOBJ-displayfunc",
+    "Out CameraDisp Range",
+    "sobjlib.c",
     "u16 width height",
-    "symbols.txt data split",
-    "sobjlib .rodata 100",
-    "sobjlib .data 48.07",
-    "sobjlib .sbss 50"
+    "GALE01 symbols.txt",
+    "rodata match",
+    "data layout fix"
   ],
   "follow_up_queries": [
-    "Look for later PRs that rename lbl_8040C418, lbl_8040C448, lbl_8040C478, or data_pad_jumptable to more semantic sobjlib data names.",
-    "Audit data around .data:0x8040C3A0-.data:0x8040C490 to confirm remaining sobjlib/SisLib symbol boundaries after the split.",
-    "Search for HSD_SObjLib_803A55DC callers to confirm all width/height arguments are compatible with the u16 prototype.",
-    "Compare other baselib modules for fake aggregate data structs that should be split into typed objects and symbol-map labels."
+    "Find other baselib files using large synthetic data structs that may actually be adjacent globals.",
+    "Search for functions with int width/height parameters but repeated u16 casts that may need u16 prototypes.",
+    "Audit nearby symbols around jumptable_8040C3DC and lbl_8040C418 for remaining data-boundary mistakes.",
+    "Check whether lbl_8040C418 and lbl_8040C448 can receive semantic channel names once surrounding SObjLib behavior is understood."
   ],
-  "confidence": 0.9
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

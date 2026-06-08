@@ -11,142 +11,158 @@
     "merged_at": "2026-04-21T16:02:51Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large Big Blue stage decompilation PR with no PR body; intent is inferred from the diff, review comments, and decomp.dev report. It implemented or substantially improved several `grbigblue` routines, added typed Big Blue ground/parameter/data-table structures, corrected function return types, and applied reviewer style fixes around `F32_MAX` and decimal `gobj_id` literals.",
+  "summary": "Large Big Blue stage decompilation PR focused on src/melee/gr/grbigblue.c. It replaced several placeholder/todo functions with C implementations, improved or matched multiple grbigblue functions, and expanded Big Blue-specific structs in grbigblue.static.h and gr/types.h so repeated per-car/per-object state could be accessed through typed fields instead of raw byte offsets. decomp.dev reported +1048 matched bytes overall, with fn_801E8560 and grBigBlue_801E8794 newly matching at 100%, and major partial matches for grBigBlue_801E6C60, grBigBlue_801E93D8, grBigBlue_801EA05C, grBigBlue_801EBAF8, grBigBlue_801ECB50, and grBigBlue_801EE398. Review feedback called out use of F32_MAX for -3.4028235e38f sentinels, decimal notation for gobj_id values, and confirmed a switch/fallthrough pattern was intentional rather than simple breaks.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-decomp",
       "headers",
-      "struct-typing",
-      "matching-cleanup"
+      "struct-layout",
+      "stage-logic"
     ],
     "systems": [
       "stage",
       "ground",
-      "Big Blue"
+      "Big Blue",
+      "grbigblue"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grbigblue.c",
-      "role": "Main Big Blue decomp work; +2599/-245 lines, replacing several stubs/unmatched blocks with C and refining data/table usage."
+      "role": "Main Big Blue stage decompilation work; added large C bodies for previously placeholder functions and refactored accesses to typed Big Blue ground variables."
     },
     {
       "path": "src/melee/gr/grbigblue.static.h",
-      "role": "Expanded `grBb_YakumonoParams` from padding into typed offset fields from `x6C` through `x130`."
+      "role": "Expanded grBb_YakumonoParams with many named offset fields such as x88, x8C, x90-x130 instead of broad padding."
     },
     {
       "path": "src/melee/gr/types.h",
-      "role": "Added `struct grBigBlue_GroundData` with offset comments and `STATIC_ASSERT`, and refactored `grBigBlue_GroundVars` to use unions, `xD4[3]`, and `data[3]`."
+      "role": "Added struct grBigBlue_GroundData, asserted its 0x54 size, and reshaped grBigBlue_GroundVars around a union, xD4[3], and data[3]."
     },
     {
       "path": "src/melee/gr/grbigblue.h",
-      "role": "Corrected prototypes: `grBigBlue_801E8D04` returns `f32`; `grBigBlue_801EE398` returns `s32`."
+      "role": "Minor prototype/header adjustments tied to Big Blue changes."
     }
   ],
   "what_changed": [
-    "Implemented or heavily expanded `grBigBlue_801E6C60`, `grBigBlue_801E93D8`, `grBigBlue_801EA05C`, `grBigBlue_801EBAF8`, `grBigBlue_801ECB50`, and `grBigBlue_801EE398`.",
-    "decomp.dev reported 2 new full matches: `fn_801E8560` and `grBigBlue_801E8794` reached 100%.",
-    "decomp.dev also reported major improvements from 0% to roughly 87-94% for several large `grbigblue` functions, including `801E6C60`, `801E93D8`, `801EA05C`, `801EBAF8`, `801ECB50`, and `801EE398`.",
-    "Replaced the old `tmpPadData`-style offset access with typed Big Blue data-table declarations such as `grBb_Data803E2D78`, `grBb_Data803E2EB8`, `grBb_803E2938`, `grBb_803E2D78`, and `grBb_803E2EB8`.",
-    "Refactored repeated Big Blue ground-variable offset blocks into `grBigBlue_GroundData data[3]` and `HSD_JObj* xD4[3]`, with offset comments documenting the three repeated locations.",
-    "Converted several `Ground_801C2BA4` IDs from hex to decimal after review, e.g. `0x20` to `32`, `0x21` to `33`, and `0x22` to `34`.",
-    "Changed `grBigBlue_801E8D04` from a void wrapper into a function returning the `f32` result of `grBigBlue_801E8B84`, matching its caller usage."
+    "Added typed local data definitions for grBb_Data803E2D78 and grBb_Data803E2EB8 in grbigblue.c, plus externs grBb_803E2D78 and grBb_803E2EB8, replacing the old tmpPadData placeholder array usage in the shown excerpt.",
+    "Changed grBigBlue_801E6364 to use grBb_803E2D78.x48 for Ground_801C3FA4 lookup and grFZeroCar_801CAFBC setup instead of pointer arithmetic into tmpPadData.",
+    "Changed Big Blue ground state access from scattered raw offsets and individual x10/x14/x18 JObj fields to xD4[3] and data[3] entries with fields like index, x1, x2, x8, x38, x44, and x50.",
+    "Implemented grBigBlue_801E6C60, a large state-machine-like routine for Big Blue object/car behavior involving HSD_Randi, JObj translation, Stage blast/camera bounds, grBigBlue_801EC58C height queries, grBigBlue_801E8794 collision checks, and grBigBlue_801EAB50 overlap checks.",
+    "Implemented grBigBlue_801E93D8 and additional routines that were previously placeholders or stubs in the diff region, including grBigBlue_801E9F3C, grBigBlue_801EA05C, grBigBlue_801EAB50, grBigBlue_801EBAF8, and grBigBlue_801ECB50.",
+    "Expanded grBb_YakumonoParams in grbigblue.static.h to expose many previously padded fields used by the new code, including timing/count integer fields and f32 movement/position parameters.",
+    "Added struct grBigBlue_GroundData in gr/types.h with comments documenting the corresponding gp offsets for three repeated instances and a STATIC_ASSERT(sizeof(...) == 0x54).",
+    "decomp.dev reported two new 100% matches: fn_801E8560 (+70 bytes) and grBigBlue_801E8794 (+46 bytes), plus major partial progress on several large grbigblue functions."
   ],
   "smart_moves": [
-    "Grouped three repeated Big Blue per-object state blocks into a single `grBigBlue_GroundData` array, making the state machine code less dependent on raw byte offsets while preserving exact offset documentation.",
-    "Used typed table structs for known Big Blue data globals instead of fake padding, enabling accesses like `grBb_803E2D78.x48[i]` and `grBb_803E2D78.x84` to replace brittle pointer arithmetic.",
-    "Kept low-level matching controls where needed: `PAD_STACK`, `#pragma fp_contract on`, and `MWERKS_GEKKO` inline `rlwimi` appear in the diff for matching-sensitive code.",
-    "Accepted the reviewer’s constant-style correction by representing the `-3.4028235e38f` missing-height sentinel as `-F32_MAX` where called out.",
-    "Preserved non-obvious switch/goto flow in `grBigBlue_801E93D8`; the author explained that replacing the shared tail with `break` would change fallthrough behavior."
+    "Recognized a repeated 0x54-byte Big Blue state block and modeled it as grBigBlue_GroundData data[3], which made the large state-machine code more readable and reduced raw offset noise.",
+    "Converted three separate JObj fields into HSD_JObj* xD4[3], matching the repeated object pattern seen in initialization and update loops.",
+    "Preserved exact matching-sensitive control flow where needed, including an intentional switch fallthrough from later cases while keeping case 0 separate.",
+    "Used project constants after review feedback: the diff excerpt shows -F32_MAX replacing raw -3.4028235e38f in at least one sentinel comparison.",
+    "Kept offset comments in grBigBlue_GroundData documenting all three equivalent gp offsets, which is useful when a struct overlays repeated state at gp+E4, gp+138, and gp+18C.",
+    "Added a STATIC_ASSERT for the new per-entry struct size, reducing the risk that future field naming or padding changes silently break layout."
   ],
   "decomp_lessons": [
-    "When repeated `gp+offset` regions share layout, introduce a small struct with offset comments and `STATIC_ASSERT` before replacing casts throughout the function.",
-    "For `Ground_801C2BA4`, reviewer guidance says `gobj_id` arguments should be written in decimal rather than hex.",
-    "Raw `-3.4028235e38f` sentinels in stage surface-height code may actually be `-F32_MAX`; prefer the named constant when evidence supports it.",
-    "Do not simplify `goto` or fallthrough-heavy switch state machines unless control flow is proven equivalent; matching and behavior can rely on shared post-case blocks.",
-    "Header prototypes should be revisited once decompilation reveals real return values; incorrect `void` prototypes can hide required caller dataflow.",
-    "It is acceptable to mix typed structs with remaining raw byte offsets during incremental decomp, as long as the typed portions are offset-verified."
+    "For repeated stage substructures, introduce a small typed entry struct and an array before attempting to clean up large state machines; it makes matching attempts and review much easier.",
+    "When a stage routine uses the same sentinel literal repeatedly for failed height queries, prefer the shared constant F32_MAX instead of spelling out 3.4028235e38f.",
+    "Preserve non-obvious switch fallthrough if it reflects the original control flow; reviewers may question it, so make the fallthrough intent clear in code structure or comments when possible.",
+    "Use decimal notation for gobj_id values according to review feedback; hex notation is discouraged for IDs even if the original raw offset work used hex-heavy style.",
+    "Offset comments are valuable in shared GroundVars structs where different Big Blue gobjs interpret the same storage differently.",
+    "Partial matches on very large stage functions can still be valuable when paired with header/struct improvements that future PRs can reuse."
   ],
   "naming_conventions": [
-    "Unknown Big Blue functions retain address-style names such as `grBigBlue_801E6C60` and `grBigBlue_801EE398`.",
-    "Data globals and table types are named after their known symbols, e.g. `grBb_Data803E2D78`, `grBb_Data803E2EB8`, `grBb_803E2D78`, and `grBb_803E2EB8`.",
-    "Unknown struct fields remain offset-style (`x88`, `x8C`, `xD4`, `x0_w`) but are grouped semantically when layout evidence exists.",
-    "Repeated Big Blue object state is represented as `data[3]` and `xD4[3]` instead of separate `x10`, `x14`, `x18`-style fields.",
-    "Offset comments in `types.h` document multiple equivalent `gp` addresses for repeated layouts, such as `gp+E4 gp+138 gp+18C`."
+    "Stage-specific globals and structs use the grBb_ prefix for Big Blue data, e.g. grBb_804D69C8, grBb_803E2D78, grBb_Data803E2D78, and grBb_YakumonoParams.",
+    "Big Blue functions follow the existing address-suffixed convention grBigBlue_801E....",
+    "Unknown struct fields remain offset-style names such as x88, x8C, x90, xD4, x50 when semantic names are not yet proven.",
+    "Repeated Big Blue per-object state is named grBigBlue_GroundData and stored as data[3].",
+    "The new JObj array field is named xD4[3], replacing individually named offset fields x10, x14, and x18."
   ],
   "assembly_or_matching_tactics": [
-    "`#pragma push` / `#pragma fp_contract on` was used around `grBigBlue_801EE398`, indicating floating-point contraction mattered for matching.",
-    "Inline `asm { rlwimi byte, st_val, 2, 24, 29 }` under `MWERKS_GEKKO` was used to match byte bitfield insertion/state updates.",
-    "`PAD_STACK` was retained or adjusted in matching-sensitive functions such as `grBigBlue_801E8D64`, `grBigBlue_801E93D8`, and the large state-machine routines.",
-    "The diff preserves shared-tail `goto` flow in switch cases where only some cases should fall through.",
-    "The implementation uses incremental typing: raw `u8*` offset access remains in complex regions, while confirmed repeated regions are promoted into structs and arrays."
+    "Used PAD_STACK in large functions where stack shape still mattered for matching.",
+    "Maintained casts to s8/u8/s32 around state bytes and indices, suggesting signedness was important for generated code shape.",
+    "Preserved low-level pointer access in sections not yet structurally understood, e.g. u8* bp and raw gp offsets inside grBigBlue_801E93D8, rather than forcing premature struct names.",
+    "Modeled repeated vector math with Vec3 locals and lbVector_ApplyEulerRotation/lbVector_Add while preserving operation order around HSD_JObj translation and rotation calls.",
+    "Used F32_MAX for float sentinel comparisons where reviewer identified raw -3.4028235e38f as the max-float sentinel.",
+    "Accepted intentional switch fallthrough as a matching/control-flow tactic: review questioned whether branches were just breaks, and the reply clarified that case 0 does not fall through but the rest does."
   ],
   "review_feedback": [
     {
       "reviewer": "PsiLupan",
       "file": "src/melee/gr/grbigblue.c",
-      "feedback": "A raw `-3.4028235e38f` comparison was identified as `F32_MAX`."
+      "feedback": "This is F32_MAX.",
+      "lesson": "Use F32_MAX for max-float sentinel literals instead of raw 3.4028235e38f."
     },
     {
       "reviewer": "PsiLupan",
       "file": "src/melee/gr/grbigblue.c",
-      "feedback": "A `Ground_801C2BA4` argument was a `gobj_id`; reviewer said it should be represented in decimal, not hex."
+      "feedback": "Nitpick: This is a gobj_id, we should represent it with decimal, not hex.",
+      "lesson": "Represent gobj_id constants in decimal."
     },
     {
       "reviewer": "PsiLupan",
       "file": "src/melee/gr/grbigblue.c",
-      "feedback": "Asked whether some `goto` statements in `grBigBlue_801E93D8` were just `break;`."
+      "feedback": "These are just `break;`, no?",
+      "lesson": "Switch control flow was subtle enough to warrant clarification."
     },
     {
-      "reviewer": "jellejurre",
+      "reviewer": "jurrejelle",
       "file": "src/melee/gr/grbigblue.c",
-      "feedback": "Replied that the gotos were not equivalent to breaks because case 0 does not fall through to the shared block while the rest do."
+      "feedback": "Nope, because case 0 doesn't fall through to there, and the rest does",
+      "lesson": "The fallthrough behavior was intentional and should not be simplified away without checking control flow."
     }
   ],
   "searchable_terms": [
     "pr-2428",
     "Jj/grbigblue",
+    "jurrejelle",
+    "PsiLupan",
     "grbigblue",
     "Big Blue",
     "src/melee/gr/grbigblue.c",
     "src/melee/gr/grbigblue.static.h",
     "src/melee/gr/types.h",
-    "grBigBlue_801E6C60",
-    "grBigBlue_801E93D8",
-    "grBigBlue_801EA05C",
-    "grBigBlue_801EBAF8",
-    "grBigBlue_801ECB50",
-    "grBigBlue_801EE398",
-    "grBigBlue_801E8794",
-    "fn_801E8560",
-    "fn_801EF60C",
-    "grBigBlue_801E8D04",
-    "grBigBlue_801E8978",
-    "grBigBlue_801E89DC",
-    "grBigBlue_801E8A1C",
-    "grBigBlue_801EAB50",
-    "grBigBlue_801EC58C",
     "grBb_YakumonoParams",
     "grBigBlue_GroundData",
     "grBigBlue_GroundVars",
     "grBb_803E2D78",
     "grBb_803E2EB8",
-    "grBb_803E2938",
+    "grBb_Data803E2D78",
+    "grBb_Data803E2EB8",
+    "tmpPadData",
+    "xD4[3]",
+    "data[3]",
     "F32_MAX",
-    "Ground_801C2BA4",
-    "gobj_id",
-    "rlwimi",
-    "fp_contract",
-    "PAD_STACK"
+    "gobj_id decimal",
+    "switch fallthrough",
+    "fn_801E8560",
+    "grBigBlue_801E8794",
+    "grBigBlue_801E6C60",
+    "grBigBlue_801E93D8",
+    "grBigBlue_801EA05C",
+    "grBigBlue_801EAB50",
+    "grBigBlue_801EBAF8",
+    "grBigBlue_801ECB50",
+    "grBigBlue_801EE398",
+    "Stage_GetBlastZoneRightOffset",
+    "Stage_GetCamBoundsTopOffset",
+    "Ground_801C3FA4",
+    "grFZeroCar_801CAFBC"
   ],
   "follow_up_queries": [
-    "Check later PRs for full matches of `grBigBlue_801E6C60`, `grBigBlue_801E93D8`, `grBigBlue_801EA05C`, `grBigBlue_801EBAF8`, `grBigBlue_801ECB50`, and `grBigBlue_801EE398`.",
-    "Search stage code for `Ground_801C2BA4(0x` to apply the decimal `gobj_id` convention.",
-    "Search for raw `-3.4028235e38f` in stage code and verify whether it should be `-F32_MAX`.",
-    "Find other uses of `tmpPadData`-style globals that can be replaced with typed table structs like `grBb_Data803E2D78`.",
-    "Audit `grBigBlue_GroundData` and `grBb_YakumonoParams` field names once semantics become known, keeping offset comments and size checks."
+    "Find later PRs that rename grBigBlue_GroundData fields x1, x2, x8, x38, x44, or x50 to semantic names.",
+    "Check subsequent grbigblue PRs for completion of grBigBlue_801E6C60, grBigBlue_801E93D8, grBigBlue_801EA05C, grBigBlue_801EBAF8, grBigBlue_801ECB50, and grBigBlue_801EE398.",
+    "Search for other stage PRs that replace tmpPadData-style placeholders with typed extern data tables.",
+    "Audit Big Blue gobj_id literals to ensure decimal formatting was applied consistently after review.",
+    "Look for later cleanup of remaining raw bp/gp offset accesses in grBigBlue_801E93D8 and related functions."
   ],
-  "confidence": 0.87
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

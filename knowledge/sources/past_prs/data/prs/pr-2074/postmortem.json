@@ -11,85 +11,145 @@
     "merged_at": "2026-01-11T00:30:57Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled and typed a large slice of lb audio/background-flash code. The PR body states that lbbgflash.c and lbaudio_ax.c match; the decomp.dev report confirms 4 new full matches and 10 large unmatched-function improvements, with most work in src/melee/lb/lbaudio_ax.c. The change replaces many UNK_RET/UNK_PARAMS prototypes with concrete signatures, introduces lbAudioAx_UserData, adds needed baselib/camera/fighter/item includes, and adds static headers for several vi units so globals and constants can be declared cleanly.",
+  "summary": "Decompiled and typed a substantial slice of the lb audio AX code plus two lbbgflash routines. The PR body states that lbbgflash.c and lbaudio_ax.c match, while the decomp.dev report specifically records 4 new 100% matches and 10 substantial unmatched-function improvements, raising matched code by 664 bytes. The main value was replacing multiple UNK_RET/UNK_PARAMS placeholders and raw user_data/int indexing with typed prototypes, a lbAudioAx_UserData layout, static externs, and concrete HSD_GObj/audio object lifecycle logic.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
+      "struct-layout",
       "prototype-cleanup",
-      "struct-recovery"
+      "library-audio"
     ],
     "systems": [
-      "lb",
-      "audio",
-      "background-flash",
-      "menus",
-      "vi",
-      "baselib-gobj"
+      "melee/lb",
+      "lbaudio_ax",
+      "lbbgflash",
+      "baselib-gobj",
+      "baselib-audio",
+      "menu-headers",
+      "vi-static-headers"
     ]
   },
   "key_files": [
-    "src/melee/lb/lbaudio_ax.c",
-    "src/melee/lb/lbaudio_ax.h",
-    "src/melee/lb/lbaudio_ax.static.h",
-    "src/melee/lb/lbbgflash.c",
-    "src/melee/lb/lbbgflash.h",
-    "src/melee/mn/mnmain.h",
-    "src/melee/mn/mnvibration.h",
-    "src/melee/vi/vi0801.static.h",
-    "src/melee/vi/vi1201v2.static.h",
-    "src/melee/vi/vi1202.static.h"
+    {
+      "path": "src/melee/lb/lbaudio_ax.c",
+      "role": "Main decompilation target; added many concrete implementations for audio sorting, panning/interpolation, GObj sound creation/freeing, voice keyoff, SFX-bank memory accounting, and stage/category mask helpers."
+    },
+    {
+      "path": "src/melee/lb/lbaudio_ax.h",
+      "role": "Converted several UNK_RET/UNK_PARAMS declarations to typed prototypes, including fn_80023254, lbAudioAx_8002392C, lbAudioAx_80024F08, fn_80025FAC, fn_800262A0, lbAudioAx_800264E4, lbAudioAx_80026510, fn_800267B0, fn_800268B4, lbAudioAx_8002835C, lbAudioAx_80028B6C, and lbAudioAx_80028B90."
+    },
+    {
+      "path": "src/melee/lb/lbaudio_ax.static.h",
+      "role": "Added lbAudioAx_UserData layout, offsets_arr_803BC4E4, and audio globals such as lbl_804337C4, lbl_804338A4, lbl_80433B44, lbl_804D6438, lbl_804D6448, lbl_804D644C, and lbl_804D6450."
+    },
+    {
+      "path": "src/melee/lb/lbbgflash.c",
+      "role": "Added fn_800204C8 and fn_80021C1C implementations for background flash state update and ColorOverlay handling."
+    },
+    {
+      "path": "src/melee/lb/lbbgflash.h",
+      "role": "Typed fn_80021C1C as void fn_80021C1C(void)."
+    },
+    {
+      "path": "src/melee/mn/mnmain.h",
+      "role": "Prototype cleanup for menu functions, replacing several UNK signatures with void/typed signatures."
+    },
+    {
+      "path": "src/melee/mn/mnvibration.h",
+      "role": "Typed mnVibration_80249174 as void mnVibration_80249174(int arg0)."
+    },
+    {
+      "path": "src/melee/vi/vi0801.static.h",
+      "role": "New static header with scene/color/static float externs for vi0801."
+    },
+    {
+      "path": "src/melee/vi/vi1201v2.static.h",
+      "role": "New static header with SceneDesc, archive, JObj, Vec3, and static float externs for vi1201v2."
+    },
+    {
+      "path": "src/melee/vi/vi1202.static.h",
+      "role": "New static header with JObj, void** global, and static float/f64 externs for vi1202."
+    }
   ],
   "what_changed": [
-    "Implemented many previously stubbed lbaudio_ax functions, including fn_80023254, fn_800251EC, fn_80025B44, fn_80025CBC, fn_80025E38, lbAudioAx_800263E8, lbAudioAx_800264E4, lbAudioAx_80026510, fn_800267B0, fn_800268B4, lbAudioAx_80026F2C, and lbAudioAx_8002702C.",
-    "Reworked lbAudioAx_800265C4 to use typed lbAudioAx_UserData fields instead of raw int* indexing and M2C_FIELD access to HSD_GObj_Entities.",
-    "Added lbAudioAx_UserData in lbaudio_ax.static.h with recovered offsets for entity, start/end values, pan fields, voice_id, current_frame, and end_frame.",
-    "Added a local SoundParams struct in lbaudio_ax.c for lbAudioAx_800263E8 setup before GObj creation and userdata initialization.",
-    "Added baselib gobjproc/gobjuserdata, camera, ftlib, and item includes used by the new typed audio code.",
-    "Implemented lbbgflash functions fn_800204C8 and fn_80021C1C, including background flash state update logic and ColorOverlay application through lb_80014498.",
-    "Updated public headers to replace unknown signatures with concrete void, bool, HSD_GObj*, HSD_AObj*, and typed-argument prototypes.",
-    "Added vi0801.static.h, vi1201v2.static.h, and vi1202.static.h containing extern/static declarations for scene, archive, JObj, GXColor, Vec3, and float/double globals."
+    "Implemented fn_80023254 in lbaudio_ax.c, including a 0x38-entry local array, lbl_80433B44 ordering table setup, comparisons against s32_arr_803BB5D0 and offsets_arr_803BC4E4, and an explicitly unrolled/backward shift insertion loop.",
+    "Implemented fn_800251EC as a GObj audio panning updater: it reads lbAudioAx_UserData, queries Camera_800307D0 for left/center/right camera bounds, obtains entity position through ftLib_80086644 for type 4 or it_8026B294 for type 6, and stores a computed pan into ud->x2C.pan.",
+    "Implemented pan interpolation callbacks fn_80025B44 and fn_80025CBC. Both use current_frame/end_frame and pan_left/pan_right, clamp float results to 0..127, and write either result or 0x7F - result.",
+    "Implemented fn_80025E38 to interpolate lbAudioAx_UserData x20 between start_val and end_val over current_frame/end_frame, with a fallback setting x20 to 0x7F after the end frame.",
+    "Implemented lbAudioAx_800263E8, creating an HSD_GObj with GObj_Create, allocating audio userdata via HSD_ObjAlloc, initializing userdata with GObj_InitUserData, registering fn_800262A0 with HSD_GObjProc_8038FD54, and passing a stack SoundParams struct into fn_80025FAC.",
+    "Implemented lbAudioAx_800264E4 to return an inner userdata voice_id or -1 when missing, though the signature is bool despite returning -1/voice_id values in the diff.",
+    "Implemented lbAudioAx_80026510 to walk HSD_GObj_Entities[0x3E], key off any matching audio voice with AXDriverKeyOff, unlink matching gobjs with HSD_GObjPLink_80390228, and return whether anything was removed.",
+    "Refined lbAudioAx_800265C4 by replacing raw int* user_data indexing and M2C_FIELD access with lbAudioAx_UserData fields and ((HSD_GObj**) HSD_GObj_Entities)[0x3E].",
+    "Implemented fn_800267B0 and fn_800268B4 for audio bank/SFX resource accounting, including counters lbl_804D6448/lbl_804D644C/lbl_804D6450, arrays at offsets from lbl_80433710, HSD_Synth_80388E08, HSD_SynthSFXBankDeflag, and HSD_SynthSFXBankDeflagSync.",
+    "Implemented lbAudioAx_80026F2C and lbAudioAx_8002702C using u64 masks built from flag bits and constants such as 0x0048000000000003ULL, 0x3C, 0x00800003FFFFFFC0ULL, 0x0023FFFC00000000ULL, and 0x0014000000000000ULL to update lbl_804337C4 entries.",
+    "Implemented lbbgflash fn_800204C8 as a state-driven background flash update and fn_80021C1C as a wrapper that applies a ColorOverlay from a gobj's user_data via lb_80014498.",
+    "Added new static headers for vi0801, vi1201v2, and vi1202 with include guards named after GALE01 addresses and with local static float/f64 declarations plus extern scene/object globals.",
+    "Updated several headers to replace UNK_RET/UNK_PARAMS with concrete void, bool, pointer, and argument types."
   ],
   "smart_moves": [
-    "Recovered lbAudioAx_UserData first, then used that struct to simplify audio object traversal, voice key-off behavior, pan updates, and userdata frees.",
-    "Converted HSD_GObj_Entities access from byte-offset M2C_FIELD style to array indexing, e.g. ((HSD_GObj**) HSD_GObj_Entities)[0x3E], making the GObj list traversal more readable while preserving the slot evidence.",
-    "Used camera bounds plus ftLib_80086644 and it_8026B294 to model positional audio panning for fighter and item entities instead of leaving the function as raw pointer logic.",
-    "Preserved matching-sensitive control flow with explicit gotos, loop shapes, manual unrolling, and integer/floating-point casts where the diff suggests they were needed for close or exact codegen.",
-    "Separated static/internal declarations into .static.h files, including new vi static headers, rather than overloading public headers with file-local globals.",
-    "Kept still-unknown functions as address-based names while improving only signatures where evidence was available, avoiding speculative semantic names."
+    "Introduced lbAudioAx_UserData in lbaudio_ax.static.h before using it throughout lbaudio_ax.c, which made later functions readable and allowed raw user_data[2]/user_data[12] access to become entity and voice_id field references.",
+    "Kept match-oriented control flow with gotos, explicit labels, and unusual return paths instead of over-cleaning the C; this likely helped preserve codegen for functions reported near or at 100%.",
+    "Used a local SoundParams stack struct in lbAudioAx_800263E8 to document the call packet passed into fn_80025FAC while still preserving the original argument packing order.",
+    "Replaced M2C_FIELD(HSD_GObj_Entities, HSD_GObj**, 0xF8) with the clearer equivalent ((HSD_GObj**) HSD_GObj_Entities)[0x3E], improving readability without changing the underlying global entity-list indexing.",
+    "Added targeted baselib and melee includes, including gobjproc, gobjuserdata, camera, ftlib, and it_26B1, so newly typed calls use real declarations rather than placeholders.",
+    "Created static headers for vi files rather than polluting public headers with private globals, following the project's split between public APIs and translation-unit/static symbol knowledge.",
+    "Preserved explicit float casts and clamp ranges in the pan interpolation functions, important for matching PowerPC floating-point/conversion behavior."
   ],
   "decomp_lessons": [
-    "For lb audio work, recovering a userdata layout can unlock many functions at once because GObj lifecycle, pan calculation, voice_id lookup, and object freeing all share the same offsets.",
-    "When replacing raw array/pointer indexing, retain exact field offsets in comments or struct padding; this PR's lbAudioAx_UserData documents the 0x48-byte allocation and critical field offsets.",
-    "Header cleanup should accompany implementation work: concrete prototypes in lbaudio_ax.h and lbbgflash.h make later callsite matching easier and reduce UNK_RET/UNK_PARAMS spread.",
-    "GObj audio object management depends on correct creation, userdata initialization, proc attachment, and cleanup order: GObj_Create, HSD_ObjAlloc, GObj_InitUserData, HSD_GObjProc_8038FD54, and HSD_GObjPLink_80390228 appear together in lbAudioAx_800263E8.",
-    "Background flash decomp can rely on recovered state structs but may still need matching-oriented gotos for switch/range logic.",
-    "decomp.dev results can distinguish exact matches from partial improvements; this PR had several near matches around 97-99% even when the PR body broadly said the files match."
+    "For GObj-heavy library code, recover the userdata struct early; even a partially named layout with padding fields can unlock multiple later functions and remove brittle int-pointer indexing.",
+    "When a decompiled routine is close to matching but control flow is branchy, labels and gotos are acceptable matching tools; do not prematurely refactor into idiomatic C if branch layout matters.",
+    "Audio and visual helper modules often need cross-subsystem includes for entity position and camera data. In this PR, audio panning depended on Camera_800307D0, ftLib_80086644, and it_8026B294.",
+    "Static/private headers are useful for declaring file-local/static data arrays and globals required by matching work without implying a public API.",
+    "u64 bitmask helpers should retain exact constants and accumulation style when matching; even seemingly equivalent bitwise expressions may alter codegen.",
+    "Object lifecycle routines should type all three pieces together: HSD_GObj creation/linking, HSD_ObjAlloc userdata allocation/freeing, and audio voice keyoff/unlink cleanup.",
+    "Bot reports can distinguish full matches from near matches; a PR body saying files match may be broader/less precise than decomp.dev's per-function status."
   ],
   "naming_conventions": [
-    "Kept unknown address-based function names such as fn_80023254, fn_800251EC, fn_80025B44, fn_800267B0, and fn_800268B4.",
-    "Used module-prefixed exported names like lbAudioAx_800263E8, lbAudioAx_800264E4, lbAudioAx_80026510, and lbBgFlash_80021C48.",
-    "Named recovered userdata as lbAudioAx_UserData, matching the module prefix and making later typed replacements clear.",
-    "Used descriptive local names for recovered behavior where semantics were clear, including entity, voice_id, pan_left, pan_right, current_frame, end_frame, cam_left, cam_center, cam_right, start_val, and end_val.",
-    "Static/global labels remain address-style lbl_804337C4, lbl_804338A4, lbl_80433B44, lbl_804D6438, etc., when semantic names were not evidenced.",
-    "New vi static headers use address-derived include guards such as __GALE01_31EFE4, __GALE01_3204C0, and __GALE01_321014."
+    "Function names remained address-based where no semantic name was established, e.g. fn_80023254, fn_800251EC, fn_80025B44, fn_800267B0, and lbAudioAx_8002702C.",
+    "Subsystem-prefixed known functions used lbAudioAx_ and lbBgFlash_ prefixes for library audio and background flash routines.",
+    "Recovered struct name lbAudioAx_UserData follows module prefix plus purpose.",
+    "The stack helper typedef SoundParams was named semantically but its fields mostly retained offset-like names such as x4, xC, x10, x20 where meaning was not proven.",
+    "Unknown struct fields retained offset names and padding arrays, e.g. x0, xC, x20, x2C, x3C, preserving evidence-grounded naming.",
+    "Private/static header include guards used GALE01 address-style names, e.g. __GALE01_31EFE4, __GALE01_3204C0, and __GALE01_321014.",
+    "Static/global arrays retained label/address names where semantic names were uncertain, such as lbl_804337C4, lbl_804338A4, lbl_80433B44, and offsets_arr_803BC4E4."
   ],
   "assembly_or_matching_tactics": [
-    "Used explicit goto labels such as ret_true, set_flag, check_flag, store_pan, insert, loop_body, and loop_check to match original branch structure.",
-    "Used manual unrolling in fn_80023254 for initializing and shifting arrays, likely to preserve codegen around 0x38-element tables.",
-    "Used exact integer constants and masks in audio bank/category logic, including 0x37 element loops, 0x40 center pan, 0x7F max pan, 0x83D60 guard, and 64-bit masks such as 0x0048000000000003ULL.",
-    "Used typed casts for entity kind checks, e.g. reading *(u16*) entity and switching on type values 4 and 6 before calling fighter/item position helpers.",
-    "Kept floating-point interpolation explicit with f32 casts and clamp logic for panning and value ramps.",
-    "Retained NULL checks and cleanup gotos around GObj/userdata allocation to preserve exact object lifecycle behavior.",
-    "Used local temporary structs such as SoundParams to match stack layout for calls into still-unmatched fn_80025FAC."
+    "Used explicit goto labels such as ret_true, set_flag, check_flag, store_pan, end, set_7f, return_gobj, return_null, loop_body, and loop_check to preserve branch structure.",
+    "Used manual loop unrolling in fn_80023254 for initializing and shifting 0x38 table entries, including an 8-at-a-time backward copy followed by a remainder loop.",
+    "Preserved direct casts and raw memory views where needed, such as type = *(u16*) entity and base = (char*) &lbl_80433710.",
+    "Kept PAD_STACK(16) in lbAudioAx_800265C4, indicating stack-shape preservation remained necessary for matching.",
+    "Used explicit f32/f64 temporaries and casts in panning/interpolation code to control floating-point operations and integer conversion order.",
+    "Represented HSD_GObj_Entities access as an indexed HSD_GObj** array at index 0x3E, matching the former 0xF8 offset.",
+    "Built 64-bit masks with addition and shifts, then iterated 0x37 entries while shifting the mask one bit per entry.",
+    "Left several functions as /// # placeholders where not yet matched, showing a staged matching approach rather than forcing speculative implementations."
   ],
   "review_feedback": [
-    "No human review comments were present in the provided PR slice.",
-    "decomp.dev bot reported matched code increased to 48.56% (+0.02%, +664 bytes).",
-    "decomp.dev bot reported 4 new full matches: lbAudioAx_8002702C (+316 bytes), fn_800267B0 (+260 bytes), fn_80021C1C (+44 bytes), and lbAudioAx_800264E4 (+44 bytes).",
-    "decomp.dev bot reported 10 improvements in unmatched functions, including fn_800251EC at 97.02%, fn_80025CBC at 98.32%, fn_80025B44 at 98.30%, lbAudioAx_800263E8 at 99.92%, and lbAudioAx_80026510 at 99.60%.",
-    "decomp.dev bot reported one small .sdata2 regression in lbaudio_ax, from 70.59% to 69.44% (-1 byte)."
+    {
+      "source": "PR body",
+      "feedback": "Author summary: \"lbbgflash.c and lbaudio_ax.c matches\"."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "Matched code improved by 664 bytes to 48.56% (+0.02%)."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "4 new 100% matches were reported: lbAudioAx_8002702C (+316 bytes), fn_800267B0 (+260 bytes), lbbgflash fn_80021C1C (+44 bytes), and lbAudioAx_800264E4 (+44 bytes)."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "10 unmatched-function improvements were reported, including fn_800251EC to 97.02%, fn_80025CBC to 98.32%, fn_80025B44 to 98.30%, fn_80025E38 to 97.85%, lbbgflash fn_800204C8 to 96.96%, lbAudioAx_800263E8 to 99.92%, and lbAudioAx_80026510 to 99.60%."
+    },
+    {
+      "source": "decomp.dev bot",
+      "feedback": "One small .sdata2 regression was reported: -1 byte, 70.59% to 69.44%."
+    },
+    {
+      "source": "human review",
+      "feedback": "No human review comments were present in the provided PR slice."
+    }
   ],
   "searchable_terms": [
     "lb audio",
@@ -97,19 +157,6 @@
     "lbbgflash",
     "lbAudioAx_UserData",
     "SoundParams",
-    "HSD_GObj_Entities",
-    "HSD_ObjAlloc",
-    "GObj_InitUserData",
-    "HSD_GObjProc_8038FD54",
-    "HSD_GObjPLink_80390228",
-    "AXDriverKeyOff",
-    "HSD_SynthSFXBankDeflag",
-    "HSD_SynthSFXBankDeflagSync",
-    "Camera_800307D0",
-    "ftLib_80086644",
-    "it_8026B294",
-    "lb_80014498",
-    "ColorOverlay",
     "fn_80023254",
     "fn_800251EC",
     "fn_80025B44",
@@ -118,26 +165,43 @@
     "lbAudioAx_800263E8",
     "lbAudioAx_800264E4",
     "lbAudioAx_80026510",
+    "lbAudioAx_800265C4",
     "fn_800267B0",
     "fn_800268B4",
     "lbAudioAx_80026F2C",
     "lbAudioAx_8002702C",
     "fn_800204C8",
     "fn_80021C1C",
+    "HSD_GObj_Entities",
+    "HSD_GObjProc_8038FD54",
+    "GObj_InitUserData",
+    "HSD_ObjAlloc",
+    "HSD_ObjFree",
+    "AXDriverKeyOff",
+    "HSD_Synth_80388E08",
+    "HSD_SynthSFXBankDeflag",
+    "Camera_800307D0",
+    "ftLib_80086644",
+    "it_8026B294",
+    "ColorOverlay",
+    "offsets_arr_803BC4E4",
+    "lbl_80433B44",
+    "lbl_804337C4",
     "vi0801.static.h",
     "vi1201v2.static.h",
     "vi1202.static.h",
-    "UNK_RET",
-    "UNK_PARAMS"
+    "UNK_RET cleanup",
+    "UNK_PARAMS cleanup"
   ],
   "follow_up_queries": [
-    "Look for later PRs that finish matching fn_800251EC, fn_80025B44, fn_80025CBC, fn_80025E38, lbAudioAx_800263E8, lbAudioAx_80026510, lbAudioAx_80026F2C, or fn_800268B4.",
-    "Search for subsequent renames or refinements of lbAudioAx_UserData fields x0, xC, x20, x2C, and x3C.",
-    "Check whether SoundParams was later moved from a local typedef into a shared/static header with a stable name.",
-    "Search for PRs addressing the reported lbaudio_ax .sdata2 regression.",
-    "Find later vi0801, vi1201v2, or vi1202 work that reuses the new .static.h global declarations."
+    "Find later PRs that finish matching fn_800251EC, fn_80025B44, fn_80025CBC, fn_80025E38, lbAudioAx_800263E8, lbAudioAx_80026510, lbAudioAx_80026F2C, or fn_800268B4.",
+    "Look for subsequent renames of lbAudioAx_UserData fields x20, x2C, start_val, end_val, pan_left, pan_right, current_frame, and end_frame.",
+    "Check whether lbAudioAx_800264E4's bool return type was later corrected to an integer type, since this diff returns -1 and voice_id values.",
+    "Search for PRs that use or modify offsets_arr_803BC4E4, lbl_804337C4, lbl_804338A4, lbl_80433B44, lbl_804D6448, lbl_804D644C, and lbl_804D6450.",
+    "Review later lbbgflash work around BgFlashData2, fn_800204C8, fn_80021C1C, and ColorOverlay to see if field names were recovered.",
+    "Search for static header conventions in vi0801.static.h, vi1201v2.static.h, and vi1202.static.h to verify whether GALE01-address include guards remained accepted style."
   ],
-  "confidence": 0.88,
+  "confidence": 0.84,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

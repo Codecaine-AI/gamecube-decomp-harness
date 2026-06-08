@@ -11,223 +11,133 @@
     "merged_at": "2026-05-19T21:37:19Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large incremental item decompilation pass focused on matching item translation units. The PR marked itsscope.c and it_2E5A.c as Matching, advanced many near-matching item functions/data sections, updated item and command-script types, and corrected several data/sdata/sdata2 symbol scopes. The author explicitly framed the code as rough but useful progress toward matching all item TUs, with 21 item TUs and 112 item functions still remaining. decomp.dev reported +0.40% matched code, +15,688 matched bytes, 31 new matches, and 59 improvements, while also flagging one broken itmewtwoshadowball .sdata2 match.",
+  "summary": "Large incremental item decomp/matching pass across 30 files, mostly under src/melee/it. The PR moved itsscope.c and it_2E5A.c from NonMatching to Matching, improved many item functions and data sections, and updated symbols/splits to reflect local data labels and tighter section boundaries. The author explicitly framed the code as temporary/gross matching work while closing in on all item TUs. decomp.dev reported +0.40% matched code, +15688 matched-code bytes, 31 new matches, and 59 improvements in unmatched items, with one broken .sdata2 match in itmewtwoshadowball and a few small regressions.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
+      "incremental-progress",
       "headers",
-      "type-recovery",
-      "data-symbols",
-      "matching-config",
-      "item-tu-progress"
+      "symbol-map-updates",
+      "build-config"
     ],
     "systems": [
       "item",
-      "stage-items",
-      "ground",
-      "library",
-      "config"
+      "stage",
+      "config",
+      "library"
     ]
   },
   "key_files": [
-    {
-      "path": "configure.py",
-      "why": "Promoted melee/it/items/itsscope.c and melee/it/items/it_2E5A.c from NonMatching to Matching."
-    },
-    {
-      "path": "config/GALE01/splits.txt",
-      "why": "Trimmed itmewtwoshadowball .sdata end from 0x804D5580 to 0x804D557D."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "why": "Changed many inferred globals to local labels such as @151/@249 and added ...data.0, especially for item and grHeal constants."
-    },
-    {
-      "path": "src/melee/it/it_2725.c",
-      "why": "Largest item-core matching pass; materialized static strings/data, JObj inline assert wrappers, sqrt variants, command parsing reshapes, and data definitions."
-    },
-    {
-      "path": "src/melee/it/it_266F.c",
-      "why": "Improved item spawning/pick-table code, __shr2u prototype, ItemSpawnTables aliasing, it_8026EECC variable access, and it_8026F3D4 return behavior."
-    },
-    {
-      "path": "src/melee/it/it_266F.h",
-      "why": "Changed it_8026F3D4 prototype from void to bool."
-    },
-    {
-      "path": "src/melee/it/itcoll.c",
-      "why": "Adjusted item collision matching with branch structure, hurtbox pointer iteration, u32 team type, ABS usage, and damage math temp variables."
-    },
-    {
-      "path": "src/melee/it/types.h",
-      "why": "Named ItemHitbox sub-struct and recovered x138 as a 1-bit field with explicit padding."
-    },
-    {
-      "path": "src/melee/lb/types.h",
-      "why": "Added item-specific command bitfield structs it_create_hitbox_0 and it_create_hitbox_4 to CommandInfo."
-    },
-    {
-      "path": "src/melee/it/items/it_2E5A.c",
-      "why": "Matched this stage-related item TU; added sqrtf_store/sqrtf_accurate_store helpers and tier-selection helper with an offset-preserving note."
-    },
-    {
-      "path": "src/melee/it/items/itsscope.c",
-      "why": "Small control-flow/type change in it_80291DAC enabled this TU to be marked Matching."
-    },
-    {
-      "path": "src/melee/it/items/itdosei.c",
-      "why": "Added ItemStateTable/data table and exact JObj rotation/assert macros; many motion functions reshaped."
-    },
-    {
-      "path": "src/melee/it/items/itdosei.h",
-      "why": "Changed itDoseiAttributes.unkC from f32 to s32."
-    },
-    {
-      "path": "src/melee/it/items/itarwinglaser.c",
-      "why": "Typed it_802E7654 owner as Item_GObj*, used It_Kind_Arwing_Laser, and reshaped collision probing."
-    },
-    {
-      "path": "src/melee/gr/grcorneria.c",
-      "why": "Removed s32 casts when calling it_802E7654 after the arwing laser owner parameter was retyped."
-    },
-    {
-      "path": "src/melee/gr/grvenom.c",
-      "why": "Removed s32 casts when calling it_802E7654 after the arwing laser owner parameter was retyped."
-    },
-    {
-      "path": "src/melee/it/items/itlinkhookshot.c",
-      "why": "Large Link hookshot chain/physics matching pass, including custom sqrt, link traversal condition changes, and stack/layout edits."
-    },
-    {
-      "path": "src/melee/it/items/itsamusgrapple.c",
-      "why": "Large Samus grapple chain/spawn matching pass, hitbox scale arithmetic changes, and many fighter/link state reshapes."
-    },
-    {
-      "path": "src/melee/it/items/itbombhei.c",
-      "why": "Bombhei motion matching with preserve-bone helper and repeated inline animation-update cleanup."
-    },
-    {
-      "path": "src/melee/it/items/itbombhei.static.h",
-      "why": "Expanded fake HSD_JObj assert wrappers to exact __assert calls and strings."
-    }
+    "configure.py",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "src/melee/it/it_2725.c",
+    "src/melee/it/it_266F.c",
+    "src/melee/it/itcoll.c",
+    "src/melee/it/types.h",
+    "src/melee/lb/types.h",
+    "src/melee/it/items/it_2E5A.c",
+    "src/melee/it/items/itsscope.c",
+    "src/melee/it/items/itsamusgrapple.c",
+    "src/melee/it/items/itlinkhookshot.c",
+    "src/melee/it/items/itdosei.c",
+    "src/melee/it/items/itbombhei.c",
+    "src/melee/it/items/itarwinglaser.c",
+    "src/melee/gr/grcorneria.c",
+    "src/melee/gr/grvenom.c"
   ],
   "what_changed": [
-    "Marked itsscope.c and it_2E5A.c as Matching in configure.py.",
-    "Advanced many item functions/data sections across it_2725, it_266F, itcoll, itbombhei, itdosei, itlinkboomerang, itlinkhookshot, itsamusgrapple, itseakchain, and related item files.",
-    "Updated GALE01 symbols to treat many constants/strings as local compiler labels instead of project-global symbols; also trimmed itmewtwoshadowball .sdata.",
-    "Added item command bitfield structs to lb/types.h and used them in it_802790C0 instead of manual shifts for several create-hitbox fields.",
-    "Recovered item struct detail by naming struct ItemHitbox and making x138 a bitfield with explicit padding.",
-    "Retyped several APIs and headers: it_802E7654 now takes Item_GObj* owner, it_8029FDDC takes Item_GObj*, it_8026F3D4 returns bool, and itDoseiAttributes.unkC is s32.",
-    "Replaced generic math/helper calls with local matching-oriented helpers: inline __frsqrte sqrt variants, exact JObj rotation/assert wrappers, fake_HSD_JObj wrappers, and function-specific inline helpers.",
-    "Updated grcorneria and grvenom call sites to pass gobj directly to it_802E7654 rather than casting to s32.",
-    "decomp.dev reported 31 new matches and 59 improvements, but also one broken match in itmewtwoshadowball .sdata2 and three unmatched-item regressions."
+    "Marked melee/it/items/itsscope.c and melee/it/items/it_2E5A.c as Matching in configure.py.",
+    "Advanced many item translation units, especially it_2725.c, itsamusgrapple.c, itlinkhookshot.c, itdosei.c, it_2E5A.c, itbombhei.c, and it_266F.c.",
+    "Updated config/GALE01/symbols.txt to convert several previously global-looking grHeal and item constants/strings to local labels such as @155, @159, @249, and ...data.0.",
+    "Adjusted config/GALE01/splits.txt for itmewtwoshadowball.c .sdata end address from 0x804D5580 to 0x804D557D.",
+    "Retyped it_802E7654 from taking an s32 owner to taking an Item_GObj* owner, then removed casts at stage callsites in grcorneria.c and grvenom.c.",
+    "Added or reshaped local inline helpers/macros for HSD_JObj rotation setters in item code, preserving assert strings/line behavior needed for matching.",
+    "Introduced stack and codegen nudges such as PAD_STACK changes, #pragma dont_inline, volatile sqrt storage helpers, and local typedefs for table layout matching.",
+    "decomp.dev recorded 31 new matches, including itsscope it_80291DAC, it_2E5A functions/data, several it_2725 functions/.sdata, itbombhei animations, itlinkbomb animations/data, and itsamusgrapple pieces."
   ],
   "smart_moves": [
-    "Landed incremental item progress instead of holding all rough matching hacks locally; the PR body explicitly says the author was closing in on matching all item TUs and was likely the only active it/ worker.",
-    "Promoted only the TUs that had enough evidence to be marked Matching: itsscope.c and it_2E5A.c.",
-    "Moved repeated manual command bit extraction into typed CommandInfo bitfields, which made it_802790C0 more readable while also helping codegen.",
-    "Retyped owner/gobj parameters instead of preserving cast-heavy call sites; this cleaned stage item callers and improved semantic accuracy.",
-    "Used local inline wrappers with exact assert strings, line numbers, and assert-base offsets rather than relying on generic HSD helpers that did not match.",
-    "Used volatile stack stores, PAD_STACK, dont_inline pragmas, and custom sqrt/frsqrte sequences where stack layout or floating-point codegen mattered.",
-    "Converted false global data symbols to local labels, reducing symbol pollution and making data sections closer to compiler output.",
-    "Added comments when a matching trick was knowingly non-obvious, such as the it_802E6380 tier threshold offset note."
+    "Converted object-file status only after enough evidence: itsscope.c and it_2E5A.c were flipped to Matching in configure.py as part of the same diff that supplied symbol/sdata/sdata2 cleanup.",
+    "Matched codegen by localizing SDK-like HSD_JObj setter bodies with explicit __assert file/line/message behavior instead of relying only on shared HSD_JObjSetRotationX/Y/Z calls.",
+    "Used tiny helper functions/macros to make repeated item animation patterns compile the same way, such as bombhei dynamic-bone translation/rotation helpers and dosei rotation-base helpers.",
+    "Preserved pointer types instead of using integer casts where possible: it_802E7654 now accepts Item_GObj*, improving callsites in grcorneria.c and grvenom.c while still serving matching.",
+    "Reclassified anonymous constants and strings as local labels in symbols.txt, which is important when matching data boundaries and avoiding fake global names.",
+    "Accepted an incremental, slightly ugly matching pass rather than hiding it locally; this made measurable progress visible and reduced the remaining item workload."
   ],
   "decomp_lessons": [
-    "For data matching, symbol scope matters: constants that look like it_804*/grHeal_804* globals may need to be local @ labels or local data labels.",
-    "Exact HSD inline assert expansion can require hand-written wrappers with precise file strings, line numbers, and JOBJ_USE_QUATERNION assertion text.",
-    "When item scripts decode packed command words repeatedly, shared bitfield structs in lb/types.h can improve both matching and maintainability.",
-    "Function signatures should be corrected even if old code matched approximately; bool vs void return and Item_GObj* vs s32 owner types changed codegen and caller casts.",
-    "Arithmetic spelling matters on PPC: multiply by 0.003906f may match where division by 256.0f does not, and integer casts before division can affect output.",
-    "Volatile temporaries and explicit stack padding are recurring tools for matching floating-point and chain-physics functions, but should be localized and documented.",
-    "Sometimes the decompiler-friendly field name is not the matching-friendly access path; the it_802E6380 comment notes using tiers[0].ecb[9] instead of tiers[1].threshold to preserve offsets.",
-    "Bot reports should be checked for data regressions after symbol/split changes; this PR intentionally gained many matches but left a flagged itmewtwoshadowball .sdata2 break."
+    "For item TUs near completion, matching often depends on local data-label scope and exact split boundaries, not just C control flow.",
+    "When SDK inline/assert behavior affects codegen, cloning the setter inline locally with the correct assert base string and offsets can be a practical matching tactic.",
+    "Retyping function prototypes from integer placeholders to real pointer types can simplify downstream stage/item callsites without necessarily hurting matching.",
+    "Stack shape matters: PAD_STACK size changes and volatile temporary storage around sqrtf-style helpers were used as targeted codegen controls.",
+    "Short-lived local structs or typedefs can express overlayed global table layout well enough to guide matching, as seen with the ItemSpawnTables wrapper over it_804A0E30.",
+    "Progress reports should be checked for regressions: this PR gained many matches but decomp.dev still reported a broken itmewtwoshadowball .sdata2 match and three small unmatched-item regressions."
   ],
   "naming_conventions": [
-    "Unknown functions retain address-based names such as it_802790C0, it_802A6474, fn_802B895C, and it_8026EECC.",
-    "Item-specific motion callbacks keep existing item prefixes and UnkMotion naming, such as itBombhei_UnkMotion10_Anim and itDosei_UnkMotion9_Coll.",
-    "Function-local matching helpers use specific prefixes, e.g. it_80274740_JObjSetRotationX, it_8027C0F0_JObjSetRotationY, it_802E6380_tier, itArwinglaser_GetCollArg, and sqrtf_store.",
-    "Fake/decomp-only wrapper names explicitly include fake_HSD_JObj... to signal a matching stand-in rather than a confirmed SDK symbol.",
-    "Local data symbols should use compiler-style labels such as @151, @249, and ...data.0 when there is no evidence for a true global symbol.",
-    "New command bitfield types follow opcode grouping names: it_create_hitbox_0 and it_create_hitbox_4 with fields like hit_group, base_knockback, sfx_severity, and shield_damage."
+    "Unidentified item functions retained address-style names such as it_8026CD50, it_8026EECC, it_80274740, it_8027C0F0, and it_802E7654.",
+    "Anonymous/local data in symbols.txt used @NNN-style names and ...data.0 rather than fake global grHeal_/it_ names when evidence indicated local scope.",
+    "Item-specific helper names were prefixed by the surrounding symbol/function or item, for example it_80274740_JObjSetRotationX, it_8027C0F0_JObjSetRotationZ, itDosei_JObjSetRotationX, and it_8026EECC_VARS.",
+    "Item motion callbacks kept project-style names such as itBombhei_UnkMotion8_Anim, itLinkbomb_UnkMotion0_Anim, and itDosei_UnkMotion2_Coll.",
+    "Typed item object APIs should use Item_GObj* in headers/calls when known, replacing placeholder s32 owner parameters."
   ],
   "assembly_or_matching_tactics": [
-    "Added PAD_STACK and volatile locals to force stack layout and floating-point spill behavior.",
-    "Used #pragma dont_inline around functions whose calls/layout needed to remain separate.",
-    "Reimplemented sqrtf/sqrtf_accurate patterns with inline __frsqrte Newton iterations and volatile stores.",
-    "Expanded HSD_JObjSetRotation/AddTranslation-style calls into local inline assert wrappers with exact strings and dirty-matrix behavior.",
-    "Rewrote control flow with gotos, empty if/else blocks, and explicit next_fighter labels where branch shape mattered.",
-    "Introduced aliasing casts such as ItemSpawnTables* over it_804A0E30, it_8026EECC_VARS over item vars, and AnimBundle over adjacent animation pointers to force desired offsets.",
-    "Used manual pointer-byte arithmetic where needed, e.g. casting temp_r10 through u8* before adding 2.",
-    "Changed math expression spelling to match compiler output, including HSD_Randf() - 0.5f forms, * 0.003906f scaling, ABS(), and unsigned casts before division.",
-    "Materialized data definitions in source, including it_2725 strings, it_MObjInfo, static jumptable placeholder initialization, and itdosei ItemStateTable/data.",
-    "Ran matching config/data updates consistent with the squash commit notes: ninja apply and trim sdata section."
+    "Inline HSD_JObj rotation setters manually to reproduce assert line numbers and dirty-matrix behavior.",
+    "Use char* assert_base variables and pointer offsets into assert string data to match generated assertion operands.",
+    "Use volatile float storage helpers around reciprocal-square-root/sqrtf-accurate sequences when stack stores influence matching.",
+    "Apply #pragma push / #pragma dont_inline on / #pragma pop around functions that should not be inlined by the compiler.",
+    "Tune stack layout explicitly with PAD_STACK, including a documented change from PAD_STACK(4) to PAD_STACK(16) in it_266F.c.",
+    "Introduce macro accessors for awkward item variable union layouts, e.g. it_8026EECC_VARS(ip), to force desired pointer access patterns.",
+    "Change symbol scope from global to local for anonymous constants/strings in symbols.txt to align data matching.",
+    "Remove unnecessary casts at callsites after prototype correction, e.g. passing gobj directly to it_802E7654."
   ],
   "review_feedback": [
-    "No human review comments or review records were present in the slice.",
-    "decomp.dev bot reported GALE01 matched code 67.65% (+0.40%, +15,688 bytes), linked code 39.07% (+0.16%, +6,056 bytes), matched data 39.45% (+0.03%, +400 bytes), and linked data 33.21% (+0.02%, +272 bytes).",
-    "Bot summary listed 31 new matches, including it_2725 .sdata, it_802E70BC, it_802E6380, it_80291DAC, it_802B7C18, it_802B7C18, and several Bombhei/Linkbomb/Dosei/Samusgrapple entries.",
-    "Bot also flagged one broken match: main/melee/it/items/itmewtwoshadowball .sdata2 dropped by 8 bytes from 100.00% to 85.94%; unmatched regressions included itlinkboomerang .sdata2 and two itdosei items.",
-    "PR was squash-merged by ribbanya; the merge message mentions various item work, matching/linking it_2E5A and itsscope, running ninja apply, and trimming sdata."
+    "No human review comments were present in the slice.",
+    "The author warned that some code was getting gross as they approached matching all item TUs and chose to merge incremental item/ work anyway because they were the only active it/ worker.",
+    "decomp.dev reported strong net progress: matched code 67.65% (+0.40%, +15688 bytes), linked code 39.07% (+0.16%, +6056 bytes), matched data 39.45% (+0.03%, +400 bytes), and linked data 33.21% (+0.02%, +272 bytes).",
+    "decomp.dev also flagged one broken match: main/melee/it/items/itmewtwoshadowball .sdata2 fell from 100.00% to 85.94%, plus three smaller unmatched-item regressions."
   ],
   "searchable_terms": [
-    "pr2516",
     "Incremental item progress",
-    "lukechampine",
     "item TU matching",
-    "remaining item TUs 21",
-    "remaining item functions 112",
-    "it_2725.c",
-    "it_266F.c",
-    "itcoll.c",
-    "it_2E5A.c",
-    "itsscope.c",
-    "itdosei.c",
-    "itbombhei.c",
-    "itlinkhookshot.c",
-    "itlinkboomerang.c",
-    "itsamusgrapple.c",
-    "itarwinglaser.c",
-    "itseakchain.c",
-    "itseakneedlethrown.c",
-    "itmewtwoshadowball",
-    "it_802790C0",
-    "it_80278108",
-    "it_8026EECC",
-    "it_8026F3D4",
-    "it_802E6380",
-    "it_80291DAC",
+    "it_2725",
+    "it_266F",
+    "itcoll",
+    "it_2E5A",
+    "itsscope",
+    "itbombhei",
+    "itdosei",
+    "itlinkhookshot",
+    "itsamusgrapple",
+    "itarwinglaser",
     "it_802E7654",
-    "it_802A6474",
-    "it_802A5FE0",
-    "it_802B9328",
-    "CommandInfo",
-    "it_create_hitbox_0",
-    "it_create_hitbox_4",
-    "ItemHitbox",
-    "x138 bitfield",
-    "sqrtf_store",
-    "sqrtf_accurate_store",
-    "__frsqrte",
-    "PAD_STACK",
-    "volatile",
+    "Item_GObj owner",
+    "HSD_JObjSetRotationX",
+    "HSD_JObjSetRotationY",
+    "HSD_JObjSetRotationZ",
     "JOBJ_USE_QUATERNION",
-    "fake_HSD_JObjSetRotationX",
-    "fake_HSD_JObjSetTranslateY",
-    "local @ labels",
-    "sdata trim",
-    "ninja apply",
-    "grcorneria",
-    "grvenom",
-    "It_Kind_Arwing_Laser"
+    "JOBJ_MTX_INDEP_SRT",
+    "PAD_STACK",
+    "dont_inline",
+    "sqrtf_accurate_store",
+    "symbols.txt local labels",
+    "splits.txt sdata",
+    "it_804D5570",
+    "it_804DD790",
+    "grHeal_803E84B8"
   ],
   "follow_up_queries": [
-    "Find the later PR that fixes or explains the itmewtwoshadowball .sdata2 broken match from PR #2516.",
-    "Search subsequent item PRs for cleanup of it_2725 matching hacks, especially JObj assert wrappers and materialized data strings.",
-    "Search for later uses of lb/types.h it_create_hitbox_0 and it_create_hitbox_4 in fighter or item command parsing.",
-    "Check whether fake_HSD_JObj wrappers in itbombhei/itlinkbomb were replaced after more HSD/lbcoll inline matching.",
-    "Search for final matching PRs for itarwinglaser, itlinkhookshot, itsamusgrapple, itdosei, and it_266F after this incremental pass.",
-    "Search for references to the it_802E6380 tiers[0].ecb[9] threshold offset trick before renaming fields."
+    "Find later PRs that fix the itmewtwoshadowball .sdata2 regression introduced or reported around PR 2516.",
+    "Search for reuse of it_80274740_JObjSetRotationX/Y/Z or it_8027C0F0_JObjSetRotationX/Y/Z patterns in later item matching work.",
+    "Look for subsequent PRs converting remaining item files from NonMatching to Matching after remaining item TUs dropped to 21.",
+    "Audit symbols.txt local label conversions for grHeal and item sdata2 constants around addresses 0x804DBC98 and 0x804DD790."
   ],
-  "confidence": 0.91
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

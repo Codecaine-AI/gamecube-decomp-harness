@@ -11,15 +11,14 @@
     "merged_at": "2026-05-01T17:23:29Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the last two remaining functions in Yoshi's SpecialHi translation unit, bringing src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c to 100%: 14/14 functions and 1836/1836 code bytes. The fixes were source-shape/codegen adjustments: an explicit upper clamp for stick-derived magnitude in ftYs_SpecialS_8012DF8C, removal of an incorrect PAD_STACK(4), and reuse of a scoped float temporary in fn_8012E110.",
+  "summary": "Matched the two remaining functions in Yoshi's SpecialHi translation unit, bringing src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c to 100%: 14/14 functions and 1836/1836 code bytes. The fixes were small code-shape changes: rewriting a stick magnitude clamp to match target branch control flow, removing an incorrect PAD_STACK that shifted Vec3 stack layout, and introducing a scoped float temporary so an egg throw frame counter is converted once and reused.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "codegen-shaping",
+      "fighter-action",
       "stack-layout",
-      "float-temporary-reuse",
-      "verification"
+      "codegen-control-flow"
     ],
     "systems": [
       "fighter",
@@ -29,46 +28,69 @@
     ]
   },
   "key_files": [
-    "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c"
+    {
+      "path": "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c",
+      "role": "Only changed file; matched ftYs_SpecialS_8012DF8C and fn_8012E110 in Yoshi SpecialHi."
+    }
   ],
   "what_changed": [
-    "Matched ftYs_SpecialS_8012DF8C from 97.22% to 100.00%.",
-    "Matched fn_8012E110 from 94.02% to 100.00%.",
-    "Replaced a MAX(temp, 1.0f)-style magnitude assignment with explicit control flow: assign mag from temp, clamp mag down to 1.0f when mag > 1.0f, then multiply by da->xF0.",
-    "Removed an extra PAD_STACK(4) before Vec3 sp30 in fn_8012E110, restoring the target stack layout for the first Vec3.",
-    "Introduced a scoped float x4 temporary for fp->mv.ys.specialhi.x4 so the value is converted once and reused in the it_802B28C8 call.",
-    "Verified with ninja progress, git diff --check, and cargo run -p melee-issues; melee-issues reported only existing issues outside the touched file."
+    {
+      "symbol": "ftYs_SpecialS_8012DF8C",
+      "change": "Replaced `mag = MAX(temp, 1.0f) * da->xF0;` with explicit assignment, branch clamp, and multiply: `mag = temp; if (mag > 1.0f) { mag = 1.0f; } mag *= da->xF0;`.",
+      "why_it_mattered": "The previous MAX expression did not match target control flow. The explicit `if (mag > 1.0f)` produced the target branch shape while preserving cap-at-one behavior described in the PR."
+    },
+    {
+      "symbol": "fn_8012E110",
+      "change": "Removed `PAD_STACK(4)` before the first local `Vec3 sp30`.",
+      "why_it_mattered": "The extra padding moved the stack slot from the target `r1+0x30` to `r1+0x34`; removing it restored target stack layout for the local Vec3 used by `lb_8000B1CC` and `it_802B2A10`."
+    },
+    {
+      "symbol": "fn_8012E110",
+      "change": "Introduced a scoped `float x4 = fp->mv.ys.specialhi.x4;` temporary and passed `x4 * da->x110 + da->x10C` and `x4` to `it_802B28C8`.",
+      "why_it_mattered": "The target converts the egg throw frame counter to float once and reuses it. The prior expression referenced `fp->mv.ys.specialhi.x4` twice and caused two conversions."
+    }
   ],
   "smart_moves": [
-    "Used explicit if-based clamp code instead of a macro/expression form because the target needed the branch shape, not just equivalent behavior.",
-    "Recognized that repeated use of fp->mv.ys.specialhi.x4 caused different float conversion behavior; introducing a local temporary matched the target's convert-once-and-reuse pattern.",
-    "Removed artificial padding when it moved a stack object away from the expected offset, showing stack layout was checked against target offsets.",
-    "Scoped the temporary x4 locally around the it_802B28C8 call, minimizing source churn while shaping codegen.",
-    "Reported translation-unit-level progress and exact byte/function counts, making the matching result easy to audit."
+    "Used an explicit branch clamp instead of a macro expression to control generated branch shape for matching.",
+    "Diagnosed a stack mismatch by recognizing that an unnecessary `PAD_STACK(4)` shifted a `Vec3` local from the target offset.",
+    "Introduced a narrowly scoped temporary solely to influence codegen reuse of a float conversion without broadening variable lifetime more than needed.",
+    "Verified the entire translation unit after the small changes, confirming `ftYs_SpecialHi` reached 100.0% with 14/14 functions and 1836/1836 code bytes."
   ],
   "decomp_lessons": [
-    "Behaviorally similar clamp expressions can compile to different branch shapes; for matching, prefer the source form that reproduces target control flow.",
-    "Macros such as MAX may not be suitable when the target has explicit compare-and-assign codegen.",
-    "Do not keep PAD_STACK entries by inertia; verify whether they place locals at the target stack offsets.",
-    "Repeated struct field reads in argument expressions can introduce duplicate conversions or loads; a local temporary can force reuse.",
-    "Small source-shape fixes can finish near-matching functions without changing apparent gameplay behavior."
+    "For clamps, semantically equivalent macro forms like `MAX` may not match target control flow; use explicit `if` branches when the target has branch-shaped cap logic.",
+    "Do not leave speculative `PAD_STACK` markers in place when local stack offsets disagree; even 4 bytes can shift Vec3 locals and prevent matching.",
+    "When a value is used in multiple float contexts, a scoped temporary can force a single conversion and reuse, matching target codegen better than repeating the struct field expression.",
+    "Small expression-shape and stack-layout edits can finish a near-matching fighter action translation unit without changing behavior."
   ],
   "naming_conventions": [
-    "Yoshi fighter functions use the ftYs_ prefix, as in ftYs_SpecialS_8012DF8C and ftYs_SpecialS_8012DF8C_outline.",
-    "Unidentified/local helper symbols may remain address-style names, as in fn_8012E110.",
-    "Yoshi-specific fighter state fields are accessed through fp->fv.ys and fp->mv.ys.specialhi.",
-    "Data-attribute fields remain offset-style names such as da->xEC, da->xF0, da->xF4, da->x108, da->x10C, and da->x110 where semantic names are not established."
+    "Yoshi fighter source path uses `ftYs_` prefix under `src/melee/ft/chara/ftYoshi/`.",
+    "The matched symbols retained existing decomp placeholder-style names: `ftYs_SpecialS_8012DF8C`, `fn_8012E110`, and `ftYs_SpecialS_8012DF8C_outline`.",
+    "Struct field names in this area remain offset-derived or partially documented, such as `fp->fv.ys.x2238`, `fp->mv.ys.specialhi.x4`, `da->xEC`, `da->xF0`, `da->xF4`, `da->x108`, `da->x10C`, and `da->x110`.",
+    "Temporary naming can mirror the accessed field (`float x4`) when the purpose is to reuse an offset-derived movement field value."
   ],
   "assembly_or_matching_tactics": [
-    "Explicitly wrote the cap-at-one branch as if (mag > 1.0f) { mag = 1.0f; } to match target control flow.",
-    "Removed PAD_STACK(4) so Vec3 sp30 occupied the target stack slot, described as r1+0x30 instead of r1+0x34.",
-    "Introduced float x4 = fp->mv.ys.specialhi.x4 before it_802B28C8 so the egg throw frame counter was converted to float once and reused.",
-    "Kept the it_802B28C8 argument math as x4 * da->x110 + da->x10C, x4 to preserve the desired reuse pattern.",
-    "Confirmed the full translation unit matched with ninja progress: ftYs_SpecialHi 100.0%, 14/14 functions, 1836/1836 code bytes."
+    "Rewrite `MAX(temp, 1.0f)` as explicit assignment plus `if (mag > 1.0f) mag = 1.0f;` to match a target branch clamp.",
+    "Remove false stack padding when it changes a local's target offset; here `PAD_STACK(4)` caused `Vec3 sp30` to land at `r1+0x34` instead of `r1+0x30`.",
+    "Wrap a call argument sequence in a small block with `float x4 = fp->mv.ys.specialhi.x4;` so the compiler converts the field once and reuses the temporary in both arguments to `it_802B28C8`.",
+    "Use translation-unit progress (`ninja progress`) to confirm both function-level and byte-level completion after micro-shape changes."
   ],
   "review_feedback": [
-    "No review comments were present in the provided PR slice.",
-    "No explicit reviewer feedback was available; conclusions are based on the PR body and diff excerpt."
+    {
+      "source": "PR activity",
+      "feedback": "No review comments were present in the provided PR slice."
+    },
+    {
+      "source": "PR verification notes",
+      "feedback": "`ninja progress` reported `build/GALE01/main.dol: OK` and `ftYs_SpecialHi`: 100.0%, 14/14 functions, 1836/1836 code bytes."
+    },
+    {
+      "source": "PR verification notes",
+      "feedback": "`git diff --check` was run."
+    },
+    {
+      "source": "PR verification notes",
+      "feedback": "`cargo run -p melee-issues` reported 117 existing issues outside the touched file."
+    }
   ],
   "searchable_terms": [
     "PR2452",
@@ -76,30 +98,38 @@
     "ftYs_SpecialHi.c",
     "ftYs_SpecialS_8012DF8C",
     "fn_8012E110",
+    "ftYs_SpecialS_8012DF8C_outline",
     "Yoshi SpecialHi",
     "Yoshi egg throw",
-    "it_802B28C8",
-    "it_802B2A10",
-    "lb_8000B1CC",
-    "PAD_STACK",
-    "Vec3 sp30",
-    "stack layout",
-    "r1+0x30",
-    "r1+0x34",
-    "float x4",
-    "fp->mv.ys.specialhi.x4",
-    "MAX temp 1.0f",
+    "MAX clamp",
     "explicit clamp",
     "branch shape",
-    "codegen",
-    "14/14 functions",
+    "PAD_STACK",
+    "Vec3 sp30",
+    "stack slot r1+0x30",
+    "lb_8000B1CC",
+    "it_802B2A10",
+    "it_802B28C8",
+    "fp->mv.ys.specialhi.x4",
+    "fp->fv.ys.x2238",
+    "x1984_heldItemSpec",
+    "take_dmg_cb",
+    "death2_cb",
     "1836/1836 code bytes"
   ],
   "follow_up_queries": [
-    "Find other near-matching fighter functions using MAX or MIN where explicit clamp control flow may be needed.",
-    "Search for PAD_STACK near Vec3 locals in fighter code to verify stack slot offsets.",
-    "Search for repeated fp->mv or fp->fv field expressions passed as multiple float arguments where a scoped temporary could avoid duplicate conversions.",
-    "Compare other Yoshi SpecialHi or egg/item throw routines that call it_802B28C8 for similar x4 temporary patterns."
+    "Find other fighter action functions using `MAX` or `MIN` clamps that might need explicit branch shape for matching.",
+    "Search for remaining `PAD_STACK(4)` near `Vec3` locals in fighter files where stack offsets are suspicious.",
+    "Search for repeated `fp->mv.*.x4` or frame-counter field accesses passed as float call arguments that may need scoped temporaries.",
+    "Compare other Yoshi special move item-spawn functions that call `it_802B28C8` or `it_802B2A10` for similar conversion reuse patterns."
   ],
-  "confidence": 0.92
+  "confidence": 0.94,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

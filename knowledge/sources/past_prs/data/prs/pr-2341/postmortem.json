@@ -11,144 +11,120 @@
     "merged_at": "2026-03-21T20:48:20Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled seven stage-layer functions across granime, Corneria, Kongo Jungle, Home-Run Contest, Dream Land/Old Pupupu, and Rainbow Cruise, replacing placeholder asm markers with C and tightening several prototypes/struct layouts. The PR body claims all seven matched by an overnight script; the decomp.dev bot slice only shows one new 100% match and several near-100% improvements, so exact match status is partially conflicting in the available evidence.",
+  "summary": "Decompiled seven stage-related ground functions across generic stage animation and five stages: Corneria, Kongo Jungle, Home-Run Contest, Dream Land/Past Stages Pupupu, and Rainbow Cruise. The PR replaced placeholder comments with matching C implementations, tightened several function prototypes, added missing static data/externs, and refined Rainbow Cruise ground variable layout. The PR body states all seven functions were verified 100% matching by an overnight script.",
   "change_classification": {
-    "primary_type": "stage_function_decompilation",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-callbacks",
+      "stage",
       "headers",
       "struct-layout",
-      "data-layout",
       "cleanup"
     ],
     "systems": [
-      "gr",
       "stage",
-      "granime",
-      "corneria",
-      "kongo",
-      "homerun",
-      "oldpupupu",
-      "rcruise"
+      "ground",
+      "stage-animation",
+      "Corneria",
+      "Kongo Jungle",
+      "Home-Run Contest",
+      "Dream Land",
+      "Rainbow Cruise"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/granime.c",
-      "role": "Added baselib/aobj include and decompiled grAnime_801C83D0 as an AObj flag check."
-    },
-    {
-      "path": "src/melee/gr/grcorneria.c",
-      "role": "Decompiled grCorneria_801DDDA8 and moved local Corneria data typedefs earlier for reuse."
-    },
-    {
-      "path": "src/melee/gr/grcorneria.h",
-      "role": "Replaced UNK_RET/UNK_PARAMS with void grCorneria_801DDDA8(HSD_GObj*, Vec3*)."
-    },
-    {
-      "path": "src/melee/gr/grkongo.c",
-      "role": "Decompiled static collision callback fn_801D7700 and bool query grKongo_801D7F78."
-    },
-    {
-      "path": "src/melee/gr/grkongo.h",
-      "role": "Typed grKongo_801D7E78 as Vec3* grKongo_801D7E78(HSD_GObj*, Vec3*) to support callers."
-    },
-    {
-      "path": "src/melee/gr/grkongo.static.h",
-      "role": "Extended grKg_804D6980 static struct with unk9C, unkA0, and unkA4."
-    },
-    {
-      "path": "src/melee/gr/grhomerun.c",
-      "role": "Added grHr_804D6AD8 and decompiled grHomeRun_8021EDD4 language-dependent distance/tick setup."
-    },
-    {
-      "path": "src/melee/gr/groldpupupu.c",
-      "role": "Added small animation-index tables and decompiled grOldPupupu_80210A24."
-    },
-    {
-      "path": "src/melee/gr/grrcruise.c",
-      "role": "Added extern grRc_804D4790 and decompiled grRCruise_80200074 platform/joint initialization."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Introduced grRCruise_SubEntry and replaced grRCruise_GroundVars pad_3C[0x30] with x3C[3]."
-    }
+    "src/melee/gr/granime.c",
+    "src/melee/gr/grcorneria.c",
+    "src/melee/gr/grcorneria.h",
+    "src/melee/gr/grhomerun.c",
+    "src/melee/gr/grkongo.c",
+    "src/melee/gr/grkongo.h",
+    "src/melee/gr/grkongo.static.h",
+    "src/melee/gr/groldpupupu.c",
+    "src/melee/gr/grrcruise.c",
+    "src/melee/gr/types.h"
   ],
   "what_changed": [
-    "grAnime_801C83D0 now calls grAnime_801C8318, tests HSD_AObjGetFlags(aobj) & 0x40000000, and returns bool.",
-    "grCorneria_801DDDA8 now computes an output Vec3 from a stage GObj, Ground data, JObj world position, Corneria offset data, and clamps y to at least 100.0f; NULL input zeroes the vector before the clamp.",
-    "Corneria header signature for grCorneria_801DDDA8 was made concrete, and grCn_Entry/grCn_Data typedefs were moved from later in grcorneria.c to before the newly decompiled function.",
-    "grHomeRun_8021EDD4 now sets Home-Run globals using JP vs non-JP language constants, ratio math, rounded tick count, a minimum tick count of 1.0F, and Ground_801C0498().",
-    "fn_801D7700 in grkongo.c now handles a collision/path callback by selecting one of 15 segments between mp vertices 0x1D and 0x1A, clamping the segment index, and adding a radians-scaled value from grKg_804D6980->unkA4 to grKg_803E188C[idx].unk10.",
-    "grKongo_801D7F78 now scans HSD_GObj_Entities->x14, skips self and invalid position lookups, and returns true when another Kongo object is within the observed dz and dx thresholds.",
-    "grOldPupupu_80210A24 now clears gp->gv.unk.xD0 and selects an animation table based on gp->gv.unk.xC8 when grOp_804D6A9C is zero.",
-    "grRCruise_80200074 now initializes Rainbow Cruise subentries in a three-iteration loop: starts animations, stores joint ids, installs mpJointSetCb1 callback fn_80200460, stores JObjs, and zeroes state fields.",
-    "types.h gained a 0x10-byte grRCruise_SubEntry layout so grRCruise_GroundVars can expose x3C[3] instead of opaque padding."
+    "Implemented grAnime_801C83D0 as a bool wrapper around grAnime_801C8318 and HSD_AObjGetFlags, returning true when the AObj flags contain 0x40000000.",
+    "Added <baselib/aobj.h> include in granime.c to support HSD_AObjGetFlags usage.",
+    "Implemented grCorneria_801DDDA8 with typed parameters HSD_GObj* and Vec3*, calculating a Corneria position from the ground object's user_data, a Great Fox/Corneria ground object, JObj world position, and offsets from grCn_803E1D38; it also zeroes the vector on NULL gobj and clamps y to at least 100.0f.",
+    "Moved local Corneria data typedefs and extern declarations for grCn_Entry and grCn_Data earlier in grcorneria.c so grCorneria_801DDDA8 can use them.",
+    "Updated grcorneria.h prototype for grCorneria_801DDDA8 from UNK_RET/UNK_PARAMS to void grCorneria_801DDDA8(HSD_GObj*, Vec3*).",
+    "Implemented grHomeRun_8021EDD4, computing language-dependent scale/max distance values, tick count, and per-tick ratio globals for Home-Run Contest setup using lbLang_IsSavedLanguageJP and Ground_801C0498.",
+    "Declared grHr_804D6AD8 as an f32 global in grhomerun.c alongside existing Home-Run Contest globals.",
+    "Implemented static fn_801D7700 in grkongo.c as a collision callback that inspects CollData flags, checks mpLib_GroundEnum_Unk1, samples map vertices with mpVtxGetPos, bins the collision x-position into 15 segments, clamps the index, and increments grKg_803E188C[idx].unk10 by a radian-scaled value from grKg_804D6980->unkA4.",
+    "Implemented grKongo_801D7F78 to compare the current Kongo object position against other ground/entity positions from HSD_GObj_Entities->x14 via grKongo_801D7E78, returning true when another object is within the specific z range (-150, -100) and x-distance threshold dx*dx < 6400.0f.",
+    "Updated grkongo.h prototype for grKongo_801D7E78 from unknown parameters to Vec3* grKongo_801D7E78(HSD_GObj*, Vec3*).",
+    "Extended the static Kongo data struct in grkongo.static.h with f32 unk9C, unkA0, and unkA4 so the new callback can access unkA4.",
+    "Implemented grOldPupupu_80210A24 to trigger grAnime_801C8138 based on gp->gv.unk.xC8, xCC, and xD4 when grOp_804D6A9C is zero and xD0 is set.",
+    "Added three small static animation index tables in groldpupupu.c: grOp_804D48A0, grOp_804D48A8, and grOp_804D48B0.",
+    "Implemented grRCruise_80200074 to initialize a Rainbow Cruise ground object: setup JObj/map animation, start animation for three joints from grRc_804D4790, store mp joint IDs and JObj pointers, install mpJointSetCb1 callback fn_80200460, and zero per-entry state fields.",
+    "Added extern s16 grRc_804D4790[4] in grrcruise.c.",
+    "Added struct grRCruise_SubEntry to types.h and replaced grRCruise_GroundVars pad_3C[0x30] with typed x3C[3] entries containing state bytes/ints, joint id, and HSD_JObj pointer."
   ],
   "smart_moves": [
-    "Converted unknown prototypes in headers only where the diff had enough call-site evidence, reducing future UNK_RET/UNK_PARAMS surface without broad renaming.",
-    "Promoted Rainbow Cruise's 0x30-byte padding into three typed 0x10-byte subentries exactly matching the looped initialization pattern in grRCruise_80200074.",
-    "Extended grKg_804D6980 only through the needed unkA4 field instead of overclaiming names or a full struct layout.",
-    "Used partial Corneria data structs plus explicit pad-offset casts for known offsets, preserving matchability while avoiding invented field names.",
-    "Kept file-local helpers/data static where appropriate, including static fn_801D7700 and grOp animation tables.",
-    "Added the precise baselib/aobj.h include needed for HSD_AObjGetFlags instead of relying on indirect declarations."
+    "Kept newly decompiled functions narrowly scoped and matched existing stage code style, replacing only placeholder markers while avoiding broad refactors.",
+    "Used header prototype tightening as part of the decomp work, converting unknown signatures to typed signatures where callsites and implementations justified them.",
+    "Converted Rainbow Cruise's opaque 0x30-byte padding into a 3-element typed subentry array exactly matching the new function's indexed access pattern.",
+    "For Kongo collision math, preserved likely compiler-sensitive structure by using nested blocks, duplicated idx/idx2 casts, explicit clamp branches, and the literal 0.017453292F radian conversion.",
+    "For Corneria, retained pad/offset-based access into grCn_Data rather than over-claiming a fully known structure, which keeps the match grounded while still documenting the observed layout.",
+    "Used language-specific constants in Home-Run Contest setup, preserving Japanese versus non-Japanese behavior with lbLang_IsSavedLanguageJP."
   ],
   "decomp_lessons": [
-    "Stage decomp often depends on typing neighboring helper functions first; grKongo_801D7F78 needed grKongo_801D7E78 typed as Vec3*(HSD_GObj*, Vec3*).",
-    "When a stage variable block is not fully understood, partial structs with named pads and explicit offset casts can be safer than speculative field names.",
-    "Repeated per-joint state blocks should be converted from raw padding to fixed-size subentry arrays once a loop reveals stride and fields.",
-    "Small .sdata tables such as grOp_804D48A0/grOp_804D48A8/grOp_804D48B0 can be necessary to make simple animation dispatch callbacks match.",
-    "Language-dependent constants can affect stage setup logic; grHomeRun_8021EDD4 branches on lbLang_IsSavedLanguageJP() and uses different scale/max distance values.",
-    "Even successful function decomp can perturb data-section matching; the bot reported improvements to .sdata/.sdata2 but regressions in grkongo .sdata2 and grhomerun .sbss."
+    "Small stage functions often require improving adjacent type information first: globals, extern arrays, static tables, and ground variable substructures may need to be introduced before the function can be expressed cleanly.",
+    "When only part of a large data blob is understood, a hybrid struct with explicit padding and typed slices can be preferable to inventing a complete layout.",
+    "Ground object callbacks frequently combine Ground user_data, map IDs, JObjs, mpLib joint IDs, and stage-specific gv fields; matching implementations should follow those existing access conventions.",
+    "Header updates should accompany decompiled functions once a stable signature is known, especially replacing UNK_RET/UNK_PARAMS with concrete HSD_GObj, Ground_GObj, Vec3, and bool signatures.",
+    "For matching arithmetic, preserve float literal spelling and operation order, especially around casts from float to int, clamp bounds, and repeated calls such as Ground_801C0498.",
+    "Stage animation completion checks can be implemented as thin wrappers around shared animation helpers plus HSD AObj flags, avoiding duplicate animation traversal logic.",
+    "Opaque ground variable padding can be safely refined when a function demonstrates a repeated array stride and fields at stable offsets."
   ],
   "naming_conventions": [
-    "Stage file prefixes remained address-based and subsystem-prefixed: grAnime_, grCorneria_, grKongo_, grHomeRun_, grOldPupupu_, grRCruise_.",
-    "Static/global data names follow existing stage abbreviations: grCn_, grHr_, grKg_, grOp_, grRc_.",
-    "Unknown fields were left as unk/x-offset names such as unkA4, x3C, x02, x0C rather than prematurely given semantic names.",
-    "Concrete signatures replaced UNK_RET/UNK_PARAMS when known, while still retaining address comments in headers.",
-    "New Rainbow Cruise type used a subsystem-specific name, struct grRCruise_SubEntry, colocated with grRCruise_GroundVars in types.h."
+    "Stage-specific symbols keep the established gr prefix plus stage abbreviation, such as grCn_ for Corneria, grKg_ for Kongo, grHr_ for Home-Run, grOp_ for Old Pupupu, and grRc_ for Rainbow Cruise.",
+    "Unknown or partially understood fields retain offset-style names such as xC8, xCC, xD0, xD4, unk9C, unkA0, and unkA4 instead of speculative semantic names.",
+    "New helper structs use stage-prefixed names when local to a stage, e.g. grCn_Entry and grCn_Data, and descriptive but still conservative names for generic layout refinements, e.g. grRCruise_SubEntry.",
+    "Callback-like local functions may retain fn_address naming, as with static fn_801D7700, when no better semantic name is established.",
+    "Function declarations continue using address-bearing names such as grHomeRun_8021EDD4 and grRCruise_80200074 until semantic renaming is justified elsewhere."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(4) and PAD_STACK(16), plus an unused stack buffer in grCorneria_801DDDA8, to preserve stack layout.",
-    "Kept nested block scopes around temporary f32 values in grkongo.c, likely to control lifetimes/register allocation.",
-    "Duplicated integer cast locals idx and idx2 in fn_801D7700 before clamping, matching the emitted control flow more closely than a simplified clamp helper.",
-    "Preserved exact float literal forms and constants such as 0.017453292F, 15.0F, 160.0F, 0.5F, 100.0F, and 6400.0F.",
-    "Used direct pointer casts into pad arrays for Corneria offsets at 0x3C, 0x330, 0x334, and 0x338 rather than forcing an incomplete struct layout.",
-    "Structured boolean returns as explicit if/return true/return false in grAnime_801C83D0 instead of collapsing to a single expression."
+    "Used PAD_STACK in functions where stack layout needed padding for matching, including grCorneria_801DDDA8 and grKongo_801D7F78.",
+    "Preserved float constants exactly: 0.1F, 0.3280969F, 50.0F, 100.0F, 160.0F, 15.0F, 6400.0F, and 0.017453292F.",
+    "Used explicit casts through int and f32 pointer access into padded data in grCorneria_801DDDA8 to match layout-sensitive loads.",
+    "Kept branch structure simple and close to assembly, such as grAnime_801C83D0 returning true inside the flag check and false afterward rather than collapsing directly to a boolean expression.",
+    "Used repeated local variables idx and idx2 in fn_801D7700 to preserve cast/clamp behavior for the segment index.",
+    "Iterated HSD_GObj_Entities->x14 manually in grKongo_801D7F78, skipping the source object and continuing on NULL position results before applying distance tests."
   ],
   "review_feedback": [
-    "No human reviews or review comments were present in the provided slice.",
-    "decomp.dev bot reported matched code at 59.40% (+0.01%, +220 bytes).",
-    "decomp.dev bot listed grOldPupupu_80210A24 as a new 100.00% match.",
-    "decomp.dev bot listed fn_801D7700, grKongo_801D7F78, grHomeRun_8021EDD4, grCorneria_801DDDA8, grRCruise_80200074, and grAnime_801C83D0 as improved unmatched items in the 98.98%-99.89% range.",
-    "The PR body states all seven functions were 100% matched by an overnight script, but the bot comment in this slice does not fully corroborate that exact claim."
+    "No review comments were present in the provided PR context.",
+    "The PR body reports that all seven functions were 100% matching and verified by an overnight script."
   ],
   "searchable_terms": [
-    "PR2341",
-    "gr decompile 7 stage functions",
+    "pr-2341",
     "johnwinston",
+    "gr: decompile 7 stage functions",
     "grAnime_801C83D0",
+    "grAnime_801C8318",
     "HSD_AObjGetFlags",
     "0x40000000",
     "grCorneria_801DDDA8",
     "grCn_Entry",
     "grCn_Data",
     "grCn_803E1D38",
+    "grCn_803E2204",
     "Ground_801C2BA4",
     "Ground_801C3FA4",
     "lb_8000B1CC",
     "grHomeRun_8021EDD4",
     "lbLang_IsSavedLanguageJP",
+    "Ground_801C0498",
     "grHr_804D6AD8",
+    "grKongo_801D7F78",
     "fn_801D7700",
+    "grKongo_801D7E78",
     "mpVtxGetPos",
     "mpLib_GroundEnum_Unk1",
     "grKg_804D6980",
     "unkA4",
-    "grKongo_801D7F78",
-    "HSD_GObj_Entities",
-    "grKongo_801D7E78",
     "grOldPupupu_80210A24",
     "grOp_804D48A0",
     "grOp_804D48A8",
@@ -158,14 +134,28 @@
     "grRc_804D4790",
     "mpJointSetCb1",
     "fn_80200460",
-    "PAD_STACK"
+    "Ground_801C32D4",
+    "Ground_801C2ED0",
+    "stage animation checker",
+    "Kongo collision callback",
+    "Home-Run Contest setup",
+    "Rainbow Cruise ground vars",
+    "Corneria position clamp"
   ],
   "follow_up_queries": [
-    "Find later PRs that rename or document grRCruise_SubEntry fields x00/x02/x04/x08/x0C.",
-    "Search for later cleanup of grCn_Data pad offsets 0x3C/0x330/0x334/0x338 in Corneria.",
-    "Check whether grKg_804D6980 unk9C/unkA0/unkA4 were later named or moved into a broader Kongo stage data struct.",
-    "Compare later decomp.dev reports for these six near-100% functions to resolve the PR-body versus bot-report match-status discrepancy.",
-    "Search for additional users of grAnime_801C83D0 as a generic stage animation completion checker."
+    "Find later PRs that rename or further type grCn_Data and grCn_Entry in Corneria.",
+    "Search for additional users of grAnime_801C83D0 and HSD_AObjGetFlags 0x40000000 to confirm stage animation completion semantics.",
+    "Inspect later Kongo Jungle PRs for semantic names for grKg_804D6980->unkA4 and grKg_803E188C[].unk10.",
+    "Look for subsequent refinements of grRCruise_SubEntry fields x00, x02, x04, x08, and x0C.",
+    "Search Home-Run Contest code around grHr_804D6AD8, grHr_804D6ADC, grHr_804D6AE0, and grHr_804D6AE4 for better variable names."
   ],
-  "confidence": 0.86
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,168 +11,98 @@
     "merged_at": "2026-04-01T00:12:28Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large decomp-focused PR for the name-entry menu module, replacing many mnnamenew stubs with typed C implementations for key setup, input, glyph variants, auto-name selection, validation, saving, and menu entry paths. It also propagated stronger types through menu structs and SisLib color handling, and split the mnnamenew data string blob into named symbols. decomp.dev reported +1712 matched bytes, 5 new matches, and 20 mnnamenew improvements.",
+  "summary": "Large decompilation pass for the Name Entry menu unit `main/melee/mn/mnnamenew`, replacing many `/// #` stubs with C and adding supporting type/prototype work. The decomp.dev bot reported 5 new full matches totaling +1712 bytes and 20 improved unmatched items, with the biggest gains in `mnNameNew_MainInput`, `mnNameNew_KeySetup`, `mnNameNew_GlyphVariantSetup`, and related name-entry helpers. The PR also split a large anonymous data label in `symbols.txt` into individual `mnNameNew_803EE35C`-style string symbols, added `NameNewEntry` and `GlyphVariantEntry` structs, and tightened `HSD_SisLib_803A74F0` from `u8*` color data to `GXColor*`, causing call-site cast cleanup across result/menu/item/library code. Evidence for reviewer rationale is weak: the human PR text only says \"Tracking PR as usual\" and there were no review comments.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "menu-ui",
       "headers",
-      "types",
-      "symbol-naming",
-      "api-typing",
+      "naming",
       "data-symbol-splitting",
-      "formatting-cleanup"
+      "prototype-cleanup",
+      "struct-recovery"
     ],
     "systems": [
-      "mn/name-entry",
-      "mn/main-menu",
-      "mn/name-list",
-      "sysdolphin/baselib/sislib",
-      "config/GALE01 symbols",
-      "gm/result",
-      "stage/ground",
+      "menu",
+      "mn",
+      "mnnamenew",
+      "sislib",
+      "game-mode",
+      "stage",
       "fighter",
       "item",
-      "lb"
+      "library",
+      "config"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/mn/mnnamenew.c",
-      "role": "Core decomp target; expanded from mostly stub markers to concrete name-entry UI logic.",
-      "delta": "+1706/-38"
-    },
-    {
-      "path": "src/melee/mn/mnnamenew.h",
-      "role": "Replaced many UNK_RET/UNK_PARAMS declarations with typed prototypes using HSD_GObj, HSD_Archive, NameNewEntry, and GlyphVariantEntry.",
-      "delta": "+22/-20"
-    },
-    {
-      "path": "src/melee/mn/types.h",
-      "role": "Added NameNewEntry and GlyphVariantEntry structs with field offsets and size annotations.",
-      "delta": "+26/-0"
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Split former lbl_803EE35C blob into individual mnNameNew_803EE35C..mnNameNew_803EE708 string symbols.",
-      "delta": "+34/-1"
-    },
-    {
-      "path": "src/sysdolphin/baselib/sislib.c",
-      "role": "Changed HSD_SisLib_803A74F0 from raw u8* color access to GXColor* field access.",
-      "delta": "+4/-4"
-    },
-    {
-      "path": "src/sysdolphin/baselib/sislib.h",
-      "role": "Updated HSD_SisLib_803A74F0 prototype to accept GXColor*.",
-      "delta": "+1/-1"
-    },
-    {
-      "path": "src/melee/mn/mnmain.h",
-      "role": "Added explicit offsets/padding to main menu state structs, including MenuFlow.",
-      "delta": "+21/-19"
-    },
-    {
-      "path": "src/melee/mn/mnname.c",
-      "role": "Updated name-list color variables and callers to use GXColor instead of s32/u8* casts.",
-      "delta": "+9/-9"
-    },
-    {
-      "path": "src/melee/gm/gmresult.c",
-      "role": "Updated result-screen SisLib color calls to pass GXColor pointers without u8* casts.",
-      "delta": "+10/-10"
-    },
-    {
-      "path": "src/melee/gr/grcastle.c",
-      "role": "Mostly formatting/typing cleanup in a stage file; not central to mnnamenew matching evidence.",
-      "delta": "+110/-135"
-    }
+    "src/melee/mn/mnnamenew.c",
+    "src/melee/mn/mnnamenew.h",
+    "src/melee/mn/types.h",
+    "config/GALE01/symbols.txt",
+    "src/sysdolphin/baselib/sislib.c",
+    "src/sysdolphin/baselib/sislib.h",
+    "src/melee/gm/gmresult.c",
+    "src/melee/gr/grcastle.c",
+    "src/melee/mn/mnname.c",
+    "src/melee/lb/lbcardgame.c"
   ],
   "what_changed": [
-    {
-      "area": "mnnamenew decomp",
-      "details": "Implemented many previously stubbed functions: mnNameNew_8023B0F8, mnNameNew_8023B314, mnNameNew_KeySetup, mnNameNew_8023BAA8, PickAutoName, NameContainsOnlySpaces, WriteCharactersForNameAtIndex, AddCharacterToName, mnNameNew_GlyphVariantInput, mnNameNew_MainInput, mnNameNew_8023CE4C, fn_8023CFC8, mnNameNew_8023D130, mnNameNew_GlyphVariantSetup, mnNameNew_8023DA08, fn_8023DAEC, fn_8023DBE8, mnNameNew_8023E0D8, InitNameEntryUIState, mnNameNew_8023E32C, and mnNameNew_EnterFromMnCharSel.",
-      "evidence": "src/melee/mn/mnnamenew.c +1706/-38; diff removes many /// #stub markers."
-    },
-    {
-      "area": "name-entry behavior",
-      "details": "Recovered name-entry UI setup and input flow: key grid rendering, language-dependent modes, glyph variant popups, cursor movement, delete/back/cancel, auto-name picking, validation against unique/refused names, writing persistent name data, and transitions back to name/character-select menus.",
-      "evidence": "mnnamenew.c functions reference AutoNamesList, NotAllowedNamesList, lbLang_IsSavedLanguageUS, IsNameUnique, IsNameNotAllowed, CreateNameAtIndex, WriteCharactersForNameAtIndex, mnNameNew_EnterFromMnCharSel."
-    },
-    {
-      "area": "typed user data",
-      "details": "Introduced concrete NameNewEntry and GlyphVariantEntry layouts, then used them in mnnamenew.c instead of raw byte offsets.",
-      "evidence": "src/melee/mn/types.h adds structs; mnnamenew.h prototypes use NameNewEntry* and GlyphVariantEntry*."
-    },
-    {
-      "area": "SisLib color API",
-      "details": "Changed HSD_SisLib_803A74F0 to take GXColor* and read r/g/b fields, then updated callers to stop casting color locals to u8*.",
-      "evidence": "sislib.c/.h signature change; gmresult.c and mnname.c call-site updates."
-    },
-    {
-      "area": "data symbols",
-      "details": "Renamed/split a single data label at 803EE35C into many mnNameNew string symbols for assertion strings, archive asset names, and language-dependent auto/refuse name tables.",
-      "evidence": "config/GALE01/symbols.txt replaces lbl_803EE35C size 0x3C4 with mnNameNew_803EE35C through mnNameNew_803EE708 data:string symbols."
-    },
-    {
-      "area": "match accounting",
-      "details": "decomp.dev reported matched code 61.33% (+0.04%, +1712 bytes), 5 new mnnamenew matches, and 20 improvements in unmatched mnnamenew items.",
-      "evidence": "bot issue comment for GALE01 0559a4e - 22ddb1b."
-    },
-    {
-      "area": "incidental cleanup",
-      "details": "Several stage, item, fighter, lb, and menu files received include-order, cast-spacing, line-wrapping, or formatting changes; evidence for functional decomp impact outside mnnamenew is weak except for the SisLib color type propagation.",
-      "evidence": "32 changed files; many small hunks only reformat or remove casts."
-    }
+    "Implemented substantial portions of `src/melee/mn/mnnamenew.c`, expanding the file from a mostly stubbed unit to 1600+ lines of C for name-entry UI behavior.",
+    "Newly implemented or improved functions include `mnNameNew_8023B0F8`, `mnNameNew_8023B314`, `mnNameNew_KeySetup`, `mnNameNew_8023BAA8`, `PickAutoName`, `NameContainsOnlySpaces`, `WriteCharactersForNameAtIndex`, `AddCharacterToName`, `mnNameNew_GlyphVariantInput`, `mnNameNew_MainInput`, `mnNameNew_8023CE4C`, `fn_8023CFC8`, `mnNameNew_GlyphVariantSetup`, `InitNameEntryUIState`, and related helpers.",
+    "Added name-entry UI data structures to `src/melee/mn/types.h`: `GlyphVariantEntry` with JObj array and text pointer, and `NameNewEntry` with mode, cursor, name index, auto-name history, key/name/description text, and variant gobj fields.",
+    "Updated `src/melee/mn/mnnamenew.h` from many `UNK_RET`/`UNK_PARAMS` declarations to typed prototypes using `NameNewEntry*`, `GlyphVariantEntry*`, `HSD_GObj*`, `HSD_Archive*`, `u8`, `s32`, and `bool`.",
+    "Split `lbl_803EE35C` in `config/GALE01/symbols.txt` into many individual `mnNameNew_803EE35C` through `mnNameNew_803EE708` string symbols, including strings such as `mnnamenew.c`, `user_data`, `MenMainBack_Top_joint`, `mnNameAutoNameUs`, and `mnNameRefuseName`.",
+    "Changed `HSD_SisLib_803A74F0` to take a `GXColor*` instead of `u8*` and updated its implementation to access `color_rgb->r`, `color_rgb->g`, and `color_rgb->b`.",
+    "Removed many explicit `(u8*)` casts at `HSD_SisLib_803A74F0` call sites in `gmresult.c`, `mnname.c`, and newly added `mnnamenew.c` code.",
+    "Included broad formatting/include/order cleanup in files such as `ft_0D31.c`, `grcastle.c`, `toy.c`, item files, and library files; the strongest evidence is diff formatting changes rather than functional intent.",
+    "Bot report for GALE01 showed matched code rose to 61.33%, a +0.04% improvement and +1712 matched bytes."
   ],
   "smart_moves": [
-    "Recovered and named UI state structs first, which made a large menu source tractable and allowed mnnamenew.h to replace placeholder prototypes with concrete function signatures.",
-    "Propagated the GXColor type into HSD_SisLib_803A74F0 instead of repeatedly casting colors as u8*, improving readability and aligning callers in gmresult and mnname.",
-    "Split the .data string blob into individual mnNameNew_* data:string symbols, making archive section names and assertion strings searchable and usable from C.",
-    "Kept uncertain address-based names where needed, but used descriptive names when behavior was clear: PickAutoName, NameContainsOnlySpaces, WriteCharactersForNameAtIndex, AddCharacterToName, InitNameEntryUIState, mnNameNew_KeySetup, and mnNameNew_GlyphVariantSetup.",
-    "Modeled glyph data as GlyphRow tables and represented variant popup state with GlyphVariantEntry, matching the UI’s lower/upper or language-specific glyph selection behavior.",
-    "Used exact HSD object lifecycle patterns: GObj_Create, HSD_JObjLoadJoint, HSD_GObjObject_80390A70, GObj_SetupGXLink, HSD_GObj_SetupProc, GObj_InitUserData, and cleanup of HSD_Text before freeing glyph variant data."
+    "Recovering `NameNewEntry` and `GlyphVariantEntry` made many offsets meaningful and enabled function prototypes to move away from `UNK_PARAMS`, which should reduce future type guessing in `mnnamenew`.",
+    "Splitting the large data blob at `.data:0x803EE35C` into named string symbols gave the compiler/decompilation a more accurate data layout and made asset-name references searchable.",
+    "Using `GXColor*` for `HSD_SisLib_803A74F0` encoded the actual API intent and removed brittle byte-pointer casts at call sites.",
+    "The implementation reused existing menu/name services (`GetNameCount`, `IsNameUnique`, `IsNameNotAllowed`, `CreateNameAtIndex`, `GetPersistentNameData`, `GetRumbleSettingOfPort`) instead of duplicating storage logic.",
+    "Name-entry input logic was decomposed into purpose-specific helpers for selection movement, auto-name picking, glyph variants, name validation, display refresh, and final writeback.",
+    "The bot-reported full matches on small helpers (`mnNameNew_8023BAA8`, `fn_8023CFC8`, `mnNameNew_8023B0F8`, `mnNameNew_8023B314`, `InitNameEntryUIState`) suggest the author stabilized leaf/control helpers before pushing larger still-partial functions."
   ],
   "decomp_lessons": [
-    "For menu/UI modules, recovering user_data layout can unlock many functions at once because jobj arrays, text handles, cursor state, and mode fields are reused across setup, input, rendering, and teardown.",
-    "When a library helper actually consumes a structured color, change the API to GXColor* and update all callers; this avoids misleading u8* casts and can simplify matching code that copies colors through stack locals.",
-    "Data string blobs should be split into individually named symbols when the C source needs exact archive public names; this PR shows mnNameNew_803EE35C..mnNameNew_803EE708 replacing a single lbl_803EE35C blob.",
-    "Language checks are part of matching: lbLang_IsSavedLanguageUS affects initial hovered selection, input mode, and whether mnNameAutoNameUs/mnNameRefuseNameUs or non-US asset names are loaded.",
-    "Preserve compiler-shaping artifacts when needed: the diff uses PAD_STACK, FORCE_PAD_STACK, and a dont_inline block around fn_8023DBE8, indicating stack padding/inlining control was part of matching strategy.",
-    "For HSD text rendering, keep text allocation/freeing explicit: mnnamenew recreates HSD_Text for key labels, name display, and description text, then frees them in transition/cleanup functions.",
-    "Large decomp PRs may include broad formatting churn; future reviewers/searchers should distinguish true type/signature changes from incidental line wrapping in unrelated systems."
+    "When a UI unit uses many string asset names, split the `.data` string region into per-string symbols before or alongside code work; it improves evidence for archive lookups and reduces anonymous label churn.",
+    "Converting opaque user-data offsets into a struct can unlock a large cluster of functions at once, especially for menu state machines with repeated fields like JObj arrays, cursor state, selected mode, and text handles.",
+    "If a function semantically operates on a color struct, typing the API as `GXColor*` can remove casts and make both caller and callee cleaner without changing behavior.",
+    "For name/tag code, remember that display slots may be fixed-width character cells while final validation flattens multiple cell strings into one buffer before checking uniqueness/refusal lists.",
+    "Bot matching reports are useful for prioritizing follow-up: this PR fully matched several helpers but left major functions such as `mnNameNew_MainInput`, `mnNameNew_KeySetup`, and `mnNameNew_GlyphVariantSetup` as improved but not fully matched.",
+    "Large decomp PRs may include formatting-only churn in unrelated files; future reviewers/agents should separate core matching changes from style/prototype fallout when summarizing."
   ],
   "naming_conventions": [
-    "Use module prefix mnNameNew_ for address-named functions and data in src/melee/mn/mnnamenew.c and config/GALE01/symbols.txt.",
-    "Use descriptive behavior names when the function’s role is clear, e.g. PickAutoName, NameContainsOnlySpaces, WriteCharactersForNameAtIndex, AddCharacterToName, InitNameEntryUIState.",
-    "Name UI user-data structs by screen/component: NameNewEntry for the main name-entry UI and GlyphVariantEntry for the glyph variant popup.",
-    "Keep field offsets in shared structs as comments and include explicit padding fields, as done for NameNewEntry, GlyphVariantEntry, MainMenuData, MainMenuPanelData, and MenuFlow.",
-    "Use GXColor for RGBA constants and locals rather than s32 or u8 arrays when passing to HSD_SisLib_803A74F0.",
-    "Archive public string symbols mirror asset names exactly, e.g. MenMainBack_Top_joint, MenMainConEtNw_Top_animjoint, mnNameAutoNameUs, and mnNameRefuseNameUs."
+    "Menu Name New functions use the `mnNameNew_` prefix plus address suffix when semantics are not yet known, e.g. `mnNameNew_8023BAA8` and `mnNameNew_8023CE4C`.",
+    "Recovered semantic helper names use PascalCase-style verbs for clear behaviors: `PickAutoName`, `NameContainsOnlySpaces`, `WriteCharactersForNameAtIndex`, `AddCharacterToName`, and `InitNameEntryUIState`.",
+    "Name-entry struct names introduced here are `NameNewEntry` and `GlyphVariantEntry`.",
+    "Data symbols follow `mnNameNew_<address>` for unidentified globals and strings, e.g. `mnNameNew_803EE35C`.",
+    "Castle stage static data in touched formatting code uses the `grCs_` prefix with address suffixes, e.g. `grCs_803B7EC8`.",
+    "Typed text/color API names retained the existing baselib address-style function name `HSD_SisLib_803A74F0` while improving the parameter type."
   ],
   "assembly_or_matching_tactics": [
-    "PAD_STACK and FORCE_PAD_STACK were used in several mnnamenew functions, indicating stack-shape tuning for matching.",
-    "#pragma push / #pragma dont_inline on surrounds fn_8023DBE8, preserving a needed codegen boundary.",
-    "The code keeps exact numeric selection IDs such as 0x32..0x39 for special buttons and 0x2D/0x30/0x31 for key/glyph handling rather than prematurely abstracting them into enums.",
-    "Glyph table indexing preserves low-level arithmetic such as shifted offsets into mnNameNew_803EDCE4 and mnNameNew_803EE004, plus sentinel loops using mnNameNew_NullCharacter.",
-    "JObj traversal is expressed with repeated HSD_JObjGetChild/HSD_JObjGetNext loops over exact child indices, matching the original UI hierarchy instead of introducing higher-level helpers.",
-    "Color changes copy GXColor constants through stack locals before calling HSD_SisLib_803A74F0, which likely helps match stack/register behavior.",
-    "Object setup uses exact GObj link priorities and proc flags such as GObj_Create(6,7,0x80), GObj_SetupGXLink priority 4/6, and proc->flags_3 = HSD_GObj_804D783C."
+    "Used `PAD_STACK` and `FORCE_PAD_STACK` in `mnnamenew.c` functions such as `mnNameNew_8023B0F8`, `PickAutoName`, `mnNameNew_GlyphVariantInput`, and `mnNameNew_MainInput` to influence stack layout for matching.",
+    "Preserved some compiler-shape artifacts such as temporary variables, address casts, and unusual expressions in the new code, indicating matching-driven C rather than purely idiomatic rewrite.",
+    "Broke a former single `lbl_803EE35C` data symbol into exact string-sized symbols in `symbols.txt`, a data-layout tactic that supports `.data` matching.",
+    "Kept address-suffixed names for unresolved functions/data while adding semantics only where behavior was clear enough.",
+    "Introduced a small inline helper `AddCharacterToName_getGlyphs` around glyph row access, likely to guide codegen for table indexing.",
+    "Changed `HSD_SisLib_803A74F0` call sites from `(u8*) &color` to `&color` after typing the API as `GXColor*`, reducing cast noise while preserving generated accesses through `.r/.g/.b`."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the PR slice.",
-    "The PR body was sparse: \"Tracking PR as usual\"; rationale must be inferred from the diff and decomp.dev report.",
-    "decomp.dev bot reported 5 new matches: mnNameNew_8023BAA8, fn_8023CFC8, mnNameNew_8023B0F8, mnNameNew_8023B314, and InitNameEntryUIState.",
-    "decomp.dev bot reported 20 mnnamenew improvements, including mnNameNew_MainInput, mnNameNew_KeySetup, mnNameNew_GlyphVariantSetup, fn_8023DBE8, mnNameNew_EnterFromMnCharSel, mnNameNew_GlyphVariantInput, PickAutoName, AddCharacterToName, and NameContainsOnlySpaces."
+    "No human review comments were present in the provided slice.",
+    "The only issue comment was the decomp.dev bot report showing 5 new matches and 20 unmatched-item improvements for `main/melee/mn/mnnamenew`.",
+    "Bot-reported new full matches: `mnNameNew_8023BAA8` (+676 bytes), `fn_8023CFC8` (+304), `mnNameNew_8023B0F8` (+300), `mnNameNew_8023B314` (+232), and `InitNameEntryUIState` (+200).",
+    "Bot-reported largest partial improvements included `mnNameNew_MainInput` (+1558, 67.63%), `mnNameNew_KeySetup` (+1468, 86.00%), `mnNameNew_GlyphVariantSetup` (+1439, 91.79%), and `fn_8023DBE8` (+1212, 95.90%)."
   ],
   "searchable_terms": [
     "pr-2363",
     "Jj/mnnamenew",
     "jurrejelle",
+    "mnnamenew",
     "mnNameNew",
-    "mnnamenew.c",
-    "mnnamenew.h",
+    "main/melee/mn/mnnamenew",
     "NameNewEntry",
     "GlyphVariantEntry",
     "GlyphRow",
@@ -185,40 +115,35 @@
     "WriteCharactersForNameAtIndex",
     "AddCharacterToName",
     "InitNameEntryUIState",
-    "mnNameNew_EnterFromMnCharSel",
-    "mnNameNew_8023B0F8",
-    "mnNameNew_8023B314",
-    "mnNameNew_8023BAA8",
-    "mnNameNew_8023CE4C",
-    "fn_8023CFC8",
-    "fn_8023DBE8",
+    "HSD_SisLib_803A74F0",
+    "GXColor",
     "AutoNamesList",
     "NotAllowedNamesList",
     "mnNameAutoNameUs",
     "mnNameRefuseNameUs",
-    "HSD_SisLib_803A74F0",
-    "GXColor",
-    "lbLang_IsSavedLanguageUS",
-    "lbArchive_LoadSections",
-    "HSD_JObjReqAnimAll",
-    "GObj_InitUserData",
-    "PAD_STACK",
-    "FORCE_PAD_STACK",
-    "dont_inline",
-    "config/GALE01/symbols.txt",
-    "lbl_803EE35C",
+    "mnNameAutoName",
+    "mnNameRefuseName",
     "mnNameNew_803EE35C",
-    "decomp.dev +1712 bytes"
+    "lbl_803EE35C",
+    "symbols.txt",
+    "GALE01",
+    "PAD_STACK",
+    "FORCE_PAD_STACK"
   ],
   "follow_up_queries": [
-    "mnNameNew_MainInput NameNewEntry hovered_selection 0x32 0x39",
-    "HSD_SisLib_803A74F0 GXColor callers gmresult mnname",
-    "GlyphVariantEntry mnNameNew_GlyphVariantSetup fn_8023CFC8",
-    "mnNameNew_803EE35C mnNameAutoNameUs mnNameRefuseNameUs symbols.txt",
-    "PAD_STACK FORCE_PAD_STACK fn_8023DBE8 mnnamenew",
-    "NameNewEntry auto_history PickAutoName IsNameUnique IsNameNotAllowed",
-    "lbArchive_LoadSections MenMainConEtNw_Top MenMainSbaseEtNw_Top",
-    "MenuFlow offsets mnmain.h hovered_selection buttons"
+    "Find later PRs that fully match `mnNameNew_MainInput`, `mnNameNew_KeySetup`, or `mnNameNew_GlyphVariantSetup`.",
+    "Search for later renames of `mnNameNew_8023BAA8`, `mnNameNew_8023CE4C`, `fn_8023CFC8`, and other address-suffixed helpers introduced or improved here.",
+    "Check whether `NameNewEntry` and `GlyphVariantEntry` fields were renamed after more of the name-entry UI was understood.",
+    "Audit all `HSD_SisLib_803A74F0` call sites for consistent `GXColor*` usage after this PR.",
+    "Look for PRs that further split or type `mnNameNew_803EDA7C`, `mnNameNew_803EDCE4`, and related glyph/string tables."
   ],
-  "confidence": 0.9
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

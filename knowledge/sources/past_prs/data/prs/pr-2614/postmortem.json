@@ -1,0 +1,123 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2614",
+  "pr": {
+    "number": 2614,
+    "title": "Link `if_2FC93`",
+    "url": "https://github.com/doldecomp/melee/pull/2614",
+    "state": "MERGED",
+    "author": "ribbanya",
+    "created_at": "2026-06-08T10:11:19Z",
+    "merged_at": "2026-06-08T10:14:57Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Linked melee/if/if_2FC93.c by marking it Matching in configure.py and tightening its GALE01 split boundaries for rodata, bss, and sdata2. The PR also converted several formerly global placeholder symbols in the if_2FC93-owned ranges into local @NNN symbols and adjusted adjacent ifprize.c split ownership for data that actually belongs to ifprize. No PR body or review comments were present, so intent is inferred from the title and diff.",
+  "change_classification": {
+    "primary_type": "link-status-update",
+    "categories": [
+      "code-change",
+      "configuration",
+      "symbol-map-cleanup",
+      "split-boundary-adjustment",
+      "matching"
+    ],
+    "systems": [
+      "interface",
+      "melee/if",
+      "if_2FC93",
+      "GALE01 config",
+      "build configuration"
+    ]
+  },
+  "key_files": [
+    "configure.py",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt"
+  ],
+  "what_changed": [
+    "Changed configure.py so Object(NonMatching, \"melee/if/if_2FC93.c\") became Object(Matching, \"melee/if/if_2FC93.c\").",
+    "Reduced melee/if/if_2FC93.c rodata ownership from 0x803B8780-0x803B8810 to 0x803B8780-0x803B8790.",
+    "Reduced melee/if/if_2FC93.c bss ownership from 0x804A1F10-0x804A1F58 to 0x804A1F10-0x804A1F48.",
+    "Reduced melee/if/if_2FC93.c sdata2 ownership from 0x804DDBA8-0x804DDCC8 to 0x804DDBA8-0x804DDBD0.",
+    "Added corresponding ifprize.c ownership for the moved ranges: rodata 0x803B8790-0x803B8810, bss 0x804A1F48-0x804A1F58, and sdata2 0x804DDBD0-0x804DDCC8.",
+    "Converted if_2FC93-local constants and strings from global un_* placeholders to local @NNN labels, including @208, @377, @393, @373, @374, and several sdata2 float/double labels @375 through @383.",
+    "Adjusted sizes for shared boundary symbols, including un_804A1F10 from size 0x38 to 0x34 and un_804D6D90 from size 0x8 to 0x4.",
+    "Inserted a local bss label ...bss.0 at .bss:0x804A1F10."
+  ],
+  "smart_moves": [
+    "Before declaring if_2FC93.c Matching, the diff narrowed its section ranges so it did not claim data later belonging to ifprize.c.",
+    "The symbol map cleanup made file-local compiler-generated constants local @NNN labels instead of leaving them as misleading global un_* symbols.",
+    "The split-boundary update preserved continuous ownership by handing the excluded if_2FC93 ranges directly to the adjacent ifprize.c module.",
+    "The sdata2 edits kept alignment metadata on local float and double constants, including align:4 floats and an align:8 double."
+  ],
+  "decomp_lessons": [
+    "When linking a formerly nonmatching object, verify every non-text section boundary; matching text is not enough if rodata, bss, sdata, sbss, or sdata2 are attributed to the wrong object.",
+    "Adjacent files in splits.txt can hide ownership mistakes. If one object shrinks, the following object may need explicit ranges for the released data.",
+    "Compiler-local constants should be represented as local @NNN symbols when evidence shows they are not true globals.",
+    "Placeholder un_* symbols may need both renaming and size correction once object boundaries are known.",
+    "For bss and sbss, small size adjustments at boundaries can be required to avoid swallowing the next file's storage."
+  ],
+  "naming_conventions": [
+    "Use Object(Matching, \"path/to/file.c\") in configure.py when an object is linkable/matching.",
+    "Use local @NNN labels for file-local constants, strings, floats, and doubles in symbols.txt.",
+    "Keep un_<address> names for unresolved global objects or boundary placeholders when a better symbol name is not established.",
+    "Use section-qualified split ranges in config/GALE01/splits.txt with start/end addresses for .text, .rodata, .data, .bss, .sdata, .sbss, and .sdata2 as needed."
+  ],
+  "assembly_or_matching_tactics": [
+    "Marking if_2FC93.c Matching was paired with symbol and split corrections rather than only changing configure.py.",
+    "Resolved linker ownership by shrinking if_2FC93.c section ranges and assigning the trailing ranges to ifprize.c.",
+    "Converted global placeholders to local labels to match compiler/linker expectations for local literals.",
+    "Preserved float and double alignment annotations in sdata2 while changing symbol scope."
+  ],
+  "review_feedback": [],
+  "searchable_terms": [
+    "PR2614",
+    "Link if_2FC93",
+    "if_2FC93.c",
+    "ifprize.c",
+    "configure.py",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "Object(Matching)",
+    "Object(NonMatching)",
+    "melee/if",
+    "rodata 0x803B8780",
+    "rodata 0x803B8790",
+    "bss 0x804A1F10",
+    "bss 0x804A1F48",
+    "sdata2 0x804DDBA8",
+    "sdata2 0x804DDBD0",
+    "un_803B8780",
+    "@208",
+    "un_803F99C8",
+    "@377",
+    "un_803F99F0",
+    "@393",
+    "un_804D5820",
+    "@373",
+    "un_804D5828",
+    "@374",
+    "un_804DDBAC",
+    "@375",
+    "un_804DDBC8",
+    "@383",
+    "split boundary",
+    "local symbol",
+    "sdata2 constants"
+  ],
+  "follow_up_queries": [
+    "Find other PRs that link melee/if objects by changing Object(NonMatching) to Object(Matching).",
+    "Search for split-boundary fixes where a newly matching object gives rodata or sdata2 ranges back to the following file.",
+    "Look for remaining global un_* symbols in the if_2FC93.c ranges that might actually be local @NNN labels.",
+    "Compare ifprize.c follow-up work for the ranges introduced here: rodata 0x803B8790-0x803B8810, bss 0x804A1F48-0x804A1F58, and sdata2 0x804DDBD0-0x804DDCC8."
+  ],
+  "confidence": 0.87,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

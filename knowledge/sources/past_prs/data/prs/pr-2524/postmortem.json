@@ -11,105 +11,88 @@
     "merged_at": "2026-05-25T10:40:34Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large ftCommon CPU/AI decompilation pass for src/melee/ft/chara/ftCommon/ftCo_0A01. The PR replaced many /// # stubs with C, added stage/camera/vector includes, tightened header prototypes, and advanced common fighter AI logic around recovery destinations, stage/blast-zone checks, item/target selection, and CpuCmd command dispatch. decomp.dev reported +7324 matched bytes, 11 new 100% matches, 25 partial improvements, and one ftCo_800A2718 regression.",
+  "summary": "Large matching/decompilation pass for src/melee/ft/chara/ftCommon/ftCo_0A01, replacing many placeholder stubs with C and tightening several header prototypes. The decomp.dev report recorded +7324 matched bytes overall, 11 new 100% matches, and 25 improved unmatched items in ftCo_0A01, with one small regression for ftCo_800A2718.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "prototype-cleanup",
-      "cpu-ai",
-      "stage-collision",
-      "item-targeting"
+      "cpu-ai-behavior",
+      "stage-collision-logic"
     ],
     "systems": [
       "fighter",
       "ftCommon",
-      "cpu-ai",
+      "cpu-command-ai",
+      "ground",
       "stage",
       "collision",
-      "items",
-      "camera"
+      "item"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
-      "role": "Main source expansion: +4922/-841 across 20 hunks, replacing many ftCo_800A/ftCo_800B placeholders and adding matching helpers/wrappers."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_0A01.h",
-      "role": "Prototype cleanup: +10/-10, changing several static declarations from UNK_RET/UNK_PARAMS or bool to concrete s32/bool/void/Fighter*/Item*/Vec3 signatures."
-    }
+    "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
+    "src/melee/ft/chara/ftCommon/ftCo_0A01.h"
   ],
   "what_changed": [
-    "Added includes needed by the new decompiled code: cm/camera.h, gr/grcastle.h, gr/grgreatbay.h, gr/grrcruise.h, and lb/lbvector.h.",
-    "Implemented/reworked stage-aware recovery and bounds helpers including ftCo_800A229C, ftCo_800A2C80, ftCo_800A3908, ftCo_800A4038, ftCo_800A4768, ftCo_800A6700, ftCo_800A6A98, ftCo_800A6D2C, and ftCo_800A6FC4.",
-    "Refactored ftCo_800A2718 and its inlineL0/inlineL1 helpers into structured item/island and stage cases for STORY, ZEBES, and ONETT; the bot report later flagged this function as the only matching regression.",
-    "Added item and target selection logic such as ftCo_800A4BEC, ftCo_800A4E8C, ftCo_800A61D8, and ftCo_800A648C, using HSD_GObj_Entities fighter/item traversal, ally checks, item kind filters, and distance ranking.",
-    "Expanded CPU action/recovery routines and command dispatch around ftCo_800A75DC, ftCo_800A7AAC, ftCo_800A8210, ftCo_800A866C, ftCo_800A8940, ftCo_800ABBA8, ftCo_800ADE48, ftCo_800AE7AC, ftCo_800AEA8C, ftCo_800AECF0, ftCo_800AEFB8, ftCo_800AF290, ftCo_800B04DC, ftCo_800B17D0, ftCo_800B1AB8, ftCo_800B1EF0, ftCo_800B21C8, ftCo_800B24B8, ftCo_800B2790, ftCo_800B2AFC, and ftCo_800B33B0.",
-    "Added small matching wrappers/trampolines such as ftCo_800A1B38_noinline, ftCo_800A1F3C_noinline/noinline2, ftCo_800A2718_dontinline chains, ftCo_800A8DE4_noinline, ftCo_800AC30C_noinline, and ftCo_800B1DA0_noinline variants.",
-    "Updated ftCo_0A01.h declarations for ftCo_800A229C, ftCo_800A2C80, ftCo_800A4768, ftCo_800A6A98, ftCo_800A6D2C, ftCo_800A6FC4, ftCo_800A8210, ftCo_800A866C, ftCo_800AEA8C, and ftCo_800AEFB8 to use concrete return and parameter types."
+    "Added includes needed by the newly decompiled code: cm/camera.h, gr/grcastle.h, gr/grgreatbay.h, gr/grrcruise.h, and lb/lbvector.h.",
+    "Replaced placeholder comments such as /// #ftCo_800A229C, /// #ftCo_800A2C80, /// #ftCo_800A3908, /// #ftCo_800A4038, /// #ftCo_800A4768, /// #ftCo_800A4BEC, and /// #ftCo_800A4E8C with C implementations.",
+    "Added many later ftCo_0A01 implementations related to CPU/fighter behavior, including functions in the ranges ftCo_800A6700 through ftCo_800B33B0.",
+    "Implemented stage-aware logic using stage_info.internal_stage_id and stage-specific helpers for GREATBAY, CASTLE, ZEBES, RCRUISE, BIGBLUE, ICEMTN, STORY, ONETT, INISHIE1, FOURSIDE, Corneria, Venom, and related ground/platform checks.",
+    "Implemented collision and blast-zone tests with Stage_GetBlastZone* offsets, mpCheckFloor, mpCheckLeftWall, mpCheckRightWall, grLib_801C9E60, Camera_8003118C, and lbVector_Normalize.",
+    "Reworked item/island checks around HSD_GObj_Entities->items, GET_ITEM, it_8026C1B4, ftCo_800A5944, mpIsland_8005AB54, and mpIsland_8005AC8C.",
+    "Added matching-control helper wrappers named with _noinline, _noinline2, and _dontinline suffixes around functions such as ftCo_800A1B38, ftCo_800A1F3C, ftCo_IsGrabbing, ftCo_800A5980, ftCo_800A8DE4, ftCo_800AC30C, and ftCo_800B1DA0.",
+    "Updated ftCo_0A01.h prototypes from UNK_RET/UNK_PARAMS or imprecise bool signatures to typed signatures such as s32 ftCo_800A229C(Fighter*, Vec3*), void ftCo_800AEA8C(Fighter*), void ftCo_800AEFB8(Fighter*), s32 ftCo_800A2C80(Fighter*), s32 ftCo_800A4768(Fighter*, Vec3*), s32 ftCo_800A6A98(Fighter*, Vec3*), s32 ftCo_800A6D2C(Fighter*, Vec3*), bool ftCo_800A6FC4(Fighter*, Vec3*, Vec3*), void ftCo_800A8210(Fighter*, Vec3*), and void ftCo_800A866C(Fighter*)."
   ],
   "smart_moves": [
-    "Converted decompiler-style goto-heavy placeholder logic into structured loops and switches while preserving stage-specific behavior and the branch shapes needed for matching.",
-    "Factored repeated special-floor checks through helpers such as ftCo_800A1B38 and ftCo_800A6A98_inline0, avoiding duplicated Big Blue/Inishie/Corneria/Venom floor filtering.",
-    "Used explicit stage exceptions in the recovery/bounds logic instead of generic collision checks only: Great Bay, Castle, Zebes, Rainbow Cruise, Big Blue, Icicle Mountain, Onett, and Story all appear in the new code paths.",
-    "Kept CPU command generation readable by using existing CpuCmd_* names for stick/buttons/waits while still adding PAD_STACK and wrapper functions where codegen required it.",
-    "Improved type knowledge in the header rather than leaving UNK_RET/UNK_PARAMS, which makes later call-site and struct-field work easier.",
-    "Preserved address-based function names and anonymous x1A88 fields where semantics were not proven, avoiding speculative naming while still making the code compile and match better."
+    "Kept temporary variable and stack-sensitive naming patterns such as sp2C, sp20, sp18, sp1C, var_r0, line_id, flags, and data where they helped preserve codegen while still making the control flow more readable.",
+    "Used small noinline/dontinline forwarding wrappers to influence call/inlining behavior without changing the semantic body of the target functions.",
+    "Converted old m2c-style gotos for item iteration and stage selection into structured for loops and switch statements where possible, while retaining explicit block labels/gotos in places where they likely helped match original branch layout.",
+    "Localized repeated blast-zone bounds checks around Fighter_x1A88 dimensions such as half_width and half_height, preserving the AI recovery/collision behavior while making the decompiled logic understandable.",
+    "Identified and added the real subsystem dependencies instead of leaving placeholder includes, which made the new implementations use typed camera, ground, stage, vector, and stage-specific declarations."
   ],
   "decomp_lessons": [
-    "ftCommon CPU recovery code is tightly coupled to stage, camera, blast-zone, island, floor, wall, and item systems; matching these functions often requires adding the real cross-system headers rather than hiding calls behind placeholders.",
-    "Out-of-bounds and recovery-destination checks need both stage-specific exceptions and generic Camera_8003118C/Stage_GetBlastZone* fallbacks.",
-    "For CPU AI routines, type cleanup matters: replacing UNK_RET/UNK_PARAMS with Fighter*, Item*, Vec3*, bool, s32, and void clarifies control flow and downstream matching.",
-    "Tiny noinline/dontinline trampolines can be legitimate matching tools when otherwise identical helper calls inline differently at specific call sites.",
-    "HSD_GObj_Entities traversal plus GET_FIGHTER/GET_ITEM and ally/disabled-state filters are reusable patterns for CPU target and item selection.",
-    "Bot reports should be read per-function: this PR made large net progress but still introduced a localized ftCo_800A2718 regression, so future passes should check both matched gains and partial regressions."
+    "For ftCommon CPU/AI code, matching often depends on stage-specific helper calls and exact stage enum cases; do not flatten these into generic logic too early.",
+    "When converting m2c output, structured loops and switches can still match if branch-sensitive labels are retained only where needed.",
+    "Small forwarding wrappers with _noinline or _dontinline suffixes are a practical matching tactic when the original binary expects a separate call boundary or a particular inlining decision.",
+    "Header prototype cleanup should be done alongside implementation work; replacing UNK_RET/UNK_PARAMS with concrete Fighter*, Vec3*, s32, bool, and void signatures unlocks cleaner downstream decompilation.",
+    "AI movement/recovery code mixes fighter physics, collision rays, blast-zone limits, camera checks, item/platform state, and CPU command emission; future work should trace all of those dependencies before naming behavior.",
+    "Automated match reports are useful but not absolute: this PR gained many new matches while ftCo_800A2718 regressed slightly, so large matching passes should track both net bytes and per-function regressions."
   ],
   "naming_conventions": [
-    "Kept existing address-based names for unknown functions: ftCo_800Axxxx and ftCo_800Bxxxx.",
-    "Used suffixes such as _noinline, _noinline2, _dontinline, _dontinline2, _dontinline3, _inline0, and _inline1 for codegen-sensitive wrappers and local helper variants.",
-    "Local anonymous helpers retained short decomp-style names such as inlineL0, inlineL1, inlineK0 where semantic names were not established.",
-    "Header comments preserve address offsets beside static prototypes, e.g. /* 09F198 */ static s32 ftCo_800A229C(Fighter* fp, Vec3*).",
-    "Existing named enums/helpers were reused when available, including CpuCmd_* commands, InternalStageId values, ItemKind values, and GA_Ground/GA_Air."
+    "Wrapper functions used explicit matching-oriented suffixes: _noinline, _noinline2, _dontinline, _dontinline2, and _dontinline3.",
+    "Local inline helpers used range-local names such as inlineL0, inlineL1, inlineG0, inlineH0, and inlineH1 when semantic names were not yet evidenced.",
+    "New helper names retained address-based ftCo_XXXXXXXX identifiers where no meaningful symbol name was established.",
+    "Header prototypes preserved static address comments such as /* 09F198 */ and used concrete parameter names only when evidenced by the implementation, e.g. Fighter* fp, Vec3* arg1, Fighter* fp0, Fighter* fp1.",
+    "Unidentified Fighter_x1A88 fields remained offset-style names such as x1A88, x54, x60, x7C, x558, x564, and x568 rather than speculative semantic names."
   ],
   "assembly_or_matching_tactics": [
-    "Added noinline/dontinline wrapper chains around simple calls to force non-inlined call shapes at sensitive sites.",
-    "Used PAD_STACK in several functions to preserve stack layout.",
-    "Kept exact float constants and thresholds visible in C, including 0.00001f epsilons, 1000.0f ray lengths, 0.2f and 0.4f blast-zone margins, 5.0f ledge offsets, and angle constants for CPU recovery inputs.",
-    "Used mpCheckFloor, mpCheckLeftWall, and mpCheckRightWall with explicit line_id, flags, floor_pos, and floor_normal temporaries to reproduce collision query calling patterns.",
-    "Used switch statements over stage_info.internal_stage_id and CPU state fields where they matched large dispatch tables.",
-    "Used helper-specific sqrtf/sqrtf__Ff and small inline distance helpers where the diff shows codegen-sensitive math forms."
+    "Added noinline forwarding calls around ftCo_800A1B38, ftCo_800A1F3C, ftCo_IsGrabbing, ftCo_800A5980, ftCo_800A8DE4, ftCo_800AC30C, and ftCo_800B1DA0 to preserve expected call boundaries.",
+    "Used inline wrappers such as ftCo_800A1C44_dontinline and ftCo_800A2718_dontinline chains to tune inlining behavior.",
+    "Retained explicit goto labels like block_18, block_23, and block_43 inside switch-heavy stage logic where direct structured control flow likely did not produce the desired assembly.",
+    "Preserved exact float constants and comparisons such as 0.00001f, 0.4f, 0.2f, 5.0f, -35.0f, -1.0471975430846214, and angle thresholds in CPU command logic.",
+    "Used PAD_STACK in later CPU command functions, indicating stack-shape adjustment was part of the matching strategy.",
+    "Kept m2c-like temporary names for stack Vec3s and scalar temporaries where register/stack allocation sensitivity was likely important."
   ],
   "review_feedback": [
-    "No human review comments or review records were present in the slice; the PR body was empty/null.",
-    "decomp.dev reported GALE01 matched code at 68.42%, an improvement of +0.19% and +7324 bytes.",
-    "Bot reported 11 new 100% matches: ftCo_800B21C8, ftCo_800B17D0, ftCo_800B1AB8, ftCo_800AEFB8, ftCo_800B1EF0, ftCo_800B24B8, ftCo_800AECF0, ftCo_800A648C, ftCo_800A4768, ftCo_800A4E8C, and ftCo_800B0E98.",
-    "Bot reported 25 improvements in unmatched items; largest listed gains included ftCo_800B2AFC (+2021 bytes to 90.71%), ftCo_800ADE48 (+1825 to 75.92%), ftCo_800A3908 (+1586 to 86.20%), and ftCo_800A4038 (+1453 to 79.01%).",
-    "Bot reported one regression: ftCo_800A2718 lost 22 matched bytes, moving from 82.34% to 77.32%."
+    "No human review comments were present in the provided PR slice.",
+    "The decomp.dev bot reported 11 new matches, 25 improvements in unmatched items, and one regression: ftCo_800A2718 decreased by 22 bytes, from 82.34% to 77.32%."
   ],
   "searchable_terms": [
     "pr-2524",
+    "Jj/ft co 0 a01",
     "jurrejelle",
-    "jj/ftCo_0A01",
     "ftCo_0A01",
     "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
     "src/melee/ft/chara/ftCommon/ftCo_0A01.h",
-    "ftCommon",
-    "CPU AI",
-    "CpuCmd",
-    "Fighter_x1A88_t",
     "ftCo_800A229C",
-    "ftCo_800A2718",
     "ftCo_800A2C80",
     "ftCo_800A3908",
     "ftCo_800A4038",
     "ftCo_800A4768",
     "ftCo_800A4BEC",
     "ftCo_800A4E8C",
-    "ftCo_800A61D8",
-    "ftCo_800A648C",
     "ftCo_800A6700",
     "ftCo_800A6A98",
     "ftCo_800A6D2C",
@@ -117,54 +100,52 @@
     "ftCo_800A75DC",
     "ftCo_800A7AAC",
     "ftCo_800A8210",
-    "ftCo_800A866C",
     "ftCo_800A8940",
-    "ftCo_800ABBA8",
     "ftCo_800ADE48",
-    "ftCo_800AE7AC",
-    "ftCo_800AEA8C",
-    "ftCo_800AECF0",
     "ftCo_800AEFB8",
-    "ftCo_800AF290",
-    "ftCo_800B04DC",
-    "ftCo_800B0E98",
     "ftCo_800B17D0",
     "ftCo_800B1AB8",
-    "ftCo_800B1EF0",
     "ftCo_800B21C8",
     "ftCo_800B24B8",
-    "ftCo_800B2790",
     "ftCo_800B2AFC",
-    "ftCo_800B33B0",
-    "mpIsland_80458E88",
-    "mpCheckFloor",
-    "mpCheckLeftWall",
-    "mpCheckRightWall",
+    "CpuCmd",
+    "mpIsland_8005AB54",
+    "mpIsland_8005AC8C",
     "Stage_GetBlastZoneBottomOffset",
     "Stage_GetBlastZoneLeftOffset",
     "Stage_GetBlastZoneRightOffset",
     "Stage_GetBlastZoneTopOffset",
     "Camera_8003118C",
+    "mpCheckFloor",
+    "mpCheckLeftWall",
+    "mpCheckRightWall",
+    "lbVector_Normalize",
     "grGreatBay_801F66A4",
     "grCastle_801CDF54",
-    "grLib_801C9E60",
+    "grBigBlue_801EF844",
+    "grInishie1_801FCAAC",
+    "grCorneria_801E2D90",
+    "grVenom_80206D10",
     "RCRUISE",
     "BIGBLUE",
     "ICEMTN",
     "ZEBES",
     "ONETT",
-    "STORY",
-    "Item_IsGrabbable",
-    "HSD_GObj_Entities",
-    "Ness recovery PK thunder logic",
-    "Pikachu/Pichu recovery logic"
+    "STORY"
   ],
   "follow_up_queries": [
-    "Find later PRs touching ftCo_800A2718 to see whether the -22 byte regression was recovered.",
-    "Search subsequent ftCo_0A01 PRs for completion of partial matches listed by the bot, especially ftCo_800B2AFC, ftCo_800ADE48, ftCo_800A3908, ftCo_800A4038, ftCo_800A6FC4, and ftCo_800ABBA8.",
-    "Look for future renames or struct documentation for Fighter_x1A88_t fields used by the CPU AI state machine.",
-    "Search for reuse of ftCo_800A1B38_noinline, ftCo_800A1F3C_noinline2, and other wrapper tactics in nearby ftCommon matching work.",
-    "Trace stage helper declarations for grCastle_801CDF54, grGreatBay_801F66A4, grLib_801C9E60, and Camera_8003118C when decompiling more recovery/bounds code."
+    "Inspect ftCo_800A2718 after PR 2524 to recover the small match regression introduced by the inlineL0/inlineL1 rewrite.",
+    "Search later PRs for semantic renames of Fighter_x1A88 fields used in ftCo_0A01 CPU recovery logic.",
+    "Find follow-up PRs that complete unmatched items improved here, especially ftCo_800B2AFC, ftCo_800ADE48, ftCo_800A3908, ftCo_800A4038, ftCo_800A6FC4, and ftCo_800ABBA8.",
+    "Compare the noinline/dontinline wrapper pattern from this PR against later cleanup PRs to see which wrappers were removed after better matching was found."
   ],
-  "confidence": 0.86
+  "confidence": 0.84,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

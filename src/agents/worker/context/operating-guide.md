@@ -35,6 +35,10 @@ leased Melee decomp target.
 
 ## Source Quality
 
+- Treat matching as reconstruction of likely original authored source. Infer
+  local developer conventions from matched sibling functions, nearby files,
+  headers, macros, naming habits, and historical PR evidence before preserving
+  generated, permuter-shaped, or data-driven source.
 - Recover natural loops from repeated generated blocks before keeping unrolled
   or goto-heavy source.
 - Prefer real structs, fields, accessors, and union arms over raw pointer
@@ -43,6 +47,15 @@ leased Melee decomp target.
   the line number identifies one.
 - Prefer project assert/report macros and local idioms over hand-expanded
   asserts or fake helper shapes.
+- Prioritize text-section matches. Do not add or move data, literals, symbols,
+  or splits solely to quiet data diffs before the translation unit's text
+  section is complete.
+- Keep string literals inline; do not replace asset names, table labels,
+  assert/report text, or resource names with data-symbol identifiers unless
+  data ownership is explicitly in scope and evidenced.
+- Do not rename globals by adding identifier-to-identifier `#define` aliases or
+  by keeping duplicate address-commented extern declarations for one data
+  address.
 - Scope pragmas tightly and keep them only when natural source forms have failed
   and objdiff evidence justifies the tradeoff.
 - Treat m2c, Ghidra, AI, permuter output, and knowledge-tool pattern notes as

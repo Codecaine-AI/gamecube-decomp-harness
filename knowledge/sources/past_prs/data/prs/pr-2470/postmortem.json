@@ -11,94 +11,95 @@
     "merged_at": "2026-05-18T14:36:04Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large sysdolphin/baselib particle-display decomp PR. It added C implementations for `particleSort` and the very large `psDispParticles`, tightened several psdisp globals/prototypes from `UNK_T` or scalar types to `HSD_Particle*`, `HSD_Fog*`, and `GXColor`, and expanded `HSD_psAppSRT` padding into float fields needed by the renderer. The PR body had no explanation and there were no human review comments, but the decomp.dev bot reported measurable progress: `particleSort` to 92.88%, `psDispParticles` to 39.03%, psdisp `extab` to 100%, and related `.sdata`, `.sdata2`, and `extabindex` improvements.",
+  "summary": "Large psdisp matching pass in sysdolphin baselib. The PR added C implementations for particleSort and a large portion of psDispParticles, refined psdisp-related globals and particle/app-SRT struct typing, and exposed a typed particleSort prototype. The decomp.dev bot reported new/improved matches in main/sysdolphin/baselib/psdisp, especially psDispParticles (+5655 bytes to 39.03%) and particleSort (+973 bytes to 92.88%), plus extab reaching 100%. There was no PR body and no human review discussion in the provided slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "typing",
-      "graphics",
-      "particles"
+      "struct-typing",
+      "particle-rendering",
+      "gx-state"
     ],
     "systems": [
       "src/sysdolphin/baselib",
       "psdisp",
-      "particle display",
-      "GX rendering"
+      "particle-system"
     ]
   },
   "key_files": [
     {
       "path": "src/sysdolphin/baselib/psdisp.c",
-      "role": "Main decomp work: +1456/-7; added psdisp helper structs, typed externs, `particleSort`, and a large partial C body for `psDispParticles` covering particle sorting, GX/TEV state, fog, texture, matrix, point/line/trail rendering paths."
+      "role": "Added most of the matching work: new includes, typed globals, particle sort cache/bucket helper structs, particleSort implementation, and a large psDispParticles implementation."
     },
     {
       "path": "src/sysdolphin/baselib/psdisp.h",
-      "role": "Header signature cleanup: added `baselib/forward.h` and changed `particleSort` from `UNK_T particleSort(s32, u8, UNK_T*, UNK_T*)` to `HSD_Particle* particleSort(s32, u8, HSD_Particle**, HSD_Particle**)`."
+      "role": "Added baselib/forward.h and changed particleSort from UNK_T-based prototype to HSD_Particle* with HSD_Particle** out parameters."
     },
     {
       "path": "src/sysdolphin/baselib/psstructs.h",
-      "role": "Struct refinement: replaced `HSD_psAppSRT` padding at 0x6C-0x98 with twelve explicit `f32` fields used by the new psdisp matrix/SRT calculations."
+      "role": "Replaced an opaque fill region in HSD_psAppSRT with explicit f32 fields x6C through x98 while preserving the following freefunc offset."
     }
   ],
   "what_changed": [
-    "`psdisp.c` gained baselib dependencies for camera, fog, lighting objects, matrices, psdisp TEV setup, state invalidation, and utilities, plus `<string.h>` and an explicit `__fabsf` mapping instead of `<math.h>`.",
-    "Added file-local helper types `psdisp_ParticleSortBucket`, `Point3d` as a `Vec3` alias, and `psdisp_ParticleSortCache`, with `STATIC_ASSERT` checks for bucket size 8 and cache size 0xF0.",
-    "Added or corrected typed externs for psdisp globals: `hsd_804D0908[146]` as particle-list heads, `psTexGroupArray_804D0B50`, `psNumCmdList_804D0C54`, `HSD_PSDisp_804D0FC0` as the sort/cache buffer, `HSD_PSDisp_804D7908` as `HSD_Fog*`, and `HSD_PSDisp_804D7934` through `HSD_PSDisp_804D7944` as `GXColor`.",
-    "Implemented `particleSort(s32, u8, HSD_Particle**, HSD_Particle**)`, sorting linked `HSD_Particle` lists into 16 head/tail buckets based on `kind` bits and caching the split point in `HSD_PSDisp_804D0FC0.xAC[arg0]` when the per-group stamp matches.",
-    "Implemented a large `psDispParticles(s32, u32)` body that iterates up to 16 particle groups from a bitmask, calls `particleSort`, filters tiny particles and `TexEdge` cases, initializes cached GX/TEV/fog/matrix state, and emits rendering setup/draw paths for particle display modes.",
-    "`psDispParticles` now directly drives many rendering-state operations visible in the diff: `psSetupTevInvalidState`, `psSetupTevCommon`, `psSetupTev`, `HSD_FogSet`, `GXSetBlendMode`, `GXSetAlphaCompare`, `GXSetChanCtrl`, `GXSetChanMatColor`, `GXSetChanAmbColor`, `GXSetTevColor`, `GXSetZMode`, `GXSetLineWidth`, `GXSetPointSize`, `GXSetCurrentMtx`, and final `HSD_StateInvalidate(-1)`.",
-    "`psstructs.h` changed `HSD_psAppSRT` from an opaque fill range after `ssx/ssy` into offset-named float fields `x6C` through `x98`, matching how the new psdisp code treats the struct as matrix/SRT scratch data."
+    "Added includes needed by psDispParticles and related rendering/state code: baselib/cobj.h, fog.h, lobj.h, mtx.h, psdisptev.h, state.h, util.h, plus string.h.",
+    "Replaced math.h usage with an explicit extern float __fabsf(float) and #define fabsf __fabsf, indicating a matching-sensitive libc/compiler symbol choice.",
+    "Introduced local psdisp_ParticleSortBucket with HSD_Particle* head/tail and psdisp_ParticleSortCache with padding plus HSD_Particle* xAC[17], guarded by STATIC_ASSERT size checks.",
+    "Added Point3d as a typedef to Vec3 for psDispParticles local variables.",
+    "Typed several psdisp globals more precisely: HSD_PSDisp_804D7908 became HSD_Fog*, and HSD_PSDisp_804D7934/7938/793C/7940/7944 became GXColor instead of UNK_T.",
+    "Declared additional extern data used by the new code, including hsd_804D0908[146], psTexGroupArray_804D0B50, psNumCmdList_804D0C54, and HSD_PSDisp_804D0FC0.",
+    "Implemented particleSort as an HSD_Particle* list sorter that buckets particles by kind bits, caches results per arg0/generation byte, and returns both the full sorted list and the second segment via out parameters.",
+    "Added a very large psDispParticles body with GX, TEV, fog, camera matrix, particle list, texture group, form group, color, and state handling code.",
+    "Updated psdisp.h so particleSort has a concrete HSD_Particle* return type and HSD_Particle** parameters instead of generic UNK_T pointers.",
+    "Expanded HSD_psAppSRT's 0x6C-0x98 unknown fill into twelve f32 fields named x6C through x98."
   ],
   "smart_moves": [
-    "Retyping globals and prototypes unlocked direct field access and reduced `UNK_T` usage in a renderer that heavily manipulates `HSD_Particle`, `HSD_Fog`, and packed `GXColor` values.",
-    "The new `psdisp_ParticleSortCache` documents the mixed global buffer layout well enough to support both particle-list split caching and matrix/projection scratch use, while `STATIC_ASSERT` guards prevent silent layout drift.",
-    "The `particleSort` implementation preserves linked-list bucket heads and tails and caches the already-sorted result by a stamp byte, matching the original optimization pattern instead of rebuilding on every call.",
-    "The large `psDispParticles` implementation keeps explicit stack-style locals, casts, repeated state-cache checks, and unrolled-looking control flow, which is appropriate for a partially matching decomp of a codegen-sensitive rendering function.",
-    "The PR fixed header-level types at the same time as the C body, so later callsites can use the real `HSD_Particle*` return and out-parameter types instead of propagating placeholders."
+    "Used minimal local helper structs for matching-sensitive data layouts and asserted their sizes, especially psdisp_ParticleSortCache at 0xF0 and psdisp_ParticleSortBucket at 8 bytes.",
+    "Kept uncertain struct fields named by offsets, such as x6C through x98 in HSD_psAppSRT, rather than inventing semantic names without evidence.",
+    "Improved type information only where the diff shows strong evidence from use sites, such as GXColor globals being written channel-by-channel and HSD_PSDisp_804D7908 being passed around as fog state.",
+    "Changed particleSort's public prototype to HSD_Particle* and HSD_Particle** so callers and headers agree with the actual linked-list manipulation.",
+    "Preserved matching-oriented control flow in particleSort by manually unrolling bucket concatenation across buckets 0-7 and 8-15 instead of abstracting it into a cleaner loop.",
+    "Used generation/cached sort state via HSD_PSDisp_804D6380 and HSD_PSDisp_804D0FC0 so repeated particleSort calls can return cached head/tail segment pointers without rebuilding the list.",
+    "Used pointer casts for packed GXColor-to-s32 temporary copies where the generated code likely depends on exact load/store patterns."
   ],
   "decomp_lessons": [
-    "For baselib particle display, `HSD_psAppSRT` fields after `ssx/ssy` are not arbitrary padding: psdisp uses them as float matrix/SRT components after `PSMTXConcat` and scale extraction.",
-    "When a global is used both as a structured cache and raw float matrix/projection storage, model the known structured portion with size assertions and retain casts for the scratch use until the full layout is understood.",
-    "Large renderer functions can still be valuable when only partially matching: the bot report shows `psDispParticles` moved from 0.00% to 39.03% and `particleSort` from 0.00% to 92.88%.",
-    "GX state-machine decomp should preserve the original's state-caching pattern: compare cached globals/locals before calling expensive or order-sensitive `GXSet*`, TEV, fog, and matrix APIs.",
-    "Do not over-name uncertain math fields too early; offset names like `x6C` through `x98` are better than opaque padding and safer than invented semantics.",
-    "For codegen-sensitive functions, exact library symbol choice can matter; this PR explicitly maps `fabsf` to `__fabsf` rather than relying on `<math.h>`."
+    "For large render functions, incremental value is still high even when the function remains unmatched; the bot showed psDispParticles improved from 0.00% to 39.03%.",
+    "Header typing can be part of matching progress: replacing UNK_T signatures with concrete HSD_Particle* types helps downstream callers and reduces ambiguity.",
+    "When a global is used as a concrete engine type, type it at the extern declaration rather than continuing to hide it behind s32 or UNK_T.",
+    "Opaque padding in shared structs should be split into offset-named typed fields only when use sites require it; preserve offsets and avoid speculative semantic names.",
+    "Do not over-clean compiler-shaped code in matching PRs. Unrolled repeated condition blocks, stack-offset local names, and pointer punning may be necessary to preserve codegen.",
+    "STATIC_ASSERT is useful when introducing partial private structs whose only reliable evidence is size and field offsets.",
+    "Large particle/display routines can require pulling in many baselib dependencies at once: camera object, fog, light object, matrix, TEV setup, state invalidation, and utility headers."
   ],
   "naming_conventions": [
-    "File-private helper structs use a lowercase module prefix plus descriptive suffix, as in `psdisp_ParticleSortBucket` and `psdisp_ParticleSortCache`.",
-    "Known-address psdisp globals keep the project’s `HSD_PSDisp_804Dxxxx` naming convention when semantics are not fully established.",
-    "Some legacy/non-HSD globals remain address-based lowercase names, such as `hsd_804D0908`, while newly identified arrays use descriptive address-suffixed names like `psTexGroupArray_804D0B50` and `psNumCmdList_804D0C54`.",
-    "Public prototypes should be moved from `UNK_T` to real baselib forward types as soon as the evidence supports it, demonstrated by `particleSort` returning `HSD_Particle*` and taking `HSD_Particle**` out parameters.",
-    "Unknown struct members that are actively used should be split into offset-named typed fields, e.g. `HSD_psAppSRT.x6C` through `x98`, instead of retaining a fill array.",
-    "Matching-sensitive temporaries in very large functions may retain decompiler-style names such as `sp7A0`, `var_r16`, `temp_r3`, and `prev_kind` until a cleaner refactor is safe."
+    "Private psdisp helper types use a psdisp_ prefix, e.g. psdisp_ParticleSortBucket and psdisp_ParticleSortCache.",
+    "Unknown or partially known data is kept offset-addressed, e.g. HSD_PSDisp_804D0FC0, HSD_PSDisp_804D7934, and hsd_804D0908.",
+    "Struct fields without semantic names remain offset-based, e.g. x0_pad, xAC, x6C, x70, through x98.",
+    "Stack locals in the large WIP/matching body retain decompiler-style names like sp8BC, sp7A5, var_r16, prev_kind, and pp.",
+    "Existing camelCase function names in this module are preserved: calcTornadoLastPos, getColorPrimEnv, getColorMatAmb, setVtxDesc, particleSort, psDispParticles."
   ],
   "assembly_or_matching_tactics": [
-    "Use `extern float __fabsf(float); #define fabsf __fabsf` when the original object calls the runtime `__fabsf` symbol and `<math.h>` would not reproduce the same reference.",
-    "Use `STATIC_ASSERT(sizeof(...))` for newly inferred helper layouts that alias existing data or stack storage.",
-    "Preserve unrolled bucket concatenation for `particleSort` buckets 0-7 and 8-15 rather than replacing it with a cleaner loop if the compiler shape is sensitive.",
-    "Packed color state is mirrored through `GXColor` globals and `s32` stack copies such as `*(s32*) &HSD_PSDisp_804D7934`, matching the way the original code likely handles 4-byte GX colors.",
-    "Reuse `HSD_PSDisp_804D0FC0` as a `f32*` camera/projection cache in `psDispParticles` for `HSD_CObjGetViewingMtx`, `PSMTXInverse`, and `GXGetProjectionv`, while also modeling its particle-sort tail-cache field.",
-    "Keep explicit floating constants and casts in the huge draw function; the diff shows many `f64` stack constants and `(f32)` casts that are likely there to shape generated instructions.",
-    "Avoid redundant GX updates by checking cached blend, alpha, channel, color, fog, texture-wrap, z-mode, point/line size, and current-matrix state before issuing the corresponding API calls."
+    "Explicitly binds fabsf to __fabsf instead of relying on math.h, likely to match the original symbol/codegen.",
+    "Uses memset on the local 16-entry bucket array, matching a common compiler pattern for zeroing stack arrays.",
+    "Keeps particleSort bucket concatenation unrolled rather than replacing it with a for loop, preserving likely original instruction scheduling/control flow.",
+    "Uses f64 constants such as 4503599627370496.0, 0.01, 0.00001, and 0.000001 in psDispParticles, which are often important for PowerPC float conversion and comparison codegen.",
+    "Maintains many stack-offset-style temporaries in psDispParticles, reflecting an in-progress large function where stack layout affects matching.",
+    "Uses pointer casts between GXColor and s32 temporaries to match packed color load/store behavior before GXSetChanMatColor, GXSetChanAmbColor, and GXSetTevColor calls.",
+    "Defines a cache struct with a 0xAC pad and pointer array to access known offsets without prematurely reconstructing the full cached matrix/projection structure.",
+    "Sorts particles by specific kind bit masks, including 0x0E000008 and kind >> 0x19 bucket selection, preserving bit-level behavior."
   ],
   "review_feedback": [
     {
-      "source": "pr_body",
-      "note": "PR body was empty; no author explanation was available in the slice."
+      "source": "decomp.dev bot",
+      "feedback": "Reported matched data unchanged overall at 39.41% but +32 bytes, with one new match: main/sysdolphin/baselib/psdisp extab reached 100.00%."
     },
     {
-      "source": "human_review",
-      "note": "No human review comments or reviews were present in the slice."
+      "source": "decomp.dev bot",
+      "feedback": "Reported unmatched-item improvements: psDispParticles +5655 bytes to 39.03%, particleSort +973 bytes to 92.88%, .sdata2 +65 bytes to 82.00%, extabindex +44 bytes to 91.67%, and .sdata +4 bytes to 50.00%."
     },
     {
-      "source": "decomp-dev[bot]",
-      "note": "GALE01 report: matched data 39.41% with +32 bytes; psdisp `extab` reached 100.00%."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "note": "Reported improvements: `psDispParticles` +5655 bytes, 0.00% to 39.03%; `particleSort` +973 bytes, 0.00% to 92.88%; `.sdata2` 8.70% to 82.00%; `extabindex` 0.00% to 91.67%; `.sdata` 0.00% to 50.00%."
+      "source": "slice metadata",
+      "feedback": "No human review comments or PR body were present in the provided PR slice, so reviewer intent and requested changes are not evidenced."
     }
   ],
   "searchable_terms": [
@@ -106,65 +107,58 @@
     "Jj/psdisp",
     "jurrejelle",
     "psdisp",
-    "sysdolphin",
-    "baselib",
+    "psDispParticles",
+    "particleSort",
     "src/sysdolphin/baselib/psdisp.c",
     "src/sysdolphin/baselib/psdisp.h",
     "src/sysdolphin/baselib/psstructs.h",
-    "particleSort",
-    "psDispParticles",
     "HSD_Particle",
     "HSD_psAppSRT",
+    "HSD_PSTexGroup",
+    "HSD_PSFormGroup",
+    "HSD_psAppSRT x6C",
     "psdisp_ParticleSortBucket",
     "psdisp_ParticleSortCache",
-    "Point3d",
     "HSD_PSDisp_804D0FC0",
-    "HSD_PSDisp_804D7908",
-    "HSD_PSDisp_804D7934",
-    "HSD_PSDisp_804D7938",
-    "HSD_PSDisp_804D793C",
-    "HSD_PSDisp_804D7940",
-    "HSD_PSDisp_804D7944",
+    "HSD_PSDisp_804D6380",
+    "HSD_PSDisp_804D6384",
     "hsd_804D0908",
     "psTexGroupArray_804D0B50",
     "psNumCmdList_804D0C54",
-    "HSD_PSDisp_804D6380",
-    "HSD_PSDisp_8040C360",
+    "HSD_PSDisp_804D7908",
     "HSD_Fog",
+    "HSD_FogSet",
     "GXColor",
-    "TexEdge",
-    "DispFog",
-    "DispLighting",
-    "PrimEnv",
-    "DispTexture",
-    "Trail",
-    "DirVec",
-    "MirrorS",
-    "MirrorT",
-    "psSetupTev",
-    "psSetupTevCommon",
-    "psSetupTevInvalidState",
-    "HSD_StateInvalidate",
+    "GXSetChanMatColor",
+    "GXSetChanAmbColor",
+    "GXSetTevColor",
+    "GXLoadPosMtxImm",
+    "GXGetProjectionv",
     "HSD_CObjGetViewingMtx",
     "PSMTXInverse",
-    "PSMTXConcat",
-    "GXGetProjectionv",
-    "GXSetBlendMode",
-    "GXSetAlphaCompare",
-    "GXSetChanCtrl",
-    "GXSetTevColor",
-    "GXSetZMode",
-    "GXSetLineWidth",
-    "GXSetPointSize",
+    "psSetupTevInvalidState",
+    "psSetupTevCommon",
     "__fabsf",
-    "STATIC_ASSERT"
+    "fabsf",
+    "STATIC_ASSERT",
+    "TexEdge",
+    "Point3d",
+    "Vec3"
   ],
   "follow_up_queries": [
-    "Search later PRs for `psDispParticles` and `particleSort` to see whether the remaining unmatched percentages were closed.",
-    "Investigate real semantics for `HSD_psAppSRT.x6C` through `x98` now that psdisp uses them as transform/matrix fields.",
-    "Identify concrete types for `psTexGroupArray_804D0B50` and `psNumCmdList_804D0C54` instead of leaving them as `void*`.",
-    "Clarify the full layout and name of `HSD_PSDisp_804D0FC0`, which is used both as a particle-sort cache and as matrix/projection scratch storage.",
-    "Confirm the frame/stamp meaning of `HSD_PSDisp_804D6380[0]` and bytes in `HSD_PSDisp_8040C360` used by `particleSort` caching."
+    "Find later PRs that finish matching psDispParticles beyond 39.03%.",
+    "Search for follow-up renames or semantic typing of HSD_psAppSRT fields x6C through x98.",
+    "Search for later changes to HSD_PSDisp_804D0FC0 that replace the padded psdisp_ParticleSortCache with a fuller cache/matrix/projection struct.",
+    "Find PRs touching particleSort after this one to see how the remaining 7.12% unmatched portion was handled.",
+    "Search for other baselib particle rendering PRs that use psSetupTevInvalidState or psSetupTevCommon for matching GX/TEV state setup."
   ],
-  "confidence": 0.86
+  "confidence": 0.84,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

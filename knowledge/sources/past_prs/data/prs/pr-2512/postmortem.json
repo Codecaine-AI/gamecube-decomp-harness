@@ -11,163 +11,165 @@
     "merged_at": "2026-05-23T18:02:42Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large decomp/matching pass for sysdolphin/baselib hsd_3AA7, centered on GameCube memory-card command queue, CARD I/O, block maps, headers/icons, and digest/status handling. The PR expanded CardState and related local structs, replaced multiple hsd_3AA7 placeholder stubs with C, updated callers from the old hsd_803AC3E0_arg0_t mini-struct to CardState, and produced an automated decomp.dev gain of +1340 matched bytes with 3 new full matches.",
+  "summary": "Large sysdolphin baselib memory-card decompilation pass centered on hsd_3AA7. The PR expanded CardState, replaced a narrow placeholder struct, added typed command/status structs, implemented several formerly stubbed card-operation routines, and improved matching across existing helpers. decomp.dev reported +1340 matched bytes, 3 new full matches, and 15 unmatched-item improvements in main/sysdolphin/baselib/hsd_3AA7.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "type-cleanup",
+      "struct-recovery",
       "memory-card",
-      "async-queue"
+      "async-card-io"
     ],
     "systems": [
-      "sysdolphin/baselib",
-      "melee/lb",
-      "dolphin/CARD"
+      "sysdolphin",
+      "baselib",
+      "melee/lb"
     ]
   },
   "key_files": [
     {
       "path": "src/sysdolphin/baselib/hsd_3AA7.c",
-      "role": "Main matching pass; added CardOpStatus/CardCmd/HsdCmdEntry modeling, implemented hsd_803AAA48 and many hsd_3AA7 memory-card block/file routines."
+      "role": "Primary decompilation work: implemented hsd_803AAA48 and many hsd_3AA7 card helpers, added CardOpStatus/CardCmd/HsdCmdEntry, and adjusted queue/status logic."
     },
     {
       "path": "src/sysdolphin/baselib/hsd_3AA7.h",
-      "role": "Expanded CardState with CARDFileInfo, CARDStat, block/sequence arrays, icon fields, digest, and x460; removed hsd_803AC3E0_arg0_t and updated prototypes."
+      "role": "Expanded CardState layout and updated prototypes to use CardState instead of hsd_803AC3E0_arg0_t or untyped s32 placeholders."
     },
     {
       "path": "src/sysdolphin/baselib/hsd_3A94.c",
-      "role": "Updated hsd_803AC558 caller cast to CardState."
+      "role": "Updated hsd_803AC558 call site to cast/use CardState."
     },
     {
       "path": "src/melee/lb/lbcardnew.c",
-      "role": "Updated hsd_803AC3E0 caller cast to CardState."
+      "role": "Updated hsd_803AC3E0 call site to cast/use CardState."
     }
   ],
   "what_changed": [
-    "Added local structure models in hsd_3AA7.c: CardOpStatus with status/xferred fields for hsd_804D7988, CardCmd overlaying operation-buffer fields, HsdCmdEntry for command queue entries, and CMD_QUEUE(base) for the queue at base + 0x1210.",
-    "Implemented hsd_803AAA48 as the large operation dispatcher over the card operation buffer, including busy checks with OSDisableInterrupts/OSRestoreInterrupts, command type dispatch, callback completion, status reset/progression, async CARDCreateAsync/CARDReadAsync/CARDWriteAsync/CARDSetStatusAsync paths, and cleanup/retry handling.",
-    "Replaced several placeholder stubs with C implementations or major bodies in hsd_3AA7.c, including fn_803AC7DC, fn_803AD16C, fn_803ADF90, fn_803AE7F8, fn_803AF3F0, fn_803B0120, fn_803B0E9C, and fn_803B1338.",
-    "Expanded block-map logic around CardState->x170 and CardState->x270, including logical/physical block selection, sequence comparison via fn_803ACB74, duplicate/free-block handling, negative map entries, and recovery/repair error paths.",
-    "Typed CARD access through CardState->file_info and CardState->stat instead of raw padding casts; repeated CARD API patterns use up to 10 retries while the return value is -1.",
-    "Added hsd_3B2B.h and used digest/checksum helpers such as hsd_803B2B20, hsd_803B2FA0, and hsd_803B31CC in header/icon/payload read-write logic.",
-    "Completed matching-oriented rewrites for smaller helpers such as fn_803AC3F8, hsd_803AC558, fn_803AC634, fn_803AC6B8, fn_803ACC0C, fn_803ACD58, fn_803ACF30, fn_803ACFC0, hsd_803B2550, hsd_803B2674, and fn_803B26CC.",
-    "Updated hsd_3AA7.h prototypes to use CardState where evidence supported it, replacing the narrow hsd_803AC3E0_arg0_t struct used by hsd_803AC3E0, hsd_803AC558, fn_803AC634, and fn_803AC6B8.",
-    "Adjusted lbcardnew.c and hsd_3A94.c callers to cast card contexts to CardState rather than struct hsd_803AC3E0_arg0_t."
+    "Implemented hsd_803AAA48 as a large card operation dispatcher/state machine handling queued operations, async CARD calls, status propagation, callbacks, retries, and ring-buffer advancement.",
+    "Added local structs in hsd_3AA7.c: CardOpStatus for hsd_804D7988.status/xferred, CardCmd for queued card commands, and HsdCmdEntry plus CMD_QUEUE(base) for the command queue at base + 0x1210.",
+    "Expanded CardState in hsd_3AA7.h from a partial layout into a larger recovered layout including CARDFileInfo, file size/flag/data arrays, block maps x170/x270, banner/icon fields, CARDStat, digest, and trailing state fields.",
+    "Removed the narrow placeholder struct hsd_803AC3E0_arg0_t and converted hsd_803AC3E0, hsd_803AC558, fn_803AC634, fn_803AC6B8, fn_803AD16C, fn_803ADF90, fn_803AE7F8, and fn_803B0E9C prototypes/call sites toward CardState.",
+    "Implemented or substantially decompiled functions including fn_803AC7DC, fn_803AD16C, fn_803ADE4C, fn_803ADF90, fn_803AE7F8, fn_803AF3F0, fn_803B0120, fn_803B0E9C, and fn_803B1338.",
+    "Refined existing helpers: fn_803AA790 became a full match, fn_803AC3F8 became a full match, hsd_803B2550 became a full match, and hsd_803AC558/fn_803AC6B8/fn_803ACC0C/fn_803ACFC0 improved.",
+    "Updated lbcardnew.c and hsd_3A94.c to use CardState casts instead of the deleted hsd_803AC3E0_arg0_t type."
   ],
   "smart_moves": [
-    "Promoted a partial argument-only struct into the real CardState layout, which made later offsets such as file_info, stat, icon_format, icon_speed, digest, x170, x270, and x460 available to many functions at once.",
-    "Modeled hsd_804D7988 as a two-field CardOpStatus instead of a scalar, matching code that separately tracks operation status and CARDGetXferredBytes.",
-    "Separated queue concepts with CardBufEntry, CardCmd, HsdCmdEntry, and CMD_QUEUE, avoiding repeated raw pointer arithmetic while still preserving the known buffer offsets.",
-    "Reused helpers like fn_803AC634 and fn_803ACBE8 for block counts and offsets, reducing duplicated sector math and helping keep formulas consistent across read/write/repair routines.",
-    "Kept synchronous and queued/asynchronous paths in the same functions where the diff shows arg3 controlling direct CARD calls versus fn_803AC168 command enqueueing.",
-    "Preserved rollback/snapshot behavior through hsd_804D7998 and command-buffer cleanup when queued operations fail.",
-    "Updated cross-file casts only after CardState was expanded, preventing the old mini-struct from continuing to leak through callers."
+    "Recovering CardState broadly enough to cover both low-level baselib code and external call sites avoided keeping duplicate partial structs around the same object.",
+    "Modeling hsd_804D7988 as CardOpStatus exposed that the global is not just a scalar status; hsd_803AAA48 also uses an xferred field populated from CARDGetXferredBytes.",
+    "Using a CMD_QUEUE(base) macro documented the non-obvious queue offset at hsd_804D1138 + 0x1210 while keeping the decomp readable.",
+    "The implementation preserved CARD API retry behavior by retrying several CARD calls up to 10 times when they return -1, which appears repeatedly in the recovered logic.",
+    "Interrupt handling around async CARD calls was made explicit with OSDisableInterrupts/OSRestoreInterrupts and hsd_804D799C busy-state transitions, matching the concurrency shape of the original.",
+    "fn_803AC6B8 was simplified by reusing fn_803AC634 for per-file block counts, reducing duplicated sector arithmetic and improving match percentage.",
+    "fn_803AA790 was matched by using typed queue indexing, direct callback null checks, and explicit sub-state switch cases rather than extra temporaries."
   ],
   "decomp_lessons": [
-    "When several functions share a growing set of offsets, replace temporary per-function structs with a canonical struct and update prototypes/callers together.",
-    "Globals that look like scalars may actually be structs; hsd_804D7988.status and hsd_804D7988.xferred unlocked clearer CARD operation-state code.",
-    "For memory-card decomp, distinguish file logical index, physical block index, sequence number, and block count explicitly; the same x170/x270 arrays are reused in many repair and update paths.",
-    "CARD library calls in this file consistently retry up to 10 times while the result is -1; matching work should preserve that idiom.",
-    "Queue rollback state matters: hsd_804D7998 snapshots hsd_804D7984 and failing paths clear pending entries before restoring the write index.",
-    "Do not prematurely rename unknown fields: this PR names file_info/stat/digest/icon fields where evidence is strong, but keeps x170, x270, x3B0, x460, and similar offset names where semantics remain partial.",
-    "Some matching fixes remain intentionally non-idiomatic, such as odd temporaries, result initializations, PAD_STACK changes, and expression-shape choices; keep them localized and evidence-driven."
+    "For card/save systems, a partial struct may block matching across many functions; promote it to the shared real struct once enough offsets are known, then update all dependent prototypes and call sites together.",
+    "Memory card async dispatch code often has two queues/rings: this slice shows a 128-entry operation buffer through hsd_804D1138/hsd_804D7980 and a 32-entry command queue using hsd_804D7990/hsd_804D7994.",
+    "CARD APIs that return -1 can require small retry loops in the original source; preserving those loops is important for both behavior and matching.",
+    "Status globals may be small structs rather than scalars. When a nearby word is used for CARDGetXferredBytes, recover the aggregate type instead of inventing separate globals.",
+    "Icon/banner status code should preserve CARDStat bitfield-style updates: commentAddr, iconAddr, bannerFormat, iconFormat, and iconSpeed are manipulated with masks and 2-bit shifts.",
+    "When matching queue processors, expression shape matters: array indexing and direct function-pointer checks can match better than byte-offset arithmetic plus temporary callback variables.",
+    "The evidence contains no human review comments, so lessons here come from the diff and decomp.dev report rather than reviewer guidance."
   ],
   "naming_conventions": [
-    "Use CardState for the memory-card context instead of struct hsd_803AC3E0_arg0_t.",
-    "Use typed known fields inside CardState such as file_info, stat, icon_format, icon_speed, and digest.",
-    "Retain offset-style names such as x170, x270, x370, x3B0, and x460 when the exact semantic name is not yet proven.",
-    "Use CardOpStatus for hsd_804D7988 with fields status and xferred.",
-    "Use CardCmd for operation-buffer command payloads and HsdCmdEntry/CMD_QUEUE for the 32-entry command queue at base + 0x1210.",
-    "Keep unresolved functions in address-style names such as fn_803ADF90 and fn_803B0120 until stronger names are available."
+    "Use CardState for the recovered card/save context instead of narrow placeholder names like hsd_803AC3E0_arg0_t.",
+    "Use small descriptive local struct names for recovered command/status buffers: CardOpStatus, CardCmd, HsdCmdEntry, CardBufEntry, CardQueueEntry.",
+    "Keep unknown fields as x-offset names such as x0, x4, x20, x170, x270, x3B0, x460 until semantic names are proven.",
+    "Function names remained address-derived hsd_803*/fn_803* where semantics were not fully known; the PR did not introduce speculative high-level names.",
+    "Header prototypes should be upgraded from s32/UNK_PARAMS to CardState* only when call sites and field accesses support the recovered type."
   ],
   "assembly_or_matching_tactics": [
-    "Converted raw offset access to typed struct fields while preserving array sizes and offsets needed for matching.",
-    "Used for-loop retry patterns around CARDOpen/CARDFastOpen/CARDRead/CARDWrite/CARDClose and async CARD calls, breaking when the result is not -1.",
-    "Used explicit async callback casts such as (void (*)(s32, s32)) hsd_803A949C.",
-    "Adjusted stack padding where needed, including PAD_STACK changes in fn_803B1F78 and fn_803B26CC.",
-    "Introduced hsd_803B2550_inline plus CMD_QUEUE to express queue indexing in a way that matched hsd_803B2550.",
-    "Simplified fn_803AA790 queue dispatch by indexing CardQueueEntry directly, switching on sub-state values explicitly, and calling entry->x14 directly after null checks.",
-    "Preserved matching-sensitive expression shapes visible in the diff, including the comma-expression shift in fn_803AC3F8 and temporary variables in hsd_803B2550.",
-    "Initialized result variables in places where the diff indicates matching required it, such as hsd_803B2550 and fn_803B26CC."
+    "fn_803AA790 reached 100% by changing pointer math from `(u8*)&hsd_804D2348 + idx * 0x18` to typed `((CardQueueEntry*)&hsd_804D2348)[hsd_804D7990]` indexing.",
+    "The sub-state dispatch in fn_803AA790 was reshaped into explicit switch cases 0, 1/2, 3, and default -0x101, avoiding a broader conditional fallback.",
+    "Callback temporaries were removed in favor of direct `if (entry->x14 != NULL) entry->x14(...)` calls, which affected codegen shape.",
+    "fn_803AC168 changed destination computation to use `hsd_804D1148[hsd_804D7984]` instead of raw byte multiplication, suggesting hsd_804D1148 is typed as an array of 36-byte entries.",
+    "fn_803AC3F8 reached 100% with a compact three-entry loop plus zero-fill loop and byte assignments matching original size/flag packing.",
+    "Repeated OSDisableInterrupts/OSRestoreInterrupts regions around CARDWriteAsync, CARDReadAsync, CARDCreateAsync, and CARDSetStatusAsync preserve original async-call scheduling codegen.",
+    "The decomp.dev bot reported 3 new full matches: fn_803AC3F8 (+62 bytes), hsd_803B2550 (+62 bytes), and fn_803AA790 (+26 bytes)."
   ],
   "review_feedback": [
-    "No human PR body, reviews, or review comments were present in the slice.",
-    "Automated decomp.dev report for GALE01 showed matched code 67.80%, +0.03%, +1340 bytes.",
-    "Automated report listed 3 new full matches in main/sysdolphin/baselib/hsd_3AA7: fn_803AC3F8, hsd_803B2550, and fn_803AA790.",
-    "Automated report listed 15 unmatched-item improvements, with large gains for fn_803AD16C, hsd_803AAA48, fn_803B0120, fn_803AF3F0, fn_803AE7F8, fn_803ADF90, fn_803B1338, fn_803AC7DC, and fn_803B0E9C."
+    {
+      "source": "decomp-dev bot",
+      "feedback": "GALE01 matched code increased to 67.80% (+0.03%, +1340 bytes)."
+    },
+    {
+      "source": "decomp-dev bot",
+      "feedback": "New full matches: fn_803AC3F8, hsd_803B2550, and fn_803AA790 in main/sysdolphin/baselib/hsd_3AA7."
+    },
+    {
+      "source": "decomp-dev bot",
+      "feedback": "Major unmatched improvements included fn_803AD16C to 59.23%, hsd_803AAA48 to 28.60%, fn_803B0120 to 48.53%, fn_803AF3F0 to 48.20%, fn_803AE7F8 to 41.72%, and fn_803ADF90 to 57.42%."
+    },
+    {
+      "source": "PR metadata",
+      "feedback": "No human review comments or PR body were present in the slice."
+    }
   ],
   "searchable_terms": [
     "pr-2512",
     "jj/hsd_3AA7 2",
     "jellejurre",
     "hsd_3AA7",
-    "src/sysdolphin/baselib/hsd_3AA7.c",
-    "src/sysdolphin/baselib/hsd_3AA7.h",
-    "src/sysdolphin/baselib/hsd_3A94.c",
-    "src/melee/lb/lbcardnew.c",
+    "hsd_3A94",
+    "lbcardnew",
     "CardState",
     "CardOpStatus",
     "CardCmd",
     "HsdCmdEntry",
+    "CardBufEntry",
     "CardQueueEntry",
     "CMD_QUEUE",
+    "hsd_804D7988",
+    "hsd_804D799C",
+    "hsd_804D7980",
+    "hsd_804D7990",
     "hsd_803AAA48",
     "fn_803AA790",
-    "fn_803AC168",
     "hsd_803AC3E0",
     "fn_803AC3F8",
     "hsd_803AC558",
     "fn_803AC634",
     "fn_803AC6B8",
     "fn_803AC7DC",
-    "fn_803ACB74",
-    "fn_803ACBE8",
-    "fn_803ACC0C",
-    "fn_803ACD58",
-    "fn_803ACF30",
-    "fn_803ACFC0",
     "fn_803AD16C",
-    "fn_803ADE4C",
     "fn_803ADF90",
     "fn_803AE7F8",
     "fn_803AF3F0",
     "fn_803B0120",
     "fn_803B0E9C",
     "fn_803B1338",
-    "fn_803B1F78",
-    "fn_803B21E8",
     "hsd_803B2550",
-    "hsd_803B2674",
-    "fn_803B26CC",
-    "hsd_804D7988",
-    "hsd_804D1138",
-    "hsd_804D1148",
-    "hsd_804D7990",
-    "hsd_804D7994",
-    "hsd_804D7998",
-    "hsd_804D799C",
     "CARDFileInfo",
     "CARDStat",
-    "CARDReadAsync",
-    "CARDWriteAsync",
-    "CARDCreateAsync",
-    "CARDSetStatusAsync",
     "CARDFastOpen",
+    "CARDWriteAsync",
+    "CARDReadAsync",
+    "CARDCreateAsync",
+    "CARDGetStatus",
+    "CARDSetStatusAsync",
     "CARDGetXferredBytes",
-    "hsd_803B2B20",
-    "hsd_803B2FA0",
-    "hsd_803B31CC",
-    "GALE01",
-    "matched code +1340"
+    "CARDClose",
+    "OSDisableInterrupts",
+    "OSRestoreInterrupts",
+    "memory card",
+    "async card io",
+    "GALE01"
   ],
   "follow_up_queries": [
-    "Find later PRs that rename or further type CardState fields x170, x270, x370, x3B0, and x460.",
-    "Search for later changes to hsd_804D7988 to confirm CardOpStatus status/xferred semantics.",
-    "Search hsd_3AA7 follow-up PRs for final matches of hsd_803AAA48, fn_803AD16C, fn_803B0120, fn_803AF3F0, and fn_803B0E9C.",
-    "Search for error codes -0x101, -0x102, -0x103, -0x104, -0x105, -0x106, -0x10B, -264, and -267 in hsd_3AA7 to map memory-card failure semantics.",
-    "Compare adjacent jj/hsd_3AA7 branches or PRs for rationale not present in this slice, since this PR had no human review text."
+    "Find later PRs touching src/sysdolphin/baselib/hsd_3AA7.c hsd_803AAA48 for additional matching progress.",
+    "Search for CardState field renames after x170/x270/x3B0/icon_format/icon_speed were better understood.",
+    "Look for PRs converting fn_803AF3F0, fn_803B0120, fn_803B0E9C, and fn_803AD16C from partial to full matches.",
+    "Search hsd_804D7988 and hsd_804D799C usage to confirm CardOpStatus and busy-state semantics.",
+    "Compare later hsd_3AA7 header revisions for cleanup of remaining s32 prototypes and unknown x fields."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

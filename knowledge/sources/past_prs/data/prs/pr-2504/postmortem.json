@@ -11,136 +11,123 @@
     "merged_at": "2026-05-15T22:58:36Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Improved lbmthp matching by typing static data, THP decode state, and Movieplayer file/buffer fields, then restructuring several lbmthp helpers around those types and names. The PR also fixed the THPVideoDecode fourth parameter from an integer-style argument to a void pointer and updated the lb call site.",
+  "summary": "Improved matching in the lbmthp movie/THP player code by typing static data, refining THP decode structs and signatures, naming file/buffer fields, and reshaping several helpers to better match codegen. The PR produced 3 new matches and 5 unmatched-item improvements in main/melee/lb/lbmthp, including full matches for lbMthp_8001F67C, lbMthp_8001F624, and .data, plus significant improvements to fn_8001E910 and fn_8001F2A4.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "types-structs",
       "headers",
+      "types-structs",
       "naming",
       "static-data",
-      "assert-matching",
-      "signature-fix"
+      "signature-fix",
+      "assert-data"
     ],
     "systems": [
       "library",
       "lb",
       "lbmthp",
-      "THP movie playback"
+      "THP movie playback",
+      "THP decode"
     ]
   },
   "key_files": [
     {
-      "path": "src/melee/lb/lbmthp.c",
-      "role": "Main matching work for lbmthp helpers, Movieplayer accesses, assert/report calls, frame buffering, decode calls, and rate-table frame computation."
+      "file": "src/melee/lb/lbmthp.c",
+      "role": "Main matching work: rewrote lbmthp helpers around typed Movieplayer access, named file/buffer fields, static assert macros, rate-table helper, and pointer-correct THPVideoDecode calls."
     },
     {
-      "path": "src/melee/lb/lbmthp.h",
-      "role": "Typed THP decode declarations and Movieplayer/THPDecComp fields such as frame_buffers, curr_file_offset, file_entrynum, rate_table, and THPDec_8032FD40_Data."
+      "file": "src/melee/lb/lbmthp.h",
+      "role": "Header/type improvements: added dolphin/thp include, corrected THPDec_8032FD40 and THPVideoDecode prototypes, replaced raw fields with THPDec_8032FD40_Data, frame_buffers, curr_file_offset, file_entrynum, and rate_table."
     },
     {
-      "path": "src/melee/lb/lbmthp.static.h",
-      "role": "Typed lbmthp static data, string labels, Movieplayer storage alias, lbMthp_DataBlock layout, and SObj descriptor data."
+      "file": "src/melee/lb/lbmthp.static.h",
+      "role": "Static data typing: renamed the static Movieplayer storage to lbl_804333E0 with a Movieplayer macro, added lbMthp_DataBlock, named assert/report strings, and made lbl_803BAFE8 a typed data-block member."
     },
     {
-      "path": "src/melee/lb/lb_01F8.c",
-      "role": "Updated the THPVideoDecode call to pass the fourth argument as a void pointer."
+      "file": "src/melee/lb/lb_01F8.c",
+      "role": "Call-site fix for THPVideoDecode: changed the fourth argument cast from s32 to void*."
     }
   ],
   "what_changed": [
-    {
-      "area": "THP signatures",
-      "details": "Changed THPDec_8032FD40 to take THPDec_8032FD40_Data* and THPVideoDecode to take void* as its fourth argument; lb_01F8.c now casts lbl_804335B8.unk94 to void* instead of s32."
-    },
-    {
-      "area": "THPDecComp/Movieplayer field typing",
-      "details": "Renamed several previously unknown fields to frame_buffers, curr_file_offset, file_entrynum, and rate_table, and replaced the split unk_9C/unk_A0/unk_A2/unk_A4 layout with a THPDec_8032FD40_Data field."
-    },
-    {
-      "area": "static data",
-      "details": "Replaced many inline string literals and extern-only data with named static char arrays, a typed lbMthp_DataBlock with STATIC_ASSERT(sizeof(...) == 0x250), and a typed lbMthp_803BAFE8 descriptor."
-    },
-    {
-      "area": "assert/report matching",
-      "details": "Added LBMTHP_ASSERT and LBMTHP_ASSERTREPORT macros around __assert and OSReport so lbmthp.c can reference named file/message data such as lbl_803BADB0, lbl_803BADBC, lbl_803BADC8, and lbl_803BADEC."
-    },
-    {
-      "area": "fn_8001E910",
-      "details": "Changed cancelflag from bool to int, introduced a local streamPlayer pointer to Movieplayer, used named fields for current file offset, frame buffers, and file entry number, and reshaped the request_done path."
-    },
-    {
-      "area": "fn_8001EB14/fn_8001EBF0/fn_8001ECF4",
-      "details": "Used file_entrynum for DVD/lbFile reads, moved warning/report text through static labels, initialized the typed THP decode state, and assigned frame buffer pointers plus Y/UV decode buffers using named fields."
-    },
-    {
-      "area": "fn_8001EF5C/fn_8001F13C",
-      "details": "Updated THPVideoDecode source-buffer casts and HSD_DevComRequest arguments to use frame_buffers, curr_file_offset, file_entrynum, and LBMTHP_ASSERTREPORT."
-    },
-    {
-      "area": "fn_8001F2A4",
-      "details": "Factored repeated rate-table frame conversion into static inline lbMthp_GetFrame and used the newly named rate_table field."
-    },
-    {
-      "area": "lbMthp_8001F410/lbMthp_8001F67C",
-      "details": "Gave lbMthp_8001F410 semantic parameter names, used streamPlayer/power locals, stored rate_table, and rewrote lbMthp_8001F67C through a streamPlayer alias plus PAD_STACK for texture setup matching."
-    }
+    "Changed THPVideoDecode declaration from taking an s32 fourth argument to taking a void* fourth argument, and updated lb_01F8.c and lbmthp.c call sites accordingly.",
+    "Changed THPDec_8032FD40 to take THPDec_8032FD40_Data* and replaced separate unk_9C/unk_A0/unk_A2/unk_A4 fields in THPDecComp with a typed THPDec_8032FD40_Data unk_9C member.",
+    "Renamed important THPDecComp and Movieplayer fields: unk_4C became frame_buffers, unk_120 became curr_file_offset, unk_128 became file_entrynum, and Movieplayer unk_12C became rate_table.",
+    "Added LBMTHP_ASSERT and LBMTHP_ASSERTREPORT macros that call __assert with the lbmthp.c filename string and, for report assertions, emit OSReport first.",
+    "Replaced embedded string literals and generic HSD_ASSERT/HSD_ASSERTREPORT use with named static strings such as lbl_803BADBC, lbl_803BADC8, lbl_803BADEC, str_Warning_frame_offsets_not_supported, and lbl_803BAFB8.",
+    "Typed the lbmthp static data region with lbMthp_DataBlock, including assert/report string storage and the sobj_desc at offset 0x238, with a STATIC_ASSERT size of 0x250.",
+    "Changed the static Movieplayer declaration to static struct lbl_804333E0_t lbl_804333E0 and defined Movieplayer as a macro alias to preserve source readability while matching the label.",
+    "Reworked fn_8001E910 to use a local streamPlayer pointer to Movieplayer, named file/buffer fields, explicit curr_file_offset updates, and a goto label named request_done.",
+    "Reworked fn_8001ECF4 to use local width, height, count, and var_r29 temporaries, assign frame_buffers, maintain curr_file_offset, and replace debug OSReport string literals with named static data.",
+    "Extracted the repeated rate-table-to-frame conversion logic from fn_8001F2A4 into a static inline helper named lbMthp_GetFrame.",
+    "Updated lbMthp_8001F410 signature parameter names to filename, rate_table, buf, heap_size, and loop, and used a local streamPlayer pointer plus a power pointer to improve codegen.",
+    "Bot report showed matched code improved by 476 bytes and matched data by 592 bytes for GALE01, with matched code rising to 67.16% and matched data to 39.41%."
   ],
   "smart_moves": [
-    "Typing the decode-state blob as THPDec_8032FD40_Data let the code express the actual THPDec_8032FD40 call shape instead of juggling adjacent unk fields.",
-    "Using a local streamPlayer alias for the Movieplayer global made several functions read naturally while also matching the likely base-register/codegen pattern.",
-    "Moving assert and OSReport text into exact static char symbols helped match data and avoided relying on compiler-emitted string literal placement.",
-    "The LBMTHP_ASSERTREPORT macro preserved the OSReport-then-__assert behavior with named static file/message arguments, which is more match-friendly than generic HSD_ASSERTREPORT usage here.",
-    "Extracting lbMthp_GetFrame removed repeated hand-written rate-table logic while still targeting inline codegen inside fn_8001F2A4.",
-    "Correcting THPVideoDecode's fourth argument to void* fixed both the header contract and the lb_01F8.c/lbmthp.c call sites that were treating buffer addresses as integers."
+    "Used a macro alias for Movieplayer over the real lbl_804333E0 static symbol, preserving readable code without losing exact static-label layout.",
+    "Typed the string/data blob as lbMthp_DataBlock and then exposed lbl_803BAFE8 through a casted member macro, a useful tactic when contiguous data contains both strings and structured data.",
+    "Introduced local streamPlayer pointers to reduce repeated global accesses and influence register allocation/codegen in functions like fn_8001E910 and lbMthp_8001F410.",
+    "Converted repeated frame-rate table logic into a static inline helper, which improved fn_8001F2A4 matching while keeping the original repeated behavior visible at call sites through inlining.",
+    "Corrected pointer-vs-integer function signatures instead of locally forcing casts, which fixed both the declaration and call sites for THPVideoDecode.",
+    "Named semantically clear fields only where evidence supported them: frame_buffers, curr_file_offset, file_entrynum, currPackedSize, and rate_table."
   ],
   "decomp_lessons": [
-    "When static data is adjacent and address-sensitive, model the block with exact char array sizes and a STATIC_ASSERT before replacing literals with named symbols.",
-    "Prefer semantic field names once usage is clear from call sites: HSD_DevComRequest made file_entrynum, curr_file_offset, currPackedSize, and frame_buffers much more evident.",
-    "Pointer-vs-integer prototype fixes can have broad matching impact because they remove casts at every caller and change register/type expectations.",
-    "For large globals, introducing a local pointer alias can be both clearer C and a matching tactic for PowerPC global access patterns.",
-    "Small control-flow artifacts such as a goto label, assignment expressions, unsigned temporaries, and PAD_STACK can matter when chasing the last few unmatched bytes.",
-    "Keep unknown names where evidence is weak; this PR only renamed fields with direct supporting usage and left many unk_* members intact."
+    "For matching, do not assume an unknown integral field should remain s32 when all call sites treat it as an address; update the prototype and the call sites together, as with THPVideoDecode's fourth parameter.",
+    "Static assert/report strings can affect data matching; replacing literal strings with named static symbols and custom assert macros may be required to match original data layout and call sequence.",
+    "When an unknown struct subregion is passed to a typed external function, replacing scattered primitive fields with the external typed struct can improve both documentation and matching.",
+    "For global singleton state, a local pointer variable can be important for register allocation and instruction ordering.",
+    "Inline helpers can improve readability without necessarily changing generated code when they represent repeated compiler-emitted logic.",
+    "Use STATIC_ASSERT aggressively after struct and data-block typing; this PR preserved struct lbl_804333E0_t at 0x1D8 and lbMthp_DataBlock at 0x250.",
+    "Contiguous .data that mixes strings and structs can be modeled as a single data-block type, with macros used to recover individual legacy labels."
   ],
   "naming_conventions": [
-    "Global storage was address-named as lbl_804333E0 while preserving the module-facing Movieplayer name via a macro alias.",
-    "Anonymous or address-derived static strings kept lbl_803Bxxxx names, while one obvious warning string used str_Warning_frame_offsets_not_supported.",
-    "Movie-player buffer/file fields received role names: frame_buffers, curr_file_offset, currPackedSize, file_entrynum, and rate_table.",
-    "Public/helper parameters were clarified by role in lbMthp_8001F410: filename, rate_table, buf, heap_size, and loop.",
-    "The typed THP decode substructure uses the existing library-style name THPDec_8032FD40_Data rather than inventing a more speculative semantic name."
+    "Movieplayer remains the readable alias for the actual static label lbl_804333E0.",
+    "Fields with recovered semantics were renamed using lower_snake_case or existing mixed style: frame_buffers, curr_file_offset, file_entrynum, rate_table, currPackedSize.",
+    "The helper extracted from frame-rate conversion was named with module prefix and action: lbMthp_GetFrame.",
+    "Named static strings mostly retain address-style lbl_803Bxxxx names when no semantic name was introduced, while one warning string became str_Warning_frame_offsets_not_supported.",
+    "Module-local assert macros were prefixed LBMTHP_ASSERT and LBMTHP_ASSERTREPORT.",
+    "The typed static data aggregate was named lbMthp_DataBlock."
   ],
   "assembly_or_matching_tactics": [
-    "Replace repeated Movieplayer global references with struct lbl_804333E0_t* streamPlayer locals.",
-    "Use LBMTHP_ASSERT/LBMTHP_ASSERTREPORT to force __assert/OSReport call structure and static message references.",
-    "Use assignment expressions such as streamPlayer->unk_138 = (var_r4 = 0) and streamPlayer->unk_110 = (var_r4 = 1) to influence register lifetimes and store order.",
-    "Preserve branch shape with a request_done label/goto in fn_8001E910.",
-    "Use exact pointer casts for THPVideoDecode source buffers: void* rather than s32.",
-    "Keep alignment expressions in forms that match surrounding codegen, including ALIGN_32(...) and explicit (value + 0x1F) & 0xFFFFFFE0 forms.",
-    "Use PAD_STACK where needed in lbmthp helpers to maintain stack layout.",
-    "Make lbMthp_GetFrame static inline so repeated frame-rate-table conversion can be shared at source level without introducing a new external call."
+    "Changed fn_8001E910 cancelflag parameter from bool to int, matching the updated function declaration and likely the ABI/codegen expected by HSD_DevComRequest callback usage.",
+    "Used explicit casts to void* for THPVideoDecode input buffers, including (void*) lbl_804335B8.unk94 and (void*) (data->frame_buffers[data->unk_90] + 4).",
+    "Inserted a request_done goto label in fn_8001E910 to reproduce control flow around the HSD_DevComRequest path.",
+    "Assigned through compound expressions such as streamPlayer->unk_138 = (var_r4 = 0) and streamPlayer->unk_110 = (var_r4 = 1) to influence ordering/register use.",
+    "Pulled width, height, count, and aligned values into locals in fn_8001EBF0/fn_8001ECF4 to match load order and arithmetic sequencing.",
+    "Represented the decode init header at offset 0x9C with THPDec_8032FD40_Data so stores became field writes like unk_9C.val1, unk_9C._pad, unk_9C.val2, and unk_9C.val0.",
+    "Replaced hard-coded string literals with static symbols to improve .data and code references.",
+    "Preserved alignment operations using ALIGN_32 and explicit bitmask alignment for buffer sizes."
   ],
   "review_feedback": [
-    "No human review comments or formal reviews were captured in this PR slice.",
-    "The decomp.dev bot reported matched code 67.16% (+0.01%, +476 bytes) and matched data 39.41% (+0.05%, +592 bytes).",
-    "The bot listed 3 new matches: lbMthp_8001F67C, lbMthp_8001F624, and main/melee/lb/lbmthp .data.",
-    "The bot listed improvements to fn_8001E910, fn_8001F2A4, fn_8001ECF4, .sdata, and lbMthp_8001F410.",
-    "The PR test plan was python configure.py --wrapper wine && ninja."
+    {
+      "source": "decomp-dev[bot]",
+      "feedback": "GALE01 report showed +476 matched-code bytes and +592 matched-data bytes. New full matches: lbMthp_8001F67C, lbMthp_8001F624, and main/melee/lb/lbmthp .data. Improvements: fn_8001E910 to 99.15%, fn_8001F2A4 to 98.35%, fn_8001ECF4 to 96.88%, .sdata to 14.29%, and lbMthp_8001F410 to 95.67%."
+    },
+    {
+      "source": "human review",
+      "feedback": "No human review comments were present in the provided PR slice."
+    }
   ],
   "searchable_terms": [
     "pr-2504",
-    "itsgrimetime",
+    "lb: improve lbmthp matching",
     "lbmthp",
-    "lbMthp_GetFrame",
+    "lbMthp",
     "Movieplayer",
     "lbl_804333E0",
+    "lbMthp_DataBlock",
     "THPDecComp",
     "THPDec_8032FD40_Data",
-    "THPDec_8032FD40",
     "THPVideoDecode",
+    "THPDec_8032FD40",
+    "frame_buffers",
+    "curr_file_offset",
+    "file_entrynum",
+    "rate_table",
+    "currPackedSize",
     "LBMTHP_ASSERT",
     "LBMTHP_ASSERTREPORT",
-    "__assert",
-    "OSReport",
+    "lbMthp_GetFrame",
     "fn_8001E910",
     "fn_8001EB14",
     "fn_8001EBF0",
@@ -151,26 +138,32 @@
     "lbMthp_8001F410",
     "lbMthp_8001F624",
     "lbMthp_8001F67C",
-    "frame_buffers",
-    "curr_file_offset",
-    "currPackedSize",
-    "file_entrynum",
-    "rate_table",
-    "HSD_DevComRequest",
-    "lbFile_800161C4",
-    "lbMthp_DataBlock",
     "lbl_803BADB0",
+    "lbl_803BADBC",
     "lbl_803BADC8",
     "lbl_803BADEC",
-    "lbl_803BAFE8",
     "str_Warning_frame_offsets_not_supported",
-    "static data matching"
+    "lbl_803BAFE8",
+    "HSD_DevComRequest",
+    "OSReport",
+    "OSDisableInterrupts",
+    "OSRestoreInterrupts",
+    "THP movie playback"
   ],
   "follow_up_queries": [
-    "Find later PRs touching THPVideoDecode or THPDec_8032FD40_Data to see whether the void* and typed decode-state signatures propagated cleanly.",
-    "Search lbmthp.c for remaining unk_* fields near frame_buffers, curr_file_offset, file_entrynum, and rate_table that may now be inferable.",
-    "Look for other modules where HSD_ASSERT/HSD_ASSERTREPORT should be replaced with local __assert/OSReport macros to match static string data.",
-    "Investigate the remaining unmatched portions reported by decomp.dev: fn_8001E910 at 99.15%, fn_8001F2A4 at 98.35%, fn_8001ECF4 at 96.88%, and lbMthp_8001F410 at 95.67%."
+    "Find later PRs that further type THPDecComp fields still named unk_40, unk_68, unk_70, unk_74, unk_78, unk_80, unk_8C, unk_90, unk_94, unk_98, unk_100, unk_104, unk_108, unk_110, unk_11C, unk_130, unk_134, unk_138, unk_140, unk_144, or unk_148.",
+    "Search for additional call sites of THPVideoDecode to confirm all prototypes and casts use void* for the fourth parameter.",
+    "Look for PRs that replace lbl_803Bxxxx string labels in lbmthp with more semantic names after this data-block typing.",
+    "Investigate whether rate_table's type should become a more specific struct or pair array instead of u32* or void*.",
+    "Search for future matching improvements to fn_8001E910, fn_8001ECF4, fn_8001F2A4, and lbMthp_8001F410 after this PR."
   ],
-  "confidence": 0.92
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

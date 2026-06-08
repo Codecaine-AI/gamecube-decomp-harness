@@ -11,159 +11,159 @@
     "merged_at": "2026-01-09T11:19:40Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large interface-module decompilation PR centered on src/melee/if/soundtest.c, with additional matching work in if_2F72 and ifmagnify. It replaced many UNK_RET/UNK_PARAMS declarations with typed prototypes, added concrete local/static data layouts, exposed ifStatus_803F9628 for cross-file use, and implemented many previously stubbed or documented-only functions. decomp.dev reported +5388 matched bytes, 57 new 100% function matches, and 31 partial-match improvements.",
+  "summary": "Large IF-module decompilation PR centered on Sound Test, with additional work in if_2F72 and ifmagnify. The PR replaced many placeholder declarations and `/// #` stubs with C implementations, typed prototypes, shared struct fields, and support header declarations. decomp.dev reported +5388 matched bytes, +0.14% overall matched code, 57 new matches, and 31 partial-match improvements. Review accepted the progress while noting that some code remained rough, especially unrolled loops.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "typing",
-      "data-layout",
-      "interface-module"
+      "struct-typing",
+      "prototype-cleanup",
+      "data-symbol-recovery"
     ],
     "systems": [
       "melee/if",
-      "soundtest",
-      "if_2F72",
-      "ifmagnify",
-      "ifstatus",
+      "melee/if/soundtest",
+      "melee/if/if_2F72",
+      "melee/if/ifmagnify",
+      "melee/if/ifstatus",
       "sysdolphin/baselib"
     ]
   },
   "key_files": [
-    "src/melee/if/soundtest.c",
-    "src/melee/if/soundtest.h",
-    "src/melee/if/if_2F72.c",
-    "src/melee/if/if_2F72.h",
-    "src/melee/if/ifmagnify.c",
-    "src/melee/if/ifmagnify.h",
-    "src/melee/if/ifstatus.c",
-    "src/melee/if/ifstatus.h",
-    "src/melee/if/types.h",
-    "src/sysdolphin/baselib/sobjlib.h"
+    {
+      "path": "src/melee/if/soundtest.c",
+      "role": "Main body of the PR; added many Sound Test implementations, static data placeholders, extern data references, and calls into audio, card, snapshot, and SObj systems."
+    },
+    {
+      "path": "src/melee/if/soundtest.h",
+      "role": "Converted many `UNK_RET`/`UNK_PARAMS` declarations into typed prototypes for Sound Test functions."
+    },
+    {
+      "path": "src/melee/if/if_2F72.c",
+      "role": "Added implementations for animation/audio/GObj status helper functions around `fn_802F7288`, `if_802F73C4`, `if_802F74D0`, `fn_802F75D4`, `fn_802F7670`, `fn_802F770C`, `fn_802F77F8`, `fn_802F7994`, and player-slot entry helpers."
+    },
+    {
+      "path": "src/melee/if/if_2F72.h",
+      "role": "Typed prototypes for newly implemented if_2F72 functions and added `if/forward.h` to reference `Element_803F9628`."
+    },
+    {
+      "path": "src/melee/if/ifmagnify.c",
+      "role": "Implemented several magnify-camera/object lifecycle functions, including camera creation, cleanup, background color setup, archive load/init, and ignore-offscreen toggles."
+    },
+    {
+      "path": "src/melee/if/ifmagnify.h",
+      "role": "Replaced unknown magnify prototypes with concrete signatures and exposed `ifMagnify_804D57E8`."
+    },
+    {
+      "path": "src/melee/if/types.h",
+      "role": "Refined `Element_803F9628` layout with an x12 bitfield struct and callback typedef."
+    },
+    {
+      "path": "src/melee/if/ifstatus.c",
+      "role": "Made `ifStatus_803F9628` non-static and updated its initializers to match the refined struct layout."
+    },
+    {
+      "path": "src/melee/if/ifstatus.h",
+      "role": "Included `if/types.h` and exported `ifStatus_803F9628[8]` for if_2F72 use."
+    },
+    {
+      "path": "src/sysdolphin/baselib/sobjlib.h",
+      "role": "Extended `HSD_SObj_803A477C_t` with `x40`, needed by Sound Test snapshot/SObj code."
+    }
   ],
   "what_changed": [
-    "Implemented a large batch of soundtest functions in src/melee/if/soundtest.c and updated soundtest.h from broad UNK_RET/UNK_PARAMS placeholders to concrete signatures such as void un_802FFCD0(int, void*), s32 un_80300378(void), bool un_80300AF4(int), and void un_80301BA8(void* out).",
-    "Expanded soundtest.c with additional dependencies for card/save/snapshot and SObj work, including lbcardgame.h, lbcardnew.h, lbsnap.h, and baselib/sobjlib.h.",
-    "Added many soundtest static/external data declarations and partial struct layouts, including un_803FA128, a much more detailed un_803FA258 layout, many BSS byte arrays, extern .sbss/.sdata/.sdata2 symbols, and gmMainLib_8045A6C0 access.",
-    "Implemented most of src/melee/if/if_2F72.c, including fn_802F7288, if_802F73C4, if_802F74D0, fn_802F75D4, fn_802F7670, fn_802F770C, fn_802F77F8, fn_802F7994, if_802F7AF8, if_802F7BB4, if_802F7C30, and if_802F7D08.",
-    "Changed if_2F72 data loading to use the preserved ROM string lbl_803F9780 = \"ScInfStc_scene_models\" instead of an inline literal, and added another orphaned data string lbl_803F9798 = \"translate\".",
-    "Implemented several ifmagnify functions: ifMagnify_802FC618 camera/GObj setup, ifMagnify_802FC750 cleanup, ifMagnify_802FC7C0 ground color/default initialization, ifMagnify_802FC870 initialization/archive load, and ifMagnify_802FC8E8/ifMagnify_802FC940 ignore_offscreen toggles.",
-    "Refined Element_803F9628 in src/melee/if/types.h by splitting fields into byte-sized frame/sound timing fields, adding a bitfield struct for x12 flags, and typing x18/x1C as IfStatusCb callbacks.",
-    "Made ifStatus_803F9628 non-static and declared it in ifstatus.h so if_2F72.c can locate status entries and drive animation/audio/callback behavior.",
-    "Added x40 to HSD_SObj_803A477C_t in src/sysdolphin/baselib/sobjlib.h, presumably required by the soundtest decompilation.",
-    "Bot report recorded 57 new 100% matches and 31 unmatched-function improvements; major new full matches included fn_802F7288, ifMagnify_802FC618, if_802F73C4, if_802F74D0, ifMagnify_802FC7C0, fn_80300CC8, fn_802F75D4, and fn_802F7670."
+    "Implemented a large batch of Sound Test functions in `src/melee/if/soundtest.c`, replacing many `/// #function` stubs with C bodies and adding many local static data buffers and extern data declarations.",
+    "Added many typed Sound Test prototypes in `soundtest.h`, replacing broad `UNK_RET`/`UNK_PARAMS` declarations with `int`, `s32`, `bool`, `void`, pointer, and argument-specific signatures.",
+    "Implemented IF status/GObj animation helpers in `if_2F72.c`, including functions that animate JOBJs, trigger audio at frame thresholds via `lbAudioAx_800237A8`, call per-entry callbacks, create/destroy GObjs, and manage slot-indexed state in `lbl_804A1340`.",
+    "Recovered orphaned original ROM strings in `if_2F72.c`, including `ScInfStc_scene_models` and `translate`; `if_802F7E24` now passes the recovered string symbol instead of the literal archive-section string.",
+    "Implemented several magnify functions in `ifmagnify.c`: camera object setup with ortho/viewport/scissor, cleanup of player magnify GObjs, ground-color/default setup, archive load/init across six slots, and toggles for `ignore_offscreen`.",
+    "Refined `Element_803F9628` in `types.h`: split prior broad fields into `x10`, `x11`, `x12` bitfields, `x13`, and callback-typed `x18`/`x1C` fields.",
+    "Changed `ifStatus_803F9628` from static internal storage to an exported symbol declared in `ifstatus.h`, allowing new if_2F72 code to scan and update the status-entry array.",
+    "Added an `x40` byte to `HSD_SObj_803A477C_t`, used by new Sound Test code that sets `sobj->x40 |= 2` after creating an SObj."
   ],
   "smart_moves": [
-    "Converted header prototypes from opaque UNK_RET/UNK_PARAMS to concrete argument and return types across soundtest, if_2F72, and ifmagnify, improving callsite type pressure for future matching.",
-    "Promoted ifStatus_803F9628 from file-local static data to an extern-backed shared table only after Element_803F9628 had enough structure to support typed cross-file access.",
-    "Used small bitfields in Element_803F9628_x12 to represent one-byte status flags, matching code that tests and sets x12.x0, x12.x1, and x12.x2 during animation/audio lifecycle processing.",
-    "Preserved original ROM/orphaned strings as named static data in if_2F72.c, which can help data-section ordering and string-reference matching.",
-    "Modeled archive-loaded structures and unknown globals with padded structs/byte arrays instead of over-naming uncertain fields, keeping layout evidence-grounded while enabling function matches.",
-    "For ifmagnify camera setup, matched behavior by composing existing baselib primitives: GObj_Create, lb_80013B14, HSD_GObjObject_80390A70, GObj_SetupGXLinkMax, HSD_CObjSetOrtho, HSD_CObjSetViewport, and HSD_CObjSetScissorx4.",
-    "Accepted some rough C shapes where they improved match progress, notably unrolled player-slot writes and slot-search chains."
+    "Typed `Element_803F9628` just enough to support matching code paths: small frame bytes, a named x12 bitfield bundle, and callback function-pointer fields rather than leaving all entries as raw integers.",
+    "Exporting `ifStatus_803F9628` through `ifstatus.h` avoided duplicating or guessing state in `if_2F72.c` and made the newly implemented helpers operate on the real status-entry table.",
+    "Preserved original-data evidence by naming orphaned ROM strings and reusing `lbl_803F9780` in the archive load call, which can help data-section matching.",
+    "Used targeted matching controls in Sound Test, including comments that functions would otherwise inline `un_802FFD94` and `#pragma dont_inline` around groups of tiny wrapper functions.",
+    "Kept rough but match-effective source patterns, including pointer arithmetic and explicit slot searches/unrolled assignments, where the reviewer acknowledged the code quality tradeoff was acceptable for match progress.",
+    "Added minimal baselib struct surface area (`HSD_SObj_803A477C_t.x40`) only where required by observed code, rather than over-modeling the whole SObj type."
   ],
   "decomp_lessons": [
-    "For interface modules, getting shared data structures approximately right can unlock many function bodies at once; Element_803F9628 typing enabled if_2F72 animation/audio/status code.",
-    "Unknown menu/state files may require broad data-layout scaffolding first: padded local structs, byte arrays, and extern globals are acceptable stepping stones when exact semantic names are not yet known.",
-    "Preserved strings from the original ROM should be represented explicitly when they affect data sections, even if their only immediate use is replacing an inline literal in an archive-load call.",
-    "Typing callback fields as function-pointer typedefs makes table-driven UI/status logic clearer and helps decompilers avoid generic integer or void* fields.",
-    "Matching code may intentionally use unrolled loops or awkward pointer arithmetic when the compiler output demands it; reviewers may tolerate rough readability when match gains are significant.",
-    "Small baselib struct additions, such as adding HSD_SObj_803A477C_t.x40, can be necessary collateral for matching higher-level UI code.",
-    "Where evidence is weak, keep names address-based or generic: this PR retains many un_*/fn_* names rather than inventing semantics for soundtest internals."
+    "For progress-heavy IF work, converting headers from `UNK_RET`/`UNK_PARAMS` to concrete prototypes can unlock implementation and cross-file type checking even when names remain address-based.",
+    "When a function needs access to another module's data table, prefer exporting the real symbol with the recovered struct type over creating duplicate local declarations.",
+    "Bitfields can be useful for matching packed flag bytes like `Element_803F9628.x12`, especially when individual bits gate one-shot audio/callback behavior.",
+    "Original orphaned strings are useful matching anchors; keep them as data symbols and route calls through them when the binary did.",
+    "Small wrapper families may require `#pragma dont_inline` to prevent the compiler from inlining shared helpers and disrupting matches.",
+    "Unrolled loops and verbose repeated assignments may be accepted in decomp PRs when they materially improve matching, but reviewers may flag them as rough and future cleanup candidates."
   ],
   "naming_conventions": [
-    "Address-based unresolved functions remain named un_803xxxxx or fn_803xxxxx in soundtest and fn_802Fxxxx/if_802Fxxxx in if_2F72 when semantics are still unclear.",
-    "Module-prefixed exported functions use existing project style, such as ifMagnify_802FC618, ifStatus_803F9628, and if_802F7E24.",
-    "Global/static labels retain address-derived names, such as un_803FA128, un_803FA258, lbl_804A1340, ifMagnify_804A1DE0, and un_804D6DC8.",
-    "Orphaned or data-section strings use lbl_ address labels with comments explaining their provenance, e.g. lbl_803F9780 and lbl_803F9798.",
-    "Temporary unknown struct fields use offset names like x10, x11, x12, x18, and x1C, with padding arrays used to preserve layout."
+    "Unidentified IF functions retained address-based names such as `fn_802F7288`, `if_802F73C4`, `un_803004E8`, and `fn_80300CC8`.",
+    "Global/static unknown data kept address-derived names such as `lbl_804A1340`, `un_803FA258`, `un_804D6DC8`, and `ifMagnify_804A1DE0`.",
+    "Recovered original strings were represented as `lbl_803F9780`/`lbl_803F9798` with a comment noting they are orphaned data strings from the original ROM.",
+    "Struct fields remained offset-style (`x0`, `x10`, `x12`, `x18`, `x40`) when semantics were not confidently known.",
+    "Callback typedef was named module-specifically as `IfStatusCb`, reflecting its use in `Element_803F9628` entries."
   ],
   "assembly_or_matching_tactics": [
-    "Used pointer-difference indexing in if_802F73C4/if_802F74D0: idx = ((u8*) entry - (u8*) entries) / sizeof(Element_803F9628), matching the table-entry to callback index relationship.",
-    "Represented status flags as single-bit fields so tests like !entry->x12.x0 and assignments entry->x12.x2 = 1 compile into expected byte/bit behavior.",
-    "Kept manually unrolled slot detection logic in fn_802F770C and fn_802F7994 instead of simplifying into loops, likely to match compiler control flow.",
-    "Used explicit u8 casts and shifts for player/slot indexing, such as (u8) slot << 1 and (u8) slot << 3, preserving narrow arithmetic behavior.",
-    "Used volatile default_val in ifMagnify_802FC7C0 to shape codegen around fallback GXColor/default value handling.",
-    "Used exact HSD JObj matrix-dirty guard/assert sequences in fn_802F77F8, including jobj flag checks and HSD_JObjSetMtxDirtySub.",
-    "Used ST_MIN macro local to un_802FFEE0 to force a min expression on a u16 field while keeping generated code close.",
-    "Used archive symbol/section loads with explicit void**/typed casts where data tables are not fully understood, e.g. soundtest access to ((int**) un_804D6DA8)[5][un_804D6DB4]."
+    "Used `#pragma dont_inline` around Sound Test wrapper functions that call `un_802FFD94`, with an explicit comment that they would otherwise inline the helper.",
+    "Used a local `ST_MIN` macro inside `un_802FFEE0` to express a min operation and then immediately undefined it.",
+    "Used pointer arithmetic over typed arrays and byte casts to reproduce slot-index and struct-offset calculations, for example computing an `Element_803F9628` index from pointer subtraction.",
+    "Used explicit six-slot repeated assignments for magnify `ignore_offscreen` toggles instead of loop abstraction.",
+    "Used a volatile local default value in `ifMagnify_802FC7C0`, likely to preserve compiler behavior around loading `ifMagnify_804DDB60`.",
+    "Preserved exact GObj/JObj lifecycle ordering: create GObj, load JObj, attach object, setup GX link, request/animate, set translation, mark matrix dirty, and install process callbacks."
   ],
   "review_feedback": [
     {
       "reviewer": "ribbanya",
       "state": "APPROVED",
-      "comment": "Some of this is pretty rough, for example there are a lot of unrolled loops. But I can't argue with the match progress.",
-      "lesson": "Large matching PRs may be approved despite rough control-flow style when measurable progress is strong; future cleanup can target readability after matching constraints are understood."
+      "comment": "Some of this is pretty rough, for example there are a lot of unrolled loops. But I can't argue with the match progress."
     },
     {
-      "reviewer": "decomp-dev[bot]",
-      "state": "REPORT",
-      "comment": "Matched code increased to 48.32% (+0.14%, +5388 bytes), with 57 new matches and 31 unmatched-function improvements.",
-      "lesson": "Automated match reports were central evidence for accepting a broad, rough decompilation slice."
+      "source": "decomp.dev bot",
+      "comment": "Reported matched code 48.32% (+0.14%, +5388 bytes), 57 new matches, and 31 improvements in unmatched functions."
     }
   ],
   "searchable_terms": [
-    "PR2075",
-    "if/ soundtest",
-    "soundtest.c",
-    "soundtest.h",
-    "if_2F72.c",
-    "if_2F72.h",
-    "ifmagnify.c",
-    "ifmagnify.h",
-    "ifstatus.c",
-    "ifstatus.h",
-    "types.h",
-    "sobjlib.h",
+    "if soundtest",
+    "Sound Test",
+    "src/melee/if/soundtest.c",
+    "src/melee/if/if_2F72.c",
+    "src/melee/if/ifmagnify.c",
+    "src/melee/if/types.h",
+    "src/melee/if/ifstatus.c",
     "Element_803F9628",
     "Element_803F9628_x12",
     "IfStatusCb",
     "ifStatus_803F9628",
-    "lbl_803F9780",
-    "ScInfStc_scene_models",
-    "lbl_803F9798",
-    "translate",
     "lbl_804A1340",
+    "ScInfStc_scene_models",
+    "translate",
     "fn_802F7288",
     "if_802F73C4",
     "if_802F74D0",
-    "fn_802F75D4",
-    "fn_802F7670",
-    "fn_802F770C",
     "fn_802F77F8",
     "fn_802F7994",
-    "if_802F7AF8",
-    "if_802F7BB4",
-    "if_802F7C30",
-    "if_802F7D08",
-    "if_802F7E24",
     "ifMagnify_802FC618",
-    "ifMagnify_802FC750",
     "ifMagnify_802FC7C0",
     "ifMagnify_802FC870",
-    "ifMagnify_802FC8E8",
-    "ifMagnify_802FC940",
-    "un_802FFEE0",
-    "un_80300338",
-    "un_80300410",
-    "fn_80300CC8",
-    "fn_80300DE0",
-    "fn_80300ED0",
-    "HSD_SObj_803A477C_t.x40",
+    "HSD_SObj_803A477C_t",
+    "HSD_SObjLib_803A477C",
+    "HSD_SObjLib_803A55DC",
+    "lbAudioAx_800237A8",
+    "lbArchive_LoadSections",
+    "pragma dont_inline",
     "unrolled loops",
-    "match progress",
-    "57 new matches",
-    "+5388 bytes"
+    "SmSt.dat",
+    "smSoundTestLoadData"
   ],
   "follow_up_queries": [
-    "Find later PRs that clean up the rough unrolled loops in soundtest, if_2F72, or ifmagnify from PR2075.",
-    "Search for subsequent renames of un_80300xxx soundtest functions introduced or typed in PR2075.",
-    "Look for later refinements to Element_803F9628 field names, callback semantics, and x12 bitfield flags.",
-    "Check whether HSD_SObj_803A477C_t.x40 receives a semantic field name in later baselib work.",
-    "Find PRs that continue matching ifMagnify_802FC750, ifMagnify_802FC870, fn_802F77F8, fn_802F7994, and other partial matches reported by decomp.dev."
+    "Find later PRs that clean up unrolled loops in `soundtest.c`, `if_2F72.c`, or `ifmagnify.c` after PR #2075.",
+    "Search for later renames or semantic typing of `Element_803F9628`, `Element_803F9628_x12`, and `IfStatusCb`.",
+    "Check whether `HSD_SObj_803A477C_t.x40` receives a semantic field name in later baselib work.",
+    "Search for later Sound Test PRs that replace `un_803FA258`, `un_803FA128`, or `un_804D6DC8` address-style globals with named structs."
   ],
-  "confidence": 0.9,
+  "confidence": 0.88,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

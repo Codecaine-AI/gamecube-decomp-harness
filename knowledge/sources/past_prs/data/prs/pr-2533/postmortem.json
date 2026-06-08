@@ -11,145 +11,214 @@
     "merged_at": "2026-05-25T08:14:03Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Broad item decomp/matching pass across 25 files. The PR body only states progress counters, but the bot report gives strong evidence of impact: +14,840 matched-code bytes, +15,092 linked-code bytes, 32 new matches, and 34 improvements in unmatched items. The biggest milestone was promoting `src/melee/it/items/itbombhei.c` from NonMatching to Matching in `configure.py`; many other item, item collision, data-symbol, and header layout tweaks improved remaining item work.",
+  "summary": "Large item-decomp progress PR touching 25 files across common item code and many individual item TUs. The concrete build-status win was moving `melee/it/items/itbombhei.c` from NonMatching to Matching in `configure.py`; the decomp.dev report recorded +0.38% matched code, +14840 matched-code bytes, 32 new matches, and 34 improvements in still-unmatched items. The PR also refined symbol metadata, local/static data scope, struct typing, function signatures, inline helpers, stack-shaping, and expression ordering to close small but numerous item matching gaps. The PR body only says remaining item TUs/functions counts, so motivation beyond continued item progress is inferred from the diff and bot report.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "data-symbols",
+      "symbol-map-maintenance",
       "item-progress",
-      "stack-and-register-tuning"
+      "data-matching"
     ],
     "systems": [
       "item",
-      "item-collision",
-      "character-items",
       "config",
-      "symbols"
+      "repo-root"
     ]
   },
   "key_files": [
-    "configure.py - flipped `melee/it/items/itbombhei.c` from NonMatching to Matching",
-    "config/GALE01/symbols.txt - adjusted local/global scopes, rodata sizes, sdata/sdata2 local constants, and split/renamed item data symbols",
-    "src/melee/it/items/itbombhei.c - major matching cleanup plus state table/data and helper inlines; bot reported object/data and several functions newly matched",
-    "src/melee/it/it_266F.c - RandomItemSpawner pointer-aliasing, call-order, and local-scope changes for item spawn/matching functions",
-    "src/melee/it/it_2725.c - matched several shared item functions with callback signature, stack aliasing, volatile argument, command-union, and Pokemon selection changes",
-    "src/melee/it/it_2725.h - updated `fn_80277D8C` prototype to take three arguments",
-    "src/melee/it/itCharItems.h - added `AnimBundle` and used it in `itLinkBoomerangAttributes`",
-    "src/melee/it/itcoll.c - added item-specific collision dynamics descriptor structs and refined collision/dynamics loops",
-    "src/melee/it/items/itdosei.c - rotation/assert helper restructuring and data-order changes; bot reported `.data` and several motions reaching 100%",
-    "src/melee/it/items/itlinkarrow.c - combined float data into `it_803F6A84`, removed old extern, and tuned stack/register behavior in arrow anim code",
-    "src/melee/it/items/itlinkboomerang.c - reused `AnimBundle`, factored boomerang helper logic, and adjusted stack layout for quaternion/rotation work",
-    "src/melee/it/items/itlinkhookshot.c - extensive ItemLink/chain physics matching, bitfield access changes, stack padding, and no-inline wrapper use",
-    "src/melee/it/items/itsamusmissile.c - introduced missile clamp and rotation helper inlines; bot reported `itSamusmissile_UnkMotion0_Phys` and shield-bounce match gains",
-    "src/melee/it/items/itseakchain.c - helper loaders/clamps, `#pragma dont_inline`, and stack layout changes for chain physics",
-    "src/melee/it/items/itmewtwoshadowball.c - include/data cleanup and stack/local refactors; bot reported new matches for anim and helper functions"
+    {
+      "path": "configure.py",
+      "role": "Switched `melee/it/items/itbombhei.c` from NonMatching to Matching."
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Adjusted item data/rodata/sdata/sdata2 symbol sizes, scopes, local labels, and split data objects."
+    },
+    {
+      "path": "src/melee/it/itCharItems.h",
+      "role": "Added `AnimBundle` and changed boomerang attribute fields to bundle animation/matanim/shapeanim pointers."
+    },
+    {
+      "path": "src/melee/it/it_266F.c",
+      "role": "Improved item-spawner and item-state matches via temporary variables, pointer aliases, boolean ordering, and local variable scoping."
+    },
+    {
+      "path": "src/melee/it/it_2725.c",
+      "role": "Matched multiple common item functions through static data, function-pointer casts, signature fixes, stack/color temporaries, volatile argument handling, and control-flow reshaping."
+    },
+    {
+      "path": "src/melee/it/it_2725.h",
+      "role": "Updated `fn_80277D8C` prototype to include the third unused argument."
+    },
+    {
+      "path": "src/melee/it/itcoll.c",
+      "role": "Added collision dynamics structs and made local-variable/layout changes in item collision code."
+    },
+    {
+      "path": "src/melee/it/items/itbombhei.c",
+      "role": "Primary newly matching item TU, including data and several Bombhei motion/collision functions."
+    },
+    {
+      "path": "src/melee/it/items/itdosei.c",
+      "role": "Improved Dosei functions/data with inline rotation/facing helpers and matching-oriented refactors."
+    },
+    {
+      "path": "src/melee/it/items/itlinkarrow.c",
+      "role": "Adjusted Link arrow animation helpers and rodata/data matching."
+    },
+    {
+      "path": "src/melee/it/items/itlinkboomerang.c",
+      "role": "Improved boomerang functions using normalized-angle and helper extraction patterns."
+    },
+    {
+      "path": "src/melee/it/items/itlinkhookshot.c",
+      "role": "Large set of hookshot matching improvements across many hunks."
+    },
+    {
+      "path": "src/melee/it/items/itsamusmissile.c",
+      "role": "Matched or improved Samus missile physics/shield-bounce and turn-clamp code."
+    },
+    {
+      "path": "src/melee/it/items/itseakchain.c",
+      "role": "Improved Seak chain functions with named clamp/load inline helpers."
+    },
+    {
+      "path": "src/melee/it/items/itseakneedlethrown.c",
+      "role": "Matched/improved thrown needle collision helpers."
+    }
   ],
   "what_changed": [
-    "`configure.py` now treats `src/melee/it/items/itbombhei.c` as `Object(Matching, ...)`, making Bombhei the clear TU-level milestone of the PR.",
-    "The PR body recorded remaining item work as `Remaining item TUs: 20` and `Remaining item functions: 90`.",
-    "decomp.dev reported 32 new matches, including `itbombhei` `.data`, `fn_8028007C`, `fn_80280974`, `itBombhei_UnkMotion2_Anim`, `itBombhei_UnkMotion2_Coll`, `itBombhei_UnkMotion4_Anim`, `itdosei` `.data`, `itlinkbomb` `.rodata`, `it_266F:it_8026D3CC`, and several small `it_2725` functions.",
-    "decomp.dev also reported 34 improvements in unmatched item work, prominently `itseakchain:it_802BC080`, `itlinkboomerang:it_802A0534`, `itsamusgrapple:it_802B75FC`, `itdosei:itDosei_UnkMotion4_Anim`, `itcoll:it_80270E30`, and `itlinkhookshot:it_802A5770`.",
-    "`symbols.txt` changed several item constants from named globals to compiler-local `@NNN` labels, corrected zero-Vec3 rodata sizes from `0x10` to `0xC`, marked assert strings local/static, and split the Link arrow data around `lbl_803F6A78` and `it_803F6A84`.",
-    "`itCharItems.h` added `AnimBundle { HSD_AnimJoint*, HSD_MatAnimJoint*, HSD_ShapeAnimJoint* }` and `itlinkboomerang.c` switched from a local casted struct to the shared typed bundle.",
-    "`itcoll.c` introduced `ItCollDynamicsDesc` and `ItCollDynamics`, then cast `article->x14_dynamics` to the item-specific layout instead of using the previous generic dynamics descriptor access.",
-    "`it_2725.c` made `it_803F5440` static, changed `fn_80277D8C` to a 3-argument callback assigned with an `HSD_MObjSetupFunc` cast, used stack aliasing for a `GXColor`, cached `cmd->u` as `union CmdUnion*`, and made `it_8027B288` take a volatile `u32`.",
-    "Many item files were retuned with small helper inlines or extracted helpers, including `fn_80280974_inline`, `itBombhei_UnkMotion1_Setup`, `itSamusMissile_ClampTurn`, `it_802BF4A0_adjust_tail`, `itSeakChain_clamp_x10`, and `it_802A6A78_normalize_diff`.",
-    "Several changes were purely compiler-shape oriented: declaration reordering, `PAD_STACK`, explicit `_pad` arrays, stack wrapper structs, `register` locals, `#pragma dont_inline`, and deliberate no-op branches labelled in-code as `permuterslop`."
+    "Updated 25 files with 936 additions and 800 deletions, mostly under `src/melee/it` and `src/melee/it/items`.",
+    "Moved `Object(NonMatching, \"melee/it/items/itbombhei.c\")` to `Object(Matching, \"melee/it/items/itbombhei.c\")` in `configure.py`.",
+    "Adjusted many `config/GALE01/symbols.txt` item symbols: some globals became local `@NNN` labels, rodata sizes changed from 0x10 to 0xC, `it_803F6A78` was split into `lbl_803F6A78` plus `it_803F6A84`, and several sdata2 constants became local floats/doubles.",
+    "Added `AnimBundle` in `itCharItems.h` and changed two `itLinkBoomerangAttributes` fields from single `HSD_AnimJoint*` pointers to bundled animation data.",
+    "Added `ItCollDynamicsDesc` and `ItCollDynamics` structs in `itcoll.c`, giving typed names to collision-dynamics data that had likely been anonymous/opaque before.",
+    "Changed `fn_80277D8C` from a two-argument function to `void fn_80277D8C(HSD_MObj*, u32, u32)` and cast it to `HSD_MObjSetupFunc` when assigning `it_803F1F90.setup`.",
+    "Made `it_803F5440` static in `it_2725.c`, matching the symbol-map shift from global to local/static scope.",
+    "Reshaped matching-sensitive code in common item functions: pointer-to-field aliases in `it_8026CB9C`, explicit boolean accumulation in `it_8026D3CC`, stack/local placement in `it_8026E32C`, union command temporaries in `it_802790C0`, and goto-based selection flow in `it_8027AB64`.",
+    "Changed `it_8027B288` to take `volatile u32 arg1`, removed an intermediate volatile union, and added `PAD_STACK(4)` to preserve stack/codegen shape.",
+    "Introduced or renamed many static inline helpers in item TUs, including Bombhei setup/animation helpers, Dosei rotation helpers, Link bomb/boomerang helpers, Samus missile clamp/rotation helpers, Seak chain clamp helpers, and Seak needle ground-hit/collision helpers.",
+    "The decomp.dev bot report credited the PR with 32 new matches, including Bombhei `.data`, several Bombhei functions, `it_8026D3CC`, Dosei data/functions, Mewtwo Shadow Ball functions/data, Samus missile functions/sdata2, Link bomb rodata/animation, and common item functions such as `fn_80277D8C`, `it_80278108`, `it_802790C0`, and `it_8027B288`."
   ],
   "smart_moves": [
-    "The PR did not stop at function bodies; it updated build classification and symbol metadata once Bombhei became matching, which keeps project progress accounting honest.",
-    "Promoting repeated data patterns into real types was a strong header/layout move: `AnimBundle` made Link boomerang animation/matanim/shapeanim triples explicit, and `ItCollDynamicsDesc` made item collision dynamics access more direct.",
-    "The matching work repeatedly isolated compiler-sensitive snippets into `static inline` helpers instead of duplicating large blocks, making register allocation and inlining behavior easier to control.",
-    "Data-symbol hygiene was treated as part of matching: assert strings and literal constants were marked local/static where the compiler emitted locals, and zero vectors were given the correct `0xC` object size.",
-    "For final-byte matches, the PR used targeted stack and ABI controls rather than broad rewrites: `volatile u32` in `it_8027B288`, callback prototype/cast correction for `fn_80277D8C`, stack pointer aliasing in `it_80278108`, and `#pragma dont_inline` around `it_802BBAEC`.",
-    "The Bombhei cleanup is reusable because it separated state setup, velocity reset, and boundary checks into named helpers while preserving item-state behavior and enabling the TU to be marked Matching."
+    "Promoted only the TU with full evidence, `itbombhei.c`, to Matching rather than overclaiming broader item progress.",
+    "Kept symbols in sync with codegen realities: string/constant data that no longer needed global names was marked local, while the mixed data at `803F6A78` was split into a string label and float data object.",
+    "Used small, matching-directed C rewrites instead of large semantic changes: local variable reorderings, aliases, explicit temporaries, delayed declarations, and boolean accumulation all target instruction scheduling/register allocation.",
+    "For callback compatibility, changed `fn_80277D8C` to the apparent real callback shape with an unused third argument, while casting the assignment to the library setup-function type.",
+    "Used a stack-relative color pointer in `it_80278108` (`GXColor* color = (GXColor*) ((u8*) &sp1C - 4)`) to reproduce a compiler stack layout without pretending it is a clean high-level variable.",
+    "Rewrote recent-Pokemon selection in `it_8027AB64` with cached recent values, pointer assignment to `Item_804A0E24.y`, and a `goto selected` label to better match original control flow.",
+    "Added named structs such as `AnimBundle`, `ItCollDynamicsDesc`, and `ItCollDynamics` where data layout evidence was strong enough, improving future readability without requiring full semantic naming."
   ],
   "decomp_lessons": [
-    "When an item object file reaches full match, update both the source and `configure.py`; the build config is part of the decomp state.",
-    "Do not assume every address-named data symbol is global. Compiler-emitted assert strings and constants often need local `@NNN` labels and static C storage to match data layout.",
-    "For item attribute blobs, look for repeated adjacent pointer triples or descriptor records. Turning them into small structs can remove casts and improve both readability and codegen.",
-    "Declaration order, local scope, volatile qualifiers, and explicit temporary pointers can be decisive for item matching even when semantics are unchanged.",
-    "Stack layout should be controlled narrowly with `PAD_STACK`, `_pad` arrays, stack wrapper structs, or pointer aliases when matching evidence demands it.",
-    "Callback signatures must match the engine ABI, not just current call sites; `fn_80277D8C` needed the third unused argument and a setup-function cast.",
-    "For chain/link item physics, extracting repeated vector normalization, tail adjustment, clamp, and joint-load logic can improve matching while documenting the algorithm.",
-    "The PR contains no explanatory human review discussion, so intent beyond matching/progress metrics is inferred from diffs and decomp.dev output rather than explicit author commentary."
+    "Item matching often advances through many tiny codegen fixes across many TUs; a PR can be valuable even when most changed files remain NonMatching.",
+    "Do not leave static strings/floats/doubles as global `it_80...` symbols when the compiler emits them as local literals; use `@NNN` local labels and update `symbols.txt` accordingly.",
+    "When a data symbol contains heterogeneous content, split it into appropriately typed labels/objects rather than forcing one oversized object definition.",
+    "Callback signatures should match the actual call ABI, including unused trailing parameters; assignment casts can be necessary when project typedefs lag exact callback shape.",
+    "For MWCC matching, variable declaration order and scope matter. Moving `chk2` inside the conditional, introducing `union CmdUnion* u`, or splitting counters into `cnt`/`cnt2` can affect register allocation.",
+    "Volatile parameters and `PAD_STACK` remain legitimate tactics for reproducing stack layout when evidence points to compiler artifacts rather than source-level logic.",
+    "Inline helper extraction is a reusable tactic, but helper names should encode the matched behavior or target function when semantics are still weak, e.g. `it_802A013C_inline`, `itSeakChain_clamp_x10`, or `itSamusMissile_ClampTurn`.",
+    "Header struct improvements can be matching-critical: representing repeated anim/matanim/shapeanim triples as `AnimBundle` changed Link boomerang attribute layout assumptions."
   ],
   "naming_conventions": [
-    "Existing item function patterns were preserved: `it<Item>_UnkMotionN_Anim/Phys/Coll`, `it_2725_LogicXX_*`, and address-based `it_80......` names where no semantic name was established.",
-    "Compiler-shaping helpers often used the target-function prefix plus an `_inline` suffix, for example `fn_80280974_inline`, `it_802A013C_inline`, and `it_802A6A78_normalize_diff`.",
-    "Behavioral helpers used concise verb/object names when the purpose was clear, such as `itBombhei_UnkMotion1_Setup`, `itSamusMissile_ClampTurn`, `itSeakChain_clamp_x10`, and `it_802BF4A0_adjust_tail`.",
-    "New shared structs used descriptive type names rather than address names: `AnimBundle`, `ItCollDynamicsDesc`, and `ItCollDynamics`.",
-    "Data symbols stayed address-based unless the diff had stronger layout evidence; local compiler constants in `symbols.txt` used `@NNN`, while the Link arrow split used `lbl_803F6A78` for a string and `it_803F6A84` for floats.",
-    "The PR normalized some generic argument names toward `gobj`, `ip`, `item`, `attr`, `attrs`, or `sa`, matching common item-code naming style."
+    "Individual item files keep the lowercase item prefix pattern: `itbombhei`, `itdosei`, `itlinkarrow`, `itlinkbomb`, `itlinkboomerang`, `itlinkhookshot`, `itsamusmissile`, `itseakchain`, `itseakneedlethrown`.",
+    "Unidentified functions retain address-style names such as `it_8026CB9C`, `it_8027AB64`, `fn_80277D8C`, and `fn_8028007C` until stronger semantic names are known.",
+    "Inline helper names often combine the target function/motion name with an `inline` or behavior suffix, e.g. `fn_80280974_inline`, `itBombhei_UnkMotion1_Setup`, `itDosei_UnkMotion4_Rotate`, `itSamusMissile_ClampTurn`.",
+    "Local compiler-emitted data symbols use `@NNN` in `symbols.txt`, while address labels such as `lbl_803F6A78` are used when a data address is a label/string rather than a globally named object.",
+    "New layout structs used descriptive but conservative names: `AnimBundle`, `ItCollDynamicsDesc`, and `ItCollDynamics`."
   ],
   "assembly_or_matching_tactics": [
-    "`PAD_STACK`, explicit `_pad` byte arrays, and stack wrapper structs were used to reproduce frame layout in hookshot, boomerang, seakchain, linkarrow, missile, and `it_2725` functions.",
-    "`it_8027B288` changed `arg1` to `volatile u32` and assigned it into `union Struct2070`, a direct tactic for matching load/store behavior.",
-    "`it_8026CB9C` used pointer-to-field aliases like `*(item_kinds = &spawner->x4.x4) = HSD_MemAlloc(...)` to match RandomItemSpawner allocation codegen.",
-    "`fn_80277D8C` was changed to the callback ABI `HSD_MObj*, u32, u32` and assigned through `(HSD_MObjSetupFunc)`.",
-    "`it_80278108` wrote a `GXColor` through `(GXColor*) ((u8*) &sp1C - 4)` to match stack placement before calling `HSD_TExpSetReg`.",
-    "`it_802790C0` introduced a local `union CmdUnion* u = cmd->u` before reading hitbox fields, a small register/codegen nudge.",
-    "`itseakchain.c` wrapped `it_802BBAEC` with `#pragma push`, `#pragma dont_inline on`, and `#pragma pop` to force a wrapper call shape.",
-    "`itarwinglaser.c` used a bitwise copy `*(u32*) &spawn.prev_pos.y = *(u32*) &sp28.y`, indicating exact float/word movement mattered.",
-    "`itlinkarrow.c` used a dummy zero loop with `UNUSED unsigned char _[8]`, `register Item* ip`, and `return zero` to steer stack/register output.",
-    "Some files retained or added deliberate no-op branches labelled `permuterslop` in the diff, showing localized compiler-shape nudges were accepted for remaining matches."
+    "Changed object build status from NonMatching to Matching only after the TU was fully matched (`itbombhei.c`).",
+    "Adjusted symbol sizes/scopes in `symbols.txt` to match emitted data sections exactly, including local string/float/double constants.",
+    "Introduced pointer aliases to structure fields before allocation in `it_8026CB9C` to influence store/load codegen: `u8** item_kinds` and `u16** weights`.",
+    "Reordered boolean OR evaluation in `it_8026D3CC` by seeding from Heart, then OR-ing Tomato and Foods, rather than using one chained return expression.",
+    "Declared locals closer to use sites to change live ranges and stack/register allocation.",
+    "Used explicit function-pointer casts for callback assignments.",
+    "Removed unnecessary casts in comparisons where typed pointers already carried the needed type, e.g. `tobj_toon != NULL` and `tobj_toon->imagedesc != NULL`.",
+    "Used `volatile u32` and `PAD_STACK(4)` to recover exact codegen in `it_8027B288`.",
+    "Used labels/goto in `it_8027AB64` to match original loop-exit control flow.",
+    "Created or renamed static inline helpers in item TUs to force repeated instruction sequences and callsite/inlining shapes."
   ],
   "review_feedback": [
-    "Human review feedback in the slice is minimal: jurrejelle approved the PR on 2026-05-25T05:12:17Z with an empty review body.",
-    "There were no line review comments and no requested changes in the available PR dump.",
-    "The only substantive comment was the decomp.dev bot report with match/link metrics and lists of new matches/improvements."
+    {
+      "reviewer": "jurrejelle",
+      "state": "APPROVED",
+      "submitted_at": "2026-05-25T05:12:17Z",
+      "body": ""
+    },
+    {
+      "source": "decomp-dev[bot]",
+      "type": "progress-report",
+      "body_summary": "Reported +0.38% matched code, +14840 matched-code bytes, +0.39% linked code, 32 new matches, and 34 improvements in unmatched items for GALE01."
+    },
+    {
+      "note": "No inline review comments were present in the slice, so there is no human rationale beyond the approval and automated metrics."
+    }
   ],
   "searchable_terms": [
-    "PR 2533",
+    "PR2533",
     "Continued item progress",
     "lukechampine",
-    "itbombhei Matching",
-    "Object(Matching, \"melee/it/items/itbombhei.c\")",
+    "itbombhei matching",
+    "configure.py Object Matching itbombhei",
     "Remaining item TUs 20",
     "Remaining item functions 90",
-    "decomp.dev 32 new matches",
-    "it_8026CB9C",
-    "it_8026D3CC",
-    "RandomItemSpawner",
+    "it_266F",
+    "it_2725",
+    "itcoll",
+    "itCharItems.h",
+    "AnimBundle",
+    "ItCollDynamicsDesc",
+    "ItCollDynamics",
     "fn_80277D8C",
     "HSD_MObjSetupFunc",
     "it_80278108",
-    "GXColor stack alias",
     "it_802790C0",
-    "union CmdUnion",
     "it_8027AB64",
     "it_8027B288 volatile",
-    "ItCollDynamicsDesc",
-    "ItCollDynamics",
-    "AnimBundle",
-    "itLinkBoomerangAttributes",
-    "it_803F6A84",
+    "it_8026CB9C",
+    "it_8026D3CC",
+    "it_803F5440 static",
     "lbl_803F6A78",
-    "itDosei_SetFacingAngle",
-    "itBombhei_UnkMotion1_Setup",
-    "fn_80280974_inline",
-    "itSamusMissile_ClampTurn",
-    "itSeakChain_clamp_x10",
-    "it_802A6A78_normalize_diff",
-    "it_802BF4A0_adjust_tail",
+    "it_803F6A84",
+    "jumptable_803F6AEC",
+    "jumptable_803F6B08",
+    "itdosei",
+    "itlinkarrow",
+    "itlinkbomb",
+    "itlinkboomerang",
     "itlinkhookshot",
-    "itseakchain",
-    "itsamusmissile",
     "itmewtwoshadowball",
+    "itnessyoyo",
+    "itpikachuthunder",
+    "itsamusgrapple",
+    "itsamusmissile",
+    "itseakchain",
+    "itseakneedlethrown",
+    "itkyasarin",
+    "itkusudama",
+    "itwstar",
+    "local @ symbols",
+    "sdata2 local constants",
     "PAD_STACK",
-    "pragma dont_inline",
-    "permuterslop",
-    "symbols.txt local @ constants"
+    "static inline matching helpers"
   ],
   "follow_up_queries": [
-    "Search later PRs for completion of the remaining item TUs/functions after this PR's `Remaining item TUs: 20` and `Remaining item functions: 90` baseline.",
-    "Look for other item attribute structs that contain animation/matanim/shapeanim triples and may benefit from `AnimBundle`-style typing.",
-    "Audit ItemLink bitfield names around hookshot/chain users after the `x2C_b5/b6/b7` to `x2C_b0/b1/b2` access changes.",
-    "Review nearby `symbols.txt` item constants to ensure local compiler strings/floats/doubles are not incorrectly left as global `it_...` symbols.",
-    "Use Bombhei as a template for moving a nearly matched item TU to Matching: state table placement, helper inlines, correct data symbols, and configure update.",
-    "Check whether the `ItCollDynamicsDesc` layout should replace generic dynamics descriptor access in other item collision paths."
+    "Which remaining item TUs after PR #2533 were still NonMatching?",
+    "Find later PRs that also modify `fn_80277D8C` or `HSD_MObjSetupFunc` callback signatures.",
+    "Find PRs that reuse `AnimBundle` or further refine `itLinkBoomerangAttributes`.",
+    "Find later progress on `itdosei.c`, `itlinkhookshot.c`, `itseakchain.c`, and `itsamusgrapple.c` after this partial improvement.",
+    "Search for additional symbol-map local-scope conversions around `it_803F6A78`, `it_804DC840`, and related item constants.",
+    "Compare later item PRs for repeated volatile-argument and `PAD_STACK` matching tactics."
   ],
-  "confidence": 0.88
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

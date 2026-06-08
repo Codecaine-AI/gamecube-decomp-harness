@@ -11,121 +11,117 @@
     "merged_at": "2026-03-11T00:30:23Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched three previously stubbed `tydisplay` functions: two resource-name lookup-table functions and one ID-filtering routine. The PR updated concrete header prototypes for two functions, reported `ninja` clean and 100% fuzzy matches, and the decomp.dev bot recorded 3 new matches totaling +448 matched bytes in `main/melee/ty/tydisplay`.",
+  "summary": "Matched three previously stubbed tydisplay functions: un_8031BB94, un_8031BBF4, and un_8031C354. The first two are table lookup helpers for trophy/display animation-joint names and .dat filenames, with -1 normalized to index 0. The third scans up to 0x125 ids, filters out the current id and inactive/invalid entries, compares a byte field from un_8031B9DC data plus a kind value from un_803060BC, fills an output buffer until max, and returns the count. Header prototypes for un_8031BB94 and un_8031BBF4 were updated from UNK signatures to typed signatures. PR body reports clean ninja build and 100.0 fuzzy match for all functions.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "function-implementation",
-      "header-signature-update",
-      "resource-string-table",
+      "headers",
+      "table-reconstruction",
       "control-flow-cleanup"
     ],
     "systems": [
-      "melee/ty",
-      "tydisplay",
-      "toy-display-assets"
+      "melee-core",
+      "ty",
+      "tydisplay"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ty/tydisplay.c",
-      "role": "Implemented `un_8031BB94`, `un_8031BBF4`, and `un_8031C354`; added `extern char un_804D5AC0[]`; reconstructed resource string tables and filtering logic."
-    },
-    {
-      "path": "src/melee/ty/tydisplay.h",
-      "role": "Replaced `UNK_RET`/`UNK_PARAMS` prototypes for `un_8031BB94` and `un_8031BBF4` with concrete signatures."
-    }
+    "src/melee/ty/tydisplay.c",
+    "src/melee/ty/tydisplay.h"
   ],
   "what_changed": [
-    "Replaced `/// #un_8031BB94` with `char* un_8031BB94(s8 idx)`, returning entries from a local `char* table[]` of `ToyDsp..._Top_matanim_joint` strings plus `un_804D5AC0` default entries.",
-    "Replaced `/// #un_8031BBF4` with `s32 un_8031BBF4(s8 arg0)`, returning `(s32) table[arg0]` from a local table of `Ty*.dat` filenames such as `TyQuesD.dat`, `TyMycCmA.dat`, `TyMapA.dat`, `TyPokeA.dat`, and `TyItemA.dat`.",
-    "Both lookup functions normalize the sentinel index `-1` to `0` before indexing their tables.",
-    "Replaced `/// #un_8031C354` with an implementation that returns 0 for `id == -1`, gets source data via `un_8031B9DC(id)`, resolves `kind == 99` through `un_803060BC(id, 6)`, scans IDs `0..0x124`, skips invalid/current entries, compares byte offset 4 in `un_8031B9DC` data and kind values, writes matching IDs into `buf`, and stops at `max`.",
-    "Used `PAD_STACK(8)` in `un_8031C354`, indicating stack padding was required for the match.",
-    "Updated `tydisplay.h` prototypes to `char* un_8031BB94(s8)` and `s32 un_8031BBF4(s8)`."
+    "Replaced the stub marker for un_8031BB94 with a char* lookup table of ToyDsp*_Top_matanim_joint strings, using extern char un_804D5AC0[] for blank/default entries and mapping idx == -1 to 0 before returning table[idx].",
+    "Replaced the stub marker for un_8031BBF4 with a table of Ty*.dat filenames such as TyQuesD.dat, TyMycCmA.dat, TyMapA.dat, TySeriA.dat, TyEtcA.dat, TyPokeA.dat, TyItemA.dat, and TyStandD.dat; arg0 == -1 maps to 0.",
+    "Implemented un_8031C354 as a filtered id scan over 0x125 entries. It early-returns 0 for id == -1, resolves data with un_8031B9DC(id), treats kind == 99 as a sentinel requiring un_803060BC(id, 6), then appends matching ids to the supplied buffer until count reaches max.",
+    "Updated tydisplay.h prototypes for un_8031BB94 and un_8031BBF4 from UNK_RET/UNK_PARAMS to char* un_8031BB94(s8) and s32 un_8031BBF4(s8).",
+    "Added extern declaration for un_804D5AC0[] in tydisplay.c to support repeated default string/table entries."
   ],
   "smart_moves": [
-    "Kept the unidentified external default string/data symbol as `un_804D5AC0` instead of guessing a semantic name from limited evidence.",
-    "Preserved exact resource table ordering, casing, duplicate/default entries, and the `-1 -> 0` sentinel behavior needed by the lookup functions.",
-    "Used an automatic local string-pointer table pattern for short lookup routines, which matched both `un_8031BB94` and `un_8031BBF4`.",
-    "Retained ABI/codegen-sensitive details such as `s8` parameters, `(s32)` pointer return casting in `un_8031BBF4`, raw `u8*` byte-offset comparisons, and pointer arithmetic on `buf`.",
-    "Applied reviewer feedback by replacing an earlier `goto next` skip pattern with `continue`; the final diff and squash commit both show the cleaner `continue` approach."
+    "Used local stack arrays for string tables, preserving the likely generated stack/table behavior needed for matching instead of prematurely moving data to global constants.",
+    "Preserved the exact sentinel behavior visible in the diff: -1 indexes map to 0 for the two table helpers, while un_8031C354 returns 0 immediately for id == -1.",
+    "Represented the output buffer in un_8031C354 as s32 (*buf)[] and advanced it by 4 bytes after storing each id, matching pointer arithmetic without introducing an unverified struct.",
+    "Kept un_8031C354 field access minimal with ((u8*) other)[4] and ((u8*) data)[4], avoiding speculative struct naming while still expressing the comparison needed for the match.",
+    "Used explicit continue statements in the filter loop after review feedback, eliminating a goto-style next label and keeping the control flow readable while matching."
   ],
   "decomp_lessons": [
-    "For resource lookup functions, exact string literals, table order, duplicate entries, and placeholder/default symbols can be decisive for matching.",
-    "`s8` arguments and explicit `-1` sentinel handling can affect sign-extension and branch codegen; avoid widening parameters unless callers prove it is safe.",
-    "A function that semantically returns a string pointer may still need a temporary `s32` return type and explicit cast, as shown by `un_8031BBF4`, until surrounding caller types are better understood.",
-    "When struct layout is not known, raw field access such as `((u8*) data)[4]` is preferable to inventing a named struct field.",
-    "`PAD_STACK(8)` may be needed even in straightforward loops to reproduce original stack layout.",
-    "Reviewer-approved `continue` chains can replace `goto next` labels for repeated skip conditions while preserving matchability."
+    "For table-return helpers, reconstruct the exact table contents and sentinel/default entries first; even repeated default entries like un_804D5AC0 can matter for matching.",
+    "When a function only needs one byte from opaque data returned by another helper, byte-pointer access may be preferable to inventing a partial struct.",
+    "Sentinel values can differ by function: here -1 means default index for lookup helpers, but invalid/no result for the scanner; do not generalize without evidence.",
+    "Header updates should accompany matched functions once signatures are known, replacing UNK_RET/UNK_PARAMS with the narrowest evidence-supported types.",
+    "Reviewers may prefer simple continue-based filtering in decompiled loops over goto labels when the generated code still matches."
   ],
   "naming_conventions": [
-    "Unidentified functions retained address-based names: `un_8031BB94`, `un_8031BBF4`, `un_8031C354`.",
-    "Header declarations use address comments such as `/* 31BB94 */` and move from `UNK_RET`/`UNK_PARAMS` to concrete prototypes when known.",
-    "Unidentified data symbol `un_804D5AC0` remained address-based rather than receiving a speculative name.",
-    "Toy display animation resource strings use CamelCase names ending in `_Top_matanim_joint`, e.g. `ToyDspMycharaCmA_Top_matanim_joint` and `ToyDspPokemonA_Top_matanim_joint`.",
-    "Toy display data filenames use compact `Ty*.dat` names with category-like segments, e.g. `TyMycCmA.dat`, `TyMapA.dat`, `TySeriA.dat`, `TyPokeA.dat`, `TyItemA.dat`, and `TyStandD.dat`."
+    "Existing unmatched symbol names remain address-based, e.g. un_8031BB94, un_8031BBF4, un_8031C354, because no semantic names were established in the PR.",
+    "Trophy/display animation resource strings use CamelCase with the prefix ToyDsp and suffix _Top_matanim_joint, e.g. ToyDspMycharaCmA_Top_matanim_joint, ToyDspMapA_Top_matanim_joint, ToyDspPokemonA_Top_matanim_joint.",
+    "Associated data filenames use Ty-prefixed CamelCase short categories with .dat extension, e.g. TyMycCmA.dat, TyMycR1A.dat, TyMapA.dat, TySeriA.dat, TyEtcA.dat, TyPokeA.dat, TyItemA.dat.",
+    "No new semantic C type or struct name was introduced for the un_8031B9DC return data; opaque void* and byte offsets were retained."
   ],
   "assembly_or_matching_tactics": [
-    "Use local `char* table[]` arrays for resource-name lookup functions when the original appears to build a stack table of string pointers.",
-    "Normalize `s8` sentinel `-1` to table index 0 before returning lookup results.",
-    "For `un_8031BBF4`, return the string pointer as `(s32)` rather than changing behavior to a pointer return without caller evidence.",
-    "For `un_8031C354`, preserve stack shape with `PAD_STACK(8)`.",
-    "Advance the output buffer with `buf = (s32 (*)[]) ((u8*) buf + 4)` and write via `(*buf)[0] = i` rather than assuming a cleaner typed array form.",
-    "Express repeated filter failures in the scan loop as `continue` statements; final matched code skips current ID, unavailable IDs from `un_80304CC8`, failing `un_803049F4`, mismatched byte 4, and mismatched kind."
+    "Used PAD_STACK(8) in un_8031C354 to satisfy stack layout requirements.",
+    "Kept local table arrays inside un_8031BB94 and un_8031BBF4 rather than file-scope const data, likely matching stack initialization/codegen for this compiler output.",
+    "Used s8 parameters for the table index helpers, matching the header update and preserving signed -1 sentinel checks.",
+    "Used kind == 99 as a sentinel path to fetch the actual kind with un_803060BC(id, 6).",
+    "Filtered the un_8031C354 scan with sequential continue checks: skip current id, skip if un_80304CC8(i) == 0, skip if un_803049F4(i) == 0, skip if byte 4 differs, skip if kind differs, then store and stop at max.",
+    "PR verification claims ninja builds clean and fuzzy_match_percent is 100.0 for all three matched functions."
   ],
   "review_feedback": [
     {
       "author": "PsiLupan",
-      "path": "src/melee/ty/tydisplay.c",
-      "feedback": "Suggested using `continue;` on the `un_8031C354` loop hunk where an earlier version used `goto next`."
+      "file": "src/melee/ty/tydisplay.c",
+      "feedback": "Suggested using `continue;` in the un_8031C354 loop where the diff initially showed a goto-style `next` label in the review hunk.",
+      "outcome": "The provided final diff excerpt uses `continue;` for the loop filters."
     },
     {
       "author": "ribbanya",
-      "feedback": "Thanked the contributor and suggested consolidating future similar work into fewer PRs."
-    },
-    {
-      "author": "decomp-dev[bot]",
-      "feedback": "Reported 3 new matches in `main/melee/ty/tydisplay`: `un_8031C354` +256 bytes, `un_8031BB94` +96 bytes, and `un_8031BBF4` +96 bytes; matched code rose to 55.89% (+0.01%, +448 bytes)."
+      "file": null,
+      "feedback": "Thanked the contributor and suggested consolidating future similar contributions into fewer PRs.",
+      "outcome": "Process feedback only; no code change implied by the excerpt."
     }
   ],
   "searchable_terms": [
     "pr-2257",
     "tydisplay",
-    "src/melee/ty/tydisplay.c",
-    "src/melee/ty/tydisplay.h",
+    "johnwinston",
     "un_8031BB94",
     "un_8031BBF4",
     "un_8031C354",
     "un_804D5AC0",
     "un_8031B9DC",
+    "un_803060BC",
     "un_80304CC8",
     "un_803049F4",
-    "un_803060BC",
     "ToyDspMycharaCmA_Top_matanim_joint",
+    "ToyDspMapA_Top_matanim_joint",
+    "ToyDspFgseriesA_Top_matanim_joint",
+    "ToyDspFgetcA_Top_matanim_joint",
     "ToyDspPokemonA_Top_matanim_joint",
-    "ToyDspItemE_Top_matanim_joint",
+    "ToyDspItemA_Top_matanim_joint",
     "TyQuesD.dat",
     "TyMycCmA.dat",
+    "TyMycR1A.dat",
     "TyMapA.dat",
     "TySeriA.dat",
+    "TyEtcA.dat",
     "TyPokeA.dat",
     "TyItemA.dat",
     "TyStandD.dat",
     "PAD_STACK",
-    "s8 sentinel -1",
-    "kind 99",
-    "continue instead of goto next",
-    "fuzzy_match_percent 100.0",
-    "decomp.dev +448 bytes"
+    "fuzzy_match_percent 100.0"
   ],
   "follow_up_queries": [
-    "Search callers of `un_8031BBF4` to determine whether its temporary `s32` return type can eventually become `char*`.",
-    "Investigate the data returned by `un_8031B9DC`, especially byte offset 4, so `un_8031C354` can later use a named struct field instead of `((u8*) data)[4]`.",
-    "Identify `un_804D5AC0` if it is the empty/default resource string used by tydisplay lookup tables.",
-    "Cross-reference `ToyDsp..._Top_matanim_joint` and `Ty*.dat` resource names with archives or asset definitions to derive semantic names for `un_8031BB94` and `un_8031BBF4`.",
-    "Check whether `un_8031C354` has external callers and should receive a concrete declaration in `tydisplay.h`."
+    "Find later PRs that give semantic names to un_8031BB94, un_8031BBF4, or un_8031C354.",
+    "Search tydisplay callers to confirm the meaning of the kind == 99 sentinel and the byte at offset 4 of data returned by un_8031B9DC.",
+    "Look for related PRs matching un_8031BC54, un_8031BF34, or un_8031C454 in the same file.",
+    "Check whether un_804D5AC0 is a shared empty string or default resource-name symbol used by other table lookup functions."
   ],
-  "confidence": 0.94
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

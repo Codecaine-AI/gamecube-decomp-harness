@@ -11,67 +11,78 @@
     "merged_at": "2026-04-13T20:51:37Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched more of fighter material rendering by replacing NOT_IMPLEMENTED stubs in src/melee/ft/ftmaterial.c, fully matching ftMaterial_800BF534, raising ftMaterial_800BF6BC to 99.47%, and making a small ftMaterial_800BF2B8 bitfield/local-layout correction.",
+  "summary": "Implemented fighter material rendering routines in src/melee/ft/ftmaterial.c, replacing NOT_IMPLEMENTED bodies for ftMaterial_800BF534 and ftMaterial_800BF6BC and slightly improving ftMaterial_800BF2B8. The decomp.dev report shows ftMaterial_800BF534 became a full match, ftMaterial_800BF6BC improved to 99.47%, and ftMaterial_800BF2B8 improved slightly, adding 392 matched bytes overall.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "function-implementation",
-      "rendering-materials",
-      "tev-color-registers",
-      "bitfield-correction",
-      "stack-register-matching"
+      "render-material",
+      "color-overlay",
+      "tev-setup",
+      "matching-improvement"
     ],
     "systems": [
       "fighter",
       "ftmaterial",
-      "HSD material rendering",
-      "HSD TEV/TExp",
-      "ftCommon color overlay"
+      "HSD material/rendering",
+      "TEV/color overlay"
     ]
   },
   "key_files": [
-    "src/melee/ft/ftmaterial.c: +224/-10; implemented ftMaterial_800BF534 and ftMaterial_800BF6BC, adjusted ftMaterial_800BF2B8, and added ftdevice/lb_00B0/baselib debug includes."
+    {
+      "path": "src/melee/ft/ftmaterial.c",
+      "role": "Only changed file; implemented ftMaterial_800BF534 and ftMaterial_800BF6BC, adjusted ftMaterial_800BF2B8 locals/control flag, and added includes needed for device/lb/debug helpers."
+    }
   ],
   "what_changed": [
-    "Added includes for ft/ftdevice.h, lb/lb_00B0.h, and baselib/debug.h to support ftMObj access, color-register helpers, OSReport, and __assert paths used by the new material code.",
-    "In ftMaterial_800BF2B8, hoisted several locals out of inner scopes, added layout-affecting locals such as mobj_rendermode, cur_tobj, texp1, pe_p, and unused, and changed the PE descriptor condition from fp->x2223_b4 to fp->x2223_b3 when fp->x61D == 0xFF.",
-    "Implemented ftMaterial_800BF534: queries ColorOverlay via ftCo_800C0658, handles x7C_flag2/x7C_light_enable, allocates a color register with lbGetFreeColorRegister, binds overlay->x50_light_color into HSD_TExp, sets a TEV stage with GX_CC_ZERO/lb_8000CC8C/GX_CC_RASA/GX_CC_CPREV, and calls ftCo_8009F75C(fp, false) for the non-applicable translucent/special case.",
-    "Implemented ftMaterial_800BF6BC: handles fighter overlay color selection from fp->x610_color_rgba, overlay->x2C_hex, p_ftCommonData->x6D8, metal state, controller index, and x2227_b3; performs integer alpha blending; allocates TEV color registers; optionally wires fp->x61D alpha through HSD_TECnst; and sets the resulting HSD_TevDesc stage.",
-    "Removed NOT_IMPLEMENTED from ftMaterial_800BF534 and ftMaterial_800BF6BC."
+    "Added includes for ft/ftdevice.h, lb/lb_00B0.h, and baselib/debug.h to support fighter material logic, free color register helpers, OSReport, and __assert.",
+    "Reworked ftMaterial_800BF2B8 local declarations and scopes, moving variables such as Fighter*, HSD_TObj*, HSD_TObj**, HSD_TExp*, and HSD_PEDesc* into an outer declaration style that better matched the target.",
+    "Changed one ftMaterial_800BF2B8 condition from fp->x2223_b4 to fp->x2223_b3 when selecting the HSD_PEDesc path with fp->x61D == 0xFF.",
+    "Implemented ftMaterial_800BF534. The function handles a light-enabled ColorOverlay path, reserves a TEV color register with lbGetFreeColorRegister, asserts if unavailable, sets an HSD_TECnst value from overlay->x50_light_color, configures an HSD_TevDesc stage, and returns the provided HSD_TExp when used.",
+    "Implemented ftMaterial_800BF6BC. The function computes color overlay state from fighter flags, controller index, metal/dark state, overlay color enablement, fp->x610_color_rgba, and p_ftCommonData->x6D8, then sets TEV constants/registers and configures a TEV stage.",
+    "Preserved NOT_IMPLEMENTED removal for the two functions while leaving ftMaterial_800BF6BC just short of full matching according to the bot report.",
+    "Bot report: ftMaterial_800BF534 improved from 1.43% to 100.00%; ftMaterial_800BF6BC improved from 0.48% to 99.47%; ftMaterial_800BF2B8 improved from 99.07% to 99.18%."
   ],
   "smart_moves": [
-    "Reused template data through char* base = (char*) &ftMObj with offsets such as +0x50 and +0xC4, preserving the original data/template layout without inventing new named globals.",
-    "Matched debug/error behavior for color-register exhaustion with OSReport and __assert paths, including distinct line numbers for ftMaterial_800BF534 and ftMaterial_800BF6BC.",
-    "Threaded the previous HSD_TExp pointer into lbGetFreeColorRegister and next links so later TEV constant allocation accounts for registers already claimed by the light-overlay pass.",
-    "Corrected the ftMaterial_800BF2B8 PE descriptor bitfield from x2223_b4 to x2223_b3; the squash notes explicitly say this matched the target extrwi bit 27 vs 28.",
-    "Used exact-looking temporary variables, u8 casts, and integer divide order in the overlay alpha/color math, which is important for both behavior and CodeWarrior matching."
+    "Used existing global/template data through char* base = (char*) &ftMObj and fixed offsets such as 0x50, 0xC4, 0xF4, 0x118, and 0x128, which is a practical matching tactic when descriptor constants are embedded in a global object but not yet fully structured.",
+    "Copied HSD_TECnst and HSD_TevDesc templates before mutating fields, preserving likely original code behavior and improving matchability for HSD TEV setup.",
+    "Kept compiler-sensitive temporary names and stack-shaped locals such as sp168, sp18, sp_cnst1, sp_cnst2, and sp_tevdesc, which likely helped reproduce stack layout and register pressure.",
+    "Modeled register allocation failure paths with OSReport plus __assert, including distinct assertion line numbers 240, 352, and 366 from the diff.",
+    "Maintained exact integer color/alpha math instead of simplifying to more readable formulas, which is important for matching codegen and preserving byte-exact behavior.",
+    "Handled the TEV register-selection details with lb_8000CC8C, lb_8000CCA4, lb_8000CD90, and lb_8000CDA8 rather than hardcoding GX constants directly."
   ],
   "decomp_lessons": [
-    "For HSD material/TEV functions, copying existing HSD_TECnst and HSD_TevDesc templates from known data can be a better matching tactic than constructing descriptors field-by-field from scratch.",
-    "When matching color-register TEV setup, preserve the HSD_TExp linked-list order before calling lbGetFreeColorRegister; otherwise free-register selection and kcsel/kasel fields can diverge.",
-    "Bitfield names near x2223 are easy to confuse; verify them against emitted extrwi bit numbers before assuming semantically similar flags are interchangeable.",
-    "Hoisting declarations and retaining seemingly unused locals can change stack/register allocation enough to improve near-matching functions.",
-    "Alpha blending in decompiled rendering code should keep integer widths, cast points, and divide ordering close to assembly rather than simplifying algebraically."
+    "For fighter material and TEV code, matching often depends on copying descriptor templates from existing global data, then changing only the fields the original code touched.",
+    "Do not over-clean local scope in near-matching functions; moving declarations out of nested blocks and preserving temporary variables can improve compiler output.",
+    "Color-overlay rendering paths may have several interacting fighter flags: x2223_b2, x2223_b3, x2228_b0, x2224_b0, is_metal, x2227_b3, x61A_controller_index, and x61D all affected this implementation.",
+    "Sentinel alpha or material state values such as 0xFF should be preserved explicitly; ftMaterial_800BF6BC uses fp->x61D != 0xFF to decide whether to add an extra TEV constant and alpha selector.",
+    "Register allocation helpers should be called with the current material object and any existing expression chain; this patch uses lbGetFreeColorRegister with NULL, texp, or a temporary HSD_TExp chain depending on stage.",
+    "When PR evidence is only diff plus bot report, avoid inferring reviewer intent; the only documented outcome here is matching progress."
   ],
   "naming_conventions": [
-    "Address-style names remain for unmatched/partially named functions: ftMaterial_800BF2B8, ftMaterial_800BF534, ftMaterial_800BF6BC.",
-    "Fighter flags and offsets are kept in raw decomp style: x2223_b2, x2223_b3, x2224_b0, x2227_b3, x2228_b0, x61D, x61A_controller_index, x610_color_rgba.",
-    "Stack/register matching names in this slice use sp-prefixed stack temporaries and register-like names: sp168, sp18, sp_cnst1, sp_cnst2, sp_tevdesc, var_r0, var_r3, var_r5, reg1, reg2.",
-    "HSD/GX type names are preserved for rendering structures: HSD_MObj, HSD_TObj, HSD_TExp, HSD_TECnst, HSD_TevDesc, HSD_PEDesc, GXColor.",
-    "ColorOverlay fields are still offset-derived but semantically suggestive: x7C_flag2, x7C_light_enable, x7C_color_enable, x2C_hex, x50_light_color."
+    "Address-based function names were retained: ftMaterial_800BF2B8, ftMaterial_800BF534, ftMaterial_800BF6BC, and ftMaterial_800BFB4C.",
+    "Unresolved Fighter fields remained in project-style offset/bitfield naming, such as x2223_b2, x2223_b3, x2228_b0, x2224_b0, x2227_b3, x61D, x61A_controller_index, and x610_color_rgba.",
+    "Stack-local names followed decomp matching conventions: sp168, sp100, sp18, sp_cnst1, sp_cnst2, and sp_tevdesc.",
+    "Temporary control-flow/register variables used generic compiler-oriented names such as chk, chk1, var_r0, var_r3, var_r5, reg, reg1, and reg2.",
+    "Overlay structure naming used existing ColorOverlay fields including x7C_flag2, x7C_light_enable, x7C_color_enable, x50_light_color, and x2C_hex."
   ],
   "assembly_or_matching_tactics": [
-    "decomp-dev bot reported one new match: main/melee/ft/ftmaterial ftMaterial_800BF534 improved from 1.43% to 100.00% (+387 bytes).",
-    "decomp-dev bot reported ftMaterial_800BF6BC improved from 0.48% to 99.47% (+1156 bytes).",
-    "decomp-dev bot reported ftMaterial_800BF2B8 improved from 99.07% to 99.18% with 0 added matched bytes, consistent with a small local-layout/bitfield fix.",
-    "Squash commit notes say remaining ftMaterial_800BF6BC differences were stack-frame offsets and register swaps, with no structural/opcode mismatches claimed.",
-    "The ftMaterial_800BF2B8 bitfield change was justified in the squash notes as matching target assembly extrwi bit 27 instead of bit 28.",
-    "Declaration placement changes and extra unused locals appear to have been used as CodeWarrior stack/register allocation nudges."
+    "Replaced NOT_IMPLEMENTED with C that closely mirrors likely assembly, including unusual casts between HSD_TECnst and HSD_TExp for HSD_TExpSetReg and linked next pointers.",
+    "Used explicit u8 casts on TEV register numbers and fp->x61D to match original narrow-field behavior.",
+    "Preserved boolean/register idioms such as assigning chk = lbGetFreeColorRegister(...) and then reg = chk in ftMaterial_800BF534, even though the resulting code is not idiomatic C.",
+    "Used nested small scopes and temporary u8/s32 intermediates in the alpha blending calculation to control code generation.",
+    "Configured TEV stages through HSD_StateAssignTev and HSD_SetupTevStage after filling fields like clr_a, clr_b, clr_c, clr_d, kcsel, alpha_d, and kasel.",
+    "Maintained exact integer division by 255 and 0xFF arithmetic for overlay color composition rather than using floating-point or simplified blending."
   ],
   "review_feedback": [
-    "No human PR body, review comments, or reviews were present in the provided slice.",
-    "Automated decomp-dev feedback reported total matched code at 62.56%, +0.01%, +392 bytes for GALE01.",
-    "The available quality signal is therefore mostly the diff plus decomp-dev bot metrics and the squash commit message, not reviewer discussion."
+    {
+      "source": "decomp-dev[bot]",
+      "summary": "Reported matched code increased to 62.56% (+0.01%, +392 bytes), with one new full match and two unmatched-item improvements."
+    },
+    {
+      "source": "review_comments",
+      "summary": "No human review comments were present in the provided PR slice."
+    }
   ],
   "searchable_terms": [
     "pr-2403",
@@ -81,44 +92,49 @@
     "ftMaterial_800BF2B8",
     "ftMaterial_800BF534",
     "ftMaterial_800BF6BC",
-    "NOT_IMPLEMENTED",
     "ftMObj",
     "ColorOverlay",
     "ftCo_800C0658",
     "ftCo_8009F75C",
+    "HSD_TExp",
+    "HSD_TECnst",
+    "HSD_TevDesc",
+    "HSD_PEDesc",
+    "HSD_StateAssignTev",
+    "HSD_SetupTevStage",
+    "HSD_TExpSetReg",
     "lbGetFreeColorRegister",
     "lb_8000CC8C",
     "lb_8000CCA4",
     "lb_8000CD90",
     "lb_8000CDA8",
-    "HSD_TExp",
-    "HSD_TECnst",
-    "HSD_TevDesc",
-    "HSD_PEDesc",
-    "HSD_SetupTevStage",
-    "HSD_StateAssignTev",
-    "HSD_TExpSetReg",
+    "OSReport",
+    "__assert",
     "RENDER_XLU",
-    "RENDER_SHADOW",
     "RENDER_NO_ZUPDATE",
+    "RENDER_SHADOW",
+    "RENDER_SPECULAR",
     "GX_CC_ZERO",
     "GX_CC_RASA",
     "GX_CC_CPREV",
     "x2223_b2",
     "x2223_b3",
-    "x2223_b4",
     "x61D",
-    "x610_color_rgba",
-    "x7C_color_enable",
-    "x7C_light_enable",
-    "x2C_hex",
-    "x50_light_color"
+    "x610_color_rgba"
   ],
   "follow_up_queries": [
-    "Search later PRs for ftMaterial_800BF6BC to see whether the remaining 99.47% stack/register diffs were resolved.",
-    "Search for x2223_b2/x2223_b3/x2223_b4 naming updates to confirm final Fighter bitfield semantics.",
-    "Search for ftMObj structure/data naming work that replaces byte offsets +0x50, +0xC4, +0xF4, +0x118, and +0x128 with typed fields.",
-    "Search for other material or item rendering functions using lbGetFreeColorRegister and HSD_TExp linked constants as reusable TEV matching patterns."
+    "Find later PRs that finish ftMaterial_800BF6BC from 99.47% to 100%.",
+    "Search for other ftMObj offset-based descriptor template uses to convert into typed struct fields when enough evidence exists.",
+    "Compare other fighter material/color overlay implementations for x2223_b2, x2223_b3, x61D, and x610_color_rgba semantics.",
+    "Look for subsequent renames of ColorOverlay fields x7C_flag2, x7C_light_enable, x7C_color_enable, x50_light_color, and x2C_hex."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

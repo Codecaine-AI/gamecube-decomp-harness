@@ -11,151 +11,139 @@
     "merged_at": "2026-04-14T22:05:47Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked several item units by flipping item objects to Matching, adding exact item state tables/data symbols, and tightening signatures/codegen in Lipstick Spore, Pikachu Thunder Jolt Air, Likelike, and partially Hitodeman. The PR title names itpikachutjoltair, itlipstickspore, and itlikelike; the diff also changes ithitodeman and configure.py marks it Matching, but the author noted Hitodeman was still difficult and might need resplitting. decomp.dev reported +2360 matched code bytes, +15984 linked code bytes, +160 matched data bytes, +688 linked data bytes, and 9 new matches.",
+  "summary": "Linked/matched three item translation units, itlipstickspore, itpikachutjoltair, and itlikelike, by promoting data tables into C, tightening function prototypes, adjusting symbol scope/local labels, and applying small code-shape fixes. The PR also improved ithitodeman data and flipped ithitodeman to Matching in configure.py, but the author explicitly noted hitodeman was not fully solved and might need to be resplit. decomp.dev reported +15984 linked code bytes, +2360 matched code bytes, +688 linked data bytes, +160 matched data bytes, and 9 new matches.",
   "change_classification": {
-    "primary_type": "decomp-matching-linking",
+    "primary_type": "decomp-linking",
     "categories": [
       "decomp-matching",
       "linking",
+      "data-matching",
       "headers",
-      "symbol-map",
-      "item-state-tables",
-      "codegen-cleanup"
+      "symbol-map-cleanup"
     ],
     "systems": [
       "item",
       "fighter",
       "config",
-      "symbols"
+      "repo-build"
     ]
   },
   "key_files": [
-    {
-      "path": "configure.py",
-      "role": "Changed itlipstickspore.c, itpikachutjoltair.c, ithitodeman.c, and itlikelike.c from NonMatching to Matching."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Adjusted local/global scopes, local @NNN data labels, state table/data symbols, and named zero_vec."
-    },
-    {
-      "path": "src/melee/it/items/itlipstickspore.c",
-      "role": "Added ItemStateTable it_803F6680 and corrected it_8029A114 argument order/types."
-    },
-    {
-      "path": "src/melee/it/items/itlipstick.c",
-      "role": "Updated caller of it_8029A114 to pass facing_dir before arg4."
-    },
-    {
-      "path": "src/melee/it/items/itpikachutjoltair.c",
-      "role": "Added ItemStateTable it_803F71D8 and solved small codegen/type issues around spawn/update/collision callbacks."
-    },
-    {
-      "path": "src/melee/it/items/itlikelike.c",
-      "role": "Matched Dropped, UnkMotion6_Phys, and it_802DC4BC using inlined/duplicated ECB transition logic and stack padding."
-    },
-    {
-      "path": "src/melee/it/items/ithitodeman.c",
-      "role": "Added state tables it_803F8128 and it_803F8180 plus codegen helpers, improving but not fully solving Hitodeman data per bot report."
-    },
-    {
-      "path": "src/melee/ft/ft_0C31.c",
-      "role": "Replaced ftCo_800C78B0 UNK_PARAMS with HSD_GObj* gobj and HSD_GObj* owner."
-    },
-    {
-      "path": "src/melee/ft/ft_0C31.h",
-      "role": "Kept the ftCo_800C78B0 prototype consistent with the source."
-    }
+    "configure.py",
+    "config/GALE01/symbols.txt",
+    "src/melee/it/items/itlipstickspore.c",
+    "src/melee/it/items/itlipstickspore.h",
+    "src/melee/it/items/itlipstick.c",
+    "src/melee/it/items/itpikachutjoltair.c",
+    "src/melee/it/items/itlikelike.c",
+    "src/melee/it/items/ithitodeman.c",
+    "src/melee/it/items/ithitodeman.h",
+    "src/melee/ft/ft_0C31.c",
+    "src/melee/ft/ft_0C31.h"
   ],
   "what_changed": [
-    "configure.py now treats four item source files as Matching: itlipstickspore.c, itpikachutjoltair.c, ithitodeman.c, and itlikelike.c.",
-    "symbols.txt changes many anonymous constants/strings/floats from global it_80xxxxxx names to local @NNN labels, marks small Coll functions local, adds a local ...data.0 label, and renames it_803B86D8 to global zero_vec with Vec3-sized 0xC data.",
-    "itlipstickspore.c gained an explicit ItemStateTable it_803F6680 for UnkMotion0/1 and changed it_8029A114 from (gobj, pos, int, f32) to (gobj, pos, f32 facing_dir, s32 arg4).",
-    "itlipstick.c was updated to call it_8029A114(ip->owner, arg1, arg2, arg3), matching the corrected facing_dir/arg4 order.",
-    "itpikachutjoltair.c gained ItemStateTable it_803F71D8, moved/implemented itPikachutjoltair_UnkMotion0_Coll as a bool returning false, used GET_ITEM/GET_JOBJ, cleaned NULL/zero initialization, and removed unnecessary casts in cleanup callbacks.",
-    "itlikelike.c added static inline it_802DC4BC_ptr, expanded the Dropped and UnkMotion6_Phys transition paths inline, adjusted itECB locals and PAD_STACK values, and kept Vec3 sp50 initialized from zero_vec in it_802DC4BC.",
-    "ithitodeman.c removed placeholder-style includes, added ItemStateTable arrays it_803F8128 and it_803F8180, added an extern inline sqrtf implementation, added an Article accessor inline, typed it_802D43AC(Item_GObj*), and adjusted stack padding/literals.",
-    "ft_0C31.c/h replaced ftCo_800C78B0(UNK_PARAMS) with ftCo_800C78B0(HSD_GObj*, HSD_GObj*) to give item/fighter capture code a concrete owner-style signature."
+    "Changed configure.py entries from NonMatching to Matching for melee/it/items/itlipstickspore.c, itpikachutjoltair.c, ithitodeman.c, and itlikelike.c.",
+    "Added item state table data in C, including it_803F6680 for lipstick spore, it_803F71D8 for Pikachu thunder jolt air, and it_803F8128/it_803F8180 for hitodeman-related data.",
+    "Adjusted config/GALE01/symbols.txt to mark small callback functions such as itLipstickspore_UnkMotion1_Coll and itPikachutjoltair_UnkMotion0_Coll as local, and converted many unnamed data/string/float symbols from global it_80xxxxxx names to local @NNN labels.",
+    "Renamed the rodata symbol at 0x803B86D8 from it_803B86D8 to zero_vec with size 0xC, enabling direct Vec3 initialization in itlikelike.",
+    "Corrected it_8029A114's signature from (Fighter_GObj*, Vec3*, int, f32) to (Fighter_GObj*, Vec3*, f32 facing_dir, s32 arg4), updated itlipstickspore.h, and fixed the itlipstick.c caller argument order.",
+    "Gave ftCo_800C78B0 a concrete prototype, UNK_RET ftCo_800C78B0(HSD_GObj* gobj, HSD_GObj* owner), in both ft_0C31.c and ft_0C31.h.",
+    "Gave ithitodeman's it_802D43AC a concrete Item_GObj* parameter and removed an unnecessary function-pointer cast at the it_8027A118 callsite.",
+    "Reworked itpikachutjoltair code shape with GET_ITEM/GET_JOBJ usage, NULL returns, smaller PAD_STACK adjustments, moved the trivial collision callback definition, and reduced unnecessary casts.",
+    "Reworked itlikelike matching hotspots around dropped/physics/spawn handling, including an inline helper it_802DC4BC_ptr, explicit itECB stack temporaries, Vec3 sp50 = zero_vec initialization, and PAD_STACK usage.",
+    "Bot report showed data sections for itlipstickspore and itpikachutjoltair reached 100%, itlikelike rodata reached 100%, and several one-byte code mismatches were resolved."
   ],
   "smart_moves": [
-    "The linkage fix was not just configure.py: the PR made the item .data real by defining ItemStateTable arrays in C and aligning symbol scopes with what the compiler emits.",
-    "Correcting it_8029A114's parameter order and updating itlipstick.c fixed a near-match that was sensitive to argument register assignment.",
-    "The Likelike changes intentionally duplicated/inlined transition logic, including a comment labeled permuterslop, showing a pragmatic codegen-first approach when a cleaner helper call produced wrong registers or stack layout.",
-    "Using typed callbacks such as it_802D43AC(Item_GObj*) removed casts and made callback signatures agree with item collision helpers.",
-    "Renaming shared zero vector data to zero_vec and demoting compiler-local constants to @NNN avoided over-exported symbols while preserving exact data layout.",
-    "The diff used small PAD_STACK changes and scoped locals instead of large rewrites, minimizing behavioral risk while solving one-byte/near-match differences."
+    "Resolved linkability by moving item state tables into source instead of leaving them as anonymous external data, which directly improved linked data coverage.",
+    "Used symbol scope cleanup aggressively: tiny static callbacks and compiler-generated literals were made local in symbols.txt, avoiding accidental global symbol requirements.",
+    "Fixed a real API mismatch for it_8029A114 by aligning the header, definition, and caller argument order; this removed ambiguity between facing_dir and the integer item variable.",
+    "For itlikelike, introduced a static inline helper and duplicated/reordered operations only where needed to satisfy code generation, while preserving existing behavior.",
+    "Used explicit stack padding and local temporaries such as itECB ecb and Vec3 sp50 to control stack layout and register allocation in known-sensitive matching functions.",
+    "Converted placeholder/UNK prototypes to typed HSD_GObj* or Item_GObj* signatures where callsites exposed the true types, reducing casts and improving future matching leverage."
   ],
   "decomp_lessons": [
-    "Item object linkage often depends on matching state table data before code can be safely marked Matching; define ItemStateTable arrays with exact motion IDs and Anim/Phys/Coll function pointers.",
-    "Small local/static scope decisions matter: table-only Coll functions should be local/static when symbols indicate local scope.",
-    "Do not leave UNK_PARAMS or wrong argument order in shared headers when caller codegen depends on concrete HSD_GObj*, owner, facing_dir, or s32 argument placement.",
-    "Compiler-generated literals and strings should usually be @NNN local labels in symbols.txt, not global it_80xxxxxx names, unless there is evidence of a named/shared object.",
-    "Matching may require source shaping that looks redundant: inline wrappers, duplicated blocks, explicit PAD_STACK, and carefully scoped locals can be legitimate tactics.",
-    "The author's Hitodeman note and bot's 63.37% .data result suggest that stubborn item data may need resplitting or further data-boundary investigation rather than more local code churn."
+    "When linking an item object, data tables are often the blocker as much as text: define ItemStateTable arrays in C and ensure symbol scope matches whether callbacks are static.",
+    "Small 0x8 collision callbacks that just return false can still affect link state; making them static/local can be required when their only references are through local state tables.",
+    "Argument order in headers matters for matching even when types are compatible enough to compile; verify callers and callee together before permuting code.",
+    "zero_vec-style shared constants should be named only when the code genuinely uses them as shared data; otherwise generated literals and strings should remain local @ labels.",
+    "For item spawn functions, direct initialization such as Vec3 sp50 = zero_vec can fix data references and stack layout simultaneously.",
+    "Partial progress on a stubborn unit can be worthwhile, but author notes matter: hitodeman improved and was marked Matching in configure.py, yet the PR body says hitodeman was not fully figured out and may need resplitting.",
+    "Using GET_ITEM and GET_JOBJ macros instead of raw user_data/hsd_obj access can improve source clarity and sometimes helps codegen alignment.",
+    "Do not overinterpret one-byte bot matches; in this PR several +1 byte improvements accompanied larger data/linking fixes, but the main win was linking whole item objects."
   ],
   "naming_conventions": [
-    "Item files use lowercase kind names such as itpikachutjoltair, itlipstickspore, itlikelike, and ithitodeman.",
-    "Unknown item state-table data kept address-based names: it_803F6680, it_803F71D8, it_803F8128, and it_803F8180.",
-    "Motion callbacks retain the pattern itKind_UnkMotionN_Anim, itKind_UnkMotionN_Phys, and itKind_UnkMotionN_Coll.",
-    "Item logic callbacks retain it_2725_LogicNN_Event names when semantic names are not known, such as it_2725_Logic5_Dropped and it_2725_Logic107_Absorbed.",
-    "Compiler-local constants in symbols.txt use @NNN labels and local scope; shared/global vector data can receive a semantic name such as zero_vec.",
-    "Improved parameter names in this PR include owner, facing_dir, arg4, gobj, ip, and ecb."
+    "Item state table symbols retained address-style names when no semantic name was known, e.g. it_803F6680, it_803F71D8, it_803F8128, and it_803F8180.",
+    "Compiler-generated local literals and constants were represented with @NNN labels in symbols.txt rather than global it_80xxxxxx names.",
+    "The project uses both itLikelike_* for motion callbacks and itLikeLike_Logic5_* for logic callbacks in the same item file; preserve existing capitalization rather than normalizing it.",
+    "Lipstick spore symbols appear as itLipstickspore_* for motion callbacks and itLipstickSpore_Logic37_* for logic callbacks; follow existing symbol spelling.",
+    "Named shared vector data as zero_vec when used as a Vec3 zero initializer instead of keeping the raw address name it_803B86D8.",
+    "Typed parameters were named for meaning when known, e.g. facing_dir and owner, while unknown integer behavior stayed generic as arg4."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK with precise sizes including 4, 8, 12, 16, 20, and 28 bytes to steer stack-frame layout.",
-    "Added extern inline sqrtf using __frsqrte refinement in ithitodeman.c, indicating inline math expansion was needed for matching.",
-    "Introduced small inline helpers it_802D472C_inline and it_802DC4BC_ptr to influence inlining/register allocation.",
-    "Duplicated Likelike ECB reset/transition code in Dropped and UnkMotion6_Phys instead of relying only on it_802DAA10.",
-    "Changed unnecessary casts and literals, for example removing (f32)/(f64) around M_PI_2 * ip->facing_dir and using 0.0f consistently.",
-    "Changed function and data symbol scope in symbols.txt from global to local where the emitted object expected static/local symbols.",
-    "Moved/defined itPikachutjoltair_UnkMotion0_Coll as an actual bool function returning false while marking its symbol local."
+    "Inserted PAD_STACK calls with specific sizes in sensitive functions to reproduce stack layout.",
+    "Introduced static inline helpers, notably it_802DC4BC_ptr, to control inlining and call-shape in itlikelike.",
+    "Duplicated a block in it_2725_Logic5_Dropped with a comment 'permuterslop', suggesting source was shaped to satisfy compiler permutation/register allocation rather than pure refactoring.",
+    "Used direct local initialization Vec3 sp50 = zero_vec to match a spawn helper's expected data reference.",
+    "Removed unnecessary casts from item/fighter object calls once prototypes were corrected, e.g. Item_80268E5C(gobj, ...) and it_802B3544(ip->...xDD8).",
+    "Changed return constants from 0 to NULL in pointer-returning code to better match typed C source.",
+    "Moved the false-return collision callback in itpikachutjoltair after its use through the state table while keeping a forward static prototype.",
+    "Adjusted math expression casting in itpikachutjoltair, e.g. HSD_JObjSetRotationY(jobj, (M_PI_2 * ip->facing_dir)), reducing explicit f64/f32 cast noise."
   ],
   "review_feedback": [
-    "No human review comments or review approvals were present in the provided slice.",
-    "PR body from lukechampine: Hitodeman was attempted but not fully figured out and might need to be resplit.",
-    "decomp-dev bot reported 9 new matches, including itlipstickspore .data, itpikachutjoltair .data, itlikelike .rodata, it_8029A114, it_2725_Logic107_Reflected, it_2725_Logic24_Spawned, it_2725_Logic5_Dropped, itLikelike_UnkMotion6_Phys, and it_802DC4BC.",
-    "Bot also reported ithitodeman .data improved from 0.00% to 63.37%, supporting the author's note that Hitodeman data was not fully solved in the evidence shown."
+    "No human review comments were present in the slice.",
+    "The PR body states: 'I tried linking hitodman as well, but I couldn't figure out how. Might need to be resplit?'",
+    "decomp.dev bot reported GALE01 improvements: matched code 63.39% (+0.06%, +2360 bytes), linked code 34.83% (+0.41%, +15984 bytes), matched data 38.16% (+0.01%, +160 bytes), linked data 32.50% (+0.06%, +688 bytes).",
+    "decomp.dev listed 9 new matches, including full data matches for itlipstickspore and itpikachutjoltair, itlikelike rodata reaching 100%, and partial ithitodeman .data improvement to 63.37%."
   ],
   "searchable_terms": [
     "pr-2414",
     "lukechampine",
-    "link",
-    "Matching",
-    "NonMatching",
     "itpikachutjoltair",
     "itlipstickspore",
     "itlikelike",
     "ithitodeman",
+    "hitodeman resplit",
+    "it_8029A114",
+    "it_802DC4BC",
+    "it_802DC4BC_ptr",
+    "it_802B3EFC",
+    "it_802B3F20",
+    "it_802B43D0",
+    "it_802D43AC",
+    "ftCo_800C78B0",
     "it_803F6680",
     "it_803F71D8",
     "it_803F8128",
     "it_803F8180",
     "zero_vec",
-    "it_8029A114",
-    "it_802DC4BC",
-    "it_802DC4BC_ptr",
+    "ItemStateTable",
+    "PAD_STACK",
+    "GET_ITEM",
+    "GET_JOBJ",
+    "itECB",
+    "scope:local",
+    "configure.py Matching",
+    "GALE01 symbols.txt",
+    "itLipstickspore_UnkMotion1_Coll",
+    "itPikachutjoltair_UnkMotion0_Coll",
     "it_2725_Logic5_Dropped",
     "itLikelike_UnkMotion6_Phys",
-    "itPikachutjoltair_UnkMotion0_Coll",
-    "itPikachutjoltair_UnkMotion0_Anim",
-    "itPikachutjoltair_UnkMotion0_Phys",
     "it_2725_Logic107_Reflected",
-    "it_2725_Logic107_Clanked",
-    "it_2725_Logic107_Absorbed",
-    "it_2725_Logic24_Spawned",
-    "ftCo_800C78B0",
-    "it_802D43AC",
-    "PAD_STACK",
-    "permuterslop",
-    "ItemStateTable",
-    "symbols.txt"
+    "it_2725_Logic24_Spawned"
   ],
   "follow_up_queries": [
-    "Investigate why ithitodeman .data remained 63.37% and whether the file needs to be resplit.",
-    "Audit later PRs for semantic names replacing it_803F8128, it_803F8180, it_803F6680, or it_803F71D8.",
-    "Search for other callers of it_8029A114 to ensure the facing_dir and arg4 order stayed consistent.",
-    "Compare Likelike ECB transition helpers to see whether it_802DC4BC_ptr or the duplicated permuterslop block was later cleaned up.",
-    "Look for subsequent Hitodeman work around ordering_func, inline sqrtf, and state-table/data boundary fixes."
+    "Check later PRs for hitodeman resplitting or completion after the author noted it might need to be resplit.",
+    "Search for additional it_8029A114 callers to ensure all use the corrected (facing_dir, arg4) argument order.",
+    "Look for subsequent cleanups that replace address-style item state table names with semantic names.",
+    "Compare itlikelike matching tactics in later PRs to see whether the 'permuterslop' duplicated block was simplified after more context was decompiled."
   ],
-  "confidence": 0.86
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

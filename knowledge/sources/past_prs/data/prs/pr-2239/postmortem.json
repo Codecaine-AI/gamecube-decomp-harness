@@ -11,168 +11,142 @@
     "merged_at": "2026-03-13T22:03:53Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large gm_18A5 tournament-mode decomp slice. The PR replaced many `/// #` stubs or partials in `src/melee/gm/gm_18A5.c`, added typed bracket/static-data layouts, corrected `TmData` tournament menu records, and updated headers/prototypes. decomp.dev reported 57.13% matched code overall, +0.20% and +7748 bytes, with 18 new matches and 46 unmatched-item improvements. The human PR body only says `Tracking PR as usual`, so technical intent is inferred from the diff and bot report rather than review discussion.",
+  "summary": "Large tournament/menu decomp pass for src/melee/gm/gm_18A5, with supporting header and TmData layout updates. The PR replaced many stubs/untyped byte accesses with C implementations and structured data for tournament bracket drawing, bracket seeding/positioning, menu option handling, player HUD/cursor visibility, and related tournament flows. decomp.dev reported GALE01 matched code rising to 57.13% (+0.20%, +7748 bytes), with 18 new matches and 46 unmatched-item improvements. Human review context is minimal: the PR body only says \"Tracking PR as usual\" and there were no review comments.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "struct-layout",
-      "ui-state-machine",
-      "matching-tactics"
+      "prototype-cleanup",
+      "tournament-menu"
     ],
     "systems": [
       "game-mode",
       "tournament-mode",
-      "gm_18A5",
-      "gmtou"
+      "menu",
+      "hud",
+      "graphics"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gm/gm_18A5.c",
-      "role": "Main decomp body for tournament mode",
-      "evidence": "5797 additions/1125 deletions across 57 hunks; added C for bracket setup, drawing, UI callbacks, menu input, results, preload/audio, and state handlers."
-    },
-    {
-      "path": "src/melee/gm/gm_18A5.static.h",
-      "role": "Static data and layout definitions",
-      "evidence": "Added `BracketSrcEntry`, `BracketEntry`, `lbl_80473AB8[0x40]`, `lbl_803D9E9C[0x70]`, and `lbl_803DA0D0_t` with a size assert."
-    },
-    {
-      "path": "src/melee/gm/gm_18A5.h",
-      "role": "Prototype cleanup",
-      "evidence": "Replaced many `UNK_RET`/`UNK_PARAMS` declarations with concrete signatures such as `fn_8018A514(int, float)`, `fn_8018AA74(HSD_JObj*, s32, s32)`, and `fn_8018E85C(DynamicModelDesc*, s32)`."
-    },
-    {
-      "path": "src/melee/gm/types.h",
-      "role": "Tournament data layout correction",
-      "evidence": "Changed `TmData` around `x37` to a packed `TmUnkMenuData` array of 64 entries with fields through `xF`, and adjusted padding to `x4B8`."
-    },
-    {
-      "path": "src/melee/gm/gmtou.c",
-      "role": "Cross-file consumer fixup",
-      "evidence": "`fn_8019CDBC` now uses the corrected `TmData.x37` fields (`xE`, `xF`, `x5`, `x3`, `x7`) and `HSD_GObjGetHSDObj`."
-    }
+    "src/melee/gm/gm_18A5.c",
+    "src/melee/gm/gm_18A5.static.h",
+    "src/melee/gm/gm_18A5.h",
+    "src/melee/gm/types.h",
+    "src/melee/gm/gmtou.c"
   ],
   "what_changed": [
-    {
-      "area": "matching progress",
-      "details": "decomp.dev reported 18 new matches: `fn_80192E6C`, `fn_80192BB0`, `fn_80193308`, `fn_801973F8`, `fn_80198D18`, `fn_801983E4`, `fn_80191D38`, `fn_80191E9C`, `fn_8019237C`, `gm_80190FE4`, `fn_80197E18`, `fn_80197FD8`, `fn_80196684`, `gm_8019B2DC_OnFrame`, `fn_8019CDBC`, `fn_80194D84`, `fn_80196CF8`, and `fn_8018F410`."
-    },
-    {
-      "area": "large unmatched improvements",
-      "details": "Bot-listed improvements included `fn_80198EBC` to 97.97%, `fn_8018C8D4` to 79.93%, `fn_8018D50C` to 93.98%, `fn_8019A86C` to 90.91%, `fn_801953C8` to 87.50%, `fn_80199AF0` to 95.78%, `fn_80193FCC` to 88.10%, `fn_8018AA74` to 91.30%, and `fn_801967E0` to 93.29%."
-    },
-    {
-      "area": "bracket rendering/setup",
-      "details": "Added tournament bracket functions including `fn_8018A514`, `fn_8018AA74`, `fn_8018C8D4`, `fn_8018D50C`, `fn_8018DC18`, `fn_8018DF68`, `fn_8018E618`, and `fn_8018E85C`; comments identify bracket line drawing, connector drawing, camera setup, and JObj placement."
-    },
-    {
-      "area": "tournament UI and input",
-      "details": "Implemented or improved menu/JObj callbacks and input handlers such as `fn_801913BC`, `fn_80191D38`, `fn_80191E9C`, `fn_8019237C`, `fn_80194D84`, `fn_80194F30`, `fn_801953C8`, `fn_80195CCC`, and `fn_8019610C`."
-    },
-    {
-      "area": "results/preload/audio",
-      "details": "`fn_8019B458` now transitions to the results screen, ranks players using `lbl_803DA0D0.rank_thresholds`, preloads stage/character cache data through `lbDvd`, and prepares audio masks with `lbAudioAx`."
-    },
-    {
-      "area": "headers and types",
-      "details": "The PR converted raw byte/anonymous layouts into named structs and updated external prototypes so later code can use typed `HSD_GObj*`, `HSD_JObj*`, `DynamicModelDesc*`, `ResultsData*`, and `TmData*` instead of generic unknowns."
-    }
+    "Implemented a large set of gm_18A5 tournament/menu functions, replacing many `/// #fn_...` placeholders or partial implementations with C.",
+    "Added tournament bracket data structures in gm_18A5.static.h, especially `BracketSrcEntry` and a full 0xDC-byte `BracketEntry` layout with offset-named fields and `GXColor` at x20.",
+    "Converted `lbl_80473AB8` from a small anonymous padded struct array to `static BracketEntry lbl_80473AB8[0x40]`, enabling typed access to bracket entries instead of repeated raw byte offsets.",
+    "Added/used bracket drawing routines such as `fn_8018C8D4` and `fn_8018D50C`, with explicit `DrawRectangle` calls, local `GXColor` temporaries, and static yellow color labels `lbl_804DA67C` and `lbl_804DA684`.",
+    "Implemented bracket setup/positioning logic such as `fn_8018A514` and `fn_8018AA74`, including source-table copying, count-region selection, per-slot coordinate calculation, and special cases based on `TmData->x2E`.",
+    "Added a typed `lbl_803DA0D0_t` static-data struct with `icon_model_map`, `rank_thresholds`, and `bounce_y`, plus a `STATIC_ASSERT(sizeof(...) == 0x184)`.",
+    "Updated gm_18A5.h prototypes from `UNK_RET`/`UNK_PARAMS` or inaccurate signatures to concrete signatures for many functions, including `fn_801913BC(HSD_GObj*)`, `fn_80192938(void)`, `fn_80192BB0(void)`, `fn_80192E6C(void)`, `fn_801967E0(s32)`, and several `HSD_GObj*` callbacks.",
+    "Updated `TmData` in types.h: changed `_x1C` padding to `s32 x1C`, packed `TmUnkMenuData`, added `xE` and `xF`, expanded `x37` from 16 to 64 entries, and adjusted padding to preserve the x4B8 selection block.",
+    "Adjusted `gmtou.c` to align with the revised `TmData.x37` layout: accesses shifted from fields like `xC/xD/x4/x2/x6` to `xE/xF/x5/x3/x7`, and `GET_JOBJ(gobj)` was replaced with `HSD_GObjGetHSDObj(gobj)` in `fn_8019CDBC`.",
+    "decomp.dev reported 18 new full matches, including `fn_80192E6C`, `fn_80192BB0`, `fn_80193308`, `fn_801973F8`, `fn_80198D18`, `fn_801983E4`, `fn_80191D38`, `fn_80191E9C`, `fn_8019237C`, `gm_80190FE4`, `fn_80197E18`, `fn_80197FD8`, `fn_80196684`, `gm_8019B2DC_OnFrame`, `fn_8019CDBC`, `fn_80194D84`, `fn_80196CF8`, and `fn_8018F410`."
   ],
   "smart_moves": [
-    "Promoted `lbl_80473AB8` from a small anonymous byte-offset struct to a full `BracketEntry` layout with explicit offsets and a `GXColor` field, unlocking cleaner bracket drawing and slot update code while preserving unknown offset names.",
-    "Modeled source bracket records separately as `BracketSrcEntry`, letting `fn_8018A514` copy ROM/static source data into live `BracketEntry` records field-by-field.",
-    "Corrected `TmData.x37` as a packed 64-entry `TmUnkMenuData` array of 0x12-byte records; the follow-through fix in `gmtou.c` shows the layout change was applied to cross-file users.",
-    "Used typed asset/model access where possible, for example changing `lbl_804D6670->models[4]` into the call to `fn_8018E85C` instead of raw pointer arithmetic.",
-    "Kept known partial-match status visible with `@todo` notes for register allocation or instruction scheduling rather than pretending all rewritten C was complete.",
-    "Introduced `lbl_803DA0D0_t` with a `STATIC_ASSERT(sizeof(...) == 0x184)`, which is a reusable pattern for decomping opaque rodata tables safely."
+    "Promoting `lbl_80473AB8` to a real `BracketEntry[0x40]` made repeated slot fields at offsets x30/x5C/x88/xB4 and status fields x4C/x78/xA4 easier to reason about while preserving offset-based names for matching.",
+    "The PR used offset-named fields rather than speculative semantic names for most unknown structures, which is appropriate when the layout is known but final meaning is still uncertain.",
+    "Adding `GXStruct.h` and storing colors as `GXColor` avoided treating color components as raw bytes throughout bracket rendering code.",
+    "The `TmUnkMenuData` packing and expansion to 64 entries appears coordinated with `gmtou.c` field-offset corrections, preventing one local decomp improvement from corrupting cross-file layout assumptions.",
+    "Static assertions on newly typed data (`lbl_803DA0D0_t`) create a reusable guard against accidental layout drift.",
+    "The diff kept several `@todo Currently ... match` comments where functions improved but still had register allocation or loop-pattern issues, making future cleanup targets searchable."
   ],
   "decomp_lessons": [
-    "For UI-heavy game-mode files, investing in static data layouts can produce many downstream matches because rendering, input, and state callbacks all share the same offsets.",
-    "Packed struct layout matters: changing `TmData.x37` from an undersized/loosely padded block to packed 64 records required updating all field consumers, not just the file being decompiled.",
-    "Concrete prototypes in public headers reduce ambiguity and make cross-file recompilation expose layout/signature mistakes earlier.",
-    "When field purposes are still unknown, offset-style names like `x4C`, `x78`, `xA4`, and `xD0` are acceptable if the struct offsets are explicit and stable.",
-    "Documenting match blockers such as register allocation, loop pattern, and instruction scheduling helps future permuter/manual work resume from the right constraint.",
-    "Use rodata labels for matching-sensitive float constants when literals change load/scheduling behavior; the diff shows constants such as `lbl_804DA6A0` and `lbl_804DA810` being used."
+    "For large menu/game-mode files, struct reconstruction can unlock many functions at once; here the `BracketEntry` and `TmData.x37` layouts enabled both gm_18A5 and gmtou improvements.",
+    "When a table is copied into a runtime buffer, model both the source entry (`BracketSrcEntry`) and runtime entry (`BracketEntry`) instead of forcing one struct to represent both layouts.",
+    "Use packed nested structs when the surrounding game data uses byte-dense records; otherwise later array elements and downstream fields can shift silently.",
+    "Changing a shared struct such as `TmData` requires auditing sibling files immediately. This PR’s `gmtou.c` changes are evidence that the x37 layout update had external consequences.",
+    "For matching-heavy graphics code, preserving the original control-flow shape with many local color temporaries and explicit `DrawRectangle` calls can matter more than writing a compact abstraction.",
+    "It is acceptable to leave address-based names and x-offset fields in a high-value matching PR when semantic naming evidence is weak; do not over-name tournament fields before their meanings are proven."
   ],
   "naming_conventions": [
-    "`gm_18A5` retains address-based function names (`fn_8018...`, `gm_8019...`) where semantic names are not yet known.",
-    "Game-mode lifecycle callbacks use descriptive suffixes when known, e.g. `gm_8019628C_OnFrame`, `gm_801963B4_OnEnter`, `gm_801964A4_OnLeave`, and `gm_8019B2DC_OnFrame`.",
-    "New local/static types use descriptive or label-derived names: `BracketEntry`, `BracketSrcEntry`, `CamDesc`, `Lbl804799B8_t`, `Lbl804799D8_t`, and `lbl_803DA0D0_t`.",
-    "Unknown struct fields keep offset names (`x2E`, `x37`, `x4B8`, `x4C`, `x78`, `xA4`) while partially known high-level fields like `entrants`, `cur_option`, `stage_selection_type`, and `cpu_level` are preserved.",
-    "Common local variable names follow project decomp style: `gobj`, `jobj`, `tm`/`tmd`, `entry`/`ent`, `state_ptr`, `buttons`, and `trigger`."
+    "Unidentified functions remain address-based, e.g. `fn_8018A514`, `fn_8018AA74`, `fn_8018C8D4`, `fn_8018D50C`, and `fn_80192E6C`.",
+    "Game-mode exported functions use the `gm_` prefix when already known, e.g. `gm_80190FE4` and `gm_8019B2DC_OnFrame`.",
+    "Frame callbacks retain the `_OnFrame` suffix when applicable.",
+    "Unknown global/static labels remain `lbl_80......`, e.g. `lbl_80473AB8`, `lbl_803DA0D0`, `lbl_804DA67C`, and `lbl_804DA684`.",
+    "Partially understood struct fields use offset-style names such as `x1C`, `x20`, `x4C`, `x78`, `xA4`, `xE`, and `xF`.",
+    "Locally reconstructed structures received descriptive container names where evidence was strong enough: `BracketEntry`, `BracketSrcEntry`, and `lbl_803DA0D0_t`."
   ],
   "assembly_or_matching_tactics": [
-    "Frequent `PAD_STACK` calls with exact byte counts were used to control stack frame shape.",
-    "Used `#pragma push`, `#pragma auto_inline off`, `#pragma dont_inline on/off`, and `#pragma inline_depth(0)` around sensitive functions.",
-    "Used `M2C_FIELD` for unresolved global/entity offsets in `fn_8018E618`, especially around `HSD_GObj_Entities` lists.",
-    "Comments explicitly note type casts used to match target instruction patterns such as `stw`, `sth`, and `stb`.",
-    "Several remaining `@todo` comments identify the likely cause of mismatch: register allocation, loop pattern, minor register allocation, or instruction scheduling.",
-    "Switched some raw/literal accesses to typed or rodata-label accesses, such as `lbl_804D6670->models[4]` and `lbl_804DA810`, to match generated code patterns."
+    "Used `PAD_STACK`, including in `fn_8018A514` and retained stack padding in `gmtou.c`, to satisfy stack/register-sensitive matching.",
+    "Used explicit casts through `u8*` and offset arithmetic for slot records, e.g. `sub = (u8*) entry + slot_idx * 0x2C`, while still exposing the parent entry as `BracketEntry`.",
+    "Preserved numerous temporary variables and repeated assignments in drawing functions, especially `GXColor c0...c33`, likely to match compiler register allocation and stack layout.",
+    "Used `#pragma push`/`#pragma pop` around at least one camera/bracket initialization implementation, indicating targeted compiler-control for difficult matches.",
+    "Kept `@todo` comments for known remaining issues such as register allocation fixes and significant rework needs, rather than falsely claiming complete matches.",
+    "Switched from macro-style `GET_JOBJ(gobj)` to `HSD_GObjGetHSDObj(gobj)` in `gmtou.c`, which coincided with a full match for `fn_8019CDBC` according to the bot report.",
+    "Used a `STATIC_ASSERT` on the reconstructed `lbl_803DA0D0_t` data size to lock the expected rodata/data table layout."
   ],
   "review_feedback": [
-    {
-      "source": "PR body",
-      "feedback": "Only `Tracking PR as usual`; no detailed rationale was provided."
-    },
-    {
-      "source": "decomp-dev bot",
-      "feedback": "GALE01 report showed +7748 matched bytes, 18 new matches, and 46 improvements in unmatched items."
-    },
-    {
-      "source": "reviews/review_comments",
-      "feedback": "No human reviews or inline review comments were present in the slice, so there is no captured reviewer guidance to reuse."
-    }
+    "No human review comments or review approvals were present in the provided slice.",
+    "The PR body only stated: \"Tracking PR as usual\".",
+    "decomp.dev bot reported GALE01 matched code at 57.13%, +0.20%, +7748 bytes.",
+    "decomp.dev bot reported 18 new matches and 46 improvements in unmatched items.",
+    "Largest reported unmatched-item improvements included `fn_80198EBC` to 97.97%, `fn_8018C8D4` to 79.93%, `fn_8018D50C` to 93.98%, `fn_8019A86C` to 90.91%, and `fn_801953C8` to 87.50%."
   ],
   "searchable_terms": [
     "pr-2239",
     "gm_18a5",
-    "gm_18A5",
-    "src/melee/gm/gm_18A5.c",
-    "src/melee/gm/gm_18A5.static.h",
-    "src/melee/gm/types.h",
-    "src/melee/gm/gmtou.c",
-    "tournament mode",
+    "gm_18A5.c",
+    "gm_18A5.static.h",
+    "gmtou.c",
+    "types.h",
+    "jurrejelle",
     "BracketEntry",
     "BracketSrcEntry",
     "lbl_80473AB8",
     "lbl_803DA0D0_t",
-    "rank_thresholds",
     "TmData",
     "TmUnkMenuData",
-    "x37[64]",
-    "pragma pack push 1",
+    "x37",
+    "x4B8",
+    "GXColor",
+    "DrawRectangle",
+    "HSD_GObjGetHSDObj",
+    "GET_JOBJ",
+    "PAD_STACK",
+    "STATIC_ASSERT",
     "fn_8018A514",
     "fn_8018AA74",
     "fn_8018C8D4",
     "fn_8018D50C",
     "fn_8018E618",
-    "fn_8018E85C",
-    "fn_801913BC",
-    "fn_80194F30",
-    "fn_801953C8",
-    "fn_801967E0",
-    "fn_80198EBC",
-    "fn_80199AF0",
-    "fn_8019A86C",
-    "fn_8019B458",
-    "fn_8019CDBC",
+    "fn_80190ABC",
+    "gm_80190FE4",
+    "fn_80192E6C",
+    "fn_80192BB0",
+    "fn_80193308",
+    "fn_80196684",
+    "fn_80197E18",
+    "fn_80197FD8",
+    "fn_80198D18",
     "gm_8019B2DC_OnFrame",
-    "PAD_STACK",
-    "M2C_FIELD",
-    "HSD_GObjGetHSDObj",
-    "lbDvd",
-    "lbAudioAx"
+    "fn_8019CDBC",
+    "tournament bracket",
+    "tournament mode",
+    "game mode menu",
+    "GALE01",
+    "57.13%",
+    "+7748 bytes"
   ],
   "follow_up_queries": [
-    "gm_18A5 BracketEntry lbl_80473AB8 x4C x78 xA4 xD0",
-    "TmData x37 packed 64 TmUnkMenuData xE xF gmtou fn_8019CDBC",
-    "fn_8018C8D4 fn_8018D50C DrawRectangle tournament bracket lines",
-    "fn_801967E0 gm_18A5 remaining mismatch register allocation PAD_STACK",
-    "fn_80198EBC fn_80199AF0 fn_8019A158 gm_18A5 unmatched improvements",
-    "lbl_803DA0D0_t rank_thresholds bounce_y tournament results ranking"
+    "Inspect later PRs touching `BracketEntry` or `lbl_80473AB8` for semantic field renames beyond x-offset names.",
+    "Search for follow-up fixes to `fn_8018C8D4`, `fn_8018D50C`, `fn_80198EBC`, and other functions left below 100% in the bot report.",
+    "Audit future changes to `TmData.x37` and `TmUnkMenuData` to confirm the packed 64-entry layout remained valid.",
+    "Look for reviews or later commits explaining the `HSD_GObjGetHSDObj` versus `GET_JOBJ` choice in `gmtou.c`.",
+    "Search for additional tournament-mode PRs by branch or title patterns `gm_18A5`, `gmtou`, and `tournament bracket`."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

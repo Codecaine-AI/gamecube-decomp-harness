@@ -11,108 +11,89 @@
     "merged_at": "2026-03-06T22:11:11Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Implemented and linked/matched Hammer Head item code, plus matched selected Super Scope beam functions and data typing. `ithammerhead.c` was promoted from `NonMatching` to `Matching`; the decomp.dev report credited 9 new matches, including `it_80298ED0`, `it_80299C48`, Hammer Head anim/throw helpers, Hammer Head `.data`/`.sdata2`, and Super Scope beam `.sdata`. Evidence is from the diff and bot report; there was no PR body or human review feedback in this slice.",
+  "summary": "Matched the Hammer Head item source and build link, renamed its thrown callback from the generic it_3F14_Logic40_Thrown to itHammerHead_Logic40_Thrown, implemented several previously placeholder Hammer Head functions, and added partial Super Scope beam decompilation using explicit item-vars and beam attribute structs. The PR also made a small matching-oriented refactor in itfoods.c and updated symbols/configuration to reflect matching status and local sdata2 symbols.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "item-decompilation",
-      "function-matching",
-      "data-matching",
+      "decomp-matching",
       "headers",
       "symbol-renaming",
+      "item-logic",
       "build-config"
     ],
     "systems": [
       "item",
-      "ithammerhead",
-      "itsscopebeam",
-      "itfoods",
-      "GALE01 symbols",
-      "configure.py"
+      "common-items",
+      "hammerhead",
+      "scopebeam",
+      "foods",
+      "config"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/it/items/ithammerhead.c",
-      "reason": "Added matched Hammer Head state table, spawn/setup routine, thrown logic, and lifetime anim callbacks."
-    },
-    {
-      "path": "src/melee/it/items/itsscopebeam.c",
-      "reason": "Added typed Super Scope beam attribute structs and implemented `it_80298ED0`; switched item var usage from `starrodstar` to `scopebeam`."
-    },
-    {
-      "path": "src/melee/it/itCommonItems.h",
-      "reason": "Renamed Hammer Head attribute field to `initial_velocity` and added `itScopeBeam_ItemVars`."
-    },
-    {
-      "path": "src/melee/it/types.h",
-      "reason": "Added `scopebeam` member to the `Item` item-var union."
-    },
-    {
-      "path": "configure.py",
-      "reason": "Changed `melee/it/items/ithammerhead.c` from `NonMatching` to `Matching`."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "reason": "Renamed thrown callback symbol and converted matched local `.sdata2` constants to local `@` labels."
-    },
-    {
-      "path": "src/melee/it/items/itfoods.c",
-      "reason": "Small matching-oriented refactor of `itFoods_Logic18_Spawned` with `getRandMax`, `HSD_GObj*`, and stack padding changes."
-    }
+    "configure.py",
+    "config/GALE01/symbols.txt",
+    "src/melee/it/itCommonItems.h",
+    "src/melee/it/types.h",
+    "src/melee/it/it_2725.c",
+    "src/melee/it/it_3F14.c",
+    "src/melee/it/items/ithammerhead.c",
+    "src/melee/it/items/ithammerhead.h",
+    "src/melee/it/items/itsscopebeam.c",
+    "src/melee/it/items/itfoods.c"
   ],
   "what_changed": [
-    "`ithammerhead.c` replaced placeholders with real code for `it_80299C48`, `it_80299D7C`, `itHammerHead_Logic40_Thrown`, `itHammerhead_UnkMotion2_Anim`, and `itHammerhead_UnkMotion3_Anim`.",
-    "Added `ItemStateTable it_803F6640[]` for Hammer Head with Anim/Phys/Coll function pointers for four states.",
-    "Hammer Head spawn code now builds a `SpawnItem`, calls `Item_80268B18`, applies `attrs->initial_velocity` to velocity, sets facing direction, and links debug ownership through `db_80225DD8`.",
-    "Renamed `it_3F14_Logic40_Thrown` to `itHammerHead_Logic40_Thrown` in symbols, headers, item logic table references, and collision callback use sites.",
-    "`itsscopebeam.c` added local `BeamFloats` and `ScopeBeamAttrs` structs, implemented `it_80298ED0`, sets owner, chooses item state through an explicit switch, sets velocity/scale/lifetime, and uses `HSD_JObjSetScale`.",
-    "Super Scope beam item vars now use `ip->xDD4_itemVar.scopebeam.x0` instead of reusing `starrodstar.x0`; `itSscopebeam_UnkMotion9_Anim` now reads typed `data->lifetime` and `data->scale`.",
-    "`itHammerheadAttributes.x0` was renamed to `initial_velocity`, matching its use in the Hammer Head spawn velocity formula.",
-    "`itFoods_Logic18_Spawned` changed from `Item_GObj*` to `HSD_GObj*`, factored the random max into `getRandMax`, changed `PAD_STACK(12)` to `PAD_STACK(8)`, and removed casts at call sites.",
-    "`configure.py` marks `ithammerhead.c` as `Object(Matching, ...)`; `itsscopebeam.c` remains `NonMatching` in this diff despite new function matches.",
-    "Bot report: matched code +1192 bytes, linked code +1228 bytes, matched data +104 bytes, linked data +88 bytes for GALE01."
+    "Changed ithammerhead.c from NonMatching to Matching in configure.py.",
+    "Implemented Hammer Head item state table it_803F6640 with animation, physics, and collision callbacks for its four state entries.",
+    "Implemented it_80299C48 as the Hammer Head spawn helper: initializes SpawnItem for It_Kind_Hammer_Head, copies position, zeroes z/velocity fields, sets parent gobj fields and flags, creates the item, applies facing direction and initial velocity scaling, then links debug ownership with db_80225DD8.",
+    "Implemented it_80299D7C with ground-to-air handling through it_802762BC, item setup via it_8026B390, and state change through Item_80268E5C.",
+    "Implemented itHammerHead_Logic40_Thrown and routed itHammerHead_Logic40_Dropped and the collision callback through the Hammer Head-specific thrown name.",
+    "Implemented Hammer Head life-timer animation callbacks itHammerhead_UnkMotion2_Anim and itHammerhead_UnkMotion3_Anim, including the low-life visual update call to it_802728C8 when xD44_lifeTimer reaches it_804D6D28->x34.",
+    "Renamed the symbol and declarations for the thrown Hammer Head logic from it_3F14_Logic40_Thrown to itHammerHead_Logic40_Thrown in symbols.txt, ithammerhead.h, it_2725.c, and the commented it_3F14.c logic table.",
+    "Renamed itHammerheadAttributes.x0 to initial_velocity, making the spawn math in it_80299C48 self-documenting.",
+    "Added itScopeBeam_ItemVars to itCommonItems.h and inserted scopebeam into the Item xDD4_itemVar union in types.h.",
+    "Added local BeamFloats and ScopeBeamAttrs structs in itsscopebeam.c for Super Scope beam special attributes, replacing raw pointer arithmetic in touched code.",
+    "Updated it_80298DEC to store the beam index in xDD4_itemVar.scopebeam.x0 instead of reusing starrodstar item vars.",
+    "Implemented it_80298ED0 for scope beam setup: assigns owner, selects item state by beam index, sets x velocity from attribute velocity and facing direction, applies uniform JObj scale, and initializes lifetime.",
+    "Updated itSscopebeam_UnkMotion9_Anim to read the beam index and lifetime/scale through scopebeam item vars and structured ScopeBeamAttrs instead of starrodstar fields and raw f32 frame_data.",
+    "Refactored itFoods_Logic18_Spawned to take HSD_GObj*, use a static getRandMax helper, reduce PAD_STACK from 12 to 8, and remove casts at it_80273318 and it_8028FC5C call sites.",
+    "Converted several sdata2 symbols at 0x804DCC60 through 0x804DCC70 from global it_804DCCxx names to local @151, @152, @177, and @179 labels."
   ],
   "smart_moves": [
-    "Introduced item-specific `scopebeam` item vars instead of continuing to borrow `starrodstar` storage, making future Super Scope beam work less error-prone.",
-    "Replaced raw special-attribute pointer arithmetic with `BeamFloats`/`ScopeBeamAttrs`, making velocity, scale, and lifetime semantics visible while still matching `it_80298ED0` and the anim callback.",
-    "Renamed the thrown callback from a generic bank-style name to the item-specific `itHammerHead_Logic40_Thrown`, then propagated it through symbols and logic tables so future searches find the owning item.",
-    "Used named `initial_velocity` in `itHammerheadAttributes`, documenting why the first attribute field participates in x/y velocity setup.",
-    "Kept compiler-sensitive forms visible in the C: explicit switch cases for scope beam item states, chained vector component assignments, and `PAD_STACK` adjustment in the food helper.",
-    "Updated symbol scope for matched `.sdata2` constants from global `it_804DCC60`-style names to local `@151`, `@152`, `@177`, and `@179`, consistent with newly matched local data."
+    "Promoting ithammerhead.c to Matching only after implementing the spawn helper, state table, thrown logic, timer anim callbacks, and header prototypes kept the build configuration aligned with actual decomp status.",
+    "Replacing the generic it_3F14_Logic40_Thrown name with itHammerHead_Logic40_Thrown made the item logic table and collision/dropped callbacks reflect ownership by Hammer Head rather than a shared or unidentified module.",
+    "Naming the Hammer Head attribute field initial_velocity directly documents why spawn velocity multiplies both the input velocity and facing direction.",
+    "Adding a dedicated itScopeBeam_ItemVars union member avoided reusing starrodstar item-vars for Super Scope beam state, which reduces cross-item semantic confusion.",
+    "Using BeamFloats and ScopeBeamAttrs in itsscopebeam.c turned raw special-attribute pointer arithmetic into named velocity, scale, and lifetime fields, making matching code easier to review and extend.",
+    "The itfoods.c getRandMax helper appears to be a small matching tactic: preserving logic while reshaping stack usage and call expressions enough to match the target."
   ],
   "decomp_lessons": [
-    "When an item object becomes fully matching, update `configure.py` immediately from `NonMatching` to `Matching` so link/match metrics reflect the decomp work.",
-    "Typed article `x4_specialAttributes` structs can unlock both readability and matching by replacing casts and byte-offset indexing with field access.",
-    "For item callbacks, state transitions often require preserving the exact order of `ground_or_air` checks, `it_802762BC`, `it_8026B390`, and `Item_80268E5C` flags.",
-    "Projectile setup functions commonly pair `Item_80268B18` creation with owner/debug linkage via `db_80225DD8`; reuse that pattern only when the original evidence supports it.",
-    "Life-timer anim callbacks can match as small repeated patterns: decrement `xD44_lifeTimer`, return true on expiration, and call `it_802728C8` when below the shared warning threshold `it_804D6D28->x34`.",
-    "Do not leave generic item-var aliases in place once the owning item is identified; add a dedicated union member in `types.h` and a matching typedef in `itCommonItems.h`.",
-    "Symbol-map cleanup matters for data matching: local constants should be represented as local `@` labels when the matched object no longer needs global placeholder symbols."
+    "When an item source becomes matching, update configure.py immediately so the object is built as Matching and future regressions are visible.",
+    "Generic it_3F14 or address-based function names should be replaced with item-specific names once call-table ownership is clear.",
+    "Item xDD4_itemVar union members should be item-specific; avoid borrowing another item's item-var struct even when the layout happens to match.",
+    "For article special attributes, introduce narrow local structs when enough layout is known. Even partial structs like BeamFloats can eliminate error-prone byte offsets and clarify matching intent.",
+    "Renaming attribute fields such as x0 to behavior-derived names like initial_velocity is useful once code evidence shows how the field is consumed.",
+    "Small helper functions and PAD_STACK adjustments can be legitimate matching tools, as shown by itFoods_Logic18_Spawned and getRandMax.",
+    "Remember to propagate symbol renames through symbols.txt, headers, logic tables, and any documented/commented table mirrors to keep decomp metadata searchable and consistent."
   ],
   "naming_conventions": [
-    "Hammer Head logic callbacks use `itHammerHead_Logic40_*`, e.g. `Spawned`, `PickedUp`, `Dropped`, `Thrown`, `DmgDealt`, and `DmgReceived`.",
-    "Hammer Head motion callbacks use `itHammerhead_UnkMotionN_Anim/Phys/Coll`; note the diff preserves the existing mixed capitalization `HammerHead` vs `Hammerhead`.",
-    "Unidentified functions remain address-based when semantics are still unclear, e.g. `it_80299C48` and `it_80299D7C`.",
-    "Attribute fields should be renamed when behavior is known: `itHammerheadAttributes.x0` became `initial_velocity`.",
-    "Item-var typedef/member naming follows item ownership: `itScopeBeam_ItemVars` and union member `scopebeam`.",
-    "Matched local constants in `symbols.txt` may use local labels like `@151` instead of global `it_804DCC60` placeholders."
+    "Use item-specific callback names in the form itHammerHead_Logic40_Thrown instead of generic module names like it_3F14_Logic40_Thrown when the function belongs to a known item.",
+    "Hammer Head function names in this slice use mixed capitalization already present in the project, including itHammerHead_Logic40_* for logic callbacks and itHammerhead_UnkMotion*_Anim/Phys/Coll for state callbacks.",
+    "Known attribute fields should be renamed from x-offset placeholders to semantic names when behavior is clear, as with itHammerheadAttributes.initial_velocity.",
+    "Item variable structs follow the pattern itScopeBeam_ItemVars and are added to Item.xDD4_itemVar under a lower-case item key, here scopebeam.",
+    "Small internal data-layout structs can use descriptive names such as BeamFloats and ScopeBeamAttrs even if defined locally in the C file."
   ],
   "assembly_or_matching_tactics": [
-    "For Hammer Head spawn matching, initialize `SpawnItem` fields explicitly, zero all velocity components, copy `pos` into `prev_pos`, force `prev_pos.z = 0.0f`, and set both parent GObj fields before `Item_80268B18`.",
-    "Hammer Head velocity setup multiplies input velocity by `attrs->initial_velocity`, applies `it->facing_dir` to x velocity, and adds `0.5f` to y velocity.",
-    "`it_80299D7C` and `itHammerHead_Logic40_Thrown` use nearly identical ground-to-air setup, differing mainly in the `Item_80268E5C` state index and flags.",
-    "`it_80298ED0` keeps an explicit switch over scope beam kind values and calls `Item_80268E5C(projectile, N, ITEM_ANIM_UPDATE)` for each case rather than using a collapsed computed form.",
-    "Super Scope beam scale matching uses a local `Vec3 scale` with `scale.x = scale.y = scale.z = data->scale` followed by `HSD_JObjSetScale`.",
-    "The food routine match was helped by factoring `HSD_Randi(getRandMax(ip))` and adjusting `PAD_STACK(8)`, showing that tiny helper extraction and stack padding can be necessary for compiler equivalence."
+    "Changed ithammerhead.c to Matching in configure.py after replacing placeholders with C implementations.",
+    "Used an explicit ItemStateTable initializer for it_803F6640, which likely helped match the item state table data layout and callback references.",
+    "In itfoods.c, extracted getRandMax(Item*) and adjusted PAD_STACK from 12 to 8, suggesting stack-shape control for matching.",
+    "Replaced casts and raw special-attribute reads with typed attribute variables while preserving generated code shape in touched functions.",
+    "Converted sdata2 entries from global it_804DCCxx symbols to local @number labels for constants newly associated with matched code.",
+    "Used switch cases 0 through 9 in it_80298ED0 to select Item_80268E5C states, avoiding a more compact but potentially nonmatching abstraction."
   ],
-  "review_feedback": [
-    "No human review comments were present in this slice, and the PR body was empty/null.",
-    "decomp.dev bot reported GALE01 improvements: matched code 55.27% (+0.03%, +1192 bytes), linked code 31.78% (+0.03%, +1228 bytes), matched data 34.59% (+0.01%, +104 bytes), linked data 29.17% (+0.01%, +88 bytes).",
-    "Bot listed 9 new matches: `itsscopebeam` `it_80298ED0`, Hammer Head `it_80299C48`, `itHammerhead_UnkMotion2_Anim`, `itHammerhead_UnkMotion3_Anim`, `it_80299D7C`, `itHammerHead_Logic40_Thrown`, Hammer Head `.data`, Hammer Head `.sdata2`, and Super Scope beam `.sdata`."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
-    "pr-2228",
+    "PR2228",
     "PsiLupan",
     "ithammerhead",
     "Hammer Head",
@@ -120,44 +101,41 @@
     "it_3F14_Logic40_Thrown",
     "it_80299C48",
     "it_80299D7C",
+    "it_803F6640",
     "itHammerhead_UnkMotion2_Anim",
     "itHammerhead_UnkMotion3_Anim",
-    "it_803F6640",
-    "ItemStateTable",
-    "SpawnItem",
+    "itHammerheadAttributes",
     "initial_velocity",
     "itsscopebeam",
     "Super Scope beam",
+    "itScopeBeam_ItemVars",
+    "scopebeam itemVar",
+    "BeamFloats",
+    "ScopeBeamAttrs",
     "it_80298DEC",
     "it_80298ED0",
     "itSscopebeam_UnkMotion9_Anim",
-    "BeamFloats",
-    "ScopeBeamAttrs",
-    "itScopeBeam_ItemVars",
-    "scopebeam",
-    "starrodstar",
-    "HSD_JObjSetScale",
-    "Item_80268B18",
-    "Item_80268E5C",
-    "db_80225DD8",
     "itfoods",
-    "itFoods_Logic18_Spawned",
     "getRandMax",
+    "itFoods_Logic18_Spawned",
     "PAD_STACK",
-    "config/GALE01/symbols.txt",
-    "configure.py",
-    "MatchingFor",
-    "sdata2",
-    "@151",
-    "@152",
-    "@177",
-    "@179"
+    "configure.py Matching",
+    "sdata2 local symbols"
   ],
   "follow_up_queries": [
-    "Search later PRs for completion of `src/melee/it/items/itsscopebeam.c` because this PR matched `it_80298ED0` but left the object marked `NonMatching`.",
-    "Check later naming cleanup for `it_80299C48`, `it_80299D7C`, `BeamFloats`, `ScopeBeamAttrs`, and `itScopeBeam_ItemVars.x0/x4`.",
-    "Look for additional PRs resolving Hammer Head `UnkMotion` names or further normalizing the `HammerHead`/`Hammerhead` capitalization split.",
-    "Verify whether later scope beam attribute typing changes the apparent `ScopeBeamAttrs.floats[9]` plus switch cases 0 through 9 pattern."
+    "Find later PRs that fully match itsscopebeam.c or move BeamFloats/ScopeBeamAttrs into shared headers.",
+    "Check whether the remaining itsscopebeam functions continue using scopebeam item vars instead of starrodstar item vars.",
+    "Search for other item callbacks still named it_3F14_Logic40_* that can be renamed to item-specific logic names.",
+    "Look for subsequent cleanup of Hammer Head capitalization consistency between itHammerHead and itHammerhead.",
+    "Find other PRs using helper extraction plus PAD_STACK adjustment as a matching tactic."
   ],
-  "confidence": 0.92
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

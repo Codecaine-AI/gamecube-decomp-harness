@@ -11,162 +11,140 @@
     "merged_at": "2026-05-08T01:19:24Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Resplit Popo/Ice Climbers special-move code so the old broad ftPp_SpecialS.c unit became separate matching/linkable SpecialS, SpecialHi, and SpecialLw objects. The PR added new ftPp_SpecialHi.c and ftPp_SpecialLw.c files, moved declarations into move-specific headers, updated build/split/symbol config, and decomp.dev reported +14,416 linked-code bytes with 80 new matches.",
+  "summary": "Resplit the former Popo ftPp_SpecialS object so that SpecialS ends at 0x80120E68 and new matching objects ftPp_SpecialHi.c and ftPp_SpecialLw.c cover the following text ranges. The build configuration moved ftPp_SpecialS.c from NonMatching to Matching and added matching entries for SpecialHi and SpecialLw. The PR also updated splits, local symbol names/scopes for data and sdata2 literals, and replaced broad/old ftPp_1211.h includes with move-specific headers. The bot report showed a net linked-code gain of +14416 bytes and 80 new matches, with many apparent broken matches caused by functions moving out of the old ftPp_SpecialS unit into the new split units.",
   "change_classification": {
-    "primary_type": "decomp-matching",
+    "primary_type": "decomp-matching-resplit-link",
     "categories": [
       "decomp-matching",
       "object-resplit",
-      "linking-progress",
+      "linkage",
       "headers",
-      "build-config",
-      "symbol-map"
+      "config",
+      "symbol-scope-cleanup",
+      "sdata2-literal-ordering"
     ],
     "systems": [
       "fighter",
       "ftPopo",
       "ftNana",
       "ftCommon",
-      "ice-climbers",
-      "config"
+      "items",
+      "config",
+      "repo-root"
     ]
   },
   "key_files": [
-    {
-      "path": "config/GALE01/splits.txt",
-      "role": "Changed the ftPp_SpecialS text/sdata2 ranges and added separate ftPp_SpecialHi and ftPp_SpecialLw split entries."
-    },
-    {
-      "path": "configure.py",
-      "role": "Changed ftPp_SpecialS.c from NonMatching to Matching and added Matching objects for ftPp_SpecialHi.c and ftPp_SpecialLw.c."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Converted several former global address labels in this region to local @ symbols for strings and sdata2 constants."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
-      "role": "Shrank to the side-special unit after moving Hi/Lw bodies out; includes were cleaned up accordingly."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPopo/ftPp_SpecialHi.c",
-      "role": "New 932-line Popo up-special unit, including a documented sdata2 float-alignment/order hack."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPopo/ftPp_SpecialLw.c",
-      "role": "New 212-line Popo down-special unit with Blizzard item/effect handling and Lw callbacks."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPopo/ftPp_SpecialHi.h",
-      "role": "Renamed from the generic ftPp_1211.h and expanded with SpecialHi declarations."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPopo/ftPp_SpecialLw.h",
-      "role": "New header for SpecialLw declarations."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPopo/ftPp_SpecialS.h",
-      "role": "Removed declarations that belonged to SpecialHi/SpecialLw."
-    }
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "configure.py",
+    "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
+    "src/melee/ft/chara/ftPopo/ftPp_SpecialHi.c",
+    "src/melee/ft/chara/ftPopo/ftPp_SpecialLw.c",
+    "src/melee/ft/chara/ftPopo/ftPp_SpecialS.h",
+    "src/melee/ft/chara/ftPopo/ftPp_SpecialHi.h",
+    "src/melee/ft/chara/ftPopo/ftPp_SpecialLw.h",
+    "src/melee/ft/chara/ftPopo/ftPp_Init.c",
+    "src/melee/ft/chara/ftNana/ftNn_Init.c",
+    "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
+    "src/melee/ft/ftdata.c"
   ],
   "what_changed": [
-    "In splits.txt, ftPp_SpecialS.c text was shortened from 0x8011F68C-0x80122EDC to 0x8011F68C-0x80120E68, while ftPp_SpecialHi.c was added at 0x80120E68-0x80122898 and ftPp_SpecialLw.c at 0x80122898-0x80122EDC.",
-    "The old ftPp_SpecialS.c lost 1148 lines and now keeps the side-special portion instead of also carrying up-special and down-special code.",
-    "Added ftPp_SpecialHi.c with matched Popo up-special/start/throw/air variants plus helper functions such as ftPp_SpecialS_80120E68, ftPp_SpecialS_80120FE0, and ftPp_SpecialHi_8012280C.",
-    "Added ftPp_SpecialLw.c with matched Popo down-special entry, anim, phys, coll, and accessory callbacks including ftPp_SpecialLw_Coll, ftPp_SpecialAirLw_Coll, fn_80122B54, and fn_80122D2C.",
-    "Updated configure.py so ftPp_SpecialS.c is built as Matching and the new ftPp_SpecialHi.c and ftPp_SpecialLw.c are also Matching objects.",
-    "Renamed/reworked ftPp_1211.h into ftPp_SpecialHi.h, introduced ftPp_SpecialLw.h, and removed Hi/Lw prototypes from ftPp_SpecialS.h.",
-    "Updated include sites in ftCo_0A01.c, ftNn_Init.c, ftPp_Init.c, and ftdata.c to include ftPp_SpecialHi.h and ftPp_SpecialLw.h instead of the generic ftPp_1211.h.",
-    "symbols.txt changed multiple labels in the affected data/sdata/sdata2 region, including ftPp_Unk0_* and ftPp_Init_* constants, from global-style names to local @NNN symbols.",
-    "The decomp.dev bot reported linked code rising to 38.34% with +0.37% / +14,416 bytes, matched data +80 bytes, linked data +160 bytes, and 80 new matches; the listed broken matches were the old ftPp_SpecialS unit losing functions that moved to the new units."
+    "Changed the split for melee/ft/chara/ftPopo/ftPp_SpecialS.c from text 0x8011F68C-0x80122EDC to 0x8011F68C-0x80120E68 and sdata2 0x804D9848-0x804D9898 to 0x804D9848-0x804D9860.",
+    "Added new split objects melee/ft/chara/ftPopo/ftPp_SpecialHi.c at text 0x80120E68-0x80122898 with sdata2 0x804D9860-0x804D9890, and melee/ft/chara/ftPopo/ftPp_SpecialLw.c at text 0x80122898-0x80122EDC with sdata2 0x804D9890-0x804D9898.",
+    "Updated configure.py so ftPp_SpecialS.c, ftPp_SpecialHi.c, and ftPp_SpecialLw.c are all built as Matching objects for Popo.",
+    "Moved a large body of code out of ftPp_SpecialS.c into new ftPp_SpecialHi.c and ftPp_SpecialLw.c source files; ftPp_SpecialS.c lost 1148 lines while SpecialHi gained 932 and SpecialLw gained 212.",
+    "Added or adjusted headers for ftPp_SpecialHi.h and ftPp_SpecialLw.h and removed the contents of ftPp_SpecialS.h in this slice.",
+    "Updated include sites in ftCo_0A01.c, ftNn_Init.c, and ftPp_Init.c to include ftPp_SpecialHi.h and ftPp_SpecialLw.h instead of the older ftPp_1211.h umbrella/placeholder header.",
+    "Converted several previously globally named data/sdata/sdata2 symbols such as ftPp_Init_804D9848 and ftPp_Unk0_804D3E10 to local @number symbols in symbols.txt.",
+    "The new ftPp_SpecialHi.c includes Popo/Nana coordination code, item/string interactions through itclimbersstring, ground/air SpecialHi enter/anim/IASA/phys/coll callbacks, and helper code visible in the diff excerpt.",
+    "The bot report recorded linked code increasing from the PR by +0.37%, +14416 bytes, with 80 new matches and 77 broken matches that mostly correspond to functions being moved from the old ftPp_SpecialS unit into the new SpecialHi/SpecialLw units."
   ],
   "smart_moves": [
-    "The PR paired the source-file resplit with splits.txt boundaries, symbols.txt updates, and configure.py object status changes, so the new object layout could actually link instead of just reorganizing files.",
-    "It replaced the ambiguous ftPp_1211.h include with move-specific headers, which makes future Popo work search by SpecialHi/SpecialLw instead of by an address-derived placeholder name.",
-    "It moved Lw declarations out of the SpecialHi header and removed Hi/Lw declarations from SpecialS.h, reducing cross-object header leakage.",
-    "The symbols.txt changes avoided pretending anonymous constants and strings were meaningful globals; local @ symbols better match how these sdata/sdata2 objects are being emitted.",
-    "The author explicitly called out the sdata2_ordering float-alignment hack in a review comment, making the matching wart searchable and easier to replace later."
+    "The PR separated a monolithic Popo special-move file into move-specific compilation units, which made the object boundaries match the ROM split layout and allowed all three Popo special objects to be linked as Matching.",
+    "The split update was coordinated across splits.txt, symbols.txt, configure.py, source files, and include dependencies rather than only moving code, reducing the chance of build/link inconsistencies.",
+    "Replacing ftPp_1211.h includes with ftPp_SpecialHi.h and ftPp_SpecialLw.h made dependencies more explicit and more searchable for later Popo/Nana work.",
+    "The symbol updates recognized that many float/string literals in the split region were local compiler artifacts and renamed them from misleading global ftPp_Init/ftPp_Unk0 names to local @number symbols.",
+    "The author left an explicit comment on the float-alignment workaround in review, making the questionable tactic visible for future cleanup instead of hiding it in the source movement."
   ],
   "decomp_lessons": [
-    "When a file contains multiple logical original objects, matching often requires fixing the split map first; otherwise function matches can appear under the wrong unit and cannot be linked cleanly.",
-    "A resplit can show many broken matches in the old unit while still being a net win if the same functions become new matches in correctly named units.",
-    "Header boundaries should follow object/move ownership: SpecialS.h should not be the dumping ground for SpecialHi and SpecialLw declarations.",
-    "Prefer descriptive move-specific file names such as ftPp_SpecialHi.h over address-derived placeholders such as ftPp_1211.h once the object identity is known.",
-    ".sdata2 float/double order and alignment can be fragile across split translation units; if a dummy ordering function is needed, isolate and document it so future decomp work can replace it with a cleaner alignment method.",
-    "For anonymous local constants, use local @NNN symbols in symbols.txt rather than inventing global names that imply cross-file API."
+    "When a nonmatching object contains multiple logical move ranges, resplitting can turn apparent per-function matches into linked object matches; expect bot reports to show many 'broken' old-unit matches paired with new matches in the new units.",
+    "A successful resplit needs address ranges for .text and .sdata2 to be cut consistently; here SpecialS, SpecialHi, and SpecialLw use contiguous text ranges and non-overlapping sdata2 ranges.",
+    "After resplitting, revisit symbol scope: local literals and strings should not remain as global pseudo-symbols tied to unrelated init files.",
+    "Move-specific headers are preferable to placeholder or catch-all headers once a file is split and matched, because downstream files then document exactly which special-move interfaces they use.",
+    "For Ice Climbers work, Popo and Nana code may depend on each other: the SpecialHi code in this slice calls Player_GetEntityAtIndex for the partner and uses ftNn_Init helpers, so include and forward-declaration hygiene matters.",
+    "Bot match deltas after a resplit must be interpreted by unit migration, not only by raw broken-match counts; the PR had 77 broken matches in ftPp_SpecialS but 80 new matches in ftPp_SpecialHi/SpecialLw and a positive linked-code delta."
   ],
   "naming_conventions": [
-    "Popo files use the ftPp_ prefix and move names: ftPp_SpecialS, ftPp_SpecialHi, and ftPp_SpecialLw.",
-    "Ground/air callback names follow the existing pattern: Enter, Anim, IASA, Phys, Coll, with Air variants such as ftPp_SpecialAirHi_Enter and ftPp_SpecialAirLw_Anim.",
-    "Unknown helper functions kept address-suffixed names such as ftPp_SpecialHi_8012280C and ftPp_SpecialS_80120E68 rather than inventing behavior names.",
-    "Truly unknown local functions in the new Lw unit still use fn_ address names, e.g. fn_80122B54 and fn_80122D2C.",
-    "Local data symbols in symbols.txt use @NNN labels when no semantic global name is justified."
+    "Use move-specific Popo filenames and headers: ftPp_SpecialS.c, ftPp_SpecialHi.c, ftPp_SpecialLw.c and corresponding .h files.",
+    "Ground/air callback naming follows the observed pattern with Air prefix and callback suffixes: ftPp_SpecialHi_Enter, ftPp_SpecialAirHi_Enter, ftPp_SpecialHiStart_0_Anim, ftPp_SpecialAirHiStart_0_Phys, ftPp_SpecialLw_Coll.",
+    "Local compiler-generated data and literal symbols in symbols.txt were represented as @number entries with scope:local rather than global ftPp_Init_804D98xx-style names.",
+    "The code keeps address-based placeholder function names when semantic names are not established, such as ftPp_SpecialS_80120E68 and ftPp_SpecialHi_8012280C.",
+    "Header cleanup should replace obsolete split placeholders such as ftPp_1211.h with the narrow special-move headers that declare the used functions."
   ],
   "assembly_or_matching_tactics": [
-    "Updated split boundaries exactly around 0x80120E68 and 0x80122898 so SpecialS, SpecialHi, and SpecialLw compile as separate matching objects.",
-    "Used a static sdata2_ordering function in ftPp_SpecialHi.c to force float/double constant ordering/alignment; the author called this a hack and asked for a better float-alignment method.",
-    "Used a custom inline my_sqrtf with __frsqrte refinement and a volatile float output pointer to match generated PowerPC sqrt-like code.",
-    "Kept PAD_STACK annotations and small static inline helpers to steer stack layout and inlining for matching.",
-    "Preserved quirks such as empty IASA functions and a goto path in ftPp_SpecialS_80120FE0 with a comment that the original returns without a value.",
-    "Set configure.py objects to Matching only after the source, headers, splits, and symbols were made consistent."
+    "Used an explicit static sdata2_ordering function in ftPp_SpecialHi.c to force float/double literal ordering and alignment in .sdata2; the author called this a 'hideous hack' and asked if there was a better alignment method.",
+    "The sdata2_ordering helper mixes float and double constants, including 0.0f, 0.5, 3.0, 3.0f, 5.0f, 1.0f, -1.0f, and another 0.5, to influence literal layout.",
+    "Implemented a custom inline my_sqrtf using __frsqrte with repeated Newton-Raphson refinement and a volatile float output to match generated sqrt-like code in ftPp_SpecialS_80120E68.",
+    "Used PAD_STACK annotations in several functions in the excerpt to satisfy stack layout requirements.",
+    "Used small static inline helpers such as checkNanaInRange and incrementMvAndCheck in the new SpecialHi code, apparently to preserve structure while matching callback code.",
+    "Preserved odd control flow where the original code returns without a value in ftPp_SpecialS_80120FE0, including a labeled end block comment in the excerpt."
   ],
   "review_feedback": [
-    "The PR body was empty in the slice; most intent comes from the title, diff, and bot report.",
-    "The only human review comment was by the author on ftPp_SpecialHi.c: \"please forgive this hideous hack. If there's a better way to align the floats, I'm all ears!\" This referred to the sdata2_ordering float/double constant-ordering helper.",
-    "The decomp.dev bot reported +14,416 linked-code bytes, +80 matched-data bytes, +160 linked-data bytes, and 80 new matches for GALE01."
+    {
+      "author": "lukechampine",
+      "path": "src/melee/ft/chara/ftPopo/ftPp_SpecialHi.c",
+      "comment": "please forgive this hideous hack. If there's a better way to align the floats, I'm all ears!",
+      "lesson": "The float/sdata2 alignment workaround was known to be ugly and should be revisited if the project develops a cleaner way to control literal ordering."
+    }
   ],
   "searchable_terms": [
     "pr-2466",
-    "lukechampine",
-    "ftPp_SpecialS.c",
-    "ftPp_SpecialHi.c",
-    "ftPp_SpecialLw.c",
-    "ftPp_SpecialS.h",
-    "ftPp_SpecialHi.h",
-    "ftPp_SpecialLw.h",
+    "ftPp_SpecialS",
+    "ftPp_SpecialHi",
+    "ftPp_SpecialLw",
     "ftPp_1211.h",
     "Popo",
     "Nana",
     "Ice Climbers",
-    "SpecialS",
     "SpecialHi",
     "SpecialLw",
+    "SpecialS",
     "resplit",
-    "MatchingFor",
-    "Object(Matching)",
-    "Object(NonMatching)",
+    "Matching",
+    "NonMatching",
+    "configure.py",
     "splits.txt",
     "symbols.txt",
-    "configure.py",
     "sdata2_ordering",
-    "sdata2",
     "float alignment",
+    "sdata2 alignment",
     "my_sqrtf",
     "__frsqrte",
     "PAD_STACK",
-    "ftPp_SpecialS_80120E68",
-    "ftPp_SpecialS_80120FE0",
-    "ftPp_SpecialHi_8012280C",
-    "ftPp_SpecialHi_80122898",
+    "Player_GetEntityAtIndex",
+    "itclimbersstring",
+    "ftNn_Init_8012300C",
+    "ftNn_Init_8012309C",
+    "ftPp_SpecialHiStart_0_Anim",
+    "ftPp_SpecialAirHiStart_0_Anim",
     "ftPp_SpecialLw_Coll",
-    "ftPp_SpecialAirLw_Coll",
-    "fn_80122B54",
-    "fn_80122D2C",
-    "itClimbersString",
-    "itClimbersBlizzard",
-    "efSync_Spawn",
-    "0x80120E68",
-    "0x80122898",
-    "0x80122EDC",
-    "0x804D9860",
-    "0x804D9890"
+    "linked code +14416 bytes",
+    "80 new matches"
   ],
   "follow_up_queries": [
-    "Search later PRs for sdata2_ordering to see whether this float-alignment hack was replaced with a cleaner pattern.",
-    "Search for remaining ftPp_1211.h references or other address-derived Popo headers that should be renamed to move-specific headers.",
-    "Compare ftPp_SpecialHi and ftPp_SpecialLw with Nana/Ice Climbers counterpart files for shared helper naming and declarations.",
-    "Look for other resplit PRs where decomp.dev reports broken matches in an old unit but new matches in newly split units.",
-    "Audit local @NNN symbols in the Popo/Nana sdata2 region for constants that later gained justified semantic names."
+    "Find later PRs that remove or replace the sdata2_ordering float-alignment hack in ftPp_SpecialHi.c.",
+    "Check whether ftPp_SpecialS.h being emptied/deleted was followed by complete header cleanup for all Popo special moves.",
+    "Search for subsequent renames of address-based functions in ftPp_SpecialHi.c and ftPp_SpecialLw.c to semantic names.",
+    "Look for other fighter resplit PRs that convert old umbrella headers like ftPp_1211.h into move-specific headers.",
+    "Audit whether the local @number symbol assignments for 0x804D9848-0x804D9898 stayed stable after later sdata2 work."
   ],
-  "confidence": 0.91
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

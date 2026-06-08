@@ -11,134 +11,144 @@
     "merged_at": "2026-05-08T16:46:29Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled a large slice of the Stage Switch menu implementation in src/melee/mn/mnstagesw.c. The PR added typed per-GObj user data, menu text/cursor setup, two-column stage navigation, input handling, JObj animation/state updates, and GObj creation/teardown logic. decomp.dev reported +440 matched code bytes and +48 matched data bytes, with mnStageSw_80235DC8 becoming a 100% match and several other mnstagesw functions moving from 0% to substantial partial matches. There was no PR body or human review in the slice, so rationale is inferred from the diff and bot report.",
+  "summary": "Decompiled a large portion of src/melee/mn/mnstagesw.c, the stage-switch menu code. The PR added the MnStageSwData user-data struct, extern declarations for menu animation/model resources, text/icon construction, stage selection navigation, input handling, cursor/icon animation updates, and stage-switch GObj setup. decomp.dev reported one full new function match, mnStageSw_80235DC8, plus .sdata2, and large partial improvements for mnStageSw_80236CBC, mnStageSw_80236548, fn_80236998, mnStageSw_802359C8, fn_80235F80, and mnStageSw_80235C58.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "menu-implementation",
-      "stage-switch",
-      "ui-state-machine"
+      "menu-decompilation",
+      "struct-reconstruction",
+      "ui-animation",
+      "input-handling"
     ],
     "systems": [
-      "src/melee/mn",
+      "melee/mn",
       "stage-switch-menu",
-      "HSD-JObj",
-      "HSD-SisLib",
-      "game-stage-state"
+      "baselib-jobj",
+      "baselib-sislib",
+      "game-mode-stage-settings"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/mn/mnstagesw.c",
-      "role": "Stage Switch menu decompilation and matching work",
-      "changes": "+577/-17"
+      "added_lines": 577,
+      "deleted_lines": 17,
+      "role": "Only changed file; replaces placeholders with C implementations and support declarations for the stage-switch menu."
     }
   ],
   "what_changed": [
-    "Added sysdolphin/baselib/debug.h so the new allocation path can use HSD_ASSERTREPORT.",
-    "Introduced MnStageSwData with offset-style fields for menu state, six cached HSD_JObj pointers, padding, and an HSD_Text pointer array for all 29 stages.",
-    "Changed mnStageSw_802359C8 from a placeholder into text/icon creation for the two Stage Switch columns, using mnStageSw_stageIcons for unlocked stages and icon 0x25 for locked/unavailable stages.",
-    "Implemented mnStageSw_80235C58 as the helper that finds an available stage in the same 0-14 or 15-28 column, returning -1 when that column has no available stages.",
-    "Implemented mnStageSw_80235DC8 as D-pad navigation over the two-column stage list, including wraparound within each column and skipping unavailable stages; decomp.dev reported this function as 100% matched.",
-    "Implemented fn_80235F80 as the Stage Switch input proc: reads buttons, handles cancel/leave, handles toggling selected stages while avoiding disabling the last enabled stage, persists stage state, and routes D-pad movement through mnStageSw_80235DC8.",
-    "Added noinline-style wrapper helpers mnStageSw_80236178_noinline and mnStageSw_802364A0_noinline for calls into the existing icon positioning and JObj lookup helpers.",
-    "Implemented mnStageSw_80236548 to update hover/confirmation visuals using JObj child lookup, hidden flags, animation frame preservation, cursor position, and mnStageSw_803ED488 animation-loop settings.",
-    "Implemented fn_80236998 as the menu GObj update/state-machine proc, including transition animation handling, delayed text creation, per-frame animation advancement, text cleanup with HSD_SisLib_803A5CC4, and GObj destruction on exit.",
-    "Implemented mnStageSw_80236CBC to create the Stage Switch GObj, load MenMainConSs_Top, allocate/init MnStageSwData, cache child JObjs via lb_80011E24, load one MenMainCursorSs_Top cursor per stage, attach cursors to the two columns, hide locked cursors, and initialize hover position."
+    "Added #include <sysdolphin/baselib/debug.h> to support HSD_ASSERTREPORT in the new allocation path.",
+    "Introduced MnStageSwData with menu state bytes, a NUM_STAGES-sized enabled-state array, six HSD_JObj pointers at x20 through x34, padding, and HSD_Text* x40[NUM_STAGES].",
+    "Added externs for mnStageSw_803ED488, mn_804D6BB5, MenMainConSs_Top, and MenMainCursorSs_Top.",
+    "Changed mnStageSw_802359C8 from an HSD_GObj* prototype placeholder to a MnStageSwData* helper that creates two columns of stage icon text using HSD_SisLib_803A5ACC/HSD_SisLib_803A6368.",
+    "Implemented mnStageSw_80235C58 to find a valid selectable stage within the left or right column and return -1 when no enabled stage exists in that column.",
+    "Implemented mnStageSw_80235DC8, the fully matched D-pad navigation helper, including vertical wrap at 0/14 and 15/28 and left/right transfer between columns.",
+    "Implemented fn_80235F80 input handling for exiting the menu, toggling selected stages, saving stage-switch state through gm_801641E4, and navigating via D-pad buttons.",
+    "Added noinline wrappers mnStageSw_80236178_noinline and mnStageSw_802364A0_noinline around existing helpers, apparently to preserve desired codegen/call structure.",
+    "Implemented mnStageSw_80236548 to update hover and confirmed-selection visuals by hiding/showing child JOBJs, requesting animations, moving the selection marker, and applying mnStageSw_803ED488 animation-loop settings.",
+    "Implemented fn_80236998 as the per-frame process that tracks menu transitions, plays menu animations, creates/destroys text resources, hides inactive cursors, and syncs cached menu/hover/confirmed state.",
+    "Implemented mnStageSw_80236CBC to create the menu GObj, load MenMainConSs_Top, allocate/init MnStageSwData, create cursor JOBJs from MenMainCursorSs_Top for all 29 stages, attach them into two columns, and initialize the hover marker."
   ],
   "smart_moves": [
-    "Grounded the decomp around a concrete MnStageSwData layout instead of continuing to treat user_data as raw bytes; this made the JObj and text lifetimes visible while preserving offset-based field names where semantics remain uncertain.",
-    "Kept original-looking two-column control flow with split ranges 0-14 and 15-28 rather than over-abstracting into rows/columns, which is important for matching this menu code.",
-    "Preserved matching artifacts explicitly: #pragma dont_inline on mnStageSw_8023593C, PAD_STACK(0x28) in fn_80235F80, u8 casts around stage indices, pointer increments, goto check_dpad, and small *_noinline wrappers.",
-    "Threaded stage availability checks through gm_801641CC/gm_80164430 consistently before drawing icons, showing cursors, accepting navigation targets, or writing enable state with gm_801641E4.",
-    "Mirrored UI state changes through changed_hovered and changed_confirmed flags so animation/JObj updates only run when the backing menu state changes.",
-    "Used HSD_ASSERTREPORT immediately after HSD_MemAlloc for the new user_data allocation, matching the project's HSD allocation/assert style."
+    "Reconstructed a concrete per-GObj user-data struct instead of continuing to treat user_data as raw bytes, making offsets like x2C/x30/x34 and the HSD_Text array reusable across multiple functions.",
+    "Kept NUM_STAGES as the central bound for the stage mapping, enabled-state cache, text array, and cursor loop, reducing duplicated magic 29 usage while preserving exact 15/14/28 column split behavior where needed.",
+    "Separated navigation lookup, input handling, visual updates, and object creation into distinct static functions matching the original address-based symbols.",
+    "Used explicit noinline wrapper functions and retained #pragma dont_inline around mnStageSw_8023593C, which is a targeted matching tactic for fragile codegen.",
+    "Mirrored the menu's two-column layout directly in code: stages 0-14 use x2C and stages 15-28 use x34, with y spacing derived from x30 - x2C.",
+    "Handled locked/unavailable stages consistently by checking gm_80164430(gm_801641CC(stage_id)) before displaying normal icons, navigating to an item, or saving state."
   ],
   "decomp_lessons": [
-    "For menu decompilation, reconstruct the GObj user_data layout early; child JObj caches and text arrays often explain later animation and cleanup code.",
-    "Two-column menu selection code may match better as explicit boundary cases and duplicated ranges than as a generic grid navigation helper.",
-    "Stage switch state has two related concepts: availability/unlock checked through gm_801641CC and gm_80164430, and enabled/disabled state read or written through gm_80164250 and gm_801641E4.",
-    "HSD_SisLib text objects need lifecycle handling in menu state machines: this PR creates 29 text entries after entrance animation completion and frees them on exit.",
-    "Cursor visuals combine multiple HSD_JObj operations: lb_80011E24 child lookup, JOBJ_HIDDEN flag manipulation, HSD_JObjReqAnimAll/HSD_JObjAnimAll, frame reads from mn_8022F298, and AnimLoopSettings tables.",
-    "When evidence is still partial, keep field names offset-based like x0, x1, x2, x1F, x20-x40 instead of inventing semantic names prematurely."
+    "For menu decompilation, first recover the GObj user_data layout; once the JObj anchors, cached selection bytes, and text pointers are identified, several functions can be expressed coherently.",
+    "When a menu is visually arranged in columns, preserve the original split constants and wrap cases rather than over-generalizing; here 0/14 and 15/28 are meaningful control-flow boundaries.",
+    "SIS text creation often encodes UI layout details through JObj translations: this PR derives text x/y positions from HSD_JObjGetTranslationX/Y anchors instead of hardcoding every coordinate.",
+    "Stage availability and switch state are distinct: availability is checked through gm_80164430(gm_801641CC(stage_id)), while enabled/disabled state is read/written with gm_80164250 and gm_801641E4.",
+    "Partial matches can still be valuable when they convert many placeholders into structurally accurate C; the bot reported 75-91% matches for several newly implemented functions even though only mnStageSw_80235DC8 fully matched.",
+    "Use HSD_ASSERTREPORT plus GObj_InitUserData with HSD_Free when newly allocated menu user data belongs to a GObj lifecycle."
   ],
   "naming_conventions": [
-    "Static functions and data keep the mnStageSw_ prefix plus address-style suffixes, e.g. mnStageSw_80235DC8 and mnStageSw_803ED4C4.",
-    "The new struct is semantically named MnStageSwData, but its members stay offset-based because the PR does not establish final field meanings.",
-    "NUM_STAGES names the 29-stage array length, while the column split remains expressed with literal bounds 15, 14, and 28 where needed for matching.",
-    "Existing asset/export names are preserved as externs: MenMainConSs_Top, MenMainCursorSs_Top, mnStageSw_803ED488, and mn_804D6BB5.",
-    "Wrapper helper names include _noinline, documenting their matching purpose without changing the underlying address-named helpers."
+    "File-local symbols retain the module prefix mnStageSw_ plus address suffix, e.g. mnStageSw_80235DC8 and mnStageSw_80236CBC.",
+    "Unknown struct fields are named by offset, e.g. x0, x1, x2, x1F, x20, x2C, x34, x40, with explicit pad_38 for layout.",
+    "Resource externs preserve asset-style names and capitalization: MenMainConSs_Top and MenMainCursorSs_Top.",
+    "Temporary noinline shims use the original function name plus _noinline, e.g. mnStageSw_80236178_noinline.",
+    "The local compile-time stage count is named NUM_STAGES and set to 29."
   ],
   "assembly_or_matching_tactics": [
-    "Used #pragma dont_inline around mnStageSw_8023593C and retained a local pad[8] stack artifact.",
-    "Used PAD_STACK(0x28) in fn_80235F80 to preserve frame shape.",
-    "Added small trampoline wrappers mnStageSw_80236178_noinline and mnStageSw_802364A0_noinline around existing helper calls.",
-    "Kept pointer-walk loops for texts, icons, and stage IDs instead of purely indexing every access.",
-    "Used explicit do/while and goto check_dpad in the input handler, matching original control-flow shape.",
-    "Kept duplicated range setup in mnStageSw_80235C58 for low/high and start/end rather than simplifying the logic.",
-    "Relied on direct HSD_JObjGetTranslationX/Y calls and explicit f32 casts in position calculations, avoiding helper abstractions that could perturb codegen."
+    "Used #pragma dont_inline on mnStageSw_8023593C and reset afterward.",
+    "Added explicit _noinline wrapper functions around mnStageSw_80236178 and mnStageSw_802364A0 to influence call/inlining shape.",
+    "Inserted PAD_STACK(0x28) in fn_80235F80, indicating stack-shape preservation for matching.",
+    "Used u8 casts and s32 comparisons in loops and bounds checks, matching the original signed/unsigned behavior.",
+    "Preserved a goto-style check_dpad label in fn_80235F80, likely to keep branch structure close to the original.",
+    "Maintained pointer-walk patterns for stage_ids, icon, and text arrays where useful for codegen.",
+    "Split loops around 15 entries and NUM_STAGES rather than abstracting into a generic column helper, preserving original control flow and constants."
   ],
   "review_feedback": [
-    "No human review comments were present in the provided slice, and the PR body was empty.",
-    "decomp.dev reported matched code 66.34% (+0.01%, +440 bytes) and matched data 38.71% (+0.00%, +48 bytes) for GALE01 c35dfb5..54b606b.",
-    "decomp.dev reported 2 new matches: mnStageSw_80235DC8 at +440 bytes from 0.00% to 100.00%, and main/melee/mn/mnstagesw .sdata2 at +26 bytes from 46.67% to 100.00%.",
-    "decomp.dev reported improvements for mnStageSw_80236CBC to 81.17%, mnStageSw_80236548 to 91.36%, fn_80236998 to 82.38%, mnStageSw_802359C8 to 87.54%, fn_80235F80 to 84.29%, mnStageSw_80235C58 to 75.85%, and .data to 72.46%.",
-    "decomp.dev also reported one unmatched-item regression: main/melee/mn/mnstagesw .sdata dropped by 4 bytes, from 76.47% to 61.90%."
+    "No human review comments were present in the provided PR slice.",
+    "decomp.dev reported matched code improved by +440 bytes and matched data by +48 bytes.",
+    "decomp.dev reported 2 new matches: mnStageSw_80235DC8 reached 100.00%, and .sdata2 reached 100.00%.",
+    "decomp.dev reported 7 partial improvements in main/melee/mn/mnstagesw: mnStageSw_80236CBC 81.17%, mnStageSw_80236548 91.36%, fn_80236998 82.38%, mnStageSw_802359C8 87.54%, fn_80235F80 84.29%, mnStageSw_80235C58 75.85%, and .data 72.46%.",
+    "decomp.dev also reported one unmatched-item regression: .sdata changed from 76.47% to 61.90% (-4 bytes)."
   ],
   "searchable_terms": [
     "pr-2445",
     "Jj/mnstagesw",
-    "jj/mnstagesw",
     "jurrejelle",
-    "src/melee/mn/mnstagesw.c",
-    "main/melee/mn/mnstagesw",
-    "Stage Switch",
+    "mnstagesw.c",
     "mnStageSw",
     "MnStageSwData",
     "NUM_STAGES",
-    "mnStageSw_803ED4C4",
-    "mnStageSw_stageIcons",
-    "mnStageSw_803ED488",
-    "mnStageSw_804D6BF0",
-    "mnStageSw_804D6BF4",
+    "stage switch",
+    "stage-switch menu",
     "mnStageSw_8023593C",
     "mnStageSw_802359C8",
     "mnStageSw_80235C58",
     "mnStageSw_80235DC8",
     "fn_80235F80",
-    "mnStageSw_80236178_noinline",
-    "mnStageSw_802364A0_noinline",
+    "mnStageSw_80236178",
+    "mnStageSw_802364A0",
     "mnStageSw_80236548",
     "fn_80236998",
     "mnStageSw_80236CBC",
+    "mnStageSw_803ED4C4",
+    "mnStageSw_stageIcons",
+    "mnStageSw_803ED488",
+    "mnStageSw_804D6BF0",
+    "mnStageSw_804D6BF4",
+    "mn_804A04F0",
     "MenMainConSs_Top",
     "MenMainCursorSs_Top",
-    "mn_804A04F0",
-    "hovered_selection",
-    "confirmed_selection",
     "HSD_SisLib_803A5ACC",
     "HSD_SisLib_803A6368",
     "HSD_SisLib_803A5CC4",
-    "HSD_JObjLoadJoint",
-    "HSD_JObjReqAnimAll",
-    "HSD_JObjAnimAll",
+    "HSD_JObjGetTranslationY",
+    "HSD_JObjGetTranslationX",
+    "HSD_JObjSetFlagsAll",
+    "HSD_JObjClearFlagsAll",
     "JOBJ_HIDDEN",
-    "lb_80011E24",
-    "gm_801641CC",
-    "gm_80164430",
-    "gm_801641E4",
-    "gm_80164250",
+    "GObj_Create",
+    "GObj_InitUserData",
+    "HSD_ASSERTREPORT",
     "PAD_STACK",
     "dont_inline",
-    "HSD_ASSERTREPORT"
+    "noinline wrapper",
+    "gm_801641CC",
+    "gm_801641E4",
+    "gm_80164250",
+    "gm_80164430"
   ],
   "follow_up_queries": [
-    "Find later PRs that finish or rename fields in MnStageSwData.",
-    "Search for follow-up work that completes mnStageSw_80236CBC, mnStageSw_80236548, fn_80236998, mnStageSw_802359C8, fn_80235F80, or mnStageSw_80235C58 to 100%.",
-    "Look for later fixes to the main/melee/mn/mnstagesw .sdata regression reported by decomp.dev.",
-    "Compare the *_noinline wrapper tactic in this PR with noinline wrappers in other mn menu decomp files.",
-    "Search adjacent menu implementations using MenMainConSs_Top, MenMainCursorSs_Top, HSD_SisLib_803A5ACC, or lb_80011E24 for reusable menu setup patterns."
+    "Find later PRs touching src/melee/mn/mnstagesw.c to see whether the partial matches from PR 2445 were completed.",
+    "Search for other menu files using GObj user_data structs with HSD_Text arrays and JObj anchor fields.",
+    "Search for _noinline wrapper use in melee/mn to identify recurring matching tactics.",
+    "Compare MenMainConSs_Top and MenMainCursorSs_Top usage in neighboring menu decompilation PRs."
   ],
-  "confidence": 0.86
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

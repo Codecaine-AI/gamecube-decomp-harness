@@ -11,104 +11,82 @@
     "merged_at": "2026-03-26T16:22:36Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched a substantial batch of Kirby special-move code in ftKb_SpecialN.c, centered on neutral-special inhale/capture/spit/drink animations, airborne stone IASA, and one copied-special IASA path. decomp.dev reported +3608 matched bytes, 16 new 100% matches, and fn_800F53AC improved from 0% to 98.51%. The PR also cleaned up the Kirby item distance helper it_802F23AC by giving it real Item_GObj/Vec3 types instead of raw int*/float* pointer math.",
+  "summary": "Matched a large set of Kirby special-move functions, primarily in ftKb_SpecialN.c, including grounded/air SpecialN anim/capture/spit/drink paths, SpecialAirLw_IASA, CaSpecialAirN_IASA, and partial work on fn_800F53AC. The PR also cleaned up the Kirby item distance helper it_802F23AC by replacing raw int*/float* pointer arithmetic with typed Item_GObj*/Vec3 access. The decomp.dev bot reported +3608 matched bytes, 16 new function matches, and one unmatched function improved to 98.51%.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "fighter-action-logic",
       "headers",
-      "item-helper-typing",
-      "effect-callbacks",
-      "codegen-matching-refactor"
+      "type-cleanup",
+      "fighter-state-logic",
+      "item-helper-cleanup"
     ],
     "systems": [
       "fighter",
       "Kirby",
       "item",
       "effects",
-      "ftCommon"
+      "throw-capture"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
-      "role": "Primary file; added/adjusted Kirby neutral-special, stone, and copied-special functions plus static inline helpers, effect includes, ftcoll include, and several matching-oriented padding/fake-match edits.",
-      "added": 386,
-      "deleted": 107
-    },
-    {
-      "path": "src/melee/it/items/itkirby_2F23.c",
-      "role": "Rewrote it_802F23AC as a typed squared-distance helper using GET_ITEM, Item.pos, Vec3, and SQ instead of manual raw pointer offsets.",
-      "added": 4,
-      "deleted": 22
-    },
-    {
-      "path": "src/melee/it/items/itkirby_2F23.h",
-      "role": "Updated it_802F23AC prototype from double it_802F23AC(int*, float*) to f64 it_802F23AC(Item_GObj*, Vec3*).",
-      "added": 1,
-      "deleted": 1
-    }
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+    "src/melee/it/items/itkirby_2F23.c",
+    "src/melee/it/items/itkirby_2F23.h"
   ],
   "what_changed": [
-    "Filled previously placeholder-marked Kirby neutral-special animation functions: ftKb_SpecialN_Anim, ftKb_SpecialAirN_Anim, ftKb_SpecialNCapture0_Anim, ftKb_SpecialNCapture_Anim, ftKb_SpecialNSpit_Anim, ftKb_SpecialAirNSpit_Anim, and ftKb_SpecialNDrink_Anim.",
-    "Added shared neutral-special helpers ftKb_SpecialN_SetHitlagCb and ftKb_SpecialN_SetThrowCb to perform Fighter_ChangeMotionState, set hitlag pause/resume callbacks, and install ftCommon_8007E2D0 capture/release/throw callbacks.",
-    "Added capture-state helper ftKb_SpecialNCapture_EnterState, which changes motion state, calls ftKb_SpecialN_800F9070, and resets capture/throw state with ftCommon_8007E2F4(fp, 0x1FF).",
-    "Implemented inhale distance checks around specialn_x_offset_inhaled, specialn_y_offset_inhaled, and specialn_inhale_velocity for item and fighter targets, using it_802F23AC or ftCo_800BD19C against squared velocity thresholds before transitioning to ground or air follow-up states.",
-    "Implemented spit animation logic that releases a captured victim through ftCo_800DE2CC, ftCo_800BDB58, ftColl_8007B8CC, clears cmd_vars[0], and exits to wait or fall when animation frames end.",
-    "Implemented drink animation logic for fighter victims using ftCo_800DE2CC, ftCo_800BE000, ftCo_800BD9E0, and ftKb_SpecialN_800F1BAC; also adjusted Drink0/Drink1 variants with getFighter and PAD_STACK for matching.",
-    "Added ftKb_SpecialAirLw_IASA using the existing stone timer test as fbKb_SpecialLw_IASA_Inline, preserving fp->x221C_b4 across Fighter_ChangeMotionState to ftKb_MS_SpecialAirLwEnd and spawning effect 0x49C.",
-    "Added fn_800F53AC at near-match quality: it spawns/cleans up Kirby hat item state via it_802ADC54/it_802ADC34, stores x1984_heldItemSpec, validates death2_cb with OSReport/__assert strings, sets Kirby damage callbacks, and spawns ground/air effects 0x496/0x497.",
-    "Added fn_800F9260_DrMario helper that builds a candidate list excluding the previous two pill choices, uses HSD_Randi, updates fv.kb.x68/x6C, and spawns It_Kind_Kirby_DrMarioVitamin with itDrMarioPill_Spawn.",
-    "Matched ftKb_CaSpecialAirN_IASA, computing airborne copied-special momentum from left-stick Y, Kirby dat attrs specialn_ca_* ranges, sinf/cosf, and facing_dir.",
-    "Improved smaller already-near-matching functions including fn_800F21E8, ftKb_SpecialN_800F5DE8, ftKb_SpecialN_800F5EA8, ftKb_SpecialAirNDrink_Anim, fn_800F98F4, ftKb_SpecialNDrink0_Anim, and ftKb_SpecialNDrink1_Anim.",
-    "Added includes for efasync.h, ftcoll.h, itCommonItems.h, itdrmariopill.h, and itmariofireball.h to support newly decompiled effect, collision, and item calls."
+    "Implemented or matched multiple previously stubbed Kirby SpecialN-related animation functions: ftKb_SpecialN_Anim, ftKb_SpecialAirN_Anim, ftKb_SpecialNCapture0_Anim, ftKb_SpecialNCapture_Anim, ftKb_SpecialNSpit_Anim, ftKb_SpecialAirNSpit_Anim, and ftKb_SpecialNDrink_Anim.",
+    "Matched ftKb_SpecialAirLw_IASA by factoring the stone-release countdown/input test into fbKb_SpecialLw_IASA_Inline and preserving x221C_b4 across the transition to ftKb_MS_SpecialAirLwEnd before spawning effect 0x49C.",
+    "Added fn_800F53AC implementation for Kirby hat/item spawning and cleanup: it_802ADC54 creates the item, x1984_heldItemSpec is updated, death/take-damage callbacks are installed, effect 0x496 or 0x497 is spawned depending on ground/air state, and cmd_vars[0] == 2 cleans up via it_802ADC34.",
+    "Added SpecialN helper inlines for shared state setup: ftKb_SpecialN_SetHitlagCb sets motion state plus effect hitlag pause/resume callbacks, ftKb_SpecialN_SetThrowCb configures capture/release/throw callbacks through ftCommon_8007E2D0, ftKb_SpecialNCapture_EnterState enters capture states and clears throw state with ftCommon_8007E2F4.",
+    "Improved inhaled-item/fighter distance checks in ftKb_SpecialN_800F5DE8, ftKb_SpecialN_800F5EA8, ftKb_SpecialNCapture0_Anim, and ftKb_SpecialNCapture_Anim by using Vec3 initialized from fp->cur_pos and comparing against the squared inhale velocity.",
+    "Matched ftKb_CaSpecialAirN_IASA, computing Copy Ability projectile launch velocity from left-stick Y, specialn_ca axis range attributes, angle difference, sinf/cosf, forward momentum, and facing direction.",
+    "Improved fn_800F98F4 by using GET_FIGHTER, ftParts_GetBoneIndex(FtPart_LHandN), spawning Kirby Luigi fire with it_802C01AC, and spawning effect 0x4B1 on the hand joint.",
+    "Added includes needed by the new code, including ef/efasync.h, ft/ftcoll.h, it/itCommonItems.h, it/items/itdrmariopill.h, and it/items/itmariofireball.h.",
+    "Changed it_802F23AC signature from double it_802F23AC(int* obj, float* pos) to f64 it_802F23AC(Item_GObj* obj, Vec3* pos), and rewrote the implementation to use GET_ITEM(gobj) and SQ(ip->pos.* - pos->*) instead of raw offset comments and casts."
   ],
   "smart_moves": [
-    "Retyping it_802F23AC to Item_GObj* and Vec3* removed unsafe casts at Kirby callsites and made the squared-distance logic readable while preserving f64 return behavior.",
-    "Factoring repeated ground/air neutral-special setup into static inline helpers kept paired functions structurally similar but still allowed per-state motion IDs and callback choices.",
-    "The PR preserved callback assignment order through ftKirbyDmgInline and ftKirbyDmgInline2, which matters for matching when death2_cb and take_dmg_cb are assigned in different orders.",
-    "Effect spawning was tied to the same state bits and hitlag callbacks used by related fighter code: x2219_b0/x2222_b2 plus efLib_PauseAll and efLib_ResumeAll.",
-    "Distance comparisons stayed in squared-distance space, matching the helper contract and avoiding unnecessary sqrt-style logic.",
-    "The diff uses small, explicit matching aids such as PAD_STACK, u8 padding arrays, fake self-assignment, and an empty fake-match branch rather than hiding them in unclear control flow."
+    "Factored repeated SpecialN state setup into small static inline helpers, which allowed ground and air versions to share logic while still giving the compiler inline shapes suitable for matching.",
+    "Kept evidence of matching-sensitive constructs explicit with PAD_STACK, fake self-assignment, comma-operator/regalloc comments, and an empty fake-match branch from the permuter instead of hiding them as ordinary gameplay logic.",
+    "Moved ftKirbyDmgInline and ftKirbyDmgInline2 near the top as static inline helpers and removed unnecessary callback casts, relying on proper callback types already available in the fighter struct.",
+    "Used squared-distance comparisons against SQ or velocity squared, avoiding a sqrt and matching the helper it_802F23AC behavior.",
+    "Typed the item-distance API with Item_GObj and Vec3, which made callsites cleaner and eliminated unsafe int*/float* casts in Kirby inhale code.",
+    "Split fn_800F53AC into SpawnEffect and CleanupItem inline helpers, isolating effect/hitlag-callback setup and item cleanup while leaving the command-variable state machine readable.",
+    "Preserved exact side effects around capture/spit/drink transitions: ftCommon_8007E2F4 cleanup, ftCo_800DE2CC linkage, victim callbacks such as ftCo_800BDB58 or ftCo_800BE000, and resetting cmd_vars[0]."
   ],
   "decomp_lessons": [
-    "Do not normalize GET_FIGHTER versus getFighter blindly; this PR deliberately uses both forms in different functions for codegen/register allocation.",
-    "When a raw-pointer helper's true data types become clear from callsites, update the header and implementation together; this can remove casts and improve several caller matches.",
-    "For paired ground/air action-state functions, static inline helpers with a motion-state parameter can express shared game logic without sacrificing matching.",
-    "Preserve stack shape explicitly in stubborn functions. PAD_STACK(16/20/24) and u8 _pad arrays were used repeatedly to reach 100% matches.",
-    "Small fake-match constructs are sometimes necessary and should be documented in-line, as with the empty check on specialhi_projectile_spawn_x and the self-assignment to facing_dir.",
-    "Callback order can be semantically equivalent but codegen-distinct; the two Kirby damage inline helpers intentionally assign death2_cb and take_dmg_cb in opposite orders.",
-    "Keep item/fighter capture flows separated until evidence supports merging: item inhale uses it_802F23AC/it_802F2810, while fighter inhale uses ftCo_800BD19C/ftCo_800BD620."
+    "For paired ground/air fighter states, write one inline helper for the shared callback/state setup and pass only the motion-state IDs or callback variants that differ; this can improve both readability and matching.",
+    "When matching code that uses position-distance thresholds, prefer typed Vec3 and SQ expressions if they preserve codegen; this can replace raw pointer arithmetic without losing the match.",
+    "Do not remove weird-looking padding or fake operations if the diff says they are required by the permuter or regalloc; PAD_STACK, self-assignment, and empty branches may be intentional matching artifacts.",
+    "Callback assignment order can matter. The PR kept both ftKirbyDmgInline and ftKirbyDmgInline2 because death2_cb/take_dmg_cb are assigned in different orders for different matching contexts.",
+    "Effect spawning in fighter animation callbacks often needs the hitlag pause/resume callbacks set in the same block, not just efAsync_Spawn or efSync_Spawn.",
+    "When implementing Kirby inhale/capture paths, distinguish item targets from fighter victims: item paths call it_802F23AC/it_802F2810, while fighter paths call ftCo_800BD19C/ftCo_800BD620.",
+    "Header fixes can unlock cleaner matching work: correcting it_802F23AC's prototype removed local casts in ftKb_SpecialN.c and made the item helper easier to reuse."
   ],
   "naming_conventions": [
-    "Kirby fighter functions keep the ftKb_ prefix and action-state suffixes such as _Anim, _IASA, _Phys, and _Coll.",
-    "Aerial action-state variants use SpecialAir in the symbol name, e.g. ftKb_SpecialAirN_Anim, ftKb_SpecialAirLw_IASA, and ftKb_CaSpecialAirN_IASA.",
-    "Address-based unknowns remain fn_800Fxxxx, but local static inline helpers add descriptive suffixes such as _SpawnEffect, _CleanupItem, _DrMario, _SetHitlagCb, and _SetThrowCb.",
-    "Kirby dat attrs are typed as ftKb_DatAttrs* and fields follow move-family prefixes: specialn_*, speciallw_*, specialhi_*, and specialn_ca_*.",
-    "Item helper naming stays address-based for it_802F23AC, but its signature now uses project types Item_GObj* and Vec3*.",
-    "The code consistently uses fp for Fighter*, item_gobj for Item_GObj*, victim_gobj for captured fighters, pos for Vec3, and part enums such as FtPart_YRotN, FtPart_HipN, FtPart_R3rdNa, and FtPart_LHandN."
+    "Kirby fighter functions retain the ftKb_ prefix, with state/action suffixes such as SpecialN, SpecialAirN, SpecialNCapture, SpecialNSpit, SpecialNDrink, and CaSpecialAirN.",
+    "Shared local matching helpers were named with the target function or behavior followed by _inline, such as ftKb_SpecialNSpit_Anim_inline and ftKb_SpecialNDrink_Anim_inline.",
+    "Helper names for decomposed unknown functions use the original symbol plus a descriptive suffix, for example fn_800F53AC_SpawnEffect, fn_800F53AC_CleanupItem, and fn_800F9260_DrMario.",
+    "Kirby data attributes are treated as ftKb_DatAttrs* rather than struct ftKb_DatAttrs*, matching the project typedef style.",
+    "The item helper keeps its address-style name it_802F23AC but its prototype now exposes semantic types Item_GObj* and Vec3*."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(16), PAD_STACK(20), PAD_STACK(24), and explicit u8 _pad arrays to reproduce stack layout.",
-    "Changed fn_800F21E8 from a temporary var_f1 branch to a facing_dir ternary and added an empty fake-match branch on specialhi_projectile_spawn_x.",
-    "Kept a documented comma-operator/regalloc trick in ftKb_SpecialAirHi3_Phys and adjusted parentheses around specialhi_horizontal_momentum.",
-    "Used fake self-assignment fp->facing_dir = fp->facing_dir after capture transitions, explicitly marked as permuter-discovered fake match.",
-    "Introduced otherwise redundant temporaries such as new_fp/new_var and reordered assignments to influence register allocation.",
-    "Moved inline helpers earlier in the file and made them static inline where callsite inlining/order mattered.",
-    "Used SQ(...) macros for squared thresholds and item/fighter distance calculations, matching the original no-sqrt behavior.",
-    "For ftKb_CaSpecialAirN_IASA, retained exact float constants and math calls, including 0.017453292f, sinf, and cosf."
+    "Used PAD_STACK with sizes including 16, 20, 24, and 32 bytes to match stack layout in several newly matched functions.",
+    "Used fake-match artifacts explicitly: an empty if (!da->specialhi_projectile_spawn_x) block, fp->facing_dir = fp->facing_dir self-assignments, and comments noting permuter-derived fake matches.",
+    "Kept a comma-operator expression in ftKb_SpecialAirHi3_Phys for regalloc-sensitive code.",
+    "Adjusted variable declaration/initialization order, such as Vec3 pos = fp->cur_pos and temporary Fighter* aliases, to obtain matching register allocation.",
+    "Used static inline helpers rather than out-of-line functions for repeated code blocks so the compiler could produce duplicated code matching the original.",
+    "Removed a previous pragma dont_inline around ftKb_SpecialN_800F5DE8 after rewriting the function shape with direct typed calls and padding.",
+    "Used boolean true/false in the shared SpecialLw IASA inline while keeping its control-flow structure intact."
   ],
   "review_feedback": [
-    "No human review comments or PR body text were present in the slice, so reviewer intent is weakly evidenced.",
-    "decomp-dev bot reported matched code 60.48% overall, +0.09%, +3608 bytes for GALE01.",
-    "Bot report listed 16 new 100% matches in main/melee/ft/chara/ftKirby/ftKb_SpecialN, including ftKb_SpecialN_Anim, ftKb_SpecialAirN_Anim, ftKb_SpecialNCapture0_Anim, ftKb_SpecialNCapture_Anim, ftKb_SpecialAirLw_IASA, ftKb_CaSpecialAirN_IASA, ftKb_SpecialNDrink_Anim, ftKb_SpecialNSpit_Anim, and ftKb_SpecialAirNSpit_Anim.",
-    "Bot report also listed fn_800F53AC as improved from 0.00% to 98.51%, not fully matched.",
-    "PR was squash-merged after the automated match report; no explicit review rationale was captured."
+    "No human review comments were present in the provided slice.",
+    "The decomp.dev bot reported matched code increased to 60.48% (+0.09%, +3608 bytes), with 16 new matches and fn_800F53AC improved from 0.00% to 98.51%."
   ],
   "searchable_terms": [
     "pr-2355",
-    "ftKb_SpecialN.c",
+    "ftKb_SpecialN.c work",
+    "lukechampine",
     "ftKb_SpecialN_Anim",
     "ftKb_SpecialAirN_Anim",
     "ftKb_SpecialNCapture0_Anim",
@@ -121,46 +99,44 @@
     "ftKb_SpecialN_800F5DE8",
     "ftKb_SpecialN_800F5EA8",
     "fn_800F53AC",
-    "fn_800F21E8",
     "fn_800F98F4",
-    "fn_800F9260_DrMario",
     "it_802F23AC",
     "Item_GObj",
     "Vec3",
     "GET_ITEM",
-    "ftKb_DatAttrs",
+    "GET_FIGHTER",
+    "PAD_STACK",
+    "fake match",
+    "permuter",
     "efAsync_Spawn",
     "efSync_Spawn",
     "efLib_PauseAll",
     "efLib_ResumeAll",
     "ftCommon_8007E2D0",
     "ftCommon_8007E2F4",
-    "ftCo_800BD1DC",
     "ftCo_800BD19C",
     "ftCo_800BD620",
     "ftCo_800DE2CC",
-    "ftCo_800BDB58",
-    "ftCo_800BE000",
     "ftColl_8007B8CC",
-    "it_802F2810",
-    "it_802ADC54",
-    "it_802ADC34",
-    "itDrMarioPill_Spawn",
-    "It_Kind_Kirby_DrMarioVitamin",
-    "PAD_STACK",
-    "SQ",
-    "fake match",
     "Kirby inhale",
-    "Kirby spit",
-    "Kirby drink",
-    "Kirby stone"
+    "Kirby stone",
+    "Kirby copy ability",
+    "itDrMarioPill_Spawn",
+    "It_Kind_Kirby_DrMarioVitamin"
   ],
   "follow_up_queries": [
-    "Finish fn_800F53AC from 98.51% to 100%, focusing on item cleanup/spawn, OSReport/__assert callback checks, and effect callback ordering.",
-    "Investigate fn_800F9260 after the added fn_800F9260_DrMario helper; this PR did not have a bot-reported full match for the parent function.",
-    "Search later PRs for ftKb_SpecialLw_Coll, ftKb_SpecialAirLw_Coll, and end-coll placeholder cleanup around Kirby stone.",
-    "Audit remaining it_802F23AC callers for stale raw int*/float* casts after the Item_GObj*/Vec3* header change.",
-    "Reuse the ftKb_SpecialN_SetHitlagCb and ftKb_SpecialN_SetThrowCb pattern when matching other paired ground/air capture-start animations."
+    "Find later PRs that finish matching fn_800F53AC from 98.51% to 100%.",
+    "Search for other item helpers still using raw int* or float* prototypes that can be typed as Item_GObj* and Vec3*.",
+    "Look for later cleanup of fake-match constructs in ftKb_SpecialN.c, especially the empty branch and self-assignment comments.",
+    "Compare this PR's SpecialN helper inlining pattern against other Kirby copy ability matching PRs."
   ],
-  "confidence": 0.9
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

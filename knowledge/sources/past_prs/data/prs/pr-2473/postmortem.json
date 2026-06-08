@@ -11,83 +11,78 @@
     "merged_at": "2026-05-10T00:54:32Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Small game-mode decomp matching PR touching gm_1601, gm_16AE, gm_16F1, and gmmain_lib. It tightened function prototypes, changed a few expression shapes, introduced a static inline spawn-point helper, removed likely artificial small-data labels, and synchronized headers. The decomp.dev bot reported matched code rising to 66.46% (+0.02%, +668 bytes), with new 100% matches for gm_16AE fn_8016DEEC and gm_1601 fn_8016989C; it also reported one regression in fn_801695BC.",
+  "summary": "Small game-mode decomp matching cleanup across gm_1601, gm_16AE, gm_16F1, and gmmain_lib. The PR tightened several function prototypes to narrower or more semantically accurate types, introduced a static inline helper for repeated spawn-point lookup logic, rewrote some expressions to better match code generation, removed now-unneeded static BSS declarations, and changed gmMainLib_8015DADC from s32 to bool to reflect predicate usage.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "type-signature-correction",
-      "inline-helper-refactor",
-      "small-data-cleanup",
-      "control-flow-expression-shaping"
+      "type-correction",
+      "codegen-shaping",
+      "inline-helper-refactor"
     ],
     "systems": [
       "game-mode",
-      "gm_1601",
-      "gm_16AE",
-      "gm_16F1",
-      "gmmain_lib",
-      "match-spawn-setup"
+      "gm",
+      "gmmain_lib"
     ]
   },
   "key_files": [
-    "src/melee/gm/gm_1601.c - changed fn_801695BC and fn_8016989C argument widths from s32-style to u8 and removed an explicit s32 cast at a callsite",
-    "src/melee/gm/gm_1601.h - synchronized prototypes for fn_801695BC and fn_8016989C",
-    "src/melee/gm/gm_16AE.c - changed pre-increment to post-increment in fn_8016D634 and introduced static inline getSpawnPoint used by fn_8016DEEC, fn_8016E2BC, and gm_8016EDDC",
-    "src/melee/gm/gm_16F1.c - changed fn_8016FAD4 kind parameter from u32 to int, zero-initialized rankings[7], rewrote gm_80173EEC_inline skip logic as early continues",
-    "src/melee/gm/gm_16F1.h - synchronized fn_8016FAD4 prototype",
-    "src/melee/gm/gm_16F1.static.h - removed static lbl_804DA2E8, lbl_804DA2EC, and lbl_804DA2EE declarations",
-    "src/melee/gm/gmmain_lib.c - changed gmMainLib_8015DADC return type from s32 to bool",
-    "src/melee/gm/gmmain_lib.h - synchronized gmMainLib_8015DADC prototype"
+    "src/melee/gm/gm_1601.c",
+    "src/melee/gm/gm_1601.h",
+    "src/melee/gm/gm_16AE.c",
+    "src/melee/gm/gm_16F1.c",
+    "src/melee/gm/gm_16F1.h",
+    "src/melee/gm/gm_16F1.static.h",
+    "src/melee/gm/gmmain_lib.c",
+    "src/melee/gm/gmmain_lib.h"
   ],
   "what_changed": [
-    "fn_8016989C now takes u8 arg1 and u8 arg2 instead of wider integer types; the caller in gm_801674C4 no longer casts Player_GetCostumeId(0) to s32.",
-    "fn_801695BC now takes u8 arg1 and u8 arg2 instead of s32 arg1 and s32 arg2; its header declaration was updated the same way.",
-    "fn_8016D634 changed the counter expression from ++lbl_8046B6A0.unk_30 to lbl_8046B6A0.unk_30++ in the threshold check against lbl_8046B6A0.x24C8.xD.",
-    "gm_16AE.c gained static inline getSpawnPoint(int i, Vec3* v), which resolves FighterMatchInfo[i].spawn_point == -1 to the player index and otherwise passes the configured spawn_point into Stage_80224E64.",
-    "Repeated inline spawn-point selection blocks in fn_8016DEEC, fn_8016E2BC, and gm_8016EDDC were replaced with getSpawnPoint calls.",
-    "fn_8016FAD4 changed its kind parameter from u32 to int and replaced manual byte copying from lbl_804DA2E8/lbl_804DA2EC/lbl_804DA2EE into rankings with u8 rankings[7] = { 0 }.",
-    "gm_16F1.static.h removed the static small-data declarations lbl_804DA2E8, lbl_804DA2EC, and lbl_804DA2EE after fn_8016FAD4 stopped using them.",
-    "gm_80173EEC_inline rewrote one large compound condition into a series of early continue checks for constants 0x29, 0x42, 0x43, 0xB9, 0xC9, 0xCA, and 9, followed by if (!gmMainLib_8015DADC(i)).",
-    "gmMainLib_8015DADC was retyped from s32 to bool in both implementation and header."
+    "Updated fn_801695BC and fn_8016989C signatures in gm_1601.c and gm_1601.h so the second and third parameters use u8 instead of s32/long-style wider types.",
+    "Removed an explicit cast to s32 when passing Player_GetCostumeId output into fn_8016989C, consistent with the new u8 prototype.",
+    "Changed a counter condition in fn_8016D634 from pre-increment to post-increment: ++lbl_8046B6A0.unk_30 became lbl_8046B6A0.unk_30++.",
+    "Added static inline getSpawnPoint(int i, Vec3* v) in gm_16AE.c to centralize repeated logic selecting either the player index or FighterMatchInfo[i].spawn_point before calling Stage_80224E64.",
+    "Replaced several duplicated spawn-point lookup blocks in fn_8016DEEC, fn_8016E2BC, and gm_8016EDDC with getSpawnPoint calls.",
+    "Removed a temporary s8 variable in gm_8016EDDC after the spawn-point helper made it unnecessary.",
+    "Changed fn_8016FAD4 kind parameter from u32 to int in gm_16F1.c and gm_16F1.h.",
+    "Initialized rankings in fn_8016FAD4 with u8 rankings[7] = { 0 } instead of manually loading lbl_804DA2E8, lbl_804DA2EC, and lbl_804DA2EE into the byte array.",
+    "Removed static declarations lbl_804DA2E8, lbl_804DA2EC, and lbl_804DA2EE from gm_16F1.static.h after the rankings initialization no longer referenced them.",
+    "Rewrote gm_80173EEC_inline filtering logic from one compound condition into a sequence of early continue checks followed by if (!gmMainLib_8015DADC(i)).",
+    "Changed gmMainLib_8015DADC return type from s32 to bool in gmmain_lib.c and gmmain_lib.h."
   ],
   "smart_moves": [
-    "Using a static inline getSpawnPoint avoided repeated hand-written spawn-point branches while preserving inlining; the bot reported fn_8016DEEC reaching 100% and improvements in fn_8016E2BC and gm_8016EDDC.",
-    "Narrowing character/costume-like parameters to u8 matched callsite data better and removed an explicit cast; this coincided with fn_8016989C reaching 100%.",
-    "Changing a predicate-like bitset query, gmMainLib_8015DADC, to bool made callers express the check as !gmMainLib_8015DADC(i), which fits the rewritten gm_80173EEC_inline control flow.",
-    "Replacing synthetic-looking static data loads with rankings[7] = { 0 } both simplified fn_8016FAD4 and removed three static labels; the bot reported .sdata2 improving from 50.00% to 80.00%.",
-    "The PR used very small source-shape changes, such as pre-increment versus post-increment and early continues, to move stubborn near-matches without broad semantic rewrites."
+    "Used a static inline helper for spawn-point selection instead of duplicating the same if spawn_point == -1 pattern in multiple functions; this preserved local codegen control while reducing repeated source shapes.",
+    "Narrowed argument types where call sites and data usage indicate byte-sized values, which can affect register extension behavior and improve matching.",
+    "Converted a bitset query function to bool, matching how callers use it as a predicate and enabling simpler boolean-style source in gm_80173EEC_inline.",
+    "Replaced opaque manual BSS-backed initialization of rankings with an explicit zero initializer, eliminating unused static symbols and making the intended initial state clearer.",
+    "Split a dense exclusion predicate into ordered continue statements, a common matching tactic when compiler branch layout differs from an equivalent combined boolean expression."
   ],
   "decomp_lessons": [
-    "For gm functions that pass player character, costume, or similar byte-sized IDs, test u8 prototypes before keeping s32 parameters; width changes can affect casts, sign/zero extension, and matching.",
-    "When the same branch pattern appears in several neighboring functions, a static inline helper can be a matching tool, not just a cleanup refactor.",
-    "Spawn-point logic in gm_16AE follows the pattern: if FighterMatchInfo[i].spawn_point == -1, call Stage_80224E64 with i; otherwise call it with the stored spawn_point.",
-    "Do not assume unmatched .sdata2 labels are real constants; in this PR, replacing manual loads from lbl_804DA2E8/lbl_804DA2EC/lbl_804DA2EE with a zero initializer improved matching and allowed the labels to be removed.",
-    "Large compound conditions with unsigned range checks may need to be expressed as ordered early exits or continues to match compiler branch layout.",
-    "Header prototypes must be updated immediately with C source type discoveries; this PR kept gm_1601.h, gm_16F1.h, and gmmain_lib.h in sync with implementation changes."
+    "For decomp matching, equivalent C expressions are not interchangeable: pre-increment versus post-increment can materially change generated code.",
+    "When a function parameter semantically holds IDs or small enum-like values, using u8 instead of s32 may be necessary for correct extension/truncation and matching.",
+    "Static inline helpers can be useful in matching work when repeated logic must have the same emitted shape across several call sites without introducing an out-of-line function.",
+    "Manual reconstruction of small arrays from adjacent BSS symbols may be avoidable; a local aggregate initializer can both simplify source and eliminate questionable symbol declarations.",
+    "Predicate functions that return bit-test results should use bool when the source is consumed as true/false, but the change must be coordinated between .c and .h declarations.",
+    "Large compound boolean exclusions can be more match-friendly when expressed as sequential early exits or continues, especially inside loops."
   ],
   "naming_conventions": [
-    "The PR preserved existing address-based placeholder names such as fn_8016DEEC, fn_8016FAD4, gm_8016EDDC, and lbl_8046B6A0.",
-    "The only new semantic helper name in the diff is lowerCamelCase getSpawnPoint.",
-    "Struct/member names already present in the code, such as FighterMatchInfo, spawn_point, PlayerInitData, and Vec3, were reused rather than renamed.",
-    "Public header declarations retain address comments like /* 1695BC */ and /* 16FAD4 */ while updating only the types.",
-    "No human naming review was present in the slice."
+    "Preserved existing decomp placeholder function names such as fn_801695BC, fn_8016989C, fn_8016FAD4, and gm_80173EEC_inline where better semantic names were not evidenced.",
+    "New helper was named getSpawnPoint, using lower camel case and directly describing the repeated Stage_80224E64 spawn-point lookup behavior.",
+    "Existing project type names and globals were retained, including lbl_8046B6A0_t, FighterMatchInfo, PlayerInitData, Vec3, and Gm_PKind_NA.",
+    "Header prototypes were kept synchronized with implementation type changes in gm_1601.h, gm_16F1.h, and gmmain_lib.h."
   ],
   "assembly_or_matching_tactics": [
-    "Try post-increment instead of pre-increment when a counter compare is nearly matching; fn_8016D634 changed ++unk_30 to unk_30++.",
-    "Use static inline helpers to force repeated code to inline with a shared source shape; getSpawnPoint was introduced for Stage_80224E64 spawn resolution.",
-    "Adjust parameter signedness and width to match actual ABI/codegen behavior: s32 to u8 for fn_801695BC/fn_8016989C arguments and u32 to int for fn_8016FAD4 kind.",
-    "Prefer bool return types for predicate/bitset queries when callers branch on truthiness; gmMainLib_8015DADC was changed from s32 to bool.",
-    "Use u8 rankings[7] = { 0 } when zero-initialized stack bytes match better than manual copies from small-data symbols.",
-    "Rewrite dense conditions as sequential continue statements to shape branch order and avoid complex combined comparisons."
+    "Changed pre-increment to post-increment in fn_8016D634 to alter side-effect timing and likely match the target instruction sequence.",
+    "Used narrower u8 parameters for fn_801695BC and fn_8016989C to influence argument conversion and register value handling.",
+    "Used a static inline getSpawnPoint helper to coax repeated spawn-point selection code into a consistent inlined form.",
+    "Removed an unnecessary temporary variable in gm_8016EDDC after helper extraction, reducing stack/register pressure.",
+    "Initialized u8 rankings[7] with { 0 } instead of writing s32/s16/s8 chunks through casts, changing local initialization codegen and removing dependence on lbl_804DA2E8/lbl_804DA2EC/lbl_804DA2EE.",
+    "Rewrote gm_80173EEC_inline's compound if into multiple continue checks, likely to match branch ordering and short-circuit structure.",
+    "Changed gmMainLib_8015DADC to bool and used !gmMainLib_8015DADC(i), aligning source predicate form with boolean branch generation."
   ],
   "review_feedback": [
-    "No human review comments were present in the PR slice.",
-    "decomp.dev bot reported matched code: 66.46% (+0.02%, +668 bytes).",
-    "decomp.dev bot reported 2 new matches: main/melee/gm/gm_16AE fn_8016DEEC (+19 bytes, 96.82% to 100.00%) and main/melee/gm/gm_1601 fn_8016989C (+1 byte, 99.80% to 100.00%).",
-    "decomp.dev bot reported improvements in fn_8016E2BC, fn_8016FAD4, gm_16F1 .sdata2, gm_8016EDDC, gm_8016A22C, and fn_8016D634.",
-    "decomp.dev bot reported one regression: main/melee/gm/gm_1601 fn_801695BC (-4 bytes, 70.85% to 70.22%)."
+    "No review comments were included in the provided PR context.",
+    "The PR had one issue comment according to counts, but the excerpt is empty, so no specific reviewer feedback can be extracted."
   ],
   "searchable_terms": [
     "pr-2473",
@@ -95,47 +90,47 @@
     "r-burns",
     "gm_1601",
     "gm_1601.h",
+    "gm_16AE",
+    "gm_16F1",
+    "gm_16F1.static.h",
+    "gmmain_lib",
+    "gm_801674C4",
     "fn_801695BC",
     "fn_8016989C",
-    "gm_801674C4",
-    "Player_GetCostumeId",
-    "Player_GetPlayerCharacter",
-    "u8 arguments",
-    "gm_16AE",
     "fn_8016D634",
+    "getSpawnPoint",
+    "Stage_80224E64",
+    "FighterMatchInfo",
+    "spawn_point",
     "fn_8016DEEC",
     "fn_8016E2BC",
     "gm_8016EDDC",
-    "getSpawnPoint",
-    "Stage_80224E64",
-    "Stage_80224DC8",
-    "FighterMatchInfo",
-    "spawn_point",
-    "lbl_8046B6A0",
-    "unk_30",
-    "x24C8.xD",
-    "Vec3",
-    "gm_16F1",
     "fn_8016FAD4",
-    "rankings[7]",
+    "rankings",
     "lbl_804DA2E8",
     "lbl_804DA2EC",
     "lbl_804DA2EE",
-    ".sdata2",
     "gm_80173EEC_inline",
     "gmMainLib_8015DADC",
-    "gmmain_lib",
     "bool return",
+    "u8 parameters",
     "post-increment",
-    "static inline helper",
-    "early continue"
+    "static inline helper"
   ],
   "follow_up_queries": [
-    "Revisit fn_801695BC because the u8 argument change caused a bot-reported -4 byte regression.",
-    "Search other gm_16AE spawn-point callsites for the getSpawnPoint pattern: FighterMatchInfo[i].spawn_point == -1 ? i : spawn_point.",
-    "Audit remaining gmMainLib bitset/predicate helpers for s32 return types that should be bool.",
-    "Investigate nearby gm_16F1 small-data symbols, including lbl_804DA2F0/lbl_804DA2F4/lbl_804DA2F6, to distinguish real constants from zero-initializer artifacts.",
-    "Check whether gm_80173EEC_inline has further match potential after the early-continue rewrite, since the bot report did not list it as a new match."
+    "Find later PRs that rename getSpawnPoint or further type FighterMatchInfo.spawn_point.",
+    "Search for callers of fn_801695BC and fn_8016989C to confirm whether u8 parameter types propagated cleanly.",
+    "Check whether gmMainLib_8015DADC returning bool affected any non-boolean callers or comparisons.",
+    "Look for follow-up cleanup around lbl_804DA2F0/lbl_804DA2F4/lbl_804DA2F6 to see if the neighboring static symbols were similarly replaced by local initializers.",
+    "Search for other game-mode spawn-point lookup duplicates that could reuse the getSpawnPoint pattern."
   ],
-  "confidence": 0.86
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

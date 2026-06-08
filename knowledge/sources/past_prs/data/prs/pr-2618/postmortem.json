@@ -1,0 +1,132 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2618",
+  "pr": {
+    "number": 2618,
+    "title": "Improvements to split up: Extern",
+    "url": "https://github.com/doldecomp/melee/pull/2618",
+    "state": "CLOSED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:30:23Z",
+    "merged_at": null
+  },
+  "agent_status": "agent_completed",
+  "summary": "Closed, unmerged extern-only slice of a larger matching-improvement branch, scoped to Dolphin THP decoder code. The actual code change in `extern/dolphin/src/dolphin/thp/THPDec.c` refactored `__THPDecompressiMCURowNxN` to use a local `THPFileInfo* info` consistently, replaced a raw offset-derived `THPCoeff** mcuBuffer = (THPCoeff**)((u8*)info + 0x10)` with repeated casts through `THPFileInfoMCUBufferView`, and routed component/quant-table access through `info`. The PR was superseded by combined Dolphin support split PR #2632 because the extern-only split triggered an EditorConfig workflow edge case where all changed files were filtered out.",
+  "change_classification": {
+    "primary_type": "decomp-matching-refactor",
+    "categories": [
+      "decomp-matching",
+      "external-sdk",
+      "struct-overlay-cleanup",
+      "split-pr-superseded"
+    ],
+    "systems": [
+      "extern",
+      "dolphin",
+      "thp",
+      "THPDec",
+      "external-sdk"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "extern/dolphin/src/dolphin/thp/THPDec.c",
+      "reason": "Only changed file; contains the `__THPDecompressiMCURowNxN` matching-oriented cleanup."
+    }
+  ],
+  "what_changed": [
+    "In `__THPDecompressiMCURowNxN`, direct references to global `__THPInfo` were replaced in several places with the existing local `THPFileInfo* info` variable, such as `info->xPixelSize`, `info->components[...]`, and `info->quantTabs[...]`.",
+    "Removed the local raw pointer alias `THPCoeff** mcuBuffer = (THPCoeff**)((u8*) info + 0x10);`.",
+    "Replaced `mcuBuffer[n]` uses with `((THPFileInfoMCUBufferView*) info)->mcuBuffer[n]` when passing MCU buffers to Huffman decode and inverse DCT helpers.",
+    "Kept existing overlay-style casts for other field groups, including `THPMCURowFields` for `MCUsPerRow` and `THPRestartFields` for restart/currMCU handling.",
+    "The PR body says this was split from #2617 by directory/subsystem to make matching improvements easier to review, but the PR was later closed as superseded by #2632."
+  ],
+  "smart_moves": [
+    "Using the local `info` variable consistently reduces repeated global loads from `__THPInfo`, a common decomp matching tactic when the compiler likely reused a local pointer.",
+    "Replacing the magic offset cast `((u8*) info + 0x10)` with a named overlay/view type, `THPFileInfoMCUBufferView`, makes the layout intent searchable and less error-prone while preserving the underlying memory interpretation.",
+    "The slice was constrained to `extern/dolphin/src/dolphin/thp`, which was intended to make a broad matching-improvement branch easier to review by subsystem.",
+    "The PR documentation included local checks and an unsplit-branch matching report, giving reviewers context about expected matching impact and regression status."
+  ],
+  "decomp_lessons": [
+    "When a file uses multiple overlay structs for the same backing object, prefer named view structs over anonymous byte-offset casts if they preserve matching; this makes hidden layout assumptions clearer.",
+    "For THP decoder work, `THPFileInfo` may need to be viewed through specialized structs such as `THPFileInfoMCUBufferView`, `THPMCURowFields`, and `THPRestartFields` to expose fields at known offsets without forcing one monolithic struct definition.",
+    "Replacing global accesses with a local alias can be important for matching, especially inside tight decoder loops where the original compiler likely kept the pointer in a register.",
+    "Directory-only PR slicing can run into CI/workflow filtering edge cases; in this case, an extern-only split was superseded because the EditorConfig workflow filtered out all changed files.",
+    "The evidence does not show final per-slice matching numbers for this exact PR; only the broader unsplit branch report was provided."
+  ],
+  "naming_conventions": [
+    "`THPFileInfoMCUBufferView` names a layout view around the MCU buffer area rather than using raw pointer arithmetic.",
+    "`THPMCURowFields` and `THPRestartFields` follow the same pattern of suffixing a layout-overlay struct by the logical field group it exposes.",
+    "Existing Dolphin/THP internal function names use double-underscore prefixes, e.g. `__THPDecompressiMCURowNxN`, `__THPHuffDecodeDCTCompY`, `__THPInverseDCTNoYPos`, and `__THPInverseDCTY8`.",
+    "Global THP decoder state names retain existing mixed-case conventions such as `__THPInfo`, `__THPLCWork672`, `Gbase`, `Gwid`, and `Gq`."
+  ],
+  "assembly_or_matching_tactics": [
+    "Use a local `THPFileInfo* info` pointer instead of repeatedly loading `__THPInfo` when matching compiler register allocation and load patterns.",
+    "Express offset-based struct access through a named casted view, e.g. `((THPFileInfoMCUBufferView*) info)->mcuBuffer[n]`, rather than holding a separate derived pointer if that better matches generated code.",
+    "Preserve overlay casts for fields that are not represented directly in the base `THPFileInfo` type, such as `((THPMCURowFields*) info)->MCUsPerRow` and `((THPRestartFields*) info)->RST`.",
+    "Avoid assuming a single complete struct layout when the matching code benefits from multiple partial views over the same memory."
+  ],
+  "review_feedback": [
+    {
+      "source": "issue_comment",
+      "feedback": "PR was superseded by combined Dolphin support split PR #2632.",
+      "implication": "Future references should likely inspect #2632 for the merged or authoritative version of this extern/Dolphin support work."
+    },
+    {
+      "source": "issue_comment",
+      "feedback": "The extern-only split hit an EditorConfig workflow edge case where all changed files were filtered out.",
+      "implication": "When splitting PRs by path, check workflow path filters; too-narrow extern-only slices may fail or be unactionable in CI."
+    },
+    {
+      "source": "absence",
+      "feedback": "No review comments or formal reviews were present in the provided PR slice.",
+      "implication": "There is no evidence of reviewer-requested symbol names or style corrections for this PR."
+    }
+  ],
+  "searchable_terms": [
+    "pr-2618",
+    "Improvements to split up: Extern",
+    "fjooord",
+    "extern/dolphin/src/dolphin/thp/THPDec.c",
+    "__THPDecompressiMCURowNxN",
+    "THPFileInfo",
+    "THPFileInfoMCUBufferView",
+    "mcuBuffer",
+    "THPCoeff",
+    "THPMCURowFields",
+    "MCUsPerRow",
+    "THPRestartFields",
+    "currMCU",
+    "__THPHuffDecodeDCTCompY",
+    "__THPHuffDecodeDCTCompU",
+    "__THPHuffDecodeDCTCompV",
+    "__THPInverseDCTNoYPos",
+    "__THPInverseDCTY8",
+    "__THPInfo",
+    "__THPLCWork672",
+    "Gbase",
+    "Gwid",
+    "Gq",
+    "quantTabs",
+    "quantizationTableSelector",
+    "Dolphin THP",
+    "EditorConfig workflow edge case",
+    "superseded by #2632",
+    "split from #2617"
+  ],
+  "follow_up_queries": [
+    "Inspect PR #2632 for the combined Dolphin support split that superseded this extern-only PR.",
+    "Compare `THPFileInfoMCUBufferView` usage across THP decoder functions to see whether the overlay-view naming pattern was adopted consistently.",
+    "Check whether the `__THPDecompressiMCURowNxN` changes from this slice landed through a later merged PR.",
+    "Review CI path filters for extern-only PRs that may be excluded by EditorConfig workflows."
+  ],
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

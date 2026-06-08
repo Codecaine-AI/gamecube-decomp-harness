@@ -11,100 +11,85 @@
     "merged_at": "2026-05-17T19:14:48Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched `mnEvent_8024CE74` by restoring a `static inline` `mnEvent_CountUnlocked()` wrapper around the unlocked-event count loop. The semantic code stayed nearly identical, but MWCC codegen changed the zero-initialization pattern from two independent `li` instructions to the expected data-dependent register copy, taking the function from 99.42%/99.4% to 100% with no other functions affected.",
+  "summary": "Matched `mnEvent_8024CE74` by restoring a `static inline` helper, `mnEvent_CountUnlocked`, in `src/melee/mn/mnevent.c`. Moving the unlocked-event counting loop into the inline wrapper caused MWCC to emit the expected data-dependent register copy for the zero-initialized locals, taking the function from 99.4% to 100% with no other reported function changes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "function-match",
-      "mwcc-codegen",
+      "decomp-matching",
+      "code-structure",
       "static-inline-wrapper",
-      "menu-count-loop",
-      "review-cleanup"
+      "mwcc-codegen",
+      "menu-counting-logic"
     ],
     "systems": [
-      "melee-core",
       "mn",
-      "menu-event"
+      "mnevent",
+      "melee-menu"
     ]
   },
   "key_files": [
     {
-      "file": "src/melee/mn/mnevent.c",
-      "role": "Final merged change: adds `mnEvent_CountUnlocked()` and calls it from `mnEvent_8024CE74`."
-    },
-    {
-      "file": "src/melee/mn/mnnamenew.c",
-      "role": "Reviewed earlier attempted data/HSD_ASSERT change; not part of final changed-files list."
-    },
-    {
-      "file": "src/melee/mn/mnnamenew.h",
-      "role": "Reviewed earlier attempted static-literal extern declarations; not part of final changed-files list."
+      "path": "src/melee/mn/mnevent.c",
+      "role": "Only final changed file; adds `mnEvent_CountUnlocked` static inline and changes `mnEvent_8024CE74` to call it."
     }
   ],
   "what_changed": [
-    "`mnEvent_8024CE74` no longer contains the unlocked-count loop directly; it declares `s32 count`, checks `g_debugLevel > 2`, then assigns `count = mnEvent_CountUnlocked()`.",
-    "Added `static inline s32 mnEvent_CountUnlocked(void)` in `mnevent.c` with local `s32 i` and `s32 count = 0`, looping `i < 0x33` and incrementing when `gmMainLib_8015CEFC(i) != 0`.",
-    "Removed the previous direct-loop form that had `int count = 0`, `int i`, `PAD_STACK(8)`, a separate `count = 0`, and `if (gmMainLib_8015CEFC(i))`.",
-    "Kept the existing debug shortcut behavior: `g_debugLevel > 2` returns `0x2A` before counting.",
-    "Verification reported `python configure.py && ninja` green, one new match for `main/melee/mn/mnevent`, and `mnEvent_8024CE74` reaching 100%."
+    "`mnEvent_8024CE74` no longer contains the unlocked-counting loop directly in its body.",
+    "Added `static inline s32 mnEvent_CountUnlocked(void)` containing local variables `s32 i` and `s32 count = 0`, a loop over `i < 0x33`, and calls to `gmMainLib_8015CEFC(i)`.",
+    "The count condition was made explicit as `gmMainLib_8015CEFC(i) != 0`.",
+    "`mnEvent_8024CE74` now keeps the `g_debugLevel > 2` early return of `0x2A`, then assigns `count = mnEvent_CountUnlocked();` before the existing threshold logic.",
+    "The prior direct-loop form with `int count = 0`, `int i`, `PAD_STACK(8)`, and a repeated `count = 0` initialization was removed."
   ],
   "smart_moves": [
-    "Used a source-level structure change, not a semantic rewrite, to steer MWCC into the target register-initialization pattern.",
-    "Restored the static inline wrapper removed in PR #2447 because the wrapper shape was the matching-critical detail.",
-    "Copied a known local pattern from nearby menu code: `mnInfo_CountUnlocked` / `mnCount_CountUnlockedChars` style helpers.",
-    "Kept the fix narrowly scoped to `src/melee/mn/mnevent.c`, with the final diff affecting only the target function/helper.",
-    "After review, the merged result avoided unrelated data-section and `HSD_ASSERT` override work."
+    "Used source structure, not artificial assembly patching, to influence MWCC register allocation and initialization ordering.",
+    "Restored a small `static inline` wrapper rather than making the helper externally visible, preserving the intended inlined codegen shape.",
+    "Matched an established local pattern: the PR body explicitly cites similar wrappers `mnInfo_CountUnlocked` and `mnCount_CountUnlockedChars` elsewhere in `mn/`.",
+    "Kept the semantic loop simple and equivalent while changing only the C structure needed for matching.",
+    "Verified the effect narrowly: `mnEvent_8024CE74` improved from 99.4% to 100%, with no other functions affected according to the PR description."
   ],
   "decomp_lessons": [
-    "For MWCC, semantically equivalent C can differ at the register-allocation/codegen level; wrapping a loop in a `static inline` can preserve the expected inlined local-variable relationship.",
-    "If a target uses a register copy such as `addi r30, r31, 0` instead of a second immediate zero load, try defining related locals together inside an inlined helper rather than directly in the caller.",
-    "Look for sibling functions in the same module before inventing a new matching tactic; here the relevant precedent was `mnInfo_CountUnlocked` / `mnCount_CountUnlockedChars`.",
-    "Do not mix a focused code match with premature data/sdata cleanup unless the PR is explicitly about that; reviewers preferred landing the code match first.",
-    "Static literals used for assertions do not necessarily belong in headers as `extern` declarations."
+    "For MWCC, grouping related local initializations inside a `static inline` helper can materially change register allocation and instruction selection after inlining.",
+    "A direct loop in the caller emitted two independent `li` zero-initializations, while the inline-wrapper form produced the expected dependent copy pattern, described in the PR as `addi r30, r31, 0`.",
+    "When a small counting helper exists in nearby menu code, matching may require preserving that abstraction even if manually inlining the logic looks semantically cleaner.",
+    "Do not remove tiny static inline wrappers casually during cleanup; they can be codegen-significant in decompilation.",
+    "A matching fix can be a source organization fix: the final behavior stayed the same, but the compiler’s lowering changed."
   ],
   "naming_conventions": [
-    "`mnEvent_CountUnlocked` follows the module-prefix helper style: `mnEvent_` plus descriptive PascalCase action.",
-    "The address-named exported/known function remains `mnEvent_8024CE74`; the descriptive name is used only for the new static inline helper.",
-    "The helper name mirrors nearby `mn/` conventions cited in the PR body: `mnInfo_CountUnlocked` and `mnCount_CountUnlockedChars`.",
-    "The final code uses project-style fixed-width `s32` for the helper return and count/index locals rather than plain `int`."
+    "The restored helper follows the module-prefixed menu naming style: `mnEvent_CountUnlocked`.",
+    "The PR body compares the name and structure to existing helpers `mnInfo_CountUnlocked` and `mnCount_CountUnlockedChars`.",
+    "Use `s32` for these menu count helper locals and return values when matching nearby code style, as shown by the final diff."
   ],
   "assembly_or_matching_tactics": [
-    "The PR body identifies the mismatch as MWCC lowering direct local initialization to two independent zero loads: `li r31, 0` for `i` and `li r30, 0` for `count`.",
-    "The expected build used `addi r30, r31, 0` for the second zero value, implying a data-dependent register copy.",
-    "Putting `s32 i; s32 count = 0;` together inside a `static inline` count helper and then inlining it back into the caller produced the expected codegen.",
-    "The boolean test was written explicitly as `gmMainLib_8015CEFC(i) != 0` in the restored helper.",
-    "The decomp.dev bot reported one new match: `mnEvent_8024CE74` from 99.42% to 100.00%, with matched code overall increasing by 0.01% / 416 bytes."
+    "Use a `static inline` wrapper to make MWCC define `i` and `count` together before inlining back into the caller.",
+    "The important codegen detail was avoiding two independent `li` instructions for `i = 0` and `count = 0`; the expected build used a register-copy-like dependency for the second zero value.",
+    "The PR specifically identifies the desired instruction pattern as `addi r30, r31, 0` for the second initialization.",
+    "Removing `PAD_STACK(8)` was part of the final matched form in the shown diff, but the PR context does not explain it beyond the function reaching 100%.",
+    "Make boolean tests explicit as `!= 0` when that is part of the matched C shape, as done for `gmMainLib_8015CEFC(i) != 0`."
   ],
   "review_feedback": [
     {
-      "reviewer": "ribbanya",
-      "state": "CHANGES_REQUESTED",
-      "feedback": "Recommended merging only the `mnEvent_8024CE74` match and avoiding data-section work: \"A human can easily match up the data sections for a TU once the code is matched.\""
+      "source": "review comment on earlier/different touched file `src/melee/mn/mnnamenew.c`",
+      "feedback": "A proposed override of `HSD_ASSERT` around `jobj.h` was rejected as 'slop' and as prematurely fixing sdata.",
+      "lesson": "Avoid local macro override hacks for assert literals unless there is strong evidence; do not force sdata-related fixes through unrelated matching PRs."
     },
     {
-      "reviewer": "ribbanya",
-      "path": "src/melee/mn/mnnamenew.c",
-      "feedback": "Rejected an attempted local `HSD_ASSERT` override around `jobj.h` as premature sdata work: \"This is slop. At best, it prematurely fixes sdata.\""
+      "source": "review comment on earlier/different touched file `src/melee/mn/mnnamenew.h`",
+      "feedback": "Static literals such as `mnNameNew_804D4F84` and `mnNameNew_804D4F8C` should not be declared in headers.",
+      "lesson": "Keep static assertion/file/condition string literals local rather than adding extern declarations to headers."
     },
     {
-      "reviewer": "ribbanya",
-      "path": "src/melee/mn/mnnamenew.h",
-      "feedback": "Rejected declaring `mnNameNew_804D4F84` / `mnNameNew_804D4F8C` in a header: \"These are static literals and don't need to be declared anywhere.\""
-    },
-    {
-      "reviewer": "ribbanya",
-      "state": "APPROVED",
-      "feedback": "Later approved the narrowed/final version."
+      "source": "final changed files list",
+      "feedback": "The merged PR only changed `src/melee/mn/mnevent.c`, implying the reviewed `mnnamenew` assert/sdata approach was not part of the accepted final patch.",
+      "lesson": "Scope matching PRs tightly to the target function and drop speculative unrelated sdata/assert changes."
     }
   ],
   "searchable_terms": [
     "pr-2510",
     "mnEvent_8024CE74",
     "mnEvent_CountUnlocked",
-    "src/melee/mn/mnevent.c",
+    "mnevent.c",
     "gmMainLib_8015CEFC",
     "g_debugLevel",
-    "PAD_STACK",
     "static inline",
     "MWCC",
     "addi r30 r31 0",
@@ -113,21 +98,25 @@
     "count unlocked",
     "mnInfo_CountUnlocked",
     "mnCount_CountUnlockedChars",
-    "mnnamenew.c",
-    "mnnamenew.h",
+    "PAD_STACK",
     "HSD_ASSERT",
     "sdata",
-    "static literals",
-    "mnNameNew_804D4F84",
-    "mnNameNew_804D4F8C",
-    "GALE01",
-    "99.42 to 100.00"
+    "mnnamenew",
+    "jobj.h"
   ],
   "follow_up_queries": [
-    "Search for other `mn/` count loops where MWCC emits two independent `li` zero initializations but the target expects a register copy.",
-    "Audit functions affected by PR #2447 for removed static inline wrappers that may have carried matching-sensitive codegen.",
-    "Compare `mnEvent_CountUnlocked`, `mnInfo_CountUnlocked`, and `mnCount_CountUnlockedChars` for reusable menu count-helper structure.",
-    "Look for PRs where reviewers rejected `HSD_ASSERT` overrides or static-literal extern declarations as premature sdata matching."
+    "Find other `mn/` functions where a direct counting loop may need to be restored to a `static inline` helper for MWCC register allocation.",
+    "Compare `mnEvent_CountUnlocked` with `mnInfo_CountUnlocked` and `mnCount_CountUnlockedChars` to document shared menu count-helper patterns.",
+    "Audit cleanup PRs that removed small static inline wrappers, especially wrappers with multiple zero-initialized locals.",
+    "Review any remaining assert/sdata fixes involving `HSD_ASSERT` macro overrides and static string extern declarations to ensure they are evidence-backed."
   ],
-  "confidence": 0.94
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

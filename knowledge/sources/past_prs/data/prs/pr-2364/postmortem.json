@@ -11,200 +11,165 @@
     "merged_at": "2026-03-29T20:22:19Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged stage decompilation work implementing 13 previously stubbed or partially unknown functions across 9 stage files, plus matching-driven prototype and GroundVars layout fixes. The decomp.dev bot reported matched code at 61.17% (+0.03%, +1220 bytes), with 5 newly 100% matched functions and multiple near-match improvements in stage units.",
+  "summary": "Matched 13 previously stubbed stage functions across 9 ground/stage source files, with header prototype cleanup and one shared ground type expansion. The work replaces UNK_RET/UNK_PARAMS declarations with concrete signatures for stage behaviors including Corneria debug conversation cycling, Great Bay Tingle balloon color selection, Mushroom Kingdom platform callbacks, Mushroom Kingdom II destructible brick setup, Dream Land wind behavior, Fountain of Dreams reflection/light setup, Mute City shadow bounds checks, Pokemon Stadium TEV recompilation traversal, and Kongo/Yoshi-stage position lookup.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-behavior",
       "headers",
       "types-structs",
-      "callbacks",
-      "material-lighting",
-      "collision",
-      "debug-input"
+      "stage-behavior",
+      "function-signature-cleanup"
     ],
     "systems": [
       "stage",
       "ground",
-      "baselib",
+      "baselib-jobj",
+      "baselib-lobj",
       "materials",
-      "lighting",
-      "collision",
-      "controller",
-      "camera"
+      "collision"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grcorneria.c",
-      "reason": "Matched Corneria debug talk selector and Great Fox/collision translation sync functions."
-    },
-    {
-      "path": "src/melee/gr/grgreatbay.c",
-      "reason": "Added weighted random selection for Great Bay/Tingle balloon color."
-    },
-    {
-      "path": "src/melee/gr/grinishie1.c",
-      "reason": "Initialized Mushroom Kingdom scale platforms and added their weight accumulation collision callback."
-    },
-    {
-      "path": "src/melee/gr/grkinokoroute.c",
-      "reason": "Set up 51 Mushroom Kingdom II brick blocks via joint lookup and grMaterial item creation."
-    },
-    {
-      "path": "src/melee/gr/grkongo.c",
-      "reason": "Added stage-element/barrel-cannon position lookup from JObj transforms."
-    },
-    {
-      "path": "src/melee/gr/grmutecity.c",
-      "reason": "Added Mute City shadow-visibility bounds and slope test for racer platform joints."
-    },
-    {
-      "path": "src/melee/gr/groldpupupu.c",
-      "reason": "Added Dream Land N64 stage GObj setup and wind-zone velocity callback."
-    },
-    {
-      "path": "src/melee/gr/grpura.c",
-      "reason": "Added recursive DObj TEV material recompilation and fixed callsites to pass the DObj."
-    },
-    {
-      "path": "src/melee/gr/grshrineroute.c",
-      "reason": "Added Fountain of Dreams reflection platform initialization and dynamic light-list append."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "reason": "Retyped and expanded GroundVars fields needed by the matched stage functions."
-    },
-    {
-      "path": "src/melee/gr/*.h",
-      "reason": "Replaced several UNK_RET/UNK_PARAMS declarations with typed prototypes."
-    }
-  ],
-  "what_changed": [
-    "Implemented `grCorneria_801E0E40(void)`, a debug-only Corneria talk-number selector gated by camera pause/debug state, player 2 L/R triggers, `Ground_801C2BA4(0xC)`, `OSReport`, and an assert before calling `grCorneria_801E0F34`.",
-    "Implemented `grCorneria_801E1878(Ground_GObj*)`, copying a Great Fox JObj translation to `gr->gv.corneria.x128->hsd_obj` and then calling `Ground_801C39C0` and `Ground_801C3BB4`.",
-    "Implemented `grGreatBay_801F62F8(s32)`, selecting a weighted random result from `grGb_804D69E0.x0` entries 56-59 with retry logic to avoid returning the current value.",
-    "Implemented `grInishie1_801FC018(HSD_GObj*)`, initializing scale-platform state, caching JObjs from `Ground_801C3FA4`, storing child JObj pointers, and registering `fn_801FC9AC` with `mpJointSetCb1` for joints 0x14 and 0x15.",
-    "Implemented `fn_801FC9AC`, accumulating per-side platform weight/counts into `gr->gv.inishie1` fields and applying the `grI1_804D69F8->unk2C[1].z` multiplier for one ground enum case.",
-    "Implemented `grKinokoRoute_80208564(HSD_GObj*)`, looping over a local `s16 depths[]` list from 1 through 51 and creating/configuring destructible brick material items with `grMaterial_801C8CFC`, `grMaterial_801C8DE0`, `grMaterial_801C8E08`, and `grMaterial_801C8E68`.",
-    "Implemented `grKongo_801D7E78(HSD_GObj*, Vec3*)`, returning a position pointer after resolving either a child joint world position via `lb_8000B1CC` for several map IDs or the root JObj translation for `YORSTER`; returns NULL for unsupported or missing data.",
-    "Implemented `grMuteCity_801F2C10(Vec3*, int, HSD_JObj*)`, checking whether a JObj is one of five tracked Mute City racer-platform joints and suppressing rendering when the position is outside X bounds or below the computed platform slope.",
-    "Implemented `grOldPupupu_802108B4(int)`, fetching a stage GObj by ID and applying `Ground_SetupStageCallbacks`, with `OSReport` fallback if the GObj is missing.",
-    "Implemented `fn_802112F4(Ground_GObj*, HSD_GObj*, Vec3*)`, reading fighter position with `ftLib_80086644`, checking Dream Land wind-zone rectangles, and setting horizontal wind velocity based on `gp->gv.unk.xDC`.",
-    "Implemented `grPura_80213128(HSD_DObj*)`, traversing DObj sibling chains and recursively compiling TEV material settings with `HSD_MObjCompileTev`; updated `grPura_80213250` callsites to pass the current `dobj`.",
-    "Implemented `grShrineRoute_80209AF0(Ground_GObj*)`, clearing callbacks, setting ground flags, applying material setup, caching joint 10, initializing reflection state, and randomizing small positive/negative rotation speeds using `HSD_Randf` and `HSD_Randi`.",
-    "Implemented `grShrineRoute_8020AC44(HSD_GObj*)`, appending a new `HSD_LObj` loaded from `grSh_Route_803E5D90` to an existing light list and setting its position from `grSh_Route_803B8378`.",
-    "Updated headers for typed prototypes including `grCorneria_801E0E40`, `grGreatBay_801F62F8`, `grKinokoRoute_80208564`, `fn_802112F4`, `grPura_80213128`, and `grShrineRoute_8020A8A4`.",
-    "Updated `types.h`: changed `GroundVars_unk.xDC` from `float` to `int`, retyped `grInishie1_GroundVars.x100/x104` as `HSD_JObj*`, expanded `grMuteCity_GroundVars` with float bounds and five `HSD_JObj*` fields, and added `grShrineroute_GroundVars3` to the `Ground` union."
-  ],
-  "smart_moves": [
-    "The PR did not only drop function bodies; it also fixed headers and `types.h` layouts so the new code could express real pointer/field accesses instead of relying on `UNK_PARAMS` or incorrect scalar fields.",
-    "Stage behavior was reconstructed through existing engine helpers (`Ground_801C3FA4`, `Ground_GetStageGObj`, `Ground_SetupStageCallbacks`, `mpJointSetCb1`, `grMaterial_*`, `HSD_JObj*`, `HSD_LObj*`) rather than duplicating lower-level logic.",
-    "Several functions preserve matching-shaped control flow: `goto done` in `grGreatBay_801F62F8` and `grKongo_801D7E78`, explicit early NULL returns, retry-loop bounds, and redundant-looking traversal/null checks.",
-    "The Mute City match motivated a concrete `grMuteCity_GroundVars` layout with named padding and exact offsets for X/Y slope bounds and platform JObj pointers.",
-    "The Mushroom Kingdom scale-platform functions show a useful pattern: initialize cached JObj/child pointers first, then register collision callbacks that update state through the same `Ground*` object.",
-    "The PR used `PAD_STACK` macros in multiple functions to keep stack layout compatible with the target assembly."
-  ],
-  "decomp_lessons": [
-    "For stage decomp, matching a function often requires first correcting the per-stage `GroundVars` union member layout; wrong field types can block otherwise straightforward code.",
-    "Replace `UNK_RET` and `UNK_PARAMS` as soon as callsites and behavior provide evidence; typed prototypes improve both matching and future decomp readability.",
-    "Do not simplify odd-looking loops, null checks, local arrays, or `goto` exits when chasing a match; these can be required to reproduce compiler output.",
-    "Local literal arrays, such as the 1-through-51 `s16 depths[]` list in `grKinokoRoute_80208564`, can be intentional rodata/stack-shaping tactics.",
-    "Callback signatures may need explicit casts at registration sites while the actual callback body keeps its known semantic signature.",
-    "For random-selection logic, preserve the exact data index order, fallback behavior when total weight is zero, retry guard, and assert path.",
-    "Material and display-object traversal code may intentionally repeat `HSD_MObjCompileTev` calls on sibling chains; matching should take priority over deduplicating traversal."
-  ],
-  "naming_conventions": [
-    "Unresolved functions kept address-based project names such as `grCorneria_801E0E40`, `grGreatBay_801F62F8`, and `fn_801FC9AC` even when the behavior is now understood.",
-    "Stage functions follow the existing stage prefix convention: `grCorneria`, `grGreatBay`, `grInishie1`, `grKinokoRoute`, `grKongo`, `grMuteCity`, `grOldPupupu`, `grPura`, and `grShrineRoute`.",
-    "Per-stage GroundVars fields remain offset-style names (`xC4`, `xD0`, `xFC`, `x100`, etc.) until stronger semantic names are available.",
-    "Common local variable names follow project style: `gobj` for `HSD_GObj*`, `jobj` for `HSD_JObj*`, `lobj` for `HSD_LObj*`, `dobj` for `HSD_DObj*`, `gp`/`gr` for `Ground*`, and `pos`/`vel` for `Vec3` values.",
-    "New struct naming stayed consistent with existing variants by adding `struct grShrineroute_GroundVars3` and union member `shrineroute3`."
-  ],
-  "assembly_or_matching_tactics": [
-    "`PAD_STACK(8)`, `PAD_STACK(16)`, and `PAD_STACK(20)` were used to reproduce stack frame details.",
-    "Exact field retyping and padding in `types.h` supported matching loads/stores at the right offsets.",
-    "`grGreatBay_801F62F8` used a `do`/`while (i++ <= 1000)` retry loop and `goto done` instead of a simplified return structure.",
-    "`grKongo_801D7E78` used nested map-ID checks, early NULL returns, `goto done`, and a final `return pos` shape.",
-    "`grKinokoRoute_80208564` used a local `s16 depths[]` array and loop bound `0x33U` to drive JObj lookup order.",
-    "`grShrineRoute_80209AF0` preserved exact float constants such as `0.00006981317F` and `0.000017453292F` for randomized oscillation speeds.",
-    "`grShrineRoute_8020AC44` preserved a nullable light-list traversal expression before appending a loaded light descriptor.",
-    "Function pointer casts were used for `grMaterial_801C8CFC` and `mpJointSetCb1` callback registration to satisfy C typing while preserving call behavior."
-  ],
-  "review_feedback": [
-    "No human review comments or reviews were present in the provided slice.",
-    "The only recorded feedback was the decomp.dev bot report: matched code 61.17% (+0.03%, +1220 bytes), 5 new 100% matches, and 17 improvements in unmatched items.",
-    "Bot-confirmed new 100% matches included `grKongo_801D7E78`, `grPura_80213128`, `grInishie1_801FC018`, `grCorneria_801E0E40`, and `grShrineRoute_8020AC44`.",
-    "Bot-reported near-match improvements included `fn_801FC9AC`, `grKinokoRoute_80208564`, `grMuteCity_801F2C10`, `grCorneria_801E1878`, `grShrineRoute_80209AF0`, `grGreatBay_801F62F8`, `fn_802112F4`, and `grOldPupupu_802108B4`."
-  ],
-  "searchable_terms": [
-    "PR 2364",
-    "Stage decompilation matches",
-    "johnwinston",
-    "stage decomp",
-    "matched code +1220 bytes",
     "src/melee/gr/grcorneria.c",
+    "src/melee/gr/grcorneria.h",
     "src/melee/gr/grgreatbay.c",
+    "src/melee/gr/grgreatbay.h",
     "src/melee/gr/grinishie1.c",
     "src/melee/gr/grkinokoroute.c",
+    "src/melee/gr/grkinokoroute.h",
     "src/melee/gr/grkongo.c",
     "src/melee/gr/grmutecity.c",
     "src/melee/gr/groldpupupu.c",
+    "src/melee/gr/groldpupupu.h",
     "src/melee/gr/grpura.c",
+    "src/melee/gr/grpura.h",
     "src/melee/gr/grshrineroute.c",
-    "src/melee/gr/types.h",
+    "src/melee/gr/grshrineroute.h",
+    "src/melee/gr/types.h"
+  ],
+  "what_changed": [
+    "Implemented `grCorneria_801E0E40(void)` as a debug-only Corneria conversation selector gated by camera pause/debug checks, P2 L/R trigger input, `OSReport`, an assertion on the talk object, and a new global `grCn_804D466C` initialized to -1.",
+    "Implemented `grCorneria_801E1878(Ground_GObj*)` to copy the current Great Fox model translation into a target collision/ground JObj, then refresh ground/collision state with `Ground_801C39C0` and `Ground_801C3BB4`.",
+    "Implemented `grGreatBay_801F62F8(s32)` to choose a weighted random Tingle balloon color from data table weights, avoid returning the current color by retrying up to about 1000 iterations, and assert if weighted selection falls through.",
+    "Implemented `grInishie1_801FC018(HSD_GObj*)` to initialize Mushroom Kingdom scale platform state, cache platform joint references, record base Y translation, derive child joints, and register `fn_801FC9AC` as collision callbacks for two line IDs.",
+    "Implemented `fn_801FC9AC(Ground*, s32, s32, s32, enum mpLib_GroundEnum)` to accumulate platform-side contact counts and weighted distances for Mushroom Kingdom scale platforms.",
+    "Implemented `grKinokoRoute_80208564(HSD_GObj*)` to iterate over 51 joint depths and spawn/configure destructible block material items with `grMaterial_801C8CFC`, damage parameters, visibility/update setup, and `GA_Ground` ownership.",
+    "Implemented `grKongo_801D7E78(HSD_GObj*, Vec3*)` to return world/translation position for certain map IDs by looking up a child joint and using `lb_8000B1CC`, or by reading the root JObj translation for `YORSTER`.",
+    "Implemented `grMuteCity_801F2C10(Vec3*, int, HSD_JObj*)` to decide shadow rendering validity for Mute City racer platform jobs by checking whether the queried JObj is one of the stage platform joints, whether X lies within platform bounds, and whether Y is near the computed platform slope.",
+    "Expanded the local Old Dream Land data struct in `groldpupupu.c` with additional integer and float fields needed for wind-zone bounds and speed values.",
+    "Implemented `grOldPupupu_802108B4(int)` to retrieve a stage GObj by ID, attach stage callbacks when present, and report failure via `OSReport`.",
+    "Implemented `fn_802112F4(Ground_GObj*, HSD_GObj*, Vec3*)` to get a fighter position via `ftLib_80086644`, test against stage wind-zone bounds, and output horizontal wind velocity depending on stage wind direction state.",
+    "Implemented `grPura_80213128(HSD_DObj*)` to recursively/traversally compile TEV material settings for DObj chains and updated its call sites in `grPura_80213250` to pass the current DObj instead of using an unknown empty call.",
+    "Implemented `grShrineRoute_80209AF0(Ground_GObj*)` to initialize a Fountain of Dreams reflection/water platform, set callback fields and flags, compile material state, cache a joint, call setup helper `grShrineRoute_8020A8A4`, and randomize small signed rotation speed fields.",
+    "Implemented `grShrineRoute_8020AC44(HSD_GObj*)` to append a loaded light object from `grSh_Route_803E5D90` to the end of an existing light list and position it from `grSh_Route_803B8378`.",
+    "Updated stage headers to replace unknown prototypes with concrete signatures for newly matched functions such as `grCorneria_801E0E40`, `grGreatBay_801F62F8`, `grKinokoRoute_80208564`, `fn_802112F4`, `grPura_80213128`, and Shrine Route functions."
+  ],
+  "smart_moves": [
+    "Converted matched functions and their headers together, reducing future `UNK_RET`/`UNK_PARAMS` propagation and making call sites type-check against recovered signatures.",
+    "Used existing stage infrastructure helpers instead of hand-rolled access, including `GET_GROUND`, `GET_JOBJ`, `Ground_GetStageGObj`, `Ground_SetupStageCallbacks`, `Ground_801C3FA4`, `mpJointSetCb1`, and material/light/JObj helper APIs.",
+    "Preserved matching-sensitive stack padding with explicit `PAD_STACK` calls in several functions, indicating the author prioritized exact codegen rather than only semantic correctness.",
+    "Recovered table/weight-driven behavior in `grGreatBay_801F62F8` without flattening it into a cleaner but less matching-friendly abstraction; the nested subtraction order is likely deliberate for matching.",
+    "Modeled null checks and early returns closely in object traversal functions such as `grKongo_801D7E78` and `grShrineRoute_8020AC44`, preserving expected control flow.",
+    "Kept stage-specific temporary data names under existing `gv.<stage>` unions and local static structs, avoiding premature broad renaming while still exposing necessary fields."
+  ],
+  "decomp_lessons": [
+    "For stage functions, matching often requires recovering not only the function body but also exact callback signatures in headers and exact `Ground`/stage union fields used by the function.",
+    "Stage object setup routines frequently follow a pattern: fetch `Ground*` from `gobj->user_data` or `GET_GROUND`, initialize stage-specific `gv` fields, cache child `HSD_JObj*` with `Ground_801C3FA4`, then register callbacks or material behavior.",
+    "Collision callbacks can encode gameplay state through line/block IDs; here line IDs `0x14` and `0x15` map to opposite Mushroom Kingdom scale platform sides and update separate accumulators.",
+    "Weighted random selection in the original code may depend on exact table index order and subtractive threshold checks; preserve that order for matching even if a clearer loop/table abstraction exists.",
+    "Material and TEV recompilation code can have redundant-looking null checks and repeated compile calls that may be required for matching or for traversing unusual DObj/PTCL layouts.",
+    "When matching debug-only stage helpers, controller input, camera pause predicates, `OSReport`, and file-line `__assert` strings can all be important evidence for reconstructing exact behavior.",
+    "Small floating-point constants for stage motion, such as Shrine Route rotation velocities, should be preserved as literals with matching precision and sign-randomization structure.",
+    "Stage environmental effects such as Dream Land wind are often implemented as callback-style functions that set an output velocity vector and return a boolean indicating whether the effect applies."
+  ],
+  "naming_conventions": [
+    "Unrecovered stage functions retain address-based names such as `grCorneria_801E0E40`, `grGreatBay_801F62F8`, and `grShrineRoute_8020AC44`.",
+    "Internal callback helpers retain `fn_` address-based names when purpose names are not yet established, e.g. `fn_801FC9AC` and `fn_802112F4`.",
+    "Stage-specific globals keep abbreviated stage prefixes such as `grCn_`, `grGb_`, `grI1_`, `grOp_`, `grPu_`, and `grSh_Route_`.",
+    "Recovered prototypes should replace `UNK_RET function(UNK_PARAMS)` with concrete return and argument types in the corresponding `src/melee/gr/*.h` file.",
+    "Stage union fields are still named by offsets or provisional names such as `xE0`, `xFC`, `x108`, and `gv.inishie1`, reflecting evidence-limited struct recovery rather than invented semantic field names."
+  ],
+  "assembly_or_matching_tactics": [
+    "Used `PAD_STACK(8)`, `PAD_STACK(16)`, and `PAD_STACK(20)` to force stack layout/codegen in matched functions.",
+    "Used gotos/labels in `grGreatBay_801F62F8` and `grKongo_801D7E78` to preserve original branch shape and shared return paths.",
+    "Kept explicit nested conditionals and early returns rather than refactoring into compact boolean expressions, likely to preserve assembly structure.",
+    "Used casts for callback/function-pointer compatibility, such as casting `grKinokoRoute_802084B4` for `grMaterial_801C8CFC` and casting `fn_801FC9AC` to `mpLib_Callback`.",
+    "Preserved exact floating-point constants and float suffixes such as `0.00006981317F`, `0.000017453292F`, `0.0F`, `3.0F`, and `7.0F`.",
+    "Included needed baselib/module headers only where recovered bodies required concrete declarations, such as controller/debug for Corneria, jobj for Kongo, ground for Mute City, and ftlib for Old Pupupu."
+  ],
+  "review_feedback": [
+    "No review comments were present in the provided PR slice.",
+    "The PR body/comment summary states that 13 functions were matched across 9 stage files, but no reviewer rationale or requested changes are available."
+  ],
+  "searchable_terms": [
+    "Stage decompilation matches",
+    "pr-2364",
+    "johnwinston",
+    "stage",
+    "ground",
+    "src/melee/gr",
+    "grcorneria",
     "grCorneria_801E0E40",
+    "grCn_804D466C",
+    "PAD_TRIGGER_L",
+    "PAD_TRIGGER_R",
+    "OSReport talk no",
     "grCorneria_801E1878",
-    "grGreatBay_801F62F8",
-    "grInishie1_801FC018",
-    "fn_801FC9AC",
-    "grKinokoRoute_80208564",
-    "grKongo_801D7E78",
-    "grMuteCity_801F2C10",
-    "grOldPupupu_802108B4",
-    "fn_802112F4",
-    "grPura_80213128",
-    "grShrineRoute_80209AF0",
-    "grShrineRoute_8020AC44",
-    "grShrineRoute_8020A8A4",
-    "GroundVars_unk.xDC int",
-    "grInishie1_GroundVars x100 x104 HSD_JObj",
-    "grMuteCity_GroundVars xE4 xE8 xF0 xF4 xFC x100 x104 x108 x10C",
-    "grShrineroute_GroundVars3",
-    "PAD_STACK",
-    "Ground_801C3FA4",
-    "Ground_801C2BA4",
-    "Ground_SetupStageCallbacks",
-    "mpJointSetCb1",
     "HSD_JObjGetTranslation",
     "HSD_JObjSetTranslate",
-    "HSD_MObjCompileTev",
-    "HSD_LObjLoadDesc",
-    "HSD_LObjSetNext",
-    "HSD_LObjSetPosition",
+    "grgreatbay",
+    "grGreatBay_801F62F8",
+    "Tingle balloon color",
     "HSD_Randi",
-    "HSD_Randf",
+    "weighted random",
+    "grinishie1",
+    "grInishie1_801FC018",
+    "fn_801FC9AC",
+    "mpJointSetCb1",
+    "scale platforms",
+    "grkinokoroute",
+    "grKinokoRoute_80208564",
+    "destructible brick blocks",
     "grMaterial_801C8CFC",
+    "grkongo",
+    "grKongo_801D7E78",
     "lb_8000B1CC",
+    "grmutecity",
+    "grMuteCity_801F2C10",
+    "shadow render bounds",
+    "groldpupupu",
+    "grOldPupupu_802108B4",
+    "fn_802112F4",
+    "Dream Land wind",
     "ftLib_80086644",
-    "Corneria debug talk no",
-    "Great Bay weighted random color",
-    "Mushroom Kingdom scale platforms",
-    "Mushroom Kingdom II brick blocks",
-    "Kongo barrel cannon position",
-    "Mute City shadow slope bounds",
-    "Dream Land N64 wind zone",
-    "Pokemon Stadium TEV compile",
-    "Fountain of Dreams reflective water light"
+    "grpura",
+    "grPura_80213128",
+    "HSD_MObjCompileTev",
+    "Pokemon Stadium TEV",
+    "grshrineroute",
+    "grShrineRoute_80209AF0",
+    "grShrineRoute_8020AC44",
+    "HSD_LObjLoadDesc",
+    "Fountain of Dreams",
+    "UNK_RET",
+    "UNK_PARAMS",
+    "PAD_STACK"
   ],
   "follow_up_queries": [
-    "Search later PRs for final 100% fixes to `grGreatBay_801F62F8`, which the bot reported at 93.97% after this PR.",
-    "Search later PRs for final matching work on `grMuteCity_801F2C10`, `grKinokoRoute_80208564`, `grCorneria_801E1878`, `grShrineRoute_80209AF0`, `fn_802112F4`, and `grOldPupupu_802108B4`.",
-    "Look for additional semantic naming of `grMuteCity_GroundVars` fields `xE4`, `xE8`, `xF0`, `xF4`, and JObj pointers `xFC` through `x10C`.",
-    "Look for future cleanup or confirmation of `grShrineroute_GroundVars3` and the Fountain of Dreams reflection-platform fields.",
-    "Search for other stage functions that use `PAD_STACK` plus callback casts around `grMaterial_801C8CFC` or `mpJointSetCb1`.",
-    "Search for follow-up comments or reviews outside this slice if human rationale for the near-matches is needed."
+    "Find later PRs that rename provisional `gv.inishie1` or `gv.shrineroute3` fields initialized in PR #2364.",
+    "Search for later cleanup of `grPura_80213128` traversal or `HSD_MObjCompileTev` call redundancy.",
+    "Look for PRs that replace address-based stage function names matched here with semantic names.",
+    "Search for other stage debug input helpers using `Camera_80030178`, `Camera_80030154`, `HSD_PadMasterStatus`, and `OSReport`.",
+    "Find later changes to Great Bay Tingle balloon color probability data indices 56, 57, 58, and 59."
   ],
-  "confidence": 0.9
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

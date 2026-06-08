@@ -11,13 +11,14 @@
     "merged_at": "2026-05-15T23:02:41Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Improved matching in `src/melee/lb/lb_00CE.c`: `powi` was changed to a natural exponent loop and became a full match, while `lb_8000D148` had its float geometry arithmetic reordered/split to improve fuzzy match from about 86.3% to about 98.9% while preserving the intended stack frame shape. Verification included targeted `checkdiff` runs and a full GALE01 build.",
+  "summary": "Improved matching in src/melee/lb/lb_00CE.c. The PR replaced an awkward partially unrolled/nonmatching powi implementation with a natural exponent loop that checkdiff reports as matching, and refactored lb_8000D148 local variable ordering/expression sequencing to raise its fuzzy match from 86.3% to 98.9% while preserving the expected stack frame shape. Build verification reported GALE01 main.dol OK.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
       "cleanup",
-      "build-verification"
+      "decomp-matching",
+      "matching-improvement",
+      "verification"
     ],
     "systems": [
       "library",
@@ -25,107 +26,92 @@
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/lb/lb_00CE.c",
-      "role": "Only changed file; contains the matched `powi` helper and the improved `lb_8000D148` geometry/math routine.",
-      "symbols": [
-        "powi",
-        "lb_8000D148"
-      ],
-      "added_lines": 26,
-      "deleted_lines": 37
-    }
+    "src/melee/lb/lb_00CE.c"
   ],
   "what_changed": [
-    {
-      "symbol": "powi",
-      "change": "Replaced speculative/chunked exponent logic using `exp_minus_8`, `remaining`, and `powers_done` with `s32 i` and a simple `for (; i < exponent; i++) { result *= base; }` loop. The existing `return_zero` path for invalid zero/negative cases remained."
-    },
-    {
-      "symbol": "lb_8000D148",
-      "change": "Reordered local declarations and float operations for point/line distance math. Introduced `cross`, reused `dist_01` for squared distance before `sqrtf`, and split compound squared-distance expressions into staged assignments."
-    },
-    {
-      "symbol": "lb_8000D148",
-      "change": "Changed calculations such as `dist_squared_02` and `dist_squared_12` from single compound expressions into ordered multiply/add steps like `dist_squared_02 = diff_02_x * diff_02_x; diff_02_y *= diff_02_y; dist_squared_02 += diff_02_y;`."
-    },
-    {
-      "symbol": "project",
-      "change": "No headers, structs, or broad system interfaces were changed; this PR was localized matching work in one C source file."
-    }
+    "In powi, removed exp_minus_8, remaining, and powers_done plus the manual 8-at-a-time multiply block, replacing them with a simple i counter and for loop multiplying result by base once per exponent step.",
+    "In lb_8000D148, reordered local declarations and assignments around point differences, cross-product computation, distance-squared computation, sqrtf, and threshold comparisons to better match target codegen.",
+    "Separated compound floating-point expressions into staged assignments, including computing dist_01 as squared distance before sqrtf and computing cross before var_f0.",
+    "Reworked threshold-distance calculations for point2 by declaring threshold_squared, dist_squared_02, and dist_squared_12 first, then accumulating squared components through explicit multiplication and addition steps.",
+    "Kept behavior-oriented checks intact: zero-length segment returns 0, absolute perpendicular distance is compared to threshold, and endpoint distance threshold checks drive return values."
   ],
   "smart_moves": [
-    "Trusted the simpler source shape for `powi`: the natural loop matched where the previous 8-at-a-time/unrolled-looking reconstruction did not.",
-    "For `lb_8000D148`, improved codegen by changing statement granularity and evaluation order rather than changing the apparent geometry logic.",
-    "Used explicit temporaries such as `cross`, `threshold_squared`, `dist_squared_02`, and `dist_squared_12` to steer floating-point operation ordering.",
-    "Kept stack frame shape as an explicit constraint while still raising fuzzy match quality.",
-    "Verified at three levels: `python tools/checkdiff.py powi`, `python tools/checkdiff.py lb_8000D148 --format json`, and `python configure.py --wrapper wine && ninja` producing `build/GALE01/main.dol: OK`."
+    "Used a natural loop for powi instead of forcing an overcomplicated unrolled-looking reconstruction; this produced a direct match according to the PR verification.",
+    "For lb_8000D148, focused on compiler-sensitive expression order and temporary lifetimes rather than broad algorithm changes, improving fuzzy match while preserving stack frame shape.",
+    "Introduced an explicit cross temporary for (point0_x * point1_y) - (point0_y * point1_x), which both clarifies the geometry and controls floating-point evaluation order.",
+    "Broke squared-distance expressions into individual multiply and add statements, a common tactic when matching PowerPC floating-point instruction ordering.",
+    "Verified at multiple levels: targeted checkdiff for powi, fuzzy checkdiff for lb_8000D148, and full configure/ninja build producing build/GALE01/main.dol OK."
   ],
   "decomp_lessons": [
-    "Do not overfit to apparent optimized math: a natural `for` loop may be the matching source even when a prior attempt used chunked or manually unrolled logic.",
-    "In float-heavy routines, small changes in temporary variables, declaration order, and whether expressions are split across statements can materially affect fuzzy match.",
-    "Reusing an existing local for multiple phases, as with `dist_01` holding squared distance before becoming `sqrtf(dist_01)`, can be a viable stack/register-shape tactic.",
-    "When preserving stack frame shape matters, prefer incremental arithmetic rewrites over large semantic refactors.",
-    "Record both exact-match wins and fuzzy-match percentage improvements; here the bot reported `powi` moving from 81.22% to 100.00% and `lb_8000D148` from 86.33% to 98.86%."
+    "When a decompiled helper like powi looks artificially complex and does not match, try the simpler source-level loop first; compiler output may correspond to the natural form rather than a guessed optimization.",
+    "For floating-point geometry routines, source expression grouping and declaration order strongly affect register allocation, temporary lifetimes, and instruction order.",
+    "Preserving stack frame shape can matter even when the fuzzy percentage is the main reported metric; avoid fixes that improve local instruction similarity at the cost of frame layout if the PR explicitly calls that out.",
+    "Staging arithmetic into temporaries can improve matching without changing semantics, especially for squared distances, cross products, and absolute-value branches.",
+    "Targeted checkdiff commands in the PR body are useful evidence for whether a change was a match, a fuzzy improvement, or only a build-safe cleanup."
   ],
   "naming_conventions": [
-    "`lb_8000D148` remained an address-based library symbol; no semantic rename was introduced.",
-    "`powi` kept direct parameter naming around `base` and `exponent`; the loop counter was simplified to `i`.",
-    "Removed speculative temporary names `exp_minus_8`, `remaining`, and `powers_done` once the natural exponent loop matched.",
-    "Geometry temporaries use point-pair suffixes: `diff_01_x`, `diff_01_y`, `diff_02_x`, `diff_02_y`, `diff_12_x`, `diff_12_y`, `dist_01`, `dist_squared_02`, and `dist_squared_12`.",
-    "Derived scalar names remained descriptive and local: `cross` and `threshold_squared`."
+    "powi uses simple names base, exponent, i, and result for integer power computation.",
+    "lb_8000D148 parameters and locals use geometric point/difference naming: point0_x, point0_y, point1_x, point1_y, point2_x, point2_y, diff_01_x, diff_01_y, diff_02_x, diff_02_y, diff_12_x, diff_12_y.",
+    "Squared distance locals use dist_squared_02 and dist_squared_12; the first segment's squared distance is temporarily stored in dist_01 before sqrtf converts it to distance.",
+    "threshold_squared names the cached threshold * threshold comparison value.",
+    "cross is used for the 2D cross-product determinant term."
   ],
   "assembly_or_matching_tactics": [
-    "`powi`: replaced 8-power chunk logic and `(u32) (...) >> 3U` quotient-style code with a simple incrementing loop, which `checkdiff` reported as a match.",
-    "`lb_8000D148`: split cross-product calculation into `cross = point0_y * point1_x;` followed by `cross = (point0_x * point1_y) - cross;` before using it in `var_f0`.",
-    "`lb_8000D148`: computed squared distance into `dist_01`, performed the small-distance threshold check on that value, then called `sqrtf(dist_01)`.",
-    "`lb_8000D148`: staged squared-distance calculations by assigning x-square first, squaring y differences in place, and then adding them, likely to align float instruction order/register use.",
-    "Used `tools/checkdiff.py` for targeted symbol feedback and full `ninja` build output for final DOL validation."
+    "Replace guessed unrolled arithmetic with a straightforward for loop when checkdiff indicates the simple source shape matches.",
+    "Reorder local declarations to influence stack/register allocation and preserve frame shape.",
+    "Split floating-point expressions into temporaries to control exact evaluation order.",
+    "Compute squared distances via explicit sequential operations rather than single compound expressions when matching instruction order.",
+    "Use targeted verification commands: python tools/checkdiff.py powi; python tools/checkdiff.py lb_8000D148 --format json; then full configure/ninja build."
   ],
-  "review_feedback": [
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported matched code 67.16% with +148 bytes overall, one new match for `main/melee/lb/lb_00CE` item `powi` (+28 bytes, 81.22% to 100.00%), and one unmatched-item improvement for `lb_8000D148` (+53 bytes, 86.33% to 98.86%)."
-    },
-    {
-      "source": "human_review",
-      "feedback": "No human review comments or reviews were present in the provided PR slice."
-    }
-  ],
+  "review_feedback": [],
   "searchable_terms": [
     "pr-2505",
     "lb_00CE",
     "src/melee/lb/lb_00CE.c",
     "powi",
     "lb_8000D148",
-    "itsgrimetime",
-    "natural exponent loop",
-    "result *= base",
-    "return_zero",
-    "fuzzy match",
-    "stack frame shape",
-    "cross",
-    "dist_01",
+    "powf",
     "sqrtf",
-    "threshold_squared",
-    "dist_squared_02",
-    "dist_squared_12",
+    "matching",
+    "fuzzy match",
+    "86.3%",
+    "98.9%",
+    "stack frame shape",
+    "point0_x",
+    "point0_y",
+    "point1_x",
+    "point1_y",
+    "point2_x",
+    "point2_y",
     "diff_01_x",
     "diff_01_y",
     "diff_02_x",
     "diff_02_y",
     "diff_12_x",
     "diff_12_y",
-    "checkdiff.py powi",
-    "checkdiff.py lb_8000D148",
-    "GALE01 main.dol OK"
+    "dist_01",
+    "dist_squared_02",
+    "dist_squared_12",
+    "threshold",
+    "threshold_squared",
+    "cross",
+    "checkdiff",
+    "GALE01",
+    "itsgrimetime"
   ],
   "follow_up_queries": [
-    "powi natural exponent loop result *= base checkdiff match",
-    "lb_8000D148 cross dist_01 sqrtf threshold_squared fuzzy match",
-    "src/melee/lb/lb_00CE.c diff_02_y diff_12_y dist_squared_02 dist_squared_12",
-    "preserving stack frame shape float arithmetic decomp matching",
-    "decomp-dev bot powi 81.22 100.00 lb_8000D148 86.33 98.86"
+    "Look for later PRs touching lb_8000D148 to see whether the remaining fuzzy mismatch was resolved.",
+    "Search for other powi or integer exponent helpers where natural loops beat guessed unrolled source.",
+    "Find PRs mentioning preserved stack frame shape for examples of declaration-order matching tactics.",
+    "Search lb_00CE.c history for additional floating-point expression-order matching improvements."
   ],
-  "confidence": 0.92
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

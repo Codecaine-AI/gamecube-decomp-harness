@@ -11,77 +11,102 @@
     "merged_at": "2026-03-07T23:24:09Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Small ftCommon Attack100 codegen fix that refactored CaptureDamageLw physics helpers into static inline bodies plus public wrappers. The change removed a local dont_inline pragma block, added PAD_STACK(4) for fn_800DC624, adjusted Fighter pointer reloads/local variable usage, and produced decomp.dev-reported 100% matches for fn_800DC624, ftCo_CaptureDamageLw_Phys, and ftCo_CaptureDamageLw_Coll.",
+  "summary": "Small matching-focused fix in ftCo_Attack100.c for common fighter capture-damage-low routines. The PR rewrote ftCo_CaptureDamageLw_Phys and fn_800DC624 through static inline helper bodies plus thin exported wrappers, adjusted local variable lifetimes/reloads, removed a dont_inline pragma block, and added PAD_STACK(4) to fn_800DC624. The decomp bot reported 3 new 100% matches in the ftCo_Attack100 unit and +672 matched bytes overall.",
   "change_classification": {
-    "primary_type": "decomp-matching fix",
+    "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
       "fix",
+      "decomp-matching",
       "codegen-control",
-      "inline-wrapper-refactor"
+      "stack-matching"
     ],
     "systems": [
       "fighter",
       "ftCommon",
       "ftCo_Attack100",
-      "CaptureDamageLw"
+      "capture-damage"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
-      "role": "Only changed file; refactored ftCo_CaptureDamageLw_Phys and fn_800DC624 matching-sensitive code."
+      "role": "Only changed file; contains ftCo_CaptureDamageLw_Phys, ftCo_CaptureDamageLw_Coll, and fn_800DC624 matching fixes.",
+      "added_lines": 35,
+      "deleted_lines": 34
     }
   ],
   "what_changed": [
-    "Removed the #pragma push / #pragma dont_inline on / #pragma pop region around ftCo_CaptureDamageLw_IASA, ftCo_CaptureDamageLw_Phys, and fn_800DC624.",
-    "Split ftCo_CaptureDamageLw_Phys into static inline ftCo_CaptureDamageLw_Phys_inline plus a non-inline public ftCo_CaptureDamageLw_Phys wrapper that calls it.",
-    "Split fn_800DC624 into static inline fn_800DC624_inline plus a public fn_800DC624 wrapper.",
-    "Added PAD_STACK(4) to the public fn_800DC624 wrapper before calling fn_800DC624_inline.",
-    "Changed local variable strategy in ftCo_CaptureDamageLw_Phys: uses gobj directly, introduces Fighter* fp for the main state transition/victim pointer, reloads GET_FIGHTER(gobj) into fp2 for the x2226_b2 check, and preserves a Vec3* pos temporary for HSD_JObjSetTranslate.",
-    "Changed local variable strategy in fn_800DC624_inline: uses gobj directly, keeps Fighter* temp_r31, and passes &temp_r31->cur_pos directly to HSD_JObjSetTranslate instead of using a Vec3* pos temporary.",
-    "decomp.dev reported 3 new matches in main/melee/ft/chara/ftCommon/ftCo_Attack100: fn_800DC624 (+200 bytes, 33.64% to 100.00%), ftCo_CaptureDamageLw_Phys (+185 bytes, 41.59% to 100.00%), and ftCo_CaptureDamageLw_Coll (+20 bytes, 65.86% to 100.00%)."
+    "Removed the local #pragma push / #pragma dont_inline on / #pragma pop wrapper around ftCo_CaptureDamageLw_Phys and fn_800DC624.",
+    "Changed ftCo_CaptureDamageLw_Phys from a direct function body into static inline ftCo_CaptureDamageLw_Phys_inline plus a public ftCo_CaptureDamageLw_Phys wrapper that calls the inline helper.",
+    "Changed fn_800DC624 from a direct function body into static inline fn_800DC624_inline plus a public fn_800DC624 wrapper.",
+    "Added PAD_STACK(4) to the exported fn_800DC624 wrapper before calling fn_800DC624_inline.",
+    "Adjusted local variable usage in ftCo_CaptureDamageLw_Phys: uses gobj directly instead of temp_r30, introduces Fighter* fp and Fighter* fp2, reloads GET_FIGHTER(gobj) before checking x2226_b2, and keeps a Vec3* pos for HSD_JObjSetTranslate.",
+    "Adjusted local variable usage in fn_800DC624: initializes Fighter* temp_r31 directly from GET_FIGHTER(gobj), uses gobj directly in calls, removes the temporary Vec3* pos, and passes &temp_r31->cur_pos directly to HSD_JObjSetTranslate.",
+    "The behavior-level flow remains the same in the diff: change to ftCo_MS_CaptureDamageHi, call fn_800DB5D8, call fn_800DAA40 with victim_gobj, optionally install fn_800DC384 via ft_80083C00 when x2226_b2 is false, then update the JObj translate from cur_pos."
   ],
   "smart_moves": [
-    "Used static inline helper bodies while keeping the original exported function symbols as wrappers, allowing codegen control without renaming the public API.",
-    "Replaced broad dont_inline pragma control with more targeted inline/wrapper structure, reducing collateral effects on adjacent functions.",
-    "Added a small explicit PAD_STACK(4) only where needed for fn_800DC624 wrapper matching.",
-    "Preserved matching-sensitive redundant GET_FIGHTER behavior by reloading into fp2 before checking x2226_b2 instead of over-optimizing through the earlier Fighter*.",
-    "Kept source behavior stable while changing only code structure and temporaries to improve matching."
+    "Using static inline helper bodies preserved source readability while changing compiler inlining/codegen at the exported function boundary.",
+    "The thin wrapper pattern let fn_800DC624 carry an explicit PAD_STACK(4) without cluttering the logical helper body.",
+    "Reloading GET_FIGHTER(gobj) into fp2 before the x2226_b2 check in ftCo_CaptureDamageLw_Phys appears to have been an intentional codegen/lifetime control point rather than a semantic change.",
+    "Removing the dont_inline pragma and replacing it with targeted inline helpers gave finer control over which code was emitted inline and which symbol remained externally callable.",
+    "The patch was tightly scoped to one ftCommon source file and one cluster of related capture-damage-low functions, making the matching impact easy to verify."
   ],
   "decomp_lessons": [
-    "For stubborn fighter action functions, a static inline implementation plus a trivial exported wrapper can be a cleaner matching tactic than a dont_inline pragma block.",
-    "Do not assume fewer temporaries is better: matching may require a specific pointer reload, as shown by the separate fp2 GET_FIGHTER(gobj) before x2226_b2.",
-    "Stack padding in a wrapper can be enough to recover a target function match without disturbing the inline body shared with nearby logic.",
-    "Adjacent function match status can change from pragma/inline decisions even when that adjacent function's visible body barely changes; here ftCo_CaptureDamageLw_Coll also reached 100% according to the bot report.",
-    "When refactoring for match, keep original side-effect order around Fighter_ChangeMotionState, fn_800DB5D8, fn_800DAA40, ft_80083C00, and HSD_JObjSetTranslate."
+    "When a function nearly matches but stack/register behavior is off, try splitting the implementation into a static inline helper and a thin public wrapper instead of relying only on dont_inline pragmas.",
+    "PAD_STACK in a wrapper can be a useful way to match expected stack allocation while leaving the decompiled logical body clean.",
+    "GET_FIGHTER reload placement can matter for matching; preserving or forcing a second load may be necessary around state-changing calls.",
+    "Direct use of the original argument gobj versus assigning it to temp_r30 can affect register allocation and should be tested rather than assumed equivalent.",
+    "Small local expression changes, such as keeping a Vec3* temporary in one function but passing &temp_r31->cur_pos directly in another, can be decisive for matching similar routines.",
+    "Bot match reports are useful evidence for validating tactical codegen-only rewrites: this PR moved fn_800DC624, ftCo_CaptureDamageLw_Phys, and ftCo_CaptureDamageLw_Coll to 100% according to the GALE01 report."
   ],
   "naming_conventions": [
-    "Static inline helper names used the original function name plus an _inline suffix: ftCo_CaptureDamageLw_Phys_inline and fn_800DC624_inline.",
-    "Original externally referenced function names were preserved as wrappers: ftCo_CaptureDamageLw_Phys and fn_800DC624.",
-    "Local fighter pointer naming mixed descriptive fp/fp2 in ftCo_CaptureDamageLw_Phys_inline with temp_r31 retained in fn_800DC624_inline, suggesting names were chosen for codegen/matching rather than purely for style."
+    "Static inline helper functions used the original exported function name with an _inline suffix: ftCo_CaptureDamageLw_Phys_inline and fn_800DC624_inline.",
+    "The rewritten ftCo_CaptureDamageLw_Phys uses conventional Fighter pointer names fp and fp2 rather than register-style temp_r30/temp_r31 for most locals.",
+    "fn_800DC624_inline retained the register-derived name temp_r31 for its Fighter* local, suggesting register-style temporary names may still be kept when they help document or preserve a match.",
+    "Existing project macros and typedef names were preserved: Fighter_GObj, HSD_GObj, GET_FIGHTER, GET_JOBJ, Fighter_ChangeMotionState, HSD_JObjSetTranslate."
   ],
   "assembly_or_matching_tactics": [
-    "Removed #pragma dont_inline and controlled inlining explicitly with static inline helper functions.",
-    "Introduced wrapper functions around inline bodies to preserve symbol boundaries while influencing generated code.",
-    "Used PAD_STACK(4) in fn_800DC624 to match stack layout.",
-    "Used direct gobj argument references instead of assigning temp_r30 = gobj.",
-    "Forced a second GET_FIGHTER(gobj) reload before the x2226_b2 branch in ftCo_CaptureDamageLw_Phys_inline.",
-    "Kept a Vec3* pos temporary in ftCo_CaptureDamageLw_Phys_inline but removed it in fn_800DC624_inline, showing per-function temporary choices mattered."
+    "Replace broad #pragma dont_inline usage with static inline helper plus exported wrapper to tune inlining and emitted symbol boundaries.",
+    "Use PAD_STACK(4) in a wrapper when the target function needs a specific stack shape.",
+    "Control pointer live ranges by introducing or removing temporary variables: fp, fp2, temp_r31, pos.",
+    "Force a GET_FIGHTER reload before a field test when the target assembly likely reloads the fighter pointer after intervening calls.",
+    "Use direct argument gobj in call sites instead of a copied Fighter_GObj* temp when that better matches register allocation.",
+    "Choose between a Vec3* temporary and an inline address expression based on the target codegen; this PR uses both forms in different helper bodies."
   ],
   "review_feedback": [
     {
-      "source": "decomp.dev bot",
-      "feedback": "Matched code improved by +0.02% / +672 bytes for GALE01, with 3 new 100% matches in ftCo_Attack100.",
-      "affected_symbols": [
-        "fn_800DC624",
-        "ftCo_CaptureDamageLw_Phys",
-        "ftCo_CaptureDamageLw_Coll"
+      "source": "decomp-dev[bot]",
+      "type": "match_report",
+      "created_at": "2026-03-07T23:18:21Z",
+      "text": "GALE01 report showed matched code 55.46% (+0.02%, +672 bytes) and 3 new matches.",
+      "matches": [
+        {
+          "unit": "main/melee/ft/chara/ftCommon/ftCo_Attack100",
+          "item": "fn_800DC624",
+          "bytes": 200,
+          "before": "33.64%",
+          "after": "100.00%"
+        },
+        {
+          "unit": "main/melee/ft/chara/ftCommon/ftCo_Attack100",
+          "item": "ftCo_CaptureDamageLw_Phys",
+          "bytes": 185,
+          "before": "41.59%",
+          "after": "100.00%"
+        },
+        {
+          "unit": "main/melee/ft/chara/ftCommon/ftCo_Attack100",
+          "item": "ftCo_CaptureDamageLw_Coll",
+          "bytes": 20,
+          "before": "65.86%",
+          "after": "100.00%"
+        }
       ]
     },
     {
-      "source": "human review",
-      "feedback": "No human review comments were present in the provided PR slice."
+      "source": "pr_context",
+      "type": "absence",
+      "text": "No human review comments or PR body rationale were present in the provided slice."
     }
   ],
   "searchable_terms": [
@@ -90,35 +115,47 @@
     "ftCo_CaptureDamageLw_Phys",
     "ftCo_CaptureDamageLw_Phys_inline",
     "ftCo_CaptureDamageLw_Coll",
-    "ftCo_CaptureDamageLw_IASA",
     "fn_800DC624",
     "fn_800DC624_inline",
-    "PAD_STACK(4)",
-    "dont_inline",
-    "static inline",
-    "GET_FIGHTER",
-    "Fighter_ChangeMotionState",
+    "ftCo_CaptureDamageLw_IASA",
     "ftCo_MS_CaptureDamageHi",
+    "Fighter_ChangeMotionState",
     "Ft_MF_UpdateCmd",
     "fn_800DAD18",
     "fn_800DB5D8",
     "fn_800DAA40",
-    "ft_80083C00",
     "fn_800DC384",
+    "ft_80083C00",
     "HSD_JObjSetTranslate",
+    "GET_FIGHTER",
     "GET_JOBJ",
+    "PAD_STACK",
+    "dont_inline",
     "x2226_b2",
+    "victim_gobj",
     "cur_anim_frame",
     "cur_pos",
-    "victim_gobj",
+    "static inline",
+    "capture damage low",
+    "capture damage hi",
     "GALE01",
-    "new matches"
+    "matched code",
+    "stephenjayakar"
   ],
   "follow_up_queries": [
-    "Find other ftCommon functions still using #pragma dont_inline where a static inline body plus wrapper may improve matching.",
-    "Search for PAD_STACK in fighter code to compare wrapper stack-padding patterns.",
-    "Review nearby CaptureDamageHi/Lw helper functions for duplicated state-transition code that may need the same GET_FIGHTER reload pattern.",
-    "Check whether ftCo_CaptureDamageLw_Coll's new match was caused by pragma boundary changes rather than direct body edits."
+    "Find other ftCommon capture routines where static inline helper plus wrapper could replace dont_inline pragmas for matching.",
+    "Search for PAD_STACK wrappers near ftCo_Attack100 or capture-damage functions to compare stack-matching patterns.",
+    "Search for uses of GET_FIGHTER reloads before x2226_b2 checks to identify similar codegen-sensitive spots.",
+    "Inspect nearby functions using fn_800DC384, fn_800DB5D8, and fn_800DAA40 for repeated CaptureDamageHi transition patterns.",
+    "Check whether ftCo_CaptureDamageLw_Coll reached 100% only as a side effect of neighboring code layout or due to changes in this hunk."
   ],
-  "confidence": 0.93
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

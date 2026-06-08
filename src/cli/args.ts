@@ -27,6 +27,7 @@ function readFlag(argv: string[], index: number): string {
 }
 
 export function parse(argv: string[]): ParsedArgs {
+  const defaultStateRoot = process.cwd();
   const globals: GlobalArgs = {
     repoRoot: process.cwd(),
     stateDir: "",
@@ -86,7 +87,7 @@ export function parse(argv: string[]): ParsedArgs {
   }
 
   if (!command) command = "status";
-  if (!globals.stateDir) globals.stateDir = resolve(globals.repoRoot, DEFAULT_STATE_DIR_NAME);
+  if (!globals.stateDir) globals.stateDir = resolve(defaultStateRoot, DEFAULT_STATE_DIR_NAME);
   return { command, globals, args };
 }
 

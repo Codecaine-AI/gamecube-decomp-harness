@@ -11,122 +11,100 @@
     "merged_at": "2026-04-28T10:39:12Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged a rough but useful partial decompilation base for All-Star mode in src/melee/gm/gmallstar.c. The PR replaced four previously stubbed functions with C bodies, added the All-Star opponent and round data tables, corrected the GALE01 data symbol split for gm_803DEBE8/gm_803DEC4C, and cleaned the static header to expose only the needed typedefs. decomp.dev reported substantial unmatched-item improvements for the new gmallstar functions and .data/.bss, with one regression in gm_801B60A4_OnLoad.",
+  "summary": "Matched a substantial block of All-Star mode game-mode code in src/melee/gm/gmallstar.c, replacing several placeholder functions with C implementations and moving/reifying All-Star opponent/round data. The PR introduced static gm_803DEBE8 opponent data, a new gm_803DEC4C AllstarRoundInfo table, and implementations for gm_801B5324, gm_801B5624, gm_801B59AC, and gm_801B5ACC. It also adjusted GALE01 symbol sizes to split gm_803DEBE8 from the newly identified gm_803DEC4C object. The author explicitly described the result as an imperfect base for others to improve, and there was no substantive review feedback in the provided slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "partial-decomp",
-      "data-symbol-splitting",
+      "data-table-reconstruction",
       "headers",
+      "symbol-map-update",
       "game-mode-logic"
     ],
     "systems": [
-      "gm",
-      "gmallstar",
+      "game-mode",
       "All-Star mode",
-      "config/GALE01",
-      "lbDvd preload cache",
-      "lbAudioAx audio preload",
-      "gmregcommon enemy colors"
+      "minor scenes",
+      "preload/cache",
+      "audio preload",
+      "config/symbols"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gm/gmallstar.c",
-      "role": "Main implementation file; added static All-Star data tables, gm_80490940 storage, includes for gmregcommon and lbaudio_ax, and C bodies for gm_801B5324, gm_801B5624, gm_801B59AC, and gm_801B5ACC."
-    },
-    {
-      "path": "src/melee/gm/gmallstar.static.h",
-      "role": "Removed extern declarations and a commented gm_803DEBE8 initializer from the static header; added the AllstarRoundInfo typedef with start/count fields."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Corrected gm_803DEBE8 .data size from 0xD0 to 0x64 and added adjacent gm_803DEC4C at .data:0x803DEC4C size 0x6C."
-    }
+    "src/melee/gm/gmallstar.c",
+    "src/melee/gm/gmallstar.static.h",
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "Replaced the placeholder comments for gm_801B5324, gm_801B5624, gm_801B59AC, and gm_801B5ACC with C implementations in gmallstar.c.",
-    "Defined static gm_803DEBE8_t gm_803DEBE8[25] in gmallstar.c with the All-Star opponent table values that had previously existed only as a commented initializer in gmallstar.static.h.",
-    "Added static AllstarRoundInfo gm_803DEC4C[26], with visible initialized round start/count entries, and updated symbols.txt to represent it as a separate .data object after gm_803DEBE8.",
-    "Added gm_80490940_t gm_80490940[5] in gmallstar.c and used it as runtime per-opponent/round status state from the new All-Star functions.",
-    "gm_801B5324 now builds opponent character/color arrays, calls gmRegSetupEnemyColorTable, configures lbDvd preload cache entries, sets the stage id, and requests character/stage audio through lbAudioAx calls.",
-    "gm_801B5624 now prepares StartMeleeData for an All-Star fight using gm_8017CE34, rule flags, saved percent/time from gm_80473A18, and special handling when arg0->idx is 0 or 0x60.",
-    "gm_801B59AC now records match result state into gm_80490940, saves player percent and frame count into global All-Star data, and conditionally transitions via gm_8017CBAC when gm_8017D7AC succeeds at idx 0x60.",
-    "gm_801B5ACC now prepares the rest/transition scene, marks beaten opponents into allstar->x76 using HSD_Randi slots, stores upcoming opponents in allstar->_94, queues remaining characters with gm_8016A998, calls gm_801B5324 for the next round, and installs fn_801B5AA8 as a rules callback.",
-    "gm_801B60A4_OnLoad changed its gm_80490940 byte-zeroing loop and removed PAD_STACK(12); decomp.dev reported this as a regression for that item."
+    "Added includes for gmregcommon.h and melee/lb/lbaudio_ax.h to support enemy color setup and audio-preload calls from the newly decompiled All-Star functions.",
+    "Replaced placeholder marker for gm_801B5324 with an implementation that prepares All-Star opponent character/color arrays, configures enemy color data, fills lbDvd preload cache entries, sets stage cache data, and accumulates audio preload bitmasks for the player, opponents, and stage.",
+    "Replaced placeholder marker for gm_801B5624 with an implementation that builds StartMeleeData for an All-Star match, derives opponent data from the current minor-scene round, configures rules and player state, handles special final-round setup for idx 0x60, and stores progress back to global All-Star data.",
+    "Replaced placeholder marker for gm_801B59AC with an implementation that records match result state in gm_80490940, preserves player percent and elapsed frame count into All-Star data, and conditionally advances scene flow through gm_8017CBAC when appropriate.",
+    "Replaced placeholder marker for gm_801B5ACC with an implementation for All-Star between-round/rest-area setup, including rule flags, opponent tracking arrays, next-round preview data, random placement into allstar->x76, calls to gm_8016A92C/gm_8016A998, preloading the next round via gm_801B5324, and assigning fn_801B5AA8 as a rules callback.",
+    "Defined static gm_803DEBE8[25] opponent data directly in gmallstar.c instead of keeping it as an extern plus commented initializer in gmallstar.static.h.",
+    "Introduced static AllstarRoundInfo gm_803DEC4C[26] in gmallstar.c, with start/count pairs used to map All-Star rounds to slices of the opponent table.",
+    "Added typedef struct AllstarRoundInfo with u32 start and u32 count fields to gmallstar.static.h.",
+    "Updated config/GALE01/symbols.txt so gm_803DEBE8 shrank from size 0xD0 to 0x64 and a new gm_803DEC4C object at .data:0x803DEC4C size 0x6C was added.",
+    "Touched gm_801B60A4_OnLoad by removing a PAD_STACK(12) and changing a byte-zeroing loop over gm_80490940 from pointer post-increment form to an indexed for loop, presumably to support matching after nearby data/function changes."
   ],
   "smart_moves": [
-    "The PR recognized that the old gm_803DEBE8 symbol covered two logical adjacent .data objects, splitting it into gm_803DEBE8 size 0x64 and gm_803DEC4C size 0x6C in symbols.txt.",
-    "Moving gm_803DEBE8's real initializer into gmallstar.c and removing the giant commented initializer from the header reduced header noise and made the file-local data definition match the static symbol scope.",
-    "Introducing AllstarRoundInfo with explicit start/count fields captured the structure of the newly split gm_803DEC4C table instead of leaving it as anonymous 4-byte data.",
-    "The new functions thread together All-Star state across gm_80473A18, gm_803DEBE8, gm_803DEC4C, gm_80490940, StartMeleeData, MatchExitInfo, DVD cache, and audio preload calls, giving later work a concrete control-flow base.",
-    "The implementations preserve matching-oriented details visible in the diff, including PAD_STACK in several new functions, explicit casts, repeated gm_8017BE84 calls, sentinel character value 0x21, and unrolled copy loops."
+    "Split the old 0xD0 data symbol into two typed objects: gm_803DEBE8 for the 25-entry opponent table and gm_803DEC4C for round start/count metadata. This makes later All-Star work more searchable and less dependent on raw offsets.",
+    "Moved the large gm_803DEBE8 initializer out of a comment in the static header and into the C file as a real static data definition, reducing header clutter and aligning storage with local data scope.",
+    "Introduced AllstarRoundInfo rather than indexing round metadata as raw words, making repeated uses of .start and .count explicit in the new function bodies.",
+    "Used existing game-mode helper functions rather than open-coding systems already present elsewhere: gmRegSetupEnemyColorTable for colors, lbDvd cache functions for preload, lbAudioAx functions for audio masks, gm_8017CE34 for melee-data setup, and gm_8016F088/gm_8016A92C/gm_8016A998 for rules/progress hooks.",
+    "Preserved several compiler-shape artifacts likely needed for matching, including small inner scopes, explicit casts between u8/s8/s32, manual unrolled copies in blocks of eight, and PAD_STACK calls in newly implemented functions."
   ],
   "decomp_lessons": [
-    "When a .data symbol's size looks too large, check whether it actually contains multiple adjacent tables; here gm_803DEBE8 was narrowed and gm_803DEC4C was added as a separate object.",
-    "Static headers should keep type declarations but not own file-local data definitions or large commented data dumps when the C file can define the actual static object.",
-    "All-Star mode logic relies on several still-poorly-named globals and fields; future work should reuse this control-flow base but improve names for gm_80490940, gm_80473A18 fields, allstar->x76, allstar->_94, and gm_803DEBE8_t members when semantics are confirmed.",
-    "Partial nonmatching C can be worth merging as a base when it raises function/data similarity significantly, but the PR itself and bot report show this was not a fully solved section.",
-    "Small changes made for one match can regress a nearby function: decomp.dev reported gm_801B60A4_OnLoad dropped from 87.40% to 80.20% after this PR's zeroing-loop/PAD_STACK changes."
+    "When a previously monolithic data symbol does not match real usage, split it into adjacent typed objects and update symbols.txt sizes accordingly; here gm_803DEBE8 became a 0x64 opponent table and gm_803DEC4C became a separate 0x6C round-info table.",
+    "For game-mode decomp, reconstructing data tables can unlock multiple functions at once because scene setup, preload, result handling, and between-round flow all index the same tables.",
+    "Keep uncertain, address-style names when semantics are not proven. This PR improved structure around gm_803DEBE8 and gm_803DEC4C but retained many xN field names and gm_801xxxxx function names, which is appropriate when evidence is limited.",
+    "Matching may require code that looks unnatural in source form, such as manual block-copy loops, redundant round recomputation, temporary base pointers to minor-scene data, explicit casts, and stack padding.",
+    "Header hygiene matters: static local data definitions should not remain as extern declarations or commented-out initializers in a static header once the owning C file defines them.",
+    "Game-mode functions often need coordinated preloading of character files, stage files, and audio banks; future matching should look for lbDvd and lbAudioAx call sequences together rather than treating them as unrelated."
   ],
   "naming_conventions": [
-    "New descriptive typedef: AllstarRoundInfo with fields start and count.",
-    "Existing address-based names were preserved for not-yet-understood symbols: gm_801B5324, gm_801B5624, gm_801B59AC, gm_801B5ACC, gm_803DEBE8, gm_803DEC4C, and gm_80490940.",
-    "Unresolved struct fields stayed in the project's offset-style names, such as x0, x1, x2, x3, x54, x74, x76, x9C, and _94.",
-    "All-Star-specific placeholder types remained visible: UnkAllstarData, UnkAdventureData, gm_803DEBE8_t, and gm_80490940_t.",
-    "The PR used project-style subsystem includes and calls: gmregcommon/gmRegSetupEnemyColorTable, lbdvd/lbDvd_*, and lbaudio_ax/lbAudioAx_*."
+    "New table type uses a semantic PascalCase typedef name: AllstarRoundInfo.",
+    "AllstarRoundInfo fields use concise semantic names start and count rather than raw x0/x4 fields.",
+    "Unresolved objects/functions retain address-based names such as gm_803DEBE8, gm_803DEC4C, gm_80490940, gm_801B5324, gm_801B5624, gm_801B59AC, and gm_801B5ACC.",
+    "Unresolved struct fields retain x-offset/bitfield-style names such as x0, x2, x3, x54, x74, x9C, x0_6, x0_7, x1_0, xC_b1, and xD_b2.",
+    "Local variable names in the new implementations are partly semantic and reusable for similar work: opp_data, is_last_round, count_processed, slot_idx, allstar, round, color, opp_start, opp_idx, match_end, next_count."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(12), PAD_STACK(16), and PAD_STACK(24) in new functions to influence stack layout.",
-    "Used manual initialization of small local arrays chars[3] and colors[3] with the sentinel value 0x21 for empty character slots.",
-    "Used an eight-entry unrolled copy loop plus a tail loop when copying opponent x3 values into chars, matching compiler-like loop structure rather than simplifying the code.",
-    "Kept many narrow casts between u8, s8, s32, CharacterKind, and InternalStageId to preserve sign/zero-extension behavior.",
-    "Preserved explicit rule bit manipulation, including data->rules.x20 &= 0xFFFFFFFFFFFBFCFFULL and multiple x0_*/x1_* bitfield assignments.",
-    "The OnLoad zeroing loop was rewritten through a char pointer and descending for-loop, but bot output marks this area as a regression, so it should be revisited before reusing the tactic."
+    "Used PAD_STACK in several newly implemented functions, with sizes visible in the diff such as PAD_STACK(12), PAD_STACK(16), and PAD_STACK(24), to align stack layout for matching.",
+    "Kept explicit s8/u8 casts around character IDs and color values, especially when writing chars arrays and calling lbAudioAx_80026E84 or assigning preload cache char_id fields.",
+    "Implemented copy loops with an eight-element unrolled body and a residual loop, likely matching compiler output for copying opponent character IDs from gm_803DEBE8_t.x3 into local chars arrays.",
+    "Used local inner scopes to control temporary lifetimes and register allocation around start/count table lookups and later loops.",
+    "Preserved apparently redundant computations such as recomputing round with gm_8017BE84(arg0->idx) before separate uses, which can be necessary for instruction scheduling/register matching.",
+    "Adjusted gm_801B60A4_OnLoad stack/zeroing behavior by removing PAD_STACK(12) and changing the gm_80490940 byte-clear loop shape, indicating small surrounding edits were needed to keep the function matching."
   ],
   "review_feedback": [
     {
-      "source": "decomp-dev bot",
-      "feedback": "Reported 6 improvements: gm_801B5ACC 0.00% to 79.89%, gm_801B5624 0.00% to 78.42%, gm_801B5324 0.00% to 74.50%, gm_801B59AC 0.00% to 72.68%, .data 87.00% to 96.22%, and .bss 0.00% to 50.00%."
+      "source": "author PR/comment excerpt",
+      "feedback": "The author wrote that they were \"Not the biggest fan on how this one turned out\" and framed it as \"a base for others to work off of for now.\" This indicates the implementation was considered useful but not final polish."
     },
     {
-      "source": "decomp-dev bot",
-      "feedback": "Reported 1 regression: gm_801B60A4_OnLoad decreased from 87.40% to 80.20% (-40 bytes)."
-    },
-    {
-      "source": "author comment",
-      "feedback": "jurrejelle wrote: \"Not the biggest fan on how this one turned out, but it's a base for others to work off of for now.\""
-    },
-    {
-      "source": "review comments",
-      "feedback": "No human review comments or formal reviews were present in the slice."
+      "source": "review metadata",
+      "feedback": "No review comments or formal review feedback were present in the provided PR slice."
     }
   ],
   "searchable_terms": [
-    "pr-2427",
     "Jj/gmallstar",
-    "jurrejelle",
     "gmallstar",
-    "All-Star",
+    "All-Star mode",
     "AllstarRoundInfo",
-    "src/melee/gm/gmallstar.c",
-    "src/melee/gm/gmallstar.static.h",
-    "config/GALE01/symbols.txt",
+    "gm_803DEBE8",
+    "gm_803DEC4C",
+    "gm_80490940",
     "gm_801B5324",
     "gm_801B5624",
     "gm_801B59AC",
     "gm_801B5ACC",
     "gm_801B60A4_OnLoad",
-    "fn_801B5AA8",
-    "gm_803DEBE8",
-    "gm_803DEC4C",
-    "gm_80490940",
-    "gm_80473A18",
     "gm_803DE930_MinorScenes",
     "gmRegSetupEnemyColorTable",
     "lbDvd_8001822C",
     "lbDvd_80018C6C",
+    "lbDvd_80018254",
     "lbDvd_80018C2C",
     "lbDvd_80017700",
     "lbAudioAx_80026E84",
@@ -134,21 +112,28 @@
     "lbAudioAx_80026F2C",
     "lbAudioAx_8002702C",
     "lbAudioAx_80027168",
-    "gm_8017CE34",
-    "gm_8016A998",
-    "gm_8016A92C",
-    "gm_8017D7AC",
     "StartMeleeData",
+    "MinorScene",
     "MatchExitInfo",
-    "PreloadCacheScene",
-    "UnkAllstarData"
+    "UnkAllstarData",
+    "UnkAdventureData",
+    "PAD_STACK",
+    "config/GALE01/symbols.txt"
   ],
   "follow_up_queries": [
-    "Find later PRs that improve or fully match gm_801B5324, gm_801B5624, gm_801B59AC, or gm_801B5ACC.",
-    "Search for a follow-up that fixes the gm_801B60A4_OnLoad regression introduced or exposed in this PR.",
-    "Search for later renames of gm_803DEBE8_t, gm_80490940_t, AllstarRoundInfo, gm_803DEC4C, and UnkAllstarData fields.",
-    "Compare later gmallstar.c revisions for safer naming around allstar->x76, allstar->_94, x74 percent carryover, and x9C frame/time accumulation.",
-    "Look for other PRs that split oversized .data symbols in config/GALE01/symbols.txt to model adjacent tables."
+    "Find later PRs touching src/melee/gm/gmallstar.c to see whether gm_801B5324, gm_801B5624, gm_801B59AC, or gm_801B5ACC were cleaned up or renamed.",
+    "Search for later renames of gm_803DEBE8_t, gm_803DEC4C, AllstarRoundInfo, and gm_80490940 to recover final semantic names.",
+    "Inspect adjacent All-Star minor-scene tables in gm_803DE930_MinorScenes to confirm whether the round index and idx 0x60/final-round handling were later documented.",
+    "Compare other game-mode files using gm_8017CE34 and gmRegSetupEnemyColorTable for reusable patterns in StartMeleeData setup and enemy color table reconstruction.",
+    "Audit symbols.txt changes around .data:0x803DEBE8-.data:0x803DECB8 to confirm the object split remained stable after later data matching."
   ],
-  "confidence": 0.84
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

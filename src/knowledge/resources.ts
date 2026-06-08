@@ -31,6 +31,10 @@ export function resourceMap(repoRoot: string, role: AgentContextRole, capabiliti
     objective: {
       primary_metric: "matched_code_percent",
       telemetry_metric: "fuzzy_match_percent",
+      primary_work_product:
+        "reviewable text-section/source code fixes, code-match blockers, and reusable source-shape facts",
+      secondary_work_policy:
+        "data, literal, symbol, and split cleanup is secondary; include it only when explicitly scoped, required for a code match, or blocking code-match validation",
       quality_bar: "reviewable Melee decomp source backed by local evidence and verifier output",
     },
     progress_inputs: [

@@ -1,12 +1,16 @@
 #!/usr/bin/env bun
 import { existsSync, readFileSync } from "node:fs";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { Database } from "bun:sqlite";
-import { evaluateWorkerReportAcceptance, workerReturnRepairReasons } from "../src/agents/worker/index.js";
+import { evaluateWorkerReportAcceptance, lintWorkerReviewDiff, workerReturnRepairReasons } from "../src/agents/worker/index.js";
+import { loadBoardSnapshot } from "../src/board/index.js";
+import { parse } from "../src/cli/args.js";
 import { buildPrSplitPlanFromChanges } from "../src/cli/commands/pr-split-plan.js";
-import { evaluateReplanDecision, workerOpenSlots } from "../src/cli/commands/trigger-agent.js";
+import { evaluateReplanDecision, refillQueueFromBoard, workerOpenSlots } from "../src/cli/commands/trigger-agent.js";
+import { openKnowledgeGraph } from "../src/knowledge/index.js";
+import { evaluatePrPromotion, readRegressionReport } from "../src/objdiff/report.js";
 import {
   createRun,
   leaseNextQueuedTarget,
@@ -16,6 +20,7 @@ import {
   refillQueuedTargets,
   schedulableTargetCount,
 } from "../src/state/index.js";
+import { loadTrustedReport } from "../src/ui/trusted-report.js";
 import type { TargetCandidate } from "../src/types/index.js";
 
 type SqlBinding = string | number | bigint | boolean | null | Uint8Array;
@@ -139,6 +144,47 @@ function createLegacyAgentStateDb(path: string): void {
 }
 
 async function main(): Promise<void> {
+  const parsedDefaultState = parse(["--repo-root", fixtureRoot, "status"]);
+  assertSmoke("cli default state dir follows command cwd", parsedDefaultState.globals.stateDir === resolve(process.cwd(), ".decomp-orchestrator-state"));
+  assertSmoke("cli default state dir does not follow repo root", parsedDefaultState.globals.stateDir !== resolve(fixtureRoot, ".decomp-orchestrator-state"));
+
+  const trustedReport = await loadTrustedReport(fixtureRoot);
+  assertSmoke("ui trusted report reads objdiff report_changes", trustedReport.status === "ready");
+  assertSmoke("ui trusted report counts report new matches", trustedReport.counts.newMatches === 1);
+  assertSmoke("ui trusted report keeps worker-independent improvements separate", trustedReport.counts.improvements === 1);
+  assertSmoke("ui trusted report exposes matched code byte delta", trustedReport.measures?.matchedCodeBytesDelta === 26);
+  assertSmoke("ui trusted report exposes PR promotion status", trustedReport.promotion?.status === "pr_ready");
+
+  const regressionReport = await readRegressionReport(resolve(fixtureRoot, "build/GALE01/report_changes.json"), "Fixture local report", 30);
+  assertSmoke("regression report promotes exact matched progress", regressionReport.promotion.status === "pr_ready");
+  assertSmoke("regression report explains exact match promotion evidence", regressionReport.promotion.reasons.some((reason) => reason.includes("new exact match")));
+  const partialOnlyInput = {
+    regressions: [],
+    newMatches: [],
+    brokenMatches: [],
+    improvements: regressionReport.improvements,
+    fuzzyRegressions: [],
+    summary: {
+      ...regressionReport.summary,
+      matchedCodePercentDelta: 0,
+      matchedCodeBytesDelta: 0,
+      matchedDataPercentDelta: 0,
+      matchedDataBytesDelta: 0,
+    },
+  };
+  const partialOnlyPromotion = evaluatePrPromotion(partialOnlyInput);
+  assertSmoke("PR promotion gate holds fuzzy-only local wins", partialOnlyPromotion.status === "local_only");
+  assertSmoke("PR promotion gate can explicitly allow large fuzzy-only movement", evaluatePrPromotion(partialOnlyInput, { minUnmatchedImprovementBytes: 1 }).status === "pr_ready");
+  assertSmoke(
+    "PR promotion gate treats zero thresholds as disabled evidence paths",
+    evaluatePrPromotion(partialOnlyInput, {
+      minNewMatches: 0,
+      minMatchedCodeBytesDelta: 0,
+      minMatchedDataBytesDelta: 0,
+      minUnmatchedImprovementBytes: 0,
+    }).status === "local_only",
+  );
+
   const prSplitPlan = buildPrSplitPlanFromChanges(
     [
       { path: "src/melee/it/items/itfoo.c", status: "M", source: "branch" },
@@ -279,6 +325,46 @@ async function main(): Promise<void> {
       runnerValidation: { status: "failed", reasons: ["post-return check command exited 1"] },
     }).some((reason) => reason.includes("runner validation")),
   );
+  const defineAliasLint = lintWorkerReviewDiff(`diff --git a/src/melee/if/textlib.c b/src/melee/if/textlib.c
+@@ -1,2 +1,3 @@
++#define devtext_drawlist un_804D6E18
+`);
+  assertSmoke("worker review lint rejects variable #define aliases", defineAliasLint.status === "failed");
+  assertSmoke("worker review lint names define alias rule", defineAliasLint.findings.some((finding) => finding.ruleId === "no-define-alias-global-renames"));
+  const duplicateExternLint = lintWorkerReviewDiff(`diff --git a/src/melee/if/textlib.c b/src/melee/if/textlib.c
+@@ -1,3 +1,4 @@
+ /* 4D6E18 */ extern DevText* devtext_drawlist;
++/* 4D6E18 */ extern DevText* un_804D6E18;
+`);
+  assertSmoke("worker review lint rejects duplicate address extern aliases", duplicateExternLint.status === "failed");
+  assertSmoke("worker review lint names duplicate extern rule", duplicateExternLint.findings.some((finding) => finding.ruleId === "duplicate-address-extern-alias"));
+  const cleanDefineLint = lintWorkerReviewDiff(`diff --git a/src/melee/if/textlib.c b/src/melee/if/textlib.c
+@@ -1,2 +1,3 @@
++#define TEXTLIB_POOL_SIZE 32
+`);
+  assertSmoke("worker review lint allows uppercase numeric constants", cleanDefineLint.status === "passed");
+  const stringSymbolLint = lintWorkerReviewDiff(`diff --git a/src/melee/mn/mnnamenew.c b/src/melee/mn/mnnamenew.c
+@@ -1,3 +1,3 @@
+-        (void**) &MenMainBack_Top.joint, "MenMainBack_Top_joint",
++        (void**) &MenMainBack_Top.joint, mnNameNew_803EE38C,
+`);
+  assertSmoke("worker review lint rejects string literal symbol regressions", stringSymbolLint.status === "failed");
+  assertSmoke("worker review lint names string literal symbol rule", stringSymbolLint.findings.some((finding) => finding.ruleId === "no-string-literal-symbol-regression"));
+  const cleanStringEditLint = lintWorkerReviewDiff(`diff --git a/src/melee/mn/mnnamenew.c b/src/melee/mn/mnnamenew.c
+@@ -1,3 +1,3 @@
+-        (void**) &MenMainBack_Top.joint, "MenMainBack_Top_joint",
++        (void**) &MenMainBack_Top.joint, "MenMainBack_Top_model",
+`);
+  assertSmoke("worker review lint allows string literal to string literal edits", cleanStringEditLint.status === "passed");
+  assertSmoke(
+    "worker post-return gate asks for repair on review lint failure",
+    workerReturnRepairReasons({
+      acceptanceGate: cleanWorkerProgress,
+      writeSetDiffChanged: true,
+      runnerValidation: { status: "passed", reasons: [] },
+      reviewLint: defineAliasLint,
+    }).some((reason) => reason.includes("review lint")),
+  );
 
   assertSmoke(
     "worker slot math refills one completed local worker",
@@ -364,6 +450,7 @@ async function main(): Promise<void> {
           minSchedulableSources: 32,
           queuedAfter: 123,
           queuedBefore: 126,
+          refreshed: 0,
           schedulableAfter: 45,
           schedulableBefore: 45,
           skippedExisting: 512,
@@ -416,6 +503,18 @@ async function main(): Promise<void> {
     assertSmoke("queue refill fills toward target size", firstRefill.inserted === 4);
     assertSmoke("queue refill prefers distinct schedulable sources", schedulableTargetCount(refillStore, run.id) === 4);
     assertSmoke("queue refill records queued target count", queuedTargetCount(refillStore, run.id) === 4);
+    const priorityRefresh = refillQueuedTargets(refillStore, run.id, [candidate(1, "src/a.c", 77)], { targetSize: 4, minSchedulableSources: 4 });
+    const refreshedQueueRow = refillStore.db
+      .query(
+        `
+          SELECT queue.priority AS priority
+          FROM queue
+          JOIN targets ON targets.id = queue.target_id
+          WHERE queue.run_id = ? AND targets.unit = ? AND targets.symbol = ? AND queue.status = 'queued'
+        `,
+      )
+      .get(run.id, "unit_1", "fn_1") as Record<string, unknown> | undefined;
+    assertSmoke("queue refill refreshes queued priority from the latest board", priorityRefresh.refreshed === 1 && Number(refreshedQueueRow?.priority) === 77);
     refillStore.db
       .query("UPDATE queue SET status = 'reported' WHERE target_id = (SELECT id FROM targets WHERE run_id = ? AND unit = ? AND symbol = ?)")
       .run(run.id, "unit_1", "fn_1");
@@ -444,6 +543,168 @@ async function main(): Promise<void> {
   } finally {
     refillStore.db.close();
   }
+
+  const adaptiveRefillRepo = await mkdtemp(join(tmpdir(), "decomp-orchestrator-adaptive-refill-repo-"));
+  const adaptiveRefillStateDir = await mkdtemp(join(tmpdir(), "decomp-orchestrator-adaptive-refill-state-"));
+  await mkdir(join(adaptiveRefillRepo, "build/GALE01"), { recursive: true });
+  await writeFile(
+    join(adaptiveRefillRepo, "build/GALE01/report.json"),
+    JSON.stringify({
+      measures: { matched_code_percent: 60, matched_functions_percent: 50 },
+      units: [1, 2, 3, 4, 5, 6].map((index) => ({
+        name: `unit_adaptive_${index}`,
+        metadata: { source_path: `src/adaptive_${index}.c` },
+        functions: [{ name: `adaptive_${index}`, size: 128, fuzzy_match_percent: 99.9 - index / 100 }],
+      })),
+    }),
+  );
+  await writeFile(
+    join(adaptiveRefillRepo, "objdiff.json"),
+    JSON.stringify({
+      units: [1, 2, 3, 4, 5, 6].map((index) => ({ name: `unit_adaptive_${index}`, metadata: { source_path: `src/adaptive_${index}.c` } })),
+    }),
+  );
+  const adaptiveRefillStore = openState(adaptiveRefillStateDir);
+  try {
+    const run = createRun(adaptiveRefillStore, "matched_code_percent", 100, 4);
+    const exhaustedWindow = loadBoardSnapshot(adaptiveRefillRepo, 4, { graphDbPath: "" });
+    const initialTargets = exhaustedWindow.candidates.map((candidate) => ({
+      ...candidate,
+      reason: `initial adaptive candidate ${candidate.symbol}`,
+    }));
+    const insertedInitial = refillQueuedTargets(adaptiveRefillStore, run.id, initialTargets, { targetSize: 4, minSchedulableSources: 4 });
+    assertSmoke("adaptive refill smoke initially fills the configured window", insertedInitial.inserted === 4);
+    adaptiveRefillStore.db.query("UPDATE queue SET status = 'reported' WHERE run_id = ?").run(run.id);
+    adaptiveRefillStore.db.query("UPDATE targets SET status = 'reported' WHERE run_id = ?").run(run.id);
+
+    const adaptiveRefill = refillQueueFromBoard({
+      globals: {
+        repoRoot: adaptiveRefillRepo,
+        stateDir: adaptiveRefillStateDir,
+        dryRunAgents: true,
+        provider: "dry-run",
+        model: "dry-run",
+        thinkingLevel: "low",
+      },
+      policy: replanPolicy,
+      runId: run.id,
+      snapshot: {
+        activeWorkers: 4,
+        blockedQueuedTargets: 0,
+        candidateLimit: 4,
+        candidateWindow: 4,
+        maxWorkers: 4,
+        openSlots: 4,
+        queuedTargets: 0,
+        queueTargetSize: 4,
+        runningWorkers: 4,
+        schedulableTargets: 0,
+      },
+      store: adaptiveRefillStore,
+    });
+    assertSmoke("adaptive queue refill scans past an exhausted candidate window", adaptiveRefill?.inserted === 2);
+    assertSmoke("adaptive queue refill records the deeper scan count", adaptiveRefill?.candidateCount === 6);
+    assertSmoke("adaptive queue refill queues fresh deeper candidates", queuedTargetCount(adaptiveRefillStore, run.id) === 2);
+  } finally {
+    adaptiveRefillStore.db.close();
+  }
+
+  const rankingRepo = await mkdtemp(join(tmpdir(), "decomp-orchestrator-rank-"));
+  await mkdir(join(rankingRepo, "build/GALE01"), { recursive: true });
+  await writeFile(
+    join(rankingRepo, "build/GALE01/report.json"),
+    JSON.stringify({
+      measures: { matched_code_percent: 60, matched_functions_percent: 50 },
+      units: [
+        {
+          name: "unit_close",
+          metadata: { source_path: "src/close.c" },
+          functions: [{ name: "closeHigh", size: 128, fuzzy_match_percent: 99.8 }],
+        },
+        {
+          name: "unit_info",
+          metadata: { source_path: "src/info.c" },
+          functions: [{ name: "infoRich", size: 128, fuzzy_match_percent: 75 }],
+        },
+      ],
+    }),
+  );
+  await writeFile(
+    join(rankingRepo, "objdiff.json"),
+    JSON.stringify({
+      units: [
+        { name: "unit_close", metadata: { source_path: "src/close.c" } },
+        { name: "unit_info", metadata: { source_path: "src/info.c" } },
+      ],
+    }),
+  );
+  const rankingGraphPath = join(rankingRepo, "graph.sqlite");
+  const rankingGraph = openKnowledgeGraph(rankingGraphPath);
+  try {
+    const insertFact = rankingGraph.db.query(`
+      INSERT INTO graph_facts
+      (id, entity_id, fact_type, payload_json, confidence, trust_tier, evidence_ref, resource_version_id, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insertEdge = rankingGraph.db.query(`
+      INSERT INTO graph_edges
+      (id, from_entity_id, edge_type, to_entity_id, weight, evidence_ref, resource_version_id, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const version = "source-version:smoke-rank";
+    insertFact.run("fact:editability:close", "file:src/close.c", "editability", JSON.stringify({ mode: "editable" }), 1, "canonical", "smoke", version, "accepted");
+    insertFact.run("fact:editability:info", "file:src/info.c", "editability", JSON.stringify({ mode: "editable" }), 1, "canonical", "smoke", version, "accepted");
+    insertFact.run(
+      "fact:file-status:info",
+      "file:src/info.c",
+      "file_match_status",
+      JSON.stringify({
+        functions: [
+          { symbol: "infoRich", fuzzy: 75 },
+          { symbol: "infoMatchedA", fuzzy: 100 },
+          { symbol: "infoMatchedB", fuzzy: 100 },
+        ],
+        unmatched_functions: [
+          { symbol: "infoRich", fuzzy: 75 },
+          { symbol: "infoNeighborA", fuzzy: 82 },
+          { symbol: "infoNeighborB", fuzzy: 88 },
+          { symbol: "infoNeighborC", fuzzy: 91 },
+        ],
+      }),
+      1,
+      "canonical",
+      "smoke",
+      version,
+      "accepted",
+    );
+    for (let index = 0; index < 8; index += 1) {
+      insertEdge.run(`edge:path:${index}`, "file:src/info.c", "HAS_PATH_FACT", `resource:path:${index}`, 0.7, "smoke", version, "accepted");
+    }
+    for (let index = 0; index < 4; index += 1) {
+      insertEdge.run(`edge:tool:${index}`, "file:src/info.c", "HAS_TOOL_FINDING", `resource:tool:${index}`, 0.7, "smoke", version, "accepted");
+      insertEdge.run(`edge:pr:${index}`, "file:src/info.c", "TOUCHED_BY_PR", `pr:${index}`, 1, "smoke", version, "accepted");
+    }
+    insertEdge.run("edge:hint:0", "file:src/info.c", "HAS_HISTORICAL_FUNCTION_HINT", "legacy_function:infoRich", 0.5, "smoke", version, "accepted");
+    insertEdge.run("edge:curated:0", "file:src/info.c", "HAS_CURATED_WORKER_LESSON", "curated_knowledge:info", 0.6, "smoke", version, "accepted");
+    insertFact.run("fact:proposal:info", "file:src/info.c", "curated_worker_lesson", JSON.stringify({ summary: "candidate may unlock sibling facts" }), 0.6, "local", "smoke", version, "proposal");
+  } finally {
+    rankingGraph.db.close();
+  }
+  const rankedBoard = loadBoardSnapshot(rankingRepo, 2, { graphDbPath: rankingGraphPath });
+  const infoRichRank = rankedBoard.candidates.find((candidate) => candidate.symbol === "infoRich")?.rank;
+  const closeHighRank = rankedBoard.candidates.find((candidate) => candidate.symbol === "closeHigh")?.rank;
+  assertSmoke("graph information gain can outrank higher fuzzy local score", rankedBoard.candidates[0]?.symbol === "infoRich");
+  assertSmoke(
+    "board rank exposes information-gain components",
+    Number(rankedBoard.candidates[0]?.rank?.information_gain_score ?? 0) > Number(rankedBoard.candidates[0]?.rank?.finishability_score ?? 0),
+  );
+  assertSmoke("board rank exposes completion readiness", Number(infoRichRank?.completion_readiness_score ?? 0) > 0);
+  assertSmoke(
+    "board rank makes information priority dominate closeness-only work",
+    Number(infoRichRank?.information_priority_score ?? 0) > Number(closeHighRank?.high_accuracy_bonus ?? 0),
+  );
+  assertSmoke("board rank keeps no-information closeness as a low fallback", Number(closeHighRank?.closeness_fallback_score ?? 0) <= 3);
+  assertSmoke("board rank spreads no-information closeness fallback", Number(closeHighRank?.closeness_fallback_score ?? 0) > 0);
 
   stateDir = await mkdtemp(join(tmpdir(), "decomp-orchestrator-smoke-"));
   const commonFlags = ["--repo-root", fixtureRoot, "--state-dir", stateDir, "--dry-run-agents"];
@@ -646,7 +907,7 @@ async function main(): Promise<void> {
       "--max-workers",
       "1",
       "--max-iterations",
-      "5",
+      "16",
       "--max-idle-iterations",
       "1",
       "--idle-sleep-ms",
@@ -702,7 +963,7 @@ async function main(): Promise<void> {
       "--max-workers",
       "1",
       "--max-iterations",
-      "5",
+      "16",
       "--max-idle-iterations",
       "1",
       "--idle-sleep-ms",

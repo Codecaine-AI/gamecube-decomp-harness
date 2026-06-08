@@ -1,0 +1,105 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2619",
+  "pr": {
+    "number": 2619,
+    "title": "Improvements to split up: CM",
+    "url": "https://github.com/doldecomp/melee/pull/2619",
+    "state": "CLOSED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:30:25Z",
+    "merged_at": null
+  },
+  "agent_status": "agent_completed",
+  "summary": "Closed, unmerged directory-split PR intended to isolate matching improvements for `src/melee/cm`, specifically `src/melee/cm/camera.c`, from a larger branch. The available dump contains no full diff or changed-file list, but the PR body reports it was a pathspec slice from a larger matching-improvement branch. Review feedback flagged a proposed replacement of `HSD_ASSERTMSG` with explicit `__assert` calls in `Camera_80029CF8` as unacceptable because it appeared aimed at matching data sections and was described as a regression despite improving data percentage.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "directory-split",
+      "review-rejected",
+      "assertion-style-regression"
+    ],
+    "systems": [
+      "melee/cm",
+      "camera"
+    ]
+  },
+  "key_files": [
+    "src/melee/cm/camera.c"
+  ],
+  "what_changed": [
+    "PR was split from #2617 by directory/subsystem to make matching improvements easier to review.",
+    "Declared scope was `src/melee/cm`; the only file named in the PR body was `src/melee/cm/camera.c`.",
+    "The preliminary report for the full unsplit source branch claimed +11944 matched-code bytes, +640 linked-code bytes, +448 matched-data bytes, 26 new matches, 79 improvements in unmatched items, and no broken matches/regressions before the slice-specific CI result.",
+    "A reviewed hunk in `Camera_80029CF8` changed two `HSD_ASSERTMSG` calls for `fov_r` and `fov_l` bounds into explicit `if (!(...)) { __assert(...); }` calls using `cm_803BCBD0`, `cm_803BCC14`, and `cm_803BCC30`.",
+    "The PR was closed without merge; the context reports zero changed files and an empty diff excerpt, so only the PR body and review hunk provide concrete change evidence."
+  ],
+  "smart_moves": [
+    "Splitting a large matching-improvement branch by directory/subsystem was a reasonable reviewability tactic for decomp work.",
+    "The PR body recorded local checks and provenance: created from `origin/master`, isolated path slice, `git diff --check origin/master...HEAD` passed, and the unsplit source branch had green CI before splitting.",
+    "The PR explicitly deferred to per-PR CI/decomp-dev reporting as the authoritative score for the slice rather than relying only on the full-branch report."
+  ],
+  "decomp_lessons": [
+    "Do not make source changes with the intention of matching data sections; project contributing guidance treats that as invalid even if metrics such as matched-data percentage improve.",
+    "A data-percentage improvement can still be a regression when it worsens source quality, semantic clarity, or accepted decomp conventions.",
+    "Prefer preserving higher-level project macros such as `HSD_ASSERTMSG` when they express intended behavior, rather than manually lowering them to `__assert` solely to influence emitted data or string layout.",
+    "Directory-split matching PRs should still be scrutinized for local regressions; green status or better aggregate match numbers from an unsplit branch are not sufficient evidence of acceptability."
+  ],
+  "naming_conventions": [
+    "`src/melee/cm` is the camera subsystem path/scope indicated by this PR.",
+    "Camera functions in this area use the `Camera_` prefix, e.g. `Camera_80029CF8`.",
+    "Camera-local data/string symbols in the reviewed hunk used the `cm_` prefix with address-like names, e.g. `cm_803BCBD0`, `cm_803BCC14`, `cm_803BCC30`.",
+    "Existing assertion style used `HSD_ASSERTMSG(line, condition, message)` rather than open-coded `__assert` in the reviewed code."
+  ],
+  "assembly_or_matching_tactics": [
+    "Pathspec-based slicing from a larger matching branch was used to isolate subsystem changes.",
+    "The reviewed assertion rewrite suggests an attempted tactic of changing macro expansion/source form to affect data-section matching, but review explicitly rejected this as contrary to guidelines.",
+    "Local hygiene check `git diff --check origin/master...HEAD` was run for the slice."
+  ],
+  "review_feedback": [
+    "ribbanya reviewed `src/melee/cm/camera.c` and stated that, per the AI-assistance/contributing guidelines, changes should not be made with the intention of matching data sections.",
+    "The same review comment called the highlighted `HSD_ASSERTMSG` to `__assert` change a regression even if it improved data percentage."
+  ],
+  "searchable_terms": [
+    "PR2619",
+    "Improvements to split up: CM",
+    "fjooord",
+    "ribbanya",
+    "src/melee/cm",
+    "src/melee/cm/camera.c",
+    "Camera_80029CF8",
+    "CameraBounds",
+    "CameraTransformState",
+    "HSD_ASSERTMSG",
+    "__assert",
+    "cm_803BCBD0",
+    "cm_803BCC14",
+    "cm_803BCC30",
+    "fov_r",
+    "fov_l",
+    "M_PI_2",
+    "MTXDegToRad",
+    "data sections",
+    "matched data",
+    "directory split",
+    "pathspec slice",
+    "decomp matching",
+    "contributing guidelines",
+    "regression"
+  ],
+  "follow_up_queries": [
+    "Find the originating PR #2617 to inspect the full unsplit matching branch and whether the CM changes were later corrected.",
+    "Search later PRs touching `src/melee/cm/camera.c` or `Camera_80029CF8` to see whether valid matching improvements landed without the rejected assertion/data-section tactic.",
+    "Check project contributing guidelines around AI assistance and data-section matching for the exact policy referenced by review."
+  ],
+  "confidence": 0.78,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

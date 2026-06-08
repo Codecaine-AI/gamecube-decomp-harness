@@ -11,158 +11,155 @@
     "merged_at": "2026-05-11T09:55:28Z"
   },
   "agent_status": "agent_completed",
-  "summary": "PR 2483 decompiled and typed more of the lbcardnew memory-card snapshot path. It replaced the previous stub for lb_8001B14C with a partial snapshot scanner, introduced a shared lbCardNew_SnapshotEntry type, propagated meaningful snapshot/free-space names into lbsnap, refactored card-entry descriptor setup, and completed four near-matching lbcardnew functions per the decomp.dev report. The PR had no body or human review comments, so intent beyond the diff and bot match report is weak.",
+  "summary": "Decompiled and improved several memory-card/snapshot routines in lbcardnew, with typed snapshot/card-entry plumbing propagated into lbsnap and baselib card descriptor APIs. The decomp.dev bot reported 4 new full matches in main/melee/lb/lbcardnew: lb_8001C4A8, lb_8001A594, lb_8001BA44, and lb_8001BC18, plus a large unmatched-item improvement for lb_8001B14C from 1.04% to 63.23%. Most of the substantive work replaces opaque UNK fields with named snapshot/free-space fields, implements snapshot scanning/sorting behavior, and refactors repeated card-entry setup logic into an inline helper.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-typing",
-      "api-typing",
-      "memory-card",
-      "cleanup-formatting"
+      "type-recovery",
+      "struct-field-naming",
+      "matching-refactor"
     ],
     "systems": [
-      "melee/lb/lbcardnew",
-      "melee/lb/lbsnap",
-      "melee/lb/types",
-      "sysdolphin/baselib/card",
+      "library",
+      "lbcardnew",
+      "lbsnap",
+      "memory-card",
+      "baselib-card",
+      "mn-data-delete",
       "compile-flags"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/lb/lbcardnew.c",
-      "role": "Main decomp work: CardEntry helper, lb_8001B14C snapshot scan implementation, typed lb_8001BFD8 outputs, and wrapper/task setup changes."
-    },
-    {
-      "path": "src/melee/lb/types.h",
-      "role": "Adds lbCardNew_SnapshotEntry with time, file_no, blocks and renames lb_80432A68_t snapshot/free-space fields."
-    },
-    {
-      "path": "src/melee/lb/lbcardnew.h",
-      "role": "Publishes the typed lb_8001BFD8 signature using lbCardNew_SnapshotEntry and int* free-space outputs."
-    },
-    {
-      "path": "src/melee/lb/forward.h",
-      "role": "Adds the forward typedef for lbCardNew_SnapshotEntry."
-    },
-    {
-      "path": "src/melee/lb/lbsnap.c",
-      "role": "Updates snapshot consumers to use card_result, free_blocks, free_files, entries, time, file_no, and blocks names."
-    },
-    {
-      "path": "src/melee/lb/lbsnap.static.h",
-      "role": "Replaces the local anonymous snapshot-entry struct with lbCardNew_SnapshotEntry and keeps the slot-state size assert."
-    },
-    {
-      "path": "src/sysdolphin/baselib/hsd_3AA7.c",
-      "role": "Renames hsd_803AC3E0 arguments to file_size, file_flags, and data_size and updates descriptor assignments."
-    },
-    {
-      "path": "src/sysdolphin/baselib/hsd_3AA7.h",
-      "role": "Keeps the hsd_803AC3E0 prototype aligned with the new semantic argument names."
-    },
-    {
-      "path": "compile_flags.txt",
-      "role": "Reorders existing warning suppressions and adds -Wno-format."
-    }
+    "src/melee/lb/lbcardnew.c",
+    "src/melee/lb/lbcardnew.h",
+    "src/melee/lb/types.h",
+    "src/melee/lb/forward.h",
+    "src/melee/lb/lbsnap.c",
+    "src/melee/lb/lbsnap.static.h",
+    "src/sysdolphin/baselib/hsd_3AA7.c",
+    "src/sysdolphin/baselib/hsd_3AA7.h",
+    "src/melee/mn/mndatadel.c",
+    "src/melee/mn/mndatadel.static.h",
+    "compile_flags.txt"
   ],
   "what_changed": [
-    "Implemented lb_8001B14C beyond its previous stub. The new code scans memory-card file numbers 0..0x7E with CARDGetStatus, filters files by current DVD company/game and digit-starting filename, parses the filename as a decimal timestamp with strtoul, records file_no and blocks from stat.length >> 13, sorts found snapshots by descending time, copies them to snapshot_entries, marks remaining entries with file_no = -1, and frees the temporary node buffer.",
-    "Changed lb_8001BFD8 from UNK_T snapshot arguments to int lb_8001BFD8(int chan, lbCardNew_SnapshotEntry* snapshot_entries, int* free_blocks, int* free_files), then stores those pointers in lb_80432A68.snapshot_entries, free_blocks, and free_files.",
-    "Added struct lbCardNew_SnapshotEntry in lb/types.h with fields time, file_no, and blocks plus STATIC_ASSERT(sizeof(...) == 0x8).",
-    "Renamed lb_80432A68_t fields at offsets 0x20, 0x24, and 0x28 from unk_20/unk_24/unk_28 to snapshot_entries/free_blocks/free_files.",
-    "Renamed lbsnap slot-state fields from unk0, unk8, unkC, and unk10 to card_result, free_blocks, free_files, and entries, and updated all users to access entries[index].time/file_no/blocks.",
-    "Introduced struct CardEntry with file_size, file_flags, and data_size and an inline setup_card_entries helper that wraps hsd_803B2ADC plus the hsd_803AC3E0 loop over sentinel-terminated entries.",
-    "Updated lb_8001A594, lb_8001ACEC, lb_8001AE38, and lb_8001C4A8 to use CardEntry field names instead of anonymous unk0/unk4/unk8 triplets.",
-    "Expanded lb_8001BA44 and lb_8001BC18 into explicit task setup sequences using setup_task, lb_8001A4CC_dontinline, strncpy or memcpy filename copies, stack padding arrays, and lb_80019CB0 instead of delegating to inline helper calls.",
-    "Changed hsd_803AC3E0 parameter names and call semantics to file_size, file_flags, and data_size, with descriptor writes to x28, x4C, and x70 reflecting those names.",
-    "Other touched files such as lb_01F8.c, lbmthp.c, mndatadel.c, and mndatadel.static.h are mostly formatting or include-order cleanup in the shown diff."
+    "Implemented lb_8001B14C instead of leaving it as a stub/commented UnclePunch-map placeholder. The new code calls DVDGetCurrentDiskID, iterates CARDGetStatus over file numbers 0..0x7E, filters files by company/game code and digit-leading filename, parses the filename with strtoul, stores time/file_no/block count in SnapshotNode records, inserts them into a time-sorted linked list, copies them into lbCardNew_SnapshotEntry output entries, terminates remaining entries with file_no = -1, and frees the temporary node array.",
+    "Added struct lbCardNew_SnapshotEntry in src/melee/lb/types.h with fields time, file_no, and blocks, plus STATIC_ASSERT(sizeof(lbCardNew_SnapshotEntry) == 0x8). Added the forward typedef to src/melee/lb/forward.h and used it in lbcardnew.h.",
+    "Renamed lb_80432A68 fields at offsets 0x20, 0x24, and 0x28 from unk_20/unk_24/unk_28 to snapshot_entries/free_blocks/free_files and updated initialization and lb_8001BFD8 assignment sites.",
+    "Changed lb_8001BFD8 signature from generic UNK_T snapshot arguments to int lb_8001BFD8(int chan, lbCardNew_SnapshotEntry* snapshot_entries, int* free_blocks, int* free_files), matching the now-named internal fields.",
+    "Introduced local lbcardnew.c helper structs CardEntry and SnapshotNode. CardEntry names the repeated triple as file_size, file_flags, and data_size; SnapshotNode names next/time/file_no/blocks for snapshot scan ordering.",
+    "Refactored repeated hsd_803B2ADC/hsd_803AC3E0 card-entry setup loops into inline setup_card_entries(ctx, icon, entry), reused by lb_8001A594 and conceptually aligned with lb_8001C4A8.",
+    "Completed matching rewrites for lb_8001BA44 and lb_8001BC18 by expanding previously inline-wrapper calls into explicit task setup sequences, including lb_80019EF0, setup_task calls, lb_8001A4CC_dontinline, strncpy/memcpy into task x10, write-buffer fields, and lb_80019CB0 polling behavior.",
+    "Updated lb_8001ACEC and lb_8001AE38 to use struct CardEntry* and entries[i].data_size instead of anonymous unk0/unk4/unk8 fields.",
+    "Renamed lbsnap static struct fields: unk0 to card_result, unk8 to free_blocks, unkC to free_files, and unk10 to entries. Replaced a local private snapshot-entry struct with lbCardNew_SnapshotEntry entries[0x7F], keeping STATIC_ASSERT(sizeof(struct Unk80433380_48) == 0x408).",
+    "Updated lbsnap logic to call lb_8001BFD8(chan, ptr->entries, &ptr->free_blocks, &ptr->free_files), to count entries until file_no == -1, and to reference entries[index].time/blocks/file_no instead of unk fields.",
+    "Corrected baselib hsd_803AC3E0 parameter names/order from file_offset/file_flags to file_flags/data_size and updated assignments x28[file_idx] = file_flags and x70[file_idx] = data_size in both .c and .h.",
+    "Made several formatting-only or match-supporting cleanups in lb_01F8.c, lbmthp.c, lbmthp.h, mndatadel.c, and mndatadel.static.h, mostly line wrapping, include ordering, casts, and compact initializer formatting.",
+    "Reordered/expanded compile_flags.txt warning suppressions, adding -Wno-format and moving several -Wno-* entries into sorted/earlier positions; evidence does not show a review discussion explaining this change."
   ],
   "smart_moves": [
-    "Shared lbCardNew_SnapshotEntry between lbcardnew and lbsnap instead of keeping a private duplicate snapshot struct, which made the lb_8001BFD8 API and lbsnap consumers self-documenting while preserving the 0x8 layout.",
-    "Used consumer behavior in lbsnap to name the card scan outputs: card_result, free_blocks, free_files, entries, time, file_no, and blocks.",
-    "Centralized repeated card file descriptor setup in setup_card_entries, making the sentinel table convention explicit and reducing duplicated hsd_803B2ADC/hsd_803AC3E0 loops.",
-    "Kept exact matching-oriented details in small wrappers, including stack padding arrays, specific setup_task constants, dontinline helper use, and strncpy versus memcpy choices.",
-    "Improved baselib hsd_803AC3E0 argument names at the producer so later call-site decompilation can reason about file_size, file_flags, and data_size consistently.",
-    "Replaced a pure stub with a semantically useful partial implementation for lb_8001B14C while the bot report still marked it as not fully matched, giving future work a concrete behavioral skeleton."
+    "Typed the snapshot API end-to-end instead of only naming local variables: lbCardNew_SnapshotEntry is forward-declared, included through lbcardnew.h, stored in lb_80432A68_t, and reused by lbsnap.static.h. This reduced duplicated anonymous structs and made the lbcardnew/lbsnap boundary clearer.",
+    "Preserved size/layout evidence while renaming fields by adding/keeping STATIC_ASSERTs for lbCardNew_SnapshotEntry and Unk80433380_48. This is a safe way to improve readability without silently changing ABI/layout assumptions.",
+    "Converted a repeated card-entry setup loop into an inline helper, which both removed duplicate code and likely helped lb_8001A594 match by controlling inlining and local-variable shape.",
+    "Used semantically meaningful names derived from observed usage: card_result for status-return storage, free_blocks/free_files for output counters, entries for snapshot arrays, and file_size/file_flags/data_size for card descriptor triples.",
+    "For lb_8001B14C, modeled the original behavior with a temporary linked-list insertion sort over snapshot times. The insertion condition ((*scan)->time > node->time) preserves descending time order before copying to the output array.",
+    "Handled optional output pointers in the snapshot scan path: free_blocks and free_files are checked for NULL before writing, matching a defensive API pattern useful in memory-card code.",
+    "Kept sentinel behavior explicit by filling remaining snapshot_entries[i].file_no = -1 after copied results, which lbsnap then uses to determine num entries.",
+    "Adjusted baselib hsd_803AC3E0 names and assignments to match actual caller semantics, improving cross-module type recovery rather than papering over lbcardnew callsites with misleading unk fields."
   ],
   "decomp_lessons": [
-    "For lbcardnew memory-card snapshot scans, filenames are treated as decimal timestamps: lb_8001B14C uses isdigit on fileName[0] and strtoul(fileName, NULL, 10).",
-    "Snapshot scan entries are filtered to the current disc by comparing CARDStat company and gameName against DVDGetCurrentDiskID company and gameName.",
-    "Snapshot entries use an 0x8 layout: u32 time, s16 file_no, u16 blocks. The sentinel for unused entries is file_no = -1.",
-    "Free memory-card blocks are computed from lb_80432A68.unused_bytes / 0x2000, and per-file blocks are computed from CARDStat.length >> 13.",
-    "The temporary SnapshotNode array size 0x5F4 corresponds to 0x7F nodes of 0xC bytes, matching the scan range of 0x7F card file slots.",
-    "CardEntry tables are sentinel-terminated with file_size == -1, skip entries with file_size == 0, and pass file_size, file_flags, and data_size into hsd_803AC3E0.",
-    "When matching tiny card-operation wrapper functions, expanding an inline wrapper back into the exact task queue setup can recover the last few nonmatching bytes.",
-    "Use STATIC_ASSERTs when replacing unk structs with named shared structs; this PR preserved lbCardNew_SnapshotEntry at 0x8 and Unk80433380_48 at 0x408."
+    "When an anonymous three-int descriptor appears across multiple memory-card functions, look for a shared semantic struct and rename all users together; here file_size/file_flags/data_size made lb_8001A594, lb_8001ACEC, lb_8001AE38, and lb_8001C4A8 easier to reason about.",
+    "For decompiling task-driven wrappers, expanding a guessed inline call into the exact setup_task sequence can close the last few bytes of a near-match, as shown by lb_8001BA44 and lb_8001BC18 moving to 100%.",
+    "Snapshot list APIs often use fixed maximum counts and sentinel entries instead of returning a count directly. In this PR, output entries are valid until file_no == -1, while free_blocks/free_files are side-channel output pointers.",
+    "Avoid leaving private duplicate structs in static headers once a real cross-module type is known. Moving the 0x8 snapshot entry into lb/types.h let lbsnap and lbcardnew share one definition.",
+    "Renaming fields in global context structs should be accompanied by all initialization and callsite updates in the same PR so the semantic meaning remains verifiable.",
+    "When matching MSL/string numeric parsing behavior, use the project-specific include path seen here, <MSL/strtoul.h>, rather than assuming a standard-library include is already available.",
+    "Baselib API parameter names matter for future callers. hsd_803AC3E0's fourth and fifth arguments are better documented as file_flags and data_size based on stores into x28 and x70 plus lbcardnew CardEntry usage.",
+    "Some changed files are formatting/match-support churn rather than new decomp logic; future searches should distinguish substantive lbcardnew/lbsnap changes from mndatadel/lbmthp formatting noise."
   ],
   "naming_conventions": [
-    "New shared lb types use a module-prefixed name: lbCardNew_SnapshotEntry.",
-    "Snapshot-entry field names are time, file_no, and blocks.",
-    "lbsnap slot state now uses card_result, num, free_blocks, free_files, and entries instead of unk-style names.",
-    "lb_80432A68_t output pointers are named snapshot_entries, free_blocks, and free_files.",
-    "Card file table entries are named CardEntry with file_size, file_flags, and data_size.",
-    "The local linked-list helper for the scan is named SnapshotNode with next, time, file_no, and blocks.",
-    "Address-based function names such as lb_8001B14C and lb_8001BFD8 were retained; the old stub comment citing UnclePunch's MemoryCard_ScanForSnapshots name was removed when code was added."
+    "New cross-module lb types use the lbCardNew_ prefix plus semantic noun: lbCardNew_SnapshotEntry.",
+    "Snapshot-entry fields were named time, file_no, and blocks, matching observed filename timestamp parsing, CARD file number, and stat.length >> 13 block conversion.",
+    "Global context fields at fixed offsets were renamed from unk_N to role names when usage was clear: snapshot_entries, free_blocks, free_files.",
+    "lbsnap per-channel state fields were renamed to card_result, num, free_blocks, free_files, and entries, replacing unk0/unk8/unkC/unk10.",
+    "Card-entry triple names use file_size, file_flags, and data_size, and the helper name setup_card_entries describes the HSD card descriptor setup operation.",
+    "Function names remained address-based for unknown lbcardnew routines, e.g. lb_8001B14C and lb_8001BFD8; the PR did not rename them to descriptive public names despite a removed comment noting UnclePunch called lb_8001B14C MemoryCard_ScanForSnapshots.",
+    "HSD API cleanup renamed hsd_803AC3E0 parameters to file_desc, file_idx, file_size, file_flags, and data_size."
   ],
   "assembly_or_matching_tactics": [
-    "lb_8001BA44 uses an explicit sequence: lb_80019EF0, setup_task(0, 0x10000), setup_task(1, 0x201), lb_8001A4CC_dontinline, setup_task(3, -1), strncpy into setup_task(5, 0xE)->x10, then lb_80019CB0(0x10).",
-    "lb_8001BC18 similarly spells out setup_task calls, uses a local new_var = 0x20, memcpy into setup_task(7, 0x10)->x10, and writes lb_80432A68.unk_14/unk_18/unk_1C before lb_80019CB0.",
-    "Stack padding arrays u8 _[0x10] and u8 _[0x18] were added in wrappers to shape the generated stack frame.",
-    "lb_8001C4A8 introduces local temporaries void* icon and s32* ctx plus a scoped inner int i block, indicating local ordering/scope was used for codegen matching.",
-    "The helper setup_card_entries is declared inline, while lb_8001A4CC_dontinline remains used in wrapper setup, showing deliberate inline/noinline control.",
-    "lb_8001B14C uses a pointer-to-pointer insertion scan over SnapshotNode** to build a sorted linked list without a separate sort pass."
+    "Used an inline helper setup_card_entries rather than an out-of-line function for repeated descriptor setup, likely preserving original inlining while reducing source duplication.",
+    "Added explicit stack padding arrays in lb_8001BA44 and lb_8001BC18 (u8 _[0x10] and u8 _[0x18]) to shape stack layout for matching.",
+    "Introduced a local new_var = 0x20 in lb_8001BC18 before memcpy, a common decomp tactic to influence register allocation or instruction selection.",
+    "Kept volatile locals in lb_8001ACEC/lb_8001AE38 around cached_flag/cached_data/pad_stack, suggesting stack/register-shaping from prior matching work was preserved while only the struct field names changed.",
+    "Rewrote wrapper-style calls into explicit setup_task/lb_80019CB0 sequences for lb_8001BA44 and lb_8001BC18 to reach 100% matches.",
+    "Used specific casts and local aliases in lb_8001C4A8, such as void* icon = icon_data and s32* ctx = &lb_80432A68.unk_A8, to match call signatures/layout while improving readability.",
+    "The decomp.dev bot reported +1428 matched bytes overall, with lb_8001C4A8, lb_8001A594, lb_8001BA44, and lb_8001BC18 becoming full matches and lb_8001B14C improving by +761 bytes to 63.23%.",
+    "Formatting and cast reshaping in unrelated files such as mndatadel.c and lb_01F8.c appears to be match/style-supporting; no review evidence explains whether it was required for matching."
   ],
   "review_feedback": [
-    "No PR body was provided.",
-    "No human review comments or review records were present in the slice.",
-    "decomp-dev bot reported GALE01 matched code at 66.59%, +0.04%, +1428 bytes.",
-    "decomp-dev bot reported four new matches in main/melee/lb/lbcardnew: lb_8001C4A8 to 100.00%, lb_8001A594 to 100.00%, lb_8001BA44 to 100.00%, and lb_8001BC18 to 100.00%.",
-    "decomp-dev bot reported lb_8001B14C improved from 1.04% to 63.23% but remained unmatched."
+    "No human review comments were present in the provided slice.",
+    "The only issue comment was from decomp-dev[bot], reporting matched-code impact: 66.59% total matched code (+0.04%, +1428 bytes), 4 new lbcardnew matches, and lb_8001B14C improving from 1.04% to 63.23%.",
+    "No explicit reviewer rationale was available for compile_flags.txt warning reordering/addition, the formatting churn in mndatadel/lbmthp/lb_01F8, or remaining TODO comments such as CardEntry seeming fake."
   ],
   "searchable_terms": [
-    "pr-2483",
+    "PR 2483",
+    "Decompile more lbcardnew functions",
     "itsgrimetime",
     "lbcardnew",
     "lb_8001B14C",
     "lb_8001BFD8",
+    "lb_8001C4A8",
     "lb_8001A594",
     "lb_8001BA44",
     "lb_8001BC18",
-    "lb_8001C4A8",
-    "lbSnap_8001D40C",
-    "lbCardNew_SnapshotEntry",
-    "CardEntry",
-    "SnapshotNode",
-    "setup_card_entries",
+    "lb_8001ACEC",
+    "lb_8001AE38",
     "MemoryCard_ScanForSnapshots",
+    "lbCardNew_SnapshotEntry",
+    "SnapshotNode",
+    "CardEntry",
+    "setup_card_entries",
+    "snapshot_entries",
+    "free_blocks",
+    "free_files",
+    "card_result",
+    "file_size",
+    "file_flags",
+    "data_size",
     "CARDGetStatus",
     "CARDStat",
     "DVDGetCurrentDiskID",
     "DVDDiskID",
     "strtoul",
     "isdigit",
-    "snapshot_entries",
-    "free_blocks",
-    "free_files",
-    "card_result",
-    "file_no",
-    "blocks",
+    "strncmp",
+    "HSD_MemAlloc",
+    "HSD_Free",
     "hsd_803AC3E0",
     "hsd_803B2ADC",
     "hsd_803B2674",
-    "HSD_MemAlloc",
-    "HSD_Free",
-    "-Wno-format"
+    "lbsnap",
+    "Unk80433380_48",
+    "compile_flags.txt",
+    "Wno-format",
+    "decomp.dev matched code"
   ],
   "follow_up_queries": [
-    "lb_8001B14C CARDGetStatus strtoul SnapshotNode",
-    "lbCardNew_SnapshotEntry free_blocks free_files file_no blocks",
-    "hsd_803AC3E0 file_size file_flags data_size",
-    "lbcardnew setup_task 0x10000 0x201 dontinline",
-    "MemoryCard_ScanForSnapshots UnclePunch lb_8001B14C"
+    "Find later PRs that finish lb_8001B14C from 63.23% to 100% and compare whether the SnapshotNode insertion-sort structure survived.",
+    "Search for uses of lbCardNew_SnapshotEntry after PR 2483 to see whether more lbcardnew/lbsnap APIs adopted the type.",
+    "Audit hsd_803AC3E0 callers to confirm all use the corrected file_size, file_flags, data_size ordering.",
+    "Look for later renames of lb_8001B14C or lb_8001BFD8 to descriptive MemoryCard/Snapshot names once confidence improves.",
+    "Investigate whether compile_flags.txt -Wno-format addition was required by this PR or just repository-wide flag sorting/noise."
   ],
-  "confidence": 0.89
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

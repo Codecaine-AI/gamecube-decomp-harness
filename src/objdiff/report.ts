@@ -16,7 +16,7 @@ type MetricKey =
   | (typeof FUNCTION_KEYS_TO_DIFF)[number]
   | (typeof SECTION_KEYS_TO_DIFF)[number];
 
-interface MetricValues {
+export interface MetricValues {
   fuzzy_match_percent?: unknown;
   matched_code_percent?: unknown;
   matched_data_percent?: unknown;
@@ -51,13 +51,57 @@ export interface MetricChange {
   to: number;
 }
 
-interface ReportEntry {
+export interface ReportEntry {
   unitName: string;
   itemName: string;
   size: number;
   fromPercent: number;
   toPercent: number;
   bytesDelta: number;
+}
+
+export interface RegressionReportSummary {
+  matchedCodePercentFrom: number;
+  matchedCodePercentTo: number;
+  matchedCodePercentDelta: number;
+  matchedCodeBytesFrom: number;
+  matchedCodeBytesTo: number;
+  matchedCodeBytesDelta: number;
+  matchedDataPercentFrom: number;
+  matchedDataPercentTo: number;
+  matchedDataPercentDelta: number;
+  matchedDataBytesFrom: number;
+  matchedDataBytesTo: number;
+  matchedDataBytesDelta: number;
+}
+
+export type PrPromotionStatus = "pr_ready" | "local_only" | "blocked";
+
+export interface PrPromotionPolicy {
+  minNewMatches: number;
+  minMatchedCodeBytesDelta: number;
+  minMatchedDataBytesDelta: number;
+  minUnmatchedImprovementBytes: number;
+}
+
+export interface PrPromotionEvidence {
+  newMatches: number;
+  matchedCodeBytesDelta: number;
+  matchedDataBytesDelta: number;
+  unmatchedImprovementBytes: number;
+  significantUnmatchedImprovements: number;
+  brokenMatches: number;
+  fuzzyRegressions: number;
+  metricRegressions: number;
+}
+
+export interface PrPromotionEvaluation {
+  status: PrPromotionStatus;
+  label: string;
+  reasons: string[];
+  blockers: string[];
+  evidence: PrPromotionEvidence;
+  policy: PrPromotionPolicy;
 }
 
 export interface RegressionReport {
@@ -67,8 +111,17 @@ export interface RegressionReport {
   brokenMatches: ReportEntry[];
   improvements: ReportEntry[];
   fuzzyRegressions: ReportEntry[];
+  summary: RegressionReportSummary;
+  promotion: PrPromotionEvaluation;
   markdown: string;
 }
+
+export const DEFAULT_PR_PROMOTION_POLICY: PrPromotionPolicy = {
+  minNewMatches: 1,
+  minMatchedCodeBytesDelta: 1,
+  minMatchedDataBytesDelta: 1,
+  minUnmatchedImprovementBytes: 0,
+};
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (typeof value === "object" && value !== null && !Array.isArray(value)) {
@@ -120,6 +173,17 @@ function formatDeltaBytes(value: number): string {
   return `${value >= 0 ? "+" : ""}${value} bytes`;
 }
 
+function normalizePrPromotionPolicy(policy?: Partial<PrPromotionPolicy>): PrPromotionPolicy {
+  return {
+    ...DEFAULT_PR_PROMOTION_POLICY,
+    ...(policy ?? {}),
+  };
+}
+
+function positiveBytes(entries: ReportEntry[]): number {
+  return entries.reduce((total, entry) => total + Math.max(entry.bytesDelta, 0), 0);
+}
+
 function diffKey(
   regressions: MetricChange[],
   progressions: MetricChange[],
@@ -166,9 +230,36 @@ function metricChanges(report: ObjdiffReportChanges): Pick<RegressionReport, "re
   return { regressions, progressions };
 }
 
+function reportSummary(report: ObjdiffReportChanges): RegressionReportSummary {
+  const from = report.from ?? {};
+  const to = report.to ?? {};
+  const matchedCodePercentFrom = toNumber(from.matched_code_percent);
+  const matchedCodePercentTo = toNumber(to.matched_code_percent);
+  const matchedCodeBytesFrom = toNumber(from.matched_code);
+  const matchedCodeBytesTo = toNumber(to.matched_code);
+  const matchedDataPercentFrom = toNumber(from.matched_data_percent);
+  const matchedDataPercentTo = toNumber(to.matched_data_percent);
+  const matchedDataBytesFrom = toNumber(from.matched_data);
+  const matchedDataBytesTo = toNumber(to.matched_data);
+  return {
+    matchedCodePercentFrom,
+    matchedCodePercentTo,
+    matchedCodePercentDelta: matchedCodePercentTo - matchedCodePercentFrom,
+    matchedCodeBytesFrom,
+    matchedCodeBytesTo,
+    matchedCodeBytesDelta: matchedCodeBytesTo - matchedCodeBytesFrom,
+    matchedDataPercentFrom,
+    matchedDataPercentTo,
+    matchedDataPercentDelta: matchedDataPercentTo - matchedDataPercentFrom,
+    matchedDataBytesFrom,
+    matchedDataBytesTo,
+    matchedDataBytesDelta: matchedDataBytesTo - matchedDataBytesFrom,
+  };
+}
+
 function sortedEntries(report: ObjdiffReportChanges): Omit<
   RegressionReport,
-  "regressions" | "progressions" | "markdown"
+  "regressions" | "progressions" | "summary" | "promotion" | "markdown"
 > {
   const newMatches: ReportEntry[] = [];
   const brokenMatches: ReportEntry[] = [];
@@ -233,19 +324,110 @@ function reportSection(title: string, entries: ReportEntry[], maxRows: number, o
   ];
 }
 
-function generateMarkdown(report: ObjdiffReportChanges, title: string, maxRows: number): string {
+export function evaluatePrPromotion(
+  report: Pick<RegressionReport, "regressions" | "newMatches" | "brokenMatches" | "improvements" | "fuzzyRegressions" | "summary">,
+  policy?: Partial<PrPromotionPolicy>,
+): PrPromotionEvaluation {
+  const effectivePolicy = normalizePrPromotionPolicy(policy);
+  const unmatchedImprovementBytes = positiveBytes(report.improvements);
+  const significantUnmatchedImprovements =
+    effectivePolicy.minUnmatchedImprovementBytes > 0
+      ? report.improvements.filter((entry) => entry.bytesDelta >= effectivePolicy.minUnmatchedImprovementBytes).length
+      : 0;
+  const evidence: PrPromotionEvidence = {
+    newMatches: report.newMatches.length,
+    matchedCodeBytesDelta: report.summary.matchedCodeBytesDelta,
+    matchedDataBytesDelta: report.summary.matchedDataBytesDelta,
+    unmatchedImprovementBytes,
+    significantUnmatchedImprovements,
+    brokenMatches: report.brokenMatches.length,
+    fuzzyRegressions: report.fuzzyRegressions.length,
+    metricRegressions: report.regressions.length,
+  };
+
+  const blockers: string[] = [];
+  if (evidence.metricRegressions > 0) blockers.push(`${evidence.metricRegressions} metric regression(s)`);
+  if (evidence.brokenMatches > 0) blockers.push(`${evidence.brokenMatches} broken exact match(es)`);
+  if (evidence.fuzzyRegressions > 0) blockers.push(`${evidence.fuzzyRegressions} unmatched-item fuzzy regression(s)`);
+  if (blockers.length > 0) {
+    return {
+      status: "blocked",
+      label: "blocked",
+      reasons: ["Fix regressions before considering PR promotion."],
+      blockers,
+      evidence,
+      policy: effectivePolicy,
+    };
+  }
+
+  const reasons: string[] = [];
+  if (effectivePolicy.minNewMatches > 0 && evidence.newMatches >= effectivePolicy.minNewMatches) {
+    reasons.push(`${evidence.newMatches} new exact match(es) meets the promotion policy.`);
+  }
+  if (effectivePolicy.minMatchedCodeBytesDelta > 0 && evidence.matchedCodeBytesDelta >= effectivePolicy.minMatchedCodeBytesDelta) {
+    reasons.push(`${formatDeltaBytes(evidence.matchedCodeBytesDelta)} matched code meets the promotion policy.`);
+  }
+  if (effectivePolicy.minMatchedDataBytesDelta > 0 && evidence.matchedDataBytesDelta >= effectivePolicy.minMatchedDataBytesDelta) {
+    reasons.push(`${formatDeltaBytes(evidence.matchedDataBytesDelta)} matched data meets the promotion policy.`);
+  }
+  if (
+    effectivePolicy.minUnmatchedImprovementBytes > 0 &&
+    evidence.unmatchedImprovementBytes >= effectivePolicy.minUnmatchedImprovementBytes
+  ) {
+    reasons.push(`${formatDeltaBytes(evidence.unmatchedImprovementBytes)} unmatched-item fuzzy improvement meets the explicit promotion policy.`);
+  }
+  if (reasons.length > 0) {
+    return {
+      status: "pr_ready",
+      label: "PR-ready",
+      reasons,
+      blockers,
+      evidence,
+      policy: effectivePolicy,
+    };
+  }
+
+  const localReasons = [
+    "No exact new match or matched code/data byte movement met the promotion policy.",
+  ];
+  if (evidence.unmatchedImprovementBytes > 0) {
+    localReasons.push("Fuzzy-only improvements are local evidence by default because match percent can rise without proving review-worthy correctness.");
+  }
+  return {
+    status: "local_only",
+    label: "local-only evidence",
+    reasons: localReasons,
+    blockers,
+    evidence,
+    policy: effectivePolicy,
+  };
+}
+
+function promotionSection(promotion: PrPromotionEvaluation): string[] {
+  return [
+    `<details${promotion.status !== "pr_ready" ? " open" : ""}>`,
+    `<summary>PR promotion gate: ${promotion.label}</summary>`,
+    "",
+    ...promotion.reasons.map((reason) => `- ${reason}`),
+    ...(promotion.blockers.length > 0 ? ["", ...promotion.blockers.map((blocker) => `- Blocker: ${blocker}`)] : []),
+    "",
+    `Evidence: ${promotion.evidence.newMatches} new exact match(es), ${formatDeltaBytes(promotion.evidence.matchedCodeBytesDelta)} matched code, ${formatDeltaBytes(promotion.evidence.matchedDataBytesDelta)} matched data, ${formatDeltaBytes(promotion.evidence.unmatchedImprovementBytes)} unmatched-item fuzzy movement.`,
+    "</details>",
+  ];
+}
+
+function generateMarkdown(report: ObjdiffReportChanges, title: string, maxRows: number, policy?: Partial<PrPromotionPolicy>): string {
+  const changes = metricChanges(report);
   const entries = sortedEntries(report);
-  const from = report.from ?? {};
-  const to = report.to ?? {};
-  const codeDelta = toNumber(to.matched_code) - toNumber(from.matched_code);
-  const dataDelta = toNumber(to.matched_data) - toNumber(from.matched_data);
-  const codePercentDelta = toNumber(to.matched_code_percent) - toNumber(from.matched_code_percent);
-  const dataPercentDelta = toNumber(to.matched_data_percent) - toNumber(from.matched_data_percent);
+  const summary = reportSummary(report);
+  const promotion = evaluatePrPromotion({ ...changes, ...entries, summary }, policy);
   const lines = [
     `### ${title}`,
     "",
-    `**Matched code**: ${formatPercent(toNumber(to.matched_code_percent))} (${formatDeltaPercent(codePercentDelta)}, ${formatDeltaBytes(codeDelta)})`,
-    `**Matched data**: ${formatPercent(toNumber(to.matched_data_percent))} (${formatDeltaPercent(dataPercentDelta)}, ${formatDeltaBytes(dataDelta)})`,
+    `**Matched code**: ${formatPercent(summary.matchedCodePercentTo)} (${formatDeltaPercent(summary.matchedCodePercentDelta)}, ${formatDeltaBytes(summary.matchedCodeBytesDelta)})`,
+    `**Matched data**: ${formatPercent(summary.matchedDataPercentTo)} (${formatDeltaPercent(summary.matchedDataPercentDelta)}, ${formatDeltaBytes(summary.matchedDataBytesDelta)})`,
+    "",
+    ...promotionSection(promotion),
     "",
     ...reportSection("new matches", entries.newMatches, maxRows),
     "",
@@ -263,15 +445,20 @@ export async function readRegressionReport(
   reportChangesPath: string,
   title: string,
   maxRows: number,
+  promotionPolicy?: Partial<PrPromotionPolicy>,
 ): Promise<RegressionReport> {
   const raw = JSON.parse(await readFile(reportChangesPath, "utf8")) as unknown;
   const report = asRecord(raw) as ObjdiffReportChanges;
   const changes = metricChanges(report);
   const entries = sortedEntries(report);
+  const summary = reportSummary(report);
+  const promotion = evaluatePrPromotion({ ...changes, ...entries, summary }, promotionPolicy);
   return {
     ...changes,
     ...entries,
-    markdown: generateMarkdown(report, title, maxRows),
+    summary,
+    promotion,
+    markdown: generateMarkdown(report, title, maxRows, promotionPolicy),
   };
 }
 
@@ -280,8 +467,9 @@ export async function writePrReport(
   outputPath: string,
   title: string,
   maxRows: number,
+  promotionPolicy?: Partial<PrPromotionPolicy>,
 ): Promise<RegressionReport> {
-  const report = await readRegressionReport(reportChangesPath, title, maxRows);
+  const report = await readRegressionReport(reportChangesPath, title, maxRows, promotionPolicy);
   await writeFile(outputPath, report.markdown);
   return report;
 }

@@ -11,211 +11,151 @@
     "merged_at": "2026-06-03T21:12:06Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Continuation of #2572 that linked two Kirby capture fighter units and modeled more duplicate/adjacent stage data strings. The PR marked ftCo_CaptureKirby.c and ftCo_CaptureWaitKirby.c as Matching, split their .sdata ownership in GALE01 splits, converted many anonymous/global data symbols to local @ symbols, and added StageData wrapper structs plus explicit OSReport filename/format strings across several gr stage files. decomp-dev reported 18 new matches, +4304 matched code bytes, +2116 linked code bytes, and small matched/linked data gains.",
+  "summary": "Continuation of PR #2572 that added more decomp matches and data/linkage cleanup across fighter capture-Kirby code and many stage files. The most explicit linkage change was moving ftCo_CaptureKirby.c and ftCo_CaptureWaitKirby.c from NonMatching to Matching in configure.py, with splits/symbols adjusted so CaptureKirby, CaptureWaitKirby, and ThrownKirby own the correct .sdata/.sdata2 ranges and local literals. Stage changes mainly introduced or reshaped StageData-plus-string wrapper structs and reused embedded string offsets in OSReport calls to improve data matching. Bot metrics reported +4304 bytes matched code, +2116 bytes linked code, +72 bytes matched data, +88 bytes linked data, and 18 new matches.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
+      "headers",
       "data-layout",
-      "splits-and-symbols",
-      "fighter-linking",
-      "stage-data",
-      "stack-padding",
-      "headers"
+      "linkage-config",
+      "symbol-scope-cleanup",
+      "stack-matching"
     ],
     "systems": [
       "config",
-      "build",
       "fighter",
-      "kirby",
       "stage",
-      "item"
+      "item",
+      "repo-root"
     ]
   },
   "key_files": [
-    {
-      "path": "configure.py",
-      "role": "Changed ftCo_CaptureKirby.c and ftCo_CaptureWaitKirby.c from NonMatching to Matching."
-    },
-    {
-      "path": "config/GALE01/splits.txt",
-      "role": "Split the Kirby capture .sdata ranges: CaptureKirby ends at 0x804D3BC8, CaptureWaitKirby owns 0x804D3BC8-0x804D3BE0, and ThrownKirby owns 0x804D3BE0-0x804D3BF8."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Reclassified many data, sdata, and sdata2 objects from lbl_/ftCo_ globals to local @ symbols; added local ...data.0 and split grCs_803E11A4 trailing strings."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_CaptureKirby.c",
-      "role": "Main fighter match work for ftCo_800BD1DC and ftCo_800BD39C: include cleanup, inline reshaping, PAD_STACK, stack-local layout tricks, and removal of fake const literals."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_ThrownKirby.c",
-      "role": "Removed extern declarations for ftCo_804D3BE0/BE8/BF0 after .sdata ownership moved to local symbols."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
-      "role": "Used explicit u8 stack pads and PAD_STACK sizes to finish two Yoshi-copy Kirby capture animation matches."
-    },
-    {
-      "path": "src/melee/gr/grkongo.c",
-      "role": "Materialized grKg_803E16E0, grKg_803E1704, grKg_803E1800, report format, and filename data; fixed callback indexing and OSReport data references to match grKongo_801D5340."
-    },
-    {
-      "path": "src/melee/gr/grkongo.static.h",
-      "role": "Changed a placeholder static StageCallbacks pointer into exact extern S16Vec3 and StageCallbacks arrays."
-    },
-    {
-      "path": "src/melee/gr/grbigblue.c",
-      "role": "Added grBb_StageData with trailing report_format and changed OSReport to use data-offset pointers."
-    },
-    {
-      "path": "src/melee/gr/grmutecity.c",
-      "role": "Added data padding, grMc_StageData, explicit filename/report strings, baselib/debug include, and __assert calls for existing spline checks."
-    },
-    {
-      "path": "src/melee/gr/gricemt.c",
-      "role": "Added data padding plus grIm_StageData with report/assert strings and adjusted OSReport address usage."
-    },
-    {
-      "path": "src/melee/gr/grvenom.c",
-      "role": "Restructured grVenom_80205AD4 and grVenom_80206874 with gotos, explicit zero stores, pointer casts, and bitfield layout casts to raise them near-match."
-    },
-    {
-      "path": "src/melee/gr/grcastle.c",
-      "role": "Made callback arrays static const and separated /GrCs.dat into a named char array used by StageData."
-    },
-    {
-      "path": "src/melee/gr/grcorneria.c",
-      "role": "Added explicit report padding, OSReport format string, and filename string to improve data/code references."
-    },
-    {
-      "path": "src/melee/it/itdraw.c",
-      "role": "Minor local declaration order change in it_8026EECC_inline_1."
-    }
+    "configure.py",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "src/melee/ft/chara/ftCommon/ftCo_CaptureKirby.c",
+    "src/melee/ft/chara/ftCommon/ftCo_ThrownKirby.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
+    "src/melee/gr/grvenom.c",
+    "src/melee/gr/grkongo.c",
+    "src/melee/gr/grkongo.static.h",
+    "src/melee/gr/grbigblue.c",
+    "src/melee/gr/grcastle.c",
+    "src/melee/gr/grcorneria.c",
+    "src/melee/gr/grgreens.c",
+    "src/melee/gr/grhomerun.c",
+    "src/melee/gr/gricemt.c",
+    "src/melee/gr/grmutecity.c",
+    "src/melee/gr/groldkongo.c",
+    "src/melee/gr/groldpupupu.c",
+    "src/melee/gr/grpura.c",
+    "src/melee/it/itdraw.c"
   ],
   "what_changed": [
-    "The build configuration now treats melee/ft/chara/ftCommon/ftCo_CaptureKirby.c and ftCo_CaptureWaitKirby.c as Matching objects instead of NonMatching.",
-    "GALE01 splits were corrected so CaptureKirby, CaptureWaitKirby, and ThrownKirby each own their proper .sdata subrange rather than CaptureKirby owning 0x804D3BB0-0x804D3BF8 as one block.",
-    "GALE01 symbols were adjusted from broad lbl_/ftCo_ globals to local @ symbols for several jump tables, strings, floats, and doubles, including ftCo_804D3BB0 through ftCo_804D3BF0 and ftCo_804D8BA8 through ftCo_804D8BC8.",
-    "ftCo_CaptureKirby.c was cleaned up and reshaped for matching: placeholder/platform and unused includes were removed, fake literal constants were removed, inlineA0 stopped doing ftCommon_InitGrab, PAD_STACK(4) was added, and the scale Vec3 local was wrapped in a padded struct.",
-    "ftCo_800BD39C in CaptureKirby reached 100% according to the bot; ftCo_800BD1DC also reached 100% after the inline and stack-layout changes.",
-    "ftKb_SpecialNYs.c swapped FORCE_PAD_STACK usage for explicit u8 _pad[8] plus PAD_STACK(82) or PAD_STACK(0x54), finishing ftKb_YsSpecialNCapture2_0_Anim and ftKb_YsSpecialAirN2_1_Anim.",
-    "Several stage files added named /Gr*.dat strings and wrapper structs such as grBb_StageData, grKg_StageData, grMc_StageData, grIm_StageData, grHr_StageData, grOp_StageData, and grPu_StageData so StageData is contiguous with duplicated report/filename strings.",
-    "Stage GObj creation functions replaced direct string literals or __FILE__ in OSReport calls with explicit char arrays or pointer arithmetic into known data addresses, e.g. the repeated \"%s:%d: couldn t get gobj(id=%d)\\n\" format.",
-    "grKongo_801D5340 now indexes grKg_803E1704[gobj_id] instead of treating grKg_803E16E0 as callbacks, and its static header now exposes correctly typed extern arrays.",
-    "grVenom_80205AD4 and grVenom_80206874 were substantially reshaped with explicit gotos, reordered zero initialization, pointer reloads after stores, and grCorneria_GroundVars2 casts for bitfield clearing; the bot showed both rising to roughly 99% but not full matches.",
-    "grMuteCity_801EFDF8 changed literal OSReport/HSD_ASSERT-style checks into explicit OSReport string-offset calls and __assert(filename, line, \"0\") calls using grMc_803E3434.",
-    "decomp-dev reported overall GALE01 gains: matched code 70.01% (+0.11%, +4304 bytes), linked code 42.35% (+0.05%, +2116 bytes), matched data 41.28% (+72 bytes), and linked data 35.00% (+88 bytes)."
+    "Changed configure.py so melee/ft/chara/ftCommon/ftCo_CaptureKirby.c and ftCo_CaptureWaitKirby.c are built as Matching instead of NonMatching.",
+    "Adjusted GALE01 splits so ftCo_CaptureKirby.c .sdata ends at 0x804D3BC8, while ftCo_CaptureWaitKirby.c owns .sdata 0x804D3BC8-0x804D3BE0 and ftCo_ThrownKirby.c owns .sdata 0x804D3BE0-0x804D3BF8.",
+    "Converted several config/GALE01/symbols.txt entries from global lbl_/ftCo_ address names to compiler-style local @NNN symbols, including CaptureKirby/Wait/ThrownKirby string and literal data.",
+    "Cleaned ftCo_CaptureKirby.c includes, removed placeholder/platform and unused headers, removed local literal definitions that became local symbols, reorganized inlines, and added PAD_STACK calls.",
+    "Moved ftCommon_InitGrab out of inlineA0 and called it directly in ftCo_800BD1DC after inlineA0, contributing to the function reaching 100% according to the bot report.",
+    "Refactored ftCo_800BD39C helper logic with stack padding and a padded local struct around Vec3 scale to improve matching.",
+    "Removed extern char* literal declarations from ftCo_ThrownKirby.c for ftCo_804D3BE0, ftCo_804D3BE8, and ftCo_804D3BF0 after the .sdata ownership/symbol-scope adjustment.",
+    "Tweaked ftKb_SpecialNYs.c stack layout in ftKb_YsSpecialNCapture2_0_Anim and ftKb_YsSpecialAirN2_1_Anim by replacing FORCE_PAD_STACK/PAD_STACK combinations with explicit u8 _pad[8] and larger PAD_STACK values.",
+    "Added or reshaped stage data/string layouts in many gr files, often introducing a local StageData wrapper struct with trailing report-format or filename strings, such as grBb_StageData, grGr_StageData, grHr_StageData, grIm_StageData, grKg_StageData, grMc_StageData, grOk_StageData, grOp_StageData, and grPu_StageData.",
+    "Changed multiple stage OSReport calls from direct string literals or __FILE__ usage to references into known data objects or explicit file-name strings, preserving original data layout and improving .data matching.",
+    "Reworked grVenom_80205AD4 and grVenom_80206874 control flow with explicit goto labels for spawn/link/default/done paths, and updated comments from low/partial match percentages to near-matching register-allocation TODOs.",
+    "Made small ordering/layout tweaks such as moving the Item* local declaration in it_8026EECC_inline_1 after Vec3* new_pos."
   ],
   "smart_moves": [
-    "The PR linked the fighter units only after fixing both code shape and data ownership, avoiding a false code-only match that would still leave .sdata misplaced.",
-    "Modeling StageData plus trailing report/filename strings as wrapper structs preserved contiguous data layout while keeping the base StageData fields readable.",
-    "Using explicit local @ symbols in symbols.txt made anonymous compiler-emitted literals local instead of pretending they were global ftCo_/lbl_ objects.",
-    "The stage OSReport fixes intentionally referenced existing data addresses, sometimes through `(char*) callbacks + offset`, which is ugly but effective for matching loads of pooled or adjacent strings.",
-    "The grKongo header fix replaced an imprecise static pointer declaration with exact extern array types and lengths, making the data materialization reusable and less misleading.",
-    "The Venom work isolated non-structured-control-flow tactics behind labels like venom_80206874_spawn/link/default/done, documenting that the remaining gap is register allocation rather than algorithm discovery.",
-    "Stack layout fixes were localized: CaptureKirby used PAD_STACK and a padded local struct, while ftKb_SpecialNYs used explicit u8 padding plus PAD_STACK rather than broad rewrites."
+    "Promoting only the now-matching fighter translation units in configure.py made the linkage improvement explicit and measurable.",
+    "Splitting .sdata ownership between CaptureKirby, CaptureWaitKirby, and ThrownKirby fixed symbol placement instead of papering over mismatches with cross-file extern literals.",
+    "Using compiler-style local @NNN symbol names for file-local strings and literals reduced false global symbols and better reflected object-file-local data.",
+    "Wrapping StageData with trailing string arrays matched contiguous stage data blobs without inventing unrelated globals.",
+    "Rewriting OSReport calls to point at existing data/object offsets reused real embedded strings and helped stage .data matching.",
+    "Using small stack-layout nudges, including PAD_STACK and padded local structs, addressed last-byte function mismatches without broad behavioral rewrites.",
+    "For grVenom, explicit goto-labeled control flow preserved C readability enough to document paths while forcing code shape closer to the target assembly."
   ],
   "decomp_lessons": [
-    "When a unit is close to matching but still non-linkable, inspect splits.txt and symbols.txt; wrong .sdata ownership can keep unrelated neighboring files from matching.",
-    "Repeated strings such as OSReport formats may be physically adjacent to StageData rather than ordinary rodata literals; wrapping the struct with trailing char arrays can improve both data and code matching.",
-    "__FILE__ and string literals are not always acceptable substitutes for the original address; explicit filename char arrays and pointer-offset references may be needed.",
-    "For local compiler literals, prefer local @N symbols with `scope:local` in symbols.txt over invented global names unless there is evidence the symbol is global.",
-    "Small stack differences can be solved with targeted PAD_STACK, explicit dummy arrays, or padded local structs, especially around Vec3 locals passed to HSD_JObjSetScale.",
-    "Inlining boundaries matter: moving ftCommon_InitGrab out of inlineA0 in CaptureKirby changed the generated code shape enough to help match.",
-    "Use exact data declarations in static headers once arrays are identified; placeholder pointers can obscure callback indexing and produce bad codegen.",
-    "For near-matching control flow, explicit gotos can reproduce compiler branch layout more accurately than structured if/else, but should be paired with comments or meaningful label names.",
-    "Bitfield or union stores may need casts to a sibling ground-vars struct or explicit `*(s32*)` stores to force the same load/store width."
+    "When a file owns adjacent literals that previously appeared as global address symbols, revisit splits.txt and symbols.txt together; correct section boundaries can be required before a source file links as Matching.",
+    "Do not keep extern declarations for literals that are actually local to another object or have been moved into the correct owning translation unit.",
+    "StageData objects in Melee stage files may be part of a larger contiguous data record that includes filename/report strings; model that as a wrapper struct when the data layout requires it.",
+    "OSReport literals can be sensitive to whether the compiler emits direct strings, __FILE__, or pointers into existing data; matching may require reusing embedded string offsets.",
+    "Near-100% stage/fighter functions may need non-semantic declaration ordering, temporary reuse, stack padding, or control-flow reshaping rather than algorithmic changes.",
+    "For register-allocation-sensitive functions, storing through the struct field and then reloading, as seen in grVenom other-gobj handling, can be a useful matching tactic when evidence supports it.",
+    "Small source ordering changes, including local variable declaration order, can affect item/fighter inline codegen."
   ],
   "naming_conventions": [
-    "Stage data symbols use the stage prefix plus address style, e.g. grBb_803E2D20, grKg_803E1800, grMc_803E33DC, grIm_803E4800.",
-    "Wrapper structs follow `grXX_StageData` and contain `StageData stage_data` followed by named trailing arrays such as `report_format`, `filename`, `block_num_msg`, `coll_jobj`, and `upper_msg`.",
-    "Known stage data filenames were pulled into named `char grXX_...[] = \"/GrXX.dat\"` or similar arrays instead of anonymous string literals.",
-    "Local compiler-generated data in config/GALE01/symbols.txt was renamed to `@NNN` with `scope:local`; the diff also added a local label named `...data.0` at 0x803BD0B0.",
-    "Internal castle callback tables became `static const`, matching local linkage instead of exported const objects.",
-    "grkongo.static.h now declares exact extern arrays, `S16Vec3 grKg_803E16E0[6]` and `StageCallbacks grKg_803E1704[12]`, rather than a generic static pointer."
+    "Compiler-local data symbols in symbols.txt use @NNN names with scope:local rather than lbl_ or module-prefixed global names when the data is file-local.",
+    "Stage wrapper structs followed the stage prefix plus StageData pattern, e.g. grBb_StageData, grGr_StageData, grHr_StageData, grIm_StageData, grKg_StageData.",
+    "Stage data globals retain address-style project names such as grBb_803E2D20 and grKg_803E1800 when semantic names are not known.",
+    "File-local arrays that should not export symbols may be declared static const, as in grCs_803B7F28 and grCs_803B7F3C.",
+    "Goto labels in grVenom used function-address-prefixed names with path suffixes, e.g. venom_80205AD4_spawn, venom_80205AD4_link, venom_80205AD4_default, venom_80205AD4_done."
   ],
   "assembly_or_matching_tactics": [
-    "Split .sdata ranges in splits.txt before marking objects Matching so local literals are assigned to the unit that actually owns them.",
-    "Use local @ symbols for floats, doubles, strings, and jump tables when the compiler emits local data rather than global labels.",
-    "Replace direct OSReport literals with explicit data symbols or address arithmetic into nearby arrays when the original binary loads strings from pooled/adjacent .data.",
-    "Create wrapper structs around StageData to include trailing format strings and filenames at the correct offsets without losing field readability.",
-    "Use explicit u8 padding arrays and PAD_STACK counts to force stack frame shape; examples include `u8 _pad[8]` plus `PAD_STACK(82)` and `PAD_STACK(0x54)` in ftKb_SpecialNYs.",
-    "For Vec3 locals, a padded anonymous struct can force the desired stack offset before passing `&scale` to HSD_JObjSetScale.",
-    "Reuse an input Vec3 pointer as temporary storage instead of introducing an extra local when that better matches register allocation, as in CaptureKirby inlineB1.",
-    "Reorder local declarations and initializations to influence register assignment, including the small itdraw declaration reorder and the early `zero = 0` in grVenom.",
-    "Use gotos to mirror original branch layout for grVenom type dispatch, then consolidate common tail code at a done label.",
-    "Use explicit casts such as `*(s32*)` and `((struct grCorneria_GroundVars2*) &gp->gv.venom)->xC4.flags.b0 = false` to control store width and bitfield access pattern.",
-    "Switch HSD_ASSERT macro use to explicit `__assert(filename, line, \"0\")` when macro expansion does not match the original callsite."
+    "Use PAD_STACK or explicit u8 padding locals to reproduce stack frame size/alignment for stubborn fighter animation functions.",
+    "Use a padded local struct containing Vec3 when the target stack slot for a Vec3 appears offset from the natural local layout.",
+    "Reorder local declarations and initial assignments, such as initializing zero before other locals or moving Item* after Vec3*, to influence register allocation.",
+    "Replace structured nested if/else with explicit goto labels when the target branch layout requires a specific fallthrough and join shape.",
+    "Access struct fields through casts or raw stores when the known typed field layout does not yet generate the target code shape, as shown by grVenom clearing a flag via grCorneria_GroundVars2 cast.",
+    "Point OSReport arguments at existing data symbols or offsets rather than newly emitted string literals when matching data layout and relocations."
   ],
   "review_feedback": [
-    "No human review comments or review records were present in the slice.",
-    "The PR body only says `Continuation of #2572`, so the detailed rationale must be inferred from the diff and bot metrics.",
-    "decomp-dev bot reported 18 new matches, including ftCo_800BD39C, grKongo_801D5340, grMuteCity_801EFD0C, grOldKongo_8020F52C, two ftKb_SpecialNYs animation functions, and several stage GObj creation functions.",
-    "The bot also reported 22 improvements in unmatched items, notably grKongo .data +425 bytes, grVenom_80206874 +130 bytes, and grVenom_80205AD4 +48 bytes.",
-    "The bot listed one zero-byte unmatched regression for grBigBlue_801E6364, while the overall report was strongly net-positive."
+    "No human review comments were present in the provided PR slice.",
+    "The decomp.dev bot reported matched code improved to 70.01% (+0.11%, +4304 bytes) and linked code to 42.35% (+0.05%, +2116 bytes).",
+    "The bot reported 18 new matches, including ftCo_800BD39C, grKongo_801D5340, CaptureWaitKirby .sdata, ThrownKirby .sdata, grMuteCity_801EFD0C, grOldKongo_8020F52C, ftCo_800BD1DC, two ftKb_SpecialNYs animation functions, and several stage functions.",
+    "The bot reported notable unmatched-item improvements in stage .data sections, especially grkongo .data (+425 bytes, 41.39% to 93.47%) and groldkongo .data (+158 bytes, 31.25% to 91.24%).",
+    "The bot noted one unmatched-item regression for grbigblue grBigBlue_801E6364 with no byte change and unchanged rounded percent."
   ],
   "searchable_terms": [
-    "pr-2574",
+    "PR2574",
     "More dups and a ft link",
     "Continuation of #2572",
-    "ft link",
-    "dups",
     "ftCo_CaptureKirby",
     "ftCo_CaptureWaitKirby",
     "ftCo_ThrownKirby",
-    "ftCo_800BD1DC",
     "ftCo_800BD39C",
+    "ftCo_800BD1DC",
     "ftKb_YsSpecialNCapture2_0_Anim",
     "ftKb_YsSpecialAirN2_1_Anim",
-    "ftCo_804D3BB0",
-    "ftCo_804D3BC8",
-    "ftCo_804D3BE0",
-    "ftCo_804D8BA8",
-    ".sdata split",
-    "symbols.txt @218 @219 @220",
-    "...data.0",
-    "StageData report_format",
-    "couldn t get gobj(id=%d)",
-    "OSReport",
-    "__FILE__",
-    "__assert",
-    "HSD_ASSERT",
-    "PAD_STACK",
-    "FORCE_PAD_STACK",
-    "grKongo_801D5340",
-    "grKg_803E16E0",
-    "grKg_803E1704",
-    "grKg_803E1800",
-    "grBigBlue_801E59F8",
-    "grBb_803E2D20",
-    "grCastle_801CD4D0",
-    "grCs_803E1198",
-    "grCorneria_801DD534",
-    "grGreens_80213524",
-    "grHomeRun_8021C82C",
-    "grIceMt_801F71E8",
-    "grIm_803E4800",
-    "grMuteCity_801EFD0C",
-    "grMc_803E33DC",
-    "grOldKongo_8020F52C",
-    "grOldPupupu_802108B4",
-    "grPura_80211E08",
     "grVenom_80205AD4",
     "grVenom_80206874",
+    "grKongo_801D5340",
+    "grMuteCity_801EFD0C",
+    "grOldKongo_8020F52C",
+    "StageData wrapper",
+    "OSReport string offsets",
+    "PAD_STACK",
+    "FORCE_PAD_STACK",
+    "configure.py Matching",
+    "GALE01 splits.txt",
+    "GALE01 symbols.txt",
+    "local @ symbols",
+    "sdata ownership",
+    "grBb_StageData",
+    "grGr_StageData",
+    "grHr_StageData",
+    "grIm_StageData",
+    "grKg_StageData",
+    "grMc_StageData",
+    "grOk_StageData",
+    "grOp_StageData",
+    "grPu_StageData",
     "it_8026EECC_inline_1"
   ],
   "follow_up_queries": [
-    "Inspect PR #2572 for the earlier part of the `dups` series.",
-    "git grep \"typedef struct gr.*_StageData\" src/melee/gr",
-    "git grep \"report_format\" src/melee/gr",
-    "git grep \"couldn t get gobj\" src/melee/gr",
-    "git grep \"PAD_STACK(82)\" src/melee/ft/chara/ftKirby",
-    "git grep \"ftCo_800BD39C\" src/melee/ft/chara/ftCommon",
-    "git grep \"venom_80206874_spawn\" src/melee/gr/grvenom.c",
-    "Check config/GALE01/splits.txt around ftCo_CaptureKirby.c, ftCo_CaptureWaitKirby.c, and ftCo_ThrownKirby.c.",
-    "Search symbols.txt for @218, @246, @253, and ftCo_804D8BA8 to review local literal ownership."
+    "Look at PR #2572 to understand the prior duplicate-data work this PR continued.",
+    "Search for remaining stage files with StageData followed by adjacent report-format strings that could use wrapper structs.",
+    "Audit remaining ftCommon Kirby capture/throw files for incorrect .sdata/.sdata2 ownership or globalized local literals.",
+    "Search for OSReport calls using __FILE__ or direct literals in nearly-matching stage functions.",
+    "Investigate remaining grVenom register-allocation TODOs after the goto reshaping."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

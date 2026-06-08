@@ -11,147 +11,128 @@
     "merged_at": "2026-03-21T20:41:25Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged a Kirby special-N decompilation slice replacing stubs in ftKb_Init, ftKb_SpecialN, ftKb_SpecialNNs, and ftKb_SpecialNZd. The diff implements inhale drink/swallow animation callbacks, copied Sheik/Mewtwo/Jigglypuff neutral-B behavior, and Kirby hat material-animation loading. The title/body say \"7 functions\", but the diff names eight public stub replacements, so the exact count is slightly inconsistent in the available evidence.",
+  "summary": "Decompiled seven Kirby neutral-special-related functions across copied ability handlers, swallow/drink animation handlers, aerial Jigglypuff Rollout startup, Mewtwo Shadow Ball copied-action setup, Sheik Needle Storm loop IASA, and Kirby hat material-animation loading. The PR replaced placeholder `/// #...` stubs with matching C implementations and adjusted the `ftKb_SpecialN_800EF35C` header prototype from `UNK_RET` to `void`. The PR body states all seven functions were 100% matching by overnight script.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "fighter-decompilation",
-      "kirby-special-n",
-      "copied-specials",
-      "animation-callbacks",
+      "decomp-matching",
+      "fighter-behavior",
       "headers",
-      "matching-tactics"
+      "animation-state",
+      "kirby-copy-ability"
     ],
     "systems": [
       "fighter",
       "ftKirby",
-      "Kirby SpecialN",
-      "Kirby copy abilities",
-      "ftCommon",
-      "items/throws",
-      "HSD animation"
+      "specialN",
+      "animation",
+      "input",
+      "hat-model"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
-      "role": "Decompiled ftKb_SpecialNDrink0_Anim, ftKb_SpecialNDrink1_Anim, and ftKb_SpecialAirNDrink_Anim; added ftCo_Throw, ftCo_ThrownKirby, and ftanim includes."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c",
-      "role": "Decompiled copied Sheik Needle Storm loop IASA callbacks and copied Mewtwo Shadow Ball start entry; added fn_80106DB0 forward declaration."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.c",
-      "role": "Decompiled ftKb_SpecialN_800EF35C, the Kirby hat material-animation attachment path; added ftanim include."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
-      "role": "Decompiled ftKb_PrSpecialAirNStart_Anim for copied Jigglypuff/Purin aerial Rollout startup."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.h",
-      "role": "Updated ftKb_SpecialN_800EF35C prototype from UNK_RET to void."
-    }
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
+    "src/melee/ft/chara/ftKirby/ftKb_Init.c",
+    "src/melee/ft/chara/ftKirby/ftKb_Init.h"
   ],
   "what_changed": [
-    "Replaced the ftKb_SpecialN_800EF35C stub with code that indexes ftKb_Init_803C9FC8 by copied ability/costume, walks HSD_MatAnimJoint data, skips parts via ftParts_8007506C, and attaches matanims to Kirby hat DObjs with HSD_DObjAddAnimAll.",
-    "Implemented ftKb_SpecialNDrink0_Anim and ftKb_SpecialNDrink1_Anim as one-shot swallow/drink animation callbacks gated by cmd_vars[0] and target_item_gobj; they call ftCommon_8007E2F4, play SFX 0x222F6, notify the item with it_802F28C8, clear x1A64/target_item_gobj/cmd_vars[0], then transition on animation end.",
-    "Implemented ftKb_SpecialAirNDrink_Anim for aerial swallow handling using victim_gobj, ftCo_800DE2CC, ftCo_800BE000, ftCo_800BD9E0, and ftKb_SpecialN_800F1BAC before falling on animation completion.",
-    "Implemented ftKb_SkSpecialNLoop_IASA and ftKb_SkSpecialAirNLoop_IASA: releasing B changes to the appropriate end motion state, clears mv.kb.specialhi.x0, runs ftKirbyDmgInline, and sets accessory4_cb to fn_80106DB0; pressing LR changes to the appropriate cancel state.",
-    "Implemented ftKb_SpecialNMt_80107568 as a thin wrapper around a new static inline ftKb_SpecialNMt_ChangeAction, which enters ftKb_MS_MtSpecialNStart, clears cmd_vars, zeroes vertical velocity and copied-special state fields, installs damage/death callbacks, conditionally loads specialn_mt_frames_to_transition, and calls ftAnim_8006EBA4.",
-    "Implemented ftKb_PrSpecialAirNStart_Anim: after startup animation finishes it changes to ftKb_MS_PrSpecialAirNFull, installs callbacks, freezes animation rate, sets tiny horizontal self velocity, clears anim velocity, and rotates the model part with ftPartSetRotY.",
-    "Synchronized headers/includes with the new code by adding needed ftanim/throw headers and changing ftKb_SpecialN_800EF35C from an unknown return type to void."
+    "Implemented `ftKb_SpecialNDrink0_Anim`, `ftKb_SpecialNDrink1_Anim`, and `ftKb_SpecialAirNDrink_Anim` in `ftKb_SpecialN.c`, handling swallow/drink command variables, victim or target item cleanup, sound playback, state transitions, and end-of-animation fall or wait transitions.",
+    "Implemented `ftKb_SkSpecialNLoop_IASA` and `ftKb_SkSpecialAirNLoop_IASA` in `ftKb_SpecialNZd.c`, checking B-button release to enter Sheik copied neutral-B end states and LR input to enter cancel states.",
+    "Implemented `ftKb_SpecialNMt_80107568` in `ftKb_SpecialNZd.c` through a local static inline helper `ftKb_SpecialNMt_ChangeAction`, initializing copied Mewtwo neutral-B start motion, command variables, velocities, callbacks, charge/timer fields, and animation setup.",
+    "Implemented `ftKb_PrSpecialAirNStart_Anim` in `ftKb_SpecialNNs.c`, transitioning copied Jigglypuff aerial Rollout startup into `ftKb_MS_PrSpecialAirNFull` after animation completion and setting callbacks, anim rate, velocity, and part rotation.",
+    "Implemented `ftKb_SpecialN_800EF35C` in `ftKb_Init.c`, iterating Kirby hat material animation joints and adding material animations to hat DObjs based on costume data and part availability.",
+    "Updated `ftKb_Init.h` so `ftKb_SpecialN_800EF35C` returns `void` instead of `UNK_RET`.",
+    "Added needed includes such as `ft/ftanim.h`, `ftCo_Throw.h`, and `ftCo_ThrownKirby.h` to support the newly decompiled logic."
   ],
   "smart_moves": [
-    "Grouped related Kirby neutral-B/copy-ability stubs in one PR, making repeated state-machine patterns visible across ground, air, copied Sheik, copied Mewtwo, and copied Jigglypuff code.",
-    "Kept one-shot side effects behind cmd_vars[0] plus non-null target/victim checks, then cleared the triggering fields so animation callbacks do not repeat object-transfer logic every frame.",
-    "Used a local anonymous struct overlay for the hat costume data table rather than inventing a broad public struct name without evidence.",
-    "Separated Mewtwo Shadow Ball entry logic into a static inline helper while leaving the exported address-named function as a small wrapper, which is a useful pattern when matching entry thunks or stack layout.",
-    "Updated the header return type to void once the implementation proved there was no return value, reducing future UNK_RET leakage."
+    "Used a small `static inline` helper, `ftKb_SpecialNMt_ChangeAction`, for the copied Mewtwo action setup, likely to preserve matching structure while keeping the exported function body minimal.",
+    "Preserved known matching idioms such as `(0, GET_FIGHTER(gobj))`, explicit `PAD_STACK(8)` and `PAD_STACK(32)`, nested local scopes, and local re-fetches of `Fighter*` where required by the target code shape.",
+    "Changed the header prototype to the discovered concrete return type only after implementing `ftKb_SpecialN_800EF35C`, reducing `UNK_RET` usage.",
+    "Kept ground and air Sheik IASA implementations parallel but with the correct distinct motion states: `ftKb_MS_SkSpecialNEnd`/`Cancel` versus `ftKb_MS_SkSpecialAirNEnd`/`Cancel`.",
+    "For Kirby hat material animation loading, modeled the anonymous costume-data layout locally with `HSD_Joint*` and `HSD_MatAnimJoint*`, avoiding a broader struct commitment where the slice only proves this local shape."
   ],
   "decomp_lessons": [
-    "For Kirby special/copy routines, do not assume the existing field names describe the current move: this PR uses mv.kb.specialhi fields inside copied Sheik and Mewtwo neutral-B logic.",
-    "Animation callbacks often perform gameplay side effects first, gated by command variables, and only then check ftAnim_IsFramesRemaining for motion-state transitions.",
-    "Ground/air variants may be structurally identical but require exact motion-state constants, literal forms, callback assignments, and stack padding to match.",
-    "When decompiling asset-loading paths, a small local data-table overlay plus existing traversal helpers such as ftAnim_GetNextMatAnimJointInTree can be enough evidence; avoid over-generalizing table structs prematurely.",
-    "Function-count claims in autogenerated PR text can drift: here the title/body says 7 functions while the diff visibly replaces eight public stub markers, so future searches should key off symbols as well as the PR title.",
-    "Keep includes and prototypes in sync with decompiled call sites; header cleanup is part of a matching PR, not a separate afterthought."
+    "Kirby copied neutral-special code often uses the `mv.kb.specialhi` field group even for non-up-special copied ability state, so field names may reflect shared storage rather than semantic move names.",
+    "Animation handlers commonly guard one-time event logic with `fp->cmd_vars[0]`, clear related object pointers after consuming the event, then separately check `ftAnim_IsFramesRemaining` for the state transition.",
+    "Ground and air versions of copied ability handlers can be near-identical but must preserve float literal spelling and integer literal spelling where matching requires it, as seen in `0.0F, 1.0F, 0.0F` versus `0, 1, 0` call arguments.",
+    "When decompiling Kirby copy/hat code, costume-specific data and material animation traversal may require local temporary struct definitions and calls to `ftAnim_GetNextMatAnimJointInTree` rather than fully named global types.",
+    "Callback restoration is a recurring part of copied Kirby state transitions; decompiled functions set callbacks such as `death2_cb`, `take_dmg_cb`, `deal_dmg_cb`, `x21F8`, and `accessory4_cb` alongside motion-state changes.",
+    "Matching may require stack padding even in apparently straightforward logic; this PR used `PAD_STACK(8)` and `PAD_STACK(32)` in multiple functions."
   ],
   "naming_conventions": [
-    "Kirby fighter functions use the ftKb_ prefix.",
-    "Copied-character neutral-B names embed character abbreviations after SpecialN, such as Sk for Sheik, Mt for Mewtwo, and Pr for Purin/Jigglypuff.",
-    "Callback suffixes follow the engine role: _Anim for animation callbacks and _IASA for input/interrupt callbacks.",
-    "State-phase names use Start, Loop, End, Cancel, Full, Drink, and Air to distinguish motion-state variants.",
-    "Address-suffixed names such as ftKb_SpecialN_800EF35C and ftKb_SpecialNMt_80107568 remain when the PR does not establish a stronger semantic name.",
-    "Headers retain address comments like /* 0EF35C */ alongside function prototypes."
+    "Kirby copied-special functions keep character-copy abbreviations in the function name, such as `Sk` for Sheik, `Mt` for Mewtwo, and `Pr` for Purin/Jigglypuff.",
+    "Motion-state names mirror the copied character and ground/air variants, e.g. `ftKb_MS_SkSpecialNEnd`, `ftKb_MS_SkSpecialAirNEnd`, `ftKb_MS_MtSpecialNStart`, and `ftKb_MS_PrSpecialAirNFull`.",
+    "IASA handlers use the suffix `_IASA`; animation callbacks use `_Anim`; internal address-suffixed functions remain named with their address when semantics are not yet fully named, such as `ftKb_SpecialN_800EF35C` and `ftKb_SpecialNMt_80107568`.",
+    "The PR retained established mixed fighter access macro/function usage, including both `GET_FIGHTER(gobj)` and `getFighter(gobj)`, rather than normalizing names at the cost of matching.",
+    "Header cleanup replaced `UNK_RET` with `void` where the implementation established no returned value."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(8) in ftKb_SpecialN_800EF35C, ftKb_PrSpecialAirNStart_Anim, and ftKb_SpecialNMt_80107568, and PAD_STACK(32) in ftKb_SpecialAirNDrink_Anim.",
-    "Used the comma-expression form Fighter* fp = (0, GET_FIGHTER(gobj)); in the two ground Drink callbacks, indicating codegen-sensitive matching.",
-    "Declared a static const motion flag mask in ftKb_PrSpecialAirNStart_Anim as (1 << 1) | (1 << 4) | (1 << 18).",
-    "Preserved a nested block that redeclares Fighter* fp after Fighter_ChangeMotionState in ftKb_PrSpecialAirNStart_Anim, likely to match register/lifetime behavior.",
-    "Zeroed cmd_vars in descending order in ftKb_SpecialNMt_ChangeAction and used a conditional timer initialized to 0 before loading dat_attrs->specialn_mt_frames_to_transition.",
-    "Matched Sheik ground/air IASA variants with nearly identical control flow but exact ground/air motion-state constants and call arguments."
+    "Used comma-expression fighter access `(0, GET_FIGHTER(gobj))` in `ftKb_SpecialNDrink0_Anim` and `ftKb_SpecialNDrink1_Anim`.",
+    "Inserted `PAD_STACK` macros to match stack layout in `ftKb_SpecialN_800EF35C`, `ftKb_SpecialAirNDrink_Anim`, `ftKb_PrSpecialAirNStart_Anim`, and `ftKb_SpecialNMt_80107568`.",
+    "Introduced a `static inline` helper for `ftKb_SpecialNMt_80107568`, suggesting the target assembly matched better with extracted inline action-change setup.",
+    "Used a block-scoped anonymous struct pointer cast for `ftKb_Init_803C9FC8[arg1]` costume data in the hat material-animation loader.",
+    "Preserved redundant-looking local variables and re-fetches, such as `fp2 = getFighter(gobj)` after victim interaction in `ftKb_SpecialAirNDrink_Anim`, which may be necessary for register allocation/order.",
+    "Used a `static u32 const mf = (1 << 1) | (1 << 4) | (1 << 18)` motion flag expression in `ftKb_PrSpecialAirNStart_Anim` instead of replacing it with a less evidenced symbolic flag combination."
   ],
   "review_feedback": [
-    "No human review comments or formal reviews are present in the slice.",
-    "decomp.dev bot reported GALE01 matched code at 59.39%, +0.01% and +440 bytes.",
-    "The bot listed ftKb_SkSpecialNLoop_IASA and ftKb_SkSpecialAirNLoop_IASA as new 100% matches.",
-    "The same bot report listed several initial partial improvements: ftKb_PrSpecialAirNStart_Anim 99.98%, ftKb_SpecialN_800EF35C 96.64%, ftKb_SpecialNMt_80107568 98.56%, ftKb_SpecialAirNDrink_Anim 95.20%, and Drink0/Drink1 99.80%; the PR body separately claims all 7 functions were later verified 100% by an overnight script.",
-    "Evidence for reviewer intent is weak because the only recorded discussion is the automated decomp.dev report."
+    "No review comments were present in the provided slice.",
+    "The PR body reports verification: all seven functions were 100% matching by overnight script."
   ],
   "searchable_terms": [
+    "pr-2343",
+    "johnwinston",
+    "ftKirby",
+    "Kirby special N",
+    "Kirby neutral special",
+    "Kirby copy ability",
     "ftKb_SpecialNDrink0_Anim",
     "ftKb_SpecialNDrink1_Anim",
     "ftKb_SpecialAirNDrink_Anim",
-    "ftKb_SpecialN_800EF35C",
     "ftKb_SpecialNMt_80107568",
     "ftKb_SpecialNMt_ChangeAction",
     "ftKb_SkSpecialNLoop_IASA",
     "ftKb_SkSpecialAirNLoop_IASA",
+    "ftKb_SpecialN_800EF35C",
     "ftKb_PrSpecialAirNStart_Anim",
-    "ftKb_Init_803C9FC8",
-    "KirbyHatStruct",
+    "ftKb_SpecialNZd.c",
+    "ftKb_SpecialN.c",
+    "ftKb_SpecialNNs.c",
+    "ftKb_Init.c",
+    "ftKb_Init.h",
+    "Sheik Needle Storm Kirby",
+    "Mewtwo Shadow Ball Kirby",
+    "Jigglypuff Rollout Kirby",
+    "Kirby hat material animation",
     "HSD_MatAnimJoint",
-    "HSD_DObjAddAnimAll",
     "ftAnim_GetNextMatAnimJointInTree",
-    "ftParts_8007506C",
+    "ftAnim_IsFramesRemaining",
+    "Fighter_ChangeMotionState",
+    "PAD_STACK",
     "cmd_vars",
     "target_item_gobj",
     "victim_gobj",
-    "ftCommon_8007E2F4",
-    "ft_PlaySFX",
-    "it_802F28C8",
-    "ftCo_800DE2CC",
-    "ftCo_800BE000",
-    "ftCo_800BD9E0",
-    "ftKb_SpecialN_800F1BAC",
-    "ftAnim_IsFramesRemaining",
-    "ft_8008A2BC",
-    "ftCo_Fall_Enter",
-    "HSD_PAD_B",
-    "HSD_PAD_LR",
-    "Fighter_ChangeMotionState",
-    "ftKirbyDmgInline",
-    "fn_80106DB0",
     "accessory4_cb",
     "ftKb_MS_SkSpecialNEnd",
     "ftKb_MS_SkSpecialAirNEnd",
     "ftKb_MS_MtSpecialNStart",
-    "ftKb_MS_PrSpecialAirNFull",
-    "specialn_mt_frames_to_transition",
-    "ftAnim_8006EBA4",
-    "ftPartSetRotY",
-    "PAD_STACK"
+    "ftKb_MS_PrSpecialAirNFull"
   ],
   "follow_up_queries": [
-    "ftKb_SpecialNDrink0_Anim ftKb_SpecialNDrink1_Anim cmd_vars[0] target_item_gobj",
-    "ftKb_SpecialAirNDrink_Anim victim_gobj ftCo_800BD9E0 ftKb_SpecialN_800F1BAC",
-    "ftKb_SkSpecialNLoop_IASA fn_80106DB0 accessory4_cb HSD_PAD_B HSD_PAD_LR",
-    "ftKb_SpecialNMt_ChangeAction specialn_mt_frames_to_transition mv.kb.specialhi",
-    "ftKb_SpecialN_800EF35C ftAnim_GetNextMatAnimJointInTree HSD_DObjAddAnimAll Kirby hat",
-    "ftKb_PrSpecialAirNStart_Anim ftKb_MS_PrSpecialAirNFull M_PI_2 ftPartSetRotY"
+    "Find later PRs that rename or type `ftKb_SpecialN_800EF35C` and the local costume-data structure used for Kirby hat material animations.",
+    "Search for additional Kirby copied Mewtwo functions around `ftKb_SpecialNMt_80107410` and `ftKb_SpecialNMt_80107638` to see whether `mv.kb.specialhi` fields receive better names.",
+    "Compare other copied Sheik Kirby IASA or accessory callbacks involving `fn_80106DB0` for naming and callback semantics.",
+    "Look for future cleanup of `ftKb_PrSpecialAirNStart_Anim` motion flags and callbacks to replace raw bit expressions or unknown callback names.",
+    "Search for other PRs using `(0, GET_FIGHTER(gobj))` and `PAD_STACK` in Kirby animation handlers as matching reference patterns."
   ],
-  "confidence": 0.9
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

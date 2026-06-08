@@ -1,0 +1,173 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2633",
+  "pr": {
+    "number": 2633,
+    "title": "Split and link `ftkirbyspecialhi`",
+    "url": "https://github.com/doldecomp/melee/pull/2633",
+    "state": "MERGED",
+    "author": "ribbanya",
+    "created_at": "2026-06-08T14:45:10Z",
+    "merged_at": "2026-06-08T14:53:11Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Split Kirby's SpecialHi/Up-B code out of `ftkirbyspecialn.c` into a new matching object `ftkirbyspecialhi.c`, added its header, wired it into splits and configure.py, and adjusted includes/callback declarations so the new object links cleanly. The bot reported no GALE01 changes, indicating the split preserved the final binary.",
+  "change_classification": {
+    "primary_type": "code_split_and_link_matching_object",
+    "categories": [
+      "headers",
+      "build_config",
+      "splits",
+      "matching",
+      "include_cleanup",
+      "fighter_move_split"
+    ],
+    "systems": [
+      "fighter",
+      "Kirby",
+      "ftdata",
+      "config",
+      "repo-root"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "config/GALE01/splits.txt",
+      "role": "Added a new split range for `melee/ft/chara/ftKirby/ftkirbyspecialhi.c` at text 0x800F21E8-0x800F331C and sdata2 0x804D9370-0x804D9388; shifted `ftkirbyspecialn.c` to start at 0x800F331C."
+    },
+    {
+      "path": "configure.py",
+      "role": "Registered `melee/ft/chara/ftKirby/ftkirbyspecialhi.c` as `Object(Matching, ...)` in the Kirby object list."
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c",
+      "role": "New 552-line source file containing Kirby SpecialHi entry, anim, IASA, physics, collision, projectile/accessory callback, and related helper code formerly embedded in `ftkirbyspecialn.c`."
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialhi.h",
+      "role": "New header declaring the public `ftKb_SpecialHi*`, `ftKb_SpecialAirHi*`, and `ftKb_AttackDashAir_800F22D4` functions for the split object."
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialn.c",
+      "role": "Removed the SpecialHi code and unnecessary includes after the split; retained SpecialN-specific content."
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirby.h",
+      "role": "Removed SpecialHi declarations from the broad Kirby header so they live in `ftkirbyspecialhi.h`."
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirby.c",
+      "role": "Included `ftkirbyspecialhi.h` so Kirby code has access to the split declarations."
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/inlines.h",
+      "role": "Moved/shared `ftKb_SpecialN_set_cbs2` as a Kirby inline helper used by the split code."
+    },
+    {
+      "path": "src/melee/ft/ftdata.c",
+      "role": "Included `ftKirby/ftkirbyspecialhi.h` for action-state/function table linkage and removed many no-longer-needed includes."
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyyoshiegg.c",
+      "role": "Cleaned now-unneeded includes as part of dependency tightening."
+    }
+  ],
+  "what_changed": [
+    "Created `src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c` and moved the 0x800F21E8-0x800F331C Kirby SpecialHi code into it.",
+    "Created `src/melee/ft/chara/ftKirby/ftkirbyspecialhi.h` with address-commented declarations for `ftKb_SpecialHi_Enter`, `ftKb_SpecialAirHi_Enter`, `ftKb_SpecialHi*_Anim`, `ftKb_SpecialAirHi*_Anim`, IASA, Phys, and Coll handlers.",
+    "Updated `config/GALE01/splits.txt` so `ftkirbyspecialhi.c` owns `.text` 0x800F21E8-0x800F331C and `.sdata2` 0x804D9370-0x804D9388, while `ftkirbyspecialn.c` now begins at 0x800F331C.",
+    "Added `Object(Matching, \"melee/ft/chara/ftKirby/ftkirbyspecialhi.c\")` to `configure.py`.",
+    "Removed SpecialHi declarations from `ftkirby.h` and included the new header from `ftkirby.c` and `ftdata.c`.",
+    "Moved/shared `ftKb_SpecialN_set_cbs2` into `ftKirby/inlines.h`, allowing the split file to reuse the callback helper without keeping it local to `ftkirbyspecialn.c`.",
+    "Reduced stale include dependencies in `ftkirbyspecialn.c`, `ftkirbyyoshiegg.c`, and `ftdata.c` after moving the code."
+  ],
+  "smart_moves": [
+    "The split was backed by precise GALE01 split boundaries for both `.text` and `.sdata2`, avoiding accidental ownership overlap between `ftkirbyspecialhi.c` and `ftkirbyspecialn.c`.",
+    "The new object was immediately marked `Matching` in `configure.py`, making the split an actual linked matching unit rather than just a source organization change.",
+    "Public declarations were moved from the monolithic `ftkirby.h` into a focused `ftkirbyspecialhi.h`, reducing header sprawl and making ftdata/action-state dependencies explicit.",
+    "Keeping address comments on function prototypes preserved the address-to-symbol map during the move.",
+    "The PR preserved known matching hacks such as `PAD_STACK`, fake-match comments, and comma-operator regalloc tricks during the file move instead of trying to beautify code and risk breaking matching.",
+    "The build/link dependency cleanup in `ftdata.c` removed a large number of unrelated fighter/common includes while adding the one new Kirby SpecialHi header actually needed."
+  ],
+  "decomp_lessons": [
+    "When extracting a subrange from a larger nonmatching or mixed source file, update both `splits.txt` and `configure.py` in the same PR so the linker layout and build object list stay synchronized.",
+    "For fighter action-state handlers, a dedicated move header is preferable to accumulating all move prototypes in the character root header.",
+    "Do not remove ugly-looking stack padding, fake conditionals, or comma operators during a split unless you are also proving the match; in this PR those constructs were preserved because they were part of the matching recipe.",
+    "Shared static helpers that become needed by multiple split files can be promoted into the character `inlines.h` rather than duplicated or left trapped in the original source file.",
+    "Include cleanup is safest after a split when guided by actual symbol use: `ftkirbyspecialn.c` dropped SpecialHi-only includes such as cliff/common/item cutter beam dependencies, while the new SpecialHi file gained them.",
+    "A bot report of `No changes` for GALE01 is strong evidence that a split/link PR preserved the binary, even when many source lines moved."
+  ],
+  "naming_conventions": [
+    "New move-specific files follow lowercase character/move naming: `ftkirbyspecialhi.c` and `ftkirbyspecialhi.h`.",
+    "Kirby move symbols use the `ftKb_` prefix.",
+    "Ground and air variants are distinguished as `SpecialHi` versus `SpecialAirHi`.",
+    "Action-state callbacks use suffixes by phase: `_Enter`, `_Anim`, `_IASA`, `_Phys`, and `_Coll`.",
+    "Numbered phases are encoded in names such as `ftKb_SpecialHi1_Anim`, `ftKb_SpecialHi2_Phys`, and `ftKb_SpecialAirHiEnd_Coll`.",
+    "Address comments in prototypes use the existing short form such as `/* 0F2300 */`."
+  ],
+  "assembly_or_matching_tactics": [
+    "Preserved `PAD_STACK(16)`, `PAD_STACK(4)`, `PAD_STACK(5)`, and `PAD_STACK(6)` padding in the moved SpecialHi routines.",
+    "Kept a fake-match conditional in `fn_800F21E8`: `if (!da->specialhi_projectile_spawn_x) { }`, annotated as produced via permuter.",
+    "Kept a comma-operator fake match in `ftKb_SpecialAirHi3_Phys` for register allocation: `((0, fp->co_attrs.air_drift_stick_mul))`.",
+    "Maintained helper temporaries such as `new_var`, explicit float constants, and re-fetching `GET_FIGHTER(gobj)` patterns where they were part of the matching source.",
+    "Used exact split addresses to carve out a matching object without changing the final GALE01 output."
+  ],
+  "review_feedback": [
+    {
+      "source": "decomp-dev bot issue comment",
+      "feedback": "Report for GALE01: `No changes`.",
+      "interpretation": "The binary comparison accepted the split/link change."
+    },
+    {
+      "source": "human reviews/comments",
+      "feedback": "No human review comments were present in the provided PR slice.",
+      "interpretation": "There is no evidence of reviewer-requested naming or structural changes beyond the submitted diff."
+    }
+  ],
+  "searchable_terms": [
+    "pr-2633",
+    "Split and link ftkirbyspecialhi",
+    "ribbanya",
+    "ftkirbyspecialhi.c",
+    "ftkirbyspecialhi.h",
+    "ftkirbyspecialn.c",
+    "ftkirby.h",
+    "ftkirby.c",
+    "ftKirby/inlines.h",
+    "ftdata.c",
+    "config/GALE01/splits.txt",
+    "configure.py",
+    "Object(Matching)",
+    "Kirby SpecialHi",
+    "Kirby Up-B",
+    "ftKb_SpecialHi_Enter",
+    "ftKb_SpecialAirHi_Enter",
+    "ftKb_SpecialHi1_Anim",
+    "ftKb_SpecialAirHiEnd_Coll",
+    "ftKb_AttackDashAir_800F22D4",
+    "fn_800F21E8",
+    "ftKb_SpecialN_set_cbs2",
+    "PAD_STACK",
+    "FAKE MATCH",
+    "comma operator required for regalloc",
+    "specialhi_projectile_spawn_x",
+    "itkirbycutterbeam",
+    "GALE01 No changes"
+  ],
+  "follow_up_queries": [
+    "Find later PRs that remove fake-match constructs or `PAD_STACK` from `ftkirbyspecialhi.c`.",
+    "Search for other Kirby move split PRs that moved declarations out of `ftkirby.h` into move-specific headers.",
+    "Check whether `ftkirbyspecialn.c` became matching after the SpecialHi range was split out.",
+    "Look for follow-up cleanup around `ftKb_SpecialN_set_cbs2` in `ftKirby/inlines.h`.",
+    "Compare this split pattern with other fighter move files added as `Object(Matching)` in `configure.py`."
+  ],
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

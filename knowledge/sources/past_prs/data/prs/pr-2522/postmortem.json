@@ -11,22 +11,21 @@
     "merged_at": "2026-05-23T12:35:48Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Split the monolithic Crazy Hand translation unit into many per-motion ftCh_* units, converted Crazy Hand from one NonMatching object to address-ordered Matching objects in configure.py, and updated GALE01 splits/header includes accordingly. The automated decomp.dev report showed a large linking gain for GALE01: linked code +24,328 bytes, linked data +2,432 bytes, matched data +2,416 bytes, and 293 new matches; the many reported broken matches were mostly the old ftCh_Init unit losing symbols that reappeared under the new ftCrazyHand units.",
+  "summary": "Linked Crazy Hand by splitting the previous monolithic ftCh_Init translation unit into many per-action ftCrazyHand source/header files, marking those objects Matching in configure.py, and adding precise GALE01 split ranges for each new unit. The PR preserved the same address span from 0x80155E18 through 0x8015BD20 while redistributing .text/.data/.sdata2 across files such as ftCh_Wait1_0, ftCh_FingerBeam, ftCh_BackAirplane*, ftCh_TagGrab, ftCh_GrabUnk1_B174, and ftCh_TagCancel. Bot metrics reported +24,328 linked code bytes, +2,432 linked data bytes, and 293 new matches, with apparent broken matches mostly because functions moved out of ftCh_Init into their own matching units.",
   "change_classification": {
-    "primary_type": "linking_object_split",
+    "primary_type": "decomp-linking",
     "categories": [
       "decomp-matching",
-      "object-splitting",
       "linking",
       "headers",
-      "build-config"
+      "split-config",
+      "fighter-action-states"
     ],
     "systems": [
       "fighter",
       "ftCrazyHand",
-      "ftMasterHand",
-      "ftCommon",
-      "config/GALE01"
+      "config",
+      "build-system"
     ]
   },
   "key_files": [
@@ -35,64 +34,54 @@
     "src/melee/ft/chara/ftCrazyHand/ftCh_Init.c",
     "src/melee/ft/chara/ftCrazyHand/ftCh_Init.h",
     "src/melee/ft/chara/ftCrazyHand/ftCh_Wait1_0.c",
-    "src/melee/ft/chara/ftCrazyHand/ftCh_Wait1_0.h",
     "src/melee/ft/chara/ftCrazyHand/ftCh_FingerBeam.c",
-    "src/melee/ft/chara/ftCrazyHand/ftCh_FingerBeam.h",
     "src/melee/ft/chara/ftCrazyHand/ftCh_GrabUnk1_B174.c",
-    "src/melee/ft/chara/ftCrazyHand/ftCh_Poke.c",
-    "src/melee/ft/chara/ftCrazyHand/ftCh_Slam.c",
     "src/melee/ft/chara/ftCrazyHand/ftCh_TagCancel.c",
-    "src/melee/ft/chara/ftCrazyHand/ftCh_TagGrab.c",
-    "src/melee/ft/chara/ftCrazyHand/ftCh_CaptureCrazyHand.c",
-    "src/melee/ft/chara/ftCrazyHand/ftCh_CaptureDamageCrazyHand.c",
-    "src/melee/ft/chara/ftCrazyHand/ftCh_CaptureWaitCrazyHand.c",
-    "src/melee/ft/chara/ftCrazyHand/ftCh_ThrownCrazyHand.c",
     "src/melee/ft/ftmotionstates.c",
-    "src/melee/ft/chara/ftCommon/ftCo_Fall.c",
-    "src/melee/ft/chara/ftMasterHand/ftMh_Slam.c",
-    "src/melee/ft/chara/ftMasterHand/ftMh_TagApplaud.c",
-    "src/melee/ft/chara/ftMasterHand/ftMh_TagCrush.c"
+    "src/melee/ft/chara/ftCommon/ftCo_Fall.c"
   ],
   "what_changed": [
-    "configure.py replaced `Object(NonMatching, \"melee/ft/chara/ftCrazyHand/ftCh_Init.c\")` with `Object(Matching, ...)` entries for ftCh_Init plus 34 additional Crazy Hand split files.",
-    "config/GALE01/splits.txt split the original ftCh_Init range `0x80155E18-0x8015BD20` into many address-contiguous units from ftCh_Init through ftCh_TagCancel, with per-unit `.text` and `.sdata2` ranges and `.data` ranges for Wait1_0 and GrabUnk1_B174.",
-    "ftCh_Init.c was reduced from the large all-in-one Crazy Hand implementation to the init/load/motion-state-table area; the action logic moved into new files such as ftCh_Wait1_0.c, ftCh_FingerBeam.c, ftCh_Poke.c, ftCh_Slam.c, ftCh_TagGrab.c, and capture/thrown state files.",
-    "ftCh_Init.h was stripped of most action prototypes; new per-file headers were added under ftCrazyHand and contain address-commented prototypes for each split unit.",
-    "Cross-unit include sites were fixed to include the specific new headers they need: examples include ftCo_Fall.c and ft_0892.c including ftCh_TagCancel.h, ft_0C8C.c including ftCh_TagGrab.h, fighter.c including ftCh_Wait1_0.h, ftmotionstates.c including Crazy Hand capture/thrown headers, and Master Hand tag/slam files including ftCh_Squeezing_1.h, ftCh_Throw.h, or ftCh_Squeeze.h."
+    "Changed Crazy Hand in configure.py from one NonMatching object, melee/ft/chara/ftCrazyHand/ftCh_Init.c, to a sequence of Matching objects covering ftCh_Init plus 35 newly split ftCrazyHand action files.",
+    "Updated config/GALE01/splits.txt so the former ftCh_Init.c span from .text 0x80155E18-0x8015BD20 is divided into per-file ranges for Wait1_0, Entry, Damage_0, Sweep, SweepWait, Walk, Drill, RockCrush, Poke, FingerBeam, BackAirplane, BackCrush, BackDisappear, Wait1_1, Grab, Cancel, Squeeze/Squeezing, Throw, Slam, TagRockPaper, FingerGun2, TagGrab, GrabUnk1_B174, capture states, thrown state, and TagCancel.",
+    "Moved most code out of ftCh_Init.c: the file shows 2767 deleted lines and only 30 added lines, while many new action-specific .c and .h files were added under src/melee/ft/chara/ftCrazyHand.",
+    "Added headers for each split action file, generally using address-based include guards such as GALE01_1592D4 and prototypes annotated with address comments like /* 1592D4 */.",
+    "Introduced/used action-state entry, Anim, IASA, Phys, and Coll functions in the split files; examples in the excerpt include ftCh_Init_801592D4, ftCh_BackAirplane1_Anim, ftCh_BackAirplane1_IASA, ftCh_BackAirplane1_Phys, and ftCh_BackAirplane1_Coll.",
+    "Added ftCrazyHand/ftCh_TagCancel.h include to ftCommon/ftCo_Fall.c, implying cross-file dependencies needed explicit headers after the split.",
+    "Touched ftmotionstates.c and several existing fighter/Master Hand files with small include or reference updates so the new Crazy Hand symbols resolve after linking."
   ],
   "smart_moves": [
-    "The split followed the original address order exactly, so configure.py object order and GALE01 split ranges line up from `0x80155E18` through `0x8015BD20`; this is the right pattern for turning one nonmatching blob into linkable matching objects.",
-    "Large shared data was assigned to the units that own it after the split: Wait1_0 receives the `0x803D4878-0x803D4998` data range, while GrabUnk1_B174 receives `0x803D4998-0x803D49C0`.",
-    "The central ftCh_Init.h dependency surface was reduced and callers were migrated to precise headers, which makes future fighter work less likely to rely on a giant catch-all Crazy Hand header.",
-    "Uncertain or behavior-dependent symbols were not over-renamed; names like `fn_801582D8`, `ftCh_Init_801592D4`, and `ftCh_GrabUnk1_8015B174` preserve address identity until better names are justified.",
-    "Matching-sensitive code shape was preserved in the new translation units, including custom inline sqrt/frsqrte helpers and explicit padding/dummy locals such as `u32 pad`, `u8 _[...]`, and `PAD_STACK(8)`."
+    "Kept the original function order and address boundaries visible in splits.txt while carving one large object into many smaller matching objects, making the link step auditable by address.",
+    "Used one action/motion-oriented file per Crazy Hand behavior, mirroring the fighter action-state organization already common in the tree and making future naming/refinement work more local.",
+    "Converted the large ftCh_Init.c header burden into per-file headers with prototypes, reducing reliance on a catch-all init header.",
+    "The bot report's new and broken match lists show the move was a relinking/repartitioning operation: functions became 100% in their new units while disappearing from the old ftCh_Init unit, which is expected for a split.",
+    "Maintained data-section ranges as part of the split, including .data for ftCh_Wait1_0 and ftCh_GrabUnk1_B174 and continuous .sdata2 coverage through ftCh_TagCancel, avoiding a code-only split."
   ],
   "decomp_lessons": [
-    "When a PR splits a monolithic translation unit, decomp.dev may show many broken matches in the old unit and matching gains in the new unit paths; compare the symbol names and linked-code totals before treating those as regressions.",
-    "For fighter boss splits, update three things together: configure.py object list, config/GALE01/splits.txt section ranges, and all headers/call sites that used prototypes from the old monolithic file.",
-    "Per-motion-state files with matching `.h` files are easier to maintain than a single large init header, especially when motion callbacks are referenced by motion-state tables and by other fighter modules.",
-    "Keep raw motion IDs and address-based names when the semantic name is not proven; this PR uses both named callbacks like `ftCh_BackAirplane2_Anim` and address names for unresolved init/helper functions.",
-    "Data and sdata2 placement matters as much as text placement when linking previously nonmatching fighter code; the split explicitly tracks `.data` and `.sdata2` ranges per new object."
+    "For large boss/fighter files, split by contiguous address ranges and immediately update both configure.py and config/GALE01/splits.txt; otherwise symbols may match locally but fail to link in the project layout.",
+    "When functions move out of a monolithic file, expect match-report 'broken matches' in the old unit paired with 'new matches' in the new units. Treat this as relocation evidence, not necessarily a regression.",
+    "Cross-action helper dependencies become real header dependencies after splitting; add the specific ftCh_* headers at call sites instead of relying on the old aggregate header.",
+    "Headers in this PR preserve address comments and address-derived include guards, which are useful while many symbols still have provisional names like fn_801588B8 or ftCh_Init_80156AD8.",
+    "Small padding or stack-shape artifacts may remain in matched functions; the excerpt shows a local dummy array, u8 _[8], in ftCh_BackAirplane3_Anim, a common matching tactic when evidence supports it."
   ],
   "naming_conventions": [
-    "Crazy Hand split files use `ftCh_<Action>.c/.h`, with suffixes such as `_0`, `_1`, and numbered action phases for adjacent or related motion groups (`ftCh_FingerBeam_0`, `ftCh_RockCrush_0`, `ftCh_BackAirplane1`).",
-    "Motion callbacks follow the fighter convention `ftCh_<State>_Anim`, `ftCh_<State>_IASA`, `ftCh_<State>_Phys`, and `ftCh_<State>_Coll`.",
-    "Initializer/helper functions often retain address names under the `ftCh_Init_801xxxxx` or `ftCh_GrabUnk1_8015xxxx` pattern when the semantic purpose remains unclear.",
-    "Headers use address-based include guards such as `GALE01_1592D4` and address comments before prototypes, e.g. `/* 1592D4 */ void ftCh_Init_801592D4(HSD_GObj* gobj);`.",
-    "Common captured/thrown states keep `ftCo_...CrazyHand` callback names while living in ftCrazyHand split files, as shown by the new capture/damage/wait/thrown headers included from ftmotionstates.c."
+    "Crazy Hand files use the ftCh_ prefix and action names in PascalCase-ish filenames, for example ftCh_BackAirplane1.c, ftCh_FingerBeam.c, ftCh_TagGrab.c, and ftCh_CaptureDamageCrazyHand.c.",
+    "Action callbacks follow the fighter convention of Action_Anim, Action_IASA, Action_Phys, and Action_Coll, such as ftCh_BackAirplane2_Anim and ftCh_BackAirplane2_Coll.",
+    "Initializer/state-change functions are still largely address-suffixed, for example ftCh_Init_801592D4, ftCh_Init_801594D4, and ftCh_Init_80159670.",
+    "Some helper names remain provisional or address-based, including ftCh_GrabUnk1_8015B850 and fn_801588B8 as shown by the bot report; no evidence in the PR text explains final intended names.",
+    "Header guards use GALE01 address tags such as GALE01_1592D4, matching the first function/address in the header."
   ],
   "assembly_or_matching_tactics": [
-    "Preserve object order in configure.py to match the GALE01 split order; the new Crazy Hand objects are listed in ascending address order from ftCh_Init to ftCh_TagCancel.",
-    "Move `.data` ownership with the code that references it rather than leaving all data on the old init unit; this PR relocates the Wait1_0 decision table and the GrabUnk1_B174 table into their new object ranges.",
-    "Keep local inline math helpers when they are codegen-sensitive: the split carries forward `my_sqrtf`/`my_lbVector_Len` using `__frsqrte` instead of substituting a library call.",
-    "Do not remove apparent dummy stack variables or padding during a split; the new files retain `u32 pad`, `u8 _[...]`, and `PAD_STACK(8)` patterns seen in the diff.",
-    "Use exact include dependencies after splitting so motion-state tables and cross-fighter interactions resolve without relying on ftCh_Init.h as a global prototype bucket."
+    "Marked every new ftCrazyHand split object as Object(Matching, ...) in configure.py rather than leaving the original ftCh_Init.c as NonMatching.",
+    "Used splits.txt to assign exact .text start/end ranges for every split unit from 0x80155E18 to 0x8015BD20, preserving link order.",
+    "Tracked .sdata2 boundaries per new file; the old ftCh_Init .sdata2 range 0x804DA050-0x804DA1F8 became many smaller ranges ending with ftCh_TagCancel at 0x804DA1F0-0x804DA1F8.",
+    "Kept action-state boilerplate explicit in C: Fighter_ChangeMotionState calls with numeric motion IDs, ftAnim_8006EBA4, ftAnim_IsFramesRemaining, cmd_vars checks, and BossLib/common fighter helper calls.",
+    "Included common matching support headers such as placeholder.h, platform.h, common_structs.h, dolphin/mtx.h, and MetroTRK/intrinsics.h in the new source files where needed."
   ],
   "review_feedback": [
-    "No PR body explanation was provided in the slice.",
-    "No inline review comments were present.",
-    "jurrejelle submitted an APPROVED review with an empty body shortly before merge.",
-    "The automated decomp-dev comment reported GALE01 progress: matched code 67.77% (+0.03%, +1172 bytes), linked code 39.86% (+0.63%, +24328 bytes), matched data 39.65% (+0.20%, +2416 bytes), and linked data 33.46% (+0.20%, +2432 bytes)."
+    "No substantive human review comments were present in the slice.",
+    "One collaborator review approved the PR with an empty body.",
+    "The decomp-dev bot reported GALE01 improvements: matched code 67.77% (+0.03%, +1172 bytes), linked code 39.86% (+0.63%, +24328 bytes), matched data 39.65% (+0.20%, +2416 bytes), and linked data 33.46% (+0.20%, +2432 bytes).",
+    "Bot report listed 293 new matches and 254 broken matches; the broken matches were concentrated in the old ftCh_Init unit after functions moved into new units."
   ],
   "searchable_terms": [
     "Link Crazy Hand",
@@ -102,34 +91,41 @@
     "ftCh_Wait1_1",
     "ftCh_FingerBeam",
     "ftCh_FingerBeam_0",
+    "ftCh_BackAirplane1",
+    "ftCh_BackAirplane2",
+    "ftCh_BackAirplane3",
+    "ftCh_BackCrush",
+    "ftCh_BackDisappear",
     "ftCh_GrabUnk1_B174",
     "ftCh_TagCancel",
     "ftCh_TagGrab",
+    "ftCh_TagRockPaper",
     "ftCh_CaptureCrazyHand",
-    "ftCh_CaptureDamageCrazyHand",
-    "ftCh_CaptureWaitCrazyHand",
     "ftCh_ThrownCrazyHand",
-    "ftCo_CaptureCrazyHand",
-    "ftCo_ThrownCrazyHand",
-    "ftmotionstates",
-    "configure.py",
-    "splits.txt",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "GALE01",
-    "ftbosslib",
-    "MasterHand",
-    "my_sqrtf",
-    "__frsqrte",
-    "PAD_STACK",
-    "cmd_vars"
+    "configure.py Object Matching",
+    "config/GALE01/splits.txt",
+    "0x80155E18",
+    "0x8015BD20",
+    "0x804DA050",
+    "0x804DA1F8",
+    "GALE01_1592D4",
+    "cmd_vars",
+    "Fighter_ChangeMotionState",
+    "ftBossLib"
   ],
   "follow_up_queries": [
-    "Search `src/melee/ft/chara/ftCrazyHand` for remaining `fn_8015` and `ftCh_Init_8015` names that can be semantically renamed after behavior is verified.",
-    "Audit raw Crazy Hand motion IDs such as `0x16F`, `0x170`, and nearby values in the new files and replace with enum names only where the mapping is proven.",
-    "Check whether the ftCo_* CrazyHand capture/thrown callbacks need clearer ownership or documentation now that they live in separate ftCrazyHand headers.",
-    "Review placeholder/platform includes and matching-only padding in the new split files before cleanup; changes may affect matching.",
-    "Use the decomp.dev new-match/broken-match pairs to confirm that the ftCh_Init split did not introduce a real regression beyond unit relocation."
+    "Find later PRs that rename provisional Crazy Hand helpers like fn_801588B8 or ftCh_GrabUnk1_8015B174.",
+    "Inspect PRs around ftCrazyHand/types.h or ftMasterHand/types.h for struct-field naming of ftCrazyHand_DatAttrs and mv.ch fields used here.",
+    "Search for later cleanup of placeholder.h/platform.h includes in ftCrazyHand split files.",
+    "Check whether later work replaces numeric motion state IDs such as 0x16F, 0x170, and 0x171 with enum names."
   ],
-  "confidence": 0.88
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

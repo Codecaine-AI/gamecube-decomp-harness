@@ -11,110 +11,105 @@
     "merged_at": "2026-04-20T16:53:12Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Substantially decompiled `src/melee/gm/gmtou.c`, the guessed Tournament game-mode file. The PR replaced several placeholders with C for Tournament UI/setup, per-frame input, bracket/result handling, audio preload, and scene-entry logic, while correcting `TmAnimTimers` and `TmBoxArrays` declarations in the static header. The automated decomp.dev report recorded +2608 matched code bytes and +64 matched data bytes, with 100% matches for `fn_8019BA08`, `fn_8019C744`, `fn_8019DD60`, and `.bss`, plus high-percentage improvements for `fn_8019D1BC`, `gm_8019DF8C_OnFrame`, `gm_8019E634`, `fn_8019C048`, and `gm_8019ECAC_OnEnter`.",
+  "summary": "Large tournament-mode decompilation pass for src/melee/gm/gmtou.c plus a corrected TmAnimTimers layout in gmtou.static.h. The PR replaced multiple placeholder markers with C for tournament character/slot UI setup, per-frame input handling, scene entry, result/bracket processing, fog/text/model setup, and several JObj animation callbacks. decomp.dev reported 4 new full matches, including fn_8019BA08, fn_8019C744, fn_8019DD60, and gmtou .bss, plus major partial progress on fn_8019D1BC, gm_8019DF8C_OnFrame, gm_8019E634, fn_8019C048, and gm_8019ECAC_OnEnter.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "struct-layout",
-      "game-mode",
-      "tournament-ui",
-      "scene-setup",
-      "input-state-machine",
-      "audio-preload"
+      "game-mode-ui",
+      "input-handling",
+      "asset-archive-loading"
     ],
     "systems": [
       "game-mode",
-      "gm",
       "tournament",
-      "menu-ui",
-      "baselib",
+      "gm",
+      "baselib-jobj",
+      "sislib-text",
       "audio"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gm/gmtou.c",
-      "role": "Main Tournament game-mode decompilation work; added includes, externs, and C bodies for multiple previously-placeholder functions.",
-      "evidence": [
-        "963 added lines, 14 deleted lines",
-        "New or advanced functions include `fn_8019BA08`, `fn_8019C048`, `fn_8019C744`, `fn_8019D1BC`, `fn_8019DD60`, `gm_8019DF8C_OnFrame`, `gm_8019E634`, and `gm_8019ECAC_OnEnter`."
-      ]
+      "role": "Main tournament-mode decompilation pass; added includes, externs, helper struct declarations, full/partial implementations, and archive/global fixes."
     },
     {
       "path": "src/melee/gm/gmtou.static.h",
-      "role": "Corrected static Tournament timer layout used by the new code.",
-      "evidence": [
-        "`TmAnimTimers` changed from a rough layout with `x20[4]` to a more precise byte/array layout with `x10[4]`, `x18[4]`, `x1D[4]`, and `x38[4]`.",
-        "decomp.dev reported `.bss` improved from 50.00% to 100.00%."
-      ]
+      "role": "Adjusted TmAnimTimers field layout to support per-player animation/job state fields used by new gmtou.c code and complete .bss matching."
     }
   ],
   "what_changed": [
-    "Added missing dependencies for the decompiled code, including baselib fog/GObj object/GX link headers, DObj/MObj headers, Dolphin OS, and several gm headers such as `gm_1601.h`, `gm_1A3F.h`, `gm_1A45.h`, and `gmmain_lib.h`.",
-    "Corrected `lbl_804771B8` from `TmBoxArrays*` to a `TmBoxArrays` object and updated `lbArchive_80016DBC(\"TmBox.dat\", ...)` to pass addresses like `&lbl_804771B8.box2`, `&lbl_804771B8.box3`, and `&lbl_804771B8.box4`.",
-    "Added local declarations for previously-needed extern data/functions: `lbl_804D663C`, `struct lbl_803DA2E0_t`, `lbl_803DA2E0`, `gm_80477738`, `lbl_803B7D3C`, `lbl_804DA948`, and `fn_80166CBC`.",
-    "Implemented `fn_8019BA08`, which traverses child/next `HSD_JObj`s and uses Z translation values such as `10000.0f` and `0.0f` to hide/show Tournament box children based on `tmd->x4B8[idx]` and `lbl_803DA2E0.x0`.",
-    "Implemented or advanced per-player UI/animation code in `fn_8019C048` and `fn_8019C744`, including controller-error hiding, text scaling through `HSD_SisLib_803A7548`, frame windows from `lbl_803B7D18`, state transitions in `lbl_80479A58.x1D`, and Y translation playback from `lbl_803DA2E0.x20`.",
-    "Updated existing code paths that referenced `lbl_80479A58.x20[idx].x0` to use the corrected `lbl_80479A58.x1D[idx].x0` field.",
-    "Implemented the large setup routine `fn_8019D1BC`, creating Tournament model GObjs with `fn_8019035C`, positioning them for 2/3/4 player counts, removing selected material animations with `HSD_MObjRemoveAnimByFlags`, creating player-name text with SisLib, and caching animation-derived Y translations into `lbl_803DA2E0.x20`.",
-    "Implemented `fn_8019DD60`, which initializes the Tournament scene view: optional announcer audio, camera/lights, models, SisLib text object setup, fog GObj creation with `HSD_FogLoadDesc`, and reset of `lbl_80479A58` timer/state fields.",
-    "Implemented `gm_8019DF8C_OnFrame`, covering Tournament select per-frame logic: menu escape handling, all-player confirmation timing, abort-combo handling, character cycling, color changes, ready/cancel transitions, stage selection, and `TmVsData` construction before `fn_8019EE80`.",
-    "Implemented `gm_8019E634` and `gm_8019ECAC_OnEnter` enough to improve matching: result sorting with parallel index arrays, handicap adjustment through `gmMainLib_8015CC34()` and `fn_80169000`, bracket-position assignment, copying `x37` data into `x4B8`, OS debug output, character/stage audio preloading, archive loads for `GmTou1p`/`GmTou4p`, and `SIS_TournamentData` setup."
+    "Changed extern TmBoxArrays* lbl_804771B8 to extern TmBoxArrays lbl_804771B8 and updated TmBox.dat archive symbol arguments from lbl_804771B8->boxN to &lbl_804771B8.boxN.",
+    "Added required includes for fog, gobj gx link/object setup, OS, dobj, mobj, gm_1601, gm_1A3F, gm_1A45, and gmmain_lib dependencies.",
+    "Added extern declarations for lbl_804D663C, lbl_803DA2E0, gm_80477738, lbl_803B7D3C, lbl_804DA948, fn_80166CBC, and lbl_803B7D18.",
+    "Introduced struct lbl_803DA2E0_t with u8 x0[0x20] and f32 x20[0x29], used for tournament icon/state lookup and cached translation-Y animation samples.",
+    "Implemented fn_8019BA08, which walks child/next JObj siblings and toggles visibility by pushing unused entries to translate Z 10000.0f, using lbl_803DA2E0.x0 and tmd->x4B8 player state.",
+    "Implemented fn_8019C048 as a per-player UI animation callback handling controller-disconnect hiding, SIS text scale, X position by player count, frame ranges from lbl_803B7D18, and state transitions in lbl_80479A58.x1D.",
+    "Implemented fn_8019C744 as another per-player JObj callback, including position setup, falling/bounce Y translation from lbl_803DA2E0.x20 while state is 4, and disconnect visibility handling.",
+    "Implemented fn_8019D1BC to create many tournament UI GObjs from lbl_804D6694 models, bind per-player indices with fn_8018FBD8, remove selected material animations, position icons/names, cache animation Y samples, and create SIS text for bracket names.",
+    "Implemented fn_8019DD60 to initialize the tournament scene camera, lights, model callbacks, SIS text object, fog GObj, audio cue, and TmAnimTimers fields.",
+    "Implemented large portions of gm_8019DF8C_OnFrame for tournament selection input: menu cancel path, all-player confirmation timer, abort-combo handling, character cycling, random/CPU state toggling, color changes, VS data creation, and fn_8019EE80 updates.",
+    "Implemented large portions of gm_8019E634 for tournament result sorting, handicap adjustment, bracket slot reassignment, copying x37 data into x4B8 active-player entries, OSReport debug output, and audio preload masking.",
+    "Implemented large portions of gm_8019ECAC_OnEnter to load GmTou1p/GmTou4p archives, initialize SIS_TournamentData, set up scene/audio, compute stage/character audio masks, and preload resources.",
+    "Updated existing references from lbl_80479A58.x20[idx].x0 to lbl_80479A58.x1D[idx].x0 after the TmAnimTimers layout correction.",
+    "Reworked TmAnimTimers in gmtou.static.h: x0 became u32, x6 became u16[4], x10[4] and x18[4] were exposed, per-player x1D[4] entries gained a/b/c frame fields plus x0/x1/x2 state fields, and x38[4] was added."
   ],
   "smart_moves": [
-    "The `TmAnimTimers` layout correction was small but high-leverage: it aligned later field accesses around `x1D`, fixed existing references, and helped the `.bss` reach 100% per the automated report.",
-    "Changing `lbl_804771B8` from pointer-to-struct to struct object fixed the archive varargs call shape without broad churn, and the diff shows the precise address-taking needed for `tournament_box2_array`, `tournament_box3_array`, and `tournament_box4_array`.",
-    "The code keeps uncertain names as `fn_...`, `lbl_...`, and offset fields rather than inventing semantic names; this is appropriate because the PR body has no explanatory notes and the file comment itself says the filename/Tournament identification is guessed from strings.",
-    "The implementations preserve matching-oriented structure: explicit local table copies, repeated search loops with `goto found` labels, exact byte casts, and `PAD_STACK` calls instead of refactoring into cleaner but different code.",
-    "The UI setup samples a model animation across frames and stores `HSD_JObjGetTranslationY` results into `lbl_803DA2E0.x20`; later `fn_8019C744` reuses that table for per-player Y translation, avoiding duplicated animation logic while matching observed data flow.",
-    "The PR limits header changes to the local static header and minimal extern declarations in `gmtou.c`, making progress on a large game-mode file without forcing premature global type exposure."
+    "The TmAnimTimers relayout was not just cosmetic: the bot report shows gmtou .bss improved from 50.00% to 100.00%, indicating the corrected struct field sizes and offsets unlocked data matching.",
+    "Correcting lbl_804771B8 from pointer-to-struct to struct object fixed archive symbol argument generation by taking addresses of box2/box3/box4 fields, a common decomp pattern when a data symbol is an aggregate rather than a runtime pointer.",
+    "The implementation preserved compiler-sensitive structure with explicit local table copies from lbl_803B7D18, u16 casts over a local s32[9] table, narrow u8 temporaries, and signed pad-error casts, all of which are likely matching-driven choices.",
+    "Using PAD_STACK in several large functions documents stack-padding requirements without obscuring the reconstructed control flow.",
+    "The code models asset/UI setup through the existing engine APIs instead of handwaving placeholders: fn_8019035C for model GObj creation, GET_JOBJ/JObj traversal, HSD_MObjRemoveAnimByFlags, SIS text initialization, and fog GObj setup are all wired through actual baselib calls.",
+    "Caching Y translations from an animation JObj into lbl_803DA2E0.x20 in fn_8019D1BC gives fn_8019C744 a data-driven lookup table for later per-frame movement, matching the observed global data use rather than recomputing or inventing a formula.",
+    "Repeated player-count position formulas were kept in the same float shape and constants seen throughout the file, which helps preserve codegen for 2-, 3-, and 4-player tournament layouts."
   ],
   "decomp_lessons": [
-    "For archive-load globals, verify whether a symbol is the object or a pointer to the object. Here `TmBoxArrays lbl_804771B8` plus `&lbl_804771B8.boxN` matched better than `TmBoxArrays*` plus `->boxN`.",
-    "Offset-accurate timer structs matter even before semantic naming is known. Replacing a vague `x20[4]` layout with `x1D[4]`, padding, and separate byte arrays made existing and new code agree on offsets.",
-    "Menu/game-mode matching often needs signed controller-error checks exactly like `(s8)(u8) HSD_PadMasterStatus[idx].err != 0`, not a simplified boolean test.",
-    "Local copies of data-label tables can be necessary for codegen. `fn_8019C048` copies `lbl_803B7D18[9]` into a stack `table[9]` and then indexes it through a `u16*` cast.",
-    "Large selection-screen handlers may require preserving repetitive original control flow. The `gm_8019DF8C_OnFrame` code uses repeated `gm_8018F634()` calls, repeated loops over `x37`, and `goto` labels to match instead of abstracting lookup helpers.",
-    "Exact float constants are part of the match. This PR keeps values such as `666.0f`, `5.999997f`, `-2.799999f`, `0.054945f`, and placement formulas for 2/3/4 players.",
-    "Stack padding remains a practical tactic for near-complete functions in this file: `PAD_STACK(0xA0)`, `PAD_STACK(16)`, and `PAD_STACK(4)` appear in the new implementations.",
-    "When decompiling UI model setup, exact JObj traversal order and material-animation calls can matter; this PR repeatedly uses `HSD_JObjGetChild`, `HSD_JObjGetNext`, and `HSD_MObjRemoveAnimByFlags(c->u.dobj->mobj, 4)` rather than hiding traversal behind helpers."
+    "For static data referenced through archive loading, verify whether the symbol is the aggregate itself or a pointer before encoding extern types; the difference changes callsite address-taking and can affect matching.",
+    "When a BSS struct has per-player state, reconstruct field offsets from all consumers before naming fields. Here, x1D[4], x10[4], x18[4], and x38[4] were exposed only after new callbacks showed how the data was indexed.",
+    "Tournament UI code heavily reuses anonymous/unknown TmData fields; stable offset names like x4B8, x37, x524, and x534 can still support matching when semantic names are not yet evidence-backed.",
+    "Controller error checks may require exact signed/narrow casts such as (s8)(u8) HSD_PadMasterStatus[idx].err to match the original codegen.",
+    "Local copies of global data tables can be necessary even when they look redundant; fn_8019C048 copies lbl_803B7D18 into a stack table and then treats it as u16 frame triples.",
+    "Large UI initialization functions can be decomposed by preserving creation order, child traversal order, model indices, callback assignments, and literal float constants before trying to improve names.",
+    "Use placeholder comments only as boundaries; this PR shows a productive pattern of replacing /// #function markers with partially matching C while keeping remaining unknown field names conservative.",
+    "Bot match reports are useful evidence for prioritizing follow-up work: functions at 90-99% likely need small stack/control-flow/type fixes rather than wholesale rewrites."
   ],
   "naming_conventions": [
-    "Lifecycle functions keep the project convention suffixes `OnEnter`, `OnFrame`, and `OnLeave`, e.g. `gm_8019B8C4_OnEnter`, `gm_8019DF8C_OnFrame`, `gm_8019ECAC_OnEnter`, and `gm_8019EE54_OnLeave`.",
-    "Unidentified functions and data remain address-based (`fn_8019BA08`, `fn_8019D1BC`, `lbl_80479A58`, `lbl_803DA2E0`) until semantics are proven.",
-    "Temporary layout structs may be named after their data label when only the layout is known, as with `struct lbl_803DA2E0_t`.",
-    "Struct fields retain offset-style names (`x0`, `x4B8`, `x37`, `x524`, `x1D`) where the PR does not establish semantic names.",
-    "Asset and archive strings preserve original casing and names: `GmTou1p`, `GmTou3p`, `GmTou4p`, `TmBox.dat`, `ScGamTour_scene_data`, `SIS_TournamentData`, `tournament_box2_array`, `tournament_box3_array`, and `tournament_box4_array`.",
-    "`TmAnimTimers.x1D` received the comment `per-player jobj/anim states`, but most subfields inside it remain byte/offset names."
+    "Newly implemented unmatched functions retained address-based names such as fn_8019BA08, fn_8019C048, fn_8019C744, fn_8019D1BC, fn_8019DD60, gm_8019DF8C_OnFrame, gm_8019E634, and gm_8019ECAC_OnEnter.",
+    "Scene lifecycle functions use the existing gm address plus suffix convention: OnEnter, OnFrame, and OnLeave.",
+    "Unidentified globals remain lbl_-address names, including lbl_80479A58, lbl_803DA2E0, lbl_803B7D18, lbl_803B7D3C, lbl_804D663C, and lbl_804DA948.",
+    "Struct fields without confirmed semantics keep offset-style names such as TmData x4B8, x37, x524, x534 and TmAnimTimers x1D, x10, x18, x38.",
+    "Where minimal semantics were evident, local names were introduced conservatively: tmd, gobj, jobj, c, idx, pos, anim, confirmed, buttons, pressed, start_frame, cur_frame, end_frame, loop_flag, name_buf, audio_mask.",
+    "The TmAnimTimers nested per-player entry uses a/b/c for frame range fields and x0/x1/x2 for state/flag fields, with the comment updated to 'per-player jobj/anim states'."
   ],
   "assembly_or_matching_tactics": [
-    "Used `PAD_STACK` in new large functions to control stack frame shape: `PAD_STACK(0xA0)` in `fn_8019D1BC`, `PAD_STACK(16)` in `fn_8019DD60`, and `PAD_STACK(4)` in frame/enter code.",
-    "Copied static data labels into local stack arrays before use: `lbl_803B7D18[9]` into `table[9]` and `lbl_803B7D3C[4]` into `indices[4]`.",
-    "Used explicit casts to match integer widths and signedness, including `(s32)`, `(u8)`, `(s8)`, `(u16*) table`, and `CSSIconHud` casts.",
-    "Preserved repetitive lookup loops with `goto found` labels in `gm_8019DF8C_OnFrame` and `gm_8019E634`, likely to match original branch layout.",
-    "Kept exact float literals and formulas for player placement and sentinel positions, including `13.0f`, `6.5f`, `-19.5f`, `73.0f`, `240.0f`, `480.0f`, `666.0f`, and `0.001f`.",
-    "Used exact HSD object access patterns (`GET_JOBJ(gobj)` in some functions and `gobj->hsd_obj` in `fn_8019C048`) rather than normalizing all call sites.",
-    "Matched UI visibility through JObj flags and translation tricks: `JOBJ_HIDDEN`, `HSD_JObjSetTranslateZ(..., 10000.0f)`, and `HSD_JObjSetTranslateZ(..., 0.0f)`."
+    "Used PAD_STACK(0xA0), PAD_STACK(16), and PAD_STACK(4) in functions with stack layout sensitivity.",
+    "Preserved goto-based search blocks such as left_found, right_found, down_found, up_found, and found1-found13 to match original control flow for loops that search TmData x37 entries.",
+    "Used explicit casts to force codegen, including (s32) tmd->x30, (u8) idx, (s8)(u8) pad err, (f32) indices, and casting local s32 table storage to u16* for frame triples.",
+    "Kept exact float literals and arithmetic forms such as 13.0f, -19.5f, 6.5f, 73.0f, 240.0f, 480.0f, 0.99f * (pos - 320.0f) - 261.0f, 5.999997f, 2.799999f, 666.0f, and 0.001f.",
+    "Copied global arrays into locals before use: lbl_803B7D18 into table[9] and lbl_803B7D3C into indices[4].",
+    "Used object traversal calls in repeated explicit steps rather than compact loops where that likely matched original unrolled child/next access patterns.",
+    "Retained repeated gm_8018F634 calls inside lookup blocks, suggesting the extra calls were needed for match rather than hoisted for readability.",
+    "Used exact model indices and callback wiring in fn_8019D1BC/fn_8019DD60, preserving scene construction order."
   ],
   "review_feedback": [
     {
-      "source": "decomp-dev[bot]",
-      "type": "automated_match_report",
-      "url": "https://github.com/doldecomp/melee/pull/2423#issuecomment-4275519500",
-      "summary": "GALE01 report: matched code 64.43% (+0.07%, +2608 bytes) and matched data 38.39% (+0.01%, +64 bytes). New 100% matches were `fn_8019BA08` (+1296), `fn_8019C744` (+756), `fn_8019DD60` (+556), and `.bss` (+32)."
+      "source": "decomp.dev bot",
+      "feedback": "Matched code increased to 64.43% (+0.07%, +2608 bytes) and matched data increased to 38.39% (+0.01%, +64 bytes)."
     },
     {
-      "source": "decomp-dev[bot]",
-      "type": "automated_unmatched_improvements",
-      "url": "https://github.com/doldecomp/melee/pull/2423#issuecomment-4275519500",
-      "summary": "Reported improvements included `fn_8019D1BC` to 98.71%, `gm_8019DF8C_OnFrame` to 97.14%, `gm_8019E634` to 90.94%, `fn_8019C048` to 84.12%, `gm_8019ECAC_OnEnter` to 98.98%, plus `.sdata2`, `.data`, `.sdata`, and `gm_8019B8C4_OnEnter`."
+      "source": "decomp.dev bot",
+      "feedback": "New 100% matches reported for main/melee/gm/gmtou fn_8019BA08 (+1296 bytes), fn_8019C744 (+756 bytes), fn_8019DD60 (+556 bytes), and .bss (+32 bytes)."
     },
     {
-      "source": "human_review",
-      "type": "none_in_slice",
-      "summary": "No PR body, human reviews, or line review comments were present in the provided slice, so no human style or naming feedback could be extracted."
+      "source": "decomp.dev bot",
+      "feedback": "Partial improvements reported for fn_8019D1BC to 98.71%, gm_8019DF8C_OnFrame to 97.14%, gm_8019E634 to 90.94%, fn_8019C048 to 84.12%, gm_8019ECAC_OnEnter to 98.98%, plus .sdata2, gm_8019B8C4_OnEnter, .data, and .sdata."
+    },
+    {
+      "source": "human review",
+      "feedback": "No human review comments or PR body rationale were present in the provided slice."
     }
   ],
   "searchable_terms": [
@@ -122,13 +117,21 @@
     "Jj/gmtou",
     "jurrejelle",
     "gmtou",
-    "Tournament",
     "src/melee/gm/gmtou.c",
     "src/melee/gm/gmtou.static.h",
-    "TmAnimTimers",
-    "TmBoxArrays",
+    "Tournament",
     "TmData",
     "TmVsData",
+    "TmAnimTimers",
+    "TmBoxArrays",
+    "lbl_80479A58",
+    "lbl_804771B8",
+    "lbl_803DA2E0",
+    "lbl_803B7D18",
+    "lbl_803B7D3C",
+    "lbl_804D663C",
+    "lbl_804DA948",
+    "gm_80477738",
     "fn_8019BA08",
     "fn_8019C048",
     "fn_8019C744",
@@ -138,51 +141,46 @@
     "gm_8019E634",
     "gm_8019ECAC_OnEnter",
     "gm_8019B8C4_OnEnter",
-    "lbl_80479A58",
-    "lbl_803DA2E0",
-    "lbl_803B7D18",
-    "lbl_803B7D3C",
-    "lbl_804771B8",
-    "lbl_804D663C",
-    "lbl_804DA948",
-    "gm_80477738",
-    "MatchEnd",
-    "HSD_JObj",
-    "HSD_GObj",
-    "HSD_Text",
-    "HSD_Fog",
-    "HSD_SisLib_803A6754",
-    "HSD_SisLib_803A7548",
-    "HSD_PadMasterStatus",
-    "HSD_MObjRemoveAnimByFlags",
     "lbArchive_80016DBC",
-    "lbAudioAx_80026E84",
-    "lbAudioAx_8002702C",
+    "TmBox.dat",
     "GmTou1p",
     "GmTou3p",
     "GmTou4p",
-    "TmBox.dat",
     "ScGamTour_scene_data",
-    "SIS_TournamentData",
     "tournament_box2_array",
     "tournament_box3_array",
     "tournament_box4_array",
-    "PAD_STACK",
+    "HSD_JObjSetTranslateZ",
+    "HSD_JObjSetTranslateY",
+    "HSD_JObjSetTranslateX",
+    "HSD_JObjGetChild",
+    "HSD_JObjGetNext",
+    "HSD_JObjSetFlagsAll",
     "JOBJ_HIDDEN",
-    "CSSIconHud",
-    "gmMainLib_8015CC34",
-    "handicap",
-    "fn_80166CBC",
-    "OSReport"
+    "HSD_SisLib_803A6754",
+    "HSD_SisLib_803A6B98",
+    "HSD_SisLib_803A7548",
+    "HSD_FogLoadDesc",
+    "GObj_SetupGXLink",
+    "lbAudioAx_800237A8",
+    "PAD_STACK",
+    "GET_JOBJ"
   ],
   "follow_up_queries": [
-    "Search later PRs for `fn_8019D1BC` to see how the remaining 1.29% mismatch was resolved.",
-    "Search later PRs for `gm_8019DF8C_OnFrame` and `gm_8019E634` for cleanup or final matching of Tournament select flow.",
-    "Find refinements or semantic renames for `TmAnimTimers.x1D`, `x10`, `x18`, and `x38`.",
-    "Find where `lbl_803DA2E0` is later typed or renamed; this PR only gives a local layout with `x0[0x20]` and `x20[0x29]`.",
-    "Search for other `lbArchive_80016DBC` varargs fixes involving struct objects versus pointer-to-struct declarations.",
-    "Compare other gm/menu PRs using `PAD_STACK`, local table copies, and repeated `goto found` loops for matching input state machines.",
-    "Look for later naming of `TmData.x4B8`, `TmData.x37`, `TmData.x524`, and `TmData.x534` to improve Tournament data readability."
+    "Investigate the remaining mismatch in fn_8019D1BC, which decomp.dev reported at 98.71% after this PR.",
+    "Investigate the remaining mismatch in gm_8019DF8C_OnFrame, especially goto/search-block and input-handling codegen, reported at 97.14%.",
+    "Investigate gm_8019E634 result/bracket processing, reported at 90.94%, for possible struct field typing and loop-shape improvements.",
+    "Refine semantic names for TmAnimTimers.x1D fields a/b/c/x0/x1/x2 once more tournament animation uses are understood.",
+    "Refine semantic names for TmData x4B8, x37, x524, and x534 fields used by tournament character slots, bracket entries, and SIS text objects.",
+    "Verify whether lbl_803DA2E0_t has a known data-table name or can be moved to a shared/static header once more references are identified."
   ],
-  "confidence": 0.86
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

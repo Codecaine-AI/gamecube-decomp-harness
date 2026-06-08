@@ -11,19 +11,19 @@
     "merged_at": "2026-03-10T15:30:02Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched two Push On stage/ground functions: grPushOn_802182C8 and fn_80218678. The PR replaced placeholder decomp markers with C implementations, added the needed mp/mplib.h include for mpLib_80057BC0, and tightened fn_80218678's header prototype from unknown return/params to bool fn_80218678(void). The PR body reports a clean ninja build and 100.0 fuzzy match percent for all functions.",
+  "summary": "Matched two previously undecompiled PushOn stage functions: grPushOn_802182C8 and fn_80218678. The PR replaced placeholder comments with C implementations, added the needed mp/mplib.h include, and corrected fn_80218678's header prototype from unknown return/params to bool fn_80218678(void). The submitted verification reported a clean ninja build and 100% fuzzy match for all functions.",
   "change_classification": {
-    "primary_type": "decompilation_match",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage",
-      "header-prototype-cleanup"
+      "headers",
+      "stage"
     ],
     "systems": [
       "grpushon",
       "ground",
       "stage",
-      "mplib"
+      "mpLib"
     ]
   },
   "key_files": [
@@ -31,32 +31,31 @@
     "src/melee/gr/grpushon.h"
   ],
   "what_changed": [
-    "Implemented grPushOn_802182C8, which initializes grPushOn_804D6AB8 from Ground_801C49F8(), updates stage_info.unk8C.b4/b5, spawns or initializes entries via grPushOn_802183E4(0) and grPushOn_802183E4(1), then calls mpLib_80057BC0(0).",
-    "Implemented fn_80218678 as a bool-returning helper that fetches Ground_801C2BA4(1), null-checks the returned HSD_GObj and its user_data Ground pointer, and returns true only when gp->u.map.xC4_b0 is set.",
-    "Added #include \"mp/mplib.h\" to grpushon.c to support the mpLib_80057BC0 call.",
+    "Implemented grPushOn_802182C8(void), assigning grPushOn_804D6AB8 from Ground_801C49F8(), setting stage_info.unk8C.b4 to false and stage_info.unk8C.b5 to true, spawning/initializing PushOn ground entries via grPushOn_802183E4(0) and grPushOn_802183E4(1), then calling mpLib_80057BC0(0).",
+    "Implemented fn_80218678(void) as a bool query that obtains Ground_801C2BA4(1), checks for a non-null gobj and user_data, then returns true only when the Ground's gp->u.map.xC4_b0 flag is set.",
+    "Added #include \"mp/mplib.h\" to grpushon.c so the mpLib_80057BC0 call has a visible declaration.",
     "Updated grpushon.h prototype for fn_80218678 from UNK_RET fn_80218678(UNK_PARAMS) to bool fn_80218678(void)."
   ],
   "smart_moves": [
-    "Converted an unknown placeholder prototype to a concrete bool(void) signature only after the implementation made the return behavior and lack of parameters evident.",
-    "Preserved defensive null checks around Ground_801C2BA4(1), gobj->user_data, and the map flag access, matching the control flow implied by the decompiled function.",
-    "Used existing stage/ground helpers and fields rather than inventing new abstractions: Ground_801C49F8, grPushOn_802183E4, Ground_801C2BA4, stage_info.unk8C, and Ground::u.map.xC4_b0."
+    "Converted fn_80218678 from an unknown-signature stub into a concrete boolean no-argument helper, aligning the header with the matched implementation rather than leaving UNK_RET/UNK_PARAMS in place.",
+    "Used explicit null checks around Ground_801C2BA4(1) and gobj->user_data before reading the Ground map flag, preserving safe control flow and likely matching the original branch structure.",
+    "Kept grPushOn_802182C8 concise and ordered around observable stage setup side effects: global ground data assignment, stage_info bit updates, two ground-object setup calls, and mpLib initialization/update."
   ],
   "decomp_lessons": [
-    "Small stage functions can often be matched by expressing straightforward initialization sequences directly and keeping call order exact.",
-    "For bool flag-check helpers, explicit nested null checks can be important for matching and for safely reaching deep struct fields such as gobj->user_data->u.map.xC4_b0.",
-    "When a formerly unknown function is proven to be a no-argument bool helper, update the header prototype in the same PR so callsites and future decompilation work benefit from the recovered type.",
-    "If a matched function introduces a library dependency, add the narrow header include needed for that symbol rather than relying on indirect declarations."
+    "When a stage init-like function calls an mpLib symbol, add the specific mp/mplib.h include rather than relying on implicit declarations or unrelated headers.",
+    "Small matched functions can unlock useful type information: fn_80218678's implementation demonstrated that the return type is bool and there are no parameters.",
+    "For Ground_GObj accessors, the common pattern is to retrieve an HSD_GObj, cast/use user_data as Ground*, and inspect fields under gp->u.map only after null guarding.",
+    "Bitfield assignments on stage_info.unk8C can be represented directly as b4/b5 boolean writes when that shape matches."
   ],
   "naming_conventions": [
-    "Kept existing address-based names for unresolved stage functions: grPushOn_802182C8, fn_80218678, grPushOn_802183E4.",
-    "Used project type names HSD_GObj, Ground_GObj, and Ground consistently.",
-    "Retained anonymous/unknown field names such as stage_info.unk8C.b4, stage_info.unk8C.b5, and gp->u.map.xC4_b0 where no stronger semantic names were evidenced."
+    "Preserved existing address-based PushOn names such as grPushOn_802182C8 because no semantic name was established in the PR.",
+    "Kept the local variable names gobj and gp for HSD_GObj* and Ground* respectively, matching common decomp shorthand.",
+    "Retained fn_80218678 for the boolean helper despite identifying its signature; the PR did not introduce a semantic rename."
   ],
   "assembly_or_matching_tactics": [
-    "Replaced `/// #function` markers with direct C implementations for two functions.",
-    "Matched grPushOn_802182C8 by preserving a simple sequence of global assignment, bitfield writes, two indexed setup calls, and an mpLib call.",
-    "Matched fn_80218678 with explicit NULL comparisons and early true only on a specific Ground map bitfield.",
-    "Verification evidence from the PR body: `ninja` builds clean and `fuzzy_match_percent: 100.0` for all functions."
+    "Replaced placeholder decomp markers with direct structured C and reported 100.0 fuzzy_match_percent.",
+    "Matched a boolean query by using nested null checks and an early true return on gp->u.map.xC4_b0, followed by a single false return path.",
+    "Matched a stage setup function by preserving exact call order and literal arguments: grPushOn_802183E4(0), grPushOn_802183E4(1), and mpLib_80057BC0(0)."
   ],
   "review_feedback": [],
   "searchable_terms": [
@@ -74,16 +73,25 @@
     "Ground",
     "user_data",
     "gp->u.map.xC4_b0",
+    "grpushon.h",
     "UNK_RET",
     "UNK_PARAMS",
     "bool fn_80218678(void)",
-    "100.0 fuzzy_match_percent",
-    "ninja builds clean"
+    "fuzzy_match_percent 100.0"
   ],
   "follow_up_queries": [
-    "Look for other grpushon.c placeholder functions near grPushOn_802186C8, grPushOn_802187A4, and grPushOn_802187A8 that may use the same Ground_GObj and Ground::u.map patterns.",
-    "Search for other stage modules that call Ground_801C2BA4(index) and test gp->u.map.xC4_b0 to infer a better semantic name for xC4_b0.",
-    "Compare other stage init functions that set stage_info.unk8C.b4/b5 and call mpLib_80057BC0(0) to understand the shared initialization convention."
+    "Find callers of fn_80218678 to determine whether it can receive a semantic name based on the xC4_b0 map flag behavior.",
+    "Investigate the meaning of stage_info.unk8C.b4 and stage_info.unk8C.b5 in PushOn and neighboring stage files.",
+    "Compare grPushOn_802182C8 with other stage initialization functions that call mpLib_80057BC0(0) for reusable matching patterns.",
+    "Identify the semantic meaning of Ground.u.map.xC4_b0 across ground modules."
   ],
-  "confidence": 0.93
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

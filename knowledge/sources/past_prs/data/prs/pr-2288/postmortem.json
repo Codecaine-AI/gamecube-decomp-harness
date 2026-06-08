@@ -11,140 +11,131 @@
     "merged_at": "2026-03-15T02:28:25Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the Shrine Route stage function grShrineRoute_8020A104 and cleaned up several Shrine Route callback/function names across source, header, and GALE01 symbols. The new match models a stage-specific Ground gv layout for storing a classifier-0xC HSD_GObj, iterating its HSD_LObj chain, preserving LObj flags, caching helper-returned LObj pointers, and then calling grShrineRoute_8020A21C. The automated decomp.dev report credited one new match worth +272 bytes and a small .sdata improvement.",
+  "summary": "Matched grShrineRoute_8020A104 and cleaned up several Shrine Route stage callback names. The match used newly exposed baselib debug/lobj APIs, a Shrine Route-specific Ground union variant, and more precise header prototypes for light object traversal/storage. It also replaced generic fn_8020AD24-style symbols and address-only callback names with grShrineRoute-prefixed or On* callback names in code, headers, and GALE01 symbols.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "cleanup",
       "decomp-matching",
-      "headers",
+      "cleanup",
       "naming",
-      "struct-layout",
-      "symbols"
+      "headers",
+      "symbols",
+      "types"
     ],
     "systems": [
       "stage",
       "ground",
-      "ShrineRoute",
-      "GALE01 config",
-      "baselib GObj/LObj"
+      "config",
+      "baselib"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grshrineroute.c",
-      "role": "Implemented grShrineRoute_8020A104, added baselib debug/LObj includes, updated StageData callback pointers, and renamed callback/function definitions."
-    },
-    {
-      "path": "src/melee/gr/grshrineroute.h",
-      "role": "Renamed Shrine Route callback prototypes and replaced several UNK_RET/UNK_PARAMS prototypes with concrete HSD_GObj, Ground_GObj, and HSD_LObj types."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Added grShrineroute_GroundVars2 to the Ground union and exposed fields used by grShrineRoute_8020A104."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Synchronized symbol names for callback renames and replaced generic fn_8020AD24/fn_8020AD58/fn_8020AE08 with grShrineRoute-prefixed names."
-    }
+    "src/melee/gr/grshrineroute.c",
+    "src/melee/gr/grshrineroute.h",
+    "src/melee/gr/types.h",
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "Replaced the asm placeholder `/// #grShrineRoute_8020A104` with a C implementation.",
-    "The new grShrineRoute_8020A104 gets Ground data with GET_GROUND, walks `HSD_GObj_Entities->xC` until it finds a GObj whose classifier is `0xC`, asserts it exists with `HSD_ASSERT(1106, lgobj)`, stores it at `gp->gv.shrineroute2.xC4`, and calls grShrineRoute_8020AA40.",
-    "The matched function obtains an LObj list with GET_LOBJ, stores each HSD_LObj pointer starting at `xC8`, stores each LObj flags value starting at `x118`, counts entries in `x168`, then caches grShrineRoute_8020AB58 and grShrineRoute_8020AC44 results into `x16C` and `x170` before calling grShrineRoute_8020A21C.",
-    "Renamed StageData callbacks from raw address names to semantic callback names: OnDemoInit, OnInit, OnLoad, OnStart, OnTouchLine, and OnCheckShadowRender.",
-    "Renamed generic symbols/functions `fn_8020AD24`, `fn_8020AD58`, and `fn_8020AE08` to `grShrineRoute_8020AD24`, `grShrineRoute_8020AD58`, and `grShrineRoute_8020AE08`.",
-    "Added `grShrineroute_GroundVars2` with fields for `HSD_GObj* xC4`, `HSD_LObj* xC8`, `u32 x118`, `u32 x168`, `HSD_LObj* x16C`, and `HSD_LObj* x170`, then added it to the `Ground` union as `shrineroute2`.",
-    "Added or adjusted headers so the source/header can reference HSD_GObj, HSD_LObj, HSD_ASSERT, and LObj accessor APIs."
+    "Implemented previously stubbed grShrineRoute_8020A104.",
+    "grShrineRoute_8020A104 now gets the Ground object from the Ground_GObj, finds the first HSD_GObj entity with classifier 0xC, asserts it exists, stores it in Shrine Route ground vars, initializes it via grShrineRoute_8020AA40, walks its HSD_LObj chain, records light objects and their flags, stores results from grShrineRoute_8020AB58 and grShrineRoute_8020AC44, then calls grShrineRoute_8020A21C.",
+    "Added includes for baselib/debug.h and baselib/lobj.h in grshrineroute.c to support HSD_ASSERT and HSD_LObj accessors.",
+    "Renamed stage lifecycle callbacks from address-only names to semantic callback names: grShrineRoute_OnDemoInit, grShrineRoute_OnInit, grShrineRoute_OnLoad, and grShrineRoute_OnStart.",
+    "Renamed StageData callback references to use the new On* names.",
+    "Renamed grShrineRoute_8020B104 to grShrineRoute_OnTouchLine and grShrineRoute_8020B10C to grShrineRoute_OnCheckShadowRender.",
+    "Renamed fn_8020AD24 to grShrineRoute_8020AD24 and updated placeholder comments for fn_8020AD58/fn_8020AE08 to grShrineRoute-prefixed names.",
+    "Updated config/GALE01/symbols.txt to reflect the callback and fn_* renames.",
+    "Updated grshrineroute.h with forward includes, baselib forward declarations, callback renames, and more specific prototypes for grShrineRoute_8020AA40, grShrineRoute_8020AB58, and grShrineRoute_8020AC44.",
+    "Added struct grShrineroute_GroundVars2 to src/melee/gr/types.h and inserted it into the Ground union as shrineroute2 for the newly matched code path."
   ],
   "smart_moves": [
-    "Introduced a dedicated Shrine Route ground-vars layout instead of forcing the match through opaque padding or unrelated stage structs.",
-    "Used minimal concrete offset-based fields plus pointer arithmetic, such as `(&gp->gv.shrineroute2.xC8)[idx]` and `(&gp->gv.shrineroute2.x118)[idx]`, to represent arrays whose full semantic names are still unknown.",
-    "Kept C source, public header prototypes, and GALE01 symbols synchronized during renaming, reducing stale address-only names and generic `fn_` symbols.",
-    "Matched the GObj/LObj traversal with baselib accessors and the original-looking assertion site, rather than open-coding list fields without helper calls.",
-    "Cleaned callback names at the same time as the match so StageData now documents standard stage lifecycle hooks directly."
+    "Kept symbol, header, and C implementation names synchronized, avoiding a partial rename that would make future symbol lookup harder.",
+    "Used semantic OnInit/OnLoad/OnStart/OnTouchLine/OnCheckShadowRender names for functions whose roles are established by StageData callback slots.",
+    "Introduced a second Shrine Route ground-vars struct rather than forcing the newly matched light-object fields into the older smaller grShrineroute_GroundVars layout.",
+    "Improved prototypes from UNK_RET/UNK_PARAMS where the matched function established concrete types, especially HSD_GObj* and HSD_LObj*.",
+    "Matched the light-object traversal using existing baselib accessors such as HSD_GObjGetClassifier, HSD_GObjGetNext, HSD_LObjGetFlags, and HSD_LObjGetNext instead of open-coding field access.",
+    "Preserved unresolved functions as address-named placeholders where behavior was not yet matched, while still replacing generic fn_* names with module-prefixed names."
   ],
   "decomp_lessons": [
-    "For stage decomp, standard StageData callbacks should be renamed to `OnInit`, `OnDemoInit`, `OnLoad`, `OnStart`, `OnTouchLine`, and `OnCheckShadowRender` when their table roles are clear.",
-    "When a matched function reveals a second per-stage ground-var shape, add a new union variant such as `grShrineroute_GroundVars2` and preserve unknown semantics with offset-style `xNNN` names.",
-    "Concrete prototypes in headers can be enough to unblock a match: this PR refined several Shrine Route helpers from `UNK_RET`/`UNK_PARAMS` to HSD_GObj/HSD_LObj-aware signatures.",
-    "Object-list matches can depend on using the baselib APIs in the same order as the binary: `HSD_GObjGetClassifier`, `HSD_GObjGetNext`, GET_LOBJ, `HSD_LObjGetFlags`, and `HSD_LObjGetNext`.",
-    "The PR has no human body or review discussion in the slice, so the strongest impact evidence is the diff plus the automated decomp.dev match report."
+    "StageData callback slots are strong evidence for naming lifecycle functions with OnDemoInit, OnInit, OnLoad, OnStart, OnTouchLine, and OnCheckShadowRender-style names.",
+    "When matching code that stores per-stage state beyond an existing struct's known size, add a stage-specific GroundVars variant to the Ground union rather than overloading unrelated fields.",
+    "A function match can justify tightening nearby prototypes; doing so helps later matches by reducing casts and UNK_PARAMS usage.",
+    "If a function searches global HSD_GObj entity lists by classifier, baselib accessor functions and HSD_ASSERT may be needed to reproduce the original code shape.",
+    "Symbol-table cleanup should accompany source/header renames so future searches by address and name remain coherent.",
+    "Generic fn_<address> names should be converted to the owning module prefix once the enclosing file/system is known, even if the exact semantic name is not yet known."
   ],
   "naming_conventions": [
-    "`grShrineRoute_802087B8` became `grShrineRoute_OnDemoInit`.",
-    "`grShrineRoute_802087BC` became `grShrineRoute_OnInit`.",
-    "`grShrineRoute_8020882C` became `grShrineRoute_OnLoad`.",
-    "`grShrineRoute_80208850` became `grShrineRoute_OnStart`.",
-    "`grShrineRoute_8020B104` became `grShrineRoute_OnTouchLine`.",
-    "`grShrineRoute_8020B10C` became `grShrineRoute_OnCheckShadowRender`.",
-    "Generic `fn_8020AD24`, `fn_8020AD58`, and `fn_8020AE08` were renamed to the stage-prefixed `grShrineRoute_8020AD24`, `grShrineRoute_8020AD58`, and `grShrineRoute_8020AE08`.",
-    "Unknown struct members kept offset-style names such as `xC4`, `xC8`, `x118`, `x168`, `x16C`, and `x170`."
+    "Use grShrineRoute_OnDemoInit for the StageData demo-init callback at 0x802087B8.",
+    "Use grShrineRoute_OnInit for the StageData init callback at 0x802087BC.",
+    "Use grShrineRoute_OnLoad for the StageData load callback at 0x8020882C.",
+    "Use grShrineRoute_OnStart for the StageData start callback at 0x80208850.",
+    "Use grShrineRoute_OnTouchLine for the touch-line callback at 0x8020B104.",
+    "Use grShrineRoute_OnCheckShadowRender for the shadow-render callback at 0x8020B10C.",
+    "Replace generic fn_8020AD24/fn_8020AD58/fn_8020AE08 names with grShrineRoute_8020AD24/grShrineRoute_8020AD58/grShrineRoute_8020AE08 when only module ownership is known.",
+    "Keep address comments in headers, such as /* 20A104 */, while upgrading function names and prototypes."
   ],
   "assembly_or_matching_tactics": [
-    "Model the classifier search as a while loop over `HSD_GObj_Entities->xC`, advancing with `HSD_GObjGetNext` until `HSD_GObjGetClassifier(lgobj) == 0xC`.",
-    "Preserve the assert as `HSD_ASSERT(1106, lgobj)` after the classifier search.",
-    "Represent the LObj pointer table and flags table by taking the address of the first known field and indexing from it, matching the observed layout without overnaming every slot.",
-    "Store the LObj flags before advancing to `HSD_LObjGetNext(lobj)` and incrementing the count field `x168`; the order is visible in the matched C.",
-    "Cache helper results from grShrineRoute_8020AB58 and grShrineRoute_8020AC44 into ground vars before the final call to grShrineRoute_8020A21C."
+    "The matched grShrineRoute_8020A104 iterates HSD_GObj_Entities->xC until HSD_GObjGetClassifier(lgobj) equals 0xC, then asserts the object was found with HSD_ASSERT(1106, lgobj).",
+    "The function stores the found light GObj in gp->gv.shrineroute2.xC4 and calls grShrineRoute_8020AA40 on that object before traversing lights.",
+    "Light objects are obtained with GET_LOBJ and traversed with HSD_LObjGetNext.",
+    "The implementation stores HSD_LObj pointers and corresponding HSD_LObjGetFlags values using pointer arithmetic over adjacent fields, which likely helped match the original memory layout.",
+    "The Shrine Route ground-vars layout includes xC4, xC8, x118, x168, x16C, and x170 offsets to support the matched stores without inventing fully semantic field names.",
+    "Added baselib/lobj.h and baselib/debug.h because matching required HSD_LObj accessors and HSD_ASSERT."
   ],
   "review_feedback": [
-    "No human PR body, review comments, or review approvals are present in the slice.",
-    "Automated decomp.dev report for GALE01: matched code 57.58%, +0.01%, +272 bytes.",
-    "Automated decomp.dev reported one new match: `main/melee/gr/grshrineroute` item `grShrineRoute_8020A104`, 0.00% before to 100.00% after, +272 bytes.",
-    "Automated decomp.dev also reported `.sdata` improvement of +10 bytes, 0.00% before to 19.35% after."
+    "No review comments were present in the provided PR slice.",
+    "The PR had one issue comment according to counts, but no comment body was included in the excerpt, so no human review intent can be inferred."
   ],
   "searchable_terms": [
     "pr-2288",
     "PsiLupan",
     "grShrineRoute_8020A104",
     "grshrineroute",
-    "ShrineRoute",
-    "grSh_Route_803E5988",
-    "StageData",
-    "GrNSr.dat",
+    "Shrine Route",
     "grShrineRoute_OnDemoInit",
     "grShrineRoute_OnInit",
     "grShrineRoute_OnLoad",
     "grShrineRoute_OnStart",
     "grShrineRoute_OnTouchLine",
     "grShrineRoute_OnCheckShadowRender",
-    "fn_8020AD24",
-    "fn_8020AD58",
-    "fn_8020AE08",
     "grShrineRoute_8020AD24",
     "grShrineRoute_8020AD58",
     "grShrineRoute_8020AE08",
-    "grShrineroute_GroundVars2",
-    "shrineroute2",
-    "xC4",
-    "xC8",
-    "x118",
-    "x168",
-    "x16C",
-    "x170",
+    "fn_8020AD24",
+    "fn_8020AD58",
+    "fn_8020AE08",
+    "StageData",
+    "Ground_GObj",
+    "Ground",
+    "GET_GROUND",
+    "GET_LOBJ",
     "HSD_GObj_Entities",
     "HSD_GObjGetClassifier",
     "HSD_GObjGetNext",
     "HSD_ASSERT",
-    "GET_LOBJ",
+    "HSD_LObj",
     "HSD_LObjGetFlags",
     "HSD_LObjGetNext",
-    "HSD_GObj",
-    "HSD_LObj",
+    "grShrineroute_GroundVars2",
+    "shrineroute2",
     "config/GALE01/symbols.txt",
     "src/melee/gr/grshrineroute.c",
     "src/melee/gr/grshrineroute.h",
-    "src/melee/gr/types.h",
-    "decomp.dev",
-    "matched code 57.58",
-    "+272 bytes"
+    "src/melee/gr/types.h"
   ],
   "follow_up_queries": [
-    "Search for remaining Shrine Route placeholders such as grShrineRoute_8020AA40, grShrineRoute_8020AB58, grShrineRoute_8020AC44, grShrineRoute_8020AD58, grShrineRoute_8020AE08, and grShrineRoute_8020AF38.",
-    "Find other stage files where StageData still uses raw address callback names instead of OnInit/OnLoad/OnStart/OnTouchLine/OnCheckShadowRender names.",
-    "Look for other ground-var layouts that store HSD_LObj pointer arrays and flag arrays with an object count, similar to xC8/x118/x168 in grShrineroute_GroundVars2.",
-    "Revisit grShrineroute_GroundVars2 field names once the semantics of the classifier-0xC GObj and its LObj list are understood."
+    "Find later PRs matching grShrineRoute_8020AA40, grShrineRoute_8020AB58, or grShrineRoute_8020AC44.",
+    "Check whether grShrineroute_GroundVars2 fields xC4, xC8, x118, x168, x16C, and x170 received semantic names later.",
+    "Search for other stage files where StageData callbacks were renamed from address-only names to OnInit/OnLoad/OnStart patterns.",
+    "Look for later cleanup of grShrineRoute_8020AD58 and grShrineRoute_8020AE08.",
+    "Compare other stage light-object setup functions that iterate HSD_GObj_Entities by classifier 0xC."
   ],
-  "confidence": 0.92
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

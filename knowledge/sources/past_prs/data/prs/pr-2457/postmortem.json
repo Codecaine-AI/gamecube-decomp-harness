@@ -11,121 +11,112 @@
     "merged_at": "2026-05-01T17:46:55Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Marked Yoshi's ftYs_SpecialHi.c as Matching in the build configuration and cleaned up nearby Yoshi static-header/data ownership. ftYs_SpecialHi.c stopped including the old static header and directly included ftYs_SpecialHi.h; the static header was renamed to ftYs_SpecialS.static.h and included by ftYs_SpecialS.c, removing an extern for ftYs_Unk3_803CED48. GALE01 sdata2 constants at 0x804D9A40-0x804D9A50 were changed from ftYs_Init_* globals to local @ labels. The decomp.dev bot reported +1836 linked-code bytes, +116 matched-data bytes, +24 linked-data bytes, and one new .data match for main/melee/ft/chara/ftYoshi/ftYs_SpecialS.",
+  "summary": "Linked Yoshi's ftYs_SpecialHi.c by switching it from NonMatching to Matching in configure.py, cleaning its includes, and adjusting nearby static/header ownership for Yoshi SpecialS data. The PR also changed several sdata2 symbols from global ftYs_Init_* names to local @222/@223/@224/@226 labels. decomp.dev reported linked code +1836 bytes, matched data +116 bytes, linked data +24 bytes, and one new .data match for main/melee/ft/chara/ftYoshi/ftYs_SpecialS from 65.12% to 100.00%. There was no human review text in the slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "build-config",
-      "symbols",
       "headers",
-      "static-data"
+      "build-config",
+      "symbol-map-cleanup",
+      "static-data-ownership"
     ],
     "systems": [
       "fighter",
       "ftYoshi",
-      "Yoshi special moves",
+      "Yoshi SpecialHi",
+      "Yoshi SpecialS",
       "config",
       "repo-root"
     ]
   },
   "key_files": [
-    {
-      "path": "configure.py",
-      "change": "Changed melee/ft/chara/ftYoshi/ftYs_SpecialHi.c from Object(NonMatching, ...) to Object(Matching, ...)."
-    },
-    {
-      "path": "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c",
-      "change": "Removed inclusion of ftYs_SpecialHi.static.h and added a direct include of ftYs_SpecialHi.h."
-    },
-    {
-      "path": "src/melee/ft/chara/ftYoshi/ftYs_SpecialS.c",
-      "change": "Added include of ftYoshi/ftYs_SpecialS.static.h and removed extern bool ftYs_Unk3_803CED48[]."
-    },
-    {
-      "path": "src/melee/ft/chara/ftYoshi/ftYs_SpecialS.static.h",
-      "change": "Renamed from ftYs_SpecialHi.static.h; removed the transitive ftYs_SpecialHi.h export include while keeping the static ftYs_Unk3_803CED48 data."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "change": "Reclassified sdata2 entries at 0x804D9A40, 0x804D9A44, 0x804D9A48, and 0x804D9A50 from named global ftYs_Init_* symbols to local @222, @223, @224, and @226 labels."
-    }
+    "configure.py",
+    "config/GALE01/symbols.txt",
+    "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c",
+    "src/melee/ft/chara/ftYoshi/ftYs_SpecialS.c",
+    "src/melee/ft/chara/ftYoshi/ftYs_SpecialS.static.h"
   ],
   "what_changed": [
-    "Linked ftYs_SpecialHi.c by switching its configure.py object status from NonMatching to Matching.",
-    "Moved the static header association away from SpecialHi and onto SpecialS, matching the file name ftYs_SpecialS.static.h to the C file that includes it.",
-    "Removed a cross-file extern declaration for ftYs_Unk3_803CED48 in ftYs_SpecialS.c because the static header now provides the static bool array in that translation unit.",
-    "Stopped relying on ftYs_SpecialHi.static.h to export ftYs_SpecialHi.h; ftYs_SpecialHi.c now includes ftYs_SpecialHi.h directly.",
-    "Updated GALE01 symbol metadata so four sdata2 constants are treated as local compiler-generated @ labels instead of exported ftYs_Init_* globals.",
-    "Bot metrics reported linked code rising to 37.97% (+0.05%, +1836 bytes), matched data to 38.70% (+0.01%, +116 bytes), and linked data to 33.00% (+24 bytes)."
+    "Changed configure.py so melee/ft/chara/ftYoshi/ftYs_SpecialHi.c is built as Object(Matching, ...) instead of Object(NonMatching, ...).",
+    "Removed the include of ftYs_SpecialHi.static.h from ftYs_SpecialHi.c and added an include of ftYs_SpecialHi.h alongside existing Yoshi headers.",
+    "Renamed src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.static.h to src/melee/ft/chara/ftYoshi/ftYs_SpecialS.static.h.",
+    "Updated ftYs_SpecialS.c to include ftYoshi/ftYs_SpecialS.static.h and removed an extern declaration for ftYs_Unk3_803CED48[].",
+    "Removed the ftYs_SpecialHi.h IWYU export include from the renamed SpecialS static header.",
+    "Changed sdata2 entries at 0x804D9A40, 0x804D9A44, 0x804D9A48, and 0x804D9A50 from global ftYs_Init_804D9A40/44/48/50 symbols to local compiler-style labels @222, @223, @224, and @226."
   ],
   "smart_moves": [
-    "Renaming ftYs_SpecialHi.static.h to ftYs_SpecialS.static.h reduced misleading ownership: the static bool table is now included by ftYs_SpecialS.c, where the diff also removed the previous extern declaration.",
-    "Adding ftYs_SpecialHi.h directly to ftYs_SpecialHi.c avoided depending on a static header for transitive public-header inclusion.",
-    "Changing the sdata2 symbols from global ftYs_Init_* names to local @ labels aligned the symbol map with apparent compiler-local constants, which is important for clean data matching.",
-    "The build-status flip in configure.py was kept minimal and paired with symbol/header fixes, making the PR a small link/match transition rather than a broad refactor."
+    "The PR did not just flip the build config to Matching; it also corrected header/static-data placement so the matched object layout and symbol ownership were consistent.",
+    "Moving the static header from SpecialHi to SpecialS and including it in ftYs_SpecialS.c made ftYs_Unk3_803CED48 a local static definition rather than an extern reference in SpecialS.",
+    "Localizing the sdata2 symbols avoided preserving artificial global ftYs_Init_* names for constants that the matching output treated as local labels.",
+    "The include cleanup separated the public SpecialHi interface from file-local/static declarations, which is a reusable pattern when turning a nonmatching fighter file into a linked object."
   ],
   "decomp_lessons": [
-    "When a translation unit becomes matching, update configure.py from Object(NonMatching, path) to Object(Matching, path) in the same PR as the source/symbol fixes.",
-    "Static headers should be named for the translation unit that owns/includes the static data; avoid leaving a .static.h attached to a neighboring file after data ownership becomes clear.",
-    "Avoid hiding required public headers behind .static.h files or IWYU export pragmas when the C file can include its own public header directly.",
-    "For local literal pools or compiler-generated constants in symbols.txt, use local @NNN labels and local scope rather than forcing descriptive global names when the evidence points to local data.",
-    "Data-section fixes in adjacent files can be part of linking a C file; this PR linked SpecialHi while the bot-reported new .data match was for ftYs_SpecialS."
+    "When linking a fighter action file, verify nearby static headers are attached to the translation unit that actually owns the static data; stale static headers can block matching or produce incorrect symbol ownership.",
+    "A file becoming Matching may require symbol-map scope corrections, not only source-code changes. Global names in config/GALE01/symbols.txt may need to become local @ labels if that is what the compiler output indicates.",
+    "Header cleanup can be part of matching: public headers such as ftYs_SpecialHi.h should be included by the source needing declarations, while .static.h headers should remain file-local implementation details.",
+    "decomp.dev's match report can reveal side effects outside the PR title: although the PR title focuses on ftYs_SpecialHi.c, the reported new .data match was for ftYs_SpecialS."
   ],
   "naming_conventions": [
-    "Yoshi fighter source/header files use the ftYs_ prefix and move suffixes such as ftYs_SpecialHi and ftYs_SpecialS.",
-    "Per-translation-unit static headers follow the module name plus .static.h, as shown by ftYs_SpecialS.static.h.",
-    "Unknown Yoshi data symbols in source keep address-bearing names such as ftYs_Unk3_803CED48, ftYs_Unk3_803CED84, and ftYs_Unk3_803CED94.",
-    "Local sdata2 symbols in config/GALE01/symbols.txt can use compiler-style @ labels such as @222, @223, @224, and @226 when not global."
+    "Use character/action source names such as ftYs_SpecialHi.c and ftYs_SpecialS.c for Yoshi special move files.",
+    "Use matching public headers like ftYs_SpecialHi.h for external declarations and separate .static.h headers for file-local/static data.",
+    "Compiler-generated local data labels in symbols.txt appear as @222, @223, @224, @226 rather than invented global names when the data is local-scope.",
+    "Existing unknown/static Yoshi data names in this slice use the ftYs_Unk3_803CED48-style address-based convention."
   ],
   "assembly_or_matching_tactics": [
-    "Promote a file to Matching only after source/header/symbol ownership is consistent enough for the linker comparison.",
-    "Correct symbol scope in config/GALE01/symbols.txt for sdata2 constants to avoid false global names affecting data matching.",
-    "Use a static header to place static data inside the intended translation unit, replacing extern declarations when matching requires local data layout.",
-    "Preserve exact addresses and sizes in the symbol map while changing only symbol names/scope: 0x804D9A40 and 0x804D9A44 are 4-byte floats; 0x804D9A48 and 0x804D9A50 are 8-byte doubles."
+    "Promoted the target object in configure.py from NonMatching to Matching after source/header/symbol adjustments.",
+    "Matched data by relocating a static data definition into the SpecialS static header and including that header from ftYs_SpecialS.c.",
+    "Adjusted sdata2 symbol scope and labels to match compiler-local constants at exact addresses 0x804D9A40 through 0x804D9A50.",
+    "Removed an extern declaration once the corresponding static data became available through the translation unit's static header."
   ],
   "review_feedback": [
     "No human review comments were present in the slice.",
-    "The PR body was empty, so the rationale is inferred from the diff and decomp.dev bot report.",
-    "decomp-dev bot reported one new match: main/melee/ft/chara/ftYoshi/ftYs_SpecialS .data improved from 65.12% to 100.00% (+41 bytes)."
+    "Automated decomp.dev report for GALE01 showed linked code 37.97% (+0.05%, +1836 bytes), matched data 38.70% (+0.01%, +116 bytes), and linked data 33.00% (+24 bytes).",
+    "Automated report listed one new match: main/melee/ft/chara/ftYoshi/ftYs_SpecialS .data, +41 bytes, from 65.12% to 100.00%."
   ],
   "searchable_terms": [
-    "pr2457",
+    "pr-2457",
     "Link ftYs_SpecialHi.c",
     "jurrejelle",
     "ftYs_SpecialHi.c",
     "ftYs_SpecialHi.h",
+    "ftYs_SpecialHi.static.h",
     "ftYs_SpecialS.c",
     "ftYs_SpecialS.static.h",
-    "ftYs_SpecialHi.static.h",
     "ftYs_Unk3_803CED48",
     "ftYs_Unk3_803CED84",
     "ftYs_Unk3_803CED94",
-    "configure.py",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "config/GALE01/symbols.txt",
-    "sdata2",
-    "804D9A40",
-    "804D9A44",
-    "804D9A48",
-    "804D9A50",
+    "ftYs_Init_804D9A40",
+    "ftYs_Init_804D9A44",
+    "ftYs_Init_804D9A48",
+    "ftYs_Init_804D9A50",
     "@222",
     "@223",
     "@224",
     "@226",
-    "Yoshi",
-    "SpecialHi",
-    "SpecialS",
-    "static header",
+    "sdata2",
+    "Object(Matching)",
+    "Object(NonMatching)",
+    "MatchingFor",
+    "Yoshi SpecialHi",
+    "Yoshi SpecialS",
+    "GALE01 symbols.txt",
     "matched data",
     "linked code"
   ],
   "follow_up_queries": [
-    "Look for later PRs that fully match or link ftYs_SpecialS.c after the ftYs_SpecialS.static.h ownership cleanup.",
-    "Search for remaining ftYs_Init_* sdata2 globals that may actually be local @ labels.",
-    "Check other Yoshi special-move files for static headers included by the wrong translation unit.",
-    "Audit .static.h files that export public headers via IWYU pragma rather than having the .c include its public header directly."
+    "Find other PRs where a .static.h file was renamed or moved to the translation unit that owns static data.",
+    "Search for Yoshi fighter PRs that convert ftYs_* files from NonMatching to Matching in configure.py.",
+    "Look for symbols.txt changes that convert ft*_Init_* global sdata2 symbols into local @ labels.",
+    "Inspect later ftYs_SpecialS matching work to see whether ftYs_Unk3_803CED48 was eventually given a semantic name."
   ],
-  "confidence": 0.86
+  "confidence": 0.87,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

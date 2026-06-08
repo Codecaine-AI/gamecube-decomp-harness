@@ -8,91 +8,97 @@
     "state": "CLOSED",
     "author": "itsgrimetime",
     "created_at": "2026-01-10T02:36:23Z",
-    "merged_at": ""
+    "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Draft PR against mnmainrule that decompiled one menu-main-rule function fully and brought two adjacent transition/setup functions very close to matching, while also tightening several mnmain/mnmainrule header prototypes from UNK_RET/UNK_PARAMS to concrete void/signature forms. It was closed without merge. The only recorded feedback is the decomp.dev bot report showing mn_802307F8 as a new 100% match and mn_8023164C/mn_80231714 as 99.90% improvements.",
+  "summary": "Closed, unmerged PR that attempted to advance menu main-rule decompilation by implementing several previously stubbed mnmainrule functions, tightening related mnmain and mnmainrule prototypes, and using dont_inline pragmas to keep small numeric-formatting helpers from being inlined. The main implemented bodies covered text/SIS cleanup and recreation in mn_802307F8 plus menu-flow setup in mn_8023164C and mn_80231714. Evidence is limited to the diff slice; no review discussion or PR body text was available.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "menu-code",
+      "menu-logic",
       "prototype-cleanup"
     ],
     "systems": [
       "mn",
-      "mnmain",
-      "mnmainrule",
-      "melee-core"
+      "melee-core",
+      "menu-mainrule",
+      "menu-main"
     ]
   },
   "key_files": [
     {
-      "file": "src/melee/mn/mnmainrule.c",
-      "role": "Main decompilation target; added mn_802307F8, mn_8023164C, and mn_80231714 bodies plus local externs and a temporary GObjBitfield layout."
+      "path": "src/melee/mn/mnmainrule.c",
+      "reason": "Primary implementation file; added externs, a local GObj bitfield layout, and C bodies for mn_802307F8, mn_8023164C, and mn_80231714."
     },
     {
-      "file": "src/melee/mn/mnmainrule.h",
-      "role": "Updated prototypes for mn_802307F8, mn_8023164C, and mn_80231714 from unknown signatures to concrete void/signature declarations."
+      "path": "src/melee/mn/mnmainrule.h",
+      "reason": "Updated prototypes for newly implemented mnmainrule functions from UNK_RET/UNK_PARAMS to concrete signatures."
     },
     {
-      "file": "src/melee/mn/mnmain.c",
-      "role": "Removed placeholder comments for already-present small helpers and added dont_inline pragmas around mn_8022EA08 and mn_8022EA78."
+      "path": "src/melee/mn/mnmain.c",
+      "reason": "Moved existing decompiled mn_8022EA08, mn_8022EA78, mn_8022EB24, and mn_8022EB78 out of the nonmatching-stub region and wrapped two helpers with dont_inline pragmas."
     },
     {
-      "file": "src/melee/mn/mnmain.h",
-      "role": "Replaced several UNK_RET/UNK_PARAMS declarations with concrete void signatures for mnmain functions."
+      "path": "src/melee/mn/mnmain.h",
+      "reason": "Cleaned several menu-main function declarations to concrete void signatures."
+    },
+    {
+      "path": ".build_validated",
+      "reason": "Diff excerpt shows a new build validation marker, suggesting the branch had been locally build-validated."
     }
   ],
   "what_changed": [
-    "Implemented mn_802307F8(s32 arg0, s32 arg1, s32 arg2), which clears an existing SIS/text object at data+0x130, chooses a text/message index using arg1, arg2, mn_804D4B96, and mn_803EC818, creates a new HSD_Text through HSD_SisLib_803A5ACC, sets font_size.x/y from mn_804DBE2C, and calls HSD_SisLib_803A6368.",
-    "Implemented mn_8023164C(void), which updates mn_804A04F0 menu flow state, sets cur_menu to 0xD, chooses hovered_selection/mode based on the previous menu, creates a GObj proc with fn_8022F538, writes its render_plink bitfield, and passes mn_80230E38(mode) to HSD_GObj_80390CD4.",
-    "Implemented mn_80231714(void) with the same setup as mn_8023164C and an additional assignment mn_804D6BD4 = 1.",
-    "Added a local GObjBitfield typedef with padding and bitfields so the code can write render_plink on the created HSD_GObj.",
-    "Added extern declarations in mnmainrule.c for mn_804D6BD4, mn_804D4B96, mn_803EC818, and several f32 constants mn_804DBE18 through mn_804DBE2C.",
-    "Updated mnmainrule.h prototypes for mn_802307F8, mn_8023164C, and mn_80231714 to concrete signatures.",
-    "Updated mnmain.h prototypes for mn_8022EBDC, mn_8022F268, mn_8022F360, and mn_8022F4CC to concrete void-return signatures.",
-    "Added #pragma dont_inline on/off around mn_8022EA08 and mn_8022EA78 in mnmain.c, apparently to preserve codegen boundaries for matching.",
-    "Removed placeholder decomp comments for mn_8022EA08, mn_8022EA78, mn_8022EB24, and mn_8022EB78 in mnmain.c because those functions are present as C."
+    "Implemented mn_802307F8(s32 arg0, s32 arg1, s32 arg2), replacing a placeholder marker in mnmainrule.c.",
+    "mn_802307F8 treats arg0 as a byte-addressed data pointer, frees or clears an existing SIS/text object at offset 0x130 via HSD_SisLib_803A5CC4, selects a text/index byte from mn_804D4B96 or mn_803EC818 based on arg1 and arg2, creates a new HSD_Text via HSD_SisLib_803A5ACC, stores it back at offset 0x130, sets font_size.x and font_size.y from mn_804DBE2C, and calls HSD_SisLib_803A6368.",
+    "Implemented mn_8023164C(void), setting mn_804A04F0.prev_menu from cur_menu, forcing cur_menu to 0xD, choosing hovered_selection and mode based on previous menu 0x0F or 0x10, creating a GObj/proc with fn_8022F538, assigning render_plink, and dispatching mn_80230E38(mode) through HSD_GObj_80390CD4.",
+    "Implemented mn_80231714(void) with the same menu-flow and GObj setup as mn_8023164C, then additionally sets mn_804D6BD4 = 1.",
+    "Added a local GObjBitfield typedef with padding and bitfields so the implementation could assign the render_plink field on an HSD_GObj-shaped object.",
+    "Added extern declarations in mnmainrule.c for mn_804D6BD4, mn_804D4B96, mn_803EC818, and several float constants mn_804DBE18 through mn_804DBE2C.",
+    "Changed mnmainrule.h prototypes for mn_802307F8, mn_8023164C, and mn_80231714 from unknown signatures to concrete void-returning signatures.",
+    "Changed mnmain.h prototypes for mn_8022EBDC, mn_8022F268, mn_8022F360, and mn_8022F4CC from UNK_RET/UNK_PARAMS to concrete void-returning signatures where applicable.",
+    "Added #pragma dont_inline on/off around mn_8022EA08 and mn_8022EA78 in mnmain.c.",
+    "Removed placeholder comments for mn_8022EA08, mn_8022EA78, mn_8022EB24, and mn_8022EB78 from the later unresolved-function section of mnmain.c, reflecting that those functions had concrete definitions earlier in the file."
   ],
   "smart_moves": [
-    "Used narrow prototype cleanup in headers alongside the new implementations, reducing UNK_RET/UNK_PARAMS surface without over-naming unknown data structures.",
-    "Kept unknown data in mn_802307F8 as byte-pointer offset accesses, which is often safer for matching when the real struct layout is not yet established.",
-    "Used #pragma dont_inline around small numeric helper functions in mnmain.c, a targeted codegen control that can prevent nearby functions from changing unexpectedly.",
-    "Matched the menu transition functions by preserving duplicated control flow between mn_8023164C and mn_80231714, with only the extra mn_804D6BD4 side effect in mn_80231714.",
-    "Introduced a minimal bitfield view only for the needed HSD_GObj render_plink write, avoiding a broader speculative rewrite of HSD_GObj."
+    "Used #pragma dont_inline around small helper functions mn_8022EA08 and mn_8022EA78, a common matching tactic when the compiler would otherwise inline simple wrappers or formatting helpers and disturb function boundaries.",
+    "Tightened headers from UNK_RET/UNK_PARAMS to concrete signatures as functions became understood, improving type safety and making future callsite work easier.",
+    "Kept mn_8023164C and mn_80231714 structurally parallel, making the single behavioral difference, mn_804D6BD4 = 1 in mn_80231714, easy to audit.",
+    "Modeled the GObj render_plink assignment with a minimal local bitfield overlay instead of requiring a broad HSD_GObj struct rewrite in this PR.",
+    "Preserved unknown data-layout access in mn_802307F8 with explicit offsets such as 0x130 when the surrounding struct was not yet identified, allowing decomp progress without inventing a full struct."
   ],
   "decomp_lessons": [
-    "When decompiling menu code with partially known state structs, raw offset access such as data+0x130 and data+2 can be an acceptable interim matching tactic, but it should become a named struct once enough fields are known.",
-    "Concrete void prototypes should be propagated to headers as soon as a function body proves the return behavior; this reduces UNK_RET/UNK_PARAMS churn for future callers.",
-    "Small helper functions can perturb matching through inlining; localized #pragma dont_inline blocks are useful when the original binary kept calls separate.",
-    "Near-duplicate functions should be decompiled side-by-side so their shared structure and single differing side effect are obvious.",
-    "Bitfield writes may require a locally shaped overlay struct when the canonical engine struct does not yet expose the relevant packed field."
+    "When only one or two object fields are known, a small local overlay or byte-pointer offset access can be an acceptable temporary bridge, but it should remain searchable for later struct recovery.",
+    "For menu code, global MenuFlow state updates often need exact ordering: save previous menu, set current menu, then derive hovered_selection and mode from the previous value.",
+    "Functions that appear nearly identical should be kept textually similar during matching; isolate the actual behavioral delta rather than refactoring into shared helpers that the original binary likely did not have.",
+    "SIS/text object lifecycle code should clear stale pointers after cleanup before creating a replacement object, as shown by the HSD_SisLib_803A5CC4 call followed by writing NULL to offset 0x130.",
+    "As symbols become decompiled, remove stale placeholder markers and update declarations in headers so later decompilation can rely on real types instead of UNK_RET/UNK_PARAMS.",
+    "Small numeric/string helpers may require dont_inline pragmas to preserve separate functions and match the target binary."
   ],
   "naming_conventions": [
-    "Unidentified functions retain address-based names such as mn_802307F8, mn_8023164C, and mn_80231714.",
-    "The local callback-like symbol keeps the fn_ prefix: fn_8022F538.",
-    "Menu globals use the mn_ address/global convention, e.g. mn_804A04F0, mn_804D6BD4, mn_804D4B96, and mn_803EC818.",
-    "Asset/scene externs use MenMain-prefixed names such as MenMain_fog, MenMain_lights, MenMain_cam, MenMainCursorIs_Top, MenMainConSs_Top, and MenMainCursorSs_Top.",
-    "Unknown or layout-only fields remain offset/pad-style names such as pad, x0, x4, and data+0x130 rather than invented semantic names."
+    "Unidentified functions retained address-based names such as mn_802307F8, mn_8023164C, and fn_8022F538.",
+    "Global data used address-based mn_804Dxxxx and mn_803Exxxx names when semantic names were not yet known.",
+    "Known asset or scene descriptors kept descriptive names such as MenMain_fog, MenMain_lights, MenMain_cam, MenMainCursorIs_Top, MenMainConSs_Top, and MenMainCursorSs_Top.",
+    "Temporary locals in decomp work used generic register-derived or role-derived names such as data, prev, gobj, mode, r30, sis, and zero.",
+    "The local overlay type was named GObjBitfield to describe the matching need around HSD_GObj bitfield access rather than claiming a final engine type."
   ],
   "assembly_or_matching_tactics": [
-    "Wrapped mn_8022EA08 and mn_8022EA78 with #pragma dont_inline on/off to control compiler inlining.",
-    "Used a raw u8* cast for arg0 in mn_802307F8 to reproduce field accesses at offsets 0x130 and 2 without committing to a full struct.",
-    "Used `(u32) (arg1 - 5) <= 1` to express a compact unsigned range check matching likely assembly branch behavior.",
-    "Kept an explicit temporary `s32 r30 = arg2`, matching the selected message/index value across multiple branches.",
-    "Set both font_size.x and font_size.y through a local `f32 zero = mn_804DBE2C`, likely preserving load/reuse codegen.",
-    "Used a local packed-bitfield overlay `GObjBitfield` to assign `render_plink` directly on an HSD_GObj instance."
+    "Applied #pragma dont_inline on/off around mn_8022EA08 and mn_8022EA78 to prevent unwanted inlining.",
+    "Used explicit byte-pointer casts and fixed offsets, especially data + 0x130 and data + 2, to reproduce known object-layout accesses without a completed struct.",
+    "Used a bitfield struct with u8 pad[0xD], a 2-bit unknown field, a 2-bit render_plink field, and a 4-bit unknown field to match packed GObj flag assignment.",
+    "Preserved switch cases for previous menu values 0x0F and 0x10 plus a default path, likely reflecting the original branch structure.",
+    "Used `(u32)(arg1 - 5) <= 1` for the range check on arg1 values 5 and 6, a typical decomp expression chosen to match unsigned comparison codegen.",
+    "Introduced local scoped blocks around HSD_Text creation and font-size assignment in mn_802307F8, possibly to influence stack/local lifetime or code shape."
   ],
   "review_feedback": [
     {
-      "source": "decomp-dev[bot]",
-      "feedback": "GALE01 report showed matched code increased by 248 bytes and overall matched code by +0.01%. mn_802307F8 became a new 100.00% match; mn_80231714 improved by 207 bytes to 99.90%; mn_8023164C improved by 199 bytes to 99.90%."
+      "type": "no_review_evidence",
+      "text": "The PR context reports one issue comment but provides no body excerpt, no review comments, and no review examples, so no concrete reviewer feedback can be extracted."
     },
     {
-      "source": "human_review",
-      "feedback": "No human review comments or PR body were present in the provided context."
+      "type": "merge_status",
+      "text": "The PR was closed without being merged; the slice does not explain whether this was due to matching problems, supersession, style issues, or another reason."
     }
   ],
   "searchable_terms": [
@@ -101,13 +107,28 @@
     "itsgrimetime",
     "mnmainrule",
     "mnmain",
+    "src/melee/mn/mnmainrule.c",
+    "src/melee/mn/mnmainrule.h",
+    "src/melee/mn/mnmain.c",
+    "src/melee/mn/mnmain.h",
     "mn_802307F8",
     "mn_8023164C",
     "mn_80231714",
-    "mn_80230E38",
-    "mn_80231634",
+    "mn_8022EA08",
+    "mn_8022EA78",
+    "mn_8022EB24",
+    "mn_8022EB78",
+    "mn_8022EBDC",
+    "mn_8022F268",
+    "mn_8022F360",
+    "mn_8022F4CC",
     "fn_8022F538",
+    "mn_80230E38",
     "mn_804A04F0",
+    "MenuFlow",
+    "cur_menu",
+    "prev_menu",
+    "hovered_selection",
     "mn_804D6BD4",
     "mn_804D4B96",
     "mn_803EC818",
@@ -117,33 +138,31 @@
     "mn_804DBE24",
     "mn_804DBE28",
     "mn_804DBE2C",
-    "GObjBitfield",
-    "render_plink",
-    "HSD_GObj_804D783C",
+    "HSD_Text",
     "HSD_SisLib_803A5CC4",
     "HSD_SisLib_803A5ACC",
     "HSD_SisLib_803A6368",
-    "HSD_Text",
     "font_size",
-    "MenuFlow",
+    "HSD_GObj",
+    "GObj_Create",
+    "HSD_GObjProc_8038FD54",
+    "HSD_GObj_80390CD4",
+    "HSD_GObj_804D783C",
+    "GObjBitfield",
+    "render_plink",
     "dont_inline",
     "UNK_RET",
     "UNK_PARAMS",
-    "mn_8022EA08",
-    "mn_8022EA78",
-    "mn_8022EBDC",
-    "mn_8022F268",
-    "mn_8022F360",
-    "mn_8022F4CC"
+    "build_validated"
   ],
   "follow_up_queries": [
-    "Look for a later merged PR that finishes mn_8023164C and mn_80231714 from 99.90% to 100%.",
-    "Search for later struct recovery around the data object used by mn_802307F8, especially fields at offsets 0x2 and 0x130.",
-    "Check whether GObjBitfield/render_plink was later replaced by a canonical HSD_GObj field definition.",
-    "Verify whether the dont_inline pragmas around mn_8022EA08 and mn_8022EA78 persisted or were superseded by later matching changes.",
-    "Find later cleanup moving mnmainrule externs into proper headers instead of local declarations."
+    "Find the issue comment on PR #2081 to determine why it was closed unmerged.",
+    "Check whether later PRs implemented or renamed mn_802307F8, mn_8023164C, or mn_80231714 with improved struct typing.",
+    "Search for later replacements of the local GObjBitfield overlay with a proper HSD_GObj field definition.",
+    "Verify whether mn_804D4B96, mn_803EC818, and mn_804DBE18 through mn_804DBE2C later received semantic names.",
+    "Compare later mnmain.h and mnmainrule.h declarations to see which prototype cleanups from this PR were retained."
   ],
-  "confidence": 0.86,
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

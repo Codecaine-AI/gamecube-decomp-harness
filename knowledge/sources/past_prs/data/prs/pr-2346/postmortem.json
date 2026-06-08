@@ -11,119 +11,97 @@
     "merged_at": "2026-03-23T07:32:30Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the ground display translation unit by closing the last small mismatches in `grDisplay_801C5B90` and `grDisplay_801C5DB0`, then flipping `melee/gr/grdisplay.c` from NonMatching to Matching in `configure.py`. The decomp.dev GALE01 report recorded 2 new matches, with `grDisplay_801C5DB0` and `grDisplay_801C5B90` both reaching 100%, plus matched code +976 bytes and linked code +1072 bytes.",
+  "summary": "Matched the ground display translation unit by making small control-flow, temporary-variable, and symbol-label adjustments in src/melee/gr/grdisplay.c, then flipping melee/gr/grdisplay.c from NonMatching to Matching in configure.py. The decomp.dev report credited two new complete matches: grDisplay_801C5DB0 and grDisplay_801C5B90, with +976 matched code bytes and +1072 linked code bytes for GALE01.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "control-flow-matching",
-      "stack-layout-matching",
-      "symbol-map-update",
-      "build-config-update"
+      "control-flow cleanup",
+      "symbol-map update",
+      "build-config matching toggle"
     ],
     "systems": [
       "stage",
       "ground",
       "grdisplay",
       "camera",
-      "HSD_JObj",
-      "HSD_GObj",
+      "HSD JObj",
+      "HSD GObj",
       "fog",
-      "config"
+      "config/GALE01"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grdisplay.c",
-      "role": "Adjusted the two grdisplay functions that became 100% matched."
-    },
-    {
-      "path": "configure.py",
-      "role": "Changed `Object(NonMatching, \"melee/gr/grdisplay.c\")` to `Object(Matching, \"melee/gr/grdisplay.c\")`."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Renamed several string symbols from `lbl_*` to compiler-style `@NNN` labels."
-    }
-  ],
-  "what_changed": [
-    "`grDisplay_801C5B90` now stores `jobj->child` in a local `HSD_JObj* child` and only calls `HSD_JObjSetupMatrixSub(child)` when the child is non-null and `HSD_JObjMtxIsDirty(child)` is true, replacing an unconditional `HSD_JObjSetupMatrix(jobj->child)` call.",
-    "`grDisplay_801C5DB0` was reshaped around early returns and branch conditions: the previous `goto skip` path was removed, the `HSD_GObj_804D7818->hsd_obj` comparison was inverted, and the `gp->x18 == NULL` path became an `else if` around `Ground_801C2C8C`.",
-    "`grDisplay_801C5DB0` now passes `gp->x18` into `OSReport(\"oioi... %08x\\n\", gp->x18)` instead of calling `OSReport` with only the format string.",
-    "`grDisplay_801C5DB0` caches `GET_COBJ(camgobj)` into a local `HSD_CObj* cobj` before comparing it with `HSD_CObjGetCurrent()`.",
-    "`grDisplay_801C5DB0` hoists `HSD_GObj* fighter`, adds `u32 unused[14]`, and introduces a local `HSD_JObj* jobj = GET_JOBJ(gobj)` before calling `grDisplay_801C5B90`, all of which appear to be matching-oriented local/stack-shape changes.",
-    "`config/GALE01/symbols.txt` changed string labels `lbl_803E0730`, `lbl_803E073C`, `lbl_804D4530`, `lbl_804D4538`, and `lbl_804D4540` to `@209`, `@260`, `@207`, `@208`, and `@210` respectively.",
-    "`configure.py` marked `melee/gr/grdisplay.c` as Matching."
-  ],
-  "smart_moves": [
-    "Used source-level control-flow inversion and local variable placement instead of broad rewrites, preserving behavior while steering compiler output for the final bytes.",
-    "Cached macro results such as `GET_COBJ(camgobj)` and `GET_JOBJ(gobj)` into locals where the target assembly likely needed a stable temporary/register lifetime.",
-    "Replaced a generic child matrix setup call with the more specific dirty-check plus `HSD_JObjSetupMatrixSub` sequence, which both matches the observed HSD JObj flow and avoids unnecessary setup.",
-    "Added the missing variadic `OSReport` argument, a small correctness and codegen detail that matters in matching work.",
-    "Updated symbol labels and build matching status in the same PR, keeping `symbols.txt`, source, and `configure.py` aligned once the unit matched."
-  ],
-  "decomp_lessons": [
-    "For near-complete functions, semantically equivalent C is not enough: branch polarity, `else if` structure, local declarations, and macro result caching can decide the final match.",
-    "When matching HSD JObj matrix code, check whether the original path is a dirty-check plus `HSD_JObjSetupMatrixSub` rather than an unconditional `HSD_JObjSetupMatrix` call.",
-    "A deliberate unused local array such as `u32 unused[14]` can be a stack-layout tactic, but should be used only when the diff or assembly evidence supports it.",
-    "Avoid `goto` if the target compiler output is better modeled by inverted conditions and nested early-return gates.",
-    "Once a translation unit reaches 100%, remember to update both the matching configuration and any local/generated symbol names needed by the matched output."
-  ],
-  "naming_conventions": [
-    "Address-suffixed function names remained in use: `grDisplay_801C5B90` and `grDisplay_801C5DB0`.",
-    "Ground globals retain the `Ground_` prefix, such as `Ground_801C2C8C` and `Ground_804D4514`.",
-    "HSD APIs and globals use existing subsystem prefixes: `HSD_JObj*`, `HSD_GObj*`, `HSD_CObj*`, `HSD_Fog*`, `HSD_StateInvalidate`, and `HSD_GObj_804D7818`.",
-    "Camera helper names remain address-suffixed, such as `Camera_8003108C`, `Camera_80030A50`, `Camera_80030A78`, and `Camera_80030AC4`.",
-    "Compiler-style local string labels in `symbols.txt` use `@NNN` names, replacing generic `lbl_*` names for these grdisplay string literals."
-  ],
-  "assembly_or_matching_tactics": [
-    "Use assignment inside a condition to match load lifetime: `if ((child = jobj->child) != NULL && HSD_JObjMtxIsDirty(child))`.",
-    "Use `HSD_JObjSetupMatrixSub(child)` after `HSD_JObjMtxIsDirty(child)` rather than calling `HSD_JObjSetupMatrix(child)` unconditionally.",
-    "Invert equality checks and use early returns to remove a synthetic `goto skip` when that better matches target branch layout.",
-    "Cache `GET_COBJ(camgobj)` into `HSD_CObj* cobj` and compare `HSD_CObjGetCurrent() != cobj` rather than repeating the macro call.",
-    "Hoist locals and add explicit unused stack storage, evidenced by `HSD_GObj* fighter;` and `u32 unused[14];`, when final stack layout requires it.",
-    "Introduce a local `HSD_JObj* jobj` before a call if direct macro expansion in the argument list emits the wrong sequence."
-  ],
-  "review_feedback": [
-    "No human review comments or reviews were present in the provided slice.",
-    "decomp.dev bot reported GALE01 improvements: matched code 59.45% (+0.03%, +976 bytes), linked code 33.44% (+0.03%, +1072 bytes), and linked data 32.22% (+0.00%, +56 bytes).",
-    "decomp.dev bot listed 2 new matches in `main/melee/gr/grdisplay`: `grDisplay_801C5DB0` from 99.58% to 100.00% and `grDisplay_801C5B90` from 99.85% to 100.00%."
-  ],
-  "searchable_terms": [
-    "pr-2346",
-    "Match grdisplay",
-    "mchen91",
-    "grdisplay",
     "src/melee/gr/grdisplay.c",
     "configure.py",
-    "config/GALE01/symbols.txt",
+    "config/GALE01/symbols.txt"
+  ],
+  "what_changed": [
+    "In grDisplay_801C5B90, replaced an unconditional HSD_JObjSetupMatrix(jobj->child) with a child temporary plus a null check and HSD_JObjMtxIsDirty(child) guard before calling HSD_JObjSetupMatrixSub(child).",
+    "In grDisplay_801C5DB0, restructured an earlier goto-based skip path into nested conditionals using the inverse comparison HSD_GObj_804D7818->hsd_obj != gp->x18->hsd_obj.",
+    "Fixed the OSReport call in grDisplay_801C5DB0 to pass gp->x18 for the \"oioi... %08x\\n\" format string.",
+    "Introduced local temporaries HSD_CObj* cobj and HSD_JObj* jobj to avoid repeated macro/function expressions such as GET_COBJ(camgobj) and GET_JOBJ(gobj).",
+    "Moved HSD_GObj* fighter to the function's top-level declarations and added u32 unused[14], indicating stack/layout shaping for the target compiler output.",
+    "Changed configure.py so Object(NonMatching, \"melee/gr/grdisplay.c\") became Object(Matching, \"melee/gr/grdisplay.c\").",
+    "Updated GALE01 symbols for several local string/data labels from lbl_803E0730, lbl_803E073C, lbl_804D4530, lbl_804D4538, and lbl_804D4540 to compiler-style @207, @208, @209, @210, and @260 labels."
+  ],
+  "smart_moves": [
+    "Used condition inversion to remove the visible goto while preserving the original early-return behavior needed for matching grDisplay_801C5DB0.",
+    "Cached GET_COBJ(camgobj) in a local cobj before comparing it to HSD_CObjGetCurrent(), a common tactic when macro expansion or repeated calls produce different codegen.",
+    "Declared jobj as a local before calling grDisplay_801C5B90 rather than passing GET_JOBJ(gobj) inline, likely helping register allocation and instruction ordering.",
+    "Inserted an explicit unused stack array in grDisplay_801C5DB0, showing that stack frame size/local layout was part of the matching solution.",
+    "Matched grDisplay_801C5B90 by recognizing the target did not call the same matrix setup helper unconditionally; it guarded the child path with dirty-state testing and used HSD_JObjSetupMatrixSub."
+  ],
+  "decomp_lessons": [
+    "For near-matching functions, try rewriting goto skip patterns as inverted nested conditions; the semantic shape can remain the same while codegen changes enough to match.",
+    "Repeated accessor macros like GET_COBJ and GET_JOBJ may need to be split into named locals to reproduce the compiler's register and stack behavior.",
+    "When matching functions that traverse HSD_JObj trees, distinguish between HSD_JObjSetupMatrix and HSD_JObjSetupMatrixSub and preserve dirty-bit checks; helper choice affects generated code.",
+    "Unused local arrays can be legitimate matching artifacts when the target function's stack frame size or local-slot layout does not otherwise line up.",
+    "Once every function in a translation unit is matched, remember to update configure.py from NonMatching to Matching so the build system records the unit-level status.",
+    "Symbol map cleanup may be part of matching: anonymous/local compiler labels in .data and .sdata should use @NNN-style names when evidence indicates they are local generated labels rather than meaningful globals."
+  ],
+  "naming_conventions": [
+    "Ground display functions retain the address-based prefix form grDisplay_801C5B90 and grDisplay_801C5DB0 because no semantic names were introduced in this PR.",
+    "Compiler-generated local data/string symbols were renamed from lbl_-address names to @207, @208, @209, @210, and @260 in config/GALE01/symbols.txt.",
+    "Existing project macros and globals are used as-is: GET_GROUND, GET_JOBJ, GET_COBJ, HSD_GObj_804D7818, HSD_GObj_Entities, and Camera_80030A50-style names."
+  ],
+  "assembly_or_matching_tactics": [
+    "Condition inversion: changed equality-plus-goto flow into inequality guarded early-return checks.",
+    "Temporary introduction: HSD_CObj* cobj, HSD_JObj* jobj, HSD_JObj* child, and top-level HSD_GObj* fighter altered expression evaluation and local/register allocation.",
+    "Stack shaping: added u32 unused[14] in grDisplay_801C5DB0.",
+    "Call-shape adjustment: replaced HSD_JObjSetupMatrix(jobj->child) with guarded HSD_JObjMtxIsDirty(child) and HSD_JObjSetupMatrixSub(child).",
+    "Argument correction: OSReport now receives gp->x18 for the %08x placeholder, matching the expected call signature/codegen."
+  ],
+  "review_feedback": [
+    "No human review comments were present in the provided PR slice.",
+    "decomp.dev bot reported GALE01 matched code improved by +0.03% (+976 bytes), linked code improved by +0.03% (+1072 bytes), and linked data improved by +56 bytes.",
+    "decomp.dev bot listed two new full matches in main/melee/gr/grdisplay: grDisplay_801C5DB0 from 99.58% to 100.00% and grDisplay_801C5B90 from 99.85% to 100.00%."
+  ],
+  "searchable_terms": [
+    "Match grdisplay",
+    "grdisplay.c",
     "grDisplay_801C5B90",
     "grDisplay_801C5DB0",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "MatchingFor",
-    "JOBJ_INSTANCE",
-    "JOBJ_HIDDEN",
     "HSD_JObjSetupMatrix",
-    "HSD_JObjMtxIsDirty",
     "HSD_JObjSetupMatrixSub",
+    "HSD_JObjMtxIsDirty",
     "HSD_MtxInverseConcat",
     "HSD_CObjGetCurrent",
-    "HSD_GObj_804D7818",
-    "HSD_GObj_80390EB8",
-    "HSD_GObj_Entities",
-    "GET_GROUND",
     "GET_COBJ",
     "GET_JOBJ",
-    "Camera_8003108C",
+    "GET_GROUND",
+    "HSD_GObj_804D7818",
+    "HSD_GObj_Entities",
     "Camera_80030A50",
+    "Camera_8003108C",
     "Camera_80030A78",
     "Camera_80030AC4",
     "HSD_FogSet",
     "HSD_StateInvalidate",
-    "OSReport",
-    "Ground_801C2C8C",
-    "unused[14]",
+    "OSReport oioi",
+    "u32 unused[14]",
+    "Object(Matching, \"melee/gr/grdisplay.c\")",
+    "config/GALE01/symbols.txt",
     "@207",
     "@208",
     "@209",
@@ -131,11 +109,19 @@
     "@260"
   ],
   "follow_up_queries": [
-    "Find other PRs that used `u32 unused[...]` stack padding to finish a match.",
-    "Search for HSD JObj dirty-check patterns using `HSD_JObjMtxIsDirty` plus `HSD_JObjSetupMatrixSub`.",
-    "Look for other `symbols.txt` updates that rename `lbl_*` string labels to `@NNN` local labels.",
-    "Compare ground or stage display functions that gate rendering on `HSD_GObj_804D7818`, `Camera_80030A50`, and `GET_COBJ`.",
-    "Search for other near-100% matches fixed by replacing `goto` labels with inverted early-return control flow."
+    "Find other PRs that add unused stack arrays for matching, especially u32 unused[...] in stage or ground code.",
+    "Search for grDisplay_801C5DB0 callsites or later semantic renames to replace address-based function names.",
+    "Search for other HSD_JObjSetupMatrixSub matching fixes involving HSD_JObjMtxIsDirty guards.",
+    "Find PRs that convert lbl_ data labels to @NNN local labels in config/GALE01/symbols.txt.",
+    "Search for other ground display or camera gating functions that compare HSD_CObjGetCurrent() against GET_COBJ(Camera_80030A50())."
   ],
-  "confidence": 0.91
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

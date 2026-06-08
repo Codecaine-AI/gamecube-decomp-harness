@@ -11,117 +11,98 @@
     "merged_at": "2026-03-16T00:12:22Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large Purin/Jigglypuff SpecialN Rollout decompilation pass. The PR filled many ftPr_SpecialN.c TODO stubs across Enter, Anim, IASA, Phys, Coll, and callback helpers, expanded Purin motion/attribute structs, and retyped init data used for rollout scaling and collision. decomp.dev reported +9540 matched bytes and 27 new 100% matches, with several additional near-matches; it also flagged 3 broken ftKirby matches, so cross-unit match fallout remained a risk.",
+  "summary": "Large Jigglypuff/Purin Neutral-B Rollout decompilation pass. The PR replaced many ftPr_SpecialN.c placeholder stubs with C implementations for ground and air Neutral-B enter, anim, IASA, phys, coll, helper/callback paths, and added the type/header data needed to express those routines. decomp.dev reported +9540 matched bytes, 27 new 100% matches in main/melee/ft/chara/ftPurin/ftPr_SpecialN, plus several near-matches for remaining rollout release/turn physics and .sdata2. The author explicitly noted that some functions were not 100% but were close enough to be useful.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "fighter-move-decomp",
+      "decomp-matching",
+      "fighter-behavior",
       "headers",
-      "struct-layout",
-      "data-typing",
-      "animation",
-      "physics",
-      "collision",
-      "near-matches"
+      "struct-typing",
+      "partial-matches"
     ],
     "systems": [
       "fighter",
       "ftPurin",
-      "Purin SpecialN",
-      "Purin Rollout",
-      "ftCommon",
+      "ftPr_SpecialN",
       "collision",
-      "baselib JObj"
+      "motion-state"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftPurin/ftPr_SpecialN.c",
-      "role": "Main rollout decomp pass; +892/-55 lines implementing many SpecialN ground/air state callbacks, helper inlines, physics, collision, IASA, hit/end logic, and mirror callback behavior."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPurin/types.h",
-      "role": "Expanded ftPurin_MotionVars.specialn fields and ftPurinAttributes offsets through xD8 so rollout code could use typed timers, speeds, thresholds, and scale/damage parameters."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPurin/ftPr_Init.c",
-      "role": "Retyped rollout-related init data: Vec4 constants became f32[4] arrays, and a Vec3 pair became an ftCollisionBox."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPurin/ftPr_Init.h",
-      "role": "Exported ftPr_Init_803D05C8, ftPr_Init_803D05D8, and ftPr_Init_803D0610 with their new types; added ftCommon forward include."
-    },
-    {
-      "path": "src/melee/ft/chara/ftPurin/ftPr_SpecialN.h",
-      "role": "Updated ftPr_SpecialS_8013DD54 prototype to take a bool argument used by normal vs turn SFX/angle logic."
-    }
+    "src/melee/ft/chara/ftPurin/ftPr_SpecialN.c",
+    "src/melee/ft/chara/ftPurin/types.h",
+    "src/melee/ft/chara/ftPurin/ftPr_Init.c",
+    "src/melee/ft/chara/ftPurin/ftPr_Init.h",
+    "src/melee/ft/chara/ftPurin/ftPr_SpecialN.h"
   ],
   "what_changed": [
-    "Implemented callback/setup helpers including setupPurinCallbacks, normalizeAndSetRollAngle, playRollSFX, scaleAnimStep, hitCapsuleToggle, ftPr_SpecialS_8013D8E4, ftPr_SpecialS_8013DA24, ftPr_SpecialS_8013DC64, and ftPr_SpecialS_8013DD54.",
-    "Implemented ftPr_SpecialAirN_Enter and many rollout animation callbacks: loop/full/release/turn/end, air charge loop/full/start-turn/end, and hit animation logic.",
-    "Implemented IASA transitions for charge release and turn behavior, using held-input checks, left-stick threshold checks, motion-state changes, callback reset, SFX, and velocity setup.",
-    "Implemented or substantially improved rollout physics for ground release, ground turn, air charge release, and air start turn, including speed clamping, slope/floor influence, deceleration, fall handling, and charge decay.",
-    "Implemented several ground/air collision transitions, including SpecialN loop/full air transitions, air-to-ground start/charge transitions, turn collisions using ftCollisionBox, hit collision landing/fall-special handling, and ftPr_SpecialN_8014222C mirror logic.",
-    "Changed ftPr_Init_803D05C8 and ftPr_Init_803D05D8 from Vec4 to f32[4] because rollout scale animation indexes them by frame.",
-    "Changed ftPr_Init_803D0610 from a Vec3 array-style initializer to ftCollisionBox and exported it for collision helpers such as ft_80082888, ft_80082978, and ft_800824A0.",
-    "Expanded Purin struct placeholders rather than fully naming semantics: specialn gained typed x0/x4/x8/xC/x10/x14/x18/x24/x28/x2C/x30 fields, and attributes gained many x4C through xD8 offsets.",
-    "decomp.dev reported 27 newly matched functions in main/melee/ft/chara/ftPurin/ftPr_SpecialN and 7 high-percent unmatched improvements, including ftPr_SpecialNRelease_Anim at 99.77%, ftPr_SpecialNTurn_Anim at 98.59%, and several Phys functions in the 93-98% range."
+    "Implemented a large set of previously stubbed ftPr_SpecialN.c routines for Purin/Jigglypuff Rollout, including ftPr_SpecialAirN_Enter, loop/full/release/turn/end/hit animation handlers, IASA handlers, ground/air physics handlers, collision handlers, and ftPr_SpecialN_8014222C.",
+    "Added helper inlines in ftPr_SpecialN.c such as setupPurinCallbacks, normalizeAndSetRollAngle, playRollSFX, scaleAnimStep, and hitCapsuleToggle to factor repeated rollout behavior.",
+    "Added rollout behavior around callback setup, angle normalization modulo 2π, TopN/YRotN part rotations, hit capsule enable/disable and damage updates, SFX triggering, JObj scale animation, slope-aware velocity handling, and ground/air transition behavior.",
+    "Expanded ftPurin_MotionVars.specialn in types.h from mostly unknown padding into typed fields x0, x4, x8, xC, x10, x14, x18, x1C, facing_dir, x24, x28, x2C, x30, and Vec3 x34.",
+    "Expanded ftPurinAttributes in types.h with many Neutral-B-related float/s32 fields from x4C through xD8 while preserving unknown padding where not yet typed.",
+    "Changed ftPr_Init data typing: ftPr_Init_803D05C8 and ftPr_Init_803D05D8 became f32[4] arrays rather than Vec4, and ftPr_Init_803D0610 became an ftCollisionBox rather than a Vec3 array.",
+    "Exposed the newly typed init data in ftPr_Init.h and added ftCommon/forward.h so ftCollisionBox could be declared.",
+    "Updated ftPr_SpecialN.h signature for ftPr_SpecialS_8013DD54 from one argument to HSD_GObj* plus bool arg1.",
+    "Added includes for common fighter fall/landing modules, cliff/collision/color animation, Purin init data, trigf, camera, efSync, and mpLib needed by the new implementations.",
+    "decomp.dev reported 27 new 100% matches in ftPr_SpecialN and 7 additional improved-but-unmatched items, but also reported 3 broken matches in ftKirby/ftKb_SpecialN."
   ],
   "smart_moves": [
-    "Factored repeated exact-codegen-sensitive behavior into small static inline helpers for callback setup, angle normalization, scale stepping, hit-capsule toggling, and rollout SFX selection.",
-    "Retyped data symbols to match actual usage instead of forcing previous convenient types: f32[4] arrays for indexed scale multipliers and ftCollisionBox for collision routines.",
-    "Kept unknown struct fields as offset-style xNN names while still replacing opaque padding with correctly sized typed fields needed by the decomp.",
-    "Used explicit MotionFlags bitmasks as local static constants with TODO notes rather than inventing uncertain flag names.",
-    "Preserved stack/codegen details with PAD_STACK and dummy u8 arrays, which is important for matching these fighter callbacks.",
-    "Did not over-simplify mirrored ground/air and slope/velocity branches; the code keeps repetitive absolute-value and sign logic that likely reflects the original compiler output.",
-    "Author explicitly documented that some functions were close enough rather than 100% matches, making the near-match tradeoff visible instead of hiding it."
+    "Factored recurring callback assignment into setupPurinCallbacks, avoiding repeated assignments to death2_cb, take_dmg_cb, deal_dmg_cb, and x21F8 across motion-state changes.",
+    "Factored rollout angle wrapping and FtPart_YRotN rotation into normalizeAndSetRollAngle, matching the repeated modulo-2π pattern used by charge, release, turn, and hit paths.",
+    "Identified that the init scale constants are indexed as scalar arrays, not Vec4 structs, which made scaleAnimStep straightforward and improved .sdata2 matching.",
+    "Retyped ftPr_Init_803D0610 as ftCollisionBox so collision transition calls such as ft_800824A0(gobj, &ftPr_Init_803D0610) can use a semantic object instead of ambiguous Vec3 data.",
+    "Used targeted temporary padding and PAD_STACK/u8 scratch variables where needed to preserve stack layout for matching while still replacing stubs with readable C.",
+    "Kept motion flags as local static constants with @todo comments instead of over-naming uncertain bitfields, preserving matchability without claiming semantics that were not proven.",
+    "Modeled ground and air rollout variants with parallel structure, reusing shared helper logic for charge loops, full charge, release, turn, hit, and end paths."
   ],
   "decomp_lessons": [
-    "Fighter special-move files often require decomping the whole state-machine family together: Enter, Anim, IASA, Phys, Coll, hit/end callbacks, and mirror callbacks all share motion vars and callback setup.",
-    "Header/data typing can unlock source matches: callers that index constants or pass collision extents need exact data types exposed in init headers.",
-    "When semantics are not yet certain, offset-based names like xA0 or x2C are preferable to misleading guesses; add typed fields only where the diff proves size and usage.",
-    "Centralize repeated state restoration such as fighter callbacks and part rotations, but keep helper functions inline when matching depends on call structure.",
-    "decomp.dev match reports are part of the evidence: this PR made large progress but also showed unrelated ftKirby match breakage, so future struct/header changes should check cross-unit regressions.",
-    "Near-matches can still be valuable when they produce many exact matches and document remaining gaps, but they should leave clear follow-up targets."
+    "When decompiling fighter specials, first type the motion-vars union and character attributes enough to express the routine; this PR shows that many ftPr_SpecialN matches depended on replacing anonymous padding with x-offset fields.",
+    "Data symbols used through array indexing should be typed as arrays even if their byte size resembles Vec4; incorrect aggregate types can block natural codegen and .sdata2 matching.",
+    "Collision box constants should use ftCollisionBox when passed to collision helpers; doing so improves both readability and call-site type correctness.",
+    "For fighter motion code, callbacks are often reset after Fighter_ChangeMotionState; a small helper can make repeated callback blocks easier to match and audit.",
+    "Angle normalization loops using M_PI * 2 and part rotation calls are a reusable pattern for rolling/spinning character states.",
+    "Partial decomp work can still be valuable when the match report shows many exact matches and the remaining nonmatches are isolated; this PR explicitly accepted several close-but-not-perfect routines.",
+    "Watch cross-unit match regressions after header/type changes: decomp.dev showed three broken ftKirby/ftKb_SpecialN matches despite the PR being focused on ftPurin."
   ],
   "naming_conventions": [
-    "Public Purin state callbacks follow ftPr_SpecialN<State>_<Phase> patterns such as ftPr_SpecialNLoop_Anim, ftPr_SpecialNRelease_IASA, ftPr_SpecialNTurn_Phys, and ftPr_SpecialNHit_Coll.",
-    "Air variants use the SpecialAirN prefix, for example ftPr_SpecialAirNChargeLoop_Anim and ftPr_SpecialAirNStartTurn_Coll.",
-    "Unknown or legacy helper symbols kept address-suffixed names such as ftPr_SpecialS_8013D8E4, ftPr_SpecialS_8013DA24, ftPr_SpecialS_8013DC64, and ftPr_SpecialN_8014222C.",
-    "Static inline helpers used descriptive lowerCamelCase names: setupPurinCallbacks, normalizeAndSetRollAngle, playRollSFX, scaleAnimStep, and hitCapsuleToggle.",
-    "Purin motion vars and attributes retained offset names like x14, x2C, xA4, xC0, and xD8 until semantics are proven.",
-    "Init data symbols kept address-based names such as ftPr_Init_803D05C8, ftPr_Init_803D05D8, and ftPr_Init_803D0610, with offset comments in headers."
+    "Purin/Jigglypuff special functions continue the project convention of address-suffixed names where semantics are not yet fully known, e.g. ftPr_SpecialS_8013D8E4, ftPr_SpecialS_8013DA24, ftPr_SpecialS_8013DC64, ftPr_SpecialS_8013DD54, and ftPr_SpecialN_8014222C.",
+    "New local helpers use lowerCamelCase semantic names such as setupPurinCallbacks, normalizeAndSetRollAngle, playRollSFX, scaleAnimStep, and hitCapsuleToggle.",
+    "Unidentified struct members remain offset-style xNN names in ftPurin_MotionVars and ftPurinAttributes rather than speculative semantic names.",
+    "Motion-state names follow existing ftPr_MS_SpecialN*/ftPr_MS_SpecialAirN* conventions, including left/right variants like ftPr_MS_SpecialNEndR and ftPr_MS_SpecialNEndL.",
+    "Extern data symbols keep address-style names such as ftPr_Init_803D05C8, ftPr_Init_803D05D8, and ftPr_Init_803D0610 until stronger symbolic names are known."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK(8), PAD_STACK(16), PAD_STACK(4 * 4), and local dummy u8 arrays to reproduce stack layout.",
-    "Used static u32 const motion-flag masks near each state transition instead of global symbolic names, preserving bit patterns while marking them TODO.",
-    "Used exact float/math forms including M_PI, M_PI_2, deg_to_rad, atan2f, and casts like (f32) (0.2 * da->x6C * ...).",
-    "Introduced NEGABS(x) as a local absolute-value macro and repeated manual sign checks in places where simplification might change codegen.",
-    "Kept angle normalization as while loops around 0 and M_PI * 2, then applied ftPartSetRotX to FtPart_YRotN and ftPartSetRotY to FtPart_TopN.",
-    "Indexed ftPr_Init_803D05C8 and ftPr_Init_803D05D8 by mv.pr.specialn.x8 to reproduce the four-frame JObj scale animation.",
-    "Used ftCollisionBox ftPr_Init_803D0610 with ft_80082888, ft_80082978, and ft_800824A0 for rollout ground/air collision checks.",
-    "Matched mirror behavior in ftPr_SpecialN_8014222C by negating self_vel.x, gr_vel, ground accel, rollout motion fields, facing_dir, and cached angle/facing vector components."
+    "Used PAD_STACK and explicit u8 scratch arrays to influence stack layout in newly decompiled routines.",
+    "Kept exact float expressions and casts such as deg_to_rad multipliers, M_PI/M_PI_2 comparisons, and f32 casts around 0.2-derived formulas to fit code generation.",
+    "Used static u32 const motion-flag masks with raw bit shifts where named flag coverage was incomplete.",
+    "Introduced NEGABS(x) macro for absolute-value comparisons in places where direct fabsf may not have matched expected codegen.",
+    "Preserved separate ground and air branches even when logic is similar, likely to match original control flow around gr_vel, self_vel, and ground_or_air.",
+    "Used inline helpers for repeated code patterns while keeping them static inline so they can disappear at call sites and preserve expected assembly.",
+    "Retyped data declarations in ftPr_Init.c/h to match access patterns: f32[4] for scale tables and ftCollisionBox for collision bounds."
   ],
   "review_feedback": [
-    "No human review comments or review records were present in the slice.",
+    "No human review comments were present in the provided slice.",
     "Author note: \"I prefer to only push 100% matches, but some of these felt close enough to be worth it.\"",
-    "decomp.dev bot reported matched code 58.24% (+0.25%, +9540 bytes) and 27 new 100% matches, all listed under main/melee/ft/chara/ftPurin/ftPr_SpecialN.",
-    "decomp.dev bot also reported 7 improvements in unmatched items, including several near-matched rollout Anim/Phys functions and .sdata2.",
-    "decomp.dev bot flagged 3 broken ftKirby/ftKb_SpecialN matches: ftKb_SpecialAirS_Enter, ftKb_SpecialHi1_Anim, and ftKb_EatJump1_Anim."
+    "decomp.dev bot reported +0.25% matched code and +9540 bytes, with 27 new 100% matches in ftPr_SpecialN.",
+    "decomp.dev bot also reported 3 broken matches in ftKirby/ftKb_SpecialN: ftKb_SpecialAirS_Enter, ftKb_SpecialHi1_Anim, and ftKb_EatJump1_Anim.",
+    "decomp.dev bot reported remaining improved-but-not-perfect ftPr_SpecialN items including ftPr_SpecialNRelease_Anim at 99.77%, ftPr_SpecialNTurn_Anim at 98.59%, ftPr_SpecialNTurn_Phys at 93.31%, ftPr_SpecialNRelease_Phys at 93.50%, ftPr_SpecialAirNChargeRelease_Phys at 97.92%, ftPr_SpecialAirNStartTurn_Phys at 97.14%, and .sdata2 at 98.81%."
   ],
   "searchable_terms": [
     "pr-2305",
-    "ftPr_SpecialN.c",
-    "ftPr_SpecialN",
+    "ftPr_SpecialN.c work",
+    "lukechampine",
     "Purin",
     "Jigglypuff",
     "Rollout",
+    "Neutral-B",
+    "ftPr_SpecialN",
     "ftPr_SpecialAirN_Enter",
     "ftPr_SpecialNLoop_Anim",
     "ftPr_SpecialNFull_Anim",
     "ftPr_SpecialNRelease_Anim",
     "ftPr_SpecialNTurn_Anim",
-    "ftPr_SpecialNEnd_Anim",
     "ftPr_SpecialAirNChargeLoop_Anim",
     "ftPr_SpecialAirNChargeFull_Anim",
     "ftPr_SpecialAirNStartTurn_Anim",
@@ -130,49 +111,47 @@
     "ftPr_SpecialNLoop_IASA",
     "ftPr_SpecialNFull_IASA",
     "ftPr_SpecialNRelease_IASA",
-    "ftPr_SpecialAirNChargeLoop_IASA",
-    "ftPr_SpecialAirNChargeFull_IASA",
-    "ftPr_SpecialNRelease_Phys",
-    "ftPr_SpecialNTurn_Phys",
-    "ftPr_SpecialAirNChargeRelease_Phys",
-    "ftPr_SpecialAirNStartTurn_Phys",
     "ftPr_SpecialNLoop_Coll",
     "ftPr_SpecialNFull_Coll",
-    "ftPr_SpecialNTurn_Coll",
-    "ftPr_SpecialAirNStart_Coll",
-    "ftPr_SpecialAirNChargeLoop_Coll",
-    "ftPr_SpecialAirNChargeFull_Coll",
-    "ftPr_SpecialAirNStartTurn_Coll",
     "ftPr_SpecialNHit_Coll",
-    "ftPr_SpecialN_8014222C",
     "ftPr_SpecialS_8013D8E4",
     "ftPr_SpecialS_8013DA24",
     "ftPr_SpecialS_8013DC64",
     "ftPr_SpecialS_8013DD54",
+    "ftPr_SpecialN_8014222C",
     "setupPurinCallbacks",
     "normalizeAndSetRollAngle",
     "scaleAnimStep",
     "hitCapsuleToggle",
-    "ftPurinAttributes",
     "ftPurin_MotionVars",
+    "ftPurinAttributes",
+    "ftCollisionBox",
     "ftPr_Init_803D05C8",
     "ftPr_Init_803D05D8",
     "ftPr_Init_803D0610",
-    "ftCollisionBox",
     "NEGABS",
     "PAD_STACK",
-    "MotionFlags",
-    "ftKb_SpecialN broken matches"
+    "M_PI",
+    "M_PI_2",
+    "deg_to_rad",
+    "HitCapsule_Disabled",
+    "HitCapsule_Enabled",
+    "Fighter_ChangeMotionState"
   ],
   "follow_up_queries": [
-    "ftPr_SpecialAirNChargeRelease_Anim remaining TODO or near-match status",
-    "ftPr_SpecialNRelease_Coll ftPr_SpecialAirNChargeRelease_Coll TODO collision implementations",
-    "ftPr_SpecialNRelease_Anim 99.77 match remaining diff",
-    "ftPr_SpecialNTurn_Phys slope velocity matching cleanup",
-    "rename ftPurinAttributes x4C x50 x54 x58 x5C x68 x6C x70 x74 x80 x84 x90 x94 x98 x9C xA0 xA4 xA8 xAC xB4 xB8 xBC xC0 xC4 xC8 xCC xD0 xD8",
-    "rename ftPurin_MotionVars.specialn x0 x4 x8 xC x10 x14 x18 x1C x24 x28 x2C x30 x34",
-    "investigate PR 2305 ftKirby ftKb_SpecialN broken matches after Purin SpecialN changes",
-    "replace raw SpecialN MotionFlags bitmasks with named flags once identified"
+    "Investigate why ftKirby/ftKb_SpecialN matches broke after this ftPurin-focused PR.",
+    "Finish or revisit the near-matching ftPr_SpecialNRelease_Anim, ftPr_SpecialNTurn_Anim, ftPr_SpecialNTurn_Phys, ftPr_SpecialNRelease_Phys, ftPr_SpecialAirNChargeRelease_Phys, and ftPr_SpecialAirNStartTurn_Phys routines.",
+    "Replace raw motion flag masks in ftPr_SpecialN.c with named flags once the flag meanings are confirmed.",
+    "Look for stronger semantic names for ftPurinAttributes x4C-xD8 and ftPurin_MotionVars.specialn x-fields as more Purin rollout behavior is understood.",
+    "Confirm whether ftPr_SpecialAirNChargeRelease_Coll remained a stub or only had its placeholder comment updated in this PR."
   ],
-  "confidence": 0.89
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

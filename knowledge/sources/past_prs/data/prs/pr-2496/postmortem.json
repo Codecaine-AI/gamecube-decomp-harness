@@ -8,74 +8,67 @@
     "state": "CLOSED",
     "author": "itsgrimetime",
     "created_at": "2026-05-15T08:38:58Z",
-    "merged_at": ""
+    "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed, unmerged PR that proposed a code-shape improvement for `lb_8001B14C` in `lbcardnew.c`: remove a cached `lbCardNew_SnapshotEntry* snapshot_entries` local and write directly through `lb_80432A68.snapshot_entries`. The stated goal was closer target matching; decomp.dev reported `main/melee/lb/lbcardnew` `lb_8001B14C` improving from 63.23% to 98.77%, with the remaining diff described as an `r5`/`r6` allocation swap in a compiler-unrolled linked-list copy loop.",
+  "summary": "Small unmerged lbcardnew matching improvement for lb_8001B14C. The PR removed a local alias for lb_80432A68.snapshot_entries and wrote snapshot-entry fields directly through the global struct, which the author reported matched the target code shape more closely. It improved main/melee/lb/lbcardnew to 40/41 functions at 100%, with lb_8001B14C still at 98.77124% due to an r5/r6 allocation swap in a compiler-unrolled linked-list copy loop.",
   "change_classification": {
-    "primary_type": "decomp-matching code-shape tweak",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "local-variable/register-pressure adjustment",
-      "snapshot-listing"
+      "tooling"
     ],
     "systems": [
       "library",
       "lb",
-      "lbcardnew"
+      "lbcardnew",
+      "memory-card"
     ]
   },
   "key_files": [
-    {
-      "file": "src/melee/lb/lbcardnew.c",
-      "role": "Only changed file; adjusted `lb_8001B14C` snapshot-entry writes."
-    }
+    "src/melee/lb/lbcardnew.c"
   ],
   "what_changed": [
-    "Removed the local declaration `lbCardNew_SnapshotEntry* snapshot_entries;` from `lb_8001B14C`.",
-    "Removed the assignment `snapshot_entries = lb_80432A68.snapshot_entries;`.",
-    "Changed linked-list copy-loop writes from `snapshot_entries[j].time/file_no/blocks` to direct `lb_80432A68.snapshot_entries[j].time/file_no/blocks` writes.",
-    "Changed the cleanup/fill loop from `snapshot_entries[i].file_no = -1` to `lb_80432A68.snapshot_entries[i].file_no = -1`.",
-    "No behavioral intent is described beyond improving match/code shape; the PR body frames this as a closer representation of the target code."
+    "In lb_8001B14C, removed the local variable lbCardNew_SnapshotEntry* snapshot_entries.",
+    "Removed the assignment snapshot_entries = lb_80432A68.snapshot_entries.",
+    "Changed writes in the linked-list copy loop from snapshot_entries[j].time/file_no/blocks to direct lb_80432A68.snapshot_entries[j].time/file_no/blocks accesses.",
+    "Changed the cleanup/default fill loop from snapshot_entries[i].file_no = -1 to lb_80432A68.snapshot_entries[i].file_no = -1.",
+    "No behavior change is evident from the diff; this is a code-shape adjustment for matching."
   ],
   "smart_moves": [
-    "Targeted a very small source-level change that affects code generation without restructuring the function logic.",
-    "Avoided hiding a global struct member behind a local pointer alias when the target apparently keeps direct `lb_80432A68.snapshot_entries` accesses.",
-    "Preserved existing field names and loop structure while changing only the addressing form used for snapshot entry writes.",
-    "Documented verification with `python configure.py && ninja` and gave exact matching status for `main/melee/lb/lbcardnew`.",
-    "Called out the remaining blocker explicitly, narrowing future work to the reported `r5`/`r6` allocation swap in the unrolled linked-list copy loop."
+    "Avoided a convenient local alias when the target apparently retained direct global-field addressing; this can influence register allocation and emitted load/store shape.",
+    "Kept the edit tightly scoped to the snapshot-entry writes inside lb_8001B14C rather than reshaping the surrounding card/stat/node logic.",
+    "Documented the exact remaining blocker: an r5/r6 allocation swap in the compiler-unrolled linked-list copy loop.",
+    "Included verification with configure.py, ninja, and the function-match status for main/melee/lb/lbcardnew."
   ],
   "decomp_lessons": [
-    "For matching, a seemingly cleaner local pointer alias can worsen codegen; direct global/member accesses may better preserve the target register allocation and memory-addressing pattern.",
-    "When a function is mostly logic-correct but mismatching, try changing variable lifetime and aliasing before making larger structural edits.",
-    "Keep small matching PRs evidence-driven: this slice ties the change directly to a decomp.dev improvement from 63.23% to 98.77% for `lb_8001B14C`.",
-    "When one stubborn register-allocation issue remains, record the exact symptom so later work can search for and continue from it instead of rediscovering it."
+    "For matching, replacing a global struct member with a local pointer alias is not always neutral; even equivalent C can alter register allocation and address calculation.",
+    "When the target code appears to write through a global struct field repeatedly, direct accesses such as lb_80432A68.snapshot_entries[index] may match better than caching the member pointer.",
+    "Small decomp improvements should record the remaining diff precisely, especially when only a register allocation swap remains.",
+    "A function can remain just under full match even after source-level control/data shape improvements if the compiler allocates equivalent values to different registers in an unrolled loop."
   ],
   "naming_conventions": [
-    "`lb_8001B14C` remained an address-based/generated function name in this PR.",
-    "`lb_80432A68` remained an address-based global with known member `snapshot_entries` and still-unknown member `unk_34`.",
-    "Snapshot entry typing used the module-prefixed type name `lbCardNew_SnapshotEntry`.",
-    "The local linked-list helper type was named `struct SnapshotNode`, with fields evidenced in the diff/body including `time`, `file_no`, `blocks`, and `next`."
+    "Global library state uses the generated-style symbol lb_80432A68.",
+    "Snapshot-list entry type is named lbCardNew_SnapshotEntry.",
+    "Linked-list helper nodes are referred to as struct SnapshotNode.",
+    "The PR title follows subsystem prefix style: \"lb: improve lbcardnew snapshot listing\".",
+    "Field names in the snapshot entry include time, file_no, and blocks."
   ],
   "assembly_or_matching_tactics": [
-    "Remove a local pointer alias to reduce/register-shift lifetime effects and force direct global member references.",
-    "Use direct `lb_80432A68.snapshot_entries[index]` writes when the target appears not to materialize a separate snapshot-entry base pointer.",
-    "Watch for register allocation swaps such as `r5`/`r6` in compiler-unrolled linked-list copy loops; the PR says this was the remaining diff.",
-    "Use decomp.dev per-unit reports to quantify partial-match progress even when a function remains under 100%."
+    "Use direct global member access to influence generated code shape instead of introducing a local pointer alias.",
+    "Preserve the apparent target access pattern across both populated entries and default/invalid entries.",
+    "Track residual mismatches in terms of register allocation, here the reported r5/r6 swap in a compiler-unrolled linked-list copy loop.",
+    "Do not assume pointer hoisting improves matching; sometimes repeated global-member expressions are closer to the original compiler output."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the slice.",
-    "decomp.dev bot reported one unmatched-item improvement: `main/melee/lb/lbcardnew` `lb_8001B14C`, +435 bytes, 63.23% before to 98.77% after.",
-    "The PR was closed with `merged_at` absent/null in the context; the slice does not state a closure reason."
+    "No review comments were present in the provided PR slice.",
+    "The PR was closed without merge according to the context; no explicit reason for closure is included in the provided data."
   ],
   "searchable_terms": [
     "pr-2496",
-    "itsgrimetime",
     "lbcardnew",
-    "src/melee/lb/lbcardnew.c",
     "lb_8001B14C",
     "lb_80432A68",
-    "lb_80432A68.snapshot_entries",
     "snapshot_entries",
     "lbCardNew_SnapshotEntry",
     "SnapshotNode",
@@ -85,20 +78,27 @@
     "file_no",
     "blocks",
     "time",
-    "unk_34",
+    "copy_scan",
+    "linked-list copy loop",
+    "compiler-unrolled",
     "r5 r6 allocation swap",
-    "compiler-unrolled linked-list copy loop",
-    "GALE01",
-    "decomp.dev",
-    "63.23%",
-    "98.77%",
-    "main/melee/lb/lbcardnew"
+    "main/melee/lb/lbcardnew",
+    "40/41 functions at 100%",
+    "98.77124%"
   ],
   "follow_up_queries": [
-    "Search later PRs for `lb_8001B14C` to see whether the remaining `r5`/`r6` allocation swap was solved.",
-    "Search for `lb_80432A68.snapshot_entries` direct-access patterns in merged code.",
-    "Search for other `lbcardnew` snapshot listing changes after PR #2496.",
-    "Search decomp.dev reports for `main/melee/lb/lbcardnew` moving from 98.77% to 100%."
+    "Find later PRs touching lb_8001B14C to see whether the r5/r6 allocation swap was resolved.",
+    "Search for other cases where direct lb_80432A68 field access matched better than a local alias.",
+    "Check whether this closed-unmerged patch was superseded by another lbcardnew matching PR.",
+    "Compare generated assembly before and after removing local aliases for global struct members in lb functions."
   ],
-  "confidence": 0.9
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

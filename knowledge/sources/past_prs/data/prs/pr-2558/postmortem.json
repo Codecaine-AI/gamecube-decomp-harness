@@ -11,109 +11,110 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed-unmerged attempt to match grInishie1_801FA9B4 at 801FA9B4. The main grinishie1.c diff added inferred .data symbols, a StageData wrapper, data-backed strings, and rewrote callback/report-string access to use adjacent-data pointer arithmetic. The PR also contained gryorster.c and lbsnap.c matching-style edits. The author immediately closed it with the comment \"Still haven't hard reverted. My mistake again\", so this should be treated as an aborted or contaminated branch rather than accepted project guidance.",
+  "summary": "Closed unmerged PR attempting to match grInishie1_801FA9B4, with additional local matching edits in gryorster.c and lbsnap.c. The author comment, \"Still haven't hard reverted. My mistake again,\" suggests the branch contained unwanted or not-yet-reverted changes, so this should be treated as a non-landed experiment rather than accepted project direction.",
   "change_classification": {
-    "primary_type": "decomp_matching_attempt_closed_unmerged",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
+      "closed-unmerged",
       "stage-data-layout",
-      "global-data-symbolization",
-      "register-allocation-tuning",
-      "aborted-pr"
+      "local-experiment"
     ],
     "systems": [
-      "stage/grInishie1",
-      "stage/grYorster",
-      "library/lbSnap"
+      "stage",
+      "ground",
+      "library"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grinishie1.c",
-      "role": "Primary target; added grI1 data symbols and rewrote grInishie1_801FA9B4 callback and OSReport accesses."
-    },
-    {
-      "path": "src/melee/gr/gryorster.c",
-      "role": "Unrelated-looking matching edit in grYorster_80202428 using pointer casts, manual loop increment, and a float temp."
-    },
-    {
-      "path": "src/melee/lb/lbsnap.c",
-      "role": "Unrelated-looking lbSnap_8001DF20 register/order tweak using descPtr and offset temps."
-    }
-  ],
-  "what_changed": [
-    "Added s16 grI1_803E48C8[22] containing the Inishie1 block-pattern data, later cast to S16Vec3* in stage data.",
-    "Added char grI1_803E4944[] = \"/GrI1.dat\" and char grI1_803E49A8[] = \"grinishie1.c\".",
-    "Introduced typedef grInishie1_StageData with StageData stage_data followed by char report_fmt_get_gobj[0x24], then defined grI1_803E4950 with INISHIE1 metadata, the block-pattern pointer, count 7, and the report format string.",
-    "Changed grInishie1_801FA9B4 from direct &grI1_803E48F4[arg0] access to StageCallbacks* cb = (StageCallbacks*) ((char*) grI1_803E48C8 + 0x2c) + arg0, relying on grI1_803E48C8 being immediately before grI1_803E48F4.",
-    "Changed grInishie1_801FA9B4 OSReport from inline literals to grI1_803E4950.report_fmt_get_gobj and grI1_803E49A8. The added format literal is spelled \"couldn t\" in the diff, unlike the removed \"couldn't\".",
-    "Changed grInishie1_801FBC4C to store gp->gv.inishie1.blocks[index].jobj2 in a local HSD_JObj* jobj2 before DOBJ_CLEAR_LOOP.",
-    "Changed grYorster_80202428 to use a temp s32 loaded through *(s32*)&...x1C, compare via u32 casts, manually increment the loop index, and assign through a newValue f32 temp.",
-    "Changed lbSnap_8001DF20 to use a struct Unk803BACC8* descPtr local and an offset temp before assigning x14/x1C and calling lb_8001C4A8."
-  ],
-  "smart_moves": [
-    "The grinishie1.c attempt recognized that matching the target function likely depended on exact static-data layout, not only C control flow: grI1_803E48C8 is 22 s16 values, exactly 0x2c bytes, so adding 0x2c reaches the following StageCallbacks array.",
-    "Wrapping StageData together with the report format field was a plausible way to force adjacency and produce field-address references instead of compiler-emitted standalone string literals.",
-    "Moving \"/GrI1.dat\", \"grinishie1.c\", and the OSReport format into named globals made string/data relocations explicit and searchable.",
-    "Introducing locals such as jobj2, descPtr, offset, and newValue reflects a common decomp tactic for influencing register allocation and evaluation order."
-  ],
-  "decomp_lessons": [
-    "Because the PR was closed unmerged after the author's hard-revert comment, reuse these tactics only after verifying against later accepted source, map addresses, and generated assembly.",
-    "For stage files, exact ordering of arrays, callback tables, StageData, and strings can matter for matching; adjacent .data objects may need to be modeled deliberately.",
-    "A direct symbol reference such as &grI1_803E48F4[arg0] may fail where the original codegen references an earlier data symbol plus a byte offset; pointer arithmetic from a known base can sometimes reproduce that, but it should be justified by symbol sizes and layout.",
-    "Data-backed OSReport strings can be necessary when inline string literals produce the wrong relocation or string-pool placement.",
-    "Do not mix unrelated matching experiments into a narrow PR unless intended; this slice touched grInishie1, grYorster, and lbSnap despite the title targeting grInishie1_801FA9B4."
-  ],
-  "naming_conventions": [
-    "Unknown/static grInishie1 data used the grI1_<address> pattern: grI1_803E48C8, grI1_803E48F4, grI1_803E4944, grI1_803E4950, grI1_803E49A8.",
-    "Stage functions retained the module plus address convention, e.g. grInishie1_801FA9B4.",
-    "The added wrapper type used a descriptive module-qualified name, grInishie1_StageData, with fields stage_data and report_fmt_get_gobj.",
-    "Local temp names in this diff were descriptive but informal: jobj2, descPtr, offset, temp, newValue."
-  ],
-  "assembly_or_matching_tactics": [
-    "Used (char*) base-pointer arithmetic plus +0x2c before casting to StageCallbacks* to model adjacent data access from grI1_803E48C8 to grI1_803E48F4.",
-    "Made the OSReport format and file-name arguments come from globals/struct fields rather than inline literals.",
-    "Added a local pointer before DOBJ_CLEAR_LOOP to change macro input evaluation and likely register assignment.",
-    "In grYorster_80202428, used manual loop increment, integer pointer reinterpretation of x1C, u32 casts for pointer comparison, and an f32 temporary for the add/store sequence.",
-    "In lbSnap_8001DF20, introduced descPtr and offset temporaries to change field-store order and the arguments passed to lb_8001C4A8."
-  ],
-  "review_feedback": [
-    "No review comments or formal reviews were captured.",
-    "Author self-comment at close: \"Still haven't hard reverted. My mistake again\".",
-    "The PR was closed unmerged less than a minute after creation; evidence strongly indicates the author considered the branch state mistaken, but the slice does not prove exactly which edits were unintended."
-  ],
-  "searchable_terms": [
-    "PR2558",
-    "Match/grinishie1 801FA9B4",
-    "grInishie1_801FA9B4",
-    "801FA9B4",
     "src/melee/gr/grinishie1.c",
     "src/melee/gr/gryorster.c",
-    "src/melee/lb/lbsnap.c",
+    "src/melee/lb/lbsnap.c"
+  ],
+  "what_changed": [
+    "In src/melee/gr/grinishie1.c, added a static s16 array grI1_803E48C8 containing stage-related block/index data.",
+    "Added /GrI1.dat string data, a grInishie1_StageData typedef wrapping StageData plus a report format buffer, and an initialized grI1_803E4950 object containing INISHIE1 stage metadata and the OSReport format string.",
+    "Added grI1_803E49A8 as the source filename string \"grinishie1.c\".",
+    "Changed grInishie1_801FA9B4 to derive its StageCallbacks pointer through pointer arithmetic from grI1_803E48C8 plus 0x2c rather than directly taking &grI1_803E48F4[arg0].",
+    "Changed the missing-gobj OSReport call in grInishie1_801FA9B4 to load both the format string and filename through newly modeled data symbols.",
+    "In grInishie1_801FBC4C, split a nested DOBJ_CLEAR_LOOP argument into a temporary HSD_JObj* jobj2 before calling the macro.",
+    "In src/melee/gr/gryorster.c, rewrote grYorster_80202428 loop structure with an explicit temporary, manual increment, pointer/integer casts, and a temporary f32 newValue.",
+    "In src/melee/lb/lbsnap.c, rewrote lbSnap_8001DF20 to use a descPtr temporary, an offset temporary, and field writes through the descriptor pointer."
+  ],
+  "smart_moves": [
+    "Modeled nearby rodata/data layout instead of only changing code shape: grInishie1_801FA9B4 was adjusted to reference report strings and callbacks as the compiler likely did through surrounding data.",
+    "Used a wrapper struct around StageData to explain why the OSReport format string can be addressed as data adjacent to stage metadata.",
+    "Introduced temporaries such as HSD_JObj* jobj2, f32 newValue, offset, and descPtr to influence register allocation and expression ordering, a common decomp matching tactic.",
+    "Tried pointer arithmetic from an earlier data symbol plus a byte offset to reproduce callback-table addressing, which can be useful when the original object layout has not been fully separated into clean C declarations."
+  ],
+  "decomp_lessons": [
+    "For stage files, matching one function may require reconstructing adjacent data objects, strings, and table layout, not just the function body.",
+    "Directly referencing a named array such as grI1_803E48F4 may not match if the original code addressed the same memory through a different base symbol or aggregate layout.",
+    "OSReport calls often expose rodata placement and can require named file strings and format strings to match codegen and relocations.",
+    "Macro-heavy calls such as DOBJ_CLEAR_LOOP may need intermediate locals to obtain the original instruction order.",
+    "Be cautious about submitting branches with unrelated local matching experiments; this PR was closed quickly with an author note implying a failed or incomplete revert.",
+    "Because the PR was not merged, none of its tactics should be assumed accepted without retesting against current master."
+  ],
+  "naming_conventions": [
+    "Stage-local data symbols used the grI1_ prefix followed by address-like suffixes, e.g. grI1_803E48C8, grI1_803E4950, and grI1_803E49A8.",
+    "Function names followed existing stage naming such as grInishie1_801FA9B4 and grInishie1_801FBC4C.",
+    "The added wrapper typedef used a descriptive stage-scoped name, grInishie1_StageData, while preserving the embedded StageData field name stage_data.",
+    "Temporary names in the diff were pragmatic matching names such as descPtr, offset, temp, newValue, and jobj2."
+  ],
+  "assembly_or_matching_tactics": [
+    "Use of an explicit casted pointer expression: (StageCallbacks*) ((char*) grI1_803E48C8 + 0x2c) + arg0.",
+    "Replaced direct string literals in OSReport with loads from modeled data fields and separate filename string symbols.",
+    "Split complex field/macro expressions into local variables to influence load order and register usage.",
+    "Changed a normal for-loop increment into manual increment inside the loop body in grYorster_80202428.",
+    "Compared pointers through integer casts in grYorster_80202428: reading x1C through an s32 temporary and comparing item_gobj as a u32.",
+    "Introduced descriptor and offset locals in lbSnap_8001DF20 so writes and the lb_8001C4A8 call go through descPtr rather than direct global field expressions."
+  ],
+  "review_feedback": [
+    {
+      "source": "author issue comment",
+      "text": "Still haven't hard reverted. My mistake again",
+      "interpretation": "The PR likely included unwanted unreverted changes or was opened from a dirty branch; it was closed unmerged shortly after creation."
+    }
+  ],
+  "searchable_terms": [
+    "pr-2558",
+    "Match/grinishie1 801FA9B4",
+    "DavidWeaverAudio",
+    "grInishie1_801FA9B4",
+    "grinishie1.c",
     "grI1_803E48C8",
     "grI1_803E48F4",
     "grI1_803E4944",
     "grI1_803E4950",
     "grI1_803E49A8",
-    "grInishie1_StageData",
-    "report_fmt_get_gobj",
-    "StageData",
     "StageCallbacks",
-    "S16Vec3",
+    "StageData",
+    "INISHIE1",
+    "/GrI1.dat",
     "Ground_GetStageGObj",
     "HSD_GObj_SetupProc",
     "OSReport",
+    "couldn t get gobj",
     "DOBJ_CLEAR_LOOP",
+    "grInishie1_801FBC4C",
     "grYorster_80202428",
     "lbSnap_8001DF20",
-    "hard reverted",
-    "closed unmerged"
+    "closed unmerged",
+    "hard reverted"
   ],
   "follow_up_queries": [
-    "Search later PRs for grInishie1_801FA9B4 or 801FA9B4 to find the accepted match, if any.",
-    "Check current source for grI1_803E48C8, grI1_803E4950, and grInishie1_StageData to see whether the data-layout approach landed later.",
-    "Verify whether the OSReport string should be \"couldn t\" or \"couldn't\" against the original binary/string table.",
-    "If reconstructing this branch, inspect head commit d7d5b6b16c540e5ce7fa7e55d60b3a1c226eb70e for the hard-revert issue noted by the author."
+    "Check later PRs for a merged version of grInishie1_801FA9B4 to see which data-layout tactic was accepted.",
+    "Search for subsequent cleanup or revert PRs by DavidWeaverAudio around grinishie1, gryorster, or lbsnap.",
+    "Verify whether grI1_803E4950 or the grInishie1_StageData wrapper exists in current master before reusing this layout.",
+    "Compare current grYorster_80202428 and lbSnap_8001DF20 against this PR to determine whether these unrelated matching edits were ever landed elsewhere."
   ],
-  "confidence": 0.74
+  "confidence": 0.78,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

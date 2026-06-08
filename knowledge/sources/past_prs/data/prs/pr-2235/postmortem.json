@@ -11,106 +11,98 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "PR #2235 attempted to fully match ifStatus_802F6194 in src/melee/if/ifstatus.c by replacing a near-matching helper-based linked-list traversal with explicit control flow using locals, labels, and gotos. The PR body says the change was checked locally in objdiff and in decomp.me, but the PR was closed unmerged and had no review discussion in the provided slice.",
+  "summary": "PR #2235 attempted to fully match `ifStatus_802F6194` in `src/melee/if/ifstatus.c` by removing a near-match inline helper, `nth_node`, and rewriting the traversal directly inside the function with explicit temporaries, labels, and gotos. The PR body states the result matched locally in objdiff and decomp.me, but the PR was closed quickly and not merged, with no review discussion available in the slice.",
   "change_classification": {
-    "primary_type": "decompilation_matching_control_flow_rewrite",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "control-flow-shaping",
-      "helper-removal",
-      "linked-list-traversal"
+      "control-flow rewrite",
+      "helper inlining",
+      "unmerged PR"
     ],
     "systems": [
       "melee-core",
       "ifstatus",
-      "interface-status"
+      "interface/status"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/if/ifstatus.c",
-      "reason": "Only changed file; contains the removal of the nth_node helper and the rewritten ifStatus_802F6194 implementation."
-    }
+    "src/melee/if/ifstatus.c"
   ],
   "what_changed": [
-    "Removed the static inline helper nth_node that walked a linked list by n steps.",
-    "Removed the prior near-match comments for ifStatus_802F6194, including the 99.81% match note and decomp.me scratch link.",
-    "Rewrote ifStatus_802F6194 to initialize traversal from node->next_gx, then advance through gx_cur->next with explicit gx_head, gx_next, gx_cur, and i locals.",
-    "Used labeled blocks advance_node and check_done plus goto statements to express the loop shape directly.",
-    "Preserved the early return for node == NULL or n < 0 and retained the redundant-looking second node == NULL branch after that guard, likely because the matched control flow required it."
+    "Removed the static inline helper `nth_node(HSD_GObj* node, s32 n)`, which had implemented a loop over `node->next`.",
+    "Rewrote `ifStatus_802F6194(HSD_GObj* node, s32 n)` to perform the traversal directly instead of calling `nth_node`.",
+    "Renamed the main traversal temporary from a generic `gx` to separate locals: `gx_head`, `gx_next`, and `gx_cur`.",
+    "Added an explicit loop counter `s32 i` and label-based control flow using `goto check_done` and `goto advance_node`.",
+    "Changed the direct setup path to initialize from `node->next_gx`, then advance through `gx_cur->next` until `i >= n` or the current node becomes NULL.",
+    "Removed the previous near-match comments: `/// 99.81% match` and the decomp.me scratch URL `https://decomp.me/scratch/XGFpw`."
   ],
   "smart_moves": [
-    "Targeted the mismatch as a control-flow/codegen issue rather than a semantic issue: the helper version was close, but direct labels better mirrored the compiler’s branch layout.",
-    "Inlined the traversal manually instead of relying on a helper, giving more control over loop entry, loop exit, and temporary variable lifetimes.",
-    "Separated gx_head, gx_next, and gx_cur temporaries, which makes the intended dataflow of the list traversal explicit and may help reproduce register/liveness behavior.",
-    "Kept semantically redundant structure where present in the target pattern instead of over-simplifying the C, a common requirement for binary matching.",
-    "Validated the claimed match using both local objdiff and decomp.me according to the PR body."
+    "The author replaced an abstraction-friendly helper with direct control flow, which is often necessary when matching compiler output that does not preserve helper-shaped structure.",
+    "The rewrite models the compiler's likely basic-block structure explicitly with labels and gotos, avoiding a higher-level `for` loop that may produce different branch layout.",
+    "Splitting traversal state into `gx_head`, `gx_next`, and `gx_cur` gives the compiler more opportunities to allocate/registerize values in a way that matches the target binary.",
+    "The PR preserved the apparent original behavior of returning NULL for invalid input and returning the current traversal node once the requested index is reached."
   ],
   "decomp_lessons": [
-    "A semantically clean inline helper can still prevent a full match if the compiler’s expected CFG differs; for stubborn near-matches, rewrite the code to match the observed branch structure.",
-    "Explicit gotos and labels are acceptable decompilation tools when they recreate the original compiler output more faithfully than a structured for loop or helper call.",
-    "Do not remove apparently unreachable or redundant checks automatically during matching work; they can be artifacts of the original source or needed to preserve code shape.",
-    "For linked-list traversal matches, pay attention to whether the target advances from a head pointer first, checks the counter first, or checks for NULL first; small ordering differences affect assembly.",
-    "Include objective match evidence such as objdiff and decomp.me results in the PR body when submitting a matching-only change."
+    "For stubborn near-matches, especially around linked-list traversal, inline the traversal into the target function rather than relying on a helper, even a static inline helper.",
+    "When a simple loop is close but not exact, reconstruct the compiler's basic blocks with explicit labels and gotos instead of forcing structured C.",
+    "Temporaries that appear redundant in source can be important for matching instruction scheduling, register lifetimes, and branch shape.",
+    "A direct `goto`-based loop can be preferable to a `for` loop when objdiff shows a control-flow mismatch.",
+    "Keep decomp.me and objdiff verification in the PR body, but removal of scratch-match comments from source is appropriate once the function is believed to match."
   ],
   "naming_conventions": [
-    {
-      "name": "ifStatus_802F6194",
-      "lesson": "Unidentified ifstatus function kept its address-based project naming."
-    },
-    {
-      "name": "gx_head / gx_next / gx_cur",
-      "lesson": "Traversal temporaries were named to reflect head, next, and current HSD_GObj pointers."
-    },
-    {
-      "name": "advance_node / check_done",
-      "lesson": "Goto labels were named after control-flow roles rather than guessed game semantics."
-    },
-    {
-      "name": "nth_node",
-      "lesson": "The removed helper used a generic linked-list traversal name, but abstraction was dropped to satisfy matching."
-    }
+    "Traversal temporaries were named with a `gx_` prefix: `gx_head`, `gx_next`, `gx_cur`.",
+    "Labels used descriptive action/check names: `advance_node` and `check_done`.",
+    "The function retained the existing symbol name `ifStatus_802F6194`, indicating no higher-confidence semantic name was introduced in this PR."
   ],
   "assembly_or_matching_tactics": [
-    "Replace helper-based traversal with direct local control flow when a helper produces a persistent near-match.",
-    "Use an initial goto into the loop condition block to model a do/while-like or compiler-emitted loop-entry structure.",
-    "Split traversal into explicit current and next pointer variables to influence liveness and assignment order.",
-    "Return through the same gx_cur variable on both successful index completion and early NULL-list termination.",
-    "Retain branch structure that may appear redundant in source if it is needed for the binary match."
+    "Removed helper-based traversal and expanded the logic directly into `ifStatus_802F6194`.",
+    "Used explicit label/goto control flow to shape the generated CFG.",
+    "Initialized `gx_cur` from `gx_head`, then jumped to the loop condition before the first advance, matching a do/while-like lowered structure.",
+    "Advanced through `gx_cur->next` only after checking whether `gx_cur` was NULL, preserving explicit NULL-path blocks.",
+    "Used a separate `gx_next` assignment before updating `gx_cur`, likely to influence register lifetimes and emitted instruction order.",
+    "The author reported the result as matching in local objdiff and decomp.me, but the slice contains no CI or reviewer confirmation."
   ],
   "review_feedback": [
     "No issue comments, review comments, or reviews were present in the provided PR slice.",
-    "The PR was closed with merged_at null, so there is no evidence in this slice that the change landed."
+    "The PR was closed and not merged shortly after creation; the reason is not available in the provided evidence."
   ],
   "searchable_terms": [
     "pr-2235",
-    "Match ifStatus_802F6194",
-    "atlasjx",
     "ifStatus_802F6194",
-    "ifStatus_802F5EC0",
-    "ifStatus_802F61FC",
-    "src/melee/if/ifstatus.c",
     "ifstatus.c",
+    "src/melee/if/ifstatus.c",
+    "atlasjx",
+    "nth_node",
     "HSD_GObj",
     "next_gx",
     "gx_head",
     "gx_next",
     "gx_cur",
-    "nth_node",
     "advance_node",
     "check_done",
-    "goto",
+    "goto matching",
+    "helper inlining",
     "linked list traversal",
-    "control-flow rewrite",
-    "99.81% match",
-    "decomp.me",
     "objdiff",
-    "XGFpw"
+    "decomp.me",
+    "XGFpw",
+    "99.81% match",
+    "unmerged"
   ],
   "follow_up_queries": [
-    "Find later PRs that matched ifStatus_802F6194 or modified the same traversal in src/melee/if/ifstatus.c.",
-    "Search for other removed helper-based near-matches where explicit goto control flow achieved a binary match.",
-    "Check whether the same next_gx traversal pattern appears elsewhere in ifstatus or interface code."
+    "Find later PRs that matched or modified `ifStatus_802F6194` after PR #2235.",
+    "Search for uses of `next_gx` traversal in `ifstatus.c` to compare naming and control-flow patterns.",
+    "Check whether a merged PR reused the `gx_head`/`gx_next`/`gx_cur` label-based rewrite.",
+    "Investigate why PR #2235 was closed without merge if GitHub metadata or later discussion is available."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

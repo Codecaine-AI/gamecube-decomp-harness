@@ -11,15 +11,15 @@
     "merged_at": "2026-01-16T00:05:31Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched 14 functions and improved another 15 in the trophy (`ty`) module, mainly across `toy.c`, `tylist.c`, and `tyfigupon.c`. The PR added trophy data/types, unlock-state logic, list/table traversal, language-dependent trophy metadata lookup, fog/light/display helpers, and dev-text trophy UI routines. It also updated callers and headers for the changed `un_803063D4` signature and moved a Kirby extern declaration into the static header. Review focused on keeping newly known structs instead of reverting to raw `M2C_FIELD`, eliminating unnecessary casts and brittle pointer math, extracting structs where possible, justifying new struct fields, and using inlined string accesses for matching.",
+  "summary": "Matched trophy module work in the ty subsystem: the PR body says it achieved 100% matches for 14 functions and improved another 15 across toy.c, tylist.c, and tyfigupon.c. The diff adds substantial C implementations for trophy unlock/state handling, trophy data lookup, list/archive setup, fog/light callbacks, dev-text display helpers, and related ty headers/types. It also updates ifprize.c to call the new un_803063D4 signature with three arguments, and moves Kirby static data declaration for ftKb_Init_804D9570 into ftKb_Init.static.h. Review focused on preserving existing TyModeState typing, avoiding unnecessary casts, fixing pointer math, extracting/justifying structs, and using inlined string accesses.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "types-structs",
       "headers",
+      "types-structs",
       "signature-fix",
-      "cleanup"
+      "review-cleanup"
     ],
     "systems": [
       "ty",
@@ -28,7 +28,7 @@
       "tylist",
       "tyfigupon",
       "ifprize",
-      "ftKirby"
+      "fighter-kirby"
     ]
   },
   "key_files": [
@@ -45,89 +45,88 @@
     "src/melee/ft/chara/ftKirby/ftKb_Init.static.h"
   ],
   "what_changed": [
-    "Implemented previously stubbed trophy/toy functions in `src/melee/ty/toy.c`, including `un_803053C4`, `Trophy_SetUnlockState`, `un_803060BC`, `un_803062BC`, `un_80306930`, `un_80306A0C`, `un_80306C5C`, `un_80307F64`, `un_803082F8`, `un_80308328`, `un_80308354`, `un_803109A0`, `un_803114E8`, and `un_80311788` as shown in the diff excerpt.",
-    "Added trophy data lookup behavior in `un_803060BC`, selecting JP or US trophy table values depending on language settings and returning fields by numeric field index.",
-    "Added trophy unlock/update logic in `Trophy_SetUnlockState`, including choosing between the local `Toy` save-like table and `gmMainLib_8015CC78()` depending on game mode, toggling high-bit state, incrementing trophy count, clamping the low byte to `0xFF`, triggering completion behavior at count `0xFA`, and invoking related GM/trophy side effects.",
-    "Implemented list/archive setup and trophy-list handling in `tylist.c`; excerpts show archive symbol loading via `lbArchive_LoadSymbols`, `gmMainLib_8015CC78`, `gmMainLib_8015CC84`, language checks, and loops over `0x125` trophy entries.",
-    "Expanded trophy-related type information in `src/melee/ty/types.h`, including `ToyAnimState`, `ToyEntry`, `TrophyData`, and additional `Toy` fields such as `x19C`, `trophyTable[0x125]`, and `trophyCount` according to review excerpts.",
-    "Updated `ifprize.c` caller from `un_803063D4()` to `un_803063D4(0, 0, 0)` to match the new signature.",
-    "Moved `ftKb_Init_804D9570` extern from `ftKb_Init.c` into `ftKb_Init.static.h`, with only formatting/no-behavior change to the `Fighter_ChangeMotionState` call shown.",
-    "Adjusted trophy headers (`toy.h`, `tylist.h`, `tyfigupon.h`, `tydisplay.h`) to expose the new or corrected signatures/types needed by the matched code."
+    "Implemented many previously stubbed trophy/toy functions in src/melee/ty/toy.c, including visible diff examples un_803053C4, Trophy_SetUnlockState, un_803060BC, un_803062BC, un_80306930, un_80306A0C, un_80306C5C, un_80307F64, un_803082F8, un_80308328, un_80308354, un_803109A0, un_803114E8, and un_80311788.",
+    "Implemented large portions of src/melee/ty/tylist.c, including archive symbol loading and trophy list/table processing around un_803124BC and un_8031263C.",
+    "Added or expanded ty types in src/melee/ty/types.h, including TyModeState-related usage, ToyAnimState, ToyEntry, TrophyData, and additional Toy fields such as x19C, trophyTable, and trophyCount as shown in review excerpts.",
+    "Added local helper structs in toy.c such as TyViewData, TyDisplayData, and TyLightData to replace raw M2C_FIELD-style access in at least some places.",
+    "Updated ifprize.c caller un_802FE918 from un_803063D4() to un_803063D4(0, 0, 0), matching the new trophy function signature.",
+    "Moved ftKb_Init_804D9570 declaration out of ftKb_Init.c into ftKb_Init.static.h and kept ftKb_SpecialNMs_8010BC90 formatting/matching intact.",
+    "Adjusted ty headers toy.h, tylist.h, tyfigupon.h, and tydisplay.h to expose updated signatures/types needed by the matched functions.",
+    "The PR had merge conflicts before merge; maintainer requested they be resolved, and the author agreed to handle them."
   ],
   "smart_moves": [
-    "Converted some raw memory access into local structs such as `TyViewData`, `TyDisplayData`, `TyLightData`, `ToyAnimState`, `ToyEntry`, and `TrophyData`, making offsets searchable and reusable for later `ty` decomp work.",
-    "Kept trophy table traversal explicit around the known trophy count `0x125`, which documents the table size used by unlock/list logic.",
-    "Modeled trophy table entries with a sentinel `id == -1` in `TrophyData` loops, matching the data-driven lookup pattern visible in `un_803060BC` and `un_80308354`.",
-    "Updated the cross-file caller in `ifprize.c` immediately after changing `un_803063D4`'s signature, avoiding stale prototype/callsite drift.",
-    "Handled JP/US trophy table selection directly in lookup code, preserving language-dependent behavior instead of flattening the data tables.",
-    "Centralized the Kirby float data extern in the static header rather than leaving a function-local extern in `ftKb_Init.c`."
+    "Converted raw global memory accesses into named structs where evidence supported it, e.g. TyViewData for un_804D6E6C->x4 and ToyAnimState for state at un_804A26B8 + 0x3F0.",
+    "Kept trophy table logic close to original control flow, including pointer-walk loops, explicit byte offsets, gotos, and high-byte/low-byte bit manipulation, which is often necessary for matching old compiler output.",
+    "Updated call sites immediately when a matched function signature changed, preventing ifprize.c from retaining an obsolete zero-argument un_803063D4 call.",
+    "Recognized language-dependent trophy data behavior in un_803060BC by checking saved/current JP/US language settings and selecting JP or US table fields accordingly.",
+    "Used small field-specific data structs and header declarations instead of scattering anonymous externs and M2C_FIELD accesses everywhere, making later ty work more searchable.",
+    "Review pushed toward stronger struct extraction and cleaner pointer math rather than settling for cast-heavy M2C output."
   ],
   "decomp_lessons": [
-    "When matching trophy/list code, prefer extracting structs for repeated offset access instead of relying on `M2C_FIELD`; review explicitly called out reverting away from `TyModeState` as undesirable.",
-    "Pointer math in decompiled output should be revisited once table element types are known. Review requested fixing all pointer math in `tylist.c`, especially around table/list walks.",
-    "Do not keep casts just because they help an early match if the called function can be typed correctly; review questioned casts on `gmMainLib_8015CC78()` and `gmMainLib_8015CC84()` results.",
-    "New struct fields in shared headers need justification from layout, table size, access patterns, or symbol usage. Review challenged confidence for `ToyAnimState`, `TrophyData`, `trophyTable`, and `trophyCount`.",
-    "String access style can affect matching. PsiLupan requested replacing string pointer-offset accesses with the inlined string form in `tylist.c`.",
-    "For language-dependent assets, preserve both saved-language and current-setting checks; the trophy module compares JP/US setting combinations before selecting table values.",
-    "When a signature changes in a partially decompiled module, audit and update all callers, even outside the main system being worked on."
+    "When adding struct fields to a shared type like Toy, include clear justification from offsets, table size, caller behavior, or matching constraints; reviewers explicitly questioned confidence for fields like trophyTable and trophyCount.",
+    "Avoid unnecessary casts when function prototypes can be corrected instead. Review questioned casts around gmMainLib_8015CC78 and gmMainLib_8015CC84 returns.",
+    "Raw pointer math should be cleaned up file-wide once enough structure is known; review explicitly asked to fix all pointer math in tylist.c.",
+    "Do not regress known typed access back to M2C_FIELD. Review noted that tydisplay.c should not have reverted TyModeState usage.",
+    "For archive symbol names and string-table offsets, prefer the expected inlined string access pattern when matching requires it; reviewer asked to fix string accesses in tylist.c to use inlined strings.",
+    "If a decompiled expression points into a known global runtime object, try extracting a local struct instead of repeatedly using M2C_FIELD; review asked whether a struct was known or could be extracted.",
+    "Signature changes in decomp modules can cascade into unrelated callers; update all call sites in the same PR when practical.",
+    "For matching stack-copy/table-search code, preserving unusual pointer pre-decrement/pre-increment idioms and unrolled checks may be more effective than writing idiomatic loops."
   ],
   "naming_conventions": [
-    "Matched but still-unknown functions retain `un_80xxxxxx` names, e.g. `un_803053C4`, `un_803060BC`, `un_803063D4`, `un_803109A0`.",
-    "A semantically understood function was named `Trophy_SetUnlockState`, indicating trophy-specific behavior can justify promotion out of `un_` naming.",
-    "New placeholder struct fields use offset-style names such as `x0E`, `x19C`, `x20`, and `pad_18`, preserving layout while avoiding invented semantics.",
-    "Local temporary structs use module/system prefixes, e.g. `TyViewData`, `TyDisplayData`, `TyLightData`, `ToyAnimState`, `ToyEntry`, and `TrophyData`.",
-    "Header/static declaration pattern places file-local external data such as `ftKb_Init_804D9570` in `ftKb_Init.static.h`."
+    "Module prefix remains ty/toy-style with unresolved symbols kept as un_8030xxxx and globals as un_804Dxxxx/un_804Axxxx when no semantic name is established.",
+    "Semantic names were introduced only where evidence was reasonably local: TyViewData, TyDisplayData, TyLightData, ToyAnimState, ToyEntry, TrophyData, Trophy_SetUnlockState.",
+    "Struct fields largely retain offset-style names such as x0E, x0F, x10, x11, x19A, x19C when semantics are not fully known.",
+    "Header/static declarations follow project convention with address comments, e.g. /* 4D9570 */ extern f32 ftKb_Init_804D9570; in ftKb_Init.static.h.",
+    "Function prototypes preserve existing unresolved names such as un_803060BC and un_803063D4 until broader naming confidence exists."
   ],
   "assembly_or_matching_tactics": [
-    "Used explicit `goto` labels such as `check_found`, `check_found2`, `done`, and `loop` to preserve control-flow shape in trophy loops.",
-    "Used byte-offset access through `(u8*) table + byteOffset` for trophy unlock state entries when the match required byte-level address computation, though review requested cleaning pointer math where possible.",
-    "Copied a small `ToyEntry` table from `un_803B8910` onto the stack in `un_803109A0`, including pointer-walk and unrolled comparisons to reproduce generated code shape.",
-    "Added a dummy stack array in `un_803114E8` (`s32 pad[0x20]`) to force a larger stack frame, a common matching tactic when stack layout matters.",
-    "Used `M2C_FIELD` only where types were still unresolved, but review feedback indicates future work should replace it with known structs when possible.",
-    "Preserved explicit casts to function pointer types for `HSD_GObjProc_8038FD54` callbacks where required by prototype shape."
+    "Used gotos and labels such as check_found/check_found2/done to preserve original branch structure in trophy selection logic.",
+    "Used byte-offset pointer arithmetic against u16 trophy state tables to match low-byte unlock counts and high-bit flags, including xor with 0x8000.",
+    "Used explicit language-table sentinel scans with id == -1 in TrophyData arrays for un_803060BC.",
+    "Used stack table copying from un_803B8910 into ToyEntry table[9], including pointer pre-offsets and a do/while copy loop, to match un_803109A0.",
+    "Kept an artificial pad array in un_803114E8, documented as forcing a larger stack frame, indicating stack-frame shaping for match.",
+    "Used casts through byte pointers in some trophy table accesses; review feedback suggests these were matching-oriented but should be improved when better struct/table types are available.",
+    "Used inlined string-table offsets from un_803FDD18 for archive symbol loading and animation names; review indicated these string accesses needed the correct inline form.",
+    "Preserved low-level HSD object callback patterns for fog, lights, GObj procs, JObj animation removal/application, and DevText setup."
   ],
   "review_feedback": [
     {
-      "author": "itsgrimetime",
       "file": "src/melee/ty/tydisplay.c",
-      "feedback": "Do not revert known `TyModeState` accesses back to raw `M2C_FIELD`."
+      "feedback": "Do not revert typed TyModeState access back to M2C_FIELD-style access."
     },
     {
-      "author": "itsgrimetime",
       "file": "src/melee/ty/tylist.c",
-      "feedback": "Questioned whether casts around `gmMainLib_8015CC78()` / `gmMainLib_8015CC84()` were necessary."
+      "feedback": "Questioned whether casts were necessary around table getter return values."
     },
     {
-      "author": "itsgrimetime",
       "file": "src/melee/ty/tylist.c",
       "feedback": "Requested fixing all pointer math in the file."
     },
     {
-      "author": "itsgrimetime",
       "file": "src/melee/ty/tylist.c",
-      "feedback": "Asked whether an accessed object had a known struct and whether one could be extracted."
+      "feedback": "Asked whether an unknown structure could be identified and extracted instead of raw field access."
     },
     {
-      "author": "itsgrimetime",
       "file": "src/melee/ty/types.h",
-      "feedback": "Asked for justification/confidence for newly added trophy/toy structs and fields."
+      "feedback": "Asked for confidence and justification for newly introduced structs such as ToyAnimState/ToyEntry/TrophyData."
     },
     {
-      "author": "PsiLupan",
+      "file": "src/melee/ty/types.h",
+      "feedback": "Asked for justification for added Toy fields including trophyTable and trophyCount."
+    },
+    {
       "file": "src/melee/ty/tylist.c",
-      "feedback": "Requested string accesses be fixed to use the inlined string form."
+      "feedback": "Maintainer requested string accesses be fixed to use inlined strings."
     },
     {
-      "author": "PsiLupan",
       "file": "PR thread",
-      "feedback": "Asked the author to resolve merge conflicts before merging."
+      "feedback": "Maintainer requested merge conflicts be resolved before merging."
     }
   ],
   "searchable_terms": [
-    "pr-2072",
-    "feat(ty): match trophy module functions",
-    "trophy module",
-    "ty",
+    "PR2072",
+    "feat(ty)",
+    "trophy module functions",
     "toy.c",
     "tylist.c",
     "tyfigupon.c",
@@ -137,49 +136,49 @@
     "un_803060BC",
     "un_803062BC",
     "un_803063D4",
-    "un_80306930",
-    "un_80306A0C",
-    "un_80306C5C",
     "un_80307F64",
     "un_803082F8",
     "un_80308328",
     "un_80308354",
     "un_803109A0",
     "un_803114E8",
-    "un_80311788",
-    "Toy",
+    "TyModeState",
     "ToyAnimState",
     "ToyEntry",
     "TrophyData",
-    "TyModeState",
     "TyViewData",
     "TyDisplayData",
     "TyLightData",
     "trophyTable",
     "trophyCount",
-    "gmMainLib_8015CC78",
-    "gmMainLib_8015CC84",
-    "gmMainLib_8015CC90",
+    "un_804A26B8",
+    "un_804A284C",
+    "un_804D6EB4",
+    "un_804D6EC0",
+    "un_804D6EC4",
+    "un_804D6ED0",
+    "un_803FDD18",
     "lbArchive_LoadSymbols",
     "lbLang_IsSettingUS",
     "lbLang_IsSettingJP",
     "lbLang_IsSavedLanguageJP",
     "lbLang_IsSavedLanguageUS",
-    "HSD_SisLib",
-    "DevText",
+    "gmMainLib_8015CC78",
+    "gmMainLib_8015CC84",
+    "gmMainLib_8015CC90",
+    "ifprize",
+    "un_802FE918",
+    "ftKb_Init_804D9570",
     "pointer math",
-    "inlined string",
-    "M2C_FIELD",
-    "ifprize.c",
-    "ftKb_Init_804D9570"
+    "inlined string accesses",
+    "M2C_FIELD"
   ],
   "follow_up_queries": [
-    "Find later PRs that rename or further type `TrophyData`, `Toy`, `trophyTable`, or `trophyCount`.",
-    "Check whether `un_803063D4` was fully matched and named after this signature change.",
-    "Search for follow-up cleanup replacing `M2C_FIELD` in `tydisplay.c`, `toy.c`, and `tylist.c` with `TyModeState` or other structs.",
-    "Look for later PRs addressing PsiLupan's inlined string access feedback in `tylist.c`.",
-    "Audit trophy table size `0x125` and sentinel `-1` assumptions against later type definitions.",
-    "Find whether `un_803060BC` field indices 0 through 8 were later converted to an enum."
+    "Find later PRs that rename or further justify ToyAnimState, ToyEntry, TrophyData, trophyTable, or trophyCount.",
+    "Search for subsequent tylist.c cleanup around pointer math and inlined string-table access from un_803FDD18.",
+    "Check later uses of un_803063D4 to confirm its three-argument signature and whether it received a semantic name.",
+    "Search for TyModeState regressions or review comments about avoiding M2C_FIELD in tydisplay.c.",
+    "Look for later PRs matching remaining toy.c stubs around un_80305058, un_80305918, un_803062EC, un_803063D4, un_80306954, un_80306A48, un_8030813C, un_803083D8, and un_803084A0."
   ],
   "confidence": 0.86,
   "agent_runtime": {

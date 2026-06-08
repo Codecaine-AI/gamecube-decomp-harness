@@ -11,117 +11,118 @@
     "merged_at": "2026-06-06T22:42:14Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched and linked src/melee/it/items/itlinkarrow.c by switching itlinkarrow.c from NonMatching to Matching in configure.py, tightening function signatures and symbol names, reordering/reshaping code to match compiler output, and updating GALE01 symbol metadata for now-local literals, jump tables, and sdata2 constants. The decomp.dev report showed +1144 matched-code bytes, +8904 linked-code bytes, +48 matched-data bytes, and +336 linked-data bytes; it also identified itLinkArrow_802A850C as newly 100% matched and noted a small regression in unmatched vi0501::un_8031D9F8 caused by the related sdata2 ordering work.",
+  "summary": "Matched and linked src/melee/it/items/itlinkarrow.c by switching itlinkarrow from NonMatching to Matching in configure.py, renaming fn_802A81C4 to itLinkArrow_802A81C4, adjusting symbol scopes/names for local data and sdata2 constants, correcting the itLinkArrow_802A850C prototype to return bool, and applying ordering/inlining-style source changes. The decomp.dev report showed +1144 matched-code bytes, +8904 linked-code bytes, +48 matched-data bytes, +336 linked-data bytes, and a new 100% match for itLinkArrow_802A850C, with a small noted vi0501 unmatched-item regression.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "linking",
       "headers",
-      "symbol-map-maintenance",
+      "symbol-map-cleanup",
+      "function-reordering",
       "sdata2-ordering"
     ],
     "systems": [
       "item",
       "itlinkarrow",
-      "link-arrow",
-      "configure",
+      "config",
       "symbols",
-      "vi0501"
+      "vi"
     ]
   },
   "key_files": [
-    "configure.py",
-    "config/GALE01/symbols.txt",
     "src/melee/it/items/itlinkarrow.c",
     "src/melee/it/items/itlinkarrow.h",
+    "config/GALE01/symbols.txt",
+    "configure.py",
     "src/melee/vi/vi0501.c"
   ],
   "what_changed": [
-    "Changed configure.py so melee/it/items/itlinkarrow.c is built as Object(Matching, ...) instead of Object(NonMatching, ...).",
-    "Renamed the symbol and declaration at 0x802A81C4 from fn_802A81C4 to itLinkArrow_802A81C4 in symbols.txt, itlinkarrow.c, itlinkarrow.h, and an inline-related comment.",
-    "Refactored itLinkArrow_802A81C4 variable names and lookup-table indexing: it now indexes from it_803F6A84 using lookup_table[0] and lookup_table[8] rather than casting around it_803F6A28 with larger offsets.",
-    "Moved the implementation of it_802A83E0 later in itlinkarrow.c without materially changing its spawn-item initialization behavior, indicating function order/layout was part of matching/linking.",
-    "Changed itLinkArrow_802A850C return type from void to bool and returned the result of it_8026EA20 in the branch that previously called it without returning its value.",
-    "Moved itLinkArrow_Logic98_Clanked below itLinkArrow_Logic98_HitShield and preserved its behavior of calling it_802A8330 and returning true, suggesting ordering or local layout mattered.",
-    "Changed itLinkarrow_UnkMotion4_Anim's final return from a zero local to return false.",
-    "Added a small static helper sdata2_ordering in itlinkarrow.c with a volatile 0.0f local, apparently to influence floating-constant emission/order.",
-    "Added static f32 getScale() in vi0501.c returning 1.4285715f * un_804D6F80 and used it in un_8031D9F8; this made vi0501 .sdata2 reach 100% according to the bot report but slightly regressed the unmatched function score.",
-    "Updated config/GALE01/symbols.txt to convert several itlinkarrow-adjacent data labels/constants from global it_* or generic lbl_/jumptable_* names to local compiler-style names such as @263, @265, @299, @741, and ...data.0."
+    "Changed configure.py so melee/it/items/itlinkarrow.c is built as Object(Matching) instead of Object(NonMatching).",
+    "Renamed the function symbol at 0x802A81C4 from fn_802A81C4 to itLinkArrow_802A81C4 in both symbols.txt and itlinkarrow source/header declarations.",
+    "Reordered it_802A83E0 later in itlinkarrow.c and moved itLinkArrow_Logic98_Clanked after itLinkArrow_Logic98_HitShield, indicating source-order adjustments were part of matching/linking.",
+    "Added a static sdata2_ordering helper returning a volatile 0.0f in itlinkarrow.c, apparently to influence small-data/sdata2 ordering.",
+    "Changed itLinkArrow_802A850C from void to bool in itlinkarrow.c and itlinkarrow.h, and returned the bool result of it_8026EA20 from one branch.",
+    "Rewrote the itLinkArrow_802A81C4 body to use clearer locals z, temp, rand, and lookup_table, and indexed directly into it_803F6A84 rather than pointer arithmetic from it_803F6A28.",
+    "Changed itLinkarrow_UnkMotion4_Anim to return false rather than returning a local zero variable.",
+    "Updated GALE01 symbols for itlinkarrow-adjacent data: several previously global it_* or lbl_/jumptable names became local @NNN symbols, and a local ...data.0 label was added at 0x803F6A28.",
+    "In vi0501.c, introduced static getScale() returning 1.4285715f * un_804D6F80 and used it in un_8031D9F8, replacing the direct expression and removing PAD_STACK(4)."
   ],
   "smart_moves": [
-    "Used function placement/reordering rather than behavioral rewrites where the spawn helper it_802A83E0 and Clanked callback needed to land in the correct object layout.",
-    "Fixed the signature of itLinkArrow_802A850C to bool so the wrapper can directly return it_8026EA20's result, eliminating a one-byte mismatch reported as going from 99.95% to 100%.",
-    "Replaced fragile pointer arithmetic against it_803F6A28 with a clearer lookup-table base at it_803F6A84 while preserving the same angle-randomization calculation.",
-    "Introduced tiny static helpers for floating constants, including volatile-zero and getScale patterns, to control sdata2 constant ordering and emission.",
-    "Updated symbol-map scope and names for literals, jump tables, and sdata2 constants after matching, preventing misleading global it_* names for local compiler-generated objects."
+    "Used function return-type correction as a matching tactic: itLinkArrow_802A850C needed to be bool and return it_8026EA20's value, not void.",
+    "Preserved item-spawn logic while moving it_802A83E0 to the correct source/link order, avoiding behavioral churn while satisfying linker ordering.",
+    "Converted anonymous fn_802A81C4 into the subsystem-prefixed itLinkArrow_802A81C4 name, making callsites/comments easier to search and aligning with nearby itLinkArrow_* naming.",
+    "Matched data/link ordering by demoting generated symbol-map entries for local strings, jump tables, floats, and doubles to @NNN local labels instead of forcing global it_* names.",
+    "Isolated a scale expression in vi0501.c into getScale(), likely to alter codegen or sdata2 ordering without changing the arithmetic."
   ],
   "decomp_lessons": [
-    "For Melee item files, final matching may depend on function order and static/local data ordering even when behavior is already close.",
-    "When a callee returns bool, a caller declared void can hide a small mismatch; checking real return usage can be enough to close a near-100% function.",
-    "Compiler-style local labels in symbols.txt, such as @NNN and ...data.N, should replace placeholder global data names once a unit's local data layout is understood.",
-    "A small helper function can be a practical tactic to isolate or force emission of floating constants into the desired sdata2 order.",
-    "Bot reports are useful for detecting cross-unit data side effects: matching vi0501 .sdata2 improved, but un_8031D9F8 had a one-byte regression while still unmatched.",
-    "Do not infer extensive intent from this PR body: the PR had no descriptive body and no human review comments in the slice; evidence comes mainly from the diff and decomp.dev report."
+    "When an almost-matching function is off by a byte, check whether the decompiled signature should return a value; a void-vs-bool prototype mismatch can affect both codegen and header declarations.",
+    "Small helper functions can be used to control sdata2 ordering, but the evidence here only shows the added volatile-zero helper and symbol-map changes, not the full rationale.",
+    "Source order can matter for linking: moving complete functions rather than changing their logic may be enough to line up text/data layout.",
+    "Prefer direct table indexing from the real table symbol when possible; replacing broad pointer arithmetic from an earlier data address with &it_803F6A84[index] made the intent clearer while still matching.",
+    "Symbol-map cleanup is part of matching work: local constants, strings, jump tables, and labels should be represented as local @NNN/generated labels when they are not true globals.",
+    "A matching PR can include collateral improvements in nearby units to fix data ordering; here vi0501 .sdata2 reached 100%, though decomp.dev also reported a one-byte regression in un_8031D9F8."
   ],
   "naming_conventions": [
-    "Use item-specific camel-case prefixes for identified functions, e.g. itLinkArrow_802A81C4 instead of generic fn_802A81C4.",
-    "Keep unknown but address-anchored item functions as it_802A.... when no stronger semantic name is established.",
-    "Use compiler/local-style symbol names like @263, @299, @741, and ...data.0 for local strings, jump tables, and data labels rather than promoting them to global it_* names.",
-    "Header declarations should mirror corrected source signatures, including bool return types for functions that return boolean results."
+    "Use itLinkArrow_* for Link Arrow-specific functions once their ownership is known; this PR renamed fn_802A81C4 to itLinkArrow_802A81C4.",
+    "Keep address-bearing placeholder names such as it_802A83E0 when a semantic name is not yet established.",
+    "Use local @NNN symbol names in config/GALE01/symbols.txt for local strings, floats, doubles, and jump-table objects instead of promoting them to global it_* names.",
+    "The source has mixed capitalization already: itLinkArrow_* and itLinkarrow_* both appear in this slice; the PR only explicitly normalized fn_802A81C4 to itLinkArrow_802A81C4."
   ],
   "assembly_or_matching_tactics": [
-    "Changed an almost-matching function by returning it_8026EA20 directly from itLinkArrow_802A850C.",
-    "Used local helper getScale in vi0501.c to affect constant placement for 1.4285715f and complete vi0501 .sdata2 matching.",
-    "Added sdata2_ordering with a volatile f32 zero to influence floating constant ordering in itlinkarrow.c.",
-    "Adjusted source function ordering to match object layout, including moving it_802A83E0 and itLinkArrow_Logic98_Clanked.",
-    "Rebased angle lookup calculations on it_803F6A84 to match array/data access patterns.",
-    "Updated symbols.txt scope and labels for local .data, .sdata, and .sdata2 objects after matching/linking exposed the correct local symbol identities."
+    "Changed Object(NonMatching, \"melee/it/items/itlinkarrow.c\") to Object(Matching, \"melee/it/items/itlinkarrow.c\") after source adjustments.",
+    "Adjusted function order in itlinkarrow.c to match the linked object layout.",
+    "Inserted sdata2_ordering with a volatile f32 zero to affect small-data constant placement/order.",
+    "Changed direct multiplication in vi0501.c into a static getScale() helper, which decomp.dev reported helped vi0501 .sdata2 reach 100%.",
+    "Returned the result of it_8026EA20 from itLinkArrow_802A850C and updated the prototype to bool, producing a reported 100% match for that function.",
+    "Updated symbols.txt scopes for data/sdata/sdata2 constants to local labels, including @265, @269, @297, @399, @639, @696, @821, @890, and @891 in .sdata2."
   ],
   "review_feedback": [
     "No human review comments were present in the provided slice.",
-    "decomp.dev bot reported GALE01 improvements: matched code 71.51% (+0.03%, +1144 bytes), linked code 42.78% (+0.23%, +8904 bytes), matched data 41.44% (+48 bytes), linked data 35.06% (+336 bytes).",
-    "decomp.dev bot reported 2 new matches: main/melee/vi/vi0501 .sdata2 reached 100.00%, and main/melee/it/items/itlinkarrow itLinkArrow_802A850C reached 100.00%.",
-    "decomp.dev bot reported 1 regression in an unmatched item: main/melee/vi/vi0501 un_8031D9F8 changed from 98.83% to 98.76%."
+    "decomp.dev reported matched code 71.51% (+0.03%, +1144 bytes), linked code 42.78% (+0.23%, +8904 bytes), matched data 41.44% (+0.00%, +48 bytes), and linked data 35.06% (+0.03%, +336 bytes).",
+    "decomp.dev reported 2 new matches: main/melee/vi/vi0501 .sdata2 reached 100.00%, and main/melee/it/items/itlinkarrow itLinkArrow_802A850C reached 100.00%.",
+    "decomp.dev also reported 1 regression in an unmatched item: main/melee/vi/vi0501 un_8031D9F8 changed from 98.83% to 98.76%, a -1 byte regression."
   ],
   "searchable_terms": [
+    "pr-2591",
+    "Match and link itlinkarrow",
+    "PsiLupan",
     "itlinkarrow",
-    "itLinkArrow",
+    "itlinkarrow.c",
+    "itlinkarrow.h",
     "itLinkArrow_802A81C4",
     "fn_802A81C4",
     "itLinkArrow_802A850C",
     "it_802A83E0",
     "itLinkArrow_Logic98_Clanked",
     "itLinkArrow_Logic98_HitShield",
-    "itlinkarrow_inline_bool",
     "itLinkarrow_UnkMotion4_Anim",
-    "it_803F6A84",
-    "it_803F6A28",
     "sdata2_ordering",
     "getScale",
     "vi0501",
     "un_8031D9F8",
-    "configure.py Matching",
     "Object(Matching)",
-    "symbols.txt",
-    "GALE01",
-    "sdata2",
+    "Object(NonMatching)",
+    "config/GALE01/symbols.txt",
+    "it_803F6A84",
+    "it_803F6A28",
     "jumptable_803F6AEC",
     "jumptable_803F6B08",
     "Item_80268B18",
-    "SpawnItem",
     "it_8026EA20",
+    "HSD_Randf",
     "HSD_JObjSetRotationZ",
-    "HSD_Randf"
+    "sdata2",
+    "linked code"
   ],
   "follow_up_queries": [
-    "Search for other item files with void declarations around bool-returning collision helpers like it_8026EA20.",
-    "Look for remaining generic fn_ symbols in item files that can be safely renamed to item-specific prefixes after matching.",
-    "Review other near-matching item units for function-order-only mismatches and local data symbol scope cleanup.",
-    "Investigate whether vi0501::un_8031D9F8 can recover the one-byte unmatched regression while preserving the now-100% .sdata2 layout.",
-    "Find additional uses of volatile-zero or tiny static helper patterns for sdata2 ordering across the project."
+    "Find other PRs that convert item files from Object(NonMatching) to Object(Matching) in configure.py.",
+    "Search for other uses of volatile helper functions to force sdata2 ordering.",
+    "Look for void-to-bool prototype corrections that fixed one-byte item-function mismatches.",
+    "Compare Link item PRs for naming conventions around itLinkArrow, itlinkbomb, itlinkboomerang, and itlinkhookshot.",
+    "Investigate whether the vi0501 un_8031D9F8 one-byte regression was later recovered."
   ],
-  "confidence": 0.88,
+  "confidence": 0.87,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

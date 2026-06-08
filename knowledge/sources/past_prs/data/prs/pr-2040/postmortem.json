@@ -11,12 +11,12 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Attempted to match `mpLib_80053ECC_Floor` in the map/collision library by rewriting its predecessor-floor traversal loop into an explicit goto/label structure for codegen. The PR body also claims `mpisland.h` signatures were updated from `UNK_RET`/`UNK_PARAMS` to typed signatures, but the provided changed-file metadata and diff excerpt only show edits to `src/melee/mp/mplib.c`. The PR was closed unmerged after the author noted recently merged changes affected the match percentage and that the work needed rework.",
+  "summary": "Closed-unmerged mpLib matching attempt for `mpLib_80053ECC_Floor`. The visible diff rewrote the floor-line traversal loop in `src/melee/mp/mplib.c` from a structured `while (true)` loop into explicit `goto` labels, with hoisted locals, to improve codegen. The PR body also claimed mpisland.h signature cleanup from `UNK_RET`/`UNK_PARAMS` to proper types, but the provided changed-file slice only shows `mplib.c`, so that header change is not evidenced in the diff excerpt. The author later noted recently merged changes affected the match percent and that the PR needed rework; the PR was closed without merge.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "control-flow",
+      "control-flow-rewrite",
       "types-structs",
       "closed-unmerged"
     ],
@@ -27,87 +27,81 @@
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/mp/mplib.c",
-      "reason": "Only changed file in the provided PR metadata; contains the rewrite of `mpLib_80053ECC_Floor` from a structured `while (true)` loop to explicit labels/gotos."
-    },
-    {
-      "path": "src/melee/mp/mpisland.h",
-      "reason": "Mentioned in the PR title/body as having signature updates from placeholders to proper types, but not present in the provided changed-files list or diff excerpt, so this claim is weakly evidenced."
-    }
+    "src/melee/mp/mplib.c"
   ],
   "what_changed": [
-    "`mpLib_80053ECC_Floor(int line_id, Vec* vec)` was rewritten to use `goto loop_entry`, `loop_start`, and `loop_entry` labels instead of a `while (true)` loop with `break`.",
-    "The traversal still follows `groundCollLine[line_id].x0->prev_id0` while the previous line exists and has `CollLine_Floor` set.",
-    "Local declarations were adjusted: `new_id` was moved out of the loop and `shifted` was introduced before `CollVtx* temp_r3`.",
-    "The PR body says `mpisland.h` function signatures were updated from `UNK_RET`/`UNK_PARAMS` placeholders to proper types, but that header change is not visible in the supplied diff excerpt."
+    "`mpLib_80053ECC_Floor(int line_id, Vec* vec)` was modified in `src/melee/mp/mplib.c`.",
+    "The loop walking `groundCollLine[line_id].x0->prev_id0` while the previous line is a floor line was rewritten from `while (true)` plus `break` into explicit `goto loop_entry` / `loop_start` labels.",
+    "Local declarations `int shifted;` and `int new_id;` were hoisted to function scope before `CollVtx* temp_r3;`.",
+    "A new assignment `shifted = line_id << 3;` was introduced before loading `new_id`, presumably to influence register/temporary codegen; the provided hunk does not show subsequent use.",
+    "The core condition remained `new_id != -1` and `groundCollLine[new_id].flags & CollLine_Floor`, followed by updating `line_id = new_id` when continuing.",
+    "The PR body says mpisland.h signatures were updated away from `UNK_RET`/`UNK_PARAMS`, but no mpisland.h diff is present in the supplied slice."
   ],
   "smart_moves": [
-    "Used explicit labels and gotos to mimic compiler-emitted loop shape rather than preserving nicer C control flow, a common matching tactic when structured loops produce different branch layout.",
-    "Pulled `new_id` into outer scope so it can participate in the label-based loop without redeclaration at the loop entry point.",
-    "Kept existing safety/debug checks via `LINEID_CHECK(4448, line_id)` before traversal and `LINEID_CHECK(4453, line_id)` after traversal, preserving the function’s validation structure.",
-    "Documented the intended validation: build passes with `ninja` and `mpLib_80053ECC_Floor` matched 100% on decomp.me at the time of submission."
+    "Used explicit labels and gotos to reproduce compiler loop shape where a natural C `while` form did not produce the desired assembly.",
+    "Hoisted `new_id` out of the loop body declaration, which can affect stack/register allocation and lifetime in ways useful for matching.",
+    "Preserved `LINEID_CHECK(4448, line_id)` before traversal and `LINEID_CHECK(4453, line_id)` after selecting the final floor line, avoiding semantic drift while tuning codegen.",
+    "Kept the previous-line traversal predicate readable despite goto restructuring: follow `prev_id0` only when the referenced collision line exists and has `CollLine_Floor`."
   ],
   "decomp_lessons": [
-    "For matching loops that walk collision adjacency data, explicit goto-based loop reconstruction may be required when a natural `while` loop does not reproduce the target branch layout.",
-    "Control-flow matching can be fragile across nearby merges; the author later reported that recently merged changes affected the function’s match percentage.",
-    "When claiming header/signature cleanup, make sure the changed-files list and diff actually include the relevant header, or reviewers/future agents cannot verify the type work from the PR slice.",
-    "Keep line-ID validation macros in their original relative positions when refactoring matching code around collision line traversal."
+    "For mwcc-era matching, structured loops may need to be lowered manually to `goto` labels to match branch layout and variable lifetimes.",
+    "Moving a loop-local temporary such as `new_id` to function scope can be a legitimate matching tactic, especially when the generated code is sensitive to declaration placement.",
+    "Adding an apparently redundant temporary computation like `shifted = line_id << 3` should be treated as a codegen tactic and verified against later uses in the full function before cleanup.",
+    "Match claims in PR text can become stale after nearby merges; rely on current bot output and final PR status when archiving matching progress.",
+    "If a PR title/body mentions header signature cleanup, verify the changed files include the header before recording it as an actual merged change."
   ],
   "naming_conventions": [
-    "`mpLib_80053ECC_Floor` follows the project’s decomp naming pattern of subsystem prefix `mpLib`, address-like identifier, and semantic suffix `_Floor`.",
-    "`mpLib_80053DA4_Floor` appears adjacent in the diff context and uses the same `_Floor` suffix convention.",
-    "Collision structures and constants shown include `CollVtx`, `groundCollLine`, `CollLine_Floor`, and `LINEID_CHECK`.",
-    "Placeholder signature names mentioned in the PR body use `UNK_RET` and `UNK_PARAMS`, which should be replaced with concrete return and parameter types once known."
+    "`mpLib_80053ECC_Floor` follows the project convention of retaining address-bearing decomp names with subsystem prefix `mpLib` and semantic suffix `_Floor`.",
+    "Collision traversal identifiers in this slice include `line_id`, `new_id`, `groundCollLine`, `prev_id0`, and `CollLine_Floor`.",
+    "`LINEID_CHECK` callsites carry source-line-like numeric constants, here `4448` before traversal and `4453` after traversal.",
+    "The PR body references replacing generic placeholders `UNK_RET` and `UNK_PARAMS` with proper signatures for mpisland.h, but that change is not present in the visible diff."
   ],
   "assembly_or_matching_tactics": [
-    "Replace a structured `while (true)`/`break` loop with `goto loop_entry` and `goto loop_start` to force a specific loop entry and backedge shape.",
-    "Declare loop-carried variables such as `new_id` before labels to avoid C scoping that prevents goto-based reconstruction.",
-    "Introduce temporaries such as `shifted = line_id << 3` when needed to influence register allocation or address computation, though the provided excerpt does not show how `shifted` is later used.",
-    "Preserve exact condition ordering: first check `new_id != -1`, then test `groundCollLine[new_id].flags & CollLine_Floor` before updating `line_id`."
+    "Replaced `while (true)`/`break` with `goto loop_entry`, `loop_start:`, and `goto loop_start` to control exact loop-entry and back-edge shape.",
+    "Declared `shifted` and `new_id` before the first statement rather than inside the loop to alter variable lifetime/register allocation.",
+    "Inserted `shifted = line_id << 3;` before reading `groundCollLine[line_id].x0->prev_id0`, likely to match an index-scaling operation emitted by the original compiler.",
+    "The decomp.dev bot reported an improvement for `main/melee/mp/mplib` / `mpLib_80053ECC_Floor` from 89.53% to 94.89% with `+16` bytes, while the PR body claimed 100% on decomp.me; the later author comment says match percentage was affected by recent merges."
   ],
   "review_feedback": [
-    {
-      "source": "author issue comment",
-      "feedback": "The author said they needed to rework the PR because recently merged changes affected its match percentage and planned to switch it to draft.",
-      "impact": "Explains why the PR was closed unmerged and highlights that the submitted match was not stable against current master."
-    },
-    {
-      "source": "review metadata",
-      "feedback": "No formal review comments or reviews were present in the provided slice.",
-      "impact": "There is no reviewer guidance beyond the author's own note."
-    }
+    "No formal review comments were present in the supplied slice.",
+    "decomp.dev bot reported one unmatched-function improvement: `mpLib_80053ECC_Floor` from 89.53% to 94.89%.",
+    "Author follow-up: the PR likely needed rework because recently merged changes affected its match percentage, and the author planned to switch it to draft."
   ],
   "searchable_terms": [
     "pr-2040",
+    "itsgrimetime",
+    "mp",
+    "mpLib",
+    "mplib.c",
     "mpLib_80053ECC_Floor",
     "mpLib_80053DA4_Floor",
-    "mplib.c",
     "mpisland.h",
     "UNK_RET",
     "UNK_PARAMS",
     "LINEID_CHECK",
-    "CollVtx",
     "groundCollLine",
-    "prev_id0",
+    "CollVtx",
     "CollLine_Floor",
+    "prev_id0",
     "line_id",
     "new_id",
     "shifted",
     "goto loop_entry",
     "loop_start",
-    "loop-based matching",
     "floor collision",
-    "decomp.me 100%",
+    "decomp.dev",
+    "decomp.me",
+    "89.53",
+    "94.89",
     "closed unmerged"
   ],
   "follow_up_queries": [
-    "Find the later PR or commit that successfully matched `mpLib_80053ECC_Floor` after the merged changes affected this attempt.",
-    "Inspect whether `mpisland.h` signature updates were moved to another PR, since they are mentioned here but not visible in the supplied changed-files metadata.",
-    "Compare current `src/melee/mp/mplib.c` implementation of `mpLib_80053ECC_Floor` against this goto-based attempt to see which matching tactic survived.",
-    "Search for other `mpLib_*_Floor` functions using `groundCollLine[line_id].x0->prev_id0` to reuse the traversal pattern."
+    "Find later PRs by itsgrimetime or branch `subdirs/mp` that reworked or merged `mpLib_80053ECC_Floor`.",
+    "Search for subsequent changes to `src/melee/mp/mplib.c` around `mpLib_80053ECC_Floor` to see the final matching structure.",
+    "Search for actual `mpisland.h` signature updates replacing `UNK_RET` or `UNK_PARAMS`, since this PR's visible diff does not include that header.",
+    "Compare current match status for `main/melee/mp/mplib` `mpLib_80053ECC_Floor` against the bot-reported 94.89% from this closed PR."
   ],
-  "confidence": 0.82,
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

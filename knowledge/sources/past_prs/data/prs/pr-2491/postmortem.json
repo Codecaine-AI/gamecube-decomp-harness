@@ -11,25 +11,22 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed, unmerged PR that attempted to make `src/melee/gr/grheal.c` fully matching. It implemented the remaining `grheal` stage functions/data, moved required shared data typing into `grheal.h`, and flipped `configure.py` from `Object(NonMatching, \"melee/gr/grheal.c\")` to `Object(Matching, \"melee/gr/grheal.c\")`. The PR body reports `python configure.py && ninja`, `main.dol: OK`, and `main/melee/gr/grheal: 100.0% fuzzy, 34/34 matched`; the decomp.dev bot reported seven new matches including `grHeal_8021F180`, `grHeal_8021F70C`, `.data`, `.rodata`, `.sbss`, `.sdata`, and a final byte for `grHeal_8021EFEC`. The dump does not explain why it was closed without merge.",
+  "summary": "Attempted to finish matching `src/melee/gr/grheal.c`, moving `grheal.c` from NonMatching to Matching in `configure.py`, adding missing data/struct declarations, and replacing several nonmatching stubs with matched C. The PR claimed `main/melee/gr/grheal` reached 100.0% fuzzy with 34/34 matched, but the PR was closed unmerged. Discussion indicates a linking or matching issue was noticed and then addressed locally, but final merge evidence is absent.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "stage",
-      "ground",
-      "headers",
+      "decomp-matching",
+      "stage-code",
       "data-layout",
-      "build-config",
-      "tooling-verification",
-      "closed-unmerged"
+      "headers",
+      "build-configuration",
+      "unmerged-pr"
     ],
     "systems": [
-      "grheal",
       "stage",
       "ground",
-      "repo-root/configure.py",
-      "items",
-      "mpLib"
+      "grheal",
+      "configure"
     ]
   },
   "key_files": [
@@ -38,46 +35,60 @@
     "src/melee/gr/grheal.h"
   ],
   "what_changed": [
-    "`configure.py` reclassified `melee/gr/grheal.c` from `NonMatching` to `Matching`.",
-    "`src/melee/gr/grheal.c` replaced the nonmatching marker for `grHeal_8021F180` with a full implementation that animates the stage object, periodically creates a coin position, calls ground line/item helpers, attaches next-player/player model JOBJs, installs `mpJointSetCb1`, and resets `gp->gv.flatzone2.xC4`.",
-    "`grHeal_8021F70C` was rewritten into a matching character-id-to-frame lookup with explicit `goto` labels, a special case mapping character id `0x13` to `0x12`, and an `OSReport` fallback using the module's stored report format string.",
-    "`grHeal_8021EFEC` was adjusted to derive callbacks via the contiguous data block offset and to use the stored `grHeal_803E84C4.report_fmt_get_gobj` plus `grHeal_803E851C` filename string instead of direct string literals.",
-    "Stage data was remodeled with local structs `grHeal_UnkVec4`, `grHeal_DataBlock`, and `grHeal_StageData`, plus `STATIC_ASSERT` checks for `0x190` and `0x58` layouts.",
-    "Data definitions were exposed or added for `grHeal_803B84A8`, `grHeal_803E83B8`, `grHeal_803E8454`, `grHeal_803E84C4`, `grHeal_803E851C`, `grHeal_804D49D8`, `grHeal_804D49E0`, and `grHeal_804D6AF0`.",
-    "`src/melee/gr/grheal.h` added `grHeal_UnkData { s32 x0; s32 x4; }` and an extern declaration for `grHeal_UnkData* grHeal_804D6AF0[2]`."
+    "`configure.py` changed `Object(NonMatching, \"melee/gr/grheal.c\")` to `Object(Matching, \"melee/gr/grheal.c\")`.",
+    "`grHeal_8021F180` was implemented, including coin spawning setup, next-player JObj lookup, player JObj lookup, animation/model setup calls, and `mpJointSetCb1` callback registration.",
+    "`grHeal_8021F70C` was rewritten into a goto-based loop over the character-id table, including special-casing character id `0x13` to `0x12` and reporting when a next-player entry is not found.",
+    "Several file-local data declarations were made non-static or restructured: `grHeal_803E83B8`, `grHeal_803E8454`, `grHeal_803E84C4`, `grHeal_803E851C`, `grHeal_803B84A8`, `grHeal_804D49D8`, `grHeal_804D49E0`, and `grHeal_804D6AF0`.",
+    "Added local layout structs in `grheal.c`: `grHeal_UnkVec4`, `grHeal_DataBlock`, and `grHeal_StageData`, with `STATIC_ASSERT` size checks for `grHeal_DataBlock` and `grHeal_StageData`.",
+    "Moved the unknown data type needed outside the C file into `grheal.h` as `typedef struct grHeal_UnkData { s32 x0; s32 x4; } grHeal_UnkData;` and declared `extern grHeal_UnkData* grHeal_804D6AF0[2];`.",
+    "Replaced direct string literals in some calls with data-backed references, such as using `grHeal_803E84C4.report_fmt_get_gobj`, `grHeal_803E851C`, and `grHeal_804D49E0` for `OSReport`/`__assert` callsites.",
+    "Added includes for dependencies used by the matched code, including `if/textlib.h`, `it/items/itcoin.h`, and `mp/mplib.h`."
   ],
   "smart_moves": [
-    "Modeled a contiguous module data region as typed structs with `STATIC_ASSERT`, making offset-sensitive references to callbacks, stage data, filenames, and report strings more readable while preserving matching layout.",
-    "Converted raw byte string data into named string-backed objects, including `grHeal_803E851C` with embedded NUL padding and `SDATA char grHeal_804D49E0[] = \"gobj\"`, which helps match literal placement for `OSReport` and `__assert` callsites.",
-    "Kept the compiler-facing control flow in `grHeal_8021F70C` intentionally unstructured with labels and gotos instead of a cleaner loop, prioritizing branch-shape matching.",
-    "Typed the old anonymous `yaku`/extern usage as `grHeal_UnkData* grHeal_804D6AF0[2]` so accesses became field loads like `grHeal_804D6AF0[0]->x0` and `x4`.",
-    "Used decomp.dev and local build verification before claiming the unit was matching: the body cites `main.dol: OK` and `34/34 matched`."
+    "Modeled contiguous rodata/data as explicit aggregate structs so format strings and `StageData` fields could be referenced through the same base address, matching compiler access patterns.",
+    "Used `STATIC_ASSERT` on reconstructed data-block structs to lock in expected binary layout sizes and reduce the risk of silent padding/layout drift.",
+    "Converted the next-player character search into a goto-shaped loop, preserving the decompiler/compiler control-flow shape needed for matching.",
+    "Introduced an SDATA string symbol `grHeal_804D49E0[] = \"gobj\"` and reused it for assertions instead of repeated direct string literals.",
+    "Kept the unknown ground data shape minimal in the public header (`x0`, `x4`) rather than over-naming fields without evidence."
   ],
   "decomp_lessons": [
-    "For stage modules with packed data followed by callbacks, stage metadata, and diagnostic strings, a named aggregate data-block struct can be cleaner and safer than raw pointer arithmetic, as long as sizes are asserted.",
-    "String literal placement can be decisive for matching: sometimes the correct representation is a global char array with embedded NUL padding or an `SDATA` symbol rather than a direct literal at each callsite.",
-    "Do not simplify loops too early when matching PowerPC output; explicit labels, staged variable loads, and gotos may be necessary to reproduce the original control flow.",
-    "When flipping a file from `NonMatching` to `Matching`, verify both code and data sections; this PR's reported wins included `.data`, `.rodata`, `.sbss`, and `.sdata`, not just functions.",
-    "Header exports should be limited to required cross-file declarations; here only `grHeal_UnkData` and `grHeal_804D6AF0` moved to `grheal.h`, while stage-local layout helpers stayed in `grheal.c`."
+    "For stage files with adjacent tables, callbacks, `StageData`, filenames, and format strings, matching may require reconstructing the full contiguous data layout rather than treating each symbol as an independent object.",
+    "Direct string references can be a matching hazard when the original code addresses strings through a packed data block; using a struct overlay can reproduce those accesses.",
+    "Header moves should be limited to data needed cross-file. In this PR, only `grHeal_UnkData` and `grHeal_804D6AF0` were exposed in `grheal.h`; most matching-only layout helpers stayed local to `grheal.c`.",
+    "Goto labels and explicit temporaries such as `base`, `entry`, and `value` can be acceptable decomp tactics when they preserve loop structure for a match.",
+    "When flipping a file to `Object(Matching, ...)`, verify both matching output and linking/build behavior; the author comment suggests an initial linking or non-100% issue was caught after opening."
   ],
   "naming_conventions": [
-    "Stage functions and data use the module prefix `grHeal_` followed by address-style suffixes, e.g. `grHeal_8021F180`, `grHeal_8021F70C`, `grHeal_803E83B8`, and `grHeal_804D6AF0`.",
-    "Unknown but module-specific structs were named with the stage prefix and descriptive placeholders: `grHeal_UnkData`, `grHeal_UnkVec4`, `grHeal_DataBlock`, and `grHeal_StageData`.",
-    "Unknown fields retained neutral names such as `x0` and `x4`; intentionally unused stack locals were marked with `UNUSED` and names like `reserved_next_jobj` / `reserved_player_jobj`.",
-    "Float literals were normalized to uppercase suffix style in touched callsites, e.g. `10.0F`, `20.0F`, and `0.0F`."
+    "Stage-specific unknown structs used the `grHeal_` prefix, e.g. `grHeal_UnkVec4`, `grHeal_DataBlock`, `grHeal_StageData`, and `grHeal_UnkData`.",
+    "Unverified fields retained placeholder names such as `x0`, `x4`, `unused`, and `reserved_*` rather than speculative semantic names.",
+    "Global symbols kept address-based names such as `grHeal_803E83B8`, `grHeal_803E8454`, `grHeal_803E84C4`, `grHeal_803E851C`, `grHeal_804D49D8`, and `grHeal_804D6AF0`.",
+    "Local variables in the newly matched function used descriptive but conservative names such as `coin_pos`, `next_players`, `next_jobjs`, `player_jobjs`, `next_count`, `line_id`, and `next_idx`."
   ],
   "assembly_or_matching_tactics": [
-    "`grHeal_8021F70C` uses `loop_start`, `loop_check`, `loop_compare`, and `loop_done` labels to match the original branch structure.",
-    "A `base = grHeal_803E83B8` pointer is reused for both lookup data and casted access to `((grHeal_DataBlock*) base)->report_fmt_not_found_next_player`, preserving the original data-block-relative reference.",
-    "`grHeal_8021EFEC` computes callbacks as `(StageCallbacks*) ((char*) grHeal_803E83B8 + 0x9C) + idx` rather than directly indexing `grHeal_803E8454`, indicating the compiler/addressing wanted a contiguous-base offset.",
-    "`grHeal_8021F180` includes reserved unused `HSD_JObj*` locals, likely to preserve stack layout while matching the decompiled function.",
-    "The first 0x1A model joint ids are read through `((s16*) grHeal_803E83B8)[i]`, reusing the packed data array instead of a separate typed symbol.",
-    "`__assert` callsites use the stored filename `grHeal_803E851C` and the small-data `gobj` symbol `grHeal_804D49E0` to match literal references."
+    "Changed `grHeal_803E83B8` from a static table into a base symbol used for pointer arithmetic and struct-overlay access.",
+    "Used `(StageCallbacks*) ((char*) grHeal_803E83B8 + 0x9C) + idx` instead of directly indexing `grHeal_803E8454`, implying the matched code expected a single contiguous base-relative access.",
+    "Used `((grHeal_DataBlock*) base)->report_fmt_not_found_next_player` to reference the report string from the table base in `grHeal_8021F70C`.",
+    "Replaced high-level `while` logic in `grHeal_8021F70C` with explicit labels `loop_start`, `loop_check`, `loop_compare`, and `loop_done` to match branch structure.",
+    "Used float literal casing/style changes such as `10.0F`, `20.0F`, and `0.0F`, likely to match project style or compiler output.",
+    "Used `UNUSED` locals for reserved JObj slots in `grHeal_8021F180`, preserving stack/local layout without inventing behavior."
   ],
   "review_feedback": [
-    "Author self-review on `grHeal_8021F70C`: \"ah actually I missed this - will try to massage this into a direct string reference\"; the final diff uses the named `report_fmt_not_found_next_player` field instead of a raw `(char*) base + 0x170` expression.",
-    "Author issue comment after early matching/linking concern: \"oh i thought I had it 100% matching ill remove the linking or fix\".",
-    "Author later commented \"ayy there we go\", consistent with resolving the matching/linking issue, but the dump provides no maintainer review and no reason for the PR being closed unmerged."
+    {
+      "source": "review_comment",
+      "file": "src/melee/gr/grheal.c",
+      "comment": "Author noted: \"ah actually I missed this - will try to massage this into a direct string reference\" on the `grHeal_8021F70C` hunk.",
+      "lesson": "String/data references in `grHeal_8021F70C` were still under scrutiny; matching may depend on whether the report format is addressed directly or via a data-block/base pointer."
+    },
+    {
+      "source": "issue_comment",
+      "comment": "Author said: \"oh i thought I had it 100% matching ill remove the linking or fix\".",
+      "lesson": "The PR likely had a late-discovered matching or linking problem despite the initial 100% claim."
+    },
+    {
+      "source": "issue_comment",
+      "comment": "Author later said: \"ayy there we go\".",
+      "lesson": "There is evidence the author believed the issue was fixed, but the PR remained closed with no merge timestamp."
+    }
   ],
   "searchable_terms": [
     "pr-2491",
@@ -88,47 +99,49 @@
     "grHeal_8021EFEC",
     "grHeal_8021F4E8",
     "grHeal_8021F628",
-    "grHeal_803B84A8",
     "grHeal_803E83B8",
     "grHeal_803E8454",
     "grHeal_803E84C4",
     "grHeal_803E851C",
+    "grHeal_803B84A8",
     "grHeal_804D49D8",
     "grHeal_804D49E0",
     "grHeal_804D6AF0",
-    "grHeal_UnkData",
-    "grHeal_UnkVec4",
     "grHeal_DataBlock",
     "grHeal_StageData",
+    "grHeal_UnkVec4",
+    "grHeal_UnkData",
     "StageCallbacks",
     "StageData",
-    "HEAL",
-    "/GrHe.dat",
-    "report_fmt_get_gobj",
-    "report_fmt_not_found_next_player",
-    "Not found Next Player",
-    "gobj",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "main.dol OK",
-    "34/34 matched",
-    "100.0% fuzzy",
     "Ground_801C49F8",
+    "Ground_GetStageGObj",
     "Ground_801C3FA4",
     "Ground_801C2D24",
     "Ground_801C5840",
+    "grAnime_801C8138",
+    "grAnime_801C7FF8",
+    "mpJointSetCb1",
     "it_802F2094",
     "un_80304A58",
-    "mpJointSetCb1",
-    "fn_8021F4C0",
-    "gm_80473A18",
-    "HSD_JObjReparent"
+    "OSReport",
+    "__assert",
+    "Not found Next Player",
+    "direct string reference",
+    "Object(Matching, \"melee/gr/grheal.c\")"
   ],
   "follow_up_queries": [
-    "Why was PR #2491 closed without merge despite the reported `main.dol: OK` and `34/34 matched` result?",
-    "Was `src/melee/gr/grheal.c` later matched or merged through another PR, and did it reuse this `grHeal_DataBlock` layout?",
-    "Can `grHeal_UnkData.x0` and `x4` be renamed once the return type/data from `Ground_801C49F8` is better understood?",
-    "Can the address-named packed data arrays in `grheal` be split into more semantic externs without regressing matching?"
+    "Check whether a later PR merged the `grheal.c` match after this closed attempt.",
+    "Search for final accepted handling of `grHeal_803E83B8` and whether the packed `grHeal_DataBlock` overlay survived review.",
+    "Compare later `grHeal_8021F70C` code to see if the report string became a direct reference or remained base-relative.",
+    "Verify whether `grHeal_804D6AF0` is ultimately an array of two pointers or a single pointer in the accepted code."
   ],
-  "confidence": 0.86
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

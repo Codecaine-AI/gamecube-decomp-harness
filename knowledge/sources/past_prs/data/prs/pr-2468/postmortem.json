@@ -11,143 +11,108 @@
     "merged_at": "2026-05-08T22:37:20Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large one-file texpdag decomp PR. It replaced placeholder markers for HSD_TExpMakeDag, SimplifySrc, SimplifyThis, and SimplifyByMerge with substantial C implementations, added required debug/assert support and static .sdata, and made small matching-oriented edits in order_dag and make_full_dependancy_mtx. decomp.dev reported make_full_dependancy_mtx became a 100% match and several previously-unmatched functions improved, but HSD_TExpSchedule regressed by 1 byte and overall matched code dipped slightly.",
+  "summary": "Large texpdag.c decompilation PR that replaced several placeholder asm stubs with C for HSD texture-expression DAG construction and simplification logic. The main additions were HSD_TExpMakeDag, SimplifySrc, SimplifyThis, and SimplifyByMerge, plus small matching-oriented fixes in order_dag and make_full_dependancy_mtx. The decomp.dev bot reported one new full match for make_full_dependancy_mtx and partial progress on four previously unmatched texpdag items, but also a tiny HSD_TExpSchedule regression.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "partial-decompilation",
+      "function-decompilation",
       "matching-improvement",
-      "texture-expression-dag",
-      "tev-simplification",
-      "graph-dependency-scheduling",
-      "minor-match-regression"
+      "asm-stub-replacement",
+      "texture-expression-DAG",
+      "TEV-simplification"
     ],
     "systems": [
-      "src",
-      "sysdolphin",
-      "baselib",
+      "src/sysdolphin/baselib",
       "texpdag",
       "HSD_TExp",
-      "GX/TEV"
+      "TEV"
     ]
   },
   "key_files": [
     {
       "path": "src/sysdolphin/baselib/texpdag.c",
-      "role": "Only changed file; gained C for texture expression DAG construction and simplification helpers, plus matching nudges in existing DAG scheduling/dependency code.",
-      "notable_symbols": [
-        "HSD_TExpMakeDag",
-        "SimplifySrc",
-        "SimplifyThis",
-        "SimplifyByMerge",
-        "make_full_dependancy_mtx",
-        "order_dag",
-        "HSD_TExpSchedule"
-      ]
+      "role": "Only changed file; gained 1011 lines and removed 12, replacing texpdag placeholders and adjusting nearby matching-sensitive code."
     }
   ],
   "what_changed": [
-    {
-      "symbol": "HSD_TExpMakeDag",
-      "details": "Replaced the placeholder with a C implementation that asserts the root is HSD_TE_TEV, walks color and alpha TEV inputs to collect unique HSD_TExp nodes, initializes distance storage, calls CalcDistance, sorts by distance, and fills HSD_TExpDag entries with idx, tev, nb_ref, nb_dep, and depend links."
-    },
-    {
-      "symbol": "HSD_TEXP_MAX_NUM and HSD_ASSERT",
-      "details": "Added static int HSD_TEXP_MAX_NUM = 20 and included baselib/debug.h so the new DAG-building code can use HSD_ASSERT with original-looking line constants."
-    },
-    {
-      "symbol": "order_dag",
-      "details": "Changed bitmask temporaries new_available, blocked, and dep_bits from int to u32 and introduced temporary pointer locals sp8, spC, and sp10 before recursive calls, apparently to steer stack/register allocation for matching."
-    },
-    {
-      "symbol": "make_full_dependancy_mtx",
-      "details": "Adjusted local assignment order by computing flag = 1 << j and preserving old/full[j] before the inner loop; decomp.dev reported this item moved from 98.83% to 100.00%."
-    },
-    {
-      "symbol": "SimplifySrc",
-      "details": "Replaced the placeholder with C that recursively simplifies child TEV expressions, clears sources whose child op is 0xFF, forwards simple GX_TEV_ADD sources when inputs/bias/scale allow it, and maintains HSD_TExpRef/HSD_TExpUnref plus texture/raster resource fields."
-    },
-    {
-      "symbol": "SimplifyThis",
-      "details": "Added an iterative local simplifier that resets unused tex/ras resources, drops unused color or alpha operations when refs are zero, simplifies TEV op cases based on HSD_TE_0/HSD_TE_1 inputs, clears arguments, and repeats until no changes remain."
-    },
-    {
-      "symbol": "SimplifyByMerge",
-      "details": "Added an iterative merge pass that folds compatible child TEV expressions into the parent for color and alpha paths, handling op/bias/scale/clamp compatibility, texture/channel resource conflicts, swaps, and reference counts."
-    },
-    {
-      "symbol": ".sdata helpers",
-      "details": "Added HSD_TExpDag_804D5FF8 = 0x7FF00 and HSD_TExpDag_804D5FFC = NULL, then used them through CLEAR_ARG-style stores to reset HSD_TEArg values in a matching-friendly way."
-    }
+    "Included baselib/debug.h so the new C implementations could use HSD_ASSERT.",
+    "Implemented HSD_TExpMakeDag, which walks TEV color and alpha inputs, collects unique child HSD_TExp nodes, computes distances with CalcDistance, sorts expressions by distance, and fills HSD_TExpDag entries including idx, tev pointer, depend list, nb_dep, and nb_ref.",
+    "Changed HSD_TEXP_MAX_NUM into a static int initialized to 20 for use by HSD_TExpMakeDag bounds assertions.",
+    "Implemented SimplifySrc, recursively simplifying referenced TEV sources, replacing disabled sources with a canonical cleared HSD_TEArg pattern, forwarding simple GX_TEV_ADD pass-through sources, and preserving/refcounting texture and raster resource state where allowed.",
+    "Added static data symbols HSD_TExpDag_804D5FF8 and HSD_TExpDag_804D5FFC used as the cleared HSD_TEArg bit pattern and null expression pointer.",
+    "Added helper macros CLEAR_ARG, BIAS_TO_INT, INT_TO_BIAS, and RESOURCE_CONFLICT for simplification code.",
+    "Implemented SimplifyThis, which repeatedly canonicalizes a single TEV expression by finding texture/raster argument usage, clearing unused tex/chan resources, simplifying color and alpha operations, and removing zero-input or redundant arguments.",
+    "Implemented SimplifyByMerge, which repeatedly merges compatible child TEV expressions into a parent when operations, bias, clamp, resource usage, and argument selectors allow it.",
+    "Adjusted order_dag local types from signed int to u32 for bitset variables new_available, blocked, and dep_bits, and introduced temporary pointer locals sp8, spC, and sp10 before recursive calls to improve matching.",
+    "Adjusted make_full_dependancy_mtx variable ordering/lifetime by separating flag, old, and bits handling; bot reported this brought make_full_dependancy_mtx to 100%."
   ],
   "smart_moves": [
-    "Kept the change concentrated in src/sysdolphin/baselib/texpdag.c, making it easy to attribute the decomp.dev report to one unit.",
-    "Used exact-width types for bitset logic in order_dag; changing int masks to u32 is a common way to fix sign/rlwinm/cmplwi-style mismatches in dependency bit matrices.",
-    "Introduced stack-named temporaries and loop_N labels where needed instead of over-cleaning the code, preserving compiler-shape evidence for recursive graph code.",
-    "Factored repeated argument clearing and bias/resource checks into macros while still preserving low-level store patterns such as *(u32*) arg plus exp = NULL.",
-    "Preserved reference accounting when simplifying or merging sources: copied args are ref'ed and replaced child expressions are unref'ed.",
-    "Guarded SimplifySrc and SimplifyByMerge against texture object, raster channel, tex_swap, and ras_swap conflicts before folding child expressions."
+    "Used explicit loop labels, pointer-walking, and manual loop counters in HSD_TExpMakeDag, matching the style often needed for older CodeWarrior output rather than over-structuring the traversal.",
+    "Modeled TEV color and alpha inputs as parallel passes instead of trying to generalize them too early; this preserved distinct c_in/a_in behavior and helped with matching-sensitive control flow.",
+    "Introduced CLEAR_ARG and the HSD_TExpDag_804D5FF8/HSD_TExpDag_804D5FFC static data pattern to centralize the exact argument-clearing idiom used throughout simplification.",
+    "Kept resource conflict checks explicit through RESOURCE_CONFLICT so merge simplification only proceeds when texture object and channel constraints are compatible.",
+    "Used ref/unref calls when replacing TEV references, showing attention to the source graph ownership semantics rather than only byte matching.",
+    "Made small type and temporary-variable changes around bitsets and recursive calls in existing functions, a common tactic when the algorithm is already known but register allocation or stack placement is blocking a match."
   ],
   "decomp_lessons": [
-    "Partial decomp of large helper routines can be valuable even without 100% matches: this PR moved SimplifySrc, SimplifyThis, SimplifyByMerge, HSD_TExpMakeDag, and .sdata from 0% to substantial percentages in the bot report.",
-    "Do not rename source typos casually: the file uses make_dependancy_mtx and make_full_dependancy_mtx with the original misspelling, and the bot reports that symbol spelling.",
-    "For graph/bitset scheduling code, local type signedness and assignment placement can be enough to make or break a match.",
-    "When matching MWCC code that walks adjacent struct arrays, pointer arithmetic through u8* plus sizeof(HSD_TEArg) may be necessary even when a cleaner array-index expression exists.",
-    "Static address-named data such as HSD_TExpDag_804D5FF8/HSD_TExpDag_804D5FFC should be preserved until the real data meaning is proven; they may be required for .sdata layout and store shape.",
-    "Landing a new match can still perturb nearby existing matches; decomp.dev reported make_full_dependancy_mtx fixed but HSD_TExpSchedule broke by 1 byte."
+    "For DAG-building code, matching may require preserving array-backed worklists and manual pointer increments instead of cleaner index-only loops.",
+    "When traversing HSD_TExp TEV arguments, color and alpha arrays may need nearly duplicated loops because the original compiler emitted separate code paths.",
+    "Bitset variables used for dependency sets should be unsigned u32 when they feed shifts and masks; signed int can perturb comparisons and register allocation.",
+    "Static data used only as a canonical packed struct value can be represented as named local-to-file symbols when that helps recover .sdata and repeated stores.",
+    "Texture/raster simplification cannot blindly inline child expressions; tex object, tex swap, channel, and ras swap compatibility must be checked before forwarding or merging.",
+    "Refcount updates are part of the semantic match for TExp rewrites: replacement of a TEV input should pair HSD_TExpRef on the new expression with HSD_TExpUnref on the removed one when applicable.",
+    "Decomp progress can still merge with partial matches if it substantially improves large unmatched functions, but bot output should be checked for small regressions in already matched functions."
   ],
   "naming_conventions": [
-    "Public HSD texture-expression APIs use HSD_TExp* prefixes, e.g. HSD_TExpMakeDag and HSD_TExpSimplify.",
-    "Internal simplification helpers in this file use mixed-case verb names: SimplifySrc, SimplifyThis, and SimplifyByMerge.",
-    "Dependency-matrix helpers preserve the original misspelling dependancy in make_dependancy_mtx and make_full_dependancy_mtx.",
-    "Unknown/static data was named by file/address placeholders: HSD_TExpDag_804D5FF8 and HSD_TExpDag_804D5FFC.",
-    "Matching scaffolding locals keep stack-like or label-like names such as sp8, spC, sp10, sp94, sp14, and loop_22.",
-    "Macros introduced in this PR use uppercase matching-helper style: CLEAR_ARG, BIAS_TO_INT, INT_TO_BIAS, and RESOURCE_CONFLICT."
+    "Existing public-style symbols kept HSD_TExp camelcase names: HSD_TExpMakeDag, HSD_TExpSchedule, HSD_TExpSimplify, HSD_TExpRef, HSD_TExpUnref.",
+    "File-local recovered data symbols used address-style names: HSD_TExpDag_804D5FF8 and HSD_TExpDag_804D5FFC.",
+    "Matching temporaries used stack-offset-style names such as sp8, spC, sp10 and loop_count variants where semantic names were not yet clear or not matching-friendly.",
+    "Helper macros were introduced in all-caps with action/conversion names: CLEAR_ARG, BIAS_TO_INT, INT_TO_BIAS, RESOURCE_CONFLICT.",
+    "The diff preserves the misspelled existing function name make_full_dependancy_mtx rather than correcting it to dependency, avoiding ABI/symbol churn."
   ],
   "assembly_or_matching_tactics": [
-    "Added explicit stack pointer aliases before recursive order_dag calls to influence argument passing and stack layout.",
-    "Converted several order_dag bitmask locals from int to u32 to match unsigned bit operations.",
-    "Used gotos and loop_N labels in HSD_TExpMakeDag rather than structured loops where the original control flow likely required it.",
-    "Initialized the distance array with an unrolled 8-store loop followed by a remainder loop, matching compiler loop-unroll behavior.",
-    "Used u8 dep_count/dep_count2 and explicit casts on TEArg type checks to control compare width.",
-    "Used static .sdata constants and *(u32*) stores for HSD_TEArg clearing instead of purely field-by-field semantic initialization.",
-    "Reordered flag/old/bits assignments in make_full_dependancy_mtx; the automated report says this produced a full match."
+    "Used goto labels such as loop_22, loop_8, loop_16, loop_36, loop_65, loop_41, loop_43, loop_54, and loop_56 to shape control flow close to the target assembly.",
+    "Added redundant-looking temporary pointer aliases before recursive order_dag calls, likely to influence stack/register allocation for order, min, and min_order.",
+    "Changed dependency bit variables to u32 to better match mask operations involving 1 << i and bitwise complements.",
+    "Manually unrolled part of the distance initialization in HSD_TExpMakeDag in groups of eight before handling the tail loop.",
+    "Used pointer arithmetic cast through u8* plus sizeof(HSD_TEArg) while iterating c_in and a_in slots, indicating a layout-driven matching tactic.",
+    "Separated flag/old/bits locals in make_full_dependancy_mtx, which decomp.dev reported as turning that function into a full match."
   ],
   "review_feedback": [
     {
-      "source": "decomp-dev[bot]",
-      "details": "GALE01 report: matched code 66.44% (-0.01%, -264 bytes). New match: main/sysdolphin/baselib/texpdag make_full_dependancy_mtx +4 bytes, 98.83% to 100.00%."
+      "source": "decomp.dev bot",
+      "feedback": "Reported 1 new full match: main/sysdolphin/baselib/texpdag make_full_dependancy_mtx improved from 98.83% to 100.00%."
     },
     {
-      "source": "decomp-dev[bot]",
-      "details": "Broken match: HSD_TExpSchedule -1 byte, 100.00% to 99.98%."
+      "source": "decomp.dev bot",
+      "feedback": "Reported 5 improvements in unmatched items: SimplifyByMerge to 74.48%, SimplifyThis to 79.76%, SimplifySrc to 95.47%, HSD_TExpMakeDag to 62.16%, and .sdata to 75.00%."
     },
     {
-      "source": "decomp-dev[bot]",
-      "details": "Improvements in unmatched items: SimplifyByMerge +1948 bytes to 74.48%, SimplifyThis +1716 bytes to 79.76%, SimplifySrc +989 bytes to 95.47%, HSD_TExpMakeDag +736 bytes to 62.16%, .sdata +12 bytes to 75.00%."
+      "source": "decomp.dev bot",
+      "feedback": "Reported one tiny broken match: HSD_TExpSchedule dropped from 100.00% to 99.98% by 1 byte."
     },
     {
-      "source": "slice",
-      "details": "No PR body, human review comments, or human review records were present in the provided slice."
+      "source": "human review",
+      "feedback": "No human review comments or PR body were present in the provided slice."
     }
   ],
   "searchable_terms": [
     "pr-2468",
     "Jj/texpdag",
-    "jj/texpdag",
     "jurrejelle",
     "src/sysdolphin/baselib/texpdag.c",
-    "main/sysdolphin/baselib/texpdag",
+    "texpdag",
     "HSD_TExpMakeDag",
     "SimplifySrc",
     "SimplifyThis",
     "SimplifyByMerge",
-    "HSD_TExpSimplify",
     "HSD_TExpSchedule",
     "make_dependancy_mtx",
     "make_full_dependancy_mtx",
     "order_dag",
+    "assign_reg",
     "CalcDistance",
+    "HSD_TExpDag",
     "HSD_TEXP_MAX_NUM",
     "HSD_TExpDag_804D5FF8",
     "HSD_TExpDag_804D5FFC",
@@ -155,33 +120,48 @@
     "BIAS_TO_INT",
     "INT_TO_BIAS",
     "RESOURCE_CONFLICT",
-    "HSD_ASSERT",
     "HSD_TExpRef",
     "HSD_TExpUnref",
-    "HSD_TObj",
-    "HSD_TEArg",
+    "HSD_TExpSimplify",
+    "HSD_TExpGetType",
+    "HSD_ASSERT",
+    "GX_TEV_ADD",
     "HSD_TE_TEV",
     "HSD_TE_TEX",
     "HSD_TE_RAS",
     "HSD_TE_RGB",
+    "HSD_TE_A",
     "HSD_TE_0",
-    "HSD_TE_1",
-    "GX_TEV_ADD",
+    "HSD_TObj",
     "tex_swap",
     "ras_swap",
     "c_in",
     "a_in",
     "c_op",
     "a_op",
-    "nb_dep",
-    "nb_ref"
+    "c_bias",
+    "a_bias",
+    "c_scale",
+    "a_scale",
+    "c_clamp",
+    "a_clamp",
+    "dependency matrix",
+    "TEV simplification",
+    "texture expression DAG"
   ],
   "follow_up_queries": [
-    "Find later PRs touching src/sysdolphin/baselib/texpdag.c HSD_TExpSchedule to see whether the 1-byte regression was recovered.",
-    "Search for later improvements to HSD_TExpMakeDag, SimplifySrc, SimplifyThis, and SimplifyByMerge reaching higher or full match percentages.",
-    "Search HSD_TExpDag_804D5FF8 and HSD_TExpDag_804D5FFC for eventual semantic names or confirmation that they remain address placeholders.",
-    "Search CLEAR_ARG RESOURCE_CONFLICT BIAS_TO_INT INT_TO_BIAS for reuse or cleanup in later texpdag simplification work.",
-    "Check whether make_full_dependancy_mtx stayed at 100% after subsequent dependency-matrix or scheduling changes."
+    "Find later PRs touching src/sysdolphin/baselib/texpdag.c to see whether HSD_TExpMakeDag, SimplifyThis, or SimplifyByMerge reached full match.",
+    "Search for fixes to the 1-byte HSD_TExpSchedule regression introduced or reported around PR 2468.",
+    "Search for later renaming or cleanup of HSD_TExpDag_804D5FF8 and HSD_TExpDag_804D5FFC once their true data meaning was understood.",
+    "Compare other HSD_TExp simplification functions for reuse of CLEAR_ARG, BIAS_TO_INT, INT_TO_BIAS, and RESOURCE_CONFLICT patterns."
   ],
-  "confidence": 0.87
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

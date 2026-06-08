@@ -11,104 +11,107 @@
     "merged_at": "2026-03-24T11:25:00Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the Purin/Jigglypuff SpecialN implementation in src/melee/ft/chara/ftPurin/ftPr_SpecialN.c, adding full C for key charge-release animation and collision routines and tightening several near-matches in release/turn physics and animation. The decomp.dev report credited 9 new matches and +7480 matched bytes, with one small .sdata2 regression noted.",
+  "summary": "Matched Jigglypuff/Purin neutral special implementation in ftPr_SpecialN.c. The PR replaced several unmatched stubs with C for SpecialAirNChargeRelease_Anim, SpecialNRelease_Coll, and SpecialAirNChargeRelease_Coll, and adjusted nearby helpers/physics code to satisfy matching. The author noted that the result required substantial iteration with Claude plus help from the permuter. No review comments were present in the provided slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "fighter-special-move",
+      "fighter-action",
       "animation",
       "physics",
       "collision",
-      "effects"
+      "effect-spawn"
     ],
     "systems": [
       "fighter",
       "ftPurin",
-      "SpecialN",
+      "special-moves",
       "collision",
-      "efsync",
-      "HSD_JObj"
+      "effects",
+      "camera",
+      "audio"
     ]
   },
   "key_files": [
     {
-      "path": "src/melee/ft/chara/ftPurin/ftPr_SpecialN.c",
-      "role": "Only changed file; matched Purin SpecialN charge/release animation, physics, and collision code.",
-      "added_lines": 316,
-      "deleted_lines": 78
+      "file": "src/melee/ft/chara/ftPurin/ftPr_SpecialN.c",
+      "added": 316,
+      "deleted": 78,
+      "role": "Main and only changed file; matched Purin/Jigglypuff neutral special animation, physics, and collision routines."
     }
   ],
   "what_changed": [
-    "Implemented previously stubbed `ftPr_SpecialAirNChargeRelease_Anim`, including scale restoration/stepping via `ftPr_Init_803D05C8`, hit capsule toggling, roll-angle updates, and transition logic through `ftPr_SpecialS_8013DA24`.",
-    "Implemented previously stubbed `ftPr_SpecialNRelease_Coll`, handling wall collision masks `0x3F` and `0xFC0`, wall bounce velocity reversal/scaling via `da->xD4`, ground-to-air transition to `ftPr_MS_SpecialAirNChargeRelease`, callback setup, and roll/rotation reset.",
-    "Implemented previously stubbed `ftPr_SpecialAirNChargeRelease_Coll`, including directional collision checks with `ft_8008239C`, wall bounce handling, landing transition to `ftPr_MS_SpecialNRelease`, ground velocity restoration, landing effect spawn `0x3FF`, and cliff-catch handling.",
-    "Added helper inlines `ftPr_JObjSetRotationY`, `ftPr_SpecialAirNChargeRelease_Anim_inline`, `setFacingDir`, `wallBounceEffect`, and `ftPr_SpecialAirNChargeRelease_Coll_inline` to express repeated code in forms that matched.",
-    "Replaced the local `NEGABS` macro with project `ABS` usages and added a `SIGNF` macro for converting stick/velocity signs to `1.0f` or `-1.0f`.",
-    "Adjusted near-matching functions including `ftPr_SpecialNTurn_Anim`, `ftPr_SpecialNRelease_IASA`, `ftPr_SpecialNRelease_Phys`, `ftPr_SpecialNTurn_Phys`, `ftPr_SpecialAirNChargeRelease_Phys`, and `ftPr_SpecialAirNStartTurn_Phys` with codegen-sensitive local ordering, stack padding, comparisons, and ABS/sign forms.",
-    "Changed some effect spawn argument shapes, notably passing an angle pointer to `efSync_Spawn` in turn/landing effect paths rather than reusing a `Vec3` scratch value.",
-    "decomp.dev reported 9 new matches: `ftPr_SpecialAirNChargeRelease_Coll`, `ftPr_SpecialAirNChargeRelease_Anim`, `ftPr_SpecialNRelease_Coll`, `ftPr_SpecialNTurn_Phys`, `ftPr_SpecialNRelease_Phys`, `ftPr_SpecialNTurn_Anim`, `ftPr_SpecialAirNChargeRelease_Phys`, `ftPr_SpecialAirNStartTurn_Phys`, and `ftPr_SpecialNRelease_Anim`."
+    "Replaced the local NEGABS macro with use of the project ABS macro and added a SIGNF macro for sign extraction from float inputs/velocities.",
+    "Added static inline ftPr_JObjSetRotationY, mirroring HSD_JObj rotation-y assignment with jobj asserts, quaternion assert behavior, and conditional HSD_JObjSetMtxDirty.",
+    "Matched ftPr_SpecialAirNChargeRelease_Anim, including a dedicated inline scale-step helper using ftPr_Init_803D05C8 scale data, HSD_JObjSetScale, charge release roll-angle updates, hit capsule toggling, and transition checks around M_PI/M_PI_2.",
+    "Adjusted ftPr_SpecialNTurn_Anim to use explicit temporary variables and PAD_STACK, and changed one efSync_Spawn call shape to pass an angle pointer rather than the previous Vec3/angle combination.",
+    "Refactored repeated facing-direction commit logic into static inline setFacingDir, used after changing motion state from turn physics into SpecialNRelease.",
+    "Reworked ground release/turn physics to use ABS, assignment-in-condition temporaries for min/max velocity clamps, explicit stack padding, and simplified control flow while preserving slope influence behavior.",
+    "Matched ftPr_SpecialNRelease_Coll, including ground-to-air transition via ft_80082888, wall-hit checks against env_flags masks 0x3F and 0xFC0, wall bounce velocity/charge damping via ftPurinAttributes xD4, roll normalization, and state transition to ftPr_MS_SpecialAirNChargeRelease.",
+    "Added shared wallBounceEffect helper that computes impact position/angle from collision wall normals and ECB bounds, then spawns effect 0x406, shakes/updates camera via Camera_80030E44, applies common feedback via ftCommon_8007EBAC, and plays SFX 250070.",
+    "Matched ftPr_SpecialAirNChargeRelease_Coll, including directional collision probing through ft_8008239C, wall bounce handling, landing conversion to ftPr_MS_SpecialNRelease when rebound vertical velocity is below da->x7C, optional directional input steering, effect 0x3FF on landing, and ledge/cliff handling through ftCliffCommon_80081298/ftCliffCommon_80081370.",
+    "Added an inline helper for cliff handling in air charge release collision that restores base scale, sets top joint rotation based on facing direction, applies pending facing_dir, clears it, and enters the cliff common path."
   ],
   "smart_moves": [
-    "Used small static inline helpers to isolate awkward codegen patterns while keeping the main routines readable.",
-    "Manually implemented `ftPr_JObjSetRotationY` with the same assert checks and dirty-matrix behavior as the JObj path, including the unusual `(char*) &base[8]` assert argument needed by the generated code.",
-    "Factored common wall-hit visual/audio/camera behavior into `wallBounceEffect`, covering `efSync_Spawn(0x406)`, `Camera_80030E44`, `ftCommon_8007EBAC`, and `ft_PlaySFX` without duplicating the matched sequence.",
-    "Kept unknown motion flag bitmasks as local static `mf` constants with `@todo Named flags` instead of inventing names prematurely.",
-    "Used `PAD_STACK`, explicit temporary pads, split declarations, and assignment-inside-condition idioms where the diff shows those were needed for matching.",
-    "Captured reusable facing-direction cleanup in `setFacingDir`, matching the repeated sequence that applies `mv.pr.specialn.facing_dir`, clears it, and resets `xC`."
+    "Used small static inline helpers to isolate match-sensitive repeated logic: JObj rotation assignment, air charge-release scaling, facing-direction commit, wall bounce effects, and cliff cleanup.",
+    "Kept named or semi-named constants where known, such as M_PI_2, M_PI, FtPart_TopN, HitCapsule_Disabled, and motion-state names, while explicitly leaving TODOs for unnamed motion flags.",
+    "Used PAD_STACK and local declaration ordering to influence stack layout for matching without obscuring the higher-level action logic.",
+    "Converted custom NEGABS usage to ABS plus SIGNF, reducing bespoke macro surface while preserving the sign/absolute-value idioms needed throughout the move.",
+    "Factored wall bounce visual/audio/camera feedback into one helper reused by both grounded and aerial release collision paths.",
+    "Used assignment inside ABS clamp conditions, such as if (ABS(fp->gr_vel) > (max_vel = da->x4C)), a decomp-style tactic that can reproduce original register/lifetime behavior."
   ],
   "decomp_lessons": [
-    "For fighter move files, matching may depend heavily on declaration order, temporary variable lifetimes, and whether locals are initialized at declaration or assigned later.",
-    "Prefer existing project macros like `ABS` when they produce the right codegen; add narrow helper macros like `SIGNF` only when the sign-selection expression recurs and matches.",
-    "Small inline wrappers can be a better matching tactic than forcing all logic directly into a large function, especially around HSD/JObj calls and repeated state cleanup.",
-    "Do not over-name unknown motion-state flag masks; preserving raw bitmasks with a clear TODO is safer until flag semantics are known.",
-    "Effect calls may require exact argument forms, such as passing an `f32*` angle, not just equivalent-looking scratch storage.",
-    "Wall-collision code often needs direction-specific env flag masks and ECB offsets; keeping the left/right paths explicit can match better than over-generalizing.",
-    "The PR body explicitly says the match required iteration with Claude and help from the permuter, so future difficult fighter matches should combine AI-generated candidates with permutation/testing rather than relying on a single rewrite."
+    "For stubborn fighter action matches, helper inlining can be as important as the algorithm: isolate exactly repeated snippets and pass otherwise-unused pointers or bases when needed to reproduce assertion strings/register pressure.",
+    "HSD_JObj direct setters may need to preserve SDK-style assert line numbers and dirty-matrix behavior rather than using higher-level wrappers.",
+    "Stack padding with PAD_STACK or dummy byte arrays can be necessary around math-heavy animation/collision routines to match the original stack frame.",
+    "Float absolute-value and sign extraction should prefer existing project idioms such as ABS plus a small SIGNF helper when that better matches generated code than a bespoke NEGABS macro.",
+    "Collision routines often require keeping env_flags masks, motion flags, and attribute offsets literal/unnamed until better names are known; marking them with TODOs is preferable to inventing names.",
+    "Shared collision side effects should be factored only when the resulting inline/call pattern still matches; this PR demonstrates a reusable wall-bounce helper that served both ground and air release collision code."
   ],
   "naming_conventions": [
-    "Existing public function names use the `ftPr_SpecialN...` and `ftPr_SpecialAirN...` prefixes for Purin grounded/aerial SpecialN states.",
-    "Private helper functions added for one file use `static inline`; some preserve the file prefix, such as `ftPr_SpecialAirNChargeRelease_Anim_inline`, while generic helpers use descriptive lowerCamelCase like `setFacingDir` and `wallBounceEffect`.",
-    "The new sign macro follows macro casing as `SIGNF`, paralleling existing uppercase utility macros such as `ABS`.",
-    "Unidentified fighter move fields remain as offsets like `x0`, `x8`, `x14`, `x18`, `x2C`, `x34.x`, and attribute offsets like `da->xD4`; the PR did not attempt speculative field renaming.",
-    "Unknown motion flag constants are kept in local `static u32 const mf` variables with `@todo Named flags` comments."
+    "Purin neutral-special functions use the ftPr_SpecialN* and ftPr_SpecialAirN* prefixes, e.g. ftPr_SpecialAirNChargeRelease_Anim and ftPr_SpecialNRelease_Coll.",
+    "Match-only helpers in this file are named with descriptive lowerCamelCase or file-prefixed inline names, e.g. scaleAnimStep, hitCapsuleToggle, setFacingDir, wallBounceEffect, ftPr_SpecialAirNChargeRelease_Anim_inline.",
+    "Unidentified fighter attribute fields remain offset-style names such as da->x9C, da->xC0, da->xD4 rather than speculative semantic names.",
+    "Move-state scratch fields remain offset-style under fp->mv.pr.specialn, such as x0, x8, x14, x18, x1C, x2C, x34.x, and facing_dir.",
+    "Known enum/constants are preferred where available: FtPart_TopN, HitCapsule_Disabled, ftPr_MS_SpecialNRelease, ftPr_MS_SpecialAirNChargeRelease, M_PI, and M_PI_2."
   ],
   "assembly_or_matching_tactics": [
-    "Use `PAD_STACK(8)`, `PAD_STACK(16)`, and explicit `u8` pad arrays when stack layout is codegen-sensitive.",
-    "Move declarations out of initializers when needed, e.g. declare `ftPurinAttributes* da;` then assign `da = fp->dat_attrs;`.",
-    "Assignment inside comparisons, such as `if (ABS(fp->gr_vel) > (max_vel = da->x4C))`, can matter for register allocation and matching.",
-    "Use `0.0f` float literals in `Fighter_ChangeMotionState` arguments where the diff changed integer zeroes to float zeroes.",
-    "Sometimes re-read struct fields in conditions, e.g. checking `fp->coll_data.floor.normal.x > 0.0f` after storing an ABS slope value.",
-    "Nested scopes around `Vec3 pos` and `f32 angle` in collision paths help control variable lifetime and stack placement.",
-    "A direct JObj rotation-y helper can match where a general `ftPartSetRotY` call does not, but it must include assert and `HSD_JObjSetMtxDirty` behavior.",
-    "Use exact constants and masks seen in the matched code: `0.017453292f`, `M_PI_2`, `M_PI`, `0x40012`, effect IDs `0x3FF` and `0x406`, and env masks `0x3F`/`0xFC0`."
+    "Inserted PAD_STACK(8), PAD_STACK(16), and small dummy arrays to shape stack layout.",
+    "Moved some declarations out of initializer expressions, such as declaring ftPurinAttributes* da before assignment, to match generated code ordering.",
+    "Used static inline helpers to control inlining and register/stack lifetime for repeated snippets.",
+    "Used assignment-in-condition patterns for velocity clamp temporaries, e.g. max_vel/min_vel assigned inside ABS comparisons.",
+    "Preserved explicit casts and float constants in angle math, including 0.017453292f and 0.2 multipliers.",
+    "Used SDK-like HSD_JObj assert expressions with file name jobj.h and line numbers 660/661 inside ftPr_JObjSetRotationY.",
+    "Changed efSync_Spawn argument forms in matched sites, including passing address-of local angle variables.",
+    "Maintained literal motion flag bitmasks as static u32 const mf values with TODO comments for future naming.",
+    "Used ABS(fp->coll_data.floor.normal.x) in slope calculations but retained checks against the original signed normal where branch direction mattered."
   ],
   "review_feedback": [
-    "No human review comments or review records were present in the slice.",
-    "The PR author stated: \"Took a lot of iteration with Claude, and some help from the permuter, but we got there in the end!\"",
-    "decomp.dev reported matched code improved to 59.65% for GALE01, +0.19% and +7480 bytes.",
-    "decomp.dev also reported one unmatched `.sdata2` regression of -2 bytes, from 98.81% to 96.51%."
+    {
+      "type": "pr_body",
+      "text": "Author reported that the match took a lot of iteration with Claude and some help from the permuter."
+    },
+    {
+      "type": "review_absent",
+      "text": "No review comments or formal reviews were present in the provided PR slice."
+    }
   ],
   "searchable_terms": [
     "pr-2347",
     "ftPr_SpecialN.c",
-    "ftPurin",
-    "Purin SpecialN",
     "ftPr_SpecialAirNChargeRelease_Anim",
-    "ftPr_SpecialAirNChargeRelease_Coll",
     "ftPr_SpecialNRelease_Coll",
-    "ftPr_SpecialNTurn_Phys",
-    "ftPr_SpecialNRelease_Phys",
-    "ftPr_SpecialNTurn_Anim",
-    "ftPr_SpecialAirNChargeRelease_Phys",
-    "ftPr_SpecialAirNStartTurn_Phys",
-    "ftPr_SpecialNRelease_IASA",
+    "ftPr_SpecialAirNChargeRelease_Coll",
     "ftPr_JObjSetRotationY",
     "wallBounceEffect",
     "setFacingDir",
-    "SIGNF",
-    "ABS",
-    "PAD_STACK",
+    "hitCapsuleToggle",
+    "scaleAnimStep",
+    "Purin",
+    "Jigglypuff",
+    "ftPurinAttributes",
+    "SpecialNRelease",
+    "SpecialAirNChargeRelease",
     "HSD_JObjSetScale",
     "HSD_JObjSetMtxDirty",
     "JOBJ_USE_QUATERNION",
@@ -123,19 +126,28 @@
     "Fighter_ChangeMotionState",
     "ftPr_MS_SpecialNRelease",
     "ftPr_MS_SpecialAirNChargeRelease",
-    "ftPr_Init_803D05C8",
-    "ftPr_Init_803D0610",
-    "HitCapsule_Disabled",
-    "mpLib_800569EC",
+    "PAD_STACK",
+    "SIGNF",
+    "ABS",
+    "M_PI_2",
+    "M_PI",
     "permuter",
     "Claude"
   ],
   "follow_up_queries": [
-    "Find later PRs touching `ftPr_SpecialN.c` to see whether the reported `.sdata2` regression was resolved.",
-    "Search for other fighter SpecialN collision stubs that can reuse the direction-specific wall bounce pattern from `wallBounceEffect`.",
-    "Search for remaining `@todo Named flags` in fighter move files and identify the shared motion flag bitmask used here.",
-    "Audit other `efSync_Spawn` call sites for cases where passing an angle pointer instead of a scratch vector improves matching.",
-    "Compare other HSD JObj rotation helper patterns to see when manual assert-preserving wrappers are needed."
+    "Find later PRs that name the static motion flag bitmasks in ftPr_SpecialN.c.",
+    "Search for other fighter files using ftPr_JObjSetRotationY-style direct HSD_JObj rotation setters with SDK asserts.",
+    "Compare wallBounceEffect patterns against other rolling or charge-move wall collision implementations.",
+    "Check whether ftPurinAttributes offsets x44, x54, x5C, x68, x78, x7C, x98, xB4, xB8, xBC, xC0, xC4, xC8, xD0, and xD4 were later named.",
+    "Search for similar ABS plus SIGNF replacements in other matching PRs."
   ],
-  "confidence": 0.9
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

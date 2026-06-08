@@ -11,130 +11,150 @@
     "merged_at": "2026-03-15T18:34:31Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large decompilation pass for src/melee/ty/tyfigupon.c, covering Toy Figure Pon menu setup, cameras, panel/coin/lever assets, bet/count displays, trophy unlock flow, cleanup, and several GObj process callbacks. The PR also tightened related headers and structs, especially ToyAnimState and un_804D6EF4_t, and adjusted local data symbol scope. decomp.dev reported +1804 matched bytes, 10 new matches overall, and many tyfigupon functions improving from 0% to high partial or 100% match.",
+  "summary": "Large decompilation pass for the Toy Figure Pon / tyfigupon menu code. The PR replaced many tyfigupon.h UNK prototypes with typed signatures, implemented a large block of previously stubbed functions in src/melee/ty/tyfigupon.c, refined shared toy/list structs and globals, and marked several tyfigupon .data symbols as local in GALE01 symbols. Evidence includes 1360 added lines in tyfigupon.c and header/type updates across toy, tylist, and if/types.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
+      "function-implementation",
       "headers",
-      "struct-typing",
-      "asset-data-reconstruction",
+      "struct-refinement",
       "symbol-scope-cleanup"
     ],
     "systems": [
-      "src/melee/ty",
-      "tyfigupon",
+      "melee-core",
+      "ty",
       "toy",
+      "tyfigupon",
       "tylist",
-      "if/types",
-      "config/GALE01"
+      "interface-types",
+      "config-symbols"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ty/tyfigupon.c",
-      "role": "Main decompilation target; replaced many placeholder functions with C, added local asset strings, camera descriptor, local structs, and matching tactics."
+      "reason": "Main decompilation target; added many includes, local string/data definitions, camera descriptor, helper structs, and implementations for previously stubbed tyfigupon functions."
     },
     {
       "path": "src/melee/ty/tyfigupon.h",
-      "role": "Updated prototypes from UNK_RET/UNK_PARAMS to typed signatures for the newly decompiled tyfigupon functions."
-    },
-    {
-      "path": "src/melee/if/types.h",
-      "role": "Expanded struct un_804D6EF4_t with typed fields including HSD_GObj*, HSD_JObj* jobjs[16], archive pointer, shorts, and state bytes."
+      "reason": "Converted multiple UNK_RET/UNK_PARAMS declarations into typed prototypes such as fn_803152BC(HSD_GObj*), un_803153EC(s32,...), fn_8031638C(s16), and un_803181BC(void)."
     },
     {
       "path": "src/melee/ty/types.h",
-      "role": "Refined ToyAnimState layout, including size 0x14 note, xC, x0E-x11 state bytes, and padding."
-    },
-    {
-      "path": "src/melee/ty/toy.c",
-      "role": "Converted un_804A2AA8 usage from raw byte/pointer arithmetic to ToyAnimState fields."
-    },
-    {
-      "path": "src/melee/ty/tylist.c",
-      "role": "Changed memzero of un_804A2AA8 to use &un_804A2AA8 and sizeof(ToyAnimState)."
+      "reason": "Refined ToyAnimState layout and documented its size/location; added padding fields and noted an unresolved Toy size assertion."
     },
     {
       "path": "src/melee/ty/tylist.h",
-      "role": "Included ty/types.h and changed extern un_804A2AA8 from u8[] to ToyAnimState."
+      "reason": "Changed un_804A2AA8 from a byte array declaration to a typed ToyAnimState global and included ty/types.h."
+    },
+    {
+      "path": "src/melee/ty/tylist.c",
+      "reason": "Updated memzero usage to clear &un_804A2AA8 with sizeof(ToyAnimState) rather than a raw pointer/constant size."
+    },
+    {
+      "path": "src/melee/ty/toy.c",
+      "reason": "Removed a local duplicate un_804A2AA8_t struct and rewired accesses to the shared ToyAnimState definition."
     },
     {
       "path": "src/melee/ty/toy.h",
-      "role": "Corrected un_803087F4 return type from void to HSD_GObj*."
+      "reason": "Corrected un_803087F4 return type from void to HSD_GObj*."
+    },
+    {
+      "path": "src/melee/if/types.h",
+      "reason": "Expanded struct un_804D6EF4_t from mostly padding/x14/x18 fields into explicit fields including HSD_GObj*, jobjs[16], archive, shorts, and s8 state fields."
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Changed several tyfigupon .data symbols from global to local scope."
+      "reason": "Changed several tyfigupon-region data symbols from global to local scope."
     }
   ],
   "what_changed": [
-    "Implemented or substantially decompiled many tyfigupon functions: fn_803152BC, un_803153EC, fn_803155C8, fn_80315C44, fn_80316170, fn_8031638C, un_80316420, fn_803168DC, fn_80316C24, un_8031753C, un_80317A60, un_80317D80_OnEnter, and un_803181BC.",
-    "Refined existing tyfigupon code: tyFigupon_80314C5C was brought close to matching with stack padding, translation accessor calls, post-decrement behavior, explicit 0x58 allocation, ABS-based float math, and jobjs indexing; tyFigupon_80316BF8 now takes an HSD_GObj* parameter.",
-    "Added tyfigupon asset string literals for ToyFigurePon panel, background, coin, number, bet, lever, parameter, and nget joints plus their anim/matanim/shapeanim names, language-specific archives TyMnFigp.dat/TyMnFigp.usd and SdToy.dat/SdToy.usd, and error/report strings.",
-    "Added a static HSD_CameraDescPerspective tyfigupon_cam_desc and setup code for camera GObjs, GX links, text objects, language-specific SisLib data, and camera tilt via substick input.",
-    "Added logic for Toy Figure Pon panel construction, coin spawning, bet count display, probability display, lever/animation state machine, trophy unlock through Trophy_SetUnlockState, and cleanup via un_803181BC.",
-    "Promoted un_804A2AA8 to a typed ToyAnimState global shared by toy.c and tylist.h instead of treating it as a u8 buffer.",
-    "Expanded un_804D6EF4_t so tyfigupon code can use jobjs[0..0xE], archive, x54/x56/x58, and x5C/x5D/x5E instead of opaque padding.",
-    "Updated tyfigupon.h prototypes to concrete argument and return types, including HSD_GObj* callbacks, s16 arguments, void-return helpers, and s32-return query/cleanup functions.",
-    "Changed config/GALE01/symbols.txt entries un_803FEA10, un_803FEB60, un_803FEED4, and un_803FEEE8 from global to local scope."
+    "Implemented many tyfigupon functions that were previously header-declared as unknown/stubbed, including fn_803152BC, un_803153EC, fn_803155C8, fn_80315C44, fn_80316170, fn_8031638C, un_80316420, fn_803168DC, tyFigupon_80316BF8, fn_80316C24, un_8031753C, un_80317A60, and un_803181BC.",
+    "Added tyfigupon-local resource string literals for ToyFigurePon assets, archive names such as TyMnFigp.dat/TyMnFigp.usd, SdToy.dat/SdToy.usd, SIS data names, error strings, and joint/anim/matanim/shapeanim labels.",
+    "Added a static HSD_CameraDescPerspective tyfigupon camera descriptor in tyfigupon.c.",
+    "Expanded TyFiguponData from sparse padding to explicit HSD_GObj*, HSD_Text*, state counters, and byte flags.",
+    "Added local helper structs TyFiguponUD and TyFiguponED4 in tyfigupon.c for gobj/user-data style state.",
+    "Expanded struct un_804D6EF4_t in if/types.h to model fields used by tyfigupon, including x00, unk4, x08, x0C, jobjs[16], archive, x54/x56/x58, pad_5A, and x5C/x5D/x5E.",
+    "Replaced local toy.c byte/offset manipulation of un_804A2AA8 with typed ToyAnimState field accesses such as state->jobj[0], state->x0E, state->x0F, state->x10, and state->x11.",
+    "Updated tylist reset code from memzero(un_804A2AA8, 0x14) to memzero(&un_804A2AA8, sizeof(ToyAnimState)).",
+    "Changed un_803087F4 prototype in toy.h to return HSD_GObj* instead of void.",
+    "Changed data symbols un_803FEA10, un_803FEB60, un_803FEED4, and un_803FEEE8 from global to local scope in config/GALE01/symbols.txt."
   ],
   "smart_moves": [
-    "Typed the shared un_804A2AA8 state as ToyAnimState before updating callers, which removed brittle byte-offset access and made jobj[0]/jobj[1] intent searchable across toy.c and tylist.",
-    "Represented the contiguous JObj region in un_804D6EF4_t as jobjs[16], enabling indexed access such as jobjs[0xE] instead of a collection of fake individual pointer fields.",
-    "Kept uncertain semantic names as xNN/pad_NN while still recording exact offsets and types, avoiding overnaming while preserving match-critical structure layout.",
-    "Used local static string variables for archive/public-symbol names, which helps reproduce .data ordering and makes the asset dependencies explicit.",
-    "Chose explicit HSD_MemAlloc(0x58) where the current Toy struct size did not match the runtime allocation, and left a TODO noting that Toy should only be 0x58.",
-    "Carried exact engine API usage into the decomp: HSD_ArchiveGetPublicAddress, HSD_JObjLoadJoint, HSD_JObjAddChild, GObj_SetupGXLink, HSD_GObjProc_8038FD54, HSD_SisLib calls, and lbArchive_LoadSymbols.",
-    "Documented remaining matching pain directly in comments, including regswap issues and permuter slop, instead of hiding non-final matching work."
+    "Centralized the un_804A2AA8 layout as ToyAnimState instead of keeping an ad hoc local struct in toy.c and raw u8 array declaration in tylist.h.",
+    "Used a jobjs[16] array in un_804D6EF4_t, which made repeated JObj access in tyfigupon code clearer than isolated x14/x18 fields and raw offsets.",
+    "Changed memzero to use sizeof(ToyAnimState), reducing the risk of stale hardcoded sizes as the struct layout is refined.",
+    "Marked inferred tyfigupon data symbols local in symbols.txt, matching their apparent compilation-unit ownership after moving string/data definitions into tyfigupon.c.",
+    "Left explicit matching notes in code, including comments about regswap issues and remaining stackspace, so future permuter/manual work has concrete targets.",
+    "Used #pragma dont_inline around un_80314B54, indicating an intentional codegen/matching constraint rather than relying on incidental inlining behavior."
   ],
   "decomp_lessons": [
-    "When an apparent byte blob is shared by multiple files, promote it into a real shared struct in types.h and update externs/callers together.",
-    "Consecutive pointer fields used as a table should often become an array; here jobjs[16] made tyfigupon code much cleaner and more matchable.",
-    "Do not force a wrong struct size to satisfy allocation sites. This PR used explicit 0x58 allocations and left a size TODO for Toy rather than pretending the existing struct was correct.",
-    "For HSD text objects, prefer real HSD_Text fields such as hidden over local fake overlays when the type evidence supports it.",
-    "Large menu decomp often needs asset-name reconstruction, language branches, SisLib setup, camera descriptors, GObj process scheduling, and cleanup paths all in the same pass.",
-    "Partial decomp with high match percentages is still useful when prototypes, data layout, and struct typing unlock future work; the bot reported several tyfigupon functions at 87-99% even where not yet 100%."
+    "When a global byte blob starts appearing in multiple files, promote it to a shared typed struct and update all declarations/usages together.",
+    "Prefer array fields for repeated homogeneous members such as JObj slots; this can simplify matching code that indexes through object slots and reduce misleading one-off field names.",
+    "Header prototype cleanup is valuable matching work: replacing UNK_RET/UNK_PARAMS with concrete return/argument types documents calling conventions and enables type propagation.",
+    "Use sizeof(struct_type) for clearing/resetting state once a real struct exists; this prevents raw-size mismatches during later layout correction.",
+    "Data-symbol scope should be revisited after decompiling a file: local static data in the C file should correspond to local scope in symbols.txt.",
+    "Keep comments for known non-100% issues like regswaps, loop initialization mismatches, and stack padding, but avoid claiming the function is fully solved when such comments remain.",
+    "When matching animation-heavy menu code, exact struct typing for HSD_JObj, HSD_GObj, HSD_Text, HSD_Archive, and camera/lights/resource references matters as much as the function bodies."
   ],
   "naming_conventions": [
-    "File-scoped known functions use the existing tyFigupon_ prefix, while unidentified functions retain fn_803xxxxx or un_803xxxxx names.",
-    "Unknown struct fields remain offset-style xNN with pad_NN arrays and offset comments, e.g. x54, x58, x5C, pad_0C, pad_12.",
-    "Local asset strings use descriptive str_* names based on the exact public symbol or file name, such as str_panel_joint, str_archive_us, str_coin_matanim, and str_sdtoy_data_us.",
-    "The shared toy animation state is named ToyAnimState and exposes jobj[2] for the two alternating JObjs.",
-    "The broader tyfigupon runtime structs are still provisional names, TyFiguponData, TyFiguponUD, and TyFiguponED4, reflecting limited semantic certainty."
+    "Retained address-based names for unknown functions: fn_803152BC, fn_803155C8, fn_80315C44, fn_80316170, fn_803168DC, fn_80316C24.",
+    "Used tyFigupon_803xxxxx names for functions with module-level tyfigupon identity, such as tyFigupon_80314AA8, tyFigupon_80314BE4, tyFigupon_80314C5C, and tyFigupon_80316BF8.",
+    "Used un_803xxxxx / un_804xxxxx names for still-unknown functions and data symbols where semantics were not yet strong enough for descriptive names.",
+    "Struct field names remained offset-based, using xNN and pad_NN style names, e.g. x5C, x5D, x5E, pad_5A, pad_12.",
+    "Resource string statics used descriptive str_* names such as str_panel_joint, str_archive_jp, str_archive_us, str_coin_animjoint, and str_scene_lights.",
+    "Shared state struct name ToyAnimState was used instead of file-local un_804A2AA8_t, indicating a preference for semantic type names once usage is understood."
   ],
   "assembly_or_matching_tactics": [
-    "Used #pragma dont_inline around un_80314B54 to preserve expected call structure.",
-    "Inserted PAD_STACK with exact sizes such as 40, 32, 24, 16, and 8 to shape stack frames.",
-    "Added comments identifying known register-allocation problems: a 3-way r29/r30/r31 regswap in tyFigupon_80314C5C and remaining regswap/permuter issues in other functions.",
-    "Changed --tp1->x8 to tp1->x8-- in tyFigupon_80314C5C, indicating decrement ordering mattered for the match.",
-    "Used HSD_JObjGetTranslationX/Y/Z accessors instead of direct struct field reads in places where that matched generated code.",
-    "Used ABS macro and carefully reused float temporaries to reproduce float math and register lifetimes.",
-    "Introduced small static const data such as Vec3 un_803B8968 and DigitInit un_803B8974 to match constant/data placement.",
-    "Used explicit casts and signedness controls, including s8 state fields, s16 counts, u32 divisions of gm_801623D8()/10u, and f32 probability calculations.",
-    "The author explicitly left a screenshot/comment for future permuter work, saying it was for someone with more patience with permuter."
+    "Used #pragma dont_inline on/reset around un_80314B54 to control inlining for matching.",
+    "Inserted PAD_STACK calls in tyfigupon functions, including PAD_STACK(40) and PAD_STACK(16), as explicit stack-shape matching aids.",
+    "Code comments document remaining register-allocation problems: a 3-way regswap r29-r30-r31 in tyFigupon_80314C5C, a TODO for one more regswap in fn_803155C8, and another note about removing 0x8 stackspace plus fixing a regswap.",
+    "Refactored absolute-value float calculations to use ABS(...) in tyFigupon_80314C5C, likely to better match generated control flow and reduce manual branch structure.",
+    "Changed decrement style in tyFigupon_80314C5C from pre-decrement comparison to post-decrement comparison, affecting emitted code shape.",
+    "Used typed field accesses and occasional casts back to u8* for dynamic offset stores where necessary, preserving match flexibility while improving struct clarity."
   ],
   "review_feedback": [
-    "No formal GitHub review comments or reviews were present in the slice.",
-    "decomp.dev reported GALE01 matched code improved by +0.05% and +1804 bytes.",
-    "decomp.dev listed 10 new matches overall; tyfigupon items reaching 100% included fn_803152BC, fn_8031638C, and un_803181BC.",
-    "decomp.dev listed tyfigupon unmatched-item improvements including fn_80316C24 to 95.56%, fn_803155C8 to 99.42%, un_8031753C to 94.55%, fn_80315C44 to 89.67%, un_80316420 to 97.55%, un_80317D80_OnEnter to 93.70%, un_80317A60 to 99.97%, fn_803168DC to 87.42%, fn_80316170 to 99.36%, and un_803153EC to 87.38%.",
-    "The only human follow-up text was the author posting an image and saying: Leaving it here for someone who has more patience with permuter than me :). This is useful evidence of remaining permuter/matching cleanup but not a reviewer request."
+    {
+      "source": "PR body",
+      "feedback": "The PR body only says \"Tracking PR as usual\"; it does not provide detailed rationale."
+    },
+    {
+      "source": "issue comment",
+      "feedback": "Author left an image and wrote \"Leaving it here for someone who has more patience with permuter than me :)\". This suggests some remaining permuter/matching work, but the exact function or mismatch is not identifiable from the text excerpt alone."
+    },
+    {
+      "source": "review comments",
+      "feedback": "No formal review comments were present in the provided slice."
+    },
+    {
+      "source": "code comments",
+      "feedback": "Inline TODOs identify unresolved matching details: regswaps, loop initialization being off, 0x8 stackspace, and a Toy struct size note."
+    }
   ],
   "searchable_terms": [
     "pr-2293",
     "Tyfigupon",
-    "ToyFigurePon",
-    "ToyFigurePonPanel_Top_joint",
-    "ToyFigurePonBg_Top_joint",
-    "ToyFigurePonCoin_Top_joint",
-    "ToyFigurePonLever_Top_joint",
-    "TyMnFigp.dat",
-    "TyMnFigp.usd",
-    "SdToy.dat",
-    "SdToy.usd",
-    "SIS_ToyData",
-    "SIS_ToyData_E",
+    "Toy Figure Pon",
+    "jurrejelle",
+    "src/melee/ty/tyfigupon.c",
+    "src/melee/ty/tyfigupon.h",
+    "src/melee/ty/toy.c",
+    "src/melee/ty/toy.h",
+    "src/melee/ty/tylist.c",
+    "src/melee/ty/tylist.h",
+    "src/melee/ty/types.h",
+    "src/melee/if/types.h",
+    "config/GALE01/symbols.txt",
+    "ToyAnimState",
+    "TyFiguponData",
+    "TyFiguponUD",
+    "TyFiguponED4",
+    "un_804A2AA8",
+    "un_804D6EF0",
+    "un_804D6EF4",
+    "un_804D6F04",
+    "un_80314B54",
     "tyFigupon_80314C5C",
     "fn_803152BC",
     "un_803153EC",
@@ -144,37 +164,43 @@
     "fn_8031638C",
     "un_80316420",
     "fn_803168DC",
+    "tyFigupon_80316BF8",
     "fn_80316C24",
     "un_8031753C",
     "un_80317A60",
     "un_80317D80_OnEnter",
     "un_803181BC",
-    "TyFiguponData",
-    "TyFiguponUD",
-    "TyFiguponED4",
-    "ToyAnimState",
-    "un_804A2AA8",
-    "un_804D6EF4_t",
-    "un_804D6EF0",
-    "un_804D6EF8",
-    "un_804D6F04",
-    "jobjs",
+    "un_803087F4",
+    "TyMnFigp.dat",
+    "TyMnFigp.usd",
+    "SdToy.dat",
+    "SdToy.usd",
+    "SIS_ToyData",
+    "SIS_ToyData_E",
+    "ToyFigurePonPanel_Top_joint",
+    "ToyFigurePonBg_Top_joint",
+    "ToyFigurePonCoin_Top_joint",
     "HSD_CameraDescPerspective",
-    "HSD_SisLib_803A6368",
-    "lbArchive_LoadSymbols",
-    "Trophy_SetUnlockState",
-    "gm_801623D8",
-    "lbAudioAx_800237A8",
-    "permuter",
     "regswap",
-    "PAD_STACK"
+    "permuter",
+    "PAD_STACK",
+    "pragma dont_inline",
+    "scope:local"
   ],
   "follow_up_queries": [
-    "Find later PRs that resolve the Toy struct size TODO and make STATIC_ASSERT(sizeof(struct Toy) == 0x58) viable.",
-    "Search for subsequent renames of TyFiguponData, TyFiguponUD, un_804D6EF4_t fields x54/x58/x5C/x5D/x5E, and jobjs indices.",
-    "Look for future tyfigupon permuter cleanup on fn_803155C8, fn_80315C44, fn_80316C24, un_8031753C, un_80317D80_OnEnter, and un_803153EC.",
-    "Check whether the un_803087F4 return type change to HSD_GObj* was reused in other toy or trophy-display decompilation work.",
-    "Search config symbol history for un_803FEA10, un_803FEB60, un_803FEED4, and un_803FEEE8 to see whether later names replaced the local un_* data symbols."
+    "Find later PRs touching src/melee/ty/tyfigupon.c comments for regswap, stackspace, or loop initialization TODOs.",
+    "Search for later renames of TyFiguponData, TyFiguponUD, TyFiguponED4, un_804D6EF0, and un_804D6EF4.",
+    "Check whether ToyAnimState size/layout was later finalized and whether the Toy size TODO/static assert was resolved.",
+    "Search PRs that continue matching fn_803155C8, fn_80315C44, fn_80316170, or fn_80316C24.",
+    "Verify whether the tyfigupon data symbols changed to local here remained local in later symbols.txt updates."
   ],
-  "confidence": 0.9
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

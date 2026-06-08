@@ -1,0 +1,119 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2609",
+  "pr": {
+    "number": 2609,
+    "title": "Match and link itdraw",
+    "url": "https://github.com/doldecomp/melee/pull/2609",
+    "state": "MERGED",
+    "author": "PsiLupan",
+    "created_at": "2026-06-07T17:13:31Z",
+    "merged_at": "2026-06-07T17:18:14Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Matched and linked the item draw translation unit by reshaping src/melee/it/itdraw.c, especially it_8026EECC and its static inline helpers, then marking melee/it/itdraw.c as Matching in configure.py. The decomp.dev report credited 2 new matches in main/melee/it/itdraw: it_8026EECC reached 100.00% and .sdata reached 100.00%, with GALE01 totals improving by +1248 matched-code bytes and +2196 linked-code bytes.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "linking",
+      "codegen-cleanup",
+      "symbol-map-correction"
+    ],
+    "systems": [
+      "item",
+      "itdraw",
+      "config",
+      "repo-root"
+    ]
+  },
+  "key_files": [
+    "src/melee/it/itdraw.c",
+    "configure.py",
+    "config/GALE01/symbols.txt"
+  ],
+  "what_changed": [
+    "Changed configure.py so Object(NonMatching, \"melee/it/itdraw.c\") became Object(Matching, \"melee/it/itdraw.c\"), linking the unit as matching.",
+    "Refactored static inline helpers around it_8026EECC in src/melee/it/itdraw.c.",
+    "Replaced several direct gobj->user_data Item* loads with GET_ITEM(gobj).",
+    "Collapsed temporary Vec3* new_pos variables and if/else assignments into direct ternary arguments: ip->xDCF_flag.b7 ? pos : NULL.",
+    "Extracted duplicated Camera_80031060() switch logic into static inline it_8026EECC_inline_sw(HSD_GObj* gobj, s32 arg1, Vec3* pos).",
+    "Removed the explicit PAD_STACK(48) from it_8026EECC after the refactor produced the needed stack/code shape without it.",
+    "Updated GALE01 symbols: it_804D5168 size changed from 0x8 to 0x4, and it_804DC6B0 was renamed/reclassified from global it_804DC6B0 to local @275."
+  ],
+  "smart_moves": [
+    "Factoring the repeated Camera_80031060 switch into a static inline helper let the source express one logical branch while still giving the matcher a reusable inline shape.",
+    "Using GET_ITEM(gobj) instead of raw gobj->user_data aligned this file with project item-access conventions and affected the emitted code enough to match.",
+    "Passing ip->xDCF_flag.b7 ? pos : NULL directly avoided local pointer temporaries that were likely perturbing register/stack allocation.",
+    "The symbol-map edits were limited and targeted: a corrected .sdata object size and a local .sdata2 float label, rather than broad symbol churn.",
+    "The PR did not just match the function locally; it also flipped the build configuration to Matching and verified linked-code progress."
+  ],
+  "decomp_lessons": [
+    "For item code, prefer GET_ITEM(gobj) when the surrounding code expects the standard item accessor; direct gobj->user_data can produce a different matching shape.",
+    "Inlining strategy matters: moving duplicated switch logic into a static inline wrapper can improve matching while preserving source readability.",
+    "Ternary pointer selection can be a useful codegen tactic when an if-initialized temporary pointer creates the wrong stack or register behavior.",
+    "When a function match depends on nearby small data, audit symbols.txt for object size and local/global classification; a code match may require matching .sdata metadata too.",
+    "If a refactor naturally removes the need for PAD_STACK, prefer the cleaner source rather than retaining artificial padding."
+  ],
+  "naming_conventions": [
+    "Unidentified local small-data symbols use @NNN labels, shown by it_804DC6B0 becoming @275.",
+    "Global unidentified item symbols retain it_804Dxxxx names only when they are truly global, shown by it_804D5168 remaining global but with corrected size.",
+    "Helper names followed the existing function-address-derived convention, e.g. it_8026EECC_inline_0 through it_8026EECC_inline_3 and new it_8026EECC_inline_sw.",
+    "Project item access convention is GET_ITEM(gobj) rather than open-coded gobj->user_data where practical."
+  ],
+  "assembly_or_matching_tactics": [
+    "Replace local pointer temporary plus conditional assignment with a direct conditional-expression function argument.",
+    "Extract duplicated switch-over-camera-state logic into a static inline helper to influence inlining and duplication patterns.",
+    "Use GET_ITEM(gobj) consistently to guide load/cast codegen for Item* access.",
+    "Remove PAD_STACK once stack layout is achieved through source structure.",
+    "Synchronize configure.py Matching/NonMatching status only after the translation unit reaches matching/linkable state.",
+    "Correct small-data symbol metadata when .sdata matching reports indicate remaining data mismatch."
+  ],
+  "review_feedback": [
+    "No human review comments were present in the provided slice.",
+    "Automated decomp.dev report confirmed GALE01 improvements: matched code 71.54% (+0.03%, +1248 bytes), linked code 46.01% (+0.06%, +2196 bytes), matched data +8 bytes, and linked data +16 bytes.",
+    "Automated report listed 2 new matches: main/melee/it/itdraw it_8026EECC from 99.41% to 100.00%, and main/melee/it/itdraw .sdata from 66.67% to 100.00%."
+  ],
+  "searchable_terms": [
+    "pr-2609",
+    "Match and link itdraw",
+    "PsiLupan",
+    "itdraw",
+    "src/melee/it/itdraw.c",
+    "configure.py",
+    "config/GALE01/symbols.txt",
+    "it_8026EECC",
+    "it_8026EECC_inline_0",
+    "it_8026EECC_inline_1",
+    "it_8026EECC_inline_2",
+    "it_8026EECC_inline_3",
+    "it_8026EECC_inline_sw",
+    "GET_ITEM",
+    "gobj->user_data",
+    "xDCF_flag",
+    "xDAA_flag",
+    "Camera_80031060",
+    "PAD_STACK",
+    "it_804D5168",
+    "it_804DC6B0",
+    "@275",
+    "Object(Matching, \"melee/it/itdraw.c\")",
+    "main/melee/it/itdraw",
+    ".sdata"
+  ],
+  "follow_up_queries": [
+    "Find other item files using direct gobj->user_data where GET_ITEM(gobj) may improve matching.",
+    "Search for duplicated Camera_80031060 switch blocks that might benefit from static inline extraction.",
+    "Audit remaining NonMatching melee/it units for small-data symbol size or local/global classification mismatches.",
+    "Look for PAD_STACK usages in item draw/collision code that may become unnecessary after source-structure refactors."
+  ],
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

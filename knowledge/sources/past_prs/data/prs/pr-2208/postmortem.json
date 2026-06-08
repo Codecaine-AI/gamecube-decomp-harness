@@ -11,109 +11,100 @@
     "merged_at": "2026-03-04T19:29:27Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Small matching PR that replaced the ftCo_Attack100 stub fn_800DC044 with a simple tap-jump threshold predicate and renamed GALE01 symbol 0x800263B4 from fn_800263B4 to lbAudioAx_ObjFree. The decomp.dev report credited 2 new matches totaling +96 bytes: lbAudioAx_ObjFree (+52) and fn_800DC044 (+44).",
+  "summary": "Small matching PR that completed two straightforward functions: renamed the symbol at 0x800263B4 to lbAudioAx_ObjFree and implemented ftCo_Attack100's fn_800DC044 as a tap-jump-threshold check on the fighter's left-stick Y input. The decomp.dev report credited 2 new matches and +96 bytes total.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "symbol-rename",
-      "stub-removal"
+      "small-function-match"
     ],
     "systems": [
       "fighter",
       "ftCommon",
-      "Attack100",
+      "attack100",
       "audio",
-      "lbAudioAx",
-      "config/GALE01"
+      "lbaudio_ax",
+      "config"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
-      "reason": "Implemented fn_800DC044 as a bool check against p_ftCommonData->tap_jump_threshold."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_Attack100.h",
-      "reason": "Adjusted nearby prototypes to name the Fighter_GObj* parameter gobj."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "reason": "Renamed .text:0x800263B4 from fn_800263B4 to lbAudioAx_ObjFree while preserving address and size."
-    }
+    "config/GALE01/symbols.txt",
+    "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+    "src/melee/ft/chara/ftCommon/ftCo_Attack100.h"
   ],
   "what_changed": [
-    "Replaced the placeholder marker /// #fn_800DC044 in ftCo_Attack100.c with a C implementation returning true when GET_FIGHTER(gobj)->input.lstick.y is greater than or equal to p_ftCommonData->tap_jump_threshold, otherwise false.",
-    "Kept fn_800DC044's public signature as bool fn_800DC044(Fighter_GObj* gobj).",
-    "Updated ftCo_Attack100.h prototypes for fn_800DC014, fn_800DC044, and fn_800DC070 to include the parameter name gobj.",
-    "Renamed the GALE01 symbol at 0x800263B4 from fn_800263B4 to lbAudioAx_ObjFree in symbols.txt.",
-    "Bot verification reported matched code unchanged in percent but +96 bytes, with lbAudioAx_ObjFree and fn_800DC044 moving from 0.00% to 100.00%."
+    "In config/GALE01/symbols.txt, replaced the placeholder symbol fn_800263B4 with the named function lbAudioAx_ObjFree at .text:0x800263B4, size 0x34.",
+    "Implemented bool fn_800DC044(Fighter_GObj* gobj) in ftCo_Attack100.c.",
+    "fn_800DC044 obtains the Fighter with GET_FIGHTER(gobj), compares fp->input.lstick.y against p_ftCommonData->tap_jump_threshold, returns true when the threshold is met, otherwise false.",
+    "Updated nearby ftCo_Attack100.h prototypes for fn_800DC014, fn_800DC044, and fn_800DC070 to include the parameter name gobj.",
+    "decomp.dev reported 2 new matches: lbAudioAx_ObjFree (+52 bytes) and fn_800DC044 (+44 bytes), bringing both from 0.00% to 100.00%."
   ],
   "smart_moves": [
-    "Recognized fn_800DC044 as a minimal fighter input predicate rather than overcomplicating it with action-state logic.",
-    "Used existing project idioms GET_FIGHTER(gobj), a local Fighter* fp, and p_ftCommonData->tap_jump_threshold instead of hard-coded thresholds.",
-    "Used the explicit if/return true/return false form shown in the diff, which was sufficient for a 100% match according to the bot report.",
-    "Improved header readability by naming Fighter_GObj* parameters consistently as gobj.",
-    "Converted a generic address-based audio symbol into the descriptive lbAudioAx_ObjFree name through the GALE01 symbols table."
+    "Kept the fighter function implementation minimal and directly expressed the observed condition: left-stick vertical input greater than or equal to the common tap-jump threshold.",
+    "Used existing project idioms, notably Fighter_GObj*, GET_FIGHTER(gobj), Fighter* fp, and p_ftCommonData->tap_jump_threshold, rather than introducing new abstractions.",
+    "Renamed the audio symbol in the config when the function identity was known, improving symbol searchability without changing adjacent lbAudioAx entries.",
+    "Added parameter names in the header for local consistency with surrounding typed prototypes such as ftCo_CaptureWaitLw_Phys(Fighter_GObj* gobj)."
   ],
   "decomp_lessons": [
-    "Short common-fighter input gates may match as direct comparisons against fields in p_ftCommonData.",
-    "For tap-jump-related checks, look for fp->input.lstick.y compared with p_ftCommonData->tap_jump_threshold.",
-    "Do not collapse every bool helper into a single return expression blindly; the explicit branch form can be the matching C shape.",
-    "Header prototypes should keep meaningful parameter names once a function's argument role is known, especially Fighter_GObj* gobj.",
-    "A symbols.txt rename can be enough to record or unlock a named match when the function body or object mapping already supports it; verify with the decomp.dev report."
+    "Very small boolean helpers can often be matched cleanly by spelling out explicit true/false returns instead of relying on expression folding that may alter codegen.",
+    "For fighter input threshold checks, prefer the established pattern of GET_FIGHTER(gobj), reading fp->input.lstick fields, and comparing against p_ftCommonData constants.",
+    "When resolving a placeholder fn_ address to a domain name, update config/GALE01/symbols.txt so reports and future references use the named symbol.",
+    "Header cleanup can be paired with matching work when it simply adds parameter names and does not alter function types."
   ],
   "naming_conventions": [
-    "Fighter object parameters are named gobj: Fighter_GObj* gobj.",
-    "The local Fighter pointer obtained from GET_FIGHTER(gobj) is named fp.",
-    "Common fighter data is accessed through p_ftCommonData.",
-    "The tap-jump threshold field is named tap_jump_threshold.",
-    "lbAudioAx functions use the lbAudioAx_ prefix; descriptive names such as lbAudioAx_ObjFree replace generic fn_800xxxxx symbols when identified.",
-    "Unidentified functions remain in address form such as fn_800DC044 until a more descriptive project-approved name is established."
+    "Audio-library functions use the lbAudioAx_ prefix; this PR names 0x800263B4 as lbAudioAx_ObjFree.",
+    "Unidentified fighter functions remain in address-based fn_XXXXXXXX form, e.g. fn_800DC044, until a semantic name is established.",
+    "Fighter object parameters are named gobj in prototypes and implementations.",
+    "Local fighter pointers commonly use the name fp after GET_FIGHTER(gobj).",
+    "Common fighter data is accessed through p_ftCommonData, with fields such as tap_jump_threshold."
   ],
   "assembly_or_matching_tactics": [
-    "Stub marker /// #fn_800DC044 was removed and replaced by C source.",
-    "The matching implementation uses GET_FIGHTER(gobj), reads fp->input.lstick.y, compares with >= against p_ftCommonData->tap_jump_threshold, and returns bool via explicit true/false branches.",
-    "The GALE01 symbols entry kept the same .text address 0x800263B4 and size 0x34 while changing only the symbol name to lbAudioAx_ObjFree.",
-    "The bot report provides match evidence: fn_800DC044 +44 bytes and lbAudioAx_ObjFree +52 bytes at 100.00%."
+    "Matched fn_800DC044 as a compact threshold predicate: load Fighter from gobj, load fp->input.lstick.y, compare to p_ftCommonData->tap_jump_threshold, branch to true/false returns.",
+    "Used an explicit if block returning true and a final return false, which likely preserved the intended branch structure for this small boolean function.",
+    "Symbol-only rename of fn_800263B4 to lbAudioAx_ObjFree was enough for the lb/lbaudio_ax unit to report a new 52-byte match."
   ],
   "review_feedback": [
-    "No human review comments or PR body rationale were present in the slice.",
-    "decomp-dev[bot] reported 2 new matches for GALE01 and +96 matched bytes total."
+    "No human review comments were present in the provided slice.",
+    "Automated decomp.dev feedback reported GALE01 matched code unchanged in percentage at 54.48% but with +96 bytes and 2 new matches."
   ],
   "searchable_terms": [
     "pr-2208",
     "Easy funcs",
     "Gelatart",
     "fn_800DC044",
-    "fn_800DC014",
-    "fn_800DC070",
     "ftCo_Attack100",
-    "ftCo_Attack100.c",
-    "ftCo_Attack100.h",
+    "ftCommon",
     "Fighter_GObj",
-    "gobj",
-    "Fighter",
-    "fp",
     "GET_FIGHTER",
+    "Fighter",
+    "fp->input.lstick.y",
     "p_ftCommonData",
     "tap_jump_threshold",
-    "input.lstick.y",
-    "tap jump",
     "lbAudioAx_ObjFree",
     "fn_800263B4",
     "lbaudio_ax",
-    "config/GALE01/symbols.txt",
+    "symbols.txt",
     "GALE01",
-    "matched code",
-    "decomp.dev"
+    "tap jump",
+    "left stick y",
+    "2 new matches",
+    "+96 bytes"
   ],
   "follow_up_queries": [
-    "Find callers of fn_800DC044 to determine whether it should later receive a descriptive ftCo_* name tied to tap jump or capture jump behavior.",
-    "Inspect lbaudio_ax around 0x800263B4/lbAudioAx_ObjFree to see whether source or header declarations still need corresponding cleanup beyond the symbols.txt rename.",
-    "Review adjacent stubs fn_800DC070 and nearby ftCo_CaptureJump functions for similarly small input/common-data predicates.",
-    "Search for remaining Fighter_GObj* prototypes without gobj parameter names and align them when safe."
+    "Find callers of fn_800DC044 to determine whether it should receive a semantic name related to tap jump or capture jump input.",
+    "Inspect neighboring functions fn_800DC014 and fn_800DC070 for similar simple input predicates or opportunities to replace address-based names.",
+    "Review lbAudioAx_ObjFree implementation or references to confirm whether additional lbAudioAx placeholder symbols can be named.",
+    "Search for other uses of p_ftCommonData->tap_jump_threshold to reuse matching patterns for tap-jump checks."
   ],
-  "confidence": 0.9
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

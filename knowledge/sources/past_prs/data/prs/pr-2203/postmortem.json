@@ -11,158 +11,176 @@
     "merged_at": "2026-03-04T22:56:18Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Updated the project’s dtk-template-derived tooling: tool pins, Nix derivations, build-generation support for precompiled headers and context options, docs for splits/symbols formats, and matching-status metadata affected by the toolchain update.",
+  "summary": "Updated the repository’s dtk-template-derived tooling and configuration: bumped decomp-toolkit, m2c, binutils, compilers, objdiff, and sjiswrap versions; added precompiled-header support to the project generator; expanded context-generation controls; added documentation for splits.txt and symbols.txt; and adjusted matching status for several item objects under configure.py. The PR was primarily infrastructure/tooling work rather than a symbol-level decomp PR.",
   "change_classification": {
     "primary_type": "tooling-template-update",
     "categories": [
       "tooling",
-      "build-system",
+      "decomp-matching",
       "documentation",
-      "formatting",
-      "matching-status-metadata"
+      "build-system",
+      "formatting"
     ],
     "systems": [
       "dtk-template",
       "configure.py",
-      ".nix",
       "tools/project.py",
       "tools/decompctx.py",
       "tools/m2ctx",
       "tools/decomp.py",
-      "tools/asm-differ",
+      "Nix tooling",
+      "VS Code settings",
       "docs",
-      ".vscode",
-      ".editorconfig"
+      "item objects"
     ]
   },
   "key_files": [
-    {
-      "path": "configure.py",
-      "role": "Updated tool version tags and adjusted several object Matching/NonMatching statuses."
-    },
-    {
-      "path": "tools/project.py",
-      "role": "Main dtk-template build-generator update: precompiled headers, decompctx excludes/defines, wibo platform logic, objdiff watch patterns."
-    },
-    {
-      "path": "tools/decompctx.py",
-      "role": "Added context-generation exclude globs and macro prelude definitions."
-    },
-    {
-      "path": ".nix/decomp-toolkit.nix",
-      "role": "Pinned Nix decomp-toolkit package from 1.6.2 to 1.8.3."
-    },
-    {
-      "path": ".nix/m2c.nix",
-      "role": "Updated m2c source revision/hash and adjusted the pyproject graphviz patch string."
-    },
-    {
-      "path": "docs/splits.md",
-      "role": "New documentation for splits.txt sections, file attributes, and section attributes."
-    },
-    {
-      "path": "docs/symbols.md",
-      "role": "New documentation for symbols.txt syntax and symbol attributes."
-    },
-    {
-      "path": ".vscode/settings.json",
-      "role": "Added editor associations for .pch and .pch++ files."
-    }
+    "configure.py",
+    "tools/project.py",
+    "tools/decompctx.py",
+    "tools/m2ctx/m2ctx.py",
+    "tools/decomp.py",
+    "tools/dep_graph.py",
+    "docs/splits.md",
+    "docs/symbols.md",
+    ".nix/decomp-toolkit.nix",
+    ".nix/m2c.nix",
+    ".vscode/settings.json",
+    ".editorconfig",
+    "tools/asm-differ/diff.py",
+    "tools/download_tool.py",
+    "tools/split_suggester.py",
+    "tools/wiki_tu.py"
   ],
   "what_changed": [
-    "Tool pins in configure.py moved binutils 2.42-1 to 2.42-2, compilers 20250520 to 20251118, decomp-toolkit v1.6.2 to v1.8.3, objdiff v3.0.0 to v3.6.1, and sjiswrap v1.2.1 to v1.2.2; wibo stayed at 0.7.0.",
-    ".nix/decomp-toolkit.nix was updated to decomp-toolkit 1.8.3 with a new fetchFromGitHub hash, and .nix/m2c.nix was updated to m2c commit 900b0b6a55307f6cd1270023f641c7380083d8c7 with a new hash.",
-    "tools/project.py gained a ProjectConfig.precompiled_headers field, PrecompiledHeader typing alias, get_pch_out_name(), mwcc_pch and mwcc_pch_sjis Ninja rules, .mch output generation, and pre-compile dependencies for PCH outputs.",
-    "tools/project.py now forwards ProjectConfig.context_exclude_globs and ProjectConfig.context_defines into the decompctx Ninja rule as -x and -D arguments.",
-    "tools/decompctx.py added fnmatch-based include exclusion with -x/--exclude and a generate_prelude() path for -D/--define macros at the top of generated context files.",
-    "tools/project.py broadened use_wibo() platform checks to include darwin plus aarch64/arm64, and adjusted wrapper implicit dependency handling so an existing wrapper or downloaded wibo can be tracked.",
-    "Objdiff watch patterns now include more C/C++ and header extensions, including .cc, .cxx, .c++, .hh, .hxx, .h++, .pch, and .pch++.",
-    "New docs/splits.md documents splits.txt section headers, DOL/REL address conventions, comment:0, order:, common BSS, rename:, and skip attributes.",
-    "New docs/symbols.md documents symbols.txt syntax and attributes such as type:, size:, scope:, align:, data:, hidden, force_active, noreloc, noexport, and stripped.",
-    "configure.py changed several melee/it/items object entries from Matching to NonMatching, including itheart.c, ittomato.c, itbox.c, itharisen.c, itlipstick.c, itmariocape.c, itchicorita.c, itthunder.c, and itfushigibana.c, and added itchicoritaleaf.c as NonMatching.",
-    "Several Python files received formatting-only cleanup consistent with template/style updates; tools/download_tool.py also narrowed a bare except to except ImportError.",
-    ".editorconfig now unsets indent_style for Markdown files, and VS Code settings associate .pch with C and .pch++ with C++."
+    "Bumped decomp-toolkit from 1.6.2 to 1.8.3 in both .nix/decomp-toolkit.nix and configure.py.",
+    "Bumped configured tool tags: binutils 2.42-1 to 2.42-2, compilers 20250520 to 20251118, objdiff v3.0.0 to v3.6.1, and sjiswrap v1.2.1 to v1.2.2; wibo remained pinned at 0.7.0.",
+    "Updated the Nix m2c source revision from f201e8861ba0143676f3078d7354d2f7255555b3 to 900b0b6a55307f6cd1270023f641c7380083d8c7 and adjusted the graphviz dependency removal patch to match the newer pyproject format.",
+    "Added ProjectConfig.precompiled_headers and PrecompiledHeader support in tools/project.py, including mwcc_pch and mwcc_pch_sjis Ninja rules that compile .pch/.pch++ headers to .mch files.",
+    "Added get_pch_out_name() using an absolute output path for .mch files so depfile paths from MWCC can be matched to the Ninja target and precompiled headers rebuild when changed.",
+    "Expanded file/language recognition and objdiff watch patterns to include .cc, .cxx, .c++, .hh, .hp, .hxx, .h++, .pch, and .pch++.",
+    "Added .vscode file associations mapping *.pch to C and *.pch++ to C++.",
+    "Added context-generation controls: ProjectConfig.context_exclude_globs and ProjectConfig.context_defines, decompctx.py -x/--exclude include-glob skipping, and -D/--define generated prelude macros.",
+    "Changed the decompctx Ninja rule to pass $excludes and $defines through to tools/decompctx.py.",
+    "Added docs/splits.md describing splits.txt sections, files, section attributes, comment overrides, order hints, common BSS, rename, skip, and REL vaddr behavior.",
+    "Added docs/symbols.md describing symbols.txt syntax and attributes such as type, size, scope, align, data, hidden, force_active, noreloc, noexport, and stripped.",
+    "Adjusted configure.py object status for multiple item files from Matching to NonMatching, including itheart.c, ittomato.c, itbox.c, itharisen.c, itlipstick.c, itmariocape.c, itchicorita.c, itthunder.c, and itfushigibana.c, and added itchicoritaleaf.c as NonMatching.",
+    "Expanded wibo wrapper eligibility in tools/project.py from Linux x86/i386 only to Linux or Darwin on i386, x86_64, aarch64, or arm64.",
+    "Changed wrapper implicit dependency handling so an existing wrapper or a downloaded wibo wrapper can become an implicit dependency.",
+    "Made small formatting/style updates across Python tools, including tools/decomp.py, tools/dep_graph.py, tools/m2ctx/m2ctx.py, tools/split_suggester.py, and tools/wiki_tu.py.",
+    "Changed asm-differ ELF magic literal casing from b\"\\x7FELF\" to b\"\\x7fELF\", which is byte-equivalent and appears stylistic."
   ],
   "smart_moves": [
-    "The PCH output helper intentionally returns an absolute .mch path so Ninja can match MWCC depfile references back to the generated PCH target; the code comment explicitly calls out avoiding stale PCHs when headers change.",
-    "PCH support covers both plain MWCC and sjiswrap-wrapped builds, preserving Shift-JIS handling for projects that need it instead of treating PCH as a separate incompatible path.",
-    "Context customization was added as generated-build configuration, not ad hoc source edits: ProjectConfig.context_exclude_globs and context_defines flow into decompctx as explicit -x and -D flags.",
-    "The tool-version update was kept synchronized across configure.py and Nix package definitions, reducing the chance that local/Nix builds use different decomp-toolkit or m2c revisions.",
-    "The PR kept wibo pinned at 0.7.0 after collaborator discussion instead of upgrading it without evidence of need.",
-    "The splits and symbols documentation captures decomp-toolkit file-format details that are easy to misuse during future split/symbol work."
+    "Kept tool version bumps centralized in configure.py and mirrored the decomp-toolkit version in the Nix package definition, reducing drift between local and Nix workflows.",
+    "Implemented precompiled header output naming as an absolute .mch path specifically to make MWCC depfile entries line up with Ninja targets, avoiding stale PCH rebuild bugs.",
+    "Made PCH compilation respect Shift-JIS wrapping through separate mwcc_pch and mwcc_pch_sjis rules, matching the existing source compilation split.",
+    "Inserted -lang=c or -lang=c++ automatically for PCH cflags when no -lang flag is already present, using filename classification to avoid requiring every PCH entry to repeat language flags.",
+    "Extended decompctx with include exclusion globs and prelude defines rather than hardcoding project-specific header workarounds, making the context generator reusable for difficult translation units.",
+    "Documented dtk file formats in-repo at the same time as updating dtk-template, which helps future contributors understand split and symbol metadata without relying only on external template knowledge.",
+    "Left wibo pinned at 0.7.0 after discussion, suggesting the PR avoided unnecessary tool churn when the current version was sufficient."
   ],
   "decomp_lessons": [
-    "Toolchain/template upgrades can change progress accounting and match outcomes; rerun the decomp.dev report and update Matching/NonMatching metadata instead of assuming old status remains valid.",
-    "When adding precompiled-header support, make the generated .mch target visible to Ninja dependency resolution; otherwise depfiles may point at a filesystem path that has no corresponding rebuild rule.",
-    "Use decompctx -D to inject context-only macros and -x to skip problematic includes rather than polluting production headers for m2c/decomp context generation.",
-    "For splits.txt, use comment:0 for assembled or non-mwcc objects where generating a .comment section would break mwld, and use order: only for ambiguous link-order cases because decomp-toolkit normally resolves order automatically.",
-    "For symbols.txt, attributes such as force_active, noreloc, noexport, and stripped are matching controls, not just documentation; they affect generated objects, deadstripping, relocation interpretation, code-merging/export behavior, and common BSS handling.",
-    "Editor/tooling support should include project-specific generated/source extensions such as .pch and .pch++ so decomp work does not lose language services or rebuild watching on newer template features."
+    "When updating dtk-template/toolchain versions, expect matching status to be revisited; this PR demoted several item objects from Matching to NonMatching, which is evidence that template/tool changes can expose or change match behavior.",
+    "PCH support in decomp build systems needs depfile-aware target naming. If MWCC emits absolute or filesystem paths for .mch dependencies, Ninja targets must match those paths or rebuilds can silently fail.",
+    "Context-generation tools benefit from explicit macro prelude support. Use -D-style defines to reproduce compile-time conditions when generating m2c/decomp contexts.",
+    "Context-generation tools also benefit from include exclusion globs for problematic or irrelevant headers, while preserving breadcrumbs in the generated context via comments such as skipped excluded file.",
+    "For dtk splits, file paths in splits.txt correspond to configure.py unit entries for compiler flags/options, and the source file does not need to exist before starting a split.",
+    "Use splits.txt order: only for ambiguous link-order fine tuning; the docs added here state decomp-toolkit normally resolves link order automatically.",
+    "Use symbols.txt noreloc for data that resembles pointers but must not be interpreted as addresses, and force_active/noexport/stripped for linker-export, code-merging, and common-BSS edge cases respectively.",
+    "For assembly-only files that were not compiled with mwcc, splits.txt comment:0 can disable .comment generation; the new docs note that generating a .comment section for such files can crash mwld."
   ],
   "naming_conventions": [
-    "Tool version fields remain named config.binutils_tag, config.compilers_tag, config.dtk_tag, config.objdiff_tag, config.sjiswrap_tag, and config.wibo_tag.",
-    "Precompiled header project configuration is named precompiled_headers, with a PrecompiledHeader alias and get_pch_out_name() helper.",
-    "PCH source extensions are .pch for C and .pch++ for C++, and generated MWCC precompiled-header outputs use .mch.",
-    "Ninja rules for PCH are named mwcc_pch and mwcc_pch_sjis, mirroring existing mwcc and mwcc_sjis naming.",
-    "Context-generation configuration is named context_exclude_globs and context_defines, mapping to decompctx -x/--exclude and -D/--define.",
+    "Precompiled header sources use .pch for C and .pch++ for C++.",
+    "Precompiled header outputs are generated as .mch files under the build output include tree.",
+    "tools/project.py introduced a PrecompiledHeader dictionary type alias and ProjectConfig.precompiled_headers list.",
+    "Context-control ProjectConfig fields are named context_exclude_globs and context_defines.",
+    "decompctx command-line options use -x/--exclude for excluded include filename globs and -D/--define for prelude macro definitions.",
+    "configure.py continues to express per-object status with Object(Matching, \"path\") and Object(NonMatching, \"path\").",
     "splits.txt uses section/file attributes such as type:, align:, vaddr:, comment:, order:, start:, end:, rename:, common, and skip.",
-    "symbols.txt uses symbol attributes such as type:, size:, scope:, align:, data:, hidden, force_active, noreloc, noexport, and stripped.",
-    "configure.py object status continues to use Object(Matching, path) and Object(NonMatching, path) entries."
+    "symbols.txt uses symbol attributes such as type:, size:, scope:, align:, data:, hidden, force_active, noreloc, noexport, and stripped."
   ],
   "assembly_or_matching_tactics": [
-    "Use splits.txt comment:0 for assembly-only files like the documented TRK_MINNOW_DOLPHIN/ppc/Export/targsupp.s example when a generated .comment section would crash mwld.",
-    "Use splits.txt order: as a fine-tuning anchor only for ambiguous link-order resolution; the docs state decomp-toolkit normally generates link order automatically.",
-    "Use symbols.txt force_active to mark a symbol exported and add it to FORCEACTIVE in the generated ldscript.lcf when deadstripping must be prevented.",
-    "Use symbols.txt noreloc for data that looks like pointers but should not be interpreted as relocations.",
-    "Use decompctx -x include globs to leave an include visible in comments but skip importing its contents into the generated context.",
-    "Use decompctx -D definitions to create a local 'decompctx prelude' for m2c/decomp contexts.",
-    "Treat PCH inputs as build artifacts with explicit MWCC -precompile rules and include .pch/.pch++ in watch patterns so objdiff and incremental builds see them."
+    "After the template/tool update, several item translation units were explicitly marked NonMatching, preserving build correctness rather than pretending they still matched under the new configuration.",
+    "The docs added here encode common matching tactics for dtk projects: use order: to break ambiguous object ordering, comment:0 for non-mwcc assembly objects, common for common BSS, skip for linker-generated data, and rename: for generated section names like .ctors$10.",
+    "tools/project.py retains extab-clean post-processing via dtk extab clean with extab_padding for MWCC objects that need exception-table cleanup.",
+    "tools/decomp.py still invokes m2c with ppc-mwcc-c target context and options such as --knr and --pointer left; the diff mostly reformatted these arguments rather than introducing a new tactic.",
+    "decompctx.py now supports excluding selected includes and injecting defines, which is useful when constructing smaller, more accurate decompilation contexts for m2c or manual matching."
   ],
   "review_feedback": [
-    "No formal review comments or reviews were present in the slice, and the PR body was null.",
-    "Human discussion focused on wibo: ribbanya asked whether to use r-burns's patched wibo; r-burns said the current approach worked and asked whether recent wibo releases were needed, noting a happy pin to 0.7.0; ribbanya replied, 'Nah, it's fine.'",
-    "The automated decomp.dev report showed linked code at 30.63% (-0.41%, -15772 bytes), matched data at 34.48% (+13.49%, +163392 bytes), linked data at 28.79% (-0.08%, -1008 bytes), 667 new matches, and 3 broken matches."
+    {
+      "author": "ribbanya",
+      "feedback": "Asked whether the PR should use r-burns's patch of wibo instead.",
+      "evidence": "Issue comment: \"@r-burns What about just using your patch of wibo?\""
+    },
+    {
+      "author": "r-burns",
+      "feedback": "Said using the patch would work too, but the current approach seemed easier; also questioned whether recent wibo releases were needed because they had been happily pinned to 0.7.0.",
+      "evidence": "Issue comment: \"That works too, this seemed easier. Do we actually need anything from recent releases of wibo? I've been happily pinned to 0.7.0.\""
+    },
+    {
+      "author": "ribbanya",
+      "feedback": "Accepted keeping the chosen approach/pin.",
+      "evidence": "Issue comment: \"Nah, it's fine.\""
+    }
   ],
   "searchable_terms": [
     "dtk-template",
-    "decomp-toolkit v1.8.3",
+    "decomp-toolkit 1.8.3",
+    "dtk v1.8.3",
     "m2c 900b0b6a55307f6cd1270023f641c7380083d8c7",
-    "objdiff v3.6.1",
     "binutils 2.42-2",
     "compilers 20251118",
+    "objdiff v3.6.1",
     "sjiswrap v1.2.2",
     "wibo 0.7.0",
     "precompiled_headers",
     "PrecompiledHeader",
-    "get_pch_out_name",
+    "mwcc_pch",
+    "mwcc_pch_sjis",
     ".pch",
     ".pch++",
     ".mch",
-    "mwcc_pch",
-    "mwcc_pch_sjis",
+    "get_pch_out_name",
     "context_exclude_globs",
     "context_defines",
     "decompctx --exclude",
     "decompctx --define",
     "splits.txt",
     "symbols.txt",
-    "comment:0",
+    "common BSS",
     "force_active",
     "noreloc",
     "noexport",
     "stripped",
-    "itheart.c NonMatching",
+    "comment:0",
+    "order:",
+    "rename:",
+    "skip",
+    "itheart.c",
+    "ittomato.c",
+    "itbox.c",
+    "itharisen.c",
+    "itlipstick.c",
+    "itmariocape.c",
+    "itchicorita.c",
     "itchicoritaleaf.c",
-    "tools/project.py",
-    "tools/decompctx.py"
+    "itthunder.c",
+    "itfushigibana.c"
   ],
   "follow_up_queries": [
-    "Find later PRs that use ProjectConfig.precompiled_headers or .pch/.pch++ files.",
-    "Check whether the item TUs demoted to NonMatching in this PR were later restored to Matching.",
-    "Search for follow-up changes to wibo 0.7.0, darwin arm64 use_wibo, or r-burns's wibo patch.",
-    "Look for PRs that rely on decompctx context_exclude_globs or context_defines for m2c output.",
-    "Audit future decomp-toolkit version bumps for matching-status flips and decomp.dev report regressions.",
-    "Search for docs/splits.md and docs/symbols.md references in later split/symbol cleanup PRs."
+    "Which item files demoted to NonMatching in PR 2203 have since been restored to Matching?",
+    "How is ProjectConfig.precompiled_headers configured in later PRs or downstream dtk-template updates?",
+    "Do later PRs update wibo beyond 0.7.0 or adopt r-burns's wibo patch?",
+    "Which translation units use decompctx context_exclude_globs or context_defines after this PR?",
+    "Did the decomp-toolkit 1.8.3 update require changes to splits.txt or symbols.txt in later PRs?"
   ],
-  "confidence": 0.87
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

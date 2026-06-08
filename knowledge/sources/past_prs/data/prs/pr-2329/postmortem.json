@@ -11,104 +11,89 @@
     "merged_at": "2026-03-24T11:30:11Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large gm_1832 decompilation expansion covering Classic/1P intro splash behavior, VS intro camera/model scene setup, and Training Mode HUD/menu state. The PR replaced many stubs in src/melee/gm/gm_1832.c with C, added typed game-mode structures and prototypes, and improved decomp.dev matched code by +1932 bytes (+0.05%) with 5 new 100% matches and 30 fuzzy improvements. Evidence also notes one slight broken match, fn_801884F8, attributed by the author to data/offset issues expected to resolve when linking.",
+  "summary": "Large gm_1832 decompilation PR for game-mode code, replacing many placeholder stubs and UNK prototypes with C implementations, typed signatures, local data-layout structs, and shared game-mode types. The author explicitly noted many functions were fuzzy rather than 100% matches, but considered the work an improvement; one broken function was attributed to data/offset issues expected to resolve when linking.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
+      "typing",
       "struct-layout",
-      "game-mode-implementation",
-      "matching-tactics"
+      "game-mode-cleanup"
     ],
     "systems": [
       "game-mode",
       "gm_1832",
       "classic-mode",
-      "one-player-intro",
-      "vs-mode-intro",
       "training-mode",
-      "camera",
-      "HUD",
-      "SisLib",
-      "audio",
-      "HSD-GObj-JObj"
+      "CSS/menu-related-state"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gm/gm_1832.c",
-      "role": "Main change: ~2131 added lines replacing gm_1832 stubs with Classic intro, VS intro, and Training Mode implementations plus local structs, static data, bitfields, pragmas, and stack padding."
+      "role": "Main decompilation body; added roughly 2131 lines and replaced many placeholder /// #fn_8018xxxx stubs with C implementations and supporting static data/types."
     },
     {
       "path": "src/melee/gm/gm_1832.h",
-      "role": "Updated many gm_1832 prototypes from UNK_RET/UNK_PARAMS to typed signatures such as fn_8018504C(void), fn_80185A0C(void), fn_80187910(HSD_GObj*), gm_80189CDC(StartMeleeData*), and fn_8018A000(void)."
+      "role": "Header cleanup; replaced multiple UNK_RET/UNK_PARAMS declarations with concrete return types and parameter types."
     },
     {
       "path": "src/melee/gm/types.h",
-      "role": "Added CssSubStruct and TrainingModeState, turning raw Training Mode/BSS indexing into typed fields for players, result_cache, jobjs, anim_frames, menu_values, and text."
+      "role": "Added shared game-mode structs CssSubStruct and TrainingModeState, including PlayerInitData, HSD_GObj, HSD_JObj, animation frame, menu value, and HSD_Text fields."
     },
     {
       "path": "src/melee/gm/gm_1601.h",
-      "role": "Refined fn_80160DE8 signature to void fn_80160DE8(HSD_JObj*, u8, s32, u8, f32, f32), enabling typed calls from gm_1832 splash/name rendering code."
+      "role": "Refined fn_80160DE8 prototype from unknown params to void fn_80160DE8(HSD_JObj*, u8, s32, u8, f32, f32), enabling typed calls from gm_1832."
     }
   ],
   "what_changed": [
-    "Implemented or substantially filled many gm_1832 functions previously represented by stub comments, with decomp.dev reporting 5 new 100% matches: fn_801861B8, fn_8018A364, fn_80188D3C, fn_8018504C, and gm_80186E30_OnEnter.",
-    "Added Classic/1P intro and splash-screen logic: character model positioning in fn_8018325C/fn_80184138/fn_80186F6C, splash timer/text/audio behavior in fn_80184AB8/fn_8018504C, character setup in fn_801851C0/fn_80185E34/fn_80185F5C/fn_80186080, SObj/camera setup in fn_801857C4/fn_80185A0C/fn_801861B8/fn_80186634, and enter-data copy in gm_80186E30_OnEnter.",
-    "Added VS intro scene/camera work around lbl_804736C0: fn_80187910 camera animation scaling, fn_80187AB4 and fn_80187CF4 animation state machines, and gm_80187F48_OnEnter archive/camera/light/model/audio setup using static data including lbl_804D4138 = \"IrNml\" and lbl_803D9750.",
-    "Added Training Mode state/HUD/menu code: fn_801884F8 result caching, fn_80188550 player-count adjustment, fn_80188644 state reset, fn_80188738/fn_80188910/fn_80188B3C/fn_80188D3C digit animation helpers, fn_80188EE8 HUD update, fn_801891F4 menu handler, fn_80189B88 setup, gm_80189CDC initialization, and fn_8018A000 text/archive setup for \"GmTrain\".",
-    "Exposed and documented hidden struct layout in globals such as lbl_804735A8, lbl_804735E8, lbl_804736C0, and lbl_80473700; added local layout structs ClassicProcArray, ClassicSlotVals, ClassicCharLayout, ClassicTeamEntry, ClassicSplashRow, ClassicCharData, ClassicModeEnterData, CssSubStruct, and TrainingModeState.",
-    "Updated includes for needed baselib and melee systems: aobj/cobj/dobj/mobj/wobj/gobjplink/sislib/random/runtime, gm_1601/gm_1A36/gmmain_lib, ifstatus/ifall, it_266F, lb_0192, lblanguage, mn/types, and mnname.",
-    "The decomp.dev report also recorded 30 improvements in unmatched gm_1832 items and one broken match: fn_801884F8 went from 100.00% to 99.82%; the author said this was \"data / offset stuff\" expected to be resolved when linking."
+    "Implemented a large block of gm_1832.c functions in the 0x8018325C-0x8018A364 range, including functions such as fn_8018325C, fn_80184138, fn_80184AB8, fn_8018504C, fn_801851C0, fn_801857C4, fn_80185A0C, fn_80185E34, fn_80185F5C, fn_80186080, fn_801861B8, fn_80186634, fn_80186F6C, fn_80187910, fn_80187AB4, fn_80187CF4, fn_80188550, fn_80188644, fn_80188738, fn_80188910, fn_80188B3C, fn_80188D3C, fn_80188EE8, fn_801891F4, fn_80189B88, and fn_8018A364.",
+    "Expanded gm_1832.c dependencies with many concrete includes: HSD aobj/cobj/dobj/mobj/wobj/gobjplink/sislib/random/runtime, gm_1601, gm_1A36, gmmain_lib, gm_1B03.static.h, ifstatus, ifall, it_266F, lb_0192, lblanguage, mn/types, and mnname.",
+    "Reworked static globals in gm_1832.c from broad padding into partially identified fields, including lbl_804735A8 JObj/timer fields and lbl_804735E8 splash-screen fields for character counts, ids, costumes, metal flags, SObj display GObj, and image descriptor indices.",
+    "Introduced local layout structs for ClassicSlotVals, ClassicCharLayout, ClassicTeamEntry, and ClassicSplashRow, each guarded with STATIC_ASSERT size checks.",
+    "Refined a large pointed-to data table lbl_804D6604 from raw padding into structured classic-mode layout arrays at offsets such as x00, x18, x3C, x6C, x37C, x57C, x630, x654, x678, and x6A8.",
+    "Added static data arrays and strings used by the decompiled code, including Japanese/US text bytes, character scale/offset data, and archive/resource names such as IrRdMap and IrNml.",
+    "Added CssSubStruct and TrainingModeState to gm/types.h, making later gm_1832 signatures such as gm_80189CDC(StartMeleeData*) return TrainingModeState* instead of UNK_RET.",
+    "Updated gm_1832.h prototypes for many functions from UNK_RET/UNK_PARAMS to concrete signatures, including s32-returning status helpers, HSD_GObj* callbacks, HSD_JObj* animation helpers, HSD_Text* return, and void no-arg functions.",
+    "Updated gm_1601.h so fn_80160DE8 has a typed signature matching calls in gm_1832 that pass an HSD_JObj pointer, fighter id, flags, and two float scale/position parameters."
   ],
   "smart_moves": [
-    "Converted raw padding and pointer arithmetic into offset-annotated structs with STATIC_ASSERTs for critical table layouts, making large archive/BSS data accesses readable without pretending every field is semantically known.",
-    "Used native C bitfields for lbl_804736C0.x36 and lbl_804736C0.x37 to express stage_index/done/flash/active and animation state bytes; commit metadata explicitly notes this helped bitfield/rlwimi codegen and made gm_8018838C_OnFrame 100%.",
-    "Controlled MWCC behavior with localized #pragma dont_inline, #pragma push/pop, inline alternatives, and noInline wrapper calls where inlining/scheduling affected matches, rather than globally destabilizing the unit.",
-    "Kept remaining unknowns honest: address-based function/global names stayed in place, while prototypes and struct fields were only refined where evidence from calls/layout was available.",
-    "Accepted useful high-percentage fuzzy matches when the remaining differences were documented as systemic BSS/data/SDA offsets, register swaps, or scheduling/prologue issues; this moved the unit forward instead of overfitting source to relocation noise.",
-    "Pulled shared state into TrainingModeState and CssSubStruct so code such as result_cache, players, jobjs, anim_frames, menu_values, and text accesses replaced ptr[index] style BSS indexing.",
-    "Used typed HSD_JObj/HSD_GObj/HSD_CObj/SisLib/archive APIs and added the exact headers needed, which improved prototypes and reduced UNK_RET/UNK_PARAMS spread.",
-    "Final commit metadata mentions cleanup of pointer arithmetic, fixing build issues, removing problematic inlining, and fixing an out-of-bounds read; those are credible cleanup signals, though the slice does not show reviewer discussion for them."
+    "Converted unknown headers only as needed to support real callsites, especially fn_80160DE8, rather than leaving casts or UNK_PARAMS around new gm_1832 code.",
+    "Used STATIC_ASSERT on inferred asset/layout structs, which is a good safeguard when replacing raw padding with named fields in data-heavy game-mode code.",
+    "Kept uncertain fields offset-named, such as x6C, x37C, x57C, x6A8, pad_570, and pad_60C, avoiding overconfident semantic names while still exposing the layout needed for matching.",
+    "Modeled the classic splash/layout data as small reusable structs instead of one monolithic padding blob, making repeated expressions more readable and easier to audit against offsets.",
+    "Reused existing engine/library APIs directly, including HSD_JObj translation/scale helpers, HSD_TObjReqAnimAll, HSD_AObjSetRate, HSD_SisLib text functions, Player_GetEntity, Player_GetEntityAtIndex, lbAudioAx, gmMainLib, language checks, and name-text helpers.",
+    "Preserved decompilation progress even with fuzzy matches, with the author openly flagging that not many functions were 100% matched and that at least one issue involved data/offset/linking behavior."
   ],
   "decomp_lessons": [
-    "For large game-mode files, a broad typed-structure pass can produce many near-matches even when only a few functions reach 100%; documenting systemic relocation/register differences makes those fuzzy matches reviewable.",
-    "When a BSS/global blob is blocking progress, introduce nested structs around observed offsets and keep offset-style member names plus padding until semantics are proven.",
-    "Use STATIC_ASSERT(sizeof(...)) on newly inferred layout structs such as ClassicSlotVals, ClassicCharLayout, ClassicTeamEntry, and ClassicSplashRow to protect archive/table offset assumptions.",
-    "For state bytes that the original manipulates with bit operations, C bitfields can be a better match than manual shifts/masks if field order and widths are modeled carefully.",
-    "Stack shape still matters in this unit: PAD_STACK sizes were used repeatedly, and commit metadata calls out a PAD_STACK adjustment for fn_80186F6C as a match improvement.",
-    "Locale/text rendering code may require byte arrays and explicit SisLib calls instead of normal C string assumptions; this PR used raw byte arrays for Japanese/US text fragments and language checks.",
-    "Training/HUD digit rendering patterns repeat: gather sibling JObjs, clamp values to 999, request digit animations with 10.0f as the blank frame, then animate all three nodes.",
-    "Archive-driven scene setup often benefits from preserving duplicated switch-case structure and call order, even when the C could be factored, because MWCC scheduling and data relocations are sensitive.",
-    "If a function regresses only because typed data moved offsets, note it explicitly and check whether the linker/data layout will resolve it before undoing useful source cleanup."
+    "For large game-mode decompilation PRs, typed prototypes in neighboring headers can be as important as the C body: one corrected helper signature can remove many casts and make callsite reconstruction clearer.",
+    "When asset tables drive positioning, scale, and text layout, replacing raw padding with offset-accurate structs plus STATIC_ASSERTs gives future decompilers a safer base even if field semantics remain unknown.",
+    "It is acceptable to land fuzzy-but-improving matches when the uncertainty is documented, especially in data/offset-heavy code where final exactness may depend on linking and table placement.",
+    "Do not over-name inferred game-mode data. Offset-style names with comments are preferable to guessed semantic names when evidence only proves layout and usage.",
+    "Splash/menu code often crosses many subsystems at once: HSD objects, SIS text, audio, language, player state, archive resources, and game-mode tables. Including exact subsystem headers can expose true signatures and reduce UNK usage.",
+    "Shared state structs such as TrainingModeState and CssSubStruct belong in gm/types.h when exposed through headers or used by multiple gm functions, rather than being kept as local anonymous blobs."
   ],
   "naming_conventions": [
-    "Unknown functions retained address-style names such as fn_8018325C, fn_801884F8, and fn_8018A364; game-mode lifecycle functions retained gm_8018XXXX_OnEnter/OnFrame/OnLeave naming.",
-    "Newly inferred structs used descriptive PascalCase where the domain was clear: ClassicProcArray, ClassicSlotVals, ClassicCharLayout, ClassicTeamEntry, ClassicSplashRow, ClassicCharData, ClassicModeEnterData, CssSubStruct, and TrainingModeState.",
-    "Struct fields stayed offset-based when semantics were incomplete, e.g. x00, x04, x6A8, pad_570, xF1, xF4, and x37, with comments added where evidence was strong such as left/right char ids, costumes, metal flags, and splash SObj display GObj.",
-    "Global/static symbols preserved lbl_803*/lbl_804* address naming, including lbl_804735A8, lbl_804735E8, lbl_804736C0, lbl_80473700, lbl_803D9750, and lbl_804D4138.",
-    "Object locals followed common decomp shorthand: gobj, jobj, cobj, sub, desc, anim_idx, arg0_ for untyped/raw input before casting.",
-    "Header cleanup convention: replace UNK_RET/UNK_PARAMS with the narrowest evidenced type signature, but use void* or s32 rather than inventing semantic enum names when the exact type is not proven.",
-    "Small helper bitfield names such as u8_bits and x37_state_bits were used to model flag-byte access without overnaming every flag."
+    "Unmatched or partially understood functions remain address-based, e.g. fn_8018325C, fn_80184AB8, fn_80189B88, while lifecycle functions keep gm_80186DFC_OnFrame and gm_80186E30_OnEnter style names.",
+    "Inferred structs use descriptive but conservative names such as ClassicSlotVals, ClassicCharLayout, ClassicTeamEntry, ClassicSplashRow, ClassicCharData, CssSubStruct, and TrainingModeState.",
+    "Unknown fields retain offset-style names such as x00, x04, x08, x37C, x57C, x6A8, pad_14, pad_570, and pad_60C.",
+    "Header prototypes continue the project convention of address comments, e.g. /* 18504C */ void fn_8018504C(void);",
+    "Static data symbols retain original lbl_80xxxxxx names unless only a local C type or comment is inferred."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK with multiple exact sizes, including PAD_STACK(4), PAD_STACK(8), PAD_STACK(16), PAD_STACK(24), PAD_STACK(0x10), and PAD_STACK(40), to tune stack layout.",
-    "Used #pragma dont_inline on/reset and #pragma push/pop around functions such as fn_801855BC, fn_801884F8, and fn_801891F4 to manage MWCC inlining and scheduling.",
-    "Added inline/noInline variants such as fn_801884F8_inline and fn_8018846C_noInline so callers could reproduce expected inline behavior independently from the exported function body.",
-    "Modeled flag bytes as bitfields in lbl_804736C0.x36/x37 and u8_bits to improve branch/rlwimi-style codegen for animation and match-end flags.",
-    "Preserved duplicated scene setup blocks and explicit HSD call order in fn_80186634/gm_80187F48_OnEnter rather than factoring them, likely to match original scheduling and side effects.",
-    "Used explicit casts and unsigned comparisons, e.g. (s32), (u8), u16 checks, and U/ULL constants, to guide MWCC branch generation.",
-    "Represented mixed string/integer data with raw static arrays and casts, such as lbl_803D9750 entries and byte-array text constants, to keep data layout close to the target.",
-    "Documented remaining diffs as BSS/data/SDA relocation offsets, register swaps, prologue scheduling, or data-section base issues; this is useful triage for future link/layout work.",
-    "Moved from raw ptr[index] accesses to typed globals like lbl_80473700.result_cache and lbl_80473700.css while tracking that such cleanup can alter BSS offset diffs."
+    "Used explicit stack padding markers such as PAD_STACK(8) and PAD_STACK(16) in functions where stack layout affected matching.",
+    "Introduced local temporaries such as scale_factor, x_adj, y_adj, and new_var to shape generated code around expected instruction order and float arithmetic.",
+    "Used casts to match signedness and width-sensitive comparisons, for example casting u8/u16 fields to s32 or u16 before comparisons against constants.",
+    "Modeled JObj transform copying through Vec3 temporaries and HSD_JObjGetTranslation/HSD_JObjSetTranslate/HSD_JObjGetScale/HSD_JObjSetScale calls, matching engine API patterns instead of raw field access.",
+    "Represented byte strings and float tables as static arrays in the translation unit to match data references for text and layout calculations.",
+    "Used bitfield-style updates through u8_bits casts in fn_8018A364 to express result flag writes while preserving byte/bit behavior."
   ],
   "review_feedback": [
-    "No human GitHub review comments were present in the slice.",
-    "decomp.dev reported matched code 59.50% (+0.05%, +1932 bytes) for GALE01, with 5 new matches and 30 improvements in unmatched gm_1832 items.",
-    "decomp.dev reported one broken match: main/melee/gm/gm_1832 fn_801884F8 changed from 100.00% to 99.82%, plus a .bss unmatched regression.",
-    "The author commented: \"Lots of fuzzy matches, not a lot of 100% ones, I still believe this is an improvement :)\"",
-    "The author also commented that the broken function was \"data / offset stuff\" and \"will be resolved when linking\"."
+    "No formal review comments were present in the provided slice.",
+    "Author comment: 'Lots of fuzzy matches, not a lot of 100% ones, I still believe this is an improvement :)'",
+    "Author comment: 'The function that broke is data / offset stuff, will be resolved when linking'",
+    "PR body only said: 'Tracking PR as per usual'"
   ],
   "searchable_terms": [
     "pr-2329",
@@ -118,9 +103,6 @@
     "src/melee/gm/gm_1832.h",
     "src/melee/gm/types.h",
     "src/melee/gm/gm_1601.h",
-    "gm_80186E30_OnEnter",
-    "gm_80187F48_OnEnter",
-    "gm_80189CDC",
     "fn_8018325C",
     "fn_80184138",
     "fn_80184AB8",
@@ -133,11 +115,9 @@
     "fn_80186080",
     "fn_801861B8",
     "fn_80186634",
-    "fn_80186F6C",
     "fn_80187910",
     "fn_80187AB4",
     "fn_80187CF4",
-    "fn_801884F8",
     "fn_80188550",
     "fn_80188644",
     "fn_80188738",
@@ -145,47 +125,47 @@
     "fn_80188B3C",
     "fn_80188D3C",
     "fn_80188EE8",
-    "fn_801891F4",
     "fn_80189B88",
-    "fn_8018A000",
     "fn_8018A364",
+    "fn_80160DE8",
     "TrainingModeState",
     "CssSubStruct",
-    "ClassicModeEnterData",
-    "ClassicProcArray",
     "ClassicSlotVals",
     "ClassicCharLayout",
     "ClassicTeamEntry",
     "ClassicSplashRow",
     "ClassicCharData",
-    "lbl_804735A8",
-    "lbl_804735E8",
-    "lbl_804736C0",
-    "lbl_80473700",
-    "lbl_803D9750",
-    "lbl_804D4138",
-    "IrNml",
-    "GmTrain",
-    "SisLib",
+    "STATIC_ASSERT",
+    "PAD_STACK",
     "HSD_JObj",
     "HSD_GObj",
-    "HSD_CObj",
-    "BSS relocation",
-    "SDA offsets",
-    "data offsets",
-    "PAD_STACK",
-    "dont_inline",
-    "bitfield codegen",
-    "training HUD",
-    "classic mode splash",
-    "VS intro camera"
+    "HSD_Text",
+    "HSD_SisLib",
+    "lbAudioAx",
+    "lbLang_IsSavedLanguageUS",
+    "GetNameText",
+    "Player_GetEntity",
+    "PlayerInitData",
+    "StartMeleeData",
+    "MatchEnd",
+    "Classic mode splash screen",
+    "fuzzy matches",
+    "data offset linking"
   ],
   "follow_up_queries": [
-    "Find later PRs that resolve fn_801884F8 or lbl_80473700 BSS/data offset regressions after linking/layout changes.",
-    "Search for subsequent semantic renames of gm_1832 address-named functions, especially Classic intro, VS intro, and Training Mode helpers.",
-    "Search for follow-up validation or resizing of TrainingModeState, CssSubStruct, lbl_804735E8, and lbl_804736C0 layouts.",
-    "Search for other PRs using bitfields to match rlwimi/codegen in game-mode state bytes.",
-    "Search for PRs that finish fuzzy gm_1832 matches listed here, especially fn_8018325C, fn_80184138, fn_801891F4, fn_80186634, gm_80187F48_OnEnter, and gm_80189CDC."
+    "Find later PRs touching gm_1832.c functions that were fuzzy in PR #2329, especially fn_80184AB8, fn_80186634, fn_801891F4, and fn_8018A364.",
+    "Search for subsequent renames or field refinements for ClassicSlotVals, ClassicCharLayout, ClassicTeamEntry, ClassicSplashRow, CssSubStruct, and TrainingModeState.",
+    "Check whether the data/offset linking issue mentioned by the author was resolved in a follow-up PR or by later linker/data placement changes.",
+    "Compare gm_1832.h after later PRs to see which UNK_RET/UNK_PARAMS declarations remained and which were further typed.",
+    "Search for later uses of the typed fn_80160DE8(HSD_JObj*, u8, s32, u8, f32, f32) signature."
   ],
-  "confidence": 0.86
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,193 +11,145 @@
     "merged_at": "2026-04-11T14:06:10Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Split from #2345 to land five gm/mn decompilation implementations in game-loop and menu code: menu rule text handling, opening fog animation gating, opening performance-label construction, match-end team-score aggregation, and bonus lookup. The diff replaced stubs with C, updated headers from UNK prototypes to typed signatures, and refined mnmainrule's struct layout. PR text claims all five functions were 100%, while the decomp.dev bot report listed three new 100% matches and two near-100 improvements, so exact final match status for fn_80165E7C and fn_801A7FB4 should be verified before reusing as a certainty.",
+  "summary": "Matched five previously stubbed game-mode/menu functions at 100%: mn_802308F0, fn_801A7FB4, fn_801A9FCC, fn_80165E7C, and fn_8016F870. The PR was split from #2345 and focused on game-loop and menu matches only, adding concrete C implementations plus tighter prototypes, one menu struct layout refinement, static data for the opening performance overlay, and required baselib/library includes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "headers",
-      "struct-layout",
       "cleanup",
+      "headers",
       "naming",
-      "tooling"
+      "struct-layout"
     ],
     "systems": [
       "game-mode",
       "menus",
-      "match-end",
       "opening",
-      "bonus-scoring",
-      "melee-core"
+      "match-end",
+      "performance-overlay"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/mn/mnmainrule.c",
-      "role": "Implemented mn_802308F0, a menu rule-description HSD_Text create/destroy callback."
-    },
-    {
-      "path": "src/melee/mn/mnmainrule.h",
-      "role": "Exposed mn_802307F8_t offset 0xA as xA, preserved pads to 0x130, and typed mn_802308F0."
-    },
-    {
-      "path": "src/melee/gm/gm_1A4C.c",
-      "role": "Implemented fn_801A7FB4 fog animation gating and added fog.h."
-    },
-    {
-      "path": "src/melee/gm/gm_1A4C.h",
-      "role": "Changed fn_801A7FB4 prototype to void fn_801A7FB4(HSD_GObj*)."
-    },
-    {
-      "path": "src/melee/gm/gmopening.c",
-      "role": "Implemented fn_801A9FCC performance label builder with static data and callback cast in fn_801AA0E8."
-    },
-    {
-      "path": "src/melee/gm/gmopening.h",
-      "role": "Changed fn_801A9FCC prototype to void* fn_801A9FCC(void)."
-    },
-    {
-      "path": "src/melee/gm/gm_1601.c",
-      "role": "Implemented fn_80165E7C match-end team standings aggregation."
-    },
-    {
-      "path": "src/melee/gm/gm_1601.h",
-      "role": "Changed fn_80165E7C prototype to void fn_80165E7C(MatchEnd*)."
-    },
-    {
-      "path": "src/melee/gm/gm_16F1.c",
-      "role": "Implemented fn_8016F870 reverse bonus lookup with table flags and player-achievement checks."
-    },
-    {
-      "path": "src/melee/gm/gm_16F1.h",
-      "role": "Changed fn_8016F870 prototype to int fn_8016F870(void*, u16, u8, u8)."
-    }
+    "src/melee/gm/gm_1601.c",
+    "src/melee/gm/gm_1601.h",
+    "src/melee/gm/gm_16F1.c",
+    "src/melee/gm/gm_16F1.h",
+    "src/melee/gm/gm_1A4C.c",
+    "src/melee/gm/gm_1A4C.h",
+    "src/melee/gm/gmopening.c",
+    "src/melee/gm/gmopening.h",
+    "src/melee/mn/mnmainrule.c",
+    "src/melee/mn/mnmainrule.h"
   ],
   "what_changed": [
-    "mn_802308F0 now reads HSD_GObj user data as mn_802307F8_t, selects hovered_selection versus data->x1 based on arg1, switches on data->xA, destroys an existing HSD_Text for modes 2/4, creates text via mn_802307F8 for modes 1/3, conditionally creates text for mode 0, and leaves mode 5 as a no-op.",
-    "mnmainrule.h replaced one large pad with offset-preserving pads around the newly identified xA byte at 0xA and kept HSD_Text* text at 0x130.",
-    "fn_801A7FB4 now gets HSD_Fog from the gobj, counts 26 gm_801A659C entries that pass un_803048C0, and gates HSD_FogInterpretAnim by count thresholds <=5 and <=0xD plus fog animation frame thresholds 185.0f and 200.0f.",
-    "fn_801A9FCC now builds a static PerfLabelLine list from gm_80480B38, formats lbMthp_8001F5F4/E4/D4 metrics with gm_803DBF78 format strings, converts ticks to milliseconds using the bus clock at 0x800000F8, and returns the line array pointer.",
-    "fn_80165E7C now iterates six player standings, skips slot_type 3, aggregates player scores/subscores into team_standings, marks teams active, and handles Stamina VS or arg0->x5 == 1 with separate signed score rules.",
-    "fn_8016F870 now validates arg1, scans bonus indices downward, uses lbl_803D5A4C kind/flag data with sentinel 0x29A, applies a mask, calls pl_80039418 for generic bonuses and fn_801701C0 for special bonuses, and returns the first matching index or -1.",
-    "The PR updated all touched headers from UNK_RET/UNK_PARAMS-style declarations to typed signatures for the newly decompiled functions.",
-    "The PR body notes fn_8023DAEC in mnnamenew.c was dropped from the #2345 split because it was already upstream."
+    "Implemented fn_80165E7C in gm_1601.c as a team-standings aggregator over six player slots, skipping slot_type 3 and accumulating score, subscore, and active state into team_standings.",
+    "Updated fn_80165E7C prototype from UNK_RET/UNK_PARAMS to void fn_80165E7C(MatchEnd*).",
+    "Implemented fn_8016F870 in gm_16F1.c as a reverse bonus lookup returning the highest eligible bonus index below arg1, with bounds checks for arg1 == 0 or arg1 > 0x101.",
+    "Updated fn_8016F870 prototype to int fn_8016F870(void*, u16, u8, u8).",
+    "Implemented fn_801A7FB4 in gm_1A4C.c as a fog animation gate using GET_FOG, HSD_FogInterpretAnim, gm_801A659C, and un_803048C0 count thresholds.",
+    "Added <sysdolphin/baselib/fog.h> for HSD_Fog/GET_FOG usage and updated fn_801A7FB4 prototype to void fn_801A7FB4(HSD_GObj*).",
+    "Implemented fn_801A9FCC in gmopening.c to build a static linked list of PerfLabelLine entries containing opening/performance metric strings from lbMthp helpers and a CPU tick conversion using address 0x800000F8.",
+    "Added static data gm_803DBF78 containing float data and color-tagged format strings, plus static PerfLabelLine gm_80480B38[4].",
+    "Changed fn_801AA0E8 to cast fn_801A9FCC to Event when passing it to hsd_80392528.",
+    "Implemented mn_802308F0 in mnmainrule.c as a rule-description text manager callback that creates or destroys HSD_Text based on data->xA mode, current selection, hovered selection, confirmed selection, arg1, and arg2.",
+    "Refined struct mn_802307F8_t in mnmainrule.h by replacing a single opaque pad_3 array with explicit x3_pad, xA mode byte, xB_pad, and text at offset 0x130.",
+    "Updated mn_802308F0 prototype to void mn_802308F0(HSD_GObj*, int, int)."
   ],
   "smart_moves": [
-    "Kept the PR reviewable by splitting from #2345 and limiting scope to game-loop/menu matches instead of mixing in already-upstream mnnamenew work.",
-    "Refined mn_802307F8_t minimally: exposed only the newly needed xA field while preserving exact offset math and leaving unknown bytes as pads.",
-    "Updated prototypes in headers alongside implementations, which documents real call signatures and prevents future code from depending on UNK_RET/UNK_PARAMS for these functions.",
-    "Matched fn_8016F870 with the table sentinel path and separate check labels instead of over-abstracting the duplicated generic/special lookup flow.",
-    "Preserved codegen-sensitive details such as PAD_STACK, explicit casts, u8 masking, f32/u32 conversion order, and callback casting to Event.",
-    "The squash commit documents an incompatible-pointer-types fix using casts at mn_802307F8 call sites without changing compiled assembly.",
-    "The squash commit also records a data relocation-symbol naming caveat for fn_8016F870: split-tool versus MWCC anchor names may differ while resolving to the same address."
+    "Kept the PR narrowly scoped to five 100% matches split from a larger pending-matches branch, reducing review surface and making progress easy to verify.",
+    "Converted unknown prototypes to typed signatures in matching headers at the same time as adding implementations, improving downstream call-site type safety.",
+    "Preserved exact-looking control-flow artifacts needed for matching, including goto labels in fn_8016F870 and PAD_STACK uses in fn_8016F870/fn_801A7FB4.",
+    "Modeled mn_802307F8_t only as far as needed for the match, exposing xA and text while retaining padding for unknown regions rather than overclaiming field names.",
+    "Used existing engine/library APIs rather than inventing abstractions: HSD_GObjGetUserData, HSD_SisLib_803A5CC4, GET_FOG, HSD_FogInterpretAnim, lbMthp_8001F5F4/E4/D4, and hsd_80392528.",
+    "For fn_8016F870, preserved the sentinel-based table scan over lbl_803D5A4C and split generic versus special bonus checks through pl_80039418 and fn_801701C0."
   ],
   "decomp_lessons": [
-    "When a user-data struct is only partly known, expose discovered fields with offset comments and calculated pads rather than guessing semantic fields.",
-    "For menu text callbacks, HSD_Text lifetime is often encoded as state-machine cases; matching may require preserving create-if-null and destroy-then-null behavior exactly.",
-    "For table-driven bonus/achievement code, model sentinel termination and branch-specific predicate calls directly before trying to deduplicate control flow.",
-    "Do not simplify repeated calls, duplicated loops, ternary boolean normalization, or apparently redundant stores until the assembly match has been verified.",
-    "Static overlay builders can require exact data layout, string offsets, and pointer arithmetic over a static block to reproduce relocations and codegen.",
-    "Replacing UNK prototypes with typed signatures is part of the match: it improves future compile-time feedback and documents argument sizes that affect casts/codegen.",
-    "PAD_STACK can appear in otherwise straightforward functions, including after a return in fn_8016F870, and should be treated as a matching artifact rather than dead-code cleanup by default.",
-    "Automated match reports and PR-body match tables can disagree; record both and verify locally before citing exact 100% status for follow-up work."
+    "For 100% matches, it can be better to expose one newly understood struct byte and leave surrounding regions padded than to prematurely name an entire structure.",
+    "Reverse iteration and sentinel-table scans are important semantic and matching details; fn_8016F870 searches from arg1 - 1 downward and stops table searches at kind 0x29A.",
+    "Typed headers should be updated alongside matched bodies so future decomp work can reuse concrete signatures rather than propagating UNK_RET/UNK_PARAMS.",
+    "Game UI callbacks may read raw object user data and branch on small mode bytes; documenting offsets such as xA and text at 0x130 makes later menu work easier.",
+    "Static local/global data layout can be required for matching display/overlay code; gmopening.c added a mixed float/string struct and static PerfLabelLine array rather than inlining all constants.",
+    "Hardware-address reads can appear in matched code; fn_801A9FCC uses 0x800000F8 for bus-clock-derived CPU tick to millisecond conversion.",
+    "Some apparently redundant calls or ternaries may be matching-sensitive, such as repeated gm_801A4310() calls and un_803048C0(...) ? true : false in fn_801A7FB4.",
+    "Function-pointer APIs may require explicit casts once callback return types are made concrete, as with casting fn_801A9FCC to Event for hsd_80392528."
   ],
   "naming_conventions": [
-    "Unknown global functions remained address-based, such as fn_80165E7C, fn_8016F870, fn_801A7FB4, and fn_801A9FCC.",
-    "Subsystem prefixes were preserved for known project symbols, such as mn_802308F0, mn_802307F8, gm_801A4310, and gm_801A659C.",
-    "Unknown struct fields used offset-style names like xA, x5, and x30 rather than speculative semantic names.",
-    "Pads were renamed with offset ranges, x3_pad[0x00A-0x003] and xB_pad[0x130-0x00B], to make layout constraints searchable.",
-    "Static globals used address-based names, including gm_803DBF78 and gm_80480B38.",
-    "Local variables used cautious semantic names where evidence was direct, such as team, player_score, team_score, mask, player_id, flags, count, lines, and data."
+    "Address-based unknown function names were retained for unmatched/unnamed functions: fn_80165E7C, fn_8016F870, fn_801A7FB4, fn_801A9FCC, mn_802308F0.",
+    "Game-mode files use gm_ address prefixes for known globals/functions, such as gm_801A4310, gm_801A659C, gm_803DBF78, and gm_80480B38.",
+    "Menu functions use mn_ prefixes and address suffixes, as in mn_802307F8, mn_802308F0, and mn_804A04F0.",
+    "Partially understood struct fields retain offset-style names such as xA, x1, x30, unk_04, x3_pad, and xB_pad.",
+    "Header comments preserve function address markers, for example /* 165E7C */, /* 16F870 */, /* 1A7FB4 */, /* 1A9FCC */, and /* 2308F0 */.",
+    "Static data names follow project address-label style when semantic names are not yet known, such as gm_803DBF78 and gm_80480B38."
   ],
   "assembly_or_matching_tactics": [
-    "fn_801A7FB4 uses PAD_STACK(0x10), repeats gm_801A4310 and the 26-entry count loop, and keeps un_803048C0(...) ? true : false, all of which are likely codegen-sensitive.",
-    "fn_8016F870 uses goto check1/check2 labels to share the sentinel-default flags path before mask and achievement checks.",
-    "fn_8016F870 keeps explicit casts such as (u8) mask & flags and (unsigned) fn_801701C0(...) != 0.",
-    "fn_8016F870 includes PAD_STACK(8) after return -1, indicating stack-shape matching mattered even around unreachable-looking code.",
-    "fn_801A9FCC defines a packed static block with f32 data followed by format strings at offsets 0x24 and 0x30, then accesses the strings through a u8* base pointer.",
-    "fn_801A9FCC preserves tick-to-ms conversion ordering with f32 casts and the hardware bus-clock read from *(u32*) 0x800000F8.",
-    "gmopening retains an unusual tail-store sequence in the diff, lines[2].next = &lines[3] followed immediately by lines[2].next = NULL; treat this as match-sensitive until checked against asm.",
-    "The merge commit explicitly notes that a 100% instruction byte match can still show a split-tool versus MWCC data-anchor symbol-name difference when both names resolve to the same address."
+    "Used PAD_STACK(8) after fn_8016F870 return and PAD_STACK(0x10) in fn_801A7FB4, indicating stack-shape adjustments for exact matching.",
+    "Used goto labels check1/check2 in fn_8016F870 to share post-scan mask-check paths after sentinel fallback, likely matching original branch structure.",
+    "Kept explicit casts such as (u8) mask, (unsigned) fn_801701C0(...), (u8) arg0->player_standings[i].slot_type, and u8* data = (u8*) &gm_803DBF78 to influence codegen.",
+    "Used float constants 185.0f and 200.0f for fog animation frame thresholds in fn_801A7FB4.",
+    "Represented static format strings inside a struct adjacent to float data in gm_803DBF78, then accessed them by byte offsets 0x24 and 0x30 for sprintf calls.",
+    "Used a raw hardware address dereference (*(u32*) 0x800000F8 / 4 / 1000) in the performance overlay conversion path.",
+    "Kept a potentially matching-sensitive assignment sequence in fn_801A9FCC where lines[2].next is first set to &lines[3] and then overwritten with NULL, as shown in the diff."
   ],
   "review_feedback": [
-    "No inline review comments were present in the slice.",
-    "jurrejelle approved the PR with an empty review body on 2026-04-11T14:02:57Z.",
-    "decomp-dev bot reported GALE01 matched code at 62.65%, +0.02%, +852 bytes.",
-    "The bot listed three new 100% matches: fn_8016F870, fn_801A9FCC, and mn_802308F0.",
-    "The bot listed fn_80165E7C at 98.31% and fn_801A7FB4 at 99.14% as improvements, which qualifies the PR title/body claim that all five were 100%."
+    "No inline review comments were present in the provided context.",
+    "The PR body states this was split from #2345 and limited to game-loop and menu 100% matches.",
+    "The PR body notes fn_8023DAEC in mnnamenew.c was dropped because it was already upstream."
   ],
   "searchable_terms": [
     "pr-2405",
-    "johnwinston",
-    "jurrejelle",
     "gm/mn",
-    "decomp.dev",
-    "GALE01",
-    "gm_1601.c",
-    "gm_1601.h",
+    "5 match progress",
+    "100%",
+    "johnwinston",
+    "gm_1601",
+    "gm_16F1",
+    "gm_1A4C",
+    "gmopening",
+    "mnmainrule",
     "fn_80165E7C",
+    "fn_8016F870",
+    "fn_801A7FB4",
+    "fn_801A9FCC",
+    "mn_802308F0",
     "MatchEnd",
     "player_standings",
     "team_standings",
-    "slot_type",
     "MJ_STAMINA_VS",
-    "gm_16F1.c",
-    "gm_16F1.h",
-    "fn_8016F870",
-    "bonus lookup",
     "lbl_803D5A4C",
-    "lbl_803D5A4C_t",
-    "sentinel 0x29A",
     "pl_80039418",
     "fn_801701C0",
-    "mask",
-    "player_id",
-    "PAD_STACK",
-    "gm_1A4C.c",
-    "gm_1A4C.h",
-    "fn_801A7FB4",
     "HSD_Fog",
     "GET_FOG",
     "HSD_FogInterpretAnim",
-    "curr_frame",
-    "185.0f",
-    "200.0f",
-    "gm_801A659C",
     "un_803048C0",
-    "gmopening.c",
-    "gmopening.h",
-    "fn_801A9FCC",
+    "gm_801A659C",
     "PerfLabelLine",
-    "gm_803DBF78",
-    "gm_80480B38",
     "lbMthp_8001F5F4",
     "lbMthp_8001F5E4",
     "lbMthp_8001F5D4",
     "0x800000F8",
-    "sprintf",
-    "Event cast",
-    "mnmainrule.c",
-    "mnmainrule.h",
-    "mn_802308F0",
-    "mn_802307F8",
-    "mn_802307F8_t",
     "HSD_Text",
-    "HSD_GObjGetUserData",
     "HSD_SisLib_803A5CC4",
+    "mn_802307F8",
     "mn_804A04F0",
-    "hovered_selection",
-    "confirmed_selection",
-    "split-tool",
-    "MWCC anchor naming"
+    "PAD_STACK",
+    "Event"
   ],
   "follow_up_queries": [
-    "Check later history for whether fn_80165E7C and fn_801A7FB4 reached true 100% after the bot reported 98.31% and 99.14%.",
-    "Search for semantic renames of fn_80165E7C, fn_8016F870, fn_801A7FB4, fn_801A9FCC, and mn_802308F0.",
-    "Look for later PRs refining mn_802307F8_t fields x0, x1, x2, xA, and text or adding enum names for modes 0 through 5.",
-    "Check whether gmopening's PerfLabelLine tail assignment and gm_803DBF78/gm_80480B38 static names were later cleaned up or explained.",
-    "Search for other PRs documenting split-tool versus MWCC relocation-anchor naming mismatches.",
-    "Review PR #2345 for the broader batch context and why fn_8023DAEC in mnnamenew.c was already upstream."
+    "Look for later PRs that rename or further type fn_80165E7C, fn_8016F870, fn_801A7FB4, fn_801A9FCC, or mn_802308F0.",
+    "Check whether struct mn_802307F8_t fields x0, x1, x2, xA, and text were later given semantic names.",
+    "Search future gmopening changes for corrections to the PerfLabelLine next-chain behavior in fn_801A9FCC.",
+    "Find PRs that further document lbl_803D5A4C_t bonus table semantics and the 0x29A sentinel.",
+    "Search for more matches using 0x800000F8 bus-clock conversion patterns.",
+    "Check whether fn_801A7FB4's repeated gm_801A4310 calls and entity-count thresholds were later clarified by cutscene/opening-system work."
   ],
-  "confidence": 0.86
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

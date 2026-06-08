@@ -11,20 +11,19 @@
     "merged_at": "2026-05-11T00:08:10Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked the Mr. Game & Watch parachute item unit by adding the missing ItemStateTable data definition, preserving/reordering callback bodies for object layout, and switching itgamewatchparachute.c from NonMatching to Matching in configure.py. The automated GALE01 report confirmed one new match for main/melee/it/items/itgamewatchparachute .data, +32 bytes from 0.00% to 100.00%, with linked code/data gains.",
+  "summary": "Linked Mr. Game & Watch's parachute item by making src/melee/it/items/itgamewatchparachute.c a matching object in configure.py. The source changes were small but targeted: added the local ItemStateTable definition, reordered several item callback functions, and moved the EvtUnk wrapper to the end so the file could match and be promoted from NonMatching to Matching.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "item-unit-link",
-      "data-match",
-      "build-configuration",
-      "function-ordering"
+      "decomp-matching",
+      "item-linking",
+      "function-ordering",
+      "state-table-definition"
     ],
     "systems": [
       "item",
-      "Mr. Game & Watch",
-      "GameWatch parachute",
-      "configure.py"
+      "gamewatch",
+      "build-configuration"
     ]
   },
   "key_files": [
@@ -32,42 +31,44 @@
     "src/melee/it/items/itgamewatchparachute.c"
   ],
   "what_changed": [
-    "Changed configure.py to build melee/it/items/itgamewatchparachute.c as Object(Matching) instead of Object(NonMatching).",
-    "Added ItemStateTable it_803F78F8[] with two entries, state IDs 0 and 1, both using itGamewatchparachute_UnkMotion1_Anim and NULL for the remaining callbacks.",
-    "Moved itGameWatchParachute_Logic74_Destroyed earlier in the file without changing its logic: it gets the Item via GET_ITEM and calls ftGw_AttackAirN_ItemParachuteSetFlag when ip->owner is non-NULL.",
-    "Moved itGameWatchParachute_Logic74_EvtUnk to the end of the file without changing its wrapper behavior around it_8026B894(gobj, ref_gobj).",
-    "Left the small item wrappers it_802C6DB8 and it_802C6DD8 as direct calls to it_8026B724 and it_8026B73C respectively."
+    "Changed configure.py so melee/it/items/itgamewatchparachute.c is built as Object(Matching, ...) instead of Object(NonMatching, ...).",
+    "Added ItemStateTable it_803F78F8[] with two entries using states 0 and 1, both pointing to itGamewatchparachute_UnkMotion1_Anim and NULL for the remaining callbacks.",
+    "Moved itGameWatchParachute_Logic74_Destroyed earlier in the file, immediately after it_802C6C38.",
+    "Moved itGameWatchParachute_Logic74_EvtUnk from the middle of the file to the end, still implemented as a wrapper around it_8026B894(gobj, ref_gobj).",
+    "Kept existing item behavior intact for destroy, pickup, and wrapper callbacks while adjusting source layout and declarations enough for matching."
   ],
   "smart_moves": [
-    "Added the explicit ItemStateTable instead of relying on an undeclared/external data blob, which produced the reported +32 byte .data match.",
-    "Kept callback bodies semantically unchanged while moving them, minimizing gameplay risk and targeting object/source-order matching.",
-    "Only marked the unit Matching after the C/data layout was sufficient for the decomp.dev report to show the parachute unit .data at 100.00%."
+    "The patch promoted the file to Matching only after the item source was adjusted, keeping configure.py aligned with actual match status.",
+    "The fix used minimal semantic changes: the visible behavior of callbacks such as Destroyed and EvtUnk stayed the same, while ordering and the missing state table were corrected.",
+    "Defining it_803F78F8 locally in the item C file matched the pattern used by linked item files that expose ItemStateTable data alongside callbacks.",
+    "Function reordering was used as a matching tactic rather than rewriting logic, which is a low-risk way to address object layout/symbol order issues."
   ],
   "decomp_lessons": [
-    "For item units, matching can depend on declaring state tables in C with the exact entry count, order, callback pointers, and NULL slots.",
-    "Source order of functions can matter for matching/linking; moving identical callback definitions may be enough to align object layout without altering behavior.",
-    "A unit can already have mostly decompiled logic but remain NonMatching until associated .data, such as ItemStateTable entries, is represented correctly.",
-    "After a Game & Watch item unit matches, remember to update configure.py from Object(NonMatching, ...) to Object(Matching, ...)."
+    "For item files, matching can depend on data symbol placement as well as function bodies; missing or misplaced ItemStateTable definitions may prevent linking even when callback logic is already known.",
+    "When linking an item object, update configure.py from NonMatching to Matching only after the source file's data/function ordering matches the target object.",
+    "Small callback wrappers like itGameWatchParachute_Logic74_EvtUnk may need to appear in the correct source order for the compiled object to match.",
+    "Preserve existing known behavior while moving functions or data for matching; this PR provides an example where matching was achieved without changing callback semantics."
   ],
   "naming_conventions": [
-    "Data symbol kept its address-style name: it_803F78F8.",
-    "Unrenamed helper functions retain address-style names such as it_802C6C38, it_802C6D6C, it_802C6DB8, and it_802C6DD8.",
-    "Logic callback names use the item/action form itGameWatchParachute_Logic74_Destroyed, itGameWatchParachute_Logic74_PickedUp, and itGameWatchParachute_Logic74_EvtUnk.",
-    "The animation callback in the state table uses the existing spelling/casing itGamewatchparachute_UnkMotion1_Anim, which differs from the GameWatchParachute casing of the Logic74 names."
+    "Uses item-specific callback names with the pattern itGameWatchParachute_Logic74_Destroyed, itGameWatchParachute_Logic74_PickedUp, and itGameWatchParachute_Logic74_EvtUnk.",
+    "The state table symbol follows the raw-address global naming convention: it_803F78F8.",
+    "Animation callback naming uses the item name plus motion role: itGamewatchparachute_UnkMotion1_Anim.",
+    "Internal helper functions remain address-based names such as it_802C6C38, it_802C6D6C, it_802C6DB8, and it_802C6DD8."
   ],
   "assembly_or_matching_tactics": [
-    "Materialize the .data table as ItemStateTable it_803F78F8[] with two initializer rows rather than leaving the unit without its state-table data.",
-    "Use function definition ordering as a matching lever: Destroyed was moved above it_802C6D6C and EvtUnk was moved after itGamewatchparachute_UnkMotion1_Anim.",
-    "Preserve thin wrapper functions exactly when reordering: EvtUnk still calls it_8026B894, it_802C6DB8 still calls it_8026B724, and it_802C6DD8 still calls it_8026B73C.",
-    "Promote the object in configure.py only when the file is ready to link as Matching."
+    "Promoted itgamewatchparachute.c from NonMatching to Matching in the build configuration after source adjustments.",
+    "Added the ItemStateTable data object before the first function in the file, likely to match expected symbol/data ordering.",
+    "Reordered callback functions without altering their visible implementation, suggesting function order was important for the object match.",
+    "Kept itGameWatchParachute_Logic74_EvtUnk as a simple tail wrapper around it_8026B894(gobj, ref_gobj), but placed it after itGamewatchparachute_UnkMotion1_Anim."
   ],
   "review_feedback": [
-    "No human review comments or PR body rationale were present in this slice.",
-    "Automated decomp.dev report for GALE01 reported linked code 38.83% (+0.02%, +776 bytes), matched data 38.81% (+32 bytes), linked data 33.14% (+40 bytes), and one new match for main/melee/it/items/itgamewatchparachute .data from 0.00% to 100.00%."
+    "No review comments were present in the provided PR slice.",
+    "There was one issue comment counted in the metadata, but its body was not included in the excerpt, so no specific human feedback can be extracted."
   ],
   "searchable_terms": [
     "pr-2480",
     "link gamewatchparachute",
+    "r-burns",
     "itgamewatchparachute.c",
     "configure.py",
     "Object(Matching)",
@@ -79,25 +80,24 @@
     "itGameWatchParachute_Logic74_EvtUnk",
     "itGameWatchParachute_Logic74_PickedUp",
     "ftGw_AttackAirN_ItemParachuteSetFlag",
-    "GET_ITEM",
-    "it_802C6C38",
-    "it_802C6D6C",
-    "it_802C6DB8",
-    "it_802C6DD8",
     "it_8026B894",
-    "it_8026B724",
-    "it_8026B73C",
-    "GameWatch parachute",
-    "Mr. Game & Watch",
-    "Logic74",
-    "GALE01"
+    "Mr Game and Watch parachute",
+    "gamewatch item",
+    "matching item object"
   ],
   "follow_up_queries": [
-    "Object(NonMatching, \"melee/it/items/itgamewatch",
-    "ItemStateTable it_803F78F8",
-    "itGamewatchparachute_UnkMotion1_Anim",
-    "Logic74_EvtUnk it_8026B894",
-    "GameWatch item ItemStateTable NULL NULL"
+    "Find other Game & Watch item PRs that added or moved ItemStateTable definitions before linking.",
+    "Search for itGameWatchParachute_Logic74_Destroyed to confirm whether owner flag-reset behavior is shared with other Game & Watch aerial items.",
+    "Compare neighboring linked files itgamewatchgreenhouse.c, itgamewatchmanhole.c, itgamewatchfire.c, itgamewatchturtle.c, and itgamewatchbreath.c for state table and callback ordering patterns.",
+    "Look for PRs where configure.py changed an item from NonMatching to Matching after only function-order or data-order changes."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

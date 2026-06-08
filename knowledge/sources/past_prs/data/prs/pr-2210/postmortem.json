@@ -11,20 +11,20 @@
     "merged_at": "2026-03-04T19:23:16Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Removed unnecessary global float constants from itthunder, converted the relevant assignment to a literal 0.0f, changed two sdata2 entries from global symbols to local compiler-style labels, and marked src/melee/it/items/itthunder.c as Matching in configure.py.",
+  "summary": "PR 2210 made src/melee/it/items/itthunder.c matching by removing unnecessary global float constants from the itthunder header, replacing use of the zero constant with a direct 0.0f literal, relabeling two sdata2 entries as local symbols, and flipping itthunder.c from NonMatching to Matching in configure.py.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "fix",
       "headers",
-      "symbol-cleanup"
+      "symbol-map-cleanup",
+      "constant-cleanup"
     ],
     "systems": [
       "item",
-      "itthunder",
       "config",
-      "build-configuration"
+      "build"
     ]
   },
   "key_files": [
@@ -34,70 +34,68 @@
     "src/melee/it/items/itthunder.h"
   ],
   "what_changed": [
-    "In config/GALE01/symbols.txt, it_804DD3A8 and it_804DD3AC were changed from global .sdata2 float symbols to local labels @149 and @175.",
-    "In src/melee/it/items/itthunder.c, it_802CCC68 now assigns item->xDD4_itemVar.thunder.x68 = 0.0f instead of assigning the named constant it_804DD3A8.",
-    "In src/melee/it/items/itthunder.h, the definitions f32 it_804DD3AC = 1.0f and f32 it_804DD3A8 = 0.0f were removed.",
-    "In configure.py, melee/it/items/itthunder.c was moved from Object(NonMatching, ...) to Object(Matching, ...)."
+    "Changed config/GALE01/symbols.txt so .sdata2 symbols at 0x804DD3A8 and 0x804DD3AC are local anonymous labels @149 and @175 instead of global it_804DD3A8 and it_804DD3AC.",
+    "Changed configure.py to mark melee/it/items/itthunder.c as Object(Matching) instead of Object(NonMatching).",
+    "In it_802CCC68, replaced assignment item->xDD4_itemVar.thunder.x68 = it_804DD3A8 with item->xDD4_itemVar.thunder.x68 = 0.0f.",
+    "Removed header-level definitions f32 it_804DD3AC = 1.0f and f32 it_804DD3A8 = 0.0f from src/melee/it/items/itthunder.h."
   ],
   "smart_moves": [
-    "Recognized that the float constants did not need project-level global names and should remain local .sdata2 constants in the symbol map.",
-    "Used the literal 0.0f in C source rather than forcing a fake global data dependency for it_804DD3A8.",
-    "Removed actual variable definitions from the header, avoiding misleading or unnecessary header-owned storage for constants.",
-    "Updated the matching status only after the source and symbol cleanup made itthunder.c match."
+    "Avoided exporting simple float constants from the item header when the code could match with a literal 0.0f.",
+    "Cleaned up the symbol map to reflect that the float constants did not need named global symbols for this match.",
+    "Kept the code change minimal: one C assignment, two symbol-label changes, header cleanup, and the build status flip to Matching."
   ],
   "decomp_lessons": [
-    "Do not promote every .sdata2 float to a global symbol; if the original object treats a constant as local, represent it as a local @NNN label in symbols.txt.",
-    "For simple scalar constants such as 0.0f, a literal in C may match better than referencing a named global constant.",
-    "Headers should not define decomp-only float constants unless there is clear evidence they are real shared objects; prefer extern declarations only for real globals, or no declaration for local constants.",
-    "When a nonmatching item file only differs due to unnecessary constant materialization, fixing the constant model can be enough to mark the object Matching."
+    "Do not introduce or keep global float constants in headers just to satisfy a decomp attempt when a direct literal produces the correct match.",
+    "If a constant is not semantically useful or externally referenced, prefer local sdata2 labels over named global symbols in symbols.txt.",
+    "Header files should declare interfaces and extern data where needed, not define ad-hoc data objects such as f32 constants.",
+    "Once a file is confirmed matching, update configure.py from NonMatching to Matching so the build system tracks the current decomp status."
   ],
   "naming_conventions": [
-    "Real global item symbols use names like it_804DD378 or it_804DD3B8 when they are meant to be globally addressable.",
-    "Local compiler-generated constants in config/GALE01/symbols.txt use @NNN labels such as @149 and @175 instead of it_804Dxxxx global names.",
-    "Item source paths follow the melee/it/items/it<item>.c convention; this PR concerns itthunder.c and itthunder.h."
+    "Global item state table symbol retained as it_803F7C40.",
+    "Unnecessary global constant names it_804DD3A8 and it_804DD3AC were removed in favor of local labels @149 and @175.",
+    "Item function names in the slice remain address-style, e.g. it_802CCC68 and itThunder_UnkMotion0_Coll."
   ],
   "assembly_or_matching_tactics": [
-    "Replace artificial global float references with immediate/literal C constants when that reflects the original codegen.",
-    "Keep symbols.txt storage classification aligned with matching needs: local .sdata2 labels for local constants, global names only for true globals.",
-    "After symbol and source cleanup, update configure.py from Object(NonMatching, ...) to Object(Matching, ...) for the matched translation unit."
+    "Use direct float literals such as 0.0f where they match, rather than forcing references to named .sdata2 globals.",
+    "Relabel unused or non-semantic sdata2 float entries as local symbols to avoid misleading global symbol exports.",
+    "A small constant-use correction can be enough to move an item source file from NonMatching to Matching."
   ],
-  "review_feedback": [
-    "No review comments were present in the provided PR slice.",
-    "The only available human signal is the title, which states the intent: remove unnecessary constants and mark itthunder as matching."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
     "pr-2210",
     "PsiLupan",
     "itthunder",
     "it_802CCC68",
+    "itThunder_UnkMotion0_Coll",
+    "it_803F7C40",
     "it_804DD3A8",
     "it_804DD3AC",
-    "it_804DD3B8",
-    "config/GALE01/symbols.txt",
-    "configure.py",
-    "src/melee/it/items/itthunder.c",
-    "src/melee/it/items/itthunder.h",
-    "sdata2",
-    "@149",
-    "@175",
     "0.0f",
     "1.0f",
+    "sdata2",
+    "symbols.txt",
+    "configure.py",
+    "Object(Matching)",
+    "Object(NonMatching)",
     "Item_80268E5C",
     "ITEM_ANIM_UPDATE",
     "efLib_PauseAll",
     "efLib_ResumeAll",
     "xDD4_itemVar.thunder.x68",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "header constants",
-    "local float constants",
-    "symbol cleanup",
-    "decomp matching"
+    "xDB0_itcmd_var1"
   ],
   "follow_up_queries": [
-    "Find other item headers that define f32 constants directly instead of using literals or proper extern declarations.",
-    "Search symbols.txt for it_804Dxxxx globals that are only local float constants and may need conversion to @NNN labels.",
-    "Check other NonMatching item files for artificial constant globals blocking a match."
+    "Find other item headers defining f32 constants directly instead of using literals or extern declarations.",
+    "Search symbols.txt for named global .sdata2 float constants that may only be local compiler-generated constants.",
+    "Check remaining NonMatching item files for unnecessary global constant references blocking matching."
   ],
-  "confidence": 0.92
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

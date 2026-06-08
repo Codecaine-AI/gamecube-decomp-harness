@@ -11,13 +11,13 @@
     "merged_at": "2026-05-27T14:53:50Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the stage function grCastle_801CDFD8 by simplifying its C in src/melee/gr/grcastle.c. The PR body says this was a minor cleanup that moved the function from a 99.84% match to 100%. The diff removed redundant temporaries for params, constants, base value, and final_value, replacing them with direct grCs_804D6970 field reads and literal assignments.",
+  "summary": "Small stage decomp cleanup in `src/melee/gr/grcastle.c` that made `grCastle_801CDFD8` go from a 99.84% match to a full 100% match. The change removed extra temporaries and expressed the Castle stage state initialization more directly: read `grCs_804D6970->xA` into a local range, call `HSD_Randi(range)` only when nonzero, assign `xD4` from `grCs_804D6970->x8 + rand_result`, and assign the remaining castle9 shorts with direct literals.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
       "cleanup",
-      "stage-function"
+      "decomp-matching",
+      "minor-refactor"
     ],
     "systems": [
       "stage",
@@ -28,81 +28,103 @@
   "key_files": [
     {
       "path": "src/melee/gr/grcastle.c",
-      "reason": "Only changed file; contains grCastle_801CDFD8 and the matching cleanup."
+      "reason": "Only changed file; contains the cleanup to `grCastle_801CDFD8` that achieved the final match."
     }
   ],
   "what_changed": [
-    "In grCastle_801CDFD8, removed extra grCastleParams* locals named params and params2 and read grCs_804D6970->xA / grCs_804D6970->x8 directly.",
-    "Renamed the random bound local from random_range to range.",
-    "Kept the existing zero-range guard: HSD_Randi(range) is called only when range != 0, otherwise rand_result is set to 0.",
-    "Removed temporary locals neg_one, zero, base_value, and final_value.",
-    "Assigned gp->gv.castle9.xD4 directly from grCs_804D6970->x8 + rand_result instead of using an explicit s16 final_value temporary.",
-    "Assigned -1 and 0 literals directly to gp->gv.castle9.xDC, xDA, xD8, and xD6.",
-    "Preserved the behavior that sets gp->gv.castle9.xDE_b0 = true."
+    "In `grCastle_801CDFD8`, replaced several local variables such as `params`, `params2`, `random_range`, `neg_one`, `zero`, `base_value`, and `final_value` with a smaller set of direct expressions.",
+    "Renamed/simplified the random bound local from `random_range` to `range` and initialized it from `grCs_804D6970->xA`.",
+    "Kept the zero-range guard around `HSD_Randi`: if `range != 0`, use `HSD_Randi(range)`, otherwise use `0`.",
+    "Changed `gp->gv.castle9.xD4` assignment to directly use `grCs_804D6970->x8 + rand_result` instead of assigning through `base_value` and `final_value` temporaries.",
+    "Changed `gp->gv.castle9.xDC`, `xDA`, `xD8`, and `xD6` assignments to direct literal writes of `-1`, `-1`, `-1`, and `0`.",
+    "Preserved the existing behavior that sets `gp->gv.castle9.xDE_b0 = true` before random value initialization."
   ],
   "smart_moves": [
-    "Reduced artificial local-variable pressure, which likely improved register allocation or instruction scheduling enough to close the final 0.16% mismatch.",
-    "Used direct global struct field access instead of staging grCs_804D6970 through multiple pointer locals.",
-    "Let the destination field assignment handle narrowing for xD4 rather than forcing an explicit s16 temporary.",
-    "Used immediate constants for -1 and 0 rather than named integer locals, aligning the C more closely with likely compiler output."
+    "The fix targeted expression shape rather than behavior, which is appropriate for closing a tiny remaining 99.84%-to-100% decomp mismatch.",
+    "Removing unnecessary locals likely improved register allocation/codegen alignment while making the C source clearer.",
+    "The code still keeps a named `range` local before the conditional `HSD_Randi` call, suggesting this local was useful for matching even while other temporaries hurt the match.",
+    "Direct literal assignments for sentinel values avoided extra named constants like `neg_one` and `zero`, reducing compiler-generated moves or stack/register pressure."
   ],
   "decomp_lessons": [
-    "For near-matching functions, redundant temporaries can be the mismatch source even when the C behavior is unchanged.",
-    "When a struct field assignment has the intended target type, an explicit cast-through temporary may produce different codegen than direct assignment.",
-    "Duplicate pointer locals to the same global config object can hurt matching; try direct global field reads if the original compiler likely emitted them.",
-    "Literal stores such as -1 and 0 may match better than initializing locals and reusing them.",
-    "Small cleanup-only PRs can be valuable when they convert a high-percent match into a full match."
+    "For small remaining mismatches, try collapsing artificial temporaries into direct struct-field expressions when the current C is semantically correct but over-specified.",
+    "Do not assume every extracted temporary helps matching; redundant locals for repeated global struct access, constants, or simple casts can prevent exact codegen.",
+    "A minimal local can still be useful when it matches the compiler's treatment of a value used in a branch or function call, as with `range` before `HSD_Randi(range)`.",
+    "For assignments into `s16`-like fields, an explicit cast or intermediate `s16 final_value` may be unnecessary or harmful if the target field assignment already causes the desired truncation."
   ],
   "naming_conventions": [
-    "Stage function naming keeps the grCastle_ address form, here grCastle_801CDFD8.",
-    "Castle stage globals use the grCs_ prefix, as in grCs_804D6970.",
-    "Ground state access follows gp->gv.castle9 field naming with offset-style members such as xD4, xD6, xD8, xDA, xDC, and bitfield-style xDE_b0.",
-    "The simplified local name range is preferred over the more verbose random_range in this matching context."
+    {
+      "term": "grCastle_801CDFD8",
+      "note": "Function remained address-style named; no semantic rename was introduced in this PR."
+    },
+    {
+      "term": "range",
+      "note": "Short local name used for the random bound loaded from `grCs_804D6970->xA`, replacing `random_range`."
+    },
+    {
+      "term": "gp",
+      "note": "Existing convention for `Ground* gp = GET_GROUND(gobj)` was retained."
+    },
+    {
+      "term": "grCs_804D6970",
+      "note": "Castle params global was accessed directly for fields `xA` and `x8`; no new named parameter struct or field names were introduced."
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Remove unnecessary aliases to globals when matching compiler output.",
-    "Try direct expression assignment instead of explicit temporary variables for arithmetic feeding a struct field.",
-    "Replace constant locals with immediate literal assignments when stores are simple.",
-    "Keep control flow minimal around random helpers: range != 0 ? HSD_Randi(range) : 0."
+    "Reduce temporary variables around global parameter loads and simple constant assignments to alter register allocation and instruction selection toward the target binary.",
+    "Use direct struct-field writes with literals for sentinel initialization instead of routing through local `s32` variables.",
+    "Rely on the destination field type for narrowing where possible instead of adding explicit `s16` temporaries, when evidence from matching supports it.",
+    "Preserve control-flow structure for guarded random calls: zero range maps to `rand_result = 0`; nonzero range maps to `HSD_Randi(range)`."
   ],
   "review_feedback": [
-    "No review comments were present in the provided PR context.",
-    "The only human text says this was a minor cleanup taking grCastle_801CDFD8 from 99.84% to 100% matched."
+    {
+      "type": "none",
+      "note": "No review comments were present in the supplied PR context. The only human text says this was a minor cleanup taking the function from 99.84% to 100%."
+    }
   ],
   "searchable_terms": [
     "pr-2544",
+    "Make grCastle_801CDFD8 match",
     "Erotemic",
     "grCastle_801CDFD8",
     "grcastle.c",
     "src/melee/gr/grcastle.c",
-    "grCastle_801CDF54",
-    "grCastle_801CE054",
+    "grCastle",
+    "castle stage",
     "Ground_GObj",
-    "Ground",
     "GET_GROUND",
+    "Ground",
     "grCastleParams",
     "grCs_804D6970",
     "HSD_Randi",
-    "rand_result",
     "range",
+    "rand_result",
+    "xA",
+    "x8",
     "castle9",
     "xDE_b0",
     "xD4",
-    "xD6",
-    "xD8",
-    "xDA",
     "xDC",
-    "stage",
-    "castle",
-    "decomp matching",
+    "xDA",
+    "xD8",
+    "xD6",
     "99.84%",
-    "100% match"
+    "100% match",
+    "decomp matching",
+    "temporary removal",
+    "direct literal assignment"
   ],
   "follow_up_queries": [
-    "Find other near-matching stage functions with redundant params/params2 aliases to global stage parameter structs.",
-    "Search for explicit s16 final_value temporaries assigned into s16 struct fields that might be removable for matching.",
-    "Search grcastle.c for constant locals named zero or neg_one used only for simple field stores.",
-    "Review other grCs_804D6970 users for direct field access versus local pointer alias patterns."
+    "Find other `grCastle` functions with near-matches caused by extra temporaries around `grCs_804D6970` field access.",
+    "Search for stage functions assigning sentinel shorts through locals like `neg_one` or `zero` and test whether direct literals improve matching.",
+    "Audit random-range patterns using `HSD_Randi` to see whether keeping only the range local and removing parameter/base-value temporaries helps codegen."
   ],
-  "confidence": 0.92
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

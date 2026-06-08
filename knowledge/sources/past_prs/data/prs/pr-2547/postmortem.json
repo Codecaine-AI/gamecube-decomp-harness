@@ -11,118 +11,100 @@
     "merged_at": "2026-05-27T14:53:47Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Bulk merge with no PR body or review discussion captured. The diff decompiled Ness yoyo item logic by replacing a MWERKS_GEKKO inline-asm-only implementation plus NOT_IMPLEMENTED fallback for it_2725_Logic59_EvtUnk with C, and cleaned up grCastle_801CDFD8 by removing redundant locals while preserving the same random range and castle9 field initialization behavior.",
+  "summary": "Bulk merge PR touching two small decompilation cleanup/matching areas: simplified redundant temporaries in Princess Peach's Castle stage code and replaced a MWERKS_GEKKO inline assembly implementation of Ness Yo-Yo event logic with C that preserves the needed codegen side effect through a volatile owner-pointer comparison. No PR body or review discussion was available, so intent is inferred from the diff.",
   "change_classification": {
-    "primary_type": "asm_to_c_decompilation_and_cleanup",
+    "primary_type": "code-change",
     "categories": [
-      "code-change",
-      "decompilation",
-      "asm-removal",
-      "matching-cleanup",
-      "decompiler-scaffolding-reduction"
+      "code-cleanup",
+      "asm-to-c",
+      "decompilation-match"
     ],
     "systems": [
       "item",
-      "items/itnessyoyo",
       "stage",
-      "stage/grcastle"
+      "ground"
     ]
   },
   "key_files": [
-    {
-      "file": "src/melee/it/items/itnessyoyo.c",
-      "role": "Replaced the MWERKS_GEKKO inline assembly and NOT_IMPLEMENTED fallback for it_2725_Logic59_EvtUnk with C.",
-      "key_symbols": [
-        "it_2725_Logic59_EvtUnk",
-        "it_8026B894",
-        "GET_ITEM",
-        "xDD4_itemVar.nessyoyo.x10"
-      ]
-    },
-    {
-      "file": "src/melee/gr/grcastle.c",
-      "role": "Simplified grCastle_801CDFD8 by collapsing redundant temporaries into direct parameter and field accesses.",
-      "key_symbols": [
-        "grCastle_801CDFD8",
-        "grCs_804D6970",
-        "HSD_Randi",
-        "gp->gv.castle9"
-      ]
-    }
+    "src/melee/gr/grcastle.c",
+    "src/melee/it/items/itnessyoyo.c"
   ],
   "what_changed": [
-    "In src/melee/it/items/itnessyoyo.c, it_2725_Logic59_EvtUnk is now a C function instead of a MWERKS_GEKKO asm block guarded away from a NOT_IMPLEMENTED non-Gekko fallback.",
-    "The new it_2725_Logic59_EvtUnk gets the Item with GET_ITEM(gobj), calls it_8026B894(gobj, ref_gobj), then performs a volatile load/compare through ip->xDD4_itemVar.nessyoyo.x10 against ref_gobj with the result discarded.",
-    "In src/melee/gr/grcastle.c, grCastle_801CDFD8 now uses a single local named range for grCs_804D6970->xA before HSD_Randi, instead of params/random_range scaffolding.",
-    "grCastle_801CDFD8 now assigns gp->gv.castle9.xD4 directly from grCs_804D6970->x8 + rand_result and writes -1 or 0 literals directly to xDC, xDA, xD8, and xD6, removing extra locals such as neg_one, zero, base_value, and final_value."
+    {
+      "file": "src/melee/gr/grcastle.c",
+      "details": "In grCastle_801CDFD8, removed redundant local variables such as params, params2, neg_one, zero, base_value, and final_value. The function now reads grCs_804D6970->xA into a single range variable, calls HSD_Randi(range) only when nonzero, and assigns castle9 fields directly."
+    },
+    {
+      "file": "src/melee/it/items/itnessyoyo.c",
+      "details": "Removed the MWERKS_GEKKO inline assembly version of it_2725_Logic59_EvtUnk and the NOT_IMPLEMENTED fallback. Added a C implementation that gets the Item with GET_ITEM, calls it_8026B894(gobj, ref_gobj), then performs a volatile read/comparison involving ip->xDD4_itemVar.nessyoyo.x10 and ref_gobj."
+    }
   ],
   "smart_moves": [
-    "The Ness yoyo C replacement preserves the visible call order from the asm: obtain the item pointer, call it_8026B894, then read the owner/ref field afterward.",
-    "Using HSD_GObj* volatile* owner_ptr plus a discarded ternary comparison is a targeted matching tactic for forcing the post-call load/compare without introducing gameplay-visible logic.",
-    "The grCastle cleanup removes decompiler-style one-use temporaries and keeps the zero-range fallback for HSD_Randi explicit, making the code easier to review without changing the apparent control flow.",
-    "Removing the MWERKS_GEKKO/#else split makes it_2725_Logic59_EvtUnk searchable and maintainable as normal C instead of hiding the only implementation in inline assembly."
+    "Reduced grCastle_801CDFD8 to direct field assignments while preserving the observed behavior: set castle9.xDE_b0 true, derive a random offset from grCs_804D6970->xA when nonzero, assign xD4 to grCs_804D6970->x8 plus the random result, reset xDC/xDA/xD8 to -1, and set xD6 to 0.",
+    "Kept a single range local in grCastle_801CDFD8 rather than repeatedly loading or naming every intermediate compiler artifact, improving readability without changing the random-range guard.",
+    "Converted it_2725_Logic59_EvtUnk from inline assembly to C while retaining the otherwise-unused post-call load/comparison through a volatile pointer expression, likely to reproduce required code generation."
   ],
   "decomp_lessons": [
-    "When original assembly performs a load and compare whose result is unused, a volatile pointer access with a discarded expression can be useful to preserve emitted instructions while keeping the C behavior inert.",
-    "For matched stage initialization code, redundant locals introduced during decompilation can often be collapsed into direct struct field accesses once the compiler output is understood.",
-    "Field type assignments can sometimes replace explicit cast temporaries, as seen with gp->gv.castle9.xD4 receiving grCs_804D6970->x8 + rand_result directly instead of using a separate s16 final_value.",
-    "Bulk PRs with no body/comments should be indexed from concrete diff evidence only; this slice does not identify the individual source PRs despite the title."
+    "When old decomp output contains many artificial temporaries, collapse them into direct struct field accesses and literal assignments if the resulting C still matches and remains clear.",
+    "A small inline asm function can sometimes be replaced by C plus a deliberate volatile read to force an otherwise dead load or comparison to remain in generated code.",
+    "For matching, unused comparisons may need to be expressed as no-op ternary or cast-to-void expressions when they correspond to preserved machine instructions.",
+    "Guard HSD_Randi calls with the same zero-range behavior as the original code; here a zero range explicitly yields rand_result = 0."
   ],
   "naming_conventions": [
-    "Existing unknown/mapped function names were retained: grCastle_801CDFD8 and it_2725_Logic59_EvtUnk.",
-    "Subsystem prefixes remained consistent: grCastle_/grCs_ for castle stage code and it_/Item_ for item code.",
-    "The grCastle local random_range was shortened to range, matching its role as the argument range for HSD_Randi.",
-    "The item implementation uses the common local ip for Item* from GET_ITEM(gobj).",
-    "Offset-style field names remained in place for not-yet-fully-named data, including xDD4_itemVar.nessyoyo.x10 and castle9 fields xD4, xD6, xD8, xDA, xDC, and xDE_b0."
+    "Use concise local names for meaningful values, e.g. random_range was shortened to range in grCastle_801CDFD8.",
+    "Preserve established project accessor macros and typedefs such as GET_GROUND, GET_ITEM, Ground_GObj, Item_GObj, Item, and HSD_GObj.",
+    "Existing generated or inferred field names were retained, including grCs_804D6970->xA, grCs_804D6970->x8, gp->gv.castle9.xDE_b0, xD4, xDC, xDA, xD8, xD6, and ip->xDD4_itemVar.nessyoyo.x10."
   ],
   "assembly_or_matching_tactics": [
-    "Removed the inline asm implementation of it_2725_Logic59_EvtUnk containing nofralloc, stack frame setup, r31/r30 saves, a call to it_8026B894, a load from offset 0xDE4, and cmplw against ref_gobj.",
-    "Recreated the asm's post-call load/compare in C with HSD_GObj* volatile* owner_ptr = &ip->xDD4_itemVar.nessyoyo.x10 and (void) ((*owner_ptr == ref_gobj) ? 0 : 0).",
-    "Kept the item pointer acquisition before it_8026B894, matching the asm pattern where the item was loaded before the call and dereferenced after the call.",
-    "In grCastle_801CDFD8, direct literal assignments of -1 and 0 replaced named constant locals, a cleanup tactic when those locals are not needed for matching."
+    "Removed a MWERKS_GEKKO asm block for it_2725_Logic59_EvtUnk and replaced it with matching C.",
+    "Used `HSD_GObj* volatile* owner_ptr = &ip->xDD4_itemVar.nessyoyo.x10;` to force a load from the Ness Yo-Yo owner/reference field.",
+    "Used `(void) ((*owner_ptr == ref_gobj) ? 0 : 0);` as an intentional no-op comparison, likely to keep the compare/load sequence present even though the boolean result is unused.",
+    "Eliminated artificial locals in grCastle_801CDFD8, relying on direct assignments to match rather than overfitting to decompiler-style temporaries."
   ],
-  "review_feedback": [
-    "No issue comments, review comments, or reviews were present in the captured PR slice.",
-    "No explicit reviewer rationale or requested changes are available; conclusions are based on the two-file diff only."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
-    "pr-2547",
+    "PR 2547",
     "Merge multiple PRs",
     "ribbanya",
-    "src/melee/it/items/itnessyoyo.c",
-    "src/melee/gr/grcastle.c",
-    "it_2725_Logic59_EvtUnk",
-    "it_8026B894",
-    "GET_ITEM",
-    "Item_GObj",
-    "HSD_GObj",
-    "xDD4_itemVar",
-    "nessyoyo.x10",
-    "owner_ptr",
-    "volatile",
-    "MWERKS_GEKKO",
-    "NOT_IMPLEMENTED",
-    "inline asm",
-    "cmplw",
-    "0xDE4",
     "grCastle_801CDFD8",
+    "grCastle_801CDF54",
+    "grCastle_801CE054",
+    "grcastle.c",
     "grCs_804D6970",
-    "grCastleParams",
-    "HSD_Randi",
+    "Ground_GObj",
+    "GET_GROUND",
     "castle9",
     "xDE_b0",
     "xD4",
     "xD6",
     "xD8",
     "xDA",
-    "xDC"
+    "xDC",
+    "HSD_Randi",
+    "itnessyoyo.c",
+    "it_2725_Logic59_EvtUnk",
+    "it_8026B894",
+    "Item_GObj",
+    "GET_ITEM",
+    "HSD_GObj volatile",
+    "xDD4_itemVar",
+    "nessyoyo",
+    "MWERKS_GEKKO",
+    "asm to C",
+    "NOT_IMPLEMENTED removed"
   ],
   "follow_up_queries": [
-    "it_2725_Logic59_EvtUnk volatile owner_ptr cmplw",
-    "MWERKS_GEKKO NOT_IMPLEMENTED nessyoyo xDD4_itemVar",
-    "grCastle_801CDFD8 HSD_Randi grCs_804D6970 range",
-    "PR 2547 bulk merge source commits individual PRs",
-    "volatile discarded comparison matching tactic melee"
+    "Find related PRs merged into pr/bulk around 2026-05-27 for original context behind the grCastle_801CDFD8 cleanup.",
+    "Search for other inline asm removals using volatile pointer no-op comparisons to preserve matching loads.",
+    "Check whether it_2725_Logic59_EvtUnk is now fully matching across supported compilers after replacing MWERKS_GEKKO asm."
   ],
-  "confidence": 0.84
+  "confidence": 0.78,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

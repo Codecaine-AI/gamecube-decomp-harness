@@ -11,106 +11,114 @@
     "merged_at": "2026-03-04T17:04:32Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Finalized the Harisen item decomp by adding its item state table, changing one dropped-state helper call, cleaning up related GALE01 symbol scopes, and flipping src/melee/it/items/itharisen.c from NonMatching to Matching in configure.py. The PR has no body or review discussion, so the rationale is inferred from the title and diff.",
+  "summary": "Finalized the Home-Run Bat item source file `itharisen.c` enough to mark it matching. The PR added the item state table for Harisen, corrected one function call in dropped logic from `it_8026B390` to `Item_8026849C`, updated `configure.py` so `melee/it/items/itharisen.c` builds as `Matching`, and localized several previously global symbols in `config/GALE01/symbols.txt` to compiler-style local labels.",
   "change_classification": {
-    "primary_type": "decomp-matching-finalization",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "item-logic",
-      "build-config",
-      "symbol-map-cleanup"
+      "item-finalization",
+      "symbol-scope-cleanup",
+      "build-configuration"
     ],
     "systems": [
       "item",
-      "harisen",
-      "configure",
-      "GALE01 symbols",
-      "sdata",
-      "sdata2"
+      "config",
+      "repo-root"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/it/items/itharisen.c",
-      "reason": "Added ItemStateTable it_803F5FF0 and changed itHarisen_Logic24_Dropped to call Item_8026849C instead of it_8026B390."
-    },
-    {
-      "path": "configure.py",
-      "reason": "Changed Object(NonMatching, \"melee/it/items/itharisen.c\") to Object(Matching, \"melee/it/items/itharisen.c\")."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "reason": "Converted several itharisen-adjacent sdata/sdata2 symbols from global it_804D... labels to local @NNN labels while preserving sizes, alignments, and data kinds."
-    }
+    "src/melee/it/items/itharisen.c",
+    "configure.py",
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "Added ItemStateTable it_803F5FF0[] with ten Harisen motion entries using itHarisen_UnkMotion*_Anim, *_Phys, and *_Coll callbacks.",
-    "The new state table includes animation IDs -1, 0, 1, 2, 3, and 4, plus NULL collision callbacks for several UnkMotion6 entries.",
-    "In itHarisen_Logic24_Dropped, replaced it_8026B390(gobj) with Item_8026849C(gobj) before Item_80268E5C(gobj, 8, 6).",
-    "Marked melee/it/items/itharisen.c as Matching in configure.py.",
-    "Changed two .sdata string labels at 0x804D5230 and 0x804D5238 from global it_804D5230/it_804D5238 to local @254/@255.",
-    "Changed multiple .sdata2 float/double labels from global it_804DC900 through it_804DC960-style names to local @168, @169, @170, @171, @253, @256, @257, @321, @322, @412, and @471-@476 labels.",
-    "Changed .sdata2 labels at 0x804DCAF8 and 0x804DCAFC from global it_804DCAF8/it_804DCAFC to local @154/@171."
+    "Added `ItemStateTable it_803F5FF0[]` to `src/melee/it/items/itharisen.c` with 10 state entries covering Harisen unknown motion animation, physics, and collision callbacks.",
+    "The new state table entries use `itHarisen_UnkMotion0_*`, `itHarisen_UnkMotion1_*`, `itHarisen_UnkMotion6_*`, `itHarisen_UnkMotion7_Coll`, `itHarisen_UnkMotion8_*`, and `itHarisen_UnkMotion9_*`, with several collision callbacks intentionally set to `NULL`.",
+    "Changed `itHarisen_Logic24_Dropped` to call `Item_8026849C(gobj)` instead of `it_8026B390(gobj)` before `Item_80268E5C(gobj, 8, 6)`.",
+    "Changed `configure.py` entry for `melee/it/items/itharisen.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)`.",
+    "Updated `config/GALE01/symbols.txt` so multiple `.sdata` and `.sdata2` constants formerly named as global `it_804D...` symbols are now local labels such as `@254`, `@255`, `@168` through `@476`, matching local constant usage rather than exporting them globally."
   ],
   "smart_moves": [
-    "Completed the source, build configuration, and symbol-map pieces together before marking the object Matching, avoiding a source-only match claim.",
-    "Restored the item state table as C data instead of leaving the motion dispatch data implicit or symbol-only.",
-    "Preserved exact symbol metadata for literals, including object size, alignment, and float/double/string data type, while correcting scope from global to local.",
-    "Used the alternate existing helper Item_8026849C in dropped logic, which the diff implies was needed for the final match; no PR text explains the semantic distinction from it_8026B390."
+    "Finalization included both source-level changes and build metadata: the object was only marked matching after `itharisen.c` had the missing state table and call-site correction.",
+    "The PR corrected symbol scope in `symbols.txt` from global item-prefixed names to local `@NNN` labels, which is a useful cleanup when constants are not real externally referenced symbols.",
+    "The state table was reconstructed explicitly instead of leaving state metadata implicit or generated elsewhere, preserving item behavior layout needed for matching.",
+    "The call replacement in dropped logic suggests careful comparison against the target binary: two item helper calls may appear similar, but using the right helper was necessary before declaring the object matching."
   ],
   "decomp_lessons": [
-    "When finalizing an item file, update configure.py, source data declarations, and config/GALE01/symbols.txt in the same PR.",
-    "ItemStateTable reconstruction is often a matching blocker for item files; include the exact callback ordering of anim, phys, coll and preserve NULL entries.",
-    "Temporary global labels like it_804Dxxxx in symbols.txt may need to become local @NNN labels once function-local literals are understood.",
-    "Matching can hinge on selecting the correct existing item helper call even when helper names are still address-like or only partially understood.",
-    "If no PR discussion exists, treat details such as why Item_8026849C matched better than it_8026B390 as unproven unless later comments or code explain it."
+    "When finalizing an item file, verify the item state table is present with exact callback ordering, state IDs, and `NULL` collision slots; small table differences can block matching.",
+    "Do not leave local float, double, or string constants as global `it_804D...` symbols if the binary/compiler output treats them as local labels; symbol scope affects clean matching and symbol hygiene.",
+    "Marking an object as `Matching` in `configure.py` should be paired with source and symbol-table updates that explain why the object now matches.",
+    "Similar item helper functions are not interchangeable for matching. In this PR, `Item_8026849C` was required where `it_8026B390` had previously been used.",
+    "For item dropped logic, preserve the sequence of setting animation frame speed, resetting `ip` from `gobj->user_data`, applying item scale from `xCC_item_attr->x60_scale`, invoking the item helper, and then calling `Item_80268E5C`."
   ],
   "naming_conventions": [
-    "Harisen item callbacks use the itHarisen_ prefix, including itHarisen_Logic24_Dropped and itHarisen_UnkMotion*_Anim/Phys/Coll.",
-    "The item state table remained address-named as it_803F5FF0 rather than receiving a semantic name in this PR.",
-    "Local compiler literals in symbols.txt use @NNN labels instead of exported it_804D... labels.",
-    "The changed function keeps the common item local naming style: Item_GObj* gobj and Item* ip."
+    "Harisen item callbacks use the `itHarisen_` prefix followed by motion labels such as `UnkMotion0`, `UnkMotion6`, `UnkMotion8`, and callback role suffixes `_Anim`, `_Phys`, `_Coll`.",
+    "The item state table retained an address-based generated name, `it_803F5FF0`, rather than receiving a semantic name in this PR.",
+    "Local constants in `symbols.txt` use `@NNN` labels with `scope:local`; global item symbols use `it_804D...` names with `scope:global`.",
+    "Known item library/helper functions use both `it_802...` generated names and `Item_802...` names; this PR specifically preferred `Item_8026849C` at the corrected call site."
   ],
   "assembly_or_matching_tactics": [
-    "Declare the ItemStateTable in C with the exact sequence of Harisen motion callbacks and repeated UnkMotion6/UnkMotion8 entries.",
-    "Use NULL collision callback slots where the table requires no collision function; do not substitute empty functions.",
-    "For itHarisen_Logic24_Dropped, the matching call sequence after resetting scale is Item_8026849C(gobj) followed by Item_80268E5C(gobj, 8, 6).",
-    "For small data literals, keep addresses, sizes, alignments, and float/double widths stable while changing only symbol scope/name."
+    "Introduce exact static data, here `ItemStateTable it_803F5FF0[]`, to match the binary data layout for an item object.",
+    "Adjust symbol visibility in `config/GALE01/symbols.txt` so constants compile/link as local labels where appropriate, including `.sdata` strings and `.sdata2` floats/doubles with correct alignment and size metadata.",
+    "Swap a near-equivalent helper call to the exact target helper (`Item_8026849C`) to recover matching codegen in `itHarisen_Logic24_Dropped`.",
+    "After the source and symbol changes, move the object from `NonMatching` to `Matching` in the build configuration."
   ],
-  "review_feedback": [
-    "No PR body, issue comments, review comments, or reviews were present in the slice; there is no explicit reviewer feedback to extract."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
     "pr-2205",
     "itharisen",
     "itHarisen",
-    "Harisen",
-    "src/melee/it/items/itharisen.c",
+    "Home-Run Bat",
+    "harisen",
     "ItemStateTable",
     "it_803F5FF0",
-    "itHarisen_Logic24_Dropped",
     "itHarisen_UnkMotion0_Anim",
-    "itHarisen_UnkMotion8_Anim",
+    "itHarisen_UnkMotion0_Phys",
+    "itHarisen_UnkMotion0_Coll",
+    "itHarisen_UnkMotion1_Phys",
+    "itHarisen_UnkMotion1_Coll",
     "itHarisen_UnkMotion6_Anim",
+    "itHarisen_UnkMotion6_Phys",
+    "itHarisen_UnkMotion7_Coll",
+    "itHarisen_UnkMotion8_Anim",
+    "itHarisen_UnkMotion8_Phys",
+    "itHarisen_UnkMotion8_Coll",
     "itHarisen_UnkMotion9_Anim",
+    "itHarisen_UnkMotion9_Phys",
+    "itHarisen_UnkMotion9_Coll",
+    "itHarisen_Logic24_Dropped",
     "Item_8026849C",
     "it_8026B390",
     "Item_80268E5C",
+    "x5D0_animFrameSpeed",
+    "xCC_item_attr",
+    "x60_scale",
     "configure.py",
-    "MatchingFor",
-    "Object(Matching)",
-    "config/GALE01/symbols.txt",
+    "Matching",
+    "NonMatching",
+    "symbols.txt",
     "sdata",
     "sdata2",
+    "local labels",
+    "scope:local",
     "it_804D5230",
+    "it_804D5238",
     "it_804DC900",
-    "it_804DCAF8"
+    "it_804DCAFC"
   ],
   "follow_up_queries": [
-    "Find later PRs that rename it_803F5FF0 or resolve the itHarisen_UnkMotion* callback names.",
-    "Compare Item_8026849C and it_8026B390 usage in other item drop/reset paths.",
-    "Search for other item finalization PRs that pair ItemStateTable reconstruction with symbols.txt local @NNN cleanup.",
-    "Check whether later review or code comments explain the semantic difference behind the Item_8026849C call in itHarisen_Logic24_Dropped."
+    "Find other item finalization PRs that add `ItemStateTable` definitions before marking objects matching.",
+    "Search for remaining item files in `configure.py` still marked `NonMatching` near `itflipper.c`, `itsscope.c`, or other item objects.",
+    "Review uses of `it_8026B390` versus `Item_8026849C` in item dropped logic to identify other possible helper misidentifications.",
+    "Search `symbols.txt` for global `it_804D...` `.sdata2` constants that may actually be local `@NNN` labels."
   ],
-  "confidence": 0.86
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

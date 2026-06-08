@@ -11,149 +11,93 @@
     "merged_at": "2026-03-12T02:07:54Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Broad stage/ground cleanup: renamed many gr callback-table functions to role-based names, corrected and filled out InternalStageId values, changed StageData's first field from a misleading flags field to internal_stage_id, and updated stage data initializers plus mpLib/camera/fighter call sites to use the real internal stage IDs. It also folded grheal.static.h into grheal.c, synchronized GALE01 symbols/scratches, and produced one new match in gricemt.",
+  "summary": "Broad ground/stage cleanup PR that renamed many gr callback functions from address/UnkStage-style names to callback-table-derived names, corrected and completed InternalStageId usage, and changed StageData's first field from a misleading flags field to internal_stage_id. It also synchronized those IDs through StageData initializers and mpLib's stage table, moved grHeal static data out of a deleted static header into grheal.c, and produced one new match in gricemt.",
   "change_classification": {
-    "primary_type": "stage_internal_id_and_callback_cleanup",
+    "primary_type": "cleanup",
     "categories": [
       "cleanup",
       "naming",
-      "fix",
       "headers",
       "types-structs",
-      "decomp-matching",
-      "config-symbols"
+      "fix",
+      "decomp-matching"
     ],
     "systems": [
       "stage",
       "ground",
-      "mp/mplib",
+      "mp",
       "camera",
-      "fighter-common-bury",
-      "config/GALE01"
+      "fighter"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/forward.h",
-      "role": "Expanded and renamed InternalStageId values, replacing several STAGEKIND_UNK entries with named stages such as TEST, KINOKOROUTE, PUSHON, target-test stages, HEAL, and FIGURE1-3."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Renamed StageData.flags1 to internal_stage_id and callback0/callback1 to OnInit/OnDemoInit."
-    },
-    {
-      "path": "src/melee/gr/ground.c",
-      "role": "Switched StageData calls to OnInit/OnDemoInit and renamed Ground_801C1074 to Ground_DemoInit."
-    },
-    {
-      "path": "src/melee/gr/stage.c",
-      "role": "Updated demo initialization call site to use Ground_DemoInit."
-    },
-    {
-      "path": "src/melee/mp/mplib.c",
-      "role": "Rekeyed mpLib_803BF248 entries from unknown/numeric internal stage IDs to the newly named enum constants."
-    },
-    {
-      "path": "src/melee/gr/grbattle.c",
-      "role": "Representative callback-table cleanup: BATTLE StageData ID, OnInit/OnDemoInit/OnLoad/OnStart/OnTouchLine/OnCheckShadowRender names, isDemoFight sbss name, and GET_GROUND/GET_JOBJ cleanup."
-    },
-    {
-      "path": "src/melee/gr/grheal.c",
-      "role": "Moved static data, callbacks, StageData, and string data out of grheal.static.h into the C file; StageData now uses HEAL."
-    },
-    {
-      "path": "src/melee/gr/grheal.static.h",
-      "role": "Deleted static header after its contents were folded into grheal.c."
-    },
-    {
-      "path": "src/melee/gr/gricemt.c",
-      "role": "grIceMt_801F8A34 gained missing state writes and reached 100% according to the bot report."
-    },
-    {
-      "path": "src/melee/cm/camera.c",
-      "role": "Changed floor/eye-bound switch cases from SHRINEROUTE to KINOKOROUTE where they call grShrineRoute_802087B0."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_Bury.c",
-      "role": "Replaced unknown stage-kind cases with named SHRINEROUTE and PUSHON and included gr/forward.h."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Synchronized symbol names for Ground_DemoInit, callback role names, fn_ to gr-prefixed names, and isDemoFight."
-    },
-    {
-      "path": "config/GALE01/scratches.txt",
-      "role": "Updated grFigureGet scratch name to grFigureGet_OnInit."
-    }
+    "src/melee/gr/forward.h",
+    "src/melee/gr/types.h",
+    "src/melee/gr/ground.c",
+    "src/melee/gr/ground.h",
+    "src/melee/mp/mplib.c",
+    "src/melee/gr/grbattle.c",
+    "src/melee/gr/grheal.c",
+    "src/melee/gr/grheal.static.h",
+    "src/melee/gr/gricemt.c",
+    "src/melee/cm/camera.c",
+    "src/melee/ft/chara/ftCommon/ftCo_Bury.c",
+    "config/GALE01/symbols.txt",
+    "config/GALE01/scratches.txt"
   ],
   "what_changed": [
-    "Renamed stage lifecycle and callback-table functions across many gr files based on their callback slots, with examples including grBattle_OnInit, grBattle_OnDemoInit, grFigureGet_OnLoad, grStadium_OnTouchLine, and grKraid_OnCheckShadowRender.",
-    "Expanded InternalStageId in src/melee/gr/forward.h: InternalStageID_Unk01 became TEST, route/special IDs such as KINOKOROUTE, ZEBESROUTE, BIGBLUEROUTE, BATTLE, LAST, FIGUREGET, PUSHON, target-test IDs, HEAL, HOMERUN, FIGURE1, FIGURE2, and FIGURE3 were named, and STAGEKIND_UNK32 through STAGEKIND_UNK39 were removed.",
-    "Changed StageData's first field from flags1 to internal_stage_id and replaced many numeric or bitmask-looking initializers with enum constants such as CASTLE, BATTLE, MUTECITY, PSTADIUM, HEAL, TEST, and target-test IDs.",
-    "Renamed StageData callback0/callback1 fields to OnInit/OnDemoInit and updated ground.c to call those fields directly.",
-    "Renamed Ground_801C1074 to Ground_DemoInit in symbols, ground.c, ground.h, and the Stage_8022532C call site.",
-    "Updated mpLib_803BF248 from a mix of InternalStageID_Unk, STAGEKIND_UNK, and numeric IDs to named InternalStageId constants.",
-    "Fixed call sites that depended on internal stage IDs: camera.c uses KINOKOROUTE instead of SHRINEROUTE for the grShrineRoute floor/eye-bound cases, ftCo_Bury.c uses SHRINEROUTE and PUSHON instead of unknown IDs, and grkongo.c compares against TEST instead of InternalStageID_Unk01.",
-    "Deleted grheal.static.h and moved its static arrays, StageCallbacks, StageData grHeal_803E84C4, and message string into grheal.c.",
-    "Applied local cleanup in multiple gr files by using GET_GROUND and GET_JOBJ, replacing raw gobj->user_data and gobj->hsd_obj access, removing dummy stack padding in several functions, and cleaning some OSReport/HSD_ASSERT usage.",
-    "Synchronized config/GALE01/symbols.txt and scratches.txt with source renames, including grFigureGet_OnInit, Ground_DemoInit, grFigureGet_80219B10, grLast_8021A9AC, and isDemoFight.",
-    "grIceMt_801F8A34 was completed by adding gp->gv.icemt2.xC4 = 0.0f and gp->x11_flags.b012 = 2 after animation/collision setup."
+    "Renamed many ground/stage lifecycle and callback functions based on StageData callback table positions, for example Ground_801C1074 to Ground_DemoInit, grBattle_UnkStage0_OnLoad/OnStart to grBattle_OnLoad/OnStart, and grStadium_801D50B8/801D50C0 to grStadium_OnTouchLine/OnCheckShadowRender.",
+    "Updated config/GALE01/symbols.txt and scratches.txt to reflect the new function names, including grFigureGet_OnInit and many gr* OnDemoInit/OnInit/OnLoad/OnStart/OnTouchLine/OnCheckShadowRender symbols.",
+    "Changed StageData in src/melee/gr/types.h so the first field is named internal_stage_id instead of flags1, and renamed callback0/callback1 fields to OnInit and OnDemoInit.",
+    "Replaced many numeric, bitmask-looking, or unknown StageData first-field initializers with InternalStageId enum values such as BATTLE, CASTLE, FIGURE1, FIGUREGET, FLATZONE, FOURSIDE, GARDEN, GREATBAY, IZUMI, KRAID, LAST, MUTECITY, PSTADIUM, SHRINE, SHRINEROUTE, STORY, TEST, YORSTER, HEAL, and target-test stages.",
+    "Expanded src/melee/gr/forward.h InternalStageId enum: InternalStageID_Unk01 became TEST; route and special IDs such as KINOKOROUTE, ZEBESROUTE, BIGBLUEROUTE, BATTLE, LAST, FIGUREGET, PUSHON, target-test stages, HEAL, FIGURE1, FIGURE2, and FIGURE3 were added or named.",
+    "Updated mpLib_803BF248 in src/melee/mp/mplib.c to use named InternalStageId enum constants instead of STAGEKIND_UNKxx and raw hex values.",
+    "Corrected users of the route ID in camera.c from SHRINEROUTE to KINOKOROUTE for stage floor height / camera eye bound logic.",
+    "Changed Kongo test-stage checks from InternalStageID_Unk01 to TEST.",
+    "Deleted src/melee/gr/grheal.static.h and inlined its grHeal callback/static stage data into src/melee/gr/grheal.c with HEAL as the StageData internal stage ID.",
+    "Completed grIceMt_801F8A34 enough for a new match by adding initialization of gp->gv.icemt2.xC4 to 0.0f and gp->x11_flags.b012 to 2, according to the bot report."
   ],
   "smart_moves": [
-    "Used the stage callback table as naming evidence, so role names like OnInit, OnDemoInit, OnLoad, OnStart, OnTouchLine, and OnCheckShadowRender are grounded in table position instead of guessed behavior.",
-    "Renamed the StageData field before mass-updating initializers, making it explicit that the first word is an internal stage ID and not a flags bitmask.",
-    "Updated enum definitions, StageData initializers, mpLib mapping, and downstream switch/case users in the same PR, reducing the risk of internal ID drift.",
-    "Kept GALE01 symbols and scratches synchronized with source-level renames, which preserves searchability and decomp tooling alignment.",
-    "Moved grheal static definitions out of a .static.h include and into the owning C file, improving ownership and reducing header clutter.",
-    "Small matching-oriented cleanups used typed accessors and removed fake stack artifacts without overexplaining weakly known functions.",
-    "The grIceMt_801F8A34 fix was minimal and state-focused: it added the missing fields needed for the match instead of rewriting the function broadly."
+    "Used the callback-table slot order to assign semantically meaningful callback names, avoiding speculative behavior names while still improving searchability and consistency.",
+    "Fixed the StageData field name first, then propagated named enum values into many stage initializers; this prevents future contributors from continuing to treat internal_stage_id as a flags bitfield.",
+    "Kept enum constants in the same table/order context as the underlying IDs instead of scattering raw numeric values, making mpLib and StageData cross-checkable.",
+    "Updated symbols/config alongside source renames, preserving decomp tooling consistency.",
+    "Removed a grheal.static.h include-only static data header by placing the static data in the owning .c file, reducing header leakage and making the compilation unit easier to reason about.",
+    "Preserved exact diagnostic line-number behavior in grIzumi cleanup by using __FILE__ with explicit numeric line values rather than keeping awkward string-literal file names and scratch comments."
   ],
   "decomp_lessons": [
-    "For stage modules, callback-table position is strong evidence for lifecycle names; prefer gr<Stage>_OnInit, OnDemoInit, OnLoad, and OnStart over address-derived names or UnkStage0 placeholders when the StageData table proves the role.",
-    "Do not treat StageData's first initializer as flags just because old values look like bitmasks; this PR establishes it as internal_stage_id.",
-    "When naming internal stage IDs, update every dependent table and call site together, especially mpLib stage tables and gameplay/camera switch statements.",
-    "If an enum is still partly unknown, preserve explicit unknown names such as InternalStageID_Unk35 rather than inventing a stage name.",
-    "Prefer GET_GROUND and GET_JOBJ with local Ground* and HSD_JObj* variables over raw user_data/hsd_obj access; it often removes dummy stack padding and clarifies matching intent.",
-    "Static stage data belongs in the C file unless there is a proven cross-file need; .static.h includes can obscure symbol ownership.",
-    "Address-derived fn_ names can be improved safely to module-prefixed address names, as with grFigureGet_80219B10 and grLast_8021A9AC, when no semantic name is proven yet.",
-    "Config symbol/scratch renames should accompany source renames in the same change to keep tooling and search results consistent."
+    "When a struct field's true role is known, rename the type field before doing wide initializer cleanup; this PR's flags1 to internal_stage_id change explains why many old bitmask-looking initializers were wrong.",
+    "Callback-table-derived names like OnInit, OnDemoInit, OnLoad, OnStart, OnTouchLine, and OnCheckShadowRender are useful safe names for stage work because they encode table position without overclaiming implementation details.",
+    "Do not leave internal stage IDs as raw values or fake flags when an enum name is available; synchronize StageData, mpLib tables, and system call sites together.",
+    "Route stages need careful distinction: this PR corrected camera route handling to KINOKOROUTE where SHRINEROUTE had been used.",
+    "A small missing field initialization can be the last blocker for a match; grIceMt_801F8A34 matched after adding gv.icemt2.xC4 and x11_flags.b012 setup.",
+    "Static data headers are a cleanup smell when only one C file owns the data; moving static arrays/StageData into the C file can simplify declarations without changing behavior."
   ],
   "naming_conventions": [
-    "Stage callback role pattern: gr<Stage>_OnInit, gr<Stage>_OnDemoInit, gr<Stage>_OnLoad, gr<Stage>_OnStart.",
-    "Stage collision/render callback role pattern: gr<Stage>_OnTouchLine and gr<Stage>_OnCheckShadowRender.",
-    "InternalStageId additions in this PR use all-caps known stage constants such as TEST, BATTLE, FIGUREGET, PUSHON, HEAL, and target-test constants like TCAPTAIN and TZELDA.",
-    "Route stage constants named in this slice include KINOKOROUTE, SHRINEROUTE, ZEBESROUTE, and BIGBLUEROUTE.",
-    "Unknown internal IDs should remain visibly unknown, e.g. InternalStageID_Unk35.",
-    "StageData field names should reflect callback role: internal_stage_id, OnInit, OnDemoInit, OnLoad, OnStart.",
-    "Use descriptive local/static names when evidence exists, e.g. grNBa_804D6AC8 became isDemoFight.",
-    "When semantics are not known, prefer module-prefixed address names over bare fn_ names, e.g. grFigureGet_80219B10 and grLast_8021A9AC."
+    "Stage lifecycle callbacks use gr<Stage>_OnDemoInit, gr<Stage>_OnInit, gr<Stage>_OnLoad, and gr<Stage>_OnStart.",
+    "Collision/render callbacks use gr<Stage>_OnTouchLine and gr<Stage>_OnCheckShadowRender.",
+    "Ground_DemoInit replaced address-style Ground_801C1074 for the wrapper that dispatches StageData->OnDemoInit.",
+    "StageData fields use OnInit and OnDemoInit instead of callback0 and callback1.",
+    "StageData's first field is internal_stage_id, not flags1.",
+    "InternalStageId enum names in this slice are all-caps stage IDs such as TEST, BATTLE, FIGUREGET, HEAL, KINOKOROUTE, and target-test names like TCAPTAIN, TSAMUS, TYOSHI, and TZELDA.",
+    "Unknown internal stage IDs remain explicitly marked as InternalStageID_UnkXX rather than being guessed, as seen with InternalStageID_Unk00 and InternalStageID_Unk35."
   ],
   "assembly_or_matching_tactics": [
-    "Bot evidence: GALE01 matched code became 56.21% (+0.01%, +212 bytes) with one new match, main/melee/gr/gricemt grIceMt_801F8A34 from 83.74% to 100.00%.",
-    "grIceMt_801F8A34 matched after adding two missing state writes, gp->gv.icemt2.xC4 = 0.0f and gp->x11_flags.b012 = 2, and removing an unused local.",
-    "Using GET_GROUND/GET_JOBJ and typed HSD_JObj* locals can remove artificial u8 padding arrays and raw casts while preserving or improving codegen.",
-    "Renaming symbols and callbacks is non-codegen by itself, but it makes callback-table matching and future scratch searches much easier.",
-    "Replacing misleading numeric StageData IDs with enum constants is a data/typing match tactic: it prevents future code from forcing fake flag expressions to match data."
+    "For table-driven stage callbacks, identify the semantic name from the StageData field position and callback-table usage rather than from the function body alone.",
+    "Replace raw internal stage constants in data tables with enum names only after verifying their ordered position across StageData and mpLib tables.",
+    "For grIceMt_801F8A34, matching required not just argument renaming but restoring side effects after Ground_801C4E70: gp->gv.icemt2.xC4 = 0.0f and gp->x11_flags.b012 = 2.",
+    "Use HSD_ASSERT where appropriate instead of raw __assert when cleaning existing assert patterns, as shown in grIzumi.",
+    "Keep compile-line-sensitive OSReport behavior explicit; this diff used __FILE__ plus hard-coded line numbers for existing reports."
   ],
   "review_feedback": [
-    {
-      "source": "human_review",
-      "feedback": "No human review comments or reviews were present in this PR slice."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "GALE01 report showed matched code 56.21% (+0.01%, +212 bytes) and one new match: main/melee/gr/gricemt grIceMt_801F8A34, +35 bytes, 83.74% to 100.00%."
-    }
+    "No human review comments were present in the provided slice.",
+    "decomp.dev bot reported GALE01 matched code improved to 56.21% (+0.01%, +212 bytes) with one new match: main/melee/gr/gricemt grIceMt_801F8A34, +35 bytes, from 83.74% to 100.00%."
   ],
   "searchable_terms": [
-    "pr-2272",
     "gr cleanup",
     "InternalStageId",
-    "StageData",
-    "internal_stage_id",
+    "StageData internal_stage_id",
     "flags1",
-    "callback0",
-    "callback1",
     "OnInit",
     "OnDemoInit",
     "OnLoad",
@@ -163,46 +107,39 @@
     "Ground_DemoInit",
     "Ground_801C1074",
     "mpLib_803BF248",
+    "grIceMt_801F8A34",
+    "grheal.static.h",
+    "grHeal_803E84C4",
     "KINOKOROUTE",
     "SHRINEROUTE",
-    "ZEBESROUTE",
-    "BIGBLUEROUTE",
-    "PUSHON",
-    "HEAL",
+    "TEST",
     "BATTLE",
     "LAST",
     "FIGUREGET",
+    "PUSHON",
+    "HEAL",
     "FIGURE1",
     "FIGURE2",
     "FIGURE3",
-    "TEST",
-    "STAGEKIND_UNK32",
-    "STAGEKIND_UNK39",
-    "InternalStageID_Unk35",
-    "grHeal_803E84C4",
-    "grheal.static.h",
-    "grIceMt_801F8A34",
-    "grBattle_OnInit",
     "grFigureGet_OnInit",
+    "grBattle_OnInit",
     "grStadium_OnCheckShadowRender",
-    "grKraid_OnTouchLine",
-    "grLast_8021A9AC",
-    "grFigureGet_80219B10",
-    "isDemoFight",
-    "GET_GROUND",
-    "GET_JOBJ",
-    "ftCo_Bury",
-    "Camera_8002AF68",
-    "config/GALE01/symbols.txt"
+    "target test stages"
   ],
   "follow_up_queries": [
-    "Search for remaining StageData first initializers that are numeric literals or bitmask expressions instead of InternalStageId constants.",
-    "Search for remaining STAGEKIND_UNK or InternalStageID_Unk names in gr, mp, camera, and fighter code.",
-    "Search for UnkStage0_OnLoad and UnkStage0_OnStart callbacks not covered by this part 1 cleanup.",
-    "Audit InternalStageID_Unk35 to determine whether it has enough evidence for a real stage name.",
-    "Verify every InternalStageId enum value has the correct mpLib_803BF248 mapping and expected StageData initializer.",
-    "Search gr files for raw gobj->user_data and gobj->hsd_obj accesses that could become GET_GROUND or GET_JOBJ.",
-    "Continue callback-role naming for stage files not touched in this PR, reusing the OnInit/OnDemoInit/OnLoad/OnStart naming convention."
+    "Find later PRs continuing 'gr cleanup, internal ID fixes/additions' part 2 or subsequent callback-table renames.",
+    "Audit remaining StageData initializers for raw numbers or bitmask expressions in the internal_stage_id field.",
+    "Search for remaining STAGEKIND_UNK or InternalStageID_Unk values that can be named from mpLib or StageData order.",
+    "Check remaining gr*_UnkStage0_OnLoad and gr*_UnkStage0_OnStart symbols for callback-table-derived renames.",
+    "Verify route-stage IDs in camera, collision, and mpLib code, especially KINOKOROUTE versus SHRINEROUTE."
   ],
-  "confidence": 0.94
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

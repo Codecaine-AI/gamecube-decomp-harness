@@ -11,115 +11,128 @@
     "merged_at": "2026-03-16T00:02:52Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched two `grKinokoRoute` Mushroom Kingdom stage callback functions, `grKinokoRoute_802084B4` and `grKinokoRoute_80208660`, and replaced their header `UNK_RET`/`UNK_PARAMS` declarations with typed prototypes. The implementations wire stage route logic into existing JObj, ground, effect, camera, material, and fighter-lib helpers. PR evidence says objdiff reached 100% for both functions and `ninja` built cleanly.",
+  "summary": "Matched two Mushroom Kingdom grKinokoRoute stage callback functions, replacing placeholders for grKinokoRoute_802084B4 and grKinokoRoute_80208660 with typed C implementations and updating their header prototypes. The first callback manipulates a stage JObj, marks another ground object flag, spawns effect 0x442 at the JObj position, triggers camera/stage/material side effects, and preserves stack padding. The second checks a fighter/object position and velocity threshold, clamps Y to 5.5F, calls grKinokoRoute_802086EC with a scale derived from ftLib_80086B80, triggers Ground_801C53EC, pads stack, and returns false. PR text states both functions verified 100% in objdiff and ninja built cleanly.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "stage-callbacks",
       "headers",
-      "prototype-typing"
+      "stack-padding",
+      "effect-camera-material-side-effects"
     ],
     "systems": [
       "stage",
-      "ground",
+      "grkinokoroute",
       "Mushroom Kingdom",
-      "effects",
+      "ground",
       "camera",
-      "fighter-lib"
+      "effects",
+      "fighter-library"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grkinokoroute.c",
-      "reason": "Implemented the two previously nonmatching `grKinokoRoute` functions and added needed subsystem includes."
+      "why_it_matters": "Replaced two placeholder comments with matching implementations and added required includes for efSync, grMaterial, and HSD_JObj APIs."
     },
     {
       "path": "src/melee/gr/grkinokoroute.h",
-      "reason": "Updated prototypes for `grKinokoRoute_802084B4` and `grKinokoRoute_80208660` from unknown signatures to typed declarations."
+      "why_it_matters": "Converted two unknown prototypes to typed signatures: grKinokoRoute_802084B4(HSD_GObj*) and grKinokoRoute_80208660(s32, HSD_GObj*) returning bool."
     }
   ],
   "what_changed": [
-    "`grKinokoRoute_802084B4(HSD_GObj*)` replaced a nonmatching marker. It reads a `HSD_JObj*` from `gobj->user_data` at offset `0xDD8`, calls `HSD_JObjSetFlagsAll(..., 0x10)`, checks `Ground_801C2BA4(3)` and its `user_data`, sets an `UnkFlagStruct` flag at offset `0xC4`, gets a position with `lb_8000B1CC`, spawns effect `0x442` with `efSync_Spawn`, triggers `Camera_80030E44(2, NULL)`, calls `Ground_801C5414(0x136, 0xBA)`, and finishes with `grMaterial_801C8CDC(gobj)`.",
-    "`grKinokoRoute_80208660(s32, HSD_GObj*)` replaced a nonmatching marker. It reads fighter position and velocity via `ftLib_80086644` and `ftLib_80086684`; if `pos.y < 5.5F` and `vel.y > 5.5F`, it computes `ftLib_80086B80(gobj) / 10.0F`, clamps `pos.y` to `5.5F`, calls `grKinokoRoute_802086EC(&pos, scale)`, and signals `Ground_801C53EC(0x77A10)`, then returns `false`.",
-    "Added includes for `ef/efsync.h`, `gr/grmaterial.h`, and `baselib/jobj.h` to support the newly decompiled calls.",
-    "Changed header declarations to `void grKinokoRoute_802084B4(HSD_GObj*)` and `bool grKinokoRoute_80208660(s32, HSD_GObj*)`."
+    "Added includes in grkinokoroute.c for \"ef/efsync.h\", \"gr/grmaterial.h\", and <baselib/jobj.h> to support the newly matched calls.",
+    "Implemented grKinokoRoute_802084B4 as a void callback taking HSD_GObj*. It accesses gobj->user_data through a local anonymous struct with 0xDD8 bytes of padding before an HSD_JObj* field.",
+    "grKinokoRoute_802084B4 calls HSD_JObjSetFlagsAll(gp->jobj, 0x10), finds another ground object with Ground_801C2BA4(3), and if its user_data exists sets b0 on an UnkFlagStruct at offset 0xC4.",
+    "grKinokoRoute_802084B4 computes a Vec3 from the JObj with lb_8000B1CC, spawns effect 0x442 with efSync_Spawn, calls Camera_80030E44(2, NULL), Ground_801C5414(0x136, 0xBA), grMaterial_801C8CDC(gobj), and uses PAD_STACK(20).",
+    "Implemented grKinokoRoute_80208660 as bool grKinokoRoute_80208660(s32 arg0, HSD_GObj* gobj). The first argument is unused in the diff excerpt.",
+    "grKinokoRoute_80208660 reads position and velocity with ftLib_80086644 and ftLib_80086684, checks pos.y < 5.5F and vel.y > 5.5F, derives scale from ftLib_80086B80(gobj) / 10.0F, clamps pos.y to 5.5F, calls grKinokoRoute_802086EC(&pos, scale), triggers Ground_801C53EC(0x77A10), then returns false after PAD_STACK(8).",
+    "Header prototypes were updated from UNK_RET/UNK_PARAMS to concrete typed declarations for the two matched functions."
   ],
   "smart_moves": [
-    "Used a small anonymous padded overlay for `gobj->user_data` to access only the known `HSD_JObj*` at offset `0xDD8`, avoiding invention of a full stage data struct.",
-    "Preserved callback ABI details, including the unused `s32` parameter in `grKinokoRoute_80208660` and explicit `PAD_STACK(20)` / `PAD_STACK(8)` calls for stack matching.",
-    "Kept the implementation expressed in existing engine helper calls instead of open-coding behavior: `ftLib_*`, `lb_8000B1CC`, `efSync_Spawn`, `Camera_*`, `Ground_*`, and `grMaterial_*`.",
-    "Mirrored the null-check structure before mutating `Ground_801C2BA4(3)->user_data + 0xC4`, which is important for both correctness and matching control flow.",
-    "Promoted only the two now-known function signatures in the header while leaving unrelated unknown declarations untouched."
+    "Used a small anonymous padded struct for gobj->user_data to expose only the required HSD_JObj* at offset 0xDD8 instead of prematurely naming or fully defining a large stage-specific data structure.",
+    "Preserved required stack shape with PAD_STACK(20) and PAD_STACK(8), a common matching tactic when otherwise-correct C needs explicit stack padding.",
+    "Kept side-effect order explicit in grKinokoRoute_802084B4: set JObj flags, mark related ground object state, compute effect position, spawn effect, update camera/stage/material state.",
+    "Improved type information in the header while leaving still-unmatched neighboring functions as UNK_RET/UNK_PARAMS, avoiding overreach.",
+    "Guarded the secondary ground object's user_data before writing to an offset field, matching the control flow shown in the diff."
   ],
   "decomp_lessons": [
-    "Stage route callbacks often bridge several systems at once; matching may require adding precise subsystem headers for JObj, effect sync, ground material, camera, and fighter helpers.",
-    "When only one far-offset field is known, a local padded struct overlay can be safer and more match-friendly than prematurely naming a full object layout.",
-    "Header cleanup from `UNK_RET`/`UNK_PARAMS` to exact signatures is useful decomp progress and should accompany matched implementations.",
-    "Exact float literals and arithmetic shape matter: this PR preserves `5.5F` thresholds, a `10.0F` divisor, local `Vec3` temporaries, and post-body `PAD_STACK` calls.",
-    "Bot match reports may include branch-wide or unrelated items; for PR records, separate the PR-specific changed files and functions from other reported matches."
+    "For stage callbacks, user_data often needs offset-based access before the full struct is known; anonymous padded structs can be a pragmatic bridge to a match.",
+    "When matching stage event logic, effect spawning, camera triggers, ground callbacks, and material updates may all be part of one callback and their exact order can be important.",
+    "ftLib position/velocity helpers can be used in ground route callbacks to detect player movement conditions without needing to name the full fighter data path.",
+    "Literal float thresholds and derived scale expressions, here 5.5F and ftLib_80086B80(gobj) / 10.0F, should be preserved exactly for matching and behavioral clarity.",
+    "Header cleanup should accompany matched functions by replacing UNK_RET/UNK_PARAMS with the smallest evidenced concrete signature.",
+    "Explicit PAD_STACK usage remains acceptable when needed to preserve objdiff equivalence in matched functions."
   ],
   "naming_conventions": [
-    "Stage functions continue to use address-suffixed names such as `grKinokoRoute_802084B4` and `grKinokoRoute_80208660` until stronger semantic names are available.",
-    "Header comments retain address markers like `/* 2084B4 */` and `/* 208660 */` next to prototypes.",
-    "Existing subsystem prefixes and capitalization are preserved: `Ground_`, `Camera_`, `HSD_JObj`, `ftLib_`, `efSync_`, `grMaterial_`, and `lb_`.",
-    "Generic local names such as `gobj`, `gobj2`, `gp`, `gp2`, `sp_vec`, `pos`, and `vel` were used where the slice does not provide stronger semantic evidence."
+    "Stage route functions keep the address-style project naming form grKinokoRoute_8020xxxx until more semantic names are available.",
+    "Concrete callback prototypes use project types such as HSD_GObj*, Vec3*, f32, s32, and bool rather than generic UNK_PARAMS once evidence supports them.",
+    "Local temporaries in the diff use concise names such as gobj2, gp, gp2, sp_vec, pos, and vel; no broader semantic rename was attempted without stronger evidence.",
+    "The existing helper name grKinokoRoute_802086EC(Vec3*, f32) was reused as-is rather than renamed."
   ],
   "assembly_or_matching_tactics": [
-    "Anonymous struct overlay `{ char pad[0xDD8]; HSD_JObj* jobj; }*` on `gobj->user_data` emits the needed offset access without broad struct claims.",
-    "The flag write uses `(u8*) gp2 + 0xC4` cast to `UnkFlagStruct*`, preserving an exact byte offset for an only-partly-understood data layout.",
-    "Explicit `PAD_STACK(20)` and `PAD_STACK(8)` were needed for the matched functions' stack layout.",
-    "Call ordering is carefully preserved in `grKinokoRoute_802084B4`: JObj flag update, ground-object flag mutation, position query, effect spawn, camera trigger, ground trigger, material update.",
-    "The threshold function keeps separate `Vec3 pos` and `Vec3 vel` locals and uses exact comparisons `pos.y < 5.5F` and `vel.y > 5.5F` before clamping and spawning route behavior."
+    "Anonymous local struct with char pad[0xDD8] to reach a nested HSD_JObj* in gobj->user_data.",
+    "Offset cast to set ((UnkFlagStruct*)((u8*)gp2 + 0xC4))->b0 = 1 on another ground object's user_data.",
+    "PAD_STACK(20) in grKinokoRoute_802084B4 and PAD_STACK(8) in grKinokoRoute_80208660 to satisfy stack layout.",
+    "Maintained float constants as 5.5F and 10.0F rather than alternate double or integer expressions.",
+    "Used NULL arguments explicitly in lb_8000B1CC(gp->jobj, NULL, &sp_vec) and Camera_80030E44(2, NULL), matching call signatures and likely codegen.",
+    "Returned false from the bool callback rather than 0, while preserving the boolean return type."
   ],
   "review_feedback": [
-    "No human review comments or inline review feedback are present in the slice.",
-    "The PR body reports that all functions were verified as 100% matches via objdiff during an overnight run and that `ninja` built cleanly.",
-    "The decomp-dev bot report for GALE01 lists `main/melee/gr/grkinokoroute` matches for `grKinokoRoute_802084B4` (+176 bytes, 0.00% to 100.00%) and `grKinokoRoute_80208660` (+140 bytes, 0.00% to 100.00%). It also notes a `grkinokoroute` `.sdata2` improvement, but many other bot-listed item matches are not in the changed files for this PR."
+    {
+      "type": "none_recorded",
+      "text": "The provided PR slice contains no review comments and no review records. Only the PR body/comment excerpt is available."
+    }
   ],
   "searchable_terms": [
     "pr-2302",
     "grkinokoroute",
     "grKinokoRoute_802084B4",
     "grKinokoRoute_80208660",
-    "src/melee/gr/grkinokoroute.c",
-    "src/melee/gr/grkinokoroute.h",
+    "grKinokoRoute_802086EC",
     "Mushroom Kingdom",
-    "stage callback",
+    "stage callbacks",
     "HSD_GObj",
     "HSD_JObj",
     "HSD_JObjSetFlagsAll",
-    "gobj->user_data",
-    "jobj offset 0xDD8",
-    "UnkFlagStruct",
-    "user_data offset 0xC4",
     "Ground_801C2BA4",
+    "Ground_801C5414",
+    "Ground_801C53EC",
+    "UnkFlagStruct",
     "lb_8000B1CC",
     "efSync_Spawn",
     "effect 0x442",
     "Camera_80030E44",
-    "Ground_801C5414",
     "grMaterial_801C8CDC",
     "ftLib_80086644",
     "ftLib_80086684",
     "ftLib_80086B80",
-    "grKinokoRoute_802086EC",
-    "Ground_801C53EC",
-    "ground event 0x77A10",
-    "5.5F",
-    "10.0F",
     "PAD_STACK",
-    "UNK_PARAMS",
-    "UNK_RET",
-    "objdiff",
-    "ninja"
+    "PAD_STACK(20)",
+    "PAD_STACK(8)",
+    "Vec3",
+    "user_data offset 0xDD8",
+    "user_data offset 0xC4",
+    "pos.y 5.5F",
+    "vel.y 5.5F",
+    "Ground_801C53EC 0x77A10",
+    "objdiff 100% match"
   ],
   "follow_up_queries": [
-    "Find later PRs that replace the anonymous `gobj->user_data` offset `0xDD8` overlay in `grkinokoroute` with a named stage data struct.",
-    "Search for other uses of `efSync_Spawn(0x442` or `Ground_801C5414(0x136, 0xBA)` to identify the effect/event semantics.",
-    "Search for other stage callbacks with signature `bool (s32, HSD_GObj*)` that use `ftLib_80086644` and `ftLib_80086684` position/velocity thresholds.",
-    "Investigate the meaning of `Ground_801C53EC(0x77A10)` within Mushroom Kingdom route or hazard logic.",
-    "Compare decomp-dev bot reports against changed files for this branch to separate unrelated item matches from the `grkinokoroute` work."
+    "Find later PRs that fully name or define the grKinokoRoute user_data struct containing the HSD_JObj* at offset 0xDD8.",
+    "Search for other stage route callbacks that call efSync_Spawn with effect 0x442 or use Camera_80030E44 after JObj position lookup.",
+    "Search for other uses of Ground_801C2BA4(3) and UnkFlagStruct at user_data offset 0xC4 to infer the ground object state field name.",
+    "Compare grKinokoRoute_80208660 with other ftLib_80086644/ftLib_80086684 threshold callbacks to identify a reusable movement-trigger pattern.",
+    "Check whether PAD_STACK(20) or PAD_STACK(8) can be removed after future struct/type improvements without breaking matching."
   ],
-  "confidence": 0.94
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

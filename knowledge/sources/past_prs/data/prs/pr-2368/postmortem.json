@@ -11,96 +11,75 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Closed, unmerged PR that attempted to match `src/sysdolphin/baselib/spline.c`. The diff changed storage-class/inline qualifiers for spline helper functions, extracted a tiny `spl_GetArcLengthDx` helper in `splArcLengthGetParameter`, removed the now-static B-spline helper from the public header, renamed spline `.sdata2` symbols back to compiler-style `@N` labels, and flipped `spline.c` from `NonMatching` to `Matching` in `configure.py`. The automated decomp.dev report showed `splArcLengthGetParameter` and `.sdata2` reaching 100%, with +912 matched code bytes and +56 matched data bytes.",
+  "summary": "Closed, unmerged PR that attempted to make `src/sysdolphin/baselib/spline.c` matching. The diff changed linkage/inline qualifiers, adjusted local variable structure in `splArcLengthGetParameter`, introduced a tiny helper for arc-length dx calculation, updated `.sdata2` symbol names, removed an exported prototype for now-static `splGetBSplinePoint`, and flipped `spline.c` from `NonMatching` to `Matching` in `configure.py`. The decomp.dev bot reported 2 new GALE01 matches: `splArcLengthGetParameter` reached 100.00% and spline `.sdata2` reached 100.00%, with +912 matched code bytes and +56 matched data bytes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "function-visibility",
-      "inline-static-qualifiers",
-      "symbol-map-cleanup",
-      "header-cleanup",
+      "headers",
+      "linkage",
+      "sdata2-symbols",
       "build-config"
     ],
     "systems": [
-      "sysdolphin/baselib/spline",
-      "GALE01 symbols",
-      "configure.py matching configuration"
+      "sysdolphin",
+      "baselib",
+      "spline",
+      "config"
     ]
   },
   "key_files": [
-    {
-      "path": "src/sysdolphin/baselib/spline.c",
-      "role": "Primary decomp target; adjusted helper visibility/inline qualifiers and `splArcLengthGetParameter` code shape."
-    },
-    {
-      "path": "src/sysdolphin/baselib/spline.h",
-      "role": "Header cleanup; removed `splGetBSplinePoint` declaration after making it file-local static."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Renamed spline `.sdata2` constants from `HSD_Spline_804DE620`-style names to compiler-style `@13`, `@14`, etc."
-    },
-    {
-      "path": "configure.py",
-      "role": "Changed `sysdolphin/baselib/spline.c` object status from `NonMatching` to `Matching`."
-    }
+    "src/sysdolphin/baselib/spline.c",
+    "src/sysdolphin/baselib/spline.h",
+    "config/GALE01/symbols.txt",
+    "configure.py"
   ],
   "what_changed": [
     "`configure.py` changed `Object(NonMatching, \"sysdolphin/baselib/spline.c\")` to `Object(Matching, \"sysdolphin/baselib/spline.c\")`.",
-    "`splGetCardinalPoint` and `splGetBezierPoint` definitions were changed from plain `void` functions to `inline void`.",
-    "`splGetBSplinePoint` was changed from a non-static function to `static void`, and its prototype was removed from `spline.h`.",
+    "`splGetCardinalPoint` and `splGetBezierPoint` were changed from plain `void` definitions to `inline void` definitions.",
+    "`splGetBSplinePoint` was changed to `static void`, and its public declaration was removed from `src/sysdolphin/baselib/spline.h`.",
     "`splArcLengthPolynomial` was changed from `inline f32` to `static f32`.",
-    "A new `static f32 spl_GetArcLengthDx(f32 start, f32 midpoint)` helper was added, returning `(midpoint - start) / 8.0F`.",
-    "`splArcLengthGetParameter` was reshaped: `result` was declared after `start`/`end`, the local `midpoint` const was removed, `result` became the midpoint value, and `dx`/`middle` were declared separately before use.",
-    "The Simpson integration loop now calls `spl_GetArcLengthDx(start, result)` and uses `result` instead of `midpoint` in polynomial evaluation and bisection updates.",
-    "`config/GALE01/symbols.txt` replaced twelve `HSD_Spline_804DE620` through `HSD_Spline_804DE654` `.sdata2` labels with numbered labels `@13`, `@14`, `@15`, `@17`, `@18`, `@19`, `@80`, `@82`, `@91`, `@101`, `@178`, and `@179`.",
-    "Automated report for GALE01 showed two new matches: `splArcLengthGetParameter` improved from 98.77% to 100.00% (+12 bytes), and spline `.sdata2` improved from 85.71% to 100.00% (+8 bytes)."
+    "A new helper `static f32 spl_GetArcLengthDx(f32 start, f32 midpoint)` was added to return `(midpoint - start) / 8.0F`.",
+    "`splArcLengthGetParameter` was reshaped by moving the `result` declaration, replacing a `const f32 midpoint` temporary with assignment to `result`, computing `dx` through `spl_GetArcLengthDx`, and using `result` in the Simpson integration and bisection updates.",
+    "`config/GALE01/symbols.txt` replaced named float/double literals like `HSD_Spline_804DE620` through `HSD_Spline_804DE654` with compiler-style `@13`, `@14`, `@15`, `@17`, `@18`, `@19`, `@80`, `@82`, `@91`, `@101`, `@178`, and `@179` labels."
   ],
   "smart_moves": [
-    "Used minimal storage-class and inline qualifier changes instead of rewriting spline math, keeping behavior stable while altering emitted code enough to match.",
-    "Made `splGetBSplinePoint` truly file-local and removed its header declaration, aligning source visibility with the new `static` definition.",
-    "Extracted the `(midpoint - start) / 8.0F` expression into a one-line static helper, a small codegen nudge that affected `splArcLengthGetParameter` without changing the algorithm.",
-    "Reused `result` as the midpoint variable throughout the binary-search loop, matching the apparent original code shape more closely than a separate `midpoint` const.",
-    "Adjusted `.sdata2` symbol names to compiler-style anonymous labels, allowing the data section to match rather than preserving address-derived semantic names."
+    "Used linkage and inlining qualifiers as matching levers instead of changing spline math behavior.",
+    "Made `splGetBSplinePoint` internal-only in both the C file and header, keeping declarations consistent with the new `static` definition.",
+    "Extracted the `(midpoint - start) / 8.0F` expression into `spl_GetArcLengthDx`, likely to steer codegen/register scheduling in the sensitive `splArcLengthGetParameter` loop.",
+    "Replaced the separate `midpoint` const with the already-declared `result` variable, which is a common tactic when matching compiler stack/register lifetimes.",
+    "Updated symbol names for spline `.sdata2` literals to match compiler-generated local literal labels, which the bot confirmed helped bring `.sdata2` to 100%."
   ],
   "decomp_lessons": [
-    "For MWCC-style matching, `inline` versus `static` versus external linkage can be enough to change function emission and object matching.",
-    "If a helper is only used within one C file, making it `static` and removing its header prototype can be necessary for both symbol visibility and matching.",
-    "Tiny helper functions can be useful matching shims: extracting a simple arithmetic expression can influence register allocation, call structure, or scheduling in a tight loop.",
-    "Local declaration order and whether a value is represented by a named variable such as `result` versus a `const midpoint` can matter for matching.",
-    "Do not force semantic names on literal-table symbols when the matching symbol map expects compiler-generated `@N` labels.",
-    "After a unit reaches object match, update `configure.py` from `NonMatching` to `Matching`, but verify whether the PR actually merged before treating it as landed."
+    "For math-heavy baselib code, small storage-class changes (`static`, `inline`) can be decisive for matching even when source-level behavior is unchanged.",
+    "Header prototypes must follow linkage decisions: if a helper becomes `static`, remove its public header declaration to avoid exposing an internal function.",
+    "When matching bisection/integration routines, variable declaration order, const temporaries, and helper extraction can affect register allocation enough to matter.",
+    "Matching `.sdata2` may require using compiler-style `@NN` literal labels rather than descriptive address-based names, especially for floats/doubles emitted as local constants.",
+    "Only promote an object to `Matching` in `configure.py` after both code and related data literals are accounted for; here the bot reported `splArcLengthGetParameter` and `.sdata2` both reaching 100%."
   ],
   "naming_conventions": [
-    "Public spline APIs in this slice use the `splGet*` prefix, such as `splGetHelmite`, `splGetCardinalPoint`, `splGetBezierPoint`, and `splGetSplinePoint`.",
-    "Private/internal helpers in this file use a `spl_` prefix with an underscore, as seen with added `spl_GetArcLengthDx` and existing names like `spl_IterateSimpsonsMiddle` and `spl_GetCoeffs`.",
-    "The public type name remains `HSD_Spline` in `spline.h`.",
-    "Anonymous `.sdata2` literals may be named with `@N` labels in `symbols.txt`; this PR moved away from `HSD_Spline_<address>` names for the affected constants.",
-    "Header declarations should track linkage: `splGetBSplinePoint` was removed from `spline.h` once it became `static`."
+    "Existing public spline APIs use `splGet...` camel-case style, e.g. `splGetHelmite`, `splGetCardinalPoint`, `splGetBezierPoint`, `splGetSplinePoint`.",
+    "Internal helper names in this file may use an underscore after the `spl_` prefix, as seen with `spl_IterateSimpsonsMiddle`, `spl_GetCoeffs`, and the added `spl_GetArcLengthDx`.",
+    "Compiler-generated `.sdata2` literals are represented as `@NN` labels in `config/GALE01/symbols.txt` when that better reflects the object layout than descriptive `HSD_Spline_804DE...` names."
   ],
   "assembly_or_matching_tactics": [
-    "Toggle helper functions between `inline`, `static`, and external definitions to control whether code is emitted, inlined, or externally visible.",
-    "Introduce a small static helper for repeated arithmetic when the original codegen appears to require a separate computation boundary.",
-    "Reshape local variables in a loop by replacing a temporary `midpoint` with the function result variable and separating `dx`/`middle` declarations.",
-    "Use the same midpoint variable in endpoint polynomial calls and bisection assignments to preserve expression identity in generated code.",
-    "Clean up `.sdata2` labels in `symbols.txt` when literal naming affects data matching.",
-    "Only mark an object `Matching` in `configure.py` once the diff and automated report support the match."
+    "Toggled functions between plain, `inline`, and `static` definitions to influence emitted call/inlining behavior and symbol visibility.",
+    "Introduced a tiny helper around a single arithmetic expression to alter codegen in `splArcLengthGetParameter` without changing semantics.",
+    "Changed temporary variable usage from `const f32 midpoint` to assignment through `result`, affecting lifetime and reuse in the binary search loop.",
+    "Moved declarations for `dx` and `middle` before assignment rather than initializing them as consts, another source-shaping tactic for register allocation.",
+    "Aligned `.sdata2` symbol table entries with generated literal labels and preserved addresses, sizes, alignment, and float/double data annotations."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the slice.",
-    "The only comment was the decomp.dev automated GALE01 report, showing matched code 61.12% (+0.02%, +912 bytes), linked code 33.65% (+0.06%, +2268 bytes), matched data 37.78% (+56 bytes), and linked data 32.29% (+56 bytes).",
-    "The PR was closed with `merged_at` null, so future reuse should verify whether this exact change landed in another PR or branch before assuming it is in master."
+    "No human review comments or PR body rationale were present in the provided slice.",
+    "The only feedback evidence is the decomp.dev bot report: matched code increased by +912 bytes, linked code by +2268 bytes, matched data by +56 bytes, and two spline matches were reported."
   ],
   "searchable_terms": [
-    "pr-2368",
+    "PR2368",
     "Match spline",
     "mchen91",
-    "sysdolphin/baselib/spline.c",
-    "sysdolphin/baselib/spline.h",
-    "configure.py",
-    "config/GALE01/symbols.txt",
-    "HSD_Spline",
+    "spline.c",
+    "spline.h",
+    "sysdolphin/baselib/spline",
     "splGetHelmite",
     "splGetCardinalPoint",
     "splGetBSplinePoint",
@@ -111,22 +90,37 @@
     "spl_GetArcLengthDx",
     "splArcLengthGetParameter",
     "spl_GetCoeffs",
+    "HSD_Spline",
+    "Vec3",
     "sdata2",
     "HSD_Spline_804DE620",
+    "HSD_Spline_804DE624",
+    "HSD_Spline_804DE628",
+    "HSD_Spline_804DE62C",
+    "HSD_Spline_804DE630",
+    "HSD_Spline_804DE634",
+    "HSD_Spline_804DE638",
+    "HSD_Spline_804DE640",
+    "HSD_Spline_804DE648",
+    "HSD_Spline_804DE64C",
+    "HSD_Spline_804DE650",
     "HSD_Spline_804DE654",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "Simpsons",
-    "arc length",
-    "B-spline",
-    "Bezier",
-    "Cardinal"
+    "Object Matching spline.c",
+    "NonMatching to Matching"
   ],
   "follow_up_queries": [
-    "Search later history for `spl_GetArcLengthDx` to see whether this closed-unmerged PR was superseded or landed elsewhere.",
-    "Check current `src/sysdolphin/baselib/spline.c` qualifiers for `splGetCardinalPoint`, `splGetBSplinePoint`, `splGetBezierPoint`, and `splArcLengthPolynomial` before reusing this tactic.",
-    "Look for later PRs touching `config/GALE01/symbols.txt` around `.sdata2:0x804DE620` through `.sdata2:0x804DE654`.",
-    "Compare current `configure.py` object status for `sysdolphin/baselib/spline.c` against this PR's `Matching` flip."
+    "Look for the successor or replacement PR for `mchen91:spline`, since this PR was closed with `merged_at` null.",
+    "Check whether later PRs kept `spl_GetArcLengthDx` or used a different final matching tactic for `splArcLengthGetParameter`.",
+    "Search later symbol updates around `.sdata2:0x804DE620` to confirm whether the `@NN` labels survived in master.",
+    "Verify whether `splGetCardinalPoint` and `splGetBezierPoint` remained header-declared while defined as `inline`, because this PR has no human review discussion explaining that choice."
   ],
-  "confidence": 0.86
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

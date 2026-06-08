@@ -11,157 +11,121 @@
     "merged_at": "2026-03-09T02:39:41Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched more of the grcastle stage by adding its StageData/StageCallbacks data, implementing several formerly placeholder functions, tightening castle-specific ground/parameter structs, and fixing lb_80011A50 to return the lb_800100B0 result. The decomp.dev bot reported +572 matched code bytes and +8 data bytes, with new 100% matches for grCastle_801CD37C, grCastle_801CF7B0, grCastle_801D0D24, and grcastle .sbss; grCastle_801CD4D0 and grCastle_801CD8A8 also improved but were not fully matched.",
+  "summary": "Matched several Mushroom Kingdom/Castle stage routines and data in `grcastle`, adding stage callback/data tables, typed castle ground vars and params, and fixing `lb_80011A50` to return its allocated/initialized light-related object pointer. decomp.dev reported +572 matched code bytes, +8 matched data bytes, three newly matched functions (`grCastle_801CD37C`, `grCastle_801CF7B0`, `grCastle_801D0D24`), `.sbss` reaching 100%, and large partial improvements for `.data`, `grCastle_801CD4D0`, and `grCastle_801CD8A8`.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "stage-data",
-      "function-implementation",
       "headers",
-      "struct-typing",
+      "typing",
       "library-signature-fix"
     ],
     "systems": [
-      "stage/grcastle",
+      "stage",
       "ground",
-      "library/lb_00F9",
-      "baselib gobj",
-      "baselib spline",
-      "mpLib"
+      "grcastle",
+      "library",
+      "lb_00F9"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grcastle.c",
-      "role": "Main grcastle matching work: added data tables, typed globals, includes, and implementations for grCastle_801CD37C, grCastle_801CD4D0, grCastle_801CD8A8, grCastle_801CF7B0, and grCastle_801D0D24.",
-      "diff_stats": {
-        "added": 207,
-        "deleted": 15
-      }
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Added grCastle_GroundVars spline storage at xE0 and a second castle ground-vars view holding HSD_GObj pointers and s16 state fields.",
-      "diff_stats": {
-        "added": 11,
-        "deleted": 0
-      }
+      "role": "Main matching work: added typed data tables, implemented several grCastle routines, introduced typed params/static globals, and improved partially matching callbacks/destructors."
     },
     {
       "path": "src/melee/gr/grcastle.h",
-      "role": "Replaced some placeholder prototypes with typed signatures, including grCastle_801CD4D0 returning HSD_GObj*, grCastle_801CE19C taking Ground_GObj*, and grCastle_801D0D84 taking f32.",
-      "diff_stats": {
-        "added": 3,
-        "deleted": 5
-      }
+      "role": "Replaced several `UNK_RET`/`UNK_PARAMS` declarations with concrete prototypes for grCastle functions."
+    },
+    {
+      "path": "src/melee/gr/types.h",
+      "role": "Extended `Ground` union with `grCastle_GroundVars` spline pointer layout and a second castle ground-var struct for spawned castle gobjs."
     },
     {
       "path": "src/melee/lb/lb_00F9.c",
-      "role": "Changed lb_80011A50 from void to returning struct lb_80011A50_t* by returning lb_800100B0(&x2C, arg2).",
-      "diff_stats": {
-        "added": 4,
-        "deleted": 3
-      }
+      "role": "Changed `lb_80011A50` implementation to return the pointer from `lb_800100B0` instead of discarding it."
     },
     {
       "path": "src/melee/lb/lb_00F9.h",
-      "role": "Updated the lb_80011A50 prototype to expose the returned struct lb_80011A50_t*.",
-      "diff_stats": {
-        "added": 2,
-        "deleted": 2
-      }
+      "role": "Updated `lb_80011A50` declaration to return `struct lb_80011A50_t*`."
     }
   ],
   "what_changed": [
-    {
-      "area": "grcastle data",
-      "details": "Added grCs_803E0FE8 S16Vec3 data, a 21-entry grCs_803E0FF4 StageCallbacks table, and grCs_803E11A4 StageData pointing at /GrCs.dat and the grcastle lifecycle callbacks."
-    },
-    {
-      "area": "global/static typing",
-      "details": "Converted grCs_804D6970 from an untyped void pointer pattern into static grCastleParams*, added static u8 grCs_804D45E4 = 1, and added static struct lb_80011A50_t* grCs_804D6974."
-    },
-    {
-      "area": "stage init",
-      "details": "Implemented grCastle_801CD37C: fetches params via Ground_801C49F8, sets stage_info.unk8C flags, creates gobj IDs 0, 4, 3, and 6, disables multiple mpLib collision entries with mpLib_80057BC0, calls Ground_801C39C0/Ground_801C3BB4, and stores the lb_80011A50 return pointer."
-    },
-    {
-      "area": "gobj creation helper",
-      "details": "Implemented grCastle_801CD4D0 as a Ground_801C14D0 wrapper using StageCallbacks, GObj_SetupGXLink, optional callback0/callback2 setup, optional x1C_callback assignment, and an OSReport failure path."
-    },
-    {
-      "area": "castle teardown/update path",
-      "details": "Implemented grCastle_801CD8A8 enough for 86.15% according to decomp.dev: calls grCastle_801CF868, grCastle_801CE19C, Ground_801C2FE0, lb_800115F4, grCastle_801D0BBC, then iterates 12 HSD_Spline pointers to call grCastle_801D0D84 and grLib_801C9B8C/grCastle_801D0D24."
-    },
-    {
-      "area": "castle params usage",
-      "details": "Replaced byte-offset loads in grCastle_801CDFD8 with grCastleParams field access for xA and x8."
-    },
-    {
-      "area": "secondary castle ground vars",
-      "details": "Implemented grCastle_801CF7B0 to spawn gobj IDs 20, 19, and 18 into gp->gv.castle2, initialize xD0 to -1, and compute xD2 from grCs_804D6970->x0/x2 using HSD_Randi."
-    },
-    {
-      "area": "scale randomization",
-      "details": "Implemented grCastle_801D0D24 to update grCs_804D6974->unk_scale from HSD_Randf, with different ranges depending on grCs_804D45E4."
-    },
-    {
-      "area": "library signature",
-      "details": "Changed lb_80011A50 so callers can keep the allocated/registered lb_80011A50_t pointer returned by lb_800100B0."
-    }
+    "Added `const unkCastleCallback grCs_803B7F28[5]` and `const unkCastleCallback2 grCs_803B7F3C[5]` callback tables in `grcastle.c`.",
+    "Added `S16Vec3 grCs_803E0FE8[]` and a 21-entry `StageCallbacks grCs_803E0FF4` table mapping stage object IDs to init/update/process/destructor callbacks.",
+    "Added `StageData grCs_803E11A4` for `/GrCs.dat`, with callback table, stage lifecycle functions, item-position callback, and route/vector metadata.",
+    "Introduced local `grCastleParams` with fields `x0`, `x2`, `x4`, `x8`, `xA`, and `xC`, replacing raw offset reads for some castle parameter accesses.",
+    "Changed `grCs_804D6970` from untyped `void*` to `static grCastleParams*` and added `static struct lb_80011A50_t* grCs_804D6974` plus `static u8 grCs_804D45E4 = 1`.",
+    "Implemented `grCastle_801CD37C`, including loading castle params via `Ground_801C49F8`, setting `stage_info.unk8C` bits, spawning specific ground objects, enabling multiple mpLib collision IDs with `mpLib_80057BC0`, running ground setup helpers, and creating/storing an `lb_80011A50` object.",
+    "Implemented or improved `grCastle_801CD4D0` to create a ground gobj by ID, wire `Ground` callbacks from `grCs_803E0FF4`, set GX link with `grDisplay_801C5DB0`, start a gobj proc when callback2 is present, and report failure with `OSReport`.",
+    "Implemented partial destructor/cleanup logic in `grCastle_801CD8A8`, including calls to castle helpers, ground cleanup, `lb_800115F4`, `grCastle_801D0BBC`, length handling for up to 12 spline entries, and `grLib_801C9B8C` cleanup.",
+    "Implemented `grCastle_801CF7B0` to spawn ground objects 20, 19, and 18 into `castle2` fields, initialize `xD0` to -1, and choose a randomized `xD2` between castle params `x0` and `x2`.",
+    "Implemented `grCastle_801D0D24` to randomize `grCs_804D6974->unk_scale`, using a larger range when `grCs_804D45E4` is nonzero and a smaller `0.05 * HSD_Randf()` scale otherwise.",
+    "Updated `Ground` type definitions with castle-specific layouts including `HSD_Spline** xE0` at offset `gp+E0` and a second castle layout containing three `HSD_GObj*` fields plus `s16` state/random fields.",
+    "Changed `lb_80011A50` from `void` to returning `struct lb_80011A50_t*`, returning the result of `lb_800100B0(&x2C, arg2)` so `grcastle` can store and later mutate the returned object."
   ],
   "smart_moves": [
-    "Pulled the stage's callback/data layout into explicit StageCallbacks and StageData objects instead of leaving data unmatched; this directly improved grcastle .data to 85.38% per the bot report.",
-    "Used a local grCastleParams struct with offset-style x0/x2/x4/x8/xA/xC names, improving type safety while avoiding unsupported semantic guesses.",
-    "Fixed lb_80011A50 at the library boundary rather than faking a caller-side pointer; grCastle_801CD37C can now store the real struct lb_80011A50_t* and grCastle_801D0D24 can mutate unk_scale.",
-    "Added a separate grCastle_GroundVars2 union view for gobj-pointer state instead of overloading the existing grCastle_GroundVars fields with unsafe casts.",
-    "Preserved matching-sensitive details such as PAD_STACK(4), exact float constants, the OSReport string/line, and callback setup order in grCastle_801CD4D0."
+    "Typing `grCs_804D6970` as `grCastleParams*` allowed offset reads like `*(s16*)((u8*)params + 0xA)` and `+0x8` to become field accesses (`xA`, `x8`), making the code more maintainable while preserving matching behavior.",
+    "Recovering the `StageCallbacks` array unlocked multiple object lifecycle functions at once: the same table drives gobj creation, callback assignment, and proc setup in `grCastle_801CD4D0`.",
+    "Fixing the library helper signature for `lb_80011A50` was necessary because `grCastle_801CD37C` stores the returned pointer in `grCs_804D6974` and `grCastle_801D0D24` later modifies its `unk_scale` field.",
+    "The castle-specific `Ground` union additions avoid repeated raw `gp + offset` accesses and document two different castle layouts: one for spline cleanup (`castle.xE0`) and one for spawned object handles/state (`castle2.xC4` through `xD2`).",
+    "The implementation preserves matching-sensitive structure, including explicit object IDs, `PAD_STACK(4)` usage, callback null checks, and the exact `OSReport` file/line string used in the failed gobj path."
   ],
   "decomp_lessons": [
-    "Stage matches often require data-first work: reconstructing StageData plus the StageCallbacks table can unlock both code and .data progress.",
-    "When assembly shows a helper returning a pointer, correct the shared helper signature and header; do not leave a caller relying on an impossible void return.",
-    "For unknown param blobs, introduce a small xN-field struct when offsets are known, but defer semantic field names until behavior is understood.",
-    "Ground union variants are useful for stage code where different gobj callbacks interpret the same ground-variable region differently.",
-    "Header prototype cleanup should accompany function matching so future files can call the newly typed functions without UNK_PARAMS friction.",
-    "Spline arrays in stage ground vars may need explicit padding to the observed offset, as with HSD_Spline** xE0 after pad[0xE0 - 0xCC]."
+    "Stage modules often require reconstructing data tables before functions fully match; here `.data` improved significantly once `StageCallbacks`, `StageData`, and small vector tables were declared with plausible types and sizes.",
+    "When a caller stores the result of a function previously declared `void`, inspect the callee: the correct fix may be a shared library prototype change rather than a local cast or fake temporary.",
+    "For ground-stage work, adding per-stage `Ground` union structs can convert unsafe offsets into meaningful field accesses and help match cleanup/init routines that walk arrays of resources.",
+    "Callback table entries should be typed narrowly enough to support direct assignment into `Ground` callback slots and gobj proc creation, but evidence in this PR does not include renamed semantic callback names beyond address-based symbols.",
+    "A near-match like `grCastle_801CD4D0` at 99.95% may still be valuable when it exposes table structure and enables later cleanup; exact nonmatching cause is not documented in the PR context.",
+    "Use decomp.dev output as objective evidence for what matched: this PR had 4 new matches and 5 improved unmatched items, but no human review comments explaining rationale."
   ],
   "naming_conventions": [
-    "Kept module-address names for functions: grCastle_801CD37C, grCastle_801CD4D0, grCastle_801CD8A8, grCastle_801CF7B0, grCastle_801D0D24.",
-    "Used grCs_ address globals for grcastle data and state: grCs_803E0FF4, grCs_803E11A4, grCs_804D45E4, grCs_804D6970, grCs_804D6974.",
-    "Used placeholder xN field names for newly inferred but semantically unknown structs: grCastleParams x0/x2/x4/x8/xA/xC and grCastle_GroundVars2 xC4/xC8/xCC/xD0/xD2.",
-    "Library helper type naming follows the existing address-based struct convention: struct lb_80011A50_t."
+    "Stage globals follow the existing address-based convention, e.g. `grCs_803E0FF4`, `grCs_803E11A4`, `grCs_804D6970`, and `grCs_804D6974`.",
+    "Unidentified castle-specific callback typedefs remain generic/address-based: `unkCastleCallback` and `unkCastleCallback2`.",
+    "Recovered but not semantically understood structs use address/offset-style field names such as `grCastleParams.x0`, `x2`, `x4`, `x8`, `xA`, `xC` and `grCastle_GroundVars2.xC4` through `xD2`.",
+    "The PR uses the existing `grCastle_801xxxxx` symbol naming pattern rather than introducing descriptive function names.",
+    "A second castle ground-var layout was named `grCastle_GroundVars2`, matching project practice for alternate per-stage ground data layouts when semantics are not yet known."
   ],
   "assembly_or_matching_tactics": [
-    "grCastle_801CD37C uses PAD_STACK(4) before fetching params and again around the local Vec3 initializer, matching stack-shape requirements.",
-    "StageData bitfields were expressed as (1 << 1) and (1 << 0), matching the data table style shown in the diff.",
-    "grCastle_801CD4D0 preserves callback order: Ground_801C14D0, clear x8/xC callbacks, GObj_SetupGXLink, assign callback3 to x1C_callback, run callback0, then schedule callback2 with HSD_GObjProc_8038FD54 priority 4.",
-    "The failure path in grCastle_801CD4D0 uses the exact OSReport payload from the diff: \"%s:%d: couldn t get gobj(id=%d)\\n\", \"grcastle.c\", 297.",
-    "grCastle_801CF7B0 uses a nested ternary and zero-range guards around HSD_Randi to reproduce the random selection between x0 and x2.",
-    "grCastle_801D0D24 keeps the float-expression shape visible in the diff: 0.3 * HSD_Randf() + 0.2 when the byte flag is nonzero, otherwise 0.05 * HSD_Randf().",
-    "grCastle_801CDFD8 retained matching-oriented local/register structure while replacing raw offset loads with grCastleParams fields."
+    "Used `PAD_STACK(4)` in `grCastle_801CD37C`, including around initialization of a local `Vec3`, indicating stack layout was matching-sensitive.",
+    "Kept the exact float constants used for the `lb_80011A50` setup call: direction vector `{1.0f, 0.0f, 0.0f}`, scale/timing values `0.5f`, `0.0f`, `1.0471976f`, and bounds `-10000.0f`/`10000.0f`.",
+    "Declared callback tables as fixed-size `const` arrays to place data correctly and improve `.data` matching.",
+    "Matched random-range selection in `grCastle_801CF7B0` with nested conditional expressions and guarded `HSD_Randi` calls for zero-width ranges.",
+    "Used explicit loop bounds of 12 over `gp->gv.castle.xE0` spline pointers in `grCastle_801CD8A8`, first processing lengths and then freeing entries.",
+    "Preserved null checks before invoking callback table functions and before freeing spline pointers.",
+    "Changed `lb_80011A50` to return the direct result of `lb_800100B0`, avoiding a local workaround and aligning caller/callee code generation."
   ],
   "review_feedback": [
     {
       "source": "decomp-dev[bot]",
       "url": "https://github.com/doldecomp/melee/pull/2244#issuecomment-4020718469",
-      "feedback": "Reported matched code 55.50% (+0.01%, +572 bytes) and matched data 34.71% (+0.00%, +8 bytes). New 100% matches: grCastle_801CD37C (+292), grCastle_801CF7B0 (+184), grCastle_801D0D24 (+96), and grcastle .sbss. Improvements: .data to 85.38%, grCastle_801CD4D0 to 99.95%, grCastle_801CD8A8 to 86.15%, .sdata2 to 39.86%, and .sdata to 9.09%."
+      "feedback": "Automated report: matched code reached 55.50% (+0.01%, +572 bytes) and matched data reached 34.71% (+0.00%, +8 bytes)."
     },
     {
-      "source": "slice",
-      "feedback": "No human review comments or reviewer-requested naming changes were present in the provided PR slice."
+      "source": "decomp-dev[bot]",
+      "url": "https://github.com/doldecomp/melee/pull/2244#issuecomment-4020718469",
+      "feedback": "New 100% matches: `grCastle_801CD37C` (+292), `grCastle_801CF7B0` (+184), `grCastle_801D0D24` (+96), and `main/melee/gr/grcastle` `.sbss` (+3)."
+    },
+    {
+      "source": "decomp-dev[bot]",
+      "url": "https://github.com/doldecomp/melee/pull/2244#issuecomment-4020718469",
+      "feedback": "Improved but not fully matched items: `.data` to 85.38%, `grCastle_801CD4D0` to 99.95%, `grCastle_801CD8A8` to 86.15%, `.sdata2` to 39.86%, and `.sdata` to 9.09%."
+    },
+    {
+      "source": "human_review",
+      "feedback": "No human review comments were present in the provided PR slice."
     }
   ],
   "searchable_terms": [
     "pr-2244",
     "grcastle matches",
     "PsiLupan",
-    "grcastle",
-    "grCs",
-    "GrCs.dat",
-    "StageData",
-    "StageCallbacks",
-    "S16Vec3",
+    "grCastle_801CD37C",
+    "grCastle_801CD4D0",
+    "grCastle_801CD8A8",
+    "grCastle_801CF7B0",
+    "grCastle_801D0D24",
     "grCs_803B7F28",
     "grCs_803B7F3C",
     "grCs_803E0FE8",
@@ -170,44 +134,42 @@
     "grCs_804D45E4",
     "grCs_804D6970",
     "grCs_804D6974",
+    "StageCallbacks",
+    "StageData",
+    "S16Vec3",
     "grCastleParams",
     "grCastle_GroundVars",
     "grCastle_GroundVars2",
-    "castle2",
     "HSD_Spline",
     "HSD_GObj",
-    "Ground_801C49F8",
-    "Ground_801C14D0",
-    "Ground_801C39C0",
-    "Ground_801C3BB4",
-    "Ground_801C2FE0",
-    "GObj_SetupGXLink",
-    "HSD_GObjProc_8038FD54",
-    "grDisplay_801C5DB0",
-    "mpLib_80057BC0",
     "lb_80011A50",
     "lb_800100B0",
-    "lb_800115F4",
     "lb_80011A50_t",
     "unk_scale",
-    "HSD_Randi",
-    "HSD_Randf",
+    "Ground_801C49F8",
+    "Ground_801C14D0",
+    "GObj_SetupGXLink",
+    "HSD_GObjProc_8038FD54",
+    "mpLib_80057BC0",
+    "grLib_801C9B8C",
     "PAD_STACK",
-    "OSReport",
-    "grCastle_801CD37C",
-    "grCastle_801CD4D0",
-    "grCastle_801CD8A8",
-    "grCastle_801CDFD8",
-    "grCastle_801CF7B0",
-    "grCastle_801D0D24",
-    "grCastle_801D0D84"
+    "GrCs.dat",
+    "Mushroom Kingdom castle stage"
   ],
   "follow_up_queries": [
-    "Investigate the remaining 0.05% mismatch in grCastle_801CD4D0; decomp.dev reported 99.95%, not 100%.",
-    "Continue grCastle_801CD8A8 matching from 86.15%, especially loop structure over gp->gv.castle.xE0 and calls to grCastle_801D0D84/grLib_801C9B8C/grCastle_801D0D24.",
-    "Resolve semantic names for grCastleParams fields x0, x2, x8, and xA once more callsites or data definitions are understood.",
-    "Search for other lb_80011A50 callers that can now use the returned struct lb_80011A50_t* after the signature fix.",
-    "Compare other stage modules' StageData and StageCallbacks tables for reusable grCastle_801CD4D0-style gobj setup patterns."
+    "Find later PRs that finish `grCastle_801CD4D0` from 99.95% to 100%.",
+    "Find later PRs that complete `grCastle_801CD8A8`, `grCastle_801CD960`, `grCastle_801CF750`, `grCastle_801CF868`, `grCastle_801D0BBC`, or `grCastle_801D0D84`.",
+    "Search for other callers of `lb_80011A50` to confirm the returned `struct lb_80011A50_t*` type and `unk_scale` field usage.",
+    "Search for `grCastle_GroundVars2` to see whether fields `xC4`, `xC8`, `xCC`, `xD0`, and `xD2` later receive semantic names.",
+    "Compare other stage files with recovered `StageCallbacks` and `StageData` tables for reusable object-spawn patterns."
   ],
-  "confidence": 0.9
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

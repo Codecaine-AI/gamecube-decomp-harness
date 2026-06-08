@@ -11,7 +11,7 @@
     "merged_at": "2026-06-06T18:21:38Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large cross-system matching cleanup that improved GALE01 matched code by about 0.98% (+38104 bytes) and matched data by about 0.15% (+1760 bytes), with 51 new matches, 233 unmatched-item improvements, and no broken matches or regressions reported. The changes touched 98 files across Dolphin THP, baselib, camera, fighter, game-mode, stage, item, menu, and library code. Review cleanup pushed the PR toward maintainable decomp style: grouped switch dispatch where appropriate, no new register/asm-style keyword hacks, no optimizer pragmas, and preservation of inline float/string literals instead of symbolizing constants solely for matching.",
+  "summary": "Large matching-improvement PR spanning 95 files and many Melee subsystems. It reported 36 new matches, 117 unmatched-item improvements, +26,828 matched-code bytes, +1,064 matched-data bytes, and no broken matches or metric regressions. The work mixed local expression/control-flow reshaping, type/view structs for offset-sensitive access, stack/local ordering changes, and review-driven cleanup to preserve readability and project conventions.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -25,16 +25,15 @@
     ],
     "systems": [
       "external-sdk",
-      "dolphin-thp",
-      "baselib",
-      "camera",
       "fighter",
       "game-mode",
-      "stage",
       "item",
-      "menu",
       "library",
-      "melee-core"
+      "melee-core",
+      "stage",
+      "sysdolphin",
+      "camera",
+      "menu"
     ]
   },
   "key_files": [
@@ -43,153 +42,144 @@
     "src/melee/lb/lbaudio_ax.c",
     "src/melee/ft/chara/ftCommon/ftCo_09F7.c",
     "src/melee/ft/chara/ftCommon/ftCo_Bury.c",
-    "src/melee/ft/ftcoll.c",
     "src/melee/gm/gm_1832.c",
-    "src/melee/gm/gm_19EF.c",
     "src/melee/gm/gm_1A4C.c",
+    "src/melee/gm/gm_19EF.c",
     "src/melee/gm/gmregclear.c",
-    "src/melee/gr/granime.c",
-    "src/melee/gr/grvenom.c",
-    "src/melee/gr/grzebes.c",
-    "src/melee/ty/tylist.c",
+    "src/melee/ft/ftcoll.c",
+    "src/melee/gr/grinishie1.c",
     "src/sysdolphin/baselib/particle.c",
     "src/sysdolphin/baselib/axdriver.c",
-    "src/sysdolphin/baselib/texpdag.c"
+    "src/melee/it/items/itseakneedlethrown.c"
   ],
   "what_changed": [
-    "Improved many near-matching units across 98 files, producing 51 new exact matches and 233 improvements in still-unmatched items, with the local report listing 0 broken matches and 0 regressions.",
-    "Added and used offset/view structs in THPDec.c, including THPMCURowFields, THPFileInfoMCUBufferView, and DCT component predDC views, to access fields at known offsets and improve matching of THP decompression and Huffman decode routines.",
-    "Adjusted THPDec.c type details such as changing a Huffman table result variable from int to u8 and storing num_Vij through a u16 cast into pad2, indicating matching depended on exact width and memory layout.",
-    "Reworked THP MCU row decompression code to use info-relative MCU buffer pointers and typed view casts for MCUsPerRow, RST/currMCU/nMCU, predDC fields, and decode output pointers.",
-    "Camera code received stack/local ordering and control-flow rewrites, including collapsing conditional checks with abs_threshold_inline and changing some transform accesses to explicit cam->transform or cam->transform_copy fields.",
-    "ftCo_09F7 review cleanup converted a goto-like dispatch structure into a grouped switch while preserving matching behavior.",
-    "Reviewer-requested cleanup removed register usage from ftCo_Bury.c and gm_19EF.c.",
-    "Reviewer-requested cleanup restored inline float and string literals in ftcoll.c, gm_1832.c, gm_1A4C.c, gmregclear.c, and ifprize.c rather than introducing separate named constants.",
-    "Reviewer-requested cleanup removed a newly added optimizer pragma in gm_1832.c and removed new M2C_FIELD usage in grinishie1.c.",
-    "Verification comments report ninja build/GALE01/src/sysdolphin/baselib/particle.o, full ninja, main.dol OK, and decomp-orchestrator regression checks passing with 0 metric regressions, 0 broken matches, and 0 fuzzy regressions."
+    "Improved matching across 85 changed units and 95 files, with 34 newly matched functions and 2 newly matched sections according to the PR report.",
+    "Raised fuzzy match from 97.428474 to 97.461624 and matched code from 70.79643% to 71.48751%, with no broken matches, no fuzzy regressions, and no metric regressions.",
+    "Added offset-view structs in THPDec.c such as THPMCURowFields, THPFileInfoMCUBufferView, and THPFileInfoDCTComp*View to access fields at known offsets without claiming the full THPFileInfo layout was understood.",
+    "Reworked THP MCU row decompression code to use an info-derived MCU buffer view, explicit restart-field casts, and DCT component predDC views; this improved __THPDecompressiMCURow640x480 and related THP decode routines.",
+    "Adjusted camera.c local stack layout, condition shape, direct cam->transform field writes, and hoisted temporaries in render-priority code to improve matching while keeping the logic recognizable.",
+    "Improved lbaudio_ax.c substantially, including new full matches for fn_800253D8 and fn_800256BC per the largest-new-matches report.",
+    "Converted reviewed ftCo_09F7 dispatch code from goto-like control flow into a grouped switch after review suggested the structure was likely one or more switch statements.",
+    "Removed review-rejected matching aids including register keywords in ftCo_Bury.c and gm_19EF.c, a new optimizer pragma in gm_1832.c, and new M2C_FIELD usage in grinishie1.c.",
+    "Restored inline float and string constants in ftcoll.c, gm_1832.c, gm_1A4C.c, gmregclear.c, and ifprize.c after review feedback that such constants should remain readable and will be resolved during linking.",
+    "Kept decomp-orchestrator artifacts out of the actual Melee PR while using orchestrator regression checks to verify no regressions."
   ],
   "smart_moves": [
-    "Used narrow, local view structs for THPFileInfo layout-sensitive fields instead of broadly redefining the full SDK struct, allowing offset-correct code generation while limiting header churn.",
-    "Converted review-identified goto dispatch in ftCo_09F7 into a grouped switch, improving readability without giving up the match.",
-    "Kept inline literals after review because link-time constant pooling/relocation can resolve matching needs without making source less readable.",
-    "Backed out fragile matching aids such as register keywords, optimizer pragmas, and M2C_FIELD when reviewers flagged them, preserving project style and future maintainability.",
-    "Validated both targeted object build and full DOL/regression metrics after a particle context-slot type fix, reducing risk in a large multi-file matching PR."
+    "Used project-wide regression reporting as the acceptance gate: ninja, ninja changes_all, main.dol OK, GitHub CI, and an orchestrator regression check all passed with zero regressions.",
+    "Separated generated/local orchestration artifacts from source changes, explicitly keeping decomp-orchestrator/ and local artifacts out of the Melee PR.",
+    "Where full struct knowledge was weak, introduced narrow view structs with padding and only the needed field, avoiding overclaiming global header layouts while still producing better codegen.",
+    "Accepted reviewer readability constraints even where less readable changes might have helped matching, preserving maintainability by restoring inline literals and avoiding banned keywords/pragmas.",
+    "Replaced a goto dispatch in ftCo_09F7 with a grouped switch after review, showing that matching can often be improved without making control flow worse.",
+    "Used direct containing-object field access in camera.c, such as cam->transform.target_fov, when it better expressed the generated code than only using an alias pointer."
   ],
   "decomp_lessons": [
-    "When a function appears to be a dispatch table or chain of labeled blocks, try grouped switch statements before settling for goto-heavy recovered control flow.",
-    "Do not introduce register, asm, or similar keyword hacks just to influence codegen unless the project explicitly accepts them; reviewers rejected new register usage here.",
-    "Avoid replacing readable inline floats or strings with named data symbols purely for matching; reviewers noted these constants are resolved during linking and should generally stay inline.",
-    "Avoid adding optimizer pragmas as matching shortcuts in ordinary source; a new global_optimizer-off pragma was explicitly rejected.",
-    "Offset/view structs can be useful for matching binary layouts when the current public struct is incomplete or not laid out as codegen expects, but they should be targeted and evidence-driven.",
-    "For wide cross-file matching sweeps, include regression-check evidence with broken matches, metric regressions, and fuzzy regressions, not just a list of local code edits.",
-    "Exact integer widths and store widths matter: THPDec matching improved with u8 result and u16 writes into packed/padded fields."
+    "Do not introduce register, asm, or similar keywords as matching hacks in normal C decomp code; reviewers explicitly asked to remove register in ftCo_Bury.c and gm_19EF.c.",
+    "Prefer inline string and float literals over manually naming every constant symbol just for matching/readability reasons; reviewers noted these are resolved during linking.",
+    "Avoid adding optimizer pragmas as a local matching crutch unless there is strong project acceptance; the new pragma in gm_1832.c was requested to be removed.",
+    "When m2c-style goto dispatch appears to encode a dense branch table, try grouped switch statements before accepting goto-heavy code.",
+    "Offset-view structs can be useful for matching when a large SDK/game struct layout is uncertain, but they should be kept narrow and evidence-based.",
+    "Before moving string tables into named char arrays, consider whether it makes the source less readable and whether linker behavior already handles the desired placement.",
+    "A broad matching PR should report both new matches and regressions; the strongest evidence here was the explicit zero broken matches and zero metric/fuzzy regressions.",
+    "Review cleanup can be as important as raw matching improvements: the final merged version incorporated convention fixes while preserving regression-free metrics."
   ],
   "naming_conventions": [
-    "Existing anonymous or address-based names such as fn_80165AC0, ftCo_8009F834, grKongo_801D7134, and gm_801BAD70 were preserved where stronger semantic names were not evidenced.",
-    "Temporary THP layout helper structs were named descriptively by subsystem and view purpose, e.g. THPMCURowFields, THPFileInfoMCUBufferView, THPFileInfoDCTCompYView, THPFileInfoDCTCompUView, and THPFileInfoDCTCompVView.",
-    "Reviewer feedback favored keeping literal strings inline in arrays, rather than creating many address-style names such as gm_803DB640 solely to reference string data."
+    "Temporary or unknown functions retained existing address-based names such as fn_800253D8, fn_800256BC, fn_8018325C, fn_80165AC0, and grOldYoshi_8020EC10.",
+    "THP offset-view helper structs were named by subsystem and purpose, e.g. THPMCURowFields, THPFileInfoMCUBufferView, THPFileInfoDCTCompYView, THPFileInfoDCTCompUView, and THPFileInfoDCTCompVView.",
+    "Existing Melee file/module prefixes were preserved, including ftCo_, gm_, gr, lb, it, and Camera_.",
+    "Review feedback favored readable inline literals over creating many address-like names such as gm_803DB640 for strings."
   ],
   "assembly_or_matching_tactics": [
-    "Stack and local declaration ordering was adjusted in files such as camera.c to influence register allocation and stack layout.",
-    "Control-flow reshaping was used for matching, including negated compound conditions and grouped switch dispatch instead of scattered gotos.",
-    "Typed pointer casts and narrow view structs were used to force field access at expected offsets in THPDec.c.",
-    "Pointer aliases such as an info-relative MCU buffer pointer were introduced to match generated addressing patterns.",
-    "Field access spelling was changed in camera code from transform pointer writes to explicit cam->transform/cam->transform_copy writes where that improved code generation.",
-    "Rejected tactics included register keyword insertion, optimizer pragmas, M2C_FIELD additions, and lifting inline literals into named globals."
+    "Stack/local ordering and pad-size adjustments were used, visible in camera.c changing a local padding array from 16 to 8 bytes and reordering float temporaries.",
+    "Boolean condition shape was changed in camera.c by folding multi-step checks into a negated compound condition using comma expressions and abs_threshold_inline.",
+    "Alias selection mattered: some camera.c code changed from transform->field through a pointer alias to cam->transform.field or cam->transform_copy.field.",
+    "THPDec.c used pointer casts to offset-view structs to force field access at specific offsets, including MCUsPerRow at 0x8CC, MCU buffers at offset 0x10, and predDC fields at component-specific offsets.",
+    "THPDec.c changed huffman table num_Vij storage to an explicit u16 write through pad2 and narrowed a result local from int to u8, likely for type/codegen matching.",
+    "THPDec.c replaced global __THPMCUBuffer indexing in some row-decode paths with an info-relative mcuBuffer pointer/view.",
+    "Control-flow restructuring included replacing goto-style dispatch with a grouped switch in ftCo_09F7 after review."
   ],
   "review_feedback": [
     {
-      "author": "jurrejelle",
       "file": "src/melee/ft/chara/ftCommon/ftCo_09F7.c",
-      "feedback": "The dispatch structure looked like one or more big switch statements; reviewer asked to see whether a switch could match.",
-      "resolution": "Author reported converting the reviewed ftCo_09F7 goto dispatch into a grouped switch while preserving matching behavior."
+      "author": "jurrejelle",
+      "feedback": "The structure looked like one or more big switch statements; reviewer asked to try matching it as a switch. Author later reported converting the reviewed goto dispatch into a grouped switch while preserving matching behavior."
     },
     {
-      "author": "jurrejelle",
       "file": "src/melee/ft/chara/ftCommon/ftCo_Bury.c",
-      "feedback": "Do not use register, asm, or similar keywords.",
-      "resolution": "Author reported removing register usage."
+      "author": "jurrejelle",
+      "feedback": "Do not use register, asm, or similar keywords. Author later reported removing register usage."
     },
     {
-      "author": "jurrejelle",
       "file": "src/melee/gm/gm_19EF.c",
-      "feedback": "Remove register.",
-      "resolution": "Author reported removing register usage."
+      "author": "jurrejelle",
+      "feedback": "Remove register. Author later reported removing register usage."
     },
     {
-      "author": "jurrejelle",
       "file": "src/melee/ft/ftcoll.c",
-      "feedback": "Keep constants like strings and floats inlined; these are resolved during linking.",
-      "resolution": "Author reported restoring inline float/string literals."
+      "author": "jurrejelle",
+      "feedback": "Keep constants like strings and floats inlined; they will be resolved during linking."
     },
     {
-      "author": "jurrejelle",
       "file": "src/melee/gm/gm_1832.c",
-      "feedback": "Same inline literal guidance; also remove the added optimizer pragma.",
-      "resolution": "Author reported restoring inline literals and removing the pragma."
+      "author": "jurrejelle",
+      "feedback": "Same inline-literal feedback for string constants, and separately requested removal of a new optimizer pragma. Author later reported restoring literals and removing the pragma."
     },
     {
-      "author": "jurrejelle",
       "file": "src/melee/gm/gm_1A4C.c",
-      "feedback": "Revert string-global changes because they were less readable and would be resolved during linking.",
-      "resolution": "Author reported restoring inline string literals."
-    },
-    {
       "author": "jurrejelle",
-      "file": "src/melee/gm/gmregclear.c",
-      "feedback": "Ditto on inline constants.",
-      "resolution": "Author reported restoring inline literals."
+      "feedback": "Revert changes that split many THP filename literals into named char arrays because they were less readable and would be resolved during linking."
     },
     {
-      "author": "fjooord",
-      "file": "src/sysdolphin/baselib/particle.c",
-      "feedback": "Local verification after particle context-slot type fix: targeted particle.o build, full ninja, main.dol OK, and regression checks passed.",
-      "resolution": "Verification evidence was posted before merge."
+      "file": "src/melee/gm/gmregclear.c",
+      "author": "jurrejelle",
+      "feedback": "Ditto feedback on keeping literals inline rather than extracting constants."
+    },
+    {
+      "file": "src/melee/gr/grinishie1.c",
+      "author": "jurrejelle",
+      "feedback": "Author reported removing newly added M2C_FIELD usage in response to review cleanup."
     }
   ],
   "searchable_terms": [
     "PR2583",
     "Improve matching across multiple source files",
     "fjooord",
-    "GALE01",
-    "matched code 71.25",
-    "matched data 41.42",
-    "51 new matches",
-    "233 improvements",
-    "0 broken matches",
-    "0 regressions",
+    "decomp matching",
+    "zero regressions",
+    "ninja changes_all",
+    "orchestrator regression check",
     "THPDec",
-    "__THPReadHuffmanTableSpecification",
     "__THPDecompressiMCURow640x480",
     "__THPDecompressiMCURowNxN",
-    "__THPHuffDecodeDCTCompY",
-    "__THPHuffDecodeDCTCompU",
-    "__THPHuffDecodeDCTCompV",
     "THPMCURowFields",
     "THPFileInfoMCUBufferView",
     "THPFileInfoDCTCompYView",
+    "THPFileInfoDCTCompUView",
+    "THPFileInfoDCTCompVView",
     "Camera_80029CF8",
     "Camera_8002B3D4",
-    "ftCo_8009F834",
-    "ftCo_09F7 switch",
+    "fn_800301D0",
+    "lbaudio_ax",
+    "fn_800253D8",
+    "fn_800256BC",
+    "ftCo_09F7 grouped switch",
     "ftCo_Bury register",
     "gm_19EF register",
-    "ftcoll inline constants",
     "gm_1832 optimizer pragma",
     "gm_1A4C inline strings",
-    "M2C_FIELD grinishie1",
-    "particle context-slot type fix",
-    "decomp-orchestrator regression-check"
+    "ftcoll inline floats",
+    "grinishie1 M2C_FIELD",
+    "itseakneedlethrown data improvement",
+    "axdriver data match"
   ],
   "follow_up_queries": [
-    "Find later PRs that refine THPFileInfo struct layout or remove THPDec view structs.",
-    "Search for remaining register keyword usage introduced for matching and whether reviewers allow any exceptions.",
-    "Search for grouped switch conversions in ftCo_09F7 or other fighter dispatch code.",
-    "Find PRs discussing inline string or float literal policy versus named rodata symbols.",
-    "Check whether particle context-slot type fixes from this PR were generalized into headers or baselib structs.",
-    "Search for remaining optimizer pragmas in source files and whether they are legacy-accepted or should be removed."
+    "Find later PRs touching THPFileInfo layout or replacing THPDec offset-view structs with real headers.",
+    "Search for remaining register or asm keyword usage introduced for matching in Melee source files.",
+    "Search for remaining extracted string or float constants that reviewers may prefer to inline.",
+    "Review ftCo_09F7 grouped switch in later history to see if more dispatch tables were recovered.",
+    "Inspect particle.c context-slot type fix mentioned in verification for a concrete struct/header lesson.",
+    "Check whether gm_1A4C THP filename arrays remained inline and whether linker placement stayed stable."
   ],
-  "confidence": 0.86,
+  "confidence": 0.9,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

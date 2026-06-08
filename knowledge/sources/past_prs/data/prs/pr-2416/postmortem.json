@@ -11,111 +11,103 @@
     "merged_at": "2026-04-14T21:50:38Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled the Kongo Jungle gorilla activation callback fn_801D8134 in grkongo.c as a 100% match and moved the no-op Green Greens fn_802159B4 stub to its correct source-order/address-offset position. The Kongo logic checks whether a fighter is within range of the gorilla spawn point, then activates the gorilla with randomized timing, material/effect updates, and a fighter-side callback/status call.",
+  "summary": "Decompiled Kongo Jungle's fn_801D8134 as a 100% matching gorilla activation callback and moved the trivial grgreens fn_802159B4 return stub to its correct address position. The Kongo callback checks whether a fighter is close enough to the gorilla spawn point, initializes a randomized activation delay, stores fighter/object state, triggers ground/material/effect updates, and applies a fighter library call.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-logic",
-      "stub-address-fix",
+      "fix",
       "types-structs"
     ],
     "systems": [
       "stage",
       "grkongo",
-      "grgreens",
-      "Kongo Jungle",
-      "Green Greens"
+      "grgreens"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grkongo.c",
-      "why": "Replaced the fn_801D8134 decomp placeholder with the matched Kongo Jungle gorilla activation callback and added required efSync/ftLib includes."
-    },
-    {
-      "path": "src/melee/gr/grgreens.c",
-      "why": "Moved the empty fn_802159B4(Item_GObj*, Ground*) stub from an earlier location to the correct position after grGreens_80215358."
-    }
+    "src/melee/gr/grkongo.c",
+    "src/melee/gr/grgreens.c"
   ],
   "what_changed": [
-    "Implemented static int fn_801D8134(HSD_GObj* arg0, HSD_GObj* arg1) in grkongo.c, replacing the prior decomp marker.",
-    "The callback obtains Ground data with GET_GROUND(arg0), exits if gp->gv.kongo3.xC6 is already nonzero, reads the ground/spawn position via Ground_801C4DA0, and reads the fighter position via ftLib_80086644.",
-    "The activation test uses an inline squared 3D distance comparison against grKg_804D6980->unk28 squared; out-of-range or already-active cases share a done label returning 0.",
-    "On activation, it randomizes gp->gv.kongo3.xCA between grKg_804D6980->unk20 and grKg_804D6980->unk24 using HSD_Randf, stores arg1 in gp->gv.kongo3.xD0 with an HSD_JObj* cast, sets gp->gv.kongo3.xC6 to 1, calls Ground_801C5440(gp, 0, 0x129U), grMaterial_801C9604, efSync_Spawn(0x405, arg0, &pos_ft), and ftLib_80086C18(arg1, 0xD, 0x1E), then returns 1.",
-    "Added includes for ef/efsync.h and ft/ftlib.h in grkongo.c to support efSync_Spawn and ftLib helpers.",
-    "In grgreens.c, removed fn_802159B4 from the earlier location after grGreens_80213C10 and reintroduced the same empty stub after grGreens_80215358, replacing the /// #fn_802159B4 marker."
+    "Replaced the placeholder `/// #fn_801D8134` in `src/melee/gr/grkongo.c` with a static matching C implementation.",
+    "Added includes for `ef/efsync.h` and `ft/ftlib.h` in `grkongo.c` to support the new effect and fighter-library calls.",
+    "Implemented `fn_801D8134(HSD_GObj* arg0, HSD_GObj* arg1)` to read Kongo ground state via `GET_GROUND(arg0)`, early-out if `gp->gv.kongo3.xC6` is already set, compare fighter and ground positions, and activate the gorilla behavior when within range.",
+    "The new Kongo logic computes squared 3D distance between `pos_gnd` from `Ground_801C4DA0` and `pos_ft` from `ftLib_80086644`, comparing it against `grKg_804D6980->unk28 * grKg_804D6980->unk28`.",
+    "On activation, the function sets `gp->gv.kongo3.xCA` from a randomized range using `HSD_Randf`, `grKg_804D6980->unk20`, and `grKg_804D6980->unk24`; stores `arg1` in `gp->gv.kongo3.xD0`; sets `gp->gv.kongo3.xC6 = 1`; calls `Ground_801C5440`, `grMaterial_801C9604`, `efSync_Spawn`, and `ftLib_80086C18`; then returns 1.",
+    "Moved `fn_802159B4(Item_GObj* item_gobj, Ground* gp)` in `src/melee/gr/grgreens.c` from an earlier location near `grGreens_80213C10` to the placeholder location immediately before `grGreens_802159B8`, preserving it as an empty return stub but correcting its address offset."
   ],
   "smart_moves": [
-    "Kept the Kongo proximity check as a direct squared-distance expression rather than introducing a helper or sqrt, which matches the visible decompiled arithmetic and avoids unnecessary floating-point codegen changes.",
-    "Used a shared done label for the two failure paths returning 0, reflecting the branch structure visible in the matched C and likely helping preserve the original control flow shape.",
-    "Pulled activation timing and radius/material parameters from grKg_804D6980 instead of naming or hardcoding unsupported semantic constants beyond the observed call IDs.",
-    "Moved the grgreens no-op stub without changing its behavior, fixing source-order/address alignment while minimizing functional risk."
+    "Used squared-distance comparison instead of taking a square root, matching the game-style radius check and avoiding unnecessary floating-point operations.",
+    "Structured the Kongo callback with explicit `goto done` early exits, likely preserving control-flow shape needed for instruction matching.",
+    "Kept `fn_802159B4` as a no-op stub but repositioned it at the correct source location, which matters for symbol ordering and address alignment in decompilation.",
+    "Added only the specific headers required by the new implementation, keeping dependencies localized to the stage file that now calls `efSync_Spawn` and `ftLib` helpers.",
+    "Stored the fighter object argument as `(HSD_JObj*) arg1` in `gp->gv.kongo3.xD0`, reflecting the field type required by the existing struct while preserving the observed assignment behavior."
   ],
   "decomp_lessons": [
-    "For stage decomp, function order can matter even for empty stubs; a correct no-op body may still need to be placed at the correct address-adjacent location.",
-    "When matching proximity-trigger callbacks, preserving the original-looking squared component expression can be safer than refactoring into vector utilities.",
-    "Stage-specific Ground union fields such as gp->gv.kongo3.xC6, xCA, and xD0 should stay mechanically named until enough evidence exists for semantic names.",
-    "Randomized delay ranges can match cleanly when expressed as diff = max - min followed by diff * HSD_Randf() + min and a final s16 cast.",
-    "Add only the headers needed by newly resolved callees; here ef/efsync.h and ft/ftlib.h correspond directly to efSync_Spawn and ftLib calls."
+    "For stage callbacks that activate once, model state-flag checks directly against the stage-specific ground variant fields, such as `gp->gv.kongo3.xC6`.",
+    "When a function is only a return stub, its placement can still affect the decompilation map; moving the stub to the correct address offset is a valid matching fix even without changing behavior.",
+    "Stage interaction callbacks may combine `Ground_*`, `grMaterial_*`, `efSync_*`, and `ftLib_*` calls in one activation path, so required headers should be inferred from actual callees rather than left implicit.",
+    "Matching range checks often prefer duplicated `(a - b) * (a - b)` expressions over temporary vector-difference variables when that is what the compiler emitted.",
+    "Randomized timers can be reconstructed as `(max - min) * HSD_Randf() + min` followed by a cast to the destination integer field, as shown by `gp->gv.kongo3.xCA`."
   ],
   "naming_conventions": [
-    "Unidentified functions retain address-based names such as fn_801D8134 and fn_802159B4.",
-    "Stage-specific functions keep module/address prefixes such as grKongo_801D8078, grKongo_801D8270, grGreens_80215358, and grGreens_802159B8.",
-    "Locals use descriptive but conservative names where evidence is clear: pos_gnd, pos_ft, rand_val, and diff.",
-    "Unknown scalar output and data fields remain mechanically named, including unk, grKg_804D6980->unk20/unk24/unk28/unk84, and gp->gv.kongo3.xC6/xCA/xD0.",
-    "Existing project type aliases are preserved in signatures and locals: HSD_GObj, Ground_GObj, Item_GObj, Ground, Vec3, and HSD_JObj."
+    "Undecompiled functions remained named by address, e.g. `fn_801D8134` and `fn_802159B4`, because the PR evidence does not introduce semantic names.",
+    "Local variables used descriptive decomp-style names for inferred roles: `pos_gnd`, `pos_ft`, `rand_val`, and `diff`.",
+    "Stage-specific globals and variant fields retained existing project names such as `grKg_804D6980`, `gv.kongo3.xC6`, `xCA`, and `xD0` rather than inventing names.",
+    "The PR preserved project casing conventions for subsystems: `grKongo_*`, `grGreens_*`, `Ground_*`, `ftLib_*`, `efSync_*`, and `HSD_*`."
   ],
   "assembly_or_matching_tactics": [
-    "Used explicit goto done early-outs to produce a single return-0 path for failed activation checks.",
-    "Kept repeated inline coordinate subtraction/multiplication in the distance comparison rather than factoring into temporary vector deltas.",
-    "Stored HSD_Randf() and the timing range difference in separate f32 locals before the s16 assignment to gp->gv.kongo3.xCA.",
-    "Preserved an explicit cast when assigning arg1 to gp->gv.kongo3.xD0: (HSD_JObj*) arg1.",
-    "Repositioned fn_802159B4 in grgreens.c near grGreens_802159B8 to correct the function address/order relationship while leaving the body as a simple return."
+    "Used a `goto done` label with a shared `return 0` path to mirror early-exit control flow.",
+    "Compared squared distance directly against squared radius from `grKg_804D6980->unk28`, avoiding a temporary magnitude calculation.",
+    "Declared an apparently auxiliary `f32 unk` passed by address to `Ground_801C4DA0`, matching the callee signature even though the local value is not otherwise used.",
+    "Kept the empty `fn_802159B4` body as an explicit `return;` at the corrected location, supporting address/order matching.",
+    "Placed the implemented Kongo function as `static int`, matching its callback-style local linkage and integer success/failure return behavior."
   ],
   "review_feedback": [],
   "searchable_terms": [
     "pr-2416",
+    "ik3rurru",
     "fn_801D8134",
     "fn_802159B4",
-    "grkongo.c",
-    "grgreens.c",
-    "grKongo_801D8078",
-    "grKongo_801D8270",
-    "grGreens_80213C10",
-    "grGreens_80215358",
-    "grGreens_802159B8",
+    "grkongo",
+    "grgreens",
     "Kongo Jungle",
-    "Green Greens",
     "gorilla activation callback",
+    "100% match",
+    "reposition stub",
+    "correct address offset",
+    "src/melee/gr/grkongo.c",
+    "src/melee/gr/grgreens.c",
     "GET_GROUND",
     "Ground_801C4DA0",
-    "Ground_801C5440",
     "ftLib_80086644",
-    "ftLib_80086C18",
-    "efSync_Spawn",
-    "grMaterial_801C9604",
-    "HSD_Randf",
-    "HSD_JObj",
     "grKg_804D6980",
-    "kongo3",
-    "xC6",
-    "xCA",
-    "xD0",
-    "unk20",
-    "unk24",
-    "unk28",
-    "unk84",
-    "squared distance",
-    "stub reposition",
-    "address offset",
+    "HSD_Randf",
+    "Ground_801C5440",
+    "grMaterial_801C9604",
+    "efSync_Spawn",
+    "ftLib_80086C18",
+    "gp->gv.kongo3.xC6",
+    "gp->gv.kongo3.xCA",
+    "gp->gv.kongo3.xD0",
+    "squared distance check",
+    "randomized delay",
     "stage decomp"
   ],
   "follow_up_queries": [
-    "Can gp->gv.kongo3.xC6, xCA, and xD0 be given semantic names once more Kongo gorilla behavior is decompiled?",
-    "Can grKg_804D6980->unk20, unk24, unk28, and unk84 be named from stage parameter data or nearby Kongo functions?",
-    "Are there other stage activation callbacks using Ground_801C4DA0, ftLib_80086644, efSync_Spawn, and ftLib_80086C18 that should share naming or struct-field conventions?",
-    "When neighboring Green Greens functions are decompiled, recheck that fn_802159B4's signature and no-op placement still agree with symbol/map order."
+    "Find later PRs that rename or type `grKg_804D6980->unk20`, `unk24`, `unk28`, or `unk84`.",
+    "Search for other Kongo Jungle gorilla callbacks around `grKongo_801D8078` and `grKongo_801D8270` to understand the full activation state machine.",
+    "Look for additional PRs that reposition no-op stubs to correct source offsets, especially in `src/melee/gr/grgreens.c`.",
+    "Search for uses of `ftLib_80086C18` with arguments `0xD, 0x1E` to infer the fighter-side effect of the gorilla activation."
   ],
-  "confidence": 0.89
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

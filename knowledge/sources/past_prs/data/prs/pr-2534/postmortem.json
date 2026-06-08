@@ -11,7 +11,7 @@
     "merged_at": "2026-05-31T12:55:54Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched and improved several remaining ground/stage routines across Greens, Pura, and Push On. The PR added real C for Pura background/camera-subject logic, Push On light-selection and region-check logic, and several Greens block/bomb matching rewrites, plus header/type cleanup and a data-symbol split. decomp.dev reported +1960 matched code bytes, +32 matched data bytes, 8 new matches, 17 unmatched-item improvements, and 2 small Greens regressions.",
+  "summary": "Merged a broad ground/stage decomp pass over remaining gr units, especially grpushon, grpura, and grgreens. The PR added matched or closer-matching C for previously stubbed/partial routines, corrected stage-specific Ground union types and headers, and split a grgreens data symbol in symbols.txt. The decomp.dev bot reported +1960 matched code bytes, +32 matched data bytes, 8 new matches, and 17 unmatched-item improvements, with two small grgreens regressions.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -19,136 +19,88 @@
       "headers",
       "struct-typing",
       "data-symbols",
-      "matching-tactics"
+      "stage-logic"
     ],
     "systems": [
-      "ground",
       "stage",
+      "ground",
       "grgreens",
       "grpura",
       "grpushon",
-      "camera",
-      "lighting"
+      "config"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grpura.c",
-      "why": "Largest Pura decomp work: implemented or improved grPura_802120E0, grPura_8021231C, grPura_80212CD4, grPura_80212EF4, grPura_80212FC0, grPura_80213030, grPura_80213250, and matching details in grPura_80211D00/grPura_802125F0."
-    },
-    {
-      "path": "src/melee/gr/grpushon.c",
-      "why": "Added grPushOn_80218888 lighting behavior and fully matched fn_802192A4 according to the bot report."
-    },
-    {
-      "path": "src/melee/gr/grgreens.c",
-      "why": "Reworked Greens data arrays, block indexing, bomb initialization, block swapping, row weight mapping, and callback index use."
-    },
-    {
-      "path": "src/melee/gr/grpura.h",
-      "why": "Replaced UNK_RET prototypes with void where known and introduced typed GrPuVtxMapEntry for grPu_803E6C0C."
-    },
-    {
-      "path": "src/melee/gr/grpushon.h",
-      "why": "Typed fn_802192A4 as s32 fn_802192A4(void*, HSD_GObj*, s32*)."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "why": "Corrected grPura_GroundVars field types and added grPura_GroundVars3 with HSD_JObj* and CmSubject* arrays."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "why": "Split grGr_803E787C from one 0xC4 data object into a 0x3C object plus new grGr_803E78B8 at 0x803E78B8."
-    }
+    "src/melee/gr/grpura.c",
+    "src/melee/gr/grpushon.c",
+    "src/melee/gr/grgreens.c",
+    "src/melee/gr/grpura.h",
+    "src/melee/gr/grpushon.h",
+    "src/melee/gr/types.h",
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "Pura: grPura_80211D00 now uses inline 0.8f camera-bound scaling expressions instead of separate grPu_804DBA58/grPu_804DBA5C constants, with UNUSED locals for matching.",
-    "Pura: added grPura_802120E0, which interpolates between entries in grPu_803E6AA0 over 3600.0f frames, updates Ground_801C205C and Camera_SetBackgroundColor, then picks a new random color index with HSD_Randi(4).",
-    "Pura: grPura_8021231C now uses stack Vec3/Quaternion locals and GET_JOBJ to copy translation, rotation, scale, and hidden flags from gp->gv.pura2.xC8 to the stage JObj; bot reported this reached 100%.",
-    "Pura: grPura_80212CD4 initializes 25 stored JObjs and 25 CmSubject pointers, obtains Camera_80029020 subjects, copies node positions via lb_8000B1CC, mirrors hidden state, and sets subject bounds using 30.0f/-30.0f.",
-    "Pura: grPura_80212EF4 updates the 25 stored camera subjects from their JObjs each frame; bot reported this reached 100%.",
-    "Pura: grPura_80212FC0 and grPura_80213030 were rewritten from raw u16 pointer/M2C_FIELD access to typed grPu_803E6C0C GrPuVtxMapEntry indexing.",
-    "Pura: grPura_80213250 was rewritten as a recursive JObj/DObj traversal using union_type_dobj, DObj iteration, grPura_80213128, grPura_80213224, and HSD_MObjCompileTev.",
-    "Push On: grPushOn_80218888 now computes fighter-relative distances to light objects, selection-sorts light indices by distance, hides all but the nearest five, and updates point_light/spot_light position, interest, color, and flags.",
-    "Push On: fn_802192A4 now has a typed implementation that checks a fighter position against four scaled rectangular regions from grPushOn_803E7CCC and writes grPushOn_804D6AB8->x0 to the result on hit.",
-    "Greens: added static s16 grGr_803E787C[30] and changed grGreens_80214FA8 to use it for mpJointSetCb2 while retaining grGr_803E7840 for Ground_801C3FA4 lookups.",
-    "Greens: getBlock now casts x8_blocks to a 2D [6] array, and callers in grGreens_802159B8/grGreens_80215D54 were rewritten around row/column access rather than manual byte-like offsets.",
-    "Greens: grGreens_80214B58 replaced memset/static-index-loop code with an explicit zero loop plus repeated inline BOMB calls, improving the function to 99.26% per the bot.",
-    "Greens: grGreens_802166C4 row weight mapping was reordered so row 0 uses x18, row 1 uses x14, row 2 uses x10, row 3 uses xC, and row 4 uses x8_blockBombChance.",
-    "Headers/types: grPura prototypes for grPura_80212CD4, grPura_80212EF4, and grPura_80213250 changed from UNK_RET to void; fn_802192A4 received real parameter/return types; grPura_GroundVars changed xC4/xC8 to s16 fields and added grPura_GroundVars3."
+    "Implemented and/or improved multiple Pokemon/Pura stage functions in src/melee/gr/grpura.c, including grPura_80211D00, grPura_802120E0, grPura_8021231C, grPura_80212CD4, grPura_80212EF4, grPura_80212FC0, grPura_80213030, and grPura_80213250.",
+    "Added typed Pura data in grpura.h by replacing extern u16 grPu_803E6C0C[266] with GrPuVtxMapEntry grPu_803E6C0C[42], allowing grPura_80212FC0 and grPura_80213030 to use named x00/x02/x04/x08 fields instead of raw pointer arithmetic and M2C_FIELD.",
+    "Updated src/melee/gr/types.h for Pura ground variables: xC4 became s16, xC8 in grPura_GroundVars became s16 instead of HSD_JObj*, and a new grPura_GroundVars3 stores HSD_JObj* xC4[25] plus CmSubject* x128[25].",
+    "Implemented grPushOn_80218888 and fn_802192A4 in src/melee/gr/grpushon.c. The new PushOn logic computes fighter-relative light distances, sorts light indices, hides extra light objects, positions point/spot lights, blends colors, and checks collision/region bounds for fn_802192A4.",
+    "Changed grpushon.h prototype for fn_802192A4 from UNK_RET/UNK_PARAMS to s32 fn_802192A4(void*, HSD_GObj*, s32*).",
+    "Improved grgreens matching by adding static s16 grGr_803E787C[30], splitting the previous grGr_803E787C data symbol into grGr_803E787C size 0x3C and grGr_803E78B8 size 0x88 in config/GALE01/symbols.txt.",
+    "Adjusted grgreens block indexing through getBlock using a 2D array cast, swapped i/j use in grGreens_802159B8, rewrote grGreens_80215D54 around getBlock swaps, changed grGreens_80214FA8 to use grGr_803E787C for mpJointSetCb2, and reordered row weighting in grGreens_802166C4.",
+    "Rewrote grGreens_80214B58 from a static indices array loop to explicit BOMB calls backed by a static inline BOMB helper, preserving the bomb-index order while improving match quality.",
+    "Included additional dependencies needed by the new code, including baselib/debug.h, cm/types.h, lb/lbvector.h, and math_ppc.h."
   ],
   "smart_moves": [
-    "Split the Greens data symbol in symbols.txt before adding the new grGr_803E787C array, preventing one oversized object from obscuring separate data boundaries.",
-    "Used a pointer-to-array cast in getBlock to express Greens block storage as rows of 6, which made later block-swapping code more semantic and reduced fragile offset arithmetic.",
-    "Introduced GrPuVtxMapEntry for grPu_803E6C0C, replacing M2C_FIELD/raw u16 stepping with named fields while also enabling small Pura functions to fully match.",
-    "Used deliberately shaped helpers and wrappers for codegen: inline BOMB with unrolled calls in Greens, and grPura_80211E08_noinline/noinline2 wrappers in Pura.",
-    "Kept exact matching details where cleaner C would differ: explicit float literals such as 3.4028235e38f, 0.8f, and 3600.0f, UNUSED locals, PAD_STACK, HSD_ASSERT line numbers, and stepwise flag assignments.",
-    "Moved from guessed pointer locals to real stack Vec3/Quaternion temporaries in grPura_8021231C, matching HSD_JObjGet/Set API usage and reaching 100%."
+    "Converting grPu_803E6C0C from a raw u16 array to GrPuVtxMapEntry made the stride and embedded HSD_JObj* explicit, reducing unsafe M2C_FIELD usage while improving nearby matches.",
+    "Adding grPura_GroundVars3 to the Ground union captured the real per-stage state shape for camera subjects and jobj arrays, which made grPura_80212CD4 and grPura_80212EF4 expressible as normal indexed loops.",
+    "The grgreens getBlock helper uses a typed 2D array cast over gp->gv.greens.x8_blocks, a compact way to express row/column indexing without leaving magic byte offsets in gameplay logic.",
+    "The PR used exact constants where matching required them, such as 3.4028235e38f instead of F32_MAX and inline 0.8f/3600.0f camera/background interpolation constants.",
+    "The explicit BOMB helper plus unrolled call sequence in grGreens_80214B58 preserved compiler ordering better than the cleaner static-index-array loop.",
+    "The noinline wrapper chain grPura_80211E08_noinline and grPura_80211E08_noinline2 appears to be a deliberate call-shape tactic for grPura_802125F0 matching.",
+    "Replacing ad hoc __assert calls with HSD_ASSERT line-number macros in grpura.c aligned with project debugging conventions while preserving expected line metadata."
   ],
   "decomp_lessons": [
-    "When a flat array is really a grid, a pointer-to-array cast can recover source-like indexing and improve both readability and matching without changing the stored layout.",
-    "Do not leave data symbols oversized when adjacent arrays become known; split symbols.txt entries to match true object boundaries and help .data progress.",
-    "Replacing M2C_FIELD tables with a small typed struct can immediately clarify loop stride, field signedness, and pointer slots.",
-    "For matching, source-like compact loops are not always best: unrolled calls, explicit zeroing loops, selection-sort shape, and wrapper calls may better reproduce original codegen.",
-    "Exact float constant spelling can matter. This PR used literals rather than F32_MAX or named sdata constants where that matched better.",
-    "Camera/stage object code often needs the right external types in headers; adding CmSubject to Ground vars made Pura camera-subject logic expressible.",
-    "Header return types should be updated as functions become known; moving from UNK_RET to void/s32 reduces ambiguity for future callers and match attempts.",
-    "Small accepted regressions can appear while improving larger functions; this slice records Greens regressions in grGreens_80215ED8 and fn_80215B84 that future work should revisit."
+    "When an apparent flat array is really a table with pointer fields, introduce a small typed struct before trying to match users; it can eliminate M2C_FIELD casts and reveal loop bounds.",
+    "Stage Ground union variants may need multiple per-object interpretations for the same stage family; Pura needed separate pura, pura2, and pura3 layouts.",
+    "For grgreens-style grid data, source-level row/column order matters. The PR changed several calls from getBlock(gp, i, j) to getBlock(gp, j, i), suggesting earlier decomp used the wrong logical orientation in at least one routine.",
+    "Do not assume symbolic convenience constants match codegen. Literal max-float values and literal camera constants may be required for exact output.",
+    "Readable table loops can regress matching compared with explicit repeated calls; unrolling a small fixed sequence is sometimes the right decomp tactic.",
+    "Data symbol boundaries in symbols.txt may need to be revisited after arrays are identified. Splitting a 0xC4 object into a 0x3C array plus a following 0x88 object enabled better grgreens data accounting.",
+    "Header prototypes should be tightened as soon as signatures are known; this PR replaced several UNK_RET/UNK_PARAMS declarations with void or concrete s32 signatures."
   ],
   "naming_conventions": [
-    "Ground stage files retain prefix conventions: grGr_* for Greens data, grPu_* for Pura data, grPura_* and grPushOn_* for functions.",
-    "Unknown-but-offset-stable fields remain xNN-style, e.g. gp->gv.pura.xC4/xC6/xC8, gp->gv.pura3.xC4/x128, and GrPuVtxMapEntry x00/x02/x04/x06/x08.",
-    "The new typed table name GrPuVtxMapEntry documents Pura vertex/JObj mapping while preserving offset field names.",
-    "Temporary matching wrappers were named grPura_80211E08_noinline and grPura_80211E08_noinline2, explicitly signaling codegen intent rather than game semantics.",
-    "The inline Greens helper BOMB is uppercase and macro-like, matching its repeated call-site usage in grGreens_80214B58."
+    "Preserved stage-prefix naming for known-address functions: grPura_802xxxxx, grPushOn_802xxxxx, grGreens_802xxxxx, and local fn_802xxxxx where no semantic name is known.",
+    "Used data-symbol prefixes matching the stage unit, such as grPu_803E6C0C, grPu_803E7620, grGr_803E787C, and grPushOn_803B844C.",
+    "New struct name GrPuVtxMapEntry follows the stage abbreviation plus purpose pattern, while unknown fields remain offset-style x00, x02, x04, x08.",
+    "Ground variable structs retain stage-specific names such as grPura_GroundVars, grPura_GroundVars2, grPura_GroundVars3, and grGreens_BlockVars.",
+    "Temporary noinline helpers were named by appending _noinline and _noinline2 to the wrapped function name, making the matching tactic visible rather than giving it false semantics."
   ],
   "assembly_or_matching_tactics": [
-    "Use inline helper plus explicit repeated calls when an original sequence does not compile like an array loop; applied to BOMB(0x12), BOMB(0x0C), etc. in grGreens_80214B58.",
-    "Use noinline wrapper chains to force an extra call shape; applied in grPura_802125F0 by calling grPura_80211E08_noinline2(1).",
-    "Use PAD_STACK and UNUSED locals when stack layout/register pressure is part of the match; present in grPura_802120E0 and grPura_80211D00.",
-    "Prefer exact float literals over macros or named constants where needed for rodata/sdata/codegen, e.g. 3.4028235e38f instead of F32_MAX.",
-    "Preserve signed casts for color interpolation and comparisons, such as casting GXColor channels through u8/s8 and gp->gv.pura.xC8 through s16.",
-    "Reproduce simple selection-sort ordering for arrays of indices/distances in grPushOn_80218888 rather than using library sort or cleaner abstractions.",
-    "Use explicit HSD_LObj flag set/clear and multi-step bit operations to match original light-object codegen.",
-    "Replace __assert calls with HSD_ASSERT when line-numbered project macros match the generated assertion shape."
+    "Used PAD_STACK and UNUSED locals in grpura.c and grpushon.c to shape stack frames and register allocation.",
+    "Used noinline wrapper functions around grPura_80211E08 to alter call generation in grPura_802125F0.",
+    "Used exact floating-point literals such as 3.4028235e38f, 0.8f, 3600.0f, 30.0f, -30.0f, and threshold values like 0.01f/10.0f/50.0f/100.0f.",
+    "Replaced a compact static index table in grGreens_80214B58 with a small inline BOMB helper and explicit calls to match instruction/order behavior.",
+    "Used a typed 2D array cast in getBlock: ((struct grGreens_BlockVars(*)[6]) gp->gv.greens.x8_blocks)[i][j].",
+    "Used selection-sort style loops in grPushOn_80218888 to order light indices by computed distance, matching the observed fixed-size behavior.",
+    "Used union_type_dobj checks when recursively walking HSD_JObj trees in grPura_80213250 before accessing jobj->u.dobj.",
+    "Adjusted symbols.txt data boundaries for grGr_803E787C and grGr_803E78B8 to reflect newly identified arrays."
   ],
   "review_feedback": [
-    {
-      "source": "decomp-dev[bot]",
-      "type": "match-report",
-      "details": "Reported GALE01 matched code 69.18% (+0.05%, +1960 bytes) and matched data 41.19% (+0.00%, +32 bytes)."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "type": "new-matches",
-      "details": "8 new matches: fn_802192A4, grPura_80212EF4, grPura_8021231C, fn_80216DE4, grpura .sdata, grPura_80212FC0, grPura_80213030, and grPura_80211D00."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "type": "regressions",
-      "details": "2 reported unmatched-item regressions: grGreens_80215ED8 (-12 bytes) and fn_80215B84 (-6 bytes)."
-    },
-    {
-      "source": "slice",
-      "type": "human-review",
-      "details": "No PR body, human review comments, or reviews were present in the provided slice."
-    }
+    "No human review comments or PR body were present in the slice, so reviewer intent is not available.",
+    "The decomp.dev bot reported matched code increased to 69.18% with +1960 bytes and matched data increased to 41.19% with +32 bytes.",
+    "The bot listed 8 new matches: grpushon fn_802192A4, grpura grPura_80212EF4, grpura grPura_8021231C, grgreens fn_80216DE4, grpura .sdata, grpura grPura_80212FC0, grpura grPura_80213030, and grpura grPura_80211D00.",
+    "The bot listed major unmatched improvements including grPushOn_80218888 to 92.87%, grGreens_80214B58 to 99.26%, grPura_80212CD4 to 69.10%, and grPura_802120E0 to 56.17%.",
+    "The bot also reported two small grgreens regressions: grGreens_80215ED8 decreased by 12 bytes and fn_80215B84 decreased by 6 bytes."
   ],
   "searchable_terms": [
     "pr-2534",
     "Jj/rest of gr",
     "jurrejelle",
-    "grgreens",
-    "grpura",
     "grpushon",
-    "grGreens_80214B58",
-    "grGreens_80214FA8",
-    "grGreens_802159B8",
-    "grGreens_80215D54",
-    "grGreens_802166C4",
-    "fn_80216DE4",
-    "grGr_803E787C",
-    "grGr_803E78B8",
+    "grpura",
+    "grgreens",
+    "grPushOn_80218888",
+    "fn_802192A4",
     "grPura_80211D00",
     "grPura_802120E0",
     "grPura_8021231C",
@@ -157,29 +109,40 @@
     "grPura_80212FC0",
     "grPura_80213030",
     "grPura_80213250",
-    "grPu_803E6C0C",
+    "grGreens_80214B58",
+    "grGreens_80214FA8",
+    "grGreens_802159B8",
+    "grGreens_80215D54",
+    "grGreens_802166C4",
+    "fn_80216DE4",
     "GrPuVtxMapEntry",
-    "grPura_GroundVars3",
-    "CmSubject",
-    "grPushOn_80218888",
-    "fn_802192A4",
-    "grPushOn_803E7CCC",
-    "grPushOn_803B844C",
-    "HSD_LObj",
+    "grPu_803E6C0C",
+    "grGr_803E787C",
+    "grGr_803E78B8",
+    "getBlock",
     "BOMB",
     "PAD_STACK",
     "HSD_ASSERT",
-    "union_type_dobj"
+    "union_type_dobj",
+    "CmSubject",
+    "HSD_LObj",
+    "Ground union",
+    "symbols.txt"
   ],
   "follow_up_queries": [
-    "grPushOn_80218888 92.87 remaining mismatch",
-    "grPura_80212CD4 69.10 CmSubject camera bounds",
-    "grPura_802120E0 56.17 background color interpolation",
-    "grPura_80213250 83.56 recursive DObj traversal",
-    "grGreens_80215ED8 regression after grGreens block grid rewrite",
-    "fn_80215B84 regression after Greens changes",
-    "grGr_803E78B8 data symbol split usage",
-    "replace xC4 xC8 names in grPura_GroundVars when semantics known"
+    "Check whether the two bot-reported grgreens regressions in grGreens_80215ED8 and fn_80215B84 were resolved by later PRs.",
+    "Look for later semantic renames of GrPuVtxMapEntry fields x00/x02/x04/x06/x08 and Pura ground-var fields xC4/xC6/xC8.",
+    "Search for other grgreens block-grid routines that should use the same typed 2D getBlock row/column convention.",
+    "Compare later grPushOn_80218888 work for possible semantic names around light sorting, point_light, spot_light, and grPushOn_803B844C.",
+    "Verify whether grPura_80211E08_noinline/noinline2 remained as permanent matching scaffolding or was removed after adjacent functions matched."
   ],
-  "confidence": 0.87
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

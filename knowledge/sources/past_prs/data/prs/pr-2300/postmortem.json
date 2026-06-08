@@ -11,179 +11,140 @@
     "merged_at": "2026-03-15T23:56:45Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Replaced item placeholder stubs with C implementations across Ice Climbers ice, Mr. Game & Watch chef, Pikachu Thunder, Lugia, Ho-Oh, and Old Kuri/Goomba callbacks, while tightening item attribute/item-var structs and prototypes needed for matching. The PR body claimed 14 matched functions with objdiff and clean ninja verification; the decomp.dev bot reported +2328 matched bytes, 15 new 100% matches, and two additional near-matches.",
+  "summary": "Matched a batch of item-system functions across Pokeball summons and character/common projectiles, replacing decomp placeholder comments and UNK prototypes with typed C implementations. The PR added logic for Ice Climbers ice animation decay, Mr. Game & Watch chef projectile setup/collision behavior, Lugia and Ho-Oh spawn/flight/effect callbacks, Old Kuri/Goomba state transitions, and Pikachu Thunder state changes. Supporting header work refined item variable and attribute structs so the item code could express real fields instead of broad padding or unknown signatures. The PR body reports all functions were verified as 100% objdiff matches and that ninja built cleanly.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "item-callbacks",
-      "struct-layout",
       "headers",
-      "prototype-cleanup",
-      "verification"
+      "item-behavior",
+      "prototype-cleanup"
     ],
     "systems": [
       "item",
+      "pokemon-items",
       "character-items",
-      "common-items",
-      "pokeball-pokemon",
-      "stage",
-      "effects"
+      "stage-items"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/it/items/itoldkuri.c",
-      "why": "Implemented Old Kuri/Goomba initializer and motion anim/collision callbacks shown by the bot as 100% matches."
-    },
-    {
-      "path": "src/melee/it/items/ithouou.c",
-      "why": "Implemented Ho-Oh spawned, flight physics, itcmd/effect, and hitlag/contact transition callbacks."
-    },
-    {
-      "path": "src/melee/it/items/itlugia.c",
-      "why": "Implemented Lugia spawned, flight physics, and hitlag/contact transition callbacks."
-    },
-    {
-      "path": "src/melee/it/items/itgamewatchchef.c",
-      "why": "Implemented Game & Watch chef projectile setup and collision behavior."
-    },
-    {
-      "path": "src/melee/it/items/itpikachuthunder.c",
-      "why": "Implemented Pikachu Thunder state transitions and child item propagation logic; one function was reported as a near-match by the bot."
-    },
-    {
-      "path": "src/melee/it/items/itclimbersice.c",
-      "why": "Implemented Ice Climbers ice animation tick/scale decay callback."
-    },
-    {
-      "path": "src/melee/it/itCommonItems.h",
-      "why": "Refined Ho-Oh and Lugia attribute/item-var layout, including s32 timer fields and Vec3 storage."
-    },
-    {
-      "path": "src/melee/it/itCharItems.h",
-      "why": "Added Climbers ice item-var fields and special attribute struct needed by the animation callback."
-    },
-    {
-      "path": "src/melee/it/items/itgamewatchchef.h",
-      "why": "Replaced an UNK_RET/UNK_PARAMS prototype with typed parameters for it_802C84A0."
-    },
-    {
-      "path": "src/melee/it/items/ithouou.h",
-      "why": "Replaced unknown Ho-Oh helper prototypes with typed Item_GObj signatures."
-    }
-  ],
-  "what_changed": [
-    "Implemented item callbacks listed in the PR body: itClimbersice_UnkMotion0_Anim, it_802C84A0, itGamewatchchef_UnkMotion0_Coll, itGamewatchchef_UnkMotion1_Coll, it_802B211C, it_802B22B8, it_2725_Logic17_Spawned, itLugia_UnkMotion2_Phys, it_802D1DD8, it_2725_Logic18_Spawned, itHouou_UnkMotion2_Phys, it_802D2B4C, it_802D2C78, and it_802D73F0.",
-    "Diff evidence also shows Old Kuri implementations for itOldkuri_UnkMotion2_Anim, itOldkuri_UnkMotion2_Coll, and itOldkuri_UnkMotion9_Anim; the bot counted these as new 100% matches even though they were not in the PR body's 14-function list.",
-    "Lugia and Ho-Oh spawn callbacks now store starting position, initialize facing/itcmd variables/timers/flags, enter their initial helper state, and set item timers through it_80279CDC.",
-    "Lugia and Ho-Oh flight physics now call it_8027A344, adjust vertical acceleration based on it_80272C6C, add it to y velocity, and transition when pos.y exceeds Stage_GetBlastZoneTopOffset.",
-    "Lugia and Ho-Oh contact/activation callbacks call it_8027A09C and it_80273454, update item animation via Item_80268E5C, install efLib_PauseAll/efLib_ResumeAll hitlag callbacks, and set xDD1_flag.b1.",
-    "Ho-Oh it_802D2B4C consumes xDAC_itcmd_var0 and xDB0_itcmd_var1, spawns effects with it_8027ADEC on dynamic bones 16 and 17, and calls it_802D2D2C.",
-    "Game & Watch chef setup stores the entry index, sets timing through it_80275158, derives x/y velocity from specialAttributes entries and facing_dir, then starts motion 0.",
-    "Game & Watch chef collision callbacks use it_8026DAA8 bitmasks: 0xC reverses horizontal velocity with attr x4, while 3 triggers either it_802C875C or a stop-and-transition to motion 1.",
-    "Ice Climbers ice animation checks a bitfield, decays item-var x4 by special attribute x28, applies it to a child JObj with it_80272F7C, and returns true below 0.01F.",
-    "Pikachu Thunder transition logic copies stored velocity x1C into x40_vel, sets xDCC_flag.b3, preserves hit state for motion 2, updates life timer, and propagates position/flags to a child item when present.",
-    "Headers gained typed fields for itClimbersIce_ItemVars, itClimbersIceAttributes, itHououAttr, itLugiaAttributes, and itLugia_ItemVars, plus concrete prototypes replacing unknown signatures."
-  ],
-  "smart_moves": [
-    "Matched behavior by first exposing the data layout: adding Vec3 and s32 fields in item vars/attributes made source accesses align with observed offsets instead of relying on raw byte pads.",
-    "Reused the mirrored Lugia/Ho-Oh flight pattern, including Stage_GetBlastZoneTopOffset and the same hitlag callback sequence, which gives future Pokemon summon decomp work a direct template.",
-    "Preserved compiler-sensitive structure with PAD_STACK(8), nested scopes, and redundant GET_ITEM reloads where the diff shows they were needed for codegen shape.",
-    "Kept address-based function names and UnkMotion names when semantics were still not fully known, but upgraded prototypes where argument and return types were evident.",
-    "Used existing item helpers for animation, physics, collision, and hitlag instead of inlining guesses, making the functions fit the broader item subsystem idioms."
-  ],
-  "decomp_lessons": [
-    "For item functions, matching often depends on header/struct corrections as much as on the C body; unknown pads should be split only when a function proves the field type and offset.",
-    "Shared item families are strong evidence: Lugia and Ho-Oh callbacks reveal corresponding timer, acceleration, stored-position, and hitlag patterns across Pokemon summons.",
-    "Item callback matching may require preserving non-obvious compiler artifacts such as stack padding macros, temporary reloads, and exact float/global-zero forms.",
-    "When a callback changes item state after a helper like it_80273454, re-fetching GET_ITEM can be necessary because the compiler and object state model expect that sequence.",
-    "Collision bitmasks from common item helpers should be handled in the same branch order as assembly; Game & Watch chef shows horizontal bounce before floor/ceiling transition handling.",
-    "Bot reports can disagree with PR titles/bodies; future archival work should record decomp.dev match percentages separately from author claims."
-  ],
-  "naming_conventions": [
-    "Existing item module prefixes were retained: itClimbersice, itGamewatchchef, itPikachuthunder, itLugia, itHouou, and itOldkuri.",
-    "Unknown motion callbacks keep the established UnkMotionN_Anim/Phys/Coll suffix pattern.",
-    "Address-style names such as it_802C84A0, it_802D2B4C, and it_802D73F0 remain when no semantic name is proven.",
-    "Logic callback names encode item logic IDs, e.g. it_2725_Logic17_Spawned, it_2725_Logic18_Spawned, and itGameWatchChef_Logic112_DmgDealt.",
-    "Struct fields with uncertain semantics keep offset-style names such as x8, x14, x64, xE50, xDD4_itemVar, and bitfield names like x8_b0.",
-    "Header prototypes carry address comments and should replace UNK_RET/UNK_PARAMS once Item_GObj and scalar parameters are known."
-  ],
-  "assembly_or_matching_tactics": [
-    "PR body says the author verified functions with objdiff during an overnight run and that ninja built cleanly.",
-    "decomp.dev reported matched code 58.05%, +0.06%, and +2328 bytes for GALE01.",
-    "PAD_STACK(8) appears in several implementations, including Ice Climbers ice, Game & Watch chef motion 1 collision, Old Kuri callbacks, and Pikachu Thunder, indicating stack-shape padding was part of matching.",
-    "Repeated GET_ITEM(gobj) calls inside branches and nested scopes were used instead of reusing the first Item* in several functions, a common tactic for register lifetime and reload matching.",
-    "Lugia uses it_804DD450 for zero-like values while Ho-Oh uses 0.0F in analogous code, showing exact constant source matters for matching.",
-    "Old Kuri accesses ((f32*) attr->x0)[1] instead of inventing a fuller attribute struct, preserving uncertain layout while matching the load.",
-    "itHououAttr.x14 and itLugiaAttributes.x14 were typed as s32, matching timer/state assignments that did not fit f32/padding.",
-    "Added includes only where needed by the new implementations: gr/stage.h, it/it_266F.h, and placeholder.h."
-  ],
-  "review_feedback": [
-    "No human reviews or review comments are present in the slice.",
-    "decomp-dev[bot] reported 15 new 100% matches, including itOldkuri_UnkMotion2_Anim, itOldkuri_UnkMotion2_Coll, itOldkuri_UnkMotion9_Anim, and other item callbacks.",
-    "decomp-dev[bot] reported itGamewatchchef_UnkMotion1_Coll at 99.24% and it_802B22B8 at 97.94%, which conflicts with the PR body's claim that all functions were 100% matched by objdiff.",
-    "The PR was merged shortly after the bot report, with no recorded requested changes in the provided slice."
-  ],
-  "searchable_terms": [
-    "pr-2300",
-    "johnwinston",
-    "it: match 14 item functions",
-    "item",
-    "decomp-matching",
-    "objdiff",
-    "ninja",
-    "decomp.dev",
-    "GALE01",
-    "+2328 bytes",
     "src/melee/it/items/itoldkuri.c",
     "src/melee/it/items/ithouou.c",
-    "src/melee/it/items/itlugia.c",
     "src/melee/it/items/itgamewatchchef.c",
+    "src/melee/it/items/itlugia.c",
     "src/melee/it/items/itpikachuthunder.c",
     "src/melee/it/items/itclimbersice.c",
     "src/melee/it/itCommonItems.h",
     "src/melee/it/itCharItems.h",
+    "src/melee/it/items/ithouou.h",
+    "src/melee/it/items/itgamewatchchef.h"
+  ],
+  "what_changed": [
+    "Implemented `itClimbersice_UnkMotion0_Anim`, which reads `itClimbersIceAttributes`, scales an item-var float by attribute `x28`, updates a child JObj through `it_80272F7C`, and returns true once the value drops below `0.01F`.",
+    "Implemented Mr. Game & Watch chef functions including `it_802C84A0`, `itGamewatchchef_UnkMotion0_Coll`, and `itGamewatchchef_UnkMotion1_Coll`, covering projectile entry selection, velocity setup from chef attributes, wall/ground collision checks via `it_8026DAA8`, bounce reversal, and transition to a stopped animation state.",
+    "Implemented Lugia functions `it_2725_Logic17_Spawned`, `itLugia_UnkMotion2_Phys`, and `it_802D1DD8`, including spawn state initialization, vertical velocity accumulation based on `it_80272C6C`, top blast-zone checks through `Stage_GetBlastZoneTopOffset`, and hitlag effect callback setup using `efLib_PauseAll`/`efLib_ResumeAll`.",
+    "Implemented Ho-Oh functions `it_2725_Logic18_Spawned`, `itHouou_UnkMotion2_Phys`, `it_802D2B4C`, and `it_802D2C78`, mirroring similar Pokemon item patterns with separate Ho-Oh attributes, itcmd vars, effect spawning on dynamic bones 16 and 17, and hitlag effect callback setup.",
+    "Implemented Old Kuri/Goomba functions including `it_802D73F0`, `itOldkuri_UnkMotion2_Anim`, `itOldkuri_UnkMotion2_Coll`, and `itOldkuri_UnkMotion9_Anim`, covering spawn initialization, facing direction selection, velocity reset/setup, ground/air checks, collision-driven transitions, and motion changes.",
+    "Implemented Pikachu Thunder state helpers `it_802B211C` and `it_802B22B8`, including transition to motion states, velocity copy from item vars, life timer setup, hit-preserve animation flags, and propagating position/state to a child thunder item when present.",
+    "Refined `itCharItems.h` by expanding `itClimbersIce_ItemVars` with `x4` and bitfield `x8_b0`, and adding `itClimbersIceAttributes` with an attribute at offset `0x28`.",
+    "Refined `itCommonItems.h` by splitting Ho-Oh padding into typed fields `x8`, `xC`, and `x14`, changing Lugia attribute `x14` from `f32` to `s32`, and exposing `itLugia_ItemVars.x64` as a `Vec3` with adjusted padding.",
+    "Updated headers to replace unknown declarations with typed prototypes, including `it_802C84A0(Item_GObj*, s32)`, `it_802D2B4C(Item_GObj*)`, and `it_802D2D2C(Item_GObj*)`."
+  ],
+  "smart_moves": [
+    "Converted struct padding only where the implementations needed concrete fields, keeping unknown areas as padding while documenting exact offsets. This is useful in item decomp where large item-var unions are still partially unknown.",
+    "Reused shared Pokemon item behavior patterns between Lugia and Ho-Oh: spawn initialization stores starting position, resets itcmd vars/flags, starts a timer, then physics accumulates vertical velocity until the item reaches the top blast-zone boundary.",
+    "Preserved matching-sensitive reloads and stack padding, such as repeated `GET_ITEM(gobj)` calls in collision/effect routines and explicit `PAD_STACK(8)`, rather than over-cleaning the C into more idiomatic but non-matching code.",
+    "Used existing item engine helpers (`Item_80268E5C`, `it_80275158`, `it_8026DAA8`, `it_8027A09C`, `it_80273454`, `it_80279CDC`) instead of open-coding behavior, making matched code align with established item subsystem conventions.",
+    "Tightened prototypes in headers alongside implementation work so future callers can use typed parameters and return types instead of `UNK_RET`/`UNK_PARAMS`."
+  ],
+  "decomp_lessons": [
+    "For item functions, matching often depends on accurately modeling `xDD4_itemVar` substructures and article `x4_specialAttributes`; promoting specific offsets from padding to typed fields can unlock multiple functions at once.",
+    "Do not assume float types for attribute words only because nearby fields are floats. This PR changed Lugia and Ho-Oh timer/count-like fields at offset `0x14` to `s32`, which was necessary for the matched spawn logic.",
+    "Pokemon summon functions may share control-flow structure but use different item-var aliases (`lugia`, `pokemon`) and different attribute structs; reuse the pattern, but keep field names and offsets grounded in each item.",
+    "Objdiff-matching C may intentionally include non-idiomatic local variable lifetimes, duplicate `GET_ITEM` calls, temporary aliases like `old_ip`/`ip2`, and explicit stack padding.",
+    "Collision callbacks commonly return `false` even when they mutate velocity, change animation state, or trigger helper callbacks; return value semantics should be copied from matched behavior, not inferred from side effects.",
+    "Header cleanup should be done in tandem with matched code: once a function is implemented, replace `UNK_RET`/`UNK_PARAMS` with the observed signature to improve future callsite matching."
+  ],
+  "naming_conventions": [
+    "Item motion callbacks retain existing project naming with item name plus motion slot and phase, e.g. `itClimbersice_UnkMotion0_Anim`, `itGamewatchchef_UnkMotion1_Coll`, `itLugia_UnkMotion2_Phys`, and `itHouou_UnkMotion2_Phys`.",
+    "Unidentified item functions continue to use address-derived names such as `it_802C84A0`, `it_802D1DD8`, `it_802D2B4C`, and `it_802D73F0` until their semantic names are known.",
+    "Struct fields without known semantic names use offset-style names (`x4`, `x8_b0`, `x14`, `x64`, `xE50`) and preserve comments with byte offsets.",
+    "Boolean bitfields in item vars use suffixes like `x8_b0`, matching the existing convention for bit-level unknown fields.",
+    "Header comments preserve ROM/function address annotations such as `/* 2C84A0 */` while updating the C type signature."
+  ],
+  "assembly_or_matching_tactics": [
+    "Used `PAD_STACK(8)` in several functions to satisfy stack layout requirements for matching.",
+    "Kept duplicate item pointer fetches after calls that may affect compiler aliasing or object state, such as `ip = GET_ITEM(gobj)` or `ip2 = GET_ITEM(gobj)` after helper calls.",
+    "Matched float constants exactly in source, including `0.01F`, `0.0F`, `1.0f`, `-1.0f`, `1.3F`, and `5.0f`.",
+    "Represented item-var memory as typed structs and vectors where needed, including casting Ho-Oh Pokemon item-var storage to `Vec3*` and promoting Lugia item-var offset `x64` to `Vec3`.",
+    "Included additional headers only when implementations required external declarations, such as `gr/stage.h`, `it/it_266F.h`, and `<placeholder.h>`.",
+    "Used bitmask checks on collision results (`result & 0xC`, `result & 3`) to match branch behavior in chef projectile collision callbacks.",
+    "Relied on project item animation flags such as `ITEM_ANIM_UPDATE`, `ITEM_UNK_0x1`, and `ITEM_HIT_PRESERVE` instead of numeric literals where named flags existed."
+  ],
+  "review_feedback": [
+    "No review comments were present in the provided PR slice.",
+    "The PR body states verification was performed with objdiff at 100% for all functions and that `ninja` built cleanly.",
+    "The summary/body appears generated with Claude Code and lists the matched functions and byte sizes; there is no human reviewer rationale in the slice."
+  ],
+  "searchable_terms": [
+    "pr-2300",
+    "it match 14 item functions",
+    "johnwinston",
+    "item decomp matching",
+    "objdiff 100% match",
     "itClimbersice_UnkMotion0_Anim",
-    "it_802C84A0",
+    "itClimbersIce_ItemVars",
+    "itClimbersIceAttributes",
     "itGamewatchchef_UnkMotion0_Coll",
     "itGamewatchchef_UnkMotion1_Coll",
-    "it_802B211C",
-    "it_802B22B8",
+    "it_802C84A0",
+    "Mr Game Watch chef",
+    "chef sausage projectile",
     "it_2725_Logic17_Spawned",
     "itLugia_UnkMotion2_Phys",
     "it_802D1DD8",
+    "itLugiaAttributes",
+    "itLugia_ItemVars",
+    "Stage_GetBlastZoneTopOffset",
     "it_2725_Logic18_Spawned",
     "itHouou_UnkMotion2_Phys",
     "it_802D2B4C",
     "it_802D2C78",
+    "itHououAttr",
+    "Ho-Oh Pokemon item",
+    "Lugia Pokemon item",
+    "efLib_PauseAll",
+    "efLib_ResumeAll",
     "it_802D73F0",
     "itOldkuri_UnkMotion2_Anim",
     "itOldkuri_UnkMotion2_Coll",
     "itOldkuri_UnkMotion9_Anim",
-    "itClimbersIceAttributes",
-    "itClimbersIce_ItemVars",
-    "itHououAttr",
-    "itLugiaAttributes",
-    "itLugia_ItemVars",
-    "Stage_GetBlastZoneTopOffset",
-    "efLib_PauseAll",
-    "efLib_ResumeAll",
-    "Item_80268E5C",
-    "GET_ITEM",
+    "Old Kuri Goomba",
+    "it_802B211C",
+    "it_802B22B8",
+    "itPikachuthunder",
+    "Pikachu Thunder",
     "PAD_STACK",
-    "it_8026DAA8",
-    "it_8027A09C",
-    "it_80273454",
-    "it_8027ADEC",
-    "it_804DD450"
+    "GET_ITEM",
+    "xDD4_itemVar",
+    "x4_specialAttributes",
+    "UNK_RET",
+    "UNK_PARAMS"
   ],
   "follow_up_queries": [
-    "Check later PRs or current master for whether itGamewatchchef_UnkMotion1_Coll and it_802B22B8 became 100% matches after the bot reported 99.24% and 97.94%.",
-    "Search for follow-up renames or struct expansions for itHououAttr.x8/xC/x14, itLugiaAttributes.x14, and itLugia_ItemVars.x64/xE50.",
-    "Audit OldKuriAttributes attr->x0 raw f32 access to see whether later decomp work recovered the proper attribute struct.",
-    "Compare Lugia and Ho-Oh Pokemon summon callbacks for reusable naming or abstraction clues in future item decompilation.",
-    "Find remaining stubs near itPikachuthunder_UnkMotion1_Coll and itPikachuthunder_UnkMotion2_Anim, which were still placeholder comments in this diff."
+    "Find later PRs that rename address-style item functions implemented in PR 2300.",
+    "Search for additional Lugia and Ho-Oh Pokemon item matches that reuse `Stage_GetBlastZoneTopOffset` physics patterns.",
+    "Look for future struct cleanups to `itHououAttr`, `itLugiaAttributes`, and `itClimbersIceAttributes` that assign semantic field names.",
+    "Search for item matching PRs that use duplicate `GET_ITEM` calls or `PAD_STACK(8)` as matching tactics.",
+    "Find later work on `itPikachuthunder_UnkMotion1_Coll` or other remaining placeholder functions in `itpikachuthunder.c`."
   ],
-  "confidence": 0.9
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

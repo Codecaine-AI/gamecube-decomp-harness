@@ -43,6 +43,11 @@ workers, raise the checkpoint, package a PR, or start the next run.
 `matched_code_percent` is the north-star metric. It tracks exact matched code
 progress and is the v1 target for run goals.
 
+The default acceptance target is reviewable text-section/source code fixes,
+code-match blockers, and reusable source-shape facts. Data, literal, symbol, and
+split cleanup is secondary unless it is explicitly scoped, required for a code
+match, or blocking code-match validation.
+
 `fuzzy_match_percent` is useful telemetry for target selection and local
 diagnosis, but it is not the success target. It can be high even when exact
 matched code progress remains low.

@@ -11,111 +11,76 @@
     "merged_at": "2026-04-28T10:53:50Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled and improved a large slice of Rainbow Cruise ground/stage code in `src/melee/gr/grrcruise.c`, with supporting type/header work. The PR replaced many `/// #grRCruise_*` targets with C, added Rainbow Cruise stage data and map/joint tables, recovered Ground union overlays for scroll/map/vanish state, and exposed `grAnime_801C7BA0` for cross-file use. The decomp.dev bot reported +2004 matched bytes, 6 new 100% matches, and 11 additional grrcruise improvements. There was no PR body and no human review discussion in the slice, so intent is inferred from diff and bot/merge metadata.",
+  "summary": "Large Rainbow Cruise stage decompilation pass centered on src/melee/gr/grrcruise.c. The PR replaced many placeholder target markers with C implementations, added Rainbow Cruise stage data and supporting structs, improved several partially matched functions to 100%, and exposed grAnime_801C7BA0 through granime.h so stage code could call it. decomp.dev reported +2004 matched bytes, 6 new matches, and 11 additional improvements in grrcruise, including complete matches for grRCruise_80201988, grRCruise_80201288, grRCruise_80201110, grRCruise_801FF7A4, grRCruise_801FF2C8, and grRCruise_80200074.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-data",
       "headers",
-      "struct-recovery",
-      "matching-cleanup"
+      "struct-layout",
+      "stage-data",
+      "cleanup"
     ],
     "systems": [
       "stage",
       "ground",
       "Rainbow Cruise",
-      "RCRUISE",
-      "gr",
-      "animation",
-      "collision"
+      "granime",
+      "collision",
+      "camera"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grrcruise.c",
-      "role": "Main decomp work; 716 additions and 33 deletions, replacing numerous grRCruise target stubs and adding stage data/config tables."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Recovered/expanded Ground overlays and Rainbow Cruise structs, including `grRCruise_VanishEntry`, `grRCruise_VanishDesc`, `ScrollVars`, and map/vanish aliases."
-    },
-    {
-      "path": "src/melee/gr/grrcruise.h",
-      "role": "Typed previously unknown prototypes for `grRCruise_80201288` and `grRCruise_80201988`."
-    },
-    {
-      "path": "src/melee/gr/granime.h",
-      "role": "Added public declaration for `grAnime_801C7BA0`."
-    },
-    {
-      "path": "src/melee/gr/granime.c",
-      "role": "Removed stale local/static forward declaration for `grAnime_801C7BA0` after moving the declaration to the header."
-    }
+    "src/melee/gr/grrcruise.c",
+    "src/melee/gr/types.h",
+    "src/melee/gr/grrcruise.h",
+    "src/melee/gr/granime.h",
+    "src/melee/gr/granime.c"
   ],
   "what_changed": [
-    "Added Rainbow Cruise stage metadata/data in `grrcruise.c`, including `S16Vec3 grRc_803E4DA8[]` and `struct StageData grRc_803E4ECC` for `RCRUISE` and `/GrRc.dat`.",
-    "Expanded the static `grRc_804D6A10` configuration pointer from one `int x0` to a typed layout of float and s32 fields used by platform/vanish/rotation timing logic.",
-    "Implemented previously target-only grrcruise functions including `grRCruise_801FF924`, `grRCruise_801FFADC`, `grRCruise_80200154`, `grRCruise_80200578`, `grRCruise_8020071C`, `grRCruise_80200C04`, `grRCruise_80201110`, `grRCruise_80201288`, `grRCruise_80201410`, `grRCruise_80201588`, and `grRCruise_80201988`.",
-    "Improved existing partially decompiled functions such as `grRCruise_801FF2C8`, `grRCruise_801FF7A4`, `grRCruise_80200074`, and `grRCruise_80201918` with matching-oriented local variables, exact line constants, stack padding, and typed field access.",
-    "Changed allocation/assert logic in `grRCruise_801FF5B4` from raw `gp->gv.rcruise.entries` plus `__assert` to the recovered alias `gp->u.map.chikuwa` plus `HSD_ASSERT(0x19A, gp->u.map.chikuwa)`.",
-    "Added vanish-object initialization/update logic using `grRc_803E5014`, `gp->u.map.vanish`, `Camera_8003118C`, `grAnime_801C7FF8`, `mpJointListAdd`, `mpLib_80057BC0`, and DObj flag recursion.",
-    "Added/typed `grRCruise_80201288` as a recursive `HSD_JObj`/`HSD_DObj` traversal helper taking a callback like `HSD_DObjSetFlags` or `HSD_DObjClearFlags`.",
-    "Exposed `grAnime_801C7BA0` in `granime.h` and removed its local declaration from `granime.c` so grrcruise can call it through the shared header.",
-    "Recovered more structure fields in `types.h`: `grRCruise_Entry.x10` became `f32`, `grRCruise_GroundVars.x0C` became `s32`, vanish structs were added, `ScrollVars` was introduced, and the `Ground` union gained `scroll`."
+    "Implemented many previously stubbed or partially matched Rainbow Cruise functions in grrcruise.c, including grRCruise_801FF924, grRCruise_801FFADC, grRCruise_80200154, grRCruise_80200578, grRCruise_8020071C, grRCruise_80200C04, grRCruise_80201110, grRCruise_80201288, grRCruise_80201410, grRCruise_80201588, and grRCruise_80201988.",
+    "Added grRc_803E4DA8 S16Vec3 stage table and struct StageData grRc_803E4ECC for RCRUISE, wiring callbacks, data file /GrRc.dat, dynamics hooks, and the stage joint table.",
+    "Moved grAnime_801C7BA0 from a local static declaration in granime.c to a public declaration in granime.h, enabling grrcruise.c to call it.",
+    "Updated grrcruise.h prototypes for grRCruise_80201288 and grRCruise_80201988 from UNK signatures to typed signatures: recursive DObj callback traversal and bool line-id predicate respectively.",
+    "Expanded grRCruise-related layouts in types.h: grRCruise_Entry.x10 became f32, grRCruise_GroundVars.x0C became s32, vanish entry/descriptor structs were introduced, grRCruise_GroundVars gained a vanish pointer and padding, and Map_GroundVars/ScrollVars gained fields used by Rainbow Cruise.",
+    "Changed Rainbow Cruise allocation sites to use named union fields such as gp->u.map.chikuwa and gp->u.map.vanish rather than older ambiguous members, with HSD_ASSERT checks.",
+    "Added and used stage/camera/collision/math dependencies including stage.h, types.h, lb_00B0.h, lbvector.h, math.h, baselib/jobj.h, baselib/random.h, and MSL/trigf.h."
   ],
   "smart_moves": [
-    "Moved from raw offsets and one-field placeholder structs toward typed Ground overlays, making later stage decomp easier and improving readability without overnaming unknown fields.",
-    "Used `ARRAY_SIZE(grRc_803E4DA8)` in `StageData`, avoiding a hard-coded count for the Rainbow Cruise map/joint table.",
-    "Made `grAnime_801C7BA0` a proper public header declaration instead of relying on a file-local prototype, which is the reusable pattern when another module starts calling an existing engine function.",
-    "Kept exact assert/report line constants such as `0x122`, `0x19A`, `0x2B0`, `0x2B2`, `0x5AD`, and `0x5B3`, which matters for matching codegen and diagnostics.",
-    "Used matching-specific scaffolding shown in the diff, including `PAD_STACK`, explicit local aliases such as `stage_gobj`, and careful temporary ordering in functions that reached 100%.",
-    "Factored repeated visibility/flag behavior through recursive `HSD_JObj` traversal with a DObj callback, reusing the same helper for set/clear flag operations in vanish handling.",
-    "Modeled stage behavior through existing engine helpers (`Ground_801C3FA4`, `Ground_801C2BA4`, `grAnime_*`, `mpLib_*`, `Camera_8003118C`, `Stage_GetCamBoundsBottomOffset`) instead of open-coding lower-level object access."
+    "Typed struct fields and unions enough to replace raw pointer/arithmetic access, for example using gp->u.scroll.x1C in grRCruise_80201918 instead of casting gp + 0xE0.",
+    "Promoted grAnime_801C7BA0 only as far as needed via granime.h rather than duplicating or keeping an invalid static declaration.",
+    "Used HSD_ASSERT line-number assertions and PAD_STACK annotations to preserve matching-sensitive code shape where allocation checks and stack layout mattered.",
+    "Kept the recursive JObj/DObj traversal in grRCruise_80201288 as an explicit helper with an inline HSD_JObjGetDObj wrapper, reflecting a matching tactic for register/control-flow-sensitive recursion.",
+    "Modeled Rainbow Cruise's stage-specific state machines directly: blinking/collision toggles, vanish platform states, rotating ship response to collision data, and camera-follow scroll offsets.",
+    "Encoded line/joint filtering in grRCruise_80201988 as a bool predicate over RCRUISE internal stage id and mpJointFromLine results, matching a stage-specific collision query without broadening behavior to other stages."
   ],
   "decomp_lessons": [
-    "Stage functions often only become tractable after the `Ground` union overlays are recovered; here `u.map`, `u.scroll`, `gv.rcruise`, and vanish/chikuwa aliases unlocked clearer code.",
-    "When a target function consumes a previously static-looking helper from another file, promote the prototype to the shared header and remove duplicate local declarations.",
-    "For matching, preserve small details that look cosmetic in source: assert macros, source line constants, local variable aliases, ternary structure, stack padding, and exact float constants.",
-    "Recursive JObj tree traversal is codegen-sensitive; the merge history notes earlier difficulty with recursive traversal/register/control-flow matching, while the final bot report shows `grRCruise_80201288` eventually reached 100%.",
-    "Use typed-but-unnamed offset fields (`x00`, `x04`, etc.) when semantics are not proven; this PR improved layouts without inventing descriptive names beyond evidence.",
-    "Bot reports are valuable for triage: this PR landed both finished matches and partial improvements, so future work should distinguish 100% functions from functions still below full match."
+    "For stage files, matching often requires promoting unknown ground-variable storage into named union overlays such as map, scroll, rcruise, and rcruise2 instead of relying on byte offsets.",
+    "When a stage function needs an animation helper that was previously file-local, move the prototype to the header and remove the stale static declaration to avoid duplicate linkage assumptions.",
+    "Rainbow Cruise has multiple per-object state machines; structing entry arrays, vanish entries, and scroll variables makes switch-state code easier to match and review.",
+    "Matching recursive hierarchy traversal can require deliberately preserving redundant NULL checks and temporary variables; the merge commit explicitly noted that recursive traversal still needed register/control-flow matching during development.",
+    "Use exact engine helpers for visibility and collision state: HSD_JObjSetFlagsAll/ClearFlagsAll for JOBJ_HIDDEN, HSD_DObjSetFlags/ClearFlags via traversal, mpJointListAdd, mpLib_80057BC0, mpLib_80055E9C, and mpLib_80057424.",
+    "Stage matching may depend on using the project assert macro HSD_ASSERT with original line constants rather than generic __assert or hand-written NULL branches."
   ],
   "naming_conventions": [
-    "Rainbow Cruise functions use the `grRCruise_` prefix with address-based suffixes, e.g. `grRCruise_80201288`.",
-    "Rainbow Cruise data symbols use the shorter `grRc_` prefix, e.g. `grRc_803E4DA8`, `grRc_803E4ECC`, `grRc_803E5014`, and `grRc_804D6A10`.",
-    "Stage enum/file naming in this slice is `RCRUISE` and `/GrRc.dat`.",
-    "Recovered structs keep module-specific names when clear: `grRCruise_Entry`, `grRCruise_SubEntry`, `grRCruise_VanishEntry`, and `grRCruise_VanishDesc`.",
-    "Unknown fields remain offset-style (`x00`, `x04`, `x0C`, `pad_01`) rather than speculative semantic names.",
-    "Headers retain address comments beside prototypes, e.g. `/* 201288 */` and `/* 201988 */`, while replacing `UNK_RET`/`UNK_PARAMS` with concrete signatures when known."
+    "Rainbow Cruise functions use the grRCruise_80xxxxxx address-based naming convention.",
+    "Stage data symbols in this file use the grRc_803E.... and grRc_804D.... data-symbol convention, distinct from function prefix grRCruise_.",
+    "New structs preserve project-style stage prefixes: grRCruise_Entry, grRCruise_SubEntry, grRCruise_VanishEntry, grRCruise_VanishDesc, grRCruise_GroundVars, and ScrollVars.",
+    "Unknown fields remain address/offset-style names such as x00, x04, xC4, pad_74 when semantic names are not yet proven.",
+    "Header prototypes retain address comments such as /* 201288 */ and replace UNK_RET/UNK_PARAMS only when a signature is evidenced by the implementation."
   ],
   "assembly_or_matching_tactics": [
-    "Inserted `PAD_STACK(8)`, `PAD_STACK(0x18)`, and `PAD_STACK(16)` in several grrcruise functions to match stack layout.",
-    "Used exact math/library calls and constants: `sqrtf`, `atan2f`, `cosf`, `sinf`, `0.017453292f`, `1.0471976f`, and explicit integer casts for angle wrapping.",
-    "Adjusted control flow in `grRCruise_801FF7A4` by introducing `stage_gobj`, direct `user_data`/`hsd_obj` locals, a separate `archive = grDatFiles_801C6324()` assignment, and direct use of `Ground_801C3FA4(stage_gobj, 23)`.",
-    "Preserved matching-sensitive diagnostics, including `OSReport(\"%s:%d: couldn t get gobj(id=%d)\\n\", __FILE__, 0x122, gobj_id)` and line-numbered `HSD_ASSERT` calls.",
-    "Used callback-parameterized recursion in `grRCruise_80201288` around `HSD_JObjGetDObj` to match JObj/DObj traversal patterns.",
-    "Relied on `HSD_Randi`/`HSD_Randf` and modulo-based state machines for platform timing rather than simplifying behavior into higher-level abstractions.",
-    "The decomp.dev result confirms exact matches for `grRCruise_80201988`, `grRCruise_80201288`, `grRCruise_80201110`, `grRCruise_801FF7A4`, `grRCruise_801FF2C8`, and `grRCruise_80200074`."
+    "Added PAD_STACK(8), PAD_STACK(0x8), PAD_STACK(0x18), and PAD_STACK(16) in several functions to tune stack layout.",
+    "Used HSD_ASSERT with specific source line constants such as 0x19A, 0x2B0, 0x2B2, 0x2E0, 0x5AD, 0x5B3, and 0x5D6.",
+    "Used f32 constants and trig/math functions in forms likely chosen for codegen, including atan2f, cosf, sinf, sqrtf, 0.017453292f, 1.0471976f, 10.0f, 350.0f, and 0.008f.",
+    "Kept explicit temporary variables, repeated Ground_801C2BA4 lookups, and NULL-guard patterns in camera/vanish code rather than aggressively simplifying.",
+    "Implemented grRCruise_80201288 as recursive child/next JObj traversal over DObjs with a callback signature void (*)(HSD_DObj*, u32), matching HSD_DObjSetFlags and HSD_DObjClearFlags callers.",
+    "Used ARRAY_SIZE(grRc_803E4DA8) when wiring the RCRUISE StageData table."
   ],
   "review_feedback": [
-    {
-      "source": "decomp-dev[bot]",
-      "created_at": "2026-04-21T16:58:07Z",
-      "feedback": "GALE01 matched code reached 65.01%, +0.05%, +2004 bytes."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported 6 new 100% matches in `main/melee/gr/grrcruise`: `grRCruise_80201988`, `grRCruise_80201288`, `grRCruise_80201110`, `grRCruise_801FF7A4`, `grRCruise_801FF2C8`, and `grRCruise_80200074`."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported 11 additional improvements, including `grRCruise_80200C04` to 90.59%, `grRCruise_8020071C` to 84.70%, `grRCruise_80200154` to 91.81%, `.data` to 84.20%, `grRCruise_801FF924` to 97.76%, and `grRCruise_801FFADC` to 29.40%."
-    },
-    {
-      "source": "slice metadata",
-      "feedback": "No human review comments or reviews were present; the PR body was empty."
-    }
+    "No human review comments were present in the provided PR slice.",
+    "The decomp.dev bot reported +0.05% matched code and +2004 bytes, with 6 new matches and 11 improvements in main/melee/gr/grrcruise.",
+    "Merge commit messages indicate iterative fixes for imports, asserts, arithmetic, padding, a typo, and improved matching for grRCruise_801FF924, grRCruise_80201988, grRCruise_80201110, and grRCruise_801FFADC; these are commit-summary evidence rather than reviewer feedback."
   ],
   "searchable_terms": [
     "pr-2429",
@@ -123,12 +88,17 @@
     "jurrejelle",
     "Rainbow Cruise",
     "RCRUISE",
-    "GrRc.dat",
-    "src/melee/gr/grrcruise.c",
-    "src/melee/gr/types.h",
+    "grrcruise.c",
+    "grrcruise.h",
+    "types.h",
+    "granime.h",
+    "granime.c",
+    "grRc_803E4DA8",
+    "grRc_803E4ECC",
+    "grRc_803E5014",
+    "grRc_804D6A10",
     "grRCruise_801FF924",
     "grRCruise_801FFADC",
-    "grRCruise_80200074",
     "grRCruise_80200154",
     "grRCruise_80200578",
     "grRCruise_8020071C",
@@ -138,36 +108,37 @@
     "grRCruise_80201410",
     "grRCruise_80201588",
     "grRCruise_80201988",
-    "grRc_803E4DA8",
-    "grRc_803E4ECC",
-    "grRc_803E5014",
-    "grRc_804D6A10",
-    "grRCruise_VanishEntry",
-    "grRCruise_VanishDesc",
-    "ScrollVars",
-    "Map_GroundVars",
     "grAnime_801C7BA0",
-    "dynamicsdata_shipflag",
+    "grAnime_801C7FF8",
+    "grAnime_801C83D0",
     "HSD_ASSERT",
     "PAD_STACK",
-    "HSD_DObjSetFlags",
-    "HSD_DObjClearFlags",
-    "Ground_801C3FA4",
-    "Ground_801C2BA4",
+    "ScrollVars",
+    "grRCruise_VanishEntry",
+    "grRCruise_VanishDesc",
     "mpJointListAdd",
     "mpLib_80057BC0",
-    "Camera_8003118C",
-    "Stage_GetCamBoundsBottomOffset",
-    "chikuwa",
-    "vanish"
+    "mpLib_80055E9C",
+    "mpLib_80057424",
+    "HSD_DObjSetFlags",
+    "HSD_DObjClearFlags",
+    "JOBJ_HIDDEN",
+    "StageData",
+    "dynamicsdata_shipflag"
   ],
   "follow_up_queries": [
-    "Search later PRs for `grRCruise_801FFADC` because this slice only improved it to 29.40%.",
-    "Search later PRs for `grRCruise_80201588` and Rainbow Cruise vanish handling because this slice reported only 60.09% for that function.",
-    "Search `grRc_804D6A10` to see whether the recovered configuration fields were later named or further typed.",
-    "Search `ScrollVars` and `u.scroll` for reuse in other moving/scrolling stage decomp work.",
-    "Search `grAnime_801C7BA0` consumers to confirm the public header signature remained stable.",
-    "Search `grRCruise_80201288` for any later cleanup of the recursive traversal now that the bot reported a 100% match."
+    "Find later PRs that finish or rename grRCruise_801FFADC, grRCruise_80200C04, grRCruise_8020071C, grRCruise_80201588, or remaining partial Rainbow Cruise functions.",
+    "Search for uses of ScrollVars in other stage files to validate whether the generic name and offsets remained stable.",
+    "Search for later type refinements of grRCruise_GroundVars, grRCruise_Entry, grRCruise_VanishEntry, and grRCruise_VanishDesc.",
+    "Search for PRs touching grAnime_801C7BA0 to see whether the exported prototype gained a semantic name or broader usage."
   ],
-  "confidence": 0.87
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,154 +11,135 @@
     "merged_at": "2026-05-18T18:32:53Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Trophy-list decomp/matching PR centered on src/melee/ty/tylist.c. It converted several raw trophy-list fields into typed arrays/struct fields, consolidated ToyGlobalsS_ into a shared header, matched five tylist functions, and replaced the un_80313774 placeholder with a partial C implementation. The decomp.dev bot reported +2552 matched bytes and new 100% matches for un_803124BC, un_8031263C, un_8031305C, un_80313508, and fn_8031438C; un_80313774 improved from 0% to 62.48%. There was no PR body or human review text in the slice.",
+  "summary": "Matched several trophy-list functions and advanced the unmatched trophy-list initializer by refining tylist structures, moving shared toy globals into the common ty types header, and using matching-sensitive source rewrites such as string-table offsets, array fields for repeated links/JObjs/texts, adjusted return types, and stack padding.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-layout",
+      "struct-refinement",
       "trophy-list",
-      "codegen-tuning"
+      "data-reference-matching"
     ],
     "systems": [
-      "melee/ty",
-      "trophy-list",
+      "melee-core",
+      "ty",
+      "tylist",
       "toy",
-      "HSD JObj/Text"
+      "trophy"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ty/tylist.c",
-      "role": "Main matching work: archive-load string-offset changes, un_80313774 implementation, JObj helper refactor, TyListArg/TyListState field-use cleanup, fn_8031438C and un_803147C4 codegen tuning."
-    },
-    {
-      "path": "src/melee/ty/types.h",
-      "role": "Refined TyListArg and TyListState layouts; added shared ToySubStructS_ and unified ToyGlobalsS_ layout."
-    },
-    {
-      "path": "src/melee/ty/toy.c",
-      "role": "Removed local partial ToyGlobals/ToySubStruct overlay structs and updated casts/locals to use the shared ToyGlobalsS_."
-    },
-    {
-      "path": "src/melee/ty/tylist.h",
-      "role": "Updated un_8031305C prototype return type from s8 to s32."
-    }
+    "src/melee/ty/tylist.c",
+    "src/melee/ty/types.h",
+    "src/melee/ty/toy.c",
+    "src/melee/ty/tylist.h"
   ],
   "what_changed": [
-    "Replaced several local toy.c overlay structs, including ToyGlobals2S_, ToyGlobals3S_, ToyGlobals4S_, ToyGlobals5S_, ToySubStructS_, and TyUnk25, with a broader shared ToyGlobalsS_ and ToySubStructS_ in types.h.",
-    "Expanded ToyGlobalsS_ to cover offsets used by both toy.c and tylist.c, including x4, x10, x58, x140, x144, x148, x14C, x150, and x154.",
-    "Refactored TyListArg from raw fields x0/x4/x8/xC/x10/x14 plus padding into links[3], jobjs[3], texts[3], x25, x28, idx, x2C, and x30.",
-    "Updated tylist.c uses of list navigation from x0/x4 to links[0]/links[1], and JObj slots from xC/x10/x14 to jobjs[0]/jobjs[1]/jobjs[2].",
-    "Exposed TyListState.x2C2 in types.h and used it in fn_8031438C instead of byte-pointer indexing at offset 0x2C2.",
-    "Added a local TyListWaitData struct in tylist.c for offset-based writes through entry->x4, replacing raw ((s32*) tmp)[8] and [9] writes with x20 and x24.",
-    "Changed un_8031305C from s8 to s32 in tylist.h and tylist.c, adjusted stack padding to PAD_STACK(0xC), and introduced a comparison temporary used for matching.",
-    "Replaced direct string literals and named string symbols in un_803124BC and un_8031263C archive loading with offsets from char* data = un_803FDD18, such as data + 0x608, data + 0x614, and symbol-name offsets near 0x9DC-0xA74.",
-    "Refactored un_80313508 to call HSD_JObjSetTranslateX/Y/Z instead of manually assigning translate fields and reproducing dirty-matrix flag logic.",
-    "Implemented un_80313774, replacing the previous placeholder with code that initializes trophy-list state, creates circular TyListArg links, loads list entry jobjs/text objects, creates cursor/marker jobjs, advances initial list position, and calls un_80312BAC.",
-    "Adjusted fn_8031438C to use TyListArchive jobjs array access, typed state->x2C2, TyListWaitData, an HSD_Text* temporary, and a double-cast assignment for default_alignment.",
-    "Adjusted un_803147C4 to use char* base-pointer arithmetic for state memory, a HSD_GObj** pointer for gobj_2C4, and raw memzero offsets where that matched better."
+    "Added a full C implementation for previously placeholder `un_80313774`, covering trophy-list state initialization, circular entry linking, JObj/text creation, selection setup, and initial scrolling/positioning behavior.",
+    "Matched `un_803124BC` and `un_8031263C` by replacing literal archive/symbol strings such as `TyDatai.dat`, `TyDatai.usd`, and `tyInitModelTbl` with offsets from `un_803FDD18`.",
+    "Changed `un_8031305C` return type from `s8` to `s32` in both `tylist.c` and `tylist.h`, adjusted its stack padding to `PAD_STACK(0xC)`, and introduced a boolean-like local assignment before the main movement branch.",
+    "Refined `TyListArg` from anonymous offset fields (`x0`, `x4`, `xC`, `x10`, `x14`) into grouped arrays: `links[3]`, `jobjs[3]`, and `texts[3]`, with callsites updated accordingly.",
+    "Extended `TyListState` with explicit `x2C2` and padding around offset `0x2C2`, allowing code to use `state->x2C2` instead of raw byte indexing.",
+    "Added `TyListWaitData` in `tylist.c` so `fn_8031438C` can write `x20` and `x24` instead of using raw integer pointer casts.",
+    "Reworked `un_80313508` to use `HSD_JObjSetTranslateX/Y/Z` and a simpler `if (joint == NULL) OSPanic(...) else ...` structure, while preserving parent-child JObj insertion and standalone GObj creation paths.",
+    "Moved duplicated toy-related local typedefs from `toy.c` into `types.h`, consolidating several partial `ToyGlobals*_` views and `TyUnk25` usage into a broader `ToyGlobalsS_` plus `ToySubStructS_`.",
+    "Updated `toy.c` to use the shared `ToyGlobalsS_` type for `un_804D6E68` and related local variables instead of multiple narrow local struct aliases.",
+    "Adjusted `un_803147C4` to operate through `char* data` and explicit offsets for `memzero`, plus temporary `HSD_GObj**` and `LightList**` variables for matching."
   ],
   "smart_moves": [
-    "The TyListArg array refactor captured repeated structure at fixed offsets: links[0]/links[1] made circular list behavior explicit, jobjs[0..2] grouped the JObj triplet, and texts[0..2] turned former padding into meaningful HSD_Text pointers.",
-    "Unifying ToyGlobalsS_ avoided multiple local partial overlay types for the same global object and made shared trophy/toy offsets available from types.h.",
-    "Using HSD_JObjSetTranslateX/Y/Z in un_80313508 avoided hand-inlining library dirty-flag behavior and produced a cleaner full match.",
-    "The archive string-offset tactic matched functions that previously used normal literals, showing that the original code likely referenced a shared string/data block rather than standalone string symbols.",
-    "Adding TyListWaitData converted opaque indexed stores into a small typed layout without needing to name the whole pointed-to object.",
-    "The PR mixed semantic cleanup with exact-codegen choices: it exposed x2C2 as a field where safe, but kept raw data-pointer memzero patterns in un_803147C4 where the compiler shape needed it."
+    "Grouping repeated struct members into arrays (`links`, `jobjs`, `texts`) both clarified the circular list/JObj relationships and produced cleaner matching callsites where the original code likely indexed contiguous fields.",
+    "Using a single expanded `ToyGlobalsS_` in `types.h` avoided several overlapping local typedefs in `toy.c`, making cross-file toy state access reusable for future ty/toy work.",
+    "Replacing hardcoded string literals with `data + offset` references from `un_803FDD18` was a targeted matching tactic for functions that load archive symbols through a shared string/data block.",
+    "Keeping the `un_80313508` behavior expressed through existing HSD setter helpers avoided manually reproducing JObj dirty-flag/assert code and helped bring the function to 100% according to the bot report.",
+    "Introducing small local structs like `TyListWaitData` reduced raw pointer arithmetic in `fn_8031438C` without requiring full semantic naming of the object yet.",
+    "The circular linked-list setup in `un_80313774` made later replacements from `x0`/`x4` to `links[0]`/`links[1]` consistent across movement, paging, and selection code."
   ],
   "decomp_lessons": [
-    "When several partial structs describe the same global allocation, prefer one wide shared layout with unknown fields left as xNN/padNN; it reduces contradictory casts and helps later functions share discoveries.",
-    "For repeated same-type fields, arrays can improve both readability and matching while preserving exact offsets, especially for ring-list pointers, JObj slots, and text handles.",
-    "Do not assume direct field writes are the best match for HSD objects; library setters may match the original compiler output and hide complex dirty-flag behavior.",
-    "String references can be a codegen lever. If direct literals or named global strings fail, try using a char* base plus constant offsets into the known string/data blob.",
-    "Prototype return types affect matching. un_8031305C needed s32 rather than s8, plus matching stack padding, to reach 100%.",
-    "It is acceptable for a PR to improve function matching while temporarily regressing data-section matching; here the bot reported five new function matches but a .data regression."
+    "When several fields repeat at fixed stride, consider an array in the struct instead of naming each offset individually; this can align better with compiler indexing and improve readability.",
+    "For decompilation, a broader shared struct can be preferable to multiple narrow overlay structs when the same global object is accessed at many offsets across files.",
+    "String references may need to be expressed as offsets into an existing data blob rather than as C string literals to match codegen and relocation behavior.",
+    "Return type corrections matter for matching: changing `un_8031305C` from `s8` to `s32` was part of the final-match set reported by the bot.",
+    "Do not assume direct field writes are best for JObj transforms; using HSD helper setters can match compiler output while hiding complex inline dirty-flag behavior.",
+    "Explicit small structs for otherwise unknown callback/wait data can improve matching and future comprehension even when field names remain offset-based.",
+    "A code-match improvement can still regress a data section: the bot reported `.data` fell from 20.07% to 4.40%, likely related to string/data layout changes, so code and data matching should be tracked separately."
   ],
   "naming_conventions": [
-    "TyListArg.links[0] and links[1] replaced x0 and x4 for circular neighbor traversal; links[2] preserves the third pointer slot formerly at x8.",
-    "TyListArg.jobjs[0], jobjs[1], and jobjs[2] replaced xC, x10, and x14 for the JObj slots.",
-    "TyListArg.texts[0..2] names the three HSD_Text* slots at offsets 0x18, 0x1C, and 0x20.",
-    "Unknown but verified offset fields stayed in xNN style, such as TyListState.x2C2, ToyGlobalsS_.x58, ToyGlobalsS_.x140, and TyListWaitData.x20/x24.",
-    "ToyGlobalsS_ became the shared type name for a broader toy/trophy globals layout; smaller overlay names ToyGlobals2S_/3S_/4S_/5S_ and TyUnk25 were removed."
+    "`TyListArg.links[0]` and `links[1]` replaced previous `x0`/`x4` next/previous-style pointers; the evidence suggests these are circular list links, but exact semantic direction should still be confirmed.",
+    "`TyListArg.jobjs[0..2]` replaced individual JObj fields and is used for entry root/child/model-related JObjs in trophy-list rendering.",
+    "`TyListArg.texts[0..2]` documents three contiguous text handles created per trophy-list entry.",
+    "`TyListWaitData` follows the local unknown-struct convention with offset fields (`x20`, `x24`) while eliminating raw casts.",
+    "`ToyGlobalsS_` and `ToySubStructS_` remain underscore-suffixed unknown/shared ty/toy structs, but now live in `types.h` for reuse.",
+    "The PR keeps many unresolved symbols as `un_803...`/`un_804...`, so semantic naming evidence is limited."
   ],
   "assembly_or_matching_tactics": [
-    "Use char* data = un_803FDD18 and pass data + fixed offsets to lbArchive_LoadSymbols when matching tylist archive-name/symbol-name calls.",
-    "For un_8031305C, s32 return type, PAD_STACK(0xC), and storing the x29F comparison in i were part of the final matched shape.",
-    "For un_80313508, structure the null-joint case as OSPanic followed by an else block, then use HSD_JObjSetTranslateX/Y/Z and return either the newly added child or a GObj-created object.",
-    "For fn_8031438C, typed array access archive->jobjs[i], a local HSD_Text* temporary, and assigning default_alignment as (double) 2 helped reach 100%.",
-    "For un_803147C4, raw base-pointer memory operations such as memzero(data + 0x2AC, 0x18), memzero(gobj, 0x14), and memzero(data, 0x2AC) were retained for codegen.",
-    "The un_80313774 implementation sets up TyListArg entries as a circular list, advances entry = entry->links[1], and uses un_8031305C in a loop to align initial state."
+    "Used `PAD_STACK(0xC)` in `un_8031305C` and `PAD_STACK(0x18)`/`PAD_STACK(8)` in nearby functions to control stack layout.",
+    "Introduced `i = ((s8) state->x29F) > 0; if (i) { ... }` in `un_8031305C`, a source-shape tweak likely intended to match condition/codegen.",
+    "Replaced string literals passed to `lbArchive_LoadSymbols` with `char* data = un_803FDD18` plus fixed offsets such as `0x608`, `0x614`, `0x9DC`, `0xA58`, and related symbol-name offsets.",
+    "Used `char* data = un_804A2AC0` plus offset-based `memzero(data + 0x2AC, 0x18)` and `memzero(data, 0x2AC)` in `un_803147C4` instead of fully typed field access.",
+    "Used helper calls `HSD_JObjSetTranslateX`, `HSD_JObjSetTranslateY`, and `HSD_JObjSetTranslateZ` instead of direct `jobj->translate` writes to avoid expanding dirty matrix logic.",
+    "Added casts and temporaries such as `HSD_GObj** gobj`, `LightList** jobj`, `HSD_Text* new_var`, and `(double) 2` to influence generated code in `un_803147C4`/`fn_8031438C`.",
+    "Returned the last child after `HSD_JObjAddChild` by walking `parentJobj->child` through `next`, preserving the observed child insertion result in `un_80313508`."
   ],
   "review_feedback": [
-    "No human review comments and no PR body were present in the provided slice.",
-    "decomp.dev bot report for GALE01 c14d251..0bdec7e: matched code increased to 67.24%, +0.07%, +2552 bytes.",
-    "Bot reported 5 new matches: un_8031263C, fn_8031438C, un_8031305C, un_80313508, and un_803124BC all reached 100%.",
-    "Bot reported unmatched improvements: un_80313774 improved from 0.00% to 62.48%, .sdata2 from 12.90% to 37.84%, un_803147C4 from 78.58% to 85.97%, and fn_80313BD8 from 95.22% to 95.34%.",
-    "Bot reported one regression: tylist .data dropped from 20.07% to 4.40%."
+    "No human review comments were present in the provided slice.",
+    "decomp.dev bot reported matched code improved to 67.24%, a +0.07% increase and +2552 bytes.",
+    "Bot reported 5 new 100% matches in `main/melee/ty/tylist`: `un_8031263C`, `fn_8031438C`, `un_8031305C`, `un_80313508`, and `un_803124BC`.",
+    "Bot reported `un_80313774` improved from 0.00% to 62.48%, `.sdata2` from 12.90% to 37.84%, `un_803147C4` from 78.58% to 85.97%, and `fn_80313BD8` slightly from 95.22% to 95.34%.",
+    "Bot reported a `.data` regression from 20.07% to 4.40%."
   ],
   "searchable_terms": [
     "pr-2511",
     "jj/tylist2",
     "jellejurre",
-    "src/melee/ty/tylist.c",
-    "src/melee/ty/types.h",
-    "src/melee/ty/toy.c",
-    "src/melee/ty/tylist.h",
     "tylist",
-    "trophy list",
-    "ToyGlobalsS_",
-    "ToySubStructS_",
+    "toy",
+    "types.h",
     "TyListArg",
     "TyListState",
     "TyListWaitData",
-    "TyArchiveData",
-    "TyListArchive",
-    "links[0]",
-    "links[1]",
-    "jobjs[0]",
-    "texts[0]",
+    "ToyGlobalsS_",
+    "ToySubStructS_",
     "un_803124BC",
     "un_8031263C",
     "un_8031305C",
-    "un_80313358",
     "un_80313464",
     "un_80313508",
     "un_80313774",
-    "fn_80313BD8",
     "fn_8031438C",
     "un_803147C4",
-    "un_803FDD18",
-    "un_804A2AC0",
-    "un_804A284C",
-    "un_804D6ED0",
-    "un_804D6ED8",
-    "un_804D6EE0",
-    "un_804D6EE8",
     "lbArchive_LoadSymbols",
+    "un_803FDD18",
     "TyDatai.dat",
     "TyDatai.usd",
-    "TyDataf.dat",
     "tyInitModelTbl",
-    "tyInitModelDTbl",
-    "tyModelSortTbl",
-    "tyModelFileTbl",
+    "tyDisplayModelUsTbl",
     "HSD_JObjSetTranslateX",
     "HSD_JObjSetTranslateY",
     "HSD_JObjSetTranslateZ",
     "HSD_SisLib_803A5ACC",
     "HSD_SisLib_803A6754",
-    "GObj_Create",
-    "Toy_LoadLObjList",
-    "un_GetTrophyTotal"
+    "un_GetTrophyTotal",
+    "PAD_STACK",
+    "links",
+    "jobjs",
+    "texts",
+    "trophy list"
   ],
   "follow_up_queries": [
-    "Find later tylist PRs that finish un_80313774 after this 62.48% implementation.",
-    "Search for TyListArg.links[2] and TyListArg.x25 to determine whether the current names should become more semantic.",
-    "Check whether the .data regression from replacing literals with un_803FDD18 offsets was later recovered.",
-    "Look for remaining ToyGlobals partial overlays outside toy.c that can be replaced with the shared ToyGlobalsS_ layout.",
-    "Continue refining TyListState around offsets 0x2B8-0x2D8 now that x2C2 and gobj_2C4 are exposed."
+    "Investigate why `.data` matching regressed after replacing tylist string literals with `un_803FDD18` offsets.",
+    "Continue matching the remaining 37.52% of `un_80313774` and use its circular-list setup to assign semantic names to `links[0]` and `links[1]`.",
+    "Confirm the semantic roles of `TyListArg.jobjs[0]`, `jobjs[1]`, and `jobjs[2]` from trophy model/icon rendering behavior.",
+    "Refine `ToyGlobalsS_` field names now that it combines offsets used by toy and tylist code.",
+    "Check whether `TyListWaitData` corresponds to an existing HSD/GObj user data type elsewhere in the codebase."
   ],
-  "confidence": 0.86
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

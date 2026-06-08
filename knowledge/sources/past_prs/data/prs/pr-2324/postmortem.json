@@ -11,108 +11,88 @@
     "merged_at": "2026-03-19T23:26:29Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged game-mode decompilation PR replacing three placeholder comments with matching C for fn_80170110, gm_801BEDA8, and fn_8017F09C. The functions cover unlock availability checks, CSS match-type cycling, and regular-clear time bonus calculation. Headers were updated to replace UNK prototypes with concrete void*, int, u8, and s32 signatures. The PR body and automated report both indicate 100% matches for the target gm functions.",
+  "summary": "Decompiled three game-mode functions: an unlock-table access check in gm_16F1.c, Character Select Screen match-type cycling in gm_1BA8.c, and a regular-clear time bonus calculation in gmregclear.c. The PR also tightened nearby header prototypes from UNK_T/UNK_PARAMS/UNK_RET to concrete void*, int, s32, and void signatures. The automated report showed 100% matches for fn_80170110, gm_801BEDA8, and fn_8017F09C, adding 144, 176, and 176 matched bytes respectively.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "types-structs",
-      "gameplay-logic-recovery"
+      "game-logic"
     ],
     "systems": [
       "game-mode",
       "character-select-screen",
-      "unlock-checks",
+      "unlock-system",
       "regular-clear"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gm/gm_16F1.c",
-      "role": "Decompiled fn_80170110 unlock-table lookup and per-player unlock check."
-    },
-    {
-      "path": "src/melee/gm/gm_16F1.h",
-      "role": "Updated fn_80170110 and fn_801701C0 prototypes away from UNK_T/UNK_RET."
-    },
-    {
-      "path": "src/melee/gm/gm_1BA8.c",
-      "role": "Decompiled gm_801BEDA8 CSS match_type cycling and VsModeData sync."
-    },
-    {
-      "path": "src/melee/gm/gmregclear.c",
-      "role": "Decompiled fn_8017F09C clear time bonus eligibility and calculation."
-    },
-    {
-      "path": "src/melee/gm/gmregclear.h",
-      "role": "Updated fn_8017F09C prototype to s32 fn_8017F09C(void)."
-    }
+    "src/melee/gm/gm_16F1.c",
+    "src/melee/gm/gm_16F1.h",
+    "src/melee/gm/gm_1BA8.c",
+    "src/melee/gm/gmregclear.c",
+    "src/melee/gm/gmregclear.h"
   ],
   "what_changed": [
-    "Implemented int fn_80170110(void* arg0, int idx, int mask, u8 player_id): reads kind from lbl_803D5A4C[idx], searches lbl_803D5A4C for the same kind, treats sentinel kind 0x29A as flags=0, checks ((u8) mask & flags), and routes standard kinds below 0xD7 to pl_80039418(player_id, kind) while other kinds call fn_801701C0(arg0, player_id, kind).",
-    "Changed gm_16F1.h prototypes: fn_80170110 now takes void*, int, int, u8, and fn_801701C0 is declared as int fn_801701C0(void*, int, int).",
-    "Implemented void gm_801BEDA8(MinorScene* arg0): obtains CSSData via gm_801A427C(arg0), obtains VsModeData via gm_801A5244(), decrements match_type with wrap to 0x17 when pending_scene_change == 2, otherwise increments match_type modulo 24, then copies css->data into *vs.",
-    "Implemented s32 fn_8017F09C(void): checks gm_8016AE38()->x24C8.x4_6, rejects cases involving lbl_80472D28.x118, lbl_80472D28.x11A/x11B, or x24C8.x0_7, then returns timer_seconds * lbl_80472D28.x108 clamped to nonnegative; otherwise returns 0.",
-    "Changed gmregclear.h prototype from UNK_RET fn_8017F09C(UNK_PARAMS) to s32 fn_8017F09C(void).",
-    "Verification in the PR body reported fuzzy_match_percent 100.0 for all submitted functions; the automated report listed fn_8017F09C, gm_801BEDA8, and fn_80170110 as new 100% matches."
+    "Replaced the fn_80170110 placeholder with a matching implementation that scans lbl_803D5A4C entries by kind, derives unlock flags, checks a mask, and dispatches either to pl_80039418 for kinds below 0xD7 or fn_801701C0 for other kinds.",
+    "Updated gm_16F1.h so fn_80170110 takes void*, int, int, u8 instead of UNK_T, int, int, u8, and so fn_801701C0 is declared as int fn_801701C0(void*, int, int).",
+    "Replaced the gm_801BEDA8 placeholder with logic that reads CSSData from a MinorScene, cycles css->match_type backward when pending_scene_change is 2 and forward otherwise, wraps across 24 match types, and copies css->data into the current VsModeData.",
+    "Replaced the fn_8017F09C placeholder with an s32-returning clear bonus calculation gated by gm_8016AE38 state and lbl_80472D28 flags; it returns timer_seconds multiplied by data->x108, clamped to 0 if negative, or 0 when ineligible.",
+    "Updated gmregclear.h so fn_8017F09C is declared as s32 fn_8017F09C(void) instead of an unknown return and unknown parameters."
   ],
   "smart_moves": [
-    "Kept fn_80170110's table-search failure path as a shared check label with flags=0, avoiding duplicate return logic and matching the observed control-flow shape.",
-    "Used an explicit (u8) cast on mask before the unlock flag test, which is important for matching byte-width behavior around the flags field.",
-    "Expressed CSS match-type wrap in the natural domain range 0..23, using explicit reverse wrap to 0x17 and forward modulo 24 before syncing the full VS mode data struct.",
-    "Preserved the separate product and ret variables in fn_8017F09C before the negative clamp, a common tactic for matching signed arithmetic and branch shape.",
-    "Updated adjacent headers in the same PR so future decompilation work can rely on concrete function signatures instead of UNK_RET/UNK_PARAMS."
+    "Preserved a goto-based early path in fn_80170110 for the sentinel kind 0x29A case, which likely helped reproduce the original control flow and achieve a 100% match.",
+    "Used explicit modulo by 24 and a separate backward-wrap case in gm_801BEDA8, clearly modeling CSS match-type cycling while matching the original behavior.",
+    "Kept fn_8017F09C's eligibility test as nested state checks before doing the multiplication, matching the observed branch structure and avoiding speculative simplification.",
+    "Promoted header prototypes only where the implementation supplied concrete evidence, reducing UNK usage without over-naming still-unknown structs or parameters.",
+    "Handled negative clear-bonus products by assigning a temporary return value and clamping to zero, matching the source-level shape shown in the diff."
   ],
   "decomp_lessons": [
-    "When a function first decompiles successfully, immediately replace UNK prototypes in headers if the argument and return types are clear from the matching implementation.",
-    "For table scans with a sentinel entry, model both the found and not-found paths explicitly; a goto to a shared post-scan check can be a legitimate matching tactic.",
-    "Bitfield-like struct accesses such as x24C8.x4_6 and x24C8.x0_7 should be preserved when field semantics are not yet known; premature renaming would not be evidence-grounded.",
-    "CSS state handlers often mutate a small field and then copy a larger embedded data struct into global mode settings; keep the copy ordering close to the original.",
-    "If a function calls an accessor twice in the matching C, as fn_8017F09C does with gm_8016AE38(), avoid folding it into one cached pointer unless matching has been rechecked."
+    "For table scans, matching may require preserving sentinel handling and local flag variables rather than collapsing the logic into a more idiomatic helper.",
+    "When decompiling CSS menu cycling, represent wraparound exactly: backward cycling from 0 to 0x17 and forward cycling with modulo 24.",
+    "Use concrete prototypes as soon as callers and implementations establish them; even changing UNK_RET/UNK_PARAMS to s32 fn(void) is useful decomp progress.",
+    "Field names such as pending_scene_change, match_type, timer_seconds, and data fields in existing structs can make small game-mode functions understandable without fully naming every surrounding type.",
+    "Automated fuzzy/match reports are useful evidence for small placeholder removals, but unrelated new matches and regressions in other units should not be over-attributed to the PR's intent."
   ],
   "naming_conventions": [
-    "Unidentified functions retained address-based names with subsystem prefixes: fn_80170110, gm_801BEDA8, fn_8017F09C, fn_801701C0.",
-    "Header declarations keep address comments such as /* 170110 */ and /* 17F09C */ next to symbols.",
-    "Global data types use lbl-address style names when semantics are still unclear: struct lbl_803D5A4C_t, struct lbl_80472D28_t, lbl_8046B6A0_t.",
-    "Known domain structs use descriptive names already present in the codebase: MinorScene, CSSData, VsModeData.",
-    "Unknown fields retain offset/bitfield-style names such as x4, x108, x118, x11A, x11B, x24C8.x4_6, and x24C8.x0_7.",
-    "The PR introduced a clearer parameter name player_id for fn_80170110's u8 player identifier."
+    "Unidentified functions remained address-based, e.g. fn_80170110 and fn_8017F09C, while an already gm-prefixed symbol gm_801BEDA8 kept its subsystem prefix.",
+    "Struct and global names retained address-derived labels where semantic names were not established, e.g. lbl_803D5A4C_t, lbl_803D5A4C, lbl_80472D28_t, and lbl_80472D28.",
+    "Known semantic typedefs were reused for game-mode data, including MinorScene, CSSData, and VsModeData.",
+    "Header prototypes retained address comments such as /* 170110 */ and /* 17F09C */, consistent with the surrounding gm headers.",
+    "Unknown fields remained offset-style, e.g. x4, x108, x118, x11A, x11B, x24C8.x4_6, and x24C8.x0_7, avoiding unsupported semantic guesses."
   ],
   "assembly_or_matching_tactics": [
-    "Target functions were reported as 100.00% matches: fn_80170110 (+144 bytes), gm_801BEDA8 (+176 bytes), and fn_8017F09C (+176 bytes).",
-    "fn_80170110 uses a labeled check block after the lbl_803D5A4C scan to share the flag mask test between normal lookup and sentinel failure.",
-    "The unlock check uses constants 0x29A for the table sentinel/default path and 0xD7 as the split between pl_80039418 and fn_801701C0 handling.",
-    "gm_801BEDA8 uses an explicit decrement-or-wrap branch for reverse cycling but a modulo expression for forward cycling; this exact asymmetry is useful to try for CSS/menu wrap handlers.",
-    "fn_8017F09C keeps an explicit int flag variable, two gm_8016AE38() calls, and a product/ret clamp sequence, all of which may affect branch/register allocation for matching.",
-    "Automated GALE01 report showed overall matched code at 59.10% (+0.02%, +880 bytes), with some unrelated new matches and sdata2 regressions also reported by the matcher."
+    "fn_80170110 used a while loop over lbl_803D5A4C and a labeled check block to preserve branch layout around the 0x29A sentinel and mask test.",
+    "The mask comparison in fn_80170110 explicitly casts mask to u8 before ANDing with flags, reflecting byte-width behavior important for matching.",
+    "gm_801BEDA8 used direct assignment '*vs = css->data' rather than field-by-field copying, indicating the struct layout was suitable for a whole-struct copy match.",
+    "fn_8017F09C called gm_8016AE38 twice, storing p and p2 separately, rather than reusing one pointer; this likely follows original codegen requirements.",
+    "fn_8017F09C kept intermediate locals product and ret for the multiply-and-clamp sequence, a common tactic when matching compiler-generated register flow."
   ],
   "review_feedback": [
     "No human review comments were present in the provided slice.",
-    "Automated encounter report confirmed the three changed gm functions became 100.00% matches and noted two unmatched-item regressions in .sdata2, including main/melee/gm/gmregclear .sdata2 from 30.12% to 24.43%."
+    "The automated report for GALE01 recorded 5 new matches, including 100% matches for main/melee/gm/gmregclear fn_8017F09C, main/melee/gm/gm_1BA8 gm_801BEDA8, and main/melee/gm/gm_16F1 fn_80170110.",
+    "The automated report also noted overall matched code rose to 59.10% (+0.02%, +880 bytes), with two unrelated unmatched-item regressions in .sdata2 sections."
   ],
   "searchable_terms": [
     "pr-2324",
     "johnwinston",
     "gm",
     "game-mode",
-    "decompile",
+    "gm_16F1",
+    "gm_1BA8",
+    "gmregclear",
     "fn_80170110",
     "gm_801BEDA8",
     "fn_8017F09C",
-    "gm_16F1.c",
-    "gm_16F1.h",
-    "gm_1BA8.c",
-    "gmregclear.c",
-    "gmregclear.h",
-    "lbl_803D5A4C_t",
+    "fn_801701C0",
+    "pl_80039418",
     "lbl_803D5A4C",
-    "lbl_80472D28_t",
+    "lbl_803D5A4C_t",
     "lbl_80472D28",
+    "lbl_80472D28_t",
     "lbl_8046B6A0_t",
     "gm_8016AE38",
-    "pl_80039418",
-    "fn_801701C0",
     "MinorScene",
     "CSSData",
     "VsModeData",
@@ -121,24 +101,29 @@
     "pending_scene_change",
     "match_type",
     "timer_seconds",
+    "unlock check",
     "unlock flags",
-    "player_id",
-    "0x29A",
-    "0xD7",
-    "0x17",
-    "modulo 24",
+    "character select screen",
+    "CSS match type cycling",
+    "Time Stock Coin",
+    "regular clear",
     "clear bonus",
     "time bonus",
-    "fuzzy_match_percent",
-    "GALE01"
+    "fuzzy_match_percent 100.0"
   ],
   "follow_up_queries": [
-    "Find callers of fn_80170110 to determine a better type/name for arg0 and the meaning of idx and mask.",
-    "Investigate lbl_803D5A4C_t table entries and sentinel kind 0x29A to name kind and x4 fields more precisely.",
-    "Decompile or review fn_801701C0 to confirm the special unlock category handled when kind >= 0xD7.",
-    "Trace CSSData.match_type values 0..23 to name the match-type enum used by gm_801BEDA8.",
-    "Investigate lbl_80472D28.x108, x118, x11A, and x11B in gmregclear to name the clear bonus multiplier and eligibility flags.",
-    "Check whether the reported gmregclear .sdata2 regression needs separate cleanup or is only a matcher side effect."
+    "Find later PRs that rename fn_80170110 or fn_801701C0 with semantic unlock-system names.",
+    "Look for PRs refining CSSData match_type or pending_scene_change field names around gm_801BEDA8.",
+    "Search for later gmregclear work that names lbl_80472D28_t fields x108, x118, x11A, and x11B.",
+    "Check whether gm_8016AE38 return type lbl_8046B6A0_t and x24C8 bitfields were later documented or renamed."
   ],
-  "confidence": 0.91
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

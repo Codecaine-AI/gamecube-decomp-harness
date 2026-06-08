@@ -1,0 +1,167 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2621",
+  "pr": {
+    "number": 2621,
+    "title": "Improvements to split up: GM",
+    "url": "https://github.com/doldecomp/melee/pull/2621",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:30:30Z",
+    "merged_at": "2026-06-08T16:21:37Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "GM subsystem slice split from PR #2617 to make matching improvements easier to review. The changes are mostly decompilation matching cleanups in src/melee/gm: simplifying temporaries and pointer walks into array indexing, exposing fields in a local gm_1832 struct, reordering locals for codegen, correcting HSD_JObj scale-vs-translate calls, tightening boolean returns, and replacing duplicate unlock lookup logic with an existing helper. Evidence indicates a matching-focused cleanup slice with no reported regressions in the source branch, though the exact per-file match deltas are not included in the dump.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "codegen-cleanup",
+      "struct-layout",
+      "game-mode-ui",
+      "review-slice"
+    ],
+    "systems": [
+      "game-mode",
+      "gm",
+      "tournament-mode",
+      "classic-mode",
+      "menus",
+      "player-init"
+    ]
+  },
+  "key_files": [
+    "src/melee/gm/gm_1601.c",
+    "src/melee/gm/gm_16AE.c",
+    "src/melee/gm/gm_16F1.c",
+    "src/melee/gm/gm_1832.c",
+    "src/melee/gm/gm_18A5.c",
+    "src/melee/gm/gm_1A4C.c",
+    "src/melee/gm/gmtou.c"
+  ],
+  "what_changed": [
+    "In gm_1601.c, gm_80164330 was simplified by removing a temporary gmMainLib_8015CC58 result variable and returning the stage-mask test as a ternary boolean expression.",
+    "In gm_1601.c, gm_80164910 replaced an inline NUM_UNLOCKABLE_CHARACTERS search over lbl_803B78C8 with fn_801605EC(internal_id), removing a goto-based found_char path.",
+    "In gm_16AE.c, local u8 declaration order in gm_8016EDDC was adjusted, likely for register allocation or stack/codegen matching.",
+    "In gm_16F1.c, fn_8016FFD4 removed a cached flags local and directly cast fn_8016F180(i) in bit tests.",
+    "In gm_16F1.c, fn_801701C0 was rewritten from pointer-increment loops and special-cased index 0 logic into straightforward indexed loops over six entries for score calculation and ranking.",
+    "In gm_16F1.c, gm_80173EEC changed x18 indexing to use an explicit u32 cast on i.",
+    "In gm_1832.c, gm_1832_8047368C_t replaced a generic pad_8[0x1C] region with named byte fields and small arrays xEC through x100 while preserving sizeof == 0x24 with a static assert.",
+    "In gm_1832.c, fn_8018325C introduced a separate Vec3 scale variable so translation and scale values are not aliased through the same Vec3 local.",
+    "In gm_1832.c, fn_80185E34 changed several references from lbl_804735E8 to lbl_8047368C for demo player setup fields such as xEF, xF1, xF7, and xFD.",
+    "In gm_18A5.c, fn_8018E46C introduced a new_var temporary for data->x18 and consistently passed -new_var to several tournament bracket drawing helpers.",
+    "In gm_18A5.c, fn_8018E85C reordered locals, adjusted loop initialization style, and changed HSD_JObjSetTranslateX/Y calls to HSD_JObjSetScaleX/Y for computed scale values.",
+    "In gm_18A5.c, gm_801905F0 initialized the TmData pointer at declaration as &gm_804771C4.",
+    "In gm_18A5.c, fn_80198824 stopped reassigning the HSD_GObj pointer as an HSD_JObj pointer and instead assigned jobj = gobj->hsd_obj; it also inverted the lbl_804D667C condition for hiding/showing translate Z behavior.",
+    "In gm_18A5.c, fn_80198EBC split hide_z/show_z declarations and used a bounce_y pointer increment loop when filling da0d0->bounce_y from HSD_JObjGetTranslationY.",
+    "In gm_1A4C.c, gm_801A85E4 removed a temporary float x and passed trigonometric expressions directly to HSD_JObjSetTranslateX and HSD_JObjSetTranslateZ.",
+    "In gm_1A4C.c, gm_801A9630 changed the loop index declaration from s32 i to int i and moved it earlier among locals.",
+    "In gmtou.c, gm_8019ECAC_OnEnter introduced a separate loop index j for the audio_mask character loop instead of reusing i."
+  ],
+  "smart_moves": [
+    "The PR was split by subsystem/path from a larger branch, keeping review scope constrained to src/melee/gm and making matching diffs easier to audit.",
+    "Replacing duplicated unlock-character search logic with fn_801605EC reduced control-flow noise and removed a goto while preserving the NUM_UNLOCKABLE_CHARACTERS sentinel behavior.",
+    "Turning pointer-increment score/ranking code into indexed loops in fn_801701C0 made the six-entry ranking logic clearer and easier to verify against data arrays.",
+    "Adding explicit struct fields to gm_1832_8047368C_t while retaining STATIC_ASSERT(sizeof(...) == 0x24) is a safe way to expose unknown data layout incrementally without silently changing layout.",
+    "Separating Vec3 pos and Vec3 scale in fn_8018325C avoids misleading reuse of a translation variable for scale data and documents HSD_JObjGetScale/HSD_JObjSetScale intent.",
+    "Correcting HSD_JObjSetTranslateX/Y to HSD_JObjSetScaleX/Y in fn_8018E85C aligns the API call names with the computed scaling factor and likely fixes both readability and semantic accuracy.",
+    "Using a typed jobj local from gobj->hsd_obj in fn_80198824 avoids unsafe-looking variable reuse where a GObj variable was reassigned to its contained JObj pointer."
+  ],
+  "decomp_lessons": [
+    "For matching cleanup slices, small source-shape changes such as local declaration order, temporary lifetime, explicit casts, and indexed-vs-pointer loops can matter as much as larger control-flow edits.",
+    "When an unknown struct region starts being accessed, prefer replacing padding with named offset fields and arrays plus a static size assertion rather than leaving magic offsets hidden.",
+    "Do not over-collapse constants into raw literals if the project already has meaningful named constants; reviewer feedback specifically asked to stick with a constant in gm_1832.c.",
+    "Direct expression inlining can improve matching and reduce artificial temporaries, but should be balanced against readability and known compiler behavior.",
+    "Separate loop indices can help avoid lifetime/register conflicts in decompilation, as seen in gmtou.c using j for the audio_mask loop.",
+    "API-name correctness matters during decomp cleanup: scale computations should call scale setters, not translate setters, even when the old shape happened to match partially.",
+    "When replacing hand-written loops with helpers, preserve sentinel values and downstream comparisons, such as fn_801605EC returning NUM_UNLOCKABLE_CHARACTERS-compatible values."
+  ],
+  "naming_conventions": [
+    "Unknown GM files continue to use address-derived names such as gm_1601.c, gm_16AE.c, gm_16F1.c, gm_1832.c, gm_18A5.c, and gm_1A4C.c.",
+    "Unidentified functions retain fn_<address> style names, for example fn_8016FFD4, fn_801701C0, fn_8018325C, and fn_8018E85C.",
+    "Global labels retain lbl_<address> style names such as lbl_8047368C, lbl_803B78C8, lbl_804D667C, and lbl_804799D8.",
+    "Struct fields in partially known layouts use offset-style names such as xEC, xEF, xF1, xF7, xFD, and x100.",
+    "Typed subsystem data names use project conventions like TmData, BracketEntry, StartMeleeData, GameRules, PlayerInitData, HSD_GObj, and HSD_JObj.",
+    "Project constants visible in the diff include NUM_UNLOCKABLE_CHARACTERS, GM_CLASSIC, and Gm_PKind_Demo."
+  ],
+  "assembly_or_matching_tactics": [
+    "Remove unnecessary locals when the compiler can emit matching code from direct member access, as with gmMainLib_8015CC58()->stage_mask.",
+    "Use explicit casts in bit operations and indexing when needed to influence generated code, such as casting i to u16 or u32 in stage masks and array indexing.",
+    "Reorder local declarations to influence register assignment and stack layout, as seen in gm_16AE.c, gm_18A5.c, gm_1A4C.c, and gmtou.c.",
+    "Replace pointer-walk loops with indexed array loops when that source form better matches the target or improves readability without changing behavior.",
+    "Introduce temporaries such as new_var or bounce_y when they control expression evaluation, register reuse, or pointer-increment code shape.",
+    "Keep STATIC_ASSERTs around partially reconstructed structs to guard against accidental size/layout drift.",
+    "Use direct ternary boolean returns for mask tests when the generated branch/return pattern benefits from a compact expression.",
+    "Use separate Vec3 locals for translation and scale operations to avoid compiler aliasing/lifetime artifacts and improve semantic clarity."
+  ],
+  "review_feedback": [
+    {
+      "author": "PsiLupan",
+      "file": "src/melee/gm/gm_1832.c",
+      "comment": "As noted on another PR, should stick with using the constant here.",
+      "context": "The comment was attached to fn_80185E34 around demo player setup, where the diff still showed raw literals such as 0x21, 0.0f, 1.0f, and related player setup calls. The exact intended constant is not specified in the dump."
+    }
+  ],
+  "searchable_terms": [
+    "PR 2621",
+    "Improvements to split up: GM",
+    "split from #2617",
+    "src/melee/gm",
+    "gm_1601.c",
+    "gm_16AE.c",
+    "gm_16F1.c",
+    "gm_1832.c",
+    "gm_18A5.c",
+    "gm_1A4C.c",
+    "gmtou.c",
+    "gm_80164330",
+    "gm_80164910",
+    "fn_801605EC",
+    "fn_8016FFD4",
+    "fn_801701C0",
+    "gm_80173EEC",
+    "gm_1832_8047368C_t",
+    "lbl_8047368C",
+    "lbl_804735E8",
+    "fn_8018325C",
+    "fn_80185E34",
+    "fn_8018E46C",
+    "fn_8018E85C",
+    "gm_801905F0",
+    "fn_80198824",
+    "fn_80198EBC",
+    "gm_801A85E4",
+    "gm_801A9630",
+    "gm_8019ECAC_OnEnter",
+    "NUM_UNLOCKABLE_CHARACTERS",
+    "RandomStageSwitch",
+    "HSD_JObjSetScaleX",
+    "HSD_JObjSetScaleY",
+    "HSD_JObjSetTranslateX",
+    "HSD_JObjSetTranslateZ",
+    "STATIC_ASSERT",
+    "Gm_PKind_Demo",
+    "GM_CLASSIC",
+    "TmData",
+    "BracketEntry",
+    "tournament mode",
+    "classic mode"
+  ],
+  "follow_up_queries": [
+    "Which constant did PsiLupan intend in fn_80185E34 instead of the raw literal in gm_1832.c?",
+    "Did the final merged commit adjust the reviewer-requested constant usage after the review comment?",
+    "What exact match improvements or new matches were attributed to each GM file in this slice after CI/decomp-dev completed?",
+    "Are lbl_804735E8 and lbl_8047368C aliases, renamed globals, or distinct structs, and should their names/types be consolidated?",
+    "Can gm_1832_8047368C_t fields xEC through x100 be given semantic names based on demo player setup usage?",
+    "Are the HSD_JObjSetScaleX/Y changes in fn_8018E85C reflected in known tournament UI behavior or only in matching output?"
+  ],
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

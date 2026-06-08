@@ -11,139 +11,104 @@
     "merged_at": "2026-03-11T05:13:00Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large decomp/matching PR centered on almost completing src/melee/mn/mngallery.c, with smaller exact-match cleanups in gm_1601, grcorneria, and lbaudio_ax. The decomp.dev report credited 19 new matches, +6052 matched code bytes, and +24 matched data bytes; fn_802590C4 remained an unmatched-but-improved mngallery item at 99.19%. The PR also tightened headers by replacing several UNK_RET/UNK_PARAMS prototypes with typed HSD_GObj, Vec3, u8 pointer, bool, and void signatures.",
+  "summary": "Large decompilation/matching PR centered on src/melee/mn/mngallery.c, plus smaller matches and signature cleanups in gm_1601, grcorneria, and lbaudio_ax. The decomp.dev report recorded 19 new 100% matches, including nine mngallery functions, four gm_1601 functions, grCorneria_801DEC94, and three lbaudio_ax improvements; fn_802590C4 was improved to 99.19% but explicitly remained a difficult fuzzy/non-final match.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "menu-gallery",
-      "prototype-cleanup",
-      "headers",
-      "matching-tactics",
-      "small-library-cleanup"
+      "menu-decompilation",
+      "misc-matches",
+      "header-signature-cleanup",
+      "matching-tactics"
     ],
     "systems": [
       "mn/mngallery",
       "gm/gm_1601",
       "gr/grcorneria",
       "lb/lbaudio_ax",
-      "HSD/baselib",
-      "MTHP playback",
-      "stage unlocks"
+      "baselib",
+      "stage"
     ]
   },
   "key_files": [
-    {
-      "file": "src/melee/mn/mngallery.c",
-      "role": "Primary implementation work: added gallery render/camera setup, MTHP playback startup/skip handling, menu input state machine, selection animation helpers, GObj construction, archive section loading, text and camera setup."
-    },
-    {
-      "file": "src/melee/mn/mngallery.h",
-      "role": "Replaced unknown gallery prototypes with typed signatures and added baselib forward declarations."
-    },
-    {
-      "file": "src/melee/gm/gm_1601.c",
-      "role": "Implemented four game-mode helpers for time formatting and stage unlock checks."
-    },
-    {
-      "file": "src/melee/gm/gm_1601.h",
-      "role": "Updated gm_1601 prototypes from int/void* placeholders to u8, u8*, and bool types."
-    },
-    {
-      "file": "src/melee/gr/grcorneria.c",
-      "role": "Implemented grCorneria_801DEC94 as a Vec3 blast-zone proximity check."
-    },
-    {
-      "file": "src/melee/gr/grcorneria.h",
-      "role": "Typed grCorneria_801DEC94 as s32 grCorneria_801DEC94(Vec3*)."
-    },
-    {
-      "file": "src/melee/lb/lbaudio_ax.c",
-      "role": "Reshaped three audio functions to finish exact matches: GObj creation control flow, PAD_STACK/return inversion, and a void mask-marking helper."
-    },
-    {
-      "file": "src/melee/lb/lbaudio_ax.h",
-      "role": "Changed lbAudioAx_80026F2C prototype from u64 return to void."
-    }
+    "src/melee/mn/mngallery.c",
+    "src/melee/mn/mngallery.h",
+    "src/melee/gm/gm_1601.c",
+    "src/melee/gm/gm_1601.h",
+    "src/melee/gr/grcorneria.c",
+    "src/melee/gr/grcorneria.h",
+    "src/melee/lb/lbaudio_ax.c",
+    "src/melee/lb/lbaudio_ax.h"
   ],
   "what_changed": [
-    "Implemented 9 fully matched mngallery functions listed by the author: mnGallery_8025896C, mnGallery_80258A08, mnGallery_80258BC4, mnGallery_80258DBC, fn_80258ED0, mnGallery_802591BC, mnGallery_80259604, mnGallery_8025963C, and mnGallery_80259868.",
-    "Added a near-match implementation of fn_802590C4 in mngallery.c; the bot report says it improved from 0.00% to 99.19%, not 100%.",
-    "mngallery.c gained many concrete baselib/menu/library includes plus a new static pointer mnGallery_804D6C88 alongside the existing mnGallery_804D6C8C movie buffer pointer.",
-    "mnGallery_8025896C became a render callback that only clears/draws the SObj view when the gallery state is 3.",
-    "mnGallery_80258A08 now allocates and configures an orthographic HSD_CObj camera with viewport, scissor, eye, interest, near/far, ortho bounds, object attachment, and GX link setup.",
-    "mnGallery_80258BC4 starts one of two MTHP movie modes, creates the movie GObj/SObj, configures dimensions/offsets, switches audio state around lbMthp_8001F410, and stores playback state in userdata.",
-    "mnGallery_80258DBC handles movie progress/skip logic using all four controller trigger fields, lbMthp status calls, gmMainLib_8046B0F0.xC, and cleanup of the movie GObj after skip/end.",
-    "fn_80258ED0 implements the gallery menu input state machine: cooldown handling, Back navigation cleanup, Up/Down selection, Start/A entering movie playback, and SIS text animation IDs 0xC7/0xC8.",
-    "mnGallery_802591BC syncs child selector GObj transforms from the parent joint, animates selected/unselected materials, and selects texture animation frames by index.",
-    "mnGallery_80259604 zeroes the observed gallery userdata fields; mnGallery_8025963C constructs the root gallery GObj, two child GObjs, user data, animation data, and procs; mnGallery_80259868 loads archive sections, enters menu 0x1A, creates input proc, text, and camera.",
-    "gm_801636D8 and gm_80163A3C now format stored frame counts into hour/minute/second/centisecond u8 outputs using 60 FPS conversion and the 99.0f * remainder / 59.0f formula.",
-    "gm_80163838 now totals frame counts across 0x19 entries, fails if any gmMainLib_8015D6BC check fails, and returns the aggregate time split through optional u8 pointers.",
-    "gm_80164430 now checks whether a stage is unlocked by converting the stage with Stage_8022519C, looking up unlock bits in lbl_803B790C, and testing the bitfield from gmMainLib_8015EDA4.",
-    "grCorneria_801DEC94 now checks a Vec3 against blast-zone offsets with a 30.0f margin when z > -30.0f and returns s32 1 or 0.",
-    "lbAudioAx_800263E8 was control-flow reshaped from goto labels into a nested arg3 < 0x83D60 path that creates an HSD_GObj, allocates userdata, initializes userdata/proc, calls fn_80025FAC, and otherwise returns NULL.",
-    "lbAudioAx_80026510 gained PAD_STACK(8) and an inverted final count test that returns false when count == 0 and true otherwise.",
-    "lbAudioAx_80026F2C changed from returning u64 to returning void, removed the pointer-walk variable, and writes -1 directly into lbl_804337C4[i] when mask bits are set.",
-    "Headers were updated to replace generic unknown prototypes with evidence-backed typed signatures in mngallery.h, gm_1601.h, grcorneria.h, and lbaudio_ax.h."
+    "Implemented a large block of mngallery.c behavior, including mnGallery_8025896C, mnGallery_80258A08, mnGallery_80258BC4, mnGallery_80258DBC, fn_80258ED0, mnGallery_802591BC, mnGallery_80259604, mnGallery_8025963C, and mnGallery_80259868.",
+    "Added a near-complete implementation of fn_802590C4 in mngallery.c; the author described it as around a 95% fuzzy match, while the bot later reported 99.19%.",
+    "Added menu/gallery support code using baselib camera, gobj, gxlink, jobj, sobj/sislib, controller input, movie playback via lbMthp, and audio calls through lbAudioAx.",
+    "Matched gm_801636D8 and gm_80163A3C as frame-count-to-hours/minutes/seconds/centiseconds helpers with typed u8 output pointers.",
+    "Matched gm_80163838 as a total frame accumulation helper over 0x19 entries, returning false if any required gmMainLib entry is unavailable.",
+    "Matched gm_80164430 as a stage unlock check using Stage_8022519C, NUM_UNLOCKABLE_STAGES, lbl_803B790C, gmMainLib_8015EDA4, and a bit mask test.",
+    "Matched grCorneria_801DEC94 as a Vec3 position check against stage blast zone offsets with a 30.0f margin and z threshold.",
+    "Reworked lbAudioAx_800263E8 control flow from goto labels into nested conditionals that still preserve allocation failure behavior and return NULL when the sfx/stage argument is out of range.",
+    "Matched lbAudioAx_80026510 with a small PAD_STACK(8) adjustment and simplified bool return based on count.",
+    "Changed lbAudioAx_80026F2C from returning u64 to void, removed an unused arr pointer, and wrote directly to lbl_804337C4[i] while consuming the computed mask.",
+    "Updated headers to replace vague signatures such as void*/int/UNK_RET/UNK_PARAMS with more precise types: u8 pointers in gm_1601, Vec3* in grcorneria, and void return for lbAudioAx_80026F2C."
   ],
   "smart_moves": [
-    "The PR used narrow anonymous local structs to model only the observed userdata/layout fields needed for matching mngallery code, avoiding premature full struct naming while still replacing UNK_PARAMS in public prototypes.",
-    "Header cleanup was paired with implementation work, so discovered signatures propagated immediately to callers and future decomp work.",
-    "Control-flow shaping was used deliberately: lbAudioAx_800263E8 was rewritten around a positive threshold check, lbAudioAx_80026510 inverted its final condition, gm_80164430 used a found label, and fn_802590C4 used pointer arithmetic/do-while cleanup to chase MWCC codegen.",
-    "The author documented that fn_802590C4 was still a hard near-match instead of presenting it as finished; the bot report confirmed the exact state at 99.19%.",
-    "Compiler and stack-layout nudges were localized with pragmas and PAD_STACK rather than spread through unrelated code.",
-    "Repeated frame-to-time formatting logic in gm_1601 was typed as u8 outputs and bool success/failure, which clarified semantics and improved matching.",
-    "lbaudio_ax cleanup recognized that lbAudioAx_80026F2C's computed mask is consumed for side effects only, making the void return type part of the match."
+    "The PR paired matched C implementations with header signature tightening, making future call-site work safer and reducing placeholder type drift.",
+    "mngallery.c used local anonymous struct layouts to document only the offsets needed for matching without overclaiming full struct names or global layout knowledge.",
+    "The author used targeted MWCC pragmas such as opt_propagation off, dont_inline, optimization_level 2, and opt_strength_reduction on around hard functions instead of applying broad file-wide changes.",
+    "PAD_STACK was inserted only where the diff evidence suggests stack-shape sensitivity: mnGallery_8025896C, mnGallery_80258DBC, mnGallery_802591BC, and lbAudioAx_80026510.",
+    "The gm_1601 time conversion helpers reused the same frame division pattern and nullable output-pointer guards, which preserves behavior while clarifying the API.",
+    "grCorneria_801DEC94 was reduced to a simple, typed Vec3/blast-zone predicate, replacing an UNK signature with a clear stage-boundary helper.",
+    "lbAudioAx_800263E8 preserved the allocation cleanup path by unlinking the newly created gobj if userdata allocation failed.",
+    "The author explicitly called out fn_802590C4 as not fully solved instead of presenting it as a clean match, which is useful evidence for future follow-up."
   ],
   "decomp_lessons": [
-    "Do not leave prototypes as int/void*/UNK when the implementation reveals exact ABI-relevant types; bool vs int, void vs u64, Vec3* vs UNK_PARAMS, and u8* output parameters all affected these matches.",
-    "Near-matching a difficult MWCC function may require a combination of pragmas, stack padding, volatile/local variables, pointer walking, and exact cleanup ordering, but even extensive tactics may still leave a fuzzy item.",
-    "For menu code with HSD_GObj user data, local anonymous structs are a useful interim tactic when field offsets are known but durable semantic names are not.",
-    "MTHP menu playback setup in this gallery path uses a preallocated 0x271000 buffer, creates a GObj/SObj, toggles lbAudioAx_80024E50 around lbMthp_8001F410, and cleans up the movie GObj when playback is skipped or done.",
-    "The gallery menu state machine depends on both menu-level inputs from Menu_GetAllInputs and raw HSD_PadCopyStatus trigger aggregation for movie skipping.",
-    "Stage unlock helpers should convert stage IDs with Stage_8022519C before comparing against unlock tables such as lbl_803B790C; stages not found in the unlockable table are treated as available in gm_80164430.",
-    "Blast-zone proximity helpers can often be typed by comparing sibling functions: grCorneria_801DEC94 takes Vec3* and returns s32 just like the nearby grCorneria_801DEC08 style.",
-    "When matching side-effect-only mask functions, direct global array indexing can produce different codegen than pointer increment loops, and removing an unused return may be necessary."
+    "When matching menu code, expect heavy interaction between baselib GObjs/CObjs/JObjs/SObjs, controller input, text objects, audio state, and movie playback; include the specific baselib headers required rather than relying on placeholders.",
+    "For partially understood menu state, small local structs keyed to observed offsets can unblock matching while avoiding premature global struct definitions.",
+    "Frame counters in gm_1601 appear to convert game frames to h/m/s/cs using val / 60 for seconds and ((99.0f * (val % 60)) / 59.0f) for centiseconds; reuse this exact float expression when matching related time-display helpers.",
+    "Header cleanup is part of matching work: changing int/void* to u8/u8* and UNK_RET/UNK_PARAMS to concrete types can be necessary evidence for both codegen and later decomp readability.",
+    "Control-flow reshaping from goto-based decomp guesses to structured nested conditionals can improve or finish tiny remaining matches, as shown in lbAudioAx_800263E8.",
+    "Do not trust a non-void inferred return if the matched function only mutates globals; lbAudioAx_80026F2C became void and directly updates lbl_804337C4.",
+    "Hard MWCC codegen issues may require compiler-specific research. A collaborator pointed to a fully matched MWCC tree as a possible reference for fn_802590C4-style problems.",
+    "Evidence is weak for reviewer intent beyond the MWCC reference comment; there were no inline review comments in this slice."
   ],
   "naming_conventions": [
-    "Preserved project address-based symbol names where semantics remain unknown: mnGallery_8025896C, fn_80258ED0, fn_802590C4, gm_801636D8, lbl_803B790C.",
-    "Kept subsystem prefixes and capitalization consistent: mnGallery_, gm_, grCorneria_, lbAudioAx_, Stage_, HSD_.",
-    "Functions with unclear semantics retained the fn_ prefix, while subsystem-known functions retained their module prefix.",
-    "Unknown struct fields stayed as unk offsets/pads rather than invented names, while public function parameter types were improved when the evidence was strong.",
-    "Header prototypes keep the repository's address-comment format such as /* 25896C */ and /* 026F2C */."
+    "Unidentified functions keep address-based module prefixes, e.g. mnGallery_80258A08, gm_80163838, grCorneria_801DEC94, and lbAudioAx_80026F2C.",
+    "Functions with unknown semantics may retain fn_ prefixes, as with fn_80258ED0 and fn_802590C4.",
+    "Concrete engine/library APIs keep established names and capitalization, e.g. HSD_CObjSetCurrent, HSD_GObjPLink_80390228, GObj_Create, Stage_GetBlastZoneRightOffset, and lbMthp_8001F410.",
+    "Headers should use concrete argument and return types once known, replacing UNK_RET, UNK_PARAMS, int, and void* placeholders.",
+    "Global labels remain address-style when meaning is unknown, e.g. lbl_803B790C, lbl_80433710, and lbl_804337C4."
   ],
   "assembly_or_matching_tactics": [
-    "Used #pragma opt_propagation off around mnGallery_80258A08.",
-    "Used #pragma dont_inline on around mnGallery_80258D50 and mnGallery_80259604.",
-    "Used #pragma optimization_level 2, #pragma opt_strength_reduction on, and #pragma opt_propagation off around fn_802590C4.",
-    "Used PAD_STACK in several sensitive functions, including PAD_STACK(0x10) in mnGallery render/input helpers, PAD_STACK(24) in mnGallery_802591BC, PAD_STACK(0x38) in mnGallery_80259868, and PAD_STACK(8) in lbAudioAx_80026510.",
-    "Matched codegen by changing lbAudioAx_800263E8 from goto-based early exits to a nested positive condition with a final return NULL.",
-    "Matched lbAudioAx_80026510 by spelling the final return as if count == 0 return false; return true.",
-    "Matched lbAudioAx_80026F2C by making it void and using lbl_804337C4[i] direct indexing instead of an incrementing int* plus returned mask.",
-    "Used a goto found label in gm_80164430 to preserve the table-search control-flow shape.",
-    "fn_802590C4 used explicit store/data variables, char* read_base, zero initialized from i, and a do-while loop over two child GObjs, but remained a 99.19% fuzzy match.",
-    "The author investigated MWCC/register-coloring behavior externally for fn_802590C4; a collaborator pointed to a fully matched MWCC tree as a possible reference."
+    "Used MWCC pragmas around sensitive functions: #pragma opt_propagation off for mnGallery_80258A08 and fn_802590C4, #pragma dont_inline on around mnGallery_80258D50, and #pragma optimization_level 2 plus #pragma opt_strength_reduction on for fn_802590C4.",
+    "Used PAD_STACK to force stack layout where needed.",
+    "Used local volatile on HSD_GObj* volatile gobj8 in fn_80258ED0-related local struct, likely to preserve expected loads/stores.",
+    "Preserved odd control-flow details such as a goto found label in gm_80164430 for matching.",
+    "Preserved exact constants important for codegen and behavior: 0x271000 gallery movie buffer size, 0x83D60 lbAudioAx cutoff, 0x19 gm loop count, 0x37 audio mask loop count, 30.0f blast-zone margin, and 99.0f/59.0f centisecond conversion.",
+    "Used direct indexed global writes in lbAudioAx_80026F2C rather than pointer iteration to finish the match.",
+    "For fn_802590C4, the author experimented extensively and requested help; a collaborator suggested comparing against a fully matched MWCC source tree."
   ],
   "review_feedback": [
     {
-      "source": "decomp-dev bot",
-      "feedback": "Reported matched code 56.15% (+0.16%, +6052 bytes) and matched data 37.51% (+24 bytes), with 19 new matches."
+      "author": "decomp-dev[bot]",
+      "type": "match_report",
+      "summary": "Reported matched code increase to 56.15% (+0.16%, +6052 bytes) and matched data increase to 37.51% (+24 bytes), with 19 new matches."
     },
     {
-      "source": "decomp-dev bot",
-      "feedback": "Confirmed full matches for the listed gm_1601, grcorneria, lbaudio_ax, and 9 mngallery functions, while fn_802590C4 remained unmatched but improved to 99.19%."
+      "author": "decomp-dev[bot]",
+      "type": "match_report",
+      "summary": "Reported fn_802590C4 improved from 0.00% to 99.19% but still unmatched; also reported mngallery .sdata2 at 80.00% and a small grcorneria .sdata2 regression."
     },
     {
-      "source": "decomp-dev bot",
-      "feedback": "Reported one small unmatched-item regression in grcorneria .sdata2, from 20.48% to 20.00%; no human discussion of this regression appears in the provided slice."
+      "author": "ribbanya",
+      "type": "suggestion",
+      "summary": "Suggested a fully matched MWCC tree at https://git.wuffs.org/MWCC/tree/?h=main as a possible reference for compiler/codegen research."
     },
     {
-      "source": "ribbanya",
-      "feedback": "Suggested a fully matched MWCC version at https://git.wuffs.org/MWCC/tree/?h=main as a possible reference for the author's fn_802590C4/MWCC coloring problem."
-    },
-    {
-      "source": "PR discussion",
-      "feedback": "No formal review comments or requested changes are present in the slice."
+      "author": "human_review",
+      "type": "none",
+      "summary": "No inline review comments or formal review feedback were present in the provided slice."
     }
   ],
   "searchable_terms": [
@@ -151,13 +116,6 @@
     "Almost finish mngallery.c + misc matches",
     "dwilliams27",
     "mngallery.c",
-    "mngallery.h",
-    "gm_1601.c",
-    "gm_1601.h",
-    "grcorneria.c",
-    "grcorneria.h",
-    "lbaudio_ax.c",
-    "lbaudio_ax.h",
     "mnGallery_8025896C",
     "mnGallery_80258A08",
     "mnGallery_80258BC4",
@@ -168,46 +126,43 @@
     "mnGallery_80259604",
     "mnGallery_8025963C",
     "mnGallery_80259868",
+    "gm_1601.c",
     "gm_801636D8",
     "gm_80163838",
     "gm_80163A3C",
     "gm_80164430",
+    "grcorneria.c",
     "grCorneria_801DEC94",
+    "lbaudio_ax.c",
     "lbAudioAx_800263E8",
     "lbAudioAx_80026510",
     "lbAudioAx_80026F2C",
-    "lbMthp_8001F410",
-    "lbMthp_8001F624",
-    "lbMthp_8001F800",
-    "lbAudioAx_80024E50",
-    "HSD_GObjProc_8038FD54",
-    "HSD_CObjSetOrtho",
-    "HSD_SisLib_803A6368",
-    "Menu_GetAllInputs",
-    "MenuInput_Back",
-    "Stage_8022519C",
-    "NUM_UNLOCKABLE_STAGES",
-    "lbl_803B790C",
-    "lbl_804337C4",
-    "Stage_GetBlastZoneRightOffset",
     "PAD_STACK",
     "opt_propagation off",
     "dont_inline",
     "opt_strength_reduction",
-    "MWCC_COLORING_ANALYSIS",
-    "git.wuffs.org/MWCC",
-    "99.19% fuzzy match",
-    "0x271000"
+    "MWCC",
+    "MenuInput_Back",
+    "lbMthp_8001F410",
+    "Stage_GetBlastZoneRightOffset",
+    "NUM_UNLOCKABLE_STAGES",
+    "lbl_803B790C",
+    "lbl_804337C4"
   ],
   "follow_up_queries": [
-    "fn_802590C4 MWCC coloring 99.19 opt_propagation opt_strength_reduction read_base gobjs",
-    "mngallery MTHP playback lbMthp_8001F410 lbAudioAx_80024E50 0x271000",
-    "mnGallery_80259868 archive sections HSD_SisLib text camera menu 0x1A",
-    "gm_801636D8 gm_80163838 frame count hours minutes seconds 99.0f 59.0f",
-    "gm_80164430 Stage_8022519C lbl_803B790C NUM_UNLOCKABLE_STAGES unlock_bit",
-    "lbAudioAx_80026F2C void lbl_804337C4 mask direct indexing",
-    "grCorneria_801DEC94 Vec3 blast zone margin 30.0f z -30.0f",
-    "PR 2268 decomp.dev 19 new matches +6052 bytes"
+    "Search for later PRs that finish or rename fn_802590C4.",
+    "Search for later struct definitions replacing the local anonymous mngallery state structs used in this PR.",
+    "Search for commits using the MWCC reference suggested by ribbanya.",
+    "Search for follow-up header cleanups around gm_801636D8, gm_80163838, gm_80163A3C, grCorneria_801DEC94, and lbAudioAx_80026F2C.",
+    "Search for later mngallery.c PRs that complete remaining .sdata2 or gallery data matches."
   ],
-  "confidence": 0.94
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

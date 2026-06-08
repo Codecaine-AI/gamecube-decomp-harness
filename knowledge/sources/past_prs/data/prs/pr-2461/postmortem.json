@@ -11,134 +11,113 @@
     "merged_at": "2026-05-06T02:30:20Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched and improved functions across fighter, stage, and interface TUs, replacing placeholders with evidence-backed C for CPU attack selection, match status dispatch, capture cleanup, and Ice Mountain/Pokemon Stadium/Fourside stage helpers. The PR also refined headers for newly understood signatures in `ftcpuattack.h` and `gricemt.h`; the automated decomp.dev report recorded +2388 matched-code bytes, +24 matched-data bytes, 11 new matches, and 6 additional unmatched-item improvements.",
+  "summary": "Matched 11 previously stubbed or partially matched functions across stage, fighter, CPU attack, and interface status translation units. The PR converted several placeholder declarations into typed implementations, refined headers for actual call signatures, corrected stage callback arguments and data-field selections, and verified the result with a matching DOL SHA1 and per-function objdiff 100% reports.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
+      "cleanup",
       "headers",
       "types-structs",
-      "cleanup",
-      "data-layout",
-      "callback-signatures"
+      "stage-behavior",
+      "fighter-behavior"
     ],
     "systems": [
       "fighter",
       "stage",
       "interface-status",
-      "ground-collision",
-      "camera-background",
-      "items"
+      "melee-core"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/ftcpuattack.c",
-      "role": "Added typed `ftCo_AttackEntry` layout and implemented `ftCo_800B6208` weighted random CPU attack command selection."
-    },
-    {
-      "path": "src/melee/ft/ftcpuattack.h",
-      "role": "Forward-declared `struct ftCo_AttackEntry` and changed `ftCo_800B6208` from `UNK_T` to `struct ftCo_AttackEntry*`."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
-      "role": "Added/improved fighter common helpers including `ftCo_800D72A0`, `ftCo_800D74A4`, and matched `fn_800DB6C8` capture cleanup."
-    },
-    {
-      "path": "src/melee/if/ifstatus.c",
-      "role": "Implemented `ifStatus_802F7034` dispatch from the `gm_8016AE38()` status block to `ifStatus_802F6EA4`."
-    },
-    {
-      "path": "src/melee/gr/gricemt.c",
-      "role": "Matched several Ice Mountain helpers, including joint translation init, wave/cloud update, material refresh loops, and dirty-bit joint rebinding."
-    },
-    {
-      "path": "src/melee/gr/gricemt.h",
-      "role": "Corrected `grIceMt_801F98A8` to return `void` and expanded `grIceMt_801F9ACC` to include callback/event and ground object parameters."
-    },
-    {
-      "path": "src/melee/gr/grpura.c",
-      "role": "Improved Pokemon Stadium init/model setup, render callback, toon texture setup, transformation state fields, and vertex update loop details."
-    },
-    {
-      "path": "src/melee/gr/grfourside.c",
-      "role": "Fixed `grFourside_801F2F34` callback registration by passing the ground GObj to `mpJointSetCb1` instead of the inner `Ground*`."
-    }
+    "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+    "src/melee/ft/ftcpuattack.c",
+    "src/melee/ft/ftcpuattack.h",
+    "src/melee/gr/grfourside.c",
+    "src/melee/gr/gricemt.c",
+    "src/melee/gr/gricemt.h",
+    "src/melee/gr/grpura.c",
+    "src/melee/if/ifstatus.c"
   ],
   "what_changed": [
-    "`ftCo_800B6208` replaced a placeholder with a null-terminated weighted-selection loop over `ftCo_AttackEntry`, using `HSD_Randf()`, a near-zero sum guard, and an `__assert` fallback.",
-    "`fn_800DB6C8` was implemented as a captured-pulled-hi cleanup hook: it selects `fn_800DB790` or `fn_800DBAE4` by motion state, clears victim-specific attached items for Yoshi, Link/CLink, and Samus, then calls `ftCommon_8007EBAC`.",
-    "`ifStatus_802F7034` now normalizes status-block indices from `gm_8016AE38()` and selects an `ifStatus_802F6EA4` mode from `unk_B`, `match_result`, and `x24C8.x5_1`.",
-    "`grIceMt_801F72D4` now uses separate `Vec3` locals and a static `grIm_803B8220` lookup to seed joint translations for joints `0x12` through `0x15`.",
-    "`grIceMt_801F7728` was updated to compute a vertical effect offset and call `grIceMt_801F9ACC` with the fuller signature, event callback, and ground object argument.",
-    "`grIceMt_801F7F1C` and `grIceMt_801F81B4` now iterate the two cached `gp->gv.icemt.xF8[]` materials and call `grMaterial_801C8CDC` only when non-null.",
-    "`grIceMt_801F98A8` changed from a speculative integer/bool-returning helper to a `void` dirty-bit callback that clears `xC4.b1` and rebinds up to four joints via `Ground_801C2D0C`.",
-    "`grPura_80212024` was improved to set `x11_flags.b012`, choose distinct current/next Pokemon Stadium transformation indices with `HSD_Randi(4)`, and update camera/background colors.",
-    "`grPura_80212290` now sets the render callback, applies the toon texture image by address, raises the `0x1000` JObj flag, resets toon texture to `NULL`, and starts idle animation.",
-    "Adjacent Pokemon Stadium fixes changed cached transform-joint storage from `gp->gv.pura.xC8` to `gp->gv.pura2.xC8` and adjusted the `grPu_803E6C0C` loop stride to `+= 6` u16 entries.",
-    "`grFourside_801F2F34` corrected a one-argument mismatch in `mpJointSetCb1(0, gobj, grFourside_801F30A0)`, which the automated report showed as enough to reach 100% for that function."
+    "Added matched implementations in ftCo_Attack100.c including ftCo_800D72A0, ftCo_800D74A4, and fn_800DB6C8. The cleanup hook fn_800DB6C8 branches on ftCo_MS_CapturePulledHi, handles captor/victim state, clears kind-specific attached items for Yoshi, Link/CLink, and Samus, then calls ftCommon_8007EBAC.",
+    "Implemented ftCo_800B6208 in ftcpuattack.c as weighted random selection over a null-terminated ftCo_AttackEntry array, returning 0 for empty or near-zero total weight lists and asserting if selection unexpectedly falls through.",
+    "Added a local ftCo_AttackEntry struct layout in ftcpuattack.c and refined ftcpuattack.h from int ftCo_800B6208(UNK_T) to int ftCo_800B6208(struct ftCo_AttackEntry*).",
+    "Corrected grFourside_801F2F34 so mpJointSetCb1 receives the ground GObj argument rather than the Ground data pointer.",
+    "Made grIm_803B8220 static in gricemt.c and matched Ice Mountain functions including grIceMt_801F72D4, grIceMt_801F7728, grIceMt_801F7F1C, grIceMt_801F81B4, and grIceMt_801F98A8.",
+    "grIceMt_801F72D4 now uses distinct local Vec3 temporaries for joint translation setup on joints 0x12 through 0x15, matching stack/register behavior better than one reused temporary plus padding.",
+    "grIceMt_801F7728 now calls grIceMt_801F9ACC with the fuller signature including event callback and Ground_GObj argument, using the stage subobject address involved in the wave/cloud update path.",
+    "grIceMt_801F7F1C and grIceMt_801F81B4 were changed from dummy material reload loops into two-entry loops over gp->gv.icemt.xF8[], calling grMaterial_801C8CDC only for non-null cached material GObjs.",
+    "grIceMt_801F98A8 was changed from int/bool-like behavior returning 0 to void behavior and now uses a bitfield-style UnkFlagStruct access to clear the dirty bit before rebinding up to four joints through Ground_801C2D0C.",
+    "Updated gricemt.h signatures: grIceMt_801F98A8 returns void, and grIceMt_801F9ACC takes HSD_GObj*, float, HSD_GObjEvent, and Ground_GObj*.",
+    "Matched Pokemon Stadium functions grPura_80212024 and grPura_80212290. grPura_80212024 initializes idle animation, chooses distinct current and next random transformation indices, updates stadium colors, and sets flags. grPura_80212290 assigns a render callback, applies toon texture image, sets shadow receiver flag, updates model setup, clears toon texture, and starts idle animation.",
+    "Adjusted nearby grpura code to use gp->gv.pura2.xC8 instead of gp->gv.pura.xC8 for a cached JObj path, and rewrote grPura_80213030 loop locals/pointer stepping for matching.",
+    "Implemented ifStatus_802F7034 in ifstatus.c, reading gm_8016AE38 status data, translating 1-based fields into zero-based or sentinel values, then dispatching to ifStatus_802F6EA4 based on unk_B, match_result, and x24C8.x5_1."
   ],
   "smart_moves": [
-    "Refined function signatures only where the new bodies forced them: `ftCo_800B6208` gained a typed attack-entry pointer, `grIceMt_801F98A8` became `void`, and `grIceMt_801F9ACC` gained its callback and ground-object parameters.",
-    "Used minimal struct recovery for `ftCo_AttackEntry`: kept only known fields (`cmd` at `+0x00`, `weight` at `+0x18`) and explicit padding to preserve the `0x24` stride.",
-    "Matched codegen-sensitive stack behavior with `PAD_STACK`, `UNUSED` stack bytes, separate `Vec3` locals, and `#pragma dont_inline` around `fn_800DB6C8`.",
-    "Corrected callback object identity rather than forcing casts everywhere: stage callbacks such as `mpJointSetCb1` and `grIceMt_801F9ACC` needed the GObj/Ground_GObj, not the inner `Ground*`.",
-    "Left weakly understood fields as offset-style names (`x2D0`, `xC4`, `xF8`, `unk_10`, `unk_B`) while still improving type safety around confirmed structures and callbacks."
+    "Used header refinement only where the newly matched bodies required stronger evidence: ftCo_800B6208 was given a forward-declared ftCo_AttackEntry pointer, grIceMt_801F98A8 was corrected to void, and grIceMt_801F9ACC was expanded to the observed four-argument call shape.",
+    "Preserved matching-sensitive stack behavior with PAD_STACK and explicit unused locals where needed, notably in ftCo_800D74A4, fn_800DB6C8, grIceMt_801F7728, grPura_80212024, grPura_80212290, and grPura_80213030.",
+    "Represented ftCo_800B6208's table as a partially known typed struct with explicit padding and known cmd/weight offsets, improving readability without overclaiming unknown fields.",
+    "Replaced placeholder material loops in Ice Mountain with direct iteration over the cached xF8 material GObjs, making the behavior both matched and semantically plausible.",
+    "Used bitfield-style access for grIceMt_801F98A8's dirty flag rather than raw byte masking in the final matched form, making the intent clearer while matching the required generated code.",
+    "Corrected pointer identity mistakes in stage code, such as passing gobj instead of gp to mpJointSetCb1 and using gp->gv.pura2.xC8 for the Pokemon Stadium cached JObj.",
+    "Kept grIm_803B8220 file-local with static after evidence showed it is an internal lookup table for Ice Mountain joint translations."
   ],
   "decomp_lessons": [
-    "A speculative callback return type can block matching; if the body has no return, update the header to `void` instead of preserving an assumed `bool`.",
-    "Stage union field selection matters for both type correctness and matching: this PR used fields such as `gp->gv.icemt.xF8[]`, `gp->gv.icemt2.xC4`, and `gp->gv.pura2.xC8` where the previous guesses were wrong or too generic.",
-    "Small one-line pointer fixes can matter late in a function: passing `gobj` instead of `gp` to `mpJointSetCb1` moved `grFourside_801F2F34` from near-match to 100%.",
-    "Weighted table functions are good candidates for local padded typedefs when the sentinel, stride, and meaningful fields are known but the full structure is not.",
-    "For material/collision/stage helpers, null checks against cached arrays and exact loop form can be more match-relevant than the high-level behavior.",
-    "When a callee signature is discovered from one matched call site, update the header so later TUs reuse the same ABI evidence instead of duplicating casts or `UNK_T`."
+    "When matching stage initializers, distinguish carefully between Ground_GObj pointers and Ground data pointers; callbacks like mpJointSetCb1 may require the object pointer even when surrounding code mostly uses GET_GROUND data.",
+    "Stage global or per-stage tables should be made static when evidence shows local TU use only; this can matter for both symbol hygiene and matching.",
+    "For unknown structs, prefer a named partial struct with known offsets and padding over UNK_T once a function body proves field offsets and types.",
+    "Return types in headers should remain provisional until a body is matched; grIceMt_801F98A8 demonstrates that a speculative bool/int return can actually be void.",
+    "Call-site matching can expose missing parameters in old prototypes. grIceMt_801F9ACC needed event callback and Ground_GObj parameters so the grIceMt_801F7728 call could type-check and match.",
+    "Use sentinel translation patterns explicitly when decompiling menu/status code: ifStatus_802F7034 converts zero-valued index fields into -1 sentinels before dispatch.",
+    "Random-selection functions often include degenerate-weight guards and fallback asserts; matching the exact near-zero threshold and loop/fallthrough shape is important.",
+    "Repeated helper bodies can be valid evidence rather than copy-paste errors; grIceMt_801F7F1C and grIceMt_801F81B4 both iterate the same two cached material entries.",
+    "Object substate unions are easy to confuse in stage code; nearby fixes in grpura show that choosing the correct gv.pura versus gv.pura2 field is part of the matching work."
   ],
   "naming_conventions": [
-    "Stage symbols kept established prefixes: `grIceMt_` for Ice Mountain, `grPura_` for Pokemon Stadium, `grFourside_` for Fourside, with globals such as `grIm_803B8220` and `grPu_803E6AA0`.",
-    "Fighter common symbols retained the `ftCo_` prefix; local/static unknown helpers remained address-based `fn_800D...` names where semantics were not strong enough for a rename.",
-    "Kind and motion constants followed existing conventions such as `FTKIND_YOSHI`, `FTKIND_LINK`, `FTKIND_CLINK`, `FTKIND_SAMUS`, and `ftCo_MS_CapturePulledHi`.",
-    "The recovered table type was named `ftCo_AttackEntry`, matching the `ftCo_` subsystem prefix while avoiding over-specific naming beyond the known CPU attack-selection use.",
-    "Unknown fields were not over-renamed; offset-style names like `xC4`, `xC6`, `xC8`, `xF8`, `x223C`, and `unk_10` stayed in place."
+    "New local struct name follows project style with subsystem/function prefix: struct ftCo_AttackEntry.",
+    "Known offsets in partial structs were documented through padding field names such as pad04 and pad1C.",
+    "Stage functions keep address-based names with stage prefixes such as grIceMt_801F72D4, grPura_80212024, and grFourside_801F2F34.",
+    "Temporary matching locals were named minimally but semantically where useful, such as victim_fp, victim_gobj, vel, msid, p, sum, acc, and inv.",
+    "Header forward declarations use struct ftCo_AttackEntry rather than exposing the full local layout in the header."
   ],
   "assembly_or_matching_tactics": [
-    "Used `PAD_STACK(0x14)`, `PAD_STACK(0x10)`, `PAD_STACK(16)`, `PAD_STACK(8)`, and `UNUSED unsigned char _[8]` to reproduce expected stack frames.",
-    "Used `#pragma push`, `#pragma dont_inline on`, and `#pragma pop` around `fn_800DB6C8` to prevent codegen from inlining a matched helper.",
-    "Made `grIm_803B8220` `static` and used four separate `Vec3` locals in `grIceMt_801F72D4`, reflecting linkage and stack-layout sensitivity.",
-    "Used exact callback/cast shape in Ice Mountain: `grIceMt_801F9ACC((HSD_GObj*) &gp->gv.corneria.xC4, ..., fn_801F9038, gobj)`.",
-    "Used `UnkFlagStruct` bitfield access for `gp->gv.icemt2.xC4.b1` instead of a raw byte mask in `grIceMt_801F98A8`.",
-    "Used `M2C_FIELD` accesses and changed the `grPura_80213030` pointer increment from `+= 0xC` to `+= 6` u16 elements to better match the original loop.",
-    "Verification evidence in the PR body cited `ninja` producing `build-linux/GALE01/main.dol: OK`, per-function `objdiff-cli diff` at 100%, and no fuzzy regressions."
+    "Inserted PAD_STACK and UNUSED/unused locals to reproduce stack frame layout without inventing semantic fields.",
+    "Used separate Vec3 locals v1 through v4 in grIceMt_801F72D4 instead of one reused local to match the compiler's stack allocation behavior.",
+    "Applied #pragma push / #pragma dont_inline on / #pragma pop around fn_800DB6C8 to prevent inlining from disturbing the match.",
+    "Used explicit pointer casts in ftCo_800D74A4 around Fighter_x2D0_t offset arithmetic to reproduce the original access pattern.",
+    "Used a do-while assignment condition in grPura_80212024 to choose a next transformation index distinct from the current one while matching control flow.",
+    "Kept NULL comparisons and explicit HSD_MObjSetToonTextureImage(NULL) style where needed for matched code generation.",
+    "Converted grPura_80213030 pointer stepping from += 0xC on a wider or unclear pointer expression to var_r31 += 6 on u16*, preserving the same byte stride in typed form.",
+    "Changed grIceMt_801F98A8 from raw byte flag masking to bitfield access through UnkFlagStruct while retaining the clear-and-rebind control flow.",
+    "Verified with ninja producing build-linux/GALE01/main.dol OK and per-function objdiff-cli 100.0% matches for the 11 functions, according to the PR body excerpt."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the slice.",
-    "The automated decomp.dev comment reported matched code at 65.89% (+0.06%, +2388 bytes) and matched data at 38.70% (+24 bytes).",
-    "decomp.dev listed 11 new matches: `ftCo_800B6208`, `ifStatus_802F7034`, `fn_800DB6C8`, `grIceMt_801F7728`, `grPura_80212290`, `grIceMt_801F7F1C`, `grIceMt_801F81B4`, `grIceMt_801F98A8`, `ftcpuattack` `.sdata`, `grIceMt_801F72D4`, and `grFourside_801F2F34`.",
-    "The same automated report listed partial improvements, not full matches, for `ftCo_800D74A4` at 86.93%, `ftCo_800D72A0` at 97.04%, `grPura_80212024` at 93.58%, `ftcpuattack` `.sdata2` at 80.45%, `grPura_80213030` at 95.47%, and `grIceMt_801F9ACC` at 18.88%."
+    "No review comments were included in the provided PR slice. The only human-text evidence available is the PR summary/body and diff excerpt; reviewer intent beyond merge acceptance is not present."
   ],
   "searchable_terms": [
-    "pr-2461",
+    "PR2461",
+    "davidfeira",
     "Match 11 functions across stage and fighter TUs",
-    "ftCo_800B6208",
-    "ftCo_AttackEntry",
-    "HSD_Randf",
-    "weighted random attack selection",
-    "ftcpuattack.c",
-    "ftcpuattack.h",
     "ftCo_Attack100.c",
     "ftCo_800D72A0",
     "ftCo_800D74A4",
     "fn_800DB6C8",
     "ftCo_MS_CapturePulledHi",
+    "ftCo_800DB368",
+    "it_802A7840",
+    "it_802BAA94",
     "ftCommon_8007EBAC",
-    "FTKIND_YOSHI",
-    "FTKIND_LINK",
-    "FTKIND_CLINK",
-    "FTKIND_SAMUS",
-    "ifStatus_802F7034",
-    "ifStatus_802F6EA4",
-    "gm_8016AE38",
+    "ftcpuattack.c",
+    "ftCo_800B6208",
+    "ftCo_AttackEntry",
+    "HSD_Randf",
+    "weighted random selection",
+    "ftcpuattack.h",
+    "grfourside.c",
+    "grFourside_801F2F34",
+    "mpJointSetCb1",
     "gricemt.c",
-    "gricemt.h",
     "grIceMt_801F72D4",
     "grIceMt_801F7728",
     "grIceMt_801F7F1C",
@@ -146,28 +125,38 @@
     "grIceMt_801F98A8",
     "grIceMt_801F9ACC",
     "grIm_803B8220",
-    "grMaterial_801C8CDC",
     "Ground_801C2D0C",
+    "grMaterial_801C8CDC",
     "grpura.c",
     "grPura_80212024",
     "grPura_80212290",
     "grPura_80213030",
     "Camera_SetBackgroundColor",
     "HSD_MObjSetToonTextureImage",
-    "grfourside.c",
-    "grFourside_801F2F34",
-    "mpJointSetCb1",
+    "ifstatus.c",
+    "ifStatus_802F7034",
+    "ifStatus_802F6EA4",
+    "gm_8016AE38",
     "PAD_STACK",
     "dont_inline",
-    "M2C_FIELD"
+    "objdiff-cli",
+    "main.dol OK"
   ],
   "follow_up_queries": [
-    "Find later PRs that finish `ftCo_800D72A0`, `ftCo_800D74A4`, and `grPura_80212024`, since the automated report still showed them below 100%.",
-    "Search for other `mpJointSetCb1` call sites that might incorrectly pass `Ground*` instead of the stage GObj.",
-    "Audit other callers of `grIceMt_801F9ACC` after the expanded signature to confirm all call sites agree on `HSD_GObjEvent` and `Ground_GObj*` parameters.",
-    "Look for additional uses of the `ftCo_AttackEntry` table layout; promote the typedef out of `ftcpuattack.c` if reused across TUs.",
-    "Investigate `lbl_8046B6A0_t` fields used by `ifStatus_802F7034` (`unk_10`, `unk_14`, `unk_18`, `unk_B`, `match_result`) for better names once more status code is matched.",
-    "Compare other Ice Mountain material-refresh helpers against the `gp->gv.icemt.xF8[]` loop pattern from `grIceMt_801F7F1C` and `grIceMt_801F81B4`."
+    "Find later PRs that move struct ftCo_AttackEntry out of ftcpuattack.c or add more known fields.",
+    "Search for additional grIceMt_801F9ACC callers to confirm the four-argument signature across all use sites.",
+    "Search for UnkFlagStruct uses around Ground gv.icemt2.xC4 to validate the b1 dirty-bit naming.",
+    "Look for future review comments on whether grIm_803B8220 should remain static or gain a more descriptive name.",
+    "Find related Pokemon Stadium PRs touching gv.pura versus gv.pura2 fields to refine the Ground union layout.",
+    "Search for functions similar to ftCo_800B6208 that perform weighted HSD_Randf selection with null-terminated command tables."
   ],
-  "confidence": 0.9
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

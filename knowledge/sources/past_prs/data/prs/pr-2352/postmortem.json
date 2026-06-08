@@ -11,138 +11,99 @@
     "merged_at": "2026-03-26T16:11:17Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large mnName name-menu decompilation slice. The PR implemented many previously stubbed functions for name-list display, sorting, deletion, scrolling, input handling, confirmation UI, archive loading, and text rendering, while tightening headers and GALE01 data symbols. The decomp-dev bot reported GALE01 matched code at 60.49% (+0.10%, +3956 bytes), with 11 new matches in main/melee/mn/mnname and several larger remaining partials improved substantially.",
+  "summary": "Large mnname decompilation PR focused on the name entry/name list menu. It replaced many placeholder asm markers in src/melee/mn/mnname.c with C, tightened mnname.h prototypes, added a text2 field to MnName_GObj, corrected gmMainLib_8015DBF4 to take an s32, and split a large mnName_803ED618 data symbol in symbols.txt into Vec3 data plus adjacent string/data symbols. The decomp.dev report credited 11 new matches and 14 partial-match improvements, raising GALE01 matched code by +3956 bytes (+0.10%). Evidence is mostly diff and bot match report; there was no PR body or human review discussion in the slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "menu-ui",
-      "name-entry",
       "headers",
-      "typing",
+      "naming",
       "symbol-map",
-      "data-splitting"
+      "menu-input",
+      "data-layout"
     ],
     "systems": [
-      "src/melee/mn/mnname",
-      "src/melee/mn/mnnamenew",
-      "src/melee/gm/gmmain_lib",
-      "config/GALE01/symbols",
-      "HSD_GObj",
-      "HSD_JObj",
-      "HSD_SisLib",
-      "lbarchive",
-      "lbaudio_ax",
-      "lblanguage"
+      "mnname",
+      "game-mode",
+      "melee-core",
+      "config"
     ]
   },
   "key_files": [
-    {
-      "file": "src/melee/mn/mnname.c",
-      "role": "Main implementation: added 1400+ lines replacing many mnName stubs with name-list logic, UI animation/text rendering, deletion, sorting, input handling, archive loading, and matching helpers."
-    },
-    {
-      "file": "src/melee/mn/mnname.h",
-      "role": "Header cleanup: added MnName_GObj.text2 and converted many UNK_RET/UNK_PARAMS or incorrect integer name arguments into concrete prototypes."
-    },
-    {
-      "file": "config/GALE01/symbols.txt",
-      "role": "Data-symbol refinement: split mnName_803ED618 from one 0x440 object into a 0x18 object plus separate string/data symbols mnName_803ED630, mnName_803ED644, mnName_803ED650, mnName_803ED668, and mnName_803ED672."
-    },
-    {
-      "file": "src/melee/gm/gmmain_lib.h",
-      "role": "Prototype tightening: gmMainLib_8015DBF4 changed from UNK_PARAMS to a concrete s32 parameter, matching its use when deleting a name index."
-    }
+    "src/melee/mn/mnname.c",
+    "src/melee/mn/mnname.h",
+    "src/melee/gm/gmmain_lib.h",
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "Implemented or heavily advanced mnName functions including CompareNameStrings, DeleteName, mnName_SortNames, mnName_80237D94, mnName_ConfirmNameDeleteInput, mnName_MainInput, mnName_80238754, mnName_80238AE0, mnName_80238C34, fn_80239574, mnName_80239878, mnName_80239A24, fn_8023A0BC, mnName_8023A290, mnName_8023A59C, mnName_8023A9B4, and mnName_8023AC40.",
-    "Added static mnName_NameDisplayOrder[0x78] for display/sort order and used it when rendering or deleting visible name entries.",
-    "Added MnNameArchive with joint, anim_joint, matanim_joint, and shapeanim_joint fields for archive-backed UI assets.",
-    "Changed IsNameUnique and IsNameNotAllowed to take char* name data instead of integer slot/name_idx arguments, aligning them with CompareNameStrings(char*, char*).",
-    "Added GetNumNameList and GetNameCount_noinline helpers and reused name-count logic for IsNameListFull, mnName_GetColumnCount, scrolling, and menu state.",
-    "Implemented name comparison behavior around mnName_StringTerminator and checkStringRest, including handling of apparent padding/rest characters via mnName_804D4BF0.",
-    "Implemented name deletion by clearing/initializing the selected name, compacting persistent name data, re-sorting display order, refreshing the visible list, and calling gmMainLib_8015DBF4(nameIdx).",
-    "Implemented main name-list input flow for A/B, d-pad, L/R page/column scrolling, add-name, sort toggle, delete-confirm entry, and error/confirm/cursor audio feedback via lbAudioAx_80024030.",
-    "Added UI construction and refresh paths using GObj_Create, HSD_JObjLoadJoint, HSD_JObjAddAnimAll, HSD_SisLib text objects, scrollbar visibility/position updates, and language-specific text swaps.",
-    "Loaded many archive sections from mn_804D6BB8 through lbArchive_LoadSections, including language-dependent AutoNamesList and NotAllowedNamesList."
+    "Implemented or substantially decompiled many mnname functions that were previously placeholders, including CompareNameStrings, DeleteName, mnName_SortNames, mnName_80237D94, mnName_ConfirmNameDeleteInput, mnName_MainInput, mnName_80238754, mnName_80238AE0, mnName_80238C34, fn_80239574, mnName_80239878, mnName_80239A24, fn_8023A0BC, mnName_8023A290, mnName_8023A59C, mnName_8023A9B4, mnName_8023AC40, and IsNameNotAllowed.",
+    "Adjusted name-string APIs from slot/index-like parameters to char* parameters where the code compares actual string data: CompareNameStrings(char*, char*), IsNameUnique(char*), and IsNameNotAllowed(char*).",
+    "Added helper functions used for matching and readability, including GetNameCount_noinline, GetNumNameList, checkStringRest, mnName_80238754_noinline, mnName_802388D4_noinline, mnName_80238964_noinline, and mnName_FindAnimLoop.",
+    "Added mnName_NameDisplayOrder[0x78] to maintain the display/sort order for the 120-name list and implemented sorting/selection behavior around that table.",
+    "Added MnNameArchive local typedef with HSD_Joint, HSD_AnimJoint, HSD_MatAnimJoint, and HSD_ShapeAnimJoint pointers, plus extern archive/data declarations needed by mnname.c.",
+    "Expanded includes in mnname.c to cover menu, placeholder, lbarchive/lbaudio/language, OS, debug, gobj, jobj, and memory dependencies introduced by the decompiled functions.",
+    "Updated MnName_GObj in mnname.h by adding an HSD_Text* text2 field at offset 0x40.",
+    "Replaced multiple UNK_RET/UNK_PARAMS prototypes in mnname.h with concrete return/argument types such as u8 mnName_80237D94(s32, u8), HSD_GObj* mnName_8023A59C(u8), s32 mnName_8023AC40(void), and void/function-specific HSD_GObj* signatures.",
+    "Changed gmMainLib_8015DBF4 declaration from UNK_PARAMS to gmMainLib_8015DBF4(s32), matching its call with the deleted name index.",
+    "Corrected config/GALE01/symbols.txt by shrinking mnName_803ED618 from a single 0x440 object to a 0x18 object and adding adjacent symbols mnName_803ED630, mnName_803ED644, mnName_803ED650, mnName_803ED668, and mnName_803ED672."
   ],
   "smart_moves": [
-    "The display-order buffer keeps sorted presentation separate from persistent name storage; deletion compacts actual persistent data while sorting can simply permute indices.",
-    "The symbol split in GALE01 avoided treating mixed vector/string/data content as one giant 0x440 blob, making later data matching and naming more precise.",
-    "Concrete char* signatures for name comparison, uniqueness, and disallowed-name checks make call sites describe the actual data flow instead of hiding it behind slot integers.",
-    "The PR reused shared count logic through GetNumNameList/GetNameCount_noinline rather than duplicating 0x78-slot scans everywhere.",
-    "Small noinline wrapper helpers around GetNameCount, mnName_80238754, mnName_802388D4, and mnName_80238964 gave call-site-level control useful for matching UI codegen.",
-    "The implementation preserved menu constants visible in the assembly model: 0x78 name slots, 6 entries per column, 0x18 visible name buttons, and special selections 0x18/0x19/0x1A.",
-    "The added MnName_GObj.text2 field captures a discovered UI text object instead of leaving it as unstructured user-data storage."
+    "Used targeted noinline wrapper helpers to preserve call/codegen behavior while still allowing higher-level C around GetNameCount and animation helper calls.",
+    "Split the previously oversized mnName_803ED618 symbol into smaller typed data/string symbols, which improved data matching and made later references more precise.",
+    "Moved comparison-related APIs to char* parameters once the implementation showed they operate on name strings rather than numeric slots.",
+    "Modeled the name list display order explicitly with a 0x78-byte table, matching the fixed 120-entry persistent name capacity used throughout the code.",
+    "Kept many still-unknown functions under address-style names while only improving signatures/types that were evidenced by the decompiled call sites.",
+    "Added the exact struct field needed by the new code, MnName_GObj.text2, instead of using raw offset access throughout the implementation."
   ],
   "decomp_lessons": [
-    "For menu decompilation, track both persistent data and presentation order; the game may sort by an index array rather than moving records until deletion/compaction.",
-    "Name strings in this subsystem are not plain strcmp inputs: matching code must account for mnName_StringTerminator and the repeated rest/padding pattern checked by checkStringRest.",
-    "GObj fields such as gx_link, p_priority, and p_link can carry menu-specific state like scroll column, sort mode, and animation state; validate them from call sites before inventing new struct fields.",
-    "Header prototypes should be tightened as soon as call sites prove types; this PR changed several UNK_RET/UNK_PARAMS declarations to concrete HSD_GObj*, u8, s32, void, and char* signatures.",
-    "Data symbols should be split as soon as the diff reveals typed regions such as Vec3 arrays and string literals; doing so helps .data/.sdata matching and future naming.",
-    "For UI code, resource lifecycle details matter for matching and correctness: this PR repeatedly frees/replaces HSD_SisLib text with HSD_SisLib_803A5CC4 and removes/rebuilds JObj children when refreshing the list.",
-    "Language branches are part of the functional model: lbLang_IsSavedLanguageUS selects name text arrays and archive sections for AutoNamesList/NotAllowedNamesList."
+    "When a menu file has many near-matches, small helpers such as noinline wrappers and inline comparison/count functions can be the difference between high similarity and exact matches.",
+    "Header prototypes should be tightened as soon as call sites prove concrete argument types; replacing UNK_PARAMS with HSD_GObj*, u8, s32, char*, or void improves both matching and future decomp work.",
+    "String comparison code in Melee name-entry logic uses explicit terminator globals and can treat repeated terminator-like byte pairs specially; preserve the original termination behavior instead of substituting standard strcmp semantics.",
+    "Persistent name-list operations rely on the fixed 0x78 capacity; matching code should retain the observed loop bounds and u8 casts rather than abstracting them away prematurely.",
+    "Data-symbol boundaries matter: a large anonymous data object may hide multiple strings and typed arrays, and splitting it can unlock both data and code matches.",
+    "Menu input decompilation often depends on correctly modeling shared menu globals such as mn_804A04F0, cooldown state, hovered/confirmed selections, and gobj fields like gx_link and p_priority."
   ],
   "naming_conventions": [
-    "Address-style names such as mnName_80237D94 and fn_80239574 were retained for unresolved functions, while clearer existing names like GetNameText, GetNameCount, IsNameListFull, CompareNameStrings, IsNameUnique, DeleteName, and IsNameNotAllowed were used where semantics were known.",
-    "The static display-order buffer was named mnName_NameDisplayOrder, matching the mnName_ prefix and describing its role without inventing a broader type.",
-    "Temporary matching shims use a _noinline suffix, for example GetNameCount_noinline, mnName_80238754_noinline, mnName_802388D4_noinline, and mnName_80238964_noinline.",
-    "Archive asset grouping was named MnNameArchive with direct field names joint, anim_joint, matanim_joint, and shapeanim_joint.",
-    "Unknown globals kept address-based mnName_803/804 names until evidence justified better names."
+    "Address-style unknown names remain in mnName_802xxxxx/fn_802xxxxx form when semantics are not yet named.",
+    "Known public-facing helpers use descriptive PascalCase-style names already present in the module, such as GetNameText, GetNameCount, IsNameListFull, IsNameUnique, DeleteName, and IsNameNotAllowed.",
+    "Matching-only helpers use a _noinline suffix, e.g. GetNameCount_noinline, mnName_80238754_noinline, mnName_802388D4_noinline, and mnName_80238964_noinline.",
+    "Module-local data follows the mnName_ prefix and either address-style names for unknowns or descriptive names where semantics are clear, e.g. mnName_NameDisplayOrder and mnName_StringTerminator.",
+    "The new local archive typedef is named MnNameArchive and mirrors HSD resource pointer field names: joint, anim_joint, matanim_joint, and shapeanim_joint."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK annotations, including PAD_STACK(8) and PAD_STACK(0x20), in several UI/input functions to shape stack layout.",
-    "Introduced noinline wrappers and routed selected call sites through them, an explicit call-boundary tactic visible in mnName_80238A04, mnName_80239878, mnName_8023A59C, and related helpers.",
-    "Kept assembly-shaped locals, casts, and comma expressions such as (0, mnName_803ED538) and repeated u8/s8 casts where needed for codegen-sensitive matching.",
-    "Reworked mnName_8023749C with a u8 slot cast stored in an unsigned short temporary and a local terminator comparison, moving it from 97.84% to 100% according to the bot.",
-    "Centralized the name-count loop but preserved call/noinline behavior where the bot showed small byte-level matches for IsNameListFull and mnName_GetColumnCount.",
-    "Split the data symbol map around mnName_803ED618 into typed vector/string/data pieces, which is a useful data-matching tactic when one object actually contains multiple logical assets."
+    "Introduced noinline wrapper functions around GetNameCount and several mnName helpers to influence call generation and preserve expected compiler structure.",
+    "Used inline helpers for repeated logic, including GetNumNameList, checkStringRest, and mnName_FindAnimLoop, while keeping emitted code close to the original.",
+    "Retained explicit casts to u8, s8, s32, and pointer arithmetic in name-list loops and comparisons to match signedness and indexing behavior.",
+    "Used PAD_STACK markers in input functions where stack layout needed preservation.",
+    "Represented menu state through existing HSD_GObj fields such as gx_link and p_priority, matching observed field usage rather than inventing new high-level abstractions.",
+    "Adjusted symbol-map object sizes and string annotations to align the .data region with actual references."
   ],
   "review_feedback": [
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "GALE01 matched code became 60.49% (+0.10%, +3956 bytes)."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported 11 new 100% matches: fn_80239574, mnName_80237D94, fn_8023A0BC, mnName_80239878, DeleteName, mnName_80238754, mnName_80238AE0, mnName_8023749C, IsNameListFull, mnName_GetColumnCount, and mnName_80238A04."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported partial improvements including mnName_80238C34 at 89.27%, mnName_80239A24 at 89.55%, mnName_8023A59C at 99.30%, mnName_8023AC40 at 84.20%, mnName_MainInput at 91.90%, mnName_SortNames at 89.02%, and CompareNameStrings at 95.71%."
-    },
-    {
-      "source": "slice",
-      "feedback": "No PR body, human reviews, or inline human review comments were present in the provided slice."
-    }
+    "No human review comments were present in the provided slice.",
+    "The decomp.dev bot reported GALE01 matched code increasing to 60.49%, a +0.10% / +3956 byte improvement.",
+    "The bot reported 11 new 100% matches: fn_80239574, mnName_80237D94, fn_8023A0BC, mnName_80239878, DeleteName, mnName_80238754, mnName_80238AE0, mnName_8023749C, IsNameListFull, mnName_GetColumnCount, and mnName_80238A04.",
+    "The bot reported 14 partial-match improvements, including mnName_80238C34 to 89.27%, mnName_80239A24 to 89.55%, mnName_8023A59C to 99.30%, mnName_MainInput to 91.90%, mnName_SortNames to 89.02%, CompareNameStrings to 95.71%, plus .data/.bss/.sdata2/.sdata improvements."
   ],
   "searchable_terms": [
     "pr-2352",
     "Jj/mnname",
     "jellejurre",
     "mnname",
-    "mnName_NameDisplayOrder",
-    "MnName_GObj",
-    "MnNameArchive",
+    "mnName_8023749C",
     "GetNameText",
     "GetNameCount",
+    "GetNameCount_noinline",
     "GetNumNameList",
     "IsNameListFull",
     "CompareNameStrings",
     "checkStringRest",
     "IsNameUnique",
     "DeleteName",
-    "IsNameValid",
-    "CreateNameAtIndex",
     "mnName_SortNames",
     "mnName_80237D94",
     "mnName_ConfirmNameDeleteInput",
     "mnName_MainInput",
     "mnName_80238754",
-    "mnName_802388D4",
-    "mnName_80238964",
-    "mnName_80238A04",
     "mnName_80238AE0",
     "mnName_80238C34",
     "fn_80239574",
@@ -154,29 +115,29 @@
     "mnName_8023A9B4",
     "mnName_8023AC40",
     "IsNameNotAllowed",
-    "AutoNamesList",
-    "NotAllowedNamesList",
+    "mnName_NameDisplayOrder",
+    "MnName_GObj",
+    "text2",
+    "MnNameArchive",
     "gmMainLib_8015DBF4",
-    "lbArchive_LoadSections",
-    "lbAudioAx_80024030",
-    "lbLang_IsSavedLanguageUS",
-    "HSD_SisLib",
-    "HSD_JObj",
-    "HSD_GObj",
-    "PAD_STACK",
     "mnName_803ED618",
-    "mnName_803ED630",
-    "mnName_803ED644",
-    "mnName_803ED650",
-    "mnName_803ED668",
-    "mnName_803ED672"
+    "symbols.txt",
+    "NotAllowedNamesList",
+    "NameTagData"
   ],
   "follow_up_queries": [
-    "Find later PRs touching mnName_80238C34, mnName_80239A24, mnName_8023A59C, mnName_8023AC40, mnName_MainInput, mnName_SortNames, or CompareNameStrings to see how the remaining partial matches were completed.",
-    "Search for mnName_804D4BF0 and checkStringRest to determine the semantic name for the name-string padding/rest character pattern.",
-    "Search for gmMainLib_8015DBF4(s32) call sites to name the game-mode routine that is notified after a name slot is deleted.",
-    "Search for MnName_GObj.text2 and 0x44 user-data allocations to validate or improve the MnName_GObj struct layout.",
-    "Search later symbol-map changes around mnName_803ED618 through mnName_803ED672 for final data/string names."
+    "Find later PRs that rename address-style mnName_802xxxxx functions from this PR to semantic names.",
+    "Search for follow-up work on remaining partial matches in mnName_80238C34, mnName_80239A24, mnName_8023AC40, mnName_MainInput, and mnName_SortNames.",
+    "Check whether MnName_GObj.text2 and MnNameArchive were later moved to broader headers or refined with more complete struct definitions.",
+    "Search gmMainLib_8015DBF4 call sites to verify whether its s32 argument was later renamed or its return type resolved."
   ],
-  "confidence": 0.87
+  "confidence": 0.84,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

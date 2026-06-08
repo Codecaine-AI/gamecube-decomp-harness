@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { directorPrompt, directorQueuedTargets } from "../../agents/director/index.js";
 import { runPiAgent } from "../../agents/runtime/index.js";
 import { loadBoardSnapshot } from "../../board/index.js";
+import { resourceGraphDbPath } from "../../knowledge/index.js";
 import {
   activeWorkerCount,
   addDirectorCycle,
@@ -47,14 +48,15 @@ export async function runDirectorTick(globals: GlobalArgs, args: Map<string, str
     const event = nextUnhandledEvent(store, runId);
     if (!event) return { runId, status: "no_unhandled_events" };
 
-    const candidateLimit = Math.max(0, Math.floor(numberArg(args, "--candidate-limit", 50)));
-    const queueTargetSize = Math.max(0, Math.floor(numberArg(args, "--queue-target-size", candidateLimit)));
+    const candidateLimit = Math.max(0, Math.floor(numberArg(args, "--candidate-limit", Math.max(32, run.desiredWorkers * 2))));
+    const queueTargetSize = Math.max(0, Math.floor(numberArg(args, "--queue-target-size", Math.max(candidateLimit, run.desiredWorkers * 2))));
     const candidateWindow = Math.max(
       candidateLimit,
       queueTargetSize,
-      Math.max(0, Math.floor(numberArg(args, "--candidate-window", Math.max(candidateLimit, queueTargetSize * 4)))),
+      Math.max(0, Math.floor(numberArg(args, "--candidate-window", Math.max(candidateLimit, queueTargetSize * 8)))),
     );
-    const snapshot = loadBoardSnapshot(globals.repoRoot, candidateWindow);
+    const graphDbPath = stringArg(args, "--graph-db", resourceGraphDbPath());
+    const snapshot = loadBoardSnapshot(globals.repoRoot, candidateWindow, { graphDbPath });
     const outputDir = resolve(globals.stateDir, "runs", runId, "director_cycles");
     const activeWorkers = activeWorkerCount(store, runId);
     const queueStats = queueStatsSnapshot(store, runId);

@@ -11,82 +11,75 @@
     "merged_at": "2026-03-05T22:07:47Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched several Kirby copied neutral-special routines in ftKb_SpecialNYs.c. The PR implemented three former decomp stubs, completed ftKb_MsSpecialNLoop_Anim, and decomp.dev reported 4 new GALE01 matches totaling +460 bytes.",
+  "summary": "Matched several Kirby copy-ability SpecialN routines in ftKb_SpecialNYs.c, adding implementations for ftKb_SpecialNYs_8010A8BC, ftKb_SpecialNMs_8010B868, and ftKb_SpecialNMs_8010B8E0, and finishing ftKb_MsSpecialNLoop_Anim. The decomp.dev report credited 4 new matches and +460 bytes, raising matched code by +0.01%. Evidence is limited to the diff and bot match report; there were no human review comments.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "stub-implementation",
+      "decomp-matching",
       "fighter-behavior",
-      "matching-cleanup"
+      "kirby-copy-ability",
+      "motion-state"
     ],
     "systems": [
       "fighter",
       "ftKirby",
-      "Kirby copied specials",
-      "item interaction"
+      "items",
+      "animation"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
-      "role": "Only changed file; implements Kirby copied-special helpers and fixes a partial animation-loop match.",
-      "diff_stats": "+59/-7 across 2 hunks"
-    }
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c"
   ],
   "what_changed": [
-    "Implemented ftKb_SpecialNYs_8010A8BC. When fp->target_item_gobj is non-null, it computes a has_destroy_type flag from specific Yoshi capture motion IDs, calls it_802F2E7C on the target item, then clears fp->x1A64 and fp->target_item_gobj.",
-    "Implemented ftKb_SpecialNMs_8010B868 for the air transition path. It calls ftCommon_8007D5D4 and then Fighter_ChangeMotionState using an air motion ID selected from fp->fv.kb.hat.kind.",
-    "Implemented ftKb_SpecialNMs_8010B8E0 for the ground transition path. It calls ftCommon_8007D7FC and then Fighter_ChangeMotionState using a ground motion ID selected from fp->fv.kb.hat.kind.",
-    "Added inline helpers getAirSpecialMotionId and getGroundSpecialMotionId. Both select Ms motion IDs when fp->fv.kb.hat.kind == FTKIND_MARS and Fe motion IDs otherwise.",
-    "Adjusted ftKb_MsSpecialNLoop_Anim by changing the charge pointer from u32* to s32*, adding explicit casts to the ms/fe charge_iterations fields, and replacing ftAnim_IsFramesRemaining(gobj) with ftKb_SpecialNPe_8010C148(gobj) after the charge threshold is exceeded."
+    "Replaced the nonmatching marker for ftKb_SpecialNYs_8010A8BC with code that checks fp->target_item_gobj, decides a bool has_destroy_type from specific Yoshi-copy capture motion IDs, calls it_802F2E7C on the target item, then clears fp->x1A64 and fp->target_item_gobj.",
+    "Added inline helper getAirSpecialMotionId that selects ftKb_MS_MsSpecialAirNStart when Kirby's hat kind is FTKIND_MARS and ftKb_MS_FeSpecialAirNStart otherwise.",
+    "Implemented ftKb_SpecialNMs_8010B868 as an air transition: calls ftCommon_8007D5D4(fp), then Fighter_ChangeMotionState with the selected air SpecialN start motion, flags 0x0C4C7084, current animation frame, 1.0f rate, 0.0f blend, and NULL.",
+    "Added inline helper getGroundSpecialMotionId with the same Marth-versus-Fire Emblem selection pattern for grounded motion IDs ftKb_MS_MsSpecialNStart and ftKb_MS_FeSpecialNStart.",
+    "Implemented ftKb_SpecialNMs_8010B8E0 as a grounded transition: calls ftCommon_8007D7FC(fp), then Fighter_ChangeMotionState with the selected ground SpecialN start motion and the same flags/frame/rate/blend arguments.",
+    "Adjusted ftKb_MsSpecialNLoop_Anim from a u32* charge to s32* charge with explicit casts from the dat_attrs charge_iterations fields.",
+    "Changed ftKb_MsSpecialNLoop_Anim so that after cur_frame exceeds charge_iterations * 30 it sets fp->cmd_vars[0] = 1 and calls ftKb_SpecialNPe_8010C148(gobj), replacing the prior ftAnim_IsFramesRemaining(gobj) call."
   ],
   "smart_moves": [
-    "The ground and air transition functions share the same Fighter_ChangeMotionState argument pattern while isolating only the motion-ID choice into inline helpers, which keeps the matched code simple and avoids duplicating the hat-kind branch around the full transition call.",
-    "The s32* charge pointer and explicit casts show attention to signedness as a matching constraint; this small type change helped finish ftKb_MsSpecialNLoop_Anim from a near-match.",
-    "The item cleanup helper preserves behavior order: notify the item through it_802F2E7C before clearing both related fighter item references.",
-    "The transition implementations preserve fp->cur_anim_frame and use the exact observed ChangeMotionState flags and float arguments: 0x0C4C7084, 1.0f, and 0.0f."
+    "Factored Marth-versus-Fire Emblem motion-ID selection into tiny inline helpers, preserving a simple call shape for Fighter_ChangeMotionState while avoiding duplicated conditional expressions in the matched routines.",
+    "Kept the item cleanup routine narrowly ordered: only when target_item_gobj exists, compute the destroy-type bool from exact capture motion IDs, notify the item with it_802F2E7C, then clear both fighter item references.",
+    "Used explicit s32* casts for charge_iterations selection in ftKb_MsSpecialNLoop_Anim, suggesting the signedness and pointer type were important to the remaining match.",
+    "Replaced a generic animation-frame query call with ftKb_SpecialNPe_8010C148 in the loop-completion path, which was enough to take ftKb_MsSpecialNLoop_Anim from 97.69% to 100% according to the bot report."
   ],
   "decomp_lessons": [
-    "For Kirby copied specials, fp->fv.kb.hat.kind can drive small motion-ID selection helpers while the surrounding transition code remains identical.",
-    "Do not assume unsigned dat-attr fields are harmless in near-matches; pointer signedness and casts can affect the final generated code.",
-    "A generic animation helper call may be wrong even if it is plausible. In ftKb_MsSpecialNLoop_Anim, the matching call after the charge threshold was ftKb_SpecialNPe_8010C148, not ftAnim_IsFramesRemaining.",
-    "When implementing target-item cleanup routines, look for both an item callback and fighter-side pointer clearing in the same helper.",
-    "Bot match reports are useful evidence for validating tiny matching fixes: this PR moved ftKb_MsSpecialNLoop_Anim from 97.69% to 100% with only +3 matched bytes."
+    "For Kirby copied SpecialN code, motion selection can hinge on fp->fv.kb.hat.kind, here specifically FTKIND_MARS versus the fallback Fire Emblem path.",
+    "When matching small transition functions, isolate motion-ID selection if it helps the compiler produce the expected call sequence around Fighter_ChangeMotionState.",
+    "Preserve exact motion-state arguments, including magic flag constants such as 0x0C4C7084 and use of fp->cur_anim_frame, because these details are likely match-sensitive.",
+    "Signedness of dat_attrs pointers can matter even when the underlying field names look like iteration counts; this PR changed u32* to s32* and used casts.",
+    "A near-match in an Anim routine may be resolved by identifying the specific state-advance helper that the original code called rather than leaving a placeholder-like generic ftAnim_IsFramesRemaining call.",
+    "Target-item cleanup routines may need to reset both named target fields and adjacent/less-understood fighter fields such as x1A64 after notifying the item subsystem."
   ],
   "naming_conventions": [
-    "Kirby fighter routines in this file use the ftKb_ prefix and often retain address-suffixed names for still-unnamed helpers, such as ftKb_SpecialNYs_8010A8BC.",
-    "Motion-state enum names use the ftKb_MS_* pattern, with variants such as ftKb_MS_MsSpecialAirNStart, ftKb_MS_FeSpecialAirNStart, ftKb_MS_MsSpecialNStart, and ftKb_MS_FeSpecialNStart.",
-    "The added local helpers use lower camelCase names: getAirSpecialMotionId and getGroundSpecialMotionId.",
-    "The file follows common fighter local naming: Fighter* fp = GET_FIGHTER(gobj), ftKb_DatAttrs* da = fp->dat_attrs, and Fighter_GObj/HSD_GObj parameter types depending on the routine."
+    "Matched functions retain address-suffixed names such as ftKb_SpecialNYs_8010A8BC, ftKb_SpecialNMs_8010B868, and ftKb_SpecialNMs_8010B8E0 when semantic names are not yet known.",
+    "Kirby motion IDs use ftKb_MS_* names, with copied-character prefixes visible here: Ms for Marth-like copied SpecialN and Fe for Fire Emblem fallback.",
+    "The added local helpers use descriptive camelCase names getAirSpecialMotionId and getGroundSpecialMotionId rather than address-style names.",
+    "Fighter access follows the project convention Fighter* fp = GET_FIGHTER(gobj)."
   ],
   "assembly_or_matching_tactics": [
-    "Replaced three /// # decomp stubs with C implementations that reached 100% according to the decomp.dev report.",
-    "Used inline motion-ID selector helpers to shape the branch/result code for Marth-vs-Fe copied special state changes.",
-    "Kept exact Fighter_ChangeMotionState arguments, including flag literal 0x0C4C7084 and frame/rate/blend values fp->cur_anim_frame, 1.0f, and 0.0f.",
-    "Used s32* plus explicit casts around charge_iterations to control signed arithmetic/load behavior in ftKb_MsSpecialNLoop_Anim.",
-    "Completed the partial match by calling ftKb_SpecialNPe_8010C148 after setting fp->cmd_vars[0] = 1 instead of leaving the previous ftAnim_IsFramesRemaining call."
+    "Use inline helper functions to shape codegen for repeated conditional motion-ID selection.",
+    "Match boolean construction explicitly: initialize has_destroy_type to false, set true only for the enumerated capture motion IDs, then pass it to the item callback.",
+    "Maintain exact order of side effects in cleanup: it_802F2E7C call before clearing fp->x1A64 and fp->target_item_gobj.",
+    "Try signed pointer types and explicit casts for dat_attrs fields when arithmetic comparisons in loops do not match.",
+    "For Fighter_ChangeMotionState matches, preserve exact literal arguments and current-frame forwarding: motion id, 0x0C4C7084, fp->cur_anim_frame, 1.0f, 0.0f, NULL."
   ],
   "review_feedback": [
-    {
-      "source": "decomp-dev[bot]",
-      "url": "https://github.com/doldecomp/melee/pull/2226#issuecomment-4008120542",
-      "summary": "GALE01 matched code increased to 55.20% (+0.01%, +460 bytes). The bot reported 4 new matches: ftKb_SpecialNMs_8010B868, ftKb_SpecialNMs_8010B8E0, ftKb_SpecialNYs_8010A8BC, and ftKb_MsSpecialNLoop_Anim."
-    },
-    {
-      "source": "human review",
-      "summary": "No human review comments or reviews were present in the provided PR dump."
-    }
+    "No human review comments were present in the PR slice.",
+    "decomp.dev bot reported 4 new matches: ftKb_SpecialNMs_8010B868 (+120 bytes), ftKb_SpecialNMs_8010B8E0 (+120 bytes), ftKb_SpecialNYs_8010A8BC (+116 bytes), and ftKb_MsSpecialNLoop_Anim (+3 bytes)."
   ],
   "searchable_terms": [
     "pr-2226",
     "ftKb matches",
     "PsiLupan",
-    "ftKirby",
     "ftKb_SpecialNYs.c",
     "ftKb_SpecialNYs_8010A8BC",
     "ftKb_SpecialNMs_8010B868",
     "ftKb_SpecialNMs_8010B8E0",
     "ftKb_MsSpecialNLoop_Anim",
+    "ftKb_SpecialNPe_8010C148",
     "getAirSpecialMotionId",
     "getGroundSpecialMotionId",
     "FTKIND_MARS",
@@ -99,24 +92,28 @@
     "ftKb_MS_YsSpecialAirNCapture1_1",
     "ftKb_MS_YsSpecialAirN2_1",
     "target_item_gobj",
-    "x1A64",
     "it_802F2E7C",
+    "x1A64",
     "Fighter_ChangeMotionState",
     "ftCommon_8007D5D4",
     "ftCommon_8007D7FC",
-    "ftKb_SpecialNPe_8010C148",
     "charge_iterations",
-    "s32 charge pointer",
-    "GALE01",
-    "4 new matches",
-    "+460 bytes"
+    "cmd_vars",
+    "0x0C4C7084"
   ],
   "follow_up_queries": [
-    "Find remaining /// # stubs in src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c.",
-    "Search for other Kirby copied-special transition routines that branch on fp->fv.kb.hat.kind to select ftKb_MS_* motion IDs.",
-    "Audit ftKb_DatAttrs charge_iterations field signedness and other near-matches involving u32* versus s32*.",
-    "Inspect related target_item_gobj and x1A64 cleanup helpers that call it_802F2E7C.",
-    "Compare ftKb_SpecialNPe_8010C148 call sites to other special-loop animation threshold handlers."
+    "Find later PRs that rename or further document ftKb_SpecialNYs_8010A8BC or fp->x1A64.",
+    "Search for other Kirby copied SpecialN routines using FTKIND_MARS to choose Ms versus Fe motion IDs.",
+    "Compare other ftKb loop anim routines where charge_iterations signedness affects matching.",
+    "Look for item cleanup patterns using it_802F2E7C and target_item_gobj in other fighter files."
   ],
-  "confidence": 0.9
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

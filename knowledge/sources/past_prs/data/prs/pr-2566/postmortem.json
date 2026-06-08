@@ -11,14 +11,13 @@
     "merged_at": "2026-06-01T04:28:52Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Single-file stage decomp matching PR for Inishie1. It matched `grInishie1_801FA9B4` to 100% by modeling the surrounding `.data` layout: a preceding s16/S16Vec3 table, StageCallbacks adjacency, a StageData wrapper with an embedded get-gobj report format string, and separate global strings for `/GrI1.dat` and `grinishie1.c`.",
+  "summary": "Matched grInishie1_801FA9B4 by reshaping nearby stage data in src/melee/gr/grinishie1.c to mirror the StageData layout pattern used in grHeal. The change introduced explicit colocated data for an S16Vec3-style index array, the stage DAT path string, a wrapper struct containing StageData plus the adjacent OSReport format string, and a filename string, then rewrote grInishie1_801FA9B4 to reference callbacks and report strings through that reconstructed data layout.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "types-structs",
-      "data-layout",
-      "stage-data"
+      "data-layout-reconstruction"
     ],
     "systems": [
       "stage",
@@ -27,82 +26,83 @@
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grinishie1.c",
-      "reason": "Only changed file; added Inishie1 stage data globals and adjusted `grInishie1_801FA9B4` to reference that data layout."
-    }
+    "src/melee/gr/grinishie1.c"
   ],
   "what_changed": [
-    "Added `s16 grI1_803E48C8[22]` and used it in StageData as `(S16Vec3*) grI1_803E48C8` with count `7`.",
-    "Added global string `grI1_803E4944[] = \"/GrI1.dat\"`.",
-    "Added `typedef struct grInishie1_StageData { StageData stage_data; char report_fmt_get_gobj[0x24]; }` and initialized `grI1_803E4950` with `INISHIE1`, the `/GrI1.dat` path, the S16Vec3 table pointer, and `\"%s:%d: couldn t get gobj(id=%d)\\n\"`.",
-    "Added global filename string `grI1_803E49A8[] = \"grinishie1.c\"`.",
-    "Changed `grInishie1_801FA9B4` callback lookup from direct `&grI1_803E48F4[arg0]` to `(StageCallbacks*) ((char*) grI1_803E48C8 + 0x2c) + arg0`, tying codegen to the preceding data block.",
-    "Changed the failed `Ground_GetStageGObj` OSReport call to use `grI1_803E4950.report_fmt_get_gobj` and `grI1_803E49A8` instead of inline string literals.",
-    "decomp.dev reported one new match: `main/melee/gr/grinishie1` item `grInishie1_801FA9B4` improved from 94.03% to 100.00%; `.data` improved from 19.85% to 55.52%; overall matched code increased by 236 bytes."
+    "Added grI1_803E48C8, a 22-element s16 array whose values are cast into the StageData S16Vec3 pointer field.",
+    "Added grI1_803E4944 as the stage resource path string \"/GrI1.dat\".",
+    "Introduced typedef struct grInishie1_StageData containing a StageData field followed by char report_fmt_get_gobj[0x24].",
+    "Added grI1_803E4950, a grInishie1_StageData instance initialized with INISHIE1, the DAT path, a count of 1, the casted S16Vec3 pointer, a count of 7, and the report format string \"%s:%d: couldn t get gobj(id=%d)\\n\".",
+    "Added grI1_803E49A8 as the filename string \"grinishie1.c\".",
+    "Changed grInishie1_801FA9B4 so its StageCallbacks pointer is derived via pointer arithmetic from grI1_803E48C8 plus 0x2c, rather than directly taking &grI1_803E48F4[arg0].",
+    "Changed the failed Ground_GetStageGObj path to call OSReport using grI1_803E4950.report_fmt_get_gobj and grI1_803E49A8 instead of inline string literals."
   ],
   "smart_moves": [
-    "Identified the mismatch as a data-layout/symbol-reference problem rather than a control-flow rewrite problem.",
-    "Reused an existing stage-module pattern from `grHeal`: a StageData-containing wrapper followed by `report_fmt_get_gobj[0x24]`.",
-    "Used the fact that `grI1_803E48C8[22]` is 44 bytes (`0x2c`) to derive the adjacent `StageCallbacks` address in the form needed for matching.",
-    "Lifted report strings into globals/data fields so `OSReport` references matched the original data section instead of emitting direct local string references."
+    "Used an existing matched stage file pattern, identified in the PR title as grHeal, as a template for recovering the StageData-adjacent layout in grInishie1.",
+    "Modeled adjacent rodata/data as a wrapper struct rather than treating the report format string as an unrelated standalone symbol, which helped reproduce compiler addressing behavior.",
+    "Preserved the logical StageCallbacks table while forcing the generated code to compute the callback pointer from the earlier colocated data address, matching the observed binary layout.",
+    "Moved inline OSReport literals into named data symbols so the function referenced the same global storage layout as the original binary."
   ],
   "decomp_lessons": [
-    "For stage get-gobj helpers, the nearby `.data` structure can be necessary to match a small function even when the C logic is already understood.",
-    "If direct `&callbacks[arg]` does not match, check whether the original code references an earlier data symbol plus a byte offset into an adjacent array.",
-    "Homologous stage files can provide reliable layout clues; here the PR title explicitly cites copying the StageData structure pattern from `grHeal`.",
-    "Wrapper structs with fixed-size trailing char arrays can be a practical way to model original data ordering for embedded format strings.",
-    "When casting raw `s16` tables to `S16Vec3*`, verify the byte size and count relationship; here 22 s16 entries produce the `0x2c` offset used to reach `grI1_803E48F4`."
+    "For stage files, matching a stubborn function may require reconstructing the exact global data packing around StageData, not just correcting the function body.",
+    "When a callback table appears adjacent to stage metadata, pointer arithmetic from an earlier symbol can be necessary to match compiler output even if a direct array access is clearer C.",
+    "StageData layouts may include neighboring strings such as assert/report format strings; wrapping StageData with trailing character arrays can model that adjacency cleanly.",
+    "Cross-stage comparison is valuable: a known-good structure in one ground module, here grHeal according to the PR title, can reveal the intended layout for another stage module."
   ],
   "naming_conventions": [
-    "Inishie1 globals use the `grI1_803E....` address-style prefix, e.g. `grI1_803E48C8`, `grI1_803E48F4`, `grI1_803E4950`.",
-    "The local wrapper type follows module + purpose naming: `grInishie1_StageData`.",
-    "The embedded report format field is named descriptively as `report_fmt_get_gobj`, matching its use in the failed `Ground_GetStageGObj` path.",
-    "The stage data path string and source filename string are separate globals: `/GrI1.dat` in `grI1_803E4944` and `grinishie1.c` in `grI1_803E49A8`."
+    "Global data symbols in this file use the grI1_803Exxxx address-style naming pattern, such as grI1_803E48C8, grI1_803E4944, grI1_803E4950, and grI1_803E49A8.",
+    "The new wrapper typedef is named after the stage module and purpose: grInishie1_StageData.",
+    "The wrapper field names describe semantic contents: stage_data and report_fmt_get_gobj.",
+    "The stage path string is stored separately as grI1_803E4944 and referenced from the StageData initializer."
   ],
   "assembly_or_matching_tactics": [
-    "Used data adjacency explicitly: `(char*) grI1_803E48C8 + 0x2c` reaches the following `StageCallbacks grI1_803E48F4[]` because 22 s16 entries equal 44 bytes.",
-    "Replaced direct callback-array indexing with pointer arithmetic from the prior symbol to match the original address calculation.",
-    "Modeled the OSReport format string as part of a `StageData` wrapper struct so the function loads `grI1_803E4950.report_fmt_get_gobj`.",
-    "Separated declaration of `HSD_GObj* gobj` from the `Ground_GetStageGObj(arg0)` call in the function; the diff shows this ordering change, but the slice does not include an explicit rationale.",
-    "Used decomp.dev validation to confirm the tactic produced a 100% match for `grInishie1_801FA9B4`."
+    "Replaced direct callback-table indexing, &grI1_803E48F4[arg0], with a casted address calculation: (StageCallbacks*) ((char*) grI1_803E48C8 + 0x2c) + arg0.",
+    "Used a wrapper struct with a trailing char array of fixed size 0x24 to force the report format string to sit immediately after StageData.",
+    "Casted grI1_803E48C8 to S16Vec3* in the StageData initializer to match the expected StageData field type while keeping the underlying data declared as s16.",
+    "Hoisted OSReport format and filename strings into globals to match data references rather than emitting or reusing inline literals in the function."
   ],
   "review_feedback": [
-    "No human review comments or formal reviews were present in the slice.",
-    "decomp-dev[bot] reported GALE01 matched code at 69.35% with `+0.01%` and `+236 bytes`, including the new 100% match for `grInishie1_801FA9B4`."
+    "No review comments were present in the provided PR slice.",
+    "The PR had one issue comment according to counts, but no human text excerpt was included, so no specific reviewer feedback can be extracted."
   ],
   "searchable_terms": [
     "pr-2566",
     "grInishie1_801FA9B4",
+    "grInishie1",
     "grinishie1.c",
-    "src/melee/gr/grinishie1.c",
     "grHeal",
     "StageData",
     "grInishie1_StageData",
-    "StageCallbacks",
     "grI1_803E48C8",
     "grI1_803E48F4",
     "grI1_803E4944",
     "grI1_803E4950",
     "grI1_803E49A8",
-    "report_fmt_get_gobj",
+    "StageCallbacks",
     "Ground_GetStageGObj",
     "HSD_GObj_SetupProc",
     "OSReport",
+    "report_fmt_get_gobj",
     "S16Vec3",
     "INISHIE1",
     "/GrI1.dat",
     "couldn t get gobj",
-    "0x2c",
-    "GALE01",
-    "matched 100",
-    "data layout"
+    "data layout",
+    "100% match"
   ],
   "follow_up_queries": [
-    "Search other `src/melee/gr/*.c` files for direct `&StageCallbacks[arg]` uses that might need an earlier-data-symbol-plus-offset expression.",
-    "Search for inline `OSReport(\"%s:%d: couldn't get gobj` or get-gobj report strings that may need promotion into StageData-adjacent globals.",
-    "Compare other stage modules against `grHeal_StageData` and `grInishie1_StageData` for reusable `StageData + report_fmt_get_gobj[0x24]` layouts.",
-    "Check whether additional static size assertions would help document wrapper layouts; this PR did not add one for `grInishie1_StageData`."
+    "Find other stage modules where StageData is wrapped with trailing report format strings.",
+    "Compare grInishie1_StageData layout against the grHeal StageData structure referenced by the PR title.",
+    "Search for direct StageCallbacks indexing that might need pointer arithmetic from nearby stage metadata to match.",
+    "Audit grInishie1.c for remaining address-style data symbols that could be given semantic struct layouts."
   ],
-  "confidence": 0.88
+  "confidence": 0.87,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

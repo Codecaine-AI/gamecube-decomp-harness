@@ -11,128 +11,117 @@
     "merged_at": "2026-05-07T21:03:04Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Green Greens stage decompilation pass centered on Whispy/wind and block-grid behavior. The PR expanded grGreens.c with implementations for the Whispy state machine, block initialization/spawn/fall/collision cleanup helpers, and supporting data tables; updated Ground vars, function prototypes, grmaterial declarations, and GALE01 data symbols. decomp.dev reported two new 100% function matches, grGreens_802139C4 and grGreens_80214674, plus large partial improvements across remaining grgreens functions, with known .sdata/.data regressions.",
+  "summary": "Large Green Greens stage decompilation pass focused on `src/melee/gr/grgreens.c`. It replaced several `/// #...` stubs with C for Whispy wind behavior, block spawning/falling/cleanup, material-item callbacks, and collision-link updates; refined Green Greens ground variable structs and headers; added audio/item includes; and corrected GALE01 symbol/data splits. The decomp.dev bot reported 2 newly matched functions, major improvements for many previously unmatched Green Greens functions, and a small `.sdata` broken match plus `.data` regression.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "stage-decompilation",
       "decomp-matching",
+      "stage-logic",
       "headers",
-      "data-layout",
+      "data-symbols",
       "struct-layout",
-      "partial-function-implementation"
+      "matching-progress"
     ],
     "systems": [
-      "stage/grgreens",
+      "stage",
       "ground",
+      "Green Greens",
+      "Whispy",
       "items",
       "audio",
-      "material",
-      "config/symbols"
+      "collision",
+      "config"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grgreens.c",
-      "role": "Main Green Greens implementation; added Whispy/wind logic, block-grid helpers, data tables, random timer behavior, item/audio calls, and matching tweaks."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Added struct grGreens_GroundVars2 and exposed it in Ground.gv as greens2 for the alternate Green Greens actor state."
-    },
-    {
-      "path": "src/melee/gr/grgreens.h",
-      "role": "Replaced UNK prototypes with typed signatures for grGreens_802150C4, grGreens_80215D54, and grGreens_80215ED8."
-    },
-    {
-      "path": "src/melee/gr/grmaterial.h",
-      "role": "Moved/added grMaterial declarations used by the new grgreens code, including grMaterial_801C8D44 and grMaterial_801C8E48."
-    },
-    {
-      "path": "src/melee/gr/grmaterial.c",
-      "role": "Removed local prototype block after declarations were moved to the header."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Split grGr data symbols around strings, tables, grGr_803E7840, and trailing unknown data to match the new static data layout."
-    }
+    "src/melee/gr/grgreens.c",
+    "src/melee/gr/grgreens.h",
+    "src/melee/gr/types.h",
+    "src/melee/gr/grmaterial.h",
+    "src/melee/gr/grmaterial.c",
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "Expanded the Green Greens stage parameter struct from sparse padding into offset fields through x78, including block timers, block bomb chance, wind timer/speed/bounds fields, and additional unknown numeric fields used by the new logic.",
-    "Added static data tables grGr_803E7734, grGr_803E775C, grGr_803E777C, grGr_803E77B4, grGr_803E77D4, grGr_803E780C, and a 30-entry grGr_803E7840 JObj/collision-id table; symbols.txt was updated to split surrounding .data symbols accordingly.",
-    "Replaced the commented stub for grGreens_80213C10 with a large state machine using Ground_801C2BA4, grAnime_801C8138/grAnime_801C83D0/grAnime_801C84A4, lbAudioAx_800237A8, Camera_80030E44, lb_80011A50, ftLib_800864A8, HSD_JObjGetTranslation, and it_802EE200. The code drives Green Greens/Whispy animation phases, wind direction state via greens2.x18, and item spawning through the Whispy apple include.",
-    "Added struct grGreens_GroundVars2 and changed wind callback fn_80213B1C to read GET_GROUND(ground_gobj)->gv.greens2.x18 instead of overloading the existing greens struct.",
-    "Implemented block-grid support functions: grGreens_8021483C computes a 5x6 grid of Vec positions from 30 stage JObjs; grGreens_80214B58 initializes grGr_8049F9E0 block status/type data; grGreens_802150C4 links neighboring collision entries with mpLib_800581DC; fn_80215B84 maps item callbacks back to a block; grGreens_80215D54 shifts blocks after removal; grGreens_80215ED8 updates falling/landing block positions; grGreens_802166C4 handles timed weighted spawning and cleanup; grGreens_80216C20 reconnects links after changes.",
-    "Adjusted existing code for matching and correctness: randrange now handles min greater than max, min less than max, and equal values; grGreens_802139C4 uses gobj->user_data and reversed wind timer arguments; grGreens_80214674 uses a temporary Ground_GObj* alias before repeated calls; grGreens_80214FA8 swaps row/column arguments into grGreens_80215358 and uses HSD_ASSERT(1203, NULL); grGreens_80215358 uses clearer col,row parameters and Ground_801C32D4(6, grGr_803E7840[num]).",
-    "Added includes for melee/lb/lbaudio_ax.h and melee/it/items/itwhispyapple.h to support the newly decompiled audio and item behavior."
+    "Expanded the Green Greens parameter struct from padded unknown regions into named offset fields through `x78`, including block timers/chances, wind timers/speed/bounds, and additional float/int parameters used by Whispy and apple spawning.",
+    "Changed `grGr_804D6AAD` from `s8` to `u8`, consistent with flag-like usage in `grGreens_80213C10` and `grGreens_80214674`.",
+    "Added stage data arrays for Whispy state sequencing and animation lookup: `grGr_803E7734`, `grGr_803E775C`, `grGr_803E777C`, `grGr_803E77B4`, `grGr_803E77D4`, and directional vectors `grGr_803E780C`.",
+    "Replaced the zero-filled `grGr_803E7840[128]` with a 30-entry `s16` joint/index table from 5 through 0x22, matching the 5x6 Green Greens block grid.",
+    "Reworked `randrange` to handle min-greater-than-max, min-less-than-max, and equality explicitly, using `HSD_Randi(diff)` only when needed.",
+    "Completed or substantially decompiled Green Greens functions including `grGreens_80213C10`, `grGreens_80214B58`, `grGreens_802150C4`, `fn_80215B84`, `grGreens_80215D54`, `grGreens_80215ED8`, `grGreens_802166C4`, and `grGreens_80216C20`.",
+    "Implemented Whispy behavior in `grGreens_80213C10`: state progression, foreground/background animation coordination, wind direction, wind hitbox activation via `greens2.x18`, camera shake, audio calls through `lbAudioAx_800237A8`, and Whispy apple spawning through `it_802EE200`.",
+    "Implemented Green Greens block-grid setup in `grGreens_8021483C` by scanning 30 JObjs, computing left/right grid extents, and filling a 5-row by 6-column vector grid.",
+    "Implemented initial block-type randomization in `grGreens_80214B58` using a static `indices` ordering table and `grGr_params->x8_blockBombChance`.",
+    "Corrected block grid coordinate ordering around `grGreens_80215358`, changing parameter names from generic `i, j` to `col, row` and using `getBlock(gp, row, col)` / `getVec(gp, row, col)` consistently.",
+    "Added block falling, settling, cleanup, respawn weighting, material deletion, hidden-JObj handling, and collision edge connection logic across `grGreens_80215D54`, `grGreens_80215ED8`, `grGreens_802166C4`, and `grGreens_80216C20`.",
+    "Updated `grgreens.h` prototypes for newly typed functions: `grGreens_802150C4(Ground_GObj*, int, int)`, `grGreens_80215D54(Ground_GObj*, int, int)`, and `grGreens_80215ED8(Ground_GObj*, int, int)`.",
+    "Added `struct grGreens_GroundVars2` in `types.h` and added it to the `Ground` union as `greens2`, enabling separate Whispy/secondary Green Greens state access.",
+    "Moved several `grmaterial` declarations from `grmaterial.c` to `grmaterial.h`, making functions such as `grMaterial_801C8D44`, `grMaterial_801C8E48`, and `grMaterial_801C9490` visible to Green Greens code.",
+    "Split GALE01 symbols around Green Greens data: `grGr_803E7728` is now marked as an 0xB string, `grGr_803E7733` as the remaining 0xF1 object, `grGr_803E7840` as 0x3C of 2-byte data, and `grGr_803E787C` as the following 0xC4 object."
   ],
   "smart_moves": [
-    "Kept unknown stage parameter offsets as xNN fields while naming only the clearly inferred fields such as x0_blockTimerMin, x4_blockTimerMax, x8_blockBombChance, x34_windTimerMin, x38_windTimerMax, and x3C_windSpeed.",
-    "Separated Green Greens actor state into greens and greens2 rather than forcing Whispy/wind state into the existing block-grid struct; this made fn_80213B1C's wind flag source explicit.",
-    "Recovered static data tables for animation/state sequencing instead of burying the values in switches, and paired that with symbols.txt data splits so future data work can find grGr_803E7734 through grGr_803E787C.",
-    "Treated row/column ordering as a first-class matching concern by renaming parameters to col,row in some functions and fixing call sites/loops around getBlock and getVec.",
-    "Used source-shape tricks that decompilers should remember: direct gobj->user_data access, an otherwise redundant new_var alias, ternary HSD_Randi calls inside randrange, and NULL rather than 0 in HSD_ASSERT.",
-    "Connected the stage implementation to existing engine subsystems instead of local placeholders: grAnime for stage animation, mpLib for collision links, grMaterial for block items/material state, lbAudioAx for SFX, and itwhispyapple for item spawning."
+    "Used real small lookup tables for Whispy state order and animation IDs instead of embedding switch constants, which helps both data matching and readability.",
+    "Split foreground and background animation lookup tables (`grGr_803E775C`/`grGr_803E77B4`, `grGr_803E777C`/`grGr_803E77D4`) so `grGreens_80213C10` can drive paired stage objects with shared state.",
+    "Introduced a second Green Greens ground-var struct (`greens2`) rather than overloading the block-grid `greens` struct, preserving offset-based access for Whispy state at gp+C4 through gp+E8.",
+    "Converted the 30 block joint IDs into explicit data, allowing loops over the exact 5x6 block grid in setup, hiding, callback registration, and collision code.",
+    "Used row/column terminology in the function signature and implementation of `grGreens_80215358`, reducing ambiguity in a file where 5x6 block indexing is a major matching risk.",
+    "Preserved likely codegen-sensitive behavior with small tactical changes, such as assigning `Ground_GObj* new_var = gobj` in `grGreens_80214674` and using `gobj->user_data` directly in `grGreens_802139C4`.",
+    "Kept cleanup logic in `grGreens_802166C4` with a `goto restart_cleanup`, which likely mirrors original control flow when deleting blocks can reshuffle the grid.",
+    "Updated `symbols.txt` to represent newly discovered data boundaries rather than leaving oversized anonymous data blobs, improving future data matching around Green Greens and F-Zero stage data."
   ],
   "decomp_lessons": [
-    "For stage files with multiple logical actors, inspect which Ground union member each callback really uses; here, Whispy/wind logic needed a new grGreens_GroundVars2 while block-grid logic stayed in grGreens_GroundVars.",
-    "When a stage parameter block begins as padding, progressively replace padding with offset-accurate typed fields as functions consume them. Even partially named offset fields make later state-machine reconstruction easier.",
-    "Grid mechanics should establish row/col helper conventions early. This PR shows that a 5-row by 6-column layout affects loops, getBlock/getVec indexing, collision-link updates, and matching.",
-    "Data symbol boundaries matter for decomp progress: shrinking grGr_803E7840 from a 128-entry zeroed s16 array to the actual 30-entry table required splitting adjacent data symbols and accepting remaining unknown tails.",
-    "Small C expression choices can unlock full matches even when behavior is equivalent. The bot-reported new matches coincided with changes like gobj->user_data access in grGreens_802139C4 and the temporary alias in grGreens_80214674.",
-    "Partial implementations can still be valuable: decomp.dev showed major percentage gains for grGreens_80213C10, grGreens_80215ED8, grGreens_802166C4, grGreens_802150C4, fn_80215B84, grGreens_80215D54, and grGreens_80216C20 even though not all reached 100%."
+    "For stage modules, matching often depends on modeling per-stage data tables exactly; replacing a large zero array with the actual 30-entry block joint table unlocked clearer loops and symbol boundaries.",
+    "When a `Ground` union variant appears to have incompatible state uses, adding a second variant with the same gp+C4 base offsets can be cleaner than forcing all stage state into one struct.",
+    "Grid logic should be named and indexed explicitly. This PR shows that row/column swaps are easy in 5x6 stage block systems and affect both matching and correctness.",
+    "Bot match reports are useful but incomplete: this PR had large unmatched-function improvements while still reporting a broken `.sdata` match and `.data` regression, so data sections need follow-up after code progress.",
+    "Stage behavior reconstruction often requires cross-subsystem includes: Green Greens needed ground animation, fighter queries, material item callbacks, audio, camera, random, and Whispy apple item spawning.",
+    "Data symbol splitting in `config/GALE01/symbols.txt` should follow the C declarations as they become known; strings, jump tables, 2-byte arrays, and residual data should be separated instead of left as broad blobs."
   ],
   "naming_conventions": [
-    "Stage functions keep the address-based grGreens_802xxxxx naming convention until semantic names are available.",
-    "Green Greens file-scope data uses the grGr_ prefix with address-derived suffixes, such as grGr_803E7734, grGr_803E780C, grGr_803E7840, and grGr_8049F9E0.",
-    "Offset fields use xNN names, optionally with semantic suffixes when supported by use sites: x0_blockTimerMin, x4_blockTimerMax, x8_blockBombChance, x34_windTimerMin, x38_windTimerMax, x3C_windSpeed, x40_left, x44_right, x48_top, and x4C_bottom.",
-    "New alternate Ground union state was named grGreens_GroundVars2 and accessed as gp->gv.greens2.",
-    "Block-grid function parameters were clarified as col and row where evidence supported it, while less certain parameters stayed as arg1/arg2 or xNN fields.",
-    "Existing block constants retained the Gr_Greens_Block_ prefix style, including Gr_Greens_Block_Status_None and Gr_Greens_Block_Max."
+    "Stage functions retained address-style names with the `grGreens_802xxxxx` prefix.",
+    "Green Greens data symbols retained `grGr_80xxxxxx` address-style names until semantic names are known.",
+    "Offset fields in unknown structs used `xNN` naming, with partial semantic suffixes where inferred, e.g. `x0_blockTimerMin`, `x4_blockTimerMax`, `x8_blockBombChance`, `x34_windTimerMin`, `x38_windTimerMax`, `x3C_windSpeed`, `x40_left`, `x44_right`, `x48_top`, and `x4C_bottom`.",
+    "Block status constants used the stage-prefixed style `Gr_Greens_Block_Status_None` and `Gr_Greens_Block_Max`.",
+    "Newly clarified grid parameters used `col` and `row` instead of generic `i` and `j` in `grGreens_80215358` and related block routines.",
+    "The additional ground variable union member was named `greens2`, matching existing project patterns such as other stage variants with secondary ground-var structs."
   ],
   "assembly_or_matching_tactics": [
-    "Use direct field access gobj->user_data instead of GET_GROUND(gobj) when register allocation/source shape requires it; this helped grGreens_802139C4 reach 100%.",
-    "Preserve apparently redundant aliases such as Ground_GObj* new_var = gobj when they produce the desired call/register pattern; this helped grGreens_80214674 reach 100%.",
-    "Keep randrange branch order and ternary HSD_Randi(diff) shape close to assembly, including support for reversed min/max arguments.",
-    "Use exact data widths and counts for tables: grGr_803E7840 became s16[30], not a large placeholder array, and nearby symbols were split to represent strings, tables, and unknown trailing data.",
-    "Prefer table-driven animation indices for state machines when the .data section exposes those sequences; grGr_803E775C/grGr_803E777C and bg equivalents are indexed directly by state fields.",
-    "After mutating the block list during cleanup, the implementation restarts scanning with goto restart_cleanup, matching a likely assembly control-flow pattern and avoiding iterator invalidation."
+    "Direct `gobj->user_data` access was used instead of `GET_GROUND(gobj)` in `grGreens_802139C4`, contributing to that function becoming a full match according to the bot report.",
+    "The call `randrange(grGr_params->x38_windTimerMax, grGr_params->x34_windTimerMin)` intentionally passes max/min in reversed order in one initializer, supported by the symmetric `randrange` implementation.",
+    "A temporary `Ground_GObj* new_var` was introduced in `grGreens_80214674` and used for subsequent calls; the bot reported this function reached 100% after the PR.",
+    "Several functions use explicit casts and exact types, such as `(s32) gobj`, `(Vec3*) &grGr_803E780C[0]`, `static const u8 indices[]`, and `s16 grGr_803E7840[30]`, which are likely codegen/data-layout sensitive.",
+    "The block deletion loop uses `goto restart_cleanup` after removal and gravity adjustment, a common decomp tactic when original code restarts nested scans after mutating collection state.",
+    "The symbol table update splits `grGr_803E7728`/`grGr_803E7733` and `grGr_803E7840`/`grGr_803E787C`, aligning assembler/data labels with newly declared strings and arrays.",
+    "Header prototypes were made concrete for formerly `UNK_RET` functions, reducing implicit-call mismatch risk across `grgreens.c` and callers."
   ],
   "review_feedback": [
     {
-      "source": "PR body/reviews",
-      "note": "No PR body text, human reviews, or inline review comments were present in the slice, so reviewer intent is not available."
+      "source": "decomp.dev bot",
+      "feedback": "Reported matched code increased to 66.22% (+0.01%, +520 bytes), with two new full matches: `grGreens_802139C4` (+29 bytes) and `grGreens_80214674` (+19 bytes)."
     },
     {
-      "source": "decomp-dev[bot]",
-      "note": "GALE01 matched code increased to 66.22% (+0.01%, +520 bytes); matched data reported 38.70% (-24 bytes)."
+      "source": "decomp.dev bot",
+      "feedback": "Reported major improvements in previously unmatched Green Greens functions, especially `grGreens_80213C10` (+2322 bytes, 88.54%), `grGreens_80215ED8` (+1485 bytes, 73.26%), and `grGreens_802166C4` (+723 bytes, 52.72%)."
     },
     {
-      "source": "decomp-dev[bot]",
-      "note": "Two new matches were reported: grGreens_802139C4 improved from 87.57% to 100.00%, and grGreens_80214674 improved from 93.68% to 100.00%."
+      "source": "decomp.dev bot",
+      "feedback": "Reported one broken match in `main/melee/gr/grgreens` `.sdata`, dropping from 100.00% to 81.82% (-5 bytes), and a `.data` regression from 27.39% to 25.84% (-12 bytes)."
     },
     {
-      "source": "decomp-dev[bot]",
-      "note": "Large unmatched-item improvements included grGreens_80213C10 to 88.54%, grGreens_80215ED8 to 73.26%, grGreens_802166C4 to 52.72%, fn_80215B84 to 84.79%, grGreens_80215D54 to 70.78%, and grGreens_80216C20 to 60.62%."
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "note": "Known regressions were called out: .sdata broke from 100.00% to 81.82%, and .data regressed from 27.39% to 25.84%."
+      "source": "human review",
+      "feedback": "No human review comments were present in the provided PR slice."
     }
   ],
   "searchable_terms": [
-    "pr-2439",
+    "PR 2439",
     "Jj/grgreens",
     "jurrejelle",
     "Green Greens",
     "grgreens",
-    "grGreens_802139C4",
-    "fn_80213B1C",
     "grGreens_80213C10",
+    "grGreens_802139C4",
     "grGreens_80214674",
     "grGreens_8021483C",
     "grGreens_80214B58",
-    "grGreens_80214FA8",
     "grGreens_802150C4",
     "grGreens_80215358",
     "fn_80215B84",
@@ -140,19 +129,7 @@
     "grGreens_80215ED8",
     "grGreens_802166C4",
     "grGreens_80216C20",
-    "grGreens_GroundVars2",
-    "greens2",
-    "grGr_params",
-    "x0_blockTimerMin",
-    "x4_blockTimerMax",
-    "x8_blockBombChance",
-    "x34_windTimerMin",
-    "x38_windTimerMax",
-    "x3C_windSpeed",
-    "x40_left",
-    "x44_right",
-    "x48_top",
-    "x4C_bottom",
+    "fn_80216DE4",
     "grGr_803E7734",
     "grGr_803E775C",
     "grGr_803E777C",
@@ -161,34 +138,39 @@
     "grGr_803E780C",
     "grGr_803E7840",
     "grGr_8049F9E0",
+    "grGreens_GroundVars2",
+    "greens2",
+    "Whispy",
     "itwhispyapple",
     "it_802EE200",
     "lbAudioAx_800237A8",
-    "lb_80011A50",
-    "mpLib_800581DC",
     "grMaterial_801C8D44",
     "grMaterial_801C8E48",
-    "grMaterial_801C8CDC",
-    "Ground_801C32D4",
+    "mpLib_800581DC",
+    "Ground_801C2BA4",
     "Ground_801C3FA4",
-    "HSD_JObjGetTranslation",
-    "ftLib_800864A8",
-    "Camera_80030E44",
-    "randrange",
-    "grGr_803E7728",
-    "grGr_803E7733",
-    "grGr_803E787C"
+    "grAnime_801C8138",
+    "grAnime_801C83D0",
+    "grAnime_801C84A4",
+    "config/GALE01/symbols.txt",
+    "sdata broken match",
+    "data symbol split"
   ],
   "follow_up_queries": [
-    "grGreens_80213C10 greens2 x4 x8 x10 x14 x18 Whispy wind state machine",
-    "grGreens_802166C4 block spawn weights x1C x20 x0_blockTimerMin x4_blockTimerMax",
-    "grGreens row col getBlock getVec 5 6 grid coordinate order",
-    "grGr_803E7734 grGr_803E775C grGr_803E777C animation table data split",
-    "grGr_803E7840 s16 30 Ground_801C3FA4 block JObj ids",
-    "grMaterial_801C8D44 grMaterial_801C8E48 grgreens block item material callbacks",
-    "grGreens_802139C4 gobj user_data randrange reversed arguments match",
-    "grGreens_80214674 new_var temporary Ground_GObj matching tactic",
-    "Green Greens .sdata .data regression grGr_803E7728 grGr_803E787C cleanup"
+    "Investigate the `.sdata` broken match reported for `main/melee/gr/grgreens` after changing `grGr_804D6AAD` and related static data.",
+    "Check whether the `.data` regression around `grGr_803E7728`, `grGr_803E7733`, `grGr_803E7840`, and `grGr_803E787C` can be recovered with better data declarations.",
+    "Continue matching `grGreens_80213C10`, which improved to 88.54% but was not reported as fully matched.",
+    "Continue matching `grGreens_80215ED8`, `grGreens_802166C4`, `grGreens_802150C4`, `fn_80215B84`, `grGreens_80215D54`, and `grGreens_80216C20` based on the bot's partial-match percentages.",
+    "Audit `grmaterial.h` declarations marked `static` in a header, because the diff moved static prototypes out of `grmaterial.c`; confirm this matches project style and does not create duplicate internal declarations.",
+    "Look for semantic names for the new `grGreens_GroundVars2` fields once Whispy state roles are better understood."
   ],
-  "confidence": 0.86
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,14 +11,14 @@
     "merged_at": "2026-03-03T02:43:49Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched ftCo_Damage_OnEveryHitlag by cleaning up the SDI-in-hitlag logic and propagating semantic SDI names through fighter/common-data structs and related guard/collision call sites. decomp.dev reported one new match: ftCo_Damage_OnEveryHitlag in main/melee/ft/chara/ftCommon/ftCo_Damage from 86.07% to 100.00%.",
+  "summary": "Matched and cleaned up ftCo_Damage_OnEveryHitlag by replacing a temporary SOLUTION/M2C_FIELD-based implementation with named Fighter and ftCommonData fields for SDI behavior. The PR also propagated the new SDI names across damage, guard, collision, hitlag, and fighter lifecycle code, turning opaque fields x221A_b2, x4B0, x4B4, and x4B8 into allow_sdi, sdi_min_stick_mag, sdi_stick_window, and sdi_pos_scale.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "cleanup",
-      "symbol-renaming"
+      "field-naming",
+      "cleanup"
     ],
     "systems": [
       "fighter",
@@ -26,134 +26,115 @@
       "damage",
       "guard",
       "hitlag",
-      "SDI"
+      "collision"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_Damage.c",
-      "role": "Target match; rewrote ftCo_Damage_OnEveryHitlag and updated SDI threshold uses in damage/hitlag logic."
-    },
-    {
-      "path": "src/melee/ft/types.h",
-      "role": "Renamed SDI-related ftCommonData fields and Fighter bitfield while preserving documented offsets."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_Guard.c",
-      "role": "Updated guard SDI/guard-setoff code to use allow_sdi and named SDI common-data fields."
-    },
-    {
-      "path": "src/melee/ft/fighter.c",
-      "role": "Updated hitlag lifecycle code to set, clear, and test allow_sdi."
-    },
-    {
-      "path": "src/melee/ft/ft_081B.c",
-      "role": "Updated collision-path branches that depend on the SDI-allowed state."
-    },
-    {
-      "path": "src/melee/ft/ft_0DF1.c",
-      "role": "Updated C-stick SDI magnitude check to use sdi_min_stick_mag."
-    }
+    "src/melee/ft/chara/ftCommon/ftCo_Damage.c",
+    "src/melee/ft/chara/ftCommon/ftCo_Guard.c",
+    "src/melee/ft/fighter.c",
+    "src/melee/ft/types.h",
+    "src/melee/ft/ft_081B.c",
+    "src/melee/ft/ft_0DF1.c"
   ],
   "what_changed": [
-    "Replaced the old SOLUTION/M2C_FIELD-heavy ftCo_Damage_OnEveryHitlag body with a compact condition using GET_FIGHTER, allow_sdi, VEC2_SQ_LEN, SQ, and named p_ftCommonData SDI fields.",
-    "Changed the left-stick SDI eligibility check from hand-written squared-component arithmetic against x4B0 to VEC2_SQ_LEN(fp->input.lstick) >= SQ(p_ftCommonData->sdi_min_stick_mag).",
-    "Computed scaled_lstick_x and scaled_lstick_y from fp->input.lstick and p_ftCommonData->sdi_pos_scale, applied them to fp->cur_pos, reset both stick tilt timers to 254, and called pl_800401F0 with fp->x221F_b4.",
-    "Renamed ftCommonData +4B0/+4B4/+4B8 from x4B0/x4B4/x4B8 to sdi_min_stick_mag/sdi_stick_window/sdi_pos_scale and updated uses in damage, guard, and C-stick checks.",
-    "Renamed Fighter bitfield fp+221A:2 from x221A_b2 to allow_sdi and updated hitlag, guard, and collision-path use sites.",
-    "Removed #define SOLUTION, #if SOLUTION alternatives, and raw M2C_FIELD accesses from the matched function."
+    "Removed the local `#define SOLUTION 1` branch scaffolding from `ftCo_Damage_OnEveryHitlag`.",
+    "Rewrote `ftCo_Damage_OnEveryHitlag` to use `GET_FIGHTER(gobj)`, `allow_sdi`, `VEC2_SQ_LEN`, and `SQ` instead of direct `gobj->user_data`, manual stick magnitude math, and alternate `M2C_FIELD` access paths.",
+    "Changed the SDI input threshold check from equality against `x4B0 * x4B0` to `VEC2_SQ_LEN(fp->input.lstick) >= SQ(p_ftCommonData->sdi_min_stick_mag)`.",
+    "Named `ftCommonData` fields at offsets +4B0, +4B4, and +4B8 as `sdi_min_stick_mag`, `sdi_stick_window`, and `sdi_pos_scale`.",
+    "Named Fighter bitfield `x221A_b2` as `allow_sdi` and updated all shown uses in damage, guard, fighter, and collision-adjacent code.",
+    "Updated hitlag/SDI state setup and teardown to set or clear `allow_sdi` instead of `x221A_b2`.",
+    "Updated guard and c-stick SDI-related threshold checks to use `sdi_min_stick_mag`, `sdi_stick_window`, and `sdi_pos_scale` where appropriate.",
+    "Kept the timer reset value for stick tilt timers as decimal `254`, replacing previous `0xFE` spelling in the matched function."
   ],
   "smart_moves": [
-    "Moved semantic names into types.h first-class fields, then reused those names across dependent files instead of leaving local aliases like cd_x4B0 or raw x221A_b2.",
-    "Removed conditional preprocessor scaffolding and raw-offset M2C_FIELD alternatives once the relevant Fighter fields were available as typed members.",
-    "Used existing vector/square macros, VEC2_SQ_LEN and SQ, to express the magnitude threshold in one condition and reduce temporary variables.",
-    "Kept the allow_sdi rename consistent across systems: damage hitlag handling, guard setoff physics/collision, fighter hitlag lifecycle, and ft_081B collision variants."
+    "Converted unclear offset and bitfield names into semantic SDI names, making the matched function read like gameplay logic rather than reverse-engineering scaffolding.",
+    "Removed the temporary `SOLUTION` macro and duplicate conditional code paths after resolving the struct field names, reducing maintenance risk.",
+    "Used existing math/helper macros (`VEC2_SQ_LEN`, `SQ`) to express squared vector magnitude checks compactly and consistently.",
+    "Propagated the `allow_sdi` rename across all dependent code in the same PR, avoiding a partially named state bit that would be harder to search and reason about.",
+    "Renamed common data fields based on their observed usage across damage, guard, and c-stick checks, strengthening confidence that the names describe shared SDI parameters rather than one local behavior."
   ],
   "decomp_lessons": [
-    "A target-function match can require semantic cleanup outside the function; this match involved types.h renames plus use-site updates in Guard, fighter.c, ft_081B, and ft_0DF1.",
-    "When common-data offsets are only named xNNNN but all uses line up around one mechanic, rename the struct fields to mechanic-specific names and update every consumer in the same PR.",
-    "For bitfields, preserve the exact offset/bit comment while replacing the member name; this keeps layout-sensitive Fighter work reviewable.",
-    "Prefer project accessors/macros such as GET_FIGHTER, VEC2_SQ_LEN, and SQ over ad-hoc gobj->user_data casts and hand-written arithmetic when they produce cleaner matching code.",
-    "Remove M2C_FIELD/raw-offset probes after identifying the typed member; lingering alternatives obscure final control flow and make the matched source harder to search."
+    "When a temporary match uses `M2C_FIELD` for known offsets, replacing it with real struct fields can be the final step needed to make the decompilation clean and reviewable.",
+    "A bitfield should be named from all of its behavioral uses, not only its storage location; here the same flag gates hitlag completion, collision behavior, guard setoff handling, and SDI movement, supporting `allow_sdi`.",
+    "Common-data constants become much easier to validate when renamed by cross-file usage patterns: magnitude threshold, stick-window timer, and position scale all appeared in multiple SDI/ASDI contexts.",
+    "Prefer squared-length helpers and `SQ()` for stick threshold code to avoid unnecessary square roots and to mirror common code style.",
+    "Once a struct field name is established, update nearby callsites in the same patch so future matching work can search for the semantic name instead of stale `xNNNN` placeholders."
   ],
   "naming_conventions": [
     {
       "old": "Fighter::x221A_b2",
       "new": "Fighter::allow_sdi",
-      "meaning": "Bitfield gate for SDI availability during hitlag and related collision paths."
+      "rationale": "Flag gates whether SDI/hitlag-related movement and special collision handling are allowed."
     },
     {
       "old": "ftCommonData::x4B0",
       "new": "ftCommonData::sdi_min_stick_mag",
-      "meaning": "Minimum analog stick magnitude threshold for SDI-related checks."
+      "rationale": "Used as the minimum analog/c-stick magnitude threshold for SDI checks."
     },
     {
       "old": "ftCommonData::x4B4",
       "new": "ftCommonData::sdi_stick_window",
-      "meaning": "Stick tilt timer/window used to allow repeated SDI movement."
+      "rationale": "Compared against stick tilt timers `x670_timer_lstick_tilt_x` and `x671_timer_lstick_tilt_y`."
     },
     {
       "old": "ftCommonData::x4B8",
       "new": "ftCommonData::sdi_pos_scale",
-      "meaning": "Scale applied to stick input to compute SDI position displacement."
-    },
-    "Use lower_snake_case mechanic names for discovered ftCommonData fields and Fighter bitfields while keeping offset comments intact."
-  ],
-  "assembly_or_matching_tactics": [
-    "The final ftCo_Damage_OnEveryHitlag used one compound if combining allow_sdi, VEC2_SQ_LEN >= SQ(sdi_min_stick_mag), and timer-window checks before applying displacement.",
-    "GET_FIGHTER(gobj) replaced direct gobj->user_data in the matched function.",
-    "VEC2_SQ_LEN(fp->input.lstick) and SQ(...) replaced local temporaries and explicit lstick_x * lstick_x + lstick_y * lstick_y code.",
-    "Raw M2C_FIELD references for fp+0x670, fp+0x671, and fp+0x221F were removed in favor of x670_timer_lstick_tilt_x, x671_timer_lstick_tilt_y, and x221F_b4.",
-    "The automated report confirms ftCo_Damage_OnEveryHitlag reached 100.00% for the ftCo_Damage unit."
-  ],
-  "review_feedback": [
-    {
-      "author": "decomp-dev[bot]",
-      "type": "match_report",
-      "body": "Matched code 54.29% (+0.00%, +180 bytes); 1 new match: ftCo_Damage_OnEveryHitlag in main/melee/ft/chara/ftCommon/ftCo_Damage from 86.07% to 100.00%."
-    },
-    {
-      "author": "ribbanya",
-      "type": "review",
-      "body": "Thanks!",
-      "note": "No line-level technical review comments were present in the slice; the review state in the dump is DISMISSED."
+      "rationale": "Scales stick input into SDI position displacement."
     }
   ],
+  "assembly_or_matching_tactics": [
+    "Eliminated alternate `#if SOLUTION` paths after determining that direct named bitfield/timer access could match.",
+    "Replaced manual `lstick_x * lstick_x + lstick_y * lstick_y` with `VEC2_SQ_LEN(fp->input.lstick)` while preserving squared-magnitude semantics.",
+    "Used `SQ(p_ftCommonData->sdi_min_stick_mag)` for threshold comparisons, matching the existing style also used in `ftCo_Damage_OnExitHitlag` and `ftCo_800DF608`.",
+    "Simplified nested `if` structure in `ftCo_Damage_OnEveryHitlag` into one compound condition, relying on named fields to keep the generated code and intent clear.",
+    "Used `GET_FIGHTER(gobj)` in the matched function instead of direct `gobj->user_data`, consistent with many fighter functions in the tree."
+  ],
+  "review_feedback": [
+    "No review comments were included in the provided PR slice.",
+    "The provided context indicates one issue comment and one review, but their text was not available in the excerpt, so no reviewer rationale can be extracted."
+  ],
   "searchable_terms": [
-    "pr-2198",
     "ftCo_Damage_OnEveryHitlag",
-    "ftCo_Damage.c",
-    "ftCo_Guard.c",
-    "fighter.c",
-    "types.h",
-    "ft_081B.c",
-    "ft_0DF1.c",
     "allow_sdi",
-    "x221A_b2",
+    "SDI",
     "sdi_min_stick_mag",
-    "x4B0",
     "sdi_stick_window",
-    "x4B4",
     "sdi_pos_scale",
+    "x221A_b2",
+    "x4B0",
+    "x4B4",
     "x4B8",
-    "VEC2_SQ_LEN",
-    "SQ",
-    "GET_FIGHTER",
-    "M2C_FIELD",
-    "pl_800401F0",
     "x670_timer_lstick_tilt_x",
     "x671_timer_lstick_tilt_y",
-    "x221F_b4",
+    "VEC2_SQ_LEN",
+    "SQ",
+    "M2C_FIELD",
+    "SOLUTION",
+    "pl_800401F0",
+    "ftCo_Damage_OnExitHitlag",
+    "ftCo_GuardSetOff_Coll",
+    "ftCo_80093240",
+    "ftCo_800DF608",
+    "Fighter_ProcessHit_8006D1EC",
     "hitlag",
-    "SDI",
-    "guard setoff"
+    "guard setoff",
+    "cstick",
+    "stick tilt timer"
   ],
   "follow_up_queries": [
-    "allow_sdi x221A_b3 kb_applied",
-    "sdi_min_stick_mag x4BC x4C0 guard",
-    "M2C_FIELD 0x670 0x671 Fighter stick timer",
-    "ftCo_Damage_OnExitHitlag sdi_min_stick_mag",
-    "VEC2_SQ_LEN fp->input.lstick SDI"
+    "Find remaining uses of `x4BC` and `x4C0` near guard SDI/ASDI behavior to determine whether they also deserve SDI-related names.",
+    "Search for remaining `x221A_b3` usage around damage knockback and hitlag to name the adjacent bitfield.",
+    "Audit other `ftCommonData` fields around offsets +4A0 to +4C4 for SDI, ASDI, shield, or hitlag parameter names.",
+    "Check whether decimal `254` versus `0xFE` is preferred style for timer sentinel values elsewhere in fighter code."
   ],
-  "confidence": 0.91
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

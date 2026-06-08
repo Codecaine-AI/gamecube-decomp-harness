@@ -11,159 +11,166 @@
     "merged_at": "2026-05-31T13:37:47Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged decomp-matching work for melee/vi0501 and sysdolphin/baselib/psdisp. The PR implemented most of un_8031D9F8, fully matched particleSort, and substantially improved psDispParticles by restoring particle batching, cache/register behavior, and more exact GX rendering branches. decomp-dev reported matched code +1048 bytes, particleSort 92.88% -> 100.00%, un_8031D9F8 0.00% -> 98.83%, and psDispParticles 39.03% -> 58.06%. It also deleted a stale target_funcs.txt file containing mncharsel targets.",
+  "summary": "Decomp/matching PR focused on `src/melee/vi/vi0501.c` and `src/sysdolphin/baselib/psdisp.c`. It implemented `un_8031D9F8` in the VI character/demo path, matched `particleSort`, and substantially improved `psDispParticles` by factoring point and point-trail particle rendering helpers plus many GX/display-state details. The decomp.dev bot reported 2 new matches and 4 unmatched-item improvements: `particleSort` reached 100%, `un_8031D9F8` reached 98.83%, and `psDispParticles` improved from 39.03% to 58.06%. `target_funcs.txt` was removed; its contents were unrelated completed mncharsel targets.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "function-implementation",
-      "particle-rendering",
-      "codegen-shaping",
+      "rendering",
+      "particle-system",
+      "demo-scene-setup",
       "cleanup"
     ],
     "systems": [
-      "src/melee/vi/vi0501",
-      "src/sysdolphin/baselib/psdisp",
-      "repo-root/target_funcs"
+      "src/melee/vi",
+      "src/sysdolphin/baselib",
+      "baselib-psdisp",
+      "GX-particle-display",
+      "stage-player-demo-setup",
+      "repo-root"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/vi/vi0501.c",
-      "role": "Implemented un_8031D9F8 and added required camera, player, stage, ground, item, collision, GObj/JObj includes and state."
+      "role": "Implemented `un_8031D9F8`, added required includes, added static `HSD_GObj* un_804A2E98[4]`, and wired camera, stage, item, player, JObj animation, and audio setup for the VI/demo scene."
     },
     {
       "path": "src/sysdolphin/baselib/psdisp.c",
-      "role": "Matched particleSort and improved psDispParticles with batching helpers, cache hoisting, channel-state branch reshaping, color math casts, and more exact GX FIFO rendering."
+      "role": "Matched `particleSort` and improved `psDispParticles`; introduced inline wrappers/helpers including `getColorMatAmb_inner`, `getColorMatAmb_noinline`, `psDispSubPoint`, and `psDispSubPointTrail`."
     },
     {
       "path": "target_funcs.txt",
-      "role": "Deleted a 13-line target list for mnCharSel functions."
+      "role": "Deleted a temporary target list containing completed `src/melee/mn/mncharsel.c` functions."
     }
   ],
   "what_changed": [
-    "Added static HSD_GObj* un_804A2E98[4] in vi0501.c and implemented un_8031D9F8(CharacterKind char_kind, int costume, int spawn_mode, int spawn_count).",
-    "un_8031D9F8 now initializes camera/collision/ground/stage/items/demo player state, creates the requested main character plus three Kirby demo players, samples their JObj translations at animation frame 140.0f, scales positions by 1.4285715f * un_804D6F80 into grLib_801C9A10() slots, resets animation to 0.0f, and starts AX audio calls.",
-    "particleSort was rewritten at the tail-stitching stage from long manual bucket increments into two explicit loops over buckets 0..7 and 8..15, then links the two sorted lists and updates hsd_804D0908[arg0], cache->xAC[arg0], arg2, and arg3.",
-    "Added getColorMatAmb_inner and getColorMatAmb_noinline wrapper shims and changed psDispParticles call sites from getColorMatAmb to getColorMatAmb_noinline.",
-    "Added static inline psDispSubPoint and psDispSubPointTrail helpers. They batch up to 16 compatible consecutive particles into GX_POINTS or GX_LINES, manage cached point/line width globals, and write positions/colors/texture coordinates directly through GXWGFifo.",
-    "psDispParticles now hoists cache = (f32*) &HSD_PSDisp_804D0FC0 before the main loop, removes repeated per-branch cache reassignments, reshapes GX channel-control logic away from a switch, and uses signed intermediate casts for several color multiplications.",
-    "psDispParticles gained larger changes for DispPoint, Trail, DirVec, Tornado, appsrt, form, and non-form rendering paths, including projection/view-matrix direction-vector math, PSMTXRotAxisRad axis rotation, form-driven trail primitives, and corrected quad vertex layouts.",
-    "Deleted target_funcs.txt, which only listed mnCharSel targets and was not part of the vi0501/psdisp implementation itself."
+    "`un_8031D9F8` replaced an unmatched stub marker with a concrete implementation taking `CharacterKind char_kind`, `costume`, `spawn_mode`, and `spawn_count` parameters.",
+    "`vi0501.c` now includes dependencies from camera, ftDemo, ground/stage, item, mp collision, player, GObj, and JObj headers to support the implemented demo setup.",
+    "`un_8031D9F8` initializes camera/collision/stage/item/player systems, creates the main demo player, then loops over slots 1 through 3 to create Kirby demo entities and stores them in `un_804A2E98`.",
+    "The VI implementation uses `GET_JOBJ`, `HSD_JObjReqAnimAll`, `HSD_JObjAnimAll`, and `HSD_JObjGetTranslation2` to sample animation translation at frame 140, scale it by `1.4285715f * un_804D6F80`, and write positions from `grLib_801C9A10() + 1`.",
+    "`un_8031D9F8` ends by calling several `lbAudioAx_*` routines, including `lbAudioAx_80026F2C(0x1C)` and `lbAudioAx_8002702C(0xC, 0x80000004000)`.",
+    "`particleSort` was simplified from manually unrolled bucket concatenation into two loops over buckets `0..7` and `8..15`, while preserving separate head/tail chaining behavior.",
+    "`particleSort` introduced a `new_var` temporary in the assignment `temp_r29 = (new_var = &hsd_804D0908[arg0]);`, likely to influence register/codegen for matching.",
+    "`psdisp.c` added small inline wrappers around `getColorMatAmb`, apparently to shape inlining/call behavior in the larger particle display function.",
+    "`psdisp.c` added `psDispSubPoint`, which batches compatible point particles into buffers of 16 positions, sets point size with `GXSetPointSize`, chooses vertex descriptors based on `DispTexture`, and emits `GX_POINTS` through `GXWGFifo`.",
+    "`psdisp.c` added `psDispSubPointTrail`, which batches compatible trail particles into 16-entry position/color buffers, computes previous positions from velocity or `calcTornadoLastPos`, applies trail alpha, and emits `GX_LINES` through `GXWGFifo`.",
+    "`psDispParticles` moved/retained a cached pointer to `HSD_PSDisp_804D0FC0`, updates viewing/projection matrices, and contains revised calculations for trail/DirVec particle angles, perspective cases, billboard axes, and rotation via `PSMTXRotAxisRad`.",
+    "A temporary `target_funcs.txt` containing checked-off mncharsel targets was deleted."
   ],
   "smart_moves": [
-    "The squash commit notes that psDispSubPoint and psDispSubPointTrail were declared in psstructs.h but not implemented; restoring those helpers was a high-leverage move because psDispParticles jumped from 39.03% to 58.06%.",
-    "Batching compatible particles in local 16-entry buffers matched the original renderer strategy better than drawing each point/line one at a time, while also making the GX_POINTS/GX_LINES FIFO shape explicit.",
-    "Hoisting &HSD_PSDisp_804D0FC0 into a cache variable before the hot loop matches the commit message's stated target r26 saved-register behavior and avoids repeated noisy casts/reloads.",
-    "The getColorMatAmb wrapper chain is a useful codegen tactic: even tiny static inline pass-through helpers can alter call/inlining shape enough to improve a stubborn rendering function.",
-    "Using two clean bucket loops in particleSort made the fixed 16-bucket sort clearer and still produced a full function match, replacing a brittle-looking hand-unrolled sequence.",
-    "The vi0501 implementation pulled in real subsystem headers rather than relying on ad hoc declarations, which is safer for matching calls across camera, stage, player, item, ground, and baselib APIs."
+    "Converted long unrolled bucket-linking code in `particleSort` into bounded `for` loops while still matching, making the matched code easier to read and maintain.",
+    "Used small inline/noinline-style wrapper functions around `getColorMatAmb` to control compiler behavior without changing the public logic.",
+    "Split repeated point and line/trail batching behavior into `psDispSubPoint` and `psDispSubPointTrail`, exposing the 16-particle batching pattern and the exact GX FIFO writes needed for matching.",
+    "Preserved low-level GX state details such as cached point/line widths, vertex descriptor selection, `GXBegin` primitive/fmt/count combinations, and explicit `GXWGFifo` field ordering.",
+    "For `un_8031D9F8`, matched a broad setup routine by using real subsystem calls and typed enums/objects where available (`CharacterKind`, `HSD_GObj`, `HSD_JObj`, `Gm_PKind_Demo`, `CKIND_KIRBY`) rather than leaving everything as raw integers."
   ],
   "decomp_lessons": [
-    "For renderer decompilation, matching often depends on recovering hidden helper structure and batching behavior, not just rearranging statements inside one giant function.",
-    "A fixed-size data structure does not always require hand-unrolled source: particleSort matched after expressing bucket concatenation as loops over 0..7 and 8..15.",
-    "Global render/cache structs may need to be held in a saved register across loops. Hoist the pointer once if the target keeps a global cache base live for many branches.",
-    "GX FIFO code is sensitive to exact vertex descriptor and format choices: this PR distinguishes GX_VTXFMT0/1 for point/quad paths, GX_VTXFMT2/3 for line/trail color paths, and GX_VTXFMT5 for textured form data.",
-    "Trail/DirVec/Tornado direction matching needs target-like projection/view math and sign conventions; simple screen-space current-minus-previous approximations were replaced with cache/projection-based calculations.",
-    "Small cast differences matter in color math. The diff changed several u32-style products to signed s32 intermediate shifts before casting back to u8.",
-    "For VI/demo setup functions, preserve unresolved types when evidence is weak: spawn_count is still an int cast to u8* counts, and un_804D6F84 keeps a TODO for a possible ViCharaDesc rather than inventing a struct.",
-    "Stack padding and unused pad locals can be legitimate matching tools; un_8031D9F8 uses PAD_STACK(4) plus dummy s32 locals to shape the stack frame."
+    "For baselib particle display code, matching may require preserving exact GX FIFO write order and primitive counts even when the C looks repetitive.",
+    "Batching temporary stack buffers of size 16 can be an important structural clue for particle rendering functions; here both point and point-trail helpers flush when `count == 16`.",
+    "When decompiling particle chains, compatibility predicates matter: size, `appsrt`, selected `kind` bits, color counters, texture/display flags, lighting/material/ambient fields, and trail flags all influence when a batch can continue.",
+    "Replacing manual unrolled chains with loops can still match if variable lifetimes and tail-pointer assignments are arranged carefully.",
+    "Artificial-looking temporaries such as `new_var`, `pad` locals, or tiny inline wrappers may be legitimate matching tactics for register allocation, stack layout, or inlining shape.",
+    "Large setup functions in menu/demo/VI code often need many subsystem headers before a typed implementation is possible; include churn can be evidence of moving from placeholder to real implementation.",
+    "Animation sampling can be used as data generation: this PR samples Kirby JObj translation at a specific animation frame, scales by a ground/stage factor, and stores stage positions."
   ],
   "naming_conventions": [
-    "Unresolved VI symbols keep the project style un_######## / un_######## arrays, e.g. un_8031D9F8, un_804A2E98, un_804D6F80, and un_804D6F84.",
-    "Potential-but-unconfirmed data names are marked with TODO comments rather than renamed prematurely, as shown by un_804D6F84's @todo #ViCharaDesc comment.",
-    "Baselib particle helpers use lowerCamelCase names such as particleSort, getColorMatAmb_inner, getColorMatAmb_noinline, psDispSubPoint, and psDispSubPointTrail.",
-    "Subsystem calls retain existing module prefixes and capitalization: Camera_80028B9C, Ground_801C0378, Stage_802251E8, Item_80266FA8, Player_SetPlayerCharacter, and Player_SetCostumeId.",
-    "Game constants and enum/flag names are reused directly: PURA, CKIND_KIRBY, Gm_PKind_Demo, DispPoint, DispTexture, DispLighting, Trail, PrimEnv, Tornado, DirVec, TexFlipS, and TexFlipT.",
-    "HSD object access follows existing GObj/JObj conventions: HSD_GObj*, HSD_JObj*, GET_JOBJ, HSD_JObjReqAnimAll, HSD_JObjAnimAll, and HSD_JObjGetTranslation2."
+    "Still-unknown symbols retain decomp address-style names such as `un_8031D9F8`, `un_804A2E98`, `un_804D6F80`, and `HSD_PSDisp_804D790C`.",
+    "Existing project subsystem prefix conventions are used: `Camera_`, `Ground_`, `Stage_`, `Item_`, `Player_`, `ftDemo_`, `lbAudioAx_`, `grLib_`, `HSD_JObj`, and `GX`.",
+    "Enum/constant names in the diff use established all-caps or subsystem naming such as `PURA`, `CKIND_KIRBY`, `Gm_PKind_Demo`, `DispTexture`, `DispPoint`, `DispLighting`, `Trail`, `Tornado`, `DirVec`, and `PrimEnv`.",
+    "Local variable names in difficult matching code remain pragmatic and compiler-shape oriented (`var_r3`, `var_r5`, `temp_r29`, `sp7B4`, `cache`, `new_var`) when stronger semantic names are not yet evident.",
+    "The PR did not provide review discussion explaining naming choices; naming observations come from the diff only."
   ],
   "assembly_or_matching_tactics": [
-    "decomp-dev evidence: particleSort became a new 100.00% match, vi0501 .sdata became 100.00%, un_8031D9F8 improved to 98.83%, and psDispParticles improved to 58.06%.",
-    "Artificial temporaries such as HSD_Particle** new_var and temp_r29 = (new_var = &hsd_804D0908[arg0]) were used in particleSort to influence register allocation/expression shape.",
-    "The getColorMatAmb_inner/getColorMatAmb_noinline pass-through wrappers are codegen shims even though they are declared static inline; they changed psDispParticles call structure without changing semantics.",
-    "psDispSubPoint and psDispSubPointTrail return the last consumed particle, allowing psDispParticles to assign pp = helper(pp) and skip over a batched run in the linked list.",
-    "Point/trail batching flushes exactly at count == 16, with stack arrays Vec3 buf[16] and vbuf/cbuf[16], matching the target's small fixed batch size.",
-    "The channel-state GXSetChanCtrl switch was reshaped into nested comparisons around chan_state and DispLighting | Trail, including scoped GXAttnFn calculation only where needed.",
-    "Projection-sensitive branches compare against cache[0x18], use reciprocal w values, atan2f, fabsf thresholds, and __frsqrte-based normalization to better match target floating-point code.",
-    "The vi0501 function uses PAD_STACK(4), dummy pad locals, float literals like 0.7f, 140.0f, and 1.4285715f, and a cast from int spawn_count to u8* counts to preserve observed codegen."
+    "Used `PAD_STACK(4)` plus explicit unused `s32 pad0` through `pad4` locals in `un_8031D9F8`, indicating stack-layout matching pressure.",
+    "Introduced `new_var` solely through a chained assignment in `particleSort`, likely to force the compiler to keep a specific value/lifetime.",
+    "Added nested inline wrappers around `getColorMatAmb` to influence inlining without semantically changing color calculation.",
+    "Replaced manually expanded bucket handling with two fixed loops over bucket ranges `0..8` and `8..16`, preserving the split between two particle lists.",
+    "Used exact floating constants visible in the diff, including `0.7f`, `1.4285715f`, `42.5f`, `255.0f`, `6.0f`, and `1.5707964f`.",
+    "Maintained direct `GXWGFifo` writes instead of abstracting vertices, which is often necessary for matching GX display code.",
+    "Used `__frsqrte` refinement in the later `psDispParticles` diff excerpt for vector length handling, reflecting low-level floating-point matching constraints.",
+    "Decomp.dev metrics provide evidence of success: `particleSort` reached 100%, `psDispParticles` improved by 2756 bytes, and `un_8031D9F8` improved by 640 bytes to 98.83%."
   ],
   "review_feedback": [
     {
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported matched code 69.20% (+0.03%, +1048 bytes) and matched data 41.20% (+16 bytes). New matches: particleSort 92.88% -> 100.00% and vi0501 .sdata 0.00% -> 100.00%. Improvements: psDispParticles 39.03% -> 58.06%, un_8031D9F8 0.00% -> 98.83%, vi0501 .sdata2 66.67% -> 72.73%, psdisp extabindex 91.67% -> 95.83%."
+      "source": "decomp.dev bot",
+      "feedback": "Reported matched code increased to 69.20% (+1048 bytes) and matched data to 41.20% (+16 bytes)."
     },
     {
-      "source": "decomp-dev[bot]",
-      "feedback": "Reported one remaining regression: main/sysdolphin/baselib/psdisp .sdata2 moved 82.00% -> 77.78% (-4 bytes)."
+      "source": "decomp.dev bot",
+      "feedback": "Reported 2 new matches: `main/sysdolphin/baselib/psdisp` `particleSort` and `main/melee/vi/vi0501` `.sdata`."
     },
     {
-      "source": "human_review",
-      "feedback": "No human PR body, review comments, or review records were present in the slice; reviewer intent should not be inferred."
+      "source": "decomp.dev bot",
+      "feedback": "Reported improvements in `psDispParticles`, `un_8031D9F8`, `vi0501` `.sdata2`, and `psdisp` `extabindex`, plus a small `psdisp` `.sdata2` regression."
+    },
+    {
+      "source": "human review",
+      "feedback": "No human review comments were present in the provided slice."
     }
   ],
   "searchable_terms": [
     "pr-2539",
+    "jurrejelle",
     "jj/vi0501",
     "vi0501",
-    "psdisp",
-    "src/melee/vi/vi0501.c",
-    "src/sysdolphin/baselib/psdisp.c",
-    "target_funcs.txt",
     "un_8031D9F8",
     "un_804A2E98",
-    "un_804D6F84",
+    "un_804D6F80",
+    "ViCharaDesc",
     "CharacterKind",
     "CKIND_KIRBY",
     "Gm_PKind_Demo",
-    "PURA",
-    "grLib_801C9A10",
+    "Player_InitAllPlayers",
     "Player_GetEntity",
     "GET_JOBJ",
     "HSD_JObjReqAnimAll",
     "HSD_JObjAnimAll",
     "HSD_JObjGetTranslation2",
-    "lbAudioAx_80026F2C",
+    "grLib_801C9A10",
+    "PURA",
     "lbAudioAx_8002702C",
+    "psdisp",
     "particleSort",
     "psDispParticles",
     "psDispSubPoint",
     "psDispSubPointTrail",
+    "getColorMatAmb_inner",
     "getColorMatAmb_noinline",
     "HSD_Particle",
-    "HSD_PSDisp_804D0FC0",
-    "HSD_PSDisp_804D790C",
-    "HSD_PSDisp_804D7910",
-    "HSD_PSDisp_804D7930",
+    "GXWGFifo",
+    "GXBegin",
     "GX_POINTS",
     "GX_LINES",
     "GX_QUADS",
-    "GXWGFifo",
     "GXSetPointSize",
     "GXSetLineWidth",
-    "GXSetChanCtrl",
-    "DispPoint",
     "DispTexture",
+    "DispPoint",
     "DispLighting",
     "Trail",
-    "PrimEnv",
     "Tornado",
     "DirVec",
-    "appsrt",
+    "PrimEnv",
     "calcTornadoLastPos",
-    "HSD_CObjGetViewingMtx",
-    "PSMTXInverse",
-    "GXGetProjectionv",
-    "PSMTXRotAxisRad",
-    "__frsqrte",
+    "target_funcs.txt",
     "mnCharSel"
   ],
   "follow_up_queries": [
-    "Investigate the psdisp .sdata2 regression reported by decomp-dev: 82.00% -> 77.78%, -4 bytes.",
-    "Finish the remaining mismatch in un_8031D9F8; likely areas to inspect are spawn_count typing, ViCharaDesc/un_804D6F84 semantics, and stack/register layout.",
-    "Continue psDispParticles from 58.06% by comparing appsrt, form, Trail, DirVec, Tornado, projection-cache, and billboard rotation branches against target assembly.",
-    "Verify psDispSubPoint and psDispSubPointTrail declarations in psstructs.h or related headers if future PRs touch particle display prototypes.",
-    "Find real names or struct types for un_804A2E98 and the vi0501 character descriptor data once more scene/demo evidence appears.",
-    "Keep personal target tracking files out of commits or migrate target lists to the project's accepted tracking mechanism."
+    "Look for later PRs that finish `un_8031D9F8` from 98.83% to 100%.",
+    "Look for later PRs that continue `psDispParticles` after this jump from 39.03% to 58.06%.",
+    "Search for other `psdisp.c` PRs using inline wrappers or `new_var` temporaries to force matching.",
+    "Check whether `un_804D6F84` is later typed as `ViCharaDesc` as hinted by the existing todo.",
+    "Search for PRs that rename `un_804A2E98` or other VI demo globals once their semantics are understood."
   ],
-  "confidence": 0.93
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

@@ -11,18 +11,18 @@
     "merged_at": "2026-01-06T23:35:40Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the previously stubbed vi cutscene function fn_8031EFE4 and updated its header prototype from placeholder UNK_RET/UNK_PARAMS to a typed void function taking HSD_GObj*. The implementation advances a camera object animation, triggers vi_8031C9B4 events on specific animation frames, and calls lb_800145F4 plus gm_801A4B60 when the animation reaches its end frame. PR summary reports fn_8031EFE4 at 100% and vi0801 .sdata2 progress from 0 to 38.89%.",
+  "summary": "Matched the vi cutscene callback function fn_8031EFE4 at 100% by replacing a placeholder with a concrete HSD_GObj camera-object animation routine. The function advances a CObj animation, triggers vi_8031C9B4 events at specific animation frames, and ends the sequence by calling lb_800145F4 and gm_801A4B60 when the animation reaches its end frame. The header prototype was updated from an unknown placeholder signature to void fn_8031EFE4(HSD_GObj*).",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "cutscene-camera-animation",
-      "prototype-typing"
+      "cutscene-callback",
+      "animation-frame-logic"
     ],
     "systems": [
-      "vi",
       "melee-core",
+      "vi",
       "baselib",
       "gm",
       "lb"
@@ -33,56 +33,55 @@
     "src/melee/vi/vi0801.h"
   ],
   "what_changed": [
-    "Replaced the placeholder comment /// #fn_8031EFE4 in src/melee/vi/vi0801.c with a matching C implementation.",
-    "Added includes needed by the matched function: gm/gm_unsplit.h, lb/lb_00F9.h, baselib/aobj.h, baselib/cobj.h, and baselib/gobj.h.",
-    "Implemented fn_8031EFE4(HSD_GObj* gobj) by extracting the camera object with GET_COBJ(gobj), running HSD_CObjAnim(cobj), then checking cobj->aobj->curr_frame against literal frame values 1.0F, 30.0F, and 60.0F.",
-    "At curr_frame 1.0F or 30.0F, the function calls vi_8031C9B4(0xC, 0).",
-    "At curr_frame 60.0F, the function calls vi_8031C9B4(0x10, 0).",
-    "At the animation end frame, the function calls lb_800145F4() followed by gm_801A4B60().",
-    "Updated src/melee/vi/vi0801.h to include baselib/forward.h and changed fn_8031EFE4 from UNK_RET fn_8031EFE4(UNK_PARAMS) to void fn_8031EFE4(HSD_GObj*)."
+    "Replaced the placeholder `/// #fn_8031EFE4` in `src/melee/vi/vi0801.c` with a matched C implementation.",
+    "Added includes for `gm/gm_unsplit.h`, `lb/lb_00F9.h`, and baselib headers `aobj.h`, `cobj.h`, and `gobj.h` to support the implementation.",
+    "Implemented `fn_8031EFE4(HSD_GObj* gobj)` by retrieving the camera object with `GET_COBJ(gobj)` and applying `HSD_CObjAnim(cobj)`.",
+    "Added frame checks against `cobj->aobj->curr_frame`: frames `1.0F` and `30.0F` call `vi_8031C9B4(0xC, 0)`, frame `60.0F` calls `vi_8031C9B4(0x10, 0)`, and `end_frame` calls `lb_800145F4()` followed by `gm_801A4B60()`.",
+    "Updated `src/melee/vi/vi0801.h` to include `<baselib/forward.h>` and changed the prototype from `UNK_RET fn_8031EFE4(UNK_PARAMS)` to `void fn_8031EFE4(HSD_GObj*)`.",
+    "The PR summary reports `fn_8031EFE4` reached 100% and `main/melee/vi/vi0801 .sdata2` improved from 0 to 38.89%."
   ],
   "smart_moves": [
-    "Used GET_COBJ and HSD_CObjAnim directly, which exposes the function as a camera-object animation callback rather than leaving it as an opaque cutscene stub.",
-    "Typed the public prototype in the header at the same time as the C implementation, reducing future placeholder propagation for vi0801.",
-    "Kept the header dependency light by adding baselib/forward.h there, while placing concrete baselib aobj/cobj/gobj includes in the .c file where fields and macros are needed.",
-    "Matched frame-driven behavior with explicit float literals 1.0F, 30.0F, and 60.0F, preserving likely codegen-sensitive comparisons against HSD_AObj curr_frame.",
-    "Recognized the end-of-animation branch by comparing curr_frame to cobj->aobj->end_frame, then sequencing cleanup/transition calls lb_800145F4 and gm_801A4B60."
+    "Used the specific baselib camera-object type path instead of leaving the function as an unknown callback, making the signature and object access clearer.",
+    "Forward-declared HSD types in the header via `<baselib/forward.h>` while keeping full baselib includes in the C file where fields and macros are needed.",
+    "Matched float literals explicitly as `1.0F`, `30.0F`, and `60.0F`, which is important for frame comparisons and `.sdata2` matching in this codebase.",
+    "Grouped the two identical event triggers for frames 1 and 30 into a single conditional with `||`, preserving behavior while producing the matched output indicated by the PR summary."
   ],
   "decomp_lessons": [
-    "For vi cutscene callbacks, inspect HSD_CObj and its HSD_AObj animation state; frame checks can reveal event triggers and completion transitions.",
-    "When replacing UNK_PARAMS prototypes, propagate the concrete baselib object type into the header with a forward declaration rather than over-including full baselib headers.",
-    "Camera animation callbacks may need both baselib animation calls and higher-level game/lb transition calls, so matching may require includes across vi, gm, lb, and baselib.",
-    "Frame equality checks in these cutscene functions may intentionally use exact float constants and should not be rewritten into ranges unless there is evidence.",
-    "End-frame logic can be expressed as curr_frame == end_frame when matching animation completion behavior."
+    "Cutscene callback placeholders may resolve to `void` functions taking `HSD_GObj*` when they operate on camera-object animation state.",
+    "When a callback uses `GET_COBJ`, `HSD_CObjAnim`, and `cobj->aobj` fields, the implementation likely needs baselib `gobj`, `cobj`, and `aobj` includes in the C file.",
+    "Animation-frame gate logic can be expressed as direct comparisons against `aobj->curr_frame` and `aobj->end_frame`; matching may depend on using float constants with `F` suffixes.",
+    "Header cleanup should replace `UNK_RET`/`UNK_PARAMS` once the real callback signature is known, and should use forward declarations when only pointer types are exposed."
   ],
   "naming_conventions": [
-    "Function remains named fn_8031EFE4, indicating the PR matched behavior but did not identify a semantic name beyond the address-based placeholder.",
-    "Existing vi functions in the surrounding file use mixed prefixes such as un_8031F274_OnFrame and un_8031F07C_OnEnter, preserving decomp project callback suffix conventions.",
-    "Header comments retain address annotations such as /* 31EFE4 */ beside declarations.",
-    "Baselib types and macros use HSD_* naming: HSD_GObj, HSD_CObj, GET_COBJ, HSD_CObjAnim."
+    "Kept the symbol name `fn_8031EFE4` for an address-based function whose semantic name was not established.",
+    "Preserved existing vi module naming style with address-prefixed symbols such as `vi_8031C9B4` and `un_8031F274_OnFrame`.",
+    "Used baselib type names `HSD_GObj` and `HSD_CObj` and macro-style `GET_COBJ` consistent with the surrounding engine APIs.",
+    "Header comments retain the address marker format, e.g. `/* 31EFE4 */ void fn_8031EFE4(HSD_GObj*);`."
   ],
   "assembly_or_matching_tactics": [
-    "Introduced exact typed access to cobj->aobj->curr_frame and cobj->aobj->end_frame, likely replacing opaque parameter handling with struct-field-based codegen.",
-    "Used float constants with F suffix, which is important for matching single-precision comparisons and .sdata2 constants.",
-    "The PR summary explicitly notes main/melee/vi/vi0801 .sdata2 progress from 0 to 38.89%, implying the added float literals contributed to matched read-only/sdata2 constants.",
-    "Kept branch structure simple as separate if statements rather than else-if, matching the shown logic where each frame condition is independently checked."
+    "Replacing the placeholder with direct camera-object animation calls matched `fn_8031EFE4` at 100%.",
+    "Using exact float frame constants `1.0F`, `30.0F`, and `60.0F` likely contributed to the reported `.sdata2` progress for `vi0801`.",
+    "The implementation checks `curr_frame == end_frame` before calling cleanup/transition functions, matching an end-of-animation control-flow pattern.",
+    "No inline assembly or explicit nonmatching workaround is shown in the provided diff."
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    "No review comments were present in the provided PR context.",
+    "The only human text excerpt is the PR summary reporting the matched function and `.sdata2` progress."
+  ],
   "searchable_terms": [
     "pr-2054",
-    "vi",
-    "vi0801",
+    "vi: Match cutscene functions (part 2)",
+    "itsgrimetime",
     "fn_8031EFE4",
-    "cutscene",
-    "camera animation",
+    "vi0801",
+    "vi_8031C9B4",
     "HSD_GObj",
     "HSD_CObj",
     "GET_COBJ",
     "HSD_CObjAnim",
-    "HSD_AObj",
+    "aobj",
     "curr_frame",
     "end_frame",
-    "vi_8031C9B4",
     "lb_800145F4",
     "gm_801A4B60",
     "gm_unsplit",
@@ -91,20 +90,20 @@
     "baselib/cobj.h",
     "baselib/gobj.h",
     "baselib/forward.h",
-    "sdata2",
+    "cutscene",
+    "camera animation",
+    ".sdata2",
     "1.0F",
     "30.0F",
-    "60.0F",
-    "UNK_RET",
-    "UNK_PARAMS"
+    "60.0F"
   ],
   "follow_up_queries": [
-    "Find later PRs that rename or further type fn_8031EFE4 or related vi cutscene callbacks.",
-    "Search vi0801 for other HSD_CObjAnim callbacks with frame-triggered vi_8031C9B4 calls to infer event IDs 0xC and 0x10.",
-    "Look for usages or definitions of gm_801A4B60 and lb_800145F4 to understand the cutscene transition/cleanup path.",
-    "Check subsequent vi0801 .sdata2 matching PRs for reuse of exact float frame constants."
+    "Find other vi cutscene callbacks that call `HSD_CObjAnim` and compare `cobj->aobj->curr_frame` against fixed float frame values.",
+    "Search for remaining `UNK_RET`/`UNK_PARAMS` declarations in `src/melee/vi/vi0801.h` that may be HSD object callbacks.",
+    "Look for functions that call `lb_800145F4()` followed by `gm_801A4B60()` to identify related cutscene or game-state transition endings.",
+    "Compare later vi PRs for whether `fn_8031EFE4` receives a semantic name after more context is recovered."
   ],
-  "confidence": 0.9,
+  "confidence": 0.93,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",

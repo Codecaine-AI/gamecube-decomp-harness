@@ -11,178 +11,135 @@
     "merged_at": "2026-04-06T08:24:35Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large Great Bay stage decomp pass centered on `src/melee/gr/grgreatbay.c`: replaced several `/// #` stubs with C, reconstructed a typed Great Bay stage-attribute table, expanded Great Bay ground-variable layouts, typed a few item/stage prototypes, and centralized a duplicated stage random-range helper. decomp.dev reported +2816 matched code bytes and 4 new full matches, while `.sdata` regressed slightly.",
+  "summary": "Large Great Bay stage decompilation pass centered on src/melee/gr/grgreatbay.c, replacing several nonmatching stubs with C implementations and tightening related ground/item types. The decomp.dev report recorded 4 new full matches in grgreatbay, major near-matches for additional functions, and a small .sdata regression.",
   "change_classification": {
-    "primary_type": "stage decomp matching",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stub-removal",
-      "type-reconstruction",
       "headers",
-      "inline-refactor",
-      "cross-system item integration"
+      "type-recovery",
+      "stage-behavior",
+      "item-integration",
+      "inline-helper-deduplication"
     ],
     "systems": [
-      "stage/ground",
+      "stage",
+      "ground",
+      "item",
       "Great Bay",
-      "item/Tincle",
-      "mpLib/collision",
-      "animation",
-      "effects/sfx"
+      "Tingle"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grgreatbay.c",
-      "role": "Main Great Bay implementation; added `grGb_StageAttr`, implemented or improved multiple `grGreatBay_801F....` functions, item spawning, callbacks, animation/collision logic, and random selection."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Expanded Great Bay ground variable structs with bitfields, child GObj array, Great Bay 4/Tincle state, and extra fields needed by new C implementations."
-    },
-    {
-      "path": "src/melee/gr/inlines.h",
-      "role": "Added shared `ZRANDI` and `rand_range` helper using `HSD_Randi`, replacing duplicate per-stage inlines."
-    },
-    {
-      "path": "src/melee/gr/grgreatbay.h",
-      "role": "Typed `grGreatBay_801F63F4` as `bool grGreatBay_801F63F4(Ground_GObj*)`."
-    },
-    {
-      "path": "src/melee/it/items/ittincle.h",
-      "role": "Typed Tincle helpers used from Great Bay: `it_802EBFAC(Item_GObj*)` and `it_802ECA70(HSD_GObj*) -> Item_GObj*`."
-    },
-    {
-      "path": "src/melee/gr/grizumi.c",
-      "role": "Removed local `rand_inline`; switched Izumi random timers to shared `rand_range`."
-    },
-    {
-      "path": "src/melee/gr/grkraid.c",
-      "role": "Removed local `rand_inline`; switched Kraid stage timing to shared `rand_range`."
-    },
-    {
-      "path": "src/melee/gr/groldkongo.c",
-      "role": "Removed local `rand_inline`; switched Old Kongo timers to shared `rand_range`."
-    },
-    {
-      "path": "src/melee/gr/groldyoshi.c",
-      "role": "Removed local `rand_inline`; switched Old Yoshi guest timers to shared `rand_range`."
-    }
-  ],
-  "what_changed": [
-    "Added a local `grGb_StageAttr` struct for Great Bay stage attributes, replacing `grGb_804D69E0.x0` from raw `s16*` with `grGb_StageAttr*`; fields remain offset-style names such as `x44`, `x68`, `x70`, and `x7C` because semantics are still mostly unknown.",
-    "Implemented `grGreatBay_801F4694`, which initializes a Great Bay ground object: sets map/animation, scales and translates its JObj from stage attributes, seeds timers via `rand_range`, initializes Great Bay flags/state, and enables ground flags.",
-    "Implemented a large state-machine body for `grGreatBay_801F499C`; it drives Great Bay object states `0..3`, animation transitions, hide/unhide flags, random timers, `mpLib` joint enable/disable calls, generator effects via `grLib_801C96F8`/`grLib_801C9874`, sound calls, rotation updates, and a call into `grGreatBay_801F63F4` for item spawning.",
-    "Implemented `grGreatBay_801F5460` and `grGreatBay_801F5600`, creating and managing a Tincle/Tingle-related item object through `it_802ECA70`, `it_802ECCA4`, `it_802ECC98`, `it_802EC830`, `it_802EBFAC`, and `it_802EBD14`, with stage collision joint updates and effects/sfx for item states.",
-    "Adjusted `grGreatBay_801F5914` to write collision callback accumulation into Great Bay fields `xD4`, `xD8`, and `xE0` instead of the old lower offsets, matching the expanded `grGreatBay_GroundVars` layout.",
-    "Refactored Great Bay child ground objects in `grGreatBay_801F5A00` from separate `gobj5`/`gobj6`/`gobj7`/`gobj8` fields into `gobjs[4]`, and reused `rand_range` against `grGb_804D69E0.x0->x2/x0`.",
-    "Implemented `grGreatBay_801F5AF8`, a timer/animation loop that starts animation on the main object and four child GObjs, tracks bitfield flags `x12.b0..b3`, resets animation when `lb_8000B134` indicates completion, and reseeds the timer.",
-    "Implemented `grGreatBay_801F5E28`, smoothing Great Bay object rotation and X/Y translation toward accumulated collision targets using stage-attribute factors, then applying `HSD_JObjSetRotationZ`, `HSD_JObjSetTranslateX`, and `HSD_JObjSetTranslateY`.",
-    "Implemented `grGreatBay_801F60C4`, a collision callback that scales incoming damage, computes impact distance from a JObj position, clamps rotation/displacement/Y offset using stage attributes, and accumulates response into `greatbay3` fields.",
-    "Reworked `grGreatBay_801F62F8` to use `grGb_StageAttr->x70[]` weighted random selection and `ZRANDI(total)` instead of raw `s16` indexes and manual zero checks.",
-    "Implemented `grGreatBay_801F63F4`, which checks a JObj spawn position against `Stage_GetBlastZoneBottomOffset`, uses stage attribute probability `x78`, filters weighted item entries in `x7C[10]` with `it_8026D324`, and spawns a selected item via `Item_80268B18`.",
-    "Added shared `ZRANDI(n)` and `rand_range(int a, int b)` to `gr/inlines.h` and removed duplicate `rand_inline` helpers from Izumi, Kraid, Old Kongo, and Old Yoshi stage files.",
-    "Typed item/stage headers so Great Bay can call Tincle and Great Bay helpers without `UNK_RET`/`UNK_PARAMS`.",
-    "decomp.dev reported 4 new full matches: `grGreatBay_801F5600` (+788), `grGreatBay_801F4694` (+768), `grGreatBay_801F5E28` (+668), and `grGreatBay_801F5AF8` (+592). It also reported improvements for `grGreatBay_801F499C` to 99.90%, `grGreatBay_801F60C4` to 94.51%, `grGreatBay_801F63F4` to 96.63%, and `grGreatBay_801F5460` to 97.30%.",
-    "The bot also reported one regression: `main/melee/gr/grgreatbay` `.sdata` dropped from 100.00% to 81.82% (-5 bytes), so the PR improved code matching while leaving data matching to revisit."
-  ],
-  "smart_moves": [
-    "Centralizing the duplicated `rand_inline` logic into `gr/inlines.h` avoided copy-pasted helpers across stage files and gave Great Bay a consistent `rand_range` implementation with a `ZRANDI` zero guard.",
-    "Reconstructing `grGb_StageAttr` made the Great Bay attribute table usable for timers, scales, movement factors, item weights, and probabilities without relying on brittle raw `s16` indexes like `data[56]`.",
-    "Keeping field names offset-based (`x68`, `x70`, `x7C`) was appropriate because the diff gives layout evidence but not enough semantic evidence for descriptive names.",
-    "Changing `greatbay2` child object storage to `gobjs[4]` allowed loops in `grGreatBay_801F5AF8` and reduced repeated code for GObjs 5 through 8.",
-    "Typing `it_802ECA70` as returning `Item_GObj*` and `it_802EBFAC` as taking `Item_GObj*` enabled direct, evidence-backed Great Bay/Tincle integration instead of propagating unknown signatures.",
-    "Using bitfields for `xC5` and `x12` captured the observed flag accesses (`b0123456`, `b7`, `b0..b3`) and likely contributed to matching control-flow/register behavior.",
-    "The code preserved exact magic constants for effects and sounds (`0x7531`, `0x7533`, `0x7534`, `0x7537`, `0x57E41`, `0x57E42`, `0x57E47`, `0x57E48`, `0x57E4A`) rather than inventing names without evidence."
-  ],
-  "decomp_lessons": [
-    "When a stage data table is first understood structurally but not semantically, introduce a local offset-annotated struct and leave field names as `xNN` until asset or behavior evidence justifies better names.",
-    "Shared helpers should preserve exact edge behavior. `rand_range(a,b)` supports reversed min/max arguments and uses `ZRANDI` so zero ranges return 0 instead of calling `HSD_Randi(0)`.",
-    "Weighted random code often has assembly-significant ordering. `grGreatBay_801F62F8` totals `x70[0] + x70[1] + x70[3] + x70[2]` but subtracts in the order `x70[2]`, `x70[1]`, `x70[0]`, `x70[3]`; do not reorder for readability unless matching is verified.",
-    "Stage object state often spans `Ground` vars, child JOBjs, `mpLib` joints, animation, effects, and item APIs; matching requires typing all participating systems, not just the local stage file.",
-    "Small header type fixes can unlock large decomp progress when a stage calls item functions; avoid leaving `UNK_RET`/`UNK_PARAMS` once callsites clearly establish the signature.",
-    "Bitfield layouts are useful matching tools for ground vars when code reads packed flags with specific bit ranges, as seen with `greatbay.xC5.b0123456/b7` and `greatbay2.x12.b0..b3`.",
-    "decomp.dev match reports can show mixed outcomes: this PR gained major code matches but broke `.sdata`; future work should inspect data-symbol ordering or constants after similar C conversions."
-  ],
-  "naming_conventions": [
-    "Great Bay stage symbols use the `grGreatBay_801F....` address-name convention until functions receive semantic names.",
-    "The new stage-attribute type is named `grGb_StageAttr`, matching the existing Great Bay prefix `grGb_` and using offset fields (`x0`, `x2`, `x4`, etc.).",
-    "The global wrapper remains `grGb_804D69E0_t` / `grGb_804D69E0`, with only its pointer type improved from `s16*` to `grGb_StageAttr*`.",
-    "Ground variable structs continue the numbered convention: `grGreatBay_GroundVars`, `grGreatBay_GroundVars2`, `grGreatBay_GroundVars3`, and new `grGreatBay_GroundVars4`.",
-    "Homogeneous child GObjs were renamed from individually numbered members to `gobjs[4]`.",
-    "Unsemantic bitfields are named by bit positions/ranges, e.g. `b0123456`, `b7`, and `b4567`.",
-    "The random helper is named generically as `rand_range` in `gr/inlines.h`, replacing local stage-specific `rand_inline` helpers."
-  ],
-  "assembly_or_matching_tactics": [
-    "Used `PAD_STACK(8)` in `grGreatBay_801F5AF8`, `grGreatBay_801F5E28`, and `grGreatBay_801F63F4`, and `PAD_STACK(12)` in `grGreatBay_801F60C4`, indicating stack-shape padding was needed for matching or near-matching.",
-    "Used a `ZRANDI(n)` macro to express `n != 0 ? HSD_Randi(n) : 0` compactly while preserving zero-range behavior and branch structure.",
-    "`grGreatBay_801F62F8` includes `current += 0;`, which appears to be a deliberate no-op matching artifact; keep such artifacts evidence-labeled and revisit only with asm diff proof.",
-    "Kept line-numbered `HSD_ASSERT` calls such as `HSD_ASSERT(529, jobj)`, `HSD_ASSERT(530, jobj2)`, `HSD_ASSERT(652, 0)`, `HSD_ASSERT(692, 0)`, and `HSD_ASSERT(1277, 0)`.",
-    "Used nested local blocks around temporaries such as `max`, `min`, and child `HSD_JObj* j`, likely to control lifetimes/register allocation for matching.",
-    "Preserved exact float constants including `1.5707964f`, `-1.5707964f`, `0.017453292f`, `15.0f`, `1000.0f`, `-50.0f`, and `10.0f` instead of replacing with named math constants.",
-    "In `grGreatBay_801F60C4`, the impact calculation uses `ABS(dx) / 15.0f`, clamps `t` to `1.0f`, then clamps accumulated rotation and displacement against attribute limits; this shape should be reused when matching similar collision-response callbacks.",
-    "Using arrays and loops (`gobjs[4]`, weighted `x7C[10]`) can improve both readability and matchability when the original code iterates over homogeneous stage data."
-  ],
-  "review_feedback": [
-    "No human review comments or reviews were present in the slice, so reviewer intent/style feedback is not evidenced.",
-    "decomp-dev[bot] reported matched code at 62.01% (+0.07%, +2816 bytes) for GALE01 after the PR.",
-    "Bot-confirmed new full matches: `grGreatBay_801F5600`, `grGreatBay_801F4694`, `grGreatBay_801F5E28`, and `grGreatBay_801F5AF8`.",
-    "Bot-confirmed near/full improvements: `grGreatBay_801F499C` 99.90%, `grGreatBay_801F60C4` 94.51%, `grGreatBay_801F63F4` 96.63%, `grGreatBay_801F5460` 97.30%, `.sdata2` 87.50%, and `grGreatBay_801F62F8` 99.92%.",
-    "Bot reported a broken match in `main/melee/gr/grgreatbay` `.sdata`: 100.00% to 81.82% (-5 bytes)."
-  ],
-  "searchable_terms": [
-    "pr-2388",
-    "great bay work",
-    "lukechampine",
-    "grgreatbay",
-    "Great Bay",
     "src/melee/gr/grgreatbay.c",
     "src/melee/gr/types.h",
     "src/melee/gr/inlines.h",
-    "grGb_StageAttr",
-    "grGb_804D69E0",
+    "src/melee/gr/grgreatbay.h",
+    "src/melee/it/items/ittincle.h",
+    "src/melee/gr/grizumi.c",
+    "src/melee/gr/grkraid.c",
+    "src/melee/gr/groldkongo.c",
+    "src/melee/gr/groldyoshi.c"
+  ],
+  "what_changed": [
+    "Implemented multiple Great Bay functions that were previously documented as nonmatching stubs, including grGreatBay_801F4694, grGreatBay_801F499C, grGreatBay_801F5460, grGreatBay_801F5600, grGreatBay_801F5AF8, grGreatBay_801F5E28, grGreatBay_801F60C4, and grGreatBay_801F63F4.",
+    "Added a local grGb_StageAttr struct in grgreatbay.c and changed grGb_804D69E0_t.x0 from s16* to grGb_StageAttr*, replacing raw indexed stage-attribute access with named offset fields such as x44, x46, x68, x70, x78, and x7C.",
+    "Expanded Great Bay ground variable layouts in src/melee/gr/types.h: added bitfields for greatbay.xC5, generator/timer/position fields, converted four separate greatbay2 child gobj members into gobjs[4], added greatbay2 bitflags, extended greatbay3, and added grGreatBay_GroundVars4 for the Tingle-related object state.",
+    "Added shared rand_range and ZRANDI helpers to src/melee/gr/inlines.h, then replaced repeated local rand_inline implementations in grizumi.c, grkraid.c, groldkongo.c, and groldyoshi.c.",
+    "Updated grGreatBay_801F63F4's declaration from UNK_RET/UNK_PARAMS to bool grGreatBay_801F63F4(Ground_GObj*) in grgreatbay.h.",
+    "Updated Tingle item prototypes in ittincle.h, including it_802EBFAC(Item_GObj*) and it_802ECA70(HSD_GObj*) returning Item_GObj*, enabling typed calls from the Great Bay logic.",
+    "Added dependencies in grgreatbay.c for stage/item behavior: gr/stage.h, it/it_266F.h, it/item.h, and it/items/ittincle.h.",
+    "Bot-reported match impact: +2816 bytes matched code, 4 new full matches, and 6 improvements in unmatched grgreatbay items; bot also reported .sdata dropping from 100.00% to 81.82%."
+  ],
+  "smart_moves": [
+    "Recovered a structured stage-attribute table before using it heavily; this made later Great Bay functions read as field accesses instead of fragile s16-index arithmetic.",
+    "Factored the repeated random-range idiom into rand_range/ZRANDI, preserving the original zero-safe HSD_Randi behavior while removing duplicated inline functions across several stage files.",
+    "Modeled packed state with explicit bitfields, such as greatbay.xC5.b0123456 and b7 and greatbay2.x12.b0 through b3, which aligns the C layout with observed flag usage without inventing semantic names prematurely.",
+    "Replaced gobj5/gobj6/gobj7/gobj8 with gobjs[4], matching the looped child-object handling in grGreatBay_801F5AF8 and reducing duplicate code.",
+    "Typed cross-system item calls only as far as the diff supported: Tingle function signatures were upgraded enough for Great Bay to create/control an Item_GObj without overnaming the unknown Tingle motions.",
+    "Used existing ground/library primitives consistently: GET_GROUND, GET_JOBJ, Ground_801C3FA4, grAnime_* helpers, mpLib/mpJointList operations, effects via grLib_801C96F8/801C97DC, and sound via Ground_801C53EC."
+  ],
+  "decomp_lessons": [
+    "When a stage has a large data-driven behavior table, introduce a temporary offset-named struct before trying to infer semantic field names; it improves matching and keeps the evidence trail clear.",
+    "A shared inline helper can be a matching tactic: replacing per-file local inline random-range functions with one in gr/inlines.h avoided repetition while preserving generated behavior.",
+    "Arrays are preferable to numbered fields when the assembly iterates over adjacent objects; the greatbay2.gobjs[4] refactor is a useful pattern for child ground objects.",
+    "Use bitfields to document packed state only when the diff shows exact flag-level access; this PR kept placeholder names but captured the layout needed for matching.",
+    "Header cleanups often unblock decompilation: changing UNK prototypes to typed signatures in grgreatbay.h and ittincle.h allowed newly decompiled code to call item/stage helpers directly.",
+    "Bot match reports should be checked for data regressions as well as code gains; this PR gained significant code matching but broke a small .sdata match."
+  ],
+  "naming_conventions": [
+    "Stage-local recovered structs used the grGb_ prefix, e.g. grGb_StageAttr and grGb_804D69E0_t.",
+    "Unknown-but-offset-known fields retained x-offset names such as xC4, xC5, xC6, xC8, xCC, x70, x78, and x7C.",
+    "Bitfield members used bit-position names such as b0123456, b7, b0, b1, b2, b3, and b4567.",
+    "The shared random helper was named rand_range, replacing local rand_inline helpers in multiple ground files.",
+    "Child object fields were generalized from numbered names gobj5 through gobj8 to an indexed gobjs[4] array."
+  ],
+  "assembly_or_matching_tactics": [
+    "Used PAD_STACK annotations in several functions to satisfy stack/layout requirements where needed.",
+    "Preserved zero-safe random generation with ZRANDI(n) expanding to HSD_Randi(n) only when n is nonzero.",
+    "Inserted no-op-looking expression current += 0 in grGreatBay_801F62F8, likely to influence codegen while keeping behavior unchanged.",
+    "Kept explicit HSD_ASSERT calls at line-number-like constants in state-machine error paths, including unreachable Great Bay switch cases.",
+    "Maintained local temporaries such as timer, max_val, min_val, factor, and nested blocks around clamp logic to shape generated code.",
+    "Used exact float constants visible in the diff, including 1.5707964f for ±90-degree rotation and 0.017453292f for degree-to-radian scaling."
+  ],
+  "review_feedback": [
+    "No human review comments were present in the provided slice.",
+    "decomp.dev bot reported 4 new full matches: grGreatBay_801F5600 (+788 bytes), grGreatBay_801F4694 (+768 bytes), grGreatBay_801F5E28 (+668 bytes), and grGreatBay_801F5AF8 (+592 bytes).",
+    "decomp.dev bot reported major improvements but not full matches for grGreatBay_801F499C at 99.90%, grGreatBay_801F60C4 at 94.51%, grGreatBay_801F63F4 at 96.63%, grGreatBay_801F5460 at 97.30%, .sdata2 at 87.50%, and grGreatBay_801F62F8 at 99.92%.",
+    "decomp.dev bot reported one broken match: main/melee/gr/grgreatbay .sdata decreased from 100.00% to 81.82% (-5 bytes)."
+  ],
+  "searchable_terms": [
+    "PR2388",
+    "great bay work",
+    "lukechampine",
+    "grgreatbay.c",
     "grGreatBay_801F4694",
     "grGreatBay_801F499C",
     "grGreatBay_801F5460",
     "grGreatBay_801F5600",
-    "grGreatBay_801F5914",
     "grGreatBay_801F5AF8",
     "grGreatBay_801F5E28",
     "grGreatBay_801F60C4",
     "grGreatBay_801F62F8",
     "grGreatBay_801F63F4",
+    "grGreatBay_801F660C",
+    "grGb_StageAttr",
+    "grGb_804D69E0",
+    "grGreatBay_GroundVars",
+    "grGreatBay_GroundVars2",
+    "grGreatBay_GroundVars3",
     "grGreatBay_GroundVars4",
     "rand_range",
     "ZRANDI",
-    "HSD_Randi",
-    "PAD_STACK",
-    "HSD_ASSERT",
-    "mpJointListAdd",
-    "mpLib_80057BC0",
-    "mpLib_80057FDC",
-    "mpLib_80058044",
-    "Stage_GetBlastZoneBottomOffset",
-    "Item_80268B18",
+    "rand_inline",
     "ittincle.h",
     "it_802ECA70",
     "it_802EBFAC",
-    "it_802ECCA4",
-    "it_802ECC98",
-    "it_802EC830",
-    "Tincle",
+    "Item_GObj",
     "Tingle",
-    ".sdata regression",
-    ".sdata2 improvement",
-    "decomp.dev"
+    "Stage_GetBlastZoneBottomOffset",
+    "Ground_801C3FA4",
+    "mpJointListAdd",
+    "mpLib_80057BC0",
+    "HSD_JObjSetRotationY",
+    "HSD_JObjSetTranslateX",
+    "HSD_ASSERT",
+    "sdata regression"
   ],
   "follow_up_queries": [
-    "Investigate remaining mismatch in `grGreatBay_801F499C` after 99.90% improvement; compare state-machine local scopes, assert lines, and `mpLib` call ordering.",
-    "Improve `grGreatBay_801F60C4` from 94.51%; focus on float temp ordering, `ABS(dx)`, casts around damage scaling, and stack padding.",
-    "Improve `grGreatBay_801F63F4` from 96.63%; inspect weighted item loop indexing (`offset / 4` vs `i`) and spawn struct copy order.",
-    "Resolve `main/melee/gr/grgreatbay` `.sdata` regression from 100.00% to 81.82%; inspect new `extern Vec3 grGb_803B81C8` and `extern SpawnItem grGb_803B81D4` placement/constants.",
-    "Name or document `grGb_StageAttr` fields once asset/stage-data semantics are known, especially `x70` path weights, `x78` spawn probability, and `x7C[10]` item kind/weight table.",
-    "Search for remaining duplicated per-stage random helpers that can safely move to `gr/inlines.h` using the same `rand_range`/`ZRANDI` semantics.",
-    "Audit Great Bay/Tincle item prototypes in `ittincle.h` against other callsites to ensure the new signatures are globally correct."
+    "Check later PRs that recover semantic names for grGb_StageAttr fields x0 through x7C.",
+    "Find follow-up work that restores the grgreatbay .sdata match after this PR's -5 byte regression.",
+    "Search for later full matches of grGreatBay_801F499C, grGreatBay_801F60C4, grGreatBay_801F63F4, and grGreatBay_801F5460.",
+    "Search for additional uses or refinements of rand_range and ZRANDI in ground stage files.",
+    "Check whether Tingle item functions it_802ECA70, it_802EBFAC, it_802EBD14, it_802ECC98, and it_802ECCA4 were renamed or further typed later."
   ],
-  "confidence": 0.9
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

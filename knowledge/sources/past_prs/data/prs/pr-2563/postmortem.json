@@ -11,85 +11,73 @@
     "merged_at": "2026-06-01T03:55:43Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched three player bonus-library functions in `src/melee/pl/plbonuslib`: a full implementation of `pl_8003E4A4` plus small dataflow/type fixes that brought `pl_80040688` and `pl_800407C8` to 100%. The PR also corrected the `pl_8003E4A4` header prototype from `u8 slot` to `int slot`. decomp.dev reported 3 new matches and +1104 matched code bytes for GALE01.",
+  "summary": "Matched several player bonus-library functions in src/melee/pl/plbonuslib.c, specifically pl_8003E4A4, pl_80040688, and pl_800407C8. The main work filled in pl_8003E4A4 using stale move table bookkeeping over mapped item/move kinds, adjusted a call condition in pl_80040688 to use the slot/local temp value instead of the second argument, and forced unsigned integer-to-float conversions in pl_800407C8 before averaging. The header prototype for pl_8003E4A4 was corrected from u8 slot to int slot to match the implementation and calling convention.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "function-implementation",
       "prototype-correction",
-      "inline-helper-reordering",
-      "integer-cast-codegen"
+      "type-cast-matching"
     ],
     "systems": [
-      "melee-core",
-      "player bonus library",
-      "plbonuslib",
-      "player stale move table",
-      "item logging"
+      "player",
+      "bonus",
+      "stale-move-table",
+      "melee-core"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/pl/plbonuslib.c",
-      "role": "Implemented `pl_8003E4A4`, moved `match_item_kind` before its new caller, and made matching fixes in `pl_80040688` and `pl_800407C8`.",
-      "added": 54,
-      "deleted": 24
-    },
-    {
-      "path": "src/melee/pl/plbonuslib.h",
-      "role": "Changed the `pl_8003E4A4` slot parameter prototype from `u8` to `int`.",
-      "added": 1,
-      "deleted": 1
-    }
+    "src/melee/pl/plbonuslib.c",
+    "src/melee/pl/plbonuslib.h"
   ],
   "what_changed": [
-    "`pl_8003E4A4` was replaced from a placeholder with a C implementation using `Player_GetStaleMoveTableIndexPtr2(slot)`, a `u32 seen[0x27]` local array, `match_item_kind`, and updates to `table->x0_staleMoveTable.x7AC[i]`.",
-    "`pl_8003E4A4` marks item kinds seen in the input `moves` array, increments per-kind consecutive counters in `x7AC`, calls `pl_80038788(slot, 0x9D, 1)` when a counter reaches the PR-diff threshold expression `*(u32*) pl_804D6470->x138`, and resets counters for unseen kinds.",
-    "`match_item_kind` was moved upward from below `pl_8003ED0C` to above `pl_8003E4A4`; its mapping stayed visible in the diff: kinds `0..0x22` map directly, `0xCD` to `0x23`, `0xE1` to `0x24`, `0xE2` to `0x25`, `0x28` to `0x26`, and default to `-1`.",
-    "`pl_80040688` changed the second argument to `unk_cond` from the caller parameter `arg2` to the stale-table-derived `temp_r0`, which is loaded from `temp_r3->x0_staleMoveTable.xCB8`.",
-    "`pl_800407C8` changed average inputs from implicit float conversion of `xCEC` and `xCF0` to explicit `(u32)` casts before assigning to floats and calling `pl_CalculateAverage`.",
-    "`plbonuslib.h` changed `/* 03E4A4 */ void pl_8003E4A4(u8 slot, bool, void*, int);` to `int slot`, matching the new definition and the PR body's `--require-protos` verification."
+    "Implemented pl_8003E4A4 in plbonuslib.c. The function obtains a pl_StaleMoveTableExt_t via Player_GetStaleMoveTableIndexPtr2(slot), scans an input move/item array, tracks seen mapped kinds in a local u32 seen[0x27] array, increments x7AC counters for seen entries, resets unseen entries, and triggers pl_80038788(slot, 0x9D, 1) when a counter reaches the threshold at pl_804D6470->x138.",
+    "Moved the inline helper match_item_kind earlier in plbonuslib.c so it can be used by the newly implemented pl_8003E4A4. The helper maps normal kinds 0..0x22 directly and remaps special kinds 0xCD, 0xE1, 0xE2, and 0x28 to indices 0x23..0x26, returning -1 for unsupported kinds.",
+    "Changed pl_80040688 so unk_cond is called as unk_cond(arg1, temp_r0) rather than unk_cond(arg1, arg2), which was part of making the function match.",
+    "Changed pl_800407C8 so xCEC and xCF0 are cast through u32 before being assigned to float temporaries and passed to pl_CalculateAverage, matching the expected unsigned conversion behavior.",
+    "Updated the pl_8003E4A4 declaration in plbonuslib.h from void pl_8003E4A4(u8 slot, bool, void*, int) to void pl_8003E4A4(int slot, bool, void*, int).",
+    "PR body states verification was run with python configure.py --require-protos && ninja."
   ],
   "smart_moves": [
-    "Reused the existing `match_item_kind` helper by relocating it before the newly implemented function rather than introducing a duplicate item-kind mapper.",
-    "Modeled `pl_8003E4A4` as a two-pass/three-loop counter update: zero `seen`, mark observed mapped item kinds, then increment or reset all 0x27 stale-move item counters. This mirrors the sort of simple loop structure that often matters for matching.",
-    "Matched two partially decompiled functions with very small semantic/dataflow adjustments instead of broad rewrites: `unk_cond(arg1, temp_r0)` in `pl_80040688` and unsigned casts in `pl_800407C8`.",
-    "Kept the header prototype in sync with the definition and verified with `python configure.py --require-protos && ninja`, avoiding silent ABI/prototype drift."
+    "The match for pl_8003E4A4 reused the existing match_item_kind mapping helper rather than duplicating item-kind normalization logic.",
+    "Using a fixed local seen[0x27] array mirrors the limited mapped item-kind range and lets the function separate deduplication of the input list from later counter updates.",
+    "The x7AC comparison casts the table counter to u32 before comparing against the global threshold pointer, preserving the signedness/codegen-sensitive behavior needed for matching.",
+    "The pl_800407C8 fix demonstrates a common matching tactic: explicit unsigned integer-to-float casts can be required even when the apparent source fields are numeric counters.",
+    "The header prototype was kept in sync with the matched implementation, and the PR verification used --require-protos, which helps catch stale or mismatched declarations."
   ],
   "decomp_lessons": [
-    "For matching, argument width in headers matters: changing `slot` from `u8` to `int` can affect call ABI, promotion/sign-extension behavior, and `--require-protos` cleanliness.",
-    "Inline helper placement can be part of the match. Moving `match_item_kind` before `pl_8003E4A4` allowed the new function to use the helper while preserving an inline-style local mapping.",
-    "When an int counter is consumed by a float average helper, explicit signedness casts can steer CodeWarrior/PPC integer-to-float conversion codegen; here `(u32)` casts were enough to finish `pl_800407C8`.",
-    "Trace temporary dataflow back to struct fields before assuming a call argument is reused. `pl_80040688` needed `xCB8`/`temp_r0` in `unk_cond`, not the incoming `arg2`.",
-    "The submitted matched source checks `match_item_kind(moves[i]) < 0x27` before indexing `seen[...]` and does not show an explicit `>= 0` guard. Future cleanup should verify assembly and valid inputs before changing that condition."
+    "For matched functions that take player slots, confirm the exact parameter width in both the C definition and header. Here pl_8003E4A4 required int slot rather than u8 slot.",
+    "When matching PowerPC integer-to-float behavior, signedness matters. Casting counter fields to u32 before assigning to float can be necessary to produce the intended conversion sequence.",
+    "If a helper is needed by an earlier function, moving the inline helper above its first use can avoid adding new declarations while preserving local helper scope.",
+    "Mapped enum/index spaces should be represented explicitly. match_item_kind documents that only 0x27 mapped indices are valid for the x7AC stale move table counters.",
+    "Small argument substitutions can be the difference between nonmatching and matching code. In pl_80040688, unk_cond needed the computed temp_r0 value rather than arg2."
   ],
   "naming_conventions": [
-    "Address-style public function names were preserved: `pl_8003E4A4`, `pl_80040688`, and `pl_800407C8`.",
-    "The local inline helper uses descriptive lower_snake naming, `match_item_kind`, even while surrounding exported functions remain address-named.",
-    "Header declarations keep the file's address-comment style such as `/* 03E4A4 */`.",
-    "Unknown or not-yet-semantic struct fields remain offset-style names under `x0_staleMoveTable`, including `x7AC`, `xCB8`, `xCBC`, `xCC0`, `xCEC`, and `xCF0`."
+    "Unidentified matched functions retain address-style names such as pl_8003E4A4, pl_80040688, and pl_800407C8.",
+    "Local temporaries follow existing decomp naming such as temp_r0, temp_r0_2, temp_r3, temp_r5, temp_f31, and bits when semantic names are not yet established.",
+    "Known structures and fields use project-style names such as pl_StaleMoveTableExt_t, x0_staleMoveTable, x7AC, xCBC, xCC0, xCEC, and xCF0.",
+    "The helper name match_item_kind describes its purpose as mapping item kinds into the compact bonus/stale-table index range.",
+    "Header comments preserve address annotations, for example /* 03E4A4 */ before the pl_8003E4A4 prototype."
   ],
   "assembly_or_matching_tactics": [
-    "Use a fixed-size local `seen[0x27]` array and loops over `i < 0x27` to align with the 39-entry item-kind/stale counter range in this function.",
-    "Preserve exact helper-call shape when matching: the PR diff calls `match_item_kind(moves[i])` in both the `< 0x27` condition and the subsequent `seen[...]` assignment rather than storing a visible temporary.",
-    "Use table-derived temporaries when they feed multiple operations: `temp_r0 = ...xCB8` is used for `unk_cond` and later `pl_80038788(temp_r0, ...)` paths in `pl_80040688`.",
-    "Unsigned casts before float assignment, as in `(u32) temp_r3->x0_staleMoveTable.xCEC`, are a practical matching tactic for average/ratio helpers.",
-    "The PR diff used explicit casts around the `pl_804D6470->x138` threshold comparison in `pl_8003E4A4`, suggesting a local type/codegen workaround in this slice."
+    "Use explicit casts to u32 before float assignment to force unsigned conversion codegen, as in pl_800407C8 for xCEC and xCF0.",
+    "Use the same local variable in calls that the original assembly likely uses, as shown by changing unk_cond(arg1, arg2) to unk_cond(arg1, temp_r0) in pl_80040688.",
+    "Use fixed-size stack arrays and simple index loops for predictable codegen; pl_8003E4A4 zeroes and consumes seen[0x27] with explicit for loops.",
+    "Preserve comparison signedness with explicit casts, such as comparing (u32)table->x0_staleMoveTable.x7AC[i] against the u32 value loaded through pl_804D6470->x138.",
+    "Keep inline helper placement sensitive to call order; match_item_kind was placed before pl_8003E4A4 after that function began using it."
   ],
   "review_feedback": [
-    "No human review comments or review approvals were present in the PR slice.",
-    "The PR body listed the intended matches: `pl_8003E4A4`, `pl_80040688`, and `pl_800407C8`.",
-    "The PR body verification command was `python configure.py --require-protos && ninja`.",
-    "decomp.dev bot reported GALE01 matched code at 69.38% (+0.03%, +1104 bytes) with 3 new matches: `pl_8003E4A4` 0.00% to 100.00% (+616 bytes), `pl_80040688` 86.53% to 100.00% (+44 bytes), and `pl_800407C8` 81.90% to 100.00% (+31 bytes)."
+    "No review comments were present in the provided PR context.",
+    "The PR body only listed matched functions and build verification; no reviewer rationale or requested changes were available."
   ],
   "searchable_terms": [
     "pr-2563",
     "Match pl bonus functions",
     "itsgrimetime",
     "plbonuslib",
-    "src/melee/pl/plbonuslib.c",
-    "src/melee/pl/plbonuslib.h",
+    "plbonuslib.c",
+    "plbonuslib.h",
     "pl_8003E4A4",
     "pl_80040688",
     "pl_800407C8",
@@ -98,31 +86,33 @@
     "pl_StaleMoveTableExt_t",
     "x0_staleMoveTable",
     "x7AC",
-    "xCB8",
     "xCBC",
     "xCC0",
     "xCEC",
     "xCF0",
-    "unk_cond",
-    "pl_CalculateAverage",
-    "pl_80038788",
     "pl_804D6470",
-    "0x9D",
-    "0x2A",
-    "0xCD",
-    "0xE1",
-    "0xE2",
-    "0x28",
-    "u8 slot to int slot",
-    "require-protos",
-    "GALE01"
+    "pl_80038788",
+    "pl_CalculateAverage",
+    "unk_cond",
+    "u32 cast",
+    "unsigned float conversion",
+    "stale move table",
+    "item kind mapping",
+    "require-protos"
   ],
   "follow_up_queries": [
-    "Search later PRs for `pl_804D6470->x138` type cleanup or removal of the `*(u32*)` threshold cast around `pl_8003E4A4`.",
-    "Search for other `plbonuslib` average helpers where integer counters need explicit `(u32)` casts before `pl_CalculateAverage`.",
-    "Look for later semantic names for `x7AC`, `xCB8`, `xCEC`, and `xCF0` in `pl/types.h` or player bonus documentation.",
-    "Audit call sites of `pl_8003E4A4` to confirm valid `moves` entries relative to `match_item_kind` default `-1` behavior.",
-    "Compare other PRs touching `unk_cond` to see whether its second parameter is consistently a stale-table stored player/index value rather than an event argument."
+    "Look for later PRs renaming pl_8003E4A4, pl_80040688, or pl_800407C8 to semantic names.",
+    "Search for additional uses or refinements of match_item_kind and the 0x27 item-kind mapping range.",
+    "Check whether pl_804D6470->x138 and x7AC receive semantic field names in later structure-cleanup PRs.",
+    "Search for other PRs that use explicit u32-to-float casts to match pl_CalculateAverage callers."
   ],
-  "confidence": 0.91
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

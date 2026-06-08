@@ -11,150 +11,113 @@
     "merged_at": "2026-03-18T17:28:01Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Implemented four fighter-related C functions and one Crazy Hand attribute type correction. The decomp.dev bot reported +464 matched bytes and 3 new 100% matches: `fn_800DC070`, `ft_800C0098`, and `ftCh_Init_80157170`; it also reported `ftKb_SpecialN_800F1420` improved from 0.00% to 95.54%, despite the PR body claiming 100.0 fuzzy match for all functions.",
+  "summary": "Matched four previously stubbed fighter-side functions across Kirby, Crazy Hand, common grab escape, and fighter color animation handling. The PR also corrected Crazy Hand attribute field x24 from s32 to float, which was needed by the matched damage setup code. All four functions were reported with fuzzy_match_percent 100.0.",
   "change_classification": {
-    "primary_type": "fighter decompilation matching",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "placeholder-replacement",
-      "fighter-motion-state",
-      "fighter-color-animation",
       "headers",
-      "matching-pragmas"
+      "fighter-behavior",
+      "color-animation"
     ],
     "systems": [
       "fighter",
-      "ftCommon Attack100/CaptureJump",
-      "ftCrazyHand",
+      "ftCommon",
       "ftKirby",
+      "ftCrazyHand",
       "ftcolanim"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
-      "symbols": [
-        "fn_800DC070"
-      ],
-      "role": "Implemented grabbed-fighter jump escape setup into `ftCo_MS_CaptureJump`."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCrazyHand/ftCh_Init.c",
-      "symbols": [
-        "ftCh_Init_80157170"
-      ],
-      "role": "Implemented Crazy Hand heavy damage/flinch transition into `ftMh_MS_Damage2`."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCrazyHand/types.h",
-      "symbols": [
-        "ftCrazyHandAttributes",
-        "x24"
-      ],
-      "role": "Changed Crazy Hand attribute field `x24` from `s32` to `float` for motion-coordinate use."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.c",
-      "symbols": [
-        "ftKb_SpecialN_800F1420"
-      ],
-      "role": "Implemented Kirby copied-hat material diffuse color update over visibility lookup parts."
-    },
-    {
-      "path": "src/melee/ft/ftcolanim.c",
-      "symbols": [
-        "ft_800C0098"
-      ],
-      "role": "Implemented fighter cloak/color overlay reset and reapply logic with local optimizer pragmas."
-    }
+    "src/melee/ft/chara/ftKirby/ftKb_Init.c",
+    "src/melee/ft/ftcolanim.c",
+    "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+    "src/melee/ft/chara/ftCrazyHand/ftCh_Init.c",
+    "src/melee/ft/chara/ftCrazyHand/types.h"
   ],
   "what_changed": [
-    "`fn_800DC070` now gets the fighter and victim gobj, clears common state with `ftCommon_8007D5D4`, sets escape velocity from `p_ftCommonData->x374/x378`, clears `fp->mv.co.buryjump.x0`, calls `ftCo_800DC920(victim, gobj)`, and changes motion to `ftCo_MS_CaptureJump`.",
-    "`ftCh_Init_80157170` now reads `ftCrazyHand_DatAttrs`, computes `fp->mv.ch.unk0.xC.x/y`, changes Crazy Hand to `ftMh_MS_Damage2`, calls `ftAnim_8006EBA4`, and plays SFX `0x4E207`.",
-    "`ftCrazyHandAttributes.x24` was corrected from `s32` to `float`, matching its use as the Y component assigned into `fp->mv.ch.unk0.xC.y`.",
-    "`ftKb_SpecialN_800F1420` now walks `FtPartsVisLookup` entries, resolves Kirby hat `HSD_DObj`/`HSD_MObj`/`HSD_Material`, and writes the provided packed color into `mat->diffuse`.",
-    "`ft_800C0098` now clears `fp->x508` and, when `fp->x2226_b4` is set, reapplies a cloak/color animation using `lb_800144C8` and `Fighter_804D6538` for constant ID `0x80`."
+    "Implemented fn_800DC070 in ftCo_Attack100.c. It gets the grabbed fighter's victim_gobj, calls ftCommon_8007D5D4, sets self_vel.x from -facing_dir * p_ftCommonData->x374, sets self_vel.y from p_ftCommonData->x378, clears mv.co.buryjump.x0, notifies the victim through ftCo_800DC920, and enters ftCo_MS_CaptureJump with Fighter_ChangeMotionState.",
+    "Implemented ftCh_Init_80157170 in ftCh_Init.c. It reads ftCrazyHand_DatAttrs from fp->ft_data->ext_attr, computes mv.ch.unk0.xC.x from cur_pos.x minus attrs->x28, stores attrs->x24 into mv.ch.unk0.xC.y, changes to ftMh_MS_Damage2 using ftCh_Init_804DA070/ftCh_Init_804DA074 constants, calls ftAnim_8006EBA4, and plays SFX 0x4E207.",
+    "Changed ftCrazyHandAttributes::x24 in ftCrazyHand/types.h from s32 to float, matching its use as a floating-point motion/damage value in ftCh_Init_80157170.",
+    "Implemented ftKb_SpecialN_800F1420 in ftKb_Init.c. It walks Kirby's copied hat part visibility lookup, resolves hat DObjs through fp->fv.kb.hat.x14.data, checks DObj, MObj, and material pointers for NULL, then writes the supplied u32 color value into mat->diffuse.",
+    "Implemented ft_800C0098 in ftcolanim.c. It clears fp->x508 with lb_80014498 and, when fp->x2226_b4 is set, reapplies color animation index 0x80 via Fighter_804D6538 after subtracting 0x7B. The alternate Fighter_804D653C branch remains present for matching/control-flow even though arg1 is fixed to 0x80.",
+    "Wrapped ft_800C0098 with #pragma push, #pragma auto_inline off, #pragma global_optimizer off, and #pragma pop to preserve the expected code generation."
   ],
   "smart_moves": [
-    "Used a small header fix (`x24` as `float`) instead of masking the Crazy Hand mismatch with casts, improving both type semantics and matching odds.",
-    "Scoped `#pragma auto_inline off` and `#pragma global_optimizer off` with push/pop around only `ft_800C0098`, avoiding file-wide optimizer side effects.",
-    "Preserved low-level material-color behavior in Kirby by copying a packed `u32` into `HSD_Material.diffuse` rather than expanding it into per-channel assignments.",
-    "Kept explicit NULL checks for `dobj`, `mobj`, and `mat` in the Kirby hat traversal, matching the defensive pointer chain visible in the decompiled logic.",
-    "Used an assignment expression inside the Crazy Hand `Fighter_ChangeMotionState` argument list for `fp->mv.ch.unk0.xC.z`, a code-shape tactic likely important for matching order."
+    "Used a narrow struct type correction rather than forcing casts: ftCrazyHandAttributes.x24 became float because the matched function assigns it into a vector-like float field.",
+    "Preserved nested NULL checks in the Kirby hat material traversal, avoiding over-simplification that could change control flow or codegen.",
+    "Kept the apparently constant-controlled if/else structure in ft_800C0098, including the unreachable-looking Fighter_804D653C branch for arg1 < 0x7B, which likely helped reproduce the original compiler output.",
+    "Applied local pragma controls only around ft_800C0098, limiting compiler setting changes to the function that needed them.",
+    "Matched behavior using existing symbolic data and functions such as p_ftCommonData, Fighter_804D6538, Fighter_804D653C, ftCh_Init_804DA070, and ftCh_Init_804DA074 instead of introducing new speculative names."
   ],
   "decomp_lessons": [
-    "For fighter ext attributes, field type corrections can be the key matching change; verify how fields flow into vectors, motion parameters, or floats before leaving them as `s32`.",
-    "When a function must keep constant-looking branches or avoid unwanted simplification, local optimizer pragmas are preferable to broad build-setting changes.",
-    "HSD material color updates may match as packed struct writes, so test `*(u32*) &mat->diffuse`-style copies before forcing channel-by-channel code.",
-    "Motion-state setup functions often combine velocity/state-field writes, victim/owner bookkeeping, and `Fighter_ChangeMotionState`; preserve call order and temporary use carefully.",
-    "Bot match reports and PR-body verification can disagree; archive both, and prefer the decomp.dev byte/match table when recording final match status."
+    "When matching fighter motion setup functions, common data constants such as p_ftCommonData->x374 and x378 may encode velocity values used directly during state transitions.",
+    "Boss-specific attribute structs can hide float fields among integer-looking unknowns; verify field type from use sites before accepting placeholder s32 declarations.",
+    "Material color updates may require writing an entire packed u32 through a cast to a color struct field, as shown by *(u32*) &mat->diffuse = *arg1.",
+    "For matching old compiler output, preserve temporary variables and branch shapes even when a local constant makes one branch unlikely or unreachable in normal reasoning.",
+    "Function-local compiler pragmas are an acceptable matching tactic when auto-inlining or global optimization changes generated code."
   ],
   "naming_conventions": [
-    "Unsemantically named functions retained address-style project names: `ftKb_SpecialN_800F1420`, `ftCh_Init_80157170`, `ft_800C0098`, and `fn_800DC070`.",
-    "Standard fighter local naming was used: `gobj` for the fighter object and `fp = GET_FIGHTER(gobj)` for the `Fighter*`.",
-    "Crazy Hand external attributes were named `attrs` with type `ftCrazyHand_DatAttrs*`.",
-    "Kirby model traversal used concise render-object locals: `lookup`, `entry`, `p`, `dobj`, `mobj`, and `mat`.",
-    "Ambiguous struct fields remained offset names such as `x5AC`, `x2226_b4`, `x508`, and `mv.ch.unk0.xC`, avoiding unsupported semantic renames."
+    "The PR kept existing unknown/generated symbol names for unmatched or not-yet-renamed functions: fn_800DC070, ftCh_Init_80157170, ftKb_SpecialN_800F1420, and ft_800C0098.",
+    "Fighter motion-state names follow subsystem prefixes such as ftCo_MS_CaptureJump for common fighter states and ftMh_MS_Damage2 for Master Hand/Crazy Hand-style boss damage states.",
+    "Crazy Hand attribute type naming uses ftCrazyHand_DatAttrs in code and ftCrazyHandAttributes as the typedef target in types.h.",
+    "Unknown struct fields remain offset-like, for example x24, x28, x30_pos2, x2226_b4, and mv.ch.unk0.xC, rather than being prematurely renamed."
   ],
   "assembly_or_matching_tactics": [
-    "`#pragma push`, `#pragma auto_inline off`, `#pragma global_optimizer off`, and `#pragma pop` were used to localize codegen control for `ft_800C0098`.",
-    "The constant overlay ID was kept as a local `s32 arg1 = 0x80` followed by an `if (arg1 >= 0x7B)` branch, rather than simplifying directly to the known true path.",
-    "Kirby diffuse color uses a packed aliasing write: `*(u32*) &mat->diffuse = *arg1`.",
-    "Explicit temporary declarations and NULL branches in the Kirby loop help control generated code shape through nested DObj/MObj/material access.",
-    "Crazy Hand's motion-state call embeds `fp->mv.ch.unk0.xC.z = ftCh_Init_804DA070` as an argument, preserving a specific store/evaluation pattern."
+    "Reported verification was fuzzy_match_percent: 100.0 for all four matched functions.",
+    "Used #pragma auto_inline off and #pragma global_optimizer off around ft_800C0098 to force matching code generation.",
+    "Maintained assignment inside a function argument in ftCh_Init_80157170: fp->mv.ch.unk0.xC.z = ftCh_Init_804DA070 is passed as a Fighter_ChangeMotionState argument.",
+    "Used explicit NULL propagation for Kirby hat DObj to MObj to material traversal instead of compact chained conditions.",
+    "Used a local s32 arg1 initialized to 0x80 in ft_800C0098, then compared against 0x7B and computed temp = arg1 - 0x7B, preserving expected temporary and branch structure."
   ],
   "review_feedback": [
-    "No human review comments or review approvals were captured in the slice.",
-    "decomp.dev bot reported matched code at 58.75%, +0.01%, +464 bytes.",
-    "Bot report: `fn_800DC070` +160 bytes, `ft_800C0098` +156 bytes, and `ftCh_Init_80157170` +148 bytes went from 0.00% to 100.00%.",
-    "Bot report: `ftKb_SpecialN_800F1420` improved +141 bytes from 0.00% to 95.54%, which conflicts with the PR body's statement that all four functions had `fuzzy_match_percent: 100.0`."
+    "No review comments were present in the provided PR context.",
+    "No explicit reviewer rationale was available beyond the merged state and the generated summary."
   ],
   "searchable_terms": [
-    "pr-2319",
-    "johnwinston",
+    "PR2319",
     "Match 4 fighter functions",
+    "johnwinston",
     "fn_800DC070",
-    "ftCo_Attack100",
-    "ftCo_MS_CaptureJump",
-    "ftCo_800DC920",
-    "ftCommon_8007D5D4",
-    "p_ftCommonData x374 x378",
-    "capture jump",
-    "grab escape",
-    "buryjump",
     "ftCh_Init_80157170",
-    "ftCrazyHand",
-    "ftCrazyHandAttributes x24 float",
-    "ftCrazyHand_DatAttrs",
-    "ftMh_MS_Damage2",
-    "ftAnim_8006EBA4",
-    "ft_PlaySFX 0x4E207",
     "ftKb_SpecialN_800F1420",
-    "Kirby copy ability",
-    "Kirby hat diffuse",
-    "FtPartsVisLookup",
-    "TempS",
-    "HSD_DObj",
-    "HSD_MObj",
-    "HSD_Material diffuse",
     "ft_800C0098",
-    "ftcolanim",
+    "ftCo_Attack100.c",
+    "ftCh_Init.c",
+    "ftCrazyHand types.h",
+    "ftKb_Init.c",
+    "ftcolanim.c",
+    "CaptureJump",
+    "ftCo_MS_CaptureJump",
+    "ftMh_MS_Damage2",
+    "Crazy Hand damage",
+    "Kirby hat diffuse",
+    "copy ability hat color",
+    "fighter color overlay",
     "spycloak",
     "Cloaking Device",
-    "x2226_b4",
-    "lb_80014498",
-    "lb_800144C8",
+    "p_ftCommonData x374 x378",
+    "ftCrazyHandAttributes x24 float",
     "Fighter_804D6538",
     "Fighter_804D653C",
     "auto_inline off",
-    "global_optimizer off"
+    "global_optimizer off",
+    "fuzzy_match_percent 100.0"
   ],
   "follow_up_queries": [
-    "Was `ftKb_SpecialN_800F1420` later fully matched after the bot-reported 95.54% result?",
-    "Do later PRs rename or document `fp->x2226_b4`, `x508`, `x488`, and `x408` in fighter color animation state?",
-    "Are there additional uses of `ftCrazyHandAttributes.x24` that validate or refine the float type change?",
-    "Can callers of `fn_800DC070` and `ftCo_800DC920` clarify names for the grab-break jump and `mv.co.buryjump` fields?",
-    "Are there similar HSD material diffuse packed-write functions that can reuse the Kirby `*(u32*) &mat->diffuse` pattern?"
+    "Find later PRs that rename fn_800DC070 or document CaptureJump grab escape behavior.",
+    "Search for additional ftCrazyHandAttributes field type corrections around x20, x24, x28, and x2C.",
+    "Look for other ftcolanim.c functions requiring #pragma auto_inline off or #pragma global_optimizer off.",
+    "Search Kirby copied hat material functions for the same FtPartsVisLookup traversal pattern.",
+    "Investigate whether ft_800C0098's fixed arg1 = 0x80 pattern appears in related color overlay clear/reapply functions."
   ],
-  "confidence": 0.86
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

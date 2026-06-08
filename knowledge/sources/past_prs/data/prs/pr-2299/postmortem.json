@@ -11,122 +11,87 @@
     "merged_at": "2026-03-15T22:35:11Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Finished matching/linking work for several Ness item units by adding missing item data tables, correcting the old PK Flash naming from `pkflush`/`pkflushexplode` to `pkflash`/`pkflashexplode`, updating includes and item logic callbacks, and flipping the affected objects to `Matching` in `configure.py`. The decomp.dev bot reported +12020 linked-code bytes, +336 matched-data bytes, +552 linked-data bytes, and 41 new matches; the 35 broken matches shown are largely the old `itnesspkflush` unit names being replaced by `itnesspkflash` names.",
+  "summary": "Finished matching/linking several Ness item translation units by renaming the mistakenly named PK Flush files/symbols to PK Flash, switching multiple Ness item objects from NonMatching to Matching, adding missing item state/data tables, and updating users of the item headers. The decomp.dev report showed net progress despite rename-related old-unit breakage: linked code +12020 bytes, matched data +336 bytes, linked data +552 bytes, and 41 new matches.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
+      "decomp-matching",
       "data-matching",
-      "linked-code-progress",
+      "symbol-renaming",
       "headers",
-      "symbol-renames",
-      "build-configuration",
-      "item-state-tables"
+      "build-configuration"
     ],
     "systems": [
       "item",
       "fighter",
       "config",
-      "build"
+      "Ness",
+      "Kirby"
     ]
   },
   "key_files": [
-    {
-      "path": "configure.py",
-      "role": "Changed multiple Ness item object files from `NonMatching` to `Matching` and corrected build paths from `itnesspkflush*` to `itnesspkflash*`."
-    },
-    {
-      "path": "config/GALE01/splits.txt",
-      "role": "Renamed split units at the same address ranges from `itnesspkflush.c` and `itnesspkflushexplode.c` to `itnesspkflash.c` and `itnesspkflashexplode.c`."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Renamed PK Flash symbols, adjusted local/global scope on several functions/data labels, and replaced some placeholder global data names with compiler-style local `@NNN` labels."
-    },
-    {
-      "path": "src/melee/it/items/itnesspkflash.c",
-      "role": "Renamed from `itnesspkflush.c`, updated function prefixes to `itNesspkflash_*`, added `ItemStateTable it_803F6B70[]`, and kept short collision helpers static/local."
-    },
-    {
-      "path": "src/melee/it/items/itnesspkflash.h",
-      "role": "New replacement header for the old `itnesspkflush.h`, declaring PK Flash APIs and `extern ItemStateTable it_803F6B70[]`."
-    },
-    {
-      "path": "src/melee/it/items/itnesspkflashexplode.c",
-      "role": "Renamed from `itnesspkflushexplode.c`, updated symbols to `itNessPKFlashExplode_*`, and added `ItemStateTable it_803F6F40[]`."
-    },
-    {
-      "path": "src/melee/it/it_2725.c",
-      "role": "Updated item logic table entries and includes to call the renamed PK Flash and PK Flash Explode callbacks."
-    },
-    {
-      "path": "src/melee/it/items/itnesspkfire.c",
-      "role": "Added `ItemStateTable it_803F6B28[]` for PK Fire."
-    },
-    {
-      "path": "src/melee/it/items/itnesspkthunderball.c",
-      "role": "Added `ItemStateTable it_803F6BC8[]` for PK Thunder Ball."
-    },
-    {
-      "path": "src/melee/it/items/itnesspkthundertrail.c",
-      "role": "Added `ItemStateTable it_803F6C08[]`, defined `s32 it_803F6C18[]`, and added the needed `it/forward.h` include."
-    },
-    {
-      "path": "src/melee/it/items/itnessbat.c",
-      "role": "Added `ItemStateTable it_803F6C68[]` for Ness Bat."
-    },
-    {
-      "path": "src/melee/ft/chara/ftNess/ftNs_SpecialN.c and ftKirby special files",
-      "role": "Updated consumers from `it/items/itnesspkflush.h` to `it/items/itnesspkflash.h`."
-    }
+    "configure.py",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "src/melee/it/items/itnesspkflash.c",
+    "src/melee/it/items/itnesspkflash.h",
+    "src/melee/it/items/itnesspkflashexplode.c",
+    "src/melee/it/items/itnesspkflashexplode.h",
+    "src/melee/it/items/itnesspkflush.h",
+    "src/melee/it/it_2725.c",
+    "src/melee/it/items/itnessbat.c",
+    "src/melee/it/items/itnesspkfire.c",
+    "src/melee/it/items/itnesspkthunderball.c",
+    "src/melee/it/items/itnesspkthundertrail.c",
+    "src/melee/ft/chara/ftNess/ftNs_SpecialN.c",
+    "src/melee/ft/chara/ftKirby/ftKb_Init.c"
   ],
   "what_changed": [
-    "Corrected the item unit naming from `PK Flush` to `PK Flash` across split names, source filenames, headers, include sites, symbols, and item logic table callback names.",
-    "Marked `melee/it/items/itnesspkfire.c`, `itnesspkflash.c`, `itnesspkthunderball.c`, `itnesspkthundertrail.c`, `itnessbat.c`, and `itnesspkflashexplode.c` as `Matching` in `configure.py`.",
-    "Added missing `ItemStateTable` definitions for several Ness items: `it_803F6B28`, `it_803F6B70`, `it_803F6BC8`, `it_803F6C08`, `it_803F6C68`, and `it_803F6F40`.",
-    "Added the PK Thunder Trail kind array definition `s32 it_803F6C18[] = { It_Kind_Ness_PKThunder1, ..., It_Kind_Ness_PKThunder4 }` in the C file and removed its old `ItemKind[]` extern declaration from the header.",
-    "Updated `it_2725.c` item logic tables to reference `itNesspkflash_Logic102_*` and `itNessPKFlashExplode_Logic103_*` instead of the old `PKFlush` names.",
-    "Changed Ness and Kirby fighter source includes to use `it/items/itnesspkflash.h`, reflecting the corrected item header.",
-    "Adjusted symbol metadata so static/no-op collision helpers such as `itNesspkflash_UnkMotion1_Coll`, `itNesspkflash_UnkMotion2_Coll`, `itNessPKFlashExplode_UnkMotion0_Coll`, and `itNesspkthunderball_UnkMotion0_Coll` are local rather than global.",
-    "Regenerated or corrected data symbol labels in `symbols.txt`, including local compiler labels like `@249`, `@333`, `@376`, `...data.0`, and `...bss.0` for matched data sections."
+    "Renamed the PK Flash item source unit in splits from `melee/it/items/itnesspkflush.c` to `melee/it/items/itnesspkflash.c`, and the explosion unit from `itnesspkflushexplode.c` to `itnesspkflashexplode.c`.",
+    "Renamed symbols from `itNesspkflush_*` / `itNessPKFlush_*` to `itNesspkflash_*`, and from `itNesspkflushexplode_*` / `itNessPKFlushExplode_*` to `itNessPKFlashExplode_*`.",
+    "Updated includes in Ness and Kirby fighter files from `it/items/itnesspkflush.h` to `it/items/itnesspkflash.h`.",
+    "Deleted `src/melee/it/items/itnesspkflush.h` and added `src/melee/it/items/itnesspkflash.h` with the same address-based prototypes under the corrected PK Flash naming.",
+    "Updated `it_2725.c` item logic table entries to call the renamed PK Flash and PK Flash Explode logic callbacks.",
+    "Changed `configure.py` so `itnesspkfire.c`, `itnesspkflash.c`, `itnesspkthunderball.c`, `itnesspkthundertrail.c`, `itnessbat.c`, and `itnesspkflashexplode.c` build as `Matching` objects.",
+    "Added or materialized `ItemStateTable` data for Ness bat, PK Fire, PK Flash, PK Thunder Ball, PK Thunder Trail, and PK Flash Explode.",
+    "Added PK Thunder Trail data array `it_803F6C18` containing `It_Kind_Ness_PKThunder1` through `It_Kind_Ness_PKThunder4` entries, while removing its extern declaration from the header in the diff excerpt.",
+    "Adjusted several symbol scopes from global to local, including small collision callbacks such as `itNesspkflash_UnkMotion1_Coll`, `itNesspkflash_UnkMotion2_Coll`, `itNesspkthunderball_UnkMotion0_Coll`, and `itNessPKFlashExplode_UnkMotion0_Coll`.",
+    "Updated local data labels in `symbols.txt`, including several anonymous-style labels such as `@170`, `@249`, and `...data.0`, to support data matching."
   ],
   "smart_moves": [
-    "Handled the `pkflush` to `pkflash` correction as an all-at-once rename across build config, splits, symbols, headers, source, and call sites, avoiding duplicate aliases or stale includes.",
-    "Added concrete `ItemStateTable` data before flipping object files to `Matching`, which is the right order for data-match/linking work.",
-    "Kept callback pointer order explicit in the state tables, preserving the expected `Anim`, `Phys`, and `Coll` table layout for item state data.",
-    "Made tiny collision callbacks static/local where they are only table-internal, reducing unnecessary global symbol exposure and matching the local symbol scopes.",
-    "Accepted that the bot would show old `itnesspkflush` matches as broken because the split unit was renamed; the net result still improved linked code/data and created equivalent `itnesspkflash` matches.",
-    "Updated fighter code that only includes the item header, showing that item renames must propagate into Ness and Kirby copied-special consumers even when the main logic is in the item system."
+    "The PR handled the PK Flush to PK Flash correction consistently across splits, symbols, source filenames, headers, includes, and item logic table references, preventing a half-renamed state where build metadata and C references disagree.",
+    "It converted object files to `Matching` only after adding the missing data definitions that allowed both code and data sections to link/match.",
+    "It kept trivial internal callbacks local/static where evidence allowed, reflected by symbol scope changes for small collision functions and stage callback symbols.",
+    "It treated rename-induced decomp.dev 'broken matches' as relocation of ownership from old `itnesspkflush` units to corrected `itnesspkflash` units; the bot report showed new PK Flash matches replacing old PK Flush matches plus net linked code/data gains.",
+    "The new header preserved address comments and prototypes while changing only the item identity, making downstream include updates mechanical and searchable."
   ],
   "decomp_lessons": [
-    "For item objects, code matching and data matching are coupled: `ItemStateTable` arrays and item logic table references must match before the object can safely become `Matching`.",
-    "A semantically wrong unit name can distort progress reports; after renaming `PKFlush` to `PKFlash`, dashboards may show broken matches under the old unit and new matches under the corrected unit.",
-    "Local compiler data labels such as `@NNN` are preferable to invented global `it_803...` names when the data is not externally referenced.",
-    "Header declarations should only expose data that other files really need; this PR moved `it_803F6C18` into the C file and removed its old header extern.",
-    "When a header is renamed, update all character-side include users, not just the item files; Kirby copied-special files can be hidden consumers of Ness item APIs.",
-    "Scope annotations in `symbols.txt` matter for matching/linking, especially for static collision callbacks and local constants in `.data`, `.sdata`, `.sdata2`, and `.bss`."
+    "When an item was previously named incorrectly, finish the rename through all project layers: `splits.txt`, `symbols.txt`, source filenames, headers, includes, logic table callbacks, and build configuration.",
+    "For item units, data matching often requires materializing `ItemStateTable` arrays in the C file rather than leaving them only as symbols.",
+    "A decomp.dev report can show many 'broken matches' when a unit is renamed; compare old and new units before treating those as regressions.",
+    "Callback arrays in `it_2725.c` must use the same function names exported by the item headers, or linking/matching can be blocked even if the implementations match.",
+    "Header cleanup is part of matching work: stale item headers with wrong game terminology can propagate incorrect names into fighter code."
   ],
   "naming_conventions": [
-    "Use `itnesspkflash` and `itnesspkflashexplode` for Ness PK Flash item units; avoid the old incorrect `itnesspkflush` and `itnesspkflushexplode` names.",
-    "Main PK Flash callbacks in this PR use the lowercase-prefix style `itNesspkflash_*`, e.g. `itNesspkflash_UnkMotion0_Anim` and `itNesspkflash_Logic102_Reflected`.",
-    "PK Flash explosion callbacks use `itNessPKFlashExplode_*`, e.g. `itNessPKFlashExplode_UnkMotion0_Anim` and `itNessPKFlashExplode_Logic103_EvtUnk`.",
-    "Item motion callbacks continue the project pattern `UnkMotionN_Anim`, `UnkMotionN_Phys`, and `UnkMotionN_Coll`.",
-    "Item logic callbacks continue the `LogicNNN_EventName` pattern, with PK Flash using logic 102 and PK Flash Explode using logic 103.",
-    "The new `itnesspkflash.h` kept the address-based header guard `GALE01_2AA7E4`, matching the existing project style for some item headers.",
-    "Matched local data labels in symbols may be compiler-style `@NNN` and section labels like `...data.0`/`...bss.0`, not always semantic global names."
+    "Use `itNesspkflash_*` for the base PK Flash item functions in this PR's evidence, not `itNesspkflush_*`.",
+    "Use `itNessPKFlashExplode_*` for the PK Flash explosion functions, replacing `itNessPKFlushExplode_*` and `itNesspkflushexplode_*` names.",
+    "Keep item motion callback suffixes in the existing pattern: `_UnkMotionN_Anim`, `_UnkMotionN_Phys`, and `_UnkMotionN_Coll`.",
+    "Keep item logic callback suffixes in the existing pattern: `_Logic102_Reflected`, `_Logic102_Clanked`, `_Logic102_Absorbed`, `_Logic102_EvtUnk`, and for explosion `_Logic103_*`.",
+    "Preserve address comments in item headers, such as `/* 2AAB70 */`, when renaming prototypes.",
+    "Anonymous/local data labels in symbols may use forms like `@170` and `...data.0` when that better reflects local compiler-generated data."
   ],
   "assembly_or_matching_tactics": [
-    "Flip objects from `NonMatching` to `Matching` only after adding the missing data definitions that allow `.data` and item state tables to link.",
-    "Use exact `ItemStateTable` rows: PK Flash has states `0`, `1`, and `2`; Ness Bat has states `0` and `-1`; PK Fire, PK Thunder Ball, PK Thunder Trail, and PK Flash Explode each gained one-row state tables in this diff.",
-    "Represent internal collision callbacks as `static` in C and `scope:local` in `symbols.txt` when no external references require global symbols.",
-    "Keep split-unit names, source filenames, and symbol prefixes synchronized; otherwise decomp.dev may attribute matches to the wrong unit.",
-    "For data matching, replace guessed global data names with local `@NNN` labels and correct alignment/type metadata when the compiler would have emitted local constants.",
-    "No hand-written assembly changes are evident in this PR slice; the matching progress came from C source, data definitions, symbol metadata, and build configuration."
+    "Switch build objects from `Object(NonMatching, ...)` to `Object(Matching, ...)` only after the source/data layout is ready.",
+    "Use source-level `ItemStateTable` definitions to claim `.data` matches for item units.",
+    "Correct symbol scope from global to local for static/internal functions and local data labels to match the intended linkage.",
+    "Maintain split ranges while changing unit names when the underlying code address range is the same but the decompiled file identity was wrong.",
+    "Use the bot's per-unit match report to validate that renamed `itnesspkflash` and `itnesspkflashexplode` units gained 100% matches where old `itnesspkflush` units lost them."
   ],
   "review_feedback": [
-    "No human review comments or review approvals are present in the captured slice.",
-    "The only captured comment is the decomp.dev bot report for GALE01: linked code 33.25% (+0.31%, +12020 bytes), matched data 37.68% (+0.03%, +336 bytes), and linked data 32.18% (+0.05%, +552 bytes).",
-    "The bot listed 41 new matches, including PK Flash motion/logic functions and `.data` for Ness PK Flash, PK Thunder Trail, PK Thunder Ball, PK Fire, Ness Bat, and PK Flash Explode.",
-    "The bot also listed 35 broken matches under the old `itnesspkflush`/`itnesspkflushexplode` unit names, consistent with the rename rather than an obvious functional regression."
+    "No human review comments were present in the provided slice.",
+    "The decomp.dev bot reported GALE01 progress: linked code 33.25% (+0.31%, +12020 bytes), matched data 37.68% (+0.03%, +336 bytes), and linked data 32.18% (+0.05%, +552 bytes).",
+    "The bot listed 41 new matches, including PK Flash motion callbacks, PK Flash collision/physics callbacks, PK Flash Explode callbacks, and `.data` matches for Ness PK Thunder Trail, PK Thunder Ball, PK Fire, and Ness Bat.",
+    "The bot also listed 35 broken matches under the old `itnesspkflush` and `itnesspkflushexplode` units, which the diff indicates were rename-related rather than evidence of functional regression."
   ],
   "searchable_terms": [
     "PR2299",
@@ -138,39 +103,33 @@
     "itnesspkflush",
     "itnesspkflashexplode",
     "itnesspkflushexplode",
-    "itnesspkfire",
-    "itnesspkthunderball",
-    "itnesspkthundertrail",
-    "itnessbat",
-    "ItemStateTable",
-    "ItemLogicTable",
-    "it_2725.c",
-    "it_803F6B28",
-    "it_803F6B70",
-    "it_803F6BC8",
-    "it_803F6C08",
-    "it_803F6C18",
-    "it_803F6C68",
-    "it_803F6F40",
     "itNesspkflash_UnkMotion0_Anim",
     "itNesspkflash_Logic102_Reflected",
-    "itNessPKFlashExplode_UnkMotion0_Anim",
     "itNessPKFlashExplode_Logic103_EvtUnk",
+    "it_803F6B70",
+    "it_803F6F40",
+    "it_803F6C08",
+    "it_803F6C18",
+    "ItemStateTable",
+    "it_2725.c",
     "configure.py Matching",
-    "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
-    "ftNs_SpecialN",
-    "ftKb_Init",
-    "Kirby copied special",
-    "decomp.dev linked code",
-    "matched data"
+    "Ness PK Thunder Trail",
+    "Ness Bat",
+    "PK Fire data match"
   ],
   "follow_up_queries": [
-    "Search for any remaining `pkflush` or `PKFlush` identifiers after PR 2299.",
-    "Audit other Ness item units for missing `ItemStateTable` definitions before marking them `Matching`.",
-    "Check whether `it_803F6C18` should remain private as `s32[]` or needs a correctly typed extern in any future header cleanup.",
-    "Review nearby item/effect symbol labels for invented globals that should be compiler-local `@NNN` labels.",
-    "When evaluating progress reports, distinguish true broken matches from unit renames that move matches from an old split name to a new split name."
+    "Find later PRs that further rename or type `it_802AA7E4`, `it_802AA8C0`, `it_802AF940`, or other still-address-named PK Flash helpers.",
+    "Check whether `it_803F6C18` should be typed as `s32[]` or `ItemKind[]` in later cleanup, since the header extern was removed in this diff.",
+    "Search for remaining references to `pkflush` or `PKFlush` after this PR to catch stale naming.",
+    "Look for later reviews on whether `itNesspkflash` casing should be normalized with `PKFlash` style."
   ],
-  "confidence": 0.88
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

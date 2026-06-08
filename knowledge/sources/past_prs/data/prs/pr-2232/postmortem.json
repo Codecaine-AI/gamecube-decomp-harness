@@ -11,163 +11,168 @@
     "merged_at": "2026-03-10T17:40:17Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large grzebes stage decomp/matching PR, initially disclosed as mostly AI-generated. It replaced many stubs in src/melee/gr/grzebes.c with typed C for Zebes stage object setup/update, acid/bubble/yakumono behavior, material callbacks, and zako-generator hooks, plus supporting Ground gv layouts, prototypes, and symbol fixes. decomp.dev reported +5868 matched code bytes and +800 matched data bytes, with 15 new full matches and 17 improved unmatched items.",
+  "summary": "Large Zebes stage decompilation PR, mostly AI-assisted per the PR body, replacing many grzebes.c nonmatching stubs with C implementations and adding the stage-local data, callback tables, ground state layouts, material/zako generator prototypes, and symbol-map corrections needed to support them. Review focused on avoiding misleading static data declarations before the file is fully matched, using in-place literals for OSReport and Vec3 constants, and letting HSD_ASSERT strings reveal better temp names later.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "stage-decomp",
       "decomp-matching",
+      "stage-decompilation",
       "headers",
-      "types",
       "symbols",
+      "naming",
       "cleanup",
-      "naming"
+      "ai-assisted"
     ],
     "systems": [
-      "stage/grzebes",
+      "stage",
       "ground",
+      "grzebes",
       "grmaterial",
       "grzakogenerator",
-      "config/GALE01"
+      "config"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grzebes.c",
-      "role": "Main decomp work: 2088 additions replacing many grZebes stubs with C bodies, local structs, constants, BSS/static state, acid/bubble logic, material callbacks, and collision/zako updates."
+      "reason": "Main change: added about 2k lines of Zebes stage C, new structs, callback table, static/runtime data, and implementations for many previously stubbed functions."
     },
     {
       "path": "src/melee/gr/types.h",
-      "role": "Extended Zebes Ground gv layouts: refined grZebes_GroundVars fields and added grZebes_GroundVars3/4/5 union members with offset-annotated fields."
+      "reason": "Expanded Zebes ground variable layouts, including grZebes_GroundVars3/4/5 and more precise fields for existing Zebes vars."
     },
     {
       "path": "src/melee/gr/grzebes.h",
-      "role": "Added precise prototypes for newly decompiled/exported grZebes functions, including Vec3*, Ground_GObj*, HSD_GObj*, and callback signatures."
-    },
-    {
-      "path": "src/melee/gr/grmaterial.c",
-      "role": "Made grMaterial_801C8D44 non-static so grzebes.c could call it."
-    },
-    {
-      "path": "src/melee/gr/grmaterial.h",
-      "role": "Added grMaterial_801C8D44 prototype with Item_GObj/Ground/Vec3/HSD_GObj/f32 callback types."
-    },
-    {
-      "path": "src/melee/gr/grzakogenerator.h",
-      "role": "Replaced UNK_RET/UNK_PARAMS for grZakoGenerator_801CA43C with s32(void*, HSD_JObj*, f32)."
+      "reason": "Added public prototypes for newly implemented Zebes functions and refined existing signatures such as grZebes_801DA3F4(Vec3*) and grZebes_801DCBFC(Ground_GObj*, HSD_GObj*, void*)."
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Updated grZe data/sdata2 symbols, including grZe_callbacks and several local @nnn constants instead of uncertain global grZe_ address names."
+      "reason": "Updated Zebes data/sdata2 symbols, including renaming grZe_803E1A30 to grZe_callbacks and converting several tentative grZe_* constants to local @NNN symbols."
+    },
+    {
+      "path": "src/melee/gr/grmaterial.c",
+      "reason": "Made grMaterial_801C8D44 non-static so Zebes code could call it."
+    },
+    {
+      "path": "src/melee/gr/grmaterial.h",
+      "reason": "Declared grMaterial_801C8D44 with typed callback parameters used by the Zebes material setup code."
+    },
+    {
+      "path": "src/melee/gr/grzakogenerator.h",
+      "reason": "Refined grZakoGenerator_801CA43C from UNK_RET/UNK_PARAMS to s32 grZakoGenerator_801CA43C(void*, HSD_JObj*, f32)."
     }
   ],
   "what_changed": [
-    "Implemented or substantially filled grZebes functions including grZebes_801D8558, 801D8644, 801D881C, 801D9100, 801D925C, 801D9410, 801D9508, 801D95B8, 801D9798, 801D99E0, 801D9F84, 801DA0C4, 801DA254, 801DA3F4, 801DA528, 801DAA08, 801DAE70, 801DB088, 801DB3CC, 801DBB60, 801DC260, 801DC408, 801DC744, 801DC9DC, and 801DCBFC.",
-    "Added feature structs in grzebes.c such as grZe_ColorEntry, grZe_AcidLevelEntry, grZe_YakumonoParam, grZe_BubbleEntry, grZe_BubbleConfig, and grZe_AcidState to make the acid/bubble/state-machine code addressable through typed fields instead of only raw offsets.",
-    "Added StageCallbacks grZe_callbacks and used it in grZebes_801D8558 for Ground_801C14D0 creation, GX link setup, callback dispatch, and an in-place OSReport fallback when a gobj cannot be obtained.",
-    "Introduced static/BSS state for Zebes bubble positions and entries, plus const bubble config grZe_803B8044 and helper routines for bubble spawning, updates, material envelope sizing, and collision surface updates.",
-    "Expanded grZebes header prototypes and Ground union layouts so the new decomp code could use stage-specific gv.zebes, gv.zebes2, gv.zebes3, gv.zebes4, and gv.zebes5 fields.",
-    "Exposed grMaterial_801C8D44 and typed grZakoGenerator_801CA43C so grzebes.c could stop relying on UNK_T/UNK_PARAMS for those interactions.",
-    "Adjusted GALE01 symbols to split/rename data and sdata2 symbols, notably naming grZe_callbacks and demoting many uncertain float/double constants to local @ labels."
+    "Implemented many grZebes functions that were previously left as /// # stubs, including setup/update routines such as grZebes_801D8558, grZebes_801D8644, grZebes_801D881C, grZebes_801D9100, grZebes_801D925C, grZebes_801D9508, grZebes_801D9798, grZebes_801D99E0, grZebes_801D9F84, grZebes_801DA0C4, grZebes_801DA254, grZebes_801DA3F4, grZebes_801DA528, grZebes_801DAA08, grZebes_801DB3CC, grZebes_801DBB60, grZebes_801DC260, grZebes_801DC408, grZebes_801DC744, grZebes_801DC9DC, and grZebes_801DCBFC.",
+    "Added local Zebes helper structs such as grZe_ColorEntry, grZe_AcidLevelEntry, grZe_YakumonoParam, grZe_BubbleEntry, grZe_BubbleConfig, and grZe_AcidState to describe acid, bubble, color, and stage parameter data.",
+    "Added or corrected Zebes stage data, including grZe_callbacks, grZe_803B7FF0, grZe_803E1B90, grZe_803E1C80, grZe_8049F140, grZe_8049F158, grZe_8049F170, grZe_804D6990, grZe_804D6994, and related constants.",
+    "Implemented material interactions using grMaterial_801C8CFC, grMaterial_801C8D44, grMaterial_801C8DE0, and grMaterial_801C8E08 with typed item/ground/material callback signatures.",
+    "Implemented stage-update logic that touches animation, map vertices, random timers, bubble state, acid-level handling, zako generator updates, and collision/fighter checks through existing ground, mp, ftLib, HSD, and lb APIs.",
+    "Adjusted config symbols so some previously global-looking grZe_* data became local @NNN constants, while grZe_callbacks received a meaningful symbol name.",
+    "Expanded Ground union variants with Zebes-specific structs for multiple map object state layouts."
   ],
   "smart_moves": [
-    "Followed review guidance by using OSReport strings/arguments in place instead of preserving a separate named static format string; the final grZebes_801D8558 call mirrors the reviewed pattern.",
-    "Avoided over-naming uncertain constants: symbols.txt converts many grZe_804DB0xx sdata2 globals into local @186/@187/etc labels, reducing false confidence in data ordering and names.",
-    "Improved callback signatures rather than leaving UNK_T/UNK_PARAMS: grMaterial_801C8D44 and grZakoGenerator_801CA43C now expose the exact Item_GObj/Ground/Vec3/HSD_GObj/f32-style interfaces needed by the stage code.",
-    "Used stage-specific structs and offset comments for the large Ground gv union instead of scattering anonymous casts everywhere.",
-    "Applied reviewer advice to inline small Vec3 initializers such as pos1 and pos2 in grZebes_801D925C rather than adding unnecessary statics.",
-    "Let decomp.dev guide scope: the PR locked in several complete matches while also landing partial improvements for larger routines instead of pretending the whole file was fully matched."
+    "Exposing grMaterial_801C8D44 through grmaterial.h was a small but necessary dependency fix instead of duplicating or keeping an incorrect static-only call path.",
+    "Refining grZakoGenerator_801CA43C to a concrete s32(void*, HSD_JObj*, f32) signature reduced UNK_PARAMS usage and made the Zebes generator update call sites clearer.",
+    "Using separate grZebes_GroundVars3/4/5 layouts avoided forcing unrelated Zebes map objects into one vague struct and preserved observed offsets in the Ground union.",
+    "The symbol updates distinguished real reusable globals from local constants, reducing false named-symbol confidence for sdata2 and data entries.",
+    "Reviewer-directed cleanup avoided leaving placeholder static arrays that implied a known data ordering before the full file was correctly matched."
   ],
   "decomp_lessons": [
-    "For partially matched files, do not leave speculative static symbol ordering or names just because the current C needs constants; HSD_ASSERT strings and later matches may reveal the real names.",
-    "OSReport/HSD_ASSERT literals can often be matched in-place. Check nearby stage files, such as the grlast.c example cited by review, before creating named data objects.",
-    "Ground stage routines often need accurate gv union layouts before the code becomes readable or matchable; signedness changes such as u16 to s16 can matter.",
-    "Callback-heavy material/zako systems should be decompiled by first typing the callback prototypes, then threading those types through headers and callers.",
-    "Match-oriented C may require PAD_STACK, UNUSED padding, explicit casts, and non-idiomatic control flow; keep these tactics evidence-based and clean up names/data only when proven.",
-    "When AI or permuter output produces a match, still review for false statics, accidental global names, and opportunities to express literals/temporaries in compiler-friendly local form."
+    "Do not name or declare all recovered statics just because their addresses are visible; premature statics can imply a false ordering and make future matching harder.",
+    "For OSReport-style strings, prefer matching the literal use pattern seen in comparable files, such as grlast.c, instead of forcing separate static string objects when not needed.",
+    "HSD_ASSERT calls can reveal actual temporary names such as map_a_gobj; wait for those assertions rather than inventing names for temps too early.",
+    "For small Vec3 constants used only in a function, aggregate assignment like pos1 = { 24.1f, -4.6f, 0.0f }; can be treated as const without declaring extra file-scope static Vec3 objects.",
+    "When adding stage object state, keep offset comments and split layouts by object role; this helps verify Ground union accesses against gp+C4-style offsets.",
+    "AI/permuter-produced code may match but still needs cleanup for temp names, static data treatment, and readability; the PR explicitly noted AI assistance and included a 'permuterslop' comment in the diff."
   ],
   "naming_conventions": [
-    "Use grZebes_ for functions in src/melee/gr/grzebes.c and grZe_ for Zebes data/config symbols.",
-    "Name the stage callback table grZe_callbacks when the .data object is clearly a StageCallbacks array.",
-    "Use feature-based local struct names when behavior is identifiable, such as grZe_AcidLevelEntry, grZe_BubbleEntry, grZe_BubbleConfig, grZe_AcidState, and grZe_YakumonoParam.",
-    "Keep unresolved field names as offset-style xC4/xD8/xA0_entries with comments until semantics are known.",
-    "Use local @nnn symbols for compiler constants in symbols.txt when there is no evidence for a global grZe_ address-style name.",
-    "Prefer precise function prototypes in headers over UNK_RET/UNK_PARAMS once argument and return types are known."
+    "Meaningful stage callback tables can use a semantic name like grZe_callbacks instead of an address-only grZe_803E1A30 symbol.",
+    "Leave constants as local @NNN symbols in symbols.txt when there is no evidence they should be global grZe_* names.",
+    "Use grZe_* for Zebes data and local structs, and grZebes_* for functions, preserving the existing stage prefix convention.",
+    "Unknown struct fields retained offset-style names such as xC4, xE8, xA0_entries, and x00_active where semantic names were not proven.",
+    "Function pointer prototypes were upgraded from UNK_T/UNK_PARAMS to concrete types when call sites established Item_GObj*, Ground*, Vec3*, HSD_GObj*, and f32 parameters."
   ],
   "assembly_or_matching_tactics": [
-    "Used in-place OSReport with literal file name and line number in grZebes_801D8558 to avoid extra data and match the expected pattern.",
-    "Used inline Vec3 local initializers in grZebes_801D925C so the compiler treats them as constants without separate static declarations.",
-    "Adjusted symbol scope and sizes in config/GALE01/symbols.txt, especially .data and .sdata2 local @ constants, to align data with compiler output.",
-    "Used PAD_STACK and UNUSED stack bytes in several routines to preserve stack layout where needed.",
-    "Used typed stage state structs and explicit casts for HSD_GObj, Ground_GObj, Item_GObj, HSD_JObj, and HSD_LObj interactions.",
-    "Matched math-heavy routines with explicit float/double constants, sqrtf from MSL/math_ppc.h, and HSD_Randf/HSD_Randi random range expressions."
+    "Converted tentative global sdata2 symbols such as grZe_804DB088/grZe_804DB08C and others into local @186/@187-style constants to better reflect compiler-generated locals.",
+    "Used in-place string literals for OSReport-style diagnostics rather than declaring standalone static char buffers.",
+    "Used typed callback signatures for material collision callbacks to satisfy matching call shapes and improve headers.",
+    "Preserved exact padding and offsets in grZe_YakumonoParam, grZe_BubbleEntry, grZe_AcidState, and Ground var structs to align with observed memory accesses.",
+    "Relied on HSD_Randf, animation helpers, mp vertex setters, and Ground_801C3FA4 JObj lookups in C to reproduce stage behavior instead of leaving assembly stubs.",
+    "Review suggested replacing file-scope static Vec3 constants with direct aggregate assignments so the compiler treats them as const in the desired way."
   ],
   "review_feedback": [
     {
-      "reviewer": "PsiLupan",
+      "author": "PsiLupan",
       "file": "src/melee/gr/grzebes.c",
-      "feedback": "Asked whether OSReport-related statics could be fixed to be used in-place, pointing to grlast.c as an example.",
-      "outcome": "Final diff uses an in-place OSReport call in grZebes_801D8558."
+      "feedback": "Asked whether OSReport-related statics could be fixed to be used in-place, pointing to grlast.c as an example."
     },
     {
-      "reviewer": "PsiLupan",
+      "author": "PsiLupan",
       "file": "src/melee/gr/grzebes.c",
-      "feedback": "Recommended removing the rest of speculative statics until the file is correctly matched, warning that otherwise it gives a false impression of ordering; HSD_ASSERT may reveal true temp names such as map_a_gobj.",
-      "outcome": "Symbols were adjusted toward local @ constants and the author asked how to handle statics being used."
+      "feedback": "Recommended removing the rest of the statics until the file is correctly matched, because premature declarations give a false impression of ordering; noted HSD_ASSERT may reveal actual temp names such as map_a_gobj."
     },
     {
-      "reviewer": "jellejurre",
+      "author": "jellejurre",
       "file": "src/melee/gr/grzebes.c",
-      "feedback": "Asked whether the revised handling of still-used statics was okay.",
-      "outcome": "PsiLupan replied that it looked a lot better."
+      "feedback": "Asked whether the adjusted handling of statics being used was acceptable."
     },
     {
-      "reviewer": "PsiLupan",
+      "author": "PsiLupan",
       "file": "src/melee/gr/grzebes.c",
-      "feedback": "Suggested writing Vec3 temporaries directly as pos1 = { 24.1f, -4.6f, 0.0f }; and pos2 = { 24.05f, 2.2f, 0.0f }; so they are treated as const without static declarations.",
-      "outcome": "Final grZebes_801D925C shows local Vec3 pos1 and pos2 initializers."
+      "feedback": "Responded that the updated approach looked a lot better."
+    },
+    {
+      "author": "PsiLupan",
+      "file": "src/melee/gr/grzebes.c",
+      "feedback": "Suggested using direct Vec3 aggregate assignments for pos1 and pos2 so no separate const/static declarations were needed."
     }
   ],
   "searchable_terms": [
     "pr-2232",
     "grzebes",
-    "grZebes",
-    "grZe_callbacks",
-    "StageCallbacks",
-    "grZe_YakumonoParam",
-    "grZe_AcidLevelEntry",
-    "grZe_BubbleEntry",
-    "grZe_BubbleConfig",
-    "grZe_AcidState",
-    "grZe_803B8044",
-    "grZe_8049F170",
-    "grZe_804D6990",
+    "Zebes",
     "grZebes_801D8558",
+    "grZebes_801D8644",
     "grZebes_801D881C",
+    "grZebes_801D9100",
+    "grZebes_801D925C",
     "grZebes_801DA528",
     "grZebes_801DAA08",
-    "fn_801DAC90",
     "grZebes_801DB3CC",
     "grZebes_801DBB60",
+    "grZebes_801DC260",
     "grZebes_801DC408",
+    "grZebes_801DC744",
+    "grZebes_801DC9DC",
     "grZebes_801DCBFC",
+    "grZe_callbacks",
+    "grZe_BubbleEntry",
+    "grZe_AcidState",
+    "grZe_YakumonoParam",
     "grMaterial_801C8D44",
     "grZakoGenerator_801CA43C",
     "OSReport",
     "HSD_ASSERT",
     "map_a_gobj",
-    "sdata2 local @ symbols",
-    "Ground gv zebes5",
-    "acid level",
-    "bubble physics",
-    "yakumono"
+    "permuterslop",
+    "sdata2 local constants",
+    "Vec3 aggregate assignment"
   ],
   "follow_up_queries": [
-    "Search later PRs for grZebes_801D881C, grZebes_801DB3CC, grZebes_801DBB60, and grZebes_801D99E0 to see how the remaining partial matches were finalized.",
-    "Compare grzebes OSReport/HSD_ASSERT usage with grlast.c for reusable in-place literal patterns.",
-    "Search for grZe_804D6990 and grZe_YakumonoParam to verify whether field names became semantic after more matching.",
-    "Find other stage files that expose grMaterial_801C8D44 or type grZakoGenerator_801CA43C to confirm callback signature reuse.",
-    "Review symbols.txt local @ constants around grZe_804DB088 through grZe_804DB120 before renaming any sdata2 values."
+    "Find later PRs that clean up grzebes.c temp names or remove remaining permuterslop.",
+    "Search for subsequent changes to grZe_804D6990 typing, since grZebes_801DCBFC casts it through HSD_GObj in this slice.",
+    "Check whether grZe_803E1C80 size was later adjusted from 0x6C to the 0x60 plus strings split shown in symbols.txt.",
+    "Look for other stage PRs using in-place OSReport literals based on the grlast.c review guidance.",
+    "Search for later semantic names replacing grZebes_GroundVars4/5 xNN fields."
   ],
-  "confidence": 0.92
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

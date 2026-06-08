@@ -11,147 +11,100 @@
     "merged_at": "2026-04-04T02:06:18Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Implemented several previously stubbed pltrick routines and adjusted fighter/player struct layouts plus helper prototypes needed for those implementations. The decomp.dev bot reported +756 matched code bytes and +8 matched data bytes, with new 100% matches for fn_80037F00, pl_80038628, and pltrick .sdata2, plus near-matches for pl_80037C60, pl_80038144, and pl_800384DC.",
+  "summary": "Decompiled and typed a substantial part of player trick/stat tracking code in src/melee/pl/pltrick.c, replacing several placeholder stubs with C implementations for attack/action accounting, hit tracking, damage event bookkeeping, and special kind validation. The PR also refined related fighter/player structs and function prototypes so pltrick could call stale-move, bonus, magnify, ftdata, and damage-event helpers with more accurate argument types.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-layout",
-      "bitfield-layout",
-      "prototype-refinement",
-      "player-stats-logic",
-      "data-table"
+      "prototype-correction",
+      "struct-refinement",
+      "bitfield-layout"
     ],
     "systems": [
-      "pltrick",
-      "plbonuslib",
       "fighter",
-      "player-stats",
+      "player",
+      "stats",
+      "bonus",
       "melee-core"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/pl/pltrick.c",
-      "why": "Main work: added implementations for pl_80037C60, static fn_80037F00, pl_80038144, pl_800384DC, pl_80038628, includes, an inline wrapper, and pl_803BCE70 data table."
-    },
-    {
-      "path": "src/melee/pl/pltrick.h",
-      "why": "Replaced UNK_RET/placeholder prototypes with concrete pltrick signatures and removed the public fn_80037F00 prototype in favor of a static helper."
-    },
-    {
-      "path": "src/melee/ft/types.h",
-      "why": "Refined Fighter Struct2074 x2084 into a raw u32 plus byte bitfields and changed ft_800898B4_t flag bitfields from u32 to u8."
-    },
-    {
-      "path": "src/melee/pl/types.h",
-      "why": "Split pl_804D6470_t padding to expose float x14, used as the prev_kb threshold in fn_80037F00."
-    },
-    {
-      "path": "src/melee/pl/plbonuslib.c",
-      "why": "Updated signatures for pl_8003ED0C, pl_8003FE40, pl_8003FE64, and pl_80040D8C so pltrick can pass player_id plus x221F_b4-style extra int arguments."
-    },
-    {
-      "path": "src/melee/pl/plbonuslib.h",
-      "why": "Header prototypes synchronized with the new plbonuslib function signatures."
-    },
-    {
-      "path": "src/melee/pl/pl_040D.c",
-      "why": "Changed pl_80040FBC and pl_800410F4 second parameter from UNK_T to int."
-    },
-    {
-      "path": "src/melee/pl/pl_040D.h",
-      "why": "Header prototypes synchronized for pl_80040FBC and pl_800410F4."
-    }
-  ],
-  "what_changed": [
-    "Added pl_803BCE70[16] with sentinel -1 entries and values 0x2F, 0x30, 0x31, used by pl_80038628 for a kind-to-ftData lookup.",
-    "Implemented pl_80037C60 to update per-player action stats from Fighter.x2070 event bits, including x5BC flags, total attack counts, per-attack counts, thrown item/aerial/special counters, and by_attack_hi for attack IDs at or above StatsAttack_Count when x221F_b4 is false.",
-    "Implemented static fn_80037F00 to copy or reset ft_800898B4_t damage-event data into fp->dmg.x18d8, record current percent, set flags for attacked-from-behind, magnify state, motion_id 0xFD, previous knockback threshold via pl_804D6470_t.x14, and ft_80089914/victim-gobj conditions.",
-    "Implemented pl_80038144 to process attacker/victim hit events: determine attacked-from-behind, track attack_instance in victim_fp->dmg.x18ec_instancehitby, update hit/best-hit action stats, mark victim bitsets, and call stale/bonus helpers such as pl_800410F4, pl_80040D8C, pl_8003FE64, pl_8003ED0C, pl_8003EA40, pl_800403FC, and pl_80040FBC.",
-    "Implemented pl_800384DC as a related hit-stat update path for one Fighter_GObj, including hits/x358_hits accounting, attack ID 0x63 handling, pl_8003DFF4 calls, and setting fp->x2074.x2084_b7.",
-    "Implemented pl_80038628 with an HSD_ASSERT on kind 1..0x10 and a ftData_80085FD4(...)->x8 check when pl_803BCE70 maps the kind to a real data index.",
-    "Changed Struct2074.x2084 from only a u32 to a union exposing x2084_b0 through x2084_b7 bitfields while preserving raw x2084 access.",
-    "Changed ft_800898B4_t bitfields at offsets +0x10 and +0x11 from u32 bitfields to u8 bitfields, matching the byte-oriented flag layout used by the new damage-event code.",
-    "Exposed pl_804D6470_t.x14 as a float by shrinking x8 padding from 0x10 to 0xC, enabling fn_80037F00 to compare prev_kb against table->x14.",
-    "Updated several plbonuslib and pl_040D prototypes from placeholder/short signatures to int-based signatures with extra arguments, matching new pltrick call sites that pass player_id and x221F_b4."
-  ],
-  "smart_moves": [
-    "Refining bitfield storage to u8 in ft_800898B4_t made individual +0x10/+0x11 damage-event flags addressable without treating the whole flag area as u32-sized fields.",
-    "Using a union for Struct2074.x2084 kept raw word access while enabling direct bit access such as fp->x2074.x2084_b7 = 1 in pl_800384DC.",
-    "Adding pl_804D6470_t.x14 as a real float field avoided hard-coding an offset when fn_80037F00 needed the previous-knockback threshold.",
-    "The pl_803BCE70 sentinel table made pl_80038628 a simple table-driven ftData gate and also contributed to the reported .data/.sdata2 matching gains.",
-    "The pl_80037BC0_inline wrapper let the new hit-stat paths reuse the existing pl_80037BC0 accounting logic while preserving a separate inline call pattern in pl_80038144 and pl_800384DC.",
-    "Prototype cleanup propagated the extra int/x221F_b4-style parameters through headers before using the helpers from pltrick, reducing reliance on UNK_T/UNK_RET placeholders."
-  ],
-  "decomp_lessons": [
-    "For player/fighter stat routines, get the header prototypes and small flag-field types correct before chasing control-flow differences; this PR's matching depended on both.",
-    "When a field is used both as a packed word and as individual flags, model it as a union with a raw member plus bitfields rather than choosing only one access pattern.",
-    "Byte-offset comments like +0x10 and +0x11 are important evidence for choosing u8 bitfields over u32 bitfields in packed event structs.",
-    "Many player bonus/stale-move helper calls need both player_id/slot and an additional int such as Fighter.x221F_b4; future work should check call-site arity instead of leaving these as UNK_T.",
-    "Keep internal recovered helpers static when the only evidence is local use; fn_80037F00 moved from a public unknown header prototype to a static forward declaration in pltrick.c.",
-    "Automated match reports are useful for triage: this PR still left pl_80038144 at 96.90%, pl_80037C60 at 99.98%, and pl_800384DC at 96.77%, so later work should focus on the remaining stack/control-flow mismatches there."
-  ],
-  "naming_conventions": [
-    "Address-based names remained for unknown functions: pl_80037C60, fn_80037F00, pl_80038144, pl_800384DC, pl_80038628, pl_8003ED0C, pl_80040FBC, and pl_800410F4.",
-    "Internal helper naming used fn_ for fn_80037F00 and made it static rather than exporting it from pltrick.h.",
-    "New or refined bitfields follow the existing offset-plus-bit suffix style: x2084_b0 through x2084_b7, x10_b0 through x10_b7, and x11_b0 through x11_b4.",
-    "Argument names added where semantics were visible include prev2070_int, attacker_gobj, victim_gobj, x18d4_int, ev_data, attack_instance, source_ply, slot, and kind.",
-    "Unknown or partially understood struct fields retained offset-style names such as x2070, x2073, x18d4, x18d8, x18ec_instancehitby, x221F_b4, and pl_804D6470_t.x14."
-  ],
-  "assembly_or_matching_tactics": [
-    "pl_80037C60 uses a volatile s32 prev2070_word and a TODO noting the stack is still misaligned for the volatile hack, indicating a deliberate near-match stack-shaping tactic.",
-    "PAD_STACK was used in new pltrick implementations, including PAD_STACK(8) in fn_80037F00 and PAD_STACK(16) in pl_80038144/pl_800384DC, while an old PAD_STACK(8) was removed from pl_8003ED0C after changing its signature.",
-    "Union overlays were used to move between raw integer event words and bitfield/event views, including union Struct2070 variables and the assignment *(s32*) &victim_fp->dmg.x18d4 = ev.x2070_int.",
-    "Explicit casts such as (int) ev.x2073 and (u8) h_player were kept in comparisons/bit shifts, likely to preserve the compiler's chosen integer widths.",
-    "Several helper prototypes gained unused-looking int parameters so call sites could pass the correct ABI register sequence even when the current function body does not use the new argument.",
-    "The decomp.dev report confirms this combination of struct/prototype fixes and C implementations produced exact matches for fn_80037F00 and pl_80038628 and near-matches for the larger pltrick routines."
-  ],
-  "review_feedback": [
-    "No human review comments or reviews were present in the slice; the PR body was empty.",
-    "decomp.dev bot reported matched code 61.83% (+0.02%, +756 bytes) and matched data 37.87% (+0.00%, +8 bytes).",
-    "Bot-reported new matches: main/melee/pl/pltrick fn_80037F00 +580 bytes, pl_80038628 +176 bytes, and .sdata2 +8 bytes, all 0.00% to 100.00%.",
-    "Bot-reported partial improvements: pl_80038144 +891 bytes to 96.90%, pl_80037C60 +403 bytes to 99.98%, pl_800384DC +321 bytes to 96.77%, and .data +74 bytes to 80.65%."
-  ],
-  "searchable_terms": [
-    "pr-2385",
-    "pltrick work",
-    "sadkellz",
     "src/melee/pl/pltrick.c",
     "src/melee/pl/pltrick.h",
     "src/melee/ft/types.h",
-    "src/melee/pl/types.h",
     "src/melee/pl/plbonuslib.c",
     "src/melee/pl/plbonuslib.h",
     "src/melee/pl/pl_040D.c",
     "src/melee/pl/pl_040D.h",
+    "src/melee/pl/types.h"
+  ],
+  "what_changed": [
+    "Implemented pl_80037C60, which updates player action statistics from Fighter.x2070 state, including attack totals, per-attack counts, thrown item/aerial/special counters, and several x5BC flags.",
+    "Added a static helper fn_80037F00 in pltrick.c to populate Fighter.dmg.x18d8 damage/event data from an ft_800898B4_t event or reset it to defaults, then derive extra flags from magnify state, motion_id 0xFD, prior knockback, source player, and ft_80089914 checks.",
+    "Implemented pl_80038144, handling attacker/victim hit bookkeeping: behind-hit detection, stale/bonus library calls, hit count updates, best-hit tracking, team-related stale move logic, and storage of attack instance data on the victim fighter.",
+    "Implemented pl_800384DC, a local/self hit-stat update path that mirrors much of the hit and best-hit accounting used by pl_80038144, then sets Fighter.x2074.x2084_b7.",
+    "Implemented pl_80038628, using a new pl_803BCE70 lookup table and ftData_80085FD4 to validate whether a kind in the 1..0x10 range is available/allowed.",
+    "Added pltrick.c dependencies on ft_0892.h, ftdata.h, ifmagnify.h, plbonus.h, plbonuslib.h, and pl_040D.h to support the new decompiled logic.",
+    "Refined struct Fighter::Struct2074 offset 0x2084 from a raw u32 to a union containing the raw word and named one-bit u8 flags x2084_b0 through x2084_b7.",
+    "Changed ft_800898B4_t bitfields at offsets +0x10 and +0x11 from u32 bitfields to u8 bitfields, matching byte-addressed flag usage in the new pltrick code.",
+    "Adjusted pl_804D6470_t so offset +0x14 is represented as float x14 rather than opaque padding; fn_80037F00 compares previous knockback against this field.",
+    "Corrected several player bonus/stale function signatures to include additional int arguments, apparently representing subplayer/costume-like x221F_b4 or related parameters: pl_8003ED0C, pl_8003FE40, pl_8003FE64, pl_80040D8C, pl_80040FBC, and pl_800410F4.",
+    "Updated pltrick.h prototypes from UNK_RET/UNK_PARAMS or imprecise signatures to concrete return and argument types for pl_80037C60, pl_80038144, and pl_800384DC; fn_80037F00 became static in pltrick.c and was removed from the public header."
+  ],
+  "smart_moves": [
+    "Used a union for Struct2074.x2084 so future code can access either the full raw word or individual bit flags without losing offset/layout evidence.",
+    "Converted ft_800898B4_t flags to u8 bitfields, aligning declarations with offsets +0x10 and +0x11 and making byte-granular flag assignments in fn_80037F00 natural.",
+    "Kept fn_80037F00 static because the diff only shows internal use from pltrick.c, reducing header exposure and avoiding exporting a helper with uncertain external semantics.",
+    "Introduced a tiny inline wrapper pl_80037BC0_inline around pl_80037BC0, likely to influence inlining/codegen at call sites while preserving the existing public helper.",
+    "Carried attacker_fp->x221F_b4 and victim_fp->x221F_b4 through many plbonuslib/pl_040D calls instead of treating those parameters as unused, which clarified several function signatures and call contracts.",
+    "Represented the attack/kind mapping as a fixed 16-entry table pl_803BCE70 with -1 sentinels, making pl_80038628’s kind bounds and data lookup explicit."
+  ],
+  "decomp_lessons": [
+    "When a function’s callers pass player_id plus x221F_b4 pairs, do not leave the second argument as UNK_T or omit it from prototypes; propagate the concrete int parameter through headers and call sites to expose the real calling convention.",
+    "For packed fighter flags, preserving both raw-word access and per-bit names through a union is useful when different matched functions need different access patterns.",
+    "Byte-offset comments on bitfields matter: u32 bitfields can be misleading when decompiled code clearly manipulates flag bytes at adjacent offsets.",
+    "Matching stat-accounting code often requires reloading packed event unions into multiple local variables; separate union temporaries can help reproduce original register/stack behavior.",
+    "A small inline wrapper around an already-existing helper may be a matching tactic when direct calls do not reproduce expected inlining or stack/register layout.",
+    "The PR contains explicit PAD_STACK uses and a volatile previous-event word in pl_80037C60, showing that stack/register shape was still a sensitive matching concern even after high-level behavior was recovered.",
+    "Public headers should be tightened as decompilation proceeds: replace UNK_RET/UNK_PARAMS with concrete prototypes, and demote helpers to static when evidence shows file-local use."
+  ],
+  "naming_conventions": [
+    "Unidentified functions retain address-based names such as pl_80037C60, pl_80038144, pl_800384DC, pl_80038628, and fn_80037F00.",
+    "Struct and field names remain offset-based when semantics are incomplete, for example x2074_vec, x207C, x2084_b7, x18d8, x18d4, x221F_b4, and pl_804D6470_t.x14.",
+    "Boolean bitfields are named with byte/bit suffixes such as x10_b0, x10_b7, x11_b4, and x2084_b7.",
+    "Player/action stat locals use short descriptive abbreviations where known, such as acp for plActionStats, fp for Fighter, attacker_fp, victim_fp, attack_id, and attacked_from_behind.",
+    "Unknown or partially understood event data remains named ev, ev_data, ev_reload, ev_best, and ev_hits, reflecting its packed Struct2070/ft_800898B4_t role without overclaiming semantics."
+  ],
+  "assembly_or_matching_tactics": [
+    "Used volatile s32 prev2070_word in pl_80037C60 with a comment noting the stack was still misaligned for the volatile hack, suggesting this was a deliberate codegen attempt rather than a semantic need.",
+    "Inserted PAD_STACK(8) in fn_80037F00 and PAD_STACK(16) in pl_80038144/pl_800384DC to match stack frame shape.",
+    "Removed an obsolete PAD_STACK(8) from pl_8003ED0C after correcting its signature to include an extra int argument, implying the prior stack padding was compensating for an incorrect prototype.",
+    "Used repeated union Struct2070 copies/reloads before calling pl_80037BC0_inline, likely to reproduce original temporary/register behavior around packed attack event fields.",
+    "Kept explicit casts such as *(s32*) &victim_fp->dmg.x18d4 and (HSD_GObj**) attacker_fp in the diff; the latter looks suspicious from semantics but is evidence of a matching-oriented expression in this slice.",
+    "Modeled Struct2074.x2084 as a union of u32 and u8 bitfields to allow both word-level and bit-level codegen access."
+  ],
+  "review_feedback": [
+    "No review comments were present in the provided PR slice.",
+    "No human PR body text was included, so intent beyond the title and diff must be inferred from code changes."
+  ],
+  "searchable_terms": [
+    "pltrick work",
     "pl_80037C60",
     "fn_80037F00",
     "pl_80038144",
     "pl_800384DC",
     "pl_80038628",
     "pl_803BCE70",
-    "pl_80037BC0_inline",
-    "pl_80037BC0",
-    "Struct2070",
     "Struct2074",
-    "x2074_vec",
-    "x2084",
     "x2084_b7",
     "ft_800898B4_t",
     "kb_applied1",
     "x10_b0",
     "x10_b7",
-    "x11_b0",
-    "x11_b3",
     "x11_b4",
     "pl_804D6470_t",
     "x14",
-    "prev_kb",
-    "ftData_80085FD4",
-    "ifMagnify_802FB6E8",
-    "ft_80089914",
     "pl_8003ED0C",
     "pl_8003FE40",
     "pl_8003FE64",
@@ -160,21 +113,32 @@
     "pl_800410F4",
     "Player_GetActionStats",
     "Player_GetStaleMoveTableIndexPtr2",
+    "pl_80037BC0_inline",
+    "ifMagnify_802FB6E8",
+    "ftData_80085FD4",
     "StatsAttack_Count",
     "x221F_b4",
-    "x18d4",
-    "x18d8",
-    "x18ec_instancehitby",
+    "Struct2070",
+    "stale moves",
+    "attack stats",
+    "hit stats",
     "PAD_STACK",
-    "volatile prev2070_word"
+    "volatile stack hack"
   ],
   "follow_up_queries": [
-    "Search later PRs for pl_80037C60 stack misaligned volatile hack and whether it reached 100% match.",
-    "Search later PRs for pl_80038144 and pl_800384DC remaining mismatch cleanup after 96.90% and 96.77%.",
-    "Look for semantic names for ft_800898B4_t x10_b0/x10_b7/x11_b0/x11_b4 damage-event flags.",
-    "Look for semantic name or documentation for pl_804D6470_t.x14 previous knockback threshold.",
-    "Search for pl_803BCE70 and pl_80038628 to confirm the kind-to-ftData mapping meanings for 0x2F, 0x30, and 0x31.",
-    "Search for further prototype refinements around player_id plus x221F_b4 parameters in plbonuslib and pl_040D helpers."
+    "Look for later PRs that revisit pl_80037C60 stack alignment or remove the volatile prev2070_word hack.",
+    "Search for follow-up fixes around fn_80037F00, especially the gp argument and the cast used at the pl_80038144 call site.",
+    "Check subsequent work on ft_800898B4_t and Struct2074 to see whether x10/x11/x2084 bitfields receive semantic names.",
+    "Find later PRs that rename or fully document pl_80038144, pl_800384DC, and pl_80038628.",
+    "Search for additional corrections to plbonuslib/pl_040D signatures involving player_id and x221F_b4 pairs."
   ],
-  "confidence": 0.88
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

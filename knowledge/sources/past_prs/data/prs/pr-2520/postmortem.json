@@ -11,19 +11,18 @@
     "merged_at": "2026-05-22T22:56:46Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked the Master Hand laser item unit by adding the missing `ItemStateTable it_803F9378` data object in `itmasterhandlaser.c` and flipping that file from `NonMatching` to `Matching` in `configure.py`. The decomp.dev report showed one new `.data` match for `main/melee/it/items/itmasterhandlaser`, moving that unit's `.data` from 0.00% to 100.00%.",
+  "summary": "Linked the Master Hand laser item unit by adding its missing ItemStateTable data symbol and flipping src/melee/it/items/itmasterhandlaser.c from NonMatching to Matching in configure.py. The decomp.dev report confirmed one new match for main/melee/it/items/itmasterhandlaser .data, bringing that unit's .data from 0.00% to 100.00% and adding 16 bytes of matched data.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "object-linking",
+      "decomp-matching",
       "data-match",
-      "build-config-update",
-      "item-decompilation"
+      "build-configuration"
     ],
     "systems": [
       "item",
-      "Master Hand laser item",
-      "build configuration"
+      "masterhand",
+      "repo-root"
     ]
   },
   "key_files": [
@@ -31,61 +30,66 @@
     "src/melee/it/items/itmasterhandlaser.c"
   ],
   "what_changed": [
-    "`configure.py` changed `Object(NonMatching, \"melee/it/items/itmasterhandlaser.c\")` to `Object(Matching, \"melee/it/items/itmasterhandlaser.c\")`.",
-    "`src/melee/it/items/itmasterhandlaser.c` gained a global `ItemStateTable it_803F9378[]` with one state entry.",
-    "The added state table uses state id `0` and the existing callbacks `itMasterhandlaser_UnkMotion0_Anim`, `itMasterhandlaser_UnkMotion0_Phys`, and `itMasterhandlaser_UnkMotion0_Coll`.",
-    "decomp.dev reported linked code +1952 bytes, matched data +16 bytes, linked data +56 bytes, and one new `.data` match for `main/melee/it/items/itmasterhandlaser`."
+    "Changed the configure.py object entry for melee/it/items/itmasterhandlaser.c from Object(NonMatching, ...) to Object(Matching, ...).",
+    "Added ItemStateTable it_803F9378[] in src/melee/it/items/itmasterhandlaser.c.",
+    "The added item state table contains one state with state id 0 and callbacks itMasterhandlaser_UnkMotion0_Anim, itMasterhandlaser_UnkMotion0_Phys, and itMasterhandlaser_UnkMotion0_Coll.",
+    "No PR body or human review comments were present in the provided slice; the only comment was the decomp.dev automated match report."
   ],
   "smart_moves": [
-    "The PR made the minimum data addition needed before marking the object as `Matching`, keeping the linkage change small and easy to verify.",
-    "The added `ItemStateTable` reused already-present motion/physics/collision callback names, avoiding speculative function work.",
-    "The table layout followed the expected item state table callback order: animation, physics, collision.",
-    "The author validated the linkage through the normal configure classification path rather than leaving the object linked only locally."
+    "Matched the unit by supplying the missing data object rather than altering existing code flow.",
+    "Used the existing item callback names already present in the source for the ItemStateTable entries, keeping the new data declaration minimal and directly tied to known functions.",
+    "Only promoted the object to Matching after adding the data needed for the unit-level match, making the configure.py change evidence-backed by the bot report."
   ],
   "decomp_lessons": [
-    "For item units, a missing small `.data` state table can be enough to keep an otherwise ready source file classified as `NonMatching`.",
-    "When linking an item object, check for global `ItemStateTable` data near the top of the item source before the helper/static functions.",
-    "After reconstructing data, update `configure.py` from `NonMatching` to `Matching` only when the unit actually links and decomp.dev confirms the match.",
-    "Small data matches are still useful progress: this PR contributed only +16 bytes of matched data for the unit but allowed the object to be linked as matching."
+    "For item units that are functionally decompiled but remain NonMatching, check for missing ItemStateTable data before chasing codegen issues.",
+    "A single missing state table can block a unit's .data match even when the callback functions already exist.",
+    "When an item has only one state, the ItemStateTable can be represented as a one-element array with the state id and Anim/Phys/Coll function pointers.",
+    "After adding required data symbols, remember to update configure.py from NonMatching to Matching so the build system links the source object as matched."
   ],
   "naming_conventions": [
-    "The item source path uses lowercase item naming: `src/melee/it/items/itmasterhandlaser.c`.",
-    "The data symbol uses an address-derived name: `it_803F9378`.",
-    "Callbacks use the item-prefixed mixed-case convention: `itMasterhandlaser_UnkMotion0_Anim`, `itMasterhandlaser_UnkMotion0_Phys`, `itMasterhandlaser_UnkMotion0_Coll`.",
-    "Build configuration entries use `Object(Matching, \"melee/it/items/<unit>.c\")` once a unit is linked and matching."
+    "Raw data symbol retained the address-style project name it_803F9378.",
+    "Master Hand laser callbacks use the mixed-case item prefix itMasterhandlaser_ followed by motion labels such as UnkMotion0_Anim, UnkMotion0_Phys, and UnkMotion0_Coll.",
+    "The source file follows the item path convention src/melee/it/items/itmasterhandlaser.c and configure.py uses the corresponding object path melee/it/items/itmasterhandlaser.c."
   ],
   "assembly_or_matching_tactics": [
-    "Recovered a single-entry `ItemStateTable` with the exact callback pointer sequence needed for the unit's `.data`.",
-    "Converted the object classification in `configure.py` only after adding the missing data symbol.",
-    "Used the decomp.dev percentage report as confirmation: `.data` for `main/melee/it/items/itmasterhandlaser` changed from 0.00% to 100.00%."
+    "Resolved a .data mismatch by reconstructing the ItemStateTable layout with the correct callback pointer order: anim, phys, coll.",
+    "Promoted the object in configure.py from NonMatching to Matching only after the data symbol addition produced a complete match.",
+    "The automated report measured the effect as +16 bytes of matched .data and +56 bytes of linked data."
   ],
   "review_feedback": [
-    "No human review comments were captured in the PR slice.",
-    "The only captured feedback was the decomp.dev bot report confirming one new `.data` match and overall linked/matched byte gains."
+    "No human review feedback was present in the provided PR slice.",
+    "decomp.dev reported one new match: main/melee/it/items/itmasterhandlaser .data improved from 0.00% to 100.00%."
   ],
   "searchable_terms": [
     "pr-2520",
     "Link itmasterhandlaser",
-    "MarioLover63",
     "itmasterhandlaser",
     "itmasterhandlaser.c",
-    "Master Hand laser",
-    "ItemStateTable",
     "it_803F9378",
+    "ItemStateTable",
     "itMasterhandlaser_UnkMotion0_Anim",
     "itMasterhandlaser_UnkMotion0_Phys",
     "itMasterhandlaser_UnkMotion0_Coll",
-    "Object Matching",
-    "Object NonMatching",
     "configure.py",
+    "Object(Matching)",
+    "Object(NonMatching)",
+    "Master Hand laser",
     "main/melee/it/items/itmasterhandlaser",
-    ".data match",
+    ".data",
     "GALE01"
   ],
   "follow_up_queries": [
-    "Find other item units still marked `Object(NonMatching, \"melee/it/items/...`)` that may only be missing `ItemStateTable` data.",
-    "Search for address-derived item state table symbols like `it_803F9378` to compare table placement and callback ordering.",
-    "Look for PRs that flip item files from `NonMatching` to `Matching` after adding small `.data` tables."
+    "Find other item source files still marked Object(NonMatching) in configure.py with missing ItemStateTable declarations.",
+    "Search for address-style item data symbols near it_803F9378 to identify adjacent item state tables.",
+    "Compare itmasterhandlaser.c against itmasterhandbullet.c and itcrazyhandbomb.c for similar item state table patterns."
   ],
-  "confidence": 0.92
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

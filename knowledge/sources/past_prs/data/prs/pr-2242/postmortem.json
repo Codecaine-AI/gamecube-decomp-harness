@@ -11,123 +11,112 @@
     "merged_at": "2026-03-08T21:01:04Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched and linked the menu bonus info translation unit `src/melee/mn/mninfobonus.c`. The C diff is small but targeted: it introduced `textSize` and `textSetup` helpers around `HSD_SisLib` text creation, adjusted some literal/flag spellings in the model/GObj setup path, switched `mninfobonus.c` from `NonMatching` to `Matching` in `configure.py`, and updated GALE01 symbols to reflect local compiler-style data/sdata2 labels. The decomp.dev bot reported +2188 linked code bytes, +1240 matched data bytes, +1344 linked data bytes, and two new full matches for `main/melee/mn/mninfobonus` `.sdata2` and `.data`.",
+  "summary": "Matched and linked src/melee/mn/mninfobonus.c by making small source-structure and constant-expression adjustments, then moving the object from NonMatching to Matching in configure.py. The symbols file was updated to reflect the newly linked layout: mnInfoBonus_803EFCE8 shrank from 0x480 to 0x404, local data/bss labels were added, and many previously global mnInfoBonus_* sdata2 float/double constants became local compiler-style @ labels.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "linking",
-      "data-matching",
       "symbol-map-update",
-      "small-refactor-for-match"
+      "source-refactor"
     ],
     "systems": [
-      "melee-core",
+      "mn",
       "menu",
       "mninfobonus",
-      "config/GALE01",
-      "build-configuration"
+      "config",
+      "build"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/mn/mninfobonus.c",
-      "role": "Refactored helper boundaries and constants to make the `mninfobonus` object match."
-    },
-    {
-      "path": "configure.py",
-      "role": "Changed `Object(NonMatching, \"melee/mn/mninfobonus.c\")` to `Object(Matching, \"melee/mn/mninfobonus.c\")`."
-    },
-    {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Updated `.data`, `.bss`, and `.sdata2` symbols after the object/data match, including local `@` constants and `...data.0`/`...bss.0` labels."
-    }
+    "src/melee/mn/mninfobonus.c",
+    "configure.py",
+    "config/GALE01/symbols.txt"
   ],
   "what_changed": [
-    "`mnInfoBonus_80252F8C` now calls a new static `textSetup(struct mnInfoBonus_804A09B0_t* o)` helper instead of performing `HSD_SisLib_803A5ACC`, font-size assignment, and `HSD_SisLib_803A6368` directly in the function body.",
-    "Added `inline void textSize(HSD_Text* text)`, setting `text->font_size.x` and `.y` to `0.0521F`; removed the older inline helper named `mnInfoBonus_80252F8C_inline1` that performed the same font-size writes.",
-    "In `mnInfoBonus_80252F8C_inline0`, unsigned-suffixed integer literals such as `6U`, `7U`, `4U`, and `0U` were changed to plain integer literals.",
-    "Replaced `0x10U` arguments to `HSD_JObjSetFlags` with the named flag `JOBJ_HIDDEN` when hiding child/next JObjs.",
-    "`configure.py` now treats `melee/mn/mninfobonus.c` as `Matching` instead of `NonMatching`.",
-    "`config/GALE01/symbols.txt` shrank `mnInfoBonus_803EFCE8` from size `0x480` to `0x404` and split out local `.data` string symbols `@332` through `@335`.",
-    "`symbols.txt` added local `...data.0` and `...bss.0` labels at the starts of the relevant mnInfoBonus data and BSS regions.",
-    "`symbols.txt` replaced a run of global `mnInfoBonus_804DC268` through `mnInfoBonus_804DC2B8` `.sdata2` constants with local compiler-style `@146`, `@147`, `@148`, `@149`, `@150`, `@151`, `@224` through `@234`, `@236`, and `@336` labels."
+    "Changed configure.py so Object(NonMatching, \"melee/mn/mninfobonus.c\") became Object(Matching, \"melee/mn/mninfobonus.c\"), enabling the file to link as matched.",
+    "Added a small inline helper textSize(HSD_Text* text) that assigns text->font_size.x and y to 0.0521F.",
+    "Added static void textSetup(struct mnInfoBonus_804A09B0_t* o) to create the SIS text object with HSD_SisLib_803A5ACC, apply textSize, and call HSD_SisLib_803A6368.",
+    "Replaced the previous inline mnInfoBonus_80252F8C_inline1 text sizing helper and duplicated setup sequence in mnInfoBonus_80252F8C with the new textSetup(o) call.",
+    "Adjusted integer literal spelling in GObj_Create, GObj_SetupGXLink, and HSD_GObjProc_8038FD54 calls by removing unsigned suffixes such as 6U, 7U, 4U, 0x80U, and 0U.",
+    "Replaced raw JObj hide flag literal 0x10U with JOBJ_HIDDEN in two HSD_JObjSetFlags calls.",
+    "Updated config/GALE01/symbols.txt for the matched mninfobonus layout, including local ...data.0 and ...bss.0 labels, local string labels @332 through @335, and local sdata2 labels @146 through @151, @224 through @234, @236, and @336."
   ],
   "smart_moves": [
-    "Factored the text object creation/configuration into `textSetup`, leaving `mnInfoBonus_80252F8C` with a simpler call shape. The PR does not document the exact compiler reason, but the before/after diff and match report show this helper-boundary change was part of the successful match.",
-    "Kept the font-size assignment as a tiny inline helper (`textSize`) instead of a large address-named inline helper, preserving the exact repeated stores while making the source less tied to one function name.",
-    "Used `JOBJ_HIDDEN` for the JObj hide flag instead of a raw `0x10U`, improving semantic readability while preserving the intended flag operation.",
-    "Updated the symbol map alongside the C match, converting previously broad/global mnInfoBonus constants into local `@` symbols and labels consistent with matched compiler output.",
-    "Only after the object matched, flipped the build configuration to `Object(Matching, ...)`, ensuring the linked-code gain was captured by the build system."
+    "Factored the text setup sequence into a named static helper, which likely gave the compiler the desired call/inlining structure while making the code more readable than an anonymous numbered inline helper.",
+    "Kept the font-size assignment as a tiny inline helper, preserving a reusable expression shape for both x and y float fields.",
+    "Used the semantic macro JOBJ_HIDDEN instead of a raw 0x10U flag, improving maintainability without changing the underlying value.",
+    "Updated the linker/symbol metadata at the same time as flipping the object to Matching, avoiding stale global symbols for constants that now resolve as local compiler-generated labels.",
+    "Shrinking mnInfoBonus_803EFCE8 from size 0x480 to 0x404 in symbols.txt suggests the data boundary was corrected once the object linked, preventing adjacent strings from being incorrectly swallowed into the global object."
   ],
   "decomp_lessons": [
-    "Small helper extraction can be enough to resolve stubborn menu-object matches, especially around text setup and library calls such as `HSD_SisLib_803A5ACC`/`HSD_SisLib_803A6368`.",
-    "When an object becomes matching, revisit `symbols.txt`: broad global address-named constants may need to become local compiler-generated `@NNN` labels, and data object sizes may shrink when strings/constants are split out accurately.",
-    "Literal spellings and enum names are worth trying during match work. Here, plain integer literals and `JOBJ_HIDDEN` replaced unsigned-suffixed magic constants in the final matching version.",
-    "A successful code match can also unlock data-section completion; the bot reported `main/melee/mn/mninfobonus` `.sdata2` moving from 68.29% to 100.00% and `.data` from 99.70% to 100.00%.",
-    "For menu modules using HSD GObjs/JObjs, keep setup order exact: create GObj, load JObj from `StaticModelDesc`, attach object, setup GX link, add/request animation, set flags, then attach the GObj process."
+    "For menu files, matching can depend on helper-function boundaries: extracting a static setup helper can produce the desired codegen even when the operations are unchanged.",
+    "Literal suffixes matter for matching. Removing unsigned suffixes from small integer arguments changed source expression types while preserving values.",
+    "Prefer known SDK/project flag macros such as JOBJ_HIDDEN when they match the original constant; this documents intent and can still satisfy matching.",
+    "When a file becomes Matching, revisit symbols.txt scopes and sizes. Constants previously named as global file symbols may need to become local @ labels, and oversized data objects may need corrected extents.",
+    "SIS text setup patterns can be expressed as create text object, set font_size fields, then configure with HSD_SisLib_803A6368; isolating that pattern may be useful for matching similar menu code."
   ],
   "naming_conventions": [
-    "Existing decomp symbols retain the module/address style, e.g. `mnInfoBonus_802528F8`, `mnInfoBonus_80252F8C`, and `mnInfoBonus_804A09B0_t`.",
-    "New source helpers used descriptive camelCase names, `textSize` and `textSetup`, rather than address-derived names.",
-    "Matched local data constants in `symbols.txt` use compiler-style `@NNN` labels such as `@146`, `@236`, and `@336` instead of global `mnInfoBonus_804DCxxx` names.",
-    "Local section anchor labels appear as `...data.0` and `...bss.0`.",
-    "Named flags such as `JOBJ_HIDDEN` are preferable to raw flag constants when they still match."
+    "New helper names use descriptive lowerCamelCase-style local names: textSize and textSetup.",
+    "Existing decomp placeholder function names remain address-based for unmatched/unknown mninfobonus functions, such as mnInfoBonus_802528F8 and mnInfoBonus_80252F8C.",
+    "Compiler-generated local constants in symbols.txt use @number labels for sdata2 and string objects once the file is linked.",
+    "Synthetic section-boundary labels use ellipsis names such as ...data.0 and ...bss.0.",
+    "The project macro JOBJ_HIDDEN is preferred over the raw JObj flag literal 0x10U."
   ],
   "assembly_or_matching_tactics": [
-    "Changed helper boundaries around text setup: `mnInfoBonus_80252F8C` now delegates `HSD_SisLib_803A5ACC`, font-size writes, and `HSD_SisLib_803A6368` to `textSetup`.",
-    "Removed unsigned suffixes from several GObj/JObj call arguments: `GObj_Create(6, 7, 0x80)`, `GObj_SetupGXLink(..., 4, 0x80)`, and `HSD_GObjProc_8038FD54(..., 0)`.",
-    "Used `JOBJ_HIDDEN` in `HSD_JObjSetFlags` calls to represent the hide bit.",
-    "Updated `configure.py` from `Object(NonMatching, \"melee/mn/mninfobonus.c\")` to `Object(Matching, \"melee/mn/mninfobonus.c\")` after the match.",
-    "Reclassified `.sdata2` constants from named globals to local `@` symbols, indicating the final object emitted local constants rather than externally meaningful globals.",
-    "Adjusted the `.data` symbol span for `mnInfoBonus_803EFCE8` from `0x480` to `0x404` and split following strings into separate local symbols."
+    "Moved text object creation and configuration out of mnInfoBonus_80252F8C into a static helper textSetup, changing call structure while preserving operations.",
+    "Kept text font-size writes in a separate inline helper textSize, likely to influence inlining/code shape around HSD_Text field stores.",
+    "Changed unsigned integer constants to unsuffixed integer constants in several GObj/HSD calls to better match original codegen.",
+    "Replaced raw hide flag constants with JOBJ_HIDDEN in HSD_JObjSetFlags calls, preserving value while aligning with project headers.",
+    "Corrected symbol scopes and labels after matching so rodata/sdata2 constants are represented as local compiler labels rather than exported mnInfoBonus_* globals."
   ],
   "review_feedback": [
-    "No human review comments were present in the PR slice.",
-    "decomp-dev[bot] reported GALE01 linked code at 31.91% with +0.06% / +2188 bytes.",
-    "decomp-dev[bot] reported matched data at 34.70% with +0.10% / +1240 bytes and linked data at 29.30% with +0.11% / +1344 bytes.",
-    "decomp-dev[bot] listed 2 new matches for `main/melee/mn/mninfobonus`: `.sdata2` +28 bytes, 68.29% to 100.00%, and `.data` +4 bytes, 99.70% to 100.00%."
+    "No review comments were present in the provided PR context.",
+    "The PR had one issue comment according to counts, but no body excerpt was provided, so no specific reviewer feedback can be extracted."
   ],
   "searchable_terms": [
     "pr-2242",
-    "mninfobonus match & link",
-    "PsiLupan",
-    "src/melee/mn/mninfobonus.c",
-    "configure.py",
-    "config/GALE01/symbols.txt",
+    "mninfobonus",
+    "mnInfoBonus",
+    "mnInfoBonus_802528F8",
     "mnInfoBonus_80252F8C",
     "mnInfoBonus_80252F8C_inline0",
-    "mnInfoBonus_802528F8",
     "textSize",
     "textSetup",
     "HSD_Text",
     "font_size",
     "HSD_SisLib_803A5ACC",
     "HSD_SisLib_803A6368",
-    "StaticModelDesc",
     "GObj_Create",
     "GObj_SetupGXLink",
+    "HSD_GObjProc_8038FD54",
     "HSD_JObjSetFlags",
     "JOBJ_HIDDEN",
-    "HSD_GObjProc_8038FD54",
+    "StaticModelDesc",
+    "mnInfoBonus_804A09B0_t",
     "mnInfoBonus_803EFCE8",
     "mnInfoBonus_804A09B0",
-    "mnInfoBonus_804DC268",
-    "@146",
-    "@236",
-    "@336",
+    "symbols.txt",
+    "configure.py",
+    "Object Matching",
+    "Object NonMatching",
+    "sdata2 local labels",
     "...data.0",
-    "...bss.0",
-    "Object(Matching, \"melee/mn/mninfobonus.c\")",
-    "main/melee/mn/mninfobonus",
-    ".sdata2",
-    ".data"
+    "...bss.0"
   ],
   "follow_up_queries": [
-    "Find other `melee/mn/*.c` files still marked `NonMatching` that call `HSD_SisLib_803A5ACC` or perform text font-size setup inline.",
-    "Search for remaining raw `0x10U` JObj hide flags that could be expressed as `JOBJ_HIDDEN` without breaking matches.",
-    "Compare other menu module symbol maps for broad `mn*_*` `.sdata2` globals that should become local `@NNN` constants after matching.",
-    "Review whether helper extraction like `textSetup` improves matches in `mninfo.c`, `mnsnap.c`, or `mngallery.c`."
+    "Find other menu files using HSD_SisLib_803A5ACC followed by font_size writes and HSD_SisLib_803A6368 that may benefit from the textSetup/textSize helper pattern.",
+    "Search for raw HSD_JObjSetFlags flag value 0x10U or 0x10 in menu code and check whether JOBJ_HIDDEN improves clarity or matching.",
+    "Search for GObj_Create and GObj_SetupGXLink calls with unsigned-suffixed literals in nonmatching files to test whether unsuffixed literals affect matching.",
+    "Review symbols around newly matched menu objects for oversized data ranges that may include adjacent strings or constants."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

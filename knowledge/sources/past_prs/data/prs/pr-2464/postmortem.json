@@ -11,257 +11,132 @@
     "merged_at": "2026-05-07T21:07:40Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged decomp-matching batch across stage, fighter, and gm/menu code. The author summary describes 8 fully matched functions plus a gm_1601.h signature refinement; the decomp.dev bot reported +2604 matched code bytes, +48 matched data, 12 new matched items, and 9 improved unmatched items. The most reusable work was exact stage callback/data layout, typed gm history-tracker arguments, and fighter codegen tactics such as PAD_STACK, explicit user_data reloads, exact callback assignment, and replacing literals with matching data symbols where needed.",
+  "summary": "Matched eight previously unmatched or partially unmatched functions across stage, fighter, and game/menu translation units, with one header signature refinement. The PR replaced placeholders and adjusted existing code in Brinstar, Big Blue route, Poké Floats, Kirby hat specials, Popo specials, fighter dynamics, knockback parameter code, and gm_1601 selection-history code. The body reports clean `ninja main.dol` linking and 100.0% objdiff matches for the eight targeted functions. A prior attempt also included three Ice Mountain matches, but that commit was dropped after CI exposed a 4-byte regression from a const-section reorder.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
+      "cleanup",
       "decomp-matching",
       "headers",
       "types-structs",
-      "data-layout",
-      "cleanup",
-      "tooling-verification"
+      "tooling"
     ],
     "systems": [
-      "stage",
       "fighter",
-      "game-mode/menu"
+      "game-mode",
+      "stage"
     ]
   },
   "key_files": [
-    {
-      "file": "src/melee/gr/grzebes.c",
-      "role": "Brinstar stage data/callback reconstruction supporting grZebes_801D8558 match",
-      "notable_symbols": [
-        "grZebes_801D8558",
-        "grZe_callbacks",
-        "grZe_803E1A10",
-        "grZe_803E1B20",
-        "grZe_803E1B2C"
-      ]
-    },
-    {
-      "file": "src/melee/gr/grbigblueroute.c",
-      "role": "Big Blue Route stage callback table and descriptor data; gobj setup match and random-route selector improvement",
-      "notable_symbols": [
-        "grBigBlueRoute_8020B9D4",
-        "grBigBlueRoute_8020C530",
-        "grBb_Route_803E5E78",
-        "grBb_Route_803E6170",
-        "grBb_Route_803E617C",
-        "grBb_Route_803E61D4"
-      ]
-    },
-    {
-      "file": "src/melee/gr/grpura.c",
-      "role": "Pura/Poké Floats teardown driver match and helper signature correction",
-      "notable_symbols": [
-        "grPura_80211FD8",
-        "grPura_80213030",
-        "mpLib_80055E24",
-        "lb_800115F4"
-      ]
-    },
-    {
-      "file": "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
-      "role": "Ice Climbers/Popo special-state fixes and several small 100% matches reported by bot",
-      "notable_symbols": [
-        "checkNanaInRange",
-        "ftPp_SpecialHiStart_0_Anim",
-        "ftPp_SpecialAirHiStart_0_Anim",
-        "ftPp_SpecialLw_Coll",
-        "ftPp_SpecialHi_801220D4",
-        "ftPp_SpecialHi_80121DD8"
-      ]
-    },
-    {
-      "file": "src/melee/ft/ftdynamics.c",
-      "role": "Fighter dynamics work: Kirby-as-Jigglypuff hat dynamics installer matched; ftCo_8009CB40 improved but not exact per bot",
-      "notable_symbols": [
-        "ftCo_8009DB50",
-        "ftCo_8009CB40",
-        "Ft_Dynamics_NumMax",
-        "lb_8000FD48",
-        "lb_80011710",
-        "__assert"
-      ]
-    },
-    {
-      "file": "src/melee/ft/ftchangeparam.c",
-      "role": "Tiny knockback hook match by correcting ftCo_CalcYScaledKnockback argument order",
-      "notable_symbols": [
-        "ftCo_800D0EC8",
-        "ftCo_CalcYScaledKnockback",
-        "p_ftCommonData",
-        "Fighter_804D6524"
-      ]
-    },
-    {
-      "file": "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
-      "role": "Kirby copy-ability Special-N air-end driver match",
-      "notable_symbols": [
-        "ftKb_SpecialNPe_8010BF90",
-        "ftKb_Init_804D9570",
-        "ftKb_Init_804D9574",
-        "Fighter_ChangeMotionState",
-        "efLib_PauseAll",
-        "efLib_ResumeAll"
-      ]
-    },
-    {
-      "file": "src/melee/gm/gm_1601.c",
-      "role": "Match-end/menu recent-selection history push implementation",
-      "notable_symbols": [
-        "gm_8016A9E8",
-        "lbl_8046B668",
-        "arr1",
-        "arr2"
-      ]
-    },
-    {
-      "file": "src/melee/gm/gm_1601.h",
-      "role": "Header refinement for typed gm_8016A9E8 signature",
-      "notable_symbols": [
-        "gm_8016A9E8(u8 arg0, s8 arg1)"
-      ]
-    }
+    "src/melee/gr/grbigblueroute.c",
+    "src/melee/gr/grzebes.c",
+    "src/melee/gr/grpura.c",
+    "src/melee/ft/ftdynamics.c",
+    "src/melee/ft/ftchangeparam.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
+    "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
+    "src/melee/gm/gm_1601.c",
+    "src/melee/gm/gm_1601.h"
   ],
   "what_changed": [
-    {
-      "area": "stage/Brinstar",
-      "details": "Materialized Brinstar stage data including grZe_803E1A10, populated grZe_callbacks rows, and grZe_803E1B2C descriptor. Author says this supports grZebes_801D8558 matching as the per-stage gobj setup that installs display/proc callbacks and reports missing gobjs."
-    },
-    {
-      "area": "stage/Big Blue Route",
-      "details": "Replaced an extern StageCallbacks declaration with concrete grBb_Route_803E5E78[38], added route dat filename, descriptor struct, fmt string, and filename symbol. grBigBlueRoute_8020B9D4 now reports through descriptor-backed data; bot reported it reached 100%. The diff also adds grBigBlueRoute_8020C530, but bot classified it as an unmatched improvement at 98.72%, not exact."
-    },
-    {
-      "area": "stage/Pura",
-      "details": "Changed grPura_80213030 from void(void) to void(Ground_GObj*), passed arg0 from grPura_80211FD8, and matched the teardown sequence grPura_80212EF4 -> Ground_801C2FE0 -> grPura_80213030 -> mpLib_80055E24(0x18) -> lb_800115F4."
-    },
-    {
-      "area": "fighter/Ice Climbers",
-      "details": "Adjusted checkNanaInRange to use a Vec3* to Nana cur_pos and compare ftNn_Init_8012300C(nana_gobj) == 1. Added PAD_STACK(32) to SpecialHiStart anim functions. Air startup now calls ftPp_SpecialHi_801220D4 and ftPp_SpecialHi_80121DD8 for the air-path fallback/advance. ftPp_SpecialLw_Coll was expanded to inline the motion-state change and reset death/take-damage callbacks; bot reported it as a 100% match."
-    },
-    {
-      "area": "fighter/dynamics",
-      "details": "ftCo_8009DB50 now indexes hat->hat_dynamics[4] through explicit bone_id locals, marks parts[bone_id].flags_b0, copies dynamic descriptors with lb_8000FD48, assigns FtPart_TopN, and finalizes with lb_80011710. __assert now uses __FILE__. The diff also adds ftCo_8009CB40, but bot listed it as 92.02% rather than matched."
-    },
-    {
-      "area": "fighter/Kirby copy ability",
-      "details": "ftKb_SpecialNPe_8010BF90 selects the air-end motion state by cmd_vars[0] and hat.kind == FTKIND_MARS, reloads fields via gobj->user_data casts, calls ftCommon_8007D5D4, passes ftKb_Init_804D9574 and ftKb_Init_804D9570 into Fighter_ChangeMotionState, and installs efLib_PauseAll/efLib_ResumeAll around hitlag when x2219_b0 is true."
-    },
-    {
-      "area": "fighter/common params",
-      "details": "ftCo_800D0EC8 now returns -ftCo_CalcYScaledKnockback(p_ftCommonData->x310, fp->x34_scale.y, Fighter_804D6524->x30), fixing the argument order needed for the 100% match."
-    },
-    {
-      "area": "gm/menu",
-      "details": "Implemented gm_8016A9E8 as a 27-slot MRU push for lbl_8046B668: find first arr2 sentinel -2, shift arr1/arr2 entries down, write arg1 and arg0 at slot 0, return found+1 or -1. Header changed from UNK_RET/UNK_PARAMS to int gm_8016A9E8(u8 arg0, s8 arg1)."
-    }
+    "Implemented or matched `grZebes_801D8558` stage gobj setup logic and filled Brinstar static stage data/callback table entries including `grZe_callbacks`, `grZe_803E1A10`, `grZe_803E1B20`, and `grZe_803E1B2C`.",
+    "Implemented or matched Big Blue route data and functions in `grbigblueroute.c`, including `grBb_Route_803E5E78`, the stage descriptor-style object `grBb_Route_803E617C`, file/string data, an adjusted `OSReport` call using stored format/file strings, and `grBigBlueRoute_8020C530` random available-route index selection.",
+    "Matched `grPura_80211FD8` by correcting the helper signature/call for `grPura_80213030` to take `Ground_GObj* arg0`, then preserving the teardown sequence through `grPura_80212EF4`, `Ground_801C2FE0`, `grPura_80213030`, `mpLib_80055E24(0x18)`, and `lb_800115F4`.",
+    "Implemented `ftCo_8009CB40` in `ftdynamics.c` and refined `ftCo_8009DB50` for Kirby-as-Jigglypuff hat dynamics setup, including dynamic bone count assertion, per-bone flag updates, `lb_8000FD48`, `FtPart_TopN`, and `lb_80011710` usage.",
+    "Matched `ftCo_800D0EC8` by swapping the first and third arguments to `ftCo_CalcYScaledKnockback`, returning the negated result of `ftCo_CalcYScaledKnockback(p_ftCommonData->x310, fp->x34_scale.y, Fighter_804D6524->x30)`.",
+    "Adjusted Kirby Peach-hat air end logic in `ftKb_SpecialNPe_8010BF90`: added extern float constants `ftKb_Init_804D9570` and `ftKb_Init_804D9574`, selected motion states via `cmd_vars[0]` and hat kind, and used those constants as motion-state rate/blend parameters instead of literal `1.0F` and `0.0F`.",
+    "Matched Popo Special-Hi air-start animation behavior in `ftPp_SpecialAirHiStart_0_Anim`, adding stack padding, using `ftPp_SpecialHi_801220D4` for the out-of-range fallback and `ftPp_SpecialHi_80121DD8` after startup frames end, and tightening `checkNanaInRange` through a `Vec3*` access pattern and explicit `ftNn_Init_8012300C(nana_gobj) == 1` check.",
+    "Expanded `ftPp_SpecialLw_Coll` logic in the same Popo file to inline the transition previously abstracted by `ftPp_SpecialLw_Coll_Land`, including `ftCommon_8007D5D4`, `Fighter_ChangeMotionState`, callback restoration, accessory callback setup, and air drift clamp.",
+    "Implemented `gm_8016A9E8` as a two-array MRU push routine over `lbl_8046B668`, scanning for the first `arr2[i] == -2` sentinel, shifting existing entries, writing `(arg0,arg1)` to slot zero, and returning the new count/index value.",
+    "Updated `gm_1601.h` from `UNK_RET gm_8016A9E8(UNK_PARAMS)` to `int gm_8016A9E8(u8 arg0, s8 arg1)` to support the matched implementation."
   ],
   "smart_moves": [
-    "Used concrete stage callback tables and descriptor structs instead of leaving data as extern/placeholder, which improved both code and .data matching for grzebes and grbigblueroute.",
-    "Preserved exact compiler behavior in fighter functions with PAD_STACK, explicit gobj->user_data casts, scoped temporaries, and helper inlining rather than only using cleaner GET_FIGHTER-style source.",
-    "Matched constant/data references deliberately: ftKb_SpecialNPe_8010BF90 uses extern f32 symbols ftKb_Init_804D9574/ftKb_Init_804D9570, grbigblueroute routes OSReport through staged fmt/file symbols, and ftdynamics uses __FILE__ in the assert.",
-    "Tightened function signatures where the body proved the types, especially gm_8016A9E8(u8, s8) and grPura_80213030(Ground_GObj*), avoiding UNK_PARAMS and call-site mismatches.",
-    "Kept the PR non-regressing by dropping an earlier gricemt const-section reorder after CI showed a 4-byte regression in neighboring grIceMt_801F7A2C."
+    "Kept the PR focused on matches that linked cleanly and reached 100.0% objdiff, while explicitly dropping a separate Ice Mountain const-section reorder that CI showed caused a 4-byte regression.",
+    "Used exact global/static data layout reconstruction for stage files rather than only matching code bodies; `grZebes` and `grbigblueroute` both required callback tables, descriptor structs, file strings, flags, and report strings to line up.",
+    "Used stored extern float constants in `ftKb_SpecialNPe_8010BF90` instead of equivalent literals, a common decomp tactic when data references are required for instruction/data relocation matching.",
+    "Adjusted expression shapes and access paths for matching, such as direct `gobj->user_data` casts in Kirby, a `Vec3*` temporary for Nana position, explicit boolean/integer comparisons, and `PAD_STACK` calls.",
+    "Refined a header prototype only after the implementation established the needed typed signature, reducing `UNK_PARAMS` while preserving evidence from the matched body.",
+    "For the Big Blue route `OSReport`, reused the reconstructed descriptor's format string and file string rather than relying on `__FILE__`, indicating attention to string/data references that affect matching."
   ],
   "decomp_lessons": [
-    "Stage setup matches often require reconstructing adjacent StageCallbacks rows, stage descriptor data, datfile strings, and report-format strings; code-only edits may leave nearby .data and setup functions unmatched.",
-    "For small fighter functions, source cleanliness can be secondary to load ordering: explicit user_data reloads, boolean comparisons such as == 1, and temporary pointer choices can be the difference between 99.x% and 100%.",
-    "Header typing should follow matched bodies. The gm_8016A9E8 implementation shows arg0 as u8, arg1 as s8, and int return; carrying UNK_PARAMS would hide useful ABI evidence.",
-    "Do not reorder const/data to force a local match if it regresses a neighbor. The removed gricemt attempt is a useful warning to isolate risky data-section work in follow-up PRs.",
-    "Automated decomp.dev output may count data sections and extra small functions differently from the PR title/body. Record both the author's claimed matches and the bot's match/improvement tables."
+    "For stage setup functions, matching may require reconstructing the surrounding stage descriptor and `StageCallbacks` table, not just the target function body.",
+    "Do not reorder const/static data casually to make one function match; neighboring functions and section layout can regress even when the target function improves.",
+    "Header cleanup should be driven by known matched signatures. Here `gm_8016A9E8` became `int gm_8016A9E8(u8 arg0, s8 arg1)` after the body showed the argument and return types.",
+    "Equivalent-looking literals may not match when the original code references named data; use extern globals such as `ftKb_Init_804D9570` and `ftKb_Init_804D9574` when relocation behavior demands it.",
+    "Small source-shape changes matter for matching: explicit `== 1`, temporary pointer choice, repeated `gobj->user_data` casts, and stack padding all appeared in the diff as match tactics.",
+    "For array-history or MRU routines, preserving sentinel semantics and exact loop bounds is important; `gm_8016A9E8` scans 27 entries for `-2`, shifts both arrays together, and writes the newest pair at index 0.",
+    "When a helper prototype is wrong, matching a caller can expose the real parameter list, as with `grPura_80213030(Ground_GObj* arg0)`."
   ],
   "naming_conventions": [
-    "Stage file prefixes remain stage-specific: grZe_* for Zebes/Brinstar data, grBb_Route_* for Big Blue Route data, grPu_* for Pura/Poké Floats callbacks.",
-    "Stage callback arrays use StageCallbacks entries with callback0/callback1/callback2/callback3-style function pointer rows and flag words such as 0xC0000000, 0x80000000, and 0x40000000.",
-    "Address-suffixed decomp symbols are retained for unknown functions/data: grZe_803E1B2C, grBb_Route_803E617C, gm_8016A9E8, ftCo_8009DB50.",
-    "gm_1601.h keeps address comments beside prototypes, e.g. /* 16A9E8 */ int gm_8016A9E8(u8 arg0, s8 arg1).",
-    "Fighter motion/callback fields are named through existing project conventions: pre_hitlag_cb, post_hitlag_cb, death2_cb, take_dmg_cb, accessory4_cb, cmd_vars, cur_anim_frame."
+    "Stage callbacks use per-stage prefixes and address-style suffixes, e.g. `grZebes_801D8558`, `grBigBlueRoute_8020B9D4`, `grPura_80211FD8`.",
+    "Stage static data names retain project address-style labels and stage prefixes, e.g. `grZe_803E1A10`, `grZe_803E1B20`, `grZe_803E1B2C`, `grBb_Route_803E5E78`, `grBb_Route_803E617C`.",
+    "Fighter code follows character/module prefixes such as `ftKb_` for Kirby, `ftPp_` for Popo, `ftCo_` for common fighter code, and `ftNn_` for Nana.",
+    "Callback table type names such as `StageCallbacks` are preserved, with fields filled by function pointers or `NULL` entries rather than invented semantic names.",
+    "Unknown or partially understood structure fields remain address/offset-like or placeholder-style, e.g. `x2222_b2`, `x2219_b0`, `unk528`, `unk52c`, `unkCCB8`, avoiding overnaming without evidence."
   ],
   "assembly_or_matching_tactics": [
-    "PAD_STACK was used in ftKb_SpecialNPe_8010BF90, ftPp_SpecialHiStart_0_Anim, ftPp_SpecialAirHiStart_0_Anim, and ftPp_SpecialLw_Coll to preserve stack shape.",
-    "Explicit casts like ((Fighter*) gobj->user_data)->cmd_vars[0] were used instead of relying only on a cached Fighter* to match reload/register behavior.",
-    "Replacing 1.0F and 0.0F arguments with ftKb_Init_804D9574 and ftKb_Init_804D9570 matched the original data loads in Fighter_ChangeMotionState.",
-    "The ftdynamics match used a separate s32 bone_id local and repeated hat->hat_dynamics[4]->ftDynamicBones->array[i] access rather than a BoneDynamicsDesc* local, aligning codegen for ftCo_8009DB50.",
-    "For checkNanaInRange, using a Vec3* to cur_pos and an explicit ftNn_Init_8012300C(...) == 1 comparison affected generated code.",
-    "ftCo_800D0EC8 shows that even a one-line arithmetic hook can hinge on exact callee argument order.",
-    "grBigBlueRoute_8020C530 used byte-stride access to xC8 entries, bit-7 availability tests, HSD_Randi(count), and an assert fallback; bot still reported 98.72%, so this tactic was an improvement but not a final match."
+    "Inserted `PAD_STACK(16)`, `PAD_STACK(32)`, or `PAD_STACK(8)` in fighter functions to match stack frame shape.",
+    "Changed source expression order in `ftCo_800D0EC8` so `ftCo_CalcYScaledKnockback` receives `p_ftCommonData->x310` first and `Fighter_804D6524->x30` third.",
+    "Used explicit casts from `gobj->user_data` instead of the local `fp` in parts of `ftKb_SpecialNPe_8010BF90`, likely to reproduce load/register behavior.",
+    "Replaced float literals in `Fighter_ChangeMotionState` with extern global floats `ftKb_Init_804D9574` and `ftKb_Init_804D9570`.",
+    "Used `__assert(__FILE__, ...)` in dynamics code and reconstructed stored format/file strings in Big Blue route reporting to match file/string reference behavior.",
+    "Expanded an inline-like helper path in `ftPp_SpecialLw_Coll` rather than calling the previous helper, improving match shape for the function.",
+    "Reconstructed static arrays and structs in stage files so callback/data references resolve exactly.",
+    "Dropped a commit involving `gricemt.c` const-section reorder after CI showed a 4-byte regression in neighboring `grIceMt_801F7A2C`."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the slice.",
-    "decomp.dev bot reported matched code 66.28% (+0.07%, +2604 bytes) and matched data 38.70% (+0.00%, +48 bytes).",
-    "Bot listed 12 new matched items, including gm_8016A9E8, grBigBlueRoute_8020B9D4, ftCo_8009DB50, ftPp_SpecialLw_Coll, grZebes_801D8558, ftPp_SpecialHiStart_0_Anim, ftPp_SpecialAirHiStart_0_Anim, grPura_80211FD8, .sdata/.sdata2 items, ftCo_800D0EC8, and ftKb_SpecialNPe_8010BF90.",
-    "Bot also listed 9 improved unmatched items, notably ftCo_8009CB40 at 92.02%, grbigblueroute .data at 95.57%, grBigBlueRoute_8020C530 at 98.72%, and grzebes .data at 79.59%.",
-    "Author notes say an earlier gricemt commit with fn_801F9338, fn_801F9448, fn_801F9558 and a const-section reorder was dropped after CI found a 4-byte regression in grIceMt_801F7A2C; those matches were deferred to a follow-up."
+    "No inline review comments or formal reviews were present in the provided slice.",
+    "The PR body notes CI caught a 4-byte regression in `grIceMt_801F7A2C` from an earlier `gricemt.c` const-section reorder, leading the author to remove that commit and plan a follow-up PR. This is the only concrete feedback/process signal in the slice."
   ],
   "searchable_terms": [
-    "pr-2464",
+    "PR2464",
     "davidfeira",
     "Match 8 functions across stage fighter menu TUs",
-    "decomp-matching",
-    "ninja main.dol",
-    "objdiff-cli 100.0",
-    "decomp.dev 12 new matches",
-    "src/melee/gr/grzebes.c",
-    "grZebes_801D8558",
-    "grZe_callbacks",
-    "grZe_803E1A10",
-    "grZe_803E1B2C",
-    "src/melee/gr/grbigblueroute.c",
-    "grBigBlueRoute_8020B9D4",
-    "grBigBlueRoute_8020C530",
-    "grBb_Route_803E5E78",
-    "grBb_Route_803E617C",
-    "src/melee/gr/grpura.c",
-    "grPura_80211FD8",
-    "grPura_80213030",
-    "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
-    "checkNanaInRange",
-    "ftPp_SpecialHiStart_0_Anim",
+    "ftKb_SpecialNPe_8010BF90",
     "ftPp_SpecialAirHiStart_0_Anim",
     "ftPp_SpecialLw_Coll",
-    "src/melee/ft/ftdynamics.c",
     "ftCo_8009CB40",
     "ftCo_8009DB50",
-    "Ft_Dynamics_NumMax",
-    "lb_8000FD48",
-    "lb_80011710",
-    "src/melee/ft/ftchangeparam.c",
     "ftCo_800D0EC8",
-    "ftCo_CalcYScaledKnockback",
-    "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
-    "ftKb_SpecialNPe_8010BF90",
-    "ftKb_Init_804D9570",
-    "ftKb_Init_804D9574",
-    "FTKIND_MARS",
-    "Fighter_ChangeMotionState",
-    "efLib_PauseAll",
-    "efLib_ResumeAll",
-    "src/melee/gm/gm_1601.c",
-    "src/melee/gm/gm_1601.h",
     "gm_8016A9E8",
-    "lbl_8046B668",
-    "arr1",
-    "arr2",
-    "PAD_STACK",
+    "gm_1601.h",
+    "grZebes_801D8558",
+    "grBigBlueRoute_8020B9D4",
+    "grBigBlueRoute_8020C530",
+    "grPura_80211FD8",
+    "grPura_80213030",
+    "grBb_Route_803E5E78",
+    "grBb_Route_803E617C",
+    "grZe_callbacks",
+    "grZe_803E1B2C",
     "StageCallbacks",
-    "Ground_GObj",
-    "Fighter_GObj",
-    "gricemt",
-    "fn_801F9338",
-    "fn_801F9448",
-    "fn_801F9558",
-    "grIceMt_801F7A2C regression"
+    "Kirby Peach hat",
+    "Kirby Jigglypuff hat dynamics",
+    "Popo SpecialHi",
+    "Nana in range",
+    "MRU push",
+    "lbl_8046B668",
+    "arr2 sentinel -2",
+    "ftCo_CalcYScaledKnockback",
+    "PAD_STACK",
+    "const-section reorder regression",
+    "gricemt.c",
+    "grIceMt_801F7A2C"
   ],
   "follow_up_queries": [
-    "Find the follow-up PR for gricemt fn_801F9338, fn_801F9448, fn_801F9558 after the grIceMt_801F7A2C 4-byte regression was avoided.",
-    "Revisit ftCo_8009CB40, which this PR improved to 92.02% but did not fully match according to the bot.",
-    "Revisit grBigBlueRoute_8020C530, which this PR improved to 98.72% but did not fully match according to the bot.",
-    "Look for later cleanup that moves local extern f32 ftKb_Init_804D9570/ftKb_Init_804D9574 into a shared Kirby header if project style allows.",
-    "Search other stage TUs for the same StageCallbacks + stage descriptor reconstruction pattern used by grZe_803E1B2C and grBb_Route_803E617C."
+    "Find the follow-up PR that resubmitted the dropped `gricemt.c` matches `fn_801F9338`, `fn_801F9448`, and `fn_801F9558` without the const-section regression.",
+    "Search for other PRs that reconstruct `StageCallbacks` tables and stage descriptor structs to match stage setup functions.",
+    "Search for additional uses of extern float constants like `ftKb_Init_804D9570` and `ftKb_Init_804D9574` in Kirby motion-state matching.",
+    "Look for later refinements of `grBigBlueRoute_8020C530`, especially if the `__assert(__FILE__, 0x2E5, \"0\")` path or return behavior was revisited.",
+    "Check whether `ftCo_8009CB40` later received clearer struct field names for `DynamicsData` or dynamic bone handling."
   ],
-  "confidence": 0.91
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

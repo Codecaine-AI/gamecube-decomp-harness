@@ -11,105 +11,107 @@
     "merged_at": "2026-03-12T02:13:46Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Advanced the Old Yoshi stage decomp in `src/melee/gr/groldyoshi.c`, with the PR title claiming 95%. The patch defined stage callback/data tables, added typed Old Yoshi cloud and guest ground-variable layouts, implemented the cloud init/update/collision path and guest behavior functions, and tightened header prototypes. The decomp-dev bot reported new full matches for `grOldYoshi_8020EAFC`, `.data`, `.sdata`, and `grOldYoshi_8020E854`, plus large partial improvements for `grOldYoshi_8020EC10`, `grOldYoshi_8020EFCC`, `grOldYoshi_8020F088`, and `grOldYoshi_8020F31C`.",
+  "summary": "Advanced Old Yoshi stage decompilation by replacing several placeholders in groldyoshi.c with concrete stage data, callbacks, cloud platform behavior, guest object behavior, collision callback handling, and a movement helper. The PR also refined Old Yoshi-specific Ground union structs in gr/types.h and tightened groldyoshi.h prototypes. The title claims groldyoshi.c reached 95%, but the provided slice has no PR body or review comments explaining remaining gaps.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stage-data",
       "headers",
-      "struct-layout"
+      "stage-data",
+      "ground-vars",
+      "callbacks"
     ],
     "systems": [
       "stage",
       "ground",
+      "collision",
       "animation",
-      "collision-map-joints"
+      "random"
     ]
   },
   "key_files": [
-    "src/melee/gr/groldyoshi.c (+299/-30): defined `grOy_803E6488`, `grOy_803E650C`, `grOy_803E6574`, `grOy_803B83F0`, expanded `grOy_804D6A88`, and implemented Old Yoshi cloud/guest functions.",
-    "src/melee/gr/types.h (+21/-12): replaced the earlier `grOldYoshi_Entry`/`oldyoshi` layout with `grOldYoshi_Cloud_GroundVars` and `grOldYoshi_Guest_GroundVars` union members.",
-    "src/melee/gr/groldyoshi.h (+2/-4): removed unused forward includes and changed `fn_8020F2A8`/`grOldYoshi_8020F31C` from placeholder or typedef-heavy prototypes to concrete `float`-based signatures."
+    "src/melee/gr/groldyoshi.c",
+    "src/melee/gr/types.h",
+    "src/melee/gr/groldyoshi.h"
   ],
   "what_changed": [
-    "Replaced `extern StageCallbacks grOy_803E6488[]` with a concrete six-entry callback table covering the existing `grOldYoshi_*` stage object callbacks.",
-    "Added `StageData grOy_803E650C` for stage id 29, callback table `grOy_803E6488`, data file `/GrOy.dat`, stage lifecycle callbacks, dynamics callback, and collision callback.",
-    "Expanded `grOy_804D6A88` from a one-int placeholder into a parameter block with `s16` timers/indices and `float` movement values: `x0`, `x2`, `x4`, `x8`, `xC`, `x10`, `x12`, `x14`, `x16`, `x18`.",
-    "Defined the joint-pair data as flat `s16 grOy_803E6574[] = {0, 1, 1, 5, 2, 9}` and used it for cloud JObj lookup and map-joint callback registration.",
-    "Implemented `grOldYoshi_8020EAFC` to initialize three cloud entries, cache each cloud JObj and initial Y translation, register `fn_8020F2A8` with `mpJointSetCb1`, run ground/anime setup, and set `gp->x11_flags.b012 = 1`.",
-    "Implemented `grOldYoshi_8020EC10` as a three-cloud state machine using bitfields at `xC4`, velocity/offset floats `xD4` and `xD0`, animation transitions via `grAnime_801C7FF8`/`grAnime_801C83D0`, effect spawn `grLib_801C97DC`, map-joint removal/addition via `mpLib_80057BC0` and `mpJointListAdd`, and per-frame `HSD_JObjSetTranslateY` updates.",
-    "Implemented guest-object setup and update through `grOldYoshi_8020EFCC` and `grOldYoshi_8020F088`, including hiding/showing JObjs with flag `0x10`, random respawn timing via `HSD_Randi`, random Y offset via `HSD_Randf`, and a five-entry guest selection table `grOy_803B83F0`.",
-    "Reworked `fn_8020F2A8` so the collision callback checks `coll->x34_flags.b1234 == 1`, maps the joint id through `grOy_803E6574`, and sets the matching cloud's `xC4_4` contact flag.",
-    "Implemented `grOldYoshi_8020F31C` as a float helper for accelerating/decelerating toward a target with min/max clamping, replacing the placeholder declaration in the header.",
-    "Added concrete Old Yoshi ground-variable structs: `grOldYoshi_Cloud` with packed state/contact/timer fields plus JObj and movement floats, `grOldYoshi_Cloud_GroundVars`, and `grOldYoshi_Guest_GroundVars` with `s16 xC4`/`xC6`.",
-    "Updated includes to use real dependencies (`gr/grlib.h`, `mp/mplib.h`, `baselib/random.h`) and removed `lb/forward.h`/`mp/forward.h` from `groldyoshi.h`."
+    "Defined Old Yoshi stage callback table grOy_803E6488 in groldyoshi.c instead of leaving it extern.",
+    "Defined StageData grOy_803E650C for /GrOy.dat with stage id 29 and Old Yoshi lifecycle callbacks.",
+    "Expanded the static grOy_804D6A88 data shape from a single int to a parameter block with s16 and float fields used by cloud and guest timing/movement logic.",
+    "Added concrete implementation for grOldYoshi_8020EAFC to initialize Old Yoshi cloud ground variables, bind joints, set animation, read initial joint Y translations, and register mpJointSetCb1 collision callbacks.",
+    "Added grOldYoshi_8020EC10 as the per-frame cloud state machine, including rising/falling offsets, animation transitions, effect spawn via grLib_801C97DC, collision joint enable/disable via mpLib_80057BC0 and mpJointListAdd, and HSD_JObj translate-Y updates.",
+    "Added inline random range helpers randi_between and rand_inline, though randi_between appears unused in the shown diff and has commented-out fallback code.",
+    "Added grOldYoshi_8020EFCC to initialize Old Yoshi guest state, hide the root JObj with flag 0x10, choose a randomized delay, and set x11_flags.b012.",
+    "Added grOldYoshi_8020F088 as the guest update routine, selecting one of five guest joints, randomizing vertical position, unhiding/hiding selected JObjs, and resetting after animation completion.",
+    "Reworked fn_8020F2A8 from a placeholder-style joint pair traversal into a concrete collision callback that maps the touched joint id through grOy_803E6574 and marks the matching cloud active when coll->x34_flags.b1234 equals 1.",
+    "Implemented grOldYoshi_8020F31C as a float helper for acceleration/deceleration toward a target with clamping to min/max velocity parameters.",
+    "Changed grOy_803E6574 from an extern joint-pair struct array concept to a local s16 array containing flattened joint id pairs: 0,1,1,5,2,9.",
+    "Added const int grOy_803B83F0[5] = {1,2,3,4,5} for random guest joint selection.",
+    "Removed obsolete grOldYoshi_Entry and grOldYoshi_GroundVars definitions from gr/types.h.",
+    "Added grOldYoshi_Cloud, grOldYoshi_Cloud_GroundVars, and grOldYoshi_Guest_GroundVars structs to gr/types.h and inserted oldyoshicloud and oldyoshiguest variants into Ground::gv.",
+    "Updated groldyoshi.h to remove unused forward includes and replace the unknown grOldYoshi_8020F31C prototype with a typed float signature."
   ],
   "smart_moves": [
-    "Defining `StageCallbacks` and `StageData` in the C file, rather than keeping them as externs, directly paid off in the bot report: `.data` became 100% matched and `.sdata` became 100% matched.",
-    "Splitting Old Yoshi ground state into cloud-specific and guest-specific union views made the same `Ground::gv` area usable for two different callback groups without forcing a single misleading struct.",
-    "Modeling the cloud `xC4` storage as bitfields (`xC4_0123`, `xC4_4`, `xC4_567`) preserved the state/contact/timer access pattern needed by both the updater and collision callback.",
-    "Using a flat `s16` array for `grOy_803E6574` and indexing `i * 2` matched the visible data layout and simplified both `Ground_801C3FA4` JObj lookup and `mpJointSetCb1` registration.",
-    "The cloud update code mirrors the runtime lifecycle carefully: collision sets a one-frame contact flag, the update function consumes it, transitions animation/collision states, updates JObj translation, then resets the flag.",
-    "Converting `grOldYoshi_8020F31C` from `UNK_RET`/`UNK_PARAMS` to an explicit six-`float` signature made the movement helper reusable from the matched cloud state machine and improved type evidence in the header."
+    "Separated Old Yoshi ground variable layouts into cloud-specific and guest-specific structs instead of forcing one generic grOldYoshi_Entry array, making the union fields match actual stage object roles.",
+    "Preserved bitfield semantics for the cloud state byte by naming xC4_0123, xC4_4, and xC4_567 around the packed fields used by the state machine.",
+    "Used a flattened joint id table grOy_803E6574 consistently for cloud collision joint id and animation/display joint id pairs, reducing repeated magic constants in initialization, update, and callback code.",
+    "Converted grOldYoshi_8020F31C from UNK_RET/UNK_PARAMS to a typed float function once its arithmetic behavior was understood.",
+    "Added the more precise includes needed by the decompiled code, such as grlib.h, mplib.h, and baselib/random.h, instead of relying on broad forward declarations.",
+    "Kept the collision callback narrow: it exits unless the collision flag matches the expected state and unless the joint id is one of the three Old Yoshi cloud joints."
   ],
   "decomp_lessons": [
-    "Stage decomp progress often requires matching data tables and `Ground::gv` layouts at the same time as functions; this PR got function, `.data`, `.sdata`, `.rodata`, and `.sdata2` improvements together.",
-    "For stage object callbacks, identify which callback-table entry owns which ground-variable interpretation before naming union members; Old Yoshi uses `oldyoshicloud` for cloud platforms and `oldyoshiguest` for the guest object.",
-    "Packed state bytes at `gp+C4` should be modeled with bitfield names that reflect the accessed bit ranges until semantic names are proven.",
-    "Map-joint callbacks can be decompiled as small flag setters: verify the `CollData` condition, map the joint id to a stage-local index table, set state in `Ground::gv`, and let the per-frame updater do the heavier behavior.",
-    "Exact integer widths matter for timers and post-increment comparisons; the diff uses `s16` fields in the parameter block, `u16 uVar3`, and bitfield timer storage for `xC4_567`.",
-    "Do not leave placeholder prototypes in headers once call sites prove the type shape; here `grOldYoshi_8020F31C` became `float(float,float,float,float,float,float)` and the collision callback parameter type became `float`."
+    "For stage files, matching often requires reconstructing StageCallbacks and StageData globals before individual callbacks become meaningful.",
+    "When a Ground union member is shared by multiple map objects with different behavior, splitting it into role-specific structs can produce clearer field offsets and better matching code.",
+    "Stage moving-platform logic may combine HSD_JObj transforms, grAnime calls, mpLib joint activation/deactivation, and ground collision callbacks in one state machine; all of those systems need correct headers and prototypes.",
+    "Bitfield widths in GroundVars matter: the Old Yoshi cloud state uses a 4-bit state, a 1-bit contact/activation flag, and an 8-bit timer/counter packed at xC4.",
+    "Callback prototypes should be tightened as soon as enough argument evidence exists; replacing placeholder signatures helps downstream matching and prevents accidental misuse.",
+    "Randomized stage behavior may need small inline range helpers to match generated code, even when the logic looks simpler than a normal utility wrapper."
   ],
   "naming_conventions": [
-    "Functions retain the address-based stage prefix `grOldYoshi_8020....`.",
-    "Old Yoshi data symbols use the short stage prefix `grOy_`, as in `grOy_803E6488`, `grOy_803E650C`, `grOy_803E6574`, `grOy_804D6A88`, and `grOy_803B83F0`.",
-    "Temporary struct fields are offset/bit-range based when semantics are not proven: `xC4_0123`, `xC4_4`, `xC4_567`, `xC8`, `xCC`, `xD0`, `xD4`.",
-    "Ground union member names distinguish object roles: `oldyoshicloud` and `oldyoshiguest` rather than the removed generic `oldyoshi`.",
-    "The collision callback kept the local helper-style name `fn_8020F2A8`; no human review comments in the slice requested a semantic rename."
+    "Old Yoshi stage symbols use the grOldYoshi_8020XXXX function naming pattern and grOy_803XXXXX/grOy_804XXXXX data-symbol prefix.",
+    "Ground union fields for newly identified Old Yoshi roles were named oldyoshicloud and oldyoshiguest.",
+    "Struct names follow stage-qualified names such as grOldYoshi_Cloud, grOldYoshi_Cloud_GroundVars, and grOldYoshi_Guest_GroundVars.",
+    "Unknown struct fields retained offset-style names like xC4_0123, xC4_4, xC4_567, xC8, xCC, xD0, and xD4, which is appropriate when semantics are only partially known.",
+    "The local helper table grOy_803E6574 retained its data-symbol name while its previous grOy_JointPair typedef was removed in favor of a simple s16 array."
   ],
   "assembly_or_matching_tactics": [
-    "`PAD_STACK(4)` was added in `grOldYoshi_8020EAFC`, indicating a stack-shape match tactic for the newly matched init function.",
-    "The cloud updater uses `uVar3 = field++` before threshold comparisons, preserving post-increment ordering for timer state transitions.",
-    "The motion helper `grOldYoshi_8020F31C` explicitly computes absolute values with branches instead of library calls, then clamps against the passed positive and negative velocity bounds.",
-    "The random timing helper `rand_inline(int a, int b)` wraps `HSD_Randi` in an inline range-selection pattern used by `grOldYoshi_8020EFCC` and `grOldYoshi_8020F088`.",
-    "`grOldYoshi_8020F088` copies `grOy_803B83F0[5]` into a local stack array before selecting `local34[HSD_Randi(5)]`, a stack/local-data pattern relevant to its 90.41% partial match.",
-    "JObj visibility is controlled with flag `0x10`/`16` through `HSD_JObjSetFlagsAll` and `HSD_JObjClearFlagsAll`; the cloud code and guest code both use this flag pattern.",
-    "The collision callback loops over exactly three flat joint-pair entries and exits when the joint is not one of `grOy_803E6574[i*2]`, matching the three-cloud structure."
+    "Used PAD_STACK(4) in grOldYoshi_8020EAFC, indicating stack padding was needed for matching.",
+    "Flattened the joint pair data into an s16 array and accessed it with i * 2 and i * 2 + 1, likely matching the original indexing pattern better than a struct-array abstraction.",
+    "Introduced rand_inline with branch structure around HSD_Randi to match random range selection codegen.",
+    "Copied grOy_803B83F0 values into a local stack array before selecting with HSD_Randi(5), suggesting stack-local array materialization was needed for the guest selection function.",
+    "Used explicit HSD_JObjSetFlagsAll/HSD_JObjClearFlagsAll with flag 0x10/16 to match hide/show transitions around cloud and guest JObjs.",
+    "Implemented grOldYoshi_8020F31C with explicit absolute-value branches and clamp branches rather than a higher-level math helper, preserving likely decompiler/codegen shape."
   ],
   "review_feedback": [
-    "No human review comments or formal reviews are present in the PR slice.",
-    "decomp-dev bot report for GALE01 showed matched code 56.22% (+0.01%, +500 bytes) and matched data 37.53% (+0.02%, +264 bytes).",
-    "Bot-reported new full matches: `grOldYoshi_8020EAFC` (+268 bytes), `.data` (+248 bytes), `grOldYoshi_8020E854` (+25 bytes), and `.sdata` (+16 bytes).",
-    "Bot-reported partial improvements remaining unmatched: `grOldYoshi_8020EC10` 95.82%, `grOldYoshi_8020F088` 90.41%, `grOldYoshi_8020F31C` 79.74%, `grOldYoshi_8020EFCC` 98.00%, `.rodata` 90.91%, and `.sdata2` 80.00%."
+    "No review comments were included in the provided slice.",
+    "The context reports one issue comment, but its body was not present in the excerpt, so no concrete reviewer feedback can be attributed."
   ],
   "searchable_terms": [
     "pr-2267",
     "groldyoshi.c 95%",
-    "groldyoshi",
+    "MarioLover63",
     "grOldYoshi",
-    "GrOy.dat",
-    "StageCallbacks",
-    "StageData",
+    "groldyoshi.c",
+    "groldyoshi.h",
+    "gr/types.h",
     "grOy_803E6488",
     "grOy_803E650C",
     "grOy_803E6574",
     "grOy_804D6A88",
     "grOy_803B83F0",
+    "StageCallbacks",
+    "StageData",
+    "/GrOy.dat",
     "grOldYoshi_8020EAFC",
     "grOldYoshi_8020EC10",
     "grOldYoshi_8020EFCC",
     "grOldYoshi_8020F088",
     "fn_8020F2A8",
     "grOldYoshi_8020F31C",
-    "grOldYoshi_Cloud",
-    "grOldYoshi_Cloud_GroundVars",
-    "grOldYoshi_Guest_GroundVars",
     "oldyoshicloud",
     "oldyoshiguest",
-    "xC4_0123",
-    "xC4_4",
-    "xC4_567",
+    "grOldYoshi_Cloud",
+    "grOldYoshi_Guest_GroundVars",
     "mpJointSetCb1",
     "mpJointListAdd",
     "mpLib_80057BC0",
@@ -117,26 +119,30 @@
     "grAnime_801C7FF8",
     "grAnime_801C83D0",
     "grLib_801C97DC",
-    "Ground_801C3FA4",
-    "Ground_801C2FE0",
-    "CollData",
-    "x34_flags.b1234",
-    "HSD_JObjGetTranslationY",
     "HSD_JObjSetTranslateY",
+    "HSD_JObjGetTranslationY",
     "HSD_JObjSetFlagsAll",
     "HSD_JObjClearFlagsAll",
     "HSD_Randi",
     "HSD_Randf",
-    "PAD_STACK"
+    "PAD_STACK",
+    "rand_inline",
+    "randi_between"
   ],
   "follow_up_queries": [
-    "grOldYoshi_8020EC10 remaining mismatch 95.82 oldyoshicloud",
-    "grOldYoshi_8020F088 remaining mismatch 90.41 oldyoshiguest local34 HSD_Randi",
-    "grOldYoshi_8020F31C remaining mismatch 79.74 float clamp helper",
-    "grOldYoshi_8020EFCC remaining mismatch 98.00 rand_inline",
-    "grOy_804D6A88 parameter block semantic names x0 x2 x4 x8 xC x10 x12 x14 x16 x18",
-    "oldyoshicloud bitfield layout xC4_0123 xC4_4 xC4_567",
-    "groldyoshi randi_between unused inline"
+    "Check the full PR diff or final merged file to verify whether randi_between remained unused and whether its missing equal-case return was accepted as matching-safe.",
+    "Inspect generated map symbols or later PRs for semantic names for grOy_804D6A88 fields x0, x2, x4, x8, xC, x10, x12, x14, x16, and x18.",
+    "Compare later groldyoshi.c work to see which functions remained unmatched after this 95% milestone.",
+    "Look for subsequent cleanup of local variable names in grOldYoshi_8020EC10 and grOldYoshi_8020F088, especially uVar3, dVar9, dVar10, and local34.",
+    "Search for later review or commits touching grOldYoshi_Cloud bitfields to confirm the exact intended widths and offsets."
   ],
-  "confidence": 0.87
+  "confidence": 0.84,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

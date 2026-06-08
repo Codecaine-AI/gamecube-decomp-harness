@@ -11,105 +11,114 @@
     "merged_at": "2026-03-14T21:27:09Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Implemented the Zebes Route stage object setup function grZebesRoute_8020B260, added its StageCallbacks data table, and corrected the public prototype to return HSD_GObj*, improving that function from 0.00% to 99.97% in the decomp.dev report.",
+  "summary": "Matched the Zebes Route stage object creation/helper function grZebesRoute_8020B260. The PR added the local StageCallbacks table grZe_Route_803E5DB0, implemented the gobj creation path through Ground_801C14D0, wired callbacks into the Ground user_data, set up the GX link/display callback, optionally registered a GObj process callback, and corrected the header prototype to return HSD_GObj* instead of void.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "stage-callbacks",
-      "data-table-reconstruction"
+      "function-signature-correction"
     ],
     "systems": [
       "stage",
       "ground",
-      "grzebesroute",
-      "baselib-gobj"
+      "baselib-gobj",
+      "zebes-route"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grzebesroute.c",
-      "reason": "Added grZe_Route_803E5DB0 StageCallbacks table, required includes, and the implementation of grZebesRoute_8020B260."
-    },
-    {
-      "path": "src/melee/gr/grzebesroute.h",
-      "reason": "Changed grZebesRoute_8020B260 prototype from void to HSD_GObj* to match the implemented return value."
-    }
+    "src/melee/gr/grzebesroute.c",
+    "src/melee/gr/grzebesroute.h"
   ],
   "what_changed": [
-    "Added includes for gr/grdisplay.h, baselib/gobjgxlink.h, and baselib/gobjproc.h so the new implementation can call grDisplay_801C5DB0, GObj_SetupGXLink, and HSD_GObjProc_8038FD54 directly.",
-    "Defined StageCallbacks grZe_Route_803E5DB0 with three callback entries and a NULL sentinel; the second entry uses flags 0xC0000000.",
-    "Implemented grZebesRoute_8020B260(int gobj_id) by indexing grZe_Route_803E5DB0 by gobj_id, creating/fetching a ground gobj with Ground_801C14D0, configuring Ground callback fields, setting the GX link, invoking callback0, and registering callback2 as a gobj proc when present.",
-    "Added the failure path OSReport(\"%s:%d: couldn t get gobj(id=%d)\\n\", __FILE__, 197, gobj_id) when Ground_801C14D0 returns NULL.",
-    "Changed the header declaration of grZebesRoute_8020B260 from void grZebesRoute_8020B260(int) to HSD_GObj* grZebesRoute_8020B260(int).",
-    "Removed unmatched-function markers for grZebesRoute_8020B1F4 and grZebesRoute_8020B260 in the diff context."
+    "Implemented grZebesRoute_8020B260, replacing the prior nonmatching placeholder marker.",
+    "Added grZe_Route_803E5DB0 as a StageCallbacks array with three stage object callback rows plus a NULL terminator row.",
+    "grZebesRoute_8020B260 now indexes grZe_Route_803E5DB0 by gobj_id, creates or retrieves the ground object with Ground_801C14D0, and returns the resulting HSD_GObj*.",
+    "On successful gobj creation, the function clears Ground callback fields x8_callback and xC_callback, sets up GX drawing through GObj_SetupGXLink(gobj, grDisplay_801C5DB0, 3, 0), installs callback3 into gp->x1C_callback when present, invokes callback0 when present, and registers callback2 as a gobj process with HSD_GObjProc_8038FD54(..., 4) when present.",
+    "On failure, the function reports an OSReport error using __FILE__, line number 197, and the requested gobj_id.",
+    "Updated src/melee/gr/grzebesroute.h so grZebesRoute_8020B260 is declared as returning HSD_GObj* rather than void.",
+    "Added required includes for gr/grdisplay.h, baselib/gobjgxlink.h, and baselib/gobjproc.h."
   ],
   "smart_moves": [
-    "Reconstructed the StageCallbacks table before implementing the function, which let the code use the same callback-indexing pattern as other stage object setup routines.",
-    "Returned the created HSD_GObj* and updated the header signature, avoiding a mismatch between implementation behavior and declarations.",
-    "Preserved conditional callback behavior: callback3 is assigned to Ground::x1C_callback, callback0 is invoked immediately, and callback2 is registered through HSD_GObjProc_8038FD54 only when non-NULL.",
-    "Matched the error-reporting path with the exact OSReport string, __FILE__, and hardcoded source line number used in the diff.",
-    "Used specific headers for display, GX link, and gobj proc dependencies instead of leaving the implementation dependent on placeholders or incidental declarations."
+    "The matched implementation keeps the callback dispatch table local to grzebesroute.c and uses StageCallbacks consistently instead of hardcoding repeated setup logic per object.",
+    "Changing the public prototype from void to HSD_GObj* aligns the declaration with the implemented behavior and allows callers or future decomp work to rely on the created object return value.",
+    "The function guards every optional callback before assignment, invocation, or process registration, matching the sparse callback table pattern used by stage object initialization code.",
+    "The implementation preserves the original diagnostic behavior with OSReport on null gobj creation, including the fixed source line constant visible in the diff."
   ],
   "decomp_lessons": [
-    "For stage ground-object constructors, look for a StageCallbacks array indexed by gobj_id; matching the .data table can be as important as matching the function body.",
-    "A common stage setup pattern is Ground_801C14D0(gobj_id), clear Ground x8/xC callbacks, attach grDisplay_801C5DB0 with GObj_SetupGXLink, then wire stage callbacks into Ground fields or gobj procs.",
-    "Do not ignore return types on previously stubbed stage functions; this PR shows a void prototype was wrong once the function body returned the created HSD_GObj*.",
-    "OSReport failure strings and line-number literals are part of the matching surface and should be reproduced exactly when evidence supports them.",
-    "The callback table’s unused callback1 field can still be present in data even when this constructor only reads callback0, callback2, and callback3."
+    "For stage object spawn helpers, expect a pattern of indexing a StageCallbacks table by gobj_id, calling Ground_801C14D0, configuring Ground user_data callback slots, setting a GX link, invoking an init callback, and registering an update/process callback.",
+    "A function previously declared void may need a header signature correction once the matched body shows that it returns an HSD_GObj*; header accuracy can be part of matching.",
+    "Stage callback arrays may include a sentinel row of NULL callbacks and zero flags; preserving table shape is important for matching and future reverse engineering.",
+    "Includes should be driven by the concrete matched calls: grDisplay_801C5DB0 requires gr/grdisplay.h, GObj_SetupGXLink requires baselib/gobjgxlink.h, and HSD_GObjProc_8038FD54 requires baselib/gobjproc.h."
   ],
   "naming_conventions": [
-    "Kept stage functions under the grZebesRoute_8020Bxxx address-based naming pattern.",
-    "Named the reconstructed callback table grZe_Route_803E5DB0, using the stage-specific grZe_Route prefix and the data address suffix.",
-    "Used descriptive local names gobj_id and callbacks while retaining common decomp local shorthand gp for Ground*.",
-    "Header declarations retain address comments such as /* 20B260 */ beside each grZebesRoute symbol."
+    "Stage-local callback table named grZe_Route_803E5DB0 follows the stage prefix plus asset/route identifier plus address convention.",
+    "Unidentified stage functions remain address-suffixed, e.g. grZebesRoute_8020B260, grZebesRoute_8020B348, grZebesRoute_8020B374.",
+    "The gobj identifier parameter is named gobj_id, matching its use as an index into the stage callback table and as the argument to Ground_801C14D0.",
+    "The Ground user_data pointer is named gp, a short convention used for ground object data access in this implementation."
   ],
   "assembly_or_matching_tactics": [
-    "Use a direct StageCallbacks* callbacks = &grZe_Route_803E5DB0[gobj_id] expression before the Ground_801C14D0 call to reflect the observed control/data flow.",
-    "Model the StageCallbacks initializer with explicit NULL sentinel and exact flag constants, including 0xC0000000 for the second route entry.",
-    "Keep callback null checks separate and in order: callback3 assignment, callback0 invocation, then callback2 proc registration.",
-    "Use GObj_SetupGXLink(gobj, grDisplay_801C5DB0, 3, 0) and HSD_GObjProc_8038FD54(gobj, callbacks->callback2, 4) with the exact small integer arguments from the diff.",
-    "Match the failure branch with OSReport and return gobj at the end rather than early-returning in each branch."
+    "Used a StageCallbacks table to reproduce indirect callback loads and calls rather than expanding them inline.",
+    "Matched conditional control flow by checking gobj for NULL before touching user_data and by guarding callback0, callback2, and callback3 independently.",
+    "Preserved exact setup call argument ordering for GObj_SetupGXLink(gobj, grDisplay_801C5DB0, 3, 0) and HSD_GObjProc_8038FD54(gobj, callbacks->callback2, 4).",
+    "Kept the OSReport string and explicit line number constant, which are often required for matching when debug/report strings are present."
   ],
   "review_feedback": [
-    "No human review comments or formal reviews were present in the provided slice.",
-    "decomp-dev bot reported GALE01 matched code at 57.52%, a +0.14% and +5580 byte improvement.",
-    "decomp-dev bot reported main/melee/gr/grzebesroute grZebesRoute_8020B260 improved by +231 bytes from 0.00% to 99.97%.",
-    "decomp-dev bot reported main/melee/gr/grzebesroute .data improved by +82 bytes from 0.00% to 41.24%."
+    "No review comments were present in the provided PR slice.",
+    "No PR body or human discussion was available beyond the title, so rationale is inferred from the diff only."
   ],
   "searchable_terms": [
     "pr-2286",
     "PsiLupan",
     "Match grZebesRoute_8020B260",
     "grZebesRoute_8020B260",
+    "grzebesroute.c",
+    "grzebesroute.h",
     "grZe_Route_803E5DB0",
-    "grzebesroute",
     "StageCallbacks",
     "Ground_801C14D0",
     "Ground",
-    "Ground_GObj",
     "HSD_GObj",
+    "Ground_GObj",
     "gobj_id",
+    "user_data",
+    "x8_callback",
+    "xC_callback",
+    "x1C_callback",
     "GObj_SetupGXLink",
     "grDisplay_801C5DB0",
     "HSD_GObjProc_8038FD54",
     "OSReport",
-    "x8_callback",
-    "xC_callback",
-    "x1C_callback",
-    "callback0",
-    "callback2",
-    "callback3",
-    "0xC0000000",
-    "src/melee/gr/grzebesroute.c",
-    "src/melee/gr/grzebesroute.h"
+    "grZebesRoute_8020B348",
+    "grZebesRoute_8020B374",
+    "grZebesRoute_8020B37C",
+    "grZebesRoute_8020B380",
+    "grZebesRoute_8020B3C0",
+    "grZebesRoute_8020B424",
+    "grZebesRoute_8020B42C",
+    "grZebesRoute_8020B4D4",
+    "grZebesRoute_8020B384",
+    "grZebesRoute_8020B3B0",
+    "grZebesRoute_8020B3B8",
+    "grZebesRoute_8020B3BC",
+    "Zebes Route",
+    "stage object initialization",
+    "gobj creation helper"
   ],
   "follow_up_queries": [
-    "Find other stage object setup functions that call Ground_801C14D0 and wire StageCallbacks into Ground callback fields.",
-    "Search for StageCallbacks tables with NULL sentinels and 0xC0000000 flags in other gr modules.",
-    "Compare grZebesRoute_8020B260 against analogous gr* constructors that call GObj_SetupGXLink and HSD_GObjProc_8038FD54.",
-    "Investigate why decomp.dev still reported grZebesRoute_8020B260 at 99.97% rather than 100.00% after this PR."
+    "Find other stage files that implement a gobj creation helper using StageCallbacks plus Ground_801C14D0 and GObj_SetupGXLink.",
+    "Search for remaining void prototypes that should return HSD_GObj* after stage object creation functions are matched.",
+    "Compare grZe_Route_803E5DB0 callback table layout with neighboring Zebes or Brinstar route stage callback tables.",
+    "Search for OSReport(\"%s:%d: couldn t get gobj(id=%d)\\n\") uses to identify similar unmatched stage helpers."
   ],
-  "confidence": 0.9
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

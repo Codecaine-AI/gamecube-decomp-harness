@@ -11,105 +11,95 @@
     "merged_at": "2026-04-20T16:40:42Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large gmregclear decompilation PR. It replaced many gmregclear placeholders with C, expanded local state/layout knowledge, and promoted several header/type signatures. decomp.dev reported +3292 matched bytes, six new full matches, and many near-match improvements; the remaining regressions were explicitly attributed by the author to data locality pending linking.",
+  "summary": "Large gmregclear decompilation PR for the game-mode regular clear/adventure/multiman area. It replaced many nonmatching stubs in src/melee/gm/gmregclear.c with C implementations, expanded local structs and BSS layout knowledge, and upgraded gmregclear.h/types.h prototypes from UNK_RET/UNK_T toward typed signatures. The only human note says regressions were caused by data locality and expected to be solved when linking, so review intent is weak beyond that.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "struct-layout",
-      "game-mode-logic",
-      "results-ui",
-      "records"
+      "prototype-typing",
+      "game-mode-data"
     ],
     "systems": [
       "game-mode",
-      "gmregclear",
-      "1P modes",
       "regular-clear",
-      "clear-results-ui",
-      "record-tables"
+      "adventure-mode",
+      "all-star",
+      "multiman",
+      "start-melee-setup"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gm/gmregclear.c",
-      "role": "Main decompilation work: new C bodies, local structs, state layouts, UI/model/text handling, spawn/record logic.",
-      "diff_stats": "+2403/-67"
-    },
-    {
-      "path": "src/melee/gm/gmregclear.h",
-      "role": "Promoted many gmregclear prototypes from UNK_RET/UNK_PARAMS to typed signatures and added a needed forward include.",
-      "diff_stats": "+20/-18"
-    },
-    {
-      "path": "src/melee/gm/types.h",
-      "role": "Improved shared gm type information: callback signatures, float fields, and a newly exposed u16 field in lbl_8046B6A0_24C_t.",
-      "diff_stats": "+8/-6"
-    }
+    "src/melee/gm/gmregclear.c",
+    "src/melee/gm/gmregclear.h",
+    "src/melee/gm/types.h"
   ],
   "what_changed": [
-    "Added the includes needed by the new C bodies, including baselib gobj/jobj/aobj/mobj/sislib/controller headers, gm_1601/gm_1A36/gm_1B03/gmregcommon, interface headers, and lblanguage.",
-    "Expanded gmregclear state structs: lbl_80472D28_t now exposes JObj, GObj, ImageDesc, Archive, DynamicModelDesc, HSD_Text, counters, and byte flags; lbl_80472E48_t grew from size 0x80 to 0x90 with a matching STATIC_ASSERT; lbl_80472ED8 was retyped from padding into PlayerInitData, RegClearSpawnEntry arrays/pointers, counters, and flags.",
-    "Added local data/layout helpers RegClearSpawnEntry, RegClearCharEntry, RecordBlock, fn_8017FA1C_arg, bitfield overlays, and the u16 joint/table array lbl_803D8B88.",
-    "Implemented gm_8017CE34 as a large StartMeleeData setup routine using UnkAdventureData callbacks, rule flags, PlayerInitData initialization, CPU/color setup, special stage/rule cases, and gmRegSetupEnemyColorTable.",
-    "Implemented or improved character/opponent helper logic in fn_8017D9C0, gm_8017DB88, and fn_8017DD7C, including random character selection using HSD_Randi, sentinel value 0x21, callback-driven character attributes, and a corrected fn_8017DD7C signature.",
-    "Implemented match-end flag routines fn_8017E8A4 and fn_8017EE40 using MatchEnd data, stage lookups, time checks, player slot/character checks, and packed bit writes to _x448.",
-    "Implemented clear/decision screen UI and model functions around fn_8017F2A4, fn_8017F47C, fn_8017F608, fn_8017FA1C, fn_8017FBA4, fn_8017FE54, fn_8017FF1C, fn_801803FC, and fn_80180630, including HSD_SisLib text creation, language-specific SdDec/SdClr assets, GmRegClr archive loading, JObj animation, controller navigation, and score/count display updates.",
-    "Implemented distance/display and related flow functions fn_80180C60, fn_80181598, and fn_80181708, with digit animation, timer hiding, audio triggers, player-freeze calls, and IfHrNoCn model setup evidence in nearby code.",
-    "Implemented spawn and record handling functions fn_80181C80, fn_80181E18, gm_80182174, gm_80182578, fn_80182B5C, and gm_80182DF0, using lbl_803D8D08-backed table data, mode cases 0x21-0x26/33-38, sentinel 0x3E7, and RecordBlock score/icon/time layouts.",
-    "Updated gmregclear.h prototypes for many previously unknown routines, including gm_8017CE34, fn_8017D9C0, gm_8017DB88, fn_8017DD7C, fn_8017F1B8, fn_8017F2A4, fn_8017F47C, fn_8017F608, fn_8017FA1C, fn_8017FBA4, fn_8017FF1C, fn_801803FC, fn_80180C60, fn_80181598, fn_80181708, fn_80181C80, and gm_80182578.",
-    "Updated types.h so Unk1PData.xC.x24 entries use f32 for x4/x8, UnkAdventureData callback fields x48/x50/x58 have concrete function pointer signatures, and lbl_8046B6A0_24C_t exposes xE at offset 0xE."
+    "Implemented a large block of previously stubbed gmregclear.c functions, including gm_8017CE34, fn_8017D9C0, gm_8017DB88, fn_8017DD7C, fn_8017E8A4, fn_8017EE40, fn_8017F1B8, fn_8017F2A4, fn_8017F47C, fn_8017F608, fn_8017FA1C, fn_8017FBA4, fn_8017FE54, fn_8017FF1C, fn_801803FC, fn_80180630, fn_80180C60, fn_80181598, fn_80181708, fn_80181C80, fn_80181E18, gm_80182174, gm_80182578, fn_80182B5C, and gm_80182DF0.",
+    "Expanded gmregclear.c include dependencies for baselib objects/controllers/text, game-mode helpers, interface HUD helpers, language/card/time libraries, item and fighter libraries, and stage/ground helpers needed by the new C implementations.",
+    "Refined local data layouts: lbl_80472D28_t was expanded with HSD_JObj pointers, HSD_ImageDesc, HSD_Archive, DynamicModelDesc, HSD_Text, scalar fields, and explicit byte fields; lbl_80472E48_t grew from size 0x80 to 0x90 with a new STATIC_ASSERT.",
+    "Added local typed table/entry structs RegClearSpawnEntry and RegClearCharEntry and replaced an opaque lbl_80472ED8 byte blob with a structured BSS layout containing PlayerInitData, spawn-entry arrays/pointers, and fields at offsets x6BC through x6CD.",
+    "Added data table lbl_803D8B88 as a u16 array with ten stage/character-like constants in gmregclear.c.",
+    "Updated gmregclear.h prototypes from UNK_RET/UNK_PARAMS to concrete return/argument types for many functions, including typed StartMeleeData, UnkAdventureData, HSD_Text, HSD_GObj, PlayerInitData, InternalStageId, and function pointer callback signatures.",
+    "Updated types.h so Unk1PData.xC.x24 entries use f32 fields for x4/x8 instead of int, added a u16 xE in lbl_8046B6A0_24C_t layout, and typed several UnkAdventureData callback pointers such as x48, x50, x58, x64, and x68.",
+    "Implemented gm_8017CE34 as a substantial StartMeleeData setup routine that configures rules, player slots, enemy colors, Adventure/regular-clear flags, stage-derived values, callback-driven CPU/color/data fields, and special cases such as sentinel character 0x21 and c_kind values.",
+    "Implemented fn_8017D9C0 as a character-selection helper that shuffles lbl_803D79F0 with HSD_Randi, skips characters already in supplied exclusion arrays, checks gm_80164840, and falls back to sentinel 0x21.",
+    "Implemented gm_80182DF0 to populate a static UnkMultimanData result from lbl_803D8D08 with case-specific offsets for multiman modes 33 through 38."
   ],
   "smart_moves": [
-    "Converted large anonymous/padded globals into offset-annotated partial structs instead of trying to fully semantically name every field at once; this made many later offsets usable while preserving uncertainty with xNN/pad_NN names.",
-    "Kept unstable helper layouts local to gmregclear.c, such as RecordBlock, RegClearSpawnEntry, RegClearCharEntry, and fn_8017FA1C_arg, avoiding premature public API commitments.",
-    "Used typed callbacks in UnkAdventureData so gm_8017CE34 and gm_8017DB88 could call table-driven difficulty/color/float functions without opaque UNK_T casts.",
-    "Used bitfield overlay structs for packed flags in MatchEnd._x448 and lbl_80472E48.x0, making bit writes explicit while still matching narrow byte storage.",
-    "Modeled repeated record-table blocks with RecordBlock where useful, but retained direct lbl_803D8D08 offsets in gm_80182DF0 where the function's data access pattern required it.",
-    "Documented the data-ordering problem in the PR discussion instead of obscuring it: the author stated that regressions were due to data locality and would be solved when linking."
+    "Used explicit offset-annotated struct fields and STATIC_ASSERTs to lock down inferred layout while still keeping unknown names as x-offset fields.",
+    "Converted header prototypes as matching evidence became available instead of leaving broad UNK_RET/UNK_PARAMS declarations, improving cross-file type checking for future work.",
+    "Modeled callback fields in UnkAdventureData with concrete signatures, which makes gm_8017CE34/gm_8017DB88 call sites more readable and prevents argument-width drift.",
+    "Kept address-based function names such as fn_8017D9C0 and gm_8017CE34 where semantic names were not yet proven, avoiding overconfident naming.",
+    "Preserved matching-sensitive details such as PAD_STACK calls, explicit casts between u8/s8/s32, function pointer casts, and pointer arithmetic for StartMeleeData player slots.",
+    "Structured lbl_80472ED8 around real offsets instead of a monolithic pad, enabling later decompilation to reuse spawn-entry pointers and PlayerInitData fields."
   ],
   "decomp_lessons": [
-    "When a file is blocked by many unknown callbacks, promoting shared type signatures in types.h can unlock large local matches; here UnkAdventureData callback types and Unk1PData float fields were important.",
-    "For state-heavy game-mode files, expose fields by offset and add STATIC_ASSERTs as soon as size evidence is known; lbl_80472E48_t's updated 0x90 size is a useful pattern.",
-    "Local bitfield overlays are a practical way to express packed result/flow flags without globally renaming unknown bytes too early.",
-    "Header cleanup should follow decompiled bodies immediately, but remaining unchanged UNK_RET/UNK_PARAMS entries are a useful follow-up signal when implementation evidence exists but public signatures are still uncertain.",
-    "Clear/results UI code often needs exact HSD_SisLib calls, language-asset branches, JObj traversal, and text positioning; matching may depend on preserving awkward temp variables and call order.",
-    "Data-locality regressions can appear even when code matching improves substantially; record them explicitly and revisit after linking/data-order work rather than treating them as semantic failures."
+    "When a gm file has many interconnected stubs, matching one large setup function can require typing callbacks, player init structs, BSS globals, and header declarations together.",
+    "For mode data tables, sentinel values such as 0x21 should be preserved explicitly until their semantic enum name is confirmed.",
+    "Large BSS globals can be progressively recovered by replacing pad blobs with offset-accurate fields and retaining padding where meaning is unknown.",
+    "Function pointer callback types in shared structs are high-value: once recovered, they improve both caller implementations and future table-driven mode code.",
+    "Data locality can cause regressions even when source logic is closer to matched; the PR comment explicitly notes regressions were due to data locality and expected to be resolved when linking.",
+    "Use STATIC_ASSERT after resizing inferred structs, especially when a struct size changes, as lbl_80472E48_t did from 0x80 to 0x90.",
+    "Keep local temporary variable types and signedness close to the assembly, especially in branch-heavy setup code using u8, s8, and s32 comparisons."
   ],
   "naming_conventions": [
-    "Address-based symbols remain for unknown functions: gm_8017CE34, fn_8017F608, gm_80182DF0, etc.",
-    "Offset-style field names are used for partial layouts: x20, x84, xC0, x6A4, pad_30, pad_6BD.",
-    "Local helper structs use descriptive but still conservative names: RegClearSpawnEntry, RegClearCharEntry, RecordBlock, fn_8017FA1C_arg.",
-    "Public prototypes in gmregclear.h keep address comments such as /* 17CE34 */ and use concrete types only where the diff had evidence.",
-    "Sentinel/value conventions visible in this slice include character sentinel 0x21, spawn-table sentinel 0x3E7, and record/mode cases 0x21-0x26 / 33-38."
+    "Unidentified functions retain address-based names with gm_ or fn_ prefixes, e.g. gm_8017CE34, fn_8017D9C0, fn_80180C60.",
+    "New partially understood structs use descriptive module prefixes when possible, e.g. RegClearSpawnEntry and RegClearCharEntry.",
+    "Unknown fields are named by offset, such as x6BC, x6BE, x6C0, x6CD, x48, x64, and x68.",
+    "Padding fields are named pad_<offset>, preserving layout without inventing semantics.",
+    "Global labels remain lbl_80xxxxxx when no semantic name is proven, e.g. lbl_80472ED8, lbl_803D8B88, lbl_803D8D08."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK after several functions or returns to shape stack size, including examples with 8, 0x18, 0x24, 0x30, and 0x48 byte pads.",
-    "Used #pragma dont_inline around matching-sensitive functions such as fn_8017E8A4, fn_8017EE40, fn_8017F14C, and fn_80181BFC.",
-    "Preserved narrow casts and signedness details, especially u8/s8/s32 casts around character IDs, rule flags, callback returns, and PlayerInitData fields.",
-    "Used pointer arithmetic into StartMeleeData/PlayerInitData arrays where struct typing alone did not express the original access pattern.",
-    "Used volatile local storage in fn_80181C80 to influence stack/register allocation.",
-    "Kept matching-shaped control flow where visible, including goto/label style in fn_80182B5C, unreachable PAD_STACK markers after returns, and repeated/nested HSD_JObjGetChild/HSD_JObjGetNext traversal chains.",
-    "Used language-specific branches through lbLang_IsSavedLanguageUS for SdDec.usd/SdDec.dat and SdClr.usd/SdClr.dat, preserving asset load behavior and data references."
+    "Inserted PAD_STACK(24) and PAD_STACK(8) in implemented functions where needed for stack matching.",
+    "Used explicit u8/s8/s32 casts around comparisons and callback arguments to match PowerPC integer promotion behavior.",
+    "Preserved pointer arithmetic into StartMeleeData player records, including increments of 0x24 and base offset 0x60, rather than forcing a cleaner abstraction that might not match.",
+    "Represented table slicing with byte-pointer casts and fixed offsets in gm_80182DF0, e.g. base + 0x6C, 0x88, 0x12C, 0x148, and other case-specific offsets.",
+    "Used function pointer casts for rule callbacks where exact typedefs were not fully established.",
+    "Kept sentinel-driven loops and fallbacks using 0x21 in character arrays instead of replacing them with speculative constants.",
+    "Used HSD_Randi shuffling in fn_8017D9C0 to mirror random selection behavior while keeping the original data buffer lbl_803D79F0 as the base."
   ],
   "review_feedback": [
-    "No human review comments or formal reviews were present in the slice.",
-    "decomp.dev reported matched code at 64.36%, a +0.08% improvement and +3292 bytes.",
-    "decomp.dev listed six new full matches: fn_8017F608, fn_8017FBA4, fn_8017E8A4, fn_8017FA1C, gm_80182DF0, and fn_8017DD7C.",
-    "decomp.dev also listed 21 improvements in unmatched gmregclear items, including gm_8017CE34 at 95.96%, fn_80180C60 at 97.58%, gm_80182578 at 96.56%, and fn_8017FF1C at 99.38%.",
-    "The report showed one broken match, gm_80182554 dropping from 100.00% to 99.44%, and a .data regression from 4.99% to 0.33%.",
-    "Author comment: \"Regressions are caused by data locality, will be solved when linking\"."
+    {
+      "source": "issue comment",
+      "text": "Regressions are caused by data locality, will be solved when linking",
+      "implication": "Any observed regressions were acknowledged as link/data-placement related rather than necessarily source-logic errors."
+    },
+    {
+      "source": "review metadata",
+      "text": "No review comments or formal reviews were present in the provided slice.",
+      "implication": "Reviewer-specific rationale and requested changes cannot be inferred from this dump."
+    }
   ],
   "searchable_terms": [
     "pr-2422",
     "Jj/gmregclear",
-    "jj/gmregclear",
     "jurrejelle",
     "gmregclear",
-    "src/melee/gm/gmregclear.c",
-    "src/melee/gm/gmregclear.h",
-    "src/melee/gm/types.h",
+    "gmregclear.c",
+    "gmregclear.h",
+    "types.h",
     "gm_8017CE34",
     "fn_8017D9C0",
     "gm_8017DB88",
@@ -122,6 +112,7 @@
     "fn_8017F608",
     "fn_8017FA1C",
     "fn_8017FBA4",
+    "fn_8017FE54",
     "fn_8017FF1C",
     "fn_801803FC",
     "fn_80180630",
@@ -134,32 +125,44 @@
     "gm_80182578",
     "fn_80182B5C",
     "gm_80182DF0",
+    "StartMeleeData",
+    "UnkAdventureData",
+    "Unk1PData",
+    "PlayerInitData",
+    "InternalStageId",
     "RegClearSpawnEntry",
     "RegClearCharEntry",
-    "RecordBlock",
+    "UnkMultimanData",
+    "lbl_80472ED8",
     "lbl_80472D28",
     "lbl_80472E48",
-    "lbl_80472ED8",
     "lbl_803D8B88",
-    "UnkAdventureData",
-    "PlayerInitData",
-    "HSD_SisLib",
-    "GmRegClr",
-    "SdClr",
-    "SdDec",
-    "IfHrNoCn",
+    "lbl_803D8D08",
+    "STATIC_ASSERT",
     "PAD_STACK",
-    "dont_inline",
+    "HSD_Randi",
+    "HSD_Text",
+    "HSD_GObj",
+    "HSD_JObj",
+    "DynamicModelDesc",
     "data locality",
-    ".data regression"
+    "regular clear",
+    "adventure mode",
+    "multiman"
   ],
   "follow_up_queries": [
-    "Recheck gm_80182554 and .data after linking/data-locality work lands.",
-    "Promote semantic names for lbl_80472D28_t, lbl_80472E48_t, lbl_80472ED8, RegClearSpawnEntry, RegClearCharEntry, and RecordBlock when gameplay meaning is confirmed.",
-    "Audit remaining gmregclear.h UNK_RET/UNK_PARAMS entries near functions that now have C bodies, especially fn_80181E18, gm_80182174, and fn_80182B5C.",
-    "Investigate the remaining mismatches in gm_8017CE34, fn_80180C60, gm_80182578, fn_8017FF1C, and other near-matches reported by decomp.dev.",
-    "Confirm whether RecordBlock can safely replace more direct lbl_803D8D08 offset accesses without hurting matching.",
-    "Continue typing UnkAdventureData x5C/x60 and other callback/table fields as additional callsites are decompiled."
+    "Check later gmregclear PRs for semantic renames of RegClearSpawnEntry, RegClearCharEntry, lbl_80472ED8, and the 0x21 sentinel.",
+    "Search for PRs that resolved the data-locality regressions mentioned in the issue comment.",
+    "Inspect later UnkAdventureData typing to see whether x5C/x60 callbacks were eventually given concrete signatures.",
+    "Compare subsequent gmregclear.h changes for functions still left as UNK_RET/UNK_PARAMS after this PR, such as fn_80181E18, gm_80182174, fn_80182B5C in the excerpt."
   ],
-  "confidence": 0.86
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

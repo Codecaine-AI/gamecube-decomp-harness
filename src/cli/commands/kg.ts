@@ -250,7 +250,7 @@ export async function kgRankFeatures(globals: GlobalArgs, args: Map<string, stri
   const dbPath = await ensureGraphReady(globals, args);
   const limit = numberArg(args, "--limit", 50);
   const candidateLimit = numberArg(args, "--candidate-limit", limit);
-  const snapshot = loadBoardSnapshot(knowledgeRepoRoot(globals), candidateLimit);
+  const snapshot = loadBoardSnapshot(knowledgeRepoRoot(globals), candidateLimit, { graphDbPath: dbPath });
   const store = openKnowledgeGraph(dbPath);
   try {
     const features = snapshot.candidates.slice(0, limit).map((candidate) => {
@@ -262,7 +262,7 @@ export async function kgRankFeatures(globals: GlobalArgs, args: Map<string, stri
       return {
         candidate,
         graph,
-        combined_priority: Number((candidate.priority + graph.priority_bonus).toFixed(4)),
+        combined_priority: candidate.priority,
       };
     });
     console.log(JSON.stringify({ graph_db: dbPath, generated_at: new Date().toISOString(), features }, null, 2));

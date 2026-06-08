@@ -11,90 +11,70 @@
     "merged_at": "2026-05-16T20:21:58Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Readability/naming follow-up for `lbmthp`: `THPDecComp` THP header unknowns were renamed to semantic fields, repeated float literals were represented as named `.sdata2` constants, and `fn_8001EBF0` gained a small fuzzy-match improvement from 98.77% to 99.23% by folding `ALIGN_32` into a single assignment. No new 100% function matches were claimed. Reviewer approved but cautioned that data-section matching is generally not worth prioritizing before the whole translation unit's code is matched.",
+  "summary": "Readability and small matching follow-up in the lb THP movie playback/decode code. The PR renamed THPDecComp header fields from unk_08..unk_28 to THP-derived names such as version, buf_size, x_size, y_size, frame_rate, num_frames, first_frame, frame_offsets, and first_frame_size, propagated those names through lbmthp.c logging and setup code, and introduced named static float/f64 constants for existing .sdata2 values used by alarm timing and GX texture LOD setup. It also slightly improved fn_8001EBF0 fuzzy matching by folding ALIGN_32(data->unk_100) into a single assignment. No new 100% function matches were claimed.",
   "change_classification": {
-    "primary_type": "naming/readability follow-up",
+    "primary_type": "naming/readability cleanup",
     "categories": [
-      "naming",
+      "decomp-matching",
       "headers",
+      "naming",
       "types-structs",
-      "static-data",
-      "decomp-matching"
+      "float-constants",
+      "readability"
     ],
     "systems": [
       "library",
       "lb",
-      "lbmthp",
-      "THP movie playback"
+      "THP",
+      "movie-playback"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/lb/lbmthp.h",
-      "role": "Renamed `THPDecComp` header fields at offsets 0x08-0x28 from `unk_*` placeholders to THP header names."
-    },
-    {
-      "path": "src/melee/lb/lbmthp.c",
-      "role": "Propagated the new field names through THP load/init, frame-buffer setup, diagnostics, alarm setup, texture LOD setup, and the `fn_8001EBF0` ALIGN_32 matching tweak."
-    },
-    {
-      "path": "src/melee/lb/lbmthp.static.h",
-      "role": "Replaced unused placeholder static floats with named const `.sdata2` labels `lbl_804D7CC8`, `lbl_804D7CD0`, and `lbl_804D7CD8`."
-    }
+    "src/melee/lb/lbmthp.c",
+    "src/melee/lb/lbmthp.h",
+    "src/melee/lb/lbmthp.static.h"
   ],
   "what_changed": [
-    "`THPDecComp` fields `unk_08` through `unk_28` were renamed to `version`, `buf_size`, `x_size`, `y_size`, `frame_rate`, `num_frames`, `first_frame`, `frame_offsets`, and `first_frame_size` while preserving offsets and padding.",
-    "`fn_8001EB14` now copies THP header values using the semantic names: `num_frames`, `x_size`, `y_size`, and `buf_size`, and checks `frame_offsets` and `version` instead of unnamed fields.",
-    "`fn_8001ECF4` now uses `first_frame_size` and `first_frame` for frame-buffer/file-offset setup and prints the named header fields in its diagnostic `OSReport` block.",
-    "`lbmthp.static.h` introduced `static const float lbl_804D7CC8 = 0.016666668f`, `static const f64 lbl_804D7CD0 = 4503599627370496e0`, and `static const float lbl_804D7CD8 = 0.0f`, replacing placeholder symbols `lb_804D7CC0` and `lbl_804D7CE0`.",
-    "`lbMthp_8001F410` now uses `lbl_804D7CC8` for the periodic alarm timing calculation instead of spelling `0.016666668f` inline.",
-    "`lbMthp_8001F67C` now uses `lbl_804D7CD8` for the three `GXInitTexObjLOD` zero-float arguments instead of inline `0.0f` literals.",
-    "`fn_8001EBF0` changed `aligned_100 = data->unk_100; aligned_100 = ALIGN_32(aligned_100);` into `aligned_100 = ALIGN_32(data->unk_100);`, which the PR body and decomp.dev bot report as improving the fuzzy match from 98.77% to 99.23%.",
-    "Verification reported `python configure.py && ninja` green with `build/GALE01/main.dol: OK`, clean builds for consumers including `mn` and `gm`, and preserved match status for previously matched `lbmthp.c` functions."
+    "Renamed the first THPDecComp header region fields in src/melee/lb/lbmthp.h: unk_08 -> version, unk_0C -> buf_size, unk_10 -> x_size, unk_14 -> y_size, unk_18 -> frame_rate, unk_1C -> num_frames, unk_20 -> first_frame, unk_24 -> frame_offsets, and unk_28 -> first_frame_size.",
+    "Updated lbmthp.c call sites to use the named THP header fields when copying header values into runtime fields: width comes from x_size, height from y_size, unk_100 from buf_size, and unk_40 from num_frames.",
+    "Updated checks and debug OSReport output to use semantic field names such as frame_offsets, version, frame_rate, first_frame, and first_frame_size instead of raw unk offsets.",
+    "Changed first-frame streaming setup in fn_8001ECF4 to use first_frame_size and first_frame for compressed size pointer and current file offset.",
+    "Added named static constants in lbmthp.static.h: lbl_804D7CC8 = 0.016666668f, lbl_804D7CD0 = 4503599627370496e0, and lbl_804D7CD8 = 0.0f.",
+    "Replaced inline float literals in lbMthp_8001F410 and lbMthp_8001F67C with the new static constants where required by the data layout/matching attempt.",
+    "Removed older unused placeholder static float declarations lb_804D7CC0 and lbl_804D7CE0, according to the PR summary because those addresses are emitted as anonymous compiler symbols.",
+    "Adjusted fn_8001EBF0 local ordering/assignment so aligned_100 is assigned directly as ALIGN_32(data->unk_100), improving fuzzy match from 98.77% to 99.23% per the PR text."
   ],
   "smart_moves": [
-    "Renamed only fields with clear THP-header evidence and left unrelated unresolved members such as `unk_40`, `unk_100`, and stream-player fields as unknowns rather than guessing.",
-    "Kept struct offsets visible in `lbmthp.h`, making the semantic rename safe for a binary-matching decompilation workflow.",
-    "Propagated names through runtime copies and error-reporting paths, so future readers can connect header offsets to actual behavior such as dimensions, frame counts, and first-frame file offsets.",
-    "Used one direct `ALIGN_32(data->unk_100)` assignment in `fn_8001EBF0`, a small source-shape change that improved the fuzzy score without changing the visible logic.",
-    "Recorded that no new 100% function matches were produced, preventing the PR from being misclassified as a major matching milestone."
+    "Used the THP file header layout to replace meaningless unk offset fields with domain-specific names, making later decompilation work in lbmthp much easier to reason about.",
+    "Propagated the new struct names through both functional code paths and debug OSReport dumps, so runtime diagnostics now document the header semantics too.",
+    "Kept struct offsets unchanged while renaming fields, minimizing risk for existing consumers and preserving binary layout.",
+    "The ALIGN_32 refactor in fn_8001EBF0 is a small but useful matching tactic: combine a load and alignment operation at the assignment site when it better reflects compiler scheduling/codegen.",
+    "Recorded that this was not a new full-match PR and explicitly preserved prior match status, which helps future reviewers distinguish readability progress from matching progress."
   ],
   "decomp_lessons": [
-    "For struct cleanup PRs, preserve exact offset comments and padding while replacing `unk_*` names with format/container terminology when there is clear evidence.",
-    "When header field names are introduced, update all diagnostic and copy sites in the same PR; this makes debug `OSReport` blocks useful evidence for later decomp work.",
-    "Tiny expression-shape changes can affect codegen and fuzzy matching; folding a transform into the initial assignment may be worth trying for unmatched functions.",
-    "Named float/data labels can improve readability, but reviewer feedback says data-section matching should not be a priority before the full translation unit's code is matched.",
-    "Keep build verification explicit when public headers change, especially when other modules consume the header."
+    "When a struct region is known to mirror an external binary/header format, naming fields after the format is preferable to keeping offset-based unk names, provided offsets and types remain stable.",
+    "For THP-related code, header fields at offsets 0x08..0x28 in THPDecComp correspond to version, buf_size, x_size, y_size, frame_rate, num_frames, first_frame, frame_offsets, and first_frame_size in this PR's interpretation.",
+    "Debug OSReport format usage can be strong evidence for naming struct fields because each reported value often maps to a known header label or dump line.",
+    "Named float constants can improve source readability and may be needed for data-section work, but reviewer feedback cautioned against over-prioritizing data-section matching before the whole translation unit's code is matched.",
+    "Preserving all existing function matches while doing header/naming cleanup is valuable; this PR explicitly notes build verification and no regressions in previously matched lbmthp.c functions.",
+    "Fuzzy match improvements may come from simple expression placement changes, not just larger control-flow rewrites."
   ],
   "naming_conventions": [
-    "`THPDecComp` header fields use plain THP/container names: `version`, `buf_size`, `x_size`, `y_size`, `frame_rate`, `num_frames`, `first_frame`, `frame_offsets`, `first_frame_size`.",
-    "Header dimensions are named `x_size` and `y_size`, while runtime copies remain `width` and `height`.",
-    "Frame-related names distinguish count, offset table, first-frame offset, and first-frame compressed size: `num_frames`, `frame_offsets`, `first_frame`, `first_frame_size`.",
-    "Unresolved non-header fields remain in `unk_*` form, which avoids over-naming uncertain data.",
-    "Static data symbols kept address-label names such as `lbl_804D7CC8`, `lbl_804D7CD0`, and `lbl_804D7CD8` rather than receiving speculative semantic names."
+    "Use THP header terminology directly for THPDecComp fields: version, buf_size, x_size, y_size, frame_rate, num_frames, first_frame, frame_offsets, first_frame_size.",
+    "Keep runtime/output dimensions as width and height while source header dimensions are x_size and y_size, reflecting the existing split in THPDecComp.",
+    "Static data labels remained address-style labels such as lbl_804D7CC8 and lbl_804D7CD8 rather than semantic names, likely because they correspond to emitted .sdata2 labels.",
+    "The THP warning string name str_Warning_frame_offsets_not_supported was preserved and aligns with the new frame_offsets field name."
   ],
   "assembly_or_matching_tactics": [
-    "`fn_8001EBF0`: using `aligned_100 = ALIGN_32(data->unk_100);` instead of assigning then aligning the temporary improved the unmatched-item fuzzy score from 98.77% to 99.23%.",
-    "The diff also reorders local declarations around `aligned_100`, `width`, and `height`; evidence only confirms this accompanied the fuzzy-score improvement, not that it alone caused it.",
-    "Replacing inline float literals with `.sdata2` labels made code reference `lbl_804D7CC8` for `0.016666668f` and `lbl_804D7CD8` for `0.0f` in alarm/texture setup.",
-    "No new 100% function match was achieved, and all previously matched functions were reported preserved."
+    "In fn_8001EBF0, assigning aligned_100 = ALIGN_32(data->unk_100) directly instead of assigning data->unk_100 first and aligning in a second statement improved the fuzzy match from 98.77% to 99.23%.",
+    "Replacing inline literals 0.016666668f and 0.0f with static constants at specific .sdata2 labels was part of data-section alignment/readability work, although the reviewer noted this may not be worth focusing on yet.",
+    "The f64 constant 4503599627370496e0 was introduced as lbl_804D7CD0, likely tied to compiler conversion support around __cvt_dbl_usll, but the provided evidence does not show direct use in the diff excerpt."
   ],
   "review_feedback": [
     {
-      "source": "ribbanya review",
-      "state": "APPROVED",
-      "feedback": "It is fine to merge, but generally a waste of time to try to get the data section to match before the code for the entire translation unit is matched.",
-      "lesson": "Do not over-prioritize `.sdata2` or data-section cleanup while the containing TU still has unmatched code."
-    },
-    {
-      "source": "itsgrimetime follow-up comment",
-      "feedback": "Author acknowledged the concern and said a new workflow opened/committed the PR before they had a chance to catch it.",
-      "lesson": "Workflow automation should not accidentally publish low-priority data-section-only cleanup before review intent is clear."
-    },
-    {
-      "source": "decomp-dev bot",
-      "feedback": "`main/melee/lb/lbmthp` unmatched item `fn_8001EBF0` improved from 98.77% to 99.23%.",
-      "lesson": "The PR had measurable but minor matching impact."
+      "source": "issue comment",
+      "feedback": "A reviewer/commenter said it is generally a waste of time to try to get the data section to match before the entire translation unit's code is matched. They said the PR was fine to merge, but they would not bother with that workflow in general.",
+      "author_response": "The author acknowledged the point and said they were trying a new workflow that opened/committed the PR before they had a chance to catch it."
     }
   ],
   "searchable_terms": [
@@ -117,31 +97,35 @@
     "lbMthp_8001F410",
     "lbMthp_8001F67C",
     "ALIGN_32",
-    ".sdata2",
+    "OSReport",
+    "OSSetPeriodicAlarm",
+    "__cvt_dbl_usll",
+    "GXInitTexObjLOD",
     "lbl_804D7CC8",
     "lbl_804D7CD0",
     "lbl_804D7CD8",
     "0.016666668f",
-    "4503599627370496e0",
     "0.0f",
-    "OSSetPeriodicAlarm",
-    "__cvt_dbl_usll",
-    "GXInitTexObjLOD",
-    "OSReport",
-    "LBMTHP_ASSERT",
-    "DVDConvertPathToEntrynum",
-    "lbFile_800161C4",
+    "4503599627370496e0",
     "data section matching",
-    "fuzzy match",
-    "#2504"
+    "sdata2",
+    "movieplayer",
+    "THP movie playback"
   ],
   "follow_up_queries": [
-    "lbmthp THPDecComp remaining unk_40 unk_100 unk_104 fields",
-    "THP header specification version buf_size x_size y_size frame_rate num_frames first_frame frame_offsets first_frame_size",
-    "fn_8001EBF0 100% match ALIGN_32 local variable order lbmthp",
-    "lbmthp .sdata2 lbl_804D7CC8 lbl_804D7CD0 lbl_804D7CD8 data section",
-    "ribbanya data section matching before full TU code matched",
-    "PR #2504 lbmthp THPDecComp naming follow-up"
+    "Find later PRs that continue matching lbmthp.c after PR #2506.",
+    "Search for THPDecComp field use in mn and gm consumers to confirm the renamed header layout remained stable.",
+    "Look for later renames of lbl_804D7CC8, lbl_804D7CD0, or lbl_804D7CD8 to semantic constant names.",
+    "Check whether fn_8001EBF0 eventually reached 100% and whether the ALIGN_32 single-assignment tactic was retained.",
+    "Review PR #2504 for the preceding lbmthp work that left the THPDecComp unk fields."
   ],
-  "confidence": 0.94
+  "confidence": 0.93,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

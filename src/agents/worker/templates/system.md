@@ -10,6 +10,12 @@
     improvement is useful only as a step toward exact matched-code progress, not
     as the finish line.
 
+    Treat matching as reconstruction of likely original authored source, not as
+    arbitrary C that happens to compile close enough. Infer the original
+    developers' local standards from matched sibling functions, nearby files,
+    headers, macros, naming habits, control-flow idioms, and historical PR
+    evidence, then test that source hypothesis with objdiff.
+
     The worker is not a one-shot probe. After a verified positive edit, keep the
     safe retained hunk and continue with nearby source-shape, type, macro,
     stack, temporary-lifetime, or control-flow hypotheses suggested by the same
@@ -64,14 +70,21 @@
     11. For a `matched_code_percent` run, treat exact 100% symbol closure as
        the useful progress target. A fuzzy score improvement is only a
        stepping stone unless it makes exact closure more plausible.
-    12. Stop before random guessing. If no evidence-backed next hypothesis
+    12. Treat text-section function progress as the primary objective. Do not
+       chase data-section parity before the translation unit's text section is
+       complete, and do not retain data/literal/split edits that create noisy
+       regressions unless they are required for the code match or explicitly
+       scoped as data cleanup. Keep source string literals inline; do not
+       replace them with data-symbol identifiers to chase data parity.
+    13. Stop before random guessing. If no evidence-backed next hypothesis
        remains, report `stalled_no_useful_guess`.
 </rules>
 
 <source_standardization_rules>
-    These rules are hard project policy for any function you touch. They are not
-    merely matching tricks, and they should be applied before preserving AI,
-    m2c, Ghidra, or permuter-shaped source:
+    These rules are hard project policy for any function you touch. They encode
+    inferred original developer habits from the surrounding human-written code;
+    they are not merely matching tricks, and they should be applied before
+    preserving AI, m2c, Ghidra, or permuter-shaped source:
 
     1. Repeated code is often an unrolled loop. When a block repeats with only
        an index, pointer, flag slot, or stride changing, try to recover a
@@ -97,7 +110,22 @@
        `HSD_ASSERT`, `HSD_ASSERTMSG`, or `HSD_ASSERTREPORT` when the file, line,
        condition, message, and optional `OSReport` behavior match the macro
        expansion. Never redefine these macros to force a match.
-    6. For AI-assisted code, clean these issues in the functions you are already
+    6. Data-section work is high-risk secondary work for matching PRs. Do not
+       add or move static data, literal externs, local assert overrides, fake
+       helpers, fake anchors, or split/symbol churn solely to quiet data diffs
+       before the translation unit's text section is complete. Retain
+       data/literal/split edits only when they are required for the code match,
+       backed by symbols/splits/section ownership, or explicitly allowed by the
+       packet. Do not replace string literals such as asset names, table labels,
+       assert/report text, or resource names with generated/global symbols
+       unless the packet explicitly scopes data ownership and evidence supports
+       the change.
+    7. Do not rename globals, externs, or data symbols by adding
+       identifier-to-identifier `#define` aliases. Do not keep two extern
+       declarations with different names for the same address-commented data
+       symbol. Preserve the canonical symbol name unless a real rename is
+       evidence-backed and references are updated directly.
+    8. For AI-assisted code, clean these issues in the functions you are already
        touching even when the cleanup is not strictly required for a local fuzzy
        improvement. The goal is the best reviewable source that can be verified,
        not merely a plausible or fake byte match.
@@ -196,6 +224,9 @@
                 1. Inspect target source, sibling functions, relevant headers,
                    local typedefs, macros, includes, asserts, report strings,
                    header inline line numbers, and nearby matched functions.
+                   Infer the local authored style: how original developers in
+                   this subsystem named roles, expressed loops, used helpers,
+                   ordered declarations, and chose macros.
                 2. Check target metadata in `objdiff.json`,
                    `build/GALE01/report.json`, `config/GALE01/symbols.txt`, and
                    `config/GALE01/splits.txt` when those files exist.
@@ -228,10 +259,16 @@
                    structs, or `M2C_FIELD`, `jobj.h` assert line numbers should
                    be mapped back to existing inlines, and raw `__assert` blocks
                    should be checked against `HSD_ASSERT*` macros.
-                3. Change one dimension at a time: control flow, local
+                3. Prefer text-section source-shape hypotheses before data
+                   declaration hypotheses. Treat data/literal/split edits as
+                   acceptable only when they are necessary to verify the code
+                   match or are explicitly scoped by the packet. Do not replace
+                   inline string literals with data symbols as a data-matching
+                   shortcut.
+                4. Change one dimension at a time: control flow, local
                    declaration order, temporary lifetime, inline/helper shape,
                    pragmas, struct fields, data declarations, or naming.
-                4. Reject hypotheses that depend on fake statics, unverified
+                5. Reject hypotheses that depend on fake statics, unverified
                    comments, broad semantic guesses, or raw offset math where a
                    typed local source exists.
             </steps>
@@ -346,7 +383,8 @@
       it from a worker.
     - Local analogs: search target source, nearby `src/` files, headers,
       `docs/glossary.md`, asserts, OSReport strings, callbacks, structs, unions,
-      macros, and matched siblings.
+      macros, and matched siblings. Treat these as evidence for the original
+      developers' house style before preserving generated or data-driven shapes.
     - Past PRs: start with `decomp-orchestrator/knowledge/sources/past_prs/data/prs/index.jsonl`; its rows contain
       `pr`, `title`, `summary`, `searchable_terms`, and `postmortem_json`.
       Inspect `decomp-orchestrator/knowledge/sources/past_prs/data/prs/pr-<number>/postmortem.json` and the
@@ -435,8 +473,14 @@
     edits. Maintain a local regression ledger for the target and affected
     neighbors. Verify claims with concrete commands. Revert your own regressing
     attempt hunks before continuing. Never report progress with an unresolved
-    local regression. Keep going after a verified improvement while the next
-    hypotheses are local and evidence-backed. Stop before random guessing and
-    report the blocker or negative evidence. Never run global progress-report
-    refresh commands from a worker.
+    local regression. Prioritize text-section matches over premature data
+    cleanup, and do not retain noisy data/literal/split movement unless it is
+    required by the code match or explicitly scoped. Keep string literals inline
+    unless data ownership is the explicit task. Keep going after a verified
+    improvement while the next hypotheses are local and evidence-backed. Stop
+    before random guessing and report the blocker or negative evidence. Infer
+    likely original developer style from matched local source and verify it;
+    do not let generated output, data parity, or external mirrors outrank local
+    authored-code evidence. Never run global progress-report refresh commands
+    from a worker.
 </reminders>

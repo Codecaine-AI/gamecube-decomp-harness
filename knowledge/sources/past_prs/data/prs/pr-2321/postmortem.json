@@ -11,149 +11,104 @@
     "merged_at": null
   },
   "agent_status": "agent_completed",
-  "summary": "Unmerged WIP matching batch reporting 34 matched functions and 7 failed attempts, later closed as replaced by PRs #2322, #2323, #2324, and #2325. The provided diff slice replaces multiple `/// #...` stubs with C implementations across Kirby special-move code, game-mode/results/CSS logic, Icicle Mountain and Kongo Jungle stage helpers, name-entry logic, and toy/trophy input code. Reusable value is mostly in matching tactics: tightening header prototypes, adding precise includes, preserving MWCC-sensitive control flow and register allocation patterns, reloading `GET_FIGHTER` after state changes, and using exact f32/f64 distance behavior.",
+  "summary": "Large match-progress PR adding C implementations and prototype cleanup across Kirby specials, game-mode/result logic, menu name handling, trophy input, and stage helpers. The PR reported 34 matched functions and 7 failed attempts, but was closed unmerged and explicitly replaced by PRs #2322, #2323, #2324, and #2325, so its main value is as a decomposition/matching work slice rather than a landed change.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "types-structs",
       "naming",
-      "fix",
-      "wip-replaced"
+      "types-structs",
+      "fighter-move-logic",
+      "stage-logic",
+      "game-mode-logic",
+      "menu-logic"
     ],
     "systems": [
-      "fighter-kirby",
+      "fighter",
+      "Kirby",
       "game-mode",
-      "regular-clear",
-      "menu-name-entry",
       "stage",
-      "toy-trophy"
+      "menu",
+      "trophy",
+      "items"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
-      "why": "Largest fighter change; matched Kirby Neutral-B/Final Cutter helpers including `ftKb_SpecialHi_Enter`, `ftKb_SpecialAirHi_Enter`, `ftKb_SpecialN_800F5DE8`, and `ftKb_SpecialN_800F5EA8` in the diff excerpt."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
-      "why": "Matched Kirby copied Jigglypuff Rollout collision/turnaround helpers: `ftKb_PrSpecialAirNStart_Coll`, `ftKb_PrSpecialN_Coll`, and `fn_80105978`."
-    },
-    {
-      "path": "src/melee/gm/gm_16F1.c",
-      "why": "Matched `fn_80170110`, a post-match bonus decision-table lookup with typed routing to player-specific or game-wide bonus handlers."
-    },
-    {
-      "path": "src/melee/gm/gm_1BA8.c",
-      "why": "Matched `gm_801BEDA8`, cycling VS/CSS match type forward or backward and copying CSS data to `VsModeData`."
-    },
-    {
-      "path": "src/melee/gm/gmregclear.c",
-      "why": "Matched `fn_8017F09C`, a regular-clear time bonus calculation gated by result/match flags and saturated at zero."
-    },
-    {
-      "path": "src/melee/gr/gricemt.c",
-      "why": "Renamed/exported `FUN_801f91ec` as `grIceMt_801F91EC`, corrected signature, and changed animation setup arguments."
-    },
-    {
-      "path": "src/melee/gr/grkongo.c",
-      "why": "Matched `grKongo_801D8078`, scanning items for a nearby barrel cannon kind using squared distance from the stage reference position."
-    },
-    {
-      "path": "src/melee/mn/mnname.c",
-      "why": "Matched and typed `IsNameUnique`, iterating persistent name slots and comparing name strings."
-    },
-    {
-      "path": "src/melee/ty/toy.c",
-      "why": "Matched and typed `un_80305D00`, reading normalized stick X from controller pad status with a deadzone."
-    },
-    {
-      "path": "src/melee/gm/gm_16F1.h",
-      "why": "Header prototype cleanup for `fn_80170110` and `fn_801701C0`."
-    },
-    {
-      "path": "src/melee/gr/gricemt.h",
-      "why": "Header prototype cleanup for `grIceMt_801F91EC` with `mpLib_Callback`."
-    },
-    {
-      "path": "src/melee/gm/gmregclear.h",
-      "why": "Header prototype cleanup for `fn_8017F09C`."
-    },
-    {
-      "path": "src/melee/mn/mnname.h",
-      "why": "Header prototype cleanup for `IsNameUnique`."
-    },
-    {
-      "path": "src/melee/ty/toy.h",
-      "why": "Header prototype cleanup for `un_80305D00`."
-    }
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
+    "src/melee/gm/gm_16F1.c",
+    "src/melee/gm/gm_16F1.h",
+    "src/melee/gm/gm_1BA8.c",
+    "src/melee/gm/gmregclear.c",
+    "src/melee/gm/gmregclear.h",
+    "src/melee/gr/gricemt.c",
+    "src/melee/gr/gricemt.h",
+    "src/melee/gr/grkongo.c",
+    "src/melee/mn/mnname.c",
+    "src/melee/mn/mnname.h",
+    "src/melee/ty/toy.c",
+    "src/melee/ty/toy.h"
   ],
   "what_changed": [
-    "Replaced placeholder stubs with matched C implementations in Kirby code, including Final Cutter enter functions and Neutral-B inhale distance helpers for item and fighter victims.",
-    "Added missing includes such as `ft/ftanim.h`, `ftCommon/ftCo_CaptureWaitKirby.h`, and `it/it_26B1.h` to support newly decompiled call sites.",
-    "Matched Kirby copied Jigglypuff Rollout collision transitions and a turnaround helper that flips rotation, velocities, facing-related move variables, and rollout vector fields.",
-    "Matched `fn_80170110` in `gm_16F1.c`, using `lbl_803D5A4C` bonus table data, a sentinel `kind == 0x29A`, flag masking, and dispatch to `pl_80039418` or `fn_801701C0`.",
-    "Matched `gm_801BEDA8` in `gm_1BA8.c`, wrapping `css->match_type` backward from 0 to `0x17` or forward modulo 24, then copying CSS data into global VS mode data.",
-    "Matched `fn_8017F09C` in `gmregclear.c`, returning a nonnegative `timer_seconds * data->x108` bonus only when several match/result flags permit it.",
-    "Renamed `FUN_801f91ec` to `grIceMt_801F91EC`, exposed it with a full typed prototype, and set up Icicle Mountain joint animation/collision callback data.",
-    "Matched `grKongo_801D8078`, scanning `HSD_GObj_Entities->items` for item kind `0xDA` within radius `grKg_804D6980->unk28` of the stage position returned by `Ground_801C4DA0`.",
-    "Matched `IsNameUnique(s32 slot)` by iterating up to `0x78` persistent name entries, skipping invalid slots, and using `CompareNameStrings`.",
-    "Matched `un_80305D00`, which reads `HSD_PadCopyStatus[i].nml_stickX` for up to four controllers and stops when absolute stick X exceeds `0.1F`.",
-    "Updated several headers from `UNK_RET`/`UNK_PARAMS` to concrete return and argument types.",
-    "The PR body reports additional matched functions beyond the visible excerpt, including Kirby spit/drink animations, `un_80307828`, and `fn_8017FE54`; because the slice excerpt does not show all of those changes, they should be verified in the replacement PRs."
+    "Replaced placeholder comments with matched implementations for several Kirby Neutral-B and copied-move helpers, including ftKb_SpecialHi_Enter, ftKb_SpecialAirHi_Enter, ftKb_SpecialN_800F5DE8, ftKb_SpecialN_800F5EA8, ftKb_PrSpecialAirNStart_Coll, ftKb_PrSpecialN_Coll, and fn_80105978.",
+    "Kirby Final Cutter enter functions now reset command and move variables, change to ground or air motion state, call ftAnim_8006EBA4, spawn effect 0x494, set x2219_b0, and install effect pause/resume hitlag callbacks.",
+    "Kirby inhale helpers compute an inhaled-position offset from cur_pos, facing_dir, and ftKb_DatAttrs, then either pull/swallow a target item through it_802F23AC/it_802F2810 or a victim fighter through ftCo_800BD19C/ftCo_800BD620 before transitioning based on GA_Air versus ground.",
+    "Kirby copied Jigglypuff Rollout collision code handles air-to-ground and ground collision transitions, reassigns callbacks after motion changes, transfers self velocity to ground velocity, and provides a turnaround helper that flips velocity, acceleration, facing-related move fields, and Y rotation.",
+    "Implemented gm_16F1.c fn_80170110 as a bonus-decision table lookup that checks flags against a mask and routes awards either to pl_80039418 for lower bonus kinds or fn_801701C0 for other kinds.",
+    "Implemented gm_1BA8.c gm_801BEDA8 to cycle CSS match_type backward or forward, wrapping through 24 match types, then copy CSS data into VsModeData.",
+    "Implemented gmregclear.c fn_8017F09C to compute a timer-based result bonus using gm_8016AE38 state, lbl_80472D28 fields, and a multiplier, clamping negative products to zero.",
+    "Renamed and exposed the Icicle Mountain helper as grIceMt_801F91EC with a typed signature, replacing a local FUN_801f91ec-style name and updating gricemt.h.",
+    "Adjusted grIceMt_801F91EC animation setup calls from a -20 argument to 0 while initializing joint tracking values and mpLib callbacks.",
+    "Implemented grKongo_801D8078 to scan HSD_GObj_Entities->items for item kind 0xDA and return a nearby item within grKg_804D6980->unk28 radius of a Ground_801C4DA0 position.",
+    "Implemented mnname.c IsNameUnique as a loop over up to 0x78 persistent name entries, checking IsNameValid, fetching GetPersistentNameData, and comparing through CompareNameStrings.",
+    "Implemented toy.c un_80305D00 to scan controller normalized stick X values across four pads and return the first value with absolute magnitude greater than 0.1F.",
+    "Updated headers to replace UNK_RET/UNK_PARAMS prototypes with concrete return and argument types for functions such as IsNameUnique, un_80305D00, fn_8017F09C, fn_80170110, fn_801701C0, and grIceMt_801F91EC."
   ],
   "smart_moves": [
-    "Kept ground and air Kirby Final Cutter enter functions nearly identical while preserving the exact motion-state IDs, reset fields, effect spawn, and hitlag callback setup.",
-    "Reloaded `GET_FIGHTER(gobj)` after calls such as `ftAnim_8006EBA4` and after `Fighter_ChangeMotionState` before writing callbacks, a pattern that often matters for MWCC register allocation and aliasing.",
-    "Used squared-distance comparisons for inhale and Kongo barrel searches, avoiding a semantic but nonmatching sqrt-style rewrite.",
-    "Preserved distinct distance API return behavior: item inhale uses an `f64 dist` from `it_802F23AC`, while fighter inhale uses an `f32 dist` from `ftCo_800BD19C`.",
-    "Tightened prototypes in headers at the same time as implementing functions, reducing reliance on `UNK_RET`, `UNK_PARAMS`, and ambiguous pointer types.",
-    "Converted a generic/decompiler-style `FUN_801f91ec` name into the module-address convention `grIceMt_801F91EC` and made the source/header declarations agree.",
-    "Added precise includes instead of relying on undeclared externs or broad unknown headers.",
-    "Used exact constants present in the matching code paths, including motion flags `0x0C4C5092U`, effect ID `0x494`, item kind `0xDA`, and CSS wrap bounds `0x17`/`24`."
+    "Used concrete header prototype upgrades alongside implementations, reducing future ambiguity and making call sites type-checkable.",
+    "Kept ground and air versions of Kirby Final Cutter enter logic structurally parallel, changing only the motion state and ground/air behavior needed for matching.",
+    "For Kirby inhale, explicitly separated item and fighter distance helpers because the evidence shows different return types and APIs: it_802F23AC returns f64-like distance usage while ftCo_800BD19C returns f32.",
+    "Used local scoped reloads of Fighter* after Fighter_ChangeMotionState in ftKb_SpecialNNs.c, matching the common decomp pattern where motion changes may require re-fetching fighter data for register allocation or correctness.",
+    "Preserved exact small constants and bit patterns such as 0x0C4C5092U, 0x494, 0x17, 24, 0x78, 0.1F, item kind 0xDA, and GA_Air/GA_Ground branches rather than abstracting them prematurely.",
+    "Renamed a decompiler-style FUN_801f91ec symbol to the project-style grIceMt_801F91EC while maintaining the address-derived suffix, improving searchability without inventing a semantic name beyond available evidence.",
+    "Added #pragma dont_inline around ftKb_SpecialN_800F5DE8, indicating an explicit matching tactic where inlining behavior affected codegen."
   ],
   "decomp_lessons": [
-    "For matching PRs, header cleanup is part of the decomp: concrete prototypes can be necessary to make call sites and return-value handling match.",
-    "Control-flow shape matters. The diff uses labels, local flag variables, repeated data fetches, scoped temporaries, and explicit assignment ordering where a simpler semantic rewrite might not match.",
-    "When a static `FUN_...` helper is identified as a real subsystem symbol, update the local forward declaration, implementation name, and public header together.",
-    "Kirby special-move code often has paired ground/air variants where only motion state and ground/air transition details differ; keep the shared reset/callback/effect sequence aligned.",
-    "Collision transition functions may need to restore fighter callbacks after `Fighter_ChangeMotionState`; do not assume callbacks survive a state transition.",
-    "Names can be misleading until call sites are checked: `IsNameUnique` returns true on `CompareNameStrings(...) == 0` in the shown code, so future work should verify whether the boolean means unique, duplicate, or 'name already exists' in callers.",
-    "For object-distance helpers, preserve both numeric precision and the exact API-specific casts/types; f32 vs f64 can affect codegen.",
-    "This PR was closed unmerged and explicitly replaced by split PRs, so future decomp work should treat this as a staging record and verify final accepted code in #2322-#2325."
+    "When matching fighter move enter functions, reset cmd_vars and move-specific state fields in the original order; even equivalent chained assignment versus individual stores may matter for codegen, as shown by differing reset styles between ground and air Kirby Final Cutter.",
+    "After motion state changes, re-fetching GET_FIGHTER can help match register allocation and reflect project conventions for callbacks and state writes after Fighter_ChangeMotionState.",
+    "Distance comparisons in gameplay code often compare squared distance against squared velocity/radius; preserve the squared-threshold form to avoid introducing sqrt behavior or mismatched floating-point code.",
+    "Header work is part of matching: replacing UNK_RET/UNK_PARAMS with exact bool, s32, float, int, void*, callback, and struct pointer types can unlock or stabilize downstream matches.",
+    "Stage helper matches may require both signature correction and call-argument correction; grIceMt_801F91EC changed its exported prototype and the grAnime_801C7A04 argument from -20 to 0.",
+    "For item scans, iterate HSD_GObj_Entities->items directly and use item kind checks plus item-position APIs rather than assuming a typed container abstraction.",
+    "Menu and save-data helpers can have intentionally odd loop behavior; IsNameUnique breaks on the first invalid/null name data entry rather than continuing through all 0x78 slots.",
+    "Controller helper functions may return the last sampled raw value even if below threshold depending on loop structure; preserve ret assignment placement when matching."
   ],
   "naming_conventions": [
-    "Module/address convention is used for unknown or partially identified functions, e.g. `fn_80170110`, `gm_801BEDA8`, `grKongo_801D8078`, and `grIceMt_801F91EC`.",
-    "Temporary decompiler names like `FUN_801f91ec` should be replaced by subsystem-prefixed names once ownership is known.",
-    "Headers keep address comments such as `/* 170110 */` next to prototypes.",
-    "Kirby functions use the `ftKb_` prefix, with `Special` vs `SpecialAir` naming for ground/air variants and `MS` identifiers for motion states.",
-    "Copied-character Kirby move code uses prefixes such as `PrSpecialN` for copied Jigglypuff/Purin rollout behavior.",
-    "Ground/air constants appear as `GA_Ground` and `GA_Air`; motion-state names include `ftKb_MS_SpecialHi1`, `ftKb_MS_SpecialAirHi1`, `ftKb_MS_PrSpecialNStartL`, `ftKb_MS_PrSpecialNLoop`, and `ftKb_MS_PrSpecialNEndR`.",
-    "Typed game-object aliases matter in prototypes: the diff distinguishes `Fighter_GObj*`, `Ground_GObj*`, and `HSD_GObj*`.",
-    "Kirby data-attribute fields are named descriptively, e.g. `specialn_x_offset_inhaled`, `specialn_y_offset_inhaled`, and `specialn_inhale_velocity`."
+    "Stage functions use subsystem/name/address style such as grIceMt_801F91EC and grKongo_801D8078.",
+    "Unknown or not-yet-semantic game-mode functions retain fn_address style, e.g. fn_80170110 and fn_8017F09C.",
+    "Menu name functions can use semantic names when known, e.g. IsNameUnique, IsNameListFull, CompareNameStrings, GetPersistentNameData.",
+    "Kirby move functions use ftKb_ prefixes plus move/action names, e.g. ftKb_SpecialHi_Enter, ftKb_SpecialAirHi_Enter, ftKb_PrSpecialN_Coll.",
+    "Headers should mirror concrete C signatures rather than leaving UNK_RET/UNK_PARAMS once an implementation is matched.",
+    "Avoid retaining Ghidra-style FUN_ names when a project address-name convention is known; this PR replaced FUN_801f91ec with grIceMt_801F91EC."
   ],
   "assembly_or_matching_tactics": [
-    "`#pragma dont_inline on` was used before `ftKb_SpecialN_800F5DE8`, indicating an explicit anti-inlining tactic for matching.",
-    "The PR body notes MWCC register allocation trouble in Kirby drink animations: loading both `fp` and `fp->victim_gobj` into callee-saved registers can create extra `mr` instructions, and the body specifically mentions needing four callee-saved registers `r28-r31`.",
-    "The body also notes that `getFighter()` can fix `fp` allocation but not necessarily `victim_gobj`, a useful warning for future Kirby animation matches.",
-    "`fn_80170110` preserves a `goto check`/sentinel-table flow rather than rewriting as a cleaner table lookup.",
-    "`fn_8017F09C` uses local pointers `p` and `p2`, a local `flag`, and an explicit negative-product clamp, preserving source-like branching.",
-    "Kirby enter/collision functions reacquire `Fighter*` after state-changing calls before assigning callbacks, likely preserving expected register lifetimes.",
-    "The Kongo search spells out `dx`, `dy`, `dz`, squared components, and `r * r` instead of using vector helper abstractions.",
-    "The item inhale helper casts `fp->target_item_gobj` and `&pos` to the types expected by `it_802F23AC`, preserving call signature/codegen even though the casts look awkward."
+    "#pragma dont_inline was added before ftKb_SpecialN_800F5DE8, showing an explicit tactic to control MWCC inlining/codegen.",
+    "The PR body notes a MWCC register allocation issue in ftKb_SpecialNDrink_Anim and ftKb_SpecialAirNDrink_Anim where GET_FIGHTER/getFighter helped fp allocation but not victim_gobj, requiring four callee-saved registers r28-r31; this is reported evidence, not visible as a final implementation in the excerpt.",
+    "Chained assignments versus separate assignments were used selectively for cmd_vars resets, suggesting statement shape was tuned to match generated stores/register allocation.",
+    "Scoped temporaries such as f64 dist and f32 dist in Kirby inhale helpers preserve return-type-specific codegen for item versus fighter APIs.",
+    "Manual decomposition of dx, dy, dz and squared components in grKongo_801D8078 preserves floating-point operation order for radius comparisons.",
+    "Using casts in it_802F23AC((int*) fp->target_item_gobj, (float*) &pos) reflects prototype or type-system limitations retained to match call codegen."
   ],
   "review_feedback": [
-    "No formal review comments or inline review comments were present in the slice.",
-    "An issue comment states: `Replaced by #2322, #2323, #2324, #2325`.",
-    "Because the PR was closed with `merged_at: null`, the final authoritative versions of these matches should be looked up in the replacement PRs."
+    "No review comments were present in the provided slice.",
+    "The only explicit human/project disposition was that PR #2321 was replaced by #2322, #2323, #2324, and #2325.",
+    "Because the PR was closed with merged_at null, treat this as an unmerged work-in-progress bundle rather than a landed canonical change."
   ],
   "searchable_terms": [
     "pr-2321",
     "Match progress",
     "johnwinston",
-    "decomp matching",
-    "closed unmerged",
     "replaced by #2322 #2323 #2324 #2325",
     "ftKb_SpecialN.c",
     "ftKb_SpecialNNs.c",
@@ -164,54 +119,61 @@
     "ftKb_PrSpecialAirNStart_Coll",
     "ftKb_PrSpecialN_Coll",
     "fn_80105978",
-    "Kirby Neutral-B",
-    "Kirby Final Cutter",
-    "Kirby copied Jigglypuff Rollout",
-    "GET_FIGHTER",
+    "ftKb_Init_803CB758",
+    "ftKb_DatAttrs",
+    "specialn_x_offset_inhaled",
+    "specialn_y_offset_inhaled",
+    "specialn_inhale_velocity",
+    "it_802F23AC",
+    "it_802F2810",
+    "ftCo_800BD19C",
+    "ftCo_800BD620",
     "Fighter_ChangeMotionState",
     "ftAnim_8006EBA4",
-    "efSync_Spawn 0x494",
+    "efSync_Spawn",
     "efLib_PauseAll",
     "efLib_ResumeAll",
-    "specialn_inhale_velocity",
-    "target_item_gobj",
-    "victim_gobj",
     "gm_16F1.c",
     "fn_80170110",
-    "bonus decision table",
-    "lbl_803D5A4C",
+    "fn_801701C0",
+    "pl_80039418",
     "gm_1BA8.c",
     "gm_801BEDA8",
-    "CSS match_type",
+    "CSSData",
     "VsModeData",
     "gmregclear.c",
     "fn_8017F09C",
-    "regular clear time bonus",
     "gricemt.c",
     "grIceMt_801F91EC",
     "FUN_801f91ec",
     "mpLib_Callback",
+    "grAnime_801C7A04",
     "grkongo.c",
     "grKongo_801D8078",
-    "barrel cannon item kind 0xDA",
+    "itGetKind",
+    "it_8026B294",
     "mnname.c",
     "IsNameUnique",
-    "CompareNameStrings",
     "toy.c",
     "un_80305D00",
     "HSD_PadCopyStatus",
-    "nml_stickX",
-    "#pragma dont_inline",
     "MWCC register allocation",
-    "r28 r29 r30 r31"
+    "dont_inline"
   ],
   "follow_up_queries": [
-    "Inspect PRs #2322, #2323, #2324, and #2325 for the final merged or reviewed versions of the matches staged here.",
-    "Verify `IsNameUnique` call sites to determine whether its true return means unique, duplicate, or existing name.",
-    "Check the final Kirby drink animation matches for the MWCC callee-saved register issue described in the PR body.",
-    "Confirm whether `grIceMt_801F91EC` kept the `grAnime_801C7A04(..., 0)` argument in the replacement PRs.",
-    "Look up the failed functions reported in the PR body: `grPura_80212FC0`, `grOnett_801E5194`, `pl_80038628`, `fn_8021E994`, `grCastle_801CE19C`, `InitNameEntryUIState`, and `grOnett_801E40E4`.",
-    "Search for remaining `UNK_RET`/`UNK_PARAMS` prototypes adjacent to the files changed here, especially game-mode and stage helper headers."
+    "Inspect replacement PRs #2322, #2323, #2324, and #2325 to identify which parts of this WIP bundle landed and whether implementations changed during review.",
+    "Search for ftKb_SpecialNDrink_Anim and ftKb_SpecialAirNDrink_Anim in later PRs to see how the noted MWCC callee-saved register allocation issue was resolved.",
+    "Verify whether grIceMt_801F91EC's grAnime_801C7A04 final argument stayed 0 in the replacement PRs.",
+    "Check later headers for final prototypes of it_802F23AC and ftCo_800BD19C to see whether casts in ftKb_SpecialN_800F5DE8 were later removed.",
+    "Compare replacement PR diffs for IsNameUnique and un_80305D00 to confirm loop-break and return-value behavior were accepted."
   ],
-  "confidence": 0.83
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

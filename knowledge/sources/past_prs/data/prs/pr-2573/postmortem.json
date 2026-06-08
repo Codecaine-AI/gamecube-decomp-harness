@@ -11,95 +11,99 @@
     "merged_at": "2026-06-03T01:00:09Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Small data/string matching PR for `src/melee/gr/grinishie1.c`. It populated the `grI1_803E4950` stage-data callback table with real callback symbols instead of `NULL`, adjusted exact diagnostic/assert strings, removed use of a standalone `grinishie1.c` global string in favor of a literal, and changed one assert label from `new_gobj` to `map_gobj`. The automated decomp.dev report showed `main/melee/gr/grinishie1` `.data` improving from 55.52% to 89.65% (+139 bytes), plus a tiny `grInishie1_801FB3F0` improvement from 80.43% to 80.44%.",
+  "summary": "Improved data matching for the Inishie1 stage source by correcting string literals, assertion text, and stage data callback table entries in src/melee/gr/grinishie1.c. The PR replaced placeholder NULLs in grI1_803E4950 with actual grInishie1 function pointers, adjusted OSReport/__assert strings to match expected embedded data, removed reliance on a separate grI1_803E49A8 filename symbol by using the literal \"grinishie1.c\" directly, and corrected one assert expression string from \"new_gobj\" to \"map_gobj\".",
   "change_classification": {
-    "primary_type": "decomp-matching",
+    "primary_type": "data-matching",
     "categories": [
-      "data-matching",
+      "decomp-matching",
+      "data-layout",
       "string-literal-matching",
-      "stage-data-callback-table",
-      "assert-message-matching"
+      "stage-data-table"
     ],
     "systems": [
       "stage",
       "ground",
-      "grinishie1"
+      "grinishie1",
+      "inishie1"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gr/grinishie1.c",
-      "role": "Only changed file; stage data initializer, diagnostic strings, and assert text were adjusted for better matching."
-    }
+    "src/melee/gr/grinishie1.c"
   ],
   "what_changed": [
-    "Filled `grI1_803E4950.stage_data` slots that were previously `NULL` with `grI1_803E48F4`, `grInishie1_801FA90C`, `grInishie1_801FA908`, `grInishie1_801FA984`, `grInishie1_801FA988`, `grInishie1_801FA9AC`, `grInishie1_801FCBB0`, and `grInishie1_801FCBB8`.",
-    "Changed the `invalid_state(line)` `OSReport` text from `%s:%d: oioi...` with file string `grinishie1.c` to `%s:%d: oioi..\\n` with string argument `i!=HATENA_APPEAR_CHECKLOOP`.",
-    "Commented out `char grI1_803E49A8[] = \"grinishie1.c\";` and changed `grInishie1_801FA9B4` to pass the literal `\"grinishie1.c\"` directly to `OSReport`.",
-    "Updated the `grInishie1_801FB3F0_inline` assert message from `%s:%d: oioi...` to `%s:%d: oioi..\\n`.",
-    "Updated the `fn_801FBF6C` null-gobj assert string from `new_gobj` to `map_gobj`.",
-    "Net diff was limited to one C file with 13 additions and 13 deletions across 6 hunks."
+    "Changed the invalid_state macro's OSReport text from using filename \"grinishie1.c\" and message \"%s:%d: oioi...\" to using the condition-like string \"i!=HATENA_APPEAR_CHECKLOOP\" and message \"%s:%d: oioi..\\n\".",
+    "Filled the grI1_803E4950 stage data function-pointer slots that were previously NULL with grI1_803E48F4, grInishie1_801FA90C, grInishie1_801FA908, grInishie1_801FA984, grInishie1_801FA988, grInishie1_801FA9AC, grInishie1_801FCBB0, and grInishie1_801FCBB8.",
+    "Commented out the standalone char array grI1_803E49A8[] = \"grinishie1.c\".",
+    "Changed an OSReport call in grInishie1_801FA9B4 to pass the literal \"grinishie1.c\" instead of the grI1_803E49A8 symbol.",
+    "Adjusted an assertion message in grInishie1_801FB3F0_inline from \"%s:%d: oioi...\" to \"%s:%d: oioi..\\n\".",
+    "Corrected the assertion expression string in fn_801FBF6C from \"new_gobj\" to \"map_gobj\"."
   ],
   "smart_moves": [
-    "Targeted the stage-data initializer directly: replacing placeholder `NULL` entries with known callback pointers is a high-leverage way to improve `.data` matching without rewriting behavior.",
-    "Matched diagnostic string bytes exactly, including the number of dots, embedded newline, and assert label; these tiny rodata/data details materially affected match quality.",
-    "Avoided an artificial global `char[]` for `\"grinishie1.c\"` where the diff suggests the original layout wanted a string literal at the call site instead.",
-    "Kept the patch narrow and evidence-driven; the decomp.dev bot confirmed a large `.data` gain for the same unit."
+    "Matched data by treating diagnostic strings as part of the binary layout, including small punctuation and newline differences.",
+    "Restored the stage data table with actual function pointers instead of leaving callback slots as NULL, which likely improved rodata/data matching while preserving known symbols.",
+    "Avoided keeping an unnecessary filename string symbol when the callsite could use the literal directly, reducing stray data that would interfere with matching.",
+    "Corrected assert expression text to the source-level condition name expected by the original binary rather than a semantically similar but mismatching string."
   ],
   "decomp_lessons": [
-    "For stage files, a `StageData` object with many `NULL` lifecycle/callback slots may be a matching placeholder rather than true runtime absence; check nearby `StageCallbacks` arrays and known stage entry points before assuming NULL is correct.",
-    "String storage class matters for data matching: `char symbol[] = \"...\"` emits a data object, while a direct string literal can change section placement and deduplication behavior.",
-    "Assert and `OSReport` strings should preserve retail spelling, punctuation, and newlines exactly; even `oioi...` versus `oioi..\\n` or `new_gobj` versus `map_gobj` can affect matching.",
-    "Automated match reports are useful for validating data-layout work: here the main measurable win was `.data`, not a large function-code rewrite."
+    "For data-matching PRs, assertion and OSReport strings must be matched exactly; ellipsis count, newline characters, and condition strings can matter.",
+    "Stage data tables should be audited for placeholder NULL function-pointer entries once candidate lifecycle/callback functions are known.",
+    "A separate named string object is not always correct even when the bytes match; literal placement and symbolization can affect data ordering and matching.",
+    "Assert messages often encode the original expression text, not necessarily the decompiler author's current variable or helper name."
   ],
   "naming_conventions": [
-    "The PR preserved existing address-suffixed placeholder names such as `grInishie1_801FA90C`, `grInishie1_801FCBB0`, and `grI1_803E4950`; no semantic renames were attempted.",
-    "Data symbols in this file use the short `grI1_803E....` form, while functions use `grInishie1_80......`; future changes should keep that distinction unless a broader rename is justified.",
-    "Retail diagnostic text may contain nonstandard wording or typos, e.g. `couldn t get gobj`, `oioi`, and `i!=HATENA_APPEAR_CHECKLOOP`; preserve exact text when matching."
+    "Stage-specific symbols use the grInishie1_ prefix for functions and grI1_ prefix for data.",
+    "Unknown or address-based functions retain address-derived names such as grInishie1_801FA908 and fn_801FBF6C.",
+    "Stage data object naming follows the address-style convention grI1_803E4950."
   ],
   "assembly_or_matching_tactics": [
-    "Use full initializer pointer tables instead of `NULL` placeholders to materialize the expected `.data` pointer values.",
-    "Prefer the string representation that matches emitted storage: direct literals can be better than named `char[]` globals when the original data section lacks the standalone symbol.",
-    "Audit assert/OSReport string literals byte-for-byte, including trailing `\\n`, because these influence rodata/data layout and sometimes nearby inline-function matching.",
-    "The `grInishie1_801FB3F0_inline` string tweak corresponded to a small reported improvement in `grInishie1_801FB3F0` despite no substantive control-flow change shown in the diff."
+    "Replace placeholder NULL entries in data tables with the actual referenced function symbols to match expected pointer data.",
+    "Use exact string literals for OSReport and __assert, including newline escape sequences and punctuation.",
+    "Inline a filename literal at the callsite when a separate global char array creates mismatching data.",
+    "Check assert expression strings against the original binary data rather than inferring them from nearby variable names."
   ],
-  "review_feedback": [
-    "No human PR body, review comments, or review approvals were present in the slice.",
-    "Automated decomp.dev comment for GALE01 reported 2 improvements: `main/melee/gr/grinishie1` `.data` +139 bytes, 55.52% to 89.65%; `grInishie1_801FB3F0` 80.43% to 80.44%."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
-    "pr-2573",
-    "improve grinishie1 data matching",
-    "src/melee/gr/grinishie1.c",
+    "PR2573",
     "grinishie1",
-    "grInishie1",
+    "inishie1",
     "grI1_803E4950",
+    "grI1_803E49A8",
     "grI1_803E48F4",
     "grI1_803E4944",
-    "grI1_803E49A8",
-    "StageData",
-    "StageCallbacks",
+    "grInishie1_801FA90C",
+    "grInishie1_801FA908",
+    "grInishie1_801FA984",
+    "grInishie1_801FA988",
+    "grInishie1_801FA9AC",
+    "grInishie1_801FCBB0",
+    "grInishie1_801FCBB8",
+    "grInishie1_801FA9B4",
+    "grInishie1_801FB3F0_inline",
+    "fn_801FBF6C",
     "invalid_state",
     "OSReport",
     "__assert",
     "HATENA_APPEAR_CHECKLOOP",
-    "oioi",
+    "i!=HATENA_APPEAR_CHECKLOOP",
     "map_gobj",
     "new_gobj",
-    "grInishie1_801FA9B4",
-    "grInishie1_801FB3F0",
-    "grInishie1_801FB3F0_inline",
-    "fn_801FBF6C",
-    "Ground_801C2BA4",
-    ".data",
-    "data matching",
-    "GALE01"
+    "stage data matching",
+    "string literal matching",
+    "assert string matching"
   ],
   "follow_up_queries": [
-    "Find other `src/melee/gr/*.c` stage files where `StageData` callback slots are still `NULL` despite nearby `StageCallbacks` arrays or known lifecycle functions.",
-    "Search for standalone `char[] = \"<file>.c\"` globals used only in `OSReport` or `__assert`; verify whether retail used a named data object or a direct string literal.",
-    "Audit remaining `grinishie1.c` diagnostic strings against retail bytes, especially assert labels, punctuation, and newline placement.",
-    "Check whether the commented-out `grI1_803E49A8` line should eventually be removed or replaced with a clearer matching comment if project style prefers no dead commented declarations."
+    "Search other grinishie1 assert and OSReport strings for exact punctuation/newline mismatches.",
+    "Audit other stage data structs for placeholder NULL callback slots that may need real function pointers.",
+    "Check whether commented-out string globals similar to grI1_803E49A8 remain in nearby ground stage files and affect data matching.",
+    "Compare assert expression strings in ground item-spawn helpers for source-condition names versus inferred variable names."
   ],
-  "confidence": 0.89
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

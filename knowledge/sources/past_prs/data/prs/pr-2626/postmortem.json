@@ -1,0 +1,108 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2626",
+  "pr": {
+    "number": 2626,
+    "title": "Improvements to split up: MN",
+    "url": "https://github.com/doldecomp/melee/pull/2626",
+    "state": "CLOSED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:30:44Z",
+    "merged_at": null
+  },
+  "agent_status": "agent_completed",
+  "summary": "Closed, unmerged path-slice PR for MN/menu matching improvements split out of a larger branch (#2617). The supplied diff slice only shows small `src/melee/mn/mnmain.c` changes: one call argument changed in `fn_8022AFEC` and local declaration ordering/hoisting in `mn_8022B3A0` to improve matching. Review feedback flagged a separate MN name-entry hunk as a regression when raw archive symbol strings were replaced by variables, reinforcing that literal asset-name strings should be preserved when they are needed for matching/data identity.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "naming",
+      "review-regression"
+    ],
+    "systems": [
+      "mn",
+      "menu",
+      "melee-core"
+    ]
+  },
+  "key_files": [
+    "src/melee/mn/mnmain.c",
+    "src/melee/mn/mnnamenew.c"
+  ],
+  "what_changed": [
+    "In `src/melee/mn/mnmain.c`, `fn_8022AFEC` changed the third argument to `mn_8022A440` from `mn_804A04F0.prev_menu` to `data->hovered_selection` in the shown hunk.",
+    "In `mn_8022B3A0`, local declarations were reordered: `StaticModelDesc* top = &MenMainConTop_Top;` was moved earlier near the stack arrays and `HSD_GObj* gobj;` was moved with it, while the later `top` declaration was removed.",
+    "The PR body describes this as an isolated `src/melee/mn` split from a broader matching-improvement branch, intended to make review easier by directory/subsystem.",
+    "Although the PR body listed several MN files, the provided changed-files metadata for this slice reports only `src/melee/mn/mnmain.c` with 3 added and 3 deleted lines. Review comments reference `src/melee/mn/mnnamenew.c`, so that feedback may come from a broader or earlier slice context rather than the final provided diff excerpt."
+  ],
+  "smart_moves": [
+    "The PR attempted to reduce review burden by splitting a larger matching-improvement branch by subsystem/pathspec, here focused on `src/melee/mn`.",
+    "The `mn_8022B3A0` declaration reordering is a typical low-risk decomp tactic: adjust local variable lifetimes/order without changing runtime behavior to influence register allocation and stack layout.",
+    "The PR included local hygiene checks in its body, notably applying the slice from fresh `origin/master` and passing `git diff --check`."
+  ],
+  "decomp_lessons": [
+    "For menu/MN matching work, small source-level expression choices can matter: passing a struct field such as `data->hovered_selection` instead of a global field like `mn_804A04F0.prev_menu` may be required to match the original codegen, but the semantic correctness should be reviewed carefully.",
+    "Declaration order and initialization placement can affect matching through register allocation and stack slot placement; moving initialized locals such as `StaticModelDesc* top` earlier can be a valid matching tactic when evidence supports it.",
+    "Do not replace literal archive/resource strings with named variables if doing so changes generated code or data references; reviewers explicitly called this a regression in the MN name-entry context.",
+    "Path-sliced PRs should keep changed-file metadata and review context aligned. Here, the body/review mention files beyond the reported final changed file, which weakens confidence when reconstructing exact landed intent."
+  ],
+  "naming_conventions": [
+    "Existing MN globals/functions retain project-style names such as `mn_804A04F0`, `mn_8022A440`, `mn_80229A04_dontinline`, `fn_8022AFEC`, and `mn_8022B3A0`.",
+    "Menu asset/model descriptors use names like `MenMainConTop_Top` and `MenMainBack_Top`, with archive string literals such as `\"MenMainBack_Top_joint\"` preserved in reviewer feedback.",
+    "Temporary and inferred locals in unmatched/decomp work use descriptive-but-provisional names such as `hovered_selection`, `selection_changed`, `cursor_jobj`, `root_jobj`, `top`, and `gobj`."
+  ],
+  "assembly_or_matching_tactics": [
+    "Reorder local declarations to influence register assignment and stack layout, as seen in `mn_8022B3A0`.",
+    "Move initialized pointer locals closer to the top of a function when that better matches compiler scheduling/lifetime behavior.",
+    "Select the exact source expression for an argument (`data->hovered_selection` versus `mn_804A04F0.prev_menu`) because equivalent-looking values may produce different loads/registers.",
+    "Preserve literal strings for archive/resource lookups when replacing them with variables is known to regress matching."
+  ],
+  "review_feedback": [
+    "PsiLupan commented on `src/melee/mn/mnnamenew.c` that replacing a string with a variable is a regression, noting this had been mentioned on other PRs.",
+    "The cited review hunk showed literals like `\"MenMainBack_Top_joint\"`, `\"MenMainBack_Top_animjoint\"`, `\"MenMainBack_Top_matanim_joint\"`, and `\"MenMainBack_Top_shapeanim_joint\"` being replaced by variables such as `mnNameNew_803EE38C`; this was rejected as regressive.",
+    "No approving review or merge is present in the supplied context; the PR was closed with `merged_at: null`."
+  ],
+  "searchable_terms": [
+    "pr-2626",
+    "Improvements to split up: MN",
+    "fjooord",
+    "PsiLupan",
+    "src/melee/mn",
+    "src/melee/mn/mnmain.c",
+    "src/melee/mn/mnnamenew.c",
+    "fn_8022AFEC",
+    "mn_8022B3A0",
+    "mn_8022A440",
+    "mn_80229A04_dontinline",
+    "mn_804A04F0",
+    "cur_menu",
+    "prev_menu",
+    "hovered_selection",
+    "selection_changed",
+    "HSD_GObj",
+    "HSD_JObj",
+    "StaticModelDesc",
+    "MenMainConTop_Top",
+    "MenMainBack_Top_joint",
+    "mnNameNew_803EE38C",
+    "literal string regression",
+    "decomp matching",
+    "local declaration order",
+    "path slice"
+  ],
+  "follow_up_queries": [
+    "Look up PR #2617 for the full unsplit MN/matching context and whether these exact `mnmain.c` changes landed elsewhere.",
+    "Search later PRs touching `src/melee/mn/mnmain.c` around `fn_8022AFEC` and `mn_8022B3A0` to see the accepted final matching form.",
+    "Search for reviewer phrase `Replacing the string with the variable is a regression` to identify the broader convention about preserving archive/resource string literals.",
+    "Inspect whether `src/melee/mn/mnnamenew.c` was actually changed in an earlier revision of this PR despite the final changed-files metadata only listing `mnmain.c`."
+  ],
+  "confidence": 0.78,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

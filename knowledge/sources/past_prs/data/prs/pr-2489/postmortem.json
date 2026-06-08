@@ -8,77 +8,76 @@
     "state": "OPEN",
     "author": "johnwinston",
     "created_at": "2026-05-14T01:45:41Z",
-    "merged_at": null
+    "merged_at": ""
   },
   "agent_status": "agent_completed",
-  "summary": "Draft PR matching one game-mode/debug-results function: gm_801B0DD0 in src/melee/gm/gm_1B03.c. The implementation loads cached debug/sound-test match parameters from un_803FA258 into DebugResultsData, rebuilds MatchEnd standings with gm_80166A98, derives a character victory-fanfare bitmask from non-CPU/valid non-big-loser standings, plays result audio setup calls, then advances results initialization. The accompanying static header replaces a raw 0x2284-byte pad for DebugResultsData with the fields needed by the matched function plus a MatchEnd member. decomp.dev reported 1 new match, +332 bytes, and overall matched code 66.99% (+0.01%).",
+  "summary": "Open match-progress PR that replaced the nonmatching placeholder for `gm_801B0DD0` in `src/melee/gm/gm_1B03.c` with a matched implementation and refined `DebugResultsData` in `gm_1B03.static.h`. The function appears to configure the debug results screen by copying cached debug/sound-test values from `un_803FA258`, rebuilding `MatchEnd` standings through `gm_80166A98`, building a character-result fanfare bitmask for non-CPU/non-big-loser standings, then starting result audio and related game-mode setup calls. Evidence reports 1 matched function and 107 failed candidates; no review comments were present.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "function-implementation",
-      "headers",
-      "struct-layout",
+      "game-mode",
       "debug-results",
-      "audio"
+      "struct-recovery",
+      "headers"
     ],
     "systems": [
       "game-mode",
       "results-screen",
-      "debug-menu",
-      "audio"
+      "audio",
+      "debug-menu"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gm/gm_1B03.c",
-      "reason": "Replaced the nonmatching marker for gm_801B0DD0 with a matched C implementation."
-    },
-    {
-      "path": "src/melee/gm/gm_1B03.static.h",
-      "reason": "Defined the beginning of DebugResultsData as bitfields/bytes and embedded MatchEnd instead of treating it as an opaque pad."
-    }
+    "src/melee/gm/gm_1B03.c",
+    "src/melee/gm/gm_1B03.static.h"
   ],
   "what_changed": [
-    "Implemented gm_801B0DD0(MinorScene* arg0), matching it at 100% according to the PR body and decomp.dev report.",
-    "gm_801B0DD0 retrieves struct DebugResultsData via gm_801A427C(arg0) and takes MatchEnd* match_end from data->match_end.",
-    "Copied cached parameter values from un_803FA258 indices 0x5E, 0x5F, and 0x5A through 0x5D into DebugResultsData fields x0_0, x0_1, x1, x2, x3, and x4.",
-    "Called gm_80166A98 with values from un_803FA258 indices 0x60, 0x51 through 0x54, and 0x56 through 0x59, including casts to s8 and subtracting 1 from four character/slot-like values.",
-    "Looped over four player_standings entries, skipping slot_type == 3 and is_big_loser != 0, and ORed lbAudioAx_80026E84(character_kind) into a u64 sfx_result mask.",
-    "Called lbAudioAx_80026F2C(0x14), lbAudioAx_8002702C(0x4, sfx_result), gm_80168FC4(), gm_801701A0(), and PAD_STACK(8).",
-    "Changed DebugResultsData from u8 pad_x0[0x2284] to named fields: x0_0:1, x0_1:1, x0_other:6, x1, x2, x3, x4, pad_x5[3], and MatchEnd match_end."
+    "Implemented `gm_801B0DD0(MinorScene* arg0)`, replacing the `/// #gm_801B0DD0` placeholder.",
+    "Added field-level layout for `struct DebugResultsData` instead of treating the first 0x2284 bytes as opaque padding.",
+    "Recovered bitfield members at the start of `DebugResultsData`: `x0_0 : 1`, `x0_1 : 1`, and `x0_other : 6`, followed by byte fields `x1` through `x4`, three bytes of padding, and a `MatchEnd match_end` member.",
+    "Loaded `DebugResultsData` via `gm_801A427C(arg0)` and used its embedded `MatchEnd` as the destination for match-ending/results data.",
+    "Copied values from `un_803FA258` indices `0x5A` through `0x5F` into the recovered debug-results fields.",
+    "Called `gm_80166A98` with values derived from `un_803FA258` indices `0x51` through `0x60`, including casts to `s8`, `& 0xFF`, and `- 1` adjustments for several player-related values.",
+    "Iterated over four `match_end->player_standings` entries and included only players whose `slot_type != 3` and `is_big_loser == 0` when OR-ing character-specific result fanfare bits from `lbAudioAx_80026E84(character_kind)`.",
+    "Called `lbAudioAx_80026F2C(0x14)`, `lbAudioAx_8002702C(0x4, sfx_result)`, `gm_80168FC4()`, `gm_801701A0()`, and ended with `PAD_STACK(8)`."
   ],
   "smart_moves": [
-    "Used a narrow partial struct definition for DebugResultsData: only the accessed prefix and MatchEnd member were named, leaving unknown bits as x0_other and padding as pad_x5.",
-    "Represented the first byte as bitfields x0_0, x0_1, and x0_other, matching stores from un_803FA258[0x5E] and [0x5F] without inventing semantic names.",
-    "Kept generated/unknown symbol names such as gm_801B0DD0, un_803FA258, and x0_0 because the PR evidence does not establish better names.",
-    "Built the result fanfare as a u64 OR mask, consistent with lbAudioAx_80026E84 returning per-character audio bits and lbAudioAx_8002702C consuming the combined mask.",
-    "Preserved casts and arithmetic seen in the matched call shape: (s8) for several un_803FA258 values and -1 adjustment for four later arguments."
+    "Recovered only the portion of `DebugResultsData` needed by the matched function rather than over-naming the whole former padding block.",
+    "Used a leading bitfield layout to match individual bit assignments into the first byte of `DebugResultsData`, preserving the apparent storage shape required for matching.",
+    "Kept unknown fields conservatively named (`x0_0`, `x0_1`, `x0_other`, `x1`-`x4`) because the PR evidence does not establish semantic names for them.",
+    "Built `sfx_result` as a `u64` OR-mask, matching the audio API usage and avoiding repeated fanfare calls.",
+    "Filtered standings before adding result fanfare bits, using the recovered `slot_type`, `is_big_loser`, and `character_kind` fields from `MatchEnd` standings.",
+    "Preserved matching-sensitive stack behavior with `PAD_STACK(8)`."
   ],
   "decomp_lessons": [
-    "For debug/results code, cached global arrays can often be mapped directly into a partially recovered scene-data struct before the broader struct is understood.",
-    "When a matched function only needs a few fields, replacing a large opaque pad with a minimal prefix plus known embedded struct can unlock matching while avoiding overconfident naming.",
-    "Bitfield layout may be necessary when consecutive assignments target individual low bits of an initial byte; keep the remaining bits explicitly reserved.",
-    "Audio result setup can be expressed as a mask accumulation over player standings, with filtering based on slot_type and is_big_loser before passing character_kind to audio helpers.",
-    "For progress PRs with many attempted functions, rely on the matched table and decomp.dev report for confirmed matches; the failed list is not evidence of implemented changes."
+    "For game-mode result/debug functions, matching may require reconstructing small leading fields and embedded structs inside formerly opaque per-scene data blocks.",
+    "When a function copies data from a global debug buffer such as `un_803FA258`, keep exact indices, casts, masks, and off-by-one adjustments visible; these details are likely matching-sensitive and encode UI/debug-menu storage conventions.",
+    "Bitfield recovery can be necessary even when field semantics are unknown; conservative placeholder names are preferable to invented names.",
+    "Embedded structs such as `MatchEnd` can be introduced once direct field access proves their offset and usage.",
+    "Audio setup for results can be expressed as a character fanfare bitmask assembled from eligible player standings, then submitted through the `lbAudioAx` result-audio functions.",
+    "Generated progress PRs may include many failed match candidates; the reusable knowledge here is the one successfully matched function, not the failed list unless investigating future targets."
   ],
   "naming_conventions": [
-    "Unknown game-mode functions remain address-based with gm_ prefix, e.g. gm_801B0DD0, gm_80166A98, gm_80168FC4, gm_801701A0.",
-    "Known structs use CamelCase type names such as MinorScene, MatchEnd, and DebugResultsData.",
-    "Partially known struct fields use offset-like names such as x0_0, x0_1, x0_other, x1, x2, x3, x4, and pad_x5.",
-    "Audio helper symbols keep the lbAudioAx_ address-based naming style, e.g. lbAudioAx_80026E84, lbAudioAx_80026F2C, and lbAudioAx_8002702C.",
-    "Global unknown data remains address-based with un_ prefix, e.g. un_803FA258."
+    "Unknown recovered fields in local/static structs used `x`-prefixed offset-style names such as `x0_0`, `x0_1`, `x0_other`, `x1`, `x2`, `x3`, and `x4`.",
+    "Padding retained offset-style naming as `pad_x5`.",
+    "Recovered aggregate member used the established type name directly: `MatchEnd match_end`.",
+    "Function names remained address-based for unmatched/decomp-in-progress game-mode code, e.g. `gm_801B0DD0`, `gm_801A427C`, `gm_80166A98`, `gm_80168FC4`, and `gm_801701A0`.",
+    "Local variables were given semantic-but-conservative names where evidence was clear: `sfx_result`, `data`, and `match_end`."
   ],
   "assembly_or_matching_tactics": [
-    "Used u64 sfx_result initialized to 0 so OR accumulation matches the result-audio bitmask behavior.",
-    "Declared int i for the four-player loop rather than embedding loop-specific assumptions into the type.",
-    "Matched player filtering with a compound condition: slot_type != 3 and is_big_loser == 0.",
-    "Kept exact constants from the diff: un_803FA258 indices 0x51-0x60, lbAudioAx_80026F2C argument 0x14, lbAudioAx_8002702C first argument 0x4, and PAD_STACK(8).",
-    "Placed MatchEnd immediately after pad_x5[3] in DebugResultsData, aligning the recovered prefix to the match_end member used by gm_801B0DD0."
+    "Used `u64 sfx_result = 0` for the accumulated audio bitmask.",
+    "Declared loop index separately as `int i`, consistent with older C style often needed for matching.",
+    "Used explicit casts to `s8` on several `un_803FA258` entries passed into `gm_80166A98`.",
+    "Applied `un_803FA258[0x60] & 0xFF` before passing the first argument after `match_end` to `gm_80166A98`.",
+    "Applied `- 1` to `un_803FA258[0x56]`, `[0x57]`, `[0x58]`, and `[0x59]` before passing them to `gm_80166A98`.",
+    "Structured the standings loop as `for (i = 0; i < 4; i++)` with a compound `if` checking `slot_type != 3` and `is_big_loser == 0`.",
+    "Used bitwise OR assignment with the return value of `lbAudioAx_80026E84` to accumulate character result sound bits.",
+    "Included `PAD_STACK(8)` at the end, indicating stack padding was required for the match."
   ],
   "review_feedback": [
-    "No human review comments or reviews were present in the provided slice.",
-    "decomp.dev bot reported GALE01 matched code 66.99% (+0.01%, +332 bytes) and listed gm_801B0DD0 as a new 100.00% match in main/melee/gm/gm_1B03."
+    "No review comments or reviewer feedback were present in the provided PR slice.",
+    "The PR body/progress text reports `gm_1B03.c` `gm_801B0DD0` as matched at 100% and 107 other functions as failed candidates."
   ],
   "searchable_terms": [
     "pr-2489",
@@ -88,7 +87,7 @@
     "gm_1B03.static.h",
     "gm_801B0DD0",
     "DebugResultsData",
-    "Debug results screen",
+    "DebugMemcardData",
     "MinorScene",
     "MatchEnd",
     "match_end",
@@ -106,14 +105,25 @@
     "gm_801701A0",
     "PAD_STACK",
     "sfx_result",
+    "debug results screen",
     "results victory fanfare",
-    "sound test debug menu"
+    "sound test",
+    "debug menu"
   ],
   "follow_up_queries": [
-    "Find later PRs that rename DebugResultsData fields x0_0, x0_1, x1-x4, or x0_other.",
-    "Search for other gm_1B03.c results-screen functions that use un_803FA258 cached debug menu values.",
-    "Look for MatchEnd/player_standings struct refinements involving slot_type, is_big_loser, and character_kind.",
-    "Search for lbAudioAx_80026E84 or lbAudioAx_8002702C usage to confirm result fanfare bitmask conventions."
+    "Look for later PRs touching `gm_1B03.c` or `DebugResultsData` to see whether `x0_0`, `x0_1`, `x1`-`x4`, and `x0_other` receive semantic names.",
+    "Search for additional matches of functions that consume `un_803FA258` indices near `0x51`-`0x60` to clarify the debug-results parameter layout.",
+    "Search for `gm_80166A98` callers to understand the exact meaning and order of the match standings parameters.",
+    "Search for `lbAudioAx_80026E84`, `lbAudioAx_80026F2C`, and `lbAudioAx_8002702C` usage to document result/victory fanfare audio conventions.",
+    "Investigate later closure or merge status for PR #2489 because the provided slice shows it as open."
   ],
-  "confidence": 0.9
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

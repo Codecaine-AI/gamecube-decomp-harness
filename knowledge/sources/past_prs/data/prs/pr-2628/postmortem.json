@@ -1,0 +1,101 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2628",
+  "pr": {
+    "number": 2628,
+    "title": "Improvements to split up: PL",
+    "url": "https://github.com/doldecomp/melee/pull/2628",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T14:30:50Z",
+    "merged_at": "2026-06-08T15:37:23Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Small PL subsystem matching slice split from a larger matching-improvements branch. The only file change in this slice was in `src/melee/pl/pltrick.c`, where local `Fighter*` declarations inside `pl_80038144` were reordered so `victim_fp` is declared before `attacker_fp`. The PR body frames this as part of a directory-scoped split from #2617 to make matching improvements easier to review; no review comments or detailed rationale were present.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "local-variable-ordering",
+      "split-pr",
+      "codegen-cleanup"
+    ],
+    "systems": [
+      "melee-core",
+      "pl",
+      "player-stats"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/pl/pltrick.c",
+      "reason": "Only changed file; adjusts local declaration order in `pl_80038144`."
+    }
+  ],
+  "what_changed": [
+    "In `pl_80038144(HSD_GObj* attacker_gobj, HSD_GObj* victim_gobj, s32 x18d4_int, ft_800898B4_t* ev_data, u16 attack_instance, s32 arg5, s32 source_ply)`, the local declaration order changed from `attacker_fp`, `victim_fp`, `attacker_fp2` to `victim_fp`, `attacker_fp`, `attacker_fp2`.",
+    "The PR was split by directory/subsystem from a larger source branch, with this slice limited to `src/melee/pl`.",
+    "The body reports the broader unsplit branch had improved matched code/data and no broken matches/regressions, but this specific slice only contains a one-line reorder."
+  ],
+  "smart_moves": [
+    "Kept the PR extremely narrow: one file, one local declaration ordering change, making it easy to review and low risk.",
+    "Used a subsystem/pathspec split from a larger branch so PL-specific matching changes could be evaluated independently.",
+    "Preserved types and symbol names while only adjusting declaration order, which is a common low-impact tactic for influencing stack/register allocation in decomp matching."
+  ],
+  "decomp_lessons": [
+    "Local variable declaration order can matter for matching, even when the source-level semantics are unchanged.",
+    "For decomp PRs split from large matching branches, directory-scoped slices reduce review burden and make it easier to isolate regressions.",
+    "When a change is only a declaration reorder, avoid inferring behavioral intent; treat it as a codegen/matching adjustment unless comments or tests say otherwise."
+  ],
+  "naming_conventions": [
+    "`pl_80038144` follows the existing subsystem-address placeholder naming convention for not-yet-fully-named functions.",
+    "`attacker_gobj` and `victim_gobj` distinguish `HSD_GObj*` parameters by combat role.",
+    "`attacker_fp`, `victim_fp`, and `attacker_fp2` use the common `fp` suffix for `Fighter*` locals.",
+    "`acp` and `acp2` appear to be existing short local names for `plActionStats*`; this PR did not rename them."
+  ],
+  "assembly_or_matching_tactics": [
+    "Reordered local pointer declarations in `pl_80038144`, likely to affect compiler allocation or stack layout for matching.",
+    "No assembly excerpt, map delta, or per-function match result was included, so the exact matching effect of the declaration reorder is not evidenced in the slice.",
+    "The PR body says the full unsplit branch had green CI and no broken matches/regressions before splitting, but per-slice matching results are not shown in the provided context."
+  ],
+  "review_feedback": [
+    "No review comments were present in the provided PR context.",
+    "The PR body itself documents the review strategy: split from #2617 by directory/subsystem so matching improvements are easier to review."
+  ],
+  "searchable_terms": [
+    "pr-2628",
+    "Improvements to split up: PL",
+    "src/melee/pl/pltrick.c",
+    "pltrick.c",
+    "pl_80038144",
+    "HSD_GObj",
+    "attacker_gobj",
+    "victim_gobj",
+    "Fighter",
+    "attacker_fp",
+    "victim_fp",
+    "attacker_fp2",
+    "plActionStats",
+    "ft_800898B4_t",
+    "ev_data",
+    "attack_instance",
+    "source_ply",
+    "local declaration order",
+    "matching improvement",
+    "split from #2617",
+    "PL subsystem"
+  ],
+  "follow_up_queries": [
+    "Find other PRs split from #2617 to compare matching tactics across subsystems.",
+    "Search for later changes to `pl_80038144` to see whether the placeholder name or local variable names were refined.",
+    "Check CI/decomp report for PR #2628 if available to confirm whether this local declaration reorder produced a measurable function match."
+  ],
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

@@ -5,132 +5,135 @@
     "number": 2582,
     "title": "Match and improve several source functions",
     "url": "https://github.com/doldecomp/melee/pull/2582",
-    "state": "OPEN",
+    "state": "MERGED",
     "author": "itsgrimetime",
     "created_at": "2026-06-05T17:13:03Z",
-    "merged_at": ""
+    "merged_at": "2026-06-05T19:40:08Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Open PR batching several independent decomp matching/source-shaping improvements. The decomp.dev report recorded +844 matched bytes overall, with new 100% matches for `hsd_80398C04` in baselib particle code and `__THPRestartDefinition` in Dolphin THP, plus near-match improvements for Ice Mountain, menu count, and fighter item handling. Review focused on reusing the existing `GET_GROUND()` convention instead of a local user-data helper; the author fixed that and received approval, though the slice shows the PR still open.",
+  "summary": "Batched several independent decompilation/source-matching improvements across Ice Mountain ground code, THP decoding, fighter item handling, menu count sorting, and HSD particles. The PR matched `__THPRestartDefinition`, matched `hsd_80398C04`, improved `grIceMt_801F9ACC` by refining segment/data handling and returning its `did` result, simplified `ft_800895E0` item GObj access, and reshaped `mnCount_8025092C` comparison/swap code. Review feedback specifically pushed the Ice Mountain code away from direct `user_data` access and toward the existing `GET_GROUND()` helper.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "source-shaping",
-      "new-function-match",
-      "near-match-improvement",
-      "header-prototype-update",
-      "review-fix",
-      "tooling-verified"
+      "decomp-matching",
+      "source-cleanup",
+      "headers",
+      "external-sdk",
+      "review-driven-refactor"
     ],
     "systems": [
-      "extern-dolphin-thp",
-      "sysdolphin-baselib-particle",
-      "stage-ice-mountain",
+      "stage",
       "fighter",
-      "menu-count"
+      "menus",
+      "sysdolphin-baselib",
+      "external-dolphin-thp"
     ]
   },
   "key_files": [
-    {
-      "file": "extern/dolphin/src/dolphin/thp/THPDec.c",
-      "reason": "Matched `__THPRestartDefinition` by adding a narrow `THPRestartFields` overlay for `nMCU`, `currMCU`, and `RST`."
-    },
-    {
-      "file": "src/sysdolphin/baselib/particle.c",
-      "reason": "Matched `hsd_80398C04` by using the named `hsd_804D0908` slot array and correcting initialized particle fields."
-    },
-    {
-      "file": "src/melee/gr/gricemt.c",
-      "reason": "Improved `grIceMt_801F9ACC` by changing return shape, ID types, stack/local layout, and ground-data access style."
-    },
-    {
-      "file": "src/melee/gr/gricemt.h",
-      "reason": "Updated the `grIceMt_801F9ACC` prototype from `void` to `int` to match the implementation."
-    },
-    {
-      "file": "src/melee/ft/ft_0892.c",
-      "reason": "Improved `ft_800895E0` by removing a temporary `Item_GObj*` and reusing `fp->item_gobj` directly."
-    },
-    {
-      "file": "src/melee/mn/mncount.c",
-      "reason": "Improved `mnCount_8025092C` by reshaping the comparison and `CountEntry tmp` lifetime."
-    }
+    "extern/dolphin/src/dolphin/thp/THPDec.c",
+    "src/melee/ft/ft_0892.c",
+    "src/melee/gr/gricemt.c",
+    "src/melee/gr/gricemt.h",
+    "src/melee/mn/mncount.c",
+    "src/sysdolphin/baselib/particle.c"
   ],
   "what_changed": [
-    "The PR body described a batch of independent source matching improvements for `grIceMt_801F9ACC`, `hsd_80398C04`, `__THPRestartDefinition`, `ft_800895E0`, and `mnCount_8025092C`.",
-    "The decomp.dev bot reported matched code at 70.29%, +0.02% and +844 bytes for GALE01.",
-    "`hsd_80398C04` moved from 99.64% to 100.00%; the code now uses `&hsd_804D0908[linkNo]` instead of offsetting from `hsd_804D08E8`, removes the old near-match TODO, initializes `primCol` to 0xFF, initializes `envCol` to 0, and writes `rotateTarget` instead of `sizeTarget`.",
-    "`__THPRestartDefinition` moved from 99.76% to 100.00%; the function casts `THPFileInfo*` to a local `THPRestartFields*` overlay before setting `RST`, `nMCU`, and `currMCU`.",
-    "`grIceMt_801F9ACC` improved from 96.34% to 98.90%; it now returns `int did`, early-returns 0, returns `did` at the end, changes `id` to `s32`, adds `PAD_STACK(16)`, introduces an `HSD_JObj** new_var`, and replaces direct `user_data` access with `GET_GROUND()` calls.",
-    "`gricemt.h` was kept in sync by changing the `grIceMt_801F9ACC` declaration from `void` to `int`.",
-    "`mnCount_8025092C` improved from 99.38% to 99.92%; it hoists `CountEntry tmp`, removes `PAD_STACK(8)`, and rewrites the row-selection comparison as `entries[min].val < entries[j].val`.",
-    "`ft_800895E0` improved from 98.86% to 99.98%; it removes a temporary `Item_GObj* temp` and checks/calls through `fp->item_gobj` directly.",
-    "Verification listed in the PR body was `python configure.py --require-protos`, `ninja build/GALE01/report.json`, and `ninja`."
+    "`__THPRestartDefinition` in `THPDec.c` now casts `THPFileInfo*` to a new local `THPRestartFields*` layout before writing `RST`, `nMCU`, and `currMCU`, indicating those fields match better at specific offsets than through the visible `THPFileInfo` type.",
+    "`THPRestartFields` was introduced with `pad[0x8FC]`, `u16 nMCU`, `u16 currMCU`, and `u8 RST` to model the accessed restart-related fields for matching.",
+    "`ft_800895E0` removed a temporary `Item_GObj* temp` and directly tests `fp->item_gobj != NULL && it_8026B6C8(fp->item_gobj) != 0`, described by the PR as reusing the item GObj load shape.",
+    "`grIceMt_801F9ACC` changed from returning `void` to returning `int`, now returns `0` for invalid segment IDs and returns `did` at the end; the header declaration in `gricemt.h` was updated accordingly.",
+    "`grIceMt_801F9ACC` widened/reshaped local variables including changing `id` from `s16` to `s32`, adding `HSD_JObj** new_var`, and adding `PAD_STACK(16)`.",
+    "`grIceMt_801F9ACC` replaced direct `Ground_GObj->user_data` reads with `GET_GROUND(...)` calls after review feedback.",
+    "`grIceMt_801F9ACC` introduces a temporary pointer variable `new_var = &gp->gv.icemt2.xC8` before assigning `ptrs`, likely to influence register/stack behavior for matching.",
+    "`mnCount_8025092C` reshaped a ranking/sorting loop by moving `CountEntry tmp` to function scope, removing `PAD_STACK(8)`, and reversing the comparison from `entries[j].val < entries[min].val` to `entries[min].val < entries[j].val`.",
+    "`hsd_80398C04` in `particle.c` removed a TODO noting a 99.63% match and relocation differences, indicating the function is now considered matched.",
+    "`hsd_80398C04` replaced pointer arithmetic from `hsd_804D08E8` with `&hsd_804D0908[linkNo]` for the default particle list slot.",
+    "`hsd_80398C04` corrected particle color initialization field usage: initial 0xFF values are assigned to `primCol` and zero values to `envCol`, rather than using `envCol` and `envColTarget`.",
+    "`hsd_80398C04` initializes `rotateTarget = 0.0F` instead of `sizeTarget = 0.0F` in the shown hunk."
   ],
   "smart_moves": [
-    "Used an exact named global, `hsd_804D0908`, to resolve a particle relocation-style near-match rather than preserving pointer arithmetic from `hsd_804D08E8`.",
-    "Applied a very small THP overlay struct instead of broadly redefining `THPFileInfo`, keeping the offset-sensitive restart fields localized to `__THPRestartDefinition`.",
-    "Changed `grIceMt_801F9ACC` to return the existing `did` status, which makes the control-flow and ABI shape explicit while preserving the function's internal flagging behavior.",
-    "Synchronized the Ice Mountain header prototype with the implementation immediately, avoiding `--require-protos` drift.",
-    "Responded to review by removing a local user-data helper and reusing `GET_GROUND()`, matching project convention and reducing duplicate access patterns.",
-    "Used small source-shape adjustments, such as direct `fp->item_gobj` loads, hoisted `CountEntry tmp`, added/removed `PAD_STACK`, and a temporary `new_var`, to improve match percentages without large semantic rewrites."
+    "Used a narrow overlay struct (`THPRestartFields`) for `__THPRestartDefinition` rather than forcing the broader `THPFileInfo` declaration to explain every offset, a common tactic for SDK/library matching when known public structs do not match the compiler's access pattern.",
+    "Removed an unnecessary fighter item temporary so the C source expresses the same repeated load shape as the target assembly.",
+    "Changed `grIceMt_801F9ACC` to return the already-computed `did` flag, aligning the function signature and control flow with observed behavior instead of discarding the result.",
+    "Responded to review by using `GET_GROUND()` consistently instead of direct `user_data` access or a local helper, improving convention compliance and reducing duplicate abstraction.",
+    "For particle matching, named/used the more precise global array `hsd_804D0908` instead of relying on offset arithmetic from `hsd_804D08E8`, which likely resolved relocation differences and made the source more semantically accurate.",
+    "Fixed field-level particle initialization names (`primCol`, `envCol`, `rotateTarget`) rather than only chasing byte-equivalent output, improving both match quality and struct documentation."
   ],
   "decomp_lessons": [
-    "Prefer existing project access macros such as `GET_GROUND(gobj)` over ad hoc helpers or direct `gobj->user_data` access when the surrounding subsystem already has a convention.",
-    "When asm bytes are close but relocations differ, audit whether the source should reference the exact global symbol rather than computing an address from a neighboring global.",
-    "For external SDK code, a narrow overlay struct can be a useful matching tactic for fields at known offsets, but it should stay localized and evidence-based.",
-    "Return-type corrections are part of matching work: if a function naturally tracks a status like `did`, changing `void` to `int` and updating early returns/prototypes may be the right shape.",
-    "Field-name accuracy matters for both semantics and matching; near-matches can expose that initialization belongs to `primCol`, `envCol`, or `rotateTarget` rather than similarly typed neighboring fields.",
-    "Small local-variable lifetime changes can be enough to move a function from near-match to match; hoisting a temp or removing an unnecessary temp can alter stack/register allocation."
+    "When a function is byte-identical but has relocation differences, inspect whether pointer arithmetic is hiding a more precise global symbol; replacing base-plus-offset arithmetic with the exact symbol can resolve the match and improve readability.",
+    "For decomp matching, temporary variables can be either harmful or necessary depending on load shape. `ft_800895E0` matched better after removing a temp, while `grIceMt_801F9ACC` needed a new pointer temp for `xC8` handling.",
+    "Do not directly access `HSD_GObj` or ground object `user_data` when a project macro such as `GET_GROUND()` exists; reviewers expect the shared accessor.",
+    "Function signatures should be revisited when evidence suggests a value is returned. Updating both implementation and header for `grIceMt_801F9ACC` kept declarations consistent.",
+    "Small local declaration changes, including moving a temporary to outer scope or adding/removing `PAD_STACK`, can be legitimate matching tactics when they reflect compiler stack/register allocation.",
+    "Struct field naming matters: correcting which color or target fields are initialized in `HSD_Particle` both improves decomp readability and may expose previous misidentified fields.",
+    "Independent source-matching cleanups can be batched when they are small, verified with `--require-protos`, report generation, and full ninja build."
   ],
   "naming_conventions": [
-    "`GET_GROUND()` is the preferred existing convention for retrieving `Ground*` from a ground GObj in this area.",
-    "Stage functions in this slice retain address-style names such as `grIceMt_801F9ACC`, `grIceMt_801F993C`, and `grIceMt_801FA854`.",
-    "Header declarations in `gricemt.h` keep address comments like `/* 1F9ACC */` aligned with the function symbol.",
-    "Dolphin THP internals preserve SDK-style names and capitalization, including `__THPRestartDefinition`, `THPRestartFields`, `nMCU`, `currMCU`, and `RST`.",
-    "Baselib globals retain address-derived names such as `hsd_804D0908`; when available, use the exact global rather than pointer arithmetic through another address global."
+    "Stage Ice Mountain symbols use the `grIceMt_` prefix and address-style suffixes such as `grIceMt_801F9ACC`, with declarations mirrored in `gricemt.h`.",
+    "Project code prefers `GET_GROUND(gobj)` for retrieving `Ground*` data from ground GObjs rather than direct `.user_data` access.",
+    "External Dolphin THP internals retain double-underscore names such as `__THPRestartDefinition`, `__THPInfo`, and `__THPInitFlag`.",
+    "Temporary overlay structs should be named for the specific field group being modeled, as in `THPRestartFields`.",
+    "HSD particle globals may have address-derived names such as `hsd_804D0908`; using the exact global symbol is preferred over offsetting from a neighboring global."
   ],
   "assembly_or_matching_tactics": [
-    "Use a cast to a small padding overlay struct to force accesses to the desired offsets in `THPFileInfo`-backed data.",
-    "Replace pointer arithmetic from an adjacent global with a direct named global-array reference to fix relocation-sensitive matches.",
-    "Tune stack/register shape with local declaration placement: hoist `CountEntry tmp`, add `PAD_STACK(16)` in `grIceMt_801F9ACC`, and remove obsolete `PAD_STACK(8)` in `mnCount_8025092C`.",
-    "Remove temporary object-pointer locals when the target code reloads a struct field directly, as in `ft_800895E0` using `fp->item_gobj`.",
-    "Introduce a temporary pointer such as `new_var = &gp->gv.icemt2.xC8` before assignment to steer generated code shape.",
-    "Change comparison operand order in selection/insertion logic when the decompiled control-flow shape is otherwise close.",
-    "Update function return type and all return sites to model a status value in `r3` rather than leaving the function `void`."
+    "Introduced a padded overlay struct in `THPDec.c` to force accesses to `nMCU`, `currMCU`, and `RST` at the desired offsets from `THPFileInfo*`.",
+    "Removed the `Item_GObj* temp` local in `ft_800895E0` to match repeated direct loads from `fp->item_gobj`.",
+    "Changed `grIceMt_801F9ACC` local types and layout (`s32 id`, `HSD_JObj** new_var`, `PAD_STACK(16)`) to better match generated code.",
+    "Used an intermediate `new_var` for `&gp->gv.icemt2.xC8` before assigning `ptrs`, likely affecting register allocation or instruction ordering.",
+    "Moved `CountEntry tmp` to function scope in `mnCount_8025092C` and removed `PAD_STACK(8)` to reshape stack layout.",
+    "Reversed the row comparison in `mnCount_8025092C` to `entries[min].val < entries[j].val`, changing the ordering logic while matching the intended assembly/source shape.",
+    "Replaced `(HSD_Particle**) ((s32*) hsd_804D08E8 + 0x20 / 4 + linkNo)` with `(HSD_Particle**) &hsd_804D0908[linkNo]` to avoid relocation mismatch.",
+    "Corrected assignments to the exact `HSD_Particle` struct fields so the emitted stores target the expected offsets."
   ],
   "review_feedback": [
     {
-      "reviewer": "jurrejelle",
+      "author": "jurrejelle",
       "file": "src/melee/gr/gricemt.c",
-      "feedback": "Asked whether the new Ice Mountain user-data helper could use existing `GET_GROUND()`."
+      "comment": "can this use an existing GET_GROUND()?",
+      "outcome": "Addressed by removing the local user-data helper/direct `user_data` usage and switching `grIceMt_801F9ACC` call sites to `GET_GROUND()`."
     },
     {
-      "reviewer": "itsgrimetime",
+      "author": "itsgrimetime",
       "file": "src/melee/gr/gricemt.c",
-      "feedback": "Author replied they would check, then reported the latest push removed the local `user_data` helper and switched `grIceMt_801F9ACC` call sites to `GET_GROUND()`."
+      "comment": "ooh maybe lemme check",
+      "outcome": "Author acknowledged the suggestion before updating the implementation."
     },
     {
-      "reviewer": "jurrejelle",
+      "author": "itsgrimetime",
       "file": "src/melee/gr/gricemt.c",
-      "feedback": "Review flow shows an initial `CHANGES_REQUESTED` review followed by `APPROVED` after the fix."
+      "comment": "Fixed in the latest push: removed the local user_data helper and switched the call sites in grIceMt_801F9ACC to GET_GROUND().",
+      "outcome": "Confirms the final patch incorporated the review request."
     }
   ],
   "searchable_terms": [
     "PR2582",
-    "Match and improve several source functions",
     "itsgrimetime",
-    "jurrejelle",
-    "GET_GROUND",
-    "user_data",
+    "Match and improve several source functions",
     "grIceMt_801F9ACC",
     "gricemt.c",
     "gricemt.h",
-    "Ice Mountain",
+    "GET_GROUND",
+    "user_data",
     "Ground_801C2BA4",
     "Ground_801C2D0C",
-    "HSD_JObjGetTranslationY",
     "UnkFlagStruct",
+    "grIceMtSegmentLookup",
+    "grIceMt_801F993C",
+    "grIceMt_801FA854",
+    "ft_800895E0",
+    "ft_0892.c",
+    "item_gobj",
+    "it_8026B6C8",
+    "mnCount_8025092C",
+    "CountEntry",
+    "NUM_CHARACTERS",
+    "hsd_80398C04",
+    "HSD_Particle",
+    "hsd_804D08E8",
+    "hsd_804D0908",
+    "primCol",
+    "envCol",
+    "rotateTarget",
     "THPDec.c",
     "__THPRestartDefinition",
     "THPRestartFields",
@@ -138,31 +141,24 @@
     "nMCU",
     "currMCU",
     "RST",
-    "particle.c",
-    "hsd_80398C04",
-    "hsd_804D0908",
-    "hsd_804D08E8",
-    "primCol",
-    "envCol",
-    "rotateTarget",
-    "ft_800895E0",
-    "fp->item_gobj",
-    "it_8026B6C8",
-    "mnCount_8025092C",
-    "CountEntry",
-    "NUM_CHARACTERS",
     "PAD_STACK",
-    "require-protos",
-    "GALE01"
+    "relocation differences",
+    "require-protos"
   ],
   "follow_up_queries": [
-    "GET_GROUND user_data review feedback gricemt",
-    "hsd_80398C04 hsd_804D0908 relocation differences",
-    "__THPRestartDefinition THPRestartFields overlay nMCU currMCU RST",
-    "grIceMt_801F9ACC return did int prototype",
-    "mnCount_8025092C CountEntry tmp comparison entries[min].val",
-    "ft_800895E0 fp->item_gobj load shape",
-    "decomp.dev +844 bytes PR 2582"
+    "Find other ground stage code directly accessing `user_data` where `GET_GROUND()` should be used.",
+    "Search for particle functions with TODOs mentioning byte-identical output but relocation differences; check for imprecise global-symbol references.",
+    "Review other THP decoder functions for places where overlay structs could document offset-specific field accesses.",
+    "Search for `PAD_STACK` additions/removals near newly matched functions to compare stack-shaping patterns.",
+    "Check callers of `grIceMt_801F9ACC` to confirm the returned `did` value is meaningful or preserved only for ABI/matching."
   ],
-  "confidence": 0.93
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

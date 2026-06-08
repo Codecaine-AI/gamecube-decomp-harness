@@ -11,178 +11,152 @@
     "merged_at": "2026-03-29T20:26:16Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged item/Pokemon decompilation PR replacing placeholders with C implementations across item files, plus header/struct typing needed for those matches. The PR text says 17 matched functions across 11 item/Pokemon files; the decomp.dev bot reported +1852 matched code bytes, +64 matched data bytes, 12 new full matches, and 15 additional near/full improvements.",
+  "summary": "Large item/Pokemon decompilation PR that replaced placeholder stubs with C implementations across many item files, plus the header/struct/prototype fixes needed to type item vars and special attributes. The PR context summary claims 17 matched functions across 11 item/Pokemon files; the decomp.dev bot reported +1852 matched code bytes, +64 matched data bytes, 12 new 100% matches, and several additional near-matches in item units.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "item-logic",
-      "pokemon-items",
-      "fighter-helper-signature",
       "headers",
-      "struct-layout"
+      "struct-layout",
+      "item-behavior",
+      "pokemon-behavior"
     ],
     "systems": [
       "item",
-      "pokemon item logic",
-      "character items",
-      "fighter/Kirby"
+      "pokemon",
+      "fighter-kirby"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/it/items/itclimbersice.c",
-      "role": "Added Ice Climbers Ice Shot launch, airborne physics, and shield-hit logic."
-    },
-    {
-      "path": "src/melee/it/items/ithitodeman.c",
-      "role": "Added Staryu spawn initialization and speed smoothing helper it_802D48B0."
-    },
-    {
-      "path": "src/melee/it/items/itmewtwoshadowball.c",
-      "role": "Added Mewtwo Shadow Ball release/setup logic and charged scale animation."
-    },
-    {
-      "path": "src/melee/it/items/itseakneedlethrown.c",
-      "role": "Added thrown Sheik needle animation callbacks that cache position and spin child JObj."
-    },
-    {
-      "path": "src/melee/it/items/itkirbycutterbeam.c",
-      "role": "Added Kirby Final Cutter beam setup using Kirby attack rotation, trig, velocity, direction, and initial position."
-    },
-    {
-      "path": "src/melee/it/items/itlugia.c",
-      "role": "Added Lugia Aeroblast transition/setup and changed stored beam spawn position from pad bytes to a Vec3 field."
-    },
-    {
-      "path": "src/melee/it/itCommonItems.h",
-      "role": "Expanded multiple item var/attribute layouts for Lugia, Staryu, Mewtwo Shadow Ball, Patapata, and related data."
-    },
-    {
-      "path": "src/melee/it/itCharItems.h",
-      "role": "Typed character item fields for Ice Shot, Kirby Cutter Beam, and thrown Sheik needle."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
-      "role": "Corrected ftKb_AttackDashAir_800F21C0 to return ftPartGetRotX so item code can use the angle."
-    },
-    {
-      "path": "src/melee/it/types.h",
-      "role": "Added itKirbyCutterBeam_ItemVars to the Item itemVar union."
-    }
+    "src/melee/it/items/itclimbersice.c",
+    "src/melee/it/items/ithitodeman.c",
+    "src/melee/it/items/itmewtwoshadowball.c",
+    "src/melee/it/items/itlugia.c",
+    "src/melee/it/items/itkamex.c",
+    "src/melee/it/items/itkirbycutterbeam.c",
+    "src/melee/it/items/itflipper.c",
+    "src/melee/it/items/itmatadogas.c",
+    "src/melee/it/items/itoldottosea.c",
+    "src/melee/it/items/itpatapata.c",
+    "src/melee/it/items/itseakneedlethrown.c",
+    "src/melee/it/items/ittincle.c",
+    "src/melee/it/itCommonItems.h",
+    "src/melee/it/itCharItems.h",
+    "src/melee/ft/chara/ftKirby/ftKb_Init.h",
+    "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c"
   ],
   "what_changed": [
-    "Replaced placeholder comments with C for item/Pokemon callbacks including it_802C16F8, itClimbersice_UnkMotion3_Phys, it_2725_Logic90_HitShield, it_80290938, it_2725_Logic24_Spawned, it_802D48B0, it_2725_Logic31_Spawned, it_8029BB90, it_802D1A44, itMatadogas_UnkMotion2_Phys, it_802C5B18, itMewtwoshadowball_UnkMotion8_Anim, itOldottosea_UnkMotion2_Phys, itPatapata_UnkMotion4_Phys, itSeakneedlethrown_UnkMotion1_Anim, itSeakneedlethrown_UnkMotion4_Anim, and it_802EBA00.",
-    "Typed previously unknown or padded item variable regions: Staryu item vars gained x6C through x80 and x8C floats, Mewtwo Shadow Ball x10 array was split into x10/x14/x18, Lugia item vars gained Vec3 x70, f32 x88, Vec3 x8C, and s32 xA4, and thrown needle xDD4 became f32.",
-    "Expanded item attribute layouts where needed, including itClimbersIceAttributes fields x0/x8/x10, itLugiaAttributes padding to x40, and itPatapataAttributes fields x38/x3C.",
-    "Added itKirbyCutterBeam_ItemVars with angle, speed, direction Vec3, and initial position Vec3, then registered it in the Item union.",
-    "Changed ftKb_AttackDashAir_800F21C0 from void to float and returned ftPartGetRotX(GET_FIGHTER(gobj), 0), enabling Kirby Cutter Beam setup to consume the attack rotation.",
-    "Added supporting includes such as baselib/jobj.h, MSL/trigf.h, lb/lb_00B0.h, baselib/debug.h, ft/ft_0C31.h, it/inlines.h, and math.h where the new code needed JObj access, trig, assertions, or ABS/math behavior.",
-    "Declared additional Lugia extern floats it_804DD46C, it_804DD470, and it_804DD474 in itlugia.h."
+    "Implemented item/Pokemon functions previously left as `/// #...` placeholders, including Ice Climbers Ice Shot, Staryu/Hitodeman, Mewtwo Shadow Ball, Lugia, Blastoise/Kamex, Flipper, Weezing/Matadogas, Kirby Cutter Beam, and other item behaviors.",
+    "Changed `ftKb_AttackDashAir_800F21C0` from `void` to `float` and returned `ftPartGetRotX(GET_FIGHTER(gobj), 0)`, allowing `it_8029BB90` to use Kirby's attack angle for Final Cutter beam velocity and direction.",
+    "Expanded item-var and attribute structs in `itCommonItems.h` and `itCharItems.h`, replacing padding with typed fields such as `itKirbyCutterBeam_ItemVars`, `itHitodeman_ItemVars` floats, `itMewtwoShadowball_ItemVars` fields, Lugia vectors, Patapata attributes, and Climbers Ice attributes.",
+    "Implemented `it_802C16F8`, `itClimbersice_UnkMotion3_Phys`, and `it_2725_Logic90_HitShield` for Ice Shot launch, airborne physics/damage scaling, shield bounce velocity reduction, and lifetime threshold handling.",
+    "Implemented Hitodeman/Staryu initialization and velocity smoothing logic in `it_2725_Logic24_Spawned` and `it_802D48B0`.",
+    "Implemented `it_802C5B18` and related struct fixes for Mewtwo Shadow Ball launch/destruction state, with item vars split out of a prior integer array.",
+    "Implemented Lugia attack setup in `it_802D1A44`, including animation state, hitlag effect pause/resume callbacks, mouth/joint position sampling, beam target vectors, and accessory callback setup.",
+    "Implemented spawn/setup routines such as Flipper spawning from an `HSD_JObj` and Kamex/Blastoise spawned initialization with lifetime, animation, and model scale.",
+    "Added includes required by the new C, including `math.h`, `MSL/trigf.h`, `baselib/jobj.h`, `lb/lb_00B0.h`, and Kirby/item inline headers."
   ],
   "smart_moves": [
-    "The PR did not only add function bodies; it first exposed the data layout required by those bodies, converting pad bytes and UNK signatures into offset-accurate f32, s32, Vec3, and HSD_GObj fields.",
-    "Kirby Cutter Beam was solved by correcting the fighter helper signature at the source: ftKb_AttackDashAir_800F21C0 now returns the joint rotation value instead of discarding it, making the item-side trig setup straightforward and reusable.",
-    "Several item setup functions preserve engine conventions: SpawnItem is filled before Item_80268B18, item motion changes use Item_80268E5C with existing animation flags, and hitlag/effect callbacks are wired through entered_hitlag/exited_hitlag/on_accessory fields.",
-    "The Ice Shot shield response uses existing collision helpers and item attributes rather than hardcoding behavior: it bounces via itColl_BounceOffVictim, scales velocity by ItemAttr x58, decrements lifetime by special attributes, and returns destroy/continue based on a threshold.",
-    "The code uses direct JObj operations only with the includes and asserts needed by the existing style, for example HSD_JObjSetScale, HSD_JObjAddRotationX, HSD_JObjAddTranslationZ, and jobj flag assertions in the Weezing physics transition.",
-    "Small stack/padding details were retained where matching required them, visible in PAD_STACK calls in it_802C16F8 and it_802C5B18."
+    "Unblocked item projectile code by fixing the upstream Kirby helper prototype instead of treating its return value as unknown; this made Kirby Cutter Beam angle computation expressible in typed C.",
+    "Converted anonymous padding into offset-annotated fields only where the new implementations needed real data, preserving layout while improving future readability.",
+    "Kept item vars named with offset-style placeholders (`x70`, `x8C`, `xDD4`, etc.) where semantics were still uncertain, avoiding overconfident names while enabling matching.",
+    "Matched low-level engine side effects explicitly: effect pause/resume callbacks, accessory callbacks, hitbox damage updates, item animation state changes, and JObj scale/rotation operations.",
+    "Used existing engine helpers rather than open-coding behavior, e.g. `Item_80268E5C`, `it_80275158`, `it_80272980`, `itColl_BounceOffVictim`, `efAsync_Spawn`, `lb_8000B1CC`, and `HSD_JObjSetScale`.",
+    "The bot report shows a useful split between exact new matches and near-matches, making it clear which functions were fully landed and which still need small ordering/register/data fixes."
   ],
   "decomp_lessons": [
-    "For item/Pokemon functions, matching often depends on naming and typing the ip+DD4 itemVar region before implementing behavior; leaving fields as pad arrays can block readable and matchable C.",
-    "When a downstream item function needs a fighter helper result, verify the fighter helper prototype and implementation. Here a void Kirby helper was actually a float-returning rotation getter.",
-    "Offset-based placeholder names like x70, x8C, xA4 are acceptable when semantics are not yet proven; the important improvement is preserving type, size, and offset accurately.",
-    "Use the existing item engine helpers for state transitions, collision reactions, lifetime setup, hitbox damage updates, effect spawning, and despawn checks instead of open-coding those systems.",
-    "Animation callbacks for projectile visuals often combine model/JObj mutation with the standard item lifetime/despawn callback, as seen with Shadow Ball scale updates and thrown needle rotation.",
-    "Special attributes loaded from item data frequently provide lifetimes, speeds, thresholds, gravity/fall parameters, and offsets; exposing the struct fields lets multiple functions become simple attribute-driven code."
+    "Item decomp often requires header work first: struct field recovery in `xDD4_itemVar` and special-attribute structs can be the key to writing natural C that matches.",
+    "When a function appears to discard a call result, verify the prototype; here `ftKb_AttackDashAir_800F21C0` needed to return `float`, and the caller used that value for trig-based velocity.",
+    "For projectile setup functions, preserve both gameplay state and visual/effect state: velocity, facing direction, hitbox damage, lifetime, model scale, effect callbacks, and accessory callbacks can all affect matching.",
+    "Replacing padding with typed `Vec3` fields can simplify code and avoid casts, as shown by Lugia using `x70` as a vector instead of casting `x70_pad`.",
+    "Near-matches around 99% can still be valuable, but the bot output should be recorded precisely; this PR had 100% matches and several 97-99% improvements rather than all changed functions necessarily being perfect.",
+    "Evidence for human reviewer intent is weak in this slice: there were no review comments or reviews, only a decomp.dev bot match report."
   ],
   "naming_conventions": [
-    "Pokemon/item source filenames retain Japanese/internal item names such as ithitodeman, itkamex, itmatadogas, itpatapata, itoldottosea, and itlugia.",
-    "Unknown functions keep address-based names like it_802D48B0 or logic-state names like it_2725_Logic31_Spawned until stronger semantic names are established.",
-    "Item motion callbacks follow the existing pattern it<ItemName>_UnkMotionN_Anim/Phys/Coll, for example itMewtwoshadowball_UnkMotion8_Anim and itPatapata_UnkMotion4_Phys.",
-    "Struct fields remain offset-style xNN/xNN_pad when semantics are not known, but are upgraded from raw pad bytes to typed f32, s32, Vec3, or pointers when evidence from code requires it.",
-    "New itemVar struct names follow existing lower-case item kind naming, e.g. itKirbyCutterBeam_ItemVars with union member kirbycutterbeam."
+    "Preserved project-style unknown function names such as `it_802C16F8`, `it_802D48B0`, `it_2725_Logic31_Spawned`, and `it_8029BB90` when no semantic name was established.",
+    "Used existing item motion callback naming patterns such as `itClimbersice_UnkMotion3_Phys`, `itMewtwoshadowball_UnkMotion8_Anim`, and `itPatapata_UnkMotion4_Phys`.",
+    "Maintained item/Pokemon internal names used by the codebase: `hitodeman`, `kamex`, `matadogas`, `oldottosea`, `patapata`, `lugia`, and `mewtwoshadowball`.",
+    "Struct fields stayed offset-based (`x0`, `x40`, `x8C`, `xA4`, `xDD4`, `xE50`) unless semantics were clear enough for names such as `angle`, `speed`, `dir`, and `init_pos` in `itKirbyCutterBeam_ItemVars`.",
+    "Header comments preserve offset notation such as `/* +70 ip+E44 */` and `/* ip+DE4 */`, which is useful for future item-var layout recovery."
   ],
   "assembly_or_matching_tactics": [
-    "Used PAD_STACK to preserve stack shape in at least it_802C16F8 and it_802C5B18.",
-    "Used ABS comparisons and explicit f32 arithmetic in it_802D48B0 to match clamped acceleration/deceleration behavior.",
-    "Kept temporary variable/block structure and repeated GET_ITEM reloads in places such as Ice Shot shield logic and effect spawning, likely reflecting compiler-sensitive matching style.",
-    "Used f32 constants and casts in item formulas, such as Shadow Ball charge scale calculation and Tingle vertical acceleration calculation.",
-    "Matched JObj transform code with the project’s baselib APIs: HSD_JObjSetScale, HSD_JObjAddRotationX, HSD_JObjAddTranslationZ, HSD_JObjClearFlagsAll, and direct rotate.y mutation guarded by jobj assertions.",
-    "Kirby Cutter Beam velocity/direction was expressed with cosf/sinf from MSL/trigf.h and the item facing direction, then cached angle, speed, dir, and init_pos in itemVar.",
-    "Oldottosea physics included the locale-dependent lbLang_IsSettingJP branch and jp_offset value, showing that regional timing/data differences can matter for matching."
+    "Used `PAD_STACK(24)` in `it_802C16F8`, indicating stack-shape control was needed for that match.",
+    "Used `ABS` and explicit sign handling in functions like `it_802D48B0` and Ice Shot shield logic to mirror original branch behavior.",
+    "Re-fetched `GET_ITEM(gobj)` and scoped locals in places such as Ice Shot code, a common tactic to influence register allocation and instruction order.",
+    "Called `cosf` and `sinf` from `MSL/trigf.h` for Kirby Cutter Beam velocity/direction, matching the original float trig calls.",
+    "Preserved inline JObj assertions and direct `jobj->rotate.y` mutation in `itMatadogas_UnkMotion2_Phys`, suggesting matching required the same baselib debug/assert pattern.",
+    "Used `lb_8000B1CC` to sample joint/world positions for Flipper spawning and Lugia beam setup, avoiding manual matrix math.",
+    "Updated `.sdata`/`.sdata2` match percentages in several item units according to the bot report, implying constants and small-data placement mattered alongside code matching."
   ],
   "review_feedback": [
-    "No human review comments or reviews were captured in the PR slice.",
-    "decomp.dev bot reported matched code 61.15% (+0.05%, +1852 bytes) and matched data 37.78% (+0.01%, +64 bytes).",
-    "Bot listed 12 new matches, including itSeakneedlethrown_UnkMotion1_Anim, it_2725_Logic31_Spawned, it_802EBA00, it_802D1A44, itSeakneedlethrown_UnkMotion4_Anim, it_802C5B18, it_802D48B0, and itPatapata_UnkMotion4_Phys.",
-    "Bot listed 15 improvements in unmatched items, including near-matches for itMewtwoshadowball_UnkMotion8_Anim, it_8029BB90, itMatadogas_UnkMotion2_Phys, it_2725_Logic90_HitShield, it_80290938, it_2725_Logic24_Spawned, it_802C16F8, itClimbersice_UnkMotion3_Phys, and itOldottosea_UnkMotion2_Phys."
+    "No human review comments or review records were present in the slice.",
+    "The decomp.dev bot reported matched code improved to 61.15% (+0.05%, +1852 bytes) and matched data to 37.78% (+0.01%, +64 bytes).",
+    "Bot-listed 100% new matches included `itSeakneedlethrown_UnkMotion1_Anim`, `it_2725_Logic31_Spawned`, `it_802EBA00`, `it_802D1A44`, `itSeakneedlethrown_UnkMotion4_Anim`, `it_802C5B18`, `it_802D48B0`, and `itPatapata_UnkMotion4_Phys`, plus several `.sdata` matches.",
+    "Bot-listed near-matches included `itMewtwoshadowball_UnkMotion8_Anim`, `it_8029BB90`, `itMatadogas_UnkMotion2_Phys`, `it_2725_Logic90_HitShield`, `it_80290938`, `it_2725_Logic24_Spawned`, `it_802C16F8`, `itClimbersice_UnkMotion3_Phys`, and `itOldottosea_UnkMotion2_Phys`."
   ],
   "searchable_terms": [
-    "pr-2365",
+    "PR2365",
     "Item and Pokemon decompilation matches",
     "johnwinston",
     "itclimbersice",
+    "Ice Shot",
     "it_802C16F8",
     "itClimbersice_UnkMotion3_Phys",
     "it_2725_Logic90_HitShield",
-    "itflipper",
-    "it_80290938",
     "ithitodeman",
     "Staryu",
     "it_2725_Logic24_Spawned",
     "it_802D48B0",
-    "itkamex",
-    "Blastoise",
-    "it_2725_Logic31_Spawned",
-    "itkirbycutterbeam",
-    "it_8029BB90",
-    "itKirbyCutterBeam_ItemVars",
-    "ftKb_AttackDashAir_800F21C0",
-    "ftPartGetRotX",
-    "itlugia",
-    "Lugia",
-    "Aeroblast",
-    "it_802D1A44",
-    "itmatadogas",
-    "Weezing",
-    "itMatadogas_UnkMotion2_Phys",
     "itmewtwoshadowball",
     "Mewtwo Shadow Ball",
     "it_802C5B18",
     "itMewtwoshadowball_UnkMotion8_Anim",
+    "itlugia",
+    "it_802D1A44",
+    "Aeroblast",
+    "itkamex",
+    "Blastoise",
+    "it_2725_Logic31_Spawned",
+    "itkirbycutterbeam",
+    "Kirby Final Cutter",
+    "it_8029BB90",
+    "ftKb_AttackDashAir_800F21C0",
+    "itflipper",
+    "it_80290938",
+    "itmatadogas",
+    "Weezing",
+    "itMatadogas_UnkMotion2_Phys",
     "itoldottosea",
     "itOldottosea_UnkMotion2_Phys",
     "itpatapata",
-    "Butterfree",
     "itPatapata_UnkMotion4_Phys",
     "itseakneedlethrown",
-    "Sheik needle",
     "itSeakneedlethrown_UnkMotion1_Anim",
     "itSeakneedlethrown_UnkMotion4_Anim",
     "ittincle",
-    "Tingle",
     "it_802EBA00",
     "itCommonItems.h",
     "itCharItems.h",
-    "it/types.h",
+    "xDD4_itemVar",
+    "specialAttributes",
     "PAD_STACK",
     "HSD_JObjSetScale",
-    "HSD_JObjAddRotationX",
-    "HSD_JObjAddTranslationZ",
-    "Item_80268E5C",
-    "Item_80268B18",
-    "efAsync_Spawn",
-    "efLib_PauseAll",
-    "efLib_ResumeAll",
-    "lbLang_IsSettingJP"
+    "lb_8000B1CC",
+    "efAsync_Spawn"
   ],
   "follow_up_queries": [
-    "Search for callers of it_802D48B0 to determine whether the Staryu acceleration helper can receive a semantic name.",
-    "Audit remaining itClimbersIceAttributes xNN fields to replace offset names once attribute semantics are known.",
-    "Search for ftKb_AttackDashAir_800F21C0 users after this PR; its float return value may support additional Kirby Final Cutter projectile cleanup.",
-    "Compare the near-99% bot improvements in it_8029BB90, itMatadogas_UnkMotion2_Phys, it_2725_Logic90_HitShield, it_80290938, and itOldottosea_UnkMotion2_Phys for any later PRs that finished the remaining mismatches.",
-    "Review Lugia itemVar fields x70/x8C/xA4 and extern floats it_804DD46C/it_804DD470/it_804DD474 for future Aeroblast naming once behavior is better understood."
+    "Which near-matched functions from PR #2365 were later brought from 99% to 100%, especially `it_8029BB90`, `it_802C16F8`, and `it_2725_Logic90_HitShield`?",
+    "Search for later renames or semantic field recovery for `itKirbyCutterBeam_ItemVars`, `itHitodeman_ItemVars`, `itLugia_ItemVars`, and `itMewtwoShadowball_ItemVars`.",
+    "Check whether `ftKb_AttackDashAir_800F21C0` gained a semantic name after its return type was corrected to `float`.",
+    "Look for future PRs touching `.sdata2` constants in `itoldottosea`, `itmewtwoshadowball`, `itflipper`, `itkamex`, `ithitodeman`, or `ittincle`."
   ],
-  "confidence": 0.88
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

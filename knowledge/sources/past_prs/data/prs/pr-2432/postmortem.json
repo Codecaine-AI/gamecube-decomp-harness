@@ -11,196 +11,174 @@
     "merged_at": "2026-04-27T20:51:22Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Large item decomp matching pass that pushed item translation units over the PR's >90% target, promoted six item files from NonMatching to Matching, and replaced many placeholder/UNK layouts with typed item, collision, hurtbone, and state-table structures. The decomp-dev report recorded +12020 matched code bytes, +20644 linked code bytes, +1232 matched data bytes, 43 new matches, and 30 improvements, with only a small it_2725 .data regression noted.",
+  "summary": "Large item-system matching pass that raised all item translation units above the PR's >90% target, with 28 files touched and several item object files promoted from NonMatching to Matching. The automated decomp.dev report recorded +12020 matched code bytes, +20644 linked code bytes, 43 new matches, and 30 additional unmatched-item improvements, concentrated in it_2725, itcoll, and item-specific TUs such as Samus charge shot, Game & Watch chef, Kamex, Unknown, Houou, and Whitebea. The diff also improved item/fighter shared type knowledge, including replacing HSD_ObjAllocUnk2 with a named Item_FtTrack and adding/adjusting item attribute and item-var structures.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "struct-typing",
-      "item-state-tables",
-      "collision",
-      "symbol-map",
+      "struct-refinement",
+      "symbol-map-maintenance",
       "build-config"
     ],
     "systems": [
       "item",
       "fighter",
+      "collision",
       "config",
-      "repo-root"
+      "build"
     ]
   },
   "key_files": [
     {
-      "path": "configure.py",
-      "role": "Promoted itsamuschargeshot.c, itgamewatchchef.c, itkamex.c, itunknown.c, ithouou.c, and itwhitebea.c from NonMatching to Matching."
+      "file": "configure.py",
+      "why": "Promoted multiple item source files from NonMatching to Matching, including itsamuschargeshot.c, itgamewatchchef.c, itkamex.c, itunknown.c, ithouou.c, and itwhitebea.c."
     },
     {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Adjusted data/sdata/sdata2 symbols, mostly turning compiler-local constants and strings into local @ labels and fixing one data object size/label."
+      "file": "src/melee/it/it_2725.c",
+      "why": "Largest code-matching rewrite in the PR; decomp.dev reported many new matches and near-matches here, including it_80279E24, it_80279544, it_80279FF8, it_80278800, and it_802790C0."
     },
     {
-      "path": "src/melee/it/it_2725.c",
-      "role": "Largest core item TU cleanup: item command parsing, MObj/TEV typed access, ItCo.dat/usd loading, Pokemon selection/spawning, helper ordering, effects, and scale helpers."
+      "file": "src/melee/it/itcoll.c",
+      "why": "Substantial item collision cleanup and matching improvements; reported new matches include it_8026FE68 and it_802701BC, with several collision routines improved above 90%."
     },
     {
-      "path": "src/melee/it/itcoll.c",
-      "role": "Major item collision matching pass using typed damage logs, hurtbone data, per-fighter tracking, helper inlines/outlines, and a typed hit-element effect table."
+      "file": "src/melee/it/types.h",
+      "why": "Added/refined shared item data types, including Item_FtTrack, ItHurtBoneDesc, ItHurtBoneList, and DamageLogEntry comments/renaming."
     },
     {
-      "path": "src/melee/it/types.h",
-      "role": "Introduced or refined Item_FtTrack, DamageLogEntry, ItHurtBoneDesc/List, ItemModStruct, GXColor item color fields, and ItemCommonData.xE8 as f32."
+      "file": "src/melee/it/itCommonItems.h",
+      "why": "Refined item attribute and item-var layouts for Kamex, Houou, Whitebea, Oldottosea, and Unknown, including unions where fields are used as both integer and float data."
     },
     {
-      "path": "src/melee/it/itCommonItems.h",
-      "role": "Refined item-specific attrs/vars for Kamex, Houou, WhiteBea, Oldottosea, and Unknown, including unions for float/int overlay fields."
+      "file": "src/melee/it/itCharItems.h",
+      "why": "Refined Link boomerang variables and attributes, adding typed animation/joint fields and replacing generic x0/x4/x8 names with timer/start/end semantics."
     },
     {
-      "path": "src/melee/it/itCharItems.h",
-      "role": "Typed Link boomerang trail buffers and animation/material/shape animation pointers in boomerang attributes."
+      "file": "src/melee/ft/chara/ftCommon/ftCo_DownAttack.c",
+      "why": "Changed ftCo_80098634 to take Item_FtTrack* and write x150_count, tying fighter down-attack tracking to the newly named item/fighter tracking structure."
     },
     {
-      "path": "src/melee/it/items/itlinkboomerang.c",
-      "role": "Added state table, matched boomerang spawn/return/trail logic, replaced M2C field hacks with xDF0/xEB0 Vec3 buffers, and changed it_802A0534 to accept an angle."
+      "file": "src/melee/ft/chara/ftLink/ftLk_SpecialS.c",
+      "why": "Adjusted Link boomerang call signature to pass an additional angle argument to it_802A0534."
     },
     {
-      "path": "src/melee/it/items/itsamuschargeshot.c",
-      "role": "Added Samus charge shot state table and matched charge-state animation logic, including Samus/Kirby owner checks and scale calculation."
-    },
-    {
-      "path": "src/melee/it/items/itgamewatchchef.c",
-      "role": "Added state table and matched itGamewatchchef_UnkMotion0_Anim; reused motion0 collision behavior for motion1 collision."
-    },
-    {
-      "path": "src/melee/it/items/ithouou.c",
-      "role": "Added Houou state tables, typed Houou item vars, and matched sacred-fire spawn/path logic such as it_802D2D2C."
-    },
-    {
-      "path": "src/melee/it/items/itkamex.c",
-      "role": "Added Kamex state tables, typed float attributes, matched Hydro Pump spawn logic it_802CAB10, and inlined constants for scale growth."
-    },
-    {
-      "path": "src/melee/it/items/itsscope.c",
-      "role": "Added Super Scope state table and matched charge-level/cost selection helpers including it_80291DAC."
-    },
-    {
-      "path": "src/melee/it/items/itunknown.c",
-      "role": "Added Unknown state table, typed randomization/velocity fields with unions, and matched spawn/rotation behavior."
-    },
-    {
-      "path": "src/melee/it/items/itwhitebea.c",
-      "role": "Added WhiteBea state table and matched movement/collision/partner-distance logic including it_802E35CC and itWhitebea_UnkMotion2_Anim."
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_DownAttack.c",
-      "role": "Changed ftCo_80098634 to take Item_FtTrack and write x150_count."
-    },
-    {
-      "path": "src/melee/ft/chara/ftLink/ftLk_SpecialS.c",
-      "role": "Preserved calcAnglePos result and passed it into it_802A0534 for Link boomerang."
+      "file": "config/GALE01/symbols.txt",
+      "why": "Updated symbol map for newly matched data, including converting many formerly global it_804D*/it_803F* constants to local @ labels and correcting one data object size/label layout."
     }
   ],
   "what_changed": [
-    "configure.py changed six item objects from Object(NonMatching, ...) to Object(Matching, ...): itsamuschargeshot.c, itgamewatchchef.c, itkamex.c, itunknown.c, ithouou.c, and itwhitebea.c.",
-    "The decomp-dev GALE01 report recorded 43 new matches and 30 improvements in unmatched items, including full matches for itSamuschargeshot_UnkMotion0_Anim, it_80279E24, it_802CAB10, it_802E35CC, itWhitebea_UnkMotion2_Anim, it_802D2D2C, itGamewatchchef_UnkMotion0_Anim, it_8026FE68, and multiple item .data sections.",
-    "src/melee/it/it_2725.c was heavily rewritten from M2C/placeholder-style code toward typed C: it_MObjInfo wraps HSD_ClassInfo plus MObj callbacks/templates, ItCo.dat/usd archive loading uses named strings and an it_804D6D20_t layout, item command readers parse cmd->u with explicit u8/u16/s16/u32 casts, and helper definitions such as it_80272CC0, it_80272D40, it_80272DE4, and it_80272F7C were repositioned.",
-    "src/melee/it/itcoll.c replaced generic allocation structs with DamageLogEntry and Item_FtTrack, added an itColl_chkECBOverlap inline, typed item hurtbone data via ItHurtBoneList/ItHurtBoneDesc, and cleaned up item-vs-item/fighter collision handling while keeping match-control wrappers.",
-    "Multiple item files gained real ItemStateTable arrays at their address-based global names, replacing previously absent data and contributing to .data matches for Samus charge shot, Game & Watch Chef, Kamex, Link boomerang, Super Scope, Unknown, Houou, and WhiteBea.",
-    "Item-specific structs were improved: Link boomerang got Vec3 xDF0/xEB0 trail buffers and animation/matanim/shapeanim pointers; Houou got itHouou_ItemVars; Unknown got float/int unions; WhiteBea got an Item_GObj* x20 and structured attribute pointer; Kamex attrs x8/xC/x10/x14 became floats.",
-    "Item color/modifier storage was clarified in types.h by changing xBC4..xBC7 bytes into a GXColor xBC4 and moving ItemModStruct xBC8; item.c initialization now writes xBC4.a/b/g/r fields.",
-    "Fighter/item integration was updated: ftCo_80098634 now uses Item_FtTrack; Item_804A0CCC is typed as Item_FtTrack; ftLink SpecialS now passes the calculated boomerang angle; ftcoll.h exposes ftColl_80076808 as a non-static declaration.",
-    "The symbol map changed many anonymous strings/floats/doubles from global it_804D*/it_803F* names to local @ labels and adjusted it_803F7D60 from size 0x30 to 0x40 with a local ...data.0 label."
+    "Changed build configuration so six item TUs moved from NonMatching to Matching: itsamuschargeshot.c, itgamewatchchef.c, itkamex.c, itunknown.c, ithouou.c, and itwhitebea.c.",
+    "Performed broad matching rewrites in src/melee/it/it_2725.c and src/melee/it/itcoll.c, reducing deleted placeholder/nonmatching code and replacing it with C that decomp.dev recognized as new matches or major improvements.",
+    "Matched item-specific behavior/data in itlinkboomerang.c, itsamuschargeshot.c, itwhitebea.c, itunknown.c, itsscope.c, ithouou.c, itkamex.c, and itgamewatchchef.c.",
+    "Replaced the generic forward declaration HSD_ObjAllocUnk2 with Item_FtTrack and propagated that name through ftCo_80098634, Item_804A0CCC declarations, and item collision users.",
+    "Renamed Item_FtTrack field x150 to x150_count and documented it as the count of populated per-fighter ECB/position entries.",
+    "Added comments and explicit structs for item hurtbone descriptors/lists, noting that ItHurtBoneDesc mirrors HurtCapsule offset/scale fields with a leading bone_id and is copied into Item::xACC_itemHurtbox by it_8027163C.",
+    "Refined item attribute structures with better field interpretations, including itHouou_ItemVars, itKamexAttributes timer/min/max-style fields, itLinkBoomerangAttributes typed joint/animation fields, and itUnknown fields represented as unions when the same slot is used as f32 or s32.",
+    "Adjusted GALE01 symbol labels so many constants/data objects became local @ labels rather than global it_804D*/it_803F* symbols, improving data matching and symbol-map accuracy.",
+    "Used matching aids visible in the diff, including PAD_STACK adjustments, #pragma dont_inline regions, static inline helper extraction, and deliberate static constants such as U32_TO_F32/S32_TO_F32-related f64 values."
   ],
   "smart_moves": [
-    "Typed semantic structs were introduced only where the diff had enough evidence from use sites; unclear fields largely stayed offset-style xNN names, which improved matching without over-naming.",
-    "The Item_FtTrack rename is reusable because the diff documents its producer and consumer: ftCo_80098634 populates per-fighter ECB/position entries and it_80271B60 reads them for item/fighter ECB overlap.",
-    "The itColl_chkECBOverlap helper extracted an identical overlap test used by multiple collision routines, reducing duplicated fragile comparison code while preserving the same geometry formula.",
-    "it_8026FAC4_inline, it_8026FAC4_outline, it_8026F9AC_outline, and similar inline/outline wrappers kept call shape and inlining controllable while allowing the source to become readable.",
-    "The MObj/TEV rewrite in it_2725.c replaced raw pointer arithmetic into it_803F1F90 with a typed it_MObjInfo template, turning magic offsets into named fields like texp_tmpl, tevdesc_tmpl, assert_file, and report_fmt_no_register.",
-    "Link boomerang matching used real trail-buffer arrays and animation pointers instead of M2C_FIELD indexing, then threaded the actual calcAnglePos return value from ftLk_SpecialS into it_802A0534.",
-    "Command parsing functions in it_2725.c leaned on packed raw reads from cmd->u, explicit bit masks, and the original fixed-point scale 0.003906f, a good pattern for matching item script commands.",
-    "The symbols.txt cleanup recognized compiler-local constants and strings as local @ symbols, avoiding unnecessary global names that can hide data-section matching issues."
+    "Named a previously generic allocator-like blob as Item_FtTrack only after evidence connected it to ftCo_80098634 population and it_80271B60 item/fighter ECB overlap reads; this turns an unknown HSD_ObjAllocUnk2 into a reusable domain type.",
+    "Preserved ambiguous multi-use data slots with unions rather than forcing a single incorrect type, especially in itUnknown item vars/attributes where fields are accessed as both float and integer values.",
+    "Updated symbols.txt alongside C/data matching so constants that compile as local labels are not left as misleading global symbols.",
+    "Promoted files to Matching in configure.py only for TUs that the diff and automated report show as fully matched, keeping remaining low-confidence units in NonMatching.",
+    "Used explicit count naming, x150_count, for array traversal bounds in Item_FtTrack, improving readability without changing layout.",
+    "Documented structural relationships in types.h, such as the relationship between ItHurtBoneDesc and HurtCapsule, which helps later decompilers avoid re-deriving the same layout."
   ],
   "decomp_lessons": [
-    "For item TUs, matching often depends as much on correct data layout as on function bodies; this PR matched many .data sections by adding ItemStateTable globals and correcting symbol scope.",
-    "Generic HSD_ObjAllocUnk* names should be retired when producer/consumer behavior identifies a real structure; Item_FtTrack and DamageLogEntry are examples with comments that explain their roles.",
-    "Overlay storage should be represented with unions when the same offset is used as float in one path and int in another, as done for itUnknown_ItemVars and itUnknownAttributes.",
-    "If an item command stream is packed, preserve the packed access pattern with explicit u8/u16/s16/u32 casts and bit masks rather than forcing a speculative high-level struct too early.",
-    "Small helper placement, inlining pragmas, PAD_STACK, UNUSED pad bytes, and outline wrappers are legitimate matching levers when they are localized and documented by the diff.",
-    "Header/API fixes can be necessary for item matching even outside src/melee/it: fighter callbacks and Link accessory code had to expose the right item-facing types and arguments.",
-    "Prefer typed archive/data aggregate structs over comments about '8 bytes instead of 4'; the it_804D6D20_t layout made ItCo public data loads and global assignments explicit.",
-    "When changing symbol scope, keep evidence from the object map: local compiler constants should become @ labels, but true data tables such as ItemStateTable globals should remain address-named until semantic names are known."
+    "When an unknown global struct is populated in fighter code and consumed by item collision code, rename and place it in shared item headers only after both producer and consumer evidence agree on the layout.",
+    "For data matching, symbol scope matters: constants emitted as local @ labels should be represented that way in symbols.txt instead of keeping address-derived global names.",
+    "Item attribute tables often need precise pointer/animation/joint field types to unlock data matches; changing only code may not be enough.",
+    "Union fields are appropriate evidence-grounded placeholders when the same item attribute or item-var slot participates in both integer and floating-point operations.",
+    "Small stack and inlining differences still matter for late-stage matching; PAD_STACK changes and #pragma dont_inline boundaries were part of the matching strategy in this PR.",
+    "Replacing unnecessary HSD_GObj casts with typed Item_GObj accessors can improve both readability and matching when typedefs/macros already carry the correct type.",
+    "Large matching passes should update build configuration, headers, source, and symbol maps together; this PR's gains came from treating code, data, and type information as coupled."
   ],
   "naming_conventions": [
-    "Item motion callbacks follow it<Item>_UnkMotionN_Anim/Phys/Coll, and state arrays remain address-named globals such as it_803F7288, it_803F7B08, it_803F7D60, and it_803F8A88 when no semantic table name is established.",
-    "Item-specific variable and attribute structs use item-prefixed names like itHouou_ItemVars, itWhiteBea_ItemVars, itKamexAttributes, itUnknownAttributes, and itLinkBoomerangAttributes.",
-    "Partially understood fields keep offset-style xNN names, but add type/meaning hints when evidence is strong, e.g. x150_count, x4C_anim, x50_matanim, x54_shapeanim, xC0_pos_arr, and x0_ecb_arr.",
-    "Cross-system helper structs use concise semantic names with system context, such as Item_FtTrack, DamageLogEntry, ItHurtBoneDesc, and ItHurtBoneList.",
-    "Address-based function names were retained for unknown behavior, while matched behavior-specific functions such as itGamewatchchef_UnkMotion0_Anim and itWhitebea_UnkMotion2_Anim use existing item motion naming."
+    "Use domain-specific names for formerly generic HSD_ObjAllocUnk* structs when evidence exists; this PR replaced HSD_ObjAllocUnk2 with Item_FtTrack.",
+    "Name count fields with a _count suffix when they bound array iteration, as in x150_count.",
+    "Use item-specific struct names in the pattern it<Name>Attributes and it<Name>_ItemVars, e.g. itHouou_ItemVars, itKamexAttributes, itWhiteBeaAttributes, and itUnknown_ItemVars.",
+    "For still-unknown fields, preserve offset-based names such as x64, x68, x78, but use unions or comments to encode observed use instead of inventing semantic names.",
+    "Use local @NNN labels in symbols.txt for local compiler-emitted constants/strings/floats/doubles rather than address-based global it_804D*/it_803F* names."
   ],
   "assembly_or_matching_tactics": [
-    "Used #pragma dont_inline around small command handlers and item helpers to control codegen.",
-    "Kept PAD_STACK and UNUSED local padding where stack layout mattered.",
-    "Introduced inline and outline helper pairs to steer whether repeated logic emitted inline or as calls.",
-    "Used ABS, M_TAU, DEG2RAD, 0.003906f fixed-point scaling, and direct numeric constants where they matched original codegen and data references.",
-    "Converted some extern sdata2 constants to literal double/float expressions, e.g. Kamex scale growth using 1.0 and 0.06 instead of it_804DD358/it_804DD360.",
-    "Replaced pointer arithmetic/M2C_FIELD with typed arrays and structs after validating offset-compatible layouts.",
-    "Adjusted function signatures and call sites to remove unnecessary HSD_GObj casts and use Item_GObj/Fighter_GObj directly.",
-    "Reordered helper definitions within it_2725.c while preserving calls, likely to better match TU code ordering and local inlining behavior.",
-    "Scoped constants and strings in symbols.txt as local @ labels to better reflect compiler-emitted local data."
+    "Adjusted PAD_STACK sizes in several functions to recover stack layout-sensitive matches.",
+    "Used #pragma push / #pragma dont_inline on / #pragma pop around selected functions in it_2725.c to control inlining behavior.",
+    "Introduced static inline helper extraction, such as an it_80279E24_inline helper, to match repeated codegen patterns while preserving call-site structure.",
+    "Materialized static floating constants for conversion helpers, including U32_TO_F32 and S32_TO_F32-related f64 symbols, where data matching required them.",
+    "Changed command parsing to use typed CommandInfo/union-style access patterns and explicit u16/u8 bit extraction in item command handlers.",
+    "Converted unnecessary casts like GET_ITEM((HSD_GObj*) item_gobj) to GET_ITEM(item_gobj), relying on the typed Item_GObj alias and affecting generated code/readability.",
+    "Updated data symbol scope and sizes to align emitted .data/.sdata/.sdata2 with the matched objects."
   ],
   "review_feedback": [
-    "No human review comments or reviews are present in this slice; the PR body is empty, so reviewer intent is not evidenced.",
-    "The only feedback-like record is the decomp-dev bot report for GALE01, which reported matched code 64.94% (+0.31%, +12020 bytes), linked code 37.07% (+0.53%, +20644 bytes), matched data 38.55% (+0.10%, +1232 bytes), and linked data 32.85% (+0.08%, +1008 bytes).",
-    "The bot report also flagged one small regression: main/melee/it/it_2725 .data changed by -3 bytes, 93.58% to 93.56%."
+    "No human review comments were present in the provided PR slice.",
+    "Automated decomp.dev report for GALE01 showed a net positive result: matched code 64.94% (+0.31%, +12020 bytes), linked code 37.07% (+0.53%, +20644 bytes), matched data 38.55% (+0.10%, +1232 bytes), and linked data 32.85% (+0.08%, +1008 bytes).",
+    "The automated report listed 43 new matches and 30 improvements in unmatched items, with one small unmatched-item data regression in main/melee/it/it_2725 .data from 93.58% to 93.56%."
   ],
   "searchable_terms": [
-    "PR 2432",
     "All item TUs >90% matching",
-    "decomp-dev GALE01 report",
-    "itsamuschargeshot.c Matching",
-    "itgamewatchchef.c Matching",
-    "itkamex.c Matching",
-    "itunknown.c Matching",
-    "ithouou.c Matching",
-    "itwhitebea.c Matching",
-    "it_2725.c",
-    "itcoll.c",
-    "Item_FtTrack",
-    "DamageLogEntry",
-    "ItHurtBoneDesc",
-    "ItHurtBoneList",
-    "ItemStateTable",
-    "it_803F7288",
-    "it_803F7B08",
-    "it_803F7D60",
-    "it_803F8A88",
+    "pr-2432",
+    "lukechampine",
+    "it_2725",
+    "itcoll",
+    "it_80279E24",
+    "it_80278800",
+    "it_802790C0",
+    "it_80279544",
+    "it_80279FF8",
+    "it_8026FE68",
+    "it_802701BC",
+    "it_802706D0",
+    "it_80270E30",
+    "itlinkboomerang",
+    "it_802A013C",
+    "it_802A0534",
+    "itsamuschargeshot",
     "itSamuschargeshot_UnkMotion0_Anim",
+    "itgamewatchchef",
     "itGamewatchchef_UnkMotion0_Anim",
+    "itkamex",
     "it_802CAB10",
+    "itunknown",
+    "it_802CF154",
+    "it_2725_Logic38_Spawned",
+    "ithouou",
+    "it_802D2D2C",
+    "itwhitebea",
     "it_802E35CC",
     "itWhitebea_UnkMotion2_Anim",
-    "it_802D2D2C",
-    "it_8026FE68",
-    "it_80291DAC",
-    "it_802A0534 angle",
-    "ftCo_80098634 Item_FtTrack",
+    "itsscope",
+    "Item_FtTrack",
+    "HSD_ObjAllocUnk2",
+    "x150_count",
     "Item_804A0CCC",
-    "itLinkBoomerang xDF0 xEB0",
-    "itUnknownAttributes union",
-    "ItemCommonData xE8 f32",
-    "GXColor xBC4",
-    "local @ symbols sdata2",
+    "ItHurtBoneDesc",
+    "ItHurtBoneList",
+    "DamageLogEntry",
+    "itUnknown_ItemVars",
+    "itHouou_ItemVars",
+    "itLinkBoomerangAttributes",
+    "U32_TO_F32",
+    "S32_TO_F32",
     "PAD_STACK",
-    "pragma dont_inline"
+    "pragma dont_inline",
+    "symbols.txt local labels"
   ],
   "follow_up_queries": [
-    "Find later PRs that build on Item_FtTrack or rename remaining fields in Item_FtTrack.",
-    "Search for follow-up fixes to the small it_2725 .data regression reported by decomp-dev.",
-    "Search later item PRs for remaining NonMatching item files after this promotion, especially itsamusmissile, itsamusgrapple, and itclinkmilk.",
-    "Find PRs that further type item command streams around it_802790C0, it_8027978C, and related it_2725 command handlers.",
-    "Search for additional cleanup of Link boomerang trail buffers xDF0/xEB0 and boomerang angle handling.",
-    "Find follow-up struct naming for itUnknown_ItemVars unions and itWhiteBeaAttributes x0 entry layout."
+    "Look for later PRs that finish matching it_2725 .data after the small regression reported here.",
+    "Search for Item_FtTrack usages to see whether later work further named x0_ecb_arr, xC0_pos_arr, or x154 flags.",
+    "Search for itUnknown_ItemVars and itUnknownAttributes to see if union fields x64/x68/x78/x0/x18/x1C/x20 gained semantic names.",
+    "Review later itlinkboomerang.c changes around it_802A0534 and angle passing from ftLk_SpecialS.",
+    "Find PRs that continued converting global it_804D*/it_803F* constants to local @ labels for item data matching."
   ],
-  "confidence": 0.88
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

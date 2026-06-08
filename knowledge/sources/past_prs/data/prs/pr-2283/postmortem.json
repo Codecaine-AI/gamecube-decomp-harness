@@ -11,163 +11,131 @@
     "merged_at": "2026-03-13T18:40:49Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Merged batch decompilation of pointer-math-heavy functions across game-mode results/regclear, ground stage/material code, and item Kamex/ZGShell code. The diff replaced many `/// #` stubs with C, added typed prototypes, and introduced partial layout knowledge such as `Ground.xC0`, `grCastle_GroundVars3`, `itGShell_HurtInit`, and `itKamexAttributes`. The important review lesson was negative: maintainer ribbanya merged but explicitly warned that pervasive raw pointer arithmetic from the Claude workflow creates technical debt, and said `M2C_FIELD` would be preferred over raw `u8*` math when proper struct fields are not available. Evidence on exact match status is mixed: the PR body claimed 18 functions and 100% objdiff, while the decomp.dev bot comment reported 14 new matches plus 5 partial improvements, including several functions below 100%.",
+  "summary": "Decompiled 18 previously stubbed functions across game-mode result/record-clear code, ground/stage code, and item code. The PR achieved matching builds and objdiff matches, but was explicitly called out by a maintainer for pervasive raw pointer arithmetic and insufficient struct-definition work. Some changes improved types and structs, such as adding item shell hurt-init data, Kamex attributes, castle ground vars, Ground::xC0, and better function prototypes, while other matches still relied on u8* casts, raw offsets, and local anonymous layout approximations.",
   "change_classification": {
-    "primary_type": "decompilation_batch_with_pointer_math_debt",
+    "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
-      "types-structs",
-      "headers",
+      "decompilation",
+      "matching",
       "cleanup",
-      "tooling-feedback",
+      "headers",
+      "types-structs",
       "technical-debt"
     ],
     "systems": [
-      "game-mode/results",
-      "game-mode/regclear",
-      "ground/castle",
-      "ground/material",
-      "ground/rcruise",
-      "item/kamex",
-      "item/zgshell"
+      "game-mode",
+      "result-screen",
+      "record-clear",
+      "ground",
+      "stage",
+      "item",
+      "pokemon-items"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/gm/gmregclear.c",
-      "role": "Added `fn_8017F14C`, exposed `lbl_80472D28_t.x10A`, and used a local argument-layout struct at offset 0x98."
-    },
-    {
-      "path": "src/melee/gm/gmresultplayer.c",
-      "role": "Added `fn_80179F84` JObj child traversal and `fn_8017A9B4` image descriptor setup using raw result-data offsets."
-    },
-    {
-      "path": "src/melee/gr/grcastle.c",
-      "role": "Added `grCastle_801CD960` DynamicsDesc loop and `grCastle_801CF750` collision/offset update."
-    },
-    {
-      "path": "src/melee/gr/grmaterial.c",
-      "role": "Added `grMaterial_801C9490`, `grMaterial_801C9604`, `grMaterial_801C9698`, updated `grMaterial_801C9470` signature, and centralized overlay offset through `grMaterial_GetOverlay`."
-    },
-    {
-      "path": "src/melee/gr/grrcruise.c",
-      "role": "Added `fn_802010A4`, scanning a 17-entry table with 0x18-byte stride via raw pointer math."
-    },
-    {
-      "path": "src/melee/gr/types.h",
-      "role": "Added `DynamicsDesc` include usage, `grCastle_GroundVars3`, `Ground.xC0`, and `castle3` union member."
-    },
-    {
-      "path": "src/melee/it/itCommonItems.h",
-      "role": "Added `itGShell_HurtInit`, expanded `itGShell_ItemVars`, added `itKamexAttributes`, and changed pokemon item-var `x68`/`x6C` from int to f32."
-    },
-    {
-      "path": "src/melee/it/items/itkamex.c",
-      "role": "Added Kamex init/motion/physics functions and replaced one `M2C_FIELD` access with `ip->xDD4_itemVar.pokemon.x68`."
-    },
-    {
-      "path": "src/melee/it/items/itzgshell.c",
-      "role": "Added five ZGShell functions for init, entered-air state, collision handling, and hurt capsule setup; replaced one `M2C_FIELD` with `zgshell.xE0C`."
-    },
-    {
-      "path": "src/melee/gm/gmregclear.h",
-      "role": "Changed `fn_8017F14C` from `UNK_RET/UNK_PARAMS` to `s32 fn_8017F14C(void*)`."
-    },
-    {
-      "path": "src/melee/gm/gmresultplayer.h",
-      "role": "Typed `fn_80179F84(HSD_JObj*)` and `fn_8017A9B4(int)`."
-    },
-    {
-      "path": "src/melee/gr/grmaterial.h",
-      "role": "Updated `grMaterial_801C9470` to `Item_GObj*, CommandInfo*` and included `lb/forward.h`."
-    },
-    {
-      "path": "src/melee/gr/grrcruise.h",
-      "role": "Typed `fn_802010A4(Ground_GObj*, s32, u8*)`."
-    }
+    "src/melee/gm/gmregclear.c",
+    "src/melee/gm/gmregclear.h",
+    "src/melee/gm/gmresultplayer.c",
+    "src/melee/gm/gmresultplayer.h",
+    "src/melee/gr/grcastle.c",
+    "src/melee/gr/grmaterial.c",
+    "src/melee/gr/grmaterial.h",
+    "src/melee/gr/grrcruise.c",
+    "src/melee/gr/grrcruise.h",
+    "src/melee/gr/types.h",
+    "src/melee/it/itCommonItems.h",
+    "src/melee/it/items/itkamex.c",
+    "src/melee/it/items/itzgshell.c"
   ],
   "what_changed": [
-    "Replaced `/// #` placeholders with C implementations for functions named in the PR body: `fn_80179F84`, `fn_8017A9B4`, `fn_802010A4`, five `itzgshell` functions, three `itkamex` functions, `fn_8017F14C`, three `grmaterial` functions, and two `grcastle` functions.",
-    "In `gmregclear`, split padding in `lbl_80472D28_t` to expose `s16 x10A`; `fn_8017F14C` now reads an argument field at offset 0x98, clamps values above 9999, multiplies by `x10A`, and returns 0 unless `gm_8016AE38()->x24C8.x4_7` is set.",
-    "In `gmresultplayer`, changed several result globals to `extern`, added a bitfield layout for `lbl_8046E3AC`, stored up to four sibling `HSD_JObj*` values into `lbl_8046E39C`, and used `HSD_ImageDesc` plus `lb_800121FC` to populate images from result-data offsets.",
-    "In `grcastle`, added a typed `DynamicsDesc x1C[12]` layout under `grCastle_GroundVars3` and looped over it in `grCastle_801CD960`; `grCastle_801CF750` still uses raw byte offsets to adjust a float at `Ground+0xD0` or `Ground+0xE0` depending on `arg1`.",
-    "In `grmaterial`, changed command callback types from `HSD_JObj*` to `Item_GObj*, CommandInfo*`, added `Ground.xC0`, wrote a command-derived value into `gp->xC0`, and initialized/updated `ColorOverlay` state through a helper that still casts `Ground+0x40`.",
-    "In `grrcruise`, `fn_802010A4` checks a packed flag at `arg2[0x34]`, scans 17 table entries of size 0x18, initializes an entry when first seen, and increments its count.",
-    "In item headers, added concrete item-var and attribute layouts: `itGShell_HurtInit`, larger `itGShell_ItemVars` with a static assert changing from 88 to 120 bytes, `itKamexAttributes`, and f32 pokemon fields `x68`/`x6C`.",
-    "In `itkamex`, added initialization, action setup, and physics logic using typed item vars and attributes; one previous raw `M2C_FIELD(ip, f32*, 0xE3C)` was replaced with `ip->xDD4_itemVar.pokemon.x68`.",
-    "In `itzgshell`, added shell setup, airborne transition, two similar collision handlers, and hurt capsule setup using a local `itGShell_HurtInit` copy before calling `it_80271534`.",
-    "The decomp.dev bot reported matched code increasing by 1576 bytes and matched data by 8 bytes, but also reported several functions as partial improvements rather than full matches."
+    "Implemented fn_8017F14C in gmregclear using a typed local argument struct for offset 0x98, an added s16 field lbl_80472D28.x10A, a clamp to 9999, and gm_8016AE38()->x24C8.x4_7 as the gate.",
+    "Updated gmregclear.h prototype for fn_8017F14C from unknown return/params to s32 fn_8017F14C(void* arg0).",
+    "Implemented gmresultplayer functions fn_80179F84 and fn_8017A9B4. fn_80179F84 walks a JObj child/next chain into lbl_8046E39C[4] and sets lbl_8046E3AC.x0_4. fn_8017A9B4 constructs HSD_ImageDesc records from offsets in lbl_8046E1B0 and calls lb_800121FC.",
+    "Changed gmresultplayer extern/static declarations and prototypes, including HSD_JObj* lbl_8046E39C[4], lbl_8046E3AC_t bitfields, fn_80179F84(HSD_JObj*), and fn_8017A9B4(int).",
+    "Implemented grCastle_801CD960 by iterating 12 DynamicsDesc entries at gp->gv.castle3.x1C and passing them to grLib_801C9B6C.",
+    "Implemented grCastle_801CF750 with branch-based index selection, collision flag check on cd->x34_flags.b1234, and raw offset adjustment to a f32 at gp+0xD0 after idx * 16 pointer adjustment.",
+    "Implemented grMaterial_801C9490, grMaterial_801C9604, and grMaterial_801C9698, and retargeted grMaterial_801C9470 to take Item_GObj* and CommandInfo*. These functions manipulate Ground::xC0, Ground flag bits, and a ColorOverlay located at gp+0x40.",
+    "Added a grMaterial_GetOverlay inline helper for the repeated ColorOverlay at offset 0x40, replacing at least one direct cast in grMaterial_801C95C4.",
+    "Implemented fn_802010A4 in grrcruise using a Ground_GObj, an id, and a u8* collision-like argument; it checks a nibble at arg2[0x34], scans 17 table entries of size 0x18 from gp->gv.pad_0 + 0x6C, initializes an entry if needed, and increments its counter.",
+    "Extended gr/types.h with grCastle_GroundVars3 containing DynamicsDesc x1C[12], added Ground::xC0 at offset 0xC0, included melee/lb/types.h, and added castle3 to the Ground union.",
+    "Extended itCommonItems.h with itGShell_HurtInit, appended itGShell_ItemVars.x58_hurtInit, resized itGShell_ItemVars static assertion from 88 to 120, added itKamexAttributes, and refined pokemon item vars x68/x6C from int to f32.",
+    "Implemented Kamex item functions it_802CA49C, it_802CA6A0, and itKamex_UnkMotion1_Phys. These initialize Pokemon item state, use article special attributes, set callbacks, apply horizontal acceleration against facing direction, and apply air fall physics.",
+    "Replaced an M2C_FIELD access in it_802CA8DC with typed access to ip->xDD4_itemVar.pokemon.x68.",
+    "Implemented Z/G shell functions it_802DE0F0, it_2725_Logic11_EnteredAir, itZrshell_UnkMotion11_Coll, itZrshell_UnkMotion10_Coll, and it_802DFF14. These reset shell state, handle air entry, share collision behavior between motion states, and build a temporary HurtCapsule from itGShell_HurtInit."
   ],
   "smart_moves": [
-    "The PR grouped functions with the same decompilation hazard, pointer math, into a single reviewable batch and explicitly flagged that match quality versus style might need discussion.",
-    "Some raw offsets were promoted to reusable type information instead of remaining anonymous: `lbl_80472D28_t.x10A`, `Ground.xC0`, `grCastle_GroundVars3.x1C[12]`, `itGShell_HurtInit`, `itKamexAttributes`, and f32 pokemon item-var fields.",
-    "Header prototypes were tightened from `UNK_RET`/`UNK_PARAMS` to concrete signatures, improving callsite typing for future decomp work.",
-    "`grMaterial_GetOverlay` centralized the repeated `Ground+0x40` color-overlay cast, which is better than duplicating the raw offset throughout the file even though a true `Ground` field would be preferable.",
-    "Using existing item-var paths such as `ip->xDD4_itemVar.zgshell.xE0C` and `ip->xDD4_itemVar.pokemon.x68` removed at least two older `M2C_FIELD` accesses and made later struct cleanup easier.",
-    "The `it_802DFF14` implementation copies the hurt init data to a local stack variable before conditionally changing offset/scale, preserving the source item-var data and matching the call pattern to `it_80271534`."
+    "Grouped functions by a shared matching hazard: pointer math patterns. The PR description explicitly flagged these as needing discussion on match quality versus code style rather than mixing them silently into unrelated work.",
+    "Where possible, converted unknown prototypes to concrete signatures, such as fn_8017F14C returning s32, fn_80179F84 taking HSD_JObj*, fn_8017A9B4 returning void, grMaterial_801C9470 taking Item_GObj* and CommandInfo*, and fn_802010A4 taking Ground_GObj*, s32, and u8*.",
+    "Added named fields for some previously raw offsets, including lbl_80472D28.x10A, Ground::xC0, grCastle_GroundVars3.x1C, itGShell_ItemVars.x58_hurtInit, and pokemon item vars x68/x6C as f32s.",
+    "Introduced grMaterial_GetOverlay to centralize the known ColorOverlay-at-gp+0x40 pattern, which is better than repeating casts throughout grmaterial.c.",
+    "Improved item structs enough to remove at least one M2C_FIELD access in itkamex.c and one in itzgshell.c, replacing them with ip->xDD4_itemVar.pokemon.x68 and ip->xDD4_itemVar.zgshell.xE0C.",
+    "Preserved matching-sensitive stack behavior with PAD_STACK where shown in grCastle_801CF750, it_802CA49C, and it_802DE0F0.",
+    "Used existing engine types where clear from context, including HSD_JObj, HSD_ImageDesc, Ground_GObj, Ground, CollData, DynamicsDesc, ColorOverlay, Item_GObj, Item, Article, and Vec3."
   ],
   "decomp_lessons": [
-    "Do not treat pervasive raw `u8*` pointer math as an acceptable end state. The maintainer explicitly called it technical debt because it produces code that must be rewritten and does not contribute enough to struct definitions.",
-    "When a real struct field is not yet known, project feedback in this PR says `M2C_FIELD` is preferred over ad hoc raw pointer arithmetic; when the field is known, add it to the struct/header instead.",
-    "Partial layout extraction is still useful: even small fields like `Ground.xC0`, `lbl_80472D28_t.x10A`, or `pokemon.x68`/`x6C` can eliminate scattered casts and unlock cleaner future functions.",
-    "For stage-specific `Ground` unions, add narrowly scoped layout variants when evidence supports them, as with `grCastle_GroundVars3` for a DynamicsDesc array.",
-    "For item decomp, use `ip->xDD4_itemVar.<item>` and item-specific attribute structs to replace raw `ip+E..` offsets whenever possible.",
-    "For matching, `PAD_STACK(8)` and `PAD_STACK(16)` were used in several new C functions; keep stack padding explicit when objdiff requires it.",
-    "Packed bitfields should use existing named bitfields when available, such as `cd->x34_flags.b1234`; raw flag checks like `arg2[0x34]` should become follow-up type work.",
-    "Be cautious with PR-body match claims. Here the body says all functions were 100% in objdiff, but the visible decomp.dev report listed several partial matches and a `.bss` regression, so future records should preserve both pieces of evidence rather than assuming final exactness."
+    "A match produced through raw pointer arithmetic is not automatically a high-quality decompilation result. Maintainer feedback in this PR says pervasive pointer math creates technical debt and fails to contribute enough to struct definitions.",
+    "Prefer adding or refining struct fields when an offset is understood. This PR shows both good examples, such as Ground::xC0 and itGShell_HurtInit, and remaining weak spots, such as u8* access into lbl_8046E1B0 and gp->gv.pad_0.",
+    "If a repeated offset-cast is not yet worth a full struct, an inline accessor like grMaterial_GetOverlay can reduce duplication and document the intended type at that offset.",
+    "Header prototype updates are part of the decomp result: matching functions should usually replace UNK_RET/UNK_PARAMS with the most precise signature supported by callsites and assembly.",
+    "When item vars are accessed through M2C_FIELD at known offsets, consider expanding the relevant item-var struct and validating the size with STATIC_ASSERT, as done for itGShell_ItemVars.",
+    "Bitfield layout can unblock matches and improve readability, as shown by lbl_8046E3AC_t and use of existing Ground and CollData flag fields, but anonymous or lbl-named structs should still be treated as provisional.",
+    "Shared item motion-state collision code can often be expressed cleanly by existing helpers such as it_8026DB40, it_802762B0, it_8026D62C, and it_8027C794 rather than raw control flow alone.",
+    "When exact data layouts remain unknown, label that weakness rather than overfitting invented names; this PR still contains raw offsets and generic names like pad_0, pad_74, x58_hurtInit, and lbl_8046E1B0."
   ],
   "naming_conventions": [
-    "Unknown or not-yet-semantic functions keep address-based names such as `fn_8017F14C`, `fn_80179F84`, `fn_8017A9B4`, and `fn_802010A4`.",
-    "Subsystem functions keep prefix conventions: `grCastle_`, `grMaterial_`, `grRCruise_`, `itKamex_`, `itZrshell_`, `itZGShell_`, and `it_2725_Logic11_...`.",
-    "Unknown struct fields preserve offset-style names such as `x10A`, `xC0`, `x58_hurtInit`, `x68`, `x6C`, with padding named by offset like `pad_74` or `pad_10C`.",
-    "Stage-specific ground layouts can be numbered when multiple variants coexist, as shown by `grCastle_GroundVars3` and the `castle3` union member.",
-    "Bitfields use existing offset/bit naming patterns such as `x0_4`, `x10_flags.b4`, `x10_flags.b6`, `xE1C_b0`, and `xDC8_word.flags.x1F` until semantics are known.",
-    "Temporary local layout structs may be named after the function, e.g. `fn_8017F14C_arg`, but should be promoted or renamed if reused."
+    "Kept address-based function names for undeclared/non-symbolicated functions: fn_8017F14C, fn_80179F84, fn_8017A9B4, fn_802010A4, it_802CA49C, it_802CA6A0, and it_802DFF14.",
+    "Used module-prefixed known names for stage and item functions: grCastle_801CD960, grCastle_801CF750, grMaterial_801C9490, grMaterial_801C9604, grMaterial_801C9698, itKamex_UnkMotion1_Phys, and itZrshell_UnkMotion10_Coll.",
+    "Offset-derived struct fields remained in the common project style, such as x10A, x98, xC0, x1C, x68, x6C, xE0C, and xE1C_b0.",
+    "Padding names encode their starting offset or range, such as pad_0, pad_01, pad_10C, and pad_74.",
+    "Temporary or local layout structs used address/function-derived names when no semantic name was known, such as fn_8017F14C_arg and lbl_8046E3AC_t.",
+    "New semantic type names were introduced only where supported by context, including itGShell_HurtInit, itKamexAttributes, grCastle_GroundVars3, and grMaterial_GetOverlay."
   ],
   "assembly_or_matching_tactics": [
-    "Used raw byte-base calculations to match table layouts: `slot * 0xA8`, `slot * 0x18`, `lookup << 1`, `i * 0x18`, and `idx * 16`.",
-    "Used explicit typed loads/stores through casts such as `*(u16*)`, `*(s16*)`, `*(s32*)`, and `*(f32*)` where the surrounding struct was not modeled.",
-    "Kept separate locals such as `child`, `next`, and `HSD_JObj** p` in `fn_80179F84` to reproduce sibling traversal and store ordering.",
-    "Used stack padding macros in newly decompiled functions: `PAD_STACK(16)` in `fn_8017F14C`-adjacent code paths and `grCastle_801CF750`, and `PAD_STACK(8)` in `it_802DE0F0`.",
-    "For `fn_8017F14C`, matched the clamp-before-multiply sequence: copy `p->x98`, cap at 9999, multiply by `lbl_80472D28.x10A`, otherwise return 0.",
-    "For `it_802DFF14`, copied `itGShell_HurtInit` by value, conditionally modified the copy, then cast it to `HurtCapsule*` for the call.",
-    "For `grMaterial`, the inline overlay accessor likely helped avoid repeating a raw cast while preserving the same effective address calculation."
+    "Used pointer-walk style code for HSD_JObj child and next traversal in fn_80179F84, including a pointer variable into lbl_8046E39C and pre-increment store pattern.",
+    "Used u8* base-pointer arithmetic in fn_8017A9B4 to match table lookups, slot strides of 0xA8 and 0x18, HSD_ImageDesc placement at base+0x104 and base+0x164, and u16 reads from computed table offsets.",
+    "Used a local typed struct for a single known argument field at offset 0x98 in fn_8017F14C to avoid direct M2C_FIELD for that function.",
+    "Used PAD_STACK to satisfy stack layout in functions where matching required it.",
+    "Used explicit casts through u8* for unresolved layouts, such as gp+idx*16 then gp+0xD0 in grCastle_801CF750 and gp->gv.pad_0+0x6C table access in fn_802010A4.",
+    "Used bitfield checks and assignments to match flag manipulation, including gm_8016AE38()->x24C8.x4_7, lbl_8046E3AC.x0_4, Ground x10_flags bits, CollData x34_flags.b1234, item command flags, and item word flags.",
+    "Used temporary struct copy of itGShell_HurtInit before passing it as a HurtCapsule pointer in it_802DFF14, allowing conditional changes without mutating the stored item var."
   ],
   "review_feedback": [
     {
       "author": "ribbanya",
-      "url": "https://github.com/doldecomp/melee/pull/2283#issuecomment-4057163402",
-      "feedback": "Could merge, but asked the author to address pointer-math generation in the workflow; said this was more pervasive than other Claude submissions and creates unnecessary technical debt by writing code that needs rewriting and not contributing to struct definitions."
+      "feedback": "Asked the author to address pointer math generation in their workflow, saying other Claude submissions did not have it as pervasively and that it was causing unnecessary technical debt by writing code that would need to be rewritten and not contributing to struct definitions.",
+      "impact": "Future decomp work should not treat raw offset matches as the preferred endpoint; it should invest more in struct recovery and cleaner field access."
     },
     {
       "author": "ribbanya",
-      "url": "https://github.com/doldecomp/melee/pull/2283#issuecomment-4057232213",
-      "feedback": "Observed no application of `M2C_FIELD` and said `M2C_FIELD` would be greatly preferred over raw pointer arithmetic."
-    },
-    {
-      "author": "decomp-dev[bot]",
-      "url": "https://github.com/doldecomp/melee/pull/2283#issuecomment-4055996730",
-      "feedback": "Reported +1576 matched-code bytes and +8 matched-data bytes, with 14 new matches, 5 improvements in unmatched items, and 1 `.bss` regression in `gmresultplayer`; this does not fully support the PR-body claim that all functions were 100% matched."
-    },
-    {
-      "author": "agent",
-      "url": "https://github.com/doldecomp/melee/pull/2283",
-      "feedback": "No formal review comments were present in the slice; feedback came through issue comments."
+      "feedback": "Stated that they saw no application of M2C_FIELD and that M2C_FIELD would be greatly preferred over raw pointer arithmetic.",
+      "impact": "When a proper struct field is not yet available, M2C_FIELD is preferred to ad hoc u8* casts because it makes offset-based access more explicit and searchable."
     }
   ],
   "searchable_terms": [
-    "pr-2283",
-    "johnwinston",
-    "ribbanya",
-    "Claude Code",
+    "PR2283",
     "pointer math",
     "raw pointer arithmetic",
-    "u8* casts",
     "M2C_FIELD",
+    "u8* casts",
     "technical debt",
-    "ninja diff",
-    "objdiff",
-    "decomp-dev bot",
+    "struct definitions",
+    "fn_8017F14C",
+    "fn_80179F84",
+    "fn_8017A9B4",
+    "fn_802010A4",
+    "grCastle_801CD960",
+    "grCastle_801CF750",
+    "grMaterial_801C9490",
+    "grMaterial_801C9604",
+    "grMaterial_801C9698",
+    "it_802CA49C",
+    "it_802CA6A0",
+    "itKamex_UnkMotion1_Phys",
+    "it_802DE0F0",
+    "it_2725_Logic11_EnteredAir",
+    "itZrshell_UnkMotion11_Coll",
+    "itZrshell_UnkMotion10_Coll",
+    "it_802DFF14",
     "gmregclear",
     "gmresultplayer",
     "grcastle",
@@ -176,51 +144,35 @@
     "itkamex",
     "itzgshell",
     "itCommonItems",
-    "gr/types.h",
-    "fn_8017F14C",
-    "fn_80179F84",
-    "fn_8017A9B4",
-    "fn_802010A4",
-    "it_802DE0F0",
-    "it_2725_Logic11_EnteredAir",
-    "itZrshell_UnkMotion11_Coll",
-    "itZrshell_UnkMotion10_Coll",
-    "it_802DFF14",
-    "it_802CA49C",
-    "it_802CA6A0",
-    "itKamex_UnkMotion1_Phys",
-    "grMaterial_801C9490",
-    "grMaterial_801C9604",
-    "grMaterial_801C9698",
-    "grCastle_801CD960",
-    "grCastle_801CF750",
-    "lbl_80472D28_t",
-    "lbl_80472D28.x10A",
-    "lbl_8046E1B0",
-    "lbl_8046E39C",
-    "lbl_8046E3AC",
-    "Ground.xC0",
+    "Ground xC0",
     "ColorOverlay",
     "grMaterial_GetOverlay",
-    "grCastle_GroundVars3",
-    "DynamicsDesc",
     "itGShell_HurtInit",
     "itKamexAttributes",
-    "pokemon.x68",
-    "pokemon.x6C",
+    "grCastle_GroundVars3",
+    "DynamicsDesc",
     "HSD_ImageDesc",
+    "HSD_JObj",
     "lb_800121FC",
+    "lb_80014258",
+    "lb_80014498",
     "PAD_STACK"
   ],
   "follow_up_queries": [
-    "Find remaining raw `u8*` pointer arithmetic introduced here and decide whether each offset should become a struct field or `M2C_FIELD`.",
-    "Model the layout behind `lbl_8046E1B0` so `fn_8017A9B4` can stop using result-data offsets like 0x224, 0x24B0, and 0x24C0.",
-    "Define a real grRCruise table-entry struct for the 17 entries of size 0x18 currently reached through `gp->gv.pad_0 + 0x6C`.",
-    "Replace `grMaterial_GetOverlay`'s `Ground+0x40` cast with a named `Ground` field if the `ColorOverlay` layout is confirmed.",
-    "Investigate the `grCastle_801CF750` update at `Ground+0xD0`/`idx * 16` and add fields for the two float targets if valid.",
-    "Check whether `fn_8017F14C_arg` is a known shared type rather than a function-local placeholder layout.",
-    "Reconcile the PR title/body claim of 18 fully matched functions with the bot report that lists 13 fully matched functions plus 4 partially matched functions and data items.",
-    "Audit future Claude-generated decomp PRs for the same pointer-math pattern before merge."
+    "Find later PRs that replace raw u8* accesses in gmresultplayer fn_8017A9B4 with a named result-screen data struct.",
+    "Find later struct work around lbl_8046E1B0, lbl_8046E3AC, and lbl_8046E39C in gmresultplayer.",
+    "Search for further cleanup of grRCruise fn_802010A4 table entry layout at gp->gv.pad_0 + 0x6C.",
+    "Search for later replacement of grCastle_801CF750 raw gp+0xD0 access with a Ground or castle-specific field.",
+    "Check whether grMaterial_GetOverlay or Ground::xC0 survived later refactors and whether ColorOverlay was placed directly into Ground.",
+    "Search for later review policy or workflow changes about Claude-generated pointer math, M2C_FIELD usage, and struct-definition expectations."
   ],
-  "confidence": 0.86
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }

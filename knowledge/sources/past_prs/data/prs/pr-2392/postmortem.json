@@ -11,123 +11,141 @@
     "merged_at": "2026-04-07T20:59:00Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Implemented remaining lbshadow.c work in one library file: lbShadow_8000E9F0 replaces a stub with HSD_Spline Vec3 derivative/tangent-style calculations for spline->type cases 0-3, and lbShadow_8000F38C replaces a large stub with the fighter shadow update/render pass that selects an HSD_LObj light, computes light/up vectors, manages LbShadow flags and active state, attaches fighter/accessory objects to HSD_Shadow, sets shadow camera/viewing rect/intensity, renders offscreen, and restores draw state. The PR body and review history provide little rationale beyond tracking; conclusions are primarily diff-based.",
+  "summary": "Implemented previously stubbed lbshadow logic in src/melee/lb/lbshadow.c, most notably lbShadow_8000E9F0 for spline derivative/vector evaluation and lbShadow_8000F38C for fighter shadow setup/rendering from scene lights. The PR added required baselib, fighter, ground, camera, math, spline, and vector includes, removed placeholder decomp markers, and wired shadow activation, object membership, camera orientation, viewing rect calculation, intensity, and offscreen render lifecycle. No review comments were present in the slice, so intent and reviewer rationale are inferred only from the diff.",
   "change_classification": {
-    "primary_type": "function_decompilation",
+    "primary_type": "decompilation implementation",
     "categories": [
       "code-change",
-      "stub-replacement",
-      "rendering",
-      "math",
+      "function-decompilation",
+      "shadow-rendering",
+      "math-vector-logic",
       "fighter-integration"
     ],
     "systems": [
       "library",
       "lbshadow",
       "baselib-shadow",
-      "baselib-light",
       "fighter",
       "camera",
+      "lighting",
       "ground"
     ]
   },
   "key_files": [
-    {
-      "path": "src/melee/lb/lbshadow.c",
-      "change": "Added 317 lines and deleted 4; implemented lbShadow_8000E9F0 and lbShadow_8000F38C, added required baselib/ft/ground/vector/math includes, and removed stale placeholder comments."
-    }
+    "src/melee/lb/lbshadow.c"
   ],
   "what_changed": [
-    "Added includes for MSL/math_ppc.h, baselib initialize/lobj/spline/video, cm types, ftdrawcommon, ft types, ground, and lbvector to support the new shadow and spline code.",
-    "Replaced the lbShadow_8000E9F0 placeholder with code that validates u in [0,1], maps u to a spline control-point segment, handles the u == 1.0 endpoint for type 0, and writes a Vec3 result using spline->cv and spline->tension formulas for type cases 0-3.",
-    "Removed a stale duplicate placeholder comment for lbShadow_8000EE8C after the function body already existed.",
-    "Replaced the lbShadow_8000F38C placeholder with a full per-fighter shadow pass: clears LbShadow x0_b2, finds a light object from HSD_GObj_804D7824[4] with fallback handling, asserts/loads light position, computes light direction/up vectors, and handles degenerate no-light cases.",
-    "lbShadow_8000F38C now iterates HSD_GObj_Entities->fighters, updates Fighter x20A4 shadow flags, deletes/re-adds shadow objects for visible fighters and accessories, toggles HSD_ShadowSetActive based on LbShadow x0_b0..x0_b5 and ftLib checks, and renders each valid shadow through HSD_StartRender/HSD_ShadowStartRender/HSD_ShadowEndRender."
+    "Replaced the placeholder for lbShadow_8000E9F0 with a concrete implementation that validates u in [0, 1], maps u into spline segment index/t, and computes output Vec3 values based on HSD_Spline type 0, 1, 2, or 3.",
+    "Implemented spline-type-specific math in lbShadow_8000E9F0, including simple control-point differences for type 0, Bezier-like basis terms for type 1, half-weighted basis terms for type 2, and tension-based cardinal/Catmull-style terms for type 3.",
+    "Replaced the placeholder for lbShadow_8000F38C with a large shadow update/render routine that iterates fighter GObjs, finds a usable HSD_LObj light, derives light position/direction/up vectors, updates fighter LbShadow flags, attaches eligible fighter/accessory objects to shadows, and controls HSD_Shadow active state.",
+    "Added fallback/no-light handling in lbShadow_8000F38C: if the light vector distance is below 0.001f, the function sets noLight and uses a default light position/direction/up-vector configuration.",
+    "Added shadow camera setup using PSVECAdd, HSD_CObjSetEyePosition, HSD_CObjSetInterest, HSD_CObjSetUpVector, HSD_ViewingRectInit, HSD_ViewingRectAddRect, HSD_ViewingRectCheck, HSD_ShadowSetViewingRect, and an orthographic fallback via HSD_CObjSetOrtho.",
+    "Added shadow rendering lifecycle calls in lbShadow_8000F38C: HSD_ShadowInit, HSD_StartRender(HSD_RP_OFFSCREEN), HSD_ShadowStartRender, optional lbShadow_8000F214 rendering depending on arg0, HSD_ShadowEndRender, and HSD_Init_803755A8.",
+    "Added includes for MSL/math_ppc.h, baselib initialize/lobj/spline/video, melee camera/fighter/ground/lbvector support, and ftDrawCommon dependencies needed by the new implementation.",
+    "Removed an extra stale decomp marker comment near lbShadow_8000EE8C."
   ],
   "smart_moves": [
-    "Used existing engine APIs instead of open-coding subsystems: HSD_LObjGetPosition/GetInterest, lbVector helpers, HSD_Shadow object management, HSD_CObj camera setters, HSD_ViewingRect helpers, and ftDrawCommon render-state guards.",
-    "Preserved defensive engine behavior with HSD_ASSERT for missing light objects, HSD_ASSERTREPORT for missing light position, a noLight fallback when light distance is nearly zero, and an ortho fallback when viewing rect fitting fails after 0x14 attempts.",
-    "Kept partially understood data as offset/bitfield names such as x20A4, x0_b0, x0_b2, x0_b3, x21FC_flag.b7, and x221E_b5 rather than inventing semantics not proven by the slice.",
-    "Matched shadow activation to existing flags by computing anyFlag across x0_b0 through x0_b5 and only activating when no flags are set and ftLib_800872BC(gobj) passes."
+    "Kept the implementation localized to lbshadow.c while adding only the includes needed to expose math, light, spline, vector, fighter, ground, and render APIs.",
+    "Used PAD_STACK annotations in both newly implemented functions, which is a common matching tactic for preserving stack layout in decompilation work.",
+    "Structured lbShadow_8000E9F0 around the original spline type switch rather than abstracting the math, preserving operation order and constants that are likely important for matching.",
+    "Preserved explicit floating-point constants such as 0.001f, 0.0000010000001f, 100.0f, 1.2f, and 128.0f instead of replacing them with named constants, likely helping match generated code and literal pools.",
+    "Handled degenerate light direction cases before normalizing/cross-product work, avoiding invalid shadow camera vectors when light position and direction collapse.",
+    "Mirrored engine object traversal patterns directly: fighter iteration through HSD_GObj_Entities->fighters and light traversal through HSD_GObj_804D7824[4] using next_gx and HSD_LObj linked lists.",
+    "Preserved defensive assertions from the original behavior, including HSD_ASSERT for required light object, HSD_ASSERTREPORT for missing light position, and __assert for null shadow before intensity assignment."
   ],
   "decomp_lessons": [
-    "For HSD_Spline-related decomp, preserve the exact segment computation pattern: t = u * (numcv - 1), idx = (s16) t, then t -= (f32) idx; endpoint handling can be special-cased instead of hidden in helper code.",
-    "Shadow/camera decomp often needs explicit degenerate-vector branches: this code separately handles near-zero total distance and near-vertical light vectors before building an orthonormal up vector with cross products.",
-    "When semantics are incomplete, stable address-based functions and offset fields are preferable to speculative names; this PR leaves lbShadow_8000E9F0/lbShadow_8000F38C and many Fighter/LbShadow bitfields address/offset-based.",
-    "Rendering passes should preserve state pairing visible in the engine: ftDrawCommon_80081200 before the fighter shadow loop, ftDrawCommon_80081168 after it, HSD_StartRender(HSD_RP_OFFSCREEN) before shadow rendering, and HSD_Init_803755A8 after each shadow render.",
-    "Nested scopes and repeated local aliases can be legitimate matching tools in large C decomp functions, especially around fighter user_data, temporary shadow objects, and loop-local viewing-rect variables."
+    "Large rendering functions often require pulling together many subsystem headers; resolving types cleanly can be as important as the function body itself.",
+    "For matching spline and vector math, keep expression grouping and temporary variable ordering close to the apparent compiler output; algebraically equivalent simplifications can easily disturb codegen.",
+    "When decompiling shadow/light code, preserve degenerate-case branches and exact thresholds because camera/up-vector setup is sensitive to zero-length vectors.",
+    "Object iteration over HSD_GObj lists may use both normal next links and next_gx render links; matching code should preserve the specific traversal field used by the original function.",
+    "Fighter shadow state is controlled by several small bitfields and eligibility checks; avoid collapsing them unless struct field names and bit order are already well established.",
+    "Viewing-rect setup can include bounded retry loops and fallback ortho bounds; these are part of render correctness, not just cosmetic camera configuration.",
+    "Calls that bracket rendering state, such as ftDrawCommon_80081200/ftDrawCommon_80081168 and HSD_StartRender/HSD_Init_803755A8, should be kept in original order to avoid both matching and runtime regressions."
   ],
   "naming_conventions": [
-    "Retains doldecomp address-style names for unresolved functions: lbShadow_8000E9F0, lbShadow_8000F38C, and calls such as ftLib_800872B0/ftLib_800872BC.",
-    "Uses the lbShadow camel-prefix for library shadow functions while keeping type names in established style: LbShadow, HSD_Shadow, HSD_GObj, HSD_LObj, HSD_ViewingRect.",
-    "Local Vec3 names are semantic and role-based where evidence is clear: lightPos, lightDir, upVec, lightVec, rightVec, normDir, eyePos, interestPos, camPos.",
-    "Unknown or only partially understood struct fields remain offset/bitfield names: Fighter x20A4, x20A0_accessory, x21FC_flag.b7, x221E_b5, LbShadow x0_b0 through x0_b5."
+    "Newly implemented functions retain address-based names: lbShadow_8000E9F0 and lbShadow_8000F38C.",
+    "Local vector variables use descriptive camelCase names matching their roles: lightPos, lightDir, upVec, lightVec, rightVec, normDir, eyePos, interestPos, camPos.",
+    "Temporary booleans/flags use names reflecting inferred behavior from code, such as noLight, hasObj, and anyFlag.",
+    "Existing struct fields and bitfields remain address/offset-style where semantics are not fully named, for example Fighter::x20A4, x20A0_accessory, x21FC_flag.b7, x221E_b5, and LbShadow bits x0_b0 through x0_b5.",
+    "The diff preserves project naming style for external functions with subsystem prefixes, such as HSD_ShadowSetActive, HSD_CObjSetEyePosition, lbVector_Diff, ftLib_800872B0, and Ground_801C0508."
   ],
   "assembly_or_matching_tactics": [
-    "Inserted PAD_STACK(16) in lbShadow_8000E9F0 and PAD_STACK(0x48) in lbShadow_8000F38C, indicating explicit stack-shape matching.",
-    "Preserved expression ordering and temporary variables for float math, including literals such as 0.001f, 0.0000010000001f, 100.0f, 1.2f, 128.0f, and loop limit 0x14.",
-    "Used sqrtf from MSL/math_ppc.h and vector helper calls lbVector_Diff, lbVector_Normalize, lbVector_CrossprodNormalized, and PSVECAdd rather than algebraically simplifying the math.",
-    "Kept nested blocks/redeclared locals such as fp2, hasObj, shadow2, i, scale, top, and bot, which likely helps reproduce compiler lifetimes/register allocation.",
-    "Preserved assert macro details including HSD_ASSERT line numbers 0x181/0x184 and __assert(\"shadow.h\", 0x63, \"shadow\")."
+    "Used PAD_STACK(16) in lbShadow_8000E9F0 and PAD_STACK(0x48) in lbShadow_8000F38C, indicating stack-shape padding was needed for matching.",
+    "Kept arithmetic in expanded scalar form for Vec3 x/y/z components rather than introducing helper functions or loops in lbShadow_8000E9F0.",
+    "Used explicit casts and truncation behavior, notably idx = (s16) t after scaling u by spline->numcv - 1.",
+    "Preserved special u == 1.0F behavior for spline type 0 by decrementing idx before control-point difference calculation.",
+    "Maintained nested scopes and repeated fp/fp2 local usage in lbShadow_8000F38C, which may reflect register allocation or debug/decomp matching needs.",
+    "Used exact engine calls rather than wrappers for vector math and shadow/camera operations, including lbVector_Normalize, lbVector_CrossprodNormalized, HSD_ViewingRectCheck, and HSD_ShadowSetViewingRect.",
+    "The suspicious-looking branch `if (lobj == NULL) { lobj = NULL; } else { lobj = lobj->next; }` was preserved in the implementation, likely because it helped match original control flow."
   ],
   "review_feedback": [
-    "No issue comments, review comments, or reviews were present in the provided slice; the PR body only says \"Tracking PR as per usual\"."
+    "No issue comments, review comments, or reviews were present in the provided PR slice.",
+    "The PR body only says: \"Tracking PR as per usual\", so there is no explicit human rationale beyond the code diff."
   ],
   "searchable_terms": [
-    "pr2392",
+    "pr-2392",
     "Jj/lbshadow",
+    "jurrejelle",
+    "lbshadow",
     "src/melee/lb/lbshadow.c",
     "lbShadow_8000E9F0",
     "lbShadow_8000F38C",
-    "lbShadow_8000F214",
-    "LbShadow",
     "HSD_Spline",
-    "spline->numcv",
-    "spline->cv",
-    "spline->tension",
+    "spline derivative",
+    "Vec3",
     "PAD_STACK",
-    "HSD_LObj",
-    "HSD_LObjGetFlags",
-    "HSD_LObjGetPosition",
-    "HSD_LObjGetInterest",
-    "HSD_GObj_804D7824",
-    "HSD_GObj_Entities->fighters",
-    "ftLib_800872B0",
-    "ftLib_80086960",
-    "ftLib_800872BC",
-    "Fighter x20A4",
-    "x21FC_flag.b7",
-    "x221E_b5",
     "HSD_Shadow",
-    "HSD_ShadowAddObject",
-    "HSD_ShadowDeleteObject",
-    "HSD_ShadowSetActive",
-    "HSD_ShadowSetViewingRect",
+    "HSD_LObj",
+    "HSD_GObj_Entities",
+    "HSD_GObj_804D7824",
+    "HSD_ViewingRect",
     "HSD_ViewingRectInit",
     "HSD_ViewingRectAddRect",
     "HSD_ViewingRectCheck",
+    "HSD_ShadowSetViewingRect",
+    "HSD_ShadowSetActive",
+    "HSD_ShadowAddObject",
+    "HSD_ShadowDeleteObject",
+    "HSD_ShadowStartRender",
+    "HSD_ShadowEndRender",
     "HSD_CObjSetEyePosition",
     "HSD_CObjSetInterest",
     "HSD_CObjSetUpVector",
+    "HSD_CObjSetOrtho",
     "HSD_StartRender",
     "HSD_RP_OFFSCREEN",
     "HSD_Init_803755A8",
     "ftDrawCommon_80081200",
     "ftDrawCommon_80081168",
+    "ftLib_800872B0",
+    "ftLib_80086960",
+    "ftLib_800872BC",
     "Ground_801C0508",
     "lbVector_Diff",
+    "lbVector_Sub",
     "lbVector_Normalize",
     "lbVector_CrossprodNormalized",
     "PSVECAdd",
-    "sqrtf",
-    "fighter shadow",
-    "offscreen shadow rendering"
+    "Fighter x20A4 shadow",
+    "fighter shadow rendering",
+    "light position",
+    "light direction",
+    "noLight"
   ],
   "follow_up_queries": [
-    "Find later PRs that rename or document LbShadow x0_b0 through x0_b5 and Fighter x20A4 shadow fields.",
-    "Search for HSD_Spline evaluation/derivative helpers to confirm semantic names for spline->type cases 0-3.",
-    "Look for subsequent changes to lbShadow_8000F38C, HSD_ViewingRectAddRect, or HSD_ShadowSetViewingRect for matching refinements.",
-    "Check whether the unusual lobj traversal/fallback pattern in HSD_GObj_804D7824[4] was preserved, simplified, or explained in later PRs."
+    "Look for later PRs that rename lbShadow_8000E9F0 or document HSD_Spline type meanings.",
+    "Look for later PRs that rename Fighter::x20A4 shadow fields or LbShadow x0_b0 through x0_b5 flags.",
+    "Search for matching fixes around lbShadow_8000F38C, especially suspicious light interest handling and the lobj traversal branch.",
+    "Check whether subsequent reviews or commits adjusted the exact viewing-rect loop, constants, or shadow camera fallback behavior.",
+    "Search for PRs touching baselib shadow, HSD_ViewingRect, or ftDrawCommon render bracketing to understand reusable render-state patterns."
   ],
-  "confidence": 0.86
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+  }
 }
