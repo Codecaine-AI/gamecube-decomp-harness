@@ -60,6 +60,7 @@ const dashboardStreamIntervalMs = Math.max(500, Math.trunc(Number(Bun.env.ORCH_U
 
 let managed: ManagedProcess | null = null;
 let freshRunActive = false;
+let projectSyncActive = false;
 const processLogs: ProcessLogLine[] = [];
 const hotReloadClients = new Map<ReadableStreamDefaultController<Uint8Array>, ReturnType<typeof setInterval>>();
 const hotReloadEncoder = new TextEncoder();
@@ -1424,6 +1425,8 @@ function processStatus(stateDir = defaultStateDir, project: ResolvedProject | nu
     graphDbPath: managed?.graphDbPath ?? project?.graphDbPath ?? null,
     logs: processLogs.slice(-220),
     knownProcesses: savedProcessRecords(stateDir),
+    freshRunActive,
+    projectSyncActive,
   };
 }
 
@@ -1533,27 +1536,93 @@ async function runCli(command: string[], cwd = packageRoot): Promise<CliResult> 
     env: process.env,
     stdio: ["ignore", "pipe", "pipe"],
   });
-  const stdout = await streamToText(child.stdout);
-  const stderr = await streamToText(child.stderr);
-  const exitCode = await new Promise<number | null>((resolveExit) => child.on("exit", (code) => resolveExit(code)));
-  return { exitCode, stdout, stderr };
-}
-
-function streamToText(stream: NodeJS.ReadableStream | null): Promise<string> {
-  if (!stream) return Promise.resolve("");
-  return new Promise((resolveText) => {
-    let textValue = "";
-    stream.setEncoding("utf8");
-    stream.on("data", (chunk) => {
-      textValue += String(chunk);
-    });
-    stream.on("end", () => resolveText(textValue));
+  const stdoutChunks: string[] = [];
+  const stderrChunks: string[] = [];
+  child.stdout?.setEncoding("utf8");
+  child.stdout?.on("data", (chunk) => {
+    const value = String(chunk);
+    stdoutChunks.push(value);
+    appendLog("stdout", value);
   });
+  child.stderr?.setEncoding("utf8");
+  child.stderr?.on("data", (chunk) => {
+    const value = String(chunk);
+    stderrChunks.push(value);
+    appendLog("stderr", value);
+  });
+  const exitCode = await new Promise<number | null>((resolveExit) => child.on("close", (code) => resolveExit(code)));
+  return { exitCode, stdout: stdoutChunks.join(""), stderr: stderrChunks.join("") };
 }
 
 function outputTail(textValue: string, maxLength = 2000): string {
   if (textValue.length <= maxLength) return textValue;
   return `...${textValue.slice(textValue.length - maxLength)}`;
+}
+
+async function runGit(repoRoot: string, args: string[], options: { check?: boolean; failureHint?: string } = {}): Promise<CliResult> {
+  const result = await runCli(["git", ...args], repoRoot);
+  if (options.check !== false && result.exitCode !== 0) {
+    throw new Error(`${options.failureHint ?? `git ${args.join(" ")} failed`} (${result.exitCode}): ${outputTail(result.stderr || result.stdout, 4000)}`);
+  }
+  return result;
+}
+
+function parseBaseRef(baseRef: string): { branch: string; remote: string } {
+  const slash = baseRef.indexOf("/");
+  if (slash <= 0 || slash === baseRef.length - 1) return { remote: "origin", branch: "master" };
+  return { remote: baseRef.slice(0, slash), branch: baseRef.slice(slash + 1) };
+}
+
+function mergedPullRequestNumbers(logText: string): number[] {
+  const numbers = new Set<number>();
+  for (const match of logText.matchAll(/^Merge (?:pull request|PR) #(\d+)/gim)) {
+    numbers.add(Number(match[1]));
+  }
+  return [...numbers].filter(Number.isFinite).sort((a, b) => a - b);
+}
+
+async function syncProjectGitAndFindMergedPrs(paths: DashboardProjectContext): Promise<{ afterRef: string; beforeRef: string; branch: string; mergedPrs: number[]; steps: JsonObject[] }> {
+  const baseRef = paths.project?.baseRef ?? "origin/master";
+  const { branch: mainBranch, remote } = parseBaseRef(baseRef);
+  const before = await runGit(paths.repoRoot, ["rev-parse", "--verify", baseRef], { check: false });
+  const beforeRef = before.exitCode === 0 ? before.stdout.trim() : "";
+  const steps: JsonObject[] = [
+    {
+      name: "read_previous_base_ref",
+      command: ["git", "rev-parse", "--verify", baseRef],
+      exitCode: before.exitCode,
+      stdout: outputTail(before.stdout, 2000),
+      stderr: outputTail(before.stderr, 2000),
+    },
+  ];
+
+  appendLog("ui", `git fetch ${remote} started`);
+  const fetch = await runGit(paths.repoRoot, ["fetch", "--prune", remote], { failureHint: `Unable to fetch ${remote}` });
+  appendLog("ui", `git fetch ${remote} complete`);
+  steps.push({ name: "git_fetch", command: ["git", "fetch", "--prune", remote], exitCode: fetch.exitCode, stdout: outputTail(fetch.stdout, 2000), stderr: outputTail(fetch.stderr, 2000) });
+
+  const branchResult = await runGit(paths.repoRoot, ["branch", "--show-current"], { failureHint: "Unable to read current branch" });
+  const branch = branchResult.stdout.trim();
+  if (!branch) throw new Error("Cannot sync merged PR intake from a detached HEAD checkout.");
+
+  const syncArgs = branch === mainBranch ? ["pull", "--ff-only", remote, mainBranch] : ["rebase", "--autostash", baseRef];
+  appendLog("ui", `git ${syncArgs.join(" ")} started`);
+  const sync = await runGit(paths.repoRoot, syncArgs, { failureHint: `Unable to sync branch ${branch}` });
+  appendLog("ui", `git ${syncArgs.join(" ")} complete`);
+  steps.push({ name: "git_sync", command: ["git", ...syncArgs], exitCode: sync.exitCode, stdout: outputTail(sync.stdout, 2000), stderr: outputTail(sync.stderr, 2000) });
+
+  const after = await runGit(paths.repoRoot, ["rev-parse", "--verify", baseRef], { failureHint: `Unable to read ${baseRef} after sync` });
+  const afterRef = after.stdout.trim();
+  if (!beforeRef || beforeRef === afterRef) {
+    return { afterRef, beforeRef, branch, mergedPrs: [], steps };
+  }
+
+  const range = `${beforeRef}..${afterRef}`;
+  const log = await runGit(paths.repoRoot, ["log", "--first-parent", "--merges", "--format=%B", range], { failureHint: `Unable to inspect merged PRs in ${range}` });
+  const mergedPrs = mergedPullRequestNumbers(log.stdout);
+  appendLog("ui", mergedPrs.length ? `merged PRs newly landed: ${mergedPrs.map((number) => `#${number}`).join(", ")}` : "no merged PR numbers found in newly pulled commits");
+  steps.push({ name: "discover_merged_prs", command: ["git", "log", "--first-parent", "--merges", "--format=%B", range], exitCode: log.exitCode, stdout: outputTail(log.stdout, 4000), stderr: outputTail(log.stderr, 2000), mergedPrs });
+  return { afterRef, beforeRef, branch, mergedPrs, steps };
 }
 
 function zeroTrustedCounts(): JsonObject {
@@ -2114,6 +2183,113 @@ async function freshRun(body: JsonObject): Promise<JsonObject> {
   }
 }
 
+async function syncProjectIntake(body: JsonObject): Promise<JsonObject> {
+  if (projectSyncActive) {
+    throw new Error("Fetch & Re-sync is already running. Wait for it to finish before starting another sync.");
+  }
+  projectSyncActive = true;
+  const paths = resolveDashboardProject(body, { useDefaultProject: true });
+  const { repoRoot, stateDir } = paths;
+  try {
+    const activeManaged = managed?.state === "running" || managed?.state === "stopping" || managed?.state === "draining";
+    const activeSaved = savedProcessRecords(stateDir).find((record) => record.alive === true);
+    if (activeManaged || activeSaved) {
+      const activeName = stringValue(activeSaved?.name, managed?.name ?? paths.project?.processName ?? "melee-live");
+      throw new Error(`Stop the active process (${activeName}) before fetching and re-syncing.`);
+    }
+
+    const gitSync = await syncProjectGitAndFindMergedPrs(paths);
+    if (gitSync.mergedPrs.length === 0) {
+      appendLog("ui", "merged PR intake skipped: no newly merged PRs found after git sync");
+      return {
+        synced: true,
+        skippedIntake: true,
+        reason: "no_newly_merged_prs",
+        project: paths.project ? projectToSummary(paths.project) : null,
+        repoRoot,
+        stateDir,
+        beforeRef: gitSync.beforeRef,
+        afterRef: gitSync.afterRef,
+        branch: gitSync.branch,
+        mergedPrs: [],
+        steps: gitSync.steps,
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    const command = [
+      "python3",
+      resolve(packageRoot, "knowledge/sources/past_prs/commands/fetch_recent_pr_dump.py"),
+      "--repo",
+      "doldecomp/melee",
+      "--refresh-existing",
+      "--postmortem-mode",
+      boolValue(body.dryRunAgents) ? "scaffold" : "pi",
+      "--postmortem-scope",
+      "fetched",
+      "--postmortem-rerun-existing",
+      "--postmortem-jobs",
+      "16",
+      "--fetch-jobs",
+      String(Math.min(16, Math.max(1, gitSync.mergedPrs.length))),
+    ];
+    for (const number of gitSync.mergedPrs) command.push("--pr", String(number));
+
+    appendLog("ui", `merged PR intake started for ${gitSync.mergedPrs.length} PR(s)`);
+    const intakeResult = await runCli(command, packageRoot);
+    appendLog("ui", `merged PR intake ${intakeResult.exitCode === 0 ? "complete" : "failed"}`);
+    if (intakeResult.exitCode !== 0) {
+      throw new Error(`Merged PR intake failed (${intakeResult.exitCode}): ${outputTail(intakeResult.stderr || intakeResult.stdout, 4000)}`);
+    }
+
+    const graphCommand = [
+      ...cliPrefix(paths),
+      "kg-maintain",
+      "--graph-db",
+      paths.graphDbPath,
+      "--no-pr-index",
+      "--no-tool-runners",
+      "--no-tool-index",
+    ];
+    appendLog("ui", "knowledge graph rebuild started");
+    const graphResult = await runCli(graphCommand, packageRoot);
+    appendLog("ui", `knowledge graph rebuild ${graphResult.exitCode === 0 ? "complete" : "failed"}`);
+    if (graphResult.exitCode !== 0) {
+      throw new Error(`Knowledge graph rebuild failed (${graphResult.exitCode}): ${outputTail(graphResult.stderr || graphResult.stdout, 4000)}`);
+    }
+    return {
+      synced: true,
+      project: paths.project ? projectToSummary(paths.project) : null,
+      repoRoot,
+      stateDir,
+      beforeRef: gitSync.beforeRef,
+      afterRef: gitSync.afterRef,
+      branch: gitSync.branch,
+      mergedPrs: gitSync.mergedPrs,
+      steps: [
+        ...gitSync.steps,
+        {
+          name: "fetch_merged_prs_and_run_intake_agents",
+          command,
+          exitCode: intakeResult.exitCode,
+          stdout: outputTail(intakeResult.stdout, 4000),
+          stderr: outputTail(intakeResult.stderr, 4000),
+        },
+        {
+          name: "rebuild_knowledge_graph",
+          command: graphCommand,
+          exitCode: graphResult.exitCode,
+          stdout: outputTail(graphResult.stdout, 4000),
+          stderr: outputTail(graphResult.stderr, 4000),
+        },
+      ],
+      createdAt: new Date().toISOString(),
+    };
+  } finally {
+    projectSyncActive = false;
+  }
+}
+
 async function handleApi(req: Request, url: URL): Promise<Response> {
   if (url.pathname === "/api/config") {
     const selectedProject = defaultProject();
@@ -2145,6 +2321,9 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   if (url.pathname === "/api/process") {
     const paths = requestPaths(url, { useDefaultProject: true });
     return json(processStatus(paths.stateDir, paths.project));
+  }
+  if (url.pathname === "/api/project/sync" && req.method === "POST") {
+    return json(await syncProjectIntake(asObject(await req.json().catch(() => ({})))));
   }
   if (url.pathname === "/api/process/start" && req.method === "POST") {
     const body = asObject(await req.json().catch(() => ({})));

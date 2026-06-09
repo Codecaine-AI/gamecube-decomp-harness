@@ -1,0 +1,154 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2636",
+  "pr": {
+    "number": 2636,
+    "title": "Split-up improvements across common, GM/MN, TY, and baselib",
+    "url": "https://github.com/doldecomp/melee/pull/2636",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-08T21:19:05Z",
+    "merged_at": "2026-06-09T01:13:29Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Small cross-system split-up matching PR that improved exact and near matches in common fighter bury code, camera, GM/MN menu/game-mode code, TY display, map collision, and sysdolphin/baselib. The PR reported 5 new exact matches, +1608 matched code bytes, +24 matched data bytes, 8 unmatched-item improvements, and no regressions after ninja and the Decomp Orchestrator regression gate.",
+  "change_classification": {
+    "primary_type": "decomp-matching cleanup",
+    "categories": [
+      "cleanup",
+      "decomp-matching",
+      "naming",
+      "data-matching",
+      "stack-shaping",
+      "local-variable-ordering"
+    ],
+    "systems": [
+      "camera",
+      "fighter-common",
+      "game-mode",
+      "menus",
+      "map-collision",
+      "TY display",
+      "sysdolphin/baselib",
+      "particle",
+      "audio"
+    ]
+  },
+  "key_files": [
+    "src/melee/cm/camera.c",
+    "src/melee/ft/chara/ftCommon/ftCo_Bury.c",
+    "src/melee/gm/gm_1832.c",
+    "src/melee/gm/gmregclear.c",
+    "src/melee/gm/gmstaffroll.c",
+    "src/melee/mn/mncount.c",
+    "src/melee/mn/mnitemsw.c",
+    "src/melee/mn/mnmain.c",
+    "src/melee/mp/mplib.c",
+    "src/melee/ty/tydisplay.c",
+    "src/sysdolphin/baselib/axdriver.c",
+    "src/sysdolphin/baselib/particle.c"
+  ],
+  "what_changed": [
+    "Camera_80030CFC stack layout was adjusted by adding a 12-byte local pad and reducing PAD_STACK from 14 to 2, producing a reported exact match for main/melee/cm/camera Camera_80030CFC.",
+    "ftCo_Bury.c gained force-active .sdata2 literals ftCo_804D8C28, ftCo_804D8C30, ftCo_804D8C38, and ftCo_804D8C3C, and removed an unused zeroed 8-byte local in ftCo_800C0D0C. The PR notes these constants correspond to existing symbols.txt entries and the split-owned .sdata2 range.",
+    "gm_1832.c added PAD_STACK(4) in fn_8018325C and rewrote fn_801884F8 to access lbl_80473700 through an int pointer with ptr[65] and ptr[66] instead of named result_cache fields, matching local codegen.",
+    "gmregclear.c and gmstaffroll.c made narrow local declaration ordering changes in fn_8017F2A4 and gm_801AC6D8_OnEnter.",
+    "mncount.c wrapped mnCount_8025092C's large local working set in an inner block and added PAD_STACK(4), preserving the rank/tie handling logic while reshaping stack/local lifetimes.",
+    "mnitemsw.c removed an unused sp40 local and introduced u8 arg1_ and arg2_ copies before testing the arguments in mnItemSw_8023453C.",
+    "mnmain.c changed one mn_8022A440 call argument from mn_804A04F0.prev_menu to data->hovered_selection and reordered locals in mn_8022B3A0, including moving StaticModelDesc* top earlier.",
+    "mplib.c changed mpCheckFloor distance calculations to reuse a single dist2 local and SQ(px_sp54 - ax) + SQ(py_sp50 - ay), with a small pad local added inside the loop.",
+    "tydisplay.c adjusted local ordering and split entry->x04 handling into c2 and cat in un_8031BC54, using c2 for archive indexing and cat for signed category handling.",
+    "axdriver.c corrected/rearranged intermediate stereo-volume expressions in AXDriver_8038BF6C, changing tmp2 to left_inv_sqrt * right_inv_sqrt and passing right_sqrt * left_inv_sqrt in the later argument.",
+    "particle.c changed hsd_80393DA0 to clear hsd_804CF7E8 except for the x24 member before assigning out_buf and buf_size."
+  ],
+  "smart_moves": [
+    "Kept the PR narrow despite touching many systems: most changes are local stack-shape, declaration-order, temporary-variable, or expression-shape edits tied to regression results.",
+    "Used force_active only for the ftCo_Bury .sdata2 literals that the PR says were already represented in symbols.txt and owned by the ftCo_Bury split range, avoiding broad data churn.",
+    "Matched gm_1832 codegen by using pointer indexing into lbl_80473700, explicitly mirroring nearby pointer-style access in fn_8018846C according to the PR notes.",
+    "Preserved source-literal and HSD_ASSERT form in tydisplay for the earlier un_8031B1FC reshaping attempt; the PR notes that older string-base/assert reshaping was dropped.",
+    "Used an inner scope in mnCount_8025092C to influence stack/local lifetimes without rewriting the sorting and tie-ranking algorithm.",
+    "For mpCheckFloor, collapsed repeated dx/dy/dx2/dy2 temporaries into SQ() expressions while retaining a shared dist2 local, a compact way to affect codegen without changing the geometric test."
+  ],
+  "decomp_lessons": [
+    "For exact matching, local declaration order, artificial pads, and inner scopes can matter as much as semantic C logic, especially in functions with large stack frames such as mnCount_8025092C and Camera_80030CFC.",
+    "When a split owns a .sdata2 range, adding force-active constants with existing symbol names can resolve data matching cleanly, but the PR evidence supports this only for ftCo_Bury's specific constants.",
+    "Named struct-field access is not always codegen-equivalent to raw pointer indexing; fn_801884F8 matched by indexing lbl_80473700 as int* with known offsets.",
+    "Argument shadow copies such as u8 arg1_ and arg2_ can be useful when matching promotion/storage behavior in menu routines.",
+    "Use nearby already-matching functions as style/codegen guides; the PR explicitly cites mirroring pointer-style access from a nearby gm_1832 function.",
+    "Avoid overfitting risky source rewrites when they are not needed: the PR notes the tydisplay string-base/assert reshaping was removed in favor of keeping original string literals and HSD_ASSERT form.",
+    "Partial memset size adjustments can be required for baselib state structs when a member should survive or be initialized separately, as in hsd_80393DA0 excluding x24 from the initial clear."
+  ],
+  "naming_conventions": [
+    "Kept existing decomp symbol style for unknown or address-derived functions: Camera_80030CFC, ftCo_800C0D0C, fn_801884F8, mnCount_8025092C, mnItemSw_8023453C, hsd_80393DA0.",
+    "Force-active data symbols used file/module prefix plus address: ftCo_804D8C28, ftCo_804D8C30, ftCo_804D8C38, ftCo_804D8C3C.",
+    "Temporary match-shaping locals used terse names tied to existing variable purpose, such as c2 for the raw TY category/archive index, arg1_ and arg2_ for shadowed u8 parameters, ptr for raw lbl_80473700 indexing, and dist2 for squared distance.",
+    "Stack padding followed existing project idioms: PAD_STACK(n), explicit u8 _PAD[12], and local pad arrays."
+  ],
+  "assembly_or_matching_tactics": [
+    "Added PAD_STACK calls and explicit padding locals to alter stack frame size/layout.",
+    "Reordered local declarations to influence register allocation and stack slot placement.",
+    "Introduced an inner block in mnCount_8025092C to narrow local lifetime and affect stack layout.",
+    "Used raw int* pointer indexing into a global structure to match stores/loads at specific offsets.",
+    "Added #pragma force_active on/reset around split-owned constants to force .sdata2 emission.",
+    "Replaced expanded dx/dy squared-distance temporaries with SQ() macro expressions assigned to a reused local.",
+    "Introduced u8 parameter shadow copies to match argument handling in mnItemSw_8023453C.",
+    "Changed memset size from sizeof(struct) to sizeof(struct) - sizeof(member) to match initialization behavior/codegen."
+  ],
+  "review_feedback": [
+    "No review comments were present in the provided excerpt.",
+    "PR body reviewer notes state that an earlier tydisplay string-base/assert reshaping for un_8031B1FC was dropped, keeping source string literals and HSD_ASSERT form.",
+    "PR body reviewer notes justify ftCo_Bury force-active .sdata2 literals as corresponding to existing symbols.txt entries and the ftCo_Bury.c split-owned .sdata2 range.",
+    "PR body reviewer notes justify gm_1832 pointer indexing in fn_801884F8 as mirroring nearby pointer-style access in fn_8018846C."
+  ],
+  "searchable_terms": [
+    "PR2636",
+    "split-up matching",
+    "Camera_80030CFC",
+    "CmSubject",
+    "PAD_STACK",
+    "ftCo_Bury",
+    "ftCo_800C0D0C",
+    "ftCo_804D8C28",
+    "ftCo_804D8C30",
+    "ftCo_804D8C38",
+    "ftCo_804D8C3C",
+    "force_active",
+    ".sdata2",
+    "fn_801884F8",
+    "lbl_80473700",
+    "result_cache",
+    "mnCount_8025092C",
+    "CountEntry",
+    "NUM_CHARACTERS",
+    "mnItemSw_8023453C",
+    "mn_8022B3A0",
+    "mpCheckFloor",
+    "SQ",
+    "un_8031BC54",
+    "tydisplay",
+    "AXDriver_8038BF6C",
+    "hsd_80393DA0",
+    "gm_801AC6D8_OnEnter",
+    "fn_8017F2A4",
+    "local declaration order",
+    "stack layout",
+    "exact match",
+    "Decomp Orchestrator regression gate"
+  ],
+  "follow_up_queries": [
+    "Look for other gm_1832 functions near fn_8018846C/fn_801884F8 where struct-field access may need pointer indexing to match.",
+    "Search for remaining split-owned .sdata2 ranges with existing symbols.txt entries that may need tightly scoped force_active constants.",
+    "Review unmatched MN menu functions for stack-shaping opportunities using inner scopes, u8 argument shadow copies, and declaration-order changes.",
+    "Audit baselib memset initializers where a trailing or embedded member should be excluded from the clear and initialized separately.",
+    "Check other mp collision routines for SQ() expression shaping and shared distance locals similar to mpCheckFloor."
+  ],
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

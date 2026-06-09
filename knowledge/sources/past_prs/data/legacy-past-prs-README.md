@@ -28,9 +28,9 @@ Important files inside a dump root:
 
 `prs/` is the searchable knowledge layer built from PR slices. Each PR folder
 stores only the structured JSON record. Canonical shared Pi-agent instructions
-live in `../../src/agents/pr-review/` and are rendered with the current PR
-context when the builder runs. The older `agent/` folder may exist as a legacy
-mirror for previously generated run summaries.
+live in `../../../packages/agents/src/pr-review/` and are rendered with the
+current PR context when the builder runs. The older `agent/` folder may exist as
+a legacy mirror for previously generated run summaries.
 
 Primary library files:
 
@@ -38,9 +38,9 @@ Primary library files:
 - `prs/index.jsonl`: JSONL records for search/RAG ingestion.
 - `prs/known_fixes.md`: compact human-readable rollup.
 - `prs/pr-NNNN/postmortem.json`: structured knowledge record.
-- `../../src/agents/pr-review/templates/system.md`: shared Pi system prompt.
-- `../../src/agents/pr-review/templates/initial_user.md`: shared per-PR context template.
-- `../../src/agents/pr-review/schema.json`: required JSON response shape.
+- `../../../packages/agents/src/pr-review/templates/system.md`: shared Pi system prompt.
+- `../../../packages/agents/src/pr-review/templates/initial_user.md`: shared per-PR context template.
+- `../../../packages/agents/src/pr-review/schema.json`: required JSON response shape.
 
 ## Utils
 

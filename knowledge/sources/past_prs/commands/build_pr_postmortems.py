@@ -32,7 +32,7 @@ PAST_PRS_DATA_ROOT = SOURCE_ROOT / "data"
 ORCHESTRATOR_ROOT = SOURCE_ROOT.parent.parent.parent
 DEFAULT_DUMP_ROOT = PAST_PRS_DATA_ROOT / "current"
 DEFAULT_LIBRARY_ROOT = PAST_PRS_DATA_ROOT / "prs"
-DEFAULT_AGENT_ROOT = ORCHESTRATOR_ROOT / "src" / "agents" / "pr-review"
+DEFAULT_AGENT_ROOT = ORCHESTRATOR_ROOT / "packages" / "agents" / "src" / "pr-review"
 DEFAULT_SESSION_DIR = ORCHESTRATOR_ROOT / ".pi-sessions" / "pr-review"
 SCHEMA_VERSION = "melee_pr_postmortem_v1"
 OBJECT_SCHEMA_VERSION = "melee_pr_context_v1"
@@ -83,7 +83,10 @@ def parse_args() -> argparse.Namespace:
         "--agent-root",
         type=Path,
         default=DEFAULT_AGENT_ROOT,
-        help="Shared Pi-agent standard files. Defaults to decomp-orchestrator/src/agents/pr-review.",
+        help=(
+            "Shared Pi-agent standard files. Defaults to "
+            "decomp-orchestrator/packages/agents/src/pr-review."
+        ),
     )
     parser.add_argument(
         "--pr",
@@ -1094,7 +1097,7 @@ def write_library_readme(library_root: Path) -> None:
                 "- `known_fixes.md`: compact human-readable rollup.",
                 "- `pr-NNNN/postmortem.json`: structured per-PR knowledge record.",
                 "",
-                "Shared Pi instructions live in `src/agents/pr-review`; per-PR folders intentionally only store JSON records.",
+                "Shared Pi instructions live in `packages/agents/src/pr-review`; per-PR folders intentionally only store JSON records.",
                 "Persisted PR-review Pi sessions are written under `.pi-sessions/pr-review/`, which is ignored by git.",
                 "",
                 "Records with `agent_status=scaffolded_without_agent` are deterministic drafts. "

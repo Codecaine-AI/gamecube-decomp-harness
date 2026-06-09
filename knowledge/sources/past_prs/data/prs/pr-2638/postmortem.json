@@ -1,0 +1,91 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2638",
+  "pr": {
+    "number": 2638,
+    "title": "Link to decomp.dev instead of repo on Wiki TU page",
+    "url": "https://github.com/doldecomp/melee/pull/2638",
+    "state": "MERGED",
+    "author": "ribbanya",
+    "created_at": "2026-06-09T04:47:17Z",
+    "merged_at": "2026-06-09T04:47:35Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Updated the TU wiki generation script so file links point to the corresponding decomp.dev unit page instead of GitHub source blobs. The change centralizes file/link generation in a new helper, URL-encodes unit names for the decomp.dev query parameter, and includes minor Python typing cleanup.",
+  "change_classification": {
+    "primary_type": "tooling",
+    "categories": [
+      "tooling",
+      "documentation-generation",
+      "wiki-maintenance"
+    ],
+    "systems": [
+      "tools",
+      "wiki"
+    ]
+  },
+  "key_files": [
+    "tools/wiki_tu.py"
+  ],
+  "what_changed": [
+    "Replaced generated Markdown links from `../blob/master/src/{file}.c` with `https://decomp.dev/doldecomp/melee?unit=...` links.",
+    "Added `urllib.parse.quote` and uses `quote(unit['name'], safe='')` so TU names are safe inside the decomp.dev `unit` query parameter.",
+    "Removed the separate `file_of(unit)` helper and introduced `file_link(unit) -> tuple[str, str]`, returning both the stripped display file path and the Markdown link.",
+    "Updated both full and slim wiki rows to use the new decomp.dev link helper.",
+    "Modernized type annotations from `Dict[...]` and `Optional[...]` to built-in generics and union syntax such as `dict[str, dict[str, str]]`, `Path | None`, and `float | None`."
+  ],
+  "smart_moves": [
+    "Centralized URL construction in `file_link`, avoiding duplicated link formatting between `row_full` and `row_slim`.",
+    "Kept the existing display text behavior by continuing to strip the leading module component, while changing only the link target.",
+    "Used URL quoting for the raw unit name instead of interpolating it directly into the query string, which protects paths containing `/` or other special characters.",
+    "Preserved assignee lookup behavior by returning the stripped file path separately from the generated link."
+  ],
+  "decomp_lessons": [
+    "For progress/wiki tooling, linking directly to decomp.dev can be more useful than linking to repository source files because it takes users to the matching/decompilation view for the exact translation unit.",
+    "When generating TU links, keep a distinction between the user-facing file path and the canonical unit identifier used by tooling.",
+    "If a script emits the same link format in multiple table variants, factor that formatting into one helper so future URL scheme changes only need one edit.",
+    "Always URL-encode translation unit identifiers when placing them in query parameters."
+  ],
+  "naming_conventions": [
+    "`file_link(unit)` returns `(file, link)`, where `file` is the stripped display/lookup path and `link` is the Markdown-formatted decomp.dev link.",
+    "The generated URL uses the decomp.dev project path `doldecomp/melee` and a `unit` query parameter containing the original `unit['name']` value.",
+    "The display path continues to strip the leading module component such as `main/` before showing the file in wiki tables."
+  ],
+  "assembly_or_matching_tactics": [],
+  "review_feedback": [],
+  "searchable_terms": [
+    "pr-2638",
+    "wiki_tu.py",
+    "decomp.dev",
+    "TU wiki",
+    "translation unit wiki",
+    "unit query parameter",
+    "urllib.parse.quote",
+    "quote safe empty",
+    "file_link",
+    "file_of",
+    "row_full",
+    "row_slim",
+    "assignee_cells",
+    "Path | None",
+    "float | None",
+    "dict[str, dict[str, str]]",
+    "GitHub blob link",
+    "documentation generation",
+    "tooling"
+  ],
+  "follow_up_queries": [
+    "Where else do generated docs or wiki pages link to GitHub source blobs instead of decomp.dev units?",
+    "Do all decomp.dev unit links in project tooling URL-encode the unit name with `quote(..., safe='')`?",
+    "Are there other duplicated Markdown link helpers in `tools/wiki_tu.py` or related wiki generation scripts?"
+  ],
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

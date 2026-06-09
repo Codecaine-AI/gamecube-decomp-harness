@@ -1,5 +1,5 @@
-import { asObject, delta, duration, numberValue, pct, text, whole, type Dashboard, type JsonObject } from "@decomp-orchestrator/ui-contract";
-import { PanelTitle } from "./primitives";
+import { asArray, asObject, clock, delta, duration, numberValue, pct, shortId, text, whole, type Dashboard, type JsonObject } from "@decomp-orchestrator/ui-contract";
+import { PanelTitle, Pill } from "./primitives";
 
 const metricSpecs = [
   { key: "complete_code_percent", label: "Complete code", kind: "percent" },
@@ -66,18 +66,59 @@ function progressDetail(dashboard: Dashboard | null, report: JsonObject): string
   return trustedDetail(dashboard);
 }
 
-function RunCounters({ dashboard }: { dashboard: Dashboard | null }) {
+function processPillState(dashboard: Dashboard | null): string {
+  const proc = asObject(dashboard?.process);
+  const saved = asArray(proc.knownProcesses).map(asObject);
+  const display = proc.pid ? proc : saved.find((item) => item.alive === true) || {};
+  const detached = !proc.pid && display.alive === true;
+  const savedState = text(display.state);
+  if (proc.state && proc.state !== "idle") return text(proc.state);
+  if (detached && savedState) return savedState;
+  if (detached) return "detached";
+  return savedState || "idle";
+}
+
+function RunFact({ label, title, value, valueClassName = "" }: { label: string; title?: string; value: string; valueClassName?: string }) {
+  return (
+    <div className="grid min-h-6 grid-cols-[70px_minmax(0,1fr)] items-baseline gap-2">
+      <span className="text-[11px] uppercase text-[#969b97]">{label}</span>
+      <span className={`min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-right text-[#cfd4d0] ${valueClassName}`} title={title ?? value}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function RunCounters({ dashboard, streamState }: { dashboard: Dashboard | null; streamState: string }) {
   const run = asObject(dashboard?.status?.run);
   const status = asObject(dashboard?.status);
   const summary = asObject(dashboard?.runSummary);
+  const runId = text(run.id);
+  const processState = processPillState(dashboard);
   const counters: Array<[string, unknown]> = [
-    ["running", run.id ? duration(summary.elapsedMs) : "-"],
+    ["elapsed", run.id ? duration(summary.elapsedMs) : "-"],
     ["active", status.activeLeases],
     ["queued", status.queued],
     ["reports", status.workerReports],
   ];
   return (
     <div className="mt-2.5 overflow-hidden rounded-md border border-[#292d2b]">
+      <div className="bg-[#181a19] px-2 py-2">
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <div className="min-w-0">
+            <strong className="block overflow-hidden text-ellipsis whitespace-nowrap text-base text-[#e2e5e2]">{runId ? `Run ${shortId(runId)}` : "No run"}</strong>
+            <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-[#969b97]" title={runId}>
+              {runId || "No run rows in state"}
+            </span>
+          </div>
+          <Pill state={processState} />
+        </div>
+        <div className="mt-2 grid gap-1">
+          <RunFact label="Status" value={text(run.status, runId ? "-" : "none")} />
+          <RunFact label="Stream" value={text(streamState, "-")} valueClassName="uppercase" />
+          <RunFact label="Created" value={run.createdAt ? clock(run.createdAt) : "-"} />
+        </div>
+      </div>
       {counters.map(([label, value]) => (
         <div className="grid min-h-[30px] grid-cols-[minmax(80px,1fr)_minmax(86px,auto)] items-baseline gap-2 border-t border-[#292d2b] bg-[#181a19] px-2 py-1 first:border-t-0" key={label}>
           <span className="text-[11px] uppercase text-[#969b97]">{label}</span>
@@ -88,7 +129,7 @@ function RunCounters({ dashboard }: { dashboard: Dashboard | null }) {
   );
 }
 
-export function ProgressPanel({ dashboard, statusMessage }: { dashboard: Dashboard | null; statusMessage: string }) {
+export function ProgressPanel({ dashboard, statusMessage, streamState }: { dashboard: Dashboard | null; statusMessage: string; streamState: string }) {
   const run = asObject(dashboard?.status?.run);
   const initial = asObject(asObject(dashboard?.initial).measures);
   const current = asObject(asObject(dashboard?.current).measures);
@@ -153,7 +194,7 @@ export function ProgressPanel({ dashboard, statusMessage }: { dashboard: Dashboa
       </section>
       <section className="h-full p-3">
         <PanelTitle>Run</PanelTitle>
-        <RunCounters dashboard={dashboard} />
+        <RunCounters dashboard={dashboard} streamState={streamState} />
       </section>
     </div>
   );

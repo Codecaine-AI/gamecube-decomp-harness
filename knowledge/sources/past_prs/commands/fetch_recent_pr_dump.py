@@ -48,6 +48,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--repo", default="doldecomp/melee")
     parser.add_argument(
+        "--pr",
+        dest="prs",
+        type=int,
+        action="append",
+        default=[],
+        help="Explicit PR number to fetch. Repeat to fetch a merged/intake set without a time-window discovery query.",
+    )
+    parser.add_argument(
         "--activity",
         choices=("created", "updated"),
         default="created",
@@ -291,6 +299,38 @@ def discover_prs(repo: str, since: dt.date, activity: str, limit: int) -> list[d
     return discovered
 
 
+def fetch_index_pr(repo: str, number: int) -> dict[str, Any]:
+    pr = gh_json(["api", f"repos/{repo}/pulls/{number}"])
+    if not isinstance(pr, dict):
+        raise SystemExit(f"Expected a PR object for #{number}")
+    return normalize_index_pr(pr)
+
+
+def read_existing_pr_index(dump_root: Path) -> list[dict[str, Any]]:
+    path = dump_root / "prs.json"
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    return data if isinstance(data, list) else []
+
+
+def merged_pr_index(dump_root: Path, selected_prs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_number: dict[int, dict[str, Any]] = {}
+    for pr in read_existing_pr_index(dump_root):
+        try:
+            by_number[int(pr["number"])] = pr
+        except (KeyError, TypeError, ValueError):
+            continue
+    for pr in selected_prs:
+        by_number[int(pr["number"])] = pr
+    return sorted(
+        by_number.values(),
+        key=lambda pr: str(pr.get("mergedAt") or pr.get("updatedAt") or pr.get("createdAt") or ""),
+        reverse=True,
+    )
+
+
 def write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
@@ -488,6 +528,7 @@ def main() -> int:
     args = parse_args()
     ensure_tools()
 
+    explicit_numbers = sorted(set(args.prs))
     if args.all_prs and args.since is None:
         args.since = "2000-01-01"
     if args.all_prs and args.limit == 1000:
@@ -495,10 +536,14 @@ def main() -> int:
     since = parse_since(args.since, args.months)
     dump_root = stable_dump_root(args)
     dump_root = dump_root.resolve()
-    query = f"{args.activity}:>={since.isoformat()}"
+    query = (
+        "explicit:" + ",".join(f"#{number}" for number in explicit_numbers)
+        if explicit_numbers
+        else f"{args.activity}:>={since.isoformat()}"
+    )
 
-    prs = discover_prs(args.repo, since, args.activity, args.limit)
-    numbers = [int(pr["number"]) for pr in prs]
+    prs = [fetch_index_pr(args.repo, number) for number in explicit_numbers] if explicit_numbers else discover_prs(args.repo, since, args.activity, args.limit)
+    numbers = explicit_numbers if explicit_numbers else [int(pr["number"]) for pr in prs]
     missing = [
         number
         for number in numbers
@@ -526,7 +571,8 @@ def main() -> int:
         return 0
 
     dump_root.mkdir(parents=True, exist_ok=True)
-    write_json(dump_root / "prs.json", prs)
+    index_prs = merged_pr_index(dump_root, prs) if explicit_numbers else prs
+    write_json(dump_root / "prs.json", index_prs)
     metadata_generated_at = build_pr_dump_analysis.now_utc()
     update_top_level_metadata(
         dump_root,

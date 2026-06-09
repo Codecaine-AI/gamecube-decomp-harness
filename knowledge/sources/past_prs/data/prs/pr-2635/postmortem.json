@@ -1,0 +1,94 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2635",
+  "pr": {
+    "number": 2635,
+    "title": "Bring CObjGetUpVector closer to a match",
+    "url": "https://github.com/doldecomp/melee/pull/2635",
+    "state": "MERGED",
+    "author": "PsiLupan",
+    "created_at": "2026-06-08T17:37:06Z",
+    "merged_at": "2026-06-08T17:42:26Z"
+  },
+  "agent_status": "agent_completed",
+  "summary": "Simplified HSD_CObjGetLeftVector in src/sysdolphin/baselib/cobj.c by replacing an inline up-vector calculation and fallback block with a direct call to HSD_CObjGetUpVector(cobj, &up). The PR title says this brings CObjGetUpVector closer to matching, and the diff shows code deduplication that routes left-vector calculation through the existing up-vector helper.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "code-deduplication",
+      "camera-vector-helper"
+    ],
+    "systems": [
+      "sysdolphin",
+      "baselib",
+      "cobj"
+    ]
+  },
+  "key_files": [
+    "src/sysdolphin/baselib/cobj.c"
+  ],
+  "what_changed": [
+    "In HSD_CObjGetLeftVector, removed a local reimplementation of the up-vector selection logic.",
+    "The removed block checked cobj flags, used cobj->u.up when flag bit 1 was set, otherwise tried roll2upvec(cobj, &up, cobj->u.roll), and fell back to the default up vector (0.0f, 1.0f, 0.0f) with res = -1.",
+    "Replaced that entire inline block with res = HSD_CObjGetUpVector(cobj, &up).",
+    "The later logic remains the same: if res == 0, compute the left vector with PSVECCrossProduct(&up, &eye, left), then normalize/check it with vec_normalize_check."
+  ],
+  "smart_moves": [
+    "Reused HSD_CObjGetUpVector instead of duplicating its behavior inside HSD_CObjGetLeftVector, reducing the chance of divergent camera up-vector behavior.",
+    "Kept the existing res-driven control flow around PSVECCrossProduct intact, making the change narrowly targeted for matching.",
+    "The replacement removes an obviously redundant null-style check on &up, since &up is a local address and cannot be NULL."
+  ],
+  "decomp_lessons": [
+    "When matching baselib camera object routines, prefer calling the helper that represents the original abstraction rather than inlining equivalent-looking logic.",
+    "Small helper-call substitutions can improve matching even when they reduce source lines substantially.",
+    "For CObj vector routines, HSD_CObjGetLeftVector appears to depend on HSD_CObjGetEyeVector and HSD_CObjGetUpVector before deriving the left vector via a cross product.",
+    "If a local block duplicates a nearby exported/static helper's behavior, test whether the original code likely called the helper directly."
+  ],
+  "naming_conventions": [
+    "Camera object functions use the HSD_CObj prefix, such as HSD_CObjGetLeftVector, HSD_CObjGetEyeVector, and HSD_CObjGetUpVector.",
+    "Vector helper naming includes Vec3 for vector storage and PSVECCrossProduct for paired-single vector cross products.",
+    "The local variable names in this area are descriptive direction vectors: eye, up, and left."
+  ],
+  "assembly_or_matching_tactics": [
+    "Replace duplicated control flow with a direct helper call when the surrounding code only needs the helper's result code and output vector.",
+    "Preserve the result variable pattern, here assigning res = HSD_CObjGetUpVector(cobj, &up), to keep downstream branches unchanged.",
+    "Use known helper semantics for fallback handling instead of repeating default-vector initialization locally when trying to match original code structure."
+  ],
+  "review_feedback": [],
+  "searchable_terms": [
+    "pr-2635",
+    "PsiLupan",
+    "CObjGetUpVector",
+    "HSD_CObjGetUpVector",
+    "HSD_CObjGetLeftVector",
+    "HSD_CObjGetEyeVector",
+    "src/sysdolphin/baselib/cobj.c",
+    "sysdolphin",
+    "baselib",
+    "cobj",
+    "Vec3",
+    "PSVECCrossProduct",
+    "vec_normalize_check",
+    "roll2upvec",
+    "cobj->u.up",
+    "cobj->u.roll",
+    "camera up vector",
+    "left vector",
+    "decomp matching"
+  ],
+  "follow_up_queries": [
+    "Look for other CObj vector routines that inline HSD_CObjGetUpVector behavior instead of calling the helper.",
+    "Check whether HSD_CObjGetUpVector itself now matches or still needs cleanup around roll2upvec and default up-vector fallback.",
+    "Search for remaining impossible local-address null checks such as &local != NULL in decompiled baselib code."
+  ],
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+  }
+}

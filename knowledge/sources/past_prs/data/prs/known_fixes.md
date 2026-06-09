@@ -1,5 +1,45 @@
 # Known PR Fixes And Changes
 
+## PR #2638: Link to decomp.dev instead of repo on Wiki TU page
+
+Status: agent_completed
+Type: tooling
+Systems: tools;wiki
+
+Updated the TU wiki generation script so file links point to the corresponding decomp.dev unit page instead of GitHub source blobs. The change centralizes file/link generation in a new helper, URL-encodes unit names for the decomp.dev query parameter, and includes minor Python typing cleanup.
+
+Postmortem JSON: `pr-2638/postmortem.json`
+
+## PR #2637: link gmopening.c
+
+Status: agent_completed
+Type: decomp-matching
+Systems: game-mode;gmopening;config;repo-root
+
+Marked src/melee/gm/gmopening.c as matching and fixed the full-link small-data layout issue that appeared when linking it. The PR body attributes the mismatch to an external SDA reference to gm_804D67EC: the symbol name was correct, but after gmopening was linked its final .sbss offset was wrong. The source fix reordered the gmopening .sbss declarations around gm_804D67EC, gm_804D67F0, and gm_804D67F4 and made gm_804D67F4 non-static so linker layout matched the target. The symbols map was regenerated/adjusted for related local/global data naming and labels.
+
+Postmortem JSON: `pr-2637/postmortem.json`
+
+## PR #2636: Split-up improvements across common, GM/MN, TY, and baselib
+
+Status: agent_completed
+Type: decomp-matching cleanup
+Systems: camera;fighter-common;game-mode;menus;map-collision;TY display;sysdolphin/baselib;particle;audio
+
+Small cross-system split-up matching PR that improved exact and near matches in common fighter bury code, camera, GM/MN menu/game-mode code, TY display, map collision, and sysdolphin/baselib. The PR reported 5 new exact matches, +1608 matched code bytes, +24 matched data bytes, 8 unmatched-item improvements, and no regressions after ninja and the Decomp Orchestrator regression gate.
+
+Postmortem JSON: `pr-2636/postmortem.json`
+
+## PR #2635: Bring CObjGetUpVector closer to a match
+
+Status: agent_completed
+Type: decomp-matching
+Systems: sysdolphin;baselib;cobj
+
+Simplified HSD_CObjGetLeftVector in src/sysdolphin/baselib/cobj.c by replacing an inline up-vector calculation and fallback block with a direct call to HSD_CObjGetUpVector(cobj, &up). The PR title says this brings CObjGetUpVector closer to matching, and the diff shows code deduplication that routes left-vector calculation through the existing up-vector helper.
+
+Postmortem JSON: `pr-2635/postmortem.json`
+
 ## PR #2634: match and link itsamusmissile.c
 
 Status: agent_completed

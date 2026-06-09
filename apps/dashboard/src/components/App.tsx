@@ -42,10 +42,11 @@ const defaultForm: FormState = {
   resetReportBaseline: true,
 };
 
-type Action = "refresh" | "init" | "fresh" | "report" | "start" | "stop" | "forceStop" | "pausePr" | "resumePr" | "checkpoint" | "qa" | "splitPlan" | "preparePr";
+type Action = "refresh" | "sync" | "init" | "fresh" | "report" | "start" | "stop" | "forceStop" | "pausePr" | "resumePr" | "checkpoint" | "qa" | "splitPlan" | "preparePr";
 
 const actionLabels: Record<Action, string> = {
   refresh: "Refreshing dashboard...",
+  sync: "Syncing code, intaking newly merged PRs, and rebuilding knowledge...",
   init: "Initializing run and seeding targets...",
   fresh: "Checkpointing current run, resetting report start, initializing a new run, and refreshing PRs...",
   report: "Generating a fresh report against the run start...",
@@ -212,6 +213,9 @@ export function App() {
         const body = formBody(form, currentDashboard);
         if (nextAction === "refresh") {
           await manualRefresh();
+        } else if (nextAction === "sync") {
+          await postJson("/api/project/sync", body);
+          await manualRefresh();
         } else if (nextAction === "start") {
           await postJson("/api/process/start", body);
           await manualRefresh();
@@ -282,6 +286,7 @@ export function App() {
   return (
     <main className="app-shell grid h-screen min-h-[620px] bg-[#171817] text-[#e2e5e2] max-[1180px]:h-auto max-[780px]:block max-[780px]:min-h-0" style={shellStyle}>
       <Sidebar
+        activityMessage={action ? actionLabels[action] : statusMessage}
         busy={busy}
         collapsed={sidebarCollapsed}
         config={config}
@@ -290,10 +295,9 @@ export function App() {
         onAction={(nextAction) => void runAction(nextAction)}
         onCollapsedChange={setSidebarCollapsed}
         setForm={setForm}
-        streamState={streamState}
       />
       <section className="min-w-0 overflow-auto bg-[#191b1a]">
-        <ProgressPanel dashboard={currentDashboard} statusMessage={action ? actionLabels[action] : statusMessage} />
+        <ProgressPanel dashboard={currentDashboard} statusMessage={action ? actionLabels[action] : statusMessage} streamState={streamState} />
         <WorkTables
           dashboard={currentDashboard}
           improvedMode={improvedMode}
