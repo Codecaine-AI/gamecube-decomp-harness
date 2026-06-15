@@ -12,133 +12,103 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR 2635 made a focused decomp-matching cleanup in `src/sysdolphin/baselib/cobj.c`: inside `HSD_CObjGetLeftVector`, a duplicated inline reconstruction of up-vector selection and fallback initialization was replaced with a direct call to `HSD_CObjGetUpVector(cobj, &up)`. The bot report recorded `HSD_CObjGetLeftVector` improving from 33.92% to 98.65%, but the evidence does not show a full match.",
+  "summary": "Small decomp-matching cleanup in sysdolphin baselib camera object code: HSD_CObjGetLeftVector replaced an inline/generated-looking up-vector computation block with a call to HSD_CObjGetUpVector(cobj, &up). The bot report recorded HSD_CObjGetLeftVector improving from 33.92% to 98.65%, with +412 bytes, but no human review comments or PR body rationale were present.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
       "helper reuse",
-      "control-flow cleanup"
+      "control-flow cleanup",
+      "camera-vector math"
     ],
     "systems": [
-      "src",
-      "sysdolphin",
-      "baselib",
+      "src/sysdolphin/baselib",
       "cobj"
     ]
   },
   "key_files": [
     {
       "path": "src/sysdolphin/baselib/cobj.c",
-      "role": "Only changed source file; updates `HSD_CObjGetLeftVector` to call `HSD_CObjGetUpVector` instead of carrying duplicated local up-vector logic.",
+      "role": "Only changed file; HSD_CObjGetLeftVector now delegates up-vector acquisition to HSD_CObjGetUpVector instead of open-coding flag/roll/default-up fallback logic.",
       "evidence_refs": [
-        "metadata.changed_files[0]",
-        "loaded_files.raw_diff",
-        "evidence_excerpts.diff_excerpt"
+        "changed_files: src/sysdolphin/baselib/cobj.c added 1 deleted 16 hunks 1",
+        "raw_diff: HSD_CObjGetLeftVector hunk replacing inline up-vector block with res = HSD_CObjGetUpVector(cobj, &up)"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "`HSD_CObjGetLeftVector` now obtains `up` through `HSD_CObjGetUpVector(cobj, &up)`.",
+      "text": "Removed a 16-line conditional block in HSD_CObjGetLeftVector that checked cobj flags, copied cobj->u.up, called roll2upvec, and fell back to default up vector {0.0f, 1.0f, 0.0f}.",
       "evidence_refs": [
-        "loaded_files.raw_diff"
+        "raw_diff: deleted cobj flags/roll2upvec/set_up block"
       ]
     },
     {
-      "text": "The removed code manually checked `cobj->flags & 1`, copied `cobj->u.up`, called `roll2upvec(cobj, &up, cobj->u.roll)`, and otherwise initialized `up` to `(0.0f, 1.0f, 0.0f)` with `res = -1`.",
+      "text": "Added a single call, res = HSD_CObjGetUpVector(cobj, &up), before the existing PSVECCrossProduct and vec_normalize_check logic.",
       "evidence_refs": [
-        "loaded_files.raw_diff"
+        "raw_diff: added HSD_CObjGetUpVector(cobj, &up)"
       ]
     },
     {
-      "text": "The change was one hunk in `src/sysdolphin/baselib/cobj.c` with 1 added line and 16 deleted lines.",
+      "text": "Automated report recorded one improvement for main/sysdolphin/baselib/cobj, item HSD_CObjGetLeftVector, from 33.92% to 98.65%, bytes +412.",
       "evidence_refs": [
-        "metadata.changed_files",
-        "loaded_files.changed_files"
-      ]
-    },
-    {
-      "text": "The automated report recorded one improvement for `main/sysdolphin/baselib/cobj` item `HSD_CObjGetLeftVector`, from 33.92% before to 98.65% after.",
-      "evidence_refs": [
-        "loaded_files.text_corpus issue_comment decomp-dev[bot]"
+        "text_corpus issue_comment decomp-dev[bot] 2026-06-08T17:40:50Z"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Reused an existing semantic helper (`HSD_CObjGetUpVector`) rather than preserving duplicated generated-looking control flow inside `HSD_CObjGetLeftVector`.",
+      "text": "Reused an existing helper for up-vector recovery rather than duplicating its internals inside HSD_CObjGetLeftVector.",
       "evidence_refs": [
-        "loaded_files.raw_diff"
+        "raw_diff: inline logic replaced by HSD_CObjGetUpVector call"
       ]
     },
     {
-      "text": "Kept the transformation narrow: the PR touched only one function area in one file and did not introduce data, header, or symbol churn.",
+      "text": "Kept the surrounding vector math structure intact after the helper call: cross product of up and eye followed by normalization check.",
       "evidence_refs": [
-        "metadata.changed_files",
-        "loaded_files.changed_files"
+        "raw_diff: unchanged PSVECCrossProduct and vec_normalize_check following new call"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a function locally duplicates the behavior of an existing helper, trying the helper call can both improve readability and substantially improve the match score.",
+      "lesson": "When a function contains a generated-looking duplicate of another recovered helper's logic, try delegating to the helper before preserving the expanded branch/goto form.",
       "scope": [
-        "src/sysdolphin/baselib/cobj.c",
-        "HSD_CObjGetLeftVector",
-        "HSD_CObjGetUpVector"
+        "helper reuse",
+        "baselib camera/object functions",
+        "matching cleanup"
       ],
       "evidence_refs": [
-        "loaded_files.raw_diff",
-        "loaded_files.text_corpus issue_comment decomp-dev[bot]"
+        "raw_diff: HSD_CObjGetLeftVector replaced expanded up-vector logic with HSD_CObjGetUpVector",
+        "text_corpus bot report: HSD_CObjGetLeftVector improved to 98.65%"
       ],
       "confidence": 0.82
-    },
-    {
-      "lesson": "Do not assume an inlined reconstruction of flag checks and fallback vector initialization is original source when a nearby named API function expresses the same operation.",
-      "scope": [
-        "CObj vector helpers",
-        "helper reuse"
-      ],
-      "evidence_refs": [
-        "loaded_files.raw_diff"
-      ],
-      "confidence": 0.74
     }
   ],
   "naming_conventions": [
     {
-      "text": "No new naming convention is established. Existing names in the evidence include `HSD_CObjGetLeftVector`, `HSD_CObjGetUpVector`, `HSD_CObjGetEyeVector`, `roll2upvec`, `vec_normalize_check`, `eye`, `up`, and `left`.",
+      "text": "Existing local names cobj, eye, up, left, res, HSD_CObjGetUpVector, HSD_CObjGetEyeVector, PSVECCrossProduct, and vec_normalize_check were preserved; no new naming convention was introduced.",
       "evidence_refs": [
-        "loaded_files.raw_diff"
+        "raw_diff: hunk context and added helper call"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Replace duplicated local logic with an existing helper call to alter codegen toward the target.",
+      "tactic": "Collapse duplicated conditional helper logic into the canonical helper call to influence code shape and matching score.",
       "evidence_refs": [
-        "loaded_files.raw_diff",
-        "loaded_files.text_corpus issue_comment decomp-dev[bot]"
+        "raw_diff: deleted conditional up-vector calculation and added HSD_CObjGetUpVector call",
+        "text_corpus bot report: 33.92% to 98.65% for HSD_CObjGetLeftVector"
       ],
-      "result_supported_by_pr": "Automated report shows `HSD_CObjGetLeftVector` improved from 33.92% to 98.65%; no full match is shown."
-    },
-    {
-      "tactic": "Avoided adding pragmas, register steering, dummy locals, data anchors, or literal/symbol churn in this slice.",
-      "evidence_refs": [
-        "loaded_files.raw_diff",
-        "metadata.changed_files"
-      ],
-      "result_supported_by_pr": "The diff shows only the helper-call replacement."
+      "notes": "The PR evidence supports a score improvement but does not include objdiff details, compiler output, or author explanation."
     }
   ],
   "review_feedback": [
     {
-      "kind": "bot_report",
+      "kind": "automation",
       "author": "decomp-dev[bot]",
-      "text": "Report for GALE01 recorded 1 improvement in an unmatched item: `main/sysdolphin/baselib/cobj` / `HSD_CObjGetLeftVector`, +412 bytes, 33.92% before, 98.65% after.",
+      "text": "Report for GALE01 recorded 1 improvement in an unmatched item: main/sysdolphin/baselib/cobj HSD_CObjGetLeftVector, +412 bytes, 33.92% before, 98.65% after.",
       "evidence_refs": [
-        "loaded_files.text_corpus issue_comment decomp-dev[bot]"
+        "text_corpus issue_comment decomp-dev[bot] 2026-06-08T17:40:50Z"
       ]
     }
   ],
@@ -157,64 +127,64 @@
     "helper reuse",
     "up vector",
     "left vector",
-    "GALE01",
-    "33.92",
-    "98.65"
+    "camera object",
+    "GALE01"
   ],
   "follow_up_queries": [
     "HSD_CObjGetLeftVector HSD_CObjGetUpVector helper reuse",
-    "roll2upvec cobj flags u.up fallback vector",
-    "src/sysdolphin/baselib/cobj.c CObj vector helpers",
-    "decomp PR HSD_CObjGetLeftVector 98.65"
+    "roll2upvec cobj flags u.up default up vector",
+    "src/sysdolphin/baselib/cobj.c vector helper matching",
+    "PSVECCrossProduct vec_normalize_check HSD_CObjGetLeftVector",
+    "PR 2635 CObjGetUpVector closer to match"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json",
-      "loaded_files.raw_diff",
-      "loaded_files.changed_files",
-      "loaded_files.text_corpus"
+      "metadata_json: PR 2635 title/state/author/timestamps/changed file counts",
+      "raw_diff: complete 1064-byte diff for one file",
+      "changed_files: one changed file with added/deleted counts",
+      "text_corpus: empty PR body and one bot report",
+      "metadata_json: review_comments 0, reviews 0"
     ],
     "notes": [
-      "Strong evidence for the exact file and code change from the loaded diff.",
-      "Strong evidence for score movement from the automated bot report.",
-      "PR body is empty and there are no review comments, so there is no direct author explanation or human reviewer rationale.",
-      "The title says closer to a match and the bot report shows 98.65%, so this intake does not claim the function fully matched."
+      "Diff evidence is strong for the exact source change.",
+      "Automated report supports a matching-score improvement for HSD_CObjGetLeftVector.",
+      "No PR body, human review comments, objdiff details, or author rationale were available, so intent beyond helper reuse and score improvement is not inferred.",
+      "The PR title mentions CObjGetUpVector, while the changed hunk and bot report identify the improved item as HSD_CObjGetLeftVector using HSD_CObjGetUpVector."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson_candidate",
-        "title": "Prefer existing helper calls over duplicated reconstructed logic when the helper expresses the same local operation",
-        "text": "In PR 2635, `HSD_CObjGetLeftVector` improved substantially after replacing a duplicated local up-vector reconstruction with `HSD_CObjGetUpVector(cobj, &up)`. This is a graph-safe candidate lesson for helper reuse in decomp matching, scoped to the CObj vector-helper context.",
+        "record_type": "decomp_lesson",
+        "title": "Try canonical helper calls before preserving duplicated generated-looking helper bodies",
+        "text": "PR 2635 shows HSD_CObjGetLeftVector improving after replacing an expanded up-vector calculation block with HSD_CObjGetUpVector(cobj, &up). This is a local example of helper reuse improving a decomp match.",
         "scope": [
           "src/sysdolphin/baselib/cobj.c",
-          "HSD_CObjGetLeftVector",
-          "HSD_CObjGetUpVector",
-          "helper reuse"
+          "helper reuse",
+          "matching cleanup"
         ],
         "evidence_refs": [
-          "loaded_files.raw_diff",
-          "loaded_files.text_corpus issue_comment decomp-dev[bot]"
+          "raw_diff: HSD_CObjGetLeftVector hunk",
+          "text_corpus bot report: HSD_CObjGetLeftVector 33.92% to 98.65%"
         ],
         "confidence": 0.82
       }
     ],
     "source_update_candidates": [],
     "rejection_notes": [
-      "Do not promote a full-match claim: the available evidence only reports improvement to 98.65%.",
-      "Do not infer reviewer intent or acceptance rationale beyond merge metadata and the bot report; no human review comments are present.",
-      "Do not generalize this into a global rule that helper calls are always preferred over inlining; this PR only supports a scoped helper-reuse tactic for this CObj vector case."
+      "Do not promote a global rule that helper calls always improve matches; this PR provides only one local CObj case.",
+      "Do not claim HSD_CObjGetLeftVector matched fully; the bot report shows 98.65%, not 100%, and no objdiff details are included.",
+      "Do not infer human reviewer intent or acceptance rationale; no review comments or reviews are present."
     ]
   },
-  "confidence": 0.84,
+  "confidence": 0.83,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

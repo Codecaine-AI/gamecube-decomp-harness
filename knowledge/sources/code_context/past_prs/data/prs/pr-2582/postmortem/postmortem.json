@@ -12,267 +12,259 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Batch PR with independent source-matching improvements across Ice Mountain ground code, sysdolphin particles, Dolphin THP decode, fighter item handling, and menu count sorting. The PR body reports configure --require-protos, report build, and ninja verification; the bot report records two new 100% matches and three unmatched-item score improvements.",
+  "summary": "Batch PR with independent source matching improvements across THP decode, fighter item handling, Ice Mountain ground logic, menu count sorting, and sysdolphin particle initialization. Evidence includes PR body verification commands, diff excerpts, bot score report, and one review thread that replaced a local user_data helper with existing GET_GROUND().",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "headers",
       "source-cleanup",
-      "typed-access-cleanup",
-      "codegen-shape"
+      "headers",
+      "typed-access",
+      "matching-tactic"
     ],
     "systems": [
       "external-sdk",
       "fighter",
-      "ground",
-      "melee-core",
+      "stage",
       "menu",
-      "sysdolphin"
+      "sysdolphin-baselib"
     ]
   },
   "key_files": [
     {
       "path": "extern/dolphin/src/dolphin/thp/THPDec.c",
-      "role": "Matched __THPRestartDefinition by introducing a local THPRestartFields overlay for restart-specific fields and using it for RST, nMCU, and currMCU writes.",
+      "role": "Matched __THPRestartDefinition by introducing a local THPRestartFields overlay and accessing nMCU, currMCU, and RST through it.",
       "evidence_refs": [
-        "raw_diff: extern/dolphin/src/dolphin/thp/THPDec.c",
-        "human_pr_text: match __THPRestartDefinition in THPDec.c",
-        "text_corpus: bot report shows main/dolphin/thp/THPDec __THPRestartDefinition 99.76% -> 100.00%"
-      ]
-    },
-    {
-      "path": "src/sysdolphin/baselib/particle.c",
-      "role": "Matched hsd_80398C04 by replacing pointer arithmetic with hsd_804D0908 indexing and correcting particle color/target field initialization.",
-      "evidence_refs": [
-        "raw_diff: src/sysdolphin/baselib/particle.c",
-        "human_pr_text: match hsd_80398C04 in particle.c",
-        "text_corpus: bot report shows main/sysdolphin/baselib/particle hsd_80398C04 99.64% -> 100.00%"
-      ]
-    },
-    {
-      "path": "src/melee/gr/gricemt.c",
-      "role": "Improved grIceMt_801F9ACC by changing return type to int, returning did/0, using GET_GROUND instead of user_data access, widening id to s32, adding PAD_STACK(16), and introducing a pointer temporary for gv.icemt2.xC8.",
-      "evidence_refs": [
-        "raw_diff: src/melee/gr/gricemt.c",
-        "human_pr_text: improve grIceMt_801F9ACC by tightening the Ice Mountain data/ID handling",
-        "review_comments: GET_GROUND review thread",
-        "text_corpus: bot report shows main/melee/gr/gricemt grIceMt_801F9ACC 96.34% -> 98.90%"
-      ]
-    },
-    {
-      "path": "src/melee/gr/gricemt.h",
-      "role": "Updated grIceMt_801F9ACC prototype from void to int to match the source body change.",
-      "evidence_refs": [
-        "raw_diff: src/melee/gr/gricemt.h",
-        "human_pr_text: python configure.py --require-protos"
+        "changed_files: extern/dolphin/src/dolphin/thp/THPDec.c added 12 deleted 4 hunks 3",
+        "diff_excerpt: THPRestartFields typedef and __THPRestartDefinition changes",
+        "text_corpus issue_comment: __THPRestartDefinition 99.76% -> 100.00%"
       ]
     },
     {
       "path": "src/melee/ft/ft_0892.c",
-      "role": "Improved ft_800895E0 by removing a temporary item GObj local and directly reusing fp->item_gobj in the null check and it_8026B6C8 call.",
+      "role": "Improved ft_800895E0 by removing a temporary Item_GObj local and reusing fp->item_gobj directly for the item GObj load shape.",
       "evidence_refs": [
-        "raw_diff: src/melee/ft/ft_0892.c",
+        "changed_files: src/melee/ft/ft_0892.c added 1 deleted 3 hunks 2",
         "human_pr_text: improve ft_800895E0 by reusing the item GObj load shape",
-        "text_corpus: bot report shows main/melee/ft/ft_0892 ft_800895E0 98.86% -> 99.98%"
+        "diff_excerpt: removed Item_GObj* temp and passed fp->item_gobj to it_8026B6C8",
+        "text_corpus issue_comment: ft_800895E0 98.86% -> 99.98%"
+      ]
+    },
+    {
+      "path": "src/melee/gr/gricemt.c",
+      "role": "Improved grIceMt_801F9ACC by changing return type to int, returning did/0, widening id to s32, adding PAD_STACK(16), using GET_GROUND() instead of direct user_data access, and introducing a HSD_JObj** temporary for icemt2.xC8.",
+      "evidence_refs": [
+        "changed_files: src/melee/gr/gricemt.c added 21 deleted 16 hunks 8",
+        "human_pr_text: improve grIceMt_801F9ACC by tightening the Ice Mountain data/ID handling",
+        "diff_excerpt: grIceMt_801F9ACC return type and GET_GROUND replacements",
+        "review_comments: reviewer asked whether existing GET_GROUND() could be used",
+        "review_comments: author said fixed by removing local user_data helper and switching call sites to GET_GROUND()",
+        "text_corpus issue_comment: grIceMt_801F9ACC 96.34% -> 98.90%"
+      ]
+    },
+    {
+      "path": "src/melee/gr/gricemt.h",
+      "role": "Updated grIceMt_801F9ACC prototype from void to int to match the recovered body signature.",
+      "evidence_refs": [
+        "changed_files: src/melee/gr/gricemt.h added 2 deleted 2 hunks 1",
+        "diff_excerpt: grIceMt_801F9ACC prototype void -> int"
       ]
     },
     {
       "path": "src/melee/mn/mncount.c",
-      "role": "Improved mnCount_8025092C by moving CountEntry tmp declaration out of the swap block, removing PAD_STACK(8), and reversing the row comparison condition shape.",
+      "role": "Improved mnCount_8025092C by moving CountEntry tmp to function scope, removing PAD_STACK(8), and reshaping the row comparison.",
       "evidence_refs": [
-        "raw_diff: src/melee/mn/mncount.c",
+        "changed_files: src/melee/mn/mncount.c added 3 deleted 3 hunks 2",
         "human_pr_text: improve mnCount_8025092C by reshaping the row comparison",
-        "text_corpus: bot report shows main/melee/mn/mncount mnCount_8025092C 99.38% -> 99.92%"
+        "diff_excerpt: CountEntry tmp declaration moved and comparison changed to entries[min].val < entries[j].val",
+        "text_corpus issue_comment: mnCount_8025092C 99.38% -> 99.92%"
+      ]
+    },
+    {
+      "path": "src/sysdolphin/baselib/particle.c",
+      "role": "Matched hsd_80398C04 by using hsd_804D0908 indexing, correcting particle color field initialization, and changing sizeTarget initialization to rotateTarget.",
+      "evidence_refs": [
+        "changed_files: src/sysdolphin/baselib/particle.c added 10 deleted 11 hunks 4",
+        "human_pr_text: match hsd_80398C04 in particle.c",
+        "diff_excerpt: hsd_804D0908 slot access, primCol/envCol initialization, rotateTarget assignment",
+        "text_corpus issue_comment: hsd_80398C04 99.64% -> 100.00%"
       ]
     }
   ],
   "what_changed": [
-    "THPDec.c: added THPRestartFields with pad[0x8FC], nMCU, currMCU, and RST; __THPRestartDefinition casts THPFileInfo* to that overlay for restart field stores.",
-    "particle.c: removed a prior TODO about a partial match, changed the default particle slot from hsd_804D08E8 pointer arithmetic to &hsd_804D0908[linkNo], initialized primCol to 0xFF instead of envCol, zeroed envCol instead of envColTarget, and set rotateTarget to 0.0F instead of sizeTarget.",
-    "gricemt.c/h: grIceMt_801F9ACC now returns int, returns 0 for early invalid segment IDs, returns did at the end, updates the header prototype, switches many Ground_GObj user_data reads to GET_GROUND(), and includes stack/local-shape changes.",
-    "ft_0892.c: ft_800895E0 removes Item_GObj* temp and directly checks fp->item_gobj before passing it to it_8026B6C8.",
-    "mncount.c: mnCount_8025092C changes local declaration placement and comparison expression shape while removing PAD_STACK(8).",
-    "Verification evidence in the PR body lists python configure.py --require-protos, ninja build/GALE01/report.json, and ninja; the bot report records +844 matched-code bytes, two new matches, and three improvements."
+    {
+      "text": "Two functions were reported as new 100% matches: hsd_80398C04 and __THPRestartDefinition.",
+      "evidence_refs": [
+        "text_corpus issue_comment: ✅ 2 new matches table"
+      ]
+    },
+    {
+      "text": "Three functions were reported as improved but not fully matched: grIceMt_801F9ACC, mnCount_8025092C, and ft_800895E0.",
+      "evidence_refs": [
+        "text_corpus issue_comment: 📈 3 improvements in unmatched items table"
+      ]
+    },
+    {
+      "text": "The PR body lists verification commands: python configure.py --require-protos, ninja build/GALE01/report.json, and ninja.",
+      "evidence_refs": [
+        "human_pr_text: Verification section"
+      ]
+    },
+    {
+      "text": "A review-requested cleanup in gricemt.c replaced a proposed/local user_data helper and direct user_data access with existing GET_GROUND() call sites.",
+      "evidence_refs": [
+        "review_comments: can this use an existing GET_GROUND()?",
+        "review_comments: Fixed in the latest push: removed the local user_data helper and switched the call sites in grIceMt_801F9ACC to GET_GROUND().",
+        "diff_excerpt: GET_GROUND replacements in grIceMt_801F9ACC"
+      ]
+    }
   ],
   "smart_moves": [
     {
-      "text": "Kept the header synchronized with the recovered grIceMt_801F9ACC return type instead of only changing the C body.",
+      "text": "When a recovered body proved a return value for grIceMt_801F9ACC, the header prototype was updated alongside the source body.",
       "evidence_refs": [
-        "raw_diff: src/melee/gr/gricemt.c",
-        "raw_diff: src/melee/gr/gricemt.h",
-        "human_pr_text: python configure.py --require-protos"
+        "diff_excerpt: gricemt.c returns 0/did",
+        "diff_excerpt: gricemt.h prototype changed to int"
       ]
     },
     {
-      "text": "Responded to review by replacing a proposed local user_data helper with the existing GET_GROUND() helper in grIceMt_801F9ACC.",
+      "text": "The particle match used existing indexed storage hsd_804D0908[linkNo] instead of pointer arithmetic from hsd_804D08E8.",
       "evidence_refs": [
-        "review_comments: jurrejelle asked can this use an existing GET_GROUND()?",
-        "review_comments: author said removed the local user_data helper and switched call sites to GET_GROUND()",
-        "raw_diff: grIceMt_801F9ACC GET_GROUND call sites"
+        "diff_excerpt: slot = (HSD_Particle**) &hsd_804D0908[linkNo]"
       ]
     },
     {
-      "text": "Used a named existing array symbol hsd_804D0908[linkNo] instead of arithmetic off hsd_804D08E8 for particle list slot selection.",
+      "text": "Review feedback caught an opportunity to use an existing accessor macro instead of adding or keeping a local helper for Ground user data.",
       "evidence_refs": [
-        "raw_diff: src/sysdolphin/baselib/particle.c"
-      ]
-    },
-    {
-      "text": "For ft_800895E0, the final shape directly reuses fp->item_gobj and removes an extra local, matching the PR body's stated item GObj load-shape goal.",
-      "evidence_refs": [
-        "human_pr_text: improve ft_800895E0 by reusing the item GObj load shape",
-        "raw_diff: src/melee/ft/ft_0892.c"
+        "review_comments: can this use an existing GET_GROUND()?",
+        "review_comments: Fixed in the latest push..."
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When review finds a subsystem accessor that expresses a typed object retrieval, prefer that existing helper over a new one-off local helper or raw user_data access, provided the final diff supports the helper use.",
+      "lesson": "If source recovery shows a function returns meaningful state, update both the body and owning header prototype together rather than leaving a stale void declaration.",
       "scope": [
-        "ground object data access",
-        "grIceMt_801F9ACC"
+        "headers",
+        "function-signatures"
+      ],
+      "evidence_refs": [
+        "diff_excerpt: grIceMt_801F9ACC void -> int in gricemt.c",
+        "diff_excerpt: grIceMt_801F9ACC void -> int in gricemt.h"
+      ]
+    },
+    {
+      "lesson": "Prefer existing typed/accessor forms over local helper or raw user_data access when the project already has an accessor for the object kind.",
+      "scope": [
+        "stage",
+        "ground",
+        "typed-access"
       ],
       "evidence_refs": [
         "review_comments: can this use an existing GET_GROUND()?",
-        "review_comments: removed the local user_data helper and switched the call sites in grIceMt_801F9ACC to GET_GROUND()",
-        "raw_diff: GET_GROUND replacements"
+        "review_comments: Fixed in the latest push: removed the local user_data helper and switched the call sites in grIceMt_801F9ACC to GET_GROUND().",
+        "diff_excerpt: multiple GET_GROUND(Ground_801C2BA4(...)) and GET_GROUND(mgobj) replacements"
       ]
     },
     {
-      "lesson": "A recovered function body can expose a real return value; update both early returns and the final return, and keep the owning header prototype aligned.",
+      "lesson": "Exact field choice matters for matching and correctness: the particle initializer changed envColTarget/sizeTarget-style writes to primCol/envCol/rotateTarget writes and was reported as a full match.",
       "scope": [
-        "function signature recovery",
-        "headers"
+        "sysdolphin",
+        "particle",
+        "field-recovery"
       ],
       "evidence_refs": [
-        "raw_diff: grIceMt_801F9ACC void -> int and return did",
-        "raw_diff: gricemt.h prototype void -> int",
-        "human_pr_text: python configure.py --require-protos"
+        "diff_excerpt: primCol/envCol and rotateTarget assignments in hsd_80398C04",
+        "text_corpus issue_comment: hsd_80398C04 99.64% -> 100.00%"
       ]
     },
     {
-      "lesson": "For matching small field-access mismatches, a temporary overlay struct can be used to express fields at a known layout offset when the full public struct access shape does not match.",
+      "lesson": "Temporary overlay structs can be used narrowly to express fields at known offsets when the current base type does not generate the needed access shape, as shown by THPRestartFields for __THPRestartDefinition.",
       "scope": [
-        "external Dolphin THP",
-        "__THPRestartDefinition"
+        "external-sdk",
+        "thp",
+        "typed-fields"
       ],
       "evidence_refs": [
-        "raw_diff: THPRestartFields pad[0x8FC], nMCU, currMCU, RST",
-        "text_corpus: bot report __THPRestartDefinition 99.76% -> 100.00%"
-      ]
-    },
-    {
-      "lesson": "Declaration placement and comparison operand order can matter for near-matching selection/insertion-style loops; here moving tmp out of the block and changing entries[min].val < entries[j].val improved mnCount_8025092C.",
-      "scope": [
-        "menu count sorting",
-        "local variable lifetime",
-        "comparison shape"
-      ],
-      "evidence_refs": [
-        "raw_diff: src/melee/mn/mncount.c",
-        "human_pr_text: reshaping the row comparison",
-        "text_corpus: bot report mnCount_8025092C 99.38% -> 99.92%"
+        "diff_excerpt: typedef struct THPRestartFields with pad[0x8FC], nMCU, currMCU, RST",
+        "diff_excerpt: __THPRestartDefinition casts THPFileInfo* to THPRestartFields*",
+        "text_corpus issue_comment: __THPRestartDefinition 99.76% -> 100.00%"
       ]
     }
   ],
   "naming_conventions": [
     {
       "name": "THPRestartFields",
-      "convention": "Temporary/local overlay struct name describes the restart-definition field subset rather than inventing a full replacement for THPFileInfo.",
+      "context": "Local overlay struct introduced near THP globals to name restart-related fields nMCU, currMCU, and RST.",
       "evidence_refs": [
-        "raw_diff: typedef struct THPRestartFields"
+        "diff_excerpt: typedef struct THPRestartFields"
       ]
     },
     {
       "name": "GET_GROUND",
-      "convention": "Use the established ground accessor macro/helper for retrieving Ground* from a Ground_GObj/HSD_GObj rather than a file-local grIceMt_GetUserData helper.",
+      "context": "Existing macro/accessor preferred over a PR-local grIceMt_GetUserData helper for Ground_GObj user data access.",
       "evidence_refs": [
-        "review_comments: existing GET_GROUND()",
-        "review_comments: removed the local user_data helper",
-        "raw_diff: GET_GROUND replacements"
+        "review_comments: can this use an existing GET_GROUND()?",
+        "review_comments: Fixed in the latest push: removed the local user_data helper..."
       ]
     },
     {
       "name": "new_var",
-      "convention": "The diff introduces a non-semantic temporary name new_var for pointer-shape matching; PR evidence does not establish it as a naming standard.",
+      "context": "Temporary HSD_JObj** local used to hold &gp->gv.icemt2.xC8 in grIceMt_801F9ACC; evidence supports its presence but not that it is a durable naming convention.",
       "evidence_refs": [
-        "raw_diff: HSD_JObj** new_var"
+        "diff_excerpt: HSD_JObj** new_var and ptrs = new_var"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use an overlay struct cast to shift stores from THPFileInfo field syntax to restart-specific layout fields.",
-      "symbols": [
-        "__THPRestartDefinition",
-        "THPRestartFields"
-      ],
+      "tactic": "Use a narrow temporary overlay struct for offset-sensitive field accesses in __THPRestartDefinition.",
       "evidence_refs": [
-        "raw_diff: extern/dolphin/src/dolphin/thp/THPDec.c",
-        "text_corpus: bot report __THPRestartDefinition 100.00%"
+        "diff_excerpt: THPRestartFields cast and field accesses",
+        "text_corpus issue_comment: __THPRestartDefinition reached 100.00%"
       ]
     },
     {
-      "tactic": "Use a direct existing global-array symbol index instead of pointer arithmetic off a nearby base symbol to resolve relocation differences in a particle function.",
-      "symbols": [
-        "hsd_80398C04",
-        "hsd_804D0908",
-        "hsd_804D08E8"
-      ],
+      "tactic": "Use direct member reloads instead of a saved temporary when that load shape improves matching.",
       "evidence_refs": [
-        "raw_diff: hsd_804D08E8 arithmetic replaced by &hsd_804D0908[linkNo]",
-        "text_corpus: bot report hsd_80398C04 100.00%"
+        "human_pr_text: improve ft_800895E0 by reusing the item GObj load shape",
+        "diff_excerpt: removed Item_GObj* temp and used fp->item_gobj directly",
+        "text_corpus issue_comment: ft_800895E0 98.86% -> 99.98%"
       ]
     },
     {
-      "tactic": "Correcting field names that share similar layout neighborhoods can close a match when the generated or prior source used the wrong color/target field.",
-      "symbols": [
-        "hsd_80398C04",
-        "primCol",
-        "envCol",
-        "rotateTarget"
-      ],
+      "tactic": "Declaration placement can affect matching: mnCount_8025092C moved CountEntry tmp to function scope and removed PAD_STACK(8).",
       "evidence_refs": [
-        "raw_diff: primCol/envCol/rotateTarget changes",
-        "text_corpus: bot report hsd_80398C04 100.00%"
+        "diff_excerpt: CountEntry tmp added before int i, j, min; PAD_STACK(8) removed",
+        "text_corpus issue_comment: mnCount_8025092C 99.38% -> 99.92%"
       ]
     },
     {
-      "tactic": "A narrow PAD_STACK insertion remained in grIceMt_801F9ACC while a PAD_STACK was removed from mnCount_8025092C; stack padding use was function-specific rather than treated as general style.",
-      "symbols": [
-        "grIceMt_801F9ACC",
-        "mnCount_8025092C"
-      ],
+      "tactic": "PAD_STACK remained in grIceMt_801F9ACC as PAD_STACK(16), correlated with a reported score improvement but not a full match.",
       "evidence_refs": [
-        "raw_diff: PAD_STACK(16) added in gricemt.c",
-        "raw_diff: PAD_STACK(8) removed in mncount.c",
-        "text_corpus: bot report shows both functions improved but not fully matched"
+        "diff_excerpt: PAD_STACK(16) added in grIceMt_801F9ACC",
+        "text_corpus issue_comment: grIceMt_801F9ACC 96.34% -> 98.90%"
       ]
     },
     {
-      "tactic": "Directly reusing a struct field expression at both the null check and call site can match better than caching it in a local.",
-      "symbols": [
-        "ft_800895E0",
-        "fp->item_gobj",
-        "it_8026B6C8"
-      ],
+      "tactic": "Replacing pointer arithmetic with a known symbol-indexed array can resolve relocation differences for a code match.",
       "evidence_refs": [
-        "raw_diff: src/melee/ft/ft_0892.c",
-        "human_pr_text: reusing the item GObj load shape"
+        "diff_excerpt: removed comment about asm bytes identical with relocation differences",
+        "diff_excerpt: hsd_804D08E8 pointer arithmetic replaced with &hsd_804D0908[linkNo]",
+        "text_corpus issue_comment: hsd_80398C04 reached 100.00%"
       ]
     }
   ],
   "review_feedback": [
     {
       "path": "src/melee/gr/gricemt.c",
-      "author": "jurrejelle",
-      "feedback": "Asked whether the new local user_data helper could use an existing GET_GROUND().",
-      "resolution": "Author replied that the latest push removed the local user_data helper and switched grIceMt_801F9ACC call sites to GET_GROUND(); the final diff shows GET_GROUND uses.",
+      "reviewer": "jurrejelle",
+      "comment": "can this use an existing GET_GROUND()?",
+      "resolution_evidence": "Author replied that the latest push removed the local user_data helper and switched grIceMt_801F9ACC call sites to GET_GROUND(); final diff shows GET_GROUND() call sites.",
       "evidence_refs": [
         "review_comments: discussion_r3364260479",
         "review_comments: discussion_r3364305678",
-        "raw_diff: GET_GROUND replacements"
+        "diff_excerpt: GET_GROUND replacements"
       ]
     }
   ],
@@ -281,20 +273,18 @@
     "itsgrimetime",
     "grIceMt_801F9ACC",
     "GET_GROUND",
-    "Ground_801C2BA4",
-    "Ground_GObj",
+    "Ground user_data",
     "gricemt",
     "gricemt.h",
-    "HSD_JObjGetTranslationY",
-    "PAD_STACK(16)",
     "THPDec.c",
     "__THPRestartDefinition",
     "THPRestartFields",
-    "THPFileInfo",
+    "nMCU",
+    "currMCU",
+    "RST",
     "hsd_80398C04",
-    "HSD_Particle",
+    "particle.c",
     "hsd_804D0908",
-    "hsd_804D08E8",
     "primCol",
     "envCol",
     "rotateTarget",
@@ -303,132 +293,149 @@
     "it_8026B6C8",
     "mnCount_8025092C",
     "CountEntry",
-    "NUM_CHARACTERS",
+    "PAD_STACK",
     "require-protos"
   ],
   "follow_up_queries": [
-    "GET_GROUND user_data helper review grIceMt_801F9ACC",
-    "THPRestartFields overlay __THPRestartDefinition THPFileInfo pad 0x8FC",
-    "hsd_80398C04 hsd_804D0908 relocation pointer arithmetic",
-    "mnCount_8025092C CountEntry tmp PAD_STACK comparison",
-    "ft_800895E0 fp->item_gobj load shape it_8026B6C8",
-    "grIceMt_801F9ACC void to int return did header prototype"
+    "GET_GROUND user_data helper review gricemt",
+    "THPRestartFields __THPRestartDefinition overlay struct",
+    "hsd_80398C04 hsd_804D0908 relocation differences",
+    "mnCount_8025092C CountEntry tmp PAD_STACK",
+    "ft_800895E0 item_gobj load shape",
+    "grIceMt_801F9ACC return did prototype int"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR identity, state, changed files, counts",
       "human_pr_text: summary and verification commands",
-      "raw_diff: full diff for six changed files",
-      "text_corpus: bot report with matching percentages",
-      "review_comments: GET_GROUND review and author resolution"
+      "changed_files.jsonl: six changed files with hunk counts",
+      "raw_diff: full diff excerpt available and not truncated",
+      "text_corpus issue_comment: bot report with match/improvement percentages",
+      "review_comments: GET_GROUND review and author resolution",
+      "metadata_json: PR state MERGED and timestamps"
     ],
     "notes": [
-      "The slice includes a complete diff and text corpus for the PR, plus review comments and bot report.",
-      "Verification commands are reported by the PR body; no independent build logs are loaded beyond the bot report excerpt.",
-      "The bot report supports match/improvement percentages, but the intake does not independently rerun objdiff or builds.",
-      "The diff shows PAD_STACK and a non-semantic new_var in grIceMt_801F9ACC; there is not enough evidence to generalize those as preferred style.",
-      "The PR was merged according to metadata, but acceptance of broader standards should not be inferred beyond this PR's review outcome."
+      "Loaded raw PR JSON is truncated, but extracted PR body, diff, changed files, review comments, and text corpus are sufficient for this intake.",
+      "The bot report supports match/improvement percentages, but this intake does not independently rerun builds, objdiff, or regression checks.",
+      "PAD_STACK in grIceMt_801F9ACC is recorded as a tactic correlated with improvement evidence, not as a general accepted style.",
+      "The temporary name new_var is preserved as diff evidence only; no semantic naming claim is supported."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "title": "Prefer existing ground accessor over local user_data helper when review identifies it",
-        "text": "In grIceMt_801F9ACC, review asked whether a proposed local user_data helper could use existing GET_GROUND(); the author removed the local helper and switched the call sites to GET_GROUND(). This is a graph-safe example of using an established subsystem accessor when it expresses the same object retrieval.",
+        "record_type": "lesson",
+        "title": "Use existing accessors instead of local user_data helpers",
+        "text": "In gricemt.c review, a proposed/local Ground user_data helper was challenged with 'can this use an existing GET_GROUND()?' and the author resolved it by removing the helper and switching grIceMt_801F9ACC call sites to GET_GROUND().",
         "scope": [
-          "src/melee/gr/gricemt.c",
-          "ground object access",
-          "review-driven cleanup"
+          "stage",
+          "ground",
+          "typed-access"
         ],
         "evidence_refs": [
-          "review_comments: can this use an existing GET_GROUND()?",
-          "review_comments: removed the local user_data helper and switched the call sites in grIceMt_801F9ACC to GET_GROUND()",
-          "raw_diff: GET_GROUND replacements"
+          "review_comments: discussion_r3364260479",
+          "review_comments: discussion_r3364305678",
+          "diff_excerpt: GET_GROUND replacements"
         ]
       },
       {
-        "title": "Function signature recovery should update owning header",
-        "text": "grIceMt_801F9ACC changed from void to int in the source and the gricemt.h prototype was updated in the same PR. The body now returns 0 on the early invalid-segment path and returns did at the end.",
+        "record_type": "lesson",
+        "title": "Update owning headers when function body recovery proves a signature",
+        "text": "grIceMt_801F9ACC changed from void to int in the source body, added return values, and updated the gricemt.h prototype in the same PR.",
         "scope": [
-          "src/melee/gr/gricemt.c",
-          "src/melee/gr/gricemt.h",
-          "headers"
+          "headers",
+          "prototypes",
+          "function-signatures"
         ],
         "evidence_refs": [
-          "raw_diff: grIceMt_801F9ACC body return type and returns",
-          "raw_diff: gricemt.h prototype update",
-          "human_pr_text: python configure.py --require-protos"
+          "diff_excerpt: gricemt.c grIceMt_801F9ACC returns int",
+          "diff_excerpt: gricemt.h grIceMt_801F9ACC prototype returns int"
+        ]
+      },
+      {
+        "record_type": "matching_tactic",
+        "title": "Resolve relocation-sensitive particle slots with known indexed storage",
+        "text": "hsd_80398C04 replaced pointer arithmetic from hsd_804D08E8 with &hsd_804D0908[linkNo]; the bot report marked the function as a new 100% match.",
+        "scope": [
+          "sysdolphin",
+          "particle",
+          "relocations"
+        ],
+        "evidence_refs": [
+          "diff_excerpt: hsd_804D0908 slot access",
+          "text_corpus issue_comment: hsd_80398C04 99.64% -> 100.00%"
         ]
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Existing accessors should be considered before adding one-off helpers",
-        "text": "PR #2582 provides review evidence that a local helper for ground user_data access was removed in favor of existing GET_GROUND() call sites. This may be a useful example under typed-fields/accessor standards, but should be curated as an example rather than a new universal rule.",
-        "source_path": null,
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "gricemt Ground user_data access should use GET_GROUND when applicable",
+        "text": "For src/melee/gr/gricemt.c, review evidence from PR #2582 supports preferring existing GET_GROUND() call sites over a local helper or direct Ground_GObj user_data access in grIceMt_801F9ACC.",
+        "source_path": "src/melee/gr/gricemt.c",
         "scope": [
-          "ground object access",
-          "typed-fields-over-pointer-math",
-          "infer-authored-source-style"
+          "grIceMt_801F9ACC",
+          "Ground_GObj",
+          "GET_GROUND"
         ],
         "evidence_refs": [
-          "review_comments: GET_GROUND thread",
-          "raw_diff: src/melee/gr/gricemt.c"
+          "review_comments: can this use an existing GET_GROUND()?",
+          "review_comments: Fixed in the latest push: removed the local user_data helper and switched the call sites in grIceMt_801F9ACC to GET_GROUND().",
+          "diff_excerpt: GET_GROUND replacements"
         ],
-        "reason": "This is supported by explicit review feedback and final diff, but should be reviewed for whether current standards already cover it."
-      },
-      {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Overlay structs can be narrow matching bridges when full struct syntax mismatches",
-        "text": "THPDec.c introduced THPRestartFields as a local overlay over THPFileInfo to match __THPRestartDefinition. If curated, this should be framed narrowly: overlay structs need layout evidence and verification, and should not become a replacement for recovering real owned struct fields.",
-        "source_path": null,
-        "scope": [
-          "external Dolphin SDK",
-          "temporary structs",
-          "typed field recovery"
-        ],
-        "evidence_refs": [
-          "raw_diff: THPRestartFields",
-          "text_corpus: bot report __THPRestartDefinition 100.00%"
-        ],
-        "reason": "Useful matching tactic, but potentially conflicts with preferring real typed fields; curator should decide whether to document as a constrained bridge pattern."
+        "reason": "This is path-specific review evidence that may be useful as a local convention, but should be curated before promotion."
       },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "gricemt.h owns grIceMt_801F9ACC prototype",
-        "text": "PR #2582 updates the grIceMt_801F9ACC declaration in src/melee/gr/gricemt.h when the body in src/melee/gr/gricemt.c changes return type from void to int.",
-        "source_path": "src/melee/gr/gricemt.h",
+        "title": "hsd_80398C04 uses hsd_804D0908 indexed slots for head-null insertion",
+        "text": "In src/sysdolphin/baselib/particle.c, PR #2582 matched hsd_80398C04 by replacing pointer arithmetic from hsd_804D08E8 with slot = (HSD_Particle**) &hsd_804D0908[linkNo] when head == NULL.",
+        "source_path": "src/sysdolphin/baselib/particle.c",
         "scope": [
-          "src/melee/gr/gricemt.c",
-          "src/melee/gr/gricemt.h",
-          "grIceMt_801F9ACC"
+          "hsd_80398C04",
+          "hsd_804D0908",
+          "HSD_Particle"
         ],
         "evidence_refs": [
-          "raw_diff: src/melee/gr/gricemt.h"
+          "diff_excerpt: slot assignment change",
+          "text_corpus issue_comment: hsd_80398C04 99.64% -> 100.00%"
         ],
-        "reason": "Potential path fact about owning header for this symbol; current source should be checked before adding."
+        "reason": "Potentially useful local data-symbol/path fact; needs curator validation against current symbols and source."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "__THPRestartDefinition matched with THPRestartFields overlay",
+        "text": "In extern/dolphin/src/dolphin/thp/THPDec.c, PR #2582 introduced THPRestartFields with pad[0x8FC], nMCU, currMCU, and RST, then cast THPFileInfo* to this overlay inside __THPRestartDefinition; bot report marked the function 100%.",
+        "source_path": "extern/dolphin/src/dolphin/thp/THPDec.c",
+        "scope": [
+          "__THPRestartDefinition",
+          "THPRestartFields",
+          "THPFileInfo"
+        ],
+        "evidence_refs": [
+          "diff_excerpt: THPRestartFields typedef",
+          "diff_excerpt: restart field accesses",
+          "text_corpus issue_comment: __THPRestartDefinition 99.76% -> 100.00%"
+        ],
+        "reason": "Potential local matching note; should be curated carefully because overlay structs can be temporary bridge code rather than desired final type modeling."
       }
     ],
     "rejection_notes": [
-      "Do not promote PAD_STACK(16) in grIceMt_801F9ACC as a general tactic without narrower verifier evidence; the same PR removes PAD_STACK(8) from mnCount_8025092C.",
-      "Do not treat the variable name new_var as an accepted naming convention; it appears to be a local matching artifact with no semantic review support.",
-      "Do not infer that all user_data accesses should become GET_GROUND(); the evidence is limited to the reviewed grIceMt_801F9ACC call sites.",
-      "Do not claim grIceMt_801F9ACC is matched; the bot report only shows improvement from 96.34% to 98.90%.",
-      "Do not claim ft_800895E0 or mnCount_8025092C are fully matched; the bot report shows 99.98% and 99.92%, respectively."
+      "Do not promote PAD_STACK(16) in grIceMt_801F9ACC as a general convention; the PR only shows a local tactic with improvement evidence and no full match.",
+      "Do not promote the temporary local name new_var as a naming convention; it appears only as a matching aid in the diff.",
+      "Do not infer reviewer intent beyond the explicit GET_GROUND() comment and the author’s stated resolution.",
+      "Do not claim all verification commands passed independently; the PR body lists them and the bot report supplies score evidence, but this intake did not rerun tooling."
     ]
   },
-  "confidence": 0.9,
+  "confidence": 0.88,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

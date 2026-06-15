@@ -12,315 +12,299 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2498 focused on improving `src/melee/lb/lbmemory` matching by adding structured allocator-related fields, decompiling relocation/init routines, introducing string/data references used by the matched code, and clarifying verified `Handle.x8_hi` behavior. The PR body reports the TU reaching 10/12 matched functions, with `lbMemory_80014FC8` and `lbMemory_80015320` still imperfect. Bot report records 4 new matches and one unmatched-function improvement.",
+  "summary": "PR #2498 improved matching in src/melee/lb/lbmemory by adding structured allocator/LBMgr/MemEntry fields, decompiling relocation and init routines, replacing some raw allocator offsets with typed fields, adding string/data references used by matched code, and documenting Handle.x8_hi behavior. It was closed without a recorded merge. Bot report showed 4 new matches and one improved unmatched function, while the PR body stated two functions remained imperfect due to saved-register allocation and instruction scheduling.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "types-structs",
       "headers",
-      "data-symbols",
-      "matching-tactics"
+      "types-structs",
+      "data-strings",
+      "tooling-report"
     ],
     "systems": [
       "library",
-      "lbmemory",
-      "allocator"
+      "lbmemory"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/lb/lbmemory.c",
-      "role": "Primary decomp/matching work: structured allocator fields, lbmemory relocation/init routines, string references, assert/report string use, AR/devcom includes, alarm/devcom relocation flow, and a scoped dont_inline pragma around `lbMemory_8001564C`.",
+      "role": "Main implementation changed: allocator structs, named lbMemory_804318B0 storage, string references, lbMemory_80015320 relocation routine, lbMemory_8001564C init routine, typed x6A0_mgr access, AR/devcom includes, and scoped dont_inline pragma.",
       "evidence_refs": [
         "changed_files: src/melee/lb/lbmemory.c added 151 deleted 49 hunks 14",
-        "raw_diff: lbmemory.c struct MemEntry/LBMgr/Allocator changes",
-        "raw_diff: lbMemory_80015320 implementation added",
-        "raw_diff: lbMemory_8001564C implementation added with #pragma push/#pragma dont_inline on/#pragma pop",
-        "text_corpus issue_comment: bot report lists new matches for lbMemory_8001564C, fn_80015184, .data, .sdata and improvement for lbMemory_80015320"
+        "raw_diff: src/melee/lb/lbmemory.c",
+        "human_pr_text: Summary and Remaining sections",
+        "issue_comment: decomp-dev bot report for GALE01"
       ]
     },
     {
       "path": "src/melee/lb/lbmemory.h",
-      "role": "Header comment clarification for `Handle.x8_hi`, changing it from an uncertain question to documented dual behavior.",
+      "role": "Header comment update for Handle.x8_hi clarifying dual use as arena high bound for heap handles and allocation size for child handles.",
       "evidence_refs": [
-        "changed_files: src/melee/lb/lbmemory.h added 1 deleted 1 hunks 1",
-        "raw_diff: `// is this hi or size?` changed to `// Arena high bound for heap handles; allocation size for child handles.`"
+        "changed_files: src/melee/lb/lbmemory.h added 1 deleted 1 hunk 1",
+        "raw_diff: src/melee/lb/lbmemory.h"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Replaced raw padding in `struct Allocator` with typed substructures/arrays: `MemEntry x8_mem[0x83]`, `Handle x638_heap[6]`, and `LBMgr x6A0_mgr`, while preserving allocator size with static asserts.",
+      "text": "Added struct MemEntry and struct LBMgr, and replaced several raw byte ranges in struct Allocator with typed fields: x8_mem[0x83], x638_heap[6], and x6A0_mgr.",
       "evidence_refs": [
-        "raw_diff: Allocator fields changed from u8 padding to typed x8_mem/x638_heap/x6A0_mgr",
-        "raw_diff: STATIC_ASSERT(sizeof(struct MemEntry) == 0xC) and STATIC_ASSERT(sizeof(lbMemory_804318B0) == 0x6F0)"
+        "raw_diff: struct MemEntry, struct LBMgr, struct Allocator changes"
       ]
     },
     {
-      "text": "Changed allocator storage from a source-local static `g_alloc` to global symbol `lbMemory_804318B0` plus `#define g_alloc lbMemory_804318B0`.",
+      "text": "Changed allocator storage from a static g_alloc object to global lbMemory_804318B0 plus a g_alloc macro alias, with static asserts for MemEntry and allocator size.",
       "evidence_refs": [
-        "raw_diff: `static struct Allocator g_alloc;` replaced by `struct Allocator lbMemory_804318B0; #define g_alloc lbMemory_804318B0`"
+        "raw_diff: lbMemory_804318B0 and STATIC_ASSERT changes"
       ]
     },
     {
-      "text": "Added local and SDATA string objects for assert/report text and converted multiple `__FILE__`/literal assert and `OSReport` uses to those symbols.",
+      "text": "Added named string/data references for lbmemory assert/report text, including lbmemory.c, _p(free_heap), _p(free_mem), memp_kouho, report text, handle, 0, and p->size.",
       "evidence_refs": [
-        "raw_diff: lbl_803BA2C0/lbl_803BA2CC/lbl_803BA2DC/lbl_803BA328/lbl_803BA338/lbl_803BA344/lbl_803BA368 definitions",
-        "raw_diff: SDATA char lbMemory_804D3788/lbMemory_804D3790/lbMemory_804D3794 definitions",
-        "text_corpus issue_comment: .data and .sdata reported as new 100% matches"
+        "raw_diff: lbl_803BA2C0 through lbl_803BA368 and lbMemory_804D3788/3790/3794"
       ]
     },
     {
-      "text": "Implemented or improved relocation/init routines: `lbMemory_80015320` was added as a decompiled relocation routine and `lbMemory_8001564C` was added as an init routine using AR allocation/free and free-list initialization.",
+      "text": "Decompiled lbMemory_80015320 as a relocation/callback routine using HSD_DevComRequest for low addresses and an LBMgr alarm path for other transfers.",
       "evidence_refs": [
-        "raw_diff: full `lbMemory_80015320` body added",
-        "raw_diff: full `lbMemory_8001564C` body added",
-        "human_pr_text: decompiles relocation and init routines",
-        "text_corpus issue_comment: `lbMemory_8001564C` 0.00% to 100.00%; `lbMemory_80015320` 0.00% to 96.11%"
+        "raw_diff: added lbMemory_80015320 body",
+        "human_pr_text: decompiles relocation routine",
+        "issue_comment: lbMemory_80015320 improved from 0.00% to 96.11%"
       ]
     },
     {
-      "text": "Cleaned speculative comments from existing lbmemory functions and replaced the uncertain `Handle.x8_hi` header comment with a more specific behavior description.",
+      "text": "Decompiled lbMemory_8001564C init routine, including ARAlloc/ARFree/ARGetSize setup, free-list initialization loop for x8_mem, heap free-list setup, and initial lbMemory_80014E24 call.",
       "evidence_refs": [
-        "human_pr_text: cleans speculative comments while keeping only verified Handle field behavior",
-        "raw_diff: removal of comments such as `this is weird.. i'm missing something`, `malloc`, and `same as ...`",
-        "raw_diff: lbmemory.h comment for `x8_hi` updated"
+        "raw_diff: added lbMemory_8001564C",
+        "issue_comment: lbMemory_8001564C new match 100.00% +644 bytes"
       ]
     },
     {
-      "text": "Converted the alarm delay in `fn_80015184` from raw tick constant/null callback shape to `OSMillisecondsToTicks(3)` and `fn_80015184`, and changed manager access from byte-offset pointer math to `&g_alloc.x6A0_mgr`.",
+      "text": "Matched fn_80015184 by using typed x6A0_mgr access and OSMillisecondsToTicks(3) with fn_80015184 callback in OSSetAlarm.",
       "evidence_refs": [
-        "raw_diff: `(struct LBMgr*) ((u8*) &g_alloc + 0x6A0)` replaced by `&g_alloc.x6A0_mgr`",
-        "raw_diff: `OSSetAlarm(&temp_r3->alarm, 0x10624DD3, NULL)` replaced by `OSSetAlarm(&temp_r3->alarm, OSMillisecondsToTicks(3), fn_80015184)`",
-        "text_corpus issue_comment: `fn_80015184` improved from 88.61% to 100.00%"
+        "raw_diff: fn_80015184 changes",
+        "issue_comment: fn_80015184 new match 100.00% +32 bytes"
+      ]
+    },
+    {
+      "text": "Removed speculative explanatory comments in lbmemory.c and replaced one Handle.x8_hi uncertainty comment in lbmemory.h with a behavior-specific comment.",
+      "evidence_refs": [
+        "raw_diff: deleted comments in lbmemory.c",
+        "raw_diff: lbmemory.h comment change",
+        "human_pr_text: cleans speculative comments while keeping verified Handle field behavior"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "The PR used recovered struct fields to replace opaque allocator padding and offset casts where possible, making manager and free-list accesses more reviewable while still preserving documented struct sizes.",
+      "text": "The PR converted allocator byte padding into typed local structs where offsets were known, making later code use &g_alloc.x6A0_mgr instead of pointer arithmetic at +0x6A0.",
       "evidence_refs": [
-        "raw_diff: `x6A0_mgr` field and `&g_alloc.x6A0_mgr` access",
-        "raw_diff: `x8_mem[0x83]`, `x638_heap[6]`, and allocator static assert"
+        "raw_diff: struct Allocator x6A0_mgr and fn_80015184 temp_r3 = &g_alloc.x6A0_mgr"
       ]
     },
     {
-      "text": "The PR body explicitly separated completed matching progress from remaining partial matches and named residual mismatch causes for the two remaining functions.",
+      "text": "The init routine used a natural loop to link 0x83 MemEntry slots rather than spelling every x8_mem link manually.",
       "evidence_refs": [
-        "human_pr_text: Remaining section lists `lbMemory_80014FC8: 99.324326%` and `lbMemory_80015320: 96.106800%` with saved-register/instruction-scheduling differences"
+        "raw_diff: for (i = 0; i < 0x82; i++) g_alloc.x8_mem[i].x0_next = &g_alloc.x8_mem[i + 1]"
       ]
     },
     {
-      "text": "Narrow verification was reported in the PR body and corroborated by the bot progress report for the touched `main/melee/lb/lbmemory` unit.",
+      "text": "The PR separated proven Handle.x8_hi behavior from uncertainty by updating the header comment to describe both observed roles.",
       "evidence_refs": [
-        "human_pr_text: `python configure.py && ninja`; pre-commit checks including match regression checks",
-        "text_corpus issue_comment: GALE01 report with matched-code/data deltas and item-level changes"
+        "raw_diff: lbmemory.h x8_hi comment",
+        "human_pr_text: keeping only verified Handle field behavior"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When allocator padding resolves into repeated entries or manager subobjects, introducing small local structs and arrays can expose natural field access and reduce raw pointer arithmetic, but size/static assertions should accompany the recovery.",
+      "lesson": "For allocator-like TUs, replacing anonymous byte ranges with narrow temporary structs can unlock typed access and improve matching while preserving address-style field names when semantics remain incomplete.",
       "scope": [
         "src/melee/lb/lbmemory.c",
         "allocator structs",
-        "typed-fields-over-pointer-math"
+        "library subsystem"
       ],
       "evidence_refs": [
-        "raw_diff: `struct MemEntry`, `struct LBMgr`, and typed `struct Allocator` fields",
-        "raw_diff: static asserts for `MemEntry` and allocator size"
+        "raw_diff: MemEntry/LBMgr/Allocator typed-field additions",
+        "issue_comment: new matches and improvements in main/melee/lb/lbmemory"
       ]
     },
     {
-      "lesson": "For PRs that add data/string symbols to support matching, record whether the PR evidence ties them to matched code/data sections rather than treating them as general style.",
+      "lesson": "When a field has different observed roles in different list contexts, document the contextual behavior rather than forcing a single over-specific name.",
       "scope": [
-        "src/melee/lb/lbmemory.c",
-        "data-symbols",
-        "assert/report strings"
+        "src/melee/lb/lbmemory.h",
+        "Handle.x8_hi"
       ],
       "evidence_refs": [
-        "human_pr_text: adds string references used by matched code",
-        "text_corpus issue_comment: .data +16 and .sdata +5 newly 100% matched"
+        "raw_diff: x8_hi comment changed to arena high bound for heap handles and allocation size for child handles",
+        "human_pr_text: keeping only verified Handle field behavior"
       ]
     },
     {
-      "lesson": "If a function remains non-matching after source reconstruction, preserve the specific mismatch mode and score rather than claiming full closure.",
+      "lesson": "Remaining score gaps can be explicitly attributed to codegen issues such as saved-register allocation and instruction scheduling when control-flow and size shape already match.",
       "scope": [
         "lbMemory_80014FC8",
-        "lbMemory_80015320",
-        "verification-and-regression-ledger"
+        "lbMemory_80015320"
       ],
       "evidence_refs": [
-        "human_pr_text: remaining percentages and saved-register/instruction-scheduling note"
+        "human_pr_text: Remaining section"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "name": "MemEntry",
-      "kind": "local struct",
-      "meaning": "Recovered allocator memory-entry structure with next/lo/hi-style fields.",
+      "name": "Allocator fields",
+      "convention": "Used offset-prefixed names such as x0_arenaLo, x4_arenaHi, x8_mem, x62C_free_mem, x638_heap, and x6A0_mgr, combining offsets with conservative role names.",
       "evidence_refs": [
-        "raw_diff: `struct MemEntry { struct MemEntry* x0_next; void* x4_lo; void* x8_hi; };`"
+        "raw_diff: struct Allocator"
       ]
     },
     {
-      "name": "LBMgr",
-      "kind": "local struct",
-      "meaning": "Recovered relocation/transfer manager subobject containing `OSAlarm`, source/destination pointers, size/offset, callback argument, and callback.",
+      "name": "Temporary recovered structs",
+      "convention": "Used simple domain names MemEntry and LBMgr while retaining offset-prefixed member names inside them.",
       "evidence_refs": [
-        "raw_diff: `struct LBMgr` fields and use in `fn_80015184`/`lbMemory_80015320`"
+        "raw_diff: struct MemEntry and struct LBMgr"
       ]
     },
     {
-      "name": "Handle.x8_hi",
-      "kind": "field comment",
-      "meaning": "PR evidence updates the field comment to describe dual usage: arena high bound for heap handles and allocation size for child handles.",
+      "name": "Handle.x8_hi comment",
+      "convention": "Kept existing address-style field name x8_hi but clarified known contextual meaning in a comment rather than renaming the field.",
       "evidence_refs": [
-        "raw_diff: lbmemory.h comment changed to `Arena high bound for heap handles; allocation size for child handles.`"
-      ]
-    },
-    {
-      "name": "lbMemory_804318B0 / g_alloc",
-      "kind": "global allocator symbol plus local alias macro",
-      "meaning": "Allocator storage was named as `lbMemory_804318B0` and referenced through `g_alloc` macro in this PR; this is evidence of the PR shape, not an accepted global renaming convention.",
-      "evidence_refs": [
-        "raw_diff: `struct Allocator lbMemory_804318B0; #define g_alloc lbMemory_804318B0`"
+        "raw_diff: src/melee/lb/lbmemory.h"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use typed subobjects to recover offset-based accesses.",
-      "details": "`fn_80015184` changes from `(struct LBMgr*) ((u8*) &g_alloc + 0x6A0)` to `&g_alloc.x6A0_mgr`, and allocator padding becomes typed arrays/substructs.",
+      "tactic": "Introduced typed overlay structs for allocator subregions to replace some raw pointer arithmetic and improve code shape.",
       "evidence_refs": [
-        "raw_diff: manager pointer change",
-        "raw_diff: Allocator field changes"
+        "raw_diff: Allocator x8_mem/x638_heap/x6A0_mgr",
+        "raw_diff: temp_r3 = &g_alloc.x6A0_mgr"
       ]
     },
     {
-      "tactic": "Use natural loops for repeated free-list initialization.",
-      "details": "`lbMemory_8001564C` initializes `x8_mem` with a `for (i = 0; i < 0x82; i++)` loop before terminating the list.",
+      "tactic": "Used OSMillisecondsToTicks(3) rather than a raw tick constant in OSSetAlarm where it matched fn_80015184 and lbMemory_80015320 alarm setup.",
       "evidence_refs": [
-        "raw_diff: `for (i = 0; i < 0x82; i++) { g_alloc.x8_mem[i].x0_next = &g_alloc.x8_mem[i + 1]; }`"
+        "raw_diff: OSSetAlarm changes",
+        "issue_comment: fn_80015184 100.00%"
       ]
     },
     {
-      "tactic": "Use SDK/helper macros for time constants when matching supports it.",
-      "details": "`OSSetAlarm` uses `OSMillisecondsToTicks(3)` instead of raw constant `0x10624DD3` in `fn_80015184` and the newly added relocation path.",
+      "tactic": "Used a scoped #pragma push / #pragma dont_inline on / #pragma pop around lbMemory_8001564C.",
       "evidence_refs": [
-        "raw_diff: `OSMillisecondsToTicks(3)` in `fn_80015184`",
-        "raw_diff: `OSMillisecondsToTicks(3)` in `lbMemory_80015320`"
+        "raw_diff: pragma block around lbMemory_8001564C"
       ]
     },
     {
-      "tactic": "Scoped pragma use was introduced around `lbMemory_8001564C`.",
-      "details": "The init routine is wrapped in `#pragma push`, `#pragma dont_inline on`, and `#pragma pop`; the PR body/bot report supports the function becoming matched, but no review discussion explains why the pragma was necessary.",
+      "tactic": "Used explicit named string/data symbols for assert/report text to match .data and .sdata items.",
       "evidence_refs": [
-        "raw_diff: pragma block around `lbMemory_8001564C`",
-        "text_corpus issue_comment: `lbMemory_8001564C` 0.00% to 100.00%"
+        "raw_diff: lbl_803BA2C0 and lbMemory_804D3788/3790/3794 additions",
+        "issue_comment: .data and .sdata new matches"
       ]
     },
     {
-      "tactic": "String/data symbol materialization was used for assert/report text and section matching.",
-      "details": "The PR introduces named local/SDATA strings and routes assert/report arguments through them; bot report shows .data and .sdata matching gains. This is high-risk under current standards unless tied to data ownership evidence, so keep as PR-specific tactic rather than broad recommendation.",
+      "tactic": "PR body reported verification with python configure.py && ninja and pre-commit checks including match regression checks.",
       "evidence_refs": [
-        "raw_diff: string symbol definitions and assert/report conversions",
-        "text_corpus issue_comment: .data and .sdata new matches"
+        "human_pr_text: Verification section"
       ]
     }
   ],
   "review_feedback": [
     {
-      "kind": "bot_report",
-      "author": "decomp-dev[bot]",
-      "text": "GALE01 report showed matched code 67.01% (+0.02%, +924 bytes) and matched data 39.30% (+0.02%, +216 bytes), with 4 new matches: `lbMemory_8001564C`, `fn_80015184`, `.data`, `.sdata`; and one improvement for `lbMemory_80015320` to 96.11%.",
+      "type": "bot_report",
+      "text": "decomp-dev bot reported matched code +924 bytes, matched data +216 bytes, 4 new matches, and lbMemory_80015320 improved to 96.11%.",
       "evidence_refs": [
-        "text_corpus issue_comment created_at 2026-05-15T12:35:35Z"
+        "text_corpus: issue_comment by decomp-dev[bot] at 2026-05-15T12:35:35Z"
+      ]
+    },
+    {
+      "type": "absence",
+      "text": "No human review comments or review records are present in the supplied PR slice.",
+      "evidence_refs": [
+        "metadata_json: counts review_comments 0, reviews 0"
       ]
     }
   ],
   "searchable_terms": [
     "pr-2498",
-    "lb: improve lbmemory matching",
     "lbmemory",
     "src/melee/lb/lbmemory.c",
     "src/melee/lb/lbmemory.h",
-    "Allocator",
-    "MemEntry",
-    "LBMgr",
-    "Handle",
-    "x8_hi",
-    "x8_mem",
-    "x638_heap",
-    "x6A0_mgr",
-    "lbMemory_804318B0",
-    "g_alloc",
     "lbMemory_80015320",
     "lbMemory_8001564C",
     "fn_80015184",
     "lbMemory_80014FC8",
-    "OSMillisecondsToTicks",
+    "lbMemory_804318B0",
+    "g_alloc",
+    "Allocator",
+    "MemEntry",
+    "LBMgr",
+    "Handle.x8_hi",
+    "x8_mem",
+    "x638_heap",
+    "x6A0_mgr",
     "HSD_DevComRequest",
+    "OSMillisecondsToTicks",
     "ARAlloc",
     "ARFree",
-    "OSAlarm",
+    "ARGetSize",
+    "PUSH_HANDLE",
     "dont_inline",
-    "assert strings",
-    ".data",
-    ".sdata"
+    "saved-register allocation",
+    "instruction scheduling"
   ],
   "follow_up_queries": [
-    "lbmemory lbMemory_80015320 saved-register allocation instruction scheduling",
-    "lbmemory lbMemory_80014FC8 99.324326 least_leftover aligned_size memp_candidate",
-    "lbMemory_8001564C pragma dont_inline ARAlloc ARFree free list",
-    "lbMemory_804318B0 g_alloc define alias allocator symbol",
-    "lbmemory assert string symbols .data .sdata lbl_803BA2C0 lbMemory_804D3788",
-    "Handle x8_hi arena high bound allocation size child handles"
+    "lbmemory typed allocator fields x8_mem x638_heap x6A0_mgr",
+    "lbMemory_80015320 saved register allocation instruction scheduling",
+    "lbMemory_8001564C dont_inline pragma init free list",
+    "Handle x8_hi arena high bound allocation size child handles",
+    "lbmemory assert string data lbl_803BA2C0 lbMemory_804D3788",
+    "OSMillisecondsToTicks(3) fn_80015184 lbmemory"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR state CLOSED, merged_at null, changed_files count 2",
-      "human_pr_text: summary, verification, remaining functions",
-      "raw_diff: full diff for changed files",
-      "text_corpus issue_comment: bot report with item-level matching changes"
+      "metadata_json: PR identity, state, changed files, counts",
+      "human_pr_text: PR summary, verification, remaining functions",
+      "raw_diff: full diff for two changed files",
+      "text_corpus: decomp-dev bot report"
     ],
     "notes": [
-      "Evidence is strong for changed files, diff-level changes, claimed verification, and bot-reported matching deltas.",
-      "There are no human review comments or reviews in the supplied slice, so reviewer intent and acceptance rationale are unavailable.",
-      "The PR is closed with `merged_at: null`; do not infer merge/acceptance status from the diff.",
-      "String-symbol materialization and `#define g_alloc lbMemory_804318B0` conflict with or at least raise questions under current global standards, but the historical PR evidence says they were used for matched code/data in this slice. Treat as source-update/review candidates, not accepted standards.",
-      "The PR body claims pre-commit and regression checks; no raw command output is included beyond the bot report."
+      "The loaded diff is complete for the slice and gives strong evidence for changed files and code-level tactics.",
+      "Verification claims are from the PR author and bot report; no independent build or objdiff was run during intake.",
+      "The PR is closed with merged_at null in metadata; intake does not infer merge or acceptance.",
+      "No human review comments are available, so reviewer intent and requested changes cannot be inferred.",
+      "Use of named string/data symbols, a #define alias for g_alloc, and a dont_inline pragma are recorded as historical tactics, not promoted as general standards."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson",
-        "title": "Typed allocator subobjects can replace padding when size evidence is preserved",
-        "text": "In `src/melee/lb/lbmemory.c`, PR #2498 replaced allocator padding with `MemEntry`, `Handle` array, and `LBMgr` fields and kept size static asserts. This is a reusable example of typed-field recovery improving reviewability while preserving layout evidence.",
+        "kind": "decomp_lesson",
+        "title": "Typed allocator subregions can improve lbmemory matching",
+        "text": "In PR #2498, lbmemory matching improved after anonymous allocator byte ranges were replaced with local structs and arrays such as MemEntry x8_mem[0x83], Handle x638_heap[6], and LBMgr x6A0_mgr. This supports a reusable lesson to prefer narrow recovered types over raw allocator padding when offsets and use sites support them.",
         "scope": [
           "src/melee/lb/lbmemory.c",
-          "typed-fields-over-pointer-math",
-          "allocator layout recovery"
+          "library allocator decomp"
         ],
         "evidence_refs": [
-          "raw_diff: typed Allocator fields",
-          "raw_diff: static asserts for struct sizes"
+          "raw_diff: struct Allocator typed-field changes",
+          "issue_comment: lbMemory_8001564C and fn_80015184 reached 100.00%; lbMemory_80015320 improved to 96.11%"
         ]
       },
       {
-        "record_type": "matching_tactic",
-        "title": "Record partial-match residuals explicitly",
-        "text": "PR #2498 reports remaining function scores and the residual mismatch class for `lbMemory_80014FC8` and `lbMemory_80015320` instead of describing them as matched: control-flow/size shape matched, but saved-register allocation and instruction scheduling still differed.",
+        "kind": "decomp_lesson",
+        "title": "Document contextual field roles without over-renaming",
+        "text": "PR #2498 changed Handle.x8_hi's comment from an uncertainty note to a contextual behavior note: arena high bound for heap handles and allocation size for child handles. This is a useful conservative naming/documentation pattern when one address-style field has multiple proven roles.",
         "scope": [
-          "verification-and-regression-ledger",
-          "partial matches"
+          "src/melee/lb/lbmemory.h",
+          "Handle"
         ],
         "evidence_refs": [
-          "human_pr_text: Remaining section"
+          "raw_diff: lbmemory.h x8_hi comment change",
+          "human_pr_text: keeping only verified Handle field behavior"
         ]
       }
     ],
@@ -328,79 +312,63 @@
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "lbmemory allocator layout evidence from PR #2498",
-        "text": "`src/melee/lb/lbmemory.c` in PR #2498 modeled allocator storage as `struct Allocator` with `MemEntry x8_mem[0x83]`, `Handle x638_heap[6]`, `LBMgr x6A0_mgr`, and total size 0x6F0. Curator should verify against current source/symbol metadata before promoting as a path fact.",
+        "title": "src/melee/lb/lbmemory belongs to library lbmemory allocator work",
+        "text": "PR #2498 changed src/melee/lb/lbmemory.c and src/melee/lb/lbmemory.h for lbmemory allocator matching, including allocator structs, Handle behavior, relocation, AR/devcom transfer setup, and initialization.",
         "source_path": "src/melee/lb/lbmemory.c",
         "scope": [
-          "lbmemory",
-          "Allocator",
-          "layout"
+          "src/melee/lb/lbmemory.c",
+          "src/melee/lb/lbmemory.h",
+          "library",
+          "lbmemory"
         ],
         "evidence_refs": [
-          "raw_diff: Allocator definition",
-          "raw_diff: STATIC_ASSERT(sizeof(lbMemory_804318B0) == 0x6F0)"
+          "metadata_json: changed_files",
+          "human_pr_text: Summary",
+          "raw_diff"
         ],
-        "reason": "Potentially useful local layout fact, but PR was closed unmerged and current source may differ."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "Handle.x8_hi dual-use comment from PR #2498",
-        "text": "PR #2498 changed `Handle.x8_hi` comment to `Arena high bound for heap handles; allocation size for child handles.` Curator should compare with current header/source before adopting this as a path fact.",
-        "source_path": "src/melee/lb/lbmemory.h",
-        "scope": [
-          "lbmemory",
-          "Handle",
-          "x8_hi"
-        ],
-        "evidence_refs": [
-          "raw_diff: lbmemory.h comment update",
-          "human_pr_text: only verified Handle field behavior"
-        ],
-        "reason": "Concrete field-behavior claim in PR evidence, but no review acceptance and PR was not merged."
+        "reason": "Potential path fact for curator review; do not infer broader ownership beyond this PR slice."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Require extra scrutiny for string-symbol materialization in matching PRs",
-        "text": "PR #2498 used named local/SDATA strings for assert/report text and bot report showed `.data`/`.sdata` matching gains. Under current standards, this should remain high-scrutiny: only keep string/data symbol materialization when section ownership, symbol metadata, or explicit PR scope supports it, and do not generalize from a single code-matching PR.",
-        "source_path": "src/melee/lb/lbmemory.c",
+        "title": "Pragma exceptions should remain tightly evidenced",
+        "text": "PR #2498 used a scoped #pragma push / #pragma dont_inline on / #pragma pop block around lbMemory_8001564C, which the bot reported as a new 100.00% match. This supports, but does not expand, the existing standard that pragma exceptions need tight scope and evidence.",
+        "source_path": null,
         "scope": [
-          "literals-and-data-ownership",
-          "no-string-literal-symbol-regression",
-          "text-before-data-matching",
-          "assert/report strings"
+          "lbMemory_8001564C",
+          "pragma matching tactic"
         ],
         "evidence_refs": [
-          "raw_diff: added string symbols and converted assert/report uses",
-          "human_pr_text: string references used by matched code",
-          "text_corpus issue_comment: .data and .sdata new matches"
+          "raw_diff: pragma block around lbMemory_8001564C",
+          "issue_comment: lbMemory_8001564C 100.00%"
         ],
-        "reason": "This PR is a useful cautionary example for curator review, not proof of an accepted broad exception."
+        "reason": "Route as a standards reinforcement candidate only; current loaded standards already cover avoid-pragmas-register-asm and matching-tactics-need-evidence."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Pragma use around matched init routine needs explicit rationale",
-        "text": "PR #2498 wrapped `lbMemory_8001564C` in `#pragma push`, `#pragma dont_inline on`, `#pragma pop`, and the bot reported that function as a new 100% match. The slice does not include rationale or adjacent-regression details; curator may want standards/examples requiring PR authors to state why scoped pragmas are necessary.",
+        "title": "Data/string symbol changes need explicit ownership evidence",
+        "text": "PR #2498 introduced named string/data symbols for lbmemory assert/report text and bot output reported .data and .sdata matches. Because current standards warn against routine literal-to-symbol promotion, this PR should only be used as a curator-reviewed example of data-backed matching when section evidence is available, not as a blanket endorsement.",
         "source_path": "src/melee/lb/lbmemory.c",
         "scope": [
-          "avoid-pragmas-register-asm",
-          "matching-tactics-need-evidence",
-          "lbMemory_8001564C"
+          ".data",
+          ".sdata",
+          "assert strings",
+          "report strings",
+          "lbmemory"
         ],
         "evidence_refs": [
-          "raw_diff: pragma block around `lbMemory_8001564C`",
-          "text_corpus issue_comment: `lbMemory_8001564C` new 100% match"
+          "raw_diff: lbl_803BA2C0...lbl_803BA368 and lbMemory_804D3788/3790/3794",
+          "issue_comment: .data and .sdata reached 100.00%"
         ],
-        "reason": "Current standards already discourage pragma use without evidence; this PR provides a concrete review example with incomplete rationale in the slice."
+        "reason": "Potential curated exception/example; avoid promoting string-symbol replacement as normal code-matching style."
       }
     ],
     "rejection_notes": [
-      "Do not promote `#define g_alloc lbMemory_804318B0` as an accepted naming or aliasing convention; current standards disallow speculative define aliases for globals, and this slice has no review acceptance.",
-      "Do not claim `lbMemory_80015320` matched; PR body and bot report both show it remained partial at about 96.11%.",
-      "Do not infer that the PR was merged or accepted; metadata says CLOSED and `merged_at` is null.",
-      "Do not infer reviewer feedback beyond the bot report; the slice has zero review comments and zero reviews."
+      "Do not promote the #define g_alloc lbMemory_804318B0 pattern as a naming convention or accepted global aliasing tactic; the PR evidence only shows it was used here.",
+      "Do not claim lbMemory_80014FC8 or lbMemory_80015320 fully matched; the PR body says they remained at 99.324326% and 96.106800%.",
+      "Do not infer reviewer approval, merge acceptance, or requested changes; no human review comments are in the slice and merged_at is null.",
+      "Do not generalize named assert/report string globals as a preferred style; current standards require data ownership evidence and caution around string literal symbol regressions."
     ]
   },
   "confidence": 0.82,
@@ -410,6 +378,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

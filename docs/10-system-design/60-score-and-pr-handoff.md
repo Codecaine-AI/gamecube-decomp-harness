@@ -175,6 +175,15 @@ gate become `needs_rework` and requeue at repair priority; a slice ships
 without them or not at all. MATCHES-only shipping is unchanged — the gate
 narrows what a match is allowed to contain.
 
+The QA repair lane extends this disposition before split planning: a
+candidate-file sweep converts deterministic QA findings into a repair queue,
+a resolver-style agent attempts minimal source fixes, and each file is routed
+as clean with preserved proof, clean with lower score, or `needs_rework`.
+Its ship-filter artifact feeds split planning so queued, blocked, false
+positive, or clean-lower-score files are not silently included in match PRs.
+The flow and implementation details live in
+[the QA repair lane plan](../30-plans/2026-06-13-qa-repair-lane.md).
+
 ## PR Boundary
 
 The orchestrator does not create one PR per file, worker, symbol, or lease, and
@@ -266,14 +275,20 @@ which stage is running, its detail, and where a failure happened:
                                 repair priority (same machinery as the epoch
                                 cycle), so the next working session fixes
                                 them first instead of leaving them parked
-8. plan PR slices               match slices ship, local-only slices stay;
+8. QA repair lane               candidate files from the checkpoint are
+                                scanned with the deterministic QA rules,
+                                error findings become per-file repair queue
+                                items, and the bounded qa-repair lane writes
+                                queue/report/ship-filter artifacts. Only
+                                clean survivors continue to split planning.
+9. plan PR slices               match slices ship, local-only slices stay;
                                 lanes merge the checkpoint items with the
                                 regression report (every new exact match in
                                 report_changes.json joins the match lane via
                                 its unit source path), so matches from
                                 earlier sessions ship even without a worker
                                 report in this run
-9. verify ship set              THE PR GATE. The match-lane diff (worktree vs
+10. verify ship set             THE PR GATE. The match-lane diff (worktree vs
                                 the base SHA, so uncommitted work counts) is
                                 applied onto the cached baseline worktree,
                                 rebuilt incrementally, and regression-checked
@@ -290,12 +305,12 @@ which stage is running, its detail, and where a failure happened:
                                 of how messy the local branch is. The
                                 worktree is reset afterwards so the per-SHA
                                 cache stays valid.
-10. reconcile & re-verify       only when the ship set is blocked: the
+11. reconcile & re-verify       only when the ship set is blocked: the
                                 reconcile agent (`reconcile --mode
                                 ship-validate`) gets one fix loop, then the
                                 ship set re-verifies. Prepare fails only if
                                 regressions persist after that.
-11. replan PR slices            when the survivor loop dropped files, the
+12. replan PR slices            when the survivor loop dropped files, the
                                 split plan regenerates against the verified
                                 verdict (`pr-split-plan --ship-status`):
                                 match slices keep only files that survived
@@ -303,10 +318,10 @@ which stage is running, its detail, and where a failure happened:
                                 the local lane with their drop reasons. The
                                 plan the operator ships from never needs
                                 manual subtraction.
-12. sync PR records             the PR board seeds from the final plan
+13. sync PR records             the PR board seeds from the final plan
                                 (state/pr_handoff/pr_records.json), so
                                 stage 4 lists exactly what to open.
-13. save point                  a hard `ship` save point anchors the
+14. save point                  a hard `ship` save point anchors the
                                 session: prepare *is* the end of the run.
                                 The next session starts from here; PR
                                 comment fixes can ride the next run.

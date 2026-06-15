@@ -66,6 +66,14 @@ GOLDEN_CASES = [
     ("string_blob_particle.patch", "packed_string_blob", "src/sysdolphin/baselib/particle.c", (1016, 1025)),
     # #2657 gricemt.c:1482 — HSD_ASSERT unrolled into raw __assert.
     ("unrolled_assert_gricemt.patch", "unrolled_assert", "src/melee/gr/gricemt.c", (1479, 1492)),
+    # #2688 grbigblue.c:1410 — numeric literal replaced by a TU data symbol.
+    ("pr2688_stage_review_rules.patch", "numeric_literal_to_symbol", "src/melee/gr/grbigblue.c", (1407, 1412)),
+    # #2688 grbigblue.c:1763 — Big Blue borrowed the Arwing union arm.
+    ("pr2688_stage_review_rules.patch", "stage_ground_var_owner", "src/melee/gr/grbigblue.c", (1760, 1766)),
+    # #2688 grrcruise.c:310 — hand-packed string blob for inline strings.
+    ("pr2688_stage_review_rules.patch", "packed_string_blob", "src/melee/gr/grrcruise.c", (307, 315)),
+    # #2688 grvenom.c:87 — copied jobj.h inline helper body.
+    ("pr2688_stage_review_rules.patch", "copied_jobj_inline", "src/melee/gr/grvenom.c", (69, 80)),
 ]
 
 
@@ -104,6 +112,99 @@ def test_contract_shape(melee_checkout):
         assert "standard_id" in finding
 
 
+def test_same_tu_function_extern_hard_fails_ref_scan(tmp_path: Path):
+    repo = tmp_path / "repo"
+    src_dir = repo / "src" / "sysdolphin" / "baselib"
+    src_dir.mkdir(parents=True)
+    cobj = src_dir / "cobj.c"
+    cobj.write_text(
+        "\n".join(
+            [
+                "typedef struct HSD_CObj HSD_CObj;",
+                "typedef struct Vec3 Vec3;",
+                "int HSD_CObjGetViewingMtxPtr(HSD_CObj* cobj)",
+                "{",
+                "    Vec3* up = 0;",
+                "    return HSD_CObjGetUpVector(cobj, up);",
+                "}",
+                "",
+                "int HSD_CObjGetUpVector(HSD_CObj* cobj, Vec3* up)",
+                "{",
+                "    return 0;",
+                "}",
+                "",
+            ]
+        )
+    )
+    subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True, text=True)
+    subprocess.run(["git", "add", "src/sysdolphin/baselib/cobj.c"], cwd=repo, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.email=review-lint@example.invalid",
+            "-c",
+            "user.name=review-lint",
+            "commit",
+            "-m",
+            "base",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    cobj.write_text(
+        "\n".join(
+            [
+                "typedef struct HSD_CObj HSD_CObj;",
+                "typedef struct Vec3 Vec3;",
+                "int HSD_CObjGetViewingMtxPtr(HSD_CObj* cobj)",
+                "{",
+                "    extern int HSD_CObjGetUpVector(HSD_CObj* cobj, Vec3* up);",
+                "    Vec3* up = 0;",
+                "    return HSD_CObjGetUpVector(cobj, up);",
+                "}",
+                "",
+                "int HSD_CObjGetUpVector(HSD_CObj* cobj, Vec3* up)",
+                "{",
+                "    return 0;",
+                "}",
+                "",
+            ]
+        )
+    )
+
+    result = subprocess.run(
+        [
+            "python3",
+            str(SCAN_DIFF),
+            "--repo",
+            str(repo),
+            "--base",
+            "HEAD",
+            "--include-worktree",
+            "--gate",
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.stdout, result.stderr
+    payload = json.loads(result.stdout)
+    assert result.returncode == 1
+    matches = [
+        f
+        for f in payload["findings"]
+        if f["rule_id"] == "same_tu_function_extern"
+        and f["file"] == "src/sysdolphin/baselib/cobj.c"
+    ]
+    assert matches, json.dumps(payload["findings"], indent=2)
+    assert matches[0]["severity"] == "error"
+    assert matches[0]["detail"]["symbol"] == "HSD_CObjGetUpVector"
+    assert matches[0]["detail"]["scope"] == "block"
+
+
 def test_negative_ftcoll_style_note_is_clean(melee_checkout):
     """#2655 ftcoll.c: extern forward decls whose definitions PRE-EXISTED in
     the base file (moved later within the TU) are the accepted style; the
@@ -112,7 +213,10 @@ def test_negative_ftcoll_style_note_is_clean(melee_checkout):
     exit_code, payload = run_scan_diff(melee_checkout, "sdata2_decl_ftcoll.patch")
     assert payload["counts"]["errors"] == 0, json.dumps(payload["findings"], indent=2)
     assert exit_code in (0, 2)
-    assert exit_code == 0, "ftcoll externs should be fully downgraded (forward_decl_ok)"
+    assert not any(
+        f["rule_id"] in {"extern_literal_anchor", "new_data_anchor", "self_tu_extern"}
+        for f in payload["findings"]
+    ), "ftcoll externs should be fully downgraded (forward_decl_ok)"
 
 
 def test_gm1832_new_data_anchor_detail(melee_checkout):
@@ -153,6 +257,35 @@ def test_negative_assert_macro_header(melee_checkout):
     exit_code, payload = run_scan_diff(melee_checkout, "assert_macro_header.patch")
     assert exit_code == 0
     assert payload["findings"] == []
+
+
+def test_hardened_rules_smoke_flags_real_gate_path(melee_checkout):
+    """Every hardened rule added by the 2026-06-12 audit fires through
+    scan_diff.py, not just the isolated rule helpers."""
+
+    exit_code, payload = run_scan_diff(melee_checkout, "hardened_rules_smoke.patch")
+    assert exit_code == 1
+    assert payload["status"] == "failed"
+    by_rule: dict[str, set[str]] = {}
+    for finding in payload["findings"]:
+        by_rule.setdefault(finding["rule_id"], set()).add(finding["severity"])
+    expected_errors = {
+        "fake_assert_macro",
+        "assert_idiom_downgrade",
+        "register_keyword",
+        "inline_asm",
+        "m2c_residue_names",
+        "m2c_goto_label",
+        "m2c_field_use",
+        "define_alias",
+    }
+    for rule_id in expected_errors:
+        assert "error" in by_rule.get(rule_id, set()), json.dumps(payload["findings"], indent=2)
+    assert "warning" in by_rule.get("novel_pragma", set())
+    assert "warning" in by_rule.get("type_erasing_cast", set())
+    assert "warning" in by_rule.get("m2c_residue_names", set())  # sp24
+    assert "warning" in by_rule.get("m2c_goto_label", set())  # non-block goto
+    assert "warning" in by_rule.get("define_alias", set())  # local ABS clone
 
 
 # ---------------------------------------------------------------------------
@@ -221,3 +354,28 @@ def test_symbol_existed_in_base_ref_mode_prefers_git_show(melee_checkout):
     assert not scan_diff.symbol_existed_in_base(
         melee_checkout, "src/does/not/exist.c", "anything", "head", [], base, cache
     )
+
+
+MOVED_LINE_DIFF = """\
+diff --git a/src/melee/gr/x.c b/src/melee/gr/x.c
+index 1111111..2222222 100644
+--- a/src/melee/gr/x.c
++++ b/src/melee/gr/x.c
+@@ -10,6 +10,7 @@ void old_place(void)
+ {
+     __assert(__FILE__, 1, "obj");
+ }
+@@ -30,5 +31,6 @@ void new_place(void)
+ {
++    __assert(__FILE__, 1, "obj");
+ }
+"""
+
+
+def test_moved_line_suppression_downgrades_existing_exact_lines(melee_checkout):
+    file_diffs = scan_diff.parse_unified_diff(MOVED_LINE_DIFF)
+    findings = scan_diff.collect_findings(file_diffs, melee_checkout, "diff")
+    moved = [f for f in findings if f["rule_id"] == "unrolled_assert"]
+    assert moved, json.dumps(findings, indent=2)
+    assert all(f["severity"] == "warning" for f in moved)
+    assert moved[0]["detail"]["moved_vs_invented"] == "added_line_existed_verbatim_in_base"

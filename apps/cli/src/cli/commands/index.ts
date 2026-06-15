@@ -21,6 +21,7 @@ export { reportRun } from "./report-run.js";
 export { savePoint } from "./save-point.js";
 export { prPreshipReview } from "./pr-preship-review.js";
 export { prSplitPlan } from "./pr-split-plan.js";
+export { qaRepair } from "./qa-repair.js";
 export { regressionCheck } from "./regression-check.js";
 export { status } from "./status.js";
 export { tick } from "./tick.js";

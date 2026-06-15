@@ -11,74 +11,182 @@
     "merged_at": "2026-06-07T12:33:35Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Split the first 0xAC bytes of the previous `melee/sfx/crowdsfx.c` text range into a new matching source file `melee/sfx/sfx_unk.c`, then marked both `sfx_unk.c` and `crowdsfx.c` as Matching in `configure.py`. The PR also moved `mpLib_80458868` from a private static anonymous struct declaration into a named `mpCollisionBox` type in `mp/types.h`, exposed it via `mp/mplib.h`, and updated `crowdsfx.c` to use typed collision-box access instead of raw `char*` pointer arithmetic.",
+  "intake_role": "pr_intake",
+  "summary": "PR 2606 split the first two crowdsfx functions into a new `src/melee/sfx/sfx_unk.c`, adjusted GALE01 split and symbol ownership around `0x80321900..0x803219AC` and nearby `.sdata2`, marked both SFX objects Matching in `configure.py`, and replaced a raw `char*`/offset access to `mpLib_80458868` with a typed `mpCollisionBox` declaration shared through mp headers.",
   "change_classification": {
-    "primary_type": "split_and_link",
+    "primary_type": "split_and_link_matching",
     "categories": [
       "splits",
-      "matching",
+      "symbols",
+      "configure",
       "headers",
-      "typed_data",
-      "symbol_scope_cleanup"
+      "typed_data_access"
     ],
     "systems": [
       "sfx",
       "mp",
-      "config",
-      "build"
+      "config"
     ]
   },
   "key_files": [
-    "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
-    "configure.py",
-    "src/melee/sfx/crowdsfx.c",
-    "src/melee/sfx/sfx_unk.c",
-    "src/melee/sfx/crowdsfx.h",
-    "src/melee/mp/mplib.c",
-    "src/melee/mp/mplib.h",
-    "src/melee/mp/mplib.static.h",
-    "src/melee/mp/types.h",
-    "src/melee/mp/forward.h"
+    {
+      "path": "src/melee/sfx/sfx_unk.c",
+      "role": "New split source file containing `un_80321900` and `un_80321950`, moved from `crowdsfx.c`.",
+      "evidence_refs": [
+        "raw_diff: new file src/melee/sfx/sfx_unk.c",
+        "diff_excerpt: sfx_unk.c added with un_80321900/un_80321950"
+      ]
+    },
+    {
+      "path": "src/melee/sfx/crowdsfx.c",
+      "role": "Original crowdsfx source narrowed to start at `fn_803219AC`; globals made non-static and typed access added for `mpLib_80458868`.",
+      "evidence_refs": [
+        "raw_diff: crowdsfx.c removes un_80321900/un_80321950",
+        "raw_diff: `char* mpLib` plus `*(f32*)(mpLib + 0x14)` replaced by `mpCollisionBox* box` and `box[1].bottom`"
+      ]
+    },
+    {
+      "path": "src/melee/sfx/crowdsfx.h",
+      "role": "Header exposes crowdsfx functions and globals needed after the split.",
+      "evidence_refs": [
+        "raw_diff: crowdsfx.h adds externs for un_804A2F08 and un_804D7050"
+      ]
+    },
+    {
+      "path": "config/GALE01/splits.txt",
+      "role": "Split metadata assigns `melee/sfx/sfx_unk.c` text and `.sdata2` ranges and moves `crowdsfx.c` text start to `0x803219AC`.",
+      "evidence_refs": [
+        "raw_diff: splits.txt adds melee/sfx/sfx_unk.c and updates crowdsfx.c ranges"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Nearby `.sdata2` float/double symbols changed from global `un_` names to local labels.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt changes un_804DE148/un_804DE150/un_804DE158 to @175/@395/@397"
+      ]
+    },
+    {
+      "path": "configure.py",
+      "role": "Build configuration changes SFX objects from one NonMatching crowdsfx object to Matching `sfx_unk.c` and Matching `crowdsfx.c`.",
+      "evidence_refs": [
+        "raw_diff: configure.py replaces Object(NonMatching, \"melee/sfx/crowdsfx.c\") with two Matching objects"
+      ]
+    },
+    {
+      "path": "src/melee/mp/types.h",
+      "role": "Defines `struct mpCollisionBox` with top/bottom/left/right fields.",
+      "evidence_refs": [
+        "raw_diff: mp/types.h adds struct mpCollisionBox"
+      ]
+    },
+    {
+      "path": "src/melee/mp/mplib.h",
+      "role": "Includes `mp/types.h` and declares `extern mpCollisionBox mpLib_80458868[2]`.",
+      "evidence_refs": [
+        "raw_diff: mplib.h include change and extern declaration"
+      ]
+    },
+    {
+      "path": "src/melee/mp/mplib.c",
+      "role": "Defines `mpLib_80458868` as `mpCollisionBox mpLib_80458868[2]`.",
+      "evidence_refs": [
+        "raw_diff: mplib.c adds `/* 458868 */ mpCollisionBox mpLib_80458868[2];`"
+      ]
+    },
+    {
+      "path": "src/melee/mp/mplib.static.h",
+      "role": "Removes the old anonymous static struct definition for `mpLib_80458868`.",
+      "evidence_refs": [
+        "raw_diff: mplib.static.h deletes static anonymous struct array"
+      ]
+    },
+    {
+      "path": "src/melee/mp/forward.h",
+      "role": "Adds forward declaration for `mpCollisionBox` and reorders existing mp forward declarations.",
+      "evidence_refs": [
+        "raw_diff: forward.h adds `typedef struct mpCollisionBox mpCollisionBox;`"
+      ]
+    }
   ],
   "what_changed": [
-    "Added `src/melee/sfx/sfx_unk.c` containing `un_80321900` and `un_80321950`, which were previously at the start of `crowdsfx.c`.",
-    "Adjusted `config/GALE01/splits.txt` so `melee/sfx/sfx_unk.c` owns `.text` `0x80321900..0x803219AC` and `.sdata2` `0x804DE148..0x804DE14C`, while `melee/sfx/crowdsfx.c` now starts at `.text` `0x803219AC` and `.sdata2` `0x804DE150`.",
-    "Changed `configure.py` from a single `Object(NonMatching, \"melee/sfx/crowdsfx.c\")` to two matching objects: `melee/sfx/sfx_unk.c` and `melee/sfx/crowdsfx.c`.",
-    "Converted `symbols.txt` entries at `0x804DE148`, `0x804DE150`, and `0x804DE158` from global `un_...` symbols to local float/double labels `@175`, `@395`, and `@397`.",
-    "Moved `un_804A2F08` and `un_804D7050` definitions in `crowdsfx.c` to address-commented globals and exposed them in `crowdsfx.h` so the new split file can initialize the crowd SFX state.",
-    "Removed a raw `extern char mpLib_80458868[]` from `crowdsfx.c` and replaced the access with `mpCollisionBox* box = mpLib_80458868;` plus `box[1].bottom`.",
-    "Introduced `struct mpCollisionBox` in `src/melee/mp/types.h` with `top`, `bottom`, `left`, and `right` float fields.",
-    "Removed the anonymous static definition of `mpLib_80458868[2]` from `mplib.static.h`, defined `mpCollisionBox mpLib_80458868[2]` in `mplib.c`, and declared it extern in `mplib.h`.",
-    "Changed `mplib.h` to include `mp/types.h` instead of only `mp/forward.h`, because the public declaration of `mpLib_80458868` requires the complete `mpCollisionBox` type.",
-    "Added a forward typedef for `mpCollisionBox` in `mp/forward.h` and reordered the forward declarations."
+    "Added a new split unit `melee/sfx/sfx_unk.c` covering text `0x80321900..0x803219AC` and `.sdata2` `0x804DE148..0x804DE14C`.",
+    "Moved `un_80321900` and `un_80321950` out of `crowdsfx.c` into `sfx_unk.c`.",
+    "Updated `crowdsfx.c` split start from `0x80321900` to `0x803219AC` and `.sdata2` start from `0x804DE148` to `0x804DE150`.",
+    "Changed `configure.py` so `melee/sfx/sfx_unk.c` and `melee/sfx/crowdsfx.c` are both listed as Matching objects.",
+    "Changed `.sdata2` symbols at `0x804DE148`, `0x804DE150`, and `0x804DE158` from global `un_` symbols to local labels.",
+    "Introduced `mpCollisionBox` and used it for `mpLib_80458868[2]` instead of a raw `char[]` extern and pointer arithmetic.",
+    "Exposed `un_804A2F08`, `gCrowdConfig`, and `un_804D7050` through `crowdsfx.h` to support the split file."
   ],
   "smart_moves": [
-    "The split was made at a clean function boundary: `sfx_unk.c` takes `un_80321900` and `un_80321950`, while `crowdsfx.c` begins at `fn_803219AC`, matching the updated text ranges.",
-    "The build configuration and split metadata were updated together, preventing the new file split from becoming only a source-level refactor without linker awareness.",
-    "Replacing `char*` pointer arithmetic with `mpCollisionBox` made the `crowdsfx.c` dependency on map collision bounds explicit and documented the offset formerly used as `*(f32*) (mpLib + 0x14)` as `box[1].bottom`.",
-    "Promoting `mpLib_80458868` from a static anonymous struct in `mplib.static.h` to a typed external object allowed another linked translation unit to reference the data without relying on an untyped extern.",
-    "The new split file includes `crowdsfx.h` and uses exported globals/functions rather than duplicating struct definitions or local declarations."
+    "The split moves whole functions (`un_80321900`, `un_80321950`) into a new TU and updates split ranges in the same PR, keeping source and split metadata aligned.",
+    "The PR replaces `*(f32*) (mpLib + 0x14)` with `box[1].bottom` after introducing a real `mpCollisionBox` type, improving reviewability and reducing raw offset use.",
+    "The PR moves `mpLib_80458868` from an anonymous static header-local struct to a named type and extern declaration, making cross-TU use explicit.",
+    "The symbol changes make nearby `.sdata2` constants local labels, consistent with the split range changes shown in `splits.txt`."
   ],
   "decomp_lessons": [
-    "When splitting a matching file, update `splits.txt`, `configure.py`, and any symbol ownership changes in the same PR so the linker layout and build graph stay consistent.",
-    "A file split may force previously file-local or static data assumptions to be revisited; here `mpLib_80458868` had to become a real typed extern because `crowdsfx.c` needed it.",
-    "Raw address-based or byte-pointer access can often be eliminated by naming the underlying data structure, which improves type safety while preserving matching if field order and size are correct.",
-    "If a global is shared by a newly split translation unit, move the declaration to the relevant public header and keep the single definition in one C file.",
-    "Local constants in `.sdata2` should be represented as local labels in `symbols.txt` when they are not real global objects; this PR changed several `un_804DE...` globals into `@...` locals."
+    {
+      "lesson": "When splitting a matched source file, update split ranges, configure object status, and any header-visible globals/functions needed by the new TU in the same focused change.",
+      "evidence_refs": [
+        "raw_diff: sfx_unk.c added",
+        "raw_diff: splits.txt updated",
+        "raw_diff: configure.py updated",
+        "raw_diff: crowdsfx.h externs added"
+      ],
+      "confidence": 0.82
+    },
+    {
+      "lesson": "If a data object is shared across TUs, a named struct plus owning extern can replace a header-local anonymous static definition and raw address-style access.",
+      "evidence_refs": [
+        "raw_diff: mplib.static.h deletes anonymous static mpLib_80458868",
+        "raw_diff: mp/types.h adds mpCollisionBox",
+        "raw_diff: mplib.h declares extern mpLib_80458868",
+        "raw_diff: crowdsfx.c uses box[1].bottom"
+      ],
+      "confidence": 0.78
+    }
   ],
   "naming_conventions": [
-    "Unknown SFX split file was named `sfx_unk.c`, reflecting that the extracted functions are still unidentified but belong in the sound-effects area.",
-    "New map collision bounds type was named `mpCollisionBox`, matching the existing `mp` prefix and describing the four float fields `top`, `bottom`, `left`, and `right`.",
-    "Address comments such as `/* 4A2F08 */`, `/* 4D7050 */`, and `/* 458868 */` were used on global definitions/declarations to preserve symbol-address traceability.",
-    "Unidentified functions and globals retained existing placeholder names such as `un_80321900`, `un_80321950`, `un_804A2F08`, and `un_804D7050` rather than inventing semantic names without evidence."
+    {
+      "convention": "`mpCollisionBox` names a small collision-boundary struct with fields ordered `top`, `bottom`, `left`, `right`.",
+      "evidence_refs": [
+        "raw_diff: mp/types.h struct mpCollisionBox"
+      ],
+      "confidence": 0.72
+    },
+    {
+      "convention": "Unknown SFX functions and globals retained address-style names such as `un_80321900`, `un_80321950`, `un_804A2F08`, and `un_804D7050` rather than inventing semantic names.",
+      "evidence_refs": [
+        "raw_diff: sfx_unk.c",
+        "raw_diff: crowdsfx.h"
+      ],
+      "confidence": 0.86
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Split `crowdsfx.c` into two matching objects by carving out `.text` `0x80321900..0x803219AC` into `sfx_unk.c` and shifting `crowdsfx.c` start to `0x803219AC`.",
-    "Separated `.sdata2` ownership so `sfx_unk.c` owns the float at `0x804DE148`, while `crowdsfx.c` owns later constants beginning at `0x804DE150`.",
-    "Changed build status from `NonMatching` to `Matching` for the SFX objects after the split, indicating the file boundary/data ownership change resolved the previous mismatch.",
-    "Preserved the semantic memory access formerly expressed as offset `0x14` into `mpLib_80458868` by using `box[1].bottom`, since each `mpCollisionBox` has four floats and `box[1].bottom` corresponds to base plus `0x10 + 0x4`.",
-    "Moved the data declaration for `mpLib_80458868` out of a static header into `mplib.c` to avoid incorrect per-translation-unit static storage while exposing the actual linked object."
+    {
+      "tactic": "Split the object boundary at `0x803219AC`, leaving `fn_803219AC` as the first function in `crowdsfx.c` and moving earlier functions to `sfx_unk.c`.",
+      "evidence_refs": [
+        "raw_diff: splits.txt text ranges",
+        "raw_diff: crowdsfx.c and sfx_unk.c function movement"
+      ],
+      "confidence": 0.86
+    },
+    {
+      "tactic": "Use symbol metadata changes to convert split-local `.sdata2` constants from global `un_` symbols to local labels after assigning ownership to the new split.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt @175/@395/@397",
+        "raw_diff: splits.txt .sdata2 ownership"
+      ],
+      "confidence": 0.74
+    },
+    {
+      "tactic": "Replace raw pointer arithmetic against `mpLib_80458868` with typed array indexing to express the same offset as `box[1].bottom`.",
+      "evidence_refs": [
+        "raw_diff: crowdsfx.c `mpLib + 0x14` replaced by `box[1].bottom`"
+      ],
+      "confidence": 0.8
+    }
   ],
   "review_feedback": [],
   "searchable_terms": [
@@ -87,46 +195,150 @@
     "ribbanya",
     "crowdsfx.c",
     "sfx_unk.c",
-    "melee/sfx/sfx_unk.c",
-    "melee/sfx/crowdsfx.c",
     "un_80321900",
     "un_80321950",
     "fn_803219AC",
-    "CrowdSFX_UnkStruct",
-    "gCrowdConfig",
-    "un_804A2F08",
-    "un_804D7050",
-    "mpLib_80458868",
     "mpCollisionBox",
+    "mpLib_80458868",
     "box[1].bottom",
-    "mplib.h",
-    "mplib.c",
-    "mplib.static.h",
-    "mp/types.h",
-    "mp/forward.h",
+    "0x80321900",
+    "0x803219AC",
+    "0x804DE148",
+    "0x804DE150",
+    "Matching",
     "splits.txt",
     "symbols.txt",
-    "configure.py",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "sdata2 804DE148",
-    "sdata2 804DE150",
-    "text 80321900",
-    "text 803219AC"
+    "typed-fields-over-pointer-math"
   ],
   "follow_up_queries": [
-    "Find later PRs that rename `sfx_unk.c` functions `un_80321900` or `un_80321950`.",
-    "Find PRs that further type or rename `CrowdSFX_UnkStruct` and `gCrowdConfig`.",
-    "Find PRs touching `mpLib_80458868` or replacing more raw map collision-box accesses with `mpCollisionBox`.",
-    "Find other split-and-link PRs where a static header object had to become a typed extern."
+    "Search for other raw uses of `mpLib_80458868` or `char* mpLib` that can use `mpCollisionBox`.",
+    "Search for references to `.sdata2` symbols `un_804DE148`, `un_804DE150`, and `un_804DE158` in older PRs or source notes.",
+    "Check whether other SFX split candidates use functions immediately before `fn_803219AC` or similar unknown `sfx_unk` naming.",
+    "Search for anonymous static structs in `.static.h` files that are actually shared global data and may need named types."
   ],
-  "confidence": 0.91,
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR number/title/author/state/merge timestamps",
+      "changed_files.jsonl: 11 changed files with add/delete counts",
+      "raw_diff: full diff excerpt loaded",
+      "text_corpus.jsonl: empty PR body",
+      "metadata_json: zero issue comments, zero review comments, zero reviews"
+    ],
+    "notes": [
+      "The diff is complete and strongly supports file changes, split ranges, symbol metadata changes, and typed access changes.",
+      "There is no PR body, review discussion, or explicit author explanation beyond the title.",
+      "No build log, objdiff output, or regression report is included; Matching status is evidenced only by `configure.py` changes and merge metadata, not by independent verifier output.",
+      "Reviewer intent and acceptance rationale are not inferable because there are no review comments."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "decomp_lesson",
+        "title": "Split source and metadata together",
+        "text": "PR 2606 shows a focused split where the new source file, split ranges, configure object entries, symbol ownership, and header-visible declarations were updated together for `crowdsfx`/`sfx_unk`.",
+        "scope": [
+          "sfx",
+          "splits",
+          "configure",
+          "symbols"
+        ],
+        "evidence_refs": [
+          "raw_diff: sfx_unk.c added",
+          "raw_diff: splits.txt updated",
+          "raw_diff: configure.py updated",
+          "raw_diff: symbols.txt updated",
+          "raw_diff: crowdsfx.h externs added"
+        ],
+        "confidence": 0.8
+      },
+      {
+        "record_type": "decomp_lesson",
+        "title": "Prefer typed shared data over raw offset access",
+        "text": "PR 2606 replaced `char*` access to `mpLib_80458868` and a manual `+0x14` float load with a named `mpCollisionBox` array and `box[1].bottom` field access.",
+        "scope": [
+          "mp",
+          "sfx",
+          "typed data access"
+        ],
+        "evidence_refs": [
+          "raw_diff: mp/types.h adds mpCollisionBox",
+          "raw_diff: mplib.h declares mpLib_80458868",
+          "raw_diff: crowdsfx.c uses box[1].bottom"
+        ],
+        "confidence": 0.82
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "crowdsfx split boundary after PR 2606",
+        "text": "`melee/sfx/sfx_unk.c` owns text `0x80321900..0x803219AC` and `.sdata2` `0x804DE148..0x804DE14C`; `melee/sfx/crowdsfx.c` starts at text `0x803219AC` and `.sdata2` `0x804DE150` in this PR's split metadata.",
+        "source_path": "config/GALE01/splits.txt",
+        "scope": [
+          "melee/sfx/sfx_unk.c",
+          "melee/sfx/crowdsfx.c"
+        ],
+        "evidence_refs": [
+          "raw_diff: config/GALE01/splits.txt"
+        ],
+        "reason": "Useful path/split fact, but should be curated against current source before promotion."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "mpLib_80458868 typed as mpCollisionBox array",
+        "text": "PR 2606 defines `mpLib_80458868` as `mpCollisionBox mpLib_80458868[2]` and declares it in `src/melee/mp/mplib.h`; `mpCollisionBox` has `top`, `bottom`, `left`, and `right` float fields.",
+        "source_path": "src/melee/mp/mplib.h",
+        "scope": [
+          "src/melee/mp/types.h",
+          "src/melee/mp/mplib.c",
+          "src/melee/mp/mplib.h",
+          "src/melee/sfx/crowdsfx.c"
+        ],
+        "evidence_refs": [
+          "raw_diff: mp/types.h",
+          "raw_diff: mplib.c",
+          "raw_diff: mplib.h",
+          "raw_diff: crowdsfx.c"
+        ],
+        "reason": "Potential reusable path/type fact for future raw-offset cleanup; verify against current source before accepting."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Shared split data should get a named type and owning extern",
+        "text": "When a split makes a previously local data object visible across TUs, consider moving from anonymous static/header-local storage to a named struct and a single owning extern declaration rather than using raw `char[]` externs and pointer arithmetic.",
+        "source_path": null,
+        "scope": [
+          "splits",
+          "headers",
+          "typed data access"
+        ],
+        "evidence_refs": [
+          "raw_diff: mplib.static.h deletes anonymous static definition",
+          "raw_diff: mp/types.h adds mpCollisionBox",
+          "raw_diff: mplib.h declares extern",
+          "raw_diff: crowdsfx.c typed access"
+        ],
+        "reason": "This overlaps existing typed-field and truthful-header standards; curator should decide whether it merits an explicit split-data note."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that `sfx_unk.c` is a final semantic file name; the PR uses an unknown-style name and gives no naming rationale.",
+      "Do not claim independent successful objdiff/build validation from this slice; only `configure.py` Matching entries and merge state are present.",
+      "Do not infer reviewer approval details; the PR slice reports zero reviews and zero review comments."
+    ]
+  },
+  "confidence": 0.8,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

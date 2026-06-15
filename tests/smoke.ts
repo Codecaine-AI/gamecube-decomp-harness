@@ -902,7 +902,7 @@ async function main(): Promise<void> {
     assertSmoke("queue refill smoke created an active lease", Boolean(leased));
     const defaultLeaseMs = new Date(leased?.ttl ?? "").getTime() - Date.now();
     assertSmoke(
-      "worker lease default ttl is four hours",
+      "worker lease default ttl is 90 minutes",
       defaultLeaseMs > (DEFAULT_WORKER_TTL_SECONDS - 5) * 1000 && defaultLeaseMs <= DEFAULT_WORKER_TTL_SECONDS * 1000,
     );
     const lockedSource = String(leased?.target.source_path ?? "");

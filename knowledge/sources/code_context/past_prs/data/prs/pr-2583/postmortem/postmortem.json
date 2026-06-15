@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Large multi-file matching PR touching 95 files across Melee, sysdolphin baselib, and Dolphin THP code. The PR reports 36 new matches, 117 unmatched-item improvements, 0 broken matches, 0 fuzzy/metric regressions, and review cleanup that converted a goto dispatch to a grouped switch, removed register/optimizer-pragma/M2C_FIELD additions, and restored inline literals.",
+  "summary": "Large multi-subsystem matching PR touching 95 files, with reported 34 matched functions, 2 matched sections, 117 unmatched-item improvements, and no final broken/fuzzy/metric regressions. Review cleanup focused on converting a generated-looking fighter dispatch to a grouped switch, removing register/optimizer pragma steering, restoring inline literals instead of generated symbol names, and removing a new M2C_FIELD use.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -21,7 +21,8 @@
       "headers",
       "naming",
       "types-structs",
-      "tooling"
+      "tooling",
+      "review-cleanup"
     ],
     "systems": [
       "external-sdk",
@@ -37,425 +38,533 @@
   "key_files": [
     {
       "path": "extern/dolphin/src/dolphin/thp/THPDec.c",
-      "role": "THP decoder matching work; diff shows temporary view structs and typed offset views for MCU buffers, restart fields, predDC fields, and decode output pointers.",
+      "role": "SDK THP matching work; diff shows temporary typed offset views for THPFileInfo fields, MCU buffers, restart fields, and predDC accesses.",
       "evidence_refs": [
-        "changed_files.jsonl: extern/dolphin/src/dolphin/thp/THPDec.c added 122 deleted 83 hunks 9",
-        "raw_diff: THPDec.c adds THPMCURowFields, THPFileInfoMCUBufferView, THPFileInfoDCTCompY/U/VView and rewrites __THPDecompressiMCURow640x480/NxN accesses",
-        "pr_body: THPDec __THPDecompressiMCURow640x480 listed as +92 byte unmatched improvement"
+        "changed_files",
+        "diff_excerpt:THPDec.c",
+        "pr_body:largest_unmatched_improvements"
       ]
     },
     {
       "path": "src/melee/cm/camera.c",
-      "role": "Camera matching cleanup using condition folding, direct struct member access, stack/local lifetime changes, and priority calculation restructuring.",
+      "role": "camera matching cleanup; diff shows stack/local declaration shape changes, boolean-condition folding with abs_threshold_inline, and explicit cam->transform field accesses.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/cm/camera.c added 81 deleted 133 hunks 11",
-        "raw_diff: Camera_8002B3D4 rewrites abs-threshold checks; fn_800301D0 hoists s64 locals and removes nested blocks"
+        "changed_files",
+        "diff_excerpt:camera.c"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftCommon/ftCo_09F7.c",
-      "role": "Fighter common dispatch matching; reviewed goto/branch structure was identified as likely switch-like and later converted to grouped switch per author comment.",
+      "role": "fighter dispatch cleanup; reviewer suggested switch shape and author later reported converting reviewed goto dispatch into grouped switch.",
       "evidence_refs": [
-        "changed_files.jsonl: ftCo_09F7.c added 94 deleted 183 hunks 9",
-        "review_comment r3366745908: reviewer suggested one or more big switch statements",
-        "issuecomment-4639215037: author says reviewed ftCo_09F7 goto dispatch converted into grouped switch"
+        "review_comment:discussion_r3366745908",
+        "issue_comment:4639215037",
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftCommon/ftCo_Bury.c",
-      "role": "Review cleanup target for removing register keyword.",
+      "role": "review cleanup target; reviewer objected to newly added register keyword and author reported removing it.",
       "evidence_refs": [
-        "changed_files.jsonl: ftCo_Bury.c added 1 deleted 1 hunks 1",
-        "review_comment r3366747549: don't use register, asm or similar keywords",
-        "issuecomment-4639215037: author says register usage removed in ftCo_Bury.c"
+        "review_comment:discussion_r3366747549",
+        "issue_comment:4639215037",
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/gm/gm_19EF.c",
-      "role": "Review cleanup target for removing register keyword.",
+      "role": "review cleanup target; reviewer asked to remove register and author reported doing so.",
       "evidence_refs": [
-        "changed_files.jsonl: gm_19EF.c added 1 deleted 2 hunks 1",
-        "review_comment r3366752957: remove register",
-        "issuecomment-4639215037: author says register usage removed in gm_19EF.c"
+        "review_comment:discussion_r3366752957",
+        "issue_comment:4639215037",
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/ft/ftcoll.c",
-      "role": "Review cleanup target for restoring inline float literals rather than naming/linking constants.",
+      "role": "literal cleanup target; reviewer said strings/floats should generally remain inline instead of generated data symbols.",
       "evidence_refs": [
-        "changed_files.jsonl: ftcoll.c added 4 deleted 4 hunks 4",
-        "review_comment r3366750866: keep constants like strings and floats inlined",
-        "issuecomment-4639215037: author says inline float/string literals restored in ftcoll.c"
+        "review_comment:discussion_r3366750866",
+        "issue_comment:4639215037",
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/gm/gm_1832.c",
-      "role": "Game-mode matching and review cleanup target for restoring inline string literal and removing optimizer pragma.",
+      "role": "literal and pragma cleanup target; reviewer objected to symbolizing a string literal and to added optimizer pragma.",
       "evidence_refs": [
-        "changed_files.jsonl: gm_1832.c added 30 deleted 35 hunks 6",
-        "review_comment r3366752275: same here on literal-to-symbol replacement",
-        "review_comment r3366752512: remove this pragma",
-        "issuecomment-4639215037: author says literals restored and added optimizer pragma removed in gm_1832.c",
-        "pr_body: fn_8018325C listed as +163 byte unmatched improvement"
+        "review_comment:discussion_r3366752275",
+        "review_comment:discussion_r3366752512",
+        "issue_comment:4639215037",
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/gm/gm_1A4C.c",
-      "role": "Game-mode matching cleanup; reviewer rejected less-readable string-symbol/data changes and author restored inline literals.",
+      "role": "readability and literal cleanup target; reviewer asked to revert less-readable literal-symbol changes, saying linking would resolve them.",
       "evidence_refs": [
-        "changed_files.jsonl: gm_1A4C.c added 29 deleted 20 hunks 9",
-        "review_comment r3366753658: revert changes as less readable and resolvable during linking",
-        "issuecomment-4639215037: author says inline float/string literals restored in gm_1A4C.c"
+        "review_comment:discussion_r3366753658",
+        "issue_comment:4639215037",
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/gm/gmregclear.c",
-      "role": "Game-mode matching cleanup; reviewer feedback grouped with literal restoration.",
+      "role": "literal cleanup target and reported unmatched .bss improvement.",
       "evidence_refs": [
-        "changed_files.jsonl: gmregclear.c added 37 deleted 39 hunks 13",
-        "review_feedback_examples: gmregclear.c ditto",
-        "issuecomment-4639215037: author says inline float/string literals restored in gmregclear.c",
-        "pr_body: gmregclear .bss listed as +64 byte unmatched improvement"
+        "review_feedback_examples",
+        "issue_comment:4639215037",
+        "pr_body:largest_unmatched_improvements",
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/gr/grinishie1.c",
-      "role": "Stage matching cleanup; author removed new M2C_FIELD usage after review cleanup.",
+      "role": "typed-field cleanup target; author reported removing a new M2C_FIELD use after review cleanup.",
       "evidence_refs": [
-        "changed_files.jsonl: grinishie1.c added 16 deleted 16 hunks 1",
-        "issuecomment-4639215037: author says new M2C_FIELD usage removed in grinishie1.c"
+        "issue_comment:4639215037",
+        "changed_files"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/particle.c",
-      "role": "Baselib particle type fix; author reports targeted object build and full regression check after context-slot type fix.",
+      "role": "particle context-slot type fix with narrow object build and regression-check evidence reported by author.",
       "evidence_refs": [
-        "changed_files metadata: particle.c added 33 deleted 28 hunks 7",
-        "issuecomment-4636635584: local verification after particle context-slot type fix"
+        "issue_comment:4636635584",
+        "changed_files"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/axdriver.c",
-      "role": "Baselib data match progress; PR reports axdriver .data as largest new section match.",
+      "role": "reported largest new data match for main/sysdolphin/baselib/axdriver .data.",
       "evidence_refs": [
-        "changed_files.jsonl: axdriver.c added 6 deleted 4 hunks 5",
-        "pr_body: main/sysdolphin/baselib/axdriver .data +632 from 0.00% to 100.00%"
+        "pr_body:largest_new_matches",
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/lb/lbaudio_ax.c",
-      "role": "Large library audio matching changes; PR reports two lbaudio_ax functions as new matches.",
+      "role": "largest changed file by line count in metadata; two lbaudio_ax functions reported as largest new matches.",
       "evidence_refs": [
-        "metadata changed_files: lbaudio_ax.c added 192 deleted 142 hunks 3",
-        "pr_body: fn_800253D8 and fn_800256BC listed as new matches"
+        "metadata_json:changed_files",
+        "pr_body:largest_new_matches"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itseakneedlethrown.c",
+      "role": "reported largest unmatched data improvement.",
+      "evidence_refs": [
+        "pr_body:largest_unmatched_improvements",
+        "changed_files"
+      ]
+    },
+    {
+      "path": "src/melee/gr/groldyoshi.c",
+      "role": "reported new match for grOldYoshi_8020EC10.",
+      "evidence_refs": [
+        "pr_body:largest_new_matches",
+        "changed_files"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gm_1601.c",
+      "role": "reported new match for fn_80165AC0.",
+      "evidence_refs": [
+        "pr_body:largest_new_matches",
+        "changed_files"
+      ]
+    },
+    {
+      "path": "multiple changed files",
+      "role": "metadata reports 95 changed files total; loaded changed-files excerpts include fighter, game-mode, stage, item, library, menu, player, video, and sysdolphin files, but the displayed JSONL is truncated.",
+      "evidence_refs": [
+        "metadata_json:activity.changed_files=95",
+        "loaded_files:changed_files.jsonl:truncated"
       ]
     }
   ],
   "what_changed": [
-    "Changed 95 files with 1408 additions and 1441 deletions according to PR activity metadata.",
-    "Reported progress: 36 new matches, including 34 functions and 2 sections; 117 unmatched-item improvements; 0 broken matches; 0 metric regressions.",
-    "Largest reported new matches included sysdolphin/baselib/axdriver .data, melee/ft/ft_0852 .bss, grOldYoshi_8020EC10, fn_80165AC0, and two lbaudio_ax functions.",
-    "Largest reported unmatched improvements included itseakneedlethrown .data, gm_1832 fn_8018325C, THPDec __THPDecompressiMCURow640x480, grOnett_801E43E0, and gmregclear .bss.",
-    "Diff excerpt shows THPDec replacing some global/field accesses with local typed view structs and casts for MCU row fields, MCU buffer pointers, restart fields, decode pointers, and per-component predDC storage.",
-    "Diff excerpt shows camera.c matching-oriented restructuring of local padding/order, conditionals, struct-member access through cam->transform, and local lifetime/block shape.",
-    "Author reports review cleanup: ftCo_09F7 goto dispatch converted to grouped switch; register usage removed in ftCo_Bury.c and gm_19EF.c; inline literals restored in ftcoll.c, gm_1832.c, gm_1A4C.c, gmregclear.c, and ifprize.c; optimizer pragma removed in gm_1832.c; new M2C_FIELD removed in grinishie1.c."
+    "Changed 95 files with 1408 additions and 1441 deletions according to PR metadata.",
+    "Reported final comparison against origin/master baseline 5d2393e4bf9e085e7e911af3a0f17081e7cf1b56 at head a81d8f8f5c863031fd24e05bda3c4bdbe47c14fd.",
+    "Reported 36 new matches, including 34 functions and 2 sections, with 0 broken matches and 117 unmatched-item improvements.",
+    "Reported fuzzy match improved from 97.428474 to 97.461624, matched code from 70.79643 to 71.48751, matched data from 41.350536 to 41.43838, and matched functions from 18714 to 18748.",
+    "Diff excerpt shows THPDec changes replacing some global-buffer/component accesses with temporary struct views and pointer casts to express offsets such as MCUsPerRow, mcuBuffer, restart fields, dLC decode fields, and component predDC fields.",
+    "Diff excerpt shows camera.c changes involving stack padding, local declaration ordering, condition folding around Camera_80030AF8/Ground_801C57A4/abs_threshold_inline, and explicit cam->transform/cam->transform_copy field accesses.",
+    "Review cleanup was explicitly reported: ftCo_09F7 goto dispatch converted to grouped switch, register uses removed from ftCo_Bury.c and gm_19EF.c, literals restored inline in ftcoll.c/gm_1832.c/gm_1A4C.c/gmregclear.c/ifprize.c, optimizer pragma removed in gm_1832.c, and new M2C_FIELD removed in grinishie1.c.",
+    "Author reported verification via ninja, ninja changes_all, GitHub CI jobs, and resolved review threads; earlier bot report for d65ac60 was marked stale and superseded by the current a81d8f8 report."
   ],
   "smart_moves": [
-    "The PR separated local orchestrator artifacts from the Melee PR scope, explicitly keeping decomp-orchestrator files out of the change.",
-    "Author posted targeted verification after the particle context-slot type fix, including particle.o build, full ninja, and changes_all regression check.",
-    "Review cleanup addressed readability and source-style concerns before final reported verification.",
-    "The ftCo_09F7 dispatch was not left as reviewed goto-like generated structure; the author states it was converted into a grouped switch while preserving matching behavior."
+    "Separated orchestrator artifacts from the Melee PR scope; PR body says decomp-orchestrator/ and local artifacts were kept out of the PR.",
+    "After review, author preserved match progress while applying readability cleanup rather than keeping generated-looking constructs.",
+    "Used a narrow particle.o build after a particle context-slot type fix before broad ninja and regression checks.",
+    "Documented stale bot report status and supplied a newer report, reducing ambiguity around final regression status.",
+    "Resolved all current and outdated review threads according to the PR body."
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a decompiled dispatch resembles a broad branch/goto ladder, try a grouped switch before accepting the generated shape.",
+      "lesson": "Generated-looking goto dispatch should be checked against grouped switch forms when the branch structure suggests it.",
       "scope": [
-        "fighter",
-        "control-flow cleanup",
-        "ftCo_09F7.c"
+        "fighter dispatch",
+        "ftCo_09F7.c",
+        "matching cleanup"
       ],
       "evidence_refs": [
-        "review_comment r3366745908",
-        "issuecomment-4639215037"
-      ],
-      "confidence": 0.88
-    },
-    {
-      "lesson": "Do not use register, asm, or similar steering keywords as ordinary matching cleanup; reviewers requested removal in this PR.",
-      "scope": [
-        "matching tactics",
-        "source readability"
-      ],
-      "evidence_refs": [
-        "review_comment r3366747549",
-        "review_comment r3366752957",
-        "issuecomment-4639215037"
-      ],
-      "confidence": 0.95
-    },
-    {
-      "lesson": "For code-matching PRs, keep ordinary string and float constants inline unless data ownership evidence justifies named storage; reviewer said these will be resolved during linking.",
-      "scope": [
-        "data literals",
-        "game-mode",
-        "fighter"
-      ],
-      "evidence_refs": [
-        "review_comment r3366750866",
-        "review_comment r3366752275",
-        "review_comment r3366753658",
-        "issuecomment-4639215037"
-      ],
-      "confidence": 0.95
-    },
-    {
-      "lesson": "Optimizer pragmas need strong justification and narrow scope; a newly added global_optimizer pragma in gm_1832.c was explicitly requested for removal.",
-      "scope": [
-        "matching tactics",
-        "pragmas",
-        "gm_1832.c"
-      ],
-      "evidence_refs": [
-        "review_comment r3366752512",
-        "issuecomment-4639215037"
+        "review_comment:discussion_r3366745908",
+        "issue_comment:4639215037",
+        "decomp_standards:canonical-control-flow-and-macros"
       ],
       "confidence": 0.9
     },
     {
-      "lesson": "New M2C_FIELD usage should be treated as bridge code and removed when review cleanup can express the access without it.",
+      "lesson": "Do not introduce register, asm, or similar codegen-steering keywords as ordinary matching tactics; reviewers requested removal in this PR.",
       "scope": [
-        "typed fields",
-        "stage code",
-        "grinishie1.c"
+        "ftCo_Bury.c",
+        "gm_19EF.c",
+        "matching tactics"
       ],
       "evidence_refs": [
-        "issuecomment-4639215037"
+        "review_comment:discussion_r3366747549",
+        "review_comment:discussion_r3366752957",
+        "issue_comment:4639215037",
+        "decomp_standards:avoid-pragmas-register-asm"
       ],
-      "confidence": 0.72
+      "confidence": 0.95
+    },
+    {
+      "lesson": "Keep ordinary float and string constants inline for code matching unless there is data-ownership evidence and PR scope for symbolizing them.",
+      "scope": [
+        "ftcoll.c",
+        "gm_1832.c",
+        "gm_1A4C.c",
+        "gmregclear.c",
+        "ifprize.c",
+        "literal handling"
+      ],
+      "evidence_refs": [
+        "review_comment:discussion_r3366750866",
+        "review_comment:discussion_r3366752275",
+        "review_comment:discussion_r3366753658",
+        "issue_comment:4639215037",
+        "decomp_standards:literals-and-data-ownership",
+        "decomp_standards:no-string-literal-symbol-regression",
+        "decomp_standards:text-before-data-matching"
+      ],
+      "confidence": 0.95
+    },
+    {
+      "lesson": "Added optimizer pragmas are high-risk matching tactics and should be removed unless tightly justified; this PR had an added global_optimizer pragma removed after review.",
+      "scope": [
+        "gm_1832.c",
+        "matching tactics",
+        "pragma cleanup"
+      ],
+      "evidence_refs": [
+        "review_comment:discussion_r3366752512",
+        "issue_comment:4639215037",
+        "decomp_standards:avoid-pragmas-register-asm"
+      ],
+      "confidence": 0.92
+    },
+    {
+      "lesson": "New M2C_FIELD usage should be treated as bridge code and removed when a cleaner typed expression is available or review rejects it.",
+      "scope": [
+        "grinishie1.c",
+        "typed fields",
+        "stage"
+      ],
+      "evidence_refs": [
+        "issue_comment:4639215037",
+        "decomp_standards:typed-fields-over-pointer-math"
+      ],
+      "confidence": 0.78
+    },
+    {
+      "lesson": "For broad multi-file matching PRs, include a regression ledger with baseline/head SHAs, new matches, broken matches, improvements, and metric regressions so review can separate final evidence from stale bot reports.",
+      "scope": [
+        "verification",
+        "multi-file matching PRs"
+      ],
+      "evidence_refs": [
+        "human_pr_text:Current report",
+        "human_pr_text:Verification",
+        "human_pr_text:stale d65ac60 note",
+        "decomp_standards:verification-and-regression-ledger"
+      ],
+      "confidence": 0.86
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Use clearer local semantic names when the role is directly visible in code, such as gfx_id replacing an argument-name use in the ftCo_09F7 reviewed hunk.",
-      "evidence_refs": [
-        "review_comment r3366745908 diff hunk shows arg1 changed to gfx_id in efAsync_Spawn call"
+      "convention": "The PR restored inline literals instead of address-style/generated global names for ordinary strings and floats, e.g. replacing proposed symbols such as ftColl_804D82F0 or lbl_803D9438 back to literals per review.",
+      "scope": [
+        "literal names",
+        "data symbols"
       ],
-      "confidence": 0.67
-    },
-    {
-      "convention": "Do not rename inline asset strings into address-style globals solely for linking/data order; reviewer preferred keeping literal names readable in arrays and calls.",
       "evidence_refs": [
-        "review_comment r3366753658",
-        "review_comment r3366752275"
+        "review_comment:discussion_r3366750866",
+        "review_comment:discussion_r3366752275",
+        "issue_comment:4639215037"
       ],
       "confidence": 0.9
+    },
+    {
+      "convention": "A local parameter/role rename from arg1 to gfx_id appears in the ftCo_09F7 diff hunk where efAsync_Spawn passes gfx_id; this is evidence of a local semantic name, not a global naming rule.",
+      "scope": [
+        "ftCo_09F7.c",
+        "local variables"
+      ],
+      "evidence_refs": [
+        "review_comment:discussion_r3366745908"
+      ],
+      "confidence": 0.66
+    },
+    {
+      "convention": "Temporary struct view names in THPDec use descriptive suffixes such as THPMCURowFields, THPFileInfoMCUBufferView, and THPFileInfoDCTCompYView to document recovered offset windows.",
+      "scope": [
+        "THPDec.c",
+        "temporary typed views"
+      ],
+      "evidence_refs": [
+        "diff_excerpt:THPDec.c"
+      ],
+      "confidence": 0.72
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use grouped switch forms for large adjacent dispatches when review identifies switch-like control flow.",
+      "tactic": "Use grouped switch for dispatch-like fighter code instead of leaving goto/label blocks when it preserves matching behavior.",
       "evidence_refs": [
-        "review_comment r3366745908",
-        "issuecomment-4639215037"
+        "review_comment:discussion_r3366745908",
+        "issue_comment:4639215037"
       ],
-      "caveat": "Evidence only states the reviewed ftCo_09F7 dispatch was converted and preserved matching behavior; exact final switch code is not included in the loaded excerpt."
+      "risk": "Requires objdiff/regression confirmation because switch lowering can alter branch tables or compare ordering."
     },
     {
-      "tactic": "For THPDec, the diff uses temporary typed view structs and casts to access fields at known offsets, reducing some raw/global access mismatches while preserving offset-sensitive codegen.",
+      "tactic": "Adjust local declaration order, lifetimes, and stack padding narrowly for camera matching.",
       "evidence_refs": [
-        "raw_diff: THPMCURowFields, THPFileInfoMCUBufferView, THPFileInfoDCTCompY/U/VView"
+        "diff_excerpt:camera.c"
       ],
-      "caveat": "This is a PR-specific tactic from the diff, not a global endorsement of padded view structs without verifier evidence."
+      "risk": "Evidence shows PAD_STACK and declaration changes but does not by itself prove final objdiff for each function; rely on PR verification rather than treating this as general style."
     },
     {
-      "tactic": "Camera matching used local declaration order, local lifetime, padding adjustment, and direct base-struct member access changes.",
+      "tactic": "Use temporary typed overlay structs for partially recovered THPFileInfo offsets instead of leaving every access as unrelated globals or raw decompiler temporaries.",
       "evidence_refs": [
-        "raw_diff: camera.c Camera_80029CF8 and fn_800301D0 hunks"
+        "diff_excerpt:THPDec.c",
+        "decomp_standards:typed-fields-over-pointer-math"
       ],
-      "caveat": "These are observed tactics; loaded evidence does not prove which individual local/order changes were necessary."
+      "risk": "Temporary overlay structs with padding are bridge code; curator should not promote specific THP field offsets as accepted path facts from this PR alone."
     },
     {
-      "tactic": "Avoid broad data/literal symbol churn when text matching can land without it; reviewer requested reverting readability-harming literal-to-symbol edits.",
+      "tactic": "Prefer inline literals over introducing address-named string/float symbols to influence data relocation in focused code-matching work.",
       "evidence_refs": [
-        "review_comment r3366750866",
-        "review_comment r3366753658",
-        "issuecomment-4639215037"
+        "review_comment:discussion_r3366750866",
+        "review_comment:discussion_r3366752275",
+        "review_comment:discussion_r3366753658",
+        "issue_comment:4639215037"
       ],
-      "caveat": "Supported by review comments on specific files, not by a full final diff audit."
+      "risk": "If a later PR is explicitly data-ownership scoped, symbolization might be justified with section metadata; this PR's review rejected it for these cases."
+    },
+    {
+      "tactic": "Avoid register keywords and optimizer pragmas unless exceptional evidence exists; this PR removed both after review.",
+      "evidence_refs": [
+        "review_comment:discussion_r3366747549",
+        "review_comment:discussion_r3366752512",
+        "review_comment:discussion_r3366752957",
+        "issue_comment:4639215037"
+      ],
+      "risk": "These tactics can mask source understanding and perturb neighbors."
     }
   ],
   "review_feedback": [
     {
+      "reviewer": "jurrejelle",
       "path": "src/melee/ft/chara/ftCommon/ftCo_09F7.c",
-      "author": "jurrejelle",
-      "feedback": "The structure felt like one or more big switch statements; reviewer asked whether a switch could match.",
-      "resolution_evidence": "Author later said the reviewed ftCo_09F7 goto dispatch was converted into a grouped switch while preserving matching behavior.",
+      "feedback": "Code structure felt like one or more big switch statements; reviewer asked author to try matching a switch.",
+      "resolution_evidence": "Author reported converting reviewed ftCo_09F7 goto dispatch into a grouped switch while preserving matching behavior.",
       "evidence_refs": [
-        "review_comment r3366745908",
-        "issuecomment-4639215037"
+        "review_comment:discussion_r3366745908",
+        "issue_comment:4639215037"
       ]
     },
     {
+      "reviewer": "jurrejelle",
       "path": "src/melee/ft/chara/ftCommon/ftCo_Bury.c",
-      "author": "jurrejelle",
       "feedback": "Do not use register, asm, or similar keywords.",
-      "resolution_evidence": "Author later said register usage was removed in ftCo_Bury.c.",
+      "resolution_evidence": "Author reported removing register usage in ftCo_Bury.c.",
       "evidence_refs": [
-        "review_comment r3366747549",
-        "issuecomment-4639215037"
+        "review_comment:discussion_r3366747549",
+        "issue_comment:4639215037"
       ]
     },
     {
-      "path": "src/melee/gm/gm_19EF.c",
-      "author": "jurrejelle",
-      "feedback": "Remove register.",
-      "resolution_evidence": "Author later said register usage was removed in gm_19EF.c.",
-      "evidence_refs": [
-        "review_comment r3366752957",
-        "issuecomment-4639215037"
-      ]
-    },
-    {
+      "reviewer": "jurrejelle",
       "path": "src/melee/ft/ftcoll.c",
-      "author": "jurrejelle",
-      "feedback": "Keep constants like strings and floats inline; such references will be resolved during linking.",
-      "resolution_evidence": "Author later said inline float/string literals were restored in ftcoll.c.",
+      "feedback": "Keep constants like strings and floats inline; such issues will be resolved during linking.",
+      "resolution_evidence": "Author reported restoring inline float/string literals in ftcoll.c.",
       "evidence_refs": [
-        "review_comment r3366750866",
-        "issuecomment-4639215037"
+        "review_comment:discussion_r3366750866",
+        "issue_comment:4639215037"
       ]
     },
     {
+      "reviewer": "jurrejelle",
       "path": "src/melee/gm/gm_1832.c",
-      "author": "jurrejelle",
-      "feedback": "Same inline-literal concern for replacing string literal with lbl_803D9438; separately requested removing added optimizer pragma.",
-      "resolution_evidence": "Author later said literals were restored and added optimizer pragma removed in gm_1832.c.",
+      "feedback": "Same inline-literal concern for replacing string literal ScItrAllstar_scene_data with lbl_803D9438.",
+      "resolution_evidence": "Author reported restoring inline literals in gm_1832.c.",
       "evidence_refs": [
-        "review_comment r3366752275",
-        "review_comment r3366752512",
-        "issuecomment-4639215037"
+        "review_comment:discussion_r3366752275",
+        "issue_comment:4639215037"
       ]
     },
     {
+      "reviewer": "jurrejelle",
+      "path": "src/melee/gm/gm_1832.c",
+      "feedback": "Remove added optimizer pragma.",
+      "resolution_evidence": "Author reported removing the added optimizer pragma in gm_1832.c.",
+      "evidence_refs": [
+        "review_comment:discussion_r3366752512",
+        "issue_comment:4639215037"
+      ]
+    },
+    {
+      "reviewer": "jurrejelle",
+      "path": "src/melee/gm/gm_19EF.c",
+      "feedback": "Remove register.",
+      "resolution_evidence": "Author reported removing register usage in gm_19EF.c.",
+      "evidence_refs": [
+        "review_comment:discussion_r3366752957",
+        "issue_comment:4639215037"
+      ]
+    },
+    {
+      "reviewer": "jurrejelle",
       "path": "src/melee/gm/gm_1A4C.c",
-      "author": "jurrejelle",
-      "feedback": "Revert less-readable changes involving named string storage/references; reviewer said they will be resolved during linking.",
-      "resolution_evidence": "Author later said inline float/string literals were restored in gm_1A4C.c.",
+      "feedback": "Revert less-readable changes involving extracted THP filename string symbols; reviewer said they would be resolved during linking.",
+      "resolution_evidence": "Author reported restoring inline float/string literals in gm_1A4C.c.",
       "evidence_refs": [
-        "review_comment r3366753658",
-        "issuecomment-4639215037"
+        "review_comment:discussion_r3366753658",
+        "issue_comment:4639215037"
       ]
     },
     {
+      "reviewer": "not specified in loaded excerpt",
       "path": "src/melee/gr/grinishie1.c",
-      "author": "not specified in loaded excerpt",
-      "feedback": "New M2C_FIELD usage was removed as part of review cleanup.",
-      "resolution_evidence": "Author comment lists removal of new M2C_FIELD usage in grinishie1.c.",
+      "feedback": "A new M2C_FIELD use was removed as part of review cleanup.",
+      "resolution_evidence": "Author reported removing the new M2C_FIELD usage in grinishie1.c.",
       "evidence_refs": [
-        "issuecomment-4639215037"
+        "issue_comment:4639215037"
       ]
     }
   ],
   "searchable_terms": [
     "PR2583",
-    "Improve matching across multiple source files",
     "fjooord",
-    "jurrejelle",
-    "grouped switch",
+    "Improve matching across multiple source files",
+    "a81d8f8",
+    "5d2393e4",
+    "ftCo_09F7 grouped switch",
     "goto dispatch",
-    "ftCo_09F7",
-    "ftCo_Bury register",
-    "gm_19EF register",
-    "inline literals",
-    "string literals",
-    "float literals",
-    "gm_1832 optimizer pragma",
-    "global_optimizer off",
-    "gm_1A4C THP strings",
-    "grinishie1 M2C_FIELD",
-    "THPDec",
-    "__THPDecompressiMCURow640x480",
-    "__THPDecompressiMCURowNxN",
-    "THPFileInfoMCUBufferView",
+    "register keyword removal",
+    "global_optimizer pragma",
+    "inline float string literals",
+    "M2C_FIELD grinishie1",
+    "THPDec THPFileInfoMCUBufferView",
+    "THPMCURowFields",
     "THPFileInfoDCTCompYView",
-    "camera.c fn_800301D0",
+    "Camera_80029CF8",
+    "fn_800301D0",
+    "lbaudio_ax fn_800253D8",
+    "lbaudio_ax fn_800256BC",
+    "grOldYoshi_8020EC10",
+    "fn_80165AC0",
+    "itseakneedlethrown .data",
+    "gm_1832 fn_8018325C",
+    "grOnett_801E43E0",
+    "gmregclear .bss",
     "particle context-slot type fix",
-    "ninja changes_all",
-    "0 broken matches",
-    "0 metric regressions"
+    "ninja changes_all"
   ],
   "follow_up_queries": [
-    "Find final merged diff for ftCo_09F7 grouped switch in PR 2583",
-    "Search for PR 2583 review comments about inline literals and linking",
-    "Search current THPDec for THPFileInfoMCUBufferView and DCTComp view structs",
-    "Search current source for remaining register keyword added around PR 2583 touched files",
-    "Search current source for #pragma global_optimizer off in gm_1832.c",
-    "Search current grinishie1.c for M2C_FIELD after PR 2583",
-    "Compare PR 2583 final changed_files list against metadata truncated list"
+    "PR 2583 ftCo_09F7 grouped switch goto dispatch",
+    "PR 2583 inline literals ftcoll gm_1832 gm_1A4C gmregclear ifprize",
+    "PR 2583 register keyword ftCo_Bury gm_19EF",
+    "PR 2583 optimizer pragma gm_1832",
+    "PR 2583 M2C_FIELD grinishie1",
+    "PR 2583 THPDec THPFileInfo temporary view structs",
+    "PR 2583 particle context-slot type fix",
+    "PR 2583 changed files full list 95 files",
+    "PR 2583 a81d8f8 regression report",
+    "review discussion_r3366745908 switch match",
+    "review discussion_r3366750866 keep constants inline"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR identity, state, counts, changed_files summary, review_feedback_examples",
-      "human_pr_text.md: PR body, progress report, verification, author review-cleanup comment",
-      "review_comments.md: loaded review comments, truncated",
-      "raw_diff: diff excerpt, truncated",
-      "changed_files.jsonl: changed-file records, truncated"
+      "metadata_json",
+      "human_pr_text",
+      "review_comments_excerpt",
+      "diff_excerpt",
+      "loaded_files:changed_files.jsonl",
+      "loaded_files:text_corpus.jsonl"
     ],
     "notes": [
-      "PR body and author comments provide strong evidence for claimed verification and review-cleanup resolutions, but intake did not independently run builds or inspect final merged code.",
-      "Diff and review comment files are truncated; only loaded hunks can support file-specific tactics.",
-      "Changed-files evidence states 95 files, but loaded changed_files excerpt is truncated, so key_files lists representative and review-relevant files rather than every changed file.",
-      "A bot report excerpt in text_corpus mentions one stale regression, while PR body says the older bot report was superseded and final report had 0 regressions; this record follows the PR body for final claimed status but notes it is author-reported.",
-      "Review intent is limited to the literal comments shown; no unsupported reviewer rationale beyond those comments is inferred."
+      "Strong evidence for PR identity, merge status, author, headline verification, review comments, and explicitly reported review cleanup.",
+      "Changed-files evidence reports 95 files, but the loaded changed_files.jsonl and raw diff are truncated, so this postmortem lists representative/high-signal files rather than an exhaustive verified 95-path inventory.",
+      "Diff evidence is excerpted and truncated; file-specific tactics are recorded only where visible in the supplied excerpt or explicitly mentioned in comments.",
+      "Verification results are author/PR-body reported and CI status reported in the PR text; no tools were run during intake.",
+      "The stale bot report in text_corpus showed one unmatched regression, but PR body explicitly marks older d65ac60 report stale and superseded by a current a81d8f8 report with 0 regressions; final summary uses the later PR-body evidence.",
+      "No reviewer intent beyond the quoted comments is inferred."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "review_lesson_candidate",
-        "title": "Try switch forms for switch-like goto dispatches",
-        "text": "In PR 2583, reviewer jurrejelle identified ftCo_09F7 branch/goto dispatch as likely one or more big switch statements; author later reported converting the reviewed dispatch into a grouped switch while preserving matching behavior.",
+        "record_type": "review_supported_lesson",
+        "title": "Try grouped switch before preserving goto dispatch",
+        "text": "In PR #2583, reviewer jurrejelle identified ftCo_09F7 dispatch code as likely switch-shaped and asked the author to try a switch; the author later reported converting the reviewed goto dispatch into a grouped switch while preserving matching behavior.",
         "scope": [
-          "fighter",
-          "control-flow",
-          "ftCo_09F7.c"
+          "src/melee/ft/chara/ftCommon/ftCo_09F7.c",
+          "fighter dispatch",
+          "control-flow cleanup"
         ],
         "evidence_refs": [
-          "review_comment r3366745908",
-          "issuecomment-4639215037"
+          "review_comment:discussion_r3366745908",
+          "issue_comment:4639215037"
         ],
-        "confidence": 0.88
+        "confidence": 0.9
       },
       {
-        "record_type": "review_lesson_candidate",
-        "title": "Avoid register/asm-style steering keywords in reviewable decomp C",
-        "text": "PR 2583 review explicitly rejected register usage in ftCo_Bury.c and gm_19EF.c; author reported removing those uses.",
+        "record_type": "review_supported_lesson",
+        "title": "Avoid register and optimizer pragma steering in normal decomp source",
+        "text": "PR #2583 review rejected added register keywords in ftCo_Bury.c and gm_19EF.c and an added global_optimizer pragma in gm_1832.c; the author reported removing them.",
         "scope": [
           "matching tactics",
-          "source style"
+          "ftCo_Bury.c",
+          "gm_19EF.c",
+          "gm_1832.c"
         ],
         "evidence_refs": [
-          "review_comment r3366747549",
-          "review_comment r3366752957",
-          "issuecomment-4639215037"
+          "review_comment:discussion_r3366747549",
+          "review_comment:discussion_r3366752512",
+          "review_comment:discussion_r3366752957",
+          "issue_comment:4639215037"
         ],
-        "confidence": 0.95
+        "confidence": 0.94
       },
       {
-        "record_type": "review_lesson_candidate",
-        "title": "Keep ordinary constants inline instead of naming literals for link/data parity",
-        "text": "PR 2583 review rejected replacing inline strings/floats with named symbols in ftcoll.c, gm_1832.c, and gm_1A4C.c; author reported restoring inline float/string literals in ftcoll.c, gm_1832.c, gm_1A4C.c, gmregclear.c, and ifprize.c.",
+        "record_type": "review_supported_lesson",
+        "title": "Keep ordinary literals inline in code-matching PRs",
+        "text": "PR #2583 review rejected replacing inline float/string literals with generated data symbols in files including ftcoll.c, gm_1832.c, and gm_1A4C.c; the author reported restoring inline literals in ftcoll.c, gm_1832.c, gm_1A4C.c, gmregclear.c, and ifprize.c.",
         "scope": [
-          "literals",
+          "literal handling",
           "data ownership",
-          "matching"
+          "code matching"
         ],
         "evidence_refs": [
-          "review_comment r3366750866",
-          "review_comment r3366752275",
-          "review_comment r3366753658",
-          "issuecomment-4639215037"
+          "review_comment:discussion_r3366750866",
+          "review_comment:discussion_r3366752275",
+          "review_comment:discussion_r3366753658",
+          "issue_comment:4639215037"
         ],
         "confidence": 0.95
       }
@@ -464,26 +573,26 @@
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "PR 2583 reinforces existing no-register/pragma exception guidance",
-        "text": "Review comments in PR 2583 explicitly requested removing register keywords and an added global_optimizer pragma. Current standards already cover this under avoid-pragmas-register-asm; curator may link PR 2583 as historical supporting evidence rather than creating a new standard.",
+        "title": "Add PR #2583 as example evidence for no register/pragma steering",
+        "text": "PR #2583 contains review evidence where register keywords in ftCo_Bury.c and gm_19EF.c and an added global_optimizer pragma in gm_1832.c were requested for removal and later reported removed.",
         "source_path": null,
         "scope": [
           "avoid-pragmas-register-asm",
-          "matching tactics"
+          "matching-tactics-need-evidence"
         ],
         "evidence_refs": [
-          "review_comment r3366747549",
-          "review_comment r3366752957",
-          "review_comment r3366752512",
-          "issuecomment-4639215037"
+          "review_comment:discussion_r3366747549",
+          "review_comment:discussion_r3366752512",
+          "review_comment:discussion_r3366752957",
+          "issue_comment:4639215037"
         ],
-        "reason": "Potential source update is only to add this PR as an example/evidence reference; the standard itself already exists in loaded decomp_standards."
+        "reason": "Existing standards already cover this; curator may attach PR #2583 as concrete historical support, not as a new rule."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "PR 2583 reinforces existing inline-literal/data-ownership standards",
-        "text": "Reviewer feedback in PR 2583 said constants like strings and floats should remain inline and that such references will be resolved during linking. This aligns with existing literals-and-data-ownership, no-string-literal-symbol-regression, and text-before-data-matching standards.",
+        "title": "Add PR #2583 as example evidence for inline literals over generated symbols",
+        "text": "PR #2583 review objected to replacing ordinary inline float/string literals with generated symbol names, and author reported restoring inline literals across ftcoll.c, gm_1832.c, gm_1A4C.c, gmregclear.c, and ifprize.c.",
         "source_path": null,
         "scope": [
           "literals-and-data-ownership",
@@ -491,44 +600,61 @@
           "text-before-data-matching"
         ],
         "evidence_refs": [
-          "review_comment r3366750866",
-          "review_comment r3366752275",
-          "review_comment r3366753658",
-          "issuecomment-4639215037"
+          "review_comment:discussion_r3366750866",
+          "review_comment:discussion_r3366752275",
+          "review_comment:discussion_r3366753658",
+          "issue_comment:4639215037"
         ],
-        "reason": "Use as historical evidence/example if curator wants more citations; do not add as a novel rule because loaded standards already contain the concept."
+        "reason": "Useful historical example for an existing standard; not a new accepted source-corpus fact."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "PR 2583 reinforces switch cleanup for generated branch ladders",
-        "text": "Reviewer suggested ftCo_09F7 looked like one or more big switch statements, and author reported converting a goto dispatch into a grouped switch. This aligns with canonical-control-flow-and-macros.",
+        "title": "Add PR #2583 as example for switch-shaped dispatch cleanup",
+        "text": "Reviewer suggested a switch for ftCo_09F7's generated-looking branch/goto dispatch, and the author reported converting the reviewed dispatch into a grouped switch while preserving matching behavior.",
         "source_path": null,
         "scope": [
           "canonical-control-flow-and-macros",
           "fighter dispatch"
         ],
         "evidence_refs": [
-          "review_comment r3366745908",
-          "issuecomment-4639215037"
+          "review_comment:discussion_r3366745908",
+          "issue_comment:4639215037"
         ],
-        "reason": "Potential example citation for an existing standard; final code was not fully loaded, so avoid over-specific path fact promotion."
+        "reason": "Supports existing guidance to check generated branch ladders/gotos against ordinary C forms."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "Possible THPDec temporary overlay-struct pattern",
+        "text": "The THPDec diff excerpt introduced temporary view structs such as THPMCURowFields, THPFileInfoMCUBufferView, and THPFileInfoDCTCompY/U/VView for offset-based accesses inside extern/dolphin/src/dolphin/thp/THPDec.c.",
+        "source_path": "extern/dolphin/src/dolphin/thp/THPDec.c",
+        "scope": [
+          "external-sdk",
+          "THPDec",
+          "temporary typed fields"
+        ],
+        "evidence_refs": [
+          "diff_excerpt:THPDec.c"
+        ],
+        "reason": "Potential path-local decomp tactic, but exact field ownership and offset facts should not be promoted without current source/header verification."
       }
     ],
     "rejection_notes": [
-      "Do not promote the THPDec temporary view-struct pattern as a global best practice; loaded evidence only shows it in this PR and current standards prefer real typed fields when recoverable.",
-      "Do not claim all 95 changed files individually inspected; the loaded changed_files and diff artifacts are truncated.",
-      "Do not claim independent validation beyond PR-reported ninja, changes_all, and CI results.",
-      "Do not infer that every review comment was resolved from final diff; resolution evidence is the author's cleanup comment plus PR body saying review threads were resolved."
+      "Do not promote the specific 95-file inventory from this intake as exhaustive; loaded changed_files evidence is truncated.",
+      "Do not treat the THPDec temporary overlay structs as final accepted type layout facts from this PR slice alone.",
+      "Do not infer that all data-section improvements were intentionally data cleanup; review evidence shows some data-symbol/literal changes were reverted.",
+      "Do not promote register keywords, optimizer pragmas, or literal-symbol substitutions as accepted matching style; review evidence points the opposite direction.",
+      "Do not use the stale d65ac60 bot report as final regression status; PR body says it was superseded."
     ]
   },
-  "confidence": 0.82,
+  "confidence": 0.84,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

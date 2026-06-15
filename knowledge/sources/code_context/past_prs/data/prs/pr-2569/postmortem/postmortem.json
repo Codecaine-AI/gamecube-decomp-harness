@@ -12,362 +12,322 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Matched three Ice Mountain functions in src/melee/gr/gricemt.c and cleaned up synth evidence by removing an obsolete residual-match note for HSD_Synth_80388DC8 and tightening HSD_Synth_8038B120's header prototype to void(void). The Ice Mountain changes used source-shape adjustments including assert expansion, an inline helper returning gv.icemt2.xC8 jobj pointers, PAD_STACK(24), grIm_804DB570 instead of an inline -20.0f literal, and #pragma auto_inline off near grIceMt_801F71E8.",
+  "summary": "PR #2569 matched three Ice Mountain functions in src/melee/gr/gricemt.c and cleaned up synth declarations/comments. The PR body claims HSD_Synth_80388DC8 and grIceMt_801F96E0, grIceMt_801F993C, and grIceMt_801FA0BC reached 100.0%, with configure --require-protos and ninja run. The loaded bot report independently lists three new gricemt function matches and a .sdata2 improvement, but does not list HSD_Synth_80388DC8 as a new match.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "source-shape-tactics"
+      "stage",
+      "baselib",
+      "matching-tactics"
     ],
     "systems": [
-      "stage/gricemt",
-      "sysdolphin/baselib/synth"
+      "src/melee/gr",
+      "src/sysdolphin/baselib"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/gricemt.c",
-      "role": "Main matching work for grIceMt_801F96E0, grIceMt_801F993C, and grIceMt_801FA0BC; source-shape edits and matching tactics.",
+      "role": "Main Ice Mountain matching work: added auto_inline pragma, expanded assert macros into __assert forms, introduced grIceMt_FA0BC_jobjs helper, adjusted locals/source shape, used PAD_STACK, and matched grIceMt_801F96E0, grIceMt_801F993C, and grIceMt_801FA0BC according to PR body and bot report.",
       "evidence_refs": [
-        "changed_files: src/melee/gr/gricemt.c +73/-52, 4 hunks",
-        "diff: gricemt.c hunks around grIceMt_801F71E8, grIceMt_801F96E0, grIceMt_801F993C, grIceMt_801FA0BC",
-        "pr_body: claims three Ice Mountain functions brought to 100%",
-        "bot_report: 3 new matches in main/melee/gr/gricemt"
+        "changed_files.jsonl: src/melee/gr/gricemt.c +73/-52, 4 hunks",
+        "raw_diff: gricemt.c hunks around grIceMt_801F71E8, grIceMt_801F96E0, grIceMt_801F993C, grIceMt_801FA0BC",
+        "human_pr_text: Brings grIceMt_801F96E0, grIceMt_801F993C, and grIceMt_801FA0BC to 100%",
+        "text_corpus issue_comment: bot report lists 3 new gricemt matches"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/synth.c",
-      "role": "Removed obsolete todo noting HSD_Synth_80388DC8 was only a 97.2% match.",
+      "role": "Removed obsolete residual-match TODO above HSD_Synth_80388DC8 after claimed match.",
       "evidence_refs": [
-        "changed_files: src/sysdolphin/baselib/synth.c +0/-2, 1 hunk",
-        "diff: removed two-line todo before HSD_Synth_80388DC8",
-        "pr_body: says obsolete residual-match note was removed"
+        "changed_files.jsonl: src/sysdolphin/baselib/synth.c +0/-2, 1 hunk",
+        "raw_diff: removed 97.2% TODO for HSD_Synth_80388DC8",
+        "human_pr_text: removes obsolete residual-match note on HSD_Synth_80388DC8"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/synth.h",
-      "role": "Updated HSD_Synth_8038B120 declaration from unknown return/params to void(void).",
+      "role": "Tightened HSD_Synth_8038B120 prototype from UNK_RET/UNK_PARAMS to void(void).",
       "evidence_refs": [
-        "changed_files: src/sysdolphin/baselib/synth.h +1/-1, 1 hunk",
-        "diff: UNK_RET HSD_Synth_8038B120(UNK_PARAMS) changed to void HSD_Synth_8038B120(void)",
-        "pr_body: says signature tightened to existing void(void) definition"
+        "changed_files.jsonl: src/sysdolphin/baselib/synth.h +1/-1, 1 hunk",
+        "raw_diff: HSD_Synth_8038B120 changed to void HSD_Synth_8038B120(void)",
+        "human_pr_text: tightens HSD_Synth_8038B120 to existing void(void) definition"
       ]
     }
   ],
   "what_changed": [
-    {
-      "text": "Added #pragma auto_inline off immediately before grIceMt_801F71E8.",
-      "evidence_refs": [
-        "diff: gricemt.c around grIceMt_801F71E8"
-      ]
-    },
-    {
-      "text": "In grIceMt_801F96E0, HSD_ASSERT macro calls for mgobj and jobj were expanded into explicit NULL checks calling __assert with grIm_803E4068-based file/message references.",
-      "evidence_refs": [
-        "diff: gricemt.c grIceMt_801F96E0 hunk"
-      ]
-    },
-    {
-      "text": "In grIceMt_801F993C, HSD_ASSERTMSG checks for upper_ix and under_ix bounds were expanded into explicit __assert calls using grIm_803E4068 offsets for assertion text.",
-      "evidence_refs": [
-        "diff: gricemt.c grIceMt_801F993C hunk"
-      ]
-    },
-    {
-      "text": "Replaced two wrapper inlines around grIceMt_801F71E8 with static inline HSD_JObj** grIceMt_FA0BC_jobjs(Ground* g), returning &g->gv.icemt2.xC8.",
-      "evidence_refs": [
-        "diff: gricemt.c before grIceMt_801FA0BC"
-      ]
-    },
-    {
-      "text": "Reshaped grIceMt_801FA0BC local variables and calls: used gobj/gp/frame names, direct grIceMt_801F71E8 calls, PAD_STACK(24), grIm_804DB570 * Ground_801C0498(), and explicit jobjs[0..3] NULL checks.",
-      "evidence_refs": [
-        "diff: gricemt.c grIceMt_801FA0BC hunk"
-      ]
-    },
-    {
-      "text": "Removed the HSD_Synth_80388DC8 todo about a 97.2% residual register-allocation mismatch.",
-      "evidence_refs": [
-        "diff: synth.c hunk before HSD_Synth_80388DC8"
-      ]
-    },
-    {
-      "text": "Changed HSD_Synth_8038B120 prototype in synth.h from UNK_RET/UNK_PARAMS to void(void).",
-      "evidence_refs": [
-        "diff: synth.h hunk"
-      ]
-    }
+    "Added `#pragma auto_inline off` before `grIceMt_801F71E8` in gricemt.c.",
+    "Replaced several `HSD_ASSERT` and `HSD_ASSERTMSG` macro calls in Ice Mountain functions with explicit `if` checks calling `__assert` using file/message pointers derived from `grIm_803E4068`.",
+    "Reworked `grIceMt_801FA0BC` local variable shape: `mgobj` became `gobj`, `gp2` became `gp`, `f` became `frame`, temporary `id` was removed, and `PAD_STACK(24)` was added.",
+    "Removed two wrapper inlines around `grIceMt_801F71E8` and introduced `static inline HSD_JObj** grIceMt_FA0BC_jobjs(Ground* g)` returning `&g->gv.icemt2.xC8`.",
+    "Changed `grIceMt_801FA0BC` to use `grIm_804DB570 * Ground_801C0498()` instead of the literal `-20.0f * Ground_801C0498()` in the shown translation-Y expressions.",
+    "Removed an obsolete TODO stating `HSD_Synth_80388DC8` was a 97.2% match.",
+    "Updated `HSD_Synth_8038B120` declaration in synth.h from unknown return/params to `void HSD_Synth_8038B120(void)`."
   ],
   "smart_moves": [
     {
-      "text": "The PR paired a header prototype cleanup with require-protos verification, which is aligned with recovering truthful function signatures when the body already proves void(void).",
+      "text": "The synth header update follows the truthful-header principle: once the body/signature is known, replace `UNK_RET` and `UNK_PARAMS` in the owning header with the concrete prototype.",
       "evidence_refs": [
-        "pr_body: tightens HSD_Synth_8038B120 to existing void(void) definition",
-        "pr_body: Verification includes python configure.py --require-protos",
-        "diff: synth.h prototype update"
+        "raw_diff: synth.h HSD_Synth_8038B120 prototype change",
+        "human_pr_text: tightens HSD_Synth_8038B120 to existing void(void) definition",
+        "decomp_standards: truthful-headers-and-includes"
       ]
     },
     {
-      "text": "The Ice Mountain matching work localized source-shape helpers to gricemt.c rather than spreading declarations or helper changes across broader headers.",
+      "text": "The Ice Mountain work localized a pointer-to-JObj-array access behind a small typed inline helper returning `&g->gv.icemt2.xC8`, avoiding a broader rewrite while giving the compiler a source shape that matched.",
       "evidence_refs": [
-        "diff: gricemt.c adds static inline grIceMt_FA0BC_jobjs",
-        "changed_files: only gricemt.c, synth.c, synth.h changed"
+        "raw_diff: grIceMt_FA0BC_jobjs helper",
+        "human_pr_text: small source-shape helpers around existing Ice Mountain code"
       ]
     },
     {
-      "text": "The PR removed a stale match-progress comment after the author claimed HSD_Synth_80388DC8 reached 100%, reducing misleading residual-match documentation.",
+      "text": "The PR body recorded narrow verification commands and a GALE01 100.0% report for the claimed functions, which is useful match evidence for later review.",
       "evidence_refs": [
-        "pr_body: Matches HSD_Synth_80388DC8",
-        "diff: synth.c removed 97.2% todo"
+        "human_pr_text: Verification section",
+        "text_corpus issue_comment: GALE01 bot report"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a function body already proves a concrete signature, update the owning header and run require-protos rather than leaving UNK_RET/UNK_PARAMS.",
+      "lesson": "When a function body proves a signature, update the owning header prototype instead of leaving `UNK_RET`/`UNK_PARAMS` in place.",
       "scope": [
         "headers",
-        "function prototypes"
+        "sysdolphin/baselib"
       ],
       "evidence_refs": [
-        "diff: synth.h HSD_Synth_8038B120 changed to void(void)",
-        "pr_body: Verification includes python configure.py --require-protos"
+        "raw_diff: synth.h HSD_Synth_8038B120 changed to void(void)",
+        "human_pr_text: existing void(void) definition"
       ],
-      "confidence": 0.86
+      "confidence": 0.92
     },
     {
-      "lesson": "Small, local source-shape helpers can be enough to close near-matching stage functions, but tactics such as PAD_STACK, pragmas, and raw __assert expansion should be recorded as match-specific rather than generalized style.",
+      "lesson": "A very small typed helper can be useful as a source-shape tool when accessing nested GroundVars fields, as shown by `grIceMt_FA0BC_jobjs(Ground* g)` returning `&g->gv.icemt2.xC8` during the `grIceMt_801FA0BC` match.",
       "scope": [
-        "src/melee/gr/gricemt.c",
-        "stage matching"
+        "stage",
+        "Ice Mountain",
+        "GroundVars"
       ],
       "evidence_refs": [
-        "pr_body: says Ice Mountain functions reached 100% using small source-shape helpers",
-        "diff: #pragma auto_inline off",
-        "diff: PAD_STACK(24)",
-        "diff: explicit __assert replacements",
-        "bot_report: grIceMt_801FA0BC, grIceMt_801F96E0, grIceMt_801F993C at 100.00%"
+        "raw_diff: grIceMt_FA0BC_jobjs helper",
+        "human_pr_text: small source-shape helpers",
+        "text_corpus issue_comment: grIceMt_801FA0BC 92.78% to 100.00%"
       ],
-      "confidence": 0.74
+      "confidence": 0.78
     }
   ],
   "naming_conventions": [
     {
-      "name": "gobj",
-      "kind": "local variable",
-      "context": "grIceMt_801FA0BC renamed mgobj to gobj for the HSD_GObj* returned from grIceMt_801F71E8.",
-      "evidence_refs": [
-        "diff: grIceMt_801FA0BC local HSD_GObj* mgobj changed to HSD_GObj* gobj"
-      ]
-    },
-    {
-      "name": "gp",
-      "kind": "local variable",
-      "context": "Ground* local renamed from gp2 to gp in grIceMt_801FA0BC.",
-      "evidence_refs": [
-        "diff: grIceMt_801FA0BC local Ground* gp2 changed to Ground* gp"
-      ]
-    },
-    {
-      "name": "frame",
-      "kind": "local variable",
-      "context": "f32 f renamed to frame for the value returned by grIceMt_801F993C.",
-      "evidence_refs": [
-        "diff: grIceMt_801FA0BC local f32 f changed to f32 frame"
-      ]
-    },
-    {
       "name": "grIceMt_FA0BC_jobjs",
-      "kind": "static inline helper",
-      "context": "Helper name ties the accessor to grIceMt_801FA0BC and returns the jobj pointer array at gv.icemt2.xC8.",
+      "type": "static inline helper",
+      "convention": "Helper name combines stage/function address context with the returned role (`jobjs`) rather than inventing a broader semantic name.",
       "evidence_refs": [
-        "diff: static inline HSD_JObj** grIceMt_FA0BC_jobjs(Ground* g)"
+        "raw_diff: static inline HSD_JObj** grIceMt_FA0BC_jobjs(Ground* g)"
+      ]
+    },
+    {
+      "name": "gobj, gp, jobj, frame",
+      "type": "locals",
+      "convention": "Local names were made role-oriented where roles are clear: game object, ground pointer, JObj, and computed frame/offset value.",
+      "evidence_refs": [
+        "raw_diff: grIceMt_801FA0BC local variable changes"
+      ]
+    },
+    {
+      "name": "HSD_Synth_8038B120",
+      "type": "prototype",
+      "convention": "Address-style function name was preserved while only the proven signature was tightened.",
+      "evidence_refs": [
+        "raw_diff: synth.h prototype change"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "#pragma auto_inline off was introduced before grIceMt_801F71E8.",
+      "tactic": "Scoped compiler behavior change with `#pragma auto_inline off` before `grIceMt_801F71E8`.",
       "evidence_refs": [
-        "diff: gricemt.c adds #pragma auto_inline off"
+        "raw_diff: added #pragma auto_inline off"
       ],
-      "caution": "Loaded standards treat pragmas as exceptions requiring tight scope and adjacent evidence; the PR slice shows the pragma and reported matches but does not include reviewer rationale or adjacent-function analysis."
+      "caveat": "Loaded evidence does not show a balancing pragma or adjacent-function regression analysis; treat this as a tactic needing curator/reviewer caution under the pragma standard."
     },
     {
-      "tactic": "PAD_STACK(24) was added in grIceMt_801FA0BC.",
+      "tactic": "Used `PAD_STACK(24)` in `grIceMt_801FA0BC` to shape stack/codegen.",
       "evidence_refs": [
-        "diff: grIceMt_801FA0BC adds PAD_STACK(24)",
-        "bot_report: grIceMt_801FA0BC improved from 92.78% to 100.00%"
+        "raw_diff: PAD_STACK(24)",
+        "human_pr_text: grIceMt_801FA0BC to 100%",
+        "text_corpus issue_comment: grIceMt_801FA0BC 92.78% to 100.00%"
       ],
-      "caution": "Loaded standards require explicit verifier evidence for PAD_STACK. The bot report and PR body provide match evidence, but no detailed objdiff explanation is included."
+      "caveat": "The PR body gives match verification, but the loaded evidence does not isolate PAD_STACK as necessary by itself."
     },
     {
-      "tactic": "HSD_ASSERT and HSD_ASSERTMSG macros were replaced with explicit NULL/condition checks and __assert calls using grIm_803E4068 offsets.",
+      "tactic": "Expanded assert macros into explicit `if (...) __assert(...)` blocks with file/message pointer expressions to match Ice Mountain functions.",
       "evidence_refs": [
-        "diff: grIceMt_801F96E0 assert replacements",
-        "diff: grIceMt_801F993C assert replacements"
+        "raw_diff: HSD_ASSERT/HSD_ASSERTMSG replacements in grIceMt_801F96E0, grIceMt_801F993C, grIceMt_801FA0BC"
       ],
-      "caution": "This is match-specific evidence; loaded standards usually prefer mapping raw asserts back to macros when possible."
+      "caveat": "This conflicts with the general cleanup preference for assert macros in loaded standards, so it should be treated as PR-specific matching evidence rather than a global style lesson."
     },
     {
-      "tactic": "A small inline accessor, grIceMt_FA0BC_jobjs, was used to express &g->gv.icemt2.xC8 before iterating jobjs[0..3].",
+      "tactic": "Changed source shape by removing wrapper inlines around `grIceMt_801F71E8` and adding a typed field helper for the JObj array.",
       "evidence_refs": [
-        "diff: grIceMt_FA0BC_jobjs helper",
-        "diff: grIceMt_801FA0BC jobjs[0..3] checks"
+        "raw_diff: removed grIceMt_801F71E8_inner/noinline; added grIceMt_FA0BC_jobjs"
       ],
-      "caution": "The slice supports this as a local matching helper, not as a global accessor convention."
-    },
-    {
-      "tactic": "The inline literal -20.0f was replaced by grIm_804DB570 in grIceMt_801FA0BC translation calculations.",
-      "evidence_refs": [
-        "diff: HSD_JObjSetTranslateY uses grIm_804DB570 * Ground_801C0498()"
-      ],
-      "caution": "The slice does not include section ownership details for grIm_804DB570; treat as PR-local evidence."
+      "caveat": "Supported as a local match tactic by the PR body and bot report, not as a general rule."
     }
   ],
-  "review_feedback": [
-    {
-      "kind": "bot_report",
-      "text": "GALE01 report showed matched code 69.84% (+0.04%, +1536 bytes), with 3 new gricemt matches: grIceMt_801FA0BC, grIceMt_801F96E0, and grIceMt_801F993C all reaching 100.00%. It also reported one .sdata2 improvement in main/melee/gr/gricemt from 69.70% to 71.88%.",
-      "evidence_refs": [
-        "text_corpus: decomp-dev[bot] issue_comment created_at 2026-06-01T20:24:01Z"
-      ]
-    }
-  ],
+  "review_feedback": [],
   "searchable_terms": [
     "PR2569",
     "itsgrimetime",
     "Match synth and Ice Mountain functions",
+    "HSD_Synth_80388DC8",
+    "HSD_Synth_8038B120",
+    "HSD_SynthSFXUnloadBank",
+    "synth.c",
+    "synth.h",
     "gricemt.c",
     "grIceMt_801F96E0",
     "grIceMt_801F993C",
     "grIceMt_801FA0BC",
     "grIceMt_801F71E8",
     "grIceMt_FA0BC_jobjs",
-    "HSD_Synth_80388DC8",
-    "HSD_Synth_8038B120",
-    "synth.c",
-    "synth.h",
+    "GroundVars",
+    "gv.icemt2.xC8",
+    "PAD_STACK",
+    "auto_inline off",
+    "__assert",
     "HSD_ASSERT",
     "HSD_ASSERTMSG",
-    "__assert",
     "GET_JOBJ",
-    "PAD_STACK(24)",
-    "#pragma auto_inline off",
+    "Ground_801C2BA4",
+    "Ground_801C2D0C",
+    "Ground_801C0498",
     "grIm_803E4068",
     "grIm_804DB570",
-    "Ground_801C2BA4",
-    "Ground_801C0498",
-    "Ground_801C2D0C",
+    "ICEMT_FIELD_MAX",
     "require-protos",
     "GALE01"
   ],
   "follow_up_queries": [
-    "PR2569 grIceMt_801FA0BC PAD_STACK",
-    "PR2569 gricemt auto_inline off grIceMt_801F71E8",
-    "PR2569 HSD_Synth_8038B120 void void require-protos",
-    "grIceMt_FA0BC_jobjs gv.icemt2.xC8",
-    "gricemt raw __assert grIm_803E4068 offsets",
-    "HSD_Synth_80388DC8 residual-match note 97.2"
+    "Find other PRs that add `#pragma auto_inline off` near stage helper functions and whether they include balancing pragmas.",
+    "Search for `PAD_STACK` in `src/melee/gr` to identify stage matching cases where stack padding remained after verification.",
+    "Search for Ice Mountain `__assert((char*) &grIm_803E4068 + 0x690` patterns to see whether explicit assert expansion is localized to gricemt matching.",
+    "Search for `UNK_RET` or `UNK_PARAMS` removals in baselib headers paired with `python configure.py --require-protos` verification.",
+    "Check whether `grIm_804DB570` is the owned symbol for the `-20.0f` literal in Ice Mountain before deriving any data-ownership lesson."
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR number, title, author, MERGED state, timestamps, changed files",
-      "human_pr_text: PR body with claims and verification commands",
-      "raw_diff: exact changed hunks for gricemt.c, synth.c, synth.h",
-      "text_corpus: decomp-dev[bot] GALE01 report"
+      "metadata_json: PR state MERGED, 3 changed files, diff_bytes 7300",
+      "human_pr_text: PR body with claimed matches and verification",
+      "raw_diff: complete diff excerpt for all changed files",
+      "text_corpus issue_comment: GALE01 bot report with three gricemt matches and .sdata2 improvement"
     ],
     "notes": [
-      "The slice includes no human review comments and no review approvals, so reviewer intent cannot be inferred.",
-      "The PR body claims HSD_Synth_80388DC8 at 100.0%, but the loaded bot report only lists three new gricemt matches and an .sdata2 improvement; treat synth match status as author-claimed within this slice.",
-      "The diff includes tactics that loaded standards normally caution against, including raw __assert expansion, PAD_STACK, and pragma use. The PR body and bot report provide match evidence but not detailed objdiff or adjacent-function rationale.",
-      "No local source files beyond the diff were inspected; path facts and global conventions are not promoted from this intake."
+      "No human review comments are loaded, so reviewer intent and review feedback are unavailable.",
+      "The PR body claims `HSD_Synth_80388DC8` reached 100.0%, but the loaded bot report only lists three new gricemt matches; the synth claim is therefore supported by author verification text but not independently echoed in the bot excerpt.",
+      "The diff shows tactics that global standards generally discourage without narrow evidence: `#pragma auto_inline off`, `PAD_STACK`, and explicit `__assert` expansion. The PR body and bot report support final function matching, but not the necessity of each tactic in isolation.",
+      "No build logs are loaded beyond the PR body's stated `python configure.py --require-protos`, `ninja`, and GALE01 report."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "title": "Header prototype recovery with require-protos verification",
-        "text": "PR #2569 changed HSD_Synth_8038B120 in synth.h from UNK_RET/UNK_PARAMS to void(void) after the PR body stated the existing definition already had that signature, and it listed python configure.py --require-protos as verification.",
+        "record_type": "decomp_lesson",
+        "title": "Tighten owning header prototypes when the body proves the signature",
+        "text": "PR #2569 changed `HSD_Synth_8038B120` in `src/sysdolphin/baselib/synth.h` from `UNK_RET HSD_Synth_8038B120(UNK_PARAMS)` to `void HSD_Synth_8038B120(void)` after the PR body described it as the existing `void(void)` definition and listed `python configure.py --require-protos` verification.",
         "scope": [
-          "src/sysdolphin/baselib/synth.h",
-          "prototype cleanup"
+          "headers",
+          "sysdolphin/baselib"
         ],
         "evidence_refs": [
-          "diff: synth.h HSD_Synth_8038B120 prototype update",
-          "pr_body: tightens HSD_Synth_8038B120 to existing void(void) definition",
-          "pr_body: Verification includes python configure.py --require-protos"
+          "raw_diff: synth.h prototype change",
+          "human_pr_text: Details and Verification"
         ],
-        "confidence": 0.86
+        "confidence": 0.92
       },
       {
-        "title": "Match-specific source-shape helpers in gricemt",
-        "text": "PR #2569 closed grIceMt_801F96E0, grIceMt_801F993C, and grIceMt_801FA0BC using localized gricemt.c source-shape edits, including explicit assert forms, grIceMt_FA0BC_jobjs, PAD_STACK(24), and auto_inline control. Record as PR-specific tactics, not as global style.",
+        "record_type": "matching_tactic",
+        "title": "Small typed helper for nested GroundVars JObj array access",
+        "text": "For `grIceMt_801FA0BC`, PR #2569 replaced wrapper inlines around `grIceMt_801F71E8` with `static inline HSD_JObj** grIceMt_FA0BC_jobjs(Ground* g) { return &g->gv.icemt2.xC8; }`, then used `jobjs[0..3]` in the matched code. This is evidence for a local Ice Mountain source-shape tactic, not a global helper-naming rule.",
         "scope": [
           "src/melee/gr/gricemt.c",
-          "Ice Mountain matching"
+          "Ice Mountain",
+          "GroundVars"
         ],
         "evidence_refs": [
-          "pr_body: says three Ice Mountain functions reached 100% using small source-shape helpers",
-          "diff: gricemt.c matching tactic hunks",
-          "bot_report: three new gricemt matches at 100.00%"
+          "raw_diff: grIceMt_FA0BC_jobjs addition",
+          "text_corpus issue_comment: grIceMt_801FA0BC new match"
         ],
-        "confidence": 0.74
+        "confidence": 0.78
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "gricemt.c PR-specific matching tactics used in PR #2569",
-        "text": "For src/melee/gr/gricemt.c, PR #2569 used raw __assert expansions with grIm_803E4068 offsets, PAD_STACK(24), #pragma auto_inline off near grIceMt_801F71E8, and a local grIceMt_FA0BC_jobjs helper to reach 100% for grIceMt_801F96E0, grIceMt_801F993C, and grIceMt_801FA0BC. Because these overlap with globally cautioned tactics, record only as historical path evidence if useful.",
-        "source_path": "src/melee/gr/gricemt.c",
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Document caution for explicit assert expansion retained for narrow matches",
+        "text": "PR #2569 matched Ice Mountain functions by replacing `HSD_ASSERT`/`HSD_ASSERTMSG` calls with explicit `if` + `__assert` blocks using pointer-derived file/message strings. This should not override the existing macro preference, but it may be worth adding an exception note that such expansions need narrow objdiff evidence and should remain PR/local rather than becoming cleanup style.",
+        "source_path": null,
         "scope": [
-          "grIceMt_801F96E0",
-          "grIceMt_801F993C",
-          "grIceMt_801FA0BC",
-          "grIceMt_801F71E8"
+          "assert-report-macros",
+          "src/melee/gr/gricemt.c"
         ],
         "evidence_refs": [
-          "diff: gricemt.c hunks",
-          "pr_body: Ice Mountain functions brought to 100%",
-          "bot_report: gricemt functions reached 100.00%"
+          "raw_diff: grIceMt_801F96E0, grIceMt_801F993C, grIceMt_801FA0BC assert changes",
+          "human_pr_text: GALE01 100.0% claim",
+          "text_corpus issue_comment: three gricemt matches"
         ],
-        "reason": "This may help future gricemt work understand existing unusual source shapes without promoting them as general standards."
+        "reason": "Loaded standards prefer macros; this PR provides historical evidence of a narrow match exception but not enough to promote a broad style change."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Require extra ledger evidence for auto_inline pragmas in matching PRs",
+        "text": "PR #2569 added `#pragma auto_inline off` before `grIceMt_801F71E8`. The loaded diff does not show balancing or adjacent regression notes. Curator may consider whether standards should explicitly require scoped push/pop or adjacency evidence for `auto_inline` pragmas, similar to existing pragma cautions.",
+        "source_path": null,
+        "scope": [
+          "avoid-pragmas-register-asm",
+          "matching-tactics-need-evidence"
+        ],
+        "evidence_refs": [
+          "raw_diff: added #pragma auto_inline off before grIceMt_801F71E8"
+        ],
+        "reason": "Potential standards clarification; PR evidence supports occurrence, not a global best practice."
       },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "synth.h HSD_Synth_8038B120 signature recovery",
-        "text": "PR #2569 updated HSD_Synth_8038B120's header declaration to void HSD_Synth_8038B120(void), with PR body stating this matches the existing definition and verification including require-protos.",
-        "source_path": "src/sysdolphin/baselib/synth.h",
+        "title": "Ice Mountain gricemt.c functions matched in PR #2569",
+        "text": "`src/melee/gr/gricemt.c` contains Ice Mountain functions `grIceMt_801F96E0`, `grIceMt_801F993C`, and `grIceMt_801FA0BC`; PR #2569's bot report lists them as new 100.00% matches in unit `main/melee/gr/gricemt`.",
+        "source_path": "src/melee/gr/gricemt.c",
         "scope": [
-          "HSD_Synth_8038B120"
+          "Ice Mountain",
+          "gricemt",
+          "matching history"
         ],
         "evidence_refs": [
-          "diff: synth.h prototype update",
-          "pr_body: signature tightening detail",
-          "pr_body: require-protos verification"
+          "text_corpus issue_comment: bot report table",
+          "human_pr_text: claimed gricemt matches"
         ],
-        "reason": "Useful as historical evidence for removing UNK_RET/UNK_PARAMS when a body proves the signature."
+        "reason": "Useful searchable historical path fact, but should be curator-approved before adding to source-owned path facts."
       }
     ],
     "rejection_notes": [
-      "Do not infer that raw __assert expansion is preferred style; loaded standards say assert/report macros should usually be used when they represent the source-level form.",
-      "Do not infer that #pragma auto_inline off or PAD_STACK are generally acceptable in gricemt; this PR only supports them as narrow historical matching tactics with reported match outcomes.",
-      "Do not claim human reviewer approval or rationale; the slice contains no review comments.",
-      "Do not promote the .sdata2 bot-report improvement into a data-ownership lesson; the PR did not describe data-section work and the diff does not establish ownership."
+      "Do not promote explicit `__assert` expansion as a general cleanup standard; loaded standards prefer `HSD_ASSERT`/`HSD_ASSERTMSG` when source-level macros match.",
+      "Do not infer reviewer approval details; no review comments are loaded.",
+      "Do not treat the `.sdata2` bot improvement as intentional data work beyond the report entry; the PR body scopes the work as function matching.",
+      "Do not claim `PAD_STACK(24)` or `#pragma auto_inline off` were individually necessary; evidence only shows they were present in a PR that claimed and reported matches."
     ]
   },
-  "confidence": 0.81,
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

@@ -12,27 +12,28 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Small PL subsystem decomp-matching slice split from #2617. The only changed file was src/melee/pl/pltrick.c, where local Fighter* declaration order in pl_80038144 was changed by moving attacker_fp after victim_fp. The decomp-dev bot reported one unmatched-item improvement for main/melee/pl/pltrick::pl_80038144, +5 bytes, from 98.26% to 98.73%. No human review comments were present in the loaded slice.",
+  "summary": "Small PL subsystem matching slice split from PR #2617. The only loaded source change in src/melee/pl/pltrick.c reorders Fighter* local declarations inside pl_80038144, and the decomp-dev report records a +5 byte improvement for that unmatched item, from 98.26% to 98.73%. The PR body says the slice was isolated by path for review and passed git diff --check; no human review comments were loaded.",
   "change_classification": {
-    "primary_type": "decomp-matching local declaration order adjustment",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "local-variable-order",
-      "score-improvement"
+      "local-declaration-order",
+      "subsystem-slice"
     ],
     "systems": [
       "melee-core",
-      "src/melee/pl",
-      "pltrick"
+      "pl",
+      "src/melee/pl"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/pl/pltrick.c",
-      "role": "Only changed source file; local Fighter* declaration order changed in pl_80038144.",
+      "role": "Only changed file; local declaration order adjusted in pl_80038144.",
       "evidence_refs": [
-        "changed_files: src/melee/pl/pltrick.c added 1 deleted 1 hunk 1",
-        "raw_diff: pl_80038144 declaration block changed from attacker_fp before victim_fp to victim_fp before attacker_fp"
+        "changed_files.jsonl: src/melee/pl/pltrick.c added 1 deleted 1 hunks 1",
+        "raw_diff: pl_80038144 declaration block",
+        "text_corpus.jsonl: decomp-dev report for main/melee/pl/pltrick pl_80038144"
       ]
     }
   ],
@@ -40,157 +41,165 @@
     {
       "path": "src/melee/pl/pltrick.c",
       "symbol": "pl_80038144",
-      "change": "Moved the local declaration of Fighter* attacker_fp to appear after Fighter* victim_fp.",
+      "change": "Moved the declaration of Fighter* attacker_fp after Fighter* victim_fp, leaving the surrounding local declarations otherwise unchanged.",
       "evidence_refs": [
-        "raw_diff: - Fighter* attacker_fp; then Fighter* victim_fp; + Fighter* victim_fp; + Fighter* attacker_fp;"
+        "raw_diff: - Fighter* attacker_fp; before victim_fp; + Fighter* attacker_fp; after victim_fp"
       ]
     },
     {
-      "scope": "PR packaging",
-      "change": "PR body says this was split from #2617 by directory/subsystem with scope src/melee/pl.",
+      "change": "The PR was presented as a directory/subsystem split from PR #2617 scoped to src/melee/pl.",
       "evidence_refs": [
-        "human_pr_text: Split from #2617 by directory/subsystem",
-        "human_pr_text: Scope `src/melee/pl`"
-      ]
-    },
-    {
-      "scope": "automated score report",
-      "change": "decomp-dev reported one improvement in an unmatched item: main/melee/pl/pltrick pl_80038144 +5 bytes, 98.26% before to 98.73% after.",
-      "evidence_refs": [
-        "text_corpus issue_comment decomp-dev[bot] 2026-06-08T14:39:19Z"
+        "human_pr_text.md: Split from #2617 by directory/subsystem",
+        "human_pr_text.md: Scope `src/melee/pl`"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Kept the slice narrow to the planned PL path and changed only one declaration-order line in one function.",
+      "lesson": "For broad matching work, splitting by directory/subsystem can make review easier and keep the changed-file surface narrow.",
       "evidence_refs": [
-        "human_pr_text: Scope `src/melee/pl`",
-        "changed_files: one changed file, one added line, one deleted line"
+        "human_pr_text.md: split from #2617 by directory/subsystem so matching improvements are easier to review",
+        "changed_files.jsonl: one changed file"
       ]
     },
     {
-      "text": "Included local hygiene evidence for the slice: created from origin/master as an isolated path slice and git diff --check passed.",
+      "lesson": "A tiny local declaration-order edit can be isolated and verified against a single reported unmatched item rather than mixed with broader source-branch changes.",
       "evidence_refs": [
-        "human_pr_text: Local Checks"
+        "raw_diff: one declaration-order hunk",
+        "text_corpus.jsonl: decomp-dev report lists one improvement in pl_80038144"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For MWCC matching work, local declaration order can be a narrow, evidence-backed lever for improving a specific function's score, but it should be tied to automated diff evidence rather than generalized as style.",
+      "lesson": "Declaration order can affect matching for a function even when no executable C statements change; in this slice, reordering Fighter* locals in pl_80038144 corresponded to a reported +5 byte improvement.",
       "scope": [
         "src/melee/pl/pltrick.c",
         "pl_80038144"
       ],
       "evidence_refs": [
-        "raw_diff: only declaration order changed",
-        "decomp-dev report: pl_80038144 +5 bytes, 98.26% to 98.73%"
+        "raw_diff: local declaration order changed",
+        "text_corpus.jsonl: pl_80038144 +5 bytes, 98.26% to 98.73%"
       ],
-      "related_standard_ids": [
-        "matching-tactics-need-evidence",
-        "verification-and-regression-ledger"
+      "caveat": "The loaded evidence reports an improvement, not a full function match, and does not prove a general declaration-order rule beyond this local case."
+    }
+  ],
+  "naming_conventions": [
+    {
+      "convention": "No new naming convention was introduced. The changed declaration block retains role-based Fighter* local names such as attacker_fp and victim_fp.",
+      "evidence_refs": [
+        "raw_diff: Fighter* attacker_fp and Fighter* victim_fp in pl_80038144"
       ]
     }
   ],
-  "naming_conventions": [],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Reorder local pointer declarations to influence matching/codegen for a single function.",
-      "details": "The PR moved attacker_fp below victim_fp in pl_80038144 and the bot reported a +5 byte unmatched-item improvement for that symbol.",
-      "evidence_refs": [
-        "raw_diff: Fighter* attacker_fp moved after Fighter* victim_fp",
-        "text_corpus issue_comment: main/melee/pl/pltrick pl_80038144 +5 bytes"
+      "tactic": "Try narrow local declaration-order adjustments when stack/register layout appears to be the remaining mismatch, and keep the evidence tied to the specific symbol.",
+      "scope": [
+        "pl_80038144"
       ],
-      "caution": "The evidence supports only this local improvement, not a global declaration-order rule."
+      "evidence_refs": [
+        "raw_diff: declaration order changed only",
+        "text_corpus.jsonl: decomp-dev report records +5 byte improvement for pl_80038144"
+      ],
+      "caveat": "This should remain evidence-led; the PR does not include assembly details or objdiff output beyond the automated score report."
     }
   ],
   "review_feedback": [
     {
-      "kind": "automated_report",
+      "kind": "automated-report",
       "author": "decomp-dev[bot]",
-      "feedback": "Reported 1 improvement in an unmatched item: main/melee/pl/pltrick pl_80038144 +5 bytes, 98.26% before, 98.73% after.",
+      "feedback": "GALE01 report showed one improvement in an unmatched item: main/melee/pl/pltrick pl_80038144 improved by +5 bytes from 98.26% to 98.73%.",
       "evidence_refs": [
-        "text_corpus issue_comment decomp-dev[bot] 2026-06-08T14:39:19Z"
+        "text_corpus.jsonl: issue_comment by decomp-dev[bot] at 2026-06-08T14:39:19Z"
+      ]
+    },
+    {
+      "kind": "missing-human-review",
+      "feedback": "No human review comments or review records were loaded for this slice.",
+      "evidence_refs": [
+        "metadata_json.counts: review_comments 0, reviews 0"
       ]
     }
   ],
   "searchable_terms": [
     "PR 2628",
     "Improvements to split up: PL",
+    "fjooord",
+    "src/melee/pl",
     "src/melee/pl/pltrick.c",
     "pltrick",
     "pl_80038144",
     "HSD_GObj",
     "attacker_gobj",
     "victim_gobj",
-    "Fighter* attacker_fp",
-    "Fighter* victim_fp",
-    "Fighter* attacker_fp2",
+    "Fighter",
+    "attacker_fp",
+    "victim_fp",
+    "attacker_fp2",
     "plActionStats",
+    "ft_800898B4_t",
+    "attack_instance",
+    "source_ply",
     "local declaration order",
-    "MWCC local order",
     "decomp-dev report",
-    "98.26%",
-    "98.73%",
-    "+5 bytes",
-    "split from #2617"
+    "main/melee/pl/pltrick",
+    "98.26",
+    "98.73",
+    "+5 bytes"
   ],
   "follow_up_queries": [
-    "pl_80038144 declaration order attacker_fp victim_fp",
-    "src/melee/pl/pltrick.c Fighter* attacker_fp victim_fp",
-    "main/melee/pl/pltrick pl_80038144 +5 bytes",
-    "PR 2628 split from #2617 PL",
-    "local variable declaration order MWCC matching"
+    "PR 2628 pl_80038144 declaration order attacker_fp victim_fp",
+    "src/melee/pl/pltrick.c pl_80038144 Fighter local declaration order",
+    "main/melee/pl/pltrick pl_80038144 +5 bytes 98.73",
+    "PR 2617 split src/melee/pl pltrick"
   ],
   "evidence_quality": {
-    "status": "strong",
+    "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR identity, state, author, dates, changed file counts",
-      "human_pr_text: PR body with scope, preliminary report, local checks, files",
-      "raw_diff: complete one-hunk diff",
-      "changed_files.jsonl: one changed file",
-      "text_corpus.jsonl: decomp-dev bot report"
+      "metadata_json: PR identity, merged state, changed file counts",
+      "human_pr_text.md: scope, split rationale, preliminary report, local checks",
+      "raw_diff: exact one-line declaration-order change",
+      "text_corpus.jsonl: decomp-dev automated report"
     ],
     "notes": [
-      "The diff evidence is complete and very small: one added line and one deleted line in one hunk.",
-      "The per-PR decomp-dev report provides narrow score evidence for pl_80038144.",
-      "The broader preliminary report in the PR body describes the full unsplit source branch and explicitly says per-PR CI/decomp-dev reporting is authoritative for the slice; therefore broad branch metrics are not treated as proof of this slice's exact effect.",
-      "No human review comments or reviewer intent were present in the loaded slice.",
-      "No build logs, objdiff details, or adjacent-function checks beyond the bot summary were loaded."
+      "Strong evidence for PR identity, changed file, exact diff, and automated score improvement.",
+      "Reusable lessons are narrow because the loaded diff contains only a local declaration reorder.",
+      "The preliminary source-branch report is explicitly not the authoritative per-PR slice score; the decomp-dev issue comment is better evidence for this slice.",
+      "No human review comments were loaded, so reviewer intent or acceptance rationale beyond merge state is not inferred.",
+      "No assembly excerpt, objdiff details, or local source context beyond the small diff was loaded."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "matching_tactic",
-        "title": "Local declaration order tweak improved pl_80038144 score",
-        "text": "In PR #2628, src/melee/pl/pltrick.c changed only the order of Fighter* local declarations in pl_80038144, moving attacker_fp after victim_fp. The decomp-dev bot reported main/melee/pl/pltrick::pl_80038144 improved by +5 bytes from 98.26% to 98.73%. Treat this as a narrow evidence-backed matching tactic, not a global naming or style rule.",
+        "title": "pl_80038144 declaration-order tweak improved unmatched-item score",
+        "text": "In PR #2628, the only loaded code change moved Fighter* attacker_fp after Fighter* victim_fp in src/melee/pl/pltrick.c:pl_80038144. The decomp-dev report recorded a +5 byte improvement for main/melee/pl/pltrick pl_80038144, from 98.26% to 98.73%. Treat this as a local matching tactic example, not a general declaration-order rule.",
         "scope": [
           "src/melee/pl/pltrick.c",
           "pl_80038144"
         ],
         "evidence_refs": [
           "raw_diff",
-          "text_corpus issue_comment decomp-dev[bot]"
-        ],
-        "confidence": 0.86
+          "text_corpus.jsonl: decomp-dev issue comment"
+        ]
       }
     ],
     "source_update_candidates": [],
     "rejection_notes": [
-      "Do not promote the PR body's full unsplit branch metrics as this slice's exact result; the body itself says per-PR CI/decomp-dev reporting is authoritative for the slice.",
-      "Do not infer a global convention that victim_fp should always be declared before attacker_fp; the evidence only shows one local declaration-order adjustment.",
-      "Do not claim pl_80038144 fully matched; the bot report shows an improvement to 98.73%, not a completed match."
+      "Do not promote the full unsplit source-branch metrics as this PR's final slice result; the PR body says per-PR CI/decomp-dev reporting is authoritative once complete.",
+      "Do not claim pl_80038144 matched; the loaded report only says it improved from 98.26% to 98.73%.",
+      "Do not infer semantic meaning for attacker_fp2, acp, or acp2 beyond the names visible in the diff.",
+      "Do not infer human reviewer feedback; none was loaded."
     ]
   },
-  "confidence": 0.86,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

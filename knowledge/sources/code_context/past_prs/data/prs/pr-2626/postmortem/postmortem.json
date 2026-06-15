@@ -12,153 +12,149 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Closed MN subsystem split PR from #2617. The loaded changed-file metadata and raw diff show a small code-matching/naming-oriented edit in src/melee/mn/mnmain.c: one argument in fn_8022AFEC was changed from mn_804A04F0.prev_menu to data->hovered_selection, and local declaration order in mn_8022B3A0 was adjusted, including moving StaticModelDesc* top earlier. Bot reporting recorded a small improvement for mn_8022B3A0. A reviewer also flagged a string-literal-to-variable replacement in src/melee/mn/mnnamenew.c as a regression, but that file is not present in the loaded changed-files metadata or raw diff excerpt.",
+  "summary": "MN subsystem split PR from #2617. Loaded changed-file metadata and raw diff show a small `src/melee/mn/mnmain.c` change: one argument in `fn_8022AFEC` was changed from global `prev_menu` to `data->hovered_selection`, and local declaration order in `mn_8022B3A0` was adjusted, including moving `StaticModelDesc* top = &MenMainConTop_Top` before `PAD_STACK(16)`. A decomp-dev bot report recorded one unmatched-item improvement for `mn_8022B3A0` from 96.93% to 96.98%. Review feedback objected to a separate string-literal-to-variable replacement in `src/melee/mn/mnnamenew.c` as a regression.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "local-variable-ordering",
       "naming",
-      "review-feedback"
+      "local-declaration-order",
+      "string-literal-regression-review"
     ],
     "systems": [
-      "melee-core",
-      "mn-menu"
+      "melee-menu",
+      "src/melee/mn"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/mn/mnmain.c",
-      "role": "Only file in loaded changed-files metadata and raw diff; contains fn_8022AFEC argument change and mn_8022B3A0 declaration-order changes.",
+      "role": "Only file present in loaded changed-files metadata and raw diff; contains argument selection change in `fn_8022AFEC` and local declaration ordering changes in `mn_8022B3A0`.",
       "evidence_refs": [
-        "changed_files: src/melee/mn/mnmain.c added 3 deleted 3 hunks 3",
-        "raw_diff: fn_8022AFEC changed third mn_8022A440 argument from mn_804A04F0.prev_menu to data->hovered_selection",
-        "raw_diff: mn_8022B3A0 moved StaticModelDesc* top = &MenMainConTop_Top and HSD_GObj* gobj earlier in local declarations",
-        "decomp-dev bot report: main/melee/mn/mnmain mn_8022B3A0 improved 96.93% to 96.98%"
+        "changed_files.jsonl",
+        "raw_diff",
+        "text_corpus decomp-dev report"
       ]
     },
     {
       "path": "src/melee/mn/mnnamenew.c",
-      "role": "Review-comment path only; reviewer flagged replacing inline asset strings with a variable as a regression, but this path is not included in loaded changed-files metadata or raw diff.",
+      "role": "Referenced by loaded review comment only; reviewer flagged replacing inline background asset string literals with `mnNameNew_803EE38C` as a regression.",
       "evidence_refs": [
-        "review_comments: PsiLupan on src/melee/mn/mnnamenew.c said replacing the string with the variable is a regression",
-        "review diff hunk: inline strings such as \"MenMainBack_Top_joint\" were replaced by mnNameNew_803EE38C",
-        "human_pr_text files list includes src/melee/mn/mnnamenew.c, but changed_files metadata does not"
+        "review_comments",
+        "text_corpus review_comment"
       ]
     }
   ],
   "what_changed": [
     {
       "path": "src/melee/mn/mnmain.c",
-      "description": "In fn_8022AFEC, the third argument passed to mn_8022A440 in the shown branch changed from mn_804A04F0.prev_menu to data->hovered_selection.",
+      "details": "`fn_8022AFEC` now passes `data->hovered_selection` as the third argument to `mn_8022A440` instead of `mn_804A04F0.prev_menu`.",
       "evidence_refs": [
-        "raw_diff hunk around line 1337"
+        "raw_diff hunk at fn_8022AFEC"
       ]
     },
     {
       "path": "src/melee/mn/mnmain.c",
-      "description": "In mn_8022B3A0, local declarations were reordered: StaticModelDesc* top = &MenMainConTop_Top and HSD_GObj* gobj were placed earlier, while the prior later top declaration was removed.",
+      "details": "`mn_8022B3A0` local declarations were reordered: `StaticModelDesc* top = &MenMainConTop_Top` and `HSD_GObj* gobj` were moved earlier in the declaration block before later locals and `PAD_STACK(16)`.",
       "evidence_refs": [
-        "raw_diff hunks around lines 1386 and 1405"
+        "raw_diff hunks at mn_8022B3A0"
       ]
     },
     {
       "path": "src/melee/mn/mnmain.c",
-      "description": "decomp-dev reported one unmatched-item improvement for main/melee/mn/mnmain, item mn_8022B3A0, from 96.93% to 96.98%.",
+      "details": "decomp-dev reported one unmatched-item improvement for `main/melee/mn/mnmain` item `mn_8022B3A0`, from 96.93% to 96.98%; bytes column was 0.",
       "evidence_refs": [
-        "text_corpus issue_comment by decomp-dev[bot], 2026-06-08T14:40:37Z"
+        "text_corpus issue_comment by decomp-dev[bot]"
       ]
     },
     {
       "path": "src/melee/mn/mnnamenew.c",
-      "description": "A review hunk shows an attempted replacement of inline strings for MenMainBack_Top resources with a named variable mnNameNew_803EE38C; reviewer called this a regression.",
+      "details": "Review comment shows a hunk where inline strings such as `\"MenMainBack_Top_joint\"` were replaced with `mnNameNew_803EE38C`; the reviewer called this a regression.",
       "evidence_refs": [
-        "review_comments excerpt for discussion_r3374311596"
+        "review_comments",
+        "text_corpus review_comment"
       ]
     }
   ],
   "smart_moves": [
     {
-      "description": "The PR was scoped as an MN directory/subsystem split from a larger branch to make matching improvements easier to review.",
+      "text": "The PR was split by directory/subsystem so MN matching changes could be reviewed in isolation.",
       "evidence_refs": [
-        "human_pr_text: Split from #2617 by directory/subsystem so the matching improvements are easier to review",
-        "human_pr_text scope: src/melee/mn"
+        "human_pr_text"
       ]
     },
     {
-      "description": "The author reported basic slice hygiene: created from origin/master as an isolated path slice and git diff --check passed.",
+      "text": "The author recorded slice-local hygiene checks, including creation from `origin/master` and `git diff --check origin/master...HEAD` passing.",
       "evidence_refs": [
-        "human_pr_text Local Checks"
+        "human_pr_text"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For code-matching PRs, replacing ordinary inline resource or asset string literals with generated/address-style data symbols can be treated as a regression when no data-ownership evidence is provided.",
+      "lesson": "String literals used as asset or resource labels should not be replaced by address-style variables merely to chase data or relocation behavior; reviewers may treat that as a regression.",
       "scope": [
-        "src/melee/mn/mnnamenew.c",
+        "src/melee/mn",
         "menu asset/resource string arguments",
         "code-matching PRs"
       ],
       "evidence_refs": [
-        "review_comments: Replacing the string with the variable is a regression as mentioned on other PRs",
-        "review hunk: \"MenMainBack_Top_joint\" and related strings replaced by mnNameNew_803EE38C",
+        "review_comments: PsiLupan on src/melee/mn/mnnamenew.c",
         "decomp_standards:no-string-literal-symbol-regression",
+        "decomp_standards:literals-and-data-ownership",
         "decomp_standards:text-before-data-matching"
       ]
     },
     {
-      "lesson": "Small local declaration-order changes can affect match score, but should be recorded as matching tactics rather than semantic cleanup unless the PR evidence proves source intent.",
+      "lesson": "Local declaration ordering, including moving initialized locals before `PAD_STACK`, can be a narrow matching tactic, but the PR evidence only supports that it improved `mn_8022B3A0` slightly; it does not establish a general style rule.",
       "scope": [
         "src/melee/mn/mnmain.c",
         "mn_8022B3A0"
       ],
       "evidence_refs": [
-        "raw_diff: local declaration order changed in mn_8022B3A0",
-        "decomp-dev bot report: mn_8022B3A0 improved 96.93% to 96.98%",
+        "raw_diff",
+        "text_corpus decomp-dev report",
         "decomp_standards:matching-tactics-need-evidence"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Do not infer that generated/address-style names such as mnNameNew_803EE38C are preferred names for ordinary asset/resource strings; keep inline literals when the PR lacks data-ownership evidence.",
-      "scope": [
-        "src/melee/mn/mnnamenew.c",
-        "string literals",
-        "resource labels"
-      ],
+      "text": "The review evidence favors preserving literal asset/resource names such as `\"MenMainBack_Top_joint\"` at call sites rather than hiding them behind generated address-style names like `mnNameNew_803EE38C` when data ownership is not established.",
       "evidence_refs": [
-        "review_comments hunk",
+        "review_comments",
         "decomp_standards:no-string-literal-symbol-regression",
         "decomp_standards:conservative-naming"
       ]
     },
     {
-      "convention": "Address-style function names such as fn_8022AFEC and mn_8022B3A0 remained unchanged in the shown diff; the slice does not provide evidence for semantic renames.",
-      "scope": [
-        "src/melee/mn/mnmain.c"
-      ],
+      "text": "No supported semantic rename convention for `fn_8022AFEC`, `mn_8022B3A0`, or related locals can be inferred from this slice.",
       "evidence_refs": [
-        "raw_diff function headers"
+        "raw_diff",
+        "changed_files.jsonl"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Declaration ordering/local lifetime steering in mn_8022B3A0: StaticModelDesc* top and HSD_GObj* gobj were moved earlier in the local declaration block.",
+      "text": "A small score improvement in `mn_8022B3A0` coincided with declaration-order changes and placement of `StaticModelDesc* top = &MenMainConTop_Top` earlier in the local list before `PAD_STACK(16)`.",
       "evidence_refs": [
-        "raw_diff hunks around mn_8022B3A0",
-        "decomp-dev bot report: mn_8022B3A0 score improvement"
-      ],
-      "caution": "The PR evidence shows a score improvement, but not a full match or detailed objdiff rationale; treat as a narrow tactic, not a global style rule."
+        "raw_diff",
+        "text_corpus issue_comment by decomp-dev[bot]"
+      ]
     },
     {
-      "tactic": "Semantic-looking argument substitution in fn_8022AFEC from global prev_menu to data->hovered_selection may have been part of matching work.",
+      "text": "`PAD_STACK(16)` is present in the touched function, but the diff does not add or remove it; no new general PAD_STACK tactic is proven by this PR.",
       "evidence_refs": [
-        "raw_diff hunk around fn_8022AFEC"
-      ],
-      "caution": "No reviewer explanation or objdiff details are loaded for this substitution; do not infer intent beyond the diff."
+        "raw_diff",
+        "decomp_standards:matching-tactics-need-evidence"
+      ]
+    },
+    {
+      "text": "Changing `mn_8022A440`'s third argument from global menu state `mn_804A04F0.prev_menu` to `data->hovered_selection` is part of the diff, but the loaded slice does not explain the intended semantics beyond the code change.",
+      "evidence_refs": [
+        "raw_diff"
+      ]
     }
   ],
   "review_feedback": [
@@ -166,15 +162,15 @@
       "author": "PsiLupan",
       "path": "src/melee/mn/mnnamenew.c",
       "comment": "Replacing the string with the variable is a regression as mentioned on other PRs.",
+      "interpretation": "Reviewer objected to replacing inline strings like `\"MenMainBack_Top_joint\"` with a variable such as `mnNameNew_803EE38C`.",
       "evidence_refs": [
-        "review_comments excerpt",
-        "text_corpus review_comment discussion_r3374311596"
-      ],
-      "classification": "requested cleanup / regression warning"
+        "review_comments",
+        "text_corpus review_comment"
+      ]
     }
   ],
   "searchable_terms": [
-    "PR 2626",
+    "pr-2626",
     "Improvements to split up: MN",
     "fjooord",
     "src/melee/mn",
@@ -185,105 +181,97 @@
     "mn_8022A440",
     "mn_80229A04_dontinline",
     "mn_804A04F0",
+    "cur_menu",
     "prev_menu",
     "hovered_selection",
-    "StaticModelDesc",
+    "selection_changed",
     "MenMainConTop_Top",
+    "StaticModelDesc",
+    "HSD_GObj",
+    "HSD_JObj",
     "PAD_STACK",
     "MenMainBack_Top_joint",
     "mnNameNew_803EE38C",
     "string literal regression",
-    "decomp-dev mn_8022B3A0 96.93 96.98"
+    "no-string-literal-symbol-regression"
   ],
   "follow_up_queries": [
-    "PR 2626 mnNameNew_803EE38C string variable regression",
+    "PR 2626 mnmain mn_8022B3A0 declaration order PAD_STACK",
+    "PR 2626 mnnamenew MenMainBack_Top_joint mnNameNew_803EE38C regression",
     "PsiLupan replacing the string with the variable is a regression",
-    "src/melee/mn/mnmain.c mn_8022B3A0 declaration order StaticModelDesc top",
-    "fn_8022AFEC prev_menu hovered_selection mn_8022A440",
-    "MenMainBack_Top_joint mnNameNew_803EE38C",
-    "PR 2617 MN split mnnamenew string literals"
+    "string literal to variable regression other PRs mnNameNew_803EE38C",
+    "mn_8022A440 prev_menu hovered_selection fn_8022AFEC"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json changed_files: only src/melee/mn/mnmain.c",
-      "raw_diff: complete loaded diff of 1150 chars for mnmain.c",
-      "text_corpus: decomp-dev bot report",
-      "review_comments: one reviewer comment on src/melee/mn/mnnamenew.c",
-      "human_pr_text: body lists six MN files from split scope"
+      "metadata_json",
+      "human_pr_text",
+      "raw_diff",
+      "changed_files.jsonl",
+      "review_comments",
+      "text_corpus"
     ],
     "notes": [
-      "Loaded changed-files metadata and raw diff show only src/melee/mn/mnmain.c, despite the PR body listing six MN files.",
-      "The review comment references src/melee/mn/mnnamenew.c and includes a diff hunk, but that file is absent from loaded changed-files metadata and raw diff; record it as review evidence, not as a fully inspected changed file.",
-      "The PR body's preliminary report is for the full unsplit source branch and explicitly says per-PR CI/decomp-dev reporting is authoritative for the slice; only the decomp-dev slice comment is used for the narrow mn_8022B3A0 improvement.",
-      "No loaded evidence proves merge acceptance; merged_at is null and state is closed.",
-      "No objdiff details are loaded beyond the bot's percentage report."
+      "Loaded changed-files metadata and raw diff show only `src/melee/mn/mnmain.c`, while the PR body lists six MN files from the planned split scope.",
+      "The loaded review comment references `src/melee/mn/mnnamenew.c`, but that file is not present in the loaded changed-files metadata or raw diff excerpt.",
+      "The PR body's full unsplit branch report is explicitly preliminary and says per-PR CI/decomp-dev reporting is authoritative once complete.",
+      "decomp-dev reported only one improvement in an unmatched item for this slice: `mn_8022B3A0` from 96.93% to 96.98%. No final merge or full validation result is available.",
+      "The PR was closed with `merged_at` null, so no merge/acceptance outcome is inferred."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "review_lesson",
-        "title": "String literals should not be replaced by generated variables in code-matching review without data evidence",
-        "text": "In PR #2626, a reviewer flagged replacing inline MenMainBack_Top string literals with mnNameNew_803EE38C as a regression. This reinforces keeping ordinary resource strings inline unless the PR is explicitly scoped for data ownership and provides supporting evidence.",
+        "record_type": "reviewed_pr_lesson",
+        "title": "Do not replace menu asset string literals with generated variables during code matching",
+        "text": "In PR #2626, review feedback on `src/melee/mn/mnnamenew.c` called replacing inline strings such as `\"MenMainBack_Top_joint\"` with `mnNameNew_803EE38C` a regression. This aligns with the loaded standards that ordinary asset/resource string literals should remain inline unless data ownership evidence and PR scope justify symbolizing them.",
         "scope": [
-          "src/melee/mn/mnnamenew.c",
-          "code-matching PRs",
-          "resource string literals"
+          "src/melee/mn",
+          "menu resource loading",
+          "code-matching PR review"
         ],
         "evidence_refs": [
-          "review_comments: PsiLupan comment discussion_r3374311596",
-          "review hunk showing \"MenMainBack_Top_joint\" replaced by mnNameNew_803EE38C",
-          "decomp_standards:no-string-literal-symbol-regression"
-        ]
-      },
-      {
-        "record_type": "matching_tactic",
-        "title": "mn_8022B3A0 declaration-order adjustment produced a small reported score improvement",
-        "text": "The loaded diff for PR #2626 moved StaticModelDesc* top and HSD_GObj* gobj earlier in mn_8022B3A0's local declarations, and the bot reported that mn_8022B3A0 improved from 96.93% to 96.98%. Treat this as narrow evidence that local declaration order/lifetime can matter for this function, not as a general style preference.",
-        "scope": [
-          "src/melee/mn/mnmain.c",
-          "mn_8022B3A0"
+          "review_comments",
+          "decomp_standards:no-string-literal-symbol-regression",
+          "decomp_standards:literals-and-data-ownership"
         ],
-        "evidence_refs": [
-          "raw_diff mn_8022B3A0 declaration changes",
-          "decomp-dev bot report"
-        ]
+        "confidence": 0.86
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Reviewer example for no string-literal symbol regression",
-        "text": "Add PR #2626 as an example under no-string-literal-symbol-regression/text-before-data-matching: replacing menu resource strings such as \"MenMainBack_Top_joint\" with an address-style/generated variable such as mnNameNew_803EE38C was reviewed as a regression.",
+        "title": "Use PR #2626 as an example for no string-literal symbol regression",
+        "text": "Potential example: reviewer flagged replacing `\"MenMainBack_Top_joint\"` and related inline menu asset strings with `mnNameNew_803EE38C` as a regression. This can serve as historical evidence for keeping ordinary asset/resource string literals inline in code-matching PRs.",
         "source_path": null,
         "scope": [
-          "string literals",
-          "resource labels",
-          "code-matching reviews"
+          "no-string-literal-symbol-regression",
+          "literals-and-data-ownership",
+          "src/melee/mn/mnnamenew.c"
         ],
         "evidence_refs": [
-          "review_comments: PsiLupan on src/melee/mn/mnnamenew.c",
-          "review hunk in discussion_r3374311596"
+          "review_comments",
+          "text_corpus review_comment"
         ],
-        "reason": "The loaded standards already contain this rule; PR #2626 provides a concrete reviewer-backed example that may be useful as supporting provenance."
+        "reason": "The feedback directly supports the existing standard and may be useful as a concrete historical PR example."
       }
     ],
     "rejection_notes": [
-      "Do not promote the PR body's six-file list as the changed-file set for this intake; loaded changed-files metadata and raw diff only substantiate src/melee/mn/mnmain.c.",
-      "Do not claim the PR matched mn_8022B3A0; loaded bot evidence reports only a small unmatched-item improvement.",
+      "Do not treat the PR body's six-file list as the actual loaded changed-file set; loaded changed-files metadata contains only `src/melee/mn/mnmain.c`.",
+      "Do not claim `mn_8022B3A0` matched; the bot report only says one unmatched item improved from 96.93% to 96.98%.",
       "Do not infer reviewer intent beyond the explicit string-to-variable regression comment.",
-      "Do not treat the declaration-order movement in mn_8022B3A0 as an accepted global convention."
+      "Do not promote declaration reordering around `PAD_STACK(16)` as a general accepted tactic from this slice alone."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.77,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

@@ -12,81 +12,198 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2510 matched `mnEvent_8024CE74` by restoring a local `static inline` count helper in `src/melee/mn/mnevent.c`. The PR body says the helper changes MWCC local initialization codegen from two independent `li` instructions to the expected dependent register copy, and cites analogous `mnInfo_CountUnlocked` / `mnCount_CountUnlockedChars` patterns in `mn/`. Review feedback rejected unrelated/earlier data and assert-override work around `mnnamenew` static literals, recommending landing only the `mnEvent_8024CE74` code match and not chasing data sections before code is matched.",
+  "summary": "Matched `mnEvent_8024CE74` by restoring a `static inline` helper, `mnEvent_CountUnlocked`, that contains the unlock-counting loop. The PR body says this recovered a 100% match by making MWCC emit a register-copy initialization shape instead of two independent zero loads. Review feedback rejected unrelated data/assert-literal work and recommended landing only the focused code match.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "static-inline-restoration",
-      "mwcc-codegen",
+      "control-flow",
+      "inline-helper",
       "review-cleanup"
     ],
     "systems": [
-      "melee-core",
       "mn",
-      "mnevent"
+      "melee-menu"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/mn/mnevent.c",
-      "role": "Final changed file: added `static inline s32 mnEvent_CountUnlocked(void)` and changed `mnEvent_8024CE74` to call it after the debug-level early return.",
+      "role": "Final changed file; adds `mnEvent_CountUnlocked()` static inline wrapper and changes `mnEvent_8024CE74()` to call it after the debug-level early return.",
       "evidence_refs": [
-        "changed_files.jsonl: one changed file, +14/-10, 1 hunk",
-        "raw_diff: `mnEvent_CountUnlocked` added; `PAD_STACK(8)` and duplicate `count = 0` removed; `mnEvent_8024CE74` calls helper",
-        "human_pr_text: Files section names `src/melee/mn/mnevent.c`"
+        "changed_files: src/melee/mn/mnevent.c added 14 deleted 10 hunks 1",
+        "raw_diff: src/melee/mn/mnevent.c",
+        "human_pr_text: Files/Summary"
       ]
     },
     {
       "path": "src/melee/mn/mnnamenew.c",
-      "role": "Reviewed but not present in final changed-file metadata: reviewer objected to temporary `HSD_ASSERT` override / `jobj.h` include changes as premature sdata work.",
+      "role": "Reviewed earlier or non-final hunk involving local `HSD_ASSERT` override around `jobj.h`; reviewer called it premature sdata work. Not listed in final changed-file metadata.",
       "evidence_refs": [
-        "review_comments.md: ribbanya comment at discussion_r3254910800",
-        "text_corpus.jsonl: review_comment path `src/melee/mn/mnnamenew.c`"
+        "review_comments: discussion_r3254910800",
+        "text_corpus: review_comment path src/melee/mn/mnnamenew.c"
       ]
     },
     {
       "path": "src/melee/mn/mnnamenew.h",
-      "role": "Reviewed but not present in final changed-file metadata: reviewer objected to extern declarations for static literals.",
+      "role": "Reviewed earlier or non-final hunk declaring static literal symbols; reviewer said these literals did not need declarations. Not listed in final changed-file metadata.",
       "evidence_refs": [
-        "review_comments.md: ribbanya comment at discussion_r3254912236",
-        "text_corpus.jsonl: review_comment path `src/melee/mn/mnnamenew.h`"
+        "review_comments: discussion_r3254912236",
+        "text_corpus: review_comment path src/melee/mn/mnnamenew.h"
       ]
     }
   ],
   "what_changed": [
-    "Restored a `static inline s32 mnEvent_CountUnlocked(void)` helper containing the `for (i = 0; i < 0x33; i++)` loop and `gmMainLib_8015CEFC(i) != 0` count increment.",
-    "Changed `mnEvent_8024CE74` to keep the `g_debugLevel > 2` early return, then assign `count = mnEvent_CountUnlocked();` before the threshold checks.",
-    "Removed `PAD_STACK(8)` from the shown hunk and changed local declarations from `int` to `s32` in the restored helper/caller shape.",
-    "PR body reports verification: `python configure.py && ninja` green, `mnEvent_8024CE74` improved from 99.4%/99.42% to 100%, and no other functions affected; bot report records one new match in `main/melee/mn/mnevent`."
+    {
+      "text": "Replaced the inline loop body in `mnEvent_8024CE74` with a call to a new `static inline s32 mnEvent_CountUnlocked(void)` helper.",
+      "evidence_refs": [
+        "raw_diff: src/melee/mn/mnevent.c"
+      ]
+    },
+    {
+      "text": "Moved the `for (i = 0; i < 0x33; i++)` count loop into `mnEvent_CountUnlocked`, using `s32 i`, `s32 count = 0`, and `gmMainLib_8015CEFC(i) != 0` before returning `count`.",
+      "evidence_refs": [
+        "raw_diff: src/melee/mn/mnevent.c",
+        "human_pr_text: wrapper example"
+      ]
+    },
+    {
+      "text": "Removed the prior `PAD_STACK(8)` from `mnEvent_8024CE74` in the shown diff.",
+      "evidence_refs": [
+        "raw_diff: src/melee/mn/mnevent.c"
+      ]
+    },
+    {
+      "text": "Kept the `g_debugLevel > 2` early return in `mnEvent_8024CE74`, then assigns `count = mnEvent_CountUnlocked()` before the existing `count <= 5` branch.",
+      "evidence_refs": [
+        "raw_diff: src/melee/mn/mnevent.c"
+      ]
+    }
   ],
   "smart_moves": [
-    "Used a small source-level helper to express an apparent authored pattern rather than keeping padding or a generated-looking inline loop in the caller.",
-    "Preserved the debug-level early return in `mnEvent_8024CE74` and isolated the count loop in a descriptive local static inline.",
-    "Grounded the helper shape in claimed local analogs: `mnInfo_CountUnlocked` and `mnCount_CountUnlockedChars` elsewhere in `mn/`.",
-    "Final changed-file metadata shows only `mnevent.c`, consistent with reviewer guidance to separate the code match from unrelated data/sdata cleanup."
+    {
+      "text": "Used a small static inline helper to preserve readable source while steering MWCC toward the expected inlined register dependency.",
+      "evidence_refs": [
+        "human_pr_text: Why",
+        "raw_diff: src/melee/mn/mnevent.c"
+      ]
+    },
+    {
+      "text": "Grounded the helper shape in nearby menu patterns named in the PR body: `mnInfo_CountUnlocked` and `mnCount_CountUnlockedChars`.",
+      "evidence_refs": [
+        "human_pr_text: Same pattern as mnInfo_CountUnlocked / mnCount_CountUnlockedChars"
+      ]
+    },
+    {
+      "text": "Final diff stayed focused on the code match in `mnevent.c` after review objected to unrelated data/assert-literal changes.",
+      "evidence_refs": [
+        "changed_files: only src/melee/mn/mnevent.c",
+        "review_comments: discussion_r3254910800",
+        "review_comments: discussion_r3254912236",
+        "text_corpus: review state CHANGES_REQUESTED body"
+      ]
+    }
   ],
   "decomp_lessons": [
-    "For MWCC, restoring a likely original `static inline` helper can affect register dependency and initialization lowering after inlining; in this PR, the body says grouping `i` and `count` inside `mnEvent_CountUnlocked` produced the expected `addi r30, r31, 0` instead of two independent `li` instructions.",
-    "When matching repeated subsystem patterns, look for sibling helper names and shapes before compensating with stack padding or local churn; this PR cites `mnInfo_CountUnlocked` / `mnCount_CountUnlockedChars` as same-pattern evidence for `mnEvent_CountUnlocked`.",
-    "Do not mix a focused text-section function match with premature data-section or static-literal declaration work; reviewer feedback recommended landing only the `mnEvent_8024CE74` match and leaving TU data-section matching for later human cleanup."
+    {
+      "lesson": "A local `static inline` wrapper can be a plausible authored-source reconstruction and a codegen tactic when MWCC needs locals declared together inside the inlined callee to produce a data-dependent register copy.",
+      "scope": [
+        "MWCC",
+        "small count loops",
+        "menu functions",
+        "static inline helpers"
+      ],
+      "evidence_refs": [
+        "human_pr_text: expected build uses addi r30, r31, 0",
+        "human_pr_text: only happens when both locals are defined together inside a static inline wrapper",
+        "raw_diff: added mnEvent_CountUnlocked"
+      ]
+    },
+    {
+      "lesson": "When matching a function, compare against nearby matched sibling helpers before keeping a flattened loop directly in the caller.",
+      "scope": [
+        "mn subsystem",
+        "authored-source style",
+        "inline helper recovery"
+      ],
+      "evidence_refs": [
+        "human_pr_text: Same pattern as mnInfo_CountUnlocked / mnCount_CountUnlockedChars elsewhere in mn/"
+      ]
+    },
+    {
+      "lesson": "Remove narrow stack-padding tactics when the underlying source shape explains the stack/register behavior.",
+      "scope": [
+        "PAD_STACK",
+        "register allocation",
+        "source cleanup"
+      ],
+      "evidence_refs": [
+        "raw_diff: removed PAD_STACK(8)",
+        "human_pr_text: wrapper recovered 100% match"
+      ]
+    }
   ],
   "naming_conventions": [
-    "Count helper restored as `mnEvent_CountUnlocked`, matching the file/subsystem prefix plus action pattern cited alongside `mnInfo_CountUnlocked` and `mnCount_CountUnlockedChars`.",
-    "Local variables in the helper use straightforward roles `i` and `count`, matching the PR body's explanation of the count loop.",
-    "No evidence in the final diff supports global data renames or new external names for `mnNameNew_804D4F84` / `mnNameNew_804D4F8C`; reviewer explicitly called them static literals that do not need declarations."
+    {
+      "text": "The restored helper is named with the local subsystem prefix and action pattern: `mnEvent_CountUnlocked`, matching the PR-cited sibling names `mnInfo_CountUnlocked` and `mnCount_CountUnlockedChars`.",
+      "evidence_refs": [
+        "human_pr_text: Same pattern as mnInfo_CountUnlocked / mnCount_CountUnlockedChars",
+        "raw_diff: static inline s32 mnEvent_CountUnlocked(void)"
+      ]
+    },
+    {
+      "text": "Use simple role locals such as `i` and `count` for a small count loop when their roles are evident.",
+      "evidence_refs": [
+        "human_pr_text: wrapper example",
+        "raw_diff: s32 i; s32 count = 0;"
+      ]
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Use a `static inline` wrapper to influence MWCC inlined local initialization/register-copy shape when local sibling code suggests the helper was authored that way.",
-    "The PR body identifies the relevant assembly symptom: inline loop in caller lowered `i = 0` and `count = 0` as two `li` instructions, while expected code used `addi r30, r31, 0` for the second initialization.",
-    "Removed/avoided `PAD_STACK(8)` in the final shown `mnevent.c` hunk once the helper restored the match shape.",
-    "Verification evidence from PR body and bot report claims one new 100% match for `mnEvent_8024CE74` and no other affected functions."
+    {
+      "tactic": "Recover a static inline wrapper so MWCC inlines the helper but keeps the helper's local initialization relationship, yielding `addi r30, r31, 0` instead of a second `li`.",
+      "evidence_refs": [
+        "human_pr_text: li r31/li r30 vs expected addi r30,r31,0",
+        "human_pr_text: only happens when both locals are defined together inside a static inline wrapper"
+      ]
+    },
+    {
+      "tactic": "Prefer `gmMainLib_8015CEFC(i) != 0` in the helper condition for the matched source shape shown in the PR and diff.",
+      "evidence_refs": [
+        "human_pr_text: wrapper example",
+        "raw_diff: if (gmMainLib_8015CEFC(i) != 0)"
+      ]
+    },
+    {
+      "tactic": "Use build/report evidence to confirm a small codegen change: PR body claims `python configure.py && ninja` green, `mnEvent_8024CE74` 99.4% to 100%, and no other functions affected; bot report records one new match at 100.00%.",
+      "evidence_refs": [
+        "human_pr_text: Verification",
+        "text_corpus: decomp-dev[bot] report for GALE01"
+      ]
+    }
   ],
   "review_feedback": [
-    "ribbanya objected to an attempted `mnnamenew.c` assert override around `HSD_ASSERT` / `jobj.h`: \"This is slop. At best, it prematurely fixes sdata.\"",
-    "ribbanya objected to `mnnamenew.h` extern declarations for `mnNameNew_804D4F84` and `mnNameNew_804D4F8C`: \"These are static literals and don't need to be declared anywhere.\"",
-    "ribbanya recommended merging only the `mnEvent_8024CE74` match and advising Claude to stop worrying about data, noting that a human can match TU data sections once code is matched.",
-    "A later review by ribbanya is recorded as APPROVED with an empty body; the final changed-file metadata lists only `src/melee/mn/mnevent.c`."
+    {
+      "feedback": "Reviewer objected to a local `HSD_ASSERT` override around `jobj.h` in `src/melee/mn/mnnamenew.c`, calling it slop and, at best, premature sdata work.",
+      "author": "ribbanya",
+      "evidence_refs": [
+        "review_comments: discussion_r3254910800"
+      ]
+    },
+    {
+      "feedback": "Reviewer objected to declaring `mnNameNew_804D4F84` and `mnNameNew_804D4F8C` in `src/melee/mn/mnnamenew.h`, saying they are static literals and do not need to be declared anywhere.",
+      "author": "ribbanya",
+      "evidence_refs": [
+        "review_comments: discussion_r3254912236"
+      ]
+    },
+    {
+      "feedback": "Reviewer recommended merging only the `mnEvent_8024CE74` match and not worrying about data-section matching in this PR; data sections for a TU can be matched after code is matched.",
+      "author": "ribbanya",
+      "evidence_refs": [
+        "text_corpus: review CHANGES_REQUESTED pullrequestreview-4305677283"
+      ]
+    }
   ],
   "searchable_terms": [
     "pr-2510",
@@ -97,8 +214,8 @@
     "gmMainLib_8015CEFC",
     "g_debugLevel",
     "PAD_STACK",
+    "static inline wrapper",
     "MWCC",
-    "static inline",
     "addi r30 r31 0",
     "li r31 0",
     "li r30 0",
@@ -108,61 +225,62 @@
     "HSD_ASSERT",
     "jobj.h",
     "sdata",
-    "static literals",
-    "mnNameNew_804D4F84",
-    "mnNameNew_804D4F8C"
+    "static literals"
   ],
   "follow_up_queries": [
-    "Search `src/melee/mn` for `*_CountUnlocked` and `*_CountUnlockedChars` helpers when matching similar menu count loops.",
-    "Search for remaining `PAD_STACK` in `src/melee/mn/mnevent.c` or nearby `mn/` functions where a small static inline helper may match local authored style.",
-    "Search PR/review history for \"prematurely fixes sdata\", \"static literals\", and `HSD_ASSERT` overrides to find other rejected data-section matching attempts.",
-    "Search for `mnNameNew_804D4F84` and `mnNameNew_804D4F8C` only as a review caution; do not assume those extern declarations were accepted."
+    "Find other mn/ count helpers that match the `mn*_CountUnlocked` static inline pattern.",
+    "Search for remaining `PAD_STACK` uses in small count loops where an inline helper may recover MWCC register-copy initialization.",
+    "Search review history for local `HSD_ASSERT` override attempts around `jobj.h` and static literal declarations.",
+    "Search for string-literal or static-literal declarations added only for sdata or data-section matching in code-match PRs."
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR #2510 identity, merged state, changed file count, changed file path",
-      "human_pr_text.md: summary, why, helper code, verification claims",
-      "raw_diff: exact final hunk for `src/melee/mn/mnevent.c`",
-      "changed_files.jsonl: final changed file metadata",
-      "text_corpus.jsonl: bot report, review comments, review states"
+      "metadata_json: pr number/title/author/state/merged_at",
+      "human_pr_text: Summary/Why/Verification",
+      "raw_diff: src/melee/mn/mnevent.c",
+      "changed_files: one changed file",
+      "text_corpus: decomp-dev[bot] report",
+      "review_comments: two inline comments",
+      "text_corpus: review CHANGES_REQUESTED and APPROVED"
     ],
     "notes": [
-      "Core `mnevent.c` change is strongly evidenced by the full diff and PR body.",
-      "Verification results are reported by the PR body and decomp-dev bot; no independent build or objdiff was run during intake.",
-      "Review comments refer to `mnnamenew.c` and `mnnamenew.h`, which are not listed in final changed-file metadata; treat them as reviewed/superseded earlier slice content, not final changed files.",
-      "The PR body cites sibling patterns `mnInfo_CountUnlocked` / `mnCount_CountUnlockedChars`; this intake did not perform source lookup to independently confirm those implementations."
+      "Final changed-file metadata lists only `src/melee/mn/mnevent.c`; review comments reference `mnnamenew.c` and `mnnamenew.h`, so those are treated as reviewed earlier or non-final hunks rather than final changed files.",
+      "Verification claims are recorded from the PR body and bot report; no independent build or objdiff was run during intake.",
+      "The PR body states the helper was removed in #2447, but this intake did not inspect #2447."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "title": "Static inline wrappers can be source-faithful MWCC matching tools for menu count loops",
-        "text": "In PR #2510, restoring `static inline s32 mnEvent_CountUnlocked(void)` around a simple count loop was reported to recover the expected MWCC register-copy initialization (`addi r30, r31, 0`) and match `mnEvent_8024CE74` at 100%. Use local sibling helper patterns as evidence before keeping stack padding or generated-looking local initialization shapes.",
+        "type": "decomp_lesson",
+        "title": "Static inline wrapper can recover MWCC local-initialization dependency",
+        "text": "In `mnEvent_8024CE74`, moving a count loop into `static inline s32 mnEvent_CountUnlocked(void)` made MWCC inline the helper while preserving a local initialization relationship that produced the expected `addi r30, r31, 0` instead of two independent `li` zero loads. Consider sibling local patterns before flattening such loops into the caller.",
         "scope": [
-          "src/melee/mn",
-          "MWCC codegen",
-          "static inline helpers",
+          "src/melee/mn/mnevent.c",
+          "MWCC",
+          "static inline",
           "count loops"
         ],
         "evidence_refs": [
-          "human_pr_text.md: Why section and helper snippet",
-          "raw_diff: helper restored and caller changed",
-          "text_corpus.jsonl: bot report shows one new match for `mnEvent_8024CE74`"
+          "human_pr_text: Why",
+          "raw_diff: src/melee/mn/mnevent.c",
+          "text_corpus: decomp-dev[bot] one new match"
         ]
       },
       {
-        "title": "Keep focused code-match PRs separate from speculative data-section cleanup",
-        "text": "PR #2510 review feedback rejected unrelated `mnnamenew` sdata/static-literal work and recommended merging just the `mnEvent_8024CE74` text match. This supports treating data-section changes, assert override hacks, and static-literal extern declarations as separate evidence-backed work rather than routine code-match cleanup.",
+        "type": "review_lesson",
+        "title": "Keep focused code matches separate from speculative data-section/literal cleanup",
+        "text": "For this PR, review requested landing only the `mnEvent_8024CE74` code match and rejected unrelated `mnnamenew` assert/literal declarations as premature sdata work.",
         "scope": [
-          "matching PR review",
-          "data-section work",
-          "static literals",
-          "assert overrides"
+          "code matching PRs",
+          "data-section cleanup",
+          "static literals"
         ],
         "evidence_refs": [
-          "review_comments.md: `mnnamenew.c` and `mnnamenew.h` comments",
-          "text_corpus.jsonl: CHANGES_REQUESTED review body recommending only the `mnEvent_8024CE74` match"
+          "review_comments: discussion_r3254910800",
+          "review_comments: discussion_r3254912236",
+          "text_corpus: review CHANGES_REQUESTED body"
         ]
       }
     ],
@@ -170,71 +288,54 @@
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Prefer local static-inline helper restoration over padding when sibling patterns and MWCC codegen support it",
-        "text": "When a small repeated loop appears inline in a caller but nearby matched code uses same-prefix static inline helpers, try restoring the helper. PR #2510 reports that this can change MWCC local initialization from independent immediates to an expected register-copy dependency after inlining. Require normal verification before accepting the shape.",
+        "title": "Inline helper recovery as an MWCC matching tactic",
+        "text": "When a small repeated/counting operation appears flattened in a caller, check nearby matched siblings for a `static inline` helper pattern. In PR #2510, restoring `mnEvent_CountUnlocked` made MWCC emit the expected register-copy initialization and removed the need for `PAD_STACK`.",
         "source_path": null,
         "scope": [
+          "MWCC codegen",
           "static inline helpers",
-          "MWCC matching",
-          "local authored style"
+          "natural loops",
+          "matching tactics"
         ],
         "evidence_refs": [
-          "human_pr_text.md: explanation of `li` vs `addi` codegen",
-          "raw_diff: `mnEvent_CountUnlocked` restored",
-          "text_corpus.jsonl: bot report one new match"
+          "human_pr_text: Why",
+          "raw_diff: src/melee/mn/mnevent.c"
         ],
-        "reason": "This is a reusable matching tactic, but should be curated into standards only with wording that keeps it evidence- and verification-bound."
+        "reason": "This may extend existing standards on inferred authored style, natural loops, and evidence-backed matching tactics with a concrete static-inline helper pattern."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Do not introduce assert macro overrides or static-literal externs as incidental data-section fixes in focused code-match PRs",
-        "text": "Review in PR #2510 called an attempted `HSD_ASSERT` override around `jobj.h` premature sdata work and said static literals such as `mnNameNew_804D4F84` / `mnNameNew_804D4F8C` did not need extern declarations. Focused text matches should avoid unrelated data/sdata churn unless explicitly scoped and evidenced.",
+        "title": "Do not override assert macros or declare static literals just to chase data sections in a focused code-match PR",
+        "text": "Review feedback in PR #2510 rejected local `HSD_ASSERT` override/sdata work and declarations for static literals, recommending that the PR merge only the focused code match and leave TU data-section matching for later human cleanup.",
         "source_path": null,
         "scope": [
-          "assert/report macros",
+          "assert macros",
           "static literals",
           "sdata",
-          "code-match PR hygiene"
+          "focused code-match PRs"
         ],
         "evidence_refs": [
-          "review_comments.md: ribbanya comments on `mnnamenew.c` and `mnnamenew.h`",
-          "text_corpus.jsonl: review body recommending humans handle TU data sections once code is matched"
+          "review_comments: discussion_r3254910800",
+          "review_comments: discussion_r3254912236",
+          "text_corpus: review CHANGES_REQUESTED body"
         ],
-        "reason": "The point overlaps existing standards on literals/data ownership and text-before-data matching; curator may use this PR as additional historical evidence or example wording."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "`src/melee/mn/mnevent.c` contains `mnEvent_8024CE74` and a local `mnEvent_CountUnlocked` helper after PR #2510",
-        "text": "PR #2510 final diff adds `static inline s32 mnEvent_CountUnlocked(void)` in `src/melee/mn/mnevent.c` and changes `mnEvent_8024CE74` to call it after the debug-level early return.",
-        "source_path": "src/melee/mn/mnevent.c",
-        "scope": [
-          "src/melee/mn/mnevent.c",
-          "mnEvent_8024CE74",
-          "mnEvent_CountUnlocked"
-        ],
-        "evidence_refs": [
-          "raw_diff",
-          "changed_files.jsonl"
-        ],
-        "reason": "Possible path fact for search/navigation; should be verified against current source before promotion."
+        "reason": "This reinforces existing standards on text-before-data matching, literal ownership, and assert macro cleanup with explicit review evidence."
       }
     ],
     "rejection_notes": [
-      "Do not record `src/melee/mn/mnnamenew.c` or `src/melee/mn/mnnamenew.h` as final changed files for this PR; final changed-file metadata lists only `src/melee/mn/mnevent.c`.",
-      "Do not promote `mnNameNew_804D4F84` or `mnNameNew_804D4F8C` extern declarations as accepted names or path facts; reviewer said they were static literals and unnecessary.",
-      "Do not infer that all count loops should be static inline helpers; this PR supports the tactic only when MWCC codegen and local sibling patterns provide evidence.",
-      "Do not independently claim build success beyond the PR body's and bot report's stated verification; intake did not run tools."
+      "Do not promote `mnEvent_CountUnlocked` as a universal required shape for all count loops; the evidence is specific to `mnEvent_8024CE74` and PR-cited mn sibling patterns.",
+      "Do not treat the reviewer comments on `mnnamenew.c` and `mnnamenew.h` as final changed files, because final changed-file metadata lists only `mnevent.c`.",
+      "Do not independently claim that #2447 removed the helper without inspecting PR #2447; record only that PR #2510's body says so."
     ]
   },
-  "confidence": 0.9,
+  "confidence": 0.91,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

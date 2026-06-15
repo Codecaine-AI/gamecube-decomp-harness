@@ -12,308 +12,311 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Large game-mode decomp/matching PR centered on src/melee/gm/gm_1BA8.c, with additional cleanup and matching improvements in gm_18A5, gmallstar, gmcamera, gmopening, gmresult, lbbgflash, and sislib. The automated report records 3 new matches, 17 unmatched-item improvements, and 1 gmopening .sdata2 regression.",
+  "summary": "Large game-mode decomp PR focused mainly on gm_1BA8, with additional gm camera, all-star, opening, result, lbBgFlash, and sislib header/body cleanup. The diff converts several placeholders into C bodies, updates recovered prototypes, removes some pragma steering, introduces narrow helper wrappers, replaces several generated float extern labels with literals, and records automated progress including 3 new matches, 17 improved unmatched items, and one gmopening .sdata2 regression.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "prototype-recovery",
-      "control-flow-cleanup",
-      "matching-tactics"
+      "matching-cleanup"
     ],
     "systems": [
       "game-mode",
-      "gm",
+      "gm_1BA8",
+      "gm_18A5",
+      "gm-camera",
+      "gm-allstar",
+      "gm-opening",
+      "gm-result",
       "lb",
-      "sysdolphin-baselib",
-      "sislib",
-      "camera",
-      "result",
-      "allstar",
-      "opening"
+      "sysdolphin-baselib"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gm/gm_1BA8.c",
-      "role": "Primary decomp body work: implements multiple previously stubbed event-mode functions, adds includes for gobjproc and itevyoshiegg, removes some dont_inline pragma blocks, adjusts PAD_STACK, and adds noinline wrapper tactics around small setters.",
+      "role": "Main decomp target; replaces placeholders with bodies for gm_801BAC9C, gm_801BB758, gm_801BBB64, gm_801BC00C, gm_801BCC9C, gm_801BD028, gm_801BF128 and related helper/tactic edits.",
       "evidence_refs": [
-        "changed_files: gm_1BA8.c +690/-20, 13 hunks",
-        "diff: /// #gm_801BAC9C replaced by s32 gm_801BAC9C(GameScene*, s32)",
-        "diff: /// #gm_801BB758, gm_801BBB64, gm_801BC00C, gm_801BCC9C, gm_801BD028, gm_801BF128 replaced by function bodies",
-        "diff: gm_801BC670 signature changed to void gm_801BC670(HSD_GObj* arg0) and PAD_STACK(0x18) to PAD_STACK(0x10)",
-        "bot report: gm_1BA8 improvements for gm_801BC00C, gm_801BB758, gm_801BF128, gm_801BCC9C, gm_801BBB64, gm_801BD028, gm_801BAC9C and .sdata2"
+        "metadata_json.changed_files: gm_1BA8.c +690/-20, 13 hunks",
+        "raw_diff: gm_1BA8.c placeholder removals and new function bodies",
+        "text_corpus bot report: multiple gm_1BA8 unmatched-item improvements"
       ]
     },
     {
       "path": "src/melee/gm/gm_1BA8.h",
-      "role": "Header/prototype recovery for functions implemented in gm_1BA8.c.",
+      "role": "Header prototype recovery for newly implemented or clarified gm_1BA8 functions.",
       "evidence_refs": [
-        "changed_files: gm_1BA8.h +5/-5, 2 hunks",
-        "diff: gm_801BAC9C, gm_801BBB64, gm_801BC00C, gm_801BC670, gm_801BF128 changed from UNK_RET/UNK_PARAMS to concrete signatures"
+        "raw_diff: UNK_RET/UNK_PARAMS changed to s32/void/HSD_GObj*/GameScene* signatures",
+        "metadata_json.changed_files: gm_1BA8.h +5/-5"
       ]
     },
     {
       "path": "src/melee/gm/gm_18A5.c",
-      "role": "Matching cleanup in bracket/camera-style game mode code: array indexing replaces cursor pointer in fn_8018A514; float extern aliases replaced by inline literals in fn_8018E46C, fn_80190520, and fn_80190ABC.",
+      "role": "Matching cleanup: array indexing in fn_8018A514, float literal cleanup in fn_8018E46C/fn_80190520/fn_80190ABC, and removal of one placeholder marker.",
       "evidence_refs": [
-        "changed_files: gm_18A5.c +48/-59, 10 hunks",
-        "diff: src = ((BracketSrcEntry**) ((u8*) entries + 0x3700))[region]",
-        "diff: entry->field loop rewritten as entries[i].field assignments",
-        "diff: lbl_804DA6A0/lbl_804DA6D4/lbl_804DA6EC/lbl_804DA6F0/lbl_804DA6F4/lbl_804DA6F8 externs removed and replaced by 0.5f, 415.6922f, 537.0f, 149.0f, 409.0f, 47.0f",
-        "bot report: fn_8018A514 and fn_80190ABC improved"
+        "diff_excerpt: fn_8018A514 pointer variable removed in favor of entries[i]",
+        "diff_excerpt: lbl_804DA6A0/lbl_804DA6D4/lbl_804DA6EC/F0/F4/F8 externs replaced with literals",
+        "text_corpus bot report: fn_8018A514 and fn_80190ABC improved"
       ]
     },
     {
       "path": "src/melee/gm/gmallstar.c",
-      "role": "All-Star mode matching cleanup using base-relative table access, natural loops, and byte-indexed status/color access.",
+      "role": "All-Star mode matching cleanup; simplifies an unrolled copy into a loop and adjusts table/base-pointer access patterns.",
       "evidence_refs": [
-        "changed_files: gmallstar.c +25/-56, 7 hunks",
-        "diff: gm_801B5624 unrolled copy block replaced by for (i = 0; i < count; i++) chars[i] = opp_data[i].x3",
-        "diff: gm_801B59AC and gm_801B5ACC compute index from base-relative gm_803DEBE8 pointer",
-        "bot report: gm_801B59AC new match; gm_801B5624 and gm_801B5ACC improved"
+        "raw_diff: gm_801B5624 count_processed/unrolled block replaced by for loop over chars[i]",
+        "text_corpus bot report: gm_801B59AC new match, gm_801B5624 and gm_801B5ACC improved"
       ]
     },
     {
       "path": "src/melee/gm/gmcamera.c",
-      "role": "Camera UI matching: noinline helper wrappers, signed local type changes, for-loop cleanup, switch conversion, and use of HSD_SisLib_803A6530 return value.",
+      "role": "Camera matching work with pragma-scoped noinline and wrapper helper tactics.",
       "evidence_refs": [
-        "changed_files: gmcamera.c +48/-33, 9 hunks",
-        "diff: gmCamera_801A253C wrapped by #pragma dont_inline on/reset and var_r3/var_r6 changed u32 to s32",
-        "diff: gmCamera_801A292C do/while cleanup replaced by for loop over three text slots",
-        "diff: gmCamera_801A33BC goto ladder replaced by switch(sp10)",
-        "diff: gmCamera_801A33BC calls gmCamera_801A2224(HSD_SisLib_803A6530(...), spC)",
-        "bot report: gmCamera_801A33BC new match; gmCamera_801A253C and gmCamera_801A292C improved"
+        "raw_diff: gmCamera_801A253C pragma dont_inline on/reset and signed local type changes",
+        "raw_diff: gmCamera_801A25C8_noinline and gmCamera_801A2650_noinline helper wrappers",
+        "text_corpus bot report: gmCamera_801A33BC new match; gmCamera_801A253C and gmCamera_801A292C improved"
       ]
     },
     {
       "path": "src/melee/gm/gmopening.c",
-      "role": "Implements gm_801A9DD0 and adds static Vec3 constants for CObj/viewport setup.",
+      "role": "Opening mode function/body and rodata progress, with automated report noting one .sdata2 regression.",
       "evidence_refs": [
-        "changed_files: gmopening.c +43/-1, 1 hunk",
-        "diff: /// #gm_801A9DD0 replaced by function body",
-        "diff: static const Vec3 gm_803B7D68 and gm_803B7D74 added",
-        "bot report: gmopening .rodata new match; gm_801A9DD0 improved; gmopening .sdata2 regressed"
+        "raw_diff: gm_801A9DD0 body added and Vec3 constants introduced",
+        "text_corpus bot report: gmopening .rodata new match, gm_801A9DD0 improved, .sdata2 regression"
       ]
     },
     {
       "path": "src/melee/gm/gmresult.c",
-      "role": "Result screen cleanup: noinline wrapper for fn_80174284 and loop conversion of repeated player-standing checks.",
+      "role": "Result-mode matching cleanup using a noinline helper and simplified fn_801771C0 code.",
       "evidence_refs": [
-        "changed_files: gmresult.c +22/-73, 4 hunks",
-        "diff: fn_80174284_noinline added and used in gm_80177368_OnEnter",
-        "diff: fn_801771C0 repeated check0/check1/check2/check3 goto blocks replaced by for (j = 0; j < 4; j++, q++)",
-        "bot report: fn_801771C0 improved"
+        "raw_diff: fn_80174284_noinline introduced and pragma push/pop removed",
+        "text_corpus bot report: fn_801771C0 improved"
       ]
     },
     {
       "path": "src/melee/lb/lbbgflash.c",
-      "role": "Background flash linkage/signature cleanup: local GXColor definitions added, dont_inline pragma removed, lbBgFlash_80021A10 made non-static.",
+      "role": "Library/background flash cleanup and prototype/signature recovery for lbBgFlash_80021A10.",
       "evidence_refs": [
-        "changed_files: lbbgflash.c +5/-9, 4 hunks",
-        "diff: extern GXColor lbl_804D3840/lbl_804D3844/lbl_804D3848/lbl_804D384C replaced by static GXColor definitions",
-        "diff: lbBgFlash_80021A10 changed from static to global void function"
+        "raw_diff: dont_inline pragma block removed around lbBgFlash_800208EC area",
+        "raw_diff: lbBgFlash_80021A10 signature changed to void lbBgFlash_80021A10(f32 arg8)"
       ]
     },
     {
       "path": "src/melee/lb/lbbgflash.h",
-      "role": "Header export for lbBgFlash_80021A10.",
+      "role": "Header declaration added/updated for lbBgFlash surface used by gm_1BA8.",
       "evidence_refs": [
-        "changed_files: lbbgflash.h +1/-0, 1 hunk",
-        "diff: /* 021A10 */ void lbBgFlash_80021A10(f32); added"
+        "metadata_json.changed_files: lbbgflash.h +1/-0",
+        "raw_diff: lbbgflash.h hunk present"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/sislib.c",
-      "role": "Signature/body change so HSD_SisLib_803A6530 returns the copied destination pointer.",
+      "role": "sislib signature/name cleanup for HSD_SisLib_803A6530.",
       "evidence_refs": [
-        "changed_files: sislib.c +2/-2, 1 hunk",
-        "diff: HSD_SisLib_803A6530 return type changed from void to u8*",
-        "diff: body now returns HSD_SisLib_803A6478(sis_table[dst_idx], sis_table[src_idx])"
+        "raw_diff: HSD_SisLib_803A6530 parameter names/signature hunk",
+        "metadata_json.changed_files: sislib.c +2/-2"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/sislib.h",
-      "role": "Header signature update matching sislib.c.",
+      "role": "Header signature aligned with sislib.c.",
       "evidence_refs": [
-        "changed_files: sislib.h +1/-1, 1 hunk",
-        "diff: HSD_SisLib_803A6530 prototype changed from void to u8*"
+        "raw_diff: HSD_SisLib_803A6530 declaration changed",
+        "metadata_json.changed_files: sislib.h +1/-1"
       ]
     }
   ],
   "what_changed": [
-    "Implemented several previously stubbed gm_1BA8 event-mode functions: gm_801BAC9C, gm_801BB758, gm_801BBB64, gm_801BC00C, gm_801BCC9C, gm_801BD028, and gm_801BF128.",
-    "Recovered gm_1BA8.h prototypes for implemented functions, replacing several UNK_RET/UNK_PARAMS declarations.",
-    "Converted generated-looking or goto-heavy control flow into loops/switches in gmresult, gmcamera, and gmallstar.",
-    "Replaced several address-style float extern aliases in gm_18A5 with inline float literals.",
-    "Changed HSD_SisLib_803A6530 to return u8* and used that return value directly in gmcamera.",
-    "Made lbBgFlash_80021A10 public via lbbgflash.h so gm_1BA8 can call it.",
-    "Automated report recorded matched code +572 bytes, matched data +24 bytes, 3 new matches, 17 improvements, and 1 unmatched-item regression in gmopening .sdata2."
+    "Implemented several previously placeholder-marked gm_1BA8 functions, including event character/stage selection, match-exit handling, event-data setup, and randomization logic.",
+    "Updated gm_1BA8.h prototypes from UNK_RET/UNK_PARAMS to recovered signatures for functions whose bodies or call signatures were clarified.",
+    "Removed some pragma dont_inline push/pop blocks in gm_1BA8, gmresult, and lbbgflash, while adding narrower noinline wrapper/helper forms in gm_1BA8 and gmcamera.",
+    "Replaced multiple address-style float externs in gm_18A5 with inline float literals such as 0.5f, 415.6922f, 149.0f, 537.0f, 47.0f, and 409.0f.",
+    "Changed generated-looking pointer stepping in fn_8018A514 to indexed entries[i] accesses, while keeping src incrementing.",
+    "Simplified a generated-looking unrolled copy in gmallstar into a for loop over count and chars[i].",
+    "Added includes for gobjproc and itevyoshiegg in gm_1BA8.c to support recovered calls/types.",
+    "Automated report recorded matched-code improvement of +572 bytes, matched-data improvement of +24 bytes, 3 new matches, 17 improvements, and one unmatched-item regression in gmopening .sdata2."
   ],
   "smart_moves": [
     {
-      "text": "Header prototypes were updated alongside newly recovered gm_1BA8 bodies instead of leaving UNK_RET/UNK_PARAMS in the public header.",
+      "text": "Recovered header prototypes alongside body recovery in gm_1BA8.h instead of leaving UNK_RET/UNK_PARAMS after adding concrete implementations.",
       "evidence_refs": [
-        "diff: gm_1BA8.h prototype changes for gm_801BAC9C, gm_801BBB64, gm_801BC00C, gm_801BC670, gm_801BF128"
+        "raw_diff: gm_1BA8.h prototype updates for gm_801BAC9C, gm_801BBB64, gm_801BC00C, gm_801BC670, gm_801BF128"
       ]
     },
     {
-      "text": "The sislib return-type recovery enabled a cleaner call expression in gmcamera instead of requiring a separate destination lookup after HSD_SisLib_803A6530.",
+      "text": "Converted ordinary generated float label externs in gm_18A5 to direct literals, reducing speculative data-symbol surface for values that appear as numeric constants in the diff.",
       "evidence_refs": [
-        "diff: HSD_SisLib_803A6530 returns u8*",
-        "diff: gmCamera_801A2224(HSD_SisLib_803A6530(3, 0x15, 0x11), spC)"
+        "diff_excerpt: extern f32 lbl_804DA6A0/lbl_804DA6D4/lbl_804DA6EC/F0/F4/F8 removed and literal uses added"
       ]
     },
     {
-      "text": "Several repeated generated blocks were replaced by small loops or switch forms, improving reviewability while the bot still reported matching gains.",
+      "text": "Used natural loop form in gmallstar for repeated char copying instead of preserving a large unrolled generated-looking block.",
       "evidence_refs": [
-        "diff: fn_801771C0 player-standing checks replaced with for loop",
-        "diff: gmCamera_801A33BC goto ladder replaced with switch",
-        "diff: gm_801B5624 unrolled copy replaced with for loop",
-        "bot report: gmresult, gmcamera, and gmallstar improvements/new match"
+        "raw_diff: gm_801B5624 unrolled dst[0]..dst[7] copy replaced by for (i = 0; i < count; i++) chars[i] = opp_data[i].x3"
       ]
     },
     {
-      "text": "Ordinary float constants in gm_18A5 were kept inline rather than maintained as local extern float aliases.",
+      "text": "Kept matching-steering tactics localized where still used, such as specific noinline wrapper chains and local pragma scopes, rather than broad file-level pragma use.",
       "evidence_refs": [
-        "diff: lbl_804DA6A0, lbl_804DA6D4, lbl_804DA6EC/F0/F4/F8 externs removed and literal floats inserted"
+        "raw_diff: gm_1BA8 helper wrappers gm_801BEFA4_noinline/gm_801BEFC0_noinline",
+        "raw_diff: gmcamera pragma dont_inline on/reset around narrow functions"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When four player slots or table entries are handled by repeated generated blocks, a natural for loop can be a viable matching/reviewable form.",
+      "lesson": "When a copied repeated block differs only by an index, a natural for loop can be a better source hypothesis than preserving decompiler-style unrolling.",
       "scope": [
-        "gmresult",
         "gmallstar",
-        "gmcamera"
+        "array copy loops"
       ],
       "evidence_refs": [
-        "diff: fn_801771C0 repeated player checks replaced by for (j = 0; j < 4; j++, q++)",
-        "diff: gm_801B5624 copy loop uses for (i = 0; i < count; i++)",
-        "diff: gmCamera_801A292C uses for (i = 0; i < 3; i++)"
-      ]
+        "raw_diff: gm_801B5624 unrolled block replaced with for-loop",
+        "decomp_standards:natural-loops"
+      ],
+      "confidence": 0.86
     },
     {
-      "lesson": "If a callee actually returns a useful destination pointer, recovering that prototype can simplify the caller and improve matching opportunities.",
+      "lesson": "For ordinary float constants exposed as address-style externs, inline literals may be preferable when the diff has no data-ownership evidence for named storage.",
       "scope": [
-        "sysdolphin/baselib/sislib",
-        "gm/gmcamera"
+        "gm_18A5",
+        "float constants",
+        "sdata2 cleanup"
       ],
       "evidence_refs": [
-        "diff: HSD_SisLib_803A6530 changed from void to u8*",
-        "diff: gmCamera_801A33BC passes HSD_SisLib_803A6530 return into gmCamera_801A2224"
-      ]
+        "diff_excerpt: lbl_804DA6A0/lbl_804DA6D4/lbl_804DA6EC/F0/F4/F8 replaced with literals",
+        "decomp_standards:literals-and-data-ownership",
+        "decomp_standards:text-before-data-matching"
+      ],
+      "confidence": 0.78
     },
     {
-      "lesson": "Inline simple numeric literals instead of preserving address-style extern float aliases when the diff evidence shows those externs were only used as constant values.",
+      "lesson": "Body recovery should be paired with truthful header prototypes when signatures become clear from the implementation.",
       "scope": [
-        "gm_18A5"
+        "headers",
+        "gm_1BA8"
       ],
       "evidence_refs": [
-        "diff: 0.5f, 415.6922f, 149.0f, 537.0f, 47.0f, 409.0f replace lbl_804DA6xx float externs"
-      ]
+        "raw_diff: gm_1BA8.h changes from UNK_RET/UNK_PARAMS to concrete signatures",
+        "decomp_standards:truthful-headers-and-includes"
+      ],
+      "confidence": 0.9
     },
     {
-      "lesson": "A focused code-matching PR can still create data-section noise; bot-reported .sdata2 regressions should be carried forward for curator/reviewer awareness rather than treated as resolved.",
+      "lesson": "Noinline and inline-wrapper steering can improve matching but should remain narrow and evidenced, because these are matching tactics rather than normal style.",
       "scope": [
-        "gmopening"
+        "gm_1BA8",
+        "gmcamera",
+        "gmresult",
+        "lbbgflash"
       ],
       "evidence_refs": [
-        "bot report: gmopening .sdata2 regression -4 bytes, 50.00% to 40.00%"
-      ]
+        "raw_diff: removal of pragma dont_inline blocks in some files",
+        "raw_diff: addition of noinline wrapper helpers in gm_1BA8 and gmcamera",
+        "decomp_standards:matching-tactics-need-evidence",
+        "decomp_standards:avoid-pragmas-register-asm"
+      ],
+      "confidence": 0.72
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Address-style symbol names were retained for unrecovered functions/data, while concrete prototypes and local role names were introduced where bodies provided evidence.",
-      "examples": [
-        "gm_801BAC9C(GameScene*, s32)",
-        "gm_801BC00C(void)",
-        "struct EventData* ev",
-        "MatchExitInfo* exit"
-      ],
+      "convention": "Recovered functions mostly retained address-style global names such as gm_801BAC9C and fn_8018A514 while improving locals with short role names like ev, exit, stage, idx, inner, cd, ckind, costume, and chars.",
       "evidence_refs": [
-        "diff: gm_1BA8.c implemented bodies retain gm_801xxxxx global names but use locals such as ev, exit, stage, kind",
-        "diff: gm_1BA8.h replaces UNK_PARAMS with concrete signatures"
-      ]
+        "raw_diff: gm_1BA8 function bodies and local declarations"
+      ],
+      "confidence": 0.76
     },
     {
-      "convention": "Wrapper helpers used an explicit _noinline suffix when introduced to affect call/noinline shape.",
-      "examples": [
-        "fn_80174284_noinline",
-        "gmCamera_801A25C8_noinline",
-        "gmCamera_801A2650_noinline3",
-        "gm_801BEFA4_noinline",
-        "gm_801BEFC0_noinline"
-      ],
+      "convention": "Matching helper names were formed by appending purpose suffixes such as _inner, _inner2, _inner3, and _noinline to the address-style function name.",
       "evidence_refs": [
-        "diff: gmresult.c adds fn_80174284_noinline",
-        "diff: gmcamera.c adds gmCamera_801A25C8_noinline and gmCamera_801A2650_noinline variants",
-        "diff: gm_1BA8.c adds gm_801BEFA4_noinline and gm_801BEFC0_noinline call paths"
-      ]
+        "raw_diff: gm_801BEFA4_inner/gm_801BEFA4_noinline and gmCamera_801A25C8_noinline helper additions"
+      ],
+      "confidence": 0.82
+    },
+    {
+      "convention": "Header declarations were made more truthful by replacing unknown placeholders with concrete return and parameter types once recovered.",
+      "evidence_refs": [
+        "raw_diff: gm_1BA8.h prototype updates",
+        "raw_diff: lbbgflash and sislib signature updates"
+      ],
+      "confidence": 0.88
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use narrowly scoped noinline wrappers or pragma dont_inline on/reset blocks to influence call shape while preserving readable underlying functions.",
+      "tactic": "Use direct array indexing to affect code shape while avoiding an extra pointer cursor when later code does not need that cursor.",
       "evidence_refs": [
-        "diff: gmcamera.c wraps gmCamera_801A253C with #pragma dont_inline on/reset",
-        "diff: gmcamera.c adds wrapper chain for gmCamera_801A2650",
-        "diff: gmresult.c adds fn_80174284_noinline",
-        "diff: gm_1BA8.c adds _noinline wrappers for gm_801BEFA4 and gm_801BEFC0"
+        "diff_excerpt: fn_8018A514 removes BracketEntry* entry and uses entries[i]"
       ],
-      "caveat": "No objdiff transcript is loaded beyond the automated report, so this is intake evidence of tactic use, not a general approval of wrapper chains."
+      "confidence": 0.73
     },
     {
-      "tactic": "Convert generated branch ladders/gotos into switch statements when branch cases align with source-level dispatch.",
+      "tactic": "Use PAD_STACK narrowly for local stack-shape adjustment, with this PR reducing one instance from PAD_STACK(0x18) to PAD_STACK(0x10).",
       "evidence_refs": [
-        "diff: gmCamera_801A33BC goto labels label_11/label_13/label_14 replaced by switch(sp10)"
+        "raw_diff: gm_801BC670 PAD_STACK change"
       ],
-      "caveat": "The evidence is one caller-specific transformation plus bot-reported new match for gmCamera_801A33BC."
+      "confidence": 0.68
     },
     {
-      "tactic": "Adjust local signedness to match MAX/comparison behavior.",
+      "tactic": "Use wrapper call layers to influence inlining/call shape where a direct call did not match.",
       "evidence_refs": [
-        "diff: gmCamera_801A253C var_r3 and var_r6 changed from u32 to s32 before MAX(var_r3, var_r6)"
+        "raw_diff: gm_801BEFA4_noinline and gm_801BEFC0_noinline replace direct calls in gm_801BF728",
+        "raw_diff: gmCamera_801A25C8_noinline and gmCamera_801A2650_noinline* wrappers"
       ],
-      "caveat": "The PR slice does not include author explanation; only the diff and bot improvement support the tactic."
+      "confidence": 0.72
     },
     {
-      "tactic": "Use PAD_STACK only narrowly and adjust its size when needed for a specific function.",
+      "tactic": "Switch between pragma dont_inline and helper-wrapper approaches depending on local function needs; the diff both removes old pragma blocks and adds narrow pragma scopes elsewhere.",
       "evidence_refs": [
-        "diff: gm_801BC670 PAD_STACK(0x18) changed to PAD_STACK(0x10)"
+        "raw_diff: gm_801BAA60, gmresult, and lbbgflash remove dont_inline blocks",
+        "raw_diff: gmcamera adds pragma dont_inline on/reset around specific functions"
       ],
-      "caveat": "No local objdiff proof is loaded for the PAD_STACK change."
+      "confidence": 0.7
     },
     {
-      "tactic": "Replace pointer-cursor copies with indexed array access when the table base is still semantically important.",
+      "tactic": "Prefer inline literals over address-style float externs when the constant is ordinary and no data ownership evidence is shown.",
       "evidence_refs": [
-        "diff: fn_8018A514 removes BracketEntry* entry and writes entries[i].x* fields",
-        "diff: src table lookup changed to array-indexed form"
+        "diff_excerpt: gm_18A5 float label externs replaced by literals"
       ],
-      "caveat": "This is supported as a local cleanup/improvement by diff and bot report, not as a universal rule."
+      "confidence": 0.78
     }
   ],
   "review_feedback": [
     {
-      "kind": "automated_report",
-      "author": "decomp-dev[bot]",
-      "created_at": "2026-05-23T20:08:19Z",
-      "text": "Report for GALE01 recorded matched code 68.49% (+0.01%, +572 bytes), matched data 39.77% (+0.00%, +24 bytes), 3 new matches, 17 improvements in unmatched items, and 1 regression in gmopening .sdata2.",
+      "source": "decomp-dev[bot]",
+      "feedback": "Automated report for GALE01 showed matched code 68.49% (+0.01%, +572 bytes) and matched data 39.77% (+0.00%, +24 bytes).",
       "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot] at 2026-05-23T20:08:19Z"
+        "text_corpus issue_comment by decomp-dev[bot] 2026-05-23T20:08:19Z"
       ]
     },
     {
-      "kind": "missing_human_review",
-      "author": null,
-      "created_at": null,
-      "text": "No human review comments or reviews are present in the loaded PR slice.",
+      "source": "decomp-dev[bot]",
+      "feedback": "Reported 3 new matches: gmCamera_801A33BC, gm_801B59AC, and gmopening .rodata.",
       "evidence_refs": [
-        "metadata counts: review_comments 0, reviews 0",
-        "text_corpus: only pr_body and decomp-dev[bot] issue_comment loaded"
+        "text_corpus bot report: 3 new matches table"
+      ]
+    },
+    {
+      "source": "decomp-dev[bot]",
+      "feedback": "Reported 17 improvements in unmatched items, dominated by gm_1BA8 functions including gm_801BC00C, gm_801BB758, gm_801BF128, gm_801BCC9C, gm_801BBB64, gm_801BD028, and gm_801BAC9C.",
+      "evidence_refs": [
+        "text_corpus bot report: 17 improvements table"
+      ]
+    },
+    {
+      "source": "decomp-dev[bot]",
+      "feedback": "Reported one regression: main/melee/gm/gmopening .sdata2 decreased from 50.00% to 40.00% (-4 bytes).",
+      "evidence_refs": [
+        "text_corpus bot report: 1 regression table"
+      ]
+    },
+    {
+      "source": "PR activity",
+      "feedback": "No human review comments were present in the loaded slice.",
+      "evidence_refs": [
+        "metadata_json.counts.review_comments: 0",
+        "metadata_json.activity.review_comments: 0"
       ]
     }
   ],
@@ -336,181 +339,133 @@
     "gm_801BCC9C",
     "gm_801BD028",
     "gm_801BF128",
-    "gm_801BC670",
+    "gmCamera_801A33BC",
+    "gm_801B59AC",
+    "gm_801A9DD0",
     "fn_8018A514",
     "fn_80190ABC",
-    "gmCamera_801A33BC",
-    "gmCamera_801A253C",
-    "gmCamera_801A292C",
-    "gm_801A9DD0",
     "fn_801771C0",
-    "HSD_SisLib_803A6530",
     "lbBgFlash_80021A10",
+    "HSD_SisLib_803A6530",
     "PAD_STACK",
     "dont_inline",
     "noinline wrapper",
-    "inline float literals",
-    "natural loop",
-    "switch cleanup",
-    "gmopening .sdata2 regression"
+    "float literal extern cleanup",
+    "UNK_PARAMS",
+    "GmEvent.dat",
+    "sqEventInitDataLevelTbl"
   ],
   "follow_up_queries": [
-    "PR 2528 gm_1BA8 gm_801BC00C gm_801BB758 gm_801BBB64 matching",
-    "PR 2528 HSD_SisLib_803A6530 u8* return gmCamera_801A33BC",
-    "PR 2528 gmCamera_801A33BC switch HSD_SisLib_803A6530",
-    "PR 2528 gmresult fn_801771C0 for loop player standings",
-    "PR 2528 gm_18A5 inline float lbl_804DA6A0 lbl_804DA6D4",
-    "PR 2528 gmopening .sdata2 regression",
-    "PR 2528 noinline wrapper gmCamera_801A2650 gm_801BEFA4"
+    "gm_1BA8 gm_801BC00C gm_801BB758 gm_801BBB64 gm_801BF128 matching tactics",
+    "gm_18A5 lbl_804DA6A0 lbl_804DA6D4 float literal extern cleanup",
+    "gmallstar gm_801B5624 unrolled copy for loop natural loop",
+    "gmcamera gmCamera_801A25C8_noinline gmCamera_801A2650_noinline dont_inline",
+    "gmopening .sdata2 regression pr-2528",
+    "gm_1BA8.h UNK_PARAMS prototype recovery pr-2528",
+    "lbBgFlash_80021A10 signature f32 arg8",
+    "HSD_SisLib_803A6530 font_idx dst_idx src_idx"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR identity, state, author, changed file counts",
-      "changed_files.jsonl: all 11 changed files with hunks and line counts",
-      "raw_diff/diff excerpt: concrete code changes for all changed files after targeted read",
-      "text_corpus: empty PR body and one decomp-dev[bot] issue comment"
+      "metadata_json: PR identity, state, changed files, counts",
+      "raw_diff/diff_excerpt: concrete file changes",
+      "text_corpus: automated decomp-dev report",
+      "decomp_standards: loaded global standards"
     ],
     "notes": [
-      "PR body is empty, so author intent is inferred only from diff shape and automated report, not from a written rationale.",
-      "No human review comments or reviews are loaded.",
-      "The raw diff loaded inline was truncated, but targeted local reads covered the remaining changed-file sections used in this record.",
-      "Automated report supports match/improvement/regression claims, but no standalone build/objdiff logs are loaded.",
-      "Several noinline and PAD_STACK tactics are observed in the diff; without narrower objdiff evidence, they are recorded as tactics used in this PR rather than promoted as accepted general style."
+      "PR body is empty and there are no human review comments, so author intent and reviewer rationale are not available.",
+      "The loaded diff excerpt is truncated, but targeted reads of the local raw diff supplied additional hunks for affected files.",
+      "Automated report provides progress/regression data, but the slice does not include full build logs, objdiff command output, or reviewer acceptance reasoning.",
+      "Some matching tactics such as PAD_STACK and noinline wrapper layers are visible in the diff, but the exact assembly constraints are not explained in comments."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "decomp_lesson_candidate",
-        "title": "Natural loops can replace repeated player/table generated blocks",
-        "text": "PR 2528 shows repeated player-slot and table-entry blocks being replaced by for loops in fn_801771C0, gm_801B5624, and gmCamera_801A292C, with the bot reporting improvements/new matches in affected units.",
+        "record_type": "pr_lesson",
+        "title": "PR 2528: pair body recovery with header prototype cleanup",
+        "text": "When a PR replaces decomp placeholders with concrete bodies, update the owning header prototypes from UNK_RET/UNK_PARAMS to the recovered signatures in the same change when the body proves the signature.",
         "scope": [
-          "gmresult",
+          "headers",
+          "gm_1BA8",
+          "prototype recovery"
+        ],
+        "evidence_refs": [
+          "raw_diff: gm_1BA8.c new bodies",
+          "raw_diff: gm_1BA8.h concrete signature updates",
+          "decomp_standards:truthful-headers-and-includes"
+        ],
+        "confidence": 0.9
+      },
+      {
+        "record_type": "pr_lesson",
+        "title": "PR 2528: check generated unrolled copies against natural loops",
+        "text": "The gmallstar cleanup shows a generated-looking multi-slot copy can be replaced by a simple indexed loop when each repeated assignment only advances source and destination by the loop index.",
+        "scope": [
           "gmallstar",
-          "gmcamera"
+          "loops",
+          "generated unrolling"
         ],
         "evidence_refs": [
-          "diff: fn_801771C0 for (j = 0; j < 4; j++, q++)",
-          "diff: gm_801B5624 for (i = 0; i < count; i++)",
-          "diff: gmCamera_801A292C for (i = 0; i < 3; i++)",
-          "bot report: affected item improvements/new matches"
-        ]
+          "raw_diff: gm_801B5624 unrolled copy replaced with for-loop",
+          "decomp_standards:natural-loops"
+        ],
+        "confidence": 0.86
       },
       {
-        "type": "decomp_lesson_candidate",
-        "title": "Recover callee return types when caller matching needs the returned pointer",
-        "text": "HSD_SisLib_803A6530 was changed from void to u8* and then used directly as the buffer argument to gmCamera_801A2224 in gmCamera_801A33BC.",
+        "record_type": "pr_lesson",
+        "title": "PR 2528: avoid address-style float externs for ordinary constants without ownership evidence",
+        "text": "gm_18A5 removed several extern f32 label declarations and used literals directly, consistent with treating generated constant labels as data-ownership claims that need evidence.",
         "scope": [
-          "sysdolphin/baselib/sislib",
-          "gm/gmcamera"
+          "gm_18A5",
+          "float constants",
+          "data ownership"
         ],
         "evidence_refs": [
-          "diff: sislib.c and sislib.h HSD_SisLib_803A6530 return u8*",
-          "diff: gmCamera_801A2224(HSD_SisLib_803A6530(...), spC)"
-        ]
-      },
-      {
-        "type": "matching_tactic_candidate",
-        "title": "Narrow noinline wrappers were used as matching tactics",
-        "text": "The PR uses explicit _noinline wrapper functions and scoped dont_inline pragma blocks around small functions in gmresult, gmcamera, and gm_1BA8. Treat this as an observed tactic requiring objdiff evidence, not as blanket style.",
-        "scope": [
-          "gmresult",
-          "gmcamera",
-          "gm_1BA8"
+          "diff_excerpt: lbl_804DA6A0/lbl_804DA6D4/lbl_804DA6EC/F0/F4/F8 replacements",
+          "decomp_standards:literals-and-data-ownership"
         ],
-        "evidence_refs": [
-          "diff: fn_80174284_noinline",
-          "diff: gmCamera_801A25C8_noinline and gmCamera_801A2650_noinline variants",
-          "diff: gm_801BEFA4_noinline and gm_801BEFC0_noinline",
-          "decomp_standards: matching-tactics-need-evidence"
-        ]
+        "confidence": 0.78
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "gm_1BA8 event-mode functions implemented and header prototypes recovered in PR 2528",
-        "text": "PR 2528 implemented several gm_1BA8 event-mode functions and updated gm_1BA8.h signatures for gm_801BAC9C, gm_801BBB64, gm_801BC00C, gm_801BC670, and gm_801BF128.",
-        "source_path": "src/melee/gm/gm_1BA8.c",
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Consider adding a cautionary example for noinline wrapper chains",
+        "text": "PR 2528 used helper names such as gm_801BEFA4_inner/_inner2/_inner3/_noinline and gmCamera_801A25C8_noinline as narrow matching tactics after also removing some broader dont_inline pragma blocks. This may be worth a standards example emphasizing that wrapper chains are matching tactics requiring verifier evidence, not normal source style.",
+        "source_path": null,
         "scope": [
-          "src/melee/gm/gm_1BA8.c",
-          "src/melee/gm/gm_1BA8.h"
+          "matching tactics",
+          "noinline",
+          "pragma alternatives",
+          "gm_1BA8",
+          "gmcamera"
         ],
         "evidence_refs": [
-          "diff: gm_1BA8.c stubs replaced by function bodies",
-          "diff: gm_1BA8.h UNK_RET/UNK_PARAMS replaced by concrete signatures",
-          "bot report: gm_1BA8 function improvements"
+          "raw_diff: gm_801BEFA4 and gm_801BEFC0 wrapper chains",
+          "raw_diff: gmcamera noinline helper wrappers",
+          "decomp_standards:matching-tactics-need-evidence",
+          "decomp_standards:avoid-pragmas-register-asm"
         ],
-        "reason": "Potential path fact for future work in gm_1BA8; curator should verify against current source before recording."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "HSD_SisLib_803A6530 returns destination buffer pointer",
-        "text": "PR 2528 changed HSD_SisLib_803A6530 from void to u8*, returning HSD_SisLib_803A6478(sis_table[dst_idx], sis_table[src_idx]); gmcamera uses the returned pointer.",
-        "source_path": "src/sysdolphin/baselib/sislib.c",
-        "scope": [
-          "src/sysdolphin/baselib/sislib.c",
-          "src/sysdolphin/baselib/sislib.h",
-          "src/melee/gm/gmcamera.c"
-        ],
-        "evidence_refs": [
-          "diff: sislib.c return type/body change",
-          "diff: sislib.h prototype change",
-          "diff: gmCamera_801A33BC callsite"
-        ],
-        "reason": "Potential API/path fact; curator should confirm current source and any later changes."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "lbBgFlash_80021A10 exported for game-mode use",
-        "text": "PR 2528 changed lbBgFlash_80021A10 from static to global and added its declaration to lbbgflash.h; gm_1BA8 calls lbBgFlash_80021A10(0.2f) in gm_801BC00C when idx == 0x24.",
-        "source_path": "src/melee/lb/lbbgflash.c",
-        "scope": [
-          "src/melee/lb/lbbgflash.c",
-          "src/melee/lb/lbbgflash.h",
-          "src/melee/gm/gm_1BA8.c"
-        ],
-        "evidence_refs": [
-          "diff: lbBgFlash_80021A10 static removed and header declaration added",
-          "diff: gm_801BC00C calls lbBgFlash_80021A10(0.2f)"
-        ],
-        "reason": "Potential cross-subsystem path fact for lb/gm linkage."
-      },
-      {
-        "target_source_id": "other",
-        "update_kind": "source_update",
-        "title": "Track unresolved gmopening .sdata2 regression from PR 2528",
-        "text": "The bot report for PR 2528 records one regression in main/melee/gm/gmopening .sdata2: -4 bytes, 50.00% to 40.00%. This should be checked before using PR 2528 as evidence of complete gmopening data improvement.",
-        "source_path": "src/melee/gm/gmopening.c",
-        "scope": [
-          "gmopening",
-          ".sdata2",
-          "regression ledger"
-        ],
-        "evidence_refs": [
-          "text_corpus: decomp-dev[bot] report, regression table"
-        ],
-        "reason": "This is a curator-facing warning/ledger candidate, not an accepted decomp lesson."
+        "reason": "Existing standards cover tactics and pragmas generally, but this PR provides a concrete historical example of wrapper-chain steering that should remain evidence-bound."
       }
     ],
     "rejection_notes": [
-      "Do not infer that every implemented gm_1BA8 function fully matched; the bot report lists percentage improvements, not full matches, for most gm_1BA8 items.",
-      "Do not promote noinline wrapper chains, PAD_STACK changes, or pragmas as generally accepted style from this PR alone; the loaded evidence shows usage and aggregate bot improvement but not narrow objdiff justification for each tactic.",
-      "Do not infer human reviewer intent or approval rationale; no human review comments are loaded.",
-      "Do not treat gmopening data as cleanly improved overall without noting the reported .sdata2 regression."
+      "Do not infer that all noinline wrapper chains are accepted style; the PR shows their use but does not include rationale or objdiff proof beyond the automated progress report.",
+      "Do not promote the gmopening .sdata2 regression as acceptable; the bot only reports it as a regression and the slice contains no reviewer explanation.",
+      "Do not infer semantic names for address-style gm_1BA8 functions beyond the signatures and local roles visible in the diff.",
+      "Do not treat the merged state as proof that every local tactic is a global standard."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

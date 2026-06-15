@@ -12,166 +12,183 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2543 decompiled grCastle_801CE19C by replacing small MWERKS inline-asm bit manipulation with C, backed by a grCastle_GroundVars9 bitfield for gp+DE bit 0. The same xDE_b0 field was then used in nearby grCastle code to set, clear, and test the flag. The PR also adjusted PAD_STACK usage and kept offset-style naming rather than accepting speculative semantic names.",
+  "summary": "PR #2543 decompiled the castle-stage function grCastle_801CE19C by replacing small inline assembly and byte-mask flag handling with C that uses a newly modeled grCastle_GroundVars9 bitfield. The diff also updated nearby castle flag writes to use xDE_b0 and adjusted narrow PAD_STACK usage. Reviewer feedback stated that the struct needed to be modified to use a bitfield.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "types-structs",
-      "bitfield-cleanup",
-      "inline-asm-removal"
+      "bitfields",
+      "asm-removal"
     ],
     "systems": [
       "stage",
       "ground",
-      "grCastle"
+      "castle"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grcastle.c",
-      "role": "Replaced xDE raw masks, temporary register variables, and rlwimi inline asm with gp->gv.castle9.xDE_b0 boolean bitfield accesses in grCastle_801CD658, grCastle_801CDFD8, grCastle_801CE19C, and grCastle_801CE578; decompiled grCastle_801CE19C body uses GET_GROUND, a timer decrement, grCastle_801CD4D0, and clears the flag.",
+      "role": "Replaced grCastle_801CE19C inline assembly and raw xDE flag checks/writes with typed bitfield access; updated related castle functions to use xDE_b0; adjusted PAD_STACK usage.",
       "evidence_refs": [
-        "raw_diff:src/melee/gr/grcastle.c hunks around grCastle_801CD658",
-        "raw_diff:src/melee/gr/grcastle.c hunks around grCastle_801CDFD8",
-        "raw_diff:src/melee/gr/grcastle.c hunks around grCastle_801CE19C",
-        "raw_diff:src/melee/gr/grcastle.c hunks around grCastle_801CE578"
+        "changed_files.jsonl: src/melee/gr/grcastle.c added 9 deleted 35 hunks 6",
+        "raw_diff: grCastle_801CE19C hunk replaces xDE >> 7 and rlwimi clear with gp->gv.castle9.xDE_b0",
+        "raw_diff: grCastle_801CDFD8 and grCastle_801CE578 hunks replace rlwimi/manual bitfield helper with xDE_b0 = true",
+        "raw_diff: grCastle_801CD658 hunk replaces xDE &= ~0x80 with xDE_b0 = false"
       ]
     },
     {
       "path": "src/melee/gr/types.h",
-      "role": "Changed grCastle_GroundVars9 field at gp+DE from u8 xDE to a one-bit bitfield named xDE_b0, preserving surrounding offset comments and layout.",
+      "role": "Changed grCastle_GroundVars9 field at gp+DE from raw u8 xDE to bitfield u8 xDE_b0 : 1 with bit-offset comment.",
       "evidence_refs": [
-        "raw_diff:src/melee/gr/types.h hunk around struct grCastle_GroundVars9",
-        "human_pr_text:ribbanya issue comment says the struct needed to be modified to use a bitfield"
+        "changed_files.jsonl: src/melee/gr/types.h added 12 deleted 12 hunks 1",
+        "raw_diff: grCastle_GroundVars9 replaces /* +1A gp+DE */ u8 xDE with /* +1A:0 gp+DE:0 */ u8 xDE_b0 : 1",
+        "issue_comment ribbanya: 'The struct just needed to be modified to use a bitfield.'"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "grCastle_801CE19C was converted from assembly-heavy bit tests/updates on castle9.xDE into C using gp->gv.castle9.xDE_b0, with the countdown timer logic kept explicit.",
+      "text": "grCastle_801CE19C was converted from generated-looking C with a tmp Ground pointer, PAD_STACK(8), byte shifts, and MWERKS_GEKKO rlwimi assembly into C using GET_GROUND once, PAD_STACK(4), xDE_b0 flag access, timer decrement, and grCastle_801CD4D0(grCastle_801CE054(gobj) + 8).",
       "evidence_refs": [
-        "raw_diff:grCastle_801CE19C",
-        "human_pr_text:PR body says it replaces a small bit of ASM with equivalent C code"
+        "raw_diff: grCastle_801CE19C hunk",
+        "human_pr_text: author says this replaces a small bit of ASM with equivalent C code"
       ]
     },
     {
-      "text": "The raw byte field castle9.xDE became a named bitfield xDE_b0 in grCastle_GroundVars9.",
+      "text": "The castle9 xDE flag representation changed from raw u8 xDE to a one-bit bitfield xDE_b0 in grCastle_GroundVars9.",
       "evidence_refs": [
-        "raw_diff:src/melee/gr/types.h",
-        "human_pr_text:ribbanya issue comment"
+        "raw_diff: types.h grCastle_GroundVars9 hunk",
+        "issue_comment ribbanya: struct needed to be modified to use a bitfield"
       ]
     },
     {
-      "text": "Nearby xDE flag set/clear sites were updated from masks, local casted bitfield structs, and rlwimi inline asm to xDE_b0 assignments.",
+      "text": "Adjacent xDE flag set/clear sites in grCastle_801CD658, grCastle_801CDFD8, and grCastle_801CE578 were cleaned up to assign xDE_b0 directly.",
       "evidence_refs": [
-        "raw_diff:grCastle_801CD658",
-        "raw_diff:grCastle_801CDFD8",
-        "raw_diff:grCastle_801CE578"
+        "raw_diff: grCastle_801CD658 hunk",
+        "raw_diff: grCastle_801CDFD8 hunk",
+        "raw_diff: grCastle_801CE578 hunk"
       ]
     },
     {
-      "text": "PAD_STACK usage changed from PAD_STACK(8) to PAD_STACK(4) in grCastle_801CE19C and a PAD_STACK(4) was added in grCastle_801CE578.",
+      "text": "The PR body claims generated bytes matched 100%, but the loaded automated report excerpt lists unrelated gm unit changes and one gmopening .sdata2 regression, so no independent grCastle objdiff line is present in the slice.",
       "evidence_refs": [
-        "raw_diff:grCastle_801CE19C",
-        "raw_diff:grCastle_801CE578"
+        "human_pr_text: 'generated bytes match 100%'",
+        "text_corpus: decomp-dev bot report for GALE01 lists gm/gmcamera, gm/gmallstar, gmopening, gm_1BA8 items"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Model the flag as a real struct bitfield instead of preserving raw byte masks or inline asm; this made multiple sites simpler and addressed reviewer feedback.",
+      "text": "Modeled the flag byte as a real struct bitfield, allowing direct boolean assignments and eliminating inline rlwimi assembly.",
       "evidence_refs": [
-        "raw_diff:xDE_b0 replacements",
-        "human_pr_text:ribbanya issue comment"
+        "raw_diff: types.h xDE to xDE_b0 bitfield",
+        "raw_diff: grCastle_801CDFD8 removes MWERKS_GEKKO rlwimi block",
+        "issue_comment ribbanya: struct needed bitfield"
       ]
     },
     {
-      "text": "Kept the recovered bitfield name offset-based as xDE_b0 rather than using speculative semantic labels such as armed, pending, or active from the PR body's AI-assisted interpretation.",
+      "text": "Kept the field name conservative as xDE_b0 rather than promoting the author's speculative meaning such as armed, pending, or active.",
       "evidence_refs": [
-        "raw_diff:types.h xDE_b0 name",
-        "human_pr_text:PR body marks semantic interpretation as a best guess"
+        "raw_diff: field name xDE_b0",
+        "human_pr_text: author presents semantic interpretation as GPT guess"
+      ]
+    },
+    {
+      "text": "Updated multiple users of the same flag representation in the same PR, avoiding mixed raw-byte and bitfield access patterns in grCastle castle9 code.",
+      "evidence_refs": [
+        "raw_diff: grCastle_801CD658, grCastle_801CDFD8, grCastle_801CE19C, grCastle_801CE578 all use xDE_b0"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "text": "When matching code manipulates a single bit in a known struct byte, try representing the byte as a bitfield in the owning struct; this can remove rlwimi inline asm, register temporaries, raw masks, and local casted bitfield structs.",
+      "lesson": "When a byte is only being manipulated through one-bit set, clear, and test operations, a correctly placed C bitfield can replace shifts, masks, register temporaries, and inline rlwimi assembly.",
       "scope": [
-        "src/melee/gr/types.h",
-        "src/melee/gr/grcastle.c",
-        "grCastle_GroundVars9",
-        "castle9.xDE_b0"
+        "stage ground vars",
+        "flag bytes",
+        "MWCC matching"
       ],
       "evidence_refs": [
-        "raw_diff:types.h xDE -> xDE_b0",
-        "raw_diff:grCastle_801CDFD8 asm removed",
-        "raw_diff:grCastle_801CE19C asm removed",
-        "raw_diff:grCastle_801CE578 local bitfield cast removed",
-        "human_pr_text:ribbanya issue comment"
+        "raw_diff: xDE >> 7 & 1 replaced by xDE_b0",
+        "raw_diff: rlwimi set/clear blocks removed",
+        "issue_comment ribbanya: struct needed to be modified to use a bitfield"
       ]
     },
     {
-      "text": "For decompilation review, mechanical or AI-assisted semantic guesses should not drive names unless corroborated; this PR kept an address/offset-style bitfield name despite a speculative description in the PR body.",
+      "lesson": "Do not turn speculative behavior descriptions into semantic field names without stronger evidence; this PR retained an offset/bit-style field name even though the body speculated about an armed or pending flag.",
       "scope": [
-        "conservative naming",
-        "AI-assisted PR interpretation",
-        "grCastle_GroundVars9"
+        "naming",
+        "unknown ground variables"
       ],
       "evidence_refs": [
-        "human_pr_text:PR body says the functional interpretation was a best guess",
-        "raw_diff:field named xDE_b0 rather than a semantic name"
+        "raw_diff: xDE_b0 name",
+        "human_pr_text: 'armed / pending / active' described as best guess from GPT"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "text": "Use offset-and-bit names such as xDE_b0 for recovered bitfields when the bit's semantic role is not proven.",
+      "name": "xDE_b0",
+      "kind": "ground-var bitfield",
+      "convention": "Use offset-plus-bit naming for a recovered bitfield when the bit position is known but semantic meaning remains unproven.",
       "evidence_refs": [
-        "raw_diff:types.h field comment /* +1A:0 gp+DE:0 */ u8 xDE_b0 : 1",
-        "human_pr_text:PR body presents armed/pending/active as guesswork"
+        "raw_diff: /* +1A:0 gp+DE:0 */ u8 xDE_b0 : 1",
+        "human_pr_text: semantic meaning is presented as a guess"
       ]
     },
     {
-      "text": "Temporary locals named tmp, byte, one, and zero were removed once the typed bitfield made the operation expressible directly.",
+      "name": "timer",
+      "kind": "local variable",
+      "convention": "A local named timer was used for the s16 countdown value xD4 in grCastle_801CE19C.",
       "evidence_refs": [
-        "raw_diff:grCastle_801CDFD8",
-        "raw_diff:grCastle_801CE19C",
-        "human_pr_text:PR body says removing tmp variables seemed necessary"
+        "raw_diff: s16 timer = gp->gv.castle9.xD4",
+        "human_pr_text: xD4 described as signed countdown timer"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "text": "Replacing rlwimi bit insertion inline asm with a C bitfield assignment matched the intended bit manipulation at xDE_b0.",
+      "tactic": "Replace MWERKS_GEKKO inline rlwimi bit insertion with C bitfield assignments after modeling the struct field.",
       "evidence_refs": [
-        "raw_diff:grCastle_801CDFD8",
-        "raw_diff:grCastle_801CE19C"
+        "raw_diff: grCastle_801CDFD8 removes asm { rlwimi byte, one, 7, 24, 24 }",
+        "raw_diff: grCastle_801CE19C removes asm { rlwimi byte, zero, 7, 24, 24 }",
+        "raw_diff: types.h adds xDE_b0 bitfield"
       ]
     },
     {
-      "text": "PAD_STACK remained necessary in the submitted diff, but only narrow evidence is present: PAD_STACK(4) appears in grCastle_801CE19C and grCastle_801CE578. No independent verifier log in the slice explains why the padding was required.",
+      "tactic": "Use narrow PAD_STACK changes only where needed for the matching shape.",
       "evidence_refs": [
-        "raw_diff:grCastle_801CE19C",
-        "raw_diff:grCastle_801CE578"
-      ]
+        "raw_diff: grCastle_801CE19C changes PAD_STACK(8) to PAD_STACK(4)",
+        "raw_diff: grCastle_801CE578 adds PAD_STACK(4)",
+        "human_pr_text: author says nicer variants regressed"
+      ],
+      "caveat": "The slice contains the diff and author statement but no narrow objdiff trace explaining each PAD_STACK placement."
     },
     {
-      "text": "The author reported that nicer-looking variants regressed and that generated bytes matched 100%, but the loaded slice does not include objdiff output specific to grCastle_801CE19C.",
+      "tactic": "Remove extra tmp/register locals when a direct typed access produces the desired code shape.",
       "evidence_refs": [
-        "human_pr_text:PR body",
-        "text_corpus:decomp-dev bot report appears to list unrelated gm units rather than grCastle_801CE19C"
+        "raw_diff: grCastle_801CE19C removes tmp Ground pointer and register byte/zero block",
+        "human_pr_text: 'Removing the tmp variables seemed necessary'"
       ]
     }
   ],
   "review_feedback": [
     {
       "author": "ribbanya",
-      "text": "Thanks for the contribution. The struct just needed to be modified to use a bitfield. You can see the difference in 545c43ab01894354eb53792742588675a3cf9ad9.",
+      "text": "The struct just needed to be modified to use a bitfield; the reviewer pointed to commit 545c43ab01894354eb53792742588675a3cf9ad9 as the difference.",
       "evidence_refs": [
-        "human_pr_text:ribbanya issue comment",
-        "text_corpus issue_comment 2026-05-26T17:38:34Z"
+        "text_corpus issue_comment by ribbanya at 2026-05-26T17:38:34Z",
+        "human_pr_text review excerpt"
+      ]
+    },
+    {
+      "author": "decomp-dev[bot]",
+      "text": "Automated report showed overall matched code +572 bytes and matched data +24 bytes, but the loaded report excerpt's itemized changes are in gm units rather than the touched grCastle files and include one gmopening .sdata2 regression.",
+      "evidence_refs": [
+        "text_corpus decomp-dev[bot] report at 2026-05-26T13:48:54Z"
       ]
     }
   ],
@@ -180,158 +197,143 @@
     "Decompile grCastle_801CE19C",
     "Erotemic",
     "ribbanya",
+    "src/melee/gr/grcastle.c",
+    "src/melee/gr/types.h",
     "grCastle_801CE19C",
+    "grCastle_801CDFD8",
+    "grCastle_801CE578",
+    "grCastle_801CD658",
     "grCastle_GroundVars9",
-    "xDE",
+    "castle9",
     "xDE_b0",
     "gp+DE:0",
     "bitfield",
     "rlwimi",
     "MWERKS_GEKKO",
-    "NOT_IMPLEMENTED",
     "PAD_STACK",
     "GET_GROUND",
     "Ground_GObj",
     "Ground",
-    "grCastle_801CDFD8",
-    "grCastle_801CD658",
-    "grCastle_801CE578",
     "grCastle_801CD4D0",
     "grCastle_801CE054",
-    "Ground_801C5440",
-    "grCs_804D6970"
+    "xD4 timer"
   ],
   "follow_up_queries": [
-    "grCastle_GroundVars9 xDE_b0 bitfield",
-    "rlwimi byte one zero grCastle",
-    "site:src/melee/gr xDE_b0",
-    "PAD_STACK(4) grCastle_801CE19C",
-    "grCastle_801CDFD8 MWERKS_GEKKO asm",
-    "grCastle_801CE578 local bitfield cast xDE",
-    "545c43ab01894354eb53792742588675a3cf9ad9 bitfield"
+    "grCastle_GroundVars9 xDE_b0",
+    "rlwimi bitfield xDE_b0 stage ground vars",
+    "grCastle_801CE19C PAD_STACK(4)",
+    "grCastle_801CDFD8 xDE_b0 true",
+    "grCastle_801CE578 xDE_b0 true",
+    "site:github.com/doldecomp/melee grCastle_801CE19C bitfield",
+    "545c43ab01894354eb53792742588675a3cf9ad9 grCastle xDE_b0"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json:PR #2543 merged metadata",
-      "changed_files.jsonl:2 changed files",
-      "raw_diff:full diff",
-      "human_pr_text:PR body and issue comment",
-      "text_corpus:bot report and issue comments"
+      "metadata_json: PR #2543 merged, two changed files, added 21 deleted 47",
+      "raw_diff: full diff excerpt for grcastle.c and types.h",
+      "human_pr_text: author body and ribbanya issue comment",
+      "text_corpus: decomp-dev bot report"
     ],
     "notes": [
-      "Changed files and code edits are well supported by the raw diff.",
-      "Reviewer feedback is available only as an issue comment, with no inline review comments.",
-      "The author's 100% byte-match claim is present, but the loaded bot report lists unrelated gm units and does not independently verify grCastle_801CE19C.",
-      "The PR body includes AI-assisted semantic guesses about the function's purpose; those are treated as speculation, not accepted naming or behavior facts.",
-      "PAD_STACK changes are visible in the diff, but the slice does not include a narrow explanation or verifier evidence for the exact stack-padding requirements."
+      "Changed files and code transformations are well supported by the diff.",
+      "Reviewer feedback directly supports the bitfield modeling lesson.",
+      "The PR body claims generated bytes match 100%, but the loaded automated report does not show a grCastle-specific objdiff line and includes unrelated gm item changes plus one unrelated-looking .sdata2 regression.",
+      "The author's functional explanation of grCastle_801CE19C is explicitly speculative and AI-assisted; it should not be promoted as established semantics.",
+      "No review comments are present; only issue comments and the diff are available."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "kind": "decomp_lesson_candidate",
-        "title": "Use owning-struct bitfields to remove raw bit manipulation and inline asm",
-        "text": "In PR #2543, changing grCastle_GroundVars9's xDE byte into a bitfield xDE_b0 let the code replace rlwimi inline asm, masks, and local casted bitfield structs with direct boolean field assignments.",
+        "record_type": "decomp_lesson",
+        "title": "Use bitfields for proven flag-byte bits instead of inline rlwimi or masks",
+        "text": "PR #2543 shows a castle GroundVars byte at gp+DE converted from raw u8 xDE plus shift/mask/rlwimi operations into u8 xDE_b0 : 1. This allowed grCastle_801CE19C and nearby functions to use direct boolean assignments and tests.",
         "scope": [
-          "grCastle",
-          "GroundVars",
-          "bitfield recovery",
-          "inline asm cleanup"
+          "stage ground vars",
+          "typed fields",
+          "bitfields",
+          "asm removal"
         ],
         "evidence_refs": [
-          "raw_diff:types.h xDE -> xDE_b0",
-          "raw_diff:grcastle.c xDE_b0 uses",
-          "human_pr_text:ribbanya issue comment"
-        ],
-        "confidence": 0.9
+          "raw_diff: types.h grCastle_GroundVars9 xDE_b0",
+          "raw_diff: grCastle_801CE19C removes rlwimi clear and xDE >> 7 test",
+          "issue_comment ribbanya: struct needed bitfield"
+        ]
       },
       {
-        "kind": "naming_lesson_candidate",
-        "title": "Prefer offset-style bitfield names when semantics are speculative",
-        "text": "The PR retained xDE_b0 instead of adopting speculative names from the PR body's AI-assisted explanation, matching conservative naming guidance when behavior is not proven.",
+        "record_type": "naming_lesson",
+        "title": "Prefer offset-bit names when semantics are only guessed",
+        "text": "Although the PR body speculated that the flag might mean armed, pending, or active, the merged code used xDE_b0, preserving known offset/bit information without inventing semantic meaning.",
         "scope": [
           "conservative naming",
-          "bitfields",
-          "AI-assisted decomp"
+          "unknown fields"
         ],
         "evidence_refs": [
-          "raw_diff:types.h xDE_b0",
-          "human_pr_text:PR body marks semantic role as best guess"
-        ],
-        "confidence": 0.82
+          "raw_diff: xDE_b0 field name",
+          "human_pr_text: semantic interpretation framed as best guess"
+        ]
       }
     ],
     "source_update_candidates": [
       {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Bitfields as typed replacements for proven flag-byte assembly",
+        "text": "Consider adding an explicit note that when review or diff evidence proves a byte access is a single flag bit, a struct bitfield may be preferable to raw masks, shifts, M2C-style byte access, or inline rlwimi blocks.",
+        "source_path": null,
+        "scope": [
+          "typed-fields-over-pointer-math",
+          "avoid-pragmas-register-asm",
+          "matching-tactics-need-evidence"
+        ],
+        "evidence_refs": [
+          "issue_comment ribbanya: struct needed to be modified to use a bitfield",
+          "raw_diff: grCastle_801CDFD8 and grCastle_801CE19C remove rlwimi assembly in favor of xDE_b0"
+        ],
+        "reason": "The existing standards cover typed fields and avoiding inline assembly; this PR provides a concrete bitfield-specific example for curator review."
+      },
+      {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "grCastle_GroundVars9 has a recovered bitfield at gp+DE:0",
-        "text": "PR #2543 changed src/melee/gr/types.h so grCastle_GroundVars9 stores gp+DE bit 0 as `u8 xDE_b0 : 1`, replacing the previous `u8 xDE` byte field and enabling direct accesses in src/melee/gr/grcastle.c.",
+        "title": "grCastle_GroundVars9 gp+DE bit 0 modeled as xDE_b0",
+        "text": "In PR #2543, src/melee/gr/types.h changed grCastle_GroundVars9 at /* +1A:0 gp+DE:0 */ to u8 xDE_b0 : 1, and src/melee/gr/grcastle.c uses it in grCastle_801CD658, grCastle_801CDFD8, grCastle_801CE19C, and grCastle_801CE578.",
         "source_path": "src/melee/gr/types.h",
         "scope": [
           "src/melee/gr/types.h",
           "src/melee/gr/grcastle.c",
-          "grCastle_GroundVars9",
-          "xDE_b0"
+          "grCastle_GroundVars9"
         ],
         "evidence_refs": [
-          "raw_diff:src/melee/gr/types.h",
-          "raw_diff:src/melee/gr/grcastle.c",
-          "human_pr_text:ribbanya issue comment"
+          "raw_diff: types.h grCastle_GroundVars9 hunk",
+          "raw_diff: grcastle.c xDE_b0 hunks"
         ],
-        "reason": "This is a source/path-owned struct layout fact visible in the PR diff; curator should decide whether to add it to path facts."
-      },
-      {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Consider bitfield recovery before keeping rlwimi asm for single-bit flags",
-        "text": "When a function uses inline asm or raw masks only to set, clear, or test one bit of a known struct byte, check whether the owning struct should expose that bit as a bitfield before preserving the asm.",
-        "source_path": null,
-        "scope": [
-          "bitfield recovery",
-          "inline asm cleanup",
-          "typed fields over pointer math",
-          "avoid pragmas/register/asm"
-        ],
-        "evidence_refs": [
-          "raw_diff:grCastle_801CDFD8",
-          "raw_diff:grCastle_801CE19C",
-          "raw_diff:grCastle_801CE578",
-          "human_pr_text:ribbanya issue comment"
-        ],
-        "reason": "The case reinforces existing standards about typed fields and avoiding inline asm; curator can decide whether it warrants an explicit standard note."
+        "reason": "Potential path-specific fact about castle GroundVars layout; curator should verify against current source before adding."
       }
     ],
     "rejection_notes": [
       {
-        "text": "Do not promote the PR body's AI-generated description of grCastle_801CE19C as a one-shot/timer-driven object spawner into accepted behavior or naming facts; the author explicitly framed it as a best guess.",
+        "text": "Do not promote the guessed meaning of grCastle_801CE19C as a one-shot/timer-driven object spawner or state-transition handler; the PR body frames it as an AI-assisted best guess.",
         "evidence_refs": [
-          "human_pr_text:PR body"
+          "human_pr_text: 'My best guess'",
+          "human_pr_text: author says perspective is purely mechanical"
         ]
       },
       {
-        "text": "Do not treat the loaded decomp-dev bot report as direct validation of grCastle_801CE19C, because the listed matches/regressions are for gm units rather than the changed grCastle file.",
+        "text": "Do not treat the loaded bot report's gm unit matches as evidence that grCastle_801CE19C itself matched; the itemized report does not show grCastle.",
         "evidence_refs": [
-          "text_corpus:decomp-dev bot report"
-        ]
-      },
-      {
-        "text": "Do not generalize PAD_STACK(4) as a style rule from this PR alone; the diff shows the tactic but does not include verifier evidence explaining it.",
-        "evidence_refs": [
-          "raw_diff:grCastle_801CE19C",
-          "raw_diff:grCastle_801CE578"
+          "text_corpus: decomp-dev bot report itemizes gm/gmcamera, gm/gmallstar, gmopening, gm_1BA8"
         ]
       }
     ]
   },
-  "confidence": 0.86,
+  "confidence": 0.84,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

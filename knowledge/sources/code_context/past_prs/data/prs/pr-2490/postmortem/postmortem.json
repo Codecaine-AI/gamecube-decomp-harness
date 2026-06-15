@@ -12,13 +12,14 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Draft PR adding decompilation work for lb_80019628, lbMemory_80015320, and lbMemory_8001564C, plus a small fn_80015184 matching improvement in the melee lb library area. Bot output reported one new match for fn_80015184 and improvements for the three newly added functions, but also broken matches and regressions, and the PR closed unmerged with no human review comments in the loaded slice.",
+  "summary": "Closed draft PR adding missing implementations for lb_80019628, lbMemory_80015320, and lbMemory_8001564C, plus a small fn_80015184 matching improvement and a public lbMemory_80015320 prototype. Bot report showed one new match for fn_80015184, three unmatched-item improvements, two broken matches, and two regressions.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "library-memory"
+      "library-memory",
+      "timers-alarms"
     ],
     "systems": [
       "library",
@@ -30,212 +31,222 @@
   "key_files": [
     {
       "path": "src/melee/lb/lb_0192.c",
-      "role": "Adds lb_80019628, which updates timing state, PAD sampling rate, and periodic alarm setup using lb_804329F0.",
+      "role": "Added missing lb_80019628 implementation that updates timing state, PAD sampling rate, and OS periodic alarm scheduling.",
       "evidence_refs": [
-        "changed_files: src/melee/lb/lb_0192.c added 42 deleted 0 hunks 1",
+        "changed_files: src/melee/lb/lb_0192.c added 42 deleted 0",
         "raw_diff: added void lb_80019628(void)",
-        "text_corpus: bot reported lb_80019628 improved from 0.00% to 50.52%"
+        "text_corpus: bot report lb_80019628 improved 0.00% to 50.52%"
       ]
     },
     {
       "path": "src/melee/lb/lbmemory.c",
-      "role": "Adds lbMemory_80015320 and lbMemory_8001564C, moves LBMgr definition earlier for use by lbMemory_80015320, adds AR/devcom includes, and changes fn_80015184 alarm setup from a raw tick constant/NULL handler to OS_MSEC_TO_TICKS(3)/fn_80015184.",
+      "role": "Added includes for AR and devcom, moved lbmemory.c string and LBMgr struct earlier, implemented lbMemory_80015320 and lbMemory_8001564C, and changed fn_80015184 alarm reset from a raw tick constant/null handler to OS_MSEC_TO_TICKS(3) with fn_80015184.",
       "evidence_refs": [
-        "changed_files: src/melee/lb/lbmemory.c added 98 deleted 13 hunks 5",
-        "raw_diff: added includes <dolphin/ar.h> and <baselib/devcom.h>",
-        "raw_diff: added void lbMemory_80015320(s32 arg0, Handle* arg1, void* arg2, s32 cancelflag)",
-        "raw_diff: OSSetAlarm(&temp_r3->alarm, 0x10624DD3, NULL) changed to OSSetAlarm(&temp_r3->alarm, OS_MSEC_TO_TICKS(3), fn_80015184)",
+        "changed_files: src/melee/lb/lbmemory.c added 98 deleted 13",
+        "raw_diff: added #include <dolphin/ar.h> and #include <baselib/devcom.h>",
+        "raw_diff: added void lbMemory_80015320(...)",
+        "raw_diff: OSSetAlarm changed from 0x10624DD3, NULL to OS_MSEC_TO_TICKS(3), fn_80015184",
         "raw_diff: added void lbMemory_8001564C(void)",
-        "text_corpus: bot reported fn_80015184 new match at 100.00%, lbMemory_8001564C improved to 93.52%, lbMemory_80015320 improved to 91.00%"
+        "text_corpus: bot report fn_80015184 reached 100.00%"
       ]
     },
     {
       "path": "src/melee/lb/lbmemory.h",
-      "role": "Adds public prototype for lbMemory_80015320 with recovered parameter types.",
+      "role": "Added public prototype for lbMemory_80015320 with recovered parameter types.",
       "evidence_refs": [
-        "changed_files: src/melee/lb/lbmemory.h added 1 deleted 0 hunks 1",
+        "changed_files: src/melee/lb/lbmemory.h added 1 deleted 0",
         "raw_diff: added /* 015320 */ void lbMemory_80015320(s32, Handle*, void*, s32);"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Added lb_80019628 in lb_0192.c. The function compares lb_804329F0 timing fields, clamps a negative slot field to 0, derives ticks from OS_TIMER_CLOCK or stored timing values, caps PAD sampling rate at 11, updates PADSetSamplingRate, and recreates/sets a periodic OS alarm with lb_80019900 as handler.",
+      "text": "Implemented lb_80019628 in lb_0192.c with timer-derived tick selection, sampling-rate clamping to 11, PADSetSamplingRate calls, alarm cancellation/recreation, and OSSetPeriodicAlarm using lb_80019900 as handler.",
       "evidence_refs": [
-        "raw_diff: lb_80019628 body"
+        "raw_diff: void lb_80019628(void)"
       ]
     },
     {
-      "text": "Added lbMemory_80015320 in lbmemory.c. The function walks Handle records, updates g_alloc.x6E4, uses HSD_DevComRequest for addresses below 0x80000000, otherwise stages a transfer through an LBMgr stored at g_alloc+0x6A0 with OS interrupt protection and a short alarm.",
+      "text": "Implemented lbMemory_80015320 in lbmemory.c, including HSD_DevComRequest path for low addresses, an LBMgr alarm-backed transfer path for other addresses, recursive handling of next Handle entries, and final callback through g_alloc.x6E8.",
       "evidence_refs": [
-        "raw_diff: lbMemory_80015320 body"
+        "raw_diff: void lbMemory_80015320(s32 arg0, Handle* arg1, void* arg2, s32 cancelflag)"
       ]
     },
     {
-      "text": "Changed fn_80015184 alarm requeue to use OS_MSEC_TO_TICKS(3) and fn_80015184 instead of raw constant 0x10624DD3 and NULL.",
+      "text": "Implemented lbMemory_8001564C to allocate AR arena space, initialize arena high/low fields, build two Handle freelists with for loops and NULL terminators, and initialize g_alloc.x69C via lbMemory_80014E24.",
       "evidence_refs": [
-        "raw_diff: fn_80015184 hunk",
-        "text_corpus: bot reported fn_80015184 as 100.00% new match"
+        "raw_diff: void lbMemory_8001564C(void)"
       ]
     },
     {
-      "text": "Added lbMemory_8001564C in lbmemory.c. It initializes AR memory bounds, builds two Handle free lists using for loops over 0xC-byte Handle slots, and initializes g_alloc.x69C with lbMemory_80014E24.",
+      "text": "Changed fn_80015184 alarm rescheduling to use OS_MSEC_TO_TICKS(3) and fn_80015184 instead of a raw constant and NULL callback.",
       "evidence_refs": [
-        "raw_diff: lbMemory_8001564C body"
+        "raw_diff: OSSetAlarm(&temp_r3->alarm, OS_MSEC_TO_TICKS(3), fn_80015184)"
       ]
     },
     {
-      "text": "Updated lbmemory.h with a non-static prototype for lbMemory_80015320.",
+      "text": "Exposed lbMemory_80015320 in lbmemory.h, replacing the previous source-local static declaration with a header prototype.",
       "evidence_refs": [
-        "raw_diff: lbmemory.h hunk"
+        "raw_diff: removed static declaration in lbmemory.c",
+        "raw_diff: added prototype in lbmemory.h"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Promoted a recovered lbMemory_80015320 signature to the owning header instead of keeping only a source-local static declaration.",
-      "evidence_refs": [
-        "raw_diff: removed static forward declaration in lbmemory.c",
-        "raw_diff: added lbMemory_80015320 prototype in lbmemory.h",
-        "decomp_standards: truthful-headers-and-includes"
-      ]
-    },
-    {
-      "text": "Replaced a magic alarm tick value with OS_MSEC_TO_TICKS(3), and the bot report attributes a new 100% match for fn_80015184 after the change.",
+      "text": "Used project/Dolphin macros and APIs for timing and alarms, notably OS_MSEC_TO_TICKS(3), OSSetAlarm, OSSetPeriodicAlarm, OSCreateAlarm, and OSCancelAlarm, rather than preserving only raw tick constants.",
       "evidence_refs": [
         "raw_diff: fn_80015184 OSSetAlarm change",
-        "text_corpus: bot report, fn_80015184 88.61% to 100.00%"
+        "raw_diff: lb_80019628 alarm setup"
       ]
     },
     {
-      "text": "Used natural for loops to initialize repeated Handle free-list links in lbMemory_8001564C rather than writing out repeated pointer assignments.",
+      "text": "Used natural for loops to build repeated Handle freelist links in lbMemory_8001564C instead of writing repeated stride-0xC assignments by hand.",
       "evidence_refs": [
-        "raw_diff: lbMemory_8001564C for loops over i < 0x81 and i < 7",
-        "decomp_standards: natural-loops"
+        "raw_diff: for (i = 0; i < 0x81; i++)",
+        "raw_diff: for (i = 0; i < 7; i++)",
+        "decomp_standards:natural-loops"
       ]
     },
     {
-      "text": "Added SDK/library includes for recovered APIs used by the new bodies instead of relying on implicit declarations.",
+      "text": "Moved lbMemory_80015320 from a source-local static forward declaration to the owning header after adding a body, aligning the declaration surface with the recovered function.",
       "evidence_refs": [
-        "raw_diff: added <dolphin/ar.h> and <baselib/devcom.h>"
+        "raw_diff: removed /* 015320 */ static void lbMemory_80015320(int, Handle*, int, int)",
+        "raw_diff: added /* 015320 */ void lbMemory_80015320(s32, Handle*, void*, s32)",
+        "decomp_standards:truthful-headers-and-includes"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a matched sibling or callback function contains a raw timing constant, check whether an SDK macro such as OS_MSEC_TO_TICKS expresses the original source. In this slice, changing 0x10624DD3 to OS_MSEC_TO_TICKS(3) alongside the alarm handler change corresponded with fn_80015184 becoming a bot-reported 100% match.",
+      "lesson": "When repeated handle initialization differs only by array index and stride, a natural counted for loop with a final NULL terminator can express the likely authored source and keep initialization reviewable.",
       "scope": [
         "src/melee/lb/lbmemory.c",
-        "OSAlarm",
-        "timer constants"
+        "freelist initialization",
+        "Handle arrays"
       ],
       "evidence_refs": [
-        "raw_diff: fn_80015184 OSSetAlarm change",
-        "text_corpus: bot report, fn_80015184 new match"
+        "raw_diff: lbMemory_8001564C for loops over g_alloc.x8 and g_alloc.x638",
+        "decomp_standards:natural-loops"
       ],
-      "confidence": 0.77
+      "confidence": 0.76
     },
     {
-      "lesson": "For repeated initialization of fixed-size Handle pools, natural for loops over the slot stride can be plausible decomp source and align with the global natural-loops standard.",
+      "lesson": "Replacing raw alarm tick constants with SDK timing macros can improve match/readability when the macro value corresponds to the observed period and the callback shape is supported by nearby code.",
       "scope": [
         "src/melee/lb/lbmemory.c",
-        "Handle free lists"
+        "OSSetAlarm",
+        "fn_80015184"
       ],
       "evidence_refs": [
-        "raw_diff: lbMemory_8001564C loops over g_alloc.x8 and g_alloc.x638",
-        "decomp_standards: natural-loops"
+        "raw_diff: OSSetAlarm changed to OS_MSEC_TO_TICKS(3), fn_80015184",
+        "text_corpus: bot report fn_80015184 88.61% to 100.00%"
       ],
-      "confidence": 0.68
+      "confidence": 0.72
     },
     {
-      "lesson": "If a recovered function body proves a callable signature that other files or callbacks may need, move the declaration to the owning header rather than leaving a stale static declaration.",
+      "lesson": "A recovered function body should be paired with the real owning header prototype when the function is externally callable; avoid leaving stale static or unknown local declarations.",
       "scope": [
         "src/melee/lb/lbmemory.h",
         "src/melee/lb/lbmemory.c"
       ],
       "evidence_refs": [
-        "raw_diff: lbMemory_80015320 static forward removed",
+        "raw_diff: lbMemory_80015320 body added",
         "raw_diff: lbmemory.h prototype added",
-        "decomp_standards: truthful-headers-and-includes"
+        "decomp_standards:truthful-headers-and-includes"
       ],
-      "confidence": 0.75
+      "confidence": 0.8
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Unknown or only address-identified functions keep address-style names such as lb_80019628 and lbMemory_80015320.",
+      "text": "Address-style names were retained for not-yet-semantic globals/functions such as lb_80019628, lb_804329F0, lbMemory_80015320, and lbl_803BA2C0; the PR does not provide evidence for semantic renames.",
       "evidence_refs": [
-        "human_pr_text: names listed as lb_80019628, lbMemory_80015320, lbMemory_8001564C",
-        "raw_diff: function definitions use address-style names",
-        "decomp_standards: conservative-naming"
+        "raw_diff: address-style symbol names throughout",
+        "decomp_standards:conservative-naming"
       ]
     },
     {
-      "convention": "Partially understood struct fields retain offset-style names such as x0_arenaLo, x4_arenaHi, x6E4, x6E8, and lb_804329F0.x40 when semantics are not fully proven by the PR evidence.",
+      "text": "Recovered local struct name LBMgr and fields src, dst, size, offset, cb_arg, and cb express a transfer manager layout, but the PR evidence does not establish whether these are final project-wide canonical names.",
       "evidence_refs": [
-        "raw_diff: struct Allocator and lb_80019628 field accesses",
-        "decomp_standards: conservative-naming"
+        "raw_diff: struct LBMgr definition"
       ]
     },
     {
-      "convention": "Temporary compiler-register-style local names remained in lbMemory_80015320, indicating the slice did not fully semantic-name that function's locals.",
+      "text": "Some generated/decompiler-style local names remain, including temp_r30, temp_r28, temp_r3, temp_r26, temp_r29, temp_r31, temp_r25, var_r0, and sp14, indicating naming cleanup was not complete in this slice.",
       "evidence_refs": [
-        "raw_diff: temp_r30, temp_r28, temp_r3, temp_r26, temp_r29, temp_r31, temp_r25"
+        "raw_diff: lbMemory_80015320 local declarations",
+        "raw_diff: lbMemory_8001564C local declarations"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "SDK macro substitution for alarm interval: OS_MSEC_TO_TICKS(3) replaced the raw constant 0x10624DD3 in fn_80015184.",
+      "text": "Used SDK macro OS_MSEC_TO_TICKS(3) to replace raw constant 0x10624DD3 in fn_80015184; bot report shows fn_80015184 became a new 100% match.",
       "evidence_refs": [
-        "raw_diff: fn_80015184 hunk",
-        "text_corpus: bot reported fn_80015184 at 100.00%"
+        "raw_diff: OSSetAlarm change",
+        "text_corpus: bot report fn_80015184 +32 bytes, 88.61% to 100.00%"
       ]
     },
     {
-      "tactic": "Callback handler correction or hypothesis: OSSetAlarm in fn_80015184 was changed from NULL to fn_80015184.",
+      "text": "Used explicit pointer casts into g_alloc storage for Handle freelists and LBMgr placement, including ((u8*) &g_alloc + 0x6A0), likely as a matching bridge while the allocator layout remains partially byte-array based.",
       "evidence_refs": [
-        "raw_diff: fn_80015184 hunk"
+        "raw_diff: temp_r30 = (struct LBMgr*) ((u8*) &g_alloc + 0x6A0)",
+        "raw_diff: ((Handle*) &g_alloc.x8[i * 0xC])->x0_next"
       ]
     },
     {
-      "tactic": "Temporary internal struct recovery: LBMgr was defined with OSAlarm and transfer fields, then used for g_alloc+0x6A0 alarm/devcom state.",
+      "text": "Kept assert calls as direct __assert with lbmemory.c string-derived message pointers in lbMemory_80015320 rather than converting them to HSD_ASSERT-style macros in this slice.",
       "evidence_refs": [
-        "raw_diff: struct LBMgr definition",
-        "raw_diff: temp_r30 = (struct LBMgr*) ((u8*) &g_alloc + 0x6A0)"
+        "raw_diff: __assert(temp_r3, 0x188U, temp_r3 + 0xB4)",
+        "raw_diff: __assert(temp_r3, 0x14FU, temp_r3 + 0xA8)",
+        "decomp_standards:assert-report-macros"
       ]
     },
     {
-      "tactic": "Raw pointer and offset casts remain in allocator recovery, especially for g_alloc.x8/g_alloc.x638 Handle pools and g_alloc+0x6A0 LBMgr access; these look like bridge code rather than fully typed allocator layout.",
+      "text": "Used HSD_DevComRequest and AR library calls, requiring new includes <baselib/devcom.h> and <dolphin/ar.h>.",
       "evidence_refs": [
-        "raw_diff: lbMemory_80015320 g_alloc+0x6A0 cast",
-        "raw_diff: lbMemory_8001564C Handle casts over g_alloc.x8 and g_alloc.x638",
-        "decomp_standards: typed-fields-over-pointer-math"
-      ]
-    },
-    {
-      "tactic": "Bot report used as narrow matching signal: fn_80015184 reached 100%, while added functions remained partial and some existing items regressed.",
-      "evidence_refs": [
-        "text_corpus: decomp-dev[bot] report"
+        "raw_diff: include additions",
+        "raw_diff: HSD_DevComRequest call",
+        "raw_diff: ARAlloc, ARFree, ARGetSize calls"
       ]
     }
   ],
   "review_feedback": [
     {
       "kind": "bot_report",
-      "author": "decomp-dev[bot]",
-      "text": "Report for GALE01 showed matched code 66.98% with -128 bytes overall. It reported 1 new match: main/melee/lb/lbmemory fn_80015184 from 88.61% to 100.00%. It reported improvements for lbMemory_8001564C to 93.52%, lbMemory_80015320 to 91.00%, and lb_80019628 to 50.52%. It also reported broken matches for lbMemory_80014E24 and lbMemory_800154D4 and regressions for lbmemory .data and lbMemory_80014FC8.",
+      "text": "decomp-dev bot reported one new match: main/melee/lb/lbmemory fn_80015184 improved from 88.61% to 100.00%.",
       "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot] at 2026-05-14T14:49:49Z"
+        "text_corpus: issue_comment decomp-dev[bot] 2026-05-14T14:49:49Z"
       ]
     },
     {
-      "kind": "missing_human_review",
-      "author": null,
-      "text": "No human review comments or reviews are present in the loaded slice.",
+      "kind": "bot_report",
+      "text": "Bot reported three improvements in unmatched items: lbMemory_8001564C 0.00% to 93.52%, lbMemory_80015320 0.00% to 91.00%, and lb_80019628 0.00% to 50.52%.",
+      "evidence_refs": [
+        "text_corpus: issue_comment decomp-dev[bot] improvements table"
+      ]
+    },
+    {
+      "kind": "bot_report_regression",
+      "text": "Bot reported two broken matches in lbmemory: lbMemory_80014E24 100.00% to 99.22% and lbMemory_800154D4 100.00% to 99.25%.",
+      "evidence_refs": [
+        "text_corpus: issue_comment decomp-dev[bot] broken matches table"
+      ]
+    },
+    {
+      "kind": "bot_report_regression",
+      "text": "Bot reported regressions in unmatched items: lbmemory .data 92.18% to 90.32% and lbMemory_80014FC8 99.32% to 99.00%.",
+      "evidence_refs": [
+        "text_corpus: issue_comment decomp-dev[bot] regressions table"
+      ]
+    },
+    {
+      "kind": "absence",
+      "text": "No human review comments or review approvals are present in the loaded slice.",
       "evidence_refs": [
         "metadata_json: review_comments 0, reviews 0",
-        "loaded_files: text_corpus contains PR body and one bot issue comment"
+        "text_corpus: only PR body and bot issue comment loaded"
       ]
     }
   ],
@@ -247,144 +258,161 @@
     "src/melee/lb/lb_0192.c",
     "src/melee/lb/lbmemory.h",
     "lb_80019628",
+    "lb_80019AAC",
+    "lb_80019900",
+    "lb_804329F0",
     "lbMemory_80015320",
     "lbMemory_8001564C",
     "fn_80015184",
     "lbMemory_80014E24",
     "lbMemory_800154D4",
     "lbMemory_80014FC8",
-    "lb_804329F0",
-    "PADSetSamplingRate",
-    "OSSetPeriodicAlarm",
-    "OSSetAlarm",
-    "OS_MSEC_TO_TICKS",
-    "OS_TIMER_CLOCK",
-    "HSD_DevComRequest",
+    "LBMgr",
+    "g_alloc",
+    "Handle",
     "ARAlloc",
     "ARFree",
     "ARGetSize",
-    "LBMgr",
-    "Handle free list",
-    "g_alloc",
-    "lbMemory_804318B0"
+    "HSD_DevComRequest",
+    "OS_MSEC_TO_TICKS",
+    "OSSetAlarm",
+    "OSSetPeriodicAlarm",
+    "PADSetSamplingRate",
+    "OS_TIMER_CLOCK"
   ],
   "follow_up_queries": [
-    "lbMemory_80015320 HSD_DevComRequest OSSetAlarm fn_80015184",
-    "lbMemory_8001564C ARAlloc ARFree ARGetSize free list",
+    "lbMemory_80015320 __assert temp_r3 lbmemory.c",
+    "lbMemory_8001564C ARAlloc ARGetSize freelist Handle",
+    "fn_80015184 OS_MSEC_TO_TICKS(3) OSSetAlarm",
     "lb_80019628 PADSetSamplingRate OSSetPeriodicAlarm lb_804329F0",
-    "fn_80015184 OS_MSEC_TO_TICKS 3 0x10624DD3",
-    "lbmemory.c g_alloc x6A0 LBMgr",
-    "lbmemory broken matches lbMemory_80014E24 lbMemory_800154D4 lbMemory_80014FC8 .data"
+    "lbmemory .data regression lbl_803BA2C0",
+    "lbMemory_80014E24 lbMemory_800154D4 broken match PR2490",
+    "struct Allocator x6A0 LBMgr",
+    "HSD_DevComRequest lbMemory_80015320"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR #2490 state CLOSED, merged_at null, draft true in raw_pr_json",
-      "human_pr_text: PR body describes added missing functions and fn_80015184 improvement",
-      "raw_diff: full diff available, 7037 chars",
-      "changed_files: three changed files listed",
-      "text_corpus: bot report available",
+      "metadata_json: closed draft PR, merged_at null",
+      "raw_diff: complete diff excerpt loaded and not truncated",
+      "changed_files: 3 changed files",
+      "text_corpus: PR body and decomp-dev bot report loaded",
       "metadata_json: review_comments 0, reviews 0"
     ],
     "notes": [
-      "Diff evidence is complete for the loaded slice and supports the changed-files and code-shape summary.",
-      "Bot report provides matching evidence, including one 100% function match and several partial improvements.",
-      "The PR was closed with merged_at null, so this intake should not treat these changes as merged or accepted project history.",
-      "No human review feedback is available; reviewer intent and acceptance cannot be inferred.",
-      "Added functions remained partial according to bot output: lbMemory_8001564C 93.52%, lbMemory_80015320 91.00%, lb_80019628 50.52%.",
-      "Bot report also showed regressions and broken matches, so tactics from this PR should be curated cautiously."
+      "The diff and bot report strongly support what changed and the reported score effects.",
+      "No human review comments are available, so reviewer intent, acceptance, and requested fixes cannot be inferred.",
+      "The PR was closed with merged_at null in the loaded metadata; do not treat these edits as accepted into master from this slice alone.",
+      "The bot report includes regressions and broken matches, so matching tactics should be treated as candidate/partial rather than cleanly accepted.",
+      "No local build log, objdiff details, or final validation beyond the bot summary are present."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "matching_tactic",
-        "title": "Use SDK timer macros when they explain raw alarm constants",
-        "text": "In PR #2490, fn_80015184 changed OSSetAlarm from raw constant 0x10624DD3 with NULL handler to OS_MSEC_TO_TICKS(3) with fn_80015184 as handler; the bot report marked fn_80015184 as a new 100% match. Candidate lesson: for OSAlarm code, test SDK time macros before preserving magic constants.",
+        "record_type": "decomp_lesson_candidate",
+        "title": "Natural counted loops for Handle freelist initialization",
+        "text": "In lbmemory-style freelist setup, repeated stride-based Handle link initialization can be expressed as counted for loops with a final NULL terminator when the only variation is index/stride.",
         "scope": [
           "src/melee/lb/lbmemory.c",
-          "OSAlarm",
-          "OS_MSEC_TO_TICKS"
+          "Handle freelists",
+          "allocator initialization"
         ],
         "evidence_refs": [
-          "raw_diff: fn_80015184 hunk",
-          "text_corpus: bot report fn_80015184 88.61% to 100.00%"
-        ],
-        "confidence": 0.8
-      },
-      {
-        "record_type": "header_practice",
-        "title": "Recovered non-static lb function signatures belong in lbmemory.h",
-        "text": "PR #2490 removed the source-local static declaration for lbMemory_80015320 and added a typed prototype to src/melee/lb/lbmemory.h after adding the body. This supports the existing truthful-headers practice for recovered signatures.",
-        "scope": [
-          "src/melee/lb/lbmemory.c",
-          "src/melee/lb/lbmemory.h"
-        ],
-        "evidence_refs": [
-          "raw_diff: removed static lbMemory_80015320 declaration",
-          "raw_diff: added lbMemory_80015320 prototype in lbmemory.h",
-          "decomp_standards: truthful-headers-and-includes"
+          "raw_diff: lbMemory_8001564C for loops over g_alloc.x8 and g_alloc.x638",
+          "decomp_standards:natural-loops"
         ],
         "confidence": 0.76
+      },
+      {
+        "record_type": "matching_tactic_candidate",
+        "title": "Prefer SDK time macros over raw alarm constants when evidence matches",
+        "text": "For OS alarm scheduling, replacing a raw tick constant with OS_MSEC_TO_TICKS(3) plus the observed callback improved fn_80015184 to a bot-reported 100% match in this PR.",
+        "scope": [
+          "src/melee/lb/lbmemory.c",
+          "fn_80015184",
+          "OSSetAlarm"
+        ],
+        "evidence_refs": [
+          "raw_diff: OSSetAlarm(&temp_r3->alarm, OS_MSEC_TO_TICKS(3), fn_80015184)",
+          "text_corpus: bot report fn_80015184 88.61% to 100.00%"
+        ],
+        "confidence": 0.72
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "lbmemory.c allocator code touches AR, devcom, and OSAlarm APIs",
-        "text": "PR #2490 evidence shows src/melee/lb/lbmemory.c using ARAlloc/ARFree/ARGetSize, HSD_DevComRequest, OSDisableInterrupts/OSRestoreInterrupts, OSCreateAlarm, OSSetAlarm, and OS_MSEC_TO_TICKS while recovering lbMemory_80015320, fn_80015184, and lbMemory_8001564C.",
+        "title": "lbmemory.c contains AR-backed allocator and async transfer work in this PR slice",
+        "text": "PR #2490 adds lbMemory_80015320 and lbMemory_8001564C in src/melee/lb/lbmemory.c, using ARAlloc/ARFree/ARGetSize, HSD_DevComRequest, OSAlarm, and Handle freelist initialization.",
         "source_path": "src/melee/lb/lbmemory.c",
         "scope": [
-          "library",
           "lbmemory",
           "allocator",
           "AR",
-          "devcom",
+          "DevCom",
           "OSAlarm"
         ],
         "evidence_refs": [
-          "raw_diff: lbmemory.c added <dolphin/ar.h> and <baselib/devcom.h>",
           "raw_diff: lbMemory_80015320 body",
-          "raw_diff: fn_80015184 OSSetAlarm change",
-          "raw_diff: lbMemory_8001564C body"
+          "raw_diff: lbMemory_8001564C body",
+          "raw_diff: include additions for dolphin/ar.h and baselib/devcom.h"
         ],
-        "reason": "Useful path-scoped fact for future lbmemory decomp work; should be curated as path context, not a global standard."
+        "reason": "Useful source-owned path fact candidate, but the PR was closed unmerged and includes regressions, so curator should verify against current source before promoting."
       },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "lb_0192.c lb_80019628 controls PAD sampling rate and periodic alarm timing",
-        "text": "PR #2490 added lb_80019628 in src/melee/lb/lb_0192.c. The function updates lb_804329F0 timing fields, computes a PAD sampling rate capped at 11, calls PADSetSamplingRate, and manages an OS periodic alarm with lb_80019900 as handler.",
+        "title": "lb_0192.c owns lb_80019628 timing/sampling update candidate",
+        "text": "PR #2490 adds lb_80019628 to src/melee/lb/lb_0192.c; the function updates lb_804329F0 timing fields, clamps PAD sampling rate, and schedules a periodic OS alarm with lb_80019900.",
         "source_path": "src/melee/lb/lb_0192.c",
         "scope": [
-          "library",
           "lb_0192",
+          "lb_80019628",
           "PAD sampling",
-          "OSAlarm",
-          "lb_804329F0"
+          "OS periodic alarm"
         ],
         "evidence_refs": [
-          "raw_diff: lb_80019628 body"
+          "raw_diff: lb_80019628 body",
+          "text_corpus: bot report lb_80019628 0.00% to 50.52%"
         ],
-        "reason": "Potentially useful path-specific behavioral context; evidence is from an unmerged draft PR and should be verified against current source before promotion."
+        "reason": "Useful lookup/path candidate for future lb_0192 work, but implementation was only a partial match and the PR was not merged in loaded metadata."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Assert macro cleanup follow-up for generated __assert blocks",
+        "text": "This PR leaves direct __assert calls in newly added lbMemory_80015320 using lbmemory.c string-derived message pointers. Curator may want to cross-check whether this is an exception or a missed HSD_ASSERT/HSD_ASSERTMSG cleanup case.",
+        "source_path": "src/melee/lb/lbmemory.c",
+        "scope": [
+          "assert cleanup",
+          "lbMemory_80015320",
+          "lbmemory.c"
+        ],
+        "evidence_refs": [
+          "raw_diff: __assert(temp_r3, 0x188U, temp_r3 + 0xB4)",
+          "raw_diff: __assert(temp_r3, 0x14FU, temp_r3 + 0xA8)",
+          "decomp_standards:assert-report-macros"
+        ],
+        "reason": "Potential standards/example follow-up only; PR evidence does not prove whether macro conversion would match."
       }
     ],
     "rejection_notes": [
-      "Do not promote lb_80019628, lbMemory_80015320, or lbMemory_8001564C as matched; bot output reports only 50.52%, 91.00%, and 93.52% respectively.",
-      "Do not infer human reviewer approval or requested changes; the loaded slice has no human review comments.",
-      "Do not treat this PR as merged or accepted source history; metadata shows state CLOSED and merged_at null.",
-      "Do not generalize raw pointer casts in lbMemory_80015320/lbMemory_8001564C as preferred style; current standards prefer typed fields over pointer math, and this PR left bridge-like casts in place.",
-      "Do not ignore the bot-reported broken matches and regressions when reusing tactics from this PR."
+      "Do not promote lbMemory_80015320, lbMemory_8001564C, or lb_80019628 as accepted final matches: bot report shows only partial improvements for those three functions.",
+      "Do not infer that the PR was merged or accepted; loaded metadata shows CLOSED with merged_at null and draft true.",
+      "Do not infer human reviewer feedback; no review comments or reviews are present.",
+      "Do not treat the LBMgr field names as globally canonical without current-source or symbol evidence.",
+      "Do not treat direct __assert usage as an accepted style from this PR alone, because loaded standards prefer assert/report macros when evidence supports them."
     ]
   },
-  "confidence": 0.73,
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

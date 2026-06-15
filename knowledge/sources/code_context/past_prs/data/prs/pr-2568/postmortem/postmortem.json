@@ -12,188 +12,171 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Matched `fn_8003F654` in `src/melee/pl/plbonuslib.c`, added a local inline sqrt helper shaped around `__frsqrte`, removed an unused `MSL/math_ppc.h` include, and changed `configure.py` so `melee/pl/plbonuslib.c` is treated as a Matching object. The PR body claims `python configure.py --require-protos`, `ninja`, `fn_8003F654` 100.0%, and `plbonuslib.c` `.text`, `.data`, and `.sdata2` 100.0%; the bot report corroborates new matches for `fn_8003F654` and `.sdata2`.",
+  "summary": "Matched fn_8003F654 in src/melee/pl/plbonuslib.c, added a local inline my_sqrtf helper using __frsqrte refinement, removed an unused MSL/math_ppc.h include, and changed configure.py to link plbonuslib.c as Matching. PR body claims require-protos, ninja, fn_8003F654 100%, and plbonuslib.c .text/.data/.sdata2 100%; bot report confirms new matches for fn_8003F654 and .sdata2.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "tooling",
+      "configure-linking",
       "data-layout-sensitive-cleanup"
     ],
     "systems": [
-      "melee/pl",
-      "repo-configure"
+      "melee-core",
+      "player",
+      "plbonuslib",
+      "repo-root"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/pl/plbonuslib.c",
-      "role": "Matched `fn_8003F654`; added `my_sqrtf`; removed `MSL/math_ppc.h`; refactored locals/control flow/calls to match code and `.sdata2` layout.",
+      "role": "Matched fn_8003F654 and added my_sqrtf helper; removed MSL/math_ppc.h include to preserve .sdata2 layout.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/pl/plbonuslib.c added 109 deleted 72",
-        "raw_diff: src/melee/pl/plbonuslib.c hunk adding my_sqrtf and rewriting fn_8003F654",
-        "human_pr_text: helper uses local double constants and removes unused MSL/math_ppc.h for .sdata2 layout"
+        "changed_files: src/melee/pl/plbonuslib.c +109/-72",
+        "diff: plbonuslib.c include removal and my_sqrtf addition",
+        "diff: fn_8003F654 rewrite",
+        "pr_body: fn_8003F654 and plbonuslib.c section verification"
       ]
     },
     {
       "path": "configure.py",
-      "role": "Changed `Object(NonMatching, \"melee/pl/plbonuslib.c\")` to `Object(Matching, \"melee/pl/plbonuslib.c\")`.",
+      "role": "Changed melee/pl/plbonuslib.c from NonMatching to Matching in MatchingFor configuration.",
       "evidence_refs": [
-        "changed_files.jsonl: configure.py added 1 deleted 1",
-        "raw_diff: configure.py MatchingFor object status change"
+        "changed_files: configure.py +1/-1",
+        "diff: Object(NonMatching, \"melee/pl/plbonuslib.c\") to Object(Matching, \"melee/pl/plbonuslib.c\")"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "`configure.py` now lists `melee/pl/plbonuslib.c` as `Matching` instead of `NonMatching`.",
+      "text": "configure.py now marks melee/pl/plbonuslib.c as Matching instead of NonMatching.",
       "evidence_refs": [
-        "raw_diff: configure.py -Object(NonMatching, \"melee/pl/plbonuslib.c\") +Object(Matching, \"melee/pl/plbonuslib.c\")"
+        "diff: configure.py MatchingFor object status change"
       ]
     },
     {
-      "text": "`src/melee/pl/plbonuslib.c` removed `#include <MSL/math_ppc.h>` while keeping `MSL/math.h` and `MetroTRK/intrinsics.h`.",
+      "text": "src/melee/pl/plbonuslib.c removes #include <MSL/math_ppc.h> while keeping MSL/math.h and MetroTRK/intrinsics.h.",
       "evidence_refs": [
-        "raw_diff: include hunk removing MSL/math_ppc.h",
-        "human_pr_text: unused MSL/math_ppc.h include removed so generated .sdata2 layout matches target object"
+        "diff: removed MSL/math_ppc.h include",
+        "pr_body: unused MSL/math_ppc.h include removed so generated .sdata2 layout matches target object"
       ]
     },
     {
-      "text": "A `static inline float my_sqrtf(float x)` helper was added using `__frsqrte`, three Newton refinement steps, local `const double half = 0.5`, `const double three = 3.0`, a small `u8 _[4]` local, and a volatile float return path.",
+      "text": "Added static inline my_sqrtf(float x), using local const double half=0.5 and three=3.0, __frsqrte, three Newton-style refinement steps, and volatile float y before returning the computed sqrt-like value.",
       "evidence_refs": [
-        "raw_diff: added my_sqrtf body",
-        "human_pr_text: helper uses local double constants so codegen matches without adding extra .sdata2 local statics"
+        "diff: my_sqrtf helper body",
+        "pr_body: helper uses local double constants so function codegen matches without adding extra .sdata2 local statics"
       ]
     },
     {
-      "text": "`fn_8003F654` was rewritten with different local declarations and helper calls including `pl_Verify_gm_8016AEDC`, `pl_CheckIfSameTeam`, `pl_CalculateAverage`, `my_sqrtf`, and typed names such as `table`, `entity`, `teammate_table`, `other_pos`, and `cam_pos`.",
+      "text": "Reworked fn_8003F654 around helper calls and local helper functions such as pl_Verify_gm_8016AEDC, pl_CheckIfSameTeam, and pl_CalculateAverage, replacing an inline gm_8016AEDC/team/average pattern in the old body.",
       "evidence_refs": [
-        "raw_diff: fn_8003F654 hunk"
+        "diff: fn_8003F654 uses pl_Verify_gm_8016AEDC",
+        "diff: fn_8003F654 uses pl_CheckIfSameTeam",
+        "diff: fn_8003F654 uses pl_CalculateAverage"
       ]
     },
     {
-      "text": "The PR body reports verification with `python configure.py --require-protos`, `ninja`, `fn_8003F654`: 100.0%, and `plbonuslib.c`: `.text`, `.data`, and `.sdata2` all 100.0%.",
+      "text": "PR body reports python configure.py --require-protos, ninja, fn_8003F654 100.0%, and plbonuslib.c .text/.data/.sdata2 all 100.0%; bot report records 2 new matches for fn_8003F654 and .sdata2.",
       "evidence_refs": [
-        "human_pr_text: Verification section"
-      ]
-    },
-    {
-      "text": "The automated GALE01 report lists two new matches: `main/melee/pl/plbonuslib` `fn_8003F654` from 75.24% to 100.00% and `.sdata2` from 83.33% to 100.00%.",
-      "evidence_refs": [
-        "text_corpus: decomp-dev[bot] report for GALE01"
+        "human_pr_text: Verification list",
+        "text_corpus: decomp-dev bot report for GALE01"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Kept the square-root codegen fix local to an inline helper instead of adding extra `.sdata2` local statics, according to the PR body.",
+      "text": "Kept double constants local inside the inline sqrt helper instead of creating extra .sdata2 local statics, explicitly tying the tactic to codegen and section-layout matching.",
       "evidence_refs": [
-        "human_pr_text: helper uses local double constants so function codegen matches without adding extra .sdata2 local statics",
-        "raw_diff: added my_sqrtf with local double constants"
+        "pr_body: local double constants avoid extra .sdata2 local statics",
+        "diff: const double half and three in my_sqrtf"
       ]
     },
     {
-      "text": "Removed an unused include that affected generated `.sdata2` layout, tying a source cleanup directly to section-layout evidence.",
+      "text": "Removed an unused include that affected generated .sdata2 layout rather than compensating with dummy data.",
       "evidence_refs": [
-        "human_pr_text: unused MSL/math_ppc.h include removed so generated .sdata2 layout matches target object",
-        "raw_diff: removed #include <MSL/math_ppc.h>"
+        "pr_body: unused MSL/math_ppc.h include removed so .sdata2 layout matches",
+        "diff: removed #include <MSL/math_ppc.h>"
       ]
     },
     {
-      "text": "Only marked the translation unit as Matching after claiming function and section-level 100.0% verification.",
+      "text": "Only flipped plbonuslib.c to Matching after the PR recorded function-level and TU section-level verification.",
       "evidence_refs": [
-        "human_pr_text: fn_8003F654 100.0%; plbonuslib.c .text, .data, and .sdata2 all 100.0%",
-        "raw_diff: configure.py object status changed to Matching"
+        "diff: configure.py marks plbonuslib.c Matching",
+        "pr_body: fn_8003F654 100.0% and plbonuslib.c .text/.data/.sdata2 all 100.0%"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For code-matching work where math helper constants perturb `.sdata2`, try local constants inside a narrowly scoped helper before adding new static data symbols.",
-      "scope": [
-        "code matching",
-        "math helper codegen",
-        ".sdata2-sensitive functions"
-      ],
+      "text": "For math helper reconstruction, section layout can depend on whether constants are local automatic const doubles versus emitted TU-local statics; verify both function codegen and .sdata2 before introducing named storage.",
       "evidence_refs": [
-        "human_pr_text: helper uses local double constants so function codegen matches without adding extra .sdata2 local statics",
-        "raw_diff: my_sqrtf uses local const double half and three"
+        "pr_body: helper uses local double constants so function codegen matches without extra .sdata2 local statics",
+        "pr_body: plbonuslib.c .sdata2 100.0%",
+        "text_corpus: bot report .sdata2 moved from 83.33% to 100.00%"
       ],
       "confidence": 0.86
     },
     {
-      "lesson": "Unused includes can affect generated small-data layout; removing an include may be part of matching `.sdata2`, not just style cleanup.",
-      "scope": [
-        "include cleanup",
-        ".sdata2 layout",
-        "translation-unit matching"
-      ],
+      "text": "Unused includes can be data-layout relevant in this codebase; removing MSL/math_ppc.h was part of matching .sdata2 for plbonuslib.c.",
       "evidence_refs": [
-        "human_pr_text: unused MSL/math_ppc.h include is removed so generated .sdata2 layout matches the target object",
-        "raw_diff: removed MSL/math_ppc.h"
+        "diff: removed MSL/math_ppc.h",
+        "pr_body: unused include removal made generated .sdata2 layout match target object"
       ],
       "confidence": 0.84
     },
     {
-      "lesson": "Promote a translation unit from NonMatching to Matching only with narrow function and section verification, including text and relevant data sections.",
-      "scope": [
-        "configure.py MatchingFor",
-        "translation-unit status changes"
-      ],
+      "text": "Do not treat a source body as ready to link Matching from function score alone; this PR paired the function match with TU section checks for .text, .data, and .sdata2.",
       "evidence_refs": [
-        "human_pr_text: Verification section",
-        "text_corpus: bot report lists fn_8003F654 and .sdata2 new matches",
-        "raw_diff: configure.py status change"
-      ],
-      "confidence": 0.88
-    }
-  ],
-  "naming_conventions": [
-    {
-      "text": "The PR replaced generic/decompiler-style locals such as `t`, `gobj`, `srcType`, `sp44`, and `sp38` with role-oriented names including `table`, `entity`, `teammate_slot`, `teammate_table`, `other_pos`, and `cam_pos`.",
-      "evidence_refs": [
-        "raw_diff: fn_8003F654 local declaration changes"
-      ],
-      "confidence": 0.78
-    },
-    {
-      "text": "Some temporary or matching-shaped names remain, such as `new_var`, `b34_result`, `b34`, `prev_pos2`, and `abs`; treat them as PR-local matching artifacts rather than proven global naming style.",
-      "evidence_refs": [
-        "raw_diff: fn_8003F654 added local declarations"
+        "pr_body: fn_8003F654 100.0%",
+        "pr_body: plbonuslib.c .text, .data, and .sdata2 all 100.0%",
+        "diff: configure.py Matching status"
       ],
       "confidence": 0.8
     }
   ],
+  "naming_conventions": [
+    {
+      "text": "This PR kept uncertain global/function names address-style, such as fn_8003F654, gm_8016AEDC-derived helper naming, and xDxx struct fields, while using local role names like table, entity, teammate_slot, teammate_table, other_pos, and cam_pos inside the matched function.",
+      "evidence_refs": [
+        "diff: fn_8003F654 signature retained",
+        "diff: local declarations table/entity/teammate_slot/teammate_table/other_pos/cam_pos",
+        "diff: xD74/xD78/xD7C/xD80/xD84/xD88/xD8C/xD90/xD94/xD98 fields retained"
+      ],
+      "confidence": 0.72
+    }
+  ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use `__frsqrte` plus repeated Newton refinement in a static inline helper to reproduce sqrt-like codegen for positive inputs.",
+      "text": "Used a narrow static inline my_sqrtf wrapper around __frsqrte with three refinement steps to match sqrt-like codegen in fn_8003F654.",
       "evidence_refs": [
-        "raw_diff: my_sqrtf body with __frsqrte and three refinement assignments"
-      ],
-      "confidence": 0.86
+        "diff: my_sqrtf implementation",
+        "diff: fn_8003F654 calls my_sqrtf for squared x/y distance",
+        "pr_body: fn_8003F654 100.0%"
+      ]
     },
     {
-      "tactic": "Use local `const double` values for `0.5` and `3.0` in the helper to avoid extra `.sdata2` local statics while matching codegen.",
+      "text": "Used local const double half and three within my_sqrtf rather than named static constants, with PR body explicitly saying this avoided extra .sdata2 local statics.",
       "evidence_refs": [
-        "human_pr_text: local double constants avoid extra .sdata2 local statics",
-        "raw_diff: const double half = 0.5; const double three = 3.0"
-      ],
-      "confidence": 0.87
+        "diff: const double half = 0.5 and three = 3.0",
+        "pr_body: local double constants so codegen matches without adding extra .sdata2 local statics"
+      ]
     },
     {
-      "tactic": "Remove unused `MSL/math_ppc.h` include when it changes `.sdata2` layout and the target object expects the layout without it.",
+      "text": "Removed MSL/math_ppc.h to change generated .sdata2 layout; the PR says the include was unused and its removal made layout match.",
       "evidence_refs": [
-        "human_pr_text: unused MSL/math_ppc.h include removed so generated .sdata2 layout matches",
-        "raw_diff: include deletion"
-      ],
-      "confidence": 0.84
+        "diff: include removal",
+        "pr_body: unused MSL/math_ppc.h include removed so generated .sdata2 layout matches target object"
+      ]
     },
     {
-      "tactic": "The matched form used explicit temporaries and expanded arithmetic/branch structure in `fn_8003F654`, including manual absolute-value branches and staged average calculations through `pl_CalculateAverage`.",
+      "text": "Used local lifetime/register-shaping artifacts in the matched body, including volatile float y, u8 _[4], temporary new_var, prev_pos2, and explicit abs assignment branches; these are supported only as PR-local tactics by the reported match evidence.",
       "evidence_refs": [
-        "raw_diff: fn_8003F654 rewritten absolute-value branches and average calculations"
-      ],
-      "confidence": 0.74
+        "diff: my_sqrtf u8 _[4] and volatile float y",
+        "diff: fn_8003F654 new_var and prev_pos2",
+        "diff: explicit abs handling",
+        "pr_body: fn_8003F654 100.0%"
+      ]
     }
   ],
   "review_feedback": [],
@@ -201,131 +184,128 @@
     "pr-2568",
     "plbonuslib",
     "fn_8003F654",
-    "src/melee/pl/plbonuslib.c",
-    "configure.py",
-    "Object(Matching)",
-    "Object(NonMatching)",
     "my_sqrtf",
     "__frsqrte",
     "MSL/math_ppc.h",
-    "MSL/math.h",
     ".sdata2",
     "local double constants",
-    "pl_Verify_gm_8016AEDC",
-    "pl_CheckIfSameTeam",
     "pl_CalculateAverage",
+    "pl_CheckIfSameTeam",
+    "pl_Verify_gm_8016AEDC",
     "Player_GetStaleMoveTableIndexPtr2",
     "ft_80087B34",
     "ftLib_8008732C",
     "ftLib_80087300",
     "Stage_UnkSetVec3TCam_Offset",
-    "require-protos",
-    "ninja",
-    "GALE01"
+    "configure.py Matching",
+    "require-protos"
   ],
   "follow_up_queries": [
-    "plbonuslib my_sqrtf __frsqrte local double constants sdata2",
-    "MSL/math_ppc.h include sdata2 layout match",
-    "configure.py Object(Matching) plbonuslib.c",
+    "my_sqrtf __frsqrte local double constants .sdata2",
+    "MSL/math_ppc.h include .sdata2 layout",
+    "plbonuslib.c Matching configure.py",
     "fn_8003F654 pl_CalculateAverage pl_CheckIfSameTeam",
-    "volatile float y u8 _[4] my_sqrtf matching tactic"
+    "volatile float y u8 pad sqrtf match"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR identity, state, author, timestamps, changed files",
-      "human_pr_text: PR body with intent and verification",
-      "raw_diff: full diff for configure.py and src/melee/pl/plbonuslib.c",
-      "text_corpus: bot report with matched-code and linked-code deltas"
+      "metadata_json: PR identity, state, author, changed files",
+      "human_pr_text: PR purpose and verification",
+      "raw_diff: exact source/configure changes",
+      "text_corpus: bot report with new matches"
     ],
     "notes": [
-      "No review comments or human reviewer feedback were present in the loaded slice.",
-      "The raw PR JSON is truncated, but the needed PR identity, body, changed-file metadata, full diff, and bot report are available elsewhere in the loaded evidence.",
-      "Verification claims are taken from the PR body and bot report; no independent build, objdiff, or source inspection was performed during intake.",
-      "The exact necessity of individual local names and temporaries in `fn_8003F654` is supported by the diff and match claims, but not independently proven beyond the loaded PR evidence."
+      "No review comments or human review discussion were present in the loaded slice, so reviewer intent and review feedback are not inferred.",
+      "The PR body provides verification claims and the bot report corroborates match progress, but the intake did not independently run build or objdiff tools.",
+      "Some local names and code shapes in fn_8003F654 look tactic-shaped; they are recorded as PR-local matching tactics, not general style recommendations."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "decomp_lesson",
-        "title": "Local helper constants can avoid `.sdata2` churn in math-codegen matches",
-        "text": "PR #2568 matched `fn_8003F654` by adding `my_sqrtf` with local `const double` constants for `0.5` and `3.0`; the PR body states this matched codegen without adding extra `.sdata2` local statics.",
+        "kind": "decomp_lesson",
+        "title": "Local constants can avoid unwanted .sdata2 statics in math helpers",
+        "text": "In PR #2568, my_sqrtf used local const double values for 0.5 and 3.0; the author states this matched function codegen without adding extra .sdata2 local statics, and the PR reports plbonuslib.c .sdata2 at 100.0%.",
         "scope": [
           "src/melee/pl/plbonuslib.c",
-          "math helper matching",
+          "math helper reconstruction",
           ".sdata2-sensitive matching"
         ],
         "evidence_refs": [
-          "human_pr_text",
-          "raw_diff: my_sqrtf"
-        ]
+          "pr_body: local double constants so codegen matches without extra .sdata2 local statics",
+          "diff: my_sqrtf local const double half/three",
+          "text_corpus: bot report .sdata2 100.00%"
+        ],
+        "confidence": 0.86
       },
       {
-        "type": "matching_tactic",
-        "title": "Include cleanup may be required for section layout",
-        "text": "PR #2568 removed unused `MSL/math_ppc.h`; the PR body says this made the generated `.sdata2` layout match the target object.",
+        "kind": "decomp_lesson",
+        "title": "Include cleanup can be section-layout relevant",
+        "text": "In PR #2568, removing unused MSL/math_ppc.h from plbonuslib.c was part of matching the generated .sdata2 layout to the target object.",
         "scope": [
-          "include cleanup",
+          "src/melee/pl/plbonuslib.c",
           ".sdata2 layout",
-          "translation-unit matching"
+          "include cleanup"
         ],
         "evidence_refs": [
-          "human_pr_text",
-          "raw_diff: include hunk"
-        ]
+          "diff: removed #include <MSL/math_ppc.h>",
+          "pr_body: unused include removed so generated .sdata2 layout matches"
+        ],
+        "confidence": 0.84
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "plbonuslib.c marked Matching in PR #2568",
-        "text": "`configure.py` changed `melee/pl/plbonuslib.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)`. The PR body reports `plbonuslib.c` `.text`, `.data`, and `.sdata2` all 100.0%, and the bot report lists new matches for `fn_8003F654` and `.sdata2`.",
-        "source_path": "configure.py",
-        "scope": [
-          "melee/pl/plbonuslib.c",
-          "configure.py",
-          "GALE01"
-        ],
-        "evidence_refs": [
-          "raw_diff: configure.py object status change",
-          "human_pr_text: Verification section",
-          "text_corpus: decomp-dev[bot] report"
-        ],
-        "reason": "This is a source/path status fact and should be curated as path metadata rather than treated as a general decomp lesson."
-      },
-      {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Consider documenting include-driven small-data layout sensitivity",
-        "text": "PR #2568 provides an example where removing an unused include was necessary for `.sdata2` layout matching. If repeated in other PRs, standards could mention that include changes may affect data-section layout and need verification.",
+        "title": "Treat include changes as possible data-layout changes when verification shows section impact",
+        "text": "PR #2568 is evidence that an unused include removal can affect generated .sdata2 layout. Consider adding guidance to inspect section output when include changes accompany a matching PR, especially where math headers or inline helpers may introduce constants.",
         "source_path": null,
         "scope": [
           "include cleanup",
           ".sdata2",
-          "data-section matching"
+          "matching verification"
         ],
         "evidence_refs": [
-          "human_pr_text: unused MSL/math_ppc.h include removed so generated .sdata2 layout matches target object",
-          "raw_diff: removed MSL/math_ppc.h"
+          "pr_body: unused MSL/math_ppc.h include removed so generated .sdata2 layout matches target object",
+          "diff: removed MSL/math_ppc.h",
+          "pr_body: plbonuslib.c .sdata2 100.0%"
         ],
-        "reason": "Potential standards refinement, but one PR should not by itself become a global rule without curator review and corroborating examples."
+        "reason": "Current standards cover data/literal ownership and verification, but this PR may justify an explicit note that include cleanup can affect generated section layout."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Prefer local constants over named storage when section ownership is not needed and objdiff supports it",
+        "text": "PR #2568 supports a narrow guideline: when reconstructing helper math code, local constants may be preferable to TU-local statics if they match codegen and avoid unwanted .sdata2 symbols. This should remain verification-led, not a blanket rule.",
+        "source_path": null,
+        "scope": [
+          "math helper reconstruction",
+          "literals and data ownership",
+          ".sdata2"
+        ],
+        "evidence_refs": [
+          "pr_body: helper uses local double constants so function codegen matches without adding extra .sdata2 local statics",
+          "diff: my_sqrtf local const double half/three",
+          "pr_body: fn_8003F654 100.0% and plbonuslib.c .sdata2 100.0%"
+        ],
+        "reason": "This is consistent with existing literals/data standards, but the curator may want a searchable example-specific note for math constants."
       }
     ],
     "rejection_notes": [
-      "Do not generalize `my_sqrtf` as the canonical sqrt replacement globally; the evidence only supports this helper in `plbonuslib.c` for `fn_8003F654`.",
-      "Do not treat temporary names like `new_var`, `b34_result`, or `prev_pos2` as naming conventions; they appear matching-shaped and PR-local.",
-      "Do not infer reviewer intent or requested changes; no review comments were loaded."
+      "Do not generalize volatile float y, u8 _[4], new_var, or explicit unary-plus abs branches as accepted style; the slice only supports them as local tactics used in a matched function.",
+      "Do not infer that my_sqrtf is a canonical project-wide sqrtf replacement; evidence only shows it was added static inline in plbonuslib.c for fn_8003F654 matching.",
+      "Do not infer review approval rationale beyond merge state and available bot/PR text; no review comments were loaded."
     ]
   },
-  "confidence": 0.91,
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

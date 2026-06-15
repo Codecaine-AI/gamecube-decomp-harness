@@ -1,0 +1,321 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2664",
+  "pr": {
+    "number": 2664,
+    "title": "link ftkirbyyoshiegg",
+    "url": "https://github.com/doldecomp/melee/pull/2664",
+    "state": "MERGED",
+    "author": "jurrejelle",
+    "created_at": "2026-06-12T11:50:57Z",
+    "merged_at": "2026-06-12T11:59:47Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "PR 2664 links `ftkirbyyoshiegg.c` by changing its configure status from NonMatching to Matching. The main code change makes `ftKb_SpecialNYs_8010AC78` match by moving an `ftHurtboxInit` local into the caller, passing it into `inlineB0`, keeping a narrow `PAD_STACK(0x10)` in the caller, using `GET_JOBJ(victim)`, and updating `ftKb_SpecialNYs_801093A0` to accept a `Fighter_GObj*` argument at the declaration, definition, and call site. Symbol metadata also changes several ftKirby `.sdata` string and `.sdata2` float entries from global address-style names to local labels. Bot report evidence records one new match for `ftKb_SpecialNYs_8010AC78` and linked-code progress.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "headers",
+      "symbol-metadata",
+      "configuration"
+    ],
+    "systems": [
+      "fighter",
+      "ftKirby",
+      "config",
+      "repo-root"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyyoshiegg.c",
+      "role": "Primary matched source file; edits `ftKb_SpecialNYs_8010AC78` and helper `inlineB0` stack/local layout.",
+      "evidence_refs": [
+        "raw_diff: ftkirbyyoshiegg.c hunk changing inlineB0 signature/local ftHurtboxInit handling and ftKb_SpecialNYs_8010AC78 body",
+        "text_corpus: decomp-dev[bot] report lists `main/melee/ft/chara/ftKirby/ftkirbyyoshiegg` item `ftKb_SpecialNYs_8010AC78` after 100.00%"
+      ]
+    },
+    {
+      "path": "configure.py",
+      "role": "Marks `melee/ft/chara/ftKirby/ftkirbyyoshiegg.c` as Matching instead of NonMatching.",
+      "evidence_refs": [
+        "raw_diff: configure.py hunk changes Object(NonMatching, ...ftkirbyyoshiegg.c) to Object(Matching, ...ftkirbyyoshiegg.c)"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.h",
+      "role": "Header prototype updated for `ftKb_SpecialNYs_801093A0` to take `Fighter_GObj* gobj`.",
+      "evidence_refs": [
+        "raw_diff: ftkirbyspecialdonkey.h hunk changes ftKb_SpecialNYs_801093A0(void) to ftKb_SpecialNYs_801093A0(Fighter_GObj* gobj)"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialyoshi.c",
+      "role": "Function definition updated to match the new `ftKb_SpecialNYs_801093A0(Fighter_GObj* gobj)` signature.",
+      "evidence_refs": [
+        "raw_diff: ftkirbyspecialyoshi.c hunk changes ftKb_SpecialNYs_801093A0(void) to ftKb_SpecialNYs_801093A0(Fighter_GObj* gobj)"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Symbol metadata cleanup for local `.sdata` strings and `.sdata2` floats around ftKirby init data.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt hunk changes ftKb_Init_804D3DE8/3DF0/3DF8 to @254/@255/@290 local string labels",
+        "raw_diff: symbols.txt hunk changes ftKb_Init_804D9568/956C to @252/@253 local float labels"
+      ]
+    }
+  ],
+  "what_changed": [
+    "Changed `ftkirbyyoshiegg.c` from NonMatching to Matching in `configure.py`.",
+    "Matched `ftKb_SpecialNYs_8010AC78` according to the bot report: before 99.32%, after 100.00%, +5 bytes for the unit item.",
+    "Changed `inlineB0` from allocating its own `ftHurtboxInit hurt` local to accepting `ftHurtboxInit* hurt` from its caller.",
+    "Moved `PAD_STACK(0x10)` and `ftHurtboxInit hurt` into `ftKb_SpecialNYs_8010AC78`, then called `inlineB0(victim, &hurt)`.",
+    "Replaced direct `victim->hsd_obj` access with `GET_JOBJ(victim)` for the `HSD_JObj* jobj` local.",
+    "Changed `ftKb_SpecialNYs_801093A0` prototype, definition, and call site to include `Fighter_GObj* gobj`, even though the shown function body still returns `ft_80459B88.hats[FTKIND_SAMUS]->hat_dynamics[0]`.",
+    "Changed five symbol entries from global `ftKb_Init_*` labels to local `@...` labels for `.sdata` strings and `.sdata2` floats."
+  ],
+  "smart_moves": [
+    {
+      "text": "Kept the signature recovery consistent across declaration, definition, and call site for `ftKb_SpecialNYs_801093A0`, avoiding a source-local prototype mismatch.",
+      "evidence_refs": [
+        "raw_diff: ftkirbyspecialdonkey.h prototype update",
+        "raw_diff: ftkirbyspecialyoshi.c definition update",
+        "raw_diff: ftkirbyyoshiegg.c call changes to ftKb_SpecialNYs_801093A0(gobj)"
+      ]
+    },
+    {
+      "text": "Narrowed stack-shape steering to the matching function by moving `PAD_STACK(0x10)` into `ftKb_SpecialNYs_8010AC78` rather than leaving it in the inline helper.",
+      "evidence_refs": [
+        "raw_diff: ftkirbyyoshiegg.c removes PAD_STACK(16) from inlineB0 and adds PAD_STACK(0x10) in ftKb_SpecialNYs_8010AC78"
+      ]
+    },
+    {
+      "text": "Used the existing `GET_JOBJ` accessor in the matched function instead of direct `victim->hsd_obj` access.",
+      "evidence_refs": [
+        "raw_diff: ftkirbyyoshiegg.c changes HSD_JObj* jobj = victim->hsd_obj to HSD_JObj* jobj = GET_JOBJ(victim)"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "For small matching deltas involving inlined helpers, stack-local ownership can matter: moving a helper-local struct into the caller and passing a pointer may recover the expected stack layout.",
+      "scope": [
+        "ftKirby",
+        "inlined helpers",
+        "stack layout"
+      ],
+      "evidence_refs": [
+        "raw_diff: inlineB0 changes from local `ftHurtboxInit hurt` to pointer parameter",
+        "raw_diff: ftKb_SpecialNYs_8010AC78 adds caller-local `ftHurtboxInit hurt` and passes `&hurt`",
+        "text_corpus: bot report shows `ftKb_SpecialNYs_8010AC78` reached 100.00%"
+      ],
+      "caveat": "This is evidence for this PR's matched function only; do not generalize broad PAD_STACK or local-lifetime changes without objdiff/build evidence."
+    },
+    {
+      "lesson": "When a function body or call shape requires a recovered parameter, update the owning header, definition, and call sites together.",
+      "scope": [
+        "headers",
+        "function signatures",
+        "ftKirby"
+      ],
+      "evidence_refs": [
+        "raw_diff: ftkirbyspecialdonkey.h, ftkirbyspecialyoshi.c, and ftkirbyyoshiegg.c all update `ftKb_SpecialNYs_801093A0` to take `Fighter_GObj* gobj`"
+      ],
+      "caveat": "The slice does not explain why the unused `gobj` parameter is required beyond the match result."
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "For unowned local data symbols in `symbols.txt`, this PR uses local `@NNN` labels instead of global address-style `ftKb_Init_804D...` names.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt changes ftKb_Init_804D3DE8/3DF0/3DF8 to @254/@255/@290",
+        "raw_diff: symbols.txt changes ftKb_Init_804D9568/956C to @252/@253"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "text": "Local variable names in the touched function remain short role-based names such as `fp`, `jobj`, `scale`, and `hurt`.",
+      "evidence_refs": [
+        "raw_diff: ftkirbyyoshiegg.c context around ftKb_SpecialNYs_8010AC78"
+      ],
+      "confidence": "medium"
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Move `ftHurtboxInit` allocation from inline helper to caller and pass it by pointer to influence stack layout while preserving typed field writes.",
+      "evidence_refs": [
+        "raw_diff: inlineB0 signature and body use `ftHurtboxInit* hurt`",
+        "raw_diff: ftKb_SpecialNYs_8010AC78 declares `ftHurtboxInit hurt` and calls `inlineB0(victim, &hurt)`"
+      ],
+      "risk": "Stack/local-lifetime tactic; should remain evidence-backed and narrow."
+    },
+    {
+      "tactic": "Use `PAD_STACK(0x10)` in the caller after adding the caller-local hurtbox struct.",
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialNYs_8010AC78 adds `PAD_STACK(0x10)`",
+        "text_corpus: bot report shows one new match for `ftKb_SpecialNYs_8010AC78`"
+      ],
+      "risk": "PAD_STACK is a matching tactic requiring verifier evidence; this PR has bot report evidence but no human rationale."
+    },
+    {
+      "tactic": "Use accessor macro `GET_JOBJ(victim)` for `HSD_JObj* jobj` rather than direct `victim->hsd_obj` field access.",
+      "evidence_refs": [
+        "raw_diff: ftkirbyyoshiegg.c `HSD_JObj* jobj = GET_JOBJ(victim)`"
+      ],
+      "risk": "Loaded global standard says GET_JOBJ is not unconditional cleanup; here the PR evidence only supports it for this function."
+    },
+    {
+      "tactic": "Adjust symbol metadata for data labels from global to local where matching/linking required local labels.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt `.sdata` and `.sdata2` entries changed to local labels"
+      ],
+      "risk": "Data ownership changes should not be generalized without split/symbol ownership evidence."
+    }
+  ],
+  "review_feedback": [],
+  "searchable_terms": [
+    "pr-2664",
+    "link ftkirbyyoshiegg",
+    "jurrejelle",
+    "ftkirbyyoshiegg.c",
+    "ftKb_SpecialNYs_8010AC78",
+    "inlineB0",
+    "ftHurtboxInit",
+    "PAD_STACK(0x10)",
+    "GET_JOBJ",
+    "ftKb_SpecialNYs_801093A0",
+    "Fighter_GObj* gobj",
+    "ftColl_HurtboxInit",
+    "ftCommon_SetAccessory",
+    "ftkirbyspecialdonkey.h",
+    "ftkirbyspecialyoshi.c",
+    "configure.py Matching",
+    "symbols.txt local labels",
+    "ftKb_Init_804D3DE8",
+    "ftKb_Init_804D9568"
+  ],
+  "follow_up_queries": [
+    "ftKb_SpecialNYs_8010AC78 PAD_STACK ftHurtboxInit inlineB0",
+    "ftKb_SpecialNYs_801093A0 Fighter_GObj gobj unused parameter",
+    "ftkirbyyoshiegg GET_JOBJ victim hsd_obj",
+    "symbols.txt ftKb_Init_804D3DE8 @254 local string",
+    "symbols.txt ftKb_Init_804D9568 @252 local float",
+    "ftKirby ftkirbyyoshiegg Matching configure.py"
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR number/title/author/state/timestamps and changed-file counts",
+      "raw_diff: full diff for five changed files",
+      "text_corpus: decomp-dev[bot] report with one new match and progress metrics"
+    ],
+    "notes": [
+      "PR body is empty and there are no review comments in the slice.",
+      "The bot report supports the 100% match claim for `ftKb_SpecialNYs_8010AC78`, but no explicit build command, objdiff details, or author rationale are present.",
+      "Data symbol label changes are visible in the diff, but the slice does not include independent ownership rationale for those labels.",
+      "No human reviewer feedback or intent is available; review feedback is therefore empty."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "type": "pr_lesson_candidate",
+        "title": "Caller-owned struct can be a narrow stack-layout matching tactic for inlined helper code",
+        "text": "In PR 2664, `ftKb_SpecialNYs_8010AC78` reached 100% after `ftHurtboxInit hurt` moved from `inlineB0` into the caller, `inlineB0` accepted `ftHurtboxInit*`, and the caller passed `&hurt` with a narrow `PAD_STACK(0x10)`. Treat as a PR-local tactic, not a broad style rule.",
+        "scope": [
+          "ftKirby",
+          "inlined helpers",
+          "stack layout",
+          "PAD_STACK"
+        ],
+        "evidence_refs": [
+          "raw_diff: ftkirbyyoshiegg.c inlineB0 and ftKb_SpecialNYs_8010AC78 changes",
+          "text_corpus: bot report lists ftKb_SpecialNYs_8010AC78 after 100.00%"
+        ]
+      },
+      {
+        "type": "pr_lesson_candidate",
+        "title": "Recovered function parameter must be propagated through header, definition, and call site",
+        "text": "PR 2664 updates `ftKb_SpecialNYs_801093A0` consistently in `ftkirbyspecialdonkey.h`, `ftkirbyspecialyoshi.c`, and the `ftkirbyyoshiegg.c` call site to take `Fighter_GObj* gobj`.",
+        "scope": [
+          "headers",
+          "function signatures",
+          "ftKirby"
+        ],
+        "evidence_refs": [
+          "raw_diff: header, definition, and call-site hunks for ftKb_SpecialNYs_801093A0"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "`ftkirbyyoshiegg.c` linked as Matching in PR 2664",
+        "text": "`configure.py` changed `melee/ft/chara/ftKirby/ftkirbyyoshiegg.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)`; bot report lists one new match for `ftKb_SpecialNYs_8010AC78`.",
+        "source_path": "src/melee/ft/chara/ftKirby/ftkirbyyoshiegg.c",
+        "scope": [
+          "ftKirby",
+          "configure",
+          "matching status"
+        ],
+        "evidence_refs": [
+          "raw_diff: configure.py MatchingFor hunk",
+          "text_corpus: decomp-dev[bot] report"
+        ],
+        "reason": "Potential path fact about matching status should be curated against current source before promotion."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "`ftKb_SpecialNYs_8010AC78` matched in PR 2664",
+        "text": "Bot report for PR 2664 says `main/melee/ft/chara/ftKirby/ftkirbyyoshiegg` item `ftKb_SpecialNYs_8010AC78` changed from 99.32% to 100.00%.",
+        "source_path": "src/melee/ft/chara/ftKirby/ftkirbyyoshiegg.c",
+        "scope": [
+          "ftKb_SpecialNYs_8010AC78",
+          "ftKirby",
+          "matching"
+        ],
+        "evidence_refs": [
+          "text_corpus: decomp-dev[bot] issue comment"
+        ],
+        "reason": "Specific matched-symbol fact, suitable for curator verification against current status."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "PR 2664 changed several ftKirby data symbols from global names to local labels",
+        "text": "In `config/GALE01/symbols.txt`, PR 2664 changed `.sdata` strings at 0x804D3DE8/0x804D3DF0/0x804D3DF8 and `.sdata2` floats at 0x804D9568/0x804D956C from global `ftKb_Init_804D...` labels to local `@...` labels.",
+        "source_path": "config/GALE01/symbols.txt",
+        "scope": [
+          "symbols.txt",
+          "ftKirby",
+          ".sdata",
+          ".sdata2"
+        ],
+        "evidence_refs": [
+          "raw_diff: symbols.txt local label changes"
+        ],
+        "reason": "Symbol metadata fact may be useful, but ownership should be checked against current symbols before promotion."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that `GET_JOBJ` should replace all direct `hsd_obj` reads; the loaded standards warn that GET_JOBJ is evidence-dependent and this slice only supports one local use.",
+      "Do not promote broad PAD_STACK usage as accepted style; this PR has a narrow bot-supported match but no detailed objdiff rationale.",
+      "Do not claim human review approval or reviewer intent; no review comments are present.",
+      "Do not infer semantic meaning for the local `@252`, `@253`, `@254`, `@255`, or `@290` labels beyond the symbol metadata shown in the diff."
+    ]
+  },
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

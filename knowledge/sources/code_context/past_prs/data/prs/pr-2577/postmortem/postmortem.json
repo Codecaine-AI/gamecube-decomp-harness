@@ -12,391 +12,344 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2577 renamed ftCo_800C6AFC at 0x800C6AFC to HSD_JObjSetMtxDirty, moved that declaration out of ft_0C31.h, and cleaned many TU-local fake HSD_JObjSet* helpers by replacing callsites with baselib/jobj.h helpers or new WithMtxDirty variants. The PR author described this as an investigation into why fake JObj helpers in several TUs called a fighter-range symbol, concluding ftCo_800C6AFC was actually HSD_JObjSetMtxDirty emitted into the first callsite TU. Review accepted the cleanup while noting the macro/parentheses situation was weird and that the macro was fake.",
+  "summary": "PR 2577 renamed the text symbol/scratch entry ftCo_800C6AFC at 0x800C6AFC to HSD_JObjSetMtxDirty, moved its declaration to baselib/jobj.h, and replaced many TU-local fake HSD_JObjSet* helpers with canonical jobj.h helpers or newly added WithMtxDirty variants. The PR body frames this as cleanup of duplicated fake helpers after investigating why JObj helpers were calling a fighter-range function. Review accepted the cleanup while noting the macro/parentheses behavior was weird and that the macro itself was fake.",
   "change_classification": {
     "primary_type": "decomp-matching cleanup",
     "categories": [
       "decomp-matching",
       "headers",
       "symbol-rename",
-      "inline-helper-cleanup",
-      "baselib-jobj"
+      "inline-helper-cleanup"
     ],
     "systems": [
       "config",
       "fighter",
       "game-mode",
-      "ground",
       "item",
-      "menu",
-      "vi",
-      "sysdolphin/baselib"
+      "melee-core",
+      "stage",
+      "sysdolphin-baselib"
     ]
   },
   "key_files": [
     {
       "path": "src/sysdolphin/baselib/jobj.h",
-      "role": "Central header expanded with HSD_JObjSet* and WithMtxDirty helper variants; metadata shows the largest change at 156 added lines.",
+      "role": "Added HSD_JObjSetMtxDirty declaration and a family of WithMtxDirty helper inlines plus out-of-line dirty-call wrappers.",
       "evidence_refs": [
-        "changed_files.jsonl: src/sysdolphin/baselib/jobj.h added=156 deleted=0 hunks=16",
-        "PR body: introduced WithMtxDirty variants for cases Codex could not unify"
+        "changed_files",
+        "raw_diff:jobj.h HSD_JObjSetMtxDirty declaration and WithMtxDirty additions"
       ]
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Renamed function symbol at .text:0x800C6AFC from ftCo_800C6AFC to HSD_JObjSetMtxDirty.",
+      "role": "Renamed .text:0x800C6AFC from ftCo_800C6AFC to HSD_JObjSetMtxDirty.",
       "evidence_refs": [
-        "diff: config/GALE01/symbols.txt changes ftCo_800C6AFC = .text:0x800C6AFC to HSD_JObjSetMtxDirty = .text:0x800C6AFC"
+        "diff_excerpt:config/GALE01/symbols.txt"
       ]
     },
     {
       "path": "config/GALE01/scratches.txt",
-      "role": "Updated scratch match records at 0x800C6AFC to use HSD_JObjSetMtxDirty name.",
+      "role": "Renamed scratch OK entries at 0x800C6AFC from ftCo_800C6AFC to HSD_JObjSetMtxDirty.",
       "evidence_refs": [
-        "diff: config/GALE01/scratches.txt changes two OK:0x800C6AFC records from ftCo_800C6AFC to HSD_JObjSetMtxDirty"
+        "diff_excerpt:config/GALE01/scratches.txt"
       ]
     },
     {
       "path": "src/melee/ft/ft_0C31.c",
-      "role": "Removed fake wrapper helpers and changed the function definition from ftCo_800C6AFC to parenthesized HSD_JObjSetMtxDirty; callsites use HSD_JObjSetTranslateWithMtxDirtyOutOfLine.",
+      "role": "Renamed ftCo_800C6AFC definition to parenthesized HSD_JObjSetMtxDirty and replaced fake translate helper with HSD_JObjSetTranslateWithMtxDirtyOutOfLine.",
       "evidence_refs": [
-        "diff: removed ftCo_800C6AFC_please_dontinline, ftCo_800C6AFC_dontinline, fake_HSD_JObjSetTranslate",
-        "diff: void ftCo_800C6AFC(HSD_JObj* jobj) changed to void (HSD_JObjSetMtxDirty)(HSD_JObj* jobj)",
-        "diff: fake_HSD_JObjSetTranslate callsites replaced with HSD_JObjSetTranslateWithMtxDirtyOutOfLine"
+        "diff_excerpt:src/melee/ft/ft_0C31.c"
       ]
     },
     {
       "path": "src/melee/ft/ft_0C31.h",
-      "role": "Removed fighter header prototype for ftCo_800C6AFC after symbol was treated as baselib JObj functionality.",
+      "role": "Removed the ftCo_800C6AFC fighter header prototype after moving identity to jobj.h.",
       "evidence_refs": [
-        "diff: deleted /* 0C6AFC */ void ftCo_800C6AFC(HSD_JObj* jobj);"
+        "diff_excerpt:src/melee/ft/ft_0C31.h"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
-      "role": "Removed TU-local fake JObj scale/rotation/dirty helpers and replaced usage with baselib HSD_JObj helpers.",
+      "role": "Removed Kirby-local fake JObj get/set helpers and replaced call sites with HSD_JObjGetScale, HSD_JObjSetScale, and HSD_JObjSetRotationY.",
       "evidence_refs": [
-        "diff: added #include <baselib/jobj.h>",
-        "diff: deleted ftKb_JObjGetScale, ftKb_JObjMtxIsDirty, ftKb_JObjSetScale, ftKb_JObjSetRotationY",
-        "diff: replaced ftKb_JObjSetScale/GetScale/SetRotationY callsites with HSD_JObjSetScale/GetScale/SetRotationY"
+        "diff_excerpt:src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c"
       ]
     },
     {
       "path": "src/melee/gm/gmregtyfall.static.h",
-      "role": "Deleted a static header containing fake tyfall JObj setters and fake assert wrapper.",
+      "role": "Deleted fake tyfall HSD_JObjSet* helper header that routed mtx dirty through ftCo_800C6AFC.",
       "evidence_refs": [
-        "diff: deleted file mode 100644",
-        "diff: deleted fake_tyfall_HSD_JObjSetTranslateX/Y/Z, RotationY, ScaleX/Y/Z and ftCo_800C6AFC wrapper helpers"
-      ]
-    },
-    {
-      "path": "src/melee/gm/gm_1A4C.c",
-      "role": "Stopped including gmregtyfall.static.h and replaced fake tyfall JObj setter calls with HSD_JObjSet*WithMtxDirty helpers.",
-      "evidence_refs": [
-        "diff: removed #include \"gm/gmregtyfall.static.h\"",
-        "diff: fake_tyfall_HSD_JObjSetTranslateX/Y/Z, RotationY, ScaleX/Y/Z replaced with HSD_JObjSet*WithMtxDirty"
+        "diff_excerpt:src/melee/gm/gmregtyfall.static.h",
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/gm/gmregtyfall.c",
-      "role": "Stopped depending on fake tyfall static header and ft_0C31.h for JObj dirty behavior; callsites use HSD_JObjSet*WithMtxDirty helpers.",
+      "role": "Removed static fake helper include and ft_0C31 include; replaced fake tyfall JObj calls with WithMtxDirty helpers.",
       "evidence_refs": [
-        "diff: removed #include \"gm/gmregtyfall.static.h\" and <melee/ft/ft_0C31.h>",
-        "diff: fake_tyfall_HSD_JObjSet* callsites replaced with HSD_JObjSet*WithMtxDirty"
+        "diff_excerpt:src/melee/gm/gmregtyfall.c"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gm_1A4C.c",
+      "role": "Replaced fake tyfall JObj set helpers with WithMtxDirty helpers.",
+      "evidence_refs": [
+        "diff_excerpt:src/melee/gm/gm_1A4C.c"
       ]
     },
     {
       "path": "src/melee/gr/grcastle.c",
-      "role": "Removed local fake_HSD_JObjSetTranslate and replaced callsite with HSD_JObjSetTranslateWithMtxDirty.",
+      "role": "Removed local fake_HSD_JObjSetTranslate and used HSD_JObjSetTranslateWithMtxDirty.",
       "evidence_refs": [
-        "diff: deleted inline fake_HSD_JObjSetTranslate using __FILE__ \"jobj.h\" and ftCo_800C6AFC",
-        "diff: fake_HSD_JObjSetTranslate(jobj, &jpos) replaced with HSD_JObjSetTranslateWithMtxDirty(jobj, &jpos)"
-      ]
-    },
-    {
-      "path": "src/melee/it/items/itbombhei.static.h",
-      "role": "Removed fake local JObj setter helpers from item static header.",
-      "evidence_refs": [
-        "diff: removed #include \"ft/ft_0C31.h\"",
-        "diff excerpt: deleted fake_HSD_JObjSetTranslateY and fake_HSD_JObjSetRotationX"
-      ]
-    },
-    {
-      "path": "src/melee/it/items/itbombhei.c",
-      "role": "Replaced fake preserve-bone-motion JObj setter calls with HSD_JObjSet*WithMtxDirty helpers.",
-      "evidence_refs": [
-        "diff: fake_HSD_JObjSetTranslateY and fake_HSD_JObjSetRotationX replaced with HSD_JObjSetTranslateYWithMtxDirty and HSD_JObjSetRotationXWithMtxDirty"
+        "diff_excerpt:src/melee/gr/grcastle.c"
       ]
     },
     {
       "path": "src/melee/it/it_2725.c",
-      "role": "Updated an inline scale helper to call parenthesized HSD_JObjSetMtxDirty instead of ftCo_800C6AFC.",
+      "role": "Changed a fake scale helper's dirty call from ftCo_800C6AFC to parenthesized HSD_JObjSetMtxDirty.",
       "evidence_refs": [
-        "diff: ftCo_800C6AFC(jobj) changed to (HSD_JObjSetMtxDirty)(jobj)"
+        "diff_excerpt:src/melee/it/it_2725.c"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itbombhei.c",
+      "role": "Replaced fake translate/rotation preservation helpers with WithMtxDirty helpers.",
+      "evidence_refs": [
+        "diff_excerpt:src/melee/it/items/itbombhei.c"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itbombhei.static.h",
+      "role": "Removed fake JObj helper definitions and the ft_0C31 include.",
+      "evidence_refs": [
+        "diff_excerpt:src/melee/it/items/itbombhei.static.h",
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/it/items/itdosei.c",
-      "role": "Changed JObj-related callsites; exact hunks not loaded in excerpt.",
+      "role": "Changed four JObj helper call sites in the broader cleanup.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itdosei.c added=4 deleted=4 hunks=4"
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/it/items/itheart.c",
-      "role": "Changed JObj-related callsites; exact hunks not loaded in excerpt.",
+      "role": "Changed one JObj helper call hunk in the broader cleanup.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itheart.c added=2 deleted=2 hunks=1"
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/it/items/itkyasarin.c",
-      "role": "Changed JObj-related helper/callsite usage and had a bot-reported unmatched-item regression.",
+      "role": "Changed three JObj helper hunks; bot report later noted an unmatched-item regression in it_802EDDC0.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itkyasarin.c added=1 deleted=15 hunks=3",
-        "decomp-dev bot report: it_802EDDC0 in main/melee/it/items/itkyasarin regressed from 99.28% to 99.11%"
+        "changed_files",
+        "text_corpus:decomp-dev bot report"
       ]
     },
     {
       "path": "src/melee/it/items/itlinkarrow.c",
-      "role": "Cleaned fake JObj helper usage; exact full hunks not loaded in excerpt.",
+      "role": "Replaced fake translate/rotation/scale helpers on linkarrow bones with WithMtxDirty helpers.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itlinkarrow.c added=9 deleted=56 hunks=3"
+        "raw_diff:itlinkarrow WithMtxDirty call replacements",
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/it/items/itlinkbomb.c",
-      "role": "Cleaned fake JObj helper usage; exact full hunks not loaded in excerpt.",
+      "role": "Renamed a local inline to AnimAddWithMtxDirty and replaced fake add-translation/add-rotation helpers.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itlinkbomb.c added=5 deleted=29 hunks=6"
+        "raw_diff:itlinkbomb WithMtxDirty call replacements",
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/it/items/itmatadogas.c",
-      "role": "Changed JObj-related callsite usage; exact hunk not loaded in excerpt.",
+      "role": "Changed one JObj helper call hunk in the broader cleanup.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itmatadogas.c added=1 deleted=1 hunks=1"
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/mn/mndiagram3.c",
-      "role": "Changed JObj-related callsite usage; exact hunks not loaded in excerpt.",
+      "role": "Changed three JObj helper hunks in the broader cleanup.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/mn/mndiagram3.c added=3 deleted=3 hunks=3"
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/mn/mnvibration.c",
-      "role": "Changed JObj-related callsite usage; exact hunks not loaded in excerpt.",
+      "role": "Changed four JObj helper hunks in the broader cleanup.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/mn/mnvibration.c added=4 deleted=4 hunks=4"
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/vi/vi1201v1.c",
-      "role": "Changed JObj-related callsite usage; exact hunks not loaded in excerpt.",
+      "role": "Changed seven JObj helper hunks in the broader cleanup.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/vi/vi1201v1.c added=7 deleted=7 hunks=7"
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/vi/vi1201v2.c",
-      "role": "Changed JObj-related callsite usage; exact hunks not loaded in excerpt.",
+      "role": "Changed seven JObj helper hunks in the broader cleanup.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/vi/vi1201v2.c added=7 deleted=7 hunks=7"
+        "changed_files"
       ]
     },
     {
       "path": "src/melee/vi/vi1202.c",
-      "role": "Changed JObj-related callsite usage; exact hunks not loaded in excerpt.",
+      "role": "Changed seven JObj helper hunks in the broader cleanup.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/vi/vi1202.c added=7 deleted=7 hunks=7"
+        "changed_files"
       ]
     }
   ],
   "what_changed": [
-    "Renamed the 0x800C6AFC function in symbols and scratch metadata from ftCo_800C6AFC to HSD_JObjSetMtxDirty.",
-    "Changed the function definition in src/melee/ft/ft_0C31.c to the parenthesized form void (HSD_JObjSetMtxDirty)(HSD_JObj* jobj).",
-    "Removed ftCo_800C6AFC from src/melee/ft/ft_0C31.h.",
-    "Deleted multiple TU-local fake HSD_JObjSet* helpers and replaced callsites with central baselib/jobj.h helpers or WithMtxDirty variants.",
-    "Deleted src/melee/gm/gmregtyfall.static.h, which had hosted fake tyfall JObj setters and wrappers around ftCo_800C6AFC.",
-    "Added or relied on baselib/jobj.h as the central owner for the JObj helper names; changed_files metadata shows 156 added lines in that header.",
-    "The PR had a decomp-dev bot report showing matched code decreased by 1380 bytes, including a broken match in ftKb_PrSpecialAirN_Anim and an unmatched-item regression in itkyasarin."
+    "The project metadata for 0x800C6AFC was renamed from ftCo_800C6AFC to HSD_JObjSetMtxDirty in symbols.txt and scratches.txt.",
+    "The ft_0C31.c function definition was renamed from ftCo_800C6AFC to void (HSD_JObjSetMtxDirty)(HSD_JObj* jobj), and the ft_0C31.h prototype was removed.",
+    "jobj.h gained a declaration for void(HSD_JObjSetMtxDirty)(HSD_JObj* jobj), HSD_JObjSetMtxDirtyOutOfLineLeaf, HSD_JObjSetMtxDirtyOutOfLine, and multiple HSD_JObj*WithMtxDirty inline helpers.",
+    "TU-local fake helpers that duplicated jobj.h assert lines and JObj field writes were removed from several fighter, game-mode, stage, and item files.",
+    "Call sites were switched either to existing canonical helpers such as HSD_JObjSetScale/HSD_JObjGetScale/HSD_JObjSetRotationY or to new WithMtxDirty variants when direct dirty-call behavior was needed.",
+    "gmregtyfall.static.h was deleted after its fake tyfall helper definitions became unnecessary.",
+    "A bot report on the PR slice recorded a matched-code decrease, one broken match in ftKb_PrSpecialAirN_Anim, and one unmatched-item regression in itkyasarin/it_802EDDC0; the slice does not show a later bot report resolving these."
   ],
   "smart_moves": [
     {
-      "text": "Centralized duplicated fake JObj helpers into baselib/jobj.h instead of maintaining per-TU clones that manually expanded asserts and routed through a fighter-named symbol.",
+      "text": "Centralized duplicated HSD_JObjSet* logic in baselib/jobj.h instead of keeping subsystem-local fake helpers.",
       "evidence_refs": [
-        "PR body: several TUs had fake HSD_JObjSet* helpers",
-        "diff: deletion of fake helpers in ftKb_SpecialNNs.c, ft_0C31.c, gmregtyfall.static.h, grcastle.c, itbombhei.static.h"
+        "PR body: 'replace most of the fake helpers with the real deal'",
+        "diff_excerpt:ftKb_SpecialNNs.c fake helper deletion",
+        "diff_excerpt:gmregtyfall.static.h deleted"
       ]
     },
     {
-      "text": "Preserved a separate WithMtxDirty naming family for cases that could not be unified with existing HSD_JObjSet* helpers.",
+      "text": "Updated symbol metadata and scratch labels together with the source rename, reducing the chance of source/config drift around 0x800C6AFC.",
       "evidence_refs": [
-        "PR body: for the rest, it introduced WithMtxDirty variants",
-        "diff: HSD_JObjSetTranslateXWithMtxDirty, HSD_JObjSetRotationYWithMtxDirty, HSD_JObjSetTranslateWithMtxDirtyOutOfLine callsites"
+        "diff_excerpt:config/GALE01/symbols.txt",
+        "diff_excerpt:config/GALE01/scratches.txt"
       ]
     },
     {
-      "text": "Updated symbol metadata alongside source usage so callsites no longer needed to import a fighter header for JObj dirty behavior.",
+      "text": "Used WithMtxDirty helper names to make the unusual direct dirty-call behavior explicit at call sites instead of hiding it behind fake subsystem-specific helper names.",
       "evidence_refs": [
-        "diff: symbols.txt rename at 0x800C6AFC",
-        "diff: gmregtyfall.c removed <melee/ft/ft_0C31.h>",
-        "diff: ft_0C31.h removed ftCo_800C6AFC prototype"
+        "diff_excerpt:gmregtyfall.c",
+        "diff_excerpt:grcastle.c",
+        "raw_diff:jobj.h WithMtxDirty additions"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When many TUs contain local fake copies of the same HSD_JObjSet* inline helper, check whether a shared header inline or helper variant can express the operation before preserving duplicated generated code.",
-      "scope": [
-        "baselib/jobj.h",
-        "JObj setter helpers",
-        "TU-local fake helper cleanup"
-      ],
+      "lesson": "When many TUs contain local fake copies of a header inline, compare the assert file/line numbers and field writes against the owning header helper; if they match, cleanup should usually move toward the canonical header helper or an explicitly named shared variant.",
       "evidence_refs": [
-        "PR body: several TUs had fake HSD_JObjSet* helpers",
-        "diff: fake helpers removed from multiple TUs and replaced with HSD_JObjSet* or HSD_JObjSet*WithMtxDirty"
-      ],
-      "confidence": 0.86
+        "PR body",
+        "diff_excerpt:ftKb_SpecialNNs.c",
+        "diff_excerpt:gmregtyfall.static.h",
+        "decomp_standards:header-inlines"
+      ]
     },
     {
-      "lesson": "A function emitted in an unexpected TU/range can still be a header-owned helper if linker order and the first non-inlined callsite explain the placement; verify names against helper behavior before keeping subsystem-prefixed address names.",
-      "scope": [
-        "HSD_JObjSetMtxDirty",
-        "ftCo_800C6AFC",
-        "header-emitted helpers"
-      ],
+      "lesson": "A function emitted in an unexpected TU range can still be a header/library helper body if linker order and first call site explain where the compiler emitted the out-of-line copy.",
       "evidence_refs": [
-        "PR body: Codex concluded ftCo_800C6AFC was actually HSD_JObjSetMtxDirty, just placed in the ft range when included",
-        "review: ribbanya suggested linker order and first callsite in ft_0C31.c could cause the compiler to emit the function body there"
-      ],
-      "confidence": 0.74
+        "review:ribbanya comment about linker order and first call site",
+        "PR body: ftCo_800C6AFC concluded to be HSD_JObjSetMtxDirty"
+      ]
     },
     {
-      "lesson": "Do not treat decompiler-expanded asserts and local fake wrappers as final style when existing jobj.h helpers carry the same file/line/assert behavior.",
-      "scope": [
-        "jobj.h",
-        "assert cleanup",
-        "inline helper recovery"
-      ],
+      "lesson": "If a fake helper is needed only to route a dirty-call in a specific codegen shape, prefer a clearly named shared helper such as a WithMtxDirty or OutOfLine variant over duplicated local fake helpers.",
       "evidence_refs": [
-        "diff: fake_HSD_JObjSetTranslate manually used __assert(\"jobj.h\", 916, \"jobj\") and __assert(\"jobj.h\", 917, \"translate\") before replacement",
-        "diff: ftKb fake helpers with manual assert strings removed in favor of HSD_JObjGetScale, HSD_JObjSetScale, HSD_JObjSetRotationY"
-      ],
-      "confidence": 0.82
-    },
-    {
-      "lesson": "Macro spelling can affect MWCC output: this PR specifically observed different behavior when calling a macro wrapped in parentheses versus unwrapped.",
-      "scope": [
-        "macro calls",
-        "MWCC codegen",
-        "HSD_JObjSetMtxDirty"
-      ],
-      "evidence_refs": [
-        "lukechampine issue comment: wrapping a macro in parens when calling it results in different behavior vs calling it unwrapped",
-        "diff: parenthesized calls and definition form such as (HSD_JObjSetMtxDirty)(jobj)"
-      ],
-      "confidence": 0.72
+        "diff_excerpt:ft_0C31.c",
+        "raw_diff:jobj.h WithMtxDirty and OutOfLine additions",
+        "review:ribbanya approval comment"
+      ]
     }
   ],
   "naming_conventions": [
     {
       "name": "HSD_JObjSetMtxDirty",
-      "kind": "function/symbol name",
+      "convention": "Use the baselib JObj helper name for the 0x800C6AFC function instead of the fighter-address-style name ftCo_800C6AFC.",
       "evidence_refs": [
-        "diff: symbols.txt rename from ftCo_800C6AFC to HSD_JObjSetMtxDirty at .text:0x800C6AFC",
-        "diff: scratches.txt rename for OK:0x800C6AFC entries"
-      ],
-      "notes": "PR evidence supports this rename in the merged PR, but the intake does not independently validate global symbol correctness beyond the PR slice."
+        "diff_excerpt:config/GALE01/symbols.txt",
+        "diff_excerpt:src/melee/ft/ft_0C31.c"
+      ]
     },
     {
-      "name": "HSD_JObjSet*WithMtxDirty",
-      "kind": "helper suffix convention",
+      "name": "HSD_JObj*WithMtxDirty",
+      "convention": "Suffix JObj helper variants with WithMtxDirty when the helper performs the field write and calls HSD_JObjSetMtxDirty directly rather than using the existing normal helper shape.",
       "evidence_refs": [
-        "PR body: introduced WithMtxDirty variants",
-        "diff: HSD_JObjSetTranslateXWithMtxDirty, HSD_JObjSetRotationYWithMtxDirty, HSD_JObjSetScaleXWithMtxDirty, HSD_JObjSetTranslateWithMtxDirtyOutOfLine"
-      ],
-      "notes": "Used for variants that explicitly dirty matrices and could not all be unified with the normal helper spelling in this PR."
+        "raw_diff:jobj.h WithMtxDirty helper definitions",
+        "diff_excerpt:gmregtyfall.c",
+        "diff_excerpt:itbombhei.c"
+      ]
     },
     {
       "name": "HSD_JObjSetTranslateWithMtxDirtyOutOfLine",
-      "kind": "out-of-line helper variant",
+      "convention": "Use an OutOfLine suffix for the variant that routes the dirty call through HSD_JObjSetMtxDirtyOutOfLine rather than directly through the parenthesized HSD_JObjSetMtxDirty call.",
       "evidence_refs": [
-        "diff: fn_800C69F4 and fn_800C6F34 changed fake_HSD_JObjSetTranslate callsites to HSD_JObjSetTranslateWithMtxDirtyOutOfLine"
-      ],
-      "notes": "Name indicates the helper is intended to force an out-of-line mtx-dirty call; exact implementation is in jobj.h but loaded diff excerpt is truncated."
-    },
-    {
-      "name": "fake_HSD_JObjSet*, fake_tyfall_HSD_JObjSet*, ftKb_JObjSet*",
-      "kind": "deprecated local fake helper names",
-      "evidence_refs": [
-        "diff: deleted fake/local helper definitions across ftKb_SpecialNNs.c, ft_0C31.c, gmregtyfall.static.h, grcastle.c, itbombhei.static.h",
-        "ribbanya comment: the macro is for sure fake"
-      ],
-      "notes": "PR cleaned these up rather than endorsing fake helper naming."
+        "diff_excerpt:src/melee/ft/ft_0C31.c",
+        "raw_diff:jobj.h HSD_JObjSetTranslateWithMtxDirtyOutOfLine"
+      ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use parenthesized macro/function spelling such as (HSD_JObjSetMtxDirty)(jobj) when macro expansion vs function-call emission changes codegen.",
+      "tactic": "Parenthesize the HSD_JObjSetMtxDirty identifier at definition/call sites, e.g. void (HSD_JObjSetMtxDirty)(...) and (HSD_JObjSetMtxDirty)(jobj), to avoid macro expansion behavior or force different macro handling.",
       "evidence_refs": [
-        "lukechampine issue comment about wrapping a macro in parens changing behavior",
-        "diff: void (HSD_JObjSetMtxDirty)(HSD_JObj* jobj)",
-        "diff: (HSD_JObjSetMtxDirty)(jobj) in it_2725.c"
+        "diff_excerpt:src/melee/ft/ft_0C31.c",
+        "raw_diff:jobj.h WithMtxDirty helper bodies",
+        "issue_comment:lukechampine macro wrapping comment",
+        "review:ribbanya question about wrapping the called function"
       ],
-      "caveat": "Reviewer called the macro fake and accepted the cleanup despite weird parentheses; do not generalize this as preferred style without narrow objdiff evidence."
+      "caveat": "Reviewer said the macro is fake and accepted the weird parentheses only as part of cleaning up duplicates; do not generalize this as normal style without fresh matching evidence."
     },
     {
-      "tactic": "For callsites where normal HSD_JObjSet* helpers inline differently, use WithMtxDirty or WithMtxDirtyOutOfLine variants to preserve the matrix-dirty call shape while removing fake local clones.",
+      "tactic": "Use two-step out-of-line leaf wrappers around HSD_JObjSetMtxDirty when call/inline shape must differ from direct inline dirty calls.",
       "evidence_refs": [
-        "PR body: introduced WithMtxDirty variants for remaining cases",
-        "diff: HSD_JObjSetTranslateWithMtxDirtyOutOfLine in ft_0C31.c",
-        "diff: HSD_JObjSetTranslateX/Y/ZWithMtxDirty and HSD_JObjSetScaleX/Y/ZWithMtxDirty in gm files"
+        "raw_diff:jobj.h HSD_JObjSetMtxDirtyOutOfLineLeaf and HSD_JObjSetMtxDirtyOutOfLine",
+        "diff_excerpt:src/melee/ft/ft_0C31.c"
       ],
-      "caveat": "The PR text says attempts to unify everything failed; loaded evidence does not include detailed objdiff proof for each helper variant."
+      "caveat": "The PR body says attempts to unify everything failed; the slice does not include detailed objdiff reasoning for each remaining variant."
     },
     {
-      "tactic": "Replace manually expanded jobj.h assert blocks with header helpers when file/line/condition behavior matches.",
+      "tactic": "Replace local __assert/HSD_ASSERT expansions that identify jobj.h line numbers with shared jobj.h inline helpers.",
       "evidence_refs": [
-        "diff: fake_HSD_JObjSetTranslate used __assert(\"jobj.h\", 916/917) before replacement",
-        "diff: gmregtyfall.static.h fake_HSD_ASSERT line numbers 932/947/962/660/776/791/806 deleted"
+        "diff_excerpt:ftKb_SpecialNNs.c",
+        "diff_excerpt:grcastle.c",
+        "raw_diff:jobj.h helper definitions"
       ],
-      "caveat": "Supported by cleanup diff and existing decomp standards, but this intake did not inspect the full added jobj.h implementation."
+      "caveat": "This aligns with loaded header-inline standards, but final per-function match status is mixed in the available bot report."
     }
   ],
   "review_feedback": [
     {
-      "author": "decomp-dev[bot]",
-      "kind": "regression report",
-      "text": "Reported matched code decreased by 70.08% (-0.04%, -1380 bytes), with one broken match: main/melee/ft/chara/ftKirby/ftKb_SpecialNNs ftKb_PrSpecialAirN_Anim from 100.00% to 98.60%, and one unmatched-item regression: main/melee/it/items/itkyasarin it_802EDDC0 from 99.28% to 99.11%.",
-      "evidence_refs": [
-        "text_corpus.jsonl decomp-dev[bot] comment at 2026-06-04T00:30:08Z"
-      ]
-    },
-    {
       "author": "ribbanya",
-      "kind": "approved review",
-      "text": "Asked why the called function was wrapped in parentheses, and suggested that if the function is in jobj.h and ft_0C31.c is the first callsite by linker order and not fit to inline, the compiler may emit the function body to that TU.",
+      "feedback": "Asked why the called function was wrapped in parentheses and suggested that, if the function is in jobj.h and ft_0C31.c contains the first call site by linker order and it is not fit to be inlined, the compiler may emit the function body to that TU.",
       "evidence_refs": [
-        "text_corpus.jsonl review by ribbanya at 2026-06-04T01:49:41Z state=APPROVED"
+        "text_corpus:review:ribbanya"
       ]
     },
     {
       "author": "lukechampine",
-      "kind": "issue comment",
-      "text": "Observed that wrapping a macro in parentheses when calling it results in different behavior than calling it unwrapped.",
+      "feedback": "Reported that wrapping a macro in parentheses when calling it results in different behavior versus calling it unwrapped.",
       "evidence_refs": [
-        "human_pr_text.md issuecomment-4618500699"
+        "text_corpus:issue_comment:lukechampine"
       ]
     },
     {
       "author": "ribbanya",
-      "kind": "issue comment",
-      "text": "Stated the macro is for sure fake, but was fine merging the cleaned up duplicates for now even if it introduces weird parentheses.",
+      "feedback": "Stated that the macro is fake and approved merging the cleaned-up duplicates for now, even with weird parentheses.",
       "evidence_refs": [
-        "human_pr_text.md issuecomment-4618590043"
+        "text_corpus:issue_comment:ribbanya"
+      ]
+    },
+    {
+      "author": "decomp-dev[bot]",
+      "feedback": "Initial report showed matched code 70.08% (-0.04%, -1380 bytes), one broken match in ftKb_PrSpecialAirN_Anim, and one unmatched-item regression in itkyasarin/it_802EDDC0.",
+      "evidence_refs": [
+        "text_corpus:decomp-dev bot report"
       ]
     }
   ],
@@ -407,164 +360,151 @@
     "0x800C6AFC",
     "jobj.h",
     "WithMtxDirty",
-    "WithMtxDirtyOutOfLine",
     "HSD_JObjSetTranslateWithMtxDirty",
     "HSD_JObjSetTranslateWithMtxDirtyOutOfLine",
-    "HSD_JObjSetTranslateXWithMtxDirty",
-    "HSD_JObjSetTranslateYWithMtxDirty",
-    "HSD_JObjSetTranslateZWithMtxDirty",
-    "HSD_JObjSetRotationXWithMtxDirty",
-    "HSD_JObjSetRotationYWithMtxDirty",
-    "HSD_JObjSetScaleXWithMtxDirty",
-    "HSD_JObjSetScaleYWithMtxDirty",
-    "HSD_JObjSetScaleZWithMtxDirty",
-    "fake_HSD_JObjSetTranslate",
-    "fake_tyfall_HSD_JObjSet",
-    "ftKb_JObjSetScale",
-    "ftKb_JObjSetRotationY",
-    "HSD_JObjSetScale",
-    "HSD_JObjGetScale",
-    "HSD_JObjMtxIsDirty",
-    "HSD_JObjSetMtxDirtySub",
-    "JOBJ_MTX_INDEP_SRT",
-    "JOBJ_USE_QUATERNION",
-    "parenthesized macro call",
-    "macro in parens",
+    "HSD_JObjSetMtxDirtyOutOfLine",
+    "HSD_JObjSetMtxDirtyOutOfLineLeaf",
+    "fake HSD_JObj helpers",
+    "fake_tyfall_HSD_JObjSetTranslateX",
     "gmregtyfall.static.h",
-    "ftKb_PrSpecialAirN_Anim",
-    "it_802EDDC0"
+    "ftKb_JObjSetScale",
+    "ftKb_JObjGetScale",
+    "ftKb_JObjSetRotationY",
+    "macro parentheses",
+    "linker order first call site",
+    "HSD_JObjMtxIsDirty",
+    "JOBJ_MTX_INDEP_SRT",
+    "JOBJ_USE_QUATERNION"
   ],
   "follow_up_queries": [
-    "Search current baselib/jobj.h for HSD_JObjSetMtxDirty, WithMtxDirty, and WithMtxDirtyOutOfLine to document the final helper family.",
-    "Search for remaining fake_HSD_JObjSet or fake_tyfall_HSD_JObjSet helpers after PR #2577.",
-    "Search for parenthesized HSD_JObjSetMtxDirty calls to see where macro-call spelling is still required.",
-    "Check whether ftKb_PrSpecialAirN_Anim and it_802EDDC0 regressions from the bot report were later repaired.",
-    "Search PRs mentioning ftCo_800C6AFC, HSD_JObjSetMtxDirty, or first callsite linker order for follow-up rationale."
+    "Search for remaining calls or declarations of ftCo_800C6AFC after PR 2577.",
+    "Search for HSD_JObjSetMtxDirty macro definitions and why parenthesized calls differ from unwrapped calls.",
+    "Search for remaining fake_HSD_JObjSet* or fake_tyfall_HSD_JObjSet* helpers after this cleanup.",
+    "Search later PRs touching HSD_JObjSetMtxDirty, WithMtxDirty helpers, or jobj.h macro cleanup.",
+    "Check whether later bot reports or commits resolved the ftKb_PrSpecialAirN_Anim and itkyasarin regressions noted in the initial PR report."
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR #2577 merged, 24 changed files, 244 added lines, 382 deleted lines",
-      "human_pr_text.md: PR body and issue comments",
-      "text_corpus.jsonl: bot report, review, issue comments",
-      "raw_diff excerpt: symbols/scratches rename and representative source cleanup hunks",
-      "changed_files.jsonl: complete changed-file list"
+      "metadata_json",
+      "human_pr_text",
+      "changed_files",
+      "diff_excerpt",
+      "raw_diff partial targeted reads",
+      "text_corpus"
     ],
     "notes": [
-      "The diff excerpt is truncated, so some changed files are known only from changed_files.jsonl and not their exact hunks.",
-      "The full added contents of src/sysdolphin/baselib/jobj.h are not loaded; helper names and centralization are inferred from callsite replacements, PR text, and changed-file metadata.",
-      "The PR author attributed investigation to Codex; intake records only the PR-stated conclusion, not independent validation of original compiler behavior.",
-      "The bot report shows regressions, but the PR was merged and later comments accepted cleanup; intake does not claim all functions matched after merge.",
-      "Reviewer intent is limited to the quoted approval/comment text; no broader endorsement of parenthesized macro style is inferred."
+      "Changed-file metadata and several relevant diff hunks are strong evidence for the symbol rename, fake-helper deletion, and jobj.h helper additions.",
+      "The raw diff loaded in the prompt is truncated, so some changed files are represented only by changed_files metadata rather than exact hunks.",
+      "The PR body explicitly says Codex investigated and could not unify all cases; treat broader causal claims about compiler behavior as review hypotheses unless backed by later source evidence.",
+      "The reviewer approved merging cleaned-up duplicates but also called the macro fake and the parentheses weird; do not treat the parenthesized macro trick as an accepted global style.",
+      "The available bot report shows regressions; no later loaded evidence proves they were resolved before merge."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson",
-        "title": "Centralize duplicated fake JObj helpers into jobj.h helpers when evidence supports the header inline",
-        "text": "PR #2577 removed many TU-local fake HSD_JObjSet* helpers and replaced their callsites with HSD_JObjSet* or HSD_JObjSet*WithMtxDirty helper variants. Use this as evidence that repeated fake jobj.h assert/setter clones should be checked against the real baselib/jobj.h helper family before being preserved.",
+        "type": "decomp_lesson",
+        "title": "Centralize fake HSD_JObjSet* duplicates in jobj.h when assert-line evidence matches",
+        "text": "PR 2577 is evidence that local fake HSD_JObjSet* helpers with jobj.h assert lines and identical JObj field writes can often be replaced by canonical jobj.h helpers or explicitly named shared variants, rather than keeping duplicated subsystem-local fake helpers.",
         "scope": [
           "src/sysdolphin/baselib/jobj.h",
-          "HSD_JObjSet*",
-          "JObj helper cleanup"
+          "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
+          "src/melee/gm/gmregtyfall.c",
+          "src/melee/gr/grcastle.c",
+          "src/melee/it/items"
         ],
         "evidence_refs": [
-          "PR body: several TUs had fake HSD_JObjSet* helpers",
-          "diff: fake helpers removed from ftKb_SpecialNNs.c, ft_0C31.c, gmregtyfall.static.h, grcastle.c, itbombhei.static.h"
-        ],
-        "confidence": 0.86
+          "PR body",
+          "diff_excerpt:ftKb_SpecialNNs.c",
+          "diff_excerpt:gmregtyfall.static.h",
+          "raw_diff:jobj.h WithMtxDirty additions",
+          "review:ribbanya approval comment"
+        ]
       },
       {
-        "record_type": "matching_tactic",
-        "title": "Parenthesized macro/function call spelling can affect MWCC output",
-        "text": "PR #2577 used parenthesized HSD_JObjSetMtxDirty spelling and the author noted that wrapping a macro in parentheses when calling it changed behavior. Treat this as a narrow matching tactic requiring local evidence, not as general style.",
+        "type": "matching_tactic",
+        "title": "Header helper emitted in unexpected TU range",
+        "text": "Reviewer feedback in PR 2577 records a plausible matching explanation: a jobj.h helper body may be emitted into ft_0C31.c if linker order makes that TU contain the first call site and the function is not fit to inline.",
         "scope": [
-          "HSD_JObjSetMtxDirty",
-          "MWCC macro codegen"
+          "src/sysdolphin/baselib/jobj.h",
+          "src/melee/ft/ft_0C31.c"
         ],
         "evidence_refs": [
-          "lukechampine issue comment: macro wrapped in parens behaves differently",
-          "diff: void (HSD_JObjSetMtxDirty)(HSD_JObj* jobj)",
-          "diff: (HSD_JObjSetMtxDirty)(jobj)"
-        ],
-        "confidence": 0.72
-      },
-      {
-        "record_type": "naming_convention",
-        "title": "Use WithMtxDirty suffix for JObj setter variants that explicitly force mtx-dirty behavior",
-        "text": "PR #2577 introduced HSD_JObjSet*WithMtxDirty and HSD_JObjSetTranslateWithMtxDirtyOutOfLine callsites for cases not unified with normal HSD_JObjSet* helpers.",
-        "scope": [
-          "baselib/jobj.h",
-          "JObj setter variants"
-        ],
-        "evidence_refs": [
-          "PR body: introduced WithMtxDirty variants",
-          "diff: HSD_JObjSetTranslateXWithMtxDirty and HSD_JObjSetTranslateWithMtxDirtyOutOfLine callsites"
-        ],
-        "confidence": 0.78
+          "text_corpus:review:ribbanya"
+        ]
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "HSD_JObjSetMtxDirty symbol at 0x800C6AFC was renamed from ftCo_800C6AFC in PR #2577",
-        "text": "PR #2577 changed config/GALE01/symbols.txt and scratches.txt so the function at .text/OK:0x800C6AFC is named HSD_JObjSetMtxDirty rather than ftCo_800C6AFC, and removed the ftCo_800C6AFC prototype from src/melee/ft/ft_0C31.h.",
+        "title": "0x800C6AFC renamed from ftCo_800C6AFC to HSD_JObjSetMtxDirty",
+        "text": "PR 2577 changes config/GALE01/symbols.txt and scratches.txt so the function at .text/OK 0x800C6AFC is named HSD_JObjSetMtxDirty instead of ftCo_800C6AFC, and removes the ft_0C31.h prototype for the old fighter-scoped name.",
         "source_path": "config/GALE01/symbols.txt",
         "scope": [
-          "0x800C6AFC",
-          "HSD_JObjSetMtxDirty",
-          "ftCo_800C6AFC"
+          "config/GALE01/symbols.txt",
+          "config/GALE01/scratches.txt",
+          "src/melee/ft/ft_0C31.c",
+          "src/melee/ft/ft_0C31.h",
+          "src/sysdolphin/baselib/jobj.h"
         ],
         "evidence_refs": [
-          "diff: symbols.txt rename at .text:0x800C6AFC",
-          "diff: scratches.txt OK:0x800C6AFC entries renamed",
-          "diff: ft_0C31.h removed ftCo_800C6AFC prototype"
+          "diff_excerpt:config/GALE01/symbols.txt",
+          "diff_excerpt:config/GALE01/scratches.txt",
+          "diff_excerpt:src/melee/ft/ft_0C31.c",
+          "diff_excerpt:src/melee/ft/ft_0C31.h"
         ],
-        "reason": "Potential path/symbol fact for curator review; intake does not promote it directly."
+        "reason": "This is a source-owned symbol/path fact and should be curated separately from postmortem lessons."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Document narrow use of parenthesized macro calls as matching tactics",
-        "text": "Consider adding a note that parenthesized macro/function-like helper spelling may be used only with explicit local codegen evidence. PR #2577 observed that wrapping HSD_JObjSetMtxDirty in parentheses changed behavior, but review also called the macro fake and accepted it only as part of cleanup.",
+        "title": "Treat parenthesized function-like macro calls as a narrow matching tactic, not normal style",
+        "text": "PR 2577 used forms like void (HSD_JObjSetMtxDirty)(...) and (HSD_JObjSetMtxDirty)(jobj); the author noted wrapping a macro in parentheses changed behavior, while the reviewer said the macro was fake and accepted the cleanup despite weird parentheses. Candidate standard: parenthesized macro/function identifiers may be used only with explicit local matching evidence and should not become ordinary style.",
         "source_path": null,
         "scope": [
-          "macro calls",
-          "matching tactics",
-          "HSD_JObjSetMtxDirty"
+          "src/sysdolphin/baselib/jobj.h",
+          "src/melee/ft/ft_0C31.c",
+          "src/melee/it/it_2725.c"
         ],
         "evidence_refs": [
-          "lukechampine issue comment about wrapping a macro in parens",
-          "ribbanya comment: macro is for sure fake; okay merging cleaned up duplicates despite weird parentheses",
-          "diff: parenthesized HSD_JObjSetMtxDirty forms"
+          "text_corpus:issue_comment:lukechampine",
+          "text_corpus:review:ribbanya",
+          "text_corpus:issue_comment:ribbanya",
+          "raw_diff:jobj.h WithMtxDirty helper bodies"
         ],
-        "reason": "Could refine existing matching-tactics standards with a concrete cautionary example."
+        "reason": "The PR provides useful cautionary evidence, but the reviewer explicitly called the macro fake; curator should decide whether this belongs under matching-tactics or avoid-pragmas/register-asm-style exception guidance."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Prefer real header helpers over duplicated fake JObj helper clones",
-        "text": "PR #2577 is evidence for extending header-inline guidance to repeated fake HSD_JObjSet* clones: when local fake helpers manually duplicate jobj.h assert lines and setter behavior, search for or add the appropriate baselib/jobj.h helper variant instead of keeping per-TU clones.",
+        "title": "Prefer shared header helpers over duplicated local fake HSD_JObjSet* copies",
+        "text": "PR 2577 removed multiple fake JObj helpers that copied jobj.h asserts and field writes, replacing them with canonical HSD_JObj helpers or shared WithMtxDirty variants. Candidate standard extension for header-inlines: when a fake local helper mirrors a header inline, move toward the owning header/helper layer rather than duplicating the body in TUs.",
         "source_path": null,
         "scope": [
-          "header-inlines",
-          "baselib/jobj.h",
-          "JObj setters"
+          "src/sysdolphin/baselib/jobj.h",
+          "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
+          "src/melee/gm/gmregtyfall.static.h",
+          "src/melee/gr/grcastle.c",
+          "src/melee/it/items"
         ],
         "evidence_refs": [
-          "PR body: several TUs had fake HSD_JObjSet* helpers",
-          "diff: multiple fake helpers removed and callsites replaced with HSD_JObjSet* helpers"
+          "PR body",
+          "diff_excerpt:ftKb_SpecialNNs.c",
+          "diff_excerpt:gmregtyfall.static.h",
+          "diff_excerpt:grcastle.c",
+          "review:ribbanya approval comment",
+          "decomp_standards:header-inlines"
         ],
-        "reason": "This is closely aligned with the loaded header-inlines standard but may be worth adding as a JObj-specific example."
+        "reason": "This likely reinforces the existing header-inlines standard but should be reviewed for wording and scope."
       }
     ],
     "rejection_notes": [
-      "Do not promote a broad rule that all parenthesized macro calls are acceptable style; PR evidence frames this as weird and tied to a fake macro/codegen issue.",
-      "Do not claim the bot-reported regressions were resolved in this PR; loaded evidence only shows the report plus merge/approval.",
-      "Do not infer the full implementation details of the added jobj.h helpers because the loaded diff excerpt is truncated.",
-      "Do not claim Codex's conclusion independently proves historical compiler intent; it is PR-body evidence and was partially supported by reviewer speculation about linker order."
+      "Do not promote 'ftCo_800C6AFC was actually HSD_JObjSetMtxDirty' as a universal inference pattern from AI/Codex alone; in this slice it is supported by merged symbol/source edits and reviewer discussion, but future cases still need source/linker evidence.",
+      "Do not promote the WithMtxDirty helper family as proof that every normal HSD_JObjSet* call should be replaced; the diff keeps both normal helpers and WithMtxDirty variants depending on local codegen needs.",
+      "Do not claim final regression-free validation from this slice; the loaded bot report shows regressions and no loaded later report clears them.",
+      "Do not infer reviewer intent beyond the explicit approval/comment text: the reviewer was fine merging cleaned-up duplicates for now, not necessarily endorsing weird parentheses as preferred style."
     ]
   },
   "confidence": 0.78,
@@ -574,6 +514,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

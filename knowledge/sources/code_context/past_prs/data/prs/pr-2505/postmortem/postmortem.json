@@ -12,14 +12,13 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Improved matching in src/melee/lb/lb_00CE.c by replacing generated-looking powi exponent handling with a natural loop that matched, and by reshaping lb_8000D148 floating-point temporaries/expression order to improve fuzzy match while preserving stack frame shape.",
+  "summary": "PR #2505 updates src/melee/lb/lb_00CE.c to match powi with a natural exponent loop and improve lb_8000D148 fuzzy matching by rearranging floating-point temporaries and operations while preserving stack frame shape according to the PR body.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "cleanup",
       "decomp-matching",
-      "function-match",
-      "fuzzy-match-improvement"
+      "matching-progress"
     ],
     "systems": [
       "library",
@@ -29,147 +28,134 @@
   "key_files": [
     {
       "path": "src/melee/lb/lb_00CE.c",
-      "role": "Only changed source file; contains powi cleanup to a natural exponent loop and lb_8000D148 temporary/expression-order matching changes.",
+      "role": "Only changed source file; contains powi loop rewrite and lb_8000D148 local/operation ordering changes.",
       "evidence_refs": [
-        "changed_files: src/melee/lb/lb_00CE.c added 26 deleted 37 hunks 3",
-        "raw_diff: powi hunk",
-        "raw_diff: lb_8000D148 hunk",
-        "human_pr_text: Summary"
+        "changed_files.jsonl: src/melee/lb/lb_00CE.c added 26 deleted 37 hunks 3",
+        "raw_diff: diff for src/melee/lb/lb_00CE.c",
+        "human_pr_text: summary and verification"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "powi replaced an unrolled/generated-looking exponent block using exp_minus_8, remaining, and powers_done with a simple for loop using i from 0 to exponent, multiplying result by base each iteration.",
+      "text": "Replaced powi's generated-looking eight-power unrolled block and remainder logic with a simple for loop using i < exponent and result *= base.",
       "evidence_refs": [
-        "raw_diff: powi hunk",
-        "human_pr_text: match `powi` with a natural exponent loop"
+        "raw_diff: powi removes exp_minus_8/remaining/powers_done and adds s32 i plus for (; i < exponent; i++) result *= base",
+        "human_pr_text: 'match powi with a natural exponent loop'"
       ]
     },
     {
-      "text": "powi was reported as matched by both the PR body checkdiff command and the bot report, with the bot listing powi moving from 81.22% to 100.00%.",
+      "text": "Reordered lb_8000D148 floating-point local declarations and computations: introduced a cross temporary, reused dist_01 for squared distance before sqrtf, and split squared-distance accumulation into stepwise assignments.",
       "evidence_refs": [
-        "human_pr_text: `python tools/checkdiff.py powi` -> match",
-        "text_corpus issue_comment: 1 new match table for powi"
+        "raw_diff: lb_8000D148 adds cross temporary and changes dist_01/dist_squared_02/dist_squared_12 computation order",
+        "human_pr_text: lb_8000D148 improved from 86.3% to 98.9% fuzzy match while preserving correct stack frame shape"
       ]
     },
     {
-      "text": "lb_8000D148 changed local declaration/order and expression staging: introduced a cross temporary, reused dist_01 for squared distance before sqrtf, and split squared-distance calculations into assignment/multiply/add steps.",
+      "text": "Reported verification includes powi exact match, lb_8000D148 98.85714% fuzzy match, and successful GALE01 build.",
       "evidence_refs": [
-        "raw_diff: lb_8000D148 hunk"
-      ]
-    },
-    {
-      "text": "lb_8000D148 was reported as improved from about 86.3% to about 98.9% fuzzy match; the PR body says this preserved the correct stack frame shape.",
-      "evidence_refs": [
-        "human_pr_text: improve `lb_8000D148` from 86.3% to 98.9% fuzzy match while preserving the correct stack frame shape",
-        "text_corpus issue_comment: lb_8000D148 before 86.33% after 98.86%"
-      ]
-    },
-    {
-      "text": "Project build verification was reported with `python configure.py --wrapper wine && ninja` producing `build/GALE01/main.dol: OK`.",
-      "evidence_refs": [
-        "human_pr_text: Verification"
+        "human_pr_text: Verification commands",
+        "text_corpus.jsonl: decomp-dev bot report lists powi 100.00% and lb_8000D148 98.86%"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "For powi, the author preferred a natural source loop over a complex unrolled block, and verified it as a match rather than preserving generated-looking code.",
+      "text": "Used a natural source-level loop for repeated exponent multiplication instead of retaining an unrolled generated block.",
       "evidence_refs": [
-        "human_pr_text: match `powi` with a natural exponent loop",
-        "raw_diff: powi hunk",
-        "human_pr_text: `python tools/checkdiff.py powi` -> match"
+        "raw_diff: powi loop rewrite",
+        "human_pr_text: natural exponent loop"
       ]
     },
     {
-      "text": "For lb_8000D148, the author improved fuzzy match through narrow local-expression and temporary-lifetime reshaping without introducing broad data, header, or split changes.",
+      "text": "For lb_8000D148, targeted local ordering and expression staging rather than changing function scope or adding new files.",
       "evidence_refs": [
-        "raw_diff: only src/melee/lb/lb_00CE.c changed",
-        "raw_diff: lb_8000D148 hunk",
-        "changed_files: one changed file"
+        "raw_diff: only local variable and expression ordering changes in lb_8000D148",
+        "changed_files.jsonl: only src/melee/lb/lb_00CE.c changed"
       ]
     },
     {
-      "text": "The PR recorded narrow verification for each affected function plus a full build result.",
+      "text": "Included narrow checkdiff evidence for both touched functions plus a full build result in the PR body.",
       "evidence_refs": [
-        "human_pr_text: Verification"
+        "human_pr_text: checkdiff powi, checkdiff lb_8000D148, configure+ninja GALE01 OK"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "Repeated multiply blocks in exponentiation helpers can be original natural loops; try a simple counter loop and verify before keeping unrolled generated-looking code.",
+      "lesson": "When an integer power helper shows repeated multiplication with generated-looking unrolled blocks, test a natural counted loop before keeping the unrolled form.",
       "scope": [
+        "src/melee/lb/lb_00CE.c",
         "powi",
-        "math helpers",
-        "src/melee/lb/lb_00CE.c"
+        "integer exponentiation helpers"
       ],
       "evidence_refs": [
-        "raw_diff: powi hunk",
-        "human_pr_text: `python tools/checkdiff.py powi` -> match",
-        "decomp_standards:natural-loops"
-      ],
-      "confidence": 0.95
+        "raw_diff: powi unrolled eight-multiply logic replaced by for loop",
+        "human_pr_text: powi checkdiff match"
+      ]
     },
     {
-      "lesson": "For floating-point geometry code, local temporary staging and expression order can materially affect fuzzy match and stack shape; keep such changes narrow and verify the target function.",
+      "lesson": "For fuzzy improvements in floating-point geometry code, declaration order, temporary lifetime, and staged multiply/add ordering can materially affect matching while preserving readable source.",
       "scope": [
-        "lb_8000D148",
-        "floating-point geometry calculations",
-        "src/melee/lb/lb_00CE.c"
+        "src/melee/lb/lb_00CE.c",
+        "lb_8000D148"
       ],
       "evidence_refs": [
-        "raw_diff: lb_8000D148 hunk",
-        "human_pr_text: lb_8000D148 fuzzy match and stack frame claim",
-        "human_pr_text: `python tools/checkdiff.py lb_8000D148 --format json` -> 98.85714% fuzzy match"
-      ],
-      "confidence": 0.82
+        "raw_diff: lb_8000D148 declaration and computation ordering changes",
+        "human_pr_text: lb_8000D148 improved to 98.85714% fuzzy match while preserving stack frame shape",
+        "text_corpus.jsonl: bot report lb_8000D148 86.33% to 98.86%"
+      ]
     }
   ],
   "naming_conventions": [
     {
-      "text": "powi simplified temporary naming from generated/algorithm-fragment names such as exp_minus_8, remaining, and powers_done to a conventional loop counter i after the natural loop form was recovered.",
+      "text": "The powi loop counter was simplified to the short local name i after replacing powers_done/remaining/exp_minus_8 with a natural loop.",
       "evidence_refs": [
-        "raw_diff: powi declarations changed"
-      ],
-      "confidence": 0.86
+        "raw_diff: powi replaces exp_minus_8, remaining, powers_done with s32 i"
+      ]
     },
     {
-      "text": "lb_8000D148 uses coordinate-difference and squared-distance local names such as diff_01_x, diff_02_y, dist_squared_02, and threshold_squared; the PR preserves this descriptive geometric naming while changing declaration and assignment order.",
+      "text": "lb_8000D148 uses descriptive geometry-style local names such as diff_01_x, diff_01_y, dist_01, cross, threshold_squared, dist_squared_02, and dist_squared_12.",
       "evidence_refs": [
-        "raw_diff: lb_8000D148 hunk"
-      ],
-      "confidence": 0.76
+        "raw_diff: lb_8000D148 local variable names"
+      ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Replace unrolled exponent multiplication with a natural `for (; i < exponent; i++) result *= base;` loop.",
-      "when_to_try": "When exponentiation code appears as repeated multiply blocks or power counters and the function can be checked directly.",
+      "tactic": "Natural-loop recovery",
+      "text": "powi changed from an unrolled multiplication structure to a simple counted for loop and was reported as matching.",
       "evidence_refs": [
-        "raw_diff: powi hunk",
-        "human_pr_text: checkdiff powi -> match"
+        "raw_diff: powi for loop",
+        "human_pr_text: python tools/checkdiff.py powi -> match",
+        "text_corpus.jsonl: bot report powi 81.22% to 100.00%"
       ]
     },
     {
-      "tactic": "Adjust float temporary lifetimes and assignment order to match codegen, such as computing a cross-product term separately and splitting squared-distance expressions into multiply then add steps.",
-      "when_to_try": "When a floating-point geometry function is close but fuzzy mismatch suggests expression scheduling or stack-frame/local lifetime differences.",
+      "tactic": "Stack/local-shape tuning via declaration and assignment order",
+      "text": "lb_8000D148 adjusted local declaration order, introduced a cross temporary, and split arithmetic into staged assignments; PR body says this improved fuzzy matching while preserving stack frame shape.",
       "evidence_refs": [
-        "raw_diff: lb_8000D148 hunk",
-        "human_pr_text: lb_8000D148 98.85714% fuzzy match and stack frame shape"
+        "raw_diff: lb_8000D148 local and expression staging changes",
+        "human_pr_text: correct stack frame shape and 98.85714% fuzzy match"
       ]
     },
     {
-      "tactic": "Use narrow checkdiff commands for each target symbol and record both exact match and fuzzy-match percentages.",
-      "when_to_try": "For small PRs touching one translation unit or a few functions.",
+      "tactic": "Narrow verification ledger",
+      "text": "The PR cites function-specific checkdiff commands and a GALE01 build result for the touched unit.",
       "evidence_refs": [
-        "human_pr_text: Verification",
-        "text_corpus issue_comment: bot report tables"
+        "human_pr_text: Verification section"
       ]
     }
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    {
+      "text": "No human review comments are present in the loaded PR slice. The only loaded comment is the decomp-dev bot report confirming one new match and one unmatched-item improvement.",
+      "evidence_refs": [
+        "metadata_json: review_comments 0, reviews 0, issue_comments 1",
+        "text_corpus.jsonl: decomp-dev bot report"
+      ]
+    }
+  ],
   "searchable_terms": [
     "pr-2505",
     "lb_00CE",
@@ -179,79 +165,76 @@
     "lb_8000D148",
     "fuzzy match",
     "stack frame shape",
-    "checkdiff powi",
-    "checkdiff lb_8000D148",
-    "dist_01",
     "cross",
-    "diff_01_x",
-    "diff_01_y",
+    "dist_01",
+    "threshold_squared",
     "dist_squared_02",
     "dist_squared_12",
-    "threshold_squared",
+    "checkdiff powi",
+    "checkdiff lb_8000D148",
     "GALE01 main.dol OK"
   ],
   "follow_up_queries": [
-    "powi natural exponent loop checkdiff match",
-    "lb_8000D148 fuzzy match stack frame shape",
-    "src/melee/lb/lb_00CE.c floating point temporary order",
-    "lb_00CE dist_squared threshold_squared diff_01_x diff_12_y",
-    "natural loops unrolled exponent multiplication"
+    "powi natural exponent loop",
+    "lb_8000D148 stack frame shape fuzzy match",
+    "src/melee/lb/lb_00CE.c cross dist_01",
+    "checkdiff lb_8000D148 98.85714",
+    "unrolled exponent multiplication natural loop"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR identity, state, author, dates, changed files",
+      "metadata_json: PR identity, state, author, dates, changed file counts",
       "human_pr_text: summary and verification",
-      "raw_diff: complete diff for the one changed file",
-      "text_corpus issue_comment: bot report with match percentages"
+      "raw_diff: concrete source changes",
+      "changed_files.jsonl: changed file metadata",
+      "text_corpus.jsonl: bot report"
     ],
     "notes": [
-      "No human review comments were present in the loaded slice; review_feedback is intentionally empty.",
-      "The PR body reports stack frame shape preservation for lb_8000D148, but the slice does not include objdiff JSON details beyond the reported fuzzy percentage.",
-      "Verification commands are reported by the PR body and bot comment; this intake did not rerun builds or objdiff."
+      "Loaded evidence includes the full diff and PR body, sufficient for changed files, tactics, and verification claims.",
+      "No human review comments were loaded, so reviewer intent or requested changes cannot be inferred.",
+      "The lb_8000D148 function is still reported as a fuzzy improvement, not an exact match; do not treat it as fully matched."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
         "type": "decomp_lesson",
-        "title": "Natural exponent loop matched powi",
-        "text": "In src/melee/lb/lb_00CE.c, PR #2505 replaced powi's generated-looking unrolled exponent handling with a simple counter loop multiplying result by base; reported verification was `python tools/checkdiff.py powi` -> match and bot report showed powi at 100.00%.",
+        "title": "Natural counted loops can replace generated-looking unrolled exponentiation",
+        "text": "In PR #2505, powi in src/melee/lb/lb_00CE.c matched after replacing an unrolled eight-multiply/remainder structure with a simple for loop over exponent.",
         "scope": [
-          "src/melee/lb/lb_00CE.c",
           "powi",
-          "natural-loops"
+          "src/melee/lb/lb_00CE.c",
+          "natural loops"
         ],
         "evidence_refs": [
-          "raw_diff: powi hunk",
-          "human_pr_text: Summary and Verification",
-          "text_corpus issue_comment: powi table"
-        ],
-        "confidence": 0.95
+          "raw_diff: powi loop rewrite",
+          "human_pr_text: checkdiff powi -> match",
+          "text_corpus.jsonl: bot report powi 100.00%"
+        ]
       },
       {
         "type": "matching_tactic",
-        "title": "Float expression staging improved lb_8000D148 fuzzy match",
-        "text": "PR #2505 improved lb_8000D148 fuzzy match by changing temporary declaration order and staging float expressions, including a separate cross temporary and split squared-distance calculations; reported result was about 98.86% fuzzy match.",
+        "title": "Use staged float temporaries and declaration order carefully for stack-sensitive fuzzy improvements",
+        "text": "PR #2505 improved lb_8000D148 fuzzy score from about 86.3% to about 98.9% by changing local order and arithmetic staging while the PR body says stack frame shape was preserved.",
         "scope": [
-          "src/melee/lb/lb_00CE.c",
           "lb_8000D148",
-          "floating-point expression order"
+          "src/melee/lb/lb_00CE.c",
+          "floating-point geometry code"
         ],
         "evidence_refs": [
-          "raw_diff: lb_8000D148 hunk",
-          "human_pr_text: lb_8000D148 verification",
-          "text_corpus issue_comment: lb_8000D148 table"
-        ],
-        "confidence": 0.82
+          "raw_diff: lb_8000D148 staged arithmetic and local order",
+          "human_pr_text: fuzzy score and stack frame statement",
+          "text_corpus.jsonl: bot report lb_8000D148 86.33% to 98.86%"
+        ]
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Add powi as historical example for natural-loops",
-        "text": "PR #2505 is a concrete example where replacing an unrolled exponentiation block with a natural for-loop matched powi. This could be referenced as an example under the existing natural-loops standard, not as a new rule.",
+        "title": "Add powi as a concrete natural-loop example",
+        "text": "Consider adding PR #2505 as an example under the natural-loops standard: powi matched after replacing unrolled exponent multiplication with a simple counted loop.",
         "source_path": null,
         "scope": [
           "natural-loops",
@@ -259,17 +242,17 @@
           "src/melee/lb/lb_00CE.c"
         ],
         "evidence_refs": [
-          "human_pr_text: match `powi` with a natural exponent loop",
-          "human_pr_text: checkdiff powi -> match",
-          "raw_diff: powi hunk"
+          "human_pr_text: match powi with a natural exponent loop",
+          "raw_diff: powi loop rewrite",
+          "text_corpus.jsonl: bot report powi 100.00%"
         ],
-        "reason": "The loaded global standard already covers natural loops; this PR provides a supported historical example for curator review."
+        "reason": "The loaded global standards already endorse natural loops; this PR provides a compact concrete historical example for curator review."
       }
     ],
     "rejection_notes": [
-      "Do not infer a general rule that all exponentiation helpers should use a loop; this PR only proves powi in lb_00CE with reported checkdiff evidence.",
-      "Do not promote lb_8000D148's specific temporary order as a global style rule; evidence supports it as a local matching tactic for this function.",
-      "Do not claim human reviewer approval details beyond merge status; the loaded slice contains no review comments."
+      "Do not record lb_8000D148 as fully matched; evidence only supports a fuzzy improvement to approximately 98.86%.",
+      "Do not infer human reviewer approval rationale; no human review comments are present.",
+      "Do not generalize the exact lb_8000D148 arithmetic ordering as a global style rule without more examples or objdiff details."
     ]
   },
   "confidence": 0.9,
@@ -279,6 +262,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

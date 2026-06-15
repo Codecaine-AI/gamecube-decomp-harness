@@ -96,7 +96,7 @@ export async function regressionCheck(globals: GlobalArgs, args: Map<string, str
     trace("qa gate skipped via --skip-qa-gate");
   } else {
     trace(`qa gate: review_lint scan_diff vs ${qaBaseRef}`);
-    qaInvocation = await runQaScanDiff({ repoRoot: globals.repoRoot, orchestratorRoot: packageRoot(), baseRef: qaBaseRef });
+    qaInvocation = await runQaScanDiff({ repoRoot: globals.repoRoot, orchestratorRoot: packageRoot(), baseRef: qaBaseRef, includeWorktree: true });
     await writeFile(qaScanPath, qaInvocation.stdout);
     await writeFile(qaScanTextPath, qaInvocation.stderr);
     trace(`qa gate exited ${qaInvocation.exitCode}${qaInvocation.toolError === null ? "" : ` (tool error: ${qaInvocation.toolError})`}`);

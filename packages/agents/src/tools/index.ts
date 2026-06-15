@@ -13,6 +13,7 @@ export {
   defaultAgentToolProfiles,
   defaultKnowledgeCuratorToolProfile,
   defaultPrReviewToolProfile,
+  defaultQaRepairToolProfile,
   defaultReconcileToolProfile,
   defaultWorkerToolProfile,
   resolveAgentToolIds,

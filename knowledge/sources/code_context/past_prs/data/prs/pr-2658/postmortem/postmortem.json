@@ -5,20 +5,21 @@
     "number": 2658,
     "title": "Melee decomp: IF + MN + TY",
     "url": "https://github.com/doldecomp/melee/pull/2658",
-    "state": "OPEN",
+    "state": "MERGED",
     "author": "fjooord",
     "created_at": "2026-06-11T20:06:27Z",
-    "merged_at": null
+    "merged_at": "2026-06-12T17:58:25Z"
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Open decompilation PR touching IF, MN, and TY files. The PR body claims exact-match decompilation across 6 files with 8 newly matched functions, validated by decomp-orchestrator against baseline 0b15e71345 using ninja changes_all with a clean regression report. The loaded diff shows matching-oriented source reshaping, including local lifetime/scope changes, helper inlines, casts, PAD_STACK, volatile local use, and data/string clustering in mncount and tydisplay.",
+  "summary": "Exact-match decompilation PR touching IF textlib, MN count/event/main, and TY display/list code, plus a TY header cleanup. The PR body claims 6 file(s) and 8 newly matched functions with clean isolated and full-ship verification; changed-file metadata also includes toy.h. Review centered on avoiding data/extern-driven regressions, checking GET_JOBJ versus a local inline, and inlining TU-owned float literals.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "data-section-matching",
-      "matching-tactics"
+      "headers",
+      "data-literal-cleanup",
+      "review-fix"
     ],
     "systems": [
       "melee-if",
@@ -29,217 +30,259 @@
   "key_files": [
     {
       "path": "src/melee/if/textlib.c",
-      "role": "Adjusted textlib matching in un_80303444 and un_80304D30, including direct arg0->x8 indexing, unsigned pointer/cast changes, new inline helpers for un_80304D30 data selection, control-flow restructuring, and PAD_STACK(4).",
+      "role": "Matched/improved IF text library functions, including un_80303444 and un_80304D30; introduced small inline helpers and a narrow PAD_STACK in un_80304D30.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/if/textlib.c added 71 deleted 38 hunks 10",
-        "raw_diff: textlib.c hunks for un_80303444 and un_80304D30",
-        "text_corpus issue_comment: new match un_80303444; improvement un_80304D30 +45 bytes"
+        "changed_files: src/melee/if/textlib.c added 71 deleted 38 hunks 10",
+        "diff_excerpt: un_80303444 direct arg0->x8 indexing and typed q casts; un_80304D30_idk/un_80304D30_48C0/un_80304D30_4B0C inline helpers; PAD_STACK(4)",
+        "text_corpus issue_comment report: main/melee/if/textlib un_80303444 99.15% -> 100.00%; un_80304D30 94.35% -> 99.96%"
       ]
     },
     {
       "path": "src/melee/mn/mncount.c",
-      "role": "Matched mncount items by adding AnimLoopSettings data, helper inlines, scoped/volatile locals, string/data blob lbl_803EFB60 with offset defines, and refactoring mnCount_Create allocation/assert/archive loading flow.",
+      "role": "Matched/improved MN count code and data; added AnimLoopSettings data, an inline combined VS play time accessor, stack/lifetime shaping around row creation, and changed a displayed fallback string.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/mn/mncount.c added 69 deleted 17 hunks 9",
-        "raw_diff: mncount.c hunks for mnCount_CreateRow, mnCount_Create, lbl_803EFB60, mnCount_GetRowValue_Number",
-        "text_corpus issue_comment: mncount .data to 100%, mnCount_Create to 100%, mnCount_GetRowValue_Number to 100%, .sdata to 100%"
+        "changed_files: src/melee/mn/mncount.c added 16 deleted 4 hunks 7",
+        "diff_excerpt: mnCount_803EFA88 array; mnCount_GetCombinedVSPlayTimeValue; volatile value_text block; buf1 scoped inside time branch",
+        "review_comment r3399295198: PsiLupan flagged static char lbl_803EFB60 string access as a regression",
+        "text_corpus issue_comment report: mnCount_GetRowValue_Number 95.98% -> 100.00%; mnCount_CreateRow 96.51% -> 97.32%; .data and .sdata improvements"
       ]
     },
     {
       "path": "src/melee/mn/mnevent.c",
-      "role": "Improved event menu functions by reordering JObj lookups, introducing event_gobj/page temporaries, combining input assignment, and changing casts around gm event data.",
+      "role": "Improved event menu functions by reordering JObj lookups, introducing event_gobj/page locals, and adjusting casts for animation requests and input assignment.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/mn/mnevent.c added 17 deleted 13 hunks 7",
-        "raw_diff: mnevent.c hunks for mnEvent_8024E524 and fn_8024D864",
-        "text_corpus issue_comment: mnEvent_8024E524 +47 bytes; fn_8024D864 +49 bytes"
+        "changed_files: src/melee/mn/mnevent.c added 17 deleted 13 hunks 7",
+        "diff_excerpt: mnEvent_8024E524 adds event_gobj; fn_8024D864 adds page local and combined inputs = mn_804A04F0.buttons = mn_80229624(4)",
+        "text_corpus issue_comment report: mnEvent_8024E524 83.09% -> 89.05%; fn_8024D864 87.43% -> 89.48%"
       ]
     },
     {
       "path": "src/melee/mn/mnmain.c",
-      "role": "Improved main menu function fn_8022AFEC with scoped temporaries for user_data and cur_menu around selection-change calls.",
+      "role": "Improved main menu function fn_8022AFEC through scoped temporaries and repeated cur_menu locals around selection change calls.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/mn/mnmain.c added 19 deleted 10 hunks 2",
-        "raw_diff: mnmain.c hunk for fn_8022AFEC",
-        "text_corpus issue_comment: fn_8022AFEC +11 bytes"
+        "changed_files: src/melee/mn/mnmain.c added 19 deleted 10 hunks 2",
+        "diff_excerpt: tmp_data block around gp->user_data; cur_menu scoped before mn_80229F60 and mn_8022A440",
+        "text_corpus issue_comment report: fn_8022AFEC 97.71% -> 98.86%"
+      ]
+    },
+    {
+      "path": "src/melee/ty/toy.h",
+      "role": "Header cleanup removing extern float declarations tied to TY literal/data handling.",
+      "evidence_refs": [
+        "changed_files: src/melee/ty/toy.h added 0 deleted 3 hunks 1",
+        "diff_excerpt: removed extern float un_804DDE60, un_804DDE4C, un_804DDE48"
       ]
     },
     {
       "path": "src/melee/ty/tydisplay.c",
-      "role": "Improved TY display matching by adding data/string blobs and using string-base pointer arithmetic for OSReport/assert/archive public-address calls in un_8031B1FC; also reported improvements in un_8031B328 and .data/.sdata.",
+      "role": "Improved TY display functions, simplified control flow, used an inline helper for JObj access after GET_JOBJ was tested and reported to worsen the match, and had review concerns about extern/data-order matching.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/ty/tydisplay.c added 33 deleted 24 hunks 13",
-        "raw_diff: tydisplay.c hunks for un_80319EF0 and un_8031B1FC; diff is truncated before full tydisplay coverage",
-        "text_corpus issue_comment: un_8031B1FC to 100%, un_8031B328 to 100%, tydisplay .data +241 bytes, .sdata +1"
+        "changed_files: src/melee/ty/tydisplay.c added 17 deleted 14 hunks 5",
+        "diff_excerpt: un_8031B328 assignment-in-if for HSD_ArchiveGetPublicAddress; simplified un_804D6F20 condition; un_8031BF34_inline returns (HSD_JObj*) un_804D6F2C->hsd_obj",
+        "review_comment r3399300105: PsiLupan said matching because of externs is not correct and indicates unfinished data ordering",
+        "review_comment r3404481894: jurrejelle asked whether GET_JOBJ could be used",
+        "review_comment r3404742756: author reported GET_JOBJ(un_804D6F2C) drops un_8031BF34 from 98.17% to 97.09% fuzzy due to arg evaluation/codegen and kept inline helper",
+        "text_corpus issue_comment report: un_8031BF34 95.57% -> 98.17%; un_8031B328 99.82% -> 99.95%"
       ]
     },
     {
       "path": "src/melee/ty/tylist.c",
-      "role": "Changed TY list source; loaded diff excerpt is truncated before tylist details, but metadata and bot report show one new match and several improvements in tylist functions.",
+      "role": "Largest TY list change; replaced many extern float accesses with inline literals, adjusted stack padding and HSD_Text temporary use, and achieved .sdata2 match per bot report.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/ty/tylist.c added 58 deleted 42 hunks 9",
-        "text_corpus issue_comment: un_803148E4 to 100%; un_80312904, fn_80313BD8, un_8031457C, un_80312BAC improved",
-        "raw_diff: truncated before tylist hunks"
+        "changed_files: src/melee/ty/tylist.c added 97 deleted 105 hunks 22",
+        "diff_excerpt: removed extern f32 un_804DDE28/un_804DDE2C/un_804DDE30/un_804DDE34/un_804DDE38/un_804DDE3C/un_804DDE40/un_804DDE44/un_804DDE4C/un_804DDE50; literals 6.5f, 0.41f, 14.7f, 0.028f, 0.029f; PAD_STACK(0x60)",
+        "review_comment r3404485635: jurrejelle suggested inlining likely float constants",
+        "review_comment r3404742909: author said they were this TU's own .sdata2 literal pool and inlined 0.028f/0.029f byte-exact as 3ce56042/3ced9168 with unchanged function match state",
+        "text_corpus issue_comment report: main/melee/ty/tylist .sdata2 37.84% -> 100.00%; un_803148E4 92.59% -> 100.00%; un_80312904 87.96% -> 99.06%"
       ]
     }
   ],
   "what_changed": [
-    "PR body claims exact-match decompilation of 6 files with 8 newly matched functions.",
-    "Automated report lists 8 new matches: mncount .data, mnCount_Create, tylist un_803148E4, mnCount_GetRowValue_Number, textlib un_80303444, mncount .sdata, tydisplay un_8031B1FC, and tydisplay un_8031B328.",
-    "Automated report lists 12 additional unmatched-item improvements across tydisplay, tylist, mnevent, textlib, mnmain, and mncount.",
-    "textlib un_80303444 removed a cached x8 local and used arg0->x8[arg0->x0] directly; adjusted unsigned pointer type and wraparound cast in cases 4/7.",
-    "textlib un_80304D30 gained inline helpers for choosing save/stat storage and testing bit flags, changed stack/indexing/control-flow shape, wrote through ((unsigned char*) un_804A26B8)[0x194], and added PAD_STACK(4).",
-    "mncount added an AnimLoopSettings array, extracted combined VS play-time access into an inline helper, moved buf1 into the time-row branch, introduced a volatile HSD_Text* local for freeing existing row value text, and changed the special character fallback string bytes.",
-    "mncount_Create was reshaped around a clustered string blob lbl_803EFB60 with offset macros, a GObj creation helper, an init-user-data helper, explicit OSReport/__assert on allocation failure, and an archive local.",
-    "mnevent introduced event_gobj and page locals, reordered lb_80011E24 calls, changed cast placement on gm_801BEB8C/gm_801BEBF8 values, and combined inputs assignment with mn_804A04F0.buttons assignment.",
-    "mnmain fn_8022AFEC introduced scoped temporaries for gp->user_data and repeated cur_menu evaluation around two selection-change calls.",
-    "tydisplay introduced string/data blobs for asset/report/assert text and rewrote some literal OSReport/HSD_ASSERT/archive calls to use symbol-plus-offset pointers.",
-    "tylist was changed, but loaded diff is truncated before its hunks; only changed-file metadata and automated report items are available for tylist."
+    "PR body reports exact-match decompilation of 6 source files with 8 newly matched functions and clean regression verification against baseline 0b15e71345.",
+    "Changed-file metadata lists 7 touched paths: six C files plus src/melee/ty/toy.h.",
+    "Bot report recorded 5 new matches and 12 improvements, including full matches for tylist .sdata2, tylist un_803148E4, mncount mnCount_GetRowValue_Number, textlib un_80303444, and mncount .sdata.",
+    "TY list float extern usage was reduced by inlining literals; toy.h removed three extern float declarations.",
+    "Review discussion led to explicit evidence that GET_JOBJ(un_804D6F2C) was tried for un_8031BF34 but worsened fuzzy score, so a no-arg inline helper was retained.",
+    "Review discussion identified string/extern/data-order matching concerns in mncount.c and tydisplay.c."
   ],
   "smart_moves": [
     {
-      "text": "The PR kept verification narrow and explicit in the body: applied the slice alone to baseline 0b15e71345, built with ninja changes_all, and reported 0 broken matches, 0 fuzzy regressions, and 0 metric regressions.",
+      "text": "The author tested a reviewer-suggested GET_JOBJ cleanup and reported the exact local fuzzy-score regression before keeping the inline helper.",
       "evidence_refs": [
-        "human_pr_text.md: Verification section"
+        "review_comment r3404481894",
+        "review_comment r3404742756"
       ]
     },
     {
-      "text": "For mnevent and mnmain, the diff uses small scoped locals such as event_gobj, page, tmp_data, and cur_menu to alter lifetime/evaluation shape without broad structural rewrites.",
+      "text": "The author responded to float-literal review with TU ownership and byte-exact literal evidence for 0.028f/0.029f while noting function match state was unchanged.",
       "evidence_refs": [
-        "raw_diff: mnevent.c mnEvent_8024E524/fn_8024D864 hunks",
-        "raw_diff: mnmain.c fn_8022AFEC hunk"
+        "review_comment r3404485635",
+        "review_comment r3404742909"
       ]
     },
     {
-      "text": "For textlib un_80304D30, helper inlines isolate repeated save/stat selection and bit-test access patterns, making the matching-specific changes easier to search and review than duplicating the conditional logic at every use.",
+      "text": "The PR included narrow verification claims in the body: isolated ninja changes_all clean report and full ship-set verification with 0 regressions.",
       "evidence_refs": [
-        "raw_diff: textlib.c added un_80304D30_idk, un_80304D30_48C0, un_80304D30_4B0C"
+        "human_pr_text: Verification section"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "Small local-lifetime and evaluation-order changes can be meaningful matching levers in menu code: this PR repeatedly uses scoped temporaries and assignment folding around globals, gobj pointers, and menu state.",
+      "lesson": "Do not convert ordinary strings into generated static buffers or access them through artificial storage just to chase matching; review treated that as a regression.",
       "scope": [
-        "src/melee/mn/mnevent.c",
-        "src/melee/mn/mnmain.c",
-        "src/melee/mn/mncount.c"
+        "mncount string/data matching",
+        "data-order-sensitive decomp"
       ],
       "evidence_refs": [
-        "raw_diff: mnevent.c event_gobj/page/input changes",
-        "raw_diff: mnmain.c tmp_data/cur_menu scoped blocks",
-        "raw_diff: mncount.c volatile value_text block"
-      ],
-      "confidence": 0.78
+        "review_comment r3399295198"
+      ]
     },
     {
-      "lesson": "Inline helper extraction can be used as a matching tactic to control repeated access shapes while keeping call sites readable, as seen in textlib un_80304D30 and mncount row-value/GObj setup helpers.",
+      "lesson": "Matching through externs can be rejected as a data-order workaround; if data ordering is unfinished, avoid using extern indirection as the source-level explanation.",
       "scope": [
-        "src/melee/if/textlib.c",
-        "src/melee/mn/mncount.c"
+        "tydisplay",
+        "data ordering",
+        "extern literals"
       ],
       "evidence_refs": [
-        "raw_diff: textlib.c added un_80304D30_* inline helpers",
-        "raw_diff: mncount.c added mnCount_GetCombinedVSPlayTimeValue, mnCount_CreateMenuGObj, mnCount_InitGObjUserData"
-      ],
-      "confidence": 0.74
+        "review_comment r3399300105"
+      ]
     },
     {
-      "lesson": "Data and literal layout edits may be involved in exact-match progress, but the evidence here is mixed for general style: mncount and tydisplay add clustered string/data blobs and offset macros/pointers, while current standards treat such edits as high-risk unless section ownership evidence supports them.",
+      "lesson": "When small float symbols are actually a TU-owned literal pool, inlining the literals can be the cleaner source form; preserve byte-exact evidence when making that call.",
       "scope": [
-        "src/melee/mn/mncount.c",
-        "src/melee/ty/tydisplay.c"
+        "tylist",
+        ".sdata2 literals",
+        "float literals"
       ],
       "evidence_refs": [
-        "raw_diff: mncount.c lbl_803EFB60 and offset defines",
-        "raw_diff: tydisplay.c un_803FEFF0, un_803FF01C, un_803FF074, un_804D5AA8",
-        "text_corpus issue_comment: mncount .data to 100%; tydisplay .data improved"
+        "review_comment r3404742909",
+        "diff_excerpt: tylist.c inline 0.028f/0.029f and other float literals"
+      ]
+    },
+    {
+      "lesson": "GET_JOBJ should be tested rather than applied mechanically; in this PR a GET_JOBJ form changed argument evaluation/codegen and worsened the local match, while a no-argument inline preserved better matching.",
+      "scope": [
+        "tydisplay",
+        "HSD_JObj access",
+        "header inline cleanup"
       ],
-      "confidence": 0.65
+      "evidence_refs": [
+        "review_comment r3404481894",
+        "review_comment r3404742756"
+      ]
     }
   ],
   "naming_conventions": [
     {
-      "name": "mnCount_* helper names",
-      "observation": "New mncount helpers use the existing subsystem prefix and describe narrow roles, e.g. mnCount_GetCombinedVSPlayTimeValue, mnCount_CreateMenuGObj, and mnCount_InitGObjUserData.",
+      "convention": "Address-style names such as un_80304D30_idk, un_80304D30_48C0, un_80304D30_4B0C, un_8031BF34_inline, and mnCount_803EFA88 were retained or introduced where semantics were not fully proven in the slice.",
       "evidence_refs": [
-        "raw_diff: mncount.c added helper names"
+        "diff_excerpt: textlib.c inline helper names",
+        "diff_excerpt: tydisplay.c un_8031BF34_inline",
+        "diff_excerpt: mncount.c mnCount_803EFA88"
       ]
     },
     {
-      "name": "address-style unknown helpers/globals",
-      "observation": "Unknown or weakly understood textlib and TY symbols remain address-style, e.g. un_80304D30_48C0, un_80304D30_4B0C, un_803FEFF0, and un_803FF074.",
+      "convention": "Short role locals were used where roles were apparent, such as text, event_gobj, page, cur_menu, tmp_data, and value_text.",
       "evidence_refs": [
-        "raw_diff: textlib.c added un_80304D30_* helpers",
-        "raw_diff: tydisplay.c added un_803FEFF0/un_803FF074"
-      ]
-    },
-    {
-      "name": "short local role names",
-      "observation": "The diff uses short role locals where roles are clear or matching-sensitive, including event_gobj, page, archive, value_text, tmp_data, and cur_menu.",
-      "evidence_refs": [
-        "raw_diff: mnevent.c event_gobj/page",
-        "raw_diff: mncount.c archive/value_text",
-        "raw_diff: mnmain.c tmp_data/cur_menu"
+        "diff_excerpt: tylist.c HSD_Text* text",
+        "diff_excerpt: mnevent.c event_gobj/page",
+        "diff_excerpt: mnmain.c tmp_data/cur_menu",
+        "diff_excerpt: mncount.c value_text"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "PAD_STACK",
-      "details": "textlib un_80304D30 adds PAD_STACK(4), a narrow stack-shape tactic. PR body and bot report provide regression evidence, but the loaded diff does not include local objdiff details beyond match/improvement reporting.",
+      "tactic": "Scoped temporary locals and declaration/lifetime changes were used to steer codegen, including tmp_data, cur_menu, event_gobj, page, text, and a volatile value_text.",
       "evidence_refs": [
-        "raw_diff: textlib.c un_80304D30 adds PAD_STACK(4)",
-        "human_pr_text.md: clean ninja changes_all regression report",
-        "text_corpus issue_comment: un_80304D30 improved to 99.96%"
+        "diff_excerpt: mnmain.c scoped tmp_data and cur_menu blocks",
+        "diff_excerpt: mnevent.c event_gobj/page locals",
+        "diff_excerpt: mncount.c volatile value_text",
+        "diff_excerpt: tylist.c HSD_Text* text"
       ]
     },
     {
-      "tactic": "volatile local to steer load/store or lifetime",
-      "details": "mnCount_CreateRow wraps userdata->values[visible_row] in a scoped HSD_Text* volatile value_text before HSD_SisLib_803A5CC4.",
+      "tactic": "PAD_STACK was adjusted narrowly in functions with stack-sensitive matching: PAD_STACK(4) in textlib un_80304D30 and PAD_STACK(0x60) in tylist un_80312904.",
       "evidence_refs": [
-        "raw_diff: mncount.c mnCount_CreateRow value_text volatile block",
-        "text_corpus issue_comment: mnCount_CreateRow +5 bytes"
+        "diff_excerpt: textlib.c PAD_STACK(4)",
+        "diff_excerpt: tylist.c PAD_STACK(0x60)"
       ]
     },
     {
-      "tactic": "scoped temporary locals",
-      "details": "mnmain and mnevent add block-scoped temporaries for user data, menu kind, event gobj, and page, likely controlling register allocation/lifetime for matching.",
+      "tactic": "Assignment-in-condition forms were used in tydisplay un_8031B328 for HSD_ArchiveGetPublicAddress results, likely as a codegen/control-flow matching shape.",
       "evidence_refs": [
-        "raw_diff: mnmain.c fn_8022AFEC scoped tmp_data/cur_menu",
-        "raw_diff: mnevent.c event_gobj/page"
+        "diff_excerpt: tydisplay.c lightData/fogDesc assignment inside if"
       ]
     },
     {
-      "tactic": "cast placement and signedness adjustments",
-      "details": "Diff changes include unsigned int* q in textlib cases 4/7, explicit unsigned wraparound cast, and different cast placement around gm_801BEB8C/gm_801BEBF8 in mnevent.",
+      "tactic": "A no-argument inline helper was retained for JObj access after the author reported GET_JOBJ changed call-site evaluation and worsened fuzzy matching.",
       "evidence_refs": [
-        "raw_diff: textlib.c un_80303444 cases 4/7",
-        "raw_diff: mnevent.c mnEvent_8024E524 and fn_8024D864 cast changes"
+        "diff_excerpt: tydisplay.c un_8031BF34_inline",
+        "review_comment r3404742756"
       ]
     },
     {
-      "tactic": "string/data clustering and symbol-plus-offset access",
-      "details": "mncount and tydisplay introduce static/global char arrays containing multiple strings and use defines or pointer offsets for assert/report/archive strings. This is evidenced as data/matching work, not a general accepted style.",
+      "tactic": "Float externs in tylist were replaced with inline numeric literals once review and author evidence identified them as TU-owned .sdata2 literals.",
       "evidence_refs": [
-        "raw_diff: mncount.c lbl_803EFB60 and mnCount_* string offset defines",
-        "raw_diff: tydisplay.c un_803FEFF0/un_803FF074 and strbase offsets",
-        "text_corpus issue_comment: mncount .data 100%; tydisplay .data improved"
+        "diff_excerpt: tylist.c extern removals and inline literals",
+        "review_comment r3404742909"
       ]
     }
   ],
   "review_feedback": [
     {
-      "kind": "automated_report",
-      "author": "decomp-dev[bot]",
-      "created_at": "2026-06-11T20:25:34Z",
-      "text": "Reported GALE01 progress from 0b15e71 to b0b9afa: matched code 72.21% (+0.07%, +2740 bytes), matched data 41.78% (+0.03%, +408 bytes), 8 new matches, and 12 improvements in unmatched items.",
+      "reviewer": "PsiLupan",
+      "path": "src/melee/mn/mncount.c",
+      "feedback": "Flagged generated/static string access as a regression: strings should not be accessed this way.",
       "evidence_refs": [
-        "text_corpus.jsonl issue_comment decomp-dev[bot]"
+        "review_comment r3399295198"
+      ]
+    },
+    {
+      "reviewer": "PsiLupan",
+      "path": "src/melee/ty/tydisplay.c",
+      "feedback": "Flagged a similar regression: matching because of externs is not correct and indicates unfinished data ordering.",
+      "evidence_refs": [
+        "review_comment r3399300105"
+      ]
+    },
+    {
+      "reviewer": "jurrejelle",
+      "path": "src/melee/ty/tydisplay.c",
+      "feedback": "Asked whether GET_JOBJ could be used, while allowing the current form if it did not work.",
+      "evidence_refs": [
+        "review_comment r3404481894"
+      ]
+    },
+    {
+      "reviewer": "fjooord",
+      "path": "src/melee/ty/tydisplay.c",
+      "feedback": "Reported testing GET_JOBJ(un_804D6F2C), which reduced un_8031BF34 fuzzy score from 98.17% to 97.09%, so the inline helper was kept.",
+      "evidence_refs": [
+        "review_comment r3404742756"
+      ]
+    },
+    {
+      "reviewer": "jurrejelle",
+      "path": "src/melee/ty/tylist.c",
+      "feedback": "Suggested likely float constants should be inlined.",
+      "evidence_refs": [
+        "review_comment r3404485635"
+      ]
+    },
+    {
+      "reviewer": "fjooord",
+      "path": "src/melee/ty/tylist.c",
+      "feedback": "Confirmed the constants were this TU's .sdata2 literal pool and inlined 0.028f/0.029f with byte-exact hex evidence.",
+      "evidence_refs": [
+        "review_comment r3404742909"
       ]
     }
   ],
   "searchable_terms": [
-    "PR 2658",
+    "PR2658",
     "Melee decomp IF MN TY",
     "src/melee/if/textlib.c",
     "src/melee/mn/mncount.c",
@@ -247,162 +290,166 @@
     "src/melee/mn/mnmain.c",
     "src/melee/ty/tydisplay.c",
     "src/melee/ty/tylist.c",
+    "src/melee/ty/toy.h",
     "un_80303444",
     "un_80304D30",
-    "un_80304D30_idk",
-    "un_80304D30_48C0",
-    "un_80304D30_4B0C",
-    "mnCount_Create",
-    "mnCount_CreateRow",
     "mnCount_GetRowValue_Number",
-    "mnCount_GetCombinedVSPlayTimeValue",
-    "lbl_803EFB60",
+    "mnCount_CreateRow",
     "mnEvent_8024E524",
     "fn_8024D864",
     "fn_8022AFEC",
-    "un_8031B1FC",
+    "un_8031BF34",
     "un_8031B328",
+    "un_80312904",
     "un_803148E4",
+    "GET_JOBJ",
+    "un_8031BF34_inline",
     "PAD_STACK",
-    "volatile value_text",
-    "string blob",
-    "OSReport",
-    "__assert",
-    "HSD_ASSERT",
-    "GObj_Create",
-    "lbArchive_LoadSections",
-    "HSD_ArchiveGetPublicAddress"
+    "0.028f",
+    "0.029f",
+    ".sdata2 literal pool",
+    "extern regression",
+    "data ordering isn't finished",
+    "string access regression"
   ],
   "follow_up_queries": [
-    "PR 2658 tylist diff un_803148E4 un_80312904 fn_80313BD8 un_8031457C un_80312BAC",
-    "mncount lbl_803EFB60 data ownership string cluster",
-    "tydisplay un_803FEFF0 un_803FF074 string blob data ownership",
-    "un_80304D30 PAD_STACK 4 objdiff evidence",
-    "mnCount_Create HSD_ASSERTREPORT OSReport __assert matching",
-    "mnCount_CreateRow volatile value_text matching tactic",
-    "mnevent event_gobj page local lifetime matching",
-    "mnmain fn_8022AFEC cur_menu scoped temporary"
+    "PR2658 string access regression mnCount_InitUserData_noinline lbl_803EFB60",
+    "PR2658 extern matching regression tyDisplay Table Scale Irregul",
+    "GET_JOBJ un_804D6F2C un_8031BF34 fuzzy 98.17 97.09",
+    "tylist un_80312904 0.028f 0.029f sdata2 literal pool",
+    "mncount mnCount_CreateRow volatile value_text matching",
+    "textlib un_80304D30 PAD_STACK helper un_80304D30_4B0C"
   ],
   "evidence_quality": {
-    "status": "mixed",
+    "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR identity, state, author, file counts, changed files",
-      "human_pr_text.md: PR summary and verification claims",
-      "text_corpus.jsonl: PR body and decomp-dev bot report",
-      "changed_files.jsonl: changed-file metadata",
-      "raw_diff.diff: loaded but truncated; includes textlib, mncount, mnevent, mnmain, part of tydisplay; does not include tylist hunks"
+      "metadata_json pr fields",
+      "human_pr_text verification and file list",
+      "changed_files.jsonl",
+      "review_comments.md",
+      "text_corpus.jsonl bot report and reviews",
+      "diff_excerpt/raw_diff truncated but includes key hunks"
     ],
     "notes": [
-      "PR is OPEN with merged_at null; no merge or acceptance status is inferred.",
-      "There are no loaded human review comments and no review records; review feedback is limited to the automated bot report.",
-      "The raw diff is truncated, so tylist details and later tydisplay hunks are only partially supported by metadata and the automated report.",
-      "The PR body claims clean runner validation and exact matches; this intake records those claims as PR evidence but does not independently rerun builds or objdiff.",
-      "Some tactics shown in the diff, especially PAD_STACK, volatile locals, and string/data clustering, are matching tactics requiring evidence under current standards; they are not promoted here as broad accepted style."
+      "The raw diff is truncated in loaded context, so some tylist hunks and some review-addressing details are not visible in full.",
+      "The PR body lists 6 files, while changed-file metadata lists 7 paths because toy.h was also changed.",
+      "PsiLupan's data/string regression comments are visible, but the loaded slice does not include a direct author response to those two comments; only final PR merge and later approval are present.",
+      "Verification claims are taken from PR body and bot report; no independent build or objdiff was run during intake."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "matching_tactic_case",
-        "title": "Scoped temporaries as narrow matching levers in MN menu functions",
-        "text": "PR #2658 shows scoped temporaries such as event_gobj, page, tmp_data, and cur_menu used in mnevent and mnmain matching work. Treat as a case example for local lifetime/evaluation-order tuning, not as a blanket style rule.",
+        "title": "Test GET_JOBJ/header cleanup against local codegen before replacing a direct JObj cast",
+        "text": "In PR #2658, a reviewer suggested GET_JOBJ for un_8031BF34. The author reported that GET_JOBJ(un_804D6F2C) changed argument evaluation at the call site and dropped the fuzzy score from 98.17% to 97.09%, so a no-argument inline helper was kept.",
         "scope": [
-          "src/melee/mn/mnevent.c",
-          "src/melee/mn/mnmain.c"
+          "HSD_JObj access",
+          "tydisplay",
+          "header inline cleanup"
         ],
         "evidence_refs": [
-          "raw_diff: mnevent.c mnEvent_8024E524/fn_8024D864",
-          "raw_diff: mnmain.c fn_8022AFEC",
-          "text_corpus issue_comment: improvements in mnevent and mnmain functions"
+          "review_comment r3404481894",
+          "review_comment r3404742756"
         ]
       },
       {
-        "record_type": "matching_tactic_case",
-        "title": "Inline helper extraction used to stabilize access shape",
-        "text": "PR #2658 adds small static inline helpers in textlib and mncount to encapsulate repeated access patterns while pursuing matches. Curate as a narrow matching case when supported by verification, not as proof that helper extraction is always original style.",
+        "title": "Inline TU-owned float literals instead of preserving generated float externs",
+        "text": "In PR #2658, review suggested inlining likely float constants in tylist; the author identified them as the TU's own .sdata2 literal pool and inlined 0.028f/0.029f with byte-exact evidence while function match state was unchanged.",
         "scope": [
-          "src/melee/if/textlib.c",
-          "src/melee/mn/mncount.c"
+          "tylist",
+          ".sdata2",
+          "float literals"
         ],
         "evidence_refs": [
-          "raw_diff: added un_80304D30_idk/un_80304D30_48C0/un_80304D30_4B0C",
-          "raw_diff: added mnCount_GetCombinedVSPlayTimeValue/mnCount_CreateMenuGObj/mnCount_InitGObjUserData",
-          "human_pr_text.md: exact-match and clean regression claims"
+          "review_comment r3404485635",
+          "review_comment r3404742909",
+          "diff_excerpt: tylist.c inline float literals"
+        ]
+      },
+      {
+        "title": "Avoid string and extern-driven data ordering workarounds in code-matching PRs",
+        "text": "Review on PR #2658 called out generated/static string access and extern-based matching as regressions, with the extern comment explicitly saying data ordering was not finished.",
+        "scope": [
+          "data ordering",
+          "strings",
+          "externs",
+          "code matching"
+        ],
+        "evidence_refs": [
+          "review_comment r3399295198",
+          "review_comment r3399300105"
         ]
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "mncount .data exact-match candidate uses lbl_803EFB60 clustered strings",
-        "text": "PR #2658 reports main/melee/mn/mncount .data moving from 3.12% to 100.00%. The loaded diff shows lbl_803EFB60[0xA8] containing allocation/assert text and MenMainConCo asset strings, with offset defines used by mnCount_Create. This may be a path-specific data ownership/layout fact if later curator review confirms it in source metadata.",
-        "source_path": "src/melee/mn/mncount.c",
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Add PR #2658 as an example under no string-literal symbol regression / text-before-data matching",
+        "text": "PR #2658 review provides concrete examples: static/generated string access in mncount was called a regression, and extern-based matching in tydisplay was rejected as evidence of unfinished data ordering.",
+        "source_path": null,
         "scope": [
-          "main/melee/mn/mncount",
-          ".data",
-          "mnCount_Create",
-          "lbl_803EFB60"
+          "strings",
+          "externs",
+          "data ordering",
+          "matching PR review"
         ],
         "evidence_refs": [
-          "raw_diff: mncount.c lbl_803EFB60 and offset defines",
-          "text_corpus issue_comment: main/melee/mn/mncount .data 3.12% to 100.00%"
+          "review_comment r3399295198",
+          "review_comment r3399300105"
         ],
-        "reason": "Potential source-owned path fact about data/string layout; do not promote from PR intake alone."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "tydisplay string/data blob candidate around un_8031B1FC",
-        "text": "PR #2658 adds un_803FEFF0, un_803FF01C, un_803FF074, and un_804D5AA8 string/data symbols in tydisplay and rewrites un_8031B1FC report/assert/archive string uses through offsets. Bot report says un_8031B1FC reached 100% and tydisplay .data improved. This is a candidate for curator review of TY display data ownership and string cluster placement.",
-        "source_path": "src/melee/ty/tydisplay.c",
-        "scope": [
-          "main/melee/ty/tydisplay",
-          ".data",
-          ".sdata",
-          "un_8031B1FC",
-          "un_8031B328"
-        ],
-        "evidence_refs": [
-          "raw_diff: tydisplay.c added un_803FEFF0/un_803FF01C/un_803FF074/un_804D5AA8 and strbase offsets",
-          "text_corpus issue_comment: un_8031B1FC and un_8031B328 to 100%; tydisplay .data/.sdata improvements"
-        ],
-        "reason": "Potential source-owned data-layout/path fact; loaded diff is truncated and PR is open, so curator review is required."
+        "reason": "Existing standards already cover this pattern; this PR can serve as a grounded example for future reviewers and agents."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Consider adding a case note for volatile locals and PAD_STACK evidence",
-        "text": "PR #2658 contains both PAD_STACK(4) in textlib un_80304D30 and a volatile HSD_Text* local in mnCount_CreateRow, with PR/body bot evidence of matching progress. Existing standards already say such tactics need explicit evidence; curator may decide whether this PR is worth linking as an example case after confirming final review/merge status.",
+        "title": "Add PR #2658 GET_JOBJ counterexample to header-inlines guidance",
+        "text": "GET_JOBJ is not unconditional cleanup: in PR #2658, GET_JOBJ(un_804D6F2C) reportedly worsened un_8031BF34 fuzzy score from 98.17% to 97.09% because argument evaluation changed codegen, so a local no-arg inline helper was retained.",
         "source_path": null,
         "scope": [
-          "matching-tactics-need-evidence",
-          "src/melee/if/textlib.c",
-          "src/melee/mn/mncount.c"
+          "header-inlines",
+          "GET_JOBJ",
+          "JObj access",
+          "codegen validation"
         ],
         "evidence_refs": [
-          "raw_diff: textlib.c PAD_STACK(4)",
-          "raw_diff: mncount.c HSD_Text* volatile value_text",
-          "human_pr_text.md: clean regression claims",
-          "text_corpus issue_comment: un_80304D30 and mnCount_CreateRow improvements"
+          "review_comment r3404481894",
+          "review_comment r3404742756"
         ],
-        "reason": "Possible standards example, not a new standard; existing standards already cover the rule."
+        "reason": "The loaded standards already say GET_JOBJ should only be used when local evidence supports it; this PR is a useful historical example."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Add PR #2658 float literal pool example to literals-and-data-ownership",
+        "text": "In PR #2658 tylist, 0.028f/0.029f were identified as this TU's .sdata2 literal pool and inlined byte-exact, avoiding unnecessary extern float symbols.",
+        "source_path": null,
+        "scope": [
+          "float literals",
+          ".sdata2",
+          "data ownership",
+          "tylist"
+        ],
+        "evidence_refs": [
+          "review_comment r3404742909",
+          "diff_excerpt: tylist.c removed extern f32 symbols and inlined literals"
+        ],
+        "reason": "This is a concrete example of the existing literal/data ownership standard."
       }
     ],
     "rejection_notes": [
-      "Do not infer that string-literal-to-global-symbol rewrites are broadly accepted style from this PR; current standards warn that data/literal ownership needs explicit evidence.",
-      "Do not infer reviewer approval or merge acceptance; PR state is OPEN and no human review comments are loaded.",
-      "Do not create tylist-specific lessons from code shape; the loaded raw diff is truncated before tylist hunks.",
-      "Do not promote PAD_STACK or volatile locals as normal cleanup. In this slice they are matching tactics with PR-level validation claims, not independently verified standards."
+      "Do not infer that all GET_JOBJ uses are bad; this PR only shows one local case where GET_JOBJ changed codegen.",
+      "Do not infer that every .sdata2 float should be inlined; this PR only supports inlining when TU literal-pool ownership and byte-exact evidence exist.",
+      "Do not treat the PR's PAD_STACK and volatile local uses as general style; standards require explicit verifier evidence and narrow scope."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

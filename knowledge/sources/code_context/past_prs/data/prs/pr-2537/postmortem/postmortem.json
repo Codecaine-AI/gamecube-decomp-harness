@@ -12,202 +12,202 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR 2537 advances matching in src/melee/if/ifstatus by replacing several NOT_IMPLEMENTED stubs with C for HUD percent/damage/status behavior, adding needed includes, and adjusting ifstatus headers/types. The bot report records 4 new matches in main/melee/if/ifstatus, several further ifstatus improvements, plus two broken matches and one .sdata2 regression.",
+  "summary": "Implemented and improved several HUD/status damage functions in src/melee/if/ifstatus, updated corresponding ifstatus prototypes, and adjusted IfDamageState damage fields to signed 16-bit. Bot evidence reported 4 new matches in main/melee/if/ifstatus and multiple ifstatus improvements, but also reported 2 broken matches and a small .sdata2 regression.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "hud-status",
-      "interface"
+      "type-refinement"
     ],
     "systems": [
       "melee-core",
-      "ifstatus",
-      "HUD damage percent"
+      "hud-status",
+      "interface"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/if/ifstatus.c",
-      "role": "Primary decompilation work: added includes, implemented HUD damage/status functions, adjusted animation/digit update logic, and used HSD/GObj/JObj/TObj helpers.",
+      "role": "Primary implementation file; replaces several NOT_IMPLEMENTED stubs and rewrites HUD damage/status logic, animation setup, digit updates, player lookup, GObj setup, and includes.",
       "evidence_refs": [
-        "metadata.changed_files: src/melee/if/ifstatus.c +437/-128, 13 hunks",
-        "diff_excerpt: ifStatus_802F4B84 replaced NOT_IMPLEMENTED with digit shake logic",
-        "diff_excerpt: ifStatus_802F5B48, ifStatus_802F5EC0, ifStatus_802F61FC signatures changed from void stubs to implemented functions",
-        "text_corpus issue_comment: 4 new matches and ifstatus improvements reported"
+        "changed_files.jsonl: src/melee/if/ifstatus.c +437/-128, 13 hunks",
+        "diff.diff: includes add ifcoget, lb_00F9, lbaudio_ax, gobjgxlink, gobjobject, gobjproc",
+        "diff.diff: ifStatus_802F4B84 implemented with digit shake loop and PAD_STACK(8)",
+        "diff.diff: ifStatus_802F5B48 signature changed to HSD_GObj* and implemented damage/stamina update logic",
+        "diff.diff: ifStatus_802F5EC0 and ifStatus_802F61FC implemented with GObj/JObj setup and animation calls"
       ]
     },
     {
       "path": "src/melee/if/ifstatus.h",
-      "role": "Header/prototype updates corresponding to recovered ifstatus function signatures.",
+      "role": "Header prototype updates for recovered function signatures.",
       "evidence_refs": [
-        "metadata.changed_files: src/melee/if/ifstatus.h +3/-3, 1 hunk",
-        "diff_excerpt: function signatures in ifstatus.c changed for ifStatus_802F5B48, ifStatus_802F5EC0, ifStatus_802F61FC"
+        "changed_files.jsonl: src/melee/if/ifstatus.h +3/-3, 1 hunk",
+        "diff.diff: ifStatus_802F5B48(void) -> ifStatus_802F5B48(HSD_GObj* gobj)",
+        "diff.diff: ifStatus_802F5EC0(void) -> ifStatus_802F5EC0(IfDamageState* state, s32 player_idx)",
+        "diff.diff: ifStatus_802F61FC(void) -> ifStatus_802F61FC(IfDamageState* state, s32 player_idx)"
       ]
     },
     {
       "path": "src/melee/if/types.h",
-      "role": "Type definition adjustments used by recovered ifstatus code.",
+      "role": "Struct field type refinement for damage counters.",
       "evidence_refs": [
-        "metadata.changed_files: src/melee/if/types.h +2/-2, 1 hunk",
-        "diff_excerpt: recovered code uses IfDamageState, HudIndex fields, damage flags, jobjs, translation_x/y, damage_percent, old_damage"
+        "changed_files.jsonl: src/melee/if/types.h +2/-2, 1 hunk",
+        "diff.diff: IfDamageState damage_percent and old_damage changed from u16 to s16"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Implemented ifStatus_802F4B84 with frame-based digit shake logic, random offsets via offset_rand/HSD_Randf, clamped shake magnitude, JObj translate restore/update, and PAD_STACK(8).",
+      "text": "Replaced NOT_IMPLEMENTED in ifStatus_802F4B84 with HUD digit shake behavior using saved translation arrays, HSD_Randf-based offsets, magnitude clamping, and HSD_JObjSetTranslateX/Y.",
       "evidence_refs": [
-        "diff_excerpt: ifStatus_802F4B84 body",
-        "text_corpus issue_comment: ifStatus_802F4B84 reported as new 100.00% match"
+        "diff.diff: ifStatus_802F4B84 implementation",
+        "text_corpus.jsonl bot report: ifStatus_802F4B84 new match 100.00%, +851 bytes"
       ]
     },
     {
-      "text": "Reworked ifStatus_802F4EDC around HUD player lookup, death/explode animation handling, digit texture animation setup, hide/show flags for tens/hundreds, and color interpolation/application to digit materials.",
+      "text": "Reworked ifStatus_802F4EDC around clearer player lookup, direct HudIndex animation fields, digit texture animation setup, digit hiding, and color application to digit materials.",
       "evidence_refs": [
-        "diff_excerpt: ifStatus_802F4EDC hunks",
-        "text_corpus issue_comment: ifStatus_802F4EDC improved from 71.92% to 80.38%"
+        "diff.diff: ifStatus_802F4EDC hunks",
+        "text_corpus.jsonl bot report: ifStatus_802F4EDC improved from 71.92% to 80.38%"
       ]
     },
     {
-      "text": "Added static inline find_player_by_entity and implemented ifStatus_802F5B48 to update damage/HP values, clamp to 0..0x3E7, set force_digit_shake/unk10 flags, and trigger related status functions.",
+      "text": "Added static inline find_player_by_entity and implemented ifStatus_802F5B48 as a GObj proc that updates damage/HP, clamps values to 0..0x3E7, and sets shake/flag fields based on damage deltas.",
       "evidence_refs": [
-        "diff_excerpt: find_player_by_entity and ifStatus_802F5B48",
-        "text_corpus issue_comment: ifStatus_802F5B48 reported as new 100.00% match"
+        "diff.diff: find_player_by_entity and ifStatus_802F5B48 implementation",
+        "text_corpus.jsonl bot report: ifStatus_802F5B48 new match 100.00%, +659 bytes"
       ]
     },
     {
-      "text": "Implemented ifStatus_802F5EC0 to create/setup HUD GObj/JObj when missing, attach GX/proc callbacks, load animations, position HUD via ifAll_802F3424, cache digit JObjs and translations, initialize percent texture animation, and call update paths.",
+      "text": "Implemented ifStatus_802F5EC0 and ifStatus_802F61FC to create or reuse HUD GObjs/JObjs, attach GX links/procs, load and request animations, cache digit JObjs and translations, and initialize player mark/status display state.",
       "evidence_refs": [
-        "diff_excerpt: ifStatus_802F5EC0 body",
-        "text_corpus issue_comment: ifStatus_802F5EC0 improved from 0.77% to 95.20%"
+        "diff.diff: ifStatus_802F5EC0 implementation",
+        "diff.diff: ifStatus_802F61FC implementation",
+        "text_corpus.jsonl bot report: ifStatus_802F5EC0 improved to 95.20%; ifStatus_802F61FC improved to 96.36%"
       ]
     },
     {
-      "text": "Implemented much of ifStatus_802F61FC for player mark setup using GObj/JObj creation, HSD_ASSERTREPORT checks, animation loading, player character/team/color data, and HUD object fields.",
+      "text": "Updated recovered prototypes in ifstatus.h and changed IfDamageState.damage_percent and old_damage from unsigned to signed 16-bit, matching code paths that compare against -1 and clamp below zero.",
       "evidence_refs": [
-        "diff_excerpt: ifStatus_802F61FC start",
-        "text_corpus issue_comment: ifStatus_802F61FC improved from 0.72% to 96.36%"
-      ]
-    },
-    {
-      "text": "Updated ifstatus headers/types in small hunks, likely to align declarations and structure fields with the recovered bodies.",
-      "evidence_refs": [
-        "metadata.changed_files: ifstatus.h +3/-3; types.h +2/-2"
+        "diff.diff: ifstatus.h prototype hunk",
+        "diff.diff: types.h damage_percent/old_damage u16 -> s16"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Used typed HSD and HUD structures for many accesses rather than raw offset arithmetic, including state->jobjs, state->translation_x/y, flags fields, HudIndex animation pointers, and JObj/TObj/MObj chains.",
+      "text": "Used real HSD/Baselib APIs and header includes for recovered behavior rather than leaving local undeclared calls or NOT_IMPLEMENTED placeholders.",
       "evidence_refs": [
-        "diff_excerpt: IfDamageState and HudIndex field accesses throughout ifStatus_802F4B84, ifStatus_802F4EDC, ifStatus_802F5EC0"
+        "diff.diff: added ifcoget, lb_00F9, lbaudio_ax, gobjgxlink, gobjobject, gobjproc includes",
+        "diff.diff: GObj_Create, HSD_GObjObject_80390A70, GObj_SetupGXLink, HSD_GObj_SetupProc calls"
       ]
     },
     {
-      "text": "Kept fixed-size repeated digit work explicit where needed for matching, while also using for loops for simple repeated operations such as restoring/updating four digit translations and searching six HUD players.",
+      "text": "Updated owning header prototypes when the bodies revealed non-void signatures.",
       "evidence_refs": [
-        "diff_excerpt: for (i = 0; i < 4; i++) in ifStatus_802F4B84 and ifStatus_802F5EC0",
-        "diff_excerpt: for (i = 0; i < 6; i++) in ifStatus_802F4EDC and find_player_by_entity"
+        "diff.diff: ifstatus.h prototype changes for ifStatus_802F5B48, ifStatus_802F5EC0, ifStatus_802F61FC"
       ]
     },
     {
-      "text": "Mapped GObj/JObj setup to existing helper APIs and includes instead of local undeclared calls: GObj_Create, HSD_GObjObject_80390A70, GObj_SetupGXLink, HSD_GObj_SetupProc, HSD_JObjLoadJoint, lb_8000C07C.",
+      "text": "Recovered signedness of damage fields instead of forcing unsigned logic around sentinel and negative clamp checks.",
       "evidence_refs": [
-        "diff_excerpt: added includes for ifcoget, lb_00F9, lbaudio_ax, gobjgxlink, gobjobject, gobjproc",
-        "diff_excerpt: ifStatus_802F5EC0 and ifStatus_802F61FC bodies"
-      ]
-    },
-    {
-      "text": "Used HSD_ASSERTREPORT for recovered error paths in ifStatus_802F61FC rather than leaving raw assert/report expansion in the excerpted code.",
-      "evidence_refs": [
-        "diff_excerpt: HSD_ASSERTREPORT(0x30A...) and HSD_ASSERTREPORT(0x30E...)"
+        "diff.diff: types.h u16 -> s16 for damage_percent and old_damage",
+        "diff.diff: ifStatus_802F5B48 compares old_damage against -1 and damage_percent against < 0"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For HUD/status decompilation, recover and use subsystem structs and helper APIs first; the PR shows substantial progress by expressing behavior through IfDamageState, HudIndex, HSD_JObj/HSD_TObj/HSD_MObj, GObj setup helpers, and player APIs.",
-      "evidence_refs": [
-        "diff_excerpt: typed fields in ifStatus_802F4B84/4EDC/5B48/5EC0",
-        "text_corpus issue_comment: multiple ifstatus functions improved or matched"
+      "lesson": "When a recovered body proves callback or helper parameters, update the owning header prototype rather than keeping void placeholders.",
+      "scope": [
+        "src/melee/if/ifstatus.h",
+        "src/melee/if/ifstatus.c"
       ],
-      "confidence": 0.82
+      "evidence_refs": [
+        "diff.diff: ifStatus_802F5B48, ifStatus_802F5EC0, ifStatus_802F61FC prototype updates"
+      ],
+      "standards_refs": [
+        "truthful-headers-and-includes"
+      ]
     },
     {
-      "lesson": "Small header/type edits should accompany recovered function bodies when signatures or fields become known; this PR changed ifstatus.h and types.h alongside C implementations.",
-      "evidence_refs": [
-        "metadata.changed_files: ifstatus.h +3/-3; types.h +2/-2",
-        "diff_excerpt: several function signatures changed from void(void) stubs to typed parameters"
+      "lesson": "Field signedness can be inferred from local sentinel and clamp behavior; here old_damage is compared to -1 and damage_percent is clamped below zero, supporting s16 over u16.",
+      "scope": [
+        "src/melee/if/types.h",
+        "IfDamageState"
       ],
-      "confidence": 0.7
+      "evidence_refs": [
+        "diff.diff: IfDamageState.damage_percent and old_damage changed from u16 to s16",
+        "diff.diff: ifStatus_802F5B48 uses old_damage != -1 and damage_percent < 0"
+      ],
+      "standards_refs": [
+        "typed-fields-over-pointer-math"
+      ]
     },
     {
-      "lesson": "A matching PR can still introduce neighboring or data regressions; intake should record bot-reported broken matches and section regressions instead of treating new function matches as the whole result.",
-      "evidence_refs": [
-        "text_corpus issue_comment: 4 new matches",
-        "text_corpus issue_comment: 2 broken matches",
-        "text_corpus issue_comment: 1 .sdata2 regression"
+      "lesson": "Repeated HUD digit operations may still be left duplicated for matching; candidate cleanup into loops should require verifier evidence because this PR retained repeated Ones/Tens/Hundreds texture and flag sequences.",
+      "scope": [
+        "src/melee/if/ifstatus.c",
+        "ifStatus_802F4EDC"
       ],
-      "confidence": 0.9
+      "evidence_refs": [
+        "diff.diff: repeated HSD_TObjAddAnimAll/HSD_TObjReqAnimAll/HSD_AObjSetRate sequences for Ones, Tens, Hundreds",
+        "text_corpus.jsonl bot report: ifStatus_802F4EDC only improved to 80.38%, not a claimed full match"
+      ],
+      "standards_refs": [
+        "natural-loops",
+        "matching-tactics-need-evidence"
+      ]
     }
   ],
   "naming_conventions": [
     {
-      "text": "Address-style global function names were retained for unknown ifstatus functions, e.g. ifStatus_802F4B84, ifStatus_802F5B48, ifStatus_802F5EC0, ifStatus_802F61FC.",
+      "text": "Local role names such as gobj, jobj, tobj, mobj, hud, state, player_idx, ones_digit, tens_digit, and hundreds_digit are used where roles are evident.",
       "evidence_refs": [
-        "diff_excerpt: function declarations and definitions"
+        "diff.diff: ifStatus_802F4EDC local variable declarations and digit logic",
+        "diff.diff: ifStatus_802F5EC0 and ifStatus_802F61FC local declarations"
       ]
     },
     {
-      "text": "Clear short local role names were used for HSD/HUD objects: state, hud, gobj, jobj, digit_jobj, tobj, mobj, vec.",
+      "text": "Unproven fields remain address/unknown-style names such as unk9, unk10, unk258, unk268, unk26C, and unk270 instead of speculative semantic renames.",
       "evidence_refs": [
-        "diff_excerpt: local declarations in ifStatus_802F4EDC, ifStatus_802F5EC0, ifStatus_802F61FC"
-      ]
-    },
-    {
-      "text": "A semantic helper name find_player_by_entity was introduced for the repeated HUD_parent_entity lookup.",
-      "evidence_refs": [
-        "diff_excerpt: static inline IfDamageState *find_player_by_entity(HSD_GObj *gobj)"
-      ]
-    },
-    {
-      "text": "Some placeholder or uncertain names remain, such as unk9, unk10, unk258, unk268, unk26C, unk270, and new_var, indicating semantics were not fully proven in this slice.",
-      "evidence_refs": [
-        "diff_excerpt: ifStatus_802F5B48 uses p->unk9 and p->flags.unk10",
-        "diff_excerpt: ifStatus_802F5EC0/61FC use hud->unk258, unk268, unk26C, unk270",
-        "diff_excerpt: ifStatus_802F4B84 declares u8 new_var"
+        "diff.diff: ifStatus_802F5B48 uses p->unk9 and p->flags.unk10",
+        "diff.diff: ifStatus_802F5EC0/ifStatus_802F61FC use hud->unk258, hud->unk268, hud->unk26C, hud->unk270"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "text": "PAD_STACK was used narrowly in implemented or improved functions: PAD_STACK(8), PAD_STACK(96), PAD_STACK(0x18), and PAD_STACK(0x10) appear in the excerpt.",
+      "tactic": "PAD_STACK was retained in several functions to influence stack layout.",
       "evidence_refs": [
-        "diff_excerpt: ifStatus_802F4B84 PAD_STACK(8)",
-        "diff_excerpt: ifStatus_802F4EDC PAD_STACK(96)",
-        "diff_excerpt: ifStatus_802F5EC0 PAD_STACK(0x18)",
-        "diff_excerpt: ifStatus_802F61FC PAD_STACK(0x10)"
+        "diff.diff: ifStatus_802F4B84 PAD_STACK(8)",
+        "diff.diff: ifStatus_802F5EC0 PAD_STACK(0x18)",
+        "diff.diff: ifStatus_802F61FC PAD_STACK(0x10)"
+      ],
+      "caution": "Standards require explicit verifier evidence for PAD_STACK; the bot report supports some function matches/improvements but does not isolate each PAD_STACK use."
+    },
+    {
+      "tactic": "Used natural for-loops for fixed-count HUD player and digit iteration.",
+      "evidence_refs": [
+        "diff.diff: ifStatus_802F4B84 for i < 4 over jobjs/translations",
+        "diff.diff: find_player_by_entity for i < 6 over ifStatus_HudInfo.players",
+        "diff.diff: ifStatus_802F5EC0 for i < 4 caches jobjs and translations"
       ]
     },
     {
-      "text": "Fixed-count for loops were used for known HUD array sizes: 4 digit JObjs and 6 player HUD states.",
+      "tactic": "Direct chained animation descriptor traversal was used for HSD_TexAnim selection instead of temporary MatAnimJoint/TexAnim variables.",
       "evidence_refs": [
-        "diff_excerpt: for (i = 0; i < 4; i++)",
-        "diff_excerpt: for (i = 0; i < 6; i++)"
-      ]
+        "diff.diff: HSD_TObjAddAnimAll uses hud->janim_selection_joints->child->child...->aobjdesc->fobjdesc",
+        "diff.diff: removed anim_base and mat_anim/tex_anim temporaries in ifStatus_802F4EDC"
+      ],
+      "caution": "The PR evidence does not explain whether the chained traversal is authored style or matching-driven."
     },
     {
-      "text": "Animation resource selection was expressed with explicit child/next/aobjdesc/fobjdesc pointer chains to reach HSD_TexAnim data used by HSD_TObjAddAnimAll.",
+      "tactic": "Bot checkdiff/objdiff-style report provided match/regression accounting for the PR.",
       "evidence_refs": [
-        "diff_excerpt: HSD_TObjAddAnimAll calls using hud->janim_selection_joints->child->child...->aobjdesc->fobjdesc"
-      ]
-    },
-    {
-      "text": "Damage percent clamping used explicit branch bounds at 0 and 0x3E7 rather than a CLAMP macro in the excerpt.",
-      "evidence_refs": [
-        "diff_excerpt: ifStatus_802F5B48 stamina and non-stamina damage_percent bound checks"
+        "text_corpus.jsonl bot report: matched code 69.23% (+0.04%, +1664 bytes)",
+        "text_corpus.jsonl bot report: 4 new matches, 17 improvements, 2 broken matches, 1 regression"
       ]
     }
   ],
@@ -215,25 +215,25 @@
     {
       "kind": "bot_report",
       "author": "decomp-dev[bot]",
-      "text": "Matched code increased to 69.23% (+0.04%, +1664 bytes). Four new matches were reported: ifStatus_802F4B84, ifStatus_802F5B48, ifStatus_802F6EA4, and ifStatus_802F6508.",
+      "text": "Reported 4 new matches: ifStatus_802F4B84, ifStatus_802F5B48, ifStatus_802F6EA4, and ifStatus_802F6508 reached 100%.",
       "evidence_refs": [
-        "text_corpus issue_comment 2026-05-25T16:46:50Z"
+        "text_corpus.jsonl issue_comment 2026-05-25T16:46:50Z"
       ]
     },
     {
-      "kind": "bot_report_regression",
+      "kind": "bot_report",
       "author": "decomp-dev[bot]",
-      "text": "The report also listed two broken matches: mnCharSel_8026688C_OnEnter and ifStatus_802F7134, plus one unmatched .sdata2 regression in main/melee/if/ifstatus.",
+      "text": "Reported 2 broken matches: mnCharSel_8026688C_OnEnter dropped to 99.90% and ifStatus_802F7134 dropped to 99.98%.",
       "evidence_refs": [
-        "text_corpus issue_comment 2026-05-25T16:46:50Z"
+        "text_corpus.jsonl issue_comment 2026-05-25T16:46:50Z"
       ]
     },
     {
-      "kind": "missing_human_review",
-      "author": null,
-      "text": "No human review comments or review bodies are present in the loaded slice.",
+      "kind": "bot_report",
+      "author": "decomp-dev[bot]",
+      "text": "Reported 1 unmatched-item regression: main/melee/if/ifstatus .sdata2 dropped from 48.84% to 44.68%.",
       "evidence_refs": [
-        "metadata.counts: review_comments 0, reviews 0"
+        "text_corpus.jsonl issue_comment 2026-05-25T16:46:50Z"
       ]
     }
   ],
@@ -241,160 +241,102 @@
     "pr-2537",
     "Jj/ifstatus",
     "jurrejelle",
+    "ifstatus",
     "src/melee/if/ifstatus.c",
     "src/melee/if/ifstatus.h",
     "src/melee/if/types.h",
+    "IfDamageState",
+    "damage_percent",
+    "old_damage",
+    "s16",
     "ifStatus_802F4B84",
     "ifStatus_802F4EDC",
     "ifStatus_802F5B48",
     "ifStatus_802F5EC0",
     "ifStatus_802F61FC",
-    "ifStatus_802F6EA4",
     "ifStatus_802F6508",
+    "ifStatus_802F6EA4",
     "ifStatus_802F7134",
-    "IfDamageState",
-    "HudIndex",
-    "HUD_parent_entity",
     "find_player_by_entity",
-    "offset_rand",
-    "frames_of_shake_remaining",
-    "damage_from_last_attack",
-    "force_digit_shake",
-    "damage_percent",
-    "old_damage",
     "HSD_JObjSetTranslateX",
     "HSD_JObjSetTranslateY",
     "HSD_TObjAddAnimAll",
-    "HSD_TObjReqAnimAll",
     "HSD_AObjSetRate",
-    "HSD_ASSERTREPORT",
+    "GObj_SetupGXLink",
+    "HSD_GObj_SetupProc",
     "PAD_STACK",
-    "main/melee/if/ifstatus"
+    "HUD_parent_entity",
+    "frames_of_shake_remaining",
+    "force_digit_shake",
+    "janim_selection_joints",
+    "janim_selection_textures"
   ],
   "follow_up_queries": [
-    "PR 2537 ifStatus_802F7134 broken match follow-up",
-    "main/melee/if/ifstatus .sdata2 regression after jj/ifstatus",
-    "ifStatus_802F61FC HudIndex unk268 unk26C unk270 field naming",
-    "ifStatus_802F5EC0 HUD percent texture animation HSD_TexAnim chain",
-    "ifStatus_802F4B84 digit shake PAD_STACK offset_rand",
-    "ifstatus.h signature updates ifStatus_802F5B48 ifStatus_802F5EC0 ifStatus_802F61FC"
+    "PRs touching ifStatus_802F7134 after pr-2537 broken match",
+    "ifstatus PAD_STACK verifier evidence ifStatus_802F4B84 ifStatus_802F5EC0 ifStatus_802F61FC",
+    "IfDamageState damage_percent old_damage signedness history",
+    "HUD digit texture animation janim_selection_joints child child aobjdesc fobjdesc",
+    "main/melee/if/ifstatus .sdata2 regression after pr-2537",
+    "mnCharSel_8026688C_OnEnter regression caused by ifstatus PR"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR identity, merge state, changed files, counts",
-      "diff_excerpt/raw_diff: substantial but truncated diff excerpt",
-      "text_corpus: bot report with match/improvement/regression data",
-      "metadata.counts: no review comments or reviews"
+      "metadata_json: PR 2537 merged, changed files and counts",
+      "changed_files.jsonl: 3 changed files",
+      "raw_diff/diff_excerpt: implementation and header/type hunks",
+      "text_corpus.jsonl: empty PR body and one bot issue comment"
     ],
     "notes": [
-      "The diff is truncated, so later parts of ifStatus_802F61FC and exact header/type hunks are not fully visible.",
-      "The PR body is empty and there are no human review comments, so reviewer intent and rationale cannot be inferred.",
-      "The bot report provides match/regression evidence, but no local build logs, objdiff command lines, or final regression resolution details are loaded.",
-      "Some functions reported as new matches, ifStatus_802F6EA4 and ifStatus_802F6508, are not visible in the provided diff excerpt; they are included only as bot-reported outcomes."
+      "PR body is empty and there are no human review comments in the loaded slice.",
+      "The raw diff and diff excerpt are truncated, so not every added hunk is visible in the loaded context.",
+      "The bot report provides match and regression accounting, but does not prove author intent or isolate why each tactic was necessary.",
+      "Merge status is taken from metadata; no additional review approval details are present."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "postmortem_lesson",
-        "title": "Record regressions alongside new matches in matching PRs",
-        "text": "PR 2537's bot report shows 4 new ifstatus matches and +1664 matched bytes, but also two broken matches and one .sdata2 regression. Curated records for matching PRs should preserve both sides of the report.",
-        "scope": [
-          "decomp-matching",
-          "bot-report-intake",
-          "ifstatus"
-        ],
-        "evidence_refs": [
-          "text_corpus issue_comment: 4 new matches",
-          "text_corpus issue_comment: 2 broken matches",
-          "text_corpus issue_comment: 1 regression in main/melee/if/ifstatus .sdata2"
-        ]
-      },
-      {
-        "record_type": "postmortem_lesson",
-        "title": "Typed HUD/HSD structures made ifstatus progress reviewable",
-        "text": "The recovered ifstatus code uses IfDamageState, HudIndex, HSD_GObj, HSD_JObj, HSD_TObj, and HSD_MObj fields/helpers for damage digits, animation setup, and object creation, supporting the typed-fields-over-pointer-math standard in this subsystem.",
+        "record_type": "decomp_lesson",
+        "title": "Recovered bodies should drive owning header prototypes",
+        "text": "In PR 2537, ifStatus_802F5B48, ifStatus_802F5EC0, and ifStatus_802F61FC were implemented with concrete parameters and ifstatus.h was updated from void prototypes to matching signatures.",
         "scope": [
           "src/melee/if/ifstatus.c",
-          "HUD percent",
-          "HSD object animation"
+          "src/melee/if/ifstatus.h"
         ],
         "evidence_refs": [
-          "diff_excerpt: IfDamageState field accesses in ifStatus_802F4B84/4EDC/5B48/5EC0",
-          "diff_excerpt: HSD helper calls in ifStatus_802F5EC0 and ifStatus_802F61FC"
+          "diff.diff: ifstatus.h prototype changes",
+          "diff.diff: corresponding function definition changes"
         ]
-      }
-    ],
-    "source_update_candidates": [
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "ifstatus.c owns HUD percent/damage digit animation and shake behavior",
-        "text": "src/melee/if/ifstatus.c contains HUD damage percent update paths using IfDamageState/HudIndex, digit JObjs for Ones/Tens/Hundreds/Percent, HSD_TObj texture animation setup, JObj hide/show flags, and damage shake via frames_of_shake_remaining.",
-        "source_path": "src/melee/if/ifstatus.c",
-        "scope": [
-          "ifstatus",
-          "HUD damage percent",
-          "IfDamageState",
-          "HudIndex"
-        ],
-        "evidence_refs": [
-          "diff_excerpt: ifStatus_802F4B84",
-          "diff_excerpt: ifStatus_802F4EDC",
-          "diff_excerpt: ifStatus_802F5EC0"
-        ],
-        "reason": "Useful path-level context for future ifstatus HUD work; should be curator-reviewed because the loaded diff is truncated."
       },
       {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "ifstatus header/type changes accompanied recovered function signatures",
-        "text": "PR 2537 changed src/melee/if/ifstatus.h and src/melee/if/types.h while recovering ifstatus functions whose C definitions now take HSD_GObj*, IfDamageState*, and player index parameters.",
-        "source_path": "src/melee/if/ifstatus.h",
+        "record_type": "decomp_lesson",
+        "title": "Signed field recovery from sentinel and clamp behavior",
+        "text": "PR 2537 changed IfDamageState.damage_percent and old_damage from u16 to s16 alongside code that compares old_damage to -1 and clamps damage_percent below zero.",
         "scope": [
-          "headers",
-          "ifstatus prototypes",
+          "src/melee/if/types.h",
           "IfDamageState"
         ],
         "evidence_refs": [
-          "metadata.changed_files: ifstatus.h +3/-3",
-          "metadata.changed_files: types.h +2/-2",
-          "diff_excerpt: ifStatus_802F5B48(HSD_GObj*), ifStatus_802F5EC0(IfDamageState*, s32), ifStatus_802F61FC(IfDamageState*, s32)"
-        ],
-        "reason": "Potential path fact about prototype/type ownership; exact header diff should be checked before source promotion."
-      },
-      {
-        "target_source_id": "other",
-        "update_kind": "source_update",
-        "title": "Track unresolved PR 2537 regression terms",
-        "text": "The bot report for PR 2537 listed broken matches in mnCharSel_8026688C_OnEnter and ifStatus_802F7134 plus an ifstatus .sdata2 regression. These may be useful as historical search terms if later fixes mention PR 2537.",
-        "source_path": null,
-        "scope": [
-          "regression-ledger",
-          "mncharsel",
-          "ifstatus"
-        ],
-        "evidence_refs": [
-          "text_corpus issue_comment: broken matches and .sdata2 regression"
-        ],
-        "reason": "Do not treat as unresolved current defects without later evidence; curate only as historical intake/search metadata."
+          "diff.diff: types.h field type changes",
+          "diff.diff: ifStatus_802F5B48 sentinel and negative clamp checks"
+        ]
       }
     ],
+    "source_update_candidates": [],
     "rejection_notes": [
-      "Do not infer that every implemented function in the truncated diff fully matched; only ifStatus_802F4B84, ifStatus_802F5B48, ifStatus_802F6EA4, and ifStatus_802F6508 are bot-reported as new 100% matches.",
-      "Do not promote field names with unk prefixes to semantic naming lessons; the slice shows they remain uncertain.",
-      "Do not infer human reviewer approval rationale; the loaded slice has no human review comments.",
-      "Do not treat PAD_STACK usage here as a general style endorsement without objdiff/build details beyond the bot report."
+      "Do not promote PAD_STACK use from this PR as normal style; evidence only shows it was present, while standards require narrow verifier evidence for retaining it.",
+      "Do not infer that direct child->child animation descriptor traversal is preferred authored style; the PR evidence does not explain that choice.",
+      "Do not treat the bot report as proof that all touched functions were cleanly matched without regressions; it explicitly reports broken matches and a .sdata2 regression."
     ]
   },
-  "confidence": 0.74,
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

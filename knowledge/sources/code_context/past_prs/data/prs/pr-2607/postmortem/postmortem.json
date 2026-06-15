@@ -12,182 +12,241 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Documentation-only PR adding docs/standards.md as a decomp PR and worker-output review checklist. The new document covers source reconstruction style, matching tactic evidence, data and naming discipline, file/include hygiene, formatting reviewability, and verification expectations. The PR was closed without a recorded merge in the supplied evidence.",
+  "summary": "Documentation-only PR adding a new docs/standards.md review checklist for decomp PRs and worker output, covering source readability, matching tactics, data and naming rules, file hygiene, and verification expectations. The PR was closed with no merge timestamp in the loaded metadata.",
   "change_classification": {
     "primary_type": "documentation",
     "categories": [
-      "decomp-matching",
-      "review-standards",
-      "worker-output-qa"
+      "decomp-review-standards",
+      "worker-output-qa",
+      "documentation-only"
     ],
     "systems": [
-      "docs"
+      "docs",
+      "review-process"
     ]
   },
   "key_files": [
     {
       "path": "docs/standards.md",
-      "role": "New 256-line review checklist for decomp PRs and worker output.",
+      "role": "new documentation file containing PR review QA checklist for decomp PRs and worker output",
       "evidence_refs": [
-        "changed_files: docs/standards.md added=256 deleted=0 hunks=1",
+        "changed_files: docs/standards.md added 256 deleted 0 hunks 1",
         "raw_diff: new file mode 100644 docs/standards.md",
-        "human_pr_text: Add docs/standards.md as a review checklist for decomp PRs and worker output"
+        "human_pr_text: Summary says add docs/standards.md as review checklist"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Added a new standards document titled Melee PR Review QA Standards.",
+      "text": "Added docs/standards.md with 256 lines of decomp PR review QA standards.",
       "evidence_refs": [
-        "raw_diff: # Melee PR Review QA Standards"
+        "changed_files: docs/standards.md added 256 deleted 0",
+        "raw_diff: +# Melee PR Review QA Standards"
       ]
     },
     {
-      "text": "Documented source rules for natural loops, typed fields over pointer math, header inlines, project assert/report macros, literals, and canonical control flow/macros.",
+      "text": "Documented source rules for natural loops, typed fields over pointer math, recognizing header inlines, assert/report macros, literals, and canonical control flow/macros.",
       "evidence_refs": [
-        "raw_diff: Source Rules section"
+        "raw_diff: sections under ## Source Rules"
       ]
     },
     {
-      "text": "Documented matching tactic rules requiring targeted evidence for tactics such as PAD_STACK, declaration-order changes, dummy locals, volatile locals, manual inline expansion, direct global/extern access, and temporary padded structs.",
+      "text": "Documented matching tactic rules requiring targeted evidence for PAD_STACK/FORCE_PAD_STACK, declaration order changes, widened local lifetimes, dummy or volatile locals, manual inline expansion, direct global access, and temporary padded structs.",
       "evidence_refs": [
-        "raw_diff: Require Evidence For Matching Tactics section"
+        "raw_diff: ### Require Evidence For Matching Tactics"
       ]
     },
     {
-      "text": "Documented rules to avoid new pragmas, register keyword steering, and inline assembly unless tightly scoped and justified.",
+      "text": "Documented rules to avoid new pragmas, register steering, and inline assembly except when tightly scoped and evidenced.",
       "evidence_refs": [
-        "raw_diff: Avoid New Pragmas, register, And Inline Assembly section"
+        "raw_diff: ### Avoid New Pragmas, `register`, And Inline Assembly"
       ]
     },
     {
-      "text": "Documented data, naming, file, formatting, and verification expectations, including section ownership, TU split evidence, conservative names, truthful headers/includes, reviewable formatting, narrow builds, objdiff/checkdiff, and explicit regression reporting.",
+      "text": "Documented data, naming, file, formatting, and verification expectations, including respecting data sections and TU splits, conservative naming, truthful headers/includes, reviewable mechanical changes, and build/objdiff/checkdiff evidence.",
       "evidence_refs": [
-        "raw_diff: Data, Naming, And File Rules section",
-        "raw_diff: Verification Rules section"
+        "raw_diff: ## Data, Naming, And File Rules",
+        "raw_diff: ## Verification Rules"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Separated the standards into do/do-not checklist sections, making the guidance directly usable during PR review.",
+      "text": "Kept the PR documentation-only and reported that build/tests were not run because of the documentation-only scope.",
       "evidence_refs": [
-        "raw_diff: repeated Do and Do not sections under each standard"
+        "human_pr_text: Validation includes git diff --cached --check and Not run: build/tests (documentation-only change)"
       ]
     },
     {
-      "text": "Explicitly scoped validation for this PR as documentation-only, reporting git diff whitespace/check validation and not claiming build/test coverage.",
+      "text": "Grouped review guidance into explicit Do and Do not lists, making the checklist searchable and actionable for reviewers.",
       "evidence_refs": [
-        "human_pr_text: Validation - git diff --cached --check; Not run: build/tests (documentation-only change)"
+        "raw_diff: repeated Do:/Do not: subsections in docs/standards.md"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "Repeated generated-looking blocks should be checked for natural for/while/do-while forms when they vary only by index, pointer, or counter; preserve the original base pointer when later code needs it.",
+      "lesson": "Repeated generated-looking blocks should be checked against natural for/while/do-while forms when they differ only by index, pointer, or counter; exact int counters may matter for MWCC loop unrolling.",
+      "scope": [
+        "decomp source reconstruction",
+        "loop recovery"
+      ],
       "evidence_refs": [
-        "raw_diff: Recover Natural Loops"
-      ]
+        "raw_diff: ### Recover Natural Loops"
+      ],
+      "confidence": 0.86
     },
     {
-      "lesson": "Prefer typed accesses over raw pointer math: real fields, correct GroundVars/FighterVars/ItemVars union arms, temporary internal structs, then M2C_FIELD, with raw pointer arithmetic as a last resort.",
+      "lesson": "Prefer typed access through real fields or correct GroundVars/FighterVars/ItemVars arms over M2C_FIELD and raw pointer arithmetic when the type can be recovered.",
+      "scope": [
+        "decomp source reconstruction",
+        "struct and union field access"
+      ],
       "evidence_refs": [
-        "raw_diff: Prefer Typed Fields Over Pointer Math"
-      ]
+        "raw_diff: ### Prefer Typed Fields Over Pointer Math"
+      ],
+      "confidence": 0.86
     },
     {
-      "lesson": "Expanded header asserts should be mapped back to owning header inline helpers when identifiable, especially HSD_JObj inline forms from jobj.h line numbers.",
+      "lesson": "Expanded header asserts, especially jobj.h asserts, should be mapped back to identifiable HSD_JObj inline/helper forms rather than left as expanded __assert code.",
+      "scope": [
+        "header inlines",
+        "HSD_JObj",
+        "assert cleanup"
+      ],
       "evidence_refs": [
-        "raw_diff: Recognize Header Inlines"
-      ]
+        "raw_diff: ### Recognize Header Inlines"
+      ],
+      "confidence": 0.84
     },
     {
-      "lesson": "Plain assert/report expansions should use project macros such as HSD_ASSERT, HSD_ASSERTMSG, HSD_ASSERTREPORT, OSReport, or OSPanic when the source behavior matches.",
+      "lesson": "Raw assert/report expansions should use project macros such as HSD_ASSERT, HSD_ASSERTMSG, HSD_ASSERTREPORT, OSReport, or OSPanic when they preserve the same source behavior.",
+      "scope": [
+        "assert cleanup",
+        "report macros"
+      ],
       "evidence_refs": [
-        "raw_diff: Use Project Assert And Report Macros"
-      ]
+        "raw_diff: ### Use Project Assert And Report Macros"
+      ],
+      "confidence": 0.84
     },
     {
-      "lesson": "Do not promote constants, strings, or floats into named data symbols without section ownership, symbol metadata, or surrounding-source evidence.",
+      "lesson": "Do not promote literals into named data symbols without data ownership evidence from symbol metadata, section placement, or surrounding source.",
+      "scope": [
+        "data ownership",
+        "literal handling"
+      ],
       "evidence_refs": [
-        "raw_diff: Keep Literals Inline Unless Data Evidence Says Otherwise"
-      ]
+        "raw_diff: ### Keep Literals Inline Unless Data Evidence Says Otherwise"
+      ],
+      "confidence": 0.84
     },
     {
-      "lesson": "Try ordinary C forms such as grouped switch, ternary assignments, ABS, MIN, MAX, CLAMP, and structured control flow before preserving generated branch ladders or gotos.",
+      "lesson": "Generated branch ladders, gotos, and repeated select-like assignments should be tested against ordinary structured C forms such as switch, ternary, ABS, MIN, MAX, and CLAMP.",
+      "scope": [
+        "control flow cleanup",
+        "macro use"
+      ],
       "evidence_refs": [
-        "raw_diff: Use Canonical Control Flow And Macros"
-      ]
+        "raw_diff: ### Use Canonical Control Flow And Macros"
+      ],
+      "confidence": 0.83
     },
     {
-      "lesson": "Matching tactics should be kept only with targeted build, objdiff, or regression evidence and should not hide real types, shift nearby functions, or change data order.",
+      "lesson": "Matching-only tactics should remain only with targeted local build, objdiff, or regression evidence and should not shift nearby functions, data order, or hide real types.",
+      "scope": [
+        "matching tactics",
+        "review evidence"
+      ],
       "evidence_refs": [
-        "raw_diff: Require Evidence For Matching Tactics"
-      ]
+        "raw_diff: ### Require Evidence For Matching Tactics",
+        "raw_diff: intro says matching-only tactics should be backed by local build, objdiff, or regression evidence"
+      ],
+      "confidence": 0.87
     },
     {
-      "lesson": "Verification claims should name narrow touched-object builds, full ninja when blast radius is nontrivial, objdiff/checkdiff for matched symbols or units, and explicit regression reporting.",
+      "lesson": "Verification claims for matches should include narrow touched-object builds when possible and objdiff/checkdiff for every claimed matched symbol or unit.",
+      "scope": [
+        "verification",
+        "regression reporting"
+      ],
       "evidence_refs": [
-        "raw_diff: Verification Rules"
-      ]
+        "raw_diff: ## Verification Rules"
+      ],
+      "confidence": 0.85
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Use semantic names only when the role is evidenced.",
+      "convention": "Use semantic names only when the role is evidenced; keep fn_<addr>, lbl_<addr>, or module-address names when semantics are not proven.",
       "evidence_refs": [
-        "raw_diff: Be Conservative With Names"
+        "raw_diff: ### Be Conservative With Names"
       ]
     },
     {
-      "convention": "Keep fn_<addr>, lbl_<addr>, or module-address names when semantics are not proven.",
+      "convention": "Use short local role names such as fp, ip, gp, gobj, and jobj when those roles are clear.",
       "evidence_refs": [
-        "raw_diff: Be Conservative With Names"
+        "raw_diff: ### Be Conservative With Names"
       ]
     },
     {
-      "convention": "Use short local role names such as fp, ip, gp, gobj, and jobj when those roles are clear, and clean up generated temp_rXX-style names once a local role is known.",
+      "convention": "Clean up generated temp_rXX-style names once the local role is known.",
       "evidence_refs": [
-        "raw_diff: Be Conservative With Names"
+        "raw_diff: ### Be Conservative With Names"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Require targeted evidence before keeping PAD_STACK/FORCE_PAD_STACK, declaration-order changes, widened local lifetimes, dummy stack locals, volatile locals, manual inline expansion, direct global/extern access instead of struct paths, or temporary padded structs.",
+      "tactic": "For MWCC loop-shape problems, test exact int counters and preserve the original base pointer when later code needs it.",
       "evidence_refs": [
-        "raw_diff: Require Evidence For Matching Tactics"
+        "raw_diff: ### Recover Natural Loops"
+      ]
+    },
+    {
+      "tactic": "Keep PAD_STACK/FORCE_PAD_STACK, declaration-order steering, dummy or volatile locals, widened lifetimes, manual inline expansion, direct global access, and temporary padded structs only with targeted evidence.",
+      "evidence_refs": [
+        "raw_diff: ### Require Evidence For Matching Tactics"
       ]
     },
     {
       "tactic": "Scope unavoidable pragmas tightly and prove pragma or inline-assembly exceptions do not affect adjacent functions.",
       "evidence_refs": [
-        "raw_diff: Avoid New Pragmas, register, And Inline Assembly"
+        "raw_diff: ### Avoid New Pragmas, `register`, And Inline Assembly"
       ]
     },
     {
-      "tactic": "Use data section placement, symbol size/type metadata, local @NNN labels, assert filenames, string clusters, object names, and float groups as matching and TU split evidence rather than compensating with dummy C storage.",
+      "tactic": "Inspect adjacent functions when changing pragmas, includes, data, literals, or TU ownership.",
       "evidence_refs": [
-        "raw_diff: Respect Data Sections And TU Splits"
+        "raw_diff: ## Verification Rules"
       ]
     }
   ],
   "review_feedback": [
     {
-      "feedback": "No human review comments or reviews were present in the supplied slice.",
+      "kind": "validation",
+      "text": "Author reported running git diff --cached --check.",
       "evidence_refs": [
-        "metadata_json: review_comments=0 reviews=0"
+        "human_pr_text: Validation - git diff --cached --check"
       ]
     },
     {
-      "feedback": "Bot report for GALE01 said No changes.",
+      "kind": "validation",
+      "text": "Build/tests were explicitly not run because the PR was documentation-only.",
       "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot], Report for GALE01 ... No changes"
+        "human_pr_text: Validation - Not run: build/tests (documentation-only change)"
+      ]
+    },
+    {
+      "kind": "bot_comment",
+      "text": "decomp-dev[bot] reported for GALE01 that there were no changes.",
+      "evidence_refs": [
+        "text_corpus: issue_comment by decomp-dev[bot] says Report for GALE01 (a8bc217 - ebefd62): No changes"
       ]
     }
   ],
   "searchable_terms": [
-    "PR 2607",
+    "pr-2607",
     "docs/standards.md",
     "Melee PR Review QA Standards",
     "decomp PR review checklist",
@@ -199,7 +258,9 @@
     "FighterVars",
     "ItemVars",
     "M2C_FIELD",
-    "HSD_JObj",
+    "jobj.h",
+    "HSD_JObjSet",
+    "HSD_JObjGet",
     "GET_JOBJ",
     "HSD_ASSERT",
     "HSD_ASSERTMSG",
@@ -207,17 +268,16 @@
     "OSReport",
     "OSPanic",
     "literals inline",
-    "data ownership",
-    "canonical control flow",
+    "data ownership evidence",
     "ABS MIN MAX CLAMP",
     "PAD_STACK",
     "FORCE_PAD_STACK",
-    "pragmas",
-    "register keyword",
+    "pragma global_optimizer off",
+    "register",
     "inline assembly",
     "TU splits",
     "symbols.txt",
-    "conservative naming",
+    "conservative names",
     "UNK_RET",
     "UNK_PARAMS",
     "require-protos",
@@ -225,65 +285,72 @@
     "checkdiff"
   ],
   "follow_up_queries": [
-    "docs/standards.md PR review checklist",
-    "PAD_STACK FORCE_PAD_STACK objdiff evidence",
-    "HSD_JObj jobj.h inline assert line number",
-    "M2C_FIELD typed fields GroundVars FighterVars ItemVars",
-    "conservative naming fn_ lbl_ temp_rXX",
-    "require-protos UNK_RET UNK_PARAMS",
-    "data section ownership literals inline symbols.txt TU split"
+    "PR 2607 docs/standards.md accepted or superseded standards",
+    "docs/standards.md natural loops typed fields pointer math",
+    "PR review QA standards PAD_STACK FORCE_PAD_STACK objdiff evidence",
+    "Melee decomp standards HSD_ASSERT HSD_JObj GET_JOBJ",
+    "closed unmerged PR 2607 standards source update provenance"
   ],
   "evidence_quality": {
-    "status": "mixed",
+    "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR state CLOSED, merged_at null",
+      "metadata_json: PR number/title/state/author/created_at/merged_at and changed_files",
       "human_pr_text: summary and validation",
-      "raw_diff: complete docs/standards.md diff",
-      "changed_files: one changed file",
-      "text_corpus: bot issue comment"
+      "raw_diff: full docs/standards.md diff",
+      "text_corpus: PR body and bot issue comment"
     ],
     "notes": [
-      "The content of the proposed standards is strongly evidenced by the complete diff.",
-      "Acceptance as project policy is not established by this PR slice because the PR was closed with merged_at null and no human review comments or approvals are present.",
-      "Validation is limited to git diff --cached --check; build/tests were explicitly not run because the change was documentation-only."
+      "Evidence is strong for what the PR proposed because the full diff for the new documentation file is loaded.",
+      "There are no human review comments or reviews in the slice.",
+      "The PR is closed with merged_at null, so the intake does not treat the proposed document as merged or accepted project policy based on this PR alone.",
+      "raw_pr_json is truncated, but the loaded metadata, full diff, changed_files, and text corpus are sufficient for this intake."
     ]
   },
   "curator_handoff": {
-    "accepted_candidate_records": [],
+    "accepted_candidate_records": [
+      {
+        "record_type": "historical_pr_summary",
+        "title": "PR 2607 proposed decomp PR review QA standards",
+        "text": "Closed documentation-only PR by fjooord adding docs/standards.md as a checklist for decomp PRs and worker output, with guidance on source reconstruction, matching tactics, data/naming/file hygiene, and verification evidence.",
+        "evidence_refs": [
+          "human_pr_text: Summary",
+          "raw_diff: docs/standards.md"
+        ],
+        "confidence": 0.9
+      }
+    ],
     "source_update_candidates": [
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "PR-authored decomp PR review QA checklist",
-        "text": "Consider the docs/standards.md checklist from PR #2607 as a source candidate for global decomp standards covering natural loops, typed fields, header inlines, assert/report macros, literals/data ownership, canonical control flow, matching-tactic evidence, pragmas/register/inline assembly, data sections/TU splits, conservative naming, truthful headers/includes, formatting reviewability, and verification. Because the PR slice shows the PR closed unmerged and has no human review approval, treat this as a candidate source update only, not accepted policy.",
+        "title": "Consider standards corpus alignment with PR 2607 docs/standards.md",
+        "text": "PR 2607 proposed a consolidated docs/standards.md checklist covering natural loops, typed fields over pointer math, header inlines, assert/report macros, literals/data ownership, canonical control flow/macros, evidence for matching tactics, pragma/register/inline-asm exceptions, data sections/TU splits, conservative naming, truthful headers/includes, formatting reviewability, and verification expectations.",
         "source_path": "docs/standards.md",
         "scope": [
-          "decomp PR review",
+          "global decomp review standards",
           "worker output QA",
-          "matching standards",
-          "verification standards"
+          "documentation"
         ],
         "evidence_refs": [
-          "raw_diff: docs/standards.md added with 256 lines",
-          "human_pr_text: Add docs/standards.md as a review checklist for decomp PRs and worker output",
-          "metadata_json: merged_at null"
+          "raw_diff: full docs/standards.md",
+          "human_pr_text: Summary says document source, matching tactic, data/naming, file, and verification expectations"
         ],
-        "reason": "The PR directly proposes standards text, but the supplied evidence does not prove merge or acceptance."
+        "reason": "The PR adds a standards document, but it was closed with no merge timestamp in the slice; curator should decide whether and how these proposed standards relate to accepted decomp_standards."
       }
     ],
     "rejection_notes": [
-      "Do not mark these standards as accepted solely from this PR slice; the PR is closed with merged_at null.",
-      "Do not infer reviewer intent or approval; no review comments or reviews are present.",
-      "Do not claim build/test validation beyond git diff --cached --check; the PR body says build/tests were not run."
+      "Do not mark PR 2607 itself as merged or accepted policy from this slice; merged_at is null and there are no review approvals.",
+      "Do not infer reviewer intent; the slice has zero review comments and zero reviews.",
+      "Do not treat the bot 'No changes' comment as build/test validation for decomp source; the author separately stated build/tests were not run because the change was documentation-only."
     ]
   },
-  "confidence": 0.86,
+  "confidence": 0.9,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

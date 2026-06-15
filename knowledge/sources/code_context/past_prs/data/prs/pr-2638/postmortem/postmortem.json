@@ -12,182 +12,200 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR 2638 updated the Wiki TU page generator so translation-unit links point to decomp.dev with a URL-encoded unit query instead of repository blob paths. The change also refactored file/link construction into a helper and modernized a few Python type annotations.",
+  "summary": "PR 2638 updates the Wiki TU generation script so translation-unit links point to decomp.dev unit pages instead of repository blob paths. The change is isolated to tools/wiki_tu.py and also modernizes a few Python type annotations.",
   "change_classification": {
-    "primary_type": "tooling_documentation",
+    "primary_type": "tooling_documentation_link_update",
     "categories": [
       "tooling",
-      "documentation",
-      "wiki-generation"
+      "documentation"
     ],
     "systems": [
-      "tools",
-      "wiki_tu"
+      "tools/wiki_tu.py",
+      "wiki TU page generation",
+      "decomp.dev links"
     ]
   },
   "key_files": [
     {
       "path": "tools/wiki_tu.py",
-      "role": "Modified Wiki TU markdown table generation: imports urllib.parse.quote, creates decomp.dev TU links, and updates type annotations.",
+      "role": "Only changed file; generates Wiki TU table rows and now creates decomp.dev links for units.",
       "evidence_refs": [
         "changed_files.jsonl: tools/wiki_tu.py added 20 deleted 14",
-        "raw_diff: import urllib.parse.quote",
-        "raw_diff: new file_link(unit) helper builds https://decomp.dev/doldecomp/melee?unit=..."
+        "raw_diff: imports urllib.parse.quote",
+        "raw_diff: adds file_link(unit) helper",
+        "raw_diff: row_full and row_slim use link from file_link"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Replaced repository blob links like ../blob/master/src/{file}.c in TU table rows with decomp.dev links using the unit name query parameter.",
+      "text": "Replaced repository blob links of the form ../blob/master/src/{file}.c with decomp.dev links of the form https://decomp.dev/doldecomp/melee?unit={quote(unit['name'], safe='')}.",
       "evidence_refs": [
-        "raw_diff: row_full removed f'[`{file}`](../blob/master/src/{file}.c)' and now uses link from file_link(unit)",
-        "raw_diff: row_slim removed repository blob link and now uses link from file_link(unit)"
+        "raw_diff: removed f\"[`{file}`](../blob/master/src/{file}.c)\" in row_full and row_slim",
+        "raw_diff: added url = f\"https://decomp.dev/doldecomp/melee?unit={quote(unit['name'], safe='')}\""
       ]
     },
     {
-      "text": "Added urllib.parse.quote and URL-encodes unit['name'] with safe='' when constructing the decomp.dev unit URL.",
+      "text": "Introduced a shared file_link(unit) helper that returns both the stripped file path and Markdown link, reducing duplicated link construction between full and slim table rows.",
       "evidence_refs": [
-        "raw_diff: from urllib.parse import quote",
-        "raw_diff: url = f\"https://decomp.dev/doldecomp/melee?unit={quote(unit['name'], safe='')}\""
-      ]
-    },
-    {
-      "text": "Consolidated file path stripping and link formatting into a new file_link(unit) helper returning both the display file path and markdown link.",
-      "evidence_refs": [
-        "raw_diff: removed file_of(unit)",
         "raw_diff: added def file_link(unit) -> tuple[str, str]",
-        "raw_diff: return file, link"
+        "raw_diff: row_full uses file, link = file_link(unit)",
+        "raw_diff: row_slim uses _, link = file_link(unit)"
       ]
     },
     {
-      "text": "Modernized Python typing from typing.Dict and Optional to built-in generic types and PEP 604 unions.",
+      "text": "Kept the existing behavior that strips the leading module component from unit names before displaying the file path.",
       "evidence_refs": [
-        "raw_diff: removed Dict, Optional imports",
-        "raw_diff: read_wiki(lines) -> dict[str, dict[str, str]]",
-        "raw_diff: cast(Path | None, args.wiki_path)",
-        "raw_diff: reported: float | None"
+        "raw_diff: moved comment and expression for stripping leading module into file_link(unit)"
+      ]
+    },
+    {
+      "text": "Modernized Python typing syntax by replacing Dict and Optional imports/usages with built-in generics and union syntax.",
+      "evidence_refs": [
+        "raw_diff: from typing import Dict, Optional, cast changed to from typing import cast",
+        "raw_diff: read_wiki return type changed to dict[str, dict[str, str]]",
+        "raw_diff: Optional[Path] changed to Path | None",
+        "raw_diff: Optional[float] changed to float | None"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Factored link generation into one helper so full and slim table rows share the same target URL behavior.",
+      "text": "Centralizing display-file extraction and link generation in file_link(unit) avoids keeping separate duplicated Markdown URL construction in row_full and row_slim.",
       "evidence_refs": [
-        "raw_diff: added file_link(unit)",
-        "raw_diff: row_full and row_slim both consume file_link output"
+        "raw_diff: removed duplicated file_link local variable construction from row_full and row_slim",
+        "raw_diff: added shared file_link(unit)"
       ]
     },
     {
-      "text": "URL-encoded the full unit name before placing it in the decomp.dev query string, which is safer than interpolating raw path-like names.",
+      "text": "URL-encoding the unit name with quote(..., safe='') makes the generated decomp.dev query parameter robust for unit names containing slash or other special characters.",
       "evidence_refs": [
-        "raw_diff: quote(unit['name'], safe='')"
+        "raw_diff: from urllib.parse import quote",
+        "raw_diff: url = f\"https://decomp.dev/doldecomp/melee?unit={quote(unit['name'], safe='')}\""
       ]
     }
   ],
-  "decomp_lessons": [],
-  "naming_conventions": [
+  "decomp_lessons": [
     {
-      "text": "For this tool, the helper name file_link describes the combined operation of deriving the display file path and markdown link for a TU unit.",
+      "lesson": "For project documentation that lists translation units, direct links to decomp.dev unit pages can be more actionable than links to repository source blobs because they take readers to the matching/progress view for that unit.",
       "scope": [
-        "tools/wiki_tu.py"
+        "tooling",
+        "documentation",
+        "wiki TU pages"
       ],
       "evidence_refs": [
+        "PR title: Link to decomp.dev instead of repo on Wiki TU page",
+        "raw_diff: changed row links from ../blob/master/src/{file}.c to https://decomp.dev/doldecomp/melee?unit=..."
+      ],
+      "confidence": 0.82
+    }
+  ],
+  "naming_conventions": [
+    {
+      "name": "file_link",
+      "kind": "helper_function",
+      "convention": "A helper named file_link returns the display file path and Markdown link together for Wiki TU row generation.",
+      "evidence_refs": [
         "raw_diff: def file_link(unit) -> tuple[str, str]",
-        "raw_diff: row_full uses file, link = file_link(unit)",
-        "raw_diff: row_slim uses _, link = file_link(unit)"
-      ]
+        "raw_diff: return file, link"
+      ],
+      "confidence": 0.78
     }
   ],
   "assembly_or_matching_tactics": [],
   "review_feedback": [],
   "searchable_terms": [
-    "PR 2638",
+    "pr-2638",
     "tools/wiki_tu.py",
     "wiki_tu",
     "Wiki TU page",
     "decomp.dev",
-    "doldecomp melee decomp.dev unit",
+    "decomp.dev unit link",
     "urllib.parse.quote",
-    "quote(unit['name'], safe='')",
+    "quote safe empty",
     "file_link",
     "row_full",
     "row_slim",
-    "translation unit links",
-    "repository blob links",
-    "PEP 604 typing",
-    "dict[str, dict[str, str]]",
+    "percent_cell",
     "Path | None",
-    "float | None"
+    "float | None",
+    "dict[str, dict[str, str]]",
+    "documentation tooling"
   ],
   "follow_up_queries": [
-    "tools/wiki_tu.py decomp.dev unit quote file_link",
-    "Wiki TU page decomp.dev links PR 2638",
-    "row_full row_slim file_link wiki_tu.py",
-    "quote(unit['name'], safe='') decomp.dev doldecomp melee"
+    "tools/wiki_tu.py decomp.dev unit quote",
+    "wiki_tu file_link row_full row_slim",
+    "decomp.dev/doldecomp/melee?unit=",
+    "Wiki TU page repo blob link decomp.dev"
   ],
   "evidence_quality": {
-    "status": "mixed",
+    "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR title, author, state, timestamps, changed file counts",
-      "raw_diff: complete 3196-byte diff for tools/wiki_tu.py",
-      "changed_files.jsonl: one changed file",
+      "metadata_json: PR number, title, author, MERGED state, timestamps, changed file counts",
+      "raw_diff: complete diff for tools/wiki_tu.py",
+      "changed_files.jsonl: single changed file tools/wiki_tu.py",
       "text_corpus.jsonl: empty PR body",
       "metadata_json: issue_comments 0, review_comments 0, reviews 0"
     ],
     "notes": [
-      "The code diff strongly supports what changed in tools/wiki_tu.py.",
-      "There is no PR body, issue discussion, review comment, or test output in the slice, so author rationale, reviewer intent, and validation results are not inferred.",
-      "This PR is tooling/documentation-oriented, not a decompilation source or matching PR; no assembly tactics or decomp source lessons are promoted."
+      "Evidence is strong for the mechanical tooling/documentation change because the diff is complete and the PR is small.",
+      "There is no PR body or review discussion, so no reviewer intent or rationale beyond the title and diff should be inferred.",
+      "No build, test, or runtime validation results are present in the slice.",
+      "This PR does not contain game decomp source changes, assembly tactics, or matching claims."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "tooling_pattern",
-        "title": "Wiki TU links should target decomp.dev unit pages",
-        "text": "In tools/wiki_tu.py, TU markdown links were changed from repository blob paths to decomp.dev URLs using the full unit name as a URL-encoded unit query parameter.",
+        "record_type": "tooling_lesson",
+        "title": "Wiki TU links can target decomp.dev unit pages",
+        "text": "In tools/wiki_tu.py, PR 2638 changed generated translation-unit table links from repository source blob paths to decomp.dev unit URLs using the unit name as a URL-encoded query parameter.",
         "scope": [
           "tools/wiki_tu.py",
-          "Wiki TU page generation"
+          "wiki TU page generation",
+          "documentation tooling"
         ],
         "evidence_refs": [
+          "PR title: Link to decomp.dev instead of repo on Wiki TU page",
           "raw_diff: url = f\"https://decomp.dev/doldecomp/melee?unit={quote(unit['name'], safe='')}\"",
-          "raw_diff: row_full and row_slim now use link from file_link(unit)"
-        ]
+          "raw_diff: row_full and row_slim return rows using link from file_link(unit)"
+        ],
+        "confidence": 0.86
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "tools/wiki_tu.py emits decomp.dev TU links",
-        "text": "tools/wiki_tu.py generates Wiki TU table rows and, as of PR 2638, builds markdown links to https://decomp.dev/doldecomp/melee?unit=<url-encoded unit name> rather than ../blob/master/src/<file>.c repository links.",
+        "title": "tools/wiki_tu.py generates Wiki TU table links",
+        "text": "tools/wiki_tu.py contains Wiki translation-unit table generation logic. As of PR 2638, row_full and row_slim use a shared file_link(unit) helper to emit Markdown links to decomp.dev unit pages.",
         "source_path": "tools/wiki_tu.py",
         "scope": [
           "tooling",
           "documentation",
-          "wiki TU generation"
+          "wiki TU page generation"
         ],
         "evidence_refs": [
-          "raw_diff: added urllib.parse.quote import",
-          "raw_diff: added file_link(unit)",
-          "raw_diff: removed repository blob link formatting from row_full and row_slim"
+          "changed_files.jsonl: tools/wiki_tu.py",
+          "raw_diff: def file_link(unit) -> tuple[str, str]",
+          "raw_diff: row_full(unit) and row_slim(unit)"
         ],
-        "reason": "This is a stable path-specific tooling behavior that may help future agents classify or modify Wiki TU page generation."
+        "reason": "Could help future agents classify tools/wiki_tu.py as documentation/progress-page generation tooling rather than game decomp source."
       }
     ],
     "rejection_notes": [
-      "Do not promote this PR as evidence for decomp source style, matching tactics, or validation requirements; it only changes a Python tooling script and includes no build/test evidence.",
-      "Do not infer reviewer approval rationale beyond the metadata showing the PR was merged; no review records are present in the slice."
+      "Do not infer any accepted global decomp standard from this PR; it is a small tooling/documentation link update.",
+      "Do not record validation, test, or reviewer approval details beyond merge status; no review comments or CI/build evidence are included in the slice.",
+      "Do not infer that all project documentation links should prefer decomp.dev; the evidence only covers the Wiki TU page generated by tools/wiki_tu.py."
     ]
   },
-  "confidence": 0.82,
+  "confidence": 0.9,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

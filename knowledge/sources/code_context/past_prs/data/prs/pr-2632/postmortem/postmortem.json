@@ -12,279 +12,337 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Path-split PR for Dolphin support matching improvements, scoped to extern/dolphin THP and sysdolphin baselib support code. Final changed-file metadata shows focused edits in THPDec, cobj, hsd_3B34, and synth. Bot reporting recorded three unmatched-item improvements, while review feedback rejected earlier particle string-data and cobj PAD_STACK-style changes that are not present in the final diff excerpt.",
+  "summary": "Support-directory decomp/matching slice for Dolphin THP and sysdolphin baselib code. The final loaded diff changes four files: THPDec.c improves typed access/readability around __THPDecompressiMCURowNxN, hsd_3B34.c reorders local assignments, synth.c simplifies a sentinel comparison, and cobj.c removes a blank line. Bot reporting records three unmatched-item improvements, while review comments warn against earlier string-literal-to-data-symbol and PAD_STACK-style changes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "matching cleanup",
-      "typed access cleanup",
-      "expression/codegen shaping",
-      "path-sliced review"
+      "decomp-matching",
+      "source-cleanup",
+      "review-feedback"
     ],
     "systems": [
-      "extern/dolphin/src/dolphin/thp",
-      "src/sysdolphin/baselib",
       "external-sdk",
-      "Dolphin support"
+      "dolphin-thp",
+      "sysdolphin-baselib"
     ]
   },
   "key_files": [
     {
       "path": "extern/dolphin/src/dolphin/thp/THPDec.c",
-      "role": "Final changed file; __THPDecompressiMCURowNxN changed from raw offset/pointer-derived mcuBuffer and repeated __THPInfo accesses toward local info access and THPFileInfoMCUBufferView typed overlay accesses.",
+      "role": "Final diff updates __THPDecompressiMCURowNxN to use a local info pointer consistently and access MCU buffers through THPFileInfoMCUBufferView casts instead of a raw offset-derived THPCoeff** local.",
       "evidence_refs": [
-        "changed_files.jsonl",
-        "raw_diff: extern/dolphin/src/dolphin/thp/THPDec.c",
-        "text_corpus: decomp-dev report"
-      ]
-    },
-    {
-      "path": "src/sysdolphin/baselib/cobj.c",
-      "role": "Final changed file; final diff only removes a blank line in HSD_CObjSetUpVector. Review comments show an earlier PAD_STACK(4) attempt was criticized as not an improvement because the function had more fundamental issues.",
-      "evidence_refs": [
-        "changed_files.jsonl",
-        "raw_diff: src/sysdolphin/baselib/cobj.c",
-        "review_comments: discussion_r3374500191"
+        "changed_files: extern/dolphin/src/dolphin/thp/THPDec.c added 31 deleted 20",
+        "raw_diff: THPDec.c __THPDecompressiMCURowNxN hunk",
+        "text_corpus: decomp-dev report lists main/dolphin/thp/THPDec __THPDecompressiMCURowNxN +25 bytes 97.01% to 97.37%"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/hsd_3B34.c",
-      "role": "Final changed file; hsd_803B46D4 assignment order changed by moving sp8/spC loads before jmp_buf/temp_r4 assignments.",
+      "role": "Final diff reorders initialization in hsd_803B46D4 so sp8/spC loads from lbl_804DEB88 occur before jmp_buf and temp_r4 assignments.",
       "evidence_refs": [
-        "changed_files.jsonl",
-        "raw_diff: src/sysdolphin/baselib/hsd_3B34.c",
-        "text_corpus: decomp-dev report"
+        "changed_files: src/sysdolphin/baselib/hsd_3B34.c added 2 deleted 2",
+        "raw_diff: hsd_803B46D4 hunk",
+        "text_corpus: decomp-dev report lists main/sysdolphin/baselib/hsd_3B34 hsd_803B46D4 97.31% to 97.36%"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/synth.c",
-      "role": "Final changed file; HSD_Synth_8038ADD0 condition changed from unsigned arithmetic comparison to direct signed sentinel comparison against -0x10001.",
+      "role": "Final diff changes HSD_Synth_8038ADD0 comparison from an unsigned add-and-compare idiom to a direct signed sentinel comparison against -0x10001.",
       "evidence_refs": [
-        "changed_files.jsonl",
-        "raw_diff: src/sysdolphin/baselib/synth.c",
-        "text_corpus: decomp-dev report"
+        "changed_files: src/sysdolphin/baselib/synth.c added 1 deleted 1",
+        "raw_diff: HSD_Synth_8038ADD0 hunk",
+        "text_corpus: decomp-dev report lists main/sysdolphin/baselib/synth HSD_Synth_8038ADD0 +4 bytes 98.33% to 98.82%"
+      ]
+    },
+    {
+      "path": "src/sysdolphin/baselib/cobj.c",
+      "role": "Final diff only removes a blank line in HSD_CObjSetUpVector; review comments show an earlier PAD_STACK(4) proposal in this function was criticized as not an improvement.",
+      "evidence_refs": [
+        "changed_files: src/sysdolphin/baselib/cobj.c added 0 deleted 1",
+        "raw_diff: HSD_CObjSetUpVector blank-line-only hunk",
+        "review_comments: PsiLupan discussion_r3374500191 on PAD_STACK(4)"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/particle.c",
-      "role": "Review-commented file from earlier PR revision/body scope, but absent from final changed_files metadata and final diff excerpt. Comments criticized replacing string literals with a byte-array label lbl_8040A540.",
+      "role": "Not present in final changed_files for the loaded slice, but review comments discuss earlier attempted string-data changes and regressions in this file.",
       "evidence_refs": [
-        "human_pr_text: Files list",
-        "review_comments: discussion_r3374475361",
-        "review_comments: discussion_r3374481524",
-        "changed_files.jsonl absence"
+        "human_pr_text: PR body Files list includes src/sysdolphin/baselib/particle.c",
+        "review_comments: ThePlayerRolo discussion_r3374475361 on static char lbl_8040A540",
+        "review_comments: PsiLupan discussion_r3374481524 on msg = lbl_8040A540 regression"
       ]
     }
   ],
   "what_changed": [
-    "PR split matching work from #2617 by support directory to make review easier, scoped in the body to extern/dolphin/src/dolphin/thp and src/sysdolphin/baselib support code.",
-    "Final changed_files metadata records four files: THPDec.c (+31/-20), cobj.c (+0/-1), hsd_3B34.c (+2/-2), and synth.c (+1/-1).",
-    "In __THPDecompressiMCURowNxN, raw pointer-derived THPCoeff** mcuBuffer from ((u8*) info + 0x10) was removed; calls now access ((THPFileInfoMCUBufferView*) info)->mcuBuffer[n], and repeated __THPInfo field reads were replaced with the local info pointer.",
-    "In HSD_CObjSetUpVector, final diff only removes a blank line; review evidence shows a previous PAD_STACK(4) addition was objected to and does not appear in the final diff excerpt.",
-    "In hsd_803B46D4, sp8/spC loads from lbl_804DEB88 were moved before assignments to jmp_buf and temp_r4.",
-    "In HSD_Synth_8038ADD0, condition `(u32) (x8 + 0x10000) == -1U` was rewritten as `x8 == -0x10001`.",
-    "decomp-dev bot report for GALE01 recorded 3 improvements in unmatched items: __THPDecompressiMCURowNxN +25 bytes 97.01% to 97.37%, HSD_Synth_8038ADD0 +4 bytes 98.33% to 98.82%, and hsd_803B46D4 97.31% to 97.36%.",
-    "PR body states `git diff --check origin/master...HEAD` passed for this slice and the full unsplit source branch had green CI before the directory split; it also states per-PR CI/decomp-dev is authoritative once complete."
+    {
+      "text": "The PR was split from #2617 by support directory, scoped to extern/dolphin/src/dolphin/thp and src/sysdolphin/baselib support code.",
+      "evidence_refs": [
+        "human_pr_text: Split from #2617 by support directory",
+        "human_pr_text: Scope"
+      ]
+    },
+    {
+      "text": "In THPDec.c, __THPDecompressiMCURowNxN now uses the local THPFileInfo* info for xPixelSize, components, and quantTabs, and accesses mcuBuffer through THPFileInfoMCUBufferView casts rather than a local THPCoeff** created from ((u8*) info + 0x10).",
+      "evidence_refs": [
+        "raw_diff: THPDec.c hunk"
+      ]
+    },
+    {
+      "text": "In hsd_3B34.c, hsd_803B46D4 assignment order changed around lbl_804DEB88, jmp_buf, and hsd_804D79A0.",
+      "evidence_refs": [
+        "raw_diff: hsd_3B34.c hunk"
+      ]
+    },
+    {
+      "text": "In synth.c, HSD_Synth_8038ADD0 replaced (u32)(x8 + 0x10000) == -1U with x8 == -0x10001.",
+      "evidence_refs": [
+        "raw_diff: synth.c hunk"
+      ]
+    },
+    {
+      "text": "In cobj.c, the final loaded diff only removes whitespace in HSD_CObjSetUpVector, despite a review comment showing an earlier PAD_STACK(4) addition.",
+      "evidence_refs": [
+        "raw_diff: cobj.c hunk",
+        "review_comments: PsiLupan discussion_r3374500191"
+      ]
+    }
   ],
   "smart_moves": [
-    "Splitting the broader work by support directory reduced review scope and made path-specific matching changes easier to inspect.",
-    "THPDec.c used a local `info` pointer consistently instead of repeated `__THPInfo` reads, which makes the data flow easier to review while preserving the same base object in the excerpt.",
-    "Replacing raw byte-offset pointer derivation with a named view type for THP MCU buffers aligns with typed-field-over-pointer-math style when the offset role is understood.",
-    "Review process caught and apparently removed noisy or low-confidence changes: particle string literal replacement and cobj PAD_STACK do not appear in the final changed_files/final diff evidence."
+    {
+      "text": "The PR was split by directory and pathspec from a larger branch, making support-code matching changes easier to review.",
+      "evidence_refs": [
+        "human_pr_text: Split from #2617 by support directory so the matching improvements are easier to review",
+        "human_pr_text: Created from origin/master as an isolated path slice"
+      ]
+    },
+    {
+      "text": "Using an existing local info pointer in THPDec.c reduces repeated direct global __THPInfo accesses in the edited function.",
+      "evidence_refs": [
+        "raw_diff: THPDec.c hunk"
+      ]
+    },
+    {
+      "text": "The final diff does not include the reviewed particle.c string-symbol regression or the reviewed cobj.c PAD_STACK(4) addition, suggesting those contentious changes were not present in the loaded final changed-file set.",
+      "evidence_refs": [
+        "changed_files: only THPDec.c, cobj.c, hsd_3B34.c, synth.c",
+        "review_comments: particle.c and PAD_STACK comments",
+        "raw_diff: no particle.c hunk and no PAD_STACK addition"
+      ]
+    }
   ],
   "decomp_lessons": [
-    "When a raw offset access has a clear repeated role, a narrow temporary/view type can be more reviewable than casting through `(u8*)` and reusing offset arithmetic; this PR shows that pattern for THPFileInfo MCU buffer accesses in THPDec.c.",
-    "Small expression rewrites can improve matching/readability when they preserve the semantic sentinel directly, as in replacing an unsigned add-then-compare with `x8 == -0x10001` in synth.c.",
-    "String-literal-to-data-label changes are risky: reviewers explicitly called a byte-array label for particle error strings inaccurate and a regression when it stopped using the original string literal.",
-    "Stack padding should not be treated as an improvement by itself; the cobj review comment rejected a PAD_STACK addition where the function still had fundamental issues."
+    {
+      "text": "When a struct view can describe repeated offset accesses, prefer a typed overlay/view over raw pointer arithmetic; THPDec.c replaced a THPCoeff** derived from ((u8*) info + 0x10) with THPFileInfoMCUBufferView mcuBuffer accesses.",
+      "evidence_refs": [
+        "raw_diff: THPDec.c removed mcuBuffer = (THPCoeff**) ((u8*) info + 0x10)",
+        "raw_diff: THPDec.c added ((THPFileInfoMCUBufferView*) info)->mcuBuffer[...]"
+      ],
+      "related_standard_ids": [
+        "typed-fields-over-pointer-math"
+      ]
+    },
+    {
+      "text": "Do not turn ordinary string literals into address-named byte arrays merely to chase data or labels; reviewers called the particle.c static char lbl_8040A540 change inaccurate and a regression when msg stopped using the literal directly.",
+      "evidence_refs": [
+        "review_comments: ThePlayerRolo discussion_r3374475361",
+        "review_comments: PsiLupan discussion_r3374481524"
+      ],
+      "related_standard_ids": [
+        "no-string-literal-symbol-regression",
+        "literals-and-data-ownership",
+        "text-before-data-matching"
+      ]
+    },
+    {
+      "text": "PAD_STACK-style fixes need clear evidence of actual improvement; a reviewed HSD_CObjSetUpVector PAD_STACK(4) addition was rejected as not an improvement because the function had other fundamental issues.",
+      "evidence_refs": [
+        "review_comments: PsiLupan discussion_r3374500191"
+      ],
+      "related_standard_ids": [
+        "matching-tactics-need-evidence"
+      ]
+    },
+    {
+      "text": "Algebraically simpler signed sentinel comparisons may be preferable to unsigned add-and-compare expressions when they preserve the same condition and improve readability, as in synth.c's x8 == -0x10001 change.",
+      "evidence_refs": [
+        "raw_diff: synth.c HSD_Synth_8038ADD0 hunk"
+      ],
+      "related_standard_ids": [
+        "canonical-control-flow-and-macros",
+        "infer-authored-source-style"
+      ]
+    }
   ],
   "naming_conventions": [
-    "`THPFileInfoMCUBufferView` is used as a descriptive overlay/view name for the MCU buffer portion of THPFileInfo in the THPDec.c diff.",
-    "Existing address-style or temporary names such as `hsd_803B46D4`, `lbl_804DEB88`, `hsd_804D79A0`, and `temp_r4` were not semantically renamed in the final excerpt, consistent with avoiding unsupported semantic naming.",
-    "Review comments indicate `lbl_8040A540` was not an acceptable replacement name/form for ordinary particle error strings; reviewers preferred direct strings or, as an experiment, a `const char*` table only if it matched."
+    {
+      "text": "Address-style labels such as lbl_804DEB88 and hsd_804D79A0 were preserved in hsd_3B34.c where the diff does not prove stronger semantics.",
+      "evidence_refs": [
+        "raw_diff: hsd_3B34.c hunk"
+      ],
+      "related_standard_ids": [
+        "conservative-naming"
+      ]
+    },
+    {
+      "text": "The reviewed particle.c label lbl_8040A540 was criticized as heavily inaccurate when used to replace direct string literals.",
+      "evidence_refs": [
+        "review_comments: ThePlayerRolo discussion_r3374475361",
+        "review_comments: PsiLupan discussion_r3374481524"
+      ],
+      "related_standard_ids": [
+        "conservative-naming",
+        "no-string-literal-symbol-regression"
+      ]
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Typed overlay tactic: replace `(THPCoeff**) ((u8*) info + 0x10)` with repeated `((THPFileInfoMCUBufferView*) info)->mcuBuffer[index]` accesses in __THPDecompressiMCURowNxN.",
-    "Local-base tactic: use `THPFileInfo* info = __THPInfo` for xPixelSize, components, and quantTabs instead of repeated `__THPInfo` field references.",
-    "Statement scheduling tactic: reorder loads/assignments in hsd_803B46D4 so `sp8` and `spC` loads occur before assigning `jmp_buf` and `temp_r4`.",
-    "Expression-shape tactic: replace unsigned wraparound comparison with a direct signed sentinel compare in HSD_Synth_8038ADD0.",
-    "Rejected/removed tactic evidence: review criticized adding `PAD_STACK(4)` in HSD_CObjSetUpVector as not an improvement; final diff does not include the PAD_STACK line."
+    {
+      "text": "Narrow assignment-order changes were used in hsd_803B46D4, moving sp8/spC loads before jmp_buf/temp_r4 setup; bot reporting shows a small unmatched-item percentage improvement for that function but no match claim.",
+      "evidence_refs": [
+        "raw_diff: hsd_3B34.c hunk",
+        "text_corpus: decomp-dev report hsd_803B46D4 97.31% to 97.36%"
+      ]
+    },
+    {
+      "text": "Expression normalization in synth.c changed an unsigned wrapped comparison into a direct negative constant comparison; bot reporting records +4 bytes and a score improvement for HSD_Synth_8038ADD0.",
+      "evidence_refs": [
+        "raw_diff: synth.c hunk",
+        "text_corpus: decomp-dev report HSD_Synth_8038ADD0 +4 bytes 98.33% to 98.82%"
+      ]
+    },
+    {
+      "text": "Review feedback treats PAD_STACK as a questionable local tactic when the underlying function is still fundamentally unresolved.",
+      "evidence_refs": [
+        "review_comments: PsiLupan discussion_r3374500191"
+      ]
+    }
   ],
   "review_feedback": [
     {
       "path": "src/sysdolphin/baselib/particle.c",
-      "reviewer": "ThePlayerRolo",
-      "comment_url": "https://github.com/doldecomp/melee/pull/2632#discussion_r3374475361",
-      "feedback": "The byte-array label for a cluster of error strings was probably inaccurate to original developer source. Reviewer suggested trying a const char* table only as a matching experiment and otherwise reverting because direct string literals were more likely."
+      "author": "ThePlayerRolo",
+      "text": "A static char array label for many error strings was probably inaccurate to original developer source; suggested trying a const char* table and otherwise reverting the label, because the original likely directly input the strings.",
+      "evidence_refs": [
+        "review_comments: ThePlayerRolo discussion_r3374475361"
+      ]
     },
     {
       "path": "src/sysdolphin/baselib/particle.c",
-      "reviewer": "PsiLupan",
-      "comment_url": "https://github.com/doldecomp/melee/pull/2632#discussion_r3374481524",
-      "feedback": "Changing `msg = \"MCC is no initialize\"` to `msg = lbl_8040A540` was called a regression due to not using the string."
+      "author": "PsiLupan",
+      "text": "Replacing msg = \"MCC is no initialize\" with msg = lbl_8040A540 was called a regression due to not using the string.",
+      "evidence_refs": [
+        "review_comments: PsiLupan discussion_r3374481524"
+      ]
     },
     {
       "path": "src/sysdolphin/baselib/cobj.c",
-      "reviewer": "PsiLupan",
-      "comment_url": "https://github.com/doldecomp/melee/pull/2632#discussion_r3374500191",
-      "feedback": "Adding `PAD_STACK(4)` in HSD_CObjSetUpVector was not considered an improvement because the function had other fundamental issues."
+      "author": "PsiLupan",
+      "text": "Adding PAD_STACK(4) in HSD_CObjSetUpVector was called not an improvement because the function has other fundamental issues.",
+      "evidence_refs": [
+        "review_comments: PsiLupan discussion_r3374500191"
+      ]
     }
   ],
   "searchable_terms": [
-    "PR2632",
+    "pr-2632",
     "Improvements to split up: Dolphin support",
     "fjooord",
     "extern/dolphin/src/dolphin/thp/THPDec.c",
+    "src/sysdolphin/baselib/cobj.c",
+    "src/sysdolphin/baselib/hsd_3B34.c",
+    "src/sysdolphin/baselib/synth.c",
+    "src/sysdolphin/baselib/particle.c",
     "__THPDecompressiMCURowNxN",
     "THPFileInfoMCUBufferView",
     "mcuBuffer",
     "THPMCURowFields",
     "THPRestartFields",
-    "LCQueueWait",
-    "__THPHuffDecodeDCTCompY",
-    "__THPInverseDCTNoYPos",
-    "src/sysdolphin/baselib/cobj.c",
     "HSD_CObjSetUpVector",
     "PAD_STACK",
-    "src/sysdolphin/baselib/hsd_3B34.c",
     "hsd_803B46D4",
-    "jmp_buf",
     "lbl_804DEB88",
-    "src/sysdolphin/baselib/synth.c",
     "HSD_Synth_8038ADD0",
     "-0x10001",
-    "src/sysdolphin/baselib/particle.c",
     "lbl_8040A540",
     "MCC is no initialize",
     "string literal regression",
-    "decomp-dev report"
+    "typed fields over pointer math"
   ],
   "follow_up_queries": [
-    "Find later or related PRs touching `THPFileInfoMCUBufferView` or THP MCU buffer overlay definitions to confirm whether this view became an accepted local pattern.",
-    "Search for later changes to `src/sysdolphin/baselib/particle.c` around `fn_80392CD8`, `lbl_8040A540`, and MCC error strings to see how the rejected string-data approach was resolved.",
-    "Search for later PRs touching `HSD_CObjSetUpVector` to identify the 'fundamental issues' mentioned in review and whether PAD_STACK was replaced by a better source reconstruction.",
-    "Search for `x8 == -0x10001` and related synth sentinel comparisons to see whether direct signed sentinel comparisons are used consistently.",
-    "Search PR #2617 and adjacent support-directory split PRs for broader context behind this slice's matching improvements."
+    "PR 2632 particle.c lbl_8040A540 string literal regression",
+    "HSD_CObjSetUpVector PAD_STACK review fundamental issues",
+    "__THPDecompressiMCURowNxN THPFileInfoMCUBufferView mcuBuffer",
+    "HSD_Synth_8038ADD0 -0x10001 sentinel comparison",
+    "hsd_803B46D4 assignment order lbl_804DEB88"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json.pr",
-      "changed_files.jsonl",
-      "raw_diff",
-      "human_pr_text",
-      "text_corpus: decomp-dev report",
-      "review_comments.md"
+      "metadata_json: PR metadata and changed_files",
+      "human_pr_text: PR body",
+      "raw_diff: final loaded diff",
+      "text_corpus: decomp-dev bot report and review comments",
+      "review_comments: three inline review comments"
     ],
     "notes": [
-      "Final diff and changed_files metadata strongly support the four final changed files and concrete code edits.",
-      "PR body lists six files including particle.c and sislib.c, but final changed_files metadata and final diff include only four files. Particle appears only in review comments from an earlier revision or planned scope; sislib has no final diff evidence in this slice.",
-      "The PR body's preliminary full-branch score is explicitly not the authoritative per-PR score; only the loaded decomp-dev bot report is used for specific slice improvements.",
-      "Review comments show reviewer objections, but the loaded evidence does not include the full conversation or exact author response. Do not infer reviewer intent beyond the quoted comments.",
-      "No build, objdiff, or CI logs beyond PR body statements and the decomp-dev report were loaded."
+      "Final changed_files lists four files, but the PR body Files section lists six files including particle.c and sislib.c. The loaded final diff contains no particle.c or sislib.c hunks.",
+      "Review comments reference earlier particle.c and PAD_STACK changes that are not present in the final loaded diff; they are treated as review feedback and cautionary lessons, not as final merged code changes.",
+      "The PR body's preliminary full-source-branch report is explicitly not authoritative for this slice; the decomp-dev bot report is narrower and records three unmatched-item improvements.",
+      "No objdiff logs or full CI results are loaded beyond the bot report and PR-body local checks, so no exact match claims are made."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "pr_lesson",
-        "title": "Use narrow typed overlays instead of raw offset pointer math when the data role is known",
-        "text": "In PR #2632, THPDec.c replaced `THPCoeff** mcuBuffer = (THPCoeff**) ((u8*) info + 0x10)` with repeated accesses through `((THPFileInfoMCUBufferView*) info)->mcuBuffer[n]` in __THPDecompressiMCURowNxN, alongside local `info` field accesses. This is a PR-specific example supporting typed access cleanup.",
+        "record_type": "decomp_lesson",
+        "title": "Use typed struct views instead of raw offset-derived pointer locals when evidence supports the layout",
+        "text": "In PR #2632, THPDec.c replaced a THPCoeff** local computed from ((u8*) info + 0x10) with accesses through ((THPFileInfoMCUBufferView*) info)->mcuBuffer[n] inside __THPDecompressiMCURowNxN. This is a reusable example of typed-fields-over-pointer-math cleanup in Dolphin THP code.",
         "scope": [
           "extern/dolphin/src/dolphin/thp/THPDec.c",
-          "__THPDecompressiMCURowNxN"
+          "__THPDecompressiMCURowNxN",
+          "Dolphin THP decomp"
         ],
         "evidence_refs": [
-          "raw_diff: THPDec.c",
-          "text_corpus: decomp-dev report"
-        ]
+          "raw_diff: THPDec.c hunk"
+        ],
+        "confidence": 0.78
       },
       {
-        "record_type": "pr_lesson",
-        "title": "Avoid replacing ordinary strings with byte-array labels without strong data ownership evidence",
-        "text": "Reviewers objected to an earlier particle.c change that introduced `static char lbl_8040A540[]` and replaced `msg = \"MCC is no initialize\"` with `msg = lbl_8040A540`, calling it likely inaccurate and a regression due to not using the string.",
+        "record_type": "review_lesson",
+        "title": "Reviewers rejected replacing direct strings with address-named byte-array labels in particle.c",
+        "text": "PR #2632 review comments on particle.c warned that a static char lbl_8040A540 byte array and msg = lbl_8040A540 replacement were likely inaccurate and regressed by not using direct string literals. Treat this as PR evidence supporting the existing no-string-literal-symbol-regression standard.",
         "scope": [
           "src/sysdolphin/baselib/particle.c",
           "string literals",
-          "data labels"
+          "data-label cleanup"
         ],
         "evidence_refs": [
-          "review_comments: discussion_r3374475361",
-          "review_comments: discussion_r3374481524"
-        ]
+          "review_comments: ThePlayerRolo discussion_r3374475361",
+          "review_comments: PsiLupan discussion_r3374481524"
+        ],
+        "confidence": 0.82
       },
       {
-        "record_type": "pr_lesson",
-        "title": "PAD_STACK is not an improvement by itself",
-        "text": "A review comment on HSD_CObjSetUpVector rejected adding `PAD_STACK(4)`, saying the function had other fundamental issues. In the final diff excerpt, the PAD_STACK line is absent.",
-        "scope": [
-          "src/sysdolphin/baselib/cobj.c",
-          "HSD_CObjSetUpVector"
-        ],
-        "evidence_refs": [
-          "review_comments: discussion_r3374500191",
-          "raw_diff: cobj.c"
-        ]
-      }
-    ],
-    "source_update_candidates": [
-      {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Add PR #2632 as supporting evidence for no-string-literal-symbol-regression",
-        "text": "PR #2632 review comments provide a concrete example where replacing direct particle error strings with `lbl_8040A540` byte-array storage was rejected as likely inaccurate and a regression. This can be cited as historical support for keeping ordinary strings inline unless data ownership evidence justifies a data-symbol conversion.",
-        "source_path": null,
-        "scope": [
-          "src/sysdolphin/baselib/particle.c",
-          "string literals",
-          "lbl_8040A540"
-        ],
-        "evidence_refs": [
-          "review_comments: discussion_r3374475361",
-          "review_comments: discussion_r3374481524"
-        ],
-        "reason": "Loaded standards already contain this principle; curator may want this PR as an example/evidence citation rather than a new rule."
-      },
-      {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Add PR #2632 as supporting evidence for matching-tactics-need-evidence around PAD_STACK",
-        "text": "A reviewer rejected a `PAD_STACK(4)` addition in HSD_CObjSetUpVector as not an improvement because the function had other fundamental issues; final diff evidence does not retain the PAD_STACK line.",
-        "source_path": null,
+        "record_type": "review_lesson",
+        "title": "PAD_STACK additions are not inherently improvements",
+        "text": "PR #2632 review feedback on HSD_CObjSetUpVector said a PAD_STACK(4) addition was not an improvement because the function had other fundamental issues. This supports keeping PAD_STACK-style tactics narrow and evidence-backed.",
         "scope": [
           "src/sysdolphin/baselib/cobj.c",
           "HSD_CObjSetUpVector",
           "PAD_STACK"
         ],
         "evidence_refs": [
-          "review_comments: discussion_r3374500191",
-          "raw_diff: cobj.c"
+          "review_comments: PsiLupan discussion_r3374500191"
         ],
-        "reason": "Useful as an example that stack-padding tactics need narrow justification and should not mask unresolved source issues."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "PR #2632 final changed-file scope for Dolphin support split",
-        "text": "Final changed_files metadata for PR #2632 includes `extern/dolphin/src/dolphin/thp/THPDec.c`, `src/sysdolphin/baselib/cobj.c`, `src/sysdolphin/baselib/hsd_3B34.c`, and `src/sysdolphin/baselib/synth.c`. PR body also listed particle.c and sislib.c as scoped files, but those do not appear in final changed_files metadata in this slice.",
-        "source_path": null,
-        "scope": [
-          "pr-2632",
-          "extern/dolphin/src/dolphin/thp",
-          "src/sysdolphin/baselib"
-        ],
-        "evidence_refs": [
-          "changed_files.jsonl",
-          "human_pr_text"
-        ],
-        "reason": "Curator may want to record the final metadata/body-scope discrepancy for future searches."
+        "confidence": 0.76
       }
     ],
+    "source_update_candidates": [],
     "rejection_notes": [
-      "Do not promote particle.c or sislib.c as final changed files from this slice; final changed_files metadata and final diff do not include them, although particle.c appears in review comments and the PR body file list.",
-      "Do not claim PR #2632 fully matched any function; decomp-dev report only shows improvements in unmatched items for three units.",
-      "Do not infer that `THPFileInfoMCUBufferView` is a global accepted standard beyond this PR example without checking current source and related PRs.",
-      "Do not infer that the cobj function was improved beyond final whitespace removal; review explicitly said the PAD_STACK attempt was not an improvement."
+      "Do not promote the PR-body preliminary full-branch matched-code percentages as slice validation; the body says per-PR CI/decomp-dev reporting is authoritative, and only a narrow bot report is loaded.",
+      "Do not record particle.c or sislib.c as final changed files for this slice; they appear in the PR body file list and review comments but not in the loaded changed_files metadata or final diff.",
+      "Do not infer that reviewers approved any final replacement for particle.c strings; loaded review evidence only criticizes the attempted label/string change.",
+      "Do not claim HSD_CObjSetUpVector was improved by PAD_STACK; final diff does not include PAD_STACK and review feedback rejects that tactic in context."
     ]
   },
   "confidence": 0.82,
@@ -294,6 +352,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

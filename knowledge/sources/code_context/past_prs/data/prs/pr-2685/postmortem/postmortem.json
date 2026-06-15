@@ -1,0 +1,438 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2685",
+  "pr": {
+    "number": 2685,
+    "title": "Melee decomp: Kirby and Yoshi fighter matches",
+    "url": "https://github.com/doldecomp/melee/pull/2685",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-13T21:29:16Z",
+    "merged_at": "2026-06-14T22:50:00Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Exact-match decompilation work for Kirby copy ability and Yoshi special action code, mostly in ftKirby/ftkirby.c, with smaller assertion cleanup in ftkirbyspecialn.c, a Yoshi matching no-op, and removal/formatting cleanup in baselib particle code. Review focused on newly introduced pragma usage; reviewer feedback led to removing the pragma approach rather than relying on bot-cited precedent.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "fighter",
+      "decomp-matching",
+      "assert-cleanup",
+      "matching-tactics",
+      "pragma-review",
+      "types-structs"
+    ],
+    "systems": [
+      "src/melee/ft/chara/ftKirby",
+      "src/melee/ft/chara/ftYoshi",
+      "src/sysdolphin/baselib"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirby.c",
+      "role": "Main Kirby copy-ability matching work; refactored helper use, local/register-shaping changes, typed field access, PAD_STACK uses, split Fighter locals, and Jigglypuff hat load documentation.",
+      "evidence_refs": [
+        "changed_files: ftkirby.c +71/-62, 15 hunks",
+        "raw_diff: ftKb_SpecialN_800EF0E4, ftKb_SpecialN_800EF438, ftKb_SpecialN_800EF69C, ftKb_SpecialN_800F10D4, ftKb_SpecialN_800F11F0, ftKb_SpecialN_800F16D0",
+        "text_corpus: bot report lists ftkirby new matches and unmatched-item improvements"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialn.c",
+      "role": "Kirby SpecialN assertion cleanup; added baselib debug include and replaced explicit OSReport plus __assert sequence with HSD_ASSERTREPORT.",
+      "evidence_refs": [
+        "changed_files: ftkirbyspecialn.c +2/-4, 3 hunks",
+        "raw_diff: fn_800F53AC HSD_ASSERTREPORT(0x66, 0, ftKb_Init_803CB510)"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftYoshi/ftYs_SpecialS.c",
+      "role": "Yoshi SpecialS match adjustment using a no-op expression before effect spawn.",
+      "evidence_refs": [
+        "changed_files: ftYs_SpecialS.c +1/-0, 1 hunk",
+        "raw_diff: ftYs_SpecialAirSEnd_Anim adds (void) (fp != NULL)",
+        "text_corpus: bot report lists ftYs_SpecialAirSEnd_Anim moving to 100.00%"
+      ]
+    },
+    {
+      "path": "src/sysdolphin/baselib/particle.c",
+      "role": "Baselib cleanup related to pragma precedent and formatting/control-flow cleanup; removed scoped pool_data pragmas from fn_80393C14.",
+      "evidence_refs": [
+        "changed_files: particle.c +3/-6, 4 hunks",
+        "raw_diff: removes #pragma push/#pragma pool_data off/#pragma pop around fn_80393C14",
+        "review_comments: discussion about whether scoped pool_data pragmas should remain"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "PR body claims exact-match decompilation for Kirby copy ability and Yoshi special action code, with isolated and full ship-set regression reports showing zero broken matches, zero fuzzy regressions, and zero metric regressions.",
+      "evidence_refs": [
+        "human_pr_text: Summary and Verification"
+      ]
+    },
+    {
+      "text": "Bot report recorded new matches for ftKb_SpecialN_800F11F0, ftKb_SpecialN_800F16D0, ftYs_SpecialAirSEnd_Anim, and fn_800F53AC, plus improvements for ftKb_SpecialN_800F10D4, ftKb_SpecialN_800EF0E4, ftKb_SpecialN_800EF438, and ftKb_SpecialN_800EF69C.",
+      "evidence_refs": [
+        "text_corpus: issue_comment by decomp-dev[bot]"
+      ]
+    },
+    {
+      "text": "ftKb_SpecialN_800EF0E4 gained a small finish helper and separated the input index pointer into arg2_cur, preserving the original arg2 while advancing a working cursor.",
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialN_800EF0E4_finish and arg2_cur changes"
+      ]
+    },
+    {
+      "text": "ftKb_SpecialN_800EF438 reused ftKb_SpecialN_800EF0E4_insert_joint_refs instead of a repeated joint traversal setup, changed a raw byte flag write into flag_bone->flags2_b7 = true, and used indexed DObj pointer storage instead of raw byte-addressed assignment.",
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialN_800EF438"
+      ]
+    },
+    {
+      "text": "ftKb_SpecialN_800F11F0 renamed the stack buffer from sp14 to part_dobj_indices and added a comment that split Fighter* locals are required for register allocation.",
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialN_800F11F0 comment and local changes"
+      ]
+    },
+    {
+      "text": "fn_800F53AC replaced an explicit OSReport plus __assert expansion with HSD_ASSERTREPORT and removed two now-unused extern declarations.",
+      "evidence_refs": [
+        "raw_diff: ftkirbyspecialn.c fn_800F53AC"
+      ]
+    },
+    {
+      "text": "A reviewed pragma attempt in ftkirby.c was challenged and then removed; the final loaded diff instead shows removal of #pragma pool_data off around baselib particle fn_80393C14.",
+      "evidence_refs": [
+        "review_comments: fjooord possible issue/new pragmas, jurrejelle yeah remove, ribbanya remove and commit",
+        "raw_diff: particle.c removes scoped pool_data pragmas"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "Factored the repeated joint-reference insertion pass into ftKb_SpecialN_800EF0E4_insert_joint_refs and reused it in ftKb_SpecialN_800EF438, reducing duplicated traversal setup in the shown diff.",
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialN_800EF438 calls ftKb_SpecialN_800EF0E4_insert_joint_refs"
+      ]
+    },
+    {
+      "text": "Used a separate cursor variable arg2_cur while retaining the original arg2 parameter, a local-lifetime/register-shaping tactic consistent with matching work where pointer progression affects codegen.",
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialN_800EF0E4 arg2_cur"
+      ]
+    },
+    {
+      "text": "Converted raw offset flag manipulation to a named FighterBone bitfield access where the local type made the field role clear.",
+      "evidence_refs": [
+        "raw_diff: ((u8*) parts2)[flag_off] |= 1 replaced by flag_bone->flags2_b7 = true"
+      ]
+    },
+    {
+      "text": "Responded to review by removing pragma-based matching rather than treating an existing bot-cited pattern as sufficient precedent.",
+      "evidence_refs": [
+        "review_comments: jurrejelle says remove; ribbanya says remove and commit",
+        "raw_diff: particle.c removes pool_data pragmas"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "When a raw byte flag access is on a known struct, prefer the struct field form if it still supports matching.",
+      "scope": [
+        "FighterBone flag access",
+        "fighter decomp cleanup"
+      ],
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialN_800EF438 uses flag_bone->flags2_b7 = true instead of byte offset write"
+      ],
+      "confidence": 0.82
+    },
+    {
+      "lesson": "Expanded OSReport plus __assert sequences can sometimes collapse to HSD_ASSERTREPORT when the line and report text match the local debug macro form.",
+      "scope": [
+        "assert/report cleanup",
+        "baselib/debug.h",
+        "fighter files"
+      ],
+      "evidence_refs": [
+        "raw_diff: ftkirbyspecialn.c adds <baselib/debug.h> and replaces OSReport/__assert with HSD_ASSERTREPORT"
+      ],
+      "confidence": 0.78
+    },
+    {
+      "lesson": "Register-allocation matches may require split locals that point to the same Fighter object, but this should be documented narrowly rather than normalized as general style.",
+      "scope": [
+        "Kirby SpecialN matching",
+        "local lifetime/register allocation"
+      ],
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialN_800F11F0 adds fp and fp2 plus note that split Fighter* locals are required for register allocation"
+      ],
+      "confidence": 0.74
+    },
+    {
+      "lesson": "Scoped compiler pragmas are still review-sensitive even if a similar pattern exists elsewhere; reviewer feedback in this PR favored removing the pragma approach.",
+      "scope": [
+        "pragma use",
+        "matching exceptions"
+      ],
+      "evidence_refs": [
+        "review_comments: new pragmas challenged and removal requested",
+        "raw_diff: particle.c removes scoped pool_data pragma block"
+      ],
+      "confidence": 0.8
+    }
+  ],
+  "naming_conventions": [
+    {
+      "name": "part_dobj_indices",
+      "kind": "local stack buffer",
+      "convention": "Replace opaque stack names like sp14 with a role name when the buffer stores per-part DObj indices.",
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialN_800F11F0 renames u8 sp14[0x90] to u8 part_dobj_indices[0x88]"
+      ]
+    },
+    {
+      "name": "arg2_cur",
+      "kind": "local cursor",
+      "convention": "Use a *_cur suffix for an advancing cursor derived from an input pointer.",
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialN_800EF0E4 adds u8* arg2_cur and increments it instead of arg2"
+      ]
+    },
+    {
+      "name": "root",
+      "kind": "local pointer",
+      "convention": "Use root for the starting HSD_Joint pointer from hat dynamics.",
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialN_800EF438 changes ftDynamics* dyn to HSD_Joint* root"
+      ]
+    },
+    {
+      "name": "flag_bone",
+      "kind": "local pointer",
+      "convention": "Use a local role name when a bone pointer is specifically used for flag mutation.",
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialN_800EF438 adds FighterBone* flag_bone = bone"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "PAD_STACK in narrow functions/helpers",
+      "description": "PR used PAD_STACK(4) in a new finish helper and PAD_STACK(8) in Kirby hat/switch code to shape stack/register output.",
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialN_800EF0E4_finish PAD_STACK(4)",
+        "raw_diff: ftKb_SpecialN_800F16D0 PAD_STACK(8)"
+      ],
+      "caution": "Global standard says PAD_STACK needs explicit verifier evidence; PR body provides regression evidence, but no line-by-line objdiff proof is included in the slice."
+    },
+    {
+      "tactic": "Split identical Fighter* locals for register allocation",
+      "description": "ftKb_SpecialN_800F10D4 and ftKb_SpecialN_800F11F0 use fp and fp2 from gobj->user_data; ftKb_SpecialN_800F11F0 explicitly documents the split locals as required for register allocation.",
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialN_800F10D4 fp/fp2",
+        "raw_diff: ftKb_SpecialN_800F11F0 note about split Fighter* locals"
+      ],
+      "caution": "Treat as a narrow matching tactic, not normal source style."
+    },
+    {
+      "tactic": "No-op expression for Yoshi match",
+      "description": "ftYs_SpecialAirSEnd_Anim inserts (void) (fp != NULL) before efSync_Spawn, likely to influence emitted code while preserving behavior.",
+      "evidence_refs": [
+        "raw_diff: ftYs_SpecialAirSEnd_Anim adds (void) (fp != NULL)",
+        "text_corpus: bot report shows ftYs_SpecialAirSEnd_Anim at 100.00%"
+      ],
+      "caution": "This is a codegen tactic and should remain evidence-backed and local."
+    },
+    {
+      "tactic": "Macro assertion recovery",
+      "description": "Replacing OSReport plus __assert with HSD_ASSERTREPORT both cleaned source and matched fn_800F53AC according to bot report.",
+      "evidence_refs": [
+        "raw_diff: fn_800F53AC",
+        "text_corpus: bot report lists fn_800F53AC as 100.00%"
+      ],
+      "caution": "Only apply where file, line, message/report behavior and include surface support the macro."
+    },
+    {
+      "tactic": "Avoid or remove pool_data pragma exceptions when challenged",
+      "description": "An attempted new pragma in ftkirby.c was reviewed, debated using particle.c as precedent, and removed; final diff also removes an existing pool_data pragma block in particle.c.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409781357, discussion_r3409788440, discussion_r3410064592, discussion_r3410377288",
+        "raw_diff: particle.c removes #pragma pool_data off"
+      ],
+      "caution": "Do not infer that all existing pool_data pragmas are banned; the PR evidence only supports that this PR's new pragma approach was not accepted."
+    }
+  ],
+  "review_feedback": [
+    {
+      "author": "fjooord",
+      "feedback": "Flagged a possible issue with new pragmas in ftkirby.c.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409781357"
+      ]
+    },
+    {
+      "author": "fjooord",
+      "feedback": "Argued the scoped pool_data pragma was acceptable based on existing particle.c precedent and clean validation at head 76b0617.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409788440"
+      ]
+    },
+    {
+      "author": "jurrejelle",
+      "feedback": "Requested removal of the new pragma.",
+      "evidence_refs": [
+        "review_comments: discussion_r3410064592"
+      ]
+    },
+    {
+      "author": "ribbanya",
+      "feedback": "Rejected the bot-cited precedent framing and said the pragma would be removed and committed.",
+      "evidence_refs": [
+        "review_comments: discussion_r3410377288"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR2685",
+    "Kirby copy ability",
+    "Yoshi SpecialS",
+    "ftKb_SpecialN_800EF0E4",
+    "ftKb_SpecialN_800EF438",
+    "ftKb_SpecialN_800EF69C",
+    "ftKb_SpecialN_800F10D4",
+    "ftKb_SpecialN_800F11F0",
+    "ftKb_SpecialN_800F16D0",
+    "ftYs_SpecialAirSEnd_Anim",
+    "fn_800F53AC",
+    "HSD_ASSERTREPORT",
+    "PAD_STACK",
+    "split Fighter locals",
+    "part_dobj_indices",
+    "arg2_cur",
+    "flags2_b7",
+    "pool_data pragma",
+    "pragma push pop",
+    "particle.c fn_80393C14"
+  ],
+  "follow_up_queries": [
+    "Find later PRs touching ftKb_SpecialN_800EF0E4_finish or removing PAD_STACK in Kirby SpecialN.",
+    "Search for other PR review comments rejecting #pragma pool_data off or new pragmas in fighter code.",
+    "Search for HSD_ASSERTREPORT replacements of OSReport plus __assert in fighter translation units.",
+    "Search for no-op expressions like (void) (fp != NULL) used as exact-match tactics.",
+    "Check whether part_dobj_indices became a recurring name in Kirby hat loading functions."
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "human_pr_text: claimed exact matches and regression reports",
+      "text_corpus: bot report with function-level before/after percentages",
+      "raw_diff: complete loaded diff",
+      "review_comments: pragma discussion"
+    ],
+    "notes": [
+      "The PR body claims 5 newly exact functions across 3 files, while the loaded bot issue comment shows 4 new matches and 4 improvements at that point; this likely reflects different revision timing, so function counts should be cited with their source.",
+      "Review comments reference a new pragma near ftKb_SpecialN_800EEC34, but the final loaded diff excerpt does not include that added pragma and instead shows removal of pool_data pragmas from particle.c.",
+      "Verification is reported in PR text and bot output, not independently rerun during intake.",
+      "Some matching tactics, especially PAD_STACK, split locals, and no-op expressions, are inferred from diffs and match reports; do not generalize them without additional objdiff evidence."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "type": "lesson",
+        "title": "Prefer typed FighterBone flag fields over raw byte flag offsets when the type is known",
+        "text": "In ftKb_SpecialN_800EF438, a raw byte write through ((u8*) parts2)[flag_off] was replaced with flag_bone->flags2_b7 = true, supporting the typed-fields-over-pointer-math standard for fighter bone flags.",
+        "scope": [
+          "fighter",
+          "FighterBone",
+          "typed field cleanup"
+        ],
+        "evidence_refs": [
+          "raw_diff: ftKb_SpecialN_800EF438"
+        ]
+      },
+      {
+        "type": "lesson",
+        "title": "Use HSD_ASSERTREPORT for matching report-plus-assert expansions when supported",
+        "text": "fn_800F53AC replaced OSReport(ftKb_Init_803CB510, ...) plus __assert(...) with HSD_ASSERTREPORT(0x66, 0, ftKb_Init_803CB510), alongside adding <baselib/debug.h> and removing obsolete externs.",
+        "scope": [
+          "assert cleanup",
+          "fighter",
+          "baselib/debug.h"
+        ],
+        "evidence_refs": [
+          "raw_diff: ftkirbyspecialn.c fn_800F53AC",
+          "text_corpus: bot report lists fn_800F53AC as a new 100.00% match"
+        ]
+      },
+      {
+        "type": "review_lesson",
+        "title": "Do not treat bot-cited precedent as enough to justify new matching pragmas",
+        "text": "A new pragma in ftkirby.c was challenged; despite a comment arguing scoped pool_data precedent from particle.c and clean checks, reviewers requested removal and the pragma approach was removed.",
+        "scope": [
+          "pragma exceptions",
+          "review process",
+          "matching tactics"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409788440",
+          "review_comments: discussion_r3410064592",
+          "review_comments: discussion_r3410377288"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Clarify review expectations for matching pragmas",
+        "text": "PR #2685 suggests that even scoped pragmas with apparent in-tree precedent can be rejected during review; accepted use should require narrow scope, explicit objdiff/regression evidence, and reviewer agreement, and bot-generated precedent should not by itself justify a new pragma.",
+        "source_path": null,
+        "scope": [
+          "avoid-pragmas-register-asm",
+          "matching-tactics-need-evidence"
+        ],
+        "evidence_refs": [
+          "review_comments: pragma discussion in ftkirby.c",
+          "raw_diff: particle.c removes scoped pool_data pragmas"
+        ],
+        "reason": "This is consistent with existing standards but PR evidence may help sharpen wording around bot precedent and scoped pragma exceptions."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Document split duplicate locals as a narrow matching tactic",
+        "text": "ftKb_SpecialN_800F11F0 documents that split Fighter* locals are required for register allocation. This could be added as an example under matching tactics, with a warning that it needs objdiff evidence and should be narrowly scoped.",
+        "source_path": null,
+        "scope": [
+          "matching-tactics-need-evidence",
+          "fighter decomp"
+        ],
+        "evidence_refs": [
+          "raw_diff: ftKb_SpecialN_800F11F0 comment and fp/fp2 locals"
+        ],
+        "reason": "The PR provides a concrete example of a register-allocation tactic already framed as exceptional by an inline note."
+      }
+    ],
+    "rejection_notes": [
+      "Do not promote the claim that PR #2685 definitively added 5 exact matches without preserving the conflict between PR body and loaded bot report.",
+      "Do not promote a blanket rule banning all #pragma pool_data off; the evidence only shows this PR's new pragma was removed and one particle.c block was removed.",
+      "Do not treat PAD_STACK, split duplicate locals, or no-op casts as accepted general style; they are matching tactics requiring narrow verification.",
+      "Do not infer reviewer intent beyond the explicit pragma removal comments."
+    ]
+  },
+  "confidence": 0.84,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

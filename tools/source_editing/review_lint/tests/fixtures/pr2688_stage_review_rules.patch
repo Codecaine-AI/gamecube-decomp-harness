@@ -1,0 +1,55 @@
+diff --git a/src/melee/gr/grbigblue.c b/src/melee/gr/grbigblue.c
+index 1111111..2222222 100644
+--- a/src/melee/gr/grbigblue.c
++++ b/src/melee/gr/grbigblue.c
+@@ -1407,7 +1407,7 @@ void grBigBlue_801E8D64(Ground_GObj* gobj)
+     HSD_JObjGetTranslation2(jobj, &pos);
+     {
+-        f32 inv = 1.0F / Ground_801C0498();
++        f32 inv = grBb_804DB2F0 / Ground_801C0498();
+         pos.x *= inv;
+     }
+@@ -1760,9 +1760,9 @@ void grBigBlue_801EA05C(Ground_GObj* gobj)
+     switch ((s8) gp->gv.bigblue.x0) {
+     case 0:
+         if (*(s32*) ((u8*) GET_GROUND(Ground_801C2BA4(32)) + 0xD0) != 0) {
+-            gp->gv.bigblue.platform.xC8_timer = 0;
++            gp->gv.arwing.xC8 = 0;
+             gp->gv.bigblue.x0 = 1;
+         }
+diff --git a/src/melee/gr/grrcruise.c b/src/melee/gr/grrcruise.c
+index 3333333..4444444 100644
+--- a/src/melee/gr/grrcruise.c
++++ b/src/melee/gr/grrcruise.c
+@@ -307,6 +307,12 @@ void grRCruise_801FF7A0(Ground_GObj* arg) {}
+ 
++char grRc_803E4F44[] = "dynamicsdata_shipflag\0\0\0"
++                         "gp->u.scroll.int_jobj\0\0\0"
++                         "gp->u.scroll.cam_jobj\0\0\0"
++                         "gp->u.scroll.ctr_jobj\0\0\0"
++                         "translate\0\0";
++
+ void grRCruise_801FF7A4(Ground_GObj* gobj)
+ {
+     Ground_GObj* stage_gobj = gobj;
+diff --git a/src/melee/gr/grvenom.c b/src/melee/gr/grvenom.c
+index 5555555..6666666 100644
+--- a/src/melee/gr/grvenom.c
++++ b/src/melee/gr/grvenom.c
+@@ -69,6 +69,17 @@ extern s32 grVe_804D6A40;
+ 
++/* literal */ SDATA char grVe_804D47C0[] = "jobj.h";
++/* literal */ SDATA char grVe_804D47C8[] = "jobj";
++
++static inline void grVenom_JObjSetScaleX(HSD_JObj* jobj, f32 x)
++{
++    HSD_ASSERTMSG(0x308, jobj, &grVe_804D47C8[0]);
++    jobj->scale.x = x;
++    if (!(jobj->flags & JOBJ_MTX_INDEP_SRT)) {
++        HSD_JObjSetMtxDirtySub(jobj);
++    }
++}
++
+ typedef struct grVe_Lighting {
+     char pad[0xE0];
+     u8 xE0;

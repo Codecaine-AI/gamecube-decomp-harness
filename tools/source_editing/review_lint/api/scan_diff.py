@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Diff-aware QA ship gate: scan a unified diff for maintainer-rejected patterns.
 
-Runs the review_lint QA rules (extern-literal anchors, string-literal-to-
-symbol swaps, packed string blobs, unrolled asserts, banned patterns,
-resubmission tombstones) against the ADDED lines of a diff only, so
-pre-existing upstream code is never flagged.
+Runs the review_lint QA rules (extern-literal anchors, same-TU function
+externs, string-literal-to-symbol swaps, packed string blobs, unrolled asserts,
+banned patterns, resubmission tombstones) against the ADDED lines of a diff
+only, so pre-existing upstream code is never flagged.
 
 Output contract (mirrors packages/core/src/qa/scan-diff.ts):
   stdout: JSON {tool, operation, status, repo, base, findings, counts}
@@ -31,6 +31,23 @@ import check_extern_ownership
 
 HUNK_HEADER_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 GLOBAL_APPLIES_TO = ["src/**/*.c"]
+MOVED_LINE_DOWNGRADE_RULES = {
+    "same_tu_function_extern",
+    "unrolled_assert",
+    "fake_assert_macro",
+    "assert_idiom_downgrade",
+    "copied_jobj_inline",
+    "stage_ground_var_owner",
+    "register_keyword",
+    "inline_asm",
+    "numeric_literal_to_symbol",
+    "m2c_residue_names",
+    "m2c_goto_label",
+    "m2c_field_use",
+    "define_alias",
+    "novel_pragma",
+    "type_erasing_cast",
+}
 
 
 def run_git(repo: Path, args: list[str]) -> str:
@@ -158,6 +175,37 @@ def has_in_file_definition(file_text: str, symbol: str) -> bool:
         if init_re.match(line):
             return True
     return False
+
+
+def has_function_definition(file_text: str, symbol: str) -> bool:
+    """Check whether the TU defines a function with this symbol name."""
+
+    clean = _qa_rules.strip_comments_and_strings(file_text)
+    name = re.escape(symbol)
+    return_type = (
+        r"(?:(?:static|inline|const|volatile|signed|unsigned|long|short|"
+        r"struct\s+[A-Za-z_]\w*|enum\s+[A-Za-z_]\w*|union\s+[A-Za-z_]\w*|"
+        r"[A-Za-z_]\w*)[ \t*]+)+"
+    )
+    fn_re = re.compile(
+        rf"(?m)^[ \t]*(?!extern\b){return_type}\b{name}\s*\([^;{{}}]*\)\s*\{{"
+    )
+    return fn_re.search(clean) is not None
+
+
+def brace_depth_before_line(file_text: str, line_no: int) -> int:
+    """Approximate C brace depth immediately before a 1-based line number."""
+
+    clean = _qa_rules.strip_comments_and_strings(file_text)
+    depth = 0
+    for idx, line in enumerate(clean.splitlines(), start=1):
+        if idx >= line_no:
+            break
+        depth += line.count("{")
+        depth -= line.count("}")
+        if depth < 0:
+            depth = 0
+    return depth
 
 
 def symbol_in_diff_base(
@@ -309,6 +357,156 @@ def evaluate_extern_findings(
     return result
 
 
+def evaluate_function_extern_findings(
+    findings: list[dict[str, Any]],
+    repo: Path,
+    mode: str,
+    file_diffs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Escalate function externs that name same-TU definitions.
+
+    A local function extern can make MWCC treat an already-defined same-TU
+    helper as opaque at that point, changing inline-boundary decisions. That is
+    the cobj.c/CObjGetUpVector class of regression: the match is achieved by
+    hiding visibility rather than by reconstructing authored source structure.
+    """
+
+    file_text_cache: dict[str, str | None] = {}
+    result: list[dict[str, Any]] = []
+    for finding in findings:
+        if finding["rule_id"] != "function_extern_visibility":
+            result.append(finding)
+            continue
+        detail = finding.get("detail") or {}
+        symbol = str(detail.get("symbol") or "")
+        rel_path = finding["file"]
+        if rel_path not in file_text_cache:
+            file_text_cache[rel_path] = post_diff_file_text(
+                repo, rel_path, mode, file_diffs
+            )
+        file_text = file_text_cache[rel_path]
+        if file_text and symbol and has_function_definition(file_text, symbol):
+            scope = "block" if brace_depth_before_line(file_text, finding["line"]) > 0 else "file"
+            standard = "global_standard:matching-tactics-need-evidence"
+            escalated = dict(finding)
+            escalated["rule_id"] = "same_tu_function_extern"
+            escalated["severity"] = "error"
+            escalated["standard_id"] = standard
+            escalated["message"] = (
+                f"`extern` declaration for same-TU function `{symbol}` can hide "
+                "the function body from MWCC and change inline-boundary decisions. "
+                "Do not use local function externs as matching tactics; preserve "
+                "the normal declaration/body visibility and try small inline helper "
+                "layers or source reshaping instead. "
+                f"{_qa_rules.STANDARD_TITLES[standard]}."
+            )
+            escalated["detail"] = {
+                **detail,
+                "verdict": "same_tu_function_extern",
+                "scope": scope,
+            }
+            result.append(escalated)
+            continue
+        finding = dict(finding)
+        finding["detail"] = {**detail, "verdict": "cross_tu_or_unknown"}
+        result.append(finding)
+    return result
+
+
+def added_line_text_by_location(file_diffs: list[dict[str, Any]]) -> dict[tuple[str, int], str]:
+    """Index exact added-line text by (file, new line number)."""
+
+    index: dict[tuple[str, int], str] = {}
+    for record in file_diffs:
+        rel_path = record["file"]
+        for hunk in record["hunks"]:
+            for lineno, text in hunk["added"]:
+                index[(rel_path, lineno)] = text
+    return index
+
+
+def line_text_in_diff_base(file_diffs: list[dict[str, Any]], rel_path: str, text: str) -> bool:
+    """Fallback exact-line base check for --diff-file mode.
+
+    Removed and context lines are the only base-version evidence a standalone
+    patch contains.
+    """
+
+    for record in file_diffs:
+        if record["file"] != rel_path:
+            continue
+        for hunk in record["hunks"]:
+            if text in hunk["removed"] or text in hunk.get("context", []):
+                return True
+    return False
+
+
+def line_text_existed_in_base(
+    repo: Path,
+    rel_path: str,
+    text: str,
+    mode: str,
+    file_diffs: list[dict[str, Any]],
+    merge_base: str | None,
+    base_text_cache: dict[str, str | None],
+) -> bool:
+    """Return whether an added line existed verbatim in the base file."""
+
+    if mode != "diff" and merge_base:
+        if rel_path not in base_text_cache:
+            try:
+                base_text_cache[rel_path] = run_git(repo, ["show", f"{merge_base}:{rel_path}"])
+            except RuntimeError:
+                base_text_cache[rel_path] = None
+        base_text = base_text_cache[rel_path]
+        if base_text is not None:
+            return text in base_text.splitlines()
+    return line_text_in_diff_base(file_diffs, rel_path, text)
+
+
+def downgrade_moved_line_findings(
+    findings: list[dict[str, Any]],
+    repo: Path,
+    mode: str,
+    file_diffs: list[dict[str, Any]],
+    merge_base: str | None,
+) -> list[dict[str, Any]]:
+    """Downgrade hard findings whose exact added line already existed upstream."""
+
+    added_lines = added_line_text_by_location(file_diffs)
+    base_text_cache: dict[str, str | None] = {}
+    result: list[dict[str, Any]] = []
+    for finding in findings:
+        if (
+            finding.get("severity") != "error"
+            or finding.get("rule_id") not in MOVED_LINE_DOWNGRADE_RULES
+        ):
+            result.append(finding)
+            continue
+        rel_path = finding["file"]
+        added_text = added_lines.get((rel_path, finding["line"]))
+        if added_text is None:
+            result.append(finding)
+            continue
+        if not line_text_existed_in_base(
+            repo, rel_path, added_text, mode, file_diffs, merge_base, base_text_cache
+        ):
+            result.append(finding)
+            continue
+        detail = dict(finding.get("detail") or {})
+        detail["moved_vs_invented"] = "added_line_existed_verbatim_in_base"
+        downgraded = dict(finding)
+        downgraded["severity"] = "warning"
+        downgraded["detail"] = detail
+        downgraded["message"] = (
+            finding["message"]
+            + " Added line exists verbatim in the base version of this file, "
+            "so this is downgraded as moved existing code rather than newly invented residue."
+        )
+        result.append(downgraded)
+    return result
+
+
 def collect_findings(
     file_diffs: list[dict[str, Any]],
     repo: Path,
@@ -323,13 +521,22 @@ def collect_findings(
     for record in file_diffs:
         if not _qa_rules.path_matches(record["file"], GLOBAL_APPLIES_TO):
             continue
+        file_removed_hsd_asserts = sum(
+            1
+            for hunk in record["hunks"]
+            for text in hunk["removed"]
+            if _qa_rules.HSD_ASSERT_CALL_RE.search(_qa_rules.blank_line(text))
+        )
         for hunk in record["hunks"]:
-            findings.extend(_qa_rules.run_rules_on_hunk(rules, hunk))
+            hunk_for_rules = {**hunk, "file_removed_hsd_asserts": file_removed_hsd_asserts}
+            findings.extend(_qa_rules.run_rules_on_hunk(rules, hunk_for_rules))
             for partial in _qa_rules.check_tombstones(hunk, tombstones):
                 finding = {"file": record["file"], **partial}
                 finding["excerpt"] = finding["excerpt"][:240]
                 findings.append(finding)
     findings = evaluate_extern_findings(findings, repo, mode, file_diffs, merge_base)
+    findings = evaluate_function_extern_findings(findings, repo, mode, file_diffs)
+    findings = downgrade_moved_line_findings(findings, repo, mode, file_diffs, merge_base)
     findings.sort(key=lambda f: (f["file"], f["line"], f["rule_id"]))
     return findings
 

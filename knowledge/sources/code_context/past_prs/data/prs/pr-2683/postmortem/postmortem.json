@@ -1,0 +1,433 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2683",
+  "pr": {
+    "number": 2683,
+    "title": "Melee decomp: LB and MP utility matches",
+    "url": "https://github.com/doldecomp/melee/pull/2683",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-13T21:29:05Z",
+    "merged_at": "2026-06-15T05:19:02Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Exact-match decompilation slice for LB utility and MP collision/library helpers. The PR body claims 11 newly exact functions across 5 implementation files with zero slice regressions; metadata shows 6 changed files including removal of mplib.static.h content. Review focused on replacing local/imported helper or data-symbol workarounds with existing imports, direct literals, and inline source expressions.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "implementation-only",
+      "types-structs",
+      "headers",
+      "tooling"
+    ],
+    "systems": [
+      "library",
+      "melee-core",
+      "LB utility",
+      "MP collision",
+      "MP library"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/lb/lb_00F9.c",
+      "role": "LB utility match work; inlined lb_800115F4 helper logic, adjusted local declaration/order and PAD_STACK in lb_80014638, and handled review on sqrtf import and inlineC0 removal.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/lb/lb_00F9.c added 22 deleted 27 hunks 6",
+        "diff_excerpt: lb_800115F4 inlineB0 removal and total_scale accumulation",
+        "diff_excerpt: lb_80014638 inlineC0 removal, absolute-value check/division folded into function",
+        "review_comments: discussions r3410069690, r3410130286, r3410669756"
+      ]
+    },
+    {
+      "path": "src/melee/lb/lbcollision.c",
+      "role": "LB collision geometry matching/refactor; renamed many temp_f variables into geometric roles and changed lbColl_80006094 return type from int to bool in diff excerpt.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/lb/lbcollision.c added 104 deleted 105 hunks 11",
+        "diff_excerpt: lbColl_80006094 temp_f variables renamed to d1/d2/dot/len/denom terms",
+        "diff_excerpt: PAD_STACK moved/narrowed near return path"
+      ]
+    },
+    {
+      "path": "src/melee/lb/lbmthp.c",
+      "role": "LB math helper match work; changed file metadata lists small implementation changes, and bot report lists fn_8001E910 as newly matched plus fn_8001F2A4/fn_8001ECF4 improvements.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/lb/lbmthp.c added 11 deleted 12 hunks 6",
+        "text_corpus bot report: lbmthp fn_8001E910 new match; fn_8001F2A4 and fn_8001ECF4 improved"
+      ]
+    },
+    {
+      "path": "src/melee/mp/mpcoll.c",
+      "role": "MP collision match work; review requested replacing a float bit-cast/data-symbol read with direct F32_MAX assignment in mpColl_80046224_LeftWall.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/mp/mpcoll.c added 32 deleted 29 hunks 4",
+        "review_comments: discussion r3410071069 requested inline this on mpColl_804D6490_max_x assignment",
+        "review_comments: discussion r3410669846 says resolved with direct F32_MAX and ninja OK"
+      ]
+    },
+    {
+      "path": "src/melee/mp/mplib.c",
+      "role": "Major MP library match work; included mpLib_DrawCrosses cleanup, data/literal handling, new matches and many unmatched improvements.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/mp/mplib.c added 301 deleted 136 hunks 36",
+        "review_comments: discussions r3410072212, r3410072357, r3410669902, r3410669984",
+        "text_corpus bot report: mplib new matches mpLinesConnected, mpLib_80055E9C, mpLib_80057BC0, mpCheckFloor, mpLib_80058820 and several improvements"
+      ]
+    },
+    {
+      "path": "src/melee/mp/mplib.static.h",
+      "role": "Static header cleanup/removal of declarations or data surfaced by MP library changes.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/mp/mplib.static.h added 0 deleted 30 hunks 1"
+      ]
+    }
+  ],
+  "what_changed": [
+    "PR body describes exact-match decompilation for LB utility and MP collision/library helpers, adding 11 newly exact functions across 5 files.",
+    "Changed-file metadata lists 6 touched files: lb_00F9.c, lbcollision.c, lbmthp.c, mpcoll.c, mplib.c, and mplib.static.h.",
+    "lb_800115F4 absorbed the prior inlineB0 helper shape, keeping a running total_scale while iterating and relinking lb_80011A50_t nodes.",
+    "lb_80014638 removed inlineC0 and folded the z interpolation/near-zero absolute-value check directly into the function; PAD_STACK changed from 4 to 8 in the excerpt.",
+    "lbColl_80006094 changed return type from int to bool in the excerpt and replaced temp_f-style locals with geometric names such as d1_x, d2_len_sq, d1_dot_d2, offset_delta_x, and denom.",
+    "mpColl_80046224_LeftWall review resolution states the max-x assignment now uses F32_MAX directly instead of a float bit-cast through mpColl_804D7FA0.",
+    "mpLib_DrawCrosses review resolution states six GXPosition3f32 calls now inline 3.0F rather than reading mpLib_804D8124[0].",
+    "A temporary lbl_803BF570 placeholder near mpLib_DrawCrosses was reported resolved by expressing spawn vertex offsets/data directly with the current enum/data layout.",
+    "PR body verification claims slice and full ship-set regression reports with 0 broken matches, 0 fuzzy regressions, 0 metric regressions, git diff --check passing, and review_lint 0 errors."
+  ],
+  "smart_moves": [
+    "Used semantic local names for vector math in lbcollision.c, making dot products, squared lengths, offsets, and denominator calculations reviewable without inventing global semantics.",
+    "Resolved review by preferring ordinary source literals and constants, such as F32_MAX and 3.0F, over address-based data reads when the review evidence indicated the direct source form matched.",
+    "Removed one-use helper shapes such as inlineB0/inlineC0 where review or diff evidence supported folding the calculation into the owning function.",
+    "Kept verification evidence visible in PR body and resolution comments, including ninja OK comments for specific review fixes."
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "For small one-use helpers produced during matching, review may prefer folding the expression into the owning function when that better reflects local source shape and still verifies.",
+      "scope": [
+        "src/melee/lb/lb_00F9.c",
+        "lb_800115F4",
+        "lb_80014638"
+      ],
+      "evidence_refs": [
+        "diff_excerpt: inlineB0 removed and folded into lb_800115F4",
+        "review_comments: r3410069971 requested inline this for inlineC0",
+        "review_comments: r3410669756 says inlineC0 removed and verified with ninja"
+      ]
+    },
+    {
+      "lesson": "When matching math-heavy collision functions, replacing temp_f register names with role names for vectors, dot products, squared lengths, scale factors, and denominators can preserve the expression structure while improving reviewability.",
+      "scope": [
+        "src/melee/lb/lbcollision.c",
+        "lbColl_80006094"
+      ],
+      "evidence_refs": [
+        "diff_excerpt: temp_f25/temp_f7/temp_f10 etc. renamed to d1_y, d2_len_sq, d1_dot_d2, denom, scale"
+      ]
+    },
+    {
+      "lesson": "Literal or constant expressions should not be replaced with address-based data reads merely to chase data or relocation shape when direct source constants verify.",
+      "scope": [
+        "src/melee/mp/mpcoll.c",
+        "src/melee/mp/mplib.c"
+      ],
+      "evidence_refs": [
+        "review_comments: r3410669846 direct F32_MAX assignment verified",
+        "review_comments: r3410669902 six GXPosition3f32 calls now inline 3.0F and verified"
+      ]
+    },
+    {
+      "lesson": "If a function-local implementation of a standard/library inline appears, first look for the owning imported header or existing implementation rather than adding a bespoke local extern inline.",
+      "scope": [
+        "src/melee/lb/lb_00F9.c",
+        "sqrtf",
+        "math_ppc.h"
+      ],
+      "evidence_refs": [
+        "review_comments: r3410069690 asks can you import this from somewhere?",
+        "review_comments: r3410130286 says That's the math_ppc.h version"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "convention": "Use short geometric role names for math-heavy locals when the role is directly visible: d1_x/d1_y/d1_z, d2_x/d2_y/d2_z, *_len_sq, *_dot_*, offset_delta_*, denom, scale.",
+      "scope": [
+        "src/melee/lb/lbcollision.c"
+      ],
+      "evidence_refs": [
+        "diff_excerpt: lbColl_80006094 local renames"
+      ]
+    },
+    {
+      "convention": "Use local pointer/count names that describe iteration roles, such as idx_ptr, out_vtx, idx_i, and out_count, instead of var_rXX/temp_rXX names when roles are known.",
+      "scope": [
+        "src/melee/mp/mplib.c",
+        "mpLib_DrawCrosses"
+      ],
+      "evidence_refs": [
+        "review_comments: mpLib_DrawCrosses hunk shows var_r31/var_r30/temp_r29 replaced by idx_ptr/out_vtx and len_r27 by out_count"
+      ]
+    },
+    {
+      "convention": "Keep address-style labels for placeholders only when semantics are not yet recovered; review resolution indicates temporary lbl_803BF570 was removed once spawn vertex data could be expressed with current enum/data layout.",
+      "scope": [
+        "src/melee/mp/mplib.c"
+      ],
+      "evidence_refs": [
+        "review_comments: r3410669984"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "PAD_STACK was adjusted or relocated in matching work, including lb_80014638 changing PAD_STACK(4) to PAD_STACK(8) and lbColl_80006094 moving from an early PAD_STACK(80) to a later PAD_STACK(72) in the excerpt.",
+      "risk": "Stack padding is a narrow matching tactic and should remain tied to local verification evidence.",
+      "evidence_refs": [
+        "diff_excerpt: lb_80014638 PAD_STACK(8)",
+        "diff_excerpt: lbColl_80006094 PAD_STACK(72)",
+        "decomp_standards: matching-tactics-need-evidence",
+        "human_pr_text: slice regression report 11 new matches, 0 broken/fuzzy/metric regressions"
+      ]
+    },
+    {
+      "tactic": "Declaration ordering and local lifetime changes were used for MWCC-sensitive codegen, visible in lb_80012994 variable reorder and lbcollision locals moved across inner scopes.",
+      "risk": "Supported by diff and PR verification, but exact reason for each declaration move is not explicitly explained in comments.",
+      "evidence_refs": [
+        "diff_excerpt: lb_80012994 f32 y_p1, x_p1, y_m1, x_m1 ordering",
+        "diff_excerpt: lbColl_800067F8 out0/out1 declaration movement",
+        "human_pr_text: verification summary"
+      ]
+    },
+    {
+      "tactic": "Inline direct source expressions instead of helper calls or data-symbol reads when review and verification show the direct form matches.",
+      "risk": "Grounded for inlineC0, F32_MAX, and 3.0F cases only; not a blanket rule for all helpers or data.",
+      "evidence_refs": [
+        "review_comments: r3410669756",
+        "review_comments: r3410669846",
+        "review_comments: r3410669902"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "path": "src/melee/lb/lb_00F9.c",
+      "feedback": "Reviewer asked whether the locally added sqrtf/__frsqrte implementation could be imported from somewhere; another reviewer identified it as the math_ppc.h version.",
+      "resolution_evidence": "Review excerpt includes the comments, but the loaded slice does not show final include/import diff for this exact issue.",
+      "evidence_refs": [
+        "review_comments: r3410069690",
+        "review_comments: r3410130286"
+      ]
+    },
+    {
+      "path": "src/melee/lb/lb_00F9.c",
+      "feedback": "Reviewer requested inlining inlineC0.",
+      "resolution_evidence": "Author replied that inlineC0 was removed and its calculation folded directly into lb_80014638 with inline absolute-value check/division; verified with ninja build/GALE01/main.dol OK.",
+      "evidence_refs": [
+        "review_comments: r3410069971",
+        "review_comments: r3410669756",
+        "diff_excerpt: lb_80014638 folded calculation"
+      ]
+    },
+    {
+      "path": "src/melee/mp/mpcoll.c",
+      "feedback": "Reviewer requested inlining a data/bit-cast expression for max_x.",
+      "resolution_evidence": "Author replied that mpColl_804D6490_max_x now assigns F32_MAX directly and verified with ninja build/GALE01/main.dol OK.",
+      "evidence_refs": [
+        "review_comments: r3410071069",
+        "review_comments: r3410669846"
+      ]
+    },
+    {
+      "path": "src/melee/mp/mplib.c",
+      "feedback": "Reviewer requested inlining mpLib_DrawCrosses values instead of reading mpLib_804D8124[0].",
+      "resolution_evidence": "Author replied that six GXPosition3f32 calls now inline 3.0F and verified with ninja build/GALE01/main.dol OK.",
+      "evidence_refs": [
+        "review_comments: r3410072212",
+        "review_comments: r3410669902"
+      ]
+    },
+    {
+      "path": "src/melee/mp/mplib.c",
+      "feedback": "Reviewer requested inlining/removing a temporary lbl_803BF570 placeholder near item spawn vertex data.",
+      "resolution_evidence": "Author replied the placeholder is gone and spawn vertex offsets/data are expressed directly with current enum/data layout; verified with ninja build/GALE01/main.dol OK.",
+      "evidence_refs": [
+        "review_comments: r3410072357",
+        "review_comments: r3410669984"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR2683",
+    "fjooord",
+    "LB utility",
+    "MP collision",
+    "MP library",
+    "src/melee/lb/lb_00F9.c",
+    "src/melee/lb/lbcollision.c",
+    "src/melee/lb/lbmthp.c",
+    "src/melee/mp/mpcoll.c",
+    "src/melee/mp/mplib.c",
+    "src/melee/mp/mplib.static.h",
+    "lb_800115F4",
+    "inlineB0",
+    "total_scale",
+    "lb_80014638",
+    "inlineC0",
+    "PAD_STACK",
+    "lbColl_80006094",
+    "d1_dot_d2",
+    "d2_len_sq",
+    "denom",
+    "mpColl_80046224_LeftWall",
+    "F32_MAX",
+    "mpLib_DrawCrosses",
+    "GXPosition3f32",
+    "mpLib_804D8124",
+    "lbl_803BF570",
+    "math_ppc.h",
+    "sqrtf",
+    "__frsqrte"
+  ],
+  "follow_up_queries": [
+    "PR 2683 math_ppc.h sqrtf import final diff lb_00F9.c",
+    "PR 2683 mpLib_DrawCrosses 3.0F mpLib_804D8124 review resolution",
+    "PR 2683 mplib.static.h deleted declarations",
+    "lbColl_80006094 denom d1_dot_d2 d2_len_sq matching tactic",
+    "mpColl_80046224_LeftWall F32_MAX bit-cast review",
+    "PR 2683 lbl_803BF570 spawn vertex offsets enum data layout"
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR identity, state, author, changed file metadata",
+      "human_pr_text: PR body summary and verification",
+      "changed_files.jsonl: complete changed-file list",
+      "diff_excerpt/raw_diff: representative hunks, truncated",
+      "review_comments.md: review comments and several resolution comments, truncated",
+      "text_corpus: bot report excerpt, truncated"
+    ],
+    "notes": [
+      "Changed-file list and PR body are complete enough for file and verification summary.",
+      "Diff and review comments are truncated, so not every hunk or review thread is visible.",
+      "PR body claims 11 new exact functions, while the visible bot report excerpt lists 9 new matches and one unmatched .sdata2 regression before later author summary; final PR body is treated as stronger for final slice verification but the discrepancy is noted.",
+      "Resolution for the sqrtf/math_ppc.h import issue is implied by review discussion but not shown in a final loaded diff hunk.",
+      "No source updates are applied by this intake record; candidates are routed for curator review."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "pr_lesson_candidate",
+        "title": "Inline one-use helper artifacts when review and obj/build evidence support the owning-function expression",
+        "text": "In PR #2683, inlineB0/inlineC0-style helper shapes in lb_00F9.c were removed or folded into the owning functions, with author resolution for inlineC0 explicitly verified by ninja.",
+        "scope": [
+          "src/melee/lb/lb_00F9.c",
+          "lb_800115F4",
+          "lb_80014638"
+        ],
+        "evidence_refs": [
+          "diff_excerpt: inlineB0 removal",
+          "review_comments: r3410069971 and r3410669756"
+        ]
+      },
+      {
+        "record_type": "pr_lesson_candidate",
+        "title": "Prefer direct literals/constants over address-based data reads when review shows the literal source form verifies",
+        "text": "PR #2683 review resolutions replaced a float bit-cast/data-symbol path with F32_MAX and changed mpLib_DrawCrosses to inline 3.0F in six GXPosition3f32 calls, each with ninja OK evidence.",
+        "scope": [
+          "src/melee/mp/mpcoll.c",
+          "src/melee/mp/mplib.c"
+        ],
+        "evidence_refs": [
+          "review_comments: r3410669846",
+          "review_comments: r3410669902"
+        ]
+      },
+      {
+        "record_type": "naming_candidate",
+        "title": "Use geometric role names in collision math once roles are locally clear",
+        "text": "The lbcollision.c diff replaced temp_f-style locals with d1/d2 component names, dot products, squared lengths, offset deltas, scale, and denom names in lbColl_80006094.",
+        "scope": [
+          "src/melee/lb/lbcollision.c",
+          "lbColl_80006094"
+        ],
+        "evidence_refs": [
+          "diff_excerpt: lbColl_80006094 local renames"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Check existing SDK/project headers before adding local copies of library inlines",
+        "text": "Review on PR #2683 flagged a locally added sqrtf/__frsqrte inline and identified it as the math_ppc.h version. A possible standard update is to prefer importing existing SDK/project header inlines over adding TU-local copies when the operation is owned elsewhere.",
+        "source_path": null,
+        "scope": [
+          "src/melee/lb/lb_00F9.c",
+          "sqrtf",
+          "math_ppc.h"
+        ],
+        "evidence_refs": [
+          "review_comments: r3410069690",
+          "review_comments: r3410130286"
+        ],
+        "reason": "Supported by review comments, but final import diff is not visible in the loaded slice; curator should verify against source/header ownership before promoting."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Avoid data-symbol reads for ordinary constants when direct literals/constants match",
+        "text": "PR #2683 review resolutions favored direct F32_MAX and direct 3.0F over a float bit-cast/data-symbol read and mpLib_804D8124[0] reads. This may reinforce existing literals-and-data-ownership and text-before-data-matching standards.",
+        "source_path": null,
+        "scope": [
+          "src/melee/mp/mpcoll.c",
+          "src/melee/mp/mplib.c"
+        ],
+        "evidence_refs": [
+          "review_comments: r3410669846",
+          "review_comments: r3410669902",
+          "decomp_standards: literals-and-data-ownership",
+          "decomp_standards: text-before-data-matching"
+        ],
+        "reason": "Likely already covered by loaded standards; curator can decide whether this PR should become an example rather than a new standard."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "src/melee/mp/mplib.c owns mpLib_DrawCrosses and item spawn vertex/data layout work in this slice",
+        "text": "PR #2683 review comments tie mpLib_DrawCrosses, GXPosition3f32 cross drawing, mpLib_804D8124[0], lbl_803BF570, and spawn vertex offsets/data layout to src/melee/mp/mplib.c.",
+        "source_path": "src/melee/mp/mplib.c",
+        "scope": [
+          "mpLib_DrawCrosses",
+          "GXPosition3f32",
+          "lbl_803BF570",
+          "spawn vertex offsets"
+        ],
+        "evidence_refs": [
+          "review_comments: r3410072212",
+          "review_comments: r3410072357",
+          "review_comments: r3410669902",
+          "review_comments: r3410669984"
+        ],
+        "reason": "Potentially useful path fact, but should be checked against current source before adding."
+      }
+    ],
+    "rejection_notes": [
+      "Do not promote the PR body's '11 newly exact functions' into a per-symbol final match list beyond the symbols visible in the loaded bot report and excerpts; full final diff/report is partially truncated.",
+      "Do not infer that all one-use helpers should always be inlined; this PR only supports specific inlineB0/inlineC0/literal cases with review/build evidence.",
+      "Do not treat PAD_STACK changes here as general style; loaded standards require narrow verifier evidence for stack-padding tactics.",
+      "Do not claim final sqrtf import mechanics because the loaded slice shows review identification of math_ppc.h but not the final include/import hunk."
+    ]
+  },
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

@@ -12,159 +12,152 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Closed, unmerged MP subsystem slice from a larger matching-improvement branch. It touched src/melee/mp/mpcoll.c and src/melee/mp/mplib.c. The visible diff moved a Vec3/PAD_STACK declaration in mpColl_80046224_LeftWall and collapsed several mpLib spawn vertex ID arrays into one larger array with #define pointer aliases. decomp-dev reported no changes for GALE01, and a reviewer closed the PR as incorrect, specifically calling out wrong size/offset implications and define usage as a regression.",
+  "summary": "Closed, unmerged MP matching slice touching src/melee/mp/mpcoll.c and src/melee/mp/mplib.c. The diff moved a Vec3/PAD_STACK declaration in mpColl_80046224_LeftWall and merged several mpLib spawn vertex ID arrays into one larger array with pointer-offset #define aliases. A maintainer closed the PR as incorrect, specifically calling out wrong field-size implications based on offsets and the define usage as a regression. The decomp-dev report for this PR reported no changes.",
   "change_classification": {
-    "primary_type": "rejected decomp-matching/data-layout change",
+    "primary_type": "rejected decomp-matching/data-layout cleanup",
     "categories": [
       "decomp-matching",
       "data-layout",
-      "stack-shape-tactic",
-      "review-rejected"
+      "macro-alias-regression",
+      "stack-shape-tactic"
     ],
     "systems": [
-      "melee-core",
-      "mp"
+      "src/melee/mp",
+      "melee-core"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/mp/mpcoll.c",
-      "role": "Moved local Vec3 nrm declaration and PAD_STACK(0x44) outward in mpColl_80046224_LeftWall.",
+      "role": "Moved local Vec3 nrm and PAD_STACK(0x44) declaration outward in mpColl_80046224_LeftWall.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/mp/mpcoll.c added 2 deleted 2 hunks 1",
+        "changed_files: src/melee/mp/mpcoll.c added=2 deleted=2 hunks=1",
         "raw_diff: mpColl_80046224_LeftWall hunk"
       ]
     },
     {
       "path": "src/melee/mp/mplib.c",
-      "role": "Merged separate static spawn vertex ID arrays into a larger mpLib_ItemSpawnVtxIds array and added #define aliases for the former arrays at offsets.",
+      "role": "Collapsed separate spawn vertex ID arrays into a larger mpLib_ItemSpawnVtxIds array and recreated removed arrays with pointer-offset #define aliases.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/mp/mplib.c added 8 deleted 13 hunks 2",
-        "raw_diff: mpLib_DrawCrosses/static spawn vertex ID arrays hunk",
-        "issuecomment-4650584697"
+        "changed_files: src/melee/mp/mplib.c added=8 deleted=13 hunks=2",
+        "raw_diff: mpLib_ItemSpawnVtxIds/mpLib_EnemySpawnVtxIds/mpLib_TrophySpawnVtxIds/mpLib_ExitVtxIds hunk",
+        "issue_comment: PsiLupan 2026-06-08T15:29:20Z"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "PR was split from #2617 by directory/subsystem with stated scope src/melee/mp.",
+      "text": "In mpColl_80046224_LeftWall, Vec3 nrm and PAD_STACK(0x44) were moved from inside the nested left-wall branch to the outer block after Vec3 vec.",
       "evidence_refs": [
-        "pr_body"
+        "raw_diff: src/melee/mp/mpcoll.c @@ -2170"
       ]
     },
     {
-      "text": "In mpColl_80046224_LeftWall, Vec3 nrm and PAD_STACK(0x44) were moved from inside the nested left-wall conditional block to the outer ceiling-handling block.",
+      "text": "In mplib.c, mpLib_ItemSpawnVtxIds changed from length 0x15 to 0xAE and absorbed the entries previously held by mpLib_EnemySpawnVtxIds, mpLib_TrophySpawnVtxIds, and mpLib_ExitVtxIds, with zero padding inserted between groups.",
       "evidence_refs": [
-        "raw_diff: mpColl_80046224_LeftWall hunk"
+        "raw_diff: src/melee/mp/mplib.c @@ -6477"
       ]
     },
     {
-      "text": "In mplib.c, mpLib_ItemSpawnVtxIds was resized from 0x15 to 0xAE and the previous mpLib_EnemySpawnVtxIds, mpLib_TrophySpawnVtxIds, and mpLib_ExitVtxIds arrays were folded into that initializer with inserted zero separators.",
+      "text": "The removed spawn vertex ID arrays were replaced by preprocessor aliases: mpLib_EnemySpawnVtxIds as mpLib_ItemSpawnVtxIds + 0x16, mpLib_TrophySpawnVtxIds as +0x66, and mpLib_ExitVtxIds as +0x80.",
       "evidence_refs": [
-        "raw_diff: mplib.c spawn vertex arrays hunk"
+        "raw_diff: src/melee/mp/mplib.c #define additions"
       ]
     },
     {
-      "text": "The folded arrays were reintroduced as preprocessor pointer aliases: mpLib_EnemySpawnVtxIds at +0x16, mpLib_TrophySpawnVtxIds at +0x66, and mpLib_ExitVtxIds at +0x80.",
+      "text": "The PR body described the work as a split from #2617 scoped to src/melee/mp, with preliminary unsplit-branch matching progress and local diff-check evidence; the PR-specific decomp-dev report later stated 'No changes'.",
       "evidence_refs": [
-        "raw_diff: mplib.c #define aliases"
+        "human_pr_text: PR body Preliminary Report and Local Checks",
+        "text_corpus: decomp-dev[bot] issue_comment 2026-06-08T14:38:23Z"
       ]
     },
     {
-      "text": "decomp-dev reported 'No changes' for GALE01 from 07bb71f to 2fafa1f.",
+      "text": "The PR was closed after maintainer feedback that the changes looked incorrect and that define usage was a regression.",
       "evidence_refs": [
-        "text_corpus.jsonl: decomp-dev issue_comment 2026-06-08T14:38:23Z"
-      ]
-    },
-    {
-      "text": "Reviewer closed the PR, saying the changes looked incorrect, that the defines showed size changes would be wrong based on offset, and that define usage was a regression.",
-      "evidence_refs": [
-        "text_corpus.jsonl: PsiLupan issue_comment 2026-06-08T15:29:20Z"
+        "text_corpus: PsiLupan issue_comment 2026-06-08T15:29:20Z",
+        "metadata_json: pr.state CLOSED, merged_at null"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "The author narrowed a larger branch into an MP-only path slice to make subsystem review easier.",
+      "text": "The author split a broader branch by directory/subsystem and documented the exact scope and changed files, which made the MP slice easier to review.",
       "evidence_refs": [
-        "pr_body: Split from #2617 by directory/subsystem",
-        "pr_body: Scope src/melee/mp"
+        "human_pr_text: 'Split from #2617 by directory/subsystem'",
+        "human_pr_text: Scope and Files sections"
       ]
     },
     {
-      "text": "The PR body separated preliminary full-branch report claims from authoritative per-PR CI/decomp-dev reporting.",
+      "text": "The PR body distinguished preliminary full-branch scores from authoritative per-PR CI/decomp-dev reporting.",
       "evidence_refs": [
-        "pr_body: Preliminary Report",
-        "pr_body: Per-PR CI/decomp-dev reporting on this draft is the authoritative slice score once it completes"
+        "human_pr_text: 'Per-PR CI/decomp-dev reporting on this draft is the authoritative slice score once it completes.'"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "text": "Do not collapse distinct static data tables into a single oversized table plus #define pointer aliases unless the sizes, offsets, and data ownership are explicitly verified; in this PR the reviewer identified the define-based layout as incorrect and a regression.",
+      "lesson": "Do not treat adjacent-looking data tables as one larger C array with pointer-offset aliases unless section/symbol/offset evidence supports the ownership and element sizing; in this PR, reviewer feedback said the define-based layout was incorrect and a regression.",
+      "scope": [
+        "src/melee/mp/mplib.c",
+        "static data tables",
+        "spawn vertex ID arrays"
+      ],
       "evidence_refs": [
-        "raw_diff: mplib.c spawn vertex arrays hunk",
-        "text_corpus.jsonl: PsiLupan issue_comment 2026-06-08T15:29:20Z",
-        "decomp_standards:no-define-alias-global-renames",
-        "decomp_standards:data-sections-and-tu-splits"
-      ]
+        "raw_diff: mpLib_ItemSpawnVtxIds size 0x15 -> 0xAE and alias defines",
+        "issue_comment: PsiLupan 2026-06-08T15:29:20Z"
+      ],
+      "confidence": 0.88
     },
     {
-      "text": "Data-layout edits that appear to improve contiguity still need offset and size evidence. The PR's array folding was rejected despite the broader branch claiming matching improvements.",
+      "lesson": "For PR-local validation claims, prefer the per-PR decomp-dev report over broad unsplit-branch progress claims; here the PR body gave unsplit progress, while the bot report for the slice said 'No changes'.",
+      "scope": [
+        "PR intake",
+        "matching reports"
+      ],
       "evidence_refs": [
-        "pr_body: Preliminary Report",
-        "raw_diff: mplib.c spawn vertex arrays hunk",
-        "text_corpus.jsonl: PsiLupan issue_comment 2026-06-08T15:29:20Z",
-        "decomp_standards:text-before-data-matching"
-      ]
-    },
-    {
-      "text": "PAD_STACK and local-lifetime movement are matching tactics, not self-justifying cleanup; this slice shows such a tactic in mpcoll.c but does not provide narrow objdiff evidence that it improved a match.",
-      "evidence_refs": [
-        "raw_diff: mpColl_80046224_LeftWall hunk",
-        "text_corpus.jsonl: decomp-dev issue_comment 2026-06-08T14:38:23Z",
-        "decomp_standards:matching-tactics-need-evidence"
-      ]
+        "human_pr_text: Preliminary Report",
+        "text_corpus: decomp-dev[bot] 'No changes'"
+      ],
+      "confidence": 0.82
     }
   ],
   "naming_conventions": [
     {
-      "text": "No new accepted naming convention is established. Existing mpLib_*SpawnVtxIds names were reused, but the aliasing approach was rejected.",
+      "convention": "Keep separate data symbol names such as mpLib_EnemySpawnVtxIds, mpLib_TrophySpawnVtxIds, and mpLib_ExitVtxIds as real declarations unless evidence supports replacing them; do not preserve those names only as pointer-offset #define aliases.",
       "evidence_refs": [
-        "raw_diff: mplib.c #define aliases",
-        "text_corpus.jsonl: PsiLupan issue_comment 2026-06-08T15:29:20Z"
-      ]
+        "raw_diff: removed static s16 declarations and added #define aliases",
+        "issue_comment: PsiLupan: 'usage of the define is a regression'"
+      ],
+      "confidence": 0.86
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "text": "Moved Vec3 nrm and PAD_STACK(0x44) to a wider scope in mpColl_80046224_LeftWall, likely to affect stack/local lifetime shape, but no PR-specific objdiff success is shown in the loaded evidence.",
+      "tactic": "PAD_STACK and local lifetime/declaration movement were used in mpColl_80046224_LeftWall by moving Vec3 nrm and PAD_STACK(0x44) outward, but this PR provides no objdiff evidence that the tactic improved a match.",
       "evidence_refs": [
-        "raw_diff: mpColl_80046224_LeftWall hunk",
-        "text_corpus.jsonl: decomp-dev issue_comment 2026-06-08T14:38:23Z"
-      ]
+        "raw_diff: src/melee/mp/mpcoll.c hunk",
+        "human_pr_text: no function-specific objdiff evidence",
+        "text_corpus: decomp-dev[bot] 'No changes'"
+      ],
+      "confidence": 0.72
     },
     {
-      "text": "Attempted data-contiguity tactic in mplib.c by combining several s16 spawn vertex ID arrays and using offset aliases; reviewer rejected it as wrong based on size/offset and as a define regression.",
+      "tactic": "The mplib.c hunk attempted data-layout matching by consolidating several s16 arrays and recreating former array symbols as pointer offsets into the first array; reviewer feedback rejected this tactic.",
       "evidence_refs": [
-        "raw_diff: mplib.c spawn vertex arrays hunk",
-        "text_corpus.jsonl: PsiLupan issue_comment 2026-06-08T15:29:20Z"
-      ]
+        "raw_diff: src/melee/mp/mplib.c hunk",
+        "issue_comment: PsiLupan 2026-06-08T15:29:20Z"
+      ],
+      "confidence": 0.9
     }
   ],
   "review_feedback": [
     {
       "author": "PsiLupan",
+      "created_at": "2026-06-08T15:29:20Z",
       "text": "Overall, these changes look incorrect. The defines even show that the size changes of the particular fields being referenced would be wrong based on offset. Likewise, the usage of the define is a regression, so I'm closing this PR.",
       "evidence_refs": [
-        "text_corpus.jsonl: PsiLupan issue_comment 2026-06-08T15:29:20Z"
-      ]
-    },
-    {
-      "author": "decomp-dev[bot]",
-      "text": "Report for GALE01 (07bb71f - 2fafa1f): No changes.",
-      "evidence_refs": [
-        "text_corpus.jsonl: decomp-dev issue_comment 2026-06-08T14:38:23Z"
+        "text_corpus: issue_comment PsiLupan",
+        "human_pr_text: appended issue comment"
       ]
     }
   ],
@@ -172,11 +165,12 @@
     "PR 2627",
     "Improvements to split up: MP",
     "src/melee/mp",
-    "src/melee/mp/mpcoll.c",
-    "src/melee/mp/mplib.c",
+    "mpcoll.c",
+    "mplib.c",
     "mpColl_80046224_LeftWall",
-    "PAD_STACK(0x44)",
+    "CollData",
     "Vec3 nrm",
+    "PAD_STACK(0x44)",
     "mpLib_DrawCrosses",
     "mpLib_ItemSpawnVtxIds",
     "mpLib_EnemySpawnVtxIds",
@@ -185,101 +179,77 @@
     "mpLib_SpawnVtxIds",
     "mpLib_RespawnVtxIds",
     "spawn vertex IDs",
-    "define alias regression",
-    "wrong size based on offset",
-    "data layout",
-    "GALE01 no changes",
-    "PsiLupan",
-    "fjooord"
+    "pointer-offset define",
+    "define regression",
+    "data table coalescing",
+    "No changes",
+    "PsiLupan"
   ],
   "follow_up_queries": [
-    "mpLib_ItemSpawnVtxIds mpLib_EnemySpawnVtxIds mpLib_TrophySpawnVtxIds mpLib_ExitVtxIds offset",
-    "PR 2627 define regression spawn vertex IDs",
-    "src/melee/mp/mplib.c static s16 SpawnVtxIds",
-    "mpColl_80046224_LeftWall PAD_STACK Vec3 nrm",
-    "no-define-alias-global-renames mpLib_*VtxIds",
-    "data layout table folding #define pointer alias regression"
+    "mpLib_ItemSpawnVtxIds mpLib_EnemySpawnVtxIds define regression",
+    "mpLib_TrophySpawnVtxIds mpLib_ExitVtxIds offset aliases",
+    "PR 2627 PsiLupan usage of the define is a regression",
+    "src/melee/mp/mplib.c spawn vertex ID arrays",
+    "mpColl_80046224_LeftWall PAD_STACK 0x44 Vec3 nrm"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json",
-      "human_pr_text.md",
-      "raw_diff",
-      "changed_files.jsonl",
-      "text_corpus.jsonl"
+      "metadata_json: PR identity, state, changed files, counts",
+      "human_pr_text: PR body and maintainer issue comment",
+      "raw_diff: complete diff excerpt for both changed files",
+      "text_corpus: decomp-dev bot report and closing comment"
     ],
     "notes": [
-      "Loaded evidence includes PR metadata, full human text, changed-file summary, full diff, bot report, and closing reviewer comment.",
-      "No review comments or formal review records were present; review feedback comes from issue comments.",
-      "The PR body's preliminary score came from the unsplit source branch and explicitly says per-PR CI/decomp-dev reporting is authoritative for the slice.",
-      "The decomp-dev report says 'No changes', so no matched-function or score improvement should be inferred from this PR slice.",
-      "The reviewer states the changes were incorrect and closed the PR; no merge or acceptance evidence is present."
+      "There were no review comments and no formal review records; reviewer feedback came from an issue comment.",
+      "The PR body's matching percentages are explicitly from the full unsplit source branch, not necessarily this MP slice.",
+      "The PR-specific decomp-dev bot report says 'No changes', so no function match or score improvement should be inferred for this PR.",
+      "The maintainer comment supports that the define-based data layout was rejected, but does not provide a detailed corrected layout."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "negative_pr_lesson",
-        "title": "Rejected mplib spawn vertex table folding via #define aliases",
-        "text": "PR #2627 is evidence against folding mpLib spawn vertex ID arrays into one oversized array with preprocessor offset aliases. The reviewer said the defines showed wrong size changes based on offset and that define usage was a regression.",
+        "record_type": "pr_local_lesson",
+        "title": "PR 2627 rejected pointer-offset #define aliases for MP spawn vertex tables",
+        "text": "In PR #2627, mplib.c replaced separate spawn vertex ID arrays with one enlarged mpLib_ItemSpawnVtxIds array plus #define aliases at offsets. Maintainer feedback called the changes incorrect and the define usage a regression, citing offset/field-size problems.",
         "scope": [
           "src/melee/mp/mplib.c",
-          "mpLib_ItemSpawnVtxIds",
-          "mpLib_EnemySpawnVtxIds",
-          "mpLib_TrophySpawnVtxIds",
-          "mpLib_ExitVtxIds"
+          "static s16 spawn vertex ID tables",
+          "PR-local rejected tactic"
         ],
         "evidence_refs": [
-          "raw_diff: mplib.c spawn vertex arrays hunk",
-          "text_corpus.jsonl: PsiLupan issue_comment 2026-06-08T15:29:20Z"
-        ]
+          "raw_diff: src/melee/mp/mplib.c array consolidation",
+          "issue_comment: PsiLupan 2026-06-08T15:29:20Z"
+        ],
+        "confidence": 0.9
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "mplib spawn vertex ID arrays are offset/size-sensitive",
-        "text": "For src/melee/mp/mplib.c, be cautious with mpLib_ItemSpawnVtxIds, mpLib_EnemySpawnVtxIds, mpLib_TrophySpawnVtxIds, and mpLib_ExitVtxIds. PR #2627 attempted to merge them into one larger array and re-expose the later tables with #define pointer offsets, but a reviewer closed the PR as incorrect because the size changes would be wrong based on offset and define usage was a regression.",
-        "source_path": "src/melee/mp/mplib.c",
-        "scope": [
-          "mpLib_ItemSpawnVtxIds",
-          "mpLib_EnemySpawnVtxIds",
-          "mpLib_TrophySpawnVtxIds",
-          "mpLib_ExitVtxIds"
-        ],
-        "evidence_refs": [
-          "raw_diff: mplib.c spawn vertex arrays hunk",
-          "text_corpus.jsonl: PsiLupan issue_comment 2026-06-08T15:29:20Z"
-        ],
-        "reason": "This is a path-specific caution supported by explicit reviewer rejection; curator should decide whether to add it as a path fact."
-      },
-      {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Avoid table folding through preprocessor pointer aliases",
-        "text": "When multiple named static tables appear adjacent or contiguous, do not replace them with one oversized table and #define aliases for subranges unless section ownership, symbol sizes, and offsets prove that layout. Reviewers may treat define aliases for data-table identities as regressions.",
+        "title": "Clarify that data-table aliases via #define need ownership and offset evidence",
+        "text": "Consider adding or strengthening guidance that adjacent data tables should not be merged into one oversized C array and re-exposed through pointer-offset #define aliases unless section ownership, symbol metadata, element size, and offset evidence prove that layout. PR #2627 is an example where a maintainer rejected this as incorrect and a define regression.",
         "source_path": null,
         "scope": [
-          "data layout",
-          "static arrays",
-          "preprocessor aliases",
-          "matching tactics"
+          "data-sections-and-tu-splits",
+          "no-define-alias-global-renames",
+          "literals-and-data-ownership",
+          "static data arrays"
         ],
         "evidence_refs": [
-          "raw_diff: mplib.c spawn vertex arrays hunk",
-          "text_corpus.jsonl: PsiLupan issue_comment 2026-06-08T15:29:20Z",
-          "decomp_standards:no-define-alias-global-renames",
-          "decomp_standards:data-sections-and-tu-splits"
+          "raw_diff: mpLib_ItemSpawnVtxIds 0x15 -> 0xAE",
+          "raw_diff: #define mpLib_EnemySpawnVtxIds/TrophySpawnVtxIds/ExitVtxIds",
+          "issue_comment: PsiLupan 2026-06-08T15:29:20Z"
         ],
-        "reason": "Existing standards already cover define aliases and data-section ownership, but this PR provides a concrete rejected example that may be useful as an illustrative standard note."
+        "reason": "Existing standards already discourage define aliases and fake data storage, but this PR provides a concrete rejected pattern involving coalesced arrays and pointer-offset aliases."
       }
     ],
     "rejection_notes": [
-      "Do not record the PR body's full-branch score as an accepted result for this PR slice; the slice bot report says 'No changes'.",
-      "Do not treat the PAD_STACK movement as a validated matching tactic; the loaded evidence does not show objdiff/build proof for that change.",
-      "Do not infer that the spawn vertex arrays are actually contiguous in source or should be represented by one array; the reviewer rejected that representation."
+      "Do not record the preliminary unsplit-branch matching percentages as achieved by PR #2627; the PR body says per-PR reporting is authoritative and the bot report says 'No changes'.",
+      "Do not infer that the PAD_STACK movement in mpcoll.c was accepted or beneficial; the PR was closed and no objdiff evidence is present.",
+      "Do not infer the exact correct sizes or ownership of the mpLib spawn vertex arrays beyond the reviewer statement that the proposed define/offset layout was wrong."
     ]
   },
   "confidence": 0.88,
@@ -289,6 +259,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

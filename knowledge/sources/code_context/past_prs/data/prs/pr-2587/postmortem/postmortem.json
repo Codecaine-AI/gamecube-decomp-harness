@@ -12,14 +12,14 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR 2587 matched or cleaned up Link Arrow item motion code centered on itLinkarrow_UnkMotion1_Anim, renamed the global function at 0x802A850C from it_802A850C to itLinkArrow_802A850C across symbols, header, and Fighter callsites, and made small local readability/codegen-shaping edits in src/melee/it/items/itlinkarrow.c. The bot report recorded 'No changes'.",
+  "summary": "PR 2587 is a focused item/fighter decomp-matching cleanup for Link Arrow, centered on matching itLinkarrow_UnkMotion1_Anim and renaming the 0x802A850C Link Arrow helper from it_802A850C to itLinkArrow_802A850C across symbols, header, implementation, and fighter call sites. The diff also replaces some raw object access with GET_ITEM/GET_JOBJ, improves local names, and adjusts stack padding/local layout in itlinkarrow.c. The only loaded bot report says GALE01 had no changes; there are no human review comments in the slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "symbol-rename",
       "headers",
-      "item-code-cleanup"
+      "symbol-rename",
+      "local-cleanup"
     ],
     "systems": [
       "item",
@@ -30,212 +30,193 @@
   "key_files": [
     {
       "path": "src/melee/it/items/itlinkarrow.c",
-      "role": "Primary item implementation changed: renamed it_802A850C helpers/function, used clearer locals, GET_ITEM/GET_JOBJ accessors, adjusted padding/local stack declarations, and touched itLinkarrow_UnkMotion1_Anim.",
+      "role": "Primary implementation change for Link Arrow matching: renamed helper/function identifiers, cleaned locals, used GET_ITEM/GET_JOBJ in touched code, and adjusted padding/local layout around itLinkarrow_UnkMotion1_Anim.",
       "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.c"
+        "raw_diff: src/melee/it/items/itlinkarrow.c hunks around 0x802A850C and itLinkarrow_UnkMotion1_Anim"
       ]
     },
     {
       "path": "src/melee/it/items/itlinkarrow.h",
       "role": "Header prototype updated from it_802A850C to itLinkArrow_802A850C.",
       "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.h"
+        "raw_diff: src/melee/it/items/itlinkarrow.h prototype hunk"
       ]
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Symbol name at .text:0x802A850C changed to itLinkArrow_802A850C while preserving size and global scope metadata.",
+      "role": "Symbol table rename for .text:0x802A850C from it_802A850C to itLinkArrow_802A850C.",
       "evidence_refs": [
-        "raw_diff:config/GALE01/symbols.txt"
+        "raw_diff: config/GALE01/symbols.txt hunk at 0x802A850C"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftLink/ftLk_SpecialN.c",
-      "role": "Link special-N callsite updated to the renamed Link Arrow item function.",
+      "role": "Link fighter call site updated to the renamed Link Arrow helper.",
       "evidence_refs": [
-        "raw_diff:src/melee/ft/chara/ftLink/ftLk_SpecialN.c"
+        "raw_diff: ftLk_SpecialN.c doEndColl hunk"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c",
-      "role": "Kirby Link-copy special-N callsite updated to the renamed Link Arrow item function.",
+      "role": "Kirby copied-Link special call site updated to the renamed Link Arrow helper.",
       "evidence_refs": [
-        "raw_diff:src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c"
+        "raw_diff: ftKb_SpecialNPk.c ftKb_SpecialNLk800FB6DC hunk"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Renamed global function it_802A850C to itLinkArrow_802A850C in symbols.txt, itlinkarrow.h, itlinkarrow.c, and two fighter callsites.",
+      "text": "Renamed the global function at .text:0x802A850C from it_802A850C to itLinkArrow_802A850C in symbols.txt, the item header, the item implementation, and both fighter call sites.",
       "evidence_refs": [
-        "raw_diff:config/GALE01/symbols.txt",
-        "raw_diff:src/melee/it/items/itlinkarrow.h",
-        "raw_diff:src/melee/ft/chara/ftLink/ftLk_SpecialN.c",
-        "raw_diff:src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c"
+        "raw_diff: config/GALE01/symbols.txt",
+        "raw_diff: src/melee/it/items/itlinkarrow.h",
+        "raw_diff: src/melee/it/items/itlinkarrow.c",
+        "raw_diff: ftLink and ftKirby call-site hunks"
       ]
     },
     {
-      "text": "Renamed local helper inlines tied to the 0x802A850C function from it_802A850C_inline / it_802A850C_inline_2 to itLinkArrow_802A850C_inline / itLinkArrow_802A850C_inline_2.",
+      "text": "Renamed related inline helpers from it_802A850C_inline / it_802A850C_inline_2 to itLinkArrow_802A850C_inline / itLinkArrow_802A850C_inline_2.",
       "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.c"
+        "raw_diff: src/melee/it/items/itlinkarrow.c inline helper hunks"
       ]
     },
     {
-      "text": "Improved local variable names in itlinkarrow.c, including var_r30 to jobj and sp60 to flags.",
+      "text": "Cleaned local variable names in the touched Link Arrow code, including var_r30 to jobj and sp60 to flags.",
       "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.c"
+        "raw_diff: src/melee/it/items/itlinkarrow.c local declaration hunks"
       ]
     },
     {
-      "text": "In itLinkarrow_UnkMotion1_Anim-related code, replaced direct gobj field access with GET_ITEM(gobj) and GET_JOBJ(gobj) in touched contexts.",
+      "text": "In itLinkarrow_UnkMotion1_Anim-related code, changed Item access from gobj->user_data to GET_ITEM(gobj) and JObj access in one inline from gobj->hsd_obj to GET_JOBJ(gobj).",
       "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.c"
+        "raw_diff: src/melee/it/items/itlinkarrow.c itLinkarrow_UnkMotion1_Anim_inline and itLinkarrow_UnkMotion1_Anim hunks"
       ]
     },
     {
-      "text": "Adjusted stack/padding declarations in itLinkarrow_UnkMotion1_Anim: changed _pad/PAD_STACK(16) pattern to pad[4] plus _pad[4].",
+      "text": "Adjusted stack-padding representation around itLinkarrow_UnkMotion1_Anim by replacing PAD_STACK(16) with explicit u8 pad[4] and u8 _pad[4] locals in the displayed hunk.",
       "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.c"
+        "raw_diff: src/melee/it/items/itlinkarrow.c itLinkarrow_UnkMotion1_Anim local declarations"
       ]
     },
     {
-      "text": "decomp-dev bot issue comment for GALE01 reported 'No changes'.",
+      "text": "Loaded bot issue comment reports: 'Report for GALE01 ... No changes'.",
       "evidence_refs": [
-        "text_corpus:issue_comment:decomp-dev[bot]:2026-06-06T18:27:04Z"
+        "text_corpus.jsonl: decomp-dev[bot] issue_comment created 2026-06-06T18:27:04Z"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "The semantic rename was applied consistently across symbol metadata, header prototype, implementation, and known callsites, avoiding split-brain naming for the same 0x802A850C function.",
+      "text": "The symbol rename was propagated consistently across symbol metadata, the public item header, implementation name, inline helper names, and known Link/Kirby call sites in the same PR.",
       "evidence_refs": [
-        "raw_diff:config/GALE01/symbols.txt",
-        "raw_diff:src/melee/it/items/itlinkarrow.h",
-        "raw_diff:src/melee/it/items/itlinkarrow.c",
-        "raw_diff:src/melee/ft/chara/ftLink/ftLk_SpecialN.c",
-        "raw_diff:src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c"
+        "raw_diff: all five changed files"
       ]
     },
     {
-      "text": "Local names were made more reviewable where roles were evident from types or call signatures, such as HSD_JObj* jobj and u32 flags passed to it_8026EA20.",
+      "text": "The touched function body used existing object access helpers where possible, replacing raw user_data with GET_ITEM and one raw hsd_obj access with GET_JOBJ.",
       "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.c"
+        "raw_diff: src/melee/it/items/itlinkarrow.c"
       ]
     },
     {
-      "text": "Header prototype was updated together with the recovered implementation name, matching the truthful-headers pattern from the loaded standards.",
+      "text": "Local names were made more reviewable without over-renaming unknown globals: jobj and flags replace generated-looking var_r30 and sp60 while other offset-based item fields remain unchanged.",
       "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.h",
-        "decomp_standards:truthful-headers-and-includes"
+        "raw_diff: src/melee/it/items/itlinkarrow.c"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When an address-style item function gains a supported subsystem-specific name, update the owning symbol entry, declaration, implementation, and all visible callsites in the same patch.",
+      "lesson": "For an address-style item function that becomes understood as belonging to a specific item, a scoped item-prefix rename can be reviewable when the PR updates all visible declarations, symbols, and call sites together.",
       "scope": [
         "item functions",
+        "symbol renames",
         "headers",
-        "symbols",
-        "callsite cleanup"
+        "fighter call sites"
       ],
       "evidence_refs": [
-        "raw_diff:config/GALE01/symbols.txt",
-        "raw_diff:src/melee/it/items/itlinkarrow.h",
-        "raw_diff:src/melee/it/items/itlinkarrow.c",
-        "raw_diff:src/melee/ft/chara/ftLink/ftLk_SpecialN.c",
-        "raw_diff:src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c"
+        "raw_diff: it_802A850C renamed to itLinkArrow_802A850C in symbols.txt, itlinkarrow.h, itlinkarrow.c, ftLk_SpecialN.c, and ftKb_SpecialNPk.c"
       ],
-      "confidence": 0.82
+      "confidence": 0.78
     },
     {
-      "lesson": "Accessor macros such as GET_ITEM and GET_JOBJ can be part of matching cleanup when replacing direct gobj->user_data or gobj->hsd_obj access in item code, but the PR evidence only proves this for the touched Link Arrow contexts.",
+      "lesson": "Accessor macros such as GET_ITEM and GET_JOBJ can be part of matching cleanup when they express the same object access in touched item animation code.",
       "scope": [
-        "src/melee/it/items/itlinkarrow.c",
-        "item GObj access"
+        "item animation code",
+        "HSD_GObj access",
+        "Item access"
       ],
       "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.c",
-        "decomp_standards:typed-fields-over-pointer-math"
+        "raw_diff: itLinkarrow_UnkMotion1_Anim_inline uses GET_JOBJ; itLinkarrow_UnkMotion1_Anim uses GET_ITEM"
       ],
-      "confidence": 0.68
+      "confidence": 0.72
     },
     {
-      "lesson": "Stack padding and local declaration shape may be adjusted narrowly during a match, but the durable record should preserve that this was a matching tactic, not a broad style rule.",
+      "lesson": "Stack-shape changes in matching work may appear as explicit small padding arrays rather than PAD_STACK, but the PR slice does not explain why this exact layout was required.",
       "scope": [
-        "itLinkarrow_UnkMotion1_Anim",
-        "local stack shaping"
+        "stack layout",
+        "matching tactics"
       ],
       "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.c",
-        "decomp_standards:matching-tactics-need-evidence"
+        "raw_diff: PAD_STACK(16) replaced with u8 pad[4] and u8 _pad[4]"
       ],
-      "confidence": 0.61
+      "confidence": 0.55
     }
   ],
   "naming_conventions": [
     {
-      "name": "itLinkArrow_802A850C",
-      "kind": "global function",
-      "text": "PR renamed address-style it_802A850C to subsystem-prefixed itLinkArrow_802A850C while retaining the address suffix.",
+      "convention": "Use the item-specific prefix itLinkArrow_ for the function at 0x802A850C once it is identified as Link Arrow logic.",
       "evidence_refs": [
-        "raw_diff:config/GALE01/symbols.txt",
-        "raw_diff:src/melee/it/items/itlinkarrow.h",
-        "raw_diff:src/melee/it/items/itlinkarrow.c"
-      ]
+        "raw_diff: symbols.txt and itlinkarrow.h rename to itLinkArrow_802A850C"
+      ],
+      "confidence": 0.8
     },
     {
-      "name": "itLinkArrow_802A850C_inline / itLinkArrow_802A850C_inline_2",
-      "kind": "local inline helpers",
-      "text": "Helper names were kept tied to the renamed parent function.",
+      "convention": "Prefer role-based local names such as jobj and flags over generated-looking names such as var_r30 and sp60 when the local role is evident from calls and argument position.",
       "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.c"
-      ]
-    },
-    {
-      "name": "jobj",
-      "kind": "local variable",
-      "text": "HSD_JObj* local var_r30 was renamed to jobj, matching a clear object role.",
-      "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.c"
-      ]
-    },
-    {
-      "name": "flags",
-      "kind": "local variable",
-      "text": "Stack local sp60 was renamed to flags where it is passed by address to it_8026EA20.",
-      "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.c"
-      ]
+        "raw_diff: var_r30 -> jobj in HSD_JObjLoadJoint helper; sp60 -> flags in it_8026EA20 call"
+      ],
+      "confidence": 0.74
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Used accessor macros GET_ITEM and GET_JOBJ in touched item animation code instead of direct gobj fields.",
+      "tactic": "Synchronized symbol/header/call-site rename for a matched function while preserving its address and size metadata.",
       "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.c"
+        "raw_diff: config/GALE01/symbols.txt keeps .text:0x802A850C size:0x478 while changing name"
+      ],
+      "risk_or_note": "The slice supports the rename mechanics but does not include the reasoning source for the semantic name beyond the item file and title."
+    },
+    {
+      "tactic": "Use accessor macros in touched code to express object payload and JObj retrieval.",
+      "evidence_refs": [
+        "raw_diff: GET_ITEM(gobj), GET_JOBJ(gobj)"
+      ],
+      "risk_or_note": "Consistent with typed/accessor cleanup standards, but no objdiff details are shown beyond the bot report."
+    },
+    {
+      "tactic": "Replace a broad PAD_STACK macro with explicit small padding locals to shape stack layout.",
+      "evidence_refs": [
+        "raw_diff: itLinkarrow_UnkMotion1_Anim local declarations"
+      ],
+      "risk_or_note": "This is a matching tactic that normally needs verifier evidence; loaded evidence only provides the diff and a bot 'No changes' report."
+    }
+  ],
+  "review_feedback": [
+    {
+      "text": "No human review comments are present in the loaded slice.",
+      "evidence_refs": [
+        "metadata_json: review_comments 0, reviews 0",
+        "text_corpus.jsonl: only PR body and decomp-dev[bot] issue comment loaded"
       ]
     },
     {
-      "tactic": "Changed local declaration initialization order in itLinkarrow_UnkMotion1_Anim_inline by combining declaration and initialization for item and jobj.",
+      "text": "Bot report for GALE01 says 'No changes'.",
       "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.c"
-      ]
-    },
-    {
-      "tactic": "Adjusted padding/stack locals around itLinkarrow_UnkMotion1_Anim by replacing PAD_STACK(16) with explicit u8 pad[4] and u8 _pad[4].",
-      "evidence_refs": [
-        "raw_diff:src/melee/it/items/itlinkarrow.c"
-      ]
-    },
-    {
-      "tactic": "Bot report says GALE01 had 'No changes'; no inline objdiff or build logs are present in the slice beyond that report.",
-      "evidence_refs": [
-        "text_corpus:issue_comment:decomp-dev[bot]:2026-06-06T18:27:04Z"
+        "text_corpus.jsonl: decomp-dev[bot] issue_comment"
       ]
     }
   ],
-  "review_feedback": [],
   "searchable_terms": [
     "pr-2587",
     "PsiLupan",
@@ -243,8 +224,6 @@
     "itLinkarrow_UnkMotion1_Anim",
     "itLinkArrow_802A850C",
     "it_802A850C",
-    "itLinkArrow_802A850C_inline",
-    "itLinkArrow_802A850C_inline_2",
     "itlinkarrow.c",
     "itlinkarrow.h",
     "ftLk_SpecialN.c",
@@ -252,107 +231,96 @@
     "GET_ITEM",
     "GET_JOBJ",
     "PAD_STACK",
-    "HSD_JObjGetScale",
-    "HSD_JObjSetTranslateWithMtxDirty",
-    "HSD_JObjSetRotationWithMtxDirty",
-    "symbols.txt",
-    "GALE01 No changes"
+    "Link Arrow",
+    "0x802A850C",
+    "GALE01 symbols.txt"
   ],
   "follow_up_queries": [
-    "itLinkArrow_802A850C",
-    "it_802A850C",
-    "itLinkarrow_UnkMotion1_Anim GET_ITEM GET_JOBJ",
-    "src/melee/it/items/itlinkarrow.c PAD_STACK",
-    "config/GALE01/symbols.txt 802A850C",
-    "ftLk_SpecialN itLinkArrow_802A850C",
-    "ftKb_SpecialNPk itLinkArrow_802A850C"
+    "Find other PRs renaming address-style item functions to item-prefixed names with synchronized symbols/header/call-site updates.",
+    "Search for itlinkarrow.c PRs that replaced gobj->user_data or gobj->hsd_obj with GET_ITEM/GET_JOBJ.",
+    "Search for PRs where PAD_STACK was replaced with explicit u8 pad locals in matched item animation functions.",
+    "Search for itLinkarrow_UnkMotion1_Anim follow-up PRs or comments explaining the stack layout."
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json",
-      "raw_diff",
-      "changed_files",
-      "text_corpus"
+      "metadata_json: PR metadata, changed file counts, merged_at",
+      "raw_diff: full 7144-byte diff for five files",
+      "changed_files.jsonl: changed file list",
+      "text_corpus.jsonl: empty PR body and bot 'No changes' issue comment"
     ],
     "notes": [
-      "Changed files and diff are complete for the slice.",
-      "PR body is empty and there are no human review comments in the loaded evidence.",
-      "The only validation-like evidence is a decomp-dev bot issue comment saying 'No changes'; no detailed objdiff, build command, or reviewer rationale is present.",
-      "The PR title claims matching itLinkarrow_UnkMotion1_Anim, but the diff also includes a related 0x802A850C rename and callsite/header updates; intent beyond the visible patch is not inferred."
+      "The diff is complete and supports file-level and code-change claims.",
+      "The PR body is empty, so author intent and rationale for specific matching choices are not available.",
+      "There are no loaded human review comments.",
+      "The bot report says 'No changes', but the slice does not include detailed build, objdiff, or checkdiff logs.",
+      "Stack-padding conclusions are weak because the diff shows the transformation but not the verification reason."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "kind": "decomp_lesson_candidate",
-        "title": "Keep semantic function renames synchronized across symbols, headers, implementation, and callsites",
-        "text": "PR 2587 shows a Link Arrow item function rename from it_802A850C to itLinkArrow_802A850C applied consistently to config/GALE01/symbols.txt, src/melee/it/items/itlinkarrow.h, src/melee/it/items/itlinkarrow.c, and Link/Kirby callsites.",
+        "type": "decomp_lesson_candidate",
+        "title": "Propagate evidence-backed item function renames across symbols, headers, implementation, and call sites",
+        "text": "PR 2587 shows a focused rename of the Link Arrow helper at 0x802A850C from it_802A850C to itLinkArrow_802A850C across config/GALE01/symbols.txt, src/melee/it/items/itlinkarrow.h, src/melee/it/items/itlinkarrow.c, and Link/Kirby call sites. This is a candidate example of keeping symbol metadata and prototypes synchronized during matching cleanup.",
         "scope": [
-          "item function naming",
-          "symbol metadata",
+          "item",
           "headers",
-          "callsites"
+          "symbols",
+          "call sites"
         ],
         "evidence_refs": [
-          "raw_diff:config/GALE01/symbols.txt",
-          "raw_diff:src/melee/it/items/itlinkarrow.h",
-          "raw_diff:src/melee/it/items/itlinkarrow.c",
-          "raw_diff:src/melee/ft/chara/ftLink/ftLk_SpecialN.c",
-          "raw_diff:src/melee/ft/chara/ftKirby/ftKb_SpecialNPk.c"
+          "raw_diff: all five changed files"
         ],
-        "confidence": 0.82
+        "confidence": 0.78
       },
       {
-        "kind": "matching_tactic_candidate",
-        "title": "Treat explicit padding/local-shape changes as narrow matching tactics",
-        "text": "PR 2587 adjusted padding and stack locals in itLinkarrow_UnkMotion1_Anim while the bot report said GALE01 had no changes. This is useful as a narrow example, not as a general style rule.",
+        "type": "decomp_lesson_candidate",
+        "title": "Use local role names and object accessors in matched item code when the role is clear",
+        "text": "In the touched Link Arrow code, generated-looking locals were changed to jobj and flags, and raw object access was replaced with GET_ITEM/GET_JOBJ in the animation path. This is a candidate example aligned with conservative naming and typed/accessor cleanup.",
         "scope": [
-          "itLinkarrow_UnkMotion1_Anim",
-          "stack padding",
-          "local declaration shape"
+          "item animation",
+          "local naming",
+          "object accessors"
         ],
         "evidence_refs": [
-          "raw_diff:src/melee/it/items/itlinkarrow.c",
-          "text_corpus:issue_comment:decomp-dev[bot]:2026-06-06T18:27:04Z"
+          "raw_diff: src/melee/it/items/itlinkarrow.c"
         ],
-        "confidence": 0.61
+        "confidence": 0.72
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "Link Arrow 0x802A850C symbol renamed in PR 2587",
-        "text": "In PR 2587, config/GALE01/symbols.txt changed .text:0x802A850C from it_802A850C to itLinkArrow_802A850C with size 0x478 and global scope, and the header/implementation/callsites were updated to the new name.",
-        "source_path": "config/GALE01/symbols.txt",
+        "title": "itlinkarrow.c owns Link Arrow item helper at 0x802A850C",
+        "text": "PR 2587 renamed the function at .text:0x802A850C from it_802A850C to itLinkArrow_802A850C in config/GALE01/symbols.txt and updated src/melee/it/items/itlinkarrow.h/c plus Link and Kirby call sites. Curator may consider recording this as a path/symbol fact if not already present.",
+        "source_path": "src/melee/it/items/itlinkarrow.c",
         "scope": [
           "src/melee/it/items/itlinkarrow.c",
-          "src/melee/it/items/itlinkarrow.h",
           "config/GALE01/symbols.txt"
         ],
         "evidence_refs": [
-          "raw_diff:config/GALE01/symbols.txt",
-          "raw_diff:src/melee/it/items/itlinkarrow.h",
-          "raw_diff:src/melee/it/items/itlinkarrow.c"
+          "raw_diff: config/GALE01/symbols.txt",
+          "raw_diff: src/melee/it/items/itlinkarrow.c",
+          "raw_diff: src/melee/it/items/itlinkarrow.h"
         ],
-        "reason": "Potential path fact for symbol/name history; curator should verify against current source before promoting."
+        "reason": "This is symbol/path metadata rather than a global decomp standard; it should be curator-reviewed before promotion."
       }
     ],
     "rejection_notes": [
-      "Do not infer human reviewer approval rationale: the slice contains no human review comments.",
-      "Do not promote a broad rule that GET_JOBJ should always replace gobj->hsd_obj; the diff only shows this change in one touched helper.",
-      "Do not claim a full local build or objdiff run beyond the bot 'No changes' report unless additional evidence is loaded.",
-      "Do not treat the stack padding adjustment as accepted general style; loaded standards require verifier evidence for matching tactics."
+      "Do not promote the explicit pad-array change as a general standard; the PR slice lacks rationale and detailed objdiff evidence.",
+      "Do not infer human reviewer approval rationale; no human review comments are loaded.",
+      "Do not generalize itLinkArrow capitalization beyond the symbols shown in this PR without broader naming evidence."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

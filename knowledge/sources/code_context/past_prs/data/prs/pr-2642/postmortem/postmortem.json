@@ -12,30 +12,29 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Automated security dependency update PR that changed Cargo.lock to move mio from 0.8.10 to 0.8.11, update the crate checksum, and update the Cargo.lock format version from 3 to 4. The PR body claims this addresses CVE-2024-27308 based on trivy output, but the loaded diff only shows Cargo.lock changes and no review discussion.",
+  "summary": "Security/tooling PR that updated the locked Rust dependency mio from 0.8.10 to 0.8.11 in Cargo.lock, including the corresponding checksum and Cargo.lock format version change. The PR body frames the update as addressing CVE-2024-27308 from a Trivy scan, but the loaded diff only shows Cargo.lock changes and no review discussion.",
   "change_classification": {
     "primary_type": "dependency_security_update",
     "categories": [
       "fix",
-      "security",
       "tooling",
-      "dependency-update",
-      "cargo-lock"
+      "security",
+      "dependency-update"
     ],
     "systems": [
       "repo-root",
-      "rust-tooling"
+      "rust-cargo-lock"
     ]
   },
   "key_files": [
     {
       "path": "Cargo.lock",
-      "role": "Only changed file in loaded metadata and diff; updates Cargo lockfile version and the mio package entry.",
+      "role": "Updated generated Cargo lockfile: lockfile version 3 to 4, mio 0.8.10 to 0.8.11, and mio checksum.",
       "evidence_refs": [
-        "changed_files.jsonl: Cargo.lock added 3 deleted 3 hunks 2",
-        "raw_diff: Cargo.lock version = 3 -> 4",
-        "raw_diff: mio version 0.8.10 -> 0.8.11",
-        "raw_diff: mio checksum changed"
+        "changed_files: Cargo.lock added 3 deleted 3 hunks 2",
+        "raw_diff: diff --git a/Cargo.lock b/Cargo.lock",
+        "raw_diff: version = 3 -> version = 4",
+        "raw_diff: mio version 0.8.10 -> 0.8.11"
       ]
     }
   ],
@@ -47,19 +46,19 @@
       ]
     },
     {
-      "text": "The locked mio crate version changed from 0.8.10 to 0.8.11.",
+      "text": "The Cargo.lock entry for package mio changed from version 0.8.10 to 0.8.11.",
       "evidence_refs": [
         "raw_diff: name = \"mio\"; version = \"0.8.10\" -> \"0.8.11\""
       ]
     },
     {
-      "text": "The mio crate checksum was updated to match the new locked version.",
+      "text": "The mio package checksum was updated to a4a650543ca06a924e8b371db273b2756685faae30f8487da1b56505a8f78b0c.",
       "evidence_refs": [
-        "raw_diff: checksum changed from 8f3d0b... to a4a650..."
+        "raw_diff: checksum replaced under [[package]] name = \"mio\""
       ]
     },
     {
-      "text": "The PR body states the update was intended to address CVE-2024-27308 and was flagged by trivy.",
+      "text": "The PR body claims the dependency update addresses CVE-2024-27308 and was prompted by a Trivy scanner finding in Cargo.lock.",
       "evidence_refs": [
         "human_pr_text: Summary",
         "human_pr_text: Vulnerability table",
@@ -69,10 +68,10 @@
   ],
   "smart_moves": [
     {
-      "text": "The dependency change was narrow in the loaded diff: only the lockfile entry and lockfile format version changed.",
+      "text": "Kept the dependency update narrow in the loaded diff: only the generated Cargo.lock changed, limiting blast radius for a security lockfile update.",
       "evidence_refs": [
-        "changed_files.jsonl",
-        "raw_diff"
+        "changed_files: only Cargo.lock listed",
+        "raw_diff: only Cargo.lock diff shown"
       ]
     }
   ],
@@ -84,54 +83,64 @@
     "pr-2642",
     "Cargo.lock",
     "mio",
-    "0.8.10",
-    "0.8.11",
+    "mio 0.8.10",
+    "mio 0.8.11",
     "CVE-2024-27308",
     "trivy",
     "orbisai0security",
-    "automated security fix",
-    "dependency update",
-    "lockfile version 4",
-    "rust tooling"
+    "dependency security update",
+    "Cargo lockfile version 4"
   ],
   "follow_up_queries": [
-    "Cargo.lock mio 0.8.11 CVE-2024-27308",
-    "orbisai0security automated security fix Cargo.lock",
-    "PR 2642 mio dependency update",
-    "lockfile version 3 version 4 Cargo.lock"
+    "Cargo.lock mio 0.8.11",
+    "CVE-2024-27308 trivy Cargo.lock",
+    "orbisai0security automated security fix",
+    "dependency security update Cargo.lock only"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR metadata and changed_files",
-      "human_pr_text: PR body",
-      "raw_diff: complete diff excerpt",
-      "changed_files.jsonl: changed-file metadata"
+      "metadata_json: changed_files contains only Cargo.lock",
+      "human_pr_text: Changes lists Cargo.toml and Cargo.lock",
+      "raw_diff: only Cargo.lock diff present",
+      "metadata_json: review_comments 0, reviews 0, issue_comments 0"
     ],
     "notes": [
-      "Loaded changed-file metadata and raw diff show only Cargo.lock changed, while the PR body lists both Cargo.toml and Cargo.lock.",
-      "No review comments, issue comments, or reviews are present in the loaded slice.",
-      "Verification items such as build passes, scanner re-scan, and LLM code review passed are PR-body claims only; no independent build or scanner logs are loaded.",
-      "The PR body description says CVE-2024-27308 affects rpm-ostree versions less than 2024.4-1, while the actual diff updates mio; this mismatch should not be promoted as a verified vulnerability fact beyond what the PR body claims.",
-      "This PR contains no decompilation source, matching, assembly, naming, or review evidence."
+      "The concrete file change is well supported by changed-file metadata and the loaded diff.",
+      "The PR body says both Cargo.toml and Cargo.lock changed, but loaded changed-file metadata and diff show only Cargo.lock; this intake treats Cargo.toml as an unsupported body claim rather than a changed file.",
+      "The PR body claims build pass, scanner re-scan, and LLM code review, but no CI output, scanner output, review records, or comments are loaded; record these only as author assertions, not independently verified results.",
+      "No decompilation source, matching work, naming changes, assembly tactics, or reviewer feedback are present in the slice."
     ]
   },
   "curator_handoff": {
-    "accepted_candidate_records": [],
+    "accepted_candidate_records": [
+      {
+        "title": "Narrow Cargo.lock-only security dependency update",
+        "text": "PR #2642 updated Cargo.lock for mio 0.8.10 to 0.8.11 with a new checksum, framed by the author as a CVE-2024-27308 security fix. The loaded diff contains no decompilation source changes.",
+        "scope": [
+          "Cargo.lock",
+          "dependency security update"
+        ],
+        "evidence_refs": [
+          "raw_diff: mio version 0.8.10 -> 0.8.11",
+          "human_pr_text: Summary says upgrade mio from 0.8.10 to 0.8.11 to fix CVE-2024-27308"
+        ]
+      }
+    ],
     "source_update_candidates": [],
     "rejection_notes": [
-      "Do not extract decompilation lessons from this PR; the loaded evidence is a Rust dependency lockfile update only.",
-      "Do not promote the CVE-to-mio relationship as a verified security fact from this intake alone because the PR body contains a package-description mismatch and no scanner log is loaded.",
-      "Do not record Cargo.toml as a changed file from this slice; the body mentions it, but changed-file metadata and diff only show Cargo.lock."
+      "Do not add a decompilation lesson from this PR; the slice contains no C source, assembly, objdiff, matching tactic, or naming evidence.",
+      "Do not record Cargo.toml as changed from this slice; the body lists it, but changed-file metadata and raw diff only show Cargo.lock.",
+      "Do not promote the claimed build pass, scanner re-scan, or LLM review as verified project validation without external CI/scanner/review evidence."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.84,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

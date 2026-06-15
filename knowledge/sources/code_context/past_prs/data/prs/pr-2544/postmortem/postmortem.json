@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "A focused stage decomp-matching cleanup in src/melee/gr/grcastle.c simplified grCastle_801CDFD8 by removing extra temporaries, directly using grCs_804D6970 fields, and assigning literals directly. The PR body says this moved the function from 99.84% to 100%, and the bot report records one new match for grCastle_801CDFD8.",
+  "summary": "PR #2544 made the stage function grCastle_801CDFD8 in src/melee/gr/grcastle.c match by simplifying temporary variables, using direct grCs_804D6970 field accesses, narrowing random_range to range, and assigning literal sentinel values directly. The PR body claims improvement from 99.84% to 100%, and the bot report records one new match for main/melee/gr/grcastle: grCastle_801CDFD8.",
   "change_classification": {
     "primary_type": "decomp-matching cleanup",
     "categories": [
@@ -22,124 +22,133 @@
     "systems": [
       "stage",
       "ground",
-      "grcastle"
+      "grCastle"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grcastle.c",
-      "role": "Only changed file; contains grCastle_801CDFD8 cleanup that removed redundant locals and simplified assignments.",
+      "role": "Only changed file; cleanup of grCastle_801CDFD8 local variables and assignments to achieve a match.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/gr/grcastle.c added 9 deleted 23 hunks 1",
-        "raw_diff: hunk around grCastle_801CDFD8"
+        "changed_files: src/melee/gr/grcastle.c added 9 deleted 23 hunks 1",
+        "raw_diff: grCastle_801CDFD8 hunk",
+        "human_pr_text: 'Minor cleanup that takes this function from a 99.84% match to 100%.'",
+        "text_corpus: decomp-dev bot report shows grCastle_801CDFD8 Before 99.84% After 100.00%"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "In grCastle_801CDFD8, redundant locals such as params, params2, random_range, neg_one, zero, base_value, and final_value were removed.",
+      "text": "Removed several single-use locals in grCastle_801CDFD8, including params, params2, neg_one, zero, base_value, and final_value.",
       "evidence_refs": [
-        "raw_diff: removed local declarations in grCastle_801CDFD8"
+        "raw_diff: removed grCastleParams* params/params2 and scalar temporary declarations"
       ]
     },
     {
-      "text": "The random range is now stored in a single local named range from grCs_804D6970->xA and passed to HSD_Randi when nonzero.",
+      "text": "Renamed random_range to range and used it directly for the HSD_Randi argument after loading grCs_804D6970->xA.",
       "evidence_refs": [
-        "raw_diff: range = grCs_804D6970->xA; if (range != 0) HSD_Randi(range)"
+        "raw_diff: random_range replaced by range; HSD_Randi(random_range) replaced by HSD_Randi(range)"
       ]
     },
     {
-      "text": "Assignments to gp->gv.castle9 shorts now use direct expressions and literals: xD4 receives grCs_804D6970->x8 + rand_result, xDC/xDA/xD8 receive -1, and xD6 receives 0.",
+      "text": "Assigned gp->gv.castle9.xD4 from grCs_804D6970->x8 + rand_result directly instead of storing base_value and final_value temporaries.",
       "evidence_refs": [
-        "raw_diff: direct gp->gv.castle9 assignments"
+        "raw_diff: gp->gv.castle9.xD4 = grCs_804D6970->x8 + rand_result"
       ]
     },
     {
-      "text": "The loaded bot report records one new match for main/melee/gr/grcastle item grCastle_801CDFD8, changing from 99.84% before to 100.00% after.",
+      "text": "Assigned -1 and 0 literals directly to castle9 short fields xDC, xDA, xD8, and xD6 instead of routing through neg_one and zero locals.",
       "evidence_refs": [
-        "text_corpus.jsonl: decomp-dev[bot] report for GALE01"
+        "raw_diff: gp->gv.castle9.xDC/xDA/xD8 = -1 and xD6 = 0"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Kept the cleanup narrow to one function and one source file while preserving typed Ground/GroundVars field access.",
+      "text": "Reduced decompiler-shaped temporary churn while preserving typed GroundVars field accesses such as gp->gv.castle9.xDE_b0 and xD4/xD6/xD8/xDA/xDC.",
       "evidence_refs": [
-        "changed_files.jsonl: one changed file",
-        "raw_diff: gp->gv.castle9 field assignments retained"
+        "raw_diff: cleanup keeps gp->gv.castle9 field assignments"
       ]
     },
     {
-      "text": "Replaced decompiler-shaped value carrier locals with direct field and literal assignments, reducing source noise while reaching the claimed match.",
+      "text": "Kept the random-range guard explicit: if grCs_804D6970->xA is nonzero, call HSD_Randi(range), otherwise use 0.",
       "evidence_refs": [
-        "raw_diff: removal of params2, neg_one, zero, base_value, final_value",
-        "text_corpus.jsonl: bot report shows grCastle_801CDFD8 at 100.00%"
+        "raw_diff: range guard around HSD_Randi"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For small nonmatching residue, redundant temporaries that only carry globals, constants, or a final expression can be worth simplifying; in this PR, direct grCs_804D6970 field reads and literal assignments coincided with a 100% function match.",
+      "lesson": "For small stage-function matches, removing single-use temporaries and assigning simple constants or computed expressions directly can be the matching shape, especially when the PR evidence shows the change moved a function from a near-match to 100%.",
       "scope": [
+        "src/melee/gr/grcastle.c",
         "grCastle_801CDFD8",
-        "stage ground functions",
-        "cleanup of decompiler-shaped temporaries"
+        "stage functions"
       ],
       "evidence_refs": [
-        "raw_diff: redundant locals removed and direct assignments added",
-        "text_corpus.jsonl: bot report one new match from 99.84% to 100.00%"
+        "raw_diff: removed single-use locals and direct assignments added",
+        "human_pr_text: 99.84% to 100%",
+        "text_corpus: bot report grCastle_801CDFD8 Before 99.84% After 100.00%"
       ],
-      "confidence": 0.83
+      "confidence": 0.86
     },
     {
-      "lesson": "Preserving typed nested field access such as gp->gv.castle9.* can coexist with match cleanup; this PR did not replace those fields with raw offsets.",
+      "lesson": "Prefer preserving recovered typed stage/GroundVars field accesses over reintroducing raw offset work when cleaning up a matching function.",
       "scope": [
-        "GroundVars castle9 field access",
-        "typed-fields-over-pointer-math"
+        "Ground_GObj",
+        "Ground",
+        "GroundVars castle9",
+        "stage TUs"
       ],
       "evidence_refs": [
-        "raw_diff: gp->gv.castle9.xDE_b0/xD4/xDC/xDA/xD8/xD6 assignments"
+        "raw_diff: cleanup uses GET_GROUND(gobj) and gp->gv.castle9 fields throughout",
+        "decomp_standards: typed-fields-over-pointer-math"
       ],
       "confidence": 0.78
     }
   ],
   "naming_conventions": [
     {
-      "text": "The local random range variable was renamed from random_range to the shorter range while its role remained locally obvious from grCs_804D6970->xA and HSD_Randi(range).",
+      "name": "range",
+      "kind": "local variable",
+      "convention": "Short role-based local name replaced random_range for the HSD_Randi bound loaded from grCs_804D6970->xA.",
       "evidence_refs": [
-        "raw_diff: s32 random_range replaced by s32 range"
+        "raw_diff: s32 random_range changed to s32 range"
       ]
     },
     {
-      "text": "No new semantic global or address-style symbol rename is evidenced; grCs_804D6970 and grCastle_801CDFD8 names were preserved.",
+      "name": "gp",
+      "kind": "local variable",
+      "convention": "Ground pointer local name retained for GET_GROUND(gobj).",
       "evidence_refs": [
-        "raw_diff: references to grCs_804D6970 and grCastle_801CDFD8 unchanged"
+        "raw_diff: Ground* gp = GET_GROUND(gobj)"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "text": "Local lifetime and expression-shape cleanup: remove intermediate locals and assign direct expressions/literals to influence or reflect MWCC codegen for the final 0.16% mismatch.",
+      "tactic": "Eliminate redundant locals and use direct field/literal assignments to alter codegen for a final small match delta.",
       "evidence_refs": [
-        "raw_diff: final_value/base_value/neg_one/zero locals removed",
-        "human_pr_text.md: 99.84% to 100%",
-        "text_corpus.jsonl: bot report 100.00%"
-      ]
+        "raw_diff: deleted params/params2/neg_one/zero/base_value/final_value temporaries",
+        "text_corpus: bot report records one new match for grCastle_801CDFD8"
+      ],
+      "notes": "The slice does not include author explanation of the exact assembly effect beyond the match report."
     },
     {
-      "text": "No evidence of pragmas, inline assembly, PAD_STACK, volatile steering, dummy storage, or data-section edits in this PR slice.",
+      "tactic": "Use a single loaded range local for both the nonzero test and HSD_Randi call.",
       "evidence_refs": [
-        "raw_diff: one C function cleanup only",
-        "changed_files.jsonl: only src/melee/gr/grcastle.c changed"
-      ]
+        "raw_diff: range = grCs_804D6970->xA; if (range != 0) HSD_Randi(range)"
+      ],
+      "notes": "Supported by diff shape; no separate objdiff details beyond bot match report are included."
     }
   ],
   "review_feedback": [
     {
-      "kind": "bot_report",
-      "text": "decomp-dev[bot] reported GALE01 matched code +124 bytes and one new match: main/melee/gr/grcastle grCastle_801CDFD8, +1 byte, 99.84% before and 100.00% after.",
+      "kind": "automation_report",
+      "author": "decomp-dev[bot]",
+      "text": "GALE01 report recorded 1 new match: main/melee/gr/grcastle item grCastle_801CDFD8, +1 byte, before 99.84%, after 100.00%.",
       "evidence_refs": [
-        "text_corpus.jsonl: issue_comment by decomp-dev[bot]"
+        "text_corpus: issue_comment by decomp-dev[bot] at 2026-05-27T01:08:33Z"
       ]
     }
   ],
@@ -148,94 +157,81 @@
     "Erotemic",
     "grCastle_801CDFD8",
     "src/melee/gr/grcastle.c",
-    "grcastle",
+    "main/melee/gr/grcastle",
     "Ground_GObj",
-    "Ground",
     "GET_GROUND",
-    "grCastleParams",
-    "grCs_804D6970",
-    "HSD_Randi",
-    "castle9",
+    "Ground",
+    "gv.castle9",
     "xDE_b0",
     "xD4",
     "xD6",
     "xD8",
     "xDA",
     "xDC",
-    "random_range",
+    "grCastleParams",
+    "grCs_804D6970",
+    "HSD_Randi",
     "range",
-    "final_value",
+    "random_range",
     "99.84",
     "100.00",
-    "GALE01"
+    "stage"
   ],
   "follow_up_queries": [
-    "grCastle_801CDFD8 redundant temporaries range HSD_Randi",
-    "grCs_804D6970 xA x8 castle9 xD4 xDC xDA xD8 xD6",
-    "stage grcastle cleanup 99.84 100 match",
-    "decompiler-shaped locals direct literal assignments MWCC match"
+    "grCastle_801CDFD8 single-use locals direct assignment match",
+    "grCs_804D6970 HSD_Randi range xA x8",
+    "gv.castle9 xD4 xD6 xD8 xDA xDC",
+    "src/melee/gr/grcastle.c range HSD_Randi",
+    "PR 2544 grCastle_801CDFD8 99.84 100"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR #2544 identity, state MERGED, author, timestamps, changed file counts",
-      "human_pr_text.md: PR body states minor cleanup from 99.84% to 100%",
+      "metadata_json: PR number/title/author/state/created_at/merged_at and changed file counts",
+      "human_pr_text: PR body states 99.84% to 100%",
       "raw_diff: complete one-hunk diff for src/melee/gr/grcastle.c",
-      "changed_files.jsonl: one changed file",
-      "text_corpus.jsonl: decomp-dev[bot] match report"
+      "changed_files: one changed file with added/deleted line counts",
+      "text_corpus: bot report with before/after match percentages"
     ],
     "notes": [
-      "No human review comments or review records are present in the loaded slice.",
-      "The bot report supports the match result, but the slice does not include full build logs or objdiff details beyond the report summary.",
-      "The PR does not explain why the exact source simplification matched, so matching tactics are described at the observable diff level rather than as author intent."
+      "No human review comments are present in the loaded slice.",
+      "The bot report supports the claimed match, but the slice does not include full objdiff output, build logs, or author reasoning for each codegen change.",
+      "The PR evidence supports local lessons for this function; broader style guidance should remain under existing standards unless curator finds corroborating PRs."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
         "record_type": "decomp_lesson_candidate",
-        "title": "Simplify decompiler-shaped carrier locals when cleaning a near-match",
-        "text": "In PR #2544, grCastle_801CDFD8 reached a reported 100.00% match after removing locals that only carried grCs_804D6970, constants, or final assignment values, replacing them with direct field reads and literal assignments.",
+        "title": "Single-use local removal can close near-match stage functions",
+        "text": "In PR #2544, grCastle_801CDFD8 reached a reported 100.00% match after replacing several single-use locals with direct grCs_804D6970 field accesses and direct literal assignments to gp->gv.castle9 fields.",
         "scope": [
           "src/melee/gr/grcastle.c",
           "grCastle_801CDFD8",
-          "small near-match cleanup"
+          "stage decomp cleanup"
         ],
         "evidence_refs": [
-          "raw_diff: redundant locals removed",
-          "text_corpus.jsonl: bot report one new match 99.84% to 100.00%"
+          "raw_diff: grCastle_801CDFD8 cleanup",
+          "human_pr_text: 99.84% to 100%",
+          "text_corpus: bot report one new match"
         ],
-        "confidence": 0.83
-      },
-      {
-        "record_type": "matching_tactic_candidate",
-        "title": "Direct literal and expression assignments can resolve small function mismatches",
-        "text": "The diff changed assignments through neg_one, zero, base_value, and final_value temporaries into direct assignments of -1, 0, and grCs_804D6970->x8 + rand_result, with the bot report showing grCastle_801CDFD8 as newly matched.",
-        "scope": [
-          "MWCC expression/local lifetime cleanup",
-          "stage ground code"
-        ],
-        "evidence_refs": [
-          "raw_diff: direct assignment replacements",
-          "text_corpus.jsonl: decomp-dev[bot] report"
-        ],
-        "confidence": 0.8
+        "confidence": 0.86
       }
     ],
     "source_update_candidates": [],
     "rejection_notes": [
-      "Do not infer a global naming standard from random_range being shortened to range; the evidence is one local variable in one function.",
-      "Do not infer reviewer intent or human approval rationale; no review comments are present.",
-      "Do not generalize that all temporary locals should be removed; the evidence only supports this focused cleanup where the bot report showed a match."
+      "Do not generalize this PR into a rule that direct global field access is always better than keeping pointer locals; the evidence only shows this shape matched grCastle_801CDFD8.",
+      "Do not infer reviewer intent or manual approval details; no review comments or reviews are present in the loaded slice.",
+      "Do not treat the bot report as full adjacent-regression evidence; it only reports the PR-level match summary included in the slice."
     ]
   },
-  "confidence": 0.9,
+  "confidence": 0.88,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

@@ -12,160 +12,132 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR 2654 updated the Wiki translation-unit reporting script to display and classify code progress using fuzzy code metrics instead of strictly matched code metrics. It also made byte-size formatting replace both singular and plural byte words with B via a compiled regex.",
+  "summary": "Tooling/documentation PR updating tools/wiki_tu.py so the Wiki TU page reports code progress using fuzzy code measures and fuzzy match percentages rather than strict matched_code measures. It also normalizes formatted byte strings with a bytes/byte regex and adds a float measure helper.",
   "change_classification": {
     "primary_type": "tooling",
     "categories": [
       "tooling",
-      "documentation-reporting",
-      "progress-report-generation"
+      "documentation",
+      "progress-reporting"
     ],
     "systems": [
       "tools/wiki_tu.py",
-      "wiki TU page",
+      "Wiki TU page",
       "GALE01 report tooling"
     ]
   },
   "key_files": [
     {
       "path": "tools/wiki_tu.py",
-      "role": "Only changed file; updates Wiki TU percentage, remaining-code, row classification, and byte formatting logic.",
+      "role": "Only changed file; updates Wiki TU progress table calculations and size formatting.",
       "evidence_refs": [
-        "changed_files:tools/wiki_tu.py added=16 deleted=9 hunks=5",
-        "raw_diff:tools/wiki_tu.py"
+        "changed_files.jsonl: tools/wiki_tu.py added 16 deleted 9 hunks 5",
+        "raw_diff: diff --git a/tools/wiki_tu.py b/tools/wiki_tu.py"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Added a module-level BYTES_RE regex and changed friendly_size to replace singular or plural byte words with B before converting spaces to non-breaking spaces.",
+      "text": "Added BYTES_RE and changed friendly_size to replace singular or plural byte words with B via regex before converting spaces to non-breaking spaces.",
       "evidence_refs": [
-        "raw_diff:BYTES_RE",
-        "raw_diff:friendly_size"
+        "raw_diff: +BYTES_RE = re.compile(...)",
+        "raw_diff: friendly_size changed from .replace(\"bytes\", \"B\") to BYTES_RE.sub(\"B\", humanfriendly.format_size(value))"
       ]
     },
     {
-      "text": "Added get_measure_float alongside get_measure_int so percent values such as fuzzy_match_percent and matched_data_percent are read as floats with a default of 0.",
+      "text": "Added get_measure_float(unit, key) to read numeric report measures as floats with a zero fallback.",
       "evidence_refs": [
-        "raw_diff:get_measure_float"
+        "raw_diff: +def get_measure_float(unit, key: str) -> float"
       ]
     },
     {
-      "text": "Changed code percentage cells from matched_code/matched_code_percent to fuzzy_code/fuzzy_match_percent, while data percentage cells continue to use matched_data/total_data/matched_data_percent.",
+      "text": "Changed percent_cells text/code progress from matched_code and matched_code_percent to fuzzy_code and fuzzy_match_percent, while keeping data progress based on matched_data and matched_data_percent.",
       "evidence_refs": [
-        "raw_diff:percent_cells"
+        "raw_diff: percent_cells uses get_measure_int(unit, \"fuzzy_code\") and get_measure_float(unit, \"fuzzy_match_percent\")",
+        "raw_diff: data percent uses get_measure_float(unit, \"matched_data_percent\")"
       ]
     },
     {
-      "text": "Changed the full row's displayed matched code size to use fuzzy_code instead of matched_code.",
+      "text": "Changed full-row matched code display from matched_code to fuzzy_code.",
       "evidence_refs": [
-        "raw_diff:row_full"
+        "raw_diff: row_full matched = friendly_size(get_measure_int(unit, \"fuzzy_code\"))"
       ]
     },
     {
-      "text": "During unit processing, derives fuzzy_code as int(total_code * fuzzy_match_percent / 100), stores it in unit['measures'], and computes remaining_code from total_code minus fuzzy_code.",
+      "text": "For each report unit, computes fuzzy_code as int(total_code * fuzzy_match_percent / 100), stores it in unit[\"measures\"], computes remaining_code from fuzzy_code, and classifies 100% fuzzy code units as data_left rather than in_progress unless metadata marks them complete.",
       "evidence_refs": [
-        "raw_diff:for unit in data['units']"
-      ]
-    },
-    {
-      "text": "Changed classification of non-complete units with all code done from matched_code_percent >= 100 to fuzzy_match_percent >= 100 before placing them in data_left.",
-      "evidence_refs": [
-        "raw_diff:elif fuzzy_percent >= 100"
+        "raw_diff: fuzzy_percent = get_measure_float(unit, \"fuzzy_match_percent\")",
+        "raw_diff: fuzzy_code = int(total_code * fuzzy_percent / 100)",
+        "raw_diff: unit[\"measures\"][\"remaining_code\"] = total_code - fuzzy_code",
+        "raw_diff: elif fuzzy_percent >= 100: data_left.append(unit)"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Centralized byte-word replacement in a compiled regex so both 'byte' and 'bytes' outputs from humanfriendly.format_size can be normalized consistently.",
+      "text": "The script derives a byte count for fuzzy_code from total_code and fuzzy_match_percent once per unit, then reuses that normalized measure for display and remaining-code calculation.",
       "evidence_refs": [
-        "raw_diff:BYTES_RE",
-        "raw_diff:friendly_size"
+        "raw_diff: fuzzy_code assignment and unit[\"measures\"][\"fuzzy_code\"] update"
       ]
     },
     {
-      "text": "Introduced a typed float accessor for measure percentages rather than repeating inline float(unit['measures'].get(...) or 0) conversions.",
+      "text": "A dedicated get_measure_float helper mirrors the existing get_measure_int helper and avoids repeated inline float conversion at call sites.",
       "evidence_refs": [
-        "raw_diff:get_measure_float",
-        "raw_diff:fuzzy_percent"
+        "raw_diff: added get_measure_float and replaced direct float(unit[\"measures\"].get(...)) usage"
       ]
     },
     {
-      "text": "Computed and stored fuzzy_code once during row preparation, allowing downstream display and remaining-code logic to use the same derived value.",
+      "text": "The byte-formatting change handles both byte and bytes output forms instead of only replacing the plural literal.",
       "evidence_refs": [
-        "raw_diff:unit['measures']['fuzzy_code']",
-        "raw_diff:row_full"
+        "raw_diff: BYTES_RE and friendly_size regex substitution"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For progress-report tooling, distinguish strict matched-code metrics from fuzzy-code metrics and use the metric that matches the page's intended semantics.",
+      "text": "For progress-reporting tooling, decide whether a page is meant to show strict matched code or fuzzy-matched code; this PR makes the Wiki TU page code percentage and remaining-code display use fuzzy_match_percent/fuzzy_code.",
       "scope": [
         "tools/wiki_tu.py",
-        "wiki TU progress reporting"
+        "Wiki TU page progress reporting"
       ],
       "evidence_refs": [
-        "pr_title:Use fuzzy code % in Wiki TU page",
-        "raw_diff:matched_code to fuzzy_code",
-        "raw_diff:matched_code_percent to fuzzy_match_percent"
-      ],
-      "confidence": 0.86
-    },
-    {
-      "lesson": "When a report uses a derived percentage as the authoritative measure, compute related byte counts and remaining work from that same percentage to keep table display and classification aligned.",
-      "scope": [
-        "tools/wiki_tu.py",
-        "progress table generation"
-      ],
-      "evidence_refs": [
-        "raw_diff:fuzzy_code = int(total_code * fuzzy_percent / 100)",
-        "raw_diff:remaining_code = total_code - fuzzy_code",
-        "raw_diff:elif fuzzy_percent >= 100"
-      ],
-      "confidence": 0.82
+        "PR title: Use fuzzy code % in Wiki TU page",
+        "raw_diff: matched_code/matched_code_percent replaced with fuzzy_code/fuzzy_match_percent for text/code progress"
+      ]
     }
   ],
   "naming_conventions": [
     {
-      "name": "fuzzy_percent",
-      "context": "Local variable holding fuzzy_match_percent as a float during unit classification.",
+      "name": "fuzzy_code",
+      "meaning": "A derived measure stored in unit[\"measures\"] representing total_code scaled by fuzzy_match_percent.",
       "evidence_refs": [
-        "raw_diff:fuzzy_percent = get_measure_float(unit, 'fuzzy_match_percent')"
+        "raw_diff: fuzzy_code = int(total_code * fuzzy_percent / 100)",
+        "raw_diff: unit[\"measures\"][\"fuzzy_code\"] = fuzzy_code"
       ]
     },
     {
-      "name": "fuzzy_code",
-      "context": "Derived measure stored in unit['measures'] for fuzzy matched code bytes.",
+      "name": "fuzzy_percent",
+      "meaning": "Local variable holding the float value of unit measure fuzzy_match_percent.",
       "evidence_refs": [
-        "raw_diff:fuzzy_code = int(total_code * fuzzy_percent / 100)",
-        "raw_diff:unit['measures']['fuzzy_code'] = fuzzy_code"
+        "raw_diff: fuzzy_percent = get_measure_float(unit, \"fuzzy_match_percent\")"
       ]
     },
     {
       "name": "BYTES_RE",
-      "context": "Module-level compiled regex constant used by friendly_size for byte-word normalization.",
+      "meaning": "Module-level regex used to normalize byte/bytes wording in humanfriendly.format_size output.",
       "evidence_refs": [
-        "raw_diff:BYTES_RE = re.compile(...)"
+        "raw_diff: BYTES_RE = re.compile(...)",
+        "raw_diff: BYTES_RE.sub(\"B\", humanfriendly.format_size(value))"
       ]
     }
   ],
   "assembly_or_matching_tactics": [],
   "review_feedback": [
     {
-      "kind": "bot_report",
-      "author": "decomp-dev[bot]",
-      "text": "Report for GALE01 stated 'No changes'.",
+      "source": "decomp-dev[bot]",
+      "text": "Automated report for GALE01 said: No changes.",
       "evidence_refs": [
-        "text_corpus:issue_comment 2026-06-11T13:04:56Z"
-      ]
-    },
-    {
-      "kind": "missing_review_feedback",
-      "text": "No human review comments or PR body text were present in the loaded slice.",
-      "evidence_refs": [
-        "metadata_json:reviews=0 review_comments=0 issue_comments=1",
-        "text_corpus:pr_body empty"
+        "text_corpus.jsonl: issue_comment by decomp-dev[bot] at 2026-06-11T13:04:56Z body contains 'Report for GALE01 ... No changes'"
       ]
     }
   ],
@@ -174,98 +146,90 @@
     "Use fuzzy code % in Wiki TU page",
     "tools/wiki_tu.py",
     "wiki_tu",
+    "Wiki TU page",
     "fuzzy_code",
     "fuzzy_match_percent",
     "matched_code",
     "matched_code_percent",
-    "total_code",
     "remaining_code",
+    "total_code",
     "matched_data_percent",
+    "BYTES_RE",
+    "friendly_size",
+    "humanfriendly.format_size",
     "percent_cells",
     "row_full",
     "row_slim",
-    "get_measure_float",
-    "get_measure_int",
-    "friendly_size",
-    "BYTES_RE",
-    "humanfriendly.format_size",
-    "data_left",
-    "in_progress",
     "GALE01 No changes"
   ],
   "follow_up_queries": [
     "tools/wiki_tu.py fuzzy_match_percent fuzzy_code remaining_code",
-    "wiki TU page matched_code_percent fuzzy_match_percent",
-    "BYTES_RE humanfriendly.format_size bytes B wiki_tu",
-    "PR 2654 fuzzy code Wiki TU page",
-    "decomp-dev bot GALE01 No changes PR 2654"
+    "Wiki TU page matched_code fuzzy_code",
+    "humanfriendly.format_size bytes BYTES_RE",
+    "PR 2654 wiki_tu fuzzy code percent"
   ],
   "evidence_quality": {
-    "status": "mixed",
+    "status": "strong",
     "evidence_refs": [
-      "metadata_json:pr number/title/state/author/timestamps",
-      "changed_files:tools/wiki_tu.py",
-      "raw_diff:complete diff excerpt for single changed file",
-      "text_corpus:empty PR body and bot issue comment"
+      "metadata_json: PR number/title/author/state/timestamps and changed-file counts",
+      "raw_diff: complete diff for tools/wiki_tu.py, original_chars 3008, truncated false",
+      "changed_files.jsonl: one changed file tools/wiki_tu.py",
+      "text_corpus.jsonl: empty PR body and one bot issue comment"
     ],
     "notes": [
-      "The changed-file and diff evidence are strong because the PR touched only tools/wiki_tu.py and the raw diff is loaded in full.",
-      "Intent beyond the title is weak because the PR body is empty and there are no human review comments.",
-      "No build, test, or runtime validation is shown beyond the decomp-dev bot GALE01 report saying 'No changes'; this should not be interpreted as full tooling validation.",
-      "This PR is tooling/documentation reporting work, not a decomp source matching PR; decomp-specific assembly tactics are not evidenced."
+      "The PR body is empty and there are no human review comments in the loaded slice, so intent beyond the title and diff is limited.",
+      "No build log or test output beyond the bot report 'No changes' is present.",
+      "This is a tooling/documentation reporting change, not a decomp source or assembly-matching PR."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "kind": "tooling_lesson",
-        "title": "Wiki TU code progress can use fuzzy code metrics",
-        "text": "PR 2654 changed tools/wiki_tu.py so the Wiki TU page's code progress display and completion classification use fuzzy_code/fuzzy_match_percent instead of matched_code/matched_code_percent.",
+        "type": "tooling_lesson",
+        "title": "Wiki TU code progress can be based on fuzzy match measures",
+        "text": "PR 2654 updated tools/wiki_tu.py so Wiki TU text/code progress uses fuzzy_match_percent and a derived fuzzy_code byte count instead of matched_code/matched_code_percent, while data progress remains based on matched_data/matched_data_percent.",
         "scope": [
           "tools/wiki_tu.py",
-          "wiki TU progress reporting"
+          "Wiki TU page"
         ],
         "evidence_refs": [
-          "pr_title:Use fuzzy code % in Wiki TU page",
-          "raw_diff:percent_cells",
-          "raw_diff:row_full",
-          "raw_diff:unit processing loop"
-        ],
-        "confidence": 0.86
+          "PR title: Use fuzzy code % in Wiki TU page",
+          "raw_diff: percent_cells and row_full changed to fuzzy_code/fuzzy_match_percent",
+          "raw_diff: fuzzy_code derived from total_code * fuzzy_percent / 100"
+        ]
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "other",
         "update_kind": "source_update",
-        "title": "Document Wiki TU fuzzy-code metric semantics",
-        "text": "If tooling documentation exists for the Wiki TU page, consider documenting that code percentage and remaining-code display are based on fuzzy_match_percent/fuzzy_code, while data percentage remains based on matched_data_percent.",
+        "title": "Document Wiki TU progress semantics",
+        "text": "If a tooling documentation source exists for Wiki TU pages, consider documenting that the code percentage/remaining-code display is based on fuzzy_match_percent/fuzzy_code, not strict matched_code, after PR 2654.",
         "source_path": "tools/wiki_tu.py",
         "scope": [
           "tooling documentation",
-          "wiki TU page"
+          "Wiki TU page progress metrics"
         ],
         "evidence_refs": [
-          "raw_diff:matched_code to fuzzy_code",
-          "raw_diff:matched_code_percent to fuzzy_match_percent",
-          "raw_diff:matched_data_percent unchanged"
+          "PR title: Use fuzzy code % in Wiki TU page",
+          "raw_diff: matched_code/matched_code_percent replaced by fuzzy_code/fuzzy_match_percent for code display"
         ],
-        "reason": "The PR changes user-visible progress semantics but the loaded slice contains no documentation update."
+        "reason": "The PR changes user-facing progress semantics in generated wiki output, but the slice does not include a docs file update."
       }
     ],
     "rejection_notes": [
-      "Do not infer that fuzzy metrics are globally preferred for all reports; the evidence is limited to tools/wiki_tu.py and the Wiki TU page.",
-      "Do not infer author or reviewer rationale beyond the PR title and diff; the PR body is empty and no human review comments are loaded.",
-      "Do not treat the GALE01 'No changes' bot report as proof that the wiki_tu script was functionally tested."
+      "Do not promote any assembly, objdiff, or decomp-source matching tactic from this PR; the evidence only covers Python tooling.",
+      "Do not infer human reviewer rationale or approval details; no human reviews or review comments are present in the loaded slice.",
+      "Do not treat the bot 'No changes' report as proof of broader validation beyond the text shown."
     ]
   },
-  "confidence": 0.84,
+  "confidence": 0.9,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

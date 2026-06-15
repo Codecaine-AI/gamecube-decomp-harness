@@ -11,14 +11,15 @@
     "merged_at": "2026-06-07T04:06:22Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked several previously nonmatching objects by updating configure.py, removed invalid duplicate/incorrect object entries, corrected a wrong item function call in itwstar.c, and adjusted GALE01 symbol names/scopes/sizes to match the newly linked layout. The decomp.dev report showed +29480 bytes linked code, +128 bytes matched data, +592 bytes linked data, and 2 new matches: main/melee/pl/plattack .sbss to 100% and main/melee/ft/ftchangeparam .data to 100%. Evidence is mostly from the title, diff, and bot report; there was no PR body or human review discussion.",
+  "intake_role": "pr_intake",
+  "summary": "PR 2593 linked several existing objects in configure.py, removed two invalid NonMatching object entries, adjusted GALE01 symbol metadata for local data/sdata2/sbss ownership, and fixed the WStar spawned callback to call it_80294624 instead of it_80294364. The bot report records linked-code and data progress plus two new matches.",
   "change_classification": {
-    "primary_type": "linkage/configuration fix",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "build-configuration",
-      "symbol-map-cleanup",
-      "bugfix"
+      "configuration cleanup",
+      "symbol metadata",
+      "bug fix"
     ],
     "systems": [
       "config",
@@ -30,104 +31,288 @@
   },
   "key_files": [
     {
-      "path": "configure.py",
-      "role": "Changed object link status and removed invalid object entries."
+      "path": "config/GALE01/symbols.txt",
+      "role": "Updated symbol names, scopes, sizes, and local labels for data, sbss, and sdata2 entries, including conversion of several lbl_/jumptable_/ftCo_ symbols to local @NNN-style symbols and resizing unk_804D6480.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt",
+        "changed_files.jsonl:config/GALE01/symbols.txt added=27 deleted=24 hunks=5"
+      ]
     },
     {
-      "path": "config/GALE01/symbols.txt",
-      "role": "Updated data/sdata2/sbss symbols, including converting several lbl_* or named globals into local @NNN-style symbols and correcting object sizes."
+      "path": "configure.py",
+      "role": "Changed plattack.c, plbonus.c, and ftchangeparam.c from NonMatching to Matching, and removed invalid NonMatching entries for melee/ft/ft_3C61.c and melee/ft/chara/ftPp_SpecialS.c.",
+      "evidence_refs": [
+        "raw_diff:configure.py",
+        "changed_files.jsonl:configure.py added=3 deleted=5 hunks=4"
+      ]
     },
     {
       "path": "src/melee/it/items/itwstar.c",
-      "role": "Fixed WStar spawned logic to call it_80294624 instead of it_80294364 and reordered includes."
+      "role": "Reordered two item includes and fixed itWStar_Logic29_Spawned to call it_80294624(gobj) instead of it_80294364(gobj).",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itwstar.c",
+        "changed_files.jsonl:src/melee/it/items/itwstar.c added=3 deleted=3 hunks=2"
+      ]
     }
   ],
   "what_changed": [
-    "configure.py promoted melee/pl/plattack.c from NonMatching to Matching.",
-    "configure.py promoted melee/pl/plbonus.c from NonMatching to Matching.",
-    "configure.py promoted melee/ft/ftchangeparam.c from NonMatching to Matching.",
-    "configure.py removed invalid NonMatching entry melee/ft/ft_3C61.c.",
-    "configure.py removed invalid NonMatching entry melee/ft/chara/ftPp_SpecialS.c.",
-    "config/GALE01/symbols.txt replaced several address-based lbl_* entries around .data:0x803BCF20 and .data:0x803C6F78 with local @NNN symbols and local label aliases where needed.",
-    "config/GALE01/symbols.txt split the prior lbl_803C6F98 size 0x58 object into @642 size 0x28 and @643 size 0x2D.",
-    "config/GALE01/symbols.txt renamed lbl_804D6480 to unk_804D6480 and changed its declared size from 0x8 to 0x2.",
-    "config/GALE01/symbols.txt converted several sdata2 constants at 0x804D7F20-0x804D7F50 and ftCo_804D8F60/ftCo_804D8F64 to local @NNN symbols.",
-    "src/melee/it/items/itwstar.c changed itWStar_Logic29_Spawned to call it_80294624(gobj) instead of it_80294364(gobj)."
-  ],
-  "smart_moves": [
-    "The PR combined configure.py link-status changes with the required symbol map cleanup, avoiding a state where newly linked files would collide with stale global lbl_* or incorrectly sized data symbols.",
-    "Removing invalid object entries from configure.py reduced the risk of building/linking nonexistent or incorrectly located source paths.",
-    "Converting unnamed data/constants to local @NNN symbols preserved compiler-style local symbol behavior instead of over-promoting internal strings, jump tables, floats, and doubles to global-looking labels.",
-    "The wrong-call fix in itwstar.c was isolated and direct: it only changed the callee in itWStar_Logic29_Spawned while leaving the surrounding item state initialization intact."
-  ],
-  "decomp_lessons": [
-    "When flipping files from NonMatching to Matching in configure.py, audit the corresponding symbol-map ranges; linked files often require local data labels, jump tables, and sdata2 constants to be renamed or resized.",
-    "Do not keep invalid configure.py object entries around as placeholders if their paths are wrong or duplicate unrelated files; they can block clean linking work.",
-    "Small symbol-size corrections matter for matching: the PR changed lbl_804D6480 from an 0x8 object to a 0x2 unk_804D6480 object and split a 0x58 data object into two smaller local string objects.",
-    "For item logic fixes, verify the target helper by address/name rather than relying on nearby-looking function names; this PR corrected it_80294364 to it_80294624 in WStar spawned logic."
-  ],
-  "naming_conventions": [
-    "Local compiler-generated objects in symbols.txt use @NNN names with scope:local, including strings, jump tables, floats, and doubles.",
-    "Local label aliases may use ...data.0 at the same address as a local object when required by the linked output.",
-    "Unidentified small data with uncertain semantics may use unk_ADDR rather than lbl_ADDR when a more precise global name is not justified.",
-    "Project source object paths in configure.py use subsystem paths such as melee/pl/plattack.c, melee/pl/plbonus.c, and melee/ft/ftchangeparam.c with Object(Matching, ...)."
-  ],
-  "assembly_or_matching_tactics": [
-    "Promote only verified files from Object(NonMatching, ...) to Object(Matching, ...) and remove invalid object lines instead of leaving them as nonmatching stubs.",
-    "For linked data, adjust symbol scope to local where the compiler emitted local constants or jump tables; stale global lbl_* symbols can prevent a clean link.",
-    "Use symbol splitting when a previous broad data object actually corresponds to multiple compiler-emitted local objects.",
-    "Confirm linked progress with decomp.dev metrics; here the bot reported +0.76% linked code and two new matches."
-  ],
-  "review_feedback": [
     {
-      "source": "decomp-dev[bot]",
-      "feedback": "GALE01 report showed linked code 43.54% (+0.76%, +29480 bytes), matched data 41.45% (+0.01%, +128 bytes), linked data 35.11% (+0.05%, +592 bytes), with 2 new matches: main/melee/pl/plattack .sbss and main/melee/ft/ftchangeparam .data."
+      "text": "Marked melee/pl/plattack.c, melee/pl/plbonus.c, and melee/ft/ftchangeparam.c as Matching in configure.py.",
+      "evidence_refs": [
+        "raw_diff:configure.py hunks around lines 484 and 681"
+      ]
     },
     {
-      "source": "human_review",
-      "feedback": "No human review comments or PR body explanation were present in the provided slice."
+      "text": "Removed two NonMatching configure.py entries: melee/ft/ft_3C61.c and melee/ft/chara/ftPp_SpecialS.c.",
+      "evidence_refs": [
+        "raw_diff:configure.py hunks around lines 614 and 784"
+      ]
+    },
+    {
+      "text": "Changed multiple GALE01 data and sdata2 symbols from global/address-style labels to local compiler-style @NNN symbols, and split lbl_803C6F98 into @642 and @643 entries.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt hunks around 0x803BCF20, 0x803C6F78, and 0x804D7F20"
+      ]
+    },
+    {
+      "text": "Changed lbl_804D6480 from an 0x8 sbss object to unk_804D6480 as an 0x2 sbss object.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt hunk around 0x804D6480"
+      ]
+    },
+    {
+      "text": "Updated itWStar_Logic29_Spawned to call it_80294624(gobj), replacing it_80294364(gobj).",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itwstar.c hunk around itWStar_Logic29_Spawned"
+      ]
+    },
+    {
+      "text": "The decomp bot reported linked code +0.76% (+29480 bytes), matched data +0.01% (+128 bytes), linked data +0.05% (+592 bytes), and two new matches: main/melee/pl/plattack .sbss and main/melee/ft/ftchangeparam .data.",
+      "evidence_refs": [
+        "text_corpus.jsonl issue_comment by decomp-dev[bot] at 2026-06-07T04:04:37Z"
+      ]
     }
   ],
+  "smart_moves": [
+    {
+      "text": "Kept the PR focused on link/configuration and metadata cleanup rather than broad source rewrites; the only C behavior change in the slice is a narrow function-call correction in itwstar.c.",
+      "evidence_refs": [
+        "raw_diff:configure.py",
+        "raw_diff:config/GALE01/symbols.txt",
+        "raw_diff:src/melee/it/items/itwstar.c"
+      ]
+    },
+    {
+      "text": "Removed configure.py entries for paths that the PR title calls invalid, avoiding stale NonMatching object references.",
+      "evidence_refs": [
+        "PR title",
+        "raw_diff:configure.py removals of melee/ft/ft_3C61.c and melee/ft/chara/ftPp_SpecialS.c"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "text": "When promoting objects to Matching in configure.py, corresponding symbol metadata may need synchronized scope, size, and local-label updates so the linked object uses the intended data ownership.",
+      "evidence_refs": [
+        "raw_diff:configure.py",
+        "raw_diff:config/GALE01/symbols.txt",
+        "text_corpus.jsonl bot report showing new matches and data/link progress"
+      ],
+      "confidence": 0.72
+    },
+    {
+      "text": "Configuration cleanup can include deleting invalid object entries rather than merely changing their matching status.",
+      "evidence_refs": [
+        "PR title",
+        "raw_diff:configure.py removals of melee/ft/ft_3C61.c and melee/ft/chara/ftPp_SpecialS.c"
+      ],
+      "confidence": 0.82
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "This PR uses local compiler-style @NNN names with scope:local for several data, sdata2, and jumptable-like entries that were previously lbl_ or jumptable_ names.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt hunk converting lbl_803BCF20..jumptable_803BD014 to @187..@1713",
+        "raw_diff:config/GALE01/symbols.txt hunk converting lbl_804D7F20..lbl_804D7F50 to @288..@1241"
+      ]
+    },
+    {
+      "text": "This PR uses unk_804D6480 for an unknown sbss object after reducing its recorded size to 0x2.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt hunk changing lbl_804D6480 to unk_804D6480"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "text": "Promoted specific object files from NonMatching to Matching in configure.py after symbol metadata adjustments; the bot report supports link/match progress but does not include local build or objdiff details.",
+      "evidence_refs": [
+        "raw_diff:configure.py",
+        "raw_diff:config/GALE01/symbols.txt",
+        "text_corpus.jsonl bot report"
+      ]
+    },
+    {
+      "text": "Adjusted symbol scopes and sizes in symbols.txt rather than adding C dummy storage in the shown source diff.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt",
+        "raw_diff:src/melee/it/items/itwstar.c"
+      ]
+    },
+    {
+      "text": "Corrected a likely call target in item WStar initialization/spawn logic by replacing it_80294364 with it_80294624.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itwstar.c hunk around itWStar_Logic29_Spawned"
+      ]
+    }
+  ],
+  "review_feedback": [],
   "searchable_terms": [
-    "PR2593",
+    "pr-2593",
     "PsiLupan",
-    "configure.py",
-    "MatchingFor",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "plattack",
-    "plbonus",
-    "ftchangeparam",
-    "ft_3C61",
-    "ftPp_SpecialS",
-    "GALE01 symbols.txt",
+    "configure.py MatchingFor",
+    "plattack.c Matching",
+    "plbonus.c Matching",
+    "ftchangeparam.c Matching",
+    "ft_3C61.c invalid",
+    "ftPp_SpecialS.c invalid",
     "itwstar.c",
     "itWStar_Logic29_Spawned",
-    "it_80294364",
     "it_80294624",
-    "unk_804D6480",
+    "it_80294364",
+    "symbols.txt",
     "lbl_804D6480",
-    "ftCo_804D8F60",
-    "ftCo_804D8F64",
-    "@1029",
-    "@1030",
-    "linked code",
-    "matched data",
-    "linked data"
+    "unk_804D6480",
+    "@187",
+    "@1035",
+    "@1713",
+    "@642",
+    "@643",
+    "@288",
+    "@1241",
+    "main/melee/pl/plattack",
+    "main/melee/ft/ftchangeparam"
   ],
   "follow_up_queries": [
-    "Find later PRs touching configure.py entries for plattack, plbonus, or ftchangeparam after PR 2593.",
-    "Search for additional corrections to WStar item helper calls around it_80294364 and it_80294624.",
-    "Audit symbol-map changes where lbl_* objects were converted to @NNN local objects during file linking.",
-    "Check whether unk_804D6480 was later given a semantic name or refined type."
+    "PR 2593 configure.py plattack plbonus ftchangeparam Matching",
+    "itWStar_Logic29_Spawned it_80294624 it_80294364",
+    "symbols.txt unk_804D6480 size 0x2",
+    "GALE01 symbols local @1035 @1713 jumptable",
+    "remove invalid configure.py Object NonMatching ft_3C61 ftPp_SpecialS"
   ],
-  "confidence": 0.88,
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json for PR identity, changed files, merge state, and counts",
+      "raw_diff full diff for all file changes",
+      "changed_files.jsonl for changed-file metadata",
+      "text_corpus.jsonl for empty PR body and bot report"
+    ],
+    "notes": [
+      "PR body is empty and there are no human review comments in the loaded slice.",
+      "The bot report provides aggregate progress and two new matches, but no objdiff, build command, or adjacent-regression details are present.",
+      "Symbol metadata changes are visible, but the slice does not explain why each individual local name, size, or scope is correct.",
+      "The title says invalid files were removed from configure.py; the diff shows removals, but the slice does not include separate path-existence or build-error evidence."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "pr_lesson_candidate",
+        "title": "Synchronize configure.py Matching promotions with symbol metadata",
+        "text": "PR 2593 promoted plattack.c, plbonus.c, and ftchangeparam.c to Matching while also changing GALE01 symbol metadata; the bot reported linked-code/data progress and two new matches. Candidate lesson: when linking/matching an object, inspect whether symbols.txt scope/size/local-label metadata also needs correction.",
+        "scope": [
+          "configure.py",
+          "config/GALE01/symbols.txt",
+          "matching configuration"
+        ],
+        "evidence_refs": [
+          "raw_diff:configure.py",
+          "raw_diff:config/GALE01/symbols.txt",
+          "text_corpus.jsonl bot report"
+        ],
+        "confidence": 0.72
+      },
+      {
+        "record_type": "pr_lesson_candidate",
+        "title": "Delete invalid configure object entries instead of carrying stale NonMatching paths",
+        "text": "PR 2593 removed NonMatching entries for melee/ft/ft_3C61.c and melee/ft/chara/ftPp_SpecialS.c from configure.py under a title that explicitly mentions removing invalid files.",
+        "scope": [
+          "configure.py",
+          "object list maintenance"
+        ],
+        "evidence_refs": [
+          "PR title",
+          "raw_diff:configure.py"
+        ],
+        "confidence": 0.82
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "configure.py removed invalid object entries in PR 2593",
+        "text": "PR 2593 removed Object(NonMatching, \"melee/ft/ft_3C61.c\") and Object(NonMatching, \"melee/ft/chara/ftPp_SpecialS.c\") from configure.py. The PR title describes this as removing invalid files.",
+        "source_path": "configure.py",
+        "scope": [
+          "melee/ft/ft_3C61.c",
+          "melee/ft/chara/ftPp_SpecialS.c"
+        ],
+        "evidence_refs": [
+          "PR title",
+          "raw_diff:configure.py hunks around lines 614 and 784"
+        ],
+        "reason": "Potential path/configuration fact for curator review; not independently verified beyond PR evidence."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "itwstar spawned logic call target changed in PR 2593",
+        "text": "In src/melee/it/items/itwstar.c, itWStar_Logic29_Spawned now calls it_80294624(gobj) instead of it_80294364(gobj).",
+        "source_path": "src/melee/it/items/itwstar.c",
+        "scope": [
+          "itWStar_Logic29_Spawned",
+          "it_80294624",
+          "it_80294364"
+        ],
+        "evidence_refs": [
+          "raw_diff:src/melee/it/items/itwstar.c"
+        ],
+        "reason": "Possible symbol/callsite fact for curator review; slice does not include semantic explanation of the two callees."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "Selected configure.py objects marked Matching in PR 2593",
+        "text": "PR 2593 changed configure.py entries for melee/pl/plattack.c, melee/pl/plbonus.c, and melee/ft/ftchangeparam.c from NonMatching to Matching.",
+        "source_path": "configure.py",
+        "scope": [
+          "melee/pl/plattack.c",
+          "melee/pl/plbonus.c",
+          "melee/ft/ftchangeparam.c"
+        ],
+        "evidence_refs": [
+          "raw_diff:configure.py",
+          "text_corpus.jsonl bot report"
+        ],
+        "reason": "Potential historical matching-status fact; curator should confirm current status before treating it as durable source truth."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that every symbols.txt rename in this PR is a general naming standard; the slice only proves these specific metadata edits.",
+      "Do not claim objdiff success or full regression coverage; only the decomp-dev bot aggregate report is loaded.",
+      "Do not infer reviewer intent or requested changes; no human review comments are present."
+    ]
+  },
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

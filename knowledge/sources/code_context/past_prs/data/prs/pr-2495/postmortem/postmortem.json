@@ -12,14 +12,13 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2495 improved matching in src/melee/lb/lbsnap.c and updated one lbsnap header prototype. The PR body claims the remaining unmatched lbsnap surface was reduced to two functions, with configure+ninja verification and 20/22 functions at 100%. The bot report records five new matched functions and one partial improvement in lbSnap_8001DA5C. The PR was closed with merged_at null in the loaded metadata.",
+  "summary": "PR #2495 improves `src/melee/lb/lbsnap.c` matching by replacing placeholder-style code and signatures, extracting small helpers for repeated text clearing, tiled image offsets, and save-data offset calculation, and reducing several lbsnap functions to 100% according to the PR body and bot report. The PR was closed with no merge timestamp in the provided metadata.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "local helper extraction",
-      "control-flow cleanup"
+      "tooling-report"
     ],
     "systems": [
       "library",
@@ -30,198 +29,211 @@
   "key_files": [
     {
       "path": "src/melee/lb/lbsnap.c",
-      "role": "Primary decomp matching changes: helper extraction, control-flow reshaping, typed locals, tiled RGB offset helpers, save-data offset helper, and matching-oriented local/register adjustments.",
+      "role": "Main decomp/matching changes: helper extraction, control-flow reshaping, signature/local cleanup, tiled RGB conversion offset cleanup, save-data offset helper, and reduced PAD_STACK usage in touched lbsnap functions.",
       "evidence_refs": [
-        "changed_files: src/melee/lb/lbsnap.c +84/-92, 7 hunks",
-        "raw_diff: additions of lbSnap_ClearText, lbSnap_GetTiledRGBOffset, lbSnap_GetTiledYOff, lbSnap_GetSaveDataOffset",
-        "text_corpus issue_comment: 5 new matches and lbSnap_8001DA5C improvement"
+        "changed_files.jsonl: src/melee/lb/lbsnap.c added 84 deleted 92 hunks 7",
+        "raw_diff: lbsnap.c hunks for lbSnap_ClearText, lbSnap_GetTiledRGBOffset, lbSnap_GetTiledYOff, lbSnap_GetSaveDataOffset, lbSnap_8001D5FC, lbSnap_8001D7B0, lbSnap_8001DA5C, lbSnap_8001DC0C, lbSnap_8001DF20, lbSnap_8001DF6C, lbSnap_8001E058",
+        "human_pr_text: improves src/melee/lb/lbsnap.c and lowers remaining unmatched surface to two functions"
       ]
     },
     {
       "path": "src/melee/lb/lbsnap.h",
-      "role": "Header prototype cleanup for lbSnap_8001E27C from placeholder UNK_RET/UNK_PARAMS to void(void).",
+      "role": "Header signature cleanup for lbSnap_8001E27C from placeholder UNK_RET/UNK_PARAMS to void(void).",
       "evidence_refs": [
-        "changed_files: src/melee/lb/lbsnap.h +1/-1, 1 hunk",
-        "raw_diff: lbSnap_8001E27C prototype changed to void lbSnap_8001E27C(void)"
+        "changed_files.jsonl: src/melee/lb/lbsnap.h added 1 deleted 1 hunk 1",
+        "raw_diff: lbSnap_8001E27C changed from UNK_RET lbSnap_8001E27C(UNK_PARAMS) to void lbSnap_8001E27C(void)"
       ]
     }
   ],
   "what_changed": [
-    "Added static inline lbSnap_ClearText(char* text) and replaced repeated 0x21-byte text clearing loops in lbSnap_8001D5FC, lbSnap_8001D7B0, and lbSnap_8001E058.",
-    "Reshaped several card-result functions to store ptr->card_result in a ret local, branch on ret == 0, assign call results into ret, and return once at the end.",
-    "Reworked lbSnap_8001DA5C from register-named locals and dense address arithmetic into named locals such as dst, dst_x, src_x, dst_col, tile_column, dst_y, src_y_accum, and pixel, plus tiled-offset inline helpers.",
-    "Changed lbSnap_8001DC0C so seconds is u32 and OSSecondsToTicks is called inline with an explicit u64 cast before OSTicksToCalendarTime.",
-    "Added lbSnap_GetSaveDataOffset(struct Unk80433380_0* snap) and reused it in lbSnap_8001DF20 and lbSnap_8001DF6C.",
-    "In lbSnap_8001DF6C, introduced desc and chan_arg locals, removed a PAD_STACK(8), and accessed lbSnap_803BACC8 through desc for the save descriptor call.",
-    "Updated lbSnap_8001E27C declaration in lbsnap.h from placeholder signature to void lbSnap_8001E27C(void)."
+    {
+      "text": "Added `static inline void lbSnap_ClearText(char* text)` and replaced repeated 0x21-byte text-zeroing loops in `lbSnap_8001D5FC`, `lbSnap_8001D7B0`, and `lbSnap_8001E058`.",
+      "evidence_refs": [
+        "raw_diff: added lbSnap_ClearText",
+        "raw_diff: removed repeated while loops clearing text/text1/text2 and replaced with lbSnap_ClearText calls"
+      ]
+    },
+    {
+      "text": "Reshaped card-result functions to cache `ptr->card_result` in `ret`, perform work only when `ret == 0`, assign call results into `ret`, and return once at the end.",
+      "evidence_refs": [
+        "raw_diff: lbSnap_8001D5FC ret local and final return",
+        "raw_diff: lbSnap_8001D7B0 ret local and final return",
+        "raw_diff: lbSnap_8001E058 ret local and final return"
+      ]
+    },
+    {
+      "text": "Added tiled-image offset helpers `lbSnap_GetTiledRGBOffset` and `lbSnap_GetTiledYOff`, then rewrote `lbSnap_8001DA5C` from register-named temporaries and large inline address expressions into named locals such as `dst`, `dst_x`, `src_x`, `dst_col`, `tile_column`, `dst_y`, `src_y_accum`, and `pixel`.",
+      "evidence_refs": [
+        "raw_diff: added lbSnap_GetTiledRGBOffset and lbSnap_GetTiledYOff",
+        "raw_diff: lbSnap_8001DA5C removed r4/r5/r6/r7/r9/r10/r25/r27/r28 temporaries",
+        "raw_diff: lbSnap_8001DA5C now uses named loop locals and helper calls"
+      ]
+    },
+    {
+      "text": "Cleaned `lbSnap_8001DC0C` time conversion by making `seconds` a `u32` and passing `OSSecondsToTicks((u64) seconds)` directly to `OSTicksToCalendarTime`.",
+      "evidence_refs": [
+        "raw_diff: lbSnap_8001DC0C seconds changed from OSTime to u32",
+        "raw_diff: removed intermediate ticks assignment before OSTicksToCalendarTime"
+      ]
+    },
+    {
+      "text": "Added `lbSnap_GetSaveDataOffset(struct Unk80433380_0* snap)` and reused it in `lbSnap_8001DF20` and `lbSnap_8001DF6C`, replacing duplicated pointer-difference expressions and comments noting uncertainty.",
+      "evidence_refs": [
+        "raw_diff: added lbSnap_GetSaveDataOffset",
+        "raw_diff: lbSnap_8001DF20 uses local snap and helper",
+        "raw_diff: lbSnap_8001DF6C uses desc pointer and helper"
+      ]
+    },
+    {
+      "text": "Updated `src/melee/lb/lbsnap.h` so `lbSnap_8001E27C` has the concrete prototype `void lbSnap_8001E27C(void)` instead of placeholder `UNK_RET` and `UNK_PARAMS`.",
+      "evidence_refs": [
+        "raw_diff: lbsnap.h prototype change for lbSnap_8001E27C"
+      ]
+    },
+    {
+      "text": "Reported verification was `python configure.py && ninja`; PR body claimed `main/melee/lb/lbsnap` reached 20/22 functions at 100%, with remaining blockers `lbSnap_8001DA5C` and `lbSnap_8001DF20`.",
+      "evidence_refs": [
+        "human_pr_text: Verification and Remaining blockers sections"
+      ]
+    },
+    {
+      "text": "Bot report listed 5 new matches in `main/melee/lb/lbsnap`: `lbSnap_8001DF6C`, `lbSnap_8001D7B0`, `lbSnap_8001D5FC`, `lbSnap_8001E058`, and `lbSnap_8001DC0C`; it also reported `lbSnap_8001DA5C` improved from 47.05% to 55.88%.",
+      "evidence_refs": [
+        "text_corpus.jsonl: decomp-dev[bot] issue_comment report for GALE01"
+      ]
+    }
   ],
   "smart_moves": [
     {
-      "text": "Factored identical fixed-size stack buffer clearing into a local inline helper, reducing repeated generated-looking loops while preserving the explicit 0x21-byte behavior used by several functions.",
+      "text": "Factored repeated stack-buffer clearing into a small inline helper instead of keeping multiple near-identical loops in call sites.",
       "evidence_refs": [
-        "raw_diff: lbSnap_ClearText added and used in lbSnap_8001D5FC, lbSnap_8001D7B0, lbSnap_8001E058"
+        "raw_diff: lbSnap_ClearText and replacements in lbSnap_8001D5FC/lbSnap_8001D7B0/lbSnap_8001E058"
       ]
     },
     {
-      "text": "Used small local helpers for repeated tiled image offset formulas and save-data offset computation instead of leaving long pointer arithmetic duplicated inline.",
+      "text": "Converted register-placeholder locals in the image-copy/conversion loop into role-based names and helper expressions, making the RGB565-to-RGB5A3 tiled layout operation easier to review even though the function remained unmatched.",
       "evidence_refs": [
-        "raw_diff: lbSnap_GetTiledRGBOffset, lbSnap_GetTiledYOff, lbSnap_GetSaveDataOffset"
+        "raw_diff: lbSnap_8001DA5C local rename and helper rewrite",
+        "text_corpus.jsonl: bot report says lbSnap_8001DA5C improved but remained unmatched"
       ]
     },
     {
-      "text": "Kept the partially improved lbSnap_8001DA5C marked as a blocker rather than claiming it matched.",
+      "text": "Pulled the duplicated save-data offset expression into a helper and reused a local pointer in `lbSnap_8001DF20`, reducing duplicated pointer arithmetic while preserving the known remaining register-allocation blocker noted in the PR body.",
       "evidence_refs": [
-        "human_pr_text: remaining blockers list lbSnap_8001DA5C at 55.87963%",
-        "text_corpus issue_comment: lbSnap_8001DA5C improved from 47.05% to 55.88%"
+        "raw_diff: lbSnap_GetSaveDataOffset and lbSnap_8001DF20 rewrite",
+        "human_pr_text: lbSnap_8001DF20 remaining blocker at 98.15790% register allocation only"
       ]
     },
     {
-      "text": "Paired a source header prototype cleanup with the recovered signature for lbSnap_8001E27C instead of leaving UNK_RET/UNK_PARAMS in the public declaration.",
+      "text": "Updated a header prototype when the function signature was apparently known, avoiding continued use of placeholder `UNK_RET` and `UNK_PARAMS` in `lbsnap.h`.",
       "evidence_refs": [
-        "raw_diff: lbsnap.h prototype change for lbSnap_8001E27C"
+        "raw_diff: lbsnap.h lbSnap_8001E27C prototype change"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When several sibling functions contain identical fixed-size initialization loops for local buffers, a static inline helper can be a cleaner match candidate than preserving copied loop bodies.",
+      "lesson": "When several related functions contain the same fixed-size local string clearing loop, a small file-local inline helper can express the repeated source intent and may help matching while improving readability.",
       "scope": [
         "src/melee/lb/lbsnap.c",
-        "stack text buffers",
-        "repeated clear loops"
-      ],
-      "evidence_refs": [
-        "raw_diff: repeated while loops clearing text/text1/text2 were replaced with lbSnap_ClearText"
-      ],
-      "related_standards": [
-        "natural-loops",
-        "infer-authored-source-style"
-      ]
-    },
-    {
-      "lesson": "For matching card-result state functions, storing the state in a ret local and using a single final return can be a useful control-flow shape when multiple early returns are near-matches.",
-      "scope": [
+        "local text buffers",
         "lbSnap_8001D5FC",
         "lbSnap_8001D7B0",
         "lbSnap_8001E058"
       ],
       "evidence_refs": [
-        "raw_diff: ptr->card_result checks changed to ret local and trailing return ret",
-        "text_corpus issue_comment: these functions became 100.00%"
+        "raw_diff: added lbSnap_ClearText",
+        "text_corpus.jsonl: bot report lists lbSnap_8001D5FC/lbSnap_8001D7B0/lbSnap_8001E058 as new 100% matches"
       ],
-      "related_standards": [
-        "canonical-control-flow-and-macros",
-        "verification-and-regression-ledger"
-      ]
+      "confidence": 0.82
     },
     {
-      "lesson": "Replacing register-style decompiler locals with role names can make a partially matched function more reviewable, but partial scores should remain explicitly marked as incomplete.",
+      "lesson": "Replacing register-style temporary names with role-based locals and helper functions can make partially matched image/tile conversion code substantially more reviewable without claiming full match.",
       "scope": [
-        "lbSnap_8001DA5C"
+        "src/melee/lb/lbsnap.c",
+        "lbSnap_8001DA5C",
+        "tiled RGB image offsets"
       ],
       "evidence_refs": [
-        "raw_diff: r4/r5/r6/r7/r9/r10/r25/r27/r28 replaced with dst_x, src_x, dst_col, tile_column, dst_y, src_y_accum, pixel",
-        "human_pr_text: lbSnap_8001DA5C remains 55.87963%"
+        "raw_diff: lbSnap_8001DA5C rewrite from r-named locals to dst/src/tile/pixel locals",
+        "text_corpus.jsonl: bot report says lbSnap_8001DA5C improved from 47.05% to 55.88%"
       ],
-      "related_standards": [
-        "conservative-naming",
-        "verification-and-regression-ledger"
-      ]
+      "confidence": 0.76
     },
     {
-      "lesson": "When a body proves a non-placeholder function signature, update the owning header prototype as part of the same decomp cleanup.",
+      "lesson": "When a body or matching work supports a concrete signature, update the owning header rather than leaving placeholder `UNK_RET` or `UNK_PARAMS` declarations.",
       "scope": [
         "src/melee/lb/lbsnap.h",
         "lbSnap_8001E27C"
       ],
       "evidence_refs": [
-        "raw_diff: UNK_RET lbSnap_8001E27C(UNK_PARAMS) changed to void lbSnap_8001E27C(void)"
+        "raw_diff: lbSnap_8001E27C prototype changed to void(void)"
       ],
-      "related_standards": [
-        "truthful-headers-and-includes"
-      ]
+      "confidence": 0.72
     }
   ],
   "naming_conventions": [
     {
-      "name": "lbSnap_ClearText",
-      "kind": "static inline helper",
-      "convention": "Use lbSnap_ prefix for file-local helpers in lbsnap.c; helper name states the operation on text buffers.",
+      "text": "New lbsnap-local helpers use the existing symbol prefix and Pascal-style suffixes: `lbSnap_ClearText`, `lbSnap_GetTiledRGBOffset`, `lbSnap_GetTiledYOff`, and `lbSnap_GetSaveDataOffset`.",
       "evidence_refs": [
-        "raw_diff: static inline void lbSnap_ClearText(char* text)"
+        "raw_diff: added static inline helper names"
       ]
     },
     {
-      "name": "lbSnap_GetTiledRGBOffset / lbSnap_GetTiledYOff",
-      "kind": "static inline helpers",
-      "convention": "Use lbSnap_ prefix plus GetTiled* names for local image/tile address calculations.",
+      "text": "Local variables in rewritten code use short role names rather than register names, including `ret`, `dst`, `dst_x`, `src_x`, `dst_col`, `tile_column`, `dst_y`, `src_y_accum`, `pixel`, `snap`, `desc`, and `chan_arg`.",
       "evidence_refs": [
-        "raw_diff: static inline int lbSnap_GetTiledRGBOffset(...), lbSnap_GetTiledYOff(...)"
+        "raw_diff: lbSnap_8001DA5C, lbSnap_8001DF20, lbSnap_8001DF6C local changes"
       ]
     },
     {
-      "name": "dst_x, src_x, dst_col, tile_column, dst_y, src_y_accum, pixel",
-      "kind": "local variables",
-      "convention": "Replace register-number locals with short role names when the dataflow role is visible from the arithmetic and stores.",
+      "text": "The PR preserves address-style global/function names such as `lbSnap_80433380`, `lbSnap_803BACC8`, and `lbSnap_8001DA5C` where fuller semantics are not shown in the evidence.",
       "evidence_refs": [
-        "raw_diff: lbSnap_8001DA5C local variable rewrite"
-      ]
-    },
-    {
-      "name": "desc",
-      "kind": "local variable",
-      "convention": "Use a short role name for a descriptor pointer when replacing repeated global struct accesses.",
-      "evidence_refs": [
-        "raw_diff: struct Unk803BACC8* desc = &lbSnap_803BACC8 in lbSnap_8001DF6C"
+        "raw_diff: unchanged address-style global/function names in touched code"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "PAD_STACK was retained in some functions and adjusted in others while reshaping locals and control flow.",
+      "text": "Used narrow inline helpers to abstract repeated expressions while keeping call sites likely inlineable for matching: text clearing, tiled RGB offsets, tiled Y offsets, and save-data offsets.",
       "evidence_refs": [
-        "raw_diff: PAD_STACK(8) retained in lbSnap_8001D5FC, lbSnap_8001D7B0, lbSnap_8001E058; lbSnap_8001DA5C changed from PAD_STACK(16) to PAD_STACK(8); lbSnap_8001DF6C PAD_STACK(8) removed"
-      ],
-      "caution": "PAD_STACK is a matching tactic and should remain justified by local objdiff/build evidence; the PR body and bot report provide matching evidence for several functions but not a per-line rationale for each PAD_STACK adjustment."
+        "raw_diff: static inline helper additions"
+      ]
     },
     {
-      "tactic": "Introduced temporary locals such as ret, snap, desc, and chan_arg to influence control flow, register allocation, or repeated access shape.",
+      "text": "Retained `PAD_STACK(8)` in several functions and changed `lbSnap_8001DA5C` from `PAD_STACK(16)` to `PAD_STACK(8)`; removed `PAD_STACK(8)` from `lbSnap_8001DF6C` in the shown diff.",
       "evidence_refs": [
-        "raw_diff: ret locals in card-result functions; snap in lbSnap_8001DF20; desc and chan_arg in lbSnap_8001DF6C",
-        "human_pr_text: lbSnap_8001DF20 remains 98.15790% with register allocation only"
-      ],
-      "caution": "The PR identifies register allocation as the remaining lbSnap_8001DF20 issue, but does not explicitly state which locals were introduced for register allocation."
+        "raw_diff: PAD_STACK changes in lbSnap_8001D5FC, lbSnap_8001D7B0, lbSnap_8001DA5C, lbSnap_8001DF6C, lbSnap_8001E058"
+      ]
     },
     {
-      "tactic": "Used explicit integer width/cast in time conversion: seconds became u32 and OSSecondsToTicks receives (u64) seconds inline.",
+      "text": "Cached `card_result` into a local `ret` and used single-exit return shapes in multiple card-operation functions, which coincided with bot-reported 100% matches for several of those functions.",
       "evidence_refs": [
-        "raw_diff: lbSnap_8001DC0C OSTime seconds changed to u32 seconds and OSTicksToCalendarTime(OSSecondsToTicks((u64) seconds), &time)",
-        "text_corpus issue_comment: lbSnap_8001DC0C reached 100.00%"
-      ],
-      "caution": "This is supported as a local matching tactic for this function only; no broader time API convention is proven by the PR slice."
+        "raw_diff: ret reshaping in lbSnap_8001D5FC/lbSnap_8001D7B0/lbSnap_8001E058",
+        "text_corpus.jsonl: bot report new matches"
+      ]
+    },
+    {
+      "text": "Used an explicit cast to `u64` before `OSSecondsToTicks` after changing `seconds` to `u32` in `lbSnap_8001DC0C`; bot report indicates this function reached 100%.",
+      "evidence_refs": [
+        "raw_diff: OSSecondsToTicks((u64) seconds)",
+        "text_corpus.jsonl: bot report lists lbSnap_8001DC0C as 100.00%"
+      ]
     }
   ],
   "review_feedback": [
     {
-      "kind": "bot_report",
+      "type": "bot-report",
       "author": "decomp-dev[bot]",
-      "text": "GALE01 report showed matched code 67.05% (+0.06%, +2424 bytes), five new matches in main/melee/lb/lbsnap, and one improvement in lbSnap_8001DA5C.",
+      "text": "GALE01 report showed matched code increased by +0.06% / +2424 bytes, with 5 new matches in `main/melee/lb/lbsnap` and one improvement in `lbSnap_8001DA5C`.",
       "evidence_refs": [
-        "text_corpus issue_comment: decomp-dev[bot] report"
-      ]
-    },
-    {
-      "kind": "missing_human_review",
-      "author": null,
-      "text": "No loaded review comments or human review records were present in the slice.",
-      "evidence_refs": [
-        "metadata_json counts: review_comments 0, reviews 0"
+        "text_corpus.jsonl: issue_comment by decomp-dev[bot] created_at 2026-05-15T08:33:11Z"
       ]
     }
   ],
   "searchable_terms": [
     "pr-2495",
     "lb: improve lbsnap matching",
+    "itsgrimetime",
     "src/melee/lb/lbsnap.c",
     "src/melee/lb/lbsnap.h",
     "lbSnap_ClearText",
@@ -237,113 +249,115 @@
     "lbSnap_8001E058",
     "lbSnap_8001E27C",
     "RGB565_TO_RGB5A3",
+    "RGB5A3",
     "PAD_STACK",
     "HSD_ASSERTMSG",
-    "card_result",
-    "x54_stateChanged",
-    "x44_LbMcSnap_MemSnapIconData",
     "OSTicksToSeconds",
     "OSSecondsToTicks",
     "OSTicksToCalendarTime",
     "UNK_RET",
-    "UNK_PARAMS"
+    "UNK_PARAMS",
+    "card_result",
+    "x54_stateChanged",
+    "x44_LbMcSnap_MemSnapIconData"
   ],
   "follow_up_queries": [
-    "lbSnap_ClearText repeated text buffer clear helper",
-    "lbSnap_8001DA5C tiled RGB offset RGB565_TO_RGB5A3 partial match",
-    "lbSnap_8001DF20 register allocation only save data offset",
-    "lbsnap.h lbSnap_8001E27C UNK_RET UNK_PARAMS void prototype",
-    "PAD_STACK lbsnap matching lbSnap_8001DA5C lbSnap_8001DF6C",
-    "decomp-dev bot report PR 2495 lbsnap 20/22 functions"
+    "lbSnap_ClearText 0x21 text buffer clearing",
+    "lbSnap_GetTiledRGBOffset tiled RGB offset RGB565 RGB5A3",
+    "lbSnap_8001DA5C 55.88 remaining unmatched",
+    "lbSnap_8001DF20 register allocation only",
+    "lbSnap_8001E27C void(void) header prototype",
+    "src/melee/lb/lbsnap.c PAD_STACK matching",
+    "lbSnap_GetSaveDataOffset snap xC x38 offset"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR number/title/state/author/created_at/merged_at and changed file counts",
+      "metadata_json: PR number/title/state/author/url/timestamps/counts",
       "human_pr_text: PR body with verification and remaining blockers",
-      "raw_diff: full diff for lbsnap.c and lbsnap.h",
-      "text_corpus: decomp-dev bot report with match improvements",
-      "changed_files: two changed files and hunk counts"
+      "raw_diff: complete diff excerpt for two changed files",
+      "changed_files.jsonl: changed file list and line counts",
+      "text_corpus.jsonl: decomp-dev[bot] report with match improvements"
     ],
     "notes": [
-      "The diff and bot report strongly support what changed and which functions improved or matched.",
-      "The PR is closed and merged_at is null in loaded metadata; no merge or acceptance status is inferred beyond that.",
-      "No loaded human review feedback exists, so reviewer intent and acceptance rationale are unavailable.",
-      "The PR body states configure+ninja verification and 20/22 functions at 100%, but the slice does not include raw build logs.",
-      "lbSnap_8001DA5C and lbSnap_8001DF20 are explicitly not complete matches in the PR body, so their tactics are recorded cautiously."
+      "No human review comments or review approvals are present in the provided slice.",
+      "Metadata says the PR is CLOSED and `merged_at` is null; intake does not infer merge or acceptance.",
+      "The PR body provides build and unit-match claims, and the bot report provides matching deltas, but no raw objdiff/checkdiff logs are included.",
+      "The remaining-blocker descriptions for `lbSnap_8001DA5C` and `lbSnap_8001DF20` come from the PR body and bot report only.",
+      "The diff supports helper extraction and prototype cleanup, but it does not prove broader project-wide naming or source-style rules beyond this lbsnap slice."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson",
-        "title": "Repeated fixed-size buffer clears can become local inline helpers",
-        "text": "In lbsnap, several near-matched functions cleared 0x21-byte text buffers with copied loops. PR #2495 replaced those loops with static inline lbSnap_ClearText and the bot report showed lbSnap_8001D5FC, lbSnap_8001D7B0, and lbSnap_8001E058 reaching 100%. Candidate lesson: when sibling functions share identical fixed-size initialization loops, test a narrow file-local inline helper instead of preserving duplicated generated-looking loops.",
+        "kind": "pr_lesson_candidate",
+        "title": "Factor repeated fixed-size local string clearing into a local inline helper when evidence shows the same authored operation repeats",
+        "text": "In PR #2495, repeated 0x21-byte text-clearing loops in lbsnap card-operation functions were replaced with `lbSnap_ClearText`, and the bot report listed several affected functions as new 100% matches. Curator should treat this as a local lbsnap matching pattern, not a universal rule to replace every memset-like loop.",
         "scope": [
           "src/melee/lb/lbsnap.c",
-          "fixed-size stack buffers",
-          "helper extraction"
+          "lbSnap_8001D5FC",
+          "lbSnap_8001D7B0",
+          "lbSnap_8001E058"
         ],
         "evidence_refs": [
-          "raw_diff: lbSnap_ClearText helper and replacements",
-          "text_corpus issue_comment: affected functions reached 100.00%"
+          "raw_diff: lbSnap_ClearText",
+          "text_corpus.jsonl: bot report new matches"
         ]
       },
       {
-        "record_type": "decomp_lesson",
-        "title": "Header placeholder signatures should be removed when the recovered signature is known",
-        "text": "PR #2495 changed lbSnap_8001E27C in src/melee/lb/lbsnap.h from UNK_RET/UNK_PARAMS to void(void), matching the truthful-header principle for recovered function bodies.",
+        "kind": "pr_lesson_candidate",
+        "title": "Use role-based locals and helper offset formulas to make tiled image conversion decomp more reviewable",
+        "text": "In `lbSnap_8001DA5C`, the PR replaced register-style temporaries and duplicated pointer arithmetic with named locals and tiled offset helpers. The function remained unmatched, so the safe lesson is reviewability and partial-score improvement rather than full-match closure.",
         "scope": [
-          "src/melee/lb/lbsnap.h",
-          "function prototypes"
+          "src/melee/lb/lbsnap.c",
+          "lbSnap_8001DA5C"
         ],
         "evidence_refs": [
-          "raw_diff: lbSnap_8001E27C prototype update"
+          "raw_diff: lbSnap_8001DA5C rewrite",
+          "text_corpus.jsonl: lbSnap_8001DA5C improved from 47.05% to 55.88%"
         ]
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "src/melee/lb/lbsnap.c lbsnap matching status in PR #2495",
-        "text": "PR #2495 targeted src/melee/lb/lbsnap.c in the library/lb area. The PR body says it reduced remaining unmatched lbsnap functions to lbSnap_8001DA5C and lbSnap_8001DF20; the bot report lists new 100% matches for lbSnap_8001DF6C, lbSnap_8001D7B0, lbSnap_8001D5FC, lbSnap_8001E058, and lbSnap_8001DC0C, plus a partial improvement for lbSnap_8001DA5C.",
-        "source_path": "src/melee/lb/lbsnap.c",
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Truthful header cleanup example: replace placeholder signatures when a concrete signature is recovered",
+        "text": "PR #2495 provides an example for the existing truthful-headers standard: `src/melee/lb/lbsnap.h` changed `lbSnap_8001E27C` from `UNK_RET lbSnap_8001E27C(UNK_PARAMS)` to `void lbSnap_8001E27C(void)`. This can be cited as supporting evidence for updating owning headers when signatures are known.",
+        "source_path": "src/melee/lb/lbsnap.h",
         "scope": [
-          "library",
-          "lb",
-          "lbsnap"
+          "headers",
+          "placeholder signatures",
+          "lbSnap_8001E27C"
         ],
         "evidence_refs": [
-          "human_pr_text: remaining blockers and verification",
-          "text_corpus issue_comment: new matches and lbSnap_8001DA5C improvement"
+          "raw_diff: lbsnap.h prototype change"
         ],
-        "reason": "Potential path-scoped historical matching context; should be curator-reviewed before adding to path facts because the PR was closed with merged_at null."
+        "reason": "The change aligns with the loaded `truthful-headers-and-includes` standard, but source-corpus promotion should be curator-reviewed."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Caution for PAD_STACK and local/register shaping in near-matched functions",
-        "text": "PR #2495 used or adjusted PAD_STACK and introduced locals such as ret, desc, chan_arg, and snap while improving lbsnap matches. This may support a reminder that such tactics need narrow verification and should not be generalized without objdiff evidence.",
-        "source_path": null,
+        "title": "Matching tactic ledger example: PAD_STACK changes should be tied to reported match results",
+        "text": "PR #2495 retains, changes, and removes `PAD_STACK` in nearby lbsnap functions while reporting several new 100% matches and one partial improvement. This is useful as an example for the existing matching-tactics standard, but the slice does not include raw objdiff details for each PAD_STACK decision.",
+        "source_path": "src/melee/lb/lbsnap.c",
         "scope": [
-          "matching tactics",
           "PAD_STACK",
-          "register allocation"
+          "matching tactics",
+          "lbsnap"
         ],
         "evidence_refs": [
-          "raw_diff: PAD_STACK retained/changed/removed in touched functions",
-          "human_pr_text: lbSnap_8001DF20 remains a register allocation blocker",
-          "text_corpus issue_comment: multiple functions reached 100.00%"
+          "raw_diff: PAD_STACK edits",
+          "text_corpus.jsonl: bot report new matches and improvement"
         ],
-        "reason": "This aligns with existing matching-tactics standards; curator may decide whether the PR adds enough historical example value rather than a new rule."
+        "reason": "Could enrich examples for `matching-tactics-need-evidence`; evidence is sufficient for an example candidate but not for a new universal rule."
       }
     ],
     "rejection_notes": [
-      "Do not record lbSnap_8001DA5C as matched; both PR body and bot report show it remained partial.",
-      "Do not infer that the PR was merged or accepted; metadata says state CLOSED and merged_at null.",
-      "Do not promote a broad OS time-conversion naming or typing rule from the single lbSnap_8001DC0C change.",
-      "Do not infer human reviewer preferences; no review comments were loaded."
+      "Do not infer that the PR was merged or accepted; metadata has state CLOSED and `merged_at` null.",
+      "Do not promote `lbSnap_GetTiledRGBOffset` or `lbSnap_GetTiledYOff` formulas as globally correct tiled image APIs; evidence only shows local lbsnap usage.",
+      "Do not claim `lbSnap_8001DA5C` or `lbSnap_8001DF20` were fully matched; PR body names them as remaining blockers and bot report only shows `lbSnap_8001DA5C` partial improvement.",
+      "Do not treat PAD_STACK usage in this diff as general style without per-function verifier evidence; the slice has a bot report but no detailed objdiff ledger."
     ]
   },
   "confidence": 0.88,
@@ -353,6 +367,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

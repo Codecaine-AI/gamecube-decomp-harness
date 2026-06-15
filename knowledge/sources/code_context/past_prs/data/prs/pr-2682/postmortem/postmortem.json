@@ -1,0 +1,397 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2682",
+  "pr": {
+    "number": 2682,
+    "title": "Melee decomp: Camera matches",
+    "url": "https://github.com/doldecomp/melee/pull/2682",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-13T21:29:00Z",
+    "merged_at": "2026-06-14T15:35:13Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Exact-match work in the Melee camera translation unit. The PR changed only src/melee/cm/camera.c, reported 3 newly exact functions, and improved 3 additional unmatched camera functions with no reported broken matches, fuzzy regressions, or metric regressions.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "implementation-only match work",
+      "camera",
+      "types-structs",
+      "local naming cleanup",
+      "matching tactics"
+    ],
+    "systems": [
+      "melee-core",
+      "melee-camera",
+      "cm"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/cm/camera.c",
+      "role": "Only changed file; camera matching work covering Camera_8002A0C0, Camera_8002F9E4, Camera_8002FC7C, and improvements in Camera_8002CDDC, Camera_80029CF8, and Camera_800311EC.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/cm/camera.c added 195 deleted 157 hunks 18",
+        "human_pr_text.md: Files list names src/melee/cm/camera.c",
+        "text_corpus.jsonl issue_comment: new matches and improvements all in main/melee/cm/camera"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "Added a static inline helper get_pitch_angle for part of Camera_80029CF8, moving pitch-angle setup into a helper that takes CameraBounds, a Vec3 scroll offset pointer, and an output f32 pointer.",
+      "evidence_refs": [
+        "raw_diff: get_pitch_angle added before Camera_80029CF8",
+        "raw_diff: Camera_80029CF8 now calls get_pitch_angle(bounds, &scroll_offset, &pitch_angle)"
+      ]
+    },
+    {
+      "text": "Renamed many generated-looking temporaries in camera math to role names such as pitch_blend, pan_angle, vert_frustum_dist, horiz_frustum_dist, zoom_depth, horiz_offset, vert_offset, viewport_x_scale, viewport_y_scale, half_view_height, input_x, input_y, and depth_ratio.",
+      "evidence_refs": [
+        "raw_diff: Camera_80029CF8 temporary variables renamed and reordered",
+        "raw_diff: Camera_8002A0C0 var_f*/temp_f* locals replaced with role names"
+      ]
+    },
+    {
+      "text": "In Camera_8002A0C0, introduced a local struct CameraStaticData and cast cm_803BCB18 through it so aspect and viewport are accessed via data->desc rather than directly through cm_803BCB64 for that code path.",
+      "evidence_refs": [
+        "raw_diff: struct CameraStaticData with CameraModeCallbacks, HSD_WObjDesc, HSD_CameraDescPerspective desc",
+        "raw_diff: viewport_x_scale and viewport_y_scale use data->desc.aspect and data->desc.viewport"
+      ]
+    },
+    {
+      "text": "Adjusted Camera_8002CDDC local ordering, target-interest/target-position pointer usage, fov smoothing expression shape, fallback pointer temporaries for globals->x40/x44, PAD_STACK from 8 to 4, and target distance computation using cam->transform fields.",
+      "evidence_refs": [
+        "raw_diff: Camera_8002CDDC declares target_dx/target_dy/target_dz",
+        "raw_diff: adds tgt_interest2 = &cam->transform.target_interest",
+        "raw_diff: fallback_path changes PAD_STACK(8) to PAD_STACK(4)",
+        "raw_diff: smooth_ptr and fov_ptr added for globals->x44 and globals->x40"
+      ]
+    },
+    {
+      "text": "In Camera_8002F9E4 and Camera_8002FC7C, introduced a target_interest pointer and assigned target_position from that pointed target-interest value.",
+      "evidence_refs": [
+        "raw_diff: Camera_8002F9E4 adds Vec3* target_interest and uses *target_interest",
+        "raw_diff: Camera_8002FC7C adds Vec3* target_interest and uses *target_interest"
+      ]
+    },
+    {
+      "text": "In fn_800301D0, renamed s64 var_r* locals to priority-related names prio8_a, prio1_a, prio8_b, and prio1_b while preserving repeated priority assignment logic.",
+      "evidence_refs": [
+        "raw_diff: fn_800301D0 var_r4/var_r0/var_r3/var_r5 renamed to prio8_a/prio1_a/prio8_b/prio1_b"
+      ]
+    },
+    {
+      "text": "Reported exact matches for Camera_8002A0C0, Camera_8002F9E4, and Camera_8002FC7C, plus improvements in Camera_8002CDDC, Camera_80029CF8, and Camera_800311EC.",
+      "evidence_refs": [
+        "text_corpus.jsonl issue_comment: ✅ 3 new matches table",
+        "text_corpus.jsonl issue_comment: 📈 3 improvements in unmatched items table"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "Kept the PR scope narrow to one camera translation unit with no header or naming churn reported outside the TU.",
+      "evidence_refs": [
+        "human_pr_text.md: Review risk low; one CM translation unit",
+        "human_pr_text.md: Header/naming churn: none",
+        "changed_files.jsonl: only src/melee/cm/camera.c"
+      ]
+    },
+    {
+      "text": "Used semantic local names to clarify camera math without renaming global/address-style symbols.",
+      "evidence_refs": [
+        "raw_diff: temp_f*/var_f* locals become pan_angle, zoom_depth, horiz_offset, viewport_x_scale, depth_ratio",
+        "decomp_standards: conservative-naming"
+      ]
+    },
+    {
+      "text": "Introduced a narrow local struct for static camera data layout inside Camera_8002A0C0 instead of adding broad global type churn in this PR.",
+      "evidence_refs": [
+        "raw_diff: local struct CameraStaticData declared inside Camera_8002A0C0",
+        "human_pr_text.md: Header/naming churn: none",
+        "decomp_standards: typed-fields-over-pointer-math"
+      ]
+    },
+    {
+      "text": "Included explicit verification notes: isolated changes_all run, clean slice regression report, clean full ship-set regression report, diff check, and review_lint result.",
+      "evidence_refs": [
+        "human_pr_text.md: Verification section",
+        "text_corpus.jsonl issue_comment: matched-code report"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "For camera math, extracting a small inline helper can improve match progress while keeping surrounding function structure readable, as shown by get_pitch_angle inside the Camera_80029CF8 work.",
+      "scope": [
+        "src/melee/cm/camera.c",
+        "Camera_80029CF8"
+      ],
+      "evidence_refs": [
+        "raw_diff: static inline void get_pitch_angle added",
+        "text_corpus.jsonl issue_comment: Camera_80029CF8 improved from 98.43% to 98.94%"
+      ],
+      "confidence": 0.78
+    },
+    {
+      "lesson": "Role-based local names can coexist with matching-oriented expression reshaping; this PR replaced temp/var locals with camera-domain names while reporting exact matches or improvements.",
+      "scope": [
+        "src/melee/cm/camera.c"
+      ],
+      "evidence_refs": [
+        "raw_diff: temp_f*/var_f* renamed across Camera_80029CF8, Camera_8002A0C0, fn_800301D0",
+        "text_corpus.jsonl issue_comment: 3 new matches and 3 improvements"
+      ],
+      "confidence": 0.82
+    },
+    {
+      "lesson": "A local temporary struct can be a contained way to express known data layout for matching when a full header/type update is outside PR scope.",
+      "scope": [
+        "Camera_8002A0C0",
+        "cm_803BCB18"
+      ],
+      "evidence_refs": [
+        "raw_diff: local struct CameraStaticData used to access data->desc.aspect and data->desc.viewport",
+        "human_pr_text.md: Header/naming churn: none"
+      ],
+      "confidence": 0.7
+    },
+    {
+      "lesson": "Pointer temporaries to struct fields can be matching-relevant in MWCC-shaped code; this PR introduced target_interest, tgt_interest2, smooth_ptr, and fov_ptr in specific camera paths.",
+      "scope": [
+        "Camera_8002CDDC",
+        "Camera_8002F9E4",
+        "Camera_8002FC7C"
+      ],
+      "evidence_refs": [
+        "raw_diff: target_interest pointer additions in Camera_8002F9E4 and Camera_8002FC7C",
+        "raw_diff: tgt_interest2, smooth_ptr, and fov_ptr additions in Camera_8002CDDC",
+        "text_corpus.jsonl issue_comment: Camera_8002F9E4 and Camera_8002FC7C became exact matches; Camera_8002CDDC improved"
+      ],
+      "confidence": 0.75
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "Prefer camera-domain local names over generated temp_r/var_f style once the role is visible: pan_angle, pitch_blend, zoom_depth, horiz_frustum_dist, vert_frustum_dist, horiz_offset, vert_offset, viewport_x_scale, viewport_y_scale, input_x, input_y, depth_ratio.",
+      "scope": [
+        "camera math locals"
+      ],
+      "evidence_refs": [
+        "raw_diff: Camera_80029CF8 local rename set",
+        "raw_diff: Camera_8002A0C0 local rename set",
+        "decomp_standards: conservative-naming"
+      ]
+    },
+    {
+      "text": "For bit-derived rendering priority locals, names like prio8_a, prio1_a, prio8_b, and prio1_b document the immediate priority-mask role without claiming broader semantic meaning.",
+      "scope": [
+        "fn_800301D0"
+      ],
+      "evidence_refs": [
+        "raw_diff: fn_800301D0 s64 locals renamed from var_r* to prio*"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "text": "Used a narrow static inline helper with pointer outputs to alter the code shape for Camera_80029CF8 while preserving the surrounding function's stack/local behavior.",
+      "evidence_refs": [
+        "raw_diff: get_pitch_angle takes Vec3* scroll_offset and f32* pitch_angle",
+        "raw_diff: Camera_80029CF8 still has u8 _padA[8]"
+      ]
+    },
+    {
+      "text": "Adjusted PAD_STACK in Camera_8002CDDC fallback_path from 8 to 4, a stack-shape tactic supported here by the PR's reported regression results but not generalizable without local verification.",
+      "evidence_refs": [
+        "raw_diff: PAD_STACK(8) changed to PAD_STACK(4)",
+        "human_pr_text.md: Slice regression report 3 new matches, 0 broken matches, 0 fuzzy regressions, 0 metric regressions",
+        "decomp_standards: matching-tactics-need-evidence"
+      ]
+    },
+    {
+      "text": "Changed compound assignments into explicit assignment expressions for fov smoothing, likely to match MWCC expression/order shape in Camera_8002CDDC.",
+      "evidence_refs": [
+        "raw_diff: cam->transform.fov = (...) + cam->transform.fov",
+        "raw_diff: cam->transform_copy.fov = (...) + cam->transform_copy.fov"
+      ]
+    },
+    {
+      "text": "Introduced pointer aliases to target_interest and globals fields where direct field access did not produce the desired match shape.",
+      "evidence_refs": [
+        "raw_diff: target_interest pointer in Camera_8002F9E4 and Camera_8002FC7C",
+        "raw_diff: smooth_ptr and fov_ptr in Camera_8002CDDC fallback_path"
+      ]
+    },
+    {
+      "text": "Used the existing MAX macro in Camera_80029CF8 for frustum distance selection rather than preserving a generated branch expression.",
+      "evidence_refs": [
+        "raw_diff: vert_frustum_dist = MAX(vert_frustum_dist, horiz_frustum_dist)",
+        "decomp_standards: canonical-control-flow-and-macros"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "kind": "approval",
+      "text": "Review record shows approval by jurrejelle with no review comment body in the loaded slice.",
+      "evidence_refs": [
+        "text_corpus.jsonl review: author jurrejelle, state APPROVED, empty body"
+      ]
+    },
+    {
+      "kind": "bot_report",
+      "text": "decomp-dev bot reported 3 new matches and 3 improvements in main/melee/cm/camera.",
+      "evidence_refs": [
+        "text_corpus.jsonl issue_comment: Report for GALE01"
+      ]
+    },
+    {
+      "kind": "verification",
+      "text": "PR body reports isolated slice verification and full ship-set verification with zero broken matches, zero fuzzy regressions, zero metric regressions, diff check passed, and review_lint 0 errors with 112 warnings.",
+      "evidence_refs": [
+        "human_pr_text.md: Verification section"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "pr-2682",
+    "Melee decomp Camera matches",
+    "src/melee/cm/camera.c",
+    "Camera_80029CF8",
+    "get_pitch_angle",
+    "Camera_8002A0C0",
+    "Camera_8002CDDC",
+    "Camera_8002F9E4",
+    "Camera_8002FC7C",
+    "Camera_800311EC",
+    "CameraStaticData",
+    "cm_803BCB18",
+    "cm_803BCB64",
+    "cm_803BCCA0",
+    "cm_80452C68",
+    "target_interest",
+    "target_position",
+    "PAD_STACK",
+    "prio8_a",
+    "prio1_a",
+    "viewport_x_scale",
+    "depth_ratio",
+    "pan_angle",
+    "pitch_blend",
+    "horiz_frustum_dist",
+    "vert_frustum_dist"
+  ],
+  "follow_up_queries": [
+    "camera.c get_pitch_angle Camera_80029CF8 pitch_angle scroll_offset",
+    "Camera_8002A0C0 CameraStaticData cm_803BCB18 desc viewport aspect",
+    "Camera_8002CDDC PAD_STACK smooth_ptr fov_ptr target_dx",
+    "Camera_8002F9E4 Camera_8002FC7C target_interest pointer exact match",
+    "fn_800301D0 prio8_a prio1_a gxlink_prios",
+    "main/melee/cm/camera Camera_800311EC PR 2682 improvement"
+  ],
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json: PR identity, merge state, changed file counts",
+      "human_pr_text.md: summary, scope, verification",
+      "changed_files.jsonl: single changed file",
+      "text_corpus.jsonl: bot report and approval",
+      "raw_diff: concrete code changes in camera.c"
+    ],
+    "notes": [
+      "The loaded raw diff is truncated, so the full Camera_800311EC changes are not visible in the excerpt; its improvement is supported only by the bot report.",
+      "No inline review comments were loaded; review feedback is limited to an approval record and bot/report text.",
+      "Verification results are reported in the PR body and bot comment; no independent build or objdiff was run during intake.",
+      "The PR body says MERGED in metadata, while raw GitHub JSON state is closed with merged_at populated; intake records state as MERGED from metadata."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "pr_lesson",
+        "title": "Camera matching used a small inline helper plus semantic locals",
+        "text": "PR #2682 improved Camera_80029CF8 by extracting get_pitch_angle and renaming generated temporaries to camera-domain locals; bot report shows Camera_80029CF8 improved from 98.43% to 98.94%. Treat this as local evidence for trying small inline helper extraction and role-based local names in camera math, not as a global rule.",
+        "scope": [
+          "src/melee/cm/camera.c",
+          "Camera_80029CF8"
+        ],
+        "evidence_refs": [
+          "raw_diff: get_pitch_angle added",
+          "raw_diff: role-based local names in Camera_80029CF8",
+          "text_corpus.jsonl issue_comment: Camera_80029CF8 improvement"
+        ]
+      },
+      {
+        "record_type": "pr_lesson",
+        "title": "Pointer aliases affected exact camera matches",
+        "text": "PR #2682 introduced target_interest pointer aliases in Camera_8002F9E4 and Camera_8002FC7C; both functions are reported as newly exact. This is narrow evidence that local pointer aliases can be useful for MWCC match shape in this camera TU.",
+        "scope": [
+          "Camera_8002F9E4",
+          "Camera_8002FC7C"
+        ],
+        "evidence_refs": [
+          "raw_diff: target_interest pointer additions",
+          "text_corpus.jsonl issue_comment: Camera_8002F9E4 and Camera_8002FC7C new matches"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Document local temporary structs as a contained typed-access tactic",
+        "text": "PR #2682 used a function-local CameraStaticData struct cast for cm_803BCB18 to access desc.aspect and desc.viewport without broader header churn. This may be worth adding as an example under typed-fields-over-pointer-math or matching-tactics-need-evidence: local temporary structs can be acceptable bridge code when narrowly scoped and verified, but should not replace an owning header/type update when the layout is established globally.",
+        "source_path": null,
+        "scope": [
+          "Camera_8002A0C0",
+          "typed field recovery",
+          "temporary structs"
+        ],
+        "evidence_refs": [
+          "raw_diff: local struct CameraStaticData inside Camera_8002A0C0",
+          "human_pr_text.md: Header/naming churn: none",
+          "human_pr_text.md: verification reports zero regressions"
+        ],
+        "reason": "The current standards already prefer typed fields and require evidence for temporary padded structs, but this PR gives a concrete example of a narrow local struct bridge in matching work."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Clarify pointer aliases as matching tactics requiring narrow evidence",
+        "text": "PR #2682 introduced field pointer aliases such as target_interest, tgt_interest2, smooth_ptr, and fov_ptr, with exact-match/improvement reports in affected functions. Consider adding pointer alias/lifetime steering to examples covered by matching-tactics-need-evidence.",
+        "source_path": null,
+        "scope": [
+          "Camera_8002CDDC",
+          "Camera_8002F9E4",
+          "Camera_8002FC7C",
+          "matching tactics"
+        ],
+        "evidence_refs": [
+          "raw_diff: pointer aliases in camera functions",
+          "text_corpus.jsonl issue_comment: affected functions exact or improved",
+          "human_pr_text.md: regression report"
+        ],
+        "reason": "The tactic is supported in this PR, but should remain evidence-gated because pointer aliases can be codegen/lifetime steering."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that get_pitch_angle is an accepted global camera API; it is a static inline helper added within camera.c.",
+      "Do not treat PAD_STACK(4) as a preferred replacement for PAD_STACK(8) generally; this is a local stack-shape change supported only in this PR context.",
+      "Do not claim Camera_800311EC code-level tactics from the excerpt; the diff is truncated and only the bot improvement report is loaded.",
+      "Do not promote the local CameraStaticData layout into a canonical header fact without additional source/type evidence."
+    ]
+  },
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

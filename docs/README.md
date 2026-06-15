@@ -26,6 +26,9 @@ docs/
   orchestrator is for and what it should avoid becoming.
 - [System design overview](10-system-design/00-overview.md) maps the director,
   workers, durable state, process guardians, knowledge, and score gate.
+- [Evidence refresh cadence](../EVIDENCE_REFRESH_CADENCE.md) is a proposed
+  top-level operational policy for when epochs and run boundaries should
+  refresh build artifacts, tool caches, graph evidence, and learned context.
 - [Implementation overview](20-implementation/00-overview.md) maps the current
   TypeScript source tree and package-owned knowledge layout.
 - [Design coverage audit](20-implementation/99-appendix/40-design-coverage.md)

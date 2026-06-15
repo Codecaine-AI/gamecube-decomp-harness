@@ -12,168 +12,155 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2040 attempted to improve matching for `mpLib_80053ECC_Floor` in `src/melee/mp/mplib.c` by replacing a structured `while (true)` loop with a goto-labeled loop shape and adding locals `shifted` and `new_id`. The PR body also claimed `mpisland.h` signature updates and a 100% decomp.me match, but the loaded changed-file metadata and diff only show `src/melee/mp/mplib.c`, while the bot report shows improvement from 89.53% to 94.89%. The author later said recent merged changes affected the match percentage and they would switch the PR to draft. The PR was closed with no merge timestamp.",
+  "summary": "PR #2040 attempted to improve matching for src/melee/mp/mplib.c function mpLib_80053ECC_Floor by replacing a structured while(true)/break loop with explicit goto labels and hoisting loop locals. The PR body also claimed mpisland.h signature updates, but the loaded changed-file metadata and diff only show src/melee/mp/mplib.c. Automated report evidence showed partial improvement for mpLib_80053ECC_Floor from 89.53% to 94.89%, while the PR body claimed 100% on decomp.me. The author later said recent merged changes affected the match percentage and they needed to rework it, switching to draft. The PR closed unmerged in the loaded metadata.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "control-flow-shaping",
-      "prototype-claim-unverified"
+      "control-flow",
+      "matching-tactic",
+      "claimed-header-signature-update-not-shown"
     ],
     "systems": [
       "melee-core",
       "mp",
-      "collision"
+      "mplib"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/mp/mplib.c",
-      "role": "Only changed file in loaded metadata; contains attempted `mpLib_80053ECC_Floor` loop-shape rewrite.",
+      "role": "Only changed file in loaded metadata and diff; contains mpLib_80053ECC_Floor loop-shape rewrite.",
       "evidence_refs": [
-        "changed_files.jsonl",
-        "raw_diff",
-        "metadata_json.changed_files"
+        "changed_files.jsonl: src/melee/mp/mplib.c added 12 deleted 8 hunks 1",
+        "raw_diff: diff --git a/src/melee/mp/mplib.c b/src/melee/mp/mplib.c",
+        "raw_diff: void mpLib_80053ECC_Floor(int line_id, Vec* vec)"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "`mpLib_80053ECC_Floor` changed from a `while (true)` loop with `break` to explicit labels `loop_entry` and `loop_start` plus gotos.",
+      "text": "In mpLib_80053ECC_Floor, the previous while(true) loop that followed groundCollLine[line_id].x0->prev_id0 while the previous line was a floor was rewritten into explicit labels loop_entry and loop_start with goto loop_start.",
       "evidence_refs": [
-        "raw_diff"
+        "raw_diff: removed while (true) loop with break",
+        "raw_diff: added goto loop_entry; loop_start: line_id = new_id; loop_entry:",
+        "raw_diff: if ((new_id != -1) && (groundCollLine[new_id].flags & CollLine_Floor)) { goto loop_start; }"
       ]
     },
     {
-      "text": "Locals `shifted` and `new_id` were added at function scope; the diff assigns `shifted = line_id << 3` before reading `groundCollLine[line_id].x0->prev_id0`.",
+      "text": "Locals shifted and new_id were declared at function scope before temp_r3; shifted is assigned line_id << 3 inside the loop entry.",
       "evidence_refs": [
-        "raw_diff"
+        "raw_diff: added int shifted;",
+        "raw_diff: added int new_id;",
+        "raw_diff: shifted = line_id << 3;"
       ]
     },
     {
-      "text": "The loop still follows `prev_id0` while the previous line exists and has `CollLine_Floor` set, then continues to `LINEID_CHECK(4453, line_id)`.",
+      "text": "The PR body claimed mpisland.h signatures were updated from UNK_RET/UNK_PARAMS to proper types, but the loaded diff and changed-file metadata do not include mpisland.h.",
       "evidence_refs": [
-        "raw_diff"
-      ]
-    },
-    {
-      "text": "PR body claimed updates to `mpisland.h` signatures from `UNK_RET/UNK_PARAMS` to proper types, but no `mpisland.h` file change appears in the loaded changed-file metadata or diff.",
-      "evidence_refs": [
-        "human_pr_text",
-        "changed_files.jsonl",
-        "raw_diff"
-      ]
-    },
-    {
-      "text": "Bot report recorded one unmatched-function improvement for `main/melee/mp/mplib` / `mpLib_80053ECC_Floor`, from 89.53% to 94.89%, not a completed 100% match.",
-      "evidence_refs": [
-        "text_corpus.jsonl issue_comment decomp-dev[bot] 2025-12-30T10:10:47Z"
+        "human_pr_text: Update mpisland.h function signatures from UNK_RET/UNK_PARAMS placeholders to proper types",
+        "changed_files.jsonl: only src/melee/mp/mplib.c listed",
+        "raw_diff: only src/melee/mp/mplib.c diff present"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "The author noted that recently merged changes affected the match percentage and planned to rework the PR rather than present the stale score as final.",
+      "text": "The author explicitly recorded that the loop was changed for codegen, making the matching tactic searchable and reviewable rather than leaving it unexplained.",
       "evidence_refs": [
-        "human_pr_text",
-        "text_corpus.jsonl issue_comment itsgrimetime 2026-01-05T22:29:50Z"
+        "human_pr_text: Match mpLib_80053ECC_Floor function using goto-based loop structure for correct codegen"
+      ]
+    },
+    {
+      "text": "The author later acknowledged that recent merged changes appeared to affect the match percentage and that the PR needed rework, which prevents over-trusting the initial match claim.",
+      "evidence_refs": [
+        "human_pr_text issue comment: recently merged changes affected it's match %, will switch to draft for now",
+        "raw_pr_json: draft true"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For matching PR intake, treat PR-body decomp.me score claims as provisional when bot reports or later author comments disagree; keep the conflicting evidence visible instead of recording the function as matched.",
+      "lesson": "A goto-shaped loop can improve codegen for a difficult mpLib match, but this PR is weak evidence for accepting that shape as final source because the bot report only showed partial improvement and the author later said the PR needed rework.",
       "scope": [
-        "decomp-matching",
-        "verification-ledger"
+        "src/melee/mp/mplib.c",
+        "mpLib_80053ECC_Floor"
       ],
       "evidence_refs": [
-        "human_pr_text",
-        "text_corpus.jsonl issue_comment decomp-dev[bot] 2025-12-30T10:10:47Z",
-        "text_corpus.jsonl issue_comment itsgrimetime 2026-01-05T22:29:50Z"
+        "human_pr_text: using goto-based loop structure for correct codegen",
+        "text_corpus bot report: mpLib_80053ECC_Floor 89.53% to 94.89%",
+        "text_corpus author comment: gotta rework this one a bit"
       ]
     },
     {
-      "lesson": "A goto-based loop rewrite may improve MWCC codegen for a specific collision traversal, but this PR does not provide enough successful verification to make it a general style recommendation.",
+      "lesson": "PR body claims about header or signature cleanup should be checked against changed-file metadata; here the claimed mpisland.h update is not supported by the loaded diff.",
       "scope": [
-        "mpLib_80053ECC_Floor",
-        "control-flow"
+        "PR intake",
+        "header signature claims"
       ],
       "evidence_refs": [
-        "human_pr_text",
-        "raw_diff",
-        "text_corpus.jsonl issue_comment decomp-dev[bot] 2025-12-30T10:10:47Z"
-      ]
-    },
-    {
-      "lesson": "When a PR title/body claims header prototype cleanup, confirm the changed-file list includes the owning header before recording header work as performed.",
-      "scope": [
-        "headers",
-        "prototype-cleanup",
-        "truthful-headers-and-includes"
-      ],
-      "evidence_refs": [
-        "human_pr_text",
-        "changed_files.jsonl",
-        "raw_diff"
+        "human_pr_text: Update mpisland.h function signatures from UNK_RET/UNK_PARAMS placeholders to proper types",
+        "changed_files.jsonl: only src/melee/mp/mplib.c",
+        "raw_diff: only src/melee/mp/mplib.c"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "text": "No durable naming convention was established. Added names `shifted` and `new_id` are local matching-shape variables in the diff, not evidence of a broader naming rule.",
+      "text": "New local names were generic/codegen-oriented: shifted and new_id. Existing names line_id, vec, temp_r3, groundCollLine, prev_id0, and CollLine_Floor were retained in the shown hunk.",
       "evidence_refs": [
-        "raw_diff"
+        "raw_diff: int shifted;",
+        "raw_diff: int new_id;",
+        "raw_diff: CollVtx* temp_r3;",
+        "raw_diff: groundCollLine[line_id].x0->prev_id0"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use explicit labels and gotos to mimic a loop-entry / loop-start shape when MWCC codegen does not match a structured `while (true)` form.",
-      "evidence_refs": [
-        "human_pr_text",
-        "raw_diff"
+      "tactic": "Replace a structured while(true)/break loop with labels and gotos to influence MWCC control-flow/codegen.",
+      "scope": [
+        "mpLib_80053ECC_Floor"
       ],
-      "caveat": "Loaded verification is mixed: PR body claims 100% decomp.me, but bot report shows only 94.89% and the author later said the PR needed rework."
+      "evidence_refs": [
+        "human_pr_text: goto-based loop structure for correct codegen",
+        "raw_diff: goto loop_entry; loop_start: ... goto loop_start;"
+      ],
+      "caveat": "Loaded evidence does not support accepting this as final style: automated report shows 94.89%, not 100%, and author later said it needed rework."
     },
     {
-      "tactic": "Hoist `new_id` out of the loop block to function scope so the `loop_start` label can assign `line_id = new_id` before re-entering the traversal check.",
-      "evidence_refs": [
-        "raw_diff"
+      "tactic": "Hoist new_id out of the loop body and add a shifted temporary assigned from line_id << 3 before reading prev_id0.",
+      "scope": [
+        "mpLib_80053ECC_Floor"
       ],
-      "caveat": "This is a narrow observation from the diff, not a proven general tactic."
-    },
-    {
-      "tactic": "Introduce an apparently codegen-relevant temporary `shifted = line_id << 3` before reading `groundCollLine[line_id]`.",
       "evidence_refs": [
-        "raw_diff"
+        "raw_diff: added int shifted; int new_id;",
+        "raw_diff: shifted = line_id << 3;",
+        "raw_diff: new_id = groundCollLine[line_id].x0->prev_id0;"
       ],
-      "caveat": "The loaded slice does not show later use of `shifted` or prove why it was required."
+      "caveat": "The excerpt does not show how shifted is used later, so no broader lesson about this temporary should be inferred."
     }
   ],
   "review_feedback": [
     {
-      "text": "No human review comments were loaded.",
+      "kind": "author_followup",
+      "text": "Author stated the PR likely needed rework because recent merged changes affected its match percentage and that they would switch to draft.",
       "evidence_refs": [
-        "metadata_json.counts.review_comments",
-        "metadata_json.counts.reviews"
+        "text_corpus issue_comment by itsgrimetime at 2026-01-05T22:29:50Z: I think I gotta rework this one a bit, I think recently merged changes affected it's match %, will switch to draft for now",
+        "raw_pr_json: draft true"
       ]
     },
     {
-      "text": "Automated bot feedback reported partial score improvement for `mpLib_80053ECC_Floor`, from 89.53% to 94.89%.",
+      "kind": "automated_report",
+      "text": "decomp-dev bot reported one unmatched-function improvement for main/melee/mp/mplib mpLib_80053ECC_Floor, bytes +16, from 89.53% before to 94.89% after.",
       "evidence_refs": [
-        "text_corpus.jsonl issue_comment decomp-dev[bot] 2025-12-30T10:10:47Z"
-      ]
-    },
-    {
-      "text": "Author follow-up said the PR likely needed rework because recently merged changes affected its match percentage.",
-      "evidence_refs": [
-        "text_corpus.jsonl issue_comment itsgrimetime 2026-01-05T22:29:50Z"
+        "text_corpus issue_comment by decomp-dev[bot]: Report for GALE01",
+        "text_corpus bot table: main/melee/mp/mplib mpLib_80053ECC_Floor +16 89.53% 94.89%"
       ]
     }
   ],
   "searchable_terms": [
-    "PR2040",
+    "pr-2040",
     "mpLib_80053ECC_Floor",
     "mpLib_80053DA4_Floor",
     "src/melee/mp/mplib.c",
@@ -182,56 +169,70 @@
     "UNK_PARAMS",
     "LINEID_CHECK",
     "groundCollLine",
-    "CollLine_Floor",
-    "CollVtx",
     "prev_id0",
-    "loop_entry",
+    "CollLine_Floor",
+    "goto loop_entry",
     "loop_start",
-    "goto-based loop",
-    "decomp.me",
-    "94.89%",
+    "new_id",
+    "shifted",
+    "decomp.me 100%",
+    "GALE01",
     "89.53%",
+    "94.89%",
     "draft",
-    "itsgrimetime"
+    "Claude Code"
   ],
   "follow_up_queries": [
-    "PR 2040 mpLib_80053ECC_Floor later replacement or rework",
-    "mpLib_80053ECC_Floor final matched implementation",
-    "mpisland.h UNK_RET UNK_PARAMS signatures mp PR",
-    "src/melee/mp/mplib.c loop_entry loop_start shifted line_id << 3",
-    "groundCollLine prev_id0 CollLine_Floor matching tactic"
+    "mpLib_80053ECC_Floor goto loop_entry loop_start",
+    "mpLib_80053ECC_Floor 94.89 89.53",
+    "mpisland.h UNK_RET UNK_PARAMS PR 2040",
+    "src/melee/mp/mplib.c groundCollLine prev_id0 CollLine_Floor",
+    "PR 2040 recently merged changes affected match percent"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json",
-      "human_pr_text",
-      "raw_diff",
-      "changed_files.jsonl",
-      "text_corpus.jsonl"
+      "metadata_json: PR #2040 closed, merged_at null, changed_files count 1",
+      "human_pr_text: PR body and author follow-up comment",
+      "raw_diff: one hunk in src/melee/mp/mplib.c",
+      "text_corpus: bot report and author comment"
     ],
     "notes": [
-      "Changed-file evidence is strong for `src/melee/mp/mplib.c` and the loop rewrite.",
-      "The title/body claim `mpisland.h` signature updates, but loaded changed-file metadata and diff contain only `src/melee/mp/mplib.c`; header update is not evidenced in this slice.",
-      "Verification evidence conflicts: PR body says build passed and `mpLib_80053ECC_Floor` matched 100% on decomp.me, while bot report shows only 94.89% and author later says the match percentage was affected and the PR needed rework.",
-      "No review comments or reviews were loaded.",
-      "PR is closed with `merged_at: null`; do not treat changes as accepted into mainline."
+      "Changed-file evidence is strong for the mplib.c hunk but does not support the title/body claim that mpisland.h signatures were updated.",
+      "The PR body claims ninja passed and mpLib_80053ECC_Floor matched 100% on decomp.me, but the loaded bot report shows only 94.89% and the author later said the match was affected and needed rework.",
+      "There are no review comments and no loaded reviewer approval or rejection rationale.",
+      "The PR was closed with merged_at null in metadata, so no acceptance or merge status should be inferred.",
+      "The body notes Claude Code generation; this is evidence about provenance of the PR text/code claim, not proof of correctness."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "verification_caution",
-        "title": "Conflicting PR-body and bot score evidence should block recording a match as accepted",
-        "text": "In PR #2040, the body claimed `mpLib_80053ECC_Floor` matched 100% on decomp.me, but the bot reported 89.53% to 94.89% and the author later said the PR needed rework. Curator may record this as a cautionary example for matching-score intake, not as a matched-function success.",
+        "record_type": "pr_postmortem_lesson",
+        "title": "Verify PR body match claims against bot reports and later author comments",
+        "text": "In PR #2040, the body claimed ninja passed and mpLib_80053ECC_Floor matched 100% on decomp.me, but the loaded bot report showed 89.53% to 94.89% and the author later said the PR needed rework because recent merged changes affected the match percentage.",
         "scope": [
-          "decomp-matching",
-          "verification-ledger"
+          "PR intake",
+          "matching evidence review"
         ],
         "evidence_refs": [
-          "human_pr_text",
-          "text_corpus.jsonl issue_comment decomp-dev[bot] 2025-12-30T10:10:47Z",
-          "text_corpus.jsonl issue_comment itsgrimetime 2026-01-05T22:29:50Z"
+          "human_pr_text: Test plan 100% on decomp.me",
+          "text_corpus bot report: 89.53% to 94.89%",
+          "text_corpus author comment: gotta rework this one a bit"
+        ]
+      },
+      {
+        "record_type": "pr_postmortem_lesson",
+        "title": "Changed-file metadata can disprove claimed header-signature scope",
+        "text": "PR #2040 claimed mpisland.h signature updates, but the loaded changed-file metadata and diff only include src/melee/mp/mplib.c, so the header-signature claim should not be treated as an observed change from this slice.",
+        "scope": [
+          "PR intake",
+          "changed-file validation"
+        ],
+        "evidence_refs": [
+          "human_pr_text: Update mpisland.h function signatures",
+          "changed_files.jsonl: only src/melee/mp/mplib.c",
+          "raw_diff: only src/melee/mp/mplib.c"
         ]
       }
     ],
@@ -239,45 +240,45 @@
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Treat goto loop rewrites as narrow matching tactics requiring verifier evidence",
-        "text": "PR #2040 shows an attempted `while` to goto-label loop rewrite for MWCC codegen in `mpLib_80053ECC_Floor`, but loaded evidence is not enough to endorse the shape broadly: bot score remained 94.89% and the author later planned rework. Consider adding or cross-linking this example under existing control-flow and matching-tactics standards as a case where gotos need narrow objdiff/checkdiff evidence and should not override natural loops without proof.",
+        "title": "Require extra scrutiny for goto loop rewrites used only for codegen",
+        "text": "This PR is a possible example where a goto-based loop rewrite was used as a matching tactic, but it only had partial bot-reported improvement and later author rework notes. Curator may consider whether existing natural-loops and matching-tactics standards already cover this or need an example warning that goto loop shapes require narrow verifier evidence and should not supersede natural loop forms without proof.",
         "source_path": null,
         "scope": [
-          "canonical-control-flow-and-macros",
-          "matching-tactics-need-evidence",
-          "natural-loops"
+          "control-flow matching",
+          "goto loop tactics",
+          "mpLib_80053ECC_Floor"
         ],
         "evidence_refs": [
-          "raw_diff",
-          "human_pr_text",
-          "text_corpus.jsonl issue_comment decomp-dev[bot] 2025-12-30T10:10:47Z",
-          "text_corpus.jsonl issue_comment itsgrimetime 2026-01-05T22:29:50Z"
+          "human_pr_text: goto-based loop structure for correct codegen",
+          "raw_diff: while(true) changed to goto loop_entry/loop_start",
+          "text_corpus bot report: 94.89% after",
+          "text_corpus author comment: gotta rework this one a bit"
         ],
-        "reason": "The PR provides a concrete attempted goto-for-codegen tactic, but conflicting verification means it should be curated as a caution or evidence requirement, not as accepted style."
+        "reason": "Potential standards example only; not accepted as a new global rule because the PR did not show a final verified match in loaded evidence."
       },
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Do not record claimed header cleanup unless changed-file evidence includes the header",
-        "text": "PR #2040's title/body claimed `mpisland.h` signature updates from `UNK_RET/UNK_PARAMS`, but the loaded diff and changed-file list only show `src/melee/mp/mplib.c`. Consider adding a curator note that PR-body header/prototype claims require changed-file or diff evidence before being promoted as source facts.",
+        "target_source_id": "other",
+        "update_kind": "source_update",
+        "title": "PR title/body may overstate mpisland.h changes",
+        "text": "The title and body mention mpisland.h signature updates, but the loaded PR slice only contains src/melee/mp/mplib.c changes. Curator may want to mark this PR slice as having unsupported header-update claims if maintaining PR metadata quality notes.",
         "source_path": null,
         "scope": [
-          "truthful-headers-and-includes",
-          "pr-intake"
+          "PR metadata",
+          "mpisland.h",
+          "PR #2040"
         ],
         "evidence_refs": [
-          "human_pr_text",
-          "changed_files.jsonl",
-          "raw_diff"
+          "metadata_json title: update mpisland.h signatures",
+          "human_pr_text: Update mpisland.h function signatures from UNK_RET/UNK_PARAMS placeholders to proper types",
+          "changed_files.jsonl: only src/melee/mp/mplib.c"
         ],
-        "reason": "This is a recurring intake hazard: title/body claims can exceed the actual loaded diff."
+        "reason": "Prevents propagation of an unsupported changed-file/path fact."
       }
     ],
     "rejection_notes": [
-      "Do not record `mpLib_80053ECC_Floor` as matched or accepted from this slice; the bot report and later author comment contradict the 100% match claim.",
-      "Do not record `mpisland.h` signatures as updated from this slice; no loaded changed-file or diff evidence shows the header.",
-      "Do not infer reviewer intent; no review comments were loaded.",
-      "Do not promote goto-based loop structure as a general preferred style; standards favor natural loops unless verifier evidence justifies an exception."
+      "Do not promote 'mpLib_80053ECC_Floor matched at 100%' as an accepted validation result from this slice; loaded bot evidence shows 94.89% and the author later said rework was needed.",
+      "Do not record mpisland.h as a changed file for this PR slice; it appears only in title/body claims, not in changed-file metadata or diff.",
+      "Do not treat the goto-based loop as accepted project style; loaded evidence only supports that it was attempted for codegen and produced a partial improvement."
     ]
   },
   "confidence": 0.78,
@@ -287,6 +288,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

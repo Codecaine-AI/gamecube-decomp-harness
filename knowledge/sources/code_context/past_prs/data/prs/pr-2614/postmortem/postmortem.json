@@ -12,142 +12,111 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR 2614 marks melee/if/if_2FC93.c as Matching in configure.py and adjusts GALE01 split and symbol metadata around if_2FC93.c and adjacent ifprize.c data ranges. The diff narrows if_2FC93 ownership for rodata, bss, and sdata2, adds corresponding ifprize ranges, converts several previously global un_* data symbols in if_2FC93-owned ranges to local @ labels, and shortens selected bss/sbss symbol sizes.",
+  "summary": "PR 2614 links melee/if/if_2FC93.c by changing configure.py from NonMatching to Matching and tightening GALE01 split and symbol metadata around if_2FC93.c and adjacent ifprize.c sections. The evidence is entirely diff-based; there is no PR body, review discussion, or explicit build/objdiff output in the slice.",
   "change_classification": {
-    "primary_type": "matching-config-link",
+    "primary_type": "matching-status-and-metadata-update",
     "categories": [
       "code-change",
-      "matching-status",
+      "config-update",
       "split-metadata",
-      "symbol-metadata",
-      "data-ownership"
+      "symbol-metadata"
     ],
     "systems": [
+      "melee/if",
       "config/GALE01",
-      "configure.py",
-      "melee/if"
+      "configure"
     ]
   },
   "key_files": [
     {
       "path": "configure.py",
-      "role": "Marks Object(NonMatching, \"melee/if/if_2FC93.c\") as Object(Matching, \"melee/if/if_2FC93.c\").",
+      "role": "Marks melee/if/if_2FC93.c as Matching instead of NonMatching in the MatchingFor object list.",
       "evidence_refs": [
-        "raw_diff: configure.py hunk at MatchingFor list"
+        "raw_diff:configure.py hunk around line 1361"
       ]
     },
     {
       "path": "config/GALE01/splits.txt",
-      "role": "Updates section ownership boundaries for melee/if/if_2FC93.c and adds adjacent rodata, bss, and sdata2 ranges to melee/if/ifprize.c.",
+      "role": "Narrows if_2FC93.c rodata, bss, and sdata2 ranges and assigns the following rodata, bss, and sdata2 ranges to adjacent ifprize.c.",
       "evidence_refs": [
-        "raw_diff: splits.txt hunk around melee/if/if_2FC93.c and melee/if/ifprize.c"
+        "raw_diff:splits.txt hunk around melee/if/if_2FC93.c and melee/if/ifprize.c"
       ]
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Changes symbol scope/name metadata for data in the affected ranges, including local @ labels for several rodata, data, sdata, and sdata2 entries and size adjustments for bss/sbss symbols.",
+      "role": "Updates symbol scope/names and sizes for rodata, data strings, bss, sdata strings, sbss, and sdata2 floats/doubles near the if_2FC93.c and ifprize.c boundary.",
       "evidence_refs": [
-        "raw_diff: symbols.txt hunks at 0x803B8780, 0x803F99C8, 0x804A1F10, 0x804D5820, 0x804D6D90, 0x804DDBAC"
+        "raw_diff:symbols.txt hunks at 0x803B8780, 0x803F99C8, 0x804A1F10, 0x804D5820, 0x804D6D90, 0x804DDBAC"
       ]
     }
   ],
   "what_changed": [
-    {
-      "text": "Configured melee/if/if_2FC93.c as Matching instead of NonMatching.",
-      "evidence_refs": [
-        "raw_diff: configure.py changes Object(NonMatching, \"melee/if/if_2FC93.c\") to Object(Matching, \"melee/if/if_2FC93.c\")"
-      ]
-    },
-    {
-      "text": "Reduced if_2FC93.c split ownership: rodata end changed from 0x803B8810 to 0x803B8790, bss end from 0x804A1F58 to 0x804A1F48, and sdata2 end from 0x804DDCC8 to 0x804DDBD0.",
-      "evidence_refs": [
-        "raw_diff: splits.txt if_2FC93.c section changes"
-      ]
-    },
-    {
-      "text": "Added corresponding ifprize.c ownership ranges for rodata 0x803B8790-0x803B8810, bss 0x804A1F48-0x804A1F58, and sdata2 0x804DDBD0-0x804DDCC8.",
-      "evidence_refs": [
-        "raw_diff: splits.txt ifprize.c added section ranges"
-      ]
-    },
-    {
-      "text": "Converted several data symbols from global un_* names to local @ labels in the if_2FC93-owned ranges: 0x803B8780, 0x803F99C8, 0x803F99F0, 0x804D5820, 0x804D5828, and 0x804DDBAC through 0x804DDBC8.",
-      "evidence_refs": [
-        "raw_diff: symbols.txt local label replacements"
-      ]
-    },
-    {
-      "text": "Adjusted bss/sbss symbol sizes at un_804A1F10 from 0x38 to 0x34 and un_804D6D90 from 0x8 to 0x4, and added a local bss label at 0x804A1F10.",
-      "evidence_refs": [
-        "raw_diff: symbols.txt bss and sbss hunks"
-      ]
-    }
+    "configure.py changes Object(NonMatching, \"melee/if/if_2FC93.c\") to Object(Matching, \"melee/if/if_2FC93.c\").",
+    "splits.txt reduces if_2FC93.c .rodata from 0x803B8780-0x803B8810 to 0x803B8780-0x803B8790.",
+    "splits.txt reduces if_2FC93.c .bss from 0x804A1F10-0x804A1F58 to 0x804A1F10-0x804A1F48.",
+    "splits.txt reduces if_2FC93.c .sdata2 from 0x804DDBA8-0x804DDCC8 to 0x804DDBA8-0x804DDBD0.",
+    "splits.txt adds corresponding ifprize.c ranges for .rodata 0x803B8790-0x803B8810, .bss 0x804A1F48-0x804A1F58, and .sdata2 0x804DDBD0-0x804DDCC8.",
+    "symbols.txt converts several address-style globals in the if_2FC93-owned ranges to local numeric labels, including rodata @208, data strings @377 and @393, sdata strings @373 and @374, and sdata2 labels @375, @376, @378, @379, @380, @381, and @383.",
+    "symbols.txt shrinks un_804A1F10 from size 0x38 to 0x34 and un_804D6D90 from size 0x8 to 0x4, and adds a local bss label at 0x804A1F10."
   ],
   "smart_moves": [
     {
-      "text": "The matching-status change was paired with split and symbol metadata updates, rather than only flipping configure.py. This keeps section ownership and symbol scope aligned with the newly linked object.",
+      "text": "The PR links the object only after updating split ownership and symbol metadata around adjacent if_2FC93.c/ifprize.c sections, rather than only flipping configure.py.",
       "evidence_refs": [
-        "raw_diff: configure.py matching flip",
-        "raw_diff: splits.txt and symbols.txt metadata edits"
+        "raw_diff:splits.txt if_2FC93.c/ifprize.c range changes",
+        "raw_diff:configure.py Matching status change"
       ]
     },
     {
-      "text": "Adjacent ifprize.c ranges were made explicit where if_2FC93.c ownership was narrowed, reducing ambiguity at the translation-unit boundary.",
+      "text": "Local labels are used for literals and constants within the adjusted ranges instead of keeping all unknown address-style symbols global.",
       "evidence_refs": [
-        "raw_diff: splits.txt if_2FC93.c end reductions and ifprize.c added ranges"
+        "raw_diff:symbols.txt @208, @377, @393, @373, @374, @375-@383 changes"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "text": "When linking an object as Matching, check whether nearby data/split metadata also needs to move from broad or global ownership to precise local labels and adjacent translation-unit ranges.",
+      "lesson": "For a link/matching-status PR, nearby split boundaries and symbol metadata may need to be corrected together with the configure.py Matching flip, especially when section tails actually belong to the next translation unit.",
       "scope": [
         "matching-status updates",
-        "GALE01 split metadata",
-        "symbol metadata around translation-unit boundaries"
+        "config/GALE01/splits.txt",
+        "config/GALE01/symbols.txt"
       ],
       "evidence_refs": [
-        "raw_diff: configure.py marks if_2FC93.c Matching",
-        "raw_diff: splits.txt narrows if_2FC93.c and adds ifprize.c ranges",
-        "raw_diff: symbols.txt global un_* symbols changed to local @ labels"
+        "raw_diff:splits.txt reassigns rodata/bss/sdata2 tails from if_2FC93.c to ifprize.c",
+        "raw_diff:configure.py marks if_2FC93.c Matching"
       ],
-      "confidence": 0.74
+      "confidence": 0.78
     }
   ],
   "naming_conventions": [
     {
-      "text": "For data determined to be local in this PR, anonymous local @ labels were used instead of global un_* names.",
-      "examples": [
-        "un_803B8780 -> @208",
-        "un_803F99C8 -> @377",
-        "un_803F99F0 -> @393",
-        "un_804D5820 -> @373",
-        "un_804D5828 -> @374",
-        "un_804DDBAC -> @375",
-        "un_804DDBC8 -> @383"
+      "convention": "When metadata indicates local compiler literals/constants, this PR uses local numeric labels such as @208, @377, @393, and @375-@383 instead of global un_ADDRESS names.",
+      "scope": [
+        "config/GALE01/symbols.txt",
+        "local data/literal symbols"
       ],
       "evidence_refs": [
-        "raw_diff: symbols.txt local label replacements"
+        "raw_diff:symbols.txt replacements of un_803B8780, un_803F99C8, un_803F99F0, un_804D5820, un_804D5828, and un_804DDBAC-0x804DDBC8"
       ],
-      "confidence": 0.86
+      "confidence": 0.82
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "text": "Linking tactic shown by the diff: change the object status to Matching only alongside section-boundary and symbol-scope metadata updates for the object and adjacent TU.",
+      "tactic": "Adjust split section ownership at the if_2FC93.c/ifprize.c boundary before marking if_2FC93.c as Matching.",
       "evidence_refs": [
-        "raw_diff: configure.py",
-        "raw_diff: splits.txt",
-        "raw_diff: symbols.txt"
+        "raw_diff:splits.txt",
+        "raw_diff:configure.py"
       ],
-      "confidence": 0.72
+      "notes": "The slice does not include the underlying source function body or objdiff output, so the exact matching failure fixed by these metadata changes is not shown."
     },
     {
-      "text": "Data-boundary tactic shown by the diff: split off trailing rodata, bss, and sdata2 ranges from if_2FC93.c to the following ifprize.c entry when linking if_2FC93.c.",
+      "tactic": "Correct symbol sizes/scopes in symbols.txt for boundary data, including bss and sbss size reductions and local labels for literals.",
       "evidence_refs": [
-        "raw_diff: splits.txt hunk around if_2FC93.c and ifprize.c"
+        "raw_diff:symbols.txt"
       ],
-      "confidence": 0.82
+      "notes": "Supported as an observed tactic in this PR; not enough evidence to generalize individual addresses beyond this PR without curator/source review."
     }
   ],
   "review_feedback": [],
@@ -157,142 +126,121 @@
     "ribbanya",
     "melee/if/if_2FC93.c",
     "melee/if/ifprize.c",
-    "configure.py",
-    "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
+    "configure.py MatchingFor",
     "Object(Matching)",
     "Object(NonMatching)",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "0x802FD910",
+    "0x802FE3F8",
+    "0x803B8780",
+    "0x803B8790",
+    "0x804A1F10",
+    "0x804A1F48",
+    "0x804DDBA8",
+    "0x804DDBD0",
     "un_803B8780",
     "@208",
     "un_803F99C8",
     "@377",
     "un_803F99F0",
     "@393",
-    "un_804A1F10",
     "un_804D5820",
     "@373",
     "un_804D5828",
     "@374",
-    "un_804D6D90",
     "un_804DDBAC",
-    "@375",
-    "un_804DDBC8",
-    "@383",
-    "sdata2",
-    "rodata",
-    "bss",
-    "sbss",
-    "local label",
-    "symbol scope",
-    "split ownership"
+    "@375"
   ],
   "follow_up_queries": [
-    "if_2FC93 matching split symbols local labels",
-    "if_2FC93 ifprize rodata bss sdata2 boundary",
-    "un_804DDBAC @375 sdata2 local float",
-    "un_803F99C8 @377 data string local",
-    "Object(Matching) if_2FC93 configure.py"
+    "if_2FC93 split boundary ifprize rodata bss sdata2",
+    "PR 2614 if_2FC93 symbols local labels",
+    "un_803B8780 @208 if_2FC93",
+    "un_804DDBAC @375 if_2FC93 sdata2",
+    "configure.py Object(Matching) melee/if/if_2FC93.c"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR number/title/author/state/timestamps/counts",
-      "raw_diff: full diff for configure.py, splits.txt, symbols.txt",
-      "changed_files.jsonl: changed file list and line counts",
-      "text_corpus.jsonl: empty PR body",
-      "metadata_json: zero issue comments, review comments, and reviews"
+      "metadata_json pr fields",
+      "changed_files.jsonl",
+      "text_corpus.jsonl empty PR body",
+      "raw_diff full diff"
     ],
     "notes": [
-      "Evidence is strong for changed files and exact metadata edits because the full raw diff is loaded.",
-      "There is no PR body, review discussion, review comments, or explicit validation output in the slice.",
-      "The PR title says 'Link `if_2FC93`' and configure.py marks the object Matching, but no build, objdiff, or regression evidence is present in the loaded slice.",
-      "Rationale for why each symbol became local or why each range moved is inferred from the diff shape only; it is not documented by author or reviewer comments."
+      "Strong evidence for files changed, exact metadata edits, and merged PR identity.",
+      "No PR body, issue comments, review comments, reviews, source-code diff, build log, objdiff, or regression output is present in the slice.",
+      "The title and configure.py change support that if_2FC93.c was linked/marked Matching, but the slice does not prove the exact verification method or reviewer rationale.",
+      "No review feedback was available."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
         "record_type": "decomp_lesson_candidate",
-        "title": "Matching link PRs may require split and symbol metadata alignment",
-        "text": "PR 2614 linked melee/if/if_2FC93.c by changing configure.py to Matching while also narrowing if_2FC93.c split ownership, adding adjacent ifprize.c ranges, and converting several affected data symbols from global un_* names to local @ labels. This supports a candidate lesson that object-linking changes should be reviewed together with section-boundary and symbol-scope metadata when the diff includes them.",
+        "title": "Linking an object can require adjacent split and symbol metadata cleanup",
+        "text": "In PR 2614, melee/if/if_2FC93.c was changed from NonMatching to Matching while splits.txt narrowed if_2FC93.c section ownership and assigned trailing .rodata, .bss, and .sdata2 ranges to adjacent ifprize.c; symbols.txt also changed several boundary symbols from global un_ADDRESS names to local labels or corrected sizes.",
         "scope": [
-          "matching link PRs",
-          "config/GALE01/splits.txt",
-          "config/GALE01/symbols.txt",
-          "configure.py"
+          "matching PRs",
+          "split metadata",
+          "symbol metadata",
+          "melee/if"
         ],
         "evidence_refs": [
-          "raw_diff: configure.py matching flip",
-          "raw_diff: splits.txt boundary edits",
-          "raw_diff: symbols.txt scope/name edits"
+          "raw_diff:splits.txt",
+          "raw_diff:symbols.txt",
+          "raw_diff:configure.py"
         ],
-        "confidence": 0.74
+        "confidence": 0.78
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "if_2FC93.c linked as Matching in PR 2614",
-        "text": "PR 2614 changed configure.py so melee/if/if_2FC93.c is listed as Object(Matching) instead of Object(NonMatching).",
-        "source_path": "configure.py",
-        "scope": [
-          "melee/if/if_2FC93.c",
-          "MatchingFor object list"
-        ],
-        "evidence_refs": [
-          "raw_diff: configure.py hunk"
-        ],
-        "reason": "This is a source/path status fact from the PR diff and may belong in curated path facts rather than as a general decomp lesson."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "if_2FC93.c and ifprize.c split boundary adjustments in PR 2614",
-        "text": "PR 2614 narrowed if_2FC93.c rodata to 0x803B8780-0x803B8790, bss to 0x804A1F10-0x804A1F48, and sdata2 to 0x804DDBA8-0x804DDBD0, while adding ifprize.c ranges for rodata 0x803B8790-0x803B8810, bss 0x804A1F48-0x804A1F58, and sdata2 0x804DDBD0-0x804DDCC8.",
+        "title": "PR 2614 adjusted if_2FC93.c and ifprize.c split boundaries",
+        "text": "For GALE01 after PR 2614, melee/if/if_2FC93.c has .text 0x802FD910-0x802FE3F8, .rodata 0x803B8780-0x803B8790, .data 0x803F99C8-0x803F9A00, .bss 0x804A1F10-0x804A1F48, .sdata 0x804D5820-0x804D5830, .sbss 0x804D6D90-0x804D6D98, and .sdata2 0x804DDBA8-0x804DDBD0; adjacent ifprize.c gains .rodata 0x803B8790-0x803B8810, .bss 0x804A1F48-0x804A1F58, and .sdata2 0x804DDBD0-0x804DDCC8.",
         "source_path": "config/GALE01/splits.txt",
         "scope": [
+          "GALE01",
           "melee/if/if_2FC93.c",
-          "melee/if/ifprize.c",
-          ".rodata",
-          ".bss",
-          ".sdata2"
+          "melee/if/ifprize.c"
         ],
         "evidence_refs": [
-          "raw_diff: splits.txt hunk around if_2FC93.c and ifprize.c"
+          "raw_diff:splits.txt"
         ],
-        "reason": "These are precise split ownership facts and should be curated as path/split metadata if useful."
+        "reason": "This is a concrete split-boundary fact from the PR diff, but should be reviewed against current source before promotion."
       },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "Local symbol metadata changes for if_2FC93-linked data in PR 2614",
-        "text": "PR 2614 changed multiple symbols in the affected ranges from global un_* entries to local @ labels, including rodata 0x803B8780, data 0x803F99C8 and 0x803F99F0, sdata 0x804D5820 and 0x804D5828, and sdata2 0x804DDBAC through 0x804DDBC8.",
+        "title": "PR 2614 changed selected if_2FC93 boundary symbols to local labels",
+        "text": "symbols.txt changes include un_803B8780 to @208, un_803F99C8 to @377, un_803F99F0 to @393, un_804D5820 to @373, un_804D5828 to @374, and un_804DDBAC/DBB0/DBB4/DBB8/DBBC/DBC0/DBC8 to @375/@376/@378/@379/@380/@381/@383 respectively.",
         "source_path": "config/GALE01/symbols.txt",
         "scope": [
-          "symbol scope",
-          "local labels",
-          "if_2FC93 data ownership"
+          "GALE01",
+          "symbols.txt",
+          "melee/if/if_2FC93.c"
         ],
         "evidence_refs": [
-          "raw_diff: symbols.txt hunks for local @ label replacements"
+          "raw_diff:symbols.txt"
         ],
-        "reason": "These symbol metadata edits are specific source facts; curator should decide whether to store them as path facts or leave them in source history only."
+        "reason": "Useful for symbol-history lookup; should remain a candidate because current symbols may have changed after this historical PR."
       }
     ],
     "rejection_notes": [
-      "Do not record that if_2FC93.c passed objdiff/checkdiff or regression testing; no validation output is present in the slice.",
-      "Do not infer reviewer intent or acceptance rationale; there were no review comments or reviews in the loaded metadata.",
-      "Do not generalize that all un_* data near a matching object should become local @ labels; this PR only supports the listed symbols and ranges."
+      "Do not infer that all un_ADDRESS literals near a matching TU should be converted to local numeric labels; this PR only proves specific symbol edits.",
+      "Do not claim objdiff/checkdiff/build verification from this slice; no verifier output is included.",
+      "Do not infer reviewer intent or review standards; no review comments or reviews are present."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

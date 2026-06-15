@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Tooling/documentation PR updating tools/wiki_tu.py so the Wiki translation-unit page shows remaining code bytes, computes that value from total_code minus matched_code, and sorts incomplete TU lists by the remaining-code count.",
+  "summary": "Updated the Wiki translation-unit tooling page generator to compute remaining .text/code bytes per unit, show a Remaining column in the full table, and sort in-progress and data-left unit lists by remaining code bytes.",
   "change_classification": {
     "primary_type": "tooling",
     "categories": [
@@ -27,96 +27,87 @@
   "key_files": [
     {
       "path": "tools/wiki_tu.py",
-      "role": "Wiki TU page generator; adds remaining-code calculation, display column, and sorting key.",
+      "role": "Wiki TU page generator; changed to compute integer measure values through a helper, add remaining_code to each unit, display it in full rows, and sort selected lists by it.",
       "evidence_refs": [
-        "changed_files.jsonl: tools/wiki_tu.py added 22 deleted 9",
-        "raw_diff: tools/wiki_tu.py hunks adding get_measure_int, remaining_code, by_remaining, and Remaining header"
+        "changed_files.jsonl: tools/wiki_tu.py added 22 deleted 9 hunks 4",
+        "raw_diff: additions of get_measure_int, remaining_code calculation, Remaining header, and sort key by_remaining"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Added get_measure_int(unit, key) to centralize integer conversion of unit['measures'] values with missing/falsey values defaulting to 0.",
+      "text": "Added get_measure_int(unit, key) to normalize missing measure values to integer 0 and reused it for matched_code, total_code, matched_data, and total_data reads.",
       "evidence_refs": [
-        "raw_diff: added def get_measure_int(unit, key: str) -> int: return int(unit['measures'].get(key) or 0)"
+        "raw_diff: get_measure_int added near assignee_cells; percent_cells and row_full changed from inline int(measures.get(... ) or 0) to get_measure_int"
       ]
     },
     {
-      "text": "Replaced repeated int(measures.get(... ) or 0) conversions for matched/total code and data with get_measure_int.",
+      "text": "Computed unit['measures']['remaining_code'] as total_code - matched_code while iterating over units before list classification.",
       "evidence_refs": [
-        "raw_diff: percent_cells and row_full now call get_measure_int for matched_code, total_code, matched_data, and total_data"
+        "raw_diff: loop over data['units'] adds matched_code, total_code, and remaining_code assignment"
       ]
     },
     {
-      "text": "Computed unit['measures']['remaining_code'] as total_code - matched_code while iterating units.",
+      "text": "Added a Remaining column to the full Wiki table output and emits a friendly_size value, or '&mdash;' when remaining_code is zero.",
       "evidence_refs": [
-        "raw_diff: added matched_code, total_code, and unit['measures']['remaining_code'] = total_code - matched_code in unit loop"
+        "raw_diff: row_full adds remaining_code/remaining and returns link|matched|total|remaining|...; full_header gains Remaining and one separator column"
       ]
     },
     {
-      "text": "Added a Remaining column to the full Wiki table; row_full prints a friendly size for nonzero remaining_code and '&mdash;' when it is zero.",
+      "text": "Sorted in_progress and data_left lists by remaining_code using a by_remaining key function.",
       "evidence_refs": [
-        "raw_diff: row_full adds remaining variable and full_header changes from File|Matched|Total|.text %... to File|Matched|Total|Remaining|.text %..."
-      ]
-    },
-    {
-      "text": "Sorted in_progress and data_left lists by remaining_code using by_remaining.",
-      "evidence_refs": [
-        "raw_diff: added by_remaining(unit), in_progress.sort(key=by_remaining), data_left.sort(key=by_remaining)"
+        "raw_diff: by_remaining function and in_progress.sort/data_left.sort additions"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Factored repeated measure-to-int conversion into a local helper before adding another derived metric, reducing duplicated defaulting logic in table generation.",
+      "text": "Centralized repeated measure-to-int conversion in get_measure_int before adding another derived metric, reducing duplicated parsing expressions in percent and row rendering code.",
       "evidence_refs": [
-        "raw_diff: get_measure_int introduced and reused in percent_cells, row_full, and by_remaining"
+        "raw_diff: repeated int(measures.get(... ) or 0) calls replaced with get_measure_int"
       ]
     },
     {
-      "text": "Stored remaining_code in the existing measures dictionary so row rendering and sorting share the same computed value.",
+      "text": "Stored remaining_code in unit['measures'] so display and sort code use the same derived metric.",
       "evidence_refs": [
-        "raw_diff: unit['measures']['remaining_code'] assigned before classification into linked/data_left/in_progress"
+        "raw_diff: unit['measures']['remaining_code'] assignment and by_remaining reads via get_measure_int(unit, 'remaining_code')"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "text": "Progress tooling can make decomp work queues more actionable by displaying absolute remaining .text bytes in addition to matched and total bytes.",
+      "lesson": "Progress dashboards for decompilation can be more actionable when they expose remaining code bytes, not only matched and total counts or percentages.",
       "scope": [
-        "tools/wiki_tu.py",
-        "progress reporting"
+        "tooling",
+        "wiki_tu progress reporting"
       ],
       "evidence_refs": [
         "PR title: Show and sort by remaining code bytes in Wiki TU page",
-        "raw_diff: Remaining column added to full_header and row_full"
-      ]
-    },
-    {
-      "text": "When deriving progress metrics from optional JSON measures, normalize missing measure values once through a helper before computing display fields or sort keys.",
-      "scope": [
-        "tools/wiki_tu.py",
-        "progress metric parsing"
+        "raw_diff: Remaining column added and in_progress/data_left sorted by remaining_code"
       ],
-      "evidence_refs": [
-        "raw_diff: get_measure_int returns int(unit['measures'].get(key) or 0)",
-        "raw_diff: remaining_code computed from get_measure_int(unit, 'total_code') and get_measure_int(unit, 'matched_code')"
-      ]
+      "confidence": 0.82
     }
   ],
   "naming_conventions": [
     {
-      "text": "New helper and key-function names are direct role descriptions: get_measure_int for measure parsing and by_remaining for sorting by remaining_code.",
+      "name": "remaining_code",
+      "convention": "Derived measure key for total_code - matched_code in Wiki TU unit measures.",
       "evidence_refs": [
-        "raw_diff: def get_measure_int(unit, key: str) -> int",
-        "raw_diff: def by_remaining(unit): return get_measure_int(unit, 'remaining_code')"
+        "raw_diff: unit['measures']['remaining_code'] = total_code - matched_code"
       ]
     },
     {
-      "text": "The derived metric is named remaining_code, matching the PR title's user-facing concept of remaining code bytes.",
+      "name": "get_measure_int",
+      "convention": "Helper name used for retrieving integer-valued entries from unit['measures'] with missing values defaulted to 0.",
       "evidence_refs": [
-        "PR title: Show and sort by remaining code bytes in Wiki TU page",
-        "raw_diff: unit['measures']['remaining_code'] = total_code - matched_code"
+        "raw_diff: def get_measure_int(unit, key: str) -> int: return int(unit['measures'].get(key) or 0)"
+      ]
+    },
+    {
+      "name": "by_remaining",
+      "convention": "Sort-key helper name for ordering units by remaining_code.",
+      "evidence_refs": [
+        "raw_diff: def by_remaining(unit): return get_measure_int(unit, 'remaining_code')"
       ]
     }
   ],
@@ -124,93 +115,79 @@
   "review_feedback": [],
   "searchable_terms": [
     "pr-2649",
+    "ribbanya",
     "tools/wiki_tu.py",
     "wiki_tu",
+    "Wiki TU page",
     "remaining_code",
     "remaining code bytes",
-    "get_measure_int",
-    "by_remaining",
-    "friendly_size",
     "matched_code",
     "total_code",
     "matched_data",
     "total_data",
-    "percent_cells",
+    "get_measure_int",
+    "friendly_size",
     "row_full",
-    "full_header",
-    "in_progress",
-    "data_left",
-    "Wiki TU page",
-    "progress reporting",
-    "tooling",
-    "documentation"
+    "percent_cells",
+    "by_remaining",
+    "in_progress.sort",
+    "data_left.sort",
+    "Assignee Discord",
+    "Assignee GitHub"
   ],
   "follow_up_queries": [
     "tools/wiki_tu.py remaining_code",
-    "wiki_tu get_measure_int",
-    "Wiki TU page Remaining column",
-    "sort by remaining code bytes",
-    "matched_code total_code remaining_code"
+    "wiki_tu by_remaining data_left in_progress",
+    "Wiki TU Remaining column matched total remaining",
+    "get_measure_int matched_code total_code"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR 2649 title, author, state, timestamps, changed file counts",
+      "metadata_json: PR 2649 title, author, state, timestamps, labels, changed file counts",
       "raw_diff: complete 3010-byte diff for tools/wiki_tu.py",
-      "changed_files.jsonl: one changed file with 22 additions and 9 deletions",
-      "text_corpus.jsonl: empty PR body"
+      "changed_files.jsonl: one changed file, tools/wiki_tu.py",
+      "text_corpus.jsonl: empty PR body",
+      "metadata_json: zero issue comments, review comments, and reviews"
     ],
     "notes": [
-      "Evidence strongly supports the file-level tooling changes because the full diff is loaded.",
-      "There were no review comments, issue comments, or PR body details in the slice, so no reviewer intent or validation results are inferred.",
-      "No build, test, or generated Wiki output evidence is present; the record describes code changes, not verified runtime output."
+      "Evidence is strong for changed files and code-level tooling behavior because the full diff is loaded.",
+      "No review feedback is recorded because the PR slice reports zero issue comments, review comments, and reviews.",
+      "No build, test, or runtime validation evidence is present in the loaded slice; none is claimed.",
+      "This PR is tooling/documentation-related, so no assembly-level decomp tactic was extracted."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "title": "wiki_tu Remaining column and sort",
-        "text": "PR 2649 updated tools/wiki_tu.py to compute remaining_code as total_code - matched_code, display it as a Remaining column in the full Wiki TU table, and sort in_progress and data_left lists by that remaining-code value.",
+        "type": "tooling_lesson",
+        "title": "Wiki TU progress pages can sort by remaining code bytes",
+        "text": "PR 2649 updated tools/wiki_tu.py to compute remaining_code as total_code - matched_code, display a Remaining column, and sort in-progress/data-left units by that value, making remaining code bytes a first-class progress metric.",
         "scope": [
           "tools/wiki_tu.py",
-          "Wiki TU progress page"
+          "progress reporting",
+          "decomp tooling"
         ],
         "evidence_refs": [
-          "raw_diff: unit['measures']['remaining_code'] = total_code - matched_code",
-          "raw_diff: full_header adds Remaining column",
-          "raw_diff: in_progress.sort(key=by_remaining) and data_left.sort(key=by_remaining)"
-        ]
+          "PR title: Show and sort by remaining code bytes in Wiki TU page",
+          "raw_diff: remaining_code assignment, Remaining table header, and by_remaining sort"
+        ],
+        "confidence": 0.86
       }
     ],
-    "source_update_candidates": [
-      {
-        "target_source_id": "other",
-        "update_kind": "source_update",
-        "title": "Document Wiki TU remaining_code behavior",
-        "text": "Consider documenting that tools/wiki_tu.py derives remaining_code from total_code - matched_code, displays it only in the full table, renders zero as '&mdash;', and sorts in_progress and data_left rows by that value.",
-        "source_path": "tools/wiki_tu.py",
-        "scope": [
-          "tooling documentation",
-          "Wiki TU page generator"
-        ],
-        "evidence_refs": [
-          "raw_diff: remaining_code derivation, row_full rendering, by_remaining sort, and full_header update"
-        ],
-        "reason": "This is a tooling behavior fact supported by the PR diff, but it belongs in source/tooling documentation rather than as a global decomp standard."
-      }
-    ],
+    "source_update_candidates": [],
     "rejection_notes": [
-      "Do not infer any matching, objdiff, build, or regression-validation result from this PR slice.",
-      "Do not promote this tooling change into a global decomp standard; it affects Wiki progress display, not source decomp style."
+      "Do not generalize this PR into a global decomp code-matching standard; the evidence concerns a Python Wiki tooling page only.",
+      "Do not infer reviewer intent or validation status; the slice contains no review comments, reviews, issue comments, or test output."
     ]
   },
-  "confidence": 0.91,
+  "confidence": 0.88,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

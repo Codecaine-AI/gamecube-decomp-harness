@@ -11,121 +11,315 @@
     "merged_at": "2026-05-14T09:06:23Z"
   },
   "agent_status": "agent_completed",
-  "summary": "First-time contributor PR using objdiff and `python tools/decomp.py`. The merge kept the `lbmemory` work: added a decompilation/prototype for `fn_80015184`, an alarm-driven chunked memory-copy callback working through a local `LBMgr` struct at `g_alloc + 0x6A0`. The slice also adds address comments to `hsd_3B34.h`, but reviewer noted the `hsd_3B34` functions had already been submitted with higher match scores in PR #2488. decomp.dev reported `main/melee/lb/lbmemory::fn_80015184` improving from 0.00% to 88.61%, with a small `.sdata` improvement and `.data` regression.",
+  "intake_role": "pr_intake",
+  "summary": "PR #2486 added a decompiled lbmemory function, fn_80015184, with an OSAlarm callback prototype/header include, and added address comments to hsd_3B34 prototypes. The author described this as first-time decomp work using objdiff and tools/decomp.py. Bot output showed score improvements for lbmemory and hsd_3B34 plus a small lbmemory .data regression; reviewer approved while noting hsd_3B34 functions had been submitted with higher scores in PR #2488, but lbmemory could still merge.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "first-contribution",
-      "partial-match"
+      "prototype-update",
+      "score-report"
     ],
     "systems": [
       "melee/lb",
-      "sysdolphin/baselib",
-      "Dolphin OS alarm"
+      "sysdolphin/baselib"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/lb/lbmemory.c",
-      "reason": "Adds static assert strings, local `struct LBMgr`, and `fn_80015184` implementation."
+      "role": "Added fn_80015184 implementation, local LBMgr struct, assert strings, memcpy chunking logic, callback invocation, and OS alarm scheduling.",
+      "evidence_refs": [
+        "raw_diff: lbmemory.c hunk adding fn_80015184",
+        "changed_files.jsonl: src/melee/lb/lbmemory.c added 41 deleted 0"
+      ]
     },
     {
       "path": "src/melee/lb/lbmemory.h",
-      "reason": "Includes `<dolphin/os/OSAlarm.h>` and exposes `fn_80015184(OSAlarm*, OSContext*)` with address comment."
+      "role": "Added OSAlarm include and prototype for fn_80015184(OSAlarm*, OSContext*).",
+      "evidence_refs": [
+        "raw_diff: lbmemory.h hunk adding <dolphin/os/OSAlarm.h> and fn_80015184 prototype",
+        "changed_files.jsonl: src/melee/lb/lbmemory.h added 3 deleted 0"
+      ]
     },
     {
       "path": "src/sysdolphin/baselib/hsd_3B34.h",
-      "reason": "Adds address comments to existing `hsd_803B....` prototypes; related function work was superseded by PR #2488 per review."
+      "role": "Added address comments to existing hsd_3B34 prototypes.",
+      "evidence_refs": [
+        "raw_diff: hsd_3B34.h hunk adding /* 3B.... */ comments",
+        "changed_files.jsonl: src/sysdolphin/baselib/hsd_3B34.h added 11 deleted 11"
+      ]
     }
   ],
   "what_changed": [
-    "Added `fn_80015184(OSAlarm* alarm, OSContext* context)` to `lbmemory.c` and `lbmemory.h`.",
-    "Introduced a local `struct LBMgr` layout with `OSAlarm alarm` at offset 0x00, `src` at 0x28, `dst` at 0x2C, `size` at 0x30, `offset` at 0x34, `cb_arg` at 0x38, and callback pointer at 0x3C.",
-    "The new function obtains the manager with `(struct LBMgr*) ((u8*) &g_alloc + 0x6A0)`, asserts `p->size` is nonzero, copies up to `0x19000` bytes from `src + offset` to `dst + offset`, advances `offset`, invokes `cb(0, cb_arg, 0, 0)` when complete, otherwise recreates/sets an OS alarm.",
-    "Added static strings `lbl_803BA2C0[0xB] = \"lbmemory.c\"` and `lbMemory_804D3794[8] = \"p->size\"` near the function, although the function body still uses string literals in the diff excerpt.",
-    "Added address-prefix comments such as `/* 3B3408 */` to declarations in `hsd_3B34.h`.",
-    "decomp.dev bot reported improvements for `fn_80015184`, `.sdata`, and several `hsd_3B34` items, but also a small `main/melee/lb/lbmemory .data` regression."
+    {
+      "text": "Added fn_80015184 in lbmemory.c as an OSAlarm callback-like function taking OSAlarm* and OSContext* parameters.",
+      "evidence_refs": [
+        "raw_diff: void fn_80015184(OSAlarm* alarm, OSContext* context)"
+      ]
+    },
+    {
+      "text": "Recovered a temporary local struct LBMgr containing an OSAlarm, source/destination pointers, size, offset, callback argument, and callback pointer.",
+      "evidence_refs": [
+        "raw_diff: struct LBMgr fields alarm, src, dst, size, offset, cb_arg, cb"
+      ]
+    },
+    {
+      "text": "Function copies up to 0x19000 bytes from src+offset to dst+offset, updates offset, calls cb when complete, otherwise recreates/sets an alarm.",
+      "evidence_refs": [
+        "raw_diff: memcpy and OSCreateAlarm/OSSetAlarm sequence in fn_80015184"
+      ]
+    },
+    {
+      "text": "Added static strings for lbmemory.c and p->size and used a raw __assert when size is zero.",
+      "evidence_refs": [
+        "raw_diff: static s8 lbl_803BA2C0, lbMemory_804D3794, __assert(\"lbmemory.c\", 0x127U, \"p->size\")"
+      ]
+    },
+    {
+      "text": "Added an OSAlarm include and fn_80015184 prototype to lbmemory.h.",
+      "evidence_refs": [
+        "raw_diff: lbmemory.h include/prototype additions"
+      ]
+    },
+    {
+      "text": "Added address comments to hsd_3B34.h prototypes without changing their signatures.",
+      "evidence_refs": [
+        "raw_diff: hsd_3B34.h before/after prototype lines"
+      ]
+    }
   ],
   "smart_moves": [
-    "Recovered a concrete manager struct from observed offsets instead of leaving all access as raw pointer arithmetic.",
-    "Matched the callback state machine with a clear chunk-size clamp: remaining bytes are capped at `0x19000` before `memcpy`.",
-    "Kept the decompiled function under the unresolved-address naming style `fn_80015184`, appropriate when a semantic name is not yet known.",
-    "Added the correct public header dependency for the exposed OS alarm callback signature.",
-    "Used address comments in headers, matching common project practice for generated/decompiled symbol tracking."
+    {
+      "text": "The PR updated the public header alongside the new function body, including the OSAlarm type dependency needed by the recovered signature.",
+      "evidence_refs": [
+        "raw_diff: lbmemory.h adds <dolphin/os/OSAlarm.h> and fn_80015184 prototype"
+      ]
+    },
+    {
+      "text": "The author used objdiff and tools/decomp.py as stated in the PR body, giving at least some tooling context for the decomp attempt.",
+      "evidence_refs": [
+        "human_pr_text: author says they chose functions using objdiff to decomp with python tools/decomp.py"
+      ]
+    }
   ],
   "decomp_lessons": [
-    "When a global allocator or blob field is only known by offset, a small local struct with verified field offsets can make a partial decomp readable while preserving match behavior.",
-    "For alarm/timer callbacks, expose the function with the platform callback types (`OSAlarm*`, `OSContext*`) once the signature is known.",
-    "Assert strings and file-name strings may affect `.sdata`/`.data`; adding or relocating them can improve one section while regressing another, so check section-level bot reports.",
-    "Use objdiff and `python tools/decomp.py` to choose tractable functions, but coordinate with open/nearby PRs because overlapping functions can be superseded by higher-score submissions.",
-    "Header-only cleanup such as address comments is useful, but it should be separated mentally from actual function matching progress when reviewing reports."
+    {
+      "lesson": "When recovering a function body that proves a callback signature, update the owning header instead of leaving the function source-local.",
+      "scope": [
+        "headers",
+        "prototype recovery"
+      ],
+      "evidence_refs": [
+        "raw_diff: lbmemory.c adds fn_80015184 body",
+        "raw_diff: lbmemory.h adds fn_80015184(OSAlarm* alarm, OSContext* context)"
+      ],
+      "confidence": 0.72
+    },
+    {
+      "lesson": "Score reports can show simultaneous code improvements and data-section regressions; treat data/literal changes as review-sensitive rather than assuming all score movement is positive.",
+      "scope": [
+        "score reports",
+        "data sections"
+      ],
+      "evidence_refs": [
+        "text_corpus: bot report shows lbmemory fn_80015184 improvement and lbmemory .sdata improvement",
+        "text_corpus: bot report shows main/melee/lb/lbmemory .data regression -3 bytes, 93.33% to 92.18%"
+      ],
+      "confidence": 0.68
+    },
+    {
+      "lesson": "If another PR has higher match scores for overlapping functions, reviewers may choose to merge only the non-overlapping useful portion.",
+      "scope": [
+        "PR review",
+        "overlapping decomp work"
+      ],
+      "evidence_refs": [
+        "text_corpus: ribbanya review says hsd_3B34 functions were submitted with higher match scores in #2488, but lbmemory can still merge"
+      ],
+      "confidence": 0.76
+    }
   ],
   "naming_conventions": [
-    "`lbMemory_800150F0`, `lbMemory_8001529C`, etc. use the subsystem prefix plus address style for known lbmemory symbols.",
-    "`fn_80015184` is used for an unresolved function at address 0x80015184.",
-    "`hsd_803B3408` style is retained for baselib functions whose semantic names are not known.",
-    "Header declarations use address comments of the form `/* 015184 */` or `/* 3B3408 */` before prototypes.",
-    "Auto-generated/local temporary variable names such as `temp_r3`, `temp_r3_2`, `temp_r6`, and `var_r30` were left in the decompiled function, indicating the function was still match-oriented rather than fully cleaned up."
+    {
+      "text": "Unproven function names remained address-style, e.g. fn_80015184 and hsd_803B3408-style names.",
+      "evidence_refs": [
+        "raw_diff: fn_80015184 prototype/body",
+        "raw_diff: hsd_3B34.h address-style hsd_803B.... prototypes"
+      ]
+    },
+    {
+      "text": "The temporary recovered struct was named LBMgr and fields were given role names such as src, dst, size, offset, cb_arg, and cb; the PR evidence does not show whether these names were reviewed as canonical.",
+      "evidence_refs": [
+        "raw_diff: struct LBMgr definition"
+      ]
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Casts `&g_alloc` to `u8*` before adding `0x6A0`, a common tactic for matching byte-offset access into a global allocation/control area.",
-    "Uses unsigned constants with `U` suffixes in comparisons and assignments, e.g. `0U`, `0x127U`, and `0x19000U`, to steer codegen toward unsigned compare/subtract behavior.",
-    "Implements `min(size - offset, 0x19000)` manually with a temporary and conditional assignment, likely reflecting the target branch structure.",
-    "Keeps the callback invocation exactly as four `u32`-like arguments: `cb(0, cb_arg, 0, 0)`.",
-    "Recreates and resets an `OSAlarm` through `OSCreateAlarm(&temp_r3->alarm)` and `OSSetAlarm(&temp_r3->alarm, 0x10624DD3, NULL)` when more copy work remains."
+    {
+      "text": "Used a temporary internal struct to replace raw offset accesses within fn_80015184, while still deriving the object from &g_alloc + 0x6A0.",
+      "evidence_refs": [
+        "raw_diff: struct LBMgr and temp_r3 = (struct LBMgr*) ((u8*) &g_alloc + 0x6A0)"
+      ]
+    },
+    {
+      "text": "Implemented chunk-size capping with an explicit if against 0x19000 before memcpy.",
+      "evidence_refs": [
+        "raw_diff: if (temp_r3_2 > 0x19000U) var_r30 = 0x19000; memcpy(...)"
+      ]
+    },
+    {
+      "text": "Raw __assert and static assert strings were used in the submitted code; loaded standards would generally route future cleanup toward assert macros and careful literal/data ownership checks, but this PR slice does not include reviewer discussion of that choice.",
+      "evidence_refs": [
+        "raw_diff: static s8 lbl_803BA2C0, lbMemory_804D3794, and __assert",
+        "decomp_standards: assert-report-macros",
+        "decomp_standards: literals-and-data-ownership"
+      ]
+    }
   ],
   "review_feedback": [
     {
-      "reviewer": "ribbanya",
+      "author": "ribbanya",
       "state": "APPROVED",
-      "feedback": "Thanks for the contribution; `hsd_3B34` functions were already submitted with higher match scores in #2488, but `lbmemory` could still be merged."
+      "text": "Thanks for the contribution; hsd_3B34 functions were already submitted with higher match scores in #2488, but lbmemory could still be merged.",
+      "evidence_refs": [
+        "text_corpus: review by ribbanya at 2026-05-14T09:03:55Z"
+      ]
     },
     {
-      "source": "decomp.dev bot",
-      "feedback": "`main/melee/lb/lbmemory::fn_80015184` improved from 0.00% to 88.61%; `main/melee/lb/lbmemory .sdata` improved from 66.67% to 83.33%; `main/melee/lb/lbmemory .data` regressed from 93.33% to 92.18%."
+      "author": "decomp-dev[bot]",
+      "state": "report",
+      "text": "Report showed improvements for fn_803B376C, fn_803B61B4, fn_80015184, hsd_3B34 .sdata2, and lbmemory .sdata, plus a lbmemory .data regression.",
+      "evidence_refs": [
+        "text_corpus: issue_comment decomp-dev[bot] report for GALE01"
+      ]
     }
   ],
   "searchable_terms": [
-    "PR2486",
+    "pr-2486",
     "hsd3B34 and lbmemory",
     "TiagoSimionato",
-    "lbmemory",
-    "lbMemory_800150F0",
+    "lbMemory_80015184",
     "fn_80015184",
+    "lbmemory.c",
+    "lbmemory.h",
     "LBMgr",
-    "g_alloc",
-    "g_alloc+0x6A0",
     "OSAlarm",
     "OSContext",
     "OSCreateAlarm",
     "OSSetAlarm",
-    "0x10624DD3",
-    "0x19000",
+    "g_alloc + 0x6A0",
     "p->size",
-    "lbl_803BA2C0",
-    "lbMemory_804D3794",
-    "hsd_3B34",
+    "0x19000",
+    "0x10624DD3",
+    "hsd_3B34.h",
     "hsd_803B3408",
     "hsd_803B61B4",
-    "objdiff",
-    "tools/decomp.py",
-    "PR2488"
+    "PR #2488",
+    "data regression"
   ],
   "follow_up_queries": [
-    "Compare PR #2488 for the higher-match `hsd_3B34` submissions referenced by the reviewer.",
-    "Look for later renames or semantic identification of `fn_80015184` and `struct LBMgr`.",
-    "Check whether `lbl_803BA2C0` and `lbMemory_804D3794` were later deduplicated or adjusted to fix the small `.data` regression.",
-    "Search for other users of `g_alloc + 0x6A0` to confirm the manager struct ownership and improve its header placement."
+    "fn_80015184 lbmemory OSAlarm callback g_alloc 0x6A0",
+    "lbmemory .data regression p->size static string",
+    "hsd_3B34 PR 2488 higher match scores",
+    "LBMgr struct lbmemory src dst size offset cb_arg cb",
+    "OSSetAlarm 0x10624DD3 lbmemory"
   ],
-  "confidence": 0.86,
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR metadata, changed files, merge state",
+      "raw_diff: complete diff excerpt for three changed files",
+      "text_corpus: PR body, bot report, approving review"
+    ],
+    "notes": [
+      "Diff and text corpus are sufficient to identify changed files, added code shape, score-report effects, and explicit reviewer feedback.",
+      "The PR body says objdiff/tools/decomp.py were used, but no narrow build, objdiff screenshot, or final validation log is included beyond the bot score report.",
+      "No inline review comments are present.",
+      "The hsd_3B34 header edits are visible, but reviewer feedback says overlapping hsd_3B34 functions had higher scores in PR #2488; this slice does not prove which hsd-related changes, if any, were desirable beyond the merged diff.",
+      "Raw assert strings and data-section score movement are observable, but there is no review discussion proving author intent or accepted style for those choices."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "type": "review_pattern",
+        "title": "Overlapping decomp PRs may merge only the useful non-overlapping unit",
+        "text": "In PR #2486, reviewer ribbanya approved while noting hsd_3B34 functions had higher match scores in PR #2488, but lbmemory could still merge. This supports a review pattern of salvaging a useful matched function even when another PR supersedes overlapping work.",
+        "scope": [
+          "decomp review",
+          "overlapping PRs"
+        ],
+        "evidence_refs": [
+          "text_corpus: ribbanya approved review"
+        ],
+        "confidence": 0.76
+      },
+      {
+        "type": "matching_report_pattern",
+        "title": "Score reports can combine text progress with data regressions",
+        "text": "The bot report for PR #2486 showed fn_80015184 improving from 0.00% to 88.61% and lbmemory .sdata improving, while lbmemory .data regressed from 93.33% to 92.18%. Curators may use this as a concrete example when documenting why data-section changes need separate scrutiny.",
+        "scope": [
+          "score reports",
+          "data-section review"
+        ],
+        "evidence_refs": [
+          "text_corpus: decomp-dev[bot] report"
+        ],
+        "confidence": 0.68
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "lbmemory contains OSAlarm callback candidate fn_80015184",
+        "text": "PR #2486 added fn_80015184 in src/melee/lb/lbmemory.c and declared it in lbmemory.h as void fn_80015184(OSAlarm* alarm, OSContext* context). The body uses a local LBMgr-shaped object at &g_alloc + 0x6A0, copies up to 0x19000 bytes per alarm, invokes a callback when complete, and otherwise calls OSCreateAlarm/OSSetAlarm.",
+        "source_path": "src/melee/lb/lbmemory.c",
+        "scope": [
+          "src/melee/lb/lbmemory.c",
+          "src/melee/lb/lbmemory.h",
+          "fn_80015184"
+        ],
+        "evidence_refs": [
+          "raw_diff: lbmemory.c fn_80015184 addition",
+          "raw_diff: lbmemory.h prototype addition"
+        ],
+        "reason": "Path-specific recovered behavior may be useful for future lbmemory curation, but should be verified against current source before promotion."
+      },
+      {
+        "target_source_id": "other",
+        "update_kind": "source_update",
+        "title": "Historical lbmemory data-section regression tied to first fn_80015184 PR",
+        "text": "The PR #2486 bot report recorded lbmemory .data regression while the diff added static assert strings in lbmemory.c. The slice does not prove causality, but it is a useful historical search hook for future investigation of lbmemory literals/data ownership.",
+        "source_path": "src/melee/lb/lbmemory.c",
+        "scope": [
+          "lbmemory",
+          ".data",
+          ".sdata",
+          "assert strings"
+        ],
+        "evidence_refs": [
+          "raw_diff: static s8 lbl_803BA2C0 and lbMemory_804D3794",
+          "text_corpus: bot report .data regression"
+        ],
+        "reason": "Potential data/literal ownership note; evidence is mixed and should not be promoted without current-source and section metadata review."
+      }
+    ],
+    "rejection_notes": [
+      "Do not record hsd_3B34 function matching lessons from this PR alone; reviewer said those functions had higher scores in PR #2488, and this slice only shows header address comments.",
+      "Do not treat raw __assert plus static string storage as an accepted style from this PR; loaded standards prefer macro/literal ownership scrutiny, and no review comment endorses the raw form.",
+      "Do not claim fn_80015184 fully matched; the bot report shows 88.61% after, not a complete match, and no final objdiff validation log is included."
+    ]
+  },
+  "confidence": 0.74,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

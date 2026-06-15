@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Small tooling fix in tools/wiki_tu.py: ColumnIndex.FILE was changed from auto() to an explicit 0, leaving later IntEnum members to continue with auto(). No PR body, comments, reviews, or validation output were present in the slice.",
+  "summary": "PR 2652 is a one-line tooling/documentation fix in `tools/wiki_tu.py`: `ColumnIndex.FILE` was changed from `auto()` to explicit `0`, leaving later enum members as `auto()`.",
   "change_classification": {
     "primary_type": "tooling_fix",
     "categories": [
@@ -21,52 +21,60 @@
       "documentation"
     ],
     "systems": [
-      "tooling",
-      "wiki_tu"
+      "tools/wiki_tu.py",
+      "wiki_tu",
+      "documentation tooling"
     ]
   },
   "key_files": [
     {
       "path": "tools/wiki_tu.py",
-      "role": "Python tooling script defining ColumnIndex; PR changes FILE enum value from auto() to 0.",
+      "role": "Changed tooling script defining `ColumnIndex`; first enum value changed to explicit zero.",
       "evidence_refs": [
-        "changed_files: tools/wiki_tu.py added=1 deleted=1 hunks=1",
-        "raw_diff: class ColumnIndex(IntEnum): FILE changed from auto() to 0"
+        "metadata_json.changed_files[0]",
+        "diff_excerpt",
+        "loaded_files.raw_diff"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "In tools/wiki_tu.py, ColumnIndex.FILE is now explicitly assigned 0 instead of auto(). MATCHED, TOTAL, and REMAINING still use auto().",
+      "text": "`ColumnIndex.FILE` changed from `auto()` to `0`; `MATCHED`, `TOTAL`, and `REMAINING` remain assigned with `auto()`.",
       "evidence_refs": [
-        "raw_diff: -    FILE = auto()",
-        "raw_diff: +    FILE = 0",
-        "raw_diff: MATCHED/TOTAL/REMAINING remain auto()"
+        "diff_excerpt",
+        "loaded_files.raw_diff"
+      ]
+    },
+    {
+      "text": "The PR changed one file with one added line and one deleted line.",
+      "evidence_refs": [
+        "metadata_json.counts",
+        "loaded_files.changed_files"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "The fix is narrowly scoped to the initial enum value, avoiding unrelated changes to wiki_tu.py or other tooling.",
+      "text": "The fix was narrowly scoped to the enum member that needs zero-based assignment, avoiding unrelated changes to the wiki tooling script.",
       "evidence_refs": [
-        "changed_files: one changed file",
-        "raw_diff: one added line and one deleted line"
+        "diff_excerpt",
+        "loaded_files.changed_files"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "text": "For Python tooling enums that represent column positions, verify whether the first value must be zero-based before relying on IntEnum auto().",
+      "lesson": "For Python tooling enums that represent table or list column indexes, confirm whether the first column must be zero-based before using `auto()`; Python enum `auto()` does not express an explicit zero starting value in this diff.",
       "scope": [
-        "tools/wiki_tu.py",
         "Python tooling",
-        "column index enums"
+        "column index enums",
+        "tools/wiki_tu.py"
       ],
       "evidence_refs": [
         "PR title: Fix column enum assignment in `wiki_tu.py`",
-        "raw_diff: ColumnIndex.FILE changed from auto() to 0"
+        "diff_excerpt"
       ],
-      "confidence": 0.78
+      "confidence": 0.82
     }
   ],
   "naming_conventions": [],
@@ -75,72 +83,69 @@
   "searchable_terms": [
     "pr-2652",
     "wiki_tu.py",
-    "tools/wiki_tu.py",
     "ColumnIndex",
     "IntEnum",
     "auto",
-    "FILE",
+    "FILE = 0",
     "MATCHED",
     "TOTAL",
     "REMAINING",
     "column enum assignment",
-    "zero based column index",
     "tooling",
     "documentation"
   ],
   "follow_up_queries": [
-    "tools/wiki_tu.py ColumnIndex IntEnum FILE",
-    "wiki_tu.py column index auto",
-    "ColumnIndex FILE MATCHED TOTAL REMAINING",
-    "Python IntEnum auto zero based column index tooling"
+    "wiki_tu.py ColumnIndex FILE auto zero",
+    "ColumnIndex IntEnum auto FILE MATCHED TOTAL REMAINING",
+    "tools/wiki_tu.py column index enum"
   ],
   "evidence_quality": {
-    "status": "mixed",
+    "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR 2652 title, author, state, timestamps, changed file counts",
-      "raw_diff: full diff is 281 bytes and not truncated",
-      "text_corpus: PR body is empty",
-      "metadata_json: issue_comments=0 review_comments=0 reviews=0"
+      "metadata_json",
+      "diff_excerpt",
+      "loaded_files.raw_diff",
+      "loaded_files.changed_files",
+      "loaded_files.text_corpus"
     ],
     "notes": [
-      "Strong evidence for the exact file and one-line code change.",
-      "No PR body, review comments, issue comments, or CI/validation output are available in the slice.",
-      "The likely reason is inferable from the title and diff, but no author explanation is present beyond the title.",
-      "No decomp source, assembly matching, naming, or reviewer-feedback claims are supported by this slice."
+      "The diff is complete and very small, so changed-file and code-change evidence is strong.",
+      "There are no PR body details, issue comments, review comments, reviews, or validation output in the slice.",
+      "No reviewer intent, test result, runtime failure mode, or downstream wiki output behavior is evidenced beyond the title and one-line diff."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "kind": "tooling_lesson",
-        "title": "Set the first IntEnum value explicitly when a tooling enum models zero-based columns",
-        "text": "PR 2652 fixed tools/wiki_tu.py by changing ColumnIndex.FILE from auto() to 0. When a Python IntEnum represents column indices, check whether the first member must be zero-based before using auto() for every member.",
+        "record_type": "tooling_lesson",
+        "title": "Use explicit zero for zero-based column index IntEnums",
+        "text": "In `tools/wiki_tu.py`, `ColumnIndex.FILE` was fixed from `auto()` to `0`, while later column enum entries continued using `auto()`. For tooling enums that map directly to zero-based column positions, verify the starting value instead of relying on `auto()` for the first member.",
         "scope": [
-          "Python tooling",
           "tools/wiki_tu.py",
+          "Python tooling",
           "column index enums"
         ],
         "evidence_refs": [
-          "PR title: Fix column enum assignment in `wiki_tu.py`",
-          "raw_diff: ColumnIndex.FILE changed from auto() to 0"
+          "PR 2652 title",
+          "diff_excerpt"
         ],
-        "confidence": 0.78
+        "confidence": 0.82
       }
     ],
     "source_update_candidates": [],
     "rejection_notes": [
-      "Do not infer validation results or downstream wiki output changes; none are present in the PR slice.",
-      "Do not promote this as a global decomp standard; the evidence is limited to a Python tooling enum fix.",
-      "No review intent or reviewer-requested change can be recorded because the slice has no reviews or comments."
+      "No global decompilation standard update is recommended from this PR alone; the evidence concerns a narrow Python tooling enum fix, not C decomp source style.",
+      "No assembly, matching, naming, or validation practice should be inferred because the PR slice contains no such evidence.",
+      "Do not infer reviewer approval rationale or test coverage; the slice contains no reviews, comments, or CI/build output."
     ]
   },
-  "confidence": 0.86,
+  "confidence": 0.88,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

@@ -1,0 +1,392 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2681",
+  "pr": {
+    "number": 2681,
+    "title": "Melee decomp: THP decoder matches",
+    "url": "https://github.com/doldecomp/melee/pull/2681",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-13T21:28:55Z",
+    "merged_at": "2026-06-14T22:34:01Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Exact-match work for Dolphin THP decoder code, centered on extern/dolphin/src/dolphin/thp/THPDec.c, with THP decoder header and Melee caller signature cleanup after review rejected a temporary macro shim around thp.h prototypes.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "cleanup",
+      "decomp-matching",
+      "headers",
+      "types-structs",
+      "review-fix"
+    ],
+    "systems": [
+      "external-sdk",
+      "dolphin-thp",
+      "melee-lb"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "extern/dolphin/src/dolphin/thp/THPDec.c",
+      "role": "Primary THP decoder implementation match work; changed function signatures, call sites, typed decode pointers, LCStoreData target updates, inline asm/register-local adjustments, and Huff decode matching edits.",
+      "evidence_refs": [
+        "changed_files: extern/dolphin/src/dolphin/thp/THPDec.c added 193 deleted 192 hunks 18",
+        "diff_excerpt: THPDec.c updates __THPDecompressiMCURow640x480/__THPDecompressiMCURowNxN signatures and callers",
+        "text_corpus: bot report lists 3 new matches in main/dolphin/thp/THPDec"
+      ]
+    },
+    {
+      "path": "extern/dolphin/include/dolphin/thp/thp.h",
+      "role": "Owning THP header updated to match recovered implementation signatures and remove need for a prototype-hiding shim.",
+      "evidence_refs": [
+        "diff_excerpt: thp.h changes __THPDecompressiMCURow640x480(THPFileInfo*) and __THPDecompressiMCURowNxN(THPFileInfo*, u32)",
+        "diff_excerpt: thp.h changes THPDec_80331340 to 4 args and THPDec_803313D0 to 5 args with u32 width",
+        "review_comment fjooord discussion_r3410300331"
+      ]
+    },
+    {
+      "path": "src/melee/lb/lb_01F8.c",
+      "role": "Melee caller updated to match corrected THP decoder signatures.",
+      "evidence_refs": [
+        "changed_files: src/melee/lb/lb_01F8.c added 2 deleted 2 hunks 1",
+        "pr_body: verification built build/GALE01/src/melee/lb/lb_01F8.o",
+        "review_comment fjooord: two Melee callers were updated to match those signatures"
+      ]
+    },
+    {
+      "path": "src/melee/lb/lbmthp.c",
+      "role": "Melee THP caller updated to match corrected THP decoder signatures.",
+      "evidence_refs": [
+        "changed_files: src/melee/lb/lbmthp.c added 2 deleted 2 hunks 1",
+        "pr_body: verification built build/GALE01/src/melee/lb/lbmthp.o",
+        "review_comment fjooord: two Melee callers were updated to match those signatures"
+      ]
+    },
+    {
+      "path": "src/melee/lb/lbmthp.h",
+      "role": "Melee THP declaration surface adjusted with caller signature cleanup.",
+      "evidence_refs": [
+        "changed_files: src/melee/lb/lbmthp.h added 2 deleted 2 hunks 1",
+        "pr_body: files list includes src/melee/lb/lbmthp.h"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "Added 3 newly exact functions in THPDec according to the PR body and bot report: __THPHuffDecodeDCTCompU, __THPHuffDecodeDCTCompV, and THPDec_80331340.",
+      "evidence_refs": [
+        "pr_body: Adds 3 newly exact function(s) in extern/dolphin/src/dolphin/thp/THPDec.c",
+        "text_corpus bot report: __THPHuffDecodeDCTCompU 100.00%, __THPHuffDecodeDCTCompV 100.00%, THPDec_80331340 100.00%"
+      ]
+    },
+    {
+      "text": "Recovered THP row decompression helper signatures so they accept the THPFileInfo pointer directly, and for NxN also accept the decode width.",
+      "evidence_refs": [
+        "diff_excerpt: __THPDecompressiMCURow640x480(void) changed to __THPDecompressiMCURow640x480(THPFileInfo* info)",
+        "diff_excerpt: __THPDecompressiMCURowNxN(void) changed to __THPDecompressiMCURowNxN(THPFileInfo* info, u32 x)",
+        "review_comment fjooord discussion_r3410300331"
+      ]
+    },
+    {
+      "text": "Corrected public THP decoder entry signatures: THPDec_80331340 takes 4 args, while THPDec_803313D0 takes width as a fifth argument.",
+      "evidence_refs": [
+        "diff_excerpt: THPDec_80331340 declaration changes from 5 args to 4 args",
+        "diff_excerpt: THPDec_803313D0 declaration changes from 4 args to 5 args with u32",
+        "pr_body Reviewer Notes"
+      ]
+    },
+    {
+      "text": "Removed the reviewed macro workaround around #include <dolphin/thp/thp.h> by fixing declarations and callers instead.",
+      "evidence_refs": [
+        "review_comment ribbanya discussion_r3410123623: What is this? on macro shim",
+        "review_comment fjooord discussion_r3410300331: removed the shim and made declarations/call sites match implementation"
+      ]
+    },
+    {
+      "text": "Changed THPDecodeInfo x8F0/x8F4/x8F8 fields from void* to u8* and used them directly for LCStoreData destinations and pointer increments.",
+      "evidence_refs": [
+        "diff_excerpt: THPDecodeInfo x8F0/x8F4/x8F8 changed from void* to u8*",
+        "diff_excerpt: LCStoreData uses ((THPDecodeInfo*) info)->x8F0/x8F4/x8F8 and increments those fields"
+      ]
+    },
+    {
+      "text": "Adjusted inline assembly/register-local shapes in THP inverse DCT and Huff decode functions to reach matching code.",
+      "evidence_refs": [
+        "diff_excerpt: __THPInverseDCTNoYPos cmpwi itmp2,0 changed to cmpwi r0,0",
+        "diff_excerpt: __THPHuffDecodeDCTCompU and __THPHuffDecodeDCTCompV register local and asm block changes",
+        "text_corpus bot report: Huff decode U/V functions became exact"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "The author resolved review feedback by removing a brittle macro shim and updating the real header plus call sites, limiting header churn to the corrected THP decoder prototypes.",
+      "evidence_refs": [
+        "review_comment fjooord discussion_r3410300331",
+        "pr_body: Header/naming churn limited to correcting THP decoder prototypes"
+      ]
+    },
+    {
+      "text": "The PR kept verification scoped to touched objects and relevant checks: configure, THPDec/lb object builds, objdiff for named functions, tools.check, and git diff --check.",
+      "evidence_refs": [
+        "pr_body Verification"
+      ]
+    },
+    {
+      "text": "Passing THPFileInfo and width explicitly into row decompression helpers made dependencies visible instead of relying only on the global __THPInfo or an internal xPixelSize fetch.",
+      "evidence_refs": [
+        "diff_excerpt: __THPDecompressiMCURow640x480(__THPInfo)",
+        "diff_excerpt: __THPDecompressiMCURowNxN(__THPInfo, __THPInfo->xPixelSize)",
+        "diff_excerpt: __THPDecompressiMCURowNxN((THPFileInfo*) info, x)"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "When a recovered implementation signature conflicts with a header, update the owning header and real call sites rather than hiding the mismatch with local identifier-renaming macros around an include.",
+      "scope": [
+        "headers",
+        "decomp-matching",
+        "extern/dolphin/include/dolphin/thp/thp.h",
+        "extern/dolphin/src/dolphin/thp/THPDec.c"
+      ],
+      "evidence_refs": [
+        "review_comment ribbanya discussion_r3410123623",
+        "review_comment fjooord discussion_r3410300331",
+        "decomp_standards: truthful-headers-and-includes",
+        "decomp_standards: no-define-alias-global-renames"
+      ]
+    },
+    {
+      "lesson": "For helper functions that were previously using globals or internal field reads, matching may require surfacing the original arguments explicitly in both the static helper declaration and all callers.",
+      "scope": [
+        "THP decoder",
+        "function signatures",
+        "caller cleanup"
+      ],
+      "evidence_refs": [
+        "diff_excerpt: __THPDecompressiMCURow640x480 now accepts THPFileInfo*",
+        "diff_excerpt: __THPDecompressiMCURowNxN now accepts THPFileInfo* and u32 x",
+        "review_comment fjooord discussion_r3410300331"
+      ]
+    },
+    {
+      "lesson": "Typed pointer fields can simplify pointer increments and LCStoreData call sites compared with void* fields and repeated casts.",
+      "scope": [
+        "types-structs",
+        "THPDecodeInfo",
+        "typed fields"
+      ],
+      "evidence_refs": [
+        "diff_excerpt: THPDecodeInfo x8F0/x8F4/x8F8 changed to u8*",
+        "diff_excerpt: increments of ((THPDecodeInfo*) info)->x8F0/x8F4/x8F8 without u8* casts",
+        "decomp_standards: typed-fields-over-pointer-math"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "Address-style names such as THPDec_80331340 and THPDec_803313D0 were retained while their signatures were corrected; no semantic rename was introduced without evidence.",
+      "evidence_refs": [
+        "diff_excerpt: THPDec_80331340 and THPDec_803313D0 names unchanged while argument lists changed",
+        "decomp_standards: conservative-naming"
+      ]
+    },
+    {
+      "text": "Local variable names in Huff decode matching were shaped around bitstream roles such as nbits, cnt, cnt33, cb, tmp, code, and cnt12, but the PR evidence does not establish a global naming rule for these names.",
+      "evidence_refs": [
+        "diff_excerpt: __THPHuffDecodeDCTCompU local declarations",
+        "diff_excerpt: __THPHuffDecodeDCTCompV local declarations"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "text": "Used narrow inline assembly/register-local adjustments in MWERKS-guarded Huff decode sections to close __THPHuffDecodeDCTCompU and __THPHuffDecodeDCTCompV.",
+      "evidence_refs": [
+        "diff_excerpt: __THPHuffDecodeDCTCompU asm block register/local rewrites",
+        "diff_excerpt: __THPHuffDecodeDCTCompV asm block register/local rewrites",
+        "text_corpus bot report: both Huff decode functions moved to 100.00%"
+      ]
+    },
+    {
+      "text": "Changed a specific inline asm compare operand in __THPInverseDCTNoYPos from a named register variable to r0.",
+      "evidence_refs": [
+        "diff_excerpt: cmpwi itmp2, 0 changed to cmpwi r0, 0"
+      ]
+    },
+    {
+      "text": "Removed temporary locals like comp/x_pos in selected row decode paths and used direct expressions such as info->components[n].quantizationTableSelector and cl_num-derived offsets where that matched better.",
+      "evidence_refs": [
+        "diff_excerpt: removed THPComponent* comp use in __THPDecompressiMCURow640x480 and __THPDecompressiMCURowNxN",
+        "diff_excerpt: direct cl_num * 16 and cl_num * 8 expressions in __THPDecompressiMCURowNxN"
+      ]
+    },
+    {
+      "text": "Verification cited by the PR included objdiff-cli diff for lbMthp8001FAA0, fn_8001EF5C, and THPDec_80331340 at 100.0%, plus bot-reported THPDec improvements.",
+      "evidence_refs": [
+        "pr_body Verification",
+        "text_corpus bot report"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "reviewer": "ribbanya",
+      "feedback": "Questioned a macro block that renamed THP decoder symbols before including thp.h and then undefined them.",
+      "resolution": "Author said it was hiding stale prototypes after implementation signatures changed, removed the shim, updated thp.h and call sites, and removed the EditorConfig workaround.",
+      "evidence_refs": [
+        "review_comment ribbanya discussion_r3410123623",
+        "review_comment fjooord discussion_r3410300331"
+      ]
+    },
+    {
+      "reviewer": "ribbanya",
+      "feedback": "Asked what issue was being caused by editorconfig and said the PR looked good other than the weird defines.",
+      "resolution": "After the shim and EditorConfig workaround were removed, the later review state was APPROVED.",
+      "evidence_refs": [
+        "text_corpus review pullrequestreview-4493471862 state CHANGES_REQUESTED",
+        "review_comment fjooord discussion_r3410300331",
+        "text_corpus review pullrequestreview-4493713554 state APPROVED"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR2681",
+    "THP decoder matches",
+    "THPDec.c",
+    "extern/dolphin/src/dolphin/thp/THPDec.c",
+    "dolphin/thp/thp.h",
+    "__THPDecompressiMCURow640x480",
+    "__THPDecompressiMCURowNxN",
+    "THPDec_80331340",
+    "THPDec_803313D0",
+    "__THPHuffDecodeDCTCompU",
+    "__THPHuffDecodeDCTCompV",
+    "__THPInverseDCTNoYPos",
+    "THPFileInfo",
+    "THPDecodeInfo",
+    "x8F0",
+    "x8F4",
+    "x8F8",
+    "LCStoreData",
+    "prototype-hiding macro shim",
+    "truthful headers",
+    "skip editorconfig",
+    "inline asm",
+    "MWERKS",
+    "lbMthp8001FAA0",
+    "fn_8001EF5C"
+  ],
+  "follow_up_queries": [
+    "Find other PRs where local #define shims were used around includes to hide stale prototypes.",
+    "Search for THPDec_80331340 and THPDec_803313D0 call sites to verify all declarations stayed aligned after PR 2681.",
+    "Search THPDec.c for remaining void* decode buffer fields or repeated casts that could be typed.",
+    "Find Dolphin extern PRs with review concerns about changes outside src/.",
+    "Search for [skip editorconfig] or EditorConfig workarounds in decomp PR history."
+  ],
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json: PR identity, state, timestamps, changed files",
+      "human_pr_text: summary, reviewer notes, verification",
+      "review_comments: macro shim review and author fix",
+      "text_corpus: bot match report and review state sequence",
+      "diff_excerpt: concrete signature, typing, call-site, and asm changes"
+    ],
+    "notes": [
+      "The raw diff is truncated, so later parts of THPDec.c and the small lb caller hunks are not fully visible in loaded evidence.",
+      "Verification results are PR-authored and bot-comment evidence; no independent build or objdiff was run during intake.",
+      "The claim that two Melee callers were updated is supported by review text and changed-file metadata, but exact caller line changes are not visible in the loaded diff excerpt.",
+      "Inline asm/register-local tactics are observable in the diff, but the precise reason each register name change matched is not explained beyond match reports."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "title": "Fix real prototypes instead of include-time macro shims",
+        "text": "PR 2681 shows review pushback on a macro block that renamed THP decoder symbols around #include <dolphin/thp/thp.h>. The accepted fix was to remove the shim and update thp.h declarations plus call sites to match the recovered implementations.",
+        "scope": [
+          "headers",
+          "function signatures",
+          "decomp review cleanup"
+        ],
+        "evidence_refs": [
+          "review_comment ribbanya discussion_r3410123623",
+          "review_comment fjooord discussion_r3410300331",
+          "diff_excerpt: thp.h prototype changes"
+        ]
+      },
+      {
+        "title": "Recovered helper parameters can replace hidden global dependencies",
+        "text": "THP row decompression helpers changed from no-arg functions using __THPInfo or internal width reads to helpers receiving THPFileInfo* and, for NxN, a width argument; callers were updated accordingly.",
+        "scope": [
+          "THP decoder",
+          "helper signatures",
+          "matching"
+        ],
+        "evidence_refs": [
+          "diff_excerpt: __THPDecompressiMCURow640x480 signature and callers",
+          "diff_excerpt: __THPDecompressiMCURowNxN signature and callers"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Avoid include-time prototype-hiding macro shims",
+        "text": "When implementation recovery proves a signature mismatch, update the owning header and call sites instead of using #define/#undef blocks around an include to hide stale prototypes.",
+        "source_path": null,
+        "scope": [
+          "headers",
+          "includes",
+          "function signatures",
+          "review hygiene"
+        ],
+        "evidence_refs": [
+          "review_comment ribbanya discussion_r3410123623",
+          "review_comment fjooord discussion_r3410300331",
+          "decomp_standards: truthful-headers-and-includes",
+          "decomp_standards: no-define-alias-global-renames"
+        ],
+        "reason": "Current standards already discourage fake local declarations and define aliases; this PR provides concrete review evidence for the include-shim variant."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "THP decoder path crosses extern Dolphin and Melee lb callers",
+        "text": "PR 2681 changed extern/dolphin/src/dolphin/thp/THPDec.c and extern/dolphin/include/dolphin/thp/thp.h, with small signature-alignment changes in src/melee/lb/lb_01F8.c, src/melee/lb/lbmthp.c, and src/melee/lb/lbmthp.h.",
+        "source_path": "extern/dolphin/src/dolphin/thp/THPDec.c",
+        "scope": [
+          "extern/dolphin/src/dolphin/thp",
+          "extern/dolphin/include/dolphin/thp",
+          "src/melee/lb"
+        ],
+        "evidence_refs": [
+          "changed_files.jsonl",
+          "pr_body Files list"
+        ],
+        "reason": "May help future path-scope lookup for THP decoder work that requires lb caller/header updates."
+      }
+    ],
+    "rejection_notes": [
+      "Do not generalize that all extern/dolphin changes are low risk; this PR only states low review risk for this specific slice with touched caller object-diff checks.",
+      "Do not promote the exact THPDec_80331340/THPDec_803313D0 names to semantic names; the PR retained address-style names and only corrected signatures.",
+      "Do not treat inline assembly/register steering as generally accepted style from this PR; standards require narrow evidence, and the PR evidence only supports these specific THPDec matching edits.",
+      "Do not claim all functions in THPDec.c matched; bot evidence shows 3 new matches and 4 improvements, with some functions still below 100%."
+    ]
+  },
+  "confidence": 0.89,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

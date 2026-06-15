@@ -11,57 +11,146 @@
     "merged_at": "2026-03-10T15:12:16Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched the ftCommon rebirth animation callback ftCo_Rebirth_Anim. The stub marker in src/melee/ft/ft_0D31.c was replaced with a small implementation that reads Fighter from gobj->user_data, calls ftCo_8008A7A8 with fp->ft_data->x24, decrements fp->mv.co.common.x0, and transitions via ftCo_800D5600 when the counter reaches zero. The header prototype for ftCo_800D5600 was also upgraded from UNK_RET/UNK_PARAMS to void ftCo_800D5600(Fighter_GObj* gobj). PR body reports a clean ninja build and fuzzy_match_percent 100.0.",
+  "intake_role": "pr_intake",
+  "summary": "PR #2255 decompiled `ftCo_Rebirth_Anim` in the ftCommon fighter translation unit and updated the header prototype for `ftCo_800D5600`. The PR body claims a 100% match and clean `ninja` build; the bot report records one new matched item, `ftCo_Rebirth_Anim`, worth +96 bytes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
-      "headers",
-      "fighter-state-callback"
-    ],
-    "systems": [
       "fighter",
       "ftCommon",
-      "rebirth"
+      "function-decompile",
+      "header-prototype-update"
+    ],
+    "systems": [
+      "fighter"
     ]
   },
   "key_files": [
-    "src/melee/ft/ft_0D31.c",
-    "src/melee/ft/ft_0D31.h"
+    {
+      "path": "src/melee/ft/ft_0D31.c",
+      "role": "Replaced the `ftCo_Rebirth_Anim` decomp placeholder with a typed C implementation.",
+      "evidence_refs": [
+        "changed_files: src/melee/ft/ft_0D31.c added 9 deleted 1",
+        "raw_diff: implementation of `void ftCo_Rebirth_Anim(Fighter_GObj* gobj)`"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ft_0D31.h",
+      "role": "Updated `ftCo_800D5600` from unknown return/params to `void ftCo_800D5600(Fighter_GObj* gobj)`.",
+      "evidence_refs": [
+        "changed_files: src/melee/ft/ft_0D31.h added 1 deleted 1",
+        "raw_diff: `UNK_RET ftCo_800D5600(UNK_PARAMS)` changed to `void ftCo_800D5600(Fighter_GObj* gobj)`"
+      ]
+    }
   ],
   "what_changed": [
-    "Replaced the /// #ftCo_Rebirth_Anim placeholder with a matching C implementation.",
-    "Implemented ftCo_Rebirth_Anim(Fighter_GObj* gobj) using Fighter* fp = gobj->user_data.",
-    "Called ftCo_8008A7A8(gobj, fp->ft_data->x24) during the rebirth animation callback.",
-    "Decremented the common movement counter fp->mv.co.common.x0 and called ftCo_800D5600(gobj) when it reached zero.",
-    "Refined the declaration of ftCo_800D5600 from UNK_RET ftCo_800D5600(UNK_PARAMS) to void ftCo_800D5600(Fighter_GObj* gobj)."
+    {
+      "text": "`ftCo_Rebirth_Anim` was decompiled as a small animation-state routine taking `Fighter_GObj* gobj`.",
+      "evidence_refs": [
+        "raw_diff: added `void ftCo_Rebirth_Anim(Fighter_GObj* gobj)`"
+      ]
+    },
+    {
+      "text": "The implementation obtains `Fighter* fp` from `gobj->user_data`, calls `ftCo_8008A7A8(gobj, fp->ft_data->x24)`, decrements `fp->mv.co.common.x0`, and calls `ftCo_800D5600(gobj)` when the counter reaches zero.",
+      "evidence_refs": [
+        "raw_diff: body of `ftCo_Rebirth_Anim`"
+      ]
+    },
+    {
+      "text": "The header prototype for `ftCo_800D5600` was made concrete as `void ftCo_800D5600(Fighter_GObj* gobj)`.",
+      "evidence_refs": [
+        "raw_diff: `src/melee/ft/ft_0D31.h` hunk"
+      ]
+    },
+    {
+      "text": "The PR body reports `ninja` builds clean and `fuzzy_match_percent: 100.0`; the bot report records one new match for `main/melee/ft/ft_0D31` item `ftCo_Rebirth_Anim`, +96 bytes, from 0.00% to 100.00%.",
+      "evidence_refs": [
+        "human_pr_text: Verification section",
+        "text_corpus: decomp-dev[bot] report for GALE01"
+      ]
+    }
   ],
   "smart_moves": [
-    "Kept the matched animation callback minimal and state-machine oriented, avoiding unnecessary temporaries beyond the Fighter* local visible in the diff.",
-    "Used existing fighter object access patterns: Fighter_GObj* input, gobj->user_data to Fighter*, and nested ft_data/common movement fields.",
-    "Resolved a neighboring unknown prototype only as far as required by the new callsite, improving type information without broad unrelated header churn.",
-    "Validated the match with both a clean ninja build and reported fuzzy_match_percent: 100.0."
+    {
+      "text": "The PR paired the recovered callsite with a header prototype update for `ftCo_800D5600`, avoiding a stale `UNK_RET`/`UNK_PARAMS` declaration after the call shape was known.",
+      "evidence_refs": [
+        "raw_diff: `ftCo_800D5600(gobj)` call",
+        "raw_diff: header prototype update"
+      ]
+    },
+    {
+      "text": "The implementation used existing typed fighter access (`Fighter_GObj*`, `Fighter*`, `fp->ft_data`, `fp->mv.co.common`) rather than raw pointer arithmetic in the visible diff.",
+      "evidence_refs": [
+        "raw_diff: body of `ftCo_Rebirth_Anim`"
+      ]
+    }
   ],
   "decomp_lessons": [
-    "Small fighter animation callbacks may be driven by a countdown stored under fp->mv.co.common.x0; when the counter reaches zero they transition to the next common-state helper.",
-    "When decompiling a callback, inspect its outgoing calls: matching the callback can justify replacing UNK_RET/UNK_PARAMS prototypes with exact Fighter_GObj* signatures.",
-    "Use ft_data fields directly when the generated code needs to pass fighter-specific data into common helper routines; here fp->ft_data->x24 was the argument to ftCo_8008A7A8.",
-    "For ftCommon state callbacks, preserving the canonical signatures void func(Fighter_GObj* gobj) is important for header consistency and call matching."
+    {
+      "lesson": "When a newly decompiled function proves a callee signature, update the owning header prototype in the same focused change rather than leaving `UNK_RET`/`UNK_PARAMS` behind.",
+      "scope": [
+        "fighter headers",
+        "function decompilation"
+      ],
+      "evidence_refs": [
+        "raw_diff: `ftCo_Rebirth_Anim` calls `ftCo_800D5600(gobj)`",
+        "raw_diff: `src/melee/ft/ft_0D31.h` changes `ftCo_800D5600` to `void ftCo_800D5600(Fighter_GObj* gobj)`"
+      ]
+    },
+    {
+      "lesson": "Small ftCommon animation callbacks can match cleanly as direct typed C when expressed as helper call, countdown update, and state transition on zero.",
+      "scope": [
+        "src/melee/ft/ft_0D31.c",
+        "ftCommon rebirth state"
+      ],
+      "evidence_refs": [
+        "raw_diff: `ftCo_Rebirth_Anim` implementation",
+        "text_corpus: bot report shows `ftCo_Rebirth_Anim` after 100.00%"
+      ]
+    }
   ],
   "naming_conventions": [
-    "Common fighter-state callbacks use the ftCo_ prefix and state/action suffixes such as Rebirth_Anim, Rebirth_IASA, Rebirth_Phys, and Rebirth_Coll.",
-    "Unidentified address-based helper names such as ftCo_800D5600 remain until behavior is understood, but their prototypes should still be typed when evidence permits.",
-    "Fighter object parameters are named gobj, and the Fighter* extracted from gobj->user_data is named fp."
+    {
+      "text": "Use `gobj` for `Fighter_GObj*` parameters and `fp` for the local `Fighter*` recovered from `gobj->user_data` in this fighter callback style.",
+      "evidence_refs": [
+        "raw_diff: `void ftCo_Rebirth_Anim(Fighter_GObj* gobj)`",
+        "raw_diff: `Fighter* fp = gobj->user_data;`"
+      ]
+    },
+    {
+      "text": "The PR kept the existing ftCommon-style symbol names: `ftCo_Rebirth_Anim`, `ftCo_8008A7A8`, and `ftCo_800D5600`.",
+      "evidence_refs": [
+        "raw_diff: function body and surrounding symbols"
+      ]
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Matched by expressing the state timer as an in-place decrement of fp->mv.co.common.x0 followed by an equality check against zero.",
-    "Used the exact typed call ftCo_800D5600(gobj), which required replacing the previous UNK_PARAMS prototype.",
-    "Relied on the standard Fighter_GObj to Fighter user_data load pattern to line up the field accesses."
+    {
+      "text": "No pragmas, inline assembly, register steering, dummy locals, or padding tactics appear in the diff; the match is represented as straightforward typed C.",
+      "evidence_refs": [
+        "raw_diff: complete diff for changed C and header hunks"
+      ]
+    },
+    {
+      "text": "The visible matching shape uses a subtract-by-one counter update followed by an equality-to-zero transition call.",
+      "evidence_refs": [
+        "raw_diff: `fp->mv.co.common.x0 -= 1; if (fp->mv.co.common.x0 == 0) { ftCo_800D5600(gobj); }`"
+      ]
+    }
   ],
   "review_feedback": [
-    "No review comments were present in the provided PR slice.",
-    "The PR body states: Decompile ftCo_Rebirth_Anim — 100% match.",
-    "The PR body states verification with ninja builds clean and fuzzy_match_percent: 100.0."
+    {
+      "text": "No human review comments were present in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json: review_comments count 0 and reviews 0"
+      ]
+    },
+    {
+      "text": "Automated bot feedback reported one new match for `ftCo_Rebirth_Anim`, +96 bytes, before 0.00% and after 100.00%.",
+      "evidence_refs": [
+        "text_corpus: decomp-dev[bot] issue comment"
+      ]
+    }
   ],
   "searchable_terms": [
     "pr-2255",
@@ -69,35 +158,102 @@
     "ftCo_Rebirth_Anim",
     "ft_0D31.c",
     "ft_0D31.h",
+    "ftCo_800D5600",
+    "ftCo_8008A7A8",
     "Fighter_GObj",
     "Fighter",
     "gobj->user_data",
-    "ftCo_8008A7A8",
-    "ft_data->x24",
-    "mv.co.common.x0",
-    "ftCo_800D5600",
-    "ftCo_Rebirth_IASA",
-    "ftCo_Rebirth_Phys",
-    "ftCo_Rebirth_Coll",
+    "fp->ft_data->x24",
+    "fp->mv.co.common.x0",
     "Rebirth",
     "fuzzy_match_percent 100.0",
     "ninja builds clean",
-    "UNK_RET",
-    "UNK_PARAMS"
+    "Claude Code"
   ],
   "follow_up_queries": [
-    "Find later PRs that rename or document ftCo_800D5600.",
-    "Search for other ftCommon callbacks that decrement fp->mv.co.common.x0 before transitioning.",
-    "Inspect ftCo_8008A7A8 callsites to clarify the meaning of fp->ft_data->x24.",
-    "Compare Rebirth_Anim and RebirthWait_Anim implementations for shared state-machine patterns."
+    "ftCo_Rebirth_Anim ftCo_800D5600 Fighter_GObj",
+    "src/melee/ft/ft_0D31.c Rebirth_Anim mv.co.common.x0",
+    "UNK_RET UNK_PARAMS ftCo_800D5600",
+    "ftCo_8008A7A8 fp->ft_data->x24",
+    "PR 2255 ftCommon match ftCo_Rebirth_Anim"
   ],
-  "confidence": 0.91,
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json: PR number, title, author, state, timestamps, changed files",
+      "human_pr_text: summary and verification claims",
+      "raw_diff: full diff excerpt for both changed files",
+      "text_corpus: bot report"
+    ],
+    "notes": [
+      "The loaded diff is small and complete for the two changed files, so changed-file and implementation claims are well supported.",
+      "Verification claims are reported from the PR body and bot comment; no independent build, objdiff, or regression run was performed during intake.",
+      "No human review comments were available, so reviewer intent or requested changes cannot be inferred.",
+      "The PR body states it was generated with Claude Code; this is recorded only as PR text evidence, not as a quality judgment."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "decomp_lesson_candidate",
+        "title": "Update header prototypes when a decompiled body proves a callee signature",
+        "text": "In PR #2255, decompiling `ftCo_Rebirth_Anim` exposed a concrete call to `ftCo_800D5600(gobj)`, and the PR updated `src/melee/ft/ft_0D31.h` from `UNK_RET ftCo_800D5600(UNK_PARAMS)` to `void ftCo_800D5600(Fighter_GObj* gobj)`.",
+        "scope": [
+          "fighter",
+          "headers",
+          "truthful prototypes"
+        ],
+        "evidence_refs": [
+          "raw_diff: C call to `ftCo_800D5600(gobj)`",
+          "raw_diff: header prototype update"
+        ]
+      },
+      {
+        "record_type": "matching_tactic_candidate",
+        "title": "Straight typed C was sufficient for `ftCo_Rebirth_Anim`",
+        "text": "The matched implementation used `Fighter_GObj* gobj`, `Fighter* fp = gobj->user_data`, typed `ft_data` and `mv.co.common` fields, a countdown decrement, and a zero check without visible assembly or steering tactics.",
+        "scope": [
+          "src/melee/ft/ft_0D31.c",
+          "ftCommon rebirth callbacks"
+        ],
+        "evidence_refs": [
+          "raw_diff: `ftCo_Rebirth_Anim` implementation",
+          "text_corpus: bot report showing 100.00% after"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "`src/melee/ft/ft_0D31.c` contains ftCommon Rebirth state callbacks",
+        "text": "PR #2255 changed `src/melee/ft/ft_0D31.c` around `ftCo_Rebirth_Anim`, with nearby symbols including `ftCo_Rebirth_IASA`, and the header lists `ftCo_Rebirth_Phys`, `ftCo_Rebirth_Coll`, `fn_800D55B4`, and `ftCo_RebirthWait_*` callbacks.",
+        "source_path": "src/melee/ft/ft_0D31.c",
+        "scope": [
+          "fighter",
+          "ftCommon",
+          "Rebirth"
+        ],
+        "evidence_refs": [
+          "raw_diff: `src/melee/ft/ft_0D31.c` hunk around `ftCo_Rebirth_Anim`",
+          "raw_diff: `src/melee/ft/ft_0D31.h` neighboring Rebirth declarations"
+        ],
+        "reason": "Useful as a searchable path fact, but should be curated against current source before promotion."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer broader authored-source style from this single small function beyond the visible typed C pattern.",
+      "Do not treat the PR's Claude Code note as evidence for or against correctness beyond recording that it appears in the PR body.",
+      "Do not infer human reviewer approval details; no human reviews or review comments were loaded."
+    ]
+  },
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

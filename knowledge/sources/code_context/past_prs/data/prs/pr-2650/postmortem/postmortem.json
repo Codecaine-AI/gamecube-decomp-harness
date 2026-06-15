@@ -12,218 +12,208 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Linked src/melee/lb/lb_00CE.c by marking it Matching in configure.py, adjusting lb_00CE .sdata2 symbol metadata from global lb_804D7Axx names to local @ labels, adding a small sdata2_order helper to force float/double literal ordering, and simplifying lb_8000D148 distance-squared expressions. The bot report credited 2 new matches: lb_00CE .sdata2 to 100% and lb_8000D148 to 100%.",
+  "summary": "PR 2650 linked src/melee/lb/lb_00CE.c by moving the object from NonMatching to Matching, updating lb_00CE .sdata2 symbol metadata from global lb_804D-address names to local @ labels, adding an sdata2_order helper that references float/double constants, and simplifying squared-distance expressions in lb_8000D148. The bot report records 2 new matches: lb_00CE .sdata2 to 100% and lb_8000D148 to 100%.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "code match",
-      "link status update",
-      "sdata2 metadata/order",
-      "expression cleanup"
+      "decomp-matching",
+      "linking",
+      "data-symbol-metadata",
+      "float-ordering"
     ],
     "systems": [
-      "melee/lb",
-      "config/GALE01",
-      "build configuration"
+      "library",
+      "lb",
+      "config",
+      "repo-root"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/lb/lb_00CE.c",
-      "role": "Primary source change: include adjustments, added sdata2_order helper referencing constants in order, and rewrote lb_8000D148 squared-distance locals into direct expressions.",
+      "role": "Main decomp source updated with include changes, an sdata2_order helper, and lb_8000D148 expression changes.",
       "evidence_refs": [
-        "raw_diff:src/melee/lb/lb_00CE.c",
-        "changed_files:src/melee/lb/lb_00CE.c added=21 deleted=12"
-      ]
-    },
-    {
-      "path": "configure.py",
-      "role": "Changed lb_00CE object status from NonMatching to Matching.",
-      "evidence_refs": [
-        "raw_diff:configure.py Object(NonMatching, \"melee/lb/lb_00CE.c\") -> Object(Matching, \"melee/lb/lb_00CE.c\")",
-        "changed_files:configure.py added=1 deleted=1"
+        "raw_diff: src/melee/lb/lb_00CE.c hunk lines 1-29",
+        "raw_diff: src/melee/lb/lb_00CE.c hunk around lb_8000D148",
+        "text_corpus: decomp-dev bot report showing lb_8000D148 99.00% to 100.00%"
       ]
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Updated .sdata2 symbols at 0x804D7A68 through 0x804D7AA4 from global lb_804D7Axx names to local @ labels with existing size/type/alignment metadata.",
+      "role": "Symbol metadata changed lb_00CE .sdata2 constants from global address-style names to local @ labels.",
       "evidence_refs": [
-        "raw_diff:config/GALE01/symbols.txt .sdata2 hunk",
-        "changed_files:config/GALE01/symbols.txt added=10 deleted=10"
+        "raw_diff: config/GALE01/symbols.txt hunk at .sdata2:0x804D7A68-0x804D7AA4",
+        "text_corpus: decomp-dev bot report showing main/melee/lb/lb_00CE .sdata2 40.28% to 100.00%"
+      ]
+    },
+    {
+      "path": "configure.py",
+      "role": "Object status changed from NonMatching to Matching for melee/lb/lb_00CE.c.",
+      "evidence_refs": [
+        "raw_diff: configure.py MatchingFor hunk",
+        "changed_files.jsonl: configure.py added 1 deleted 1"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "configure.py now treats melee/lb/lb_00CE.c as Matching instead of NonMatching.",
+      "text": "Marked Object(Matching, \"melee/lb/lb_00CE.c\") in configure.py, replacing Object(NonMatching, ...).",
       "evidence_refs": [
-        "raw_diff:configure.py"
+        "raw_diff: configure.py hunk"
       ]
     },
     {
-      "text": "Ten .sdata2 entries for lb_00CE-area constants were renamed/rescoped from global lb_804D7A68-style names to local @15, @16, @17, @18, @20, @22, @34, @35, @36, and @37 labels.",
+      "text": "Renamed ten .sdata2 entries at 0x804D7A68 through 0x804D7AA4 from global lb_804D-address symbols to local @15, @16, @17, @18, @20, @22, @34, @35, @36, and @37 labels while preserving size, alignment, and float/double data annotations.",
       "evidence_refs": [
-        "raw_diff:config/GALE01/symbols.txt"
+        "raw_diff: config/GALE01/symbols.txt hunk"
       ]
     },
     {
-      "text": "src/melee/lb/lb_00CE.c added placeholder.h and switched the math_ppc include spelling to <math_ppc.h> while retaining platform, baselib, math, and trigf includes.",
+      "text": "Added static void sdata2_order(void) referencing M_PI_2, M_PI, 1.0f, 2.0f, S32_TO_F32, 0.0f, 0.5, 3.0, 0.00001f, and -0.00001f.",
       "evidence_refs": [
-        "raw_diff:src/melee/lb/lb_00CE.c include hunk"
+        "raw_diff: src/melee/lb/lb_00CE.c hunk lines 1-29",
+        "text_corpus: ribbanya review body: \"This is the simplest way to force float order.\""
       ]
     },
     {
-      "text": "A static sdata2_order function was added that void-references M_PI_2, M_PI, 1.0f, 2.0f, S32_TO_F32, 0.0f, 0.5, 3.0, 0.00001f, and -0.00001f.",
+      "text": "Changed math_ppc include style from \"MSL/math_ppc.h\" to <math_ppc.h> and added \"placeholder.h\".",
       "evidence_refs": [
-        "raw_diff:src/melee/lb/lb_00CE.c sdata2_order",
-        "review:ribbanya DISMISSED body='This is the simplest way to force float order.'"
+        "raw_diff: src/melee/lb/lb_00CE.c include hunk"
       ]
     },
     {
-      "text": "lb_8000D148 removed four temporary diff_* locals and computes dist_squared_02 and dist_squared_12 directly from repeated coordinate-difference products.",
+      "text": "In lb_8000D148, removed diff_02_x/diff_02_y/diff_12_x/diff_12_y temporaries and computed squared distances inline from point coordinates.",
       "evidence_refs": [
-        "raw_diff:src/melee/lb/lb_00CE.c lb_8000D148 hunk"
+        "raw_diff: src/melee/lb/lb_00CE.c hunk around lb_8000D148"
       ]
     },
     {
-      "text": "The automated report recorded +420 matched-code bytes, +1180 linked-code bytes, +64 matched-data bytes, +64 linked-data bytes, with new matches for main/melee/lb/lb_00CE .sdata2 and lb_8000D148.",
+      "text": "Bot report recorded overall progress: matched code +420 bytes, linked code +1180 bytes, matched data +64 bytes, linked data +64 bytes, with two new matches for lb_00CE .sdata2 and lb_8000D148.",
       "evidence_refs": [
-        "issue_comment:decomp-dev[bot] 2026-06-10T19:02:15Z"
+        "text_corpus: decomp-dev[bot] issue comment at 2026-06-10T19:02:15Z"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "The PR linked the whole lb_00CE object only after pairing the configure.py status change with source and symbol metadata changes and an automated report showing both .sdata2 and lb_8000D148 reached 100%.",
+      "text": "Kept data ordering work narrow to the lb_00CE .sdata2 range and paired it with symbol metadata changes rather than broad data-section churn.",
       "evidence_refs": [
-        "raw_diff:configure.py",
-        "issue_comment:decomp-dev[bot] 2026-06-10T19:02:15Z"
+        "raw_diff: config/GALE01/symbols.txt hunk",
+        "raw_diff: src/melee/lb/lb_00CE.c sdata2_order helper"
       ]
     },
     {
-      "text": "The distance-squared expression cleanup reduces intermediate locals while preserving the same coordinate-difference computations in the changed hunk.",
+      "text": "Used a small source expression rewrite in lb_8000D148 to close the remaining function diff instead of larger control-flow restructuring.",
       "evidence_refs": [
-        "raw_diff:src/melee/lb/lb_00CE.c lb_8000D148 hunk"
-      ]
-    },
-    {
-      "text": "Reviewer text explicitly identifies the added sdata2_order helper as a way to force float order, making the intent of that otherwise artificial-looking helper review-visible in this PR slice.",
-      "evidence_refs": [
-        "review:ribbanya DISMISSED body='This is the simplest way to force float order.'",
-        "raw_diff:src/melee/lb/lb_00CE.c sdata2_order"
+        "raw_diff: src/melee/lb/lb_00CE.c hunk around lb_8000D148",
+        "text_corpus: bot report lb_8000D148 99.00% to 100.00%"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For a linking PR, object status changes in configure.py should be supported by narrow evidence that the affected unit or symbols now match; here the bot report names lb_00CE .sdata2 and lb_8000D148 reaching 100%.",
+      "lesson": "For this lb_00CE link, text and data closure were coupled: the object was only moved to Matching after both lb_8000D148 and the TU .sdata2 reached 100% in the bot report.",
       "scope": [
-        "linking",
-        "configure.py object status",
-        "melee/lb/lb_00CE.c"
+        "src/melee/lb/lb_00CE.c",
+        "config/GALE01/symbols.txt",
+        "configure.py"
       ],
       "evidence_refs": [
-        "raw_diff:configure.py",
-        "issue_comment:decomp-dev[bot] 2026-06-10T19:02:15Z"
-      ]
+        "raw_diff: configure.py NonMatching to Matching",
+        "text_corpus: bot report 2 new matches"
+      ],
+      "confidence": 0.86
     },
     {
-      "lesson": "When a TU's local constants are the matching issue, symbol metadata may need to represent them as local @ labels rather than address-style global names; in this PR, the .sdata2 hunk converted ten lb_804D7Axx globals to local @ labels and the report credited the unit's .sdata2 as 100%.",
+      "lesson": "When local .sdata2 constants are exposed as address-style globals, symbol metadata may need correction to local @ labels if the diff evidence shows those constants belong as local float/double literals for the TU.",
       "scope": [
-        "sdata2",
-        "symbols.txt",
-        "lb_00CE"
+        "config/GALE01/symbols.txt",
+        "main/melee/lb/lb_00CE .sdata2"
       ],
       "evidence_refs": [
-        "raw_diff:config/GALE01/symbols.txt",
-        "issue_comment:decomp-dev[bot] 2026-06-10T19:02:15Z"
-      ]
+        "raw_diff: symbols.txt changes lb_804D7A68-lb_804D7AA4 to @ labels",
+        "text_corpus: bot report lb_00CE .sdata2 40.28% to 100.00%"
+      ],
+      "confidence": 0.78
     }
   ],
   "naming_conventions": [
     {
-      "text": "This PR used local @NN labels for file-local .sdata2 constants instead of global address-style lb_804D7Axx names for the same addresses.",
+      "convention": "For this PR's lb_00CE .sdata2 constants, local @NN labels replaced global lb_804D-address names at 0x804D7A68 through 0x804D7AA4.",
       "scope": [
         "config/GALE01/symbols.txt",
-        ".sdata2",
-        "lb_00CE"
+        "lb_00CE .sdata2"
       ],
       "evidence_refs": [
-        "raw_diff:config/GALE01/symbols.txt"
-      ]
+        "raw_diff: config/GALE01/symbols.txt hunk"
+      ],
+      "confidence": 0.82
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Added an unused static sdata2_order function with void-cast references to constants/macros to force .sdata2 float/double ordering.",
+      "scope": [
+        "src/melee/lb/lb_00CE.c"
+      ],
+      "evidence_refs": [
+        "raw_diff: sdata2_order helper",
+        "text_corpus: ribbanya review body: \"This is the simplest way to force float order.\"",
+        "text_corpus: bot report lb_00CE .sdata2 100.00%"
+      ],
+      "caution": "This is a narrow historical tactic from the PR, not a global style endorsement; current standards require data-order and tactic use to be evidence-backed and scoped."
     },
     {
-      "text": "Function and argument names in the touched source remain descriptive for the geometry calculation, including point0_x, point0_y, point1_x, point1_y, point2_x, point2_y, threshold, threshold_squared, dist_squared_02, and dist_squared_12.",
+      "tactic": "Inline squared-distance arithmetic can affect codegen: lb_8000D148 matched after replacing temporary diff variables with repeated coordinate subtraction expressions.",
       "scope": [
         "src/melee/lb/lb_00CE.c",
         "lb_8000D148"
       ],
       "evidence_refs": [
-        "raw_diff:src/melee/lb/lb_00CE.c lb_8000D148 hunk"
-      ]
-    }
-  ],
-  "assembly_or_matching_tactics": [
-    {
-      "tactic": "Added a static sdata2_order helper that references float and double constants in a specific order to influence .sdata2 ordering.",
-      "evidence_refs": [
-        "raw_diff:src/melee/lb/lb_00CE.c sdata2_order",
-        "review:ribbanya DISMISSED body='This is the simplest way to force float order.'"
+        "raw_diff: lb_8000D148 expression rewrite",
+        "text_corpus: bot report lb_8000D148 99.00% to 100.00%"
       ],
-      "caveat": "The PR slice supports that this tactic was used and reviewer-described, but it does not include a detailed rationale for each literal or a broader standard approving this pattern."
-    },
-    {
-      "tactic": "Changed .sdata2 symbol scope/name metadata from global address-style symbols to local @ labels, aligning the symbol table with local constants in the unit.",
-      "evidence_refs": [
-        "raw_diff:config/GALE01/symbols.txt",
-        "issue_comment:decomp-dev[bot] 2026-06-10T19:02:15Z"
-      ],
-      "caveat": "The bot report verifies .sdata2 progress for this PR, but the slice does not include independent map/split analysis beyond the diff and report."
-    },
-    {
-      "tactic": "Recomputed squared distances with direct repeated coordinate-difference expressions rather than mutating separate diff_* locals.",
-      "evidence_refs": [
-        "raw_diff:src/melee/lb/lb_00CE.c lb_8000D148 hunk",
-        "issue_comment:decomp-dev[bot] 2026-06-10T19:02:15Z"
-      ],
-      "caveat": "The report shows lb_8000D148 reached 100%, but the slice does not show the exact before/after assembly."
+      "caution": "The PR evidence shows the result for this function only; do not generalize without objdiff evidence."
     }
   ],
   "review_feedback": [
     {
-      "author": "ribbanya",
+      "reviewer": "ribbanya",
       "state": "CHANGES_REQUESTED",
       "body": "One sec.",
       "evidence_refs": [
-        "review:ribbanya 2026-06-10T19:16:31Z"
+        "text_corpus: review at 2026-06-10T19:16:31Z"
       ],
-      "interpretation": "The loaded slice shows a temporary changes-requested review but no inline details."
+      "interpretation": "No concrete technical request is present in the loaded text."
     },
     {
-      "author": "ribbanya",
+      "reviewer": "ribbanya",
       "state": "DISMISSED",
       "body": "This is the simplest way to force float order.",
       "evidence_refs": [
-        "review:ribbanya 2026-06-10T19:18:52Z",
-        "raw_diff:src/melee/lb/lb_00CE.c sdata2_order"
+        "text_corpus: review at 2026-06-10T19:18:52Z",
+        "raw_diff: sdata2_order helper"
       ],
-      "interpretation": "The review comment directly supports the purpose of the sdata2_order helper."
+      "interpretation": "Reviewer text directly describes the float-order forcing tactic, but the loaded slice does not include inline comments or final approval rationale."
     },
     {
-      "author": "jurrejelle",
+      "reviewer": "jurrejelle",
       "state": "DISMISSED",
       "body": "",
       "evidence_refs": [
-        "review:jurrejelle 2026-06-10T19:04:05Z",
-        "review:jurrejelle 2026-06-10T19:06:45Z"
+        "text_corpus: dismissed reviews at 2026-06-10T19:04:05Z and 2026-06-10T19:06:45Z"
       ],
-      "interpretation": "The loaded reviews have no body text, so no specific feedback can be extracted."
+      "interpretation": "No technical feedback body is available."
     }
   ],
   "searchable_terms": [
-    "pr-2650",
+    "PR 2650",
     "Link lb_00ce",
-    "lb_00CE.c",
+    "Match_lb_00CE",
+    "src/melee/lb/lb_00CE.c",
+    "config/GALE01/symbols.txt",
+    "configure.py",
+    "Object(Matching, \"melee/lb/lb_00CE.c\")",
     "lb_8000D148",
     "sdata2_order",
     "force float order",
@@ -232,97 +222,107 @@
     "S32_TO_F32",
     "0.00001f",
     "-0.00001f",
-    "config/GALE01/symbols.txt",
     "lb_804D7A68",
-    "lb_804D7A70",
-    "lb_804D7A78",
-    "lb_804D7A7C",
-    "lb_804D7A80",
-    "lb_804D7A88",
-    "lb_804D7A90",
-    "lb_804D7A98",
-    "lb_804D7AA0",
     "lb_804D7AA4",
     "@15",
-    "@16",
-    "@17",
-    "@18",
-    "@20",
-    "@22",
-    "@34",
-    "@35",
-    "@36",
     "@37",
-    "Object(Matching, \"melee/lb/lb_00CE.c\")",
-    "Matched data +64",
-    "Linked code +1180"
+    ".sdata2",
+    "matched data",
+    "linked data"
   ],
   "follow_up_queries": [
-    "sdata2_order force float order",
-    "lb_00CE .sdata2 local @ labels",
-    "lb_8000D148 dist_squared_02 dist_squared_12",
-    "configure.py Object Matching lb_00CE.c",
-    "symbols.txt lb_804D7A68 @15",
-    "PR 2650 ribbanya simplest way to force float order"
+    "PR 2650 sdata2_order force float order",
+    "lb_00CE .sdata2 @15 @16 @17 @18 @20 @22 @34 @35 @36 @37",
+    "lb_8000D148 squared distance inline temporaries",
+    "configure.py Object Matching melee/lb/lb_00CE.c",
+    "ribbanya \"simplest way to force float order\""
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json:pr-2650",
-      "raw_diff:full",
-      "changed_files:jsonl",
-      "text_corpus:decomp-dev bot report",
-      "text_corpus:reviews"
+      "metadata_json: PR number/title/state/author/timestamps",
+      "raw_diff: complete 4930-byte diff",
+      "changed_files.jsonl: changed file list",
+      "text_corpus.jsonl: bot report and review records"
     ],
     "notes": [
-      "Strong evidence for changed files, exact diff content, PR identity, merge state, and automated progress report.",
-      "PR body is empty, so author rationale is inferred only from diff plus review/bot text.",
-      "No inline review comments are loaded; one changes-requested review only says 'One sec.' and provides no actionable technical feedback.",
-      "The bot report provides match/link percentages and named new matches, but the slice does not include raw build logs, objdiff output, or assembly listings.",
-      "The sdata2_order helper is review-described as forcing float order, but this intake should not promote that artificial helper pattern as a general accepted standard without curator review."
+      "Diff and bot report strongly support changed files, object status, symbol metadata edits, and reported match progress.",
+      "PR body is empty, and no inline review comments are loaded.",
+      "Review records include dismissed reviews; only one review body contains technical wording about forcing float order.",
+      "The loaded evidence does not include local build logs, objdiff output, or final reviewer approval rationale beyond the bot report and merge metadata.",
+      "The sdata2_order tactic conflicts with cautionary global standards if generalized; it is recorded here as historical PR evidence only, not as an accepted global standard."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "pr_lesson",
-        "title": "lb_00CE linked by combining Matching status, .sdata2 local labels, and narrow source expression cleanup",
-        "text": "PR 2650 linked melee/lb/lb_00CE.c by changing configure.py from NonMatching to Matching, converting ten .sdata2 address-style globals to local @ labels, adding an sdata2_order helper for float ordering, and simplifying lb_8000D148 squared-distance expressions. The decomp-dev report credited lb_00CE .sdata2 and lb_8000D148 as new 100% matches.",
+        "record_type": "historical_matching_tactic",
+        "title": "PR 2650 used sdata2_order to force lb_00CE float order",
+        "text": "In PR 2650, lb_00CE added a static sdata2_order function with void-cast references to constants/macros, and a reviewer described it as \"the simplest way to force float order.\" The bot report showed main/melee/lb/lb_00CE .sdata2 improved from 40.28% to 100.00%. Treat as a narrow historical tactic, not a blanket style rule.",
         "scope": [
           "src/melee/lb/lb_00CE.c",
-          "config/GALE01/symbols.txt",
-          "configure.py"
+          "main/melee/lb/lb_00CE .sdata2"
         ],
         "evidence_refs": [
-          "raw_diff:full",
-          "issue_comment:decomp-dev[bot] 2026-06-10T19:02:15Z",
-          "review:ribbanya 2026-06-10T19:18:52Z"
-        ]
+          "raw_diff: sdata2_order helper",
+          "text_corpus: ribbanya review at 2026-06-10T19:18:52Z",
+          "text_corpus: decomp-dev bot report"
+        ],
+        "confidence": 0.8
+      },
+      {
+        "record_type": "function_match_note",
+        "title": "lb_8000D148 matched after inline squared-distance rewrite",
+        "text": "PR 2650 rewrote lb_8000D148 squared-distance calculations from temporary diff variables to inline repeated coordinate subtraction expressions; the bot report showed lb_8000D148 moved from 99.00% to 100.00%.",
+        "scope": [
+          "src/melee/lb/lb_00CE.c",
+          "lb_8000D148"
+        ],
+        "evidence_refs": [
+          "raw_diff: lb_8000D148 hunk",
+          "text_corpus: decomp-dev bot report"
+        ],
+        "confidence": 0.76
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "lb_00CE.c was linked as Matching in PR 2650",
-        "text": "PR 2650 changed configure.py so Object(NonMatching, \"melee/lb/lb_00CE.c\") became Object(Matching, \"melee/lb/lb_00CE.c\"). The bot report listed new matches for main/melee/lb/lb_00CE .sdata2 and lb_8000D148.",
+        "title": "lb_00CE linked in PR 2650",
+        "text": "PR 2650 changed configure.py from Object(NonMatching, \"melee/lb/lb_00CE.c\") to Object(Matching, \"melee/lb/lb_00CE.c\"). The bot report listed two new matches: main/melee/lb/lb_00CE .sdata2 to 100.00% and lb_8000D148 to 100.00%.",
         "source_path": "src/melee/lb/lb_00CE.c",
         "scope": [
-          "melee/lb",
-          "lb_00CE",
-          "configure.py"
+          "configure.py",
+          "src/melee/lb/lb_00CE.c",
+          "main/melee/lb/lb_00CE"
         ],
         "evidence_refs": [
-          "raw_diff:configure.py",
-          "issue_comment:decomp-dev[bot] 2026-06-10T19:02:15Z"
+          "raw_diff: configure.py hunk",
+          "text_corpus: decomp-dev bot report"
         ],
-        "reason": "Potential path-level historical fact for the curator to verify against current source state."
+        "reason": "Useful path-specific history for future lb_00CE matching or regression triage."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "lb_00CE .sdata2 labels localized in PR 2650",
+        "text": "PR 2650 changed lb_00CE .sdata2 symbols at 0x804D7A68-0x804D7AA4 from global lb_804D-address names to local @ labels while retaining float/double sizes and alignment.",
+        "source_path": "config/GALE01/symbols.txt",
+        "scope": [
+          "config/GALE01/symbols.txt",
+          "main/melee/lb/lb_00CE .sdata2"
+        ],
+        "evidence_refs": [
+          "raw_diff: config/GALE01/symbols.txt hunk"
+        ],
+        "reason": "May help future curators distinguish local constant metadata from real global data ownership in this TU."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Review artificial sdata2_order helpers as a narrow float-order tactic",
-        "text": "This PR used a static sdata2_order helper containing void references to literals/constants, and reviewer text says: 'This is the simplest way to force float order.' If this pattern recurs, curator may want a narrowly scoped standard describing when such helpers are acceptable, what evidence is required, and how to avoid fake data/order churn.",
+        "title": "Document narrow evidence requirements for sdata2_order-style float-order helpers",
+        "text": "Consider documenting that sdata2_order-style unused helper functions have historical precedent for forcing float order, but should remain narrow, evidence-backed, and path-specific, with bot/objdiff evidence and symbol metadata supporting the data-order need.",
         "source_path": null,
         "scope": [
           ".sdata2",
@@ -330,41 +330,27 @@
           "matching tactics"
         ],
         "evidence_refs": [
-          "raw_diff:src/melee/lb/lb_00CE.c sdata2_order",
-          "review:ribbanya 2026-06-10T19:18:52Z"
+          "raw_diff: sdata2_order helper",
+          "text_corpus: ribbanya review body",
+          "text_corpus: bot report lb_00CE .sdata2 100.00%"
         ],
-        "reason": "The tactic is explicit in this PR but should be reconciled with existing standards on data ownership, fake storage, and matching tactics before becoming a general rule."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "lb_00CE .sdata2 constants changed from global lb_804D7Axx symbols to local @ labels in PR 2650",
-        "text": "PR 2650 changed ten .sdata2 entries at 0x804D7A68 through 0x804D7AA4 from global lb_804D7Axx names to local @NN labels while preserving object type, size, alignment, and float/double data annotations.",
-        "source_path": "config/GALE01/symbols.txt",
-        "scope": [
-          "config/GALE01/symbols.txt",
-          ".sdata2",
-          "lb_00CE"
-        ],
-        "evidence_refs": [
-          "raw_diff:config/GALE01/symbols.txt"
-        ],
-        "reason": "Potential symbol metadata history useful for future data-section investigations."
+        "reason": "The PR shows a successful and reviewed tactic, but current standards already caution against broad data-order hacks; curator should decide whether this warrants a clarified exception note."
       }
     ],
     "rejection_notes": [
-      "Do not infer that sdata2_order helpers are broadly accepted decomp style from this PR alone; the evidence shows one reviewer-approved use in one PR, not a global policy.",
-      "Do not claim the exact original-source form of lb_8000D148 beyond the diff and bot match report; no assembly or objdiff listing is included in the loaded slice.",
-      "Do not infer detailed reviewer intent from the 'One sec.' changes-requested review; no inline comments or technical explanation are present."
+      "Do not promote sdata2_order helpers as generally preferred style; the PR evidence supports only a narrow lb_00CE tactic with a bot report and one review sentence.",
+      "Do not infer reviewer intent beyond the loaded text; the changes-requested review only says \"One sec.\"",
+      "Do not claim local build, objdiff, or regression checks beyond the decomp-dev bot report because no such logs are loaded.",
+      "Do not treat all address-style lb_804D symbols as wrong; this PR only changed a specific lb_00CE .sdata2 range."
     ]
   },
-  "confidence": 0.84,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

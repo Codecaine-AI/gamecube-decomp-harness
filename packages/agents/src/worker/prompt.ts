@@ -141,6 +141,14 @@ function baselineXml(baseline: Record<string, unknown>): string {
   return ["    <baseline>", jsonBlockXml("details_json", baseline), "    </baseline>"].join("\n");
 }
 
+// Repair attempts must see why the runner rejected the previous return; the
+// packet carries repair_request but only rendered blocks reach the agent.
+function repairRequestXml(packet: Record<string, unknown>): string {
+  const repair = asRecord(packet.repair_request);
+  if (Object.keys(repair).length === 0) return "";
+  return ["    <repair_request>", jsonBlockXml("details_json", repair), "    </repair_request>"].join("\n");
+}
+
 function functionName(fn: Record<string, unknown>): string {
   return optionalString(fn.name) ?? optionalString(fn.symbol) ?? optionalString(fn.function_name) ?? optionalString(fn.id) ?? "";
 }
@@ -376,6 +384,7 @@ export function workerPrompt(options: WorkerPromptOptions): PiPromptBundle {
     AVAILABLE_TOOLS_XML: availableToolsPromptXml(toolContext),
     BASELINE_XML: inputXml.baselineXml,
     DECOMP_STANDARDS_XML: globalStandardsPromptXml(),
+    REPAIR_REQUEST_XML: repairRequestXml(options.packet),
     TARGET_GRAPH_FILE_CARD_XML: inputXml.targetGraphFileCardXml,
     TARGET_XML: inputXml.targetXml,
   };

@@ -1,0 +1,533 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2686",
+  "pr": {
+    "number": 2686,
+    "title": "Melee decomp: GM menu and result matches",
+    "url": "https://github.com/doldecomp/melee/pull/2686",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-13T21:29:21Z",
+    "merged_at": "2026-06-15T04:27:50Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Exact-match decompilation slice for Game-mode menu/result translation units, touching seven src/melee/gm files. The PR body claims 11 newly exact functions, 36 still-unmatched improvements, clean isolated/full regression reports, and git diff check success. Review discussion centered on avoiding fakematch pointer math, preferring natural loops, limiting pragmas, and requiring data-ownership evidence for float/string symbol use.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "implementation-only",
+      "naming",
+      "types-structs",
+      "matching-tactics",
+      "data-ownership-review"
+    ],
+    "systems": [
+      "game-mode",
+      "gm-menu",
+      "gm-results"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/gm/gm_1601.c",
+      "role": "Major game-mode match work; diff shows cleanup of text rendering names, stat accumulation shapes, KO total names, repeated lookup helper extraction, natural loop conversion in fn_80167638, and PAD_STACK use.",
+      "evidence_refs": [
+        "changed_files: gm_1601.c +393/-300, 26 hunks",
+        "diff_excerpt: gm_80160C90 var_f31/var_r5/var_r29 renamed to name_scale/use_alt_name/str",
+        "diff_excerpt: fn_80167638 changed from repeated FighterMatchInfo checks to for loop over ARRAY_SIZE",
+        "review r3410055128: pointer math called fakematch and probably a for loop"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gm_16F1.c",
+      "role": "Game-mode match work with pragma review concern.",
+      "evidence_refs": [
+        "changed_files: gm_16F1.c +56/-82, 20 hunks",
+        "review r3410056045: reviewer requested removing #pragma pool_data off"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gm_18A5.c",
+      "role": "Game-mode match work involving animation setup helpers, float label reuse, and a narrowly scoped dont_inline pragma under review.",
+      "evidence_refs": [
+        "changed_files: gm_18A5.c +259/-206, 36 hunks",
+        "review r3409773204/r3410057536/r3410057665: concern about replacing 0.0f with lbl_804DA808",
+        "review r3409791039: follow-up says lbl_804DA808 is existing file-local 0.0f label used in nearby fn_8019035C setup paths",
+        "review r3409773882/r3410058088: concern about dont_inline and replacing 4.5f with lbl_804DA810",
+        "review r3409791078: follow-up says lbl_804DA810 is existing TU-owned float label and dont_inline was scoped to small wrapper/reset immediately"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gm_1A4C.c",
+      "role": "Game-mode match work involving fixed-width string table modeling and JObj/assert cleanup review.",
+      "evidence_refs": [
+        "changed_files: gm_1A4C.c +47/-7, 5 hunks",
+        "review r3409774425: concern about static char lbl_803DB49C[][0xC]",
+        "review r3409791127: follow-up says gm_1A4C.c owns .data 0x803DB430-0x803DBF78 and symbols lbl_803DB49C through lbl_803DB61C are contiguous at 0xC stride",
+        "review r3410059259: reviewer says asserts are not in jobj.h and should probably be calls to an existing function"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gm_1B03.c",
+      "role": "Small game-mode result/menu match contribution.",
+      "evidence_refs": [
+        "changed_files: gm_1B03.c +27/-29, 1 hunk",
+        "text_corpus bot report: gm_801B2790 reached 100.00%"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gm_1BA8.c",
+      "role": "Large game-mode match work; review focused on replacing byte pointer math with typed PlayerInitData access where possible.",
+      "evidence_refs": [
+        "changed_files: gm_1BA8.c +430/-319, 35 hunks",
+        "review r3410061359: reviewer asked to anti-pointer-math r3b by figuring out struct/etc if possible",
+        "text_corpus bot report: gm_801BD028 reached 100.00%; several gm_1BA8 unmatched items improved"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gmresultplayer.c",
+      "role": "Result player match work; review highlighted probable loop structure in fn_80178BB4.",
+      "evidence_refs": [
+        "changed_files: gmresultplayer.c +149/-129, 29 hunks",
+        "review r3410062377: reviewer says fn_80178BB4 shape is probably a for loop",
+        "text_corpus bot report: fn_801785B0, fn_8017A078, and fn_80178BB4 reached 100.00%"
+      ]
+    }
+  ],
+  "what_changed": [
+    "Touched seven Game-mode menu/result translation units under src/melee/gm.",
+    "PR body reports 11 newly exact functions, 36 improvements in still-unmatched functions, and clean isolated/full regression reports.",
+    "gm_1601.c replaced temp/decompiler-style names in gm_80160C90 with role names such as name_scale, use_alt_name, and str.",
+    "gm_1601.c converted at least one repeated FighterMatchInfo search in fn_80167638 into a natural for loop over ARRAY_SIZE after review flagged pointer math/fakematch risk.",
+    "gm_1601.c introduced or retained matching tactics in several functions, including PAD_STACK and explicit ternary saturation forms instead of MIN/MAX macro forms in excerpts.",
+    "gm_18A5.c used existing float labels lbl_804DA808 and lbl_804DA810 in animation-call arguments, with follow-up comments documenting claimed TU-local data ownership.",
+    "gm_18A5.c added a scoped dont_inline pragma around fn_8019B860 according to review excerpt and follow-up rationale.",
+    "gm_1A4C.c added a static fixed-width char table lbl_803DB49C[][0xC], with follow-up evidence citing contiguous symbols and split ownership.",
+    "gm_1BA8.c moved some r3b byte accesses toward PlayerInitData casts/bitfields, but review still asked for more anti-pointer-math/type recovery.",
+    "gmresultplayer.c changed result-player animation/rank handling shapes; review suggested a probable for-loop reconstruction."
+  ],
+  "smart_moves": [
+    {
+      "text": "The PR body included narrow verification details: baseline hash, exact ninja command, slice regression report, full ship-set regression report, git diff check, and review_lint count.",
+      "evidence_refs": [
+        "human_pr_text: Verification section"
+      ]
+    },
+    {
+      "text": "Reviewer concerns about float/string symbol use were followed by explicit data-ownership rationale rather than treating generated labels as automatically acceptable.",
+      "evidence_refs": [
+        "review r3409791039",
+        "review r3409791078",
+        "review r3409791127"
+      ]
+    },
+    {
+      "text": "The fn_80167638 review appears to have moved the code away from raw pointer math and back toward a typed ARRAY_SIZE loop over FighterMatchInfo.",
+      "evidence_refs": [
+        "review r3410055128",
+        "diff_excerpt: fn_80167638 final excerpt uses for (i = 0; i < ARRAY_SIZE(info->FighterMatchInfo); i++)"
+      ]
+    },
+    {
+      "text": "Local variable names were improved where roles were evident, e.g. name_scale, use_alt_name, ko_stats, capped_total, ko_total, es_base, and match_end/is_teams/is_small_loser terms in excerpts/search terms.",
+      "evidence_refs": [
+        "diff_excerpt: gm_80160C90",
+        "diff_excerpt: gm_80162A98",
+        "metadata search_terms"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "When repeated field checks differ only by array index, prefer a natural loop over raw byte-pointer stepping or nested generated-looking branches.",
+      "scope": [
+        "src/melee/gm/gm_1601.c",
+        "FighterMatchInfo searches",
+        "fn_80167638"
+      ],
+      "evidence_refs": [
+        "review r3410055128",
+        "diff_excerpt: fn_80167638 uses for loop and ARRAY_SIZE"
+      ]
+    },
+    {
+      "lesson": "Pointer math that walks known game structs should be treated as suspicious fakematch material until typed fields, arrays, or structs have been tried.",
+      "scope": [
+        "src/melee/gm/gm_1601.c",
+        "src/melee/gm/gm_1BA8.c"
+      ],
+      "evidence_refs": [
+        "review r3410055128",
+        "review r3410061359"
+      ]
+    },
+    {
+      "lesson": "Replacing ordinary literals with labels is controversial unless there is concrete TU-local data ownership or repeated local use evidence; document that evidence in review.",
+      "scope": [
+        "src/melee/gm/gm_18A5.c",
+        "src/melee/gm/gm_1A4C.c"
+      ],
+      "evidence_refs": [
+        "review r3409773204",
+        "review r3410057536",
+        "review r3409791039",
+        "review r3409791078",
+        "review r3409791127"
+      ]
+    },
+    {
+      "lesson": "Pragmas remain review-sensitive even when they help matching; comments show reviewers challenged both dont_inline and pool_data changes, and accepted rationale was tied to narrow scope plus clean regression evidence.",
+      "scope": [
+        "src/melee/gm/gm_18A5.c",
+        "src/melee/gm/gm_16F1.c"
+      ],
+      "evidence_refs": [
+        "review r3409773882",
+        "review r3409791078",
+        "review r3410056045",
+        "review r3410058088"
+      ]
+    },
+    {
+      "lesson": "Expanded jobj.h-style assert lines should be checked against actual owning inline/helper behavior before converting them to local HSD_ASSERT/HSD_ASSERTMSG calls.",
+      "scope": [
+        "src/melee/gm/gm_1A4C.c",
+        "JObj load/assert cleanup"
+      ],
+      "evidence_refs": [
+        "review r3410059259"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "convention": "Use short semantic locals when the role is evident from the surrounding code: name_scale, use_alt_name, str, ko_stats, capped_total, ko_total, es_base.",
+      "evidence_refs": [
+        "diff_excerpt: gm_80160C90",
+        "diff_excerpt: gm_80162A98",
+        "diff_excerpt: fn_80164B48"
+      ]
+    },
+    {
+      "convention": "Keep address-style labels for data where semantic meaning is not established, but attach ownership/layout evidence before using them as source-level data objects.",
+      "evidence_refs": [
+        "review r3409791039: lbl_804DA808 existing file-local float label",
+        "review r3409791078: lbl_804DA810 existing TU float label",
+        "review r3409791127: lbl_803DB49C fixed-width table layout"
+      ]
+    },
+    {
+      "convention": "Helper names like fn_80164B48_check may be introduced for repeated checks, but the PR slice only proves local matching use, not a globally accepted semantic name.",
+      "evidence_refs": [
+        "diff_excerpt: static inline bool fn_80164B48_check(u8 idx, u16* ptr)"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "PAD_STACK was used in multiple gm_1601.c functions to steer stack/codegen shape.",
+      "evidence_refs": [
+        "diff_excerpt: fn_80161C90 PAD_STACK(8)",
+        "diff_excerpt: fn_80164B48 PAD_STACK(16)",
+        "diff_excerpt: fn_80167638 PAD_STACK(8)",
+        "diff_excerpt: fn_80169C54 PAD_STACK(8)"
+      ],
+      "caution": "Loaded evidence reports clean regressions, but individual PAD_STACK objdiff justification is not shown in the slice."
+    },
+    {
+      "tactic": "A narrow dont_inline pragma was added around fn_8019B860; follow-up says it was scoped to a small wrapper and reset immediately.",
+      "evidence_refs": [
+        "review r3409773882",
+        "review r3409791078"
+      ],
+      "caution": "Do not generalize pragmas as normal style; reviewer also requested removing a pool_data pragma in gm_16F1.c."
+    },
+    {
+      "tactic": "Existing TU-owned float labels were used for 0.0f and 4.5f animation parameters in gm_18A5.c.",
+      "evidence_refs": [
+        "review r3409791039",
+        "review r3409791078"
+      ],
+      "caution": "This is evidence-specific to lbl_804DA808/lbl_804DA810 claims in this PR; standards still discourage creating fake data anchors."
+    },
+    {
+      "tactic": "A fixed-width char[][0xC] table was used to model a gm_1A4C.c-owned .data string block.",
+      "evidence_refs": [
+        "review r3409791127"
+      ],
+      "caution": "Treat as a source-update/path-fact candidate, not a blanket rule for string literals."
+    },
+    {
+      "tactic": "Some MIN/MAX macro forms were replaced by explicit ternary saturation expressions, apparently for codegen matching.",
+      "evidence_refs": [
+        "diff_excerpt: fn_80161C90 saturation expressions",
+        "diff_excerpt: gm_80162A98 capped_total expressions"
+      ],
+      "caution": "The slice does not include reviewer discussion proving these explicit forms should be preferred globally."
+    }
+  ],
+  "review_feedback": [
+    {
+      "path": "src/melee/gm/gm_1601.c",
+      "feedback": "Pointer math in fn_80167638 was called a fakematch and probably a for loop.",
+      "author": "jurrejelle",
+      "evidence_refs": [
+        "review r3410055128"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gm_16F1.c",
+      "feedback": "Reviewer requested removing #pragma pool_data off.",
+      "author": "jurrejelle",
+      "evidence_refs": [
+        "review r3410056045"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gm_18A5.c",
+      "feedback": "Replacing inline 0.0f with lbl_804DA808 was challenged as BS/possible regression; follow-up argued existing file-local label reuse and clean regressions.",
+      "author": "fjooord and jurrejelle",
+      "evidence_refs": [
+        "review r3409773204",
+        "review r3410057536",
+        "review r3410057665",
+        "review r3409791039"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gm_18A5.c",
+      "feedback": "Adding dont_inline and replacing 4.5f with lbl_804DA810 was challenged; follow-up argued existing TU label, narrow pragma scope, and clean regressions.",
+      "author": "fjooord and jurrejelle",
+      "evidence_refs": [
+        "review r3409773882",
+        "review r3410058088",
+        "review r3409791078"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gm_1A4C.c",
+      "feedback": "Static fixed-width string table access was questioned; follow-up supplied split range and symbols.txt stride evidence.",
+      "author": "fjooord",
+      "evidence_refs": [
+        "review r3409774425",
+        "review r3409791127"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gm_1A4C.c",
+      "feedback": "Reviewer said the shown asserts were not in jobj.h and should probably be calls to an existing function.",
+      "author": "jurrejelle",
+      "evidence_refs": [
+        "review r3410059259"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gm_1BA8.c",
+      "feedback": "Reviewer asked to anti-pointer-math r3b by figuring out the struct/etc if possible, while allowing that it may not work.",
+      "author": "jurrejelle",
+      "evidence_refs": [
+        "review r3410061359"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gmresultplayer.c",
+      "feedback": "Reviewer said a changed shape in fn_80178BB4 is probably a for loop.",
+      "author": "jurrejelle",
+      "evidence_refs": [
+        "review r3410062377"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR 2686",
+    "Melee decomp GM menu result matches",
+    "src/melee/gm/gm_1601.c",
+    "src/melee/gm/gm_16F1.c",
+    "src/melee/gm/gm_18A5.c",
+    "src/melee/gm/gm_1A4C.c",
+    "src/melee/gm/gm_1B03.c",
+    "src/melee/gm/gm_1BA8.c",
+    "src/melee/gm/gmresultplayer.c",
+    "fn_80167638",
+    "FighterMatchInfo",
+    "ARRAY_SIZE",
+    "pointer math fakematch",
+    "PAD_STACK",
+    "pragma dont_inline",
+    "pragma pool_data off",
+    "lbl_804DA808",
+    "lbl_804DA810",
+    "lbl_803DB49C",
+    "char[][0xC]",
+    "PlayerInitData",
+    "fn_80178BB4",
+    "HSD_ASSERT",
+    "HSD_ASSERTMSG",
+    "jobj.h",
+    "gm_80160C90",
+    "name_scale",
+    "use_alt_name",
+    "gm_80162A98",
+    "ko_stats",
+    "fn_80164B48_check"
+  ],
+  "follow_up_queries": [
+    "PR 2686 gm_1601 fn_80167638 pointer math fakematch for loop ARRAY_SIZE",
+    "PR 2686 gm_1BA8 gm_801BAD70 PlayerInitData r3b pointer math",
+    "PR 2686 gm_18A5 lbl_804DA808 lbl_804DA810 dont_inline data ownership",
+    "PR 2686 gm_1A4C lbl_803DB49C char 0xC string table symbols split",
+    "PR 2686 gm_1A4C jobj.h HSD_ASSERT HSD_JObjLoadJoint",
+    "PR 2686 gmresultplayer fn_80178BB4 for loop result player",
+    "PR 2686 gm_16F1 pool_data pragma removal",
+    "gm_1601 PAD_STACK fn_80161C90 fn_80164B48 fn_80169C54"
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json PR fields and changed_files",
+      "human_pr_text Verification section",
+      "review_comments excerpts",
+      "diff_excerpt",
+      "text_corpus bot report excerpt"
+    ],
+    "notes": [
+      "Loaded PR body and metadata provide strong identity, scope, changed-file, merge, and verification claims.",
+      "Raw diff and review comments are truncated, so later revisions/resolutions for all 22 review comments are not fully visible.",
+      "PR body claims 11 newly exact functions, while the visible bot report excerpt says 10 new matches; this record preserves the PR-body claim and notes the discrepancy instead of resolving it.",
+      "Clean regression results are taken from the PR body and follow-up comments; no independent build or objdiff was run during intake.",
+      "The follow-up data-ownership statements for lbl_804DA808, lbl_804DA810, and lbl_803DB49C are treated as PR evidence, not independently verified path facts.",
+      "Reviewer intent beyond the quoted comments is not inferred."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "title": "Prefer typed array loops over raw pointer stepping for repeated struct-slot searches",
+        "text": "In PR #2686, review flagged fn_80167638 pointer math as a fakematch and probably a for loop; the visible diff shows the search over info->FighterMatchInfo expressed as a for loop using ARRAY_SIZE. This supports a reusable lesson to try natural typed loops before accepting byte-pointer stepping across known arrays.",
+        "scope": [
+          "decomp_lessons",
+          "natural-loops",
+          "typed-fields-over-pointer-math",
+          "src/melee/gm/gm_1601.c"
+        ],
+        "evidence_refs": [
+          "review r3410055128",
+          "diff_excerpt: fn_80167638"
+        ]
+      },
+      {
+        "title": "Data-symbol literal replacements need explicit local ownership evidence",
+        "text": "PR #2686 review challenged replacing inline literals with lbl_804DA808/lbl_804DA810 and adding a fixed-width string table. Follow-up comments justified them with existing file-local/TU-local labels, nearby same-slot use, split ranges, symbols.txt stride, and clean regression reports. Use this as a candidate lesson: literal-to-symbol changes remain suspicious unless ownership/layout evidence is documented.",
+        "scope": [
+          "decomp_lessons",
+          "literals-and-data-ownership",
+          "text-before-data-matching",
+          "src/melee/gm/gm_18A5.c",
+          "src/melee/gm/gm_1A4C.c"
+        ],
+        "evidence_refs": [
+          "review r3409773204",
+          "review r3409773882",
+          "review r3409774425",
+          "review r3409791039",
+          "review r3409791078",
+          "review r3409791127"
+        ]
+      },
+      {
+        "title": "Pragma matching tactics need narrow scope and review-visible evidence",
+        "text": "PR #2686 contains both a challenged dont_inline pragma in gm_18A5.c and a reviewer request to remove pool_data off in gm_16F1.c. The accepted rationale shown for dont_inline depends on small-wrapper scope, immediate reset, existing local pattern, and clean regressions. This supports a candidate lesson to keep pragmas exceptional and evidence-backed.",
+        "scope": [
+          "decomp_lessons",
+          "avoid-pragmas-register-asm",
+          "matching-tactics-need-evidence",
+          "src/melee/gm/gm_18A5.c",
+          "src/melee/gm/gm_16F1.c"
+        ],
+        "evidence_refs": [
+          "review r3409773882",
+          "review r3409791078",
+          "review r3410056045",
+          "review r3410058088"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "gm_1A4C.c fixed-width string table ownership candidate",
+        "text": "PR #2686 follow-up states that gm_1A4C.c owns .data from 0x803DB430 to 0x803DBF78 and that symbols.txt already has contiguous lbl_803DB49C through lbl_803DB61C strings at 0xC stride, with the next symbol at 0x803DB628. Candidate path fact: lbl_803DB49C can be modeled as a gm_1A4C.c-owned fixed-width char[][0xC] table if independently verified against current splits/symbols.",
+        "source_path": "src/melee/gm/gm_1A4C.c",
+        "scope": [
+          "gm_1A4C.c",
+          ".data",
+          "lbl_803DB49C",
+          "lbl_803DB61C",
+          "0x803DB430-0x803DBF78",
+          "0xC stride"
+        ],
+        "evidence_refs": [
+          "review r3409791127"
+        ],
+        "reason": "Useful path-specific data ownership evidence, but intake cannot promote review-comment claims to source truth without curator verification."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "gm_18A5.c existing float label reuse candidate",
+        "text": "PR #2686 follow-up states lbl_804DA808 is an existing file-local 0.0f label used for the same fn_8019035C animation-parameter slot in nearby setup paths fn_80198D18 and fn_80198EBC, and lbl_804DA810 is an existing TU-owned 4.5f label. Candidate path fact if current symbols/source confirm this.",
+        "source_path": "src/melee/gm/gm_18A5.c",
+        "scope": [
+          "gm_18A5.c",
+          "lbl_804DA808",
+          "lbl_804DA810",
+          "fn_8019035C",
+          "fn_80198D18",
+          "fn_80198EBC",
+          "fn_8019B860"
+        ],
+        "evidence_refs": [
+          "review r3409791039",
+          "review r3409791078"
+        ],
+        "reason": "Could guide future literal/data ownership review in this TU, but should be checked against current symbols and source."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Review example for anti-pointer-math plus natural-loop cleanup",
+        "text": "Consider adding PR #2686 as an example under existing natural-loops and typed-fields-over-pointer-math standards: reviewer identified byte pointer stepping over FighterMatchInfo as fakematch/probable for-loop, and the visible diff uses a typed ARRAY_SIZE loop.",
+        "source_path": null,
+        "scope": [
+          "natural-loops",
+          "typed-fields-over-pointer-math",
+          "review examples"
+        ],
+        "evidence_refs": [
+          "review r3410055128",
+          "diff_excerpt: fn_80167638"
+        ],
+        "reason": "This is not a new standard; it is a possible concrete example for existing standards."
+      }
+    ],
+    "rejection_notes": [
+      "Do not record a blanket rule that replacing float literals with lbl_* symbols is acceptable; this PR's rationale is tied to claimed existing TU-owned labels and same-slot usage.",
+      "Do not record a blanket rule that dont_inline pragmas are acceptable in gm files; evidence only supports a narrow, disputed exception in gm_18A5.c, while another pragma was explicitly challenged.",
+      "Do not infer that all review concerns were resolved; loaded review_comments and raw_diff are truncated.",
+      "Do not promote the PR-body verification as independently rerun validation.",
+      "Do not infer semantic names for address-style functions/symbols beyond names visible in the diff and comments."
+    ]
+  },
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

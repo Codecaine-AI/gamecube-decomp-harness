@@ -12,14 +12,14 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Large IF-module decompilation PR focused on soundtest plus related if_2F72, ifmagnify, ifstatus, types, and header/prototype updates. The bot report records +5388 matched bytes, 57 new 100% matches, and 31 partial-function improvements. Reviewer approved while noting that some code was rough and contained many unrolled loops.",
+  "summary": "Large matching PR for the melee if module, especially soundtest, if_2F72, and ifmagnify. It added many function bodies, replaced several UNK_RET/UNK_PARAMS prototypes with typed signatures, exposed ifStatus_803F9628 for cross-TU use, and added/adjusted interface-related structs and headers. Bot evidence reports 57 new 100% matches and 31 unmatched-function improvements; reviewer approved while noting rough source with many unrolled loops.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "prototype cleanup",
-      "IF module"
+      "types",
+      "interface-module"
     ],
     "systems": [
       "src/melee/if",
@@ -29,190 +29,208 @@
   "key_files": [
     {
       "path": "src/melee/if/soundtest.c",
-      "role": "Largest changed source file; soundtest decompilation/matching work with many newly matched or improved functions reported by bot.",
+      "role": "Main soundtest decomp target; largest changed file with many newly matched or improved functions reported by the bot.",
       "evidence_refs": [
-        "changed_files: soundtest.c added 843 deleted 67 hunks 17",
-        "text_corpus: bot report lists many main/melee/if/soundtest new matches and improvements"
-      ]
-    },
-    {
-      "path": "src/melee/if/soundtest.h",
-      "role": "Header paired with soundtest.c; significant prototype/header churn.",
-      "evidence_refs": [
-        "changed_files: soundtest.h added 63 deleted 63 hunks 3"
+        "changed_files.jsonl: src/melee/if/soundtest.c added 843 deleted 67",
+        "text_corpus.jsonl: bot report lists many main/melee/if/soundtest new matches and improvements"
       ]
     },
     {
       "path": "src/melee/if/if_2F72.c",
-      "role": "Adds many IF animation/object/audio helper implementations and replaces a literal archive section argument with a static string symbol.",
+      "role": "Added many if_2F72 function bodies for HUD/status animation object handling, audio trigger timing, JObj/GObj setup, and archive loading.",
       "evidence_refs": [
-        "raw_diff: if_2F72.c adds fn_802F7288, if_802F73C4, if_802F74D0, fn_802F75D4, fn_802F7670, fn_802F770C, fn_802F77F8, fn_802F7994, if_802F7AF8, if_802F7BB4, if_802F7C30, if_802F7D08",
-        "raw_diff: static char lbl_803F9780[] = \"ScInfStc_scene_models\" and lbArchive_LoadSections now uses lbl_803F9780",
-        "text_corpus: bot report lists several if_2F72 100% matches and partial improvements"
-      ]
-    },
-    {
-      "path": "src/melee/if/if_2F72.h",
-      "role": "Updates prototypes from UNK_RET/UNK_PARAMS to typed signatures and adds if/forward.h include.",
-      "evidence_refs": [
-        "raw_diff: fn_802F7288 becomes s32 fn_802F7288(HSD_GObj*, Element_803F9628*)",
-        "raw_diff: fn_802F75D4/fn_802F7670/fn_802F770C/fn_802F77F8/fn_802F7994 typed"
+        "raw_diff: if_2F72.c adds fn_802F7288 through if_802F7D08 bodies",
+        "text_corpus.jsonl: bot report lists if_2F72 new matches and improvements"
       ]
     },
     {
       "path": "src/melee/if/ifmagnify.c",
-      "role": "Adds magnify camera/resource setup and state helper implementations.",
+      "role": "Added ifMagnify function bodies for camera/object setup, cleanup, color/default initialization, archive loading, and ignore_offscreen state toggles.",
       "evidence_refs": [
-        "raw_diff: implements ifMagnify_802FC618, ifMagnify_802FC750, ifMagnify_802FC7C0, ifMagnify_802FC870, ifMagnify_802FC8E8, ifMagnify_802FC940",
-        "text_corpus: bot report lists ifMagnify_802FC618 and ifMagnify_802FC7C0 as 100% matches and other ifmagnify improvements"
+        "raw_diff: ifmagnify.c adds ifMagnify_802FC618, ifMagnify_802FC750, ifMagnify_802FC7C0, ifMagnify_802FC870, ifMagnify_802FC8E8, ifMagnify_802FC940",
+        "text_corpus.jsonl: bot report lists ifmagnify matches and improvements"
+      ]
+    },
+    {
+      "path": "src/melee/if/soundtest.h",
+      "role": "Header updates for soundtest signatures and declarations.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/if/soundtest.h added 63 deleted 63"
+      ]
+    },
+    {
+      "path": "src/melee/if/if_2F72.h",
+      "role": "Replaced several unknown prototypes with typed prototypes and added if/forward.h.",
+      "evidence_refs": [
+        "raw_diff: if_2F72.h changes fn_802F7288, fn_802F75D4, fn_802F7670, fn_802F770C, fn_802F77F8, fn_802F7994 prototypes"
       ]
     },
     {
       "path": "src/melee/if/ifmagnify.h",
-      "role": "Updates ifmagnify prototypes and adds extern string declaration.",
+      "role": "Replaced unknown ifMagnify prototypes with typed void/signature declarations and added extern ifMagnify_804D57E8.",
       "evidence_refs": [
-        "raw_diff: UNK_RET/UNK_PARAMS entries changed to typed void signatures",
-        "raw_diff: adds extern char ifMagnify_804D57E8[]"
+        "raw_diff: ifmagnify.h prototype changes for ifMagnify_802FC3BC through ifMagnify_802FC940"
       ]
     },
     {
       "path": "src/melee/if/ifstatus.c",
-      "role": "Changes ifStatus_803F9628 from static to externally visible and adjusts Element_803F9628 initializers.",
+      "role": "Made ifStatus_803F9628 non-static and adjusted Element_803F9628 initializer shape.",
       "evidence_refs": [
-        "raw_diff: static Element_803F9628 ifStatus_803F9628[8] becomes Element_803F9628 ifStatus_803F9628[8]",
-        "changed_files: ifstatus.c added 9 deleted 9"
+        "raw_diff: ifStatus_803F9628 changes from static Element_803F9628 to exported Element_803F9628"
       ]
     },
     {
       "path": "src/melee/if/ifstatus.h",
-      "role": "Header support for ifstatus data/functions used by if_2F72.",
+      "role": "Header declarations added for status interfaces used by if_2F72.",
       "evidence_refs": [
-        "changed_files: ifstatus.h added 4 deleted 0 hunks 2",
-        "raw_diff: if_2F72.c includes if/ifstatus.h and references ifStatus_803F9628 and ifStatus_802F4910"
+        "changed_files.jsonl: src/melee/if/ifstatus.h added 4 deleted 0"
       ]
     },
     {
       "path": "src/melee/if/types.h",
-      "role": "Type support for recovered IF structures such as Element_803F9628 and ifMagnify fields.",
+      "role": "Type changes supporting ifStatus/ifMagnify/soundtest work.",
       "evidence_refs": [
-        "changed_files: types.h added 20 deleted 4 hunks 1",
-        "raw_diff: if_2F72.c uses Element_803F9628 typed fields and ifmagnify.c uses ifMagnify"
+        "changed_files.jsonl: src/melee/if/types.h added 20 deleted 4"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/sobjlib.h",
-      "role": "Small baselib header addition associated with this PR.",
+      "role": "Small baselib header addition required by this PR slice.",
       "evidence_refs": [
-        "changed_files: sobjlib.h added 1 deleted 0 hunks 1"
+        "changed_files.jsonl: src/sysdolphin/baselib/sobjlib.h added 1 deleted 0"
       ]
     }
   ],
   "what_changed": [
-    "Added implementations for a block of src/melee/if/if_2F72.c functions that create, animate, update, and destroy HSD_GObj/HSD_JObj-based interface objects and trigger audio callbacks.",
-    "Added several src/melee/if/ifmagnify.c implementations for magnify camera setup, cleanup, color/default initialization, archive loading, and ignore_offscreen state toggles.",
-    "Updated if_2F72.h and ifmagnify.h prototypes from UNK_RET/UNK_PARAMS to typed signatures for recovered bodies.",
-    "Exposed ifStatus_803F9628 outside ifstatus.c and adjusted its initializer shape to match the Element_803F9628 type used by if_2F72.c.",
-    "Touched soundtest.c and soundtest.h heavily; the loaded diff is truncated, but bot output attributes many new soundtest matches and improvements to this PR.",
-    "Added or adjusted include dependencies across IF files and one baselib header."
+    "Added many decompiled function bodies in src/melee/if/if_2F72.c, including animation/audio update helpers, GObj/JObj lifecycle callbacks, slot-based object creation functions, and archive-loading setup.",
+    "Added several ifMagnify bodies in src/melee/if/ifmagnify.c for camera creation, viewport/scissor setup, per-player magnify cleanup, color/default setup, archive initialization, and ignore_offscreen toggles.",
+    "Changed headers from placeholder UNK_RET/UNK_PARAMS declarations to typed prototypes in if_2F72.h and ifmagnify.h.",
+    "Changed ifStatus_803F9628 from static file-local data to an exported Element_803F9628 array used by if_2F72.c.",
+    "Updated soundtest.c and soundtest.h substantially; loaded evidence confirms large line churn and bot-reported matches, but the diff excerpt does not include the soundtest hunks.",
+    "Added small supporting type/header changes in if/types.h, ifstatus.h, and sobjlib.h."
   ],
   "smart_moves": [
-    "Paired body recovery with header prototype cleanup rather than leaving recovered functions behind UNK_RET/UNK_PARAMS.",
-    "Introduced typed access to Element_803F9628 and ifMagnify data in several places instead of keeping every access fully opaque.",
-    "Used narrow subsystem includes for newly referenced systems such as gm, lb, player, ground, and baselib object/camera APIs.",
-    "Bot report documents measurable text-match progress, including 57 new 100% matches and 31 additional improvements."
+    {
+      "text": "Updated owning headers with recovered signatures instead of leaving local unknown prototypes.",
+      "evidence_refs": [
+        "raw_diff: if_2F72.h and ifmagnify.h replace UNK_RET/UNK_PARAMS entries with typed prototypes",
+        "decomp_standards: truthful-headers-and-includes"
+      ]
+    },
+    {
+      "text": "Used existing engine APIs for GObj/JObj setup, animation, archive loading, audio playback, camera setup, and viewport/scissor setup rather than leaving all calls opaque.",
+      "evidence_refs": [
+        "raw_diff: calls to GObj_Create, HSD_GObjObject_80390A70, GObj_SetupGXLink, HSD_JObjReqAnimAll, HSD_JObjAnimAll, lbArchive_LoadSections, lbAudioAx_800237A8, HSD_CObjSetOrtho"
+      ]
+    },
+    {
+      "text": "Kept address-style function names where semantics were not fully recovered, while using clearer local variable names for obvious roles such as gobj, jobj, slot, idx, frame, result, and viewport.",
+      "evidence_refs": [
+        "raw_diff: fn_802F7288, fn_802F77F8, ifMagnify_802FC618 local variable naming",
+        "decomp_standards: conservative-naming"
+      ]
+    }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When recovering a batch of related interface functions, update the owning headers as signatures become known so callsites can use typed prototypes.",
+      "lesson": "High match progress can land even with rough source, but reviewer feedback should flag generated-looking shapes such as many unrolled loops for later cleanup rather than treating them as preferred style.",
       "evidence_refs": [
-        "raw_diff: if_2F72.h changes multiple UNK_RET/UNK_PARAMS declarations to typed signatures",
-        "raw_diff: ifmagnify.h changes ifMagnify_802FC3BC through ifMagnify_802FC940 declarations to typed signatures"
-      ],
-      "confidence": 0.83
-    },
-    {
-      "lesson": "Large match-progress PRs can still leave reviewability debt; reviewer explicitly flagged unrolled loops as rough despite approving the match progress.",
-      "evidence_refs": [
-        "text_corpus: ribbanya review says \"Some of this is pretty rough, for example there are a lot of unrolled loops. But I can't argue with the match progress.\"",
-        "raw_diff: if_2F72.c shows repeated slot-search ladders in fn_802F770C/fn_802F7994 and explicit repeated player assignments in ifMagnify_802FC8E8/ifMagnify_802FC940"
-      ],
-      "confidence": 0.9
-    },
-    {
-      "lesson": "Bot match reports are useful for intake evidence of match progress, but the PR slice does not include local build commands, objdiff screenshots, or author reasoning for specific rough shapes.",
-      "evidence_refs": [
-        "text_corpus: decomp-dev bot report lists matched-code percentage and new matches",
-        "loaded_files: no inline review comments and no author validation details beyond PR body"
-      ],
-      "confidence": 0.78
-    }
-  ],
-  "naming_conventions": [
-    {
-      "convention": "Unrecovered or weakly understood functions remain address-style names such as fn_802F7288, if_802F73C4, and un_8030178C while signatures are improved.",
-      "evidence_refs": [
-        "raw_diff: if_2F72.c/h keep fn_ and if_ address-style names",
-        "text_corpus: bot report lists many soundtest un_ and fn_ address-style symbols"
-      ],
-      "confidence": 0.86
-    },
-    {
-      "convention": "Local variables use short role names where roles are evident, such as gobj, jobj, cobj, entry, base, slot, idx, frame, and viewport.",
-      "evidence_refs": [
-        "raw_diff: if_2F72.c functions use HSD_GObj* gobj, HSD_JObj* jobj, Element_803F9628* entry, s32 slot",
-        "raw_diff: ifmagnify.c uses HSD_CObj* cobj, HSD_ImageDesc* idesc, HSD_RectS16 viewport"
-      ],
-      "confidence": 0.8
-    },
-    {
-      "convention": "Some data symbols remain address-style labels such as lbl_803F9780 and lbl_804A1340 when semantic ownership is not fully recovered in the slice.",
-      "evidence_refs": [
-        "raw_diff: static char lbl_803F9780[] = \"ScInfStc_scene_models\"",
-        "raw_diff: static void* lbl_804A1340[13]"
-      ],
-      "confidence": 0.74
-    }
-  ],
-  "assembly_or_matching_tactics": [
-    {
-      "tactic": "Use explicit typed prototypes and forward declarations to make recovered functions callable across IF files.",
-      "evidence_refs": [
-        "raw_diff: if_2F72.h adds if/forward.h and Element_803F9628 parameter",
-        "raw_diff: ifmagnify.h adds typed ifMagnify* parameter for ifMagnify_802FC7C0"
+        "text_corpus.jsonl: reviewer says 'Some of this is pretty rough, for example there are a lot of unrolled loops. But I can't argue with the match progress.'",
+        "decomp_standards: natural-loops",
+        "decomp_standards: infer-authored-source-style"
       ],
       "confidence": 0.82
     },
     {
-      "tactic": "Retain some generated-looking or unrolled slot logic where it contributed to match progress, but mark it as cleanup risk because reviewer called out many unrolled loops.",
+      "lesson": "When decompiling interface modules, recovered function bodies should be paired with header prototype updates once signatures are evident from the bodies.",
       "evidence_refs": [
-        "text_corpus: approved review notes rough code and many unrolled loops",
-        "raw_diff: repeated slot comparisons in fn_802F770C and fn_802F7994"
+        "raw_diff: if_2F72.h and ifmagnify.h prototype updates",
+        "decomp_standards: truthful-headers-and-includes"
       ],
-      "confidence": 0.87
+      "confidence": 0.84
     },
     {
-      "tactic": "A volatile local was used for a default color value in ifMagnify_802FC7C0, likely as a narrow codegen steering tactic; no verifier rationale is present in the slice.",
+      "lesson": "Cross-TU use of a previously static data table may require adjusting linkage and declarations, but the PR evidence alone does not prove broader data ownership beyond this ifStatus_803F9628 use.",
       "evidence_refs": [
-        "raw_diff: ifMagnify_802FC7C0 declares volatile int default_val = ifMagnify_804DDB60",
-        "decomp_standards: matching-tactics-need-evidence requires explicit verifier evidence for volatile locals"
-      ],
-      "confidence": 0.65
-    },
-    {
-      "tactic": "Raw byte-offset access appears in places where struct fields were not fully modeled, e.g. ((u8*) status)[slot * 100 + 16] and player0 pointer arithmetic.",
-      "evidence_refs": [
-        "raw_diff: fn_802F770C checks ((u8*) status)[slot * 100 + 16]",
-        "raw_diff: ifMagnify_802FC618 uses u8* player0 = (u8*) &ifMagnify_804A1DE0 + 0x14"
-      ],
-      "confidence": 0.78
-    },
-    {
-      "tactic": "Expanded jobj assertions and manual dirty-flag logic were kept in fn_802F77F8 rather than mapped to a higher-level inline in the visible diff.",
-      "evidence_refs": [
-        "raw_diff: fn_802F77F8 contains __assert(\"jobj.h\", 0x394, \"jobj\"), __assert(\"jobj.h\", 0x395, \"jobj\"), and __assert(\"jobj.h\", 0x234, \"jobj\")",
-        "decomp_standards: header-inlines recommends mapping expanded jobj.h asserts back to existing HSD_JObj helpers when evidence identifies them"
+        "raw_diff: ifStatus_803F9628 changed from static to external array",
+        "raw_diff: if_2F72.c uses ifStatus_803F9628"
       ],
       "confidence": 0.72
+    }
+  ],
+  "naming_conventions": [
+    {
+      "name": "Address-style unknown functions",
+      "description": "Functions with unrecovered semantics retained address-style names such as fn_802F7288, fn_802F77F8, fn_80300CC8, and un_8030178C.",
+      "evidence_refs": [
+        "raw_diff: if_2F72.c function names",
+        "text_corpus.jsonl: bot report soundtest fn_/un_ names"
+      ]
+    },
+    {
+      "name": "Subsystem-prefixed recovered functions",
+      "description": "Interface functions use subsystem prefixes such as if_802F73C4 and ifMagnify_802FC618.",
+      "evidence_refs": [
+        "raw_diff: if_2F72.c and ifmagnify.c function definitions"
+      ]
+    },
+    {
+      "name": "Role-based locals",
+      "description": "Clear local roles are named gobj, jobj, slot, idx, frame, viewport, cobj, idesc, entry, base, and result.",
+      "evidence_refs": [
+        "raw_diff: fn_802F7288, fn_802F77F8, ifMagnify_802FC618, ifMagnify_802FC7C0"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Used explicit loops in some repeated slot scans and cleanup routines.",
+      "evidence_refs": [
+        "raw_diff: if_802F73C4 loop over 8 entries",
+        "raw_diff: fn_802F75D4 and fn_802F7670 loops over 6 entries",
+        "raw_diff: ifMagnify_802FC750 loop over 6 players"
+      ],
+      "notes": "Reviewer still observed many unrolled loops elsewhere, so this PR is not evidence that all repeated slot logic was cleaned into natural loops."
+    },
+    {
+      "tactic": "Left some slot dispatch as explicit branch ladders/index arithmetic, likely for matching pressure.",
+      "evidence_refs": [
+        "raw_diff: fn_802F770C slot detection branch ladder",
+        "raw_diff: fn_802F7994 slot detection branch ladder",
+        "text_corpus.jsonl: reviewer notes many unrolled loops"
+      ],
+      "notes": "Current standards prefer testing natural loops or canonical control flow before preserving these shapes."
+    },
+    {
+      "tactic": "Used raw byte/pointer arithmetic for some partially typed structures.",
+      "evidence_refs": [
+        "raw_diff: ((u8*) entry - (u8*) entries) / sizeof(Element_803F9628)",
+        "raw_diff: ifMagnify_802FC618 uses u8* player0 + offsets",
+        "raw_diff: ifMagnify_802FC750 uses ptr + 0x14"
+      ],
+      "notes": "Grounded as PR behavior only; standards would prefer typed fields when recoverable."
+    },
+    {
+      "tactic": "Used a volatile local for default value selection in ifMagnify_802FC7C0.",
+      "evidence_refs": [
+        "raw_diff: volatile int default_val = ifMagnify_804DDB60"
+      ],
+      "notes": "No PR comment explains why volatile was needed; treat as a matching tactic requiring verifier evidence under current standards."
+    },
+    {
+      "tactic": "Kept expanded jobj.h assert/dirty-matrix logic around direct jobj->translate assignment.",
+      "evidence_refs": [
+        "raw_diff: fn_802F77F8 contains __assert(\"jobj.h\", 0x394/0x395/0x234) and HSD_JObjSetMtxDirtySub"
+      ],
+      "notes": "Current standards suggest mapping identifiable header inline/assert expansions back to canonical helpers when possible."
+    },
+    {
+      "tactic": "Introduced static string data for an archive section name and used it in lbArchive_LoadSections.",
+      "evidence_refs": [
+        "raw_diff: static char lbl_803F9780[] = \"ScInfStc_scene_models\"",
+        "raw_diff: if_802F7E24 passes lbl_803F9780 to lbArchive_LoadSections"
+      ],
+      "notes": "The diff comment calls these orphaned ROM strings, but no separate section-ownership proof is included in the loaded evidence."
     }
   ],
   "review_feedback": [
@@ -221,152 +239,167 @@
       "state": "APPROVED",
       "body": "Some of this is pretty rough, for example there are a lot of unrolled loops. But I can't argue with the match progress.",
       "evidence_refs": [
-        "text_corpus: review by ribbanya at 2026-01-09T11:15:17Z"
+        "text_corpus.jsonl: review by ribbanya at 2026-01-09T11:15:17Z"
+      ]
+    },
+    {
+      "author": "decomp-dev[bot]",
+      "state": "report",
+      "body": "Matched code increased by 5388 bytes; report lists 57 new matches and 31 improvements in unmatched functions.",
+      "evidence_refs": [
+        "text_corpus.jsonl: bot report for GALE01 af6f07f - 67f8cc4"
       ]
     }
   ],
   "searchable_terms": [
-    "PR2075",
+    "pr-2075",
     "if/ soundtest",
     "itsgrimetime",
     "src/melee/if/soundtest.c",
     "src/melee/if/if_2F72.c",
     "src/melee/if/ifmagnify.c",
-    "src/melee/if/ifstatus.c",
-    "Element_803F9628",
     "ifStatus_803F9628",
-    "ifMagnify_804A1DE0",
+    "Element_803F9628",
     "fn_802F7288",
     "if_802F73C4",
     "if_802F74D0",
-    "fn_802F75D4",
-    "fn_802F7670",
-    "fn_802F770C",
     "fn_802F77F8",
     "fn_802F7994",
-    "if_802F7AF8",
-    "if_802F7BB4",
-    "if_802F7C30",
-    "if_802F7D08",
     "ifMagnify_802FC618",
-    "ifMagnify_802FC750",
     "ifMagnify_802FC7C0",
     "ifMagnify_802FC870",
-    "ifMagnify_802FC8E8",
-    "ifMagnify_802FC940",
     "unrolled loops",
-    "volatile default_val",
-    "jobj.h assert",
+    "UNK_RET",
+    "UNK_PARAMS",
+    "HSD_JObjSetMtxDirtySub",
     "ScInfStc_scene_models",
-    "lbArchive_LoadSections"
+    "lbArchive_LoadSections",
+    "soundtest"
   ],
   "follow_up_queries": [
-    "PR2075 unrolled loops if_2F72 fn_802F770C fn_802F7994",
-    "PR2075 ifMagnify_802FC8E8 ifMagnify_802FC940 repeated player ignore_offscreen",
-    "PR2075 volatile default_val ifMagnify_802FC7C0",
-    "PR2075 fn_802F77F8 jobj.h assert HSD_JObjSetMtxDirtySub",
-    "PR2075 soundtest.c fn_80300CC8 fn_80300DE0 un_8030178C",
-    "PR2075 string literal ScInfStc_scene_models lbl_803F9780"
+    "PR 2075 soundtest.c full diff unrolled loops",
+    "if_2F72 fn_802F770C natural loop cleanup",
+    "if_2F72 fn_802F7994 slot branch ladder",
+    "ifMagnify_802FC7C0 volatile default_val evidence",
+    "if_2F72 jobj.h assert inline HSD_JObjSetTranslate",
+    "ifStatus_803F9628 Element_803F9628 type fields",
+    "ScInfStc_scene_models orphaned ROM string ownership"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR identity, merge state, changed-file list, line counts",
-      "human_pr_text: PR body says only \"buncha if module functions\"",
-      "raw_diff: loaded diff is truncated but includes large if_2F72 and ifmagnify excerpts",
-      "text_corpus: bot report gives match-progress evidence",
-      "text_corpus: one approving review with rough/unrolled-loop feedback"
+      "metadata_json: PR number/title/state/author/changed files",
+      "human_pr_text.md: PR body says 'buncha if module functions'",
+      "raw_diff: truncated diff excerpt with if_2F72, ifmagnify, ifstatus, headers",
+      "changed_files.jsonl: all 10 changed files",
+      "text_corpus.jsonl: bot report and approving review"
     ],
     "notes": [
-      "The soundtest.c diff is not visible in loaded excerpts despite being the largest changed file, so soundtest-specific code lessons are limited to changed-file metadata and bot report symbols.",
-      "No inline review comments are present.",
-      "The bot report supports match-progress claims, but the slice does not include author-run build commands, objdiff screenshots, or rationale for individual codegen tactics.",
-      "Some observations about volatile locals, expanded asserts, and raw byte offsets are framed as tactics or follow-up risks, not accepted standards or reviewer intent."
+      "raw_diff is truncated; soundtest.c has the largest change but its detailed hunks are not loaded.",
+      "There are no inline review comments in the loaded slice.",
+      "The bot report supports match-progress claims, but no local build commands, objdiff screenshots, or manual validation notes are included beyond the automated report.",
+      "Reviewer explicitly flags rough source and unrolled loops; do not infer that those shapes are preferred or globally accepted style.",
+      "Data/string ownership for lbl_803F9780/lbl_803F9798 is only asserted by a code comment in the diff, not independently proven in this slice."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "pr_lesson",
-        "title": "PR2075: match progress may land with known unrolled-loop debt",
-        "text": "In PR2075, a large IF-module matching batch was approved after bot-reported progress of +5388 matched bytes, 57 new matches, and 31 improvements, but reviewer ribbanya explicitly noted that some code was rough and had many unrolled loops. Use this as historical evidence that match-progress PRs can carry cleanup debt rather than as approval of unrolled loops as a style.",
+        "title": "PR 2075: large if-module matching with rough-loop review caveat",
+        "text": "PR #2075 delivered substantial if-module match progress, including 57 new matches per bot report, while reviewer ribbanya approved with the caveat that parts were rough and had many unrolled loops. Use as historical evidence that match progress sometimes landed with rough generated-looking loop shapes, not as evidence that unrolled loops are preferred.",
         "scope": [
           "src/melee/if",
-          "decomp-matching",
-          "review-context"
+          "historical_pr_review",
+          "matching_progress"
         ],
         "evidence_refs": [
-          "text_corpus: decomp-dev bot report for GALE01 shows +5388 matched bytes",
-          "text_corpus: ribbanya approved while noting rough code and many unrolled loops"
-        ],
-        "confidence": 0.9
+          "text_corpus.jsonl: bot report",
+          "text_corpus.jsonl: ribbanya approving review"
+        ]
       },
       {
-        "record_type": "pr_lesson",
-        "title": "PR2075: body recovery was accompanied by header prototype cleanup",
-        "text": "PR2075 updated if_2F72.h and ifmagnify.h from UNK_RET/UNK_PARAMS to typed prototypes for functions whose bodies were added in the same PR. This is useful historical evidence for keeping headers truthful when recovering IF-module functions.",
+        "title": "PR 2075: recovered function bodies drove header prototype updates",
+        "text": "The PR replaced multiple UNK_RET/UNK_PARAMS declarations in if_2F72.h and ifmagnify.h with typed prototypes alongside added function bodies, consistent with keeping owning headers truthful when signatures are recovered.",
         "scope": [
-          "src/melee/if",
+          "src/melee/if/if_2F72.h",
+          "src/melee/if/ifmagnify.h",
           "headers",
-          "prototype cleanup"
+          "prototypes"
         ],
         "evidence_refs": [
-          "raw_diff: if_2F72.h typed fn_802F7288, fn_802F75D4, fn_802F7670, fn_802F770C, fn_802F77F8, fn_802F7994",
-          "raw_diff: ifmagnify.h typed ifMagnify_802FC3BC through ifMagnify_802FC940"
-        ],
-        "confidence": 0.84
+          "raw_diff: if_2F72.h prototype changes",
+          "raw_diff: ifmagnify.h prototype changes"
+        ]
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Use PR2075 as an example for natural-loop cleanup debt, not as precedent for preserving unrolled loops",
-        "text": "PR2075 contains reviewer-approved match progress but the approval comment explicitly calls out many unrolled loops as rough. Curator may want to cite this PR under natural-loop or reviewability guidance as evidence that unrolled loops can be known debt even when a match-progress PR lands.",
+        "title": "Add PR 2075 as cautionary evidence for unrolled-loop cleanup",
+        "text": "Historical review in PR #2075 approved major match progress but explicitly noted that the source was rough and had many unrolled loops. This can be cited as a caution under natural-loops/infer-authored-source-style: match progress alone does not make unrolled repeated blocks preferred final source.",
         "source_path": null,
         "scope": [
           "natural-loops",
-          "matching review",
-          "src/melee/if"
+          "infer-authored-source-style",
+          "review evidence"
         ],
         "evidence_refs": [
-          "text_corpus: ribbanya review says there are a lot of unrolled loops",
-          "text_corpus: bot report shows substantial match progress"
+          "text_corpus.jsonl: ribbanya review"
         ],
-        "reason": "The loaded standards already prefer natural loops; this PR provides historical review evidence that unrolled code was considered rough, not stylistically preferred."
+        "reason": "The current standards already cover this principle; curator may want this PR as a concrete historical example."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "PR2075 examples for tactics needing evidence: volatile local, expanded jobj asserts, and raw offset access",
-        "text": "The visible diff includes a volatile default_val in ifMagnify_802FC7C0, expanded jobj.h asserts/manual dirty-flag handling in fn_802F77F8, and raw byte-offset access in IF status/magnify code. Curator may use these as searchable examples of codegen tactics or cleanup targets that require verifier evidence rather than as accepted style.",
+        "title": "Use PR 2075 as example of tactics needing evidence",
+        "text": "The diff shows volatile local use, raw pointer arithmetic, expanded jobj.h assert/dirty logic, and static string symbols in a matching PR. The loaded PR slice does not explain these tactics individually, so it is useful as an example of why such tactics need explicit verifier or ownership evidence before being treated as style.",
         "source_path": null,
         "scope": [
           "matching-tactics-need-evidence",
+          "typed-fields-over-pointer-math",
           "header-inlines",
-          "typed-fields-over-pointer-math"
+          "literals-and-data-ownership"
         ],
         "evidence_refs": [
-          "raw_diff: volatile int default_val = ifMagnify_804DDB60",
-          "raw_diff: fn_802F77F8 expanded __assert(\"jobj.h\", ...) blocks",
-          "raw_diff: ((u8*) status)[slot * 100 + 16] and player0 byte-offset access"
+          "raw_diff: volatile int default_val in ifMagnify_802FC7C0",
+          "raw_diff: u8* pointer arithmetic in ifMagnify_802FC618/ifMagnify_802FC750",
+          "raw_diff: __assert jobj.h expansions in fn_802F77F8",
+          "raw_diff: lbl_803F9780/lbl_803F9798 static strings"
         ],
-        "reason": "The PR evidence shows these patterns but does not provide enough validation rationale to accept them as standards."
+        "reason": "Potentially useful as a review checklist example, but not as proof that the tactics were necessary."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "if module matching scope for PR 2075",
+        "text": "PR #2075 touched src/melee/if/soundtest.c, if_2F72.c, ifmagnify.c, ifstatus.c, headers, and if/types.h, with a small addition to src/sysdolphin/baselib/sobjlib.h.",
+        "source_path": "src/melee/if",
+        "scope": [
+          "src/melee/if",
+          "src/sysdolphin/baselib/sobjlib.h",
+          "PR 2075"
+        ],
+        "evidence_refs": [
+          "changed_files.jsonl"
+        ],
+        "reason": "Could help path-level historical search for if/soundtest decomp activity."
       }
     ],
     "rejection_notes": [
-      "Do not infer that all functions in soundtest.c are cleanly matched from source diff evidence; the bot report lists matches, but the loaded soundtest diff is absent/truncated.",
-      "Do not promote the use of volatile locals, expanded header asserts, raw byte offsets, or unrolled loops as accepted style from this PR.",
-      "Do not infer reviewer intent beyond the explicit approval comment: reviewer accepted match progress while calling out rough unrolled code."
+      "Do not promote the unrolled loops in this PR as accepted style; the only human review comment calls them rough.",
+      "Do not claim all changed functions matched. Bot report distinguishes 57 new matches from 31 improvements in unmatched functions.",
+      "Do not infer exact soundtest implementation tactics from the loaded diff because the soundtest.c hunks are not included in the excerpt.",
+      "Do not treat lbl_803F9780/lbl_803F9798 data ownership as proven beyond the diff comment without additional symbol/section evidence."
     ]
   },
-  "confidence": 0.82,
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

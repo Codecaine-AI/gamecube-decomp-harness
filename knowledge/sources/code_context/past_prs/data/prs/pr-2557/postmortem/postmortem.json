@@ -12,15 +12,14 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Closed, unmerged PR that attempted to match src/melee/gr/grinishie1.c function grInishie1_801FA9B4 by copying a _StageData-shaped structure from grHeal, while also containing earlier unrelated-looking edits in gryorster.c and lbsnap.c. The author later commented that earlier commits had been pushed and closed the PR to submit just the stage data fix.",
+  "summary": "Closed, unmerged PR attempting to match stage function grInishie1_801FA9B4. The PR body says the function reached 100% by copying the _StageData structure pattern from grHeal. The diff primarily adds grInishie1 stage data/storage and adjusts grInishie1_801FA9B4 to read OSReport strings through that struct; it also includes unrelated-looking codegen steering edits in grYorster and lbSnap. An author comment says earlier commits were pushed and the PR was closed to submit only the stage data fix.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
       "stage-data-layout",
-      "data-symbolization",
-      "local-codegen-tactics",
-      "closed-unmerged"
+      "codegen-steering",
+      "closed-unmerged",
+      "mixed-scope"
     ],
     "systems": [
       "stage",
@@ -31,293 +30,306 @@
   "key_files": [
     {
       "path": "src/melee/gr/grinishie1.c",
-      "role": "Primary claimed target; adds grI1 stage data-like symbols, wraps StageData with report-format storage, changes grInishie1_801FA9B4 callback lookup and OSReport arguments, and introduces a local HSD_JObj* before DOBJ_CLEAR_LOOP.",
+      "role": "Primary target file for grInishie1_801FA9B4; adds stage-data-related symbols, a local grInishie1_StageData wrapper, OSReport string storage, and a callback pointer expression based on nearby data layout.",
       "evidence_refs": [
-        "changed_files: src/melee/gr/grinishie1.c +40/-5 in 5 hunks",
-        "human_pr_text: Matches grInishie1_801FA9B4 to 100% by copying the same structure for _StageData found in grHeal.",
-        "raw_diff: grinishie1.c additions grI1_803E48C8, grI1_803E4944, grInishie1_StageData, grI1_803E4950, grI1_803E49A8",
-        "raw_diff: grInishie1_801FA9B4 changed cb initialization to pointer arithmetic from grI1_803E48C8 + 0x2c",
-        "raw_diff: OSReport changed from inline literals to grI1_803E4950.report_fmt_get_gobj and grI1_803E49A8"
+        "changed_files.jsonl:src/melee/gr/grinishie1.c",
+        "raw_diff:grinishie1.c hunks",
+        "human_pr_text:pr_body"
       ]
     },
     {
       "path": "src/melee/gr/gryorster.c",
-      "role": "Earlier-commit codegen edit; rewrites grYorster_80202428 loop with manual increment, temporary integer load, pointer/integer casts, and explicit f32 temporary.",
+      "role": "Secondary touched stage file with loop and cast/codegen-shaping edits in grYorster_80202428; author comment suggests this may have been part of earlier commits rather than final intended scope.",
       "evidence_refs": [
-        "changed_files: src/melee/gr/gryorster.c +7/-3 in 1 hunk",
-        "raw_diff: grYorster_80202428 adds s32 temp, manual for-loop increment, *(s32*)&...x1C, u32 casts, and f32 newValue"
+        "changed_files.jsonl:src/melee/gr/gryorster.c",
+        "raw_diff:gryorster.c hunk",
+        "human_pr_text:issue_comment"
       ]
     },
     {
       "path": "src/melee/lb/lbsnap.c",
-      "role": "Earlier-commit local lifetime/addressing edit; rewrites lbSnap_8001DF20 through descPtr and offset locals.",
+      "role": "Secondary touched library file with local pointer and offset temporary changes in lbSnap_8001DF20; author comment suggests this may have been part of earlier commits rather than final intended scope.",
       "evidence_refs": [
-        "changed_files: src/melee/lb/lbsnap.c +8/-4 in 1 hunk",
-        "raw_diff: lbSnap_8001DF20 introduces struct Unk803BACC8* descPtr and int offset before assignment and call"
+        "changed_files.jsonl:src/melee/lb/lbsnap.c",
+        "raw_diff:lbsnap.c hunk",
+        "human_pr_text:issue_comment"
       ]
     }
   ],
   "what_changed": [
-    "Added grI1_803E48C8 as an s16 array and used it as the StageData collision/block pointer via cast to S16Vec3*.",
-    "Added grI1_803E4944 as the stage data path string '/GrI1.dat'.",
-    "Added typedef grInishie1_StageData containing StageData plus a 0x24-byte report_fmt_get_gobj buffer, then defined grI1_803E4950 with INISHIE1 metadata and the report format string.",
-    "Added grI1_803E49A8 as the source filename string 'grinishie1.c'.",
-    "Changed grInishie1_801FA9B4 callback selection from &grI1_803E48F4[arg0] to a StageCallbacks* computed from ((char*) grI1_803E48C8 + 0x2c) + arg0.",
-    "Changed grInishie1_801FA9B4 OSReport call from inline format and filename literals to fields/symbols inside the new stage-data-shaped storage.",
-    "Changed grInishie1_801FBC4C to store gp->gv.inishie1.blocks[index].jobj2 in a local HSD_JObj* before DOBJ_CLEAR_LOOP.",
-    "Changed grYorster_80202428 loop shape and comparison using manual increment, integer temporary, pointer/integer casts, and an explicit f32 newValue.",
-    "Changed lbSnap_8001DF20 to use descPtr and offset locals rather than direct lbSnap_803BACC8 field writes."
-  ],
-  "smart_moves": [
     {
-      "text": "The main matching hypothesis used a matched sibling stage pattern: the PR body says the grInishie1 _StageData structure was copied from grHeal to match grInishie1_801FA9B4.",
+      "text": "Added grI1_803E48C8 as an s16 array and used it as StageData collision or block data via a cast to S16Vec3*.",
       "evidence_refs": [
-        "human_pr_text: copying the same structure for _StageData found in grHeal",
-        "raw_diff: grInishie1_StageData contains StageData plus report_fmt_get_gobj"
+        "raw_diff:grinishie1.c added grI1_803E48C8 and StageData initializer"
       ]
     },
     {
-      "text": "The author recognized the PR had accumulated earlier commits and closed it to resubmit the narrower stage-data fix.",
+      "text": "Added grI1_803E4944 as the string \"/GrI1.dat\", grI1_803E49A8 as \"grinishie1.c\", and grI1_803E4950 as a grInishie1_StageData object containing StageData plus an OSReport format string field.",
       "evidence_refs": [
-        "text_corpus issue_comment: Pushed some earlier commits, closing to submit just the stage data fix"
+        "raw_diff:grinishie1.c added grInishie1_StageData"
+      ]
+    },
+    {
+      "text": "Changed grInishie1_801FA9B4 from direct callback-table indexing to a casted pointer expression derived from grI1_803E48C8 + 0x2c, then moved gobj initialization after the callback pointer declaration.",
+      "evidence_refs": [
+        "raw_diff:grInishie1_801FA9B4 hunk"
+      ]
+    },
+    {
+      "text": "Changed the missing-gobj OSReport call to load the format and filename through grI1_803E4950.report_fmt_get_gobj and grI1_803E49A8 instead of inline literals.",
+      "evidence_refs": [
+        "raw_diff:grInishie1_801FA9B4 OSReport hunk"
+      ]
+    },
+    {
+      "text": "Introduced a local HSD_JObj* jobj2 before DOBJ_CLEAR_LOOP in grInishie1_801FBC4C.",
+      "evidence_refs": [
+        "raw_diff:grInishie1_801FBC4C hunk"
+      ]
+    },
+    {
+      "text": "Changed grYorster_80202428 to use a manual-increment for loop, a temporary s32 loaded from an element pointer field, u32 casts for comparison, and a temporary f32 newValue before assignment.",
+      "evidence_refs": [
+        "raw_diff:grYorster_80202428 hunk"
+      ]
+    },
+    {
+      "text": "Changed lbSnap_8001DF20 to introduce descPtr and offset locals, then access lbSnap_803BACC8 through descPtr.",
+      "evidence_refs": [
+        "raw_diff:lbSnap_8001DF20 hunk"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "The author used an existing matched analogue, grHeal, as evidence for the _StageData structure shape needed to match grInishie1_801FA9B4.",
+      "evidence_refs": [
+        "human_pr_text:pr_body"
+      ]
+    },
+    {
+      "text": "The author recognized the PR had extra earlier commits and closed it to resubmit a narrower stage-data fix.",
+      "evidence_refs": [
+        "human_pr_text:issue_comment"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "Sibling stage files can suggest hidden StageData-adjacent layout, but a copied layout should be treated as a hypothesis requiring section/layout verification rather than accepted solely from a match claim.",
+      "lesson": "Matched sibling stage files can be useful evidence for recovering stage-data wrapper shapes, but this PR only supports that as a grInishie1/grHeal candidate pattern, not as a global rule.",
+      "scope": [
+        "src/melee/gr/grinishie1.c",
+        "stage data matching"
+      ],
       "evidence_refs": [
-        "human_pr_text: copied the same structure for _StageData found in grHeal",
-        "raw_diff: grInishie1_StageData wraps StageData and report_fmt_get_gobj",
-        "metadata: PR closed with merged_at null"
+        "human_pr_text:pr_body",
+        "raw_diff:grinishie1.c added grInishie1_StageData"
       ],
       "confidence": 0.68
     },
     {
-      "lesson": "Keep focused code-match PRs narrow; unrelated codegen/lifetime edits in other subsystems can obscure review of the claimed target.",
-      "evidence_refs": [
-        "text_corpus issue_comment: closing to submit just the stage data fix",
-        "changed_files: gryorster.c and lbsnap.c changed in addition to grinishie1.c"
+      "lesson": "When a code match depends on adjacent data layout, the diff may expose pointer casts from one data symbol into the next table, as in the callback pointer expression based on grI1_803E48C8 + 0x2c. This should be treated as a matching clue requiring data-ownership review rather than automatically accepted style.",
+      "scope": [
+        "src/melee/gr/grinishie1.c",
+        "grInishie1_801FA9B4"
       ],
-      "confidence": 0.82
+      "evidence_refs": [
+        "raw_diff:grInishie1_801FA9B4 callback pointer hunk",
+        "decomp_standards:data-sections-and-tu-splits",
+        "decomp_standards:literals-and-data-ownership"
+      ],
+      "confidence": 0.61
+    },
+    {
+      "lesson": "Scope control matters: a PR targeting one stage function became mixed with grYorster and lbSnap edits, and the author closed it to submit just the stage-data fix.",
+      "scope": [
+        "PR hygiene",
+        "decomp matching review"
+      ],
+      "evidence_refs": [
+        "human_pr_text:issue_comment",
+        "changed_files.jsonl"
+      ],
+      "confidence": 0.86
     }
   ],
   "naming_conventions": [
     {
-      "name": "grInishie1_StageData",
-      "observation": "PR introduced a local typedef combining StageData with a report-format buffer; evidence supports this as the author's attempted structural name, not an accepted canonical type.",
+      "text": "New grInishie1 data symbols in the diff use the local grI1_ address-style prefix, such as grI1_803E48C8, grI1_803E4944, grI1_803E4950, and grI1_803E49A8.",
       "evidence_refs": [
-        "raw_diff: typedef struct grInishie1_StageData"
+        "raw_diff:grinishie1.c added data symbols"
       ]
     },
     {
-      "name": "report_fmt_get_gobj",
-      "observation": "PR named the trailing char buffer after the OSReport message purpose.",
+      "text": "The new local wrapper type is named grInishie1_StageData and embeds StageData as stage_data plus a named report_fmt_get_gobj char array.",
       "evidence_refs": [
-        "raw_diff: char report_fmt_get_gobj[0x24]",
-        "raw_diff: OSReport(grI1_803E4950.report_fmt_get_gobj, ...)"
+        "raw_diff:typedef struct grInishie1_StageData"
       ]
     },
     {
-      "name": "descPtr / offset / newValue",
-      "observation": "PR used short role locals to steer codegen in lbsnap.c and gryorster.c; these are observed local names only.",
+      "text": "Secondary edits introduce descriptive locals descPtr, offset, jobj2, temp, and newValue; these are observed names only, not evidence of accepted naming practice.",
       "evidence_refs": [
-        "raw_diff: struct Unk803BACC8* descPtr; int offset;",
-        "raw_diff: f32 newValue = gp->gv.yorster.elements[i].x04 + value;"
+        "raw_diff:grinishie1.c grInishie1_801FBC4C",
+        "raw_diff:gryorster.c grYorster_80202428",
+        "raw_diff:lbsnap.c lbSnap_8001DF20"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "StageData wrapper with trailing report-format storage",
-      "details": "Defines grInishie1_StageData as StageData plus char[0x24] and initializes it so the report string is adjacent to StageData-like contents.",
+      "text": "StageData layout tactic: add a local struct containing StageData followed by a report-format string field so later code can reference OSReport text through the same object.",
       "evidence_refs": [
-        "raw_diff: typedef struct grInishie1_StageData { StageData stage_data; char report_fmt_get_gobj[0x24]; }",
-        "human_pr_text: match by copying _StageData structure found in grHeal"
+        "human_pr_text:pr_body",
+        "raw_diff:grInishie1_StageData and OSReport hunk"
       ],
-      "risk": "Data ownership and literal-symbol movement need verification; PR evidence does not include map/objdiff/build output."
+      "caution": "Current standards caution against promoting literals into storage without data ownership evidence; this PR is closed and unmerged."
     },
     {
-      "tactic": "Pointer arithmetic from an earlier data symbol to recover callback-array address",
-      "details": "Computes StageCallbacks* cb from ((char*) grI1_803E48C8 + 0x2c) + arg0 instead of directly indexing grI1_803E48F4.",
+      "text": "Data-adjacency tactic: compute a StageCallbacks* using a cast from grI1_803E48C8 plus 0x2c instead of direct grI1_803E48F4 indexing.",
       "evidence_refs": [
-        "raw_diff: StageCallbacks* cb = (StageCallbacks*) ((char*) grI1_803E48C8 + 0x2c) + arg0"
+        "raw_diff:grInishie1_801FA9B4 callback pointer hunk"
       ],
-      "risk": "This is a raw offset relationship between data symbols; it should be checked against symbol metadata and section layout before treating as source style."
+      "caution": "Useful as evidence of layout pressure, but raw pointer arithmetic should be reviewed against typed-field and data-ownership standards."
     },
     {
-      "tactic": "Local temporary to affect macro argument/codegen",
-      "details": "Stores jobj2 in a local HSD_JObj* before invoking DOBJ_CLEAR_LOOP.",
+      "text": "Local lifetime/register tactic: assign gp->gv.inishie1.blocks[index].jobj2 to a local HSD_JObj* before invoking DOBJ_CLEAR_LOOP.",
       "evidence_refs": [
-        "raw_diff: HSD_JObj* jobj2 = gp->gv.inishie1.blocks[index].jobj2; DOBJ_CLEAR_LOOP(jobj2);"
+        "raw_diff:grInishie1_801FBC4C hunk"
       ],
-      "risk": "Narrow local lifetime tactic; no verifier evidence is included in the slice."
+      "caution": "Narrow codegen tactic; no objdiff output is included in the slice."
     },
     {
-      "tactic": "Manual loop increment and integer casts for pointer comparison",
-      "details": "grYorster_80202428 changed a normal for increment and pointer comparison into manual increment, s32 temp load, and u32 comparison.",
+      "text": "Loop/codegen tactic in grYorster_80202428: manual loop increment, pointer-field load through s32 temp, explicit u32 comparison casts, and f32 assignment temporary.",
       "evidence_refs": [
-        "raw_diff: for (i = (s32)0; i < 9;) with i++ inside body",
-        "raw_diff: temp = *(s32*)&gp->gv.yorster.elements[i].x1C",
-        "raw_diff: if ((u32)item_gobj == (u32)temp)"
+        "raw_diff:grYorster_80202428 hunk"
       ],
-      "risk": "Generated-looking tactic with comments saying it is for matching; should require objdiff evidence and type review."
+      "caution": "Author comment implies this may be outside the intended final PR scope."
     },
     {
-      "tactic": "Local pointer alias and widened local lifetime",
-      "details": "lbSnap_8001DF20 introduces descPtr and offset locals before writing x14/x1C and calling lb_8001C4A8.",
+      "text": "Alias/local-order tactic in lbSnap_8001DF20: introduce descPtr and offset locals before writing fields and passing descPtr to lb_8001C4A8.",
       "evidence_refs": [
-        "raw_diff: struct Unk803BACC8* descPtr = &lbSnap_803BACC8; int offset; offset = lbSnap_GetSaveDataOffset(snap);"
+        "raw_diff:lbSnap_8001DF20 hunk"
       ],
-      "risk": "Stack/register steering tactic; no build or objdiff evidence is included."
+      "caution": "Author comment implies this may be outside the intended final PR scope."
     }
   ],
   "review_feedback": [
     {
-      "type": "author_followup",
-      "text": "Pushed some earlier commits, closing to submit just the stage data fix.",
+      "text": "No review comments or review records are present in the loaded slice.",
       "evidence_refs": [
-        "text_corpus issue_comment created_at 2026-05-31T11:26:46Z"
+        "metadata_json:counts.review_comments=0",
+        "metadata_json:counts.reviews=0"
       ]
     },
     {
-      "type": "absence",
-      "text": "No review comments or reviews are present in the loaded slice.",
+      "text": "Author issue comment: \"Pushed some earlier commits, closing to submit just the stage data fix\".",
       "evidence_refs": [
-        "metadata counts: review_comments 0, reviews 0"
+        "human_pr_text:issue_comment",
+        "text_corpus.jsonl:issue_comment"
       ]
     }
   ],
   "searchable_terms": [
-    "PR2557",
+    "pr-2557",
+    "Match grInishie1_801FA9B4",
+    "DavidWeaverAudio",
     "grInishie1_801FA9B4",
-    "grinishie1.c",
+    "grInishie1_StageData",
     "grHeal",
     "_StageData",
-    "StageData",
-    "grInishie1_StageData",
     "grI1_803E48C8",
     "grI1_803E48F4",
+    "grI1_803E4944",
     "grI1_803E4950",
-    "report_fmt_get_gobj",
+    "grI1_803E49A8",
+    "StageData",
+    "StageCallbacks",
     "Ground_GetStageGObj",
     "OSReport",
     "DOBJ_CLEAR_LOOP",
     "grYorster_80202428",
     "lbSnap_8001DF20",
-    "manual increment",
-    "pointer cast",
+    "mixed scope",
     "closed unmerged"
   ],
   "follow_up_queries": [
-    "grInishie1_801FA9B4 grHeal StageData",
-    "grInishie1_StageData report_fmt_get_gobj",
-    "grI1_803E48C8 grI1_803E48F4 0x2c",
-    "OSReport grinishie1.c couldn't get gobj",
-    "PR 2557 closing to submit just the stage data fix",
-    "grYorster_80202428 manual increment temp cast",
-    "lbSnap_8001DF20 descPtr offset"
+    "Search for later PR that resubmitted only the grInishie1 stage data fix after PR #2557.",
+    "Search grHeal stage data wrapper patterns to compare with grInishie1_StageData.",
+    "Search current src/melee/gr/grinishie1.c for grI1_803E4950 and grInishie1_801FA9B4 final accepted form.",
+    "Search for PRs touching grYorster_80202428 around manual increment or u32 cast loop matching.",
+    "Search for PRs touching lbSnap_8001DF20 descPtr offset local matching."
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "raw_pr_json: state closed, merged_at null",
-      "human_pr_text: body claims 100% match by copying grHeal _StageData structure",
-      "text_corpus: author issue comment says earlier commits were pushed and PR was closed to submit just stage data fix",
-      "changed_files.jsonl: three changed files",
-      "raw_diff: full 4226-byte diff excerpt loaded"
+      "metadata_json",
+      "human_pr_text",
+      "raw_diff",
+      "changed_files.jsonl",
+      "text_corpus.jsonl",
+      "decomp_standards"
     ],
     "notes": [
-      "The PR was closed and not merged according to loaded metadata; do not treat changes as accepted project source.",
-      "The body claims a 100% match, but the slice contains no build log, objdiff output, checkdiff output, review approval, or merge evidence.",
-      "The author explicitly says earlier commits were included, so gryorster.c and lbsnap.c changes are likely not part of the intended final stage-data submission.",
-      "The diff moves ordinary OSReport strings into named storage/struct fields; current standards warn that literal/data ownership changes require explicit evidence, which is not present in the slice.",
-      "No reviewer intent can be inferred because there are no review comments or reviews in the loaded evidence."
+      "Diff and PR text are available and untruncated for the key facts.",
+      "The PR is closed with merged_at null, so no acceptance or final source state should be inferred.",
+      "No objdiff, build, checkdiff, review approval, or reviewer feedback is included.",
+      "The author explicitly says earlier commits were pushed and the PR was closed to submit just the stage data fix, making the grYorster and lbSnap hunks likely out-of-scope for the intended final change, but the slice does not identify which exact commits were intended to remain.",
+      "The PR body claims 100% match for grInishie1_801FA9B4; this is author-provided evidence only and not independently validated in the slice."
     ]
   },
   "curator_handoff": {
-    "accepted_candidate_records": [
-      {
-        "kind": "process_lesson_candidate",
-        "title": "Narrow accidental multi-commit decomp PRs before review",
-        "text": "When a matching PR accidentally includes earlier commits from other subsystems, close/resubmit or otherwise narrow the diff so the claimed match can be reviewed independently.",
-        "scope": [
-          "decomp PR hygiene",
-          "reviewability"
-        ],
-        "evidence_refs": [
-          "text_corpus issue_comment: Pushed some earlier commits, closing to submit just the stage data fix",
-          "changed_files: grinishie1.c, gryorster.c, lbsnap.c"
-        ],
-        "confidence": 0.82
-      },
-      {
-        "kind": "matching_hypothesis_candidate",
-        "title": "Use matched sibling stage data layout as a hypothesis",
-        "text": "For stage functions, a matched sibling stage's _StageData layout can be useful evidence for reconstructing hidden local stage-data structures, but the PR slice only supports this as a hypothesis and not as accepted layout truth.",
-        "scope": [
-          "src/melee/gr",
-          "stage data matching"
-        ],
-        "evidence_refs": [
-          "human_pr_text: copying the same structure for _StageData found in grHeal",
-          "raw_diff: grInishie1_StageData and grI1_803E4950"
-        ],
-        "confidence": 0.68
-      }
-    ],
+    "accepted_candidate_records": [],
     "source_update_candidates": [
-      {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "StageData layout borrowing should still prove data ownership",
-        "text": "Consider clarifying that copying a sibling stage's StageData-adjacent layout is a valid matching hypothesis, but string movement, trailing struct fields, and cross-symbol pointer arithmetic still need section/symbol/objdiff evidence before landing.",
-        "source_path": null,
-        "scope": [
-          "stage data",
-          "data ownership",
-          "matching tactics"
-        ],
-        "evidence_refs": [
-          "human_pr_text: copying _StageData found in grHeal",
-          "raw_diff: grInishie1_StageData includes report_fmt_get_gobj",
-          "raw_diff: OSReport changed from inline literals to stored symbols",
-          "raw_diff: cb computed via ((char*) grI1_803E48C8 + 0x2c)"
-        ],
-        "reason": "This PR illustrates a recurring boundary between useful sibling-layout inference and risky data/literal ownership edits, but the closed unmerged status means it should only be considered for curator review."
-      },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "src/melee/gr/grinishie1.c has attempted StageData-adjacent matching history",
-        "text": "Historical PR #2557 attempted to match grInishie1_801FA9B4 by introducing a grInishie1_StageData wrapper modeled on grHeal, including StageData plus report-format storage.",
+        "title": "Possible grInishie1 stage-data wrapper analogue from grHeal",
+        "text": "PR #2557 says grInishie1_801FA9B4 matched to 100% by copying the same _StageData structure found in grHeal, and the diff adds a grInishie1_StageData wrapper containing StageData plus report_fmt_get_gobj. Because the PR was closed unmerged, treat this only as a candidate historical clue for grInishie1/grHeal data-layout comparison.",
         "source_path": "src/melee/gr/grinishie1.c",
         "scope": [
           "grInishie1_801FA9B4",
           "StageData",
-          "historical PR evidence"
+          "grHeal analogue"
         ],
         "evidence_refs": [
-          "human_pr_text: Matches grInishie1_801FA9B4 to 100% by copying the same structure for _StageData found in grHeal",
-          "raw_diff: typedef struct grInishie1_StageData"
+          "human_pr_text:pr_body",
+          "raw_diff:grInishie1_StageData"
         ],
-        "reason": "Useful historical search fact, but should not be promoted as current source layout because the PR was closed unmerged and lacks verifier evidence."
+        "reason": "Potential path-specific data-layout clue, but not accepted source fact due to closed unmerged status and missing validation."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Keep mixed-scope cleanup separate from focused matching PRs",
+        "text": "PR #2557 targeted grInishie1_801FA9B4 but also included grYorster and lbSnap codegen edits; the author closed it after noting earlier commits were pushed and planned to submit just the stage data fix. Curator may consider whether existing standards should more explicitly discourage bundling unrelated matching tactics with a focused function/data-layout match.",
+        "source_path": null,
+        "scope": [
+          "PR review hygiene",
+          "decomp matching",
+          "mixed-scope changes"
+        ],
+        "evidence_refs": [
+          "human_pr_text:issue_comment",
+          "changed_files.jsonl",
+          "raw_diff"
+        ],
+        "reason": "Supported by PR history, but should be curated as a standard update only if not already covered elsewhere."
       }
     ],
     "rejection_notes": [
-      "Do not promote the claimed 100% match as verified; loaded evidence lacks build/objdiff/checkdiff output and the PR was not merged.",
-      "Do not treat grI1_803E4950, grI1_803E4944, or grI1_803E49A8 as accepted data ownership facts from this PR alone.",
-      "Do not infer reviewer acceptance or rejection rationale; no reviews or review comments are loaded.",
-      "Do not treat the gryorster.c and lbsnap.c tactics as endorsed style; the author comment indicates earlier commits were unintentionally included."
+      "Do not promote the grInishie1_StageData layout as accepted current source fact from this slice alone; the PR was closed unmerged.",
+      "Do not treat OSReport string-to-struct storage as an accepted cleanup pattern; current standards caution against literal/data ownership changes without evidence.",
+      "Do not treat the grYorster manual loop/cast edits or lbSnap descPtr edits as endorsed tactics; the author comment indicates they may have been accidental earlier commits and no validation is present.",
+      "Do not infer reviewer intent or acceptance; no review comments or reviews are loaded."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.74,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

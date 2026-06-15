@@ -12,14 +12,15 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Draft, closed PR touching sysdolphin baselib JPEG/HSD files. The diff rewrote large parts of hsd_3B34.c and hsd_3B5C.c, added a HSDJpegWork struct and adjusted prototypes in hsd_3B34.h, split or moved JPEG lookup tables, and replaced many generated-looking raw-buffer/M2C_FIELD blocks with named fields, loops, and helper calls. The only loaded feedback is the decomp-dev bot report, which showed broken matches and many regressions, so no match or accepted-source lesson should be inferred.",
+  "summary": "Draft, closed-unmerged PR for sysdolphin baselib hsd_3B34/hsd_3B5C JPEG-like HSD code. It rewrote large generated-looking blocks into typed work-struct access, loops, helper calls, table definitions, and header prototypes, but the only validation evidence is a bot report showing broken matches and many regressions despite small .sdata2 improvements.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "data-layout",
-      "jpeg-decode-cleanup"
+      "cleanup-attempt",
+      "regression-risk"
     ],
     "systems": [
       "src/sysdolphin/baselib"
@@ -28,166 +29,190 @@
   "key_files": [
     {
       "path": "src/sysdolphin/baselib/hsd_3B34.c",
-      "role": "Large rewrite of hsd_3B34 JPEG-related code/data: include changes, extern/type changes, table definitions, removal of large generated-looking code, and introduction of fn_803B376C plus rewritten function bodies.",
+      "role": "Main rewrite target; added hsd_3A94 and __mem includes, introduced table definitions, changed extern/type declarations, replaced large pointer/M2C-looking blocks with loops and HSDJpegWork field access.",
       "evidence_refs": [
-        "changed_files.jsonl: hsd_3B34.c +520/-1660, 2 hunks",
-        "raw_diff: hsd_3B34.c top hunk adds hsd_3A94.h and __mem.h, removes placeholder.h/Gecko_setjmp.h/string.h, changes externs and table definitions",
-        "raw_diff: around line 310 replaces hsd_803B3408 body area with fn_803B376C and local floating-point transform variables"
+        "metadata_json.changed_files[0]",
+        "raw_diff:hsd_3B34.c",
+        "raw_diff:lines 2246-2249",
+        "raw_diff:lines 2265-2298"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/hsd_3B34.h",
-      "role": "Header/prototype surface updated for JPEG work buffer and related hsd_3Bxx functions.",
+      "role": "Header surface changed; added HSDJpegWork struct and revised prototypes/signatures for hsd_3B34/hsd_3B5C functions.",
       "evidence_refs": [
-        "changed_files.jsonl: hsd_3B34.h +22/-9, 1 hunk",
-        "raw_diff: hsd_3B34.h adds HSDJpegWork with luma/cb/cr/tmp/pred fields and changes prototypes for hsd_803B3408, hsd_803B51C8, hsd_803B5C2C, hsd_803B5C4C, hsd_803B5D70, hsd_803B5EA0, fn_803B61B4, fn_803B6820, hsd_803B6BE4"
+        "metadata_json.changed_files[2]",
+        "raw_diff:lines 2300-2344"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/hsd_3B5C.c",
-      "role": "JPEG decoder cleanup/rewrite: signature changes, IDCT helper rewrite, typed work-buffer accesses, looped quant-table and block processing, and marker scanning in hsd_803B6BE4.",
+      "role": "Companion rewrite target; changed signatures, loop forms, shared table usage, and local helper implementations for related HSD/JPEG decode functions.",
       "evidence_refs": [
-        "changed_files.jsonl: hsd_3B5C.c +259/-542, 5 hunks",
-        "raw_diff: hsd_3B5C.c changes hsd_803B5C4C/hsd_803B5D70/hsd_803B5EA0 signatures",
-        "raw_diff: hsd_3B5C.c rewrites fn_803B61B4 from u8* generated temporaries to s32* data/p/i locals",
-        "raw_diff: hsd_3B5C.c rewrites hsd_803B6BE4 using HSDJpegWork, p/end marker scanning, for loops, and width/height locals"
+        "metadata_json.changed_files[1]",
+        "raw_diff:lines 2345-2380",
+        "raw_diff:lines 2462-2614",
+        "raw_diff:lines 3071-3125"
       ]
     }
   ],
   "what_changed": [
-    "Changed three files: hsd_3B34.c, hsd_3B34.h, and hsd_3B5C.c.",
-    "Added HSDJpegWork in hsd_3B34.h with padding plus luma, cb, cr, tmp, and pred fields.",
-    "Changed several function prototypes from s32/u32-heavy signatures to int/u8/s32* or void* forms, including hsd_803B3408, hsd_803B51C8, hsd_803B5C4C, hsd_803B5D70, hsd_803B5EA0, fn_803B61B4, fn_803B6820, and hsd_803B6BE4.",
-    "Moved/split JPEG-related data tables in hsd_3B34.c, including lbl_80430C40, lbl_80430C80, lbl_80431090, lbl_80431638, lbl_80431678, lbl_80431690, lbl_8043169C, and lbl_804316B4.",
-    "Replaced many raw offset/M2C_FIELD style accesses to hsd_804D2E70 with HSDJpegWork field accesses in hsd_803B6BE4.",
-    "Replaced generated-looking repeated quantization and block-processing code with loops over i, y, x, and block.",
-    "decomp-dev bot reported broken matches and regressions rather than a successful match."
+    {
+      "text": "Moved or redefined many HSD/JPEG tables in hsd_3B34.c, including lbl_80430C40, lbl_80430C80, lbl_80431090, lbl_80431638, lbl_80431678, lbl_80431690, lbl_8043169C, and lbl_804316B4.",
+      "evidence_refs": [
+        "raw_diff:hsd_3B34.c top hunk"
+      ]
+    },
+    {
+      "text": "Added HSDJpegWork with luma, cb, cr, tmp, and pred arrays, then used fields such as work->cr and work->tmp instead of raw offset/M2C_FIELD-style accesses.",
+      "evidence_refs": [
+        "raw_diff:lines 2313-2320",
+        "raw_diff:lines 2246-2249"
+      ]
+    },
+    {
+      "text": "Changed hsd_3B34.h prototypes from mostly s32/u32 forms to int/u8/s32 pointer forms and added declarations for fn_803B376C, fn_803B61B4, and fn_803B6820.",
+      "evidence_refs": [
+        "raw_diff:lines 2321-2342"
+      ]
+    },
+    {
+      "text": "Replaced repeated byte-output longjmp blocks near the end of hsd_803B51C8 with calls to hsd_803B3344 for pad, 0xFF, and 0xD9 output.",
+      "evidence_refs": [
+        "raw_diff:lines 2253-2298"
+      ]
+    },
+    {
+      "text": "Converted repeated generated-looking arithmetic blocks into for-loops over 8, 64, or image-tile ranges.",
+      "evidence_refs": [
+        "raw_diff:lines 457-550",
+        "raw_diff:lines 667-668",
+        "raw_diff:lines 2145-2147",
+        "raw_diff:lines 3123-3125"
+      ]
+    }
   ],
   "smart_moves": [
-    "Introduced a temporary internal struct for a known work buffer instead of continuing to express all accesses as raw offsets.",
-    "Kept unknown helper names in address-style form such as fn_803B376C, fn_803B61B4, and fn_803B6820 rather than inventing semantic global names.",
-    "Used local role names such as data, p, end, width, height, block, and dst in rewritten JPEG parsing/processing code.",
-    "Converted visibly repeated byte-table filling and block transforms into loops, making the source hypothesis easier to review even though this PR did not demonstrate a matching result."
+    {
+      "text": "The rewrite attempts to recover authored structure by introducing HSDJpegWork and meaningful field groups rather than keeping every access as raw offsets.",
+      "evidence_refs": [
+        "raw_diff:lines 2313-2320",
+        "raw_diff:lines 2246-2249",
+        "decomp_standards:typed-fields-over-pointer-math"
+      ]
+    },
+    {
+      "text": "The rewrite tries natural loops for repeated 8-element, 64-element, and block-grid operations, matching the global natural-loops standard in intent.",
+      "evidence_refs": [
+        "raw_diff:lines 457-550",
+        "raw_diff:lines 667-668",
+        "raw_diff:lines 907-909",
+        "decomp_standards:natural-loops"
+      ]
+    },
+    {
+      "text": "The header was updated when bodies/signatures changed instead of only adding source-local declarations.",
+      "evidence_refs": [
+        "raw_diff:lines 2300-2344",
+        "decomp_standards:truthful-headers-and-includes"
+      ]
+    }
   ],
   "decomp_lessons": [
     {
-      "lesson": "Typed temporary structs can clarify large work-buffer code, but they need strict objdiff/checkdiff confirmation because field recovery can perturb many nearby functions.",
+      "text": "Natural loops and typed work structs are promising cleanup directions for this area, but PR 2479 is not evidence that the specific forms matched: the bot report showed hsd_3B34 hsd_803B5C2C broken from 100% to 0%, .data broken from 100% to 52.77%, and multiple function regressions.",
       "evidence_refs": [
-        "raw_diff: hsd_3B34.h adds HSDJpegWork",
-        "raw_diff: hsd_3B5C.c hsd_803B6BE4 replaces base/M2C_FIELD offsets with work->pred, work->luma, work->cb, work->cr, work->tmp",
-        "text_corpus: decomp-dev bot reports regressions in hsd_803B6BE4 and other hsd_3B34/hsd_3B5C items"
+        "raw_diff:lines 2246-2249",
+        "raw_diff:lines 2313-2320",
+        "text_corpus:issue_comment decomp-dev[bot]"
       ]
     },
     {
-      "lesson": "Large data-table reshapes are high risk in matching PRs; table split/ownership/size changes can break .data even when code readability improves.",
+      "text": "Large table reshaping and static/global storage changes in an active code-match PR need especially narrow data-placement verification; this PR moved/split tables and the bot reported a large hsd_3B34 .data regression.",
       "evidence_refs": [
-        "raw_diff: hsd_3B34.c changes lbl_80430C80 from a 0x410 static table into smaller tables including lbl_80430C80[0x40] and lbl_80431090[0x5A8]",
-        "text_corpus: bot reports main/sysdolphin/baselib/hsd_3B34 .data broken from 100.00% to 52.77%"
+        "raw_diff:hsd_3B34.c table hunk",
+        "text_corpus:issue_comment decomp-dev[bot]",
+        "decomp_standards:data-sections-and-tu-splits",
+        "decomp_standards:text-before-data-matching"
       ]
     },
     {
-      "lesson": "Natural loops are worth trying for repeated generated blocks, but a PR should not claim success unless the loop form preserves the target assembly.",
+      "text": "Prototype cleanup should be paired with matching evidence. Here many prototypes changed, but the available report shows regressions rather than a verified match.",
       "evidence_refs": [
-        "raw_diff: hsd_3B5C.c hsd_803B6BE4 replaces repeated quant-table loads with for (i = 0; i < 64; i++) loops",
-        "raw_diff: hsd_3B5C.c hsd_803B6BE4 replaces repeated block decode/dequantize sections with y/x/block loops",
-        "text_corpus: bot report shows many regressions after these rewrites"
-      ]
-    },
-    {
-      "lesson": "Header prototype cleanup should be coupled to verified bodies; broad signature changes across related JPEG functions can create a large review and regression surface.",
-      "evidence_refs": [
-        "raw_diff: hsd_3B34.h prototype changes",
-        "text_corpus: bot report lists regressions across hsd_803B3CD8, hsd_803B51C8, hsd_803B46D4, hsd_803B4A2C, hsd_803B3408, hsd_803B6BE4, fn_803B376C, fn_803B61B4, fn_803B6820, hsd_803B5EA0, and hsd_803B4D64"
+        "raw_diff:lines 2321-2342",
+        "text_corpus:issue_comment decomp-dev[bot]",
+        "decomp_standards:verification-and-regression-ledger"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Observed temporary struct name HSDJpegWork with JPEG-domain fields luma, cb, cr, tmp, and pred.",
+      "text": "New local names in the slice use JPEG/color-domain roles such as HSDJpegWork, luma, cb, cr, tmp, pred, x, y, block, width, and height where the code context appears to support them.",
       "evidence_refs": [
-        "raw_diff: hsd_3B34.h HSDJpegWork typedef"
-      ],
-      "confidence": "medium"
+        "raw_diff:lines 2313-2320",
+        "raw_diff:lines 3123-3125"
+      ]
     },
     {
-      "convention": "Unknown or insufficiently understood helpers remained address-style, e.g. fn_803B376C, fn_803B61B4, fn_803B6820.",
+      "text": "Unproven globals/tables remained address-style lbl_*/hsd_* names rather than receiving speculative semantic names.",
       "evidence_refs": [
-        "raw_diff: hsd_3B34.h helper prototypes",
-        "raw_diff: hsd_3B34.c adds fn_803B376C",
-        "raw_diff: hsd_3B5C.c changes fn_803B61B4"
-      ],
-      "confidence": "high"
+        "raw_diff:hsd_3B34.c table hunk",
+        "decomp_standards:conservative-naming"
+      ]
     },
     {
-      "convention": "Rewritten locals use short role names for parser and image/block processing state: data, p, end, width, height, i, y, x, block, dst.",
+      "text": "Helper names fn_803B376C, fn_803B61B4, and fn_803B6820 remained address-style, consistent with conservative naming when semantics are not proven in the PR evidence.",
       "evidence_refs": [
-        "raw_diff: hsd_3B5C.c hsd_803B6BE4 local declarations"
-      ],
-      "confidence": "high"
+        "raw_diff:lines 2322-2341"
+      ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Replace raw hsd_804D2E70 offset accesses with a typed work-buffer overlay.",
+      "text": "Used explicit indexed for-loops over fixed extents, including 8-row transform loops and 64-entry coefficient/table loops, instead of preserving long unrolled/generated blocks.",
       "evidence_refs": [
-        "raw_diff: hsd_3B34.h HSDJpegWork",
-        "raw_diff: hsd_3B5C.c hsd_803B6BE4 uses HSDJpegWork* work = (HSDJpegWork*) hsd_804D2E70"
-      ],
-      "outcome": "Unproven/negative in this PR slice; bot reported regressions."
+        "raw_diff:lines 457-550",
+        "raw_diff:lines 667-668",
+        "raw_diff:lines 907-909",
+        "raw_diff:lines 2462-2614"
+      ]
     },
     {
-      "tactic": "Convert repeated generated assignments into compact for loops for quantization-table population and dequantization.",
+      "text": "Introduced a temporary typed aggregate, HSDJpegWork, to express raw work-buffer regions as fields; matching outcome is negative or unproven in loaded evidence.",
       "evidence_refs": [
-        "raw_diff: hsd_3B5C.c hsd_803B6BE4 uses for (i = 0; i < 64; i++) loops"
-      ],
-      "outcome": "Readable tactic, but not validated as matching by loaded evidence."
+        "raw_diff:lines 2313-2320",
+        "text_corpus:issue_comment decomp-dev[bot]"
+      ]
     },
     {
-      "tactic": "Scan JPEG markers with pointer bounds checks and longjmp error paths instead of generated goto ladders.",
+      "text": "Replaced manual buffer-bound/longjmp byte emission sequences with hsd_803B3344 helper calls; loaded evidence does not show that this matched.",
       "evidence_refs": [
-        "raw_diff: hsd_3B5C.c hsd_803B6BE4 uses while loops for 0xFFDB, 0xFFC0, and 0xFFDA marker search and longjmp on bounds failure"
-      ],
-      "outcome": "Unproven/negative in this PR slice."
+        "raw_diff:lines 2253-2298",
+        "text_corpus:issue_comment decomp-dev[bot]"
+      ]
     },
     {
-      "tactic": "Use floating-point transform helper rewrites with named intermediate variables for IDCT-like math.",
+      "text": "Adjusted table sizes and storage, such as changing lbl_803B9670 from an explicitly sized 0x1B6 array to unsized and splitting data formerly adjacent to lbl_80430C80; bot output flags data regressions, so this tactic should be treated as risky.",
       "evidence_refs": [
-        "raw_diff: hsd_3B34.c fn_803B376C locals s07/s16/s25/s34/t0/t1/t2/t3 and constants 0.707107, 0.92388, 0.382683",
-        "raw_diff: hsd_3B5C.c fn_803B61B4 locals a through t and constants 0.980785, 0.19509, 0.83147, 0.55557, 0.707107"
-      ],
-      "outcome": "No loaded successful objdiff evidence."
+        "raw_diff:hsd_3B34.c top hunk",
+        "text_corpus:issue_comment decomp-dev[bot]"
+      ]
     }
   ],
   "review_feedback": [
     {
-      "source": "decomp-dev[bot]",
-      "created_at": "2026-05-10T16:03:31Z",
-      "feedback": "Report for GALE01 showed matched code 67.18% with -32 bytes and matched data 39.32% with -1104 bytes.",
+      "type": "bot_report",
+      "text": "decomp-dev[bot] reported matched code 67.18% (-32 bytes) and matched data 39.32% (-1104 bytes). It listed 2 broken matches: hsd_3B34 .data from 100.00% to 52.77%, and hsd_3B34 hsd_803B5C2C from 100.00% to 0.00%. It also listed 2 .sdata2 improvements and 11 unmatched-item regressions.",
       "evidence_refs": [
-        "text_corpus: issue_comment decomp-dev[bot]"
+        "text_corpus:issue_comment decomp-dev[bot]"
       ]
     },
     {
-      "source": "decomp-dev[bot]",
-      "created_at": "2026-05-10T16:03:31Z",
-      "feedback": "Two broken matches were reported: hsd_3B34 .data from 100.00% to 52.77%, and hsd_803B5C2C from 100.00% to 0.00%.",
+      "type": "absence",
+      "text": "No human review comments or reviews are present in the loaded PR slice.",
       "evidence_refs": [
-        "text_corpus: broken matches table"
-      ]
-    },
-    {
-      "source": "decomp-dev[bot]",
-      "created_at": "2026-05-10T16:03:31Z",
-      "feedback": "Two unmatched-item improvements were reported in .sdata2 for hsd_3B5C and hsd_3B34, but eleven unmatched-item regressions were also reported across hsd_3B34 and hsd_3B5C functions.",
-      "evidence_refs": [
-        "text_corpus: improvements and regressions tables"
-      ]
-    },
-    {
-      "source": "loaded PR metadata",
-      "feedback": "No human review comments or reviews were present in the loaded slice.",
-      "evidence_refs": [
-        "metadata_json: review_comments 0, reviews 0"
+        "metadata_json.counts.review_comments=0",
+        "metadata_json.counts.reviews=0"
       ]
     }
   ],
@@ -196,16 +221,18 @@
     "Jj/hsd 3 b34",
     "jurrejelle",
     "src/sysdolphin/baselib/hsd_3B34.c",
-    "src/sysdolphin/baselib/hsd_3B34.h",
     "src/sysdolphin/baselib/hsd_3B5C.c",
+    "src/sysdolphin/baselib/hsd_3B34.h",
     "HSDJpegWork",
-    "JPEG",
+    "luma",
+    "cb",
+    "cr",
+    "tmp",
+    "pred",
+    "JFIF",
     "hsd_803B3408",
     "fn_803B376C",
     "hsd_803B3CD8",
-    "hsd_803B46D4",
-    "hsd_803B4A2C",
-    "hsd_803B4D64",
     "hsd_803B51C8",
     "hsd_803B5C2C",
     "hsd_803B5C4C",
@@ -216,121 +243,107 @@
     "hsd_803B6BE4",
     "lbl_80431090",
     "lbl_80431638",
+    "lbl_80430C40",
     "lbl_80430C80",
-    "M2C_FIELD",
-    "longjmp",
-    "__setjmp",
-    "matched data regression",
-    "broken .data match"
+    "data regression",
+    "natural loops",
+    "typed work struct"
   ],
   "follow_up_queries": [
-    "HSDJpegWork hsd_804D2E70 pred luma cb cr tmp",
-    "hsd_3B34 .data lbl_80430C80 lbl_80431090 table split",
-    "hsd_803B6BE4 JPEG marker 0xFFDB 0xFFC0 0xFFDA",
-    "fn_803B61B4 IDCT constants 0.980785 0.83147 0.55557 0.707107",
-    "fn_803B376C IDCT constants 0.92388 0.382683",
-    "hsd_803B3408 prototype u8* s32 to int int int int regression",
-    "decomp-dev bot hsd_3B34 hsd_803B5C2C broken match PR 2479"
+    "PR 2479 hsd_803B51C8 hsd_803B3344 0xFF 0xD9 regression",
+    "HSDJpegWork luma cb cr tmp pred hsd_3B34",
+    "lbl_80431090 lbl_80431638 JPEG table hsd_3B34 data regression",
+    "hsd_803B5C2C lbl_804D6398 broken match PR 2479",
+    "fn_803B376C IDCT loop hsd_3B34",
+    "hsd_3B34 hsd_3B5C JFIF HAL Laboratory table split"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR number/title/state/author/dates, changed files, counts",
-      "changed_files.jsonl: three changed files with line counts",
-      "raw_diff: large but loaded/truncated diff excerpt plus targeted local reads",
-      "text_corpus: empty PR body and one decomp-dev bot report",
-      "metadata_json: review_comments 0, reviews 0"
+      "metadata_json",
+      "changed_files.jsonl",
+      "raw_diff truncated but targeted hunks available",
+      "text_corpus.jsonl issue_comment"
     ],
     "notes": [
-      "PR body is empty and no human review comments were loaded.",
-      "raw diff is large and loaded excerpt is truncated, but targeted reads covered the header, top data changes, and hsd_3B5C rewrite areas.",
-      "Bot feedback provides concrete regression evidence, but no successful build/objdiff details beyond the report are present.",
-      "PR was closed with merged_at null in metadata; intake does not infer author intent or final acceptance."
+      "PR body is empty and raw PR/diff files are truncated in loaded context, though targeted diff hunks were available for key header and loop changes.",
+      "No human review feedback is present.",
+      "The PR was closed with merged_at null and draft true in raw_pr_json; no accepted/merged status should be inferred.",
+      "Validation evidence is from decomp-dev[bot] and is mostly negative: broken matches and regressions outweigh small .sdata2 improvements.",
+      "Function-level intent and exact matching status for individual rewritten bodies are weak because there is no author explanation or objdiff ledger beyond the bot report."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "negative_decomp_lesson",
-        "title": "Data-table reshapes can break matching even when code cleanup looks plausible",
-        "text": "In PR 2479, JPEG table definitions in hsd_3B34.c were moved/split and the bot reported hsd_3B34 .data dropping from 100.00% to 52.77%. Treat data ownership, table sizes, and section placement as first-class evidence before landing code-matching cleanup.",
+        "record_type": "pr_postmortem_lesson",
+        "title": "PR 2479 is negative evidence for broad hsd_3B34/hsd_3B5C cleanup without narrow verification",
+        "text": "A broad cleanup that introduced HSDJpegWork, natural loops, helper calls, table reshaping, and prototype changes produced bot-reported data/code regressions. Use this PR as cautionary evidence, not as proof that these exact forms match.",
         "scope": [
           "src/sysdolphin/baselib/hsd_3B34.c",
           "src/sysdolphin/baselib/hsd_3B5C.c",
-          "JPEG/data tables"
+          "src/sysdolphin/baselib/hsd_3B34.h"
         ],
         "evidence_refs": [
-          "raw_diff: hsd_3B34.c table reshaping",
-          "text_corpus: bot broken match for hsd_3B34 .data"
-        ]
-      },
-      {
-        "record_type": "negative_decomp_lesson",
-        "title": "Typed work-buffer cleanup needs verifier evidence",
-        "text": "PR 2479 introduced HSDJpegWork to replace raw hsd_804D2E70 offsets, but the loaded bot report showed regressions. Use typed overlays as a recovery tactic, not an accepted match, until objdiff/checkdiff confirms the exact target assembly.",
-        "scope": [
-          "src/sysdolphin/baselib/hsd_3B34.h",
-          "src/sysdolphin/baselib/hsd_3B5C.c",
-          "work-buffer structs"
-        ],
-        "evidence_refs": [
-          "raw_diff: HSDJpegWork typedef and hsd_803B6BE4 work pointer",
-          "text_corpus: bot regression table"
+          "raw_diff:lines 2246-2344",
+          "text_corpus:issue_comment decomp-dev[bot]"
         ]
       }
     ],
     "source_update_candidates": [
       {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "hsd_3B34/hsd_3B5C appear to contain HSD JPEG/JFIF codec work",
+        "text": "PR evidence shows JFIF marker data, HAL Laboratory byte data, HSDJpegWork fields named luma/cb/cr/tmp/pred, JPEG-like quant/Huffman tables, and block-grid loops in hsd_3B34/hsd_3B5C. Curator should verify before adding a path fact.",
+        "source_path": "src/sysdolphin/baselib",
+        "scope": [
+          "src/sysdolphin/baselib/hsd_3B34.c",
+          "src/sysdolphin/baselib/hsd_3B5C.c",
+          "src/sysdolphin/baselib/hsd_3B34.h"
+        ],
+        "evidence_refs": [
+          "raw_diff:lines 2313-2320",
+          "raw_diff:hsd_3B34.c table hunk",
+          "raw_diff:lines 3123-3125"
+        ],
+        "reason": "Likely useful path classification, but this PR was unmerged and regression-heavy, so source ownership and current-source confirmation are required."
+      },
+      {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Record negative examples for temporary typed work-buffer overlays",
-        "text": "Consider adding a note that temporary structs for raw work buffers should be treated like other matching tactics: useful for readability and field recovery, but not reviewable as a match without narrow objdiff/checkdiff evidence, especially when they cross many functions.",
+        "title": "Treat broad natural-loop plus data-table rewrites as separate verification surfaces",
+        "text": "PR 2479 combined loop cleanup, typed struct recovery, helper substitution, prototype changes, and table storage changes. The bot report showed both code and data regressions. Curator may consider reinforcing that these surfaces should be landed or verified separately when possible.",
         "source_path": null,
         "scope": [
+          "natural-loops",
           "typed-fields-over-pointer-math",
-          "matching-tactics-need-evidence",
+          "data-sections-and-tu-splits",
           "verification-and-regression-ledger"
         ],
         "evidence_refs": [
-          "raw_diff: HSDJpegWork introduced",
-          "text_corpus: bot reports regressions after the rewrite"
+          "raw_diff:loop hunks",
+          "raw_diff:table hunks",
+          "raw_diff:lines 2300-2344",
+          "text_corpus:issue_comment decomp-dev[bot]"
         ],
-        "reason": "This PR is a concrete negative example supporting existing standards; curator may decide whether to add it as an illustrative note."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "hsd_3B34/hsd_3B5C contain JPEG decode tables and work-buffer routines",
-        "text": "PR evidence suggests src/sysdolphin/baselib/hsd_3B34.c, hsd_3B34.h, and hsd_3B5C.c are involved with JPEG-related tables, marker parsing, quantization tables, IDCT-like transforms, and an hsd_804D2E70 work buffer.",
-        "source_path": "src/sysdolphin/baselib",
-        "scope": [
-          "hsd_3B34.c",
-          "hsd_3B34.h",
-          "hsd_3B5C.c",
-          "JPEG"
-        ],
-        "evidence_refs": [
-          "raw_diff: HSDJpegWork fields luma/cb/cr/tmp/pred",
-          "raw_diff: hsd_803B6BE4 marker parsing for 0xFFDB/0xFFC0/0xFFDA",
-          "raw_diff: JPEG table labels and quantization/dequantization loops"
-        ],
-        "reason": "Useful path-context candidate, but should be checked against current source before promotion."
+        "reason": "Existing standards already cover this generally; PR 2479 may provide an illustrative negative example rather than a new rule."
       }
     ],
     "rejection_notes": [
-      "Do not promote HSDJpegWork as an accepted canonical struct from this PR alone; the bot report showed regressions.",
-      "Do not claim any functions matched; loaded evidence reports broken matches/regressions and contains no successful objdiff evidence.",
-      "Do not infer reviewer intent or human review outcome; no human review comments were loaded.",
-      "Do not treat table names, table sizes, or section ownership as accepted facts without checking current source/symbol metadata."
+      "Do not promote HSDJpegWork layout as accepted; it was introduced in this closed-unmerged PR and lacks positive matching evidence in the slice.",
+      "Do not treat the table splits or changed array sizes as accepted data ownership facts; the bot reported .data regression.",
+      "Do not infer reviewer intent or merge acceptance; there are no human reviews and merged_at is null.",
+      "Do not cite hsd_803B51C8, hsd_803B5C2C, or related functions as matched by this PR; the loaded report shows broken/regressed matches."
     ]
   },
-  "confidence": 0.74,
+  "confidence": 0.68,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

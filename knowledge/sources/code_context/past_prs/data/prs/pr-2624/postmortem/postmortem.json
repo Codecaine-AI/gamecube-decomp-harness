@@ -12,367 +12,376 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "IT subsystem matching slice split from #2617 for easier review. It touched seven src/melee/it files, mostly small source-shape edits in item functions. The decomp-dev report recorded 9 improvements in unmatched items, while reviewer feedback flagged one regression in itseakchain.c where a float literal was replaced by a variable for ordering.",
+  "summary": "Directory-split item subsystem matching PR for src/melee/it, separated from #2617. The final loaded diff makes small code-shape and declaration/lifetime changes across seven item files, with decomp-dev reporting 9 unmatched-item improvements and reviewer feedback against replacing an inline float constant with a data variable for ordering.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
-      "source-shape cleanup",
-      "item subsystem"
+      "matching improvement",
+      "item subsystem cleanup",
+      "code-shape adjustment",
+      "review feedback on data/literal regression"
     ],
     "systems": [
       "item",
-      "src/melee/it"
+      "itcoll",
+      "itarwinglaser",
+      "itkyasarin",
+      "itlinkhookshot",
+      "itsamusgrapple",
+      "itseakchain",
+      "itseakneedlethrown"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/it/itcoll.c",
-      "role": "Small declaration-order/source-shape change in it_802706D0; bot report showed a +1 byte improvement from 96.13% to 96.21%.",
+      "role": "Declaration order adjustment in it_802706D0; decomp-dev reported a small score improvement for this function.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/itcoll.c added 3 deleted 3",
-        "raw_diff: it_802706D0 declaration order changed around Item*, HitCapsule*, hit_index, PAD_STACK(8)",
-        "text_corpus: decomp-dev report row for main/melee/it/itcoll it_802706D0"
+        "changed_files_jsonl: src/melee/it/itcoll.c added 3 deleted 3 hunks 1",
+        "raw_diff: it_802706D0 declaration order changes for arg_item, hit_index, hit",
+        "text_corpus: decomp-dev report lists it_802706D0 +1 byte, 96.13% to 96.21%"
       ]
     },
     {
       "path": "src/melee/it/items/itarwinglaser.c",
-      "role": "Adjusted z absolute-value/source-shape expression in it_802E72E0 by introducing z_abs; bot report showed a small score change with 0 bytes.",
+      "role": "Introduced z_abs temporary in it_802E72E0 to express absolute-value/sign handling with a different code shape.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itarwinglaser.c added 4 deleted 2",
-        "raw_diff: it_802E72E0 introduces f32 z_abs and assigns z = -z_abs",
-        "text_corpus: decomp-dev report row for main/melee/it/items/itarwinglaser it_802E72E0"
+        "changed_files_jsonl: src/melee/it/items/itarwinglaser.c added 4 deleted 2 hunks 1",
+        "raw_diff: it_802E72E0 adds f32 z_abs and assigns z = -z_abs",
+        "text_corpus: decomp-dev report lists it_802E72E0 score 98.26% to 98.28%"
       ]
     },
     {
       "path": "src/melee/it/items/itkyasarin.c",
-      "role": "Changed inline helper signature to receive HSD_JObj* and Item* from callsites instead of loading them internally; bot report showed +1 byte improvement in it_802EDDC0.",
+      "role": "Changed inline helper itKyasarin_FlipAndFall to accept already-recovered gobj, jobj, and item values from callsites.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itkyasarin.c added 4 deleted 5",
-        "raw_diff: itKyasarin_FlipAndFall now takes gobj, jobj, ip and callsites pass GET_JOBJ(gobj), GET_ITEM(gobj)",
-        "text_corpus: decomp-dev report row for main/melee/it/items/itkyasarin it_802EDDC0"
+        "changed_files_jsonl: src/melee/it/items/itkyasarin.c added 4 deleted 5 hunks 2",
+        "raw_diff: itKyasarin_FlipAndFall signature gains HSD_JObj* jobj and Item* ip; callsites pass GET_JOBJ(gobj), GET_ITEM(gobj)",
+        "text_corpus: decomp-dev report lists it_802EDDC0 +1 byte, 99.15% to 99.32%"
       ]
     },
     {
       "path": "src/melee/it/items/itlinkhookshot.c",
-      "role": "Replaced direct hsd_obj member access with GET_JOBJ for link jobjs in it_802A7384; bot report showed +2 bytes improvement.",
+      "role": "Replaced direct hsd_obj access with GET_JOBJ in it_802A7384.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itlinkhookshot.c added 2 deleted 2",
-        "raw_diff: jobj = link->gobj->hsd_obj changed to jobj = GET_JOBJ(link->gobj)",
-        "text_corpus: decomp-dev report row for main/melee/it/items/itlinkhookshot it_802A7384"
+        "changed_files_jsonl: src/melee/it/items/itlinkhookshot.c added 2 deleted 2 hunks 2",
+        "raw_diff: jobj = link->gobj->hsd_obj replaced by jobj = GET_JOBJ(link->gobj)",
+        "text_corpus: decomp-dev report lists it_802A7384 +2 bytes, 99.43% to 99.69%"
       ]
     },
     {
       "path": "src/melee/it/items/itsamusgrapple.c",
-      "role": "Several matching-oriented source-shape edits: introduced hitbox_data4 pointer, expanded samus_grapple_anim call into explicit HSD_JObjAnimAll loop, and delayed fp/link initialization. Bot report showed improvements in it_802B7160 and fn_802B8384.",
+      "role": "Adjusted hitbox data access, expanded grapple animation traversal inline, and moved local initialization order in grapple functions.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itsamusgrapple.c added 21 deleted 11",
-        "raw_diff: it_802B7160 introduces struct spawn_hitbox_4* hitbox_data4",
-        "raw_diff: fn_802B7E34 replaces samus_grapple_anim(gobj) with explicit HSD_JObjAnimAll calls and link traversal",
-        "raw_diff: fn_802B8384 delays fp and link assignments until after declarations/PAD_STACK",
-        "text_corpus: decomp-dev report rows for main/melee/it/items/itsamusgrapple it_802B7160 and fn_802B8384"
+        "changed_files_jsonl: src/melee/it/items/itsamusgrapple.c added 21 deleted 11 hunks 4",
+        "raw_diff: it_802B7160 introduces struct spawn_hitbox_4* hitbox_data4 for create_hitbox_4 fields",
+        "raw_diff: fn_802B7E34 replaces samus_grapple_anim(gobj) with HSD_JObjAnimAll on item jobj and linked item chain",
+        "raw_diff: fn_802B8384 delays fp and link initialization until after PAD_STACK",
+        "text_corpus: decomp-dev report lists it_802B7160 +9 bytes, 98.73% to 99.93%, and fn_802B8384 99.55% to 99.66%"
       ]
     },
     {
       "path": "src/melee/it/items/itseakchain.c",
-      "role": "Largest changed file. It adjusted declaration order, removed temporary block locals in stick/velocity logic, and included a reviewer-flagged constant-to-variable replacement in it_802BAF2C.",
+      "role": "Changed declaration order and expression shape in chain motion code; reviewer flagged an earlier constant-to-variable replacement as a regression.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itseakchain.c added 25 deleted 32",
-        "raw_diff: it_802BAF2C declaration order changed around attrs, i, zero",
-        "raw_diff: it_802BC080 removes stick_x/stick_y and vy_bias temporaries and uses direct fp/attrs field expressions",
-        "review_comments: PsiLupan flagged it_802A24D0(link, 1.0f) changed to it_802A24D0(link, it_804DD0E0) as regression",
-        "text_corpus: decomp-dev report rows for main/melee/it/items/itseakchain it_802BC080 and it_802BAF2C"
+        "changed_files_jsonl: src/melee/it/items/itseakchain.c added 25 deleted 32 hunks 4",
+        "raw_diff: it_802BAF2C moves attrs declaration after int i",
+        "raw_diff: it_802BC080 removes stick_x/stick_y and vy_bias temporaries, using direct field accesses in ABS/sign and velocity limit expressions",
+        "text_corpus: decomp-dev report lists it_802BC080 +18 bytes, 98.37% to 99.17%, and it_802BAF2C +1 byte, 99.40% to 99.48%",
+        "review_comments: PsiLupan says not to replace constant 1.0f with it_804DD0E0 for ordering"
       ]
     },
     {
       "path": "src/melee/it/items/itseakneedlethrown.c",
-      "role": "Introduced ip2 alias and earlier attr initialization in it_2725_Logic109_HitShield; bot report showed +6 bytes improvement.",
+      "role": "Introduced ip2 alias and earlier attr initialization in shield-hit bounce logic.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itseakneedlethrown.c added 7 deleted 6",
-        "raw_diff: it_2725_Logic109_HitShield adds Item* ip2 = ip and uses ip2 for velocity/it_802762BC",
-        "text_corpus: decomp-dev report row for main/melee/it/items/itseakneedlethrown it_2725_Logic109_HitShield"
+        "changed_files_jsonl: src/melee/it/items/itseakneedlethrown.c added 7 deleted 6 hunks 1",
+        "raw_diff: it_2725_Logic109_HitShield adds Item* ip2 = ip and uses ip2 for velocity fields and it_802762BC",
+        "text_corpus: decomp-dev report lists it_2725_Logic109_HitShield +6 bytes, 98.13% to 99.63%"
       ]
     }
   ],
   "what_changed": [
-    "The PR body says this was a path-sliced IT subsystem split from #2617, scoped to src/melee/it, created so matching improvements were easier to review.",
-    "Seven files changed under src/melee/it, with 66 added and 61 deleted lines reported in metadata.",
-    "The decomp-dev issue comment reported 9 improvements in unmatched items for the PR range 133a9af..636e1b7.",
-    "Most edits were source-shape matching changes: declaration ordering, temporary variable introduction/removal, helper call/inline reshaping, GET_JOBJ use, and pointer aliases.",
-    "Reviewer PsiLupan flagged a regression in itseakchain.c: replacing literal 1.0f with it_804DD0E0 for ordering should not be done in this PR and could be addressed later."
+    "The PR was scoped to src/melee/it as a directory/subsystem split from #2617.",
+    "Seven item-related source files changed, totaling 66 added and 61 deleted lines in the metadata.",
+    "Several edits are local declaration-order or local-lifetime changes, including reordered declarations around PAD_STACK and delayed initialization.",
+    "Several edits reshape expressions without introducing broad new abstractions, such as z_abs in arwing laser and direct attribute field use in seak chain velocity limits.",
+    "The loaded decomp-dev report recorded 9 improvements in unmatched items for functions in the changed files.",
+    "A reviewer flagged replacing a literal constant 1.0f with it_804DD0E0 for ordering as a regression; that exact hunk is not present in the loaded final raw diff excerpt."
   ],
   "smart_moves": [
     {
-      "title": "Split broad matching work by directory/subsystem",
-      "detail": "The PR states it was split from #2617 by directory/subsystem so matching improvements were easier to review, with scope limited to src/melee/it.",
+      "text": "Kept the PR slice narrow to src/melee/it, making a larger #2617 matching-improvement set easier to review by subsystem.",
       "evidence_refs": [
         "human_pr_text: Split from #2617 by directory/subsystem so the matching improvements are easier to review",
         "human_pr_text: Scope src/melee/it"
       ]
     },
     {
-      "title": "Recorded narrow slice checks and bot score output",
-      "detail": "The PR body recorded diff-check status and isolated path slicing, while the decomp-dev comment gave function-level score changes for touched IT functions.",
+      "text": "Used small local code-shape changes instead of broad rewrites: declaration order, temporary aliases, helper argument passing, and expression reshaping.",
       "evidence_refs": [
-        "human_pr_text: git diff --check origin/master...HEAD passed for this slice",
-        "text_corpus: decomp-dev report with 9 improvements in unmatched items"
+        "raw_diff: itcoll declaration reorder",
+        "raw_diff: itkyasarin helper signature change",
+        "raw_diff: itsamusgrapple hitbox_data4 temporary",
+        "raw_diff: itseakneedlethrown ip2 alias"
+      ]
+    },
+    {
+      "text": "Preserved reviewable per-function progress reporting through decomp-dev output rather than relying only on the preliminary unsplit branch report.",
+      "evidence_refs": [
+        "human_pr_text: Per-PR CI/decomp-dev reporting on this draft is the authoritative slice score once it completes",
+        "text_corpus: decomp-dev report lists 9 improvements in unmatched items"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For matching PRs, avoid changing an inline constant into a data variable solely for ordering when review evidence calls it a regression.",
+      "lesson": "For matching slices, declaration order and exact timing of local initialization can affect scores even when behavior is unchanged.",
       "scope": [
-        "matching PRs",
-        "float constants",
-        "data ordering"
+        "src/melee/it/itcoll.c",
+        "src/melee/it/items/itseakchain.c",
+        "src/melee/it/items/itsamusgrapple.c"
       ],
       "evidence_refs": [
-        "review_comments: Regression - don't replace the constant with a variable for ordering. We can address this later.",
-        "review_comments diff hunk: it_802A24D0(link, 1.0f) changed to it_802A24D0(link, it_804DD0E0)"
+        "raw_diff: it_802706D0 reorders Item*, u32, and HitCapsule declarations",
+        "raw_diff: it_802BAF2C moves attrs declaration after int i",
+        "raw_diff: fn_802B8384 changes link/fp from initialized declarations to later assignments",
+        "text_corpus: decomp-dev report lists improvements for these functions"
       ],
-      "standard_alignment": [
-        "literals-and-data-ownership",
-        "text-before-data-matching"
-      ]
+      "confidence": 0.74
     },
     {
-      "lesson": "Declaration order, local lifetime, and aliasing edits can move unmatched-item scores, but this PR evidence supports them only as narrow matching tactics, not as general style rules.",
+      "lesson": "A narrow pointer alias to a nested struct can improve matching and readability when many adjacent fields are accessed.",
       "scope": [
-        "IT item functions",
-        "matching source-shape edits"
+        "src/melee/it/items/itsamusgrapple.c"
       ],
       "evidence_refs": [
-        "raw_diff: declaration order changes in it_802706D0, it_802BAF2C, fn_802B8384",
-        "raw_diff: ip2 alias in it_2725_Logic109_HitShield",
-        "raw_diff: hitbox_data4 pointer in it_802B7160",
-        "text_corpus: decomp-dev report with function-level improvements"
-      ],
-      "standard_alignment": [
-        "matching-tactics-need-evidence",
-        "verification-and-regression-ledger"
-      ]
-    }
-  ],
-  "naming_conventions": [
-    {
-      "name": "ip / fp / gobj / jobj",
-      "context": "Existing short local role names appear in touched item/fighter/jobj functions and were preserved or passed explicitly.",
-      "evidence_refs": [
-        "raw_diff: itKyasarin_FlipAndFall(gobj, HSD_JObj* jobj, Item* ip)",
-        "raw_diff: Item* ip = GET_ITEM(gobj); Fighter* fp = GET_FIGHTER(ip->owner)"
+        "raw_diff: it_802B7160 adds struct spawn_hitbox_4* hitbox_data4 and uses it for base_knockback, element, shield_damage, hit_sfx fields, hit_aerial, hit_grounded",
+        "text_corpus: decomp-dev report lists it_802B7160 +9 bytes, 98.73% to 99.93%"
       ],
       "confidence": 0.78
     },
     {
-      "name": "hitbox_data4",
-      "context": "Local pointer name introduced for data->create_hitbox.create_hitbox_4 in it_802B7160.",
-      "evidence_refs": [
-        "raw_diff: struct spawn_hitbox_4* hitbox_data4; hitbox_data4 = &data->create_hitbox.create_hitbox_4"
+      "lesson": "Do not replace an ordinary inline constant with a variable solely for ordering; reviewer feedback classified that as a regression to defer or avoid.",
+      "scope": [
+        "src/melee/it/items/itseakchain.c"
       ],
-      "confidence": 0.72
-    },
+      "evidence_refs": [
+        "review_comments: Regression - don't replace the constant with a variable for ordering. We can address this later.",
+        "review_comments hunk: it_802A24D0(link, 1.0f) changed to it_802A24D0(link, it_804DD0E0)"
+      ],
+      "confidence": 0.9
+    }
+  ],
+  "naming_conventions": [
     {
       "name": "z_abs",
-      "context": "Local temporary introduced to represent the absolute value of z before assigning a negated value.",
+      "kind": "local temporary",
+      "observation": "Used as a local absolute-value helper name for z-sign handling in it_802E72E0.",
       "evidence_refs": [
-        "raw_diff: f32 z_abs; z_abs = z; if (z < 0.0f) z_abs = -z; z = -z_abs"
+        "raw_diff: itarwinglaser.c adds f32 z_abs"
+      ],
+      "confidence": 0.76
+    },
+    {
+      "name": "hitbox_data4",
+      "kind": "local pointer alias",
+      "observation": "Names the create_hitbox_4 nested data pointer before copying related hitbox fields.",
+      "evidence_refs": [
+        "raw_diff: itsamusgrapple.c adds struct spawn_hitbox_4* hitbox_data4"
+      ],
+      "confidence": 0.8
+    },
+    {
+      "name": "ip2",
+      "kind": "local item alias",
+      "observation": "Introduced as an Item* alias of ip for code-shape reasons in it_2725_Logic109_HitShield; the name is not semantically rich.",
+      "evidence_refs": [
+        "raw_diff: itseakneedlethrown.c adds Item* ip2 = ip"
       ],
       "confidence": 0.7
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Reorder local declarations and initialization timing near PAD_STACK to alter codegen.",
-      "files": [
-        "src/melee/it/itcoll.c",
-        "src/melee/it/items/itseakchain.c",
-        "src/melee/it/items/itsamusgrapple.c"
+      "tactic": "Declaration-order steering around PAD_STACK and local initialization.",
+      "examples": [
+        "it_802706D0 reorders arg_item, hit_index, and hit declarations",
+        "fn_802B8384 moves fp and link initialization after PAD_STACK",
+        "it_802BAF2C moves attrs after int i"
       ],
       "evidence_refs": [
-        "raw_diff: it_802706D0 local declaration order changed",
-        "raw_diff: it_802BAF2C attrs declaration moved after int i",
-        "raw_diff: fn_802B8384 link/fp initialization moved below PAD_STACK(20)"
+        "raw_diff: itcoll.c it_802706D0",
+        "raw_diff: itsamusgrapple.c fn_802B8384",
+        "raw_diff: itseakchain.c it_802BAF2C"
       ],
-      "caveat": "PR evidence shows score improvements but does not provide objdiff details for each local-order change."
+      "confidence": 0.76
     },
     {
-      "tactic": "Introduce narrow pointer aliases for repeated nested struct access.",
-      "files": [
-        "src/melee/it/items/itsamusgrapple.c",
-        "src/melee/it/items/itseakneedlethrown.c"
+      "tactic": "Introduce or remove local temporaries to alter expression codegen.",
+      "examples": [
+        "itarwinglaser adds z_abs",
+        "itseakchain removes stick_x, stick_y, vy_bias, and vy_limit temporaries in favor of direct field expressions",
+        "itseakneedlethrown adds ip2 alias"
       ],
       "evidence_refs": [
-        "raw_diff: hitbox_data4 points to data->create_hitbox.create_hitbox_4",
-        "raw_diff: ip2 alias used for velocity writes and it_802762BC(ip2)"
+        "raw_diff: itarwinglaser.c it_802E72E0",
+        "raw_diff: itseakchain.c it_802BC080",
+        "raw_diff: itseakneedlethrown.c it_2725_Logic109_HitShield"
       ],
-      "caveat": "Treat aliases as matching tactics supported by this slice, not broadly accepted style."
+      "confidence": 0.78
     },
     {
-      "tactic": "Pass already-needed GET_ITEM/GET_JOBJ values into an inline helper to change load/lifetime shape.",
-      "files": [
-        "src/melee/it/items/itkyasarin.c"
+      "tactic": "Use access macros where the diff shows they match the intended access shape.",
+      "examples": [
+        "itlinkhookshot replaces link->gobj->hsd_obj with GET_JOBJ(link->gobj)",
+        "itkyasarin passes GET_JOBJ(gobj) and GET_ITEM(gobj) into an inline helper"
       ],
       "evidence_refs": [
-        "raw_diff: itKyasarin_FlipAndFall signature changed to include HSD_JObj* jobj and Item* ip",
-        "raw_diff: callsites pass GET_JOBJ(gobj), GET_ITEM(gobj)"
+        "raw_diff: itlinkhookshot.c it_802A7384",
+        "raw_diff: itkyasarin.c itKyasarin_FlipAndFall callsites"
       ],
-      "caveat": "This is function-local evidence only; no general inline-helper standard should be inferred."
+      "confidence": 0.73
     },
     {
-      "tactic": "Use GET_JOBJ instead of direct hsd_obj access where the local code shape supports it.",
-      "files": [
-        "src/melee/it/items/itlinkhookshot.c",
-        "src/melee/it/items/itsamusgrapple.c"
+      "tactic": "Manually inline or expand a helper when the score requires the loop/body shape, but treat this as a narrow matching tactic rather than global style.",
+      "examples": [
+        "fn_802B7E34 replaces samus_grapple_anim(gobj) with HSD_JObjAnimAll on the main jobj and a while loop over linked item gobj hsd_obj values"
       ],
       "evidence_refs": [
-        "raw_diff: itlinkhookshot changes link->gobj->hsd_obj to GET_JOBJ(link->gobj)",
-        "raw_diff: itsamusgrapple uses HSD_JObjAnimAll(GET_JOBJ(gobj))"
+        "raw_diff: itsamusgrapple.c fn_802B7E34"
       ],
-      "caveat": "Loaded standards say GET_JOBJ should be evidence-driven, not unconditional cleanup."
-    },
-    {
-      "tactic": "Expand a helper call into explicit operations when matching requires the operation sequence to be visible.",
-      "files": [
-        "src/melee/it/items/itsamusgrapple.c"
-      ],
-      "evidence_refs": [
-        "raw_diff: samus_grapple_anim(gobj) replaced by HSD_JObjAnimAll(GET_JOBJ(gobj)) and a while loop over link->prev"
-      ],
-      "caveat": "The PR evidence shows this edit and bot improvement context, but not whether the helper expansion was reviewed as final style."
+      "confidence": 0.66
     }
   ],
   "review_feedback": [
     {
       "author": "PsiLupan",
       "path": "src/melee/it/items/itseakchain.c",
+      "comment_url": "https://github.com/doldecomp/melee/pull/2624#discussion_r3374331432",
       "feedback": "Regression - don't replace the constant with a variable for ordering. We can address this later.",
+      "diff_context": "it_802A24D0(link, 1.0f) was shown changed to it_802A24D0(link, it_804DD0E0)",
+      "intake_note": "This is strong evidence for a review preference against constant-to-variable replacement for ordering in this PR. The loaded final raw_diff excerpt does not include this exact hunk, so intake does not infer whether it was reverted or otherwise resolved.",
       "evidence_refs": [
-        "review_comments: src/melee/it/items/itseakchain.c discussion_r3374331432",
-        "review_comments diff hunk: it_802A24D0(link, 1.0f) changed to it_802A24D0(link, it_804DD0E0)"
-      ],
-      "curation_note": "This is direct review evidence against constant-to-variable replacement for ordering in this slice."
+        "review_comments",
+        "text_corpus review_comment"
+      ]
     }
   ],
   "searchable_terms": [
-    "PR 2624",
-    "Improvements to split up: IT",
-    "fjooord",
-    "PsiLupan",
+    "PR2624",
+    "Improvements to split up IT",
     "src/melee/it",
-    "itcoll.c",
-    "itarwinglaser.c",
-    "itkyasarin.c",
-    "itlinkhookshot.c",
-    "itsamusgrapple.c",
-    "itseakchain.c",
-    "itseakneedlethrown.c",
     "it_802706D0",
     "it_802E72E0",
+    "itKyasarin_FlipAndFall",
     "it_802EDDC0",
     "it_802A7384",
     "it_802B7160",
     "fn_802B7E34",
     "fn_802B8384",
-    "it_802BC080",
     "it_802BAF2C",
+    "it_802BC080",
     "it_2725_Logic109_HitShield",
     "GET_JOBJ",
+    "GET_ITEM",
     "PAD_STACK",
+    "z_abs",
     "hitbox_data4",
     "ip2",
-    "z_abs",
-    "constant variable ordering",
     "it_804DD0E0",
-    "1.0f"
+    "constant variable ordering regression",
+    "itseakchain",
+    "itsamusgrapple",
+    "itseakneedlethrown",
+    "itlinkhookshot",
+    "itarwinglaser",
+    "itkyasarin",
+    "itcoll"
   ],
   "follow_up_queries": [
-    "PR 2624 itseakchain constant variable ordering it_804DD0E0 1.0f",
-    "src/melee/it/items/itseakchain.c it_802BAF2C it_802A24D0 1.0f it_804DD0E0",
-    "src/melee/it/items/itsamusgrapple.c fn_802B7E34 samus_grapple_anim HSD_JObjAnimAll",
+    "PR 2624 constant variable ordering regression it_804DD0E0 1.0f",
+    "src/melee/it/items/itseakchain.c it_802BC080 ABS lstick_delta attrs x48 matching",
     "src/melee/it/items/itsamusgrapple.c it_802B7160 hitbox_data4 spawn_hitbox_4",
-    "src/melee/it/items/itkyasarin.c itKyasarin_FlipAndFall GET_JOBJ GET_ITEM",
-    "src/melee/it/items/itlinkhookshot.c it_802A7384 GET_JOBJ hsd_obj",
-    "decomp-dev report PR 2624 9 improvements unmatched items"
+    "src/melee/it/items/itlinkhookshot.c GET_JOBJ link gobj hsd_obj",
+    "src/melee/it/items/itseakneedlethrown.c ip2 alias it_2725_Logic109_HitShield",
+    "decomp-dev PR 2624 9 improvements unmatched items"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR identity, merge state, changed file list, counts",
+      "metadata_json: PR metadata, changed files, counts, merge timestamp",
       "human_pr_text: scope, split rationale, preliminary report, local checks",
-      "raw_diff: complete diff excerpt for all changed files",
-      "text_corpus: decomp-dev function-level improvement report",
-      "review_comments: one inline reviewer regression comment"
+      "raw_diff: final loaded diff for seven files",
+      "text_corpus: decomp-dev issue comment with per-function improvements",
+      "review_comments: one reviewer comment on constant-to-variable regression"
     ],
     "notes": [
-      "Evidence is strong for PR identity, file paths, concrete diff edits, and the reviewer comment.",
-      "The decomp-dev report gives function-level score changes, but the PR body says per-PR CI/decomp-dev reporting is authoritative once complete; no full objdiff logs are loaded.",
-      "The preliminary report in the PR body describes the full unsplit source branch, not necessarily only this IT slice.",
-      "Review evidence contains one specific inline comment; no broader reviewer intent should be inferred.",
-      "The PR was merged, but this intake does not prove every tactic is an accepted global standard."
+      "The final loaded raw_diff is complete and changed-file metadata is explicit.",
+      "Per-function improvement evidence comes from decomp-dev bot report, but no local build, objdiff, or CI logs are included beyond the PR body's local-check statements.",
+      "The PR body's preliminary report describes the full unsplit source branch before the split; intake does not treat those broad numbers as final per-PR validation.",
+      "The reviewer hunk about replacing 1.0f with it_804DD0E0 is not visible in the loaded final raw_diff, so intake records the feedback without inferring final resolution.",
+      "No additional lookup was needed because the loaded PR evidence and standards answer the classification and lesson questions."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "review_lesson",
-        "title": "Do not replace a constant with a variable solely for ordering in a matching slice",
-        "text": "In PR #2624, reviewer PsiLupan called changing it_802A24D0(link, 1.0f) to it_802A24D0(link, it_804DD0E0) a regression and said not to replace the constant with a variable for ordering. This supports a narrow lesson for code-matching PRs: constant-to-data-variable edits need evidence beyond ordering pressure.",
+        "record_type": "pr_lesson_candidate",
+        "title": "Avoid constant-to-variable replacements done only for ordering",
+        "text": "In PR #2624, review feedback called replacing it_802A24D0(link, 1.0f) with it_802A24D0(link, it_804DD0E0) a regression when done for ordering, with a note to address it later instead.",
         "scope": [
+          "src/melee/it/items/itseakchain.c",
           "matching PRs",
-          "literal constants",
-          "data ordering",
-          "src/melee/it/items/itseakchain.c"
+          "literal/data ordering changes"
         ],
         "evidence_refs": [
-          "review_comments: Regression - don't replace the constant with a variable for ordering. We can address this later.",
-          "review_comments diff hunk: it_802A24D0(link, 1.0f) to it_802A24D0(link, it_804DD0E0)"
+          "review_comments: PsiLupan discussion_r3374331432"
         ],
         "confidence": 0.9
       },
       {
-        "record_type": "matching_tactic",
-        "title": "Local declaration order and alias lifetime edits appeared in IT unmatched-item score improvements",
-        "text": "PR #2624 used narrow declaration-order, initialization timing, and local alias edits across IT item functions, and decomp-dev reported function-level unmatched-item improvements. Treat this as searchable historical evidence for local matching tactics, not as a style standard.",
+        "record_type": "pr_tactic_candidate",
+        "title": "Local declaration and initialization order changes were used as narrow item matching tactics",
+        "text": "PR #2624 used small declaration-order and initialization-timing changes in itcoll, itseakchain, and itsamusgrapple, and decomp-dev reported per-function score improvements for the touched functions.",
         "scope": [
-          "src/melee/it",
-          "unmatched item functions",
-          "local declaration order",
-          "pointer aliases"
+          "src/melee/it/itcoll.c",
+          "src/melee/it/items/itseakchain.c",
+          "src/melee/it/items/itsamusgrapple.c"
         ],
         "evidence_refs": [
-          "raw_diff: it_802706D0, it_802BAF2C, fn_802B8384 declaration/init changes",
-          "raw_diff: hitbox_data4 and ip2 aliases",
-          "text_corpus: decomp-dev report with 9 improvements in unmatched items"
+          "raw_diff: it_802706D0 declaration order",
+          "raw_diff: it_802BAF2C attrs declaration order",
+          "raw_diff: fn_802B8384 delayed fp/link assignments",
+          "text_corpus: decomp-dev report"
         ],
-        "confidence": 0.72
+        "confidence": 0.74
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Add review-backed warning against literal-to-variable ordering substitutions",
-        "text": "Consider adding PR #2624 as supporting historical evidence under literals-and-data-ownership or text-before-data-matching: a reviewer explicitly called replacing it_802A24D0(link, 1.0f) with it_804DD0E0 for ordering a regression and said to leave that for later.",
+        "title": "Use PR #2624 as evidence for keeping ordinary constants inline when data variables are only for ordering",
+        "text": "Reviewer feedback in PR #2624 states: 'Regression - don't replace the constant with a variable for ordering. We can address this later.' The hunk showed 1.0f being replaced with it_804DD0E0 in it_802BAF2C. This supports existing literals/data-ordering guidance rather than a new independent rule.",
         "source_path": null,
         "scope": [
-          "matching PRs",
-          "constants",
-          "data ordering",
-          "literal ownership"
+          "literals-and-data-ownership",
+          "text-before-data-matching",
+          "src/melee/it/items/itseakchain.c"
         ],
         "evidence_refs": [
-          "review_comments: PsiLupan comment on src/melee/it/items/itseakchain.c",
-          "review_comments diff hunk: 1.0f replaced by it_804DD0E0"
+          "review_comments",
+          "text_corpus review_comment"
         ],
-        "reason": "This review comment directly reinforces existing standards about not moving literals/constants into data symbols just to satisfy ordering."
+        "reason": "Possible standards-corpus evidence for an already-present principle: do not create or use named data solely to force ordering in a focused code-matching PR."
       }
     ],
     "rejection_notes": [
-      "Do not promote GET_JOBJ as unconditional cleanup based on this PR; the loaded standard says GET_JOBJ use requires local evidence.",
-      "Do not infer that manual helper expansion, local aliasing, or declaration-order churn is preferred style; PR evidence only supports them as narrow matching tactics with bot score context.",
-      "Do not treat the full unsplit preliminary report numbers as the exact per-slice validation result; the PR body says per-PR CI/decomp-dev reporting is authoritative for the slice.",
-      "Do not infer final accepted handling of the reviewer-flagged it_804DD0E0 change beyond the loaded merged state and the comment; no follow-up patch hunk is loaded showing a revert."
+      "Do not promote the broad preliminary unsplit branch report as the final PR validation result; the PR body says per-PR CI/decomp-dev reporting is authoritative once complete.",
+      "Do not infer that GET_JOBJ is always preferred globally from this PR alone; the evidence only shows two replacements in itlinkhookshot and helper call arguments in itkyasarin.",
+      "Do not infer semantic meaning for ip2; the diff only supports that it is an alias used for code shape.",
+      "Do not claim the reviewer-requested constant regression was resolved; the loaded final raw_diff does not include the hunk, but the intake evidence does not explicitly state resolution."
     ]
   },
   "confidence": 0.82,
@@ -382,6 +391,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

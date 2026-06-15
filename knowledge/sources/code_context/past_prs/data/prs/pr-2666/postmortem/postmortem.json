@@ -1,0 +1,383 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2666",
+  "pr": {
+    "number": 2666,
+    "title": "zako matches ftcoattack100",
+    "url": "https://github.com/doldecomp/melee/pull/2666",
+    "state": "MERGED",
+    "author": "jurrejelle",
+    "created_at": "2026-06-12T17:58:43Z",
+    "merged_at": "2026-06-12T18:37:26Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Matched several functions in src/melee/ft/chara/ftCommon/ftCo_Attack100.c for the zako/Attack100 work. The PR body says it was ported from stephenjayakar:pr-15 (#2238) and reworked to avoid regressions to fn_800DAA40 and fn_800DAD18. The diff removes an unnecessary function-pointer cast, adjusts local declarations, uses direct user_data access with PAD_STACK in fn_800DAA40, and adds narrow wrapper calls around fn_800DAA40 and fn_800DAD18 callsites. Bot report records 4 new matches in the ftCo_Attack100 unit.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "regression-avoidance",
+      "codegen-tuning"
+    ],
+    "systems": [
+      "fighter",
+      "ftCommon",
+      "Attack100",
+      "zako"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+      "role": "Only changed source file; contains all matching edits for fn_800D7938, fn_800D8EC8, fn_800DAA40, fn_800DBBF8, and ftCo_CaptureWaitLw_Phys.",
+      "evidence_refs": [
+        "changed_files.jsonl",
+        "raw_diff.diff",
+        "human_pr_text.md",
+        "text_corpus.jsonl:decomp-dev bot report"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "Added a forward declaration for static bool fn_800DAD18(Fighter_GObj* gobj).",
+      "evidence_refs": [
+        "raw_diff.diff:prototype hunk near 0DAD18"
+      ]
+    },
+    {
+      "text": "In fn_800D7938, replaced a casted function-pointer call to it_80291F14 with a direct call it_80291F14(temp_r31->item_gobj, temp_r4).",
+      "evidence_refs": [
+        "raw_diff.diff:fn_800D7938 hunk",
+        "human_pr_text.md:fn_800D7938 bullet"
+      ]
+    },
+    {
+      "text": "In fn_800D8EC8, moved Vec3 bonePos earlier in the local declarations and added an unused u32 local.",
+      "evidence_refs": [
+        "raw_diff.diff:fn_800D8EC8 local declaration hunk"
+      ]
+    },
+    {
+      "text": "In fn_800DAA40, replaced GET_FIGHTER(arg0/arg1) with direct arg0->user_data and arg1->user_data access, added PAD_STACK(8), and changed 0.0F to 0.0f.",
+      "evidence_refs": [
+        "raw_diff.diff:fn_800DAA40 hunk",
+        "human_pr_text.md:fn_800DBBF8 bullet references direct user_data access"
+      ]
+    },
+    {
+      "text": "Added a wrapper named fn_800DAD18_noinline that returns fn_800DAD18(gobj), and changed ftCo_CaptureWaitLw_Phys to call the wrapper.",
+      "evidence_refs": [
+        "raw_diff.diff:fn_800DAD18_noinline and ftCo_CaptureWaitLw_Phys hunks",
+        "human_pr_text.md:ftCo_CaptureWaitLw_Phys bullet"
+      ]
+    },
+    {
+      "text": "Added a wrapper named fn_800DBBF8_noinline that calls fn_800DAA40(fighter, gobj2->victim_gobj), and changed fn_800DBBF8 to call that wrapper instead of calling fn_800DAA40 directly.",
+      "evidence_refs": [
+        "raw_diff.diff:fn_800DBBF8_noinline and fn_800DBBF8 hunks",
+        "human_pr_text.md:fn_800DBBF8 bullet"
+      ]
+    },
+    {
+      "text": "Bot report recorded 4 new matches: fn_800DBBF8, ftCo_CaptureWaitLw_Phys, fn_800D7938, and fn_800D8EC8, with +1592 matched-code bytes overall.",
+      "evidence_refs": [
+        "text_corpus.jsonl:issue_comment by decomp-dev[bot]"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "The PR explicitly preserved nearby callee matches while landing new matches: the body says the port was reworked to avoid regressions to fn_800DAA40 and fn_800DAD18.",
+      "evidence_refs": [
+        "human_pr_text.md"
+      ]
+    },
+    {
+      "text": "Dropping the cast around it_80291F14 simplified the callsite and is associated with fn_800D7938 reaching 100% in the bot report.",
+      "evidence_refs": [
+        "raw_diff.diff:fn_800D7938 hunk",
+        "text_corpus.jsonl:bot report fn_800D7938 82.24% to 100.00%"
+      ]
+    },
+    {
+      "text": "The wrapper-call approach narrowed inlining/codegen effects to specific callsites rather than changing the callee bodies broadly.",
+      "evidence_refs": [
+        "raw_diff.diff:fn_800DBBF8_noinline and fn_800DAD18_noinline hunks",
+        "human_pr_text.md"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "When a callsite has an unnecessary function-pointer cast, try the typed direct function call before preserving the cast; in this PR, removing the it_80291F14 cast contributed to matching fn_800D7938.",
+      "scope": [
+        "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+        "fn_800D7938"
+      ],
+      "evidence_refs": [
+        "raw_diff.diff:fn_800D7938 hunk",
+        "human_pr_text.md:fn_800D7938 bullet",
+        "text_corpus.jsonl:bot report"
+      ]
+    },
+    {
+      "lesson": "Inlining sensitivity can affect both the target caller and nearby callees; this PR used narrow wrapper calls to keep fn_800DAA40 and fn_800DAD18 out of line while matching fn_800DBBF8 and ftCo_CaptureWaitLw_Phys.",
+      "scope": [
+        "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+        "fn_800DBBF8",
+        "ftCo_CaptureWaitLw_Phys",
+        "fn_800DAA40",
+        "fn_800DAD18"
+      ],
+      "evidence_refs": [
+        "human_pr_text.md",
+        "raw_diff.diff:wrapper hunks",
+        "text_corpus.jsonl:bot report"
+      ]
+    },
+    {
+      "lesson": "Small local declaration changes, including declaration order and unused stack locals, may be part of a narrow match, but should be treated as matching tactics requiring verifier evidence rather than style.",
+      "scope": [
+        "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+        "fn_800D8EC8"
+      ],
+      "evidence_refs": [
+        "raw_diff.diff:fn_800D8EC8 hunk",
+        "text_corpus.jsonl:bot report fn_800D8EC8 99.99% to 100.00%",
+        "decomp_standards:matching-tactics-need-evidence"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "Unknown or not-yet-semantically-named functions remain address-style fn_800Dxxxx names in this PR, consistent with conservative naming when semantics are not proven.",
+      "evidence_refs": [
+        "raw_diff.diff",
+        "decomp_standards:conservative-naming"
+      ]
+    },
+    {
+      "text": "Wrapper names fn_800DAD18_noinline and fn_800DBBF8_noinline encode a local codegen intent rather than recovered game semantics; do not generalize them as semantic names without more evidence.",
+      "evidence_refs": [
+        "raw_diff.diff:wrapper hunks",
+        "human_pr_text.md:noinline/dont_inline bullets"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Remove casted function-pointer call and call it_80291F14 directly.",
+      "symbols": [
+        "fn_800D7938",
+        "it_80291F14"
+      ],
+      "evidence_refs": [
+        "raw_diff.diff:fn_800D7938 hunk",
+        "text_corpus.jsonl:bot report"
+      ]
+    },
+    {
+      "tactic": "Use direct GObj user_data loads instead of GET_FIGHTER in fn_800DAA40.",
+      "symbols": [
+        "fn_800DAA40",
+        "Fighter_GObj.user_data"
+      ],
+      "evidence_refs": [
+        "raw_diff.diff:fn_800DAA40 hunk",
+        "human_pr_text.md:fn_800DBBF8 bullet"
+      ]
+    },
+    {
+      "tactic": "Add PAD_STACK(8) in fn_800DAA40 and ftCo_CaptureWaitLw_Phys.",
+      "symbols": [
+        "fn_800DAA40",
+        "ftCo_CaptureWaitLw_Phys"
+      ],
+      "evidence_refs": [
+        "raw_diff.diff:fn_800DAA40 and ftCo_CaptureWaitLw_Phys hunks",
+        "decomp_standards:matching-tactics-need-evidence"
+      ]
+    },
+    {
+      "tactic": "Introduce small wrappers named *_noinline at sensitive callsites to influence inlining/out-of-line behavior.",
+      "symbols": [
+        "fn_800DBBF8_noinline",
+        "fn_800DAD18_noinline",
+        "fn_800DAA40",
+        "fn_800DAD18"
+      ],
+      "evidence_refs": [
+        "raw_diff.diff:wrapper hunks",
+        "human_pr_text.md"
+      ]
+    },
+    {
+      "tactic": "Adjust local declaration order and add an unused u32 local in fn_800D8EC8 for a final tiny match delta.",
+      "symbols": [
+        "fn_800D8EC8",
+        "bonePos",
+        "unused"
+      ],
+      "evidence_refs": [
+        "raw_diff.diff:fn_800D8EC8 hunk",
+        "text_corpus.jsonl:bot report fn_800D8EC8 +1 byte"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "kind": "bot_report",
+      "text": "decomp-dev[bot] reported matched code 72.50% (+0.04%, +1592 bytes) and 4 new matches in main/melee/ft/chara/ftCommon/ftCo_Attack100: fn_800DBBF8, ftCo_CaptureWaitLw_Phys, fn_800D7938, and fn_800D8EC8.",
+      "evidence_refs": [
+        "text_corpus.jsonl:issue_comment by decomp-dev[bot]"
+      ]
+    },
+    {
+      "kind": "missing_human_review",
+      "text": "No review comments or human review records are present in the loaded slice.",
+      "evidence_refs": [
+        "metadata_json:counts.review_comments=0,reviews=0"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "pr-2666",
+    "zako matches ftcoattack100",
+    "ftCo_Attack100.c",
+    "fn_800D7938",
+    "it_80291F14",
+    "fn_800D8EC8",
+    "fn_800DAA40",
+    "fn_800DAD18",
+    "fn_800DBBF8",
+    "ftCo_CaptureWaitLw_Phys",
+    "fn_800DAD18_noinline",
+    "fn_800DBBF8_noinline",
+    "PAD_STACK",
+    "user_data",
+    "GET_FIGHTER",
+    "ftCo_804D90C8",
+    "stephenjayakar:pr-15",
+    "PR #2238",
+    "decomp-dev bot",
+    "GALE01"
+  ],
+  "follow_up_queries": [
+    "fn_800DBBF8_noinline fn_800DAA40 user_data PAD_STACK",
+    "fn_800DAD18_noinline ftCo_CaptureWaitLw_Phys",
+    "it_80291F14 function pointer cast fn_800D7938",
+    "ftCo_Attack100 fn_800D8EC8 unused u32 bonePos",
+    "stephenjayakar pr-15 2238 ftCo_Attack100 regressions",
+    "fn_800DAA40 fn_800DAD18 regression noinline wrapper"
+  ],
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json",
+      "human_pr_text.md",
+      "raw_diff.diff",
+      "changed_files.jsonl",
+      "text_corpus.jsonl"
+    ],
+    "notes": [
+      "The slice includes PR metadata, full diff for the one changed file, PR body, changed-file metadata, and a bot match report.",
+      "No human review comments are available, so reviewer intent and any requested changes cannot be inferred.",
+      "The PR body uses the wording 'dont_inline' and 'noinline wrapper'; the diff shows static inline wrappers named *_noinline. Treat the exact compiler mechanism as local PR evidence only, not a global rule.",
+      "The bot report supports match outcomes, but no objdiff logs or local build commands are included beyond the report summary."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "pr_specific_decomp_lesson",
+        "title": "Drop unnecessary function-pointer casts when a typed direct call matches",
+        "text": "In PR #2666, fn_800D7938 reached 100% after replacing a casted call to it_80291F14 with a direct typed call. Candidate scope should stay around ftCo_Attack100/callsites with known prototypes unless corroborated elsewhere.",
+        "scope": [
+          "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+          "fn_800D7938",
+          "it_80291F14"
+        ],
+        "evidence_refs": [
+          "raw_diff.diff:fn_800D7938 hunk",
+          "human_pr_text.md",
+          "text_corpus.jsonl:bot report"
+        ]
+      },
+      {
+        "record_type": "pr_specific_matching_tactic",
+        "title": "Use narrow wrapper calls for inlining-sensitive ftCo_Attack100 matches",
+        "text": "PR #2666 used wrapper calls around fn_800DAA40 and fn_800DAD18 to avoid regressions while matching fn_800DBBF8 and ftCo_CaptureWaitLw_Phys. This is a narrow codegen tactic and should retain verifier evidence if reused.",
+        "scope": [
+          "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+          "fn_800DBBF8",
+          "ftCo_CaptureWaitLw_Phys"
+        ],
+        "evidence_refs": [
+          "human_pr_text.md",
+          "raw_diff.diff:wrapper hunks",
+          "text_corpus.jsonl:bot report",
+          "decomp_standards:matching-tactics-need-evidence"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "ftCo_Attack100 PR #2666 match facts",
+        "text": "PR #2666 changed only src/melee/ft/chara/ftCommon/ftCo_Attack100.c and bot-reported 4 new matches in the ftCo_Attack100 unit: fn_800DBBF8, ftCo_CaptureWaitLw_Phys, fn_800D7938, and fn_800D8EC8. The PR body says the port from stephenjayakar:pr-15 (#2238) was reworked to avoid regressions to fn_800DAA40 and fn_800DAD18.",
+        "source_path": "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
+        "scope": [
+          "ftCo_Attack100",
+          "fn_800DBBF8",
+          "ftCo_CaptureWaitLw_Phys",
+          "fn_800D7938",
+          "fn_800D8EC8",
+          "fn_800DAA40",
+          "fn_800DAD18"
+        ],
+        "evidence_refs": [
+          "changed_files.jsonl",
+          "human_pr_text.md",
+          "raw_diff.diff",
+          "text_corpus.jsonl:bot report"
+        ],
+        "reason": "Useful historical path fact for future ftCo_Attack100 work; should be curated as a path-scoped fact rather than a global standard."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "No global standard update recommended for noinline wrappers from this PR alone",
+        "text": "This PR provides an example where wrappers named *_noinline helped a narrow match, but the existing matching-tactics standard already requires verifier evidence for such tactics. Do not promote wrapper insertion as a general standard from this single PR.",
+        "source_path": null,
+        "scope": [
+          "matching tactics",
+          "inlining-sensitive callsites"
+        ],
+        "evidence_refs": [
+          "human_pr_text.md",
+          "raw_diff.diff:wrapper hunks",
+          "decomp_standards:matching-tactics-need-evidence"
+        ],
+        "reason": "Candidate is included as a negative/maintenance handoff: current standards appear sufficient; any update should avoid overgeneralizing a local tactic."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that direct user_data access is preferred over GET_FIGHTER globally; in this PR it was a local matching tactic.",
+      "Do not infer that PAD_STACK(8), unused locals, or *_noinline wrappers are accepted style without build/objdiff evidence for the specific function.",
+      "Do not infer human reviewer approval rationale; no human review comments were loaded.",
+      "Do not promote ftCo_804D90C8 details beyond the PR body mention; the loaded diff excerpt does not show a direct ftCo_804D90C8 edit."
+    ]
+  },
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

@@ -1,0 +1,499 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2684",
+  "pr": {
+    "number": 2684,
+    "title": "Melee decomp: Fighter common action matches",
+    "url": "https://github.com/doldecomp/melee/pull/2684",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-13T21:29:11Z",
+    "merged_at": "2026-06-15T04:52:55Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Exact-match decompilation work for Fighter common actions, with narrow efLib signature support. The PR reports 12 newly exact functions across 7 files, zero slice regressions, and cleanup follow-up for literals, sqrt forms, and an inline-depth pragma replacement.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "cleanup",
+      "decomp-matching",
+      "headers",
+      "types-structs",
+      "matching-tactics"
+    ],
+    "systems": [
+      "fighter",
+      "effect"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
+      "role": "Main Fighter common action matching work; changed local variable naming/order, Fighter_x1A88 access patterns, physics prediction expressions, sqrt handling, PAD_STACK usage, and several functions including ftCo_800A3908, ftCo_800A4038, ftCo_800A4BEC, ftCo_800A9904, ftCo_800A9CB4, and ftCo_800AC5A0.",
+      "evidence_refs": [
+        "changed_files.jsonl: ftCo_0A01.c added 352 deleted 224 hunks 40",
+        "raw_diff: src/melee/ft/chara/ftCommon/ftCo_0A01.c hunks",
+        "review_comments: discussions r3408643258, r3410066110, r3410067036, r3410067257, r3410067739, r3410801079, r3410801107",
+        "human_pr_text: summary and issuecomment-4703897406"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftCommon/ftCo_Guard.c",
+      "role": "Fighter guard matching work; review identified a pragma inline_depth block and author later confirmed use of an inline-wrapper approach for ftCo_GuardSetOff_Anim.",
+      "evidence_refs": [
+        "changed_files.jsonl: ftCo_Guard.c added 126 deleted 30 hunks 7",
+        "review_comments: discussion r3410068422",
+        "human_pr_text: issuecomment-4703897406"
+      ]
+    },
+    {
+      "path": "src/melee/ef/eflib.c",
+      "role": "Narrow effect-library support: efLib_SetParamAlpha body signature changed from four parameters to two parameters.",
+      "evidence_refs": [
+        "raw_diff: efLib_SetParamAlpha(HSD_GObj* gobj, u8 alpha)",
+        "human_pr_text: efLib support required because ftCo_Guard.c uses two-argument efLib_SetParamAlpha"
+      ]
+    },
+    {
+      "path": "src/melee/ef/eflib.h",
+      "role": "Header declaration updated to match the two-argument efLib_SetParamAlpha signature.",
+      "evidence_refs": [
+        "raw_diff: eflib.h declaration changed to void efLib_SetParamAlpha(HSD_GObj* gobj, u8 alpha)",
+        "human_pr_text: narrow EF support declarations"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ftaction.c",
+      "role": "Fighter action matching work; bot report lists several ftaction new matches and .data match improvement.",
+      "evidence_refs": [
+        "changed_files.jsonl: ftaction.c added 120 deleted 123 hunks 8",
+        "text_corpus: bot report lists ftAction_80073354, ftAction_80073118, ftAction_80071FC8, ftAction_80072320, and .data improvements"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ftdynamics.c",
+      "role": "Fighter dynamics matching work; bot report lists ftCo_8009DD94 exact and several unmatched improvements.",
+      "evidence_refs": [
+        "changed_files.jsonl: ftdynamics.c added 124 deleted 118 hunks 7",
+        "text_corpus: bot report lists ftdynamics matches/improvements"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftCommon/ftCo_ThrownKirby.c",
+      "role": "Small Fighter common ThrownKirby matching cleanup; bot report lists ftCo_800BE6AC reaching 100%.",
+      "evidence_refs": [
+        "changed_files.jsonl: ftCo_ThrownKirby.c added 5 deleted 5 hunks 1",
+        "text_corpus: bot report lists ftCo_800BE6AC 97.68% to 100.00%"
+      ]
+    }
+  ],
+  "what_changed": [
+    "PR body states this was exact-match decompilation for Fighter common actions plus efLib signature support required by the matches.",
+    "Changed seven files: src/melee/ef/eflib.c, src/melee/ef/eflib.h, src/melee/ft/ftaction.c, src/melee/ft/ftdynamics.c, src/melee/ft/chara/ftCommon/ftCo_0A01.c, src/melee/ft/chara/ftCommon/ftCo_Guard.c, and src/melee/ft/chara/ftCommon/ftCo_ThrownKirby.c.",
+    "efLib_SetParamAlpha was narrowed from a four-argument form with unused float parameters to a two-argument form in both source and header.",
+    "ftCo_0A01.c work included declaration-order changes, replacing temp-style locals with role names such as data, x_time, terminal_time, predicted_y, ceiling_pos, ceiling_normal, ceiling_line_id, and ceiling_flags, and using struct Fighter_x1A88_t* data for repeated fp->x1A88 access.",
+    "ftCo_0A01.c diff shows codegen-sensitive forms including PAD_STACK, scoped floor_result temporaries around mpCheckFloor, altered out-of-bounds control flow, and retained manual __frsqrte-based sqrt sequence for ftCo_800A9CB4.",
+    "Review cleanup removed or avoided address-named literal extern/static constants where reviewers requested literals, except for a documented ftCo_800A9CB4 sqrt code-shape exception.",
+    "Author reported isolated slice verification: 12 new matches, 0 broken matches, 0 fuzzy regressions, 0 metric regressions; full ship-set report: 96 new matches and no regressions."
+  ],
+  "smart_moves": [
+    {
+      "text": "Kept efLib signature support narrow and tied it to a compiling FT callsite need rather than broad effect-library churn.",
+      "evidence_refs": [
+        "human_pr_text: efLib.c and eflib.h included because ftCo_Guard.c now uses two-argument efLib_SetParamAlpha and slice failed to compile without support pair",
+        "raw_diff: efLib_SetParamAlpha signature change"
+      ]
+    },
+    {
+      "text": "Responded to review by expanding generated-looking literal externs and inlining a one-off 120.0f constant use as a literal expression.",
+      "evidence_refs": [
+        "review_comments: r3408643258 'You can expand these into literals'",
+        "review_comments: r3410066110 'inline this'",
+        "human_pr_text: issuecomment-4703897406"
+      ]
+    },
+    {
+      "text": "Used direct sqrtf cleanup where it preserved the match, specifically reporting ftCo_800AC5A0 remained cleaned up to use sqrtf.",
+      "evidence_refs": [
+        "review_comments: r3410067739 'ditto, repeat across the whole files'",
+        "human_pr_text: issuecomment-4703897406"
+      ]
+    },
+    {
+      "text": "Documented a narrow exception for ftCo_800A9CB4: direct sqrtf was tested, regressed that function from 100.00% to 96.54%, and only the local manual sqrt sequence was reverted.",
+      "evidence_refs": [
+        "review_comments: r3410801079",
+        "review_comments: r3410801107",
+        "human_pr_text: issuecomment-4703897406"
+      ]
+    },
+    {
+      "text": "Replaced a broad inline-depth pragma approach in ftCo_GuardSetOff_Anim with an inline-wrapper approach after review.",
+      "evidence_refs": [
+        "review_comments: r3410068422",
+        "human_pr_text: issuecomment-4703897406"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "Generated address-named float externs or one-off static constants should be challenged and expanded back into literals when the PR evidence does not justify data ownership.",
+      "scope": [
+        "src/melee/ft/chara/ftCommon/ftCo_0A01.c"
+      ],
+      "evidence_refs": [
+        "review_comments: r3408643258",
+        "review_comments: r3410066110",
+        "human_pr_text: issuecomment-4703897406"
+      ],
+      "related_standard_ids": [
+        "literals-and-data-ownership",
+        "no-string-literal-symbol-regression",
+        "text-before-data-matching"
+      ]
+    },
+    {
+      "lesson": "Prefer direct sqrtf for recognizable sqrt sequences, but a local handwritten __frsqrte refinement sequence can be retained when direct sqrtf has explicit objdiff/bot evidence of regressing an exact match.",
+      "scope": [
+        "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
+        "ftCo_800A9CB4",
+        "ftCo_800AC5A0"
+      ],
+      "evidence_refs": [
+        "review_comments: r3410067036",
+        "review_comments: r3410067257",
+        "review_comments: r3410067739",
+        "review_comments: r3410801079",
+        "review_comments: r3410801107",
+        "human_pr_text: issuecomment-4703897406"
+      ],
+      "related_standard_ids": [
+        "matching-tactics-need-evidence",
+        "verification-and-regression-ledger"
+      ]
+    },
+    {
+      "lesson": "Pragma-based inlining should be avoided or removed when an inline-wrapper approach can provide the needed helper-body shape.",
+      "scope": [
+        "src/melee/ft/chara/ftCommon/ftCo_Guard.c",
+        "ftCo_GuardSetOff_Anim"
+      ],
+      "evidence_refs": [
+        "review_comments: r3410068422",
+        "human_pr_text: issuecomment-4703897406"
+      ],
+      "related_standard_ids": [
+        "avoid-pragmas-register-asm",
+        "matching-tactics-need-evidence"
+      ]
+    },
+    {
+      "lesson": "When recovering codegen-sensitive fighter functions, declaration order, temporary scoping, and local names may be part of the match surface; keep such choices tied to narrow verification evidence.",
+      "scope": [
+        "src/melee/ft/chara/ftCommon/ftCo_0A01.c"
+      ],
+      "evidence_refs": [
+        "raw_diff: ftCo_800A3908, ftCo_800A4038, ftCo_800A4BEC, ftCo_800A9904, ftCo_800A9CB4 hunks",
+        "human_pr_text: verification section"
+      ],
+      "related_standard_ids": [
+        "matching-tactics-need-evidence",
+        "verification-and-regression-ledger",
+        "conservative-naming"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "convention": "Use short role names for clear object roles: data for &fp->x1A88, cur_fp for current fighter, ip for item pointer, gobj/jobj where applicable.",
+      "evidence_refs": [
+        "raw_diff: struct Fighter_x1A88_t* data = &fp->x1A88 in ftCo_0A01.c",
+        "raw_diff: cur_fp, ip, closest locals"
+      ]
+    },
+    {
+      "convention": "Replace temp_rXX and generic var_f names with local role names when the computation is clear, such as x_time, terminal_time, predicted_y, y_pos, ceiling_pos, ceiling_normal, ceiling_line_id, and ceiling_flags.",
+      "evidence_refs": [
+        "raw_diff: ftCo_800A9904 local renames",
+        "raw_diff: ftCo_800A9CB4 local renames"
+      ]
+    },
+    {
+      "convention": "Do not promote address-style constants like ftCo_804D8914 or ftCo_804D87D8-family externs when review and cleanup show literal expressions are sufficient.",
+      "evidence_refs": [
+        "review_comments: r3408643258",
+        "review_comments: r3410066110",
+        "human_pr_text: issuecomment-4703897406"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "PAD_STACK was used in ftCo_0A01.c for codegen-sensitive functions, including ftCo_800A4038 and ftCo_800A9CB4, with PR-level verification claiming no regressions.",
+      "evidence_refs": [
+        "raw_diff: PAD_STACK(0x10) in ftCo_800A4038",
+        "raw_diff: PAD_STACK(0x18) in ftCo_800A9CB4",
+        "human_pr_text: verification section"
+      ],
+      "caveat": "PAD_STACK is a matching tactic and should remain narrow and evidence-backed."
+    },
+    {
+      "tactic": "Manual __frsqrte plus three Newton refinement steps and volatile storage was retained for ftCo_800A9CB4 after direct sqrtf regressed the function from 100.00% to 96.54%.",
+      "evidence_refs": [
+        "raw_diff: ftCo_800A9CB4_sqrtf_store macro and __frsqrte sequence",
+        "review_comments: r3410801079",
+        "review_comments: r3410801107",
+        "human_pr_text: issuecomment-4703897406"
+      ],
+      "caveat": "Reviewers initially identified this as sqrtf; the exception is supported only for the cited ftCo_800A9CB4 callsites."
+    },
+    {
+      "tactic": "Scoped temporaries around mpCheckFloor, such as floor_result assigned to result, were used to influence local codegen.",
+      "evidence_refs": [
+        "raw_diff: ftCo_800A3908 mpCheckFloor floor_result block",
+        "raw_diff: ftCo_800A4038 mpCheckFloor floor_result block"
+      ],
+      "caveat": "The PR evidence shows the shape but does not provide a standalone explanation beyond the overall match verification."
+    },
+    {
+      "tactic": "Inline-wrapper approach was preferred over #pragma inline_depth for ftCo_GuardSetOff_Anim after review.",
+      "evidence_refs": [
+        "review_comments: r3410068422",
+        "human_pr_text: issuecomment-4703897406"
+      ],
+      "caveat": "The exact final wrapper code is not fully visible in the loaded excerpt."
+    }
+  ],
+  "review_feedback": [
+    {
+      "path": "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
+      "feedback": "Expand address-named literal externs into literals.",
+      "author": "ribbanya",
+      "evidence_refs": [
+        "review_comments: r3408643258"
+      ],
+      "resolution_evidence": [
+        "human_pr_text: issuecomment-4703897406 says literal extern group was expanded"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
+      "feedback": "Inline static const ftCo_804D8914 = 120.0f.",
+      "author": "jurrejelle",
+      "evidence_refs": [
+        "review_comments: r3410066110"
+      ],
+      "resolution_evidence": [
+        "human_pr_text: issuecomment-4703897406 says old ftCo_804D8914 constant use was inlined as literal expression"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
+      "feedback": "Replace recognizable hand-written sqrt sequences with sqrtf across the file.",
+      "author": "jurrejelle",
+      "evidence_refs": [
+        "review_comments: r3410067036",
+        "review_comments: r3410067257",
+        "review_comments: r3410067739"
+      ],
+      "resolution_evidence": [
+        "human_pr_text: ftCo_800AC5A0 remains cleaned up to use sqrtf",
+        "review_comments: r3410801079 and r3410801107 document ftCo_800A9CB4 exception"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftCommon/ftCo_Guard.c",
+      "feedback": "Remove #pragma inline_depth block, possibly replacing it with inline-wrapper trick.",
+      "author": "jurrejelle",
+      "evidence_refs": [
+        "review_comments: r3410068422"
+      ],
+      "resolution_evidence": [
+        "human_pr_text: issuecomment-4703897406 confirms inline-wrapper approach for ftCo_GuardSetOff_Anim"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR2684",
+    "Melee decomp Fighter common action matches",
+    "fjooord",
+    "ftCo_0A01.c",
+    "ftCo_Guard.c",
+    "ftCo_ThrownKirby.c",
+    "ftaction.c",
+    "ftdynamics.c",
+    "eflib.c",
+    "eflib.h",
+    "efLib_SetParamAlpha",
+    "ftCo_800A3908",
+    "ftCo_800A4038",
+    "ftCo_800A4BEC",
+    "ftCo_800A61D8",
+    "ftCo_800A9904",
+    "ftCo_800A9CB4",
+    "ftCo_800AC5A0",
+    "ftCo_GuardSetOff_Anim",
+    "ftCo_800BE6AC",
+    "ftAction_80073354",
+    "ftAction_80073118",
+    "ftCo_8009DD94",
+    "sqrtf",
+    "__frsqrte",
+    "PAD_STACK",
+    "inline wrapper",
+    "inline_depth",
+    "literal extern",
+    "Fighter_x1A88_t",
+    "x_time",
+    "terminal_time",
+    "predicted_y",
+    "ceiling_flags",
+    "mpCheckFloor",
+    "mpCheckCeiling"
+  ],
+  "follow_up_queries": [
+    "ftCo_800A9CB4 __frsqrte sqrtf regression 96.54",
+    "ftCo_GuardSetOff_Anim inline wrapper inline_depth",
+    "efLib_SetParamAlpha two argument signature ftCo_Guard",
+    "ftCo_0A01 literal extern ftCo_804D87D8 ftCo_804D8914",
+    "PAD_STACK ftCo_800A4038 ftCo_800A9CB4",
+    "ftCo_800AC5A0 sqrtf cleanup"
+  ],
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json: PR identity, state, changed file counts",
+      "human_pr_text: PR summary, scope, verification, and cleanup follow-up",
+      "changed_files.jsonl: exact file list and churn",
+      "raw_diff: concrete code changes in efLib and ftCo_0A01 excerpts",
+      "review_comments: reviewer feedback and author sqrt exception replies",
+      "text_corpus: bot report excerpt with match/improvement list"
+    ],
+    "notes": [
+      "Loaded raw_diff and review_comments are truncated, so this intake avoids claiming complete final code details for all hunks.",
+      "Verification claims are from PR body/bot excerpts; no independent build or objdiff was run during intake.",
+      "The PR body says 12 newly exact functions across 7 files, while an earlier bot excerpt lists 14 new matches including data items; this record preserves the PR body's 12-function claim and notes bot-listed examples without reconciling the count.",
+      "The inline-wrapper final implementation for ftCo_GuardSetOff_Anim is asserted by the author comment but not fully visible in loaded diff excerpt."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "pr_lesson",
+        "title": "Keep literals inline unless data ownership is evidenced",
+        "text": "In PR #2684, reviewers asked to expand address-named float externs and inline a one-off static const 120.0f. The author reported resolving both by using literal expressions.",
+        "scope": [
+          "src/melee/ft/chara/ftCommon/ftCo_0A01.c"
+        ],
+        "evidence_refs": [
+          "review_comments: r3408643258",
+          "review_comments: r3410066110",
+          "human_pr_text: issuecomment-4703897406"
+        ]
+      },
+      {
+        "record_type": "pr_lesson",
+        "title": "sqrtf cleanup is preferred, but exact-match exceptions need regression evidence",
+        "text": "Review identified manual sqrt sequences as sqrtf. The author kept ftCo_800AC5A0 cleaned up to sqrtf, but retained ftCo_800A9CB4's local __frsqrte refinement sequence after direct sqrtf regressed that function from 100.00% to 96.54%.",
+        "scope": [
+          "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
+          "ftCo_800A9CB4",
+          "ftCo_800AC5A0"
+        ],
+        "evidence_refs": [
+          "review_comments: r3410067036",
+          "review_comments: r3410067257",
+          "review_comments: r3410067739",
+          "review_comments: r3410801079",
+          "review_comments: r3410801107",
+          "human_pr_text: issuecomment-4703897406"
+        ]
+      },
+      {
+        "record_type": "pr_lesson",
+        "title": "Use inline wrappers before pragma inline_depth for local match shaping",
+        "text": "For ftCo_GuardSetOff_Anim, review requested removing a #pragma inline_depth block and suggested an inline-wrapper trick; the author later confirmed the inline-wrapper approach was used.",
+        "scope": [
+          "src/melee/ft/chara/ftCommon/ftCo_Guard.c",
+          "ftCo_GuardSetOff_Anim"
+        ],
+        "evidence_refs": [
+          "review_comments: r3410068422",
+          "human_pr_text: issuecomment-4703897406"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Document narrow sqrtf exception pattern with explicit regression evidence",
+        "text": "Review should prefer sqrtf for recognizable __frsqrte refinement sequences, but a local handwritten sqrt sequence may be allowed when direct sqrtf is tested and causes a documented exact-match regression for the specific function. PR #2684 provides an example: ftCo_800A9CB4 dropped from 100.00% to 96.54% when changed to sqrtf, while ftCo_800AC5A0 stayed cleaned up to sqrtf.",
+        "source_path": null,
+        "scope": [
+          "matching tactics",
+          "math expression cleanup",
+          "fighter common actions"
+        ],
+        "evidence_refs": [
+          "review_comments: r3410067036",
+          "review_comments: r3410067257",
+          "review_comments: r3410067739",
+          "review_comments: r3410801079",
+          "review_comments: r3410801107",
+          "human_pr_text: issuecomment-4703897406"
+        ],
+        "reason": "This is compatible with existing standards on canonical cleanup and evidence-backed tactics, but curator should decide whether the sqrt-specific exception belongs in global standards."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Prefer inline-wrapper matching over broad inline_depth pragmas",
+        "text": "PR #2684 review requested removing an inline_depth pragma block in ftCo_GuardSetOff_Anim and suggested an inline-wrapper trick; the author confirmed switching to the inline-wrapper approach.",
+        "source_path": null,
+        "scope": [
+          "pragma avoidance",
+          "inline matching tactics"
+        ],
+        "evidence_refs": [
+          "review_comments: r3410068422",
+          "human_pr_text: issuecomment-4703897406"
+        ],
+        "reason": "May refine the existing avoid-pragmas-register-asm standard with a concrete preferred alternative."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "efLib_SetParamAlpha signature support for Fighter guard callsites",
+        "text": "In PR #2684, src/melee/ef/eflib.c and src/melee/ef/eflib.h were changed so efLib_SetParamAlpha takes HSD_GObj* and u8 alpha only; PR body says this was required because ftCo_Guard.c uses the two-argument form and the slice failed to compile without the support pair.",
+        "source_path": "src/melee/ef/eflib.h",
+        "scope": [
+          "src/melee/ef/eflib.c",
+          "src/melee/ef/eflib.h",
+          "src/melee/ft/chara/ftCommon/ftCo_Guard.c"
+        ],
+        "evidence_refs": [
+          "raw_diff: efLib_SetParamAlpha signature change",
+          "human_pr_text: Reviewer Notes"
+        ],
+        "reason": "Potential path-level fact about an effect helper signature dependency; curator should verify against current source before promoting."
+      }
+    ],
+    "rejection_notes": [
+      "Do not generalize that all __frsqrte sequences should remain manual; reviewers preferred sqrtf and only ftCo_800A9CB4 has documented regression evidence in this PR.",
+      "Do not infer final source details for truncated ftaction.c, ftdynamics.c, ftCo_Guard.c, or ftCo_ThrownKirby.c hunks beyond changed-file metadata and bot/PR summaries.",
+      "Do not treat PAD_STACK or volatile sqrt storage as normal style; the PR evidence only supports narrow use under match verification.",
+      "Do not promote the PR body's verification as independently validated by this intake run."
+    ]
+  },
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

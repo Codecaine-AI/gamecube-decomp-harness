@@ -1,0 +1,394 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2700",
+  "pr": {
+    "number": 2700,
+    "title": "link ftaction",
+    "url": "https://github.com/doldecomp/melee/pull/2700",
+    "state": "MERGED",
+    "author": "jurrejelle",
+    "created_at": "2026-06-15T06:23:19Z",
+    "merged_at": "2026-06-15T06:28:23Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "PR 2700 linked `melee/ft/ftaction.c` by changing it from NonMatching to Matching, with small code-shape adjustments in ftaction command handlers, bitfield naming/layout updates for `footstep_fx_0`, and symbol metadata changes for local jump tables and ftaction sdata2 constants. The bot report records 3 new matches, including `ftAction_80072CD8`, `ftAction_80072E4C`, and `.sdata2` for `main/melee/ft/ftaction`.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "headers",
+      "symbol-metadata",
+      "configuration"
+    ],
+    "systems": [
+      "fighter",
+      "ftaction",
+      "lb-types",
+      "config",
+      "repo-root"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/ft/ftaction.c",
+      "role": "Primary matching source changes for ftaction command handlers and literal/code-shape adjustments.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftaction.c",
+        "changed_files.jsonl:src/melee/ft/ftaction.c"
+      ]
+    },
+    {
+      "path": "configure.py",
+      "role": "Build/link status change marking `melee/ft/ftaction.c` as Matching instead of NonMatching.",
+      "evidence_refs": [
+        "raw_diff:configure.py",
+        "changed_files.jsonl:configure.py"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Symbol metadata update for ftaction data/jump table and sdata2 constants, changing generated global names to local numeric labels.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt",
+        "changed_files.jsonl:config/GALE01/symbols.txt"
+      ]
+    },
+    {
+      "path": "src/melee/lb/types.h",
+      "role": "Header bitfield update for `struct footstep_fx_0`, including `boneId` and narrower `x1_b7` field.",
+      "evidence_refs": [
+        "raw_diff:src/melee/lb/types.h",
+        "changed_files.jsonl:src/melee/lb/types.h"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "`configure.py` changed `Object(NonMatching, \"melee/ft/ftaction.c\")` to `Object(Matching, \"melee/ft/ftaction.c\")`.",
+      "evidence_refs": [
+        "raw_diff:configure.py"
+      ]
+    },
+    {
+      "text": "`ftAction_8007121C` replaced `(1 / 256.0f)` expressions with the literal `0.003906f` for hitbox scale and offsets.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftaction.c@@ftAction_8007121C"
+      ]
+    },
+    {
+      "text": "`ftAction_80072CD8` changed local declaration order/shape, replaced a temporary anonymous struct with `u32 cmd_words[3]`, assigned `fp` via `gobj->user_data` instead of `GET_FIGHTER(gobj)`, removed TODO comments, and manually expanded `SKIP_CMD(cmd, 3)` into three increments.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftaction.c@@ftAction_80072CD8"
+      ]
+    },
+    {
+      "text": "`ftAction_80072E4C` added an unused `u32`, assigned `fp` via `gobj->user_data`, removed a TODO comment, and manually expanded `SKIP_CMD(cmd, 3)` into three increments.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftaction.c@@ftAction_80072E4C"
+      ]
+    },
+    {
+      "text": "`struct footstep_fx_0` in `src/melee/lb/types.h` renamed/repacked bitfields from `x0_b6_7 : 2` to `boneId : 8` and from `x1_b1_7 : 7` to `x1_b7 : 1` while preserving surrounding fields.",
+      "evidence_refs": [
+        "raw_diff:src/melee/lb/types.h@@struct footstep_fx_0"
+      ]
+    },
+    {
+      "text": "`config/GALE01/symbols.txt` changed ftaction `.data` jump-table labels from `jtbl_803C08A4`, `jtbl_803C08C0`, and `jtbl_803C08DC` to local numeric labels `@576`, `@837`, and `@907`.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt@@.data"
+      ]
+    },
+    {
+      "text": "`config/GALE01/symbols.txt` changed ftaction `.sdata2` constants from global `ftAction_804D82A0`-style names to local numeric labels `@243`, `@245`, `@247`, `@904`, `@905`, `@906`, and `@1231`.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt@@.sdata2"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "The PR paired the source changes with symbol metadata and configuration changes needed to link the entire `ftaction` translation unit as Matching.",
+      "evidence_refs": [
+        "raw_diff:configure.py",
+        "raw_diff:config/GALE01/symbols.txt",
+        "text_corpus.jsonl:decomp-dev[bot] report"
+      ]
+    },
+    {
+      "text": "Replacing an ad hoc stack struct with `u32 cmd_words[3]` made the temporary command buffer explicit as three command words.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftaction.c@@ftAction_80072CD8"
+      ]
+    },
+    {
+      "text": "The header update gave the `footstep_fx_0` bitfield a semantic `boneId` name where the diff indicates the field spans 8 bits.",
+      "evidence_refs": [
+        "raw_diff:src/melee/lb/types.h@@struct footstep_fx_0"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "text": "A translation unit link-up may require coordinated source, symbol metadata, and build-config edits; here `ftaction.c` was only marked Matching after source tweaks and local symbol-label updates landed together.",
+      "scope": [
+        "src/melee/ft/ftaction.c",
+        "config/GALE01/symbols.txt",
+        "configure.py"
+      ],
+      "evidence_refs": [
+        "raw_diff:configure.py",
+        "raw_diff:src/melee/ft/ftaction.c",
+        "raw_diff:config/GALE01/symbols.txt",
+        "text_corpus.jsonl:decomp-dev[bot] report"
+      ]
+    },
+    {
+      "text": "For MWCC matching in this slice, source-level helper/macros were not always preserved: `GET_FIGHTER(gobj)` was replaced by direct `gobj->user_data`, and `SKIP_CMD(cmd, 3)` was expanded into three increments in two ftaction handlers. Treat this as local matching evidence, not a global style preference.",
+      "scope": [
+        "src/melee/ft/ftaction.c",
+        "ftAction_80072CD8",
+        "ftAction_80072E4C"
+      ],
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftaction.c@@ftAction_80072CD8",
+        "raw_diff:src/melee/ft/ftaction.c@@ftAction_80072E4C"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "`footstep_fx_0` uses `boneId` as a semantic bitfield name for the 8-bit field immediately after the 6-bit opcode; adjacent uncertain fields remain address/bit-style such as `x1_b7`, `x2_b0_7`, and `x3_b0_7`.",
+      "scope": [
+        "src/melee/lb/types.h",
+        "struct footstep_fx_0"
+      ],
+      "evidence_refs": [
+        "raw_diff:src/melee/lb/types.h@@struct footstep_fx_0"
+      ]
+    },
+    {
+      "text": "Local ftaction data labels in symbols metadata may use numeric local-label style such as `@576` or `@243` rather than invented `ftAction_...` globals when the diff marks them as local scope.",
+      "scope": [
+        "config/GALE01/symbols.txt",
+        "main/melee/ft/ftaction"
+      ],
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "text": "Used an exact decimal float literal `0.003906f` instead of `(1 / 256.0f)` in hitbox scaling and offset calculations.",
+      "scope": [
+        "src/melee/ft/ftaction.c",
+        "ftAction_8007121C"
+      ],
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftaction.c@@ftAction_8007121C"
+      ]
+    },
+    {
+      "text": "Adjusted stack/local layout in `ftAction_80072CD8` by reordering locals, replacing an anonymous three-word struct with `u32 cmd_words[3]`, and adding an `unused` local.",
+      "scope": [
+        "src/melee/ft/ftaction.c",
+        "ftAction_80072CD8"
+      ],
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftaction.c@@ftAction_80072CD8"
+      ]
+    },
+    {
+      "text": "Expanded `SKIP_CMD(cmd, 3)` to three explicit `++(cmd)->u` statements in `ftAction_80072CD8` and `ftAction_80072E4C`.",
+      "scope": [
+        "src/melee/ft/ftaction.c",
+        "ftAction_80072CD8",
+        "ftAction_80072E4C"
+      ],
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftaction.c@@ftAction_80072CD8",
+        "raw_diff:src/melee/ft/ftaction.c@@ftAction_80072E4C"
+      ]
+    },
+    {
+      "text": "Changed direct fighter access from `GET_FIGHTER(gobj)` to `gobj->user_data` in two handlers, apparently as part of the local codegen match.",
+      "scope": [
+        "src/melee/ft/ftaction.c",
+        "ftAction_80072CD8",
+        "ftAction_80072E4C"
+      ],
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftaction.c@@ftAction_80072CD8",
+        "raw_diff:src/melee/ft/ftaction.c@@ftAction_80072E4C"
+      ]
+    },
+    {
+      "text": "Changed ftaction `.sdata2` and jump-table symbol names/scopes to local numeric labels, matching the linked-unit metadata used by this PR.",
+      "scope": [
+        "config/GALE01/symbols.txt",
+        "main/melee/ft/ftaction"
+      ],
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt",
+        "text_corpus.jsonl:decomp-dev[bot] report"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "kind": "bot_report",
+      "author": "decomp-dev[bot]",
+      "text": "GALE01 report recorded matched code 74.45% (+0.02%, +736 bytes), linked code 48.02% (+0.25%, +9620 bytes), matched data 41.89% (+0.00%, +40 bytes), linked data 35.53% (+0.05%, +568 bytes), and 3 new matches: `main/melee/ft/ftaction` `.sdata2`, `ftAction_80072CD8`, and `ftAction_80072E4C`.",
+      "evidence_refs": [
+        "text_corpus.jsonl:issue_comment:decomp-dev[bot]:2026-06-15T06:28:13Z"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "pr-2700",
+    "link ftaction",
+    "jurrejelle",
+    "ftaction.c Matching",
+    "main/melee/ft/ftaction",
+    "ftAction_8007121C",
+    "ftAction_80072CD8",
+    "ftAction_80072E4C",
+    "ft_80084BFC",
+    "ftAction_80071B50",
+    "SKIP_CMD",
+    "NEXT_CMD",
+    "GET_FIGHTER",
+    "gobj->user_data",
+    "cmd_words",
+    "footstep_fx_0",
+    "boneId",
+    "symbols.txt",
+    "sdata2",
+    "jtbl_803C08A4",
+    "@576",
+    "@243"
+  ],
+  "follow_up_queries": [
+    "ftAction_80072CD8 cmd_words",
+    "ftAction_80072E4C SKIP_CMD ++cmd->u",
+    "footstep_fx_0 boneId use_alt_bone",
+    "ftaction sdata2 @243 @245 @247",
+    "configure.py Object(Matching, \"melee/ft/ftaction.c\")",
+    "GET_FIGHTER gobj->user_data ftaction"
+  ],
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json:pr-2700",
+      "raw_diff:complete",
+      "changed_files.jsonl",
+      "text_corpus.jsonl:decomp-dev[bot] report"
+    ],
+    "notes": [
+      "The raw diff is complete and changed-file metadata is present.",
+      "The PR body is empty and there are no human review comments in the loaded slice.",
+      "The bot report provides narrow match evidence for `.sdata2`, `ftAction_80072CD8`, and `ftAction_80072E4C`, but the slice does not include full build logs or objdiff details.",
+      "Do not infer reviewer intent or general style acceptance from the merge alone."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "matching_lesson",
+        "title": "ftaction linked by coordinating source, symbols, and configure status",
+        "text": "PR 2700 changed `melee/ft/ftaction.c` from NonMatching to Matching, while also updating ftaction source code and symbol metadata. The bot report recorded 3 new matches for `main/melee/ft/ftaction`: `.sdata2`, `ftAction_80072CD8`, and `ftAction_80072E4C`.",
+        "scope": [
+          "src/melee/ft/ftaction.c",
+          "config/GALE01/symbols.txt",
+          "configure.py"
+        ],
+        "evidence_refs": [
+          "raw_diff:configure.py",
+          "raw_diff:src/melee/ft/ftaction.c",
+          "raw_diff:config/GALE01/symbols.txt",
+          "text_corpus.jsonl:decomp-dev[bot] report"
+        ]
+      },
+      {
+        "record_type": "local_tactic",
+        "title": "Manual command pointer increments matched ftaction handlers",
+        "text": "In `ftAction_80072CD8` and `ftAction_80072E4C`, `SKIP_CMD(cmd, 3)` was replaced with three explicit `++(cmd)->u` statements in the PR that linked ftaction.",
+        "scope": [
+          "src/melee/ft/ftaction.c",
+          "ftAction_80072CD8",
+          "ftAction_80072E4C"
+        ],
+        "evidence_refs": [
+          "raw_diff:src/melee/ft/ftaction.c@@ftAction_80072CD8",
+          "raw_diff:src/melee/ft/ftaction.c@@ftAction_80072E4C"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "ftaction.c marked Matching in PR 2700",
+        "text": "`configure.py` changed `melee/ft/ftaction.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)` in PR 2700.",
+        "source_path": "configure.py",
+        "scope": [
+          "main/melee/ft/ftaction",
+          "src/melee/ft/ftaction.c"
+        ],
+        "evidence_refs": [
+          "raw_diff:configure.py",
+          "text_corpus.jsonl:decomp-dev[bot] report"
+        ],
+        "reason": "This is a path/status fact owned by source/path-fact curation, not a global decomp lesson."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "footstep_fx_0 bitfield includes boneId after PR 2700",
+        "text": "`src/melee/lb/types.h` changed `struct footstep_fx_0` so the field after `opcode : 6` is named `boneId : 8`, followed by `use_alt_bone : 1` and `x1_b7 : 1`.",
+        "source_path": "src/melee/lb/types.h",
+        "scope": [
+          "struct footstep_fx_0",
+          "src/melee/lb/types.h"
+        ],
+        "evidence_refs": [
+          "raw_diff:src/melee/lb/types.h@@struct footstep_fx_0"
+        ],
+        "reason": "Header layout/naming fact should be curated as a source/path fact rather than promoted as a global naming rule."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "ftaction local data labels changed to numeric local labels",
+        "text": "PR 2700 changed ftaction `.data` jump-table labels and `.sdata2` constants in `config/GALE01/symbols.txt` from `jtbl_...` or `ftAction_...` names to local numeric labels such as `@576`, `@837`, `@907`, `@243`, `@245`, and `@247`.",
+        "source_path": "config/GALE01/symbols.txt",
+        "scope": [
+          "main/melee/ft/ftaction",
+          ".data",
+          ".sdata2"
+        ],
+        "evidence_refs": [
+          "raw_diff:config/GALE01/symbols.txt"
+        ],
+        "reason": "Symbol metadata is source-owned and should be curated as a path/symbol fact, not generalized without more evidence."
+      }
+    ],
+    "rejection_notes": [
+      "Do not generalize direct `gobj->user_data` access as preferred over `GET_FIGHTER`; this PR only proves it was used locally for two ftaction handlers.",
+      "Do not generalize manual expansion of `SKIP_CMD(cmd, 3)` as a style rule; it is only evidenced as a local matching tactic in this slice.",
+      "Do not claim human reviewer approval or rationale; no human review comments are present.",
+      "Do not claim full objdiff/build validation beyond the loaded decomp-dev bot report."
+    ]
+  },
+  "confidence": 0.88,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

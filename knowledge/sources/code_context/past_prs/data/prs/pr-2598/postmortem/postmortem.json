@@ -11,14 +11,14 @@
     "merged_at": "2026-06-07T07:18:36Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Split the old Kirby Zelda/Sheik copied neutral-special translation unit boundary into separate Zelda and Sheik source files, linked the Zelda slice as matching, and updated the build/split metadata accordingly. The PR moved Zelda-specific `ftKb_SpecialNZd` functions into a new `ftkirbyspecialzelda.c`, renamed the remaining old `ftKb_SpecialNZd.c` file to `ftkirbyspecialseak.c`, relocated shared/static data to the file owning its address range, and restored `ftKb_SpecialNYs_80109260` to the Yoshi-copy file.",
+  "intake_role": "pr_intake",
+  "summary": "PR 2598 splits and renames the old Kirby Zelda/Sheik special-N translation-unit area: it introduces `ftkirbyspecialzelda.c` as a Matching object, renames the remainder of `ftKb_SpecialNZd.c` to `ftkirbyspecialseak.c`, adjusts GALE01 text/sdata2 split ranges, and moves nearby functions/data out of `ftkirbyspecialdonkey.c`, `ftKb_Init.c`, and `ftKb_SpecialNYs.c` to align ownership with the new files.",
   "change_classification": {
-    "primary_type": "link_and_rename",
+    "primary_type": "split_rename_and_link",
     "categories": [
       "naming",
-      "source_split",
-      "matching",
-      "build_config",
+      "translation_unit_split",
+      "configure_object_status",
       "data_ownership"
     ],
     "systems": [
@@ -29,93 +29,263 @@
     ]
   },
   "key_files": [
-    "config/GALE01/splits.txt",
-    "configure.py",
-    "src/melee/ft/chara/ftKirby/ftkirbyspecialzelda.c",
-    "src/melee/ft/chara/ftKirby/ftkirbyspecialseak.c",
-    "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c",
-    "src/melee/ft/chara/ftKirby/ftKb_Init.c",
-    "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c"
+    {
+      "path": "config/GALE01/splits.txt",
+      "role": "Updated split boundaries for Kirby special files: shortened `ftkirbyspecialdonkey.c`, replaced `ftKb_SpecialNZd.c` with `ftkirbyspecialzelda.c` and `ftkirbyspecialseak.c`, and assigned text/sdata2 ranges.",
+      "evidence_refs": [
+        "raw_diff: config/GALE01/splits.txt hunk at Kirby special entries"
+      ]
+    },
+    {
+      "path": "configure.py",
+      "role": "Build configuration now lists `ftkirbyspecialzelda.c` as Matching and `ftkirbyspecialseak.c` as NonMatching instead of the old `ftKb_SpecialNZd.c` object.",
+      "evidence_refs": [
+        "raw_diff: configure.py MatchingFor object list hunk"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialzelda.c",
+      "role": "New linked source file containing the Zelda-copy special-N functions from 0x80105B2C through 0x80105FEC, including motion-state entry, animation, physics, and collision handlers.",
+      "evidence_refs": [
+        "changed_files.jsonl: 220 added lines",
+        "raw_diff: new file `ftkirbyspecialzelda.c`"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialseak.c",
+      "role": "Renamed from `ftKb_SpecialNZd.c`; retains the remaining Sheik-copy special-N area after the new Zelda split and gains local ownership of constants formerly in `ftKb_Init.c`.",
+      "evidence_refs": [
+        "raw_diff: rename from `ftKb_SpecialNZd.c` to `ftkirbyspecialseak.c`, similarity index 90%",
+        "raw_diff: declarations/data added near top of `ftkirbyspecialseak.c`"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c",
+      "role": "Removed a Zelda special-N entry function and no-longer-needed externs after narrowing the Donkey split endpoint.",
+      "evidence_refs": [
+        "raw_diff: `ftkirbyspecialdonkey.c` removes `ftKb_SpecialNZd_80105B2C` and extern sdata2 floats"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.c",
+      "role": "Removed declarations/data that were relocated to the renamed/split special files.",
+      "evidence_refs": [
+        "raw_diff: removes `fn_801090D4` declaration, `ftKb_Init_803CB770`, and two Vec3 constants"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
+      "role": "Receives `ftKb_SpecialNYs_80109260`, which was removed from the renamed Sheik file.",
+      "evidence_refs": [
+        "raw_diff: adds `ftKb_SpecialNYs_80109260`",
+        "raw_diff: removes same function from `ftkirbyspecialseak.c`"
+      ]
+    }
   ],
   "what_changed": [
-    "Added `src/melee/ft/chara/ftKirby/ftkirbyspecialzelda.c` containing the Zelda-copy neutral-special functions from `0x80105B2C` through `0x80105FEC`, including `ftKb_SpecialNZd_80105B2C`, `ftKb_SpecialNZd_80105BA8`, `ftKb_ZdSpecialN_Anim`, `ftKb_ZdSpecialAirN_Anim`, IASA/Phys/Coll callbacks, and ground/air transition helpers.",
-    "Renamed `src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c` to `src/melee/ft/chara/ftKirby/ftkirbyspecialseak.c` and removed the Zelda-copy function block from it, leaving the later Sheik-copy range beginning at `fn_80105FEC`.",
-    "Updated `config/GALE01/splits.txt` so `ftkirbyspecialdonkey.c` ends at `0x80105B2C`, new `ftkirbyspecialzelda.c` covers `.text 0x80105B2C-0x80105FEC` and `.sdata2 0x804D94F0-0x804D94F8`, and `ftkirbyspecialseak.c` covers `.text 0x80105FEC-0x80109290` plus `.sdata2 0x804D94F8-0x804D9554`.",
-    "Updated `configure.py` to build `ftkirbyspecialzelda.c` as `Object(Matching, ...)` and `ftkirbyspecialseak.c` as `Object(NonMatching, ...)`, replacing the old nonmatching `ftKb_SpecialNZd.c` entry.",
-    "Removed `ftKb_SpecialNZd_80105B2C` and two `ftKb_Init_804D94F0/804D94F4` externs from `ftkirbyspecialdonkey.c`, because the Zelda file now owns that start-of-Zelda code and its constants.",
-    "Moved `ftKb_SpecialNYs_80109260` out of the renamed Sheik file and into `ftKb_SpecialNYs.c`, matching the split boundary where the Yoshi-copy special starts at `0x80109290`.",
-    "Moved or localized data definitions: `ftKb_Init_803CB770` became static in `ftkirbyspecialseak.c`, `ftKb_Init_803B7570` and `ftKb_Init_803B757C` were defined in `ftkirbyspecialseak.c`, and their previous definitions/declarations were removed from `ftKb_Init.c` or old extern blocks."
+    "Split metadata changed from a single `ftKb_SpecialNZd.c` range (`0x80105BA8`-`0x80109290`, sdata2 `0x804D94EC`-`0x804D9554`) to two files: `ftkirbyspecialzelda.c` (`0x80105B2C`-`0x80105FEC`, sdata2 `0x804D94F0`-`0x804D94F8`) and `ftkirbyspecialseak.c` (`0x80105FEC`-`0x80109290`, sdata2 `0x804D94F8`-`0x804D9554`).",
+    "`configure.py` now builds `ftkirbyspecialzelda.c` as `Object(Matching, ...)` and `ftkirbyspecialseak.c` as `Object(NonMatching, ...)`.",
+    "`ftkirbyspecialzelda.c` was added with the Zelda special-N helper and handlers, including `ftKb_SpecialNZd_80105B2C`, `ftKb_SpecialNZd_80105BA8`, `ftKb_ZdSpecialN_Anim`, `ftKb_ZdSpecialAirN_Anim`, IASA stubs, Phys handlers, and Coll handlers.",
+    "`ftkirbyspecialdonkey.c` no longer carries `ftKb_SpecialNZd_80105B2C` or externs for `ftKb_Init_804D94F0` and `ftKb_Init_804D94F4`.",
+    "`ftkirbyspecialseak.c` is the renamed old `ftKb_SpecialNZd.c` and loses the Zelda-special block plus `ftKb_SpecialNYs_80109260`.",
+    "`ftKb_SpecialNYs_80109260` moved into `ftKb_SpecialNYs.c`, where its split now begins at `0x80109290` immediately after the Sheik file.",
+    "`ftKb_Init.c` stopped owning `ftKb_Init_803CB770`, `ftKb_Init_803B7570`, and `ftKb_Init_803B757C`; the diff shows these constants defined in `ftkirbyspecialseak.c` instead."
   ],
   "smart_moves": [
-    "Used address-range evidence from `splits.txt` to split one large `ftKb_SpecialNZd.c` translation unit into Zelda and Sheik ownership instead of keeping unrelated copy abilities in one file.",
-    "Linked only the newly isolated Zelda slice as `Matching` while leaving the renamed Sheik slice `NonMatching`, preserving incremental progress without overclaiming the status of the remaining code.",
-    "Renamed files toward the lowercase `ftkirbyspecial<character>.c` convention already used by nearby Kirby copy-special files such as `ftkirbyspecialfox.c`, `ftkirbyspecialness.c`, and `ftkirbyspecialdonkey.c`.",
-    "Kept constants and static arrays near the file whose split range owns them, reducing cross-file extern noise in `ftKb_Init.c` and the copied-special files.",
-    "Moved `ftKb_SpecialNYs_80109260` into `ftKb_SpecialNYs.c` rather than leaving a Yoshi-copy helper in the renamed Sheik file, making the source layout better reflect the actual symbol/range boundaries."
+    {
+      "text": "The PR updates `splits.txt` and `configure.py` in the same change as the source-file rename/split, keeping object naming, ranges, and build object status aligned.",
+      "evidence_refs": [
+        "raw_diff: splits.txt hunk",
+        "raw_diff: configure.py hunk"
+      ]
+    },
+    {
+      "text": "The new matching object is limited to a narrow Zelda range rather than claiming the entire former `ftKb_SpecialNZd.c` region.",
+      "evidence_refs": [
+        "raw_diff: `ftkirbyspecialzelda.c` range `0x80105B2C`-`0x80105FEC`",
+        "raw_diff: `ftkirbyspecialseak.c` remains NonMatching"
+      ]
+    },
+    {
+      "text": "Function/data movement follows split-boundary ownership: the function at `0x80109260` moves to `ftKb_SpecialNYs.c`, and the old `ftKb_SpecialNZd.c` remainder is renamed to a Kirby special Sheik file.",
+      "evidence_refs": [
+        "raw_diff: `ftKb_SpecialNYs.c` adds `ftKb_SpecialNYs_80109260`",
+        "raw_diff: `ftkirbyspecialseak.c` removes `ftKb_SpecialNYs_80109260`"
+      ]
+    }
   ],
   "decomp_lessons": [
-    "When a file named after one Kirby copied special spans multiple copied characters, use the linker split ranges to identify natural file boundaries and create per-character translation units.",
-    "A successful split can turn a small address range into a matching object while leaving adjacent unresolved code nonmatching; decomp progress does not require solving the whole old file at once.",
-    "After splitting, audit adjacent files for functions that were temporarily placed across boundaries, such as a function at the start of the next module or helper constants stored in an init file.",
-    "Build configuration and split metadata must be updated together: `configure.py` object entries should mirror `config/GALE01/splits.txt` source names and matching status.",
-    "Moving data definitions can be part of matching/link cleanup: remove obsolete externs and define arrays/constants in the file that owns the relevant data section range."
+    {
+      "lesson": "When a contiguous old TU actually covers multiple character-copy special ranges, use split boundaries and object configuration to separate the matching portion from the remaining nonmatching portion instead of treating the old filename as authoritative.",
+      "evidence_refs": [
+        "raw_diff: `ftKb_SpecialNZd.c` replaced by `ftkirbyspecialzelda.c` and `ftkirbyspecialseak.c` in splits/configure"
+      ],
+      "confidence": 0.78
+    },
+    {
+      "lesson": "Relocating functions across adjacent Kirby special files may also require relocating nearby constants/declarations so the owning TU matches the updated split ranges.",
+      "evidence_refs": [
+        "raw_diff: constants removed from `ftKb_Init.c` and defined in `ftkirbyspecialseak.c`",
+        "raw_diff: `ftKb_SpecialNYs_80109260` moved from `ftkirbyspecialseak.c` to `ftKb_SpecialNYs.c`"
+      ],
+      "confidence": 0.7
+    }
   ],
   "naming_conventions": [
-    "Kirby copied-special source files use lowercase `ftkirbyspecial<copied_character>.c` naming in this area, e.g. `ftkirbyspecialzelda.c` and `ftkirbyspecialseak.c`.",
-    "The PR uses `seak` in the filename, not `sheik`, matching the repository's existing or intended spelling for this Kirby copy-special module.",
-    "Function names in the moved code still retain address-style `ftKb_SpecialNZd_*` and `ftKb_ZdSpecial*` symbols; the PR primarily renames/splits files rather than fully semantically renaming every function."
+    {
+      "convention": "Kirby copied-special source files in this area use lowercase `ftkirbyspecial<character>.c` filenames, as shown by replacing `ftKb_SpecialNZd.c` with `ftkirbyspecialzelda.c` and `ftkirbyspecialseak.c` next to existing `ftkirbyspecialfox.c`, `ftkirbyspecialness.c`, and `ftkirbyspecialdonkey.c` entries.",
+      "evidence_refs": [
+        "raw_diff: configure.py Kirby object list",
+        "raw_diff: splits.txt Kirby special entries"
+      ]
+    },
+    {
+      "convention": "This PR does not rename the internal recovered function symbols away from address-style or existing `ftKb_*` names; filename ownership changes are stronger evidence here than semantic symbol renames.",
+      "evidence_refs": [
+        "raw_diff: new `ftkirbyspecialzelda.c` still contains names such as `ftKb_SpecialNZd_80105B2C` and `ftKb_ZdSpecialN_Anim`"
+      ]
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Isolated the exact matching Zelda range `0x80105B2C-0x80105FEC` as its own object and marked only that object `Matching` in `configure.py`.",
-    "Preserved stack-padding and matching-sensitive idioms in the moved Zelda code, including `PAD_STACK(8)`, `PAD_STACK(20)`, the `volatile unsigned int pad`, `void* new_var` permuter slop, and the `fp->cmd_vars[0] == ((0, 0))` expression.",
-    "Replaced `Fighter_ChangeMotionState` arguments that previously referenced external `ftKb_Init_804D94F0/804D94F4` with literal `0.0f` and `1.0f` in the new Zelda file, consistent with owning the corresponding `.sdata2` range.",
-    "Adjusted `.sdata2` ownership so Zelda receives `0x804D94F0-0x804D94F8` and Sheik receives `0x804D94F8-0x804D9554`, avoiding data-section overlap after the split."
+    {
+      "tactic": "Use split-file boundaries to make only the newly isolated `ftkirbyspecialzelda.c` object Matching while leaving the larger renamed `ftkirbyspecialseak.c` object NonMatching.",
+      "evidence_refs": [
+        "raw_diff: configure.py object status changes"
+      ]
+    },
+    {
+      "tactic": "The new Zelda file uses literal `0.0f, 1.0f, 0.0f` arguments in `Fighter_ChangeMotionState` where the removed Donkey-hosted version referenced sdata2 externs `ftKb_Init_804D94F0` and `ftKb_Init_804D94F4`; the split also assigns `ftkirbyspecialzelda.c` its own sdata2 range.",
+      "evidence_refs": [
+        "raw_diff: removal from `ftkirbyspecialdonkey.c`",
+        "raw_diff: new `ftkirbyspecialzelda.c` body",
+        "raw_diff: splits.txt sdata2 ranges"
+      ]
+    },
+    {
+      "tactic": "Some matching-steering artifacts remain in the moved code, including `PAD_STACK`, a `volatile unsigned int pad`, and comments such as `Permuter slop`; the PR evidence does not include verifier logs explaining these tactics.",
+      "evidence_refs": [
+        "raw_diff: `ftkirbyspecialzelda.c` contains `PAD_STACK(8)`, `PAD_STACK(20)`, `volatile unsigned int pad`, and `Permuter slop` comments"
+      ]
+    }
   ],
   "review_feedback": [],
   "searchable_terms": [
     "pr-2598",
     "ftkirbyspecialzelda",
     "ftkirbyspecialseak",
-    "ftKb_SpecialNZd",
+    "ftKb_SpecialNZd.c",
     "ftKb_SpecialNZd_80105B2C",
     "ftKb_SpecialNZd_80105BA8",
     "ftKb_ZdSpecialN_Anim",
     "ftKb_ZdSpecialAirN_Anim",
-    "ftKb_ZdSpecialN_Phys",
-    "ftKb_ZdSpecialAirN_Phys",
-    "ftKb_ZdSpecialN_Coll",
-    "ftKb_ZdSpecialAirN_Coll",
     "ftKb_SpecialNSk_80105E8C",
     "ftKb_SpecialNSk_80105F3C",
-    "fn_80105FEC",
     "ftKb_SpecialNYs_80109260",
     "ftKb_Init_803CB770",
     "ftKb_Init_803B7570",
     "ftKb_Init_803B757C",
-    "ftKb_Init_804D94F0",
-    "ftKb_Init_804D94F4",
-    "splits.txt",
-    "configure.py",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "Kirby Zelda copy",
-    "Kirby Sheik copy",
-    "source split",
-    "link and rename"
+    "0x80105B2C",
+    "0x80105FEC",
+    "0x80109290",
+    "0x804D94F0",
+    "0x804D94F8",
+    "Kirby Zelda special",
+    "Kirby Sheik special",
+    "Matching object",
+    "NonMatching object",
+    "PAD_STACK",
+    "Permuter slop"
   ],
   "follow_up_queries": [
-    "Find later PRs that mark `src/melee/ft/chara/ftKirby/ftkirbyspecialseak.c` as matching.",
-    "Search for remaining `ftKb_SpecialNZd` symbols to see whether function names were later semantically renamed for Zelda-copy neutral special.",
-    "Check whether `ftkirbyspecialseak.c` spelling was retained or later renamed to `ftkirbyspecialsheik.c`.",
-    "Audit adjacent Kirby copied-special files for more functions placed across split boundaries."
+    "Search later PRs for cleanup of `ftkirbyspecialzelda.c` PAD_STACK or `Permuter slop` comments.",
+    "Search for later renames of internal `ftKb_SpecialNZd_*` symbols after the `ftkirbyspecialzelda.c` file split.",
+    "Search current splits/path facts for whether `ftkirbyspecialseak.c` spelling is retained as canonical.",
+    "Search later PRs touching `ftKb_Init_803CB770`, `ftKb_Init_803B7570`, or `ftKb_Init_803B757C` to confirm final data ownership."
   ],
-  "confidence": 0.88,
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR 2598 metadata and changed-file counts",
+      "raw_diff: full diff for 7 changed files",
+      "text_corpus.jsonl: PR body is empty",
+      "metadata_json: review_comments=0, issue_comments=0, reviews=0"
+    ],
+    "notes": [
+      "Diff evidence is strong for file moves, split ranges, object status, and exact source edits.",
+      "There is no PR body, review discussion, or validation log in the loaded slice, so matching rationale and verifier evidence cannot be independently confirmed beyond `configure.py` marking `ftkirbyspecialzelda.c` as Matching.",
+      "No reviewer feedback is available in the slice.",
+      "The PR title supports a link/rename interpretation, but does not explain why `seak` is the chosen spelling or whether internal function names were intentionally left unchanged."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "type": "decomp_lesson_candidate",
+        "title": "Split old mixed Kirby special TUs by address ownership before marking a subsection Matching",
+        "text": "PR 2598 shows a focused way to link a contiguous Kirby special subsection: update `splits.txt`, add the new object in `configure.py` as Matching, keep the remaining renamed file NonMatching, and move adjacent functions/data to the owning split instead of over-claiming the old TU.",
+        "scope": [
+          "src/melee/ft/chara/ftKirby",
+          "config/GALE01/splits.txt",
+          "configure.py"
+        ],
+        "evidence_refs": [
+          "raw_diff: splits.txt Kirby ranges",
+          "raw_diff: configure.py Matching/NonMatching object entries",
+          "raw_diff: source movement across Kirby special files"
+        ],
+        "confidence": 0.76
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "Kirby Zelda/Sheik special split introduced by PR 2598",
+        "text": "`src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c` was replaced in this PR by `src/melee/ft/chara/ftKirby/ftkirbyspecialzelda.c` for text `0x80105B2C`-`0x80105FEC` and `src/melee/ft/chara/ftKirby/ftkirbyspecialseak.c` for text `0x80105FEC`-`0x80109290`; configure marks the Zelda file Matching and the Sheik file NonMatching in the PR diff.",
+        "source_path": "config/GALE01/splits.txt",
+        "scope": [
+          "src/melee/ft/chara/ftKirby/ftkirbyspecialzelda.c",
+          "src/melee/ft/chara/ftKirby/ftkirbyspecialseak.c",
+          "configure.py"
+        ],
+        "evidence_refs": [
+          "raw_diff: splits.txt hunk",
+          "raw_diff: configure.py hunk"
+        ],
+        "reason": "Useful path/split history for future curator lookup; should be verified against current source before promotion because this intake only records the historical PR slice."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Consider documenting split-first linking for mixed legacy TUs",
+        "text": "When linking a small matched subsection from a legacy mixed TU, update split metadata and build-object status together, keep unmatched remainder separate, and move data/functions to the owning split range. PR 2598 is supporting evidence but not enough by itself for a broad global rule.",
+        "source_path": null,
+        "scope": [
+          "translation unit splits",
+          "configure object status",
+          "fighter Kirby copied specials"
+        ],
+        "evidence_refs": [
+          "raw_diff: `ftKb_SpecialNZd.c` split into `ftkirbyspecialzelda.c` and `ftkirbyspecialseak.c`",
+          "raw_diff: `ftkirbyspecialzelda.c` marked Matching while `ftkirbyspecialseak.c` remains NonMatching"
+        ],
+        "reason": "Potential standard or lesson candidate, but curator should compare with other PRs before elevating it beyond this PR-specific pattern."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that all remaining `PAD_STACK`, volatile locals, or `Permuter slop` patterns in the new file are accepted style; this slice has no objdiff/regression evidence explaining them.",
+      "Do not infer reviewer approval rationale from the merge; there are no loaded reviews or comments.",
+      "Do not promote `seak` spelling as a global naming rule without checking current source/path facts; the PR only proves this historical file path in the diff.",
+      "Do not claim a verified code match from tooling logs; the only loaded evidence is the `configure.py` Matching entry and the merged PR metadata."
+    ]
+  },
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

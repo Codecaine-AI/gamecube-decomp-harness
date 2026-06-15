@@ -11,81 +11,216 @@
     "merged_at": "2026-06-07T11:43:16Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked the Kirby Yoshi-special object by shrinking `ftkirbyspecialyoshi.c` to the matching range `0x80109260..0x8010A930` and moving the remaining `0x8010A930..0x8010D740` code into a new still-NonMatching `ftkirbycaptureyoshi.c` unit. The PR also introduced `ftkirbycaptureyoshi.h` and retargeted includes from the old catch-all `ftkirbyspecialdonkey.h` to the more accurate capture-yoshi header.",
+  "intake_role": "pr_intake",
+  "summary": "PR 2604 links the Kirby Yoshi-special translation unit by changing `ftkirbyspecialyoshi.c` from NonMatching to Matching, narrowing its split range, and moving the remaining 0x8010A930-0x8010D740 code/data into a new nonmatching `ftkirbycaptureyoshi.c` plus header. It also updates Kirby includes/prototypes, motion-state wiring, and a few item/fighter references affected by the new capture-yoshi header ownership.",
   "change_classification": {
-    "primary_type": "matching_link_split",
+    "primary_type": "decomp_link_and_tu_split",
     "categories": [
-      "matching",
-      "linking",
-      "source_split",
       "headers",
-      "build_config",
-      "include_cleanup"
+      "configure_matching_status",
+      "splits",
+      "fighter_source_reorganization",
+      "nonmatching_tail_isolation"
     ],
     "systems": [
+      "config",
       "fighter",
-      "fighter_kirby",
-      "kirby_special_yoshi",
-      "capture_states",
       "item",
-      "config"
+      "repo-root"
     ]
   },
   "key_files": [
-    "config/GALE01/splits.txt",
-    "configure.py",
-    "src/melee/ft/chara/ftKirby/ftkirbyspecialyoshi.c",
-    "src/melee/ft/chara/ftKirby/ftkirbycaptureyoshi.c",
-    "src/melee/ft/chara/ftKirby/ftkirbycaptureyoshi.h",
-    "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.h",
-    "src/melee/ft/chara/ftKirby/ftkirby.c",
-    "src/melee/ft/ftmotionstates.c",
-    "src/melee/it/items/itkirbygamewatchchefpan.c",
-    "src/melee/it/items/itpeachtoad.c"
+    {
+      "path": "config/GALE01/splits.txt",
+      "role": "Narrowed `ftkirbyspecialyoshi.c` text/sdata2 ranges and introduced a new `ftkirbycaptureyoshi.c` split for the remaining range.",
+      "evidence_refs": [
+        "diff_excerpt: splits.txt hunk changes ftkirbyspecialyoshi text 0x80109260-0x8010A930, sdata2 0x804D9558-0x804D9560, and adds ftkirbycaptureyoshi text 0x8010A930-0x8010D740, sdata2 0x804D9560-0x804D95B0"
+      ]
+    },
+    {
+      "path": "configure.py",
+      "role": "Changed `ftkirbyspecialyoshi.c` to Matching and added `ftkirbycaptureyoshi.c` as NonMatching.",
+      "evidence_refs": [
+        "diff_excerpt: configure.py hunk replaces Object(NonMatching, ftkirbyspecialyoshi.c) with Object(Matching, ftkirbyspecialyoshi.c) and Object(NonMatching, ftkirbycaptureyoshi.c)"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbycaptureyoshi.c",
+      "role": "New nonmatching source file holding the moved capture-yoshi and related Kirby-copy special code, including `fn_8010A930` and callbacks/static helpers formerly covered by the larger yoshi-special split.",
+      "evidence_refs": [
+        "changed_files.jsonl: added 1499 lines",
+        "diff_excerpt: new file mode 100644 with `#include \"ftkirbycaptureyoshi.h\"`, `fn_8010A930`, `ftCo_CaptureKirbyYoshi_*`, `ftCo_KirbyYoshiEgg_*`, and static declarations such as `fn_8010B2E8`, `fn_8010C344`, `fn_8010C44C`, `fn_8010CFB0`"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbycaptureyoshi.h",
+      "role": "New header for declarations exposed from the capture-yoshi split.",
+      "evidence_refs": [
+        "changed_files.jsonl: added 108 lines"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialyoshi.c",
+      "role": "Large deletion consistent with moving most remaining nonmatching code out while preserving the now-linked yoshi-special range.",
+      "evidence_refs": [
+        "changed_files.jsonl: added 4 lines, deleted 1472 lines, 7 hunks"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.static.h",
+      "role": "Removed static prototypes for functions now local to the new capture-yoshi source.",
+      "evidence_refs": [
+        "diff_excerpt: removes static declarations for `fn_8010B2E8`, `fn_8010C344`, `fn_8010C44C`, and `fn_8010CFB0`"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirby.c",
+      "role": "Replaced a direct local declaration of `fn_8010A930` with an include of the new capture-yoshi header.",
+      "evidence_refs": [
+        "diff_excerpt: adds `#include \"ftkirbycaptureyoshi.h\"` and removes `void fn_8010A930(Fighter_GObj*, Fighter_GObj*);`"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.h",
+      "role": "Header cleanup affected by moving declarations to the new capture-yoshi header.",
+      "evidence_refs": [
+        "changed_files.jsonl: deleted 97 lines"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialzelda.c",
+      "role": "Small dependent source adjustment.",
+      "evidence_refs": [
+        "changed_files.jsonl: deleted 1 line"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ftmotionstates.c",
+      "role": "Small motion-state table/reference adjustment for the new header or split.",
+      "evidence_refs": [
+        "changed_files.jsonl: added 1 line"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itkirbygamewatchchefpan.c",
+      "role": "Small item-side include/reference adjustment affected by the Kirby split.",
+      "evidence_refs": [
+        "changed_files.jsonl: added 1 line, deleted 1 line"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itpeachtoad.c",
+      "role": "Small item-side include/reference adjustment affected by the Kirby split.",
+      "evidence_refs": [
+        "changed_files.jsonl: added 1 line, deleted 1 line"
+      ]
+    }
   ],
   "what_changed": [
-    "`configure.py` changed `melee/ft/chara/ftKirby/ftkirbyspecialyoshi.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)`.",
-    "`configure.py` added `Object(NonMatching, \"melee/ft/chara/ftKirby/ftkirbycaptureyoshi.c\")` immediately after the now-matching Yoshi-special object.",
-    "`config/GALE01/splits.txt` split the old `ftkirbyspecialyoshi.c` range: `ftkirbyspecialyoshi.c` now ends at text `0x8010A930` and sdata2 `0x804D9560`, while new `ftkirbycaptureyoshi.c` covers text `0x8010A930..0x8010D740` and sdata2 `0x804D9560..0x804D95B0`.",
-    "Most of the deleted tail of `ftkirbyspecialyoshi.c` was reintroduced in new file `ftkirbycaptureyoshi.c` with 1499 added lines, preserving the nonmatching capture/egg and copied-special routines separately from the linked portion.",
-    "`ftkirbyspecialyoshi.c` removed now-unneeded effect, collision, Game & Watch pan, Peach Toad, and several static-data includes, added `ftKirby/ftkirbycaptureyoshi.h`, and replaced `ftKb_Init_804D9558` uses for z velocity with literal `0.0f` in the remaining matching code.",
-    "New `ftkirbycaptureyoshi.h` declares the moved public functions from `0x8010A930` onward, including `fn_8010A930`, `ftCo_CaptureKirbyYoshi_*`, `ftCo_KirbyYoshiEgg_*`, `ftKb_SpecialNMs_*`, `ftKb_SpecialNPe_*`, `ftKb_PeSpecialLw*`, and `ftKb_SpecialNGw_*` prototypes.",
-    "`ftkirbyspecialdonkey.h` removed a large block of unrelated Yoshi-capture and copied-special prototypes that now live in `ftkirbycaptureyoshi.h`.",
-    "`ftkirby.c`, `ftmotionstates.c`, `itkirbygamewatchchefpan.c`, and `itpeachtoad.c` now include `ftKirby/ftkirbycaptureyoshi.h` where they need moved declarations instead of relying on `ftkirbyspecialdonkey.h` or local forward declarations.",
-    "`ftKb_Init.static.h` dropped static forward declarations for moved functions such as `fn_8010B2E8`, `fn_8010C344`, `fn_8010C44C`, and `fn_8010CFB0`."
+    "The build configuration now treats `melee/ft/chara/ftKirby/ftkirbyspecialyoshi.c` as Matching instead of NonMatching.",
+    "The original `ftkirbyspecialyoshi.c` split was shortened to text `0x80109260-0x8010A930` and sdata2 `0x804D9558-0x804D9560`.",
+    "A new `ftkirbycaptureyoshi.c` split was added for text `0x8010A930-0x8010D740` and sdata2 `0x804D9560-0x804D95B0`, and configure.py adds it as NonMatching.",
+    "A new `ftkirbycaptureyoshi.c` source file and `ftkirbycaptureyoshi.h` header were added.",
+    "`ftkirby.c` now includes `ftkirbycaptureyoshi.h` instead of declaring `fn_8010A930` locally.",
+    "Several static declarations were removed from `ftKb_Init.static.h`, with matching declarations visible in the new capture-yoshi source excerpt.",
+    "The PR also touched `ftkirbyspecialdonkey.h`, `ftkirbyspecialzelda.c`, `ftmotionstates.c`, `itkirbygamewatchchefpan.c`, and `itpeachtoad.c`, but the loaded excerpt only provides line-count metadata for most of these small dependent edits."
   ],
   "smart_moves": [
-    "Used an object-boundary split rather than trying to force the entire original `ftkirbyspecialyoshi.c` to match at once, allowing the proven prefix to link while isolating the still-problematic tail.",
-    "Kept the moved tail as `NonMatching` in build config, which preserves progress accounting without pretending the copied/capture section is solved.",
-    "Made the split explicit in `splits.txt`, including both text and sdata2 ranges, so linker layout remains controlled after introducing the new translation unit.",
-    "Created a dedicated `ftkirbycaptureyoshi.h` instead of continuing to expose Yoshi-capture symbols through `ftkirbyspecialdonkey.h`, reducing misleading header coupling.",
-    "Replaced a static-data zero symbol reference in the matching `ftkirbyspecialyoshi.c` prefix with `0.0f`, consistent with the adjusted sdata2 split and helping the now-linked object avoid carrying data from the moved range.",
-    "Updated item and motion-state include sites to depend on the new header directly, which makes cross-system references to Kirby capture callbacks searchable and less accidental."
+    {
+      "text": "Isolated the still-nonmatching trailing capture-yoshi range into its own translation unit so the earlier `ftkirbyspecialyoshi.c` range could be marked Matching.",
+      "evidence_refs": [
+        "diff_excerpt: configure.py Matching/NonMatching change",
+        "diff_excerpt: splits.txt new boundary at 0x8010A930"
+      ]
+    },
+    {
+      "text": "Moved `fn_8010A930` out of a source-local declaration in `ftkirby.c` into an owned header include, aligning call sites with a real declaration surface.",
+      "evidence_refs": [
+        "diff_excerpt: ftkirby.c adds `ftkirbycaptureyoshi.h` and removes local prototype"
+      ]
+    },
+    {
+      "text": "Kept unresolved code explicitly NonMatching after the split rather than implying the entire old yoshi-special range was linked.",
+      "evidence_refs": [
+        "diff_excerpt: configure.py adds `Object(NonMatching, \"melee/ft/chara/ftKirby/ftkirbycaptureyoshi.c\")`"
+      ]
+    }
   ],
   "decomp_lessons": [
-    "When a file is mostly ready but its tail still blocks matching, split at a real address boundary and mark only the solved object as `Matching`.",
-    "Always update both `configure.py` object status and `config/GALE01/splits.txt` ranges together when creating a new translation-unit boundary.",
-    "Do not leave moved prototypes in an unrelated legacy header just because that header previously happened to expose them; create a domain-specific header for the new unit.",
-    "A data-range split may require replacing or moving static-data references in the matching prefix; in this PR, `ftKb_Init_804D9558` references in the remaining Yoshi-special code became literal `0.0f`.",
-    "For large Kirby copied-special files, semantic boundaries may cut across names: this new `ftkirbycaptureyoshi.c` contains Yoshi capture/egg functions and also later copied-special code for Marth/Roy, Peach, and Game & Watch ranges, because the split follows linker addresses rather than perfect gameplay taxonomy."
+    {
+      "lesson": "When a translation unit contains a contiguous matched prefix and an unresolved tail, a split update can preserve matching progress by narrowing the matched TU range and moving the remaining range into a new NonMatching TU.",
+      "scope": [
+        "config/GALE01/splits.txt",
+        "configure.py",
+        "fighter Kirby source splits"
+      ],
+      "evidence_refs": [
+        "diff_excerpt: ftkirbyspecialyoshi split shortened",
+        "diff_excerpt: ftkirbycaptureyoshi split added",
+        "diff_excerpt: configure.py marks old file Matching and new file NonMatching"
+      ],
+      "confidence": 0.86
+    },
+    {
+      "lesson": "After moving functions across a split boundary, update the owning header/include relationship instead of leaving source-local prototypes at call sites.",
+      "scope": [
+        "src/melee/ft/chara/ftKirby/ftkirby.c",
+        "src/melee/ft/chara/ftKirby/ftkirbycaptureyoshi.h"
+      ],
+      "evidence_refs": [
+        "diff_excerpt: `ftkirby.c` include/prototype change"
+      ],
+      "confidence": 0.72
+    }
   ],
   "naming_conventions": [
-    "New file/header name uses lowercase project style: `ftkirbycaptureyoshi.c` and `ftkirbycaptureyoshi.h`.",
-    "Header guard for the new header is address-based: `GALE01_10A930`.",
-    "Function declarations keep address comments in the form `/* 10A930 */ void fn_8010A930(...)`.",
-    "Anonymous or not-yet-understood functions continue to use address names such as `fn_8010A930`, `fn_8010B124`, and `fn_8010CFB0`.",
-    "Known state callbacks use the fighter callback suffix convention: `_Anim`, `_IASA`, `_Phys`, `_Coll`.",
-    "Kirby copied-special prefixes remain specific to source ability, such as `ftKb_SpecialNYs_`, `ftKb_SpecialNMs_`, `ftKb_SpecialNPe_`, and `ftKb_SpecialNGw_`."
+    {
+      "text": "The new file and header use the subsystem-specific stem `ftkirbycaptureyoshi`, matching the moved capture-yoshi functions such as `ftCo_CaptureKirbyYoshi_*` and `ftCo_KirbyYoshiEgg_*`.",
+      "evidence_refs": [
+        "changed_files.jsonl: new `ftkirbycaptureyoshi.c` and `ftkirbycaptureyoshi.h`",
+        "diff_excerpt: functions named `ftCo_CaptureKirbyYoshi_Anim`, `ftCo_KirbyYoshiEgg_Anim`"
+      ]
+    },
+    {
+      "text": "Unidentified local/static functions retain address-style names such as `fn_8010B2E8`, `fn_8010C344`, and `fn_8010CFB0` rather than receiving speculative semantic names.",
+      "evidence_refs": [
+        "diff_excerpt: static declarations in new `ftkirbycaptureyoshi.c`"
+      ]
+    },
+    {
+      "text": "Locals in the excerpt use common role names such as `fp`, `attacker_fp`, `gobj`, `attacker_gobj`, `jobj`, and `victim` where roles are clear.",
+      "evidence_refs": [
+        "diff_excerpt: `fn_8010A930`, `ftKb_SpecialNYs_8010AC78`, and related functions"
+      ]
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Source split at `0x8010A930` made `ftkirbyspecialyoshi.c` independently matching while preserving the following nonmatching code in a separate object.",
-    "The new nonmatching file uses matching-control idioms already present in the diff, including `#pragma dont_inline on/reset`, local `inline` helpers, and many `PAD_STACK(...)` calls.",
-    "The remaining matching Yoshi-special code avoids the old `ftKb_Init_804D9558` sdata2 dependency by using `0.0f` for z velocity assignments.",
-    "Static forward declarations for moved functions were relocated near the moved implementations, reducing cross-object static declaration leakage."
+    {
+      "tactic": "TU/split-boundary adjustment: shorten the matching file at address `0x8010A930` and move the rest into a new file.",
+      "evidence_refs": [
+        "diff_excerpt: splits.txt hunk",
+        "diff_excerpt: configure.py hunk"
+      ],
+      "risk_or_note": "This is supported as a PR tactic by the split/configure evidence, but the loaded evidence does not include objdiff/checkdiff logs."
+    },
+    {
+      "tactic": "Use an owned header for cross-file declarations after the split.",
+      "evidence_refs": [
+        "diff_excerpt: `ftkirby.c` includes `ftkirbycaptureyoshi.h` and removes direct `fn_8010A930` prototype"
+      ],
+      "risk_or_note": "Consistent with truthful-header practice, but the exact header contents are not shown in the excerpt."
+    },
+    {
+      "tactic": "The new nonmatching file contains narrow codegen steering constructs including `PAD_STACK` and `#pragma dont_inline` around some functions.",
+      "evidence_refs": [
+        "diff_excerpt: `ftCo_KirbyYoshiEgg_Anim` has `#pragma dont_inline on`, `PAD_STACK(16)`, and reset",
+        "diff_excerpt: `fn_8010B16C` has `#pragma dont_inline on`/reset",
+        "diff_excerpt: `ftKb_SpecialNMs_8010B2FC` and later functions show `PAD_STACK`"
+      ],
+      "risk_or_note": "Because this file remains NonMatching and no verifier logs are loaded, these should not be promoted as accepted style; they are evidence of temporary matching tactics in an unresolved file."
+    }
   ],
-  "review_feedback": [
-    "No PR body, issue comments, review comments, or reviews were present in the provided slice, so there is no explicit human review feedback to extract."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
     "pr-2604",
     "Link ftkirbyspecialyoshi",
@@ -93,41 +228,130 @@
     "ftkirbyspecialyoshi.c",
     "ftkirbycaptureyoshi.c",
     "ftkirbycaptureyoshi.h",
-    "ftkirbyspecialdonkey.h",
     "ftKb_Init.static.h",
-    "config/GALE01/splits.txt",
-    "configure.py",
+    "ftkirby.c",
+    "ftkirbyspecialdonkey.h",
+    "ftkirbyspecialzelda.c",
+    "ftmotionstates.c",
+    "itkirbygamewatchchefpan.c",
+    "itpeachtoad.c",
+    "configure.py MatchingFor",
     "Object(Matching)",
     "Object(NonMatching)",
+    "splits.txt",
     "0x80109260",
     "0x8010A930",
     "0x8010D740",
     "0x804D9558",
     "0x804D9560",
+    "0x804D95B0",
     "fn_8010A930",
+    "fn_8010B2E8",
+    "fn_8010C344",
+    "fn_8010C44C",
+    "fn_8010CFB0",
     "ftCo_CaptureKirbyYoshi",
     "ftCo_KirbyYoshiEgg",
     "ftKb_SpecialNYs",
-    "ftKb_SpecialNMs",
-    "ftKb_SpecialNPe",
-    "ftKb_SpecialNGw",
-    "itkirbygamewatchchefpan",
-    "itpeachtoad",
-    "ftmotionstates"
+    "PAD_STACK",
+    "pragma dont_inline"
   ],
   "follow_up_queries": [
-    "Find later PRs that mark `ftkirbycaptureyoshi.c` as `Matching`.",
-    "Search for cleanup of `fn_8010A930` and other `fn_8010xxxx` names introduced in `ftkirbycaptureyoshi.h`.",
-    "Search for later refactors of `ftkirbycaptureyoshi.h` guard `GALE01_10A930` or prototype ownership.",
-    "Check whether other Kirby copied-special objects were linked using the same split-at-address tactic."
+    "Find later PRs touching `src/melee/ft/chara/ftKirby/ftkirbycaptureyoshi.c` to see when the new NonMatching tail was linked or cleaned up.",
+    "Search for later removal of `#pragma dont_inline` or `PAD_STACK` in `ftkirbycaptureyoshi.c`.",
+    "Search for later renames of `fn_8010A930`, `fn_8010B2E8`, `fn_8010C344`, `fn_8010C44C`, and `fn_8010CFB0`.",
+    "Search for updates to `ftkirbycaptureyoshi.h` and dependent includes in Kirby/item files.",
+    "Search for PRs modifying the split boundary around `0x8010A930` or sdata2 `0x804D9560`."
   ],
-  "confidence": 0.88,
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR number/title/author/state/timestamps and changed-file counts",
+      "text_corpus.jsonl: empty PR body",
+      "metadata_json: zero issue comments, zero review comments, zero reviews",
+      "diff_excerpt/raw_diff: key split/configure/header/source excerpts; raw diff is truncated in loaded_files"
+    ],
+    "notes": [
+      "The PR body is empty and there are no loaded review or issue comments, so reviewer rationale and validation commands are unavailable.",
+      "The raw diff is truncated; the excerpt is sufficient for the split/configure/header facts but not for detailed analysis of all 1499 added lines or all small dependent edits.",
+      "Merge state is present in metadata, but no build, objdiff, or checkdiff output is loaded; matching status is inferred only from the configure.py change and PR title.",
+      "The new `ftkirbycaptureyoshi.h` contents are not shown, only its line-count metadata and use from `ftkirby.c`."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "kind": "decomp_lesson",
+        "title": "Use a split boundary to link a matched prefix while keeping the unresolved tail NonMatching",
+        "text": "PR 2604 shortened `ftkirbyspecialyoshi.c` to end at `0x8010A930`, added `ftkirbycaptureyoshi.c` for `0x8010A930-0x8010D740`, and changed configure.py so the old file became Matching while the new file remained NonMatching.",
+        "scope": [
+          "fighter Kirby",
+          "splits.txt",
+          "configure.py"
+        ],
+        "evidence_refs": [
+          "diff_excerpt: splits.txt hunk",
+          "diff_excerpt: configure.py hunk"
+        ]
+      },
+      {
+        "kind": "decomp_lesson",
+        "title": "Move declarations to the new owning header after a source split",
+        "text": "`ftkirby.c` stopped declaring `fn_8010A930` locally and instead included `ftkirbycaptureyoshi.h`, making the new split own the declaration surface.",
+        "scope": [
+          "fighter Kirby headers"
+        ],
+        "evidence_refs": [
+          "diff_excerpt: ftkirby.c include/prototype hunk"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "PR 2604 split `ftkirbyspecialyoshi.c` at `0x8010A930` and introduced `ftkirbycaptureyoshi.c`",
+        "text": "For GALE01, this PR changed `melee/ft/chara/ftKirby/ftkirbyspecialyoshi.c` to text `0x80109260-0x8010A930` and sdata2 `0x804D9558-0x804D9560`, and added `melee/ft/chara/ftKirby/ftkirbycaptureyoshi.c` for text `0x8010A930-0x8010D740` and sdata2 `0x804D9560-0x804D95B0`.",
+        "source_path": "config/GALE01/splits.txt",
+        "scope": [
+          "GALE01 splits",
+          "fighter Kirby"
+        ],
+        "evidence_refs": [
+          "diff_excerpt: splits.txt hunk"
+        ],
+        "reason": "This is a concrete split/path fact from the PR diff, but should be curated against current splits before promotion."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "`ftkirbyspecialyoshi.c` became Matching and `ftkirbycaptureyoshi.c` remained NonMatching in PR 2604",
+        "text": "configure.py changed `melee/ft/chara/ftKirby/ftkirbyspecialyoshi.c` from NonMatching to Matching and added `melee/ft/chara/ftKirby/ftkirbycaptureyoshi.c` as NonMatching.",
+        "source_path": "configure.py",
+        "scope": [
+          "configure.py",
+          "MatchingFor",
+          "fighter Kirby"
+        ],
+        "evidence_refs": [
+          "diff_excerpt: configure.py hunk"
+        ],
+        "reason": "Useful historical path/config state; needs curator comparison with current configure.py before source-corpus promotion."
+      }
+    ],
+    "rejection_notes": [
+      "Do not promote `PAD_STACK` or `#pragma dont_inline` uses from this PR as accepted global tactics; the touched file remains NonMatching and no verifier evidence is loaded.",
+      "Do not infer exact review intent or validation results; the loaded PR has no body, comments, reviews, or build/objdiff logs.",
+      "Do not infer semantics for address-style functions beyond the names shown in the diff; functions such as `fn_8010B2E8` and `fn_8010CFB0` remain address-style in the loaded evidence."
+    ]
+  },
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

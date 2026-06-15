@@ -69,6 +69,10 @@ export async function loadTrustedReport(repoRoot: string, maxRows = 100): Promis
   return loadTrustedReportFile(resolve(repoRoot, "build/GALE01/report_changes.json"), "build/GALE01/report_changes.json", maxRows);
 }
 
+function limitedRows<T>(rows: T[], maxRows: number): T[] {
+  return maxRows > 0 ? rows.slice(0, maxRows) : rows;
+}
+
 export async function loadTrustedReportFile(path: string, source: string, maxRows = 100): Promise<TrustedReport> {
   if (!existsSync(path)) return emptyTrustedReport(path, source, "missing");
 
@@ -90,12 +94,12 @@ export async function loadTrustedReportFile(path: string, source: string, maxRow
       },
       measures: report.summary,
       promotion: report.promotion,
-      newMatches: report.newMatches.slice(0, maxRows),
-      brokenMatches: report.brokenMatches.slice(0, maxRows),
-      improvements: report.improvements.slice(0, maxRows),
-      fuzzyRegressions: report.fuzzyRegressions.slice(0, maxRows),
-      metricRegressions: report.regressions.slice(0, maxRows),
-      metricProgressions: report.progressions.slice(0, maxRows),
+      newMatches: limitedRows(report.newMatches, maxRows),
+      brokenMatches: limitedRows(report.brokenMatches, maxRows),
+      improvements: limitedRows(report.improvements, maxRows),
+      fuzzyRegressions: limitedRows(report.fuzzyRegressions, maxRows),
+      metricRegressions: limitedRows(report.regressions, maxRows),
+      metricProgressions: limitedRows(report.progressions, maxRows),
     };
   } catch (error) {
     return emptyTrustedReport(path, source, "parse_error", errorText(error));

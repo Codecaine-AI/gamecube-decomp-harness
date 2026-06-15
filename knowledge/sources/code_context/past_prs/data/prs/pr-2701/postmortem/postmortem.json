@@ -1,0 +1,292 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2701",
+  "pr": {
+    "number": 2701,
+    "title": "link itmewtwoshadowball",
+    "url": "https://github.com/doldecomp/melee/pull/2701",
+    "state": "MERGED",
+    "author": "jurrejelle",
+    "created_at": "2026-06-15T07:27:55Z",
+    "merged_at": "2026-06-15T07:31:52Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "PR 2701 links the item translation unit src/melee/it/items/itmewtwoshadowball.c by changing its build classification from NonMatching to Matching, correcting it_802C4D10's return type from void to u32 in both the C file and header, and updating symbols.txt metadata for several associated local string/float/double constants from global it_* names to local @ labels.",
+  "change_classification": {
+    "primary_type": "decomp_link",
+    "categories": [
+      "matching_status",
+      "header_signature",
+      "symbol_metadata",
+      "data_scope_cleanup"
+    ],
+    "systems": [
+      "item",
+      "config",
+      "symbols"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "configure.py",
+      "role": "Build configuration changed itmewtwoshadowball.c from NonMatching to Matching.",
+      "evidence_refs": [
+        "raw_diff: configure.py hunk at MatchingFor changes Object(NonMatching, \"melee/it/items/itmewtwoshadowball.c\") to Object(Matching, \"melee/it/items/itmewtwoshadowball.c\")"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itmewtwoshadowball.c",
+      "role": "Item source signature for it_802C4D10 changed from void to u32.",
+      "evidence_refs": [
+        "raw_diff: itmewtwoshadowball.c hunk changes void it_802C4D10(Item_GObj* gobj) to u32 it_802C4D10(Item_GObj* gobj)"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itmewtwoshadowball.h",
+      "role": "Owning header prototype synchronized with recovered it_802C4D10 return type.",
+      "evidence_refs": [
+        "raw_diff: itmewtwoshadowball.h hunk changes /* 2C4D10 */ void it_802C4D10(Item_GObj*) to /* 2C4D10 */ u32 it_802C4D10(Item_GObj*)"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Symbol metadata updated for local string, float, and double constants around itmewtwoshadowball linkage.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt changes it_803F788C to @224 with scope:local data:string",
+        "raw_diff: symbols.txt changes it_804D5570 and it_804D5578 to @222 and @223 with scope:local data:string",
+        "raw_diff: symbols.txt changes it_804DD258 through it_804DD288 from global it_* names to local @ labels for sdata2 float/double constants"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "itmewtwoshadowball.c was promoted in configure.py from NonMatching to Matching.",
+      "evidence_refs": [
+        "raw_diff: configure.py MatchingFor hunk"
+      ]
+    },
+    {
+      "text": "Function it_802C4D10 now returns u32 instead of void in both implementation and header declaration.",
+      "evidence_refs": [
+        "raw_diff: src/melee/it/items/itmewtwoshadowball.c signature hunk",
+        "raw_diff: src/melee/it/items/itmewtwoshadowball.h prototype hunk"
+      ]
+    },
+    {
+      "text": "Several symbols associated with strings and floating-point constants were converted from global it_* names to local @ labels while preserving addresses, sizes, sections, and data kinds shown in the diff.",
+      "evidence_refs": [
+        "raw_diff: config/GALE01/symbols.txt three hunks for .data, .sdata, and .sdata2 entries"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "The implementation and header were updated together for it_802C4D10, avoiding a recovered body/prototype mismatch.",
+      "evidence_refs": [
+        "raw_diff: matching u32 signature change in itmewtwoshadowball.c and itmewtwoshadowball.h"
+      ]
+    },
+    {
+      "text": "The PR adjusted symbol metadata instead of adding C-side dummy storage or renamed externs for local constants.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt metadata-only conversions from it_* global names to local @ labels"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "When linking a translation unit, verify that any recovered function return type is reflected in both the source definition and the owning header prototype.",
+      "scope": [
+        "item translation units",
+        "header synchronization",
+        "matching linkage"
+      ],
+      "evidence_refs": [
+        "raw_diff: it_802C4D10 changed from void to u32 in both itmewtwoshadowball.c and itmewtwoshadowball.h"
+      ],
+      "confidence": 0.82
+    },
+    {
+      "lesson": "For a code-link PR, symbol metadata may need to mark compiler-local strings and numeric constants as local @ labels rather than global it_* objects when the diff evidence identifies them as local data.",
+      "scope": [
+        "config/GALE01/symbols.txt",
+        "item data",
+        "local constants"
+      ],
+      "evidence_refs": [
+        "raw_diff: it_803F788C, it_804D5570, it_804D5578, and it_804DD258-it_804DD288 converted to local @ labels"
+      ],
+      "confidence": 0.74
+    }
+  ],
+  "naming_conventions": [
+    {
+      "convention": "Compiler-local constants in symbols.txt can use @NNN-style local labels with scope:local, while preserving section, address, size, alignment, and data kind metadata.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt entries changed to @224, @222, @223, @218, @219, @220, @221, @226, @247, @248, @254, and @493"
+      ],
+      "confidence": 0.78
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Linking the object required a narrow signature correction for it_802C4D10 and symbols.txt scope/name metadata cleanup for related constants before changing configure.py to Matching.",
+      "evidence_refs": [
+        "raw_diff: configure.py NonMatching-to-Matching change",
+        "raw_diff: it_802C4D10 signature and prototype changes",
+        "raw_diff: symbols.txt local-label changes"
+      ],
+      "confidence": 0.68
+    }
+  ],
+  "review_feedback": [],
+  "searchable_terms": [
+    "pr-2701",
+    "link itmewtwoshadowball",
+    "itmewtwoshadowball",
+    "it_802C4D10",
+    "Item_GObj",
+    "GET_ITEM",
+    "itMewtwoShadowball_DatAttrs",
+    "configure.py MatchingFor",
+    "Object(Matching)",
+    "Object(NonMatching)",
+    "config/GALE01/symbols.txt",
+    "it_803F788C",
+    "@224",
+    "it_804D5570",
+    "@222",
+    "it_804D5578",
+    "@223",
+    "it_804DD258",
+    "@218",
+    "it_804DD288",
+    "@493",
+    "scope:local",
+    "data:string",
+    "data:float",
+    "data:double"
+  ],
+  "follow_up_queries": [
+    "itmewtwoshadowball it_802C4D10 u32",
+    "itmewtwoshadowball symbols local @218 @224",
+    "configure.py Object(Matching) itmewtwoshadowball.c",
+    "it_804DD258 it_804DD288 scope local sdata2",
+    "it_803F788C @224 data string"
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR number, title, author, state, created_at, merged_at, changed files, counts",
+      "raw_diff: complete diff for four changed files",
+      "text_corpus: PR body is empty",
+      "metadata_json: issue_comments=0, review_comments=0, reviews=0"
+    ],
+    "notes": [
+      "The diff directly supports changed files and exact source/symbol/config edits.",
+      "No PR body, review comments, issue comments, build logs, objdiff output, or checkdiff output are present in the slice.",
+      "The configure.py edit marks the object as Matching, but this intake record does not independently validate the match.",
+      "No reviewer intent or rationale is available beyond the merged PR metadata and diff."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "lesson_candidate",
+        "title": "Synchronize recovered return types between source and owning header during link PRs",
+        "text": "PR 2701 changed it_802C4D10 from void to u32 in both src/melee/it/items/itmewtwoshadowball.c and src/melee/it/items/itmewtwoshadowball.h while linking the item TU.",
+        "scope": [
+          "item",
+          "headers",
+          "matching linkage"
+        ],
+        "evidence_refs": [
+          "raw_diff: itmewtwoshadowball.c signature hunk",
+          "raw_diff: itmewtwoshadowball.h prototype hunk"
+        ],
+        "confidence": 0.82
+      },
+      {
+        "record_type": "lesson_candidate",
+        "title": "Prefer symbols.txt metadata fixes for local constants over C-side storage churn",
+        "text": "PR 2701 linked itmewtwoshadowball while converting several string, float, and double symbols from global it_* objects to local @ labels in config/GALE01/symbols.txt, with no C-side dummy data additions shown.",
+        "scope": [
+          "symbols.txt",
+          "local constants",
+          "data metadata"
+        ],
+        "evidence_refs": [
+          "raw_diff: symbols.txt .data/.sdata/.sdata2 local-label changes"
+        ],
+        "confidence": 0.74
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "itmewtwoshadowball.c linked as Matching in PR 2701",
+        "text": "configure.py changed melee/it/items/itmewtwoshadowball.c from Object(NonMatching, ...) to Object(Matching, ...) in PR 2701.",
+        "source_path": "src/melee/it/items/itmewtwoshadowball.c",
+        "scope": [
+          "item",
+          "itmewtwoshadowball",
+          "configure.py"
+        ],
+        "evidence_refs": [
+          "raw_diff: configure.py MatchingFor hunk"
+        ],
+        "reason": "Potential path fact for curator review; PR evidence shows the configuration status change but does not include independent objdiff/build validation."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "it_802C4D10 signature is u32(Item_GObj*) after PR 2701",
+        "text": "PR 2701 changed it_802C4D10's return type from void to u32 in both src/melee/it/items/itmewtwoshadowball.c and src/melee/it/items/itmewtwoshadowball.h.",
+        "source_path": "src/melee/it/items/itmewtwoshadowball.h",
+        "scope": [
+          "item",
+          "itmewtwoshadowball",
+          "headers"
+        ],
+        "evidence_refs": [
+          "raw_diff: itmewtwoshadowball.c signature hunk",
+          "raw_diff: itmewtwoshadowball.h prototype hunk"
+        ],
+        "reason": "Potential signature/path fact for curator review because implementation and declaration changed together."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "itmewtwoshadowball local constant symbols use @ labels after PR 2701",
+        "text": "PR 2701 changed selected .data, .sdata, and .sdata2 entries near itmewtwoshadowball from global it_* symbols to local @ labels, including @224 at 0x803F788C, @222/@223 at 0x804D5570/0x804D5578, and @218 through @493 for 0x804DD258-0x804DD288.",
+        "source_path": "config/GALE01/symbols.txt",
+        "scope": [
+          "symbols",
+          "itmewtwoshadowball",
+          "local data"
+        ],
+        "evidence_refs": [
+          "raw_diff: config/GALE01/symbols.txt hunks"
+        ],
+        "reason": "Potential symbol metadata path fact; should remain curator-reviewed because the PR slice has no explanatory body or validation log."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that all it_* symbols near itmewtwoshadowball should become local @ labels; the diff only supports the specific addresses changed.",
+      "Do not claim build, objdiff, or regression checks ran; none are present in the PR slice.",
+      "Do not infer reviewer rationale or requested changes; there were no loaded review or issue comments.",
+      "Do not generalize this PR into a global rule that string/float/double constants should always be local labels; data ownership remains section- and symbol-evidence dependent."
+    ]
+  },
+  "confidence": 0.78,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Sislib decompilation cleanup and matching-progress PR touching src/sysdolphin/baselib/sislib.c and sislib.h. The diff replaces generated-looking dead locals, gotos, disabled #if 0 blocks, and unclear pointer/byte handling with more structured loops, explicit buffers, cursor pointers, typed casts, recovered helper bodies, and an updated HSD_SisLib_803A7684 prototype. Bot report records score improvements for seven unmatched sislib items, but the slice has no human review comments and no PR body details.",
+  "summary": "SisLib decomp progress focused on src/sysdolphin/baselib/sislib.c with one header prototype correction. The diff cleans several generated-looking shapes, adds or rewrites SisLib text encoding/editing routines, improves typed arguments for HSD_SisLib_803A7684, and records remaining known mismatches as regalloc/scheduling/literal-pooling TODOs. Automated bot output reports score improvements for seven sislib functions, but no human review comments are present.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -21,191 +21,194 @@
       "cleanup"
     ],
     "systems": [
-      "src/sysdolphin/baselib/sislib"
+      "src/sysdolphin/baselib",
+      "sislib"
     ]
   },
   "key_files": [
     {
       "path": "src/sysdolphin/baselib/sislib.c",
-      "role": "Primary sislib implementation changes: rewrites HSD_SisLib_803A67EC and HSD_SisLib_803A6B98, adds/reworks HSD_SisLib_803A70A0, HSD_SisLib_803A7684, HSD_SisLib_803A7F0C, and adjusts HSD_SisLib_803A8134/HSD_SisLib_803A84BC call and cursor handling.",
+      "role": "Primary SisLib decomp source; contains allocator TODO refinements, rewrites of text encoding/emission logic, added HSD_SisLib_803A70A0, and changes to HSD_SisLib_803A7684/HSD_SisLib_803A7F0C/HSD_SisLib_803A8134/HSD_SisLib_803A84BC call shapes.",
       "evidence_refs": [
-        "changed_files.jsonl: sislib.c +716/-410, 16 hunks",
-        "raw_diff: HSD_SisLib_803A67EC replaces loop_42/loop_37 gotos and many dead_r* locals with for/do-while loops, u8* LUT pointers, and out_ptr",
-        "raw_diff: HSD_SisLib_803A6B98 replaces dead_sp/dead_r locals with buffer[256], encoded[128], old_buf, cur, bulk_src/tail_src, and direct x/y coordinate handling",
-        "raw_diff: HSD_SisLib_803A70A0 added after fn_803A6FEC with formatted text encoding, grow/shrink buffer handling, and bulk/tail copies",
-        "raw_diff: HSD_SisLib_803A8134 PAD_STACK changed from 16 to 0x8 and cursor/typed u16/s16 reads adjusted",
-        "raw_diff: HSD_SisLib_803A84BC now calls HSD_SisLib_803A8134 for opcode 7 and passes sis_cursor pointers to HSD_SisLib_803A7684"
+        "changed_files.jsonl: src/sysdolphin/baselib/sislib.c added 716 deleted 410 hunks 16",
+        "diff:sislib.c HSD_SisLib_803A5798 TODO changed to 99.40% with regalloc and literal-pooling notes",
+        "diff:sislib.c HSD_SisLib_803A594C TODO changed to 92.57% with coalesce block scheduling/regalloc notes",
+        "diff:sislib.c HSD_SisLib_803A67EC rewritten from goto/dead locals/#if0 blocks to for/do loops and u8 pointer LUT walking",
+        "diff:sislib.c HSD_SisLib_803A6B98 rewritten with buffer[256], encoded[128], va_list, cursor writes through alloc->data_0",
+        "diff:sislib.c adds HSD_SisLib_803A70A0",
+        "diff:sislib.c HSD_SisLib_803A8134 changes HSD_SisLib_803A7684(text, *cursor, ...) to HSD_SisLib_803A7684(text, cursor, ...)"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/sislib.h",
-      "role": "Header prototype update for recovered HSD_SisLib_803A7684 signature.",
+      "role": "Header prototype updated to match recovered HSD_SisLib_803A7684 argument types.",
       "evidence_refs": [
-        "changed_files.jsonl: sislib.h +1/-1, 1 hunk",
-        "raw_diff: HSD_SisLib_803A7684 prototype changed from void HSD_SisLib_803A7684(UNK_T, u8, u8) to void HSD_SisLib_803A7684(HSD_Text*, u8*, u8)"
+        "changed_files.jsonl: src/sysdolphin/baselib/sislib.h added 1 deleted 1 hunks 1",
+        "diff:sislib.h changes void HSD_SisLib_803A7684(UNK_T, u8, u8) to void HSD_SisLib_803A7684(HSD_Text*, u8*, u8)"
       ]
     }
   ],
   "what_changed": [
-    "Updated match-status comments for HSD_SisLib_803A5798 and HSD_SisLib_803A594C, documenting remaining register allocation/scheduling and literal pooling issues rather than only generic register allocation notes.",
-    "Rewrote HSD_SisLib_803A67EC from a goto-heavy, partially disabled/decompiler-shaped form into structured input scanning and LUT lookup loops, with dead_r* temporaries removed and byte-pointer LUT/output handling made explicit.",
-    "Reworked HSD_SisLib_803A6B98 to use explicit local formatting and encoded buffers, va_list handling, old/new SIS buffer growth, byte-copy loops, cursor-style output writes through alloc->data_0, and normal x/y coordinate casts.",
-    "Added HSD_SisLib_803A70A0, which locates an existing SIS entry, encodes formatted replacement text, grows or shrinks the backing buffer, moves tail data with bulk/tail loops, and writes the new encoded payload.",
-    "Changed HSD_SisLib_803A8134 control/cursor handling, including typed u16/s16 reads, corrected HSD_SisLib_803A7684 pointer arguments, a smaller PAD_STACK value, and a while loop for clearing string_buffer tail bytes.",
-    "Replaced an inline helper shape around HSD_SisLib_803A7F0C with concrete HSD_SisLib_803A7684 and HSD_SisLib_803A7F0C bodies that manage style-state stack entries in text->string_buffer.",
-    "Updated HSD_SisLib_803A84BC command parsing to use typed multi-byte reads, call HSD_SisLib_803A8134 for line measurement, and pass cursor pointers into HSD_SisLib_803A7684.",
-    "Updated sislib.h so HSD_SisLib_803A7684 has the recovered signature HSD_Text*, u8*, u8 instead of UNK_T, u8, u8."
+    {
+      "text": "Updated match-progress TODO comments for HSD_SisLib_803A5798 and HSD_SisLib_803A594C with more specific remaining-diff descriptions, including regalloc/scheduling and literal pooling.",
+      "evidence_refs": [
+        "diff:sislib.c top hunks for HSD_SisLib_803A5798 and HSD_SisLib_803A594C"
+      ]
+    },
+    {
+      "text": "Reworked HSD_SisLib_803A67EC from label/goto and dead temporary-heavy code into structured loops that encode ASCII punctuation/digits/letters and search the Shift-JIS lookup table with u8 pointers.",
+      "evidence_refs": [
+        "diff:sislib.c HSD_SisLib_803A67EC"
+      ]
+    },
+    {
+      "text": "Reworked HSD_SisLib_803A6B98 to use local formatting/encoded buffers, va_list formatting, explicit allocation growth, byte copying, and cursor-style SIS output writes through alloc->data_0.",
+      "evidence_refs": [
+        "diff:sislib.c HSD_SisLib_803A6B98"
+      ]
+    },
+    {
+      "text": "Added HSD_SisLib_803A70A0, which finds an existing SIS entry, re-encodes formatted text, grows or shrinks the backing buffer, shifts tail bytes, writes replacement encoded bytes, and returns a success flag.",
+      "evidence_refs": [
+        "diff:sislib.c added HSD_SisLib_803A70A0"
+      ]
+    },
+    {
+      "text": "Recovered HSD_SisLib_803A7684 as taking HSD_Text*, u8* cursor, and u8 flags, and updated call sites plus the public header prototype accordingly.",
+      "evidence_refs": [
+        "diff:sislib.c HSD_SisLib_803A7684 definition",
+        "diff:sislib.c HSD_SisLib_803A8134 call sites",
+        "diff:sislib.h HSD_SisLib_803A7684 prototype"
+      ]
+    },
+    {
+      "text": "Automated report shows score improvements for HSD_SisLib_803A7684, HSD_SisLib_803A84BC, HSD_SisLib_803A70A0, HSD_SisLib_803A6B98, HSD_SisLib_803A67EC, HSD_SisLib_803A7F0C, and HSD_SisLib_803A8134.",
+      "evidence_refs": [
+        "text_corpus.jsonl issue_comment decomp-dev[bot] report"
+      ]
+    }
   ],
   "smart_moves": [
     {
-      "text": "Kept unresolved matching facts in @todo comments for HSD_SisLib_803A5798 and HSD_SisLib_803A594C, naming the specific remaining regalloc/scheduling and literal-pooling issues instead of implying full closure.",
+      "text": "Kept unknown global/function address-style names where semantics are not proven while improving local variable roles such as old_buf, new_buf, cursor, encoded, buffer, playhead, tail_src, and bulk_count.",
       "evidence_refs": [
-        "raw_diff: updated @todo comments at HSD_SisLib_803A5798 and HSD_SisLib_803A594C"
+        "diff:sislib.c HSD_SisLib_803A67EC",
+        "diff:sislib.c HSD_SisLib_803A6B98",
+        "diff:sislib.c HSD_SisLib_803A70A0"
       ]
     },
     {
-      "text": "Removed numerous dead_r*/dead_sp* temporaries and disabled generated blocks in favor of role-named locals such as encoded, old_buf, cur, bulk_src, tail_src, lut_ptr, out_ptr, and copy_idx.",
+      "text": "Updated the owning header when a function body/call-site evidence changed HSD_SisLib_803A7684 from UNK_T/u8 to HSD_Text*/u8*.",
       "evidence_refs": [
-        "raw_diff: HSD_SisLib_803A67EC and HSD_SisLib_803A6B98 local variable rewrites"
+        "diff:sislib.h HSD_SisLib_803A7684 prototype",
+        "diff:sislib.c HSD_SisLib_803A7684 call sites"
       ]
     },
     {
-      "text": "Updated the owning header when HSD_SisLib_803A7684's argument types became clearer.",
+      "text": "Documented known remaining mismatch causes in TODO comments rather than hiding them as completed matches.",
       "evidence_refs": [
-        "raw_diff: sislib.h prototype hunk"
+        "diff:sislib.c HSD_SisLib_803A5798 TODO",
+        "diff:sislib.c HSD_SisLib_803A594C TODO"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a decompiler-shaped loop uses labels/gotos and dead temporaries but the operation is an index-bounded scan or LUT walk, test natural for/do-while forms before preserving generated control flow.",
+      "lesson": "When generated-looking code contains many dead_rXX/dead_spXX locals, labels, and disabled #if 0 blocks, try rebuilding it as structured source with explicit local buffers, role-named cursors, and natural loops before preserving the decompiler shape.",
       "scope": [
-        "sislib text encoding",
-        "byte LUT scans",
-        "decomp cleanup"
+        "SisLib text encoding/emission routines",
+        "generated decomp cleanup"
       ],
       "evidence_refs": [
-        "raw_diff: HSD_SisLib_803A67EC loop_42 replaced with for (in_idx = 0; in_idx < 0x80; in_idx++, str_cursor++)",
-        "raw_diff: HSD_SisLib_803A67EC loop_37 replaced with do/while LUT scan over lbl_8040C8C0"
-      ],
-      "related_standard_ids": [
-        "natural-loops",
-        "canonical-control-flow-and-macros"
+        "diff:sislib.c HSD_SisLib_803A67EC removes dead_rXX locals, labels loop_42/loop_37, and #if 0 blocks",
+        "diff:sislib.c HSD_SisLib_803A6B98 removes many dead_sp/dead_r locals and uses buffer[256]/encoded[128]"
       ]
     },
     {
-      "lesson": "For byte-oriented SIS buffers, recovered cursor pointers and explicit u8 buffers can make the source clearer than single-byte pseudo-locals and stack-dead temporaries, while still preserving byte-copy loop structure where needed.",
+      "lesson": "If body and call-site evidence recover a pointer argument, update both the implementation and the owning header rather than leaving an UNK_T or scalar placeholder.",
       "scope": [
-        "sislib buffer writes",
-        "byte streams",
-        "matching cleanup"
+        "function signature recovery",
+        "headers"
       ],
       "evidence_refs": [
-        "raw_diff: HSD_SisLib_803A6B98 introduces buffer[256], encoded[128], u8** cur, and bulk/tail copy pointers",
-        "raw_diff: HSD_SisLib_803A70A0 uses encoded[128], playhead, src/dst, tail_src, bulk_count, and remainder"
-      ],
-      "related_standard_ids": [
-        "conservative-naming",
-        "infer-authored-source-style"
+        "diff:sislib.c HSD_SisLib_803A7684 call sites pass cursor",
+        "diff:sislib.h HSD_SisLib_803A7684 prototype changes to HSD_Text*, u8*, u8"
       ]
     },
     {
-      "lesson": "When function-body work proves an address-style helper signature, update the exported prototype rather than leaving UNK_T or stale argument types.",
+      "lesson": "Remaining regalloc, scheduling, and literal-pooling mismatches should be called out narrowly in TODOs when the PR evidence does not support claiming a full match.",
       "scope": [
-        "headers",
-        "sislib helper prototypes"
+        "near-matching functions",
+        "review notes"
       ],
       "evidence_refs": [
-        "raw_diff: HSD_SisLib_803A7684 definition takes HSD_Text* text, u8* cursor, u8 flags",
-        "raw_diff: sislib.h prototype updated to void HSD_SisLib_803A7684(HSD_Text*, u8*, u8)"
-      ],
-      "related_standard_ids": [
-        "truthful-headers-and-includes"
+        "diff:sislib.c HSD_SisLib_803A5798 TODO",
+        "diff:sislib.c HSD_SisLib_803A594C TODO"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "name": "Prefer role-based locals over dead register/stack names once the role is clear.",
-      "examples": [
-        "old_buf",
-        "new_buf",
-        "copy_src",
-        "copy_dst",
-        "bulk_src",
-        "tail_src",
-        "lut_ptr",
-        "out_ptr",
-        "encoded",
-        "buffer",
-        "cur"
-      ],
+      "text": "Address-style SisLib symbols such as HSD_SisLib_803A67EC, HSD_SisLib_803A6B98, HSD_SisLib_803A70A0, and lbl_8040C8C0 remain in use where no semantic global/function names are established.",
       "evidence_refs": [
-        "raw_diff: dead_r*/dead_sp* locals removed in HSD_SisLib_803A67EC and HSD_SisLib_803A6B98"
+        "diff:sislib.c function names and lbl_8040C8C0 references"
       ]
     },
     {
-      "name": "Keep unresolved address-style function names when semantic names are not proven, while improving parameter and local names.",
-      "examples": [
-        "HSD_SisLib_803A67EC",
-        "HSD_SisLib_803A6B98",
-        "HSD_SisLib_803A70A0",
-        "HSD_SisLib_803A7684",
-        "HSD_SisLib_803A7F0C"
-      ],
+      "text": "Local variables move away from temp/dead register names toward role names: old_buf/new_buf for allocation movement, encoded/buffer for text conversion, cursor/playhead for SIS stream position, and bulk_count/tail_count for copy loops.",
       "evidence_refs": [
-        "raw_diff: address-style HSD_SisLib_* function names retained while locals and prototypes are improved"
+        "diff:sislib.c HSD_SisLib_803A6B98",
+        "diff:sislib.c HSD_SisLib_803A70A0"
+      ]
+    },
+    {
+      "text": "Recovered signature uses HSD_Text* for the text object and u8* cursor for SIS byte stream traversal in HSD_SisLib_803A7684.",
+      "evidence_refs": [
+        "diff:sislib.h HSD_SisLib_803A7684 prototype"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use structured byte-copy loops with bulk groups of 8 plus tail loops when source needs to preserve observed copy shape.",
+      "text": "Used natural for/do-while loops to replace label/goto traversal in HSD_SisLib_803A67EC, including bounded input traversal up to 0x80 and a do-while LUT scan over 0x11F entries.",
       "evidence_refs": [
-        "raw_diff: HSD_SisLib_803A6B98 copies encoded bytes with an 8-byte loop then tail loop",
-        "raw_diff: HSD_SisLib_803A70A0 grow/shrink paths and payload write use bulk_count/remainder loops"
-      ],
-      "caveat": "The slice shows the tactic in code, but does not include objdiff output proving each loop form's necessity."
+        "diff:sislib.c HSD_SisLib_803A67EC"
+      ]
     },
     {
-      "tactic": "Use pointer-to-cursor writes to model advancing SIS output streams.",
+      "text": "Used explicit byte-copy loops with 8-byte bulk chunks followed by tail-copy loops in HSD_SisLib_803A6B98 and HSD_SisLib_803A70A0.",
       "evidence_refs": [
-        "raw_diff: HSD_SisLib_803A6B98 sets cur = (u8**) &alloc->data_0 and writes *(*cur)++ values"
-      ],
-      "caveat": "This is PR evidence of the chosen shape, not a global endorsement for all cursor-writing code."
+        "diff:sislib.c HSD_SisLib_803A6B98 encoded copy",
+        "diff:sislib.c HSD_SisLib_803A70A0 grow/shrink/replacement copy logic"
+      ]
     },
     {
-      "tactic": "Use PAD_STACK only narrowly and adjust its size when local matching requires it.",
+      "text": "Used cursor writes through a pointer to alloc->data_0 in HSD_SisLib_803A6B98: cur = (u8**) &alloc->data_0; *(*cur)++ = ...",
       "evidence_refs": [
-        "raw_diff: HSD_SisLib_803A8134 changes PAD_STACK(16) to PAD_STACK(0x8)"
-      ],
-      "caveat": "The diff contains the PAD_STACK change, but the loaded slice does not include narrow build/objdiff evidence for the stack padding."
+        "diff:sislib.c HSD_SisLib_803A6B98"
+      ]
     },
     {
-      "tactic": "Document known residual non-matching causes in comments when landing partial-score progress.",
+      "text": "Adjusted PAD_STACK in HSD_SisLib_803A8134 from 16 to 0x8; PR evidence shows the edit but does not include an explanation or verifier output for why that exact padding is required.",
       "evidence_refs": [
-        "raw_diff: HSD_SisLib_803A5798 comment lists HSD_SisLib_804D7970 pointer register and empty-string literal pooling",
-        "raw_diff: HSD_SisLib_803A594C comment lists coalesce-block register allocation/scheduling differences"
-      ],
-      "caveat": "These comments are author-provided evidence in the diff; the slice does not independently validate them."
+        "diff:sislib.c HSD_SisLib_803A8134 PAD_STACK change"
+      ]
+    },
+    {
+      "text": "TODO comments identify specific unresolved codegen differences: HSD_SisLib_804D7970 pointer register allocation/literal pooling in HSD_SisLib_803A5798 and coalesce-block add/register reuse in HSD_SisLib_803A594C.",
+      "evidence_refs": [
+        "diff:sislib.c HSD_SisLib_803A5798 TODO",
+        "diff:sislib.c HSD_SisLib_803A594C TODO"
+      ]
     }
   ],
   "review_feedback": [
     {
-      "kind": "bot_report",
+      "kind": "automated_report",
       "author": "decomp-dev[bot]",
-      "text": "Bot report recorded 7 improvements in unmatched items for main/sysdolphin/baselib/sislib: HSD_SisLib_803A7684 0.00%→55.05%, HSD_SisLib_803A84BC 66.31%→89.15%, HSD_SisLib_803A70A0 0.00%→78.79%, HSD_SisLib_803A6B98 51.49%→87.35%, HSD_SisLib_803A67EC 35.58%→60.71%, HSD_SisLib_803A7F0C 67.41%→97.87%, HSD_SisLib_803A8134 82.88%→94.84%.",
+      "text": "Bot report lists seven unmatched-item score improvements in main/sysdolphin/baselib/sislib, led by HSD_SisLib_803A7684 from 0.00% to 55.05%, HSD_SisLib_803A84BC from 66.31% to 89.15%, and HSD_SisLib_803A70A0 from 0.00% to 78.79%. No human review comments are present in the loaded slice.",
       "evidence_refs": [
-        "text_corpus.jsonl: issue_comment by decomp-dev[bot] at 2026-05-25T19:15:08Z"
-      ]
-    },
-    {
-      "kind": "absence",
-      "author": null,
-      "text": "No human review comments or reviews are present in the loaded PR slice.",
-      "evidence_refs": [
-        "metadata_json: review_comments 0, reviews 0",
-        "text_corpus.jsonl: only PR body and bot issue comment loaded"
+        "text_corpus.jsonl issue_comment decomp-dev[bot]"
       ]
     }
   ],
@@ -213,7 +216,6 @@
     "pr-2540",
     "Jj/sislib",
     "jurrejelle",
-    "sislib",
     "src/sysdolphin/baselib/sislib.c",
     "src/sysdolphin/baselib/sislib.h",
     "HSD_SisLib_803A5798",
@@ -225,108 +227,140 @@
     "HSD_SisLib_803A7F0C",
     "HSD_SisLib_803A8134",
     "HSD_SisLib_803A84BC",
-    "fn_803A6FEC",
-    "HSD_Text",
-    "SIS",
-    "sislib_UnkAllocData",
     "HSD_SisLib_8040C680",
     "lbl_8040C8C0",
-    "HSD_SisLib_8040CB00",
-    "PAD_STACK(0x8)",
-    "u8** cur",
-    "encoded[128]",
-    "buffer[256]",
+    "sislib_UnkAllocData",
+    "HSD_Text",
+    "SIS",
+    "Shift-JIS",
+    "kerning",
+    "PAD_STACK",
     "va_list",
     "vsnprintf",
     "literal pooling",
-    "regalloc",
-    "string_buffer",
-    "sis_buffer"
+    "register allocation",
+    "coalesce block"
   ],
   "follow_up_queries": [
-    "HSD_SisLib_803A7684 cursor flags string_buffer stack",
-    "sislib PAD_STACK(0x8) HSD_SisLib_803A8134",
-    "HSD_SisLib_803A67EC lbl_8040C8C0 LUT do while",
-    "HSD_SisLib_803A70A0 grow shrink SIS entry replacement",
-    "HSD_SisLib_803A6B98 u8** cur alloc->data_0",
-    "HSD_SisLib_803A84BC opcode 7 HSD_SisLib_803A8134 line_width_out",
-    "HSD_SisLib_803A5798 empty string literal pooling HSD_SisLib_804D6390",
-    "HSD_SisLib_803A594C coalesce block new_size old_next free_cur alloc_cur"
+    "HSD_SisLib_803A7684 cursor signature",
+    "sislib PAD_STACK 0x8 HSD_SisLib_803A8134",
+    "HSD_SisLib_803A67EC Shift-JIS LUT lbl_8040C8C0",
+    "HSD_SisLib_803A6B98 alloc->data_0 cursor writes",
+    "HSD_SisLib_803A70A0 grow shrink tail copy",
+    "HSD_SisLib_803A5798 literal pooling HSD_SisLib_804D6390",
+    "HSD_SisLib_803A594C coalesce block regalloc"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR 2540 merged, changed_files count 2, diff_bytes 51729",
-      "changed_files.jsonl: src/sysdolphin/baselib/sislib.c and sislib.h changed",
-      "raw_diff: loaded and local diff excerpts inspected",
-      "text_corpus.jsonl: PR body empty; one bot report; no human review comments"
+      "metadata_json for PR identity, merge state, author, changed-file counts",
+      "changed_files.jsonl for changed files",
+      "raw diff excerpt and raw/diff.diff for source edits",
+      "text_corpus.jsonl for automated score report"
     ],
     "notes": [
-      "Strong evidence for changed files, concrete code-shape changes, header prototype update, and bot-reported score improvements.",
-      "Weak evidence for reviewer intent because there are no human review comments or review records in the loaded slice.",
-      "The PR body is empty, so intent and validation details mainly come from the diff and bot report.",
-      "The loaded slice includes score improvements but not local build logs, objdiff details, or regression output; do not treat any function as fully matched unless explicitly supported elsewhere.",
-      "Some tactics, especially PAD_STACK and specific regalloc/literal-pooling explanations, are visible in the diff but lack independent verification in the slice."
+      "PR body is empty.",
+      "No human review comments or reviews are present in the loaded slice.",
+      "Diff evidence is strong for what changed, but the loaded raw diff is marked truncated in the packet; targeted lookup was used only for the header hunk and function hunk classification.",
+      "Automated report gives fuzzy percentage improvements, not proof that functions fully match.",
+      "TODO comments mention remaining mismatch causes, but the slice does not include local build, objdiff, or regression logs."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson",
-        "title": "Replace generated goto/dead-temp loops with natural loops when the byte-scan or LUT pattern is clear",
-        "text": "In sislib, HSD_SisLib_803A67EC moved from label/goto and dead_r* temporaries to a bounded for loop over the input string and a do/while loop over a two-byte LUT. This supports the reusable lesson that clear byte scans and LUT walks should be tested as natural loops before preserving generated control flow.",
+        "title": "SisLib PR 2540: generated dead-local cleanup via structured loops and role variables",
+        "text": "In sislib.c, PR 2540 replaced dead_rXX/dead_spXX-heavy generated shapes and labels in HSD_SisLib_803A67EC/HSD_SisLib_803A6B98 with structured loops, local buffers, and role-named cursors. This supports a reusable decomp lesson to try authored-looking loop/cursor forms before keeping generated-looking dead temporaries.",
         "scope": [
           "src/sysdolphin/baselib/sislib.c",
-          "byte LUT scans",
-          "text encoding"
+          "HSD_SisLib_803A67EC",
+          "HSD_SisLib_803A6B98"
         ],
         "evidence_refs": [
-          "raw_diff: HSD_SisLib_803A67EC loop_42 and loop_37 rewrites"
+          "diff:sislib.c HSD_SisLib_803A67EC",
+          "diff:sislib.c HSD_SisLib_803A6B98"
         ]
       },
       {
-        "record_type": "decomp_lesson",
-        "title": "Recover prototypes in headers when helper bodies prove argument types",
-        "text": "The PR changes HSD_SisLib_803A7684 from UNK_T/u8/u8 to HSD_Text*/u8*/u8 in sislib.h after the implementation and call sites use an HSD_Text pointer and cursor pointer. This is a concrete sislib example of keeping exported prototypes truthful.",
+        "title": "SisLib PR 2540: recovered pointer signatures should reach the owning header",
+        "text": "HSD_SisLib_803A7684 call sites and implementation use an HSD_Text* and u8* cursor, and sislib.h was updated from UNK_T/u8/u8 to HSD_Text*/u8*/u8. This is a graph-safe example of synchronizing recovered function signatures with headers.",
         "scope": [
+          "src/sysdolphin/baselib/sislib.c",
           "src/sysdolphin/baselib/sislib.h",
-          "headers",
-          "prototype recovery"
+          "HSD_SisLib_803A7684"
         ],
         "evidence_refs": [
-          "raw_diff: HSD_SisLib_803A7684 definition and sislib.h prototype update"
-        ]
-      },
-      {
-        "record_type": "matching_tactic",
-        "title": "Bulk-plus-tail byte-copy loops appeared repeatedly in sislib buffer movement",
-        "text": "HSD_SisLib_803A6B98 and HSD_SisLib_803A70A0 use groups-of-8 copy loops followed by tail loops for encoded bytes and buffer tail movement. This is useful search context for sislib matching, but should still require local objdiff evidence before applying broadly.",
-        "scope": [
-          "src/sysdolphin/baselib/sislib.c",
-          "SIS buffers",
-          "byte copy loops"
-        ],
-        "evidence_refs": [
-          "raw_diff: HSD_SisLib_803A6B98 bulk/tail encoded copy",
-          "raw_diff: HSD_SisLib_803A70A0 grow/shrink and payload copy loops"
+          "diff:sislib.c HSD_SisLib_803A7684",
+          "diff:sislib.h HSD_SisLib_803A7684"
         ]
       }
     ],
-    "source_update_candidates": [],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Use PR 2540 as an example under natural-loops and conservative-naming",
+        "text": "PR 2540 provides concrete examples of converting generated labels/dead temporaries into structured loops and role-named locals while retaining address-style symbols where semantics remain unknown.",
+        "source_path": null,
+        "scope": [
+          "natural-loops",
+          "conservative-naming",
+          "infer-authored-source-style"
+        ],
+        "evidence_refs": [
+          "diff:sislib.c HSD_SisLib_803A67EC",
+          "diff:sislib.c HSD_SisLib_803A6B98"
+        ],
+        "reason": "Existing standards already cover the practice; curator may want to add this PR as an evidence/example record rather than a new rule."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Use PR 2540 as an example for truthful header updates after signature recovery",
+        "text": "HSD_SisLib_803A7684 changed from UNK_T/u8/u8 to HSD_Text*/u8*/u8 in sislib.h after implementation/call-site recovery.",
+        "source_path": "src/sysdolphin/baselib/sislib.h",
+        "scope": [
+          "truthful-headers-and-includes",
+          "src/sysdolphin/baselib"
+        ],
+        "evidence_refs": [
+          "diff:sislib.h HSD_SisLib_803A7684 prototype",
+          "diff:sislib.c HSD_SisLib_803A8134 call sites"
+        ],
+        "reason": "Good historical example of replacing unknown header types with recovered concrete types."
+      },
+      {
+        "target_source_id": "other",
+        "update_kind": "source_update",
+        "title": "Investigate whether sislib cursor/buffer structs deserve owned types",
+        "text": "PR 2540 repeatedly casts allocation fields and byte streams, including cur = (u8**) &alloc->data_0 and ((sisLib_803A7664_t*) alloc)->xC++. This may indicate recoverable internal SisLib buffer/cursor structure, but the PR slice alone does not prove a final type layout.",
+        "source_path": "src/sysdolphin/baselib/sislib.c",
+        "scope": [
+          "sislib internal types",
+          "HSD_SisLib_803A6B98",
+          "HSD_SisLib_803A70A0"
+        ],
+        "evidence_refs": [
+          "diff:sislib.c HSD_SisLib_803A6B98",
+          "diff:sislib.c HSD_SisLib_803A70A0"
+        ],
+        "reason": "Potential future type recovery; should not be promoted as a path fact without broader source evidence."
+      }
+    ],
     "rejection_notes": [
-      "Do not promote the bot score improvements as full matches; the report only says percentage improvements for unmatched items.",
-      "Do not infer human reviewer approval or requested changes; no human review comments are present.",
-      "Do not make PAD_STACK(0x8) a general sislib rule from this slice alone; the diff shows the tactic but not verifier evidence.",
-      "Do not promote the author comments about regalloc/literal pooling as independently validated global facts without build/objdiff corroboration."
+      "Do not record the bot percentage improvements as full matches; they are reported as unmatched-item score improvements only.",
+      "Do not infer human reviewer intent or acceptance rationale; no human review comments are present.",
+      "Do not promote PAD_STACK(0x8) as a general tactic from this slice alone; the diff shows the edit but not verifier evidence.",
+      "Do not rename address-style HSD_SisLib symbols based only on this PR; the diff preserves address-style names."
     ]
   },
-  "confidence": 0.82,
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

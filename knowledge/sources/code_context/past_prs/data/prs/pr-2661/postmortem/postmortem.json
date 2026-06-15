@@ -1,0 +1,255 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2661",
+  "pr": {
+    "number": 2661,
+    "title": "Fix MatToQuat to 100% match",
+    "url": "https://github.com/doldecomp/melee/pull/2661",
+    "state": "CLOSED",
+    "author": "kolt-mcb",
+    "created_at": "2026-06-12T07:15:07Z",
+    "merged_at": null
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "PR #2661 attempted to make MatToQuat in src/sysdolphin/baselib/quatlib.c match by reducing stack usage. The visible diff removes a 99.9%-match TODO, removes local f32 tr, and reuses local s for the trace expression before sqrtf. Bot output reported one new MatToQuat match from 99.92% to 100.00%, but the PR was closed unmerged and an issue comment says it was superseded by PR #2662.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "fix",
+      "stack-frame",
+      "local-variable-lifetime",
+      "math"
+    ],
+    "systems": [
+      "src",
+      "sysdolphin",
+      "baselib",
+      "quatlib"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/sysdolphin/baselib/quatlib.c",
+      "role": "Only changed file; MatToQuat local variable and trace computation cleanup for matching.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/sysdolphin/baselib/quatlib.c added 3 deleted 5 hunks 3",
+        "raw_diff: diff --git a/src/sysdolphin/baselib/quatlib.c",
+        "human_pr_text: Fix `MatToQuat` in `src/sysdolphin/baselib/quatlib.c` to achieve 100% binary match."
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "Removed the comment `/// @todo Currently 99.9% match - stack frame is 8 bytes too large.` above MatToQuat.",
+      "evidence_refs": [
+        "raw_diff: removed TODO line before s32 MatToQuat(Mtx m, Quaternion* q)"
+      ]
+    },
+    {
+      "text": "Removed local variable `f32 tr` from MatToQuat.",
+      "evidence_refs": [
+        "raw_diff: removed `f32 tr;`"
+      ]
+    },
+    {
+      "text": "Changed the trace expression from assignment to `tr` into assignment to existing local `s`, then tested `s > 0.0F` and used `sqrtf(1.0F + s)`.",
+      "evidence_refs": [
+        "raw_diff: `tr = ...` changed to `s = ...`",
+        "raw_diff: `if (tr > 0.0F)` changed to `if (s > 0.0F)`",
+        "raw_diff: `s = sqrtf(1.0F + tr)` changed to `s = sqrtf(1.0F + s)`"
+      ]
+    },
+    {
+      "text": "PR body claims `int k` was removed by replacing uses with `nxt[j]`, but the loaded diff excerpt still shows `int k;` and contains no visible `nxt[j]` hunk, so this claim is not accepted as confirmed from the diff.",
+      "evidence_refs": [
+        "human_pr_text: `int k` was just `nxt[j]` assigned to a temp",
+        "raw_diff: declaration block still includes `int k;`"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "Focused the edit on MatToQuat local lifetime/stack behavior rather than broad data or unrelated TU changes.",
+      "evidence_refs": [
+        "changed_files.jsonl: one changed file",
+        "raw_diff: only MatToQuat hunk shown"
+      ]
+    },
+    {
+      "text": "Reused an existing float local `s` for the trace value before it is overwritten by sqrtf, avoiding an extra stack local in the visible code.",
+      "evidence_refs": [
+        "raw_diff: `f32 tr;` removed and trace assigned to `s`",
+        "jurrejelle issue comment: `Re-using a variable is one of the ways to solve this.`"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "For stack-frame mismatches, removing a local by reusing an existing variable with a non-overlapping lifetime can be a viable matching tactic.",
+      "scope": [
+        "MatToQuat",
+        "src/sysdolphin/baselib/quatlib.c",
+        "stack-frame matching"
+      ],
+      "evidence_refs": [
+        "human_pr_text: stack frame was 8 bytes too large",
+        "raw_diff: `tr` removed and `s` reused for trace expression",
+        "jurrejelle issue comment: `Re-using a variable is one of the ways to solve this.`"
+      ],
+      "confidence": 0.86
+    },
+    {
+      "lesson": "Inlining or removing a source-level temporary does not necessarily decrease stack usage if the compiler was already able to inline or optimize that value.",
+      "scope": [
+        "local variable cleanup",
+        "stack usage",
+        "MWCC codegen"
+      ],
+      "evidence_refs": [
+        "jurrejelle issue comment: `sometimes stuff that can get inlined already is and thus doesn't actually decrease stack usage`"
+      ],
+      "confidence": 0.78
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "No new naming convention is established. The PR uses existing short math locals such as `s`, `scale`, `i`, `j`, and `k`; only `tr` is removed in the loaded diff.",
+      "evidence_refs": [
+        "raw_diff: declaration block around `f32 s;`, `f32 scale;`, `int i;`, `int j;`, `int k;`"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Reduce stack-frame size by shortening or merging local-variable lifetimes, specifically by reusing `s` for the trace value instead of keeping a separate `tr` local.",
+      "evidence_refs": [
+        "human_pr_text: stack frame was 8 bytes too large",
+        "raw_diff: removed `f32 tr;`; assigned trace expression to `s`",
+        "decomp-dev[bot] comment: MatToQuat before 99.92%, after 100.00%"
+      ]
+    },
+    {
+      "tactic": "Use automated diff/report output to confirm narrow function progress; the loaded bot report says MatToQuat became a new 100.00% match.",
+      "evidence_refs": [
+        "text_corpus.jsonl decomp-dev[bot]: `1 new match`; `main/sysdolphin/baselib/quatlib` `MatToQuat` `99.92%` to `100.00%`"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "author": "jurrejelle",
+      "kind": "issue_comment",
+      "text": "PR was superseded by PR #2662. Reviewer/commenter noted the author had the right idea, but that values which can be inlined may already be inlined and therefore not reduce stack usage; reusing a variable is one way to solve the stack issue.",
+      "evidence_refs": [
+        "text_corpus.jsonl issue_comment by jurrejelle at 2026-06-12T08:54:13Z"
+      ]
+    },
+    {
+      "author": "decomp-dev[bot]",
+      "kind": "bot_report",
+      "text": "Report for GALE01 showed matched code +0.03%/+1056 bytes and one new match: MatToQuat from 99.92% to 100.00%.",
+      "evidence_refs": [
+        "text_corpus.jsonl issue_comment by decomp-dev[bot] at 2026-06-12T07:51:41Z"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR 2661",
+    "Fix MatToQuat to 100% match",
+    "MatToQuat",
+    "quatlib.c",
+    "src/sysdolphin/baselib/quatlib.c",
+    "HSD_QuatLib_8037EB28",
+    "HSD_QuatLib_8037EC4C",
+    "HSD_QuatLib_8037ECE0",
+    "EulerToQuat",
+    "HSD_QuatLib_8037EF28",
+    "stack frame 8 bytes too large",
+    "f32 tr",
+    "trace expression",
+    "sqrtf",
+    "lenCol",
+    "Quaternion",
+    "reuse variable",
+    "nxt[j]",
+    "superseded by PR 2662"
+  ],
+  "follow_up_queries": [
+    "PR 2662 MatToQuat superseded variable reuse",
+    "MatToQuat stack frame 8 bytes too large",
+    "src/sysdolphin/baselib/quatlib.c MatToQuat f32 tr",
+    "quatlib MatToQuat 99.92 100.00",
+    "nxt[j] int k MatToQuat"
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR closed, merged_at null, one changed file",
+      "raw_diff: visible source changes in quatlib.c",
+      "text_corpus.jsonl: PR body, bot report, superseding comment"
+    ],
+    "notes": [
+      "Loaded diff is complete for the slice and supports the `tr` removal / `s` reuse change.",
+      "PR body claims `int k` was removed and replaced with `nxt[j]`, but the loaded diff still shows `int k;` and has no visible hunk proving that change.",
+      "Bot report supports a MatToQuat 100.00% result for this PR slice, but the PR was closed unmerged and an issue comment says it was superseded by PR #2662.",
+      "The PR body claims the entire quatlib.c unit is now 100% matched across six functions; loaded bot evidence only directly reports one new match for MatToQuat."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "decomp_lesson",
+        "title": "Stack-frame fixes may require variable lifetime reuse rather than extra temporaries",
+        "text": "In PR #2661, the visible MatToQuat diff removed `f32 tr` and reused `s` for the trace expression before its sqrtf use. A later comment says reusing a variable can solve stack usage issues and that apparent inlining may already be optimized by the compiler.",
+        "scope": [
+          "stack-frame matching",
+          "local variable lifetime",
+          "src/sysdolphin/baselib/quatlib.c",
+          "MatToQuat"
+        ],
+        "evidence_refs": [
+          "raw_diff: `f32 tr;` removed; trace assigned to `s`",
+          "text_corpus.jsonl jurrejelle issue_comment: reusing a variable is one way to solve this",
+          "text_corpus.jsonl decomp-dev[bot]: MatToQuat 99.92% to 100.00%"
+        ],
+        "confidence": 0.82
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Document variable reuse as a narrow stack-frame matching tactic",
+        "text": "When a stack frame is too large, test whether two locals have non-overlapping lifetimes and whether reusing one source variable reproduces MWCC stack allocation. Do not assume removing an apparent temporary will reduce stack usage if the compiler already optimized it; require objdiff/report evidence.",
+        "source_path": null,
+        "scope": [
+          "matching-tactics-need-evidence",
+          "verification-and-regression-ledger",
+          "local variable lifetime",
+          "stack-frame matching"
+        ],
+        "evidence_refs": [
+          "raw_diff: MatToQuat removes `f32 tr` and reuses `s`",
+          "text_corpus.jsonl jurrejelle issue_comment: `stuff that can get inlined already is` and `Re-using a variable is one of the ways to solve this`",
+          "text_corpus.jsonl decomp-dev[bot]: MatToQuat after 100.00%"
+        ],
+        "reason": "This is a potentially reusable matching tactic, but should be curated into standards only with careful wording because this PR was superseded and the evidence is narrow."
+      }
+    ],
+    "rejection_notes": [
+      "Do not promote the PR body's `int k` removal as a confirmed changed fact; the loaded diff does not prove it and still shows `int k;`.",
+      "Do not promote `quatlib.c` entire-unit 100% status as accepted solely from this PR; bot evidence in the loaded slice directly reports only MatToQuat as the new match, and the PR was superseded.",
+      "Do not infer merge acceptance or final project state from this PR; metadata says closed with merged_at null."
+    ]
+  },
+  "confidence": 0.8,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

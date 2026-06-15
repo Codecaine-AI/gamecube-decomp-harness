@@ -12,14 +12,14 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Started matching and documenting src/melee/mn/mnvibration by adding substantial C implementations, local data structs, JObj/Text/menu handling, static/global data declarations, and recovered header prototypes. The bot report credits 5 new matched functions and multiple partial improvements in the mnvibration unit, but the author explicitly described the PR as WIP with preliminary comments to be validated in follow-up PRs.",
+  "summary": "Started matching the mnvibration menu translation unit, adding a large implementation pass in src/melee/mn/mnvibration.c and replacing many mnvibration.h UNK_RET/UNK_PARAMS declarations with typed prototypes and data externs. The PR body explicitly called the work WIP and the comments preliminary; the bot report recorded 5 new 100% matches and 12 additional improvements in main/melee/mn/mnvibration.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "menu-code",
-      "prototype-recovery"
+      "menu",
+      "documentation-comments"
     ],
     "systems": [
       "melee-core",
@@ -30,190 +30,197 @@
   "key_files": [
     {
       "path": "src/melee/mn/mnvibration.c",
-      "role": "Main implementation work: added includes, local inline JObj translation helpers, static/global data, helper structs, and many mnvibration functions for controller rumble, name-list navigation, JObj animation, text cleanup/creation, and menu object setup.",
+      "role": "Main decompilation work: includes expanded dependencies, local helper structs/data, JObj translation inline wrappers, mnvibration menu handlers, rumble/name-list logic, text cleanup, object setup, and matching tactics such as PAD_STACK.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/mn/mnvibration.c +944/-6",
-        "raw_diff: mnvibration.c include block and local inline JObj helpers",
-        "raw_diff: MnVibrationData, MnVibrationJointAssets, mnVibration_804D6C28",
-        "raw_diff: implementations mnVibration_802474C4, fn_80247510, mnVibration_802480B4, mnVibration_8024829C, mnVibration_80248444, mnVibration_80248644, fn_80248748, fn_80248A78, mnVibration_80248ED4"
+        "changed_files.jsonl: src/melee/mn/mnvibration.c +944/-6, 3 hunks",
+        "raw_diff: mnvibration.c include expansion and local inline JObj functions",
+        "raw_diff: added MnVibrationJointAssets and MnVibrationData",
+        "raw_diff: added/expanded mnVibration_802474C4, fn_80247510, fn_80248084, mnVibration_802480B4, mnVibration_8024829C, mnVibration_80248444, mnVibration_80248644, fn_80248748, fn_80248A78, mnVibration_80248ED4 work",
+        "text_corpus: bot report for main/melee/mn/mnvibration"
       ]
     },
     {
       "path": "src/melee/mn/mnvibration.h",
-      "role": "Header cleanup: added platform/baselib/mtx includes, introduced MnVibrationFloatData and extern data declarations, and replaced many UNK_RET/UNK_PARAMS prototypes with typed signatures.",
+      "role": "Header cleanup: added platform/baselib/mtx includes, MnVibrationFloatData, externs for mnvibration data symbols, and typed prototypes replacing UNK_RET/UNK_PARAMS for many functions.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/mn/mnvibration.h +28/-11",
-        "raw_diff: header hunk replacing UNK_RET/UNK_PARAMS with HSD_JObj*, void, s32 signatures",
-        "raw_diff: extern MnVibrationFloatData mnVibration_803EECE0, f32 mnVibration_804DC020, Vec3 mnVibration_803EED04, SDATA assert strings"
+        "changed_files.jsonl: src/melee/mn/mnvibration.h +28/-11, 1 hunk",
+        "raw_diff: mnvibration.h replaces UNK_RET/UNK_PARAMS with HSD_JObj*, void, s32, HSD_GObj*, u8, and s32 signatures",
+        "raw_diff: mnvibration.h adds MnVibrationFloatData and externs mnVibration_803EECE0, mnVibration_804DC020, mnVibration_803EED04, mnVibration_804D4FF4, mnVibration_804D4FFC"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Added broad mnvibration implementation coverage, including functions for selecting child JObjs, per-frame input handling, controller rumble toggles, name-list scrolling, JObj animation setup, text allocation/freeing, and menu object creation.",
+      "text": "Expanded mnvibration.c from sparse stubs into a substantial menu implementation pass, adding local structs for assets and runtime data, static/global data, object creation/setup, controller input handling, rumble toggles, name-list scrolling, text lifecycle cleanup, and JObj animation updates.",
       "evidence_refs": [
-        "raw_diff: function bodies in mnvibration.c",
-        "text_corpus: bot report lists 5 new matches and 12 improved unmatched items"
+        "raw_diff: mnvibration.c +944/-6",
+        "raw_diff: MnVibrationData fields include controller state, connected flags, scroll_offset, jobjs, texts, title_text, cursor_gobj",
+        "raw_diff: fn_80247510 handles B exit, controller rumble toggles, name navigation, persistent name rumble flag toggling"
       ]
     },
     {
-      "text": "Recovered local data shapes for vibration assets and runtime menu state, including MnVibrationJointAssets and MnVibrationData with JObj arrays, text handles, title text, cursor gobj, scroll offset, and controller state fields.",
+      "text": "Added local inline JObj translation getters/setters that assert on null jobj and update translate fields, with setters calling ftCo_800C6AFC when JOBJ_MTX_INDEP_SRT is not set.",
       "evidence_refs": [
-        "raw_diff: typedef struct MnVibrationJointAssets",
-        "raw_diff: typedef struct MnVibrationData"
+        "raw_diff: mnVibration_JObjGetTranslationX/Y/Z",
+        "raw_diff: mnVibration_JObjSetTranslateX/Y/Z",
+        "raw_diff comment: Local inline JObj functions using ftCo_800C6AFC pattern"
       ]
     },
     {
-      "text": "Added static/global data declarations for mnvibration, including a u16 index table, rumble backing value, global HSD_GObj pointer, joint asset globals, and header externs for float/vector/string data.",
+      "text": "Recovered typed prototypes and data declarations in mnvibration.h instead of keeping placeholder UNK_RET/UNK_PARAMS for the touched functions.",
       "evidence_refs": [
-        "raw_diff: mnVibration_804D4FE8, mnVibration_804D4FF0, mnVibration_804D6C28",
-        "raw_diff: header extern declarations"
+        "raw_diff: mnvibration.h prototype replacements lines for mnVibration_802474C4 through mnVibration_80248ED4",
+        "decomp_standards: truthful-headers-and-includes"
       ]
     },
     {
-      "text": "Converted header prototypes for many mnvibration functions from unknown placeholders to typed signatures.",
+      "text": "Bot report recorded 5 newly matched functions: mnVibration_802480B4, mnVibration_8024829C, fn_80248748, mnVibration_802474C4, and fn_80248084.",
       "evidence_refs": [
-        "raw_diff: mnvibration.h lines replacing UNK_RET/UNK_PARAMS"
+        "text_corpus: decomp-dev[bot] issue comment, ✅ 5 new matches"
       ]
     },
     {
-      "text": "Validation evidence from the PR bot reports +1132 matched-code bytes, 5 new 100% matches, and improvements across other mnvibration functions and data sections.",
+      "text": "Bot report recorded 12 improvements in unmatched items, including fn_80247510 at 73.73%, fn_80248A78 at 97.97%, fn_802487A8 at 87.42%, mnVibration_80248ED4 at 81.58%, mnVibration_80248444 at 91.62%, mnVibration_80248644 at 88.25%, and section score improvements.",
       "evidence_refs": [
-        "text_corpus: decomp-dev[bot] report for GALE01"
+        "text_corpus: decomp-dev[bot] issue comment, 📈 12 improvements in unmatched items"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Used a real runtime struct for menu state instead of only raw offsets, making repeated access to jobjs, texts, title_text, cursor_gobj, and scroll_offset reviewable.",
+      "text": "Header signatures were updated alongside recovered bodies, avoiding a local cast workaround for mnVibration_80248ED4 and replacing placeholder prototypes with typed declarations.",
       "evidence_refs": [
-        "raw_diff: MnVibrationData definition and uses in fn_80247510, mnVibration_80248444, mnVibration_80248644"
+        "raw_diff: mnvibration.h typed prototypes",
+        "raw_diff: mnVibration_80249174 changes from function-pointer cast to mnVibration_80248ED4(saved_arg)",
+        "decomp_standards: truthful-headers-and-includes"
       ]
     },
     {
-      "text": "Updated the public header once function bodies established argument and return types, reducing UNK_RET/UNK_PARAMS surface.",
+      "text": "The implementation introduced a local runtime data struct to express repeated offsets for jobj/text/title/cursor state instead of leaving all accesses as raw offsets.",
       "evidence_refs": [
-        "raw_diff: mnvibration.h typed prototypes"
+        "raw_diff: typedef struct MnVibrationData",
+        "decomp_standards: typed-fields-over-pointer-math"
       ]
     },
     {
-      "text": "Kept uncertain global/function names in address-style form where semantics were not proven, while using local role names such as data, cursor_jobj, panel_jobj, scroll_offset, name_count, and rumble_setting inside function bodies.",
+      "text": "Several repeated fixed-count operations were represented as loops over controller slots, text slots, jobj slots, or visible name rows rather than fully copied blocks.",
       "evidence_refs": [
-        "raw_diff: fn_80247510 locals",
-        "raw_diff: address-style globals/functions retained"
+        "raw_diff: for i < 4 controller loops in fn_80247510 and mnVibration_8024829C",
+        "raw_diff: do while i < 8 text/name list loop in mnVibration_80248644",
+        "raw_diff: do while i < 0x19 jobj lookup loop in fn_80248A78 excerpt",
+        "decomp_standards: natural-loops"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For early WIP menu decomp, a typed local runtime-state struct can be a useful bridge when many functions repeatedly access the same GObj user_data layout, but field names should remain conservative when semantics are only partially known.",
-      "scope": [
-        "src/melee/mn/mnvibration.c",
-        "menu user_data structs"
-      ],
+      "lesson": "For a WIP matching PR, bot match percentages are useful for intake, but preliminary comments and partial scores should not be promoted as validated semantics. Here the author explicitly described the comments as preliminary and follow-up validation as pending.",
       "evidence_refs": [
-        "raw_diff: MnVibrationData with mixed semantic and x0/x6 field names",
-        "human_pr_text: preliminary documentation via comments, stronger validation deferred"
+        "human_pr_text: still WIP; preliminary documentation via comments; more strongly validated in follow up PRs",
+        "text_corpus: bot report with new matches and partial improvements"
       ]
     },
     {
-      "lesson": "When body work recovers signatures, updating the owning header from UNK_RET/UNK_PARAMS to typed prototypes is supported and improves downstream callsite review.",
-      "scope": [
-        "src/melee/mn/mnvibration.h"
-      ],
+      "lesson": "When a recovered function body proves a signature, update the owning header in the same slice; this PR converted many mnvibration prototypes from UNK_RET/UNK_PARAMS to typed HSD_JObj/HSD_GObj/u8/s32 signatures.",
       "evidence_refs": [
-        "raw_diff: mnvibration.h typed prototypes",
+        "raw_diff: mnvibration.h prototype replacements",
         "decomp_standards: truthful-headers-and-includes"
       ]
     },
     {
-      "lesson": "Bot match reports are useful evidence for narrow symbol progress, but WIP author notes and partial percentages should prevent treating every comment, field name, or data declaration as fully validated documentation.",
-      "scope": [
-        "PR intake",
-        "WIP matching PRs"
-      ],
+      "lesson": "Local structs can make menu state more reviewable by grouping repeated jobj, text, cursor, and scroll fields, but field comments from this PR should remain tentative because the PR body says documentation comments were preliminary.",
       "evidence_refs": [
-        "human_pr_text: still WIP; preliminary documentation; follow-up validation",
-        "text_corpus: bot report with 5 new matches and 12 partial improvements"
+        "raw_diff: MnVibrationData definition and comments",
+        "human_pr_text: preliminary documentation via comments"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "text": "Address-style names were retained for many globals and functions, including mnVibration_804D6C28, mnVibration_804D4FE8, fn_80247510, fn_80248084, fn_80248748, fn_802487A8, and fn_80248A78.",
+      "text": "Address-style global/function names were retained where semantics were not fully proven, e.g. mnVibration_802474C4, fn_80247510, fn_80248084, mnVibration_804D6C28.",
       "evidence_refs": [
-        "raw_diff: mnvibration.c function/global names",
-        "raw_diff: mnvibration.h prototypes"
+        "raw_diff: added functions and globals retain address-style names",
+        "decomp_standards: conservative-naming"
       ]
     },
     {
-      "text": "Struct names use subsystem prefix and role suffixes: MnVibrationAssets, MnVibrationJointAssets, MnVibrationData, MnVibrationFloatData.",
+      "text": "Semantic local type names were introduced for apparent scoped concepts: MnVibrationAssets, MnVibrationJointAssets, MnVibrationData, and MnVibrationFloatData.",
       "evidence_refs": [
-        "raw_diff: struct typedefs in mnvibration.c",
-        "raw_diff: MnVibrationFloatData in mnvibration.h"
+        "raw_diff: typedef struct MnVibrationJointAssets",
+        "raw_diff: typedef struct MnVibrationData",
+        "raw_diff: mnvibration.h typedef struct MnVibrationFloatData"
       ]
     },
     {
-      "text": "Locals mix semantic names where behavior is clear with temporary/register-like names where meaning remains uncertain, e.g. cursor_jobj, panel_jobj, scroll_offset, name_idx, rumble_setting alongside temp_r4, var_r4, var_ctr, sp14, sp10.",
+      "text": "Some locals use role names such as data, assets, text, cursor_jobj, panel_jobj, scroll_offset, name_count, name_idx, and rumble_setting, while uncertain temporaries remain temp_r4, var_r4, sp14, sp10, or fn_ address-style functions.",
       "evidence_refs": [
-        "raw_diff: mnVibration_802474C4 locals",
-        "raw_diff: fn_80247510 locals",
-        "raw_diff: mnVibration_802480B4 locals"
+        "raw_diff: mnVibration_802474C4 local names",
+        "raw_diff: fn_80247510 local names",
+        "raw_diff: mnVibration_802480B4 local names",
+        "decomp_standards: conservative-naming"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "text": "Added local inline JObj translation get/set helpers with explicit assert file/line data and a ftCo_800C6AFC update call when JOBJ_MTX_INDEP_SRT is not set.",
+      "tactic": "Used local inline wrappers for JObj translate get/set operations, with explicit __assert line numbers and ftCo_800C6AFC invalidation behavior in setters.",
       "evidence_refs": [
         "raw_diff: mnVibration_JObjGetTranslationX/Y/Z",
         "raw_diff: mnVibration_JObjSetTranslateX/Y/Z"
       ],
-      "caution": "Loaded standards prefer existing header inlines/helpers when identifiable; this PR evidence only shows the local-inline tactic, not that it is globally preferred."
+      "caution": "Current standards prefer canonical header inline/helper forms when identifiable; these local wrappers should be curator-reviewed against header-inlines before becoming a general tactic."
     },
     {
-      "text": "Used PAD_STACK in several functions, including mnVibration_80248444, fn_80248748, and mnVibration_80248ED4/menu setup area, apparently as a narrow matching tactic.",
+      "tactic": "Used PAD_STACK in multiple functions, including PAD_STACK(8) in mnVibration_80248444/fn_80248748/mnVibration_80249174 and PAD_STACK(32) in fn_80248A78 excerpt.",
       "evidence_refs": [
-        "raw_diff: PAD_STACK(8)",
-        "raw_diff: PAD_STACK(32)"
+        "raw_diff: PAD_STACK(8) in mnVibration_80248444",
+        "raw_diff: PAD_STACK(8) in fn_80248748",
+        "raw_diff: PAD_STACK(32) in fn_80248A78 excerpt",
+        "raw_diff: PAD_STACK(8) in mnVibration_80249174"
       ],
-      "caution": "PAD_STACK requires explicit verifier evidence under current standards; the PR has bot match evidence but no detailed objdiff explanation in the loaded human text."
+      "caution": "Standards require narrow verifier evidence for PAD_STACK; the bot report supports some matches/improvements but does not isolate each PAD_STACK use."
     },
     {
-      "text": "Preserved MWCC-shaped loops and do-while counters for fixed-size repeated work such as iterating 4 controllers, 8 text slots/name rows, and 0x19 JObjs.",
+      "tactic": "Used do-while and for loops for fixed small counts such as 4 controllers, 8 visible names/text handles, and 0x19 jobj lookups.",
       "evidence_refs": [
-        "raw_diff: do while i < 4 in mnVibration_8024829C",
-        "raw_diff: do while i < 8 in mnVibration_80248644",
-        "raw_diff: do while i < 0x19 in mnVibration_80248ED4 excerpt"
+        "raw_diff: mnVibration_8024829C do while i < 4",
+        "raw_diff: mnVibration_80248644 do while i < 8 and j < 8",
+        "raw_diff: fn_80248A78 excerpt do while i < 0x19",
+        "decomp_standards: natural-loops"
       ]
     },
     {
-      "text": "Introduced a saved_arg local in mnVibration_80249174 and replaced a casted function-pointer call with a typed direct call to mnVibration_80248ED4(saved_arg).",
+      "tactic": "Saved the mnVibration_80249174 argument in saved_arg and called the typed mnVibration_80248ED4(saved_arg), replacing a function-pointer cast used to bypass a header mismatch.",
       "evidence_refs": [
-        "raw_diff: mnVibration_80249174 saved_arg and direct call"
+        "raw_diff: mnVibration_80249174 saved_arg and direct mnVibration_80248ED4(saved_arg)",
+        "raw_diff: removed comment about cast to bypass header mismatch"
       ]
     }
   ],
   "review_feedback": [
     {
-      "kind": "author_scope_note",
-      "text": "Author described the PR as still WIP and said the comments/preliminary documentation would be more strongly validated in follow-up PRs.",
-      "evidence_refs": [
-        "human_pr_text"
-      ]
-    },
-    {
       "kind": "bot_report",
-      "text": "decomp-dev[bot] reported +0.03% matched code, +1132 bytes, 5 new matches, and 12 improvements in unmatched items for main/melee/mn/mnvibration.",
+      "author": "decomp-dev[bot]",
+      "text": "Matched code for GALE01 increased to 53.90% (+0.03%, +1132 bytes). The report listed 5 new 100% matches and 12 additional improvements in main/melee/mn/mnvibration.",
       "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot] at 2026-01-27T23:23:42Z"
+        "text_corpus: issue_comment decomp-dev[bot] created_at 2026-01-27T23:23:42Z"
       ]
     },
     {
       "kind": "missing_human_review",
-      "text": "No loaded review comments or human review records were present in the PR slice.",
+      "author": null,
+      "text": "No review comments or review records were present in the loaded slice.",
       "evidence_refs": [
-        "metadata_json: review_comments 0, reviews 0"
+        "metadata_json: counts.review_comments = 0, reviews = 0"
+      ]
+    },
+    {
+      "kind": "author_scope_note",
+      "author": "itsgrimetime",
+      "text": "Author described the PR as WIP and said documentation comments were preliminary and would be more strongly validated in follow-up PRs.",
+      "evidence_refs": [
+        "human_pr_text",
+        "raw_pr_json.body"
       ]
     }
   ],
@@ -223,83 +230,86 @@
     "itsgrimetime",
     "src/melee/mn/mnvibration.c",
     "src/melee/mn/mnvibration.h",
-    "mnVibration_802474C4",
-    "fn_80247510",
-    "fn_80248084",
+    "main/melee/mn/mnvibration",
     "mnVibration_802480B4",
     "mnVibration_8024829C",
+    "fn_80248748",
+    "mnVibration_802474C4",
+    "fn_80248084",
+    "fn_80247510",
+    "fn_80248A78",
+    "fn_802487A8",
+    "mnVibration_80248ED4",
     "mnVibration_80248444",
     "mnVibration_80248644",
-    "fn_80248748",
-    "fn_802487A8",
-    "fn_80248A78",
-    "mnVibration_80248ED4",
     "mnVibration_80249174",
     "MnVibrationData",
     "MnVibrationJointAssets",
     "MnVibrationFloatData",
     "HSD_JObjGetTranslationX",
     "HSD_JObjSetTranslateX",
+    "ftCo_800C6AFC",
     "JOBJ_MTX_INDEP_SRT",
     "PAD_STACK",
-    "HSD_SisLib_803A5CC4",
-    "GetPersistentNameData",
     "GetRumbleSettingOfPort",
+    "GetPersistentNameData",
+    "GetNameCount",
+    "HSD_SisLib_803A5CC4",
     "HSD_PadRumbleAdd",
-    "HSD_PadRumbleRemoveAll",
-    "UNK_RET",
-    "UNK_PARAMS"
+    "HSD_PadRumbleRemoveAll"
   ],
   "follow_up_queries": [
     "mnvibration follow-up validation comments",
-    "mnVibration_80248A78 97.97 matching follow-up",
-    "mnVibrationData field names validation",
-    "mnVibration JObj inline helpers ftCo_800C6AFC pattern",
-    "mnvibration PAD_STACK objdiff evidence",
-    "mnvibration header prototypes require-protos",
-    "mnvibration .sdata .sdata2 .bss improvements"
+    "mnVibration_80248A78 97.97 follow-up match",
+    "mnVibration PAD_STACK verifier evidence",
+    "mnVibration local JObj inline wrappers ftCo_800C6AFC",
+    "mnvibration preliminary documentation comments follow up PR",
+    "mnVibration_80248ED4 typed prototype header mismatch",
+    "mnVibrationData field names validation"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: merged PR with changed-file stats",
-      "human_pr_text: WIP and preliminary documentation note",
-      "raw_diff: large but loaded excerpt is truncated",
-      "text_corpus: bot report with match percentages",
-      "metadata_json: no review comments or reviews"
+      "metadata_json: PR #2142 merged, changed_files, counts",
+      "human_pr_text: WIP/preliminary documentation note",
+      "raw_diff: truncated but contains main mnvibration.c and mnvibration.h changes",
+      "text_corpus: bot report with match/improvement table",
+      "metadata_json: review_comments = 0, reviews = 0"
     ],
     "notes": [
-      "The changed files and major code patterns are well supported by diff and metadata.",
-      "The PR body explicitly weakens documentation certainty by calling the work WIP and saying comments would be validated later.",
-      "The loaded diff is truncated, so later mnvibration.c details are only partially visible in the slice, though header diff was inspected from the local raw diff.",
-      "Bot report supports claimed matching progress for listed functions, but no detailed local objdiff logs or reviewer rationale are loaded.",
-      "No human review feedback is available in the slice."
+      "Diff evidence is truncated in loaded_files, but targeted lookup of the raw diff recovered the mnvibration.h hunk.",
+      "The PR body explicitly weakens semantic certainty by calling the work WIP and the comments preliminary.",
+      "Bot report gives objective match/improvement percentages, but there is no human review feedback in the slice.",
+      "No build log, objdiff details beyond the bot summary, or follow-up validation PRs are included in this slice.",
+      "Changed-files metadata appears duplicated in metadata_json and changed_files.jsonl; this postmortem deduplicates paths."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson",
-        "title": "Recover headers when mnvibration bodies prove signatures",
-        "text": "PR #2142 supports updating mnvibration.h from UNK_RET/UNK_PARAMS to typed prototypes once function bodies recover argument and return types.",
+        "type": "pr_fact",
+        "title": "PR 2142 mnvibration match progress",
+        "text": "PR #2142 added substantial mnvibration.c matching work and mnvibration.h prototype cleanup. Bot report recorded 5 new 100% matches in main/melee/mn/mnvibration: mnVibration_802480B4, mnVibration_8024829C, fn_80248748, mnVibration_802474C4, and fn_80248084.",
         "scope": [
+          "src/melee/mn/mnvibration.c",
           "src/melee/mn/mnvibration.h",
-          "prototype recovery"
-        ],
-        "evidence_refs": [
-          "raw_diff: mnvibration.h typed prototype replacements",
-          "raw_diff: corresponding function implementations in mnvibration.c"
-        ]
-      },
-      {
-        "record_type": "matching_progress",
-        "title": "mnvibration WIP produced 5 bot-reported new matches",
-        "text": "Bot report for PR #2142 lists new 100% matches for mnVibration_802480B4, mnVibration_8024829C, fn_80248748, mnVibration_802474C4, and fn_80248084, with additional partial improvements in other mnvibration symbols.",
-        "scope": [
           "main/melee/mn/mnvibration"
         ],
         "evidence_refs": [
-          "text_corpus: decomp-dev[bot] report"
+          "text_corpus: decomp-dev[bot] ✅ 5 new matches",
+          "changed_files.jsonl"
+        ]
+      },
+      {
+        "type": "lesson_candidate",
+        "title": "Header cleanup should accompany recovered bodies",
+        "text": "This PR is a concrete example of replacing UNK_RET/UNK_PARAMS in the owning header after recovering function signatures, including HSD_JObj*, HSD_GObj*, u8, s32, and void signatures for mnvibration functions.",
+        "scope": [
+          "src/melee/mn/mnvibration.h"
+        ],
+        "evidence_refs": [
+          "raw_diff: mnvibration.h typed prototype replacements",
+          "decomp_standards: truthful-headers-and-includes"
         ]
       }
     ],
@@ -307,50 +317,76 @@
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "mnvibration menu path dependencies",
-        "text": "src/melee/mn/mnvibration.c interacts with mnname persistent name data, controller input/rumble APIs, JObj animation, SisLib text objects, and menu transition/audio helpers.",
+        "title": "mnvibration path scope",
+        "text": "src/melee/mn/mnvibration.c and src/melee/mn/mnvibration.h belong to the menu mnvibration unit main/melee/mn/mnvibration; this PR's changes cover controller rumble settings, name-list vibration flags, menu text objects, and JObj animation setup.",
         "source_path": "src/melee/mn/mnvibration.c",
         "scope": [
-          "mnvibration",
-          "menu",
-          "controller rumble",
-          "name list UI"
+          "src/melee/mn/mnvibration.c",
+          "src/melee/mn/mnvibration.h",
+          "main/melee/mn/mnvibration"
         ],
         "evidence_refs": [
-          "raw_diff: includes ft/gm/lb/mn/baselib headers",
-          "raw_diff: calls GetNameCount, GetPersistentNameData, GetNameText, GetRumbleSettingOfPort, HSD_PadRumbleAdd, HSD_SisLib_803A5CC4"
+          "changed_files.jsonl",
+          "text_corpus: bot report unit main/melee/mn/mnvibration",
+          "raw_diff: fn_80247510, mnVibration_8024829C, mnVibration_80248444, mnVibration_80248644"
         ],
-        "reason": "Potential path-fact update for curator review; PR evidence shows dependencies but does not by itself establish complete subsystem ownership."
+        "reason": "Potentially useful path fact for future mnvibration matching searches; should be reviewed before source promotion."
       },
       {
         "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Treat WIP PR comments as provisional documentation",
-        "text": "When a PR author labels documentation/comments as preliminary and says they will be validated in follow-up PRs, do not promote field comments or semantic names as accepted facts without later evidence.",
-        "source_path": null,
+        "update_kind": "source_update",
+        "title": "Review local JObj inline wrappers against canonical header-inline practice",
+        "text": "PR #2142 used TU-local JObj translation wrappers with raw __assert file/line symbols and ftCo_800C6AFC invalidation. Curator should consider whether this is only a PR-specific matching tactic or whether missing canonical HSD_JObj helpers/inlines should be documented elsewhere.",
+        "source_path": "src/melee/mn/mnvibration.c",
         "scope": [
-          "PR intake",
-          "WIP decomp documentation"
+          "mnVibration_JObjGetTranslationX",
+          "mnVibration_JObjGetTranslationY",
+          "mnVibration_JObjGetTranslationZ",
+          "mnVibration_JObjSetTranslateX",
+          "mnVibration_JObjSetTranslateY",
+          "mnVibration_JObjSetTranslateZ"
         ],
         "evidence_refs": [
-          "human_pr_text: preliminary documentation via comments; more strongly validated in follow-up PRs"
+          "raw_diff: local inline JObj functions using ftCo_800C6AFC pattern",
+          "decomp_standards: header-inlines",
+          "decomp_standards: assert-report-macros"
         ],
-        "reason": "This is already consistent with conservative evidence handling, but curator may want an explicit source-corpus reminder for WIP PR intake."
+        "reason": "The PR evidence shows the tactic, but current standards caution against leaving expanded/local header helper forms when canonical helpers are identifiable."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "source_update",
+        "title": "PAD_STACK evidence should be tied to per-function match status",
+        "text": "PR #2142 contains PAD_STACK uses in functions with both full matches and partial improvements. Future curation could record this as a reminder to cite per-function objdiff evidence when retaining PAD_STACK in mnvibration or similar menu code.",
+        "source_path": "src/melee/mn/mnvibration.c",
+        "scope": [
+          "mnVibration_80248444",
+          "fn_80248748",
+          "fn_80248A78",
+          "mnVibration_80249174"
+        ],
+        "evidence_refs": [
+          "raw_diff: PAD_STACK uses",
+          "text_corpus: bot report full/partial match statuses",
+          "decomp_standards: matching-tactics-need-evidence"
+        ],
+        "reason": "The bot report supports overall progress, but the slice does not isolate the necessity of each PAD_STACK use."
       }
     ],
     "rejection_notes": [
-      "Do not promote MnVibrationData field comments such as controller scroll states or connected flags as definitive layout facts from this PR alone; the author marked comments/preliminary documentation as needing follow-up validation.",
-      "Do not infer that local mnVibration_JObjGet/SetTranslation helpers are a preferred global cleanup pattern; current standards prefer mapping header asserts back to existing helpers/inlines when supported.",
-      "Do not treat PAD_STACK use as accepted style without the narrow verifier evidence required by current standards, despite bot-reported matches."
+      "Do not promote the PR's field comments for MnVibrationData as validated semantics; the author explicitly called documentation preliminary.",
+      "Do not infer human reviewer acceptance rationale; no human reviews or review comments are present in the slice.",
+      "Do not treat local JObj wrappers or PAD_STACK as accepted general style from this PR alone.",
+      "Do not claim all touched mnvibration functions matched; bot report distinguishes 5 new full matches from 12 partial improvements."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.72,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

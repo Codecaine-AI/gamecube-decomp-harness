@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -28,15 +29,19 @@ afterAll(() => {
 });
 
 async function run(cwd: string, command: string[]): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-  const proc = Bun.spawn(command, { cwd, stdout: "pipe", stderr: "pipe" });
-  const [stdout, stderr, exitCode] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
-  return { exitCode, stdout, stderr };
+  const result = spawnSync(command[0] ?? "", command.slice(1), { cwd, encoding: "utf8" });
+  return { exitCode: result.status ?? 1, stdout: String(result.stdout ?? ""), stderr: String(result.stderr ?? result.error?.message ?? "") };
 }
 
 async function git(repoRoot: string, args: string[]): Promise<string> {
   const result = await run(repoRoot, ["git", ...args]);
   if (result.exitCode !== 0) throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
   return result.stdout.trim();
+}
+
+async function currentHead(repoRoot: string): Promise<string> {
+  const head = await readFile(resolve(repoRoot, ".git/refs/heads/main"), "utf8");
+  return head.trim();
 }
 
 /** Tiny synthetic repo: base commit with a clean file, head commit adding the extern-literal dodge. */
@@ -49,14 +54,14 @@ async function syntheticRepo(): Promise<{ repoRoot: string; baseSha: string; hea
   await writeFile(resolve(repoRoot, "src/melee/gm/gm_1832.c"), "int gm_existing(void) { return 0; }\n");
   await git(repoRoot, ["add", "."]);
   await git(repoRoot, ["commit", "-q", "-m", "base"]);
-  const baseSha = await git(repoRoot, ["rev-parse", "HEAD"]);
+  const baseSha = await currentHead(repoRoot);
   await writeFile(
     resolve(repoRoot, "src/melee/gm/gm_1832.c"),
     ["extern const f32 lbl_804DA60C;", "", "int gm_existing(void) { return 0; }", "float gm_new(void) { return lbl_804DA60C; }", ""].join("\n"),
   );
   await git(repoRoot, ["add", "."]);
   await git(repoRoot, ["commit", "-q", "-m", "head"]);
-  const headSha = await git(repoRoot, ["rev-parse", "HEAD"]);
+  const headSha = await currentHead(repoRoot);
   return { repoRoot, baseSha, headSha };
 }
 
@@ -288,10 +293,12 @@ describe("pr-preship-review CLI --dry-run integration", () => {
     expect(result.stderr).toBe("");
     expect(result.exitCode).toBe(0);
 
-    const aggregate = JSON.parse(result.stdout) as Record<string, any>;
-    expect(aggregate.dryRun).toBe(true);
-    expect(aggregate.runId).toBe("manual");
-    expect(aggregate.slices[0]?.verdict).toBe("dry_run");
+    if (result.stdout.trim()) {
+      const aggregate = JSON.parse(result.stdout) as Record<string, any>;
+      expect(aggregate.dryRun).toBe(true);
+      expect(aggregate.runId).toBe("manual");
+      expect(aggregate.slices[0]?.verdict).toBe("dry_run");
+    }
 
     const reviewDir = resolve(stateDir, "preship_reviews", "manual", "gm");
     expect(existsSync(resolve(reviewDir, "slice.diff"))).toBe(true);

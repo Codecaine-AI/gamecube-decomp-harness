@@ -1,0 +1,181 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2680",
+  "pr": {
+    "number": 2680,
+    "title": "Expand package rebuild condition paths",
+    "url": "https://github.com/doldecomp/melee/pull/2680",
+    "state": "MERGED",
+    "author": "ribbanya",
+    "created_at": "2026-06-13T18:42:30Z",
+    "merged_at": "2026-06-13T18:46:15Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Updated the package publishing GitHub Actions workflow path filters so push and pull_request triggers share one YAML anchor and include additional Cargo and Rust-tool paths.",
+  "change_classification": {
+    "primary_type": "tooling-ci-workflow",
+    "categories": [
+      "code-change",
+      "github-actions",
+      "package-publishing",
+      "path-filter-maintenance"
+    ],
+    "systems": [
+      ".github",
+      ".github/workflows",
+      "publish-packages"
+    ]
+  },
+  "key_files": [
+    {
+      "path": ".github/workflows/publish-packages.yml",
+      "role": "Only changed file; GitHub Actions workflow whose push and pull_request path filters were deduplicated and expanded.",
+      "evidence_refs": [
+        "changed_files:.github/workflows/publish-packages.yml added=9 deleted=12 hunks=1",
+        "raw_diff:.github/workflows/publish-packages.yml"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "Replaced separate push and pull_request path lists with a shared YAML anchor named common_paths and an alias for pull_request.",
+      "evidence_refs": [
+        "raw_diff:+    paths: &common_paths",
+        "raw_diff:+    paths: *common_paths"
+      ]
+    },
+    {
+      "text": "Expanded package rebuild trigger paths from Cargo.lock at repository root to **/Cargo.lock and added **/Cargo.toml.",
+      "evidence_refs": [
+        "raw_diff:-      - Cargo.lock",
+        "raw_diff:+      - '**/Cargo.lock'",
+        "raw_diff:+      - '**/Cargo.toml'"
+      ]
+    },
+    {
+      "text": "Added Rust tool source files under tools/**/*.rs to the workflow path filters.",
+      "evidence_refs": [
+        "raw_diff:+      - 'tools/**/*.rs'"
+      ]
+    },
+    {
+      "text": "Quoted the workflow path patterns in the new shared list.",
+      "evidence_refs": [
+        "raw_diff:+      - '.github/workflows/publish-packages.yml'",
+        "raw_diff:+      - '.github/packages/**'",
+        "raw_diff:+      - 'reqs/**/*.txt'",
+        "raw_diff:+      - 'tools/**/*.py'"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "Used a YAML anchor and alias to keep push and pull_request package rebuild path filters in sync.",
+      "evidence_refs": [
+        "raw_diff:+    paths: &common_paths",
+        "raw_diff:+    paths: *common_paths"
+      ]
+    },
+    {
+      "text": "Broadened Cargo-related rebuild triggers to nested lockfiles and manifests, which fits the PR title's stated goal of expanding package rebuild condition paths.",
+      "evidence_refs": [
+        "metadata:title=Expand package rebuild condition paths",
+        "raw_diff:+      - '**/Cargo.lock'",
+        "raw_diff:+      - '**/Cargo.toml'"
+      ]
+    }
+  ],
+  "decomp_lessons": [],
+  "naming_conventions": [
+    {
+      "text": "For shared GitHub Actions path filters in this workflow, the PR used the YAML anchor name common_paths.",
+      "scope": [
+        ".github/workflows/publish-packages.yml"
+      ],
+      "evidence_refs": [
+        "raw_diff:+    paths: &common_paths",
+        "raw_diff:+    paths: *common_paths"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [],
+  "review_feedback": [],
+  "searchable_terms": [
+    "pr-2680",
+    "Expand package rebuild condition paths",
+    "ribbanya",
+    ".github/workflows/publish-packages.yml",
+    "publish-packages",
+    "GitHub Actions",
+    "paths",
+    "common_paths",
+    "YAML anchor",
+    "Cargo.lock",
+    "Cargo.toml",
+    "tools/**/*.rs",
+    "tools/**/*.py",
+    "reqs/**/*.txt",
+    ".github/packages"
+  ],
+  "follow_up_queries": [
+    "publish-packages.yml common_paths",
+    "GitHub Actions package rebuild paths Cargo.toml Cargo.lock",
+    "tools/**/*.rs publish packages workflow",
+    ".github/workflows path filters pull_request push YAML anchor"
+  ],
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json:pr number/title/state/author/timestamps",
+      "changed_files:.github/workflows/publish-packages.yml",
+      "raw_diff:.github/workflows/publish-packages.yml",
+      "text_corpus:empty PR body",
+      "metadata_json:issue_comments=0 review_comments=0 reviews=0"
+    ],
+    "notes": [
+      "The PR body is empty and there are no loaded review or issue comments, so no author rationale or reviewer feedback beyond the title and diff can be extracted.",
+      "This is a CI/tooling workflow change, not a decompilation source change; decomp lessons and assembly/matching tactics are not applicable.",
+      "No validation output is present in the slice, so no build, workflow-run, or package-publish success is claimed."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [],
+    "source_update_candidates": [
+      {
+        "target_source_id": "other",
+        "update_kind": "source_update",
+        "title": "Consider documenting shared path filters for package publishing workflow",
+        "text": "PR 2680 shows .github/workflows/publish-packages.yml using a YAML anchor named common_paths so push and pull_request triggers share the same package rebuild path filter list, including .github workflow/package files, nested Cargo.lock, nested Cargo.toml, reqs/**/*.txt, tools/**/*.py, and tools/**/*.rs.",
+        "source_path": ".github/workflows/publish-packages.yml",
+        "scope": [
+          "GitHub Actions",
+          "package publishing",
+          "workflow path filters"
+        ],
+        "evidence_refs": [
+          "raw_diff:+    paths: &common_paths",
+          "raw_diff:+    paths: *common_paths",
+          "raw_diff:+      - '**/Cargo.lock'",
+          "raw_diff:+      - '**/Cargo.toml'",
+          "raw_diff:+      - 'tools/**/*.rs'"
+        ],
+        "reason": "This may be useful as a tooling-maintenance note if the curator maintains CI workflow conventions, but the PR evidence does not establish it as a global decomp standard."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer package rebuild correctness, package publication success, or workflow run validation from this slice; no CI result evidence is loaded.",
+      "Do not turn the common_paths anchor name into a global naming standard; evidence is limited to one workflow file.",
+      "No review feedback or reviewer intent is available because the slice reports zero reviews, review comments, and issue comments."
+    ]
+  },
+  "confidence": 0.9,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

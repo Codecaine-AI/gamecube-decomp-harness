@@ -1,0 +1,409 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2663",
+  "pr": {
+    "number": 2663,
+    "title": "link itseakneedlthrown",
+    "url": "https://github.com/doldecomp/melee/pull/2663",
+    "state": "MERGED",
+    "author": "jurrejelle",
+    "created_at": "2026-06-12T10:17:38Z",
+    "merged_at": "2026-06-12T10:59:24Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Matched and linked the Sheik needle thrown item TU by changing itseakneedlethrown.c source shape, marking the object Matching in configure.py, and adjusting GALE01 symbol metadata for local sdata/sdata2 literals. The bot report recorded new matches for the unit's .data, .sdata2, and two collision functions.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "item",
+      "symbol-metadata",
+      "build-config"
+    ],
+    "systems": [
+      "item",
+      "config",
+      "repo-root"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/it/items/itseakneedlethrown.c",
+      "role": "Primary item TU source changes for matching/linking: state table callbacks, include changes, local ordering and stack tactics, collision function adjustments, and inline/static signature change.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c",
+        "changed_files.jsonl:src/melee/it/items/itseakneedlethrown.c added=22 deleted=13 hunks=9",
+        "text_corpus:decomp-dev bot report new matches for itseakneedlethrown .data, .sdata2, itSeakneedlethrown_UnkMotion0_Coll, itSeakneedlethrown_UnkMotion1_Coll"
+      ]
+    },
+    {
+      "path": "configure.py",
+      "role": "Build configuration changed itseakneedlethrown.c from NonMatching to Matching.",
+      "evidence_refs": [
+        "raw_diff:configure.py Object(NonMatching, \"melee/it/items/itseakneedlethrown.c\") -> Object(Matching, \"melee/it/items/itseakneedlethrown.c\")"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Symbol metadata adjusted several sdata and sdata2 literals from global it_ address names to local @ labels.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt it_804D5458/it_804D5460 -> @236/@237",
+        "raw_diff:config/GALE01/symbols.txt it_804DCF60..it_804DCF80 -> @188/@189/@190/@233/@234/@235/@593/@637"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "Marked `melee/it/items/itseakneedlethrown.c` as Matching in `configure.py`.",
+      "evidence_refs": [
+        "raw_diff:configure.py"
+      ]
+    },
+    {
+      "text": "Filled `ItemStateTable it_803F6F50` entries with the motion-specific Anim/Phys/Coll callbacks instead of NULL callbacks.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c ItemStateTable hunk"
+      ]
+    },
+    {
+      "text": "Replaced include `it/it_266F.h` with `it/itgroundcoll.h` in the item TU.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c include hunk"
+      ]
+    },
+    {
+      "text": "Added a small `sdata2_order` helper referencing `0.0f`, `1.0f`, and `-1.0f`, apparently to influence local sdata2 ordering.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c sdata2_order hunk"
+      ]
+    },
+    {
+      "text": "Changed local declaration order in `itSeakNeedleThrown_CheckGroundHit`, moving `u32 line_id` before `Vec3 hit_pos`.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c CheckGroundHit hunk"
+      ]
+    },
+    {
+      "text": "Changed two collision functions to get the item via `gobj->user_data` instead of `GET_ITEM(gobj)`.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c UnkMotion0_Coll and UnkMotion1_Coll hunks"
+      ]
+    },
+    {
+      "text": "Added `PAD_STACK(4)` before returning false in `itSeakneedlethrown_UnkMotion0_Coll`.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c UnkMotion0_Coll hunk"
+      ]
+    },
+    {
+      "text": "Moved `itSeakneedlethrown_UnkMotion3_Coll` lower in the file, after `itSeakneedlethrown_UnkMotion2_Coll`.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c UnkMotion3_Coll removal/addition hunks"
+      ]
+    },
+    {
+      "text": "Changed `it_2725_Logic109_HitShield_inline` from `static bool` to `inline bool`.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c HitShield inline hunk"
+      ]
+    },
+    {
+      "text": "Converted selected GALE01 sdata and sdata2 literal symbols from global `it_804D...` names to local `@...` labels.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "The PR linked the object only after source and symbol metadata changes produced bot-reported new matches for the item unit.",
+      "evidence_refs": [
+        "raw_diff:configure.py",
+        "text_corpus:decomp-dev bot report"
+      ]
+    },
+    {
+      "text": "The PR treated literal ownership/visibility as part of the match by changing address-named global literal symbols to local labels in symbols.txt.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt"
+      ]
+    },
+    {
+      "text": "The item state table was made explicit with callback functions, which coincided with the bot report showing `.data` reaching 100% for the unit.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c ItemStateTable hunk",
+        "text_corpus:decomp-dev bot report `.data` +35 to 100.00%"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "For item TUs, a complete `ItemStateTable` with real motion Anim/Phys/Coll callbacks can be a decisive data-section matching step when the previous table has NULL callbacks.",
+      "scope": [
+        "src/melee/it/items/itseakneedlethrown.c",
+        "item state tables"
+      ],
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c ItemStateTable hunk",
+        "text_corpus:bot report main/melee/it/items/itseakneedlethrown .data 89.95% -> 100.00%"
+      ],
+      "confidence": 0.79
+    },
+    {
+      "lesson": "Literal symbol scope changes in `symbols.txt` may be required for item TU data matching, but they should be grounded in section ownership/metadata rather than treated as general source style.",
+      "scope": [
+        "config/GALE01/symbols.txt",
+        ".sdata",
+        ".sdata2"
+      ],
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt local @ label replacements",
+        "decomp_standards:data-sections-and-tu-splits",
+        "decomp_standards:literals-and-data-ownership"
+      ],
+      "confidence": 0.72
+    },
+    {
+      "lesson": "Very small source-shape edits such as local declaration order, direct `gobj->user_data`, inline linkage, and narrow `PAD_STACK` use can close final percent gaps, but they need verifier evidence and should not become broad style.",
+      "scope": [
+        "src/melee/it/items/itseakneedlethrown.c",
+        "final matching cleanup"
+      ],
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c CheckGroundHit declaration order",
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c gobj->user_data changes",
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c PAD_STACK(4)",
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c inline bool change",
+        "text_corpus:bot report new matches for UnkMotion0_Coll and UnkMotion1_Coll",
+        "decomp_standards:matching-tactics-need-evidence"
+      ],
+      "confidence": 0.68
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "This PR retained existing address-style names such as `it_803F6F50`, `it_803F6FA0`, and `it_803F7060`; no semantic global renames were introduced in the diff.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c"
+      ]
+    },
+    {
+      "text": "The symbol metadata changes prefer local `@NNN` labels over global `it_804D...` names for selected local literals.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Object status flip from NonMatching to Matching after source and symbol changes.",
+      "evidence_refs": [
+        "raw_diff:configure.py",
+        "text_corpus:bot report matched/linked code and data improvements"
+      ]
+    },
+    {
+      "tactic": "Use explicit state table callback references to match the item unit's data table.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c ItemStateTable hunk",
+        "text_corpus:bot report `.data` new match"
+      ]
+    },
+    {
+      "tactic": "Adjust local sdata/sdata2 symbol labels from global address-style symbols to local labels to match data ownership/placement.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt",
+        "text_corpus:bot report `.sdata2` 80.00% -> 100.00%"
+      ]
+    },
+    {
+      "tactic": "Introduce `sdata2_order` with float references, apparently to affect sdata2 ordering.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c sdata2_order hunk"
+      ],
+      "caution": "The PR evidence does not explain why this helper was necessary; global standards treat data-order helpers as high-risk unless required and verified."
+    },
+    {
+      "tactic": "Use `PAD_STACK(4)` narrowly in `itSeakneedlethrown_UnkMotion0_Coll`.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c PAD_STACK(4)",
+        "text_corpus:bot report `itSeakneedlethrown_UnkMotion0_Coll` 99.99% -> 100.00%"
+      ],
+      "caution": "Keep PAD_STACK evidence-tied; do not generalize as preferred style."
+    },
+    {
+      "tactic": "Change local variable declaration order in a ground-hit helper.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/items/itseakneedlethrown.c `u32 line_id; Vec3 hit_pos;`"
+      ]
+    }
+  ],
+  "review_feedback": [],
+  "searchable_terms": [
+    "pr-2663",
+    "link itseakneedlthrown",
+    "itseakneedlethrown",
+    "itSeakneedlethrown_UnkMotion0_Coll",
+    "itSeakneedlethrown_UnkMotion1_Coll",
+    "itSeakneedlethrown_UnkMotion2_Coll",
+    "itSeakneedlethrown_UnkMotion3_Coll",
+    "itSeakneedlethrown_UnkMotion4_Coll",
+    "ItemStateTable",
+    "it_803F6F50",
+    "sdata2_order",
+    "PAD_STACK(4)",
+    "gobj->user_data",
+    "GET_ITEM",
+    "it_2725_Logic109_HitShield_inline",
+    "config/GALE01/symbols.txt",
+    "configure.py",
+    "Object(Matching)",
+    "Object(NonMatching)",
+    "@188",
+    "@189",
+    "@190",
+    "@233",
+    "@234",
+    "@235",
+    "@593",
+    "@637",
+    "@236",
+    "@237",
+    "it_804DCF60",
+    "it_804DCF80"
+  ],
+  "follow_up_queries": [
+    "itseakneedlethrown PAD_STACK",
+    "sdata2_order item TU",
+    "Object(Matching) \"melee/it/items/itseakneedlethrown.c\"",
+    "itSeakneedlethrown_UnkMotion0_Coll gobj->user_data",
+    "itSeakneedlethrown ItemStateTable it_803F6F50",
+    "symbols.txt it_804DCF60 @188",
+    "symbols.txt it_804D5458 @236"
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json:pr number/title/state/author/timestamps",
+      "raw_diff:complete diff excerpt",
+      "changed_files.jsonl:3 changed files",
+      "text_corpus:empty PR body plus decomp-dev bot report",
+      "metadata_json:review_comments=0 reviews=0 issue_comments=1"
+    ],
+    "notes": [
+      "The diff and bot report provide concrete evidence for changed files and reported matching improvements.",
+      "The PR body is empty and there are no review comments, so author rationale and reviewer intent are unavailable.",
+      "No independent build, objdiff, or regression output beyond the decomp-dev bot report is present in the slice.",
+      "The purpose of `sdata2_order` and `PAD_STACK(4)` is inferred from placement and bot-reported match changes, not explained by the author."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "type": "matching_case_study",
+        "title": "PR 2663 linked `itseakneedlethrown.c` with item state table, symbol metadata, and narrow source-shape edits",
+        "text": "In PR 2663, `melee/it/items/itseakneedlethrown.c` was changed from NonMatching to Matching. The diff filled the item state table with real callbacks, localized selected sdata/sdata2 symbols in `config/GALE01/symbols.txt`, changed small source shapes including `gobj->user_data`, local declaration order, `PAD_STACK(4)`, and inline linkage, and the bot report recorded new matches for `.data`, `.sdata2`, `itSeakneedlethrown_UnkMotion0_Coll`, and `itSeakneedlethrown_UnkMotion1_Coll`.",
+        "scope": [
+          "item",
+          "itseakneedlethrown",
+          "decomp-matching"
+        ],
+        "evidence_refs": [
+          "raw_diff:configure.py",
+          "raw_diff:src/melee/it/items/itseakneedlethrown.c",
+          "raw_diff:config/GALE01/symbols.txt",
+          "text_corpus:decomp-dev bot report"
+        ],
+        "confidence": 0.82
+      },
+      {
+        "type": "tactic_with_caution",
+        "title": "PAD_STACK and data-order helpers appeared in a final matching PR but require narrow evidence",
+        "text": "This PR used `PAD_STACK(4)` and a `sdata2_order` helper while closing final match gaps. The evidence supports that they were part of the landed diff and coincided with bot-reported matches, but the PR does not explain necessity. Treat as a cautionary case aligned with the standard that matching tactics need explicit verifier evidence.",
+        "scope": [
+          "matching tactics",
+          "PAD_STACK",
+          "sdata2 ordering"
+        ],
+        "evidence_refs": [
+          "raw_diff:src/melee/it/items/itseakneedlethrown.c PAD_STACK and sdata2_order",
+          "text_corpus:decomp-dev bot report",
+          "decomp_standards:matching-tactics-need-evidence",
+          "decomp_standards:text-before-data-matching"
+        ],
+        "confidence": 0.7
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "`itseakneedlethrown.c` marked Matching in PR 2663",
+        "text": "PR 2663 changed `Object(NonMatching, \"melee/it/items/itseakneedlethrown.c\")` to `Object(Matching, \"melee/it/items/itseakneedlethrown.c\")` in `configure.py`; the bot report recorded new matches for this item unit.",
+        "source_path": "configure.py",
+        "scope": [
+          "melee/it/items/itseakneedlethrown.c",
+          "GALE01",
+          "matching status"
+        ],
+        "evidence_refs": [
+          "raw_diff:configure.py",
+          "text_corpus:decomp-dev bot report"
+        ],
+        "reason": "Candidate path/status fact for curator review; intake should not directly promote matching status into source facts."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "Selected `itseakneedlethrown` sdata/sdata2 literals became local labels",
+        "text": "PR 2663 changed selected GALE01 `.sdata` and `.sdata2` symbols near `it_804D5458` and `it_804DCF60` from global address-style names to local `@...` labels.",
+        "source_path": "config/GALE01/symbols.txt",
+        "scope": [
+          "config/GALE01/symbols.txt",
+          ".sdata",
+          ".sdata2",
+          "itseakneedlethrown"
+        ],
+        "evidence_refs": [
+          "raw_diff:config/GALE01/symbols.txt"
+        ],
+        "reason": "Candidate symbol/path metadata fact; verify ownership in current source before promoting."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Clarify risk around helper functions used only for data ordering",
+        "text": "This PR added `static void sdata2_order(void)` with float literal references while matching/linking an item TU. Consider whether standards should explicitly call out such helpers as data-order tactics that require narrow evidence and cleanup review.",
+        "source_path": "src/melee/it/items/itseakneedlethrown.c",
+        "scope": [
+          "data ordering",
+          "sdata2",
+          "matching tactics"
+        ],
+        "evidence_refs": [
+          "raw_diff:src/melee/it/items/itseakneedlethrown.c sdata2_order",
+          "decomp_standards:text-before-data-matching",
+          "decomp_standards:literals-and-data-ownership",
+          "decomp_standards:matching-tactics-need-evidence"
+        ],
+        "reason": "Existing standards cover fake data anchors and tactic evidence, but curator may want a more searchable note for source helpers that exist only to force literal order."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that `gobj->user_data` should replace `GET_ITEM` generally; the evidence only shows two local changes in this PR.",
+      "Do not infer a general approval of `PAD_STACK`; the PR has no reviewer explanation and standards require explicit verifier evidence.",
+      "Do not infer that adding `sdata2_order` helpers is accepted normal style; the PR evidence only shows this instance and the standards caution against data-order work without ownership evidence.",
+      "No review feedback is recorded in the slice, so no reviewer intent should be attributed."
+    ]
+  },
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

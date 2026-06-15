@@ -12,214 +12,226 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR 2538 advances decompilation of src/melee/if/ifprize.c by replacing stubs with recovered control flow and typed state for the ifprize flow. Bot output reports new 100% matches for fn_802FE470 and un_802FE6A8, near-complete improvements for un_802FE918 and un_802FEBE0_OnEnter, and a .data regression.",
+  "summary": "PR 2538 updates src/melee/if/ifprize.c for ifprize decomp progress. The diff replaces placeholder calls with recovered state-machine, object setup, text/audio/date display logic, refines local/global structs with HSD_JObj/HSD_GObj/HSD_Text and linked-list argument types, and adjusts inlining/stack-shaping around un_802FE3F8. Bot evidence reports two new function matches, two unmatched-function improvements, and one .data regression.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
-      "text-section-progress",
-      "state-struct-typing"
+      "code matching",
+      "function recovery",
+      "type recovery",
+      "matching tactic"
     ],
     "systems": [
-      "melee-core",
-      "ifprize",
-      "interface"
+      "melee if",
+      "ifprize"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/if/ifprize.c",
-      "role": "Only changed file; recovered ifprize state structures, event/state-machine behavior, object setup, text formatting, and matching scaffolding.",
+      "role": "Only changed source file; contains recovered ifprize logic, struct layout refinements, object/text setup, and matching tactics.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/if/ifprize.c added 157 deleted 67 hunks 8",
-        "raw_diff: entire diff for src/melee/if/ifprize.c",
-        "text_corpus: decomp-dev bot report for main/melee/if/ifprize"
+        "changed_files: src/melee/if/ifprize.c added 157 deleted 67 hunks 8",
+        "raw_diff: single diff for src/melee/if/ifprize.c",
+        "bot_report: main/melee/if/ifprize function match/improvement report"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Added include of placeholder.h.",
+      "text": "Added placeholder.h include.",
       "evidence_refs": [
         "raw_diff: +#include \"placeholder.h\""
       ]
     },
     {
-      "text": "Introduced and expanded typed local structs: un_802FEBE0_OnEnter_arg0 gained x0, x2, x4, and linked-list pointer x8; un_803F9D48 changed from padding/raw integers to HSD_JObj, HSD_GObj, HSD_Text, arg-list pointers, and an int x30[3] table.",
+      "text": "Introduced and moved struct un_802FEBE0_OnEnter_arg0 near the top of the file, adding x2 and typing x8 as a self-referential linked-list pointer.",
       "evidence_refs": [
-        "raw_diff: added struct un_802FEBE0_OnEnter_arg0 before un_803F9D48",
-        "raw_diff: un_803F9D48 fields x10-x30 converted to HSD_JObj*, HSD_GObj*, HSD_Text*, arg pointers, and int x30[3]"
+        "raw_diff: added struct un_802FEBE0_OnEnter_arg0 with x0, x2, x4, x8 pointer",
+        "raw_diff: removed later shorter struct definition with x0, x4, int x8"
       ]
     },
     {
-      "text": "Replaced pragma dont_inline around un_802FE3F8 with inline wrapper functions un_802FE3F8_inner and un_802FE3F8_noinline, with a comment that un_802FEBE0_OnEnter would inline un_802FE3F8 otherwise.",
+      "text": "Refined struct un_803F9D48 fields from padding/raw ints into typed HSD_JObj, HSD_GObj, HSD_Text, linked-list pointers, and an int x30[3] table.",
       "evidence_refs": [
-        "raw_diff: removed #pragma push/#pragma dont_inline on/#pragma pop",
-        "raw_diff: added static inline un_802FE3F8_inner and un_802FE3F8_noinline"
+        "raw_diff: un_803F9D48 x10/x14/x18/x1C/x20/x24/x28/x2C/x30 field changes"
       ]
     },
     {
-      "text": "Implemented fn_802FE470 as a state-machine over un_803F9D48.x1, including prize display start, input handling, linked-list advancement via x2C->x8, cleanup of camera/light/UI gobjs, archive release, and animation updates.",
+      "text": "Replaced pragma dont_inline around un_802FE3F8 with inline wrapper functions un_802FE3F8_inner and un_802FE3F8_noinline to affect call/inlining behavior for un_802FEBE0_OnEnter.",
       "evidence_refs": [
-        "raw_diff: fn_802FE470 switch over un_803F9D48.x1 cases 0 through 3",
-        "text_corpus: bot report lists fn_802FE470 as a new 100.00% match"
+        "raw_diff: removed #pragma push/#pragma dont_inline/#pragma pop",
+        "raw_diff: added static inline un_802FE3F8_inner and un_802FE3F8_noinline",
+        "raw_diff comment: un_802FEBE0_OnEnter will inline un_802FE3F8 otherwise"
       ]
     },
     {
-      "text": "Expanded un_802FE6A8 object setup to retain camera, light, UI gobj, jobj, and text handles in un_803F9D48; also narrowed object class constants with & 0xFF and scoped GXColor plus PAD_STACK inside a block.",
+      "text": "Recovered fn_802FE470 from placeholder calls into a state-driven update function that handles prize progression, input, cleanup of camera/light/ui GObjs, archive free, animation requests, and final state flags.",
       "evidence_refs": [
-        "raw_diff: un_802FE6A8 stores x18, x1C, x14, x10, x20, x24",
+        "raw_diff: fn_802FE470 switch on un_803F9D48.x1",
+        "bot_report: fn_802FE470 improved from 19.28% to 100.00%, +459 bytes"
+      ]
+    },
+    {
+      "text": "Recovered un_802FE6A8 object setup to store camera/light/ui/text pointers in un_803F9D48, pass &un_803F9D48.x10 to lb_80011E24, mask two object class constants with & 0xFF, and scope GXColor/PAD_STACK inside a block.",
+      "evidence_refs": [
+        "raw_diff: un_802FE6A8 stores x18, x1C, x14, x20, x24",
         "raw_diff: HSD_GObj_804D784B & 0xFF and HSD_GObj_804D784A & 0xFF",
-        "raw_diff: block containing GXColor color and PAD_STACK(0x14)",
-        "text_corpus: bot report lists un_802FE6A8 as a new 100.00% match"
+        "raw_diff: block with GXColor color and PAD_STACK(0x14)",
+        "bot_report: un_802FE6A8 improved from 82.77% to 100.00%, +95 bytes"
       ]
     },
     {
-      "text": "Expanded un_802FE918 from placeholder calls into prize audio selection, random x3 update, lookup through un_803F9B30/un_803F9A00, special handling for a == 0x3E, date/time formatting with language-dependent sprintf formats, and HSD_SisLib text output.",
+      "text": "Recovered most of un_802FE918, including audio selection, random index update, lookup through un_803F9B30/un_803F9A00, special-case display for a == 0x3E, localized date/time sprintf formats, and SisLib text output.",
       "evidence_refs": [
-        "raw_diff: un_802FE918 body additions",
-        "text_corpus: bot report lists un_802FE918 improvement from 23.11% to 99.23%"
+        "raw_diff: un_802FE918 added locals, loops, HSD_Randi, gmMainLib_8015D8B0, HSD_SisLib calls, sprintf date formats",
+        "bot_report: un_802FE918 improved from 23.11% to 99.23%, +542 bytes"
       ]
     },
     {
-      "text": "Adjusted un_802FEBE0_OnEnter to use the expanded argument struct, initialize x28/x2C/x3/x0b/x4, and call un_802FE3F8_noinline with casts to short pointers.",
+      "text": "Adjusted un_802FEBE0_OnEnter local types/order and calls un_802FE3F8_noinline with casts to short* for x6.",
       "evidence_refs": [
-        "raw_diff: un_802FEBE0_OnEnter assignments to x28, x2C, x3, x0b, x4",
+        "raw_diff: un_802FEBE0_OnEnter removed PAD_STACK(8), changed arg0x0 type to int, reordered i initialization",
         "raw_diff: un_802FE3F8_noinline(arg0x0, 2, (short*) &un_803F9D48.x6, NULL)",
-        "text_corpus: bot report lists un_802FEBE0_OnEnter improvement from 95.00% to 99.93%"
+        "bot_report: un_802FEBE0_OnEnter improved from 95.00% to 99.93%, +15 bytes"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Converted raw state storage in un_803F9D48 into concrete HSD object/text pointers and argument-list pointers, making later accesses more reviewable than anonymous padding and integer slots.",
+      "text": "The PR turns anonymous padding and raw storage in un_803F9D48 into typed fields before using them in recovered functions, making object, text, and linked-list roles explicit within this TU.",
       "evidence_refs": [
-        "raw_diff: un_803F9D48 field rewrite"
+        "raw_diff: un_803F9D48 field refinements",
+        "raw_diff: uses of x10/x14/x18/x1C/x20/x24/x28/x2C in fn_802FE470, un_802FE6A8, un_802FE918"
       ]
     },
     {
-      "text": "Kept text-section progress focused in one translation unit and used bot-reported function-level scores to show exactly which symbols matched or improved.",
+      "text": "The state-machine in fn_802FE470 is expressed as a switch over x1 rather than leaving sequential placeholder calls, which aligns the source with visible state transitions and cleanup behavior.",
       "evidence_refs": [
-        "changed_files.jsonl: one changed file",
-        "text_corpus: bot report with fn_802FE470, un_802FE6A8, un_802FE918, un_802FEBE0_OnEnter scores"
+        "raw_diff: fn_802FE470 switch cases 0 through 3",
+        "bot_report: fn_802FE470 reached 100.00%"
       ]
     },
     {
-      "text": "Used ordinary C switch/for/if structure for the recovered state machine and table scans instead of leaving placeholder call sequences.",
+      "text": "The temporary stack tactic in un_802FE6A8 is narrowed to an inner block around GXColor/text setup rather than left as broad function-level padding.",
       "evidence_refs": [
-        "raw_diff: fn_802FE470 switch cases",
-        "raw_diff: un_802FE918 for loops over k and un_803F9B30",
-        "raw_diff: un_802FEBE0_OnEnter for loop over un_803F9B30"
+        "raw_diff: removed function-scope GXColor/text locals/PAD_STACK(24)",
+        "raw_diff: added inner block with GXColor color and PAD_STACK(0x14)"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When an unmatched function is mostly placeholder calls, recovering the surrounding persistent state struct can unlock multiple functions at once because setup, update, display, and teardown share the same object/text handles.",
+      "text": "When a global state struct begins carrying persistent object and UI handles across functions, replacing padding/raw ints with HSD_JObj, HSD_GObj, HSD_Text, and domain-specific pointer fields can unlock cleaner recovered logic and matching progress.",
       "scope": [
-        "src/melee/if/ifprize.c",
-        "stateful UI/object setup functions"
+        "ifprize.c",
+        "global state structs",
+        "typed-field recovery"
       ],
       "evidence_refs": [
-        "raw_diff: un_803F9D48 gained HSD_JObj/HSD_GObj/HSD_Text fields",
-        "raw_diff: un_802FE6A8 stores handles later consumed by fn_802FE470 and un_802FE918",
-        "text_corpus: bot report shows two new matches and two near-complete improvements"
+        "raw_diff: un_803F9D48 typed fields",
+        "bot_report: fn_802FE470 and un_802FE6A8 reached 100.00%"
       ]
     },
     {
-      "lesson": "For state-machine callbacks, replacing flat placeholder calls with a switch on the persistent state byte can produce both readable source and strong matching progress.",
+      "text": "A short linked-list argument structure can be recovered from later traversal needs: x2 and self-pointer x8 are used by fn_802FE470 to process additional prize entries after the initial arg0.",
       "scope": [
-        "fn_802FE470",
-        "callback/state-machine recovery"
+        "ifprize.c",
+        "argument struct recovery",
+        "linked-list traversal"
       ],
       "evidence_refs": [
-        "raw_diff: fn_802FE470 switch on un_803F9D48.x1",
-        "text_corpus: fn_802FE470 reported as 100.00% after PR"
+        "raw_diff: struct un_802FEBE0_OnEnter_arg0 adds x2 and self-pointer x8",
+        "raw_diff: fn_802FE470 uses x2C->x0/x2/x4 and advances x2C = x2C->x8"
       ]
     },
     {
-      "lesson": "Typed HSD handles and helper calls can express object ownership and cleanup directly: setup stores gobj/jobj/text handles, and teardown uses those stored handles for PLink/archive cleanup and animation calls.",
+      "text": "For MWCC-sensitive matching, replacing a broad dont_inline pragma with a narrow inline wrapper chain can steer inlining at one call site while avoiding a file-level pragma block.",
       "scope": [
-        "HSD_GObj",
-        "HSD_JObj",
-        "HSD_Text",
-        "ifprize setup/update"
+        "ifprize.c",
+        "inlining control",
+        "matching tactic"
       ],
       "evidence_refs": [
-        "raw_diff: un_802FE6A8 stores x14/x18/x1C/x10/x20/x24",
-        "raw_diff: fn_802FE470 uses x18/x1C/x14 for HSD_GObjPLink_80390228 and x10 for DObj animation"
+        "raw_diff: removed #pragma dont_inline block",
+        "raw_diff: added un_802FE3F8_inner and un_802FE3F8_noinline",
+        "raw_diff comment: un_802FEBE0_OnEnter will inline un_802FE3F8 otherwise"
+      ]
+    },
+    {
+      "text": "Keep function-level success separate from data-section health: this PR's bot report shows code matches/improvements alongside a .data regression, so data movement or layout side effects need separate review rather than being hidden by text progress.",
+      "scope": [
+        "matching reports",
+        "text vs data regression"
+      ],
+      "evidence_refs": [
+        "bot_report: 2 new matches and 2 unmatched-item improvements",
+        "bot_report: .data regression from 96.59% to 93.59%, -31 bytes"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "text": "Most recovered globals and functions kept address-style names such as un_803F9D48, un_802FE918, and un_802FEBE0_OnEnter_arg0; local variables use role names where clear, including gobj_camera, gobj_light, gobj_ui, jobj_ui, color, r, k, i, and sp1C.",
+      "text": "Unproven file-local symbols keep address-style names such as un_803F9D48, un_802FE918, and fn_802FE470, while locals use role-based names where clear, such as gobj_camera, gobj_light, gobj_ui, jobj_ui, color, and new_x3.",
       "evidence_refs": [
-        "raw_diff: local declarations in un_802FE6A8 and un_802FE918",
-        "raw_diff: retained address-style function and struct names"
+        "raw_diff: address-style function/global names retained",
+        "raw_diff: un_802FE6A8 local names gobj_camera/gobj_light/gobj_ui/jobj_ui",
+        "raw_diff: un_802FE918 local new_x3"
       ]
     },
     {
-      "text": "Temporary or inferred struct field names remain offset-style x0/x2/x4/x8/x10 etc., indicating semantics were not over-promoted beyond the evidence in this PR slice.",
+      "text": "Recovered struct fields remain offset-style x0/x2/x4/x8 and x10/x14/etc. rather than speculative semantic names, even when their C types are improved.",
       "evidence_refs": [
-        "raw_diff: struct un_802FEBE0_OnEnter_arg0 and struct un_803F9D48 field names"
+        "raw_diff: struct un_802FEBE0_OnEnter_arg0 fields x0/x2/x4/x8",
+        "raw_diff: struct un_803F9D48 typed fields retain xNN names"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Replaced a broad #pragma dont_inline block with a narrow call-wrapper tactic, un_802FE3F8_inner and un_802FE3F8_noinline, to affect inlining at the specific call site.",
+      "text": "Removed a pragma dont_inline block and introduced inline wrapper functions to prevent un_802FE3F8 from being inlined into un_802FEBE0_OnEnter.",
       "evidence_refs": [
-        "raw_diff: removed pragma dont_inline around un_802FE3F8",
-        "raw_diff: comment 'un_802FEBE0_OnEnter will inline un_802FE3F8 otherwise'",
+        "raw_diff: pragma removal and wrapper addition",
         "raw_diff: un_802FEBE0_OnEnter calls un_802FE3F8_noinline"
-      ],
-      "caution": "The PR evidence explains the inlining pressure but does not include a reviewer discussion or local objdiff transcript beyond the bot score report."
+      ]
     },
     {
-      "tactic": "Used PAD_STACK(0x14) inside a narrow block in un_802FE6A8 after moving GXColor and text setup into that block.",
+      "text": "Used a scoped PAD_STACK(0x14) inside un_802FE6A8 around text/color setup after removing broader PAD_STACK(24).",
       "evidence_refs": [
-        "raw_diff: un_802FE6A8 block with GXColor color and PAD_STACK(0x14)"
-      ],
-      "caution": "PAD_STACK use is present, but the slice does not provide explicit objdiff reasoning for that stack padding beyond the bot match report."
+        "raw_diff: un_802FE6A8 PAD_STACK changes"
+      ]
     },
     {
-      "tactic": "Used casts to short* for fields stored as unsigned short in un_803F9D48 when calling un_802FE3F8.",
+      "text": "Used explicit casts to short* when passing unsigned-short global fields x6/x8 into un_802FE3F8.",
       "evidence_refs": [
-        "raw_diff: un_802FE918 casts &un_803F9D48.x6 and &un_803F9D48.x8 to short*",
-        "raw_diff: un_802FEBE0_OnEnter casts &un_803F9D48.x6 to short*"
-      ],
-      "caution": "This appears to bridge recovered field types with an existing function signature; the slice does not prove whether the signature or field signedness is final."
+        "raw_diff: un_802FE918 casts &un_803F9D48.x6 and &un_803F9D48.x8",
+        "raw_diff: un_802FEBE0_OnEnter casts &un_803F9D48.x6"
+      ]
     },
     {
-      "tactic": "Kept a goto found pattern for table lookup in un_802FE918 and un_802FEBE0_OnEnter.",
+      "text": "Used an explicit goto found pattern for table lookup in un_802FE918 and un_802FEBE0_OnEnter.",
       "evidence_refs": [
-        "raw_diff: for loop over un_803F9B30 with goto found in un_802FE918",
-        "raw_diff: for loop over un_803F9B30 with goto found in un_802FEBE0_OnEnter"
-      ],
-      "caution": "The PR evidence shows this shape, but no comment explains whether alternative structured control flow was tested."
+        "raw_diff: lookup loops over un_803F9B30 with goto found labels"
+      ]
+    },
+    {
+      "text": "Masked HSD_GObj_804D784B and HSD_GObj_804D784A with & 0xFF when passing to HSD_GObjObject_80390A70.",
+      "evidence_refs": [
+        "raw_diff: HSD_GObjObject_80390A70 calls in un_802FE6A8"
+      ]
     }
   ],
   "review_feedback": [
     {
-      "kind": "bot_report",
-      "text": "decomp-dev bot reported matched code 69.20% (+0.03%, +1116 bytes), with 2 new matches: fn_802FE470 at 100.00% (+459 bytes) and un_802FE6A8 at 100.00% (+95 bytes).",
+      "text": "No human review comments are present in the loaded PR slice.",
       "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot] at 2026-05-25T17:20:34Z"
+        "metadata_json: review_comments 0, reviews 0"
       ]
     },
     {
-      "kind": "bot_report",
-      "text": "Bot reported improvements in unmatched items: un_802FE918 from 23.11% to 99.23% (+542 bytes) and un_802FEBE0_OnEnter from 95.00% to 99.93% (+15 bytes).",
+      "text": "Automated report records matched-code improvement to 69.20% (+0.03%, +1116 bytes), with new 100% matches for fn_802FE470 and un_802FE6A8, improvements for un_802FE918 and un_802FEBE0_OnEnter, and a .data regression.",
       "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot] improvements table"
-      ]
-    },
-    {
-      "kind": "bot_report",
-      "text": "Bot reported one unmatched-item regression: .data in main/melee/if/ifprize decreased from 96.59% to 93.59% (-31 bytes).",
-      "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot] regression table"
+        "text_corpus: decomp-dev[bot] issue comment 2026-05-25T17:20:34Z"
       ]
     }
   ],
@@ -234,73 +246,79 @@
     "un_802FEBE0_OnEnter",
     "un_802FE3F8",
     "un_802FE3F8_noinline",
-    "un_802FEBE0_OnEnter_arg0",
+    "un_802FE3F8_inner",
     "un_803F9D48",
-    "un_803F9B30",
-    "un_803F9A00",
+    "un_802FEBE0_OnEnter_arg0",
     "HSD_GObj",
     "HSD_JObj",
     "HSD_Text",
     "HSD_SisLib_803A5ACC",
-    "HSD_SisLib_803A6754",
-    "HSD_GObjPLink_80390228",
+    "HSD_SisLib_803A6B98",
     "PAD_STACK",
     "dont_inline",
     ".data regression"
   ],
   "follow_up_queries": [
-    "src/melee/if/ifprize.c un_803F9D48 typed fields HSD_Text HSD_GObj",
-    "un_802FE3F8_noinline wrapper dont_inline replacement ifprize",
-    "ifprize .data regression -31 93.59",
-    "un_802FE918 lbLang_IsSavedLanguageUS sprintf date format",
-    "fn_802FE470 state machine x1 HSD_GObjPLink cleanup"
+    "ifprize un_803F9D48 typed state struct",
+    "un_802FE3F8_noinline inline wrapper dont_inline",
+    "ifprize .data regression PR 2538",
+    "fn_802FE470 state machine x1 prize cleanup",
+    "un_802FE918 date sprintf lbLang_IsSavedLanguageUS",
+    "HSD_GObj_804D784B & 0xFF HSD_GObjObject_80390A70"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR 2538 metadata and changed-file counts",
-      "raw_diff: complete diff for src/melee/if/ifprize.c",
-      "changed_files.jsonl: one changed file",
-      "text_corpus: empty PR body and one decomp-dev bot issue comment",
-      "metadata_json: review_comments 0 and reviews 0"
+      "metadata_json: PR identity, merged state, counts, changed file",
+      "raw_diff: complete 9814-byte diff for one changed file",
+      "text_corpus: bot match report",
+      "metadata_json: no review comments and empty PR body"
     ],
     "notes": [
-      "Evidence is strong for changed file, diff content, symbols touched, and bot-reported match/regression scores.",
-      "PR body is empty and there are no loaded human review comments, so reviewer intent and author rationale are not available.",
-      "No local build log, objdiff transcript, or commit-by-commit rationale is loaded beyond the decomp-dev bot report.",
-      "The .data regression is reported by the bot and should not be ignored, but the slice does not explain whether it was accepted as a tradeoff or later resolved.",
-      "PAD_STACK and noinline wrapper tactics are visible in code; their necessity is plausible from comments and scores but not independently proven by detailed verifier output in this slice."
+      "Strong evidence for changed file, concrete code edits, and automated match/report numbers.",
+      "No PR body and no human review comments are available, so author rationale and reviewer intent are not inferred.",
+      "The bot report supports function match/improvement and .data regression claims, but the loaded slice does not include build logs, objdiff details, or later fixup discussion.",
+      "Tactics such as PAD_STACK, casts, goto shape, and inline wrapper use are observable in the diff; their exact necessity beyond reported matching progress is not independently verified in this slice."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "decomp_lesson",
-        "title": "Persistent UI state structs can unlock multiple related ifprize functions",
-        "text": "In PR 2538, converting un_803F9D48 from padding/raw integer fields into HSD_JObj/HSD_GObj/HSD_Text and argument-list pointers connected setup, update, display, and cleanup logic. The same PR reported new matches for fn_802FE470 and un_802FE6A8 plus near-complete improvements for un_802FE918 and un_802FEBE0_OnEnter.",
+        "title": "Type recovered global state before expanding dependent logic",
+        "text": "In ifprize.c, PR 2538 refined un_803F9D48 from padding/raw fields into typed HSD_JObj/HSD_GObj/HSD_Text and linked-list pointer fields, then used those fields to recover fn_802FE470, un_802FE6A8, and un_802FE918. This is a local example of typed-field recovery enabling readable matching progress.",
         "scope": [
           "src/melee/if/ifprize.c",
-          "stateful UI/object setup",
-          "HSD object/text handles"
+          "global state structs",
+          "typed-field recovery"
         ],
         "evidence_refs": [
-          "raw_diff: un_803F9D48 field rewrite",
-          "raw_diff: un_802FE6A8 stores handles used by fn_802FE470 and un_802FE918",
-          "text_corpus: decomp-dev bot score report"
+          "raw_diff: un_803F9D48 field changes",
+          "raw_diff: recovered uses in fn_802FE470, un_802FE6A8, un_802FE918",
+          "bot_report: fn_802FE470 and un_802FE6A8 new matches"
         ]
       },
       {
-        "type": "matching_tactic",
-        "title": "Prefer narrow inlining-control wrappers over broad pragma blocks when evidence supports the call-site issue",
-        "text": "PR 2538 removed a #pragma dont_inline block around un_802FE3F8 and added narrow inline wrappers un_802FE3F8_inner/un_802FE3F8_noinline, with a local comment that un_802FEBE0_OnEnter would inline un_802FE3F8 otherwise. This should remain a tactic requiring verifier evidence, not a blanket style rule.",
+        "title": "Narrow inlining steering can replace broad pragma blocks",
+        "text": "PR 2538 removed a dont_inline pragma block around un_802FE3F8 and instead routed the sensitive call in un_802FEBE0_OnEnter through inline wrappers named un_802FE3F8_inner and un_802FE3F8_noinline. The diff comment states this was to avoid un_802FEBE0_OnEnter inlining un_802FE3F8.",
         "scope": [
-          "un_802FE3F8",
-          "un_802FEBE0_OnEnter",
-          "inlining control"
+          "src/melee/if/ifprize.c",
+          "MWCC inlining control",
+          "matching tactic"
         ],
         "evidence_refs": [
-          "raw_diff: removed pragma block",
-          "raw_diff: added wrapper functions and call from un_802FEBE0_OnEnter"
+          "raw_diff: removed #pragma dont_inline",
+          "raw_diff: added wrapper functions and call to un_802FE3F8_noinline"
+        ]
+      },
+      {
+        "title": "Track data regressions even when text functions improve",
+        "text": "The automated report for PR 2538 shows two new function matches and two unmatched-function improvements, but also reports a .data regression from 96.59% to 93.59%. Treat such reports as a reminder to review data-section side effects separately from text-section success.",
+        "scope": [
+          "matching reports",
+          "data-section regressions"
+        ],
+        "evidence_refs": [
+          "text_corpus: decomp-dev[bot] report"
         ]
       }
     ],
@@ -308,8 +326,8 @@
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Document wrapper-based inlining control as a narrow matching tactic",
-        "text": "Consider adding guidance that wrapper functions used to steer MWCC inlining should be treated like other matching tactics: keep them narrow, comment the specific inlining problem, and attach objdiff/build evidence. PR 2538 provides an example where a broad #pragma dont_inline block was replaced by un_802FE3F8_inner/un_802FE3F8_noinline wrappers for un_802FEBE0_OnEnter.",
+        "title": "Inline-wrapper inlining control as a narrow alternative to pragmas",
+        "text": "Consider adding a standards note that, when a specific call-site inlining shape is needed, a narrow wrapper-chain tactic may be preferable to a broad dont_inline pragma block, but should still be justified by objdiff/checkdiff evidence and kept local.",
         "source_path": null,
         "scope": [
           "matching tactics",
@@ -317,42 +335,41 @@
           "verification-and-regression-ledger"
         ],
         "evidence_refs": [
-          "raw_diff: un_802FE3F8 pragma removal and wrapper addition",
-          "raw_diff: comment about un_802FEBE0_OnEnter inlining un_802FE3F8 otherwise"
+          "raw_diff: PR 2538 removes #pragma dont_inline and adds un_802FE3F8_inner/un_802FE3F8_noinline",
+          "raw_diff comment: un_802FEBE0_OnEnter will inline un_802FE3F8 otherwise"
         ],
-        "reason": "The loaded standards already caution against pragmas and broad tactics, but this PR gives a concrete pattern for replacing a pragma with a narrower wrapper. Curator should decide whether this merits a source update."
+        "reason": "The existing standards warn against broad pragmas and require tactic evidence; this PR provides a concrete pattern that may be useful as a curated example, but the slice lacks full objdiff details."
       },
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Emphasize tracking data regressions when text progress lands",
-        "text": "PR 2538 had clear text-section progress, including two new 100% function matches, while the bot also reported a .data regression from 96.59% to 93.59%. Consider reinforcing that text progress can land with data noise only when the regression is recorded and scoped for follow-up.",
-        "source_path": null,
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "ifprize.c owns prize UI state and setup functions",
+        "text": "src/melee/if/ifprize.c contains prize interface state and setup/update functions including fn_802FE470, un_802FE6A8, un_802FE918, and un_802FEBE0_OnEnter, with state stored in un_803F9D48 and resources in un_804D6D98/un_804D6D9C.",
+        "source_path": "src/melee/if/ifprize.c",
         "scope": [
-          "text-before-data-matching",
-          "verification-and-regression-ledger",
-          "data-sections-and-tu-splits"
+          "src/melee/if/ifprize.c",
+          "ifprize",
+          "prize UI"
         ],
         "evidence_refs": [
-          "text_corpus: bot report new function matches and .data regression"
+          "raw_diff: functions and globals in src/melee/if/ifprize.c"
         ],
-        "reason": "The existing standards cover data regressions, but this PR is a compact example for curator consideration."
+        "reason": "Potential path-scoped search aid; should be checked against current source before adding as a durable path fact."
       }
     ],
     "rejection_notes": [
-      "Do not infer semantic names for un_803F9D48 fields or address-style functions from this slice; the PR kept offset/address-style names.",
-      "Do not promote the noinline wrapper pattern as generally preferred without requiring build/objdiff evidence; the slice only shows a local comment and bot score report.",
-      "Do not claim the .data regression was accepted, intentional, or harmless; the slice only reports its existence.",
-      "Do not infer human reviewer approval rationale because no human review comments or review records are loaded."
+      "Do not promote the xNN field names as semantic names; the diff keeps offset-style names and does not prove meanings beyond observed types/uses.",
+      "Do not claim the .data regression was accepted intentionally; the slice only shows the automated report and merged state, not reviewer rationale.",
+      "Do not generalize PAD_STACK(0x14), HSD_GObj_* & 0xFF, or goto found as preferred style; they are observable matching tactics in this PR, not globally validated standards."
     ]
   },
-  "confidence": 0.82,
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

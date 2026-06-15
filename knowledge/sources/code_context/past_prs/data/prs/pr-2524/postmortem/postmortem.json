@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Large decomp/matching PR for fighter common file ftCo_0A01. It added implementations and partial-progress source for many ftCo_0A01 functions, updated header prototypes from UNK_RET/UNK_PARAMS to typed signatures, added subsystem includes for camera, stage/ground, vector, and collision helpers, and produced 11 newly matched functions plus 25 unmatched-item improvements per the bot report. Evidence is mixed because the diff is truncated and there are no human review comments or PR body.",
+  "summary": "Large decomp-matching PR for common fighter ftCo_0A01. It replaced many placeholder/generated sections in src/melee/ft/chara/ftCommon/ftCo_0A01.c with C implementations, added stage/camera/vector includes, introduced narrow noinline/dontinline wrapper helpers, rewrote some gotos into loops/switches, and updated ftCo_0A01.h prototypes from UNK_RET/UNK_PARAMS to concrete signatures. The bot report records +7324 matched-code bytes, 11 new matches, 25 unmatched-item improvements, and one ftCo_800A2718 regression.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -24,194 +24,171 @@
     "systems": [
       "fighter",
       "ftCommon",
-      "stage",
-      "ground",
-      "collision",
-      "items",
-      "camera"
+      "stage-collision",
+      "camera",
+      "item",
+      "ground"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
-      "role": "Main decompilation source; added thousands of lines replacing placeholders and generated-looking gotos with C implementations for ftCo_0A01 functions, stage-specific logic, collision checks, island/item iteration, and helper wrappers.",
+      "role": "Main decomp source file; large body additions for ftCo_0A01 functions, new includes, structured control flow, stage-specific checks, collision queries, and matching wrapper helpers.",
       "evidence_refs": [
-        "metadata_json.changed_files[0]: added 4922, deleted 841, 20 hunks",
-        "diff_excerpt: added includes cm/camera.h, gr/grcastle.h, gr/grgreatbay.h, gr/grrcruise.h, lb/lbvector.h",
-        "diff_excerpt: /// #ftCo_800A229C replaced with s32 ftCo_800A229C(Fighter* fp, Vec3* arg1)",
-        "diff_excerpt: /// #ftCo_800A2C80 replaced with s32 ftCo_800A2C80(Fighter* fp)",
-        "diff_excerpt: /// #ftCo_800A3908 replaced with bool ftCo_800A3908(Fighter* fp, bool arg1)",
-        "text_corpus issue_comment: bot report lists 11 new matches and 25 improvements in main/melee/ft/chara/ftCommon/ftCo_0A01"
+        "changed_files.jsonl: ftCo_0A01.c +4922/-841, 20 hunks",
+        "diff.diff: added cm/camera.h, grcastle.h, grgreatbay.h, grrcruise.h, lbvector.h includes",
+        "diff.diff: ftCo_800A229C, ftCo_800A2C80, ftCo_800A3908 bodies replace placeholder comments/generated-looking code",
+        "text_corpus.jsonl issue_comment: bot report lists 11 new matches and 25 improvements in main/melee/ft/chara/ftCommon/ftCo_0A01"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftCommon/ftCo_0A01.h",
-      "role": "Header/prototype cleanup; changed several static declarations from unknown return/params to typed signatures.",
+      "role": "Header prototype cleanup; several static prototypes were changed from UNK_RET/UNK_PARAMS to concrete return and argument types.",
       "evidence_refs": [
-        "metadata_json.changed_files[1]: added 10, deleted 10, 3 hunks",
-        "raw diff lines 6182-6197: ftCo_800A229C bool->s32, ftCo_800AEA8C UNK_RET/UNK_PARAMS->void Fighter*, ftCo_800AEFB8 UNK_RET->void, ftCo_800A2C80 UNK_RET/UNK_PARAMS->s32 Fighter*",
-        "raw diff lines 6203-6218: ftCo_800A4768, ftCo_800A6A98, ftCo_800A6D2C, ftCo_800A6FC4, ftCo_800A8210, ftCo_800A866C prototypes typed"
+        "changed_files.jsonl: ftCo_0A01.h +10/-10, 3 hunks",
+        "diff.diff header hunk: ftCo_800A229C bool->s32, ftCo_800AEA8C UNK_RET/UNK_PARAMS->void(Fighter*), ftCo_800A2C80 UNK_RET/UNK_PARAMS->s32(Fighter*)",
+        "diff.diff header hunk: ftCo_800A6A98, ftCo_800A6D2C, ftCo_800A6FC4, ftCo_800A8210, ftCo_800A866C signatures updated"
       ]
     }
   ],
   "what_changed": [
-    "Added typed implementations in ftCo_0A01.c for previously placeholder-marked functions, including ftCo_800A229C, ftCo_800A2C80, and ftCo_800A3908 as visible in the excerpt.",
-    "Added includes for camera, castle, great bay, rainbow cruise, and vector APIs, consistent with newly introduced calls such as Camera_8003118C, grCastle_801CDF54, grGreatBay_801F66A4, grLib_801C9E60, and lbVector_Normalize.",
-    "Converted inlineL0 from a goto-heavy generated shape into a for loop over HSD_GObj_Entities->items plus a switch on stage_info.internal_stage_id.",
-    "Simplified ftCo_800A2718 to a null check followed by inlineL0(arg0) || inlineL1(arg0), while also adding chained dontinline wrappers for ftCo_800A2718.",
-    "Added noinline/dontinline wrapper helpers around functions such as ftCo_800A1B38, ftCo_800A1C44, ftCo_800A1F3C, ftCo_800A2718, and ftCo_IsGrabbing.",
-    "Updated ftCo_0A01.h declarations to replace multiple UNK_RET/UNK_PARAMS declarations with concrete return types and Fighter*/Vec3* parameters.",
-    "Bot report recorded 11 new 100% matches and 25 improvements, but also one unmatched-item regression for ftCo_800A2718 from 82.34% to 77.32%."
+    "Added concrete C bodies for previously placeholder-marked functions including ftCo_800A229C and ftCo_800A2C80 in the loaded diff excerpt.",
+    "Added large partial implementations for functions such as ftCo_800A3908 and later ftCo_0A01 functions, producing broad matched-code progress according to the bot report.",
+    "Introduced include dependencies for camera, Great Bay, Castle, Rainbow Cruise, and lbvector helpers used by the new source.",
+    "Reworked a generated-looking item traversal with labels/gotos into a for loop over HSD_GObj_Entities->items with continue/return structure.",
+    "Reworked stage dispatch around STORY, ZEBES, ONETT, RCRUISE, BIGBLUE, and ICEMTN into switch/case or direct conditional forms.",
+    "Added wrapper helpers named with _noinline and _dontinline around existing functions such as ftCo_800A1B38, ftCo_800A1C44, ftCo_800A1F3C, ftCo_800A2718, and ftCo_IsGrabbing.",
+    "Updated ftCo_0A01.h prototypes to concrete return types and argument lists for several static functions.",
+    "Bot report records matched code rising to 68.42%, +0.19%, +7324 bytes, with 11 new matched functions and 25 improved unmatched items.",
+    "Bot report also records one unmatched-item regression: ftCo_800A2718 decreased from 82.34% to 77.32%."
   ],
   "smart_moves": [
-    {
-      "text": "Recovered header signatures alongside body work instead of leaving UNK_RET/UNK_PARAMS after the source exposed argument and return types.",
-      "evidence_refs": [
-        "raw diff lines 6186-6196",
-        "raw diff lines 6204-6218",
-        "decomp_standards.truthful-headers-and-includes"
-      ]
-    },
-    {
-      "text": "Replaced a generated-looking item traversal with a normal for loop over HSD_GObj_Entities->items, preserving the item pointer and early-continue checks.",
-      "evidence_refs": [
-        "diff_excerpt: inlineL0 changed from labels loop_8/block_3/block_7 to for (cur = HSD_GObj_Entities->items; cur != NULL; cur = cur->next)"
-      ]
-    },
-    {
-      "text": "Used switch dispatch for stage-specific behavior instead of preserving a long branch ladder in inlineL0 and ftCo_800A229C.",
-      "evidence_refs": [
-        "diff_excerpt: inlineL0 switch(stage_info.internal_stage_id) with STORY, ZEBES, ONETT, default",
-        "diff_excerpt: ftCo_800A229C switch(stage) with RCRUISE, BIGBLUE, ICEMTN, default",
-        "decomp_standards.canonical-control-flow-and-macros"
-      ]
-    }
+    "Used real subsystem includes rather than source-local declarations for newly referenced helpers, consistent with truthful include/header practice.",
+    "Converted the item list traversal from label/goto form into a natural for loop while preserving the explicit item filtering sequence visible in the diff.",
+    "Used switch-style stage dispatch for stage_info.internal_stage_id in helper logic, making stage-specific behavior more searchable and reviewable.",
+    "Replaced multiple unknown header prototypes with concrete signatures when the new function bodies exposed return and argument types.",
+    "Kept stage-specific helper names visible at callsites, such as grGreatBay_801F66A4, grCastle_801CDF54, grLib_801C9E60, and Stage_GetBlastZone* accessors, instead of hiding them behind raw offsets."
   ],
   "decomp_lessons": [
     {
-      "lesson": "When body recovery proves a function's type, update the owning header declarations in the same PR rather than retaining UNK_RET/UNK_PARAMS.",
-      "scope": [
-        "headers",
-        "prototype cleanup",
-        "ftCo_0A01"
-      ],
+      "lesson": "When a recovered function body proves a static prototype, update the owning header from UNK_RET/UNK_PARAMS to the concrete signature in the same PR.",
       "evidence_refs": [
-        "raw diff lines 6186-6196",
-        "raw diff lines 6204-6218",
-        "decomp_standards.truthful-headers-and-includes"
+        "diff.diff header hunk: ftCo_800A2C80 changed to static s32 ftCo_800A2C80(Fighter* fp)",
+        "diff.diff header hunk: ftCo_800A6A98/ftCo_800A6D2C changed to s32(Fighter*, Vec3*)"
       ],
-      "confidence": 0.84
+      "standard_refs": [
+        "truthful-headers-and-includes"
+      ]
     },
     {
-      "lesson": "Generated label/goto traversal over object lists can often be expressed as a natural for loop with continue guards, improving reviewability while preserving control flow.",
-      "scope": [
-        "fighter common",
-        "item list traversal",
-        "loops"
-      ],
+      "lesson": "Generated-looking label/goto traversal can often be rewritten as natural C loops and switch dispatch when the repeated structure is clear.",
       "evidence_refs": [
-        "diff_excerpt: inlineL0 old labels loop_8/block_3/block_7 removed",
-        "diff_excerpt: inlineL0 new for loop over HSD_GObj_Entities->items",
-        "decomp_standards.natural-loops"
+        "diff.diff: inlineL0 changed from loop_8/block_3/block_7 labels to for (cur = HSD_GObj_Entities->items; cur != NULL; cur = cur->next)",
+        "diff.diff: inlineL0 stage_info.internal_stage_id handling rewritten as switch over STORY/ZEBES/ONETT/default"
       ],
-      "confidence": 0.8
+      "standard_refs": [
+        "natural-loops",
+        "canonical-control-flow-and-macros"
+      ]
     },
     {
-      "lesson": "Stage-id branch ladders in decompiled code should be checked for switch-form reconstruction when cases are discrete stage constants.",
-      "scope": [
-        "stage-specific fighter logic",
-        "control flow"
-      ],
+      "lesson": "For common fighter recovery/collision logic, keeping stage and collision helper calls explicit can make recovered behavior reviewable while still matching many functions.",
       "evidence_refs": [
-        "diff_excerpt: inlineL0 new switch on stage_info.internal_stage_id",
-        "diff_excerpt: ftCo_800A229C new switch(stage) over RCRUISE, BIGBLUE, ICEMTN",
-        "decomp_standards.canonical-control-flow-and-macros"
+        "diff.diff: ftCo_800A229C uses grGreatBay_801F66A4, grCastle_801CDF54, Stage_GetBlastZone* and Camera_8003118C",
+        "diff.diff: ftCo_800A2C80 uses mpCheckFloor, mpCheckLeftWall, mpCheckRightWall, lbVector_Normalize, and stage line filters",
+        "text_corpus.jsonl issue_comment: bot report shows several ftCo_0A01 functions newly matched or improved"
       ],
-      "confidence": 0.74
+      "standard_refs": [
+        "infer-authored-source-style",
+        "typed-fields-over-pointer-math"
+      ]
     }
   ],
   "naming_conventions": [
     {
-      "text": "Address-style function names were retained for unrecovered semantics, e.g. ftCo_800A229C, ftCo_800A2C80, ftCo_800A3908, while local variable names were role/shape based such as fp, data, floor_pos, floor_normal, line_id, flags, stage, margin, bottom, island.",
+      "convention": "Address-style names were retained for unknown common fighter functions, e.g. ftCo_800A229C, ftCo_800A2C80, ftCo_800A3908, rather than inventing semantics.",
       "evidence_refs": [
-        "diff_excerpt: function declarations and local variables in ftCo_800A229C, ftCo_800A2C80, ftCo_800A3908",
-        "decomp_standards.conservative-naming"
+        "diff.diff: implemented functions keep ftCo_80xxxx address-style names",
+        "decomp_standards: conservative-naming"
       ]
     },
     {
-      "text": "Temporary internal wrappers use explicit suffixes such as _noinline, _noinline2, and _dontinline, making codegen-steering helpers visible rather than giving them semantic names.",
+      "convention": "Temporary wrapper helpers use suffixes such as _noinline, _dontinline, _dontinline2, and _dontinline3 to signal matching-oriented call-shape control rather than semantic meaning.",
       "evidence_refs": [
-        "diff_excerpt: ftCo_800A1B38_noinline, ftCo_800A1F3C_noinline, ftCo_800A1F3C_noinline2, ftCo_800A2718_dontinline2, ftCo_800A2718_dontinline3"
+        "diff.diff: ftCo_800A1B38_noinline, ftCo_800A1C44_dontinline, ftCo_800A1F3C_noinline2, ftCo_800A2718_dontinline3"
+      ]
+    },
+    {
+      "convention": "Local variable names in the loaded excerpt are mostly role/shape names such as fp, arg1, cur, cur_ip, line_id, floor_pos, floor_normal, stage, margin, bottom, and data.",
+      "evidence_refs": [
+        "diff.diff: ftCo_800A229C, inlineL0, ftCo_800A2C80 variable declarations"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Added noinline/dontinline wrapper functions around existing helpers, apparently to steer call/inlining shape for matching.",
+      "tactic": "Narrow noinline/dontinline wrapper functions were added around existing helpers to influence call/inlining shape.",
       "evidence_refs": [
-        "diff_excerpt: ftCo_800A1B38_noinline returns ftCo_800A1B38(arg0)",
-        "diff_excerpt: ftCo_800A1F3C_noinline and ftCo_800A1F3C_noinline2 chain calls",
-        "diff_excerpt: ftCo_800A2718_dontinline, _dontinline2, _dontinline3 chain calls"
+        "diff.diff: ftCo_800A1B38_noinline returns ftCo_800A1B38(arg0)",
+        "diff.diff: ftCo_800A1F3C_noinline and ftCo_800A1F3C_noinline2 forward to ftCo_800A1F3C",
+        "diff.diff: ftCo_800A2718_dontinline chain"
       ],
-      "risk_or_note": "The PR evidence shows wrappers and bot score improvements but does not include narrow objdiff rationale for each wrapper; treat as matching tactic needing evidence before generalizing."
+      "caveat": "The PR evidence shows the wrappers and overall bot progress, but does not include objdiff rationale for each wrapper. Treat as an observed matching tactic, not a general accepted style."
     },
     {
-      "tactic": "Used C switch forms for stage-specific branch structure in ftCo_800A229C and inlineL0.",
+      "tactic": "Natural loop conversion for an item linked-list scan replaced label/goto blocks while retaining item checks and early returns.",
       "evidence_refs": [
-        "diff_excerpt: switch(stage) in ftCo_800A229C",
-        "diff_excerpt: switch(stage_info.internal_stage_id) in inlineL0"
+        "diff.diff: inlineL0 loop over HSD_GObj_Entities->items"
       ],
-      "risk_or_note": "Supported by visible diff shape and global standard favoring canonical switch forms, but exact match status of these functions is partial in bot report."
+      "caveat": "The bot report is aggregate; it does not isolate this loop as the cause of a specific function's match."
     },
     {
-      "tactic": "Introduced typed calls into stage, camera, map, vector, and collision helpers instead of raw pointer math in the visible excerpts.",
+      "tactic": "Stage-specific switch dispatch and explicit gotos inside complex cases were used in ftCo_800A229C to express control flow while preserving target structure.",
       "evidence_refs": [
-        "diff_excerpt: Camera_8003118C, Stage_GetBlastZone*Offset, Ground_801C4368, mpCheckFloor, mpCheckLeftWall, mpCheckRightWall, lbVector_Normalize"
+        "diff.diff: ftCo_800A229C switch(stage) with RCRUISE, BIGBLUE, ICEMTN and block_43"
       ],
-      "risk_or_note": "The excerpt supports API usage, but the full 198KB diff is truncated, so this should not be generalized to the entire PR."
+      "caveat": "Some labels remain inside the recovered C, so this is partial structuring rather than full cleanup."
     },
     {
-      "tactic": "Tracked matching progress via bot checkdiff-style report showing 11 new matches, 25 improvements, and one regression.",
+      "tactic": "Blast-zone boundary checks are repeated explicitly around floor and wall collision queries in ftCo_800A2C80.",
       "evidence_refs": [
-        "text_corpus issue_comment: matched code 68.42% (+0.19%, +7324 bytes)",
-        "text_corpus issue_comment: 11 new matches",
-        "text_corpus issue_comment: 25 improvements in unmatched items",
-        "text_corpus issue_comment: 1 regression in ftCo_800A2718"
+        "diff.diff: ftCo_800A2C80 repeats oob checks after mpCheckFloor, mpCheckLeftWall, and mpCheckRightWall"
       ],
-      "risk_or_note": "Bot report is strong evidence for score movement, but not a substitute for per-symbol author rationale."
+      "caveat": "No evidence in the slice shows whether these repeated blocks were tested as a helper or macro; do not generalize beyond this PR."
     }
   ],
   "review_feedback": [
     {
       "type": "bot_report",
       "author": "decomp-dev[bot]",
-      "text": "Reported matched code increased to 68.42% (+0.19%, +7324 bytes), with 11 new matches in ftCo_0A01 and 25 improvements in unmatched items.",
+      "feedback": "Matched code increased to 68.42% (+0.19%, +7324 bytes). The report lists 11 new matches and 25 improvements in unmatched ftCo_0A01 items.",
       "evidence_refs": [
-        "text_corpus issue_comment created_at 2026-05-23T18:10:39Z"
+        "text_corpus.jsonl issue_comment 2026-05-23T18:10:39Z"
       ]
     },
     {
-      "type": "bot_regression_notice",
+      "type": "bot_report_regression",
       "author": "decomp-dev[bot]",
-      "text": "Reported one regression in unmatched item ftCo_800A2718: -22 bytes, 82.34% to 77.32%.",
+      "feedback": "One unmatched-item regression was reported: ftCo_800A2718 changed from 82.34% to 77.32%, -22 bytes.",
       "evidence_refs": [
-        "text_corpus issue_comment: regression table"
+        "text_corpus.jsonl issue_comment: regression table"
       ]
     },
     {
       "type": "missing_human_review",
       "author": null,
-      "text": "No human review comments or review records are present in the loaded PR slice.",
+      "feedback": "No review comments or human review records are present in the loaded PR slice.",
       "evidence_refs": [
-        "metadata_json.counts.review_comments: 0",
-        "metadata_json.counts.reviews: 0"
+        "metadata_json counts: review_comments 0, reviews 0",
+        "text_corpus.jsonl: only PR body and bot issue comment loaded"
       ]
     }
   ],
   "searchable_terms": [
     "pr-2524",
+    "Jj/ft co 0 a01",
     "jurrejelle",
-    "jj/ftCo_0A01",
+    "ftCo_0A01",
     "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
     "src/melee/ft/chara/ftCommon/ftCo_0A01.h",
     "ftCo_800A229C",
@@ -220,11 +197,16 @@
     "ftCo_800A2718",
     "ftCo_800A1B38_noinline",
     "ftCo_800A1F3C_noinline",
+    "ftCo_800A2718_dontinline",
     "ftCo_IsGrabbing_dontinline",
     "inlineL0",
     "inlineL1",
-    "mpIsland_80458E88",
-    "HSD_GObj_Entities->items",
+    "HSD_GObj_Entities",
+    "mpIsland_8005AB54",
+    "mpIsland_8005AC8C",
+    "mpCheckFloor",
+    "mpCheckLeftWall",
+    "mpCheckRightWall",
     "Stage_GetBlastZoneBottomOffset",
     "Stage_GetBlastZoneLeftOffset",
     "Stage_GetBlastZoneRightOffset",
@@ -234,101 +216,97 @@
     "grCastle_801CDF54",
     "grLib_801C9E60",
     "lbVector_Normalize",
-    "mpCheckFloor",
-    "mpCheckLeftWall",
-    "mpCheckRightWall",
     "UNK_RET",
-    "UNK_PARAMS",
-    "dontinline",
-    "noinline"
+    "UNK_PARAMS"
   ],
   "follow_up_queries": [
-    "ftCo_0A01 noinline dontinline wrappers objdiff rationale",
-    "ftCo_800A2718 regression PR 2524 follow-up",
-    "ftCo_800A229C RCRUISE BIGBLUE ICEMTN Camera_8003118C",
-    "ftCo_800A2C80 lbVector_Normalize mpCheckFloor blastzone",
-    "ftCo_800A3908 mpIsland_80458E88 landing island",
-    "ftCo_0A01.h UNK_RET UNK_PARAMS signature cleanup",
-    "HSD_GObj_Entities items inlineL0 mpIsland_8005AB54"
+    "ftCo_0A01 noinline dontinline wrapper matching tactic",
+    "ftCo_800A2718 regression PR 2524",
+    "ftCo_800A229C stage blastzone Camera_8003118C",
+    "ftCo_800A2C80 mpCheckFloor mpCheckLeftWall mpCheckRightWall",
+    "ftCo_0A01.h UNK_RET UNK_PARAMS prototype cleanup",
+    "ftCo_800A3908 mpIsland_80458E88 recovery logic",
+    "PR 2524 decomp-dev bot 11 new matches ftCo_0A01"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR identity, state, author, changed files, counts",
-      "raw_pr_json: PR body null and merged_at present",
-      "raw_diff/diff_excerpt: visible C and header changes",
-      "text_corpus: bot report with match/improvement/regression tables"
+      "metadata_json: PR identity, state, author, changed-file counts",
+      "changed_files.jsonl: two changed files and line counts",
+      "diff.diff excerpt and targeted header diff: concrete code and prototype changes",
+      "text_corpus.jsonl: bot report with match/improvement/regression tables"
     ],
     "notes": [
-      "The raw diff and raw PR JSON are loaded as truncated files; visible excerpts are enough for the listed changed-file and tactic observations but not for a complete symbol-by-symbol audit.",
-      "No PR body explains author intent.",
-      "No human review comments are available; reviewer intent cannot be inferred.",
-      "Bot report supports score movement and specific new matches/improvements/regression, but does not prove every added helper was necessary.",
-      "Several visible functions in the excerpt remain partial improvements rather than reported full matches, so lessons are framed as tactics/candidates rather than universal accepted outcomes."
+      "PR body is empty, so author intent and rationale are not available.",
+      "No human review comments are present in the slice.",
+      "Raw diff is truncated in loaded_files, but targeted lookup recovered the header hunks needed for prototype-change details.",
+      "Bot report provides aggregate match/improvement/regression evidence but not per-tactic objdiff justification.",
+      "The PR was merged according to metadata, but this intake does not infer acceptance of each tactic as a global standard."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson_candidate",
-        "title": "Update header prototypes when body recovery proves signatures",
-        "text": "PR 2524 updated ftCo_0A01.h declarations from UNK_RET/UNK_PARAMS to concrete return and parameter types while adding bodies in ftCo_0A01.c.",
+        "title": "ftCo_0A01 decomp PR combined body recovery with header prototype cleanup",
+        "text": "PR #2524 recovered substantial common fighter ftCo_0A01 code and updated ftCo_0A01.h prototypes from unknown forms to concrete signatures where function bodies exposed the types. Bot evidence reports +7324 matched-code bytes, 11 new matches, and 25 improvements, with one ftCo_800A2718 regression.",
         "scope": [
-          "headers",
-          "prototype cleanup",
-          "fighter common"
+          "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
+          "src/melee/ft/chara/ftCommon/ftCo_0A01.h"
         ],
         "evidence_refs": [
-          "raw diff lines 6186-6196",
-          "raw diff lines 6204-6218"
+          "changed_files.jsonl",
+          "diff.diff header hunks",
+          "text_corpus.jsonl bot report"
         ]
       },
       {
-        "record_type": "matching_tactic_candidate",
-        "title": "Natural loop reconstruction for generated object-list traversal",
-        "text": "inlineL0 was converted from label/goto traversal of HSD_GObj_Entities->items to a for loop with continue guards and a final stage switch.",
+        "title": "Observed ftCo_0A01 matching tactic: narrow noinline/dontinline forwarding wrappers",
+        "text": "The diff adds forwarding wrappers with _noinline/_dontinline suffixes around existing ftCo helpers. This is evidence that the PR used wrapper call-shape control in this file, but the slice does not provide isolated objdiff proof for each wrapper.",
         "scope": [
-          "loops",
-          "item traversal",
-          "ftCo_0A01"
+          "ftCo_800A1B38_noinline",
+          "ftCo_800A1F3C_noinline",
+          "ftCo_800A2718_dontinline",
+          "ftCo_IsGrabbing_dontinline"
         ],
         "evidence_refs": [
-          "diff_excerpt: old inlineL0 labels loop_8/block_3/block_7",
-          "diff_excerpt: new inlineL0 for loop"
-        ]
-      },
-      {
-        "record_type": "matching_tactic_candidate",
-        "title": "Noinline/dontinline wrappers require per-use evidence",
-        "text": "PR 2524 added several explicit wrapper helpers such as ftCo_800A1B38_noinline and ftCo_800A2718_dontinline3; keep this as a tactic candidate, not a style rule, because the slice lacks per-wrapper objdiff rationale.",
-        "scope": [
-          "inlining control",
-          "matching tactics",
-          "ftCo_0A01"
-        ],
-        "evidence_refs": [
-          "diff_excerpt: ftCo_800A1B38_noinline",
-          "diff_excerpt: ftCo_800A1F3C_noinline2",
-          "diff_excerpt: ftCo_800A2718_dontinline3",
-          "decomp_standards.matching-tactics-need-evidence"
+          "diff.diff wrapper additions",
+          "text_corpus.jsonl aggregate bot report"
         ]
       }
     ],
-    "source_update_candidates": [],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Require explicit evidence for persistent noinline/dontinline forwarding wrappers",
+        "text": "PR #2524 shows multiple narrow forwarding wrappers named _noinline/_dontinline in matching source. Curator may consider whether the standards should explicitly list these wrapper forms alongside PAD_STACK, declaration-order changes, dummy locals, and other tactics that need narrow objdiff evidence before remaining in reviewable source.",
+        "source_path": null,
+        "scope": [
+          "matching tactics",
+          "fighter decomp",
+          "wrapper helpers"
+        ],
+        "evidence_refs": [
+          "diff.diff: ftCo_800A1B38_noinline, ftCo_800A1F3C_noinline, ftCo_800A2718_dontinline helpers",
+          "decomp_standards: matching-tactics-need-evidence"
+        ],
+        "reason": "The loaded standards cover matching tactics broadly but do not explicitly name noinline/dontinline forwarding wrappers; this PR provides an example for curator review, not automatic promotion."
+      }
+    ],
     "rejection_notes": [
-      "Do not promote the noinline/dontinline wrapper pattern as an accepted global convention from this PR alone; the evidence shows usage but not necessity for each wrapper.",
-      "Do not infer semantic names for address-style ftCo symbols from this PR; the diff keeps address-style names and the PR body is empty.",
-      "Do not claim every changed function matched; the bot report distinguishes 11 new matches, 25 partial improvements, and one regression.",
-      "Do not infer human reviewer approval rationale; no human review comments are present."
+      "Do not infer from merge status that all _noinline/_dontinline wrappers are globally preferred style; the slice lacks isolated reviewer or objdiff rationale.",
+      "Do not claim ftCo_800A2718 was improved; bot evidence reports it as a regression in an unmatched item.",
+      "Do not invent semantic names for address-style ftCo functions; the PR keeps address-style names and gives no semantic naming rationale.",
+      "Do not claim the entire ftCo_0A01 translation unit matched; the bot report lists several unmatched-item improvements rather than full TU completion."
     ]
   },
-  "confidence": 0.73,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

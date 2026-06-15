@@ -12,218 +12,222 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR 2633 split Kirby SpecialHi code out of the previous ftkirbyspecialn range into a new matched object, adding ftkirbyspecialhi.c/.h, updating GALE01 split ranges and configure.py, moving SpecialHi prototypes out of ftkirby.h, and wiring the new header include into ftkirby.c. The code slice shows several explicit matching-only tactics such as PAD_STACK, padding locals, a fake permuter match comment, and a comma-operator regalloc comment.",
+  "summary": "PR 2633 split Kirby SpecialHi code out of the existing Kirby SpecialN translation unit, added a new ftkirbyspecialhi.c/.h pair, marked the new object as Matching, updated GALE01 split ranges, and moved SpecialHi declarations/includes to the new owning header. The diff also preserves several explicit matching tactics such as PAD_STACK, fake-match comments, dummy stack locals, and a comma-operator regalloc comment; no human review comments explain those tactics.",
   "change_classification": {
-    "primary_type": "split_and_link_matched_object",
+    "primary_type": "split_and_link_matching_object",
     "categories": [
       "headers",
-      "config",
-      "fighter",
-      "matching",
-      "source_split"
+      "splits",
+      "matching-config",
+      "code-move",
+      "include-cleanup"
     ],
     "systems": [
-      "config",
       "fighter",
-      "ftKirby",
+      "Kirby",
+      "config",
       "repo-root"
     ]
   },
   "key_files": [
     {
       "path": "config/GALE01/splits.txt",
-      "role": "Defines the new ftkirbyspecialhi.c text/sdata2 ownership range and narrows the ftkirbyspecialn.c range.",
+      "role": "Added the ftkirbyspecialhi.c split range and narrowed the ftkirbyspecialn.c .text/.sdata2 ranges.",
       "evidence_refs": [
-        "diff_excerpt:config/GALE01/splits.txt",
-        "changed_files.jsonl"
+        "diff:splits.txt adds melee/ft/chara/ftKirby/ftkirbyspecialhi.c .text 0x800F21E8-0x800F331C and .sdata2 0x804D9370-0x804D9388",
+        "diff:splits.txt changes ftkirbyspecialn.c start to .text 0x800F331C and .sdata2 0x804D9388"
       ]
     },
     {
       "path": "configure.py",
-      "role": "Adds melee/ft/chara/ftKirby/ftkirbyspecialhi.c as a Matching object.",
+      "role": "Linked the new Kirby SpecialHi object as Matching.",
       "evidence_refs": [
-        "diff_excerpt:configure.py",
-        "changed_files.jsonl"
+        "diff:configure.py adds Object(Matching, \"melee/ft/chara/ftKirby/ftkirbyspecialhi.c\")"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c",
-      "role": "New 552-line source file containing the split Kirby SpecialHi functions from 0x800F21E8 through before 0x800F331C.",
+      "role": "New source file containing the extracted Kirby SpecialHi functions from 0x800F21E8 through 0x800F3248/near 0x800F331C.",
       "evidence_refs": [
-        "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c",
-        "changed_files.jsonl"
+        "changed_files:ftkirbyspecialhi.c added 552 lines",
+        "diff:ftkirbyspecialhi.c new file includes ftKb_SpecialHi_Enter, ftKb_SpecialAirHi_Enter, Anim/IASA/Phys/Coll callbacks, and static fn_800F21E8"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialhi.h",
-      "role": "New header for the split SpecialHi declarations.",
+      "role": "New owning header for extracted Kirby SpecialHi prototypes.",
       "evidence_refs": [
-        "changed_files.jsonl"
+        "changed_files:ftkirbyspecialhi.h added 42 lines",
+        "diff:ftkirbyspecialhi.h declares ftKb_AttackDashAir_800F22D4 and ftKb_SpecialHi/SpecialAirHi Anim, IASA, Phys, and Coll prototypes"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftKirby/ftkirby.h",
-      "role": "Removes SpecialHi-related prototypes from the aggregate Kirby header after the split.",
+      "role": "Removed SpecialHi-related prototypes from the aggregate Kirby header after extraction.",
       "evidence_refs": [
-        "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirby.h",
-        "changed_files.jsonl"
+        "diff:ftkirby.h removes 36 prototype lines from fn_800F21E8 through ftKb_SpecialAirHiEnd_Coll"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftKirby/ftkirby.c",
-      "role": "Includes the new ftkirbyspecialhi.h header.",
+      "role": "Included the new SpecialHi header in Kirby source.",
       "evidence_refs": [
-        "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirby.c",
-        "changed_files.jsonl"
+        "diff:ftkirby.c adds #include \"ftkirbyspecialhi.h\""
       ]
     },
     {
       "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialn.c",
-      "role": "Receives large edits as SpecialHi code is split away from the previous SpecialN translation unit range.",
+      "role": "Lost the extracted SpecialHi range and retained later SpecialN/SpecialHi-adjacent code.",
       "evidence_refs": [
-        "changed_files.jsonl",
-        "diff_excerpt:config/GALE01/splits.txt"
-      ]
-    },
-    {
-      "path": "src/melee/ft/ftdata.c",
-      "role": "Large deletion plus one addition in fighter data, likely related to linking the newly split Kirby object, but exact semantic details are not visible in the loaded excerpt.",
-      "evidence_refs": [
-        "changed_files.jsonl"
+        "changed_files:ftkirbyspecialn.c added 348 deleted 565 across 10 hunks",
+        "diff:removed duplicate/extracted SpecialHi functions from ftkirbyspecialn.c after adding ftkirbyspecialhi.c"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftKirby/inlines.h",
-      "role": "Adds Kirby inline support used by the split source, exact details not visible in the loaded excerpt.",
+      "role": "Added a small Kirby callback-setting inline used by the moved code.",
       "evidence_refs": [
-        "changed_files.jsonl"
+        "diff:inlines.h adds static inline ftKb_SpecialN_set_cbs2 setting take_dmg_cb and death2_cb"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftKirby/ftkirbyyoshiegg.c",
-      "role": "Small cleanup connected to the split, exact details not visible in the loaded excerpt.",
+      "role": "Cleaned includes after the split; exact behavioral impact is not shown by loaded excerpts.",
       "evidence_refs": [
-        "changed_files.jsonl"
+        "changed_files:ftkirbyyoshiegg.c deleted 12 lines",
+        "diff:ftkirbyyoshiegg.c removes several includes including ef/eflib.h, ef/efsync.h, ftKirby/ftkirby.h, and item headers"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ftdata.c",
+      "role": "Updated includes to reference the new Kirby SpecialHi header while removing many no-longer-needed includes.",
+      "evidence_refs": [
+        "changed_files:ftdata.c added 1 deleted 122",
+        "diff:ftdata.c adds #include \"ftKirby/ftkirbyspecialhi.h\" and removes many fighter/common includes"
       ]
     }
   ],
   "what_changed": [
-    "Created src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c with Kirby SpecialHi, SpecialAirHi, animation, IASA, physics, and collision handlers.",
-    "Created src/melee/ft/chara/ftKirby/ftkirbyspecialhi.h and removed the corresponding SpecialHi prototypes from ftkirby.h.",
-    "Added #include \"ftkirbyspecialhi.h\" to ftkirby.c.",
-    "Updated config/GALE01/splits.txt so ftkirbyspecialhi.c owns .text 0x800F21E8-0x800F331C and .sdata2 0x804D9370-0x804D9388, while ftkirbyspecialn.c starts at 0x800F331C and .sdata2 at 0x804D9388.",
-    "Added ftkirbyspecialhi.c to configure.py as Object(Matching, \"melee/ft/chara/ftKirby/ftkirbyspecialhi.c\").",
-    "The PR also changed ftkirbyspecialn.c, ftdata.c, ftkirbyyoshiegg.c, and ftKirby/inlines.h, but the loaded excerpt does not show enough detail to summarize their exact semantic edits beyond the split/link context."
+    "Created src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c as a new 552-line translation unit for Kirby SpecialHi functions.",
+    "Created src/melee/ft/chara/ftKirby/ftkirbyspecialhi.h and moved the SpecialHi callback prototypes out of ftkirby.h.",
+    "Updated GALE01 splits so ftkirbyspecialhi.c owns .text 0x800F21E8-0x800F331C and .sdata2 0x804D9370-0x804D9388, while ftkirbyspecialn.c starts at 0x800F331C and .sdata2 0x804D9388.",
+    "Added the new object to configure.py as Object(Matching, \"melee/ft/chara/ftKirby/ftkirbyspecialhi.c\").",
+    "Added ftkirbyspecialhi.h includes in ftkirby.c and ftdata.c.",
+    "Removed or narrowed includes in ftkirbyyoshiegg.c and ftdata.c as part of the split cleanup.",
+    "Bot report for GALE01 states \"No changes\"; the slice does not include detailed objdiff/build logs."
   ],
   "smart_moves": [
-    "Kept the split metadata and build configuration in sync: splits.txt was updated at the same time configure.py marked the new object Matching.",
-    "Moved declarations toward a feature-specific header instead of leaving all SpecialHi prototypes in the broader ftkirby.h header.",
-    "Preserved an address-style static helper name, fn_800F21E8, where the loaded evidence does not prove a semantic name."
+    "The split was coordinated across split metadata, build configuration, source file ownership, and header declarations rather than only moving C code.",
+    "The new object was explicitly marked Matching in configure.py at the same time its split range was separated from the nonmatching SpecialN object.",
+    "Function declarations moved from broad ftkirby.h into a dedicated ftkirbyspecialhi.h owner, matching the new translation-unit boundary.",
+    "Include cleanup accompanied the split, especially in ftdata.c and ftkirbyyoshiegg.c, reducing stale dependencies exposed by moving SpecialHi out of SpecialN."
   ],
   "decomp_lessons": [
     {
-      "lesson": "When carving a matched function range out of a larger translation unit, update split ranges, build object classification, source/header placement, and includes together so the new unit can link independently.",
+      "lesson": "When splitting a matched subrange out of a larger nonmatching fighter TU, update split ranges, configure object status, source ownership, and header ownership together.",
       "evidence_refs": [
-        "diff_excerpt:config/GALE01/splits.txt",
-        "diff_excerpt:configure.py",
-        "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirby.h",
-        "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirby.c"
+        "diff:splits.txt adds ftkirbyspecialhi.c ranges and narrows ftkirbyspecialn.c",
+        "diff:configure.py marks ftkirbyspecialhi.c Matching",
+        "diff:ftkirby.h removes SpecialHi prototypes",
+        "diff:ftkirbyspecialhi.h adds those prototypes"
       ]
     },
     {
-      "lesson": "A focused split can leave surrounding nonmatching code in the older file while marking only the newly separated object as Matching.",
+      "lesson": "A successful split may expose include ownership cleanup in both direct users and central tables such as ftdata.c.",
       "evidence_refs": [
-        "diff_excerpt:configure.py",
-        "diff_excerpt:config/GALE01/splits.txt"
+        "diff:ftdata.c adds ftKirby/ftkirbyspecialhi.h and removes many includes",
+        "diff:ftkirby.c adds ftkirbyspecialhi.h",
+        "diff:ftkirbyyoshiegg.c removes unused includes"
+      ]
+    },
+    {
+      "lesson": "Comments like \"fake match\", \"Needed For Stack\", and \"comma operator required for regalloc\" are useful intake search signals for matching debt; this PR evidence shows they existed in the matched split, but it does not prove they are preferred style.",
+      "evidence_refs": [
+        "diff:ftkirbyspecialhi.c contains \"fake match, via permuter\" in fn_800F21E8",
+        "diff:ftkirbyspecialhi.c contains PAD_STACK uses and stack locals annotated as matching aids",
+        "diff:ftkirbyspecialhi.c contains \"FAKE MATCH: comma operator required for regalloc\""
       ]
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Kirby SpecialHi handlers use the ftKb_SpecialHi*/ftKb_SpecialAirHi* prefix with phase suffixes such as Enter, Anim, IASA, Phys, and Coll.",
+      "convention": "Kirby SpecialHi functions use the ftKb_SpecialHi / ftKb_SpecialAirHi prefix with phase suffixes Enter, Anim, IASA, Phys, and Coll.",
       "evidence_refs": [
-        "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c",
-        "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirby.h"
+        "diff:ftkirbyspecialhi.h declares ftKb_SpecialHi_Enter, ftKb_SpecialAirHi_Enter, ftKb_SpecialHi1_Anim, ftKb_SpecialAirHiEnd_Coll, and related callbacks"
       ]
     },
     {
-      "convention": "Unknown or not-yet-semantic local helper names may remain address-style, as shown by static fn_800F21E8.",
+      "convention": "Address comments are retained on prototypes in the new dedicated header, e.g. /* 0F2300 */ before ftKb_SpecialHi_Enter.",
       "evidence_refs": [
-        "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c"
+        "diff:ftkirbyspecialhi.h prototype block includes address comments"
       ]
     },
     {
-      "convention": "File naming follows the lowercase character/action pattern: ftkirbyspecialhi.c and ftkirbyspecialhi.h.",
+      "convention": "Unproven helper semantics can remain address-style: fn_800F21E8 is kept as an address-style static helper rather than renamed semantically.",
       "evidence_refs": [
-        "diff_excerpt:config/GALE01/splits.txt",
-        "changed_files.jsonl"
+        "diff:ftkirbyspecialhi.c declares /* 0F21E8 */ static void fn_800F21E8(Fighter_GObj* gobj)"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Uses PAD_STACK in multiple functions, including ftKb_SpecialHi4_Anim, ftKb_SpecialAirHiEnd_Anim, ftKb_SpecialHi1_Phys, ftKb_SpecialHi2_Phys, ftKb_SpecialHi2_Coll, and ftKb_SpecialAirHi2_Coll.",
+      "tactic": "New object linked as Matching after split-range isolation.",
       "evidence_refs": [
-        "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c"
-      ],
-      "caution": "Loaded standards say PAD_STACK requires narrow verifier evidence before treating it as reviewable source; the PR slice shows the tactic but does not include objdiff details."
+        "diff:configure.py adds Object(Matching, \"melee/ft/chara/ftKirby/ftkirbyspecialhi.c\")",
+        "text_corpus:bot report says GALE01 No changes"
+      ]
     },
     {
-      "tactic": "Uses explicit fake-match comments and permuter-shaped code, including an empty condition marked '// fake match, via permuter'.",
+      "tactic": "PAD_STACK and dummy stack locals were present in the extracted source to preserve stack or codegen shape.",
       "evidence_refs": [
-        "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c"
-      ],
-      "caution": "This is evidence of a matching workaround, not a general style recommendation."
+        "diff:ftkirbyspecialhi.c has PAD_STACK(16), PAD_STACK(4), PAD_STACK(5), PAD_STACK(6)",
+        "diff:ftkirbyspecialhi.c has f32 stack comments \"Needed For Stack?\""
+      ]
     },
     {
-      "tactic": "Uses stack/padding locals such as u8 _pad[12] and f32 stack comments to influence stack shape.",
+      "tactic": "A fake empty conditional and comma operator were used as regalloc/permuter-shaped matching aids.",
       "evidence_refs": [
-        "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c"
-      ],
-      "caution": "Loaded standards require explicit build/objdiff evidence for dummy locals or widened stack lifetimes."
+        "diff:ftkirbyspecialhi.c comment \"fake match, via permuter\"",
+        "diff:ftkirbyspecialhi.c comment \"FAKE MATCH: comma operator required for regalloc\""
+      ]
     },
     {
-      "tactic": "Uses a comma operator for register allocation in ftKb_SpecialAirHi3_Phys, with the inline comment 'FAKE MATCH: comma operator required for regalloc'.",
+      "tactic": "The split carried .sdata2 boundary updates along with .text boundary updates, showing literal/data-section ownership had to follow the new TU boundary.",
       "evidence_refs": [
-        "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c"
-      ],
-      "caution": "Treat as a narrow matching tactic tied to this function unless later evidence supports a cleaner source form."
+        "diff:splits.txt adds ftkirbyspecialhi.c .sdata2 0x804D9370-0x804D9388 and moves ftkirbyspecialn.c .sdata2 start to 0x804D9388"
+      ]
     }
   ],
   "review_feedback": [
     {
       "kind": "bot_report",
       "author": "decomp-dev[bot]",
-      "text": "Report for GALE01 stated 'No changes'.",
+      "text": "Report for GALE01 states \"No changes\".",
       "evidence_refs": [
-        "text_corpus.jsonl:issue_comment"
+        "text_corpus:issue_comment by decomp-dev[bot] at 2026-06-08T14:48:01Z"
       ]
     },
     {
-      "kind": "review_absence",
+      "kind": "missing_human_review",
       "author": null,
-      "text": "The loaded PR slice reports zero review comments and zero reviews.",
+      "text": "No review comments or human review feedback were present in the loaded PR slice.",
       "evidence_refs": [
-        "metadata_json:counts"
+        "metadata:review_comments count 0; reviews count 0"
       ]
     }
   ],
   "searchable_terms": [
     "pr-2633",
     "ftkirbyspecialhi",
+    "ftkirbyspecialn",
+    "Kirby SpecialHi",
     "ftKb_SpecialHi_Enter",
     "ftKb_SpecialAirHi_Enter",
     "ftKb_SpecialHi1_Anim",
-    "ftKb_SpecialHi2_Anim",
-    "ftKb_SpecialHi4_Anim",
-    "ftKb_SpecialAirHiEnd_Anim",
-    "ftKb_SpecialHi1_IASA",
-    "ftKb_SpecialAirHi1_IASA",
-    "ftKb_SpecialHi1_Phys",
-    "ftKb_SpecialAirHi3_Phys",
-    "ftKb_SpecialHi2_Coll",
-    "ftKb_SpecialAirHi2_Coll",
+    "ftKb_SpecialAirHiEnd_Coll",
     "fn_800F21E8",
+    "Object(Matching)",
+    "GALE01 splits",
     "0x800F21E8",
     "0x800F331C",
     "0x804D9370",
@@ -231,64 +235,65 @@
     "PAD_STACK",
     "fake match",
     "permuter",
-    "comma operator",
-    "regalloc",
-    "Kirby Cutter",
-    "it_8029BAB8",
-    "ft_CheckGroundAndLedge",
-    "ftCliffCommon_80081298"
+    "comma operator required for regalloc",
+    "ftKb_SpecialN_set_cbs2"
   ],
   "follow_up_queries": [
-    "ftkirbyspecialhi PAD_STACK fake match permuter regalloc",
-    "fn_800F21E8 accessory4_cb Kirby SpecialHi",
-    "ftKb_SpecialAirHi3_Phys comma operator regalloc",
-    "ftKb_SpecialHi2_Coll specialn_pe facing_dir specialhi",
-    "ftkirbyspecialhi split range 800F21E8 800F331C",
-    "ftKirby inlines.h PR 2633",
-    "ftdata.c ftkirbyspecialhi link data"
+    "ftkirbyspecialhi.c PAD_STACK fake match comma operator",
+    "fn_800F21E8 specialhi_projectile_spawn_x permuter",
+    "ftKb_SpecialN_set_cbs2 death2_cb take_dmg_cb",
+    "ftkirbyspecialn.c split 0x800F21E8 0x800F331C",
+    "ftdata.c include cleanup ftKirby/ftkirbyspecialhi.h",
+    "Kirby SpecialHi Matching GALE01 No changes PR 2633"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json",
-      "changed_files.jsonl",
-      "raw_diff/diff_excerpt",
-      "text_corpus.jsonl"
+      "metadata:PR 2633 title/state/author/timestamps",
+      "changed_files:10 changed files, 958 added, 737 deleted",
+      "raw_diff:diff excerpt and targeted diff lookups",
+      "text_corpus:empty PR body and one bot issue comment",
+      "metadata:0 review comments and 0 reviews"
     ],
     "notes": [
-      "Strong evidence for PR identity, changed files, split ranges, configure.py matching-object addition, new source file excerpt, header relocation, and absence of review comments.",
-      "The diff excerpt is truncated, so exact contents of ftkirbyspecialhi.h, ftdata.c, ftkirbyspecialn.c, ftkirbyyoshiegg.c, and inlines.h are not fully visible.",
-      "The bot report says 'No changes', but the slice does not include enough context to interpret it as full build, objdiff, or regression validation beyond the report text.",
-      "Several matching tactics are visible in source comments, but no accompanying verifier ledger is loaded."
+      "The changed files, split ranges, object status, and many source edits are directly supported by the diff.",
+      "The PR body is empty and there are no human review comments, so reviewer intent and rationale for fake-match tactics are not evidenced.",
+      "The raw diff loaded in the prompt was truncated, but targeted local diff lookups covered the header, inline, ftdata, include-cleanup, and matching-tactic details used here.",
+      "The bot report says \"No changes\", but the slice does not include full build, objdiff, or checkdiff logs; do not overstate validation beyond the bot text."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "title": "Split matched subrange with coordinated split/build/header updates",
-        "text": "PR 2633 shows a matched Kirby SpecialHi range being split into its own source/header while also updating GALE01 split ownership, configure.py Matching object registration, and includes/prototypes.",
+        "record_type": "historical_pr_lesson",
+        "title": "Split-and-link checklist for matched fighter subranges",
+        "text": "PR 2633 shows a matched Kirby subrange split by coordinating config/GALE01/splits.txt, configure.py Object(Matching), a new source/header pair, and declaration/include ownership updates.",
         "scope": [
-          "ftKirby",
-          "source_split",
-          "matching"
+          "fighter",
+          "Kirby",
+          "TU split",
+          "matching object"
         ],
         "evidence_refs": [
-          "diff_excerpt:config/GALE01/splits.txt",
-          "diff_excerpt:configure.py",
-          "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirby.h",
-          "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirby.c"
+          "diff:splits.txt ftkirbyspecialhi.c range",
+          "diff:configure.py Object(Matching)",
+          "diff:ftkirbyspecialhi.c/.h new files",
+          "diff:ftkirby.h prototype removal"
         ]
       },
       {
-        "title": "Keep unsupported helper names address-style during split",
-        "text": "The new ftkirbyspecialhi.c keeps fn_800F21E8 as an address-style static helper rather than inventing a semantic name in the loaded evidence.",
+        "record_type": "historical_pr_caution",
+        "title": "Matched split contained explicit fake-match debt",
+        "text": "The extracted matching file retained comments and constructs including PAD_STACK, dummy stack locals, \"fake match, via permuter\", and \"comma operator required for regalloc\". Treat these as search signals for future cleanup, not as an accepted global style rule.",
         "scope": [
-          "naming",
-          "ftKirby",
-          "conservative_naming"
+          "matching tactics",
+          "Kirby SpecialHi",
+          "cleanup candidates"
         ],
         "evidence_refs": [
-          "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c"
+          "diff:ftkirbyspecialhi.c fake match comments",
+          "diff:ftkirbyspecialhi.c PAD_STACK and stack locals",
+          "decomp_standards:matching-tactics-need-evidence"
         ]
       }
     ],
@@ -296,51 +301,52 @@
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "ftkirbyspecialhi split ownership in PR 2633",
-        "text": "PR 2633 adds melee/ft/chara/ftKirby/ftkirbyspecialhi.c with .text start 0x800F21E8 end 0x800F331C and .sdata2 start 0x804D9370 end 0x804D9388; ftkirbyspecialn.c is narrowed to start at .text 0x800F331C and .sdata2 0x804D9388.",
+        "title": "Kirby SpecialHi split ownership after PR 2633",
+        "text": "src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c owns the GALE01 range .text 0x800F21E8-0x800F331C and .sdata2 0x804D9370-0x804D9388; ftkirbyspecialn.c begins at .text 0x800F331C and .sdata2 0x804D9388 after this split.",
         "source_path": "config/GALE01/splits.txt",
         "scope": [
           "GALE01",
-          "ftKirby",
+          "Kirby",
           "ftkirbyspecialhi.c",
           "ftkirbyspecialn.c"
         ],
         "evidence_refs": [
-          "diff_excerpt:config/GALE01/splits.txt"
+          "diff:splits.txt range edits in PR 2633"
         ],
-        "reason": "Concrete split-range data is source-owned path/split information and should be curated as a path fact if still useful."
+        "reason": "Path/split ownership fact is directly present in the diff but should be curated into source-owned path facts rather than promoted by intake."
       },
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Require verifier notes for fake-match comments in linked matching objects",
-        "text": "PR 2633 contains explicit fake-match comments, PAD_STACK uses, padding locals, and a comma-operator regalloc workaround in a file registered as Matching. Consider whether standards should explicitly ask authors to leave a narrow verifier note or cleanup TODO for such tactics when linking a new matched object.",
-        "source_path": "src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c",
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "ftkirbyspecialhi.h is the declaration owner for extracted SpecialHi callbacks",
+        "text": "After PR 2633, SpecialHi callback prototypes removed from ftkirby.h are declared in src/melee/ft/chara/ftKirby/ftkirbyspecialhi.h, with ftkirby.c and ftdata.c including that header.",
+        "source_path": "src/melee/ft/chara/ftKirby/ftkirbyspecialhi.h",
         "scope": [
-          "matching_tactics",
-          "verification",
-          "reviewability"
+          "Kirby",
+          "headers",
+          "SpecialHi"
         ],
         "evidence_refs": [
-          "diff_excerpt:src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c",
-          "diff_excerpt:configure.py"
+          "diff:ftkirby.h removes SpecialHi prototypes",
+          "diff:ftkirbyspecialhi.h adds SpecialHi prototypes",
+          "diff:ftkirby.c and ftdata.c include ftkirbyspecialhi.h"
         ],
-        "reason": "The loaded global standards already cover this area, but this PR provides a concrete historical example for curator review rather than an automatically accepted new rule."
+        "reason": "Header ownership fact is supported by the PR diff and may help future declaration/prototype cleanup."
       }
     ],
     "rejection_notes": [
-      "Do not treat the visible fake-match, PAD_STACK, dummy local, or comma-operator patterns as accepted style; they are only evidence of tactics used in this PR and require verifier context under loaded standards.",
-      "Do not infer semantic meaning for fn_800F21E8 beyond its visible use as an accessory4_cb helper that can spawn an item/effect path; the PR evidence does not provide a confirmed name.",
-      "Do not summarize the ftdata.c, ftkirbyspecialn.c, ftkirbyyoshiegg.c, or inlines.h semantic edits beyond split/link context because their detailed diff hunks are not loaded."
+      "Do not infer that PAD_STACK, fake empty conditionals, or comma operators are broadly accepted style from this PR; the loaded evidence only shows they were present in a merged matching split and lacks human rationale.",
+      "Do not infer reviewer approval details; no human review comments or reviews are present.",
+      "Do not claim full objdiff/build validation beyond the bot issue comment text \"No changes\"."
     ]
   },
-  "confidence": 0.82,
+  "confidence": 0.84,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

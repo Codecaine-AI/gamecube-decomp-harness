@@ -12,159 +12,125 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2585 added a GitHub Actions `update-wiki` job to `.github/workflows/build.yml` that runs after `build-ninja` on pushes to the default branch of `doldecomp/melee`, downloads the existing `GALE01_report` artifact, regenerates the wiki `Translation-Units.md` page with `tools/wiki_tu.py`, and pushes only when the page changes using the built-in `GITHUB_TOKEN` with `contents: write`.",
+  "summary": "Added a GitHub Actions `update-wiki` job to `.github/workflows/build.yml` that runs after `build-ninja` on pushes to the default branch of `doldecomp/melee`, downloads the existing `GALE01_report` artifact, regenerates the Translation Units wiki page with `tools/wiki_tu.py`, and pushes to the repository wiki only when the page changes.",
   "change_classification": {
     "primary_type": "tooling_ci_documentation",
     "categories": [
       "tooling",
       "documentation",
       "ci",
-      "wiki_automation"
+      "wiki automation"
     ],
     "systems": [
-      ".github/workflows",
-      "tools/wiki_tu.py",
-      "Translation Units wiki"
+      ".github",
+      "GitHub Actions",
+      "Translation Units wiki",
+      "tools/wiki_tu.py"
     ]
   },
   "key_files": [
     {
       "path": ".github/workflows/build.yml",
-      "role": "Added the `update-wiki` GitHub Actions job for automatic Translation Units wiki regeneration.",
+      "role": "Adds the `update-wiki` GitHub Actions job for automatic Translation Units wiki regeneration.",
       "evidence_refs": [
-        "changed_files.jsonl: .github/workflows/build.yml added 59 deleted 0 hunks 1",
-        "raw_diff: added `update-wiki` job under jobs",
-        "review_comments.md: dependency installation review on this path"
+        "changed_files.jsonl:.github/workflows/build.yml added=59 deleted=0 hunks=1",
+        "raw_diff:.github/workflows/build.yml update-wiki job",
+        "human_pr_text:What"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Added an `update-wiki` GitHub Actions job that depends on `build-ninja`.",
+      "text": "Added an `update-wiki` job that depends on `build-ninja` and is gated to push events on the default branch of `doldecomp/melee`, excluding PRs and forks by condition.",
       "evidence_refs": [
-        "raw_diff: `update-wiki`, `needs: build-ninja`",
-        "human_pr_text.md: 'runs after a successful build (`needs: build-ninja`)'"
+        "raw_diff:update-wiki needs build-ninja and if condition",
+        "human_pr_text:What"
       ]
     },
     {
-      "text": "Restricted the job to pushes to the default branch of `doldecomp/melee`, skipping pull requests and forks.",
+      "text": "Configured the job with `contents: write` and `actions: read`, using `${{ github.token }}` as `GH_TOKEN` to clone and push to `${{ github.repository }}.wiki.git`.",
       "evidence_refs": [
-        "raw_diff: `github.event_name == 'push'`, `github.ref_name == github.event.repository.default_branch`, `github.repository == 'doldecomp/melee'`",
-        "human_pr_text.md: 'on push to the default branch of doldecomp/melee (skipped on PRs and forks)'"
+        "raw_diff:permissions and Regenerate and push step",
+        "human_pr_text:No secret needed"
       ]
     },
     {
-      "text": "Granted the job `contents: write` and `actions: read`, using `${{ github.token }}` as `GH_TOKEN` to clone and push to the repository wiki.",
+      "text": "Sparse-checkout was expanded to include both `tools` and `reqs`, and generator dependencies are installed with `pip install -r reqs/misc.txt`.",
       "evidence_refs": [
-        "raw_diff: `permissions: contents: write`, `GH_TOKEN: ${{ github.token }}`, wiki clone command",
-        "human_pr_text.md: 'No secret needed'"
+        "raw_diff:sparse-checkout tools reqs and install step",
+        "review_comments:discussion_r3366868709"
       ]
     },
     {
-      "text": "Used sparse checkout for `tools` and `reqs`, installed generator dependencies with `pip install -r reqs/misc.txt`, and downloaded the `GALE01_report` artifact to `report`.",
+      "text": "The workflow downloads the `GALE01_report` artifact to `report` and runs `python tools/wiki_tu.py write report/report.json \"wiki/${page}\"` to regenerate `Translation-Units.md`.",
       "evidence_refs": [
-        "raw_diff: sparse-checkout includes `tools` and `reqs`",
-        "raw_diff: `pip install -r reqs/misc.txt`",
-        "raw_diff: `actions/download-artifact@v4` with `name: GALE01_report`"
+        "raw_diff:Download report and python tools/wiki_tu.py write",
+        "human_pr_text:What"
       ]
     },
     {
-      "text": "Regenerated `Translation-Units.md` via `python tools/wiki_tu.py write report/report.json`, committed as `github-actions[bot]`, and skipped the push when `git diff --quiet` found no page changes.",
+      "text": "The push step exits without committing when `git diff --quiet -- Translation-Units.md` reports no changes; otherwise it commits as `github-actions[bot]` and pushes to wiki `master`.",
       "evidence_refs": [
-        "raw_diff: `python tools/wiki_tu.py write report/report.json \"wiki/${page}\"`",
-        "raw_diff: `if git diff --quiet -- \"${page}\"`",
-        "raw_diff: bot git config and `git push origin HEAD:master`"
+        "raw_diff:git diff quiet, bot config, commit, push"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Reused the existing `GALE01_report` artifact instead of adding another build step.",
+      "text": "Reused the existing `GALE01_report` artifact instead of adding another build for wiki generation.",
       "evidence_refs": [
-        "human_pr_text.md: 'reuses the existing `GALE01_report` artifact (no extra build)'",
-        "raw_diff: `actions/download-artifact@v4` with `name: GALE01_report`"
+        "human_pr_text:What",
+        "raw_diff:actions/download-artifact name GALE01_report"
       ]
     },
     {
-      "text": "Scoped the automation to the canonical repository and default-branch pushes, reducing risk from forks or PR contexts.",
+      "text": "Restricted the wiki update job to default-branch pushes in the canonical repository, reducing risk from PRs or forks.",
       "evidence_refs": [
-        "raw_diff: job-level `if` condition",
-        "human_pr_text.md: 'skipped on PRs and forks'"
+        "human_pr_text:What",
+        "raw_diff:if condition github.repository == 'doldecomp/melee'"
       ]
     },
     {
-      "text": "Used a dedicated concurrency group with `cancel-in-progress: false` so multiple master pushes do not race wiki pushes.",
+      "text": "Used a dedicated `concurrency` group with `cancel-in-progress: false` so multiple default-branch pushes do not race wiki pushes.",
       "evidence_refs": [
-        "raw_diff: `concurrency: group: update-wiki`, `cancel-in-progress: false`",
-        "human_pr_text.md: 'own `concurrency` group so master pushes can't race the wiki push'"
+        "human_pr_text:What",
+        "raw_diff:concurrency group update-wiki"
       ]
     },
     {
-      "text": "Avoided a personal access token or machine user by validating that the built-in GitHub token can push to the repository's own wiki with `contents: write`.",
+      "text": "Avoided requiring a PAT, machine user, or GitHub App by using the built-in GitHub token with job-level `contents: write` permission.",
       "evidence_refs": [
-        "human_pr_text.md: 'No PAT, machine user, or GitHub App required'",
-        "text_corpus.jsonl: author comment says validation worked on fork with `${{ github.token }}`"
+        "human_pr_text:No secret needed",
+        "raw_diff:permissions contents write and GH_TOKEN"
       ]
     },
     {
-      "text": "Committed wiki changes only when the generated page differed, avoiding empty or noisy wiki commits.",
+      "text": "Kept the commit conditional on actual wiki page changes, avoiding unnecessary wiki commits.",
       "evidence_refs": [
-        "raw_diff: `git diff --quiet` guard before commit",
-        "human_pr_text.md: 'commits + pushes to the wiki only if the page changed'"
+        "raw_diff:if git diff --quiet -- ${page}; then exit 0"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For generated project status documentation, CI automation can reduce drift by regenerating from existing build artifacts after successful builds rather than requiring manual tool runs.",
+      "text": "For decomp project status pages generated from build artifacts, CI automation can prevent manually maintained wiki pages from drifting, provided the job is scoped to canonical default-branch pushes and reuses existing artifacts.",
       "scope": [
         "tooling",
-        "documentation",
-        "CI-generated status pages"
+        "documentation automation",
+        "Translation Units wiki"
       ],
       "evidence_refs": [
-        "human_pr_text.md: '`tools/wiki_tu.py` generates the Translation Units wiki page, but nothing regenerates it automatically — it drifts until someone runs the tool by hand'",
-        "raw_diff: `needs: build-ninja`, `actions/download-artifact@v4`, `python tools/wiki_tu.py write report/report.json`"
-      ]
-    },
-    {
-      "lesson": "When CI pushes generated documentation, guard the job by event, branch, and repository so write-capable automation does not run on PRs or forks.",
-      "scope": [
-        "GitHub Actions",
-        "repository wiki updates"
-      ],
-      "evidence_refs": [
-        "raw_diff: job-level `if` checks push, default branch, and `doldecomp/melee`",
-        "human_pr_text.md: 'skipped on PRs and forks'"
+        "human_pr_text:tools/wiki_tu.py generates the Translation Units wiki page but it drifted until run by hand",
+        "human_pr_text:What",
+        "raw_diff:update-wiki job"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "name": "update-wiki",
-      "kind": "GitHub Actions job id",
-      "meaning": "Job that updates the wiki Translation Units list.",
+      "text": "The workflow job was named `update-wiki` with display name `Update wiki TU list`; generated page variable was named `page='Translation-Units.md'`.",
       "evidence_refs": [
-        "raw_diff: `update-wiki:`",
-        "raw_diff: `name: Update wiki TU list`"
-      ]
-    },
-    {
-      "name": "GH_TOKEN",
-      "kind": "environment variable",
-      "meaning": "Shell variable bound to `${{ github.token }}` for authenticated wiki clone and push.",
-      "evidence_refs": [
-        "raw_diff: `env: GH_TOKEN: ${{ github.token }}`",
-        "raw_diff: wiki clone URL uses `${GH_TOKEN}`"
-      ]
-    },
-    {
-      "name": "Translation-Units.md",
-      "kind": "wiki page filename",
-      "meaning": "Generated wiki page updated by `tools/wiki_tu.py`.",
-      "evidence_refs": [
-        "raw_diff: `page='Translation-Units.md'`",
-        "human_pr_text.md: 'regenerates `Translation-Units.md` with `tools/wiki_tu.py`'"
+        "raw_diff:update-wiki name and page variable"
       ]
     }
   ],
@@ -172,143 +138,134 @@
   "review_feedback": [
     {
       "author": "ribbanya",
-      "feedback": "Requested installing generator dependencies with `pip install -r reqs/misc.txt` instead of pinned inline packages, with an optional suggestion to separate dependencies to reduce CI dependency footprint.",
+      "text": "Requested installing generator dependencies via `pip install -r reqs/misc.txt` rather than listing packages inline; optionally suggested separating dependencies to reduce CI dependencies.",
       "resolution_evidence": "Final diff uses `pip install -r reqs/misc.txt` and sparse-checkout includes `reqs`.",
       "evidence_refs": [
-        "review_comments.md: 'This should run `pip install -r reqs/misc.txt`'",
-        "raw_diff: `sparse-checkout` includes `reqs`",
-        "raw_diff: `run: pip install -r reqs/misc.txt`"
+        "review_comments:discussion_r3366868709",
+        "raw_diff:Install generator dependencies"
       ]
     },
     {
       "author": "ribbanya",
-      "feedback": "Asked whether the token/wiki-push flow had been tested on a fork and discussed uncertainty around non-personal tokens.",
-      "resolution_evidence": "Author replied that no extra token was needed and linked a fork wiki and GitHub Actions check run as validation.",
+      "text": "Asked whether the token setup had been tested on a fork and noted uncertainty about non-user-associated tokens.",
+      "resolution_evidence": "Author replied that no separate token was needed and linked a fork wiki and GitHub Actions run validating `${{ github.token }}` with `contents: write`.",
       "evidence_refs": [
-        "text_corpus.jsonl: review state CHANGES_REQUESTED body asks 'Have you tested it on your fork?'",
-        "human_pr_text.md: author comment links fork wiki and check run",
-        "human_pr_text.md: PR body says verified end-to-end on a fork"
+        "text_corpus:review state CHANGES_REQUESTED",
+        "text_corpus:issue_comment by itsgrimetime 2026-06-06T08:45:44Z"
       ]
     },
     {
       "author": "ribbanya",
-      "feedback": "Approved after follow-up; later comment thanked the author.",
-      "resolution_evidence": "Loaded text corpus shows an APPROVED review at 2026-06-06T11:39:50Z and issue comment 'Nice work on these, thanks.'",
+      "text": "Later approved the PR and commented, 'Nice work on these, thanks.'",
       "evidence_refs": [
-        "text_corpus.jsonl: review state APPROVED",
-        "human_pr_text.md: ribbanya comment 'Nice work on these, thanks.'"
+        "text_corpus:review state APPROVED",
+        "text_corpus:issue_comment by ribbanya 2026-06-06T10:02:26Z"
       ]
     }
   ],
   "searchable_terms": [
-    "PR2585",
+    "PR 2585",
     "update-wiki",
+    "Translation Units",
     "Translation-Units.md",
     "tools/wiki_tu.py",
-    "wiki_tu",
     "GALE01_report",
-    "GitHub Actions",
-    "GITHUB_TOKEN",
-    "GH_TOKEN",
-    "contents write",
-    "actions download-artifact v4",
-    "actions checkout v4",
-    "actions setup-python v5",
-    "reqs/misc.txt",
-    "sparse-checkout",
-    "concurrency group update-wiki",
+    ".github/workflows/build.yml",
+    "GitHub Actions wiki push",
+    "GITHUB_TOKEN contents write",
     "github-actions[bot]",
-    "wiki .wiki.git",
-    "actionlint"
+    "reqs/misc.txt",
+    "actions/download-artifact@v4",
+    "actions/checkout@v4",
+    "actions/setup-python@v5",
+    "actionlint",
+    "concurrency update-wiki"
   ],
   "follow_up_queries": [
-    "update-wiki GitHub Actions wiki Translation-Units.md",
-    "tools/wiki_tu.py write report/report.json wiki",
-    "GALE01_report Translation Units wiki automation",
-    "GITHUB_TOKEN contents write wiki.git push",
-    "reqs/misc.txt wiki_tu.py dependencies",
-    "concurrency update-wiki cancel-in-progress false"
+    "Find later changes to `.github/workflows/build.yml` `update-wiki` job",
+    "Find PRs mentioning `tools/wiki_tu.py` or `Translation-Units.md`",
+    "Find CI failures or fixes involving `GALE01_report` artifact download",
+    "Find later review comments about GitHub wiki pushes using `GITHUB_TOKEN`",
+    "Find changes to `reqs/misc.txt` affecting wiki generator dependencies"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR number, title, author, state, timestamps, changed file counts",
-      "human_pr_text.md: full PR body and issue comments",
-      "review_comments.md: inline review feedback",
-      "raw_diff: complete one-file diff",
-      "text_corpus.jsonl: PR body, issue comments, review comment, review states"
+      "metadata_json:pr state MERGED and changed_files",
+      "human_pr_text:full PR body and comments",
+      "review_comments:discussion_r3366868709",
+      "raw_diff:.github/workflows/build.yml",
+      "text_corpus:reviews and comments"
     ],
     "notes": [
-      "Evidence strongly supports the CI/documentation automation details because the full diff and PR body are loaded.",
-      "The PR is tooling/documentation-oriented, not a code decompilation match; assembly or objdiff tactics are not present.",
-      "The PR body claims fork validation and actionlint-clean status; intake records these as PR evidence, not independently rerun validation.",
-      "No source graph or current repository lookup was needed because the loaded PR slice answered the relevant questions."
+      "The diff and PR body directly support the workflow behavior and changed file.",
+      "The author claims fork validation and links a check run; intake records that claim and link evidence but does not independently verify the external run.",
+      "No decompilation source, assembly matching, symbol naming, or objdiff evidence is present because this PR is CI/documentation tooling, not a code-match PR."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "tooling_lesson",
-        "title": "Automate generated decomp status docs from existing CI artifacts",
-        "text": "When a repository status page is generated from build/report output, wiring the generator into CI after the successful build can prevent documentation drift without adding another build, as shown by reusing `GALE01_report` for `tools/wiki_tu.py`.",
+        "record_type": "tooling_lesson_candidate",
+        "title": "Automate generated decomp status wiki pages from CI artifacts",
+        "text": "When a decomp status page is generated from existing build reports, wire the generator into CI after the producing build job, gate it to canonical default-branch pushes, and commit only when the generated page changes.",
         "scope": [
-          "documentation automation",
-          "CI",
+          "CI tooling",
+          "generated documentation",
           "Translation Units wiki"
         ],
         "evidence_refs": [
-          "human_pr_text.md: describes manual drift and CI regeneration goal",
-          "raw_diff: downloads `GALE01_report` and runs `tools/wiki_tu.py write`"
+          "human_pr_text:What",
+          "raw_diff:update-wiki job"
         ]
       },
       {
-        "record_type": "tooling_lesson",
-        "title": "Gate write-capable wiki automation to canonical default-branch pushes",
-        "text": "For GitHub Actions jobs that push generated wiki content, combine branch, event, and repository checks before granting write permissions, and skip commits when the generated output is unchanged.",
+        "record_type": "tooling_lesson_candidate",
+        "title": "Built-in GitHub token can be sufficient for same-repository wiki updates",
+        "text": "For this PR's GitHub Actions wiki update, the built-in `${{ github.token }}` with job-level `contents: write` was used to clone and push to the repository's own `.wiki.git`, avoiding a PAT or GitHub App.",
         "scope": [
           "GitHub Actions",
-          "wiki publishing"
+          "wiki automation"
         ],
         "evidence_refs": [
-          "raw_diff: job-level `if` condition checks push/default branch/repository",
-          "raw_diff: `permissions: contents: write`",
-          "raw_diff: `git diff --quiet` guard"
+          "human_pr_text:No secret needed",
+          "raw_diff:GH_TOKEN and git clone wiki",
+          "text_corpus:issue_comment by itsgrimetime 2026-06-06T08:45:44Z"
         ]
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "other",
-        "update_kind": "source_update",
-        "title": "Document CI pattern for generated wiki/status page updates",
-        "text": "Consider documenting that generated documentation jobs should reuse existing artifacts where possible, run only on canonical default-branch pushes, use the built-in `GITHUB_TOKEN` with the minimum required job permissions, serialize pushes with a concurrency group, and avoid commits when output is unchanged.",
-        "source_path": null,
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "`.github/workflows/build.yml` owns automated Translation Units wiki regeneration",
+        "text": "As of PR #2585, `.github/workflows/build.yml` contains an `update-wiki` GitHub Actions job that regenerates `Translation-Units.md` from `tools/wiki_tu.py` and the `GALE01_report` artifact after successful default-branch builds.",
+        "source_path": ".github/workflows/build.yml",
         "scope": [
-          "project CI documentation",
-          "GitHub Actions maintenance",
-          "generated wiki pages"
+          ".github",
+          "CI",
+          "Translation Units wiki"
         ],
         "evidence_refs": [
-          "human_pr_text.md: PR body lists these design choices",
-          "raw_diff: `update-wiki` job implementation",
-          "review_comments.md: dependency installation feedback"
+          "raw_diff:.github/workflows/build.yml update-wiki job",
+          "human_pr_text:What"
         ],
-        "reason": "This is a project tooling convention candidate, not an existing decomp standard; curator should decide whether a CI/documentation source owns it."
+        "reason": "Useful path ownership fact for future CI/wiki automation changes; route to curator because current source may have evolved after this historical PR."
       }
     ],
     "rejection_notes": [
-      "Do not treat this PR as evidence for assembly matching, objdiff, or source-code decomp tactics; it only changes GitHub Actions workflow configuration.",
-      "Do not promote the PR's fork-validation or actionlint-clean statements as independently verified by this intake; they are author-supplied PR evidence.",
-      "Do not generalize `contents: write` as sufficient for all wiki push cases beyond this repository's own wiki; the PR evidence is scoped to this repo/fork validation claim."
+      "Do not treat this PR as evidence for any C decompilation style, symbol naming convention, assembly matching tactic, or objdiff validation practice.",
+      "Do not generalize the token behavior beyond same-repository wiki pushes without additional current GitHub Actions evidence.",
+      "Do not mark the external fork validation as independently verified by this intake; only the PR author's claim and links are present."
     ]
   },
-  "confidence": 0.92,
+  "confidence": 0.91,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

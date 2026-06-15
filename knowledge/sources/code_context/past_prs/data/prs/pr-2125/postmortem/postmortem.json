@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2125 added substantial mndiagram decomp work and renamed many mndiagram/menu/game-main symbols and types. Evidence shows new or improved mndiagram functions, module-prefixed public function names, typed persistent fighter/name data usage, mndiagram header/static-header updates, and symbols.txt renames. Review focused on module-prefix naming, moving user data into mn/types.h, placing definitions near the top or in .static.h for linking, and recognizing an inline of mnDiagram_UpdateScrollArrowVisibility.",
+  "summary": "PR #2125 matched and improved many `src/melee/mn/mndiagram` functions, renamed mndiagram symbols to semantic/module-prefixed names, added or adjusted menu/game-mode types and prototypes, and propagated type-name changes through callers. Review focused on non-static function prefixing, moving mndiagram user-data typing into `mn/types.h`, definition placement for linking, and recognizing an inline of `mnDiagram_UpdateScrollArrowVisibility`.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -23,307 +23,352 @@
       "types-structs"
     ],
     "systems": [
-      "mn",
-      "gm",
-      "config/GALE01",
-      "sysdolphin/baselib"
+      "config",
+      "game-mode",
+      "menu",
+      "baselib"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/mn/mndiagram.c",
-      "role": "Primary decomp and cleanup target; large function body additions, includes, helper functions, temporary/local structs, and mndiagram logic.",
+      "role": "Primary decompilation target; large addition of mndiagram function bodies, helper names, includes, local structs, and partial/unmatched function work.",
       "evidence_refs": [
-        "changed_files: src/melee/mn/mndiagram.c +2158/-47",
-        "raw_diff: mndiagram function additions and renames",
-        "review_comments: discussions r2723547639, r2723588063, r2723748223"
+        "changed_files.jsonl: src/melee/mn/mndiagram.c +2158/-47",
+        "human_pr_text: 'match some functions in mndiagram + naming updates'",
+        "text_corpus bot report: 14 new matches and 32 improvements in main/melee/mn/mndiagram"
       ]
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Symbol rename surface for mn and mnDiagram functions, including address-style names renamed to semantic names.",
+      "role": "Renamed function symbols, especially mndiagram functions and several mn helpers, from address-style or unprefixed names to semantic names.",
       "evidence_refs": [
-        "changed_files: config/GALE01/symbols.txt +33/-33",
-        "raw_diff: mnDiagram_GetFighterByIndex, mnDiagram_GetHitPercentage, mnDiagram_InputProc, mnDiagram_OnFrame, mnDiagram_CursorProc symbol renames"
+        "raw_diff: mnDiagram_8023EA2C -> mnDiagram_GetFighterByIndex",
+        "raw_diff: GetHitPercentage -> mnDiagram_GetHitPercentage",
+        "raw_diff: fn_80241BF8 -> mnDiagram_OnFrame"
       ]
     },
     {
       "path": "src/melee/gm/gmmain_lib.c",
-      "role": "Game-main type cleanup; persistent fighter/name data accessors and callsites changed from generic or old gmm_x names to FighterData, NameTagData, and NameTagDataBank.",
+      "role": "Propagated recovered gm type names through persistent fighter/name data accessors and call sites.",
       "evidence_refs": [
-        "changed_files: src/melee/gm/gmmain_lib.c +54/-58",
-        "raw_diff: GetPersistentFighterData and GetPersistentNameData return types and local variable type changes"
-      ]
-    },
-    {
-      "path": "src/melee/gm/types.h",
-      "role": "Game-main type definitions updated to support renamed typed persistent data.",
-      "evidence_refs": [
-        "changed_files: src/melee/gm/types.h +68/-22"
+        "raw_diff: GetPersistentFighterData return type changed from void* to struct FighterData*",
+        "raw_diff: GetPersistentNameData return type changed from struct gmm_x2FF8_inner* to struct NameTagData*"
       ]
     },
     {
       "path": "src/melee/gm/gmmain_lib.h",
-      "role": "Header prototypes updated for typed persistent data accessors.",
+      "role": "Header prototype updates corresponding to recovered gm accessor signatures.",
       "evidence_refs": [
-        "changed_files: src/melee/gm/gmmain_lib.h +16/-16",
-        "raw_diff: GetPersistentFighterData prototype changed from void* to struct FighterData*"
+        "changed_files.jsonl: src/melee/gm/gmmain_lib.h +16/-16",
+        "raw_diff: GetPersistentFighterData prototype changed to struct FighterData*"
+      ]
+    },
+    {
+      "path": "src/melee/gm/types.h",
+      "role": "Game-mode type updates supporting renamed FighterData/NameTagData usage.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/gm/types.h +68/-22",
+        "raw_diff references: struct FighterData, struct NameTagData, struct NameTagDataBank"
       ]
     },
     {
       "path": "src/melee/mn/types.h",
-      "role": "Menu type surface extended; review specifically requested mndiagram user data type placement here.",
+      "role": "Menu type surface updated, likely in response to review requesting mndiagram user data live in mn/types.h.",
       "evidence_refs": [
-        "changed_files: src/melee/mn/types.h +18/-0",
-        "review_comments: ribbanya suggested user data should be a new type in mn/types.h"
+        "changed_files.jsonl: src/melee/mn/types.h +18/-0",
+        "review comment discussion_r2723748223: 'The user data should really be a new type in mn/types.h. Maybe just called Diagram for now.'"
       ]
     },
     {
       "path": "src/melee/mn/mndiagram.h",
-      "role": "Public mndiagram declarations updated for renamed functions.",
+      "role": "Public mndiagram declarations adjusted for renamed/matched functions.",
       "evidence_refs": [
-        "changed_files: src/melee/mn/mndiagram.h +49/-45"
+        "changed_files.jsonl: src/melee/mn/mndiagram.h +49/-45",
+        "raw_diff symbols renamed to mnDiagram_*"
       ]
     },
     {
       "path": "src/melee/mn/mndiagram.static.h",
-      "role": "Static declarations/definitions adjusted; review noted linking is easier when definitions are at the file top or in .static.h.",
+      "role": "Static declarations or definitions adjusted for mndiagram linking and organization.",
       "evidence_refs": [
-        "changed_files: src/melee/mn/mndiagram.static.h +19/-11",
-        "review_feedback_examples: definitions at top of file or in .static.h"
+        "changed_files.jsonl: src/melee/mn/mndiagram.static.h +19/-11",
+        "review feedback example: 'When linking, it's easier if these definitions are at the top of the file (or in .static.h).'"
       ]
     },
     {
       "path": "src/melee/mn/mndiagram2.h",
-      "role": "Related mndiagram2 header declarations added for cross-file use.",
+      "role": "Header touched to support mndiagram dependencies/prototypes.",
       "evidence_refs": [
-        "changed_files: src/melee/mn/mndiagram2.h +7/-0"
+        "changed_files.jsonl: src/melee/mn/mndiagram2.h +7/-0",
+        "mndiagram.c diff hunk includes mn/mndiagram2.h"
       ]
     },
     {
       "path": "src/melee/mn/mndiagram3.h",
-      "role": "Related mndiagram3 header declaration added for cross-file use.",
+      "role": "Header touched to support mndiagram dependencies/prototypes.",
       "evidence_refs": [
-        "changed_files: src/melee/mn/mndiagram3.h +1/-0"
+        "changed_files.jsonl: src/melee/mn/mndiagram3.h +1/-0",
+        "mndiagram.c diff hunk includes mn/mndiagram3.h"
       ]
     },
     {
       "path": "src/melee/mn/mncount.c",
-      "role": "Callsites adjusted for renamed menu helpers.",
+      "role": "Caller or naming updates related to renamed menu helpers.",
       "evidence_refs": [
-        "changed_files: src/melee/mn/mncount.c +12/-12"
+        "changed_files.jsonl: src/melee/mn/mncount.c +12/-12"
       ]
     },
     {
       "path": "src/melee/mn/mnmain.c",
-      "role": "Callsites adjusted for renamed menu helpers.",
+      "role": "Caller or naming updates related to renamed menu helpers.",
       "evidence_refs": [
-        "changed_files: src/melee/mn/mnmain.c +8/-8"
+        "changed_files.jsonl: src/melee/mn/mnmain.c +8/-8"
       ]
     },
     {
       "path": "src/melee/mn/mnmain.h",
-      "role": "Header declarations adjusted for renamed menu helpers.",
+      "role": "Header updates for renamed menu helpers.",
       "evidence_refs": [
-        "changed_files: src/melee/mn/mnmain.h +3/-3"
-      ]
-    },
-    {
-      "path": "src/melee/gm/gm_17BA.c",
-      "role": "Callsite updated from old name data struct to NameTagData.",
-      "evidence_refs": [
-        "changed_files: src/melee/gm/gm_17BA.c +1/-1",
-        "raw_diff: struct gmm_x2FF8_inner changed to struct NameTagData"
+        "changed_files.jsonl: src/melee/mn/mnmain.h +3/-3"
       ]
     },
     {
       "path": "src/melee/mn/mnname.c",
-      "role": "Minor callsite or declaration update related to naming changes.",
+      "role": "Small caller update related to renamed mndiagram/menu functions.",
       "evidence_refs": [
-        "changed_files: src/melee/mn/mnname.c +1/-1"
+        "changed_files.jsonl: src/melee/mn/mnname.c +1/-1"
       ]
     },
     {
       "path": "src/melee/mn/mnname.h",
-      "role": "Minor header update related to naming changes.",
+      "role": "Small header update related to renamed mndiagram/menu functions.",
       "evidence_refs": [
-        "changed_files: src/melee/mn/mnname.h +1/-1"
+        "changed_files.jsonl: src/melee/mn/mnname.h +1/-1"
       ]
     },
     {
       "path": "src/melee/mn/forward.h",
-      "role": "Forward declaration added for menu types.",
+      "role": "Forward declaration update for menu types.",
       "evidence_refs": [
-        "changed_files: src/melee/mn/forward.h +1/-0"
+        "changed_files.jsonl: src/melee/mn/forward.h +1/-0"
+      ]
+    },
+    {
+      "path": "src/melee/gm/gm_17BA.c",
+      "role": "Caller updated to use recovered NameTagData type from GetPersistentNameData.",
+      "evidence_refs": [
+        "raw_diff: struct gmm_x2FF8_inner* tmp -> struct NameTagData* tmp"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/gobjproc.h",
-      "role": "Baselib GObjProc header surface adjusted for this PR's compile/link needs.",
+      "role": "Baselib header touched, likely for process callback typing used by mndiagram.",
       "evidence_refs": [
-        "changed_files: src/sysdolphin/baselib/gobjproc.h +1/-0"
+        "changed_files.jsonl: src/sysdolphin/baselib/gobjproc.h +1/-0"
       ]
     }
   ],
   "what_changed": [
-    "Added a large body of mndiagram C decomp work, with the PR body describing matched functions and remaining 70-90% unmatched work in mndiagram, mndiagram2, and mndiagram3.",
-    "Renamed many mndiagram symbols from address-style or unprefixed names to semantic mnDiagram_ names in symbols.txt, including mnDiagram_GetHitPercentage, mnDiagram_GetPlayPercentage, mnDiagram_FormatTime, mnDiagram_InputProc, mnDiagram_OnFrame, and mnDiagram_CursorProc.",
-    "Renamed several mn helper symbols, including mn_IsFighterUnlocked, mn_GetDigitAt, and mn_GetDigitCount.",
-    "Updated gm persistent-data accessors and callsites to use typed structs such as FighterData, NameTagData, and NameTagDataBank instead of void* or gmm_x-style struct names.",
-    "Updated mndiagram-related headers, static declarations, and nearby menu callsites to match the new names and type surfaces.",
-    "Bot report evidence in the text corpus reported 14 new matches and 32 unmatched-function improvements for main/melee/mn/mndiagram at an early PR state; the author then acknowledged broken or regressed matches and said they would fix them."
+    {
+      "text": "Added substantial mndiagram C source, including named helpers such as `mnDiagram_GetFighterByIndex`, `mnDiagram_GetNameByIndex`, `mnDiagram_IsDistanceOverflow`, and `mnDiagram_ConvertDistanceForDisplay`.",
+      "evidence_refs": [
+        "review hunk discussion_r2723547639",
+        "raw_diff: src/melee/mn/mndiagram.c large hunk"
+      ]
+    },
+    {
+      "text": "Renamed many mndiagram symbols from address-style or unprefixed names to semantic `mnDiagram_*` names in `symbols.txt`.",
+      "evidence_refs": [
+        "raw_diff: mnDiagram_8023EA2C -> mnDiagram_GetFighterByIndex",
+        "raw_diff: GetPlayPercentage -> mnDiagram_GetPlayPercentage",
+        "raw_diff: fn_80243038 -> mnDiagram_CursorProc"
+      ]
+    },
+    {
+      "text": "Recovered and propagated game-mode type names including `FighterData`, `NameTagData`, and `NameTagDataBank` through `gmmain_lib.c`, `gmmain_lib.h`, and at least one caller.",
+      "evidence_refs": [
+        "raw_diff: GetPersistentFighterData and GetPersistentNameData signatures",
+        "raw_diff: gm_17BA.c NameTagData use"
+      ]
+    },
+    {
+      "text": "Bot report for the PR recorded 14 new matches and 32 improvements in `main/melee/mn/mndiagram`; the author later acknowledged broken/regressed matches would be fixed.",
+      "evidence_refs": [
+        "text_corpus: decomp-dev[bot] report",
+        "human_pr_text issue comment: 'will fix the broken & regressed matches'"
+      ]
+    }
   ],
   "smart_moves": [
     {
-      "text": "The PR paired symbol renames with header and callsite updates instead of leaving semantic names only in the implementation.",
+      "text": "Renaming public mndiagram functions to module-prefixed semantic names made symbols and headers easier to review and aligned with reviewer guidance.",
       "evidence_refs": [
-        "raw_diff: symbols.txt, mndiagram.h, gmmain_lib.h, mn callsite file changes",
-        "changed_files: 18 changed files"
+        "review comment discussion_r2723588063",
+        "raw_diff symbols.txt mndiagram renames"
       ]
     },
     {
-      "text": "Typed accessors for persistent fighter/name data improved reviewability by replacing generic void* and old gmm_x struct names at repeated callsites.",
+      "text": "Typed accessor returns and caller variables replaced generic or placeholder gm struct names, improving type clarity for persistent fighter/name data.",
       "evidence_refs": [
-        "raw_diff: GetPersistentFighterData returns struct FighterData*",
-        "raw_diff: GetPersistentNameData returns struct NameTagData*"
+        "raw_diff: void* GetPersistentFighterData -> struct FighterData*",
+        "raw_diff: gmm_x2FF8_inner -> NameTagData"
       ]
     },
     {
-      "text": "The review identified that callback/user-data overlays should become named types instead of remaining ad hoc local user-data layouts.",
+      "text": "The PR kept unmatched function progress visible rather than claiming all work was complete; both the PR body and bot report distinguish matched functions from 70-90% or partial improvements.",
       "evidence_refs": [
-        "review_comments: 'The user data should really be a new type in mn/types.h. Maybe just called Diagram for now.'"
+        "human_pr_text: 'there's still a lot of ugly stuff in the unmatched functions'",
+        "text_corpus bot report: '32 improvements in unmatched functions'"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a function body proves an API's concrete return type, update the owning header and all nearby callsites rather than preserving void* or old placeholder struct names.",
+      "lesson": "When a decomp PR exposes non-static functions in a module, reviewers may expect semantic names to retain the module prefix rather than bare helper names.",
       "scope": [
-        "gm persistent data accessors",
-        "headers",
-        "typed-fields-over-pointer-math",
-        "truthful-headers-and-includes"
+        "src/melee/mn/mndiagram.c",
+        "config/GALE01/symbols.txt",
+        "headers"
       ],
       "evidence_refs": [
-        "raw_diff: GetPersistentFighterData changed from void* to struct FighterData* in gmmain_lib.c and gmmain_lib.h",
-        "raw_diff: GetPersistentNameData changed from struct gmm_x2FF8_inner* to struct NameTagData*"
-      ]
+        "review comment discussion_r2723588063: 'All non-static functions should be prefixed with the module name, mnDiagram_.'",
+        "raw_diff: GetHitPercentage -> mnDiagram_GetHitPercentage"
+      ],
+      "confidence": 0.91
     },
     {
-      "lesson": "For menu modules, reviewer evidence supports giving non-static functions the module prefix rather than leaving unprefixed semantic names.",
+      "lesson": "Recovered user data for a menu GObj should be promoted into the owning menu type header when review evidence says the type is shared or should not remain local-only.",
       "scope": [
-        "mn/mndiagram",
-        "naming"
+        "src/melee/mn/types.h",
+        "src/melee/mn/mndiagram.c"
       ],
       "evidence_refs": [
-        "review_comments: ribbanya, 'All non-static functions should be prefixed with the module name, `mnDiagram_`.'",
-        "raw_diff: GetHitPercentage and related symbols renamed to mnDiagram_GetHitPercentage and related mnDiagram_ names"
-      ]
+        "review comment discussion_r2723748223: 'The user data should really be a new type in mn/types.h. Maybe just called Diagram for now.'",
+        "changed_files.jsonl: src/melee/mn/types.h +18/-0"
+      ],
+      "confidence": 0.82
     },
     {
-      "lesson": "Callback or GObj user data layouts should be promoted to named menu types when review evidence identifies a stable user-data structure.",
+      "lesson": "For large matching PRs with generated/AI-assisted starts, explicitly separate verified matches from partial improvements and track regressions instead of implying all rewritten functions are finished.",
       "scope": [
-        "mn/types.h",
-        "mndiagram user data",
-        "typed-fields-over-pointer-math"
+        "decomp workflow",
+        "mndiagram"
       ],
       "evidence_refs": [
-        "review_comments: ribbanya requested new user data type in mn/types.h",
-        "changed_files: src/melee/mn/types.h +18/-0"
-      ]
+        "human_pr_text: 'mostly done via claude... cleaned a lot... matched a few myself'",
+        "human_pr_text: 'unmatched functions... 70-90%'",
+        "issue comment: 'will fix the broken & regressed matches'"
+      ],
+      "confidence": 0.74
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Non-static mndiagram functions should use the module prefix `mnDiagram_`.",
+      "convention": "Use `mnDiagram_` as the prefix for non-static mndiagram functions.",
       "evidence_refs": [
-        "review_comments: ribbanya, discussion_r2723588063",
-        "raw_diff: mnDiagram_GetFighterByIndex, mnDiagram_GetNameByIndex, mnDiagram_GetHitPercentage, mnDiagram_InputProc, mnDiagram_OnFrame"
-      ]
+        "review comment discussion_r2723588063",
+        "raw_diff: multiple renamed `mnDiagram_*` symbols"
+      ],
+      "scope": [
+        "src/melee/mn/mndiagram.c",
+        "src/melee/mn/mndiagram.h",
+        "config/GALE01/symbols.txt"
+      ],
+      "confidence": 0.95
     },
     {
-      "convention": "Recovered persistent game data structs were renamed toward semantic data roles: FighterData, NameTagData, and NameTagDataBank.",
+      "convention": "Semantic names were introduced for menu/game-mode helper symbols when evidence in this PR supported the role, e.g. `mn_IsFighterUnlocked`, `mn_GetDigitAt`, `mnDiagram_CountUnlockedFighters`, `mnDiagram_UpdateScrollArrowVisibility`.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt mn and mnDiagram renames"
+      ],
+      "scope": [
+        "config/GALE01/symbols.txt",
+        "menu symbols"
+      ],
+      "confidence": 0.78
+    },
+    {
+      "convention": "Game-mode persistent data placeholder names were replaced with role names such as `FighterData`, `NameTagData`, and `NameTagDataBank`.",
       "evidence_refs": [
         "raw_diff: gmmain_lib.c type replacements",
-        "raw_diff: gm_17BA.c type replacement"
-      ]
-    },
-    {
-      "convention": "Address-style function names remain where semantics are not shown in this slice; many mndiagram_8024xxxx names were not renamed in the excerpt.",
-      "evidence_refs": [
-        "raw_diff: mnDiagram_80240D94, mnDiagram_80241310, mnDiagram_80241668, mnDiagram_80241730 retained in symbols.txt excerpt"
-      ]
+        "raw_diff: gm_17BA.c NameTagData use"
+      ],
+      "scope": [
+        "src/melee/gm"
+      ],
+      "confidence": 0.84
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use decomp-progress bot output as evidence of which functions matched or improved, but do not infer final match status from an early report when later comments mention broken or regressed matches.",
+      "tactic": "Large mndiagram function body recovery was paired with symbol/header renames so bot reports could attribute new matches and partial improvements to readable semantic names.",
       "evidence_refs": [
-        "text_corpus: decomp-dev[bot] report lists 14 new matches and 32 improvements",
-        "human_pr_text: author comment 'will fix the broken & regressed matches'"
-      ]
+        "text_corpus bot report: named mndiagram matched functions",
+        "raw_diff: symbols.txt renames"
+      ],
+      "confidence": 0.74
     },
     {
-      "tactic": "Place definitions at the top of the C file or in the module .static.h when linking/order sensitivity is involved.",
+      "tactic": "A reviewer identified a repeated or extracted code shape as likely an inline of `mnDiagram_UpdateScrollArrowVisibility`, suggesting local helper inlining should be considered when matching mndiagram callbacks.",
       "evidence_refs": [
-        "review_feedback_examples: 'When linking, it's easier if these definitions are at the top of the file (or in `.static.h`).'",
-        "changed_files: src/melee/mn/mndiagram.static.h +19/-11"
-      ]
+        "review_feedback_examples: 'Looks like an inline of mnDiagram_UpdateScrollArrowVisibility.'"
+      ],
+      "confidence": 0.62
     },
     {
-      "tactic": "Look for inlined local helpers during cleanup; review identified code that looked like an inline of mnDiagram_UpdateScrollArrowVisibility.",
+      "tactic": "Definition placement can affect linking/reviewability; a reviewer suggested placing definitions at the top of the file or in `.static.h`.",
       "evidence_refs": [
-        "review_feedback_examples: 'Looks like an inline of `mnDiagram_UpdateScrollArrowVisibility`.'",
-        "raw_diff: mnDiagram_UpdateScrollArrowVisibility symbol rename at 0x80241B4C"
-      ]
+        "review_feedback_examples: 'When linking, it's easier if these definitions are at the top of the file (or in .static.h).'"
+      ],
+      "confidence": 0.69
     }
   ],
   "review_feedback": [
     {
-      "author": "itsgrimetime",
+      "commenter": "itsgrimetime",
       "path": "src/melee/mn/mndiagram.c",
-      "feedback": "Asked whether all functions should be prefixed with mn_ and noted inconsistency in applying prefixes.",
+      "feedback": "Author asked whether all functions should be prefixed with `mn_` because existing names were inconsistent.",
       "evidence_refs": [
-        "review_comments: discussion_r2723547639"
+        "review comment discussion_r2723547639"
       ]
     },
     {
-      "author": "ribbanya",
+      "commenter": "ribbanya",
       "path": "src/melee/mn/mndiagram.c",
-      "feedback": "All non-static functions should be prefixed with the module name, `mnDiagram_`.",
+      "feedback": "All non-static functions should use the module prefix `mnDiagram_`.",
       "evidence_refs": [
-        "review_comments: discussion_r2723588063"
+        "review comment discussion_r2723588063"
       ]
     },
     {
-      "author": "ribbanya",
+      "commenter": "ribbanya",
       "path": "src/melee/mn/mndiagram.c",
-      "feedback": "The mndiagram user data should be a new type in mn/types.h, maybe named Diagram for now.",
+      "feedback": "Mndiagram user data should be a new type in `mn/types.h`, maybe called `Diagram` for now.",
       "evidence_refs": [
-        "review_comments: discussion_r2723748223"
+        "review comment discussion_r2723748223"
       ]
     },
     {
-      "author": "unknown_from_excerpt",
+      "commenter": "unknown from provided excerpt",
       "path": "src/melee/mn/mndiagram.c",
-      "feedback": "For linking, definitions are easier to manage at the top of the file or in .static.h.",
+      "feedback": "Definitions are easier when placed at the top of the file or in `.static.h`.",
       "evidence_refs": [
-        "review_feedback_examples"
+        "metadata review_feedback_examples"
       ]
     },
     {
-      "author": "unknown_from_excerpt",
+      "commenter": "unknown from provided excerpt",
       "path": "src/melee/mn/mndiagram.c",
-      "feedback": "A reviewed code shape looked like an inline of mnDiagram_UpdateScrollArrowVisibility.",
+      "feedback": "A code section looked like an inline of `mnDiagram_UpdateScrollArrowVisibility`.",
       "evidence_refs": [
-        "review_feedback_examples"
+        "metadata review_feedback_examples"
       ]
     }
   ],
   "searchable_terms": [
-    "PR2125",
+    "pr-2125",
     "mndiagram functions & renaming",
-    "itsgrimetime",
     "mnDiagram_",
     "mnDiagram_GetFighterByIndex",
     "mnDiagram_GetNameByIndex",
@@ -335,76 +380,86 @@
     "mnDiagram_FormatDecimalNumber",
     "mnDiagram_FormatTime",
     "mnDiagram_IntToStr",
+    "mnDiagram_GetPrevNameIndex",
+    "mnDiagram_GetNextNameIndex",
+    "mnDiagram_GetPrevFighterIndex",
+    "mnDiagram_GetNextFighterIndex",
+    "mnDiagram_GetNamePlayTimeByFighter",
     "mnDiagram_GetRankedFighterForName",
     "mnDiagram_GetLeastPlayedFighter",
+    "mnDiagram_CountUnlockedFighters",
+    "mnDiagram_PopupInputProc",
     "mnDiagram_InputProc",
+    "mnDiagram_PopupCleanup",
+    "mnDiagram_PopupAnimProc",
+    "mnDiagram_ExitAnimProc",
+    "mnDiagram_UpdateScrollArrowVisibility",
     "mnDiagram_OnFrame",
     "mnDiagram_CursorProc",
-    "mnDiagram_UpdateScrollArrowVisibility",
     "FighterData",
     "NameTagData",
     "NameTagDataBank",
     "GetPersistentFighterData",
     "GetPersistentNameData",
     "mn/types.h Diagram",
-    "mndiagram.static.h",
+    "mndiagram2",
+    "mndiagram3",
+    "Dolphin debugging",
     "broken regressed matches"
   ],
   "follow_up_queries": [
-    "PR 2125 final bot report broken regressed matches fixed",
-    "mnDiagram_ non-static module prefix review convention",
-    "mndiagram user data Diagram mn/types.h",
-    "mnDiagram_UpdateScrollArrowVisibility inline",
-    "GetPersistentFighterData FighterData return type",
-    "GetPersistentNameData NameTagDataBank NameTagData",
-    "mndiagram2 mndiagram3 follow-up PR itsgrimetime"
+    "PR 2125 final diff mn/types.h Diagram type",
+    "mnDiagram_UpdateScrollArrowVisibility inline review comment",
+    "mndiagram non-static mnDiagram_ prefix convention",
+    "GetPersistentFighterData FighterData NameTagData PR 2125",
+    "mndiagram bot report 14 new matches 32 improvements",
+    "mndiagram broken regressed matches issuecomment-3793691152"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR identity, merge state, changed files",
-      "human_pr_text: PR body and author issue comment",
-      "raw_diff: symbol/type/header excerpts",
-      "review_comments: review feedback excerpts",
-      "text_corpus: early decomp-dev bot report"
+      "metadata_json complete PR identity and changed file list",
+      "human_pr_text loaded full body/comments excerpt",
+      "raw_diff truncated but includes key symbol/type changes",
+      "review_comments truncated but includes naming/type review comments",
+      "text_corpus truncated but includes bot report and early review records"
     ],
     "notes": [
-      "The raw diff and review_comments files are truncated, so the full final patch and every review comment were not inspected.",
-      "The early bot report shows 14 new matches and many improvements, but the author later mentioned broken and regressed matches; this intake does not claim final validation status for specific functions beyond what the loaded evidence supports.",
-      "Some review_feedback_examples do not include visible author names in the supplied metadata excerpt, so those entries preserve author as unknown_from_excerpt.",
-      "The PR body states some work was done via Claude and then manually cleaned up, but the slice does not provide enough evidence to judge which specific functions came from which method."
+      "Changed-file metadata is duplicated in metadata_json and changed_files.jsonl; deduplicated paths were used in this record.",
+      "The raw diff and review_comments loaded files are truncated, so details for later hunks and all review comments are incomplete.",
+      "The bot report provides match/improvement claims, but this intake did not run or independently verify builds, objdiff, or regression checks.",
+      "Some review feedback examples lack commenter identity in the supplied metadata; these were recorded as unknown rather than inferred.",
+      "The PR body states AI assistance and partial unmatched work; no unsupported claim is made that all functions in the large mndiagram source are clean or final."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "review_backed_naming_lesson",
+        "record_type": "naming_convention",
         "title": "mndiagram non-static functions use mnDiagram_ prefix",
-        "text": "In PR #2125 review, ribbanya stated that all non-static mndiagram functions should be prefixed with the module name `mnDiagram_`; the diff shows multiple symbols renamed accordingly.",
+        "text": "In PR #2125 review, `ribbanya` stated: 'All non-static functions should be prefixed with the module name, `mnDiagram_`.' The diff then shows many mndiagram function symbols renamed to `mnDiagram_*` names.",
         "scope": [
           "src/melee/mn/mndiagram.c",
           "src/melee/mn/mndiagram.h",
           "config/GALE01/symbols.txt"
         ],
         "evidence_refs": [
-          "review_comments: discussion_r2723588063",
-          "raw_diff: mnDiagram_* symbol renames"
+          "review comment discussion_r2723588063",
+          "raw_diff: symbols.txt mndiagram renames"
         ],
-        "confidence": 0.88
+        "confidence": 0.95
       },
       {
-        "type": "typed_header_lesson",
-        "title": "Recovered persistent data accessors should expose concrete types",
-        "text": "PR #2125 changed persistent data accessors and callsites from void*/gmm_x placeholder structs to FighterData, NameTagData, and NameTagDataBank, with matching header prototype updates.",
+        "record_type": "review_lesson",
+        "title": "Move recovered mndiagram user data into mn/types.h when it represents module-owned user data",
+        "text": "PR #2125 review advised that mndiagram user data should be a new type in `mn/types.h`, with `Diagram` suggested as a provisional name. The PR also touched `src/melee/mn/types.h`.",
         "scope": [
-          "src/melee/gm/gmmain_lib.c",
-          "src/melee/gm/gmmain_lib.h",
-          "src/melee/gm/types.h"
+          "src/melee/mn/types.h",
+          "src/melee/mn/mndiagram.c"
         ],
         "evidence_refs": [
-          "raw_diff: GetPersistentFighterData return type update",
-          "raw_diff: GetPersistentNameData return type update",
-          "changed_files: src/melee/gm/types.h"
+          "review comment discussion_r2723748223",
+          "changed_files.jsonl: src/melee/mn/types.h +18/-0"
         ],
         "confidence": 0.82
       }
@@ -413,67 +468,67 @@
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Module-prefix public functions when review/local convention identifies the module prefix",
-        "text": "Consider adding a naming-standard note: when review or local module convention identifies a prefix, non-static functions should use the module prefix, as in PR #2125 where mndiagram functions were expected to use `mnDiagram_`.",
+        "title": "Module-prefixed names for non-static functions",
+        "text": "Consider adding or clarifying a naming standard: non-static functions in a module should generally use that module's established prefix, as seen in PR #2125 where review required mndiagram non-static functions to use `mnDiagram_`.",
         "source_path": null,
         "scope": [
           "naming",
-          "menu modules",
-          "non-static functions"
+          "headers",
+          "symbols"
         ],
         "evidence_refs": [
-          "review_comments: ribbanya, 'All non-static functions should be prefixed with the module name, `mnDiagram_`.'"
+          "review comment discussion_r2723588063",
+          "raw_diff: GetHitPercentage -> mnDiagram_GetHitPercentage and related symbol renames"
         ],
-        "reason": "This may generalize beyond mndiagram, but curator should verify against existing naming standards and other modules before promoting it globally."
+        "reason": "The loaded standards include conservative naming, but this PR provides concrete review evidence for module-prefix requirements on non-static functions."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Put recovered GObj/user-data structs in owning module types headers when stable",
-        "text": "Consider adding a type-recovery note: stable user-data layouts used by module callbacks should live in the owning module's types header rather than as ad hoc local structs, when review and usage support the type.",
+        "title": "Recovered GObj user data types should live in owning subsystem type headers when shared",
+        "text": "Consider adding guidance that recovered user-data structs should be moved from local ad hoc definitions into the owning subsystem type header when review or use sites show they are module-owned/shared; PR #2125 review specifically requested mndiagram user data be a new type in `mn/types.h`.",
         "source_path": null,
         "scope": [
-          "types",
-          "GObj user data",
-          "mn/types.h"
+          "types-structs",
+          "headers",
+          "menu"
         ],
         "evidence_refs": [
-          "review_comments: 'The user data should really be a new type in `mn/types.h`. Maybe just called `Diagram` for now.'",
-          "changed_files: src/melee/mn/types.h +18/-0"
+          "review comment discussion_r2723748223",
+          "changed_files.jsonl: src/melee/mn/types.h +18/-0"
         ],
-        "reason": "Reviewer feedback is concrete for mndiagram; curator should decide whether this is already covered by typed-fields-over-pointer-math or merits an explicit source-owned standard."
+        "reason": "This is consistent with typed-fields-over-pointer-math and truthful-headers, but may be worth a curator-owned source note if repeated across PRs."
       },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "mndiagram belongs to menu diagram/VS records work and touches gm persistent stats",
-        "text": "PR #2125 connects src/melee/mn/mndiagram.c with game-main persistent fighter/name data accessors in src/melee/gm/gmmain_lib.c and gm/types.h.",
-        "source_path": "src/melee/mn/mndiagram.c",
+        "title": "mndiagram PR touched menu, gm persistent data, symbols, and baselib callback header",
+        "text": "PR #2125's deduplicated changed files span `src/melee/mn/mndiagram.c`, mndiagram headers/static header, `src/melee/mn/types.h`, several `mn` callers, `src/melee/gm/gmmain_lib.*`, `src/melee/gm/types.h`, `config/GALE01/symbols.txt`, and `src/sysdolphin/baselib/gobjproc.h`.",
+        "source_path": null,
         "scope": [
-          "src/melee/mn/mndiagram.c",
-          "src/melee/gm/gmmain_lib.c",
-          "src/melee/gm/types.h"
+          "pr-2125",
+          "path classification"
         ],
         "evidence_refs": [
-          "changed_files: mndiagram.c, gmmain_lib.c, gm/types.h",
-          "raw_diff: calls and types around FighterData and NameTagData"
+          "changed_files.jsonl"
         ],
-        "reason": "Potentially useful path-scope knowledge, but source/path-fact curator should verify current code before recording."
+        "reason": "Useful for path-scope search and curator indexing; should not be promoted beyond this PR without broader path evidence."
       }
     ],
     "rejection_notes": [
-      "Do not record the bot's early 14 new matches as final PR validation without checking later reports or final merged state, because the author explicitly mentioned broken and regressed matches after that report.",
-      "Do not infer that every semantic symbol rename is proven by Dolphin debugging; the PR body mentions debugging generally, but individual rename evidence is only visible for some symbols in the diff and review.",
-      "Do not promote AI/Claude usage as a tactic or accepted workflow; the author states some work was Claude-assisted but manually cleaned, with no function-level evidence."
+      "Do not promote the AI-assisted workflow as an accepted decomp tactic; the PR body says Claude was used but also says manual cleanup was needed and unmatched functions remained ugly/partial.",
+      "Do not claim all mndiagram functions in the PR matched; bot evidence only supports 14 new matches plus partial improvements, and the author mentioned broken/regressed matches.",
+      "Do not infer exact final contents of `mn/types.h`, `mndiagram.static.h`, or later truncated diff hunks from partial excerpts.",
+      "Do not treat semantic symbol names in this PR as globally proven naming for every address-style symbol; they are supported only where shown by the diff/review evidence."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

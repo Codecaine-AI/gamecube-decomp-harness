@@ -5,249 +5,197 @@
     "number": 2659,
     "title": "Melee decomp: SysDolphin",
     "url": "https://github.com/doldecomp/melee/pull/2659",
-    "state": "OPEN",
+    "state": "MERGED",
     "author": "fjooord",
     "created_at": "2026-06-11T20:06:53Z",
-    "merged_at": null
+    "merged_at": "2026-06-12T15:31:28Z"
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Open SysDolphin exact-match decomp PR touching four baselib files. The PR body claims 2 newly matched functions with clean isolated and full-ship regression verification. Bot report identifies new matches for AXDriver_8038E498 and fn_80393C14, plus improvements in particle .data, sislib functions, and HSD_CObjGetLeftVector.",
+  "summary": "Exact-match SysDolphin decomp slice touching four baselib files. The PR body claims 2 newly matched functions with clean runner validation; the bot report names AXDriver_8038E498 and fn_80393C14 as new matches, plus score improvements in sislib and cobj. Review discussion specifically flags particle.c changes: a prior static data change was called out as a regression, and newly added pragmas were noted as recommended against.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "code-cleanup",
-      "data-section-matching"
+      "codegen-cleanup",
+      "review-risk"
     ],
     "systems": [
-      "src/sysdolphin/baselib",
-      "axdriver",
-      "cobj",
-      "particle",
-      "sislib"
+      "src/sysdolphin/baselib"
     ]
   },
   "key_files": [
     {
       "path": "src/sysdolphin/baselib/axdriver.c",
-      "role": "Newly matched AXDriver_8038E498 by changing array iteration from a carried pointer variable to direct indexed access on AXDriver_804C45A0.",
+      "role": "Newly matched function AXDriver_8038E498; changed loop body from pointer-walk temporary to direct indexed access of AXDriver_804C45A0.",
       "evidence_refs": [
-        "changed_files.jsonl: axdriver.c +2/-5, 1 hunk",
+        "changed_files.jsonl: axdriver.c added 2 deleted 5",
         "raw_diff: AXDriver_8038E498 hunk",
-        "text_corpus issue_comment: AXDriver_8038E498 93.48% -> 100.00%, +21 bytes"
+        "text_corpus: decomp-dev bot report lists AXDriver_8038E498 as 100.00% new match"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/cobj.c",
-      "role": "Small improvement to HSD_CObjGetLeftVector by removing a temporary result variable and testing HSD_CObjGetUpVector directly.",
+      "role": "Small score improvement in HSD_CObjGetLeftVector; removed a temporary result variable and called HSD_CObjGetUpVector directly in the condition.",
       "evidence_refs": [
-        "changed_files.jsonl: cobj.c +1/-3, 1 hunk",
+        "changed_files.jsonl: cobj.c added 1 deleted 3",
         "raw_diff: HSD_CObjGetLeftVector hunk",
-        "text_corpus issue_comment: HSD_CObjGetLeftVector 98.65% -> 98.74%, +1 byte"
+        "text_corpus: bot report lists HSD_CObjGetLeftVector improvement from 98.65% to 98.74%"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/particle.c",
-      "role": "Adds packed MCC error/report string storage, switches fn_80392CD8 to offsets into lbl_8040A540, and scopes pool_data off around fn_80393C14, which the bot report marks newly matched.",
+      "role": "Newly matched function fn_80393C14; final diff adds a tightly scoped #pragma push / #pragma pool_data off / #pragma pop around the function. Review comments flag particle changes as risky/regressive and note new pragmas are recommended against.",
       "evidence_refs": [
-        "changed_files.jsonl: particle.c +53/-24, 4 hunks",
-        "raw_diff: lbl_8040A540 and fn_80392CD8 hunks",
-        "raw_diff: #pragma push / #pragma pool_data off around fn_80393C14",
-        "text_corpus issue_comment: fn_80393C14 99.77% -> 100.00%, +1 byte; particle .data 1.47% -> 5.46%, +620 bytes"
+        "changed_files.jsonl: particle.c added 3 deleted 0",
+        "raw_diff: fn_80393C14 pragma hunk",
+        "text_corpus: bot report lists fn_80393C14 as 100.00% new match",
+        "review_comments.md: PsiLupan regression warning on particle.c",
+        "review_comments.md: fjooord comment that new pragmas are recommended against"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/sislib.c",
-      "role": "Improves multiple SisLib functions through stack-buffer size changes, initialization, declaration ordering, typed string_buffer indexing, and restoring calls to HSD_SisLib_803A8134.",
+      "role": "Unmatched-function score improvements across HSD_SisLib_803A6B98, HSD_SisLib_803A7F0C, and HSD_SisLib_803A84BC via stack buffer sizing, initialization, declaration order, typed string_buffer access, and restoring calls to HSD_SisLib_803A8134.",
       "evidence_refs": [
-        "changed_files.jsonl: sislib.c +19/-18, 13 hunks",
-        "raw_diff: HSD_SisLib_803A6B98 buffer and encoded[0] changes",
-        "raw_diff: HSD_SisLib_803A70A0 buffer change",
-        "raw_diff: HSD_SisLib_803A7F0C declaration order and string_buffer access cleanup",
-        "raw_diff: HSD_SisLib_803A84BC HSD_SisLib_803A8134 call restoration",
-        "text_corpus issue_comment: improvements in HSD_SisLib_803A84BC, HSD_SisLib_803A6B98, HSD_SisLib_803A7F0C"
+        "changed_files.jsonl: sislib.c added 19 deleted 18",
+        "raw_diff: HSD_SisLib_803A6B98, HSD_SisLib_803A70A0, HSD_SisLib_803A7F0C, HSD_SisLib_803A84BC hunks",
+        "text_corpus: bot report lists sislib score improvements"
       ]
     }
   ],
   "what_changed": [
-    {
-      "text": "AXDriver_8038E498 now indexes AXDriver_804C45A0 directly inside the existing loop instead of using a local HSD_SM* cursor.",
-      "evidence_refs": [
-        "raw_diff: AXDriver_8038E498",
-        "text_corpus issue_comment: AXDriver_8038E498 new match"
-      ]
-    },
-    {
-      "text": "HSD_CObjGetLeftVector removes an intermediate res local and directly checks HSD_CObjGetUpVector(cobj, &up) == 0.",
-      "evidence_refs": [
-        "raw_diff: HSD_CObjGetLeftVector",
-        "text_corpus issue_comment: cobj improvement"
-      ]
-    },
-    {
-      "text": "particle.c introduces static char lbl_8040A540[0x268] containing MCC error strings and report format strings; fn_80392CD8 now selects messages by offsets into that blob.",
-      "evidence_refs": [
-        "raw_diff: lbl_8040A540 addition and fn_80392CD8 replacements",
-        "text_corpus issue_comment: particle .data improvement"
-      ]
-    },
-    {
-      "text": "particle.c wraps fn_80393C14 with #pragma push / #pragma pool_data off / #pragma pop.",
-      "evidence_refs": [
-        "raw_diff: fn_80393C14 pragma hunk",
-        "text_corpus issue_comment: fn_80393C14 new match"
-      ]
-    },
-    {
-      "text": "sislib.c changes two local format buffers from 256 to 128 bytes, initializes encoded[0] in HSD_SisLib_803A6B98, moves flag_hi declaration earlier in HSD_SisLib_803A7F0C, removes redundant casts around text->string_buffer access, and replaces two commented-out HSD_SisLib_803A8134 placeholders with real calls.",
-      "evidence_refs": [
-        "raw_diff: sislib.c hunks",
-        "text_corpus issue_comment: sislib improvements"
-      ]
-    }
+    "PR body describes an exact-match decompilation slice for 4 files with 2 newly matched functions and clean regression reports.",
+    "AXDriver_8038E498 changed a loop from an HSD_SM* pointer cursor to direct indexed access on AXDriver_804C45A0[i].",
+    "HSD_CObjGetLeftVector removed an intermediate int res and directly tested HSD_CObjGetUpVector(cobj, &up) == 0.",
+    "fn_80393C14 in particle.c was wrapped with #pragma push, #pragma pool_data off, and #pragma pop.",
+    "HSD_SisLib_803A6B98 and HSD_SisLib_803A70A0 changed local buffer sizes from 256 to 128; HSD_SisLib_803A6B98 also initializes encoded[0] = 0.",
+    "HSD_SisLib_803A7F0C moved flag_hi declaration earlier and replaced repeated ((u8*) text->string_buffer) casts with direct text->string_buffer indexing or pointer casts from text->string_buffer.",
+    "HSD_SisLib_803A84BC replaced two commented-out HSD_SisLib_803A8134 markers with actual calls passing sis_cursor, text, and output width/height pointers."
   ],
   "smart_moves": [
     {
-      "text": "The AXDriver change keeps the natural for-loop and uses direct array indexing, avoiding a separate cursor variable while preserving the loop structure.",
+      "text": "Using direct indexed array access in AXDriver_8038E498 kept the loop simple while still reaching a reported exact match.",
       "evidence_refs": [
-        "raw_diff: AXDriver_8038E498"
+        "raw_diff: AXDriver_8038E498 hunk",
+        "text_corpus: bot report new match for AXDriver_8038E498"
       ]
     },
     {
-      "text": "The SisLib string_buffer cleanup prefers the known field expression over repeated ((u8*) text->string_buffer) casts where byte indexing already expresses the access.",
+      "text": "Replacing raw casts on text->string_buffer with direct member indexing in HSD_SisLib_803A7F0C improved readability without losing the reported score improvement.",
       "evidence_refs": [
-        "raw_diff: HSD_SisLib_803A7F0C string_buffer changes"
+        "raw_diff: HSD_SisLib_803A7F0C hunk",
+        "text_corpus: bot report HSD_SisLib_803A7F0C improvement"
       ]
     },
     {
-      "text": "The particle pragma is tightly scoped with push/pop around only fn_80393C14 rather than left as a broad file-level setting.",
+      "text": "Restoring real HSD_SisLib_803A8134 calls in place of commented placeholders made HSD_SisLib_803A84BC more source-like and correlated with the largest reported unmatched-item improvement in the slice.",
       "evidence_refs": [
-        "raw_diff: #pragma push / #pragma pool_data off / #pragma pop around fn_80393C14"
+        "raw_diff: HSD_SisLib_803A84BC hunks",
+        "text_corpus: bot report HSD_SisLib_803A84BC +45 bytes improvement"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For array-like global storage, direct indexed access inside a natural loop can be a viable match shape compared with carrying and incrementing a local pointer cursor.",
-      "scope": [
-        "src/sysdolphin/baselib/axdriver.c",
-        "AXDriver_8038E498"
-      ],
-      "evidence_refs": [
-        "raw_diff: AXDriver_8038E498",
-        "text_corpus issue_comment: AXDriver_8038E498 reached 100.00%"
-      ],
-      "confidence": 0.82
-    },
-    {
-      "lesson": "Removing an unnecessary local used only to hold a call result can improve matching when the source-level intent is simply a direct conditional call check.",
+      "lesson": "Small C-shape changes such as direct condition calls, declaration order, local buffer sizes, and direct typed/member indexing can move unmatched SysDolphin functions closer without large rewrites.",
       "scope": [
         "src/sysdolphin/baselib/cobj.c",
-        "HSD_CObjGetLeftVector"
+        "src/sysdolphin/baselib/sislib.c"
       ],
       "evidence_refs": [
-        "raw_diff: HSD_CObjGetLeftVector",
-        "text_corpus issue_comment: HSD_CObjGetLeftVector improvement"
-      ],
-      "confidence": 0.72
-    },
-    {
-      "lesson": "When a field is already byte-addressable, using the field directly can be preferable to repeated raw u8* casts, while still using typed casts only at multi-byte reads.",
-      "scope": [
-        "src/sysdolphin/baselib/sislib.c",
-        "HSD_SisLib_803A7F0C"
-      ],
-      "evidence_refs": [
-        "raw_diff: HSD_SisLib_803A7F0C",
-        "text_corpus issue_comment: HSD_SisLib_803A7F0C improvement"
+        "raw_diff: cobj.c and sislib.c hunks",
+        "text_corpus: bot report unmatched-item improvements"
       ],
       "confidence": 0.78
     },
     {
-      "lesson": "Commented-out recovered calls can become matching source once the real arguments are known; here HSD_SisLib_803A8134 is restored with sis_cursor, text, and width/height output arguments.",
+      "lesson": "Pragma-based matching, even when tightly scoped, is review-sensitive; this PR's particle.c pragma addition drew a comment that new pragmas are recommended against.",
       "scope": [
-        "src/sysdolphin/baselib/sislib.c",
-        "HSD_SisLib_803A84BC"
+        "src/sysdolphin/baselib/particle.c"
       ],
       "evidence_refs": [
-        "raw_diff: HSD_SisLib_803A84BC call replacements",
-        "text_corpus issue_comment: HSD_SisLib_803A84BC improvement"
+        "raw_diff: #pragma pool_data off around fn_80393C14",
+        "review_comments.md: new pragmas recommended against"
       ],
-      "confidence": 0.75
+      "confidence": 0.9
+    },
+    {
+      "lesson": "Data/storage changes in particle.c require extra scrutiny: review feedback states a submitted change had previously been called out as a regression.",
+      "scope": [
+        "src/sysdolphin/baselib/particle.c"
+      ],
+      "evidence_refs": [
+        "review_comments.md: PsiLupan regression warning",
+        "review_comments.md: diff hunk showing static char lbl_8040A540[0x268]"
+      ],
+      "confidence": 0.72
     }
   ],
   "naming_conventions": [
     {
-      "text": "The PR preserves address-style names for uncertain symbols and functions such as fn_80392CD8, fn_80393C14, hsd_804CF7E8, and lbl_8040A540 rather than inventing semantic names.",
+      "convention": "This slice preserves existing address-style and subsystem names such as AXDriver_8038E498, fn_80393C14, HSD_SisLib_803A7F0C, and lbl_8040A540 rather than introducing speculative semantic names.",
       "evidence_refs": [
-        "raw_diff: particle.c hunks"
+        "raw_diff: function names in changed hunks",
+        "review_comments.md: lbl_8040A540 hunk"
       ]
     },
     {
-      "text": "Existing local role names such as eye, up, left, line_width_out, line_height_out, sis_cursor, and text are preserved where roles are already clear.",
+      "convention": "Short local role names remain in use where already present, including buf, size, pos, entry, flag_hi, line_width_out, and line_height_out.",
       "evidence_refs": [
-        "raw_diff: cobj.c and sislib.c hunks"
+        "raw_diff: sislib.c and particle.c hunks"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Array-indexing instead of pointer-cursor local for loop body codegen.",
-      "scope": [
-        "AXDriver_8038E498"
-      ],
+      "tactic": "Pointer cursor versus array indexing can be a meaningful MWCC/codegen lever; AXDriver_8038E498 matched after replacing a manual HSD_SM* increment with AXDriver_804C45A0[i] accesses.",
       "evidence_refs": [
-        "raw_diff: AXDriver_8038E498",
-        "text_corpus issue_comment: new match"
+        "raw_diff: AXDriver_8038E498 hunk",
+        "text_corpus: bot report AXDriver_8038E498 new match"
       ]
     },
     {
-      "tactic": "Direct conditional call expression instead of storing a temporary call result.",
-      "scope": [
-        "HSD_CObjGetLeftVector"
-      ],
+      "tactic": "Local stack layout was adjusted in sislib by reducing u8 buffer[256] to u8 buffer[128] in two varargs formatting functions; this is supported only as a PR-specific matching observation, not a general sizing rule.",
       "evidence_refs": [
-        "raw_diff: HSD_CObjGetLeftVector"
+        "raw_diff: HSD_SisLib_803A6B98 and HSD_SisLib_803A70A0 hunks",
+        "text_corpus: bot report HSD_SisLib_803A6B98 improvement"
       ]
     },
     {
-      "tactic": "Packed string/data blob with explicit offsets for MCC error messages and OSReport format strings.",
-      "scope": [
-        "fn_80392CD8",
-        "particle .data"
-      ],
+      "tactic": "Declaration order and temporary elimination were used as narrow matching tweaks: cobj removes res; sislib moves flag_hi before other s32 locals.",
       "evidence_refs": [
-        "raw_diff: lbl_8040A540 and fn_80392CD8",
-        "text_corpus issue_comment: particle .data +620 bytes"
-      ],
-      "caution": "This is data-section matching evidence in this PR, not a general recommendation to replace ordinary string literals with global blobs."
+        "raw_diff: HSD_CObjGetLeftVector hunk",
+        "raw_diff: HSD_SisLib_803A7F0C hunk"
+      ]
     },
     {
-      "tactic": "Scoped #pragma pool_data off around a single function.",
-      "scope": [
-        "fn_80393C14"
-      ],
+      "tactic": "#pragma pool_data off was used around fn_80393C14 and is associated with a reported exact match, but review feedback says new pragmas are recommended against, so this should be treated as an exception requiring strong justification.",
       "evidence_refs": [
-        "raw_diff: fn_80393C14 pragma hunk",
-        "text_corpus issue_comment: fn_80393C14 reached 100.00%"
-      ],
-      "caution": "Global standards treat pragmas as exceptions requiring narrow scope and verifier evidence."
-    },
-    {
-      "tactic": "Stack layout and local lifetime adjustments through buffer-size changes, explicit initialization, and declaration ordering.",
-      "scope": [
-        "HSD_SisLib_803A6B98",
-        "HSD_SisLib_803A70A0",
-        "HSD_SisLib_803A7F0C"
-      ],
-      "evidence_refs": [
-        "raw_diff: sislib.c buffer, encoded[0], and flag_hi changes",
-        "text_corpus issue_comment: sislib improvements"
+        "raw_diff: particle.c pragma hunk",
+        "text_corpus: bot report fn_80393C14 new match",
+        "review_comments.md: pragmas recommended against"
       ]
     }
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    {
+      "path": "src/sysdolphin/baselib/particle.c",
+      "author": "PsiLupan",
+      "feedback": "A particle.c change had been submitted before and called out as a regression; the reviewer asked for closer PR review to avoid repeat issues.",
+      "evidence_refs": [
+        "review_comments.md: discussion_r3399334540"
+      ]
+    },
+    {
+      "path": "src/sysdolphin/baselib/particle.c",
+      "author": "fjooord",
+      "feedback": "New pragmas were noted as recommended against, referencing Discord discussion.",
+      "evidence_refs": [
+        "review_comments.md: discussion_r3404094650"
+      ]
+    }
+  ],
   "searchable_terms": [
     "PR2659",
     "Melee decomp SysDolphin",
@@ -261,70 +209,66 @@
     "unk_inline",
     "HSD_CObjGetLeftVector",
     "HSD_CObjGetUpVector",
-    "fn_80392CD8",
     "fn_80393C14",
-    "lbl_8040A540",
-    "MCC Error",
-    "pool_data off",
+    "pragma pool_data off",
     "HSD_SisLib_803A6B98",
     "HSD_SisLib_803A70A0",
     "HSD_SisLib_803A7F0C",
     "HSD_SisLib_803A84BC",
     "HSD_SisLib_803A8134",
-    "string_buffer",
-    "line_width_out",
-    "line_height_out"
+    "text->string_buffer",
+    "lbl_8040A540",
+    "new pragmas recommended against",
+    "particle regression"
   ],
   "follow_up_queries": [
-    "AXDriver_8038E498 AXDriver_804C45A0 indexed access pointer cursor",
-    "fn_80393C14 pragma pool_data off exact match",
-    "lbl_8040A540 MCC Error particle data blob",
-    "HSD_SisLib_803A7F0C string_buffer typed access",
-    "HSD_SisLib_803A84BC HSD_SisLib_803A8134 line_width_out line_height_out",
-    "SisLib buffer 128 encoded[0] stack layout"
+    "Search later or adjacent PRs for fn_80393C14 and #pragma pool_data off to see whether the pragma remained or was removed.",
+    "Search particle.c history for lbl_8040A540 to identify the regression referenced in review and whether it was reverted before merge.",
+    "Search SysDolphin sislib PRs for HSD_SisLib_803A8134 call recovery patterns in HSD_SisLib_803A84BC.",
+    "Search axdriver matching notes for AXDriver_804C45A0 indexed access versus pointer cursor loops.",
+    "Search project review comments for repeated guidance on new pragmas and pool_data pragmas."
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "human_pr_text: exact-match decompilation of 4 files, 2 newly matched functions, clean regression report",
-      "text_corpus issue_comment: bot report with new matches and improvements",
-      "raw_diff: complete diff excerpt for changed files",
-      "changed_files.jsonl: four changed files with hunk counts"
+      "human_pr_text.md: PR body with files and verification",
+      "text_corpus.jsonl: bot report with match/improvement table",
+      "raw_diff: full diff for final changed files",
+      "review_comments.md: particle.c review feedback",
+      "changed_files.jsonl: changed-file metadata"
     ],
     "notes": [
-      "No review comments or human reviewer feedback are present in the slice.",
-      "The PR is open and merged_at is null, so intake must not infer acceptance or merge status.",
-      "Verification claims are present in PR body and bot report; no independent build or objdiff was run during intake.",
-      "The packed string blob in particle.c conflicts with general caution against string-literal-to-symbol regressions, but the PR evidence shows it was part of this slice's reported data improvement. Treat it as a PR-specific tactic for curator review, not a broad accepted standard.",
-      "The #pragma pool_data off tactic has narrow scope and reported matching benefit, but global standards require pragmas to remain exceptional."
+      "PR body and bot report provide strong evidence for claimed match/improvement outcomes in this slice.",
+      "Review comment about static char lbl_8040A540 is present, but the loaded final raw diff only shows particle.c pragma additions; the static data hunk may have existed in an earlier revision not included in the final diff excerpt.",
+      "The PR body claims clean regression reports, but no raw build logs or objdiff artifacts are loaded beyond the PR body and bot comment.",
+      "Reviewer intent beyond the explicit particle.c comments is not inferred."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "decomp_lesson",
-        "title": "Array indexing can beat pointer cursor locals for loop match shape",
-        "text": "In AXDriver_8038E498, replacing a local HSD_SM* cursor and v++ with AXDriver_804C45A0[i] and &AXDriver_804C45A0[i] produced a reported 100% match while keeping the natural for-loop.",
+        "record_type": "pr_lesson",
+        "title": "SysDolphin matching used narrow C-shape tweaks across axdriver, cobj, and sislib",
+        "text": "In PR #2659, exact or improved matches came from narrow source-shape edits: indexed array access instead of pointer cursor in AXDriver_8038E498, direct condition call in HSD_CObjGetLeftVector, stack buffer sizing and initialization in HSD_SisLib_803A6B98/HSD_SisLib_803A70A0, declaration order in HSD_SisLib_803A7F0C, and real HSD_SisLib_803A8134 calls in HSD_SisLib_803A84BC.",
         "scope": [
-          "src/sysdolphin/baselib/axdriver.c",
-          "AXDriver_8038E498"
+          "src/sysdolphin/baselib"
         ],
         "evidence_refs": [
-          "raw_diff: AXDriver_8038E498",
-          "text_corpus issue_comment: AXDriver_8038E498 93.48% -> 100.00%"
+          "raw_diff",
+          "text_corpus: bot report"
         ]
       },
       {
-        "type": "decomp_lesson",
-        "title": "Prefer known field access over redundant byte-pointer casts",
-        "text": "HSD_SisLib_803A7F0C improved by changing repeated ((u8*) text->string_buffer)[pos] forms to text->string_buffer[pos], while retaining explicit typed casts for s16/u16/s32 reads.",
+        "record_type": "review_lesson",
+        "title": "particle.c pragma/data changes are review-risky",
+        "text": "PR #2659 review feedback on particle.c warned about a repeated regression and explicitly noted that new pragmas are recommended against. Treat particle.c pragma or data-storage matching changes as requiring close review and evidence.",
         "scope": [
-          "src/sysdolphin/baselib/sislib.c",
-          "HSD_SisLib_803A7F0C"
+          "src/sysdolphin/baselib/particle.c"
         ],
         "evidence_refs": [
-          "raw_diff: HSD_SisLib_803A7F0C",
-          "text_corpus issue_comment: HSD_SisLib_803A7F0C 97.87% -> 98.96%"
+          "review_comments.md: discussion_r3399334540",
+          "review_comments.md: discussion_r3404094650",
+          "raw_diff: #pragma pool_data off around fn_80393C14"
         ]
       }
     ],
@@ -332,71 +276,51 @@
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Document tightly scoped pool_data pragma as exceptional matching tactic",
-        "text": "PR 2659 reports fn_80393C14 reaching 100% after adding #pragma push / #pragma pool_data off / #pragma pop around only that function. This may be useful as an example under avoid-pragmas-register-asm or matching-tactics-need-evidence, emphasizing narrow scope and verifier evidence.",
+        "title": "Pragma exceptions should cite review and regression evidence",
+        "text": "This PR reinforces the existing standard that new pragmas are discouraged and should be exception-only. The loaded review explicitly says the particle.c pragmas are recommended against even though fn_80393C14 was reported as a new match.",
         "source_path": null,
         "scope": [
           "src/sysdolphin/baselib/particle.c",
+          "#pragma pool_data off",
           "fn_80393C14"
         ],
         "evidence_refs": [
-          "raw_diff: fn_80393C14 pragma hunk",
-          "text_corpus issue_comment: fn_80393C14 99.77% -> 100.00%",
-          "human_pr_text: clean regression verification claim"
+          "raw_diff: particle.c pragma hunk",
+          "review_comments.md: discussion_r3404094650",
+          "text_corpus: bot report fn_80393C14 new match"
         ],
-        "reason": "Potential standards example only; current standards already warn pragmas are exceptions."
+        "reason": "Potential reinforcement/example for avoid-pragmas-register-asm and matching-tactics-need-evidence; do not promote as a new standard without curator review because the existing standards already cover this."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Clarify handling of packed in-TU string blobs used for data-section matching",
-        "text": "PR 2659 replaces inline MCC error/report strings with offsets into static char lbl_8040A540[0x268], and the bot report shows particle .data improvement. Curator should decide whether this is a legitimate data-ownership exception or a case to document as high-risk and PR-specific.",
-        "source_path": null,
+        "title": "Repeated data-regression comments should be tracked for particle.c",
+        "text": "Review feedback says a particle.c change had been submitted before and called out as a regression. Curator may want to link this PR as an example under data/literal ownership or regression-ledger guidance after checking the earlier PR/history.",
+        "source_path": "src/sysdolphin/baselib/particle.c",
         "scope": [
-          "src/sysdolphin/baselib/particle.c",
-          "fn_80392CD8",
-          "particle .data"
+          "lbl_8040A540",
+          "particle.c data changes"
         ],
         "evidence_refs": [
-          "raw_diff: lbl_8040A540 and fn_80392CD8",
-          "text_corpus issue_comment: particle .data 1.47% -> 5.46%, +620 bytes"
+          "review_comments.md: discussion_r3399334540"
         ],
-        "reason": "The change intersects existing standards about literals/data ownership and no-string-literal-symbol regression; it should not be promoted without curator judgment."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "SysDolphin baselib PR touched axdriver, cobj, particle, and sislib",
-        "text": "PR 2659 is a SysDolphin baselib decomp-matching slice touching src/sysdolphin/baselib/axdriver.c, cobj.c, particle.c, and sislib.c, with reported new matches in AXDriver_8038E498 and fn_80393C14.",
-        "source_path": "src/sysdolphin/baselib",
-        "scope": [
-          "src/sysdolphin/baselib/axdriver.c",
-          "src/sysdolphin/baselib/cobj.c",
-          "src/sysdolphin/baselib/particle.c",
-          "src/sysdolphin/baselib/sislib.c"
-        ],
-        "evidence_refs": [
-          "human_pr_text: Files and Summary",
-          "changed_files.jsonl",
-          "text_corpus issue_comment"
-        ],
-        "reason": "Useful path-scoped historical matching context for future SysDolphin work."
+        "reason": "The final diff in the loaded slice does not include the static char change, so this is only a follow-up candidate, not an accepted fact about the final merged diff."
       }
     ],
     "rejection_notes": [
-      "Do not infer that string literals should generally be converted into static data blobs; this PR only evidences a specific particle.c data/match tactic.",
-      "Do not infer reviewer approval or final project acceptance; the slice has no review comments and the PR is open.",
-      "Do not generalize #pragma pool_data off as normal style; evidence only supports a tightly scoped exception around fn_80393C14.",
-      "Do not claim all four files gained full function matches; the bot report names only AXDriver_8038E498 and fn_80393C14 as new matches, while other listed functions are improvements."
+      "Do not generalize buffer[128] as a sislib standard; evidence only shows two local matching edits in this PR.",
+      "Do not mark #pragma pool_data off as accepted style; the loaded review says new pragmas are recommended against.",
+      "Do not infer exact functions newly matched beyond AXDriver_8038E498 and fn_80393C14; those are the only ones named in the bot new-match table.",
+      "Do not claim the static char lbl_8040A540 landed in the final diff; it appears only in a review hunk, not the loaded raw final diff."
     ]
   },
-  "confidence": 0.86,
+  "confidence": 0.84,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

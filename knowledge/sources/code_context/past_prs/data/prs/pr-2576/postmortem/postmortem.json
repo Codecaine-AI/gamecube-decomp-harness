@@ -12,241 +12,208 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Matched six particle functions in src/sysdolphin/baselib/particle.c, improved five additional particle report items, and corrected hsd_8039F05C/efLib_CreateGenerator linkNo typing to use s32/int rather than narrow integer types.",
+  "summary": "PR #2576 matched six particle functions in src/sysdolphin/baselib/particle.c, improved five additional particle report items, widened hsd_8039F05C linkNo from s8 to s32 in the header and implementation, and widened efLib_CreateGenerator's local linkNo from u8 to int to keep its caller code matched.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "types-structs",
-      "matching-tactics",
+      "prototype-correction",
       "report-improvement"
     ],
     "systems": [
-      "sysdolphin/baselib/particle",
-      "melee/ef"
+      "effect",
+      "sysdolphin",
+      "baselib",
+      "particle"
     ]
   },
   "key_files": [
     {
       "path": "src/sysdolphin/baselib/particle.c",
-      "role": "Primary matching work: six matched particle functions, ps_remove_node scheduling adjustment, ParticleConsoleState/ParticleScreenState local pointer use, generator ref_INC null-guard shape, hsd_8039F05C signature change, and remaining TODO update.",
+      "role": "Primary matching work: six particle functions matched, ps_remove_node scheduling adjusted, state globals accessed through local struct pointers, generator jobj/ref_INC null-check shape changed, and hsd_8039F05C prototype widened.",
       "evidence_refs": [
         "changed_files.jsonl: src/sysdolphin/baselib/particle.c added 40 deleted 34 hunks 11",
-        "human_pr_text.md: matches six functions in src/sysdolphin/baselib/particle.c and lists additional report improvements",
-        "raw_diff: particle.c hunks for hsd_80393D2C, ps_remove_node, hsd_803966A0, hsd_80396C78, fn_80397374, hsd_8039EFAC, hsd_8039F05C, hsd_8039F6CC",
-        "text_corpus.jsonl issue_comment: GALE01 report lists 6 new matches and 5 improvements"
+        "human_pr_text: matches six functions in src/sysdolphin/baselib/particle.c",
+        "raw_diff: particle.c hunks for hsd_80393D2C, ps_remove_node, hsd_803966A0, hsd_80396C78, fn_80397374, hsd_8039EFAC, hsd_8039F05C, hsd_8039F6CC"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/particle.h",
-      "role": "Header prototype updated so hsd_8039F05C takes s32 linkNo.",
+      "role": "Owning header prototype updated for hsd_8039F05C first parameter from s8 linkNo to s32 linkNo.",
       "evidence_refs": [
         "changed_files.jsonl: src/sysdolphin/baselib/particle.h added 1 deleted 1 hunks 1",
-        "raw_diff: hsd_8039F05C prototype changed from s8 linkNo to s32 linkNo"
+        "raw_diff: hsd_8039F05C(s8 linkNo, ...) changed to hsd_8039F05C(s32 linkNo, ...)",
+        "human_pr_text: corrects first parameter of hsd_8039F05C from s8 to s32"
       ]
     },
     {
       "path": "src/melee/ef/eflib.c",
-      "role": "Caller local type adjusted in efLib_CreateGenerator so linkNo is int instead of u8.",
+      "role": "Caller-side local type adjusted in efLib_CreateGenerator from u8 linkNo to int linkNo to align with widened particle API and preserve caller match.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/ef/eflib.c added 1 deleted 1 hunks 1",
         "raw_diff: efLib_CreateGenerator local linkNo changed from u8 to int",
-        "human_pr_text.md: widened local keeps caller matched after hsd_8039F05C parameter correction"
+        "human_pr_text: efLib_CreateGenerator's local linkNo is widened from u8 to int so caller remains matched"
       ]
     }
   ],
   "what_changed": [
-    {
-      "text": "Six functions were claimed and reported as new 100.00% matches: hsd_80393D2C, hsd_803966A0, hsd_80396C78, fn_80397374, hsd_8039EFAC, and hsd_8039F6CC.",
-      "evidence_refs": [
-        "human_pr_text.md: Matches six functions list",
-        "text_corpus.jsonl issue_comment: ✅ 6 new matches table"
-      ]
-    },
-    {
-      "text": "Five unmatched particle items improved in the report: hsd_80395D88, hsd_803962A8, hsd_80396A20, fn_80397814, and hsd_8039F05C.",
-      "evidence_refs": [
-        "human_pr_text.md: Additional report improvements list",
-        "text_corpus.jsonl issue_comment: 📈 5 improvements in unmatched items table"
-      ]
-    },
-    {
-      "text": "hsd_8039F05C first parameter was widened from s8 to s32 in both implementation and header, and efLib_CreateGenerator widened its local linkNo from u8 to int.",
-      "evidence_refs": [
-        "human_pr_text.md: corrects first parameter from s8 to s32 and widens efLib_CreateGenerator local",
-        "raw_diff: particle.c hsd_8039F05C signature change",
-        "raw_diff: particle.h hsd_8039F05C prototype change",
-        "raw_diff: eflib.c linkNo u8 to int"
-      ]
-    },
-    {
-      "text": "Several direct global aggregate accesses were rewritten through local state pointers, such as struct ParticleConsoleState* sp = &hsd_804CF7E8 and struct ParticleScreenState* sp = &hsd_804CF810.",
-      "evidence_refs": [
-        "raw_diff: hsd_80393D2C introduces ParticleConsoleState* sp",
-        "raw_diff: hsd_803966A0 and fn_80397374 use ParticleScreenState* sp"
-      ]
-    },
-    {
-      "text": "ps_remove_node changed the assignment/check sequence to if (*(head_ptr = &sp->xD0) == NULL), affecting inline scheduling for callers.",
-      "evidence_refs": [
-        "raw_diff: ps_remove_node hunk combines head_ptr assignment with null check",
-        "raw_diff: removed TODO comments citing ps_remove_node inline scheduling for hsd_80396C78 and fn_80397374"
-      ]
-    },
-    {
-      "text": "hsd_8039EFAC and hsd_8039F6CC changed jobj assignment/ref_INC shape by adding an inner gen != NULL block and guarding ref_INC with jobj != NULL.",
-      "evidence_refs": [
-        "raw_diff: hsd_8039EFAC hunk adds if (gen != NULL) and if (jobj != NULL) before ref_INC",
-        "raw_diff: hsd_8039F6CC hunk adds same guard shape"
-      ]
-    },
-    {
-      "text": "hsd_80393D2C was wrapped in #pragma push / #pragma dont_inline on / #pragma pop.",
-      "evidence_refs": [
-        "raw_diff: pragma push/dont_inline around hsd_80393D2C"
-      ]
-    }
+    "Matched six functions reported by the PR body and GALE01 bot report: hsd_80393D2C, hsd_803966A0, hsd_80396C78, fn_80397374, hsd_8039EFAC, and hsd_8039F6CC.",
+    "Improved five unmatched report items: hsd_80395D88, hsd_803962A8, hsd_80396A20, fn_80397814, and hsd_8039F05C.",
+    "Changed hsd_8039F05C's first parameter type from s8 to s32 in particle.c and particle.h.",
+    "Changed efLib_CreateGenerator's local linkNo from u8 to int.",
+    "Introduced local struct pointer aliases for hsd_804CF7E8 and hsd_804CF810 in affected particle functions, replacing repeated direct global-address expressions.",
+    "Changed ps_remove_node's head pointer setup into an assignment expression inside the null check.",
+    "Added a tightly scoped #pragma push / #pragma dont_inline on / #pragma pop block around hsd_80393D2C.",
+    "Changed hsd_8039EFAC and hsd_8039F6CC to use nested gen and jobj null-checks before assigning gen->jobj and calling ref_INC(jobj)."
   ],
   "smart_moves": [
     {
-      "text": "The PR paired a prototype fix in particle.h with the implementation and caller local type changes, avoiding a mismatched call surface after widening linkNo.",
+      "text": "Prototype correction was applied consistently at the implementation, header, and caller local variable site, avoiding caller-side narrowing and aligning with the surrounding linkNo API convention described in the PR body.",
       "evidence_refs": [
-        "human_pr_text.md: widened prototype removes spurious caller-side narrowing; efLib_CreateGenerator local widened so caller remains matched",
-        "raw_diff: eflib.c, particle.c, and particle.h linkNo changes"
+        "human_pr_text: hsd_8039F05C first parameter corrected from s8 to s32; efLib_CreateGenerator local widened from u8 to int",
+        "raw_diff: particle.c and particle.h hsd_8039F05C signature changes",
+        "raw_diff: eflib.c efLib_CreateGenerator local linkNo changed to int"
       ]
     },
     {
-      "text": "Using local state pointer variables for repeated global struct access reduced generated-looking repeated address expressions and contributed to reported matches.",
+      "text": "The PR removed stale TODO comments for functions that the report shows became 100.00% matched.",
       "evidence_refs": [
-        "raw_diff: replacements of (&hsd_804CF810)->xBC and (&hsd_804CF810)->x1C with sp->xBC and sp->x1C",
-        "text_corpus.jsonl issue_comment: affected functions hsd_803966A0 and fn_80397374 reported 100.00%"
+        "raw_diff: TODO comments removed before hsd_803966A0, hsd_80396C78, fn_80397374, hsd_8039EFAC, and hsd_8039F6CC",
+        "text_corpus issue_comment: GALE01 report lists six new matches at 100.00%"
       ]
     },
     {
-      "text": "The PR preserved a narrow unresolved note for hsd_8039F05C instead of claiming a match, updating the TODO from relocation differences to a .bss.0 section anchor/register-allocation issue.",
+      "text": "Using local state pointers such as sp reduced repeated global-address expressions and was part of the matching edits for particle screen/console state functions.",
       "evidence_refs": [
-        "raw_diff: hsd_8039F05C TODO changed to .bss.0 section anchor hoist causes register-allocation cascade",
-        "text_corpus.jsonl issue_comment: hsd_8039F05C improved only from 80.55% to 80.79%, not a new match"
+        "raw_diff: hsd_80393D2C introduces struct ParticleConsoleState* sp = &hsd_804CF7E8",
+        "raw_diff: hsd_803966A0 and fn_80397374 use struct ParticleScreenState* sp = &hsd_804CF810"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a parameter convention is evident in surrounding APIs, correcting the callee prototype may require matching header and caller-local type updates to remove caller-side narrowing.",
+      "lesson": "When a parameter's real width is recovered, update the owning header and nearby caller locals together; here, hsd_8039F05C linkNo changed from s8 to s32 and efLib_CreateGenerator's linkNo local changed from u8 to int to avoid spurious narrowing.",
       "scope": [
-        "particle APIs",
-        "function prototype recovery",
-        "caller/callee type consistency"
+        "src/sysdolphin/baselib/particle.c",
+        "src/sysdolphin/baselib/particle.h",
+        "src/melee/ef/eflib.c",
+        "particle generator APIs"
       ],
       "evidence_refs": [
-        "human_pr_text.md: hsd_8039F05C first parameter corrected from s8 to s32 matching int linkNo convention",
-        "raw_diff: particle.h and particle.c hsd_8039F05C signature changes",
-        "raw_diff: efLib_CreateGenerator linkNo changed from u8 to int"
+        "human_pr_text: widened prototype removes spurious caller-side narrowing",
+        "raw_diff: hsd_8039F05C signature changed to s32 linkNo",
+        "raw_diff: efLib_CreateGenerator local linkNo changed to int"
       ]
     },
     {
-      "lesson": "For repeated accesses to a global state struct, keeping a local typed pointer can be the matching shape and is more reviewable than repeated address-of global expressions.",
+      "lesson": "For baselib particle state code, preserving a local pointer to the global state struct can affect register allocation and matching, as shown by hsd_80393D2C, hsd_803966A0, and fn_80397374.",
       "scope": [
         "src/sysdolphin/baselib/particle.c",
         "ParticleConsoleState",
         "ParticleScreenState"
       ],
       "evidence_refs": [
-        "raw_diff: hsd_80393D2C introduces sp for hsd_804CF7E8",
-        "raw_diff: hsd_803966A0 and fn_80397374 introduce/use sp for hsd_804CF810",
-        "text_corpus.jsonl issue_comment: hsd_80393D2C, hsd_803966A0, fn_80397374 reported as new matches"
+        "raw_diff: local sp introduced for hsd_804CF7E8 and hsd_804CF810",
+        "text_corpus issue_comment: hsd_80393D2C, hsd_803966A0, and fn_80397374 reported at 100.00%"
       ]
     },
     {
-      "lesson": "Small source-shape changes inside an inline helper can resolve multiple callers that were previously blocked on inline scheduling.",
+      "lesson": "Small source-shape changes in inline helpers can matter for scheduling; ps_remove_node's head_ptr assignment was folded into the null check, and related particle functions reached 100.00% according to the report.",
       "scope": [
+        "src/sysdolphin/baselib/particle.c",
         "ps_remove_node",
-        "particle screen callbacks"
+        "hsd_80396C78",
+        "fn_80397374"
       ],
       "evidence_refs": [
-        "raw_diff: ps_remove_node assignment/null-check reshaped",
-        "raw_diff: removed TODOs on hsd_80396C78 and fn_80397374 referencing ps_remove_node inline scheduling",
-        "text_corpus.jsonl issue_comment: hsd_80396C78 and fn_80397374 reported 100.00%"
-      ]
-    },
-    {
-      "lesson": "Do not treat byte-identical or partially improved unmatched functions as matched; keep a specific TODO that identifies the remaining suspected codegen or section-anchor issue.",
-      "scope": [
-        "hsd_8039F05C",
-        "partial report improvements"
-      ],
-      "evidence_refs": [
-        "raw_diff: hsd_8039F05C TODO retained and refined",
-        "text_corpus.jsonl issue_comment: hsd_8039F05C remains unmatched at 80.79%"
+        "raw_diff: ps_remove_node head_ptr assignment folded into if (*(head_ptr = &sp->xD0) == NULL)",
+        "raw_diff: removed TODOs mentioning ps_remove_node inline scheduling",
+        "text_corpus issue_comment: hsd_80396C78 and fn_80397374 listed as new matches"
       ]
     }
   ],
   "naming_conventions": [
     {
       "name": "linkNo",
-      "convention": "Particle generator APIs use linkNo as an int/s32 parameter/local rather than a narrow s8/u8 in this PR evidence.",
+      "convention": "Particle generator APIs use an int/s32-width linkNo parameter according to this PR's body and the surrounding particle API signatures in the diff.",
       "evidence_refs": [
-        "human_pr_text.md: matching the int linkNo convention used by surrounding particle APIs",
-        "raw_diff: hsd_8039F05C s8 linkNo to s32 linkNo",
-        "raw_diff: efLib_CreateGenerator u8 linkNo to int linkNo"
+        "human_pr_text: matching the int linkNo convention used by surrounding particle APIs",
+        "raw_diff: hsd_8039EFAC and hsd_8039F6CC already take s32 linkNo",
+        "raw_diff: hsd_8039F05C changed to s32 linkNo"
       ]
     },
     {
       "name": "sp",
-      "convention": "Short local name sp is used for ParticleConsoleState* and ParticleScreenState* state pointers in the touched particle functions.",
+      "convention": "Local variable sp is used as a short role name for ParticleConsoleState or ParticleScreenState pointers in the changed functions.",
       "evidence_refs": [
         "raw_diff: struct ParticleConsoleState* sp = &hsd_804CF7E8",
         "raw_diff: struct ParticleScreenState* sp = &hsd_804CF810"
       ]
     },
     {
-      "name": "spr_off",
-      "convention": "fn_80397374 retains short role-style local spr_off for sprite offset-like state loaded from lbl_8040BEC4.",
+      "name": "jobj",
+      "convention": "Generator creation functions use jobj for HSD_JObj* parameters and assign it to gen->jobj before ref_INC when non-null.",
       "evidence_refs": [
-        "raw_diff: fn_80397374 declares u32 spr_off = *(u32*) (lbl_8040BEC4 + 0x10)"
+        "raw_diff: hsd_8039EFAC(s32 linkNo, s32 bank, s32 gfx_id, HSD_JObj* jobj)",
+        "raw_diff: hsd_8039F6CC(s32 linkNo, s32 bank, s32 gfx_id, HSD_JObj* jobj)"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Scoped dont_inline pragma around hsd_80393D2C.",
+      "tactic": "Scoped dont_inline pragma",
+      "details": "hsd_80393D2C was wrapped with #pragma push, #pragma dont_inline on, and #pragma pop. The GALE01 report shows this function reached 100.00%, but the PR slice does not provide adjacent-function or rationale details beyond the match report.",
       "evidence_refs": [
-        "raw_diff: #pragma push, #pragma dont_inline on before hsd_80393D2C and #pragma pop after"
-      ],
-      "notes": "This is supported by the PR diff and the report showing hsd_80393D2C reached 100.00%, but the slice does not include adjacent-function objdiff details beyond the GALE01 report."
+        "raw_diff: pragma push/dont_inline/pop around hsd_80393D2C",
+        "text_corpus issue_comment: hsd_80393D2C before 94.34%, after 100.00%"
+      ]
     },
     {
-      "tactic": "Use a local pointer to a global state struct to influence register/address reuse and avoid repeated direct global expressions.",
+      "tactic": "Local pointer alias for global state",
+      "details": "Global state accesses such as (&hsd_804CF810)->xBC were rewritten through struct ParticleScreenState* sp = &hsd_804CF810, affecting register allocation/source shape for matched functions.",
       "evidence_refs": [
-        "raw_diff: hsd_80393D2C, hsd_803966A0, fn_80397374 local sp changes"
-      ],
-      "notes": "Consistent with typed-field and authored-source style standards; exact MWCC register reason is inferred from diff shape and match report, not explicitly explained in comments."
+        "raw_diff: hsd_803966A0 replaces repeated (&hsd_804CF810)->xBC with sp->xBC",
+        "raw_diff: fn_80397374 initializes sp and uses sp->xBC/sp->x1C"
+      ]
     },
     {
-      "tactic": "Adjust inline helper scheduling by combining assignment and dereference in the null check.",
+      "tactic": "Assignment expression to influence inline helper scheduling",
+      "details": "ps_remove_node now assigns head_ptr within the null-check expression, replacing a separate assignment statement. Removed TODOs cite ps_remove_node inline scheduling issues in functions that became matched.",
       "evidence_refs": [
-        "raw_diff: ps_remove_node if (*(head_ptr = &sp->xD0) == NULL)",
-        "raw_diff: removed TODOs citing addi/lwz order"
-      ],
-      "notes": "Evidence supports this as a matching tactic for ps_remove_node-related callers."
+        "raw_diff: if (*(head_ptr = &sp->xD0) == NULL)",
+        "raw_diff: removed TODO comments about ps_remove_node inline scheduling",
+        "text_corpus issue_comment: hsd_80396C78 and fn_80397374 at 100.00%"
+      ]
     },
     {
-      "tactic": "Add redundant-looking gen != NULL block after an early null return, and jobj != NULL guard around ref_INC, matching dead-branch/null-check target shape in generator functions.",
+      "tactic": "Explicit redundant-looking gen null-check shape and guarded ref_INC",
+      "details": "After an early return on gen == NULL, hsd_8039EFAC and hsd_8039F6CC still use if (gen != NULL) and guard ref_INC with if (jobj != NULL). This source shape corresponds with both functions reaching 100.00% in the report.",
       "evidence_refs": [
-        "raw_diff: hsd_8039EFAC guard shape",
-        "raw_diff: hsd_8039F6CC guard shape",
-        "text_corpus.jsonl issue_comment: both functions reached 100.00%"
-      ],
-      "notes": "The prior TODOs referenced dead beq instructions, supporting the branch-shape motive."
+        "raw_diff: hsd_8039EFAC nested gen and jobj checks",
+        "raw_diff: hsd_8039F6CC nested gen and jobj checks",
+        "text_corpus issue_comment: hsd_8039EFAC and hsd_8039F6CC listed as new matches"
+      ]
     }
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    {
+      "type": "automated_report",
+      "author": "decomp-dev[bot]",
+      "text": "GALE01 report for 8922119..5e30798 showed matched code 70.12% (+0.05%, +1824 bytes), six new matches, and five improvements in unmatched items.",
+      "evidence_refs": [
+        "text_corpus issue_comment created_at 2026-06-03T23:08:17Z"
+      ]
+    }
+  ],
   "searchable_terms": [
     "PR2576",
-    "particle.c",
-    "particle.h",
-    "eflib.c",
+    "Match several particle functions",
+    "itsgrimetime",
+    "src/sysdolphin/baselib/particle.c",
+    "src/sysdolphin/baselib/particle.h",
+    "src/melee/ef/eflib.c",
     "hsd_80393D2C",
     "hsd_803966A0",
     "hsd_80396C78",
@@ -254,84 +221,74 @@
     "hsd_8039EFAC",
     "hsd_8039F6CC",
     "hsd_8039F05C",
+    "hsd_80395D88",
+    "hsd_803962A8",
+    "hsd_80396A20",
+    "fn_80397814",
+    "efLib_CreateGenerator",
     "linkNo",
-    "ParticleConsoleState",
     "ParticleScreenState",
+    "ParticleConsoleState",
     "ps_remove_node",
-    "dont_inline",
-    "ref_INC",
     "HSD_Generator",
     "HSD_JObj",
-    "GALE01",
-    "require-protos",
-    ".bss.0 section anchor"
+    "ref_INC",
+    "HSD_SetReportCallback",
+    "pragma dont_inline",
+    ".bss.0 section anchor hoist",
+    "GALE01"
   ],
   "follow_up_queries": [
-    "hsd_8039F05C .bss.0 section anchor hoist register-allocation cascade extra saved reg frame shift",
-    "particle.c ps_remove_node inline scheduling addi lwz order",
-    "particle generator linkNo int s32 convention",
-    "hsd_8039EFAC hsd_8039F6CC dead beq ref_INC jobj null guard",
-    "pragma dont_inline hsd_80393D2C particle.c"
+    "hsd_8039F05C linkNo s32 int surrounding particle APIs",
+    "ParticleScreenState sp hsd_804CF810 register allocation particle.c",
+    "ps_remove_node inline scheduling addi lwz order particle.c",
+    "pragma dont_inline hsd_80393D2C particle.c",
+    "hsd_8039EFAC hsd_8039F6CC gen jobj ref_INC null check",
+    ".bss.0 section anchor hoist hsd_8039F05C register allocation cascade"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR #2576 title/state/author/changed files",
-      "human_pr_text.md: explicit matched functions, type correction, verification commands, GALE01 claim",
-      "raw_diff: complete diff excerpt for all changed files",
-      "text_corpus.jsonl issue_comment: bot GALE01 report with new matches and improvements"
+      "metadata_json: PR #2576 metadata, changed files, state MERGED",
+      "human_pr_text: stated functions matched, prototype correction, verification commands",
+      "raw_diff: exact source changes across three files",
+      "text_corpus issue_comment: decomp-dev GALE01 report with before/after percentages"
     ],
     "notes": [
-      "No review comments or human reviewer feedback are present in the loaded slice.",
-      "Verification evidence is from PR body and bot report; no raw build logs or objdiff artifacts are loaded.",
-      "The PR evidence supports match/report outcomes but not broader claims about original author intent beyond the specific particle API convention stated in the PR body.",
-      "Pragma use is documented as a tactic, not promoted as a general accepted standard."
+      "No human review comments are present in the slice; review feedback is limited to the automated decomp report.",
+      "The PR body claims python configure.py --require-protos and ninja were run, but the slice does not include command logs.",
+      "The dont_inline pragma is evidenced by the diff and match report, but the slice does not include adjacent-function regression details required to generalize it as normal style.",
+      "The hsd_8039F05C TODO remains an unresolved note about .bss.0 section anchor hoist and register-allocation cascade; it should not be treated as a solved tactic."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "decomp_lesson",
-        "title": "Keep particle generator linkNo types consistent across callee, header, and callers",
-        "text": "In PR #2576, widening hsd_8039F05C linkNo from s8 to s32 was paired with the particle.h prototype update and efLib_CreateGenerator local widening from u8 to int; the PR body says this matches surrounding particle API convention and removes spurious caller-side narrowing.",
+        "kind": "decomp_lesson",
+        "title": "Recovering linkNo width can require header and caller-local updates",
+        "text": "In PR #2576, hsd_8039F05C's linkNo parameter was widened from s8 to s32 in particle.c and particle.h, and efLib_CreateGenerator's local linkNo was widened from u8 to int. The PR body states this matched the surrounding particle API convention and removed spurious caller-side narrowing.",
         "scope": [
           "src/sysdolphin/baselib/particle.c",
           "src/sysdolphin/baselib/particle.h",
-          "src/melee/ef/eflib.c",
-          "particle generator APIs"
+          "src/melee/ef/eflib.c"
         ],
         "evidence_refs": [
-          "human_pr_text.md: linkNo convention and caller-side narrowing explanation",
-          "raw_diff: hsd_8039F05C and efLib_CreateGenerator linkNo type changes"
+          "human_pr_text",
+          "raw_diff"
         ]
       },
       {
-        "type": "matching_tactic",
-        "title": "Particle state globals may match better through typed local state pointers",
-        "text": "PR #2576 replaced repeated global state expressions with local sp pointers in hsd_80393D2C, hsd_803966A0, and fn_80397374; these functions were among the six GALE01 100.00% new matches.",
+        "kind": "matching_tactic",
+        "title": "Particle state globals sometimes match better through local state pointers",
+        "text": "PR #2576 rewrote repeated direct accesses to hsd_804CF7E8 and hsd_804CF810 through local sp pointers in matched particle functions. GALE01 reported hsd_80393D2C, hsd_803966A0, and fn_80397374 at 100.00%.",
         "scope": [
           "src/sysdolphin/baselib/particle.c",
           "ParticleConsoleState",
           "ParticleScreenState"
         ],
         "evidence_refs": [
-          "raw_diff: sp pointer introductions",
-          "text_corpus.jsonl issue_comment: corresponding 100.00% matches"
-        ]
-      },
-      {
-        "type": "matching_tactic",
-        "title": "Inline helper source shape can unblock multiple particle callbacks",
-        "text": "PR #2576 changed ps_remove_node to assign head_ptr inside the null-check expression; TODOs about ps_remove_node inline scheduling were removed from hsd_80396C78 and fn_80397374, and both reached 100.00% in the GALE01 report.",
-        "scope": [
-          "src/sysdolphin/baselib/particle.c",
-          "ps_remove_node",
-          "hsd_80396C78",
-          "fn_80397374"
-        ],
-        "evidence_refs": [
-          "raw_diff: ps_remove_node hunk and removed scheduling TODOs",
-          "text_corpus.jsonl issue_comment: hsd_80396C78 and fn_80397374 new matches"
+          "raw_diff",
+          "text_corpus issue_comment"
         ]
       }
     ],
@@ -339,53 +296,52 @@
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "Particle generator APIs use int/s32 linkNo in this PR evidence",
-        "text": "PR #2576 states that hsd_8039F05C's first parameter was corrected from s8 to s32 to match the int linkNo convention used by surrounding particle APIs, and the diff updates particle.c, particle.h, and efLib_CreateGenerator accordingly.",
-        "source_path": "src/sysdolphin/baselib/particle.c",
+        "title": "particle generator linkNo parameter width",
+        "text": "PR #2576 evidence suggests particle generator APIs around hsd_8039EFAC, hsd_8039F05C, and hsd_8039F6CC use int/s32-width linkNo rather than s8/u8; hsd_8039F05C and efLib_CreateGenerator were updated accordingly.",
+        "source_path": "src/sysdolphin/baselib/particle.h",
         "scope": [
-          "hsd_8039F05C",
+          "particle generator APIs",
           "hsd_8039EFAC",
+          "hsd_8039F05C",
           "hsd_8039F6CC",
-          "efLib_CreateGenerator",
-          "particle generator APIs"
+          "efLib_CreateGenerator"
         ],
         "evidence_refs": [
-          "human_pr_text.md: int linkNo convention statement",
-          "raw_diff: linkNo type changes in particle.c, particle.h, eflib.c"
+          "human_pr_text: int linkNo convention used by surrounding particle APIs",
+          "raw_diff: hsd_8039F05C signature and efLib_CreateGenerator local changes"
         ],
-        "reason": "Potential subsystem path fact about linkNo typing; should be curated against current source and surrounding APIs before acceptance."
+        "reason": "Potential path-specific API convention; should be curated as a path fact only after checking current headers and surrounding callers."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Scoped pragma exceptions need explicit match evidence",
-        "text": "PR #2576 used a tightly scoped #pragma dont_inline block around hsd_80393D2C, and the GALE01 report showed that function as a new 100.00% match. This is consistent with the existing avoid-pragmas-register-asm and matching-tactics standards, but should not be broadened without more examples.",
-        "source_path": "src/sysdolphin/baselib/particle.c",
+        "title": "Scoped pragmas need explicit regression evidence",
+        "text": "PR #2576 used a tightly scoped dont_inline pragma around hsd_80393D2C and the report shows the function matched. Because the slice lacks adjacent-function regression evidence, this supports only a candidate reminder that pragma exceptions should stay tightly scoped and documented, not a broader endorsement of pragma use.",
+        "source_path": null,
         "scope": [
-          "hsd_80393D2C",
-          "matching pragmas"
+          "matching tactics",
+          "pragma exceptions"
         ],
         "evidence_refs": [
-          "raw_diff: scoped dont_inline pragma around hsd_80393D2C",
-          "text_corpus.jsonl issue_comment: hsd_80393D2C 100.00%"
+          "raw_diff: #pragma push/#pragma dont_inline on/#pragma pop around hsd_80393D2C",
+          "text_corpus issue_comment: hsd_80393D2C reached 100.00%"
         ],
-        "reason": "Possible supporting example for existing standards, not a new standalone rule."
+        "reason": "Aligns with existing avoid-pragmas-register-asm and matching-tactics standards; curator may decide whether this PR is worth indexing as an example rather than updating the standard."
       }
     ],
     "rejection_notes": [
-      "Do not promote the redundant gen != NULL block after an early return as general style; evidence only supports it as a local branch-shape tactic for hsd_8039EFAC and hsd_8039F6CC.",
-      "Do not claim hsd_8039F05C matched; the report shows only an improvement to 80.79% and the diff retains a TODO.",
-      "Do not infer reviewer intent or requested changes; no review comments are loaded.",
-      "Do not treat #pragma dont_inline as broadly acceptable from this PR alone; the evidence is one scoped use with report support."
+      "Do not promote the dont_inline use in hsd_80393D2C as normal decomp style; the PR evidence only shows a local matched result, not broad justification.",
+      "Do not mark hsd_8039F05C as matched; the report shows it improved only from 80.55% to 80.79%, and the diff retains a TODO about section anchor/register allocation issues.",
+      "Do not infer human reviewer approval rationale; the slice has no human review comments."
     ]
   },
-  "confidence": 0.92,
+  "confidence": 0.91,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

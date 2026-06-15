@@ -12,13 +12,13 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Small bulk PR touching one stage file and one item file. It simplified generated-looking locals in grCastle_801CDFD8 and replaced a MWERKS_GEKKO inline assembly implementation of it_2725_Logic59_EvtUnk with C that calls it_8026B894, recovers Item* via GET_ITEM, and uses a volatile pointer read/compare against the Ness yoyo item var field.",
+  "summary": "Small merged bulk PR touching one stage file and one item file. The stage change cleans up grCastle_801CDFD8 by removing generated-looking temporaries and assigning fields directly. The item change replaces a MWERKS_GEKKO inline assembly implementation of it_2725_Logic59_EvtUnk with C that calls it_8026B894 and uses a volatile owner-pointer comparison against ref_gobj.",
   "change_classification": {
-    "primary_type": "code-change",
+    "primary_type": "code-cleanup-and-asm-replacement",
     "categories": [
+      "code-change",
       "decomp-cleanup",
-      "inline-asm-removal",
-      "local-variable-cleanup"
+      "inline-asm-removal"
     ],
     "systems": [
       "stage",
@@ -28,71 +28,85 @@
   "key_files": [
     {
       "path": "src/melee/gr/grcastle.c",
-      "role": "Stage Castle function cleanup in grCastle_801CDFD8.",
+      "role": "Stage cleanup in grCastle_801CDFD8; removes extra local temporaries and uses direct grCs_804D6970 and GroundVars castle9 field assignments.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/gr/grcastle.c added 9 deleted 23",
-        "raw_diff: grCastle_801CDFD8 hunk"
+        "metadata_json.changed_files",
+        "raw_diff:src/melee/gr/grcastle.c"
       ]
     },
     {
       "path": "src/melee/it/items/itnessyoyo.c",
-      "role": "Ness yoyo item event function changed from MWERKS_GEKKO inline assembly/NOT_IMPLEMENTED split to C.",
+      "role": "Item decomp change in it_2725_Logic59_EvtUnk; removes MWERKS_GEKKO asm/pragmas and NOT_IMPLEMENTED fallback, replacing them with C using GET_ITEM, it_8026B894, and a volatile pointer comparison.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itnessyoyo.c added 6 deleted 32",
-        "raw_diff: it_2725_Logic59_EvtUnk hunk"
+        "metadata_json.changed_files",
+        "raw_diff:src/melee/it/items/itnessyoyo.c"
       ]
     }
   ],
   "what_changed": [
     {
       "path": "src/melee/gr/grcastle.c",
-      "description": "Removed temporary params, params2, neg_one, zero, base_value, and final_value locals from grCastle_801CDFD8. The function now reads grCs_804D6970->xA into a single range local, calls HSD_Randi(range) only when nonzero, writes grCs_804D6970->x8 + rand_result directly to gp->gv.castle9.xD4, and assigns -1/0 literals directly to the other castle9 fields.",
+      "details": [
+        "Renamed local random_range to range.",
+        "Removed temporary grCastleParams pointers and scalar locals params, params2, neg_one, zero, base_value, and final_value.",
+        "Changed random range access to grCs_804D6970->xA directly.",
+        "Changed xD4 assignment to grCs_804D6970->x8 + rand_result directly.",
+        "Changed xDC, xDA, xD8, and xD6 assignments to direct literals -1 and 0."
+      ],
       "evidence_refs": [
-        "raw_diff: grCastle_801CDFD8 hunk"
+        "raw_diff:src/melee/gr/grcastle.c"
       ]
     },
     {
       "path": "src/melee/it/items/itnessyoyo.c",
-      "description": "Removed an #ifdef MWERKS_GEKKO inline assembly body and the non-Gekko NOT_IMPLEMENTED fallback for it_2725_Logic59_EvtUnk. Added a C body using GET_ITEM(gobj), it_8026B894(gobj, ref_gobj), a volatile pointer to ip->xDD4_itemVar.nessyoyo.x10, and a discarded ternary comparison to ref_gobj.",
+      "details": [
+        "Removed MWERKS_GEKKO guarded inline assembly implementation of it_2725_Logic59_EvtUnk and the surrounding pragma push/pop.",
+        "Removed non-GEKKO NOT_IMPLEMENTED fallback for it_2725_Logic59_EvtUnk.",
+        "Added C body that gets Item* ip via GET_ITEM(gobj), calls it_8026B894(gobj, ref_gobj), then takes a volatile pointer to ip->xDD4_itemVar.nessyoyo.x10 and performs a comparison with ref_gobj whose value is discarded."
+      ],
       "evidence_refs": [
-        "raw_diff: it_2725_Logic59_EvtUnk hunk"
+        "raw_diff:src/melee/it/items/itnessyoyo.c"
       ]
     }
   ],
   "smart_moves": [
     {
-      "description": "The grCastle change improves reviewability by collapsing decompiler-style one-use locals into direct field and literal assignments while preserving the explicit range local used for HSD_Randi.",
+      "title": "Removed unnecessary temporary locals in stage code",
+      "detail": "grCastle_801CDFD8 became shorter and more direct while retaining the same visible field writes and HSD_Randi control flow in the diff.",
       "evidence_refs": [
-        "raw_diff: grCastle_801CDFD8 hunk"
+        "raw_diff:src/melee/gr/grcastle.c"
       ]
     },
     {
-      "description": "The item change removes inline assembly and expresses most of the function in C using existing item access patterns, including GET_ITEM and the typed nessyoyo item-var arm.",
+      "title": "Narrowly replaced inline assembly with C for an item callback",
+      "detail": "The item change removes a hand-written asm block and expresses the known call and owner comparison in C, while using volatile on the owner pointer to preserve an otherwise-unused load/compare shape.",
       "evidence_refs": [
-        "raw_diff: it_2725_Logic59_EvtUnk hunk"
+        "raw_diff:src/melee/it/items/itnessyoyo.c"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "One-use generated locals for constants and simple field loads can often be removed in favor of direct field/literal assignments when the resulting source remains clear.",
+      "lesson": "Generated-looking scalar temporaries can often be collapsed into direct field and literal assignments when the surrounding code does not need the temporaries.",
       "scope": [
         "src/melee/gr/grcastle.c",
         "grCastle_801CDFD8"
       ],
       "evidence_refs": [
-        "raw_diff: removed params2/neg_one/zero/base_value/final_value and direct assignments added"
+        "raw_diff:src/melee/gr/grcastle.c"
       ],
       "confidence": 0.78
     },
     {
-      "lesson": "Inline assembly wrappers can sometimes be replaced by narrow C that preserves the visible call and memory access shape; in this slice, the C replacement still uses a volatile pointer expression, so the exact matching tactic should be treated as PR-local evidence rather than a general style rule.",
+      "lesson": "A small inline asm callback may sometimes be expressible in C by recovering the real object type, preserving the real call, and using a narrow volatile access only for the required otherwise-unused memory comparison.",
       "scope": [
         "src/melee/it/items/itnessyoyo.c",
         "it_2725_Logic59_EvtUnk"
       ],
       "evidence_refs": [
-        "raw_diff: removed MWERKS_GEKKO asm body and added C body with volatile owner_ptr"
+        "raw_diff:src/melee/it/items/itnessyoyo.c",
+        "decomp_standards:avoid-pragmas-register-asm",
+        "decomp_standards:matching-tactics-need-evidence"
       ],
       "confidence": 0.62
     }
@@ -100,50 +114,49 @@
   "naming_conventions": [
     {
       "name": "range",
-      "context": "Replaced random_range in grCastle_801CDFD8 for the local copied from grCs_804D6970->xA before HSD_Randi.",
+      "context": "Local replacement for random_range in grCastle_801CDFD8.",
       "evidence_refs": [
-        "raw_diff: s32 random_range removed; s32 range added"
-      ],
-      "confidence": 0.7
+        "raw_diff:src/melee/gr/grcastle.c"
+      ]
     },
     {
       "name": "ip",
-      "context": "Used as the local Item* recovered from GET_ITEM(gobj) in it_2725_Logic59_EvtUnk.",
+      "context": "Local Item* recovered from GET_ITEM(gobj) in it_2725_Logic59_EvtUnk; consistent with short role names for clear local object roles.",
       "evidence_refs": [
-        "raw_diff: Item* ip = GET_ITEM(gobj)"
-      ],
-      "confidence": 0.85
+        "raw_diff:src/melee/it/items/itnessyoyo.c",
+        "decomp_standards:conservative-naming"
+      ]
     },
     {
       "name": "owner_ptr",
-      "context": "Local volatile pointer to ip->xDD4_itemVar.nessyoyo.x10 used for the retained memory comparison in it_2725_Logic59_EvtUnk.",
+      "context": "Local volatile pointer to ip->xDD4_itemVar.nessyoyo.x10 used for the preserved comparison against ref_gobj.",
       "evidence_refs": [
-        "raw_diff: HSD_GObj* volatile* owner_ptr = &ip->xDD4_itemVar.nessyoyo.x10"
-      ],
-      "confidence": 0.55
+        "raw_diff:src/melee/it/items/itnessyoyo.c"
+      ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Removed MWERKS_GEKKO inline assembly and #pragma push/pop around it_2725_Logic59_EvtUnk.",
+      "tactic": "Inline assembly removal",
+      "detail": "Replaced MWERKS_GEKKO asm for it_2725_Logic59_EvtUnk with C and removed the asm-only pragma wrapper.",
       "evidence_refs": [
-        "raw_diff: deleted asm void it_2725_Logic59_EvtUnk block and pragmas"
-      ],
-      "risk_note": "The PR evidence does not include objdiff, build, or adjacent-function regression output, so the match status and blast radius are not proven by this slice."
+        "raw_diff:src/melee/it/items/itnessyoyo.c"
+      ]
     },
     {
-      "tactic": "Used HSD_GObj* volatile* owner_ptr and a discarded ternary comparison to force a read/compare of ip->xDD4_itemVar.nessyoyo.x10 against ref_gobj.",
+      "tactic": "Volatile pointer access for unused compare",
+      "detail": "The new C takes HSD_GObj* volatile* owner_ptr = &ip->xDD4_itemVar.nessyoyo.x10 and discards the result of comparing *owner_ptr with ref_gobj, apparently to preserve a load/compare that has no source-level side effect.",
       "evidence_refs": [
-        "raw_diff: added owner_ptr volatile pointer and (void) ((*owner_ptr == ref_gobj) ? 0 : 0)"
+        "raw_diff:src/melee/it/items/itnessyoyo.c"
       ],
-      "risk_note": "Volatile/local codegen steering is a matching tactic that needs verifier evidence before being generalized."
+      "caution": "The PR slice provides no objdiff, build, or adjacent-function regression evidence; under loaded standards this should remain a narrow tactic requiring verifier evidence before being generalized."
     },
     {
-      "tactic": "Simplified grCastle_801CDFD8 by removing redundant locals and using direct literal assignments.",
+      "tactic": "Temporary-local collapse",
+      "detail": "grCastle_801CDFD8 removes generated-looking locals for constants and intermediate values, assigning directly into GroundVars fields.",
       "evidence_refs": [
-        "raw_diff: grCastle_801CDFD8 hunk"
-      ],
-      "risk_note": "No verifier output is present in the PR slice."
+        "raw_diff:src/melee/gr/grcastle.c"
+      ]
     }
   ],
   "review_feedback": [],
@@ -151,21 +164,24 @@
     "pr-2547",
     "Merge multiple PRs",
     "ribbanya",
+    "src/melee/gr/grcastle.c",
+    "src/melee/it/items/itnessyoyo.c",
     "grCastle_801CDFD8",
     "grCastle_801CDF54",
     "grCastle_801CE054",
     "grCs_804D6970",
     "grCastleParams",
-    "HSD_Randi",
+    "GET_GROUND",
     "castle9",
     "xDE_b0",
     "xD4",
-    "xD6",
-    "xD8",
-    "xDA",
     "xDC",
-    "itnessyoyo",
+    "xDA",
+    "xD8",
+    "xD6",
+    "HSD_Randi",
     "it_2725_Logic59_EvtUnk",
+    "it_802C0010",
     "it_8026B894",
     "Item_GObj",
     "GET_ITEM",
@@ -173,96 +189,83 @@
     "nessyoyo",
     "owner_ptr",
     "MWERKS_GEKKO",
-    "inline asm",
-    "volatile pointer"
+    "NOT_IMPLEMENTED",
+    "volatile pointer compare",
+    "inline assembly removal"
   ],
   "follow_up_queries": [
-    "it_2725_Logic59_EvtUnk volatile owner_ptr",
-    "xDD4_itemVar.nessyoyo.x10 ref_gobj",
+    "it_2725_Logic59_EvtUnk volatile owner_ptr comparison",
+    "xDD4_itemVar.nessyoyo.x10 owner_ptr ref_gobj",
     "MWERKS_GEKKO asm removed it_2725_Logic59_EvtUnk",
-    "grCastle_801CDFD8 grCs_804D6970 range HSD_Randi",
-    "castle9 xD4 xD6 xD8 xDA xDC"
+    "grCastle_801CDFD8 grCs_804D6970 range rand_result",
+    "PR 2547 Merge multiple PRs grcastle itnessyoyo"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR 2547 merged, title, author, timestamps, changed file counts",
-      "raw_diff: complete 2626-byte diff for two files",
-      "text_corpus.jsonl: empty PR body",
-      "metadata_json: zero issue comments, review comments, and reviews"
+      "metadata_json",
+      "raw_diff",
+      "changed_files",
+      "text_corpus"
     ],
     "notes": [
-      "PR body is empty and there are no review or issue comments in the loaded slice.",
-      "Diff evidence is complete for the changed files, but no build, objdiff, checkdiff, or regression output is included.",
-      "The title 'Merge multiple PRs' is broad; the slice does not identify the source PRs or explain author intent.",
-      "The item change appears to be a matching/codegen tactic because of the volatile pointer and discarded comparison, but the slice does not prove why that exact expression was required."
+      "PR body is empty and there are no issue comments, review comments, or reviews in the loaded slice.",
+      "Diff evidence clearly identifies changed files and exact code changes.",
+      "No build, objdiff, checkdiff, or regression output is included, so matching success and the necessity of the volatile tactic cannot be independently claimed from this slice.",
+      "The title 'Merge multiple PRs' suggests a bulk merge, but the slice only supports two changed files and does not identify the source PRs."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "pr_observation",
-        "title": "grCastle_801CDFD8 cleanup removed decompiler-style one-use locals",
-        "text": "In src/melee/gr/grcastle.c, grCastle_801CDFD8 was simplified by replacing temporary params and constant locals with direct grCs_804D6970 field reads and direct -1/0 assignments to gp->gv.castle9 fields.",
+        "type": "observed_decomp_cleanup",
+        "title": "Collapse generated-looking stage temporaries into direct assignments when values are single-use",
+        "text": "In grCastle_801CDFD8, the PR removed single-use temporaries for grCs_804D6970 fields, -1, 0, and the final xD4 value, replacing them with direct field and literal assignments.",
         "scope": [
           "src/melee/gr/grcastle.c",
           "grCastle_801CDFD8"
         ],
         "evidence_refs": [
-          "raw_diff: grCastle_801CDFD8 hunk"
-        ],
-        "confidence": 0.78
+          "raw_diff:src/melee/gr/grcastle.c"
+        ]
       },
       {
-        "record_type": "pr_observation",
-        "title": "it_2725_Logic59_EvtUnk inline asm replaced with C plus volatile read tactic",
-        "text": "In src/melee/it/items/itnessyoyo.c, it_2725_Logic59_EvtUnk changed from a MWERKS_GEKKO inline assembly implementation and NOT_IMPLEMENTED fallback to a C body calling it_8026B894 and forcing a volatile read/compare of ip->xDD4_itemVar.nessyoyo.x10 against ref_gobj.",
+        "type": "observed_matching_tactic",
+        "title": "Narrow volatile pointer compare used while replacing item inline asm",
+        "text": "In it_2725_Logic59_EvtUnk, the PR replaced inline asm with C and used HSD_GObj* volatile* owner_ptr to force an otherwise-unused comparison of ip->xDD4_itemVar.nessyoyo.x10 with ref_gobj.",
         "scope": [
           "src/melee/it/items/itnessyoyo.c",
           "it_2725_Logic59_EvtUnk"
         ],
         "evidence_refs": [
-          "raw_diff: it_2725_Logic59_EvtUnk hunk"
+          "raw_diff:src/melee/it/items/itnessyoyo.c"
         ],
-        "confidence": 0.7
+        "caveat": "No verifier output is included; record as observed tactic, not a general standard."
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "Investigate Ness yoyo item-var field x10 role in it_2725_Logic59_EvtUnk",
-        "text": "The PR compares ip->xDD4_itemVar.nessyoyo.x10 against ref_gobj after calling it_8026B894. This may be useful as field-role evidence, but the PR slice does not prove a semantic name beyond the local owner_ptr variable.",
-        "source_path": "src/melee/it/items/itnessyoyo.c",
-        "scope": [
-          "it_2725_Logic59_EvtUnk",
-          "xDD4_itemVar.nessyoyo.x10"
-        ],
-        "evidence_refs": [
-          "raw_diff: HSD_GObj* volatile* owner_ptr = &ip->xDD4_itemVar.nessyoyo.x10",
-          "raw_diff: (void) ((*owner_ptr == ref_gobj) ? 0 : 0)"
-        ],
-        "reason": "Potential typed-field/field-role evidence should be reviewed against current headers and other callsites before promoting a semantic field fact."
-      },
-      {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Volatile discarded comparisons as narrow matching tactics need explicit verification",
-        "text": "This PR uses a volatile pointer plus discarded ternary comparison to preserve a read/compare while removing inline assembly. Existing standards already caution that volatile locals and matching tactics need evidence; curator may decide whether this PR should be added as an example rather than a new rule.",
-        "source_path": "src/melee/it/items/itnessyoyo.c",
+        "title": "Document caution for volatile dummy comparisons used to remove asm",
+        "text": "This PR provides an example where an inline asm block was replaced by C using a very narrow volatile pointer comparison whose result is discarded. If promoted, standards should emphasize that such volatile tactics require objdiff/build evidence and should not be generalized without proof.",
+        "source_path": null,
         "scope": [
+          "matching-tactics-need-evidence",
+          "avoid-pragmas-register-asm",
+          "src/melee/it/items/itnessyoyo.c",
           "it_2725_Logic59_EvtUnk"
         ],
         "evidence_refs": [
-          "raw_diff: added volatile owner_ptr and discarded comparison"
+          "raw_diff:src/melee/it/items/itnessyoyo.c"
         ],
-        "reason": "The tactic is concrete in the PR, but no verifier evidence is loaded, so it should not be generalized without curator review."
+        "reason": "The loaded standards already warn that volatile locals and asm exceptions need evidence; this PR is a concrete historical example but lacks verifier output."
       }
     ],
     "rejection_notes": [
-      "Do not claim grCastle_801CDFD8 or it_2725_Logic59_EvtUnk matched from this slice alone; no objdiff/checkdiff/build evidence is present.",
-      "Do not infer reviewer approval rationale; there are no review comments or reviews in the loaded evidence.",
-      "Do not promote owner_ptr as the canonical semantic name for xDD4_itemVar.nessyoyo.x10 without additional source, symbol, or callsite evidence."
+      "Do not infer that the volatile owner_ptr comparison is an accepted global matching pattern; the slice lacks objdiff or review evidence.",
+      "Do not infer reviewer intent or source-PR identities from the bulk title; no comments or body text are present.",
+      "Do not claim a specific function match or regression-free result from this PR slice alone."
     ]
   },
   "confidence": 0.72,
@@ -272,6 +275,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

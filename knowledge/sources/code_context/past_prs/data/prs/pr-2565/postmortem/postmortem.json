@@ -12,13 +12,13 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Matched plbonuslib function fn_8003F294 by replacing its placeholder comment with a C implementation in src/melee/pl/plbonuslib.c. The PR body reports require-protos, targeted plbonuslib.o build, full ninja, and local objdiff at 680 bytes / 100.0%; the bot report independently records one new match for main/melee/pl/plbonuslib fn_8003F294, +680 bytes, 0.00% to 100.00%.",
+  "summary": "PR #2565 replaced the placeholder comment for fn_8003F294 in src/melee/pl/plbonuslib.c with a C implementation and a small inline wrapper around pl_800386D8. The PR body claims require-protos, targeted object build, full ninja build, and local objdiff verification for fn_8003F294 at 680 bytes and 100.0%; the bot report corroborates one new 680-byte match in main/melee/pl/plbonuslib.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "function-implementation",
-      "verification-reported"
+      "code-match",
+      "verification-ledger"
     ],
     "systems": [
       "melee-core",
@@ -29,225 +29,232 @@
   "key_files": [
     {
       "path": "src/melee/pl/plbonuslib.c",
-      "role": "Only changed source file; adds inline wrapper plBonusLib_8003F294_inline and implementation of fn_8003F294.",
+      "role": "Only changed source file; adds the matched body for fn_8003F294 and helper inline plBonusLib_8003F294_inline.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/pl/plbonuslib.c added 74 deleted 1 hunks 1",
-        "raw_diff: diff --git a/src/melee/pl/plbonuslib.c",
-        "human_pr_text: Matches `fn_8003F294` in `plbonuslib.c`"
+        "changed_files: src/melee/pl/plbonuslib.c added 74 deleted 1 hunks 1",
+        "raw_diff: replaces placeholder `/// fn_8003F294` with inline helper and fn_8003F294 implementation",
+        "human_pr_text: `Matches fn_8003F294 in plbonuslib.c`"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Replaced the placeholder comment `/// fn_8003F294` with a full C definition for `void fn_8003F294(int slot, int index)`.",
+      "text": "Added `inline unsigned int plBonusLib_8003F294_inline(plActionStats* stats, int attack)` returning `pl_800386D8(stats, attack)`.",
       "evidence_refs": [
-        "raw_diff: -/// fn_8003F294 / +void fn_8003F294(int slot, int index)"
+        "raw_diff: added plBonusLib_8003F294_inline"
       ]
     },
     {
-      "text": "Added `inline unsigned int plBonusLib_8003F294_inline(plActionStats* stats, int attack)` as a narrow wrapper around `pl_800386D8(stats, attack)`.",
+      "text": "Implemented `void fn_8003F294(int slot, int index)` using stale-move table access, action stats access, repeated calls to `pl_8003906C`, a magnitude calculation via `sqrtf__Ff`, and bit updates on `table->xDD1.bit5`.",
       "evidence_refs": [
-        "raw_diff: plBonusLib_8003F294_inline returns pl_800386D8(stats, attack)"
+        "raw_diff: added fn_8003F294 body"
       ]
     },
     {
-      "text": "The new function works through `Player_GetStaleMoveTableIndexPtr2`, `Player_GetActionStats`, repeated `pl_8003906C` calls, one `pl_80039238` magnitude update using `sqrtf__Ff`, and bitfield updates on `table->xDD1.bit5`.",
+      "text": "The implementation uses recovered typed structures and fields where available, including `pl_StaleMoveTableExt_t`, `plActionStats`, `stats->hits.total`, `stats->attacks.total`, and stale move table fields such as `x0_staleMoveTable.xCDC` and `x0_staleMoveTable.xCE0`.",
       "evidence_refs": [
-        "raw_diff: fn_8003F294 body"
+        "raw_diff: declarations and field accesses in fn_8003F294"
       ]
     },
     {
-      "text": "The PR reports verification with `python configure.py --require-protos`, targeted `ninja build/GALE01/src/melee/pl/plbonuslib.o`, full `ninja`, and local objdiff showing `fn_8003F294`: 680 bytes, 100.0%.",
+      "text": "The PR reports verification with `python configure.py --require-protos`, a targeted `plbonuslib.o` build, full `ninja`, and local objdiff showing `fn_8003F294` at 680 bytes and 100.0%.",
       "evidence_refs": [
-        "human_pr_text: Verification list"
-      ]
-    },
-    {
-      "text": "The automated report records one new match in `main/melee/pl/plbonuslib`: `fn_8003F294`, +680 bytes, 0.00% before to 100.00% after.",
-      "evidence_refs": [
-        "text_corpus.jsonl: decomp-dev[bot] Report for GALE01, 1 new match"
+        "human_pr_text: Verification list",
+        "text_corpus issue_comment: bot report shows +680 bytes and `fn_8003F294` from 0.00% to 100.00%"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Kept the match focused to one translation unit and one function, with only one changed file and one hunk.",
+      "text": "Kept the global function name as address-style `fn_8003F294`, matching the PR's scoped target and avoiding unsupported semantic renaming.",
       "evidence_refs": [
-        "changed_files.jsonl: added 74 deleted 1 hunks 1",
-        "raw_diff: only src/melee/pl/plbonuslib.c shown"
+        "human_pr_text: target named `fn_8003F294`",
+        "raw_diff: added `void fn_8003F294(int slot, int index)`"
       ]
     },
     {
-      "text": "Included both prototype checking and object/full builds in the PR verification notes, which is useful when adding a new function body and inline helper.",
+      "text": "Included explicit verification details in the PR body and had a bot report corroborate the new match size and before/after status.",
       "evidence_refs": [
-        "human_pr_text: python configure.py --require-protos; ninja build/GALE01/src/melee/pl/plbonuslib.o; ninja"
+        "human_pr_text: verification commands and local objdiff",
+        "text_corpus issue_comment: `✅ 1 new match`, `+680`, `0.00%` to `100.00%`"
       ]
     },
     {
-      "text": "Used existing typed structures and fields such as `plActionStats`, `pl_StaleMoveTableExt_t`, `stats->hits.total`, `stats->attacks.total`, `table->x0_staleMoveTable.xCDC`, and `table->xDD1.bit5` rather than representing all accesses as raw byte offsets.",
+      "text": "Used existing typed field names for several stats and stale-move-table accesses instead of representing all accesses as raw pointer arithmetic.",
       "evidence_refs": [
-        "raw_diff: fn_8003F294 declarations and field accesses"
+        "raw_diff: `stats->hits.total`, `stats->attacks.total`, `table->x0_staleMoveTable.xCD8`, `xCDC`, `xCE0`"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "text": "For a newly matched function body, pair the local objdiff claim with an automated progress report when available; here both the PR body and bot report support the same +680 byte, 100% match for `fn_8003F294`.",
+      "lesson": "For a focused function-match PR, keep the scope narrow and pair the source replacement with a narrow verification ledger: require-protos, touched-object build, full build, and objdiff bytes/percentage for the matched function.",
       "evidence_refs": [
-        "human_pr_text: `fn_8003F294`: 680 bytes, 100.0% in the local objdiff report",
-        "text_corpus.jsonl: bot report table `fn_8003F294` +680 0.00% to 100.00%"
+        "human_pr_text: verification commands",
+        "text_corpus issue_comment: bot report for one new match"
       ],
-      "confidence": 0.91
+      "confidence": 0.9
     },
     {
-      "text": "When implementing player bonus/stat code, typed project structures can express many recovered accesses directly even while some fields still retain offset-style names.",
+      "lesson": "Address-style function names can remain appropriate when the PR evidence only proves a match target and does not prove semantic meaning.",
       "evidence_refs": [
-        "raw_diff: plActionStats* stats; pl_StaleMoveTableExt_t* table; stats->hits.total; stats->attacks.total; table->xDD1.bit5"
+        "human_pr_text: target named `fn_8003F294`",
+        "raw_diff: function implemented as `fn_8003F294`"
       ],
-      "confidence": 0.78
+      "confidence": 0.75
+    },
+    {
+      "lesson": "A small wrapper inline may be used as a matching tactic when the PR's verified function match depends on a specific call expression shape, but this slice does not prove why the inline was required.",
+      "evidence_refs": [
+        "raw_diff: `plBonusLib_8003F294_inline` wraps `pl_800386D8` and is used at multiple call sites",
+        "human_pr_text: local objdiff reports `fn_8003F294` at 100.0%"
+      ],
+      "confidence": 0.55
     }
   ],
   "naming_conventions": [
     {
-      "text": "The matched function kept the existing address-style symbol name `fn_8003F294`, consistent with conservative naming when the PR evidence does not prove a semantic function name.",
+      "name": "fn_8003F294",
+      "convention": "Address-style function name retained for an unsemantically named matched target.",
       "evidence_refs": [
-        "human_pr_text: Matches `fn_8003F294`",
-        "raw_diff: void fn_8003F294(int slot, int index)"
+        "human_pr_text: `Matches fn_8003F294`",
+        "raw_diff: `void fn_8003F294(int slot, int index)`"
       ]
     },
     {
-      "text": "The added local inline wrapper was named with subsystem/function context, `plBonusLib_8003F294_inline`, and only wraps `pl_800386D8` for this function's call shape.",
+      "name": "plBonusLib_8003F294_inline",
+      "convention": "Helper inline name includes subsystem prefix and matched function address; evidence supports existence in this PR but not as a global naming standard.",
       "evidence_refs": [
-        "raw_diff: inline unsigned int plBonusLib_8003F294_inline(...)"
+        "raw_diff: added `plBonusLib_8003F294_inline`"
       ]
     },
     {
-      "text": "Several recovered locals retain match-oriented names such as `new_var`, `threshold`, `threshold2`, `t2`, `x8c`, and `xb8`; the PR evidence does not explain semantic meanings for these names.",
+      "name": "slot, index, table, stats",
+      "convention": "Locals use short role names where roles are evident from calls and types.",
       "evidence_refs": [
-        "raw_diff: local declarations and inner block locals"
+        "raw_diff: `fn_8003F294(int slot, int index)`, `pl_StaleMoveTableExt_t* table`, `plActionStats* stats`"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "text": "Used `PAD_STACK(24)` inside `fn_8003F294`, implying a stack-shape matching tactic. The PR body reports 100% local objdiff for the function but does not separately justify this tactic.",
+      "tactic": "Used `PAD_STACK(24)` inside the matched function.",
       "evidence_refs": [
-        "raw_diff: PAD_STACK(24)",
-        "human_pr_text: `fn_8003F294`: 680 bytes, 100.0% in the local objdiff report"
-      ]
+        "raw_diff: `PAD_STACK(24);`",
+        "human_pr_text: local objdiff reports `fn_8003F294`: 680 bytes, 100.0%"
+      ],
+      "notes": "The PR verifies the final match but does not explain why this stack padding was necessary."
     },
     {
-      "text": "Introduced a tiny inline wrapper around `pl_800386D8`; this may have been used to recover a desired inline/call code shape, but the PR text does not state the reason.",
+      "tactic": "Used assignment expressions in call arguments, such as `threshold = pl_804D6470->x94`, likely to preserve evaluation/register shape.",
       "evidence_refs": [
-        "raw_diff: plBonusLib_8003F294_inline"
-      ]
+        "raw_diff: repeated `threshold = ...` and `threshold2 = ...` inside `pl_8003906C` calls"
+      ],
+      "notes": "Supported as an observed tactic only; no review discussion explains intent."
     },
     {
-      "text": "Used assignment expressions inside function-call arguments, e.g. `threshold = pl_804D6470->x94` and `new_var = pl_804D6470->xBC`, which appears to preserve a specific evaluation/local lifetime shape for matching.",
+      "tactic": "Used a do-while(0) wrapper around an early return on `index == 1`.",
       "evidence_refs": [
-        "raw_diff: repeated pl_8003906C calls with assignment expressions"
-      ]
+        "raw_diff: `do { if (index == 1) { return; } } while (0);`"
+      ],
+      "notes": "Observed source shape; the slice does not prove whether this was required for matching or stylistic."
     },
     {
-      "text": "Used a `do { if (index == 1) return; } while (0);` shape instead of a plain early-return `if`; this is likely match-driven, but no review comment or PR body note explains it.",
+      "tactic": "Introduced a small inline wrapper around `pl_800386D8` and called the wrapper for attack stats lookups.",
       "evidence_refs": [
-        "raw_diff: do/while early return block"
-      ]
+        "raw_diff: `plBonusLib_8003F294_inline` and calls with attacks `0x6B`, `0x70`, `0x6F`"
+      ],
+      "notes": "Observed matching tactic; no explicit evidence explains codegen effect."
     },
     {
-      "text": "Re-fetched the stale move table into `t2` for the magnitude calculation instead of reusing the earlier `table` pointer, preserving a separate access shape in that block.",
+      "tactic": "Used typed field accesses for known structures and selective casts for unresolved or shape-sensitive accesses.",
       "evidence_refs": [
-        "raw_diff: pl_StaleMoveTableExt_t* t2 = Player_GetStaleMoveTableIndexPtr2(slot)"
-      ]
+        "raw_diff: `stats->hits.total`, `stats->attacks.total`, `(pl_800386E8_arg0_t*) stats`, `(unsigned int*) &table->xDC8`, `*((f32*) &pl_804D6470->x8C)`"
+      ],
+      "notes": "Evidence supports mixed typed access and casts, not a broader recommendation to add casts generally."
     }
   ],
   "review_feedback": [
     {
-      "text": "No human review comments were present in the loaded PR slice.",
+      "kind": "bot_report",
+      "author": "decomp-dev[bot]",
+      "text": "Bot report for GALE01 recorded matched code increasing by +680 bytes and listed one new match: `main/melee/pl/plbonuslib` item `fn_8003F294`, before 0.00%, after 100.00%.",
       "evidence_refs": [
-        "metadata_json: review_comments 0, reviews 0"
-      ]
-    },
-    {
-      "text": "Automated bot feedback reported one new match and +680 matched bytes for `fn_8003F294`.",
-      "evidence_refs": [
-        "text_corpus.jsonl: decomp-dev[bot] Report for GALE01"
+        "text_corpus issue_comment created_at 2026-05-31T22:13:57Z"
       ]
     }
   ],
   "searchable_terms": [
     "pr-2565",
     "plbonuslib",
-    "src/melee/pl/plbonuslib.c",
     "fn_8003F294",
     "plBonusLib_8003F294_inline",
     "pl_800386D8",
-    "pl_800386E8",
     "pl_8003906C",
     "pl_80039238",
     "Player_GetStaleMoveTableIndexPtr2",
     "Player_GetActionStats",
     "Player_GetEntityAtIndex",
-    "plActionStats",
     "pl_StaleMoveTableExt_t",
-    "pl_804D6470",
-    "gm_8016AEDC",
+    "plActionStats",
+    "PAD_STACK(24)",
     "sqrtf__Ff",
-    "PAD_STACK",
+    "gm_8016AEDC",
+    "pl_804D6470",
+    "xDD1.bit5",
     "require-protos",
     "local objdiff",
-    "680 bytes",
-    "100.0%"
+    "680 bytes"
   ],
   "follow_up_queries": [
-    "fn_8003F294 PAD_STACK(24)",
-    "plBonusLib_8003F294_inline pl_800386D8",
-    "plbonuslib pl_8003906C threshold assignment expression",
-    "pl_StaleMoveTableExt_t xDD1 bit5 xD5C",
-    "Player_GetStaleMoveTableIndexPtr2 fn_8003F294",
-    "do while 0 early return index == 1 plbonuslib"
+    "Search later PRs for `plBonusLib_8003F294_inline` to see whether the wrapper remained or was cleaned up.",
+    "Search later PRs touching `fn_8003F294` or `plbonuslib.c` for renames, field recovery, or removal of `PAD_STACK(24)`.",
+    "Search for other `pl_8003906C` match PRs to compare whether assignment expressions in arguments are a repeated local matching pattern.",
+    "Search for `pl_StaleMoveTableExt_t` field naming updates around offsets `xD9C` through `xDD1`."
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR #2565 title/state/author/merge metadata",
-      "human_pr_text: PR body and verification",
-      "raw_diff: complete one-file diff",
-      "changed_files.jsonl: changed file metadata",
-      "text_corpus.jsonl: automated GALE01 match report"
+      "metadata_json: PR #2565 state MERGED, author itsgrimetime, merged_at 2026-06-01T04:39:26Z",
+      "changed_files: one changed file, src/melee/pl/plbonuslib.c",
+      "human_pr_text: verification commands and local objdiff claim",
+      "text_corpus issue_comment: bot report corroborates +680 bytes and 100.00% after",
+      "raw_diff: full one-hunk diff excerpt"
     ],
     "notes": [
-      "Evidence is strong for PR identity, changed file, function added, and reported match result.",
-      "There are no human review comments in the loaded slice, so reviewer intent or requested changes cannot be inferred.",
-      "Several code shapes look match-driven, including PAD_STACK, do-while(0), assignment expressions in arguments, and a narrow inline wrapper, but the PR does not explicitly explain why those shapes were required.",
-      "The intake did not independently rerun builds or objdiff; verification is recorded as PR/body and bot-report evidence only."
+      "There are no human review comments in the loaded slice, so reviewer intent and requested changes are not available.",
+      "The PR body and bot report support the match claim, but the slice does not include raw objdiff output beyond summarized percentages.",
+      "Several source shapes, including `PAD_STACK(24)`, the do-while(0), assignment expressions inside call arguments, and the inline wrapper, are observable tactics but their exact necessity is not explained in comments.",
+      "No evidence supports promoting semantic names for `fn_8003F294` or the x-offset fields beyond the names present in the diff."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "title": "plbonuslib fn_8003F294 match evidence",
-        "text": "PR #2565 matched `fn_8003F294` in `src/melee/pl/plbonuslib.c`. The author reported require-protos, targeted plbonuslib.o build, full ninja, and local objdiff at 680 bytes / 100.0%; the bot report recorded one new match for `main/melee/pl/plbonuslib` `fn_8003F294`, +680 bytes, 0.00% to 100.00%.",
+        "type": "pr_lesson",
+        "title": "Focused function matches should carry narrow verification evidence",
+        "text": "PR #2565 is a compact example of a one-function match with PR-body verification commands and a bot report corroborating one new 680-byte 100.00% match.",
         "scope": [
-          "src/melee/pl/plbonuslib.c",
-          "fn_8003F294"
+          "decomp-matching",
+          "verification-ledger",
+          "src/melee/pl/plbonuslib.c"
         ],
         "evidence_refs": [
-          "human_pr_text",
-          "text_corpus.jsonl",
-          "raw_diff"
+          "human_pr_text: require-protos, targeted object build, full ninja, local objdiff",
+          "text_corpus issue_comment: +680 bytes, before 0.00%, after 100.00%"
         ]
       },
       {
-        "title": "Conservative naming retained for fn_8003F294",
-        "text": "The PR kept the address-style function name `fn_8003F294` while adding a matched body, providing a small example of not inventing a semantic name when the slice does not prove one.",
+        "type": "pr_lesson",
+        "title": "Retain address-style names when semantics are not proven",
+        "text": "This PR implemented the target as `fn_8003F294` and did not invent a semantic global name; the loaded evidence only proves the address-style match target.",
         "scope": [
-          "src/melee/pl/plbonuslib.c",
-          "fn_8003F294"
+          "conservative-naming",
+          "plbonuslib"
         ],
         "evidence_refs": [
-          "raw_diff",
-          "human_pr_text"
+          "human_pr_text: `Matches fn_8003F294`",
+          "raw_diff: `void fn_8003F294(int slot, int index)`"
         ]
       }
     ],
@@ -255,52 +262,53 @@
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Record PAD_STACK justification alongside local objdiff evidence",
-        "text": "This PR used `PAD_STACK(24)` in a newly matched function and reported 100% local objdiff, but did not separately document why the stack padding was necessary. Curator may consider whether standards should ask authors to call out PAD_STACK-specific justification in PR bodies when it appears in new source.",
+        "title": "Document inline wrapper helpers as a narrow matching tactic requiring explanation",
+        "text": "PR #2565 used a subsystem/address-named inline wrapper around `pl_800386D8` inside a verified 100.0% function match. Consider whether standards should mention that such wrappers are acceptable only with narrow match evidence and should be revisited if later cleanup can remove them.",
+        "source_path": null,
+        "scope": [
+          "matching tactics",
+          "inline helpers",
+          "plbonuslib"
+        ],
+        "evidence_refs": [
+          "raw_diff: `plBonusLib_8003F294_inline` definition and call sites",
+          "human_pr_text: local objdiff reports `fn_8003F294` 680 bytes, 100.0%"
+        ],
+        "reason": "The tactic is observable and verified in this PR, but the slice does not prove general policy or why the inline was necessary."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Reinforce that PAD_STACK uses should be paired with match evidence and cleanup notes",
+        "text": "PR #2565 includes `PAD_STACK(24)` in a verified function match, but no explanation of necessity. This is consistent with standards requiring explicit evidence for stack-padding tactics; curator may use it as an example if adding examples to the standard.",
         "source_path": null,
         "scope": [
           "matching tactics",
           "PAD_STACK",
-          "verification ledger"
+          "verification"
         ],
         "evidence_refs": [
-          "raw_diff: PAD_STACK(24)",
-          "human_pr_text: local objdiff report 680 bytes, 100.0%"
+          "raw_diff: `PAD_STACK(24);`",
+          "human_pr_text: local objdiff 100.0%",
+          "text_corpus issue_comment: bot report 100.00% after"
         ],
-        "reason": "The loaded standards already say matching tactics need evidence; this PR is a concrete example where the final match evidence exists but tactic-specific reasoning is not described."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "plbonuslib contains player bonus/stat stale move table matching work",
-        "text": "PR #2565 shows `src/melee/pl/plbonuslib.c` implementing `fn_8003F294` using player action stats, stale move table fields, bonus threshold globals, and plbonuslib helper calls.",
-        "source_path": "src/melee/pl/plbonuslib.c",
-        "scope": [
-          "plbonuslib",
-          "player stats",
-          "stale move table",
-          "fn_8003F294"
-        ],
-        "evidence_refs": [
-          "raw_diff: fn_8003F294 body",
-          "changed_files.jsonl"
-        ],
-        "reason": "Possible path-scope context for future search; should be curator-reviewed before becoming a source-owned path fact."
+        "reason": "Useful as an example of evidence-backed but unexplained stack padding; not enough to weaken the existing requirement for explicit tactic rationale."
       }
     ],
     "rejection_notes": [
-      "Do not infer semantic meanings for `fn_8003F294`, `new_var`, `threshold`, `threshold2`, or offset-style fields solely from this PR slice.",
-      "Do not promote the inline wrapper, `do { ... } while (0)`, or assignment-in-argument patterns as general style; they are only observed match tactics here.",
-      "Do not claim human reviewer approval details beyond merge state; no human reviews or review comments are loaded."
+      "Do not promote `plBonusLib_8003F294_inline` as a general naming convention; this slice only shows one helper in one PR.",
+      "Do not infer semantic meanings for stale-move-table x-offset fields such as `xD9C`, `xDC8`, or `xDD1.bit5`; the diff preserves offset-style names.",
+      "Do not treat the do-while(0), assignment expressions in arguments, or casts as accepted style beyond this verified match without additional evidence.",
+      "Do not infer human reviewer approval details; no review comments were loaded."
     ]
   },
-  "confidence": 0.88,
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

@@ -1,0 +1,501 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2692",
+  "pr": {
+    "number": 2692,
+    "title": "Melee decomp: SysDolphin baselib matches",
+    "url": "https://github.com/doldecomp/melee/pull/2692",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-13T21:29:51Z",
+    "merged_at": "2026-06-14T18:25:44Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "PR #2692 performed implementation-only SysDolphin baselib matching work in audio, camera object, particle, and TExp files. The PR body reports 12 newly exact functions across 4 files with zero slice regressions, while the bot report shows 11 new matches and 7 unmatched-item improvements. Review focused on avoiding fakematching: pointer-math/while-loop shapes in axdriver, local externs used to influence cobj inlining, new pragmas in particle, static-vs-extern rodata placement, and a likely fsqrt inline in particle.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "implementation-only match work",
+      "matching tactics",
+      "control-flow cleanup",
+      "data-placement sensitivity",
+      "inline-helper shaping",
+      "pragma scrutiny"
+    ],
+    "systems": [
+      "src/sysdolphin/baselib"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/sysdolphin/baselib/axdriver.c",
+      "role": "SysDolphin audio matching work; exacted AXDriver_8038C6C0 and AXDriver_8038DA70 per bot report, improved HSD_AudioGetAuxHeapSize, adjusted CLAMP expression temporaries, parsed pointer-table data, and reworked aux heap loops/static dimension tables.",
+      "evidence_refs": [
+        "changed_files.jsonl: axdriver.c added 77 deleted 84 hunks 15",
+        "human_pr_text: files list and exact-match summary",
+        "text_corpus bot report: AXDriver_8038C6C0 and AXDriver_8038DA70 new matches; HSD_AudioGetAuxHeapSize improved",
+        "raw_diff: axdriver.c hunks for CLAMP cmd_val, AXDriver_8038DA70 pointer parsing, HSD_AudioGetAuxHeapSize loops",
+        "review_comments: jurrejelle comment r3409825010 about fakematching/pointer math/whiles-to-fors",
+        "review_comments: jurrejelle comment r3409825653 about turning extern rodata back into statics"
+      ]
+    },
+    {
+      "path": "src/sysdolphin/baselib/cobj.c",
+      "role": "Camera object matching work; added small static inline accessors/wrappers, expanded viewing matrix setup into HSD_CObjGetViewingMtxPtr and HSD_CObjGetInvViewingMtxPtr, and used inline helper layers to shape HSD_CObjGetUpVector calls.",
+      "evidence_refs": [
+        "changed_files.jsonl: cobj.c added 51 deleted 5 hunks 4",
+        "text_corpus bot report: HSD_CObjGetLeftVector, HSD_CObjGetUpVector, HSD_CObjSetUpVector, HSD_CObjGetViewingMtxPtr, HSD_CObjGetInvViewingMtxPtr new matches",
+        "raw_diff: cobj_get_roll, cobj_get_up_x, get_up_vector_for_viewing_mtx_inner, get_up_vector_for_viewing_mtx",
+        "review_comments: local extern concern r3409727870/r3409741018",
+        "review_comments: jurrejelle r3409828143 says local extern tactic is regression and suggests inline helper layers"
+      ]
+    },
+    {
+      "path": "src/sysdolphin/baselib/particle.c",
+      "role": "Particle matching work; introduced ParticleFloatBytes, adjusted hsd_804CF740 declaration/definition placement, changed hsd_803931A4 channel flag access, added pool_data pragma around hsd_80394068, improved screen-state and exception-node access patterns, and modified math in hsd_80398F8C.",
+      "evidence_refs": [
+        "changed_files.jsonl: particle.c added 119 deleted 97 hunks 15",
+        "text_corpus bot report: hsd_803931A4, hsd_80394068, hsd_80395644 new matches; hsd_80398F8C and hsd_80395D88 improved",
+        "raw_diff: ParticleFloatBytes typedef and hsd_804CF740 extern/definition movement",
+        "raw_diff: hsd_803931A4 channel_flags pointer rewrite",
+        "raw_diff: #pragma pool_data off added inside push/dont_inline block",
+        "review_comments: jurrejelle r3409832861 objects to new pragmas as not likely authored style",
+        "review_comments: jurrejelle r3409834097 suggests likely fsqrt inline for hsd_80398F8C"
+      ]
+    },
+    {
+      "path": "src/sysdolphin/baselib/texpdag.c",
+      "role": "Small TExp matching change; bot report identifies HSD_TExpSimplify2 as a new exact match, but loaded diff excerpt does not show the hunk.",
+      "evidence_refs": [
+        "changed_files.jsonl: texpdag.c added 2 deleted 1 hunks 1",
+        "text_corpus bot report: HSD_TExpSimplify2 new match",
+        "human_pr_text: files list includes texpdag.c"
+      ]
+    }
+  ],
+  "what_changed": [
+    "The PR body states exact-match decompilation for SysDolphin audio, camera object, particle, and TExp implementation files and claims 12 newly exact functions across 4 files with zero regressions.",
+    "Bot output reports new exact matches in axdriver, cobj, texpdag, and particle, plus improvements in still-unmatched axdriver and particle functions.",
+    "axdriver.c changed assertion shape from HSD_ASSERT to HSD_ASSERTMSG with a state temporary, split CLAMP inputs into cmd_val temporaries, revised AXDriver_8038DA70 pointer-table parsing, and rewrote HSD_AudioGetAuxHeapSize around loops over reverb dimension arrays.",
+    "cobj.c added small static inline helpers for roll/up access and a two-layer get_up_vector_for_viewing_mtx wrapper, then expanded viewing matrix setup logic directly in pointer-returning functions.",
+    "particle.c moved hsd_804CF740 from an immediate definition to an extern plus later definition, added a narrow pool_data pragma in an existing pragma region, used typed local pointers for particle screen state and exception nodes, and adjusted math/local lifetime shapes in hsd_80398F8C.",
+    "texpdag.c had a 2-line add/1-line delete hunk, with HSD_TExpSimplify2 listed by the bot as a new exact match, but the loaded diff slice does not expose the specific source change."
+  ],
+  "smart_moves": [
+    {
+      "text": "The final cobj diff avoids the earlier local extern tactic and instead uses static inline helper layers around HSD_CObjGetUpVector, matching reviewer guidance to dissuade inlining without source-local redeclarations.",
+      "evidence_refs": [
+        "review_comments: jurrejelle r3409828143",
+        "raw_diff: get_up_vector_for_viewing_mtx_inner/get_up_vector_for_viewing_mtx added"
+      ]
+    },
+    {
+      "text": "HSD_AudioGetAuxHeapSize was made more source-like by replacing repeated manual accumulation blocks with bounded for loops over dimension arrays.",
+      "evidence_refs": [
+        "raw_diff: HSD_AudioGetAuxHeapSize loops over k/i",
+        "decomp_standards:natural-loops"
+      ]
+    },
+    {
+      "text": "Some generated-looking direct global/field access in particle was localized through typed temporary pointers such as ParticleScreenState* sp, ExcptNode* node, and u32* ctx_words, improving reviewability without broad type changes.",
+      "evidence_refs": [
+        "raw_diff: hsd_80395644 ParticleScreenState* sp",
+        "raw_diff: hsd_80395D88 ctx_words and head_ptr",
+        "raw_diff: hsd_80396A20 ExcptNode* node"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "When a local extern declaration is used only to alter MWCC inlining, reviewers may reject it even if it improves objdiff; try narrow static inline helper layers first.",
+      "scope": [
+        "src/sysdolphin/baselib/cobj.c",
+        "MWCC inlining tactics"
+      ],
+      "evidence_refs": [
+        "review_comments: author claimed local extern improved HSD_CObjGetViewingMtxPtr/HSD_CObjGetInvViewingMtxPtr objdiff",
+        "review_comments: jurrejelle r3409828143 called it a regression and suggested inline helper layers",
+        "raw_diff: final cobj uses get_up_vector_for_viewing_mtx_inner/get_up_vector_for_viewing_mtx"
+      ]
+    },
+    {
+      "lesson": "Reviewer pressure favored natural loops and less pointer math in AXDriver_8038DA70; pointer-table relocation code should still be tested against cleaner for-loop or typed access shapes before accepting generated-looking while/index juggling.",
+      "scope": [
+        "src/sysdolphin/baselib/axdriver.c",
+        "pointer-table parsing"
+      ],
+      "evidence_refs": [
+        "review_comments: jurrejelle r3409825010",
+        "decomp_standards:natural-loops",
+        "decomp_standards:typed-fields-over-pointer-math"
+      ]
+    },
+    {
+      "lesson": "New pragmas can be controversial even when narrowly scoped and match-improving; reviewers may still object that the shape is not likely authored source.",
+      "scope": [
+        "src/sysdolphin/baselib/particle.c",
+        "pragma matching tactics"
+      ],
+      "evidence_refs": [
+        "review_comments: author r3409741017 reports pool_data wrapper gives hsd_80393DA0 100%",
+        "review_comments: jurrejelle r3409832861 says the pragma is wrong and should eventually be removed",
+        "decomp_standards:avoid-pragmas-register-asm",
+        "decomp_standards:infer-authored-source-style"
+      ]
+    },
+    {
+      "lesson": "For hand-written square-root approximations using __frsqrte refinement, search for existing fsqrt inline patterns before preserving expanded generated math.",
+      "scope": [
+        "src/sysdolphin/baselib/particle.c",
+        "math inline recovery"
+      ],
+      "evidence_refs": [
+        "review_comments: jurrejelle r3409834097",
+        "raw_diff: hsd_80398F8C __frsqrte refinement sequence"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "name": "cobj_get_roll / cobj_get_up_x",
+      "convention": "Small static inline helpers used with local semantic names for camera object field access.",
+      "evidence_refs": [
+        "raw_diff: cobj_get_roll and cobj_get_up_x"
+      ]
+    },
+    {
+      "name": "get_up_vector_for_viewing_mtx_inner / get_up_vector_for_viewing_mtx",
+      "convention": "Descriptive local inline wrapper names can document a call-shaping tactic when avoiding local externs.",
+      "evidence_refs": [
+        "raw_diff: cobj inline wrappers",
+        "review_comments: jurrejelle r3409828143"
+      ]
+    },
+    {
+      "name": "cmd_val",
+      "convention": "Temporary used to name repeated command-stream adjusted values before CLAMP assignments in AXDriver_8038C6C0.",
+      "evidence_refs": [
+        "raw_diff: AXDriver_8038C6C0 CLAMP cmd_val changes"
+      ]
+    },
+    {
+      "name": "sp, node, ctx_words, channel_flags",
+      "convention": "Short local role names were used for clear pointer roles in particle code.",
+      "evidence_refs": [
+        "raw_diff: particle.c hsd_803931A4, hsd_80395644, hsd_80395D88, hsd_80396A20",
+        "decomp_standards:conservative-naming"
+      ]
+    },
+    {
+      "name": "AXDriver_803B95F8 / AXDriver_803B9618",
+      "convention": "Address-style data names appear in the review discussion for reverb dimension data; reviewer feedback pushed against inappropriate extern conversion and toward static storage in source.",
+      "evidence_refs": [
+        "review_comments: fjooord r3409741020",
+        "review_comments: jurrejelle r3409825653",
+        "raw_diff: static const AXDriver_803B95F8 and AXDriver_803B9618 inside HSD_AudioGetAuxHeapSize"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Use bounded for loops over repeated dimension groups in HSD_AudioGetAuxHeapSize rather than repeated manual summation blocks.",
+      "evidence_refs": [
+        "raw_diff: HSD_AudioGetAuxHeapSize nested loops",
+        "decomp_standards:natural-loops"
+      ]
+    },
+    {
+      "tactic": "Introduce small inline wrapper layers to influence whether HSD_CObjGetUpVector is inlined at viewing-matrix call sites.",
+      "evidence_refs": [
+        "review_comments: jurrejelle r3409828143",
+        "raw_diff: get_up_vector_for_viewing_mtx_inner/get_up_vector_for_viewing_mtx"
+      ]
+    },
+    {
+      "tactic": "Keep PAD_STACK narrow and function-local where used in cobj and particle matching changes; evidence shows PAD_STACK(24), PAD_STACK(16), and PAD_STACK adjustments in touched functions.",
+      "evidence_refs": [
+        "raw_diff: cobj HSD_CObjGetViewingMtxPtr/HSD_CObjGetInvViewingMtxPtr",
+        "raw_diff: particle hsd_803931A4 and hsd_80398F8C"
+      ]
+    },
+    {
+      "tactic": "A narrow #pragma pool_data off inside an existing push/dont_inline block was used for hsd_80394068, but review evidence is mixed and warns against treating this as normal style.",
+      "evidence_refs": [
+        "raw_diff: particle.c #pragma pool_data off",
+        "review_comments: fjooord r3409741017",
+        "review_comments: jurrejelle r3409832861",
+        "decomp_standards:avoid-pragmas-register-asm"
+      ]
+    },
+    {
+      "tactic": "For float absolute value and square-root-like code in particle, raw bit-masking and __frsqrte refinement appeared in the diff; reviewer suggested searching for an existing fsqrt inline instead.",
+      "evidence_refs": [
+        "raw_diff: hsd_80398F8C abs_z/abs_temp and __frsqrte sequence",
+        "review_comments: jurrejelle r3409834097"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "author": "fjooord",
+      "path": "src/sysdolphin/baselib/axdriver.c",
+      "feedback": "Flagged a possible extern issue around replacing static reverb dimension data with extern AXDriver_803B95F8.",
+      "evidence_refs": [
+        "review_comments: r3409726454"
+      ]
+    },
+    {
+      "author": "fjooord",
+      "path": "src/sysdolphin/baselib/particle.c",
+      "feedback": "Flagged new pragmas; later argued the wrapper was tightly scoped and objdiff-supported for hsd_80393DA0.",
+      "evidence_refs": [
+        "review_comments: r3409727559",
+        "review_comments: r3409741017"
+      ]
+    },
+    {
+      "author": "fjooord",
+      "path": "src/sysdolphin/baselib/cobj.c",
+      "feedback": "Flagged new local externs; later argued they were local matching evidence for HSD_CObjGetViewingMtxPtr and HSD_CObjGetInvViewingMtxPtr.",
+      "evidence_refs": [
+        "review_comments: r3409727870",
+        "review_comments: r3409741018"
+      ]
+    },
+    {
+      "author": "jurrejelle",
+      "path": "src/sysdolphin/baselib/axdriver.c",
+      "feedback": "Called much of AXDriver_8038DA70 fakematching and asked to try reducing pointer math and turning whiles into fors.",
+      "evidence_refs": [
+        "review_comments: r3409825010"
+      ]
+    },
+    {
+      "author": "jurrejelle",
+      "path": "src/sysdolphin/baselib/axdriver.c",
+      "feedback": "Said the reverb dimension extern conversion was wrong and should be turned back into statics.",
+      "evidence_refs": [
+        "review_comments: r3409825653"
+      ]
+    },
+    {
+      "author": "jurrejelle",
+      "path": "src/sysdolphin/baselib/cobj.c",
+      "feedback": "Rejected local externs as an inlining-control tactic and suggested adding inline helper layers instead.",
+      "evidence_refs": [
+        "review_comments: r3409828143"
+      ]
+    },
+    {
+      "author": "jurrejelle",
+      "path": "src/sysdolphin/baselib/particle.c",
+      "feedback": "Objected to adding pragmas as not likely original authored style even if behavior is unchanged.",
+      "evidence_refs": [
+        "review_comments: r3409832861"
+      ]
+    },
+    {
+      "author": "jurrejelle",
+      "path": "src/sysdolphin/baselib/particle.c",
+      "feedback": "Suggested hsd_80398F8C probably contains a call to an existing fsqrt inline pattern.",
+      "evidence_refs": [
+        "review_comments: r3409834097"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "pr-2692",
+    "SysDolphin baselib matches",
+    "axdriver.c",
+    "cobj.c",
+    "particle.c",
+    "texpdag.c",
+    "AXDriver_8038C6C0",
+    "AXDriver_8038DA70",
+    "HSD_AudioGetAuxHeapSize",
+    "AXDriver_803B95F8",
+    "AXDriver_803B9618",
+    "RevHiDims",
+    "revstd_dims",
+    "HSD_CObjGetViewingMtxPtr",
+    "HSD_CObjGetInvViewingMtxPtr",
+    "HSD_CObjGetUpVector",
+    "get_up_vector_for_viewing_mtx",
+    "HSD_TExpSimplify2",
+    "hsd_803931A4",
+    "hsd_80394068",
+    "hsd_80395644",
+    "hsd_80395D88",
+    "hsd_80398F8C",
+    "pool_data off",
+    "PAD_STACK",
+    "fsqrt inline",
+    "__frsqrte",
+    "CLAMP cmd_val",
+    "pointer math",
+    "fakematching",
+    "natural loops",
+    "local extern",
+    "inline helper layers"
+  ],
+  "follow_up_queries": [
+    "Search current particle.c and math headers for existing fsqrt inline helpers similar to hsd_80398F8C __frsqrte refinement.",
+    "Search current axdriver.c history for AXDriver_8038DA70 to see whether pointer-table parsing was later made more natural with for loops or typed structs.",
+    "Search current cobj.c for get_up_vector_for_viewing_mtx to confirm whether inline helper layers remained after merge.",
+    "Search current particle.c pragma regions to identify whether pool_data/dont_inline pragmas were later removed or narrowed.",
+    "Search current symbols/config metadata for AXDriver_803B95F8 and AXDriver_803B9618 rodata ownership if curating a data-placement note.",
+    "Search texpdag.c PR diff or final source around HSD_TExpSimplify2 because the loaded diff excerpt did not include the hunk."
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "human_pr_text: full PR body and verification claims",
+      "changed_files.jsonl: all four changed files and hunk counts",
+      "text_corpus: bot report with new matches and improvements",
+      "raw_diff: substantial hunks for axdriver.c, cobj.c, particle.c",
+      "review_comments: reviewer discussion with both author justifications and reviewer objections"
+    ],
+    "notes": [
+      "PR identity, changed files, author, state, and merge time are strongly evidenced by metadata and raw PR JSON.",
+      "Verification claims are taken from the PR body and bot report; no independent build or objdiff was run during intake.",
+      "Review evidence is mixed: the author defended local externs/pragmas with objdiff claims, while jurrejelle objected to them as source-shape regressions. The final loaded diff appears to incorporate at least some review feedback, such as cobj inline helpers and static reverb data.",
+      "The raw diff and review_comments files are truncated, so particle hsd_80398F8C and texpdag.c details are incomplete.",
+      "The PR body says 12 newly exact functions, while the loaded bot report excerpt lists 11 new matches; this record preserves both as reported rather than reconciling them."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "pr_lesson_candidate",
+        "title": "Inline helper layers are preferred over local extern redeclarations for cobj inlining control",
+        "text": "In PR #2692, local extern declarations for HSD_CObjGetUpVector were challenged as a regression despite claimed objdiff gains; reviewer guidance suggested using inline helper layers to dissuade MWCC from inlining, and the loaded final diff shows get_up_vector_for_viewing_mtx helper layers.",
+        "scope": [
+          "src/sysdolphin/baselib/cobj.c",
+          "MWCC inlining",
+          "matching tactics"
+        ],
+        "evidence_refs": [
+          "review_comments: r3409741018",
+          "review_comments: r3409828143",
+          "raw_diff: cobj inline helper layers"
+        ]
+      },
+      {
+        "record_type": "pr_lesson_candidate",
+        "title": "Natural loops and reduced pointer math were explicitly requested for axdriver pointer-table parsing",
+        "text": "Reviewer feedback on AXDriver_8038DA70 asked to reduce generated-looking pointer math and try for-loop forms before accepting the match shape.",
+        "scope": [
+          "src/sysdolphin/baselib/axdriver.c",
+          "AXDriver_8038DA70"
+        ],
+        "evidence_refs": [
+          "review_comments: r3409825010",
+          "raw_diff: AXDriver_8038DA70 pointer-table loops"
+        ]
+      },
+      {
+        "record_type": "pr_lesson_candidate",
+        "title": "Search for existing fsqrt inlines before keeping expanded __frsqrte sequences",
+        "text": "Reviewer feedback on particle hsd_80398F8C suggested the raw __frsqrte refinement sequence was probably a call to an existing fsqrt inline and should be searched across the codebase.",
+        "scope": [
+          "src/sysdolphin/baselib/particle.c",
+          "hsd_80398F8C",
+          "math inlines"
+        ],
+        "evidence_refs": [
+          "review_comments: r3409834097",
+          "raw_diff: hsd_80398F8C __frsqrte sequence"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Prefer inline helper layers over local extern redeclarations for inlining control",
+        "text": "Consider adding guidance that source-local extern redeclarations used only to affect inlining should be treated as a high-risk matching tactic. Try static inline wrapper layers or other authored-source-like forms first, and require narrow objdiff evidence if a redeclaration remains.",
+        "source_path": null,
+        "scope": [
+          "MWCC matching tactics",
+          "headers/prototypes",
+          "inline control"
+        ],
+        "evidence_refs": [
+          "review_comments: r3409741018",
+          "review_comments: r3409828143",
+          "raw_diff: cobj helper layers"
+        ],
+        "reason": "Existing standards cover truthful headers and matching tactics, but this PR provides a concrete recurring pattern: local externs can suppress inlining yet be rejected as source-shape regressions."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Treat new pragmas as source-style debt even when scoped and objdiff-supported",
+        "text": "Consider strengthening pragma guidance to say that tightly scoped pragmas with objdiff evidence may still be unacceptable if local authored-source evidence suggests the original developers would not have written them; record cleanup/search alternatives before accepting.",
+        "source_path": null,
+        "scope": [
+          "pragma matching tactics",
+          "authored source style"
+        ],
+        "evidence_refs": [
+          "review_comments: r3409741017",
+          "review_comments: r3409832861",
+          "decomp_standards:avoid-pragmas-register-asm",
+          "decomp_standards:infer-authored-source-style"
+        ],
+        "reason": "The PR shows a direct conflict between narrow objdiff benefit and reviewer source-style objection."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Search for existing math inline wrappers before preserving expanded reciprocal-square-root code",
+        "text": "Consider adding an example under canonical control-flow/macros or header-inlines: expanded __frsqrte Newton refinement in game code may correspond to an existing fsqrt inline/helper and should be searched before accepting manual expansion.",
+        "source_path": null,
+        "scope": [
+          "math helpers",
+          "inline recovery",
+          "particle.c"
+        ],
+        "evidence_refs": [
+          "review_comments: r3409834097",
+          "raw_diff: hsd_80398F8C"
+        ],
+        "reason": "Reviewer explicitly identified a probable fsqrt inline recovery opportunity."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "SysDolphin baselib PR #2692 touched audio, camera object, particle, and TExp implementation files",
+        "text": "PR #2692 changed src/sysdolphin/baselib/axdriver.c, cobj.c, particle.c, and texpdag.c for implementation-only matching work.",
+        "source_path": "src/sysdolphin/baselib",
+        "scope": [
+          "src/sysdolphin/baselib/axdriver.c",
+          "src/sysdolphin/baselib/cobj.c",
+          "src/sysdolphin/baselib/particle.c",
+          "src/sysdolphin/baselib/texpdag.c"
+        ],
+        "evidence_refs": [
+          "human_pr_text: files list",
+          "changed_files.jsonl"
+        ],
+        "reason": "Useful searchable path-scope fact for curator review; do not promote without checking path-facts ownership."
+      }
+    ],
+    "rejection_notes": [
+      "Do not promote the author's local extern justification as an accepted standard; reviewer feedback explicitly disputed it and the final diff appears to use inline helper layers instead.",
+      "Do not promote new particle pragmas as accepted style; reviewer feedback says they are wrong from authored-source style despite claimed objdiff benefit.",
+      "Do not infer texpdag.c source tactics from this slice because the loaded diff excerpt does not include the texpdag hunk.",
+      "Do not treat the PR body's exact-match/regression claims as independently verified by this intake; record them as PR evidence only."
+    ]
+  },
+  "confidence": 0.78,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

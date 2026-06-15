@@ -12,13 +12,14 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Matched and linked the item draw translation unit by refactoring src/melee/it/itdraw.c around it_8026EECC, updating itdraw.c from NonMatching to Matching in configure.py, and correcting related symbol metadata in config/GALE01/symbols.txt. The bot report records two new matches: it_8026EECC reaching 100.00% and itdraw .sdata reaching 100.00%.",
+  "summary": "PR 2609 matched and linked the item draw translation unit by changing configure.py to mark melee/it/itdraw.c as Matching, cleaning up src/melee/it/itdraw.c around it_8026EECC, and adjusting symbol metadata for nearby .sdata/.sdata2 entries. Bot output reports 2 new matches: it_8026EECC reaching 100.00% and main/melee/it/itdraw .sdata reaching 100.00%.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "code match",
-      "link status update",
-      "symbol metadata cleanup"
+      "item code matching",
+      "configure matching status",
+      "symbol metadata adjustment",
+      "cleanup/refactor"
     ],
     "systems": [
       "item",
@@ -30,165 +31,205 @@
   "key_files": [
     {
       "path": "src/melee/it/itdraw.c",
-      "role": "Primary source match for it_8026EECC; replaced direct user_data loads with GET_ITEM in several helpers, collapsed conditional temporary pointer setup into ternary calls, extracted duplicated Camera_80031060 switch logic into it_8026EECC_inline_sw, and removed PAD_STACK(48).",
+      "role": "Primary decomp source change for it_8026EECC and helper inlines.",
       "evidence_refs": [
-        "raw_diff: src/melee/it/itdraw.c hunks around it_8026EECC_inline_1/2/3/0 and it_8026EECC",
-        "text_corpus: decomp-dev bot report, 2 new matches"
+        "raw_diff: src/melee/it/itdraw.c hunk around it_8026EECC_inline_1/2/3/0 and it_8026EECC",
+        "text_corpus: decomp-dev bot reports it_8026EECC 99.41% to 100.00%"
       ]
     },
     {
       "path": "configure.py",
-      "role": "Changed the build configuration entry for melee/it/itdraw.c from NonMatching to Matching.",
+      "role": "Changed itdraw.c object from NonMatching to Matching.",
       "evidence_refs": [
-        "raw_diff: configure.py MatchingFor object list"
+        "raw_diff: configure.py MatchingFor changes Object(NonMatching, \"melee/it/itdraw.c\") to Object(Matching, \"melee/it/itdraw.c\")"
       ]
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Adjusted symbol metadata near itdraw data: reduced it_804D5168 size from 0x8 to 0x4 and changed it_804DC6B0 from a global float symbol to local @275.",
+      "role": "Adjusted .sdata/.sdata2 symbol metadata used by the match.",
       "evidence_refs": [
-        "raw_diff: config/GALE01/symbols.txt .sdata and .sdata2 hunks"
+        "raw_diff: it_804D5168 size 0x8 to 0x4",
+        "raw_diff: it_804DC6B0 global symbol changed to local @275 at .sdata2:0x804DC6B0",
+        "text_corpus: bot reports main/melee/it/itdraw .sdata 66.67% to 100.00%"
       ]
     }
   ],
   "what_changed": [
-    "Marked Object(Matching, \"melee/it/itdraw.c\") in configure.py.",
-    "Matched it_8026EECC according to the bot report, moving it from 99.41% to 100.00%.",
-    "Improved linked code by +2196 bytes and matched code by +1248 bytes according to the bot report.",
-    "Replaced several Item* ip = gobj->user_data uses with GET_ITEM(gobj) in it_8026EECC-related inline helpers and the main function.",
-    "Replaced new_pos temporary initialization and if-assignment blocks with direct conditional arguments: ip->xDCF_flag.b7 ? pos : NULL.",
-    "Extracted duplicated Camera_80031060 switch dispatch into static inline it_8026EECC_inline_sw.",
-    "Removed PAD_STACK(48) from it_8026EECC.",
-    "Adjusted symbol metadata for it_804D5168 and it_804DC6B0/@275, with bot report showing itdraw .sdata reached 100.00%."
+    {
+      "text": "Marked melee/it/itdraw.c as Matching in configure.py.",
+      "evidence_refs": [
+        "raw_diff: configure.py Object(NonMatching, \"melee/it/itdraw.c\") to Object(Matching, \"melee/it/itdraw.c\")"
+      ]
+    },
+    {
+      "text": "Replaced repeated direct gobj->user_data item access with GET_ITEM(gobj) in several it_8026EECC helper paths.",
+      "evidence_refs": [
+        "raw_diff: it_8026EECC_inline_1/2/3/0 and it_8026EECC changed Item* ip initialization to GET_ITEM(gobj)"
+      ]
+    },
+    {
+      "text": "Collapsed temporary Vec3* new_pos assignments into ternary arguments to it_8026EB18.",
+      "evidence_refs": [
+        "raw_diff: it_8026EECC_inline_1/2/3 remove new_pos local and call it_8026EB18(gobj, arg1, ip->xDCF_flag.b7 ? pos : NULL)"
+      ]
+    },
+    {
+      "text": "Factored duplicated Camera_80031060 switch logic into static inline it_8026EECC_inline_sw and called it from both branches in it_8026EECC.",
+      "evidence_refs": [
+        "raw_diff: new static inline it_8026EECC_inline_sw",
+        "raw_diff: duplicated switch blocks replaced by it_8026EECC_inline_sw(gobj, arg1, &pos)"
+      ]
+    },
+    {
+      "text": "Removed PAD_STACK(48) from it_8026EECC.",
+      "evidence_refs": [
+        "raw_diff: deleted PAD_STACK(48) line in it_8026EECC"
+      ]
+    },
+    {
+      "text": "Updated symbols metadata: it_804D5168 size changed from 0x8 to 0x4, and .sdata2 address 0x804DC6B0 changed from global it_804DC6B0 to local @275.",
+      "evidence_refs": [
+        "raw_diff: config/GALE01/symbols.txt hunks"
+      ]
+    }
   ],
   "smart_moves": [
     {
-      "text": "Factored two duplicated Camera_80031060 switch blocks into a single static inline helper, preserving the same case behavior while reducing repeated generated-looking control flow.",
+      "text": "Used a small static inline helper to express a duplicated switch once, reducing repeated control-flow while preserving the two call sites.",
       "evidence_refs": [
-        "raw_diff: src/melee/it/itdraw.c addition of it_8026EECC_inline_sw and replacement call sites"
+        "raw_diff: it_8026EECC_inline_sw extraction"
       ]
     },
     {
-      "text": "Used GET_ITEM(gobj) for item user_data access in several places, making the item object access more idiomatic and typed than direct gobj->user_data use.",
+      "text": "Removed a stack-padding tactic after the source cleanup matched, which aligns with keeping matching tactics narrow and temporary.",
       "evidence_refs": [
-        "raw_diff: src/melee/it/itdraw.c replacements in it_8026EECC_inline_1/2/3/0 and it_8026EECC"
+        "raw_diff: PAD_STACK(48) deleted",
+        "decomp_standards: matching-tactics-need-evidence"
       ]
     },
     {
-      "text": "Removed a stack-padding tactic after source refactoring made it unnecessary for the reported match.",
+      "text": "Used project item accessor GET_ITEM where item user_data is read, improving typed/readable access over repeated raw gobj->user_data expressions.",
       "evidence_refs": [
-        "raw_diff: src/melee/it/itdraw.c removal of PAD_STACK(48)",
-        "text_corpus: bot report showing it_8026EECC at 100.00%"
+        "raw_diff: GET_ITEM(gobj) replacements",
+        "decomp_standards: typed-fields-over-pointer-math"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When duplicated switch dispatch blocks differ only by location, extracting them into a small static inline helper can both improve authored-source shape and support matching.",
+      "lesson": "When a repeated switch body appears in multiple branches of a matching function, a static inline helper can be a match-preserving way to remove duplicated generated-looking control flow.",
       "scope": [
         "src/melee/it/itdraw.c",
-        "it_8026EECC",
-        "Camera_80031060 dispatch"
+        "it_8026EECC"
       ],
       "evidence_refs": [
-        "raw_diff: it_8026EECC_inline_sw extraction",
-        "text_corpus: bot report lists it_8026EECC as 100.00%"
+        "raw_diff: duplicated Camera_80031060 switches replaced by it_8026EECC_inline_sw",
+        "text_corpus: bot reports it_8026EECC reached 100.00%"
       ],
-      "confidence": 0.86
+      "confidence": 0.82
     },
     {
-      "lesson": "For Item GObj access, GET_ITEM(gobj) can be a better matching/readability form than direct gobj->user_data in item code when the object is known to contain an Item.",
+      "lesson": "Simple select-like pointer setup may be expressible as a ternary argument rather than a temporary initialized to NULL and conditionally assigned.",
       "scope": [
-        "src/melee/it/itdraw.c",
-        "item object access"
-      ],
-      "evidence_refs": [
-        "raw_diff: direct user_data loads changed to GET_ITEM(gobj)"
-      ],
-      "confidence": 0.78
-    },
-    {
-      "lesson": "A temporary pointer used only to pass either pos or NULL can sometimes be collapsed into a ternary call argument without harming the match.",
-      "scope": [
-        "src/melee/it/itdraw.c",
         "it_8026EECC_inline_1",
         "it_8026EECC_inline_2",
         "it_8026EECC_inline_3"
       ],
       "evidence_refs": [
-        "raw_diff: new_pos temporary removed and replaced by ip->xDCF_flag.b7 ? pos : NULL",
-        "text_corpus: bot report lists it_8026EECC as 100.00%"
+        "raw_diff: new_pos local removed and replaced with ip->xDCF_flag.b7 ? pos : NULL",
+        "decomp_standards: canonical-control-flow-and-macros"
       ],
       "confidence": 0.78
+    },
+    {
+      "lesson": "A PAD_STACK used in nonmatching source should be revisited after structural cleanup; in this PR it was removed while the function reached a reported 100.00% match.",
+      "scope": [
+        "it_8026EECC"
+      ],
+      "evidence_refs": [
+        "raw_diff: PAD_STACK(48) removed",
+        "text_corpus: bot reports it_8026EECC 99.41% to 100.00%",
+        "decomp_standards: matching-tactics-need-evidence"
+      ],
+      "confidence": 0.81
     }
   ],
   "naming_conventions": [
     {
-      "name": "it_8026EECC_inline_sw",
-      "kind": "local static inline helper",
-      "convention": "Address-style function prefix retained with a descriptive suffix for extracted local switch dispatch.",
+      "text": "Retained address-style function names such as it_8026EECC and helper suffixes such as it_8026EECC_inline_1, avoiding unsupported semantic renames.",
       "evidence_refs": [
-        "raw_diff: src/melee/it/itdraw.c addition of static inline void it_8026EECC_inline_sw"
+        "raw_diff: function and helper names remain address-style"
       ]
     },
     {
-      "name": "ip",
-      "kind": "local variable",
-      "convention": "Short local role name for Item* remains in use.",
+      "text": "Used short local role names already present in item code style, especially ip for Item*.",
       "evidence_refs": [
-        "raw_diff: src/melee/it/itdraw.c Item* ip = GET_ITEM(gobj)"
-      ]
-    },
-    {
-      "name": "@275",
-      "kind": "local symbol label",
-      "convention": "Unproven .sdata2 float ownership was represented as a local address-style label rather than a global semantic or address-style it_ symbol.",
-      "evidence_refs": [
-        "raw_diff: symbols.txt changes it_804DC6B0 to @275"
+        "raw_diff: Item* ip local retained across helpers and it_8026EECC",
+        "decomp_standards: conservative-naming"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Remove PAD_STACK after source cleanup",
-      "details": "PAD_STACK(48) was deleted from it_8026EECC while the bot report records the function as newly matched at 100.00%.",
+      "tactic": "Inline helper extraction for repeated switch dispatch on Camera_80031060.",
       "evidence_refs": [
-        "raw_diff: removal of PAD_STACK(48)",
-        "text_corpus: bot report it_8026EECC 99.41% to 100.00%"
+        "raw_diff: added static inline void it_8026EECC_inline_sw(HSD_GObj* gobj, s32 arg1, Vec3* pos)"
+      ],
+      "result_evidence": [
+        "text_corpus: bot reports it_8026EECC reached 100.00%"
       ]
     },
     {
-      "tactic": "Inline-helper extraction for duplicated control flow",
-      "details": "Duplicated Camera_80031060 switch logic was moved into it_8026EECC_inline_sw and invoked from both original locations.",
+      "tactic": "Ternary expression for optional Vec3* argument to avoid extra temporary local.",
       "evidence_refs": [
-        "raw_diff: it_8026EECC_inline_sw added and duplicate switch blocks removed"
+        "raw_diff: it_8026EB18 calls use ip->xDCF_flag.b7 ? pos : NULL"
+      ],
+      "result_evidence": [
+        "text_corpus: bot reports it_8026EECC reached 100.00%"
       ]
     },
     {
-      "tactic": "Symbol metadata adjustment for data matching/linking",
-      "details": "Changed one .sdata symbol size and one .sdata2 symbol scope/name; the bot report records .sdata for main/melee/it/itdraw moving from 66.67% to 100.00%.",
+      "tactic": "Symbol metadata correction for data matching/linking.",
       "evidence_refs": [
-        "raw_diff: config/GALE01/symbols.txt hunks",
-        "text_corpus: bot report .sdata 66.67% to 100.00%"
+        "raw_diff: it_804D5168 size update",
+        "raw_diff: it_804DC6B0 renamed/rescoped to local @275"
+      ],
+      "result_evidence": [
+        "text_corpus: bot reports .sdata for main/melee/it/itdraw 66.67% to 100.00%"
       ]
     }
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    {
+      "text": "No human review comments were present in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json: review_comments 0, reviews 0"
+      ]
+    },
+    {
+      "text": "Automated bot report recorded matched and linked code/data progress, including it_8026EECC reaching 100.00%.",
+      "evidence_refs": [
+        "text_corpus: decomp-dev[bot] issue_comment at 2026-06-07T17:18:04Z"
+      ]
+    }
+  ],
   "searchable_terms": [
-    "pr-2609",
+    "PR2609",
     "Match and link itdraw",
     "PsiLupan",
     "itdraw",
     "src/melee/it/itdraw.c",
+    "configure.py",
+    "config/GALE01/symbols.txt",
     "it_8026EECC",
     "it_8026EECC_inline_sw",
+    "it_8026EECC_inline_0",
+    "it_8026EECC_inline_1",
+    "it_8026EECC_inline_2",
+    "it_8026EECC_inline_3",
     "GET_ITEM",
-    "gobj->user_data",
-    "Camera_80031060",
     "PAD_STACK",
-    "configure.py",
-    "Object(Matching)",
-    "config/GALE01/symbols.txt",
+    "Camera_80031060",
     "it_804D5168",
     "it_804DC6B0",
     "@275",
@@ -196,51 +237,55 @@
     ".sdata2"
   ],
   "follow_up_queries": [
+    "PR2609 it_8026EECC PAD_STACK removed",
+    "itdraw it_8026EECC_inline_sw Camera_80031060",
     "GET_ITEM gobj->user_data item matching",
-    "it_8026EECC_inline_sw Camera_80031060 switch",
-    "PAD_STACK removal matched function",
-    "itdraw .sdata symbol size it_804D5168",
-    "it_804DC6B0 @275 local float symbol"
+    "it_804D5168 size 0x4 symbols.txt",
+    "it_804DC6B0 @275 .sdata2 local float",
+    "configure.py Object(Matching, \"melee/it/itdraw.c\")"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR identity, state, author, changed file counts",
-      "raw_diff: complete diff for changed files",
-      "changed_files: changed-file list",
-      "text_corpus: decomp-dev bot report"
+      "metadata_json: PR number/title/author/state/merge timestamps and changed files",
+      "raw_diff: complete diff for three changed files",
+      "changed_files: added/deleted/hunk counts",
+      "text_corpus: bot report with match/link percentages and new matches"
     ],
     "notes": [
-      "The PR body is empty and there are no review comments, so author rationale and reviewer intent are not available.",
-      "The bot report provides match/link progress evidence, but the slice does not include raw objdiff output or local build logs.",
-      "Symbol metadata edits are visible in the diff, but the historical reasoning for exact size/scope changes is not stated."
+      "PR body is empty, so author rationale is not available.",
+      "There are no loaded human review comments; reviewer intent cannot be inferred.",
+      "The automated report supports match results, but no local build logs beyond the bot summary are present in the slice.",
+      "The diff supports what changed, but not why specific symbol metadata values were chosen beyond match/data report evidence."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "decomp_lesson_candidate",
-        "title": "Extract repeated camera switch dispatch into local inline helper",
-        "text": "In itdraw's it_8026EECC, duplicated Camera_80031060 switch blocks were factored into it_8026EECC_inline_sw, contributing to a reported 100.00% function match.",
+        "type": "matching_postmortem_lesson",
+        "title": "Factor duplicated switch dispatch into a static inline helper when matching supports it",
+        "text": "In PR2609, duplicated Camera_80031060 switch blocks in it_8026EECC were replaced by static inline it_8026EECC_inline_sw, and the bot reported it_8026EECC reached 100.00%. This is evidence for trying helper extraction on repeated switch dispatch in item draw code, not a universal requirement.",
         "scope": [
           "src/melee/it/itdraw.c",
           "it_8026EECC"
         ],
         "evidence_refs": [
-          "raw_diff: it_8026EECC_inline_sw extraction",
-          "text_corpus: bot report"
+          "raw_diff: it_8026EECC_inline_sw added and duplicate switch blocks removed",
+          "text_corpus: bot report it_8026EECC 99.41% to 100.00%"
         ]
       },
       {
-        "type": "decomp_lesson_candidate",
-        "title": "Prefer GET_ITEM for known item GObj access",
-        "text": "This PR replaced direct gobj->user_data item casts/accesses with GET_ITEM(gobj) in it_8026EECC helpers while achieving the reported match.",
+        "type": "matching_postmortem_lesson",
+        "title": "Revisit PAD_STACK after source-structure cleanup",
+        "text": "PR2609 removed PAD_STACK(48) from it_8026EECC while the function reached a reported 100.00% match. This supports treating stack padding as a narrow tactic to remove once cleaner source shape works.",
         "scope": [
           "src/melee/it/itdraw.c",
-          "item GObj access"
+          "it_8026EECC"
         ],
         "evidence_refs": [
-          "raw_diff: GET_ITEM replacements"
+          "raw_diff: PAD_STACK(48) deleted",
+          "text_corpus: bot report it_8026EECC reached 100.00%",
+          "decomp_standards: matching-tactics-need-evidence"
         ]
       }
     ],
@@ -248,65 +293,51 @@
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "itdraw.c became Matching in PR 2609",
-        "text": "PR 2609 changed configure.py so melee/it/itdraw.c is built as Object(Matching, \"melee/it/itdraw.c\").",
+        "title": "itdraw.c marked Matching after PR2609",
+        "text": "PR2609 changed configure.py so Object(NonMatching, \"melee/it/itdraw.c\") became Object(Matching, \"melee/it/itdraw.c\").",
         "source_path": "configure.py",
         "scope": [
           "melee/it/itdraw.c",
-          "configure.py"
+          "MatchingFor"
         ],
         "evidence_refs": [
-          "raw_diff: configure.py NonMatching to Matching change"
+          "raw_diff: configure.py hunk",
+          "metadata_json: PR2609 merged"
         ],
-        "reason": "This is a durable path/build-status fact, but should be curated against current source before promotion."
+        "reason": "Possible path fact for current matching status history; curator should verify against current source before promoting."
       },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "itdraw symbol metadata adjusted for it_804D5168 and @275",
-        "text": "PR 2609 changed it_804D5168 size from 0x8 to 0x4 and changed it_804DC6B0 at .sdata2:0x804DC6B0 into local symbol @275.",
+        "title": "itdraw symbol metadata adjusted in PR2609",
+        "text": "PR2609 changed it_804D5168 at .sdata:0x804D5168 from size 0x8 to 0x4 and changed .sdata2:0x804DC6B0 from global it_804DC6B0 to local @275.",
         "source_path": "config/GALE01/symbols.txt",
         "scope": [
-          "config/GALE01/symbols.txt",
-          ".sdata",
-          ".sdata2",
-          "itdraw"
+          "it_804D5168",
+          "it_804DC6B0",
+          "@275",
+          "main/melee/it/itdraw"
         ],
         "evidence_refs": [
-          "raw_diff: symbols.txt .sdata and .sdata2 hunks"
+          "raw_diff: symbols.txt hunks",
+          "text_corpus: bot report .sdata 66.67% to 100.00%"
         ],
-        "reason": "Symbol metadata ownership belongs in source/path facts after curator verification against current symbols."
-      },
-      {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "GET_ITEM may be preferred over direct user_data for item objects",
-        "text": "This PR provides another example where known Item GObj access was expressed with GET_ITEM(gobj) rather than direct gobj->user_data while matching.",
-        "source_path": "src/melee/it/itdraw.c",
-        "scope": [
-          "item code",
-          "typed accessors"
-        ],
-        "evidence_refs": [
-          "raw_diff: GET_ITEM replacements",
-          "text_corpus: bot report"
-        ],
-        "reason": "Potential reinforcement of typed access/accessor guidance; should not be promoted globally without checking broader item-code convention."
+        "reason": "Possible symbol/path metadata history; curator should validate current symbols and ownership before promoting."
       }
     ],
     "rejection_notes": [
-      "Do not infer a human reviewer preference: the slice contains no review comments.",
-      "Do not generalize that all gobj->user_data accesses should become GET_ITEM; the evidence is limited to known item access in itdraw.",
-      "Do not treat the exact symbol metadata edits as generally valid for other translation units without section ownership evidence."
+      "Do not generalize that GET_ITEM must always replace gobj->user_data; this PR only shows it worked in several itdraw helper contexts.",
+      "Do not infer human reviewer approval details; no human review comments were loaded.",
+      "Do not promote the symbol metadata changes as a global data-section rule; the slice only supports these specific addresses in this PR."
     ]
   },
-  "confidence": 0.88,
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

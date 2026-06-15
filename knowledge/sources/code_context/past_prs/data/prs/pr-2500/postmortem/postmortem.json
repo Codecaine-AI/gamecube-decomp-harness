@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Bulk merge PR for #2491 and #2494-#2499 touching stage and lb library decomp work. Evidence shows grheal was moved from NonMatching to Matching, grheal/grzebesroute stage code gained matched functions and data/rodata/sdata coverage, and lbmemory/lbheap/lbsnap/lbcardnew/lbarq received code-match improvements. The PR body is only a checklist and there are no human review comments, so reusable lessons are inferred from diff evidence and the bot match report only.",
+  "summary": "Bulk merge PR for #2491 and #2494-#2499. The slice shows decomp/matching progress across stage and lb library files, including grheal becoming Matching in configure.py, new matched grHeal and lbMemory functions, substantial grzebesroute data/rodata/sdata2 cleanup, and smaller lbheap/lbsnap/lbarq/lbcardnew improvements. Evidence is mostly diff plus bot report; no human review comments are present.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -20,241 +20,249 @@
       "headers",
       "data-layout",
       "library-cleanup",
-      "bulk-merge"
+      "stage-cleanup"
     ],
     "systems": [
+      "repo-root",
       "stage",
-      "library",
-      "repo-root"
+      "library"
     ]
   },
   "key_files": [
     {
       "path": "configure.py",
-      "role": "Changed grheal object classification from NonMatching to Matching.",
+      "role": "Marks melee/gr/grheal.c as Matching instead of NonMatching.",
       "evidence_refs": [
-        "diff_excerpt: configure.py Object(NonMatching, \"melee/gr/grheal.c\") -> Object(Matching, \"melee/gr/grheal.c\")"
+        "diff_excerpt: configure.py MatchingFor change NonMatching->Matching for melee/gr/grheal.c"
       ]
     },
     {
       "path": "src/melee/gr/grheal.c",
-      "role": "Implemented/matched grHeal_8021F180 and grHeal_8021F70C, added local data structs, data symbols, report/assert string handling, and typed access to grHeal_804D6AF0.",
+      "role": "Stage decomp/matching work: adds data block structs, stage data layout, grHeal_8021F180 body, grHeal_8021F70C rewrite, typed access to grHeal_804D6AF0, report/assert data, and coin/next-player/player-joint logic.",
       "evidence_refs": [
-        "diff_excerpt: grHeal_UnkVec4/grHeal_DataBlock/grHeal_StageData typedefs and STATIC_ASSERTs",
-        "diff_excerpt: /// #grHeal_8021F180 replaced by function body",
-        "diff_excerpt: grHeal_8021F70C rewritten with base pointer, labels/gotos, and report string access",
-        "text_corpus: bot report lists grHeal_8021F180 +668 0.00% -> 100.00%, grHeal_8021F70C +52 64.42% -> 100.00%, grheal data/rodata/sdata/sbss reaching 100%"
+        "diff_excerpt: src/melee/gr/grheal.c hunks",
+        "text_corpus: bot report new matches grHeal_8021F180, grHeal_8021F70C, .data, .rodata, .sbss, .sdata, grHeal_8021EFEC"
       ]
     },
     {
       "path": "src/melee/gr/grheal.h",
-      "role": "Added grHeal_UnkData typedef and extern declaration for grHeal_804D6AF0[2].",
+      "role": "Adds grHeal_UnkData typedef and extern declaration for grHeal_804D6AF0[2].",
       "evidence_refs": [
-        "diff_excerpt: grHeal_UnkData with x0/x4 and extern grHeal_804D6AF0[2]"
+        "diff_excerpt: src/melee/gr/grheal.h hunks"
       ]
     },
     {
       "path": "src/melee/gr/grzebesroute.c",
-      "role": "Added light/data layout symbols, report/assert data, sdata/sdata2 constants, and near-matched grZebesRoute_8020B548.",
+      "role": "Stage decomp/data work: adds grZebesRoute_LightData, stage data/report strings, sdata/sdata2 constants, baselib lobj/debug includes, and near-matching grZebesRoute_8020B548 light setup.",
       "evidence_refs": [
-        "diff_excerpt: grZebesRoute_LightData typedef and grZe_Route_803B83A0 initializer",
-        "diff_excerpt: grZe_Route_803E5E0C stage-data-like aggregate with fmt field",
-        "diff_excerpt: grZebesRoute_8020B548 implemented using HSD_LObj calls and light type branches",
-        "text_corpus: bot report lists grZebesRoute_8020B548 +779 0.00% -> 99.97% and grzebesroute data/rodata/sdata/sdata2 reaching 100%"
+        "diff_excerpt: src/melee/gr/grzebesroute.c hunks",
+        "text_corpus: bot report grzebesroute .data/.rodata/.sdata/.sdata2 100%, grZebesRoute_8020B548 99.97%, grZebesRoute_8020B260 100%"
       ]
     },
     {
       "path": "src/melee/lb/lbarq.c",
-      "role": "Improved ARQ state handling with enum names, typed global node access, scoped pragma, and PAD_STACK tactic.",
+      "role": "Library cleanup/matching: introduces lbArqState return/state enum usage, nodes field access, narrow pragma dont_inline around lbArq_80014ABC, and PAD_STACK in lbArq_80014BD0.",
       "evidence_refs": [
-        "diff_excerpt: lbArq_80014ABC return type changed from u32 to lbArqState with scoped #pragma dont_inline",
-        "diff_excerpt: list indices replaced with LB_ARQ_STATE_FREE/PENDING/DONE",
-        "diff_excerpt: PAD_STACK(16) added in lbArq_80014BD0",
-        "text_corpus: bot report lists lbArq_80014BD0 +10 93.97% -> 96.55%"
+        "diff_excerpt: src/melee/lb/lbarq.c hunks",
+        "text_corpus: bot report lbArq_80014BD0 improved to 96.55%"
       ]
     },
     {
       "path": "src/melee/lb/lbarq.h",
-      "role": "Header changed alongside lbarq state/type cleanup.",
+      "role": "Header changed alongside lbarq.c; exact hunk content not loaded in excerpt.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/lb/lbarq.h added 9 deleted 3"
       ]
     },
     {
       "path": "src/melee/lb/lbcardnew.c",
-      "role": "Library code-match improvement, details not visible in loaded diff excerpt.",
+      "role": "Library matching improvement; exact code details not loaded in excerpt.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/lb/lbcardnew.c added 4 deleted 6",
-        "text_corpus: bot report lists lb_8001B14C +435 63.23% -> 98.77%"
+        "text_corpus: bot report lb_8001B14C improved to 98.77%"
       ]
     },
     {
       "path": "src/melee/lb/lbheap.c",
-      "role": "Library heap code-match improvement, details not visible in loaded diff excerpt.",
+      "role": "Library matching work; exact code details not loaded in excerpt.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/lb/lbheap.c added 156 deleted 122",
-        "text_corpus: bot report lists lbHeap_80015F3C +21 96.29% -> 100.00% and lbHeap_80015900 +107 81.08% -> 96.48%"
+        "text_corpus: bot report lbHeap_80015F3C matched and lbHeap_80015900 improved"
       ]
     },
     {
       "path": "src/melee/lb/lbmemory.c",
-      "role": "Library memory code-match work including one newly matched function and one large improvement, details not visible in loaded diff excerpt.",
+      "role": "Library matching work; exact code details not loaded in excerpt.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/lb/lbmemory.c added 151 deleted 49",
-        "text_corpus: bot report lists lbMemory_8001564C +644 0.00% -> 100.00%, fn_80015184 +32 88.61% -> 100.00%, lbMemory_80015320 +395 0.00% -> 96.11%"
+        "text_corpus: bot report lbMemory_8001564C and fn_80015184 matched, lbMemory_80015320 improved"
       ]
     },
     {
       "path": "src/melee/lb/lbmemory.h",
-      "role": "Header touched alongside lbmemory changes.",
+      "role": "Header changed alongside lbmemory.c; exact hunk content not loaded in excerpt.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/lb/lbmemory.h added 1 deleted 1"
       ]
     },
     {
       "path": "src/melee/lb/lbsnap.c",
-      "role": "Library snapshot code-match improvements, details mostly outside loaded diff excerpt.",
+      "role": "Library matching work; exact code details not loaded in excerpt.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/lb/lbsnap.c added 84 deleted 92",
-        "text_corpus: bot report lists lbSnap_8001DF6C, lbSnap_8001D7B0, lbSnap_8001D5FC, lbSnap_8001E058, and lbSnap_8001DC0C reaching 100%; lbSnap_8001DA5C improved to 55.88%"
+        "text_corpus: bot report several lbSnap functions newly matched or improved"
       ]
     },
     {
       "path": "src/melee/lb/lbsnap.h",
-      "role": "Header touched alongside lbsnap changes.",
+      "role": "Header changed alongside lbsnap.c; exact hunk content not loaded in excerpt.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/lb/lbsnap.h added 1 deleted 1"
       ]
     }
   ],
   "what_changed": [
-    "PR body records this as a bulk merge of #2491 and #2494-#2499.",
-    "configure.py changed grheal from NonMatching to Matching.",
-    "grheal gained matched code for grHeal_8021F180 and grHeal_8021F70C plus data/rodata/sdata/sbss improvements reported by the bot.",
-    "grzebesroute gained a large implementation of grZebesRoute_8020B548, additional typed light/stage data aggregates, and data-section improvements reported by the bot.",
-    "lbarq replaced raw state numbers with LB_ARQ_STATE_* names, adjusted lbArq_80014ABC to return lbArqState, and used a scoped dont_inline pragma plus PAD_STACK in matching work.",
-    "lbmemory, lbheap, lbsnap, and lbcardnew had code-match improvements documented by changed-file metadata and the bot report, but their detailed hunks are mostly not present in the loaded excerpt."
+    "PR body is a checklist-only bulk merge for #2491 and #2494 through #2499.",
+    "configure.py changes grheal.c from NonMatching to Matching.",
+    "grheal.c adds local data layout structs, STATIC_ASSERT size checks, stage data/report string layout, SDATA strings, a typed grHeal_UnkData pointer array, and bodies for grHeal_8021F180 and a rewritten grHeal_8021F70C.",
+    "grheal.h exports grHeal_UnkData and grHeal_804D6AF0[2].",
+    "grzebesroute.c adds a light-data struct, stage-data/report-string storage, constants for float/color data, and a C implementation of grZebesRoute_8020B548 that iterates light objects and configures spot/point lights.",
+    "lbarq.c replaces raw numeric state indices with LB_ARQ_STATE_* names, changes lbArq_80014ABC to return lbArqState, uses global->nodes instead of casting the global, and uses a scoped dont_inline pragma plus PAD_STACK.",
+    "lbcardnew.c, lbheap.c, lbmemory.c, lbmemory.h, lbsnap.c, and lbsnap.h changed, but the loaded diff excerpt does not include their hunks.",
+    "Bot report records +5172 matched-code bytes, +2312 linked-code bytes, +984 matched-data bytes, and 22 new matches."
   ],
   "smart_moves": [
     {
-      "text": "Turning raw list state indices in lbarq into LB_ARQ_STATE_FREE/PENDING/DONE made the list manipulation more reviewable while preserving the code-match target.",
+      "text": "Promoting grheal.c to Matching is backed by the diff changing configure.py and the bot report showing grheal function and data sections reaching 100% for listed items.",
       "evidence_refs": [
-        "diff_excerpt: lbarq list[0/1/2] and state 0/1/2 replaced by LB_ARQ_STATE_*"
+        "diff_excerpt: configure.py grheal.c Matching",
+        "text_corpus: bot report grheal new matches"
       ]
     },
     {
-      "text": "Adding narrow local structs with STATIC_ASSERTs in grheal documented recovered data layout and guarded expected size.",
+      "text": "Adding explicit local structs with STATIC_ASSERTs in grheal.c documents recovered data layout while preserving size constraints.",
       "evidence_refs": [
-        "diff_excerpt: grHeal_DataBlock and grHeal_StageData with STATIC_ASSERT(sizeof(...))"
+        "diff_excerpt: grHeal_DataBlock, grHeal_StageData, STATIC_ASSERTs"
       ]
     },
     {
-      "text": "The grzebesroute light-data aggregate gave names to related Vec3 positions used by the light update function.",
+      "text": "Replacing raw lbArq list index literals with LB_ARQ_STATE_FREE/PENDING/DONE improves reviewability of existing list-state logic.",
       "evidence_refs": [
-        "diff_excerpt: grZebesRoute_LightData fields player_pos, spot_pos, spot_interest, upper_point_pos, lower_point_pos used in grZebesRoute_8020B42C and grZebesRoute_8020B548"
+        "diff_excerpt: lbarq.c list[0/1/2] changed to LB_ARQ_STATE_*"
+      ]
+    },
+    {
+      "text": "grzebesroute.c groups related light vectors into grZebesRoute_LightData, making the light setup code more readable than bare Vec3/global-address access.",
+      "evidence_refs": [
+        "diff_excerpt: grZebesRoute_LightData and grZebesRoute_8020B548"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a data blob contains several adjacent logical records, a temporary local aggregate plus STATIC_ASSERT can make offset-sensitive accesses explicit during matching.",
+      "lesson": "When matching stage files, recovered adjacent data can require wrapper structs around existing StageData plus report strings, but the evidence should stay tied to section/data layout and size checks rather than becoming a general style rule.",
       "scope": [
-        "stage data layout",
-        "grheal"
+        "src/melee/gr/grheal.c",
+        "src/melee/gr/grzebesroute.c"
       ],
       "evidence_refs": [
-        "diff_excerpt: grHeal_DataBlock combines player_model_joint_ids, next_player_character_ids, callbacks, stage_filename, stage_data, report strings",
-        "diff_excerpt: STATIC_ASSERT(sizeof(grHeal_DataBlock) == 0x190)"
-      ],
-      "confidence": 0.78
+        "diff_excerpt: grHeal_StageData with report_fmt_get_gobj",
+        "diff_excerpt: grZe_Route_803E5E0C embeds fmt after StageData-like fields"
+      ]
     },
     {
-      "lesson": "Replacing magic state indices with a recovered enum can improve readability without changing the underlying list-indexed state machine.",
+      "lesson": "Use typed local access when the recovered structure is known enough: grHeal_804D6AF0 changes from raw dereference/cast-style access to grHeal_UnkData fields x0 and x4.",
       "scope": [
-        "library",
-        "lbarq"
+        "src/melee/gr/grheal.c",
+        "src/melee/gr/grheal.h"
       ],
       "evidence_refs": [
-        "diff_excerpt: LB_ARQ_STATE_FREE/PENDING/DONE used for global->list and node->state"
-      ],
-      "confidence": 0.8
+        "diff_excerpt: grHeal_UnkData typedef",
+        "diff_excerpt: grHeal_804D6AF0[0]->x0 and ->x4"
+      ]
     },
     {
-      "lesson": "Large stage matching PRs may require coordinated code and data/rodata/sdata ownership changes; report output should distinguish text matches from data-section completion.",
+      "lesson": "A near-matching or matching function may still preserve unusual control-flow shapes when needed by the PR's matching attempt; grHeal_8021F70C uses labels/gotos instead of the previous while loop.",
       "scope": [
-        "stage",
-        "matching reports"
+        "src/melee/gr/grheal.c"
       ],
       "evidence_refs": [
-        "text_corpus: bot report lists grheal function matches plus .data/.rodata/.sdata/.sbss entries",
-        "text_corpus: bot report lists grzebesroute .data/.rodata/.sdata/.sdata2 entries"
-      ],
-      "confidence": 0.65
+        "diff_excerpt: grHeal_8021F70C loop_start/loop_check/loop_compare labels",
+        "text_corpus: bot report grHeal_8021F70C 100%"
+      ]
     }
   ],
   "naming_conventions": [
     {
-      "name": "grHeal_UnkVec4, grHeal_DataBlock, grHeal_StageData, grHeal_UnkData",
-      "convention": "Stage-local recovered types use the stage prefix and either semantic layout names or Unk* when meaning remains unclear.",
+      "name": "LB_ARQ_STATE_FREE, LB_ARQ_STATE_PENDING, LB_ARQ_STATE_DONE",
+      "convention": "Use enum-like state names instead of raw list/state numbers for ARQ node state transitions.",
       "evidence_refs": [
-        "diff_excerpt: grheal typedef additions"
+        "diff_excerpt: lbarq.c list and state assignments changed from 0/1/2 to LB_ARQ_STATE_*"
+      ]
+    },
+    {
+      "name": "grHeal_UnkData, grHeal_UnkVec4, grHeal_DataBlock, grHeal_StageData",
+      "convention": "Stage-local recovered structs use subsystem-prefixed names; uncertain fields remain x0/x4 or unused rather than guessed semantic names.",
+      "evidence_refs": [
+        "diff_excerpt: grheal.c typedefs",
+        "diff_excerpt: grheal.h grHeal_UnkData"
       ]
     },
     {
       "name": "grZebesRoute_LightData",
-      "convention": "Recovered aggregate name describes the subsystem role when fields are supported by usage.",
+      "convention": "Recovered stage data structs can use a semantic subsystem-prefixed name when field roles are reflected directly in use sites such as player_pos, spot_pos, upper_point_pos, and lower_point_pos.",
       "evidence_refs": [
-        "diff_excerpt: grZebesRoute_LightData fields consumed as light positions/interests in grZebesRoute_8020B548"
-      ]
-    },
-    {
-      "name": "LB_ARQ_STATE_FREE/PENDING/DONE",
-      "convention": "Recovered enum constants replace raw numeric state values for state-machine list indices.",
-      "evidence_refs": [
-        "diff_excerpt: lbarq raw 0/1/2 list indices and states replaced with LB_ARQ_STATE_*"
+        "diff_excerpt: grZebesRoute_LightData declaration and use in grZebesRoute_8020B42C/grZebesRoute_8020B548"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Scoped #pragma dont_inline was applied only around lbArq_80014ABC.",
+      "tactic": "Scoped pragma dont_inline",
+      "details": "lbArq_80014ABC is wrapped in #pragma push / #pragma dont_inline on / #pragma pop.",
       "evidence_refs": [
-        "diff_excerpt: #pragma push / #pragma dont_inline on before lbArq_80014ABC and #pragma pop after"
-      ],
-      "risk_note": "Loaded evidence does not include reviewer discussion or adjacent-function validation; standard avoid-pragmas-register-asm treats this as an exception needing narrow proof."
+        "diff_excerpt: lbarq.c lbArq_80014ABC pragma block"
+      ]
     },
     {
-      "tactic": "PAD_STACK(16) was added in lbArq_80014BD0.",
+      "tactic": "PAD_STACK",
+      "details": "lbArq_80014BD0 adds PAD_STACK(16), and the bot report shows the function improved but not fully matched.",
       "evidence_refs": [
-        "diff_excerpt: PAD_STACK(16) in lbArq_80014BD0",
-        "text_corpus: bot report shows lbArq_80014BD0 improved from 93.97% to 96.55%, not a full match"
-      ],
-      "risk_note": "The PR evidence shows a score improvement but not a full match or rationale; standard matching-tactics-need-evidence suggests curator should treat this as tactic evidence, not a general style rule."
+        "diff_excerpt: lbarq.c PAD_STACK(16)",
+        "text_corpus: bot report lbArq_80014BD0 93.97% to 96.55%"
+      ]
     },
     {
-      "tactic": "grHeal_8021F70C preserved goto-labeled loop structure rather than a natural while loop.",
+      "tactic": "Data-layout casts to reach embedded adjacent data",
+      "details": "grHeal_8021EFEC derives callbacks via (StageCallbacks*) ((char*) grHeal_803E83B8 + 0x9C), and grHeal_8021F70C accesses report_fmt_not_found_next_player through a grHeal_DataBlock cast.",
       "evidence_refs": [
-        "diff_excerpt: loop_start, loop_check, loop_compare, loop_done labels in grHeal_8021F70C",
-        "text_corpus: bot report shows grHeal_8021F70C reached 100%"
-      ],
-      "risk_note": "This conflicts with the natural-loops preference unless the goto shape was required for matching; the bot report supports the resulting match but no rationale is present."
+        "diff_excerpt: grHeal_8021EFEC callback pointer expression",
+        "diff_excerpt: grHeal_8021F70C ((grHeal_DataBlock*) base)->report_fmt_not_found_next_player"
+      ]
     },
     {
-      "tactic": "Named sdata/sdata2 constants and report/assert strings were introduced for stage matches.",
+      "tactic": "Preserved label/goto loop shape",
+      "details": "grHeal_8021F70C replaces a simple while loop with explicit labels and gotos, with the bot report showing that symbol reached 100%.",
       "evidence_refs": [
-        "diff_excerpt: grHeal_804D49E0 \"gobj\", grZe_Route_804D4840 \"gobj\", grZe_Route_804D4848 \"0\"",
-        "diff_excerpt: grZe_Route_804DB918 and related f32/GXColor constants",
-        "text_corpus: bot report lists grheal/grzebesroute data-section improvements"
-      ],
-      "risk_note": "Evidence supports data-section progress in this PR, but it should not be generalized into creating named storage without ownership evidence."
+        "diff_excerpt: grHeal_8021F70C labels",
+        "text_corpus: bot report grHeal_8021F70C new match"
+      ]
+    },
+    {
+      "tactic": "Promote data symbols/constants to match sections",
+      "details": "grzebesroute.c adds named float/color constants and report/assert strings; bot report shows .data, .rodata, .sdata, and .sdata2 reached 100% for grzebesroute.",
+      "evidence_refs": [
+        "diff_excerpt: grZe_Route_804DB918 through grZe_Route_804DB944 constants",
+        "text_corpus: bot report grzebesroute data section matches"
+      ]
     }
   ],
   "review_feedback": [],
   "searchable_terms": [
-    "pr-2500",
+    "PR2500",
     "Merge #2491 #2494 #2495 #2496 #2497 #2498 #2499",
     "ribbanya",
-    "configure.py grheal Matching",
+    "grheal Matching",
     "grHeal_8021F180",
     "grHeal_8021F70C",
     "grHeal_DataBlock",
@@ -262,142 +270,138 @@
     "grHeal_804D6AF0",
     "grZebesRoute_8020B548",
     "grZebesRoute_LightData",
-    "HSD_LObjGetNext",
-    "HSD_LObjSetColor",
-    "LB_ARQ_STATE_FREE",
-    "LB_ARQ_STATE_PENDING",
+    "HSD_LObj",
     "LB_ARQ_STATE_DONE",
     "PAD_STACK(16)",
     "pragma dont_inline",
     "lbMemory_8001564C",
-    "lbHeap_80015F3C",
     "lbSnap_8001DF6C",
+    "lbHeap_80015F3C",
     "lb_8001B14C"
   ],
   "follow_up_queries": [
-    "Inspect source PRs #2491 and #2494-#2499 separately for author rationale and review discussion hidden by this bulk merge.",
-    "Search for later changes to PAD_STACK(16) in lbArq_80014BD0 to see whether the tactic remained accepted.",
-    "Search for later cleanup of grHeal_8021F70C labels/gotos into a natural loop or comments explaining why labels were required.",
-    "Search for grHeal_DataBlock and grZe_Route_803E5E0C later refactors to confirm whether temporary data aggregates became stable path facts.",
-    "Search for current configure.py status of melee/gr/grheal.c to verify the matching path fact before curating it."
+    "Inspect original component PRs #2491 and #2494-#2499 for human discussion and narrower rationale missing from this bulk merge.",
+    "Look up full diff hunks for lbheap.c, lbmemory.c, lbsnap.c, lbcardnew.c, and related headers before deriving file-specific lessons.",
+    "Search for subsequent cleanup of grHeal_8021F70C gotos or grHeal_DataBlock casts to determine whether these were temporary matching tactics.",
+    "Search for later changes to lbarq.h to confirm lbArqState enum ownership and whether PAD_STACK/pragma remained necessary."
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR #2500 merged, 12 changed files, 736 additions, 349 deletions",
-      "human_pr_text: checklist-only PR body",
-      "text_corpus: decomp-dev bot report with match deltas",
-      "raw_diff: loaded diff is truncated after partial lbarq section",
-      "metadata_json: review_comments 0 and reviews 0"
+      "metadata_json: PR metadata and changed_files",
+      "human_pr_text: checklist body",
+      "diff_excerpt/raw_diff: loaded but truncated diff excerpt",
+      "text_corpus: decomp-dev bot report",
+      "changed_files.jsonl: full changed-file list"
     ],
     "notes": [
-      "The PR is a bulk merge, so it aggregates several source PRs and provides little direct author rationale.",
-      "No human review comments are available in the loaded slice.",
-      "The raw diff is truncated; lbmemory, lbheap, lbsnap, lbcardnew, and header details are mostly represented by changed-file metadata and bot report only.",
-      "Bot report provides match/improvement evidence but not build command, objdiff detail, or rationale for tactics such as PAD_STACK, pragmas, gotos, or data symbol creation.",
-      "Merged state is known from metadata, but this intake does not independently validate current source state."
+      "No review comments or human rationale are present in the loaded slice.",
+      "The PR is a bulk merge, so per-change intent likely belongs to the component PRs rather than PR #2500 itself.",
+      "The raw diff is truncated; several changed files are known only from changed-file metadata and bot report, not exact hunks.",
+      "Bot report supports matching/improvement claims, but no local build logs or objdiff commands are included beyond the report.",
+      "Some data-symbol/string changes appear to support section matching, but the slice alone should not be promoted into global data-ownership guidance."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "decomp_lesson_candidate",
-        "title": "Use recovered enum constants for state-machine list indices when the state meaning is clear",
-        "text": "In lbarq, raw list and state numbers 0/1/2 were replaced with LB_ARQ_STATE_FREE/PENDING/DONE across list manipulation and wait loops, improving reviewability while preserving the state-machine structure.",
+        "title": "PR2500 grheal Matching promotion",
+        "text": "PR #2500 changed configure.py to classify melee/gr/grheal.c as Matching. The bot report records grHeal_8021F180 and grHeal_8021F70C as new 100% matches and grheal .data/.rodata/.sbss/.sdata improvements to 100% for listed sections.",
         "scope": [
-          "src/melee/lb/lbarq.c",
-          "state machines",
-          "library code"
+          "configure.py",
+          "src/melee/gr/grheal.c"
         ],
         "evidence_refs": [
-          "diff_excerpt: lbarq raw state/list indices replaced with LB_ARQ_STATE_*"
-        ],
-        "confidence": 0.8
+          "diff_excerpt: configure.py grheal.c NonMatching->Matching",
+          "text_corpus: bot report grheal entries"
+        ]
       },
       {
-        "type": "decomp_lesson_candidate",
-        "title": "Temporary aggregate structs can document recovered adjacent data layout",
-        "text": "grheal introduced local aggregate structs with STATIC_ASSERTs to model adjacent tables, callbacks, StageData, and report strings, making offset-sensitive accesses explicit while matching data/code.",
+        "title": "PR2500 ARQ state readability cleanup",
+        "text": "lbarq.c replaced raw state/list indices with LB_ARQ_STATE_FREE, LB_ARQ_STATE_PENDING, and LB_ARQ_STATE_DONE in queue transitions, while also using lbArqState as the lbArq_80014ABC return type.",
         "scope": [
-          "src/melee/gr/grheal.c",
-          "stage data layout"
+          "src/melee/lb/lbarq.c"
         ],
         "evidence_refs": [
-          "diff_excerpt: grHeal_DataBlock and grHeal_StageData declarations with STATIC_ASSERTs"
+          "diff_excerpt: lbarq.c state/list changes"
+        ]
+      },
+      {
+        "title": "PR2500 stage light data grouping",
+        "text": "grzebesroute.c grouped related light positions into grZebesRoute_LightData and used the named fields in grZebesRoute_8020B42C and grZebesRoute_8020B548.",
+        "scope": [
+          "src/melee/gr/grzebesroute.c"
         ],
-        "confidence": 0.76
+        "evidence_refs": [
+          "diff_excerpt: grZebesRoute_LightData and use sites"
+        ]
       }
     ],
     "source_update_candidates": [
       {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Require narrow evidence for retained PAD_STACK and dont_inline pragmas",
+        "text": "PR #2500 uses PAD_STACK(16) in lbArq_80014BD0 and a tightly scoped dont_inline pragma around lbArq_80014ABC. The bot report shows lbArq_80014BD0 improved but not fully matched. Curator should consider whether this PR should be an example under the existing matching-tactics/pragma standards, not a broad endorsement.",
+        "source_path": null,
+        "scope": [
+          "src/melee/lb/lbarq.c"
+        ],
+        "evidence_refs": [
+          "diff_excerpt: lbarq.c PAD_STACK and pragma",
+          "text_corpus: bot report lbArq_80014BD0 improvement"
+        ],
+        "reason": "Loaded standards already warn that PAD_STACK and pragmas need evidence; this PR provides a possible example but lacks author rationale."
+      },
+      {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "grheal configured as Matching in PR #2500",
-        "text": "PR #2500 changed configure.py so Object(NonMatching, \"melee/gr/grheal.c\") became Object(Matching, \"melee/gr/grheal.c\"). Curator should verify current source before recording this as a path fact.",
+        "title": "grheal.c reached Matching in PR #2500",
+        "text": "configure.py changed melee/gr/grheal.c from NonMatching to Matching in PR #2500.",
         "source_path": "configure.py",
         "scope": [
-          "melee/gr/grheal.c",
-          "configure.py",
-          "matching status"
+          "src/melee/gr/grheal.c"
         ],
         "evidence_refs": [
-          "diff_excerpt: configure.py grheal NonMatching -> Matching"
+          "diff_excerpt: configure.py MatchingFor change"
         ],
-        "reason": "This is a concrete path-status change in the PR, but path facts should be verified against current source before promotion."
+        "reason": "This is a path/status fact suitable for curator review, supported directly by the diff."
       },
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Record caution for PAD_STACK and scoped pragmas in partial-score improvements",
-        "text": "PR #2500 used PAD_STACK(16) in lbArq_80014BD0 and a scoped dont_inline pragma around lbArq_80014ABC; the bot report shows lbArq_80014BD0 improved but did not reach 100%. Curator may consider whether standards should emphasize recording why such tactics remain when the target is not fully matched.",
+        "target_source_id": "other",
+        "update_kind": "source_update",
+        "title": "Investigate bulk merge component PR provenance",
+        "text": "PR #2500 only lists checked-off component PRs #2491 and #2494-#2499. Curator may want to associate detailed lessons with the component PRs rather than this bulk merge.",
         "source_path": null,
         "scope": [
-          "matching tactics",
-          "lbArq_80014BD0",
-          "pragmas",
-          "PAD_STACK"
+          "PR #2491",
+          "PR #2494",
+          "PR #2495",
+          "PR #2496",
+          "PR #2497",
+          "PR #2498",
+          "PR #2499"
         ],
         "evidence_refs": [
-          "diff_excerpt: PAD_STACK(16) in lbArq_80014BD0",
-          "diff_excerpt: scoped #pragma dont_inline around lbArq_80014ABC",
-          "text_corpus: lbArq_80014BD0 93.97% -> 96.55%"
+          "human_pr_text: checklist body"
         ],
-        "reason": "The loaded standards already cover tactic evidence; this PR supplies an example candidate, not a new accepted rule."
-      },
-      {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Clarify data-symbol creation in code-match PRs with explicit bot data-section evidence",
-        "text": "PR #2500 introduced named data/report/string/float/color symbols while the bot report recorded data/rodata/sdata/sdata2 improvements for grheal and grzebesroute. Curator may use it as an example for standards about documenting data ownership and separating text from data progress.",
-        "source_path": null,
-        "scope": [
-          "stage data",
-          "data sections",
-          "grheal",
-          "grzebesroute"
-        ],
-        "evidence_refs": [
-          "diff_excerpt: grHeal_804D49E0 and grZe_Route_804D4840/804D4848 strings",
-          "diff_excerpt: grZe_Route_804DB918..804DB944 constants",
-          "text_corpus: bot report data-section entries for grheal and grzebesroute"
-        ],
-        "reason": "Existing standards already warn against unsupported data churn; this PR is useful as an example only after source PR rationale is inspected."
+        "reason": "Bulk PR lacks human rationale and review discussion for individual changes."
       }
     ],
     "rejection_notes": [
-      "Do not infer reviewer approval of tactics; there are no loaded human reviews or review comments.",
-      "Do not generalize grHeal_8021F70C's goto loop as preferred style; it is only evidence of one matched implementation in this PR.",
-      "Do not promote named sdata/sdata2 constants or string-symbol replacements as a default practice; the PR only shows they were used with reported data-section progress.",
-      "Do not make detailed claims about lbmemory, lbheap, lbsnap, or lbcardnew implementation tactics from this slice because their hunks are not loaded beyond metadata and bot match rows."
+      "Do not infer that converting string literals to named SDATA/rodata symbols is generally preferred; this slice shows such changes but lacks explicit data-ownership rationale.",
+      "Do not infer reviewer approval or requested changes; the slice has zero review comments and no reviews.",
+      "Do not generalize grHeal_8021F70C label/goto shape as preferred source style; it is only supported as the shape used in this PR and associated with a bot-reported match.",
+      "Do not derive detailed lessons for lbheap.c, lbmemory.c, lbsnap.c, or lbcardnew.c from this slice alone because their exact hunks are not loaded."
     ]
   },
-  "confidence": 0.72,
+  "confidence": 0.74,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

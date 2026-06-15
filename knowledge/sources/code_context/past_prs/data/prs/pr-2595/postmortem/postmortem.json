@@ -11,63 +11,160 @@
     "merged_at": "2026-06-07T05:25:48Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked `src/melee/ft/ftdevice.c` by switching it from NonMatching to Matching, tightening its split ranges, and correcting symbol visibility/ownership for literals and BSS/SBSS objects. The C source removed forced-active literal externs, made `ft_804D6570` global instead of static, and exported it in the header, allowing the object to match without artificial retention pragmas.",
+  "intake_role": "pr_intake",
+  "summary": "PR 2595 links src/melee/ft/ftdevice.c by changing its configure.py object status from NonMatching to Matching, cleaning source-level data declarations, and updating GALE01 split/symbol metadata for ftdevice data, bss, sdata, and sbss exposure.",
   "change_classification": {
-    "primary_type": "link_matching_object",
+    "primary_type": "matching_status_and_symbol_metadata",
     "categories": [
-      "matching",
+      "headers",
+      "config",
       "symbols",
       "splits",
-      "headers",
-      "data_layout"
+      "source_cleanup"
     ],
     "systems": [
       "fighter",
       "ftdevice",
-      "config",
       "repo-root"
     ]
   },
   "key_files": [
-    "configure.py",
-    "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
-    "src/melee/ft/ftdevice.c",
-    "src/melee/ft/ftdevice.h"
+    {
+      "path": "configure.py",
+      "role": "Changed melee/ft/ftdevice.c from NonMatching to Matching in the MatchingFor object list.",
+      "evidence_refs": [
+        "raw_diff: configure.py hunk around line 621"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ftdevice.c",
+      "role": "Removed force_active and literal extern declarations; changed ft_804D6570 from static file-local to exported int definition.",
+      "evidence_refs": [
+        "raw_diff: src/melee/ft/ftdevice.c hunk near includes and globals"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ftdevice.h",
+      "role": "Added extern declaration for ft_804D6570.",
+      "evidence_refs": [
+        "raw_diff: src/melee/ft/ftdevice.h hunk near ftdevice globals"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Updated ftdevice-related string symbols from global names to local labels; consolidated bss metadata at 0x80459A68; changed one sdata string from global ftCo_804D3C18 to local @251.",
+      "evidence_refs": [
+        "raw_diff: config/GALE01/symbols.txt hunks at .data 0x803C6B18, .bss 0x80459A68, .sdata 0x804D3C18"
+      ]
+    },
+    {
+      "path": "config/GALE01/splits.txt",
+      "role": "Narrowed ftdevice bss split range from 0x80459A68-0x8045A6C0 to 0x80459A68-0x80459A98.",
+      "evidence_refs": [
+        "raw_diff: config/GALE01/splits.txt ftdevice.c hunk"
+      ]
+    }
   ],
   "what_changed": [
-    "`configure.py` changed `Object(NonMatching, \"melee/ft/ftdevice.c\")` to `Object(Matching, \"melee/ft/ftdevice.c\")`.",
-    "`config/GALE01/splits.txt` reduced the `ftdevice.c` BSS split from `0x80459A68-0x8045A6C0` to `0x80459A68-0x80459A98`, indicating ownership of only the local `ftdevice` BSS range.",
-    "`config/GALE01/symbols.txt` converted several `ftDevice_*` and `ftCo_*` string symbols in `.data`/`.sdata` from named global objects to compiler-style local labels such as `@249`, `@250`, `@251`, `@261`, and `@271`.",
-    "`config/GALE01/symbols.txt` collapsed the BSS entries at `0x80459A68`, `0x80459A74`, and `0x80459A8C` into a single global object `ft_80459A68` of size `0x30`, with a local `...bss.0` label at the same start address.",
-    "`src/melee/ft/ftdevice.c` removed `#pragma force_active on` and removed extern declarations for literal strings previously forced active.",
-    "`src/melee/ft/ftdevice.c` changed `ft_804D6570` from `static int` to global `int ft_804D6570`, and reordered it after `ftDevice_BuryThingCount` in source.",
-    "`src/melee/ft/ftdevice.h` added an extern declaration for `ft_804D6570` at SBSS address comment `4D6570`."
+    "Marked Object(Matching, \"melee/ft/ftdevice.c\") in configure.py where it was previously NonMatching.",
+    "Removed #pragma force_active on from ftdevice.c.",
+    "Removed five literal extern declarations from ftdevice.c: ftDevice_803C6B18, ftDevice_803C6B40, ftDevice_803C6B4C, ftDevice_803C6B78, and ftCo_804D3C18.",
+    "Changed ft_804D6570 from a static int definition in ftdevice.c to a non-static int definition and added its extern declaration to ftdevice.h.",
+    "Changed several ftdevice string symbols in symbols.txt from global address-style names to local @ labels.",
+    "Changed bss metadata so ft_80459A68 is size 0x30 with a local ...bss.0 label, replacing separate symbol entries for ft_80459A68, ftDevice_BuryThings, and ft_80459A8C in that metadata hunk.",
+    "Changed the ftdevice bss split end from 0x8045A6C0 to 0x80459A98."
   ],
   "smart_moves": [
-    "Removed artificial `#pragma force_active` usage once the literals could be represented as local compiler-emitted symbols, which is cleaner for a linked/matching object.",
-    "Adjusted symbol scope instead of preserving misleading global names for local string literals; this keeps `symbols.txt` closer to what the compiler/linker actually emits.",
-    "Fixed BSS range ownership in `splits.txt` so `ftdevice.c` no longer claims a much larger region extending to `0x8045A6C0`.",
-    "Made `ft_804D6570` non-static and exported it in the header, aligning source linkage with the symbol map requirement for matching."
+    {
+      "text": "The PR removed source-level literal externs and represented the corresponding strings as local labels in symbols.txt, reducing fake or convenience global declarations in the C source.",
+      "evidence_refs": [
+        "raw_diff: src/melee/ft/ftdevice.c literal extern removals",
+        "raw_diff: config/GALE01/symbols.txt .data and .sdata string label changes"
+      ]
+    },
+    {
+      "text": "The PR paired Matching status with split and symbol metadata updates, rather than only flipping configure.py.",
+      "evidence_refs": [
+        "raw_diff: configure.py Matching change",
+        "raw_diff: config/GALE01/splits.txt ftdevice bss range",
+        "raw_diff: config/GALE01/symbols.txt ftdevice metadata hunks"
+      ]
+    },
+    {
+      "text": "The PR exposed ft_804D6570 through ftdevice.h after making the definition non-static, keeping the header consistent with the recovered linkage surface.",
+      "evidence_refs": [
+        "raw_diff: src/melee/ft/ftdevice.c ft_804D6570 change",
+        "raw_diff: src/melee/ft/ftdevice.h extern ft_804D6570"
+      ]
+    }
   ],
   "decomp_lessons": [
-    "When linking a formerly nonmatching object, verify not only `.text` but also `.data`, `.sdata`, `.bss`, and `.sbss` ownership in `splits.txt` and `symbols.txt`.",
-    "Do not keep placeholder global names for string literals if evidence shows they are local compiler labels; converting them to `@NNN` local symbols can be necessary for link correctness.",
-    "Avoid `#pragma force_active` as a crutch once the object can naturally emit or reference the needed literals.",
-    "Static-vs-global storage class matters for matching: a variable declared `static` in C may need to become a global extern if the expected symbol has global scope.",
-    "Adjacent BSS variables may need to be represented as one array/object if that matches the emitted layout better than several guessed individual symbols."
+    {
+      "lesson": "When linking a TU, source cleanup may require moving generated-looking literal externs out of C and into symbol metadata as local labels when the diff evidence supports local string ownership.",
+      "scope": [
+        "ftdevice",
+        "matching PRs",
+        "symbol metadata cleanup"
+      ],
+      "evidence_refs": [
+        "raw_diff: src/melee/ft/ftdevice.c removed literal extern declarations",
+        "raw_diff: config/GALE01/symbols.txt converted ftDevice_803C6B18/40/4C/78 and ftCo_804D3C18 to local labels"
+      ],
+      "confidence": 0.82
+    },
+    {
+      "lesson": "A Matching status flip can be coupled with split-range correction and bss symbol consolidation when the object's data ownership boundaries are clarified.",
+      "scope": [
+        "ftdevice",
+        "configure.py",
+        "splits.txt",
+        "symbols.txt"
+      ],
+      "evidence_refs": [
+        "raw_diff: configure.py NonMatching to Matching",
+        "raw_diff: config/GALE01/splits.txt bss end narrowed to 0x80459A98",
+        "raw_diff: config/GALE01/symbols.txt bss symbols consolidated at 0x80459A68"
+      ],
+      "confidence": 0.78
+    }
   ],
   "naming_conventions": [
-    "Compiler-local literals are represented as `@NNN` symbols in `symbols.txt` with `scope:local`.",
-    "Unknown globals retain address-based names such as `ft_80459A68` and `ft_804D6570` when no semantic name is established.",
-    "Fighter common functions in this area use the `ftCo_` prefix, e.g. `ftCo_800C0658`, `ftCo_800C06E8`, `ftCo_800C0764`, and `ftCo_800C07F8`.",
-    "Device-related unknown structs use provisional names such as `ftDeviceUnk3`, `ftDeviceUnk4`, and `ftDeviceUnk5`."
+    {
+      "convention": "String symbols without supported global identity were represented as local @ labels rather than address-style ftDevice_/ftCo_ global names in this PR.",
+      "evidence_refs": [
+        "raw_diff: config/GALE01/symbols.txt .data string symbol replacements",
+        "raw_diff: config/GALE01/symbols.txt .sdata ftCo_804D3C18 to @251"
+      ],
+      "confidence": 0.83
+    },
+    {
+      "convention": "The existing address-style name ft_804D6570 was kept when exporting the int through the header; the PR did not invent a semantic name.",
+      "evidence_refs": [
+        "raw_diff: src/melee/ft/ftdevice.c int ft_804D6570",
+        "raw_diff: src/melee/ft/ftdevice.h extern int ft_804D6570"
+      ],
+      "confidence": 0.9
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Switch the object to `Matching` only after source, symbol scopes, and split ranges are consistent.",
-    "Use local labels for compiler-generated string literals instead of extern literal declarations in C.",
-    "Represent BSS layout as `struct ftDeviceUnk3 ft_80459A68[4]` covering `0x30` bytes, matching the symbol map collapse.",
-    "Export SBSS variable `ft_804D6570` rather than keeping it file-local, because the symbol table expects a global object at `0x804D6570`."
+    {
+      "tactic": "Remove #pragma force_active once string/data symbol metadata no longer requires forcing source-local literal externs active.",
+      "evidence_refs": [
+        "raw_diff: src/melee/ft/ftdevice.c removed #pragma force_active on",
+        "raw_diff: src/melee/ft/ftdevice.c removed literal extern declarations",
+        "raw_diff: config/GALE01/symbols.txt string symbols changed to local labels"
+      ],
+      "confidence": 0.74
+    },
+    {
+      "tactic": "Use split metadata and symbols.txt together to define the TU's data/bss ownership while linking a previously NonMatching object.",
+      "evidence_refs": [
+        "raw_diff: config/GALE01/splits.txt ftdevice bss range",
+        "raw_diff: config/GALE01/symbols.txt bss consolidation",
+        "raw_diff: configure.py ftdevice Matching"
+      ],
+      "confidence": 0.8
+    }
   ],
   "review_feedback": [],
   "searchable_terms": [
@@ -76,43 +173,134 @@
     "ftdevice.c",
     "ftdevice.h",
     "configure.py",
-    "GALE01 symbols.txt",
-    "GALE01 splits.txt",
-    "Object Matching melee/ft/ftdevice.c",
-    "NonMatching to Matching",
+    "Object(Matching, \"melee/ft/ftdevice.c\")",
+    "ftDevice_803C6B18",
+    "ftDevice_803C6B40",
+    "ftDevice_803C6B4C",
+    "ftDevice_803C6B78",
+    "ftCo_804D3C18",
     "ft_80459A68",
+    "ftDevice_BuryThings",
+    "ft_80459A8C",
     "ft_804D6570",
     "ftDevice_BuryThingCount",
-    "ftDevice_BuryThings",
-    "ftDeviceUnk3",
-    "ftDeviceUnk4",
-    "ftDeviceUnk5",
     "force_active",
-    "local string literals",
-    "scope:local",
-    "@249",
-    "@250",
-    "@251",
-    "@261",
-    "@271",
-    "...bss.0",
-    "ftCo_800C0658",
-    "ftCo_800C06E8",
-    "ftCo_800C0764",
-    "ftCo_800C07F8"
+    "literal extern",
+    "local string labels",
+    "splits.txt",
+    "symbols.txt",
+    "bss.0",
+    "0x80459A68",
+    "0x80459A98",
+    "0x803C6B18",
+    "0x804D3C18"
   ],
   "follow_up_queries": [
-    "Find other matching PRs that remove `#pragma force_active` after converting literal symbols to local `@NNN` labels.",
-    "Search for other fighter BSS split corrections where several guessed BSS symbols are collapsed into one array/object.",
-    "Inspect future `ftdevice` cleanup for whether `ft_80459A68`, `ft_804D6570`, and `ftDeviceUnk*` receive semantic names."
+    "ftdevice force_active literal extern symbols.txt local labels",
+    "ft_804D6570 extern ftdevice.h static int",
+    "ftdevice bss split 0x80459A68 0x80459A98",
+    "ftDevice_803C6B18 ftDevice_803C6B40 ftDevice_803C6B4C ftDevice_803C6B78",
+    "Object Matching melee/ft/ftdevice.c"
   ],
-  "confidence": 0.88,
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR number/title/state/author/timestamps and changed file counts",
+      "raw_diff: complete 5638-byte diff",
+      "text_corpus: empty PR body",
+      "metadata_json: zero review comments and zero issue comments"
+    ],
+    "notes": [
+      "The diff is complete and directly supports changed files and concrete edits.",
+      "There is no PR body, review discussion, CI output, build log, objdiff output, or author rationale in the loaded slice.",
+      "The PR was merged, but this intake does not claim independent validation beyond the observed configure.py Matching status change.",
+      "No reviewer feedback can be extracted because the slice reports zero review comments and zero issue comments."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "postmortem_lesson",
+        "title": "Linking ftdevice paired Matching status with metadata cleanup",
+        "text": "PR 2595 changed ftdevice.c to Matching and updated symbols/splits metadata, including local string labels and a narrowed bss range. Treat as PR-specific evidence that linking a TU can require symbol ownership cleanup, not only source body edits.",
+        "scope": [
+          "src/melee/ft/ftdevice.c",
+          "config/GALE01/symbols.txt",
+          "config/GALE01/splits.txt",
+          "configure.py"
+        ],
+        "evidence_refs": [
+          "raw_diff: configure.py Matching change",
+          "raw_diff: symbols.txt ftdevice metadata hunks",
+          "raw_diff: splits.txt ftdevice bss range"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "ftdevice.c marked Matching in PR 2595",
+        "text": "PR 2595 changed configure.py from Object(NonMatching, \"melee/ft/ftdevice.c\") to Object(Matching, \"melee/ft/ftdevice.c\").",
+        "source_path": "configure.py",
+        "scope": [
+          "melee/ft/ftdevice.c",
+          "fighter"
+        ],
+        "evidence_refs": [
+          "raw_diff: configure.py hunk around line 621"
+        ],
+        "reason": "This is a concrete path/status fact from the PR diff, suitable for curator review before any source-corpus update."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "ftdevice bss split narrowed in PR 2595",
+        "text": "For melee/ft/ftdevice.c, config/GALE01/splits.txt changed the .bss range from start 0x80459A68 end 0x8045A6C0 to start 0x80459A68 end 0x80459A98.",
+        "source_path": "config/GALE01/splits.txt",
+        "scope": [
+          "melee/ft/ftdevice.c",
+          ".bss",
+          "split metadata"
+        ],
+        "evidence_refs": [
+          "raw_diff: config/GALE01/splits.txt ftdevice.c hunk"
+        ],
+        "reason": "Concrete split metadata change should be routed through source/path-fact curation rather than treated as a global lesson."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Prefer symbol metadata cleanup over source literal externs when linking TUs",
+        "text": "Candidate standard: when a TU links, review whether literal extern declarations and force_active pragmas are only compensating for string/data metadata. If symbol ownership supports local labels, remove generated-looking literal externs from C and represent the data in symbols.txt. PR 2595 is supporting evidence, not sufficient by itself for a global rule.",
+        "source_path": null,
+        "scope": [
+          "matching PRs",
+          "literal externs",
+          "force_active",
+          "symbols.txt"
+        ],
+        "evidence_refs": [
+          "raw_diff: src/melee/ft/ftdevice.c removed force_active and literal externs",
+          "raw_diff: config/GALE01/symbols.txt converted string globals to local labels"
+        ],
+        "reason": "The PR aligns with existing standards on data ownership and avoiding artificial source constructs, but one PR with no rationale is not enough to promote directly."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that all ftDevice_* or ftCo_* address-style string globals should become local labels; this PR only shows specific symbols at 0x803C6B18, 0x803C6B40, 0x803C6B4C, 0x803C6B78, and 0x804D3C18.",
+      "Do not claim objdiff/checkdiff/build validation from the loaded evidence; no such output is present.",
+      "Do not infer reviewer intent or requested changes; there were no loaded review comments.",
+      "Do not generalize that #pragma force_active is always removable; this PR only shows its removal in ftdevice alongside matching and symbol metadata changes."
+    ]
+  },
+  "confidence": 0.84,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

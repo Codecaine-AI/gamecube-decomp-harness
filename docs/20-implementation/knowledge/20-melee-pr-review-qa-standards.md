@@ -43,6 +43,9 @@ Do:
 - Replace raw offsets with real fields when the type is known.
 - Model item, fighter, ground, and HSD object data at the correct offset instead
   of borrowing unrelated fields.
+- In stage TUs, use the `gv` union arms owned by that map/stage family. If a
+  newly understood stage object needs names, add or extend that stage's
+  `GroundVars` arm instead of borrowing another map's arm.
 - Treat `M2C_FIELD` as temporary bridge code.
 
 Do not:
@@ -50,6 +53,8 @@ Do not:
 - Use `((u8*) obj) + offset` when a field, union arm, helper, or temporary struct
   can express the access.
 - Add new `M2C_FIELD` uses when the real type can reasonably be recovered.
+- Use unrelated `gv` union arms such as `gv.arwing` in another stage TU merely
+  because the offsets happen to line up.
 - Treat raw pointer math as finished source style.
 
 ### Recognize Header Inlines
@@ -69,6 +74,9 @@ Do not:
 
 - Keep expanded `__assert("jobj.h", line, ...)` code when the header inline is
   identifiable.
+- Copy or paste `jobj.h` inline helper bodies into a stage or item TU. Use the
+  canonical `HSD_JObj*` helper, or add the missing helper at the owning API
+  layer if the project truly lacks it.
 - Treat `GET_JOBJ` as an unconditional cleanup rule.
 - Redefine header macros or local helper names just to force an inline.
 - Manually expand an inline without objdiff evidence.
@@ -105,6 +113,8 @@ Do not:
 
 - Create static string or float symbols just because generated code exposed an
   address.
+- Replace ordinary numeric literals such as `0.0F`, `1.0F`, or `-F32_MAX` with
+  TU-local address-named symbols solely for relocation or data-order pressure.
 - Add fake data anchors, dummy static functions, or data-order globals as normal
   source style.
 - Move literals out of source without checking `.data`, `.rodata`, `.sdata`, or

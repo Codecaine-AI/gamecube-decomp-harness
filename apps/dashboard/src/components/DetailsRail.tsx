@@ -848,7 +848,7 @@ function RunTab({ dashboard, loadRunDetails, loadingRunDetails, runDetails }: Pi
   );
 }
 
-const agentRoleOrder = ["director", "worker", "knowledge-curator", "pr-review", "reconcile"];
+const agentRoleOrder = ["director", "worker", "knowledge-curator", "pr-review", "reconcile", "qa-repair"];
 const agentSessionsPerRole = 8;
 
 function sessionStatusTone(status: string): string {

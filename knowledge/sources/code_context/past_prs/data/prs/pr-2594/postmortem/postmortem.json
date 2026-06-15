@@ -11,115 +11,359 @@
     "merged_at": "2026-06-07T04:57:45Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Corrected the boundary between ftmaterial.c and ftcolanim.c by moving two ftCo sleep/death helper functions at 0x800BFD04 and 0x800BFD9C out of ftmaterial and into ftcolanim, renaming their symbols from ftMaterial_* to ftCo_*. The PR also cleaned ftmaterial string usage by replacing external/base-offset string references with direct strings and HSD_ASSERTREPORT calls, and updated splits, symbols, headers, includes, and call sites accordingly.",
+  "intake_role": "pr_intake",
+  "summary": "PR 2594 corrected the ftmaterial/ftcolanim split boundary by moving functions at 0x800BFD04 and 0x800BFD9C from ftmaterial into ftcolanim, renamed their symbols from ftMaterial_* to ftCo_*, updated callers and headers, moved ftmaterial .sdata2 ownership to ftcolanim, and cleaned ftmaterial string/assert usages from address-based externs into source strings and HSD_ASSERTREPORT calls.",
   "change_classification": {
-    "primary_type": "split-boundary-fix",
+    "primary_type": "split-and-symbol-fix",
     "categories": [
       "decomp-matching",
       "fix",
       "headers",
-      "symbol-renaming",
-      "string-literal-cleanup"
+      "data-section-metadata",
+      "assert-cleanup"
     ],
     "systems": [
       "fighter",
-      "fighter-material",
-      "fighter-color-animation",
       "config"
     ]
   },
   "key_files": [
-    "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
-    "src/melee/ft/ftmaterial.c",
-    "src/melee/ft/ftmaterial.h",
-    "src/melee/ft/ftcolanim.c",
-    "src/melee/ft/ftcolanim.h",
-    "src/melee/ft/fighter.c",
-    "src/melee/ft/ft_0D31.c",
-    "src/melee/ft/ft_0D4D.c",
-    "src/melee/ft/ftcommon.c"
+    {
+      "path": "config/GALE01/splits.txt",
+      "role": "Adjusted ftmaterial text end to 0x800BFD04, ftcolanim text start to 0x800BFD04, and moved .sdata2 range 0x804D8C20-0x804D8C28 from ftmaterial to ftcolanim.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/splits.txt"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Renamed 0x800BFD04 and 0x800BFD9C function symbols from ftMaterial_* to ftCo_* and split ftMObj data size from a larger 0x150 object into ftMObj plus local labels/string objects.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ftmaterial.c",
+      "role": "Removed ftCo functions from ftmaterial, removed address-based string/float externs, initialized ftMObj directly, used literal strings in hsdInitClassInfo, and replaced OSReport plus __assert pairs with HSD_ASSERTREPORT.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftmaterial.c"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ftcolanim.c",
+      "role": "Added ftCo_800BFD04 and ftCo_800BFD9C bodies, includes needed by those functions, and changed numeric motion-state arguments to float literals.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftcolanim.c"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ftcolanim.h",
+      "role": "Declared ftCo_800BFD04 and ftCo_800BFD9C in the ftcolanim header.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftcolanim.h"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ftmaterial.h",
+      "role": "Removed declarations for the moved functions from the ftmaterial header.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftmaterial.h"
+      ]
+    },
+    {
+      "path": "src/melee/ft/fighter.c",
+      "role": "Updated caller from ftMaterial_800BFD04 to ftCo_800BFD04.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/fighter.c"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ft_0D31.c",
+      "role": "Updated multiple death-animation callers from ftMaterial_800BFD9C to ftCo_800BFD9C.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ft_0D31.c"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ft_0D4D.c",
+      "role": "Updated inline helper caller from ftMaterial_800BFD04 to ftCo_800BFD04.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ft_0D4D.c"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ftcommon.c",
+      "role": "Updated transformation/common caller from ftMaterial_800BFD04 to ftCo_800BFD04.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftcommon.c"
+      ]
+    }
   ],
   "what_changed": [
-    "Changed the ftmaterial text split end from 0x800BFE6C to 0x800BFD04 and the ftcolanim text split start from 0x800BFE6C to 0x800BFD04.",
-    "Moved the .sdata2 range 0x804D8C20-0x804D8C28 from ftmaterial.c to ftcolanim.c in config/GALE01/splits.txt.",
-    "Renamed symbols ftMaterial_800BFD04 and ftMaterial_800BFD9C to ftCo_800BFD04 and ftCo_800BFD9C in config/GALE01/symbols.txt.",
-    "Moved the implementations of the two sleep/death helper functions from ftmaterial.c into ftcolanim.c.",
-    "Updated call sites in fighter.c, ft_0D31.c, ft_0D4D.c, and ftcommon.c to call ftCo_800BFD04 or ftCo_800BFD9C instead of the old ftMaterial_* names.",
-    "Moved prototypes for the two functions from ftmaterial.h to ftcolanim.h.",
-    "Reduced the ftMObj data symbol size from 0x150 to 0x50 and introduced separate labels/string symbols for the remaining data that followed it.",
-    "Changed ftMaterial_800BF260 to initialize class info with direct string literals \"sysdolphin_base_library\" and \"ft_mobj\" and sizeof expressions instead of external string labels and hardcoded sizes.",
-    "Replaced OSReport plus __assert patterns in ftmaterial.c with HSD_ASSERTREPORT calls containing direct assertion strings."
+    "Split metadata now places ftmaterial .text at 0x800BF260-0x800BFD04 and ftcolanim .text at 0x800BFD04-0x800C0658.",
+    "The .sdata2 range 0x804D8C20-0x804D8C28 was removed from ftmaterial and added under ftcolanim.",
+    "Symbols ftMaterial_800BFD04 and ftMaterial_800BFD9C were renamed to ftCo_800BFD04 and ftCo_800BFD9C at the same addresses and sizes.",
+    "The two moved function bodies were deleted from ftmaterial.c and inserted into ftcolanim.c.",
+    "Call sites in fighter.c, ft_0D31.c, ft_0D4D.c, and ftcommon.c were updated to the ftCo_* names.",
+    "ftcolanim.h gained declarations for ftCo_800BFD04 and ftCo_800BFD9C; ftmaterial.h dropped the old ftMaterial_* declarations.",
+    "ftmaterial.c replaced address-derived extern strings and float constants with direct source constructs such as ftMObj initialization, hsdInitClassInfo string literals, sizeof expressions, and HSD_ASSERTREPORT macro calls.",
+    "symbols.txt reduced ftMObj size from 0x150 to 0x50 and introduced labels/string objects for the subsequent data range."
   ],
   "smart_moves": [
-    "The split fix was done holistically: text ranges, sdata2 ownership, symbol names, function definitions, declarations, includes, and every known call site were updated together.",
-    "Renaming the moved functions to ftCo_* aligns their namespace with their behavior and new file placement in ftcolanim rather than leaving misleading ftMaterial_* names.",
-    "Using direct string literals and HSD_ASSERTREPORT in ftmaterial.c avoids fragile pointer arithmetic such as base + offsets and makes assert/report intent explicit.",
-    "The PR separated ftMObj from adjacent data/string blobs in symbols.txt instead of treating the entire 0x150-byte region as one global object.",
-    "The moved ftCo_800BFD9C implementation brought its actual dependencies with it, including ftCo_800D4F24, Player_GetEntityAtIndex, and gm_80167320 includes."
+    "Moved both the split boundary and the function symbols together, then updated headers and all visible callers, avoiding a source/config mismatch.",
+    "Kept the moved functions at their existing addresses and sizes while changing ownership and naming, which makes the split correction easy to audit.",
+    "Removed source-level dependence on address-named string/float externs in ftmaterial by using direct strings, sizeof, and project assert macros.",
+    "Changed ftcolanim include style for ftCo_HammerWait from an angle include path to a local quoted include in the same hunk that added related local dependencies."
   ],
   "decomp_lessons": [
-    "When a split boundary is wrong, do not only rename symbols: update splits.txt, symbols.txt, headers, source placement, and all consumers so the project structure matches the linker map.",
-    "Functions named for a subsystem should live with the matching subsystem when evidence supports it; here sleep/death common-fighter helpers fit ftCo/ftcolanim better than ftmaterial.",
-    "Data ownership can reveal bad file splits: the .sdata2 range associated with these functions belonged with ftcolanim after the boundary moved.",
-    "Avoid overlarge data symbols when adjacent data is actually separate objects or strings; reducing ftMObj to sizeof(HSD_MObjInfo)-sized data clarified following labels.",
-    "Replacing label-offset string hacks with direct string literals can improve readability and expose the intended library/class/assert strings, but may slightly perturb matching if not fully tuned."
+    {
+      "lesson": "When a function's subsystem ownership changes, update the split ranges, symbols, owning source file, owning header, and all callers in one coherent patch.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/splits.txt",
+        "raw_diff:config/GALE01/symbols.txt",
+        "raw_diff:src/melee/ft/ftmaterial.c",
+        "raw_diff:src/melee/ft/ftcolanim.c",
+        "raw_diff:src/melee/ft/ftmaterial.h",
+        "raw_diff:src/melee/ft/ftcolanim.h"
+      ]
+    },
+    {
+      "lesson": "For ordinary assert/report text in decomp source, replacing address-based OSReport plus __assert sequences with HSD_ASSERTREPORT can express the intended source-level operation more cleanly when line numbers and messages are preserved.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftmaterial.c",
+        "decomp_standards:assert-report-macros"
+      ]
+    },
+    {
+      "lesson": "Do not keep generated address-named string externs in code when the diff evidence supports ordinary inline strings at the call site.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftmaterial.c",
+        "decomp_standards:no-string-literal-symbol-regression",
+        "decomp_standards:literals-and-data-ownership"
+      ]
+    }
   ],
   "naming_conventions": [
-    "Common fighter functions use the ftCo_ prefix, as shown by ftCo_800BFD04 and ftCo_800BFD9C after the rename.",
-    "Material-specific functions remain under ftMaterial_*, such as ftMaterial_800BF260, ftMaterial_800BF2B8, ftMaterial_800BF534, ftMaterial_800BF6BC, and ftMaterial_800BFB4C.",
-    "The mobj class-info global is named ftMObj and declared as HSD_MObjInfo.",
-    "Unknown data/string labels adjacent to known objects were left as lbl_803C69D0, lbl_803C6A5C, lbl_803C6A74, lbl_803C6A98, and lbl_803C6AA8 rather than overnaming without evidence."
+    {
+      "name": "ftCo_800BFD04 / ftCo_800BFD9C",
+      "convention": "Functions moved into ftcolanim and used by common fighter action code were renamed from ftMaterial_* to ftCo_* while retaining address suffixes because semantic names were not recovered in this PR.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt",
+        "raw_diff:src/melee/ft/ftcolanim.h"
+      ]
+    },
+    {
+      "name": "ftMObj",
+      "convention": "ftMObj remains the canonical global name for the HSD_MObjInfo object at 0x803C6980; the surrounding data was split into local labels/string labels instead of being treated as part of ftMObj.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt",
+        "raw_diff:src/melee/ft/ftmaterial.c"
+      ]
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Adjusted split boundaries at exact function address 0x800BFD04 so ftCo_800BFD04 and ftCo_800BFD9C compile as part of ftcolanim.",
-    "Transferred the 0x804D8C20-0x804D8C28 .sdata2 range to the unit that now owns the code using it.",
-    "Used HSD_ASSERTREPORT(line, 0, string) for failed free-color-register checks instead of manually calling OSReport and __assert with string-label offsets.",
-    "Used sizeof(HSD_MObjInfo) and sizeof(HSD_MObj) in hsdInitClassInfo rather than hardcoded 0x50 and 0x20.",
-    "decomp.dev reported new 100% matches for ftcolanim ftCo_800BFD04 (+152 bytes), ftCo_800BFD9C (+208 bytes), ftmaterial .sdata (+16 bytes), and ftcolanim .sdata2 (+8 bytes).",
-    "The same report also noted expected broken old ftmaterial matches for the moved functions and small regressions in ftMaterial_800BF260, ftMaterial_800BF534, and ftMaterial_800BF6BC, so evidence suggests the PR prioritized correct ownership/splitting over preserving every prior per-function match."
+    {
+      "tactic": "Split-boundary correction",
+      "details": "The PR moved the ftmaterial/ftcolanim boundary from 0x800BFE6C to 0x800BFD04 so ftCo_800BFD04 and ftCo_800BFD9C belong to ftcolanim.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/splits.txt",
+        "raw_diff:config/GALE01/symbols.txt"
+      ]
+    },
+    {
+      "tactic": "Data ownership correction",
+      "details": "The PR moved .sdata2 ownership from ftmaterial to ftcolanim and resized ftMObj data metadata from 0x150 to 0x50 with additional labels for following data.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/splits.txt",
+        "raw_diff:config/GALE01/symbols.txt"
+      ]
+    },
+    {
+      "tactic": "Macro cleanup for matching source",
+      "details": "The PR replaced OSReport plus __assert expansions with HSD_ASSERTREPORT at lines 240, 352, and 366 using the preserved report strings.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftmaterial.c"
+      ]
+    },
+    {
+      "tactic": "Use direct source constructs instead of address arithmetic",
+      "details": "hsdInitClassInfo arguments changed from address-derived casts like (char*) &ftMObj + 0xDC and extern string pointers to direct strings and sizeof(HSD_MObjInfo)/sizeof(HSD_MObj).",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/ftmaterial.c"
+      ]
+    }
   ],
   "review_feedback": [
-    "No human review comments were present in the provided slice.",
-    "Automated decomp.dev feedback reported net linked-code/data improvements and four new matches, while also flagging five broken matches corresponding mostly to the old ftmaterial ownership of moved code."
+    {
+      "source": "decomp-dev[bot]",
+      "feedback": "Bot report showed 4 new matches: ftCo_800BFD9C, ftCo_800BFD04, ftmaterial .sdata, and ftcolanim .sdata2.",
+      "evidence_refs": [
+        "text_corpus:issue_comment:decomp-dev[bot]:2026-06-07T04:36:28Z"
+      ]
+    },
+    {
+      "source": "decomp-dev[bot]",
+      "feedback": "Bot report also listed broken matches under old ftmaterial ownership for ftMaterial_800BFD9C, ftMaterial_800BFD04, ftmaterial .sdata2, and small regressions for ftMaterial_800BF260 and ftMaterial_800BF534; this appears consistent with the ownership move but the PR slice has no human explanation.",
+      "evidence_refs": [
+        "text_corpus:issue_comment:decomp-dev[bot]:2026-06-07T04:36:28Z"
+      ]
+    },
+    {
+      "source": "pr_activity",
+      "feedback": "No review comments or human review records were present in the loaded slice.",
+      "evidence_refs": [
+        "metadata_json:counts.review_comments=0",
+        "metadata_json:counts.reviews=0"
+      ]
+    }
   ],
   "searchable_terms": [
+    "PR2594",
     "ftcolanim",
     "ftmaterial",
     "split boundary",
-    "splits.txt",
-    "symbols.txt",
-    "ftMaterial_800BFD04",
-    "ftMaterial_800BFD9C",
     "ftCo_800BFD04",
     "ftCo_800BFD9C",
+    "ftMaterial_800BFD04",
+    "ftMaterial_800BFD9C",
+    "0x800BFD04",
+    "0x800BFD9C",
+    "0x800BFE6C",
     "ftMObj",
-    "HSD_MObjInfo",
-    "hsdInitClassInfo",
     "HSD_ASSERTREPORT",
     "can't find free color register",
     "can't find free color ratio register",
     "sysdolphin_base_library",
     "ft_mobj",
     "sdata2",
-    "Fighter_ChangeMotionState",
-    "ftCo_MS_Sleep",
-    "Player_GetEntityAtIndex",
-    "gm_80167320"
+    "symbols.txt",
+    "splits.txt"
   ],
   "follow_up_queries": [
-    "Check whether ftMaterial_800BF260, ftMaterial_800BF534, and ftMaterial_800BF6BC were later restored to full match after the string cleanup.",
-    "Search for other ftMaterial_* functions whose behavior or call sites indicate they should actually be ftCo_* or live in ftcolanim.",
-    "Audit neighboring data around 0x803C6980-0x803C6AD0 to replace lbl_* names with better names when more evidence appears.",
-    "Look for other files using OSReport plus __assert with base-offset strings that could be converted to HSD_ASSERTREPORT safely."
+    "ftMaterial_800BFD04 OR ftMaterial_800BFD9C",
+    "ftCo_800BFD04 ftCo_800BFD9C",
+    "ftmaterial ftcolanim split 0x800BFD04",
+    "HSD_ASSERTREPORT \"can't find free color register\"",
+    "ftMObj 0x803C6980 size 0x50",
+    "ftcolanim .sdata2 0x804D8C20"
   ],
-  "confidence": 0.88,
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json",
+      "raw_diff",
+      "changed_files",
+      "text_corpus:issue_comment:decomp-dev[bot]"
+    ],
+    "notes": [
+      "Diff evidence is strong for changed files, split/symbol edits, moved functions, header/caller updates, and string/assert cleanup.",
+      "PR body is empty, and there are no human review comments, so author rationale beyond the title and diff should not be inferred.",
+      "The bot report provides match/regression details, but no local build logs, objdiff commands, or human acceptance rationale are included in the slice.",
+      "Some bot-reported broken matches are likely a consequence of symbol ownership moving from ftmaterial to ftcolanim, but that interpretation is not explicitly stated by a reviewer or author in the loaded evidence."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "type": "decomp_lesson",
+        "title": "Coordinate split-boundary fixes across config, symbols, source, headers, and callers",
+        "text": "PR 2594 shows a split correction where ftCo_800BFD04 and ftCo_800BFD9C were moved from ftmaterial to ftcolanim by updating splits.txt, symbols.txt, source placement, header declarations, and all visible call sites together.",
+        "scope": [
+          "fighter",
+          "split metadata",
+          "symbol ownership"
+        ],
+        "evidence_refs": [
+          "raw_diff:config/GALE01/splits.txt",
+          "raw_diff:config/GALE01/symbols.txt",
+          "raw_diff:src/melee/ft/ftmaterial.c",
+          "raw_diff:src/melee/ft/ftcolanim.c",
+          "raw_diff:src/melee/ft/ftmaterial.h",
+          "raw_diff:src/melee/ft/ftcolanim.h"
+        ]
+      },
+      {
+        "type": "decomp_lesson",
+        "title": "Prefer source-level assert/report macros over raw expansions when the message and line are preserved",
+        "text": "In ftmaterial.c, OSReport plus __assert sequences were replaced by HSD_ASSERTREPORT calls at the same logical assertion sites with the report strings preserved.",
+        "scope": [
+          "assert cleanup",
+          "fighter material code"
+        ],
+        "evidence_refs": [
+          "raw_diff:src/melee/ft/ftmaterial.c",
+          "decomp_standards:assert-report-macros"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "ftcolanim owns ftCo_800BFD04 and ftCo_800BFD9C after split boundary 0x800BFD04",
+        "text": "PR 2594 changed config/GALE01/splits.txt so melee/ft/ftcolanim.c starts at 0x800BFD04 and changed symbols.txt so 0x800BFD04 and 0x800BFD9C are ftCo_800BFD04 and ftCo_800BFD9C rather than ftMaterial_* symbols.",
+        "source_path": "src/melee/ft/ftcolanim.c",
+        "scope": [
+          "config/GALE01/splits.txt",
+          "config/GALE01/symbols.txt",
+          "src/melee/ft/ftcolanim.c",
+          "src/melee/ft/ftcolanim.h"
+        ],
+        "evidence_refs": [
+          "raw_diff:config/GALE01/splits.txt",
+          "raw_diff:config/GALE01/symbols.txt",
+          "raw_diff:src/melee/ft/ftcolanim.c",
+          "raw_diff:src/melee/ft/ftcolanim.h"
+        ],
+        "reason": "This is a concrete path/split ownership fact supported by the PR diff, suitable for curator review before promoting into path facts."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "ftmaterial no longer owns .sdata2 range 0x804D8C20-0x804D8C28 in this split",
+        "text": "PR 2594 removed the .sdata2 range 0x804D8C20-0x804D8C28 from melee/ft/ftmaterial.c and added that range to melee/ft/ftcolanim.c in config/GALE01/splits.txt.",
+        "source_path": "config/GALE01/splits.txt",
+        "scope": [
+          "src/melee/ft/ftmaterial.c",
+          "src/melee/ft/ftcolanim.c",
+          ".sdata2"
+        ],
+        "evidence_refs": [
+          "raw_diff:config/GALE01/splits.txt"
+        ],
+        "reason": "The PR directly changes split ownership for this data range; curator should decide whether this belongs in path facts."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Use project assert macros for generated OSReport plus __assert pairs",
+        "text": "PR 2594 provides another example where raw OSReport plus __assert code in ftmaterial.c was cleaned into HSD_ASSERTREPORT with preserved line numbers and messages.",
+        "source_path": "src/melee/ft/ftmaterial.c",
+        "scope": [
+          "assert/report cleanup",
+          "generated assert expansions"
+        ],
+        "evidence_refs": [
+          "raw_diff:src/melee/ft/ftmaterial.c",
+          "decomp_standards:assert-report-macros"
+        ],
+        "reason": "This reinforces an existing standard rather than proving a new rule; route to curator only as supporting example material."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that all ftMaterial_* functions belong in ftcolanim; the diff only moves the two functions at 0x800BFD04 and 0x800BFD9C.",
+      "Do not claim the PR fully improved matching overall: the bot report shows both new matches and broken/regressed items, including matched code -480 bytes.",
+      "Do not treat the new lbl_803C69D0 and string labels as semantically named data; the PR uses address-style labels and provides no semantic names.",
+      "Do not infer reviewer intent or human approval rationale; no review comments were loaded."
+    ]
+  },
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

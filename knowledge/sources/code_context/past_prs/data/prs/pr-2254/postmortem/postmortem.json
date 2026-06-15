@@ -11,63 +11,163 @@
     "merged_at": "2026-03-10T15:18:22Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Decompiled and matched two ftPopo SpecialS/SpecialHi air physics functions: ftPp_SpecialAirHiStart_1_Phys and ftPp_SpecialAirHiThrow_1_Phys. The implementations share the same air-fall pattern: get Fighter and ftIceClimberAttributes, preserve stack shape with PAD_STACK(8), call ftCommon_Fall using newly named attributes xA8 and xAC, then call ftCommon_8007CEF4 when vertical velocity is negative. The PR also refined ftIceClimberAttributes by replacing padding at 0xA8-0xB0 with two float fields.",
+  "intake_role": "pr_intake",
+  "summary": "Matched two ftPopo SpecialS air physics functions by replacing placeholder markers with C implementations and exposing two ftIceClimberAttributes float fields used by ftCommon_Fall.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
+      "fighter",
       "decomp-matching",
-      "fighter-physics",
       "headers",
-      "struct-layout"
+      "typed-fields"
     ],
     "systems": [
-      "fighter",
       "ftPopo",
-      "Ice Climbers",
-      "SpecialS"
+      "fighter",
+      "SpecialS physics"
     ]
   },
   "key_files": [
-    "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
-    "src/melee/ft/chara/ftPopo/types.h"
+    {
+      "path": "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
+      "role": "Replaced placeholder markers for ftPp_SpecialAirHiStart_1_Phys and ftPp_SpecialAirHiThrow_1_Phys with matching C implementations.",
+      "evidence_refs": [
+        "changed_files.jsonl: ftPp_SpecialS.c added 20 deleted 2 in 2 hunks",
+        "raw_diff: ftPp_SpecialAirHiStart_1_Phys implementation",
+        "raw_diff: ftPp_SpecialAirHiThrow_1_Phys implementation",
+        "human_pr_text: Summary claims both functions decompiled at 100% match",
+        "text_corpus: decomp-dev bot reports 2 new matches, +84 bytes each, 0.00% to 100.00%"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftPopo/types.h",
+      "role": "Refined ftIceClimberAttributes layout by replacing padding from 0xA8 to 0xB0 with float fields xA8 and xAC.",
+      "evidence_refs": [
+        "changed_files.jsonl: types.h added 2 deleted 1 in 1 hunk",
+        "raw_diff: ftIceClimberAttributes changes _A8 padding to float xA8 and float xAC"
+      ]
+    }
   ],
   "what_changed": [
-    "Replaced the nonmatching marker for ftPp_SpecialAirHiStart_1_Phys with a C implementation.",
-    "Replaced the nonmatching marker for ftPp_SpecialAirHiThrow_1_Phys with a C implementation.",
-    "Both newly matched physics functions call ftCommon_Fall(fp, da->xA8, da->xAC).",
-    "Both functions check fp->self_vel.y < 0.0f and call ftCommon_8007CEF4(fp) when falling downward.",
-    "types.h changed ftIceClimberAttributes padding at offsets 0xA8 and 0xAC into explicit float fields xA8 and xAC.",
-    "The PR body reports a clean ninja build and fuzzy_match_percent 100.0 for all functions."
+    {
+      "text": "Added ftPp_SpecialAirHiStart_1_Phys. It loads Fighter from gobj->user_data, loads ftIceClimberAttributes from fp->dat_attrs, applies PAD_STACK(8), calls ftCommon_Fall(fp, da->xA8, da->xAC), and calls ftCommon_8007CEF4(fp) if fp->self_vel.y is below 0.0f.",
+      "evidence_refs": [
+        "raw_diff: ftPp_SpecialAirHiStart_1_Phys"
+      ]
+    },
+    {
+      "text": "Added ftPp_SpecialAirHiThrow_1_Phys with the same fall/negative-y handling, but obtains Fighter via GET_FIGHTER(gobj).",
+      "evidence_refs": [
+        "raw_diff: ftPp_SpecialAirHiThrow_1_Phys"
+      ]
+    },
+    {
+      "text": "Updated ftIceClimberAttributes so offsets 0xA8 and 0xAC are represented as floats xA8 and xAC instead of opaque padding.",
+      "evidence_refs": [
+        "raw_diff: types.h hunk"
+      ]
+    },
+    {
+      "text": "PR body and bot report both claim the two functions reached 100% match; bot report lists +168 matched code bytes total.",
+      "evidence_refs": [
+        "human_pr_text: Verification",
+        "text_corpus: decomp-dev bot issue comment"
+      ]
+    }
   ],
   "smart_moves": [
-    "Identified that the two air physics functions are structurally identical except for fighter access style in the diff: ftPp_SpecialAirHiStart_1_Phys uses gobj->user_data while ftPp_SpecialAirHiThrow_1_Phys uses GET_FIGHTER(gobj).",
-    "Promoted previously opaque ftIceClimberAttributes padding into float fields only where needed by matched code, preserving the rest of the unknown struct layout.",
-    "Used PAD_STACK(8) in both functions, indicating attention to stack layout required for matching rather than only source-level behavior.",
-    "Reused common fighter physics helpers instead of open-coding gravity/fall behavior: ftCommon_Fall and ftCommon_8007CEF4."
+    {
+      "text": "Recovered attribute fields before using them in the matched functions, avoiding raw offset reads for the ftCommon_Fall parameters.",
+      "evidence_refs": [
+        "raw_diff: types.h xA8/xAC fields",
+        "raw_diff: ftCommon_Fall(fp, da->xA8, da->xAC)"
+      ]
+    },
+    {
+      "text": "Kept the two very similar air physics functions close in structure while preserving the observed Fighter access difference: direct gobj->user_data in Start and GET_FIGHTER(gobj) in Throw.",
+      "evidence_refs": [
+        "raw_diff: Fighter* fp = gobj->user_data",
+        "raw_diff: Fighter* fp = GET_FIGHTER(gobj)"
+      ]
+    }
   ],
   "decomp_lessons": [
-    "When an air physics function calls ftCommon_Fall with fighter-specific attributes, previously unknown attribute bytes may need to be split into float fields rather than left as padding.",
-    "Matching small fighter physics functions can depend on preserving otherwise semantically irrelevant stack padding with PAD_STACK.",
-    "Nearby ground and air variants can provide the control-flow template for matching related action-state physics callbacks.",
-    "Do not over-name newly exposed attribute fields without stronger semantic evidence; this PR kept them as offset-style names xA8 and xAC."
+    {
+      "lesson": "When a matched fighter physics function consumes character-attribute values, refine the character attributes struct to typed float fields rather than leaving the bytes as padding or using raw offsets.",
+      "scope": [
+        "fighter attribute structs",
+        "ftPopo",
+        "physics functions"
+      ],
+      "evidence_refs": [
+        "raw_diff: ftIceClimberAttributes xA8/xAC",
+        "raw_diff: ftCommon_Fall(fp, da->xA8, da->xAC)",
+        "decomp_standards: typed-fields-over-pointer-math"
+      ],
+      "confidence": 0.86
+    },
+    {
+      "lesson": "For ftPopo SpecialAirHi Start/Throw physics in this slice, the matched source pattern is ftCommon_Fall followed by a negative vertical velocity check that calls ftCommon_8007CEF4.",
+      "scope": [
+        "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
+        "ftPp_SpecialAirHiStart_1_Phys",
+        "ftPp_SpecialAirHiThrow_1_Phys"
+      ],
+      "evidence_refs": [
+        "raw_diff: both function bodies",
+        "text_corpus: bot reports both functions at 100.00%"
+      ],
+      "confidence": 0.9
+    }
   ],
   "naming_conventions": [
-    "Kept ftIceClimberAttributes fields as offset-based names xA8 and xAC because their precise semantic names were not established in the PR evidence.",
-    "Function names follow the existing ftPp action callback convention: ftPp_SpecialAirHiStart_1_Phys and ftPp_SpecialAirHiThrow_1_Phys.",
-    "The struct type remains character-specific as ftIceClimberAttributes."
+    {
+      "name": "fp",
+      "meaning": "local Fighter pointer",
+      "evidence_refs": [
+        "raw_diff: Fighter* fp declarations in both functions",
+        "decomp_standards: conservative-naming allows short local role names such as fp when roles are clear"
+      ]
+    },
+    {
+      "name": "da",
+      "meaning": "local ftIceClimberAttributes pointer from fp->dat_attrs",
+      "evidence_refs": [
+        "raw_diff: ftIceClimberAttributes* da = fp->dat_attrs"
+      ]
+    },
+    {
+      "name": "xA8 / xAC",
+      "meaning": "offset-based ftIceClimberAttributes float field names; semantic purpose is not proven by the PR slice",
+      "evidence_refs": [
+        "raw_diff: types.h adds float xA8 and float xAC",
+        "raw_diff: fields passed to ftCommon_Fall"
+      ]
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Inserted PAD_STACK(8) in both matched functions to satisfy stack-sensitive matching.",
-    "Used ftCommon_Fall(fp, da->xA8, da->xAC) as the core physics call.",
-    "Used a signed float comparison against 0.0f on fp->self_vel.y before calling ftCommon_8007CEF4(fp).",
-    "Matched both functions to 100.0 fuzzy match according to the PR summary."
+    {
+      "tactic": "PAD_STACK(8) was inserted in both newly matched functions.",
+      "evidence_refs": [
+        "raw_diff: PAD_STACK(8) in ftPp_SpecialAirHiStart_1_Phys",
+        "raw_diff: PAD_STACK(8) in ftPp_SpecialAirHiThrow_1_Phys",
+        "human_pr_text: fuzzy_match_percent 100.0",
+        "text_corpus: bot report shows both functions 100.00%"
+      ],
+      "notes": "The slice supports that PAD_STACK(8) was used in matched functions, but it does not explain why the stack padding was necessary beyond the reported match."
+    },
+    {
+      "tactic": "Used typed struct fields for attribute loads needed by ftCommon_Fall.",
+      "evidence_refs": [
+        "raw_diff: types.h xA8/xAC",
+        "raw_diff: ftCommon_Fall calls"
+      ],
+      "notes": "Consistent with the loaded typed-fields-over-pointer-math standard."
+    }
   ],
-  "review_feedback": [
-    "No review comments were present in the provided PR slice.",
-    "The only human-text verification evidence says ninja builds clean and fuzzy_match_percent is 100.0 for all functions."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
-    "pr-2254",
+    "PR2254",
     "ftPopo",
     "ftPp_SpecialS.c",
     "ftPp_SpecialAirHiStart_1_Phys",
@@ -75,31 +175,106 @@
     "ftIceClimberAttributes",
     "xA8",
     "xAC",
-    "PAD_STACK(8)",
     "ftCommon_Fall",
     "ftCommon_8007CEF4",
-    "self_vel.y",
+    "PAD_STACK(8)",
     "GET_FIGHTER",
     "gobj->user_data",
-    "SpecialS",
-    "SpecialAirHi",
-    "Ice Climbers",
-    "fighter physics",
-    "fuzzy_match_percent 100.0"
+    "self_vel.y",
+    "SpecialS physics"
   ],
   "follow_up_queries": [
-    "Find other ftIceClimberAttributes users of xA8 and xAC to infer semantic names for these float fields.",
-    "Search for other fighter air physics functions using ftCommon_Fall followed by ftCommon_8007CEF4 when self_vel.y is negative.",
-    "Compare Popo and Nana SpecialAirHi physics callbacks for equivalent struct field usage and naming opportunities.",
-    "Check whether GET_FIGHTER versus gobj->user_data is required for matching in nearby ftPopo functions or was inherited from local style."
+    "ftIceClimberAttributes xA8 xAC ftCommon_Fall",
+    "ftPp_SpecialAirHiStart_1_Phys PAD_STACK",
+    "ftPp_SpecialAirHiThrow_1_Phys GET_FIGHTER",
+    "ftPopo SpecialS air physics self_vel.y ftCommon_8007CEF4",
+    "ftIceClimberAttributes padding _A8 xB0"
   ],
-  "confidence": 0.91,
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json: PR identity, state, timestamps, changed files",
+      "human_pr_text: summary and verification",
+      "raw_diff: complete 1622-byte diff",
+      "text_corpus: decomp-dev bot report with two new 100.00% matches"
+    ],
+    "notes": [
+      "No review comments were present, so reviewer feedback and reviewer intent cannot be extracted.",
+      "The PR body states ninja builds clean and fuzzy_match_percent 100.0; the bot report independently lists the two functions as 100.00%, but the slice does not include objdiff logs or build output.",
+      "The PR body says it was generated with Claude Code; intake treats the submitted diff and reports as evidence, not the generator as authority.",
+      "Semantic names for xA8 and xAC are not supported by the slice; only their type, offsets, and use as ftCommon_Fall arguments are evidenced."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "kind": "decomp_lesson",
+        "title": "Expose typed fighter attribute fields when a matched function uses them",
+        "text": "In PR #2254, ftIceClimberAttributes padding at 0xA8-0xB0 was replaced with float xA8 and float xAC so the matched ftPopo SpecialAirHi physics functions could call ftCommon_Fall(fp, da->xA8, da->xAC) without raw offset access.",
+        "scope": [
+          "fighter attribute structs",
+          "ftPopo",
+          "physics matching"
+        ],
+        "evidence_refs": [
+          "raw_diff: types.h hunk",
+          "raw_diff: ftPp_SpecialAirHiStart_1_Phys",
+          "raw_diff: ftPp_SpecialAirHiThrow_1_Phys",
+          "text_corpus: bot report"
+        ],
+        "confidence": 0.86
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "ssbm_data_sheet",
+        "update_kind": "source_update",
+        "title": "ftIceClimberAttributes xA8 and xAC are floats used by ftPopo SpecialAirHi physics",
+        "text": "PR #2254 changed ftIceClimberAttributes by replacing padding from 0xA8 to 0xB0 with float xA8 and float xAC. Both newly matched ftPp_SpecialAirHiStart_1_Phys and ftPp_SpecialAirHiThrow_1_Phys pass these fields as the second and third arguments to ftCommon_Fall.",
+        "source_path": "src/melee/ft/chara/ftPopo/types.h",
+        "scope": [
+          "ftIceClimberAttributes",
+          "ftPopo",
+          "SpecialAirHi physics"
+        ],
+        "evidence_refs": [
+          "raw_diff: types.h hunk",
+          "raw_diff: ftCommon_Fall(fp, da->xA8, da->xAC)"
+        ],
+        "reason": "Potential data-sheet update for recovered ftIceClimberAttributes field types and observed use; semantic names are not proven by this PR slice."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "ftPopo SpecialS source contains matched SpecialAirHi Start/Throw physics functions",
+        "text": "PR #2254 matched ftPp_SpecialAirHiStart_1_Phys and ftPp_SpecialAirHiThrow_1_Phys in src/melee/ft/chara/ftPopo/ftPp_SpecialS.c. The bot report lists both as new 100.00% matches, +84 bytes each.",
+        "source_path": "src/melee/ft/chara/ftPopo/ftPp_SpecialS.c",
+        "scope": [
+          "ftPopo",
+          "ftPp_SpecialS.c",
+          "matched functions"
+        ],
+        "evidence_refs": [
+          "human_pr_text: Summary",
+          "text_corpus: decomp-dev bot report",
+          "raw_diff: function implementations"
+        ],
+        "reason": "Useful path-level matching fact for future searches; curator should decide whether path_facts tracks historical PR match status."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer semantic meanings for xA8 or xAC beyond typed float fields used as ftCommon_Fall arguments.",
+      "Do not promote PAD_STACK(8) as a general recommended tactic from this PR alone; the slice shows use plus match reports but no rationale or adjacent regression analysis.",
+      "Do not infer reviewer approval rationale because there were no review comments or reviews in the loaded slice."
+    ]
+  },
+  "confidence": 0.88,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

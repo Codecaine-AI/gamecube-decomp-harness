@@ -12,119 +12,120 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR 2520 linked the item translation unit `itmasterhandlaser` by changing its configure entry from `NonMatching` to `Matching` and adding a one-entry `ItemStateTable` definition in `src/melee/it/items/itmasterhandlaser.c`. The bot report recorded one new `.data` match for `main/melee/it/items/itmasterhandlaser`, with linked code and linked data progress.",
+  "summary": "PR 2520 linked the item translation unit melee/it/items/itmasterhandlaser.c by adding its ItemStateTable data definition and changing configure.py from NonMatching to Matching for that object. The only comment is an automated GALE01 report showing linked-code progress and one new .data match for main/melee/it/items/itmasterhandlaser.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "object-linking",
-      "data-match",
-      "configure-update"
+      "decomp-matching",
+      "data-definition",
+      "build-configuration"
     ],
     "systems": [
       "item",
-      "masterhand",
-      "build-config"
+      "masterhandlaser",
+      "configure"
     ]
   },
   "key_files": [
     {
-      "path": "configure.py",
-      "role": "Build configuration updated so `melee/it/items/itmasterhandlaser.c` is treated as `Matching` instead of `NonMatching`.",
+      "path": "src/melee/it/items/itmasterhandlaser.c",
+      "role": "Added ItemStateTable it_803F9378 with motion 0 anim/phys/coll callbacks for the Master Hand laser item TU.",
       "evidence_refs": [
-        "raw_diff: configure.py hunk changes Object(NonMatching, \"melee/it/items/itmasterhandlaser.c\") to Object(Matching, \"melee/it/items/itmasterhandlaser.c\")",
-        "changed_files: configure.py added 1 deleted 1"
+        "raw_diff: src/melee/it/items/itmasterhandlaser.c hunk",
+        "changed_files: src/melee/it/items/itmasterhandlaser.c added 9 deleted 0"
       ]
     },
     {
-      "path": "src/melee/it/items/itmasterhandlaser.c",
-      "role": "Item source gained the missing `ItemStateTable it_803F9378[]` data definition for the laser item state callbacks.",
+      "path": "configure.py",
+      "role": "Changed the itmasterhandlaser object from NonMatching to Matching in MatchingFor.",
       "evidence_refs": [
-        "raw_diff: itmasterhandlaser.c adds ItemStateTable it_803F9378[] with Anim/Phys/Coll callbacks",
-        "changed_files: src/melee/it/items/itmasterhandlaser.c added 9 deleted 0",
-        "bot_report: one new match for main/melee/it/items/itmasterhandlaser .data +16, 0.00% to 100.00%"
+        "raw_diff: configure.py hunk around Object(NonMatching/Matching, \"melee/it/items/itmasterhandlaser.c\")",
+        "changed_files: configure.py added 1 deleted 1"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "`melee/it/items/itmasterhandlaser.c` was promoted from `NonMatching` to `Matching` in `configure.py`.",
+      "text": "Added a global ItemStateTable named it_803F9378 containing one state entry with state id 0 and callbacks itMasterhandlaser_UnkMotion0_Anim, itMasterhandlaser_UnkMotion0_Phys, and itMasterhandlaser_UnkMotion0_Coll.",
+      "evidence_refs": [
+        "raw_diff: src/melee/it/items/itmasterhandlaser.c"
+      ]
+    },
+    {
+      "text": "Updated configure.py so melee/it/items/itmasterhandlaser.c is built as Matching instead of NonMatching.",
       "evidence_refs": [
         "raw_diff: configure.py"
       ]
     },
     {
-      "text": "A global `ItemStateTable it_803F9378[]` was added with one state entry: state id `0`, `itMasterhandlaser_UnkMotion0_Anim`, `itMasterhandlaser_UnkMotion0_Phys`, and `itMasterhandlaser_UnkMotion0_Coll`.",
+      "text": "Automated report recorded one new match for main/melee/it/items/itmasterhandlaser .data, increasing that unit's .data from 0.00% to 100.00%.",
       "evidence_refs": [
-        "raw_diff: src/melee/it/items/itmasterhandlaser.c"
-      ]
-    },
-    {
-      "text": "The automated report recorded one new `.data` match for `main/melee/it/items/itmasterhandlaser`, increasing that unit's `.data` from 0.00% to 100.00%.",
-      "evidence_refs": [
-        "text_corpus: decomp-dev[bot] issue comment at 2026-05-22T18:56:53Z"
+        "text_corpus: decomp-dev[bot] issue_comment 2026-05-22T18:56:53Z"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "The PR kept the scope narrow: one source data definition plus the corresponding configure classification change.",
+      "text": "Kept the code change small and tied the configure.py matching flip to the missing item state table data for the same TU.",
       "evidence_refs": [
-        "changed_files: two files changed",
-        "raw_diff: only ItemStateTable addition and Matching/NonMatching flip"
-      ]
-    },
-    {
-      "text": "The added table uses existing local callback symbols rather than inventing new helper code.",
-      "evidence_refs": [
-        "raw_diff: table entries reference itMasterhandlaser_UnkMotion0_Anim, _Phys, and _Coll"
+        "raw_diff",
+        "changed_files"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For item object linking, a missing `ItemStateTable` data definition can be the remaining blocker for matching a translation unit's data and enabling the object to be marked `Matching`.",
+      "text": "For an item TU that is otherwise ready to link, a missing ItemStateTable definition can be the final required data-side piece before changing the object from NonMatching to Matching. In this PR, adding it_803F9378 immediately accompanied the configure.py Matching flip and the bot reported the TU's .data as newly matched.",
       "scope": [
-        "src/melee/it/items",
-        "ItemStateTable",
-        "configure.py MatchingFor"
+        "src/melee/it/items/itmasterhandlaser.c",
+        "configure.py"
       ],
       "evidence_refs": [
-        "raw_diff: ItemStateTable it_803F9378[] added",
-        "raw_diff: configure.py changes itmasterhandlaser.c from NonMatching to Matching",
-        "bot_report: one new .data match for main/melee/it/items/itmasterhandlaser"
-      ],
-      "confidence": 0.78
+        "raw_diff",
+        "text_corpus: decomp-dev[bot] report"
+      ]
     }
   ],
   "naming_conventions": [
     {
-      "text": "The global table kept an address-style data name, `it_803F9378`, while callbacks retained the existing item-prefixed names `itMasterhandlaser_UnkMotion0_Anim`, `itMasterhandlaser_UnkMotion0_Phys`, and `itMasterhandlaser_UnkMotion0_Coll`.",
+      "text": "The added item state table uses an address-style global name, it_803F9378, rather than a semantic name; the PR evidence does not justify a rename.",
       "evidence_refs": [
-        "raw_diff: src/melee/it/items/itmasterhandlaser.c"
-      ],
-      "related_standard": "conservative-naming"
+        "raw_diff: ItemStateTable it_803F9378[]"
+      ]
+    },
+    {
+      "text": "The callback names follow the existing itMasterhandlaser_UnkMotion0_Anim/Phys/Coll pattern visible in the added table.",
+      "evidence_refs": [
+        "raw_diff: ItemStateTable initializer"
+      ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "text": "Data matching tactic: define the item state table in source with the expected callback order, then flip the object classification to `Matching` after the report confirms the `.data` unit match.",
+      "text": "Matching tactic was data completion plus configure classification: add the missing ItemStateTable and then mark the object Matching.",
       "evidence_refs": [
-        "raw_diff: ItemStateTable addition",
-        "raw_diff: configure.py Matching classification",
-        "bot_report: .data +16, 0.00% to 100.00%"
-      ],
-      "caveat": "The PR slice does not include objdiff details or a human explanation, so the exact validation steps beyond the bot report are not available."
+        "raw_diff",
+        "text_corpus: automated GALE01 report"
+      ]
     }
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    {
+      "author": "decomp-dev[bot]",
+      "kind": "automated_report",
+      "text": "GALE01 report showed linked code +0.05% (+1952 bytes), matched data +16 bytes, linked data +56 bytes, and one new .data match for main/melee/it/items/itmasterhandlaser.",
+      "evidence_refs": [
+        "text_corpus: issue_comment https://github.com/doldecomp/melee/pull/2520#issuecomment-4521920747"
+      ]
+    }
+  ],
   "searchable_terms": [
-    "pr-2520",
+    "PR2520",
     "Link itmasterhandlaser",
     "MarioLover63",
     "itmasterhandlaser",
     "src/melee/it/items/itmasterhandlaser.c",
     "configure.py",
-    "MatchingFor",
     "Object(Matching)",
     "Object(NonMatching)",
     "ItemStateTable",
@@ -138,83 +139,64 @@
   ],
   "follow_up_queries": [
     "it_803F9378 ItemStateTable",
-    "itmasterhandlaser ItemStateTable",
-    "Object(Matching) melee/it/items/itmasterhandlaser.c",
-    "main/melee/it/items/itmasterhandlaser .data",
-    "itMasterhandlaser_UnkMotion0_Anim Phys Coll"
+    "itmasterhandlaser Matching configure.py",
+    "itMasterhandlaser_UnkMotion0_Anim Phys Coll",
+    "main/melee/it/items/itmasterhandlaser .data 100.00%",
+    "item state table missing data matching flip"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR 2520 title/state/author/timestamps and changed files",
-      "raw_diff: full diff for configure.py and itmasterhandlaser.c",
-      "text_corpus: empty PR body and decomp-dev bot report",
-      "changed_files: two changed files with line counts"
+      "metadata_json",
+      "raw_diff",
+      "changed_files",
+      "text_corpus"
     ],
     "notes": [
-      "Strong evidence for the exact file changes and bot-reported `.data` match.",
-      "No human PR body, review comments, or review approvals were present in the loaded slice.",
-      "No objdiff, build log, or local verifier output is included beyond the automated GitHub bot report.",
-      "The slice supports a narrow lesson about adding the item state table and linking this object; broader claims about all item files or author intent would be unsupported."
+      "PR body is empty and there are no human review comments.",
+      "The diff is small and direct, so changed files and added symbols are well supported.",
+      "The automated report supports matching impact, but the slice does not include build logs, objdiff details, or author explanation.",
+      "No reviewer intent or broader naming standard can be inferred from this PR alone."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson_candidate",
-        "title": "Missing item state table can block item TU data matching",
-        "text": "PR 2520 matched/linked `itmasterhandlaser` by adding `ItemStateTable it_803F9378[]` with the existing Anim/Phys/Coll callbacks and changing `configure.py` from `Object(NonMatching, \"melee/it/items/itmasterhandlaser.c\")` to `Object(Matching, \"melee/it/items/itmasterhandlaser.c\")`. The bot report showed one new `.data` match for `main/melee/it/items/itmasterhandlaser`.",
+        "type": "pr_specific_decomp_lesson",
+        "title": "itmasterhandlaser linked by adding its item state table",
+        "text": "PR 2520 shows a focused item TU link: add ItemStateTable it_803F9378 with the Master Hand laser motion callbacks, then change melee/it/items/itmasterhandlaser.c from NonMatching to Matching in configure.py. The bot report recorded one new .data match for main/melee/it/items/itmasterhandlaser.",
         "scope": [
           "src/melee/it/items/itmasterhandlaser.c",
-          "configure.py",
-          "ItemStateTable"
+          "configure.py"
         ],
         "evidence_refs": [
           "raw_diff",
           "text_corpus: decomp-dev[bot] report"
-        ],
-        "confidence": 0.78
+        ]
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "`itmasterhandlaser.c` was marked Matching in PR 2520",
-        "text": "PR 2520 changed `configure.py` so `melee/it/items/itmasterhandlaser.c` is listed as `Object(Matching, ...)` instead of `Object(NonMatching, ...)`.",
+        "title": "itmasterhandlaser item TU marked Matching in PR 2520",
+        "text": "PR 2520 changed configure.py so melee/it/items/itmasterhandlaser.c is listed as Object(Matching, ...) instead of Object(NonMatching, ...), after adding ItemStateTable it_803F9378 in src/melee/it/items/itmasterhandlaser.c.",
         "source_path": "configure.py",
         "scope": [
           "melee/it/items/itmasterhandlaser.c",
-          "MatchingFor"
+          "src/melee/it/items/itmasterhandlaser.c"
         ],
         "evidence_refs": [
-          "raw_diff: configure.py hunk"
+          "raw_diff: configure.py",
+          "raw_diff: src/melee/it/items/itmasterhandlaser.c"
         ],
-        "reason": "Potential path fact for object matching status history; curator should verify against current source before promoting."
-      },
-      {
-        "target_source_id": "ssbm_data_sheet",
-        "update_kind": "source_update",
-        "title": "Item state table symbol for Master Hand laser",
-        "text": "`src/melee/it/items/itmasterhandlaser.c` added `ItemStateTable it_803F9378[]` with one entry using `itMasterhandlaser_UnkMotion0_Anim`, `itMasterhandlaser_UnkMotion0_Phys`, and `itMasterhandlaser_UnkMotion0_Coll`.",
-        "source_path": "src/melee/it/items/itmasterhandlaser.c",
-        "scope": [
-          "item",
-          "masterhandlaser",
-          "ItemStateTable",
-          "it_803F9378"
-        ],
-        "evidence_refs": [
-          "raw_diff: src/melee/it/items/itmasterhandlaser.c hunk",
-          "bot_report: .data +16 match for main/melee/it/items/itmasterhandlaser"
-        ],
-        "reason": "Potential data-sheet update for item state table ownership and callback layout; curator should confirm against current symbols/source."
+        "reason": "May be useful as a path/status fact, but should be curated against current configure.py before promotion."
       }
     ],
     "rejection_notes": [
-      "Do not infer that any text functions in `itmasterhandlaser.c` newly matched; the bot excerpt only names a `.data` unit match.",
-      "Do not infer reviewer intent or human acceptance rationale; no review comments were loaded.",
-      "Do not generalize the address-style name `it_803F9378` into a naming standard beyond this observed symbol."
+      "Do not infer that every item Matching flip should add an ItemStateTable; this PR only demonstrates that for itmasterhandlaser.",
+      "Do not rename it_803F9378 from this PR evidence; the diff keeps the address-style name and provides no semantic naming rationale.",
+      "Do not claim human review approval beyond merge status; the slice contains no human review comments."
     ]
   },
   "confidence": 0.82,
@@ -224,6 +206,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

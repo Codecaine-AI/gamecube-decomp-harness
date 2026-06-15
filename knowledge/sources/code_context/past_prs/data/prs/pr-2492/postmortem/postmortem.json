@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2492 adjusted Crazy Hand init command dispatch in `ftCh_Init_80156AD8`: it removed a `btn_pressed` inline helper, introduced a local macro for `HSD_PadMasterStatus[3].button`, cached the L-button mask check, corrected A/Z command mappings, and replaced inline `0`/`2` float literals with declared `ftCh_Init_804DA05C` and `ftCh_Init_804DA060` externs. The PR reported improved checkdiff score but explicitly did not claim a byte match; it was closed unmerged after a comment that the work was already done elsewhere.",
+  "summary": "Closed, unmerged PR improving Crazy Hand's human command dispatcher function ftCh_Init_80156AD8. The diff replaces a btn_pressed inline helper with a local buttons macro plus cached L-button test, swaps several A/Z command mappings, replaces inline 0 and 2 float literals with ftCh_Init_804DA05C and ftCh_Init_804DA060 externs, and exposes those externs in ftCh_Init.h. The PR body reports checkdiff improvement to 98.99317% and a successful configure+ninja build, but explicitly says the function remains unmatched with remaining pad-word register allocation drift. A later issue comment says the work was already done elsewhere.",
   "change_classification": {
     "primary_type": "decomp-matching cleanup",
     "categories": [
@@ -20,348 +20,294 @@
       "decomp-matching",
       "fighter",
       "headers",
-      "input-dispatch"
+      "button-dispatch"
     ],
     "systems": [
       "fighter",
-      "ftCrazyHand",
-      "Crazy Hand init"
+      "ftCrazyHand"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ft/chara/ftCrazyHand/ftCh_Init.c",
-      "role": "Updated `ftCh_Init_80156AD8` command-dispatch source shape, button-mask checks, A/Z mapping, and float constant uses.",
+      "role": "Main implementation change for ftCh_Init_80156AD8 command dispatch, button-mask checks, A/Z mapping, and float constant uses.",
       "evidence_refs": [
-        "changed_files: ftCh_Init.c +35/-37, 1 hunk",
-        "raw_diff: `btn_pressed` removed; `#define buttons (HSD_PadMasterStatus[3].button)` added; `l_pressed` cache added",
-        "raw_diff: A/Z command branches swapped relative to previous source",
-        "pr_body: describes fixing human command dispatcher button mapping and caching L-button check"
+        "changed_files: ftCh_Init.c added 35 deleted 37 hunk 1",
+        "raw_diff: ftCh_Init_80156AD8 hunk",
+        "pr_body: improves ftCh_Init_80156AD8 and describes button mapping, L-button caching, named zero/two float constants"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftCrazyHand/ftCh_Init.h",
-      "role": "Declared two float symbols used by the revised command dispatcher.",
+      "role": "Header declaration surface for ftCh_Init_804DA05C and ftCh_Init_804DA060 extern float constants.",
       "evidence_refs": [
-        "changed_files: ftCh_Init.h +3/-0, 1 hunk",
-        "raw_diff: adds `extern f32 ftCh_Init_804DA05C;` and `extern f32 ftCh_Init_804DA060;`",
-        "pr_body: describes naming zero/two float constants used by Vec3 setup and random range math"
+        "changed_files: ftCh_Init.h added 3 deleted 0 hunk 1",
+        "raw_diff: added extern f32 ftCh_Init_804DA05C and ftCh_Init_804DA060"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Removed the local `btn_pressed(u32 mask)` inline helper and replaced repeated helper calls with direct checks against a `buttons` macro bound to `HSD_PadMasterStatus[3].button`.",
+      "text": "Removed static inline btn_pressed(u32 mask) and introduced a local buttons macro for HSD_PadMasterStatus[3].button, scoped around ftCh_Init_80156AD8 and undefined afterward.",
       "evidence_refs": [
-        "raw_diff: removed `static inline u32 btn_pressed(u32 mask)`",
-        "raw_diff: added `#define buttons (HSD_PadMasterStatus[3].button)` and `#undef buttons`"
+        "raw_diff: removal of btn_pressed and addition of #define buttons/#undef buttons"
       ]
     },
     {
-      "text": "Cached `buttons & HSD_PAD_L` in `u32 l_pressed` and reused it across the L+DPad command branches.",
+      "text": "Cached the L-button mask test in u32 l_pressed and reused it for the L + D-pad command branches.",
       "evidence_refs": [
-        "raw_diff: added `u32 l_pressed = buttons & HSD_PAD_L;`",
-        "pr_body: says this caches the L-button check in the same style as the matched Master Hand dispatcher"
+        "raw_diff: u32 l_pressed = buttons & HSD_PAD_L",
+        "pr_body: caching the L-button check in the same style as the matched Master Hand dispatcher"
       ]
     },
     {
-      "text": "Changed several dispatcher conditionals from helper calls to direct mask expressions such as `(buttons & HSD_PAD_R) && (buttons & HSD_PAD_DPADUP)`.",
+      "text": "Changed Crazy Hand dispatcher button mapping so BackAirplane2/BackAirplane3 use Z + D-pad up/right, while ftCh_Init_801597F0 and ftCh_Init_80159F40 branches use A + D-pad directions.",
       "evidence_refs": [
-        "raw_diff: branch conditions throughout `ftCh_Init_80156AD8` changed from `btn_pressed(...)` to direct `buttons & ...` checks"
+        "raw_diff: HSD_PAD_A branches changed to HSD_PAD_Z for BackAirplane2/3",
+        "raw_diff: HSD_PAD_Z branches changed to HSD_PAD_A for ftCh_Init_801597F0 and ftCh_Init_80159F40",
+        "pr_body: fixing the human command dispatcher button mapping"
       ]
     },
     {
-      "text": "Corrected the documented human command dispatcher mapping by swapping affected A-button and Z-button DPad branches: BackAirplane branches moved to Z, while `ftCh_Init_801597F0`/`ftCh_Init_80159F40` branches moved to A.",
+      "text": "Replaced repeated pos.z = 0 assignments with pos.z = ftCh_Init_804DA05C and replaced random range multiplier 2 with ftCh_Init_804DA060.",
       "evidence_refs": [
-        "raw_diff: `HSD_PAD_A` BackAirplane branches changed to `HSD_PAD_Z`",
-        "raw_diff: `HSD_PAD_Z` calls to `ftCh_Init_801597F0`/`ftCh_Init_80159F40` changed to `HSD_PAD_A`",
-        "pr_body: says it fixes the human command dispatcher button mapping"
+        "raw_diff: pos.z replacements with ftCh_Init_804DA05C",
+        "raw_diff: da->x90/x94 random expressions use ftCh_Init_804DA060",
+        "pr_body: naming the zero/two float constants used by Vec3 setup and random range math"
       ]
     },
     {
-      "text": "Replaced repeated `pos.z = 0` assignments with `pos.z = ftCh_Init_804DA05C` and replaced random range multiplier `2` with `ftCh_Init_804DA060`.",
+      "text": "Added header extern declarations for ftCh_Init_804DA05C and ftCh_Init_804DA060.",
       "evidence_refs": [
-        "raw_diff: multiple `pos.z = 0` lines changed to `pos.z = ftCh_Init_804DA05C`",
-        "raw_diff: `rand * 2` changed to `rand * ftCh_Init_804DA060`",
-        "ftCh_Init.h diff: added extern declarations for both symbols"
+        "raw_diff: ftCh_Init.h extern f32 additions"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "The PR kept the score/match claim narrow: it reported improvement for `ftCh_Init_80156AD8` only and explicitly called out that the function was still not a byte match.",
+      "text": "The PR preserves an explicit remaining-drift note instead of claiming a match, identifying pad-word register allocation and derived mask temporaries as the remaining mismatch area.",
       "evidence_refs": [
-        "pr_body: checkdiff command and 98.99317% result",
-        "pr_body: known remaining drift notes full pad-word register allocation and derived mask temp registers",
-        "bot_report: `ftCh_Init_80156AD8` improved from 98.86% to 98.99%"
+        "pr_body: Known remaining drift paragraph"
       ]
     },
     {
-      "text": "The L-button cache was localized to the dispatcher and described as following a matched sibling style rather than as a broad global rule.",
+      "text": "The author reports narrow checkdiff for the touched symbol and a full configure+ninja build, which makes the claimed score improvement auditable within the PR evidence.",
       "evidence_refs": [
-        "pr_body: says caching the L-button check is in the same style as the matched Master Hand dispatcher",
-        "raw_diff: only `ftCh_Init_80156AD8` hunk changed"
+        "pr_body: checkdiff command and configure.py && ninja OK",
+        "bot_report: ftCh_Init_80156AD8 before 98.86% after 98.99%"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For similar command-dispatch ladders, a tiny source-shape change such as caching one common button mask can improve matching while preserving readable direct mask tests.",
+      "lesson": "When cleaning a command dispatcher, verify button mapping against the intended command table or sibling dispatcher before treating decompiler-style helper calls as correct.",
       "scope": [
-        "ftCrazyHand command dispatch",
-        "input-mask branch ladders"
+        "fighter command dispatch",
+        "Crazy Hand/Master Hand-style human command dispatch"
       ],
       "evidence_refs": [
-        "raw_diff: `u32 l_pressed = buttons & HSD_PAD_L;` reused across L+DPad branches",
-        "pr_body: checkdiff result 98.99317%",
-        "bot_report: score improved from 98.86% to 98.99%"
+        "pr_body: fixing the human command dispatcher button mapping",
+        "raw_diff: A and Z branch mappings swapped"
       ],
       "confidence": 0.72
     },
     {
-      "lesson": "When a dispatcher has many near-identical branches, verifying the button-to-action mapping can be part of matching cleanup, not just code style cleanup.",
+      "lesson": "For a repeated modifier-button condition, caching the shared mask result can be a matching tactic when local sibling code suggests that shape, but the PR evidence only supports this for the L-button check in ftCh_Init_80156AD8.",
       "scope": [
-        "human command dispatcher",
-        "ftCh_Init_80156AD8"
+        "ftCh_Init_80156AD8",
+        "pad button dispatch matching"
       ],
       "evidence_refs": [
-        "pr_body: says it fixes human command dispatcher button mapping",
-        "raw_diff: A/Z branch conditions changed for BackAirplane and related action branches"
+        "pr_body: caching the L-button check in the same style as the matched Master Hand dispatcher",
+        "raw_diff: l_pressed reused across L + D-pad branches"
       ],
-      "confidence": 0.68
+      "confidence": 0.66
     },
     {
-      "lesson": "Report partial matching progress honestly: include exact tool output and known remaining register/allocation drift rather than implying closure.",
+      "lesson": "Do not claim byte match from a score improvement alone; record the exact remaining mismatch area when a function remains unmatched.",
       "scope": [
-        "decomp PR reporting",
-        "partial match improvements"
+        "matching PR reporting",
+        "checkdiff score candidates"
       ],
       "evidence_refs": [
-        "pr_body: checkdiff command and percentage",
-        "pr_body: `ftCh_Init_80156AD8` is still not a byte match",
-        "pr_body: remaining drift isolated to pad-word register allocation and derived mask temp registers"
+        "pr_body: checkdiff -> 98.99317%",
+        "pr_body: function still not a byte match and remaining drift described"
       ],
       "confidence": 0.86
     }
   ],
   "naming_conventions": [
     {
-      "name": "l_pressed",
-      "kind": "local variable",
-      "convention": "Short boolean-like local naming for a cached button-mask expression.",
+      "text": "The PR uses address-style names ftCh_Init_804DA05C and ftCh_Init_804DA060 for float constants rather than semantic names, consistent with conservative naming when only address/data identity is shown.",
       "evidence_refs": [
-        "raw_diff: added `u32 l_pressed = buttons & HSD_PAD_L;`"
+        "raw_diff: ftCh_Init_804DA05C and ftCh_Init_804DA060 uses",
+        "raw_diff: ftCh_Init.h extern declarations",
+        "decomp_standards: conservative-naming"
       ],
-      "confidence": 0.7
+      "confidence": 0.68
     },
     {
-      "name": "buttons",
-      "kind": "function-local macro",
-      "convention": "Temporary macro alias for `HSD_PadMasterStatus[3].button`, scoped by immediate `#undef` after the function.",
+      "text": "Local variables use short role names fp, da, pos, rand, and l_pressed; the newly introduced l_pressed directly names the cached L-button mask result.",
       "evidence_refs": [
-        "raw_diff: `#define buttons (HSD_PadMasterStatus[3].button)` before `ftCh_Init_80156AD8`",
-        "raw_diff: `#undef buttons` after `ftCh_Init_80156AD8`"
+        "raw_diff: Fighter* fp, ftCrazyHand_DatAttrs* da, Vec3 pos, float rand, u32 l_pressed"
       ],
-      "confidence": 0.58
-    },
-    {
-      "name": "ftCh_Init_804DA05C / ftCh_Init_804DA060",
-      "kind": "extern float data symbols",
-      "convention": "Address-style names retained for float constants when no semantic name is evidenced in the PR.",
-      "evidence_refs": [
-        "raw_diff: uses `ftCh_Init_804DA05C` for zero-valued Vec3 z setup",
-        "raw_diff: uses `ftCh_Init_804DA060` for random range multiplier",
-        "ftCh_Init.h diff: extern declarations use address-style names"
-      ],
-      "confidence": 0.66
+      "confidence": 0.79
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Replace a small helper wrapper with direct access to the underlying pad word to influence register allocation and mask temps.",
+      "tactic": "Replace a small inline helper that reloads a pad word with direct macro-based access and a cached mask temp for one repeated condition.",
       "evidence_refs": [
-        "raw_diff: removed `btn_pressed` helper",
-        "raw_diff: direct `buttons & HSD_PAD_*` expressions",
-        "pr_body: remaining drift is full pad-word register allocation and derived mask temp registers"
+        "raw_diff: btn_pressed removal and buttons/l_pressed addition",
+        "pr_body: remaining drift isolated to full pad-word register allocation and derived mask temp registers"
       ],
-      "risk_or_limit": "The PR still did not byte-match; the tactic improved score but left register-allocation drift.",
-      "confidence": 0.76
+      "caveat": "The function still did not match; this should not be generalized without local sibling and objdiff evidence.",
+      "confidence": 0.71
     },
     {
-      "tactic": "Cache only the shared L-button subexpression while leaving other button branches as direct mask checks.",
+      "tactic": "Use named address-style float data for repeated zero/two constants when the PR scope and diff tie those constants to Vec3 setup and random range math.",
       "evidence_refs": [
-        "raw_diff: `l_pressed` reused for L+DPad branches only",
-        "pr_body: says this mirrors matched Master Hand dispatcher style"
+        "raw_diff: pos.z = ftCh_Init_804DA05C",
+        "raw_diff: random range multiplier ftCh_Init_804DA060",
+        "pr_body: naming the zero/two float constants"
       ],
-      "risk_or_limit": "The matched Master Hand sibling is cited by the PR body but not included in the loaded diff; do not generalize without checking the sibling source.",
-      "confidence": 0.68
-    },
-    {
-      "tactic": "Use known float data symbols for zero and two in expression sites where data ownership is presumed by the PR.",
-      "evidence_refs": [
-        "raw_diff: inline `0` and `2` replaced with `ftCh_Init_804DA05C` and `ftCh_Init_804DA060`",
-        "ftCh_Init.h diff: extern declarations added"
-      ],
-      "risk_or_limit": "Loaded evidence does not show symbol metadata or section ownership for the float constants; this should remain a PR-specific observation, not a general standard.",
-      "confidence": 0.55
+      "caveat": "Current standards warn against promoting literals to named storage without ownership evidence; this PR slice does not include section/symbol ownership proof beyond the author claim and diff.",
+      "confidence": 0.48
     }
   ],
   "review_feedback": [
     {
-      "kind": "bot_report",
       "author": "decomp-dev[bot]",
-      "text": "Automated report showed one improvement in an unmatched item: `main/melee/ft/chara/ftCrazyHand/ftCh_Init` item `ftCh_Init_80156AD8`, bytes +2, before 98.86%, after 98.99%.",
+      "kind": "automated_report",
+      "text": "Bot report showed one unmatched item improvement for main/melee/ft/chara/ftCrazyHand/ftCh_Init, item ftCh_Init_80156AD8, before 98.86% and after 98.99%, bytes +2.",
       "evidence_refs": [
-        "text_corpus issue_comment decomp-dev[bot] 2026-05-15T05:30:54Z"
+        "text_corpus: decomp-dev[bot] issue comment 2026-05-15T05:30:54Z"
       ]
     },
     {
-      "kind": "issue_comment",
       "author": "jellejurre",
-      "text": "Commented: `Already done by me`.",
+      "kind": "issue_comment",
+      "text": "Commented: Already done by me.",
       "evidence_refs": [
-        "human_pr_text issue comment",
-        "text_corpus issue_comment jellejurre 2026-05-23T18:03:21Z"
-      ]
-    },
-    {
-      "kind": "review_absence",
-      "author": null,
-      "text": "No loaded review comments or formal reviews were present in the PR slice.",
-      "evidence_refs": [
-        "metadata_json counts: review_comments 0, reviews 0"
+        "human_pr_text: jellejurre issue comment",
+        "text_corpus: issuecomment-4526148410"
       ]
     }
   ],
   "searchable_terms": [
-    "PR2492",
+    "PR 2492",
     "ftCh_Init_80156AD8",
+    "Crazy Hand init command dispatch",
     "ftCrazyHand",
-    "Crazy Hand init",
-    "human command dispatcher",
-    "HSD_PadMasterStatus",
+    "ftCh_Init.c",
+    "ftCh_Init.h",
+    "HSD_PadMasterStatus[3].button",
+    "buttons macro",
+    "l_pressed",
     "HSD_PAD_L",
     "HSD_PAD_A",
     "HSD_PAD_Z",
     "HSD_PAD_DPADUP",
-    "HSD_PAD_DPADRIGHT",
-    "HSD_PAD_DPADDOWN",
-    "HSD_PAD_DPADLEFT",
-    "buttons macro",
-    "l_pressed",
-    "btn_pressed",
     "ftCh_Init_804DA05C",
     "ftCh_Init_804DA060",
-    "ftMh_MS_BackAirplane2",
-    "ftMh_MS_BackAirplane3",
-    "ftCh_Init_801597F0",
-    "ftCh_Init_80159F40",
+    "Vec3 pos.z",
     "HSD_Randf",
     "pad-word register allocation",
-    "derived mask temp registers"
+    "r0 target vs r5 current",
+    "Master Hand dispatcher"
   ],
   "follow_up_queries": [
-    "Find the matched Master Hand dispatcher cited by PR #2492 and compare its button-mask source shape to `ftCh_Init_80156AD8`.",
-    "Search current source for `ftCh_Init_80156AD8` to determine whether jellejurre's `Already done by me` comment corresponds to an overlapping merged change.",
-    "Check symbol metadata and section ownership for `ftCh_Init_804DA05C` and `ftCh_Init_804DA060` before treating the float-symbol replacement as accepted data style.",
-    "Search other fighter command dispatchers using `HSD_PadMasterStatus[3].button` for local conventions around helper functions, macros, and cached mask checks.",
-    "Review later PRs touching `src/melee/ft/chara/ftCrazyHand/ftCh_Init.c` for final byte-match status of `ftCh_Init_80156AD8`."
+    "ftCh_Init_80156AD8 HSD_PAD_A HSD_PAD_Z command mapping",
+    "ftCh_Init_804DA05C ftCh_Init_804DA060 symbol ownership",
+    "Master Hand matched dispatcher l_pressed HSD_PadMasterStatus",
+    "Crazy Hand human command dispatcher already done by jellejurre",
+    "pad-word register allocation r0 r5 ftCh_Init_80156AD8"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR #2492 closed, merged_at null, draft true in raw PR JSON",
-      "human_pr_text: author-provided summary, verification, and known remaining drift",
-      "raw_diff: complete diff for two changed files",
-      "text_corpus: bot report and one issue comment",
-      "metadata_json counts: 0 review comments, 0 reviews"
+      "metadata_json: PR state CLOSED, merged_at null, changed_files count 2",
+      "human_pr_text: PR body with verification and remaining drift",
+      "raw_diff: complete diff excerpt for both changed files",
+      "text_corpus: bot report and issue comment"
     ],
     "notes": [
-      "The diff and PR body strongly support what was attempted and the reported matching direction.",
-      "The PR was closed without merge in the loaded metadata, so these changes should not be treated as accepted source state.",
-      "The checkdiff and build results are PR-reported; the bot report independently corroborates a score improvement but not a byte match.",
-      "The cited matched Master Hand dispatcher is not included in the loaded slice, so sibling-style claims should be verified before becoming a broader source fact.",
-      "No symbol ownership evidence for `ftCh_Init_804DA05C` or `ftCh_Init_804DA060` is loaded."
+      "The diff and PR body strongly support what changed in ftCh_Init_80156AD8 and ftCh_Init.h.",
+      "Verification is self-reported in the PR body plus bot score report; no independent build logs or objdiff output are loaded.",
+      "The PR was closed with merged_at null, so this intake must not treat the changes as accepted or landed.",
+      "The author references matched Master Hand dispatcher style, but that sibling source is not included in the loaded PR slice.",
+      "Float constant naming is visible in the diff, but section ownership or symbol metadata evidence for those constants is not included."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "pr_lesson_candidate",
-        "title": "Cache shared button-mask checks narrowly in input dispatchers when objdiff supports it",
-        "text": "In PR #2492, caching `buttons & HSD_PAD_L` as `l_pressed` inside `ftCh_Init_80156AD8` and using direct pad-word mask checks improved reported checkdiff score for the Crazy Hand command dispatcher, but did not reach a byte match.",
+        "record_type": "matching_lesson_candidate",
+        "title": "Keep score improvements honest by documenting remaining mismatch",
+        "text": "PR #2492 reports a checkdiff improvement for ftCh_Init_80156AD8 but explicitly states the function is not a byte match and names the remaining register-allocation drift. This is a useful reporting pattern for partial matching improvements.",
         "scope": [
-          "ftCrazyHand",
-          "input command dispatch",
-          "partial matching"
+          "verification reporting",
+          "partial decomp matches"
         ],
         "evidence_refs": [
-          "raw_diff: `l_pressed` cache and direct `buttons &` checks",
-          "pr_body: checkdiff 98.99317%",
-          "text_corpus bot report: 98.86% to 98.99%",
-          "pr_body: still not a byte match"
-        ],
-        "confidence": 0.74
-      },
-      {
-        "record_type": "pr_lesson_candidate",
-        "title": "Partial decomp PRs should preserve non-match and drift details",
-        "text": "This PR is a useful example of reporting partial progress with exact checkdiff command/output and explicitly documenting remaining register-allocation drift instead of claiming a match.",
-        "scope": [
-          "PR reporting",
-          "verification ledger",
-          "partial match cleanup"
-        ],
-        "evidence_refs": [
-          "pr_body: `python tools/checkdiff.py ftCh_Init_80156AD8 --no-tty --format json` -> 98.99317%",
-          "pr_body: `python configure.py && ninja` -> OK",
-          "pr_body: remaining drift isolated to pad-word register allocation and derived mask temp registers"
+          "pr_body: checkdiff -> 98.99317%",
+          "pr_body: Known remaining drift"
         ],
         "confidence": 0.86
+      },
+      {
+        "record_type": "matching_tactic_candidate",
+        "title": "Cached modifier mask in pad dispatch",
+        "text": "In ftCh_Init_80156AD8, the PR replaced repeated L-button helper calls with a cached l_pressed mask while leaving other button checks as direct pad-word masks. Treat as a narrow Crazy Hand dispatcher matching tactic, not a global style rule.",
+        "scope": [
+          "src/melee/ft/chara/ftCrazyHand/ftCh_Init.c",
+          "ftCh_Init_80156AD8"
+        ],
+        "evidence_refs": [
+          "raw_diff: l_pressed introduction and L branch rewrites",
+          "pr_body: same style as matched Master Hand dispatcher"
+        ],
+        "confidence": 0.66
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "Crazy Hand init contains human command dispatcher work around `ftCh_Init_80156AD8`",
-        "text": "`src/melee/ft/chara/ftCrazyHand/ftCh_Init.c` contains `ftCh_Init_80156AD8`, described by PR #2492 as the Crazy Hand init human command dispatcher involving `HSD_PadMasterStatus[3].button` combinations.",
-        "source_path": "src/melee/ft/chara/ftCrazyHand/ftCh_Init.c",
-        "scope": [
-          "ftCrazyHand",
-          "ftCh_Init_80156AD8",
-          "input dispatch"
-        ],
-        "evidence_refs": [
-          "pr_body: describes `ftCh_Init_80156AD8` in Crazy Hand init and human command dispatcher button mapping",
-          "raw_diff: function body checks `HSD_PadMasterStatus[3].button` against pad masks"
-        ],
-        "reason": "Potentially useful path/symbol indexing fact, but should be verified against current source because the PR was closed unmerged."
-      },
-      {
         "target_source_id": "other",
         "update_kind": "source_update",
-        "title": "Verify data ownership before documenting `ftCh_Init_804DA05C` and `ftCh_Init_804DA060`",
-        "text": "PR #2492 declared and used `ftCh_Init_804DA05C` and `ftCh_Init_804DA060` as float constants for zero Vec3 z setup and random range multiplier two, but the loaded slice does not include section/symbol ownership evidence.",
+        "title": "Investigate whether PR #2492 was superseded by another landed Crazy Hand dispatcher change",
+        "text": "PR #2492 was closed unmerged and a commenter said 'Already done by me'. Curator may want to link this PR to the later or parallel landed change if one exists.",
+        "source_path": null,
+        "scope": [
+          "past PR cross-reference",
+          "ftCrazyHand dispatcher history"
+        ],
+        "evidence_refs": [
+          "metadata_json: merged_at null",
+          "text_corpus: jellejurre issue comment Already done by me"
+        ],
+        "reason": "Avoid treating this unmerged PR as the accepted source of the dispatcher cleanup if another PR landed equivalent work."
+      },
+      {
+        "target_source_id": "ssbm_data_sheet",
+        "update_kind": "source_update",
+        "title": "Check ownership for ftCh_Init_804DA05C and ftCh_Init_804DA060",
+        "text": "The PR declares and uses ftCh_Init_804DA05C and ftCh_Init_804DA060 as float constants for zero and two, but the slice does not include symbol metadata or section ownership proof. If these symbols are real data-owned constants, data sources could record that ownership separately.",
         "source_path": "src/melee/ft/chara/ftCrazyHand/ftCh_Init.h",
         "scope": [
           "ftCrazyHand data symbols",
-          "float constants",
-          "ftCh_Init"
+          "float constants"
         ],
         "evidence_refs": [
-          "raw_diff: replacements of `0` and `2` with `ftCh_Init_804DA05C` and `ftCh_Init_804DA060`",
-          "ftCh_Init.h diff: extern declarations added",
-          "decomp_standards: literals-and-data-ownership and text-before-data-matching caution against promoting literals without ownership evidence"
+          "raw_diff: extern f32 ftCh_Init_804DA05C and ftCh_Init_804DA060",
+          "pr_body: naming the zero/two float constants"
         ],
-        "reason": "Candidate for current-source verification or data-sheet update only if symbol metadata confirms ownership; not accepted from this PR alone."
+        "reason": "Current standards require data ownership evidence before promoting literals into named storage; this PR slice alone is insufficient."
       }
     ],
     "rejection_notes": [
-      "Do not mark `ftCh_Init_80156AD8` as matched from this PR; the PR body explicitly says it is still not a byte match.",
-      "Do not infer merge or accepted-source status; metadata shows `merged_at` null and the PR was closed.",
-      "Do not promote local `#define buttons` macro use as a global style rule; it is a PR-specific matching tactic and may conflict with broader naming/alias caution without further evidence.",
-      "Do not treat the float extern replacements as globally preferred over literals without section ownership or current-source confirmation."
+      "Do not promote the buttons macro as a global standard; it is a local tactic in an unmerged PR and the function remained unmatched.",
+      "Do not promote replacing float literals 0 and 2 with named externs as a general lesson; loaded standards caution against literal-to-symbol changes without data ownership evidence.",
+      "Do not infer reviewer intent or merge acceptance from the 'Already done by me' comment; it only supports that someone claimed equivalent work existed elsewhere."
     ]
   },
   "confidence": 0.78,
@@ -371,6 +317,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

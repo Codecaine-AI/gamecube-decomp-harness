@@ -42,6 +42,11 @@ packages/agents/src/
 |   +-- prompt.ts
 |   +-- schema.json
 |   +-- templates/
++-- qa-repair/
+|   +-- index.ts
+|   +-- prompt.ts
+|   +-- schema.json
+|   +-- templates/
 +-- knowledge-curator/
 |   +-- index.ts
 |   +-- prompt.ts
@@ -95,3 +100,17 @@ duplicate matches (recording the local attempt as a carry-forward lesson), and
 fixes build errors against the new baseline. The CLI exposes it as the
 `reconcile` command; the dashboard exposes it via `POST /api/pr/reconcile`.
 Both refuse to run while the run status is `active`.
+
+## QA Repair Agent
+
+`packages/agents/src/qa-repair/` defines the candidate-file QA repair agent
+used during PR handoff. It receives one `qa_repair_queue_item_v1` item plus a
+queue summary, fixes only the listed deterministic QA findings, and returns the
+`melee_qa_repair_result_v1` JSON contract. The runner owns final status:
+agent output must parse against the schema, then the CLI reruns the QA scanner
+before a file can become `clean_same_match` or `clean_lower_score`.
+
+The role has its own `qa-repair` tool profile, registry entry, prompt tests,
+and Agent Viewer preview. Its prompt includes global decomp standards, the
+queue item, the queue summary, the attached tool list, and the output schema so
+preview rendering stays aligned with live prompt construction.

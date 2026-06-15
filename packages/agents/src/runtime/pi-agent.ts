@@ -19,6 +19,8 @@ export interface PiRunOptions {
   sessionDir?: string;
   toolProfile?: AgentToolProfileInput;
   toolContext?: Partial<Omit<AgentToolRuntimeContext, "role" | "cwd">>;
+  /** Pi built-in tool names to disable for this session (e.g. ["write"]). */
+  excludeBuiltinTools?: string[];
 }
 
 export const DEFAULT_PI_PROVIDER = "codex-lb";
@@ -188,6 +190,7 @@ export async function runPiAgent(options: PiRunOptions): Promise<PiRunResult> {
       sessionManager,
       resourceLoader,
       customTools,
+      ...(options.excludeBuiltinTools?.length ? { excludeTools: options.excludeBuiltinTools } : {}),
     });
     session = created.session;
 

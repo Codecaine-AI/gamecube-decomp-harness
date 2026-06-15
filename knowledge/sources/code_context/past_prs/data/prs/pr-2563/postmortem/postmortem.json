@@ -12,13 +12,14 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Matched three player bonus functions in src/melee/pl/plbonuslib: pl_8003E4A4, pl_80040688, and pl_800407C8. The PR implemented pl_8003E4A4 using an inline item-kind normalization helper, corrected an argument passed to unk_cond in pl_80040688, adjusted integer-to-float conversion shape in pl_800407C8, and updated the pl_8003E4A4 header prototype slot type from u8 to int.",
+  "summary": "Matched three player bonus/stale-move functions in src/melee/pl/plbonuslib: pl_8003E4A4, pl_80040688, and pl_800407C8. The PR added a C body for pl_8003E4A4, moved the existing match_item_kind inline helper earlier so it could be used there, adjusted one unk_cond argument in pl_80040688, added u32 casts in pl_800407C8, and updated the pl_8003E4A4 header prototype slot type from u8 to int.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "prototype-cleanup"
+      "prototype-correction",
+      "control-flow-cleanup"
     ],
     "systems": [
       "melee-core",
@@ -29,171 +30,215 @@
   "key_files": [
     {
       "path": "src/melee/pl/plbonuslib.c",
-      "role": "Implemented and matched pl_8003E4A4, moved match_item_kind before its new use, and made small matching fixes in pl_80040688 and pl_800407C8.",
+      "role": "Primary implementation changes for matching pl_8003E4A4, pl_80040688, and pl_800407C8.",
       "evidence_refs": [
         "changed_files: src/melee/pl/plbonuslib.c added 54 deleted 24 hunks 4",
-        "raw_diff: pl_8003E4A4 implementation and match_item_kind relocation",
-        "raw_diff: pl_80040688 unk_cond(arg1, temp_r0)",
-        "raw_diff: pl_800407C8 casts xCEC/xCF0 through u32",
-        "text_corpus: decomp-dev bot report lists 3 new matches"
+        "raw_diff: pl_8003E4A4 body added with match_item_kind, seen[0x27], Player_GetStaleMoveTableIndexPtr2, x7AC updates, and pl_80038788 call",
+        "raw_diff: pl_80040688 changed unk_cond(arg1, arg2) to unk_cond(arg1, temp_r0)",
+        "raw_diff: pl_800407C8 changed xCEC/xCF0 float temporaries to casts through u32"
       ]
     },
     {
       "path": "src/melee/pl/plbonuslib.h",
-      "role": "Updated pl_8003E4A4 declaration to match the recovered function signature by changing slot from u8 to int.",
+      "role": "Header prototype updated for the newly matched pl_8003E4A4 signature.",
       "evidence_refs": [
         "changed_files: src/melee/pl/plbonuslib.h added 1 deleted 1 hunks 1",
-        "raw_diff: /* 03E4A4 */ void pl_8003E4A4(int slot, bool, void*, int)"
+        "raw_diff: pl_8003E4A4 prototype changed from void pl_8003E4A4(u8 slot, bool, void*, int) to void pl_8003E4A4(int slot, bool, void*, int)"
       ]
     }
   ],
   "what_changed": [
     {
-      "change": "Replaced the placeholder comment for pl_8003E4A4 with a C implementation using Player_GetStaleMoveTableIndexPtr2, a local seen[0x27] array, three natural for-loops, stale move table x7AC counters, and pl_80038788(slot, 0x9D, 1) when a configured threshold is reached.",
+      "text": "pl_8003E4A4 was replaced from a placeholder comment with a full C implementation using Player_GetStaleMoveTableIndexPtr2, a 0x27-entry seen array, item-kind normalization through match_item_kind, and x7AC counter/reset logic that calls pl_80038788(slot, 0x9D, 1) at a threshold read from pl_804D6470->x138.",
       "evidence_refs": [
-        "raw_diff: added void pl_8003E4A4(int slot, bool arg1, void* arg2, int count)"
+        "raw_diff: pl_8003E4A4 body addition"
       ]
     },
     {
-      "change": "Moved inline int match_item_kind(int kind) earlier in plbonuslib.c so pl_8003E4A4 can use it; the helper maps ordinary item kinds 0..0x22 directly and maps 0xCD, 0xE1, 0xE2, and 0x28 to indices 0x23..0x26, otherwise -1.",
+      "text": "match_item_kind remained the same logic but was moved earlier in plbonuslib.c so pl_8003E4A4 can call it before later functions.",
       "evidence_refs": [
-        "raw_diff: match_item_kind added before pl_8003E4A4 and removed from later location"
+        "raw_diff: match_item_kind added before pl_8003E4A4 and removed before fn_8003EE2C"
       ]
     },
     {
-      "change": "Changed pl_80040688 to call unk_cond(arg1, temp_r0) instead of unk_cond(arg1, arg2).",
+      "text": "pl_80040688 matched by changing the second unk_cond argument from arg2 to temp_r0.",
       "evidence_refs": [
-        "raw_diff: pl_80040688 hunk"
+        "raw_diff: pl_80040688 unk_cond argument change",
+        "bot_report: pl_80040688 before 86.53% after 100.00%"
       ]
     },
     {
-      "change": "Changed pl_800407C8 average calculation setup so xCEC and xCF0 are cast through u32 before being assigned to float temporaries used by pl_CalculateAverage.",
+      "text": "pl_800407C8 matched by casting xCEC and xCF0 through u32 before assigning to float temporaries used by pl_CalculateAverage.",
       "evidence_refs": [
-        "raw_diff: pl_800407C8 hunk"
+        "raw_diff: pl_800407C8 casts",
+        "bot_report: pl_800407C8 before 81.90% after 100.00%"
       ]
     },
     {
-      "change": "Changed the pl_8003E4A4 header prototype slot parameter from u8 to int.",
+      "text": "pl_8003E4A4 header signature changed its slot parameter from u8 to int, aligning the header with the recovered body and the PR's require-protos verification.",
       "evidence_refs": [
-        "raw_diff: plbonuslib.h hunk"
+        "raw_diff: plbonuslib.h prototype change",
+        "human_pr_text: Verification lists python configure.py --require-protos && ninja"
       ]
     }
   ],
   "smart_moves": [
     {
-      "move": "Kept item-kind normalization in a small inline helper rather than duplicating the switch mapping inside pl_8003E4A4.",
-      "why_it_matters": "The helper isolates the special item-kind to compact index mapping used for the 0x27-entry seen/counter arrays.",
+      "text": "Updated the owning header prototype when recovering the function body instead of leaving the old u8 slot declaration.",
       "evidence_refs": [
-        "raw_diff: inline int match_item_kind(int kind)",
-        "raw_diff: pl_8003E4A4 calls match_item_kind(moves[i])"
+        "raw_diff: plbonuslib.h pl_8003E4A4 slot type changed to int",
+        "human_pr_text: require-protos verification"
       ]
     },
     {
-      "move": "Updated the owning header when the recovered body used int slot for pl_8003E4A4.",
-      "why_it_matters": "This keeps the declaration aligned with the matched function body and the PR explicitly verified with require-protos.",
+      "text": "Kept the item-kind normalization as a small inline helper and reused it in the new pl_8003E4A4 implementation rather than duplicating the switch mapping.",
       "evidence_refs": [
-        "raw_diff: plbonuslib.h slot type changed from u8 to int",
-        "human_pr_text: Verification - python configure.py --require-protos && ninja"
+        "raw_diff: match_item_kind moved before pl_8003E4A4 and called from the new loops"
       ]
     },
     {
-      "move": "Used normal loops for fixed-size initialization, input scan, and stale table update in pl_8003E4A4.",
-      "why_it_matters": "The loops express repeated 0x27-entry array/table operations directly and align with the natural-loops standard.",
+      "text": "Used simple counted loops for clearing, setting, and consuming the 0x27-entry seen table in pl_8003E4A4.",
       "evidence_refs": [
-        "raw_diff: for (i = 0; i < 0x27; i++) loops in pl_8003E4A4"
+        "raw_diff: three for loops over i in pl_8003E4A4"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When recovering a function body changes a parameter type, update the owning header in the same PR and verify prototype consistency.",
+      "lesson": "When a newly recovered body proves a wider parameter type than the existing prototype, update the owning header and verify with require-protos.",
       "scope": [
-        "src/melee/pl/plbonuslib.c",
-        "src/melee/pl/plbonuslib.h",
-        "function prototypes"
+        "headers",
+        "function signatures",
+        "plbonuslib"
       ],
       "evidence_refs": [
-        "raw_diff: pl_8003E4A4 definition uses int slot",
-        "raw_diff: plbonuslib.h declaration changed from u8 slot to int slot",
-        "human_pr_text: Verification - python configure.py --require-protos && ninja"
+        "raw_diff: pl_8003E4A4 implementation uses int slot",
+        "raw_diff: plbonuslib.h changes u8 slot to int slot",
+        "human_pr_text: Verification includes python configure.py --require-protos && ninja"
       ]
     },
     {
-      "lesson": "Small normalization helpers can make matched code more reviewable when a function needs to map sparse game IDs into dense table indices.",
+      "lesson": "For fixed-size marker tables, natural counted loops can represent clear/set/consume phases cleanly and still match.",
       "scope": [
-        "plbonuslib",
-        "item-kind mapping",
-        "stale move table indices"
+        "decomp-matching",
+        "local arrays",
+        "player bonus logic"
       ],
       "evidence_refs": [
-        "raw_diff: match_item_kind switch maps 0xCD, 0xE1, 0xE2, 0x28 to 0x23..0x26",
-        "raw_diff: pl_8003E4A4 uses seen[0x27]"
+        "raw_diff: pl_8003E4A4 uses u32 seen[0x27] and three for loops"
       ]
     },
     {
-      "lesson": "For table-sized bookkeeping, natural fixed-bound loops can be the matched source form rather than unrolled generated-looking blocks.",
+      "lesson": "Small integer-to-kind normalization helpers can be reused by newly matched code when their switch/range mapping is already present locally.",
       "scope": [
-        "plbonuslib",
-        "fixed-size arrays",
-        "stale move table counters"
+        "helper reuse",
+        "item kind mapping",
+        "plbonuslib"
       ],
       "evidence_refs": [
-        "raw_diff: pl_8003E4A4 initializes seen[0x27] with a for-loop",
-        "raw_diff: pl_8003E4A4 scans count entries and updates 0x27 stale counters with for-loops",
-        "decomp_standards: natural-loops"
+        "raw_diff: match_item_kind maps 0..0x22 plus cases 0xCD, 0xE1, 0xE2, 0x28 to 0x23..0x26",
+        "raw_diff: pl_8003E4A4 calls match_item_kind(moves[i])"
+      ]
+    },
+    {
+      "lesson": "Apparent float temporaries may need explicit integer-width casts when the source fields are integer counters but the callee expects float-compatible arithmetic shape.",
+      "scope": [
+        "matching tactics",
+        "casts",
+        "pl_CalculateAverage"
+      ],
+      "evidence_refs": [
+        "raw_diff: pl_800407C8 casts xCEC and xCF0 to u32 before assigning to float temporaries",
+        "bot_report: pl_800407C8 after 100.00%"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "convention": "New helper name match_item_kind describes the local mapping role without renaming address-style global functions whose meanings remain only partially recovered.",
+      "name": "match_item_kind",
+      "kind": "local inline helper",
+      "note": "Descriptive helper name for mapping raw item kinds into the compact 0x27 table index space.",
       "evidence_refs": [
-        "raw_diff: inline int match_item_kind(int kind)",
-        "raw_diff: address-style functions pl_8003E4A4, pl_80040688, pl_800407C8 remain address-style"
+        "raw_diff: inline int match_item_kind(int kind)"
       ]
     },
     {
-      "convention": "Local names in pl_8003E4A4 use concise role names such as slot, table, moves, seen, count, and i where the roles are evident from the implementation.",
+      "name": "seen",
+      "kind": "local array",
+      "note": "Short local name for the 0x27 marker array used to track which normalized move/item kinds were observed.",
       "evidence_refs": [
-        "raw_diff: pl_8003E4A4 local declarations"
+        "raw_diff: u32 seen[0x27]"
+      ]
+    },
+    {
+      "name": "moves",
+      "kind": "local pointer",
+      "note": "Casts the void* argument to int* for indexed move/item kind access.",
+      "evidence_refs": [
+        "raw_diff: int* moves = arg2"
+      ]
+    },
+    {
+      "name": "table",
+      "kind": "local pointer",
+      "note": "Semantic local name for the pl_StaleMoveTableExt_t returned by Player_GetStaleMoveTableIndexPtr2.",
+      "evidence_refs": [
+        "raw_diff: pl_StaleMoveTableExt_t* table = Player_GetStaleMoveTableIndexPtr2(slot)"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Relocated an inline helper before the newly matched function that calls it, preserving helper reuse while satisfying C declaration/order requirements.",
+      "tactic": "Move an existing inline helper earlier in the translation unit so a newly recovered earlier function can call it.",
       "evidence_refs": [
-        "raw_diff: match_item_kind added before pl_8003E4A4 and removed from later position"
+        "raw_diff: match_item_kind added before pl_8003E4A4 and removed from later location"
       ]
     },
     {
-      "tactic": "Changed a call operand in pl_80040688 from arg2 to temp_r0 to reach the matched call shape.",
+      "tactic": "Use a range check plus switch in match_item_kind for compact item-kind remapping.",
       "evidence_refs": [
-        "raw_diff: if (!unk_cond(arg1, temp_r0))",
-        "text_corpus: bot report shows pl_80040688 changed from 86.53% to 100.00%"
+        "raw_diff: if kind >= 0 && kind < 0x23 else switch cases 0xCD, 0xE1, 0xE2, 0x28"
       ]
     },
     {
-      "tactic": "Used explicit u32 casts before float temporaries in pl_800407C8 to match the average calculation code shape.",
+      "tactic": "Use explicit u32 casts on xCEC and xCF0 in pl_800407C8 to reach the matched code shape.",
       "evidence_refs": [
         "raw_diff: float tmp = (u32) temp_r3->x0_staleMoveTable.xCEC",
         "raw_diff: temp_f31 = (u32) temp_r3->x0_staleMoveTable.xCF0",
-        "text_corpus: bot report shows pl_800407C8 changed from 81.90% to 100.00%"
+        "bot_report: pl_800407C8 after 100.00%"
       ]
     },
     {
-      "tactic": "Verified the claimed matches with the project configure/build flow and received bot-reported matched-code improvements.",
+      "tactic": "Correct a suspicious argument source in a helper-condition call when matching a partially decompiled function.",
       "evidence_refs": [
-        "human_pr_text: Verification - python configure.py --require-protos && ninja",
-        "text_corpus: bot report lists 3 new matches and +1104 matched bytes"
+        "raw_diff: unk_cond(arg1, arg2) changed to unk_cond(arg1, temp_r0)",
+        "bot_report: pl_80040688 after 100.00%"
       ]
     }
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    {
+      "kind": "automated_report",
+      "author": "decomp-dev[bot]",
+      "text": "Report for GALE01 showed +0.03% matched code, +1104 bytes, and three new matches: pl_8003E4A4 +616 bytes 0.00% to 100.00%, pl_80040688 +44 bytes 86.53% to 100.00%, and pl_800407C8 +31 bytes 81.90% to 100.00%.",
+      "evidence_refs": [
+        "text_corpus: issue_comment by decomp-dev[bot] created_at 2026-05-31T21:17:36Z"
+      ]
+    },
+    {
+      "kind": "human_review",
+      "author": null,
+      "text": "No human review comments were present in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json: review_comments 0, reviews 0"
+      ]
+    }
+  ],
   "searchable_terms": [
-    "pr-2563",
+    "PR 2563",
     "Match pl bonus functions",
     "itsgrimetime",
+    "plbonuslib",
     "src/melee/pl/plbonuslib.c",
     "src/melee/pl/plbonuslib.h",
     "pl_8003E4A4",
@@ -204,69 +249,68 @@
     "pl_StaleMoveTableExt_t",
     "x0_staleMoveTable",
     "x7AC",
-    "xCBC",
-    "xCC0",
     "xCEC",
     "xCF0",
+    "xCBC",
+    "xCC0",
     "unk_cond",
     "pl_CalculateAverage",
-    "pl_804D6470",
     "pl_80038788",
+    "pl_804D6470",
     "require-protos",
-    "GALE01",
-    "3 new matches",
-    "1104 bytes"
+    "GALE01"
   ],
   "follow_up_queries": [
-    "plbonuslib match_item_kind item kind mapping 0xCD 0xE1 0xE2 0x28",
-    "pl_8003E4A4 stale move table x7AC seen array",
-    "pl_80040688 unk_cond temp_r0 arg2",
-    "pl_800407C8 u32 cast xCEC xCF0 pl_CalculateAverage",
-    "plbonuslib prototype slot u8 int require-protos"
+    "pl_8003E4A4 match_item_kind seen[0x27]",
+    "plbonuslib pl_800407C8 u32 cast xCEC xCF0",
+    "plbonuslib pl_80040688 unk_cond temp_r0",
+    "plbonuslib.h pl_8003E4A4 int slot u8 slot",
+    "Player_GetStaleMoveTableIndexPtr2 x7AC pl_80038788 0x9D"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR #2563 merged metadata and changed file list",
       "human_pr_text: summary and verification",
-      "raw_diff: full 3633-byte diff loaded",
-      "changed_files: exact changed files and line counts",
-      "text_corpus: decomp-dev bot matched-code report"
+      "raw_diff: complete diff excerpt for two changed files",
+      "changed_files: two changed files with line counts",
+      "text_corpus: automated match report"
     ],
     "notes": [
-      "No review comments were present in the loaded slice, so review_feedback is empty.",
-      "The PR body claims local configure/build verification; the loaded evidence does not include raw build logs.",
-      "The bot report supports 100% matches for the three listed functions, but this intake does not independently rerun builds or objdiff.",
-      "The functional reason for arg1 in pl_8003E4A4 is not evident from the diff because the parameter is unused in the recovered body."
+      "The PR body explicitly names the three matched functions and verification command.",
+      "The loaded diff is complete and directly supports file-level and symbol-level changes.",
+      "The automated report supports 100% match claims for the three named functions, but no objdiff details beyond the bot summary are loaded.",
+      "There are no human review comments in the slice, so reviewer intent or requested changes cannot be inferred."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "decomp_lesson",
-        "title": "Header prototype updates should accompany recovered bodies",
-        "text": "PR #2563 matched pl_8003E4A4 by defining it with int slot and updating src/melee/pl/plbonuslib.h from u8 slot to int slot; the PR verification command included python configure.py --require-protos && ninja.",
+        "record_type": "pr_lesson_candidate",
+        "title": "Recovering plbonuslib function signatures should include header prototype updates",
+        "text": "In PR #2563, matching pl_8003E4A4 included changing the owning header prototype from u8 slot to int slot and verifying with python configure.py --require-protos && ninja.",
         "scope": [
-          "function body recovery",
+          "src/melee/pl/plbonuslib.c",
+          "src/melee/pl/plbonuslib.h",
           "headers",
           "require-protos"
         ],
         "evidence_refs": [
-          "raw_diff: pl_8003E4A4 definition and header prototype change",
-          "human_pr_text: verification command"
+          "raw_diff: plbonuslib.h prototype change",
+          "human_pr_text: Verification includes python configure.py --require-protos && ninja"
         ]
       },
       {
-        "type": "matching_tactic",
-        "title": "Integer casts can be required for float-average code shape",
-        "text": "In pl_800407C8, casting xCEC and xCF0 through u32 before assigning to float temporaries was part of the diff that bot-reported the function moving from 81.90% to 100.00%. Treat this as a narrow tactic tied to this function shape, not a global style rule.",
+        "record_type": "pr_lesson_candidate",
+        "title": "Integer counter fields may require explicit u32 casts in average-calculation match shapes",
+        "text": "In pl_800407C8, assigning xCEC and xCF0 through explicit u32 casts before calling pl_CalculateAverage corresponded with the function reaching 100% in the bot report.",
         "scope": [
           "src/melee/pl/plbonuslib.c",
-          "pl_800407C8"
+          "pl_800407C8",
+          "pl_CalculateAverage"
         ],
         "evidence_refs": [
-          "raw_diff: pl_800407C8 u32 casts",
-          "text_corpus: bot report for pl_800407C8"
+          "raw_diff: pl_800407C8 casts xCEC and xCF0 to u32",
+          "text_corpus: bot report lists pl_800407C8 after 100.00%"
         ]
       }
     ],
@@ -274,26 +318,45 @@
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "plbonuslib contains player bonus stale-move table matching work",
-        "text": "src/melee/pl/plbonuslib.c and src/melee/pl/plbonuslib.h were the only files changed in PR #2563, which matched pl_8003E4A4, pl_80040688, and pl_800407C8. The diff shows stale move table fields x7AC, xCBC, xCC0, xCEC, and xCF0 in this path.",
+        "title": "plbonuslib.c PR #2563 matched three player bonus functions",
+        "text": "PR #2563 changed src/melee/pl/plbonuslib.c to match pl_8003E4A4, pl_80040688, and pl_800407C8, with the bot report listing all three at 100.00% after the PR.",
         "source_path": "src/melee/pl/plbonuslib.c",
         "scope": [
-          "plbonuslib",
+          "pl_8003E4A4",
+          "pl_80040688",
+          "pl_800407C8",
           "player bonus",
           "stale move table"
         ],
         "evidence_refs": [
-          "changed_files: plbonuslib.c and plbonuslib.h",
-          "human_pr_text: match summary",
-          "raw_diff: stale move table field accesses"
+          "human_pr_text: Summary names three functions",
+          "text_corpus: bot report lists three new matches",
+          "raw_diff: implementation changes in plbonuslib.c"
         ],
-        "reason": "Useful path-scoping fact for future searches, but should be curated against current source/path facts before promotion."
+        "reason": "Potential path-fact update for curator review; do not promote automatically from PR intake."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "plbonuslib.h owns the pl_8003E4A4 public prototype",
+        "text": "PR #2563 updated src/melee/pl/plbonuslib.h so pl_8003E4A4 takes int slot rather than u8 slot.",
+        "source_path": "src/melee/pl/plbonuslib.h",
+        "scope": [
+          "pl_8003E4A4",
+          "function prototype",
+          "require-protos"
+        ],
+        "evidence_refs": [
+          "raw_diff: plbonuslib.h prototype change",
+          "human_pr_text: require-protos verification"
+        ],
+        "reason": "Potential path-fact/prototype ownership note for curator review."
       }
     ],
     "rejection_notes": [
-      "Do not generalize the pl_800407C8 u32-to-float casts into a broad style rule; the evidence only supports a narrow matching tactic for this function.",
-      "Do not infer reviewer intent or review-requested changes; no review comments were loaded.",
-      "Do not claim arg1's semantic role in pl_8003E4A4; the recovered body leaves it unused in the diff."
+      "Do not infer broader semantics for pl_8003E4A4, x7AC, xCEC, xCF0, xCBC, or xCC0 beyond the names and accesses present in the diff.",
+      "Do not treat the u32-to-float cast pattern as a global rule; this PR only supports it as a local tactic for pl_800407C8.",
+      "Do not infer human reviewer approval details; the loaded slice contains no human review comments."
     ]
   },
   "confidence": 0.88,
@@ -303,6 +366,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

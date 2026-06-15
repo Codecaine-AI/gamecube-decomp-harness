@@ -1,0 +1,328 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2690",
+  "pr": {
+    "number": 2690,
+    "title": "Melee decomp: Item collision and projectile matches",
+    "url": "https://github.com/doldecomp/melee/pull/2690",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-13T21:29:41Z",
+    "merged_at": "2026-06-14T15:42:24Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "PR #2690 was an item-subsystem implementation-only matching slice. It changed four item collision/projectile source files and reported 9 new exact matches plus 1 improved unmatched function, with zero broken, fuzzy, or metric regressions in the supplied verification report.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "implementation-only match work",
+      "item collision",
+      "projectile item functions",
+      "local cleanup",
+      "stack/codegen shaping"
+    ],
+    "systems": [
+      "item",
+      "collision",
+      "Samus grapple",
+      "Arwing laser",
+      "Kyasarin"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/it/itcoll.c",
+      "role": "Main item collision matching work; includes exact matches for it_802706D0, it_80271B60, it_80271D2C, it_80271F78 and an improvement to it_80270E30.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/it/itcoll.c added 143 deleted 91 hunks 17",
+        "text_corpus.jsonl bot report: main/melee/it/itcoll new matches and it_80270E30 improvement",
+        "raw_diff excerpt: itcoll.c hunks for itColl_chkECBOverlap, it_802706D0, it_80270E30, it_80271B60, it_80271D2C"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itarwinglaser.c",
+      "role": "Arwing laser projectile matching work; exact matched it_802E72E0.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/it/items/itarwinglaser.c added 4 deleted 8 hunks 5",
+        "text_corpus.jsonl bot report: main/melee/it/items/itarwinglaser it_802E72E0 98.28% to 100.00%",
+        "raw_diff excerpt: itarwinglaser.c hunk in it_802E72E0"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itkyasarin.c",
+      "role": "Kyasarin item matching work; exact matched it_802EDDC0 by reshaping helper inlines and stack padding.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/it/items/itkyasarin.c added 25 deleted 9 hunks 3",
+        "text_corpus.jsonl bot report: main/melee/it/items/itkyasarin it_802EDDC0 99.32% to 100.00%",
+        "raw_diff excerpt: added itKyasarin_SetFallCollPos, itKyasarin_GetCollData, changed itKyasarin_FlipAndFall signature, PAD_STACK(32) to PAD_STACK(4)"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itsamusgrapple.c",
+      "role": "Samus grapple projectile/item matching work; exact matched it_802B7160, fn_802B7E34, and it_802B9328 according to bot report.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/it/items/itsamusgrapple.c added 68 deleted 32 hunks 7",
+        "text_corpus.jsonl bot report: main/melee/it/items/itsamusgrapple new matches for it_802B7160, fn_802B7E34, it_802B9328",
+        "raw_diff excerpt: itsamusgrapple.c begins at it_802B7160 but is truncated"
+      ]
+    }
+  ],
+  "what_changed": [
+    "Reported 9 newly exact matched functions across four item subsystem source files.",
+    "In itcoll.c, rewrote portions of item-hit/item-hurt collision handling in it_802706D0, including inlining formerly helper-shaped hitbox filtering/collision logic, adding a separate hurt_index loop variable, and adjusting PAD_STACK from 8 to 12.",
+    "In itcoll.c, improved it_80270E30 by renaming temp-style locals to role names such as damage_log, knockback, max_knockback, knockback_cap, and hurt_pos; collapsed intermediate arithmetic into expressions; and used explicit UNUSED locals for stack/codegen shape.",
+    "In itcoll.c, cleaned ECB overlap users by using an ecb local, direct Item_804A0CCC array access, and ABS(sp24.x - x_pos) / ABS(sp34.x - sp28.x) instead of hand-written absolute-value temporaries.",
+    "In itarwinglaser.c, moved z lifetime to the enclosing function scope, collapsed spawn.prev_pos/spawn.pos assignment, and simplified z sign handling in it_802E72E0.",
+    "In itkyasarin.c, introduced small static inline helpers for collision position setup and CollData access, passed an external Vec3 scratch pointer into itKyasarin_FlipAndFall, and reduced PAD_STACK in it_802EDDC0.",
+    "In itsamusgrapple.c, the loaded diff is truncated, but metadata and bot report show changes producing exact matches for three Samus grapple functions.",
+    "Verification text reports clean isolated slice verification, clean full ship-set regression report, git diff --check pass, and review_lint with 0 errors and 112 warnings."
+  ],
+  "smart_moves": [
+    "Kept the slice item-subsystem-local with no header/naming churn claimed in the PR body.",
+    "Used role-based local names in it_80270E30 where the local purpose is visible from nearby code, while leaving address-style function names unchanged.",
+    "Used the existing ABS macro for x-distance comparisons instead of retaining manual absolute-value branches.",
+    "Introduced narrow static inline helpers in itkyasarin.c to express repeated collision-position setup without broad type or header changes.",
+    "Preserved verification evidence in the PR body, including the exact build command, baseline, regression counts, diff check, and review_lint result."
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "For item collision matching, replacing temp_rXX/var_fXX locals with role-specific names can improve reviewability while still matching when the underlying expression shape and local lifetimes are preserved.",
+      "evidence_refs": [
+        "raw_diff excerpt: it_80270E30 renames var_r29 to damage_log, var_f27 to knockback, var_f28 to max_knockback, temp_f0 to knockback_cap",
+        "text_corpus.jsonl bot report: it_80270E30 improved from 97.82% to 98.80%"
+      ],
+      "confidence": 0.78
+    },
+    {
+      "lesson": "When a generated absolute-value branch represents a simple magnitude test, the project ABS macro can be a viable matching/readability form.",
+      "evidence_refs": [
+        "raw_diff excerpt: it_80271D2C replaces x_float/x_float_mag branch with ABS(sp34.x - sp28.x) < 0.001f",
+        "text_corpus.jsonl bot report: it_80271D2C became 100.00%"
+      ],
+      "confidence": 0.83
+    },
+    {
+      "lesson": "Small static inline helpers may be useful for matching when they isolate repeated setup such as assigning CollData cur_pos and a Vec3 scratch position, but this remains file-local evidence rather than a global style rule.",
+      "evidence_refs": [
+        "raw_diff excerpt: itkyasarin.c adds itKyasarin_SetFallCollPos and itKyasarin_GetCollData",
+        "text_corpus.jsonl bot report: it_802EDDC0 became 100.00%"
+      ],
+      "confidence": 0.7
+    },
+    {
+      "lesson": "PAD_STACK changes are acceptable evidence-backed matching tactics only when narrow and paired with regression evidence; this PR changed PAD_STACK in it_802706D0 and it_802EDDC0 and supplied a clean regression report.",
+      "evidence_refs": [
+        "raw_diff excerpt: it_802706D0 PAD_STACK(8) to PAD_STACK(12)",
+        "raw_diff excerpt: it_802EDDC0 PAD_STACK(32) to PAD_STACK(4)",
+        "human_pr_text.md Verification: slice regression report 9 new matches, 0 broken, 0 fuzzy, 0 metric regressions"
+      ],
+      "confidence": 0.76
+    }
+  ],
+  "naming_conventions": [
+    {
+      "convention": "Use clear local role names when semantics are directly visible: damage_log for DamageLogEntry pointer, hurt_pos for a copied hurt collision position, knockback/max_knockback/knockback_cap for knockback calculations, ecb for itECB pointer, and hurt_index for hurtbox loop index.",
+      "evidence_refs": [
+        "raw_diff excerpt: it_80270E30 local renames",
+        "raw_diff excerpt: it_80271B60 ecb local",
+        "raw_diff excerpt: it_802706D0 hurt_index loop"
+      ]
+    },
+    {
+      "convention": "Keep unresolved global/function names address-style when the PR does not provide stronger semantic evidence.",
+      "evidence_refs": [
+        "raw_diff excerpt: functions such as it_802706D0, it_80270E30, it_802E72E0, it_802EDDC0 remain address-style",
+        "human_pr_text.md: Header/naming churn: none"
+      ]
+    },
+    {
+      "convention": "Mark retained stack-shaping locals with UNUSED rather than leaving misleading temp names when the variables are intentionally unused.",
+      "evidence_refs": [
+        "raw_diff excerpt: it_80270E30 introduces UNUSED f32 unused_float0..unused_float4 and UNUSED s32 unused_int0..unused_int1",
+        "raw_diff excerpt: it_80271B60 introduces UNUSED Item_FtTrack* unused_ft_track"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Adjusted declaration order and local lifetimes in several functions, including moving f32 z to function scope in it_802E72E0 and separating declarations from assignments in itColl_chkECBOverlap.",
+      "evidence_refs": [
+        "raw_diff excerpt: itarwinglaser.c adds f32 z near top of it_802E72E0",
+        "raw_diff excerpt: itColl_chkECBOverlap splits top/left/right/bottom declarations from assignments"
+      ]
+    },
+    {
+      "tactic": "Used PAD_STACK narrowly to steer stack layout in exact-match functions.",
+      "evidence_refs": [
+        "raw_diff excerpt: it_802706D0 PAD_STACK(12)",
+        "raw_diff excerpt: it_802EDDC0 PAD_STACK(4)",
+        "human_pr_text.md Verification: zero reported slice regressions"
+      ]
+    },
+    {
+      "tactic": "Expanded/inlined collision helper logic inside it_802706D0 rather than preserving the former call shape to it_802706D0_sub2 / it_802706D0_sub in the shown path.",
+      "evidence_refs": [
+        "raw_diff excerpt: count calculation loop replaces count = it_802706D0_sub2(item, arg_item)",
+        "raw_diff excerpt: conditional block replaces combined it_802706D0_sub(...) continue condition"
+      ]
+    },
+    {
+      "tactic": "Used pointer iteration over it_804A0E70 via damage_log++ in it_80270E30 while tracking index separately.",
+      "evidence_refs": [
+        "raw_diff excerpt: damage_log = it_804A0E70; hit = damage_log->x8; damage_log++"
+      ]
+    },
+    {
+      "tactic": "Collapsed chained struct assignment for SpawnItem position fields.",
+      "evidence_refs": [
+        "raw_diff excerpt: spawn.prev_pos = spawn.pos = sp24 in it_802E72E0"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "kind": "bot_report",
+      "author": "decomp-dev[bot]",
+      "created_at": "2026-06-13T21:38:26Z",
+      "summary": "Reported 9 new matches and 1 improvement in an unmatched item; matched code increased by 8028 bytes.",
+      "evidence_refs": [
+        "text_corpus.jsonl issue_comment by decomp-dev[bot]"
+      ]
+    },
+    {
+      "kind": "approval",
+      "author": "jurrejelle",
+      "created_at": "2026-06-14T15:38:45Z",
+      "summary": "Review state was APPROVED with no body text in the loaded record.",
+      "evidence_refs": [
+        "text_corpus.jsonl review by jurrejelle state APPROVED"
+      ]
+    },
+    {
+      "kind": "absence",
+      "author": null,
+      "created_at": null,
+      "summary": "No inline review comments were present in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json counts.review_comments: 0"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR2690",
+    "fjooord",
+    "item collision",
+    "projectile matches",
+    "src/melee/it/itcoll.c",
+    "src/melee/it/items/itsamusgrapple.c",
+    "src/melee/it/items/itarwinglaser.c",
+    "src/melee/it/items/itkyasarin.c",
+    "it_802706D0",
+    "it_80270E30",
+    "it_80271B60",
+    "it_80271D2C",
+    "it_80271F78",
+    "it_802E72E0",
+    "it_802EDDC0",
+    "it_802B7160",
+    "fn_802B7E34",
+    "it_802B9328",
+    "itColl_chkECBOverlap",
+    "PAD_STACK",
+    "ABS",
+    "HitCapsule",
+    "DamageLogEntry",
+    "Kyasarin",
+    "Arwing laser",
+    "Samus grapple"
+  ],
+  "follow_up_queries": [
+    "PR2690 it_802706D0 PAD_STACK collision helper inline",
+    "PR2690 it_80270E30 knockback damage_log max_knockback",
+    "PR2690 it_80271D2C ABS x distance exact match",
+    "PR2690 it_802EDDC0 itKyasarin_FlipAndFall SetFallCollPos",
+    "PR2690 it_802E72E0 arwinglaser z lifetime spawn.prev_pos",
+    "PR2690 itsamusgrapple it_802B7160 fn_802B7E34 it_802B9328 full diff"
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR metadata, changed file counts, merge state",
+      "human_pr_text.md: summary, scope, verification, reviewer notes",
+      "text_corpus.jsonl: bot report and approval review",
+      "changed_files.jsonl: four changed files with added/deleted/hunk counts",
+      "raw_diff excerpt: detailed hunks for itcoll.c, itarwinglaser.c, itkyasarin.c, partial itsamusgrapple.c"
+    ],
+    "notes": [
+      "High-level PR identity, changed files, verification claims, and bot-reported match list are strongly supported by loaded PR text and metadata.",
+      "Detailed code tactics are well supported for itcoll.c, itarwinglaser.c, and itkyasarin.c in the diff excerpt.",
+      "The itsamusgrapple.c diff is truncated in the loaded evidence, so only file-level and bot-reported function-match facts are recorded for that file.",
+      "The PR body reports verification results; this intake did not independently run builds, objdiff, checkdiff, review_lint, or git diff checks.",
+      "Approval review has no body text, so no reviewer rationale or requested changes are inferred."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "pr_lesson",
+        "title": "Use project macros for obvious generated absolute-value patterns when they verify",
+        "text": "In PR #2690, it_80271D2C replaced a hand-written x_float/x_float_mag branch with ABS(sp34.x - sp28.x) < 0.001f, and the bot report lists the function as newly exact matched.",
+        "scope": [
+          "src/melee/it/itcoll.c",
+          "canonical-control-flow-and-macros"
+        ],
+        "evidence_refs": [
+          "raw_diff excerpt: it_80271D2C ABS replacement",
+          "text_corpus.jsonl bot report: it_80271D2C 99.59% to 100.00%"
+        ],
+        "confidence": 0.83
+      },
+      {
+        "record_type": "pr_lesson",
+        "title": "Role-based local names can coexist with exact matching",
+        "text": "PR #2690 improved item collision readability by renaming temp-style locals in it_80270E30 to roles such as damage_log, knockback, max_knockback, knockback_cap, and hurt_pos while reporting an improved match score for the function.",
+        "scope": [
+          "src/melee/it/itcoll.c",
+          "conservative-naming"
+        ],
+        "evidence_refs": [
+          "raw_diff excerpt: it_80270E30 local renames",
+          "text_corpus.jsonl bot report: it_80270E30 97.82% to 98.80%"
+        ],
+        "confidence": 0.78
+      },
+      {
+        "record_type": "pr_lesson",
+        "title": "PAD_STACK changes need narrow verification context",
+        "text": "PR #2690 changed PAD_STACK values in it_802706D0 and it_802EDDC0 and supplied slice/full-set regression evidence with zero broken, fuzzy, or metric regressions. Treat this as a narrow tactic record, not a broad style preference.",
+        "scope": [
+          "src/melee/it/itcoll.c",
+          "src/melee/it/items/itkyasarin.c",
+          "matching-tactics-need-evidence"
+        ],
+        "evidence_refs": [
+          "raw_diff excerpt: PAD_STACK changes",
+          "human_pr_text.md Verification: zero regressions reported"
+        ],
+        "confidence": 0.76
+      }
+    ],
+    "source_update_candidates": [],
+    "rejection_notes": [
+      "Do not infer a global rule that collision helper calls should be inlined; the it_802706D0 rewrite is tied to one function's match evidence.",
+      "Do not infer reviewer intent beyond approval; the loaded review has no explanatory body or inline comments.",
+      "Do not promote detailed Samus grapple tactics from this intake because the loaded diff for itsamusgrapple.c is truncated.",
+      "Do not treat the PR body's verification claims as independently reproduced by this agent."
+    ]
+  },
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

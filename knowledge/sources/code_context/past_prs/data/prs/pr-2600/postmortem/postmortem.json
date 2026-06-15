@@ -11,105 +11,299 @@
     "merged_at": "2026-06-07T10:33:32Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked Kirby's copied Donkey Kong neutral special source by marking `ftkirbyspecialdonkey.c` as matching, assigning its `.sdata2` range in splits, converting three sdata2 symbols from temporary global `ftKb_Init_*` names to local compiler labels, and adding a small helper to force the expected `S32_TO_F32` double constant ordering. The source also removed unnecessary function-pointer casts on callback assignments once the referenced callback prototypes/types were compatible.",
+  "intake_role": "pr_intake",
+  "summary": "PR 2600 links Kirby's Donkey special translation unit by marking `ftkirbyspecialdonkey.c` as Matching, adding its `.sdata2` split range, converting three `.sdata2` symbols from global `ftKb_Init_*` names to local labels, adding a small `sdata2_order0` helper returning `S32_TO_F32`, and removing unnecessary callback function-pointer casts in the source file.",
   "change_classification": {
-    "primary_type": "matching-link",
+    "primary_type": "matching-status-change",
     "categories": [
       "code-change",
-      "build-config",
-      "symbol-map",
-      "data-ordering"
+      "config-update",
+      "symbol-metadata-update",
+      "data-split-update"
     ],
     "systems": [
       "fighter",
       "ftKirby",
-      "ftkirbyspecialdonkey",
-      "config",
-      "repo-root"
+      "configure",
+      "GALE01 splits",
+      "GALE01 symbols"
     ]
   },
   "key_files": [
-    "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c",
-    "config/GALE01/symbols.txt",
-    "config/GALE01/splits.txt",
-    "configure.py"
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c",
+      "role": "Kirby Donkey special source updated with a local helper for `.sdata2` ordering and callback assignment cleanup.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c hunk adds `static double sdata2_order0(void) { return S32_TO_F32; }`",
+        "raw_diff:src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c hunk removes casts from `death2_cb` and `take_dmg_cb` assignments"
+      ]
+    },
+    {
+      "path": "configure.py",
+      "role": "Build configuration changed `ftkirbyspecialdonkey.c` from NonMatching to Matching.",
+      "evidence_refs": [
+        "raw_diff:configure.py changes `Object(NonMatching, \"melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c\")` to `Object(Matching, ...)`"
+      ]
+    },
+    {
+      "path": "config/GALE01/splits.txt",
+      "role": "Split metadata updated to assign a `.sdata2` range to `ftkirbyspecialdonkey.c`.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/splits.txt adds `.sdata2 start:0x804D9488 end:0x804D9498` under `melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c`"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Symbol metadata changed three `.sdata2` entries at 0x804D9488, 0x804D9490, and 0x804D9494 from global address-style names to local labels.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt replaces `ftKb_Init_804D9488`, `ftKb_Init_804D9490`, `ftKb_Init_804D9494` with `@222`, `@233`, `@234`"
+      ]
+    }
   ],
   "what_changed": [
-    "`configure.py` changed `melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)`.",
-    "`config/GALE01/splits.txt` added the `.sdata2` slice for `ftkirbyspecialdonkey.c` at `start:0x804D9488 end:0x804D9498` alongside its existing `.text` range `0x800FF8EC..0x80100E0C`.",
-    "`config/GALE01/symbols.txt` renamed `.sdata2` entries at `0x804D9488`, `0x804D9490`, and `0x804D9494` from global `ftKb_Init_804D9488`, `ftKb_Init_804D9490`, and `ftKb_Init_804D9494` symbols to local labels `@222`, `@233`, and `@234`.",
-    "`ftkirbyspecialdonkey.c` added a static `double sdata2_order0(void)` helper returning `S32_TO_F32`, with a todo noting it appears to model an inline within `ftKb_DkSpecialN_Anim` shared by `ftKb_DkSpecialAirN_Anim`.",
-    "`ftkirbyspecialdonkey.c` simplified `fp->death2_cb` and `fp->take_dmg_cb` assignments in `ftKb_DkSpecialNStart_Coll_inline` by removing explicit casts to `void (*)(HSD_GObj*)`."
+    {
+      "text": "`ftkirbyspecialdonkey.c` was promoted from NonMatching to Matching in `configure.py`.",
+      "evidence_refs": [
+        "raw_diff:configure.py"
+      ]
+    },
+    {
+      "text": "The split file now assigns `.sdata2` range `0x804D9488` through `0x804D9498` to `melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c`.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/splits.txt"
+      ]
+    },
+    {
+      "text": "Three `.sdata2` symbols in that range were converted from global `ftKb_Init_804D9488/9490/9494` names to local labels `@222`, `@233`, and `@234` with existing object sizes and data types retained in the excerpt.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt"
+      ]
+    },
+    {
+      "text": "A `static double sdata2_order0(void)` helper returning `S32_TO_F32` was added, with a TODO noting it may represent an inline shared by `ftKb_DkSpecialN_Anim` and `ftKb_DkSpecialAirN_Anim`.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c"
+      ]
+    },
+    {
+      "text": "Two callback assignments in `ftKb_DkSpecialNStart_Coll_inline` were simplified by removing explicit casts to `void (*)(HSD_GObj*)`.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c"
+      ]
+    }
   ],
   "smart_moves": [
-    "Handled the link as both a source match and data-split problem: the PR did not only flip `NonMatching` to `Matching`, it also claimed the exact `.sdata2` range needed by the object.",
-    "Used a tiny static helper returning `S32_TO_F32` to influence local constant emission/order without adding larger behavioral changes.",
-    "Converted placeholder-looking global sdata2 names into local labels once the constants belonged to the linked object, reducing misleading `ftKb_Init_*` symbol leakage.",
-    "Removed redundant callback casts instead of preserving cast noise, suggesting the source could match while keeping clearer typed callback assignments."
+    {
+      "text": "The PR kept data ownership changes narrow: only the `.sdata2` range adjacent to this TU and the three symbols inside that range were updated.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/splits.txt",
+        "raw_diff:config/GALE01/symbols.txt"
+      ]
+    },
+    {
+      "text": "The added helper is explicitly marked as uncertain with a TODO rather than being presented as a fully understood semantic helper.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c TODO above `sdata2_order0`"
+      ]
+    },
+    {
+      "text": "Unnecessary callback casts were removed where the assigned functions are used directly as callbacks.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c callback hunk"
+      ]
+    }
   ],
   "decomp_lessons": [
-    "When linking a previously nonmatching fighter file, verify both `.text` and any local constant sections such as `.sdata2`; missing data ranges can block clean linking even when codegen is close.",
-    "Compiler-generated local float/double constants may need local `@NNN` symbols rather than artificial global labels once the owning object is linked.",
-    "Small helper functions can be used as ordering anchors for constants when matching Metrowerks emission order, but should be documented when their exact source-level intent is uncertain.",
-    "Unnecessary function-pointer casts can sometimes be removed after header/prototype cleanup; matching does not always require preserving decompiler-era cast artifacts."
+    {
+      "lesson": "When a TU is ready to link as Matching, check whether nearby small constants need split and symbol metadata updates instead of compensating with misleading global names in C.",
+      "scope": [
+        "matching PRs",
+        "GALE01 split metadata",
+        ".sdata2 ownership"
+      ],
+      "evidence_refs": [
+        "raw_diff:configure.py Matching change",
+        "raw_diff:config/GALE01/splits.txt `.sdata2` addition",
+        "raw_diff:config/GALE01/symbols.txt global-to-local label changes"
+      ],
+      "confidence": 0.72
+    },
+    {
+      "lesson": "If a matching workaround is only understood as ordering or an inline artifact, preserve that uncertainty in a TODO rather than inventing a semantic name.",
+      "scope": [
+        "source cleanup",
+        "constant/data ordering helpers",
+        "conservative naming"
+      ],
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c TODO for `sdata2_order0`"
+      ],
+      "confidence": 0.68
+    }
   ],
   "naming_conventions": [
-    "Kirby copied-special files use lowercase filenames such as `ftkirbyspecialdonkey.c` under `src/melee/ft/chara/ftKirby/`.",
-    "Functions in this file retain `ftKb_` prefixes, e.g. `ftKb_SpecialNDk_800FF8EC`, `ftKb_SpecialNDk_800FFA10`, and `ftKb_DkSpecialNStart_Coll_inline`.",
-    "Temporary or unknown local sdata2 constants are represented with local labels such as `@222`, `@233`, and `@234` rather than named global symbols when evidence supports local scope.",
-    "The helper name `sdata2_order0` is explicitly technical and order-oriented, not a claimed retail symbol; the added todo acknowledges uncertainty."
+    {
+      "text": "The source helper name `sdata2_order0` is intentionally mechanical/order-oriented, matching the TODO's uncertainty instead of inventing a semantic name.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c"
+      ]
+    },
+    {
+      "text": "The `.sdata2` symbols at 0x804D9488, 0x804D9490, and 0x804D9494 were represented as local labels `@222`, `@233`, and `@234` rather than global `ftKb_Init_*` names.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt"
+      ]
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Added `.sdata2 start:0x804D9488 end:0x804D9498` to the object's split to capture its local double/float constants.",
-    "Returned `S32_TO_F32` from a static `double` helper to force the expected double constant at `0x804D9488` and preserve sdata2 ordering.",
-    "Updated symbol scope from global to local for the affected `.sdata2` constants, matching how compiler-local constants are represented.",
-    "Removed explicit casts on `ftKb_Init_800EE74C` and `ftKb_Init_800EE7B8` callback assignments, likely relying on correct function pointer type compatibility for cleaner codegen/source."
+    {
+      "text": "Promoted the object to Matching only alongside split and symbol metadata updates for the `.sdata2` constants used by the TU.",
+      "evidence_refs": [
+        "raw_diff:configure.py",
+        "raw_diff:config/GALE01/splits.txt",
+        "raw_diff:config/GALE01/symbols.txt"
+      ]
+    },
+    {
+      "text": "Used a small static helper returning `S32_TO_F32` to affect or preserve `.sdata2` ordering, while documenting that its true source form is uncertain.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c"
+      ]
+    },
+    {
+      "text": "Removed explicit callback casts, likely relying on recovered or compatible callback types rather than forcing the assignment shape locally.",
+      "evidence_refs": [
+        "raw_diff:src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c"
+      ]
+    }
   ],
   "review_feedback": [],
   "searchable_terms": [
     "pr-2600",
-    "ftkirbyspecialdonkey",
     "Link ftkirbyspecialdonkey",
-    "Kirby Donkey Kong special",
-    "Kirby copied Donkey Kong neutral special",
-    "ftKb_SpecialNDk_800FF8EC",
-    "ftKb_SpecialNDk_800FFA10",
-    "ftKb_DkSpecialNStart_Coll_inline",
+    "ribbanya",
+    "ftkirbyspecialdonkey.c",
     "ftKb_DkSpecialN_Anim",
     "ftKb_DkSpecialAirN_Anim",
     "sdata2_order0",
     "S32_TO_F32",
-    "804D9488",
-    "804D9490",
-    "804D9494",
-    "804D9498",
-    "Object Matching",
-    "Object NonMatching",
-    "configure.py",
-    "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
-    "death2_cb",
-    "take_dmg_cb",
-    "pre_hitlag_cb",
-    "post_hitlag_cb",
+    "ftKb_DkSpecialNStart_Coll_inline",
+    "ftKb_Init_800EE74C",
+    "ftKb_Init_800EE7B8",
     "efLib_PauseAll",
     "efLib_ResumeAll",
-    "ftKb_Init_800EE74C",
-    "ftKb_Init_800EE7B8"
+    "0x804D9488",
+    "0x804D9498",
+    "@222",
+    "@233",
+    "@234",
+    "Object(Matching)",
+    "Object(NonMatching)"
   ],
   "follow_up_queries": [
-    "Find later PRs that remove or rename `sdata2_order0` after identifying the real shared inline between `ftKb_DkSpecialN_Anim` and `ftKb_DkSpecialAirN_Anim`.",
-    "Search for other Kirby copied-special files that required adding `.sdata2` splits before switching from `NonMatching` to `Matching`.",
-    "Look for PRs converting `ftKb_Init_804D*` global sdata2 placeholder symbols into local `@NNN` labels.",
-    "Check whether callback prototypes for `death2_cb` and `take_dmg_cb` were standardized before this PR, enabling cast removal."
+    "Search later PRs for `sdata2_order0` to see whether the TODO was resolved or renamed.",
+    "Search for `ftkirbyspecialdonkey.c` and `.sdata2 start:0x804D9488 end:0x804D9498` to verify whether this split ownership persisted.",
+    "Search for callback assignment cleanup around `death2_cb` and `take_dmg_cb` to identify whether cast removal became a broader fighter convention.",
+    "Search for symbols `@222`, `@233`, `@234` near `0x804D9488` to see whether local-label metadata remained stable."
   ],
-  "confidence": 0.89,
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json:PR number/title/state/author/timestamps/counts",
+      "raw_diff:full diff excerpt for four changed files",
+      "changed_files:four changed file records",
+      "text_corpus:empty PR body",
+      "metadata_json:zero issue comments, zero review comments, zero reviews"
+    ],
+    "notes": [
+      "The file changes are clear and the PR was merged, but there is no PR body, review discussion, CI output, objdiff output, or explicit validation log in the loaded slice.",
+      "The title and `configure.py` change support that the PR linked `ftkirbyspecialdonkey`, but the intake cannot independently claim which functions matched or what verifier commands were run.",
+      "The TODO in the source says the helper is 'some kind of inline' shared by two functions; that uncertainty should not be upgraded into a proven source-level fact."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "kind": "decomp_lesson",
+        "title": "Keep data split metadata aligned when promoting a TU to Matching",
+        "text": "PR 2600 linked `ftkirbyspecialdonkey.c` by changing the object to Matching while adding the TU's `.sdata2` range and converting constants in that range from global names to local labels. This supports the reusable lesson that matching-status changes may require narrow split/symbol metadata fixes, not just source edits.",
+        "scope": [
+          "matching-status-change",
+          "split metadata",
+          "symbol metadata",
+          "ftKirby"
+        ],
+        "evidence_refs": [
+          "raw_diff:configure.py",
+          "raw_diff:config/GALE01/splits.txt",
+          "raw_diff:config/GALE01/symbols.txt"
+        ],
+        "confidence": 0.74
+      },
+      {
+        "kind": "naming_lesson",
+        "title": "Use mechanical names when only ordering behavior is known",
+        "text": "The added `sdata2_order0` helper is paired with a TODO stating its likely inline relationship is uncertain. This is a conservative naming example: the name reflects data-order mechanics instead of inventing unproven gameplay semantics.",
+        "scope": [
+          "conservative naming",
+          "matching helper",
+          ".sdata2 ordering"
+        ],
+        "evidence_refs": [
+          "raw_diff:src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c"
+        ],
+        "confidence": 0.68
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "`ftkirbyspecialdonkey.c` `.sdata2` ownership candidate",
+        "text": "PR 2600 added `.sdata2 start:0x804D9488 end:0x804D9498` under `melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c` in `config/GALE01/splits.txt`.",
+        "source_path": "config/GALE01/splits.txt",
+        "scope": [
+          "melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c",
+          ".sdata2",
+          "0x804D9488-0x804D9498"
+        ],
+        "evidence_refs": [
+          "raw_diff:config/GALE01/splits.txt"
+        ],
+        "reason": "Potential path fact for TU data ownership; curator should confirm against current splits before promotion."
+      },
+      {
+        "target_source_id": "ssbm_data_sheet",
+        "update_kind": "source_update",
+        "title": "Local `.sdata2` labels for Kirby Donkey special constants",
+        "text": "PR 2600 changed `.sdata2` symbols at `0x804D9488`, `0x804D9490`, and `0x804D9494` from global `ftKb_Init_804D9488`, `ftKb_Init_804D9490`, and `ftKb_Init_804D9494` to local labels `@222`, `@233`, and `@234`.",
+        "source_path": "config/GALE01/symbols.txt",
+        "scope": [
+          "0x804D9488",
+          "0x804D9490",
+          "0x804D9494",
+          "ftkirbyspecialdonkey.c"
+        ],
+        "evidence_refs": [
+          "raw_diff:config/GALE01/symbols.txt"
+        ],
+        "reason": "Potential data-symbol metadata update; curator should verify against current symbol metadata and avoid treating the PR alone as proof of permanent ownership."
+      }
+    ],
+    "rejection_notes": [
+      "Do not record a claimed objdiff or build validation result; none is present in the loaded PR evidence.",
+      "Do not infer reviewer intent or review acceptance rationale; the slice has zero review comments and zero issue comments.",
+      "Do not treat `sdata2_order0` as a proven original function or proven inline name; the source TODO explicitly marks uncertainty.",
+      "Do not generalize this PR into a broad rule that matching PRs should add data-order helpers; this instance is narrow and lacks validation details in the slice."
+    ]
+  },
+  "confidence": 0.76,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

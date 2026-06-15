@@ -1,0 +1,452 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2691",
+  "pr": {
+    "number": 2691,
+    "title": "Melee decomp: Interface and trophy UI matches",
+    "url": "https://github.com/doldecomp/melee/pull/2691",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-13T21:29:46Z",
+    "merged_at": "2026-06-14T18:32:31Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Implementation-only decompilation match slice for Interface text/HUD helpers and TY Figupon. The PR touched four C files, claimed 7 newly exact functions across the slice, and included verification claims of zero broken matches, fuzzy regressions, or metric regressions. The bot report in the loaded corpus lists 8 new matches and 4 unmatched-item improvements, creating a small count mismatch with the PR body.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "implementation-only",
+      "cleanup",
+      "types-structs",
+      "naming",
+      "matching-tactics",
+      "data-symbol-references"
+    ],
+    "systems": [
+      "melee-interface",
+      "melee-if-textlib",
+      "melee-if-hud",
+      "melee-ty-figupon"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/if/textlib.c",
+      "role": "Largest matching and cleanup target; changes DevText_Create, DevText_Print, cursor clamp code, color/global references, menu movement locals, and coordinate cast structure.",
+      "evidence_refs": [
+        "changed_files: src/melee/if/textlib.c +92/-52, 11 hunks",
+        "diff: textlib.c hunks for DevText_Create, DevText_SetCursorXY, DevText_Print, un_80302FFC, un_80303AC4, un_80304210",
+        "review_comments: discussion_r3409719101, discussion_r3409726460, discussion_r3409726464, discussion_r3409726469",
+        "text_corpus: decomp-dev bot report lists DevText_Print and DevText_Create as new matches plus textlib unmatched improvements"
+      ]
+    },
+    {
+      "path": "src/melee/if/ifcoget.c",
+      "role": "HUD/interface struct layout and matching cleanup; refactors un_804A1F58 from array-of-wrapper shape to one struct containing a six-entry x8 array, updates accessors and sizeof memzero.",
+      "evidence_refs": [
+        "changed_files: src/melee/if/ifcoget.c +27/-30, 7 hunks",
+        "diff: ifcoget.c struct un_804A1F58_t and un_804A1F58_x8_t changes",
+        "diff: ifcoget.c fn_802FF218, un_802FF364, un_802FF498, un_802FF4FC, un_802FF570, un_802FF620",
+        "text_corpus: bot report lists .bss, un_802FF570, un_802FF620 as new matches and fn_802FF218 as improved"
+      ]
+    },
+    {
+      "path": "src/melee/if/ifstock.c",
+      "role": "Small loop/local-shape matching update in stock HUD helper fn_802FA6C4.",
+      "evidence_refs": [
+        "changed_files: src/melee/if/ifstock.c +15/-10, 3 hunks",
+        "diff: ifstock.c fn_802FA6C4 loop variable split, pointer increments, and reverse cleanup loop",
+        "text_corpus: bot report lists fn_802FA6C4 as a new match"
+      ]
+    },
+    {
+      "path": "src/melee/ty/tyfigupon.c",
+      "role": "Small local-shape and naming update in trophy Figupon functions.",
+      "evidence_refs": [
+        "changed_files: src/melee/ty/tyfigupon.c +8/-5, 2 hunks",
+        "diff: tyfigupon.c tyFigupon_80314C5C temporary JObj local and fn_803155C8 bet_count local",
+        "text_corpus: bot report lists tyFigupon_80314C5C as a new match and fn_803155C8 as improved"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "Matched IF text/HUD and TY Figupon functions without header churn according to the PR body.",
+      "evidence_refs": [
+        "human_pr_text: Summary and PR Shape"
+      ]
+    },
+    {
+      "text": "In ifcoget.c, recovered a more specific un_804A1F58 layout: one top-level object with pad_x4 and x8[6], adding xC and x10 fields to each x8 entry and replacing a hard-coded 0x80 memzero with sizeof(un_804A1F58).",
+      "evidence_refs": [
+        "diff: ifcoget.c struct and un_802FF498 hunks"
+      ]
+    },
+    {
+      "text": "In textlib.c, DevText_Create was adjusted to use existing symbol-map/literal-pool objects for default background/text colors and scale constants, and to reference canonical un_804D6E18/un_804D6E38 pool/list symbols.",
+      "evidence_refs": [
+        "diff: textlib.c DevText_Create hunk",
+        "review_comments: discussion_r3409726460 and discussion_r3409726469"
+      ]
+    },
+    {
+      "text": "In textlib.c, DevText_Print replaced byte-indexed buffer writes with a local DevTextGlyph typed view containing chr and color bitfields.",
+      "evidence_refs": [
+        "diff: textlib.c DevTextGlyph typedef and DevText_Print hunk"
+      ]
+    },
+    {
+      "text": "In ifstock.c, fn_802FA6C4 changed loop locals and pointer iteration to match codegen, including q/w pointer increments, a p pointer based at ifStock_804A1774.x0, and a separate reverse-loop variable j.",
+      "evidence_refs": [
+        "diff: ifstock.c fn_802FA6C4 hunk"
+      ]
+    },
+    {
+      "text": "In tyfigupon.c, local variables were reshaped: GET_JOBJ result is staged through tmp_jobj, and an x5D-derived value was renamed/handled as bet_count in fn_803155C8.",
+      "evidence_refs": [
+        "diff: tyfigupon.c tyFigupon_80314C5C and fn_803155C8 hunks"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "Replacing the inaccurate TODO/hard-coded size in ifcoget.c with a struct layout that allows sizeof(un_804A1F58) made the cleanup both more typed and less magic-number dependent.",
+      "evidence_refs": [
+        "diff: ifcoget.c removal of TODO and memzero(&un_804A1F58, sizeof(un_804A1F58))"
+      ]
+    },
+    {
+      "text": "The PR documented why apparently new externs in textlib.c were existing section-owned objects rather than new data state, reducing review risk around data-symbol churn.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409719101",
+        "review_comments: discussion_r3409726460",
+        "review_comments: discussion_r3409726464",
+        "review_comments: discussion_r3409726469"
+      ]
+    },
+    {
+      "text": "Using a narrow typed DevTextGlyph overlay made DevText_Print express the packed glyph/color buffer more directly than manual byte offset writes.",
+      "evidence_refs": [
+        "diff: textlib.c DevTextGlyph typedef and DevText_Print hunk"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "When a repeated array wrapper shape produces awkward indexing, check whether the binary layout is a single owner struct containing an inner fixed-size array. This can enable real sizeof cleanup and clearer field ownership.",
+      "scope": [
+        "src/melee/if/ifcoget.c",
+        "struct layout recovery",
+        "HUD/interface state"
+      ],
+      "evidence_refs": [
+        "diff: ifcoget.c un_804A1F58 changed from un_804A1F58[7] to one un_804A1F58 with x8[6]",
+        "diff: ifcoget.c memzero changed from hard-coded 0x80 to sizeof(un_804A1F58)"
+      ]
+    },
+    {
+      "lesson": "For packed UI buffers, a small local struct or bitfield overlay can be a cleaner match hypothesis than manual byte indexing when the access pattern is semantically one record per cell.",
+      "scope": [
+        "src/melee/if/textlib.c",
+        "DevText_Print",
+        "packed glyph buffers"
+      ],
+      "evidence_refs": [
+        "diff: textlib.c DevTextGlyph typedef",
+        "diff: textlib.c DevText_Print writes chr and color through ((DevTextGlyph*) text->buf)[index]"
+      ]
+    },
+    {
+      "lesson": "If exact matching requires referencing literal-pool or shared data symbols, document section ownership and prior existence so reviewers can distinguish necessary data references from speculative new extern state.",
+      "scope": [
+        "src/melee/if/textlib.c",
+        "DevText_Create",
+        ".sdata2",
+        ".sdata",
+        ".sbss"
+      ],
+      "evidence_refs": [
+        "review_comments: discussion_r3409719101",
+        "review_comments: discussion_r3409726460",
+        "review_comments: discussion_r3409726464",
+        "review_comments: discussion_r3409726469"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "The PR favored canonical address-style symbol-map names such as un_804D6E18, un_804D6E38, un_804D5A08, and un_804DDC88 when semantic friendly names were not shared or fully established across TUs.",
+      "evidence_refs": [
+        "diff: textlib.c extern and GXColor rename hunks",
+        "review_comments: discussion_r3409726464",
+        "review_comments: discussion_r3409726469"
+      ]
+    },
+    {
+      "text": "Local variable naming was made more semantic where evidence was local and narrow, e.g. sc became bet_count in fn_803155C8.",
+      "evidence_refs": [
+        "diff: tyfigupon.c fn_803155C8 hunk"
+      ]
+    },
+    {
+      "text": "The PR introduced descriptive temporary/role names only locally, such as DevTextGlyph, cur, p, j, k, thing, tmp_jobj, and bet_count; it did not claim broader symbol renames beyond shown file-local/global data changes.",
+      "evidence_refs": [
+        "diff: textlib.c, ifstock.c, ifcoget.c, tyfigupon.c hunks"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "PAD_STACK was retained or adjusted in several functions to preserve stack/codegen shape.",
+      "evidence_refs": [
+        "diff: ifcoget.c fn_802FF218 PAD_STACK(24), un_802FF364 PAD_STACK(0x10), un_802FF498 PAD_STACK(8)",
+        "diff: textlib.c DevText_Create PAD_STACK(0x14)",
+        "diff: tyfigupon.c tyFigupon_80314C5C PAD_STACK(40)"
+      ]
+    },
+    {
+      "tactic": "A narrow #pragma push / #pragma dont_inline on / #pragma pop block was added around DevText_SetCursorXY while expanding clamp logic inline instead of calling DevText_Clamp twice.",
+      "evidence_refs": [
+        "diff: textlib.c DevText_SetCursorXY hunk"
+      ]
+    },
+    {
+      "tactic": "Local lifetime and register/stack shaping tactics were used, including temporary locals, separate loop counters, explicit casts, scoped blocks, and no-op casts such as (void) j and (void) i.",
+      "evidence_refs": [
+        "diff: ifstock.c fn_802FA6C4 adds p, j, k",
+        "diff: textlib.c un_80303AC4 uses u8 j, int i, (void) j, (void) i",
+        "diff: textlib.c un_80304210 introduces f32 x, scoped s32 x_pos/y_pos",
+        "diff: tyfigupon.c tyFigupon_80314C5C tmp_jobj"
+      ]
+    },
+    {
+      "tactic": "Data references in DevText_Create were shifted from inline literals and friendly names to existing address-style symbols to close the exact match.",
+      "evidence_refs": [
+        "diff: textlib.c DevText_Create hunk",
+        "review_comments: discussion_r3409726460"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "text": "A textlib.c concern about extern-looking additions was answered by the PR author: the additions were described as existing .sdata2 literal-pool objects needed for DevText_Create and existing shared .sbss/.sdata objects referenced by canonical symbol-map names.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409719101"
+      ]
+    },
+    {
+      "text": "The author specifically stated that un_804DDC88 through un_804DDCA0 already existed as .sdata2 objects before the PR, and that keeping inline/local literals left DevText_Create just short of exact.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409726460"
+      ]
+    },
+    {
+      "text": "The author stated that un_804D5A08 through un_804D5A14 were already real .sdata objects and that the change was an address-name rename, with possible future cleanup to friendlier aliases once surrounding functions are better understood.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409726464"
+      ]
+    },
+    {
+      "text": "The author noted that un_804D6E18 and un_804D6E38 correspond to draw-list and pool-head state that textdraw.c locally aliases as devtext_drawlist and devtext_poolhead; any friendlier naming should be shared rather than allowing cross-TU extern-name drift.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409726469"
+      ]
+    },
+    {
+      "text": "A review by jurrejelle approved the PR, but the loaded evidence contains no written approval rationale.",
+      "evidence_refs": [
+        "text_corpus: review by jurrejelle state APPROVED with empty body"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR2691",
+    "Interface and trophy UI matches",
+    "src/melee/if/textlib.c",
+    "src/melee/if/ifcoget.c",
+    "src/melee/if/ifstock.c",
+    "src/melee/ty/tyfigupon.c",
+    "DevText_Create",
+    "DevText_Print",
+    "DevTextGlyph",
+    "DevText_SetCursorXY",
+    "DevText_Clamp",
+    "un_80302FFC",
+    "un_80303AC4",
+    "un_80304210",
+    "fn_802FF218",
+    "un_802FF570",
+    "un_802FF620",
+    "un_804A1F58",
+    "fn_802FA6C4",
+    "tyFigupon_80314C5C",
+    "fn_803155C8",
+    "un_804D6E18",
+    "un_804D6E38",
+    "un_804DDC88",
+    "un_804DDCA0",
+    "un_804D5A08",
+    "PAD_STACK",
+    "pragma dont_inline",
+    ".sdata2 literal-pool",
+    ".sbss draw-list pool-head",
+    "canonical symbol-map names"
+  ],
+  "follow_up_queries": [
+    "textlib.c DevText_Create un_804DDC88 un_804DDCA0 literal-pool exact match",
+    "textlib.c devtext_drawlist devtext_poolhead un_804D6E18 un_804D6E38 shared alias",
+    "ifcoget.c un_804A1F58 sizeof 0x80 x8[6] x10",
+    "DevTextGlyph text->buf current_color bitfield",
+    "DevText_SetCursorXY pragma dont_inline",
+    "tyfigupon bet_count ef4->x5D fn_803155C8",
+    "ifstock fn_802FA6C4 q w pointer increment p[1] == -2"
+  ],
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json: PR identity, state, dates, changed file counts",
+      "human_pr_text: summary, scope, verification commands and regression claims",
+      "raw_diff: complete 16250-byte diff excerpt loaded untruncated",
+      "changed_files: four changed file records",
+      "text_corpus: bot report, review comments, approval state",
+      "review_comments: textlib.c extern/name discussion"
+    ],
+    "notes": [
+      "The loaded raw diff and extracted comments are sufficient to ground changed files, tactics, naming discussion, and review feedback.",
+      "There is a mismatch between the PR body claim of 7 newly exact functions and the decomp-dev bot report listing 8 new matches, including a .bss item; this intake records both without resolving the discrepancy.",
+      "Most detailed review feedback in the loaded slice is authored by fjooord, the PR author, apparently responding to a concern; only an empty approval by jurrejelle is loaded as external reviewer feedback.",
+      "Verification results are reported in the PR body and bot comment; this intake did not rerun tools and does not independently validate them."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "pr_lesson",
+        "title": "Recover owner struct plus inner array before keeping awkward wrapper-array indexing",
+        "text": "PR #2691 supports a PR-scoped lesson from ifcoget.c: changing un_804A1F58 from an array of wrapper structs to a single owner struct with x8[6] enabled clearer field access and replacement of a hard-coded memzero size with sizeof(un_804A1F58).",
+        "scope": [
+          "src/melee/if/ifcoget.c",
+          "struct layout recovery"
+        ],
+        "evidence_refs": [
+          "diff: ifcoget.c struct un_804A1F58_t changes",
+          "diff: ifcoget.c un_802FF498 memzero sizeof change"
+        ]
+      },
+      {
+        "record_type": "pr_lesson",
+        "title": "Typed overlay can clarify packed text buffers",
+        "text": "PR #2691 supports a PR-scoped lesson from textlib.c: a narrow DevTextGlyph overlay with a character byte and color bitfield replaced manual two-byte indexing in DevText_Print and corresponded to an exact match in the bot report.",
+        "scope": [
+          "src/melee/if/textlib.c",
+          "DevText_Print"
+        ],
+        "evidence_refs": [
+          "diff: textlib.c DevTextGlyph and DevText_Print hunk",
+          "text_corpus: bot report DevText_Print 92.57% to 100.00%"
+        ]
+      },
+      {
+        "record_type": "pr_lesson",
+        "title": "Document section ownership for data-symbol references introduced during code matching",
+        "text": "PR #2691 supports a PR-scoped lesson from textlib.c: when exact matching required address-style references to .sdata2, .sdata, and .sbss objects, the author documented that the objects already existed and explained why the references were not new data state.",
+        "scope": [
+          "src/melee/if/textlib.c",
+          "DevText_Create",
+          "data-symbol references"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409719101",
+          "review_comments: discussion_r3409726460",
+          "review_comments: discussion_r3409726464",
+          "review_comments: discussion_r3409726469"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "textlib.c shares DevText draw-list and pool-head state with textdraw.c",
+        "text": "PR #2691 review comments state that un_804D6E18 and un_804D6E38 are the same draw-list and pool-head state that textdraw.c locally aliases as devtext_drawlist and devtext_poolhead. Curator should verify against current symbols/source before recording as a path fact.",
+        "source_path": "src/melee/if/textlib.c",
+        "scope": [
+          "src/melee/if/textlib.c",
+          "textdraw.c",
+          ".sbss",
+          "DevText"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409726469"
+        ],
+        "reason": "Potentially useful cross-TU data ownership/naming fact, but the PR comment alone should not be promoted without source/symbol verification."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "DevText_Create uses existing .sdata2 literal-pool symbols for default colors and scale constants",
+        "text": "PR #2691 review comments state that un_804DDC88 through un_804DDCA0 were existing .sdata2 objects before the PR and were needed for exact DevText_Create matching of default background/text colors and 10.0f/16.0f. Curator should verify symbol ownership and current source before recording.",
+        "source_path": "src/melee/if/textlib.c",
+        "scope": [
+          "src/melee/if/textlib.c",
+          "DevText_Create",
+          ".sdata2"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409726460",
+          "diff: textlib.c DevText_Create references un_804DDC88, un_804DDC8C, un_804DDC90, un_804DDC94, un_804DDC98, un_804DDC9C, un_804DDCA0"
+        ],
+        "reason": "Useful data ownership detail, but global/path facts require current symbol/source confirmation."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "textlib.c color globals at 804D5A08-804D5A14 may be canonical address-named .sdata objects",
+        "text": "PR #2691 review comments state that un_804D5A08 through un_804D5A14 were existing .sdata objects and that the PR renamed color_08/color_0C/color_10/color_14 to address-style names to match symbols.txt. Curator should verify current naming and symbol ownership.",
+        "source_path": "src/melee/if/textlib.c",
+        "scope": [
+          "src/melee/if/textlib.c",
+          ".sdata",
+          "GXColor"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409726464",
+          "diff: textlib.c GXColor rename hunk"
+        ],
+        "reason": "Potential data-symbol naming/path fact; needs current source verification and should not override conservative naming standards without evidence."
+      },
+      {
+        "target_source_id": "other",
+        "update_kind": "source_update",
+        "title": "Consider shared friendly aliases for DevText draw-list and pool-head symbols",
+        "text": "The PR author suggested that if friendlier names are desired for un_804D6E18/un_804D6E38 and textdraw.c aliases, they should be shared rather than separate extern names drifting from the symbol map.",
+        "source_path": "src/melee/if/textlib.c",
+        "scope": [
+          "DevText",
+          "textlib.c",
+          "textdraw.c",
+          "symbol naming"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409726469"
+        ],
+        "reason": "This is a cleanup idea from review discussion, not an accepted naming standard or current path fact."
+      }
+    ],
+    "rejection_notes": [
+      "Do not generalize this PR into a rule that address-style data names should replace friendly names; the loaded evidence supports only this textlib.c match context and explicitly mentions possible future friendlier shared aliases.",
+      "Do not treat pragma dont_inline or PAD_STACK use as generally acceptable style from this PR alone; standards require narrow verifier evidence, and the PR provides high-level match/regression reports but no function-by-function pragma justification beyond the diff.",
+      "Do not independently claim the exact set of matched functions as 7 or 8 without preserving the PR-body versus bot-report discrepancy."
+    ]
+  },
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

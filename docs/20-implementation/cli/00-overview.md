@@ -1,6 +1,6 @@
 ---
 covers: D-Comp Orchestrator CLI command modules and operator command surface
-concepts: [cli, commands, init-run, tick, worker, trigger-agent, babysit, recovery, checkpoint, regression-check, qa-ship-gate, pr-split-plan, pr-preship-review, ui]
+concepts: [cli, commands, init-run, tick, worker, trigger-agent, babysit, recovery, checkpoint, regression-check, qa-ship-gate, qa-repair, pr-split-plan, pr-preship-review, ui]
 code-ref: decomp-orchestrator/apps/cli/src/cli, decomp-orchestrator/apps/cli/src/bin/decomp-orchestrator.ts
 ---
 
@@ -38,6 +38,7 @@ apps/cli/src/
         +-- pr-preship-review.ts
         +-- pr-split-plan.ts
         +-- qa-gate.ts
+        +-- qa-repair.ts
         +-- reconcile.ts
         +-- recover-leases.ts
         +-- regression-check.ts
@@ -62,6 +63,7 @@ apps/cli/src/
 | `recover-leases` | Converts interrupted or expired active leases into durable stalled reports after operator confirmation. |
 | `epoch-run` | Runs one epoch checkpoint cycle by hand: commits validated work (excluding active-lease files), rebuilds the full report in the persistent epoch worktree, records an `epoch` save point, and requeues regression repairs. `--no-requeue` plans repairs without touching the queue. |
 | `regression-check` | Wraps the repo's global saved-baseline regression gate, runs the QA ship gate (`review_lint` diff scan vs `--qa-base`, fail-closed, bypass only via `--skip-qa-gate`), and writes run artifacts. |
+| `qa-repair` | Builds the PR-bound QA repair queue from checkpoint candidates, explicit candidate files, or saved `review_lint scan_diff` JSON; optionally runs the `qa-repair` agent over selected items; writes queue/report/ship-filter artifacts under `state_dir/qa_repairs/<run-id>/<timestamp>/`. |
 | `pr-split-plan` | Plans review-sized PR slices from the current branch/worktree by grouping changed files by Melee subsystem or top-level directory. |
 | `pr-preship-review` | Runs the pr-review agent in adversarial pre-ship mode over planned PR slices (`--plan` from saved `pr-split-plan --json` output, `--all` or `--slice <id>`); any `reject` finding or infrastructure failure exits 1 and blocks handoff. Artifacts land under `state_dir/preship_reviews/<run-id>/<slice-id>/`. |
 | `reconcile` | Runs the reconcile Pi agent. `--mode ship-validate` fixes QA-gate regressions before PR handoff; `--mode sync-merge` resolves merge conflicts, duplicate matches, and build errors after an upstream sync. `--attempt-budget` bounds fix cycles; artifacts land under `state_dir/reconcile/<timestamp>/`. |
@@ -225,6 +227,49 @@ matched code/data byte movement; fuzzy-only improvements are recorded as
 `--promotion-min-*` thresholds only when an operator deliberately wants a higher
 or broader promotion policy.
 
+## QA Repair
+
+`qa-repair` is the PR-prep repair lane for deterministic QA findings in
+candidate files. It reads the latest checkpoint for the selected run by
+default, adds explicit `--candidate-files` or `--candidate-list` paths when
+provided, and can replay a saved scanner result with `--scan-json`. When no
+candidate source exists, `--all-scan-files` treats every file in the scan as a
+candidate; the dashboard uses that fallback when no checkpoint artifact is
+available.
+
+The command writes:
+
+- `queue.json`: all candidate files, grouped repair items, ignored findings,
+  scan metadata, proofs, warnings, and attempts.
+- `summary.json`: counts by file, status, rule, severity, recommendation, and
+  artifact paths.
+- `report.md`: a human review list of files with QA errors, warning-only
+  files, rules, statuses, and routing reasons.
+- `ship_status.json`: the split-plan filter containing surviving files and
+  dropped-file reasons.
+
+By default, the command only builds the deterministic artifacts. With
+`--run-agents`, it runs the `qa-repair` role for queued items; global
+`--dry-run-agents` renders item prompts and output placeholders without live Pi
+calls. `--item-id` selects one repair item and `--max-items` bounds the number
+of items processed in one invocation.
+
+Live item processing accepts only schema-valid agent JSON, then reruns the QA
+scanner for that file before applying status. `--score-check-command`,
+`--build-check-command`, and `--regression-check-command` add runner-owned
+shell validations after a live repair; each command runs from the project root,
+writes stdout/stderr/summary artifacts under the item directory, and blocks
+clean status on nonzero exit. The score command can emit JSON with
+`preTargetScore`/`postTargetScore` or `score_impact` to route
+`clean_lower_score`.
+
+Validation command placeholders are `{repo_root}`, `{state_dir}`,
+`{output_dir}`, `{run_id}`, `{item_id}`, `{source_path}`, and `{base_ref}`.
+Agent failures, invalid JSON, missing post-scans, remaining error findings,
+blocked outcomes, false-positive-only outcomes, and failed validation commands
+cannot mark an item clean. Final ship-set verification still gates the
+assembled PR plan.
+
 ## Run Checkpoint
 
 `checkpoint-run` is the operator bridge between a drained run and PR packaging.
@@ -309,14 +354,16 @@ The UI server wraps the same operator commands for PR preparation:
 | `Pause Intake` | Drains the managed process and marks the run `paused`, which prevents `start`, `tick`, `worker`, and `trigger-agent` scheduling until the run is resumed. |
 | `Checkpoint` | Runs the checkpoint handoff logic and writes checkpoint artifacts under the run state directory. |
 | `Run QA` | Runs `regression-check` with `--require-pr-promotion` enabled by default, plus `--promotion-min-unmatched-improvement-bytes` from the project's improvement byte floor so improvement-only handoffs can still promote. |
-| `Plan PRs` | Runs `pr-split-plan` with the selected base ref, group mode, branch prefix, title prefix, worktree/untracked options, and the latest checkpoint for match/improvement lane splitting. |
-| `Prepare` | Runs pause, checkpoint, QA, and split planning in sequence; split planning runs only after QA passes. |
+| `Plan PRs` | Runs `pr-split-plan` with the selected base ref, group mode, branch prefix, title prefix, worktree/untracked options, the latest checkpoint for match/improvement lane splitting, and the latest ship-status filter when Prepare produced one. |
+| `Prepare` | Runs pause, upstream sync/rebase, baseline rebuild, branch QA, checkpoint, rework requeue, QA repair, split planning, ship-set verification, reconcile/replan when needed, PR-record sync, and a ship save point. |
 
 The UI stores split-plan artifacts under
 `state_dir/pr_handoff/<run_id>/split_plans/<timestamp>/`. Regression-check
 artifacts stay under `state_dir/regression_checks/<run_id>/<timestamp>/`, and
 checkpoint artifacts stay under
-`state_dir/runs/<run_id>/checkpoints/<timestamp>/`.
+`state_dir/runs/<run_id>/checkpoints/<timestamp>/`. QA repair artifacts stay
+under `state_dir/qa_repairs/<run_id>/<timestamp>/` and are surfaced in the
+Ship details panel as the latest QA repair report/summary link.
 
 ## Knowledge Maintenance
 

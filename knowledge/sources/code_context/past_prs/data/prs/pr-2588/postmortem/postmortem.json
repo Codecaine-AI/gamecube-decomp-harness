@@ -12,9 +12,9 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2588 split crowd sound-effect code out of melee/vi/vi1202 into a new melee/sfx/crowdsfx translation unit, updated split and symbol metadata, linked vi1202 as Matching in configure.py, and redirected fighter/game includes from vi1202.h to crowdsfx.h. The bot report shows +2036 linked-code bytes, 25 new matches under main/melee/sfx/crowdsfx, and expected apparent broken matches in main/melee/vi/vi1202 from moving those symbols to the new unit.",
+  "summary": "PR 2588 split crowd sound-effect code out of melee/vi/vi1202.c into a new melee/sfx/crowdsfx.c unit, added a crowdsfx header, updated include users, adjusted splits/symbol metadata, and changed configure.py so vi1202 is Matching while crowdsfx is a new NonMatching sfx object. The bot report shows linked-code progress and 25 new matches in the new crowdsfx unit, while also showing expected broken matches in the old vi1202 unit due to the split plus small unmatched data regressions.",
   "change_classification": {
-    "primary_type": "decomp-matching-with-tu-split",
+    "primary_type": "decomp-matching-and-tu-split",
     "categories": [
       "cleanup",
       "decomp-matching",
@@ -27,220 +27,176 @@
       "sfx",
       "fighter",
       "game-mode",
-      "config"
+      "build-config"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/vi/vi1202.c",
-      "role": "Original vi1202 source reduced after moving crowd SFX implementation out to the new sfx/crowdsfx unit.",
+      "role": "Original vi unit trimmed after crowd SFX code was split out; changed-file metadata shows the largest deletion in this PR.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/vi/vi1202.c added 18 deleted 644",
-        "pr_body: matching vi1202 required a split for new crowdsfx.c",
-        "bot_report: vi1202 broken matches correspond to moved symbols"
+        "changed_files: src/melee/vi/vi1202.c added 18 deleted 644",
+        "pr_body: Matching vi1202 required a split for a new crowdsfx.c file",
+        "bot_report: broken matches moved from main/melee/vi/vi1202 to main/melee/sfx/crowdsfx"
       ]
     },
     {
       "path": "src/melee/sfx/crowdsfx.c",
-      "role": "New translation unit containing the moved crowd SFX code and many matched functions formerly attributed to vi1202.",
+      "role": "New source file for crowd sound-effect logic formerly in vi1202 address range.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/sfx/crowdsfx.c added 558 deleted 0",
-        "diff: new file includes CrowdSFX_UnkStruct, un_80321900, fn_803219AC, un_80321A00, un_8032233C, etc.",
-        "bot_report: 25 new matches in main/melee/sfx/crowdsfx"
+        "changed_files: src/melee/sfx/crowdsfx.c added 558 deleted 0",
+        "diff: new file src/melee/sfx/crowdsfx.c",
+        "bot_report: 25 new matches under main/melee/sfx/crowdsfx"
       ]
     },
     {
       "path": "src/melee/sfx/crowdsfx.h",
-      "role": "New header for crowd SFX declarations/types used by fighter and game-mode callers.",
+      "role": "New public header replacing vi1202.h includes for crowd SFX users.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/sfx/crowdsfx.h added 81 deleted 0",
-        "diff: include users switched from vi/vi1202.h to sfx/crowdsfx.h"
-      ]
-    },
-    {
-      "path": "src/melee/vi/vi1202.h",
-      "role": "Header cleaned up after crowd SFX declarations moved to sfx/crowdsfx.h.",
-      "evidence_refs": [
-        "changed_files.jsonl: src/melee/vi/vi1202.h added 2 deleted 62"
+        "changed_files: src/melee/sfx/crowdsfx.h added 81 deleted 0",
+        "diff: ft and gm files include sfx/crowdsfx.h instead of vi/vi1202.h"
       ]
     },
     {
       "path": "config/GALE01/splits.txt",
-      "role": "Split metadata narrowed vi1202 ranges and added melee/sfx/crowdsfx.c ranges for text, bss, sbss, and sdata2.",
+      "role": "Split metadata changed vi1202 text/data ranges and introduced melee/sfx/crowdsfx.c ranges.",
       "evidence_refs": [
-        "diff: vi1202 .text end changed 0x80322620 to 0x80321900",
-        "diff: added melee/sfx/crowdsfx.c .text 0x80321900-0x80322620 plus bss/sbss/sdata2 ranges"
+        "diff: vi1202 .text end changed from 0x80322620 to 0x80321900",
+        "diff: added melee/sfx/crowdsfx.c .text 0x80321900-0x80322620 and related bss/sbss/sdata2 ranges"
       ]
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Symbol metadata changed several vi-area data/string/float symbols from global address-style names to local @ labels around the vi1202/crowdsfx split.",
+      "role": "Symbol metadata changed several vi1202-adjacent strings/floats from global un_/lbl_ names to local @ labels.",
       "evidence_refs": [
-        "diff: un_804003A0/lbl_804003C8/etc. changed to local @218/@316/etc.",
-        "diff: un_804D5B30/un_804D5B38 changed to local @216/@217",
-        "diff: un_804DE138..un_804DE144 changed to local @219/@220/@227/@235"
+        "diff: un_804003A0 and lbl_804003C8..lbl_80400420 replaced by local @218 and @316..@321 labels",
+        "diff: un_804D5B30/un_804D5B38 replaced by local @216/@217",
+        "diff: un_804DE138..un_804DE144 replaced by local @219/@220/@227/@235"
       ]
     },
     {
       "path": "configure.py",
-      "role": "Build configuration changed vi1202 from NonMatching to Matching and introduced a new sfx MeleeLib containing crowdsfx.c as NonMatching.",
+      "role": "Build configuration marks vi1202 as Matching and adds a new sfx library group containing crowdsfx.c as NonMatching.",
       "evidence_refs": [
         "diff: Object(NonMatching, melee/vi/vi1202.c) changed to Object(Matching, melee/vi/vi1202.c)",
-        "diff: added MeleeLib(\"sfx (Sound effects)\", Object(NonMatching, melee/sfx/crowdsfx.c))"
-      ]
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_Damage.c",
-      "role": "Include updated to consume crowd SFX declarations from the new sfx header.",
-      "evidence_refs": [
-        "diff: #include \"vi/vi1202.h\" changed to #include \"sfx/crowdsfx.h\""
-      ]
-    },
-    {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_FallSpecial.c",
-      "role": "Include updated to consume crowd SFX declarations from the new sfx header.",
-      "evidence_refs": [
-        "diff: #include \"vi/vi1202.h\" changed to #include \"sfx/crowdsfx.h\""
-      ]
-    },
-    {
-      "path": "src/melee/ft/fighter.c",
-      "role": "Include updated to consume crowd SFX declarations from the new sfx header.",
-      "evidence_refs": [
-        "diff: #include \"vi/vi1202.h\" changed to #include \"sfx/crowdsfx.h\""
-      ]
-    },
-    {
-      "path": "src/melee/ft/ftcommon.c",
-      "role": "Include updated to consume crowd SFX declarations from the new sfx header.",
-      "evidence_refs": [
-        "diff: #include \"vi/vi1202.h\" changed to #include \"sfx/crowdsfx.h\""
-      ]
-    },
-    {
-      "path": "src/melee/gm/gm_16AE.c",
-      "role": "Angle-bracket include updated to the new melee/sfx/crowdsfx.h path.",
-      "evidence_refs": [
-        "diff: #include <melee/vi/vi1202.h> changed to #include <melee/sfx/crowdsfx.h>"
-      ]
-    },
-    {
-      "path": "src/melee/vi/vi1201v1.c",
-      "role": "Adjacent vi source cleanup affected by this PR, with limited evidence in loaded slice.",
-      "evidence_refs": [
-        "changed_files.jsonl: src/melee/vi/vi1201v1.c added 7 deleted 73",
-        "bot_report: vi1201v1 .data regression and un_8031FD18_OnEnter small unmatched regression"
-      ]
-    },
-    {
-      "path": "src/melee/vi/vi1201v2.c",
-      "role": "Adjacent vi source cleanup affected by this PR, with limited evidence in loaded slice.",
-      "evidence_refs": [
-        "changed_files.jsonl: src/melee/vi/vi1201v2.c added 1 deleted 13",
-        "bot_report: vi1201v2 un_80320A40_OnEnter improved, .data slightly regressed"
+        "diff: added MeleeLib sfx (Sound effects) with Object(NonMatching, melee/sfx/crowdsfx.c)"
       ]
     }
   ],
   "what_changed": [
-    "Added src/melee/sfx/crowdsfx.c and src/melee/sfx/crowdsfx.h for crowd sound-effect code.",
-    "Shortened melee/vi/vi1202.c split ranges and added a new melee/sfx/crowdsfx.c split covering text 0x80321900-0x80322620, bss 0x804A2F08-0x804A2F38, sbss 0x804D7050-0x804D7054, and sdata2 0x804DE148-0x804DE160.",
-    "Changed configure.py so melee/vi/vi1202.c is Matching and introduced a new sfx MeleeLib with melee/sfx/crowdsfx.c as NonMatching.",
-    "Updated several consumers in fighter and gm code to include sfx/crowdsfx.h instead of vi/vi1202.h.",
-    "Adjusted symbols.txt around the split by changing several string/float symbols from global address-style names to local @ labels.",
-    "Bot report recorded 25 new matches in main/melee/sfx/crowdsfx and apparent broken matches in main/melee/vi/vi1202 for the same moved symbols."
+    "Added a new melee/sfx/crowdsfx.c translation unit containing crowd SFX routines such as un_80321900, fn_803219AC, un_80321A00, un_80321AF4, un_80321D30, un_8032201C, un_8032233C, and related helpers.",
+    "Added src/melee/sfx/crowdsfx.h and updated fighter and game-mode users to include crowdsfx.h instead of vi1202.h.",
+    "Changed splits so vi1202 text now ends at 0x80321900 and a new crowdsfx split owns 0x80321900-0x80322620 plus its bss/sbss/sdata2 ranges.",
+    "Changed configure.py to link vi1202 as Matching and introduce a new sfx MeleeLib with crowdsfx.c as NonMatching.",
+    "Updated symbol metadata for several strings/floats near 0x804003A0, 0x804D5B30, and 0x804DE138 from global un_/lbl_ names to local @ labels.",
+    "The bot report recorded +2036 linked-code bytes, +0.05% linked code, 25 new matches in crowdsfx, expected broken matches under the old vi1202 unit, and small unmatched item regressions in vi1201v1/vi1201v2 data."
   ],
   "smart_moves": [
     {
-      "text": "The author treated crowd SFX as a separate logical unit rather than keeping it in vi1202 solely for historical address ownership.",
+      "text": "The PR did not force crowd SFX code to remain in vi1202; it introduced a separate sfx/crowdsfx.c split that the author said was required and logically made sense.",
       "evidence_refs": [
-        "pr_body: required a split for a new crowdsfx.c file since it made logical sense",
-        "diff: added melee/sfx/crowdsfx.c split and source/header"
+        "pr_body",
+        "diff:splits.txt",
+        "diff:configure.py"
       ]
     },
     {
-      "text": "After moving declarations to a new owner header, direct include users were updated from vi1202.h to crowdsfx.h instead of relying on stale vi ownership.",
+      "text": "Include users were redirected from vi/vi1202.h to sfx/crowdsfx.h, aligning declarations with the new code ownership instead of keeping vi as the public header surface.",
       "evidence_refs": [
-        "diff: ftCo_Damage.c, ftCo_FallSpecial.c, fighter.c, ftcommon.c, gm_16AE.c include changes"
+        "diff:ftCo_Damage.c",
+        "diff:ftCo_FallSpecial.c",
+        "diff:fighter.c",
+        "diff:ftcommon.c",
+        "diff:gm_16AE.c"
       ]
     },
     {
-      "text": "The split metadata, configure.py object ownership, and symbol metadata were changed together, keeping source movement aligned with build/link metadata.",
+      "text": "The split was accompanied by symbols.txt changes that made adjacent literals/floats local labels, avoiding stale global un_/lbl_ ownership for data in the adjusted vi1202 range.",
       "evidence_refs": [
-        "diff: splits.txt new crowdsfx ranges",
-        "diff: configure.py adds sfx library and marks vi1202 matching",
-        "diff: symbols.txt local label updates"
+        "diff:symbols.txt"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When matching a unit reveals that a contiguous tail belongs to a different logical subsystem, a translation-unit split can be the right decomp step if split ranges, configure ownership, headers, and caller includes are updated together.",
+      "lesson": "When a function range inside a TU is better owned by another subsystem, a matching PR may need a split plus build-config/header/include updates rather than only moving code inside the old TU.",
       "scope": [
         "translation-unit splits",
         "vi1202",
         "crowdsfx",
-        "build metadata"
+        "headers"
       ],
       "evidence_refs": [
-        "pr_body: matching vi1202 required split for new crowdsfx.c",
-        "diff: vi1202 .text end moved to 0x80321900 and crowdsfx .text added 0x80321900-0x80322620",
-        "diff: configure.py marks vi1202 Matching and adds sfx crowdsfx object"
-      ],
-      "confidence": 0.86
+        "pr_body: Matching vi1202 required a split for a new crowdsfx.c file",
+        "diff:splits.txt added melee/sfx/crowdsfx.c",
+        "diff:configure.py added sfx library and marked vi1202 Matching",
+        "diff:include replacements from vi1202.h to crowdsfx.h"
+      ]
     },
     {
-      "lesson": "Progress reports after a TU split may show 'broken matches' in the old unit and new matches in the new unit for the same functions; interpret those as relocation evidence rather than necessarily source regressions.",
+      "lesson": "A split can make report output look like broken matches in the old unit while the same symbols become new matches in the new unit; intake should interpret those paired movements as split evidence rather than standalone regressions.",
       "scope": [
-        "progress reports",
-        "split review",
-        "objdiff interpretation"
+        "progress-report interpretation",
+        "split metadata"
       ],
       "evidence_refs": [
         "bot_report: 25 new matches under main/melee/sfx/crowdsfx",
-        "bot_report: 23 broken matches under main/melee/vi/vi1202 for corresponding symbols"
-      ],
-      "confidence": 0.82
+        "bot_report: 23 broken matches under main/melee/vi/vi1202 for the corresponding functions"
+      ]
     }
   ],
   "naming_conventions": [
     {
-      "convention": "New subsystem file/header used the descriptive path/name crowdsfx for crowd sound effects, while many uncertain functions and globals retained address-style un_/fn_ names and x-offset struct fields.",
+      "text": "The new subsystem file and header use the descriptive path/name crowdsfx for crowd sound-effect code, while many internal functions and unknown structs retain address-style names such as un_80321900 and CrowdSFX_UnkStruct where detailed semantics are not fully proven in the slice.",
       "evidence_refs": [
-        "diff: added src/melee/sfx/crowdsfx.c and crowdsfx.h",
-        "diff: functions such as un_80321900, fn_803219AC, un_8032233C and fields x0/x4/x8 remain address/offset style"
-      ],
-      "confidence": 0.78
+        "diff:src/melee/sfx/crowdsfx.c",
+        "diff:src/melee/sfx/crowdsfx.h"
+      ]
     },
     {
-      "convention": "Symbol metadata for local compiler literals/data in the split region used local @ labels rather than keeping broad global un_/lbl_ names.",
+      "text": "Symbol metadata changed some data labels from global un_/lbl_ names to local @ labels after the split, suggesting local-label ownership for compiler literals in this range.",
       "evidence_refs": [
-        "diff: un_804003A0 and lbl_804003C8 etc. changed to local @218/@316 etc.",
-        "diff: un_804DE138..un_804DE144 changed to local @219/@220/@227/@235"
-      ],
-      "confidence": 0.76
+        "diff:config/GALE01/symbols.txt"
+      ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Translation-unit split at 0x80321900 moved functions from vi1202 into a new crowdsfx object, allowing vi1202 to be marked Matching while crowdsfx carried the moved code.",
+      "tactic": "Translation-unit split at 0x80321900",
+      "details": "vi1202 .text was shortened and crowdsfx.c received the moved 0x80321900-0x80322620 text range, with bss/sbss/sdata2 ownership also adjusted.",
       "evidence_refs": [
-        "diff: splits.txt vi1202 .text end 0x80321900",
-        "diff: splits.txt crowdsfx .text 0x80321900-0x80322620",
-        "diff: configure.py vi1202 Matching and crowdsfx NonMatching"
+        "diff:config/GALE01/splits.txt"
       ]
     },
     {
-      "tactic": "Metadata cleanup converted some split-local strings/floats from global symbols to local @ labels to reflect local ownership around the new split.",
+      "tactic": "Build-object status update",
+      "details": "configure.py changed vi1202.c from NonMatching to Matching and added crowdsfx.c as a new NonMatching object under an sfx library.",
       "evidence_refs": [
-        "diff: symbols.txt local @ labels in .data, .sdata, .sdata2"
+        "diff:configure.py"
       ]
     },
     {
-      "tactic": "The new crowdsfx.c contains narrow codegen steering artifacts such as a push/pop dont_inline block, PAD_STACK(8), and M2C_FIELD accesses; the loaded PR evidence shows their presence but does not include author explanation for each tactic.",
+      "tactic": "Narrow matching pragmas and helper duplication",
+      "details": "crowdsfx.c includes a tightly scoped #pragma push/#pragma dont_inline on/#pragma pop region around un_80321C70 and un_80321CA4, plus a static inline-like helper un_80321C70_inline and un_80321CE8_caller. The slice shows these tactics but does not include author explanation beyond the match report.",
       "evidence_refs": [
-        "diff: #pragma push / #pragma dont_inline on around un_80321C70 and un_80321CA4",
-        "diff: PAD_STACK(8) in un_8032233C",
-        "diff: M2C_FIELD(mpLib_80458868, f32*, offsets) in boundary checks"
+        "diff:src/melee/sfx/crowdsfx.c around un_80321C70/un_80321CA4",
+        "bot_report: corresponding crowdsfx functions reported at 100%"
+      ]
+    },
+    {
+      "tactic": "Stack and raw-field bridge tactics remain in new source",
+      "details": "crowdsfx.c uses PAD_STACK(8), char pad locals, M2C_FIELD on mpLib_80458868, gotos, and address-style names. These are evidenced in the diff, but the slice does not provide objdiff rationale for each individual tactic.",
+      "evidence_refs": [
+        "diff:src/melee/sfx/crowdsfx.c un_8032233C uses PAD_STACK(8)",
+        "diff:src/melee/sfx/crowdsfx.c un_80322258/un_803224DC/un_80322598 use M2C_FIELD",
+        "diff:src/melee/sfx/crowdsfx.c un_80321EBC and un_803224DC use gotos"
+      ]
+    },
+    {
+      "tactic": "Local symbol metadata cleanup",
+      "details": "Several string and float symbols were changed from global un_/lbl_ entries to local @ entries, consistent with the split and literal ownership cleanup shown in symbols.txt.",
+      "evidence_refs": [
+        "diff:config/GALE01/symbols.txt"
       ]
     }
   ],
@@ -248,22 +204,22 @@
     {
       "kind": "bot_report",
       "author": "decomp-dev[bot]",
-      "summary": "GALE01 report showed linked code 42.41% (+0.05%, +2036 bytes), matched data 41.43% (-0.01%, -144 bytes), and linked data 35.01% (+0.02%, +192 bytes). It listed 25 new matches, mostly in main/melee/sfx/crowdsfx, and 23 broken matches mostly in main/melee/vi/vi1202 from the split.",
+      "text": "Report showed linked code 42.41% (+0.05%, +2036 bytes), matched data 41.43% (-0.01%, -144 bytes), linked data 35.01% (+0.02%, +192 bytes), 25 new matches, 23 broken matches, 2 unmatched improvements, and 2 unmatched regressions.",
       "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot] 2026-06-06T18:51:13Z"
+        "text_corpus: issue_comment by decomp-dev[bot] at 2026-06-06T18:51:13Z"
       ]
     },
     {
-      "kind": "absence",
+      "kind": "human_review",
       "author": null,
-      "summary": "No human review comments or review records are present in the loaded PR slice.",
+      "text": "No human review comments or review records are present in the loaded PR slice.",
       "evidence_refs": [
         "metadata_json: review_comments 0, reviews 0"
       ]
     }
   ],
   "searchable_terms": [
-    "PR2588",
+    "pr2588",
     "PsiLupan",
     "cleanup statics in vi",
     "match and link vi1202",
@@ -271,16 +227,6 @@
     "crowdsfx",
     "melee/sfx/crowdsfx.c",
     "src/melee/sfx/crowdsfx.h",
-    "translation unit split",
-    "splits.txt",
-    "symbols.txt",
-    "configure.py Matching vi1202",
-    "GObj_Create",
-    "HSD_GObj_SetupProc",
-    "CrowdSFX_UnkStruct",
-    "gCrowdConfig",
-    "lbAudioAx_800240B4",
-    "lbAudioAx_8002411C",
     "un_80321900",
     "fn_803219AC",
     "un_80321A00",
@@ -291,117 +237,147 @@
     "un_8032201C",
     "un_8032233C",
     "un_803224DC",
+    "un_80322598",
+    "CrowdSFX_UnkStruct",
+    "gCrowdConfig",
+    "mpLib_80458868",
     "PAD_STACK",
+    "M2C_FIELD",
     "pragma dont_inline",
-    "M2C_FIELD mpLib_80458868"
+    "splits.txt",
+    "symbols.txt",
+    "Object(Matching, melee/vi/vi1202.c)",
+    "MeleeLib sfx"
   ],
   "follow_up_queries": [
-    "Find later PRs that clean up src/melee/sfx/crowdsfx.c M2C_FIELD mpLib_80458868 accesses.",
-    "Search for later renames of CrowdSFX_UnkStruct fields x0 x4 x8 xC x10 x14 x18 x1C x20 x24 x28 x2C.",
-    "Search for later changes to un_80321C70 pragma dont_inline or PAD_STACK in un_8032233C.",
-    "Look for follow-up PRs that move crowdsfx.c from NonMatching to Matching or improve its data match.",
-    "Search path facts for melee/sfx/crowdsfx.c ownership and split ranges around 0x80321900-0x80322620.",
-    "Search for vi1202.h cleanup after crowd SFX declarations moved to crowdsfx.h."
+    "crowdsfx.c PAD_STACK M2C_FIELD pragma dont_inline",
+    "vi1202 split crowdsfx 0x80321900",
+    "gCrowdConfig CrowdSFX_UnkStruct field names",
+    "mpLib_80458868 M2C_FIELD 0x14 0x18 0x1C",
+    "PRs that move code from vi1202 to sfx",
+    "symbols.txt local @ labels split cleanup .sdata2 vi1202"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR identity, state, counts, changed files",
-      "human_pr_text: author stated split rationale",
-      "raw_diff excerpt: split/config/include/source changes",
-      "text_corpus: decomp-dev bot report",
-      "changed_files.jsonl: full changed-file list"
+      "metadata_json",
+      "human_pr_text",
+      "raw_diff excerpt",
+      "changed_files.jsonl",
+      "text_corpus bot report"
     ],
     "notes": [
-      "The loaded diff is truncated, so detailed contents for the tail of crowdsfx.c, vi1201v1.c, vi1201v2.c, vi1202.c, vi1202.h, and crowdsfx.h are incomplete.",
-      "There are no loaded human review comments, so reviewer intent and acceptance reasoning beyond merge state are not inferred.",
-      "The bot report supports match/progress effects, but no local build command, objdiff command, or manual validation notes from the author are loaded.",
-      "Presence of pragmas, PAD_STACK, and M2C_FIELD is documented, but the loaded evidence does not prove why each tactic was necessary."
+      "The PR identity, file list, split/config changes, include replacements, merge timestamp, and bot progress report are strongly evidenced.",
+      "The raw diff is truncated, so parts of vi1201v1, vi1201v2, vi1202.c, vi1202.h, and the end of crowdsfx.c are not visible in the loaded excerpt.",
+      "No human review comments are present; reviewer intent or acceptance rationale beyond merge state should not be inferred.",
+      "The bot report supports function-level match movement and overall linked-code progress, but it also records unmatched data regressions and expected broken matches in the old vi1202 unit after the split.",
+      "Matching tactics such as PAD_STACK, M2C_FIELD, gotos, helper duplication, and dont_inline pragmas are visible in the new file, but the slice does not include per-tactic objdiff explanations."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "lesson_candidate",
-        "title": "TU split can convert old-unit broken matches into new-unit matches",
-        "text": "In PR #2588, moving the crowd SFX code from vi1202 into melee/sfx/crowdsfx.c produced bot-report broken matches in main/melee/vi/vi1202 and corresponding new matches in main/melee/sfx/crowdsfx. For split PRs, evaluate old-unit breakage against new-unit ownership before classifying it as a regression.",
+        "record_type": "postmortem_lesson",
+        "title": "Interpret split-induced broken matches together with new-unit matches",
+        "text": "In PR 2588, crowd SFX functions appear as broken matches under main/melee/vi/vi1202 and as new 100% matches under main/melee/sfx/crowdsfx after the split. For split PRs, paired old-unit losses and new-unit gains should be reviewed as ownership movement before being treated as real regressions.",
         "scope": [
-          "split review",
-          "progress report interpretation",
-          "decomp matching"
+          "progress reports",
+          "translation-unit splits",
+          "vi1202",
+          "crowdsfx"
         ],
         "evidence_refs": [
-          "pr_body: split introduced because matching vi1202 required it",
-          "bot_report: 25 new crowdsfx matches and 23 broken vi1202 matches"
+          "bot_report: 25 new matches in main/melee/sfx/crowdsfx",
+          "bot_report: 23 broken matches in main/melee/vi/vi1202",
+          "diff:splits.txt"
+        ]
+      },
+      {
+        "record_type": "postmortem_lesson",
+        "title": "Code ownership split should update include ownership",
+        "text": "PR 2588 moved crowd SFX declarations out of vi1202.h into sfx/crowdsfx.h and updated fighter/gm include users, keeping the public include path aligned with the new subsystem ownership.",
+        "scope": [
+          "headers",
+          "includes",
+          "subsystem splits"
         ],
-        "confidence": 0.82
+        "evidence_refs": [
+          "diff:src/melee/sfx/crowdsfx.h added",
+          "diff:ftCo_Damage.c include changed to sfx/crowdsfx.h",
+          "diff:ftCo_FallSpecial.c include changed to sfx/crowdsfx.h",
+          "diff:fighter.c include changed to sfx/crowdsfx.h",
+          "diff:ftcommon.c include changed to sfx/crowdsfx.h",
+          "diff:gm_16AE.c include changed to melee/sfx/crowdsfx.h"
+        ]
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "melee/sfx/crowdsfx.c introduced by PR #2588 as split from vi1202",
-        "text": "PR #2588 introduced src/melee/sfx/crowdsfx.c and src/melee/sfx/crowdsfx.h. The splits metadata moved vi1202 .text end to 0x80321900 and assigned melee/sfx/crowdsfx.c .text 0x80321900-0x80322620, plus bss 0x804A2F08-0x804A2F38, sbss 0x804D7050-0x804D7054, and sdata2 0x804DE148-0x804DE160.",
+        "title": "crowdsfx split owns text range formerly in vi1202",
+        "text": "PR 2588 added melee/sfx/crowdsfx.c with .text range 0x80321900-0x80322620, while melee/vi/vi1202.c .text was shortened to end at 0x80321900. Related bss/sbss/sdata2 ownership was also assigned between vi1202 and crowdsfx.",
         "source_path": "config/GALE01/splits.txt",
         "scope": [
-          "melee/sfx/crowdsfx.c",
-          "melee/vi/vi1202.c",
-          "GALE01 splits"
-        ],
-        "evidence_refs": [
-          "diff: splits.txt vi1202 range changes and new crowdsfx ranges",
-          "pr_body: split for new crowdsfx.c"
-        ],
-        "reason": "Path/split ownership fact appears directly supported by PR diff, but should be curated into path facts rather than accepted by intake."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "vi1202 marked Matching while crowdsfx introduced as NonMatching",
-        "text": "PR #2588 changed configure.py so Object(NonMatching, \"melee/vi/vi1202.c\") became Object(Matching, \"melee/vi/vi1202.c\") and added a new MeleeLib \"sfx (Sound effects)\" containing Object(NonMatching, \"melee/sfx/crowdsfx.c\").",
-        "source_path": "configure.py",
-        "scope": [
-          "configure.py",
+          "GALE01",
           "melee/vi/vi1202.c",
           "melee/sfx/crowdsfx.c"
         ],
         "evidence_refs": [
-          "diff: configure.py object status changes"
+          "diff:config/GALE01/splits.txt",
+          "pr_body"
         ],
-        "reason": "Build ownership/status change is source-owned metadata and should be reviewed by curator before promotion."
+        "reason": "Useful source-owned path/split fact; should be curated from split metadata rather than inferred from the postmortem alone."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "crowdsfx declarations moved from vi header to sfx header",
+        "text": "PR 2588 introduced src/melee/sfx/crowdsfx.h and updated ft/gm include users from vi/vi1202.h to sfx/crowdsfx.h for crowd SFX declarations.",
+        "source_path": "src/melee/sfx/crowdsfx.h",
+        "scope": [
+          "headers",
+          "src/melee/sfx",
+          "src/melee/ft",
+          "src/melee/gm"
+        ],
+        "evidence_refs": [
+          "changed_files: src/melee/sfx/crowdsfx.h",
+          "diff:include replacements"
+        ],
+        "reason": "Potential header ownership fact for future lookup."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Review split PR progress reports as ownership moves, not only regressions",
-        "text": "For PRs that intentionally split a translation unit, apparent broken matches in the old object can be expected if the same symbols become matched in the new object. Review the old and new unit rows together before treating the bot report as a regression.",
+        "title": "Split-report interpretation for moved functions",
+        "text": "When a PR splits a TU, bot reports may show corresponding broken matches in the old unit and new matches in the new unit. Review both sides together before classifying the old-unit losses as regressions.",
         "source_path": null,
         "scope": [
-          "decomp review",
-          "split PRs",
-          "progress reports"
+          "review reports",
+          "TU split PRs"
         ],
         "evidence_refs": [
-          "bot_report: main/melee/sfx/crowdsfx new matches mirror main/melee/vi/vi1202 broken matches",
-          "pr_body: matching vi1202 required split"
+          "bot_report from PR 2588",
+          "diff:config/GALE01/splits.txt"
         ],
-        "reason": "Potential review guidance supported by this PR, but it may be too narrow or already covered by existing split/data standards; curator should decide whether to generalize."
+        "reason": "Potential review guidance supported by this PR, but should be curated as a standard only if corroborated by other split PRs or accepted project practice."
       }
     ],
     "rejection_notes": [
-      "Do not infer that each pragma, PAD_STACK, or M2C_FIELD in crowdsfx.c is accepted permanent style; the PR slice shows them but does not include verifier evidence for each tactic.",
-      "Do not promote semantic names for un_80321xxx functions or CrowdSFX_UnkStruct fields beyond the file/header name; most functions and fields remained address/offset-style in the diff.",
-      "Do not treat small data regressions in vi1201v1/vi1201v2 as intentional or acceptable beyond the bot report; no author explanation or reviewer discussion is loaded."
+      "Do not infer that all PAD_STACK, M2C_FIELD, goto, duplicated helper, or pragma uses in crowdsfx.c are preferred style; the slice only proves they existed in the merged diff and that the bot reported matches.",
+      "Do not treat the symbol local-label changes as a global rule to convert string/float symbols to @ labels; this PR only supports the specific split-adjacent metadata edits shown.",
+      "Do not claim human reviewer approval rationale; no human review comments are present in the loaded slice.",
+      "Do not claim full data improvement; the bot report shows matched data decreased by 144 bytes and records small unmatched data regressions."
     ]
   },
-  "confidence": 0.83,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

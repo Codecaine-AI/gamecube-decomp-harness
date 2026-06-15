@@ -12,13 +12,13 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2497 changed only src/melee/lb/lbheap.c to improve lbheap matching, especially lbHeap_80015900, while preserving or reaching a full match for lbHeap_80015F3C. The diff introduces local heap descriptor/view structs, helper inlines for reset/create/destroy heap operations, rewrites heap bounds scanning, and switches descriptor iteration from index-based array access to a pointer walk. The PR was closed without a recorded merge timestamp in the loaded metadata.",
+  "summary": "PR #2497 modified src/melee/lb/lbheap.c to improve lbheap matching, especially lbHeap_80015900, while preserving lbHeap_80015F3C as matched. The diff adds named local structs and inline helpers for heap reset/create/destroy handling, rewrites heap bounds scanning, and changes lbHeap_80015F3C descriptor traversal from index-based table access to pointer iteration. The PR body reports ninja and targeted checkdiff verification; the bot report confirms lbHeap_80015F3C reached 100% and lbHeap_80015900 improved to 96.48%. No human review comments are present in the loaded slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "code-cleanup",
-      "heap-management",
+      "cleanup",
+      "local-helper-refactor",
       "verification-reported"
     ],
     "systems": [
@@ -30,362 +30,327 @@
   "key_files": [
     {
       "path": "src/melee/lb/lbheap.c",
-      "role": "Only changed source file; contains lbHeap_80015900 and lbHeap_80015F3C matching changes, local struct introductions, helper inlines, bounds scan rewrite, and heap descriptor pointer iteration.",
+      "role": "Only changed source file; contains lbheap matching cleanup, local heap helper additions, bounds scan rewrite, and lbHeap_80015F3C traversal changes.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/lb/lbheap.c added 156 deleted 122 hunks 4",
-        "raw_diff: diff --git a/src/melee/lb/lbheap.c",
-        "human_pr_text: fixes heap bounds scan and factors repeated heap create/destroy setup through local helpers"
+        "raw_diff: additions of struct lbHeap_HeapDesc, struct lbHeap_HeapOffsetView, lbHeap_ResetHeap, lbHeap_DestroyOffsetViewIfCreated, lbHeap_CreateOffsetViewIfDestroyed",
+        "raw_diff: lbHeap_80015900 rewritten with destroy_i/create_i loops, heap_offset, bounds_heap, main_heap, aram_heap",
+        "raw_diff: lbHeap_80015F3C uses desc pointer iteration and lbHeap_ResetHeap calls"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Named the previously anonymous heap descriptor struct as struct lbHeap_HeapDesc and kept lbHeap_803BA380 as an array of that type.",
+      "text": "Named the previously anonymous heap descriptor struct as struct lbHeap_HeapDesc and declared lbHeap_803BA380 as an array of that type.",
       "evidence_refs": [
-        "raw_diff: struct { ... } lbHeap_803BA380[5] changed to struct lbHeap_HeapDesc plus struct lbHeap_HeapDesc lbHeap_803BA380[5]"
+        "raw_diff: anonymous struct replaced by struct lbHeap_HeapDesc and struct lbHeap_HeapDesc lbHeap_803BA380[5]"
       ]
     },
     {
-      "text": "Added struct lbHeap_HeapOffsetView with pad[0x10] before struct Heap, plus lbHeap_GetHeapOffsetView(offset) to view heap data at offsets relative to lbHeap_80431FA0.",
+      "text": "Added struct lbHeap_HeapOffsetView with pad[0x10] and a struct Heap member, plus lbHeap_GetHeapOffsetView(offset) to view heap records at byte offsets from lbHeap_80431FA0.",
       "evidence_refs": [
-        "raw_diff: struct lbHeap_HeapOffsetView { u8 pad[0x10]; struct Heap heap; }",
-        "raw_diff: #define lbHeap_GetHeapOffsetView(offset) ((struct lbHeap_HeapOffsetView*) ((u32) (&lbHeap_80431FA0) + (offset)))"
+        "raw_diff: struct lbHeap_HeapOffsetView and lbHeap_GetHeapOffsetView macro"
       ]
     },
     {
-      "text": "Factored repeated heap initialization into static inline lbHeap_ResetHeap and used it six times in lbHeap_80015F3C instead of a for loop over heap_array.",
+      "text": "Factored repeated heap initialization into static inline lbHeap_ResetHeap and used it six times in lbHeap_80015F3C.",
       "evidence_refs": [
-        "raw_diff: added static inline void lbHeap_ResetHeap(struct Heap* heap)",
-        "raw_diff: for (i = 0; i < 6; i++) reset block replaced with six lbHeap_ResetHeap calls"
+        "raw_diff: lbHeap_ResetHeap definition",
+        "raw_diff: lbHeap_80015F3C replaces for-loop field assignments with six lbHeap_ResetHeap calls"
       ]
     },
     {
-      "text": "Factored heap destroy/create status handling into static inline lbHeap_DestroyOffsetViewIfCreated and lbHeap_CreateOffsetViewIfDestroyed, used by lbHeap_80015900 transient heap loops.",
+      "text": "Factored repeated transient heap destroy/create logic into static inline lbHeap_DestroyOffsetViewIfCreated and lbHeap_CreateOffsetViewIfDestroyed, called from lbHeap_80015900 loops.",
       "evidence_refs": [
-        "raw_diff: added lbHeap_DestroyOffsetViewIfCreated",
-        "raw_diff: added lbHeap_CreateOffsetViewIfDestroyed",
-        "raw_diff: destroy/create loops call helpers through destroy_view/create_view"
+        "raw_diff: lbHeap_DestroyOffsetViewIfCreated definition",
+        "raw_diff: lbHeap_CreateOffsetViewIfDestroyed definition",
+        "raw_diff: lbHeap_80015900 destroy/create loops call the helpers through offset views"
       ]
     },
     {
-      "text": "Rewrote lbHeap_80015900 bounds scanning to cover heap indices 2 through 5 via a two-at-a-time loop using bounds_heap and bounds_heap++.",
+      "text": "Reworked lbHeap_80015900 heap bounds scan from a previously noted incorrect loop into a two-pass loop that covers heap indices 2-5 via bounds_heap = &heap_array[bounds_i * 2 - 2] and bounds_heap++.",
       "evidence_refs": [
         "human_pr_text: fixes the heap bounds scan to cover heaps 2-5",
-        "raw_diff: removed @todo noting old loop checked heaps 2 and 3, then 2 and 1",
-        "raw_diff: for (bounds_i = 2; bounds_i < 4; bounds_i++) { bounds_heap = &heap_array[bounds_i * 2 - 2]; ... bounds_heap++; ... }"
+        "raw_diff: removed @todo noting old loop checked heaps incorrectly",
+        "raw_diff: for (bounds_i = 2; bounds_i < 4; bounds_i++) with bounds_heap and bounds_heap++"
       ]
     },
     {
-      "text": "Changed arena/ARAM local bounds variables in lbHeap_80015900 from u32* pointer locals to u32 integer locals with explicit casts at call sites.",
+      "text": "Changed arena and ARAM bounds locals in lbHeap_80015900 from pointer-typed u32* locals to u32 address values with casts at call sites.",
       "evidence_refs": [
-        "raw_diff: u32* aram_hi/aram_lo/arena_hi/arena_lo replaced by u32 arena_lo, aram_lo, aram_hi, arena_hi",
-        "raw_diff: HSD_CreateMainHeap((void*) arena_lo, (void*) arena_hi)",
-        "raw_diff: lbMemory_800154D4((void*) aram_lo, (void*) aram_hi)"
+        "raw_diff: u32* arena/aram locals replaced by u32 arena_lo, aram_lo, aram_hi, arena_hi",
+        "raw_diff: HSD_CreateMainHeap and lbMemory_800154D4 receive casts to void*"
       ]
     },
     {
-      "text": "Changed lbHeap_80015F3C descriptor iteration from array-indexed access to pointer iteration with desc = lbHeap_803BA380 and desc++.",
+      "text": "Changed lbHeap_80015F3C descriptor table traversal from integer index i to struct lbHeap_HeapDesc* desc pointer iteration.",
       "evidence_refs": [
         "raw_diff: int i replaced by struct lbHeap_HeapDesc* desc",
-        "raw_diff: while ((curr_idx = desc->idx) != 6)",
-        "raw_diff: desc++"
+        "raw_diff: desc = lbHeap_803BA380; while ((curr_idx = desc->idx) != 6); desc++"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "The PR removed an explicit @todo about incorrect heap bounds scanning and replaced it with code that the PR body says covers heaps 2-5.",
+      "text": "Used local static inline helpers to express repeated heap reset/create/destroy behavior instead of duplicating field assignments and branch bodies at each call site.",
       "evidence_refs": [
-        "raw_diff: removed @todo this loop isnt entirely right",
-        "human_pr_text: fixes the heap bounds scan to cover heaps 2-5"
+        "raw_diff: lbHeap_ResetHeap, lbHeap_DestroyOffsetViewIfCreated, lbHeap_CreateOffsetViewIfDestroyed",
+        "human_pr_text: factors repeated heap create/destroy setup through local helpers"
       ]
     },
     {
-      "text": "Repeated create/destroy logic was isolated into local helpers, reducing duplication while keeping the status/type handling visible in one place.",
+      "text": "Kept verification narrow by naming ninja plus checkdiff for the two touched matching targets, lbHeap_80015900 and lbHeap_80015F3C.",
       "evidence_refs": [
-        "human_pr_text: factors repeated heap create/destroy setup through local helpers",
-        "raw_diff: added lbHeap_DestroyOffsetViewIfCreated and lbHeap_CreateOffsetViewIfDestroyed"
+        "human_pr_text: Verification lists ninja, python tools/checkdiff.py lbHeap_80015900, python tools/checkdiff.py lbHeap_80015F3C"
       ]
     },
     {
-      "text": "The descriptor table was given a named local struct and then consumed through a pointer walk, which made the table element layout explicit for matching work.",
+      "text": "Used more role-specific locals in lbHeap_80015900, including destroy_view, bounds_heap, create_view, main_heap, and aram_heap, making pointer roles clearer than repeated global heap_array expressions.",
       "evidence_refs": [
-        "raw_diff: struct lbHeap_HeapDesc added",
-        "raw_diff: desc = lbHeap_803BA380; while ((curr_idx = desc->idx) != 6)"
+        "raw_diff: lbHeap_80015900 local declarations and subsequent use"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a generated-looking repeated operation appears in multiple places, a narrow local inline helper can improve readability and still be compatible with matching if verified on the touched functions.",
+      "lesson": "When repeated heap setup or teardown blocks appear in multiple places, try small local static inline helpers that preserve the original branch behavior while improving source structure and matching.",
       "scope": [
         "src/melee/lb/lbheap.c",
-        "lbHeap_80015900",
-        "lbHeap_80015F3C"
+        "heap lifecycle helpers",
+        "matching cleanup"
       ],
       "evidence_refs": [
-        "raw_diff: lbHeap_ResetHeap helper replaces repeated field assignments",
-        "raw_diff: create/destroy helpers replace repeated status/type handling",
-        "human_pr_text: Verification lists ninja and checkdiff for lbHeap_80015900/lbHeap_80015F3C"
+        "raw_diff: repeated reset fields factored into lbHeap_ResetHeap",
+        "raw_diff: destroy/create branches factored into lbHeap_DestroyOffsetViewIfCreated and lbHeap_CreateOffsetViewIfDestroyed",
+        "human_pr_text: factors repeated heap create/destroy setup through local helpers"
       ],
       "confidence": 0.82
     },
     {
-      "lesson": "A table of fixed records may match better and read more naturally when represented by a named struct and pointer iteration rather than repeated array-index expressions.",
+      "lesson": "For table-driven setup code, pointer iteration over descriptor structs can be a viable matching shape compared with indexing every field through table[i].",
       "scope": [
-        "lbHeap_803BA380",
-        "lbHeap_80015F3C"
+        "src/melee/lb/lbheap.c",
+        "lbHeap_80015F3C",
+        "descriptor table traversal"
       ],
       "evidence_refs": [
-        "raw_diff: struct lbHeap_HeapDesc introduced",
-        "raw_diff: lbHeap_803BA380[i].field changed to desc->field with desc++",
-        "text_corpus: automated report shows lbHeap_80015F3C after 100.00%"
+        "raw_diff: lbHeap_80015F3C changes i/table[i] access to desc pointer access",
+        "human_pr_text: keeps lbHeap_80015F3C at 100%",
+        "text_corpus: bot report shows lbHeap_80015F3C 96.29% to 100.00%"
       ],
       "confidence": 0.78
     },
     {
-      "lesson": "For heap bound computations, preserve the distinction between address-valued integers and pointer dereferences; this PR changed local bound variables from pointer types to u32 and removed dereferences when assigning start/size.",
+      "lesson": "Bounds-scan cleanup should preserve the intended index coverage; here the PR explicitly replaced an acknowledged incorrect scan with logic covering heaps 2-5.",
       "scope": [
+        "src/melee/lb/lbheap.c",
         "lbHeap_80015900",
-        "heap bounds",
-        "arena_lo",
-        "arena_hi",
-        "aram_lo",
-        "aram_hi"
+        "heap bounds scan"
       ],
       "evidence_refs": [
-        "raw_diff: pointer locals replaced by u32 locals",
-        "raw_diff: main_heap->start = arena_lo and main_heap->size = arena_hi - arena_lo",
-        "raw_diff: aram_heap->start = aram_lo and aram_heap->size = aram_hi - aram_lo"
+        "human_pr_text: fixes the heap bounds scan to cover heaps 2-5",
+        "raw_diff: removed @todo describing old incorrect loop",
+        "raw_diff: new bounds_i loop visits pairs starting at heap_array[2] and heap_array[4], then increments to adjacent heaps"
       ],
-      "confidence": 0.74
+      "confidence": 0.86
     }
   ],
   "naming_conventions": [
     {
-      "name": "struct lbHeap_HeapDesc",
-      "kind": "local struct name",
-      "lesson": "Uses the lbHeap_ prefix and describes the table record role for lbHeap_803BA380.",
+      "name": "lbHeap_HeapDesc",
+      "kind": "local struct type",
+      "lesson": "Local structs introduced for lbheap internals use the lbHeap_ prefix and descriptive role suffix.",
       "evidence_refs": [
-        "raw_diff: struct lbHeap_HeapDesc { u32 idx; u32 type; u32 prev_idx; u32 size; }"
-      ]
+        "raw_diff: struct lbHeap_HeapDesc"
+      ],
+      "confidence": 0.74
     },
     {
-      "name": "struct lbHeap_HeapOffsetView",
-      "kind": "local struct name",
-      "lesson": "Names a local overlay/view type by the subsystem and its offset-view role.",
+      "name": "lbHeap_HeapOffsetView",
+      "kind": "local struct type",
+      "lesson": "A temporary/internal view type was named for its lbHeap ownership and purpose as an offset view over heap storage.",
       "evidence_refs": [
-        "raw_diff: struct lbHeap_HeapOffsetView { u8 pad[0x10]; struct Heap heap; }"
-      ]
+        "raw_diff: struct lbHeap_HeapOffsetView"
+      ],
+      "confidence": 0.72
     },
     {
       "name": "lbHeap_ResetHeap / lbHeap_DestroyOffsetViewIfCreated / lbHeap_CreateOffsetViewIfDestroyed",
-      "kind": "local helper names",
-      "lesson": "Helper names are verb phrases with lbHeap_ prefix and condition words matching their guard status.",
+      "kind": "static inline helper names",
+      "lesson": "Local helper names encode subsystem prefix plus action and condition, e.g. ResetHeap and Create/DestroyOffsetViewIfCreated/IfDestroyed.",
       "evidence_refs": [
-        "raw_diff: static inline void lbHeap_ResetHeap",
-        "raw_diff: static inline void lbHeap_DestroyOffsetViewIfCreated",
-        "raw_diff: static inline void lbHeap_CreateOffsetViewIfDestroyed"
-      ]
+        "raw_diff: static inline helper definitions"
+      ],
+      "confidence": 0.76
     },
     {
-      "name": "main_heap, aram_heap, bounds_heap, curr_heap, prev_heap",
+      "name": "destroy_i, bounds_i, create_i, heap_offset, bounds_heap, main_heap, aram_heap",
       "kind": "local variables",
-      "lesson": "Heap pointer locals use short role names ending in _heap when the role is clear.",
+      "lesson": "The PR replaces generic i and repeated global field expressions with locals named for loop purpose and heap role.",
       "evidence_refs": [
-        "raw_diff: struct Heap* bounds_heap",
-        "raw_diff: struct Heap* main_heap",
-        "raw_diff: struct Heap* aram_heap",
-        "raw_diff: existing curr_heap and prev_heap context in lbHeap_80015F3C"
-      ]
+        "raw_diff: lbHeap_80015900 local declarations"
+      ],
+      "confidence": 0.8
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use a local offset-view struct plus base+offset macro to express accesses into lbHeap_80431FA0 while matching destroy/create loops.",
+      "tactic": "Introduce an offset-view struct plus macro to recover a pointer shape at byte offsets from lbHeap_80431FA0 while still accessing the embedded struct Heap with typed fields.",
       "evidence_refs": [
-        "raw_diff: struct lbHeap_HeapOffsetView with pad[0x10] and struct Heap heap",
+        "raw_diff: struct lbHeap_HeapOffsetView with u8 pad[0x10] and struct Heap heap",
         "raw_diff: lbHeap_GetHeapOffsetView(offset)",
-        "raw_diff: destroy_i/create_i loops maintain heap_offset starting at 0x38 and incrementing by sizeof(struct Heap)"
+        "raw_diff: destroy/create loops advance heap_offset by sizeof(struct Heap)"
       ],
-      "caveat": "This is a narrow PR-supported tactic, not a global endorsement of pointer-offset overlays; current standards still prefer real fields when recoverable and require verification for matching tactics."
+      "standards_relevance": [
+        "typed-fields-over-pointer-math",
+        "matching-tactics-need-evidence"
+      ],
+      "confidence": 0.72
     },
     {
-      "tactic": "Use two-at-a-time pointer advancement in the bounds scan to cover heap_array entries 2-5 while shaping codegen.",
+      "tactic": "Use pointer-to-current-heap locals for generated repeated field accesses, including bounds_heap, main_heap, aram_heap, curr_heap, and prev_heap.",
       "evidence_refs": [
-        "raw_diff: for (bounds_i = 2; bounds_i < 4; bounds_i++)",
-        "raw_diff: bounds_heap = &lbHeap_80431FA0.heap_array[bounds_i * 2 - 2]",
-        "raw_diff: bounds_heap++"
+        "raw_diff: lbHeap_80015900 uses bounds_heap, main_heap, aram_heap",
+        "raw_diff: lbHeap_80015F3C keeps curr_heap and prev_heap"
       ],
-      "caveat": "The PR evidence supports that this replaced an incorrect previous scan, but does not independently prove original-source intent."
+      "standards_relevance": [
+        "typed-fields-over-pointer-math",
+        "conservative-naming"
+      ],
+      "confidence": 0.77
     },
     {
-      "tactic": "Use repeated explicit inline calls instead of a natural reset loop in lbHeap_80015F3C to preserve matching for that function.",
+      "tactic": "Report narrow matching verification for the affected functions rather than relying only on a broad build.",
       "evidence_refs": [
-        "raw_diff: reset for loop replaced by six lbHeap_ResetHeap calls",
-        "human_pr_text: keeps lbHeap_80015F3C at 100%",
-        "text_corpus: automated report shows lbHeap_80015F3C after 100.00%"
+        "human_pr_text: python tools/checkdiff.py lbHeap_80015900",
+        "human_pr_text: python tools/checkdiff.py lbHeap_80015F3C",
+        "text_corpus: bot report with function-level before/after percentages"
       ],
-      "caveat": "This conflicts with the general natural-loops preference unless the match evidence justifies the unrolled call shape for this function."
+      "standards_relevance": [
+        "verification-and-regression-ledger"
+      ],
+      "confidence": 0.84
     }
   ],
-  "review_feedback": [
-    {
-      "kind": "automated_report",
-      "author": "decomp-dev[bot]",
-      "text": "GALE01 report showed matched code +0.01% and +544 bytes, with lbHeap_80015F3C newly reaching 100.00% and lbHeap_80015900 improving to 96.48%.",
-      "evidence_refs": [
-        "text_corpus issue_comment by decomp-dev[bot] created_at 2026-05-15T11:04:34Z"
-      ]
-    },
-    {
-      "kind": "missing_human_review",
-      "text": "No human review comments or reviews are present in the loaded PR slice.",
-      "evidence_refs": [
-        "metadata_json counts: review_comments 0, reviews 0"
-      ]
-    }
-  ],
+  "review_feedback": [],
   "searchable_terms": [
     "pr-2497",
-    "lbheap matching",
+    "lb: improve lbheap matching",
+    "itsgrimetime",
     "src/melee/lb/lbheap.c",
+    "lbheap",
     "lbHeap_80015900",
     "lbHeap_80015F3C",
-    "lbHeap_803BA380",
-    "lbHeap_80431FA0",
     "lbHeap_HeapDesc",
     "lbHeap_HeapOffsetView",
     "lbHeap_GetHeapOffsetView",
     "lbHeap_ResetHeap",
     "lbHeap_DestroyOffsetViewIfCreated",
     "lbHeap_CreateOffsetViewIfDestroyed",
+    "lbHeap_803BA380",
+    "lbHeap_80431FA0",
     "heap bounds scan",
     "heaps 2-5",
     "HSD_CreateMainHeap",
     "OSCreateHeap",
     "OSDestroyHeap",
-    "lbMemory_80014E24",
     "lbMemory_80014EEC",
+    "lbMemory_80014E24",
     "lbMemory_800154D4",
     "lbMemory_800155A4",
     "HSD_GetNextArena",
-    "ARAM heap",
-    "arena_lo",
-    "arena_hi",
-    "aram_lo",
-    "aram_hi"
+    "checkdiff lbHeap_80015900",
+    "checkdiff lbHeap_80015F3C"
   ],
   "follow_up_queries": [
-    "lbHeap_HeapOffsetView lbHeap_GetHeapOffsetView heap_offset 0x38",
-    "lbHeap_80015900 bounds_heap heaps 2 5 matching",
-    "lbHeap_80015F3C lbHeap_ResetHeap unrolled calls 100%",
-    "lbHeap_803BA380 HeapDesc desc pointer iteration",
-    "PR 2497 lbheap closed unmerged follow-up",
-    "lbheap transient status create destroy helper"
+    "lbHeap_HeapOffsetView lbHeap_GetHeapOffsetView heap_offset sizeof(struct Heap)",
+    "lbHeap_80015900 heap bounds scan heaps 2 3 4 5",
+    "lbHeap_80015F3C desc pointer lbHeap_803BA380",
+    "lbHeap_ResetHeap local static inline matching",
+    "lbHeap_CreateOffsetViewIfDestroyed lbHeap_DestroyOffsetViewIfCreated"
   ],
   "evidence_quality": {
-    "status": "mixed",
+    "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR #2497 closed, merged_at null, changed_files 1",
+      "metadata_json: PR number, title, author, state, timestamps, changed file counts",
       "human_pr_text: summary and verification commands",
-      "raw_diff: complete diff excerpt for src/melee/lb/lbheap.c",
-      "text_corpus: decomp-dev[bot] GALE01 report"
+      "raw_diff: full diff for src/melee/lb/lbheap.c",
+      "text_corpus: decomp-dev bot report with before/after matching percentages"
     ],
     "notes": [
-      "The loaded diff and PR body strongly support what changed in src/melee/lb/lbheap.c.",
-      "Verification is reported by the PR body and automated bot output, but this intake did not rerun ninja, checkdiff, objdiff, or regression tools.",
-      "There is a numeric discrepancy between the PR body and bot report for lbHeap_80015900 before-score: body says 94.3% to 96.5%, while the bot report says 81.08% to 96.48%. Both agree the function improved.",
-      "The PR is closed with merged_at null in loaded metadata; no merge or acceptance status is inferred.",
-      "No human review comments are available, so reviewer intent cannot be extracted."
+      "The loaded slice includes no human review comments or reviews, so review feedback and reviewer intent are not inferred.",
+      "The PR is closed with merged_at null in the loaded metadata; this intake does not infer merge or acceptance status.",
+      "Verification commands are reported by the PR body and supported by a bot report, but no local build or objdiff was run during intake.",
+      "The diff supports the code-shape observations, but broader claims about original developer intent or global style are kept as candidates rather than accepted standards."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "pr_lesson_candidate",
-        "title": "Local helper extraction can coexist with lbheap matching when narrowly verified",
-        "text": "PR #2497 factored repeated heap reset/create/destroy code in src/melee/lb/lbheap.c into local inline helpers and reported ninja plus checkdiff on lbHeap_80015900 and lbHeap_80015F3C; bot output reported lbHeap_80015F3C at 100.00% and lbHeap_80015900 improved to 96.48%.",
+        "type": "decomp_lesson_candidate",
+        "title": "Use local inline helpers for repeated heap lifecycle blocks when they preserve matching",
+        "text": "In src/melee/lb/lbheap.c PR #2497 factored repeated heap reset, destroy-if-created, and create-if-destroyed logic into local static inline helpers and reported targeted checkdiff progress for lbHeap_80015900 and lbHeap_80015F3C.",
         "scope": [
-          "src/melee/lb/lbheap.c",
-          "lbHeap_80015900",
-          "lbHeap_80015F3C"
+          "lbheap",
+          "heap lifecycle code",
+          "matching cleanup"
         ],
         "evidence_refs": [
-          "human_pr_text: Verification",
-          "raw_diff: helper additions and call sites",
-          "text_corpus: decomp-dev[bot] report"
-        ]
+          "raw_diff: lbHeap_ResetHeap, lbHeap_DestroyOffsetViewIfCreated, lbHeap_CreateOffsetViewIfDestroyed",
+          "human_pr_text: factors repeated heap create/destroy setup through local helpers",
+          "text_corpus: bot report function-level improvements"
+        ],
+        "confidence": 0.82
       },
       {
-        "record_type": "pr_tactic_candidate",
-        "title": "Pointer iteration over descriptor tables may be a matching shape",
-        "text": "In lbHeap_80015F3C, PR #2497 replaced index-based lbHeap_803BA380[i] access with a struct lbHeap_HeapDesc* desc pointer walk ending at idx 6; bot output reported the function at 100.00%.",
+        "type": "matching_tactic_candidate",
+        "title": "Descriptor pointer iteration can replace table indexing in lbheap setup code",
+        "text": "PR #2497 changed lbHeap_80015F3C from lbHeap_803BA380[i] indexing to a struct lbHeap_HeapDesc* desc loop and the bot report shows the function reached 100%. Treat as a local tactic candidate, not a universal rule.",
         "scope": [
-          "lbHeap_803BA380",
-          "lbHeap_80015F3C"
+          "src/melee/lb/lbheap.c",
+          "lbHeap_80015F3C",
+          "table-driven setup"
         ],
         "evidence_refs": [
-          "raw_diff: desc = lbHeap_803BA380; while ((curr_idx = desc->idx) != 6); desc++",
-          "text_corpus: lbHeap_80015F3C after 100.00%"
-        ]
+          "raw_diff: desc pointer loop in lbHeap_80015F3C",
+          "text_corpus: lbHeap_80015F3C 96.29% to 100.00%"
+        ],
+        "confidence": 0.78
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "lbheap.c owns lbHeap_80015900 and lbHeap_80015F3C heap matching work",
-        "text": "PR #2497 changed src/melee/lb/lbheap.c for lbheap matching, including lbHeap_80015900 heap reset/bounds/create handling and lbHeap_80015F3C heap descriptor initialization.",
+        "title": "src/melee/lb/lbheap.c owns lbheap heap lifecycle and bounds-scan routines",
+        "text": "PR #2497 evidence shows src/melee/lb/lbheap.c contains lbHeap_80015900 heap reset/create/destroy and bounds scanning over heap_array, plus lbHeap_80015F3C initialization from lbHeap_803BA380 descriptors.",
         "source_path": "src/melee/lb/lbheap.c",
         "scope": [
           "library",
           "lb",
           "lbheap",
-          "lbHeap_80015900",
-          "lbHeap_80015F3C"
+          "heap lifecycle"
         ],
         "evidence_refs": [
-          "changed_files.jsonl",
-          "raw_diff",
-          "human_pr_text"
+          "changed_files.jsonl: src/melee/lb/lbheap.c only changed file",
+          "raw_diff: lbHeap_80015900 and lbHeap_80015F3C changes"
         ],
-        "reason": "Useful source-owned path fact for future lbheap matching searches; curator should verify against current source before adding."
-      },
-      {
-        "target_source_id": "decomp_standards",
-        "update_kind": "source_update",
-        "title": "Document caution for offset-view structs used as matching tactics",
-        "text": "PR #2497 used a local padded view struct and base+offset macro to access heap records relative to lbHeap_80431FA0. This may be worth documenting as a narrow, evidence-required matching tactic rather than a general style preference.",
-        "source_path": "src/melee/lb/lbheap.c",
-        "scope": [
-          "matching tactics",
-          "typed fields",
-          "temporary structs",
-          "lbHeap_HeapOffsetView"
-        ],
-        "evidence_refs": [
-          "raw_diff: struct lbHeap_HeapOffsetView",
-          "raw_diff: lbHeap_GetHeapOffsetView",
-          "raw_diff: heap_offset loops in lbHeap_80015900"
-        ],
-        "reason": "Current standards already require evidence for temporary padded structs and prefer real fields; curator may decide whether this PR adds a concrete example."
+        "reason": "May be useful as a source-owned path fact for future lbheap matching searches; curator should verify against current source before adding."
       }
     ],
     "rejection_notes": [
-      "Do not treat this closed PR as merged or accepted; loaded metadata has merged_at null.",
-      "Do not generalize the unrolled six lbHeap_ResetHeap calls into a global anti-loop rule; natural loops remain preferred unless verifier evidence supports an unrolled shape.",
-      "Do not infer human reviewer approval or intent; no human review comments are loaded.",
-      "Do not resolve the lbHeap_80015900 score discrepancy beyond noting both PR body and bot report show improvement."
+      "Do not treat the offset-view macro as a global endorsement of raw address arithmetic; it is only evidenced here as a local matching tactic with typed Heap access.",
+      "Do not infer reviewer approval or requested changes; the loaded slice has zero review comments and zero reviews.",
+      "Do not promote the PR body's verification lines into an independent validation result beyond reported commands and the loaded bot report."
     ]
   },
-  "confidence": 0.82,
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

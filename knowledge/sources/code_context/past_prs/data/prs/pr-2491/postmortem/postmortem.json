@@ -12,77 +12,65 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2491 attempted to match the remaining functions in src/melee/gr/grheal.c, move required data declarations into src/melee/gr/grheal.h, and switch configure.py from NonMatching to Matching for melee/gr/grheal.c. Evidence includes claimed local verification and bot-reported new matches, but the PR is closed with merged_at null, so the intake should treat the changes as historical evidence, not accepted source state.",
+  "summary": "PR #2491 attempted to complete matching for the Heal stage translation unit by matching remaining functions in src/melee/gr/grheal.c, moving required data declarations into src/melee/gr/grheal.h, and changing configure.py so melee/gr/grheal.c is treated as Matching. The PR body claims python configure.py && ninja, main.dol OK, and main/melee/gr/grheal 100.0% fuzzy with 34/34 matched; the PR was closed with no merged_at value in the supplied metadata.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "stage",
       "matching",
       "headers",
-      "data-layout",
-      "configure-target"
+      "data-declarations",
+      "configure"
     ],
     "systems": [
       "src/melee/gr",
       "configure.py",
-      "main/melee/gr/grheal"
+      "grheal"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grheal.c",
-      "role": "Primary decompilation target; added grHeal_8021F180, rewrote grHeal_8021F70C, introduced grHeal-specific data layout structs, moved several data symbols out of static scope, and adjusted string/assert/report references.",
+      "role": "Main Heal stage matching work: added typed local data structures, exposed/reshaped data declarations, implemented grHeal_8021F180, adjusted grHeal_8021F70C, and changed assert/report/data references.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/gr/grheal.c added 145 deleted 48 hunks 11",
         "raw_diff: src/melee/gr/grheal.c",
-        "text_corpus: bot report lists grHeal_8021F180 and grHeal_8021F70C as new 100% matches"
+        "pr_body: Matches the remaining functions in src/melee/gr/grheal.c"
       ]
     },
     {
       "path": "src/melee/gr/grheal.h",
-      "role": "Header surface for data declarations; added grHeal_UnkData and extern grHeal_804D6AF0[2].",
+      "role": "Header update for required grheal data declarations, including grHeal_UnkData and extern grHeal_804D6AF0[2].",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/gr/grheal.h added 7 deleted 0 hunks 2",
-        "raw_diff: src/melee/gr/grheal.h"
+        "raw_diff: src/melee/gr/grheal.h",
+        "pr_body: moves the required data declarations into src/melee/gr/grheal.h"
       ]
     },
     {
       "path": "configure.py",
-      "role": "Matching configuration; changed melee/gr/grheal.c from NonMatching to Matching.",
+      "role": "Object classification changed from NonMatching to Matching for melee/gr/grheal.c.",
       "evidence_refs": [
         "changed_files.jsonl: configure.py added 1 deleted 1 hunks 1",
-        "raw_diff: Object(NonMatching, \"melee/gr/grheal.c\") to Object(Matching, \"melee/gr/grheal.c\")"
+        "raw_diff: Object(NonMatching, \"melee/gr/grheal.c\") -> Object(Matching, \"melee/gr/grheal.c\")"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "configure.py changed grheal from NonMatching to Matching.",
+      "text": "configure.py reclassified melee/gr/grheal.c from NonMatching to Matching.",
       "evidence_refs": [
-        "raw_diff: configure.py hunk around MatchingFor"
+        "raw_diff: configure.py hunk near MatchingFor"
       ]
     },
     {
-      "text": "PR body claims the remaining functions in src/melee/gr/grheal.c were matched and required data declarations were moved into src/melee/gr/grheal.h.",
+      "text": "grheal.c added includes for if/textlib.h, it/items/itcoin.h, and mp/mplib.h to support the matched implementation.",
       "evidence_refs": [
-        "human_pr_text: PR body"
+        "raw_diff: added includes in src/melee/gr/grheal.c"
       ]
     },
     {
-      "text": "grHeal_8021F180 was implemented, including coin position setup, next-player JObj lookup, player JObj collection, calls to grHeal_8021F4E8/grHeal_8021F628, mpJointSetCb1, and flatzone2 state reset.",
-      "evidence_refs": [
-        "raw_diff: grHeal_8021F180 implementation"
-      ]
-    },
-    {
-      "text": "grHeal_8021F70C was rewritten around grHeal_803E83B8 as a base pointer, an entry pointer, explicit gotos, and a data-block report string access.",
-      "evidence_refs": [
-        "raw_diff: grHeal_8021F70C hunk",
-        "review_comments: discussion_r3245710199"
-      ]
-    },
-    {
-      "text": "Several grheal data layouts were modeled with local typedefs and STATIC_ASSERTs, including grHeal_UnkVec4, grHeal_DataBlock, and grHeal_StageData.",
+      "text": "grheal.c replaced an anonymous yaku pointer declaration with named local structs such as grHeal_UnkVec4, grHeal_DataBlock, and grHeal_StageData, including STATIC_ASSERT size checks.",
       "evidence_refs": [
         "raw_diff: typedef struct grHeal_UnkVec4",
         "raw_diff: typedef struct grHeal_DataBlock",
@@ -91,140 +79,183 @@
       ]
     },
     {
-      "text": "The header added grHeal_UnkData with x0/x4 fields and an extern declaration for grHeal_804D6AF0[2], replacing a source-local anonymous yaku-style declaration.",
+      "text": "Several data symbols were made non-static or declared with explicit storage/data shapes, including grHeal_803E83B8, grHeal_803E8454, grHeal_803E84C4, grHeal_803E851C, grHeal_804D49D8, grHeal_804D49E0, and grHeal_804D6AF0.",
       "evidence_refs": [
-        "raw_diff: removed struct yaku pointer declaration",
-        "raw_diff: grheal.h grHeal_UnkData and extern grHeal_804D6AF0[2]"
+        "raw_diff: grHeal_803E83B8 static removed",
+        "raw_diff: StageCallbacks grHeal_803E8454[]",
+        "raw_diff: grHeal_StageData grHeal_803E84C4",
+        "raw_diff: SDATA char grHeal_804D49E0[] = \"gobj\"",
+        "raw_diff: grHeal_UnkData* grHeal_804D6AF0[2]"
       ]
     },
     {
-      "text": "Bot report recorded seven new matches for main/melee/gr/grheal, including grHeal_8021F180, grHeal_8021F70C, .data, .rodata, .sbss, .sdata, and grHeal_8021EFEC.",
+      "text": "grHeal_8021F180 was implemented, including coin spawning setup, next-player jobj handling, player jobj lookup, model frame application, mpJointSetCb1 callback setup, and gv.flatzone2.xC4 reset.",
       "evidence_refs": [
-        "text_corpus: decomp-dev[bot] report for GALE01"
+        "raw_diff: /// #grHeal_8021F180 replaced with function body"
+      ]
+    },
+    {
+      "text": "grHeal_8021F70C was reshaped into a goto-labeled loop using base, entry, and value locals, with a special case mapping character_id 0x13 to 0x12 and an OSReport on lookup failure.",
+      "evidence_refs": [
+        "raw_diff: u32 grHeal_8021F70C hunk",
+        "review_comments: hunk on grHeal_8021F70C"
+      ]
+    },
+    {
+      "text": "grheal.h gained grHeal_UnkData with x0/x4 fields and an extern declaration for grHeal_804D6AF0[2].",
+      "evidence_refs": [
+        "raw_diff: src/melee/gr/grheal.h typedef struct grHeal_UnkData",
+        "raw_diff: extern grHeal_UnkData* grHeal_804D6AF0[2]"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Modeled cross-section grheal data with explicit structs and size assertions rather than only raw byte arrays.",
+      "text": "The PR moved a recovered cross-file data declaration into the owning grheal header instead of relying on source-local externs.",
       "evidence_refs": [
-        "raw_diff: grHeal_DataBlock and grHeal_StageData definitions"
+        "pr_body: moves the required data declarations into src/melee/gr/grheal.h",
+        "raw_diff: removed extern struct yaku* grHeal_804D6AF0 and added header extern"
       ]
     },
     {
-      "text": "Moved a recovered data type and extern declaration into the header when grHeal_804D6AF0 usage was no longer a source-local anonymous pointer.",
+      "text": "The implementation introduced small typed wrappers and STATIC_ASSERTs to document expected data-block sizes while matching contiguous grheal data.",
       "evidence_refs": [
-        "raw_diff: grheal.h additions",
-        "human_pr_text: moves required data declarations into grheal.h"
+        "raw_diff: grHeal_DataBlock",
+        "raw_diff: grHeal_StageData",
+        "raw_diff: STATIC_ASSERT size checks"
       ]
     },
     {
-      "text": "Tracked build and match evidence in the PR body and received bot reporting for narrow grheal progress.",
+      "text": "The PR kept grHeal_8021F180 readable enough to expose loop roles such as next_count, next_idx, player_jobjs, next_jobjs, and coin_pos rather than leaving a nonmatching marker.",
       "evidence_refs": [
-        "human_pr_text: Verification section",
-        "text_corpus: bot report lists grheal unit matches"
+        "raw_diff: grHeal_8021F180 locals and loops"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a stage file's data is interleaved with strings and callbacks, a temporary local aggregate with STATIC_ASSERT sizes can document the recovered layout and make offset-based accesses reviewable, but it remains data-layout evidence rather than a global style rule.",
+      "lesson": "For stage TUs, completing a remaining function may require coordinating code shape with data declarations, header ownership, and configure.py object status; keep those changes narrowly tied to the claimed match.",
       "evidence_refs": [
-        "raw_diff: grHeal_DataBlock fields include player_model_joint_ids, next_player_character_ids, callbacks, stage_filename, StageData, report strings",
-        "raw_diff: STATIC_ASSERT(sizeof(grHeal_DataBlock) == 0x190)"
+        "pr_body: matches remaining functions and moves required data declarations",
+        "raw_diff: configure.py NonMatching -> Matching",
+        "raw_diff: grheal.h data declaration additions"
       ],
-      "confidence": 0.72
+      "confidence": 0.82
     },
     {
-      "lesson": "If a function body proves a shared data shape, moving the type and extern declaration to the owning header can be part of making the decompilation truthful.",
+      "lesson": "When recovered stage data is referenced through multiple views, temporary local structs plus STATIC_ASSERTs can make offsets and adjacent strings reviewable, but they should remain grounded in exact size/layout evidence.",
       "evidence_refs": [
-        "human_pr_text: moves required data declarations into src/melee/gr/grheal.h",
-        "raw_diff: grHeal_UnkData and extern grHeal_804D6AF0[2] added to grheal.h"
+        "raw_diff: grHeal_DataBlock fields and sizeof 0x190",
+        "raw_diff: grHeal_StageData fields and sizeof 0x58",
+        "raw_diff: OSReport using ((grHeal_DataBlock*) base)->report_fmt_not_found_next_player"
       ],
-      "confidence": 0.78
+      "confidence": 0.7
     },
     {
-      "lesson": "String and report references need special scrutiny in matching work: the author explicitly noticed a missed case and planned to massage an offset-derived report reference into a direct string reference.",
+      "lesson": "A matching loop may temporarily use goto labels and explicit base/entry/value locals when MWCC loop shape is sensitive, but reviewer/author feedback should push string and data references back toward direct, source-like forms where possible.",
       "evidence_refs": [
-        "review_comments: \"will try to massage this into a direct string reference\"",
-        "review_comments hunk: OSReport((char*) base + 0x170, character_id)"
+        "raw_diff: grHeal_8021F70C goto labels loop_compare loop_check loop_done loop_start",
+        "review_comments: will try to massage this into a direct string reference"
       ],
-      "confidence": 0.8
+      "confidence": 0.69
     }
   ],
   "naming_conventions": [
     {
-      "text": "New grheal-local recovered types used the grHeal_ prefix: grHeal_UnkVec4, grHeal_DataBlock, grHeal_StageData, and grHeal_UnkData.",
+      "text": "Stage-local unknown data types followed the grHeal_* prefix with conservative names: grHeal_UnkVec4, grHeal_DataBlock, grHeal_StageData, and grHeal_UnkData.",
       "evidence_refs": [
-        "raw_diff: typedef names in grheal.c and grheal.h"
+        "raw_diff: typedef struct grHeal_UnkVec4",
+        "raw_diff: typedef struct grHeal_DataBlock",
+        "raw_diff: typedef struct grHeal_StageData",
+        "raw_diff: grheal.h typedef struct grHeal_UnkData"
       ]
     },
     {
-      "text": "Uncertain fields in grHeal_UnkData retained neutral x0/x4 names rather than invented semantics.",
+      "text": "Unknown fields in grHeal_UnkData stayed conservative as x0 and x4 rather than receiving speculative semantic names.",
       "evidence_refs": [
-        "raw_diff: typedef struct grHeal_UnkData { s32 x0; s32 x4; }"
+        "raw_diff: grHeal_UnkData { s32 x0; s32 x4; }"
       ]
     },
     {
-      "text": "Local variables in grHeal_8021F180 used role-oriented names such as coin_pos, next_players, next_jobjs, player_jobjs, next_count, line_id, and next_idx.",
+      "text": "Recovered locals in grHeal_8021F180 used role names such as coin_pos, next_players, next_jobjs, player_jobjs, next_count, line_id, and next_idx.",
       "evidence_refs": [
         "raw_diff: grHeal_8021F180 local declarations"
+      ]
+    },
+    {
+      "text": "Unused padding or stack-shape locals were explicitly marked with UNUSED and reserved_* names.",
+      "evidence_refs": [
+        "raw_diff: UNUSED HSD_JObj* reserved_next_jobj",
+        "raw_diff: UNUSED HSD_JObj* reserved_player_jobj"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "text": "Used an aggregate overlay and casts from grHeal_803E83B8 to reach callbacks and report strings at fixed offsets.",
+      "text": "Object status was changed only after the PR claimed full grheal matching: configure.py moved melee/gr/grheal.c from NonMatching to Matching.",
       "evidence_refs": [
-        "raw_diff: (StageCallbacks*) ((char*) grHeal_803E83B8 + 0x9C) + idx",
-        "raw_diff: ((grHeal_DataBlock*) base)->report_fmt_not_found_next_player"
-      ],
-      "risk": "Offset overlays may be data-layout matching tactics; curator should not generalize without section ownership evidence."
+        "raw_diff: configure.py object classification hunk",
+        "pr_body: main/melee/gr/grheal 100.0% fuzzy, 34/34 matched"
+      ]
     },
     {
-      "text": "Kept explicit goto-shaped control flow in grHeal_8021F70C to match the loop/search behavior.",
+      "text": "grHeal_8021F70C used explicit goto labels and separate base/entry/value locals to match loop control flow and preserve a base pointer for later indexed data access.",
       "evidence_refs": [
-        "raw_diff: loop_start, loop_check, loop_compare, loop_done labels in grHeal_8021F70C"
-      ],
-      "risk": "This conflicts with the general preference for natural loops unless verifier evidence shows natural source forms failed."
+        "raw_diff: grHeal_8021F70C base = grHeal_803E83B8",
+        "raw_diff: loop_compare/loop_check/loop_done/loop_start",
+        "raw_diff: base[frame + 0xD]"
+      ]
     },
     {
-      "text": "Introduced UNUSED reserved JObj locals in grHeal_8021F180, likely to preserve stack/local shape.",
+      "text": "The PR used data-block casting to reach report-format strings adjacent to other grheal data.",
       "evidence_refs": [
-        "raw_diff: UNUSED HSD_JObj* reserved_next_jobj",
-        "raw_diff: UNUSED HSD_JObj* reserved_player_jobj"
-      ],
-      "risk": "Dummy or reserved locals need narrow objdiff evidence before becoming reviewable style."
+        "raw_diff: OSReport(((grHeal_DataBlock*) base)->report_fmt_not_found_next_player, character_id)",
+        "raw_diff: OSReport(grHeal_803E84C4.report_fmt_get_gobj, grHeal_803E851C, 273, idx)"
+      ]
     },
     {
-      "text": "Converted literals and data into named storage for data-section completion, including grHeal_803E851C and SDATA grHeal_804D49E0.",
+      "text": "Stack-shape or local-layout preservation appears to be represented by UNUSED reserved_next_jobj and reserved_player_jobj locals in grHeal_8021F180.",
       "evidence_refs": [
-        "raw_diff: char grHeal_803E851C[0x2C]",
+        "raw_diff: grHeal_8021F180 UNUSED reserved locals"
+      ]
+    },
+    {
+      "text": "String/data matching included replacing raw byte arrays and string literals with named storage such as grHeal_803E851C and SDATA grHeal_804D49E0; this was connected to matching evidence but also triggered author feedback about using a direct string reference.",
+      "evidence_refs": [
+        "raw_diff: char grHeal_803E851C[0x2C] string",
         "raw_diff: SDATA char grHeal_804D49E0[] = \"gobj\"",
-        "text_corpus: bot report lists .data, .rodata, .sbss, .sdata reaching 100%"
-      ],
-      "risk": "Data/literal symbolization should be treated as PR-specific matching evidence, not a default style."
+        "review_comments: direct string reference"
+      ]
     }
   ],
   "review_feedback": [
     {
-      "text": "The only loaded review comment is by the PR author on src/melee/gr/grheal.c, noting that an OSReport expression should be massaged into a direct string reference.",
+      "text": "Author self-review on grHeal_8021F70C noted a missed cleanup and intent to massage an OSReport argument into a direct string reference.",
+      "path": "src/melee/gr/grheal.c",
       "evidence_refs": [
-        "review_comments: discussion_r3245710199"
+        "review_comments: ah actually I missed this - will try to massage this into a direct string reference",
+        "review_comments: OSReport((char*) base + 0x170, character_id) hunk"
       ]
     },
     {
-      "text": "The author later commented that they thought it was 100% matching and would remove or fix linking, then followed up with 'ayy there we go'.",
+      "text": "An issue comment indicates the author initially thought the PR was 100% matching and would remove or fix linking-related mismatch.",
+      "path": null,
       "evidence_refs": [
-        "human_pr_text: issuecomment-4457217706",
-        "human_pr_text: issuecomment-4457381393"
+        "human_pr_text: oh i thought I had it 100% matching ill remove the linking or fix"
+      ]
+    },
+    {
+      "text": "A later issue comment says 'ayy there we go', but the supplied slice does not include a final bot report after that comment.",
+      "path": null,
+      "evidence_refs": [
+        "human_pr_text: ayy there we go"
       ]
     }
   ],
   "searchable_terms": [
     "pr-2491",
     "gr: match grheal",
-    "itsgrimetime",
+    "grheal",
     "src/melee/gr/grheal.c",
     "src/melee/gr/grheal.h",
     "configure.py",
@@ -243,67 +274,70 @@
     "grHeal_UnkData",
     "grHeal_UnkVec4",
     "STATIC_ASSERT",
+    "OSReport",
     "direct string reference",
+    "gobj",
     "Not found Next Player",
-    "report_fmt_not_found_next_player",
-    "report_fmt_get_gobj",
-    "MatchingFor",
-    "Object(Matching, melee/gr/grheal.c)"
+    "Object(Matching)",
+    "34/34 matched",
+    "100.0% fuzzy"
   ],
   "follow_up_queries": [
     "grHeal_8021F70C direct string reference",
-    "grHeal_803E83B8 grHeal_DataBlock",
-    "grheal.c report_fmt_not_found_next_player OSReport",
-    "grHeal_804D6AF0 grHeal_UnkData x0 x4",
+    "grHeal_803E851C report_fmt_not_found_next_player",
+    "grHeal_804D49E0 gobj string literal symbol",
+    "grheal data block STATIC_ASSERT 0x190",
     "grHeal_8021F180 reserved_next_jobj reserved_player_jobj",
-    "PR 2491 grheal closed unmerged",
-    "main/melee/gr/grheal 34/34 matched",
-    "Object(Matching, \"melee/gr/grheal.c\")"
+    "melee/gr/grheal.c Matching configure.py",
+    "grHeal_804D6AF0 grHeal_UnkData x0 x4",
+    "Not found Next Player grheal"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR closed, merged_at null",
-      "human_pr_text: PR body verification claims python configure.py && ninja, main.dol OK, grheal 100.0% fuzzy 34/34 matched",
-      "text_corpus: bot report lists seven new matches",
-      "raw_diff: full diff excerpt loaded",
-      "review_comments: one author review comment loaded"
+      "metadata_json: PR state CLOSED, merged_at null",
+      "pr_body: verification claims python configure.py && ninja, main.dol OK, 100.0% fuzzy 34/34 matched",
+      "text_corpus: decomp-dev bot initial report showing 7 new matches and grheal items reaching 100%",
+      "human_pr_text: author comments about fixing linking and later 'ayy there we go'",
+      "review_comments: one author review comment on direct string reference",
+      "raw_diff: full changed-file diff"
     ],
     "notes": [
-      "The PR body and bot report provide good evidence of intended matching work and reported progress.",
-      "The PR is closed with merged_at null, so no intake claim should imply the changes landed or became accepted source.",
-      "The only loaded review feedback is self-authored; no external reviewer intent or approval is present.",
-      "Several tactics in the diff, including gotos, offset overlays, SDATA string symbolization, and UNUSED locals, are supported as historical PR facts but should not be generalized without additional verification and curation."
+      "The diff and changed-file evidence are strong for what files and code shapes changed.",
+      "Verification is author-claimed in the PR body and partially supported by an earlier bot report, but the slice does not include a final post-fix bot report after the 'ayy there we go' comment.",
+      "The PR metadata says closed with merged_at null, so this intake does not treat the changes as merged or accepted project state.",
+      "The single review comment is from the author, not an external reviewer; do not infer broader reviewer intent.",
+      "Some tactics, especially data-block casting, SDATA string storage, and UNUSED reserved locals, are recorded as PR-local matching tactics rather than accepted style."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "historical_pr_fact",
-        "title": "PR #2491 grheal matching attempt",
-        "text": "PR #2491 attempted to match remaining grheal functions, changed configure.py to Object(Matching, \"melee/gr/grheal.c\"), implemented grHeal_8021F180, rewrote grHeal_8021F70C, and moved grHeal_804D6AF0 type/declaration information into grheal.h. The PR is closed with merged_at null.",
+        "record_type": "pr_local_lesson",
+        "title": "grheal matching coupled function recovery with data/header cleanup",
+        "text": "PR #2491 matched remaining grheal work by implementing grHeal_8021F180, reshaping grHeal_8021F70C, moving grHeal_804D6AF0 declaration to grheal.h, and flipping configure.py from NonMatching to Matching for melee/gr/grheal.c.",
         "scope": [
           "src/melee/gr/grheal.c",
           "src/melee/gr/grheal.h",
           "configure.py"
         ],
         "evidence_refs": [
-          "human_pr_text: PR body",
+          "pr_body",
           "raw_diff",
-          "metadata_json: merged_at null"
+          "changed_files.jsonl"
         ]
       },
       {
-        "record_type": "matching_tactic_candidate",
-        "title": "grheal data block overlay for matching",
-        "text": "The PR used grHeal_DataBlock and grHeal_StageData with STATIC_ASSERTs to represent grheal data/string/callback layout and support fixed-offset accesses.",
+        "record_type": "matching_tactic",
+        "title": "grHeal_8021F70C used explicit goto loop shape and preserved base pointer",
+        "text": "The matched grHeal_8021F70C hunk introduced base, entry, and value locals plus goto labels to express the loop and later access base[frame + 0xD]/report data.",
         "scope": [
-          "src/melee/gr/grheal.c"
+          "src/melee/gr/grheal.c",
+          "grHeal_8021F70C"
         ],
         "evidence_refs": [
-          "raw_diff: grHeal_DataBlock",
-          "raw_diff: grHeal_StageData",
-          "raw_diff: STATIC_ASSERTs"
+          "raw_diff: grHeal_8021F70C",
+          "review_comments: grHeal_8021F70C hunk"
         ]
       }
     ],
@@ -311,53 +345,71 @@
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Prefer direct string references over data-block pointer arithmetic when evidence identifies the string",
-        "text": "PR #2491 contains author feedback that an OSReport reference expressed as a base-pointer offset should be massaged into a direct string reference. This supports existing literal/data standards: when a report/assert string is known, prefer the direct literal or named string field over opaque pointer arithmetic.",
+        "title": "Prefer direct string references when data-block casts only recover adjacent report strings",
+        "text": "PR #2491 contains author feedback on grHeal_8021F70C that a report-format access through a base pointer should be massaged into a direct string reference where possible. Curator should consider whether this reinforces existing literal/data ownership standards rather than adding a new rule.",
         "source_path": null,
         "scope": [
-          "assert-report-macros",
-          "literals-and-data-ownership",
-          "no-string-literal-symbol-regression",
-          "src/melee/gr/grheal.c"
+          "src/melee/gr/grheal.c",
+          "grHeal_8021F70C",
+          "OSReport",
+          "string literals"
         ],
         "evidence_refs": [
-          "review_comments: \"will try to massage this into a direct string reference\"",
-          "review_comments hunk: OSReport((char*) base + 0x170, character_id)"
+          "review_comments: will try to massage this into a direct string reference",
+          "raw_diff: OSReport(((grHeal_DataBlock*) base)->report_fmt_not_found_next_player, character_id)"
         ],
-        "reason": "Useful reinforcement for an existing standard; should be curated rather than promoted directly from one self-comment."
+        "reason": "The PR evidence supports this as a local cleanup concern, but it should be curated against existing standards on literals/data ownership and no string literal symbol regression before becoming a global standard."
       },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "Historical closed PR attempted grheal MatchingFor promotion",
-        "text": "PR #2491 changed configure.py from NonMatching to Matching for melee/gr/grheal.c and claimed grheal 34/34 matched, but the PR is closed with merged_at null.",
-        "source_path": "configure.py",
+        "title": "grheal.c was treated as fully matched in this PR slice",
+        "text": "PR #2491 changed configure.py to Object(Matching, \"melee/gr/grheal.c\") and the PR body claims main/melee/gr/grheal reached 100.0% fuzzy, 34/34 matched.",
+        "source_path": "src/melee/gr/grheal.c",
         "scope": [
-          "main/melee/gr/grheal",
-          "src/melee/gr/grheal.c"
+          "src/melee/gr/grheal.c",
+          "configure.py",
+          "main/melee/gr/grheal"
         ],
         "evidence_refs": [
-          "raw_diff: configure.py Object(Matching) change",
-          "human_pr_text: 100.0% fuzzy, 34/34 matched",
-          "metadata_json: merged_at null"
+          "raw_diff: configure.py NonMatching -> Matching",
+          "pr_body: main/melee/gr/grheal 100.0% fuzzy, 34/34 matched"
         ],
-        "reason": "May be useful as historical path context, but must be marked non-landed unless independently verified against current source."
+        "reason": "Candidate path fact only; metadata shows the PR closed with merged_at null, so curator should verify current source before recording status."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "grheal.h owned grHeal_804D6AF0 declaration in this PR",
+        "text": "The PR moved the grHeal_804D6AF0 declaration into src/melee/gr/grheal.h as extern grHeal_UnkData* grHeal_804D6AF0[2], with grHeal_UnkData containing x0 and x4 fields.",
+        "source_path": "src/melee/gr/grheal.h",
+        "scope": [
+          "src/melee/gr/grheal.h",
+          "grHeal_804D6AF0",
+          "grHeal_UnkData"
+        ],
+        "evidence_refs": [
+          "raw_diff: grheal.h typedef struct grHeal_UnkData",
+          "raw_diff: extern grHeal_UnkData* grHeal_804D6AF0[2]",
+          "pr_body: moves required data declarations into grheal.h"
+        ],
+        "reason": "Candidate path fact; should be checked against current headers before source corpus update."
       }
     ],
     "rejection_notes": [
-      "Do not promote the goto-heavy grHeal_8021F70C shape as a general lesson; loaded standards prefer natural loops unless verifier evidence justifies generated-looking control flow.",
-      "Do not treat SDATA string symbolization or converting literals to named storage as accepted style from this PR alone; standards require data ownership evidence and the PR did not provide detailed section ownership rationale beyond matching reports.",
-      "Do not infer external reviewer approval; the loaded review comment is authored by itsgrimetime and the PR is not merged.",
-      "Do not claim current grheal is Matching based only on this historical PR slice."
+      "Do not promote the PR's data-block casting, SDATA string symbol, or UNUSED reserved locals as accepted global style; they are only evidenced as local matching tactics.",
+      "Do not claim the PR was merged; supplied metadata has merged_at null.",
+      "Do not infer external reviewer approval from the single review comment, which was authored by itsgrimetime.",
+      "Do not claim final CI or final bot verification beyond the PR body and supplied bot/comment evidence."
     ]
   },
-  "confidence": 0.76,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

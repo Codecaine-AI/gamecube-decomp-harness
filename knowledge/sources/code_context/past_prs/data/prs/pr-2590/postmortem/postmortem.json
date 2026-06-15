@@ -11,127 +11,268 @@
     "merged_at": "2026-06-06T20:23:23Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Marked sysdolphin/baselib/bytecode.c as Matching in configure.py and adjusted GALE01 symbol metadata for HSD ByteCode data constants from broad/global placeholder names to local compiler-style labels. The decomp.dev report showed linked code improved by 5640 bytes, linked data by 232 bytes, matched data by 56 bytes, and one new match for main/sysdolphin/baselib/bytecode .sdata2 reaching 100%.",
+  "intake_role": "pr_intake",
+  "summary": "PR 2590 marked sysdolphin/baselib/bytecode.c as Matching in configure.py and adjusted GALE01 symbol metadata for HSD ByteCode-adjacent data from global address-style names to local compiler-style labels. The automated report records linked-code progress and one new .sdata2 match for main/sysdolphin/baselib/bytecode.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "tooling",
-      "symbol-map-cleanup",
-      "ninja-apply"
+      "configuration",
+      "symbol-metadata",
+      "data-matching"
     ],
     "systems": [
-      "sysdolphin",
-      "baselib",
-      "HSD ByteCode",
+      "sysdolphin/baselib/bytecode",
       "config/GALE01",
-      "build-configuration"
+      "configure.py"
     ]
   },
   "key_files": [
-    "configure.py",
-    "config/GALE01/symbols.txt"
+    {
+      "path": "configure.py",
+      "role": "Build/configuration change: sysdolphin/baselib/bytecode.c moved from NonMatching to Matching.",
+      "evidence_refs": [
+        "raw_diff:configure.py hunk at MatchingFor, Object(NonMatching, \"sysdolphin/baselib/bytecode.c\") -> Object(Matching, \"sysdolphin/baselib/bytecode.c\")",
+        "changed_files:configure.py added 1 deleted 1"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Symbol metadata update for data, sdata, and sdata2 entries around HSD ByteCode.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt hunks at .data 0x804074F0-0x80407574, .sdata 0x804D5F98-0x804D5F9C, .sdata2 0x804DE7A0-0x804DE7D0",
+        "changed_files:config/GALE01/symbols.txt added 18 deleted 17"
+      ]
+    }
   ],
   "what_changed": [
-    "Changed configure.py entry for sysdolphin/baselib/bytecode.c from Object(NonMatching, ...) to Object(Matching, ...).",
-    "Renamed several HSD ByteCode-related .data string symbols at 0x804074F0 through 0x80407574 from lbl_804074F0-style global labels to local @393, @394, @395, @398, @399, @404, and @407 symbols.",
-    "Added a local ...data.0 label at .data:0x804074F0 while preserving the existing hsdClass global object and existing ...data.0 label at .data:0x80407590.",
-    "Changed HSD_ByteCode_804D5F98 and HSD_ByteCode_804D5F9C in .sdata to local @396 and @397 symbols; the 0x804D5F98 entry became size 0x1 instead of size 0x4, while @397 remained a 0x6 string.",
-    "Changed HSD_ByteCode_804DE7A0 through HSD_ByteCode_804DE7D0 in .sdata2 from global HSD_ByteCode_* names to local @392, @400, @401, @402, @403, @405, @406, and @409 constants, keeping float/double size and alignment annotations.",
-    "The automated decomp.dev report recorded GALE01 linked code at 42.55% (+0.15%, +5640 bytes), matched data at 41.43% (+56 bytes), linked data at 35.03% (+232 bytes), and one new .sdata2 match for main/sysdolphin/baselib/bytecode from 87.50% to 100.00%."
+    {
+      "text": "Changed configure.py so sysdolphin/baselib/bytecode.c is built as Matching instead of NonMatching.",
+      "evidence_refs": [
+        "raw_diff:configure.py Object(Matching, \"sysdolphin/baselib/bytecode.c\")"
+      ]
+    },
+    {
+      "text": "Renamed several .data string symbols at 0x804074F0 through 0x80407574 from global lbl_8040xxxx names to local @393, @394, @395, @398, @399, @404, and @407 entries, adding a local ...data.0 label at 0x804074F0.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt .data hunk"
+      ]
+    },
+    {
+      "text": "Changed HSD_ByteCode_804D5F98 and HSD_ByteCode_804D5F9C in .sdata from global symbols to local @396 and @397 symbols, including a size change for 0x804D5F98 from 0x4 to 0x1.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt .sdata hunk"
+      ]
+    },
+    {
+      "text": "Changed HSD_ByteCode_804DE7A0 through HSD_ByteCode_804DE7D0 in .sdata2 from global HSD_ByteCode_* symbols to local @392, @400, @401, @402, @403, @405, @406, and @409 float/double symbols.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt .sdata2 hunk"
+      ]
+    },
+    {
+      "text": "Automated report recorded linked code +5640 bytes, matched data +56 bytes, linked data +232 bytes, and one new match for main/sysdolphin/baselib/bytecode .sdata2 from 87.50% to 100.00%.",
+      "evidence_refs": [
+        "text_corpus:decomp-dev[bot] issue comment 2026-06-06T20:22:45Z"
+      ]
+    }
   ],
   "smart_moves": [
-    "The PR did not just flip bytecode.c to Matching; it also corrected symbol-map names, scopes, sizes, and labels so the linked object could be applied cleanly by the build/ninja pipeline.",
-    "Using compiler-style local @NNN labels for file-local string and floating constants avoided exporting artificial HSD_ByteCode_* global names that were only placeholders in symbols.txt.",
-    "Preserving alignment and data type metadata for .sdata2 float/double constants while changing their names/scopes minimized the risk of shifting data layout.",
-    "The small configure.py change was backed by symbol-map cleanup and an automated match report, making the matching-state transition auditable."
+    {
+      "text": "The PR pairs enabling bytecode.c as Matching with symbol metadata updates for nearby ByteCode data, suggesting the config flip depended on correcting section/scope metadata rather than only changing source code.",
+      "evidence_refs": [
+        "raw_diff:configure.py Matching flip",
+        "raw_diff:config/GALE01/symbols.txt ByteCode-related .sdata/.sdata2 symbol changes"
+      ],
+      "confidence": 0.74
+    },
+    {
+      "text": "The updated symbols prefer local compiler-style @ labels for anonymous constants and strings where the previous global HSD_ByteCode_* or lbl_* names were not retained.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt .data/.sdata/.sdata2 hunks"
+      ],
+      "confidence": 0.8
+    }
   ],
   "decomp_lessons": [
-    "Before promoting an object from NonMatching to Matching, verify that any section-local constants in symbols.txt use local compiler-style labels rather than invented globals.",
-    "For baselib object matching, data-symbol scope can matter as much as C code: globals such as HSD_ByteCode_804DE7A0 may need to become local @NNN constants for the object to match and link cleanly.",
-    "When ninja-applying a newly matched object, inspect .data, .sdata, and .sdata2 together; this PR touched all three for bytecode.c.",
-    "Size corrections on small data symbols should be captured in symbols.txt when the compiler emits a smaller object than the placeholder map indicated, as with 0x804D5F98 changing from size 0x4 to size 0x1.",
-    "A successful Matching flip should be validated by the decomp.dev unit report, especially the per-unit before/after percentage for the affected object."
+    {
+      "lesson": "For a baselib matching flip, symbol metadata may be part of the match: section, scope, size, alignment, and local-label ownership changes can accompany the configure.py NonMatching-to-Matching transition.",
+      "evidence_refs": [
+        "raw_diff:configure.py bytecode.c Matching flip",
+        "raw_diff:config/GALE01/symbols.txt symbol scope/size/name changes",
+        "text_corpus:automated report showing one new bytecode .sdata2 match"
+      ],
+      "confidence": 0.78
+    },
+    {
+      "lesson": "Do not assume address-style global data names are canonical when matching HSD ByteCode data; this PR replaced multiple global names with local @ labels and local labels.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt lbl_804074F0 series replaced with @393 etc.",
+        "raw_diff:config/GALE01/symbols.txt HSD_ByteCode_804DE7A0 series replaced with @392 etc."
+      ],
+      "confidence": 0.76
+    }
   ],
   "naming_conventions": [
-    "Use @NNN local labels for compiler-generated local constants and strings tied to a translation unit.",
-    "Avoid lbl_80xxxxxx global labels for local string literals once the owning object and compiler numbering are known.",
-    "Avoid HSD_ByteCode_80xxxxxx global names for local .sdata/.sdata2 constants unless evidence shows they are true globals.",
-    "Keep true named globals such as hsdClass, seed, seed_ptr, HSD_QuatLib_804DE760, HSD_TExp_804DE7D8, HSD_TExp_804DE7E0, and HSD_TExpDag_804DE7E8 as globals when the diff does not implicate them."
+    {
+      "convention": "Anonymous local data constants/strings in symbols.txt may use compiler-style @NNN names with scope:local instead of global address-derived labels when metadata supports local ownership.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt @392-@409 replacements"
+      ],
+      "confidence": 0.79
+    },
+    {
+      "convention": "The PR removed HSD_ByteCode_804D*/HSD_ByteCode_804DE* global names for several local .sdata and .sdata2 entries, so those names should not be treated as established semantic names based on this PR alone.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt .sdata and .sdata2 hunks"
+      ],
+      "confidence": 0.84
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Promote Object(NonMatching, \"sysdolphin/baselib/bytecode.c\") to Object(Matching, ...) only after symbol-map adjustments let the object link/match.",
-    "Use symbols.txt scope changes from global to local to reflect TU-local constants and avoid mismatches from incorrect external symbol treatment.",
-    "For .sdata2 constants, preserve align:4 for floats and align:8 for doubles while changing only the symbol identity/scope needed for matching.",
-    "Automated report evidence indicates the tactic completed the bytecode .sdata2 match, improving main/sysdolphin/baselib/bytecode .sdata2 from 87.50% to 100.00%."
+    {
+      "tactic": "Promote an object to Matching only after the config and symbol metadata agree; here bytecode.c was flipped to Matching while adjacent data symbols were localized and resized where needed.",
+      "evidence_refs": [
+        "raw_diff:configure.py",
+        "raw_diff:config/GALE01/symbols.txt",
+        "text_corpus:automated report"
+      ],
+      "confidence": 0.73
+    },
+    {
+      "tactic": "For .sdata2 completion, check whether float/double constants should be local @ labels with correct alignment and size rather than global address-style HSD_* names.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt .sdata2 hunk",
+        "text_corpus:automated report main/sysdolphin/baselib/bytecode .sdata2 87.50% -> 100.00%"
+      ],
+      "confidence": 0.77
+    }
   ],
   "review_feedback": [
-    "No human review comments were present in the provided slice.",
-    "The only comment was the decomp.dev bot report confirming metric improvements and one new match for main/sysdolphin/baselib/bytecode .sdata2."
+    {
+      "type": "automated_report",
+      "text": "decomp-dev[bot] reported linked code 42.55% (+0.15%, +5640 bytes), matched data 41.43% (+0.00%, +56 bytes), linked data 35.03% (+0.02%, +232 bytes), and one new match for main/sysdolphin/baselib/bytecode .sdata2 from 87.50% to 100.00%.",
+      "evidence_refs": [
+        "text_corpus:issue_comment by decomp-dev[bot]"
+      ]
+    },
+    {
+      "type": "human_review",
+      "text": "No human review comments were present in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json:review_comments 0, reviews 0"
+      ]
+    }
   ],
   "searchable_terms": [
     "PR2590",
-    "PsiLupan",
     "Link and ninja apply HSD Bytecode",
-    "HSD ByteCode",
+    "PsiLupan",
     "sysdolphin/baselib/bytecode.c",
-    "configure.py",
-    "config/GALE01/symbols.txt",
+    "configure.py MatchingFor",
     "Object(Matching)",
     "Object(NonMatching)",
-    "ninja apply",
-    "symbols.txt",
-    "GALE01",
-    "@392",
-    "@393",
-    "@394",
-    "@395",
-    "@396",
-    "@397",
-    "@398",
-    "@399",
-    "@400",
-    "@401",
-    "@402",
-    "@403",
-    "@404",
-    "@405",
-    "@406",
-    "@407",
-    "@409",
-    "lbl_804074F0",
-    "lbl_804074FC",
-    "lbl_80407510",
-    "lbl_80407538",
-    "lbl_80407550",
-    "lbl_80407568",
-    "lbl_80407574",
+    "config/GALE01/symbols.txt",
     "HSD_ByteCode_804D5F98",
     "HSD_ByteCode_804D5F9C",
     "HSD_ByteCode_804DE7A0",
-    "HSD_ByteCode_804DE7A8",
-    "HSD_ByteCode_804DE7B0",
-    "HSD_ByteCode_804DE7B8",
-    "HSD_ByteCode_804DE7C0",
-    "HSD_ByteCode_804DE7C8",
-    "HSD_ByteCode_804DE7CC",
     "HSD_ByteCode_804DE7D0",
+    "lbl_804074F0",
+    "@392",
+    "@393",
+    "@409",
     ".sdata2",
-    "baselib bytecode"
+    "matched data",
+    "linked code"
   ],
   "follow_up_queries": [
-    "Find other PRs that flip sysdolphin/baselib objects from NonMatching to Matching in configure.py.",
-    "Search for symbol-map changes that rename HSD_* address placeholders to @NNN local labels.",
-    "Check later PRs touching sysdolphin/baselib/bytecode.c for source-level cleanup after this matching/linking PR.",
-    "Look for remaining HSD_ByteCode_* symbols in config/GALE01/symbols.txt to see whether any true globals or placeholders remain."
+    "sysdolphin/baselib/bytecode.c Matching configure.py PR2590",
+    "HSD_ByteCode_804DE7A0 @392 symbols.txt",
+    "main/sysdolphin/baselib/bytecode .sdata2 100.00%",
+    "lbl_804074F0 @393 local data string",
+    "HSD ByteCode local @ labels sdata2"
   ],
-  "confidence": 0.92,
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json:PR metadata and changed-file counts",
+      "raw_diff:full diff for two changed files",
+      "changed_files:changed_files.jsonl",
+      "text_corpus:empty PR body and one automated report"
+    ],
+    "notes": [
+      "The diff is complete and directly supports the changed-file and symbol/config facts.",
+      "The PR body is empty and there are no human review comments, so author intent and reviewer rationale are not evidenced.",
+      "The automated report provides validation-like progress numbers, but the slice does not include build logs, objdiff output, or source body changes.",
+      "No claim is made that all bytecode.c text matched solely from this PR beyond the configure.py Matching flip and bot-reported .sdata2 new match."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "postmortem_lesson",
+        "title": "Matching flips can require symbol metadata cleanup",
+        "text": "PR 2590 moved sysdolphin/baselib/bytecode.c from NonMatching to Matching and concurrently localized ByteCode-related .data/.sdata/.sdata2 symbols, including local @ labels, scope changes, and a size adjustment.",
+        "scope": [
+          "sysdolphin/baselib/bytecode",
+          "config/GALE01/symbols.txt",
+          "configure.py"
+        ],
+        "evidence_refs": [
+          "raw_diff:configure.py",
+          "raw_diff:config/GALE01/symbols.txt"
+        ],
+        "confidence": 0.78
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "sysdolphin/baselib/bytecode.c marked Matching in PR 2590",
+        "text": "In PR 2590, configure.py changed Object(NonMatching, \"sysdolphin/baselib/bytecode.c\") to Object(Matching, \"sysdolphin/baselib/bytecode.c\").",
+        "source_path": "configure.py",
+        "scope": [
+          "sysdolphin/baselib/bytecode.c",
+          "configure.py"
+        ],
+        "evidence_refs": [
+          "raw_diff:configure.py hunk at MatchingFor"
+        ],
+        "reason": "Potential path fact for the matching status history of sysdolphin/baselib/bytecode.c."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "HSD ByteCode data symbols localized in GALE01 symbols metadata",
+        "text": "PR 2590 replaced several global HSD_ByteCode_* and lbl_8040* symbols in config/GALE01/symbols.txt with local @NNN symbols and local labels in .data, .sdata, and .sdata2 around bytecode data.",
+        "source_path": "config/GALE01/symbols.txt",
+        "scope": [
+          "config/GALE01/symbols.txt",
+          "HSD ByteCode",
+          ".data",
+          ".sdata",
+          ".sdata2"
+        ],
+        "evidence_refs": [
+          "raw_diff:config/GALE01/symbols.txt .data/.sdata/.sdata2 hunks"
+        ],
+        "reason": "Potential source-owned metadata history fact; should not be generalized without curator review."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer source-level bytecode.c function tactics from this slice; no C source diff is included.",
+      "Do not treat the removed HSD_ByteCode_* names as wrong globally; the PR only evidences these specific symbols and addresses.",
+      "Do not claim human reviewer approval rationale; no review comments or reviews were loaded."
+    ]
+  },
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

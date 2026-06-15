@@ -12,227 +12,225 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Draft, closed-unmerged PR focused mainly on src/melee/ty/tylist.c and ty trophy-list types/prototypes. The diff rewrites TyList code toward typed TyListArg/TyListState access, JObj helper calls, natural loops, local float literals, and archive/string-table offset access. Bot report shows two new tylist function matches and several improvements, but also multiple unmatched-item regressions including tylist functions and .data/.sdata sections.",
+  "summary": "Draft closed PR focused on src/melee/ty/tylist.c and related ty headers, with small formatting-only edits in gm and gr files. The diff typed several TyList structures and rewrote trophy-list code around TyListArg/TyListState fields, HSD_JObj helpers, arrays, loops, and literals. Bot output reported two new tylist function matches and several improvements, but also nine regressions including tylist functions and .data/.sdata sections; no human review comments were present.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "typing",
-      "style-cleanup",
-      "data-section-risk"
+      "type-recovery",
+      "cleanup",
+      "formatting"
     ],
     "systems": [
       "ty",
+      "trophy-list",
       "game-mode",
-      "stage",
-      "melee-core"
+      "stage"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ty/tylist.c",
-      "role": "Primary decomp/matching rewrite for trophy-list code; adds local structs, helper-based JObj access, loop rewrites, literal/offset changes, and function body reshaping.",
+      "role": "Primary decomp source edit: added local TyList helper structs, rewrote trophy-list functions, replaced expanded JObj translate/dirty code with helpers, changed archive symbol string handling, added includes.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/ty/tylist.c +579/-730, 16 hunks",
-        "raw_diff: tylist.c hunks replacing expanded JObj translate/dirty code with HSD_JObjSetTranslateY",
-        "raw_diff: tylist.c hunks replacing string literals with un_803FDD18 offsets",
-        "bot report: matches un_8031263C and un_803124BC; regressions un_8031305C, fn_80313BD8, un_80312BAC, un_80312904, .data, .sdata"
+        "raw_diff: tylist.c includes sc/forward.h and baselib/aobj.h",
+        "raw_diff: un_80312904, un_80312BAC, un_80312E88, un_8031305C, un_80313774 excerpts",
+        "bot issue comment: tylist matches/improvements/regressions"
       ]
     },
     {
       "path": "src/melee/ty/types.h",
-      "role": "Ty trophy-list type refinement; changes TyListArg fields to arrays for links, jobjs, and texts, and adjusts several TyListState field types/pads.",
+      "role": "Type recovery for TyListArg and TyListState fields; converted individual x0/x4/x8, xC/x10/x14, and text slots into links/jobjs/texts arrays and refined several field types.",
       "evidence_refs": [
-        "raw_diff: TyListArg x0/x4/x8 -> links[3], xC/x10/x14 -> jobjs[3], pad_18 -> texts[3]",
-        "raw_diff: TyListState pointer fields changed from struct TyListArg* to TyListArg* and pad/type adjustments"
+        "raw_diff: types.h TyListArg links[3], jobjs[3], texts[3]",
+        "raw_diff: types.h TyListState pointer type and padding updates"
       ]
     },
     {
       "path": "src/melee/ty/tylist.h",
-      "role": "Prototype cleanup for recovered TyList signatures.",
+      "role": "Header prototype updates for recovered tylist function signatures.",
       "evidence_refs": [
-        "raw_diff: un_80312904(void*, s8) -> un_80312904(struct TyListArg* arg, s8 arg1)",
-        "raw_diff: un_8031305C signature reduced to struct TyListState* state, s8 arg2",
-        "raw_diff: removed fn_80313BD8 prototype and renamed fn_8031438C parameter to gobj"
+        "raw_diff: tylist.h un_80312904 TyListArg* signature",
+        "raw_diff: tylist.h un_8031305C signature changed to TyListState* plus s8"
       ]
     },
     {
       "path": "src/melee/gm/gm_18A5.c",
-      "role": "Incidental formatting-only compound literal spacing change.",
+      "role": "Small formatting-only cast/compound literal spacing change.",
       "evidence_refs": [
-        "raw_diff: GXColor casts changed from (GXColor){...} to (GXColor) {...}",
-        "changed_files.jsonl: +3/-3, 1 hunk"
+        "changed_files.jsonl: src/melee/gm/gm_18A5.c +3/-3",
+        "diff_excerpt: GXColor compound literal spacing"
       ]
     },
     {
       "path": "src/melee/gm/gmclassic.c",
-      "role": "Incidental formatting-only function-pointer cast spacing change.",
+      "role": "Small formatting-only function pointer cast spacing change.",
       "evidence_refs": [
-        "raw_diff: function pointer casts changed from u8(*)(...) to u8 (*)(...)",
-        "changed_files.jsonl: +3/-3, 1 hunk"
+        "changed_files.jsonl: src/melee/gm/gmclassic.c +3/-3",
+        "diff_excerpt: gmClassic_801B3500 function pointer cast spacing"
       ]
     },
     {
       "path": "src/melee/gr/gricemt.c",
-      "role": "Incidental formatting-only callback function-pointer cast spacing change.",
+      "role": "Small formatting-only function pointer cast spacing change.",
       "evidence_refs": [
-        "raw_diff: cb cast changed to s32 (*)(HSD_GObj*, s32*) spacing",
-        "changed_files.jsonl: +1/-1, 1 hunk"
+        "changed_files.jsonl: src/melee/gr/gricemt.c +1/-1",
+        "diff_excerpt: grIceMt_801FA364 function pointer cast spacing"
       ]
     }
   ],
   "what_changed": [
-    "tylist.c gained local helper/temporary structs such as TyListArchiveAnimData, TyListWaitData, TyListCameraState, TyListDispEntry, and TyListDispState.",
-    "TyListArg was made more structured in types.h by grouping repeated pointer slots as links[3], jobjs[3], and texts[3].",
-    "Several tylist functions were rewritten from generated-looking raw-field, goto, while, and expanded assert/dirty code into typed field access, helper calls, and for loops.",
-    "un_80312904 changed from a void* row-style implementation using TyListRow and external float symbols to TyListArg* access with jobjs/texts arrays and inline float constants.",
-    "un_80312BAC was simplified with a single backward index loop, state->entryCount loop, entry->links[1] traversal, HSD_JObjSetTranslateY, and archive->jobjs animation loop.",
-    "un_80312E88 gained an inline helper that iterates over jobjs and applies HSD_JObjSetTranslateY for non-null, non-index-2 jobjs.",
-    "Archive symbol names in un_803124BC and un_8031263C were changed from string literals to offsets from un_803FDD18.",
-    "tylist.h prototypes were updated to typed TyListArg/TyListState signatures and one local/static function prototype was removed.",
-    "Small unrelated gm/gr files only changed cast/compound-literal spacing."
+    "Changed six files: tylist.c, tylist.h, ty/types.h, gm_18A5.c, gmclassic.c, and gricemt.c.",
+    "In tylist.c, added local structs such as TyListArchiveAnimData, TyListWaitData, TyListCameraState, TyListDispEntry, and TyListDispState.",
+    "In ty/types.h, changed TyListArg from separate unknown pointer/JObj slots to grouped links[3], jobjs[3], and texts[3], while preserving the 0x34-byte size comment.",
+    "Updated tylist.h prototypes to use TyListArg* and revised TyListState-based signatures instead of void* or extra parameters.",
+    "Rewrote several tylist functions from generated-looking gotos, pointer arithmetic, and expanded JObj dirty/assert code into arrays, for loops, helper calls, and local variables.",
+    "Replaced some string literals for archive names and symbols with offsets from un_803FDD18 in un_803124BC and un_8031263C.",
+    "Bot report claimed new matches for un_8031263C and un_803124BC, improvements for un_80313774, .sdata2, un_803147C4, and un_80313508, and regressions for nine tylist items including .data and .sdata."
   ],
   "smart_moves": [
     {
-      "text": "Recovering TyListArg as arrays for repeated link, JObj, and text slots enabled source to express repeated indexed behavior directly instead of separate x0/x4/xC/x10/x14/text fields.",
+      "text": "Grouping related TyListArg slots into arrays made repeated access patterns clearer: links[3], jobjs[3], and texts[3] replace several xN fields and support indexed loops.",
       "evidence_refs": [
-        "raw_diff: types.h TyListArg links[3], jobjs[3], texts[3]",
-        "raw_diff: tylist.c uses arg->jobjs[i], arg->texts[0..2], entry->links[1]"
+        "raw_diff: types.h TyListArg field changes",
+        "raw_diff: tylist.c un_80312BAC archive->jobjs[i]",
+        "raw_diff: tylist.c un_80312E88_inline loops over arg->jobjs[i]"
       ]
     },
     {
-      "text": "Expanded JObj translate/dirty/assert sequences were collapsed to HSD_JObjSetTranslateY where the operation was clearly setting translate.y.",
+      "text": "Expanded HSD_JObj translate/dirty/assert sequences were collapsed to HSD_JObjSetTranslateY where the operation was evident.",
       "evidence_refs": [
-        "raw_diff: un_80312BAC replaces manual jobj->translate.y plus dirty logic with HSD_JObjSetTranslateY",
+        "raw_diff: un_80312BAC removes direct translate.y/__assert/HSD_JObjSetMtxDirtySub block and calls HSD_JObjSetTranslateY",
         "raw_diff: un_80312E88_inline uses HSD_JObjSetTranslateY"
       ]
     },
     {
-      "text": "Repeated pointer/animation logic was expressed as for loops over fixed counts, making the likely repeated structure clearer.",
+      "text": "Header prototypes were kept aligned with recovered function bodies instead of leaving void* signatures.",
       "evidence_refs": [
-        "raw_diff: un_80312BAC for (i = 0; i < 3; i++) archive->jobjs[i]",
-        "raw_diff: un_80312E88_inline for (i = 0; i < 3; i++)"
+        "raw_diff: tylist.h un_80312904 and un_8031305C prototype updates",
+        "decomp_standards: truthful-headers-and-includes"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When adjacent struct fields form repeated slots, recovering them as arrays can unlock cleaner loops and clearer access patterns.",
-      "scope": [
-        "src/melee/ty/types.h",
-        "src/melee/ty/tylist.c"
-      ],
+      "lesson": "When adjacent struct slots are repeatedly accessed by index or stride, grouping them into arrays can expose natural loops and reduce pointer arithmetic, but the field layout still needs corroboration.",
       "evidence_refs": [
         "raw_diff: TyListArg links[3]/jobjs[3]/texts[3]",
-        "raw_diff: tylist.c loops over jobjs and accesses texts by index"
+        "raw_diff: un_80312E88_inline for loop over 3 jobjs",
+        "decomp_standards: natural-loops",
+        "decomp_standards: typed-fields-over-pointer-math"
       ],
       "confidence": 0.78
     },
     {
-      "lesson": "Expanded baselib JObj translate/dirty code can often map back to HSD_JObjSetTranslateY when the source operation is only setting translate.y.",
-      "scope": [
-        "src/melee/ty/tylist.c"
-      ],
+      "lesson": "Expanded JObj helper bodies in decompiled output should be checked against canonical HSD_JObj helper calls before preserving assert/dirty boilerplate.",
       "evidence_refs": [
-        "raw_diff: un_80312BAC and un_80312E88_inline helper replacements"
+        "raw_diff: un_80312BAC replaces expanded translate/dirty code with HSD_JObjSetTranslateY",
+        "decomp_standards: header-inlines",
+        "decomp_standards: assert-report-macros"
       ],
-      "confidence": 0.74
+      "confidence": 0.82
     },
     {
-      "lesson": "A code-match PR can still be risky when string/literal/data rewrites improve text symbols but regress .data or .sdata; keep data-section changes narrowly justified.",
-      "scope": [
-        "src/melee/ty/tylist.c"
-      ],
+      "lesson": "A PR can improve or match individual functions while still causing nearby function and data-section regressions; intake should keep the match gains and regression ledger together.",
       "evidence_refs": [
-        "raw_diff: string literals changed to un_803FDD18 offsets",
-        "bot report: .data regression 20.07% -> 4.40%, .sdata regression 70.27% -> 63.41%"
+        "bot issue comment: 2 new matches",
+        "bot issue comment: 4 improvements",
+        "bot issue comment: 9 regressions including .data and .sdata",
+        "decomp_standards: verification-and-regression-ledger",
+        "decomp_standards: text-before-data-matching"
       ],
-      "confidence": 0.86
-    },
-    {
-      "lesson": "Prototype updates should accompany recovered function signatures so callers and headers stop carrying void* or stale parameter shapes.",
-      "scope": [
-        "src/melee/ty/tylist.h",
-        "src/melee/ty/tylist.c"
-      ],
-      "evidence_refs": [
-        "raw_diff: un_80312904 signature changed to TyListArg*",
-        "raw_diff: un_8031305C prototype changed"
-      ],
-      "confidence": 0.72
+      "confidence": 0.9
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Use short role names for locals when roles are clear: state, entry, jobj, parent_jobj, pos_x, pos_y, pos_z, show, archive.",
+      "text": "Recovered local role names include archive, entry, state, jobj, parent_jobj, pos_x, pos_y, pos_z, idx, show, move_x, and move_y.",
       "evidence_refs": [
-        "raw_diff: un_80312904 and un_80312BAC local variable changes"
-      ],
-      "confidence": 0.7
+        "raw_diff: tylist.c un_80312904 local variable names",
+        "raw_diff: tylist.c un_80312BAC entry/idx naming"
+      ]
     },
     {
-      "convention": "Keep unknown struct members address-style or xNN while grouping proven repeated roles into neutral arrays like links, jobjs, and texts.",
+      "text": "Partially understood struct fields remained address-style or xNN-style, while clearer repeated slots were renamed to links, jobjs, and texts.",
       "evidence_refs": [
-        "raw_diff: TyListArg keeps x24/x25/x28/x2C/x30 while adding links[3], jobjs[3], texts[3]"
-      ],
-      "confidence": 0.79
-    },
-    {
-      "convention": "For HSD_GObj parameters, use gobj when the role is only the generic object.",
-      "evidence_refs": [
-        "raw_diff: fn_8031438C(HSD_GObj* arg0) -> fn_8031438C(HSD_GObj* gobj)"
-      ],
-      "confidence": 0.63
+        "raw_diff: types.h TyListArg links[3]/jobjs[3]/texts[3] plus x24/x25/x28/x2C/x30",
+        "decomp_standards: conservative-naming"
+      ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Replace expanded JObj setter/assert/dirty sequences with HSD_JObjSetTranslateY helper calls.",
+      "tactic": "Natural loop conversion",
+      "details": "Replaced while/goto-style repeated logic with for loops over entryCount or fixed count 3 where the diff showed indexed iteration.",
       "evidence_refs": [
-        "raw_diff: un_80312BAC helper replacements",
-        "raw_diff: un_80312E88_inline helper"
-      ],
-      "risk": "Requires objdiff/build evidence for final acceptance; this PR's bot report still shows regressions in nearby tylist functions."
+        "raw_diff: un_80312BAC for (i = 0; i < state->entryCount; i++)",
+        "raw_diff: un_80312BAC for (i = 0; i < 3; i++)",
+        "raw_diff: un_80312E88_inline for (i = 0; i < 3; i++)"
+      ]
     },
     {
-      "tactic": "Use natural for loops for fixed-count JObj animation/update arrays instead of while/goto generated shapes.",
+      "tactic": "Canonical helper substitution",
+      "details": "Used HSD_JObjSetTranslateY instead of inlined translate.y plus dirty-matrix/assert boilerplate.",
       "evidence_refs": [
-        "raw_diff: for loops over i < 3 in un_80312BAC and un_80312E88_inline"
-      ],
-      "risk": "Loop form improved readability, but the loaded evidence does not prove final acceptance because the PR was closed unmerged."
+        "raw_diff: un_80312BAC",
+        "raw_diff: un_80312E88_inline"
+      ]
     },
     {
-      "tactic": "Use typed temporary structs to describe archive/camera/display state offsets while broader types are still incomplete.",
+      "tactic": "Header signature cleanup",
+      "details": "Updated tylist.h declarations after recovering TyListArg/TyListState usage.",
       "evidence_refs": [
-        "raw_diff: TyListArchiveAnimData, TyListCameraState, TyListDispState definitions"
-      ],
-      "risk": "Temporary structs and padding need validation against current headers and object layout before promotion."
+        "raw_diff: tylist.h prototype changes"
+      ]
     },
     {
-      "tactic": "Replacing named string literals with base+offset string-table references can affect data matching and should be treated as high-risk data work.",
+      "tactic": "String/data relocation pressure",
+      "details": "The PR replaced several archive and symbol string literals with un_803FDD18 offset expressions; bot output later reported .data and .sdata regressions, so this tactic should be treated as risky rather than accepted.",
       "evidence_refs": [
-        "raw_diff: TyDatai.dat/TyDatai.usd and symbol-name literals changed to data + offsets",
-        "bot report: .data and .sdata regressions"
-      ],
-      "risk": "Conflicts with current standards preferring inline string literals unless data ownership evidence is explicit."
+        "raw_diff: un_803124BC data + 0x608/0x614 and symbol offsets",
+        "raw_diff: un_8031263C data + 0xA58/0xA64/0xA74",
+        "bot issue comment: .data and .sdata regressions",
+        "decomp_standards: no-string-literal-symbol-regression",
+        "decomp_standards: literals-and-data-ownership"
+      ]
     }
   ],
   "review_feedback": [
     {
-      "kind": "automation_report",
+      "kind": "bot_report",
       "author": "decomp-dev[bot]",
-      "summary": "Report for GALE01 showed matched code 67.20% (+0.02%, +792 bytes), 2 new matches in main/melee/ty/tylist, 4 improvements, and 9 regressions.",
+      "text": "GALE01 report showed matched code 67.20% (+0.02%, +792 bytes), with 2 new tylist matches: un_8031263C and un_803124BC.",
       "evidence_refs": [
-        "text_corpus.jsonl issue_comment by decomp-dev[bot] 2026-05-01T16:25:01Z"
+        "text_corpus.jsonl issue_comment 2026-05-01T16:25:01Z"
       ]
     },
     {
-      "kind": "missing_human_review",
-      "summary": "No review comments or reviews were present in the loaded PR slice.",
+      "kind": "bot_report",
+      "author": "decomp-dev[bot]",
+      "text": "Bot reported 4 improvements in unmatched items: un_80313774, .sdata2, un_803147C4, and un_80313508.",
+      "evidence_refs": [
+        "text_corpus.jsonl issue_comment 2026-05-01T16:25:01Z"
+      ]
+    },
+    {
+      "kind": "bot_report",
+      "author": "decomp-dev[bot]",
+      "text": "Bot reported 9 regressions in unmatched tylist items: un_8031305C, fn_80313BD8, un_80312BAC, un_8031457C, un_80312904, .data, fn_8031438C, un_80312E88, and .sdata.",
+      "evidence_refs": [
+        "text_corpus.jsonl issue_comment 2026-05-01T16:25:01Z"
+      ]
+    },
+    {
+      "kind": "human_review",
+      "author": null,
+      "text": "No human review comments were present in the loaded PR slice.",
       "evidence_refs": [
         "metadata_json: review_comments 0, reviews 0",
-        "text_corpus.jsonl contains PR body and one bot issue comment only"
+        "text_corpus.jsonl contains PR body and one bot issue comment"
       ]
     }
   ],
@@ -248,10 +246,10 @@
     "links[3]",
     "jobjs[3]",
     "texts[3]",
+    "TyListArchiveAnimData",
     "HSD_JObjSetTranslateY",
     "HSD_AObjSetRate",
     "HSD_JObjReqAnim",
-    "GET_JOBJ",
     "un_803124BC",
     "un_8031263C",
     "un_80312904",
@@ -260,113 +258,118 @@
     "un_8031305C",
     "un_80313774",
     "fn_80313BD8",
-    "fn_8031438C",
     "un_803147C4",
+    "un_803FDD18",
+    "lbArchive_LoadSymbols",
     "TyDatai.dat",
     "TyDatai.usd",
-    "un_803FDD18",
-    "data-section regression",
-    ".sdata2 improvement"
+    ".data regression",
+    ".sdata regression"
   ],
   "follow_up_queries": [
-    "Search later tylist PRs for whether TyListArg links/jobjs/texts array layout was retained or reverted.",
-    "Search for subsequent accepted handling of un_803FDD18 string-table offsets versus inline TyDatai/TyDataf string literals.",
-    "Search current tylist.c for HSD_JObjSetTranslateY usage in un_80312BAC, un_80312E88, and neighboring functions.",
-    "Search for PRs resolving regressions listed by bot: un_8031305C, fn_80313BD8, un_80312BAC, un_8031457C, un_80312904, fn_8031438C.",
-    "Search whether un_8031263C and un_803124BC were later matched with the same archive-symbol loading shape."
+    "PR 2454 tylist .data .sdata regressions un_803FDD18 string offsets",
+    "TyListArg links jobjs texts accepted later PR",
+    "un_803124BC un_8031263C tylist matches archive symbols",
+    "HSD_JObjSetTranslateY tylist un_80312BAC un_80312E88",
+    "un_80313774 tylist later merged implementation",
+    "TyListState entryCount x270 x274 x278 trophy list"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR #2454 closed, merged_at null, draft true in raw_pr_json",
-      "changed_files.jsonl: six changed files",
-      "raw_diff: substantial tylist diff, but loaded excerpt was truncated and targeted lookup was used for headers",
-      "text_corpus.jsonl: one bot report, no human review"
+      "metadata_json: PR identity, state, author, changed file counts",
+      "raw_diff: truncated but includes main tylist and header excerpts",
+      "changed_files.jsonl: complete changed-file list",
+      "text_corpus.jsonl: bot report and empty PR body"
     ],
     "notes": [
-      "The PR body is empty/null and there are no human review comments, so intent and reviewer rationale are not available.",
-      "The PR was closed without merge in the loaded metadata; do not treat these changes as accepted project direction.",
-      "Automation evidence is mixed: it reports two new matches and several improvements, but also nine regressions including .data and .sdata.",
-      "The raw diff is large and truncated in the loaded excerpt; header hunks were inspected through the local slice file for exact wording."
+      "PR body was empty and no human review comments were present, so author intent and reviewer intent are not supported.",
+      "The PR was closed with merged_at null and marked draft in raw PR JSON; do not treat its changes as accepted project source.",
+      "The raw diff excerpt was truncated in loaded_files, though targeted reads recovered the tylist.h and types.h sections.",
+      "Bot output provides narrow score evidence but also reports several regressions; lessons should not be promoted as validation of the full PR."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "candidate_lesson",
-        "title": "Repeated TyList slots as arrays",
-        "text": "In tylist-style structs, consecutive link/JObj/text slots may be clearer as fixed arrays when code repeatedly indexes them; this can enable natural loops and reduce raw xNN field churn.",
+        "record_type": "pr_lesson",
+        "title": "Keep match gains and regression ledger together",
+        "text": "PR 2454 shows that a tylist edit can create new function matches while regressing nearby tylist functions and data sections; curator should preserve both the gains and regressions when mining tactics.",
+        "scope": [
+          "src/melee/ty/tylist.c",
+          "matching reports"
+        ],
+        "evidence_refs": [
+          "text_corpus.jsonl bot issue comment: 2 new matches, 4 improvements, 9 regressions"
+        ]
+      },
+      {
+        "record_type": "pr_lesson",
+        "title": "Array-shaped type recovery can enable natural loops",
+        "text": "The TyListArg change from separate pointer/JObj/text fields into links[3], jobjs[3], and texts[3] enabled clearer loop-based tylist code in the PR slice, but needs acceptance corroboration before becoming a path fact.",
         "scope": [
           "src/melee/ty/types.h",
           "src/melee/ty/tylist.c"
         ],
         "evidence_refs": [
-          "raw_diff: TyListArg links[3], jobjs[3], texts[3]",
-          "raw_diff: tylist.c uses arg->jobjs[i], arg->texts[n], entry->links[1]"
-        ],
-        "confidence": 0.72
-      },
-      {
-        "type": "candidate_lesson",
-        "title": "Use JObj setter helper for translate.y cleanup",
-        "text": "When generated code expands translate.y assignment plus dirty/assert handling, HSD_JObjSetTranslateY may be the intended source-level helper.",
-        "scope": [
-          "src/melee/ty/tylist.c"
-        ],
-        "evidence_refs": [
-          "raw_diff: un_80312BAC and un_80312E88_inline"
-        ],
-        "confidence": 0.7
+          "raw_diff: types.h TyListArg arrays",
+          "raw_diff: un_80312BAC and un_80312E88_inline loops"
+        ]
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "String-table offset rewrites should be treated as data ownership changes",
-        "text": "This PR changed ordinary archive and symbol-name string literals in tylist to un_803FDD18 + offsets while the bot report showed .data and .sdata regressions. Curator may want to cross-link this PR as supporting evidence for existing standards that discourage string-literal-to-symbol/data-offset rewrites without explicit data ownership evidence.",
-        "source_path": null,
-        "scope": [
-          "src/melee/ty/tylist.c",
-          "standards:no-string-literal-symbol-regression",
-          "standards:text-before-data-matching"
-        ],
-        "evidence_refs": [
-          "raw_diff: TyDatai.dat/TyDatai.usd and tyInitModelTbl-style literals replaced with data + offsets",
-          "text_corpus bot report: .data and .sdata regressions"
-        ],
-        "reason": "The evidence supports a cautionary standard update/cross-reference, not acceptance of the PR's data-offset style."
-      },
-      {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "tylist.c contains trophy-list UI state and entry structures",
-        "text": "PR evidence shows src/melee/ty/tylist.c and src/melee/ty/types.h working with TyListState and TyListArg for trophy-list UI entries, including entry links, JObjs, text objects, selectedIdx, entryCount, and trophy index fields.",
-        "source_path": "src/melee/ty/tylist.c",
+        "title": "Candidate TyListArg grouped slot interpretation",
+        "text": "PR 2454 proposes that TyListArg offset 0x00 has three TyListArg links, offset 0x0C has three HSD_JObj pointers, and offset 0x18 has three HSD_Text pointers. Because the PR was closed unmerged and bot output reported regressions, this should only be adopted if later accepted source or matching evidence confirms it.",
+        "source_path": "src/melee/ty/types.h",
         "scope": [
-          "src/melee/ty/tylist.c",
-          "src/melee/ty/types.h"
+          "TyListArg",
+          "src/melee/ty/tylist.c"
         ],
         "evidence_refs": [
-          "raw_diff: TyListArg and TyListState hunks",
-          "raw_diff: un_80312904, un_80312BAC, un_80312E88 usages"
+          "raw_diff: types.h TyListArg links[3], jobjs[3], texts[3]",
+          "raw_diff: tylist.c uses arg->links, arg->jobjs, arg->texts",
+          "metadata_json: merged_at null",
+          "text_corpus.jsonl bot report regressions"
         ],
-        "reason": "Potential path fact for curator review; not promoted because the PR was closed unmerged and some changes regressed."
+        "reason": "Potentially useful local type fact, but not accepted by this PR evidence alone."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "String literal to data-offset rewrites are risky in code matching",
+        "text": "This PR replaced tylist archive/symbol string literals with un_803FDD18 offset expressions, while the bot report included .data and .sdata regressions. Existing standards already cover this risk; no new standard is needed unless more PRs show the same pattern.",
+        "source_path": "src/melee/ty/tylist.c",
+        "scope": [
+          "string literals",
+          "data sections",
+          "lbArchive_LoadSymbols"
+        ],
+        "evidence_refs": [
+          "raw_diff: un_803124BC and un_8031263C string literal replacements",
+          "text_corpus.jsonl bot report: .data and .sdata regressions",
+          "decomp_standards: no-string-literal-symbol-regression",
+          "decomp_standards: text-before-data-matching"
+        ],
+        "reason": "Useful as a reinforcing example for existing standards, not as a new accepted rule."
       }
     ],
     "rejection_notes": [
-      "Do not promote the PR's string-literal-to-un_803FDD18-offset changes as accepted style; bot evidence includes data-section regressions and current standards caution against such changes without ownership evidence.",
-      "Do not claim these functions were finally matched or merged; loaded metadata says merged_at null and the PR was closed.",
-      "Do not infer reviewer intent because no human reviews or review comments are present."
+      "Do not promote the un_803FDD18 data+offset archive string changes as accepted style; the loaded evidence includes data-section regressions and no supporting data ownership explanation.",
+      "Do not claim the PR fully matched tylist or was merged; metadata shows CLOSED with merged_at null.",
+      "Do not infer reviewer intent; there were no loaded human review comments.",
+      "Do not treat the recovered TyListArg/TyListState field names as global/path facts without corroborating later accepted source."
     ]
   },
-  "confidence": 0.76,
+  "confidence": 0.74,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

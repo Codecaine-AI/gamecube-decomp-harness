@@ -12,311 +12,323 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Small TY subsystem matching-improvement slice split from PR #2617. The loaded diff changes `src/melee/ty/tydisplay.c` and `src/melee/ty/tylist.c`, mostly by adjusting local lifetime/declaration order and reverting some semantic-looking struct-field accesses to offset-style fields. The decomp-dev report records two unmatched-item improvements: `fn_80313BD8` from 97.03% to 98.40% and `un_8031BC54` from 99.51% to 99.73%. No human review comments were present in the loaded slice.",
+  "summary": "Small TY subsystem matching-improvement slice split from PR #2617. The loaded diff changes local variable ordering/use in `tydisplay.c` and field/access expressions in `tylist.c`; decomp-dev reported two unmatched-item improvements: `fn_80313BD8` from 97.03% to 98.40% and `un_8031BC54` from 99.51% to 99.73%. No human review comments were present in the loaded slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "matching improvement",
-      "source cleanup",
-      "local variable/codegen shaping"
+      "decomp-matching",
+      "score-improvement",
+      "struct-field-access-adjustment",
+      "local-variable-codegen-tuning"
     ],
     "systems": [
       "melee-core",
-      "src/melee/ty",
-      "trophy list/display"
+      "src/melee/ty"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ty/tydisplay.c",
-      "role": "Adjusted `un_8031BC54` by introducing local `id = arg0`, using `id` for later calls, and moving `TyDspArchNames` declarations after other locals.",
+      "role": "Adjusted `un_8031BC54` local layout and argument reuse by introducing `s32 id = arg0`, moving `TyDspArchNames` declarations later, and passing `id` to helper calls.",
       "evidence_refs": [
-        "changed_files.jsonl: `src/melee/ty/tydisplay.c` added 5 deleted 4 hunks 2",
-        "raw_diff: `un_8031BC54` hunk",
-        "text_corpus: decomp-dev report item `main/melee/ty/tydisplay` `un_8031BC54` +2 bytes, 99.51% to 99.73%"
+        "changed_files.jsonl: `src/melee/ty/tydisplay.c`, +5/-4, 2 hunks",
+        "raw_diff: `un_8031BC54` declaration-order and `arg0` to `id` changes",
+        "text_corpus: decomp-dev bot reported `main/melee/ty/tydisplay` `un_8031BC54` +2 bytes, 99.51% to 99.73%"
       ]
     },
     {
       "path": "src/melee/ty/tylist.c",
-      "role": "Adjusted `fn_80313BD8` field accesses and locals: `state->jobj` to `state->x288`, `entries[0]`-based accesses to `x274`/`x270`, removed temporary `idx`, and `entries[10].links[0]` to `x278`.",
+      "role": "Adjusted `fn_80313BD8` access expressions for TY list state fields, replacing `jobj`, `entries[...]`, and temporary `idx` use with offset-style fields such as `x288`, `x274`, `x270`, and `x278`.",
       "evidence_refs": [
-        "changed_files.jsonl: `src/melee/ty/tylist.c` added 11 deleted 14 hunks 3",
-        "raw_diff: `fn_80313BD8` hunks around lines 949, 1001, 1035",
-        "text_corpus: decomp-dev report item `main/melee/ty/tylist` `fn_80313BD8` +27 bytes, 97.03% to 98.40%"
+        "changed_files.jsonl: `src/melee/ty/tylist.c`, +11/-14, 3 hunks",
+        "raw_diff: `fn_80313BD8` changes from `state->jobj` to `state->x288`, `entries[0]` to `x274`/`x270`, and `entries[10].links[0]` to `x278`",
+        "text_corpus: decomp-dev bot reported `main/melee/ty/tylist` `fn_80313BD8` +27 bytes, 97.03% to 98.40%"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "`un_8031BC54` now preserves `arg0` in a local `s32 id` and uses that local for `un_8031B9DC` and `un_8031BF34`.",
-      "evidence_refs": [
-        "raw_diff: `s32 id = arg0`; `un_8031B9DC(id)`; `un_8031BF34(id)`"
-      ]
-    },
-    {
-      "text": "`un_8031BC54` local declaration order changed by moving `TyDspArchNames jobj_names` and `matanim_names` below `TyDspBgData* data`.",
-      "evidence_refs": [
-        "raw_diff: `un_8031BC54` declaration hunk"
-      ]
-    },
-    {
-      "text": "`fn_80313BD8` now uses offset-style state fields (`x288`, `x274`, `x270`, `x278`) in places that previously used semantic-looking fields (`jobj`, `entries[0]`, `entries[10].links[0]`).",
-      "evidence_refs": [
-        "raw_diff: `HSD_JObjSetFlagsAll(state->x288, 0x10)`",
-        "raw_diff: `state->x274->idx`, `state->x270->idx`, `state->x278 = p`"
-      ]
-    },
-    {
-      "text": "`fn_80313BD8` removes a short-lived `s16 idx` local and directly reads `state->x270->idx` in the comparison and casted call argument.",
-      "evidence_refs": [
-        "raw_diff: removed `s16 idx`; changed to `(s8) state->x270->idx`"
-      ]
-    }
-  ],
-  "smart_moves": [
-    {
-      "text": "The PR was scoped as an isolated directory/subsystem slice under `src/melee/ty`, making a small matching-improvement diff easier to review than the larger source branch.",
+      "description": "The PR is a focused `src/melee/ty` slice split from #2617 for reviewability.",
       "evidence_refs": [
         "human_pr_text: `Split from #2617 by directory/subsystem so the matching improvements are easier to review.`",
         "human_pr_text: Scope `src/melee/ty`"
       ]
     },
     {
-      "text": "The PR body distinguishes full unsplit-branch scores from the authoritative per-PR CI/decomp-dev slice report, reducing overclaiming from source-branch numbers.",
+      "description": "`un_8031BC54` now keeps `arg0` in a local `s32 id`, uses that local for `un_8031B9DC` and `un_8031BF34`, and places `TyDspArchNames` locals after `data`.",
       "evidence_refs": [
-        "human_pr_text: `Per-PR CI/decomp-dev reporting on this draft is the authoritative slice score once it completes.`",
-        "text_corpus: decomp-dev report with 2 unmatched-item improvements"
+        "raw_diff: `s32 id = arg0;` added in `src/melee/ty/tydisplay.c`",
+        "raw_diff: `un_8031B9DC(arg0)` changed to `un_8031B9DC(id)`",
+        "raw_diff: `un_8031BF34(arg0)` changed to `un_8031BF34(id)`"
       ]
     },
     {
-      "text": "The changes are narrow and tied to two reported functions, avoiding broad TY subsystem churn in the loaded diff.",
+      "description": "`fn_80313BD8` now uses TY state offset-style members for JObj/list entry pointers and removes a short-lived `s16 idx` temporary in one branch.",
       "evidence_refs": [
-        "changed_files.jsonl: only `tydisplay.c` and `tylist.c` changed",
-        "text_corpus: decomp-dev report lists only `fn_80313BD8` and `un_8031BC54`"
+        "raw_diff: `state->jobj` changed to `state->x288`",
+        "raw_diff: `state->entries[0]` changed to `state->x274` and `state->x270` in different branches",
+        "raw_diff: `state->entries[10].links[0] = (TyListArg*) p` changed to `state->x278 = p`",
+        "raw_diff: removed `s16 idx;` and direct `state->x270->idx` use"
+      ]
+    },
+    {
+      "description": "The loaded bot report records two unmatched-item improvements and no broken-match/regression details for this PR slice.",
+      "evidence_refs": [
+        "text_corpus: decomp-dev bot issue comment, `2 improvements in unmatched items`",
+        "human_pr_text: preliminary report says the full unsplit source branch had no broken matches/regressions in the current post-rebase report"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "description": "Kept the PR narrow to the TY directory so matching improvements could be reviewed independently from the larger #2617 branch.",
+      "evidence_refs": [
+        "human_pr_text: split by directory/subsystem for easier review",
+        "human_pr_text: Scope `src/melee/ty`"
+      ]
+    },
+    {
+      "description": "Used small codegen-sensitive edits rather than broad rewrites: local declaration ordering/argument copy in `tydisplay.c` and targeted state-access substitutions in `tylist.c`.",
+      "evidence_refs": [
+        "raw_diff: only two changed files, small hunks",
+        "changed_files.jsonl: total loaded changed-file metadata is +16/-18 across two files"
+      ]
+    },
+    {
+      "description": "Included local check context and deferred authoritative scoring to per-PR CI/decomp-dev reporting.",
+      "evidence_refs": [
+        "human_pr_text: `git diff --check origin/master...HEAD` passed",
+        "human_pr_text: `Per-PR CI/decomp-dev reporting on this draft is the authoritative slice score once it completes.`",
+        "text_corpus: decomp-dev bot report for GALE01"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "text": "For near-matching functions, preserving an argument in a local alias can be a useful codegen tactic when later calls need the same value, but it should remain narrowly justified by objdiff/report evidence.",
-      "evidence_refs": [
-        "raw_diff: `s32 id = arg0`; later calls use `id`",
-        "text_corpus: `un_8031BC54` improved +2 bytes, 99.51% to 99.73%",
-        "decomp_standards: matching-tactics-need-evidence"
-      ],
-      "confidence": 0.72
-    },
-    {
-      "text": "Semantic-looking struct field names can be premature in unmatched code. In this slice, reverting `jobj`/`entries[...]` accesses to offset-style fields corresponded with an improved `fn_80313BD8` score, so curators should treat this as an example of conservative naming rather than proof of field semantics.",
-      "evidence_refs": [
-        "raw_diff: `state->jobj` changed to `state->x288`",
-        "raw_diff: `state->entries[0]` changed to `state->x274`/`state->x270`",
-        "raw_diff: `state->entries[10].links[0]` changed to `state->x278`",
-        "text_corpus: `fn_80313BD8` improved +27 bytes, 97.03% to 98.40%",
-        "decomp_standards: conservative-naming"
-      ],
-      "confidence": 0.77
-    }
-  ],
-  "naming_conventions": [
-    {
-      "text": "When Ty list state field meaning is not proven, offset-style names such as `x270`, `x274`, `x278`, and `x288` may be preferable to semantic names like `jobj` or `entries`.",
-      "scope": [
-        "src/melee/ty/tylist.c",
-        "fn_80313BD8"
-      ],
-      "evidence_refs": [
-        "raw_diff: field-name substitutions in `fn_80313BD8`",
-        "decomp_standards: conservative-naming"
-      ],
-      "confidence": 0.74
-    },
-    {
-      "text": "The local name `id` was introduced for a copied `s32 arg0` value in `un_8031BC54`; evidence supports only this local tactic, not a broader naming rule for the subsystem.",
+      "lesson": "For near-matching functions, local declaration order and preserving an argument in an explicit local can be meaningful MWCC codegen levers, but this PR only supports treating them as narrow matching tactics backed by score evidence, not as general style.",
       "scope": [
         "src/melee/ty/tydisplay.c",
         "un_8031BC54"
       ],
       "evidence_refs": [
-        "raw_diff: `s32 id = arg0`"
+        "raw_diff: `s32 id = arg0` added and used for helper calls",
+        "raw_diff: `TyDspArchNames` declarations moved after `data`",
+        "text_corpus: `un_8031BC54` improved from 99.51% to 99.73%"
+      ]
+    },
+    {
+      "lesson": "When a recovered struct's semantic fields do not match codegen, direct offset-style fields may remain useful as interim matching evidence; do not over-promote semantic field names without enough type evidence.",
+      "scope": [
+        "src/melee/ty/tylist.c",
+        "fn_80313BD8"
       ],
-      "confidence": 0.65
+      "evidence_refs": [
+        "raw_diff: `state->jobj` changed to `state->x288`",
+        "raw_diff: `state->entries[0]` changed to `state->x274`/`state->x270`",
+        "text_corpus: `fn_80313BD8` improved from 97.03% to 98.40%"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "convention": "The PR uses address-style function names and offset-style struct member names where semantic names are not established or not retained by the matching attempt.",
+      "examples": [
+        "fn_80313BD8",
+        "un_8031BC54",
+        "state->x288",
+        "state->x274",
+        "state->x270",
+        "state->x278"
+      ],
+      "evidence_refs": [
+        "raw_diff: changed TY state member accesses",
+        "raw_diff: unchanged function labels in diff headers"
+      ]
+    },
+    {
+      "convention": "A short local `id` was introduced for an integer argument reused as an identifier-like parameter in `un_8031BC54`; the PR evidence supports the local's codegen role but not a broader naming rule.",
+      "examples": [
+        "s32 id = arg0"
+      ],
+      "evidence_refs": [
+        "raw_diff: `s32 id = arg0;`"
+      ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "text": "Local declaration ordering changed in `un_8031BC54`, with `TyDspArchNames` declarations moved below pointer/data locals.",
+      "tactic": "Introduce a same-value local copy of a function parameter and use it at callsites to influence register/lifetime shape.",
+      "scope": [
+        "un_8031BC54"
+      ],
       "evidence_refs": [
-        "raw_diff: declaration order hunk in `un_8031BC54`"
+        "raw_diff: `s32 id = arg0;`",
+        "raw_diff: `un_8031B9DC(id)` and `un_8031BF34(id)`",
+        "text_corpus: decomp-dev bot reported `un_8031BC54` +2 bytes improvement"
       ]
     },
     {
-      "text": "Argument copy tactic: `arg0` is copied into `id`, and later function calls use the copy.",
+      "tactic": "Tune local declaration order for stack/register layout in a near-matching function.",
+      "scope": [
+        "un_8031BC54"
+      ],
       "evidence_refs": [
-        "raw_diff: `s32 id = arg0`; `un_8031B9DC(id)`; `un_8031BF34(id)`"
+        "raw_diff: `TyDspArchNames jobj_names` and `matanim_names` declarations moved below `data`",
+        "text_corpus: decomp-dev bot reported `un_8031BC54` 99.51% to 99.73%"
       ]
     },
     {
-      "text": "Temporary-local removal tactic: `s16 idx` was removed from `fn_80313BD8`, with direct field reads used instead.",
+      "tactic": "Use more specific offset-style state members instead of array/member expressions when the latter produces worse codegen.",
+      "scope": [
+        "fn_80313BD8"
+      ],
       "evidence_refs": [
-        "raw_diff: removed `s16 idx`; direct use of `state->x270->idx`"
+        "raw_diff: `state->entries[0].links[0]` replaced by `state->x274->links[0]`",
+        "raw_diff: `state->entries[0].links[1]` replaced by `state->x270->links[1]`",
+        "raw_diff: `state->entries[10].links[0]` replaced by `state->x278`",
+        "text_corpus: decomp-dev bot reported `fn_80313BD8` +27 bytes improvement"
       ]
     },
     {
-      "text": "Field-access reshaping tactic: semantic-looking nested accesses were replaced with direct offset-style state fields in `fn_80313BD8`.",
+      "tactic": "Remove a short-lived local temporary when direct field access gives better codegen.",
+      "scope": [
+        "fn_80313BD8"
+      ],
       "evidence_refs": [
-        "raw_diff: `entries[0]` to `x274`/`x270`; `entries[10].links[0]` to `x278`; `jobj` to `x288`"
+        "raw_diff: removed `s16 idx;` and `idx = state->entries[0].idx;`",
+        "raw_diff: else branch now calls `un_80313358(state, (s8) state->x270->idx, 4, 1)`"
       ]
     }
   ],
   "review_feedback": [
     {
-      "type": "automated_report",
+      "kind": "bot_report",
       "author": "decomp-dev[bot]",
-      "text": "Reported 2 improvements in unmatched items: `main/melee/ty/tylist` `fn_80313BD8` +27 bytes, 97.03% to 98.40%; `main/melee/ty/tydisplay` `un_8031BC54` +2 bytes, 99.51% to 99.73%.",
+      "summary": "Reported two improvements in unmatched items for GALE01: `fn_80313BD8` gained 27 bytes, and `un_8031BC54` gained 2 bytes.",
       "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot] at 2026-06-08T14:40:05Z"
+        "text_corpus: issue_comment by `decomp-dev[bot]` at 2026-06-08T14:40:05Z"
       ]
     },
     {
-      "type": "missing_human_review",
-      "author": null,
-      "text": "No human review comments or review records were present in the loaded PR slice.",
+      "kind": "missing_human_review",
+      "summary": "No review comments or review records were loaded for this PR slice.",
       "evidence_refs": [
-        "metadata_json: counts.review_comments 0, counts.reviews 0"
+        "metadata_json: counts show `review_comments`: 0 and `reviews`: 0"
       ]
     }
   ],
   "searchable_terms": [
-    "PR 2629",
+    "PR2629",
     "Improvements to split up TY",
     "src/melee/ty",
-    "tylist.c",
     "tydisplay.c",
-    "fn_80313BD8",
+    "tylist.c",
     "un_8031BC54",
-    "TyListArg",
+    "fn_80313BD8",
     "TyDspArchNames",
     "TyDspEntry",
     "TyDspBgData",
+    "HSD_GObj",
+    "HSD_JObj",
+    "HSD_JObjSetFlagsAll",
+    "HSD_JObjSetTranslateY",
+    "un_8031B9DC",
+    "un_8031BF34",
+    "un_80313358",
+    "un_GetTrophyTotal",
     "state->x288",
     "state->x274",
     "state->x270",
     "state->x278",
-    "state->jobj",
-    "state->entries",
-    "HSD_JObjSetFlagsAll",
-    "HSD_JObjSetTranslateY",
-    "un_80313358",
-    "un_GetTrophyTotal",
-    "un_80305C44"
+    "declaration order",
+    "argument local copy",
+    "unmatched item improvement"
   ],
   "follow_up_queries": [
-    "PR 2629 fn_80313BD8 x288 x274 x270 x278 conservative naming",
-    "PR 2629 un_8031BC54 arg0 id local declaration order",
-    "src/melee/ty tylist TyList state x288 jobj entries field naming",
-    "decomp-dev report PR 2629 unmatched items fn_80313BD8 un_8031BC54",
-    "PR 2617 split TY source branch matching improvements"
+    "PR #2617 TY split source branch context",
+    "src/melee/ty fn_80313BD8 struct state x288 x274 x270 x278",
+    "src/melee/ty un_8031BC54 id arg0 declaration order",
+    "TyListArg links idx x30 selectedIdx",
+    "decomp-dev report PR 2629 fn_80313BD8 un_8031BC54"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR metadata, changed file counts, merge state",
-      "human_pr_text: PR body, scope, preliminary report, local checks",
-      "raw_diff: complete loaded diff for two files",
-      "changed_files.jsonl: changed-file metadata for two files",
-      "text_corpus: PR body and decomp-dev issue comment"
+      "metadata_json: PR identity, merge state, counts, and changed files",
+      "human_pr_text: PR body with scope, preliminary report, and local checks",
+      "raw_diff: complete loaded diff for `tydisplay.c` and `tylist.c`",
+      "text_corpus: decomp-dev bot issue comment with per-item score improvements"
     ],
     "notes": [
-      "The loaded changed-file metadata lists only `src/melee/ty/tydisplay.c` and `src/melee/ty/tylist.c`; the PR body also lists `src/melee/ty/toy.c`, but no loaded changed-file entry or diff hunk for `toy.c` is present.",
-      "The PR body's broad preliminary score report is explicitly for the full unsplit source branch, not necessarily this exact PR slice; the decomp-dev bot report is stronger evidence for this slice.",
-      "No build log, objdiff details, or human review reasoning are included beyond the automated decomp-dev summary.",
-      "The diff supports codegen/matching tactics and field-name changes, but it does not prove final struct semantics for the Ty list state fields."
+      "Loaded changed-file metadata contains two files, but the PR body's file list also names `src/melee/ty/toy.c`; no loaded diff or changed-file entry for `toy.c` is present, so this postmortem treats `toy.c` as body context only, not as an evidenced changed file.",
+      "The PR body's preliminary aggregate report is for the full unsplit source branch, not necessarily this exact slice; per-PR bot evidence is narrower and was preferred for item-level improvement claims.",
+      "No human review comments were present; reviewer intent and acceptance rationale cannot be inferred beyond the merged state and bot report.",
+      "The bot report shows improvements in unmatched items, not full function matches; lessons are framed as tactics for score improvement rather than confirmed matching standards."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "pr_lesson_candidate",
-        "title": "Conservative field naming in TY list matching",
-        "text": "PR #2629 is a concrete example where reverting semantic-looking `TyList` state accesses (`jobj`, `entries[...]`) to offset-style fields (`x288`, `x274`, `x270`, `x278`) was part of a reported improvement to `fn_80313BD8`. Use as supporting evidence for conservative naming when field semantics are unproven, not as proof of the offset fields' meanings.",
-        "scope": [
-          "src/melee/ty/tylist.c",
-          "fn_80313BD8"
-        ],
-        "evidence_refs": [
-          "raw_diff: `fn_80313BD8` field-access substitutions",
-          "text_corpus: decomp-dev report `fn_80313BD8` +27 bytes, 97.03% to 98.40%",
-          "decomp_standards: conservative-naming"
-        ],
-        "confidence": 0.77
-      },
-      {
-        "record_type": "pr_lesson_candidate",
-        "title": "Narrow local lifetime and declaration-order adjustments can improve near matches",
-        "text": "PR #2629 shows small local-shape changes in `un_8031BC54`—copying `arg0` to `id` and changing declaration order—associated with a reported +2 byte unmatched-item improvement. Keep this as a narrow tactic example requiring verifier evidence.",
+        "record_type": "matching_tactic",
+        "title": "Explicit parameter local and declaration ordering can move near-match scores",
+        "text": "In PR #2629, `un_8031BC54` improved after introducing `s32 id = arg0`, using `id` at helper calls, and moving `TyDspArchNames` declarations below other locals. Treat as narrow MWCC codegen evidence, not broad style.",
         "scope": [
           "src/melee/ty/tydisplay.c",
           "un_8031BC54"
         ],
         "evidence_refs": [
-          "raw_diff: `un_8031BC54` local `id` and declaration-order changes",
-          "text_corpus: decomp-dev report `un_8031BC54` +2 bytes, 99.51% to 99.73%",
-          "decomp_standards: matching-tactics-need-evidence"
+          "raw_diff: `un_8031BC54` local and callsite changes",
+          "text_corpus: decomp-dev bot `un_8031BC54` 99.51% to 99.73%"
+        ]
+      },
+      {
+        "record_type": "matching_tactic",
+        "title": "Offset-style TY state fields were used as interim matching evidence",
+        "text": "In PR #2629, `fn_80313BD8` improved after replacing semantic-looking `jobj`/`entries[...]` accesses with offset-style fields including `x288`, `x274`, `x270`, and `x278`. Do not infer those names are final semantic fields from this PR alone.",
+        "scope": [
+          "src/melee/ty/tylist.c",
+          "fn_80313BD8"
         ],
-        "confidence": 0.72
+        "evidence_refs": [
+          "raw_diff: `fn_80313BD8` state access substitutions",
+          "text_corpus: decomp-dev bot `fn_80313BD8` 97.03% to 98.40%"
+        ]
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Add PR #2629 as an example under conservative naming or matching tactics",
-        "text": "Consider adding PR #2629 as an example that semantic-looking recovered struct fields should not outrank matching evidence when field meaning is not proven. The diff changed `state->jobj`/`state->entries[...]` back to offset-style fields in `fn_80313BD8`, and the decomp-dev report showed an improvement for that function.",
+        "title": "Add PR #2629 as an example under matching tactics requiring evidence",
+        "text": "PR #2629 is a compact example where declaration order, an explicit argument local, and offset-style field accesses improved unmatched-item scores, but the evidence is score improvement rather than full matching. If documented, present it as a narrow tactic requiring objdiff/decomp-dev evidence and later cleanup when type information is recovered.",
         "source_path": null,
         "scope": [
-          "conservative-naming",
           "matching-tactics-need-evidence",
-          "src/melee/ty/tylist.c"
+          "conservative-naming",
+          "typed-fields-over-pointer-math"
         ],
         "evidence_refs": [
-          "raw_diff: `fn_80313BD8` field-access substitutions",
-          "text_corpus: decomp-dev report `fn_80313BD8` +27 bytes, 97.03% to 98.40%"
+          "raw_diff: `tydisplay.c` declaration-order and `id` changes",
+          "raw_diff: `tylist.c` field-access changes",
+          "text_corpus: bot report with two unmatched-item improvements"
         ],
-        "reason": "This is a candidate standards example, not a new accepted rule; existing standards already cover conservative naming and evidence-backed tactics."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "TY slice PR #2629 touched tydisplay and tylist",
-        "text": "PR #2629's loaded changed-file evidence covers `src/melee/ty/tydisplay.c` and `src/melee/ty/tylist.c`; the PR body also mentions `toy.c`, but the loaded diff/changed-file metadata does not include a `toy.c` change.",
-        "source_path": "src/melee/ty",
-        "scope": [
-          "src/melee/ty/tydisplay.c",
-          "src/melee/ty/tylist.c"
-        ],
-        "evidence_refs": [
-          "changed_files.jsonl",
-          "raw_diff",
-          "human_pr_text: Files list includes `toy.c`, `tydisplay.c`, `tylist.c`"
-        ],
-        "reason": "Curator may want to record the discrepancy between PR body file list and loaded changed-file evidence."
+        "reason": "The PR illustrates evidence-backed local codegen steering and the risk of treating offset-style fields as final semantics."
       }
     ],
     "rejection_notes": [
-      "Do not treat the full preliminary branch report numbers as verified slice outcomes; the PR body says per-PR CI/decomp-dev reporting is authoritative for the slice.",
-      "Do not infer final meanings for `x270`, `x274`, `x278`, or `x288`; the diff only shows that these offset-style fields were used in the improved source.",
-      "Do not record human reviewer intent; no human review comments were loaded.",
-      "Do not claim `toy.c` changed in this slice from loaded diff evidence; it appears only in the PR body file list."
+      "Do not record `toy.c` as a changed file from the loaded slice; it appears only in the PR body file list, not in changed_files metadata or the loaded diff.",
+      "Do not claim either function fully matched; the loaded bot report only says they improved in unmatched items.",
+      "Do not infer human reviewer preferences or requested changes; no human review comments were loaded.",
+      "Do not generalize the offset-style `x###` fields as preferred source style; the evidence only shows they improved this function's score in this slice."
     ]
   },
-  "confidence": 0.8,
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

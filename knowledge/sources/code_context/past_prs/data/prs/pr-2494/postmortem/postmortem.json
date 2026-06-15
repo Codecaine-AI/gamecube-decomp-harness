@@ -12,142 +12,139 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2494 updated Zebes Route stage code in src/melee/gr/grzebesroute.c by introducing named route light data, direct string/data references, and a C translation of grZebesRoute_8020B548, the stage light setup routine. The PR body reports a successful configure+ninja build and checkdiff score of 99.96923% for grZebesRoute_8020B548, with known remaining GXColor stack-temp offset drift. The bot report shows data-section improvements and grZebesRoute_8020B548 improving from 0.00% to 99.97%. No human review comments were present in the loaded slice.",
+  "summary": "Closed, unmerged PR touching only src/melee/gr/grzebesroute.c. It translated the Zebes Route stage light setup routine grZebesRoute_8020B548 to near-match, named the route light data as a typed aggregate, added direct data/string references, and improved grZebesRoute_8020B260 plus data sections according to the bot report. The PR body reports configure/ninja success and checkdiff for grZebesRoute_8020B548 at 99.96923%, with remaining drift in three GXColor by-value stack temp offsets.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "stage decompilation",
-      "lighting routine translation",
-      "data naming",
-      "section matching",
+      "stage",
+      "lighting",
+      "data-naming",
+      "near-match",
       "cleanup"
     ],
     "systems": [
+      "gr",
       "stage",
       "grzebesroute",
-      "lighting",
-      "baselib lobj"
+      "HSD_LObj"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grzebesroute.c",
-      "role": "Only changed source file; adds grZebesRoute_LightData, direct data/string definitions, and translates grZebesRoute_8020B548.",
+      "role": "Only changed source file; adds Zebes Route light data typing, direct data/string refs, and implementation of grZebesRoute_8020B548.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/gr/grzebesroute.c added 153 deleted 6 hunks 6",
-        "raw_diff: typedef struct grZebesRoute_LightData and const grZe_Route_803B83A0",
-        "raw_diff: grZebesRoute_8020B548 implementation",
-        "human_pr_text: naming route light data, direct string/data references, translating stage light setup routine"
+        "raw_diff: only diff path src/melee/gr/grzebesroute.c",
+        "human_pr_text: 'naming the route light data, direct string/data references, and translating the stage light setup routine'"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Added baselib/debug.h and baselib/lobj.h includes to support assert and HSD_LObj APIs used by the translated lighting routine.",
+      "text": "Added baselib/debug.h and baselib/lobj.h includes to support asserts and HSD_LObj light object APIs used by the translated lighting routine.",
       "evidence_refs": [
-        "raw_diff: added #include \"baselib/debug.h\"",
-        "raw_diff: added #include <baselib/lobj.h>"
+        "raw_diff: added #include \"baselib/debug.h\" and #include <baselib/lobj.h>"
       ]
     },
     {
-      "text": "Replaced the previous extern Vec3 grZe_Route_803B83A0 with a typed grZebesRoute_LightData struct containing player_pos, spot_pos, spot_interest, upper_point_pos, lower_point_pos, and pad fields.",
+      "text": "Replaced the prior extern Vec3 grZe_Route_803B83A0 with a typed const grZebesRoute_LightData aggregate containing player, spot, spot-interest, upper-point, and lower-point Vec3 fields plus padding.",
       "evidence_refs": [
-        "raw_diff: typedef struct grZebesRoute_LightData",
-        "raw_diff: const grZebesRoute_LightData grZe_Route_803B83A0",
-        "raw_diff: removed extern Vec3 grZe_Route_803B83A0"
+        "raw_diff: typedef struct grZebesRoute_LightData with player_pos, spot_pos, spot_interest, upper_point_pos, lower_point_pos, pad",
+        "raw_diff: const grZebesRoute_LightData grZe_Route_803B83A0 initializer",
+        "human_pr_text: 'naming the route light data'"
       ]
     },
     {
-      "text": "Added direct data/string definitions for route stage metadata, assert/report strings, color constants, and float constants used by the route code.",
+      "text": "Added direct data/string symbols for /GrNZr.dat, stage info struct contents, grzebesroute.c filename, assert strings, GXColor constants, and float constants used by stage positioning and lighting.",
       "evidence_refs": [
-        "raw_diff: grZe_Route_803E5E00 = \"/GrNZr.dat\"",
-        "raw_diff: grZe_Route_803E5E0C stage info struct with fmt field",
-        "raw_diff: grZe_Route_803E5E64 = \"grzebesroute.c\"",
-        "raw_diff: SDATA grZe_Route_804D4840 and grZe_Route_804D4848",
-        "raw_diff: grZe_Route_804DB918 through grZe_Route_804DB944 constants"
+        "raw_diff: grZe_Route_803E5E00 '/GrNZr.dat'",
+        "raw_diff: grZe_Route_803E5E0C stage info struct with callbacks and fmt string",
+        "raw_diff: grZe_Route_803E5E64 'grzebesroute.c'",
+        "raw_diff: grZe_Route_804D4840 'gobj', grZe_Route_804D4848 '0'",
+        "raw_diff: grZe_Route_804DB918 through grZe_Route_804DB944 constants",
+        "human_pr_text: 'direct string/data references'"
       ]
     },
     {
-      "text": "Changed grZebesRoute_8020B260 OSReport call from inline format and __FILE__ to direct references through grZe_Route_803E5E0C.fmt and grZe_Route_803E5E64.",
+      "text": "Adjusted grZebesRoute_8020B260 OSReport to use the newly named stage-info format and filename data, which the bot report says completed that function.",
       "evidence_refs": [
-        "raw_diff: OSReport(grZe_Route_803E5E0C.fmt, grZe_Route_803E5E64, 0xC5, gobj_id)"
+        "raw_diff: OSReport changed from literal __FILE__ form to grZe_Route_803E5E0C.fmt and grZe_Route_803E5E64",
+        "text_corpus issue_comment: grZebesRoute_8020B260 improved from 99.97% to 100.00%"
       ]
     },
     {
-      "text": "Updated grZebesRoute_8020B42C to initialize its position from grZe_Route_803B83A0.player_pos and use named float constants for y clamp and x reset.",
+      "text": "Adjusted grZebesRoute_8020B42C to initialize from grZe_Route_803B83A0.player_pos and use named float constants for the y clamp and x reset.",
       "evidence_refs": [
         "raw_diff: Vec3 pos = grZe_Route_803B83A0.player_pos",
-        "raw_diff: pos.y < grZe_Route_804DB918",
-        "raw_diff: pos.x = grZe_Route_804DB91C"
+        "raw_diff: pos.y compared and assigned with grZe_Route_804DB918; pos.x assigned grZe_Route_804DB91C"
       ]
     },
     {
-      "text": "Translated grZebesRoute_8020B548 to iterate over up to three light objects after HSD_GObjGXLinkHead[4], identify spot versus point lights using LOBJ_TYPE_MASK, set color, position, interest, spot parameters, and distance attenuation using route data scaled by Ground_801C0498.",
+      "text": "Implemented grZebesRoute_8020B548 as a light setup routine that walks up to three HSD_LObj entries after the first light object, classifies lights by LOBJ_TYPE_MASK, and configures spot, upper point, and lower point lights with scaled positions, colors, spot parameters, and distance attenuation.",
       "evidence_refs": [
-        "raw_diff: void grZebesRoute_8020B548(void)",
-        "raw_diff: light_gobj = HSD_GObjGXLinkHead[4]",
+        "raw_diff: full grZebesRoute_8020B548 implementation",
         "raw_diff: while (i < 3 && lobj != NULL)",
-        "raw_diff: light_type = lobj->flags & LOBJ_TYPE_MASK",
-        "raw_diff: HSD_LObjSetColor / HSD_LObjSetPosition / HSD_LObjSetInterest / HSD_LObjSetSpot / HSD_LObjSetDistAttn"
+        "raw_diff: branches for LOBJ_SPOT and LOBJ_POINT with current_pos.y > split_y or < split_y",
+        "human_pr_text: 'translating the stage light setup routine'"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Grouped related route light vectors into a typed struct instead of treating grZe_Route_803B83A0 as a single Vec3, making later use sites distinguish player, spot, interest, upper point, and lower point positions.",
+      "text": "Using a local typed aggregate for grZe_Route_803B83A0 made the formerly single Vec3 data symbol express several distinct light-related positions, which allowed call sites to use named fields instead of raw offset-style access.",
       "evidence_refs": [
-        "raw_diff: grZebesRoute_LightData field names",
-        "raw_diff: grZe_Route_803B83A0.player_pos / spot_pos / spot_interest / upper_point_pos / lower_point_pos"
+        "raw_diff: grZebesRoute_LightData fields and field accesses in grZebesRoute_8020B42C and grZebesRoute_8020B548"
       ]
     },
     {
-      "text": "Used HSD_LObj APIs and LOBJ constants to express light-object operations rather than leaving the stage light setup routine as an unmatched stub.",
+      "text": "The light setup translation keeps the original base light object path clear: it reads HSD_GObjGXLinkHead[4], asserts if absent, takes first_lobj from hsd_obj, then starts iteration at HSD_LObjGetNext(first_lobj).",
       "evidence_refs": [
-        "raw_diff: HSD_LObjGetNext, HSD_LObjGetPosition, HSD_LObjSetColor, HSD_LObjSetPosition, HSD_LObjSetInterest, HSD_LObjSetSpot, HSD_LObjSetDistAttn",
-        "text_corpus: bot report grZebesRoute_8020B548 improved from 0.00% to 99.97%"
+        "raw_diff: light_gobj = HSD_GObjGXLinkHead[4]; first_lobj = light_gobj->hsd_obj; lobj = HSD_LObjGetNext(first_lobj)"
       ]
     },
     {
-      "text": "Documented the remaining mismatch narrowly: GXColor by-value stack temp offsets differ while surrounding control flow and Vec3 stack slots are aligned.",
+      "text": "The PR body explicitly documented the remaining near-match drift instead of presenting grZebesRoute_8020B548 as matched.",
       "evidence_refs": [
-        "human_pr_text: Known remaining drift for GXColor stack temp offsets 8/12/16 vs target 20/24/28"
+        "human_pr_text: known remaining drift in three GXColor by-value stack temp offsets"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When an apparent single vector symbol is actually a packed data block used by multiple lighting roles, a small typed struct can expose the authored layout and make use sites clearer.",
+      "lesson": "When a stage data blob is reused as several related Vec3 values, recovering a small typed aggregate can make later lighting and position code much more reviewable than treating the symbol as one Vec3.",
       "scope": [
-        "stage lighting data",
-        "grzebesroute",
-        "typed data recovery"
+        "stage TUs",
+        "typed data recovery",
+        "lighting data"
       ],
       "evidence_refs": [
-        "raw_diff: replacement of extern Vec3 grZe_Route_803B83A0 with grZebesRoute_LightData",
-        "raw_diff: field-specific uses in grZebesRoute_8020B42C and grZebesRoute_8020B548"
+        "raw_diff: grZebesRoute_LightData definition",
+        "raw_diff: grZe_Route_803B83A0.player_pos, spot_pos, spot_interest, upper_point_pos, lower_point_pos accesses"
       ]
     },
     {
-      "lesson": "For stage light setup routines, translating around HSD_LObj traversal can combine type-mask dispatch, scaled route positions, and per-light attenuation/color setup while still leaving small stack-layout drift.",
+      "lesson": "For translated HSD_LObj stage lighting routines, classifying lobj->flags with LOBJ_TYPE_MASK and then using HSD_LObjSetColor, HSD_LObjSetPosition, HSD_LObjSetInterest, HSD_LObjSetSpot, and HSD_LObjSetDistAttn can produce a high-score near-match.",
       "scope": [
+        "stage lighting",
         "HSD_LObj",
-        "stage light setup",
-        "matching drift triage"
+        "near-match translation"
       ],
       "evidence_refs": [
-        "raw_diff: while loop over lobj with LOBJ_TYPE_MASK branches",
-        "human_pr_text: checkdiff 99.96923% and GXColor stack temp offset drift"
+        "raw_diff: grZebesRoute_8020B548 light_type = lobj->flags & LOBJ_TYPE_MASK",
+        "raw_diff: HSD_LObjSetColor/Position/Interest/Spot/DistAttn calls",
+        "human_pr_text: checkdiff grZebesRoute_8020B548 -> 99.96923%"
       ]
     },
     {
-      "lesson": "A near-match can be made reviewable when the PR explicitly records the exact unmatched area and verifier score, rather than claiming full function closure.",
+      "lesson": "Remaining stack-layout drift should be stated narrowly: here the author identified only three GXColor by-value stack temp offsets as the known mismatch while noting that surrounding control flow and Vec3 stack slots were aligned.",
       "scope": [
-        "verification reporting",
-        "partial function match"
+        "near-match reporting",
+        "stack layout",
+        "review notes"
       ],
       "evidence_refs": [
-        "human_pr_text: checkdiff grZebesRoute_8020B548 -> 99.96923%",
-        "human_pr_text: known remaining GXColor offset drift"
+        "human_pr_text: known remaining drift in GXColor stack temp offsets 8/12/16 vs target 20/24/28"
       ]
     }
   ],
@@ -155,7 +152,7 @@
     {
       "name": "grZebesRoute_LightData",
       "kind": "local typedef",
-      "lesson": "Use a stage-prefixed semantic type name for recovered route lighting data when fields are directly supported by use sites.",
+      "convention": "Stage-specific Pascal/Camel mixed typedef names the owning stage and semantic data role.",
       "evidence_refs": [
         "raw_diff: typedef struct grZebesRoute_LightData"
       ]
@@ -163,68 +160,89 @@
     {
       "name": "player_pos, spot_pos, spot_interest, upper_point_pos, lower_point_pos",
       "kind": "struct fields",
-      "lesson": "Field names describe the distinct light-position roles exercised by the translated setup routine.",
+      "convention": "Use role-specific Vec3 field names for light/player position data once the role is evidenced by use in stage movement and lighting setup.",
       "evidence_refs": [
-        "raw_diff: grZebesRoute_LightData fields",
-        "raw_diff: uses in grZebesRoute_8020B42C and grZebesRoute_8020B548"
+        "raw_diff: grZebesRoute_LightData field list",
+        "raw_diff: field use in grZebesRoute_8020B42C and grZebesRoute_8020B548"
       ]
     },
     {
-      "name": "light_gobj, first_lobj, lobj, current_pos, light_type, spot_ref_dist, upper_ref_dist, lower_ref_dist, split_y",
+      "name": "light_gobj, first_lobj, lobj, scale, spot_ref_dist, upper_ref_dist, lower_ref_dist, split_y",
       "kind": "locals",
-      "lesson": "Recovered locals use short role names tied to HSD_GObj/HSD_LObj traversal and lighting calculations.",
+      "convention": "Recovered locals use short semantic role names for stage lighting traversal and attenuation calculations.",
       "evidence_refs": [
         "raw_diff: grZebesRoute_8020B548 local declarations"
+      ]
+    },
+    {
+      "name": "grZe_Route_80xxxxxx",
+      "kind": "data symbols",
+      "convention": "New data symbols retain address-style stage-prefixed names rather than speculative global semantic names.",
+      "evidence_refs": [
+        "raw_diff: grZe_Route_803E5E00, grZe_Route_803E5E0C, grZe_Route_804DB920 and related constants"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Function translation with explicit verifier ledger",
-      "details": "The PR body reports configure+ninja and checkdiff for grZebesRoute_8020B548, with a 99.96923% score.",
+      "tactic": "Use typed aggregate field loads from grZe_Route_803B83A0 to recover the distinct Vec3 initializers used by player and light setup logic.",
       "evidence_refs": [
-        "human_pr_text: Verification section"
+        "raw_diff: const grZebesRoute_LightData grZe_Route_803B83A0",
+        "raw_diff: accesses to player_pos, spot_pos, spot_interest, upper_point_pos, lower_point_pos"
       ]
     },
     {
-      "tactic": "Known stack-layout drift isolation",
-      "details": "Remaining mismatch is attributed to three GXColor by-value stack temporary offsets, while control flow and Vec3 stack slots are reported aligned.",
-      "evidence_refs": [
-        "human_pr_text: Known remaining drift"
-      ]
-    },
-    {
-      "tactic": "Loop over lights rather than manual repeated blocks",
-      "details": "The translated function uses while (i < 3 && lobj != NULL) to process light objects, matching the repeated light setup pattern by index and next pointer.",
+      "tactic": "Use a bounded while loop over HSD_LObjGetNext with both an index limit and null check for the three configurable lights.",
       "evidence_refs": [
         "raw_diff: i = 0; while (i < 3 && lobj != NULL); i++; lobj = HSD_LObjGetNext(lobj)"
       ]
     },
     {
-      "tactic": "Temporary padding local for stack shaping",
-      "details": "The lower point-light branch contains int pad[3], plausibly related to stack layout, but the loaded evidence does not include an explanation beyond the reported GXColor stack-temp drift.",
+      "tactic": "Classify point lights using their current y position relative to a split_y constant to choose upper versus lower point-light setup.",
       "evidence_refs": [
-        "raw_diff: int pad[3] in lower point-light branch",
-        "human_pr_text: GXColor by-value stack temp offset drift"
+        "raw_diff: current_pos from HSD_LObjGetPosition",
+        "raw_diff: LOBJ_POINT && current_pos.y > split_y and LOBJ_POINT && current_pos.y < split_y branches"
+      ]
+    },
+    {
+      "tactic": "The attempted match includes a narrow stack-shaping artifact, int pad[3], in the lower point-light branch; PR evidence only supports it as part of a near-match attempt, not as general style.",
+      "evidence_refs": [
+        "raw_diff: int pad[3] in lower point branch",
+        "human_pr_text: remaining GXColor by-value stack temp offset drift"
       ]
     }
   ],
   "review_feedback": [
     {
       "kind": "bot_report",
-      "author": "decomp-dev[bot]",
-      "text": "Report for GALE01 shows matched code 66.99% (+0.01%, +232 bytes) and matched data 39.31% (+0.03%, +328 bytes); grzebesroute data/rodata/sdata/sdata2 reached 100%, grZebesRoute_8020B260 reached 100%, and grZebesRoute_8020B548 improved from 0.00% to 99.97%.",
+      "text": "decomp-dev[bot] reported matched code +0.01% (+232 bytes), matched data +0.03% (+328 bytes), five new matches in grzebesroute data sections, grZebesRoute_8020B260 reaching 100%, and grZebesRoute_8020B548 improving from 0.00% to 99.97%.",
       "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot] created_at 2026-05-15T06:10:29Z"
+        "text_corpus issue_comment by decomp-dev[bot] at 2026-05-15T06:10:29Z"
+      ]
+    },
+    {
+      "kind": "author_note",
+      "text": "Author-reported verification: python configure.py && ninja; checkdiff grZebesRoute_8020B548 --no-tty --format json -> 99.96923%.",
+      "evidence_refs": [
+        "human_pr_text: Verification section"
+      ]
+    },
+    {
+      "kind": "absence",
+      "text": "No human review comments or reviews are present in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json: review_comments 0, reviews 0"
       ]
     }
   ],
   "searchable_terms": [
-    "PR2494",
+    "pr-2494",
     "gr: improve grzebesroute lighting",
     "itsgrimetime",
     "src/melee/gr/grzebesroute.c",
+    "grzebesroute",
     "grZebesRoute_8020B548",
+    "grZebesRoute_8020B260",
     "grZebesRoute_LightData",
     "grZe_Route_803B83A0",
     "player_pos",
@@ -240,71 +258,62 @@
     "HSD_LObjSetInterest",
     "HSD_LObjSetSpot",
     "HSD_LObjSetDistAttn",
+    "LOBJ_TYPE_MASK",
     "LOBJ_SPOT",
     "LOBJ_POINT",
-    "LOBJ_TYPE_MASK",
-    "HSD_GObjGXLinkHead",
     "GXColor stack temp offsets",
-    "Ground_801C0498",
-    "grZe_Route_804DB920",
-    "grZe_Route_804DB924",
-    "grZe_Route_804DB928",
     "GrNZr.dat",
     "ZEBESROUTE"
   ],
   "follow_up_queries": [
-    "grZebesRoute_8020B548 GXColor by-value stack temp offsets",
-    "int pad[3] grZebesRoute_8020B548",
-    "HSD_LObjSetColor GXColor stack offset matching",
+    "grZebesRoute_8020B548 GXColor stack temp offsets 8 12 16 20 24 28",
     "grZebesRoute_LightData grZe_Route_803B83A0",
-    "stage light setup LOBJ_SPOT LOBJ_POINT split_y",
-    "grzebesroute data rodata sdata2 direct references",
-    "OSReport grZe_Route_803E5E0C fmt grzebesroute.c"
+    "HSD_LObj stage lighting LOBJ_TYPE_MASK LOBJ_SPOT LOBJ_POINT",
+    "grzebesroute data section .data .rodata .sdata .sdata2 matches",
+    "int pad[3] GXColor by-value stack temp decomp"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR number/title/state/author/changed file counts",
-      "human_pr_text: PR body with verification and known drift",
-      "raw_diff: full diff for src/melee/gr/grzebesroute.c",
-      "text_corpus: bot report issue comment",
-      "changed_files.jsonl: one changed file"
+      "metadata_json: PR #2494 closed, merged_at null, changed_files 1, review_comments 0, reviews 0",
+      "human_pr_text: author verification and known remaining drift",
+      "raw_diff: complete diff excerpt for src/melee/gr/grzebesroute.c",
+      "text_corpus: decomp-dev[bot] progress report"
     ],
     "notes": [
-      "Evidence is strong for changed files, code edits, PR-stated verification, bot-reported progress, and the known remaining grZebesRoute_8020B548 drift.",
-      "No review comments or human reviewer approvals were loaded; reviewer intent and acceptance cannot be inferred.",
-      "The PR is closed with merged_at null in loaded metadata, so no merge or acceptance status is claimed.",
-      "Direct string/data references are part of this PR's stated scope and bot-reported section progress, but the slice does not independently prove long-term data ownership policy; route any broad data-reference rule to curator review rather than accepting it as a standard.",
-      "The int pad[3] local is visible in the diff, but its exact purpose is not explained by the loaded PR evidence."
+      "The slice includes full diff text and author-reported verification, enough to describe the changed file and tactics.",
+      "The PR is closed with merged_at null, so this intake must not imply acceptance or merge.",
+      "No human review comments are available; reviewer intent cannot be inferred.",
+      "The claimed grZebesRoute_8020B548 result is a high-score near-match, not a full match.",
+      "Several literal/data-symbol changes are present; PR evidence and bot report support matching impact, but this intake does not establish a global standard for replacing literals with data symbols."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
         "record_type": "decomp_lesson",
-        "title": "Typed route lighting data can clarify packed stage constants",
-        "text": "In grzebesroute, PR #2494 replaced an extern Vec3 with grZebesRoute_LightData, exposing separate player, spot, interest, upper point, and lower point vectors used by the stage lighting setup. This is a useful example of recovering a small typed data layout when use sites support distinct roles.",
+        "title": "Typed aggregate recovery can clarify reused stage light data",
+        "text": "In PR #2494, grZe_Route_803B83A0 was recovered as grZebesRoute_LightData with named Vec3 fields for player, spot, spot-interest, upper-point, and lower-point positions. This made grZebesRoute_8020B42C and grZebesRoute_8020B548 use field accesses rather than treating the symbol as a single Vec3.",
         "scope": [
-          "src/melee/gr/grzebesroute.c",
-          "stage lighting",
-          "typed data recovery"
+          "stage",
+          "data typing",
+          "lighting setup"
         ],
         "evidence_refs": [
-          "raw_diff: grZebesRoute_LightData and grZe_Route_803B83A0",
-          "raw_diff: field uses in grZebesRoute_8020B42C and grZebesRoute_8020B548"
+          "raw_diff: grZebesRoute_LightData definition and field uses",
+          "human_pr_text: naming the route light data"
         ]
       },
       {
         "record_type": "matching_tactic",
-        "title": "Record exact partial-match drift for near-matched functions",
-        "text": "PR #2494 reported grZebesRoute_8020B548 at 99.96923% and documented the remaining GXColor by-value stack temp offset drift. This is a grounded example of landing or reviewing near-match progress without overstating full closure.",
+        "title": "Document near-match drift at the exact stack-object level",
+        "text": "PR #2494 reports grZebesRoute_8020B548 at 99.96923% and identifies the remaining mismatch as three GXColor by-value stack temp offsets, while noting that surrounding control flow and Vec3 stack slots are aligned.",
         "scope": [
-          "verification ledger",
-          "partial match",
-          "stage lighting"
+          "near-match reporting",
+          "stack layout"
         ],
         "evidence_refs": [
-          "human_pr_text: checkdiff score and known remaining drift"
+          "human_pr_text: Verification and Known remaining drift sections"
         ]
       }
     ],
@@ -312,44 +321,41 @@
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "src/melee/gr/grzebesroute.c contains Zebes Route stage lighting setup work",
-        "text": "PR #2494 evidence shows src/melee/gr/grzebesroute.c includes grZebesRoute_8020B548, a Zebes Route stage light setup routine using HSD_LObj traversal, LOBJ_SPOT/LOBJ_POINT dispatch, route light position data, colors, and distance attenuation.",
+        "title": "src/melee/gr/grzebesroute.c owns Zebes Route stage lighting setup work",
+        "text": "PR #2494 evidence shows src/melee/gr/grzebesroute.c containing grZebesRoute_8020B548, a translated Zebes Route stage light setup routine using HSD_LObj APIs and route light data.",
         "source_path": "src/melee/gr/grzebesroute.c",
         "scope": [
           "grzebesroute",
-          "stage",
-          "lighting",
-          "HSD_LObj"
+          "stage lighting",
+          "grZebesRoute_8020B548"
         ],
         "evidence_refs": [
-          "raw_diff: grZebesRoute_8020B548 implementation",
-          "human_pr_text: translating the stage light setup routine"
+          "changed_files.jsonl: only changed file src/melee/gr/grzebesroute.c",
+          "raw_diff: grZebesRoute_8020B548 implementation"
         ],
-        "reason": "Useful path fact for future routing/search, but should be curated against current source before promotion."
+        "reason": "Potential path-scoped fact for future search; curator should verify against current source before adding."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Near-match PRs should document exact stack-layout drift",
-        "text": "When a function is close but not fully matched, document the exact remaining drift, such as by-value struct/color stack temp offsets, alongside the narrow checkdiff command and score.",
+        "title": "Near-match PRs should explicitly record remaining stack-layout drift",
+        "text": "Consider adding guidance that when a function is intentionally left as a near-match, the PR should name the exact remaining drift, such as stack temp offsets, rather than only reporting a percentage.",
         "source_path": null,
         "scope": [
           "verification",
-          "matching tactics",
-          "partial matches"
+          "near-match reporting",
+          "review notes"
         ],
         "evidence_refs": [
-          "human_pr_text: checkdiff grZebesRoute_8020B548 --no-tty --format json -> 99.96923%",
-          "human_pr_text: GXColor by-value stack temp offsets 8/12/16 vs target 20/24/28"
+          "human_pr_text: grZebesRoute_8020B548 checkdiff 99.96923% and GXColor stack temp offset drift"
         ],
-        "reason": "This aligns with verification-ledger practice, but curator should decide whether this PR adds anything beyond existing standards."
+        "reason": "This PR provides a concrete example of useful drift reporting, but curator should decide whether it belongs in global standards or is already covered by verification-ledger guidance."
       }
     ],
     "rejection_notes": [
-      "Do not infer merge/acceptance from the PR being closed; loaded metadata has merged_at null.",
-      "Do not generalize this PR into a rule that direct string/data references are always preferred; the loaded evidence only supports that this PR used them for grzebesroute and reported section progress.",
-      "Do not claim human review feedback was given; the slice has zero review comments and only a bot report.",
-      "Do not treat int pad[3] as an endorsed general tactic; its purpose is not explained in the loaded evidence."
+      "Do not generalize this PR into a rule that string literals or float constants should be replaced with address-style data symbols; loaded standards warn that literal/data ownership needs evidence and PR #2494 is a single closed, unmerged slice.",
+      "Do not treat int pad[3] as accepted style; evidence only shows it appears in the near-matching lower point-light branch while remaining stack drift still exists.",
+      "Do not claim grZebesRoute_8020B548 matched; the author and bot report only support approximately 99.97%."
     ]
   },
   "confidence": 0.82,
@@ -359,6 +365,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

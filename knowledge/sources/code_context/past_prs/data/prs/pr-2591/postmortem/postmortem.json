@@ -11,124 +11,393 @@
     "merged_at": "2026-06-06T22:42:14Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Matched and linked src/melee/it/items/itlinkarrow.c by switching itlinkarrow from NonMatching to Matching in configure.py, renaming fn_802A81C4 to itLinkArrow_802A81C4, adjusting symbol scopes/names for local data and sdata2 constants, correcting the itLinkArrow_802A850C prototype to return bool, and applying ordering/inlining-style source changes. The decomp.dev report showed +1144 matched-code bytes, +8904 linked-code bytes, +48 matched-data bytes, +336 linked-data bytes, and a new 100% match for itLinkArrow_802A850C, with a small noted vi0501 unmatched-item regression.",
+  "intake_role": "pr_intake",
+  "summary": "PR 2591 linked `src/melee/it/items/itlinkarrow.c` as a Matching object, renamed/retyped several itlinkarrow symbols and prototypes, adjusted symbol metadata for local data and literals, and made small codegen-oriented changes in `itlinkarrow.c` and `vi0501.c`. The bot report recorded matched/linked code and data gains plus one small unmatched-item regression in `vi0501`.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "linking",
       "headers",
-      "symbol-map-cleanup",
-      "function-reordering",
-      "sdata2-ordering"
+      "symbol-metadata",
+      "codegen-tuning"
     ],
     "systems": [
       "item",
-      "itlinkarrow",
       "config",
-      "symbols",
-      "vi"
+      "melee-core",
+      "repo-root"
     ]
   },
   "key_files": [
-    "src/melee/it/items/itlinkarrow.c",
-    "src/melee/it/items/itlinkarrow.h",
-    "config/GALE01/symbols.txt",
-    "configure.py",
-    "src/melee/vi/vi0501.c"
+    {
+      "path": "src/melee/it/items/itlinkarrow.c",
+      "role": "Primary item source changes: function rename, cleanup of lookup-table access, return type correction, function reordering, helper for sdata2 ordering, and matching-oriented local edits.",
+      "evidence_refs": [
+        "raw_diff: src/melee/it/items/itlinkarrow.c hunks",
+        "changed_files.jsonl: src/melee/it/items/itlinkarrow.c added 71 deleted 66"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itlinkarrow.h",
+      "role": "Header prototype updates matching recovered source signatures and renamed function symbol.",
+      "evidence_refs": [
+        "raw_diff: src/melee/it/items/itlinkarrow.h hunk"
+      ]
+    },
+    {
+      "path": "configure.py",
+      "role": "Object status changed from NonMatching to Matching for `melee/it/items/itlinkarrow.c`.",
+      "evidence_refs": [
+        "raw_diff: configure.py MatchingFor hunk"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Symbol metadata updates: function rename at 0x802A81C4 and several data/sdata/sdata2 symbols changed to local labels or local objects.",
+      "evidence_refs": [
+        "raw_diff: config/GALE01/symbols.txt hunks"
+      ]
+    },
+    {
+      "path": "src/melee/vi/vi0501.c",
+      "role": "Supporting codegen/data-order adjustment: added `getScale`, removed `PAD_STACK(4)`, and called helper in `un_8031D9F8`.",
+      "evidence_refs": [
+        "raw_diff: src/melee/vi/vi0501.c hunks",
+        "text_corpus: bot report regression and vi0501 .sdata2 match"
+      ]
+    }
   ],
   "what_changed": [
-    "Changed configure.py so melee/it/items/itlinkarrow.c is built as Object(Matching) instead of Object(NonMatching).",
-    "Renamed the function symbol at 0x802A81C4 from fn_802A81C4 to itLinkArrow_802A81C4 in both symbols.txt and itlinkarrow source/header declarations.",
-    "Reordered it_802A83E0 later in itlinkarrow.c and moved itLinkArrow_Logic98_Clanked after itLinkArrow_Logic98_HitShield, indicating source-order adjustments were part of matching/linking.",
-    "Added a static sdata2_ordering helper returning a volatile 0.0f in itlinkarrow.c, apparently to influence small-data/sdata2 ordering.",
-    "Changed itLinkArrow_802A850C from void to bool in itlinkarrow.c and itlinkarrow.h, and returned the bool result of it_8026EA20 from one branch.",
-    "Rewrote the itLinkArrow_802A81C4 body to use clearer locals z, temp, rand, and lookup_table, and indexed directly into it_803F6A84 rather than pointer arithmetic from it_803F6A28.",
-    "Changed itLinkarrow_UnkMotion4_Anim to return false rather than returning a local zero variable.",
-    "Updated GALE01 symbols for itlinkarrow-adjacent data: several previously global it_* or lbl_/jumptable names became local @NNN symbols, and a local ...data.0 label was added at 0x803F6A28.",
-    "In vi0501.c, introduced static getScale() returning 1.4285715f * un_804D6F80 and used it in un_8031D9F8, replacing the direct expression and removing PAD_STACK(4)."
+    {
+      "text": "`itlinkarrow.c` was changed from NonMatching to Matching in `configure.py`.",
+      "evidence_refs": [
+        "raw_diff: configure.py changed Object(NonMatching, \"melee/it/items/itlinkarrow.c\") to Object(Matching, \"melee/it/items/itlinkarrow.c\")"
+      ]
+    },
+    {
+      "text": "`fn_802A81C4` was renamed to `itLinkArrow_802A81C4` in source, header, symbol metadata, and an internal comment.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt 0x802A81C4 rename",
+        "raw_diff: itlinkarrow.c function rename and comment update",
+        "raw_diff: itlinkarrow.h prototype rename"
+      ]
+    },
+    {
+      "text": "`itLinkArrow_802A81C4` replaced raw table pointer arithmetic from `&it_803F6A28` with indexed access into `it_803F6A84`, and renamed locals from register/decompiler-style names to role names such as `z`, `temp`, and `lookup_table`.",
+      "evidence_refs": [
+        "raw_diff: itlinkarrow.c hunk around itLinkArrow_802A81C4"
+      ]
+    },
+    {
+      "text": "`itLinkArrow_802A850C` changed from `void` to `bool` in both source and header and now returns the result of `it_8026EA20` at the shown callsite.",
+      "evidence_refs": [
+        "raw_diff: itlinkarrow.c hunk around itLinkArrow_802A850C",
+        "raw_diff: itlinkarrow.h prototype hunk"
+      ]
+    },
+    {
+      "text": "`it_802A83E0` and `itLinkArrow_Logic98_Clanked` were moved later in the file without visible body changes except relocation in the diff.",
+      "evidence_refs": [
+        "raw_diff: itlinkarrow.c moved it_802A83E0 block",
+        "raw_diff: itlinkarrow.c moved itLinkArrow_Logic98_Clanked block"
+      ]
+    },
+    {
+      "text": "`itlinkarrow.c` added `static f32 sdata2_ordering(void)` returning a volatile zero, apparently as a narrow ordering/codegen tactic, but the PR has no author explanation for intent.",
+      "evidence_refs": [
+        "raw_diff: itlinkarrow.c added sdata2_ordering"
+      ]
+    },
+    {
+      "text": "`vi0501.c` added `static f32 getScale()`, replaced an inline multiplication with `getScale()`, and removed `PAD_STACK(4)` from `un_8031D9F8`.",
+      "evidence_refs": [
+        "raw_diff: vi0501.c hunks"
+      ]
+    },
+    {
+      "text": "`symbols.txt` converted several itlinkarrow-adjacent global or named data symbols to local labels/objects, including local `@` labels for strings, jump tables, sdata, and sdata2 constants.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt data, sdata, and sdata2 hunks"
+      ]
+    },
+    {
+      "text": "Bot report recorded overall gains: matched code +1144 bytes, linked code +8904 bytes, matched data +48 bytes, linked data +336 bytes; it also listed 2 new matches and one small unmatched-item regression.",
+      "evidence_refs": [
+        "text_corpus: decomp-dev[bot] report"
+      ]
+    }
   ],
   "smart_moves": [
-    "Used function return-type correction as a matching tactic: itLinkArrow_802A850C needed to be bool and return it_8026EA20's value, not void.",
-    "Preserved item-spawn logic while moving it_802A83E0 to the correct source/link order, avoiding behavioral churn while satisfying linker ordering.",
-    "Converted anonymous fn_802A81C4 into the subsystem-prefixed itLinkArrow_802A81C4 name, making callsites/comments easier to search and aligning with nearby itLinkArrow_* naming.",
-    "Matched data/link ordering by demoting generated symbol-map entries for local strings, jump tables, floats, and doubles to @NNN local labels instead of forcing global it_* names.",
-    "Isolated a scale expression in vi0501.c into getScale(), likely to alter codegen or sdata2 ordering without changing the arithmetic."
+    {
+      "text": "Header signatures were updated alongside source changes for the renamed function and recovered `bool` return type, avoiding a source/header mismatch.",
+      "evidence_refs": [
+        "raw_diff: itlinkarrow.c itLinkArrow_802A850C bool",
+        "raw_diff: itlinkarrow.h matching prototype changes"
+      ]
+    },
+    {
+      "text": "The PR preferred typed table access through `it_803F6A84[index]` over raw pointer arithmetic from another data object address.",
+      "evidence_refs": [
+        "raw_diff: itlinkarrow.c replacement of `(f32*) &it_803F6A28 + ...` with `&it_803F6A84[...]`"
+      ]
+    },
+    {
+      "text": "Function renaming was propagated through symbols, header, source, and a nearby comment.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt",
+        "raw_diff: itlinkarrow.h",
+        "raw_diff: itlinkarrow.c comment in itLinkarrow_UnkMotion4_Anim"
+      ]
+    }
   ],
   "decomp_lessons": [
-    "When an almost-matching function is off by a byte, check whether the decompiled signature should return a value; a void-vs-bool prototype mismatch can affect both codegen and header declarations.",
-    "Small helper functions can be used to control sdata2 ordering, but the evidence here only shows the added volatile-zero helper and symbol-map changes, not the full rationale.",
-    "Source order can matter for linking: moving complete functions rather than changing their logic may be enough to line up text/data layout.",
-    "Prefer direct table indexing from the real table symbol when possible; replacing broad pointer arithmetic from an earlier data address with &it_803F6A84[index] made the intent clearer while still matching.",
-    "Symbol-map cleanup is part of matching work: local constants, strings, jump tables, and labels should be represented as local @NNN/generated labels when they are not true globals.",
-    "A matching PR can include collateral improvements in nearby units to fix data ordering; here vi0501 .sdata2 reached 100%, though decomp.dev also reported a one-byte regression in un_8031D9F8."
+    {
+      "text": "When recovering a function signature, update the owning header at the same time as the implementation; this PR changed `itLinkArrow_802A850C` to return `bool` and made the header match.",
+      "evidence_refs": [
+        "raw_diff: itlinkarrow.c bool return and return it_8026EA20",
+        "raw_diff: itlinkarrow.h bool prototype"
+      ],
+      "confidence": 0.87
+    },
+    {
+      "text": "If a float table is known, indexed access to the real table can replace generated raw pointer arithmetic from a nearby data symbol, improving reviewability while preserving the same table-offset pattern.",
+      "evidence_refs": [
+        "raw_diff: itlinkarrow.c lookup_table = &it_803F6A84[ip->xDD4_itemVar.linkarrow.x9C]"
+      ],
+      "confidence": 0.78
+    },
+    {
+      "text": "Object-level matching may require coordinated metadata work in `symbols.txt`, including correcting data scope and local labels for strings, jump tables, and sdata/sdata2 constants.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt local label/object changes",
+        "raw_diff: configure.py object moved to Matching"
+      ],
+      "confidence": 0.72
+    }
   ],
   "naming_conventions": [
-    "Use itLinkArrow_* for Link Arrow-specific functions once their ownership is known; this PR renamed fn_802A81C4 to itLinkArrow_802A81C4.",
-    "Keep address-bearing placeholder names such as it_802A83E0 when a semantic name is not yet established.",
-    "Use local @NNN symbol names in config/GALE01/symbols.txt for local strings, floats, doubles, and jump-table objects instead of promoting them to global it_* names.",
-    "The source has mixed capitalization already: itLinkArrow_* and itLinkarrow_* both appear in this slice; the PR only explicitly normalized fn_802A81C4 to itLinkArrow_802A81C4."
+    {
+      "text": "Item-specific recovered function name used `itLinkArrow_` plus address suffix: `itLinkArrow_802A81C4` replaced generic `fn_802A81C4`.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt rename",
+        "raw_diff: itlinkarrow.h prototype rename",
+        "raw_diff: itlinkarrow.c function rename"
+      ]
+    },
+    {
+      "text": "Locals in the cleaned helper used short semantic names (`ip`, `jobj`, `z`, `rand`, `temp`, `lookup_table`) instead of decompiler/register names (`var_f31`, `var_f32`, `temp_r3`).",
+      "evidence_refs": [
+        "raw_diff: itlinkarrow.c itLinkArrow_802A81C4 local changes"
+      ]
+    },
+    {
+      "text": "Local data labels in symbols metadata used generated local-label style such as `@266`, `@299`, `@741`, and `...data.0` where the diff changed previous global/address-style names.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt data hunk"
+      ]
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Changed Object(NonMatching, \"melee/it/items/itlinkarrow.c\") to Object(Matching, \"melee/it/items/itlinkarrow.c\") after source adjustments.",
-    "Adjusted function order in itlinkarrow.c to match the linked object layout.",
-    "Inserted sdata2_ordering with a volatile f32 zero to affect small-data constant placement/order.",
-    "Changed direct multiplication in vi0501.c into a static getScale() helper, which decomp.dev reported helped vi0501 .sdata2 reach 100%.",
-    "Returned the result of it_8026EA20 from itLinkArrow_802A850C and updated the prototype to bool, producing a reported 100% match for that function.",
-    "Updated symbols.txt scopes for data/sdata/sdata2 constants to local labels, including @265, @269, @297, @399, @639, @696, @821, @890, and @891 in .sdata2."
+    {
+      "text": "Moved `itlinkarrow.c` to Matching in `configure.py` after source and symbol updates.",
+      "evidence_refs": [
+        "raw_diff: configure.py MatchingFor hunk"
+      ]
+    },
+    {
+      "text": "Introduced `sdata2_ordering` with a volatile `0.0f` return in `itlinkarrow.c`; evidence shows the tactic but does not explain why it was necessary.",
+      "evidence_refs": [
+        "raw_diff: itlinkarrow.c added sdata2_ordering"
+      ]
+    },
+    {
+      "text": "Added `getScale()` in `vi0501.c` to wrap `1.4285715f * un_804D6F80`, replacing the inline expression and removing `PAD_STACK(4)`; bot report ties `vi0501` to a new `.sdata2` match but also reports a 1-byte regression in `un_8031D9F8`.",
+      "evidence_refs": [
+        "raw_diff: vi0501.c getScale and PAD_STACK removal",
+        "text_corpus: bot report vi0501 .sdata2 match and un_8031D9F8 regression"
+      ]
+    },
+    {
+      "text": "Changed function order in `itlinkarrow.c`, moving `it_802A83E0` and `itLinkArrow_Logic98_Clanked`; the diff supports relocation but not a stated rationale.",
+      "evidence_refs": [
+        "raw_diff: itlinkarrow.c moved blocks"
+      ]
+    },
+    {
+      "text": "Corrected symbol metadata for local data and constants rather than adding new named C globals for each literal/constant in source.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt sdata/sdata2 local-object changes"
+      ]
+    }
   ],
   "review_feedback": [
-    "No human review comments were present in the provided slice.",
-    "decomp.dev reported matched code 71.51% (+0.03%, +1144 bytes), linked code 42.78% (+0.23%, +8904 bytes), matched data 41.44% (+0.00%, +48 bytes), and linked data 35.06% (+0.03%, +336 bytes).",
-    "decomp.dev reported 2 new matches: main/melee/vi/vi0501 .sdata2 reached 100.00%, and main/melee/it/items/itlinkarrow itLinkArrow_802A850C reached 100.00%.",
-    "decomp.dev also reported 1 regression in an unmatched item: main/melee/vi/vi0501 un_8031D9F8 changed from 98.83% to 98.76%, a -1 byte regression."
+    {
+      "kind": "bot_report",
+      "text": "decomp-dev[bot] reported GALE01 progress: matched code 71.51% (+0.03%, +1144 bytes), linked code 42.78% (+0.23%, +8904 bytes), matched data 41.44% (+0.00%, +48 bytes), linked data 35.06% (+0.03%, +336 bytes).",
+      "evidence_refs": [
+        "text_corpus: decomp-dev[bot] report"
+      ]
+    },
+    {
+      "kind": "bot_report",
+      "text": "Bot listed 2 new matches: `main/melee/vi/vi0501` `.sdata2` reached 100.00% (+14 bytes) and `main/melee/it/items/itlinkarrow` `itLinkArrow_802A850C` reached 100.00% (+1 byte).",
+      "evidence_refs": [
+        "text_corpus: decomp-dev[bot] report details"
+      ]
+    },
+    {
+      "kind": "bot_report",
+      "text": "Bot listed 1 regression in an unmatched item: `main/melee/vi/vi0501` `un_8031D9F8` dropped by 1 byte from 98.83% to 98.76%.",
+      "evidence_refs": [
+        "text_corpus: decomp-dev[bot] report details"
+      ]
+    }
   ],
   "searchable_terms": [
     "pr-2591",
-    "Match and link itlinkarrow",
     "PsiLupan",
+    "Match and link itlinkarrow",
     "itlinkarrow",
-    "itlinkarrow.c",
-    "itlinkarrow.h",
     "itLinkArrow_802A81C4",
     "fn_802A81C4",
     "itLinkArrow_802A850C",
     "it_802A83E0",
     "itLinkArrow_Logic98_Clanked",
-    "itLinkArrow_Logic98_HitShield",
-    "itLinkarrow_UnkMotion4_Anim",
-    "sdata2_ordering",
-    "getScale",
-    "vi0501",
-    "un_8031D9F8",
-    "Object(Matching)",
-    "Object(NonMatching)",
-    "config/GALE01/symbols.txt",
     "it_803F6A84",
     "it_803F6A28",
-    "jumptable_803F6AEC",
-    "jumptable_803F6B08",
+    "sdata2_ordering",
+    "getScale",
+    "PAD_STACK",
+    "un_8031D9F8",
+    "vi0501",
+    "symbols.txt",
+    "Object(Matching)",
     "Item_80268B18",
-    "it_8026EA20",
-    "HSD_Randf",
+    "GET_ITEM",
+    "GET_JOBJ",
     "HSD_JObjSetRotationZ",
-    "sdata2",
-    "linked code"
+    "it_8026EA20"
   ],
   "follow_up_queries": [
-    "Find other PRs that convert item files from Object(NonMatching) to Object(Matching) in configure.py.",
-    "Search for other uses of volatile helper functions to force sdata2 ordering.",
-    "Look for void-to-bool prototype corrections that fixed one-byte item-function mismatches.",
-    "Compare Link item PRs for naming conventions around itLinkArrow, itlinkbomb, itlinkboomerang, and itlinkhookshot.",
-    "Investigate whether the vi0501 un_8031D9F8 one-byte regression was later recovered."
+    "Find other PRs that added helper functions solely to affect sdata2 ordering or literal placement.",
+    "Search for item PRs where a function changed from `void` to `bool` and the header was updated in the same PR.",
+    "Search for replacements of raw `(f32*) &data_symbol` arithmetic with indexed table access in item files.",
+    "Find PRs where `PAD_STACK` was removed after introducing a small helper function.",
+    "Review later changes to `src/melee/vi/vi0501.c` for whether the 1-byte `un_8031D9F8` regression was resolved.",
+    "Search itlinkarrow history for cleanup or removal of `sdata2_ordering`."
   ],
-  "confidence": 0.87,
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR metadata and changed file counts",
+      "raw_diff: full diff",
+      "changed_files.jsonl: changed file list",
+      "text_corpus: PR body empty and bot report present"
+    ],
+    "notes": [
+      "PR body is empty and there are no human review comments in the loaded slice, so author rationale and reviewer intent are not available.",
+      "Bot report provides quantitative match/link evidence and one regression, but no local objdiff details beyond the summary.",
+      "The diff supports concrete source, header, configure, and symbol changes; explanations for tactics such as `sdata2_ordering`, `getScale`, function reordering, and PAD_STACK removal are inferred only from changed code and bot output, not from explicit PR commentary.",
+      "PR is marked merged in metadata, but this intake does not independently validate build or objdiff results beyond the loaded bot report."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "type": "lesson",
+        "title": "Propagate recovered signatures to headers",
+        "text": "When a recovered body proves a return type/signature, update the owning header in the same change; PR 2591 changed `itLinkArrow_802A850C` from `void` to `bool` in both source and header and returned the callee result.",
+        "scope": [
+          "headers",
+          "decomp-matching",
+          "item"
+        ],
+        "evidence_refs": [
+          "raw_diff: itlinkarrow.c itLinkArrow_802A850C return change",
+          "raw_diff: itlinkarrow.h prototype change"
+        ],
+        "confidence": 0.87
+      },
+      {
+        "type": "lesson",
+        "title": "Prefer recovered typed table access over raw data-symbol arithmetic",
+        "text": "PR 2591 replaced generated-looking `(f32*) &it_803F6A28` pointer arithmetic with `&it_803F6A84[index]` lookup-table access in `itLinkArrow_802A81C4`.",
+        "scope": [
+          "item",
+          "data-access",
+          "decomp-readability"
+        ],
+        "evidence_refs": [
+          "raw_diff: itlinkarrow.c itLinkArrow_802A81C4 table access"
+        ],
+        "confidence": 0.78
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "itlinkarrow configured as Matching in PR 2591",
+        "text": "`configure.py` changed `melee/it/items/itlinkarrow.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)` in PR 2591.",
+        "source_path": "configure.py",
+        "scope": [
+          "src/melee/it/items/itlinkarrow.c",
+          "configure.py"
+        ],
+        "evidence_refs": [
+          "raw_diff: configure.py hunk"
+        ],
+        "reason": "Potential path-status fact for curator review; do not promote from PR intake alone without checking current source/path-fact ownership."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "itlinkarrow symbol metadata updated in PR 2591",
+        "text": "`config/GALE01/symbols.txt` renamed 0x802A81C4 from `fn_802A81C4` to `itLinkArrow_802A81C4` and changed several nearby data/sdata/sdata2 entries to local labels or local objects.",
+        "source_path": "config/GALE01/symbols.txt",
+        "scope": [
+          "config/GALE01/symbols.txt",
+          "src/melee/it/items/itlinkarrow.c"
+        ],
+        "evidence_refs": [
+          "raw_diff: symbols.txt hunks"
+        ],
+        "reason": "Candidate source/path metadata fact; needs curator validation against current symbols and source."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Document caution for helper functions used only for sdata2 ordering",
+        "text": "PR 2591 added `sdata2_ordering` returning a volatile `0.0f` and added `getScale()` in `vi0501.c`; bot output ties these files to sdata2/code progress but also reports a small `un_8031D9F8` regression. If this pattern recurs, standards may need explicit guidance that such helper/literal-order tactics require narrow objdiff and adjacent-regression evidence.",
+        "source_path": null,
+        "scope": [
+          "matching tactics",
+          "sdata2",
+          "literal ordering",
+          "regression evidence"
+        ],
+        "evidence_refs": [
+          "raw_diff: itlinkarrow.c sdata2_ordering",
+          "raw_diff: vi0501.c getScale and PAD_STACK removal",
+          "text_corpus: bot report vi0501 .sdata2 match and un_8031D9F8 regression"
+        ],
+        "reason": "This aligns with existing matching-tactics and data-section standards, but the PR lacks author explanation, so route only as a possible clarification candidate."
+      }
+    ],
+    "rejection_notes": [
+      "Do not treat `sdata2_ordering` as an accepted general technique from this PR alone; the diff shows the helper but not the rationale or objdiff proof.",
+      "Do not claim the entire itlinkarrow translation unit's text/data is fully matched solely from the title and configure change; the bot report lists specific new matches and aggregate gains only.",
+      "Do not infer human reviewer approval rationale because no human review comments are present in the loaded slice.",
+      "Do not promote the `vi0501.c` helper/PAD_STACK change as unqualified cleanup because the bot report includes a small regression in `un_8031D9F8`."
+    ]
+  },
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

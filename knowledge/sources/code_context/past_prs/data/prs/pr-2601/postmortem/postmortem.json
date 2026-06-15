@@ -11,108 +11,247 @@
     "merged_at": "2026-06-07T11:02:45Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Linked Kirby Sheik copy-special (`ftkirbyspecialseak.c`) by splitting the trailing Mewtwo copy-special code out into a new nonmatching `ftkirbyspecialmewtwo.c`/`.h`, updating splits/symbols/build config, and cleaning shared Kirby SpecialN callback inline naming/includes. The PR had no body or review comments, so intent is inferred from the title and diff.",
+  "intake_role": "pr_intake",
+  "summary": "PR 2601 links Kirby's Sheik-copy special-N translation unit by shrinking `ftkirbyspecialseak.c` to the 0x80105FEC-0x80106F44 range, marking it Matching, and moving the following Mewtwo-copy range into a new nonmatching `ftkirbyspecialmewtwo.c/.h` split. It also updates split/symbol metadata, introduces a shared Kirby special-N callback inline, renames duplicate local callback-setter inlines from `ftKirbyDmgInline` to `ftKb_SpecialN_set_cbs`, and adjusts includes for the new Mewtwo-copy header.",
   "change_classification": {
-    "primary_type": "linking_progress_file_split",
+    "primary_type": "decomp_link_and_split_metadata",
     "categories": [
-      "decompilation",
-      "matching",
-      "file_split",
-      "build_config",
-      "symbols",
+      "fighter",
       "headers",
-      "inline_refactor"
+      "config",
+      "symbol_metadata",
+      "include_cleanup",
+      "inline_helper_naming"
     ],
     "systems": [
-      "fighter",
-      "fighter/Kirby",
-      "fighter/Mewtwo-copy-special",
-      "fighter/Sheik-copy-special",
-      "item/MewtwoShadowBall",
-      "config/GALE01",
-      "build/configure.py"
+      "Kirby copied special moves",
+      "ftkirbyspecialseak",
+      "ftkirbyspecialmewtwo",
+      "GALE01 splits",
+      "GALE01 symbols",
+      "build configuration",
+      "Mewtwo Shadow Ball item include"
     ]
   },
   "key_files": [
     {
-      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialseak.c",
-      "role": "Now matching; reduced to Sheik-copy-special code by removing the Mewtwo-copy-special tail and unnecessary includes."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialmewtwo.c",
-      "role": "New nonmatching file containing the extracted Kirby Mewtwo copy-special implementation from 0x80106F44-0x80109290."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialmewtwo.h",
-      "role": "New header for `ftKb_SpecialNMt_*` and `ftKb_MtSpecial*` prototypes formerly sitting in `ftkirbyspecialdonkey.h`."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.h",
-      "role": "Removed unrelated Mewtwo-copy-special prototypes from the Donkey header."
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/inlines.h",
-      "role": "New shared Kirby inline header defining `ftKb_SpecialN_set_cbs` for death/take-damage callback setup."
-    },
-    {
       "path": "config/GALE01/splits.txt",
-      "role": "Split `ftkirbyspecialseak.c` text/data/sdata2 ranges and inserted `ftkirbyspecialmewtwo.c` ranges."
+      "role": "Changed Kirby split ranges: shortened `ftkirbyspecialseak.c`, added `ftkirbyspecialmewtwo.c`, and moved rodata/sdata2 ownership ranges.",
+      "evidence_refs": [
+        "diff_excerpt:splits.txt ftkirbyspecialseak text end changed 0x80109290 -> 0x80106F44",
+        "diff_excerpt:splits.txt added ftkirbyspecialmewtwo.c text 0x80106F44-0x80109290"
+      ]
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Adjusted data/sdata2 symbols around the split, making several former `ftKb_Init_*` globals local anonymous labels."
+      "role": "Adjusted data and sdata2 symbol names/scopes around Kirby special split boundaries.",
+      "evidence_refs": [
+        "diff_excerpt:symbols.txt ftKb_Init_803CB794/803CB7DC changed to local @304/@352",
+        "diff_excerpt:symbols.txt ftKb_Init_804D94F8/94FC/9500 changed to local @249/@257/@480"
+      ]
     },
     {
       "path": "configure.py",
-      "role": "Changed `ftkirbyspecialseak.c` from NonMatching to Matching and added `ftkirbyspecialmewtwo.c` as NonMatching."
+      "role": "Build status change: `ftkirbyspecialseak.c` becomes Matching and new `ftkirbyspecialmewtwo.c` is added as NonMatching.",
+      "evidence_refs": [
+        "diff_excerpt:configure.py Object(NonMatching ftkirbyspecialseak.c) -> Object(Matching ftkirbyspecialseak.c), plus Object(NonMatching ftkirbyspecialmewtwo.c)"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialseak.c",
+      "role": "Main linked source file, reduced by 1192 lines and updated to include shared Kirby inlines.",
+      "evidence_refs": [
+        "changed_files.jsonl:ftkirbyspecialseak.c added 12 deleted 1192 hunks 14",
+        "raw_diff:ftkirbyspecialseak.c adds #include \"inlines.h\" and removes several includes"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialmewtwo.c",
+      "role": "New nonmatching split holding Mewtwo-copy Kirby special-N code formerly in the larger range.",
+      "evidence_refs": [
+        "changed_files.jsonl:ftkirbyspecialmewtwo.c added 1195 deleted 0",
+        "raw_diff:ftkirbyspecialmewtwo.c new file includes ftkirbyspecialmewtwo.h, inlines.h, and itmewtwoshadowball.h"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialmewtwo.h",
+      "role": "New header for Mewtwo-copy Kirby special-N declarations.",
+      "evidence_refs": [
+        "changed_files.jsonl:ftkirbyspecialmewtwo.h added 58 deleted 0",
+        "raw_diff:ftkirbyspecialmewtwo.h contains ftKb_MtSpecialN* declarations"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/inlines.h",
+      "role": "New shared Kirby inline header defining `ftKb_SpecialN_set_cbs`.",
+      "evidence_refs": [
+        "raw_diff:inlines.h new file with static inline ftKb_SpecialN_set_cbs setting death2_cb and take_dmg_cb"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.c",
+      "role": "Adds include for the new Mewtwo-copy Kirby special header.",
+      "evidence_refs": [
+        "diff_excerpt:ftKb_Init.c adds #include \"ft/chara/ftKirby/ftkirbyspecialmewtwo.h\""
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+      "role": "Renames local damage callback inlines and their call sites to `ftKb_SpecialN_set_cbs` / `ftKb_SpecialN_set_cbs2`.",
+      "evidence_refs": [
+        "diff_excerpt:ftKb_SpecialN.c ftKirbyDmgInline -> ftKb_SpecialN_set_cbs",
+        "diff_excerpt:ftKb_SpecialN.c ftKirbyDmgInline2 -> ftKb_SpecialN_set_cbs2"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNLk.c",
+      "role": "Renames duplicate local callback inline and call sites for Link-copy Kirby special-N.",
+      "evidence_refs": [
+        "diff_excerpt:ftKb_SpecialNLk.c ftKirbyDmgInline -> ftKb_SpecialN_set_cbs"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNSs.c",
+      "role": "Renames duplicate local callback inline and call sites for Samus-copy Kirby special-N.",
+      "evidence_refs": [
+        "diff_excerpt:ftKb_SpecialNSs.c ftKirbyDmgInline -> ftKb_SpecialN_set_cbs"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialpikachu.c",
+      "role": "Renames an inline callback setter from `ftKirbyDmgInline` to `ftKb_SpecialN_set_cbs`.",
+      "evidence_refs": [
+        "raw_diff:ftkirbyspecialpikachu.c inline void ftKirbyDmgInline -> ftKb_SpecialN_set_cbs"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialzelda.c",
+      "role": "Removes two extern Vec3 declarations after rodata split movement.",
+      "evidence_refs": [
+        "raw_diff:ftkirbyspecialzelda.c removes extern Vec3 const ftKb_Init_803B7570 and ftKb_Init_803B757C"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.h",
+      "role": "Removes a block of declarations no longer owned by the Donkey-copy header.",
+      "evidence_refs": [
+        "changed_files.jsonl:ftkirbyspecialdonkey.h added 0 deleted 51",
+        "raw_diff:ftkirbyspecialdonkey.h hunk removes declarations after ftKb_SkSpecialAirNCancel_Coll"
+      ]
     },
     {
       "path": "src/melee/it/items/itmewtwoshadowball.c",
-      "role": "Updated include dependency from `ftkirbyspecialdonkey.h` to the new Mewtwo-specific Kirby header."
+      "role": "Updates include from Donkey-copy Kirby header to the new Mewtwo-copy Kirby header.",
+      "evidence_refs": [
+        "raw_diff:itmewtwoshadowball.c include ftkirbyspecialdonkey.h -> ftkirbyspecialmewtwo.h"
+      ]
     }
   ],
   "what_changed": [
-    "`configure.py` now builds `melee/ft/chara/ftKirby/ftkirbyspecialseak.c` as `Object(Matching, ...)` and adds `melee/ft/chara/ftKirby/ftkirbyspecialmewtwo.c` as `Object(NonMatching, ...)`.",
-    "`config/GALE01/splits.txt` shortened `ftkirbyspecialseak.c` text from `0x80105FEC-0x80109290` to `0x80105FEC-0x80106F44`, gave it data `0x803CB770-0x803CB828` and sdata2 `0x804D94F8-0x804D9508`, and created a new `ftkirbyspecialmewtwo.c` split for text `0x80106F44-0x80109290`, rodata `0x803B7570-0x803B7588`, and sdata2 `0x804D9508-0x804D9554`.",
-    "Moved Mewtwo copy-special functions such as `ftKb_SpecialNMt_80106F44`, `ftKb_MtSpecialNStart_Anim`, `ftKb_MtSpecialNLoop_IASA`, and related Phys/Coll handlers out of `ftkirbyspecialseak.c` into new `ftkirbyspecialmewtwo.c`.",
-    "Created `ftkirbyspecialmewtwo.h` and moved the Mewtwo-copy-special prototypes out of `ftkirbyspecialdonkey.h`.",
-    "Added `src/melee/ft/chara/ftKirby/inlines.h` with shared `ftKb_SpecialN_set_cbs`, then updated several Kirby copy-special files to use that clearer callback-setting inline name instead of `ftKirbyDmgInline`.",
-    "Updated `itmewtwoshadowball.c` to include `ft/chara/ftKirby/ftkirbyspecialmewtwo.h` instead of the unrelated Donkey header.",
-    "Made Mewtwo rodata vectors `ftKb_Init_803B7570` and `ftKb_Init_803B757C` static const in the new Mewtwo file, and removed their externs from Zelda copy-special code.",
-    "Changed several split-adjacent data/sdata2 symbols from global `ftKb_Init_*` names to local anonymous labels such as `@304`, `@352`, `@249`, `@257`, and `@480`."
+    "Marked `melee/ft/chara/ftKirby/ftkirbyspecialseak.c` Matching in `configure.py` and introduced `melee/ft/chara/ftKirby/ftkirbyspecialmewtwo.c` as NonMatching.",
+    "Split the prior `ftkirbyspecialseak.c` address range so Sheik-copy code ends at 0x80106F44 and Mewtwo-copy code begins at 0x80106F44.",
+    "Moved data/rodata/sdata2 ownership in `splits.txt` around `ftKb_Init.c`, `ftkirbyspecialseak.c`, and new `ftkirbyspecialmewtwo.c`.",
+    "Converted several global/address-style data symbols near 0x803CB794 and 0x804D94F8 to local `@...` symbols in `symbols.txt`.",
+    "Added `ftkirbyspecialmewtwo.c/.h` with Mewtwo-copy Kirby special-N declarations and implementation body.",
+    "Added `ftKirby/inlines.h` containing `ftKb_SpecialN_set_cbs`, then reused or aligned callback-setter naming across several Kirby copied-special files.",
+    "Adjusted includes so `ftKb_Init.c` and `itmewtwoshadowball.c` reference the new Mewtwo-copy Kirby header."
   ],
   "smart_moves": [
-    "Used a file-boundary split at `0x80106F44` to isolate the already-matchable Sheik portion from the still-nonmatching Mewtwo portion, allowing partial linking progress without solving all remaining code at once.",
-    "Kept build status explicit: the newly cleaned `ftkirbyspecialseak.c` became Matching, while the extracted `ftkirbyspecialmewtwo.c` stayed NonMatching.",
-    "Introduced a Mewtwo-specific header and updated item code to include it, removing misleading coupling through `ftkirbyspecialdonkey.h`.",
-    "Centralized the common Kirby copy-special callback setup as `ftKb_SpecialN_set_cbs`, avoiding repeated ambiguous `ftKirbyDmgInline` helpers across copy-special files.",
-    "Adjusted symbols and split ranges together, including localizing data/sdata2 labels, which is important when moving code/data ownership between source files."
+    "The PR isolates a matching prefix of a previously larger nonmatching TU instead of trying to land the entire old `ftkirbyspecialseak.c` range at once.",
+    "It keeps the unmatched successor range reviewable by adding `ftkirbyspecialmewtwo.c` as NonMatching rather than dropping or hiding the remaining code.",
+    "It updates `splits.txt`, `symbols.txt`, and `configure.py` together, which makes the code-status change consistent with section ownership changes visible in the diff.",
+    "It replaces vague local helper names like `ftKirbyDmgInline` with a callback-oriented name, `ftKb_SpecialN_set_cbs`, matching the observed side effects on `death2_cb` and `take_dmg_cb`."
   ],
   "decomp_lessons": [
-    "For large copy-special files that contain multiple copied character implementations, split by address/system boundary to mark the matching subsection immediately and leave the unsolved tail in a new nonmatching object.",
-    "When moving a code block to a new source file, move its prototypes into a semantically correct header and fix downstream includes; do not leave unrelated declarations in a convenient older header.",
-    "Shared callback setup helpers should be named for behavior and owning subsystem (`ftKb_SpecialN_set_cbs`) rather than vague damage-related names (`ftKirbyDmgInline`).",
-    "After a file split, verify `.text`, `.rodata`, `.data`, and `.sdata2` ranges, not just `.text`; constants and local data often move ownership with the extracted code.",
-    "If data symbols become file-local after a split, represent that in `symbols.txt` with local labels rather than keeping artificial globals.",
-    "Include cleanup can be part of matching/linking work: `ftkirbyspecialseak.c` dropped Mewtwo, Ice Climbers, lb, collision, and parts headers once the Mewtwo code was extracted."
+    {
+      "lesson": "When a matching opportunity covers only the first part of a previously monolithic nonmatching TU, a narrow split can link that prefix while preserving the following range as a new NonMatching object.",
+      "scope": [
+        "translation-unit splitting",
+        "configure.py Matching/NonMatching object lists",
+        "GALE01 splits"
+      ],
+      "evidence_refs": [
+        "diff_excerpt:splits.txt ftkirbyspecialseak text end changed to 0x80106F44",
+        "diff_excerpt:splits.txt added ftkirbyspecialmewtwo.c text 0x80106F44-0x80109290",
+        "diff_excerpt:configure.py ftkirbyspecialseak.c Matching and ftkirbyspecialmewtwo.c NonMatching"
+      ]
+    },
+    {
+      "lesson": "A source split may require adjacent rodata/data/sdata2 ownership and symbol-scope updates, not just a new C file.",
+      "scope": [
+        "section ownership",
+        "symbols.txt",
+        "splits.txt"
+      ],
+      "evidence_refs": [
+        "diff_excerpt:splits.txt moves ftKb_Init rodata end to 0x803B7570 and assigns ftkirbyspecialmewtwo rodata 0x803B7570-0x803B7588",
+        "diff_excerpt:symbols.txt changes data/sdata2 symbols from ftKb_Init_* globals to local @ labels"
+      ]
+    },
+    {
+      "lesson": "Repeated small inlines that set the same fighter callbacks can be made more reviewable by naming them for the actual side effect, when the body clearly supports that name.",
+      "scope": [
+        "Kirby copied special-N files",
+        "inline helper naming"
+      ],
+      "evidence_refs": [
+        "diff_excerpt:ftKb_SpecialN.c body sets death2_cb and take_dmg_cb",
+        "diff_excerpt:ftKb_SpecialNLk.c and ftKb_SpecialNSs.c rename ftKirbyDmgInline to ftKb_SpecialN_set_cbs",
+        "raw_diff:inlines.h defines shared ftKb_SpecialN_set_cbs"
+      ]
+    }
   ],
   "naming_conventions": [
-    "Kirby copy-special files use `ftkirbyspecial<character>.c` lowercase file names, e.g. `ftkirbyspecialseak.c` and new `ftkirbyspecialmewtwo.c`.",
-    "Kirby Mewtwo-copy-special functions use the `ftKb_SpecialNMt_*` and `ftKb_MtSpecial*_{Anim,IASA,Phys,Coll}` prefixes.",
-    "Shared Kirby SpecialN callback setup was renamed from `ftKirbyDmgInline` to `ftKb_SpecialN_set_cbs`; a two-callback variant remains as `ftKb_SpecialN_set_cbs2` in `ftKb_SpecialN.c`.",
-    "Header ownership should follow the subsystem: Mewtwo copy-special declarations moved from `ftkirbyspecialdonkey.h` to `ftkirbyspecialmewtwo.h`.",
-    "The new Mewtwo header uses an address-style include guard `GALE01_106F44`, matching the file start address of the extracted block."
+    {
+      "name": "ftKb_SpecialN_set_cbs",
+      "meaning": "Inline helper that sets Kirby special-N-related fighter callbacks, specifically `death2_cb` and `take_dmg_cb` in the shown body.",
+      "evidence_refs": [
+        "diff_excerpt:ftKb_SpecialN.c renamed ftKirbyDmgInline to ftKb_SpecialN_set_cbs",
+        "raw_diff:inlines.h body assigns fp->death2_cb and fp->take_dmg_cb"
+      ]
+    },
+    {
+      "name": "ftKb_SpecialN_set_cbs2",
+      "meaning": "Local inline helper variant that sets only `take_dmg_cb` in `ftKb_SpecialN.c`.",
+      "evidence_refs": [
+        "diff_excerpt:ftKb_SpecialN.c renamed ftKirbyDmgInline2 to ftKb_SpecialN_set_cbs2 and body assigns fp->take_dmg_cb"
+      ]
+    },
+    {
+      "name": "ftkirbyspecialmewtwo",
+      "meaning": "New file/header naming follows the existing Kirby copied-special file pattern and houses Mewtwo-copy special-N declarations/implementation.",
+      "evidence_refs": [
+        "changed_files.jsonl:ftkirbyspecialmewtwo.c and .h added",
+        "diff_excerpt:splits.txt added melee/ft/chara/ftKirby/ftkirbyspecialmewtwo.c"
+      ]
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Converted `ftkirbyspecialseak.c` from NonMatching to Matching by extracting the nonmatching Mewtwo code rather than trying to force all of `0x80105FEC-0x80109290` to match as one source file.",
-    "Preserved exact split boundaries: Sheik text ends at `0x80106F44`, Mewtwo text starts at `0x80106F44`, preventing overlap/gaps.",
-    "Moved rodata vectors at `0x803B7570` and `0x803B757C` into the new Mewtwo file as `static Vec3 const`, aligning constant ownership with the functions that use them.",
-    "Localized data and sdata2 symbols in `symbols.txt` after ownership changed, e.g. `ftKb_Init_803CB794` became local `@304` and `ftKb_Init_804D94F8` became local `@249`.",
-    "Used a shared inline header to keep the callback-setting code available to multiple translation units while preserving inlining behavior needed by matching code."
+    {
+      "tactic": "Link a smaller address range by cutting the old TU at an exact function/object boundary and placing the remaining code in a new nonmatching object.",
+      "evidence_refs": [
+        "diff_excerpt:splits.txt ftkirbyspecialseak text 0x80105FEC-0x80106F44",
+        "diff_excerpt:splits.txt ftkirbyspecialmewtwo text 0x80106F44-0x80109290",
+        "diff_excerpt:configure.py Matching/NonMatching status split"
+      ]
+    },
+    {
+      "tactic": "Update symbol scope/name metadata to reflect local ownership after section split changes instead of compensating in C source.",
+      "evidence_refs": [
+        "diff_excerpt:symbols.txt ftKb_Init_803CB794/803CB7DC become local @304/@352",
+        "diff_excerpt:symbols.txt ftKb_Init_804D94F8/94FC/9500 become local @249/@257/@480"
+      ]
+    },
+    {
+      "tactic": "Move reusable inline behavior into a Kirby-local inline header when a newly split file also needs the helper.",
+      "evidence_refs": [
+        "raw_diff:ftkirbyspecialseak.c adds #include \"inlines.h\"",
+        "raw_diff:ftkirbyspecialmewtwo.c includes \"inlines.h\"",
+        "raw_diff:inlines.h new shared ftKb_SpecialN_set_cbs"
+      ]
+    }
   ],
-  "review_feedback": [
-    "No issue comments, review comments, or reviews were present in the PR slice; there is no direct reviewer feedback to extract."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
     "pr-2601",
     "Link ftkirbyspecialseak",
@@ -120,37 +259,134 @@
     "ftkirbyspecialseak.c",
     "ftkirbyspecialmewtwo.c",
     "ftkirbyspecialmewtwo.h",
-    "ftkirbyspecialdonkey.h",
-    "ftKb_SpecialNMt_80106F44",
-    "ftKb_MtSpecialNStart_Anim",
-    "ftKb_MtSpecialNLoop_IASA",
     "ftKb_SpecialN_set_cbs",
+    "ftKb_SpecialN_set_cbs2",
     "ftKirbyDmgInline",
-    "itmewtwoshadowball.c",
-    "Mewtwo Shadow Ball",
-    "Kirby copy special",
-    "Sheik needle",
-    "splits.txt 0x80106F44",
-    "Object Matching ftkirbyspecialseak",
-    "Object NonMatching ftkirbyspecialmewtwo",
     "ftKb_Init_803CB794",
+    "ftKb_Init_803CB7DC",
     "ftKb_Init_804D94F8",
-    "GALE01_106F44"
+    "ftKb_Init_804D94FC",
+    "ftKb_Init_804D9500",
+    "0x80105FEC",
+    "0x80106F44",
+    "0x80109290",
+    "0x803B7570",
+    "0x803CB770",
+    "0x803CB828",
+    "0x804D9508",
+    "MatchingFor",
+    "Object(Matching)",
+    "Object(NonMatching)",
+    "itmewtwoshadowball.c",
+    "ftKb_MtSpecialN",
+    "Kirby Mewtwo Shadow Ball",
+    "Kirby copied special-N split"
   ],
   "follow_up_queries": [
-    "Find later PRs that link `ftkirbyspecialmewtwo.c` or change `ftKb_SpecialNMt_*` functions.",
-    "Search for remaining `ftKirbyDmgInline` helpers and replace with behavior-specific `ftKb_SpecialN_set_cbs` where appropriate.",
-    "Audit Kirby copy-special headers for declarations living in unrelated character headers.",
-    "Check whether `ftkirbyspecialmewtwo.h` include guard `GALE01_106F44` was later renamed to a path-based guard.",
-    "Review other large Kirby copy-special files for opportunities to split matching subranges from nonmatching tails."
+    "Find later PRs that link `ftkirbyspecialmewtwo.c` after PR 2601.",
+    "Search for remaining `ftKirbyDmgInline` names after this PR to see whether the callback helper naming was normalized elsewhere.",
+    "Search PRs touching `ftKb_SpecialN_set_cbs` or `ftKirby/inlines.h` for follow-up cleanup or header ownership changes.",
+    "Check later changes to symbols around `ftKb_Init_803CB794`, `@304`, `@352`, `@249`, `@257`, and `@480` for data ownership corrections.",
+    "Search for other PRs that split a nonmatching fighter TU into a matching prefix plus a new nonmatching successor object."
   ],
-  "confidence": 0.88,
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json:PR number/title/state/author/timestamps and changed-file counts",
+      "changed_files.jsonl:15 changed files with added/deleted/hunk counts",
+      "diff_excerpt and raw_diff:split/config/symbol/include/inline changes",
+      "text_corpus.jsonl:empty PR body",
+      "metadata_json:0 issue comments, 0 review comments, 0 reviews"
+    ],
+    "notes": [
+      "The PR body is empty and there are no review or issue comments, so intent beyond the title and diff is not evidenced.",
+      "The loaded raw diff is truncated, but targeted local diff reads covered the main split/config/symbol/include/inline changes needed for intake.",
+      "No build log, objdiff output, or CI details are present in the slice; the record should not claim independent validation beyond the `configure.py` status change and merged PR metadata.",
+      "Review feedback is empty because the PR slice reports no review comments or reviews."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "pr_specific_decomp_lesson",
+        "title": "Link a matching prefix by splitting off the remaining nonmatching successor range",
+        "text": "PR 2601 changed `ftkirbyspecialseak.c` from one NonMatching object covering 0x80105FEC-0x80109290 into a Matching object ending at 0x80106F44 plus a new NonMatching `ftkirbyspecialmewtwo.c` starting at 0x80106F44.",
+        "scope": [
+          "fighter TU splitting",
+          "configure.py",
+          "config/GALE01/splits.txt"
+        ],
+        "evidence_refs": [
+          "diff_excerpt:splits.txt",
+          "diff_excerpt:configure.py"
+        ]
+      },
+      {
+        "record_type": "pr_specific_naming_lesson",
+        "title": "Name helper inlines for callback side effects when the body proves the role",
+        "text": "The diff renames `ftKirbyDmgInline` to `ftKb_SpecialN_set_cbs`; the shown helper body assigns `death2_cb` and `take_dmg_cb`, making the new name more descriptive than a generic damage-inline name.",
+        "scope": [
+          "Kirby copied special-N inline helpers"
+        ],
+        "evidence_refs": [
+          "diff_excerpt:ftKb_SpecialN.c",
+          "raw_diff:inlines.h"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Focused TU split for partial matching progress",
+        "text": "When only a prefix or subrange of a nonmatching TU is ready to link, consider splitting the TU at verified section/function boundaries, marking the linked range Matching and preserving the remaining range as a new NonMatching object, with corresponding splits/symbol metadata updates.",
+        "source_path": null,
+        "scope": [
+          "translation-unit splitting",
+          "matching workflow",
+          "configure object status",
+          "split metadata"
+        ],
+        "evidence_refs": [
+          "PR 2601 diff_excerpt:splits.txt",
+          "PR 2601 diff_excerpt:configure.py",
+          "PR 2601 changed_files.jsonl"
+        ],
+        "reason": "This PR provides a concrete example of linking `ftkirbyspecialseak.c` by isolating the still-nonmatching Mewtwo-copy range."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "Kirby copied special-N Mewtwo split path introduced",
+        "text": "`src/melee/ft/chara/ftKirby/ftkirbyspecialmewtwo.c` and `.h` were introduced as the Mewtwo-copy Kirby special-N split adjacent to `ftkirbyspecialseak.c`; `configure.py` initially lists the new C file as NonMatching in this PR.",
+        "source_path": "src/melee/ft/chara/ftKirby/ftkirbyspecialmewtwo.c",
+        "scope": [
+          "Kirby copied special moves",
+          "Mewtwo copy",
+          "file ownership"
+        ],
+        "evidence_refs": [
+          "changed_files.jsonl:ftkirbyspecialmewtwo.c/.h added",
+          "diff_excerpt:configure.py",
+          "diff_excerpt:splits.txt"
+        ],
+        "reason": "Useful path ownership fact for future curator review; evidence is limited to this PR's diff and should be checked against current source before promotion."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that `ftkirbyspecialmewtwo.c` matched in this PR; `configure.py` explicitly adds it as NonMatching.",
+      "Do not claim objdiff or regression validation from this slice; no such logs are loaded.",
+      "Do not infer reviewer intent or requested changes; there are no reviews or comments in the PR slice.",
+      "Do not generalize the local `@...` symbol changes into a universal rule without current symbol/source verification."
+    ]
+  },
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

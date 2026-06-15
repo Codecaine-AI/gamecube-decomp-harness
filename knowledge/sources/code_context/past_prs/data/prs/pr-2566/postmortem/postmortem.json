@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR 2566 matched stage function grInishie1_801FA9B4 by adding grInishie1 stage data objects and reshaping the function to use the recovered data layout. The title says the approach copied the StageData structure found in grHeal. The bot report records one new function match for grInishie1_801FA9B4 from 94.03% to 100.00% and a .data improvement.",
+  "summary": "PR 2566 changed only src/melee/gr/grinishie1.c to match grInishie1_801FA9B4. The diff added stage data-related objects, including a grInishie1_StageData wrapper around StageData plus an OSReport format string, moved the callback lookup to a casted offset from grI1_803E48C8, and changed the missing-GObj OSReport call to use the new struct field and filename string. The bot report records one new function match for grInishie1_801FA9B4 from 94.03% to 100.00% and a .data improvement from 19.85% to 55.52%. No human review comments were present in the slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -22,169 +22,175 @@
     ],
     "systems": [
       "stage",
-      "ground",
       "grinishie1"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grinishie1.c",
-      "role": "Only changed source file; added stage data arrays, a local StageData wrapper struct, resource/report strings, and updated grInishie1_801FA9B4 to use the recovered layout.",
+      "role": "Only changed source file; adds grI1 data symbols and StageData wrapper, then rewrites grInishie1_801FA9B4 callback and OSReport accesses for the match.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/gr/grinishie1.c added 38 deleted 4 hunks 4",
-        "raw_diff: additions grI1_803E48C8, grI1_803E4944, grInishie1_StageData, grI1_803E4950, grI1_803E49A8",
-        "raw_diff: grInishie1_801FA9B4 callback pointer and OSReport call changed"
+        "raw_diff: additions of grI1_803E48C8, grI1_803E4944, grInishie1_StageData, grI1_803E4950, grI1_803E49A8",
+        "raw_diff: grInishie1_801FA9B4 callback lookup and OSReport call changed"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Added s16 array grI1_803E48C8 containing a 22-element stage-related sequence and wired it into StageData as an S16Vec3 pointer.",
+      "text": "Added s16 grI1_803E48C8[22] containing stage block-pattern-like values and used it as the base for a casted StageCallbacks lookup at offset 0x2c.",
       "evidence_refs": [
-        "raw_diff: grI1_803E48C8[22] initializer",
-        "raw_diff: grI1_803E4950 stage_data field casts grI1_803E48C8 to S16Vec3*"
+        "raw_diff: grI1_803E48C8[22] addition",
+        "raw_diff: StageCallbacks* cb = (StageCallbacks*) ((char*) grI1_803E48C8 + 0x2c) + arg0"
       ]
     },
     {
-      "text": "Added grI1_803E4944 as the stage resource path string \"/GrI1.dat\".",
+      "text": "Added char grI1_803E4944[] = \"/GrI1.dat\" and char grI1_803E49A8[] = \"grinishie1.c\".",
       "evidence_refs": [
-        "raw_diff: char grI1_803E4944[] = \"/GrI1.dat\""
+        "raw_diff: grI1_803E4944 and grI1_803E49A8 additions"
       ]
     },
     {
-      "text": "Introduced typedef grInishie1_StageData containing StageData followed by report_fmt_get_gobj[0x24], then defined grI1_803E4950 with INISHIE1 metadata and an OSReport format string.",
+      "text": "Added typedef grInishie1_StageData with StageData stage_data followed by char report_fmt_get_gobj[0x24], then instantiated grI1_803E4950 with INISHIE1, /GrI1.dat, the grI1_803E48C8 S16Vec3 pointer, count 7, and the report format string.",
       "evidence_refs": [
         "raw_diff: typedef struct grInishie1_StageData",
         "raw_diff: grI1_803E4950 initializer"
       ]
     },
     {
-      "text": "Changed grInishie1_801FA9B4 so cb is computed from the data block using (StageCallbacks*) ((char*) grI1_803E48C8 + 0x2c) + arg0 instead of directly indexing grI1_803E48F4.",
+      "text": "Changed OSReport in the gobj-missing path from inline string literals to grI1_803E4950.report_fmt_get_gobj and grI1_803E49A8.",
       "evidence_refs": [
-        "raw_diff: removed StageCallbacks* cb = &grI1_803E48F4[arg0]",
-        "raw_diff: added StageCallbacks* cb = (StageCallbacks*) ((char*) grI1_803E48C8 + 0x2c) + arg0"
+        "raw_diff: OSReport replacement in grInishie1_801FA9B4"
       ]
     },
     {
-      "text": "Changed the failed Ground_GetStageGObj report path to load the format and filename from newly added data symbols.",
+      "text": "Bot report says the PR produced one new match: main/melee/gr/grinishie1 grInishie1_801FA9B4 from 94.03% to 100.00%, with +15 bytes; it also reports .data improvement from 19.85% to 55.52%.",
       "evidence_refs": [
-        "raw_diff: removed inline OSReport format and filename literals",
-        "raw_diff: added OSReport(grI1_803E4950.report_fmt_get_gobj, grI1_803E49A8, 0xE7, arg0)"
-      ]
-    },
-    {
-      "text": "Automated report recorded grInishie1_801FA9B4 as a new 100% match and .data as improved.",
-      "evidence_refs": [
-        "text_corpus.jsonl issue_comment decomp-dev[bot]: grInishie1_801FA9B4 Before 94.03% After 100.00%",
-        "text_corpus.jsonl issue_comment decomp-dev[bot]: .data Before 19.85% After 55.52%"
+        "text_corpus.jsonl: decomp-dev[bot] report for GALE01"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Used a matched sibling-stage layout as a hypothesis for recovering grInishie1 StageData, according to the PR title's reference to grHeal.",
+      "text": "Used a typed wrapper struct to model adjacency between StageData and the following report format string instead of leaving the format string as only an inline literal in the matched function.",
       "evidence_refs": [
-        "PR title: copying the same structure for StageData found in grHeal"
-      ]
+        "raw_diff: grInishie1_StageData contains StageData and report_fmt_get_gobj",
+        "raw_diff: OSReport uses grI1_803E4950.report_fmt_get_gobj"
+      ],
+      "confidence": 0.72
     },
     {
-      "text": "Recovered adjacent data around StageData instead of only editing the function body, which aligned both the function and part of the .data section per the bot report.",
+      "text": "The PR title explicitly identifies grHeal as a sibling layout source for the StageData structure, suggesting cross-stage comparison was used to recover data layout.",
       "evidence_refs": [
-        "raw_diff: grInishie1_StageData embeds StageData plus report_fmt_get_gobj",
-        "text_corpus.jsonl issue_comment decomp-dev[bot]: function match and .data improvement"
-      ]
+        "metadata_json.pr.title"
+      ],
+      "confidence": 0.66
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For stage files, a sibling stage's StageData layout can be useful evidence for reconstructing an unmatched stage's data cluster when the changed file shows analogous StageData fields and the verifier reports function/data improvement.",
+      "lesson": "For stage matching, sibling stage translation units may provide useful evidence for StageData-adjacent layout, but the recovered layout should still be checked against section ownership and local symbol metadata before becoming a broader convention.",
       "scope": [
-        "src/melee/gr",
-        "stage data matching",
+        "stage",
+        "StageData",
         "grinishie1",
-        "grHeal analogy"
+        "grHeal comparison"
       ],
       "evidence_refs": [
-        "PR title: Match grInishie1_801FA9B4 to 100% by copying the same structure for StageData found in grHeal",
-        "raw_diff: grInishie1_StageData and grI1_803E4950 added",
-        "text_corpus.jsonl issue_comment decomp-dev[bot]: grInishie1_801FA9B4 94.03% to 100.00%"
+        "metadata_json.pr.title: copying the same structure for StageData found in grHeal",
+        "raw_diff: grInishie1_StageData wraps StageData plus report_fmt_get_gobj",
+        "text_corpus.jsonl: bot reports grInishie1_801FA9B4 reached 100.00%"
       ],
-      "confidence": 0.78
+      "confidence": 0.69
     },
     {
-      "lesson": "When a function's codegen depends on nearby static data layout, recovering the surrounding data cluster may be part of the code match, not a separate cosmetic cleanup.",
+      "lesson": "A function text match may depend on modeling nearby data layout, including strings used by OSReport, but data and string-symbol changes are high-risk and should be treated as evidence-backed layout work rather than routine cleanup.",
       "scope": [
-        "matching",
-        "data layout",
-        "stage files"
+        "stage",
+        "OSReport",
+        "data-layout",
+        "string literals"
       ],
       "evidence_refs": [
-        "raw_diff: function cb access changed to offset from grI1_803E48C8",
-        "raw_diff: new StageData wrapper and report strings added",
-        "text_corpus.jsonl issue_comment decomp-dev[bot]: .data improved while function reached 100%"
+        "raw_diff: inline OSReport strings replaced by grI1_803E4950.report_fmt_get_gobj and grI1_803E49A8",
+        "text_corpus.jsonl: .data improved from 19.85% to 55.52%"
       ],
-      "confidence": 0.72
+      "confidence": 0.63
     }
   ],
   "naming_conventions": [
     {
       "name": "grInishie1_StageData",
-      "convention": "A local wrapper type was named after the source file/stage and the embedded StageData role.",
+      "kind": "temporary/local struct typedef",
+      "convention": "Uses a stage-specific semantic wrapper name for a recovered composite data layout.",
       "evidence_refs": [
         "raw_diff: typedef struct grInishie1_StageData"
       ],
-      "confidence": 0.73
+      "confidence": 0.78
     },
     {
       "name": "report_fmt_get_gobj",
-      "convention": "A struct member was named for the OSReport format string used when Ground_GetStageGObj fails.",
+      "kind": "struct field",
+      "convention": "Names the report-format string by its use in the Ground_GetStageGObj failure path.",
       "evidence_refs": [
         "raw_diff: char report_fmt_get_gobj[0x24]",
-        "raw_diff: OSReport(grI1_803E4950.report_fmt_get_gobj, grI1_803E49A8, 0xE7, arg0)"
+        "raw_diff: OSReport(grI1_803E4950.report_fmt_get_gobj, ...)"
       ],
-      "confidence": 0.75
+      "confidence": 0.77
     },
     {
-      "name": "gp",
-      "convention": "Existing local role naming uses gp for Ground* from gobj->user_data.",
+      "name": "grI1_803E48C8, grI1_803E4944, grI1_803E4950, grI1_803E49A8",
+      "kind": "address-style globals",
+      "convention": "New data symbols keep address-style names rather than speculative semantic global names.",
       "evidence_refs": [
-        "raw_diff context: Ground* gp = gobj->user_data"
+        "raw_diff: new grI1_803E-prefixed globals"
       ],
-      "confidence": 0.65
+      "confidence": 0.74
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Recover a data block layout and access a later table through an offset from an earlier symbol when matching evidence indicates the compiler addressed data as one contiguous cluster.",
+      "tactic": "Modeled a composite data layout so code could reference a report-format field through grI1_803E4950 rather than an inline string literal.",
       "evidence_refs": [
-        "raw_diff: cb computed as (StageCallbacks*) ((char*) grI1_803E48C8 + 0x2c) + arg0",
-        "text_corpus.jsonl issue_comment decomp-dev[bot]: grInishie1_801FA9B4 reached 100%"
-      ],
-      "caveat": "This is narrow PR evidence for this function/data cluster, not a general endorsement of raw pointer arithmetic when a typed field or canonical symbol is available."
-    },
-    {
-      "tactic": "Model following static data as a wrapper struct member when the function needs to reference a string located after StageData.",
-      "evidence_refs": [
-        "raw_diff: grInishie1_StageData contains StageData and report_fmt_get_gobj[0x24]",
+        "raw_diff: grInishie1_StageData and grI1_803E4950",
         "raw_diff: OSReport uses grI1_803E4950.report_fmt_get_gobj"
       ],
-      "caveat": "Global standards still require section ownership/data-layout evidence before promoting literals into named storage."
+      "risk": "Touches data/string ownership and may conflict with standards that prefer inline string literals unless section ownership evidence supports named storage.",
+      "confidence": 0.71
     },
     {
-      "tactic": "Use automated objdiff/checkdiff-style report output to record exact match impact.",
+      "tactic": "Reordered local declarations and split initialization of gobj after cb setup.",
       "evidence_refs": [
-        "text_corpus.jsonl issue_comment decomp-dev[bot]: Matched code +236 bytes, one new match"
+        "raw_diff: HSD_GObj* gobj declared before cb; gobj assigned after cb"
       ],
-      "caveat": "The slice only includes the bot report, not a full local build log."
+      "risk": "Local ordering is a matching tactic; the slice includes bot match evidence but no detailed objdiff or adjacent-function regression evidence.",
+      "confidence": 0.62
+    },
+    {
+      "tactic": "Computed the StageCallbacks pointer via a casted byte offset from grI1_803E48C8 instead of directly indexing grI1_803E48F4.",
+      "evidence_refs": [
+        "raw_diff: StageCallbacks* cb = (StageCallbacks*) ((char*) grI1_803E48C8 + 0x2c) + arg0"
+      ],
+      "risk": "Raw offset/cast expresses data adjacency for matching but is less typed than direct symbol access; should be revisited if the data layout can be represented more cleanly.",
+      "confidence": 0.68
     }
   ],
   "review_feedback": [
     {
-      "kind": "automated_report",
+      "type": "bot_report",
       "author": "decomp-dev[bot]",
-      "text": "Reported matched code 69.35% (+0.01%, +236 bytes), one new match for main/melee/gr/grinishie1 grInishie1_801FA9B4 from 94.03% to 100.00%, and .data improvement from 19.85% to 55.52%.",
+      "text": "Report for GALE01 records matched code 69.35% (+0.01%, +236 bytes), one new match for main/melee/gr/grinishie1 grInishie1_801FA9B4 from 94.03% to 100.00%, and one .data improvement from 19.85% to 55.52%.",
       "evidence_refs": [
-        "text_corpus.jsonl issue_comment at 2026-05-31T23:48:39Z"
+        "text_corpus.jsonl: issue_comment by decomp-dev[bot] created_at 2026-05-31T23:48:39Z"
+      ]
+    },
+    {
+      "type": "missing_human_review",
+      "author": null,
+      "text": "No review comments or human review feedback are present in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json.counts.review_comments: 0",
+        "metadata_json.counts.reviews: 0"
       ]
     }
   ],
@@ -192,9 +198,10 @@
     "pr-2566",
     "grInishie1_801FA9B4",
     "src/melee/gr/grinishie1.c",
-    "grInishie1_StageData",
-    "StageData",
+    "grinishie1",
     "grHeal",
+    "StageData",
+    "grInishie1_StageData",
     "grI1_803E48C8",
     "grI1_803E48F4",
     "grI1_803E4944",
@@ -205,109 +212,158 @@
     "HSD_GObj_SetupProc",
     "OSReport",
     "/GrI1.dat",
-    "INISHIE1",
+    "grinishie1.c",
     "S16Vec3",
-    "stage data layout",
-    "data cluster",
-    "100% match"
+    "INISHIE1",
+    "data-layout",
+    "string literal to data symbol",
+    "StageCallbacks offset 0x2c"
   ],
   "follow_up_queries": [
-    "grHeal StageData grInishie1_StageData",
-    "report_fmt_get_gobj StageData",
-    "grI1_803E48C8 grI1_803E48F4 offset 0x2c",
-    "OSReport couldn't get gobj stage data",
-    "src/melee/gr StageData wrapper report_fmt_get_gobj",
-    "Ground_GetStageGObj grInishie1_801FA9B4"
+    {
+      "query": "Find other stage TUs with StageData wrapper structs followed by report format strings, especially grHeal, to determine whether grInishie1_StageData reflects an accepted local pattern.",
+      "purpose": "Curator check for source-update candidate about stage data layout patterns."
+    },
+    {
+      "query": "Search for OSReport(\"%s:%d: couldn't get gobj(id=%d)\" or equivalent report_fmt_get_gobj fields in stage files.",
+      "purpose": "Assess whether converting this string literal into struct-owned data is supported by local source patterns or was a one-off matching tactic."
+    },
+    {
+      "query": "Search for StageCallbacks pointer derivations from adjacent data arrays using byte offsets in gr files.",
+      "purpose": "Determine whether the raw 0x2c cast is a known matching pattern, a metadata issue, or cleanup debt."
+    },
+    {
+      "query": "Check current grinishie1.c and symbols for grI1_803E48C8/grI1_803E4950 ownership and whether later PRs renamed or refactored them.",
+      "purpose": "Avoid promoting stale names or stale layout assumptions."
+    }
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR number/title/author/state/merge timestamps",
-      "raw_diff: complete diff for the single changed file",
-      "changed_files.jsonl: one changed file",
-      "text_corpus.jsonl: empty PR body and one automated bot report",
-      "raw_pr_json: raw PR metadata truncated"
+      "metadata_json: PR metadata, changed file count, merge state",
+      "raw_diff: complete diff for src/melee/gr/grinishie1.c",
+      "changed_files.jsonl: single changed file",
+      "text_corpus.jsonl: empty PR body and bot report",
+      "metadata_json.counts: issue_comments 1, review_comments 0, reviews 0"
     ],
     "notes": [
-      "Strong evidence for changed file, added symbols, function edits, merge metadata, and automated match result.",
-      "No human review comments or reviews are present in the loaded slice.",
-      "The PR body is empty, so the rationale beyond the title is limited.",
-      "The title supports the grHeal analogy, but the slice does not include the grHeal source comparison itself.",
-      "The bot report supports the claimed 100% match for grInishie1_801FA9B4, but the slice does not include a full build, objdiff, or regression log.",
-      "The diff converts inline report strings into named data; standards caution that string/data ownership should be verified before treating this as a reusable global practice."
+      "Strong evidence for changed file, concrete diff contents, and bot-reported match result.",
+      "PR body is empty and there are no human review comments, so author reasoning beyond the title is limited.",
+      "The title says the StageData structure was copied from grHeal, but the slice does not include grHeal code; that sibling comparison is not independently verified here.",
+      "The bot report is useful validation evidence, but the slice does not include raw objdiff, build logs, or adjacent regression checks.",
+      "Data/string ownership implications are visible in the diff, but section metadata evidence is not present in the slice."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "pr_lesson_candidate",
-        "title": "Sibling StageData layout helped match grInishie1_801FA9B4",
-        "text": "In PR 2566, grInishie1_801FA9B4 reached 100% after adding a grInishie1 StageData wrapper/data cluster; the PR title says the structure was copied from grHeal.",
+        "type": "pr_specific_matching_lesson",
+        "title": "StageData-adjacent layout can affect stage function matches",
+        "text": "In PR 2566, grInishie1_801FA9B4 reached a bot-reported 100.00% match after grinishie1.c added a grInishie1_StageData wrapper containing StageData plus report_fmt_get_gobj, added nearby grI1 data symbols, and rewrote the function to reference that layout.",
         "scope": [
           "src/melee/gr/grinishie1.c",
-          "stage data",
-          "function matching"
+          "grInishie1_801FA9B4",
+          "StageData",
+          "OSReport"
         ],
         "evidence_refs": [
-          "PR title",
-          "raw_diff",
-          "text_corpus.jsonl decomp-dev[bot] report"
+          "raw_diff: grInishie1_StageData and grI1_803E4950 additions",
+          "raw_diff: grInishie1_801FA9B4 changed callback lookup and OSReport",
+          "text_corpus.jsonl: bot report one new match 94.03% to 100.00%"
         ],
-        "confidence": 0.78
+        "confidence": 0.72
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "grinishie1.c contains stage data layout relevant to grInishie1_801FA9B4",
-        "text": "PR 2566 changed src/melee/gr/grinishie1.c by adding grI1_803E48C8, grI1_803E4944, grInishie1_StageData, grI1_803E4950, and grI1_803E49A8, then used that data layout in grInishie1_801FA9B4. The bot report recorded grInishie1_801FA9B4 as a new 100% match.",
+        "title": "grinishie1.c contains StageData-related data layout work for grInishie1_801FA9B4",
+        "text": "PR 2566 added grInishie1_StageData and grI1_803E4950 in src/melee/gr/grinishie1.c as part of matching grInishie1_801FA9B4; verify current source and later history before recording this as a stable path fact.",
         "source_path": "src/melee/gr/grinishie1.c",
         "scope": [
           "grinishie1",
-          "stage",
           "StageData",
           "grInishie1_801FA9B4"
         ],
         "evidence_refs": [
-          "raw_diff",
-          "text_corpus.jsonl issue_comment decomp-dev[bot]"
+          "raw_diff: grInishie1_StageData and grI1_803E4950",
+          "text_corpus.jsonl: bot match report"
         ],
-        "reason": "Potential path-specific historical fact for future grinishie1/stage data matching work."
+        "reason": "Useful path-level memory, but should be confirmed against current source because the PR slice alone does not establish lasting ownership or later cleanup."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Consider sibling stage data layouts as local evidence, but verify data ownership",
-        "text": "This PR suggests that comparing a stage file against a matched sibling stage such as grHeal can reveal the StageData/data-cluster shape needed for a code match. Any broader standard should also preserve existing cautions about typed fields, string literals, and data-section ownership.",
+        "title": "Sibling stage StageData layouts may be evidence, not automatic authority",
+        "text": "When a stage function match depends on StageData layout, compare sibling stage files such as grHeal for authored layout clues, but require local section/symbol evidence before converting ordinary strings or callbacks into adjacent data fields.",
         "source_path": null,
         "scope": [
-          "stage matching",
+          "stage",
           "StageData",
-          "data layout"
+          "data-layout",
+          "string ownership"
         ],
         "evidence_refs": [
-          "PR title",
-          "raw_diff",
-          "text_corpus.jsonl issue_comment decomp-dev[bot]"
+          "metadata_json.pr.title: copied same structure for StageData found in grHeal",
+          "raw_diff: string literals moved into grI1 data objects",
+          "decomp_standards: literals-and-data-ownership",
+          "decomp_standards: text-before-data-matching",
+          "decomp_standards: data-sections-and-tu-splits"
         ],
-        "reason": "Candidate refinement to existing infer-authored-source-style and data-section standards; not accepted here because the slice only shows one PR and does not include the grHeal comparison."
+        "reason": "The PR is a concrete example of sibling-layout matching, but the standards already caution about data ownership; curator should decide whether this is a reinforcing example rather than a new standard."
+      },
+      {
+        "target_source_id": "other",
+        "update_kind": "source_update",
+        "title": "Investigate whether grI1_803E48C8-to-StageCallbacks offset should be represented with a cleaner typed layout",
+        "text": "PR 2566 uses StageCallbacks* cb = (StageCallbacks*) ((char*) grI1_803E48C8 + 0x2c) + arg0. Curator or maintainer may want to check current source, symbols, and sibling stage layouts to see whether a composite typed data structure should own both the S16Vec3 array and callback table.",
+        "source_path": "src/melee/gr/grinishie1.c",
+        "scope": [
+          "grI1_803E48C8",
+          "grI1_803E48F4",
+          "StageCallbacks",
+          "typed data layout"
+        ],
+        "evidence_refs": [
+          "raw_diff: casted callback lookup from grI1_803E48C8 + 0x2c",
+          "decomp_standards: typed-fields-over-pointer-math",
+          "decomp_standards: matching-tactics-need-evidence"
+        ],
+        "reason": "The offset cast appears to be a narrow matching tactic; it may be reviewable only with stronger layout or objdiff evidence."
       }
     ],
     "rejection_notes": [
-      "Do not promote raw callback-table access via (char*) base + offset as a general standard; this PR only shows it was used in one successful match.",
-      "Do not infer that converting inline string literals to named data is generally preferred; current standards caution against string-literal symbol regressions without ownership evidence.",
-      "Do not claim human reviewer approval or intent; no human review comments are present in the slice.",
-      "Do not claim complete regression safety beyond the included bot report."
+      {
+        "text": "Do not generalize from this slice that stage OSReport strings should be converted to named globals or struct fields; the loaded standards caution against string-literal symbol regressions without ownership evidence.",
+        "evidence_refs": [
+          "raw_diff: OSReport string literal replacement",
+          "decomp_standards: no-string-literal-symbol-regression",
+          "decomp_standards: literals-and-data-ownership"
+        ]
+      },
+      {
+        "text": "Do not mark grHeal layout copying as an accepted global rule from this PR alone; grHeal source was not included in the loaded evidence.",
+        "evidence_refs": [
+          "metadata_json.pr.title"
+        ]
+      },
+      {
+        "text": "Do not claim full build, objdiff details, or adjacent regression checks beyond the bot report; those artifacts are not present in the slice.",
+        "evidence_refs": [
+          "text_corpus.jsonl: bot report only",
+          "metadata_json.counts.review_comments: 0"
+        ]
+      }
     ]
   },
-  "confidence": 0.82,
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

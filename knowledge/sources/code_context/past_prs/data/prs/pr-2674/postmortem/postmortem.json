@@ -1,0 +1,321 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2674",
+  "pr": {
+    "number": 2674,
+    "title": "link itseakchain",
+    "url": "https://github.com/doldecomp/melee/pull/2674",
+    "state": "MERGED",
+    "author": "jurrejelle",
+    "created_at": "2026-06-13T07:44:12Z",
+    "merged_at": "2026-06-13T17:30:23Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Linked the item translation unit src/melee/it/items/itseakchain.c by switching it from NonMatching to Matching, with small C declaration/local-name adjustments and symbols.txt local-label updates for nearby .sdata/.sdata2 entries. The bot report records 3 new matches for itseakchain: .sdata2, it_802BAF2C, and it_802BCB88.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "matching status promotion",
+      "item code cleanup",
+      "symbol metadata adjustment",
+      "data-order tactic"
+    ],
+    "systems": [
+      "item",
+      "config",
+      "repo-root"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/it/items/itseakchain.c",
+      "role": "Item source TU changed to support matching; added order_sdata2, adjusted declaration scope/order in it_802BAF2C, and renamed a local from prev to cur in it_802BCB88.",
+      "evidence_refs": [
+        "raw_diff: src/melee/it/items/itseakchain.c hunks",
+        "text_corpus: decomp-dev bot report lists main/melee/it/items/itseakchain matches"
+      ]
+    },
+    {
+      "path": "configure.py",
+      "role": "Build configuration changed itseakchain.c from Object(NonMatching, ...) to Object(Matching, ...).",
+      "evidence_refs": [
+        "raw_diff: configure.py hunk around MatchingFor item object list"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Symbol metadata changed several itseakchain-adjacent .sdata and .sdata2 globals to local labels.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt hunks at .sdata 0x804D5508/0x804D5510 and .sdata2 0x804DD0D8-0x804DD0F0"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "configure.py now treats melee/it/items/itseakchain.c as Matching instead of NonMatching.",
+      "evidence_refs": [
+        "raw_diff: configure.py -Object(NonMatching, \"melee/it/items/itseakchain.c\") +Object(Matching, \"melee/it/items/itseakchain.c\")"
+      ]
+    },
+    {
+      "text": "Added a static order_sdata2 function containing void-cast float literals 0.0f, 0.1f, and 1.0f.",
+      "evidence_refs": [
+        "raw_diff: src/melee/it/items/itseakchain.c added static void order_sdata2(void)"
+      ]
+    },
+    {
+      "text": "In it_802BAF2C, moved link_gobj and link declarations out of the loop/block and adjusted declaration order around attrs, i, and zero.",
+      "evidence_refs": [
+        "raw_diff: src/melee/it/items/itseakchain.c hunk around it_802BAF2C"
+      ]
+    },
+    {
+      "text": "In it_802BCB88, removed a separate prev local and reused/renamed the local ItemLink pointer as cur for the it_802BCB88_prev result and pos1 source.",
+      "evidence_refs": [
+        "raw_diff: src/melee/it/items/itseakchain.c hunk around it_802BCB88"
+      ]
+    },
+    {
+      "text": "symbols.txt changed two .sdata string entries and six .sdata2 float/double entries from global it_ address names to local @ labels.",
+      "evidence_refs": [
+        "raw_diff: config/GALE01/symbols.txt hunks"
+      ]
+    },
+    {
+      "text": "The automated report recorded +1516 matched-code bytes, +8812 linked-code bytes, and 3 new matches: .sdata2, it_802BAF2C, and it_802BCB88 for main/melee/it/items/itseakchain.",
+      "evidence_refs": [
+        "text_corpus: decomp-dev[bot] issue_comment created 2026-06-13T07:47:58Z"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "The PR paired the Matching configuration flip with a bot report showing the specific new matches in the same unit, rather than only changing configure.py.",
+      "evidence_refs": [
+        "raw_diff: configure.py matching flip",
+        "text_corpus: bot report lists 3 new matches"
+      ]
+    },
+    {
+      "text": "The source changes were narrow: declaration placement/name adjustments in two nearly matched functions plus a small data-order helper, with no broad rewrite shown in the diff.",
+      "evidence_refs": [
+        "raw_diff: src/melee/it/items/itseakchain.c four hunks"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "For a nearly complete item TU, small declaration-scope and declaration-order changes can be enough to close remaining function mismatches when verified by a narrow report.",
+      "scope": [
+        "src/melee/it/items/itseakchain.c",
+        "item TUs with near-match functions"
+      ],
+      "evidence_refs": [
+        "raw_diff: it_802BAF2C declaration movement",
+        "text_corpus: bot report shows it_802BAF2C from 99.48% to 100.00%"
+      ],
+      "confidence": 0.78
+    },
+    {
+      "lesson": "When local pointer role is clearer after a helper call, using a role-consistent local name can accompany a match cleanup, but the PR evidence only proves this specific it_802BCB88 cleanup.",
+      "scope": [
+        "src/melee/it/items/itseakchain.c:it_802BCB88"
+      ],
+      "evidence_refs": [
+        "raw_diff: prev local removed, cur assigned from it_802BCB88_prev",
+        "text_corpus: bot report shows it_802BCB88 from 99.97% to 100.00%"
+      ],
+      "confidence": 0.66
+    }
+  ],
+  "naming_conventions": [
+    {
+      "convention": "Use local role names such as cur for the current ItemLink pointer when that role is supported by nearby traversal code.",
+      "scope": [
+        "itseakchain ItemLink traversal locals"
+      ],
+      "evidence_refs": [
+        "raw_diff: it_802BCB88 uses ItemLink* cur and removes ItemLink* prev"
+      ],
+      "confidence": 0.62
+    },
+    {
+      "convention": "This PR converted some address-style data symbols to local @ labels where the symbols metadata treated the entries as local literals/constants.",
+      "scope": [
+        "config/GALE01/symbols.txt .sdata/.sdata2 entries touched by PR"
+      ],
+      "evidence_refs": [
+        "raw_diff: it_804D5508/it_804D5510 and it_804DD0D8-0x804DD0F0 changed to @ labels"
+      ],
+      "confidence": 0.74
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Promote a TU from NonMatching to Matching only after the narrow report shows the remaining unit/function/data matches.",
+      "evidence_refs": [
+        "raw_diff: configure.py Matching status change",
+        "text_corpus: bot report lists 3 new matches for main/melee/it/items/itseakchain"
+      ],
+      "risk": "The PR slice includes bot report output but no human explanation of local build commands or objdiff invocation."
+    },
+    {
+      "tactic": "Declaration lifetime/scope steering: hoist link_gobj and link declarations out of a for-loop/block to adjust codegen for it_802BAF2C.",
+      "evidence_refs": [
+        "raw_diff: it_802BAF2C declaration changes",
+        "text_corpus: bot report shows it_802BAF2C reached 100.00%"
+      ],
+      "risk": "Global standards require narrow verifier evidence for declaration-order/lifetime tactics; this PR has bot report evidence but no detailed objdiff notes."
+    },
+    {
+      "tactic": "Data-order steering: add an otherwise unused order_sdata2 function with float literals to affect .sdata2 ordering.",
+      "evidence_refs": [
+        "raw_diff: added static void order_sdata2(void)",
+        "text_corpus: bot report shows .sdata2 reached 100.00%"
+      ],
+      "risk": "This resembles a data-order helper and should not be generalized without curator review because standards warn against fake storage or data-order churn unless justified."
+    },
+    {
+      "tactic": "Fix symbol metadata from global address-style names to local labels for literals/constants when section ownership requires local labels for matching.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt local label changes",
+        "text_corpus: matched data +32 bytes and linked data +152 bytes"
+      ],
+      "risk": "The PR evidence supports the specific symbols changes but does not explain the full ownership analysis."
+    }
+  ],
+  "review_feedback": [],
+  "searchable_terms": [
+    "PR2674",
+    "link itseakchain",
+    "itseakchain.c",
+    "it_802BAF2C",
+    "it_802BCB88",
+    "order_sdata2",
+    "ItemLink",
+    "it_802BCB88_prev",
+    "GObj_Create",
+    "MatchingFor",
+    "Object(Matching)",
+    "Object(NonMatching)",
+    "config/GALE01/symbols.txt",
+    ".sdata2",
+    "it_804DD0D8",
+    "it_804DD0F0",
+    "@228",
+    "@229",
+    "@230",
+    "@709",
+    "@710",
+    "@712"
+  ],
+  "follow_up_queries": [
+    "itseakchain order_sdata2",
+    "it_802BAF2C declaration order link_gobj link",
+    "it_802BCB88 cur prev ItemLink",
+    "symbols.txt it_804DD0D8 @228 sdata2",
+    "MatchingFor itseakchain Object(Matching)",
+    "data-order helper void cast float literals"
+  ],
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json: PR identity, state, author, changed files, counts",
+      "raw_diff: complete 5171-byte diff",
+      "changed_files.jsonl: 3 changed files",
+      "text_corpus.jsonl: empty PR body and decomp-dev bot report"
+    ],
+    "notes": [
+      "No human review comments were present in the loaded slice.",
+      "The PR body is empty, so author intent is inferred only from the title, diff, and bot report.",
+      "The bot report provides matching outcomes, but the slice does not include explicit local build, objdiff command, or adjacent-regression notes.",
+      "The order_sdata2 helper and symbols metadata changes are recorded as PR facts, not promoted as accepted global style."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "type": "matching_tactic",
+        "title": "Declaration-scope adjustment closed near-match functions in itseakchain",
+        "text": "In PR 2674, hoisting link_gobj/link declarations and adjusting local pointer use in src/melee/it/items/itseakchain.c accompanied reported 100% matches for it_802BAF2C and it_802BCB88. Treat as a narrow historical tactic with bot-report evidence, not as a default style rule.",
+        "scope": [
+          "src/melee/it/items/itseakchain.c",
+          "near-match item functions"
+        ],
+        "evidence_refs": [
+          "raw_diff: it_802BAF2C and it_802BCB88 hunks",
+          "text_corpus: bot report 3 new matches"
+        ],
+        "confidence": 0.73
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "itseakchain.c was linked as Matching in PR 2674",
+        "text": "PR 2674 changed configure.py so melee/it/items/itseakchain.c is Object(Matching, ...) instead of Object(NonMatching, ...). The bot report lists new matches for .sdata2, it_802BAF2C, and it_802BCB88 in main/melee/it/items/itseakchain.",
+        "source_path": "src/melee/it/items/itseakchain.c",
+        "scope": [
+          "item",
+          "itseakchain",
+          "configure.py"
+        ],
+        "evidence_refs": [
+          "raw_diff: configure.py hunk",
+          "text_corpus: decomp-dev bot report"
+        ],
+        "reason": "This is a source/path status fact supported by the PR diff and report; curator should decide whether path facts track historical matching promotions."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "symbols.txt local-label changes for itseakchain-related .sdata/.sdata2 entries",
+        "text": "PR 2674 changed config/GALE01/symbols.txt entries at 0x804D5508, 0x804D5510, and 0x804DD0D8 through 0x804DD0F0 from global it_ address symbols to local @ labels.",
+        "source_path": "config/GALE01/symbols.txt",
+        "scope": [
+          "GALE01 symbols",
+          ".sdata",
+          ".sdata2",
+          "itseakchain"
+        ],
+        "evidence_refs": [
+          "raw_diff: symbols.txt hunks"
+        ],
+        "reason": "Specific metadata changes are well-evidenced, but ownership rationale is not explained in the PR body."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Review data-order helper pattern before accepting or discouraging it",
+        "text": "PR 2674 added static order_sdata2 with void-cast float literals and the bot report showed .sdata2 reached 100.00%. This may be a historical data-order tactic, but current standards caution against fake data/order churn. Curator review should decide whether to document it as an exception pattern, an anti-pattern, or only a path-specific historical note.",
+        "source_path": "src/melee/it/items/itseakchain.c",
+        "scope": [
+          "data ordering",
+          ".sdata2",
+          "matching tactics"
+        ],
+        "evidence_refs": [
+          "raw_diff: added order_sdata2",
+          "text_corpus: .sdata2 new match"
+        ],
+        "reason": "The evidence supports that the tactic appeared in this PR, but not that it should become accepted global style."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer broad approval for unused ordering helper functions from this PR alone.",
+      "Do not infer that converting string or float symbols from global address names to local @ labels is always correct; this PR only supports the touched addresses.",
+      "Do not claim human reviewer intent or review approval rationale; no review comments were loaded."
+    ]
+  },
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

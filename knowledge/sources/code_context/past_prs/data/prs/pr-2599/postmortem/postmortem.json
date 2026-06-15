@@ -11,23 +11,23 @@
     "merged_at": "2026-06-07T10:12:08Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Split Kirby's copied Jigglypuff/Purin SpecialN code out of `ftkirbyspecialdonkey.c` into a new linked matching object, `ftkirbyspecialpurin.c`, with its own header. The PR adjusted GALE01 split ranges and symbol ownership so the Purin block at 0x80100E0C-0x80105A34 links as `Object(Matching)`, while trimming the Donkey file back to its own range. It also moved adjacent Zelda-special declarations/code into a new `ftkirbyspecialzelda.h`, relocated the shared `SIGNF` macro to `src/MSL/math.h`, and cleaned up function forward declarations/static linkage around the split boundaries.",
+  "intake_role": "pr_intake",
+  "summary": "PR 2599 split Kirby's copied Purin/Jigglypuff SpecialN code out of `ftkirbyspecialdonkey` into a new `ftkirbyspecialpurin` translation unit, linked it as Matching in `configure.py`, and adjusted split/symbol metadata, headers, includes, and nearby declarations to reflect the new TU boundary.",
   "change_classification": {
-    "primary_type": "split_and_link_matching_object",
+    "primary_type": "translation_unit_split_and_link",
     "categories": [
-      "fighter_split",
-      "matching",
+      "fighter",
+      "kirby",
       "headers",
-      "symbols",
       "splits",
-      "static_linkage_cleanup",
-      "macro_deduplication"
+      "symbols",
+      "configure",
+      "data_metadata"
     ],
     "systems": [
       "fighter",
       "Kirby",
       "Purin",
-      "Zelda",
       "config",
       "MSL"
     ]
@@ -35,147 +35,357 @@
   "key_files": [
     {
       "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialpurin.c",
-      "role": "new matching source file for Kirby Purin/Jigglypuff SpecialN code previously embedded after the Donkey-special block"
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialpurin.h",
-      "role": "new public header containing address-commented declarations for Purin SpecialN callbacks"
+      "role": "new split TU for Kirby Purin SpecialN implementation; added 1406 lines",
+      "evidence_refs": [
+        "changed_files.jsonl: ftkirbyspecialpurin.c added 1406 deleted 0",
+        "diff_excerpt: splits.txt adds ftkirbyspecialpurin.c text/data/sdata/sdata2 ranges",
+        "diff_excerpt: configure.py adds Object(Matching, ftkirbyspecialpurin.c)"
+      ]
     },
     {
       "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c",
-      "role": "source trimmed to end at the Donkey section; removed roughly 1400 lines of Purin/Zelda-adjacent code"
+      "role": "source TU reduced after Purin code was removed; includes/data/macros related to removed code were dropped",
+      "evidence_refs": [
+        "changed_files.jsonl: ftkirbyspecialdonkey.c added 0 deleted 1411",
+        "diff_excerpt: removes Purin helper/code block after ftKb_SpecialNPr_80100DE0",
+        "diff_excerpt: removes local SIGNF macro and local data declarations"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialpurin.h",
+      "role": "new header for split Purin special file",
+      "evidence_refs": [
+        "changed_files.jsonl: ftkirbyspecialpurin.h added 69 deleted 0"
+      ]
     },
     {
       "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.h",
-      "role": "removed Purin and Zelda declarations that no longer belonged in the Donkey header"
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialzelda.c",
-      "role": "received adjacent Zelda helper definitions and included its new header"
-    },
-    {
-      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialzelda.h",
-      "role": "new header for Zelda copy-special declarations"
+      "role": "old header reduced after Purin declarations moved out",
+      "evidence_refs": [
+        "changed_files.jsonl: ftkirbyspecialdonkey.h added 0 deleted 74"
+      ]
     },
     {
       "path": "config/GALE01/splits.txt",
-      "role": "split ranges updated: Donkey shortened, Purin object inserted, Zelda text start moved to 0x80105A34"
+      "role": "split boundaries updated for donkey, new purin TU, adjacent fox/zelda section ranges",
+      "evidence_refs": [
+        "diff_excerpt: donkey text end changes to 0x80100E0C",
+        "diff_excerpt: purin text/data/sdata/sdata2 ranges added",
+        "diff_excerpt: zelda text start changes to 0x80105A34"
+      ]
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "symbol scope/names updated for data, sdata, and sdata2 belonging to the new split"
+      "role": "symbol metadata adjusted around the new split, including local labels and local float/string objects",
+      "evidence_refs": [
+        "diff_excerpt: adds ...data.0 label at 0x803CB710",
+        "diff_excerpt: changes ftKb_Init_assert_msg_3 to local @856",
+        "diff_excerpt: changes multiple 0x804D9498-0x804D94F4 sdata2 globals to local @ labels"
+      ]
     },
     {
       "path": "configure.py",
-      "role": "added `Object(Matching, \"melee/ft/chara/ftKirby/ftkirbyspecialpurin.c\")`"
+      "role": "links new split object as Matching",
+      "evidence_refs": [
+        "diff_excerpt: adds Object(Matching, \"melee/ft/chara/ftKirby/ftkirbyspecialpurin.c\")"
+      ]
     },
     {
       "path": "src/MSL/math.h",
-      "role": "added reusable `SIGNF(x)` macro"
+      "role": "moves/adds shared SIGNF macro after removal from donkey TU",
+      "evidence_refs": [
+        "diff_excerpt: adds #define SIGNF(x) ((x) > 0.0f ? 1.0f : -1.0f)",
+        "diff_excerpt: ftkirbyspecialdonkey.c removes local #define SIGNF"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.c",
+      "role": "include/data cleanup for new split boundary",
+      "evidence_refs": [
+        "diff_excerpt: adds ftkirbyspecialzelda.h and ftKirby/ftkirbyspecialpurin.h includes",
+        "diff_excerpt: removes Vec3 ftKb_Init_803CB758 array from ftKb_Init.c"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
+      "role": "forward declaration/staticness cleanup with address comments",
+      "evidence_refs": [
+        "diff_excerpt: replaces grouped forward declaration comments with address-commented declarations",
+        "diff_excerpt: marks fn_8010C44C and fn_8010CD88 static"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialzelda.c",
+      "role": "nearby Kirby special TU adjusted as part of split/link boundary",
+      "evidence_refs": [
+        "changed_files.jsonl: ftkirbyspecialzelda.c added 35 deleted 7"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialzelda.h",
+      "role": "header added/expanded for zelda special declarations needed by adjusted includes",
+      "evidence_refs": [
+        "changed_files.jsonl: ftkirbyspecialzelda.h added 17 deleted 0",
+        "diff_excerpt: ftKb_Init.c adds include \"ftkirbyspecialzelda.h\""
+      ]
     },
     {
       "path": "src/melee/ft/chara/ftPurin/ftPr_SpecialN.c",
-      "role": "removed duplicate local `SIGNF` macro after moving it to MSL math"
+      "role": "Purin source touched lightly during Kirby Purin split",
+      "evidence_refs": [
+        "changed_files.jsonl: ftPr_SpecialN.c added 0 deleted 2"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.static.h",
+      "role": "static declaration list adjusted after split",
+      "evidence_refs": [
+        "diff_excerpt: removes static declaration for fn_8010CD88",
+        "changed_files.jsonl: ftKb_Init.static.h added 0 deleted 1"
+      ]
     }
   ],
   "what_changed": [
-    "Inserted a new split entry for `melee/ft/chara/ftKirby/ftkirbyspecialpurin.c` covering `.text` 0x80100E0C-0x80105A34, `.data` 0x803CB710-0x803CB770, `.sdata` 0x804D3DD0-0x804D3DE8, and `.sdata2` 0x804D9498-0x804D94F0.",
-    "Shortened `ftkirbyspecialdonkey.c` in `splits.txt` from 0x800FF8EC-0x80105B2C to 0x800FF8EC-0x80100E0C.",
-    "Moved the Purin SpecialN callback family into `ftkirbyspecialpurin.c`, including animation, IASA, physics, collision, hit, turn, start/loop/full/end, and air variants such as `ftKb_PrSpecialNStart_Anim`, `ftKb_PrSpecialN1_Phys`, and `ftKb_PrSpecialNHit_Coll`.",
-    "Added `ftkirbyspecialpurin.h` with address-commented declarations beginning at 0x80100F94 and ending at 0x8010581C.",
-    "Removed Purin and Zelda declarations from `ftkirbyspecialdonkey.h`, keeping Donkey ownership cleaner.",
-    "Added `ftkirbyspecialzelda.h` and included it from `ftKb_Init.c`/`ftkirbyspecialzelda.c`; Zelda declarations such as `ftKb_SpecialNZd_80105B2C` and `ftKb_ZdSpecialAirN_Coll` now live outside the Donkey header.",
-    "Moved Zelda helper definitions `fn_80105A34` and `fn_80105AB0` into `ftkirbyspecialzelda.c` near the adjusted boundary.",
-    "Converted several symbol-table entries around the new Purin data ranges from generic `ftKb_Init_*` globals to local labels such as `@244`, `@245`, `@246`, and sdata2 locals `@247`, `@248`, `@264`, etc.",
-    "Changed `ftKb_Init_803CB758` from a `Vec3` array in `ftKb_Init.c` to an `ftCollisionBox` object defined in `ftkirbyspecialpurin.c`.",
-    "Added `SIGNF(x)` to `src/MSL/math.h` and removed local duplicate definitions from `ftkirbyspecialdonkey.c` and `ftPr_SpecialN.c`.",
-    "Registered `ftkirbyspecialpurin.c` as a matching object in `configure.py`."
+    "Created `src/melee/ft/chara/ftKirby/ftkirbyspecialpurin.c` and `.h` and removed a large Purin SpecialN block from `ftkirbyspecialdonkey.c`/`.h`.",
+    "Added `ftkirbyspecialpurin.c` to `configure.py` as `Object(Matching, ...)`.",
+    "Updated `config/GALE01/splits.txt` so donkey ends at `0x80100E0C`, new purin covers text `0x80100E0C-0x80105A34`, and zelda begins at `0x80105A34`; purin data/sdata/sdata2 ranges were also added.",
+    "Adjusted `symbols.txt` around the split by converting several former `ftKb_Init_*` globals to local `@` labels and adding a local data label.",
+    "Moved `SIGNF(x)` from a TU-local macro in `ftkirbyspecialdonkey.c` into `src/MSL/math.h`.",
+    "Updated Kirby init and nearby Kirby special files for includes, static declarations, and address-commented prototypes after the split."
   ],
   "smart_moves": [
-    "The split boundary was chosen at exact function/object boundaries: Donkey ends at 0x80100E0C, Purin starts at 0x80100E0C, and Zelda starts at 0x80105A34 after moving the adjacent Zelda helpers.",
-    "Rather than leaving declarations for copied-character specials in `ftkirbyspecialdonkey.h`, the PR introduced focused Purin and Zelda headers, making future split ownership easier to reason about.",
-    "Data ownership was corrected alongside text ownership; the PR did not only split `.text`, but also moved `.data`, `.sdata`, and `.sdata2` ranges and symbol scopes to match the new object.",
-    "The local scale tables `ftKb_Init_803CB710` and `ftKb_Init_803CB720` became static inside the new Purin file, reducing false global coupling.",
-    "The collision-box data was typed as `ftCollisionBox` in the owning Purin file, matching call sites that pass `&ftKb_Init_803CB758` to collision helpers.",
-    "Hoisting `SIGNF` into `MSL/math.h` avoided repeated local macro definitions in both Kirby Purin-copy code and real Purin SpecialN code."
-  ],
-  "decomp_lessons": [
-    "When splitting copied-character Kirby code, do not trust the old aggregate file name; inspect exact address ranges and move adjacent character-specific helpers to their true neighboring object if the split boundary requires it.",
-    "A matching split usually needs coordinated updates in `splits.txt`, `symbols.txt`, `configure.py`, source files, and headers; changing only the C file is insufficient.",
-    "After a source split, revisit symbol visibility. Constants that were previously forced global as `ftKb_Init_*` may become compiler-generated local labels once their owning object is isolated.",
-    "Header cleanup matters for decomp maintainability: copied-special declarations should live in `ftkirbyspecial<character>.h`, not in whichever earlier file happened to contain the code before splitting.",
-    "Shared utility macros found duplicated during a split should be centralized if evidence shows multiple users; here `SIGNF(x)` was moved to `MSL/math.h` and duplicates were removed.",
-    "Data typing can unblock clean splits: the `ftKb_Init_803CB758` data is used as an `ftCollisionBox`, so defining it that way in the owning file is preferable to leaving it as an unrelated vector array in init code."
-  ],
-  "naming_conventions": [
-    "Kirby copied-special files follow lowercase `ftkirbyspecial<source-character>.c/.h`, e.g. `ftkirbyspecialpurin` and `ftkirbyspecialzelda`.",
-    "Kirby Purin-copy functions use `ftKb_PrSpecial...` and `ftKb_SpecialNPr_...`; `Pr` distinguishes Purin/Jigglypuff copy-specific code.",
-    "Zelda-copy functions use `ftKb_ZdSpecial...` and `ftKb_SpecialNZd_...`; `Zd` distinguishes Zelda copy-specific code.",
-    "Address comments are preserved in declarations and local forward declarations, e.g. `/* 1016CC */ void ftKb_PrSpecialNStart_Anim(...)` and `/* 105A34 */ static void fn_80105A34(...)`.",
-    "Compiler-local data labels in `symbols.txt` use `@NNN` names when the data is local to the split object; forced global `ftKb_Init_<addr>` names are retained only where still needed."
-  ],
-  "assembly_or_matching_tactics": [
-    "Use `splits.txt` to carve the new object across all relevant sections, not only `.text`; this PR added Purin `.data`, `.sdata`, and `.sdata2` ranges in addition to text.",
-    "Promote the new C file in `configure.py` as `Object(Matching, ...)` only after the isolated range links correctly.",
-    "When splitting an object, check the immediate next function after the desired range. Here the Zelda text start shifted from 0x80105B2C to 0x80105A34 because `fn_80105A34`/`fn_80105AB0` belonged with Zelda after Purin ended at 0x80105A34.",
-    "Use static local arrays for file-owned constants to influence data symbol locality and ordering, as with `ftKb_Init_803CB710` and `ftKb_Init_803CB720`.",
-    "Global-to-local symbol changes in `symbols.txt` can be a sign that the split now matches compiler ownership; examples include Purin sdata2 constants changing from `ftKb_Init_804D9498` style names to `@247`-style locals.",
-    "The diff evidence shows no reviewer discussion, so no human rationale beyond the mechanical split/link evidence can be confirmed."
-  ],
-  "review_feedback": [
     {
-      "type": "no_review_comments",
-      "note": "The PR context reports zero issue comments, zero review comments, and zero reviews; no explicit reviewer feedback was available."
+      "text": "The split was accompanied by metadata updates in both `splits.txt` and `symbols.txt`, not just a source-file move.",
+      "evidence_refs": [
+        "diff_excerpt: splits.txt adds ftkirbyspecialpurin.c ranges",
+        "diff_excerpt: symbols.txt changes local/global symbol ownership around 0x803CB710 and 0x804D9498"
+      ]
+    },
+    {
+      "text": "The new TU was linked explicitly in `configure.py` as Matching, preserving build configuration rather than leaving the split as source-only.",
+      "evidence_refs": [
+        "diff_excerpt: configure.py adds Object(Matching, ftkirbyspecialpurin.c)"
+      ]
+    },
+    {
+      "text": "A macro used by the extracted code was lifted to a shared math header after being removed from the original donor TU.",
+      "evidence_refs": [
+        "diff_excerpt: src/MSL/math.h adds SIGNF",
+        "diff_excerpt: ftkirbyspecialdonkey.c removes local SIGNF"
+      ]
     }
   ],
+  "decomp_lessons": [
+    {
+      "lesson": "When extracting a contiguous function range into a new fighter TU, update source, header, configure object status, split ranges, and symbol locality together; this PR shows all of those surfaces changing for `ftkirbyspecialpurin`.",
+      "scope": [
+        "fighter",
+        "Kirby",
+        "TU splits"
+      ],
+      "evidence_refs": [
+        "changed_files.jsonl: new ftkirbyspecialpurin.c/.h and reduced ftkirbyspecialdonkey.c/.h",
+        "diff_excerpt: splits.txt adds purin ranges",
+        "diff_excerpt: configure.py adds Matching object",
+        "diff_excerpt: symbols.txt localizes related symbols"
+      ]
+    },
+    {
+      "lesson": "A split may require adjusting adjacent TU boundaries and nearby section ownership, not only adding the new TU; fox `.sdata`, donkey text, purin ranges, and zelda text were all touched.",
+      "scope": [
+        "splits",
+        "section ownership",
+        "Kirby specials"
+      ],
+      "evidence_refs": [
+        "diff_excerpt: fox .sdata end changes from 0x804D3DCC to 0x804D3DD0",
+        "diff_excerpt: donkey text end changes",
+        "diff_excerpt: zelda text start changes"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "The extracted file follows the existing lowercase Kirby special filename pattern: `ftkirbyspecialpurin.c`/`.h`, parallel to neighboring `ftkirbyspecialfox`, `ftkirbyspecialness`, `ftkirbyspecialdonkey`, and `ftkirbyspecialzelda` entries shown in the split/config context.",
+      "evidence_refs": [
+        "diff_excerpt: splits.txt neighboring Kirby special filenames",
+        "changed_files.jsonl: ftkirbyspecialpurin.c and .h added"
+      ]
+    },
+    {
+      "text": "Address-commented local prototypes in `ftKb_SpecialNYs.c` use the `/* 10XXXX */` prefix style for `fn_` symbols whose semantics are not named.",
+      "evidence_refs": [
+        "diff_excerpt: ftKb_SpecialNYs.c declarations such as /* 1095DC */ static void fn_801095DC(...)"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "TU split by exact address range",
+      "details": "The Purin code is carved from the old donkey text range into `0x80100E0C-0x80105A34`, with zelda shifted to start at `0x80105A34`.",
+      "evidence_refs": [
+        "diff_excerpt: splits.txt donkey/purin/zelda text range edits"
+      ]
+    },
+    {
+      "tactic": "Symbol scope/local-label correction for extracted data",
+      "details": "Several data, sdata, and sdata2 entries were changed from named globals to local `@` labels after the new split was introduced.",
+      "evidence_refs": [
+        "diff_excerpt: symbols.txt changes ftKb_Init_assert_msg_3 to @856",
+        "diff_excerpt: symbols.txt changes ftKb_Init_804D9498 through ftKb_Init_804D94F4 to local @ labels"
+      ]
+    },
+    {
+      "tactic": "Shared macro extraction",
+      "details": "`SIGNF(x)` was removed from the donor TU and added to `src/MSL/math.h`, likely to serve the extracted code without retaining a local duplicate.",
+      "evidence_refs": [
+        "diff_excerpt: ftkirbyspecialdonkey.c removes #define SIGNF",
+        "diff_excerpt: math.h adds #define SIGNF"
+      ]
+    },
+    {
+      "tactic": "Retain conservative address-style names where semantics are not established",
+      "details": "Nearby declarations continue using `fn_8010....` names with address comments rather than speculative semantic names.",
+      "evidence_refs": [
+        "diff_excerpt: ftKb_SpecialNYs.c address-commented `fn_` declarations"
+      ]
+    }
+  ],
+  "review_feedback": [],
   "searchable_terms": [
     "pr-2599",
     "ftkirbyspecialpurin",
     "ftkirbyspecialdonkey",
     "ftkirbyspecialzelda",
-    "ftKb_PrSpecialNStart_Anim",
-    "ftKb_PrSpecialNLoop_Anim",
-    "ftKb_PrSpecialNFull_Anim",
-    "ftKb_PrSpecialN1_Anim",
-    "ftKb_PrSpecialNTurn_Anim",
-    "ftKb_PrSpecialNEnd_Anim",
-    "ftKb_PrSpecialAirNStart_Anim",
-    "ftKb_PrSpecialAirNLoop_Anim",
-    "ftKb_PrSpecialAirNFull_Anim",
-    "ftKb_PrSpecialAirN_Anim",
-    "ftKb_PrSpecialNHit_Coll",
-    "ftKb_SpecialNPr_80100F94",
-    "ftKb_SpecialNPr_801010D4",
-    "ftKb_Init_803CB710",
-    "ftKb_Init_803CB720",
-    "ftKb_Init_803CB758",
-    "ftCollisionBox",
+    "ftKb_Init",
+    "ftKb_SpecialNYs",
+    "ftPr_SpecialN",
+    "Kirby Purin SpecialN",
+    "Jigglypuff copied neutral special",
+    "Split and link ftkirbyspecialpurin",
+    "Object(Matching)",
     "SIGNF",
-    "MSL/math.h",
     "splits.txt",
     "symbols.txt",
-    "Object(Matching)",
-    "Kirby Purin SpecialN",
-    "Jigglypuff copy ability",
     "0x80100E0C",
     "0x80105A34",
     "0x803CB710",
     "0x804D9498"
   ],
   "follow_up_queries": [
-    "Find later PRs that rename `ftKb_PrSpecialN*` functions from address-based names to semantic names.",
-    "Find subsequent splits of Kirby copied-special files that reuse the `ftkirbyspecial<character>.h` header pattern.",
-    "Check whether `SIGNF(x)` in `MSL/math.h` remains used by both Kirby Purin copy code and `ftPr_SpecialN.c`.",
-    "Look for future cleanup of `ftKb_Init_803CB758` and other `ftKb_Init_*` data names after this split.",
-    "Search for later matching work on `ftkirbyspecialdonkey.c` now that its range was shortened."
+    "ftkirbyspecialpurin.c SIGNF",
+    "ftKb_Init_803CB710 ...data.0",
+    "Kirby ftkirbyspecialpurin split 0x80100E0C",
+    "fn_80100E0C ftKb SpecialNPr",
+    "ftKb_SpecialNYs fn_8010CD88 static",
+    "ftKb_Init_assert_msg_3 @856",
+    "Object(Matching) ftkirbyspecialpurin.c",
+    "ftkirbyspecialdonkey removed Purin code"
   ],
-  "confidence": 0.9,
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR 2599 metadata, merged state, changed file counts",
+      "changed_files.jsonl: complete changed-file list",
+      "diff_excerpt/raw_diff: split/config/source excerpts",
+      "text_corpus.jsonl: empty PR body",
+      "metadata_json: zero issue comments and zero review comments"
+    ],
+    "notes": [
+      "The PR body is empty and there are no review or issue comments, so reviewer intent and rationale are unavailable.",
+      "The loaded diff is truncated; file-level counts and the shown excerpts support the main split/link conclusions, but full per-function contents of the new TU were not fully available in loaded context.",
+      "No build, objdiff, or CI output is included in the slice; `Object(Matching, ...)` is a configuration fact from the diff, not independent validation evidence.",
+      "Because the PR is mostly a split/link operation, lessons are limited to source/config/symbol surfaces visible in the diff."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "decomp_lesson",
+        "title": "Split fighter TUs require synchronized source, header, configure, splits, and symbols updates",
+        "text": "In PR 2599, extracting `ftkirbyspecialpurin` from `ftkirbyspecialdonkey` involved adding the new `.c`/`.h`, removing the old block from donkey files, adding the object to `configure.py` as Matching, updating `splits.txt` ranges, and correcting `symbols.txt` locality. This is a PR-specific example of keeping split metadata and source boundaries synchronized.",
+        "scope": [
+          "fighter",
+          "Kirby",
+          "translation-unit split",
+          "config/GALE01"
+        ],
+        "evidence_refs": [
+          "changed_files.jsonl",
+          "diff_excerpt: configure.py Matching object",
+          "diff_excerpt: splits.txt range edits",
+          "diff_excerpt: symbols.txt local label edits"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "PR 2599 introduced `ftkirbyspecialpurin` as a split Kirby fighter TU",
+        "text": "`src/melee/ft/chara/ftKirby/ftkirbyspecialpurin.c` was added and linked as `Object(Matching, \"melee/ft/chara/ftKirby/ftkirbyspecialpurin.c\")`; `splits.txt` assigns it text `0x80100E0C-0x80105A34`, data `0x803CB710-0x803CB770`, sdata `0x804D3DD0-0x804D3DE8`, and sdata2 `0x804D9498-0x804D94F0`.",
+        "source_path": "src/melee/ft/chara/ftKirby/ftkirbyspecialpurin.c",
+        "scope": [
+          "Kirby",
+          "Purin",
+          "fighter",
+          "split metadata"
+        ],
+        "evidence_refs": [
+          "diff_excerpt: splits.txt ftkirbyspecialpurin.c block",
+          "diff_excerpt: configure.py Matching object",
+          "changed_files.jsonl: ftkirbyspecialpurin.c added"
+        ],
+        "reason": "Potential path fact for curator review; do not treat as accepted without source-corpus update."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "PR 2599 adjusted adjacent Kirby special split boundaries",
+        "text": "During the `ftkirbyspecialpurin` split, `ftkirbyspecialdonkey.c` text was shortened to end at `0x80100E0C`, `ftkirbyspecialzelda.c` text was moved to start at `0x80105A34`, and `ftkirbyspecialfox.c` `.sdata` end moved from `0x804D3DCC` to `0x804D3DD0`.",
+        "source_path": "config/GALE01/splits.txt",
+        "scope": [
+          "Kirby",
+          "split metadata",
+          "adjacent TU boundaries"
+        ],
+        "evidence_refs": [
+          "diff_excerpt: splits.txt fox/donkey/purin/zelda edits"
+        ],
+        "reason": "Specific split metadata observed in this PR may be useful for path/split history curation."
+      },
+      {
+        "target_source_id": "other",
+        "update_kind": "source_update",
+        "title": "SIGNF macro moved to MSL math header in PR 2599",
+        "text": "The diff removes a local `#define SIGNF(x) ((x) > 0.0f ? 1.0f : -1.0f)` from `ftkirbyspecialdonkey.c` and adds the same macro to `src/MSL/math.h`.",
+        "source_path": "src/MSL/math.h",
+        "scope": [
+          "math.h",
+          "macro",
+          "fighter extracted code"
+        ],
+        "evidence_refs": [
+          "diff_excerpt: math.h adds SIGNF",
+          "diff_excerpt: ftkirbyspecialdonkey.c removes SIGNF"
+        ],
+        "reason": "This is a concrete source-history fact; avoid generalizing into a global macro-placement standard without more evidence."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that every code split should be marked Matching; this PR only shows `ftkirbyspecialpurin.c` configured that way.",
+      "Do not infer reviewer approval rationale; the slice contains no review comments.",
+      "Do not claim a verified objdiff/build result from this slice; no validation logs are included.",
+      "Do not promote local `@` labels or split ranges as independently correct beyond the PR evidence without curator/source verification."
+    ]
+  },
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

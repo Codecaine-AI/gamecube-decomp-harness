@@ -12,98 +12,96 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Permuter-driven item matching fixes touched Link boomerang, Link hookshot, and Ness yo-yo item code. The bot report records five newly matched functions totaling +2644 matched bytes, with all five listed functions reaching 100.00%. The diff includes narrow code-shape changes such as temporary aliases, static inline helpers, declaration/order changes, scoped PAD_STACK adjustments, bool cleanup, and one argument source change from fp->x40 to attr->x40.",
+  "summary": "Small item decomp matching PR using permuter-found source-shape edits across Link boomerang, Link hookshot, and Ness yo-yo item TUs. The bot report says five item functions became newly matched, improving matched code by 2644 bytes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
       "fix",
-      "permuter-driven cleanup"
+      "permuter-driven source-shape changes",
+      "item TU matching"
     ],
     "systems": [
       "item",
-      "Link hookshot",
       "Link boomerang",
+      "Link hookshot",
       "Ness yo-yo"
     ]
   },
   "key_files": [
     {
-      "path": "src/melee/it/items/itlinkhookshot.c",
-      "role": "Main matching target; changed fn_802A33A0, it_802A39FC, and it_802A4758 via inline helpers, local declaration/order changes, bool control variable, PAD_STACK removal, and argument/access reshaping.",
+      "path": "src/melee/it/items/itlinkboomerang.c",
+      "role": "Adjusted local JObj assignment shape in it_802A0534, reported as newly 100% matched.",
       "evidence_refs": [
-        "changed_files.jsonl: itlinkhookshot.c added 34 deleted 20 hunks 7",
-        "raw_diff: itlinkhookshot.c hunks around fn_802A33A0, it_802A39FC, it_802A4758",
-        "text_corpus: bot report lists fn_802A33A0, it_802A39FC, and it_802A4758 at 100.00%"
+        "changed_files: itlinkboomerang.c added 2 deleted 1 hunk 1",
+        "raw_diff: it_802A0534 changes HSD_JObj* jobj into jobj_tmp then jobj",
+        "text_corpus: bot report lists itlinkboomerang it_802A0534 +5 bytes, 99.31% to 100.00%"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itlinkhookshot.c",
+      "role": "Main matching target; changed inline helpers, declaration/order/lifetime shape, bool temporary, PAD_STACK removal, and argument/access expression choices across fn_802A33A0, it_802A39FC, and it_802A4758.",
+      "evidence_refs": [
+        "changed_files: itlinkhookshot.c added 34 deleted 20 hunks 7",
+        "raw_diff: fn_802A33A0_GetFighter inline added with // permuterslop comment",
+        "raw_diff: fn_802A33A0 changes fp source to helper and it_802A5E28 fourth argument from fp->x40 to attr->x40",
+        "raw_diff: it_802A39FC initializes item and attr at declarations, changes int var_r0 to bool chk, removes PAD_STACK(4), adds y_delta nested temporary",
+        "raw_diff: it_802A4758_permuterslop inline returns &link_0->pos and is passed to test_comp",
+        "text_corpus: bot report lists fn_802A33A0, it_802A39FC, and it_802A4758 as newly 100% matched"
       ]
     },
     {
       "path": "src/melee/it/items/itnessyoyo.c",
-      "role": "Ness yo-yo matching target; split rotation update into a static inline helper and adjusted PAD_STACK placement/size.",
+      "role": "Extracted rotation update into a static inline helper and adjusted PAD_STACK placement/size for itNessyoyo_UnkMotion3_Anim, reported as newly 100% matched.",
       "evidence_refs": [
-        "changed_files.jsonl: itnessyoyo.c added 9 deleted 3 hunks 2",
-        "raw_diff: itNessyoyo_UnkMotion3_Anim_UpdateRotation introduced",
-        "text_corpus: bot report lists itNessyoyo_UnkMotion3_Anim at 100.00%"
-      ]
-    },
-    {
-      "path": "src/melee/it/items/itlinkboomerang.c",
-      "role": "Link boomerang matching target; introduced a temporary HSD_JObj alias before assigning jobj.",
-      "evidence_refs": [
-        "changed_files.jsonl: itlinkboomerang.c added 2 deleted 1 hunk 1",
-        "raw_diff: it_802A0534 jobj_tmp alias",
-        "text_corpus: bot report lists it_802A0534 at 100.00%"
+        "changed_files: itnessyoyo.c added 9 deleted 3 hunks 2",
+        "raw_diff: itNessyoyo_UnkMotion3_Anim_UpdateRotation inline extracted, PAD_STACK changed from 24 to 16 in helper and PAD_STACK(16) added in caller",
+        "text_corpus: bot report lists itNessyoyo_UnkMotion3_Anim +2 bytes, 99.58% to 100.00%"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Added a local HSD_JObj* jobj_tmp alias in it_802A0534 before assigning jobj.",
+      "text": "PR body states that a new permuter yielded several wins and records remaining item work as 21 item TUs and 69 item functions.",
       "evidence_refs": [
-        "raw_diff: itlinkboomerang.c it_802A0534"
+        "human_pr_text",
+        "text_corpus: pr_body"
       ]
     },
     {
-      "text": "In fn_802A33A0, introduced static inline fn_802A33A0_GetFighter returning item->owner->user_data, reordered declarations, and changed one it_802A5E28 argument from fp->x40 to attr->x40.",
+      "text": "Five functions were reported as newly matched by the bot: it_802A4758, it_802A0534, fn_802A33A0, it_802A39FC, and itNessyoyo_UnkMotion3_Anim.",
       "evidence_refs": [
-        "raw_diff: itlinkhookshot.c fn_802A33A0"
+        "text_corpus: decomp-dev[bot] report for GALE01 lists 5 new matches"
       ]
     },
     {
-      "text": "In it_802A39FC, initialized item and attr at declaration, removed PAD_STACK(4), changed int var_r0 to bool chk, reordered locals, added a commented-out InitState hint, and introduced a nested y_delta temporary before assigning temp_f30.",
+      "text": "itlinkhookshot.c added small inline wrappers/accessors and reshaped locals/control temporaries in several functions.",
       "evidence_refs": [
-        "raw_diff: itlinkhookshot.c it_802A39FC"
+        "raw_diff: itlinkhookshot.c hunks for fn_802A33A0, it_802A39FC, it_802A4758"
       ]
     },
     {
-      "text": "In it_802A4758, introduced static inline it_802A4758_permuterslop returning &link_0->pos and passed that helper result to test_comp.",
+      "text": "itnessyoyo.c moved part of itNessyoyo_UnkMotion3_Anim into a static inline UpdateRotation helper and adjusted stack padding.",
       "evidence_refs": [
-        "raw_diff: itlinkhookshot.c it_802A4758"
+        "raw_diff: itnessyoyo.c hunk around itNessyoyo_UnkMotion3_Anim"
       ]
     },
     {
-      "text": "In itNessyoyo_UnkMotion3_Anim, moved the rotation update block into static inline itNessyoyo_UnkMotion3_Anim_UpdateRotation, changed PAD_STACK(24) inside the moved block to PAD_STACK(16), and added PAD_STACK(16) in the outer function before calling the helper.",
+      "text": "itlinkboomerang.c introduced an extra temporary JObj pointer assignment in it_802A0534.",
       "evidence_refs": [
-        "raw_diff: itnessyoyo.c itNessyoyo_UnkMotion3_Anim"
-      ]
-    },
-    {
-      "text": "Bot report records 5 new matches: it_802A4758, it_802A0534, fn_802A33A0, it_802A39FC, and itNessyoyo_UnkMotion3_Anim, with matched code increasing by +0.07% / +2644 bytes.",
-      "evidence_refs": [
-        "text_corpus: decomp-dev[bot] report for GALE01"
+        "raw_diff: itlinkboomerang.c hunk around it_802A0534"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Kept edits narrowly scoped to three item translation units and five functions reported as newly matched.",
+      "text": "Kept permuter-found changes narrow: only three item source files changed, and the bot report ties the edits to five newly matched functions.",
       "evidence_refs": [
-        "changed_files.jsonl",
-        "text_corpus: decomp-dev[bot] report lists 5 new matches"
+        "changed_files",
+        "text_corpus: bot report"
       ]
     },
     {
-      "text": "Used tiny static inline wrappers to influence expression/access shape without changing call surface outside the touched file.",
+      "text": "Used small inline extraction/accessor wrappers to influence codegen without broad rewrites.",
       "evidence_refs": [
         "raw_diff: fn_802A33A0_GetFighter",
         "raw_diff: it_802A4758_permuterslop",
@@ -111,214 +109,246 @@
       ]
     },
     {
-      "text": "Converted the collision-check flag in it_802A39FC from int var_r0 with 0/1 assignments to bool chk with false/true assignments while retaining the same branch structure.",
+      "text": "Converted an integer collision-check flag in it_802A39FC into a bool variable named chk while preserving the two mpCheckAllRemap branches.",
       "evidence_refs": [
-        "raw_diff: it_802A39FC var_r0 to chk"
+        "raw_diff: it_802A39FC var_r0 to chk changes"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "Small helper inlines, declaration ordering, temporary aliases, and local lifetime changes can close narrow item-function matches, but they should be treated as matching tactics rather than general style unless supported by local authored-source evidence.",
+      "text": "Very small source-shape changes, including extra pointer temporaries, declaration ordering, helper extraction, and local lifetime changes, can close final sub-percent gaps in item functions when backed by bot/objdiff-style match evidence.",
       "scope": [
-        "item matching",
-        "permuter-driven fixes",
-        "local codegen steering"
+        "item TUs",
+        "near-matching functions"
       ],
       "evidence_refs": [
-        "human_pr_text: New permuter yielded a few wins",
-        "raw_diff: helper inlines and local reordering",
-        "text_corpus: bot report shows 5 new matches"
+        "raw_diff",
+        "text_corpus: bot report lists five functions moving to 100.00%"
       ],
-      "confidence": 0.76
+      "confidence": 0.86
     },
     {
-      "lesson": "When a permuter suggests a code-shape win, keep the edit very local and rely on a narrow report for each claimed match.",
+      "text": "Permuter-found helper wrappers should be treated as matching tactics rather than general style; this PR even labels two helpers as permuter-driven/permuterslop.",
       "scope": [
-        "permuter-driven decomp",
-        "verification"
+        "permuter-driven decomp work",
+        "inline helper extraction"
       ],
       "evidence_refs": [
-        "changed_files.jsonl: three touched files",
-        "text_corpus: bot report names each matched function and before/after percentages"
+        "PR title: permuter-driven fixes",
+        "human_pr_text: New permuter yielded a few wins",
+        "raw_diff: // permuterslop before fn_802A33A0_GetFighter",
+        "raw_diff: it_802A4758_permuterslop"
       ],
-      "confidence": 0.72
+      "confidence": 0.78
     }
   ],
   "naming_conventions": [
     {
-      "text": "The PR introduced helper names derived from the target function, e.g. fn_802A33A0_GetFighter and itNessyoyo_UnkMotion3_Anim_UpdateRotation.",
+      "text": "Temporary or tactic-oriented helper names in this PR use explicit suffixes/comments such as GetFighter, UpdateRotation, and permuterslop to describe the local operation or flag the codegen tactic.",
       "evidence_refs": [
         "raw_diff: fn_802A33A0_GetFighter",
+        "raw_diff: it_802A4758_permuterslop",
         "raw_diff: itNessyoyo_UnkMotion3_Anim_UpdateRotation"
-      ]
+      ],
+      "notes": "The PR evidence shows these names were merged, but it does not prove they are preferred global naming style."
     },
     {
-      "text": "The PR also used explicit provisional names/comments such as permuterslop and it_802A4758_permuterslop, indicating these helpers were matching tactics rather than semantically polished APIs.",
+      "text": "The it_802A39FC flag local was renamed from generated-looking var_r0 to role-adjacent chk.",
       "evidence_refs": [
-        "raw_diff: // permuterslop",
-        "raw_diff: it_802A4758_permuterslop"
-      ]
-    },
-    {
-      "text": "Local boolean flag naming was improved from generated-looking var_r0 to chk in it_802A39FC.",
-      "evidence_refs": [
-        "raw_diff: it_802A39FC var_r0 to chk"
-      ]
+        "raw_diff: int var_r0 changed to bool chk"
+      ],
+      "notes": "The name is short and local; no broader convention is implied."
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Introduce a pass-through temporary alias to preserve desired register/local lifetime shape.",
-      "examples": [
-        "HSD_JObj* jobj_tmp = gobj->hsd_obj; HSD_JObj* jobj = jobj_tmp;"
+      "text": "Introduce an extra temporary pointer assignment to affect register/lifetime shape: HSD_JObj* jobj_tmp = gobj->hsd_obj; HSD_JObj* jobj = jobj_tmp.",
+      "applies_to": [
+        "it_802A0534"
       ],
       "evidence_refs": [
-        "raw_diff: itlinkboomerang.c it_802A0534",
-        "text_corpus: bot report it_802A0534 99.31% to 100.00%"
+        "raw_diff: itlinkboomerang.c",
+        "text_corpus: bot report it_802A0534 100.00%"
       ]
     },
     {
-      "tactic": "Wrap a direct field/access expression in a static inline helper to influence generated code shape.",
-      "examples": [
-        "fn_802A33A0_GetFighter(item)",
-        "it_802A4758_permuterslop(link_0)"
+      "text": "Use a static inline accessor wrapper for owner fighter retrieval in fn_802A33A0.",
+      "applies_to": [
+        "fn_802A33A0"
       ],
       "evidence_refs": [
-        "raw_diff: itlinkhookshot.c fn_802A33A0_GetFighter",
-        "raw_diff: itlinkhookshot.c it_802A4758_permuterslop",
-        "text_corpus: bot report fn_802A33A0 and it_802A4758 at 100.00%"
+        "raw_diff: fn_802A33A0_GetFighter returns item->owner->user_data",
+        "text_corpus: bot report fn_802A33A0 100.00%"
       ]
     },
     {
-      "tactic": "Extract a block into a static inline helper and balance PAD_STACK placement between helper and caller.",
-      "examples": [
-        "itNessyoyo_UnkMotion3_Anim_UpdateRotation(ip)",
-        "PAD_STACK(16) in helper and PAD_STACK(16) in caller"
+      "text": "Adjust declaration order, initialization-at-declaration, stack padding, and nested temporary lifetime to match it_802A39FC.",
+      "applies_to": [
+        "it_802A39FC"
       ],
       "evidence_refs": [
-        "raw_diff: itnessyoyo.c itNessyoyo_UnkMotion3_Anim",
-        "text_corpus: bot report itNessyoyo_UnkMotion3_Anim 99.58% to 100.00%"
+        "raw_diff: it_802A39FC local declarations and PAD_STACK removal",
+        "raw_diff: y_delta nested block",
+        "text_corpus: bot report it_802A39FC 100.00%"
       ]
     },
     {
-      "tactic": "Use nested scoped temporaries to alter local lifetime or assignment shape.",
-      "examples": [
-        "f32 y_delta = fp->cur_pos.y - pos.y; temp_f30 = y_delta;"
+      "text": "Wrap &link_0->pos in a static inline function before passing it to test_comp.",
+      "applies_to": [
+        "it_802A4758"
       ],
       "evidence_refs": [
-        "raw_diff: itlinkhookshot.c it_802A39FC",
-        "text_corpus: bot report it_802A39FC 99.78% to 100.00%"
+        "raw_diff: it_802A4758_permuterslop",
+        "text_corpus: bot report it_802A4758 100.00%"
+      ]
+    },
+    {
+      "text": "Extract a rotation update block into a static inline helper and split PAD_STACK usage between helper and caller.",
+      "applies_to": [
+        "itNessyoyo_UnkMotion3_Anim"
+      ],
+      "evidence_refs": [
+        "raw_diff: itNessyoyo_UnkMotion3_Anim_UpdateRotation",
+        "text_corpus: bot report itNessyoyo_UnkMotion3_Anim 100.00%"
       ]
     }
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    {
+      "type": "automated_report",
+      "author": "decomp-dev[bot]",
+      "text": "GALE01 report showed matched code 70.15% (+0.07%, +2644 bytes) and 5 new matches.",
+      "evidence_refs": [
+        "text_corpus: issue_comment by decomp-dev[bot] at 2026-06-04T20:37:12Z"
+      ]
+    },
+    {
+      "type": "missing_human_review",
+      "author": null,
+      "text": "No review comments or review records are present in the slice.",
+      "evidence_refs": [
+        "metadata_json: counts review_comments 0, reviews 0"
+      ]
+    }
+  ],
   "searchable_terms": [
-    "pr-2579",
+    "PR 2579",
     "permuter-driven fixes",
     "lukechampine",
-    "item",
+    "item matching",
     "itlinkhookshot",
     "itlinkboomerang",
     "itnessyoyo",
-    "fn_802A33A0",
-    "fn_802A33A0_GetFighter",
-    "it_802A39FC",
     "it_802A4758",
-    "it_802A4758_permuterslop",
     "it_802A0534",
+    "fn_802A33A0",
+    "it_802A39FC",
     "itNessyoyo_UnkMotion3_Anim",
+    "fn_802A33A0_GetFighter",
+    "it_802A4758_permuterslop",
     "itNessyoyo_UnkMotion3_Anim_UpdateRotation",
     "PAD_STACK",
     "permuterslop",
-    "jobj_tmp",
-    "var_r0",
-    "chk",
-    "y_delta",
-    "attr->x40",
-    "fp->x40",
-    "decomp-dev bot",
-    "GALE01",
-    "5 new matches",
-    "+2644 bytes"
+    "decomp-dev bot 5 new matches",
+    "GALE01 +2644 bytes"
   ],
   "follow_up_queries": [
-    "it_802A4758_permuterslop",
-    "\"// permuterslop\"",
-    "\"fn_802A33A0_GetFighter\"",
-    "\"itNessyoyo_UnkMotion3_Anim_UpdateRotation\"",
-    "\"PAD_STACK(16)\" \"itNessyoyo_UnkMotion3_Anim\"",
-    "\"attr->x40\" \"it_802A5E28\"",
-    "\"jobj_tmp\" \"it_802A0534\"",
-    "\"it_802A39FC_InitState\""
+    "PR 2579 permuterslop inline helper cleanup",
+    "it_802A4758_permuterslop later rename or removal",
+    "fn_802A33A0_GetFighter attr->x40 fp->x40",
+    "itNessyoyo_UnkMotion3_Anim_UpdateRotation PAD_STACK",
+    "it_802A39FC bool chk y_delta PAD_STACK",
+    "item TUs remaining item functions 69"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR metadata, state, author, changed files",
-      "human_pr_text: PR body says new permuter yielded wins and gives remaining item counts",
-      "raw_diff: complete diff excerpt for three changed files",
-      "text_corpus: decomp-dev[bot] report with matched-code summary"
+      "metadata_json",
+      "human_pr_text",
+      "raw_diff",
+      "changed_files",
+      "text_corpus"
     ],
     "notes": [
-      "There are no review comments or human reviewer discussion in the loaded slice, so reviewer intent and acceptance rationale are unavailable.",
-      "The bot report provides strong support for claimed before/after match percentages, but the slice does not include build logs, objdiff details, or adjacent regression checks.",
-      "Several introduced helpers are explicitly labeled or named permuterslop, so they should not be generalized as preferred source style without curator review and additional local-source evidence.",
-      "The diff shows a semantic-looking argument change from fp->x40 to attr->x40, but the slice does not explain whether this was a recovered original source fact, a type correction, or a codegen-driven fix."
+      "Changed files, exact diffs, PR metadata, and bot match report are available and consistent.",
+      "raw_pr_json is truncated, but the loaded excerpts include the needed PR identity and body.",
+      "No human review comments are present, so reviewer rationale and cleanup expectations cannot be inferred.",
+      "The bot report supports newly matched functions and byte progress; the slice does not include full objdiff output or build logs.",
+      "The term permuterslop appears in source diff, but no evidence says whether maintainers considered it a long-term style or only an expedient matching tactic."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "pr_postmortem_lesson",
-        "title": "Permuter wins may rely on narrow local code-shape steering",
-        "text": "PR #2579 shows five item functions reaching 100.00% after narrow edits such as helper inlines, temporary aliases, local declaration/order changes, PAD_STACK reshaping, and scoped temporaries. Treat these as tactics requiring narrow match evidence, not as broad style guidance.",
+        "kind": "pr_lesson",
+        "title": "Permuter-found micro-shape edits closed five item matches in PR 2579",
+        "text": "In PR 2579, narrow source-shape edits across itlinkhookshot.c, itlinkboomerang.c, and itnessyoyo.c corresponded to a bot report of five newly 100% matched item functions and +2644 matched bytes.",
         "scope": [
-          "item functions",
-          "permuter-driven matching",
-          "local codegen tactics"
+          "src/melee/it/items",
+          "near-matching item functions",
+          "permuter-assisted matching"
+        ],
+        "evidence_refs": [
+          "human_pr_text: New permuter yielded a few wins",
+          "text_corpus: decomp-dev[bot] report lists 5 new matches",
+          "raw_diff"
+        ],
+        "confidence": 0.88
+      },
+      {
+        "kind": "matching_tactic_observation",
+        "title": "Inline helper extraction and local lifetime reshaping used as final-gap tactics",
+        "text": "This PR used small static inline wrappers, declaration ordering, temporary variable blocks, bool flag reshaping, and PAD_STACK changes to move specific item functions to 100%. Treat as tactic evidence for these functions, not as a broad style rule.",
+        "scope": [
+          "fn_802A33A0",
+          "it_802A39FC",
+          "it_802A4758",
+          "itNessyoyo_UnkMotion3_Anim",
+          "it_802A0534"
         ],
         "evidence_refs": [
           "raw_diff",
-          "text_corpus: decomp-dev[bot] 5 new matches"
+          "text_corpus: bot report"
         ],
-        "confidence": 0.74
+        "confidence": 0.8
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Clarify treatment of permuter-labeled helper inlines",
-        "text": "Consider adding guidance that helper inlines introduced only to steer codegen, especially names/comments like permuterslop, should be narrowly justified by objdiff/checkdiff evidence and revisited for cleanup or more natural authored-source forms.",
+        "title": "Clarify handling of permuter-generated helper wrappers",
+        "text": "Consider adding a note that permuter-found static inline wrappers, extra temporaries, and PAD_STACK/local-lifetime changes may be valid narrow matching tactics when accompanied by function-level match evidence, but names/comments like permuterslop should prompt cleanup review before treating the pattern as source style.",
         "source_path": null,
         "scope": [
-          "matching tactics",
-          "static inline helpers",
-          "permuter output"
+          "matching-tactics-need-evidence",
+          "infer-authored-source-style",
+          "conservative-naming"
         ],
         "evidence_refs": [
+          "PR 2579 title/body: permuter-driven fixes; New permuter yielded a few wins",
           "raw_diff: // permuterslop before fn_802A33A0_GetFighter",
           "raw_diff: it_802A4758_permuterslop",
-          "text_corpus: bot report shows affected functions reaching 100.00%"
+          "text_corpus: bot report confirms affected functions reached 100.00%"
         ],
-        "reason": "The loaded standards already require evidence for matching tactics, but this PR provides a concrete example of permuter-labeled helper inlines that may warrant explicit curator guidance."
+        "reason": "The PR provides concrete examples of permuter-driven helper/tactical source shapes that matched functions, while the naming/comment evidence suggests they should not automatically become accepted authored style."
       }
     ],
     "rejection_notes": [
-      "Do not infer that permuterslop helper names are accepted naming style; the PR evidence only shows they were merged in this narrow matching context.",
-      "Do not promote the attr->x40 change as a recovered field-use rule without additional type/source evidence.",
-      "Do not claim review approval details; no review comments or reviews are present in the loaded slice.",
-      "Do not claim broad regression safety; the slice includes a bot match report but no adjacent-function or full regression ledger."
+      "Do not infer that all permuter output is accepted style; the PR only shows narrow merged changes with automated match evidence.",
+      "Do not infer human reviewer intent or cleanup approval because the slice has no human review comments.",
+      "Do not claim full TU completion; the PR body says remaining item TUs and functions still existed.",
+      "Do not promote attr->x40 versus fp->x40 as a semantic correction without additional type/source evidence; the diff only proves the PR changed the expression and the bot reported a match."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.84,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

@@ -11,127 +11,477 @@
     "merged_at": "2026-06-07T06:34:29Z"
   },
   "agent_status": "agent_completed",
-  "summary": "Split Kirby's copied Ness neutral-special code out of the old `ftKb_SpecialNNs.c`/renamed area into a new matching `ftkirbyspecialness.c`, renamed the remaining file to `ftkirbyspecialdonkey.c`, and moved the exported prototypes into a dedicated `ftkirbyspecialdonkey.h`. The build config now links `ftkirbyspecialness.c` as Matching while keeping `ftkirbyspecialdonkey.c` NonMatching. Item and motion-state users were updated to include the narrower Kirby-special header instead of the oversized `ftKb_Init.h`.",
+  "intake_role": "pr_intake",
+  "summary": "PR 2596 splits the old Kirby SpecialNNs slice into a newly linked/renamed `ftkirbyspecialness.c` matching object and a separate `ftkirbyspecialdonkey.c` nonmatching object, adjusts split and symbol ownership metadata, moves a large prototype block out of `ftKb_Init.h` into `ftkirbyspecialdonkey.h`, and updates includes and dependent item files accordingly.",
   "change_classification": {
-    "primary_type": "matching_and_file_rename",
+    "primary_type": "decomp_split_and_rename",
     "categories": [
-      "matching",
       "headers",
       "naming",
-      "object_split",
-      "include_cleanup",
-      "symbols_config"
+      "split_metadata",
+      "symbol_metadata",
+      "build_config"
     ],
     "systems": [
-      "config",
       "fighter",
       "Kirby",
-      "item"
+      "items",
+      "config",
+      "repo-root"
     ]
   },
   "key_files": [
-    "configure.py",
-    "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
-    "src/melee/ft/chara/ftKirby/ftkirbyspecialness.c",
-    "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c",
-    "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.h",
-    "src/melee/ft/chara/ftKirby/ftKb_Init.h",
-    "src/melee/ft/chara/ftKirby/ftKb_Init.c",
-    "src/melee/ft/ftmotionstates.c",
-    "src/melee/it/items/itclimbersice.c",
-    "src/melee/it/items/itkirbygamewatchchefpan.c",
-    "src/melee/it/items/itkirbyyoshispecialn.c",
-    "src/melee/it/items/itmewtwoshadowball.c",
-    "src/melee/it/items/itpeachtoad.c",
-    "src/melee/it/items/itseakneedleheld.c"
+    {
+      "path": "config/GALE01/splits.txt",
+      "role": "Adjusted TU ranges: removed `ftKb_SpecialNNs.c`, added `ftkirbyspecialness.c` and `ftkirbyspecialdonkey.c`, and adjusted neighboring Kirby split ranges.",
+      "evidence_refs": [
+        "diff_excerpt:splits.txt",
+        "changed_files.jsonl"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Changed several Kirby float/data symbols from global names to local labels or local float metadata.",
+      "evidence_refs": [
+        "diff_excerpt:symbols.txt",
+        "changed_files.jsonl"
+      ]
+    },
+    {
+      "path": "configure.py",
+      "role": "Replaced one NonMatching `ftKb_SpecialNNs.c` object with Matching `ftkirbyspecialness.c` and NonMatching `ftkirbyspecialdonkey.c` objects.",
+      "evidence_refs": [
+        "diff_excerpt:configure.py"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialness.c",
+      "role": "New Kirby Ness-special source file, added as the linked/matching object for text range 0x800FED38-0x800FF8EC.",
+      "evidence_refs": [
+        "changed_files.jsonl",
+        "diff_excerpt:splits.txt",
+        "diff_excerpt:configure.py"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c",
+      "role": "Kirby Donkey-special source kept as a separate nonmatching object after extracting Ness-special code.",
+      "evidence_refs": [
+        "changed_files.jsonl",
+        "diff_excerpt:splits.txt",
+        "diff_excerpt:configure.py"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.h",
+      "role": "New owning header for the large Kirby Donkey/Purin/Zelda/etc. prototype block removed from `ftKb_Init.h`.",
+      "evidence_refs": [
+        "changed_files.jsonl",
+        "diff.diff:ftKb_Init.h deletion block"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.h",
+      "role": "Removed 378 lines of prototypes beginning after Kirby Ness-special declarations.",
+      "evidence_refs": [
+        "diff_excerpt:ftKb_Init.h",
+        "changed_files.jsonl"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_Init.c",
+      "role": "Includes the new `ftkirbyspecialdonkey.h` header and removes two `Vec4` data definitions from this TU.",
+      "evidence_refs": [
+        "diff_excerpt:ftKb_Init.c"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNYs.c",
+      "role": "Include surface updated to reference `ftkirbyspecialdonkey.h` and retain access to `ftKb_Init.h` via explicit Kirby include.",
+      "evidence_refs": [
+        "raw_diff grep:ftKb_SpecialNYs.c includes",
+        "changed_files.jsonl"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNZd.c",
+      "role": "Include cleanup and dependency update toward the new `ftKirby/ftkirbyspecialdonkey.h` header.",
+      "evidence_refs": [
+        "raw_diff grep:ftKb_SpecialNZd.c includes",
+        "changed_files.jsonl"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialfox.c",
+      "role": "Neighboring Kirby special TU had text/sdata2 split boundaries adjusted.",
+      "evidence_refs": [
+        "diff_excerpt:splits.txt",
+        "changed_files.jsonl"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ftmotionstates.c",
+      "role": "Small dependent motion-state update associated with the split/rename.",
+      "evidence_refs": [
+        "changed_files.jsonl"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itclimbersice.c",
+      "role": "Dependent item include/reference update for Kirby copied special interactions.",
+      "evidence_refs": [
+        "changed_files.jsonl"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itkirbygamewatchchefpan.c",
+      "role": "Dependent item include/reference update for Kirby copied special interactions.",
+      "evidence_refs": [
+        "changed_files.jsonl"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itkirbyyoshispecialn.c",
+      "role": "Dependent item include/reference update for Kirby copied special interactions.",
+      "evidence_refs": [
+        "changed_files.jsonl"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itmewtwoshadowball.c",
+      "role": "Dependent item include/reference update for Kirby copied special interactions.",
+      "evidence_refs": [
+        "changed_files.jsonl"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itpeachtoad.c",
+      "role": "Dependent item include/reference update for Kirby copied special interactions.",
+      "evidence_refs": [
+        "changed_files.jsonl"
+      ]
+    },
+    {
+      "path": "src/melee/it/items/itseakneedleheld.c",
+      "role": "Dependent item include/reference update for Kirby copied special interactions.",
+      "evidence_refs": [
+        "changed_files.jsonl"
+      ]
+    }
   ],
   "what_changed": [
-    "`configure.py` replaced one NonMatching object, `melee/ft/chara/ftKirby/ftKb_SpecialNNs.c`, with two objects: Matching `ftkirbyspecialness.c` and NonMatching `ftkirbyspecialdonkey.c`.",
-    "`config/GALE01/splits.txt` split the former `ftKb_SpecialNNs.c` range: `ftkirbyspecialness.c` covers text `0x800FED38..0x800FF8EC` and sdata2 `0x804D9478..0x804D9484`, while `ftkirbyspecialdonkey.c` covers text `0x800FF8EC..0x80105BA8` and data `0x803CB720..0x803CB730`.",
-    "Added new `src/melee/ft/chara/ftKirby/ftkirbyspecialness.c` containing the Kirby-copied Ness neutral-special entrypoints and callbacks such as `ftKb_SpecialNNs_800FED38`, `ftKb_SpecialNNs_800FEDD0`, `ftKb_NsSpecialNStart_Anim`, `ftKb_NsSpecialNHold_Anim`, air variants, IASA, Phys, and Coll functions.",
-    "Renamed `src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c` to `src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c` and removed the Ness-specific functions from that file, leaving the later Donkey/other copied-special code in the renamed object.",
-    "Added `src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.h` and moved a large block of function declarations out of `ftKb_Init.h`, reducing the initializer header by hundreds of declarations.",
-    "Moved the `ftKb_Init_803CB710` and `ftKb_Init_803CB720` scale data out of `ftKb_Init.c`; the diff shows matching-related symbol/split updates around these float objects.",
-    "Updated users in Kirby and item code to include `ftkirbyspecialdonkey.h` where they referenced copied-special callbacks, including `ftKb_SpecialNYs.c`, `ftKb_SpecialNZd.c`, `ftmotionstates.c`, Ice Climbers ice, Kirby Game & Watch chef pan, Kirby Yoshi special-N, Mewtwo shadow ball, Peach toad, and Sheik needle held.",
-    "`config/GALE01/symbols.txt` changed several formerly global float symbols in the affected sdata2 region to local `@` labels, matching the new object boundaries and data ownership.",
-    "`itmewtwoshadowball.c` gained an explicit `default: break;` in a switch inside `it_2725_Logic101_Destroyed`, likely as a small matching/control-flow cleanup in code that calls Kirby-Mewtwo copied-special logic."
+    "Renamed/replaced the old `melee/ft/chara/ftKirby/ftKb_SpecialNNs.c` object entry with `melee/ft/chara/ftKirby/ftkirbyspecialness.c` in `splits.txt` and `configure.py`.",
+    "Marked `ftkirbyspecialness.c` as `Object(Matching, ...)` and introduced `ftkirbyspecialdonkey.c` as a separate `Object(NonMatching, ...)` in `configure.py`.",
+    "Split text ownership in `splits.txt`: `ftkirbyspecialness.c` covers 0x800FED38-0x800FF8EC and `ftkirbyspecialdonkey.c` covers 0x800FF8EC-0x80105BA8.",
+    "Adjusted neighboring Kirby special ranges, including shortening `ftkirbyspecialfox.c` text end from 0x800FEDD0 to 0x800FED38 and extending its sdata2 end to 0x804D9478.",
+    "Moved data ownership for `ftkirbyspecialdonkey.c` to `.data` 0x803CB720-0x803CB730 and changed `ftKb_Init_803CB720` symbol metadata from global to local float data.",
+    "Changed `ftKb_Init_804D9478`, `ftKb_Init_804D947C`, and `ftKb_Init_804D9480` from named globals to local sdata2 float labels `@228`, `@229`, and `@237`.",
+    "Removed a large prototype block from `ftKb_Init.h` and added a new `ftkirbyspecialdonkey.h` with the corresponding declarations.",
+    "Updated Kirby and item source includes to use the new header boundaries after the split."
   ],
   "smart_moves": [
-    "Made the link step incremental: only the newly isolated Ness slice is marked Matching, while the renamed trailing `ftkirbyspecialdonkey.c` remains NonMatching.",
-    "Used split-file boundaries rather than trying to match the entire old large `ftKb_SpecialNNs.c` object at once, reducing the scope to the `0x800FED38..0x800FF8EC` Ness region.",
-    "Created a dedicated header for the copied-special declarations instead of continuing to expose many unrelated functions through `ftKb_Init.h`.",
-    "Adjusted `symbols.txt` locality for float data after the split, avoiding stale global symbols for constants that now belong to a smaller object.",
-    "Updated dependent item files to include the new targeted header, preserving cross-system references while decoupling item code from the huge Kirby init header.",
-    "Kept original address-bearing function names such as `ftKb_SpecialNNs_800FED38` where semantic names were still partial, which preserves searchable address anchors for later cleanup."
+    {
+      "text": "Separated the newly linked Ness-special code from the still-nonmatching Donkey-special range instead of keeping one broad nonmatching `ftKb_SpecialNNs.c` TU.",
+      "evidence_refs": [
+        "diff_excerpt:splits.txt",
+        "diff_excerpt:configure.py"
+      ]
+    },
+    {
+      "text": "Kept matching status narrow: only `ftkirbyspecialness.c` is marked Matching while `ftkirbyspecialdonkey.c` remains NonMatching.",
+      "evidence_refs": [
+        "diff_excerpt:configure.py"
+      ]
+    },
+    {
+      "text": "Updated split and symbol metadata together with the source/header rename, reducing mismatch between source organization and config ownership.",
+      "evidence_refs": [
+        "diff_excerpt:splits.txt",
+        "diff_excerpt:symbols.txt"
+      ]
+    },
+    {
+      "text": "Moved declarations out of an overloaded init header into a more specific Kirby special header surface.",
+      "evidence_refs": [
+        "diff_excerpt:ftKb_Init.h",
+        "changed_files.jsonl:ftkirbyspecialdonkey.h"
+      ]
+    }
   ],
   "decomp_lessons": [
-    "For large fighter copied-special objects, split by copied character or move region first, then mark only the proven sub-object Matching.",
-    "After object splits, update all three build/link surfaces together: `configure.py`, `config/GALE01/splits.txt`, and `config/GALE01/symbols.txt`.",
-    "Header bloat can hide dependency problems; moving declarations from `ftKb_Init.h` into a move-specific header made item and motion-state dependencies more explicit.",
-    "When data moves with an object split, revisit symbol scope and local labels, especially for small float/sdata2 constants that may have been incorrectly promoted to global names.",
-    "Preserve address comments in headers during large declaration moves; they make the refactor auditable and help future decomp work verify that prototypes stayed attached to the same text addresses.",
-    "Include cleanup is a legitimate part of matching work: once a code region is isolated, unrelated includes can be dropped from the renamed source and added only where actually needed."
+    {
+      "lesson": "When a large nonmatching fighter TU contains a newly matchable subrange, split the object by real text boundaries and mark only the verified subrange as Matching while leaving the rest NonMatching.",
+      "scope": [
+        "fighter TUs",
+        "Kirby copied special move files",
+        "configure.py object status"
+      ],
+      "evidence_refs": [
+        "diff_excerpt:splits.txt",
+        "diff_excerpt:configure.py"
+      ],
+      "confidence": 0.82
+    },
+    {
+      "lesson": "Header cleanup should follow TU ownership: after extracting a specific special-move file, move its declarations to the more specific header and update dependent includes rather than leaving all prototypes in an init header.",
+      "scope": [
+        "fighter headers",
+        "Kirby special headers"
+      ],
+      "evidence_refs": [
+        "diff_excerpt:ftKb_Init.h",
+        "diff_excerpt:ftKb_Init.c",
+        "raw_diff grep:ftKb_SpecialNYs.c includes",
+        "raw_diff grep:ftKb_SpecialNZd.c includes"
+      ],
+      "confidence": 0.74
+    },
+    {
+      "lesson": "Split metadata and symbol scope changes can be part of a focused source rename/link PR when they directly describe the new TU boundaries and local data ownership.",
+      "scope": [
+        "splits.txt",
+        "symbols.txt",
+        "fighter TU split work"
+      ],
+      "evidence_refs": [
+        "diff_excerpt:splits.txt",
+        "diff_excerpt:symbols.txt"
+      ],
+      "confidence": 0.7
+    }
   ],
   "naming_conventions": [
-    "New source file names use the lowercase fighter-special style: `ftkirbyspecialness.c` and `ftkirbyspecialdonkey.c` rather than the older mixed-case `ftKb_SpecialNNs.c`.",
-    "Kirby copied-special functions retain the `ftKb_` prefix.",
-    "Ness copied-neutral-special callbacks use the `NsSpecial` stem in names such as `ftKb_NsSpecialNStart_Anim`, `ftKb_NsSpecialAirNHold_IASA`, and `ftKb_NsSpecialAirNEnd_Coll`.",
-    "Donkey copied-neutral-special callbacks use the `DkSpecial` stem in declarations such as `ftKb_DkSpecialNStart_Anim`, `ftKb_DkSpecialAirNFull_Phys`, and `ftKb_DkSpecialNLoop_Coll`.",
-    "Unknown or not-yet-semantic functions kept address-suffixed names such as `ftKb_SpecialNNs_800FED38`, `ftKb_SpecialNDk_800FF8EC`, and `fn_80100E0C`."
+    {
+      "convention": "Kirby copied special source filenames use lower-case `ftkirbyspecial<character>.c` style here, e.g. `ftkirbyspecialness.c`, `ftkirbyspecialdonkey.c`, and existing `ftkirbyspecialfox.c`.",
+      "evidence_refs": [
+        "diff_excerpt:splits.txt",
+        "diff_excerpt:configure.py"
+      ],
+      "confidence": 0.86
+    },
+    {
+      "convention": "Function names for Kirby copied specials retain the `ftKb_<character-or-copy>SpecialN...` pattern visible in the moved prototype block, such as `ftKb_DkSpecialNStart_Anim` and `ftKb_SpecialNDk_800FF8EC`.",
+      "evidence_refs": [
+        "diff_excerpt:ftKb_Init.h"
+      ],
+      "confidence": 0.72
+    },
+    {
+      "convention": "Local float/data symbols may be represented with local labels such as `@228`, `@229`, and `@237` rather than promoted `ftKb_Init_*` globals when symbol metadata indicates local ownership.",
+      "evidence_refs": [
+        "diff_excerpt:symbols.txt"
+      ],
+      "confidence": 0.68
+    }
   ],
   "assembly_or_matching_tactics": [
-    "Converted the former monolithic NonMatching `ftKb_SpecialNNs.c` object into a Matching Ness sub-object plus a remaining NonMatching Donkey sub-object.",
-    "Changed `splits.txt` text ranges so `ftkirbyspecialfox.c` ends at `0x800FED38`, `ftkirbyspecialness.c` starts at `0x800FED38`, and `ftkirbyspecialdonkey.c` starts at `0x800FF8EC`.",
-    "Kept stack-padding artifacts such as `PAD_STACK(20)`, `PAD_STACK(4 * 4)`, and small dummy arrays in the new `ftkirbyspecialness.c`, indicating the extracted C was tuned for matching rather than fully cleaned up.",
-    "Used explicit float literals and motion constants in the matched Ness file, e.g. `0.0f`, `1.0f`, `Ft_MF_None`, and `0x0C4C5080U`, preserving codegen-sensitive details.",
-    "Localized sdata2 constants at `0x804D9478`, `0x804D947C`, and `0x804D9480` to anonymous `@` symbols in `symbols.txt` after the split.",
-    "Retained helper inlines such as `ftKb_SetNsFlashAttr` and `ftKb_NsSpecialNStart_Anim_inline` inside the extracted file, which likely helped reproduce the original compiler structure."
+    {
+      "tactic": "Use split-boundary surgery to carve a matching subrange out of a larger nonmatching object: `ftkirbyspecialness.c` begins at 0x800FED38 and ends at 0x800FF8EC, with `ftkirbyspecialdonkey.c` starting at 0x800FF8EC.",
+      "evidence_refs": [
+        "diff_excerpt:splits.txt"
+      ],
+      "caveat": "The PR evidence marks the new object Matching in `configure.py`, but no objdiff/build output or PR discussion was included in the slice."
+    },
+    {
+      "tactic": "Adjust adjacent TU boundaries and sdata2 ownership together when a renamed/split file changes the exact text and literal ranges.",
+      "evidence_refs": [
+        "diff_excerpt:splits.txt",
+        "diff_excerpt:symbols.txt"
+      ],
+      "caveat": "No reviewer explanation was available for the exact section-boundary rationale."
+    },
+    {
+      "tactic": "Demote or relabel data symbols to local labels when split ownership indicates the data belongs to a local subrange rather than a globally named init symbol.",
+      "evidence_refs": [
+        "diff_excerpt:symbols.txt"
+      ],
+      "caveat": "Treat as a metadata tactic from this PR, not a standalone global naming rule."
+    }
   ],
-  "review_feedback": [
-    "No issue comments, review comments, or review bodies were present in the provided PR slice; no explicit reviewer feedback is available."
-  ],
+  "review_feedback": [],
   "searchable_terms": [
-    "PR2596",
-    "ftkirbyspecialness",
-    "ftkirbyspecialdonkey",
+    "pr-2596",
+    "Link and rename ftkirbyspecialness",
+    "ribbanya",
+    "ftkirbyspecialness.c",
+    "ftkirbyspecialdonkey.c",
     "ftKb_SpecialNNs.c",
-    "ftKb_SpecialNNs_800FED38",
-    "ftKb_SpecialNNs_800FEDD0",
-    "ftKb_NsSpecialNStart_Anim",
-    "ftKb_NsSpecialNHold_Anim",
-    "ftKb_NsSpecialAirNStart_Anim",
-    "ftKb_NsSpecialAirNHold_IASA",
-    "ftKb_NsSpecialAirNEnd_Coll",
-    "ftKb_DkSpecialNStart_Anim",
-    "ftKb_DkSpecialAirNFull_Coll",
+    "ftkirbyspecialfox.c",
     "ftKb_Init.h",
     "ftkirbyspecialdonkey.h",
-    "Matching",
-    "NonMatching",
-    "splits.txt",
-    "symbols.txt",
+    "configure.py Object(Matching)",
+    "Object(NonMatching)",
+    "Kirby Ness special",
+    "Kirby Donkey special",
     "0x800FED38",
     "0x800FF8EC",
     "0x80105BA8",
-    "itnesspkflash",
-    "itmewtwoshadowball",
-    "Kirby copied Ness neutral special"
+    "0x803CB720",
+    "0x804D9478",
+    "ftKb_Init_803CB720",
+    "ftKb_Init_804D9478",
+    "ftKb_DkSpecialNStart_Anim",
+    "ftKb_SpecialNDk_800FF8EC"
   ],
   "follow_up_queries": [
-    "Find later PRs that mark `ftkirbyspecialdonkey.c` Matching.",
-    "Search for follow-up cleanup of `ftkirbyspecialdonkey.h` declarations moved out of `ftKb_Init.h`.",
-    "Search for later renames of address-suffixed functions `ftKb_SpecialNNs_800FED38` and `ftKb_SpecialNNs_800FEDD0`.",
-    "Inspect whether the local float labels around `0x804D9478..0x804D9480` were later given semantic names.",
-    "Find related PRs splitting other Kirby copied-special files into lowercase `ftkirbyspecial<character>.c` objects."
+    "Search later PRs for `ftkirbyspecialdonkey.c` becoming Matching.",
+    "Search for references to `ftkirbyspecialness.c` and whether additional headers were split after PR 2596.",
+    "Search for later changes to `ftKb_Init_803CB720`, `@228`, `@229`, or `@237` to validate data ownership after this split.",
+    "Search for PRs touching `ftKb_SpecialNNs.c` before PR 2596 to understand why the Ness and Donkey ranges were previously combined.",
+    "Search item files `itkirbyyoshispecialn.c`, `itkirbygamewatchchefpan.c`, `itmewtwoshadowball.c`, `itpeachtoad.c`, and `itseakneedleheld.c` for follow-up include or prototype cleanup."
   ],
-  "confidence": 0.87,
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json",
+      "changed_files.jsonl",
+      "raw_pr_json",
+      "raw_diff",
+      "diff_excerpt",
+      "text_corpus.jsonl"
+    ],
+    "notes": [
+      "Changed-file metadata is complete for 18 files and the diff excerpt includes the central split/config/header evidence.",
+      "The PR body is empty and there are no issue comments, review comments, or reviews in the supplied slice.",
+      "The raw diff is truncated in loaded context, so some per-file item edits are only classified from changed-file metadata rather than exact line-level content.",
+      "No build, objdiff, checkdiff, or CI output was included; matching status is only evidenced by `configure.py` marking `ftkirbyspecialness.c` as Matching.",
+      "No reviewer intent or validation result is inferred."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "decomp_lesson",
+        "title": "Split matching subranges without overclaiming the rest of a TU",
+        "text": "PR 2596 supports a narrow lesson: when extracting a matchable subrange from a broad nonmatching fighter TU, update split ranges and build config so only the verified/newly linked file is marked Matching while the remaining range stays NonMatching.",
+        "scope": [
+          "fighter",
+          "Kirby copied specials",
+          "TU split work"
+        ],
+        "evidence_refs": [
+          "diff_excerpt:splits.txt",
+          "diff_excerpt:configure.py"
+        ]
+      },
+      {
+        "record_type": "naming_observation",
+        "title": "Kirby copied special filenames use lower-case character suffixes in this area",
+        "text": "This PR replaces `ftKb_SpecialNNs.c` with `ftkirbyspecialness.c` and adds `ftkirbyspecialdonkey.c`, matching the existing lower-case `ftkirbyspecialfox.c` filename style in the neighboring split entries.",
+        "scope": [
+          "src/melee/ft/chara/ftKirby"
+        ],
+        "evidence_refs": [
+          "diff_excerpt:splits.txt",
+          "diff_excerpt:configure.py"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "ftkirbyspecialness.c split and matching status in PR 2596",
+        "text": "`src/melee/ft/chara/ftKirby/ftkirbyspecialness.c` was introduced for the 0x800FED38-0x800FF8EC text range and marked `Object(Matching, ...)` in `configure.py` by PR 2596.",
+        "source_path": "src/melee/ft/chara/ftKirby/ftkirbyspecialness.c",
+        "scope": [
+          "fighter",
+          "Kirby",
+          "Ness copied special",
+          "configure.py",
+          "splits.txt"
+        ],
+        "evidence_refs": [
+          "diff_excerpt:splits.txt",
+          "diff_excerpt:configure.py"
+        ],
+        "reason": "Path/split status is source-owned metadata and should be curated as a path fact, not promoted directly by intake."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "ftkirbyspecialdonkey.c split and nonmatching status in PR 2596",
+        "text": "`src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c` was split out for the 0x800FF8EC-0x80105BA8 text range with `.data` 0x803CB720-0x803CB730 and kept as `Object(NonMatching, ...)` in `configure.py` by PR 2596.",
+        "source_path": "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c",
+        "scope": [
+          "fighter",
+          "Kirby",
+          "Donkey copied special",
+          "configure.py",
+          "splits.txt"
+        ],
+        "evidence_refs": [
+          "diff_excerpt:splits.txt",
+          "diff_excerpt:configure.py"
+        ],
+        "reason": "This is a concrete path/split status candidate needing curator confirmation against current source."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "ftkirbyspecialdonkey.h owns declarations moved out of ftKb_Init.h in PR 2596",
+        "text": "PR 2596 removes a large block of Kirby copied-special prototypes from `ftKb_Init.h` and adds `src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.h`, with sources updated to include the new header.",
+        "source_path": "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.h",
+        "scope": [
+          "fighter",
+          "Kirby",
+          "headers"
+        ],
+        "evidence_refs": [
+          "diff_excerpt:ftKb_Init.h",
+          "diff_excerpt:ftKb_Init.c",
+          "changed_files.jsonl"
+        ],
+        "reason": "Header ownership facts should be checked against current headers before source-corpus update."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Narrow matching status when splitting a nonmatching object",
+        "text": "Potential standard refinement: when splitting a nonmatching TU to link one subrange, update config so only the proven subrange is Matching and leave the rest NonMatching; include split boundary and verification evidence when available.",
+        "source_path": null,
+        "scope": [
+          "configure.py",
+          "splits.txt",
+          "matching workflow"
+        ],
+        "evidence_refs": [
+          "diff_excerpt:splits.txt",
+          "diff_excerpt:configure.py"
+        ],
+        "reason": "The PR demonstrates the pattern, but the slice lacks validation output; curator should decide whether this belongs in standards or remains a local lesson."
+      },
+      {
+        "target_source_id": "ssbm_data_sheet",
+        "update_kind": "source_update",
+        "title": "Kirby special local float symbol metadata changed in PR 2596",
+        "text": "PR 2596 changes `ftKb_Init_803CB720` to local float data and relabels sdata2 floats at 0x804D9478, 0x804D947C, and 0x804D9480 as local labels `@228`, `@229`, and `@237`.",
+        "source_path": "config/GALE01/symbols.txt",
+        "scope": [
+          "symbols",
+          "Kirby",
+          "data ownership"
+        ],
+        "evidence_refs": [
+          "diff_excerpt:symbols.txt"
+        ],
+        "reason": "Data/symbol ownership should be curated in the appropriate data or path source, not treated as a global naming standard from intake alone."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that all functions in `ftkirbyspecialdonkey.c` matched; `configure.py` explicitly keeps that object NonMatching.",
+      "Do not infer reviewer approval rationale or validation details; the slice has no comments, reviews, or build/objdiff logs.",
+      "Do not promote local labels like `@228` as a universal naming preference; this PR only evidences specific symbol metadata edits.",
+      "Do not treat the PR title alone as proof of exact semantic ownership beyond the split/config/header changes visible in the diff."
+    ]
+  },
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/melee/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

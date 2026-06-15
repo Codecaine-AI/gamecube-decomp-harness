@@ -12,15 +12,16 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Large ty/toy.c matching PR that typed and expanded trophy/toy data structures, added many function bodies or cleanup edits, renamed the light-object loader at 0x80306EEC to Toy_LoadLObjList, updated related call sites, and reported progress to 52/70 matched functions. Bot progress reported +0.23% matched code, 13 new matches, 18 unmatched-item improvements, and one .sdata regression.",
+  "summary": "Large ty/toy.c matching PR. The author described bringing toy.c to 52/70 matched functions, typing and renaming the light-object loader to Toy_LoadLObjList, updating call sites, and verifying with ninja progress and diff_changes.py. Bot progress reported +0.23% matched code, 13 new matches in main/melee/ty/toy, 18 unmatched-item improvements, and one .sdata regression.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
       "symbol-rename",
-      "type-recovery",
-      "tooling-report"
+      "typing",
+      "callsite-update",
+      "progress-report"
     ],
     "systems": [
       "melee-core",
@@ -32,211 +33,240 @@
   "key_files": [
     {
       "path": "src/melee/ty/toy.c",
-      "role": "Primary matching source file; large rewrite adding typed structs, includes, matched and near-matched toy/trophy functions, local control-flow cleanup, stack/codegen tactics, and Toy_LoadLObjList implementation/call-site work.",
+      "role": "Primary matching work: added/reworked many toy functions, expanded local structs and fields, added includes, recovered Toy_LoadLObjList body/signature, adjusted loops/control flow/stack tactics.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/ty/toy.c +3520/-462, 71 hunks",
-        "raw_diff: toy.c include additions and local struct expansions",
-        "raw_diff: Trophy_SetUnlockState comment changed from 94.9% match to 100% match",
-        "text_corpus: bot report lists 13 new matches and 18 improvements in main/melee/ty/toy"
+        "changed_files: src/melee/ty/toy.c +3520/-462, 71 hunks",
+        "diff_excerpt: toy.c includes added db/db.h, lb_00CE.h, lb_00F9.h, mn/mnmain.h, dolphin/gx.h",
+        "diff_excerpt: ToyListEntry, TyDisplayData, TyLightData, TyLightFile, Toy26B8, Toy6E68, TyUnk25 fields expanded",
+        "diff_excerpt: un_80305058 added; Trophy_SetUnlockState marked 100% match; un_803067BC rewritten with src/dest loop",
+        "grep: Toy_LoadLObjList definition at diff around line 888"
       ]
     },
     {
       "path": "src/melee/ty/toy.h",
-      "role": "Header updated for toy typing/prototypes; PR body says Toy_LoadLObjList call sites were updated.",
+      "role": "Header/prototype updates for toy declarations, including Toy_LoadLObjList signature and exported data declarations.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/ty/toy.h +61/-10, 7 hunks",
-        "human_pr_text: typing/renaming the light-object loader as Toy_LoadLObjList with updated call sites"
-      ]
-    },
-    {
-      "path": "src/melee/ty/tydisplay.c",
-      "role": "Small call-site or interface update related to the Toy_LoadLObjList rename/typing.",
-      "evidence_refs": [
-        "changed_files.jsonl: src/melee/ty/tydisplay.c +2/-2, 2 hunks",
-        "human_pr_text: Toy_LoadLObjList with updated call sites"
-      ]
-    },
-    {
-      "path": "src/melee/ty/tyfigupon.c",
-      "role": "Small call-site or interface update related to the Toy_LoadLObjList rename/typing.",
-      "evidence_refs": [
-        "changed_files.jsonl: src/melee/ty/tyfigupon.c +2/-2, 1 hunk",
-        "human_pr_text: Toy_LoadLObjList with updated call sites"
-      ]
-    },
-    {
-      "path": "src/melee/ty/tylist.c",
-      "role": "Small call-site or interface update related to the Toy_LoadLObjList rename/typing.",
-      "evidence_refs": [
-        "changed_files.jsonl: src/melee/ty/tylist.c +2/-2, 1 hunk",
-        "human_pr_text: Toy_LoadLObjList with updated call sites"
+        "changed_files: src/melee/ty/toy.h +61/-10, 7 hunks",
+        "grep: /* 306EEC */ HSD_LObj* un_80306EEC(void*, s32) changed to HSD_LObj* Toy_LoadLObjList(LightList**, s32*)"
       ]
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Symbol metadata rename from un_80306EEC to Toy_LoadLObjList at .text:0x80306EEC size 0x12C.",
+      "role": "Symbol rename for recovered light-object loader at .text:0x80306EEC.",
       "evidence_refs": [
-        "raw_diff: un_80306EEC = .text:0x80306EEC renamed to Toy_LoadLObjList = .text:0x80306EEC"
+        "changed_files: config/GALE01/symbols.txt +1/-1, 1 hunk",
+        "diff_excerpt: un_80306EEC = .text:0x80306EEC renamed to Toy_LoadLObjList = .text:0x80306EEC"
+      ]
+    },
+    {
+      "path": "src/melee/ty/tydisplay.c",
+      "role": "Callsite update from un_80306EEC to Toy_LoadLObjList.",
+      "evidence_refs": [
+        "changed_files: src/melee/ty/tydisplay.c +2/-2, 2 hunks",
+        "grep: lobj = un_80306EEC(lightData, 0) changed to Toy_LoadLObjList(lightData, 0)"
+      ]
+    },
+    {
+      "path": "src/melee/ty/tyfigupon.c",
+      "role": "Callsite update from un_80306EEC to Toy_LoadLObjList.",
+      "evidence_refs": [
+        "changed_files: src/melee/ty/tyfigupon.c +2/-2, 1 hunk",
+        "grep: un_80306EEC(temp, 0) changed to Toy_LoadLObjList(temp, 0)"
+      ]
+    },
+    {
+      "path": "src/melee/ty/tylist.c",
+      "role": "Callsite update from un_80306EEC to Toy_LoadLObjList.",
+      "evidence_refs": [
+        "changed_files: src/melee/ty/tylist.c +2/-2, 1 hunk",
+        "grep: un_80306EEC(jobj, 0) changed to Toy_LoadLObjList(jobj, 0)"
       ]
     }
   ],
   "what_changed": [
-    "Renamed the global function symbol un_80306EEC to Toy_LoadLObjList in config/GALE01/symbols.txt.",
-    "PR body states the light-object loader was typed/renamed as Toy_LoadLObjList and call sites were updated.",
-    "Expanded toy.c local type knowledge, including ToyListEntry, TyDisplayData list pointers/visible_count, TyLightData archive field, TyLightSymbolEntry, TyLightIndexEntry, TyLightFile, TyCleanupObj, Toy26B8 trophy fields, Toy6E68 floats, ToySubStructS_, TyUnk25, and Ty25Entry.",
-    "Added source includes in toy.c for db/db.h, lb/lb_00CE.h, lb/lb_00F9.h, mn/mnmain.h, and dolphin/gx.h.",
-    "Replaced some raw pointer arithmetic with typed fields, for example Toy26B8 x19C access in un_80305918.",
-    "Simplified un_803067BC from generated-looking unrolled copy logic into forward and reverse loop forms over s16 entries with stride 3.",
-    "Added or improved many toy functions; bot report lists 13 new 100% matches and 18 improvements in unmatched items.",
-    "Validation evidence in PR body names ninja progress and diff_changes.py; bot progress comment reports matched-code improvement and detailed affected functions.",
-    "Bot report also notes one unmatched .sdata regression, from 68.38% to 60.00%."
+    {
+      "text": "Renamed un_80306EEC to Toy_LoadLObjList in symbols.txt, toy.h, toy.c, and ty call sites.",
+      "evidence_refs": [
+        "diff_excerpt: symbols rename at .text:0x80306EEC",
+        "grep: toy.h prototype changed to Toy_LoadLObjList(LightList**, s32*)",
+        "grep: tydisplay.c, tyfigupon.c, tylist.c callsites updated"
+      ]
+    },
+    {
+      "text": "Recovered or improved many toy.c functions. Bot report lists 13 new 100% matches including un_80311AB0_OnEnter, un_8030FA50, un_80311960, un_80311788, un_80312050, un_80310660, Trophy_SetUnlockState, un_803063D4, un_80305918, un_80308250, un_80307BA0, un_803084A0, and un_80308F04.",
+      "evidence_refs": [
+        "text_corpus: decomp-dev[bot] report, 13 new matches"
+      ]
+    },
+    {
+      "text": "Improved 18 still-unmatched toy items, including large progress for fn_8030B530, fn_80309404, fn_8030E110, un_80310B48, un_803087F4, un_8030FE48, and un_80305058.",
+      "evidence_refs": [
+        "text_corpus: decomp-dev[bot] report, 18 improvements in unmatched items"
+      ]
+    },
+    {
+      "text": "Expanded local type information for toy/trophy/list/light data structures, replacing some anonymous padding and raw pointer access with named fields.",
+      "evidence_refs": [
+        "diff_excerpt: ToyListEntry, TyDisplayData, TyLightData, TyLightFile, Toy26B8, Toy6E68, TyUnk25 expansions",
+        "diff_excerpt: un_80305918 changed raw offset access to ((Toy26B8*) base)->x19C"
+      ]
+    },
+    {
+      "text": "Added includes needed by the recovered code and moved PosArray/PosArrayFull ownership to toy.h per an inline comment.",
+      "evidence_refs": [
+        "diff_excerpt: added db/db.h, lb_00CE.h, lb_00F9.h, mn/mnmain.h, dolphin/gx.h",
+        "diff_excerpt: comment says PosArray, PosArrayFull defined in toy.h; TrophyData in types.h"
+      ]
+    }
   ],
   "smart_moves": [
-    "Kept the symbol rename and call-site updates together so the newly typed loader name Toy_LoadLObjList had corresponding references.",
-    "Recovered local structs before deeper function cleanup, making later field access more reviewable than raw offsets.",
-    "Used a normal loop in un_803067BC to replace a decompiler-style unrolled copy block, aligning with the natural-loops standard.",
-    "Introduced a local default_flags pointer reused across repeated trophy-table branches, reducing repeated address expressions without changing the visible control intent.",
-    "Included progress tooling output in PR evidence rather than relying only on source comments."
+    {
+      "text": "The rename of the light-object loader was propagated across symbol metadata, the owning header, the implementation, and known ty call sites instead of being kept as a local alias.",
+      "evidence_refs": [
+        "diff_excerpt: symbols.txt rename",
+        "grep: toy.h Toy_LoadLObjList prototype",
+        "grep: three external callsites updated"
+      ]
+    },
+    {
+      "text": "Some generated-looking unrolled or temp-heavy code was rewritten into clearer pointer/loop forms, notably un_803067BC.",
+      "evidence_refs": [
+        "diff_excerpt: un_803067BC replaced var_rXX temporaries and unrolled chunks with src/base/dest/count and a for loop"
+      ]
+    },
+    {
+      "text": "Recovered structs allowed clearer field accesses for known offsets, for example Toy26B8 x19C in un_80305918.",
+      "evidence_refs": [
+        "diff_excerpt: Toy26B8 gained x19A, x19C, trophy_flags, selectedIdx, selectedTrophyId, trophy_count",
+        "diff_excerpt: un_80305918 uses ((Toy26B8*) base)->x19C"
+      ]
+    }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For large matching work in a partially typed file, recovering local structs can unlock multiple nearby improvements and make field accesses easier to reason about.",
+      "lesson": "When a function's role becomes supported, rename it consistently through symbols, the owning header, the definition, and call sites. This PR's Toy_LoadLObjList rename is grounded by the PR body and by updates in symbols.txt, toy.h, toy.c, tydisplay.c, tyfigupon.c, and tylist.c.",
       "evidence_refs": [
-        "raw_diff: ToyListEntry, TyDisplayData, TyLightData, TyLightFile, Toy26B8, Toy6E68 struct expansions",
-        "text_corpus: bot report lists broad toy.c matching improvements"
-      ],
-      "scope": [
-        "src/melee/ty/toy.c",
-        "type-recovery",
-        "matching"
-      ]
-    },
-    {
-      "lesson": "A generated-looking unrolled copy can sometimes be expressed as a simple loop over a strided source pointer while improving match quality.",
-      "evidence_refs": [
-        "raw_diff: un_803067BC replaced 8-at-a-time unrolled reverse copy with for loop and while loop forms",
-        "text_corpus: bot report says un_803067BC improved from 82.64% to 95.27%"
-      ],
-      "scope": [
-        "src/melee/ty/toy.c",
-        "natural-loops"
-      ]
-    },
-    {
-      "lesson": "Function renames are stronger when symbol metadata, header/source typing, and call-site updates are submitted in the same PR.",
-      "evidence_refs": [
-        "raw_diff: symbols.txt rename to Toy_LoadLObjList",
         "human_pr_text: typing/renaming the light-object loader as Toy_LoadLObjList with updated call sites",
-        "changed_files.jsonl: toy.h, tydisplay.c, tyfigupon.c, tylist.c changed"
+        "diff_excerpt: symbols.txt rename",
+        "grep: toy.h and callsite updates"
       ],
       "scope": [
-        "symbol-rename",
+        "function-renaming",
         "headers",
-        "call-sites"
+        "callsite-updates",
+        "ty/toy"
+      ]
+    },
+    {
+      "lesson": "Recovering local structs can convert offset traffic into reviewable field access and support matching work, but partial fields remain provisional when names are still xNN/pad_NN.",
+      "evidence_refs": [
+        "diff_excerpt: Toy26B8, TyDisplayData, TyLightData, TyLightFile, Toy6E68 field expansions",
+        "diff_excerpt: un_80305918 changed base[0xCE]/raw pointer write to Toy26B8->x19C"
+      ],
+      "scope": [
+        "typed-fields",
+        "local-struct-recovery",
+        "ty/toy"
+      ]
+    },
+    {
+      "lesson": "Natural loop reconstruction can improve readability over generated unrolled blocks when the repeated access pattern is regular.",
+      "evidence_refs": [
+        "diff_excerpt: un_803067BC removed an 8-at-a-time unrolled copy pattern and used a countdown for loop over src and dest"
+      ],
+      "scope": [
+        "natural-loops",
+        "copy-loops",
+        "ty/toy"
       ]
     }
   ],
   "naming_conventions": [
     {
       "name": "Toy_LoadLObjList",
-      "kind": "global function",
-      "meaning": "Typed/renamed light-object loader at .text:0x80306EEC.",
+      "kind": "function",
+      "meaning": "Recovered name for .text:0x80306EEC light-object list loader.",
       "evidence_refs": [
-        "raw_diff: un_80306EEC renamed to Toy_LoadLObjList in symbols.txt",
-        "human_pr_text: typing/renaming the light-object loader as Toy_LoadLObjList"
+        "human_pr_text: typing/renaming the light-object loader as Toy_LoadLObjList",
+        "diff_excerpt: symbols.txt rename",
+        "grep: HSD_LObj* Toy_LoadLObjList(LightList**, s32*)"
       ]
     },
     {
-      "name": "ToyListEntry fields: prev, next, archive_name, symbol_name, trophy_id, archive",
-      "kind": "local struct fields",
-      "meaning": "Recovered linked-list/archive/trophy fields in toy.c.",
+      "name": "ToyListEntry",
+      "kind": "local struct",
+      "meaning": "List node with prev/next, archive_name, symbol_name, trophy_id, and archive fields.",
       "evidence_refs": [
-        "raw_diff: ToyListEntry definition added in toy.c"
+        "diff_excerpt: typedef struct ToyListEntry with prev, next, archive_name, symbol_name, trophy_id, archive"
       ]
     },
     {
-      "name": "TyDisplayData fields: first_entry, last_entry, selected_entry, selectedIdx, visible_count",
-      "kind": "local struct fields",
-      "meaning": "Recovered display list selection/count fields in toy.c.",
+      "name": "TyLightSymbolEntry / TyLightIndexEntry / TyLightFile",
+      "kind": "local structs",
+      "meaning": "Typed light-file structures introduced around Toy_LoadLObjList/light loading.",
       "evidence_refs": [
-        "raw_diff: TyDisplayData expanded from padding plus selectedIdx"
+        "diff_excerpt: TyLightSymbolEntry, TyLightIndexEntry, TyLightFile definitions"
       ]
     },
     {
-      "name": "TyLightSymbolEntry, TyLightIndexEntry, TyLightFile",
-      "kind": "local struct types",
-      "meaning": "Recovered light-file symbol/index layout used by the light-object loader work.",
+      "name": "selectedIdx, selected_entry, visible_count, trophy_flags, selectedTrophyId, trophy_count",
+      "kind": "field names",
+      "meaning": "Semantic or semi-semantic fields added to display/trophy structs; remaining xNN/pad_NN names preserve uncertainty.",
       "evidence_refs": [
-        "raw_diff: TyLightEntry/TyLightSymbol replaced with TyLightSymbolEntry, TyLightIndexEntry, TyLightFile"
+        "diff_excerpt: TyDisplayData and Toy26B8 field expansions"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Used PAD_STACK and explicit unused/local arrays to steer stack layout in selected functions.",
+      "tactic": "Stack-shape steering remained in some matched/improved functions using PAD_STACK and an UNUSED local array.",
       "evidence_refs": [
-        "raw_diff: un_80305058 uses PAD_STACK(20)",
-        "raw_diff: un_80305B88 changes PAD_STACK(4) to PAD_STACK(8)",
-        "raw_diff: Trophy_SetUnlockState replaces PAD_STACK(8) with UNUSED u8 state_pad[8] and u16 state[3]"
+        "diff_excerpt: un_80305058 uses PAD_STACK(20)",
+        "diff_excerpt: un_80305B88 changed PAD_STACK(4) to PAD_STACK(8)",
+        "diff_excerpt: Trophy_SetUnlockState changed PAD_STACK(8) to UNUSED u8 state_pad[8]; u16 state[3]"
       ],
-      "risk_or_note": "The loaded standards treat PAD_STACK and stack-shaping locals as tactics needing narrow verifier evidence. PR body gives ninja progress and diff_changes.py, but the slice does not include per-function objdiff logs."
+      "caution": "Loaded standards require explicit verifier evidence for such tactics. The PR body claims ninja progress and diff_changes.py, and bot output reports progress, but the slice does not include narrow objdiff details for each tactic."
     },
     {
-      "tactic": "Changed local types and variable widths to influence codegen and recover signatures.",
+      "tactic": "Preserved M2C_FIELD at some accesses while other offsets were typed, indicating partial type recovery rather than complete cleanup.",
       "evidence_refs": [
-        "raw_diff: un_803063D4 argument changed from s16 to s32",
-        "raw_diff: Trophy_SetUnlockState count changed from s16 to s32 and stateFlag introduced"
+        "diff_excerpt: un_80305058 uses M2C_FIELD(flags, u16*, byte_off)",
+        "diff_excerpt: un_803067BC writes M2C_FIELD(un_804D6EDC, s16*, offset)",
+        "diff_excerpt: un_80306954 changed raw state offset to M2C_FIELD(state, s32*, 0x10)"
       ],
-      "risk_or_note": "Supported by bot-reported function improvements, but exact signature authority outside the diff is not loaded."
+      "caution": "Do not generalize this as preferred style; global standards treat M2C_FIELD as bridge code while recovering fields."
     },
     {
-      "tactic": "Kept some M2C_FIELD accesses where type recovery was incomplete.",
+      "tactic": "Introduced temporary local state storage to shape Trophy_SetUnlockState while reaching a reported 100% match.",
       "evidence_refs": [
-        "raw_diff: un_80305058 uses M2C_FIELD(flags, u16*, byte_off)",
-        "raw_diff: un_803067BC uses M2C_FIELD(un_804D6EDC, s16*, offset)",
-        "raw_diff: un_80306954 uses M2C_FIELD(state, s32*, 0x10)"
+        "diff_excerpt: Trophy_SetUnlockState marked 100% match",
+        "diff_excerpt: local variables oldCount, stateFlag, UNUSED state_pad[8], u16 state[3]"
       ],
-      "risk_or_note": "Consistent with bridge-code use only where real type is not yet recovered; not evidence that these M2C_FIELD uses are final style."
+      "caution": "The slice supports that this was used in the PR, but not that it is broadly reusable outside this function."
     },
     {
-      "tactic": "Replaced raw byte-offset field access with typed struct fields where the recovered type was available.",
+      "tactic": "Replaced an unrolled reverse copy with a normal countdown for loop in un_803067BC.",
       "evidence_refs": [
-        "raw_diff: un_80305918 uses ((Toy26B8*) base)->x19C instead of pointer arithmetic at offset 0x19C"
+        "diff_excerpt: un_803067BC removed var_rXX/unrolled block and added for (i = count; i != 0; i--) { *dest-- = *src; src += 3; }"
       ],
-      "risk_or_note": "Matches typed-fields-over-pointer-math standard."
-    },
-    {
-      "tactic": "Converted decompiler-style copied blocks into ordinary loops for strided list copy.",
-      "evidence_refs": [
-        "raw_diff: un_803067BC for/while loops replace unrolled reverse-copy block",
-        "text_corpus: bot report says un_803067BC improved to 95.27%"
-      ],
-      "risk_or_note": "Good candidate example for natural-loop cleanup."
+      "caution": "This aligns with the natural-loops standard, but the function remained an unmatched-item improvement in the bot report rather than a listed 100% new match."
     }
   ],
   "review_feedback": [
     {
       "kind": "bot_progress_report",
       "author": "decomp-dev[bot]",
-      "summary": "GALE01 report showed matched code 66.98% (+0.23%, +8928 bytes), 13 new matches, 18 improvements in unmatched items, and 1 regression in an unmatched item.",
+      "text": "GALE01 report showed matched code 66.98% (+0.23%, +8928 bytes), 13 new matches, 18 improvements in unmatched items, and one unmatched-item regression for main/melee/ty/toy .sdata (-5 bytes, 68.38% to 60.00%).",
       "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot] at 2026-05-13T23:05:28Z"
+        "text_corpus: issue_comment by decomp-dev[bot] created 2026-05-13T23:05:28Z"
       ]
     },
     {
-      "kind": "regression_note",
-      "author": "decomp-dev[bot]",
-      "summary": "The bot reported .sdata in main/melee/ty/toy regressed by -5 bytes, from 68.38% to 60.00%.",
-      "evidence_refs": [
-        "text_corpus: 📉 1 regression in an unmatched item"
-      ]
-    },
-    {
-      "kind": "human_review",
+      "kind": "missing_human_review",
       "author": null,
-      "summary": "No human review comments are present in the loaded slice.",
+      "text": "No review comments or human review records were present in the loaded slice.",
       "evidence_refs": [
-        "metadata_json: review_comments=0, reviews=0"
+        "metadata_json: review_comments 0, reviews 0"
       ]
     }
   ],
@@ -246,81 +276,96 @@
     "itsgrimetime",
     "Toy_LoadLObjList",
     "un_80306EEC",
+    "LightList",
+    "HSD_LObj",
     "Trophy_SetUnlockState",
-    "un_803067BC",
     "un_80305058",
-    "un_803063D4",
-    "un_80305918",
+    "un_803067BC",
     "ToyListEntry",
-    "TyDisplayData",
-    "TyLightData",
+    "TyLightFile",
     "TyLightSymbolEntry",
     "TyLightIndexEntry",
-    "TyLightFile",
+    "TyDisplayData",
     "Toy26B8",
-    "Toy6E68",
+    "trophy_flags",
+    "selectedTrophyId",
+    "trophy_count",
     "PAD_STACK",
     "M2C_FIELD",
     "ninja progress",
     "diff_changes.py",
-    ".sdata regression",
-    "natural loop",
-    "light-object loader",
-    "trophy flags"
+    ".sdata regression"
   ],
   "follow_up_queries": [
-    "Toy_LoadLObjList un_80306EEC call sites tydisplay tyfigupon tylist",
-    "src/melee/ty/toy.c un_803067BC stride 3 loop decomp",
-    "src/melee/ty/toy.c Trophy_SetUnlockState state_pad state[3]",
+    "Toy_LoadLObjList LightList HSD_LObj",
+    "un_80306EEC Toy_LoadLObjList callsites",
+    "src/melee/ty/toy.c Trophy_SetUnlockState state_pad state",
+    "src/melee/ty/toy.c un_803067BC natural loop",
+    "ty toy.c PAD_STACK M2C_FIELD",
     "main/melee/ty/toy .sdata regression PR 2487",
     "Toy26B8 trophy_flags selectedTrophyId trophy_count",
-    "TyLightFile TyLightSymbolEntry TyLightIndexEntry loader"
+    "TyLightFile TyLightSymbolEntry TyLightIndexEntry"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: full PR metadata and changed-file counts",
-      "human_pr_text: PR body with summary and validation commands",
-      "raw_diff: truncated but includes primary symbol rename and representative toy.c changes",
-      "changed_files.jsonl: complete changed file list",
-      "text_corpus: bot report with progress details"
+      "metadata_json: PR identity, state, changed files, counts",
+      "human_pr_text: author-stated scope and verification",
+      "raw_diff/diff_excerpt: representative toy.c, symbols, header, and callsite edits",
+      "text_corpus: bot progress report with exact match/improvement/regression tables",
+      "metadata_json: no review comments or reviews"
     ],
     "notes": [
-      "The raw diff is truncated, so not every hunk in the 169164-byte diff was inspected.",
-      "The PR body claims verification with ninja progress and diff_changes.py, and the bot report gives progress numbers, but per-function local objdiff/checkdiff logs are not loaded.",
-      "No human review comments are present, so reviewer intent or requested changes cannot be inferred.",
-      "The slice supports the Toy_LoadLObjList rename and broad toy.c matching progress, but exact final acceptance rationale for each local tactic is not available.",
-      "The bot report identifies one .sdata regression; the loaded evidence does not show whether it was explicitly accepted, investigated, or later resolved."
+      "The raw diff is truncated in loaded_files and the PR is very large, so not every changed hunk was inspected.",
+      "The author claimed verification with ninja progress and diff_changes.py; the bot report supports progress numerically, but the slice does not contain full command logs or per-function objdiff evidence.",
+      "No human review comments were available, so reviewer intent and requested changes cannot be inferred.",
+      "Some code still uses PAD_STACK, UNUSED padding, M2C_FIELD, and xNN/pad_NN names; these are recorded as PR tactics or provisional typing, not promoted as global preferred style.",
+      "The bot reported one .sdata regression; the slice does not explain whether it was accepted as a tradeoff."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "title": "Natural loop cleanup improved un_803067BC",
-        "text": "In PR #2487, un_803067BC in src/melee/ty/toy.c replaced generated-looking unrolled s16 copy code with ordinary loop forms over a stride-3 source pointer. The bot report showed the function improved from 82.64% to 95.27%, making this a useful historical example of trying natural loops before preserving decompiler-shaped unrolling.",
+        "record_type": "decomp_lesson_candidate",
+        "title": "Evidence-backed function rename should be propagated through symbols, header, implementation, and call sites",
+        "text": "PR #2487 renamed un_80306EEC to Toy_LoadLObjList and updated config/GALE01/symbols.txt, src/melee/ty/toy.h, src/melee/ty/toy.c, and call sites in tydisplay.c, tyfigupon.c, and tylist.c. The PR body explicitly describes typing/renaming the light-object loader and updating call sites.",
         "scope": [
-          "src/melee/ty/toy.c",
-          "un_803067BC",
-          "natural-loops"
+          "renaming",
+          "headers",
+          "symbols",
+          "ty/toy"
         ],
         "evidence_refs": [
-          "raw_diff: un_803067BC loop rewrite",
-          "text_corpus: bot report un_803067BC +37 bytes, 82.64% to 95.27%"
+          "human_pr_text",
+          "diff_excerpt: symbols.txt",
+          "grep: toy.h and callsites"
         ]
       },
       {
-        "title": "Typed fields can improve toy/trophy matching readability",
-        "text": "PR #2487 expanded local toy/trophy structs and used recovered fields, for example Toy26B8::x19C in un_80305918, instead of raw byte-offset access. The bot report shows un_80305918 reached 100%, supporting this as a local example of typed-field recovery aiding matching.",
+        "record_type": "decomp_lesson_candidate",
+        "title": "Use recovered local structs to replace raw offsets where evidence supports fields",
+        "text": "PR #2487 expanded several toy-local structs and used Toy26B8->x19C in un_80305918 instead of raw offset/pointer access. Remaining xNN and pad_NN fields show uncertainty was preserved where semantics were not fully known.",
         "scope": [
-          "src/melee/ty/toy.c",
-          "typed-fields-over-pointer-math",
-          "Toy26B8",
-          "un_80305918"
+          "typed-fields",
+          "local-struct-recovery",
+          "ty/toy"
         ],
         "evidence_refs": [
-          "raw_diff: Toy26B8 struct expansion",
-          "raw_diff: un_80305918 uses ((Toy26B8*) base)->x19C",
-          "text_corpus: bot report un_80305918 98.72% to 100.00%"
+          "diff_excerpt: Toy26B8 and related struct expansions",
+          "diff_excerpt: un_80305918 field access"
+        ]
+      },
+      {
+        "record_type": "decomp_lesson_candidate",
+        "title": "Try natural loops for generated-looking repeated copy blocks",
+        "text": "PR #2487 rewrote un_803067BC from temp-heavy/unrolled copy code into src/dest/count loop forms. This is a concrete ty/toy example aligned with the natural-loops standard.",
+        "scope": [
+          "natural-loops",
+          "copy-loops",
+          "ty/toy"
+        ],
+        "evidence_refs": [
+          "diff_excerpt: un_803067BC rewrite"
         ]
       }
     ],
@@ -328,44 +373,46 @@
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "Toy_LoadLObjList symbol rename at 0x80306EEC",
-        "text": "PR #2487 renamed un_80306EEC to Toy_LoadLObjList in config/GALE01/symbols.txt at .text:0x80306EEC, size 0x12C, scope global. PR body describes it as the typed/renamed light-object loader with updated call sites.",
-        "source_path": "config/GALE01/symbols.txt",
+        "title": "ty/toy owns Toy_LoadLObjList at 0x80306EEC",
+        "text": "In PR #2487, un_80306EEC at .text:0x80306EEC was renamed to Toy_LoadLObjList. The recovered prototype in src/melee/ty/toy.h is HSD_LObj* Toy_LoadLObjList(LightList**, s32*), and call sites in ty display/list/figupon code were updated.",
+        "source_path": "src/melee/ty/toy.c",
         "scope": [
           "src/melee/ty/toy.c",
-          "Toy_LoadLObjList",
-          "un_80306EEC"
+          "src/melee/ty/toy.h",
+          "config/GALE01/symbols.txt",
+          "src/melee/ty/tydisplay.c",
+          "src/melee/ty/tyfigupon.c",
+          "src/melee/ty/tylist.c"
         ],
         "evidence_refs": [
-          "raw_diff: symbols.txt rename",
-          "human_pr_text: light-object loader Toy_LoadLObjList with updated call sites"
+          "human_pr_text",
+          "diff_excerpt: symbols.txt rename",
+          "grep: toy.h prototype",
+          "grep: updated callsites"
         ],
-        "reason": "Potential path/symbol fact for curator review; do not promote without current source/path-fact reconciliation."
+        "reason": "Possible path/symbol fact for curator review; supported by PR body and diff, but should be checked against current source before promotion."
       },
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Document stack-shaping tactics require per-function evidence",
-        "text": "PR #2487 used PAD_STACK and explicit unused stack locals in functions that improved or matched, but the loaded slice only includes broad verification commands and bot progress. This reinforces the existing standard that stack tactics should stay narrow and be backed by specific objdiff/checkdiff evidence.",
-        "source_path": null,
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "PR #2487 made broad matching progress in main/melee/ty/toy",
+        "text": "Bot report for PR #2487 says main/melee/ty/toy gained 13 new matches and 18 unmatched-item improvements, with matched code 66.98% (+0.23%, +8928 bytes).",
+        "source_path": "src/melee/ty/toy.c",
         "scope": [
-          "PAD_STACK",
-          "UNUSED stack locals",
+          "main/melee/ty/toy",
           "src/melee/ty/toy.c"
         ],
         "evidence_refs": [
-          "raw_diff: PAD_STACK(20), PAD_STACK(8), UNUSED u8 state_pad[8]",
-          "human_pr_text: Verified with ninja progress and diff_changes.py",
-          "decomp_standards: matching-tactics-need-evidence"
+          "text_corpus: decomp-dev[bot] progress report"
         ],
-        "reason": "Possible illustrative example for an existing standard, not a new accepted rule."
+        "reason": "Useful historical progress/path context; bot output is strong for the PR slice but should not be treated as current progress without checking current reports."
       }
     ],
     "rejection_notes": [
-      "Do not infer that all 52/70 matched functions are visible in the loaded diff; only the PR body states the aggregate and the bot report lists specific new matches/improvements.",
-      "Do not treat the .sdata regression as accepted or harmless; loaded evidence only reports it.",
-      "Do not generalize Toy_LoadLObjList naming beyond the specific 0x80306EEC symbol without current source confirmation.",
-      "Do not mark remaining M2C_FIELD uses as preferred style; the diff shows them still present, but standards classify them as bridge code when type recovery is incomplete."
+      "Do not promote PAD_STACK, UNUSED padding arrays, or M2C_FIELD uses from this PR as accepted general style; standards require narrow verifier evidence and prefer typed fields when recoverable.",
+      "Do not infer that the .sdata regression was intentional or acceptable; the bot reported it, but the slice contains no discussion explaining it.",
+      "Do not infer human reviewer guidance; the loaded slice has no human review comments.",
+      "Do not treat all new xNN/pad_NN fields as semantically final names; many preserve incomplete type knowledge."
     ]
   },
   "confidence": 0.82,
@@ -375,6 +422,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

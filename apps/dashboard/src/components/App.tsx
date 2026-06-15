@@ -103,7 +103,7 @@ const actionLabels: Record<Action, string> = {
   qa: "Running PR QA gate...",
   reconcile: "Running reconcile agent to fix regressions before handoff...",
   splitPlan: "Building PR split plan...",
-  preparePr: "Pausing, checkpointing, running QA, and planning PRs...",
+  preparePr: "Pausing, checkpointing, running QA repair, and planning PRs...",
   syncPrs: "Syncing PR status from GitHub...",
   openPr: "Opening draft PR (verify slice, branch, push, create)...",
   openAllPrs: "Opening all planned draft PRs, one slice at a time...",

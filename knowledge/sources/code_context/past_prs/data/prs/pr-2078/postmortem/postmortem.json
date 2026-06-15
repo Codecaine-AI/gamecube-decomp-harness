@@ -12,14 +12,14 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Draft PR for Data Delete menu decompilation work in src/melee/mn/mndatadel. It replaced multiple placeholder symbols with C bodies, updated mndatadel headers and static structs, and produced bot-reported code-match gains, but the PR body and human review feedback are absent and the PR was closed unmerged.",
+  "summary": "Draft PR for menu data-delete decomp work in src/melee/mn/mndatadel, adding bodies for several previously stubbed mnDataDel/fn_8024xxxx routines, refining mndatadel data structs and prototypes, and documenting MenuInputState fields. Bot report showed two function matches and one .bss match plus multiple partial function improvements, with one .sdata2 regression.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "menu-code",
-      "struct-recovery"
+      "struct-recovery",
+      "menu-code"
     ],
     "systems": [
       "melee-core",
@@ -30,160 +30,193 @@
   "key_files": [
     {
       "path": "src/melee/mn/mndatadel.c",
-      "role": "Main Data Delete menu decompilation body; added implementations and revised existing warning-modal logic.",
+      "role": "Main decomp work: adds includes, local gm declarations, bodies for mnDataDel_8024E940, mnDataDel_8024EA6C, mnDataDel_8024EBC8, fn_8024F1D4, fn_8024F318, fn_8024F840, fn_8024FBA4, fn_8024FC48, fn_8024FD40, mnDataDel_8024FE4C, mnDataDel_80250170, and improves fn_8024ECCC.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/mn/mndatadel.c +666/-27",
-        "diff.diff: added bodies for mnDataDel_8024E940, mnDataDel_8024EA6C, mnDataDel_8024EBC8, fn_8024F1D4, fn_8024F318, fn_8024F840, fn_8024FBA4, fn_8024FC48, mnDataDel_8024FE4C, mnDataDel_80250170 excerpted/truncated",
-        "text_corpus.jsonl: bot report for main/melee/mn/mndatadel"
+        "raw_diff:mndatadel.c hunks",
+        "text_corpus.jsonl:bot report new matches and improvements"
       ]
     },
     {
       "path": "src/melee/mn/mndatadel.h",
-      "role": "Public prototypes updated from UNK_PARAMS or nameless HSD_GObj arguments to typed signatures.",
+      "role": "Public prototypes updated from UNK_PARAMS or anonymous HSD_GObj pointers to typed signatures; adds baselib/jobj.h include for HSD_JObj.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/mn/mndatadel.h +11/-8",
-        "diff.diff: mnDataDel_8024EBC8 now takes HSD_JObj* root, u8 arg1, u8 arg2, u8 arg3; fn_* prototypes named arg0/gobj"
+        "raw_diff:mndatadel.h"
       ]
     },
     {
       "path": "src/melee/mn/mndatadel.static.h",
-      "role": "Static data/types expanded for Data Delete menu state, selection data, item deletion flags, arrays, externs, and animation helper.",
+      "role": "Static data/type recovery: adds MnDataDelSelectData, MnDataDelUserData, comments for WarnCmnData, arrays in MnDataDelData, SetItemChildAnim inline, and extern float/static model declarations.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/mn/mndatadel.static.h +60/-16",
-        "diff.diff: added MnDataDelSelectData, MnDataDelUserData, expanded WarnCmnData comments, changed x3C/x58 scalars into arrays, added SetItemChildAnim inline and extern floats"
+        "raw_diff:mndatadel.static.h"
       ]
     },
     {
       "path": "src/melee/mn/mnmain.h",
-      "role": "MenuInputState comments added for cooldown-related fields.",
+      "role": "Adds field comments for MenuInputState cooldown, x2, and x4.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/mn/mnmain.h +3/-3",
-        "diff.diff: MenuInputState cooldown/x2/x4 gained explanatory comments"
+        "raw_diff:mnmain.h"
       ]
     }
   ],
   "what_changed": [
-    "Added numerous includes in mndatadel.c for baselib, gm, lb, and ty dependencies used by the new function bodies.",
-    "Added source bodies for previously placeholder Data Delete menu functions, including deletion actions, confirmation handling, cursor movement, SIS text handling, animation playback, archive section loading, and menu transition behavior.",
-    "Reworked fn_8024ECCC to use a named gobj parameter, direct gobj->hsd_obj access, menu_data = &mnDataDel_803EF870, x30 animation settings, and an end_frame pointer.",
-    "Updated mndatadel.h so mnDataDel_8024EBC8 has a concrete HSD_JObj/u8 signature and added baselib/jobj.h for that type.",
-    "Expanded mndatadel.static.h with recovered local structs, arrays for menu joint indices and SIS label IDs, a SetItemChildAnim inline helper, static model descriptors, and extern float/data declarations.",
-    "Bot report recorded 3 new matches: mnDataDel_80250170, fn_8024F1D4, and .bss for main/melee/mn/mndatadel.",
-    "Bot report recorded 11 improvements in unmatched functions/data, including fn_8024F318, mnDataDel_8024FE4C, fn_8024F840, mnDataDel_8024EA6C, mnDataDel_8024E940, mnDataDel_8024EBC8, fn_8024FD40, fn_8024FC48, fn_8024FBA4, .data, and fn_8024ECCC.",
-    "Bot report recorded one unmatched-function regression: .sdata2 moved from 42.11% to 36.36%."
+    {
+      "text": "Replaced many mndatadel stubs with C bodies for menu deletion, warning-modal flow, menu input handling, item deletion animation, teardown, and setup paths.",
+      "evidence_refs": [
+        "raw_diff:mndatadel.c removed /// # stubs and added function bodies",
+        "text_corpus.jsonl:bot report lists 3 new matches and 11 improvements"
+      ]
+    },
+    {
+      "text": "Added recovered menu userdata and selection structs, converted repeated scalar fields in MnDataDelData into arrays for menu joint indices and SIS label IDs.",
+      "evidence_refs": [
+        "raw_diff:mndatadel.static.h struct MnDataDelSelectData",
+        "raw_diff:mndatadel.static.h struct MnDataDelUserData",
+        "raw_diff:mndatadel.static.h x3C[7] and x58[6]"
+      ]
+    },
+    {
+      "text": "Updated mndatadel prototypes to include HSD_JObj and named HSD_GObj parameters, replacing one UNK_PARAMS declaration for mnDataDel_8024EBC8.",
+      "evidence_refs": [
+        "raw_diff:mndatadel.h"
+      ]
+    },
+    {
+      "text": "Added comments to MenuInputState fields in mnmain.h, describing cooldown and reset fields.",
+      "evidence_refs": [
+        "raw_diff:mnmain.h"
+      ]
+    }
   ],
   "smart_moves": [
-    "Recovered struct and array shapes in mndatadel.static.h so repeated x3C and x58 fields could be accessed as indexed menu data rather than as separate scalar fields.",
-    "Updated the header prototype for mnDataDel_8024EBC8 after recovering its body signature, aligning with truthful-header practice.",
-    "Used natural loops in several repeated menu-item operations, including iterating over six menu items and over a 29-entry gm check.",
-    "Kept bot-reported match/regression output attached to the PR evidence instead of treating the draft PR as accepted or merged."
+    {
+      "text": "Used typed menu data structures and arrays for repeated menu entries, which makes repeated menu item operations indexable rather than keeping only separate scalar fields.",
+      "evidence_refs": [
+        "raw_diff:mndatadel.static.h x3C[7] and x58[6]",
+        "raw_diff:mndatadel.c loops over 6 menu items"
+      ]
+    },
+    {
+      "text": "Header prototypes were updated alongside recovered function bodies, reducing UNK_PARAMS and making call surfaces more truthful.",
+      "evidence_refs": [
+        "raw_diff:mndatadel.h"
+      ]
+    },
+    {
+      "text": "The PR kept address-style names for many not-yet-understood functions and globals, avoiding unsupported semantic renames.",
+      "evidence_refs": [
+        "raw_diff:mndatadel.c gm_801647D0, fn_8024F318, mnDataDel_804DC1A8"
+      ]
+    }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When repeated menu-item data fields form contiguous tables, recovering array fields in the static struct can make menu traversal and label selection code clearer and closer to authored source.",
-      "evidence_refs": [
-        "diff.diff: MnDataDelData x3C[7] and x58[6] replace individual x3C/x40/... and x58/x5A/... fields",
-        "diff.diff: loops index menu_data->x3C[i] and menu_data->x58[data->selected_item]"
+      "lesson": "When menu data has repeated item entries, recovering array fields in the static data struct can enable compact indexed loops for animation and text-label handling.",
+      "scope": [
+        "src/melee/mn/mndatadel.static.h",
+        "src/melee/mn/mndatadel.c"
       ],
-      "confidence": 0.82
+      "evidence_refs": [
+        "raw_diff:mndatadel.static.h converts x3C/x58 scalar series to arrays",
+        "raw_diff:mndatadel.c fn_8024FBA4 loops i < 6",
+        "raw_diff:mndatadel.c fn_8024F840 indexes menu_data->x3C and x58"
+      ]
     },
     {
-      "lesson": "Recovering an unknown function body should be accompanied by updating its exposed prototype when the argument types become clear.",
-      "evidence_refs": [
-        "diff.diff: mndatadel.h changes mnDataDel_8024EBC8(UNK_PARAMS) to HSD_JObj* root and three u8 arguments"
+      "lesson": "Recovered function signatures should be reflected in the owning header when bodies prove argument types, as shown by replacing mnDataDel_8024EBC8(UNK_PARAMS) with HSD_JObj* and u8 arguments.",
+      "scope": [
+        "src/melee/mn/mndatadel.h"
       ],
-      "confidence": 0.9
-    },
-    {
-      "lesson": "Padding locals and unused-argument casts may be used as narrow matching tactics, but they require explicit match evidence and should not be generalized as style.",
       "evidence_refs": [
-        "diff.diff: u8 _pad arrays in several functions",
-        "diff.diff: (void) arg3 comment says unused but affects caller register allocation",
-        "decomp_standards: matching-tactics-need-evidence"
-      ],
-      "confidence": 0.74
+        "raw_diff:mndatadel.h",
+        "raw_diff:mndatadel.c mnDataDel_8024EBC8 signature"
+      ]
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Use short role names for clear local object handles, such as gobj, root, child, panel, exclaim, cursor_yes, cursor_no, text, proc, menu_data, and user_data.",
+      "text": "The PR uses local-role pointer names such as gobj, child, panel, exclaim, cursor_yes, cursor_no, menu_data, user_data, and data_tbl where roles are apparent.",
       "evidence_refs": [
-        "diff.diff: fn_8024ECCC parameter renamed arg0 to gobj and local root = gobj->hsd_obj",
-        "diff.diff: added locals child, menu_data, user_data, proc, text in new bodies"
-      ],
-      "confidence": 0.78
+        "raw_diff:mndatadel.c fn_8024ECCC",
+        "raw_diff:mndatadel.c fn_8024F318",
+        "raw_diff:mndatadel.c fn_8024F840"
+      ]
     },
     {
-      "convention": "Keep address-style function names when semantic function meaning is not proven, while adding semantic local/field names where behavior is directly evident.",
+      "text": "Unproven functions and globals largely remain address-style names such as fn_8024F318, mnDataDel_804DC1A8, gm_801647D0, and lb_80011E24.",
       "evidence_refs": [
-        "diff.diff: functions remain mnDataDel_8024E940/fn_8024F318/etc.",
-        "diff.diff: MnDataDelUserData fields selected_item, confirm_active, item_deleted, label_text, menu_joints"
-      ],
-      "confidence": 0.76
+        "raw_diff:mndatadel.c",
+        "raw_diff:mndatadel.static.h extern declarations"
+      ]
     },
     {
-      "convention": "Use field comments to document recovered but still partly unknown state fields without over-renaming them.",
+      "text": "Recovered struct fields mix semantic names for clearer fields, such as selected_item, confirm_active, item_deleted, label_text, menu_joints, visible, and cursor_idx, with xN names for less-certain fields.",
       "evidence_refs": [
-        "diff.diff: WarnCmnData x0, visible, cursor_idx comments",
-        "diff.diff: MenuInputState cooldown, x2, x4 comments"
-      ],
-      "confidence": 0.72
+        "raw_diff:mndatadel.static.h MnDataDelUserData",
+        "raw_diff:mndatadel.static.h WarnCmnData"
+      ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use explicit stack padding locals to influence stack/register layout in matching functions.",
+      "text": "Uses explicit stack padding locals in several functions, e.g. u8 _pad arrays, likely to shape stack layout; the PR evidence does not include objdiff reasoning for each padding use.",
       "evidence_refs": [
-        "diff.diff: u8 _pad[8], _pad2[16], _pad[0x10], _pad[0x58], _pad[0x34] appear in added function bodies"
-      ],
-      "risk": "Standards require narrow verifier evidence for PAD_STACK-style tactics; this PR has bot match percentages but no per-tactic explanation."
+        "raw_diff:mndatadel.c _pad declarations",
+        "decomp_standards:matching-tactics-need-evidence"
+      ]
     },
     {
-      "tactic": "Preserve an unused argument with a cast when it affects caller register allocation.",
+      "text": "Preserves an unused argument in mnDataDel_8024EBC8 with '(void) arg3; // unused but affects caller register allocation', explicitly marking a register-allocation tactic.",
       "evidence_refs": [
-        "diff.diff: mnDataDel_8024EBC8 contains (void) arg3 with comment 'unused but affects caller register allocation'"
-      ],
-      "risk": "Useful as a matching clue, but should remain scoped and justified by objdiff/build evidence."
+        "raw_diff:mndatadel.c mnDataDel_8024EBC8"
+      ]
     },
     {
-      "tactic": "Use do-while and for loops for repeated indexed menu and game-state operations.",
+      "text": "Introduces natural loops over menu items and stage/item slots, including do-while loops and for loops over six menu entries.",
       "evidence_refs": [
-        "diff.diff: mnDataDel_8024E940 do-while over i < 29",
-        "diff.diff: mnDataDel_8024EA6C do-while over i < 6",
-        "diff.diff: fn_8024FBA4 for i < 6"
-      ],
-      "risk": "Supported by natural-loop standard and the diff shape."
+        "raw_diff:mndatadel.c mnDataDel_8024EA6C do while i < 6",
+        "raw_diff:mndatadel.c fn_8024FBA4 for i < 6",
+        "decomp_standards:natural-loops"
+      ]
     },
     {
-      "tactic": "Use direct gobj->hsd_obj instead of GET_JOBJ in fn_8024ECCC.",
+      "text": "Uses direct gobj->hsd_obj access in fn_8024ECCC instead of GET_JOBJ; the PR evidence shows the change but does not explain whether this was required for matching.",
       "evidence_refs": [
-        "diff.diff: root = GET_JOBJ(arg0) changed to root = gobj->hsd_obj"
-      ],
-      "risk": "Header-inlines standard says GET_JOBJ should not be used unconditionally; this PR gives evidence of direct access but not a general rule."
-    },
-    {
-      "tactic": "Introduce local structs/arrays for menu user data and static data to replace less-typed offset access in many places.",
-      "evidence_refs": [
-        "diff.diff: added MnDataDelUserData and MnDataDelData arrays",
-        "diff.diff: accesses data->item_deleted, data->selected_item, menu_data->x3C, menu_data->x58"
-      ],
-      "risk": "One excerpt still uses ((u8*) data)[offset], so type recovery appears incomplete."
+        "raw_diff:mndatadel.c fn_8024ECCC root = gobj->hsd_obj"
+      ]
     }
   ],
   "review_feedback": [
     {
-      "source": "decomp-dev[bot] issue comment",
-      "feedback": "Bot report for GALE01 showed matched code +0.02% (+672 bytes), matched data +0.00% (+48 bytes), 3 new matches, 11 improvements in unmatched functions, and 1 .sdata2 regression.",
+      "kind": "bot_report",
+      "text": "decomp-dev bot reported matched code +0.02% (+672 bytes), matched data +48 bytes, 3 new matches: mnDataDel_80250170, fn_8024F1D4, and .bss.",
       "evidence_refs": [
-        "text_corpus.jsonl: issue_comment by decomp-dev[bot] at 2026-01-10T02:39:47Z"
+        "text_corpus.jsonl issue_comment decomp-dev[bot] 2026-01-10T02:39:47Z"
       ]
     },
     {
-      "source": "human review",
-      "feedback": "No loaded human review comments or PR body rationale are available.",
+      "kind": "bot_report",
+      "text": "Bot also reported 11 improvements in unmatched mndatadel items, including fn_8024F318 to 89.17%, mnDataDel_8024FE4C to 95.67%, fn_8024F840 to 83.19%, and fn_8024ECCC to 97.03%.",
       "evidence_refs": [
-        "metadata_json: review_comments 0, reviews 0, issue_comments 1",
-        "text_corpus.jsonl: pr_body is empty"
+        "text_corpus.jsonl issue_comment decomp-dev[bot] 2026-01-10T02:39:47Z"
+      ]
+    },
+    {
+      "kind": "bot_report_regression",
+      "text": "Bot reported one unmatched-function regression: main/melee/mn/mndatadel .sdata2 -3 bytes, 42.11% to 36.36%.",
+      "evidence_refs": [
+        "text_corpus.jsonl issue_comment decomp-dev[bot] 2026-01-10T02:39:47Z"
+      ]
+    },
+    {
+      "kind": "missing_review",
+      "text": "No human review comments or review records were present in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json counts.review_comments=0",
+        "metadata_json counts.reviews=0"
       ]
     }
   ],
@@ -191,7 +224,10 @@
     "pr-2078",
     "Pr/mn datadel",
     "itsgrimetime",
-    "mndatadel",
+    "src/melee/mn/mndatadel.c",
+    "src/melee/mn/mndatadel.h",
+    "src/melee/mn/mndatadel.static.h",
+    "src/melee/mn/mnmain.h",
     "mnDataDel_8024E940",
     "mnDataDel_8024EA6C",
     "mnDataDel_8024EBC8",
@@ -205,156 +241,122 @@
     "mnDataDel_8024FE4C",
     "mnDataDel_80250170",
     "MnDataDelUserData",
-    "MnDataDelData",
     "MnDataDelSelectData",
     "WarnCmnData",
-    "SetItemChildAnim",
     "MenuInputState",
-    "HSD_SisLib_803A5ACC",
-    "HSD_GObjProc_8038FD54",
-    "lbArchive_LoadSections",
-    "lb_80011E24",
-    "HSD_JObjReqAnimAll",
-    "MOBJ_MASK",
-    "TOBJ_MASK",
-    "gm_801647D0",
-    "gm_801641CC",
-    "gm_80164430",
-    "gm_80164250",
-    "gm_801641E4",
-    "gm_801603B0",
-    "gm_8016505C",
-    "sdata2 regression",
-    "PAD_STACK",
-    "unused argument register allocation"
+    "SetItemChildAnim",
+    "item_deleted",
+    "selected_item",
+    "cursor_idx",
+    "label_text",
+    "menu_joints",
+    "sdata2 regression"
   ],
   "follow_up_queries": [
-    "mndatadel MnDataDelUserData item_deleted selected_item label_text menu_joints",
-    "mnDataDel_8024EBC8 arg3 unused affects caller register allocation",
-    "mndatadel .sdata2 regression mnDataDel_804DC1A8 mnDataDel_804DC1AC",
-    "gm_1601 functions correct signatures gm_801647D0 gm_801641CC gm_80164430 gm_80164250",
-    "mndatadel local declarations gm_1601 owning header",
-    "mndatadel ((u8*) data)[offset] item_deleted type recovery",
-    "fn_8024ECCC GET_JOBJ gobj->hsd_obj mndatadel"
+    "PR 2078 mndatadel sdata2 regression",
+    "mnDataDel_8024EBC8 unused arg3 affects caller register allocation",
+    "mndatadel MnDataDelUserData item_deleted selected_item label_text",
+    "mndatadel x3C x58 arrays menu joint indices SIS label IDs",
+    "gm_1601 function prototypes gm_801647D0 gm_801641CC gm_80164430 gm_80164250 gm_801641E4",
+    "mndatadel local declarations correct signatures owning header"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR 2078 identity, closed state, draft true in raw_pr_json, merged_at null",
-      "changed_files.jsonl: four changed files and line counts",
-      "diff.diff: concrete code/header excerpts, but loaded raw_diff was truncated in the initial packet",
-      "text_corpus.jsonl: empty PR body and bot report",
-      "metadata_json: no review comments and no reviews"
+      "metadata_json",
+      "changed_files.jsonl",
+      "raw_diff.diff",
+      "text_corpus.jsonl"
     ],
     "notes": [
-      "The diff is large and initially truncated, though targeted header-diff lookup recovered the changed header/static-header details.",
-      "No human review comments are loaded, so reviewer intent and acceptance cannot be inferred.",
-      "The PR was closed with merged_at null; do not treat its source shapes as accepted project style.",
-      "Bot report provides match/improvement/regression metrics, but it does not explain individual padding, local declaration, or data-section tradeoffs.",
-      "Several functions are bot-reported as improvements rather than full matches, so source shapes in those functions should be treated as candidate evidence only."
+      "PR body is empty and no human review comments are present.",
+      "Diff evidence is strong for changed files, functions touched, prototype/type changes, and visible tactics.",
+      "Bot report provides match/improvement/regression numbers but only for one reported comparison; no local build logs, objdiff details, or author rationale are present.",
+      "PR is closed with merged_at null and marked draft in raw PR JSON; do not treat these changes as accepted into the project.",
+      "Some matching tactics such as stack padding, unused arg preservation, direct gobj->hsd_obj access, and local function declarations are visible but not justified by detailed verification evidence in the slice."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
         "type": "decomp_lesson_candidate",
-        "title": "Recover array-shaped static menu tables before writing repeated menu logic",
-        "text": "PR 2078 shows Data Delete menu code becoming more reviewable after MnDataDelData scalar runs were represented as x3C[7] joint indices and x58[6] SIS label IDs, enabling indexed loops and selection logic.",
+        "title": "Recover repeated menu data as arrays when indexed menu code supports it",
+        "text": "In mndatadel, repeated menu joint and SIS label fields were modeled as arrays x3C[7] and x58[6], enabling loops and indexed selected_item handling across six menu entries.",
         "scope": [
-          "src/melee/mn/mndatadel.static.h",
           "src/melee/mn/mndatadel.c",
-          "menu decompilation",
-          "struct recovery"
+          "src/melee/mn/mndatadel.static.h"
         ],
         "evidence_refs": [
-          "diff.diff: MnDataDelData x3C[7] and x58[6]",
-          "diff.diff: looped accesses menu_data->x3C[i] and menu_data->x58[data->selected_item]"
+          "raw_diff:mndatadel.static.h x3C[7], x58[6]",
+          "raw_diff:mndatadel.c fn_8024FBA4",
+          "raw_diff:mndatadel.c fn_8024F840"
         ],
-        "confidence": 0.82
+        "confidence": 0.76
       },
       {
         "type": "decomp_lesson_candidate",
-        "title": "Function-body recovery should update real prototypes when signatures become known",
-        "text": "PR 2078 changed mnDataDel_8024EBC8 from UNK_PARAMS to a concrete HSD_JObj* plus u8 arguments in mndatadel.h after adding the function body.",
+        "title": "Update public prototypes when recovering mndatadel function signatures",
+        "text": "The PR replaced mnDataDel_8024EBC8(UNK_PARAMS) with a typed HSD_JObj*/u8 signature and named several HSD_GObj* parameters after adding function bodies.",
         "scope": [
-          "src/melee/mn/mndatadel.h",
-          "truthful headers"
+          "src/melee/mn/mndatadel.h"
         ],
         "evidence_refs": [
-          "diff.diff: mndatadel.h prototype update for mnDataDel_8024EBC8"
+          "raw_diff:mndatadel.h",
+          "raw_diff:mndatadel.c mnDataDel_8024EBC8"
         ],
-        "confidence": 0.9
+        "confidence": 0.82
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Local recovered prototypes should move to owning headers rather than remaining source-local",
-        "text": "PR 2078 adds source-local declarations for gm_1601 functions with a comment saying they have correct signatures. This may be a useful negative example for the truthful-headers standard: when signatures are recovered, curator should consider whether the owning gm header should receive them instead of keeping local declarations.",
+        "title": "Local declarations for recovered external functions should be reviewed against owning headers",
+        "text": "PR 2078 adds source-local declarations for gm_1601 functions with a comment saying they have correct signatures. This may be a useful example for the truthful-headers standard: if these signatures are proven, curator should consider whether the owning gm header should declare them rather than keeping local declarations.",
         "source_path": "src/melee/mn/mndatadel.c",
         "scope": [
           "headers",
           "prototypes",
-          "gm_1601",
-          "mndatadel"
+          "truthful-headers-and-includes"
         ],
         "evidence_refs": [
-          "diff.diff: /* Local declarations for gm_1601 functions with correct signatures */ followed by gm_801647D0, gm_801641CC, gm_80164430, gm_80164250, gm_801641E4, gm_801603B0, gm_8016505C",
-          "decomp_standards: truthful-headers-and-includes"
+          "raw_diff:mndatadel.c comment 'Local declarations for gm_1601 functions with correct signatures'",
+          "decomp_standards:truthful-headers-and-includes"
         ],
-        "reason": "The evidence supports a possible standards note or example, but because this PR was draft/closed and unreviewed, it should not be promoted without curator review."
+        "reason": "The PR evidence supports that local declarations were added, but not whether owning headers existed or were intentionally avoided."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Padding locals and unused-argument casts need per-symbol evidence",
-        "text": "PR 2078 uses explicit padding locals and an unused argument cast annotated as affecting caller register allocation. This is a candidate example for the existing matching-tactics standard: such tactics can appear in matching work, but should be documented with narrow objdiff/checkdiff evidence.",
+        "title": "Require explicit evidence for unused-argument register-allocation tactics",
+        "text": "PR 2078 contains '(void) arg3; // unused but affects caller register allocation' in mnDataDel_8024EBC8. This is a concrete historical example of a matching tactic that should remain narrow and evidence-backed.",
         "source_path": "src/melee/mn/mndatadel.c",
         "scope": [
           "matching tactics",
-          "stack padding",
-          "register allocation"
+          "register allocation",
+          "unused parameters"
         ],
         "evidence_refs": [
-          "diff.diff: multiple u8 _pad locals",
-          "diff.diff: (void) arg3 comment in mnDataDel_8024EBC8",
-          "text_corpus.jsonl: bot report gives overall match/improvement metrics"
+          "raw_diff:mndatadel.c mnDataDel_8024EBC8",
+          "decomp_standards:matching-tactics-need-evidence"
         ],
-        "reason": "The PR evidence shows tactic usage but does not prove each tactic was necessary; route as a candidate example only."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "mndatadel owns Data Delete menu state and animation helpers",
-        "text": "The PR evidence indicates src/melee/mn/mndatadel.c and mndatadel.static.h cover Data Delete menu item selection, deletion flags, confirmation dialog state, SIS label text, JObj animation, and archive-loaded static models.",
-        "source_path": "src/melee/mn/mndatadel.c",
-        "scope": [
-          "src/melee/mn/mndatadel.c",
-          "src/melee/mn/mndatadel.static.h"
-        ],
-        "evidence_refs": [
-          "diff.diff: MnDataDelUserData fields selected_item, confirm_active, item_deleted, label_text, menu_joints",
-          "diff.diff: WarnCmnData fields and confirmation handlers",
-          "diff.diff: lbArchive_LoadSections in mnDataDel_80250170 excerpt"
-        ],
-        "reason": "Useful as a path fact candidate, but the PR was closed unmerged and should be checked against current source before acceptance."
+        "reason": "Loaded evidence shows the tactic and author comment, but does not include objdiff proof for curator acceptance."
       }
     ],
     "rejection_notes": [
-      "Do not infer that this PR's local gm_1601 declarations are accepted style; the PR was draft/closed and has no human review.",
-      "Do not claim all added functions matched. The bot report lists only mnDataDel_80250170 and fn_8024F1D4 as new function matches; most other functions are improvements with less than 100%.",
-      "Do not treat the .sdata2 regression as accepted or resolved; the only evidence says it regressed.",
-      "Do not promote the direct gobj->hsd_obj replacement over GET_JOBJ as a global rule; the evidence is local to fn_8024ECCC."
+      "Do not promote the PR as merged or accepted; metadata shows CLOSED with merged_at null.",
+      "Do not claim all added functions matched; bot report shows only mnDataDel_80250170 and fn_8024F1D4 as new function matches, with many other functions still partial.",
+      "Do not infer human reviewer intent; no human review comments are present.",
+      "Do not accept stack padding, direct GET_JOBJ replacement, local gm declarations, or .sdata2 changes as standards from this slice alone."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.74,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

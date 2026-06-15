@@ -1,0 +1,371 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2673",
+  "pr": {
+    "number": 2673,
+    "title": "link vi0502",
+    "url": "https://github.com/doldecomp/melee/pull/2673",
+    "state": "MERGED",
+    "author": "jurrejelle",
+    "created_at": "2026-06-13T06:50:40Z",
+    "merged_at": "2026-06-13T17:26:33Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Linked and marked `melee/vi/vi0502.c` as matching. The PR restructures vi0502-local data into a `Vi0502Data` aggregate at `un_804000D0`, uses that aggregate for initial position and archive-name strings, adjusts local temporaries and argument extraction to match `vi0502_8031E124` and `un_8031E444_OnEnter`, and updates symbol metadata scopes/names for vi0502-related data. The automated report records five new matches including both touched functions and vi0502 data sections.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "data-layout",
+      "symbol-metadata",
+      "build-config"
+    ],
+    "systems": [
+      "melee/vi",
+      "config/GALE01",
+      "configure"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/vi/vi0502.c",
+      "role": "Main decomp source update for vi0502; introduces `Vi0502Data`, changes data/string access, adjusts locals and calls in matching functions.",
+      "evidence_refs": [
+        "raw_diff:src/melee/vi/vi0502.c hunks",
+        "changed_files:src/melee/vi/vi0502.c added=32 deleted=11 hunks=8",
+        "text_corpus:decomp-dev[bot] report new matches for main/melee/vi/vi0502"
+      ]
+    },
+    {
+      "path": "configure.py",
+      "role": "Build configuration changed `melee/vi/vi0502.c` from `NonMatching` to `Matching`.",
+      "evidence_refs": [
+        "raw_diff:configure.py hunk around MatchingFor",
+        "changed_files:configure.py added=1 deleted=1 hunks=1"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Symbol metadata adjusted for vi0502-related strings, sbss objects, and sdata2 floats, including local-scope labels and local scope for `erase_colors_vi0502` and `kirby_gobj`.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt hunks at .sdata, .sbss, .sdata2",
+        "changed_files:config/GALE01/symbols.txt added=10 deleted=10 hunks=3"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "`configure.py` now treats `melee/vi/vi0502.c` as `Object(Matching, ...)` instead of `Object(NonMatching, ...)`.",
+      "evidence_refs": [
+        "raw_diff:configure.py"
+      ]
+    },
+    {
+      "text": "`src/melee/vi/vi0502.c` replaces the standalone `Vec3 initial_pos` with a `Vi0502Data` struct containing `initial_pos` plus the strings `Vi0502.dat`, `visual0502Scene`, and `IrAls.dat`, backed by `un_804000D0`.",
+      "evidence_refs": [
+        "raw_diff:src/melee/vi/vi0502.c typedef Vi0502Data and final un_804000D0 initializer"
+      ]
+    },
+    {
+      "text": "`vi0502_8031E124` now reads initial position through `un_804000D0.initial_pos`, sets player 1 facing direction to `-1.0f`, and uses a second `HSD_JObj*` local for the later `GET_JOBJ`/translation query.",
+      "evidence_refs": [
+        "raw_diff:src/melee/vi/vi0502.c vi0502_8031E124 hunk"
+      ]
+    },
+    {
+      "text": "`un_8031E444_OnEnter` now uses a local `Vi0502Data* data` for archive-load strings and extracts `p1_char_index`, `p1_costume_index`, and `p2_costume_index` into locals before calling `vi0502_8031E124`.",
+      "evidence_refs": [
+        "raw_diff:src/melee/vi/vi0502.c un_8031E444_OnEnter hunk"
+      ]
+    },
+    {
+      "text": "`un_804D6FA8` changed from `static ViCharaDesc*` to `ViCharaDesc* un_804D6FA8[2]`.",
+      "evidence_refs": [
+        "raw_diff:src/melee/vi/vi0502.c declaration hunk"
+      ]
+    },
+    {
+      "text": "`symbols.txt` changes multiple vi0502-adjacent string and float symbols from global `un_...` names to local `@...` labels, and changes `erase_colors_vi0502` and `kirby_gobj` from global to local scope.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt"
+      ]
+    },
+    {
+      "text": "The automated report records new 100% matches for `vi0502_8031E124`, `un_8031E444_OnEnter`, and vi0502 `.data`, `.sbss`, and `.sdata2` items.",
+      "evidence_refs": [
+        "text_corpus:issue_comment decomp-dev[bot] 2026-06-13T06:54:24Z"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "Grouped vi0502's initial vector and archive-name strings into a single data aggregate instead of keeping them as independent inline literals or a standalone vector, matching the reported `.data` completion for the unit.",
+      "evidence_refs": [
+        "raw_diff:src/melee/vi/vi0502.c Vi0502Data/un_804000D0 changes",
+        "text_corpus:decomp-dev[bot] `.data` 94.34% to 100.00%"
+      ]
+    },
+    {
+      "text": "Updated symbol metadata scopes alongside source changes, rather than compensating in C for local string, float, and sbss ownership.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt",
+        "text_corpus:decomp-dev[bot] `.sbss` and `.sdata2` 100.00% entries"
+      ]
+    },
+    {
+      "text": "Used small local-variable shape changes (`jobj2`, `data`, `costume1`, `costume2`) at the call sites that the report identifies as newly matching functions.",
+      "evidence_refs": [
+        "raw_diff:src/melee/vi/vi0502.c vi0502_8031E124 and un_8031E444_OnEnter hunks",
+        "text_corpus:decomp-dev[bot] `vi0502_8031E124` and `un_8031E444_OnEnter` entries"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "For matching work in vi scene files, nearby string literals and small constants may belong to a real TU data aggregate; verify section ownership and symbol metadata before deciding they should remain standalone literals or globals.",
+      "scope": [
+        "src/melee/vi/vi0502.c",
+        "config/GALE01/symbols.txt"
+      ],
+      "evidence_refs": [
+        "raw_diff:src/melee/vi/vi0502.c Vi0502Data/un_804000D0",
+        "raw_diff:config/GALE01/symbols.txt .sdata/.sdata2 local label changes",
+        "text_corpus:decomp-dev[bot] `.data` and `.sdata2` new matches"
+      ]
+    },
+    {
+      "lesson": "When a function is very close to matching, preserving or introducing seemingly redundant locals can be required by MWCC codegen at call boundaries; keep the tactic narrow and tie it to function-level match evidence.",
+      "scope": [
+        "src/melee/vi/vi0502.c"
+      ],
+      "evidence_refs": [
+        "raw_diff:src/melee/vi/vi0502.c added `jobj2`, `data`, `costume1`, `costume2`",
+        "text_corpus:decomp-dev[bot] `vi0502_8031E124` 96.82% to 100.00%; `un_8031E444_OnEnter` 99.66% to 100.00%"
+      ]
+    },
+    {
+      "lesson": "Marking an object as `Matching` should be accompanied by narrow report evidence for the touched unit and any data sections affected by source or symbol metadata changes.",
+      "scope": [
+        "configure.py",
+        "src/melee/vi/vi0502.c",
+        "config/GALE01/symbols.txt"
+      ],
+      "evidence_refs": [
+        "raw_diff:configure.py `Object(Matching, \"melee/vi/vi0502.c\")`",
+        "text_corpus:decomp-dev[bot] five new matches for main/melee/vi/vi0502"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "The PR uses a file-scoped semantic aggregate name `Vi0502Data` for recovered vi0502 data layout while retaining address-style global name `un_804000D0` for the backing symbol.",
+      "evidence_refs": [
+        "raw_diff:src/melee/vi/vi0502.c typedef and extern/definition of un_804000D0"
+      ]
+    },
+    {
+      "text": "Recovered struct fields are named directly after their observed roles or literal contents: `initial_pos`, `vi0502_dat`, `visual0502_scene`, and `irals_dat`.",
+      "evidence_refs": [
+        "raw_diff:src/melee/vi/vi0502.c Vi0502Data fields and initializer"
+      ]
+    },
+    {
+      "text": "Symbol metadata uses local `@NNN` labels for local strings/floats where the diff changes prior global `un_...` symbols.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt .sdata and .sdata2 hunks"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Changed object status from nonmatching to matching only after source and symbol metadata changes for the same TU.",
+      "evidence_refs": [
+        "raw_diff:configure.py",
+        "text_corpus:decomp-dev[bot] matched-code and linked-code gains"
+      ]
+    },
+    {
+      "tactic": "Introduced a data struct and accessed string/vector members through a local pointer or external aggregate to shape loads and data references.",
+      "evidence_refs": [
+        "raw_diff:src/melee/vi/vi0502.c `Vi0502Data* data`, `data->vi0502_dat`, `data->visual0502_scene`, `data->irals_dat`, `&un_804000D0.initial_pos`"
+      ]
+    },
+    {
+      "tactic": "Split repeated or direct expression uses into locals before a call, likely to match register/lifetime shape, but the PR does not include explicit objdiff narrative beyond the bot report.",
+      "evidence_refs": [
+        "raw_diff:src/melee/vi/vi0502.c `char_index`, `costume1`, `costume2` before `vi0502_8031E124`",
+        "text_corpus:decomp-dev[bot] `un_8031E444_OnEnter` 100.00%"
+      ]
+    },
+    {
+      "tactic": "Adjusted symbol scopes and local labels in `symbols.txt` for `.sdata`, `.sbss`, and `.sdata2` instead of adding dummy source storage.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt",
+        "text_corpus:decomp-dev[bot] data-section match entries"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "kind": "automated_report",
+      "text": "decomp-dev[bot] reported matched code +0.03% (+1128 bytes), linked code +0.04% (+1468 bytes), matched data +0.01% (+112 bytes), linked data +0.01% (+128 bytes), with five new matches for `main/melee/vi/vi0502`.",
+      "evidence_refs": [
+        "text_corpus:issue_comment decomp-dev[bot] 2026-06-13T06:54:24Z"
+      ]
+    },
+    {
+      "kind": "missing_human_review",
+      "text": "No review comments or reviews are present in the supplied PR slice.",
+      "evidence_refs": [
+        "metadata_json:counts.review_comments=0 reviews=0",
+        "metadata_json:activity.review_comments=0"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "pr-2673",
+    "link vi0502",
+    "jurrejelle",
+    "src/melee/vi/vi0502.c",
+    "configure.py",
+    "config/GALE01/symbols.txt",
+    "MatchingFor",
+    "Object(Matching)",
+    "Vi0502Data",
+    "un_804000D0",
+    "initial_pos",
+    "Vi0502.dat",
+    "visual0502Scene",
+    "IrAls.dat",
+    "vi0502_8031E124",
+    "un_8031E444_OnEnter",
+    "vi0502_RunFrame",
+    "kirby_gobj",
+    "erase_colors_vi0502",
+    "un_804D6FA8",
+    "HSD_JObjGetTranslation2",
+    "GET_JOBJ",
+    "lbArchive_LoadSymbols",
+    ".sdata",
+    ".sbss",
+    ".sdata2"
+  ],
+  "follow_up_queries": [
+    "Find other `src/melee/vi/*.c` files that use a scene-specific data aggregate containing initial positions and archive-name strings.",
+    "Search for PRs that change `Object(NonMatching, \"melee/vi/*.c\")` to `Object(Matching, ...)` together with `symbols.txt` local label updates.",
+    "Search for `lbArchive_LoadSymbols` calls in vi scene files that still use inline archive strings where section metadata may indicate a data aggregate.",
+    "Search for `un_804000D0` and adjacent `.data` ownership to verify whether `Vi0502Data` should be documented in path facts.",
+    "Search for vi scene functions using extra locals before final call dispatch as a matching tactic."
+  ],
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json",
+      "raw_diff",
+      "changed_files",
+      "text_corpus"
+    ],
+    "notes": [
+      "Full diff and changed-file metadata are loaded and internally consistent.",
+      "Automated report provides match percentages and new-match list for the touched vi0502 unit.",
+      "PR body is empty and there are no human review comments, so author intent and reviewer rationale are not available.",
+      "The bot report supports that matches were achieved, but the slice does not include build logs, objdiff screenshots, or manual validation details beyond the automated summary."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "decomp_lesson",
+        "title": "Use real data aggregates when section evidence ties literals and vectors together",
+        "text": "PR 2673 matched vi0502 by replacing a standalone `initial_pos` and inline archive strings with a `Vi0502Data` aggregate at `un_804000D0`, while also updating symbol metadata for local strings/floats. Curator should consider this as a vi-scene example of using section/data ownership rather than leaving unrelated standalone literals.",
+        "scope": [
+          "src/melee/vi/vi0502.c",
+          "config/GALE01/symbols.txt"
+        ],
+        "evidence_refs": [
+          "raw_diff:src/melee/vi/vi0502.c",
+          "raw_diff:config/GALE01/symbols.txt",
+          "text_corpus:decomp-dev[bot] data-section matches"
+        ]
+      },
+      {
+        "record_type": "matching_tactic",
+        "title": "Narrow local-variable lifetime shaping can close near-matched vi functions",
+        "text": "PR 2673 added narrow locals (`jobj2`, `data`, `costume1`, `costume2`) in functions reported as newly 100% matched. Keep this as a tactic candidate only when tied to narrow objdiff or bot-report evidence.",
+        "scope": [
+          "src/melee/vi/vi0502.c"
+        ],
+        "evidence_refs": [
+          "raw_diff:src/melee/vi/vi0502.c",
+          "text_corpus:decomp-dev[bot] function match entries"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "`src/melee/vi/vi0502.c` became matching in PR 2673",
+        "text": "PR 2673 changed `configure.py` from `Object(NonMatching, \"melee/vi/vi0502.c\")` to `Object(Matching, \"melee/vi/vi0502.c\")`; the bot report lists `vi0502_8031E124`, `un_8031E444_OnEnter`, `.data`, `.sbss`, and `.sdata2` as new matches for `main/melee/vi/vi0502`.",
+        "source_path": "src/melee/vi/vi0502.c",
+        "scope": [
+          "melee/vi/vi0502",
+          "configure.py"
+        ],
+        "evidence_refs": [
+          "raw_diff:configure.py",
+          "text_corpus:decomp-dev[bot] report"
+        ],
+        "reason": "Potential path fact about historical matching status and affected unit; curator should verify current source before adding."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "vi0502 uses `Vi0502Data` at `un_804000D0` for initial position and archive strings",
+        "text": "The PR introduces `Vi0502Data` with `initial_pos`, `vi0502_dat`, `visual0502_scene`, and `irals_dat`, defines `un_804000D0`, and updates vi0502 code to read those fields.",
+        "source_path": "src/melee/vi/vi0502.c",
+        "scope": [
+          "src/melee/vi/vi0502.c",
+          "un_804000D0",
+          "Vi0502Data"
+        ],
+        "evidence_refs": [
+          "raw_diff:src/melee/vi/vi0502.c"
+        ],
+        "reason": "Useful file-specific data-layout fact, but should be checked against current source and symbol ownership before adding to path facts."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Symbol metadata can be the right fix for local data-section ownership",
+        "text": "PR 2673 paired source matching with `symbols.txt` changes from global `un_...` names to local labels/scopes for vi0502 strings/floats/sbss, avoiding fake C storage. Existing standards already cover data ownership; curator may decide whether this PR should be indexed as an example rather than a new standard.",
+        "source_path": null,
+        "scope": [
+          "config/GALE01/symbols.txt",
+          "src/melee/vi/vi0502.c"
+        ],
+        "evidence_refs": [
+          "raw_diff:config/GALE01/symbols.txt",
+          "text_corpus:decomp-dev[bot] data-section match entries"
+        ],
+        "reason": "This reinforces existing data-sections and literals/data-ownership standards; likely better as an example than a new rule."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that all vi scene archive strings should be moved into structs; this PR only proves vi0502's observed data layout.",
+      "Do not treat added locals like `jobj2`, `costume1`, or `costume2` as general style; evidence only supports them as narrow matching choices in this PR.",
+      "Do not promote the PR's bot report into a full validation ledger with build/objdiff details; the slice contains only the automated summary.",
+      "Do not infer human reviewer intent or acceptance rationale; no human review comments are loaded."
+    ]
+  },
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

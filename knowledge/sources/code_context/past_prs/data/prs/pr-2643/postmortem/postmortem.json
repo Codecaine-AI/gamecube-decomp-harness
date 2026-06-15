@@ -12,114 +12,138 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "A one-line stage decomp matching PR adjusted the stack padding in src/melee/gr/grinishie2.c for grInishie2_801FD4F0 from PAD_STACK(16) to PAD_STACK(12). The PR body says the prior pad placed a local Vec3 at 0x24(r1), while the adjusted pad moves it to the expected 0x20(r1), producing a 100% objdiff match. The bot report confirms one new match for main/melee/gr/grinishie2, grInishie2_801FD4F0, from 99.91% to 100.00%.",
+  "summary": "Matched stage function grInishie2_801FD4F0 by reducing a PAD_STACK size from 16 to 12 in src/melee/gr/grinishie2.c, moving a local Vec3 stack slot from 0x24(r1) to the expected 0x20(r1). PR body reports objdiff target=100.0/current=100.0, and the bot report records one new match for main/melee/gr/grinishie2.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "stack-layout-adjustment",
-      "single-function-match"
+      "stack-layout-tuning",
+      "stage-code"
     ],
     "systems": [
       "stage",
-      "grInishie2",
-      "ground"
+      "grinishie2"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grinishie2.c",
-      "role": "Only changed source file; contains grInishie2_801FD4F0 where PAD_STACK was reduced from 16 to 12.",
+      "role": "Touched stage translation unit containing grInishie2_801FD4F0; only changed PAD_STACK(16) to PAD_STACK(12).",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/gr/grinishie2.c added=1 deleted=1 hunks=1",
-        "raw_diff.diff: hunk for void grInishie2_801FD4F0(Ground_GObj* gobj)",
-        "human_pr_text.md: PR summary describes PAD_STACK(16) -> PAD_STACK(12)"
+        "changed_files.jsonl",
+        "raw_diff",
+        "human_pr_text"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "In grInishie2_801FD4F0, PAD_STACK(16) was changed to PAD_STACK(12).",
+      "path": "src/melee/gr/grinishie2.c",
+      "symbol": "grInishie2_801FD4F0",
+      "change": "Reduced PAD_STACK argument from 16 to 12.",
+      "effect_reported": "PR body says this corrected the local Vec3 stack position from 0x24(r1) to 0x20(r1), taking the function from 99.91% fuzzy to 100.0%.",
       "evidence_refs": [
-        "raw_diff.diff",
-        "human_pr_text.md"
-      ]
-    },
-    {
-      "text": "The PR body states the stack pad had been 4 bytes too large, and the change moved a local Vec3 from 0x24(r1) to 0x20(r1).",
-      "evidence_refs": [
-        "human_pr_text.md"
-      ]
-    },
-    {
-      "text": "The PR body reports objdiff target=100.0 and current=100.0; the bot report lists one new match for grInishie2_801FD4F0 from 99.91% to 100.00%.",
-      "evidence_refs": [
-        "human_pr_text.md",
-        "text_corpus.jsonl: decomp-dev[bot] issue_comment"
+        "raw_diff",
+        "human_pr_text",
+        "text_corpus:pr_body"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Kept the fix narrow: a single stack pad value was adjusted without broad source churn.",
+      "lesson": "A tiny PAD_STACK adjustment can close a near-match when the remaining difference is a local stack-slot offset.",
+      "why_it_worked": "The author identified the stack pad as 4 bytes too large and tied the change to the Vec3 moving to the expected stack offset.",
       "evidence_refs": [
-        "changed_files.jsonl",
-        "raw_diff.diff"
+        "human_pr_text",
+        "raw_diff"
       ]
     },
     {
-      "text": "The author tied the PAD_STACK change to a specific stack-slot effect for the local Vec3 and supplied objdiff evidence.",
+      "lesson": "The PR kept the change narrowly scoped to one line in the target function.",
+      "why_it_worked": "Changed-file metadata and diff show one added line and one deleted line in src/melee/gr/grinishie2.c.",
       "evidence_refs": [
-        "human_pr_text.md"
+        "changed_files.jsonl",
+        "raw_diff"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For a nearly matched function with an otherwise plausible body, a small PAD_STACK adjustment can correct local stack-slot placement when objdiff shows a stack local is offset by the same amount.",
+      "lesson": "When a function is already highly fuzzy-matched and the remaining mismatch is a local variable stack offset, inspect PAD_STACK sizing before changing logic or types.",
       "scope": [
-        "single-function matching",
-        "stack layout",
-        "PAD_STACK"
+        "decomp-matching",
+        "MWCC stack layout",
+        "functions using PAD_STACK"
       ],
       "evidence_refs": [
-        "human_pr_text.md: stack pad was 4 bytes too large; Vec3 moved from 0x24(r1) to 0x20(r1)",
-        "raw_diff.diff: PAD_STACK(16) -> PAD_STACK(12)",
-        "text_corpus.jsonl: bot report 99.91% -> 100.00%"
+        "human_pr_text",
+        "raw_diff"
       ],
-      "caveats": [
-        "This PR only supports the specific PAD_STACK adjustment for grInishie2_801FD4F0; it does not prove a general padding formula.",
-        "PAD_STACK remains a matching tactic requiring narrow verifier evidence under the loaded decomp standards."
+      "confidence": 0.82
+    },
+    {
+      "lesson": "Record the concrete stack-offset consequence of stack-padding changes, not just the final match percentage.",
+      "scope": [
+        "review notes",
+        "matching tactics"
+      ],
+      "evidence_refs": [
+        "human_pr_text"
+      ],
+      "confidence": 0.78
+    }
+  ],
+  "naming_conventions": [
+    {
+      "convention": "No naming change was made. Existing names such as gp, jobj, temp_r29, temp_r30, GET_JOBJ, and GET_GROUND were only visible as diff context.",
+      "evidence_refs": [
+        "raw_diff"
       ]
     }
   ],
-  "naming_conventions": [],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use a narrow PAD_STACK value change to shift a local stack object to the expected r1 offset.",
-      "details": "Changing PAD_STACK(16) to PAD_STACK(12) was reported to move the local Vec3 from 0x24(r1) to 0x20(r1), completing the match.",
+      "tactic": "Adjusted PAD_STACK from 16 to 12 to change local stack layout.",
+      "reported_result": "Moved local Vec3 from 0x24(r1) to 0x20(r1), matching grInishie2_801FD4F0 at 100.0%.",
       "evidence_refs": [
-        "human_pr_text.md",
-        "raw_diff.diff"
+        "human_pr_text",
+        "raw_diff"
       ]
     },
     {
-      "tactic": "Back stack-padding tactics with objdiff and bot/check report evidence.",
-      "details": "The PR body reports objdiff target=100.0/current=100.0 and the bot report records grInishie2_801FD4F0 as a new 100.00% match.",
+      "tactic": "Used objdiff as the verifier for the claimed match.",
+      "reported_result": "PR body reports objdiff target=100.0/current=100.0; bot report shows grInishie2_801FD4F0 before 99.91%, after 100.00%.",
       "evidence_refs": [
-        "human_pr_text.md",
-        "text_corpus.jsonl: decomp-dev[bot] issue_comment"
+        "human_pr_text",
+        "text_corpus:issue_comment:decomp-dev[bot]"
       ]
     }
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    {
+      "kind": "bot_report",
+      "author": "decomp-dev[bot]",
+      "feedback": "Reported GALE01 matched-code progress of +0.01%, +348 bytes, with one new match: main/melee/gr/grinishie2 grInishie2_801FD4F0 from 99.91% to 100.00%.",
+      "evidence_refs": [
+        "text_corpus:issue_comment:decomp-dev[bot]"
+      ]
+    },
+    {
+      "kind": "human_review",
+      "feedback": "No human review comments were present in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json:counts.review_comments=0",
+        "metadata_json:counts.reviews=0"
+      ]
+    }
+  ],
   "searchable_terms": [
     "pr-2643",
     "MFS-code",
     "Match grInishie2_801FD4F0",
-    "src/melee/gr/grinishie2.c",
     "grInishie2_801FD4F0",
-    "Ground_GObj",
+    "src/melee/gr/grinishie2.c",
+    "main/melee/gr/grinishie2",
     "PAD_STACK",
     "PAD_STACK(16)",
     "PAD_STACK(12)",
@@ -128,89 +152,73 @@
     "0x20(r1)",
     "GET_JOBJ",
     "GET_GROUND",
-    "objdiff",
+    "Ground_GObj",
+    "HSD_JObj",
     "99.91%",
     "100.00%",
-    "main/melee/gr/grinishie2",
-    "GALE01"
+    "objdiff",
+    "GALE01",
+    "stage"
   ],
   "follow_up_queries": [
-    "PAD_STACK grInishie2_801FD4F0 Vec3 0x20(r1)",
-    "PAD_STACK(12) grinishie2.c",
-    "stack pad was 4 bytes too large Vec3 0x24(r1)",
-    "main/melee/gr/grinishie2 grInishie2_801FD4F0 100.00%",
-    "PR 2643 Match grInishie2_801FD4F0"
+    "PAD_STACK grInishie2_801FD4F0",
+    "\"PAD_STACK(12)\" \"Vec3\"",
+    "\"0x24(r1)\" \"0x20(r1)\"",
+    "\"grInishie2_801FD4F0\" objdiff",
+    "\"main/melee/gr/grinishie2\" \"99.91%\"",
+    "\"PAD_STACK\" \"local Vec3\""
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR number/title/state/author/timestamps/changed_files",
-      "human_pr_text.md: author summary and objdiff claim",
-      "raw_diff.diff: exact one-line code change",
-      "changed_files.jsonl: file count and line count",
-      "text_corpus.jsonl: bot report confirming one new match"
+      "metadata_json",
+      "human_pr_text",
+      "raw_diff",
+      "changed_files.jsonl",
+      "text_corpus"
     ],
     "notes": [
-      "The code change is directly visible and small.",
-      "The PR body gives a concrete stack-layout explanation and objdiff result.",
-      "The bot report independently records the function moving from 99.91% to 100.00%.",
-      "No review comments or human reviewer feedback are present in the loaded slice.",
-      "The raw PR JSON is truncated, but the untruncated loaded human text, diff, changed-files record, and text corpus are sufficient for this intake."
+      "The PR is small and the loaded diff directly shows the only source change.",
+      "The PR body explicitly states the matching rationale and objdiff result.",
+      "The bot report independently records the same symbol moving from 99.91% to 100.00%.",
+      "No human review comments were available, so no reviewer intent or requested changes are inferred.",
+      "The intake does not independently rerun objdiff; it records the PR body and bot report as historical evidence."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "matching_tactic",
-        "title": "Narrow PAD_STACK adjustment can resolve a stack-local offset mismatch",
-        "text": "In PR #2643, grInishie2_801FD4F0 was matched by changing PAD_STACK(16) to PAD_STACK(12). The author reported the previous pad was 4 bytes too large, moving a local Vec3 from 0x24(r1) to the expected 0x20(r1), and objdiff reached target=100.0/current=100.0; the bot report confirmed a new 100.00% match.",
+        "record_type": "matching_tactic_lesson",
+        "title": "PAD_STACK size can control local stack-slot offsets in near-matched functions",
+        "text": "In PR #2643, grInishie2_801FD4F0 was reportedly 99.91% fuzzy because PAD_STACK was 4 bytes too large. Changing PAD_STACK(16) to PAD_STACK(12) moved a local Vec3 from 0x24(r1) to 0x20(r1), and the PR reports objdiff target=100.0/current=100.0.",
         "scope": [
-          "src/melee/gr/grinishie2.c",
-          "grInishie2_801FD4F0",
           "PAD_STACK",
-          "stack local layout"
+          "stack layout",
+          "decomp matching",
+          "stage/grinishie2"
         ],
         "evidence_refs": [
-          "human_pr_text.md",
-          "raw_diff.diff",
-          "text_corpus.jsonl: decomp-dev[bot] issue_comment"
+          "human_pr_text",
+          "raw_diff",
+          "text_corpus:issue_comment:decomp-dev[bot]"
         ],
-        "confidence": 0.88
+        "confidence": 0.82
       }
     ],
-    "source_update_candidates": [
-      {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Add PR #2643 as a concrete PAD_STACK evidence example",
-        "text": "Possible example for matching-tactics documentation: PR #2643 matched grInishie2_801FD4F0 by reducing PAD_STACK(16) to PAD_STACK(12), with the stated effect of moving a local Vec3 from 0x24(r1) to 0x20(r1), verified by objdiff and a bot report. This should be framed as a narrow, evidence-backed tactic rather than normal style.",
-        "source_path": null,
-        "scope": [
-          "matching-tactics-need-evidence",
-          "PAD_STACK",
-          "stack layout"
-        ],
-        "evidence_refs": [
-          "human_pr_text.md",
-          "raw_diff.diff",
-          "text_corpus.jsonl: decomp-dev[bot] issue_comment"
-        ],
-        "reason": "The loaded standards already say PAD_STACK needs explicit evidence; this PR provides a concise historical example that may help future curators document acceptable evidence for such tactics."
-      }
-    ],
+    "source_update_candidates": [],
     "rejection_notes": [
-      "Do not generalize PAD_STACK(12) as a convention for grInishie2 or stage code; the evidence only covers grInishie2_801FD4F0.",
-      "Do not infer naming changes or semantic names from this PR; no names were changed.",
-      "Do not infer reviewer intent; no review comments were loaded."
+      "Do not generalize this PR into a rule that PAD_STACK should be reduced whenever a function is fuzzy; the evidence supports only this specific stack-layout fix.",
+      "Do not infer naming improvements from temp_r29/temp_r30 context; no names were changed.",
+      "Do not claim independent validation beyond the PR body's objdiff statement and the bot report."
     ]
   },
-  "confidence": 0.91,
+  "confidence": 0.9,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

@@ -12,12 +12,12 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2496 changed `src/melee/lb/lbcardnew.c` in `lb_8001B14C` to remove a local `snapshot_entries` pointer and write directly through `lb_80432A68.snapshot_entries[...]`. The PR body says this more closely matched the target code shape, with `main/melee/lb/lbcardnew` at 40/41 functions at 100% and `lb_8001B14C` improved to about 98.77%, while the remaining blocker was an `r5`/`r6` allocation swap in a compiler-unrolled linked-list copy loop.",
+  "summary": "PR #2496 adjusted `lb_8001B14C` in `src/melee/lb/lbcardnew.c` by removing a local `lbCardNew_SnapshotEntry* snapshot_entries` alias and writing directly through `lb_80432A68.snapshot_entries`. The PR body says this improved the target code shape and left the function at 98.77124%, with the remaining diff described as an `r5`/`r6` allocation swap in a compiler-unrolled linked-list copy loop. The PR was closed with no merged_at value in the loaded metadata.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "local-codegen-cleanup"
+      "tooling-report"
     ],
     "systems": [
       "library",
@@ -28,135 +28,119 @@
   "key_files": [
     {
       "path": "src/melee/lb/lbcardnew.c",
-      "role": "Only changed source file; adjusted `lb_8001B14C` snapshot-entry writes from a cached local pointer to direct global struct field accesses.",
+      "role": "Only changed source file; modified `lb_8001B14C` snapshot entry writes by replacing a local pointer alias with direct `lb_80432A68.snapshot_entries` accesses.",
       "evidence_refs": [
-        "changed_files.jsonl",
-        "raw_diff",
-        "human_pr_text"
+        "changed_files.jsonl: src/melee/lb/lbcardnew.c added 4 deleted 6 hunks 3",
+        "raw_diff: hunk in lb_8001B14C removing `lbCardNew_SnapshotEntry* snapshot_entries` and replacing `snapshot_entries[...]` writes with `lb_80432A68.snapshot_entries[...]`",
+        "human_pr_text: PR body states direct `lb_80432A68.snapshot_entries` accesses match target code shape more closely"
       ]
     }
   ],
   "what_changed": [
     {
-      "path": "src/melee/lb/lbcardnew.c",
-      "symbol": "lb_8001B14C",
-      "change": "Removed the local declaration `lbCardNew_SnapshotEntry* snapshot_entries;`.",
+      "text": "Removed the local `lbCardNew_SnapshotEntry* snapshot_entries` variable declaration from `lb_8001B14C`.",
       "evidence_refs": [
-        "raw_diff"
+        "raw_diff: `-    lbCardNew_SnapshotEntry* snapshot_entries;`"
       ]
     },
     {
-      "path": "src/melee/lb/lbcardnew.c",
-      "symbol": "lb_8001B14C",
-      "change": "Removed assignment `snapshot_entries = lb_80432A68.snapshot_entries;` after `nodes = HSD_MemAlloc(0x5F4);`.",
+      "text": "Removed assignment `snapshot_entries = lb_80432A68.snapshot_entries;` after `node = nodes;`.",
       "evidence_refs": [
-        "raw_diff"
+        "raw_diff: `-    snapshot_entries = lb_80432A68.snapshot_entries;`"
       ]
     },
     {
-      "path": "src/melee/lb/lbcardnew.c",
-      "symbol": "lb_8001B14C",
-      "change": "Changed linked-list copy loop writes for `.time`, `.file_no`, and `.blocks` to use `lb_80432A68.snapshot_entries[j]` directly.",
+      "text": "Changed linked-list copy loop writes for `time`, `file_no`, and `blocks` to address `lb_80432A68.snapshot_entries[j]` directly.",
       "evidence_refs": [
-        "raw_diff"
+        "raw_diff: replacements inside `for (j = 0; j < count; j++)`"
       ]
     },
     {
-      "path": "src/melee/lb/lbcardnew.c",
-      "symbol": "lb_8001B14C",
-      "change": "Changed the trailing fill loop to assign `lb_80432A68.snapshot_entries[i].file_no = -1` directly.",
+      "text": "Changed the fill loop for unused entries to set `lb_80432A68.snapshot_entries[i].file_no = -1` directly.",
       "evidence_refs": [
-        "raw_diff"
+        "raw_diff: replacement inside `for (i = count; i < 0x7F; i++)`"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "The edit was narrowly scoped to one function and one access-shape hypothesis, avoiding broader data or split churn.",
+      "text": "Tested a source-shape change that preserved typed field access but altered aliasing: direct global aggregate member writes replaced a cached pointer alias, improving the reported decomp score for the target function.",
       "evidence_refs": [
-        "changed_files.jsonl",
-        "raw_diff"
+        "human_pr_text: direct `lb_80432A68.snapshot_entries` accesses match target shape more closely",
+        "text_corpus bot report: `lb_8001B14C` improved from 63.23% to 98.77%"
       ]
     },
     {
-      "text": "The PR body preserved the remaining non-match instead of claiming full closure: `lb_8001B14C` remained at 98.77124% with a described `r5`/`r6` allocation swap.",
+      "text": "Kept the remaining blocker explicit rather than claiming full match: the PR body records a remaining `r5`/`r6` allocation swap in the compiler-unrolled linked-list copy loop.",
       "evidence_refs": [
-        "human_pr_text"
-      ]
-    },
-    {
-      "text": "The bot report corroborated a large score improvement for the unmatched item `lb_8001B14C`, from 63.23% to 98.77%.",
-      "evidence_refs": [
-        "text_corpus.jsonl issue_comment decomp-dev[bot]"
+        "human_pr_text: Remaining blocker section"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For this `lbcardnew` function, caching a global array field in a local pointer was not the best matching shape; direct writes through `lb_80432A68.snapshot_entries[index]` matched the target code much more closely.",
+      "lesson": "In `lb_8001B14C`, a local pointer alias to `lb_80432A68.snapshot_entries` produced a worse code shape than direct global member indexing; for similar unmatched code, test whether preserving direct aggregate access better matches the original aliasing/codegen.",
       "scope": [
         "src/melee/lb/lbcardnew.c",
         "lb_8001B14C",
-        "lb_80432A68.snapshot_entries"
+        "snapshot entry writes"
       ],
       "evidence_refs": [
-        "human_pr_text",
-        "raw_diff",
-        "text_corpus.jsonl issue_comment decomp-dev[bot]"
-      ]
+        "raw_diff: removes `snapshot_entries` alias and writes directly to `lb_80432A68.snapshot_entries[...]`",
+        "human_pr_text: states this matched target code shape much more closely",
+        "text_corpus bot report: score changed from 63.23% to 98.77%"
+      ],
+      "confidence": 0.86
     },
     {
-      "lesson": "When comparing pointer-temp cleanup against direct aggregate access, track whether the resulting register allocation changes in compiler-unrolled loops; in this PR the remaining diff was specifically described as an `r5`/`r6` allocation swap in the linked-list copy loop.",
+      "lesson": "When a loop copies linked-list node fields into a global/table-like destination, aliasing choices can affect register allocation even if the C semantics are equivalent.",
       "scope": [
         "lb_8001B14C",
-        "compiler-unrolled linked-list copy loop"
+        "linked-list copy loop",
+        "MWCC register allocation"
       ],
       "evidence_refs": [
-        "human_pr_text"
-      ]
+        "human_pr_text: remaining diff is an `r5`/`r6` allocation swap in the compiler-unrolled linked-list copy loop",
+        "raw_diff: loop copies `time`, `file_no`, and `blocks` from `(*copy_scan)` to snapshot entries"
+      ],
+      "confidence": 0.72
     }
   ],
-  "naming_conventions": [
-    {
-      "name": "lb_80432A68.snapshot_entries",
-      "convention": "The PR retained the existing global/address-style object name `lb_80432A68` and typed field name `snapshot_entries`; no semantic global rename was introduced.",
-      "evidence_refs": [
-        "raw_diff"
-      ]
-    },
-    {
-      "name": "copy_scan",
-      "convention": "The linked-list copy cursor name `copy_scan` was preserved while only the destination access form changed.",
-      "evidence_refs": [
-        "raw_diff"
-      ]
-    }
-  ],
+  "naming_conventions": [],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Remove a local pointer alias to a global field and use direct global field indexing at each store site to influence target code shape.",
+      "tactic": "Remove a local pointer alias and repeat the full global-member access path when matching codegen suggests the original source did not cache the member pointer.",
       "scope": [
-        "lb_8001B14C",
-        "snapshot_entries writes"
-      ],
-      "evidence_refs": [
-        "human_pr_text",
-        "raw_diff"
-      ]
-    },
-    {
-      "tactic": "Use narrow score evidence to evaluate the access-shape change: PR body reports `main/melee/lb/lbcardnew` at 40/41 functions 100%, and the bot report shows `lb_8001B14C` improved from 63.23% to 98.77%.",
-      "scope": [
-        "main/melee/lb/lbcardnew",
+        "lb_80432A68.snapshot_entries",
         "lb_8001B14C"
       ],
       "evidence_refs": [
-        "human_pr_text",
-        "text_corpus.jsonl issue_comment decomp-dev[bot]"
+        "raw_diff: direct member access replaces `snapshot_entries[...]`",
+        "human_pr_text: direct accesses match target code shape much more closely"
+      ],
+      "caveat": "Evidence is specific to this PR and function; do not generalize into a global rule that direct globals are always preferable to local aliases."
+    },
+    {
+      "tactic": "Document partial-match blockers at the register-allocation level when a function is close but not matched.",
+      "scope": [
+        "lb_8001B14C"
+      ],
+      "evidence_refs": [
+        "human_pr_text: `lb_8001B14C`: 98.77124%, remaining `r5`/`r6` allocation swap"
+      ],
+      "caveat": "Loaded evidence does not include objdiff output beyond the PR body and bot score report."
+    }
+  ],
+  "review_feedback": [
+    {
+      "kind": "bot_report",
+      "author": "decomp-dev[bot]",
+      "text": "Report for GALE01 showed one improvement in unmatched item `main/melee/lb/lbcardnew`, item `lb_8001B14C`, +435 bytes, before 63.23%, after 98.77%.",
+      "evidence_refs": [
+        "text_corpus.jsonl issue_comment by decomp-dev[bot] at 2026-05-15T08:42:36Z"
       ]
     }
   ],
-  "review_feedback": [],
   "searchable_terms": [
     "PR2496",
     "lbcardnew",
@@ -172,85 +156,83 @@
     "DVDGetCurrentDiskID",
     "HSD_MemAlloc",
     "HSD_Free",
-    "compiler-unrolled linked-list copy loop",
     "r5 r6 allocation swap",
-    "main/melee/lb/lbcardnew"
+    "compiler-unrolled linked-list copy loop",
+    "direct global member access",
+    "local pointer alias"
   ],
   "follow_up_queries": [
-    "lb_8001B14C snapshot_entries direct access",
-    "lb_80432A68.snapshot_entries pointer alias",
-    "r5 r6 allocation swap linked-list copy loop",
-    "compiler-unrolled linked-list copy loop lbcardnew",
-    "lbcardnew 40/41 functions 100%"
+    "lb_8001B14C snapshot_entries alias direct lb_80432A68",
+    "compiler-unrolled linked-list copy loop r5 r6 allocation swap",
+    "lbcardnew 98.77 snapshot listing PR 2496",
+    "lb_80432A68.snapshot_entries file_no blocks time"
   ],
   "evidence_quality": {
-    "status": "strong",
+    "status": "mixed",
     "evidence_refs": [
-      "metadata_json",
-      "human_pr_text",
-      "raw_diff",
-      "changed_files.jsonl",
-      "text_corpus.jsonl"
+      "metadata_json: PR number/title/state/author/timestamps/changed file counts",
+      "human_pr_text: author-stated intent, verification, remaining blocker",
+      "raw_diff: exact source changes",
+      "text_corpus: bot report with before/after score"
     ],
     "notes": [
-      "The changed file and exact code edits are directly available from the diff.",
-      "The matching rationale and verification commands are from the PR body, not independently rerun during intake.",
-      "The bot report corroborates the `lb_8001B14C` score improvement from 63.23% to 98.77%.",
-      "No review comments or reviews are present in the supplied slice, so reviewer feedback and acceptance intent are unavailable.",
-      "The PR is closed with `merged_at: null`; this intake does not infer merge or acceptance status."
+      "Strong evidence for the exact changed file and source edits.",
+      "The PR body reports `python configure.py && ninja` and `main/melee/lb/lbcardnew`: 40/41 functions at 100%, but loaded evidence does not include raw build logs.",
+      "The bot report corroborates score improvement from 63.23% to 98.77% for `lb_8001B14C`.",
+      "No human review comments were loaded; review feedback is limited to the automated report.",
+      "Metadata shows state CLOSED and merged_at null; do not infer merge or acceptance."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson",
-        "title": "Direct global field access can beat a cached pointer alias for lbcardnew snapshot-entry stores",
-        "text": "In PR #2496, `lb_8001B14C` improved by removing a local `snapshot_entries` alias and writing directly through `lb_80432A68.snapshot_entries[...]`; the PR body says this matched the target code shape much more closely, and the bot report shows the function improved from 63.23% to 98.77%.",
+        "record_type": "localized_decomp_lesson",
+        "title": "Direct `lb_80432A68.snapshot_entries` accesses improved `lb_8001B14C` code shape",
+        "text": "For `src/melee/lb/lbcardnew.c::lb_8001B14C`, replacing a cached `lbCardNew_SnapshotEntry* snapshot_entries` alias with direct `lb_80432A68.snapshot_entries[...]` writes improved the reported match from 63.23% to 98.77%, while preserving typed field access.",
         "scope": [
           "src/melee/lb/lbcardnew.c",
-          "lb_8001B14C",
-          "lb_80432A68.snapshot_entries"
+          "lb_8001B14C"
         ],
         "evidence_refs": [
-          "human_pr_text",
           "raw_diff",
-          "text_corpus.jsonl issue_comment decomp-dev[bot]"
-        ]
+          "human_pr_text",
+          "text_corpus bot report"
+        ],
+        "confidence": 0.86
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Consider direct aggregate access before introducing pointer aliases for matching",
-        "text": "When a local pointer alias to a global or aggregate field worsens register allocation or target code shape, test direct field indexing at the write sites. PR #2496 is narrow evidence from `lb_8001B14C`: direct `lb_80432A68.snapshot_entries[...]` stores improved the function score substantially, while the remaining mismatch was an `r5`/`r6` allocation swap in an unrolled linked-list copy loop.",
+        "title": "Alias-shape choices can be matching-relevant",
+        "text": "Consider noting under matching tactics or authored-source-style guidance that replacing repeated aggregate access with a local pointer alias, or vice versa, can materially affect MWCC register allocation/code shape; prefer the shape supported by local objdiff evidence rather than assuming aliases are always cleaner.",
         "source_path": null,
         "scope": [
-          "decomp matching",
-          "access-shape selection",
-          "global aggregate fields"
+          "matching tactics",
+          "aliasing",
+          "MWCC register allocation"
         ],
         "evidence_refs": [
-          "human_pr_text",
-          "raw_diff",
-          "text_corpus.jsonl issue_comment decomp-dev[bot]"
+          "PR #2496 body states direct `lb_80432A68.snapshot_entries` accesses matched the target code shape much more closely",
+          "PR #2496 bot report shows `lb_8001B14C` improved from 63.23% to 98.77%"
         ],
-        "reason": "This may refine existing standards about inferred authored source style and matching tactics, but the PR only proves the tactic for one function and should be curated before becoming global guidance."
+        "reason": "The PR provides a concrete example where a source-level alias choice affected matching. Curator should decide whether this is already covered by existing standards or merits a small addition."
       }
     ],
     "rejection_notes": [
-      "Do not generalize this PR into a rule that direct global access is always preferred over local pointer aliases; the evidence is limited to `lb_8001B14C` and `lb_80432A68.snapshot_entries`.",
-      "Do not claim `lb_8001B14C` was fully matched; the PR body explicitly reports it at 98.77124% with a remaining blocker.",
-      "Do not infer reviewer approval or merge acceptance from this slice; no review comments are present and `merged_at` is null."
+      "Do not promote a broad rule that direct global access is preferable to local pointer aliases; PR evidence is limited to one function and one global member.",
+      "Do not claim `lb_8001B14C` matched fully; the PR body explicitly lists it as 98.77124% with a remaining register-allocation blocker.",
+      "Do not infer reviewer approval or merge acceptance; no review comments were loaded and metadata has `merged_at`: null."
     ]
   },
-  "confidence": 0.86,
+  "confidence": 0.84,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

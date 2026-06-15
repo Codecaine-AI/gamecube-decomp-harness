@@ -1,0 +1,318 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2668",
+  "pr": {
+    "number": 2668,
+    "title": "Improve mn menu declaration-order matches",
+    "url": "https://github.com/doldecomp/melee/pull/2668",
+    "state": "MERGED",
+    "author": "itsgrimetime",
+    "created_at": "2026-06-12T19:41:09Z",
+    "merged_at": "2026-06-14T20:18:39Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Small mn menu decomp-matching PR that mostly reordered local declarations, with one local assignment/order adjustment in mnsnap, to improve MWCC register allocation scores across mninfo, mnmainrule, mnsnap, mnsound, and mnstagesw. The PR body and bot report cite percentage improvements but no touched function reached 100% in the loaded evidence.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "local-declaration-order",
+      "register-allocation",
+      "score-improvement",
+      "headers"
+    ],
+    "systems": [
+      "mn menu",
+      "melee-core"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/mn/mnsnap.c",
+      "role": "Adjusted local declaration order and one card_result assignment shape/order in mnSnap_80253184; moved slot declaration earlier in mnSnap_80254298.",
+      "evidence_refs": [
+        "changed_files: src/melee/mn/mnsnap.c added 5 deleted 4 hunks 2",
+        "raw_diff: mnsnap.c hunks for mnSnap_80253184 and mnSnap_80254298",
+        "text_corpus: decomp-dev[bot] report lists mnSnap_80253184 92.61%->95.07% and mnSnap_80254298 94.60%->95.73%"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mninfo.c",
+      "role": "Reordered locals in fn_80252548 and mnInfo_80252758.",
+      "evidence_refs": [
+        "changed_files: src/melee/mn/mninfo.c added 2 deleted 2 hunks 3",
+        "raw_diff: mninfo.c moves MnInfoTextCursor* right and MnInfoData* temp_r3_3",
+        "text_corpus: decomp-dev[bot] report lists fn_80252548 88.85%->89.82% and mnInfo_80252758 90.15%->90.49%"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mnmainrule.c",
+      "role": "Moved s32 i declaration earlier in mn_8022FD18.",
+      "evidence_refs": [
+        "changed_files: src/melee/mn/mnmainrule.c added 1 deleted 1 hunks 1",
+        "raw_diff: mnmainrule.c hunk for mn_8022FD18",
+        "text_corpus: decomp-dev[bot] report lists mn_8022FD18 88.20%->88.34%"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mnsound.c",
+      "role": "Moved GET_MENU(arg0) local initialization earlier in fn_80249A1C and removed a blank line.",
+      "evidence_refs": [
+        "changed_files: src/melee/mn/mnsound.c added 1 deleted 2 hunks 2",
+        "raw_diff: mnsound.c hunk for fn_80249A1C",
+        "text_corpus: decomp-dev[bot] report lists fn_80249A1C 86.89%->87.39%"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mnstagesw.c",
+      "role": "Reordered locals in mnStageSw_802359C8, mnStageSw_80235C58, and fn_80235F80.",
+      "evidence_refs": [
+        "changed_files: src/melee/mn/mnstagesw.c added 3 deleted 3 hunks 3",
+        "raw_diff: mnstagesw.c hunks for mnStageSw_802359C8, mnStageSw_80235C58, fn_80235F80",
+        "text_corpus: decomp-dev[bot] report lists three mnstagesw score improvements"
+      ]
+    }
+  ],
+  "what_changed": [
+    "The PR changed five files under src/melee/mn with 12 added and 12 deleted lines.",
+    "Most hunks move local declarations earlier or later without changing names or types.",
+    "mnSnap_80253184 also changed the card_result write from assignment through p57 after p57 initialization to direct snap->card_result assignment before p57 is assigned, while keeping p57 used for later reads.",
+    "The PR body says the goal was to improve declaration/local ordering to better match MWCC register allocation.",
+    "The bot report lists nine touched-menu unmatched-item improvements; the loaded comments do not show any touched function becoming a complete 100% match."
+  ],
+  "smart_moves": [
+    {
+      "text": "Kept the edits narrow and uniform: small local-ordering changes across related mn menu files instead of broad control-flow or data rewrites.",
+      "evidence_refs": [
+        "raw_diff: 4095-byte diff limited to five mn files",
+        "human_pr_text: summary says pure local declaration reordering for mninfo, mnmainrule, mnsound, and mnstagesw"
+      ]
+    },
+    {
+      "text": "Used bot score reporting to identify concrete partial-match improvements per function, even though most were small.",
+      "evidence_refs": [
+        "text_corpus: decomp-dev[bot] report lists before/after percentages for nine unmatched items"
+      ]
+    },
+    {
+      "text": "Discussion explicitly acknowledged the PR was small-improvement-without-match and treated it as useful signal only if the improvements were real.",
+      "evidence_refs": [
+        "issue_comment jurrejelle 2026-06-12T20:00:46Z",
+        "issue_comment itsgrimetime 2026-06-12T20:45:18Z",
+        "review ribbanya APPROVED 2026-06-12T22:57:49Z"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "For MWCC decomp, local declaration order and initialization placement can affect register allocation enough to improve function similarity scores without changing control flow or recovered types.",
+      "scope": [
+        "src/melee/mn",
+        "mn menu functions",
+        "partial decomp matching"
+      ],
+      "evidence_refs": [
+        "human_pr_text: summary says declaration/local ordering better matched MWCC register allocation",
+        "raw_diff: declarations moved in five mn source files",
+        "text_corpus: bot report lists percentage improvements for touched functions"
+      ],
+      "confidence": 0.82
+    },
+    {
+      "lesson": "Small score-only declaration-order PRs may be acceptable when the methodology is uniform and the changed stack/register behavior is tedious to discover, but review discussion treated this as a tradeoff rather than a general license for noisy non-matching changes.",
+      "scope": [
+        "review process",
+        "partial match improvements"
+      ],
+      "evidence_refs": [
+        "issue_comment jurrejelle: against small-improvement-but-not-match PRs generally, but okay if stack stuff is real",
+        "review ribbanya: approve, take improvements if uniform methodology",
+        "issue_comment itsgrimetime: author noted no 100% match included and moved it to draft after noticing"
+      ],
+      "confidence": 0.76
+    }
+  ],
+  "naming_conventions": [
+    {
+      "convention": "This PR preserved existing function, global, and local names, including address-style names and temp/pNN locals; it did not introduce semantic renames.",
+      "evidence_refs": [
+        "raw_diff: only local declaration order/placement changes are shown; no symbol renames in hunks"
+      ],
+      "confidence": 0.9
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Move local declarations earlier or later to steer MWCC register allocation.",
+      "examples": [
+        "MnInfoTextCursor* right moved to the top of fn_80252548 locals",
+        "s32 i moved to the top of mn_8022FD18 and fn_80235F80 locals",
+        "f32 start_y and s32 low moved earlier in mnstagesw functions",
+        "void** slot moved before p50/p51/i/snap in mnSnap_80254298"
+      ],
+      "evidence_refs": [
+        "raw_diff: mninfo.c, mnmainrule.c, mnsnap.c, mnstagesw.c declaration moves",
+        "human_pr_text: declaration/local ordering to better match MWCC register allocation"
+      ]
+    },
+    {
+      "tactic": "Move a local initialization using GET_MENU(arg0) ahead of other locals in fn_80249A1C.",
+      "examples": [
+        "Menu* menu = GET_MENU(arg0) moved before HSD_JObj* sp40/sp3C/sp34 declarations"
+      ],
+      "evidence_refs": [
+        "raw_diff: mnsound.c hunk for fn_80249A1C",
+        "text_corpus: bot report lists fn_80249A1C 86.89%->87.39%"
+      ]
+    },
+    {
+      "tactic": "In mnSnap_80253184, assign snap->card_result before deriving p57, rather than assigning through p57 after taking the address.",
+      "examples": [
+        "snap->card_result = lbSnap_8001E058(...); p57 = &snap->card_result;"
+      ],
+      "evidence_refs": [
+        "raw_diff: mnsnap.c hunk for mnSnap_80253184",
+        "text_corpus: bot report lists mnSnap_80253184 92.61%->95.07%"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "author": "jurrejelle",
+      "type": "issue_comment",
+      "text": "Generally against small-improvement-but-not-match PRs, but okay with this if the stack/register improvements are real because that work is tedious.",
+      "evidence_refs": [
+        "human_pr_text: jurrejelle comment",
+        "text_corpus: issue_comment 2026-06-12T20:00:46Z"
+      ]
+    },
+    {
+      "author": "itsgrimetime",
+      "type": "issue_comment",
+      "text": "Author said an agent opened the PR, they expected at least one 100% match, moved it to draft after noticing none, and viewed it as signal about current work if not closed.",
+      "evidence_refs": [
+        "human_pr_text: itsgrimetime reply",
+        "text_corpus: issue_comment 2026-06-12T20:45:18Z"
+      ]
+    },
+    {
+      "author": "ribbanya",
+      "type": "approved_review",
+      "text": "Approved on the basis that the project is scraping the bottom of the barrel for matches and should take improvements when they follow a uniform methodology.",
+      "evidence_refs": [
+        "text_corpus: review by ribbanya state APPROVED 2026-06-12T22:57:49Z"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR2668",
+    "mn menu declaration order",
+    "MWCC register allocation",
+    "local declaration reordering",
+    "small improvement not match",
+    "stack stuff tedious",
+    "mnSnap_80253184",
+    "mnSnap_80254298",
+    "fn_80252548",
+    "mnInfo_80252758",
+    "mn_8022FD18",
+    "fn_80249A1C",
+    "mnStageSw_802359C8",
+    "mnStageSw_80235C58",
+    "fn_80235F80",
+    "GET_MENU",
+    "PAD_STACK"
+  ],
+  "follow_up_queries": [
+    "PRs mentioning declaration order MWCC register allocation",
+    "mn menu local declaration reordering score improvements",
+    "small-improvement-but-not-match PR review feedback",
+    "GET_MENU initialization order matching fn_80249A1C",
+    "mnSnap_80253184 card_result p57 declaration order"
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR identity, state, timestamps, changed files",
+      "raw_diff: exact code hunks for five changed files",
+      "text_corpus: PR body, bot report, issue comments, approved review"
+    ],
+    "notes": [
+      "Evidence is strong for changed files, exact declaration moves, PR identity, and stated intent.",
+      "Bot report provides before/after percentages for score improvements, but the slice does not include full objdiff logs or local build output.",
+      "The PR body describes pure local declaration reordering, but mnsnap.c also changes the card_result assignment expression/order; it appears local and equivalent from the diff, but no semantic validation beyond PR acceptance is present in the slice.",
+      "The bot report includes one new 100% match in grBigBlueRoute_8020DD64 outside the changed-file list; this intake does not attribute that match to this PR's shown changes.",
+      "No inline review comments are present; review feedback comes from issue comments and one approved review body."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "pr_lesson",
+        "title": "Declaration order can be a narrow MWCC register-allocation tactic",
+        "text": "PR #2668 shows that moving local declarations and some initialization placement in mn menu functions improved unmatched-item scores across nine touched functions. Treat this as a narrow matching tactic requiring verifier evidence, not as a broad style preference.",
+        "scope": [
+          "src/melee/mn",
+          "MWCC register allocation",
+          "partial-match decomp"
+        ],
+        "evidence_refs": [
+          "raw_diff: local declaration moves across five mn files",
+          "text_corpus: bot report with nine touched-function improvements",
+          "human_pr_text: PR summary and discussion"
+        ],
+        "confidence": 0.82
+      },
+      {
+        "record_type": "review_lesson",
+        "title": "Uniform small improvements can be reviewable when explicitly framed",
+        "text": "Review discussion in PR #2668 accepted a small-improvement-without-match PR because the method was uniform and stack/register tuning is tedious, while also noting this kind of PR is usually disfavored.",
+        "scope": [
+          "review process",
+          "small score improvements"
+        ],
+        "evidence_refs": [
+          "issue_comment jurrejelle 2026-06-12T20:00:46Z",
+          "review ribbanya APPROVED 2026-06-12T22:57:49Z",
+          "issue_comment itsgrimetime 2026-06-12T20:45:18Z"
+        ],
+        "confidence": 0.76
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Add PR #2668 as an example under matching tactics needing evidence",
+        "text": "PR #2668 can be cited as historical evidence that declaration-order changes may improve MWCC register allocation scores, but should remain narrow and evidence-backed because the PR did not claim touched 100% matches.",
+        "source_path": null,
+        "scope": [
+          "matching-tactics-need-evidence",
+          "MWCC register allocation",
+          "local declaration order"
+        ],
+        "evidence_refs": [
+          "human_pr_text: declaration/local ordering to better match MWCC register allocation",
+          "text_corpus: decomp-dev[bot] report lists before/after score improvements",
+          "review ribbanya: uniform methodology approval"
+        ],
+        "reason": "Current standards already say declaration order changes need evidence; this PR is a concrete historical example rather than a new standard."
+      }
+    ],
+    "rejection_notes": [
+      "Do not promote 'declaration reordering is always acceptable' as a standard; comments explicitly show discomfort with small non-match PRs.",
+      "Do not claim any touched mn function became a full match; loaded evidence reports only percentage improvements for touched functions.",
+      "Do not use the grBigBlueRoute_8020DD64 bot-reported new match as a lesson from this PR slice because no changed gr file is present.",
+      "Do not infer authorial source style from the declaration order changes alone; the PR frames them as MWCC register-allocation matching tactics."
+    ]
+  },
+  "confidence": 0.84,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

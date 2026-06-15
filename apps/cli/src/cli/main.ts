@@ -16,6 +16,7 @@ import {
   kgStatus,
   prPreshipReview,
   prSplitPlan,
+  qaRepair,
   reconcile,
   recoverLeases,
   regressionCheck,
@@ -46,6 +47,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   else if (command === "save-point") await savePoint(globals, args);
   else if (command === "regression-check") await regressionCheck(globals, args);
   else if (command === "reconcile") await reconcile(globals, args);
+  else if (command === "qa-repair") await qaRepair(globals, args);
   else if (command === "pr-split-plan") await prSplitPlan(globals, args);
   else if (command === "pr-preship-review") await prPreshipReview(globals, args);
   else if (command === "kg-sources") await kgSources();

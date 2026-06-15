@@ -12,311 +12,273 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2634 matched and linked the Samus missile item translation unit by changing configure.py from NonMatching to Matching for itsamusmissile.c, reorganizing and typing functions in src/melee/it/items/itsamusmissile.c and its header, and making small companion cleanups in itlinkbomb.c.",
+  "summary": "PR #2634 converted Samus Missile item TU configuration from NonMatching to Matching, reorganized itsamusmissile.c definitions including the item state table and small callback bodies, cleaned control flow in missile turn logic, updated several Samus Missile prototypes, and made small Link Bomb cleanup changes that reuse existing helper calls and boolean negation style.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "item-state-table",
-      "control-flow-cleanup",
-      "include-cleanup"
+      "item-tu-linking",
+      "control-flow-cleanup"
     ],
     "systems": [
       "item",
       "samus-missile",
       "link-bomb",
-      "build-config"
+      "build-configuration"
     ]
   },
   "key_files": [
     {
       "path": "configure.py",
-      "role": "Linked itsamusmissile.c by changing its object classification from NonMatching to Matching.",
+      "role": "Marks melee/it/items/itsamusmissile.c as Matching instead of NonMatching.",
       "evidence_refs": [
-        "raw_diff: configure.py Object(NonMatching, \"melee/it/items/itsamusmissile.c\") -> Object(Matching, \"melee/it/items/itsamusmissile.c\")"
+        "raw_diff: configure.py hunk changes Object(NonMatching, \"melee/it/items/itsamusmissile.c\") to Object(Matching, \"melee/it/items/itsamusmissile.c\")"
       ]
     },
     {
       "path": "src/melee/it/items/itsamusmissile.c",
-      "role": "Primary matched item TU; adds ItemStateTable placement, reorders helper/collision/anim functions, cleans a goto-heavy return path, adjusts includes, and changes animation return types to bool.",
+      "role": "Primary matched item TU; reorganizes state table and callback bodies, adjusts includes, cleans control flow, and changes animation return types to bool.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itsamusmissile.c added 66 deleted 65 hunks 10",
-        "raw_diff: ItemStateTable it_803F7340[] added near file top",
-        "raw_diff: it_802B64FC goto block_18 exits replaced with direct return conditions",
-        "raw_diff: itSamusmissile_UnkMotion0_Anim and UnkMotion1_Anim changed from s32 to bool"
+        "changed_files.jsonl: itsamusmissile.c +66/-65 across 10 hunks",
+        "raw_diff: adds ItemStateTable it_803F7340 near top of file",
+        "raw_diff: moves itSamusmissile_UnkMotion0_Coll, itSamusmissile_UnkMotion1_Coll, and itSamusmissile_UnkMotion3_Anim later near related motion functions",
+        "raw_diff: it_802B64FC replaces several gotos with direct returns and a combined zero-vector condition",
+        "raw_diff: itSamusmissile_UnkMotion0_Anim and itSamusmissile_UnkMotion1_Anim return type changes from s32 to bool"
       ]
     },
     {
       "path": "src/melee/it/items/itsamusmissile.h",
-      "role": "Header prototype cleanup for the matched TU, including Item_GObj parameter types and bool return types for animation callbacks.",
+      "role": "Header prototype cleanup for Samus Missile functions.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itsamusmissile.h added 5 deleted 5 hunks 1",
-        "raw_diff: HSD_GObj prototypes changed to Item_GObj for several declarations",
-        "raw_diff: long animation prototypes changed to bool"
+        "changed_files.jsonl: itsamusmissile.h +5/-5 across 1 hunk",
+        "raw_diff: changes several HSD_GObj or struct HSD_GObj prototypes to Item_GObj and animation return types from long to bool"
       ]
     },
     {
       "path": "src/melee/it/items/itlinkbomb.c",
-      "role": "Companion cleanup in another item TU: boolean condition normalization, helper-call substitution, and removal of a small inline wrapper.",
+      "role": "Adjacent item cleanup; simplifies boolean checks and replaces an inline duplicate path with existing helper calls.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itlinkbomb.c added 9 deleted 21 hunks 8",
-        "raw_diff: it_80272C6C(gobj) == 0 rewritten as !it_80272C6C(gobj)",
-        "raw_diff: itLinkbomb_UnkMotion3_Anim_inline1 removed and call site changed to it_8029EC34(gobj)"
+        "changed_files.jsonl: itlinkbomb.c +9/-21 across 8 hunks",
+        "raw_diff: repeated it_80272C6C(gobj) == 0 checks become !it_80272C6C(gobj)",
+        "raw_diff: removes itLinkbomb_UnkMotion3_Anim_inline1 and calls it_8029EC34(gobj) instead",
+        "raw_diff: itLinkbomb_UnkMotion3_Anim_inline2 calls fn_8029E21C(gobj) instead of it_8029D9A4(gobj, 1, 0)"
       ]
     }
   ],
   "what_changed": [
-    {
-      "text": "Marked melee/it/items/itsamusmissile.c as Matching in configure.py.",
-      "evidence_refs": [
-        "raw_diff: configure.py MatchingFor list changes Object(NonMatching) to Object(Matching)"
-      ]
-    },
-    {
-      "text": "Added/repositioned the Samus missile ItemStateTable it_803F7340 with four state entries using motion anim, phys, and collision callbacks.",
-      "evidence_refs": [
-        "raw_diff: ItemStateTable it_803F7340[] = { {0,...}, {1,...}, {2,...}, {3,...} }"
-      ]
-    },
-    {
-      "text": "Moved small collision and animation callback definitions later in itsamusmissile.c, near related motion code, without changing their shown bodies.",
-      "evidence_refs": [
-        "raw_diff: itSamusmissile_UnkMotion0_Coll, UnkMotion1_Coll, and UnkMotion3_Anim removed from file top and re-added later"
-      ]
-    },
-    {
-      "text": "Cleaned part of it_802B64FC by replacing several generated block/goto exits with direct returns and a combined zero-vector guard.",
-      "evidence_refs": [
-        "raw_diff: block_17 goto block_18 -> return",
-        "raw_diff: vec3.x/vec3.y branch ladder -> if ((vec3.x == 0.0f) && (vec3.y == 0.0f)) return",
-        "raw_diff: var_f1 < sa->x20 goto block_18 -> return"
-      ]
-    },
-    {
-      "text": "Updated itsamusmissile.h prototypes toward recovered item-specific signatures, including bool animation returns.",
-      "evidence_refs": [
-        "raw_diff: itSamusmissile_UnkMotion0_Anim long -> bool",
-        "raw_diff: itSamusmissile_UnkMotion1_Anim long -> bool",
-        "raw_diff: several HSD_GObj* declarations changed to Item_GObj*"
-      ]
-    },
-    {
-      "text": "Adjusted includes in itsamusmissile.c: removed baselib/jobj.h, it/it_266F.h, and math.h from the excerpt; added it/itgroundcoll.h and used angle-bracket baselib/mtx.h.",
-      "evidence_refs": [
-        "raw_diff: itsamusmissile.c include hunk"
-      ]
-    },
-    {
-      "text": "Simplified several itlinkbomb.c checks from explicit == 0 comparisons to logical negation, and replaced a removed inline wrapper with an existing helper call.",
-      "evidence_refs": [
-        "raw_diff: multiple it_80272C6C(gobj) == 0 -> !it_80272C6C(gobj)",
-        "raw_diff: itLinkbomb_UnkMotion3_Anim_inline1 removed; call site changed to it_8029EC34(gobj)"
-      ]
-    }
+    "Build configuration changed itsamusmissile.c from NonMatching to Matching.",
+    "itsamusmissile.c gained an explicit ItemStateTable it_803F7340 with four motion entries.",
+    "Small Samus Missile callbacks were relocated near related motion/state functions rather than being clustered before the main creation function.",
+    "it_802B64FC control flow was simplified by replacing generated-looking goto/label exits with direct returns and a combined zero-vector check.",
+    "Samus Missile animation callbacks were typed as bool instead of s32/long in source and header declarations.",
+    "Several Samus Missile function prototypes were narrowed from HSD_GObj or struct HSD_GObj forms to Item_GObj in the header.",
+    "itlinkbomb.c replaced repeated explicit zero comparisons with logical negation and removed one inline helper in favor of an existing function call."
   ],
   "smart_moves": [
     {
-      "text": "The PR linked the TU only after source-level cleanup in the same slice, making the configure.py Matching change traceable to itsamusmissile.c edits.",
+      "text": "Linked the TU by changing only the configure.py object status for itsamusmissile.c, keeping the build-system edit narrow.",
       "evidence_refs": [
-        "PR title: match and link itsamusmissile.c",
-        "raw_diff: configure.py marks itsamusmissile.c Matching",
-        "raw_diff: itsamusmissile.c touched in 10 hunks"
+        "raw_diff: configure.py one-line NonMatching to Matching change"
       ]
     },
     {
-      "text": "Function prototypes in the header were updated alongside body changes instead of relying on stale long/HSD_GObj declarations.",
+      "text": "Made header prototypes more truthful where the item-specific type and bool return were evident from the recovered functions.",
       "evidence_refs": [
-        "raw_diff: itsamusmissile.h prototype changes",
-        "decomp_standards: truthful-headers-and-includes"
+        "raw_diff: itsamusmissile.h prototype changes for it_802B66A8, itSamusmissile_UnkMotion0_Anim, it_802B6A60, and itSamusmissile_UnkMotion1_Anim"
       ]
     },
     {
-      "text": "Generated-looking control flow in it_802B64FC was narrowed to direct early returns where the diff shows equivalent exit blocks.",
+      "text": "Reduced generated-looking branch exits in it_802B64FC without introducing new matching-only data or pragmas.",
       "evidence_refs": [
-        "raw_diff: it_802B64FC block_17/block_18 cleanup",
-        "decomp_standards: canonical-control-flow-and-macros"
+        "raw_diff: it_802B64FC goto block_18 exits replaced by return"
+      ]
+    },
+    {
+      "text": "In itlinkbomb.c, reused existing helper it_8029EC34 instead of keeping a separate inline duplicate body for the UnkMotion3 transition path.",
+      "evidence_refs": [
+        "raw_diff: removal of itLinkbomb_UnkMotion3_Anim_inline1 and replacement call with it_8029EC34(gobj)"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When an item TU becomes matchable, update configure.py and the owning header in the same focused PR so the linked object and recovered signatures stay aligned.",
+      "lesson": "When a function body proves item-specific callback signatures, update the owning header to use Item_GObj and bool rather than leaving broader HSD_GObj or integer return types.",
       "scope": [
-        "item TUs",
-        "matching PRs",
+        "item callbacks",
         "headers"
       ],
       "evidence_refs": [
-        "raw_diff: configure.py NonMatching -> Matching for itsamusmissile.c",
-        "raw_diff: itsamusmissile.h prototype changes"
+        "raw_diff: itsamusmissile.h changes long animation prototypes to bool",
+        "raw_diff: itsamusmissile.h changes several prototypes from HSD_GObj or struct HSD_GObj to Item_GObj"
       ],
-      "confidence": 0.82
+      "related_standard_ids": [
+        "truthful-headers-and-includes"
+      ]
     },
     {
-      "lesson": "For item motion callbacks that return false, use bool callback prototypes when the body and state-table usage support boolean behavior rather than leaving generic long/s32 signatures.",
-      "scope": [
-        "item motion callbacks",
-        "ItemStateTable"
-      ],
-      "evidence_refs": [
-        "raw_diff: itSamusmissile_UnkMotion0_Anim s32 -> bool and returns false",
-        "raw_diff: itSamusmissile_UnkMotion1_Anim s32 -> bool and returns false",
-        "raw_diff: ItemStateTable it_803F7340 references the animation callbacks"
-      ],
-      "confidence": 0.78
-    },
-    {
-      "lesson": "Generated exit-block labels can often be collapsed to direct returns when all paths only branch to a final return block.",
+      "lesson": "Generated-looking goto exit labels can sometimes be collapsed into direct returns while preserving the same local structure for matching.",
       "scope": [
         "control-flow cleanup",
-        "matching source readability"
+        "item physics/update functions"
       ],
       "evidence_refs": [
-        "raw_diff: it_802B64FC block_17 and var_f1 early exits changed to return; final block_18 removed",
-        "decomp_standards: canonical-control-flow-and-macros"
+        "raw_diff: it_802B64FC removes block_18 return label and replaces branches with direct return statements"
       ],
-      "confidence": 0.73
+      "related_standard_ids": [
+        "canonical-control-flow-and-macros"
+      ]
+    },
+    {
+      "lesson": "Before retaining a small inline duplicate in item code, check whether an existing local helper already expresses the same transition sequence.",
+      "scope": [
+        "item helpers",
+        "inline cleanup"
+      ],
+      "evidence_refs": [
+        "raw_diff: itlinkbomb.c removes itLinkbomb_UnkMotion3_Anim_inline1 and calls it_8029EC34(gobj)"
+      ],
+      "related_standard_ids": [
+        "infer-authored-source-style"
+      ]
     }
   ],
   "naming_conventions": [
     {
-      "text": "The PR preserves address-style names such as it_802B63F8, it_802B64FC, it_802B701C, and it_803F7340 where semantic names are not introduced by the evidence.",
+      "name_or_pattern": "ItemStateTable it_803F7340",
+      "observation": "The state table kept an address-style symbol name rather than inventing a semantic name.",
       "evidence_refs": [
-        "raw_diff: itsamusmissile.c function and data names retained",
-        "decomp_standards: conservative-naming"
+        "raw_diff: adds ItemStateTable it_803F7340[]"
+      ],
+      "related_standard_ids": [
+        "conservative-naming"
       ]
     },
     {
-      "text": "Item pointer locals use the common short role name ip, and attributes use attrs or sa in the shown item code.",
+      "name_or_pattern": "ip, attrs, sa",
+      "observation": "Local item and attribute variables use short role names already common in decomp item code.",
       "evidence_refs": [
-        "raw_diff: Item* ip = GET_ITEM(gobj)",
-        "raw_diff: itSamusMissileAttributes* attrs = ip->xC4_article_data->x4_specialAttributes",
-        "raw_diff: static inline void itSamusMissile_ClampTurn(Item* ip, itSamusMissileAttributes* sa)"
-      ]
-    },
-    {
-      "text": "Boolean tests against helper functions are written as !helper(gobj) rather than helper(gobj) == 0 in the touched itlinkbomb.c call sites.",
-      "evidence_refs": [
-        "raw_diff: multiple it_80272C6C(gobj) == 0 -> !it_80272C6C(gobj)"
+        "raw_diff: Item* ip and itSamusMissileAttributes* attrs in it_802B63F8; itSamusMissile_ClampTurn(Item* ip, itSamusMissileAttributes* sa)"
+      ],
+      "related_standard_ids": [
+        "conservative-naming"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Reclassify a TU from NonMatching to Matching only after source edits bring the object into the matching set.",
+      "tactic": "Narrow configure linkage change from NonMatching to Matching for one TU.",
       "evidence_refs": [
-        "raw_diff: configure.py Object(Matching, \"melee/it/items/itsamusmissile.c\")",
-        "PR title: match and link itsamusmissile.c"
-      ]
+        "raw_diff: configure.py itsamusmissile.c Object status change"
+      ],
+      "notes": "The PR title says 'match and link itsamusmissile.c', but the slice does not include objdiff or build output."
     },
     {
-      "tactic": "Use declaration/signature tightening as part of matching cleanup: Item_GObj-specific prototypes and bool animation returns replace broader HSD_GObj/long declarations in the header.",
+      "tactic": "Function ordering and state table placement were adjusted in itsamusmissile.c.",
       "evidence_refs": [
-        "raw_diff: itsamusmissile.h prototype hunk"
-      ]
+        "raw_diff: ItemStateTable it_803F7340 added near top; small callbacks moved near corresponding motion functions"
+      ],
+      "notes": "Likely related to linking/matching, but no explicit author note explains the ordering rationale."
     },
     {
-      "tactic": "Move state table and callback definitions into an order that supports the matched TU without adding new semantic names.",
+      "tactic": "Control-flow simplification replaced terminal goto labels with direct returns in it_802B64FC.",
       "evidence_refs": [
-        "raw_diff: ItemStateTable it_803F7340 added near top; collision and animation callbacks re-added later"
-      ]
+        "raw_diff: block_17 and var_f1 checks now return directly"
+      ],
+      "notes": "Consistent with canonical control-flow cleanup; matching effect is implied by PR scope but not separately validated in evidence."
     },
     {
-      "tactic": "Narrow generated control-flow artifacts by replacing branch-to-return labels with explicit early returns.",
-      "evidence_refs": [
-        "raw_diff: it_802B64FC goto cleanup"
-      ]
-    },
-    {
-      "tactic": "PAD_STACK remains present in touched item code, but this PR slice does not provide objdiff/build evidence explaining it.",
+      "tactic": "PAD_STACK uses remain present in touched functions.",
       "evidence_refs": [
         "raw_diff: itlinkbomb_UnkMotion3_Anim retains PAD_STACK(12)",
-        "raw_diff: it_802B70A0 retains PAD_STACK(0x10)",
-        "decomp_standards: matching-tactics-need-evidence"
-      ]
+        "raw_diff: it_802B70A0 retains PAD_STACK(0x10)"
+      ],
+      "notes": "The PR did not add a visible new PAD_STACK justification in the slice; do not generalize this as a preferred tactic."
     }
   ],
   "review_feedback": [],
   "searchable_terms": [
-    "PR2634",
+    "PR 2634",
+    "match and link itsamusmissile.c",
     "itsamusmissile.c",
     "itsamusmissile.h",
-    "itSamusMissile",
-    "it_803F7340",
+    "itlinkbomb.c",
+    "configure.py",
+    "Object(Matching)",
+    "Object(NonMatching)",
     "ItemStateTable",
+    "it_803F7340",
     "it_802B62D0",
     "it_802B63F8",
     "it_802B64FC",
     "it_802B66A8",
-    "itSamusmissile_UnkMotion0_Anim",
-    "itSamusmissile_UnkMotion0_Phys",
-    "itSamusmissile_UnkMotion0_Coll",
-    "itSamusmissile_UnkMotion1_Anim",
-    "itSamusmissile_UnkMotion1_Phys",
-    "itSamusmissile_UnkMotion1_Coll",
-    "itSamusmissile_UnkMotion3_Anim",
+    "it_802B6A60",
     "it_802B701C",
     "it_802B70A0",
-    "itlinkbomb.c",
+    "itSamusmissile_UnkMotion0_Anim",
+    "itSamusmissile_UnkMotion1_Anim",
+    "itSamusmissile_UnkMotion0_Coll",
+    "itSamusmissile_UnkMotion1_Coll",
+    "itSamusmissile_UnkMotion3_Anim",
     "it_8029EC34",
+    "fn_8029E21C",
     "it_80272C6C",
     "Item_GObj",
     "HSD_GObj",
     "bool animation callback",
-    "NonMatching to Matching",
+    "Samus Missile",
+    "Link Bomb",
     "PAD_STACK"
   ],
   "follow_up_queries": [
-    "PR 2634 itsamusmissile objdiff build evidence",
-    "itsamusmissile.c ItemStateTable it_803F7340 matching",
-    "it_802B64FC goto cleanup early return",
-    "itSamusmissile_UnkMotion0_Anim bool prototype",
-    "itlinkbomb it_8029EC34 inline wrapper removal",
-    "PAD_STACK it_802B70A0 evidence"
+    "Find later PRs touching src/melee/it/items/itsamusmissile.c after PR 2634 for prototype or state table cleanup.",
+    "Search for other item TUs where animation callbacks changed from s32 or long to bool during Matching linkage.",
+    "Search for PRs replacing inline item transition helpers with existing helper calls like it_8029EC34.",
+    "Search for remaining PAD_STACK uses in Samus Missile and Link Bomb item functions to see whether they were later removed or justified.",
+    "Search for item TUs changed from Object(NonMatching) to Object(Matching) with only narrow configure.py edits."
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR #2634 title/state/author/changed_files",
-      "human_pr_text: Remaining item TUs: 17; Remaining item functions: 62",
-      "raw_diff: full diff available, 10341 chars",
-      "changed_files.jsonl: four changed files",
-      "metadata_json: review_comments 0, reviews 0, issue_comments 0"
+      "metadata_json: PR #2634 state MERGED, author lukechampine, changed files and timestamps",
+      "human_pr_text: title, author, URL, remaining item TU/function counts",
+      "changed_files.jsonl: four changed files with added/deleted counts",
+      "raw_diff: complete diff for configure.py, itlinkbomb.c, itsamusmissile.c, and itsamusmissile.h"
     ],
     "notes": [
-      "Evidence is strong for changed files and source edits because a full raw diff and changed-file metadata are loaded.",
-      "No review comments or reviews are present, so review feedback is empty and reviewer intent is not inferred.",
-      "No build, objdiff, or checkdiff logs are included; Matching status is evidenced by configure.py and merged state, but validation details are not available in the slice.",
-      "The diff excerpt shows itsamusmissile.h declaring it_802B63F8 as Item_GObj* while the added body in itsamusmissile.c still displays HSD_GObj*; this intake does not resolve whether that is intentional, compatible, or corrected elsewhere.",
-      "PAD_STACK usage appears in touched code, but the slice does not include explicit verifier evidence for retaining it."
+      "The loaded slice includes full diff and PR metadata but no review comments, issue comments, CI logs, build logs, objdiff output, or reviewer rationale.",
+      "The PR title and configure.py change support that itsamusmissile.c was matched and linked, but no explicit verification output is present in the slice.",
+      "Some rationale for adjacent itlinkbomb.c cleanup is inferred from the code diff only; no author explanation is available.",
+      "The diff excerpt shows a possible source/header type inconsistency for it_802B63F8: the source hunk adds HSD_GObj* while the header hunk changes to Item_GObj*. This intake does not resolve whether later context or omitted code reconciles it."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "kind": "decomp_lesson",
-        "title": "Header signatures should be tightened with matched item body recovery",
-        "text": "PR #2634 updates itsamusmissile.h from broad HSD_GObj/long declarations toward Item_GObj/bool declarations while linking the TU as Matching.",
+        "record_type": "pr_specific_lesson",
+        "title": "PR 2634 linked itsamusmissile.c by combining a narrow configure.py Matching flip with source/header cleanup.",
+        "text": "For Samus Missile, the PR changed configure.py from Object(NonMatching, \"melee/it/items/itsamusmissile.c\") to Object(Matching, ...), reorganized state-table and callback placement in itsamusmissile.c, and updated header prototypes to bool/Item_GObj forms where shown in the diff.",
         "scope": [
-          "items",
-          "headers",
-          "matching"
+          "src/melee/it/items/itsamusmissile.c",
+          "src/melee/it/items/itsamusmissile.h",
+          "configure.py"
         ],
         "evidence_refs": [
-          "raw_diff: itsamusmissile.h prototype hunk",
-          "raw_diff: configure.py marks itsamusmissile.c Matching"
+          "raw_diff: configure.py Matching change",
+          "raw_diff: itsamusmissile.c ItemStateTable and callback movement",
+          "raw_diff: itsamusmissile.h prototype changes"
         ]
       },
       {
-        "kind": "matching_tactic",
-        "title": "Collapse branch-to-return labels during cleanup when the diff shows only final-return exits",
-        "text": "In it_802B64FC, several gotos to a final return block are replaced by direct returns and the final label is removed.",
+        "record_type": "pr_specific_lesson",
+        "title": "PR 2634 demonstrates small generated-control-flow cleanup in an item update function.",
+        "text": "In it_802B64FC, terminal goto/label exits were replaced with direct returns and a combined zero-vector condition, aligning with canonical control-flow cleanup while staying within the item TU match.",
         "scope": [
-          "control-flow cleanup"
+          "src/melee/it/items/itsamusmissile.c",
+          "it_802B64FC"
         ],
         "evidence_refs": [
-          "raw_diff: it_802B64FC block_17/block_18 changes"
+          "raw_diff: it_802B64FC direct return changes"
         ]
       }
     ],
@@ -324,51 +286,51 @@
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "itsamusmissile.c linked as Matching in PR #2634",
-        "text": "PR #2634 changes configure.py so melee/it/items/itsamusmissile.c is built as Object(Matching, ...) instead of Object(NonMatching, ...).",
+        "title": "itsamusmissile.c marked Matching in PR 2634",
+        "text": "PR #2634 changed configure.py so melee/it/items/itsamusmissile.c is listed as Object(Matching, ...) instead of Object(NonMatching, ...).",
         "source_path": "src/melee/it/items/itsamusmissile.c",
         "scope": [
-          "configure.py",
-          "item TUs",
-          "Samus missile"
+          "item",
+          "samus-missile",
+          "matching-status"
         ],
         "evidence_refs": [
-          "raw_diff: configure.py NonMatching -> Matching for melee/it/items/itsamusmissile.c",
-          "metadata_json: PR state MERGED"
+          "raw_diff: configure.py hunk for itsamusmissile.c",
+          "metadata_json: PR title 'match and link itsamusmissile.c'"
         ],
-        "reason": "This is a concrete path status fact supported by the PR diff, but should be curated into path facts rather than promoted by intake."
+        "reason": "Potential path fact for curator review; do not promote from PR intake alone without checking current source/status."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Prefer direct boolean callback return types for item animation callbacks when body and table usage support them",
-        "text": "PR #2634 changed Samus missile animation callbacks from s32/long style prototypes to bool while the bodies return false and are used as item state animation callbacks.",
-        "source_path": "src/melee/it/items/itsamusmissile.h",
+        "title": "Header prototype cleanup when item callback bodies prove narrower types",
+        "text": "Consider a standard note that item matching PRs should update owning headers from broad HSD_GObj/integer callback declarations to recovered Item_GObj/bool signatures when the body and call sites support it.",
+        "source_path": null,
         "scope": [
-          "item callbacks",
-          "headers"
+          "headers",
+          "item callbacks"
         ],
         "evidence_refs": [
-          "raw_diff: itSamusmissile_UnkMotion0_Anim and UnkMotion1_Anim changed to bool",
-          "raw_diff: ItemStateTable it_803F7340 references the callbacks"
+          "raw_diff: itsamusmissile.h prototype changes",
+          "decomp_standards: truthful-headers-and-includes"
         ],
-        "reason": "Possible standard refinement for callback typing; should be checked against broader item callback conventions before adoption."
+        "reason": "This PR is consistent with the existing truthful-headers standard, but one PR without review comments is not enough to create a new accepted global rule."
       }
     ],
     "rejection_notes": [
-      "Do not infer that all remaining item TUs or functions counts are current beyond this PR body; the body only states 'Remaining item TUs: 17' and 'Remaining item functions: 62'.",
-      "Do not claim objdiff/build verification details; none are loaded in this slice.",
-      "Do not generalize PAD_STACK as accepted style from this PR; the loaded standards require explicit verifier evidence and the slice does not provide it.",
-      "Do not infer reviewer approval rationale; there are no review comments or reviews in the loaded metadata."
+      "Do not infer that all item state tables should be moved near the top of the file; this PR only shows that placement for it_803F7340 in itsamusmissile.c.",
+      "Do not treat PAD_STACK retention in the touched files as endorsed style; the slice contains no verifier justification for those uses.",
+      "Do not claim review approval rationale or CI/objdiff validation; no review comments, reviews, or verification logs are loaded.",
+      "Do not promote the possible it_802B63F8 source/header type mismatch as a fact without checking current source or full historical context."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

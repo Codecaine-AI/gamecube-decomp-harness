@@ -1,0 +1,386 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2689",
+  "pr": {
+    "number": 2689,
+    "title": "Melee decomp: Menu screen matches",
+    "url": "https://github.com/doldecomp/melee/pull/2689",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-13T21:29:36Z",
+    "merged_at": "2026-06-14T18:38:31Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Implementation-only exact-match work for MN menu screen translation units. The PR reports 7 newly exact functions across 6 files, plus improvements to still-unmatched functions. Diff evidence shows mostly local C-shape, type-width, declaration-order, naming, inline-helper, ternary, and access-shape adjustments in menu files. Review specifically rejected dead literal constant-pool anchors in mndiagram.c, saying they should be handled during linking.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "implementation-only",
+      "exact-match",
+      "menu",
+      "naming",
+      "local-codegen-shaping",
+      "inline-helper",
+      "data-section-risk"
+    ],
+    "systems": [
+      "melee-core",
+      "mn-menu"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/mn/mncharsel.c",
+      "role": "Largest menu character-select matching edits; changed local integer widths, temp names, pad access shape, declaration order, expression order, local temporaries, helper-call arguments, and a ternary slot count.",
+      "evidence_refs": [
+        "changed_files: mncharsel.c added 84 deleted 76 hunks 25",
+        "raw_diff: mnCharSel_8025C020 int i/temp_r31 changed to u8 i/u8 hud_index",
+        "raw_diff: mnCharSel_CursorThink pad pointer replaced with HSD_PadCopyStatus[port] accesses",
+        "raw_diff: mnCharSel_80266D70_OnLeave if/else num_slots changed to ternary"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mncount.c",
+      "role": "Count menu match work including inline helper extraction around fn_802514D8.",
+      "evidence_refs": [
+        "changed_files: mncount.c added 16 deleted 6 hunks 4",
+        "raw_diff excerpt: fn_802514D8 changed toward static inline fn_802514D8_inline",
+        "text_corpus issue_comment: fn_802514D8 became a new exact match"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mndiagram.c",
+      "role": "Diagram menu match work; contains reviewed constant-pool anchor issue.",
+      "evidence_refs": [
+        "changed_files: mndiagram.c added 98 deleted 57 hunks 20",
+        "text_corpus issue_comment: mnDiagram_CursorProc and mnDiagram_OnFrame became new exact matches",
+        "review_comments: reviewer requested removal of dead literals reserving .sdata2 slots"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mnmain.c",
+      "role": "Main menu small match edits.",
+      "evidence_refs": [
+        "changed_files: mnmain.c added 9 deleted 6 hunks 4",
+        "text_corpus issue_comment: mn_8022A440 became a new exact match and mn_8022B3A0 improved"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mnname.c",
+      "role": "Name-entry menu match edits.",
+      "evidence_refs": [
+        "changed_files: mnname.c added 74 deleted 46 hunks 9",
+        "text_corpus issue_comment: mnName_ConfirmNameDeleteInput became a new exact match; mnName_80238C34, mnName_8023A290, and mnName_8023A59C improved"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mnsoundtest.c",
+      "role": "Sound-test menu match edits.",
+      "evidence_refs": [
+        "changed_files: mnsoundtest.c added 25 deleted 20 hunks 2",
+        "text_corpus issue_comment: mnSoundTest_8024BCA0 became a new exact match"
+      ]
+    }
+  ],
+  "what_changed": [
+    "Reported exact-match decompilation for MN menu screen translation units, with 7 newly exact functions across mnmain, mnname, mndiagram, mnsoundtest, mncount, and mncharsel.",
+    "Adjusted local variable types and names in mncharsel.c, including using u8 for character-select icon and HUD index paths where the diff previously used int/temp_r31.",
+    "Reshaped pad input reads in mnCharSel_CursorThink from an HSD_PadStatus pointer temporary to direct HSD_PadCopyStatus[port] field accesses.",
+    "Introduced or reordered temporaries and declarations in mncharsel.c for codegen, including jobj4/jobj43, tag_data, hdx_val/hdx, and reordered dx/dy/tx assignments.",
+    "Used a ternary expression for VS_CAMERA slot count in mnCharSel_80266D70_OnLeave, replacing an if/else.",
+    "Changed mncount.c around fn_802514D8 toward a static inline helper shape.",
+    "A reviewed mndiagram.c hunk attempted to add dead literal constant-pool anchors for .sdata2 layout; reviewer requested removal and said linking should fix it."
+  ],
+  "smart_moves": [
+    {
+      "text": "The PR kept the scope to one menu subsystem and listed all six touched MN files, which makes regression review and searchability easier.",
+      "evidence_refs": [
+        "human_pr_text: Scope: MN menu screen translation units",
+        "human_pr_text: Files list includes six src/melee/mn files"
+      ]
+    },
+    {
+      "text": "Semantic local names were used where the role is visible in the diff, such as hud_index for ft_hudindex and target_count for gm_8016332C result, instead of preserving temp_rXX names.",
+      "evidence_refs": [
+        "raw_diff: temp_r31 renamed to hud_index",
+        "raw_diff: temp_r29 renamed to target_count"
+      ]
+    },
+    {
+      "text": "The diff used ordinary C forms in at least one local cleanup, replacing a small if/else assignment with a ternary for num_slots.",
+      "evidence_refs": [
+        "raw_diff: num_slots = mnCharSel_804D6CB0->match_type == VS_CAMERA ? 3 : 4"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "For menu matching, small source-shape changes can matter: local type width, declaration order, field access form, temporary lifetime, expression order, and helper-call argument shape all appeared in the match-oriented diff.",
+      "scope": [
+        "src/melee/mn",
+        "menu translation units"
+      ],
+      "evidence_refs": [
+        "raw_diff: u8 i/u8 hud_index changes",
+        "raw_diff: declaration-order and temporary changes in fn_80262648 and mnCharSel_802640A0",
+        "raw_diff: HSD_PadCopyStatus direct access changes",
+        "human_pr_text: exact-match decompilation for MN menu screen translation units"
+      ],
+      "confidence": 0.78
+    },
+    {
+      "lesson": "Do not rely on dead literal statements as constant-pool or .sdata2 anchors in reviewable matching source when reviewers indicate the layout should be fixed during linking.",
+      "scope": [
+        "src/melee/mn/mndiagram.c",
+        ".sdata2",
+        "constant-pool layout"
+      ],
+      "evidence_refs": [
+        "review_comments: Remove this, we will fix this during linking",
+        "review_comments hunk: (void) -1.0F and (void) 4503601774854144.0 dead literals reserved .sdata2 slots"
+      ],
+      "confidence": 0.9
+    },
+    {
+      "lesson": "Verification evidence in PR bodies should be cross-checked against bot reports when available; this slice body reports no regressions, while the loaded bot report also shows one unmatched .sdata2 regression in mndiagram.",
+      "scope": [
+        "PR intake",
+        "regression reporting"
+      ],
+      "evidence_refs": [
+        "human_pr_text: Slice regression report: 7 new matches, 0 broken matches, 0 fuzzy regressions, 0 metric regressions",
+        "text_corpus issue_comment: 1 regression in an unmatched item: main/melee/mn/mndiagram .sdata2 91.67% to 90.91%"
+      ],
+      "confidence": 0.74
+    }
+  ],
+  "naming_conventions": [
+    {
+      "name": "hud_index",
+      "kind": "local variable",
+      "convention": "Use a semantic local name when a local value is clearly an ft_hudindex used across score/high-score lookups.",
+      "evidence_refs": [
+        "raw_diff: int temp_r31 = icons[i].ft_hudindex changed to u8 hud_index = icons[i].ft_hudindex"
+      ],
+      "confidence": 0.82
+    },
+    {
+      "name": "target_count",
+      "kind": "local variable",
+      "convention": "Use a role name for a Stadium Target count result instead of a temp_rXX local when the nearby formatting and sentinel check show the value's role.",
+      "evidence_refs": [
+        "raw_diff: int temp_r29 = gm_8016332C(...) changed to int target_count = gm_8016332C(...)",
+        "raw_diff: target_count printed with %d or used to choose drawTimeText fallback"
+      ],
+      "confidence": 0.78
+    },
+    {
+      "name": "tag_data",
+      "kind": "local pointer",
+      "convention": "Introduce a local pointer with a role name when repeatedly accessing tp->data fields.",
+      "evidence_refs": [
+        "raw_diff: CSSTagData* tag_data = tp->data; tag_data->state and tag_data->use_tag"
+      ],
+      "confidence": 0.71
+    },
+    {
+      "name": "jobj4 / jobj43",
+      "kind": "local HSD_JObj pointer",
+      "convention": "Address- or joint-index-like local names may be retained for matching when semantics are weak but the local is known to be an HSD_JObj pointer.",
+      "evidence_refs": [
+        "raw_diff: HSD_JObj* jobj4 used for lb_80011E24 joint 4",
+        "raw_diff: HSD_JObj* jobj43 used for lb_80011E24 joint 0x43"
+      ],
+      "confidence": 0.62
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Use exact unsigned byte local types for byte-indexed menu fields when that is the matching shape.",
+      "evidence_refs": [
+        "raw_diff: int i changed to u8 i for sel_icon",
+        "raw_diff: int temp_r31 changed to u8 hud_index for ft_hudindex"
+      ],
+      "risk": "Low to medium; type-width changes can affect casts and register extension behavior.",
+      "confidence": 0.8
+    },
+    {
+      "tactic": "Direct array field access can replace a pointer temporary when matching pad input reads.",
+      "evidence_refs": [
+        "raw_diff: HSD_PadStatus* pad removed; HSD_PadCopyStatus[port].stickY/stickX/trigger/button used directly"
+      ],
+      "risk": "Medium; access shape and load ordering may be codegen-sensitive.",
+      "confidence": 0.76
+    },
+    {
+      "tactic": "Declaration order, local lifetime, and assignment grouping were used as narrow codegen controls.",
+      "evidence_refs": [
+        "raw_diff: fn_80262648 declaration order changes around jobj4, css, prev_port, iter/j",
+        "raw_diff: dx, tx, dy declared before assigning dx = model->x10 - (tx = model->x8)"
+      ],
+      "risk": "Medium; these are matching tactics and should be justified by objdiff/checkdiff evidence for the touched functions.",
+      "confidence": 0.72
+    },
+    {
+      "tactic": "Inline helper extraction can close small remaining gaps.",
+      "evidence_refs": [
+        "raw_diff excerpt: fn_802514D8 changed toward static inline fn_802514D8_inline",
+        "text_corpus issue_comment: fn_802514D8 became exact"
+      ],
+      "risk": "Medium; helper shape should not hide incorrect header ownership or prototype issues.",
+      "confidence": 0.67
+    },
+    {
+      "tactic": "Avoid dead literal anchors for section layout when they are not real code; reviewer direction was to handle that during linking.",
+      "evidence_refs": [
+        "review_comments: Remove this, we will fix this during linking",
+        "review_comments hunk: dead literals added solely to reserve .sdata2 slots"
+      ],
+      "risk": "High if kept; can mix data/linking work into code matching and create noisy section regressions.",
+      "confidence": 0.91
+    }
+  ],
+  "review_feedback": [
+    {
+      "path": "src/melee/mn/mndiagram.c",
+      "author": "jurrejelle",
+      "feedback": "Remove the constant-pool anchor dead literals; this should be fixed during linking.",
+      "evidence_refs": [
+        "review_comments: Remove this, we will fix this during linking",
+        "review_comments hunk: (void) -1.0F; (void) 4503601774854144.0;"
+      ],
+      "status_in_slice": "Review later moved from CHANGES_REQUESTED to APPROVED, but the loaded slice does not show the final diff proving the hunk removal.",
+      "confidence": 0.86
+    }
+  ],
+  "searchable_terms": [
+    "PR2689",
+    "Melee decomp Menu screen matches",
+    "fjooord",
+    "src/melee/mn",
+    "mncharsel.c",
+    "mncount.c",
+    "mndiagram.c",
+    "mnmain.c",
+    "mnname.c",
+    "mnsoundtest.c",
+    "mnCharSel_8025C020",
+    "mnCharSel_CursorThink",
+    "fn_80262648",
+    "mnCharSel_802640A0",
+    "mnCharSel_80266D70_OnLeave",
+    "fn_802514D8",
+    "fn_802514D8_inline",
+    "mnDiagram_CursorProc",
+    "mnDiagram_OnFrame",
+    "mnDiagram_80241310",
+    "mnName_ConfirmNameDeleteInput",
+    "mnSoundTest_8024BCA0",
+    "mn_8022A440",
+    "hud_index",
+    "target_count",
+    "tag_data",
+    "HSD_PadCopyStatus",
+    "constant-pool anchors",
+    ".sdata2",
+    "linking"
+  ],
+  "follow_up_queries": [
+    "PR2689 mndiagram constant-pool anchors linking .sdata2",
+    "mnCharSel_80266D70_OnLeave VS_CAMERA ternary num_slots match",
+    "mncount fn_802514D8_inline exact match",
+    "mncharsel HSD_PadCopyStatus direct access codegen",
+    "mn menu screen matches 7 new exact functions",
+    "mnDiagram_80241310 dead literals remove during linking"
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "human_pr_text: PR body with summary, verification, and file list",
+      "changed_files: six changed file records with added/deleted/hunks",
+      "raw_diff: truncated but includes many mncharsel and start of mncount changes",
+      "text_corpus: bot report with 7 new matches and unmatched improvements/regression",
+      "review_comments: one concrete mndiagram review comment",
+      "text_corpus: CHANGES_REQUESTED then APPROVED reviews"
+    ],
+    "notes": [
+      "The full raw diff is truncated in the loaded context, so detailed file-specific tactics outside the visible excerpts, especially mndiagram, mnname, mnmain, and mnsoundtest, are limited.",
+      "The PR body reports zero regressions, but the loaded bot report shows one unmatched .sdata2 regression in mndiagram. Later body text may reflect a later verification or full ship-set state, but the slice does not provide the exact final diff resolving that discrepancy.",
+      "Review approval is present after a changes-requested review, but the loaded evidence does not show whether the constant-pool anchor hunk was removed before merge.",
+      "No source or graph lookup was needed because the loaded PR evidence answered the intake questions."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "pr_lesson",
+        "title": "Reviewer rejected dead literal constant-pool anchors in mndiagram.c",
+        "text": "In PR #2689, a reviewer requested removal of dead literal statements added solely to reserve .sdata2 constant-pool slots in src/melee/mn/mndiagram.c, saying the issue should be fixed during linking.",
+        "scope": [
+          "src/melee/mn/mndiagram.c",
+          ".sdata2",
+          "constant-pool layout",
+          "matching source review"
+        ],
+        "evidence_refs": [
+          "review_comments: Remove this, we will fix this during linking",
+          "review_comments hunk: Constant-pool anchors comment and (void) dead literals"
+        ],
+        "confidence": 0.91
+      },
+      {
+        "record_type": "pr_lesson",
+        "title": "MN menu matching used narrow local source-shape changes",
+        "text": "PR #2689's visible mncharsel.c diff used small local source-shape changes—u8 local types, semantic temp names, direct HSD_PadCopyStatus indexing, declaration order, assignment grouping, and ternary control flow—as part of MN menu match work.",
+        "scope": [
+          "src/melee/mn/mncharsel.c",
+          "MN menu matching"
+        ],
+        "evidence_refs": [
+          "raw_diff: u8 i and u8 hud_index",
+          "raw_diff: HSD_PadCopyStatus[port] field accesses",
+          "raw_diff: declaration-order and assignment grouping changes",
+          "raw_diff: VS_CAMERA ternary for num_slots"
+        ],
+        "confidence": 0.78
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Do not use dead literal constant-pool anchors as code-match source",
+        "text": "Reviewer evidence from PR #2689 supports clarifying that dead literal statements such as `(void) -1.0F;` added only to reserve .sdata2 or constant-pool slots should not remain in reviewable code-matching source; section layout should be handled through linking, symbol metadata, or data ownership fixes when appropriate.",
+        "source_path": null,
+        "scope": [
+          "data-sections-and-tu-splits",
+          "literals-and-data-ownership",
+          "text-before-data-matching",
+          ".sdata2",
+          "constant pools"
+        ],
+        "evidence_refs": [
+          "review_comments: Remove this, we will fix this during linking",
+          "review_comments hunk: dead literals used to reserve .sdata2 slots"
+        ],
+        "reason": "This is consistent with existing standards on literals/data ownership and data-section matching, but the curator may want to add the concrete constant-pool-anchor example."
+      }
+    ],
+    "rejection_notes": [
+      "Do not promote the PR body's zero-regression statement as the only validation fact without noting the loaded bot report's unmatched .sdata2 regression.",
+      "Do not infer that every changed file used the same tactics as mncharsel.c; the loaded diff is truncated and detailed hunks for several files are unavailable.",
+      "Do not claim the constant-pool anchors were removed in the final merged diff; approval suggests review was resolved, but the loaded evidence does not show the final hunk state.",
+      "Do not generalize jobj4/jobj43 as preferred naming beyond this local matching context."
+    ]
+  },
+  "confidence": 0.76,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

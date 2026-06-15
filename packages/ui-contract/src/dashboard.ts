@@ -99,7 +99,7 @@ export interface RunDetails {
   knowledgeIntake?: JsonObject;
 }
 
-export type PromptPreviewAgentId = "director" | "worker" | "pr-review" | "knowledge-curator";
+export type PromptPreviewAgentId = "director" | "worker" | "pr-review" | "knowledge-curator" | "qa-repair";
 export type PromptPreviewSource = "latest" | "sample";
 
 export interface PromptPreviewStats {

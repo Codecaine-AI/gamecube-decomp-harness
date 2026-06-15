@@ -15,7 +15,7 @@ from melee_tooling import print_json
 
 import _qa_rules
 
-QA_TEXT_RULES = ("extern_literal_anchor", "packed_string_blob", "unrolled_assert")
+QA_TEXT_RULES = tuple(rule["rule_id"] for rule in _qa_rules.RULES)
 
 
 CAST_RE = re.compile(r"\(\s*(?:void|u8|char)\s*\*+\s*\)")

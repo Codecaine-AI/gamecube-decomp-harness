@@ -1,23 +1,12 @@
 import { Fragment, useState } from "react";
 import { asArray, asObject, clock, delta, numberValue, pct, shortId, text, whole, type Dashboard, type JsonObject } from "@decomp-orchestrator/ui-contract";
 import { Pill } from "./primitives";
+import { processPillState } from "../lib/processView";
 
 /** Strict numeric parse: null/undefined are missing data, never zero. */
 function strictNumber(value: unknown): number {
   if (value === null || value === undefined || value === "") return NaN;
   return Number(value);
-}
-
-function processPillState(dashboard: Dashboard | null): string {
-  const proc = asObject(dashboard?.process);
-  const saved = asArray(proc.knownProcesses).map(asObject);
-  const display = proc.pid ? proc : saved.find((item) => item.alive === true) || {};
-  const detached = !proc.pid && display.alive === true;
-  const savedState = text(display.state);
-  if (proc.state && proc.state !== "idle") return text(proc.state);
-  if (detached && savedState) return savedState;
-  if (detached) return "detached";
-  return savedState || "idle";
 }
 
 function tapeClass(value: number, epsilon = 0.0005): string {

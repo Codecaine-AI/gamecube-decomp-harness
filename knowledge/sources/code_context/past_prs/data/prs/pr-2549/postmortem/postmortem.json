@@ -12,19 +12,20 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2549 split the remaining item translation-unit content out of it_2725, introduced and linked melee/it/it_3F14.c, and moved itmaplib.c from NonMatching to Matching. The diff updates splits, symbols, headers, includes, and item-related source files; the bot report shows code/data progress plus temporary-looking broken-match report entries caused by ownership movement between units.",
+  "summary": "PR #2549 split the last item translation-unit content out of src/melee/it/it_2725.c into src/melee/it/it_3F14.c, refined item splits/symbol metadata, and changed itmaplib.c from NonMatching to Matching in configure.py. The diff also adjusted ithitbox/itmaplib split boundaries and propagated the new it_3F14.h include across many item users. Bot output reported net matched/linked-code gains and 13 new matches, while also showing 2 broken matches and 1 unmatched-item regression, so validation evidence is mixed rather than clean.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "translation-unit-splitting",
+      "splits",
+      "symbols",
       "headers",
-      "symbol-metadata",
-      "configuration"
+      "configuration",
+      "item-system"
     ],
     "systems": [
-      "item",
       "config",
+      "item",
       "fighter",
       "stage",
       "melee-core",
@@ -33,198 +34,181 @@
   },
   "key_files": [
     {
-      "path": "src/melee/it/it_3F14.c",
-      "role": "new split-out item translation unit with data/bss/sbss content moved from it_2725 and item logic table/function content",
+      "path": "src/melee/it/it_2725.c",
+      "role": "Source TU reduced after moving large item data/table content out; diff shows 919 deletions and many removed item-specific includes.",
       "evidence_refs": [
-        "changed_files: src/melee/it/it_3F14.c added 866 lines",
-        "diff_excerpt: splits.txt adds melee/it/it_3F14.c data/bss/sbss ranges",
-        "diff_excerpt: it_2725.c removes common item tables and related code while it_3F14.c is added"
+        "changed_files:src/melee/it/it_2725.c added=7 deleted=919 hunks=6",
+        "raw_diff:it_2725.c removes common item GX link table and ItemLogicTable block; adds include it_3F14.h",
+        "pr_body:Got the last of the TUs split out of it_2725"
+      ]
+    },
+    {
+      "path": "src/melee/it/it_3F14.c",
+      "role": "New split-out item TU containing moved data/table and logic content formerly associated with it_2725 split region.",
+      "evidence_refs": [
+        "changed_files:src/melee/it/it_3F14.c added=866 deleted=0 hunks=1",
+        "splits.txt:adds melee/it/it_3F14.c data 0x803F1418-0x803F1F00 bss 0x804A0E30-0x804A0FD8 sbss 0x804D6D00-0x804D6D48",
+        "bot_report:new matches main/melee/it/it_3F14 .data/.bss/.sbss to 100.00%"
       ]
     },
     {
       "path": "src/melee/it/it_3F14.h",
-      "role": "new header for the split-out it_3F14 unit",
+      "role": "New header for symbols exposed by the new split TU.",
       "evidence_refs": [
-        "changed_files: src/melee/it/it_3F14.h added 56 lines",
-        "diff_excerpt: many source files add #include \"it/it_3F14.h\""
-      ]
-    },
-    {
-      "path": "src/melee/it/it_2725.c",
-      "role": "source unit reduced after moving content and ownership into it_3F14",
-      "evidence_refs": [
-        "changed_files: src/melee/it/it_2725.c added 7 deleted 919",
-        "diff_excerpt: large block of item includes and common item tables removed",
-        "human_pr_text: 'Got the last of the TUs split out of it_2725 in #2546 :)'"
-      ]
-    },
-    {
-      "path": "src/melee/it/it_2725.h",
-      "role": "header cleaned after split-out",
-      "evidence_refs": [
-        "changed_files: src/melee/it/it_2725.h deleted 44 lines"
+        "changed_files:src/melee/it/it_3F14.h added=56 deleted=0 hunks=1",
+        "raw_diff:many TUs add #include \"it/it_3F14.h\""
       ]
     },
     {
       "path": "src/melee/it/itmaplib.c",
-      "role": "target item map library source refined and matched/linked",
+      "role": "Main matched code target; PR title says match and link itmaplib.c, configure marks it Matching, and bot reports several itmaplib function/data matches.",
       "evidence_refs": [
-        "changed_files: src/melee/it/itmaplib.c added 190 deleted 117 across 20 hunks",
-        "diff_excerpt: configure.py changes itmaplib.c from NonMatching to Matching",
-        "bot_report: new matches for itmaplib text symbols it_802759DC, it_802765BC, it_8027737C, it_80276934, it_80277040 and data/sdata2"
-      ]
-    },
-    {
-      "path": "src/melee/it/ithitbox.c",
-      "role": "adjusted text/sdata2 boundary adjacent to itmaplib after split refinement",
-      "evidence_refs": [
-        "changed_files: src/melee/it/ithitbox.c added 1 deleted 63",
-        "diff_excerpt: splits.txt changes ithitbox text end from 0x80275BC8 to 0x802759DC and sdata2 end from 0x804DC73C to 0x804DC738"
+        "changed_files:src/melee/it/itmaplib.c added=190 deleted=117 hunks=20",
+        "configure.py:Object(NonMatching, \"melee/it/itmaplib.c\") changed to Object(Matching, \"melee/it/itmaplib.c\")",
+        "bot_report:itmaplib it_802759DC, it_802765BC, it_8027737C, it_80276934, it_80277040, .sdata2, .data listed as new matches"
       ]
     },
     {
       "path": "config/GALE01/splits.txt",
-      "role": "translation-unit section ownership updated for it_3F14, it_2725, ithitbox, and itmaplib",
+      "role": "Split ownership metadata updated for it_3F14, it_2725, ithitbox, and itmaplib sections.",
       "evidence_refs": [
-        "changed_files: config/GALE01/splits.txt added 10 deleted 7",
-        "diff_excerpt: new it_3F14 ranges and adjusted it_2725/ithitbox/itmaplib boundaries"
+        "changed_files:config/GALE01/splits.txt added=10 deleted=7 hunks=1",
+        "raw_diff:splits.txt adds it_3F14 and adjusts it_2725/ithitbox/itmaplib text/data/sdata2 boundaries"
       ]
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "symbol ownership/scope/size metadata updated for moved data and literals",
+      "role": "Symbol metadata updated for local labels, string/float data, and sbss size around the item split.",
       "evidence_refs": [
-        "changed_files: config/GALE01/symbols.txt added 51 deleted 48",
-        "diff_excerpt: local @ labels replace address-style symbols for some data/sdata/sdata2 entries; it_804D6D1C size changes from 0x1 to 0x4"
+        "changed_files:config/GALE01/symbols.txt added=51 deleted=48 hunks=4",
+        "raw_diff:symbols.txt converts several address-style globals to local @ labels and changes it_804D6D1C size from 0x1 to 0x4"
       ]
     },
     {
       "path": "configure.py",
-      "role": "build configuration marks it_3F14.c and itmaplib.c as Matching",
+      "role": "Build matching configuration updated to add it_3F14.c and mark itmaplib.c as Matching.",
       "evidence_refs": [
-        "changed_files: configure.py added 2 deleted 1",
-        "diff_excerpt: adds Object(Matching, \"melee/it/it_3F14.c\") and changes itmaplib.c from NonMatching to Matching"
+        "changed_files:configure.py added=2 deleted=1 hunks=1",
+        "raw_diff:configure.py adds Object(Matching, \"melee/it/it_3F14.c\") and changes itmaplib to Matching"
       ]
     },
     {
-      "path": "multiple source files under src/melee/db, src/melee/ft, src/melee/gr, src/melee/it, and src/melee/it/items",
-      "role": "include surface updated to use the new it_3F14 header where needed",
+      "path": "src/melee/it/ithitbox.c",
+      "role": "Adjacent TU boundary/content adjusted as part of the split refinement.",
       "evidence_refs": [
-        "changed_files: many one-line additions across item, fighter collision, ground, and item-specific source files",
-        "diff_excerpt: dbitem.c, ftcoll.c, ground.c, it_266F.c, and it_26B1.c add #include \"it/it_3F14.h\""
+        "changed_files:src/melee/it/ithitbox.c added=1 deleted=63 hunks=3",
+        "splits.txt:ithitbox text end changes from 0x80275BC8 to 0x802759DC and sdata2 end changes from 0x804DC73C to 0x804DC738",
+        "bot_report:ithitbox it_802759DC listed as broken after split movement"
       ]
     }
   ],
   "what_changed": [
-    "Added a new split unit, src/melee/it/it_3F14.c, and corresponding header src/melee/it/it_3F14.h.",
-    "Moved data/bss/sbss ownership for the 0x803F1418-0x803F1F00 .data range, 0x804A0E30-0x804A0FD8 .bss range, and 0x804D6D00-0x804D6D48 .sbss range from it_2725 into it_3F14 according to splits.txt.",
-    "Reduced it_2725.c substantially by removing many item includes and a large common-item table block, consistent with the PR body claim that the last TUs were split out of it_2725.",
-    "Adjusted adjacent section boundaries: ithitbox text now ends at 0x802759DC and itmaplib text now starts at 0x802759DC; ithitbox and itmaplib sdata2 boundary moved from 0x804DC73C to 0x804DC738.",
-    "Changed configure.py so melee/it/it_3F14.c is built as Matching and melee/it/itmaplib.c changes from NonMatching to Matching.",
-    "Updated symbols.txt for local labels, local string/float/double data symbols, and one sbss size correction.",
-    "Added it_3F14.h includes across many dependent item and caller files.",
-    "Bot report recorded +3072 matched-code bytes, +8512 linked-code bytes, +252 matched-data bytes, and +164 linked-data bytes, with 13 new matches."
+    "Moved a large item data/table block out of it_2725.c and introduced it_3F14.c plus it_3F14.h.",
+    "Refined GALE01 split boundaries so it_3F14 owns data/bss/sbss ranges previously under it_2725, and adjusted ithitbox/itmaplib text and sdata2 boundaries.",
+    "Updated symbols.txt around .data, .sdata, .sbss, and .sdata2, including conversion of multiple address-style data symbols to local @ labels and local label metadata.",
+    "Changed configure.py to include melee/it/it_3F14.c as Matching and to promote melee/it/itmaplib.c from NonMatching to Matching.",
+    "Added #include \"it/it_3F14.h\" to many item-related users across db, ft, gr, it core, and item files.",
+    "Deleted it_2725.h declarations and adjusted ithitbox.h/itmaplib.h surfaces according to changed-file metadata.",
+    "Bot report recorded net progress: +3072 matched-code bytes, +8512 linked-code bytes, +252 matched-data bytes, and +164 linked-data bytes.",
+    "Bot report also recorded regressions: broken matches for ithitbox it_802759DC and it_2725 .bss, plus an unmatched-item regression for it_2725 .sbss."
   ],
   "smart_moves": [
     {
-      "text": "The PR paired a TU split with matching configuration updates: it_3F14 received explicit split ranges while configure.py added it_3F14.c as Matching and changed itmaplib.c to Matching.",
+      "title": "Split metadata, symbols, build config, and includes were changed together",
+      "text": "The PR did not only move C source; it also updated splits.txt, symbols.txt, configure.py, and include surfaces so the new it_3F14 TU could be linked and referenced.",
       "evidence_refs": [
-        "diff_excerpt: splits.txt adds melee/it/it_3F14.c ranges",
-        "diff_excerpt: configure.py Matching entries"
+        "raw_diff:splits.txt adds melee/it/it_3F14.c",
+        "raw_diff:configure.py adds Object(Matching, \"melee/it/it_3F14.c\")",
+        "raw_diff:many source files add it_3F14.h include",
+        "changed_files:src/melee/it/it_3F14.h added=56"
       ]
     },
     {
-      "text": "The split kept section ownership explicit instead of compensating in C: splits.txt and symbols.txt were adjusted alongside source movement.",
+      "title": "Kept scope focused on item TU split/match work",
+      "text": "Most touched files either define the new item TU, update split/symbol/build metadata, or add the new header include to item users.",
       "evidence_refs": [
-        "diff_excerpt: splits.txt range changes",
-        "diff_excerpt: symbols.txt local label/scope/size changes"
-      ]
-    },
-    {
-      "text": "The include surface was updated broadly after adding it_3F14.h, avoiding hidden source-local declarations in dependent files.",
-      "evidence_refs": [
-        "changed_files: many one-line source include changes",
-        "diff_excerpt: dbitem.c, ftcoll.c, ground.c, it_266F.c, it_26B1.c include it_3F14.h"
+        "changed_files.jsonl:66 changed files, many one-line include additions",
+        "pr_body:Got the last of the TUs split out of it_2725"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When splitting a translation unit, update splits, symbols, headers, configure.py, and all dependent includes together so ownership movement and build linkage are reviewable as one coherent change.",
+      "lesson": "When carving a new TU out of an overloaded source file, update split ownership, symbol metadata, build matching status, and declarations/includes as one review unit.",
       "scope": [
-        "translation-unit splits",
-        "item subsystem",
+        "item TUs",
+        "split refinement",
         "matching configuration"
       ],
       "evidence_refs": [
-        "human_pr_text: last TUs split out of it_2725",
-        "diff_excerpt: splits.txt adds it_3F14 and adjusts adjacent units",
-        "diff_excerpt: configure.py changes it_3F14.c and itmaplib.c Matching status",
-        "diff_excerpt: multiple files include it_3F14.h"
+        "raw_diff:splits.txt adds it_3F14 and moves it_2725/ithitbox/itmaplib boundaries",
+        "raw_diff:configure.py adds it_3F14 as Matching and changes itmaplib to Matching",
+        "raw_diff:it_2725.c removes large table/data block and adds it_3F14.h",
+        "changed_files:it_3F14.h added=56"
       ]
     },
     {
-      "lesson": "Section boundary changes can make bot reports show broken matches in old owners while new owners gain matching data/code; interpret such reports in light of split ownership movement before treating them as source regressions.",
+      "lesson": "Bot progress reports can show net matching gains while still flagging broken adjacent matches; intake should preserve both instead of treating merge as proof of clean regression status.",
       "scope": [
-        "bot reports",
-        "split refinement",
-        "data ownership"
+        "validation interpretation",
+        "adjacent split changes"
       ],
       "evidence_refs": [
-        "bot_report: it_3F14 .data/.bss/.sbss new 100% matches",
-        "bot_report: broken matches for ithitbox it_802759DC and it_2725 .bss",
-        "diff_excerpt: section ranges moved between it_2725, ithitbox, itmaplib, and it_3F14"
-      ]
-    },
-    {
-      "lesson": "For data-heavy split refinements, prefer symbols.txt metadata and local-label updates over inventing source-level globals solely to force section order.",
-      "scope": [
-        "symbols.txt",
-        "data sections",
-        "TU ownership"
-      ],
-      "evidence_refs": [
-        "diff_excerpt: address-style data symbols changed to local @ labels and local scope entries",
-        "decomp_standards:data-sections-and-tu-splits",
-        "decomp_standards:literals-and-data-ownership"
+        "bot_report:Matched code +0.08% and linked code +0.22%",
+        "bot_report:2 broken matches: ithitbox it_802759DC and it_2725 .bss",
+        "bot_report:1 regression in unmatched item: it_2725 .sbss"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "convention": "New split unit follows address-range style naming, it_3F14.c/it_3F14.h, matching the address-like naming used for not-yet-semantic item units.",
+      "convention": "New split TU/header use the address-derived name it_3F14 rather than a speculative semantic name.",
+      "scope": [
+        "src/melee/it/it_3F14.c",
+        "src/melee/it/it_3F14.h"
+      ],
       "evidence_refs": [
-        "changed_files: src/melee/it/it_3F14.c",
-        "changed_files: src/melee/it/it_3F14.h",
-        "decomp_standards:conservative-naming"
+        "changed_files:src/melee/it/it_3F14.c",
+        "changed_files:src/melee/it/it_3F14.h",
+        "raw_diff:includes add \"it/it_3F14.h\""
       ]
     },
     {
-      "convention": "Some data/sdata/sdata2 symbols were converted from global address-style names like it_804DC708 to local @ labels where symbols.txt records local scope.",
+      "convention": "Symbols metadata in the changed ranges favors local compiler-style @ labels for local literals/floats instead of global address-style names.",
+      "scope": [
+        "config/GALE01/symbols.txt",
+        ".data",
+        ".sdata",
+        ".sdata2"
+      ],
       "evidence_refs": [
-        "diff_excerpt: symbols.txt replaces many it_804DC7xx entries with @### local labels"
+        "raw_diff:symbols.txt changes it_803F1F00/it_803F1F0C/etc. to @446/@556/etc.",
+        "raw_diff:symbols.txt changes it_804DC708 and following sdata2 entries to @ labels with scope:local"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Move exact split ranges in splits.txt to transfer ownership of data/bss/sbss/text chunks between adjacent item TUs.",
+      "tactic": "Refined split boundaries to reassign section ownership before marking objects as Matching.",
       "evidence_refs": [
-        "diff_excerpt: it_3F14.c data/bss/sbss ranges added",
-        "diff_excerpt: ithitbox and itmaplib text/sdata2 boundaries adjusted"
+        "splits.txt:adds it_3F14 .data/.bss/.sbss",
+        "splits.txt:itmaplib text start changes from 0x80275BC8 to 0x802759DC",
+        "configure.py:itmaplib becomes Matching"
       ]
     },
     {
-      "tactic": "Promote a source file to Matching in configure.py only after the diff also supplies split/symbol/source changes that the bot report recognizes as 100% matches.",
+      "tactic": "Adjusted symbol scope/labels for local data and float constants to align metadata with the new split layout.",
       "evidence_refs": [
-        "diff_excerpt: configure.py changes itmaplib.c to Matching and adds it_3F14.c Matching",
-        "bot_report: new matches for itmaplib functions and it_3F14 data/bss/sbss"
+        "symbols.txt:multiple .data/.sdata/.sdata2 entries changed from it_address names to local @ labels",
+        "symbols.txt:it_804D6D1C size changed from 0x1 to 0x4"
       ]
     },
     {
-      "tactic": "Use symbol metadata changes, including local labels and corrected sizes, to align data ownership during TU splitting.",
+      "tactic": "Propagated a new owning header include after moving declarations out of it_2725.",
       "evidence_refs": [
-        "diff_excerpt: symbols.txt local @ labels and it_804D6D1C size correction"
+        "raw_diff:dbitem.c, ftcoll.c, ground.c, it_266F.c, it_26B1.c add it_3F14.h",
+        "changed_files:many item files with one-line additions",
+        "changed_files:src/melee/it/it_2725.h deleted=44 and src/melee/it/it_3F14.h added=56"
       ]
     }
   ],
@@ -232,104 +216,108 @@
     {
       "kind": "bot_report",
       "author": "decomp-dev[bot]",
-      "created_at": "2026-05-28T16:38:29Z",
-      "text": "GALE01 report showed matched code 68.96% (+0.08%, +3072 bytes), linked code 41.78% (+0.22%, +8512 bytes), matched data 41.20% (+0.02%, +252 bytes), linked data 34.94% (+0.01%, +164 bytes), with 13 new matches.",
+      "summary": "Reported net progress for GALE01: matched code +0.08% (+3072 bytes), linked code +0.22% (+8512 bytes), matched data +0.02% (+252 bytes), and linked data +0.01% (+164 bytes).",
       "evidence_refs": [
-        "text_corpus: issue_comment decomp-dev[bot]"
+        "text_corpus:issue_comment decomp-dev[bot] 2026-05-28T16:38:29Z"
       ]
     },
     {
-      "kind": "bot_report_warning",
+      "kind": "bot_report_regression",
       "author": "decomp-dev[bot]",
-      "created_at": "2026-05-28T16:38:29Z",
-      "text": "The bot also listed 2 broken matches and 1 unmatched-item regression: ithitbox it_802759DC, it_2725 .bss, and it_2725 .sbss. The PR evidence shows these coincide with split-boundary and ownership movement, but no human review comment explains intent.",
+      "summary": "Reported 13 new matches but also 2 broken matches and 1 regression in an unmatched item.",
       "evidence_refs": [
-        "text_corpus: issue_comment decomp-dev[bot]",
-        "diff_excerpt: splits.txt ownership changes"
+        "bot_report:13 new matches",
+        "bot_report:2 broken matches",
+        "bot_report:1 regression in an unmatched item"
+      ]
+    },
+    {
+      "kind": "human_review",
+      "author": null,
+      "summary": "No human review comments were present in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json:review_comments=0 reviews=0"
       ]
     }
   ],
   "searchable_terms": [
-    "pr-2549",
-    "lukechampine",
-    "refine splits",
+    "PR2549",
     "itmaplib.c",
     "it_3F14.c",
     "it_3F14.h",
     "it_2725.c",
     "ithitbox.c",
-    "config/GALE01/splits.txt",
-    "config/GALE01/symbols.txt",
-    "configure.py",
-    "Object(Matching, \"melee/it/itmaplib.c\")",
-    "Object(Matching, \"melee/it/it_3F14.c\")",
     "it_802759DC",
     "it_802765BC",
     "it_8027737C",
     "it_80276934",
     "it_80277040",
+    "config/GALE01/splits.txt",
+    "config/GALE01/symbols.txt",
+    "Object(Matching, \"melee/it/itmaplib.c\")",
+    "Object(Matching, \"melee/it/it_3F14.c\")",
+    "last of the TUs split out of it_2725",
+    "Remaining item TUs: 19",
+    "Remaining item functions: 79",
     "it_803F1418",
     "it_803F14C4",
     "it_804D6D1C",
-    "TU split",
-    "item TUs",
-    "local @ labels",
-    "sdata2 boundary"
+    "804DC738",
+    "802759DC"
   ],
   "follow_up_queries": [
-    "PR 2549 it_3F14 split it_2725 itmaplib",
-    "it_802759DC ithitbox itmaplib split boundary",
-    "it_3F14.c it_803F1418 it_803F14C4 common items",
-    "symbols.txt @ labels local data split ownership it_3F14",
-    "configure.py Object Matching itmaplib.c it_3F14.c",
-    "it_804D6D1C sbss size 0x4 item split"
+    "PR 2549 itmaplib broken matches ithitbox it_802759DC it_2725 bss",
+    "it_3F14 split ownership 803F1418 804A0E30 804D6D00",
+    "itmaplib.c Matching configure.py NonMatching Matching history",
+    "symbols.txt local @ labels sdata2 item split PR 2549",
+    "it_2725 remaining item TUs 19 remaining item functions 79",
+    "PR 2546 it_2725 split context"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR identity, merged state, counts, changed files",
-      "human_pr_text: PR body",
-      "raw_diff/diff_excerpt: representative split, symbol, configure, include, and it_2725 changes",
-      "changed_files.jsonl: complete changed file list",
-      "text_corpus.jsonl: bot report"
+      "metadata_json:PR state MERGED, changed_files=66",
+      "human_pr_text:PR body describes last TUs split out of it_2725",
+      "raw_diff:truncated but includes key split/symbol/configure/include excerpts",
+      "changed_files.jsonl:complete changed file metadata loaded",
+      "text_corpus:bot report loaded"
     ],
     "notes": [
-      "The raw diff and raw PR JSON loaded files are truncated, so detailed claims about every hunks' exact source logic are avoided.",
-      "There are no human review comments in the slice; review_feedback is limited to the bot report and does not infer reviewer intent.",
-      "The bot report provides progress numbers and broken-match/regression entries, but the intake does not independently verify builds or objdiff.",
-      "The PR title/body support the broad split/match/link purpose, but not detailed rationale for each symbol rename or every include addition."
+      "The raw diff is truncated, so detailed per-function source edits inside itmaplib.c, it_3F14.c, ithitbox.c, and it_279C.c are only partially visible.",
+      "No human review comments are present in the loaded slice; reviewer intent should not be inferred.",
+      "Bot output supports net progress and specific new/broken matches, but it also reports regressions, so the record does not claim a clean validation result.",
+      "The PR was merged according to metadata, but merge status is not treated as proof that every bot-reported regression was resolved within the loaded evidence."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "lesson_candidate",
-        "title": "Bundle TU split ownership updates across splits, symbols, headers, configure, and includes",
-        "text": "PR #2549 demonstrates a TU split workflow: it_3F14.c was split out of it_2725, splits.txt and symbols.txt were updated for ownership, configure.py marked the new/target units Matching, and dependent files included the new header.",
+        "type": "lesson",
+        "title": "TU split matching requires coordinated split, symbol, build, and include updates",
+        "text": "PR #2549 shows that carving item content out of it_2725 into it_3F14 required coordinated changes to splits.txt, symbols.txt, configure.py, source includes, and headers before the new TU and itmaplib could be linked/matched.",
         "scope": [
-          "translation-unit splitting",
-          "item subsystem",
+          "item",
+          "TU splits",
           "matching configuration"
         ],
         "evidence_refs": [
-          "human_pr_text",
-          "diff_excerpt:splits.txt",
-          "diff_excerpt:symbols.txt",
-          "diff_excerpt:configure.py",
-          "changed_files.jsonl"
+          "raw_diff:splits.txt adds it_3F14 and changes it_2725/ithitbox/itmaplib boundaries",
+          "raw_diff:configure.py adds it_3F14 Matching and promotes itmaplib to Matching",
+          "raw_diff:many users add it_3F14.h",
+          "changed_files:it_3F14.c added=866; it_2725.c deleted=919"
         ]
       },
       {
-        "type": "lesson_candidate",
-        "title": "Interpret bot broken matches during split moves as ownership signals, not automatically source regressions",
-        "text": "The bot reported new matches in it_3F14 and itmaplib while also listing broken matches in prior/adjacent owners. In this PR, the diff shows section boundaries moving between it_2725, ithitbox, itmaplib, and it_3F14, so curator review should treat these report entries as split-ownership context unless separate evidence shows a real regression.",
+        "type": "lesson",
+        "title": "Preserve regression caveats from bot reports",
+        "text": "A PR can report net matched/linked-code gains while still listing broken matches or regressions; curator records should preserve those caveats instead of summarizing only the positive score movement.",
         "scope": [
-          "split refinement",
-          "bot report interpretation"
+          "validation",
+          "PR intake"
         ],
         "evidence_refs": [
-          "text_corpus:decomp-dev bot report",
-          "diff_excerpt:splits.txt"
+          "bot_report:matched code +3072 and linked code +8512",
+          "bot_report:2 broken matches and 1 unmatched-item regression"
         ]
       }
     ],
@@ -337,57 +325,59 @@
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "src/melee/it/it_3F14.c owns item data/bss/sbss ranges split from it_2725 in PR #2549",
-        "text": "PR #2549 adds melee/it/it_3F14.c to splits.txt with .data 0x803F1418-0x803F1F00, .bss 0x804A0E30-0x804A0FD8, and .sbss 0x804D6D00-0x804D6D48, while narrowing it_2725.c data ownership to 0x803F1F00-0x803F1F38.",
+        "title": "it_3F14.c split ownership introduced in PR #2549",
+        "text": "PR #2549 added melee/it/it_3F14.c to GALE01 splits with .data 0x803F1418-0x803F1F00, .bss 0x804A0E30-0x804A0FD8, and .sbss 0x804D6D00-0x804D6D48, moving those ranges out of it_2725.c.",
         "source_path": "config/GALE01/splits.txt",
         "scope": [
-          "src/melee/it/it_3F14.c",
-          "src/melee/it/it_2725.c"
+          "melee/it/it_3F14.c",
+          "melee/it/it_2725.c",
+          "GALE01 splits"
         ],
         "evidence_refs": [
-          "diff_excerpt:splits.txt"
+          "raw_diff:splits.txt added melee/it/it_3F14.c ranges and removed those ranges from it_2725.c"
         ],
-        "reason": "Potential durable path fact about TU section ownership introduced by this merged PR; should be curated against current splits before promotion."
+        "reason": "Potential path/split fact for curator verification; do not promote without checking current source and split history."
       },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "itmaplib.c became a Matching object in PR #2549",
-        "text": "PR #2549 changes configure.py from Object(NonMatching, \"melee/it/itmaplib.c\") to Object(Matching, \"melee/it/itmaplib.c\") and adds Object(Matching, \"melee/it/it_3F14.c\").",
+        "title": "itmaplib.c marked Matching in PR #2549",
+        "text": "PR #2549 changed configure.py from Object(NonMatching, \"melee/it/itmaplib.c\") to Object(Matching, \"melee/it/itmaplib.c\") and the bot report listed several itmaplib functions/data items as new matches.",
         "source_path": "configure.py",
         "scope": [
-          "src/melee/it/itmaplib.c",
-          "src/melee/it/it_3F14.c"
+          "melee/it/itmaplib.c",
+          "matching status"
         ],
         "evidence_refs": [
-          "diff_excerpt:configure.py",
-          "text_corpus:bot report"
+          "raw_diff:configure.py itmaplib NonMatching to Matching",
+          "bot_report:itmaplib new matches listed"
         ],
-        "reason": "Candidate path/configuration fact; verify against current configure.py before adding to source corpus."
+        "reason": "Potential current path/status fact, but source-owned status should be checked against current configure and regression history."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "TU split report interpretation",
-        "text": "When a PR moves section ownership between translation units, bot reports may show broken matches in the old owner and new matches in the new owner. Review split/symbol ownership changes before classifying those entries as regressions.",
+        "title": "Record bot regressions alongside net match gains",
+        "text": "When using automated PR reports as evidence, record both net score gains and any listed broken matches/regressions; do not summarize a PR as cleanly validated if the report includes unresolved caveats in the available slice.",
         "source_path": null,
         "scope": [
-          "translation-unit splitting",
-          "bot reports",
-          "decomp matching review"
+          "PR intake",
+          "verification reporting",
+          "regression ledger"
         ],
         "evidence_refs": [
-          "diff_excerpt:splits.txt",
-          "text_corpus:bot report"
+          "bot_report:13 new matches",
+          "bot_report:2 broken matches",
+          "bot_report:1 regression in an unmatched item"
         ],
-        "reason": "This is a possible general review standard derived from the PR, but it should remain curator-reviewed because there is no human comment explicitly stating this policy."
+        "reason": "This aligns with verification/regression-ledger practice, but curator should decide whether it belongs in global standards or only PR-intake guidance."
       }
     ],
     "rejection_notes": [
-      "Do not claim all itmaplib functions are matched from this slice; the bot report names only several specific new function matches and aggregate progress.",
-      "Do not infer human reviewer approval rationale; no review comments are present.",
-      "Do not promote every symbol.txt local-label change as a naming convention without checking current source and symbol ownership.",
-      "Do not claim the bot-reported broken matches were intentionally ignored by reviewers; the evidence only shows merge metadata and related split movement."
+      "Do not claim all bot-reported regressions were resolved; the loaded slice does not show that.",
+      "Do not infer human reviewer approval rationale; no human review comments were loaded.",
+      "Do not generalize the local @ label symbol changes into a universal naming rule without checking current symbol conventions and adjacent PRs.",
+      "Do not treat it_3F14 as a semantic subsystem name; evidence only supports an address-style split name."
     ]
   },
   "confidence": 0.78,
@@ -397,6 +387,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

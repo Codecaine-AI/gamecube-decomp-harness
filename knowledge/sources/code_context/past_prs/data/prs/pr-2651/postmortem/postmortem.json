@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Tooling-only PR updating `tools/wiki_tu.py` to replace hard-coded wiki table column numbers with a `ColumnIndex` IntEnum and to use named indices for file, Discord, and GitHub columns when reading assignee data.",
+  "summary": "Tooling-only PR that updates `tools/wiki_tu.py` to replace hard-coded wiki table column numbers with a `ColumnIndex` IntEnum and uses those named indices when reading file, Discord, and GitHub assignee columns.",
   "change_classification": {
     "primary_type": "tooling_fix",
     "categories": [
@@ -21,69 +21,69 @@
       "documentation"
     ],
     "systems": [
-      "tooling",
+      "tools",
       "wiki_tu"
     ]
   },
   "key_files": [
     {
       "path": "tools/wiki_tu.py",
-      "role": "Changed Python tooling script that parses wiki translation-unit table rows for assignee metadata.",
+      "role": "Updated wiki translation-unit parsing to use named column indices instead of raw numeric indices.",
       "evidence_refs": [
-        "metadata_json.changed_files[0]",
-        "raw_diff:tools/wiki_tu.py"
+        "changed_files: tools/wiki_tu.py added 17 deleted 5 hunks 3",
+        "raw_diff: imports IntEnum/auto and adds ColumnIndex enum",
+        "raw_diff: read_tr replaces td[5], td[6], and td[0] with ColumnIndex.DISCORD, ColumnIndex.GITHUB, and ColumnIndex.FILE"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Imported `IntEnum` and `auto` from Python's `enum` module.",
+      "text": "Added `from enum import IntEnum, auto` to `tools/wiki_tu.py`.",
       "evidence_refs": [
-        "raw_diff:tools/wiki_tu.py import hunk"
+        "raw_diff import hunk"
       ]
     },
     {
-      "text": "Added `ColumnIndex` IntEnum with named entries for table columns: `FILE`, `MATCHED`, `TOTAL`, `REMAINING`, `TEXT_PERCENT`, `DATA_PERCENT`, `DISCORD`, and `GITHUB`.",
+      "text": "Added `ColumnIndex(IntEnum)` with members `FILE`, `MATCHED`, `TOTAL`, `REMAINING`, `TEXT_PERCENT`, `DATA_PERCENT`, `DISCORD`, and `GITHUB`.",
       "evidence_refs": [
-        "raw_diff:tools/wiki_tu.py ColumnIndex hunk"
+        "raw_diff ColumnIndex hunk"
       ]
     },
     {
-      "text": "Replaced literal column indices `5`, `6`, and `0` in `read_tr` with `ColumnIndex.DISCORD`, `ColumnIndex.GITHUB`, and `ColumnIndex.FILE` respectively.",
+      "text": "Changed `read_tr` to use `ColumnIndex.DISCORD` and `ColumnIndex.GITHUB` for bounds checks and value extraction, and `ColumnIndex.FILE` for the assignees dictionary key.",
       "evidence_refs": [
-        "raw_diff:tools/wiki_tu.py read_tr hunk"
+        "raw_diff read_tr hunk"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Named enum values make the wiki table layout explicit and reduce the chance of future off-by-one or stale-column mistakes in this parser.",
+      "text": "Named the full table layout rather than only the currently-read assignee columns, making the parser less dependent on unexplained numeric positions.",
       "evidence_refs": [
-        "PR title",
-        "raw_diff:tools/wiki_tu.py ColumnIndex hunk",
-        "raw_diff:tools/wiki_tu.py read_tr hunk"
+        "raw_diff ColumnIndex members",
+        "raw_diff read_tr replacements"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "text": "For project tooling that parses structured progress tables, prefer named column constants/enums over unexplained numeric indices so table-layout assumptions remain reviewable.",
+      "text": "For repository tooling that parses structured external tables, prefer named column constants or enums over raw numeric indices so column-layout fixes are localized and reviewable.",
       "scope": [
         "tools/wiki_tu.py",
-        "tooling parsing wiki TU tables"
+        "tooling scripts that parse wiki tables"
       ],
       "evidence_refs": [
-        "raw_diff:tools/wiki_tu.py ColumnIndex hunk",
-        "raw_diff:tools/wiki_tu.py read_tr hunk"
+        "PR title: Fix columns indices in `wiki_tu.py`",
+        "raw_diff: `ColumnIndex` enum introduced and raw indices replaced"
       ],
-      "confidence": 0.82
+      "confidence": 0.84
     }
   ],
   "naming_conventions": [
     {
-      "text": "Column indices were represented by a `ColumnIndex` IntEnum using uppercase member names matching table concepts, including `FILE`, `DISCORD`, and `GITHUB`.",
+      "text": "The PR uses an enum named `ColumnIndex` with uppercase members matching table roles: `FILE`, `MATCHED`, `TOTAL`, `REMAINING`, `TEXT_PERCENT`, `DATA_PERCENT`, `DISCORD`, and `GITHUB`.",
       "evidence_refs": [
-        "raw_diff:tools/wiki_tu.py ColumnIndex hunk"
+        "raw_diff ColumnIndex hunk"
       ]
     }
   ],
@@ -91,8 +91,7 @@
   "review_feedback": [],
   "searchable_terms": [
     "pr-2651",
-    "tools/wiki_tu.py",
-    "wiki_tu",
+    "wiki_tu.py",
     "ColumnIndex",
     "IntEnum",
     "auto",
@@ -108,71 +107,49 @@
     "read_tr",
     "TableRow",
     "wiki table columns",
-    "assignees",
-    "discord",
-    "github",
-    "tooling fix"
+    "tooling fix",
+    "column indices"
   ],
   "follow_up_queries": [
     "tools/wiki_tu.py ColumnIndex",
-    "wiki_tu.py read_tr discord github column index",
-    "PR 2651 Fix columns indices in wiki_tu.py",
-    "wiki translation unit table column order tooling"
+    "wiki_tu.py td[5] td[6] td[0]",
+    "wiki_tu.py Discord GitHub column index",
+    "past PRs wiki_tu column indices"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json",
-      "raw_diff",
-      "changed_files.jsonl",
-      "text_corpus.jsonl"
+      "metadata_json: PR number/title/author/state/timestamps/changed file counts",
+      "raw_diff: complete diff for tools/wiki_tu.py",
+      "text_corpus: empty PR body",
+      "metadata_json: issue_comments 0, review_comments 0, reviews 0"
     ],
     "notes": [
-      "Changed file metadata and full diff are available and directly support the file-level summary.",
-      "PR body is empty and there are no issue comments, review comments, or reviews in the slice.",
-      "No tests, runtime output, or validation results are present in the loaded evidence; no validation is claimed.",
-      "The PR title says the change fixes column indices, but the slice does not include an explicit bug report or table sample explaining the incorrect prior behavior."
+      "Evidence is strong for the exact file changes because the full diff is loaded.",
+      "There is no PR body, review discussion, issue comment, test output, or validation log in the slice, so intent beyond the title and diff should not be inferred.",
+      "No assembly, objdiff, or decomp source matching tactics are involved in the provided evidence."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "tooling_lesson",
-        "title": "Use named column indices in wiki table tooling",
-        "text": "When parsing fixed-layout wiki TU tables in tooling, use named column constants or an enum rather than bare numeric indices. PR 2651 introduced `ColumnIndex` in `tools/wiki_tu.py` and replaced direct uses of `td[0]`, `td[5]`, and `td[6]` with `ColumnIndex.FILE`, `ColumnIndex.DISCORD`, and `ColumnIndex.GITHUB`.",
+        "record_type": "tooling_lesson_candidate",
+        "title": "Use named indices for wiki table parser columns",
+        "text": "When a tooling script parses fixed-position wiki table columns, replace unexplained raw column numbers with named indices or an enum that documents the table layout.",
         "scope": [
           "tools/wiki_tu.py",
-          "tooling",
-          "wiki TU table parsing"
+          "wiki table parsing tooling"
         ],
         "evidence_refs": [
-          "raw_diff:tools/wiki_tu.py"
-        ],
-        "confidence": 0.82
+          "PR title: Fix columns indices in `wiki_tu.py`",
+          "raw_diff: added `ColumnIndex(IntEnum)` and replaced numeric uses in `read_tr`"
+        ]
       }
     ],
-    "source_update_candidates": [
-      {
-        "target_source_id": "other",
-        "update_kind": "source_update",
-        "title": "Consider documenting wiki TU table column order for tooling maintainers",
-        "text": "PR 2651 encoded the expected wiki TU table columns in `ColumnIndex`: file, matched, total, remaining, text percent, data percent, Discord, and GitHub. Curator may consider routing this as a documentation or tooling-maintainer note if a source-owned table schema document exists.",
-        "source_path": null,
-        "scope": [
-          "tools/wiki_tu.py",
-          "wiki TU table schema",
-          "tooling documentation"
-        ],
-        "evidence_refs": [
-          "raw_diff:tools/wiki_tu.py ColumnIndex hunk"
-        ],
-        "reason": "The diff exposes an implicit table schema, but the PR slice does not identify an owning documentation file, so this should remain a candidate rather than an accepted path fact or global standard."
-      }
-    ],
+    "source_update_candidates": [],
     "rejection_notes": [
-      "No decomp code, matching tactic, assembly tactic, or objdiff-related lesson is supported by this PR slice.",
-      "No reviewer intent or requested follow-up can be inferred because the slice contains no review or issue comments.",
-      "Do not treat the enum member list as a globally accepted wiki schema beyond this tooling evidence without checking the current table/documentation owner."
+      "Do not infer that this PR changed decomp source, matching status, wiki content, or validation results; the slice only shows a tooling script diff.",
+      "Do not promote the specific wiki table layout as a global standard without corroborating current tool or wiki documentation."
     ]
   },
   "confidence": 0.86,
@@ -182,6 +159,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

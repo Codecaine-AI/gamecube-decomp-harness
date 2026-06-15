@@ -28,6 +28,16 @@ def bar(p, color="#16a34a"):
             f'background:{color}"></div><span>{100*p:.1f}%</span></div>')
 
 
+def lift_bar(lift):
+    cap = 0.5
+    width = min(abs(lift) / cap, 1) * 50
+    if lift >= 0:
+        fill = f'<div class="lift-fill pos" style="left:50%;width:{width:.1f}%"></div>'
+    else:
+        fill = f'<div class="lift-fill neg" style="left:{50-width:.1f}%;width:{width:.1f}%"></div>'
+    return f'<div class="liftbar">{fill}<span>{100*lift:+.0f} pts</span></div>'
+
+
 def median(xs):
     return statistics.median(xs) if xs else 0
 
@@ -57,13 +67,13 @@ for o in ORDER:
         f'<td class="num">{c2}</td><td class="num">{median(d2):.0f} min</td>'
         f'<td class="num">{c2-c1:+d}</td></tr>')
 
-n1_work = sum(1 for L in r1 if L["outcome"] != "aborted")
-n2_work = sum(1 for L in r2 if L["outcome"] != "aborted")
 s1 = sum(1 for L in r1 if L["outcome"] in SUCC)
 s2 = sum(1 for L in r2 if L["outcome"] in SUCC)
+r2_exact = [L for L in r2 if L["outcome"] == "confirmed_exact"]
+r2_impr = [L for L in r2 if L["outcome"] == "confirmed_improved"]
 
-# ---------- improvement magnitude (run2 confirmed improved) ----------
-deltas = sorted(L["after"] - L["before"] for L in r2
+# ---------- improvement magnitude (all terminal xhigh confirmed improved) ----------
+deltas = sorted(L["after"] - L["before"] for L in term
                 if L["outcome"] == "confirmed_improved" and L.get("before") is not None)
 n_d = len(deltas)
 tiny = sum(1 for x in deltas if x < 0.5)
@@ -86,7 +96,7 @@ def dur_row(label, xs):
 
 dur_rows = []
 for o in ORDER:
-    xs = [L["duration_min"] for L in r2 if L["outcome"] == o]
+    xs = [L["duration_min"] for L in term if L["outcome"] == o]
     lbl = LABELS[o][0]
     dur_rows.append(dur_row(lbl, xs))
 
@@ -116,72 +126,216 @@ for k in stats["kill_table"]:
         f"<td class='num'>{freed:.0f} h</td>"
         f"<td class='num'>{ev:+.0f}</td></tr>")
 
-# ---------- tools (run2 only) ----------
-r2_succ = [L for L in r2 if L["outcome"] in SUCC]
-r2_exact = [L for L in r2 if L["outcome"] == "confirmed_exact"]
-r2_impr = [L for L in r2 if L["outcome"] == "confirmed_improved"]
-r2_nc = [L for L in r2 if L["outcome"] == "no_change"]
-r2_tools = sorted({t for L in r2 for t in L["tools"]})
-p_base_r2 = len(r2_succ) / len(r2)
+kill_by_t = {k["T_min"]: k for k in stats["kill_table"]}
+k75 = kill_by_t[75]
+k90 = kill_by_t[90]
+freed75 = k75["fail_hours_saved"] + k75["succ_hours_at_risk"]
+freed90 = k90["fail_hours_saved"] + k90["succ_hours_at_risk"]
+exact_over_90 = sum(1 for x in exact_durs if x > 90)
 
-tool_rows = []
+# ---------- tools (all terminal xhigh leases) ----------
+tool_scope = term
+tool_exact = [L for L in tool_scope if L["outcome"] == "confirmed_exact"]
+tool_nc = [L for L in tool_scope if L["outcome"] == "no_change"]
+scope_tools = sorted({t for L in tool_scope for t in L["tools"]})
+
 tool_stats = {}
-for t in r2_tools:
-    users = [L for L in r2 if t in L["tools"]]
-    total = sum(L["tools"].get(t, 0) for L in r2)
-    a_ex = sum(1 for L in r2_exact if t in L["tools"]) / (len(r2_exact) or 1)
-    a_im = sum(1 for L in r2_impr if t in L["tools"]) / (len(r2_impr) or 1)
-    a_nc = sum(1 for L in r2_nc if t in L["tools"]) / (len(r2_nc) or 1)
+for t in scope_tools:
+    users = [L for L in tool_scope if t in L["tools"]]
+    total = sum(L["tools"].get(t, 0) for L in tool_scope)
+    a_ex = sum(1 for L in tool_exact if t in L["tools"]) / (len(tool_exact) or 1)
+    a_nc = sum(1 for L in tool_nc if t in L["tools"]) / (len(tool_nc) or 1)
     p_use = sum(1 for L in users if L["outcome"] in SUCC) / len(users) if users else 0
-    non = [L for L in r2 if t not in L["tools"]]
+    non = [L for L in tool_scope if t not in L["tools"]]
     p_non = sum(1 for L in non if L["outcome"] in SUCC) / len(non) if non else 0
-    tool_stats[t] = dict(total=total, n_users=len(users), a_ex=a_ex, a_im=a_im,
+    tool_stats[t] = dict(total=total, n_users=len(users), a_ex=a_ex,
                          a_nc=a_nc, p_use=p_use, p_non=p_non)
 
-for t in sorted(r2_tools, key=lambda t: -tool_stats[t]["total"]):
+PRIMARY_SURFACE_TOOLS = [
+    "bash", "edit", "read", "checkdiff_run", "direct_compile_tu", "m2c_decompile",
+]
+INJECTED_CONTEXT_TOOLS = ["path_facts_resolve", "past_prs_search"]
+AUTO_CLOSE_TOOLS = ["checkdiff_summary", "review_lint_scan"]
+AUTOMATIC_CONTEXT_TOOLS = INJECTED_CONTEXT_TOOLS + AUTO_CLOSE_TOOLS
+SPECIALIST_TOOLS = [
+    "source_permuter_replay", "source_permuter_run",
+    "mwcc_debug_diagnose_stack", "mwcc_debug_diagnose_regflow",
+]
+CORE_TOOLS = set(PRIMARY_SURFACE_TOOLS + AUTOMATIC_CONTEXT_TOOLS)
+
+
+def optional_action(t):
+    if t in never or t in near_never:
+        return "Hide / prune"
+    if t == "source_permuter_replay":
+        return "Promote"
+    if t in ("source_permuter_run", "mwcc_debug_diagnose_stack",
+             "mwcc_debug_diagnose_regflow"):
+        return "Keep visible"
+    if t in ("objdiff_score_candidate", "external_mirrors_search",
+             "external_symbol_lookup", "discord_knowledge_search",
+             "code_graph_search", "ghidra_lookup", "mismatch_db_search",
+             "mwcc_debug_lookup", "mwcc_debug_dump_function",
+             "source_mutation_preview", "opseq_similar_functions",
+             "mwcc_debug_diagnose_inlines", "type_oracle_lookup", "write"):
+        return "Pull back"
     s = tool_stats[t]
-    if s["total"] < 10:
-        continue
     lift = s["p_use"] - s["p_non"]
-    lift_cls = "pos" if lift > 0.08 else ("neg" if lift < -0.02 else "")
-    tool_rows.append(
-        f"<tr><td class='mono'>{t}</td>"
-        f"<td>{bar(s['a_ex'])}</td><td>{bar(s['a_im'], '#0d9488')}</td>"
-        f"<td>{bar(s['a_nc'], '#94a3b8')}</td>"
-        f"<td class='num'>{fmt_pct(s['p_use'],0)}</td>"
-        f"<td class='num'><span class='{lift_cls}' style='font-weight:600;"
-        f"color:{'#16a34a' if lift>0.08 else ('#dc2626' if lift<-0.02 else '#64748b')}'>"
-        f"{100*lift:+.0f} pts</span></td>"
-        f"<td class='num'>{s['total']}</td><td class='num'>{s['n_users']}</td></tr>")
+    if lift > 0.12:
+        return "Promote"
+    if lift < -0.08 or s["a_nc"] > s["a_ex"] + 0.15:
+        return "Pull back"
+    return "Measure"
+
 
 # shelfware lists
-advertised = set(stats["advertised_tools"].get("run2", []))
-never = sorted(advertised - set(r2_tools))
-near_never = sorted((t for t in r2_tools if t in advertised
+advertised = set().union(*(set(v) for v in stats["advertised_tools"].values()))
+never = sorted(advertised - set(scope_tools))
+near_never = sorted((t for t in scope_tools if t in advertised
                      and tool_stats[t]["n_users"] <= 10 and tool_stats[t]["total"] < 20),
                     key=lambda t: tool_stats[t]["total"])
-never_li = "".join(f"<li><code>{t}</code></li>" for t in never)
-near_li = "".join(
-    f"<li><code>{t}</code> — {tool_stats[t]['total']} calls across "
-    f"{tool_stats[t]['n_users']} leases</li>" for t in near_never)
 
-# ---------- confirmed exact details (run2) ----------
+optional_candidates = [t for t in scope_tools
+                       if t not in CORE_TOOLS and tool_stats[t]["total"] >= 10]
+pull_back_tools = sorted(
+    [t for t in optional_candidates if optional_action(t) == "Pull back"],
+    key=lambda t: -tool_stats[t]["total"])
+
+# ---------- compact inventory recommendation ----------
+def code_list(tools):
+    return " ".join(f"<code>{t}</code>" for t in tools)
+
+
+def group_evidence(tools):
+    present = [t for t in tools if t in tool_stats]
+    if not present:
+        return "not observed"
+    calls = sum(tool_stats[t]["total"] for t in present)
+    users = sum(1 for L in tool_scope if any(t in L["tools"] for t in present))
+    exact_cov = sum(1 for L in tool_exact if any(t in L["tools"] for t in present)) / (len(tool_exact) or 1)
+    nc_cov = sum(1 for L in tool_nc if any(t in L["tools"] for t in present)) / (len(tool_nc) or 1)
+    return (f"{calls:,} calls; used in {users}/{len(tool_scope)} leases; "
+            f"{fmt_pct(exact_cov,0)} exact / {fmt_pct(nc_cov,0)} no-change coverage")
+
+
+hide_tools = sorted(set(never) | set(near_never))
+secondary_tools = sorted(
+    (set(pull_back_tools)
+     | {t for t in optional_candidates if optional_action(t) == "Measure"})
+    - set(hide_tools)
+    - set(SPECIALIST_TOOLS),
+    key=lambda t: (-tool_stats.get(t, {}).get("total", 0), t))
+
+
+def surface_row(tier, tools, use, recommendation):
+    return (
+        f"<tr><td><b>{tier}</b></td><td class='mono toolset'>{code_list(tools)}</td>"
+        f"<td>{use}</td><td class='small muted'>{group_evidence(tools)}</td>"
+        f"<td>{recommendation}</td></tr>")
+
+
+surface_rows = "".join([
+    surface_row(
+        "Primary surface",
+        PRIMARY_SURFACE_TOOLS,
+        "The normal inspect-edit-compile-score loop.",
+        "Keep callable. This is the smallest safe hot path: file IO/editing plus one decompiler seed and compile/score feedback."),
+    surface_row(
+        "Injected context",
+        INJECTED_CONTEXT_TOOLS,
+        "Path facts and prior-art context that should arrive before the agent starts choosing tools.",
+        "Inject once at lease start or keep as background retrieval; high adoption makes it poor choice-surface signal."),
+    surface_row(
+        "Automatic close gates",
+        AUTO_CLOSE_TOOLS,
+        "Summary and lint review that should happen when the candidate is ready to return.",
+        "Keep the capability, but move it out of the main chooser: run as close gates or one-shot ready checks."),
+    surface_row(
+        "Easy specialists",
+        SPECIALIST_TOOLS,
+        "Use when the primary loop stalls or when the target shape clearly calls for permutation/debug help.",
+        "Keep discoverable, but not mixed into the default path."),
+    surface_row(
+        "Secondary / on-demand",
+        secondary_tools,
+        "Knowledge lookups, mirrors, diagnostics, candidate scoring, and exploratory helpers.",
+        "Pull behind secondary access for one 90-minute sweep; re-promote only when targeted requests prove value."),
+    surface_row(
+        "Hide / prune",
+        hide_tools,
+        "Never or nearly never used surfaces.",
+        "Remove from the advertised inventory for the next sweep."),
+])
+
+
+def inventory_cell(title, tools, note):
+    lis = "".join(f"<li><code>{t}</code></li>" for t in tools) or "<li>none</li>"
+    return f"<td><b>{title}</b><p class='small muted'>{note}</p><ul class='tight'>{lis}</ul></td>"
+
+
+inventory_columns = (
+    "<tr>"
+    + inventory_cell("Primary", PRIMARY_SURFACE_TOOLS,
+                     f"{len(PRIMARY_SURFACE_TOOLS)} tools the agent should normally call.")
+    + inventory_cell("Automatic / injected", AUTOMATIC_CONTEXT_TOOLS,
+                     "Required capability, not default choice clutter.")
+    + inventory_cell("Easy specialists", SPECIALIST_TOOLS,
+                     "Reach for these after the basic loop stalls.")
+    + inventory_cell("Secondary / hide", secondary_tools + hide_tools,
+                     f"{len(secondary_tools)} secondary + {len(hide_tools)} prune candidates.")
+    + "</tr>")
+
+
+def lift_tier(t):
+    if t in hide_tools:
+        return "Hide / prune"
+    if t in SPECIALIST_TOOLS:
+        return "Easy specialist"
+    return "Secondary"
+
+
+def lift_tier_order(t):
+    return {
+        "Easy specialist": 0,
+        "Secondary": 1,
+        "Hide / prune": 2,
+    }[lift_tier(t)]
+
+
+lift_tools = sorted(
+    [t for t in scope_tools if t not in CORE_TOOLS and tool_stats[t]["total"] >= 10],
+    key=lambda t: (lift_tier_order(t), -tool_stats[t]["total"], t))
+lift_rows = []
+for t in lift_tools:
+    s = tool_stats[t]
+    lift = s["p_use"] - s["p_non"]
+    lift_rows.append(
+        f"<tr><td><span class='tag'>{lift_tier(t)}</span></td>"
+        f"<td class='mono'>{t}</td>"
+        f"<td>{bar(s['a_ex'])}</td>"
+        f"<td>{bar(s['a_nc'], '#94a3b8')}</td>"
+        f"<td class='num'>{fmt_pct(s['p_use'],0)}</td>"
+        f"<td>{lift_bar(lift)}</td>"
+        f"<td class='num'>{s['total']}</td>"
+        f"<td class='num'>{s['n_users']}</td></tr>")
+
+# ---------- confirmed exact details ----------
 exact_detail_rows = []
-for L in sorted(r2_exact, key=lambda L: L["duration_min"]):
+all_exact = [L for L in term if L["outcome"] == "confirmed_exact"]
+for L in sorted(all_exact, key=lambda L: L["duration_min"]):
     top_tools = ", ".join(t for t, _ in Counter(L["tools"]).most_common(6))
     exact_detail_rows.append(
-        f"<tr><td class='mono'>{L['symbol']}<div class='muted small'>{(L['unit'] or '').replace('main/','')}</div></td>"
+        f"<tr><td class='num'>{L['run'].replace('run', '')}</td>"
+        f"<td class='mono'>{L['symbol']}<div class='muted small'>{(L['unit'] or '').replace('main/','')}</div></td>"
         f"<td class='num'>{L['size'] or '–'}</td>"
         f"<td class='num'>{L['start_fuzzy']:.1f}%</td>"
         f"<td class='num'>{L['duration_min']:.0f} min</td>"
         f"<td class='num'>{L['total_calls']}</td>"
         f"<td class='small mono'>{top_tools}</td></tr>")
 
-# ---------- gate-loss breakdown (run2) ----------
+# ---------- gate-loss breakdown ----------
 gate = Counter()
 for x in stats["exact_rejected_details"]:
-    if x["run"] != "run2":
-        continue
     rs = "; ".join(x["rv_reasons"])
     if "qa lint" in rs and "regression" not in rs:
         gate["QA lint maintainer-rejected patterns"] += 1
@@ -193,19 +347,12 @@ for x in stats["exact_rejected_details"]:
         gate["post-return gate after passing runner validation"] += 1
 gate_li = "".join(f"<li><b>{v}</b> — {k}</li>" for k, v in gate.most_common())
 
-def tc(t):
-    return tool_stats.get(t, {}).get("total", "–")
-
-
-def tn(t):
-    return tool_stats.get(t, {}).get("n_users", "–")
-
-
 n_term = len(term)
 n_succ = len(succ_durs)
-hours_total_r2 = sum(L["duration_min"] for L in r2) / 60
-hours_nc_r2 = sum(L["duration_min"] for L in r2
-                  if L["outcome"] not in SUCC) / 60
+n_in_flight = len(leases) - len(term)
+hours_total = sum(L["duration_min"] for L in term) / 60
+hours_nc = sum(L["duration_min"] for L in term
+               if L["outcome"] not in SUCC) / 60
 
 html = f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -232,26 +379,35 @@ td {{ padding: 7px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; 
 tr:last-child td {{ border-bottom: none; }}
 td.num, th.num {{ text-align: right; font-variant-numeric: tabular-nums; }}
 code, .mono {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }}
+.toolset code {{ display: inline-block; margin: 0 4px 4px 0; }}
 .bar {{ position: relative; background: #f1f5f9; border-radius: 3px; height: 16px; min-width: 90px; }}
 .bar-fill {{ height: 100%; border-radius: 3px; }}
 .bar span {{ position: absolute; right: 5px; top: 0; font-size: 11px; line-height: 16px; color: #334155; font-variant-numeric: tabular-nums; }}
+.liftbar {{ position: relative; height: 18px; min-width: 120px; background: #f1f5f9; border-radius: 3px; overflow: hidden; }}
+.liftbar:before {{ content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #94a3b8; }}
+.lift-fill {{ position: absolute; top: 0; bottom: 0; opacity: .85; }}
+.lift-fill.pos {{ background: #16a34a; }}
+.lift-fill.neg {{ background: #dc2626; }}
+.liftbar span {{ position: absolute; left: 0; right: 0; text-align: center; font-size: 11px; line-height: 18px; color: #0f172a; font-variant-numeric: tabular-nums; }}
 .pill {{ display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }}
 .pill.ok {{ background: #dcfce7; color: #166534; }}
 .pill.warn {{ background: #fef9c3; color: #854d0e; }}
 .pill.bad {{ background: #fee2e2; color: #991b1b; }}
 .pill.neutral {{ background: #e2e8f0; color: #475569; }}
+.tag {{ display: inline-block; min-width: 72px; padding: 1px 7px; border-radius: 4px; background: #eef2ff; color: #3730a3; font-size: 11px; font-weight: 600; text-align: center; }}
 .note {{ background: #fff; border: 1px solid #e2e8f0; border-left: 3px solid #94a3b8; border-radius: 6px; padding: 12px 16px; font-size: 13px; color: #475569; margin: 14px 0; }}
 .note.action {{ border-left-color: #16a34a; }}
 ul.tight {{ margin: 8px 0; padding-left: 20px; }} ul.tight li {{ margin: 4px 0; }}
 .muted {{ color: #64748b; }}
 .small {{ font-size: 12px; }}
 .cols2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }}
-@media (max-width: 800px) {{ .cols2 {{ grid-template-columns: 1fr; }} }}
+.inventory td {{ width: 25%; }}
+@media (max-width: 800px) {{ .cols2 {{ grid-template-columns: 1fr; }} .inventory td {{ display: block; width: 100%; }} }}
 </style></head><body>
 <header class="page"><div class="wrap" style="padding:0 24px">
 <h1>Pi Worker Agents — Confirmed Outcomes, Durations &amp; Tool Effectiveness</h1>
-<div class="sub">Extends <code>pi-agent-tool-analysis-2026-06-11.html</code> · Runs <code>302fb981</code> (Jun 10–11) + <code>caa0dfd7</code> (Jun 11–12, active) · codex-lb / gpt-5.5 ·
-{len(term)} terminal leases ({len(r1)} + {len(r2)}) · <b>xhigh thinking only</b> (run-1 medium leases excluded — all workers run xhigh now) · outcomes from worker events with runner-validation as the canonical gate</div>
+<div class="sub">Extends <code>pi-agent-tool-analysis-2026-06-11.html</code> · Runs <code>302fb981</code> (Jun 10–11) + <code>caa0dfd7</code> (Jun 11–12, idle refresh) · codex-lb / gpt-5.5 ·
+{len(term)} terminal leases ({len(r1)} + {len(r2)}) · <b>xhigh thinking only</b> (run-1 medium leases excluded — all workers run xhigh now) · outcomes from terminal worker/report events with runner-validation as the canonical gate</div>
 </div></header>
 <div class="wrap">
 
@@ -260,7 +416,7 @@ ul.tight {{ margin: 8px 0; padding-left: 20px; }} ul.tight li {{ margin: 4px 0; 
 <div class="card"><div class="v pos">{n_succ}</div><div class="l">runner-confirmed successes ({len(exact_durs)} exact + {len(impr_durs)} improved) across both runs</div></div>
 <div class="card"><div class="v pos">{s2}</div><div class="l">of those landed in run 2 alone ({sum(1 for L in r2_exact)} exact + {len(r2_impr)} improved) — {fmt_pct(s2/len(r2),0)} of its leases</div></div>
 <div class="card"><div class="v">{median(succ_durs):.0f} min</div><div class="l">median wall-clock for a confirmed success · 90% finish within {sorted(succ_durs)[round(.9*(len(succ_durs)-1))]:.0f} min</div></div>
-<div class="card"><div class="v neg">{fmt_pct(stats['kill_table'][6]['p_success_given_over'],0)}</div><div class="l">chance a lease still running at 75 min ever confirms — vs {fmt_pct(p_base,0)} for a fresh attempt</div></div>
+<div class="card"><div class="v neg">{fmt_pct(k90['p_success_given_over'],0)}</div><div class="l">chance a lease still running at 90 min ever confirms — vs {fmt_pct(p_base,0)} for a fresh attempt</div></div>
 </div>
 
 <h2>1 · Run-over-run funnel — what changed since the last report</h2>
@@ -272,71 +428,54 @@ ul.tight {{ margin: 8px 0; padding-left: 20px; }} ul.tight li {{ margin: 4px 0; 
 <h2>2 · What counts as a "true" improvement</h2>
 <p class="small muted">Everything labeled <i>confirmed</i> below passed runner-owned same-unit validation (the canonical gate) — not just the worker's local score claim.</p>
 <div class="cards">
-<div class="card"><div class="v">{n_d}</div><div class="l">run-2 confirmed improvements with before/after scores</div></div>
+<div class="card"><div class="v">{n_d}</div><div class="l">xhigh confirmed improvements with before/after scores</div></div>
 <div class="card"><div class="v">{median(deltas):.2f} pts</div><div class="l">median score gain per confirmed improvement</div></div>
 <div class="card"><div class="v">{tiny}</div><div class="l">gained &lt; 0.5 pts ({sub01} of them &lt; 0.1 pts)</div></div>
 <div class="card"><div class="v pos">{big}</div><div class="l">gained ≥ 5 pts (real understanding wins)</div></div>
 </div>
-<div class="note">Under the matches-only shipping policy, improvements stay local as branch delta — so their value is as <b>stepping stones toward exact</b>. A third of confirmed improvements ({tiny}/{n_d}) move the score by less than half a point. They're real (runner-validated) but cheap signal: the leases that matter most are the {big} with ≥5-pt gains and the {len(r2_exact)} exacts. When judging tool effectiveness below, "success" = confirmed exact <i>or</i> confirmed improved, but the exact-only adoption column is the sharper lens.</div>
+<div class="note">Under the matches-only shipping policy, improvements stay local as branch delta — so their value is as <b>stepping stones toward exact</b>. A third of confirmed improvements ({tiny}/{n_d}) move the score by less than half a point. They're real (runner-validated) but cheap signal: the leases that matter most are the {big} with ≥5-pt gains and the {len(exact_durs)} exacts. When judging tool effectiveness below, "success" = confirmed exact <i>or</i> confirmed improved, but the exact-only adoption column is the sharper lens.</div>
 
 <h2>3 · How long confirmed work actually runs</h2>
-<table><tr><th>Run-2 outcome</th><th class="num">Leases</th><th class="num">Median (min)</th><th class="num">p75</th><th class="num">p90</th><th class="num">Max</th><th class="num">≤ 60 min</th><th class="num">Total worker-time</th></tr>
+<table><tr><th>Xhigh outcome</th><th class="num">Leases</th><th class="num">Median (min)</th><th class="num">p75</th><th class="num">p90</th><th class="num">Max</th><th class="num">≤ 60 min</th><th class="num">Total worker-time</th></tr>
 {''.join(dur_rows)}
 </table>
-<div class="note"><b>Confirmed exacts are fast: median {median(exact_durs):.0f} min, {fmt_pct(sum(1 for x in exact_durs if x<=60)/len(exact_durs),0)} done inside an hour</b> (combined runs). Confirmed improvements run a little longer (median {median(impr_durs):.0f} min). The long tail belongs almost entirely to leases that never confirm: run-2 no-change leases burned {sum(L['duration_min'] for L in r2 if L['outcome']=='no_change')/60:.0f} h with a {sorted(L['duration_min'] for L in r2 if L['outcome']=='no_change')[round(0.9*(len([L for L in r2 if L['outcome']=='no_change'])-1))]:.0f}-min p90, and the <i>improved-rejected</i> cohort medians ~90 min — long grinds that then fail gates. Of {hours_total_r2:.0f} total run-2 worker-hours, {fmt_pct(hours_nc_r2/hours_total_r2,0)} went to leases that confirmed nothing.</div>
+<div class="note"><b>Confirmed exacts are fast: median {median(exact_durs):.0f} min, {fmt_pct(sum(1 for x in exact_durs if x<=60)/len(exact_durs),0)} done inside an hour</b>. Confirmed improvements run a little longer (median {median(impr_durs):.0f} min). The long tail belongs mostly to leases that never confirm: no-change leases burned {sum(L['duration_min'] for L in term if L['outcome']=='no_change')/60:.0f} h with a {sorted(L['duration_min'] for L in term if L['outcome']=='no_change')[round(0.9*(len([L for L in term if L['outcome']=='no_change'])-1))]:.0f}-min p90, and the <i>improved-rejected</i> cohort medians ~90 min — long grinds that then fail gates. Of {hours_total:.0f} total xhigh worker-hours, {fmt_pct(hours_nc/hours_total,0)} went to leases that confirmed nothing.</div>
 
 <h2>4 · Kill threshold — when to stop a running lease</h2>
 <p class="small muted">For each candidate timeout T: how many confirmed successes finish within T, the odds a lease still running at T ever confirms, and what killing at T frees up. {n_term} terminal leases, both runs.</p>
 <table><tr><th class="num">T (min)</th><th class="num">Successes kept</th><th class="num">Lost</th><th>P(confirm | still running at T)</th><th class="num">Failed-lease hours saved</th><th class="num">Total hours freed</th><th class="num">Net successes if hours re-spent*</th></tr>
 {''.join(kill_rows)}
 </table>
-<div class="note action"><b>Recommendation: kill at 75 minutes.</b> A lease still alive at 75 min has a {fmt_pct(stats['kill_table'][6]['p_success_given_over'],0)} chance of ever confirming — a fresh lease off the queue runs at {fmt_pct(p_base,0)}. Killing at 75 min keeps {stats['kill_table'][6]['succ_kept']}/{stats['kill_table'][6]['succ_total']} ({fmt_pct(stats['kill_table'][6]['succ_kept']/stats['kill_table'][6]['succ_total'],0)}) of confirmed successes and frees ~{stats['kill_table'][6]['fail_hours_saved']+stats['kill_table'][6]['succ_hours_at_risk']:.0f} worker-hours per ~600 leases. 60 min is the aggressive setting (keeps 90%, frees {stats['kill_table'][5]['fail_hours_saved']+stats['kill_table'][5]['succ_hours_at_risk']:.0f} h) — net expected yield is about the same; 75 min is safer against medium-size targets that legitimately need the time.<br><br>
-The knob already exists: <code>--agent-timeout-seconds</code> bounds each live Pi session and currently defaults to <i>no timeout</i> (<code>apps/cli/src/cli/usage.ts:42</code>). Set <code>--agent-timeout-seconds 4500</code> on worker launch. *Net column assumes freed hours are re-spent on fresh leases at the {fmt_pct(p_base,0)} base rate and {mean_succ_dur:.0f}-min mean success duration.</div>
+<div class="note action"><b>Recommendation: use a 90-minute nominal cutoff for the next pruning sweep.</b> A lease still alive at 90 min has a {fmt_pct(k90['p_success_given_over'],0)} chance of ever confirming — a fresh lease off the queue runs at {fmt_pct(p_base,0)}. Killing at 90 min keeps {k90['succ_kept']}/{k90['succ_total']} ({fmt_pct(k90['succ_kept']/k90['succ_total'],0)}) of confirmed successes and frees ~{freed90:.0f} worker-hours per ~700 leases. 75 min is the yield-optimized setting (keeps {fmt_pct(k75['succ_kept']/k75['succ_total'],0)}, frees {freed75:.0f} h), but it puts more legitimate work at risk. A strict 90-minute hard kill would currently interrupt {exact_over_90} confirmed exact at the edge of the sample, so use a drain grace or set <code>--agent-timeout-seconds 5700</code> if the implementation kills exactly on the second.<br><br>
+The knob already exists: <code>--agent-timeout-seconds</code> bounds each live Pi session and currently defaults to <i>no timeout</i> (<code>apps/cli/src/cli/usage.ts:42</code>). For a nominal 90-minute limit, set <code>--agent-timeout-seconds 5400</code>. *Net column assumes freed hours are re-spent on fresh leases at the {fmt_pct(p_base,0)} base rate and {mean_succ_dur:.0f}-min mean success duration.</div>
 
-<h2>5 · Where exacts are being lost ({sum(gate.values())} in run 2)</h2>
+<h2>5 · Where exacts are being lost ({sum(gate.values())} xhigh leases)</h2>
 <ul class="tight">{gate_li}</ul>
 <div class="note">The QA lint gate (L2 fail-closed) is now the single biggest killer of locally-exact results. These targets land in <code>needs_rework</code> and requeue at repair priority, so they aren't gone — but each one costs a full extra lease. The banned-pattern findings are concentrated and worth a worker-prompt line per top pattern, same play as the string-literal fix that worked after the last report.</div>
 
-<h2>6 · Tool effectiveness — run 2 only (current tool inventory, ≥10 calls)</h2>
-<p class="small muted">Adoption = % of leases in that outcome class that called the tool at least once. Lift = P(confirm | lease used tool) − P(confirm | lease didn't). Correlational: closing-phase tools are reached <i>because</i> sessions are succeeding — but a negative lift on a heavily-called tool is still a red flag.</p>
-<table><tr><th>Tool</th><th>% of exact</th><th>% of improved</th><th>% of no-change</th><th class="num">P(confirm | used)</th><th class="num">Lift</th><th class="num">Calls</th><th class="num">Leases</th></tr>
-{''.join(tool_rows)}
+<h2>6 · Minimum tool surface — grouped by access tier</h2>
+<p class="small muted">Tool scope: all {len(tool_scope)} terminal xhigh leases across both included runs. This table separates required capability from agent-facing default choice, which is the useful distinction for shrinking the surface.</p>
+<table><tr><th>Access tier</th><th>Tools</th><th>Use</th><th>Evidence</th><th>Recommendation</th></tr>
+{surface_rows}
+</table>
+<div class="note action"><b>Practical read.</b> The normal hot path can be {len(PRIMARY_SURFACE_TOOLS)} tools. Keep <code>checkdiff_run</code> and <code>direct_compile_tu</code> in the loop because they are the compile/score feedback. Keep <code>checkdiff_summary</code> and <code>review_lint_scan</code> as capabilities, but make them automatic close gates or one-shot "ready to return" checks instead of default tools the agent repeatedly chooses. If the implementation can merge compile, score, summary, and lint into one verifier wrapper, that is the cleanest future reduction.</div>
+
+<h2>7 · Concise inventory for the next 90-minute sweep</h2>
+<table class="inventory">{inventory_columns}</table>
+<div class="note">Recommended experiment: advertise only the primary surface by default, inject/auto-run the context and closing gates, keep the specialist group available behind an explicit stalled/debug path, and put the secondary/hide column behind on-demand access. That tests whether removing choice clutter reduces no-change hours without taking away real capability. The immediate visible surface drops from {len(advertised)} advertised tools to {len(PRIMARY_SURFACE_TOOLS)} default tools, with {len(AUTOMATIC_CONTEXT_TOOLS)} automatic/injected capabilities and {len(SPECIALIST_TOOLS)} easy specialists still available.</div>
+
+<h3>Optional-surface lift detail</h3>
+<p class="small muted">Core/default tools are intentionally excluded here. Lift is <code>P(confirm | used)</code> minus <code>P(confirm | not used)</code>; it is useful for exposure experiments, not causal proof.</p>
+<table><tr><th>Tier</th><th>Tool</th><th>% of exact</th><th>% of no-change</th><th class="num">P(confirm | used)</th><th>Lift</th><th class="num">Calls</th><th class="num">Leases</th></tr>
+{''.join(lift_rows)}
 </table>
 
-<h2>7 · Tool cleanup — what to remove, watch, and keep</h2>
-<div class="cols2">
-<div>
-<h3>Remove from the worker inventory ({len(never)+len(near_never)} tools)</h3>
-<p class="small muted">Never or nearly never called in {len(r2)} run-2 leases, no success lift where called.</p>
-<h3 class="small">Never called</h3><ul class="tight">{never_li}</ul>
-<h3 class="small">Nearly never called</h3><ul class="tight">{near_li}</ul>
-</div>
-<div>
-<h3>Watch list — used but no measurable lift</h3>
-<ul class="tight">
-<li><code>objdiff_score_candidate</code> — {tc('objdiff_score_candidate')} calls, <b>negative lift</b>; sessions that lean on it are disproportionately stuck ones re-scoring without new ideas</li>
-<li><code>external_mirrors_search</code> — {tc('external_mirrors_search')} calls, negative lift</li>
-<li><code>external_symbol_lookup</code> — {tc('external_symbol_lookup')} calls, flat</li>
-<li><code>mwcc_debug_diagnose_inlines</code> — {tc('mwcc_debug_diagnose_inlines')} calls, flat</li>
-<li><code>type_oracle_lookup</code> — {tc('type_oracle_lookup')} calls, flat (was already flagged last report)</li>
-</ul>
-<h3>Keep / promote</h3>
-<ul class="tight">
-<li><b>Closing discipline still separates winners:</b> <code>checkdiff_summary</code> and <code>review_lint_scan</code> — ~100% adoption in confirmed leases vs ~60% in no-change</li>
-<li><code>source_permuter_replay</code> — strongest positive lift in the fleet; underused (only {tn('source_permuter_replay')} leases). Worth a prompt nudge after a permuter hit</li>
-<li><code>mwcc_debug_diagnose_stack</code> — clear positive lift among the diagnostics family</li>
-<li>Core loop unchanged: <code>checkdiff_run</code>, <code>edit</code>, <code>bash</code>, <code>direct_compile_tu</code>, <code>read</code>, <code>m2c_decompile</code>, <code>past_prs_search</code>, <code>path_facts_resolve</code></li>
-</ul>
-</div>
-</div>
-<div class="note action">Cutting the remove-list takes the advertised inventory from {len(advertised)} to {len(advertised)-len(never)-len(near_never)} tools. The reference-data families (PowerPC docs, SSBM data sheets) have now been shelfware across <b>two full runs</b> with different target mixes — agents answer those questions through <code>checkdiff_run</code> output and <code>ghidra_lookup</code>. Safe to pull; re-pitch later as injected context rather than tools if needed.</div>
-
-<h2>8 · All {len(r2_exact)} run-2 confirmed exacts, fastest first</h2>
-<table><tr><th>Symbol</th><th class="num">Size (B)</th><th class="num">Start</th><th class="num">Duration</th><th class="num">Tool calls</th><th>Most-used tools</th></tr>
+<h2>8 · All {len(all_exact)} xhigh confirmed exacts, fastest first</h2>
+<table><tr><th class="num">Run</th><th>Symbol</th><th class="num">Size (B)</th><th class="num">Start</th><th class="num">Duration</th><th class="num">Tool calls</th><th>Most-used tools</th></tr>
 {''.join(exact_detail_rows)}
 </table>
 
-<div class="note"><b>Method &amp; caveats.</b> Outcomes from <code>events</code> (latest <code>worker_*</code> event per lease; <code>runner_validation</code> canonical) joined to <code>pi_sessions</code> and the worker JSONL transcripts in <code>.pi-sessions/worker/</code> for durations and tool calls; repair sessions are summed into their lease. Medium-thinking leases (run 1 only) are excluded everywhere — the fleet is all-xhigh now. "Confirmed" = result accepted by runner validation (<code>worker_finished</code> + <code>passed</code>). Run 2 was still active when sampled ({len(leases)-len(term)} in-flight leases excluded). Tool lift is correlational, not causal; the kill-threshold table is the survival-style read (P(confirm | still running at T)) and is robust to that. Generated by <code>scripts/analyze-pi-agent-tools.py</code> + <code>scripts/render-pi-agent-tool-report.py</code>.</div>
+<div class="note"><b>Method &amp; caveats.</b> Outcomes from <code>events</code> (latest terminal worker/report event per lease: <code>worker_*</code>, <code>needs_fact</code>, or <code>score_candidate</code>; <code>runner_validation</code> canonical) joined to <code>pi_sessions</code> and the worker JSONL transcripts in <code>.pi-sessions/worker/</code> for durations and tool calls; repair sessions are summed into their lease. Medium-thinking leases (run 1 only) are excluded everywhere — the fleet is all-xhigh now. "Confirmed" = result accepted by runner validation (<code>result</code> exact/improved + <code>passed</code>). At refresh time, {n_in_flight} in-flight leases were excluded. Tool lift is correlational, not causal; the kill-threshold table is the survival-style read (P(confirm | still running at T)) and is robust to that. Generated by <code>scripts/analyze-pi-agent-tools.py</code> + <code>scripts/render-pi-agent-tool-report.py</code>.</div>
 
 </div></body></html>"""
 

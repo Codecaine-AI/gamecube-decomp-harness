@@ -12,15 +12,15 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2509 matched fn_80026650 in lbaudio_ax.c to 100% and made small score improvements to fn_800268B4 and lb_8000FD48. The changes used direct named externs for two lbaudio arrays, rewrote one lbaudio loop as a pointer-increment form, and factored repeated free-list pop code in lb_00F9.c into a static inline helper.",
+  "summary": "PR #2509 made focused matching improvements in the lb library area: fn_80026650 in lbaudio_ax.c reached 100%, fn_800268B4 improved slightly, and lb_8000FD48 in lb_00F9.c improved by factoring repeated free-list pop logic into a static inline helper. The PR body reports local configure/ninja and per-function checkdiff verification; the bot report corroborates one new match and two unmatched-item improvements.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "refactor",
       "naming",
-      "control-flow",
-      "verification"
+      "loop-shape",
+      "helper-inline"
     ],
     "systems": [
       "library",
@@ -31,155 +31,149 @@
   "key_files": [
     {
       "path": "src/melee/lb/lbaudio_ax.c",
-      "role": "Matched fn_80026650 and improved fn_800268B4 by switching from lbl_80433710 struct-field accesses to direct named extern arrays and by using a pointer-increment loop form in fn_800268B4.",
+      "role": "Matched/improved lb audio functions by using direct named extern arrays and a pointer-increment loop form in fn_80026650 and fn_800268B4.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/lb/lbaudio_ax.c added 15 deleted 13 hunks 3",
-        "human_pr_text.md: summary bullets for fn_80026650 and fn_800268B4",
+        "changed_files: src/melee/lb/lbaudio_ax.c added 15 deleted 13 hunks 3",
         "raw_diff: lbaudio_ax.c hunks around fn_80026650 and fn_800268B4",
-        "text_corpus.jsonl: decomp-dev bot report for fn_80026650 and fn_800268B4"
+        "human_pr_text: Summary and Functions matched",
+        "text_corpus: decomp-dev[bot] report"
       ]
     },
     {
       "path": "src/melee/lb/lb_00F9.c",
-      "role": "Improved lb_8000FD48 by extracting duplicated cur_data free-list pop logic into static inline popDynamicsData.",
+      "role": "Improved lb_8000FD48 by extracting repeated cur_data free-list pop logic into static inline popDynamicsData.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/lb/lb_00F9.c added 13 deleted 18 hunks 2",
-        "human_pr_text.md: summary bullet for lb_8000FD48",
+        "changed_files: src/melee/lb/lb_00F9.c added 13 deleted 18 hunks 2",
         "raw_diff: lb_00F9.c hunk adding popDynamicsData and replacing duplicated pop blocks",
-        "text_corpus.jsonl: decomp-dev bot report for lb_8000FD48"
+        "human_pr_text: Summary and Functions matched",
+        "text_corpus: decomp-dev[bot] report"
       ]
     }
   ],
   "what_changed": [
-    "In src/melee/lb/lbaudio_ax.c, fn_80026650 now initializes arr_38a4 and arr_3984 from lbl_804338A4 and lbl_80433984 instead of lbl_80433710.x194 and lbl_80433710.x274.",
-    "In src/melee/lb/lbaudio_ax.c, fn_800268B4 uses the same direct named extern arrays, changes the loop condition from i > 0 to i != 0, reads through dereferenced incrementing pointers, and increments arr_38a4, arr_3984, and arr_4e4 at the end of each loop iteration.",
-    "In src/melee/lb/lb_00F9.c, repeated cur_data pop logic inside lb_8000FD48 was moved into static inline popDynamicsData, which returns NULL for an empty list, advances cur_data, clears entry->next, and returns the popped entry.",
-    "The PR body reports fn_80026650 improved from 78.6% baseline to 100%, fn_800268B4 from 88.5% to 88.7%, and lb_8000FD48 from 93.7% to 94.2%; the automated bot report records fn_80026650 as a new 100.00% match and two smaller unmatched-item improvements."
+    "In src/melee/lb/lbaudio_ax.c, fn_80026650 changed arr_38a4 and arr_3984 initialization from lbl_80433710.x194/x274 to direct named externs lbl_804338A4 and lbl_80433984.",
+    "In src/melee/lb/lbaudio_ax.c, fn_800268B4 made the same direct named-extern swap, changed the loop condition from i > 0 to i != 0, replaced indexed accesses with dereferenced moving pointers, and increments arr_38a4, arr_3984, and arr_4e4 each iteration.",
+    "In src/melee/lb/lb_00F9.c, repeated code that popped one DynamicsData node from cur_data was extracted into static inline popDynamicsData, then reused for both first and subsequent list entries in lb_8000FD48.",
+    "The PR body states fn_80026650 went from 78.6% baseline to 100%, fn_800268B4 improved from 88.5% to 88.7%, and lb_8000FD48 improved from 93.7% to 94.2%.",
+    "The automated decomp-dev bot report corroborates fn_80026650 as one new 100.00% match and reports lb_8000FD48 improving 93.66% to 94.19% and fn_800268B4 improving 88.47% to 88.71%."
   ],
   "smart_moves": [
-    {
-      "title": "Use narrower named externs instead of a broad struct anchor when the arrays are already named",
-      "text": "The lbaudio changes replaced lbl_80433710.x194/x274 with direct extern arrays lbl_804338A4/lbl_80433984. In this PR, that direct access was tied to fn_80026650 reaching 100% and a small fn_800268B4 improvement.",
-      "evidence_refs": [
-        "human_pr_text.md: named extern swap described for fn_80026650 and fn_800268B4",
-        "raw_diff: lbaudio_ax.c arr_38a4/arr_3984 initializer replacements"
-      ]
-    },
-    {
-      "title": "Try pointer-increment loops for CTR-loop shaped code",
-      "text": "fn_800268B4 moved from index-based accesses to dereferencing and incrementing array pointers. The PR body states this produced a prologue using bdnz/mtctr CTR-loop matching the expected layout.",
-      "evidence_refs": [
-        "human_pr_text.md: pointer-increment loop form and bdnz/mtctr note",
-        "raw_diff: lbaudio_ax.c fn_800268B4 pointer dereference and pointer increments"
-      ]
-    },
-    {
-      "title": "Factor duplicated list-pop code into a local static inline when nearby style supports it",
-      "text": "lb_8000FD48 had two duplicated cur_data pop blocks replaced with popDynamicsData. The PR body says the helper mirrors an existing inlineA0 pattern and improved the function score.",
-      "evidence_refs": [
-        "human_pr_text.md: popDynamicsData described as mirroring inlineA0",
-        "raw_diff: lb_00F9.c popDynamicsData addition and call sites"
-      ]
-    }
+    "Used direct named externs lbl_804338A4 and lbl_80433984 instead of reaching those arrays through the broader lbl_80433710 struct anchor, which the PR body says produced the fn_80026650 match and contributed to fn_800268B4 improvement.",
+    "Converted fn_800268B4 to a pointer-increment traversal over the flag and offset arrays; the PR body specifically ties this to a CTR-loop prologue using bdnz/mtctr matching the expected layout.",
+    "Factored duplicated free-list pop logic into a static inline helper popDynamicsData, reducing duplicated generated-looking blocks while preserving the cur_data update and entry->next clearing behavior.",
+    "Kept the lb_8000FD48 helper local and static inline, matching the PR body's stated intent to mirror an existing inlineA0 pattern rather than introducing a wider API surface."
   ],
   "decomp_lessons": [
     {
-      "lesson": "For matching work, a direct named extern can be preferable to accessing the same data through a larger struct anchor when the PR evidence shows the narrower symbol improves the function match.",
+      "lesson": "When a function currently accesses array regions through a larger struct anchor, try direct named externs for the actual arrays if symbol evidence exists; in this PR that direct access was associated with fn_80026650 reaching 100% and fn_800268B4 improving.",
       "scope": [
         "src/melee/lb/lbaudio_ax.c",
         "fn_80026650",
         "fn_800268B4"
       ],
       "evidence_refs": [
-        "human_pr_text.md: direct lbl_804338A4/lbl_80433984 extern use credited for fn_80026650 match and fn_800268B4 improvement",
-        "raw_diff: lbl_80433710.x194/x274 replaced by lbl_804338A4/lbl_80433984"
-      ]
+        "human_pr_text: named externs lbl_804338A4/lbl_80433984 directly instead of lbl_80433710 struct anchor",
+        "raw_diff: arr_38a4/arr_3984 initialization changes",
+        "text_corpus: decomp-dev[bot] report for fn_80026650 and fn_800268B4"
+      ],
+      "confidence": 0.86
     },
     {
-      "lesson": "Pointer-increment loop forms can be worth testing when an indexed loop is close but misses CTR-loop/prologue shape.",
+      "lesson": "For repeated free-list pop blocks, a small static inline helper can both express the authored operation and improve matching when it mirrors nearby/local inline patterns.",
+      "scope": [
+        "src/melee/lb/lb_00F9.c",
+        "lb_8000FD48",
+        "popDynamicsData"
+      ],
+      "evidence_refs": [
+        "raw_diff: popDynamicsData helper extracts repeated cur_data pop code",
+        "human_pr_text: helper mirrors existing inlineA0 pattern and improves lb_8000FD48",
+        "text_corpus: decomp-dev[bot] report for lb_8000FD48"
+      ],
+      "confidence": 0.8
+    },
+    {
+      "lesson": "For fixed-count array scans, pointer-increment loop forms with end/count conditions like i != 0 can be worth testing when indexed forms do not produce the expected CTR loop shape.",
       "scope": [
         "src/melee/lb/lbaudio_ax.c",
         "fn_800268B4"
       ],
       "evidence_refs": [
-        "human_pr_text.md: fn_800268B4 pointer-increment loop form improved 88.5% to 88.7% and matched bdnz/mtctr prologue layout",
-        "raw_diff: fn_800268B4 loop changed to dereference and post-increment arr_38a4, arr_3984, arr_4e4"
-      ]
-    },
-    {
-      "lesson": "A static inline helper can improve repeated free-list manipulation when it captures the repeated operation and matches an existing local inline pattern.",
-      "scope": [
-        "src/melee/lb/lb_00F9.c",
-        "lb_8000FD48"
+        "raw_diff: fn_800268B4 changes from arr[i] indexing to *arr with post-iteration pointer increments",
+        "human_pr_text: pointer-increment loop form produced bdnz/mtctr CTR-loop matching expected layout"
       ],
-      "evidence_refs": [
-        "human_pr_text.md: popDynamicsData static inline mirrors existing inlineA0 pattern and improves lb_8000FD48",
-        "raw_diff: duplicated cur_data pop logic replaced by popDynamicsData calls"
-      ]
+      "confidence": 0.84
     }
   ],
   "naming_conventions": [
     {
       "name": "popDynamicsData",
       "kind": "static inline helper",
-      "context": "Introduced in lb_00F9.c for popping one DynamicsData entry from the cur_data free list.",
+      "lesson": "Helper name describes the free-list operation on DynamicsData and is local to lb_00F9.c.",
       "evidence_refs": [
         "raw_diff: static inline struct DynamicsData* popDynamicsData(void)",
-        "human_pr_text.md: free-list pop refactor into popDynamicsData"
+        "human_pr_text: Refactor lb_8000FD48 free-list pop into popDynamicsData"
       ]
     },
     {
       "name": "lbl_804338A4 / lbl_80433984",
-      "kind": "existing named externs",
-      "context": "Used directly for arr_38a4 and arr_3984 in lbaudio_ax.c instead of lbl_80433710.x194/x274.",
+      "kind": "named extern data symbols",
+      "lesson": "PR evidence favors using these direct existing symbol names over a broader struct-anchor access for the touched lbaudio_ax functions; it does not prove semantic names for the arrays.",
       "evidence_refs": [
-        "raw_diff: lbaudio_ax.c initializer replacements",
-        "human_pr_text.md: named extern swap"
+        "human_pr_text: using named externs directly instead of lbl_80433710 struct anchor",
+        "raw_diff: replacement of lbl_80433710.x194/x274 with lbl_804338A4/lbl_80433984"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Switch from struct-anchor field access to direct extern array symbols.",
-      "impact": "PR body reports fn_80026650 reached 100%; bot report confirms fn_80026650 after score 100.00%. Same swap contributed to a small fn_800268B4 improvement.",
+      "tactic": "Direct extern array access instead of struct-anchor field access",
+      "details": "fn_80026650 and fn_800268B4 initialize arr_38a4/arr_3984 from lbl_804338A4/lbl_80433984 rather than lbl_80433710.x194/x274.",
       "evidence_refs": [
-        "human_pr_text.md: fn_80026650 78.6% baseline to match; fn_800268B4 88.5% to 88.7%",
-        "text_corpus.jsonl: bot report fn_80026650 96.08% to 100.00%, fn_800268B4 88.47% to 88.71%",
-        "raw_diff: lbaudio_ax.c direct extern changes"
+        "raw_diff: lbaudio_ax.c extern initialization changes",
+        "human_pr_text: named-extern swap summary"
       ]
     },
     {
-      "tactic": "Use pointer-increment traversal instead of indexing arrays by i.",
-      "impact": "PR body says fn_800268B4 prologue now uses bdnz/mtctr CTR-loop matching expected layout and score improved slightly.",
+      "tactic": "Pointer-increment traversal for CTR-loop shape",
+      "details": "fn_800268B4 uses *arr_38a4, *arr_3984, and (*arr_4e4)[0], increments the pointers each iteration, and uses i != 0. The PR body reports this made the prologue use bdnz/mtctr CTR-loop layout.",
       "evidence_refs": [
-        "human_pr_text.md: pointer-increment loop and bdnz/mtctr note",
-        "raw_diff: fn_800268B4 dereferences *arr_38a4, *arr_3984, (*arr_4e4)[0] and increments pointers"
+        "raw_diff: fn_800268B4 loop and pointer increments",
+        "human_pr_text: 88.5% to 88.7%, bdnz/mtctr CTR-loop"
       ]
     },
     {
-      "tactic": "Replace repeated inline code blocks with a static inline helper.",
-      "impact": "PR body reports lb_8000FD48 improved from 93.7% to 94.2%; bot report records 93.66% to 94.19%.",
+      "tactic": "Static inline extraction of repeated list-pop logic",
+      "details": "lb_8000FD48 replaces two duplicated cur_data pop sequences with popDynamicsData(), which returns NULL for empty list, advances cur_data, clears entry->next, and returns the popped entry.",
       "evidence_refs": [
-        "human_pr_text.md: lb_8000FD48 improvement",
-        "text_corpus.jsonl: bot report lb_8000FD48 93.66% to 94.19%",
-        "raw_diff: popDynamicsData helper and call sites"
+        "raw_diff: lb_00F9.c popDynamicsData hunk",
+        "human_pr_text: free-list pop inline mirroring inlineA0"
       ]
     },
     {
-      "tactic": "Verification used full configure/build and per-function checkdiff rechecks.",
-      "impact": "PR body reports python configure.py && ninja was green and each touched function was rechecked individually with tools/checkdiff.py.",
+      "tactic": "Narrow verification ledger",
+      "details": "PR body reports python configure.py && ninja was green and each touched function was rechecked individually with tools/checkdiff.py; bot report corroborates score changes but not the local build command.",
       "evidence_refs": [
-        "human_pr_text.md: Verification section"
+        "human_pr_text: Verification section",
+        "text_corpus: decomp-dev[bot] report"
       ]
     }
   ],
   "review_feedback": [
     {
-      "source": "decomp-dev[bot]",
       "kind": "automated_report",
-      "text": "GALE01 report recorded matched code 67.17% (+0.01%, +352 bytes), one new match for main/melee/lb/lbaudio_ax fn_80026650, and two improvements for lb_8000FD48 and fn_800268B4.",
+      "author": "decomp-dev[bot]",
+      "feedback": "Reported matched code 67.17% (+0.01%, +352 bytes), one new match for main/melee/lb/lbaudio_ax fn_80026650 at 100.00%, and two improvements: lb_8000FD48 93.66% to 94.19%, fn_800268B4 88.47% to 88.71%.",
       "evidence_refs": [
-        "text_corpus.jsonl: issue_comment by decomp-dev[bot] at 2026-05-17T00:36:26Z"
+        "text_corpus: issue_comment by decomp-dev[bot] at 2026-05-17T00:36:26Z"
+      ]
+    },
+    {
+      "kind": "human_review",
+      "author": null,
+      "feedback": "No human review comments were present in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json: counts.review_comments 0 and counts.reviews 0"
       ]
     }
   ],
@@ -187,145 +181,104 @@
     "pr-2509",
     "itsgrimetime",
     "lb",
+    "library",
     "lbaudio_ax.c",
     "lb_00F9.c",
     "fn_80026650",
     "fn_800268B4",
     "lb_8000FD48",
-    "lbl_804338A4",
-    "lbl_80433984",
-    "lbl_80433710",
-    "x194",
-    "x274",
-    "s32_arr_803BB5D0",
-    "offsets_arr_803BC4E4",
-    "arr_38a4",
-    "arr_3984",
-    "arr_4e4",
     "popDynamicsData",
     "DynamicsData",
     "DynamicsDesc",
     "cur_data",
     "inlineA0",
-    "pointer-increment loop",
+    "lbl_804338A4",
+    "lbl_80433984",
+    "lbl_80433710",
+    "s32_arr_803BB5D0",
+    "offsets_arr_803BC4E4",
+    "arr_38a4",
+    "arr_3984",
+    "arr_4e4",
     "bdnz",
     "mtctr",
     "CTR-loop",
     "checkdiff"
   ],
   "follow_up_queries": [
-    "fn_800268B4 pointer-increment bdnz mtctr",
+    "fn_800268B4 pointer-increment loop bdnz mtctr",
     "lbl_804338A4 lbl_80433984 lbl_80433710 x194 x274",
     "popDynamicsData inlineA0 DynamicsData cur_data",
     "lb_8000FD48 free-list pop static inline",
-    "lbaudio_ax direct extern arrays matching"
+    "lbaudio_ax direct extern array access"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR identity, merge state, changed files, counts",
-      "human_pr_text.md: author summary, match percentages, verification statement",
-      "raw_diff: exact code edits",
-      "changed_files.jsonl: file-level add/delete/hunk metadata",
-      "text_corpus.jsonl: automated decomp-dev bot score report"
+      "metadata_json: PR identity, state, changed files, counts",
+      "human_pr_text: PR summary, functions matched, verification claims",
+      "raw_diff: exact code changes",
+      "changed_files: changed file metadata",
+      "text_corpus: automated decomp-dev bot report"
     ],
     "notes": [
-      "No human review comments are present in the loaded slice; review_feedback is limited to the automated bot report.",
-      "The PR body provides verification claims, but no build logs or checkdiff command output are loaded beyond the author's statement and bot summary.",
-      "The statement that popDynamicsData mirrors inlineA0 is from the PR body; the loaded diff does not include inlineA0 for independent comparison.",
-      "raw_pr_json is truncated, but the loaded human text, diff, changed-files metadata, and text corpus cover the relevant intake facts."
+      "The core code changes and score deltas are well supported by the diff, PR body, and bot report.",
+      "The PR body's local build and per-function checkdiff claims are author-provided; the bot report corroborates score movement but not the exact local configure/ninja command.",
+      "No human review comments are available, so reviewer intent or requested changes should not be inferred.",
+      "The body says popDynamicsData mirrors an existing inlineA0 pattern, but the loaded diff does not show inlineA0 itself; treat that as PR-author context rather than independently verified local style."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "kind": "decomp_lesson",
-        "title": "Direct extern arrays can beat broad struct anchors in lbaudio matching",
-        "text": "In PR #2509, replacing lbl_80433710.x194/x274 with direct named externs lbl_804338A4/lbl_80433984 was credited with matching fn_80026650 to 100% and contributing to fn_800268B4 improvement.",
+        "record_type": "decomp_lesson_candidate",
+        "title": "Try direct named extern arrays before broad struct-anchor access when symbols identify the data",
+        "text": "In lb audio matching, replacing lbl_80433710.x194/x274 accesses with direct named externs lbl_804338A4/lbl_80433984 was associated with fn_80026650 reaching 100% and fn_800268B4 improving. Keep semantic claims limited to the evidence; this PR supports the access-shape tactic, not a broader rename.",
         "scope": [
           "src/melee/lb/lbaudio_ax.c",
           "fn_80026650",
           "fn_800268B4"
         ],
         "evidence_refs": [
-          "human_pr_text.md: named extern summary",
-          "raw_diff: lbaudio_ax.c replacements",
-          "text_corpus.jsonl: bot score report"
+          "human_pr_text: named externs directly instead of struct anchor",
+          "raw_diff: lbaudio_ax.c changes",
+          "text_corpus: decomp-dev[bot] report"
         ]
       },
       {
-        "kind": "matching_tactic",
-        "title": "Pointer-increment loop for CTR-loop shape",
-        "text": "PR #2509 reports that changing fn_800268B4 to a pointer-increment loop produced the expected bdnz/mtctr CTR-loop layout and a small score improvement.",
+        "record_type": "decomp_lesson_candidate",
+        "title": "Pointer-increment loops can recover CTR-loop shape",
+        "text": "For fn_800268B4, changing indexed array access to moving pointers with a fixed countdown loop was reported to produce bdnz/mtctr CTR-loop layout and a small checkdiff improvement.",
         "scope": [
           "src/melee/lb/lbaudio_ax.c",
           "fn_800268B4"
         ],
         "evidence_refs": [
-          "human_pr_text.md: pointer-increment and bdnz/mtctr statement",
-          "raw_diff: pointer dereference and increment loop changes"
+          "human_pr_text: pointer-increment loop form and bdnz/mtctr note",
+          "raw_diff: pointer dereference and post-iteration increments"
         ]
       },
       {
-        "kind": "decomp_lesson",
-        "title": "Static inline helper for repeated free-list pop",
-        "text": "PR #2509 improved lb_8000FD48 by extracting duplicated cur_data free-list pop logic into popDynamicsData, a local static inline helper.",
+        "record_type": "decomp_lesson_candidate",
+        "title": "Extract repeated free-list pop code into a local static inline when it matches local pattern",
+        "text": "In lb_8000FD48, duplicated cur_data pop logic was replaced with static inline popDynamicsData, improving the function's reported match percent. This aligns with natural-loop/authored-source cleanup principles but remains scoped to helper extraction for repeated list-pop idioms.",
         "scope": [
           "src/melee/lb/lb_00F9.c",
           "lb_8000FD48"
         ],
         "evidence_refs": [
-          "human_pr_text.md: popDynamicsData summary",
-          "raw_diff: helper addition and duplicate block removal",
-          "text_corpus.jsonl: bot score report"
+          "raw_diff: popDynamicsData extraction",
+          "human_pr_text: mirrors existing inlineA0 pattern and improves score",
+          "text_corpus: decomp-dev[bot] report"
         ]
       }
     ],
-    "source_update_candidates": [
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "lbaudio_ax fn_80026650/fn_800268B4 prefer lbl_804338A4 and lbl_80433984 direct extern access",
-        "text": "For src/melee/lb/lbaudio_ax.c in PR #2509, fn_80026650 and fn_800268B4 used lbl_804338A4 and lbl_80433984 directly instead of lbl_80433710.x194 and lbl_80433710.x274. This was associated with fn_80026650 reaching 100% and fn_800268B4 improving slightly.",
-        "source_path": "src/melee/lb/lbaudio_ax.c",
-        "scope": [
-          "fn_80026650",
-          "fn_800268B4",
-          "lbl_804338A4",
-          "lbl_80433984",
-          "lbl_80433710"
-        ],
-        "evidence_refs": [
-          "human_pr_text.md: named extern swap and match percentages",
-          "raw_diff: lbaudio_ax.c replacements",
-          "text_corpus.jsonl: bot report"
-        ],
-        "reason": "This is a path-specific matching fact, not a global standard; curator should decide whether to add it to path facts."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "lb_00F9 lb_8000FD48 free-list pop extracted as popDynamicsData",
-        "text": "For src/melee/lb/lb_00F9.c in PR #2509, duplicated cur_data free-list pop logic in lb_8000FD48 was extracted into static inline popDynamicsData, reportedly mirroring an existing inlineA0 pattern and improving the function score.",
-        "source_path": "src/melee/lb/lb_00F9.c",
-        "scope": [
-          "lb_8000FD48",
-          "popDynamicsData",
-          "DynamicsData",
-          "cur_data"
-        ],
-        "evidence_refs": [
-          "human_pr_text.md: popDynamicsData and inlineA0 statement",
-          "raw_diff: helper and call sites",
-          "text_corpus.jsonl: bot report"
-        ],
-        "reason": "Potentially useful local path fact about helper style and matching, but inlineA0 itself is not loaded for verification."
-      }
-    ],
+    "source_update_candidates": [],
     "rejection_notes": [
-      "Do not generalize from this PR that all lbl_80433710 struct-anchor uses should be replaced; evidence is limited to fn_80026650 and fn_800268B4 in lbaudio_ax.c.",
-      "Do not promote pointer-increment loops as always preferable; this PR only supports trying that form when it improves the observed CTR-loop shape for this function.",
-      "Do not treat the reported build/checkdiff verification as an independently loaded log; only the PR body and bot score report are available."
+      "Do not promote lbl_804338A4 or lbl_80433984 to semantic names from this PR alone; evidence only supports using the existing named externs directly.",
+      "Do not generalize that all struct-anchor field accesses in lbaudio_ax should be replaced by direct externs; this PR only covers the touched arrays/functions.",
+      "Do not claim fn_800268B4 or lb_8000FD48 matched 100%; evidence only reports improvements to about 88.7% and 94.2%.",
+      "Do not infer human reviewer approval rationale; loaded slice has no review comments."
     ]
   },
   "confidence": 0.9,
@@ -335,6 +288,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

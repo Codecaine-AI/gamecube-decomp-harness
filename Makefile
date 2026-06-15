@@ -40,7 +40,7 @@ help:
 	  '  make pr-split-plan      Render PR split/handoff plan' \
 	  '  make kg-status          Print knowledge graph status' \
 	  '  make kg-maintain        Run knowledge maintenance' \
-	  '  make check              Typecheck' \
+	  '  make check              Typecheck + review-lint tests' \
 	  '  make smoke              Run smoke test' \
 	  '' \
 	  'Useful variables:' \

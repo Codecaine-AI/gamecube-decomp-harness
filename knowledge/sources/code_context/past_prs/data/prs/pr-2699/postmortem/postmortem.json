@@ -1,0 +1,358 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2699",
+  "pr": {
+    "number": 2699,
+    "title": "Improve mnDiagram follow-up matches",
+    "url": "https://github.com/doldecomp/melee/pull/2699",
+    "state": "MERGED",
+    "author": "itsgrimetime",
+    "created_at": "2026-06-15T02:33:30Z",
+    "merged_at": "2026-06-15T03:43:19Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "PR #2699 improved mnDiagram-family matching in src/melee/mn by changing three files: mndiagram.c, mndiagram2.c, and mndiagram3.c. The PR body reports text-score improvements, three new 100% matches in mndiagram2, no regressions versus upstream report.json, and explicitly says stale assert/string-table shapes from an investigation branch were not reintroduced.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "headers",
+      "naming",
+      "assert-macro-cleanup",
+      "local-helper-extraction",
+      "verification"
+    ],
+    "systems": [
+      "melee-core",
+      "mn",
+      "mnDiagram"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/mn/mndiagram.c",
+      "role": "Main mnDiagram follow-up matching work; diff excerpt shows helper extraction for repeated count/sum/cursor logic, local declaration/lifetime reshaping, JObj call adjustments, and progress on mnDiagram_8023FC28, mnDiagram_802417D0, mnDiagram_80241E78, mnDiagram_8024227C, mnDiagram_80242C0C, and mnDiagram_80243434.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/mn/mndiagram.c added 141 deleted 183 hunks 18",
+        "human_pr_text.md: mn/mndiagram.c .text 98.418230 -> 99.271860 and listed function score improvements",
+        "raw_diff.diff: additions of mnDiagram_SumFighterKOsClamped and mnDiagram_CountUnlockedFightersInline",
+        "raw_diff.diff: mnDiagram_8024227C replaces repeated visible-fighter/name and unlocked-count blocks with helper calls"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mndiagram2.c",
+      "role": "Sanitized follow-up matches; PR body reports preserving symbolic JOBJ_HIDDEN and HSD_ASSERTREPORT source forms and three newly 100% matched functions.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/mn/mndiagram2.c added 125 deleted 188 hunks 24",
+        "human_pr_text.md: Add sanitized mnDiagram2 follow-up matches, preserving symbolic JOBJ_HIDDEN and HSD_ASSERTREPORT source forms",
+        "human_pr_text.md: mnDiagram2_UpdateHeader, mnDiagram2_GetAggregatedFighterRank, and mnDiagram2_GetRankedName -> 100.000000",
+        "text_corpus.jsonl bot report: 3 new matches all in main/melee/mn/mndiagram2"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mndiagram3.c",
+      "role": "Detail/setup matching improvements for mndiagram3, especially mnDiagram3_80245BA4 and mnDiagram3_8024714C.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/mn/mndiagram3.c added 52 deleted 53 hunks 15",
+        "human_pr_text.md: Improve mndiagram3 detail/setup functions, including mnDiagram3_80245BA4 and mnDiagram3_8024714C",
+        "human_pr_text.md: mndiagram3.c .text 95.141170 -> 97.843285"
+      ]
+    }
+  ],
+  "what_changed": [
+    "Improved match scores for mn/mndiagram.c from 98.418230 to 99.271860, including substantial gains for mnDiagram_8024227C, mnDiagram_80242C0C, and near-complete mnDiagram_80243434 per PR body.",
+    "Added or reused small static inline helpers in mndiagram.c for repeated calculations, including mnDiagram_SumFighterKOsClamped and mnDiagram_CountUnlockedFightersInline.",
+    "Refactored repeated visible cursor traversal code in mndiagram.c through mnDiagram_GetVisibleNameCursorFrom and mnDiagram_GetVisibleFighterCursorFrom, with return type and local result-shape changes shown in the diff.",
+    "Reworked local declarations, casts, aliases, and stack-shaping in mndiagram.c functions such as mnDiagram_8023FC28, mnDiagram_802417D0, mnDiagram_80241E78, mnDiagram_8024227C, and mnDiagram_80242C0C.",
+    "Improved mndiagram2.c text matching from 92.575300 to 99.229190, with PR and bot evidence for three newly 100% matched functions: mnDiagram2_UpdateHeader, mnDiagram2_GetAggregatedFighterRank, and mnDiagram2_GetRankedName.",
+    "Improved mndiagram3.c text matching from 95.141170 to 97.843285, including reported gains for fn_802461BC, mnDiagram3_80245BA4, and mnDiagram3_8024714C.",
+    "The PR body reports verification with python3 tools/check/main.py src/melee/mn, ninja build/GALE01/main.dol, build.sha1 check, report.json generation, and comparison against upstream baseline with 0 regressions."
+  ],
+  "smart_moves": [
+    "Kept the PR scoped to current-source match wins instead of reintroducing stale assert/string-table shapes from the investigation branch.",
+    "Preserved symbolic forms JOBJ_HIDDEN and HSD_ASSERTREPORT in mndiagram2 rather than reverting to raw/generated shapes.",
+    "Extracted repeated unlocked-fighter counting and clamped fighter-KO summing into small inline helpers, reducing duplicated generated-looking loops in the large table-population function.",
+    "Used local helper calls for visible cursor selection instead of retaining multiple hand-expanded goto/pointer traversal blocks in mnDiagram_8024227C.",
+    "Included explicit match-score deltas and a narrow mn-directory test/build/report plan in the PR body."
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "When a large partially matched function repeats the same unlocked-count, visible-cursor, or clamped-sum logic, small static inline helpers can both improve source readability and support matching progress.",
+      "scope": [
+        "src/melee/mn/mndiagram.c",
+        "mnDiagram_8024227C",
+        "mnDiagram_80242C0C"
+      ],
+      "evidence_refs": [
+        "raw_diff.diff: mnDiagram_CountUnlockedFightersInline added and used where repeated unlocked-fighter loops were removed",
+        "raw_diff.diff: mnDiagram_SumFighterKOsClamped added and used for capped fighter KO total",
+        "human_pr_text.md: mnDiagram_8024227C 87.841320 -> 96.107790"
+      ]
+    },
+    {
+      "lesson": "For follow-up matching PRs, avoid carrying over stale assert or string-table source shapes from exploratory branches unless they are still supported by current-source evidence.",
+      "scope": [
+        "mnDiagram family",
+        "mndiagram2.c"
+      ],
+      "evidence_refs": [
+        "human_pr_text.md: stale assert/string-table source shapes were not reintroduced",
+        "human_pr_text.md: preserving symbolic JOBJ_HIDDEN and HSD_ASSERTREPORT source forms"
+      ]
+    },
+    {
+      "lesson": "A match-focused PR should report both per-function progress and regression checks, especially when touching multiple related translation units.",
+      "scope": [
+        "src/melee/mn",
+        "mnDiagram family"
+      ],
+      "evidence_refs": [
+        "human_pr_text.md: Match report changes vs current upstream",
+        "human_pr_text.md: Test plan and 0 regressions note",
+        "text_corpus.jsonl bot report: matched code +1508 bytes, 3 new matches, 14 improvements"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "convention": "New local helpers use the existing mnDiagram_ prefix and describe narrow operations, e.g. mnDiagram_SumFighterKOsClamped and mnDiagram_CountUnlockedFightersInline.",
+      "evidence_refs": [
+        "raw_diff.diff: static inline int mnDiagram_SumFighterKOsClamped(u8 field_index)",
+        "raw_diff.diff: static inline int mnDiagram_CountUnlockedFightersInline(void)"
+      ]
+    },
+    {
+      "convention": "The diff keeps many address-style function names such as mnDiagram_8024227C and mnDiagram3_8024714C where broader semantics are not established by this PR slice.",
+      "evidence_refs": [
+        "human_pr_text.md: summary and match report list address-style names",
+        "raw_diff.diff: function definitions for mnDiagram_8024227C and mnDiagram_80242C0C"
+      ]
+    },
+    {
+      "convention": "Local variables in the shown diff mix semantic names where roles are clearer, such as sorted, count, remaining, fighter_id, data_alias, row_offset_adj, and generated-style var_r names where roles remain uncertain.",
+      "evidence_refs": [
+        "raw_diff.diff: mnDiagram_80241E78 adds data_alias and row_offset_adj",
+        "raw_diff.diff: mnDiagram_80242C0C adds sorted, remaining, fighter_id while retaining some remr/pr-style locals"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Helper extraction/inlining for repeated loops",
+      "details": "Repeated hand-expanded loops for unlocked fighter counts and clamped KO sums were replaced with static inline helpers while preserving matching gains.",
+      "evidence_refs": [
+        "raw_diff.diff: mnDiagram_CountUnlockedFightersInline added and used multiple times",
+        "raw_diff.diff: mnDiagram_SumFighterKOsClamped added and used in mnDiagram_8024227C"
+      ]
+    },
+    {
+      "tactic": "Local lifetime and declaration-order shaping",
+      "details": "Several functions adjust declaration order, introduce aliases, and change temporary types or casts, indicating register/stack/lifetime tuning for MWCC output.",
+      "evidence_refs": [
+        "raw_diff.diff: mnDiagram_8023FC28 moves max_idx declaration and renames loop counter n",
+        "raw_diff.diff: mnDiagram_80241E78 introduces data_alias and assigns base = (f32) digit before HSD_JObjReqAnimAll",
+        "raw_diff.diff: mnDiagram_8024227C changes temporary types such as unsigned long long var_r0_2 and s32 var_r23"
+      ]
+    },
+    {
+      "tactic": "Narrow stack-shape steering",
+      "details": "The diff shows PAD_STACK use in some functions and replaced a PAD_STACK block in mnDiagram_80242C0C with local stack arrays referenced via void casts.",
+      "evidence_refs": [
+        "raw_diff.diff: PAD_STACK(12) remains in mnDiagram_8023FC28",
+        "raw_diff.diff: PAD_STACK(8) remains in mnDiagram_802417D0",
+        "raw_diff.diff: mnDiagram_80242C0C adds stack_obj arrays and (void) address references"
+      ]
+    },
+    {
+      "tactic": "Preserve symbolic macro/helper forms for asserts and flags",
+      "details": "The PR body specifically calls out preserving JOBJ_HIDDEN and HSD_ASSERTREPORT forms in sanitized mndiagram2 follow-up matches.",
+      "evidence_refs": [
+        "human_pr_text.md: preserving symbolic JOBJ_HIDDEN and HSD_ASSERTREPORT source forms"
+      ]
+    },
+    {
+      "tactic": "Verification-led matching",
+      "details": "The PR supplied per-function score deltas and reported mn-scoped checks, main.dol build, SHA1 check, report generation, and comparison against upstream with 0 regressions.",
+      "evidence_refs": [
+        "human_pr_text.md: Test plan",
+        "text_corpus.jsonl bot report: GALE01 report with +1508 bytes and listed new matches/improvements"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "type": "bot_report",
+      "author": "decomp-dev[bot]",
+      "summary": "Bot report for GALE01 showed matched code 73.80% (+0.04%, +1508 bytes), 3 new matches, and 14 improvements in unmatched items.",
+      "evidence_refs": [
+        "text_corpus.jsonl: decomp-dev[bot] issue_comment at 2026-06-15T02:38:16Z"
+      ]
+    },
+    {
+      "type": "author_comment",
+      "author": "itsgrimetime",
+      "summary": "Author noted that there were supposed to be some matches in the PR and thought they had a few 100% matches, while saying it was okay to merge.",
+      "evidence_refs": [
+        "human_pr_text.md: issuecomment-4704050178",
+        "text_corpus.jsonl: itsgrimetime issue_comment at 2026-06-15T02:43:31Z"
+      ]
+    },
+    {
+      "type": "review_metadata",
+      "author": "ribbanya",
+      "summary": "Loaded review metadata contains one dismissed review with an empty body; no inline review comments are available in this slice.",
+      "evidence_refs": [
+        "text_corpus.jsonl: review by ribbanya state DISMISSED body empty",
+        "metadata_json: review_comments 0"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR2699",
+    "mnDiagram",
+    "mndiagram.c",
+    "mndiagram2.c",
+    "mndiagram3.c",
+    "mnDiagram_8024227C",
+    "mnDiagram_80242C0C",
+    "mnDiagram_80243434",
+    "mnDiagram_8023FC28",
+    "mnDiagram_802417D0",
+    "mnDiagram_80241E78",
+    "mnDiagram2_UpdateHeader",
+    "mnDiagram2_GetAggregatedFighterRank",
+    "mnDiagram2_GetRankedName",
+    "mnDiagram2_CreateStatRow",
+    "mnDiagram2_GetRankedFighter",
+    "mnDiagram2_HandleInput",
+    "mnDiagram2_Create",
+    "mnDiagram3_80245BA4",
+    "mnDiagram3_8024714C",
+    "fn_802461BC",
+    "JOBJ_HIDDEN",
+    "HSD_ASSERTREPORT",
+    "PAD_STACK",
+    "mnDiagram_CountUnlockedFightersInline",
+    "mnDiagram_SumFighterKOsClamped",
+    "mnDiagram_GetVisibleNameCursorFrom",
+    "mnDiagram_GetVisibleFighterCursorFrom",
+    "sorted_fighters",
+    "sorted_names",
+    "GetPersistentFighterData",
+    "GetPersistentNameData",
+    "HSD_JObjReqAnimAll",
+    "HSD_JObjSetTranslateX",
+    "HSD_JObjSetTranslateY"
+  ],
+  "follow_up_queries": [
+    "PR 2699 mnDiagram_8024227C helper extraction CountUnlockedFightersInline SumFighterKOsClamped",
+    "mnDiagram2 JOBJ_HIDDEN HSD_ASSERTREPORT sanitized follow-up matches",
+    "mnDiagram stale assert string-table source shapes not reintroduced",
+    "mnDiagram_80242C0C stack_obj PAD_STACK matching tactic",
+    "mnDiagram3_80245BA4 mnDiagram3_8024714C follow-up matches",
+    "mnDiagram visible cursor helpers GetVisibleNameCursorFrom GetVisibleFighterCursorFrom"
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR metadata, changed file counts, state, merge time",
+      "human_pr_text.md: full PR body and one issue comment",
+      "changed_files.jsonl: complete changed-file list",
+      "text_corpus.jsonl: bot report, author comment, dismissed empty review",
+      "raw_diff.diff: truncated diff excerpt, detailed only for early mndiagram.c portions"
+    ],
+    "notes": [
+      "PR identity, file list, title, author, merged status, body, match report, test plan, and comments are well supported.",
+      "Diff evidence is truncated and mainly shows mndiagram.c; mndiagram2.c and mndiagram3.c details rely mostly on PR body and bot report rather than full hunks.",
+      "The claimed verification steps are taken from the PR body; this intake did not rerun builds or objdiff.",
+      "No inline review comments are present; reviewer intent cannot be inferred from the dismissed empty review.",
+      "Some tactics visible in the diff, such as stack arrays and declaration-order changes, are described as observed tactics only, not as generally accepted style."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "type": "decomp_lesson_candidate",
+        "title": "Use narrow inline helpers to replace duplicated generated-looking loops when match evidence supports it",
+        "text": "In PR #2699, repeated unlocked-fighter count, visible cursor, and clamped KO-sum code in mnDiagram matching work was consolidated into narrow static inline helpers, contributing to improved match scores while making the large table-population logic more reviewable.",
+        "scope": [
+          "src/melee/mn/mndiagram.c",
+          "mnDiagram_8024227C",
+          "mnDiagram_80242C0C"
+        ],
+        "evidence_refs": [
+          "raw_diff.diff: mnDiagram_CountUnlockedFightersInline",
+          "raw_diff.diff: mnDiagram_SumFighterKOsClamped",
+          "human_pr_text.md: mnDiagram_8024227C and mnDiagram_80242C0C score improvements"
+        ]
+      },
+      {
+        "type": "decomp_lesson_candidate",
+        "title": "Preserve symbolic assert and flag forms in sanitized follow-up matches",
+        "text": "PR #2699 explicitly scoped mndiagram2 follow-up matches to preserve symbolic JOBJ_HIDDEN and HSD_ASSERTREPORT forms and avoid stale assert/string-table source shapes from an investigation branch.",
+        "scope": [
+          "src/melee/mn/mndiagram2.c",
+          "assert/report cleanup",
+          "symbolic flags"
+        ],
+        "evidence_refs": [
+          "human_pr_text.md: preserving symbolic JOBJ_HIDDEN and HSD_ASSERTREPORT",
+          "human_pr_text.md: stale assert/string-table source shapes were not reintroduced"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Matching follow-up PRs should avoid reintroducing stale exploratory assert/string-table shapes",
+        "text": "Consider adding an example under infer-authored-source-style, assert-report-macros, or no-string-literal-symbol-regression: a follow-up matching PR can improve scores while explicitly not carrying stale assert or string-table shapes from an investigation branch, and should preserve symbolic macro forms such as JOBJ_HIDDEN and HSD_ASSERTREPORT when current source supports them.",
+        "source_path": null,
+        "scope": [
+          "assert/report macros",
+          "string literals",
+          "symbolic flags",
+          "follow-up matching PRs"
+        ],
+        "evidence_refs": [
+          "human_pr_text.md: sanitized mnDiagram2 follow-up matches preserving JOBJ_HIDDEN and HSD_ASSERTREPORT",
+          "human_pr_text.md: stale assert/string-table source shapes were not reintroduced"
+        ],
+        "reason": "The existing standards already cover this pattern generally; this PR provides a compact concrete example that may be useful as a source-owned standard example if the curator wants one."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Document caution for stack-object dummy arrays replacing PAD_STACK",
+        "text": "PR #2699 contains a visible stack-shaping tactic where PAD_STACK in mnDiagram_80242C0C is replaced by local byte arrays referenced through void casts. If recurring, standards could clarify that this is a narrow matching tactic requiring objdiff/regression evidence, not ordinary style.",
+        "source_path": "src/melee/mn/mndiagram.c",
+        "scope": [
+          "PAD_STACK",
+          "stack shaping",
+          "matching tactics"
+        ],
+        "evidence_refs": [
+          "raw_diff.diff: mnDiagram_80242C0C adds stack_obj[8], stack_obj2[4], stack_obj3[20] and void address references",
+          "human_pr_text.md: verification and 0 regressions claim"
+        ],
+        "reason": "Current matching-tactics standards already require evidence for PAD_STACK and dummy locals; this PR supplies a concrete example but should not be promoted without curator review."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that all mndiagram2 or mndiagram3 changed functions are fully matched; only specific 100% functions are supported by the PR body and bot report.",
+      "Do not treat the dismissed empty review as approval feedback or reviewer intent.",
+      "Do not promote stack_obj dummy arrays, comma-expression casts, or generated-style var_r locals as preferred source style; they are only observed matching tactics in this PR slice.",
+      "Do not claim that the intake independently verified the build, SHA1, objdiff, or report.json results; verification evidence is PR-reported."
+    ]
+  },
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

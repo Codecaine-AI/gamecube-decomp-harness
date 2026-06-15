@@ -12,16 +12,15 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2507 made a small lb library matching/header cleanup. In `fn_80027488`, it replaced accesses through `lbl_80433710.x194` and `.x274` with direct extern array references `lbl_804338A4` and `lbl_80433984`, and changed local declaration order so MWCC materializes addresses in the desired order. It also replaced several lb header `UNK_RET`/`UNK_PARAMS` placeholders with explicit `void` signatures already used by the C files. The PR body and bot report record fuzzy progress for `fn_80027488` from 89.55% to 94.86%, but no 100% function match.",
+  "summary": "PR #2507 made a small lb-library matching and header cleanup change: fn_80027488 in lbaudio_ax.c now uses standalone extern arrays lbl_80433984 and lbl_804338A4 instead of fields on lbl_80433710, with local declaration order adjusted for MWCC address materialization; several lb headers replaced UNK_RET/UNK_PARAMS placeholders with concrete void signatures already used by the .c files. The PR did not claim a full match, but reported fuzzy improvement for fn_80027488 from 89.55% to 94.86% and a green configure/ninja build.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
       "headers",
-      "prototypes",
       "naming",
-      "data-symbol-access",
-      "mwcc-codegen"
+      "types-structs",
+      "matching-tactic",
+      "prototype-cleanup"
     ],
     "systems": [
       "library",
@@ -32,301 +31,341 @@
   "key_files": [
     {
       "path": "src/melee/lb/lbaudio_ax.c",
-      "role": "Adjusted `fn_80027488` pointer initialization to use standalone extern arrays and changed local declaration order for MWCC address materialization.",
+      "role": "Changed fn_80027488 local pointer sources from lbl_80433710 field accesses to standalone extern arrays and reordered declarations.",
       "evidence_refs": [
-        "human_pr_text: Summary bullet for `fn_80027488`",
-        "raw_diff: `lbaudio_ax.c` hunk at `fn_80027488`",
-        "text_corpus: decomp-dev bot report"
+        "raw_diff:lbaudio_ax.c hunk at fn_80027488",
+        "human_pr_text:Summary",
+        "text_corpus:decomp-dev bot report"
       ]
     },
     {
       "path": "src/melee/lb/lb_00F9.h",
-      "role": "Replaced two `UNK_RET`/`UNK_PARAMS` declarations with explicit `void` signatures.",
+      "role": "Replaced two UNK_RET/UNK_PARAMS prototypes with void(void) signatures.",
       "evidence_refs": [
-        "raw_diff: `lb_00F9.h` hunk",
-        "changed_files.jsonl"
+        "raw_diff:lb_00F9.h hunks",
+        "human_pr_text:Summary"
       ]
     },
     {
       "path": "src/melee/lb/lb_0192.h",
-      "role": "Replaced four `UNK_RET`/`UNK_PARAMS` declarations with explicit `void` signatures.",
+      "role": "Replaced four UNK_RET/UNK_PARAMS prototypes with void(void) signatures.",
       "evidence_refs": [
-        "raw_diff: `lb_0192.h` hunk",
-        "changed_files.jsonl"
+        "raw_diff:lb_0192.h hunk",
+        "human_pr_text:Summary"
       ]
     },
     {
       "path": "src/melee/lb/lbcardgame.h",
-      "role": "Replaced four header declarations using unknown placeholders with explicit `void` parameter lists or return types.",
+      "role": "Replaced UNK_PARAMS and UNK_RET placeholders in several prototypes with concrete void or const char* signatures.",
       "evidence_refs": [
-        "raw_diff: `lbcardgame.h` hunks",
-        "changed_files.jsonl"
+        "raw_diff:lbcardgame.h hunks",
+        "human_pr_text:Summary"
       ]
     }
   ],
   "what_changed": [
     {
-      "change": "`fn_80027488` now initializes `b` from `lbl_80433984` and `a` from `lbl_804338A4` instead of taking fields from `lbl_80433710`.",
+      "path": "src/melee/lb/lbaudio_ax.c",
+      "details": [
+        "In fn_80027488, replaced int* a = lbl_80433710.x194 with int* a = lbl_804338A4.",
+        "In fn_80027488, replaced int* b = lbl_80433710.x274 with int* b = lbl_80433984.",
+        "Declared b before a; PR body says this makes MWCC materialize addresses in the order expected by the original."
+      ],
       "evidence_refs": [
-        "raw_diff: `lbaudio_ax.c` hunk",
-        "human_pr_text: Summary"
+        "raw_diff:lbaudio_ax.c hunk",
+        "human_pr_text:Summary"
       ]
     },
     {
-      "change": "Local declaration order in `fn_80027488` changed from `a` then `b` to `b` then `a`.",
+      "path": "src/melee/lb/lb_00F9.h",
+      "details": [
+        "Changed lb_8000FA94 from UNK_RET/UNK_PARAMS to void lb_8000FA94(void).",
+        "Changed lb_80014534 from UNK_RET/UNK_PARAMS to void lb_80014534(void)."
+      ],
       "evidence_refs": [
-        "raw_diff: `lbaudio_ax.c` hunk",
-        "human_pr_text: Summary says declaration order was chosen for MWCC address materialization"
+        "raw_diff:lb_00F9.h"
       ]
     },
     {
-      "change": "`lb_8000FA94`, `lb_80014534`, `lb_8001955C`, `fn_800195FC`, `lb_800198E0`, `lb_80019900`, `lb_8001C600`, `lb_8001C658`, `lb_8001CF18`, and `lb_8001D1F4` had unknown prototype placeholders replaced with explicit signatures visible in the diff.",
+      "path": "src/melee/lb/lb_0192.h",
+      "details": [
+        "Changed lb_8001955C, fn_800195FC, lb_800198E0, and lb_80019900 from UNK_RET/UNK_PARAMS to void(void)."
+      ],
       "evidence_refs": [
-        "raw_diff: header hunks"
+        "raw_diff:lb_0192.h"
       ]
     },
     {
-      "change": "The PR reports fuzzy score improvement for `fn_80027488` from 89.55% to 94.86%, not a 100% match.",
+      "path": "src/melee/lb/lbcardgame.h",
+      "details": [
+        "Changed lb_8001C600, lb_8001CF18, and lb_8001D1F4 from UNK_RET/UNK_PARAMS to void(void).",
+        "Changed lb_8001C658 from const char* with UNK_PARAMS to const char* lb_8001C658(void)."
+      ],
       "evidence_refs": [
-        "human_pr_text: Functions matched section",
-        "text_corpus: decomp-dev bot report"
+        "raw_diff:lbcardgame.h"
       ]
     }
   ],
   "smart_moves": [
     {
-      "lesson": "When symbol metadata indicates standalone arrays at the same addresses as struct fields, direct extern references can improve codegen and review clarity over routing through a broader struct field access.",
-      "scope": [
-        "fn_80027488",
-        "src/melee/lb/lbaudio_ax.c"
-      ],
+      "text": "Used symbol-backed standalone extern arrays instead of accessing the same addresses through fields on a larger struct, reducing misleading aggregate-field coupling in fn_80027488.",
       "evidence_refs": [
-        "human_pr_text: Summary says arrays live at exactly those addresses per `symbols.txt`",
-        "raw_diff: field accesses replaced by direct array names"
+        "human_pr_text:Summary",
+        "raw_diff:lbaudio_ax.c hunk"
       ]
     },
     {
-      "lesson": "Header cleanup can be bundled as compile-time no-op when unknown macros already expand to the same ABI, but the PR evidence only supports this for the listed lb signatures.",
-      "scope": [
-        "src/melee/lb/lb_00F9.h",
-        "src/melee/lb/lb_0192.h",
-        "src/melee/lb/lbcardgame.h"
-      ],
+      "text": "Kept the match claim honest: the PR reports a fuzzy-score improvement, explicitly states there is no 100% match, and describes the remaining MWCC register-cascade mismatch.",
       "evidence_refs": [
-        "human_pr_text: Summary says `.c` files already use actual `void` signatures and macros expand to `void`",
-        "raw_diff: header signature replacements"
+        "human_pr_text:Functions matched",
+        "text_corpus:decomp-dev bot report"
+      ]
+    },
+    {
+      "text": "Updated headers to reflect concrete signatures already used by .c files instead of leaving ABI-obscuring UNK_RET/UNK_PARAMS placeholders.",
+      "evidence_refs": [
+        "human_pr_text:Summary",
+        "raw_diff:lb_00F9.h",
+        "raw_diff:lb_0192.h",
+        "raw_diff:lbcardgame.h"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "Local declaration order can affect MWCC register/address materialization; in this PR, declaring `b` before `a` was used to improve `fn_80027488` fuzzy matching.",
-      "evidence_refs": [
-        "human_pr_text: Summary and Functions matched sections",
-        "raw_diff: declaration order in `fn_80027488`"
+      "lesson": "For matching work, if symbols metadata identifies standalone objects at the exact addresses previously reached through struct fields, direct extern references may be a better source hypothesis than forcing those addresses through a broad aggregate field.",
+      "scope": [
+        "src/melee/lb/lbaudio_ax.c",
+        "fn_80027488",
+        "symbol-backed data access cleanup"
       ],
-      "confidence": 0.86
+      "evidence_refs": [
+        "human_pr_text:Summary",
+        "raw_diff:lbaudio_ax.c hunk"
+      ],
+      "confidence": 0.74
     },
     {
-      "lesson": "Do not call a fuzzy-score improvement a full match: this PR explicitly records progress to 94.86% and documents the remaining prologue mismatch.",
-      "evidence_refs": [
-        "human_pr_text: Functions matched section",
-        "text_corpus: decomp-dev bot report"
+      "lesson": "Local variable declaration order can affect MWCC address materialization and fuzzy-match score; in this PR, declaring b before a was used to influence the order of HA-half address setup.",
+      "scope": [
+        "MWCC codegen",
+        "fn_80027488",
+        "local declaration order"
       ],
-      "confidence": 0.93
-    },
-    {
-      "lesson": "When a body already proves a no-argument `void` signature, replacing `UNK_RET`/`UNK_PARAMS` in the owning header improves header truthfulness without changing ABI, if the macro expansion claim is verified for that case.",
       "evidence_refs": [
-        "human_pr_text: Summary",
-        "raw_diff: header hunks"
+        "human_pr_text:Summary",
+        "human_pr_text:Functions matched"
       ],
       "confidence": 0.82
+    },
+    {
+      "lesson": "When function bodies already prove no-argument void signatures, updating the owning headers from UNK_RET/UNK_PARAMS to concrete prototypes improves ABI honesty even when the macro expansion makes the compile result a no-op.",
+      "scope": [
+        "src/melee/lb headers",
+        "prototype cleanup"
+      ],
+      "evidence_refs": [
+        "human_pr_text:Summary",
+        "raw_diff:header hunks"
+      ],
+      "confidence": 0.86
     }
   ],
   "naming_conventions": [
     {
-      "convention": "This PR preserves address-style global names such as `lbl_804338A4`, `lbl_80433984`, and `lbl_80433710` rather than inventing semantic names.",
+      "convention": "This PR preserves address-style names such as fn_80027488, lbl_804338A4, lbl_80433984, and lb_8001C600 rather than inventing semantic names.",
       "evidence_refs": [
-        "raw_diff: `lbaudio_ax.c` hunk"
-      ]
-    },
-    {
-      "convention": "Recovered function prototypes keep existing address-style function names such as `lb_8001955C` and `fn_800195FC`; the cleanup changes signatures, not symbol names.",
-      "evidence_refs": [
-        "raw_diff: header hunks"
-      ]
+        "raw_diff:lbaudio_ax.c hunk",
+        "raw_diff:header hunks"
+      ],
+      "notes": "Consistent with conservative naming; no PR evidence supports semantic renames for these symbols."
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use direct extern array references instead of struct-field accesses when the symbols are known to live at the exact accessed addresses.",
-      "effect": "Reported to improve `fn_80027488` fuzzy score from 89.55% to 94.86%.",
+      "tactic": "Use direct extern array references for data at exact symbol addresses instead of struct-field accesses through lbl_80433710.",
+      "purpose": "Improve fn_80027488 fuzzy matching by changing address materialization/source data access shape.",
       "evidence_refs": [
-        "human_pr_text: Summary and Functions matched sections",
-        "text_corpus: decomp-dev bot report"
+        "human_pr_text:Summary",
+        "raw_diff:lbaudio_ax.c hunk"
+      ],
+      "reported_result": "fn_80027488 fuzzy score improved from 89.55% to 94.86%; no 100% match claimed.",
+      "caveats": [
+        "The PR body cites symbols.txt, but the slice does not include the symbols.txt lines.",
+        "Remaining mismatch is described as one extra prologue instruction from MWCC register cascade choice."
       ]
     },
     {
-      "tactic": "Reorder local declarations to influence MWCC address materialization order.",
-      "effect": "The PR says declaring `b` before `a` makes MWCC materialize addresses in the order the original expects, though one prologue instruction mismatch remains.",
+      "tactic": "Declare b before a to influence MWCC address materialization order.",
+      "purpose": "Make MWCC materialize the two addresses in the order the original expects.",
       "evidence_refs": [
-        "human_pr_text: Summary and Functions matched sections",
-        "raw_diff: `lbaudio_ax.c` hunk"
-      ]
-    },
-    {
-      "tactic": "Track remaining mismatch explicitly when a score improves but does not close.",
-      "effect": "The PR records the remaining `lis r3/lis r3` versus `lis r4/lis r3` prologue difference.",
-      "evidence_refs": [
-        "human_pr_text: Functions matched section"
-      ]
+        "human_pr_text:Summary",
+        "raw_diff:lbaudio_ax.c hunk"
+      ],
+      "reported_result": "Contributed to fuzzy-score improvement; not a full match."
     }
   ],
   "review_feedback": [
     {
-      "kind": "automated_report",
-      "feedback": "decomp-dev bot reported one improvement in unmatched item `main/melee/lb/lbaudio_ax` / `fn_80027488`, bytes `+23`, before 89.55%, after 94.86%.",
+      "kind": "bot_report",
+      "author": "decomp-dev[bot]",
+      "text": "GALE01 report showed one improvement in unmatched item main/melee/lb/lbaudio_ax fn_80027488, +23 bytes, 89.55% before and 94.86% after.",
       "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot]"
+        "text_corpus:issue_comment by decomp-dev[bot]"
       ]
     },
     {
-      "kind": "missing_review_comments",
-      "feedback": "No human review comments or formal reviews were loaded in this PR slice.",
+      "kind": "absence_of_human_review_comments",
+      "text": "The loaded slice reports zero review comments and zero reviews; no human reviewer feedback is available in this intake packet.",
       "evidence_refs": [
-        "metadata_json: counts.review_comments=0 and counts.reviews=0"
+        "metadata_json:counts.review_comments=0",
+        "metadata_json:counts.reviews=0"
       ]
     }
   ],
   "searchable_terms": [
     "pr-2507",
+    "lb: improve fn_80027488 matching",
+    "itsgrimetime",
     "fn_80027488",
     "lbaudio_ax.c",
-    "lbAudioAx_80027168",
-    "lbl_80433710",
+    "lbl_80433710.x194",
+    "lbl_80433710.x274",
     "lbl_804338A4",
     "lbl_80433984",
-    "x194",
-    "x274",
-    "MWCC declaration order",
+    "MWCC address materialization",
     "lis r3 lis r3",
     "lis r4 lis r3",
+    "register cascade",
+    "89.55 94.86",
     "UNK_RET",
     "UNK_PARAMS",
     "void signatures",
     "lb_00F9.h",
     "lb_0192.h",
     "lbcardgame.h",
-    "truthful headers",
-    "89.55 94.86"
+    "lb_8000FA94",
+    "lb_80014534",
+    "lb_8001955C",
+    "fn_800195FC",
+    "lb_800198E0",
+    "lb_80019900",
+    "lb_8001C600",
+    "lb_8001C658",
+    "lb_8001CF18",
+    "lb_8001D1F4"
   ],
   "follow_up_queries": [
-    "fn_80027488 lbl_804338A4 lbl_80433984 declaration order",
+    "fn_80027488 lbl_804338A4 lbl_80433984 declaration order MWCC",
     "lbl_80433710 x194 x274 symbols.txt",
-    "MWCC local declaration order address materialization lis r3 lis r4",
-    "UNK_RET UNK_PARAMS void signature lb headers",
-    "lb_8001955C fn_800195FC lb_800198E0 lb_80019900 prototypes",
-    "lbcardgame.h lb_8001C600 lb_8001C658 lb_8001CF18 lb_8001D1F4 void"
+    "lb headers UNK_RET UNK_PARAMS void signature cleanup",
+    "lbaudio_ax register cascade lis r3 lis r4",
+    "PR 2507 fn_80027488 fuzzy 94.86"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json",
-      "human_pr_text",
-      "raw_diff",
-      "changed_files.jsonl",
-      "text_corpus"
+      "metadata_json:pr metadata and changed_files",
+      "human_pr_text:full PR body",
+      "raw_diff:complete diff",
+      "text_corpus:bot report"
     ],
     "notes": [
-      "Changed files and exact diff hunks are fully loaded.",
-      "Fuzzy score improvement is supported by both PR body and decomp-dev bot report.",
-      "The claim that `lbl_804338A4` and `lbl_80433984` live at exactly the struct-field addresses is from the PR author body; `symbols.txt` itself was not loaded in this slice.",
-      "Build verification and no-regression claim are PR-author reported; no independent build log is loaded beyond the body text.",
-      "No human review comments are present in the loaded slice."
+      "The loaded PR body and complete diff are sufficient for changed files, exact code edits, claimed fuzzy-score improvement, verification claim, and absence of full match.",
+      "The PR body says lbl_804338A4 and lbl_80433984 live at exactly the former field addresses per symbols.txt, but this slice does not include the symbols.txt evidence; treat that as author-reported support, not independently verified in intake.",
+      "No human review comments are present; reviewer intent cannot be inferred.",
+      "Verification is reported in the PR body and bot report, but no build logs beyond those text records are loaded."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "matching_tactic",
-        "title": "Declaration order can influence MWCC address materialization",
-        "text": "PR #2507 used local declaration order in `fn_80027488` (`b` before `a`) to make MWCC materialize addresses closer to the original. This improved fuzzy matching but did not produce a 100% match.",
+        "kind": "matching_lesson",
+        "title": "Declaration order can steer MWCC address materialization",
+        "text": "PR #2507 reports that declaring b before a in fn_80027488 helped MWCC materialize addresses in the original order, improving fuzzy score from 89.55% to 94.86% without reaching a full match.",
         "scope": [
-          "src/melee/lb/lbaudio_ax.c",
-          "fn_80027488"
+          "MWCC",
+          "local variable declaration order",
+          "address materialization",
+          "src/melee/lb/lbaudio_ax.c"
         ],
         "evidence_refs": [
-          "human_pr_text: Summary and Functions matched",
-          "raw_diff: `lbaudio_ax.c` hunk",
-          "text_corpus: bot report"
-        ],
-        "confidence": 0.86
-      },
-      {
-        "record_type": "prototype_cleanup",
-        "title": "Replace unknown prototype placeholders when C bodies prove void signatures",
-        "text": "PR #2507 replaced several lb header `UNK_RET`/`UNK_PARAMS` placeholders with explicit `void` signatures that the PR body says were already used by the corresponding C files and were compile-time no-ops.",
-        "scope": [
-          "src/melee/lb/lb_00F9.h",
-          "src/melee/lb/lb_0192.h",
-          "src/melee/lb/lbcardgame.h"
-        ],
-        "evidence_refs": [
-          "human_pr_text: Summary",
-          "raw_diff: header hunks"
+          "human_pr_text:Summary",
+          "human_pr_text:Functions matched",
+          "text_corpus:decomp-dev bot report"
         ],
         "confidence": 0.82
+      },
+      {
+        "kind": "header_cleanup_lesson",
+        "title": "Replace UNK_RET/UNK_PARAMS when .c bodies prove void signatures",
+        "text": "PR #2507 replaced several lb header placeholders with concrete void signatures that the PR says the .c files already use; the change was compile-time no-op because the macros already expand to void, but made the ABI explicit.",
+        "scope": [
+          "headers",
+          "prototypes",
+          "src/melee/lb"
+        ],
+        "evidence_refs": [
+          "human_pr_text:Summary",
+          "raw_diff:lb_00F9.h",
+          "raw_diff:lb_0192.h",
+          "raw_diff:lbcardgame.h"
+        ],
+        "confidence": 0.86
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Record declaration-order steering as a narrow MWCC matching tactic",
-        "text": "PR #2507 is evidence that changing local declaration order can affect MWCC address materialization and fuzzy matching. If added to standards, keep it narrow and require objdiff/build evidence because this PR improved but did not fully match `fn_80027488`.",
-        "source_path": null,
-        "scope": [
-          "MWCC local declaration order",
-          "address materialization",
-          "matching tactics"
-        ],
-        "evidence_refs": [
-          "human_pr_text: declares `b` before `a` so MWCC materializes addresses in original order",
-          "text_corpus: bot report 89.55% to 94.86%"
-        ],
-        "reason": "This reinforces the existing loaded standard that declaration order changes are matching tactics needing evidence."
-      },
-      {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "lb headers in PR #2507 had unknown placeholders replaced by explicit void signatures",
-        "text": "The PR changed selected declarations in `src/melee/lb/lb_00F9.h`, `src/melee/lb/lb_0192.h`, and `src/melee/lb/lbcardgame.h` from `UNK_RET`/`UNK_PARAMS` to explicit `void` signatures.",
-        "source_path": "src/melee/lb",
+        "title": "lbaudio_ax fn_80027488 symbol-backed arrays at former lbl_80433710 field offsets",
+        "text": "PR #2507 author states that lbl_804338A4 and lbl_80433984 are standalone extern arrays living at exactly the addresses previously accessed as lbl_80433710.x194 and lbl_80433710.x274, per symbols.txt. Curator should verify against symbols metadata before recording as a path fact.",
+        "source_path": "src/melee/lb/lbaudio_ax.c",
         "scope": [
-          "lb_00F9.h",
-          "lb_0192.h",
-          "lbcardgame.h"
+          "fn_80027488",
+          "lbl_80433710.x194",
+          "lbl_80433710.x274",
+          "lbl_804338A4",
+          "lbl_80433984"
         ],
         "evidence_refs": [
-          "raw_diff: header hunks"
+          "human_pr_text:Summary",
+          "raw_diff:lbaudio_ax.c hunk"
         ],
-        "reason": "May be useful as a path-specific cleanup fact, but should be curated against current source before adding."
+        "reason": "Potentially useful local data-access fact, but the cited symbols.txt lines are not included in the slice."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Header prototype cleanup when bodies prove signatures",
+        "text": "Consider emphasizing that UNK_RET/UNK_PARAMS placeholders should be removed from owning headers when existing .c definitions already prove concrete void or no-argument signatures, even if macro expansion makes the compile output unchanged.",
+        "source_path": null,
+        "scope": [
+          "headers",
+          "function prototypes",
+          "UNK_RET",
+          "UNK_PARAMS"
+        ],
+        "evidence_refs": [
+          "human_pr_text:Summary",
+          "raw_diff:header hunks"
+        ],
+        "reason": "This is already broadly aligned with truthful-headers-and-includes; curator may decide whether this PR adds a useful concrete example rather than a new standard."
       }
     ],
     "rejection_notes": [
-      "Do not generalize that direct extern array references are always preferable to struct fields; the PR evidence is limited to `fn_80027488` and the author's symbols.txt address claim.",
-      "Do not record `fn_80027488` as matched; the PR explicitly says no 100% matches and reports only fuzzy improvement.",
-      "Do not infer semantic names for `lbl_804338A4`, `lbl_80433984`, or `lbl_80433710`; the PR kept address-style names."
+      "Do not record fn_80027488 as matched; the PR explicitly says there were no 100% matches.",
+      "Do not infer human reviewer approval rationale; no human reviews or review comments are present in the loaded slice.",
+      "Do not promote the exact symbols.txt address relationship as independently verified without checking the referenced symbols metadata."
     ]
   },
-  "confidence": 0.88,
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

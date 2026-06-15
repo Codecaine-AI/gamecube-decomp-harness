@@ -12,272 +12,217 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Linked the Ground Zebes route translation unit by changing grzebesroute.c from NonMatching to Matching, completing grZebesRoute_8020B548 and cleaning related constants/asserts/data symbols. The bot report records one new match for main/melee/gr/grzebesroute: grZebesRoute_8020B548 from 99.97% to 100.00%, with linked code/data increases.",
+  "summary": "PR 2518 links `src/melee/gr/grzebesroute.c` by moving the object from NonMatching to Matching, completing `grZebesRoute_8020B548` according to the bot report, and adjusting related symbol metadata for grZe route literals/data.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "matching",
-      "linking",
-      "source-cleanup",
-      "symbol-metadata"
+      "matching-object-link",
+      "stage-route-code",
+      "symbol-metadata-cleanup",
+      "assert-and-literal-cleanup"
     ],
     "systems": [
       "stage",
       "ground",
-      "grzebesroute",
-      "config"
+      "config",
+      "symbols"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grzebesroute.c",
-      "role": "Main source update: completed grZebesRoute_8020B548, converted generated-style constants/asserts to source forms, added helper inlines/includes, and removed no-longer-needed named literal/static constants.",
+      "role": "Primary decomp source update; removes nonmatching marker for `grZebesRoute_8020B548`, rewrites light-object loop/control flow, uses HSD_ASSERT, inlines literals/colors, and removes named literal data definitions.",
       "evidence_refs": [
         "raw_diff: src/melee/gr/grzebesroute.c hunks",
-        "text_corpus: bot report lists grZebesRoute_8020B548 as new 100.00% match"
+        "text_corpus: decomp-dev bot reports `grZebesRoute_8020B548` 99.97% to 100.00%"
       ]
     },
     {
       "path": "configure.py",
-      "role": "Build configuration update: changed melee/gr/grzebesroute.c from NonMatching to Matching.",
+      "role": "Build configuration update marking `melee/gr/grzebesroute.c` as Matching instead of NonMatching.",
       "evidence_refs": [
-        "raw_diff: configure.py Object(NonMatching) to Object(Matching) for melee/gr/grzebesroute.c"
+        "raw_diff: configure.py Object(NonMatching) -> Object(Matching) for melee/gr/grzebesroute.c"
       ]
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Symbol metadata update: converted several grZe_Route local strings/floats/color data symbols to local @ labels and added local labels for grZe route data/rodata objects.",
+      "role": "Symbol metadata update converting several grZe route string/float/color symbols to local labels and adding local section labels around grZe route data.",
       "evidence_refs": [
-        "raw_diff: symbols.txt .rodata/.data/.sdata/.sdata2 hunks"
+        "raw_diff: symbols.txt grZe_Route_* entries changed to @187, @270, @274, @211-@278 and local labels"
       ]
     }
   ],
   "what_changed": [
-    {
-      "text": "configure.py now marks Object(Matching, \"melee/gr/grzebesroute.c\") instead of NonMatching.",
-      "evidence_refs": [
-        "raw_diff: configure.py hunk around MatchingFor"
-      ]
-    },
-    {
-      "text": "grZebesRoute_8020B548 was implemented in C, replacing the nonmatching marker with a function that iterates up to three light objects, sets colors/positions/interests, and applies spot/distance attenuation based on LOBJ type and y-position.",
-      "evidence_refs": [
-        "raw_diff: grzebesroute.c removal of /// #grZebesRoute_8020B548 and new function body",
-        "text_corpus: bot report new match grZebesRoute_8020B548 99.97% to 100.00%"
-      ]
-    },
-    {
-      "text": "Named static float/GXColor/string objects for local literals were removed from grzebesroute.c and their uses were replaced with inline literals, __FILE__, HSD_ASSERT, and local GXColor initializers.",
-      "evidence_refs": [
-        "raw_diff: deletion of grZe_Route_803E5E64, grZe_Route_804D4840, grZe_Route_804D4848, grZe_Route_804DB918 through grZe_Route_804DB944",
-        "raw_diff: OSReport now uses __FILE__; HSD_ASSERT replaces __assert; literals such as -50.0f, 600.0f, 0.03f are inline"
-      ]
-    },
-    {
-      "text": "The light iteration shape in grZebesRoute_8020B548 changed from a manual while loop with trailing increments to a for loop carrying both the counter increment and HSD_LObjGetNext step.",
-      "evidence_refs": [
-        "raw_diff: grzebesroute.c loop changed from i=0; while (...) { ... i++; lobj = HSD_LObjGetNext(lobj); } to for (i = 0; ...; i++, lobj = ...)"
-      ]
-    },
-    {
-      "text": "symbols.txt changed the removed grZe_Route local literals/constants from global symbols to local labels such as @187, @270, @274, @211-@278, and added local labels at grZe_Route_803B83A0 and grZe_Route_803E5DB0.",
-      "evidence_refs": [
-        "raw_diff: symbols.txt hunks for 0x803B83A0, 0x803E5DB0, 0x803E5E64, 0x804D4840, 0x804D4848, 0x804DB918-0x804DB944"
-      ]
-    }
+    "`configure.py` now lists `melee/gr/grzebesroute.c` as `Object(Matching, ...)` instead of `Object(NonMatching, ...)`.",
+    "`grZebesRoute_8020B548` no longer has a nonmatching marker and is reported by the bot as a new 100.00% match.",
+    "Several file-name, assert-string, float, and color constants were removed as named C objects and replaced by `__FILE__`, `HSD_ASSERT`, inline float literals, and inline `GXColor` initializers.",
+    "The light-object traversal in `grZebesRoute_8020B548` was expressed as a bounded `for` loop over up to three `HSD_LObj` nodes, with `HSD_LObjGetNext` in the increment expression.",
+    "Small inline helper functions were added around `light_gobj->hsd_obj`, `HSD_LObjGetNext`, and `lobj->flags & LOBJ_TYPE_MASK` in `grZebesRoute_8020B548`.",
+    "A temporary padding array in the lower-point-light branch was removed.",
+    "`symbols.txt` was updated to represent several grZe route literals as local labels rather than global `grZe_Route_*` symbols."
   ],
   "smart_moves": [
     {
-      "text": "Kept ordinary constants and assert strings as source-level forms rather than named globals, while moving symbol metadata to local labels to preserve section ownership.",
+      "text": "The PR focused the functional source work on the remaining `grZebesRoute_8020B548` match and then linked the entire object only after the bot reported that function as 100.00%.",
       "evidence_refs": [
-        "raw_diff: grzebesroute.c literal replacements",
-        "raw_diff: symbols.txt global-to-local label changes"
+        "raw_diff: configure.py Matching change",
+        "text_corpus: decomp-dev bot `1 new match` for `grZebesRoute_8020B548`"
       ]
     },
     {
-      "text": "Used HSD_ASSERT for expanded assert behavior in grZebesRoute_8020B548 and __FILE__ for the OSReport filename argument, aligning the source with common macro/file idioms.",
+      "text": "The source avoids preserving address-named literals for ordinary constants and assert strings, using inline literals and standard assert/report forms instead.",
       "evidence_refs": [
-        "raw_diff: __assert replaced by HSD_ASSERT; grZe_Route_803E5E64 replaced by __FILE__"
-      ]
-    },
-    {
-      "text": "Removed a local padding array in the lower point-light branch once the function was matched, avoiding an unnecessary stack-shaping artifact in the final source.",
-      "evidence_refs": [
-        "raw_diff: deletion of int pad[3] in LOBJ_POINT/current_pos.y < split_y branch"
+        "raw_diff: removal of `grZe_Route_804DB918` through `grZe_Route_804DB944` definitions",
+        "raw_diff: `__assert` replacements with `HSD_ASSERT` and `OSReport(..., __FILE__, ...)`"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When named globals are only representing ordinary local literals, assert strings, floats, or small color constants, a matching cleanup may inline them in source and represent the backing data with local labels in symbols.txt instead of retaining semantic-looking global names.",
+      "lesson": "For a focused matching PR, ordinary literals and inline aggregate initializers can be preferable to address-named C globals when the symbol metadata is adjusted to local labels and the text match is preserved.",
       "scope": [
-        "grzebesroute",
-        "stage route files",
-        "literal/data cleanup during matching"
+        "stage route TUs",
+        "grzebesroute-style generated literal globals"
       ],
       "evidence_refs": [
-        "raw_diff: grzebesroute.c removes grZe_Route_804DB918 through grZe_Route_804DB944 and inlines values",
-        "raw_diff: symbols.txt converts those addresses to local @ labels"
+        "raw_diff: named f32/GXColor globals removed from grzebesroute.c",
+        "raw_diff: corresponding symbols.txt entries changed from global grZe_Route_* names to local @ labels",
+        "text_corpus: bot reports linked data and one new matched function"
       ]
     },
     {
-      "lesson": "Expanded assert blocks in decompiled output can often be recovered as HSD_ASSERT when the line number and condition are preserved.",
+      "lesson": "Expanded assert blocks in stage code can be cleaned back to `HSD_ASSERT` when the assertion line and expression are preserved.",
       "scope": [
-        "baselib/debug asserts",
-        "matching cleanup"
+        "grzebesroute.c",
+        "HSD assert cleanup"
       ],
       "evidence_refs": [
-        "raw_diff: __assert(..., 0x169U, \"gobj\") becomes HSD_ASSERT(0x169, gobj)",
-        "raw_diff: __assert(..., 0x174U, \"0\") becomes HSD_ASSERT(0x174, 0)"
+        "raw_diff: `__assert(..., 0x169U, ...)` -> `HSD_ASSERT(0x169, gobj)`",
+        "raw_diff: `__assert(..., 0x174U, ...)` -> `HSD_ASSERT(0x174, 0)`"
       ]
     },
     {
-      "lesson": "A natural for loop can express a bounded traversal over an object linked list while preserving the same counter and next-pointer update used by matching code.",
+      "lesson": "A natural bounded loop over object links can replace manual `while` counter/update structure when it matches the intended traversal shape.",
       "scope": [
-        "light object traversal",
-        "loop cleanup"
+        "HSD_LObj linked-list traversal",
+        "grZebesRoute_8020B548"
       ],
       "evidence_refs": [
-        "raw_diff: grZebesRoute_8020B548 while loop converted to for loop with i++ and HSD_LObjGetNext"
+        "raw_diff: `while (i < 3 && lobj != NULL)` with manual increments changed to `for (i = 0; i < 3 && lobj != NULL; i++, lobj = ...)`"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Use short role names such as gobj for local HSD_GObj pointers when the role is clear.",
+      "convention": "Use role names like `gobj`, `first_lobj`, and `lobj` for local HSD object pointers when the role is clear.",
       "evidence_refs": [
-        "raw_diff: local light_gobj renamed to gobj and used in HSD_ASSERT(0x169, gobj)"
+        "raw_diff: local `light_gobj` renamed to `gobj`; existing `first_lobj` and `lobj` roles retained"
       ]
     },
     {
-      "convention": "Keep unresolved route-global data names such as grZe_Route_803B83A0 and grZe_Route_804D6A60 where the PR does not provide stronger semantic names.",
+      "convention": "Do not keep global `grZe_Route_*` names for ordinary literals when metadata and source cleanup support local labels or inline literals.",
       "evidence_refs": [
-        "raw_diff: grZe_Route_803B83A0 and grZe_Route_804D6A60 remain named and referenced"
-      ]
-    },
-    {
-      "convention": "Generated/local data labels in symbols.txt may use local @NNN names for literals/constants that are no longer intended as source globals.",
-      "evidence_refs": [
-        "raw_diff: symbols.txt @187, @270, @274, @211-@278 replacements"
+        "raw_diff: symbols.txt `grZe_Route_804DB918` etc. changed to local `@211` etc.",
+        "raw_diff: source constants inlined"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Introduce narrow inline helper wrappers for operations whose call/access shape affects matching, such as casting light_gobj->hsd_obj, calling HSD_LObjGetNext, and masking LObj flags.",
+      "tactic": "Use small file-local inline wrappers for accesses/calls (`hsd_obj`, `HSD_LObjGetNext`, and `LOJB_TYPE_MASK` flag extraction) when needed by the matched function shape.",
       "evidence_refs": [
-        "raw_diff: grZebesRoute_8020B548_inline1",
-        "raw_diff: grZebesRoute_8020B548_inline2",
-        "raw_diff: grZebesRoute_8020B548_inline3"
+        "raw_diff: added `grZebesRoute_8020B548_inline1`, `_inline2`, and `_inline3`",
+        "text_corpus: bot reports `grZebesRoute_8020B548` reached 100.00%"
+      ],
+      "notes": "The PR evidence shows these wrappers in the matching diff, but contains no author comment explaining why each wrapper was required."
+    },
+    {
+      "tactic": "Replace generated-looking named constant loads with inline float and `GXColor` literals while moving corresponding symbol entries to local labels.",
+      "evidence_refs": [
+        "raw_diff: source inline literals and color initializers",
+        "raw_diff: symbols.txt local label conversions"
       ]
     },
     {
-      "tactic": "Replace named float and GXColor globals with inline literals and local initializers when symbol metadata is adjusted to local labels and the bot verifies the function match.",
+      "tactic": "Remove padding locals once the surrounding code shape no longer requires them.",
       "evidence_refs": [
-        "raw_diff: inline literals and GXColor initializers in grZebesRoute_8020B548",
-        "text_corpus: bot report new match grZebesRoute_8020B548 100.00%"
-      ]
-    },
-    {
-      "tactic": "Use a for loop for the light traversal to keep the counter increment and next-object update in the loop header.",
-      "evidence_refs": [
-        "raw_diff: for (i = 0; i < 3 && lobj != NULL; i++, lobj = grZebesRoute_8020B548_inline2(lobj))"
-      ]
-    },
-    {
-      "tactic": "Remove a PAD-like local once matching source no longer requires it.",
-      "evidence_refs": [
-        "raw_diff: deletion of int pad[3]"
-      ]
+        "raw_diff: deleted `int pad[3];` from lower point-light branch"
+      ],
+      "notes": "No separate objdiff explanation is present beyond the bot's final match report."
     }
   ],
   "review_feedback": [
     {
       "kind": "approval",
-      "text": "The PR has an APPROVED review by jurrejelle with no review-comment body in the loaded slice.",
+      "author": "jurrejelle",
+      "text": "Approved with no review body in the loaded slice.",
       "evidence_refs": [
-        "text_corpus: review by jurrejelle state APPROVED"
+        "text_corpus: review by jurrejelle state APPROVED, empty body"
       ]
     },
     {
       "kind": "bot_report",
-      "text": "decomp-dev[bot] reported matched code +780 bytes, linked code +1796 bytes, linked data +336 bytes, and one new match: main/melee/gr/grzebesroute grZebesRoute_8020B548 from 99.97% to 100.00%.",
+      "author": "decomp-dev[bot]",
+      "text": "Reported +780 matched code bytes, +1796 linked code bytes, +336 linked data bytes, and one new match: `main/melee/gr/grzebesroute` item `grZebesRoute_8020B548` from 99.97% to 100.00%.",
       "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot] at 2026-05-21T13:57:17Z"
+        "text_corpus: issue_comment decomp-dev[bot] report"
       ]
     }
   ],
   "searchable_terms": [
-    "PR2518",
+    "pr-2518",
     "Link grzebesroute",
     "jellejurre",
-    "grzebesroute.c",
+    "grzebesroute",
     "grZebesRoute_8020B548",
-    "grZebesRoute_8020B260",
-    "grZebesRoute_8020B42C",
-    "grZe_Route_803B83A0",
-    "grZe_Route_804D6A60",
+    "melee/gr/grzebesroute.c",
+    "Object(Matching)",
     "HSD_ASSERT",
     "HSD_LObjGetNext",
-    "HSD_LObjSetDistAttn",
-    "HSD_LObjSetSpot",
-    "HSD_LObjSetColor",
-    "HSD_GObjGXLinkHead",
-    "LOBJ_SPOT",
-    "LOBJ_POINT",
+    "LOJB_TYPE_MASK",
     "LOBJ_TYPE_MASK",
+    "HSD_GObjGXLinkHead",
     "GXColor",
-    "OSReport __FILE__",
+    "grZe_Route_804DB918",
+    "grZe_Route_804DB944",
     "symbols.txt local labels",
-    "Object Matching melee/gr/grzebesroute.c"
+    "inline literals",
+    "stage route"
   ],
   "follow_up_queries": [
-    "grZebesRoute_8020B548 HSD_ASSERT inline helper",
-    "grzebesroute local @ labels sdata2 constants",
-    "HSD_LObjGetNext for loop matching",
-    "GXColor inline initializer matching",
-    "grZe_Route_804DB918 grZe_Route_804DB944 local labels",
-    "Object(Matching, \"melee/gr/grzebesroute.c\")"
+    "grZebesRoute_8020B548 HSD_LObjGetNext inline wrappers",
+    "grzebesroute HSD_ASSERT 0x169 0x174",
+    "grZe_Route_804DB918 local label inline literal",
+    "stage route GXColor inline initializer matching",
+    "configure.py Object(Matching) grzebesroute"
   ],
   "evidence_quality": {
-    "status": "strong",
+    "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR identity, state, author, changed files",
-      "raw_diff: full diff for all three changed files",
-      "text_corpus: bot report and approval review"
+      "metadata_json: PR number/title/state/author/changed files",
+      "raw_diff: complete diff loaded",
+      "text_corpus: bot report and approval"
     ],
     "notes": [
-      "The PR body is empty and there are no loaded review comments, so author rationale and reviewer reasoning are not available.",
-      "The bot report supports the new function match and score deltas, but the slice does not include raw build logs, objdiff output, or CI details beyond the bot summary.",
-      "Lessons are limited to changes visible in this PR and aligned with loaded decomp standards; no broader acceptance status is inferred."
+      "The diff and bot report strongly support the changed files, matching outcome for `grZebesRoute_8020B548`, and object link change.",
+      "The PR body is empty and there are no inline review comments, so author intent and reviewer rationale are not available.",
+      "No local build log, objdiff output, or manual validation transcript is present beyond the decomp-dev bot summary.",
+      "Inline helper functions appear to be matching tactics, but the slice does not prove why each helper was necessary."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "pr_specific_lesson",
-        "title": "grzebesroute matched by inlining local literals and demoting data symbols to local labels",
-        "text": "PR 2518 completed grZebesRoute_8020B548 and linked melee/gr/grzebesroute.c by replacing local named literals/constants with source-level literals, HSD_ASSERT, __FILE__, and local GXColor initializers, while symbols.txt changed the backing data addresses to local labels.",
+        "type": "pr_specific_decomp_lesson",
+        "title": "grzebesroute linked by cleaning literals/asserts and matching light-object loop",
+        "text": "PR 2518 completed `grZebesRoute_8020B548` and linked `melee/gr/grzebesroute.c` by rewriting generated-looking assert/literal data into `HSD_ASSERT`, `__FILE__`, inline floats/colors, a bounded `for` traversal over `HSD_LObj`, and adjusted local symbol labels.",
         "scope": [
           "src/melee/gr/grzebesroute.c",
-          "config/GALE01/symbols.txt"
+          "grZebesRoute_8020B548"
         ],
         "evidence_refs": [
-          "raw_diff: grzebesroute.c literal/assert cleanup and completed function",
-          "raw_diff: symbols.txt global-to-local label updates",
-          "text_corpus: bot report one new match"
-        ]
-      },
-      {
-        "type": "matching_tactic",
-        "title": "Small inline helpers preserved light-object access shape",
-        "text": "grZebesRoute_8020B548 used three narrow inline helpers for hsd_obj casting, HSD_LObjGetNext, and LOBJ_TYPE_MASK access in the matched implementation.",
-        "scope": [
-          "grZebesRoute_8020B548",
-          "HSD_LObj traversal"
-        ],
-        "evidence_refs": [
-          "raw_diff: grZebesRoute_8020B548_inline1/inline2/inline3"
+          "raw_diff",
+          "text_corpus: decomp-dev bot new match"
         ]
       }
     ],
@@ -285,64 +230,49 @@
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "grzebesroute.c became Matching in PR 2518",
-        "text": "PR 2518 changed configure.py so melee/gr/grzebesroute.c is Object(Matching) instead of Object(NonMatching).",
+        "title": "grzebesroute object marked Matching",
+        "text": "`configure.py` changed `melee/gr/grzebesroute.c` from `Object(NonMatching, ...)` to `Object(Matching, ...)`; bot report lists one new match for `grZebesRoute_8020B548`.",
         "source_path": "configure.py",
         "scope": [
           "melee/gr/grzebesroute.c",
-          "stage route matching status"
-        ],
-        "evidence_refs": [
-          "raw_diff: configure.py MatchingFor hunk"
-        ],
-        "reason": "This is a path/status fact supported by the PR diff and should be curated into path facts only if the curator tracks historical matching transitions."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "grZebesRoute_8020B548 matched in PR 2518",
-        "text": "decomp-dev[bot] reported one new match for main/melee/gr/grzebesroute: grZebesRoute_8020B548 from 99.97% to 100.00%.",
-        "source_path": "src/melee/gr/grzebesroute.c",
-        "scope": [
-          "grZebesRoute_8020B548",
           "main/melee/gr/grzebesroute"
         ],
         "evidence_refs": [
-          "text_corpus: decomp-dev[bot] report"
+          "raw_diff: configure.py hunk",
+          "text_corpus: decomp-dev bot report"
         ],
-        "reason": "Bot report provides explicit match evidence, but curator should decide whether to store this as a historical path/function fact."
+        "reason": "Potential path fact update for matching status; curator should verify against current source before promoting."
       },
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Inline local literals while fixing symbols metadata",
-        "text": "This PR is an example, not a new rule by itself: ordinary local floats, colors, assert strings, and file names were moved from semantic-looking globals back into source-level literals/macros while symbols.txt retained addresses as local labels.",
-        "source_path": null,
+        "target_source_id": "ssbm_data_sheet",
+        "update_kind": "source_update",
+        "title": "grZe route literals converted to local labels",
+        "text": "Several `grZe_Route_*` data/sdata2 symbols for grzebesroute literals were changed to local labels such as `@187`, `@270`, `@274`, and `@211`-`@278`, while source uses inline literals and colors.",
+        "source_path": "config/GALE01/symbols.txt",
         "scope": [
-          "literal cleanup",
-          "symbols metadata",
-          "matching PRs"
+          "grZe_Route data symbols",
+          "grzebesroute literal ownership"
         ],
         "evidence_refs": [
-          "raw_diff: grzebesroute.c removes named local constants and inlines values",
-          "raw_diff: symbols.txt local label replacements"
+          "raw_diff: symbols.txt hunks",
+          "raw_diff: grzebesroute.c constant removals"
         ],
-        "reason": "The pattern reinforces existing literals-and-data-ownership and data-sections standards; curator may want this PR as an example rather than a separate standard."
+        "reason": "Possible data/symbol ownership note; should not be generalized without checking current symbol metadata and neighboring route TUs."
       }
     ],
     "rejection_notes": [
-      "Do not infer that all grZe_Route globals should be renamed or localized; the PR only localizes the specific literal/constant symbols shown in the diff.",
-      "Do not infer that the inline helper names are a global naming convention; they appear as matching tactics scoped to grZebesRoute_8020B548.",
-      "Do not claim raw CI/build commands were run beyond the loaded decomp-dev bot report; no detailed build or objdiff logs are present in the slice."
+      "Do not infer a broad rule that all route constants should be inlined; this PR only shows grzebesroute-specific literal and symbol changes.",
+      "Do not record reviewer rationale beyond approval; the loaded review body is empty.",
+      "Do not treat the inline wrapper tactic as a global standard; the PR lacks explanation or independent objdiff evidence for each wrapper."
     ]
   },
-  "confidence": 0.88,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

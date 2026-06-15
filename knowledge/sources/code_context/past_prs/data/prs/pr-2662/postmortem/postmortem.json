@@ -1,0 +1,309 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2662",
+  "pr": {
+    "number": 2662,
+    "title": "Link Quatlib",
+    "url": "https://github.com/doldecomp/melee/pull/2662",
+    "state": "MERGED",
+    "author": "jurrejelle",
+    "created_at": "2026-06-12T08:29:29Z",
+    "merged_at": "2026-06-12T08:59:18Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "PR 2662 linked sysdolphin/baselib/quatlib.c by changing it from NonMatching to Matching, adjusting quatlib source expressions and stack padding, and converting several quatlib rodata/sdata2 symbols from global HSD_QuatLib_* names to local @ labels. The bot report records four new matches: HSD_QuatLib_8037EC4C, MatToQuat, .sdata2, and .rodata for main/sysdolphin/baselib/quatlib.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "build-config",
+      "symbol-metadata",
+      "math-codegen"
+    ],
+    "systems": [
+      "sysdolphin/baselib",
+      "config/GALE01",
+      "configure"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/sysdolphin/baselib/quatlib.c",
+      "role": "Quatlib source changes: local inline sqrtf using __frsqrte, MatToQuat local-expression cleanup, HSD_QuatLib_8037EC4C quaternion multiply rewrite, and HSD_QuatLib_8037EF28 expression inlining.",
+      "evidence_refs": [
+        "raw_diff:src/sysdolphin/baselib/quatlib.c",
+        "changed_files:src/sysdolphin/baselib/quatlib.c"
+      ]
+    },
+    {
+      "path": "configure.py",
+      "role": "Build configuration changed sysdolphin/baselib/quatlib.c from NonMatching to Matching.",
+      "evidence_refs": [
+        "raw_diff:configure.py"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Symbol metadata changed quatlib-associated rodata and sdata2 entries from global HSD_QuatLib_* symbols to local @ labels with adjusted sizes/scopes.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt",
+        "changed_files:config/GALE01/symbols.txt"
+      ]
+    }
+  ],
+  "what_changed": [
+    "configure.py changed Object(NonMatching, \"sysdolphin/baselib/quatlib.c\") to Object(Matching, \"sysdolphin/baselib/quatlib.c\").",
+    "src/sysdolphin/baselib/quatlib.c removed the MSL/math_ppc.h include and added a local inline sqrtf implementation using __frsqrte and three Newton refinement steps with a volatile float temporary.",
+    "MatToQuat removed a separate tr local and reused s for the matrix trace calculation before sqrtf.",
+    "HSD_QuatLib_8037EC4C replaced many component temporaries with x/y/z/w result temporaries, wrote outputs after computing all components, and reduced PAD_STACK from 24 to 16.",
+    "HSD_QuatLib_8037EF28 inlined t2 as 2.0F * t inside the sinf expressions in the t < 0.5F branch.",
+    "config/GALE01/symbols.txt converted HSD_QuatLib_803B95E8 and HSD_QuatLib_804DE720 through HSD_QuatLib_804DE760 entries into local @ labels in .rodata and .sdata2.",
+    "The decomp bot reported +1204 matched-code bytes, +2728 linked-code bytes, +88 matched-data bytes, +88 linked-data bytes, and four new matches for quatlib."
+  ],
+  "smart_moves": [
+    {
+      "text": "The PR coupled the Matching flip with both source-level codegen adjustments and symbol metadata changes, matching the bot-reported code and data closures for quatlib.",
+      "evidence_refs": [
+        "raw_diff:configure.py",
+        "raw_diff:src/sysdolphin/baselib/quatlib.c",
+        "text_corpus:decomp-dev[bot] issue_comment"
+      ]
+    },
+    {
+      "text": "For HSD_QuatLib_8037EC4C, computing x/y/z/w locals before storing through out reduced dependence on individual loaded component temporaries and coincided with a 100% match in the bot report.",
+      "evidence_refs": [
+        "raw_diff:src/sysdolphin/baselib/quatlib.c",
+        "text_corpus:decomp-dev[bot] issue_comment"
+      ]
+    },
+    {
+      "text": "The symbol changes avoided retaining global HSD_QuatLib_* names for constants that the diff represents as local labels, aligning metadata with local section ownership for this TU.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "Small expression-lifetime changes can matter for MWCC matching in math-heavy baselib code: reusing an existing local for the MatToQuat trace and inlining a one-use t2 expression were part of the matched quatlib diff.",
+      "scope": [
+        "src/sysdolphin/baselib/quatlib.c",
+        "math-heavy matching"
+      ],
+      "evidence_refs": [
+        "raw_diff:src/sysdolphin/baselib/quatlib.c",
+        "text_corpus:decomp-dev[bot] issue_comment"
+      ],
+      "confidence": 0.78
+    },
+    {
+      "lesson": "For quaternion component math, storing final x/y/z/w locals before writing the output struct can be a useful source shape to try when direct field stores and many preloaded component locals do not match.",
+      "scope": [
+        "HSD_QuatLib_8037EC4C",
+        "Quaternion arithmetic"
+      ],
+      "evidence_refs": [
+        "raw_diff:src/sysdolphin/baselib/quatlib.c",
+        "text_corpus:decomp-dev[bot] issue_comment"
+      ],
+      "confidence": 0.82
+    },
+    {
+      "lesson": "When linking a previously nonmatching object, check whether associated float/double constants should be local @ labels rather than invented global TU-prefixed names.",
+      "scope": [
+        "config/GALE01/symbols.txt",
+        ".rodata",
+        ".sdata2"
+      ],
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt",
+        "text_corpus:decomp-dev[bot] issue_comment"
+      ],
+      "confidence": 0.74
+    }
+  ],
+  "naming_conventions": [
+    {
+      "convention": "Quatlib constant symbols in this PR were represented as local @ labels rather than global HSD_QuatLib_address names when the metadata was adjusted for matching.",
+      "scope": [
+        "config/GALE01/symbols.txt",
+        "quatlib rodata/sdata2"
+      ],
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt"
+      ],
+      "confidence": 0.8
+    },
+    {
+      "convention": "Within HSD_QuatLib_8037EC4C, result component locals were named x, y, z, and w before assignment to out->x/y/z/w.",
+      "scope": [
+        "src/sysdolphin/baselib/quatlib.c",
+        "HSD_QuatLib_8037EC4C"
+      ],
+      "evidence_refs": [
+        "raw_diff:src/sysdolphin/baselib/quatlib.c"
+      ],
+      "confidence": 0.9
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Added a local inline sqrtf implementation using __frsqrte, repeated Newton refinement, and a volatile float temporary; this replaced reliance on included math_ppc behavior and coincided with MatToQuat reaching 100%.",
+      "evidence_refs": [
+        "raw_diff:src/sysdolphin/baselib/quatlib.c",
+        "text_corpus:decomp-dev[bot] issue_comment"
+      ],
+      "caution": "The PR evidence shows the final diff and bot report, but not an isolated proof that the sqrtf inline alone caused the match."
+    },
+    {
+      "tactic": "Adjusted PAD_STACK in HSD_QuatLib_8037EC4C from 24 to 16 after rewriting temporaries and store order.",
+      "evidence_refs": [
+        "raw_diff:src/sysdolphin/baselib/quatlib.c",
+        "text_corpus:decomp-dev[bot] issue_comment"
+      ],
+      "caution": "PAD_STACK remains a matching tactic; loaded evidence has bot match output but no detailed objdiff excerpt or adjacent-function regression notes."
+    },
+    {
+      "tactic": "Changed .rodata and .sdata2 symbol metadata from global HSD_QuatLib_* entries to local labels, including size/scope adjustments, to close quatlib data matches.",
+      "evidence_refs": [
+        "raw_diff:config/GALE01/symbols.txt",
+        "text_corpus:decomp-dev[bot] issue_comment"
+      ],
+      "caution": "Treat as symbol metadata/path-fact evidence for this PR, not a general rule that all TU-prefixed constants should become local labels."
+    }
+  ],
+  "review_feedback": [
+    {
+      "source": "decomp-dev[bot]",
+      "feedback": "Automated report recorded matched code 72.17% (+0.03%, +1204 bytes), linked code 47.24% (+0.07%, +2728 bytes), matched data 41.75% (+0.01%, +88 bytes), linked data 35.42% (+0.01%, +88 bytes), with four new matches for quatlib.",
+      "evidence_refs": [
+        "text_corpus:decomp-dev[bot] issue_comment"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR 2662",
+    "Link Quatlib",
+    "jurrejelle",
+    "sysdolphin/baselib/quatlib.c",
+    "configure.py",
+    "config/GALE01/symbols.txt",
+    "MatToQuat",
+    "HSD_QuatLib_8037EC4C",
+    "HSD_QuatLib_8037EF28",
+    "Quaternion",
+    "sqrtf",
+    "__frsqrte",
+    "PAD_STACK(16)",
+    "PAD_STACK(24)",
+    "M_PI_2",
+    ".rodata",
+    ".sdata2",
+    "HSD_QuatLib_804DE720",
+    "Object(Matching)",
+    "Object(NonMatching)"
+  ],
+  "follow_up_queries": [
+    "quatlib __frsqrte sqrtf volatile float y",
+    "HSD_QuatLib_8037EC4C PAD_STACK 16 quaternion multiply",
+    "MatToQuat trace local s tr sqrtf match",
+    "HSD_QuatLib constants local labels sdata2 rodata",
+    "sysdolphin baselib quatlib Matching configure.py"
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json",
+      "raw_diff",
+      "changed_files",
+      "text_corpus:decomp-dev[bot] issue_comment"
+    ],
+    "notes": [
+      "The diff and changed-file metadata are complete for this slice and strongly support what changed.",
+      "The PR body is empty and there are no human review comments in the loaded evidence.",
+      "The automated bot report supports match outcomes, but no raw objdiff/checkdiff logs or isolated validation for each tactic are included.",
+      "Merged status is available in metadata, but acceptance rationale or reviewer intent is not evidenced."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "pr_specific_matching_lesson",
+        "title": "Quatlib component-result locals helped close HSD_QuatLib_8037EC4C",
+        "text": "In PR 2662, HSD_QuatLib_8037EC4C was rewritten from many preloaded quaternion component temporaries and direct output stores into x/y/z/w result locals followed by output assignment, with PAD_STACK reduced from 24 to 16. The bot report lists HSD_QuatLib_8037EC4C as reaching 100%.",
+        "scope": [
+          "src/sysdolphin/baselib/quatlib.c",
+          "HSD_QuatLib_8037EC4C"
+        ],
+        "evidence_refs": [
+          "raw_diff:src/sysdolphin/baselib/quatlib.c",
+          "text_corpus:decomp-dev[bot] issue_comment"
+        ],
+        "confidence": 0.82
+      },
+      {
+        "record_type": "pr_specific_matching_lesson",
+        "title": "Quatlib matching required symbol metadata cleanup for local constants",
+        "text": "PR 2662 changed multiple HSD_QuatLib_* rodata/sdata2 global symbols into local @ labels, and the bot report lists quatlib .rodata and .sdata2 as reaching 100%.",
+        "scope": [
+          "config/GALE01/symbols.txt",
+          "main/sysdolphin/baselib/quatlib"
+        ],
+        "evidence_refs": [
+          "raw_diff:config/GALE01/symbols.txt",
+          "text_corpus:decomp-dev[bot] issue_comment"
+        ],
+        "confidence": 0.76
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "quatlib.c marked Matching in PR 2662",
+        "text": "PR 2662 changed configure.py so sysdolphin/baselib/quatlib.c is Object(Matching) instead of Object(NonMatching).",
+        "source_path": "configure.py",
+        "scope": [
+          "sysdolphin/baselib/quatlib.c",
+          "configure.py"
+        ],
+        "evidence_refs": [
+          "raw_diff:configure.py",
+          "text_corpus:decomp-dev[bot] issue_comment"
+        ],
+        "reason": "This is a source-owned path/build-state fact and should be reviewed before adding to path facts."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "quatlib constants represented as local labels after PR 2662",
+        "text": "PR 2662 changed HSD_QuatLib_803B95E8 and HSD_QuatLib_804DE720 through HSD_QuatLib_804DE760 symbol entries to local @ labels in config/GALE01/symbols.txt.",
+        "source_path": "config/GALE01/symbols.txt",
+        "scope": [
+          "main/sysdolphin/baselib/quatlib",
+          ".rodata",
+          ".sdata2"
+        ],
+        "evidence_refs": [
+          "raw_diff:config/GALE01/symbols.txt"
+        ],
+        "reason": "Symbol scope/name facts belong in source/path metadata, not as a global decomp standard."
+      }
+    ],
+    "rejection_notes": [
+      "Do not generalize this PR into a rule that local inline sqrtf should replace library sqrtf everywhere; the evidence is limited to quatlib and lacks isolated validation.",
+      "Do not treat PAD_STACK(16) as accepted style; it is a narrow matching tactic supported here only by the final diff and bot report.",
+      "Do not infer human review rationale because no human review comments are present in the loaded PR slice."
+    ]
+  },
+  "confidence": 0.84,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

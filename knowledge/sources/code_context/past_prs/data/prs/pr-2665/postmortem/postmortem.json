@@ -1,0 +1,296 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2665",
+  "pr": {
+    "number": 2665,
+    "title": "link itdrop",
+    "url": "https://github.com/doldecomp/melee/pull/2665",
+    "state": "MERGED",
+    "author": "jurrejelle",
+    "created_at": "2026-06-12T15:29:25Z",
+    "merged_at": "2026-06-12T20:01:03Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "PR 2665 linked src/melee/it/itdrop.c by changing configure.py from NonMatching to Matching, adjusting itdrop.c stack padding and zero-float handling, and updating GALE01 .sdata2 symbol metadata around 0x804DC6B8. The bot report shows two new function matches in main/melee/it/itdrop, it_8026F3D4 and it_8026F6BC, while also reporting a broken .sdata2 match.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "matching",
+      "item",
+      "configuration",
+      "symbol-metadata",
+      "data-regression-risk"
+    ],
+    "systems": [
+      "item",
+      "itdrop",
+      "configure",
+      "GALE01 symbols"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/it/itdrop.c",
+      "role": "Primary item source file linked as matching; changed zero-float initialization, local stack padding, and assignments in it_8026F3D4, it_8026F53C, it_8026F5C8, it_8026F6BC, it_8026F7C8, and it_8026F8B4.",
+      "evidence_refs": [
+        "raw_diff: src/melee/it/itdrop.c hunks",
+        "text_corpus: bot report lists main/melee/it/itdrop function matches"
+      ]
+    },
+    {
+      "path": "configure.py",
+      "role": "Build configuration changed Object(NonMatching, \"melee/it/itdrop.c\") to Object(Matching, \"melee/it/itdrop.c\").",
+      "evidence_refs": [
+        "raw_diff: configure.py hunk near MatchingFor object list"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Symbol metadata changed three .sdata2 entries at 0x804DC6B8, 0x804DC6BC, and 0x804DC6C0 from global it_804DC6B8/BC/C0 names to local zero_init, @217, and @218.",
+      "evidence_refs": [
+        "raw_diff: config/GALE01/symbols.txt hunk around .sdata2:0x804DC6B8"
+      ]
+    }
+  ],
+  "what_changed": [
+    "Marked melee/it/itdrop.c as Matching in configure.py.",
+    "Added static const f32 zero_init[1] = { 0.0f } in itdrop.c with an explicit @todo saying it is a hack needed to match it_8026F3D4 while keeping this the only 0.0f in the file.",
+    "Replaced several direct 0.0f assignments in itdrop.c with zero_init[0], and in it_8026F3D4 loaded a local zero through a volatile f32 pointer before assigning sp24.x/y/z.",
+    "Adjusted manual stack padding in it_8026F3D4 from _padA[0x48] to _padA[0x4C] and _padC[8] to _padC[4].",
+    "Adjusted PAD_STACK in it_8026F6BC from 96 to 88; PAD_STACK(12) remained present in it_8026F5C8.",
+    "Updated .sdata2 symbol names/scopes near 0x804DC6B8, including introducing local symbol zero_init.",
+    "Bot report recorded +628 matched code bytes, two new function matches, and a .sdata2 regression from 100.00% to 85.71%."
+  ],
+  "smart_moves": [
+    {
+      "text": "The PR kept the matching scope narrow: one item source file, its build configuration status, and nearby symbol metadata.",
+      "evidence_refs": [
+        "changed_files: exactly three changed files",
+        "raw_diff"
+      ]
+    },
+    {
+      "text": "The author documented the unusual zero_init tactic in-source with a @todo rather than leaving it unexplained.",
+      "evidence_refs": [
+        "raw_diff: added @todo above zero_init"
+      ]
+    },
+    {
+      "text": "The bot report made the tradeoff visible: text-section function matches improved while .sdata2 matching regressed.",
+      "evidence_refs": [
+        "text_corpus: decomp-dev[bot] report"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "text": "When linking a previously NonMatching translation unit, the PR may need coordinated edits in source, configure.py, and symbols metadata; keep those coupled edits easy to audit.",
+      "evidence_refs": [
+        "raw_diff: configure.py Matching change",
+        "raw_diff: itdrop.c changes",
+        "raw_diff: symbols.txt changes"
+      ],
+      "confidence": 0.84
+    },
+    {
+      "text": "A code-match improvement can coexist with a data-section regression; the bot report should be preserved as evidence rather than treating the match as risk-free.",
+      "evidence_refs": [
+        "text_corpus: +628 matched code bytes and .sdata2 broken match"
+      ],
+      "confidence": 0.9
+    },
+    {
+      "text": "If a matching tactic relies on unusual constant storage or volatile loading, document the tactic locally and route it for later cleanup review.",
+      "evidence_refs": [
+        "raw_diff: zero_init @todo and volatile f32 load",
+        "decomp_standards: matching-tactics-need-evidence",
+        "decomp_standards: literals-and-data-ownership"
+      ],
+      "confidence": 0.78
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "No broad naming convention is established by this PR. The only new semantic data name is zero_init, tied to .sdata2:0x804DC6B8 and a local static constant in itdrop.c.",
+      "evidence_refs": [
+        "raw_diff: symbols.txt zero_init",
+        "raw_diff: itdrop.c static const f32 zero_init[1]"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "text": "Used a one-element static const f32 zero_init array and replaced several 0.0f expressions with zero_init[0].",
+      "evidence_refs": [
+        "raw_diff: itdrop.c zero_init and replacements"
+      ],
+      "risk": "This resembles named constant/data anchoring; standards say literal/data ownership needs evidence and should not be promoted as normal style."
+    },
+    {
+      "text": "In it_8026F3D4, loaded zero with zero = *(volatile f32*) &zero_init[0] before chained Vec3 zero assignment.",
+      "evidence_refs": [
+        "raw_diff: it_8026F3D4 volatile f32 load"
+      ],
+      "risk": "Volatile local/codegen steering needs explicit verification evidence; bot report supports the function match but not reviewer intent."
+    },
+    {
+      "text": "Changed manual stack padding sizes in it_8026F3D4 and it_8026F6BC.",
+      "evidence_refs": [
+        "raw_diff: _padA/_padC changes",
+        "raw_diff: PAD_STACK(96) to PAD_STACK(88)"
+      ],
+      "risk": "PAD_STACK and stack-padding changes are narrow matching tactics and should be revisited when underlying layout or source shape is understood."
+    }
+  ],
+  "review_feedback": [
+    {
+      "kind": "bot_report",
+      "author": "decomp-dev[bot]",
+      "text": "Report for GALE01 showed matched code 72.66% (+0.02%, +628 bytes), two new matches for it_8026F3D4 and it_8026F6BC, and one broken .sdata2 match from 100.00% to 85.71%.",
+      "evidence_refs": [
+        "text_corpus: issue_comment by decomp-dev[bot] at 2026-06-12T15:33:15Z"
+      ]
+    },
+    {
+      "kind": "review",
+      "author": "ribbanya",
+      "text": "Approved review with no body text in the loaded slice.",
+      "evidence_refs": [
+        "text_corpus: review by ribbanya state APPROVED"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "pr-2665",
+    "link itdrop",
+    "jurrejelle",
+    "src/melee/it/itdrop.c",
+    "configure.py",
+    "config/GALE01/symbols.txt",
+    "it_8026F3D4",
+    "it_8026F6BC",
+    "it_8026F53C",
+    "it_8026F5C8",
+    "it_8026F7C8",
+    "it_8026F8B4",
+    "zero_init",
+    "volatile f32",
+    "PAD_STACK",
+    "_padA",
+    "_padC",
+    ".sdata2",
+    "0x804DC6B8",
+    "it_804DC6B8",
+    "MatchingFor",
+    "Object(Matching)",
+    "matched code +628 bytes",
+    "broken .sdata2"
+  ],
+  "follow_up_queries": [
+    "Find later PRs touching src/melee/it/itdrop.c zero_init or removing the @todo hack.",
+    "Search for zero_init in item files and symbols.txt to see whether this remained isolated or became a repeated tactic.",
+    "Search for later changes to .sdata2 symbols at 0x804DC6B8, @217, and @218.",
+    "Find PRs that fixed or discussed the itdrop .sdata2 regression after PR 2665.",
+    "Search for PAD_STACK changes in itdrop.c after this PR."
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR metadata, changed files, merge state",
+      "raw_diff: full diff",
+      "changed_files: file list and line counts",
+      "text_corpus: bot report and approved review"
+    ],
+    "notes": [
+      "PR body is empty in the loaded evidence.",
+      "No inline review comments are present in the loaded slice.",
+      "Bot report provides verification-like evidence for new matches and a data regression, but no build logs, objdiff details, or author explanation beyond the zero_init @todo are included.",
+      "The PR was merged and approved, but the loaded evidence does not explain reviewer reasoning or whether the .sdata2 regression was accepted deliberately."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "title": "itdrop linked as Matching with visible .sdata2 tradeoff",
+        "text": "PR 2665 changed melee/it/itdrop.c from NonMatching to Matching. The bot report credited new matches for it_8026F3D4 and it_8026F6BC, while also reporting a broken .sdata2 match. Treat this as a case where text-section progress and data-section regression were both visible in the PR evidence.",
+        "scope": [
+          "src/melee/it/itdrop.c",
+          "configure.py",
+          "config/GALE01/symbols.txt"
+        ],
+        "evidence_refs": [
+          "raw_diff",
+          "text_corpus: decomp-dev[bot] report"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "itdrop.c configured as Matching by PR 2665",
+        "text": "configure.py changed Object(NonMatching, \"melee/it/itdrop.c\") to Object(Matching, \"melee/it/itdrop.c\") in PR 2665.",
+        "source_path": "configure.py",
+        "scope": [
+          "melee/it/itdrop.c",
+          "main/melee/it/itdrop"
+        ],
+        "evidence_refs": [
+          "raw_diff: configure.py hunk"
+        ],
+        "reason": "Potential source-owned path status update; curator should verify against current source before recording."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "itdrop .sdata2 metadata changed around 0x804DC6B8",
+        "text": "PR 2665 changed .sdata2 entries at 0x804DC6B8, 0x804DC6BC, and 0x804DC6C0 from global it_804DC6B8/BC/C0 names to local zero_init, @217, and @218.",
+        "source_path": "config/GALE01/symbols.txt",
+        "scope": [
+          ".sdata2",
+          "0x804DC6B8",
+          "0x804DC6BC",
+          "0x804DC6C0",
+          "itdrop"
+        ],
+        "evidence_refs": [
+          "raw_diff: symbols.txt hunk"
+        ],
+        "reason": "Potential symbol/path fact; should be checked against current symbols and later corrections before promotion."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Document volatile/static literal matching hacks as exceptions, not style",
+        "text": "PR 2665 used a documented zero_init hack and volatile f32 load to match it_8026F3D4 while the bot report also showed a .sdata2 regression. This may be a useful example for standards about requiring narrow evidence and cleanup notes for constant-storage and volatile matching tactics.",
+        "source_path": "src/melee/it/itdrop.c",
+        "scope": [
+          "matching tactics",
+          "literals and data ownership",
+          "verification ledger"
+        ],
+        "evidence_refs": [
+          "raw_diff: zero_init @todo and volatile load",
+          "text_corpus: bot report"
+        ],
+        "reason": "Do not promote the tactic as accepted style; use only as a cautionary example if the curator wants a standards note."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer that zero_init is a generally preferred replacement for 0.0f; loaded standards caution against promoting literals into named storage without ownership evidence.",
+      "Do not infer reviewer intent from the approval beyond the fact that an approval exists with no body text.",
+      "Do not claim full data matching for itdrop; the bot report explicitly lists a broken .sdata2 match.",
+      "Do not claim current repository status from this historical PR alone; verify current source before adding path facts."
+    ]
+  },
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

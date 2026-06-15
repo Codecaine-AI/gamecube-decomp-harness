@@ -1,12 +1,402 @@
 # Known PR Fixes And Changes
 
+## PR #2701: link itmewtwoshadowball
+
+Status: agent_completed
+Type: decomp_link
+Systems: item;config;symbols
+
+PR 2701 links the item translation unit src/melee/it/items/itmewtwoshadowball.c by changing its build classification from NonMatching to Matching, correcting it_802C4D10's return type from void to u32 in both the C file and header, and updating symbols.txt metadata for several associated local string/float/double constants from global it_* names to local @ labels.
+
+Postmortem JSON: `prs/pr-2701/postmortem/postmortem.json`
+
+## PR #2700: link ftaction
+
+Status: agent_completed
+Type: decomp-matching
+Systems: fighter;ftaction;lb-types;config;repo-root
+
+PR 2700 linked `melee/ft/ftaction.c` by changing it from NonMatching to Matching, with small code-shape adjustments in ftaction command handlers, bitfield naming/layout updates for `footstep_fx_0`, and symbol metadata changes for local jump tables and ftaction sdata2 constants. The bot report records 3 new matches, including `ftAction_80072CD8`, `ftAction_80072E4C`, and `.sdata2` for `main/melee/ft/ftaction`.
+
+Postmortem JSON: `prs/pr-2700/postmortem/postmortem.json`
+
+## PR #2699: Improve mnDiagram follow-up matches
+
+Status: agent_completed
+Type: decomp-matching
+Systems: melee-core;mn;mnDiagram
+
+PR #2699 improved mnDiagram-family matching in src/melee/mn by changing three files: mndiagram.c, mndiagram2.c, and mndiagram3.c. The PR body reports text-score improvements, three new 100% matches in mndiagram2, no regressions versus upstream report.json, and explicitly says stale assert/string-table shapes from an investigation branch were not reintroduced.
+
+Postmortem JSON: `prs/pr-2699/postmortem/postmortem.json`
+
+## PR #2698: Bump Python requirements
+
+Status: agent_completed
+Type: tooling_requirements_update
+Systems: reqs;pip-tools;pip-compile;pip-sync
+
+Tooling-only PR that refreshed generated Python requirement lock files under reqs/. The PR body says to run `pip-sync reqs/*.txt` locally, notes that `pip-sync` comes from `pip install pip-tools`, and gives a fallback command to force-reinstall `pip==26.0` if the operation fails. The diffs update pip-compile headers to Python 3.12 and explicit `--output-file=... --strip-extras` commands, and remove `pycparser==2.21` from `reqs/decomp.txt`. No decomp source, naming, assembly, or review discussion is present in the slice.
+
+Postmortem JSON: `prs/pr-2698/postmortem/postmortem.json`
+
+## PR #2697: grbigblueroute: match grBigBlueRoute_8020DD64
+
+Status: agent_completed
+Type: decomp-matching
+Systems: stage;grbigblueroute
+
+Matched stage function grBigBlueRoute_8020DD64 by changing its return type from void to f32, preserving the magnitude returned by lbVector_Normalize, returning it at function end, and updating the owning header declaration. Bot report showed one new match for main/melee/gr/grbigblueroute with grBigBlueRoute_8020DD64 moving from 98.60% to 100.00%.
+
+Postmortem JSON: `prs/pr-2697/postmortem/postmortem.json`
+
+## PR #2695: grbigblueroute: match C85C, DED4, DF80 sizes; improve CD20 and fix sdata2 ordering
+
+Status: agent_completed
+Type: decomp-matching
+Systems: stage;Big Blue route;ground
+
+Closed, unmerged PR touching only src/melee/gr/grbigblueroute.c. It attempted stage decomp matching improvements for grBigBlueRoute functions C85C, CD20, DED4, and DF80, plus .sdata2 constant-order work. The PR body claimed exact size matches for C85C, DED4, and DF80 and a 4-byte CD20 gap, but the author immediately commented that an agent made the PR before it was ready, so claimed results should be treated as provisional rather than accepted.
+
+Postmortem JSON: `prs/pr-2695/postmortem/postmortem.json`
+
+## PR #2694: tools/check: add jobj-flags --fix
+
+Status: agent_completed
+Type: tooling
+Systems: tools/check;jobj flags;assert macro detection
+
+PR 2694 added a local --fix mode to tools/check, with dry-run unified diff support, and made only the jobj-flags check auto-fix raw hidden-flag literals to JOBJ_HIDDEN. assert-macros remained detection-only because the PR body and comments say that conversion requires judgement. Tests were added for jobj flag fixing behavior, including preserving surrounding text, non-match safety, and idempotence.
+
+Postmortem JSON: `prs/pr-2694/postmortem/postmortem.json`
+
+## PR #2692: Melee decomp: SysDolphin baselib matches
+
+Status: agent_completed
+Type: decomp-matching
+Systems: src/sysdolphin/baselib
+
+PR #2692 performed implementation-only SysDolphin baselib matching work in audio, camera object, particle, and TExp files. The PR body reports 12 newly exact functions across 4 files with zero slice regressions, while the bot report shows 11 new matches and 7 unmatched-item improvements. Review focused on avoiding fakematching: pointer-math/while-loop shapes in axdriver, local externs used to influence cobj inlining, new pragmas in particle, static-vs-extern rodata placement, and a likely fsqrt inline in particle.
+
+Postmortem JSON: `prs/pr-2692/postmortem/postmortem.json`
+
+## PR #2691: Melee decomp: Interface and trophy UI matches
+
+Status: agent_completed
+Type: decomp-matching
+Systems: melee-interface;melee-if-textlib;melee-if-hud;melee-ty-figupon
+
+Implementation-only decompilation match slice for Interface text/HUD helpers and TY Figupon. The PR touched four C files, claimed 7 newly exact functions across the slice, and included verification claims of zero broken matches, fuzzy regressions, or metric regressions. The bot report in the loaded corpus lists 8 new matches and 4 unmatched-item improvements, creating a small count mismatch with the PR body.
+
+Postmortem JSON: `prs/pr-2691/postmortem/postmortem.json`
+
+## PR #2690: Melee decomp: Item collision and projectile matches
+
+Status: agent_completed
+Type: decomp-matching
+Systems: item;collision;Samus grapple;Arwing laser;Kyasarin
+
+PR #2690 was an item-subsystem implementation-only matching slice. It changed four item collision/projectile source files and reported 9 new exact matches plus 1 improved unmatched function, with zero broken, fuzzy, or metric regressions in the supplied verification report.
+
+Postmortem JSON: `prs/pr-2690/postmortem/postmortem.json`
+
+## PR #2689: Melee decomp: Menu screen matches
+
+Status: agent_completed
+Type: decomp-matching
+Systems: melee-core;mn-menu
+
+Implementation-only exact-match work for MN menu screen translation units. The PR reports 7 newly exact functions across 6 files, plus improvements to still-unmatched functions. Diff evidence shows mostly local C-shape, type-width, declaration-order, naming, inline-helper, ternary, and access-shape adjustments in menu files. Review specifically rejected dead literal constant-pool anchors in mndiagram.c, saying they should be handled during linking.
+
+Postmortem JSON: `prs/pr-2689/postmortem/postmortem.json`
+
+## PR #2688: Melee decomp: Stage-specific GR matches
+
+Status: agent_completed
+Type: decomp-matching
+Systems: stage;ground
+
+Stage GR decompilation slice for Big Blue, Fourside, Rainbow Cruise, Shrine Route, Old Yoshi, and Venom. The PR body and bot report claim 10 new exact matches, 11 unmatched-item improvements, clean isolated/full regression reports, and git diff/check success. The diff shows implementation matching, type/union refinements in gr/types.h, stage-local field naming, local struct/layout work, inlining/splitting tactics, PAD_STACK/local-order changes, and data/literal ownership changes. Review discussion was mixed: several comments challenged literal-to-symbol changes, copied jobj.h inline forms, static inlines, and formatting, while author replies argued some choices were backed by target section/symbol metadata and regression reports.
+
+Postmortem JSON: `prs/pr-2688/postmortem/postmortem.json`
+
+## PR #2687: Melee decomp: Ground, Kongo, and Zebes stage matches
+
+Status: agent_completed
+Type: decomp-matching
+Systems: Ground manager;Kongo stage;Zebes stage
+
+Exact-match decompilation slice for Ground manager plus Kongo and Zebes stage files. The PR body reports 6 newly exact functions across 3 files, 11 additional still-unmatched function improvements, clean isolated and full ship-set regression reports, and no header churn. Review centered on narrow matching tactics: a scoped Ground pragma, a Zebes inline wrapper that preserves an HSD_LObjSetColor call path, Kongo __FILE__/jobj inline cleanup, and static ownership for a local Kongo data object.
+
+Postmortem JSON: `prs/pr-2687/postmortem/postmortem.json`
+
+## PR #2686: Melee decomp: GM menu and result matches
+
+Status: agent_completed
+Type: decomp-matching
+Systems: game-mode;gm-menu;gm-results
+
+Exact-match decompilation slice for Game-mode menu/result translation units, touching seven src/melee/gm files. The PR body claims 11 newly exact functions, 36 still-unmatched improvements, clean isolated/full regression reports, and git diff check success. Review discussion centered on avoiding fakematch pointer math, preferring natural loops, limiting pragmas, and requiring data-ownership evidence for float/string symbol use.
+
+Postmortem JSON: `prs/pr-2686/postmortem/postmortem.json`
+
+## PR #2685: Melee decomp: Kirby and Yoshi fighter matches
+
+Status: agent_completed
+Type: decomp-matching
+Systems: src/melee/ft/chara/ftKirby;src/melee/ft/chara/ftYoshi;src/sysdolphin/baselib
+
+Exact-match decompilation work for Kirby copy ability and Yoshi special action code, mostly in ftKirby/ftkirby.c, with smaller assertion cleanup in ftkirbyspecialn.c, a Yoshi matching no-op, and removal/formatting cleanup in baselib particle code. Review focused on newly introduced pragma usage; reviewer feedback led to removing the pragma approach rather than relying on bot-cited precedent.
+
+Postmortem JSON: `prs/pr-2685/postmortem/postmortem.json`
+
+## PR #2684: Melee decomp: Fighter common action matches
+
+Status: agent_completed
+Type: decomp-matching
+Systems: fighter;effect
+
+Exact-match decompilation work for Fighter common actions, with narrow efLib signature support. The PR reports 12 newly exact functions across 7 files, zero slice regressions, and cleanup follow-up for literals, sqrt forms, and an inline-depth pragma replacement.
+
+Postmortem JSON: `prs/pr-2684/postmortem/postmortem.json`
+
+## PR #2683: Melee decomp: LB and MP utility matches
+
+Status: agent_completed
+Type: decomp-matching
+Systems: library;melee-core;LB utility;MP collision;MP library
+
+Exact-match decompilation slice for LB utility and MP collision/library helpers. The PR body claims 11 newly exact functions across 5 implementation files with zero slice regressions; metadata shows 6 changed files including removal of mplib.static.h content. Review focused on replacing local/imported helper or data-symbol workarounds with existing imports, direct literals, and inline source expressions.
+
+Postmortem JSON: `prs/pr-2683/postmortem/postmortem.json`
+
+## PR #2682: Melee decomp: Camera matches
+
+Status: agent_completed
+Type: decomp-matching
+Systems: melee-core;melee-camera;cm
+
+Exact-match work in the Melee camera translation unit. The PR changed only src/melee/cm/camera.c, reported 3 newly exact functions, and improved 3 additional unmatched camera functions with no reported broken matches, fuzzy regressions, or metric regressions.
+
+Postmortem JSON: `prs/pr-2682/postmortem/postmortem.json`
+
+## PR #2681: Melee decomp: THP decoder matches
+
+Status: agent_completed
+Type: decomp-matching
+Systems: external-sdk;dolphin-thp;melee-lb
+
+Exact-match work for Dolphin THP decoder code, centered on extern/dolphin/src/dolphin/thp/THPDec.c, with THP decoder header and Melee caller signature cleanup after review rejected a temporary macro shim around thp.h prototypes.
+
+Postmortem JSON: `prs/pr-2681/postmortem/postmortem.json`
+
+## PR #2680: Expand package rebuild condition paths
+
+Status: agent_completed
+Type: tooling-ci-workflow
+Systems: .github;.github/workflows;publish-packages
+
+Updated the package publishing GitHub Actions workflow path filters so push and pull_request triggers share one YAML anchor and include additional Cargo and Rust-tool paths.
+
+Postmortem JSON: `prs/pr-2680/postmortem/postmortem.json`
+
+## PR #2679: Update Rust dependencies
+
+Status: agent_completed
+Type: tooling_dependency_update
+Systems: repo-root;.github/workflows
+
+Tooling-only PR that refreshed Rust dependency lockfile contents and broadened the publish-packages workflow path filters so package publishing checks also run when Cargo.lock, reqs/**/*.txt, or tools/**/*.py change.
+
+Postmortem JSON: `prs/pr-2679/postmortem/postmortem.json`
+
+## PR #2678: Rename `g_debugLevel` to `DbLevel` based on assert
+
+Status: agent_completed
+Type: naming
+Systems: config;db;fighter;game-mode;menus;map;library;toy
+
+PR 2678 performed a repository-wide canonical symbol rename from `g_debugLevel` to `DbLevel`, including the GALE01 symbol entry at `.sdata:0x804D4A08`, the `src/melee/db/db.h` extern, the definition in `src/melee/db/dbinit.c`, and uses across db, fighter, game-mode, menu, map, library, and toy/display code. The PR title says the rename was based on an assert, but the loaded slice does not include the assert text itself. Several touched files also show formatting-only churn around long expressions, includes, casts, and line wrapping.
+
+Postmortem JSON: `prs/pr-2678/postmortem/postmortem.json`
+
+## PR #2677: fix: upgrade openssl to 0.10.78 (CVE-2026-41676)
+
+Status: agent_completed
+Type: tooling_dependency_security_update
+Systems: repo-root;rust-cargo
+
+Security/tooling PR updating Rust OpenSSL lockfile entries in Cargo.lock after a Trivy report for CVE-2026-41676. The PR body claims an openssl upgrade from 0.10.63 to 0.10.78, but the diff shows openssl 0.10.63 to 0.10.81 and openssl-sys 0.9.99 to 0.9.117.
+
+Postmortem JSON: `prs/pr-2677/postmortem/postmortem.json`
+
+## PR #2676: Use HSD assert macros for hand-expanded asserts
+
+Status: agent_completed
+Type: code-quality assert macro cleanup
+Systems: fighter;game-mode;item;library;melee-core;stage;sysdolphin-baselib;menus;camera;debug;player
+
+PR #2676 was a broad code-quality cleanup, split from #2671, converting hand-expanded __assert and OSReport+__assert patterns to HSD_ASSERT, HSD_ASSERTMSG, and HSD_ASSERTREPORT where the file argument was __FILE__ or the owning file basename. The PR body reports 102 of 107 sites converted across about 50 files, with 5 non-converted sites left expanded and annotated because macro form did not byte-match or needed structural work. The author reported all 1046 compiled objects remained byte-identical and main.dol sha1 was unchanged.
+
+Postmortem JSON: `prs/pr-2676/postmortem/postmortem.json`
+
+## PR #2675: Replace raw 0x10 with JOBJ_HIDDEN in HSD_JObj flag calls
+
+Status: agent_completed
+Type: code_style_macro_replacement
+Systems: effect;game-mode;stage;interface;item;menu;toy;melee-core
+
+Code-style PR replacing raw hidden-flag literals in HSD_JObj flag calls with the named JOBJ_HIDDEN macro across 505 call sites in 73 files. The PR body says the sweep was syntax-aware, limited to HSD_JObj{Set,Clear}Flags[All] flag arguments, left composite masks and other flag values untouched, and verified all 1046 compiled objects plus main.dol byte-identical by sha1.
+
+Postmortem JSON: `prs/pr-2675/postmortem/postmortem.json`
+
+## PR #2674: link itseakchain
+
+Status: agent_completed
+Type: decomp-matching
+Systems: item;config;repo-root
+
+Linked the item translation unit src/melee/it/items/itseakchain.c by switching it from NonMatching to Matching, with small C declaration/local-name adjustments and symbols.txt local-label updates for nearby .sdata/.sdata2 entries. The bot report records 3 new matches for itseakchain: .sdata2, it_802BAF2C, and it_802BCB88.
+
+Postmortem JSON: `prs/pr-2674/postmortem/postmortem.json`
+
+## PR #2673: link vi0502
+
+Status: agent_completed
+Type: decomp-matching
+Systems: melee/vi;config/GALE01;configure
+
+Linked and marked `melee/vi/vi0502.c` as matching. The PR restructures vi0502-local data into a `Vi0502Data` aggregate at `un_804000D0`, uses that aggregate for initial position and archive-name strings, adjusts local temporaries and argument extraction to match `vi0502_8031E124` and `un_8031E444_OnEnter`, and updates symbol metadata scopes/names for vi0502-related data. The automated report records five new matches including both touched functions and vi0502 data sections.
+
+Postmortem JSON: `prs/pr-2673/postmortem/postmortem.json`
+
+## PR #2672: [WIP] Decomp Progress: Full Session Delta (Big PR — Pruning & Splitting Down)
+
+Status: agent_completed
+Type: decomp-progress-snapshot
+Systems: gm;gr;mn;ft;cm;if;lb;mp;ty;it;sysdolphin;extern/dolphin
+
+Closed, unmerged WIP draft PR opened as a large full-session decomp progress snapshot intended to be pruned and split into smaller per-subsystem PRs. The loaded slice has no diff and no changed-file metadata, but the PR body claims 121 files touched across many subsystems, 119 new exact matches, 229 improved functions, and no local regressions; the bot report separately reports GALE01 gains of 132 new matches, 254 improvements, +82232 matched-code bytes, and +2440 matched-data bytes.
+
+Postmortem JSON: `prs/pr-2672/postmortem/postmortem.json`
+
+## PR #2671: Use HSD assert macros for hand-expanded asserts
+
+Status: agent_completed
+Type: cleanup
+Systems: .github;tools;fighter;game-mode;ground-stage;item;library;menu;sysdolphin-baselib
+
+Draft PR sweeping hand-expanded __assert/OSReport patterns into HSD_ASSERT, HSD_ASSERTMSG, and HSD_ASSERTREPORT where the filename argument was __FILE__ or the current basename, plus adding an assert-macros checker and style-check workflow. The PR was closed unmerged with reviewer direction to split source refactors from checker integration and fold checks into #2670.
+
+Postmortem JSON: `prs/pr-2671/postmortem/postmortem.json`
+
+## PR #2670: Implement style check script and CI
+
+Status: agent_completed
+Type: tooling
+Systems: .github/workflows;tools/check;src linting
+
+Tooling-only PR that added a Python 3.12 style-check module and CI workflow for two swept decomp style issues: raw JOBJ hidden flag literals in HSD_JObj flag calls and direct __assert calls that can use HSD assert macros. Review drove module layout, opt-out check flags, melee-issues-like output and exit codes, GitHub Actions annotations, tests kept out of CI, and src-only CI linting.
+
+Postmortem JSON: `prs/pr-2670/postmortem/postmortem.json`
+
+## PR #2669: Disable MWCC warning errors
+
+Status: agent_completed
+Type: tooling_warning_policy_and_warning_cleanup
+Systems: .github;repo-root;MSL;melee-core;fighter;game-mode;stage;interface;item;library;minor-mode;collision;toy;video;sysdolphin-baselib
+
+PR #2669 removed MWCC warnings-as-errors from configure.py, changed the packaged melee-mwcc wrapper to use -warn off, added warning suppressions for issue-checker compatibility, and made broad warning-cleanup edits across 40 files, especially callback function-pointer casts, prototype/C99 fixes, enum casts, and C99-compatible literal changes. The PR body reports Issues: OK and build/GALE01/main.dol: OK; a bot report also recorded one new ifstatus match.
+
+Postmortem JSON: `prs/pr-2669/postmortem/postmortem.json`
+
+## PR #2668: Improve mn menu declaration-order matches
+
+Status: agent_completed
+Type: decomp-matching
+Systems: mn menu;melee-core
+
+Small mn menu decomp-matching PR that mostly reordered local declarations, with one local assignment/order adjustment in mnsnap, to improve MWCC register allocation scores across mninfo, mnmainrule, mnsnap, mnsound, and mnstagesw. The PR body and bot report cite percentage improvements but no touched function reached 100% in the loaded evidence.
+
+Postmortem JSON: `prs/pr-2668/postmortem/postmortem.json`
+
+## PR #2666: zako matches ftcoattack100
+
+Status: agent_completed
+Type: decomp-matching
+Systems: fighter;ftCommon;Attack100;zako
+
+Matched several functions in src/melee/ft/chara/ftCommon/ftCo_Attack100.c for the zako/Attack100 work. The PR body says it was ported from stephenjayakar:pr-15 (#2238) and reworked to avoid regressions to fn_800DAA40 and fn_800DAD18. The diff removes an unnecessary function-pointer cast, adjusts local declarations, uses direct user_data access with PAD_STACK in fn_800DAA40, and adds narrow wrapper calls around fn_800DAA40 and fn_800DAD18 callsites. Bot report records 4 new matches in the ftCo_Attack100 unit.
+
+Postmortem JSON: `prs/pr-2666/postmortem/postmortem.json`
+
+## PR #2665: link itdrop
+
+Status: agent_completed
+Type: decomp-matching
+Systems: item;itdrop;configure;GALE01 symbols
+
+PR 2665 linked src/melee/it/itdrop.c by changing configure.py from NonMatching to Matching, adjusting itdrop.c stack padding and zero-float handling, and updating GALE01 .sdata2 symbol metadata around 0x804DC6B8. The bot report shows two new function matches in main/melee/it/itdrop, it_8026F3D4 and it_8026F6BC, while also reporting a broken .sdata2 match.
+
+Postmortem JSON: `prs/pr-2665/postmortem/postmortem.json`
+
+## PR #2664: link ftkirbyyoshiegg
+
+Status: agent_completed
+Type: decomp-matching
+Systems: fighter;ftKirby;config;repo-root
+
+PR 2664 links `ftkirbyyoshiegg.c` by changing its configure status from NonMatching to Matching. The main code change makes `ftKb_SpecialNYs_8010AC78` match by moving an `ftHurtboxInit` local into the caller, passing it into `inlineB0`, keeping a narrow `PAD_STACK(0x10)` in the caller, using `GET_JOBJ(victim)`, and updating `ftKb_SpecialNYs_801093A0` to accept a `Fighter_GObj*` argument at the declaration, definition, and call site. Symbol metadata also changes several ftKirby `.sdata` string and `.sdata2` float entries from global address-style names to local labels. Bot report evidence records one new match for `ftKb_SpecialNYs_8010AC78` and linked-code progress.
+
+Postmortem JSON: `prs/pr-2664/postmortem/postmortem.json`
+
+## PR #2663: link itseakneedlthrown
+
+Status: agent_completed
+Type: decomp-matching
+Systems: item;config;repo-root
+
+Matched and linked the Sheik needle thrown item TU by changing itseakneedlethrown.c source shape, marking the object Matching in configure.py, and adjusting GALE01 symbol metadata for local sdata/sdata2 literals. The bot report recorded new matches for the unit's .data, .sdata2, and two collision functions.
+
+Postmortem JSON: `prs/pr-2663/postmortem/postmortem.json`
+
+## PR #2662: Link Quatlib
+
+Status: agent_completed
+Type: decomp-matching
+Systems: sysdolphin/baselib;config/GALE01;configure
+
+PR 2662 linked sysdolphin/baselib/quatlib.c by changing it from NonMatching to Matching, adjusting quatlib source expressions and stack padding, and converting several quatlib rodata/sdata2 symbols from global HSD_QuatLib_* names to local @ labels. The bot report records four new matches: HSD_QuatLib_8037EC4C, MatToQuat, .sdata2, and .rodata for main/sysdolphin/baselib/quatlib.
+
+Postmortem JSON: `prs/pr-2662/postmortem/postmortem.json`
+
+## PR #2661: Fix MatToQuat to 100% match
+
+Status: agent_completed
+Type: decomp-matching
+Systems: src;sysdolphin;baselib;quatlib
+
+PR #2661 attempted to make MatToQuat in src/sysdolphin/baselib/quatlib.c match by reducing stack usage. The visible diff removes a 99.9%-match TODO, removes local f32 tr, and reuses local s for the trace expression before sqrtf. Bot output reported one new MatToQuat match from 99.92% to 100.00%, but the PR was closed unmerged and an issue comment says it was superseded by PR #2662.
+
+Postmortem JSON: `prs/pr-2661/postmortem/postmortem.json`
+
+## PR #2660: Improve mnDiagram input and init matching
+
+Status: agent_completed
+Type: decomp-matching
+Systems: melee-core;menu;mnDiagram;VS Records
+
+PR #2660 improved VS Records mnDiagram matching, mainly by reshaping mnDiagram_InputProc, mnDiagram2_HandleInput, and diagram init paths, adding visible-entry helper use, refining diagram asset/table overlays and signatures, and updating related symbols and headers. Review focused on avoiding data/string/floating-literal regressions, using readable flags, and considering natural loops for moved scan helpers.
+
+Postmortem JSON: `prs/pr-2660/postmortem/postmortem.json`
+
 ## PR #2659: Melee decomp: SysDolphin
 
 Status: agent_completed
 Type: decomp-matching
-Systems: src/sysdolphin/baselib;axdriver;cobj;particle;sislib
+Systems: src/sysdolphin/baselib
 
-Open SysDolphin exact-match decomp PR touching four baselib files. The PR body claims 2 newly matched functions with clean isolated and full-ship regression verification. Bot report identifies new matches for AXDriver_8038E498 and fn_80393C14, plus improvements in particle .data, sislib functions, and HSD_CObjGetLeftVector.
+Exact-match SysDolphin decomp slice touching four baselib files. The PR body claims 2 newly matched functions with clean runner validation; the bot report names AXDriver_8038E498 and fn_80393C14 as new matches, plus score improvements in sislib and cobj. Review discussion specifically flags particle.c changes: a prior static data change was called out as a regression, and newly added pragmas were noted as recommended against.
 
 Postmortem JSON: `prs/pr-2659/postmortem/postmortem.json`
 
@@ -16,7 +406,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: melee-if;melee-mn;melee-ty
 
-Open decompilation PR touching IF, MN, and TY files. The PR body claims exact-match decompilation across 6 files with 8 newly matched functions, validated by decomp-orchestrator against baseline 0b15e71345 using ninja changes_all with a clean regression report. The loaded diff shows matching-oriented source reshaping, including local lifetime/scope changes, helper inlines, casts, PAD_STACK, volatile local use, and data/string clustering in mncount and tydisplay.
+Exact-match decompilation PR touching IF textlib, MN count/event/main, and TY display/list code, plus a TY header cleanup. The PR body claims 6 file(s) and 8 newly matched functions with clean isolated and full-ship verification; changed-file metadata also includes toy.h. Review centered on avoiding data/extern-driven regressions, checking GET_JOBJ versus a local inline, and inlining TU-owned float literals.
 
 Postmortem JSON: `prs/pr-2658/postmortem/postmortem.json`
 
@@ -24,9 +414,9 @@ Postmortem JSON: `prs/pr-2658/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;ground;GR
+Systems: ground;stage;grcastle;grgreatbay;gricemt;grvenom
 
-PR #2657 is an open GR/stage decompilation slice touching five src/melee/gr files. The PR body claims exact-match decompilation of 5 files with 4 newly matched functions, and the bot report lists new matches for grCastle_801CD658, grKongo_801D7BBC, grIceMt_801F9ACC, and grVenom_80204284 plus 10 unmatched-item improvements.
+Ground-system decomp matching PR touching Castle, Great Bay, Ice Mountain, and Venom source files in the final changed-file metadata. The PR body says exact-match decompilation of 5 files and 4 newly matched functions, while final changed-file metadata lists 4 files; review discussion also references grKongo changes that the author says were removed. Evidence supports final code changes around loop cleanup, register/stack-sensitive local ordering, accessor choice, assert cleanup, and avoiding data-order-driven literal/global substitutions.
 
 Postmortem JSON: `prs/pr-2657/postmortem/postmortem.json`
 
@@ -34,9 +424,9 @@ Postmortem JSON: `prs/pr-2657/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: game-mode;stage;ground
+Systems: game-mode;ground
 
-Open GM decompilation PR claiming exact-match work across 7 GM source files, with metadata also showing small ground.c/ground.h signature edits. The bot report records 9 newly matched functions and 15 additional unmatched-item improvements, including GM result, main GM, classic/training-mode GM, register-clear, and 1BA8 work.
+Exact-match decompilation work for GM/game-mode files, with small ground header/source edits. The PR body claims 7 decompiled files and 9 newly matched functions; changed-file metadata lists 9 touched files including ground.c and ground.h. Review focused on avoiding data-order externs, avoiding expanded JObj assert code, replacing raw u8 pointer math with typed struct fields, and restoring a likely source for-loop shape.
 
 Postmortem JSON: `prs/pr-2656/postmortem/postmortem.json`
 
@@ -44,9 +434,9 @@ Postmortem JSON: `prs/pr-2656/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;fighter-common;kirby;fighter-collision
+Systems: fighter;fighter-common;fighter-collision;kirby;samus-grapple
 
-Open fighter decompilation PR touching four FT files. PR body claims exact-match decompilation of 4 newly matched functions, verified in isolation with ninja changes_all and clean regression report; bot report lists 4 new matches and 8 additional unmatched-item improvements.
+Exact-match fighter decompilation PR touching four FT files, with 3 bot-reported new matches and additional unmatched-function score improvements. The most substantive review thread resolved an ftcoll.c .sdata2/declaration-order issue by restoring the original .sdata2 block placement, removing extern redeclarations, inlining ordinary float literal uses, and using `if (dmg)` truthiness where MWCC needed variable-first `fcmpu` for matching.
 
 Postmortem JSON: `prs/pr-2655/postmortem/postmortem.json`
 
@@ -54,9 +444,9 @@ Postmortem JSON: `prs/pr-2655/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: tooling
-Systems: tools/wiki_tu.py;wiki TU page;GALE01 report tooling
+Systems: tools/wiki_tu.py;Wiki TU page;GALE01 report tooling
 
-PR 2654 updated the Wiki translation-unit reporting script to display and classify code progress using fuzzy code metrics instead of strictly matched code metrics. It also made byte-size formatting replace both singular and plural byte words with B via a compiled regex.
+Tooling/documentation PR updating tools/wiki_tu.py so the Wiki TU page reports code progress using fuzzy code measures and fuzzy match percentages rather than strict matched_code measures. It also normalizes formatted byte strings with a bytes/byte regex and adds a float measure helper.
 
 Postmortem JSON: `prs/pr-2654/postmortem/postmortem.json`
 
@@ -66,7 +456,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: item;config;repo-root
 
-PR #2653 matched and linked the item translation units itwstar.c and itnessyoyo.c, adjusted item symbol metadata and logic-table references, and included several nearby item/itcoll matching cleanups. The bot report recorded +8152 matched-code bytes, +9056 linked-code bytes, 17 new matches, 8 unmatched-item improvements, and 1 unmatched-item regression.
+Matched and linked item translation units itwstar.c and itnessyoyo.c, with supporting item-code cleanup, symbol metadata updates, and configure.py promotion of both TUs from NonMatching to Matching. Bot report recorded +8152 matched-code bytes, +9056 linked-code bytes, 17 new matches, 8 unmatched-item improvements, and 1 small unmatched-item regression.
 
 Postmortem JSON: `prs/pr-2653/postmortem/postmortem.json`
 
@@ -74,9 +464,9 @@ Postmortem JSON: `prs/pr-2653/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: tooling_fix
-Systems: tooling;wiki_tu
+Systems: tools/wiki_tu.py;wiki_tu;documentation tooling
 
-Small tooling fix in tools/wiki_tu.py: ColumnIndex.FILE was changed from auto() to an explicit 0, leaving later IntEnum members to continue with auto(). No PR body, comments, reviews, or validation output were present in the slice.
+PR 2652 is a one-line tooling/documentation fix in `tools/wiki_tu.py`: `ColumnIndex.FILE` was changed from `auto()` to explicit `0`, leaving later enum members as `auto()`.
 
 Postmortem JSON: `prs/pr-2652/postmortem/postmortem.json`
 
@@ -84,9 +474,9 @@ Postmortem JSON: `prs/pr-2652/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: tooling_fix
-Systems: tooling;wiki_tu
+Systems: tools;wiki_tu
 
-Tooling-only PR updating `tools/wiki_tu.py` to replace hard-coded wiki table column numbers with a `ColumnIndex` IntEnum and to use named indices for file, Discord, and GitHub columns when reading assignee data.
+Tooling-only PR that updates `tools/wiki_tu.py` to replace hard-coded wiki table column numbers with a `ColumnIndex` IntEnum and uses those named indices when reading file, Discord, and GitHub assignee columns.
 
 Postmortem JSON: `prs/pr-2651/postmortem/postmortem.json`
 
@@ -94,9 +484,9 @@ Postmortem JSON: `prs/pr-2651/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee/lb;config/GALE01;build configuration
+Systems: library;lb;config;repo-root
 
-Linked src/melee/lb/lb_00CE.c by marking it Matching in configure.py, adjusting lb_00CE .sdata2 symbol metadata from global lb_804D7Axx names to local @ labels, adding a small sdata2_order helper to force float/double literal ordering, and simplifying lb_8000D148 distance-squared expressions. The bot report credited 2 new matches: lb_00CE .sdata2 to 100% and lb_8000D148 to 100%.
+PR 2650 linked src/melee/lb/lb_00CE.c by moving the object from NonMatching to Matching, updating lb_00CE .sdata2 symbol metadata from global lb_804D-address names to local @ labels, adding an sdata2_order helper that references float/double constants, and simplifying squared-distance expressions in lb_8000D148. The bot report records 2 new matches: lb_00CE .sdata2 to 100% and lb_8000D148 to 100%.
 
 Postmortem JSON: `prs/pr-2650/postmortem/postmortem.json`
 
@@ -106,7 +496,7 @@ Status: agent_completed
 Type: tooling
 Systems: tools;wiki_tu
 
-Tooling/documentation PR updating tools/wiki_tu.py so the Wiki translation-unit page shows remaining code bytes, computes that value from total_code minus matched_code, and sorts incomplete TU lists by the remaining-code count.
+Updated the Wiki translation-unit tooling page generator to compute remaining .text/code bytes per unit, show a Remaining column in the full table, and sort in-progress and data-left unit lists by remaining code bytes.
 
 Postmortem JSON: `prs/pr-2649/postmortem/postmortem.json`
 
@@ -114,9 +504,9 @@ Postmortem JSON: `prs/pr-2649/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: ci-maintenance
-Systems: .github;GitHub Actions;CI;Pages deployment;Nix/Cachix
+Systems: .github;github-workflows;ci;build;pages;nix
 
-Infrastructure-only PR updating pinned GitHub Actions versions in the build workflow. The only changed file was .github/workflows/build.yml, with version bumps for checkout, artifact upload, Docker registry login, Pages deployment actions, and Cachix/Nix setup actions. The PR body was empty; an automated decomp-dev bot comment reported GALE01 no changes.
+Maintenance-only PR updating GitHub Actions versions in .github/workflows/build.yml. The diff changes checkout, artifact upload, Docker login, GitHub Pages, and Cachix/Nix setup action versions. No decomp source files, headers, symbols, splits, or matching code were changed.
 
 Postmortem JSON: `prs/pr-2648/postmortem/postmortem.json`
 
@@ -124,9 +514,9 @@ Postmortem JSON: `prs/pr-2648/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;player;map;menus
+Systems: melee-core;player;map-collision;menus
 
-PR #2647 matched three functions across pltrick, mplib, and mncount with small source-shape changes: removing a volatile stack-alignment workaround in pl_80037C60, indexing groundCollVtx directly from j_inner->vtx_start in mpLib_80057424/mpJointListAdd, and adjusting mnCount_8025092C inline counter placement plus PAD_STACK size. The bot report records 3 new matches and +2552 matched bytes.
+Small matching PR across player trick stats, map collision joint vertex setup, and menu count ranking. It removed a volatile stack-alignment workaround in pl_80037C60 by reinterpreting the incoming s32 argument as union Struct2070, adjusted mpLib_80057424/mpJointListAdd register allocation by indexing groundCollVtx directly from j_inner->vtx_start, and matched mnCount_8025092C by passing the inline loop counter as a parameter plus increasing PAD_STACK from 4 to 12. Bot report records three new 100% matches.
 
 Postmortem JSON: `prs/pr-2647/postmortem/postmortem.json`
 
@@ -134,19 +524,19 @@ Postmortem JSON: `prs/pr-2647/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: Great Bay stage;ground;config/GALE01 symbols
+Systems: stage/greatbay;config/GALE01/symbols
 
-Matched Great Bay stage function grGreatBay_801F499C by adjusting local lifetime/codegen shape around Vec3 position use and rand_range-to-HSD_JObjSetTranslateX expressions, and updated Great Bay .data symbol boundaries for grGb_803E3F6C/string objects to fix data references for grGreatBay_801F4300.
+PR #2646 adjusted Great Bay stage code and symbol metadata. In grGreatBay_801F499C, it removed temporary s32 max_x locals by folding rand_range(...) directly into HSD_JObjSetTranslateX calls, and introduced a separate Vec3 pos2 in case 2. In symbols.txt, it split the grGb_803E3F6C .data blob into a smaller object plus three string symbols to fix data references for grGreatBay_801F4300. Bot output confirms one new matched code item for grGreatBay_801F499C; the PR body claims grGreatBay_801F4300 matched, but the loaded bot report excerpt does not list it as a new code match.
 
 Postmortem JSON: `prs/pr-2646/postmortem/postmortem.json`
 
 ## PR #2645: Link `grinishie2`
 
 Status: agent_completed
-Type: decomp-matching metadata link
-Systems: config/GALE01;configure.py;melee/gr/grinishie2.c
+Type: decomp-matching
+Systems: config/GALE01;repo-root;melee/gr/grinishie2
 
-PR 2645 linked `melee/gr/grinishie2.c` by changing its object status from NonMatching to Matching in `configure.py` and adjusting GALE01 split/symbol metadata for the unit's data, sdata, sbss, and sdata2 ranges. Bot report evidence says this produced linked-code/data progress and two new matches for `main/melee/gr/grinishie2`: `.sbss` to 100% and `.data` to 100%. No PR body or human review comments were present.
+PR 2645 linked `melee/gr/grinishie2.c` by changing it from NonMatching to Matching in `configure.py` and adjusted GALE01 split/symbol metadata for its data, sdata, sbss, and sdata2 ranges. The bot report shows linked code increased by 5176 bytes, matched data increased by 538 bytes, linked data increased by 570 bytes, and two new matches for `main/melee/gr/grinishie2` `.sbss` and `.data`.
 
 Postmortem JSON: `prs/pr-2645/postmortem/postmortem.json`
 
@@ -154,9 +544,9 @@ Postmortem JSON: `prs/pr-2645/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;grInishie2;ground
+Systems: stage;grinishie2
 
-A one-line stage decomp matching PR adjusted the stack padding in src/melee/gr/grinishie2.c for grInishie2_801FD4F0 from PAD_STACK(16) to PAD_STACK(12). The PR body says the prior pad placed a local Vec3 at 0x24(r1), while the adjusted pad moves it to the expected 0x20(r1), producing a 100% objdiff match. The bot report confirms one new match for main/melee/gr/grinishie2, grInishie2_801FD4F0, from 99.91% to 100.00%.
+Matched stage function grInishie2_801FD4F0 by reducing a PAD_STACK size from 16 to 12 in src/melee/gr/grinishie2.c, moving a local Vec3 stack slot from 0x24(r1) to the expected 0x20(r1). PR body reports objdiff target=100.0/current=100.0, and the bot report records one new match for main/melee/gr/grinishie2.
 
 Postmortem JSON: `prs/pr-2643/postmortem/postmortem.json`
 
@@ -164,9 +554,9 @@ Postmortem JSON: `prs/pr-2643/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: dependency_security_update
-Systems: repo-root;rust-tooling
+Systems: repo-root;rust-cargo-lock
 
-Automated security dependency update PR that changed Cargo.lock to move mio from 0.8.10 to 0.8.11, update the crate checksum, and update the Cargo.lock format version from 3 to 4. The PR body claims this addresses CVE-2024-27308 based on trivy output, but the loaded diff only shows Cargo.lock changes and no review discussion.
+Security/tooling PR that updated the locked Rust dependency mio from 0.8.10 to 0.8.11 in Cargo.lock, including the corresponding checksum and Cargo.lock format version change. The PR body frames the update as addressing CVE-2024-27308 from a Trivy scan, but the loaded diff only shows Cargo.lock changes and no review discussion.
 
 Postmortem JSON: `prs/pr-2642/postmortem/postmortem.json`
 
@@ -174,9 +564,9 @@ Postmortem JSON: `prs/pr-2642/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: cleanup
-Systems: src/sysdolphin/baselib;config/GALE01
+Systems: sysdolphin;baselib;sislib;texp;config/GALE01
 
-HSD cleanup PR touching SysDolphin baselib TExp and SisLib. The PR reordered early TExp allocation/free helpers, refactored TExpAssignReg conditionals, renamed SisLib allocator/free functions and allocator block fields, updated matching headers/forward declarations, and renamed related symbols. The only loaded validation evidence is an automated report showing HSD_SisLib_Free improved from 92.57% to 99.82%.
+Cleanup PR for sysdolphin baselib HSD code. It reordered TExp allocation/free helpers near HSD_TExpGetType, rewrote parts of TExpAssignReg into clearer nested conditionals, and renamed SisLib allocator symbols/types/fields from address or unknown names to role names such as HSD_SisLib_Alloc, HSD_SisLib_Free, SisBlock, next, data, free_head, and used_head. A bot report recorded one unmatched-item improvement for HSD_SisLib_Free from 92.57% to 99.82%.
 
 Postmortem JSON: `prs/pr-2641/postmortem/postmortem.json`
 
@@ -184,9 +574,9 @@ Postmortem JSON: `prs/pr-2641/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;mn;mndiagram;VS Records
+Systems: melee-core;menu;mnDiagram;VS Records
 
-PR #2640 reworked VS Records mnDiagram source shapes in src/melee/mn/mndiagram.c and made a small static header update, improving the mndiagram TU fuzzy text match from 92.70628% to 96.47131% and increasing matched functions from 30 to 33. The evidence emphasizes sorting, popup, cursor, and table-rendering rewrites, with local materialization of mndiagram constants to avoid .sdata2 regression.
+PR #2640 reworked source shapes in the VS Records mnDiagram translation unit, primarily in sorting, popup, cursor, and table-rendering code. The PR body reports mndiagram .text fuzzy match improvement from 92.70628% to 96.47131%, matched functions from 30 to 33, and .sdata2 improvement from 84.09090% to 88.63636%. The bot report confirms 3 new function matches and 10 additional improvements in main/melee/mn/mndiagram.
 
 Postmortem JSON: `prs/pr-2640/postmortem/postmortem.json`
 
@@ -194,19 +584,19 @@ Postmortem JSON: `prs/pr-2640/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;game-mode;stage;interface;library
+Systems: fighter;game-mode;stage;interface;library;melee-core
 
-Small multi-file decomp matching PR touching fighter Kirby, game-mode, result-screen, stage, interface, and snapshot code. Bot report records +940 matched-code bytes, 6 new 100% matches, and 2 unmatched-item improvements. The diff includes signature/prototype corrections, callsite argument reordering, assert macro cleanup, pointer-lifetime/register-shape steering, and narrow PAD_STACK/local temporary tactics.
+Small matching-focused PR touching fighter, game-mode, stage, interface, and library files. The bot report records +940 matched bytes, 6 new matches, and 2 unmatched-item improvements. Changes include recovered or match-forcing signatures, callsite argument reordering, HSD_ASSERT cleanup for a raw __assert, temporary locals and PAD_STACK-style codegen tactics, and header prototype updates.
 
 Postmortem JSON: `prs/pr-2639/postmortem/postmortem.json`
 
 ## PR #2638: Link to decomp.dev instead of repo on Wiki TU page
 
 Status: agent_completed
-Type: tooling_documentation
-Systems: tools;wiki_tu
+Type: tooling_documentation_link_update
+Systems: tools/wiki_tu.py;wiki TU page generation;decomp.dev links
 
-PR 2638 updated the Wiki TU page generator so translation-unit links point to decomp.dev with a URL-encoded unit query instead of repository blob paths. The change also refactored file/link construction into a helper and modernized a few Python type annotations.
+PR 2638 updates the Wiki TU generation script so translation-unit links point to decomp.dev unit pages instead of repository blob paths. The change is isolated to tools/wiki_tu.py and also modernizes a few Python type annotations.
 
 Postmortem JSON: `prs/pr-2638/postmortem/postmortem.json`
 
@@ -216,7 +606,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: game-mode;gmopening;config;symbols
 
-Marked melee/gm/gmopening.c as Matching and adjusted small-data/BSS symbol layout metadata and gmopening .sbss declarations to resolve a full-link SDA offset mismatch involving gm_804D67EC.
+PR #2637 marked src/melee/gm/gmopening.c as Matching and adjusted small-data/BSS/data symbol layout metadata and declarations so the full link aligned, specifically around gmopening-owned .sbss symbols referenced externally through SDA.
 
 Postmortem JSON: `prs/pr-2637/postmortem/postmortem.json`
 
@@ -224,9 +614,9 @@ Postmortem JSON: `prs/pr-2637/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: camera;common-fighter;game-mode;menus;map-collision;ty-display;sysdolphin-baselib
+Systems: camera;fighter-common;game-mode;menus;map-collision;ty-display;sysdolphin-baselib
 
-PR #2636 made small split-up matching improvements across camera, common fighter bury code, GM/MN menu code, TY display, map collision, and sysdolphin/baselib. The PR body and bot regression report claim 5 new exact matches, 8 unmatched-item improvements, +1608 matched code bytes, +24 matched data bytes, and no broken, fuzzy, or metric regressions.
+Split-up matching PR touching 12 files across camera, common fighter bury code, GM/MN menu code, map collision, TY display, and sysdolphin/baselib. The PR body and bot report claim 5 new exact matches, 8 unmatched-item improvements, +1608 matched code bytes, +24 matched data bytes, and no reported regressions.
 
 Postmortem JSON: `prs/pr-2636/postmortem/postmortem.json`
 
@@ -234,9 +624,9 @@ Postmortem JSON: `prs/pr-2636/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: src;sysdolphin;baselib;cobj
+Systems: src/sysdolphin/baselib;cobj
 
-PR 2635 made a focused decomp-matching cleanup in `src/sysdolphin/baselib/cobj.c`: inside `HSD_CObjGetLeftVector`, a duplicated inline reconstruction of up-vector selection and fallback initialization was replaced with a direct call to `HSD_CObjGetUpVector(cobj, &up)`. The bot report recorded `HSD_CObjGetLeftVector` improving from 33.92% to 98.65%, but the evidence does not show a full match.
+Small decomp-matching cleanup in sysdolphin baselib camera object code: HSD_CObjGetLeftVector replaced an inline/generated-looking up-vector computation block with a call to HSD_CObjGetUpVector(cobj, &up). The bot report recorded HSD_CObjGetLeftVector improving from 33.92% to 98.65%, with +412 bytes, but no human review comments or PR body rationale were present.
 
 Postmortem JSON: `prs/pr-2635/postmortem/postmortem.json`
 
@@ -244,19 +634,19 @@ Postmortem JSON: `prs/pr-2635/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: item;samus-missile;link-bomb;build-config
+Systems: item;samus-missile;link-bomb;build-configuration
 
-PR #2634 matched and linked the Samus missile item translation unit by changing configure.py from NonMatching to Matching for itsamusmissile.c, reorganizing and typing functions in src/melee/it/items/itsamusmissile.c and its header, and making small companion cleanups in itlinkbomb.c.
+PR #2634 converted Samus Missile item TU configuration from NonMatching to Matching, reorganized itsamusmissile.c definitions including the item state table and small callback bodies, cleaned control flow in missile turn logic, updated several Samus Missile prototypes, and made small Link Bomb cleanup changes that reuse existing helper calls and boolean negation style.
 
 Postmortem JSON: `prs/pr-2634/postmortem/postmortem.json`
 
 ## PR #2633: Split and link `ftkirbyspecialhi`
 
 Status: agent_completed
-Type: split_and_link_matched_object
-Systems: config;fighter;ftKirby;repo-root
+Type: split_and_link_matching_object
+Systems: fighter;Kirby;config;repo-root
 
-PR 2633 split Kirby SpecialHi code out of the previous ftkirbyspecialn range into a new matched object, adding ftkirbyspecialhi.c/.h, updating GALE01 split ranges and configure.py, moving SpecialHi prototypes out of ftkirby.h, and wiring the new header include into ftkirby.c. The code slice shows several explicit matching-only tactics such as PAD_STACK, padding locals, a fake permuter match comment, and a comma-operator regalloc comment.
+PR 2633 split Kirby SpecialHi code out of the existing Kirby SpecialN translation unit, added a new ftkirbyspecialhi.c/.h pair, marked the new object as Matching, updated GALE01 split ranges, and moved SpecialHi declarations/includes to the new owning header. The diff also preserves several explicit matching tactics such as PAD_STACK, fake-match comments, dummy stack locals, and a comma-operator regalloc comment; no human review comments explain those tactics.
 
 Postmortem JSON: `prs/pr-2633/postmortem/postmortem.json`
 
@@ -264,9 +654,9 @@ Postmortem JSON: `prs/pr-2633/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: extern/dolphin/src/dolphin/thp;src/sysdolphin/baselib;external-sdk;Dolphin support
+Systems: external-sdk;dolphin-thp;sysdolphin-baselib
 
-Path-split PR for Dolphin support matching improvements, scoped to extern/dolphin THP and sysdolphin baselib support code. Final changed-file metadata shows focused edits in THPDec, cobj, hsd_3B34, and synth. Bot reporting recorded three unmatched-item improvements, while review feedback rejected earlier particle string-data and cobj PAD_STACK-style changes that are not present in the final diff excerpt.
+Support-directory decomp/matching slice for Dolphin THP and sysdolphin baselib code. The final loaded diff changes four files: THPDec.c improves typed access/readability around __THPDecompressiMCURowNxN, hsd_3B34.c reorders local assignments, synth.c simplifies a sentinel comparison, and cobj.c removes a blank line. Bot reporting records three unmatched-item improvements, while review comments warn against earlier string-literal-to-data-symbol and PAD_STACK-style changes.
 
 Postmortem JSON: `prs/pr-2632/postmortem/postmortem.json`
 
@@ -276,7 +666,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: src/sysdolphin/baselib;SysDolphin;baselib
 
-Draft SysDolphin baselib matching-improvement slice split from #2617, touching cobj, hsd_3B34, particle, sislib, and synth. The diff mostly adjusts stack/local ordering, data/string relocation references, report/panic string arguments, and small expression forms. The PR was closed unmerged and explicitly superseded by combined Dolphin support split PR #2632.
+Closed draft SysDolphin baselib matching-improvement slice split from PR #2617, later superseded by combined Dolphin support split PR #2632. The diff touched five files under src/sysdolphin/baselib, mainly particle.c string/relocation rewrites and smaller stack, declaration-order, panic-string, and expression-shape changes.
 
 Postmortem JSON: `prs/pr-2631/postmortem/postmortem.json`
 
@@ -284,9 +674,9 @@ Postmortem JSON: `prs/pr-2631/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;vi;visual-scene
+Systems: melee-core;vi
 
-Path-sliced VI decomp improvement touching only src/melee/vi/vi0502.c. The diff refactors un_8031E444_OnEnter from byte-indexed arg access and a reused generic gobj local toward typed ViCharaDesc field access and role-specific GObj locals, with a decomp-dev bot report showing one unmatched-item improvement for main/melee/vi/vi0502: un_8031E444_OnEnter from 98.92% to 99.66%.
+Split PR #2630 touched only src/melee/vi/vi0502.c, improving un_8031E444_OnEnter in the VI subsystem. The diff replaces raw byte indexing of the entry argument with a ViCharaDesc pointer, introduces role-specific GObj locals for fog/light/camera/model objects, simplifies a GXColor assignment, and applies small codegen-sensitive expression/local changes inside the model loop. The decomp-dev bot reported one unmatched-item improvement for main/melee/vi/vi0502 un_8031E444_OnEnter from 98.92% to 99.66% (+4 bytes).
 
 Postmortem JSON: `prs/pr-2630/postmortem/postmortem.json`
 
@@ -294,29 +684,29 @@ Postmortem JSON: `prs/pr-2630/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;src/melee/ty;trophy list/display
+Systems: melee-core;src/melee/ty
 
-Small TY subsystem matching-improvement slice split from PR #2617. The loaded diff changes `src/melee/ty/tydisplay.c` and `src/melee/ty/tylist.c`, mostly by adjusting local lifetime/declaration order and reverting some semantic-looking struct-field accesses to offset-style fields. The decomp-dev report records two unmatched-item improvements: `fn_80313BD8` from 97.03% to 98.40% and `un_8031BC54` from 99.51% to 99.73%. No human review comments were present in the loaded slice.
+Small TY subsystem matching-improvement slice split from PR #2617. The loaded diff changes local variable ordering/use in `tydisplay.c` and field/access expressions in `tylist.c`; decomp-dev reported two unmatched-item improvements: `fn_80313BD8` from 97.03% to 98.40% and `un_8031BC54` from 99.51% to 99.73%. No human review comments were present in the loaded slice.
 
 Postmortem JSON: `prs/pr-2629/postmortem/postmortem.json`
 
 ## PR #2628: Improvements to split up: PL
 
 Status: agent_completed
-Type: decomp-matching local declaration order adjustment
-Systems: melee-core;src/melee/pl;pltrick
+Type: decomp-matching
+Systems: melee-core;pl;src/melee/pl
 
-Small PL subsystem decomp-matching slice split from #2617. The only changed file was src/melee/pl/pltrick.c, where local Fighter* declaration order in pl_80038144 was changed by moving attacker_fp after victim_fp. The decomp-dev bot reported one unmatched-item improvement for main/melee/pl/pltrick::pl_80038144, +5 bytes, from 98.26% to 98.73%. No human review comments were present in the loaded slice.
+Small PL subsystem matching slice split from PR #2617. The only loaded source change in src/melee/pl/pltrick.c reorders Fighter* local declarations inside pl_80038144, and the decomp-dev report records a +5 byte improvement for that unmatched item, from 98.26% to 98.73%. The PR body says the slice was isolated by path for review and passed git diff --check; no human review comments were loaded.
 
 Postmortem JSON: `prs/pr-2628/postmortem/postmortem.json`
 
 ## PR #2627: Improvements to split up: MP
 
 Status: agent_completed
-Type: rejected decomp-matching/data-layout change
-Systems: melee-core;mp
+Type: rejected decomp-matching/data-layout cleanup
+Systems: src/melee/mp;melee-core
 
-Closed, unmerged MP subsystem slice from a larger matching-improvement branch. It touched src/melee/mp/mpcoll.c and src/melee/mp/mplib.c. The visible diff moved a Vec3/PAD_STACK declaration in mpColl_80046224_LeftWall and collapsed several mpLib spawn vertex ID arrays into one larger array with #define pointer aliases. decomp-dev reported no changes for GALE01, and a reviewer closed the PR as incorrect, specifically calling out wrong size/offset implications and define usage as a regression.
+Closed, unmerged MP matching slice touching src/melee/mp/mpcoll.c and src/melee/mp/mplib.c. The diff moved a Vec3/PAD_STACK declaration in mpColl_80046224_LeftWall and merged several mpLib spawn vertex ID arrays into one larger array with pointer-offset #define aliases. A maintainer closed the PR as incorrect, specifically calling out wrong field-size implications based on offsets and the define usage as a regression. The decomp-dev report for this PR reported no changes.
 
 Postmortem JSON: `prs/pr-2627/postmortem/postmortem.json`
 
@@ -324,9 +714,9 @@ Postmortem JSON: `prs/pr-2627/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;mn-menu
+Systems: melee-menu;src/melee/mn
 
-Closed MN subsystem split PR from #2617. The loaded changed-file metadata and raw diff show a small code-matching/naming-oriented edit in src/melee/mn/mnmain.c: one argument in fn_8022AFEC was changed from mn_804A04F0.prev_menu to data->hovered_selection, and local declaration order in mn_8022B3A0 was adjusted, including moving StaticModelDesc* top earlier. Bot reporting recorded a small improvement for mn_8022B3A0. A reviewer also flagged a string-literal-to-variable replacement in src/melee/mn/mnnamenew.c as a regression, but that file is not present in the loaded changed-files metadata or raw diff excerpt.
+MN subsystem split PR from #2617. Loaded changed-file metadata and raw diff show a small `src/melee/mn/mnmain.c` change: one argument in `fn_8022AFEC` was changed from global `prev_menu` to `data->hovered_selection`, and local declaration order in `mn_8022B3A0` was adjusted, including moving `StaticModelDesc* top = &MenMainConTop_Top` before `PAD_STACK(16)`. A decomp-dev bot report recorded one unmatched-item improvement for `mn_8022B3A0` from 96.93% to 96.98%. Review feedback objected to a separate string-literal-to-variable replacement in `src/melee/mn/mnnamenew.c` as a regression.
 
 Postmortem JSON: `prs/pr-2626/postmortem/postmortem.json`
 
@@ -334,9 +724,9 @@ Postmortem JSON: `prs/pr-2626/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: library;lb;src/melee/lb
+Systems: library;src/melee/lb
 
-Directory-scoped LB matching slice split from #2617. It touched six files under src/melee/lb, with small expression, declaration-order, stack-padding, temporary-variable, and assignment-shape changes. The decomp-dev report recorded one new match, lb_80011E24 in main/melee/lb/lb_00F9, and five additional unmatched-item improvements.
+Path-scoped LB matching slice split from PR #2617. It touched six files under src/melee/lb, producing one reported new match for lb_80011E24 and small score improvements in five other LB functions. Changes are mostly local expression, declaration-order, temporary-lifetime, and assignment-shape adjustments.
 
 Postmortem JSON: `prs/pr-2625/postmortem/postmortem.json`
 
@@ -344,9 +734,9 @@ Postmortem JSON: `prs/pr-2625/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: item;src/melee/it
+Systems: item;itcoll;itarwinglaser;itkyasarin;itlinkhookshot;itsamusgrapple;itseakchain;itseakneedlethrown
 
-IT subsystem matching slice split from #2617 for easier review. It touched seven src/melee/it files, mostly small source-shape edits in item functions. The decomp-dev report recorded 9 improvements in unmatched items, while reviewer feedback flagged one regression in itseakchain.c where a float literal was replaced by a variable for ordering.
+Directory-split item subsystem matching PR for src/melee/it, separated from #2617. The final loaded diff makes small code-shape and declaration/lifetime changes across seven item files, with decomp-dev reporting 9 unmatched-item improvements and reviewer feedback against replacing an inline float constant with a data variable for ordering.
 
 Postmortem JSON: `prs/pr-2624/postmortem/postmortem.json`
 
@@ -356,7 +746,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: melee-core;if;soundtest
 
-Small IF subsystem matching slice. The final loaded diff changes `src/melee/if/soundtest.c` by explicitly zero-initializing `un_803FA258`. The PR body says the slice was split from #2617 for easier review, scoped to `src/melee/if`, and local `git diff --check` passed. decomp-dev reported one new soundtest match and several soundtest item improvements. Review comments on `src/melee/if/textlib.c` objected to renaming variables and using defines in their place, but the final changed-file metadata only lists `soundtest.c`.
+Small IF subsystem matching slice. The loaded changed-file metadata and raw diff show a one-line change in src/melee/if/soundtest.c, zero-initializing the global struct object un_803FA258. The PR body describes this as a split from #2617 scoped to src/melee/if, and decomp-dev reported one new match in main/melee/if/soundtest plus four unmatched-item improvements. Review comments on src/melee/if/textlib.c objected to replacing existing semantic variable names with address-style names/defines, but the loaded changed-files list does not include textlib.c, so those comments are retained as review evidence with slice inconsistency noted.
 
 Postmortem JSON: `prs/pr-2623/postmortem/postmortem.json`
 
@@ -366,7 +756,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: stage;ground;src/melee/gr
 
-Stage/ground matching-improvement slice for src/melee/gr, split from PR #2617 for easier review. The loaded diff and bot report show small code-match gains across multiple GR translation units, including three new matches and fifteen unmatched-item improvements. One reviewer comment flags a gricemt assert-related change as a regression, but gricemt is not present in the changed_files metadata for this slice.
+Directory-split matching-improvement PR for src/melee/gr. The loaded evidence shows small C-shape, local-variable, field-offset, and expression rewrites across Ground/stage files, with decomp-dev reporting 3 new matches and 15 unmatched-item improvements for this slice. One review comment flags a gricemt assert-related hunk as a regression, but gricemt is not present in the loaded changed-files list.
 
 Postmortem JSON: `prs/pr-2622/postmortem/postmortem.json`
 
@@ -374,9 +764,9 @@ Postmortem JSON: `prs/pr-2622/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: game-mode;gm;tournament;classic
+Systems: game-mode;gm
 
-GM subsystem matching slice split from #2617. The PR touched seven loaded src/melee/gm files with small code-shape, declaration-order, typed-field, and JObj API adjustments. The decomp-dev report recorded 2 new matches, gm_80164330 and fn_80185E34, plus 11 unmatched-item improvements in GM functions.
+GM subsystem decomp-matching slice split from #2617. The loaded diff changes seven files under src/melee/gm, mostly small source-shape improvements, local declaration/order tweaks, field access refinements, JObj helper usage corrections, and loop/index rewrites. Bot reporting for this PR slice cites 2 new matches and 11 unmatched-item improvements, including gm_80164330 and fn_80185E34 reaching 100%. One review comment flags that a constant should be retained instead of using a data symbol/value replacement in gm_1832.c.
 
 Postmortem JSON: `prs/pr-2621/postmortem/postmortem.json`
 
@@ -386,7 +776,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: fighter;ftCommon;ftKirby;ftNana;ftcoll;ftmaterial
 
-Fighter subsystem matching slice split from PR #2617. It touched nine src/melee/ft files, producing 6 new matches and 11 unmatched-item improvements in the decomp-dev report, including full matches for ftmaterial data, ftCo_800D730C, ftCo_80093BC0, ftCo_800978D4, ftMaterial_800BF260, and ftMaterial_800BF534.
+Fighter subsystem slice split from PR #2617. It touched nine src/melee/ft files with small matching-oriented cleanups, typed access improvements, helper reuse, stack/local-order tweaks, and ftmaterial data additions. The decomp-dev report for this slice credited 6 new matches and 11 unmatched-item improvements, including full matches for ftCo_800D730C, ftCo_80093BC0, ftCo_800978D4, ftMaterial_800BF260, ftMaterial_800BF534, and ftmaterial .data.
 
 Postmortem JSON: `prs/pr-2620/postmortem/postmortem.json`
 
@@ -396,7 +786,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: cm;camera
 
-PR #2619 was a closed, unmerged split-out matching-improvement slice scoped to src/melee/cm, with the PR body listing src/melee/cm/camera.c. The loaded raw diff and bot report show no changes for the slice, but a review comment on camera.c flags a proposed replacement of HSD_ASSERTMSG calls with raw __assert calls using cm_803BCBD0/cm_803BCC14/cm_803BCC30 as a data-section-matching regression.
+PR #2619 was a closed, unmerged CM directory split from #2617, scoped by the author to src/melee/cm and listing src/melee/cm/camera.c. The loaded raw diff is empty and decomp-dev reported 'No changes', but a review comment on camera.c shows an attempted replacement of HSD_ASSERTMSG calls in Camera_80029CF8 with raw __assert calls using cm_* data symbols. The reviewer requested changes, stating that edits intended to match data sections are against the contributing guidelines and that the highlighted assert/data-symbol change is a regression even if it improves data percent.
 
 Postmortem JSON: `prs/pr-2619/postmortem/postmortem.json`
 
@@ -404,9 +794,9 @@ Postmortem JSON: `prs/pr-2619/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: extern/dolphin;THP decoder
+Systems: external-sdk;dolphin;thp
 
-Extern/Dolphin THP slice from a larger matching-improvement branch. The only changed file was THPDec.c, where __THPDecompressiMCURowNxN was refactored to reuse the local THPFileInfo* info, replace a raw offset-derived mcuBuffer local with casts to THPFileInfoMCUBufferView, and access xPixelSize, components, and quantTabs through info. The PR was closed unmerged after being superseded by #2632 because the extern-only split hit an EditorConfig workflow edge case.
+Draft extern/Dolphin THP slice split from PR #2617, touching only extern/dolphin/src/dolphin/thp/THPDec.c. The diff refactors __THPDecompressiMCURowNxN to reuse the local THPFileInfo* info pointer, replace a raw mcuBuffer pointer derived from ((u8*) info + 0x10) with repeated THPFileInfoMCUBufferView casts, and access THP fields through info instead of __THPInfo. The PR was closed unmerged and superseded by PR #2632 after an EditorConfig workflow edge case filtered out all changed files.
 
 Postmortem JSON: `prs/pr-2618/postmortem/postmortem.json`
 
@@ -414,9 +804,9 @@ Postmortem JSON: `prs/pr-2618/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: external-sdk;sysdolphin;fighter;game-mode;stage;item;library;menu;interface;collision;toy;video
+Systems: external-sdk;sysdolphin;camera;fighter;game-mode;stage;item;library;menu;mp;pl;ty;vi
 
-Broad draft PR improving split-up matching/source shape across Dolphin/SysDolphin and many Melee subsystems. The PR body reports 26 new matches, 79 unmatched-item improvements, matched code +11944 bytes, matched data +448 bytes, and zero broken/fuzzy/metric regressions after local checks. The PR was closed unmerged and explicitly superseded by directory-split draft PRs #2619-#2630 and #2632.
+Broad draft PR improving matching/source shape across Dolphin/SysDolphin and many Melee directories. The PR reported 26 new matches, 79 unmatched-item improvements, matched code +11944 bytes, matched data +448 bytes, and clean regression counts, but was closed unmerged and superseded by directory-specific split draft PRs.
 
 Postmortem JSON: `prs/pr-2617/postmortem/postmortem.json`
 
@@ -424,9 +814,9 @@ Postmortem JSON: `prs/pr-2617/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: translation_unit_split_and_link
-Systems: config;fighter;Kirby;ftCommon;item
+Systems: fighter;Kirby;ftCommon;items;config;repo-root
 
-PR 2616 split Kirby attack-dash code out of ftkirby.c/ftkirbyspecialn.c into a new ftkirbyattackdash.c/.h translation unit, linked it as Matching in configure.py, and adjusted GALE01 split ranges plus includes that referenced the moved declarations.
+PR 2616 splits Kirby attack-dash code out of broader Kirby translation units into a new matching object `melee/ft/chara/ftKirby/ftkirbyattackdash.c`, adds its header, updates split ranges and build configuration, and redirects includes from the broad `ftkirby.h` header to the narrower attack-dash header where needed.
 
 Postmortem JSON: `prs/pr-2616/postmortem/postmortem.json`
 
@@ -434,29 +824,29 @@ Postmortem JSON: `prs/pr-2616/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: game-mode;config;gmopening
+Systems: game-mode;gmopening;config/GALE01
 
-PR #2615 attempted to link `src/melee/gm/gmopening.c` by adjusting GALE01 split/symbol metadata and reshaping gmopening data declarations. The author stated that all code matched in objdiff, but marking the file as `Matching` still caused a data mismatch.
+PR #2615 attempted to link src/melee/gm/gmopening.c by adjusting gmopening source data declarations plus GALE01 symbols and splits metadata. The author reported that all functions matched in objdiff, but marking the file as Matching caused a data mismatch.
 
 Postmortem JSON: `prs/pr-2615/postmortem/postmortem.json`
 
 ## PR #2614: Link `if_2FC93`
 
 Status: agent_completed
-Type: matching-config-link
-Systems: config/GALE01;configure.py;melee/if
+Type: matching-status-and-metadata-update
+Systems: melee/if;config/GALE01;configure
 
-PR 2614 marks melee/if/if_2FC93.c as Matching in configure.py and adjusts GALE01 split and symbol metadata around if_2FC93.c and adjacent ifprize.c data ranges. The diff narrows if_2FC93 ownership for rodata, bss, and sdata2, adds corresponding ifprize ranges, converts several previously global un_* data symbols in if_2FC93-owned ranges to local @ labels, and shortens selected bss/sbss symbol sizes.
+PR 2614 links melee/if/if_2FC93.c by changing configure.py from NonMatching to Matching and tightening GALE01 split and symbol metadata around if_2FC93.c and adjacent ifprize.c sections. The evidence is entirely diff-based; there is no PR body, review discussion, or explicit build/objdiff output in the slice.
 
 Postmortem JSON: `prs/pr-2614/postmortem/postmortem.json`
 
 ## PR #2613: Split and link `ftkirbyspecialpeach` and `ftkirbyspecialgamewatch`
 
 Status: agent_completed
-Type: split_and_link_decomp_translation_units
-Systems: fighter;ftKirby;item;config;repo-root
+Type: translation-unit split and link/configuration update
+Systems: config;fighter;item;repo-root
 
-PR #2613 split Kirby copied-special code out of `ftkirbyyoshiegg` into separate `ftkirbyspecialmars`, `ftkirbyspecialpeach`, and `ftkirbyspecialgamewatch` translation units, linked Peach and GameWatch as Matching objects, added headers/includes, and adjusted split/symbol metadata including local data labels.
+PR #2613 split Kirby copied-special code out of `ftkirbyyoshiegg` into separate Mars, Peach, and Game & Watch translation units, added their headers, wired includes and build configuration, adjusted GALE01 split ranges, and changed several symbol metadata entries from global/generated names to local labels. The PR body explicitly says Mars was also split. No review or issue comments were present in the slice.
 
 Postmortem JSON: `prs/pr-2613/postmortem/postmortem.json`
 
@@ -464,9 +854,9 @@ Postmortem JSON: `prs/pr-2613/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: cleanup
-Systems: item;itdosei;config/symbols
+Systems: item;itdosei;config-symbols
 
-Cleanup-only itDosei PR that renamed Dosei item functions from generic it_3F14/fn/address-style names to itDosei-prefixed names across symbols, header declarations, implementation, and item logic table callsites. The implementation also removed one const zero float in favor of inline 0.0f literals, removed an unnecessary PAD_STACK in spawned logic, simplified a temporary boolean/block shape, and replaced some direct gobj->user_data or gobj->hsd_obj accesses with GET_ITEM/GET_JOBJ macros. Bot output reports one new .sdata2 data match for main/melee/it/items/itdosei.
+Cleanup PR for the Dosei item code: renamed remaining it_3F14_/fn_/address-style Dosei functions to the itDosei_ prefix across symbols, header, item logic table, and implementation; removed a TU-local const 0.0f used only as an argument; replaced several direct gobj->user_data and gobj->hsd_obj accesses with GET_ITEM/GET_JOBJ; simplified small generated-looking blocks; and removed one PAD_STACK use in the spawned logic. Bot report recorded one new .sdata2 data match for main/melee/it/items/itdosei.
 
 Postmortem JSON: `prs/pr-2612/postmortem/postmortem.json`
 
@@ -474,9 +864,9 @@ Postmortem JSON: `prs/pr-2612/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: item;build-configuration;baselib-jobj
+Systems: item;itdosei;configure
 
-Matched and linked the item translation unit src/melee/it/items/itdosei.c by changing configure.py from NonMatching to Matching and reshaping itdosei.c helpers, rotation calls, item access, local ordering, and one function order. Bot report records one new match for itDosei_UnkMotion4_Anim and linked-code/data progress.
+PR #2611 matched and linked the item translation unit src/melee/it/items/itdosei.c, changing configure.py from NonMatching to Matching for that object. The diff primarily refactors itdosei rotation/facing-angle helper usage, removes several PAD_STACK calls, adjusts some Item access expressions from GET_ITEM(gobj) to gobj->user_data, adds an sdata2_ordering helper with volatile literals, and reorders itDosei_UnkMotion10_Phys/Coll after Anim. The bot report records one new match for main/melee/it/items/itdosei itDosei_UnkMotion4_Anim and linked-code/data progress.
 
 Postmortem JSON: `prs/pr-2611/postmortem/postmortem.json`
 
@@ -484,9 +874,9 @@ Postmortem JSON: `prs/pr-2611/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: cleanup_fix
-Systems: fighter;item;HSD object/material initialization
+Systems: fighter;item
 
-Small merged cleanup/fix PR touching fighter material class initialization and item drop code. It changes ftMObj class initialization to use hsdMObj.parent as the parent class argument, and replaces three direct Item_GObj user_data accesses in itdrop.c with GET_ITEM after adding inlines.h.
+Small merged cleanup/fix PR touching fighter material class initialization and item drop code. ftmaterial changed the superclass argument in hsdInitClassInfo from ftMObj.parent to hsdMObj.parent. itdrop added inlines.h and replaced three direct item_gobj->user_data accesses with GET_ITEM(...) calls.
 
 Postmortem JSON: `prs/pr-2610/postmortem/postmortem.json`
 
@@ -496,7 +886,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: item;itdraw;config;symbols
 
-Matched and linked the item draw translation unit by refactoring src/melee/it/itdraw.c around it_8026EECC, updating itdraw.c from NonMatching to Matching in configure.py, and correcting related symbol metadata in config/GALE01/symbols.txt. The bot report records two new matches: it_8026EECC reaching 100.00% and itdraw .sdata reaching 100.00%.
+PR 2609 matched and linked the item draw translation unit by changing configure.py to mark melee/it/itdraw.c as Matching, cleaning up src/melee/it/itdraw.c around it_8026EECC, and adjusting symbol metadata for nearby .sdata/.sdata2 entries. Bot output reports 2 new matches: it_8026EECC reaching 100.00% and main/melee/it/itdraw .sdata reaching 100.00%.
 
 Postmortem JSON: `prs/pr-2609/postmortem/postmortem.json`
 
@@ -506,7 +896,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: MSL;configure.py;src/MSL/math.c;src/MSL/math_data.c
 
-PR #2608 matched and linked src/MSL/math.c by changing MSL/math.c from NonMatching to Matching in configure.py, moving/removing logf coefficient storage from math_data.c, adding .sdata2-local math constants in math.c, and reshaping logf codegen with tighter inlining and local expression changes. The bot report records 2 new matches: main/MSL/math .sdata2 to 100% and logf to 100%.
+PR #2608 matched and linked src/MSL/math.c by changing MSL/math.c from NonMatching to Matching in configure.py, moving logf-related constants into math.c/.sdata2-style storage, removing coefficient definitions from math_data.c, and tightening logf expression/local structure. The PR body says the last bit required inlining after an unsuccessful Codex attempt. The bot report records 2 new matches: main/MSL/math .sdata2 to 100.00% and logf to 100.00%, with +364 matched/linked code bytes and +32 matched/linked data bytes.
 
 Postmortem JSON: `prs/pr-2608/postmortem/postmortem.json`
 
@@ -514,99 +904,99 @@ Postmortem JSON: `prs/pr-2608/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: documentation
-Systems: docs
+Systems: docs;review-process
 
-Documentation-only PR adding docs/standards.md as a decomp PR and worker-output review checklist. The new document covers source reconstruction style, matching tactic evidence, data and naming discipline, file/include hygiene, formatting reviewability, and verification expectations. The PR was closed without a recorded merge in the supplied evidence.
+Documentation-only PR adding a new docs/standards.md review checklist for decomp PRs and worker output, covering source readability, matching tactics, data and naming rules, file hygiene, and verification expectations. The PR was closed with no merge timestamp in the loaded metadata.
 
 Postmortem JSON: `prs/pr-2607/postmortem/postmortem.json`
 
 ## PR #2606: Split and link `crowdsfx`
 
 Status: agent_completed
-Type: split_and_link
-Systems: sfx;mp;config;build
+Type: split_and_link_matching
+Systems: sfx;mp;config
 
-Split the first 0xAC bytes of the previous `melee/sfx/crowdsfx.c` text range into a new matching source file `melee/sfx/sfx_unk.c`, then marked both `sfx_unk.c` and `crowdsfx.c` as Matching in `configure.py`. The PR also moved `mpLib_80458868` from a private static anonymous struct declaration into a named `mpCollisionBox` type in `mp/types.h`, exposed it via `mp/mplib.h`, and updated `crowdsfx.c` to use typed collision-box access instead of raw `char*` pointer arithmetic.
+PR 2606 split the first two crowdsfx functions into a new `src/melee/sfx/sfx_unk.c`, adjusted GALE01 split and symbol ownership around `0x80321900..0x803219AC` and nearby `.sdata2`, marked both SFX objects Matching in `configure.py`, and replaced a raw `char*`/offset access to `mpLib_80458868` with a typed `mpCollisionBox` declaration shared through mp headers.
 
 Postmortem JSON: `prs/pr-2606/postmortem/postmortem.json`
 
 ## PR #2605: Link `ftkirbycaptureyoshi`
 
 Status: agent_completed
-Type: link_object_by_resplitting_source
-Systems: config;fighter;kirby;item;repo-root
+Type: decomp_link_and_tu_split
+Systems: config;fighter;item;repo-root
 
-Linked the Kirby Yoshi capture object by shrinking `ftkirbycaptureyoshi.c` down to the small matching range at 0x8010A930-0x8010AA64 and moving the remaining nonmatching Yoshi egg code into a new `ftkirbyyoshiegg.c`/`.h` split. The build config now marks `ftkirbycaptureyoshi.c` as `Matching` and adds `ftkirbyyoshiegg.c` as `NonMatching`; GALE01 splits and symbols were updated to reflect the new text/sdata2 boundaries and local float labels. Related includes and references were adjusted to use `ftkirbyyoshiegg.h` where the moved egg routines are needed.
+PR 2605 links the small remaining `ftkirbycaptureyoshi.c` object by shrinking its split to 0x8010A930-0x8010AA64, moving the former tail range 0x8010AA64-0x8010D740 into a new `ftkirbyyoshiegg.c`/`.h` nonmatching object, and updating config, split metadata, symbol metadata, includes, motion-state references, and item references accordingly.
 
 Postmortem JSON: `prs/pr-2605/postmortem/postmortem.json`
 
 ## PR #2604: Link `ftkirbyspecialyoshi`
 
 Status: agent_completed
-Type: matching_link_split
-Systems: fighter;fighter_kirby;kirby_special_yoshi;capture_states;item;config
+Type: decomp_link_and_tu_split
+Systems: config;fighter;item;repo-root
 
-Linked the Kirby Yoshi-special object by shrinking `ftkirbyspecialyoshi.c` to the matching range `0x80109260..0x8010A930` and moving the remaining `0x8010A930..0x8010D740` code into a new still-NonMatching `ftkirbycaptureyoshi.c` unit. The PR also introduced `ftkirbycaptureyoshi.h` and retargeted includes from the old catch-all `ftkirbyspecialdonkey.h` to the more accurate capture-yoshi header.
+PR 2604 links the Kirby Yoshi-special translation unit by changing `ftkirbyspecialyoshi.c` from NonMatching to Matching, narrowing its split range, and moving the remaining 0x8010A930-0x8010D740 code/data into a new nonmatching `ftkirbycaptureyoshi.c` plus header. It also updates Kirby includes/prototypes, motion-state wiring, and a few item/fighter references affected by the new capture-yoshi header ownership.
 
 Postmortem JSON: `prs/pr-2604/postmortem/postmortem.json`
 
 ## PR #2603: Link `ftkirbyspecialmewtwo` and `ftkirbyspecialiceclimber`
 
 Status: agent_completed
-Type: matching_source_split_and_link
-Systems: fighter;ftKirby;Kirby copied specials;items;itclimbersice;config;repo build
+Type: link_matching_split
+Systems: fighter;ftKirby;item;config;repo-root
 
-Linked Kirby's copied Mewtwo and Ice Climber special-N code by splitting the previously over-broad `ftkirbyspecialmewtwo.c` range into a matching Mewtwo object and a new matching `ftkirbyspecialiceclimber.c` object. The PR moved the Ice Climber/Popo copied-special functions out of the Mewtwo source, added a dedicated header, updated object lists and split boundaries, and cleaned up includes so item code references the new Kirby Ice Climber header instead of the Donkey header.
+PR 2603 split the Ice Climber/Popo Kirby special-N code out of `ftkirbyspecialmewtwo.c` into a new `ftkirbyspecialiceclimber.c/.h`, adjusted split and symbol metadata, and marked both Mewtwo and Ice Climber Kirby special files as matching objects. The PR has no body, issue comments, review comments, or explicit validation output in the loaded slice.
 
 Postmortem JSON: `prs/pr-2603/postmortem/postmortem.json`
 
 ## PR #2602: Rename Kirby TUs
 
 Status: agent_completed
-Type: mechanical_rename
-Systems: fighter;ftKirby;ftCommon;items;config;build
+Type: naming
+Systems: config;fighter;item;melee-core;repo-root
 
-Renamed several Kirby translation units and headers from mixed `ftKb_*` filenames to the project’s lower-case Kirby naming style, updating split configuration, build object paths, includes, and nearby comments. The PR was almost entirely mechanical rename fallout: `ftKb_Init.c/.h/.dox` became `ftkirby.c/.h/.dox`, and multiple Kirby copy-neutral-special files such as `ftKb_SpecialN.c`, `ftKb_SpecialNKp.c`, `ftKb_SpecialNLk.c`, `ftKb_SpecialNSs.c`, and `ftKb_SpecialNYs.c` became `ftkirbyspecialn.c`, `ftkirbyspecialkoopa.c`, `ftkirbyspeciallink.c`, `ftkirbyspecialsamus.c`, and `ftkirbyspecialyoshi.c`. No review discussion was present in the provided slice.
+Renamed several Kirby translation units and their public include names from ftKb_* style to lowercase ftkirby/ftkirbyspecial* paths, then propagated those path changes through splits, configure.py object lists, Kirby/common fighter sources, item sources, and player/fighter support files. The slice shows mostly rename/include maintenance plus minor formatting-only edits; it contains no PR body explanation and no review comments.
 
 Postmortem JSON: `prs/pr-2602/postmortem/postmortem.json`
 
 ## PR #2601: Link `ftkirbyspecialseak`
 
 Status: agent_completed
-Type: linking_progress_file_split
-Systems: fighter;fighter/Kirby;fighter/Mewtwo-copy-special;fighter/Sheik-copy-special;item/MewtwoShadowBall;config/GALE01;build/configure.py
+Type: decomp_link_and_split_metadata
+Systems: Kirby copied special moves;ftkirbyspecialseak;ftkirbyspecialmewtwo;GALE01 splits;GALE01 symbols;build configuration;Mewtwo Shadow Ball item include
 
-Linked Kirby Sheik copy-special (`ftkirbyspecialseak.c`) by splitting the trailing Mewtwo copy-special code out into a new nonmatching `ftkirbyspecialmewtwo.c`/`.h`, updating splits/symbols/build config, and cleaning shared Kirby SpecialN callback inline naming/includes. The PR had no body or review comments, so intent is inferred from the title and diff.
+PR 2601 links Kirby's Sheik-copy special-N translation unit by shrinking `ftkirbyspecialseak.c` to the 0x80105FEC-0x80106F44 range, marking it Matching, and moving the following Mewtwo-copy range into a new nonmatching `ftkirbyspecialmewtwo.c/.h` split. It also updates split/symbol metadata, introduces a shared Kirby special-N callback inline, renames duplicate local callback-setter inlines from `ftKirbyDmgInline` to `ftKb_SpecialN_set_cbs`, and adjusts includes for the new Mewtwo-copy header.
 
 Postmortem JSON: `prs/pr-2601/postmortem/postmortem.json`
 
 ## PR #2600: Link `ftkirbyspecialdonkey`
 
 Status: agent_completed
-Type: matching-link
-Systems: fighter;ftKirby;ftkirbyspecialdonkey;config;repo-root
+Type: matching-status-change
+Systems: fighter;ftKirby;configure;GALE01 splits;GALE01 symbols
 
-Linked Kirby's copied Donkey Kong neutral special source by marking `ftkirbyspecialdonkey.c` as matching, assigning its `.sdata2` range in splits, converting three sdata2 symbols from temporary global `ftKb_Init_*` names to local compiler labels, and adding a small helper to force the expected `S32_TO_F32` double constant ordering. The source also removed unnecessary function-pointer casts on callback assignments once the referenced callback prototypes/types were compatible.
+PR 2600 links Kirby's Donkey special translation unit by marking `ftkirbyspecialdonkey.c` as Matching, adding its `.sdata2` split range, converting three `.sdata2` symbols from global `ftKb_Init_*` names to local labels, adding a small `sdata2_order0` helper returning `S32_TO_F32`, and removing unnecessary callback function-pointer casts in the source file.
 
 Postmortem JSON: `prs/pr-2600/postmortem/postmortem.json`
 
 ## PR #2599: Split and link `ftkirbyspecialpurin`
 
 Status: agent_completed
-Type: split_and_link_matching_object
-Systems: fighter;Kirby;Purin;Zelda;config;MSL
+Type: translation_unit_split_and_link
+Systems: fighter;Kirby;Purin;config;MSL
 
-Split Kirby's copied Jigglypuff/Purin SpecialN code out of `ftkirbyspecialdonkey.c` into a new linked matching object, `ftkirbyspecialpurin.c`, with its own header. The PR adjusted GALE01 split ranges and symbol ownership so the Purin block at 0x80100E0C-0x80105A34 links as `Object(Matching)`, while trimming the Donkey file back to its own range. It also moved adjacent Zelda-special declarations/code into a new `ftkirbyspecialzelda.h`, relocated the shared `SIGNF` macro to `src/MSL/math.h`, and cleaned up function forward declarations/static linkage around the split boundaries.
+PR 2599 split Kirby's copied Purin/Jigglypuff SpecialN code out of `ftkirbyspecialdonkey` into a new `ftkirbyspecialpurin` translation unit, linked it as Matching in `configure.py`, and adjusted split/symbol metadata, headers, includes, and nearby declarations to reflect the new TU boundary.
 
 Postmortem JSON: `prs/pr-2599/postmortem/postmortem.json`
 
 ## PR #2598: Link and rename `ftkirbyspecialzelda`
 
 Status: agent_completed
-Type: link_and_rename
+Type: split_rename_and_link
 Systems: fighter;Kirby;config;repo-root
 
-Split the old Kirby Zelda/Sheik copied neutral-special translation unit boundary into separate Zelda and Sheik source files, linked the Zelda slice as matching, and updated the build/split metadata accordingly. The PR moved Zelda-specific `ftKb_SpecialNZd` functions into a new `ftkirbyspecialzelda.c`, renamed the remaining old `ftKb_SpecialNZd.c` file to `ftkirbyspecialseak.c`, relocated shared/static data to the file owning its address range, and restored `ftKb_SpecialNYs_80109260` to the Yoshi-copy file.
+PR 2598 splits and renames the old Kirby Zelda/Sheik special-N translation-unit area: it introduces `ftkirbyspecialzelda.c` as a Matching object, renames the remainder of `ftKb_SpecialNZd.c` to `ftkirbyspecialseak.c`, adjusts GALE01 text/sdata2 split ranges, and moves nearby functions/data out of `ftkirbyspecialdonkey.c`, `ftKb_Init.c`, and `ftKb_SpecialNYs.c` to align ownership with the new files.
 
 Postmortem JSON: `prs/pr-2598/postmortem/postmortem.json`
 
@@ -614,49 +1004,49 @@ Postmortem JSON: `prs/pr-2598/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;ftCommon;repo-root
+Systems: fighter;ftCommon;build-configuration
 
-PR 2597 made ftCo_DamageFall.c a Matching object in configure.py and applied a narrow source change in ftCo_80090594: copying the FtMotionId parameter msid into a local FtMotionId motion_id before passing it to calcShift. No PR body, review comments, or issue comments were present in the loaded slice.
+Small fighter decomp matching PR for ftCo_DamageFall: added a local FtMotionId copy in ftCo_80090594 before calling calcShift, then changed configure.py to link ftCo_DamageFall.c as Matching instead of NonMatching.
 
 Postmortem JSON: `prs/pr-2597/postmortem/postmortem.json`
 
 ## PR #2596: Link and rename `ftkirbyspecialness`
 
 Status: agent_completed
-Type: matching_and_file_rename
-Systems: config;fighter;Kirby;item
+Type: decomp_split_and_rename
+Systems: fighter;Kirby;items;config;repo-root
 
-Split Kirby's copied Ness neutral-special code out of the old `ftKb_SpecialNNs.c`/renamed area into a new matching `ftkirbyspecialness.c`, renamed the remaining file to `ftkirbyspecialdonkey.c`, and moved the exported prototypes into a dedicated `ftkirbyspecialdonkey.h`. The build config now links `ftkirbyspecialness.c` as Matching while keeping `ftkirbyspecialdonkey.c` NonMatching. Item and motion-state users were updated to include the narrower Kirby-special header instead of the oversized `ftKb_Init.h`.
+PR 2596 splits the old Kirby SpecialNNs slice into a newly linked/renamed `ftkirbyspecialness.c` matching object and a separate `ftkirbyspecialdonkey.c` nonmatching object, adjusts split and symbol ownership metadata, moves a large prototype block out of `ftKb_Init.h` into `ftkirbyspecialdonkey.h`, and updates includes and dependent item files accordingly.
 
 Postmortem JSON: `prs/pr-2596/postmortem/postmortem.json`
 
 ## PR #2595: Link `ftdevice`
 
 Status: agent_completed
-Type: link_matching_object
-Systems: fighter;ftdevice;config;repo-root
+Type: matching_status_and_symbol_metadata
+Systems: fighter;ftdevice;repo-root
 
-Linked `src/melee/ft/ftdevice.c` by switching it from NonMatching to Matching, tightening its split ranges, and correcting symbol visibility/ownership for literals and BSS/SBSS objects. The C source removed forced-active literal externs, made `ft_804D6570` global instead of static, and exported it in the header, allowing the object to match without artificial retention pragmas.
+PR 2595 links src/melee/ft/ftdevice.c by changing its configure.py object status from NonMatching to Matching, cleaning source-level data declarations, and updating GALE01 split/symbol metadata for ftdevice data, bss, sdata, and sbss exposure.
 
 Postmortem JSON: `prs/pr-2595/postmortem/postmortem.json`
 
 ## PR #2594: Fix ftcolanim/ftmaterial split and fix string usages in ftmaterial
 
 Status: agent_completed
-Type: split-boundary-fix
-Systems: fighter;fighter-material;fighter-color-animation;config
+Type: split-and-symbol-fix
+Systems: fighter;config
 
-Corrected the boundary between ftmaterial.c and ftcolanim.c by moving two ftCo sleep/death helper functions at 0x800BFD04 and 0x800BFD9C out of ftmaterial and into ftcolanim, renaming their symbols from ftMaterial_* to ftCo_*. The PR also cleaned ftmaterial string usage by replacing external/base-offset string references with direct strings and HSD_ASSERTREPORT calls, and updated splits, symbols, headers, includes, and call sites accordingly.
+PR 2594 corrected the ftmaterial/ftcolanim split boundary by moving functions at 0x800BFD04 and 0x800BFD9C from ftmaterial into ftcolanim, renamed their symbols from ftMaterial_* to ftCo_*, updated callers and headers, moved ftmaterial .sdata2 ownership to ftcolanim, and cleaned ftmaterial string/assert usages from address-based externs into source strings and HSD_ASSERTREPORT calls.
 
 Postmortem JSON: `prs/pr-2594/postmortem/postmortem.json`
 
 ## PR #2593: Link multiple files, remove invalid files from configure.py, fix function call
 
 Status: agent_completed
-Type: linkage/configuration fix
+Type: decomp-matching
 Systems: config;symbols;player;fighter;item
 
-Linked several previously nonmatching objects by updating configure.py, removed invalid duplicate/incorrect object entries, corrected a wrong item function call in itwstar.c, and adjusted GALE01 symbol names/scopes/sizes to match the newly linked layout. The decomp.dev report showed +29480 bytes linked code, +128 bytes matched data, +592 bytes linked data, and 2 new matches: main/melee/pl/plattack .sbss to 100% and main/melee/ft/ftchangeparam .data to 100%. Evidence is mostly from the title, diff, and bot report; there was no PR body or human review discussion.
+PR 2593 linked several existing objects in configure.py, removed two invalid NonMatching object entries, adjusted GALE01 symbol metadata for local data/sdata2/sbss ownership, and fixed the WStar spawned callback to call it_80294624 instead of it_80294364. The bot report records linked-code and data progress plus two new matches.
 
 Postmortem JSON: `prs/pr-2593/postmortem/postmortem.json`
 
@@ -664,9 +1054,9 @@ Postmortem JSON: `prs/pr-2593/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;Kirby;Purin;Ness;item;stage;config;tooling
+Systems: fighter;Kirby;Purin;config;stage;item;tooling
 
-Linked several fighter translation units, primarily Kirby copy-special files and Purin SpecialN, by splitting Kirby's large SpecialNPk region into smaller source files, updating GALE01 splits/symbols, and switching configure.py entries from NonMatching to Matching. The PR also made supporting header/include fixes in fighter, item, and stage code. Review discussion recorded concern that some Kirby linkage relied on splitting and extern/data handling that may cause later maintenance issues, but another maintainer argued the linkage gain outweighed minor regressions.
+PR 2592 reorganized and linked several fighter translation units, primarily Kirby copy-special code, by splitting the former ftKb_SpecialNPk.c range into separate Kirby Pikachu, Koopa, Link, and Samus special-N files, updating GALE01 splits/symbol metadata, and marking the new Kirby split objects plus Purin SpecialN as Matching in configure.py. The slice also includes smaller header/include/type/tooling adjustments across fighter, stage, item, and tooling files. Review discussion raised concerns that some split/linkage work relied on externs and possibly premature file splitting, while another commenter argued that linked-code progress outweighed minor regressions.
 
 Postmortem JSON: `prs/pr-2592/postmortem/postmortem.json`
 
@@ -674,9 +1064,9 @@ Postmortem JSON: `prs/pr-2592/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: item;itlinkarrow;config;symbols;vi
+Systems: item;config;melee-core;repo-root
 
-Matched and linked src/melee/it/items/itlinkarrow.c by switching itlinkarrow from NonMatching to Matching in configure.py, renaming fn_802A81C4 to itLinkArrow_802A81C4, adjusting symbol scopes/names for local data and sdata2 constants, correcting the itLinkArrow_802A850C prototype to return bool, and applying ordering/inlining-style source changes. The decomp.dev report showed +1144 matched-code bytes, +8904 linked-code bytes, +48 matched-data bytes, +336 linked-data bytes, and a new 100% match for itLinkArrow_802A850C, with a small noted vi0501 unmatched-item regression.
+PR 2591 linked `src/melee/it/items/itlinkarrow.c` as a Matching object, renamed/retyped several itlinkarrow symbols and prototypes, adjusted symbol metadata for local data and literals, and made small codegen-oriented changes in `itlinkarrow.c` and `vi0501.c`. The bot report recorded matched/linked code and data gains plus one small unmatched-item regression in `vi0501`.
 
 Postmortem JSON: `prs/pr-2591/postmortem/postmortem.json`
 
@@ -684,29 +1074,29 @@ Postmortem JSON: `prs/pr-2591/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: sysdolphin;baselib;HSD ByteCode;config/GALE01;build-configuration
+Systems: sysdolphin/baselib/bytecode;config/GALE01;configure.py
 
-Marked sysdolphin/baselib/bytecode.c as Matching in configure.py and adjusted GALE01 symbol metadata for HSD ByteCode data constants from broad/global placeholder names to local compiler-style labels. The decomp.dev report showed linked code improved by 5640 bytes, linked data by 232 bytes, matched data by 56 bytes, and one new match for main/sysdolphin/baselib/bytecode .sdata2 reaching 100%.
+PR 2590 marked sysdolphin/baselib/bytecode.c as Matching in configure.py and adjusted GALE01 symbol metadata for HSD ByteCode-adjacent data from global address-style names to local compiler-style labels. The automated report records linked-code progress and one new .sdata2 match for main/sysdolphin/baselib/bytecode.
 
 Postmortem JSON: `prs/pr-2590/postmortem/postmortem.json`
 
 ## PR #2589: link some free files
 
 Status: agent_completed
-Type: build_config_link_status_update
-Systems: repo-root;player;fighter;sysdolphin-baselib
+Type: build_configuration_linkage_status_change
+Systems: repo-root;player;fighter;popo;sysdolphin-baselib
 
-Configure-only PR that changed several objects from NonMatching to Matching in configure.py, removed one NonMatching object entry, and produced a bot report showing linked-code and linked-data increases. The PR was closed without a recorded merge.
+PR #2589 was a narrow configure.py linkage-status change titled "link some free files". It changed several object entries from NonMatching to Matching, removed one NonMatching ft_3C61.c entry, and produced a bot report showing linked code/data increases. The PR was closed without a recorded merge in the supplied metadata, and a final issue comment said the matter was being handled in a separate PR.
 
 Postmortem JSON: `prs/pr-2589/postmortem/postmortem.json`
 
 ## PR #2588: Cleanup statics in vi, match and link vi1202
 
 Status: agent_completed
-Type: decomp-matching-with-tu-split
-Systems: vi;sfx;fighter;game-mode;config
+Type: decomp-matching-and-tu-split
+Systems: vi;sfx;fighter;game-mode;build-config
 
-PR #2588 split crowd sound-effect code out of melee/vi/vi1202 into a new melee/sfx/crowdsfx translation unit, updated split and symbol metadata, linked vi1202 as Matching in configure.py, and redirected fighter/game includes from vi1202.h to crowdsfx.h. The bot report shows +2036 linked-code bytes, 25 new matches under main/melee/sfx/crowdsfx, and expected apparent broken matches in main/melee/vi/vi1202 from moving those symbols to the new unit.
+PR 2588 split crowd sound-effect code out of melee/vi/vi1202.c into a new melee/sfx/crowdsfx.c unit, added a crowdsfx header, updated include users, adjusted splits/symbol metadata, and changed configure.py so vi1202 is Matching while crowdsfx is a new NonMatching sfx object. The bot report shows linked-code progress and 25 new matches in the new crowdsfx unit, while also showing expected broken matches in the old vi1202 unit due to the split plus small unmatched data regressions.
 
 Postmortem JSON: `prs/pr-2588/postmortem/postmortem.json`
 
@@ -716,7 +1106,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: item;fighter;config
 
-PR 2587 matched or cleaned up Link Arrow item motion code centered on itLinkarrow_UnkMotion1_Anim, renamed the global function at 0x802A850C from it_802A850C to itLinkArrow_802A850C across symbols, header, and Fighter callsites, and made small local readability/codegen-shaping edits in src/melee/it/items/itlinkarrow.c. The bot report recorded 'No changes'.
+PR 2587 is a focused item/fighter decomp-matching cleanup for Link Arrow, centered on matching itLinkarrow_UnkMotion1_Anim and renaming the 0x802A850C Link Arrow helper from it_802A850C to itLinkArrow_802A850C across symbols, header, implementation, and fighter call sites. The diff also replaces some raw object access with GET_ITEM/GET_JOBJ, improves local names, and adjusts stack padding/local layout in itlinkarrow.c. The only loaded bot report says GALE01 had no changes; there are no human review comments in the slice.
 
 Postmortem JSON: `prs/pr-2587/postmortem/postmortem.json`
 
@@ -724,9 +1114,9 @@ Postmortem JSON: `prs/pr-2587/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;game-mode;stage;interface;library;menu;map;player;vi;camera
+Systems: fighter;game-mode;library;melee-core;stage;interface;menu;map;player;video
 
-Broad low-mismatch decomp-matching pass generated by sorting remaining functions by mismatch count and running a permuter/Codex workflow. The PR touched 34 files across fighter, game-mode, stage, interface, library, menu, map, player, and vi code. The author explicitly reports reverting many data-layout-related matches, such as inline-string-to-variable swaps, because data layout work should wait until the whole translation unit is ready to link.
+PR #2586 applied permuter/Codex-assisted cleanup to many remaining low-mismatch functions across fighter, game-mode, stage, interface, library, menu, map, player, and video code. The author states that data-layout-only matches such as replacing inline strings with explicit variables were reverted and should wait until the whole TU is ready to link. The loaded diff shows a broad set of small codegen-oriented edits: local renames, expression reshaping, inline helper extraction, type/sign changes, include pruning, struct typedef recovery, PAD_STACK/register-allocation steering, a tightly-scoped global_optimizer-off pragma, and a few data/symbol declaration adjustments.
 
 Postmortem JSON: `prs/pr-2586/postmortem/postmortem.json`
 
@@ -734,19 +1124,19 @@ Postmortem JSON: `prs/pr-2586/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: tooling_ci_documentation
-Systems: .github/workflows;tools/wiki_tu.py;Translation Units wiki
+Systems: .github;GitHub Actions;Translation Units wiki;tools/wiki_tu.py
 
-PR #2585 added a GitHub Actions `update-wiki` job to `.github/workflows/build.yml` that runs after `build-ninja` on pushes to the default branch of `doldecomp/melee`, downloads the existing `GALE01_report` artifact, regenerates the wiki `Translation-Units.md` page with `tools/wiki_tu.py`, and pushes only when the page changes using the built-in `GITHUB_TOKEN` with `contents: write`.
+Added a GitHub Actions `update-wiki` job to `.github/workflows/build.yml` that runs after `build-ninja` on pushes to the default branch of `doldecomp/melee`, downloads the existing `GALE01_report` artifact, regenerates the Translation Units wiki page with `tools/wiki_tu.py`, and pushes to the repository wiki only when the page changes.
 
 Postmortem JSON: `prs/pr-2585/postmortem/postmortem.json`
 
 ## PR #2584: Group the wiki TU list into progress sections
 
 Status: agent_completed
-Type: tooling_documentation_cleanup
+Type: tooling/documentation
 Systems: tools/wiki_tu.py;wiki translation-unit progress page
 
-Updated tools/wiki_tu.py so generated Translation Units wiki output is grouped by progress state instead of one flat table. The script now buckets TUs into `.text in progress`, `.text matched - data / linking left`, and `Fully linked`, displays separate `.text %` and `data %` signals, removes the combined percent/checkmark completion column, and applies reviewer-requested formatting fixes for stable anchors, non-wrapping size units, and exactly one leading @ on Discord handles.
+Updated the wiki translation-unit generator to split the generated TU list into progress sections, expose separate .text and data percentages, preserve assignee round-tripping for active tables, and clean up wiki formatting details requested in review.
 
 Postmortem JSON: `prs/pr-2584/postmortem/postmortem.json`
 
@@ -756,7 +1146,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: external-sdk;fighter;game-mode;item;library;melee-core;stage;sysdolphin
 
-Large multi-file matching PR touching 95 files across Melee, sysdolphin baselib, and Dolphin THP code. The PR reports 36 new matches, 117 unmatched-item improvements, 0 broken matches, 0 fuzzy/metric regressions, and review cleanup that converted a goto dispatch to a grouped switch, removed register/optimizer-pragma/M2C_FIELD additions, and restored inline literals.
+Large multi-subsystem matching PR touching 95 files, with reported 34 matched functions, 2 matched sections, 117 unmatched-item improvements, and no final broken/fuzzy/metric regressions. Review cleanup focused on converting a generated-looking fighter dispatch to a grouped switch, removing register/optimizer pragma steering, restoring inline literals instead of generated symbol names, and removing a new M2C_FIELD use.
 
 Postmortem JSON: `prs/pr-2583/postmortem/postmortem.json`
 
@@ -764,9 +1154,9 @@ Postmortem JSON: `prs/pr-2583/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: external-sdk;fighter;ground;melee-core;menu;sysdolphin
+Systems: external-sdk;fighter;stage;menu;sysdolphin-baselib
 
-Batch PR with independent source-matching improvements across Ice Mountain ground code, sysdolphin particles, Dolphin THP decode, fighter item handling, and menu count sorting. The PR body reports configure --require-protos, report build, and ninja verification; the bot report records two new 100% matches and three unmatched-item score improvements.
+Batch PR with independent source matching improvements across THP decode, fighter item handling, Ice Mountain ground logic, menu count sorting, and sysdolphin particle initialization. Evidence includes PR body verification commands, diff excerpts, bot score report, and one review thread that replaced a local user_data helper with existing GET_GROUND().
 
 Postmortem JSON: `prs/pr-2582/postmortem/postmortem.json`
 
@@ -774,9 +1164,9 @@ Postmortem JSON: `prs/pr-2582/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: effect;fighter;game-mode;library;melee-core;stage;interface;menu;map;toy
+Systems: effect;fighter;game-mode;stage;interface;menu;map;library;trophy;player
 
-Large batch matching PR across 57 src/melee files, spanning effect, fighter, game-mode, stage, interface, menu, map, toy, library, and player bonus code. The PR body reports require-protos and ninja changes_all validation, matched code/data gains, 13 new matches in the author's saved-baseline report, 0 broken matches, 123 unmatched-item improvements, and 0 unmatched-item regressions. Review feedback focused on avoiding pragmas, replacing repeated generated-looking blocks with loops, removing M2C_FIELD where possible, mapping jobj.h asserts back to HSD_JObj-style helpers, and reverting fake/regressive HSD_JObj changes.
+Large batch decomp/matching PR touching 57 src/melee files across effect, fighter, game-mode, stage, interface, menu, map, trophy, library, and player systems. The PR body reports saved-baseline progress, require-protos validation, ninja changes_all, 13 local new matches, 123 unmatched-item improvements, and 0 broken/unmatched regressions for the author's local run. Review feedback focused on avoiding pragmas, replacing repeated generated-looking blocks with loops, removing M2C_FIELD where possible, treating jobj.h asserts as evidence for existing HSD_JObj helpers, and reverting a likely fake-match/regression in lb_00F9 plus tooling changes.
 
 Postmortem JSON: `prs/pr-2581/postmortem/postmortem.json`
 
@@ -784,9 +1174,9 @@ Postmortem JSON: `prs/pr-2581/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;sysdolphin;baselib
+Systems: fighter;sysdolphin;baselib;CARD;quatlib
 
-PR #2580 matched seven functions and improved several more across ftCo_Shouldered, hsd_3AA7, and quatlib. The strongest evidence is the PR body, changed-file metadata, diff excerpt, and GALE01 bot report showing seven new 100% matches and thirteen unmatched-item improvements.
+PR #2580 matched or improved functions across sysdolphin baselib hsd_3AA7, baselib quatlib, and ftCommon ftCo_Shouldered. The PR body claims seven new 100% matches and improvements to MatToQuat plus several hsd_3AA7 functions; the GALE01 bot report confirms seven new matches, thirteen unmatched-item improvements, and +2332 matched-code bytes.
 
 Postmortem JSON: `prs/pr-2580/postmortem/postmortem.json`
 
@@ -794,9 +1184,9 @@ Postmortem JSON: `prs/pr-2580/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: item;Link hookshot;Link boomerang;Ness yo-yo
+Systems: item;Link boomerang;Link hookshot;Ness yo-yo
 
-Permuter-driven item matching fixes touched Link boomerang, Link hookshot, and Ness yo-yo item code. The bot report records five newly matched functions totaling +2644 matched bytes, with all five listed functions reaching 100.00%. The diff includes narrow code-shape changes such as temporary aliases, static inline helpers, declaration/order changes, scoped PAD_STACK adjustments, bool cleanup, and one argument source change from fp->x40 to attr->x40.
+Small item decomp matching PR using permuter-found source-shape edits across Link boomerang, Link hookshot, and Ness yo-yo item TUs. The bot report says five item functions became newly matched, improving matched code by 2644 bytes.
 
 Postmortem JSON: `prs/pr-2579/postmortem/postmortem.json`
 
@@ -804,9 +1194,9 @@ Postmortem JSON: `prs/pr-2579/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;player-stats;interface-ui;melee-core
+Systems: fighter;player-stats;interface-ui
 
-PR #2578 matched several functions across ftCo guard, plattack, and if_2FC93. The PR body claims five matched functions: ftCo_80091BC4, ftCo_80092158, ftCo_80093790, plAttack_8003759C, and un_802FE260, plus an improvement to fn_802FDA78 using the same file-local struct typing. The bot report corroborates six new matches including those five plus if_2FC93 .sdata, and reports fn_802FDA78 improved to 99.25%.
+PR #2578 matched five functions across ftCo guard, plattack, and if_2FC93, and improved fn_802FDA78 using the same file-local struct typing approach used for un_802FE260. The bot report recorded six new matches and several unmatched-item improvements; review evidence is limited to an approval with no inline comments.
 
 Postmortem JSON: `prs/pr-2578/postmortem/postmortem.json`
 
@@ -814,9 +1204,9 @@ Postmortem JSON: `prs/pr-2578/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching cleanup
-Systems: config;fighter;game-mode;ground;item;menu;vi;sysdolphin/baselib
+Systems: config;fighter;game-mode;item;melee-core;stage;sysdolphin-baselib
 
-PR #2577 renamed ftCo_800C6AFC at 0x800C6AFC to HSD_JObjSetMtxDirty, moved that declaration out of ft_0C31.h, and cleaned many TU-local fake HSD_JObjSet* helpers by replacing callsites with baselib/jobj.h helpers or new WithMtxDirty variants. The PR author described this as an investigation into why fake JObj helpers in several TUs called a fighter-range symbol, concluding ftCo_800C6AFC was actually HSD_JObjSetMtxDirty emitted into the first callsite TU. Review accepted the cleanup while noting the macro/parentheses situation was weird and that the macro was fake.
+PR 2577 renamed the text symbol/scratch entry ftCo_800C6AFC at 0x800C6AFC to HSD_JObjSetMtxDirty, moved its declaration to baselib/jobj.h, and replaced many TU-local fake HSD_JObjSet* helpers with canonical jobj.h helpers or newly added WithMtxDirty variants. The PR body frames this as cleanup of duplicated fake helpers after investigating why JObj helpers were calling a fighter-range function. Review accepted the cleanup while noting the macro/parentheses behavior was weird and that the macro itself was fake.
 
 Postmortem JSON: `prs/pr-2577/postmortem/postmortem.json`
 
@@ -824,9 +1214,9 @@ Postmortem JSON: `prs/pr-2577/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: sysdolphin/baselib/particle;melee/ef
+Systems: effect;sysdolphin;baselib;particle
 
-Matched six particle functions in src/sysdolphin/baselib/particle.c, improved five additional particle report items, and corrected hsd_8039F05C/efLib_CreateGenerator linkNo typing to use s32/int rather than narrow integer types.
+PR #2576 matched six particle functions in src/sysdolphin/baselib/particle.c, improved five additional particle report items, widened hsd_8039F05C linkNo from s8 to s32 in the header and implementation, and widened efLib_CreateGenerator's local linkNo from u8 to int to keep its caller code matched.
 
 Postmortem JSON: `prs/pr-2576/postmortem/postmortem.json`
 
@@ -834,9 +1224,9 @@ Postmortem JSON: `prs/pr-2576/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: camera;fighter;game-mode;ground;interface;menu;toy
+Systems: camera;fighter;game-mode;stage;interface;menu;toy
 
-Batch decomp PR matching six functions and improving twelve unmatched items across camera, fighter, game-mode, ground, interface, menu, and toy/display/list code. The PR body names verification with require-protos, ninja, and a GALE01 report; the bot report confirms six new 100% matches and listed score improvements.
+Batch decomp PR matching six functions and improving several partial matches across camera, fighter, game-mode, stage, interface, menu, and trophy/toy code. Evidence includes the PR body, changed-file list, diff excerpt, and GALE01 bot report confirming six new 100% matches plus twelve unmatched-item improvements.
 
 Postmortem JSON: `prs/pr-2575/postmortem/postmortem.json`
 
@@ -844,9 +1234,9 @@ Postmortem JSON: `prs/pr-2575/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: config;fighter;item;stage;repo-root
+Systems: config;fighter;item;repo-root;stage
 
-Continuation PR that linked/matched ftCo_CaptureKirby and ftCo_CaptureWaitKirby, adjusted Kirby capture split/symbol ownership, and applied many small stage/item/fighter data and code matching edits. Bot report recorded +4304 matched-code bytes, +2116 linked-code bytes, 18 new matches, 22 unmatched-item improvements, and one grbigblue unmatched-item regression.
+Continuation of PR #2572 that improved matching/linking across fighter Kirby capture-related files, multiple stage files, config splits/symbol metadata, and one item file. The bot report records +4304 matched-code bytes, +2116 linked-code bytes, 18 new matches, 22 unmatched-item improvements, and one unmatched-item regression.
 
 Postmortem JSON: `prs/pr-2574/postmortem/postmortem.json`
 
@@ -854,9 +1244,9 @@ Postmortem JSON: `prs/pr-2574/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;grinishie1
+Systems: stage;grinishie1;main/melee/gr
 
-PR 2573 made a focused data-matching update in src/melee/gr/grinishie1.c. The diff fills grI1_803E4950 stage-data callback slots, adjusts report/assert strings, comments out a separate grinishie1.c string symbol in favor of an inline literal at one OSReport call, and changes one assert label from new_gobj to map_gobj. The only feedback evidence is an automated report showing .data improvement for main/melee/gr/grinishie1 from 55.52% to 89.65% and a tiny grInishie1_801FB3F0 score change.
+PR 2573 made a focused data-matching pass in the Inishie1 stage translation unit, changing only src/melee/gr/grinishie1.c. The diff populated grI1_803E4950 stage-data callback entries that had been NULL, adjusted report/assert string literals, stopped using a separate grI1_803E49A8 file-name string in an OSReport call, and changed one assert message from new_gobj to map_gobj. The bot report recorded .data improvement for main/melee/gr/grinishie1 from 55.52% to 89.65% and a tiny grInishie1_801FB3F0 score improvement.
 
 Postmortem JSON: `prs/pr-2573/postmortem/postmortem.json`
 
@@ -864,19 +1254,19 @@ Postmortem JSON: `prs/pr-2573/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;game-mode;ground;item
+Systems: fighter;game-mode;item;stage
 
-PR #2572 applied duplicate-driven matching work produced by re-running `table-typer dups`, touching fighter, game-mode, ground, and item files. The bot report records +2020 matched-code bytes, five newly matched functions, and three unmatched-item improvements.
+Duplicate-driven matching pass produced 5 new function matches and 3 additional unmatched-item improvements across fighter, game-mode, item, and stage code. The PR body says the author reran `table-typer dups` after more functions had matched; the bot report records +2020 matched-code bytes and +0.05% overall matched code.
 
 Postmortem JSON: `prs/pr-2572/postmortem/postmortem.json`
 
 ## PR #2571: Matched HSD_SynthSFXGroupDataReaddress by rewriting the loop and pulling allocations out of the loop
 
 Status: agent_completed
-Type: decomp-matching
-Systems: src/sysdolphin/baselib;synth
+Type: decomp_match
+Systems: src;sysdolphin;baselib;synth
 
-PR 2571 matched HSD_SynthSFXGroupDataReaddress in src/sysdolphin/baselib/synth.c by changing the inner readdressing loop from a count-mutating do-while guarded by if(count > 0) into an indexed for loop, moving count and j declarations to the function scope, and changing one pointer advance expression to uintptr_t-based addition. The bot report records one new match for main/sysdolphin/baselib/synth/HSD_SynthSFXGroupDataReaddress, from 96.56% to 100.00%.
+PR 2571 matched HSD_SynthSFXGroupDataReaddress in src/sysdolphin/baselib/synth.c by reshaping the inner count-controlled readdress loop from an if-plus-do-while form into a for loop, hoisting count and j declarations to function scope, and changing one pointer increment expression to use uintptr_t arithmetic. The bot report records one new match for main/sysdolphin/baselib/synth, raising HSD_SynthSFXGroupDataReaddress from 96.56% to 100.00%.
 
 Postmortem JSON: `prs/pr-2571/postmortem/postmortem.json`
 
@@ -884,9 +1274,9 @@ Postmortem JSON: `prs/pr-2571/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;interface
+Systems: melee-core;interface;src/melee/if
 
-PR 2570 matched src/melee/if/if_2F72.c function if_802F7E7C by replacing a do-while loop that advanced a secondary data pointer with a for loop indexed over the original base pointer. The bot report records one new match for main/melee/if/if_2F72 if_802F7E7C, reaching 100.00% for that item.
+PR 2570 matched `if_802F7E7C` in `src/melee/if/if_2F72.c` by replacing a pointer-advancing `do while` loop over `lbl_804A1340` with an indexed `for (i = 0; i < 6; i++)` loop that preserves the original base pointer for the trailing `memzero(base, 0x34)`. The bot report records one new match for `main/melee/if/if_2F72`, `if_802F7E7C`, from 93.12% to 100.00%.
 
 Postmortem JSON: `prs/pr-2570/postmortem/postmortem.json`
 
@@ -894,9 +1284,9 @@ Postmortem JSON: `prs/pr-2570/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage/gricemt;sysdolphin/baselib/synth
+Systems: src/melee/gr;src/sysdolphin/baselib
 
-Matched three Ice Mountain functions in src/melee/gr/gricemt.c and cleaned up synth evidence by removing an obsolete residual-match note for HSD_Synth_80388DC8 and tightening HSD_Synth_8038B120's header prototype to void(void). The Ice Mountain changes used source-shape adjustments including assert expansion, an inline helper returning gv.icemt2.xC8 jobj pointers, PAD_STACK(24), grIm_804DB570 instead of an inline -20.0f literal, and #pragma auto_inline off near grIceMt_801F71E8.
+PR #2569 matched three Ice Mountain functions in src/melee/gr/gricemt.c and cleaned up synth declarations/comments. The PR body claims HSD_Synth_80388DC8 and grIceMt_801F96E0, grIceMt_801F993C, and grIceMt_801FA0BC reached 100.0%, with configure --require-protos and ninja run. The loaded bot report independently lists three new gricemt function matches and a .sdata2 improvement, but does not list HSD_Synth_80388DC8 as a new match.
 
 Postmortem JSON: `prs/pr-2569/postmortem/postmortem.json`
 
@@ -904,19 +1294,19 @@ Postmortem JSON: `prs/pr-2569/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee/pl;repo-configure
+Systems: melee-core;player;plbonuslib;repo-root
 
-Matched `fn_8003F654` in `src/melee/pl/plbonuslib.c`, added a local inline sqrt helper shaped around `__frsqrte`, removed an unused `MSL/math_ppc.h` include, and changed `configure.py` so `melee/pl/plbonuslib.c` is treated as a Matching object. The PR body claims `python configure.py --require-protos`, `ninja`, `fn_8003F654` 100.0%, and `plbonuslib.c` `.text`, `.data`, and `.sdata2` 100.0%; the bot report corroborates new matches for `fn_8003F654` and `.sdata2`.
+Matched fn_8003F654 in src/melee/pl/plbonuslib.c, added a local inline my_sqrtf helper using __frsqrte refinement, removed an unused MSL/math_ppc.h include, and changed configure.py to link plbonuslib.c as Matching. PR body claims require-protos, ninja, fn_8003F654 100%, and plbonuslib.c .text/.data/.sdata2 100%; bot report confirms new matches for fn_8003F654 and .sdata2.
 
 Postmortem JSON: `prs/pr-2568/postmortem/postmortem.json`
 
 ## PR #2567: Split it_266F
 
 Status: agent_completed
-Type: translation_unit_split
+Type: translation-unit split
 Systems: item;config;repo-root
 
-Split the former item translation unit it_266F into four item-focused units: itspawn, itgroundcoll, itdraw, and itdrop. The PR updated split ranges, configure object entries, headers, symbol metadata, and dependent item source includes/references. Bot report shows net code/data progress and many matches moving from the old it_266F unit to the new split units.
+PR #2567 split the former item translation unit src/melee/it/it_266F.c into itspawn, itgroundcoll, itdraw, and itdrop, adding corresponding headers and updating GALE01 splits, symbols, and configure.py object entries. The automated report showed net matched-code and linked-code gains, with old it_266F matches appearing as broken because the symbols moved into the new units.
 
 Postmortem JSON: `prs/pr-2567/postmortem/postmortem.json`
 
@@ -924,9 +1314,9 @@ Postmortem JSON: `prs/pr-2567/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;ground;grinishie1
+Systems: stage;grinishie1
 
-PR 2566 matched stage function grInishie1_801FA9B4 by adding grInishie1 stage data objects and reshaping the function to use the recovered data layout. The title says the approach copied the StageData structure found in grHeal. The bot report records one new function match for grInishie1_801FA9B4 from 94.03% to 100.00% and a .data improvement.
+PR 2566 changed only src/melee/gr/grinishie1.c to match grInishie1_801FA9B4. The diff added stage data-related objects, including a grInishie1_StageData wrapper around StageData plus an OSReport format string, moved the callback lookup to a casted offset from grI1_803E48C8, and changed the missing-GObj OSReport call to use the new struct field and filename string. The bot report records one new function match for grInishie1_801FA9B4 from 94.03% to 100.00% and a .data improvement from 19.85% to 55.52%. No human review comments were present in the slice.
 
 Postmortem JSON: `prs/pr-2566/postmortem/postmortem.json`
 
@@ -936,7 +1326,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: melee-core;player;plbonuslib
 
-Matched plbonuslib function fn_8003F294 by replacing its placeholder comment with a C implementation in src/melee/pl/plbonuslib.c. The PR body reports require-protos, targeted plbonuslib.o build, full ninja, and local objdiff at 680 bytes / 100.0%; the bot report independently records one new match for main/melee/pl/plbonuslib fn_8003F294, +680 bytes, 0.00% to 100.00%.
+PR #2565 replaced the placeholder comment for fn_8003F294 in src/melee/pl/plbonuslib.c with a C implementation and a small inline wrapper around pl_800386D8. The PR body claims require-protos, targeted object build, full ninja build, and local objdiff verification for fn_8003F294 at 680 bytes and 100.0%; the bot report corroborates one new 680-byte match in main/melee/pl/plbonuslib.
 
 Postmortem JSON: `prs/pr-2565/postmortem/postmortem.json`
 
@@ -944,9 +1334,9 @@ Postmortem JSON: `prs/pr-2565/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;src/melee/mn
+Systems: melee-menu;mn-records
 
-PR #2564 matched a batch of src/melee/mn menu/records functions across mnruleplus, mnnamenew, mndiagram2, mnvibration, mnsoundtest, mndatadel, mninfo, mnsnap, and mncount, with accompanying header/prototype adjustments and small data/static-header edits. The PR body claims require-protos plus ninja verification; the bot report records 21 new matches and several unmatched-item improvements.
+Matched a batch of menu-record functions under src/melee/mn, with supporting header/prototype edits, small data/static-header adjustments, and cleanup of adjacent menu count/stat logic. Evidence includes the PR body match list, changed-file metadata, diff excerpts for core files, and a bot report showing 21 new matches plus 6 unmatched-item improvements.
 
 Postmortem JSON: `prs/pr-2564/postmortem/postmortem.json`
 
@@ -956,7 +1346,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: melee-core;player;plbonuslib
 
-Matched three player bonus functions in src/melee/pl/plbonuslib: pl_8003E4A4, pl_80040688, and pl_800407C8. The PR implemented pl_8003E4A4 using an inline item-kind normalization helper, corrected an argument passed to unk_cond in pl_80040688, adjusted integer-to-float conversion shape in pl_800407C8, and updated the pl_8003E4A4 header prototype slot type from u8 to int.
+Matched three player bonus/stale-move functions in src/melee/pl/plbonuslib: pl_8003E4A4, pl_80040688, and pl_800407C8. The PR added a C body for pl_8003E4A4, moved the existing match_item_kind inline helper earlier so it could be used there, adjusted one unk_cond argument in pl_80040688, added u32 casts in pl_800407C8, and updated the pl_8003E4A4 header prototype slot type from u8 to int.
 
 Postmortem JSON: `prs/pr-2563/postmortem/postmortem.json`
 
@@ -964,9 +1354,9 @@ Postmortem JSON: `prs/pr-2563/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;ground;Great Bay;Inishie
+Systems: stage;greatbay;inishie1
 
-PR #2562 matched two stage functions, `grGreatBay_801F60C4` and `grInishie1_801FC4A0`, touching Great Bay and Inishie stage source files. The bot report recorded 2 new matches and +1016 matched-code bytes.
+PR #2562 matched two stage functions: grGreatBay_801F60C4 in grgreatbay and grInishie1_801FC4A0 in grinishie1. The diff is focused on stage source cleanup/matching, with a bot report showing two new matches and the PR body listing require-protos plus ninja verification.
 
 Postmortem JSON: `prs/pr-2562/postmortem/postmortem.json`
 
@@ -974,19 +1364,19 @@ Postmortem JSON: `prs/pr-2562/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: external-sdk;fighter;game-mode;stage;interface;library;player;sysdolphin-baselib
+Systems: external-sdk;dolphin-thp;fighter;fighter-common;fighter-kirby;game-mode;stage;interface-soundtest;library-audio;player-bonus;sysdolphin-baselib
 
-Large unstubbing/decomp PR across THP, fighter, game-mode, stage, interface, library, player, and baselib code. Evidence shows 28 changed files, 3659 additions, 193 deletions, 10 new matches, many partial-score improvements, and 4 unmatched-item regressions reported by the bot. The loaded diff excerpt mainly supports details for THPDec.c/thp.h and ftCo_Attack100.c; other files are supported primarily by changed-file metadata and bot match report.
+Large decomp-matching PR that replaced many stubs or near-stubs across THP decoding, fighter common/Kirby code, game-mode files, baselib synth, soundtest, stage, audio, and player bonus code. The bot report records +3428 matched-code bytes, +48 matched-data bytes, 10 new matches, 39 unmatched-item improvements, and 4 unmatched-item regressions.
 
 Postmortem JSON: `prs/pr-2561/postmortem/postmortem.json`
 
 ## PR #2560: Implement scratches
 
 Status: agent_completed
-Type: code-change
-Systems: game-mode;stage;interface-text;sysdolphin-baselib
+Type: decomp_matching_scratch_implementation
+Systems: game-mode;stage;interface-devtext;sysdolphin-baselib-particle
 
-Small multi-file scratch implementation touching camera, Flat Zone ground, DevText text drawing/text library, and baselib particle code. The diff mainly adjusts local expression shapes and matching tactics: pointer temporaries in gmCamera, scoped dont_inline pragmas and PAD_STACK in DevText, an indexed array loop in particle cleanup, and minor control-flow/local declaration reshaping in grflatzone.
+Implemented a set of scratch fixes across camera, Flat Zone, DevText, and particle code. The diff is mostly small matching-oriented source reshapes: local aliases for global struct fields, GET_JOBJ assignment form cleanup, tightly scoped dont_inline pragmas, PAD_STACK, a low-byte mask on a GX-link priority argument, and replacing a moving bin pointer with indexed array access. PR body only lists issue resolutions #2550-#2554; no human review comments are present.
 
 Postmortem JSON: `prs/pr-2560/postmortem/postmortem.json`
 
@@ -994,19 +1384,19 @@ Postmortem JSON: `prs/pr-2560/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;ftCommon;Kirby capture wait;stage;Green Greens
+Systems: fighter;stage;ftCommon;Kirby capture wait;Green Greens
 
-Matched two functions across fighter and stage code: ftCo_CaptureWaitKirby_IASA reached 100% and grGreens_80214B58 reached 100%. The PR also notes unresolved data/string ownership around CaptureWaitKirby and thrownkirby; reviewer feedback says shared strings imply the files/units have to be merged.
+PR #2559 made focused matching changes in one fighter file and one stage file. The bot report says two functions newly matched: ftCo_CaptureWaitKirby_IASA and grGreens_80214B58. The PR body notes CaptureWaitKirby could be linked if data were figured out but shares strings with thrownkirby; reviewer feedback states shared strings mean the units have to be merged.
 
 Postmortem JSON: `prs/pr-2559/postmortem/postmortem.json`
 
 ## PR #2558: Match/grinishie1 801FA9B4
 
 Status: agent_completed
-Type: decomp-matching-attempt
-Systems: stage;ground;library
+Type: decomp-matching
+Systems: stage;library
 
-Closed, unmerged PR attempting to match grInishie1_801FA9B4, with additional edits in gryorster.c and lbsnap.c. The diff adds stage data/literal storage and rewrites OSReport use in grinishie1.c, adjusts a DOBJ_CLEAR_LOOP argument through a local, changes a Yorster loop using casts/manual increment, and rewrites lbSnap_8001DF20 to use descriptor and offset locals. The only human comment says the author still had not hard-reverted and calls it a mistake, so the slice should be treated as weak historical evidence and not as an accepted matching pattern.
+Closed, unmerged matching PR targeting grInishie1_801FA9B4. The diff added address-named stage data/string symbols in grinishie1.c, rewired callback/report access through those symbols, and made small codegen-oriented local/loop changes in gryorster.c and lbsnap.c. Evidence includes no review comments or validation results, and the only human comment from the author says, "Still haven't hard reverted. My mistake again," so this slice should be treated as cautionary rather than a positive matching precedent.
 
 Postmortem JSON: `prs/pr-2558/postmortem/postmortem.json`
 
@@ -1016,7 +1406,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: stage;ground;library
 
-Closed, unmerged PR that attempted to match src/melee/gr/grinishie1.c function grInishie1_801FA9B4 by copying a _StageData-shaped structure from grHeal, while also containing earlier unrelated-looking edits in gryorster.c and lbsnap.c. The author later commented that earlier commits had been pushed and closed the PR to submit just the stage data fix.
+Closed, unmerged PR attempting to match stage function grInishie1_801FA9B4. The PR body says the function reached 100% by copying the _StageData structure pattern from grHeal. The diff primarily adds grInishie1 stage data/storage and adjusts grInishie1_801FA9B4 to read OSReport strings through that struct; it also includes unrelated-looking codegen steering edits in grYorster and lbSnap. An author comment says earlier commits were pushed and the PR was closed to submit only the stage data fix.
 
 Postmortem JSON: `prs/pr-2557/postmortem/postmortem.json`
 
@@ -1026,7 +1416,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: stage;ground;grinishie1
 
-A one-file stage decomp matching PR for `src/melee/gr/grinishie1.c` changed `grInishie1_801FBC4C` by introducing a local `HSD_JObj* jobj2` before calling `DOBJ_CLEAR_LOOP`. The PR body says this fixed register allocation and matched the function to 100%; the bot report confirms one new match for `grInishie1_801FBC4C`, moving that item from 93.85% to 100.00%.
+Small stage decomp-matching PR for `src/melee/gr/grinishie1.c`: `grInishie1_801FBC4C` was reported as reaching 100% by introducing a local `HSD_JObj* jobj2` before calling `DOBJ_CLEAR_LOOP`, fixing register allocation.
 
 Postmortem JSON: `prs/pr-2556/postmortem/postmortem.json`
 
@@ -1034,9 +1424,9 @@ Postmortem JSON: `prs/pr-2556/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: documentation
-Systems: docs;.github/README.md
+Systems: docs;repository-documentation
 
-Documentation-only PR removing the `un`/Unknown module row from `.github/README.md`'s short-to-full module table. The deleted row stated that `un` is not an actual folder in the original code.
+Documentation-only PR removing the `un`/Unknown row from the module abbreviation table in `.github/README.md`. The deleted row stated that `un` was not an actual folder in the original code.
 
 Postmortem JSON: `prs/pr-2555/postmortem/postmortem.json`
 
@@ -1044,29 +1434,29 @@ Postmortem JSON: `prs/pr-2555/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: item;config;fighter;stage;melee-core;repo-root
+Systems: config;item;fighter;stage;melee-core;repo-root
 
-PR #2549 split the remaining item translation-unit content out of it_2725, introduced and linked melee/it/it_3F14.c, and moved itmaplib.c from NonMatching to Matching. The diff updates splits, symbols, headers, includes, and item-related source files; the bot report shows code/data progress plus temporary-looking broken-match report entries caused by ownership movement between units.
+PR #2549 split the last item translation-unit content out of src/melee/it/it_2725.c into src/melee/it/it_3F14.c, refined item splits/symbol metadata, and changed itmaplib.c from NonMatching to Matching in configure.py. The diff also adjusted ithitbox/itmaplib split boundaries and propagated the new it_3F14.h include across many item users. Bot output reported net matched/linked-code gains and 13 new matches, while also showing 2 broken matches and 1 unmatched-item regression, so validation evidence is mixed rather than clean.
 
 Postmortem JSON: `prs/pr-2549/postmortem/postmortem.json`
 
 ## PR #2548: Remove target funcs
 
 Status: agent_completed
-Type: metadata-cleanup
+Type: target-list cleanup
 Systems: repo-root;grAnime
 
-PR 2548 deleted the repository-root target_funcs.txt file, which listed eight already-checked grAnime functions in src/melee/gr/granime.c. The only recorded bot report says there were no changes for GALE01 between base 09511e2 and head bcc3bf5.
+Removed the repo-root target_funcs.txt file. The deleted file listed src/melee/gr/granime.c and eight checked grAnime target functions. No source code files were changed in this PR slice, and the bot report said GALE01 had no changes.
 
 Postmortem JSON: `prs/pr-2548/postmortem/postmortem.json`
 
 ## PR #2547: Merge multiple PRs
 
 Status: agent_completed
-Type: code-change
+Type: code-cleanup-and-asm-replacement
 Systems: stage;item
 
-Small bulk PR touching one stage file and one item file. It simplified generated-looking locals in grCastle_801CDFD8 and replaced a MWERKS_GEKKO inline assembly implementation of it_2725_Logic59_EvtUnk with C that calls it_8026B894, recovers Item* via GET_ITEM, and uses a volatile pointer read/compare against the Ness yoyo item var field.
+Small merged bulk PR touching one stage file and one item file. The stage change cleans up grCastle_801CDFD8 by removing generated-looking temporaries and assigning fields directly. The item change replaces a MWERKS_GEKKO inline assembly implementation of it_2725_Logic59_EvtUnk with C that calls it_8026B894 and uses a volatile owner-pointer comparison against ref_gobj.
 
 Postmortem JSON: `prs/pr-2547/postmortem/postmortem.json`
 
@@ -1074,9 +1464,9 @@ Postmortem JSON: `prs/pr-2547/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: resplit
-Systems: item;fighter;ground;config;repo-root
+Systems: item;fighter;stage;config;build-config
 
-Large item-system resplit of src/melee/it/it_2725.c into smaller item translation units. The PR added split metadata, symbols metadata, new headers/sources for ithitbox, itmaplib, itmaterial, iteffect, itanimlist, it_279C, and itzako, updated configure.py so all new units except itmaplib are Matching, and adjusted includes/type names across item, fighter, and ground users.
+Large item-system resplit PR that split the former broad src/melee/it/it_2725.c region into multiple item translation units, updated split/symbol metadata, configure.py object matching status, headers, includes, and many dependent item/fighter/stage references. The PR body says the split was derived iteratively with Claude/Codex from repeated floats/strings plus stronger filename or string evidence for several units. All new units were described as matching and linked except itmaplib; bot report shows broad match/link/data gains alongside expected broken matches from moving symbols out of it_2725.
 
 Postmortem JSON: `prs/pr-2546/postmortem/postmortem.json`
 
@@ -1086,7 +1476,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: item;nessyoyo
 
-PR #2545 decompiled item function it_2725_Logic59_EvtUnk in src/melee/it/items/itnessyoyo.c by replacing a MWERKS_GEKKO inline assembly block and NOT_IMPLEMENTED fallback with C that calls it_8026B894 and preserves an otherwise unused comparison against the Ness yoyo item owner/reference field. The author noted the unused comparison was tricky and claimed a 100% local match; the bot report says GALE01 had no changes.
+Decompiled item function it_2725_Logic59_EvtUnk in src/melee/it/items/itnessyoyo.c by replacing a MWERKS_GEKKO inline-assembly implementation and NOT_IMPLEMENTED fallback with C. The resulting C calls it_8026B894 and preserves an apparently unused comparison against the Ness yo-yo item owner field using a volatile pointer expression.
 
 Postmortem JSON: `prs/pr-2545/postmortem/postmortem.json`
 
@@ -1094,9 +1484,9 @@ Postmortem JSON: `prs/pr-2545/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching cleanup
-Systems: stage;ground;grcastle
+Systems: stage;ground;grCastle
 
-A focused stage decomp-matching cleanup in src/melee/gr/grcastle.c simplified grCastle_801CDFD8 by removing extra temporaries, directly using grCs_804D6970 fields, and assigning literals directly. The PR body says this moved the function from 99.84% to 100%, and the bot report records one new match for grCastle_801CDFD8.
+PR #2544 made the stage function grCastle_801CDFD8 in src/melee/gr/grcastle.c match by simplifying temporary variables, using direct grCs_804D6970 field accesses, narrowing random_range to range, and assigning literal sentinel values directly. The PR body claims improvement from 99.84% to 100%, and the bot report records one new match for main/melee/gr/grcastle: grCastle_801CDFD8.
 
 Postmortem JSON: `prs/pr-2544/postmortem/postmortem.json`
 
@@ -1104,19 +1494,19 @@ Postmortem JSON: `prs/pr-2544/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;ground;grCastle
+Systems: stage;ground;castle
 
-PR #2543 decompiled grCastle_801CE19C by replacing small MWERKS inline-asm bit manipulation with C, backed by a grCastle_GroundVars9 bitfield for gp+DE bit 0. The same xDE_b0 field was then used in nearby grCastle code to set, clear, and test the flag. The PR also adjusted PAD_STACK usage and kept offset-style naming rather than accepting speculative semantic names.
+PR #2543 decompiled the castle-stage function grCastle_801CE19C by replacing small inline assembly and byte-mask flag handling with C that uses a newly modeled grCastle_GroundVars9 bitfield. The diff also updated nearby castle flag writes to use xDE_b0 and adjusted narrow PAD_STACK usage. Reviewer feedback stated that the struct needed to be modified to use a bitfield.
 
 Postmortem JSON: `prs/pr-2543/postmortem/postmortem.json`
 
 ## PR #2542: Add MetroTRK exception vector assembly
 
 Status: agent_completed
-Type: decomp-matching
-Systems: MetroTRK;.init;config/GALE01;Nix build;dtk/binutils
+Type: assembly_split
+Systems: MetroTRK;GALE01 splits;Nix build configuration
 
-Added a dedicated assembly split for the MetroTRK exception vector table in .init, mapping 0x80003298-0x800051CC to src/MetroTRK/__exception.s. The PR represented this region in assembly rather than C because it is layout-sensitive and mixes embedded bytes, fixed-size gaps, labels, and instructions in one contiguous block. It also updated the GALE01 split file and taught the Nix configure step to pass devkitPPC binutils so dtk can assemble the new source without network downloads.
+PR #2542 added a dedicated MetroTRK exception vector table split at src/MetroTRK/__exception.s, represented the layout-sensitive .init region in assembly, registered the split range in config/GALE01/splits.txt, and updated the Nix configure invocation to provide binutils from devkitppc so dtk would not download assembler tooling in the sandboxed Nix build.
 
 Postmortem JSON: `prs/pr-2542/postmortem/postmortem.json`
 
@@ -1124,9 +1514,9 @@ Postmortem JSON: `prs/pr-2542/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: src/sysdolphin/baselib;CARD
+Systems: src/sysdolphin/baselib
 
-PR 2541 advanced matching for sysdolphin baselib function hsd_803A949C, changing the implementation and header signature. The diff replaces a local CardStateExt/CardCmdEntry approach with CardState field usage and command-buffer access macros, adjusts control flow and data checks across CARD close/read/verify cases, and updates the public prototype to void hsd_803A949C(s32 chan, s32 arg1). Bot output reports hsd_803A949C improving from 58.78% to 93.40%, while the PR title says 92%.
+PR 2541 reworked the baselib memory-card callback/function hsd_803A949C in hsd_3A94.c and updated its header prototype. The diff replaces local guessed command/state structs with a smaller command-buffer view and CMD_* access macros, switches helpers to the existing CardState type and file_info/digest fields, adds the chan parameter to hsd_803A949C, restructures several command cases, and includes a small polling loop around file_info.fileNo. The only comment evidence is the decomp bot report showing hsd_803A949C improved from 58.78% to 93.40%; no human review comments are present.
 
 Postmortem JSON: `prs/pr-2541/postmortem/postmortem.json`
 
@@ -1134,9 +1524,9 @@ Postmortem JSON: `prs/pr-2541/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: src/sysdolphin/baselib/sislib
+Systems: src/sysdolphin/baselib;sislib
 
-Sislib decompilation cleanup and matching-progress PR touching src/sysdolphin/baselib/sislib.c and sislib.h. The diff replaces generated-looking dead locals, gotos, disabled #if 0 blocks, and unclear pointer/byte handling with more structured loops, explicit buffers, cursor pointers, typed casts, recovered helper bodies, and an updated HSD_SisLib_803A7684 prototype. Bot report records score improvements for seven unmatched sislib items, but the slice has no human review comments and no PR body details.
+SisLib decomp progress focused on src/sysdolphin/baselib/sislib.c with one header prototype correction. The diff cleans several generated-looking shapes, adds or rewrites SisLib text encoding/editing routines, improves typed arguments for HSD_SisLib_803A7684, and records remaining known mismatches as regalloc/scheduling/literal-pooling TODOs. Automated bot output reports score improvements for seven sislib functions, but no human review comments are present.
 
 Postmortem JSON: `prs/pr-2540/postmortem/postmortem.json`
 
@@ -1146,7 +1536,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: src/melee/vi;src/sysdolphin/baselib;repo-root
 
-PR 2539 decompiled and improved code in vi0501 and sysdolphin psdisp. It replaced the stub for un_8031D9F8, matched particleSort according to the automated report, improved psDispParticles, added psdisp point/trail inline helpers, and deleted a temporary target_funcs.txt checklist.
+Decomp-matching PR touching vi0501 and sysdolphin particle display code. The loaded report records particleSort reaching 100%, vi0501 .sdata reaching 100%, and progress in psDispParticles and un_8031D9F8, with one psdisp .sdata2 regression noted by the bot.
 
 Postmortem JSON: `prs/pr-2539/postmortem/postmortem.json`
 
@@ -1154,9 +1544,9 @@ Postmortem JSON: `prs/pr-2539/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;ifprize;interface
+Systems: melee if;ifprize
 
-PR 2538 advances decompilation of src/melee/if/ifprize.c by replacing stubs with recovered control flow and typed state for the ifprize flow. Bot output reports new 100% matches for fn_802FE470 and un_802FE6A8, near-complete improvements for un_802FE918 and un_802FEBE0_OnEnter, and a .data regression.
+PR 2538 updates src/melee/if/ifprize.c for ifprize decomp progress. The diff replaces placeholder calls with recovered state-machine, object setup, text/audio/date display logic, refines local/global structs with HSD_JObj/HSD_GObj/HSD_Text and linked-list argument types, and adjusts inlining/stack-shaping around un_802FE3F8. Bot evidence reports two new function matches, two unmatched-function improvements, and one .data regression.
 
 Postmortem JSON: `prs/pr-2538/postmortem/postmortem.json`
 
@@ -1164,9 +1554,9 @@ Postmortem JSON: `prs/pr-2538/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;ifstatus;HUD damage percent
+Systems: melee-core;hud-status;interface
 
-PR 2537 advances matching in src/melee/if/ifstatus by replacing several NOT_IMPLEMENTED stubs with C for HUD percent/damage/status behavior, adding needed includes, and adjusting ifstatus headers/types. The bot report records 4 new matches in main/melee/if/ifstatus, several further ifstatus improvements, plus two broken matches and one .sdata2 regression.
+Implemented and improved several HUD/status damage functions in src/melee/if/ifstatus, updated corresponding ifstatus prototypes, and adjusted IfDamageState damage fields to signed 16-bit. Bot evidence reported 4 new matches in main/melee/if/ifstatus and multiple ifstatus improvements, but also reported 2 broken matches and a small .sdata2 regression.
 
 Postmortem JSON: `prs/pr-2537/postmortem/postmortem.json`
 
@@ -1174,9 +1564,9 @@ Postmortem JSON: `prs/pr-2537/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-menu;mncharsel;repo-root
+Systems: melee-core;menus;mncharsel
 
-Large mncharsel decomp/matching PR focused on src/melee/mn/mncharsel.c, adding a substantial implementation for mnCharSel_802640A0 and adjusting several existing character-select functions, headers, types, and target_funcs. Evidence includes changed-file metadata, a truncated diff excerpt, and a bot match report showing mncharsel improvements plus one mncharsel broken match and unrelated report movement in gr units.
+Large Character Select Screen decomp/matching slice centered on src/melee/mn/mncharsel.c. The PR added an implementation for mnCharSel_802640A0, updated multiple nearby mncharsel functions, tightened headers/types, and added a target_funcs.txt checklist. Evidence includes a bot report showing mncharsel progress but also one broken match and some unrelated reported score movement.
 
 Postmortem JSON: `prs/pr-2536/postmortem/postmortem.json`
 
@@ -1184,9 +1574,9 @@ Postmortem JSON: `prs/pr-2536/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;menu;mn;mndiagram
+Systems: melee-core;mn;mndiagram;mndiagram2;mndiagram3
 
-Large mndiagram matching PR touching the diagram menu source and static headers. The diff adds typed overlays for diagram data tables, expands menu input/navigation logic, converts several raw assert expansions to HSD_ASSERT/HSD_ASSERTREPORT-style forms, adjusts stack padding and casts for codegen, and introduces typed static-table declarations in mndiagram2 and mndiagram3. Bot output reports one new full match, many score improvements, and several regressions.
+Large matching/decomp PR for the menu diagram files, primarily touching src/melee/mn/mndiagram.c plus mndiagram2/3 source and static headers. Evidence shows a new match for mnDiagram_PopupAnimProc, major score improvements in mnDiagram_InputProc and fn_802461BC, typed overlays for menu diagram data tables, assert macro cleanup, allocation/assert additions, and extensive cursor/input/detail-view control-flow reconstruction. The bot report also records one broken match and several unmatched-item regressions.
 
 Postmortem JSON: `prs/pr-2535/postmortem/postmortem.json`
 
@@ -1194,9 +1584,9 @@ Postmortem JSON: `prs/pr-2535/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;ground;config
+Systems: stage;ground;config/GALE01
 
-Stage decomp/matching PR touching Green Greens, Pura, and Push On ground code. It adds or improves several stage functions, updates ground variable types and headers, and adjusts a Green Greens data split. Bot report records +1960 matched code bytes, +32 matched data bytes, 8 new matches, 17 unmatched-item improvements, and 2 Green Greens unmatched-item regressions.
+Stage decomp/matching PR touching the remaining gr work across grpushon, grpura, grgreens, headers, types, and one GALE01 symbol split. Bot report shows +1960 matched-code bytes, +32 matched-data bytes, 8 new matches, 17 unmatched-item improvements, and 2 grgreens unmatched-item regressions.
 
 Postmortem JSON: `prs/pr-2534/postmortem/postmortem.json`
 
@@ -1206,7 +1596,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: item;config;repo-root
 
-Broad item-subsystem decomp progress touching 25 files. The PR moved itbombhei.c to Matching in configure.py, adjusted item symbol metadata across data/rodata/sdata/sdata2, added or refined item structs/prototypes, and made many small source-shape changes that the bot report says produced 32 new matches and 34 unmatched-item improvements.
+Broad item decomp progress across 25 files, with one item TU promoted to Matching, many item functions reaching 100%, item header/type refinements, local symbol metadata corrections, and numerous small code-shape adjustments in item TUs. Bot report records +0.38% matched code, +14840 matched-code bytes, 32 new matches, and 34 unmatched-item improvements.
 
 Postmortem JSON: `prs/pr-2533/postmortem/postmortem.json`
 
@@ -1214,9 +1604,9 @@ Postmortem JSON: `prs/pr-2533/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;Big Blue Route;ground
+Systems: stage;grbigblueroute;ground
 
-Big Blue Route stage decomp work focused on src/melee/gr/grbigblueroute.c with supporting header/type updates. The PR replaced many raw Ground offset accesses with typed GroundVars, RouteEntry, and track fields, implemented grBigBlueRoute_8020CD20 to a high partial match, cleaned assert/report and literal uses, and improved or matched several functions. Bot evidence reports four new function matches and one .sdata regression.
+Stage decomp PR for Big Blue Route that replaced many raw Ground offset accesses with typed GroundVars and RouteEntry accesses, added a large C body for grBigBlueRoute_8020CD20, improved or matched several grbigblueroute functions, and updated route-related struct/header types. The only review-like evidence is the decomp bot report; no human review comments were present in the loaded slice.
 
 Postmortem JSON: `prs/pr-2532/postmortem/postmortem.json`
 
@@ -1224,9 +1614,9 @@ Postmortem JSON: `prs/pr-2532/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;ground;Ice Mountain;config
+Systems: stage;ground;config
 
-Decomp/matching PR focused on Ice Mountain stage code in gricemt. It substantially rewrote src/melee/gr/gricemt.c, adjusted Ice Mountain ground-var and parameter types, updated gricemt prototypes, and changed one symbols.txt text symbol boundary. The bot report records 13 new gricemt matches, 11 partial improvements, and one broken 4-byte match from fn_801F91A4 being absorbed into fn_801F9150 symbol sizing.
+Ice Mountain stage decomp/matching PR touching gricemt code, stage ground variable layouts, prototypes, and one symbol split. The bot report records 13 new gricemt matches, 11 unmatched-item improvements, and one broken 4-byte match caused by removing fn_801F91A4 as a separate symbol.
 
 Postmortem JSON: `prs/pr-2531/postmortem/postmortem.json`
 
@@ -1234,9 +1624,9 @@ Postmortem JSON: `prs/pr-2531/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;ground-animation;granime
+Systems: stage;granime;baselib-animation
 
-PR 2530 advanced decompilation of src/melee/gr/granime.c, adding bodies or partial improvements for several grAnime functions, tightening granime prototypes, adding typed fields for stage animation archive entries, replacing several raw __assert blocks with HSD_ASSERT/HSD_ASSERTREPORT, and introducing narrow inline/noinline wrapper helpers used for matching-sensitive calls. The bot report records 3 new matches and 3 unmatched-item improvements, plus a .sdata regression.
+PR 2530 advances `src/melee/gr/granime.c` decompilation by implementing several previously stubbed or partially matched granime functions, tightening prototypes and struct fields, replacing raw assert expansions with HSD assert macros, and using inline wrapper/noinline call-shape helpers for matching. Bot evidence reports three new function matches and three improvements, plus a `.sdata` regression.
 
 Postmortem JSON: `prs/pr-2530/postmortem/postmortem.json`
 
@@ -1244,9 +1634,9 @@ Postmortem JSON: `prs/pr-2530/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: game-mode;gm_1601;match-end-stats
+Systems: game-mode;match-end;stats;fighter-selection
 
-PR #2529 implemented and/or improved many gm_1601.c stub functions, updated gm_1601.h prototypes from UNK_RET/UNK_PARAMS to recovered signatures, and added small struct field recoveries in gm/types.h. The bot report recorded 2 newly matched functions, 18 unmatched-item improvements, and one small unmatched regression.
+Large game-mode decomp PR for src/melee/gm/gm_1601.c, implementing many former stubs and updating gm_1601.h prototypes and gm/types.h struct fields used by the recovered code. The bot report records 2 new matches, 18 unmatched-item improvements, and 1 small unmatched-item regression in gm_8016A22C.
 
 Postmortem JSON: `prs/pr-2529/postmortem/postmortem.json`
 
@@ -1254,19 +1644,19 @@ Postmortem JSON: `prs/pr-2529/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: game-mode;gm;lb;sysdolphin-baselib;sislib;camera;result;allstar;opening
+Systems: game-mode;gm_1BA8;gm_18A5;gm-camera;gm-allstar;gm-opening;gm-result;lb;sysdolphin-baselib
 
-Large game-mode decomp/matching PR centered on src/melee/gm/gm_1BA8.c, with additional cleanup and matching improvements in gm_18A5, gmallstar, gmcamera, gmopening, gmresult, lbbgflash, and sislib. The automated report records 3 new matches, 17 unmatched-item improvements, and 1 gmopening .sdata2 regression.
+Large game-mode decomp PR focused mainly on gm_1BA8, with additional gm camera, all-star, opening, result, lbBgFlash, and sislib header/body cleanup. The diff converts several placeholders into C bodies, updates recovered prototypes, removes some pragma steering, introduces narrow helper wrappers, replaces several generated float extern labels with literals, and records automated progress including 3 new matches, 17 improved unmatched items, and one gmopening .sdata2 regression.
 
 Postmortem JSON: `prs/pr-2528/postmortem/postmortem.json`
 
 ## PR #2527: Jj/ft 0 c31
 
 Status: agent_completed
-Type: decomp-matching-tu-split
+Type: decomp-matching
 Systems: fighter;ftCommon;items;config;repo-root
 
-PR 2527 split the tail of `src/melee/ft/ft_0C31.c` into ten new fighter-common translation units from `ftCo_800C703C.c` through `ftCo_800C7CA0.c`, added matching headers and build/split metadata, and updated call sites/includes across fighter and item code. The bot report shows net code/data progress and 55 new matches, while also reporting old `ft_0C31` matches as broken because symbols moved to the new units.
+PR 2527 split the tail of src/melee/ft/ft_0C31.c into ten new ftCo_800Cxxxx translation units, promoted ft_0C31.c and the new units to Matching in configure.py, updated splits/symbol metadata for the new text and data ownership, and retargeted includes/prototypes in fighter, ftCommon, character init, and item files. The only discussion evidence is the decomp-dev bot report showing +2192 matched code bytes, +8128 linked code bytes, and 55 new matches, with many reported broken matches in old ft_0C31 because symbols moved into the new split units.
 
 Postmortem JSON: `prs/pr-2527/postmortem/postmortem.json`
 
@@ -1274,9 +1664,9 @@ Postmortem JSON: `prs/pr-2527/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;cpu-attack;ftcpuattack
+Systems: fighter;CPU attack selection;ftcpuattack
 
-Large fighter CPU-attack decompilation PR for src/melee/ft/ftcpuattack.c. It replaced placeholders for ftCo_800B4AB0, ftCo_800B52AC, ftCo_800B5AB0, and ftCo_800B77E8 with C, added typed local structs for attack-entry and x50-like data, adjusted ftCo_800B5AB0 call/prototype arity, changed Fighter_x1A88_t.x50 from int to u32, and made smaller matching-oriented edits in ftCo_800B8A9C and ftCo_800BB220. The only textual feedback is the decomp bot report showing partial score improvements, not full matches.
+Large fighter CPU attack decomp/matching PR for src/melee/ft/ftcpuattack.c. It replaced placeholder declarations for ftCo_800B4AB0, ftCo_800B52AC, ftCo_800B5AB0, and ftCo_800B77E8 with C implementations, refined ftCo_AttackEntry fields and temporary target-physics structs, updated ftCo_800B5AB0's header signature, changed Fighter_x1A88_t.x50 from int to u32, and made smaller matching-oriented edits in ftCo_800B8A9C and ftCo_800BB220. The only loaded feedback is an automated progress report showing seven unmatched-item improvements; there are no loaded human review comments.
 
 Postmortem JSON: `prs/pr-2526/postmortem/postmortem.json`
 
@@ -1284,9 +1674,9 @@ Postmortem JSON: `prs/pr-2526/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;player-bonus;plbonus
+Systems: melee-core;player;plbonus
 
-PR 2525 added a large C implementation of src/melee/pl/plbonus.c:fn_80039618, adjusted fn_80038700 with a scoped dont_inline pragma, rewrote digit extraction arithmetic in fn_8003CC84, and refined pl_804D6470_t field types in src/melee/pl/types.h. The automated report shows main/melee/pl/plbonus fn_80039618 improved from 0.00% to 99.67%, fn_8003CC84 reached 100%, and plbonus .data/.sdata2 reached 100%; no human review comments were loaded.
+PR 2525 decompiled substantial player bonus logic in src/melee/pl/plbonus.c, replacing the fn_80039618 asm placeholder with C that computes many bonus flags from player action stats, stale move table data, game mode helpers, and threshold fields. It also adjusted fn_80038700 with a tightly scoped dont_inline pragma, changed digit arithmetic in fn_8003CC84, and typed several previously opaque pl_804D6470_t fields in src/melee/pl/types.h. The only discussion evidence is an automated progress report showing fn_80039618 improved from 0.00% to 99.67%, fn_8003CC84 reached 100%, and plbonus .data/.sdata2 reached 100%.
 
 Postmortem JSON: `prs/pr-2525/postmortem/postmortem.json`
 
@@ -1294,9 +1684,9 @@ Postmortem JSON: `prs/pr-2525/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;ftCommon;stage;ground;collision;items;camera
+Systems: fighter;ftCommon;stage-collision;camera;item;ground
 
-Large decomp/matching PR for fighter common file ftCo_0A01. It added implementations and partial-progress source for many ftCo_0A01 functions, updated header prototypes from UNK_RET/UNK_PARAMS to typed signatures, added subsystem includes for camera, stage/ground, vector, and collision helpers, and produced 11 newly matched functions plus 25 unmatched-item improvements per the bot report. Evidence is mixed because the diff is truncated and there are no human review comments or PR body.
+Large decomp-matching PR for common fighter ftCo_0A01. It replaced many placeholder/generated sections in src/melee/ft/chara/ftCommon/ftCo_0A01.c with C implementations, added stage/camera/vector includes, introduced narrow noinline/dontinline wrapper helpers, rewrote some gotos into loops/switches, and updated ftCo_0A01.h prototypes from UNK_RET/UNK_PARAMS to concrete signatures. The bot report records +7324 matched-code bytes, 11 new matches, 25 unmatched-item improvements, and one ftCo_800A2718 regression.
 
 Postmortem JSON: `prs/pr-2524/postmortem/postmortem.json`
 
@@ -1304,9 +1694,9 @@ Postmortem JSON: `prs/pr-2524/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;player-bonus;src/melee/pl
+Systems: melee-core;player-bonus;plbonus
 
-Draft PR for src/melee/pl/plbonus added a large C implementation of fn_80039618, adjusted fn_8003CC84 digit arithmetic, wrapped fn_80038700 in a dont_inline pragma, and refined several pl_804D6470_t fields in src/melee/pl/types.h. Bot report showed 3 new matches and fn_80039618 improving from 0.00% to 99.67%, but the PR was closed unmerged with no human review comments.
+Draft closed PR for melee player bonus code. It replaced the placeholder for fn_80039618 in src/melee/pl/plbonus.c with a large partial C implementation, adjusted digit arithmetic in fn_8003CC84, wrapped fn_80038700 in a dont_inline pragma block, and typed several fields in pl_804D6470_t. Bot report claimed 3 new matches and fn_80039618 improvement to 99.67%, but the PR was closed unmerged and has no human review comments.
 
 Postmortem JSON: `prs/pr-2523/postmortem/postmortem.json`
 
@@ -1314,9 +1704,9 @@ Postmortem JSON: `prs/pr-2523/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;ftCrazyHand;ftMasterHand;ftCommon;config;repo-root
+Systems: fighter;ftCrazyHand;ftCommon;ftMasterHand;config;repo-root
 
-PR 2522 split the previous Crazy Hand ftCh_Init translation unit into many separate ftCrazyHand source/header files, marked the new objects Matching in configure.py, updated GALE01 split ranges for the carved objects, and added a few includes/references in neighboring fighter files. The bot report shows linked-code and matched-data gains with 293 new matches, while also showing many broken matches under the old ftCh_Init unit because symbols moved into the new split units.
+PR 2522 split the previously broad Crazy Hand init translation unit into many per-action ftCrazyHand source/header files, updated GALE01 split ranges, and changed configure.py so the new Crazy Hand objects are treated as Matching. The bot report shows a net increase in matched, linked code and data, while many apparent broken matches are the old ftCh_Init symbols moving into newly split units.
 
 Postmortem JSON: `prs/pr-2522/postmortem/postmortem.json`
 
@@ -1324,9 +1714,9 @@ Postmortem JSON: `prs/pr-2522/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: unknown
-Systems: CrazyHand
+Systems: unknown
 
-PR 2521 was titled "Link CrazyHand" and closed without merge evidence in the loaded slice. The slice contains no PR body text, no issue or review comments, no changed-file metadata, and an empty diff, so no concrete code changes, matching tactics, review feedback, or reusable decomp lessons can be extracted beyond the PR identity and title-level topic.
+PR #2521 was titled "Link CrazyHand" and came from branch link_ftch_init, but the provided slice contains no PR body, no changed-file metadata, no diff content, no comments, and no reviews. No concrete code changes or decomp lessons can be extracted beyond the PR identity and apparent topic terms from the title and branch name.
 
 Postmortem JSON: `prs/pr-2521/postmortem/postmortem.json`
 
@@ -1334,9 +1724,9 @@ Postmortem JSON: `prs/pr-2521/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: item;masterhand;build-config
+Systems: item;masterhandlaser;configure
 
-PR 2520 linked the item translation unit `itmasterhandlaser` by changing its configure entry from `NonMatching` to `Matching` and adding a one-entry `ItemStateTable` definition in `src/melee/it/items/itmasterhandlaser.c`. The bot report recorded one new `.data` match for `main/melee/it/items/itmasterhandlaser`, with linked code and linked data progress.
+PR 2520 linked the item translation unit melee/it/items/itmasterhandlaser.c by adding its ItemStateTable data definition and changing configure.py from NonMatching to Matching for that object. The only comment is an automated GALE01 report showing linked-code progress and one new .data match for main/melee/it/items/itmasterhandlaser.
 
 Postmortem JSON: `prs/pr-2520/postmortem/postmortem.json`
 
@@ -1344,9 +1734,9 @@ Postmortem JSON: `prs/pr-2520/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: library;config;repo-root;melee/lb
+Systems: melee/lb;lbarchive;config/GALE01;configure
 
-PR 2519 linked `melee/lb/lbarchive.c` by changing the object status from Equivalent to Matching, inlining the `lbArchive_LoadArchive` sequence into two variadic archive-loading functions, and adjusting related lbarchive/lbdvd/lbheap string symbol metadata to local scope. The bot report records two new function matches for `lbArchive_80017040` and `lbArchive_800171CC`, plus linked code/data progress.
+PR 2519 linked `melee/lb/lbarchive.c` by changing it from Equivalent to Matching, inlining `lbArchive_LoadArchive` inside two archive-loading varargs wrappers, and adjusting lbarchive-adjacent string symbol metadata in `config/GALE01/symbols.txt`. The bot report credited two new matches, `lbArchive_80017040` and `lbArchive_800171CC`, plus linked-code and linked-data gains.
 
 Postmortem JSON: `prs/pr-2519/postmortem/postmortem.json`
 
@@ -1354,9 +1744,9 @@ Postmortem JSON: `prs/pr-2519/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;ground;grzebesroute;config
+Systems: stage;ground;config;symbols
 
-Linked the Ground Zebes route translation unit by changing grzebesroute.c from NonMatching to Matching, completing grZebesRoute_8020B548 and cleaning related constants/asserts/data symbols. The bot report records one new match for main/melee/gr/grzebesroute: grZebesRoute_8020B548 from 99.97% to 100.00%, with linked code/data increases.
+PR 2518 links `src/melee/gr/grzebesroute.c` by moving the object from NonMatching to Matching, completing `grZebesRoute_8020B548` according to the bot report, and adjusting related symbol metadata for grZe route literals/data.
 
 Postmortem JSON: `prs/pr-2518/postmortem/postmortem.json`
 
@@ -1374,9 +1764,9 @@ Postmortem JSON: `prs/pr-2517/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: item;stage;config;library-types
+Systems: item;stage;config;library-types;repo-root
 
-Incremental item decomp/matching PR touching 30 files, mostly item TUs, plus symbols/splits/config metadata and small stage callsite cleanups. Bot report records broad text/data progress: +0.40% matched code, 31 new matches, 59 unmatched-item improvements, one broken match in itmewtwoshadowball .sdata2, and three unmatched-item regressions. The author explicitly describes the code as getting gross/hideous while pushing toward matching all item TUs.
+Large incremental item decomp/matching PR touching 30 files, mostly src/melee/it and item TUs, with supporting symbols/splits/configure changes. The PR body explicitly frames the work as progress toward matching all item TUs and acknowledges temporary gross code. The automated report shows +0.40% matched code, 31 new matches, 59 unmatched-item improvements, one broken match in itmewtwoshadowball .sdata2, and three unmatched-item regressions.
 
 Postmortem JSON: `prs/pr-2516/postmortem/postmortem.json`
 
@@ -1384,19 +1774,19 @@ Postmortem JSON: `prs/pr-2516/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: library;lb;collision
+Systems: library;lb;lbcollision
 
-PR #2515 is focused match work in src/melee/lb/lbcollision.c for lb collision capsule/segment collision routines. The PR body reports four new 100% matches, four improved but still sub-100% functions, role-based parameter names for lbColl_80006E58, removal of an unused JObj matrix helper/assert strings, Vec3 grouping of coordinate triplets, an assignment-expression shape in the closest-points solve, and a float-register tactic that caches 1.0. Loaded bot feedback also reported an intermediate broken match in lbColl_80005C44 and the author said they would fix regressions, but the loaded slice does not include final regression output.
+PR #2515 performed decomp matching work in src/melee/lb/lbcollision.c for capsule/collision routines. The PR body reports four new 100% matches, four improved but still sub-100% functions, role-based parameter naming for lbColl_80006E58, removal of an unused JObj matrix helper and assert strings, Vec3 consolidation, assignment-expression shaping, and a float-register tactic for caching 1.0. A bot report confirmed the four new matches and improvements but also reported a temporary broken match in lbColl_80005C44; loaded evidence does not include a later final report showing whether that regression was fixed before merge.
 
 Postmortem JSON: `prs/pr-2515/postmortem/postmortem.json`
 
 ## PR #2514: Remove PR template
 
 Status: agent_completed
-Type: repository_docs_cleanup
+Type: repository_process_docs
 Systems: docs;github
 
-PR 2514 deleted the repository pull request template file `.github/pull_request_template.md`, removing its single line that directed contributors to read `./CONTRIBUTING.md` before submitting a pull request. No PR body, issue comments, review comments, or decompilation-source changes were present in the loaded slice.
+Deleted the repository pull request template file, which previously contained a single sentence directing contributors to read CONTRIBUTING.md before submitting a pull request.
 
 Postmortem JSON: `prs/pr-2514/postmortem/postmortem.json`
 
@@ -1404,9 +1794,9 @@ Postmortem JSON: `prs/pr-2514/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: documentation
-Systems: .github;contribution workflow;AI assistance guidelines
+Systems: .github;contributing-docs
 
-Documentation-only PR adding a GitHub pull request template that points contributors to CONTRIBUTING.md, and replacing the prior Discord PR-notification note in CONTRIBUTING.md with AI assistance guidelines for matching work.
+Documentation-only PR adding a GitHub pull request template that points contributors to CONTRIBUTING.md, and replacing the prior Discord notification sentence in CONTRIBUTING.md with an AI Assistance section. The new guidance says AI use for matching functions is acceptable, but discourages AI-driven naming of struct fields or globally accessible identifiers, discourages AI attempts to match data sections, and asks contributors not to include AI output in PR/issue bodies/comments or automated code reviews except for relevant concise AI summaries marked as quoted markdown.
 
 Postmortem JSON: `prs/pr-2513/postmortem/postmortem.json`
 
@@ -1416,7 +1806,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: src/sysdolphin/baselib;src/melee/lb
 
-Large hsd_3AA7 matching/decomp PR focused on sysdolphin baselib memory-card command/state handling. It replaces the hsd_803AAA48 stub with C, restructures many hsd_3AA7.c functions around CardState/CardCmd-like typed data, updates hsd_3AA7.h prototypes and CardState layout, and adjusts two callers to use CardState instead of the older hsd_803AC3E0_arg0_t placeholder. The bot report records 3 new matches and 15 unmatched-item improvements in main/sysdolphin/baselib/hsd_3AA7.
+Large hsd_3AA7 baselib memory-card decomp PR. It replaced multiple hsd_3AA7 placeholders and rough casts with typed CardState/CardCmd/CardOpStatus-oriented code, expanded CardState in the header, updated prototypes and callers in lbcardnew.c and hsd_3A94.c, and produced bot-reported text progress including 3 new matches and 15 improved unmatched hsd_3AA7 functions.
 
 Postmortem JSON: `prs/pr-2512/postmortem/postmortem.json`
 
@@ -1426,7 +1816,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: melee-core;ty;trophy-list
 
-PR 2511 advances trophy-list decomp work in src/melee/ty/tylist.c, promotes shared Toy/Ty struct definitions into src/melee/ty/types.h, updates the un_8031305C prototype, and removes duplicate local ToyGlobals-style structs from toy.c. The bot report records 5 new tylist matches and 4 unmatched-item improvements, with one .data regression.
+PR 2511 is a focused tylist decomp/matching update. It matches five tylist functions, improves several remaining tylist items including a new partial decomp of un_80313774, moves shared ToyGlobals/ToySubStruct typing into ty/types.h, refines TyListArg/TyListState fields, and updates un_8031305C's prototype. The bot report records +2552 matched-code bytes and one .data regression tied to this slice.
 
 Postmortem JSON: `prs/pr-2511/postmortem/postmortem.json`
 
@@ -1434,9 +1824,9 @@ Postmortem JSON: `prs/pr-2511/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;mn;mnevent
+Systems: mn;melee-menu
 
-PR #2510 matched `mnEvent_8024CE74` by restoring a local `static inline` count helper in `src/melee/mn/mnevent.c`. The PR body says the helper changes MWCC local initialization codegen from two independent `li` instructions to the expected dependent register copy, and cites analogous `mnInfo_CountUnlocked` / `mnCount_CountUnlockedChars` patterns in `mn/`. Review feedback rejected unrelated/earlier data and assert-override work around `mnnamenew` static literals, recommending landing only the `mnEvent_8024CE74` code match and not chasing data sections before code is matched.
+Matched `mnEvent_8024CE74` by restoring a `static inline` helper, `mnEvent_CountUnlocked`, that contains the unlock-counting loop. The PR body says this recovered a 100% match by making MWCC emit a register-copy initialization shape instead of two independent zero loads. Review feedback rejected unrelated data/assert-literal work and recommended landing only the focused code match.
 
 Postmortem JSON: `prs/pr-2510/postmortem/postmortem.json`
 
@@ -1446,7 +1836,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: library;lb;audio
 
-PR #2509 matched fn_80026650 in lbaudio_ax.c to 100% and made small score improvements to fn_800268B4 and lb_8000FD48. The changes used direct named externs for two lbaudio arrays, rewrote one lbaudio loop as a pointer-increment form, and factored repeated free-list pop code in lb_00F9.c into a static inline helper.
+PR #2509 made focused matching improvements in the lb library area: fn_80026650 in lbaudio_ax.c reached 100%, fn_800268B4 improved slightly, and lb_8000FD48 in lb_00F9.c improved by factoring repeated free-list pop logic into a static inline helper. The PR body reports local configure/ninja and per-function checkdiff verification; the bot report corroborates one new match and two unmatched-item improvements.
 
 Postmortem JSON: `prs/pr-2509/postmortem/postmortem.json`
 
@@ -1454,9 +1844,9 @@ Postmortem JSON: `prs/pr-2509/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: library;lb;lbbgflash;pad-sampling;background-flash
+Systems: lb;lbbgflash;pad sampling;HSD_JObj rotation
 
-Implemented a C body for lb_80019628 in lb_0192.c and made focused source-shape changes in lbbgflash.c to improve fuzzy matching for several library/background-flash functions. The PR explicitly reported no 100% matches, a green configure+ninja build, and unchanged sibling functions in both touched TUs.
+Implemented a C body for lb_80019628 in lb_0192.c and made several fuzzy-match-oriented improvements in lbbgflash.c. The PR reports no 100% matches, but improved lb_80019628 and multiple lbbgflash functions, with a green configure/ninja build claimed by the author and a bot report showing five unmatched-item improvements.
 
 Postmortem JSON: `prs/pr-2508/postmortem/postmortem.json`
 
@@ -1466,17 +1856,17 @@ Status: agent_completed
 Type: decomp-matching
 Systems: library;lb;lbaudio_ax
 
-PR #2507 made a small lb library matching/header cleanup. In `fn_80027488`, it replaced accesses through `lbl_80433710.x194` and `.x274` with direct extern array references `lbl_804338A4` and `lbl_80433984`, and changed local declaration order so MWCC materializes addresses in the desired order. It also replaced several lb header `UNK_RET`/`UNK_PARAMS` placeholders with explicit `void` signatures already used by the C files. The PR body and bot report record fuzzy progress for `fn_80027488` from 89.55% to 94.86%, but no 100% function match.
+PR #2507 made a small lb-library matching and header cleanup change: fn_80027488 in lbaudio_ax.c now uses standalone extern arrays lbl_80433984 and lbl_804338A4 instead of fields on lbl_80433710, with local declaration order adjusted for MWCC address materialization; several lb headers replaced UNK_RET/UNK_PARAMS placeholders with concrete void signatures already used by the .c files. The PR did not claim a full match, but reported fuzzy improvement for fn_80027488 from 89.55% to 94.86% and a green configure/ninja build.
 
 Postmortem JSON: `prs/pr-2507/postmortem/postmortem.json`
 
 ## PR #2506: lb: name THP header fields and float constants in lbmthp
 
 Status: agent_completed
-Type: decomp-readability-naming
-Systems: library;lb;THP;lbmthp
+Type: naming/readability
+Systems: library;lb;THP
 
-Readability/naming follow-up for lbmthp: renamed THPDecComp header fields from unk_08..unk_28 to THP header names, added named static constants for sdata2 float/f64 values, and slightly improved fn_8001EBF0 fuzzy match by folding ALIGN_32 into the assignment site. No new 100% function matches were claimed.
+Readability/naming follow-up for lbmthp: THPDecComp header fields were renamed from unk_08..unk_28 to semantic THP header names, uses in lbmthp.c were updated, .sdata2 float/f64 constants were named in lbmthp.static.h, and fn_8001EBF0 received a small fuzzy-score improvement by folding ALIGN_32 into the assignment site. Review feedback cautioned against spending effort matching data sections before the whole TU text is matched.
 
 Postmortem JSON: `prs/pr-2506/postmortem/postmortem.json`
 
@@ -1486,7 +1876,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: library;lb
 
-Improved matching in src/melee/lb/lb_00CE.c by replacing generated-looking powi exponent handling with a natural loop that matched, and by reshaping lb_8000D148 floating-point temporaries/expression order to improve fuzzy match while preserving stack frame shape.
+PR #2505 updates src/melee/lb/lb_00CE.c to match powi with a natural exponent loop and improve lb_8000D148 fuzzy matching by rearranging floating-point temporaries and operations while preserving stack frame shape according to the PR body.
 
 Postmortem JSON: `prs/pr-2505/postmortem/postmortem.json`
 
@@ -1494,9 +1884,9 @@ Postmortem JSON: `prs/pr-2505/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: library;lb;lbmthp;THP movie playback;THP decode
+Systems: library;lb;THP movie playback
 
-Improved matching in the lbmthp movie/THP player code by typing static data, refining THP decode structs and signatures, naming file/buffer fields, and reshaping several helpers to better match codegen. The PR produced 3 new matches and 5 unmatched-item improvements in main/melee/lb/lbmthp, including full matches for lbMthp_8001F67C, lbMthp_8001F624, and .data, plus significant improvements to fn_8001E910 and fn_8001F2A4.
+PR #2504 improved matching in the lbmthp library translation unit by typing lbmthp static data and movie-player/THP decode fields, refactoring several helpers around typed field names and local aliases, adding lbmthp-specific assert/report macros and named static data references, and fixing THPVideoDecode call-site pointer typing in lb code. The bot report recorded 3 new matches and 5 unmatched-item improvements for main/melee/lb/lbmthp.
 
 Postmortem JSON: `prs/pr-2504/postmortem/postmortem.json`
 
@@ -1506,17 +1896,17 @@ Status: agent_completed
 Type: decomp-matching
 Systems: library;lb;lbcollision
 
-PR #2503 improved matching in src/melee/lb/lbcollision by matching lbColl_80005C44 and lbColl_80009DD4, improving several nearby collision/debug draw helpers, fixing lbColl_80006E58 argument ordering so collision distance is written through an explicit output parameter, and updating stale lbcollision.h prototypes. The bot report records +1016 matched-code bytes, 2 new matches, and 7 unmatched-item improvements.
+PR #2503 improved matching in src/melee/lb/lbcollision by matching lbColl_80005C44 and lbColl_80009DD4, improving several nearby collision/debug-draw helpers, fixing lbColl_80006E58 argument ordering so distance is written through the explicit output parameter, and updating lbcollision.h prototypes. The bot report records two new matches and seven unmatched-item improvements; the PR body explicitly records remaining stack/FPR and Vec3 temporary-layout drift.
 
 Postmortem JSON: `prs/pr-2503/postmortem/postmortem.json`
 
 ## PR #2502: gr: fix Zebes Route param store
 
 Status: agent_completed
-Type: decomp-matching
+Type: decomp-matching data/modeling cleanup
 Systems: stage;ground;grzebesroute
 
-PR #2502 updates src/melee/gr/grzebesroute.c to model grZe_Route_804D6A60 as an 8-byte Zebes Route parameter store, with a params pointer and pad field, and names two understood route parameters: camera_timer and zako_spawn_chance. The PR body says this brought grzebesroute data sections including .sbss to 100%; the bot report specifically records a new .sbss match for main/melee/gr/grzebesroute from 50% to 100% with +4 bytes.
+PR #2502 updates the Zebes Route stage source to model grZe_Route_804D6A60 as an 8-byte parameter-store object instead of a direct pointer to an anonymous two-int struct, names two understood route parameters, and reports .sbss/data-section improvement for grzebesroute.
 
 Postmortem JSON: `prs/pr-2502/postmortem/postmortem.json`
 
@@ -1526,7 +1916,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: lb;lbshadow;library
 
-Improved matching for two functions in src/melee/lb/lbshadow.c: spline tangent handling in lbShadow_8000E9F0 and shadow update logic in lbShadow_8000F38C. The PR body reports checkdiff scores of 95.80645% and 99.69586%, and the bot report shows unmatched-item improvements for both functions.
+PR #2501 improves matching for src/melee/lb/lbshadow.c, specifically lbShadow_8000E9F0 spline tangent code and lbShadow_8000F38C shadow update code. The PR body reports configure+ninja and checkdiff verification for both functions, and the bot report shows score improvements for both unmatched items.
 
 Postmortem JSON: `prs/pr-2501/postmortem/postmortem.json`
 
@@ -1534,9 +1924,9 @@ Postmortem JSON: `prs/pr-2501/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;library;repo-root
+Systems: repo-root;stage;library
 
-Bulk merge PR for #2491 and #2494-#2499 touching stage and lb library decomp work. Evidence shows grheal was moved from NonMatching to Matching, grheal/grzebesroute stage code gained matched functions and data/rodata/sdata coverage, and lbmemory/lbheap/lbsnap/lbcardnew/lbarq received code-match improvements. The PR body is only a checklist and there are no human review comments, so reusable lessons are inferred from diff evidence and the bot match report only.
+Bulk merge PR for #2491 and #2494-#2499. The slice shows decomp/matching progress across stage and lb library files, including grheal becoming Matching in configure.py, new matched grHeal and lbMemory functions, substantial grzebesroute data/rodata/sdata2 cleanup, and smaller lbheap/lbsnap/lbarq/lbcardnew improvements. Evidence is mostly diff plus bot report; no human review comments are present.
 
 Postmortem JSON: `prs/pr-2500/postmortem/postmortem.json`
 
@@ -1546,7 +1936,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: library;lb;lbarq
 
-PR #2499 refines lbarq decompilation by replacing opaque lbArq global padding with a typed 10-node pool, introducing lbArqState enum names for list/state slots, updating state uses in lbarq.c, keeping lbArq_80014ABC out-of-line with a narrow dont_inline pragma, and adding PAD_STACK in lbArq_80014BD0. The PR body claims 100% matches for lbArq_80014ABC and lbArq_80014D2C and partial improvements for lbArq_80014AC4 and lbArq_80014BD0; the bot report independently records lbArq_80014BD0 improving from 93.97% to 96.55%. The PR was closed with no merged_at in the supplied metadata.
+PR #2499 made focused lbarq decomp-matching/type cleanup in src/melee/lb/lbarq.c and src/melee/lb/lbarq.h: it introduced concrete lbArq state names, typed the node state field and accessor return, replaced opaque global padding with a 10-node pool, used enum state indices for the three lists, kept lbArq_80014ABC out-of-line with a narrow dont_inline pragma, and added PAD_STACK in lbArq_80014BD0. The PR body reports two 100% functions and two partial matches, while a bot report confirms an improvement for lbArq_80014BD0 from 93.97% to 96.55%. The PR was closed with merged_at null in the supplied metadata.
 
 Postmortem JSON: `prs/pr-2499/postmortem/postmortem.json`
 
@@ -1554,9 +1944,9 @@ Postmortem JSON: `prs/pr-2499/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: library;lbmemory;allocator
+Systems: library;lbmemory
 
-PR #2498 focused on improving `src/melee/lb/lbmemory` matching by adding structured allocator-related fields, decompiling relocation/init routines, introducing string/data references used by the matched code, and clarifying verified `Handle.x8_hi` behavior. The PR body reports the TU reaching 10/12 matched functions, with `lbMemory_80014FC8` and `lbMemory_80015320` still imperfect. Bot report records 4 new matches and one unmatched-function improvement.
+PR #2498 improved matching in src/melee/lb/lbmemory by adding structured allocator/LBMgr/MemEntry fields, decompiling relocation and init routines, replacing some raw allocator offsets with typed fields, adding string/data references used by matched code, and documenting Handle.x8_hi behavior. It was closed without a recorded merge. Bot report showed 4 new matches and one improved unmatched function, while the PR body stated two functions remained imperfect due to saved-register allocation and instruction scheduling.
 
 Postmortem JSON: `prs/pr-2498/postmortem/postmortem.json`
 
@@ -1566,7 +1956,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: library;lb;lbheap
 
-PR #2497 changed only src/melee/lb/lbheap.c to improve lbheap matching, especially lbHeap_80015900, while preserving or reaching a full match for lbHeap_80015F3C. The diff introduces local heap descriptor/view structs, helper inlines for reset/create/destroy heap operations, rewrites heap bounds scanning, and switches descriptor iteration from index-based array access to a pointer walk. The PR was closed without a recorded merge timestamp in the loaded metadata.
+PR #2497 modified src/melee/lb/lbheap.c to improve lbheap matching, especially lbHeap_80015900, while preserving lbHeap_80015F3C as matched. The diff adds named local structs and inline helpers for heap reset/create/destroy handling, rewrites heap bounds scanning, and changes lbHeap_80015F3C descriptor traversal from index-based table access to pointer iteration. The PR body reports ninja and targeted checkdiff verification; the bot report confirms lbHeap_80015F3C reached 100% and lbHeap_80015900 improved to 96.48%. No human review comments are present in the loaded slice.
 
 Postmortem JSON: `prs/pr-2497/postmortem/postmortem.json`
 
@@ -1576,7 +1966,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: library;lb;lbcardnew
 
-PR #2496 changed `src/melee/lb/lbcardnew.c` in `lb_8001B14C` to remove a local `snapshot_entries` pointer and write directly through `lb_80432A68.snapshot_entries[...]`. The PR body says this more closely matched the target code shape, with `main/melee/lb/lbcardnew` at 40/41 functions at 100% and `lb_8001B14C` improved to about 98.77%, while the remaining blocker was an `r5`/`r6` allocation swap in a compiler-unrolled linked-list copy loop.
+PR #2496 adjusted `lb_8001B14C` in `src/melee/lb/lbcardnew.c` by removing a local `lbCardNew_SnapshotEntry* snapshot_entries` alias and writing directly through `lb_80432A68.snapshot_entries`. The PR body says this improved the target code shape and left the function at 98.77124%, with the remaining diff described as an `r5`/`r6` allocation swap in a compiler-unrolled linked-list copy loop. The PR was closed with no merged_at value in the loaded metadata.
 
 Postmortem JSON: `prs/pr-2496/postmortem/postmortem.json`
 
@@ -1586,7 +1976,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: library;lb;lbsnap
 
-PR #2495 improved matching in src/melee/lb/lbsnap.c and updated one lbsnap header prototype. The PR body claims the remaining unmatched lbsnap surface was reduced to two functions, with configure+ninja verification and 20/22 functions at 100%. The bot report records five new matched functions and one partial improvement in lbSnap_8001DA5C. The PR was closed with merged_at null in the loaded metadata.
+PR #2495 improves `src/melee/lb/lbsnap.c` matching by replacing placeholder-style code and signatures, extracting small helpers for repeated text clearing, tiled image offsets, and save-data offset calculation, and reducing several lbsnap functions to 100% according to the PR body and bot report. The PR was closed with no merge timestamp in the provided metadata.
 
 Postmortem JSON: `prs/pr-2495/postmortem/postmortem.json`
 
@@ -1594,9 +1984,9 @@ Postmortem JSON: `prs/pr-2495/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;grzebesroute;lighting;baselib lobj
+Systems: gr;stage;grzebesroute;HSD_LObj
 
-PR #2494 updated Zebes Route stage code in src/melee/gr/grzebesroute.c by introducing named route light data, direct string/data references, and a C translation of grZebesRoute_8020B548, the stage light setup routine. The PR body reports a successful configure+ninja build and checkdiff score of 99.96923% for grZebesRoute_8020B548, with known remaining GXColor stack-temp offset drift. The bot report shows data-section improvements and grZebesRoute_8020B548 improving from 0.00% to 99.97%. No human review comments were present in the loaded slice.
+Closed, unmerged PR touching only src/melee/gr/grzebesroute.c. It translated the Zebes Route stage light setup routine grZebesRoute_8020B548 to near-match, named the route light data as a typed aggregate, added direct data/string references, and improved grZebesRoute_8020B260 plus data sections according to the bot report. The PR body reports configure/ninja success and checkdiff for grZebesRoute_8020B548 at 99.96923%, with remaining drift in three GXColor by-value stack temp offsets.
 
 Postmortem JSON: `prs/pr-2494/postmortem/postmortem.json`
 
@@ -1614,9 +2004,9 @@ Postmortem JSON: `prs/pr-2493/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching cleanup
-Systems: fighter;ftCrazyHand;Crazy Hand init
+Systems: fighter;ftCrazyHand
 
-PR #2492 adjusted Crazy Hand init command dispatch in `ftCh_Init_80156AD8`: it removed a `btn_pressed` inline helper, introduced a local macro for `HSD_PadMasterStatus[3].button`, cached the L-button mask check, corrected A/Z command mappings, and replaced inline `0`/`2` float literals with declared `ftCh_Init_804DA05C` and `ftCh_Init_804DA060` externs. The PR reported improved checkdiff score but explicitly did not claim a byte match; it was closed unmerged after a comment that the work was already done elsewhere.
+Closed, unmerged PR improving Crazy Hand's human command dispatcher function ftCh_Init_80156AD8. The diff replaces a btn_pressed inline helper with a local buttons macro plus cached L-button test, swaps several A/Z command mappings, replaces inline 0 and 2 float literals with ftCh_Init_804DA05C and ftCh_Init_804DA060 externs, and exposes those externs in ftCh_Init.h. The PR body reports checkdiff improvement to 98.99317% and a successful configure+ninja build, but explicitly says the function remains unmatched with remaining pad-word register allocation drift. A later issue comment says the work was already done elsewhere.
 
 Postmortem JSON: `prs/pr-2492/postmortem/postmortem.json`
 
@@ -1624,9 +2014,9 @@ Postmortem JSON: `prs/pr-2492/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: src/melee/gr;configure.py;main/melee/gr/grheal
+Systems: src/melee/gr;configure.py;grheal
 
-PR #2491 attempted to match the remaining functions in src/melee/gr/grheal.c, move required data declarations into src/melee/gr/grheal.h, and switch configure.py from NonMatching to Matching for melee/gr/grheal.c. Evidence includes claimed local verification and bot-reported new matches, but the PR is closed with merged_at null, so the intake should treat the changes as historical evidence, not accepted source state.
+PR #2491 attempted to complete matching for the Heal stage translation unit by matching remaining functions in src/melee/gr/grheal.c, moving required data declarations into src/melee/gr/grheal.h, and changing configure.py so melee/gr/grheal.c is treated as Matching. The PR body claims python configure.py && ninja, main.dol OK, and main/melee/gr/grheal 100.0% fuzzy with 34/34 matched; the PR was closed with no merged_at value in the supplied metadata.
 
 Postmortem JSON: `prs/pr-2491/postmortem/postmortem.json`
 
@@ -1636,7 +2026,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: library;lb;lbmemory;lb_0192
 
-Draft PR adding decompilation work for lb_80019628, lbMemory_80015320, and lbMemory_8001564C, plus a small fn_80015184 matching improvement in the melee lb library area. Bot output reported one new match for fn_80015184 and improvements for the three newly added functions, but also broken matches and regressions, and the PR closed unmerged with no human review comments in the loaded slice.
+Closed draft PR adding missing implementations for lb_80019628, lbMemory_80015320, and lbMemory_8001564C, plus a small fn_80015184 matching improvement and a public lbMemory_80015320 prototype. Bot report showed one new match for fn_80015184, three unmatched-item improvements, two broken matches, and two regressions.
 
 Postmortem JSON: `prs/pr-2490/postmortem/postmortem.json`
 
@@ -1646,7 +2036,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: game-mode;debug-results;audio-results
 
-Open draft matching PR for game-mode debug results code. The slice replaces the gm_801B0DD0 placeholder in src/melee/gm/gm_1B03.c with a matched implementation and refines struct DebugResultsData in gm_1B03.static.h from a large pad to typed bitfields, byte fields, padding, and a MatchEnd member. The PR body reports gm_801B0DD0 as 100% matched, and the decomp-dev bot report confirms one new match in main/melee/gm/gm_1B03 worth +332 bytes.
+Matched gm_801B0DD0 in the gm_1B03 debug results screen path by replacing a local match-data typedef with struct DebugResultsData fields in gm_1B03.static.h, loading cached debug/sound-test match parameters into MatchEnd, accumulating character result SFX, and passing that result to lbAudioAx_8002702C. Bot report confirms one new match for main/melee/gm/gm_1B03::gm_801B0DD0.
 
 Postmortem JSON: `prs/pr-2489/postmortem/postmortem.json`
 
@@ -1654,9 +2044,9 @@ Postmortem JSON: `prs/pr-2489/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: sysdolphin;baselib;JPEG routines;config/GALE01 splits;configure.py
+Systems: sysdolphin;baselib;config;repo-root
 
-PR 2488 split the previous sysdolphin/baselib/hsd_3B34 range into hsd_3B34 and new hsd_3B5C translation units, added large nonmatching C bodies for JPEG encode/decode routines, updated split metadata and configure.py, and reported fuzzy progress plus data/rodata matches. The PR body explicitly justifies the TU split at hsd_803B5C4C using adjacent extab/extabindex cut points, separated data clusters, hsd_803B5C2C matching at 100%, and a rebuilt sections/link check.
+Split the former sysdolphin/baselib hsd_3B34 range into hsd_3B34 and new hsd_3B5C translation units, added nonmatching JPEG encode/decode C and associated static table data, updated splits/configure wiring, and preserved hsd_803B5C2C as a claimed 100% match while improving multiple fuzzy matches.
 
 Postmortem JSON: `prs/pr-2488/postmortem/postmortem.json`
 
@@ -1666,7 +2056,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: melee-core;ty;toy;config
 
-Large ty/toy.c matching PR that typed and expanded trophy/toy data structures, added many function bodies or cleanup edits, renamed the light-object loader at 0x80306EEC to Toy_LoadLObjList, updated related call sites, and reported progress to 52/70 matched functions. Bot progress reported +0.23% matched code, 13 new matches, 18 unmatched-item improvements, and one .sdata regression.
+Large ty/toy.c matching PR. The author described bringing toy.c to 52/70 matched functions, typing and renaming the light-object loader to Toy_LoadLObjList, updating call sites, and verifying with ninja progress and diff_changes.py. Bot progress reported +0.23% matched code, 13 new matches in main/melee/ty/toy, 18 unmatched-item improvements, and one .sdata regression.
 
 Postmortem JSON: `prs/pr-2487/postmortem/postmortem.json`
 
@@ -1674,9 +2064,9 @@ Postmortem JSON: `prs/pr-2487/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee/lb;sysdolphin/baselib;Dolphin OS alarm
+Systems: melee/lb;sysdolphin/baselib
 
-First-time contributor PR using objdiff and `python tools/decomp.py`. The merge kept the `lbmemory` work: added a decompilation/prototype for `fn_80015184`, an alarm-driven chunked memory-copy callback working through a local `LBMgr` struct at `g_alloc + 0x6A0`. The slice also adds address comments to `hsd_3B34.h`, but reviewer noted the `hsd_3B34` functions had already been submitted with higher match scores in PR #2488. decomp.dev reported `main/melee/lb/lbmemory::fn_80015184` improving from 0.00% to 88.61%, with a small `.sdata` improvement and `.data` regression.
+PR #2486 added a decompiled lbmemory function, fn_80015184, with an OSAlarm callback prototype/header include, and added address comments to hsd_3B34 prototypes. The author described this as first-time decomp work using objdiff and tools/decomp.py. Bot output showed score improvements for lbmemory and hsd_3B34 plus a small lbmemory .data regression; reviewer approved while noting hsd_3B34 functions had been submitted with higher scores in PR #2488, but lbmemory could still merge.
 
 Postmortem JSON: `prs/pr-2486/postmortem/postmortem.json`
 
@@ -1686,7 +2076,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: src/sysdolphin/baselib;extern/dolphin/gx
 
-PR #2485 decompiled two SObj setup/render-related functions to claimed 100% match, added a 99.88707% near-match for the main SObj render path, typed SObj descriptor/color data needed by those implementations, and made small GX SDK header/source type adjustments to support texture format use.
+PR #2485 decompiled SObj setup/render code in src/sysdolphin/baselib/sobjlib.c, added SObj descriptor and color typing in sobjlib.h, and adjusted GX texture format typing in extern Dolphin GX headers/source plus one tobj.c callsite. The PR body claims 100% objdiff for HSD_SObjLib_803A477C and HSD_SObjLib_803A55DC, a 99.88707% near-match for HSD_SObjLib_803A4A68, and .data/.sdata2 100%; bot output corroborates new sobjlib matches and the 99.89% improvement for HSD_SObjLib_803A4A68.
 
 Postmortem JSON: `prs/pr-2485/postmortem/postmortem.json`
 
@@ -1696,7 +2086,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: src/sysdolphin/baselib
 
-Matched HSD_ByteCodeEval in sysdolphin/baselib/bytecode.c with small signature/type cleanup in bytecode.h and the robj.c extern, plus simplification of generated-looking expression/control-flow shapes inside the bytecode evaluator.
+PR #2484 matched HSD_ByteCodeEval in sysdolphin/baselib/bytecode.c, with supporting signature updates in bytecode.h and robj.c. The diff cleaned several generated-looking shapes: fmodf was rewritten with explicit quotient control flow, nested temporary blocks were collapsed, a boolean ladder became a direct expression, and the HSD_ByteCodeEval prototype moved to f32/s32 typedefs. Bot report showed one new match for main/sysdolphin/baselib/bytecode HSD_ByteCodeEval from 99.92% to 100.00%.
 
 Postmortem JSON: `prs/pr-2484/postmortem/postmortem.json`
 
@@ -1746,7 +2136,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: src/sysdolphin/baselib
 
-Draft, closed PR touching sysdolphin baselib JPEG/HSD files. The diff rewrote large parts of hsd_3B34.c and hsd_3B5C.c, added a HSDJpegWork struct and adjusted prototypes in hsd_3B34.h, split or moved JPEG lookup tables, and replaced many generated-looking raw-buffer/M2C_FIELD blocks with named fields, loops, and helper calls. The only loaded feedback is the decomp-dev bot report, which showed broken matches and many regressions, so no match or accepted-source lesson should be inferred.
+Draft, closed-unmerged PR for sysdolphin baselib hsd_3B34/hsd_3B5C JPEG-like HSD code. It rewrote large generated-looking blocks into typed work-struct access, loops, helper calls, table definitions, and header prototypes, but the only validation evidence is a bot report showing broken matches and many regressions despite small .sdata2 improvements.
 
 Postmortem JSON: `prs/pr-2479/postmortem/postmortem.json`
 
@@ -1754,9 +2144,9 @@ Postmortem JSON: `prs/pr-2479/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: sysdolphin/baselib;melee/gm;melee/gr
+Systems: sysdolphin/baselib;game-mode;stage
 
-Closed, unmerged HSD/baselib matching slice focused mainly on src/sysdolphin/baselib/hsd_3AA7.c, with one reported new match for fn_803AC3F8, partial-score improvements for fn_803ADF90, fn_803AE7F8, and fn_803B0E9C, a small regression in fn_803B21E8, header prototype/type updates, and mostly formatting-only edits in psdisp.c and a few game/stage files. The author later closed it as superseded by PR #2512.
+Closed, unmerged HSD/baselib decomp PR focused mainly on src/sysdolphin/baselib/hsd_3AA7.c, with header prototype/type updates, psdisp formatting-only style churn, and small formatting cleanups in gm and gr files. Bot evidence reports one new match, fn_803AC3F8, plus improvements to fn_803AE7F8, fn_803ADF90, and fn_803B0E9C, with a small regression in fn_803B21E8. The author later stated the PR was superseded by PR #2512.
 
 Postmortem JSON: `prs/pr-2478/postmortem/postmortem.json`
 
@@ -1814,9 +2204,9 @@ Postmortem JSON: `prs/pr-2473/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: src/sysdolphin/baselib
+Systems: src/sysdolphin/baselib;dolphin/card
 
-PR 2472 added a decompilation of src/sysdolphin/baselib/hsd_3A94.c centered on hsd_803A949C and exposed its prototype in hsd_3A94.h. The implementation defines local card-state/command/block structs, helper routines for command entry lookup, retrying CARDClose, icon-size selection, and card-block file-id extraction, then handles multiple command cases for memory-card read/verify/status flows. The only loaded comment is an automated decomp report showing hsd_803A949C improved from 0.00% to 58.78%, not a full match claim.
+PR 2472 added a new C implementation for src/sysdolphin/baselib/hsd_3A94.c centered on hsd_803A949C and exposed its prototype in hsd_3A94.h. The function handles command entries for CARD-file-related state, close/retry behavior, checksum/verification calls, icon-size-dependent offsets, memcpy/memcmp transfers, and command queue advancement. The only textual feedback present is an automated decomp report showing hsd_803A949C improved from 0.00% to 58.78%; no PR body or human review comments were supplied.
 
 Postmortem JSON: `prs/pr-2472/postmortem/postmortem.json`
 
@@ -1824,9 +2214,9 @@ Postmortem JSON: `prs/pr-2472/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: sysdolphin/baselib;melee/gm
+Systems: src/sysdolphin/baselib;src/melee/gm
 
-Draft closed PR for sysdolphin baselib sobjlib work. The slice decompiled HSD_SObjLib_803A477C, partially implemented HSD_SObjLib_803A4A68, changed HSD_SObj color bytes into GXColor fields, updated a sobjlib prototype priority parameter to u8, and adjusted one gmregtyfall caller to use GXColor channels. Bot output reported one new function match and one broken match/regressions; the PR was later marked superseded by PR #2485.
+Draft PR against sysdolphin baselib SObj code that typed HSD_SObj color byte fields as GXColor, updated callers accordingly, implemented HSD_SObjLib_803A477C, and added a large partial HSD_SObjLib_803A4A68 body. Bot output reported one new function match for HSD_SObjLib_803A477C, large unmatched improvement for HSD_SObjLib_803A4A68, and regressions including a broken HSD_SObjLib_803A54EC match and data-section regressions. The PR was closed unmerged and explicitly superseded by PR #2485.
 
 Postmortem JSON: `prs/pr-2471/postmortem/postmortem.json`
 
@@ -1834,9 +2224,9 @@ Postmortem JSON: `prs/pr-2471/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: src/sysdolphin/baselib;particle display;GX/HSD rendering
+Systems: src/sysdolphin/baselib
 
-Large sysdolphin baselib psdisp decomp slice adding implementations for particleSort and psDispParticles, tightening psdisp prototypes and particle-related struct fields. Evidence includes changed-file metadata, a truncated but substantial diff, and the bot progress report; no PR body or human review comments were available.
+Large sysdolphin baselib particle display decomp slice for psdisp: adds implementations for particleSort and psDispParticles, types several psdisp globals, updates particleSort's public prototype, and expands HSD_psAppSRT padding into explicit float fields. Bot report records psdisp text progress, including particleSort to 92.88% and psDispParticles to 39.03%, plus an extab match.
 
 Postmortem JSON: `prs/pr-2470/postmortem/postmortem.json`
 
@@ -1994,9 +2384,9 @@ Postmortem JSON: `prs/pr-2455/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: ty;game-mode;stage;melee-core
+Systems: ty;trophy-list;game-mode;stage
 
-Draft, closed-unmerged PR focused mainly on src/melee/ty/tylist.c and ty trophy-list types/prototypes. The diff rewrites TyList code toward typed TyListArg/TyListState access, JObj helper calls, natural loops, local float literals, and archive/string-table offset access. Bot report shows two new tylist function matches and several improvements, but also multiple unmatched-item regressions including tylist functions and .data/.sdata sections.
+Draft closed PR focused on src/melee/ty/tylist.c and related ty headers, with small formatting-only edits in gm and gr files. The diff typed several TyList structures and rewrote trophy-list code around TyListArg/TyListState fields, HSD_JObj helpers, arrays, loops, and literals. Bot output reported two new tylist function matches and several improvements, but also nine regressions including tylist functions and .data/.sdata sections; no human review comments were present.
 
 Postmortem JSON: `prs/pr-2454/postmortem/postmortem.json`
 
@@ -2343,10 +2733,10 @@ Postmortem JSON: `prs/pr-2420/postmortem/postmortem.json`
 ## PR #2419: Add transmuter
 
 Status: agent_completed
-Type: tooling-demo
-Systems: tools;melee-if;build-wrapper
+Type: tooling
+Systems: tools;melee-if-time
 
-Draft PR adding two Transmuter helper scripts and a deliberate source perturbation in ifTime_GetCountdownSeconds to demonstrate the tool. The bot report showed two broken matches in main/melee/if/iftime, and reviewer feedback requested resubmission in a more complete state with clearer usage documentation. The PR was closed unmerged.
+PR #2419 proposed adding two Transmuter helper scripts and intentionally changed ifTime_GetCountdownSeconds as a demo target. The bot reported two broken matches in main/melee/if/iftime, and a maintainer asked for resubmission when the tooling was more complete and better explained. The PR was closed without merge evidence.
 
 Postmortem JSON: `prs/pr-2419/postmortem/postmortem.json`
 
@@ -3276,7 +3666,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: fighter;game-mode;item;interface;stage
 
-PR #2326 replaced 13 misc decomp stubs across stage, item, fighter, game-mode, and interface code with C implementations, added related struct fields/prototypes/includes, and used a scoped dont_inline pragma for soundtest un_802FFCD0. The PR body claims all functions matched via objdiff; the loaded bot report from an early commit shows two 100% new matches, many high-percent improvements, and two small data-section regressions, so final verification evidence is mixed in this slice.
+Matched or substantially improved a batch of miscellaneous fighter, item, stage, game-mode, and interface functions, replacing placeholder decomp markers with C implementations, adding several recovered prototypes and small struct/field recoveries, and adding one scoped MWCC dont_inline pragma for soundtest.
 
 Postmortem JSON: `prs/pr-2326/postmortem/postmortem.json`
 
@@ -3286,7 +3676,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: stage;ground;items
 
-PR 2325 decompiled or improved two Ground stage functions: grIceMt_801F91EC in Ice Mountain and grKongo_801D8078 in Kongo. It also updated gricemt.h to replace an UNK_RET placeholder with the recovered grIceMt_801F91EC signature and added an item header include needed by grkongo.c. The automated report records grIceMt_801F91EC as a new 100% match and grKongo_801D8078 as an unmatched-item improvement to 98.43%. The PR body text appears unrelated to the actual changed files and title, so the diff and report are stronger evidence than the body summary.
+Stage decomp PR touching Ice Mountain and Kongo Jungle ground code. The diff names and implements grIceMt_801F91EC, updates its public header prototype, and implements grKongo_801D8078 as an item-list scan with a squared-distance radius test. The issue report records grIceMt_801F91EC as a 100% new match and grKongo_801D8078 as a 98.43% improvement. The PR body appears stale or mismatched, describing mnname.c and toy.c rather than the changed gr files.
 
 Postmortem JSON: `prs/pr-2325/postmortem/postmortem.json`
 
@@ -3296,7 +3686,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: game-mode
 
-Decompiled three game-mode functions in gm_16F1, gm_1BA8, and gmregclear, with companion header signature updates. The PR body describes unlock-table lookup, CSS match-type cycling, and clear bonus calculation. An automated GALE01 report recorded the three targeted gm functions as 100% new matches, while also reporting unrelated-looking new matches/improvements and two .sdata2 regressions.
+Decompiled three game-mode functions in gm_16F1, gm_1BA8, and gmregclear, replacing placeholder comments with C implementations and updating related header prototypes. The PR body claims fuzzy_match_percent 100.0 for all three target functions, and an automated GALE01 report records the three target functions as new 100% matches while also showing unrelated match-score movement and two .sdata2 regressions.
 
 Postmortem JSON: `prs/pr-2324/postmortem/postmortem.json`
 
@@ -3304,9 +3694,9 @@ Postmortem JSON: `prs/pr-2324/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: mn;ty;melee-core
+Systems: mn;ty
 
-Decompiled two small functions: `IsNameUnique` in `src/melee/mn/mnname.c` and `un_80305D00` in `src/melee/ty/toy.c`, and updated the `IsNameUnique` declaration in `mnname.h` from unknown return/params to `bool IsNameUnique(s32 slot)`. The automated report says both new matches reached 100.00%, adding 316 matched bytes total. The PR body appears unrelated to the actual title/diff, so the diff and report are stronger evidence than the body summary.
+PR #2323 replaced two decomp placeholders with C implementations for mnname IsNameUnique and toy un_80305D00, and updated the IsNameUnique header prototype from UNK_RET/UNK_PARAMS to bool IsNameUnique(s32 slot). The automated report in the issue comments records two new 100% matches totaling +316 matched bytes. The PR body appears unrelated to the actual diff, describing grIceMt_801F91EC and grKongo_801D8078 instead of the changed mn/ty functions.
 
 Postmortem JSON: `prs/pr-2323/postmortem/postmortem.json`
 
@@ -3314,9 +3704,9 @@ Postmortem JSON: `prs/pr-2323/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;ftKirby;ftCommon;effects;items
+Systems: fighter;ftKirby;ftCommon;item-effects
 
-Decompiled selected Kirby SpecialN/SpecialHi and copied-Pikachu SpecialN collision helpers across ftKb_SpecialN.c and ftKb_SpecialNNs.c. The diff replaces decomp placeholders with C bodies for Final Cutter startup, inhale swallow proximity checks, and Skull Bash ground/wall collision behavior, plus a narrow dont_inline pragma tactic. Loaded verification is mixed: the PR body claims fuzzy_match_percent 100.0 for all functions, while the automated report shows only two 100% new matches and several near-match improvements.
+PR 2322 decompiled several Kirby special-N and special-Hi routines across two ftKirby files: Final Cutter entry functions, inhale swallow-distance checks for item/fighter targets, and Pikachu-copy Skull Bash collision/wall-bounce handling. The slice includes a bot match report showing 2 new 100% matches and several high-but-not-complete improvements.
 
 Postmortem JSON: `prs/pr-2322/postmortem/postmortem.json`
 
@@ -3334,9 +3724,9 @@ Postmortem JSON: `prs/pr-2321/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: library;melee-core;lb-audio;mn-name-entry
+Systems: library;audio;menus;name-entry
 
-PR #2320 matched or improved two miscellaneous functions across lb audio and mn name entry code: implemented lbAudioAx_80024DC4, implemented mnName_8023749C, updated a static audio pool allocation type, adjusted HSD object allocation calls to use the embedded alloc field, added language/name-list externs, and updated the mnName_8023749C header prototype.
+PR #2320 decompiled or improved two miscellaneous functions in lb audio and menu name-entry code. It replaced the stub for lbAudioAx_80024DC4 with a loop-based audio-pool registration routine, introduced a typed wrapper for lbl_80433710 so existing allocator calls address its alloc field, implemented mnName_8023749C with language-dependent name arrays and a terminator scan, and updated the mnname.h prototype. Automated report evidence confirms lbAudioAx_80024DC4 as a new 100% match and mnName_8023749C as a 97.84% improvement; the PR body claims fuzzy_match_percent 100.0 for all functions, so verification evidence is mixed.
 
 Postmortem JSON: `prs/pr-2320/postmortem/postmortem.json`
 
@@ -3344,9 +3734,9 @@ Postmortem JSON: `prs/pr-2320/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;Kirby;Crazy Hand;common fighter;fighter color animation
+Systems: fighter;Kirby;Crazy Hand;ftCommon;fighter color animation
 
-PR 2319 replaced four fighter TODO stubs with C implementations across Kirby, Crazy Hand, common grab escape, and fighter color overlay code, plus corrected a Crazy Hand attribute field from s32 to float. Bot output supports three new 100% function matches and one Kirby function improvement to 95.54%, while the PR body claims fuzzy_match_percent 100.0 for all functions.
+PR #2319 replaced four fighter placeholder declarations with C bodies across Kirby, Crazy Hand, common grab escape, and fighter color animation code, plus one Crazy Hand attribute type correction. Bot output confirms three new 100% matches and one Kirby function improvement to 95.54%, while the PR body claims fuzzy_match_percent 100.0 for all functions.
 
 Postmortem JSON: `prs/pr-2319/postmortem/postmortem.json`
 
@@ -3354,9 +3744,9 @@ Postmortem JSON: `prs/pr-2319/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;ground;collision;Home Run Contest;Corneria;Great Bay;Dream Land 64;Jungle Japes;Mushroom Kingdom
+Systems: stage;ground;collision;home-run-contest;corneria;great-bay;old-kongo;old-pupupu;inishie1
 
-Matched or improved multiple stage-related functions across Corneria, Great Bay, Home Run Contest, Mushroom Kingdom, Jungle Japes, and Dream Land 64 stage files. The diff replaces placeholder decomp markers with C implementations, adds a Great Bay joint-to-collision table, recovers a Home Run ground-vars union arm and header signatures, and adjusts small stage-local config structs from int to s16 pairs.
+PR #2318 matched or improved multiple stage functions across Corneria, Great Bay, Home Run Contest, Mushroom Kingdom/Dream Land 64, Jungle Japes, and Dream Land 64 past-stage files. The diff replaces placeholder markers with C implementations, updates two stage headers with recovered signatures/includes, adds a Home Run GroundVars union arm, and adjusts small stage-local data structs/includes. Bot evidence reports 8 new 100% matches and 6 additional improvements; this partially conflicts with the PR body claim that all listed functions reached fuzzy_match_percent 100.0.
 
 Postmortem JSON: `prs/pr-2318/postmortem/postmortem.json`
 
@@ -3393,10 +3783,10 @@ Postmortem JSON: `prs/pr-2315/postmortem/postmortem.json`
 ## PR #2314: Overnight decomp run — 2026-03-17
 
 Status: agent_completed
-Type: no-op decomp progress report
-Systems: grpura
+Type: no_change_decomp_progress_report
+Systems: stage
 
-Closed draft overnight decomp PR with no diff and no changed files in the slice. The PR body reports 0 matched, 0 failed, and 1 in-progress function: grpura.c / grPura_80212FC0. A bot report says GALE01 comparison from 56e1280 to 727ec34 had no changes.
+Draft overnight decomp PR with no changed files or diff content. The PR body reported 0 matched, 0 failed, and 1 in-progress target: `grpura.c` function `grPura_80212FC0`. A bot report for GALE01 also stated "No changes."
 
 Postmortem JSON: `prs/pr-2314/postmortem/postmortem.json`
 
@@ -3443,10 +3833,10 @@ Postmortem JSON: `prs/pr-2310/postmortem/postmortem.json`
 ## PR #2309: Overnight decomp run — 2026-03-16
 
 Status: agent_completed
-Type: no_diff_pr_intake
+Type: no_diff_decomp_progress_note
 Systems: audio
 
-Draft overnight decomp PR with no diff and a bot report stating no changes. The PR body only records an in-progress target for `lbaudio_ax.c` / `lbAudioAx_80024DC4`, described as registering a sound effect into one of 16 playback slots by reusing an existing matching slot or claiming a free one.
+Closed draft overnight decomp PR with no diff or changed files in the slice. The PR body records one in-progress target, `lbAudioAx_80024DC4` in `lbaudio_ax.c`, described as registering a sound effect into one of 16 audio playback slots, reusing an existing slot for the same sound or claiming a free slot. A bot report states there were no changes for GALE01 between the listed base and head revisions.
 
 Postmortem JSON: `prs/pr-2309/postmortem/postmortem.json`
 
@@ -3493,10 +3883,10 @@ Postmortem JSON: `prs/pr-2305/postmortem/postmortem.json`
 ## PR #2304: Small fixes to THPDec
 
 Status: agent_completed
-Type: decomp-matching-fix
+Type: decomp-matching
 Systems: external-sdk;dolphin-thp;THPDec
 
-PR 2304 made focused THP decoder changes in the Dolphin THP header and implementation: recovered/reshaped several THP struct fields, changed THPInit to void and added low-level cache/locked-cache setup calls, passed THPFileInfo explicitly into the 512x448 iMCU row decoder path, and made small formatting/control-flow edits. The bot report showed net matched-code improvement and one new matched function, but also one broken match and one unmatched-item regression; there were no human review comments and the PR was closed unmerged.
+PR 2304 made small THP decoder changes in the Dolphin THP header and implementation: THP struct layout refinements, a THPInit signature/body adjustment, a 512x448 iMCU-row helper changed to take THPFileInfo* instead of reading __THPInfo directly, and several formatting/control-shape edits. The bot report showed net matched-code improvement and one new match, but also one broken match and one unmatched regression.
 
 Postmortem JSON: `prs/pr-2304/postmortem/postmortem.json`
 
@@ -3824,9 +4214,9 @@ Postmortem JSON: `prs/pr-2272/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: item;it/items;itCommonItems
+Systems: item
 
-PR #2271 matched 11 item-system functions across Lugia, Oldkuri, Whitebea, Nessbat, Ness PK Thunder Ball, Matadogas, Hitodeman, Great Fox Laser, and Kirby item files. It also refined shared item attribute/item-var structs and replaced two UNK_RET/UNK_PARAMS header prototypes with concrete signatures. The PR body claims all 11 functions are 100% matched, and the bot report confirms 11 new 100% matches plus a small .sdata2 improvement in ithitodeman.
+Matched 11 previously stubbed item functions across Lugia, Old Kuri, White Bea, Ness Bat, Ness PK Thunder Ball, Matadogas, Hitodeman, Great Fox Laser, and Kirby item files. The PR also refined item attribute/item-var structs and two item headers to expose fields and function signatures needed by the matched bodies.
 
 Postmortem JSON: `prs/pr-2271/postmortem/postmortem.json`
 
@@ -3834,9 +4224,9 @@ Postmortem JSON: `prs/pr-2271/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;ground;baselib-dobj;material
+Systems: stage;ground;baselib
 
-Matched two stage functions: grOldPupupu_80211110 in groldpupupu.c and grRCruise_80201B60 in grrcruise.c. The PR also added required includes and updated the grRCruise_80201B60 header prototype from UNK_RET/UNK_PARAMS to void grRCruise_80201B60(HSD_JObj*, s32). Bot report confirms both functions reached 100.00% and contributed +252 matched bytes.
+Matched two stage functions, grOldPupupu_80211110 and grRCruise_80201B60, replacing nonmatching placeholders with C bodies and updating the grRCruise header prototype. The bot report records both functions moving from 0.00% to 100.00%, for +252 matched bytes.
 
 Postmortem JSON: `prs/pr-2270/postmortem/postmortem.json`
 
@@ -3846,7 +4236,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: fighter;Kirby;Yoshi
 
-PR #2269 replaced four fighter placeholder functions with matched C implementations in Kirby and Yoshi special-move files. The PR body claims all four are 100% matched, and the bot report records four new 100% matches totaling +484 matched bytes.
+Matched four fighter functions across Kirby SpecialN and Yoshi SpecialHi translation units. The PR body claims all four reached 100%, and the decomp-dev bot report lists four new 100% matches totaling +484 matched-code bytes.
 
 Postmortem JSON: `prs/pr-2269/postmortem/postmortem.json`
 
@@ -3896,7 +4286,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: game-mode;gmregclear
 
-Closed, unmerged PR attempting to decompile two gmregclear functions, fn_8017DE54 and fn_8017F14C, with header prototype updates and a local struct field recovery at lbl_80472D28.x10A. Evidence includes claimed and bot-reported 100% fuzzy matches, plus author comments explaining retained pointer math in fn_8017F14C and later saying the work was consolidated into other PRs.
+Closed PR proposing two gmregclear function decompilations, fn_8017DE54 and fn_8017F14C, with matching report evidence for both. It also updated gmregclear.h prototypes and split a lbl_80472D28 struct padding range to expose x10A. The PR was later described by the author as consolidated into other PRs; no merge is recorded in the slice.
 
 Postmortem JSON: `prs/pr-2264/postmortem/postmortem.json`
 
@@ -3984,9 +4374,9 @@ Postmortem JSON: `prs/pr-2256/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;ftCommon;rebirth
+Systems: fighter
 
-Matched the ftCommon rebirth animation callback ftCo_Rebirth_Anim. The stub marker in src/melee/ft/ft_0D31.c was replaced with a small implementation that reads Fighter from gobj->user_data, calls ftCo_8008A7A8 with fp->ft_data->x24, decrements fp->mv.co.common.x0, and transitions via ftCo_800D5600 when the counter reaches zero. The header prototype for ftCo_800D5600 was also upgraded from UNK_RET/UNK_PARAMS to void ftCo_800D5600(Fighter_GObj* gobj). PR body reports a clean ninja build and fuzzy_match_percent 100.0.
+PR #2255 decompiled `ftCo_Rebirth_Anim` in the ftCommon fighter translation unit and updated the header prototype for `ftCo_800D5600`. The PR body claims a 100% match and clean `ninja` build; the bot report records one new matched item, `ftCo_Rebirth_Anim`, worth +96 bytes.
 
 Postmortem JSON: `prs/pr-2255/postmortem/postmortem.json`
 
@@ -3994,9 +4384,9 @@ Postmortem JSON: `prs/pr-2255/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;ftPopo;Ice Climbers;SpecialS
+Systems: ftPopo;fighter;SpecialS physics
 
-Decompiled and matched two ftPopo SpecialS/SpecialHi air physics functions: ftPp_SpecialAirHiStart_1_Phys and ftPp_SpecialAirHiThrow_1_Phys. The implementations share the same air-fall pattern: get Fighter and ftIceClimberAttributes, preserve stack shape with PAD_STACK(8), call ftCommon_Fall using newly named attributes xA8 and xAC, then call ftCommon_8007CEF4 when vertical velocity is negative. The PR also refined ftIceClimberAttributes by replacing padding at 0xA8-0xB0 with two float fields.
+Matched two ftPopo SpecialS air physics functions by replacing placeholder markers with C implementations and exposing two ftIceClimberAttributes float fields used by ftCommon_Fall.
 
 Postmortem JSON: `prs/pr-2254/postmortem/postmortem.json`
 
@@ -4004,9 +4394,9 @@ Postmortem JSON: `prs/pr-2254/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: fighter;ftKirby;specialN
+Systems: fighter;ftKirby;special-n
 
-PR #2253 decompiled five Kirby neutral-special-related fighter functions across four ftKirby source files. The PR body claimed clean ninja build and 100% fuzzy match for all five functions; the decomp-dev bot reported five new 100% matches totaling +776 matched bytes.
+PR #2253 decompiled five ftKirby special-N related functions across four ftKirby source files. The PR body claims a clean ninja build and fuzzy_match_percent 100.0 for all functions, and the bot report lists five new 100% matches totaling +776 matched-code bytes.
 
 Postmortem JSON: `prs/pr-2253/postmortem/postmortem.json`
 
@@ -4054,9 +4444,9 @@ Postmortem JSON: `prs/pr-2249/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: stage;grcastle
+Systems: stage;ground;item;fighter-lib
 
-PR #2248 attempted to decompile three grcastle functions in src/melee/gr/grcastle.c and update the fn_801CFAFC prototype in grcastle.h. The PR body and decomp-dev bot report claimed all three functions reached 100% fuzzy match, but the PR was closed unmerged with an issue comment saying it was consolidated into other PRs. The main unresolved theme was pointer math in grCastle_801CD960 and grCastle_801CF750, which the author said was non-trivial to replace because relevant castle GroundVars fields were not named or structurally represented.
+Closed, unmerged grcastle decomp PR that replaced three nonmatching placeholders with C implementations for grCastle_801CD960, grCastle_801CF750, and fn_801CFAFC, plus a recovered fn_801CFAFC prototype in grcastle.h. The PR claimed clean ninja and 100% fuzzy matches, and bot report showed three new matches totaling +288 bytes. Follow-up comments flagged unresolved pointer-math/type issues in grCastle_801CD960 and grCastle_801CF750 and said the work was consolidated into other PRs.
 
 Postmortem JSON: `prs/pr-2248/postmortem/postmortem.json`
 
@@ -4154,9 +4544,9 @@ Postmortem JSON: `prs/pr-2239/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: camera;fighter;game-mode;ground;item;library;menu
+Systems: camera;fighter;stage;item;library;game-mode;menu;interface
 
-Open draft PR titled "zako matches" with a broad 71-file diff across camera, fighter, ground, item, library, game-mode, and menu code. Evidence shows several decomp placeholder replacements and prototype/header cleanups, but the loaded bot report also shows severe global regressions and the only human comment says the branch touches too many files and conflicts must be resolved manually. Treat this PR as mixed-quality intake evidence, not as accepted matching precedent.
+Closed, unmerged draft PR attempting broad decomp/matching work across 71 files in camera, fighter, stage, item, library, game-mode, and menu code. Loaded evidence shows several placeholder functions replaced with C bodies, headers updated from UNK_RET/UNK_PARAMS, and matching-oriented tactics such as PAD_STACK, scoped pragmas, register locals, padded temporary structs, and a documented fake comma-operator match. Issue comments state the branch drifted too far to merge and was closed in favor of #2666.
 
 Postmortem JSON: `prs/pr-2238/postmortem/postmortem.json`
 
@@ -5106,7 +5496,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: melee-core;mn;mnvibration
 
-Started matching and documenting src/melee/mn/mnvibration by adding substantial C implementations, local data structs, JObj/Text/menu handling, static/global data declarations, and recovered header prototypes. The bot report credits 5 new matched functions and multiple partial improvements in the mnvibration unit, but the author explicitly described the PR as WIP with preliminary comments to be validated in follow-up PRs.
+Started matching the mnvibration menu translation unit, adding a large implementation pass in src/melee/mn/mnvibration.c and replacing many mnvibration.h UNK_RET/UNK_PARAMS declarations with typed prototypes and data externs. The PR body explicitly called the work WIP and the comments preliminary; the bot report recorded 5 new 100% matches and 12 additional improvements in main/melee/mn/mnvibration.
 
 Postmortem JSON: `prs/pr-2142/postmortem/postmortem.json`
 
@@ -5234,9 +5624,9 @@ Postmortem JSON: `prs/pr-2130/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: menus;VS Records;mndiagram;mndiagram2;game-mode headers;symbols
+Systems: melee/mn;mndiagram;mndiagram2;gm header;symbols
 
-PR #2129 matched and named a large set of VS Records mndiagram2 functions, added Diagram2-related types/headers/statics, renamed mndiagram2 symbols from address-style names to semantic names, and applied matching lessons back to mndiagram formatting, ranking, KO/fall total, and index-navigation helpers. The PR body says mndiagram2 functions and structs were documented/named based on Dolphin debugger validation; the bot report records 21 new matches and 19 improvements, including complete matches in both mndiagram2 and mndiagram.
+PR #2129 matched and named a large set of mndiagram2 VS Records functions, added Diagram2-related types/headers/static declarations, renamed mndiagram2 symbols in symbols.txt, and back-applied matching learnings to mndiagram formatting, ranking, KO/fall total, and navigation helpers. The PR body says the mndiagram2 names and structs were based on Dolphin debugger validation; bot output reports 21 new matches and 19 unmatched-function improvements.
 
 Postmortem JSON: `prs/pr-2129/postmortem/postmortem.json`
 
@@ -5274,9 +5664,9 @@ Postmortem JSON: `prs/pr-2126/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: mn;gm;config/GALE01;sysdolphin/baselib
+Systems: config;game-mode;menu;baselib
 
-PR #2125 added substantial mndiagram decomp work and renamed many mndiagram/menu/game-main symbols and types. Evidence shows new or improved mndiagram functions, module-prefixed public function names, typed persistent fighter/name data usage, mndiagram header/static-header updates, and symbols.txt renames. Review focused on module-prefix naming, moving user data into mn/types.h, placing definitions near the top or in .static.h for linking, and recognizing an inline of mnDiagram_UpdateScrollArrowVisibility.
+PR #2125 matched and improved many `src/melee/mn/mndiagram` functions, renamed mndiagram symbols to semantic/module-prefixed names, added or adjusted menu/game-mode types and prototypes, and propagated type-name changes through callers. Review focused on non-static function prefixing, moving mndiagram user-data typing into `mn/types.h`, definition placement for linking, and recognizing an inline of `mnDiagram_UpdateScrollArrowVisibility`.
 
 Postmortem JSON: `prs/pr-2125/postmortem/postmortem.json`
 
@@ -5714,9 +6104,9 @@ Postmortem JSON: `prs/pr-2082/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;menu;mn
+Systems: melee-core;mn;main/melee/mn/mnmainrule
 
-Draft closed PR for menu main-rule decomp work. The diff implements mn_802307F8 fully, adds near-complete source for mn_8023164C and mn_80231714, updates related mnmain/mnmainrule prototypes from UNK_RET/UNK_PARAMS to concrete signatures, removes stale asm placeholder comments for already-present mnmain helpers, and adds narrow dont_inline pragmas around two digit-buffer helpers. Bot output reports one new full match for mn_802307F8 and two 99.90% improvements for mn_8023164C and mn_80231714.
+Draft PR for menu main-rule decomp work. It added C bodies for mn_802307F8, mn_8023164C, and mn_80231714 in src/melee/mn/mnmainrule.c, updated related prototypes away from UNK_RET/UNK_PARAMS in mnmainrule.h and mnmain.h, and scoped dont_inline pragmas around two existing mnmain.c helpers. The bot report credited one new full match, mn_802307F8, plus near-matches for mn_8023164C and mn_80231714. The PR was closed unmerged and has no human review comments in the loaded slice.
 
 Postmortem JSON: `prs/pr-2081/postmortem/postmortem.json`
 
@@ -5724,9 +6114,9 @@ Postmortem JSON: `prs/pr-2081/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;mn;mndiagram;mndiagram2;mndiagram3
+Systems: melee-core;mn menu;mndiagram
 
-Closed draft/WIP PR for matching and prototype cleanup across the mn diagram files. The slice shows new C bodies in mndiagram.c, mndiagram2.c, and mndiagram3.c, broad header prototype replacement of UNK_RET/UNK_PARAMS with typed signatures, and bot-reported code-match progress. Author later closed it to reorganize with more matches across mndiagram, mndiagram2, and mndiagram3.
+Closed draft/WIP PR for menu diagram decomp work across mndiagram, mndiagram2, and mndiagram3. The slice adds several function bodies, broad prototype cleanup in related mn headers, and a few extern/static declarations. Bot evidence reports 4 new 100% matches and 13 partial improvements, but the author closed the PR to reorganize with more matches, and there is no human review feedback in the slice.
 
 Postmortem JSON: `prs/pr-2080/postmortem/postmortem.json`
 
@@ -5734,9 +6124,9 @@ Postmortem JSON: `prs/pr-2080/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: game-mode;melee-core;menu-name-entry
+Systems: game-mode;melee-core;mn-name-menu
 
-Draft, closed-unmerged PR for mnName decomp work. It adds multiple implementations in src/melee/mn/mnname.c, updates mnname and related prototypes, and adds includes needed by the new code. Bot evidence reports 3 newly matched mnname functions and 9 unmatched-function score improvements.
+Draft PR for mn name/menu decomp work. It added several mnname.c function bodies, converted many mnname.h prototypes from UNK_RET/UNK_PARAMS to typed signatures, updated related gm and mnnamenew prototypes, and added an mnname include to mndiagram.c. Bot report showed 3 new matched functions and 9 improved unmatched mnname functions, but the PR had no body text, no human review comments, and was closed unmerged in the loaded metadata.
 
 Postmortem JSON: `prs/pr-2079/postmortem/postmortem.json`
 
@@ -5746,7 +6136,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: melee-core;mn;mndatadel
 
-Draft PR for Data Delete menu decompilation work in src/melee/mn/mndatadel. It replaced multiple placeholder symbols with C bodies, updated mndatadel headers and static structs, and produced bot-reported code-match gains, but the PR body and human review feedback are absent and the PR was closed unmerged.
+Draft PR for menu data-delete decomp work in src/melee/mn/mndatadel, adding bodies for several previously stubbed mnDataDel/fn_8024xxxx routines, refining mndatadel data structs and prototypes, and documenting MenuInputState fields. Bot report showed two function matches and one .bss match plus multiple partial function improvements, with one .sdata2 regression.
 
 Postmortem JSON: `prs/pr-2078/postmortem/postmortem.json`
 
@@ -5754,9 +6144,9 @@ Postmortem JSON: `prs/pr-2078/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;mn
+Systems: melee-menu;mn;mnitemsw;mnstagesw;mnvibration
 
-Draft/WIP PR adding matched or improved menu settings functions for mnitemsw, mnstagesw, and mnvibration, plus headers and local structs/prototypes. Bot report claimed 7 new 100% matches and 3 improved unmatched functions, but the PR was closed unmerged and review comments flagged WIP cleanup concerns around a GObj wrapper and apparent deletion/replacement of an existing function.
+Draft/WIP PR adding menu settings decomp work for mnitemsw, mnstagesw, and mnvibration. The diff adds implementations and headers for item/stage switch menu functions, expands mnvibration prototypes/types, and changes some raw GObj flag access to HSD_GObjProc flags_3. Bot output reported 7 new 100% matches and 3 partial improvements, but reviewer comments challenged a GObj wrapper type and an apparent function deletion; the author acknowledged the mnvibration area was still WIP.
 
 Postmortem JSON: `prs/pr-2077/postmortem/postmortem.json`
 
@@ -5776,7 +6166,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: src/melee/if;src/sysdolphin/baselib
 
-Large IF-module decompilation PR focused on soundtest plus related if_2F72, ifmagnify, ifstatus, types, and header/prototype updates. The bot report records +5388 matched bytes, 57 new 100% matches, and 31 partial-function improvements. Reviewer approved while noting that some code was rough and contained many unrolled loops.
+Large matching PR for the melee if module, especially soundtest, if_2F72, and ifmagnify. It added many function bodies, replaced several UNK_RET/UNK_PARAMS prototypes with typed signatures, exposed ifStatus_803F9628 for cross-TU use, and added/adjusted interface-related structs and headers. Bot evidence reports 57 new 100% matches and 31 unmatched-function improvements; reviewer approved while noting rough source with many unrolled loops.
 
 Postmortem JSON: `prs/pr-2075/postmortem/postmortem.json`
 
@@ -5794,9 +6184,9 @@ Postmortem JSON: `prs/pr-2074/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: vi;stage;player;item;menu;fighter
+Systems: vi;gr;pl;mn;item;fighter
 
-Matched and improved multiple video intro/cutscene functions across src/melee/vi, with supporting header/signature updates in gr, pl, mn, and item headers. The bot report records 15 new matches and 23 improvements, while later author commentary notes broken/regressed matches would be fixed, so the slice supports progress but not a clean final validation story for every touched function.
+PR #2073 matched and improved multiple video intro/cutscene functions across src/melee/vi, with supporting header/signature updates in gr, pl, mn, item, and fighter-related files. Bot evidence reported 15 new matches and 23 improvements, while later author text noted broken/regressed matches would be fixed. Review comments flagged two vi functions where raw byte/offset-style access should be pulled into a struct, preferably, or represented with M2C_FIELD.
 
 Postmortem JSON: `prs/pr-2073/postmortem/postmortem.json`
 
@@ -5804,9 +6194,9 @@ Postmortem JSON: `prs/pr-2073/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: trophy;ty;toy;tylist;tyfigupon;ifprize;ftKirby
+Systems: trophy;ty;fighter;interface
 
-PR #2072 matched and improved trophy module functions, primarily in src/melee/ty/toy.c, src/melee/ty/tylist.c, and src/melee/ty/tyfigupon.c, with supporting header/type updates and a caller update in ifprize.c for the new un_803063D4 signature. Review focused on replacing raw pointer math and M2C_FIELD-style access with typed structs where justified, avoiding unnecessary casts, keeping string accesses inline, preserving TyModeState usage, and requiring justification for recovered ty/types.h fields.
+PR #2072 matched and improved trophy module work across ty/toy.c, ty/tylist.c, and ty/tyfigupon.c, with supporting header/type updates and a caller update in ifprize.c for the recovered un_803063D4 signature. Review centered on replacing raw pointer math/M2C_FIELD with recovered structs or known types, keeping TyModeState usage, using inline string literals/accesses instead of string-offset forms, and justifying new struct fields and trophy table/count semantics.
 
 Postmortem JSON: `prs/pr-2072/postmortem/postmortem.json`
 
@@ -5986,7 +6376,7 @@ Status: agent_completed
 Type: decomp-matching
 Systems: melee-core;vi;cutscene
 
-Matched `fn_8031EFE4` in `src/melee/vi/vi0801.c` and updated its header prototype from unknown return/params to `void fn_8031EFE4(HSD_GObj*)`. The function uses baselib CObj/AObj types to animate a camera object, trigger `vi_8031C9B4` at specific frames, and call `lb_800145F4` plus `gm_801A4B60` at animation end. Bot report records one new 100% match for the function and `.sdata2` improvement from 0% to 38.89%.
+Matched vi cutscene function fn_8031EFE4 in src/melee/vi/vi0801.c and updated its header prototype from placeholder UNK_RET/UNK_PARAMS to void fn_8031EFE4(HSD_GObj*). The function gets a camera object from the GObj, advances CObj animation, triggers vi_8031C9B4 at animation frames 1.0/30.0 and 60.0, then calls lb_800145F4 and gm_801A4B60 when the animation reaches end_frame. Bot report records one new 100% match and .sdata2 improvement for main/melee/vi/vi0801.
 
 Postmortem JSON: `prs/pr-2054/postmortem/postmortem.json`
 
@@ -6014,9 +6404,9 @@ Postmortem JSON: `prs/pr-2052/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;ty;config
+Systems: melee/ty;config/GALE01
 
-Matched or improved several trophy/toy functions in the ty subsystem, added a TyModeState struct to replace some raw M2C_FIELD access to un_804A284C, added small local tyfigupon temporary structs, updated relevant headers/prototypes, and adjusted symbol metadata for ty data strings used by lbArchive_LoadSymbols.
+Matched three trophy/toy functions and partially improved one more in the ty subsystem. The slice replaces several M2C/raw access patterns with a recovered TyModeState struct, adds local temporary tyfigupon structs for field access, types one archive global as HSD_Archive*, and adjusts symbol metadata for ty data strings used by lbArchive_LoadSymbols.
 
 Postmortem JSON: `prs/pr-2051/postmortem/postmortem.json`
 
@@ -6124,9 +6514,9 @@ Postmortem JSON: `prs/pr-2041/postmortem/postmortem.json`
 
 Status: agent_completed
 Type: decomp-matching
-Systems: melee-core;mp;collision
+Systems: melee-core;mp;mplib
 
-PR #2040 attempted to improve matching for `mpLib_80053ECC_Floor` in `src/melee/mp/mplib.c` by replacing a structured `while (true)` loop with a goto-labeled loop shape and adding locals `shifted` and `new_id`. The PR body also claimed `mpisland.h` signature updates and a 100% decomp.me match, but the loaded changed-file metadata and diff only show `src/melee/mp/mplib.c`, while the bot report shows improvement from 89.53% to 94.89%. The author later said recent merged changes affected the match percentage and they would switch the PR to draft. The PR was closed with no merge timestamp.
+PR #2040 attempted to improve matching for src/melee/mp/mplib.c function mpLib_80053ECC_Floor by replacing a structured while(true)/break loop with explicit goto labels and hoisting loop locals. The PR body also claimed mpisland.h signature updates, but the loaded changed-file metadata and diff only show src/melee/mp/mplib.c. Automated report evidence showed partial improvement for mpLib_80053ECC_Floor from 89.53% to 94.89%, while the PR body claimed 100% on decomp.me. The author later said recent merged changes affected the match percentage and they needed to rework it, switching to draft. The PR closed unmerged in the loaded metadata.
 
 Postmortem JSON: `prs/pr-2040/postmortem/postmortem.json`
 

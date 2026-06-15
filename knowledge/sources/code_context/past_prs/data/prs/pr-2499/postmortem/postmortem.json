@@ -12,12 +12,11 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2499 refines lbarq decompilation by replacing opaque lbArq global padding with a typed 10-node pool, introducing lbArqState enum names for list/state slots, updating state uses in lbarq.c, keeping lbArq_80014ABC out-of-line with a narrow dont_inline pragma, and adding PAD_STACK in lbArq_80014BD0. The PR body claims 100% matches for lbArq_80014ABC and lbArq_80014D2C and partial improvements for lbArq_80014AC4 and lbArq_80014BD0; the bot report independently records lbArq_80014BD0 improving from 93.97% to 96.55%. The PR was closed with no merged_at in the supplied metadata.",
+  "summary": "PR #2499 made focused lbarq decomp-matching/type cleanup in src/melee/lb/lbarq.c and src/melee/lb/lbarq.h: it introduced concrete lbArq state names, typed the node state field and accessor return, replaced opaque global padding with a 10-node pool, used enum state indices for the three lists, kept lbArq_80014ABC out-of-line with a narrow dont_inline pragma, and added PAD_STACK in lbArq_80014BD0. The PR body reports two 100% functions and two partial matches, while a bot report confirms an improvement for lbArq_80014BD0 from 93.97% to 96.55%. The PR was closed with merged_at null in the supplied metadata.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "cleanup",
-      "decomp-matching",
       "headers",
       "naming",
       "types-structs",
@@ -32,346 +31,383 @@
   "key_files": [
     {
       "path": "src/melee/lb/lbarq.c",
-      "role": "Implements lbarq matching/type cleanup: enum state uses replace raw list indices and numeric states, lbArq_80014ABC return type becomes lbArqState with a dont_inline pragma block, lbArq_80014BD0 adds PAD_STACK(16), and initialization uses global->nodes instead of casting the global object.",
+      "role": "Implementation updates for lbarq list/state handling, typed state access, out-of-line accessor pragma, PAD_STACK in request path, and enum state use in initialization and transitions.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/lb/lbarq.c added 24 deleted 20 hunks 6",
-        "raw_diff: lbarq.c hunks changing state constants, global->nodes, PAD_STACK(16), and #pragma dont_inline around lbArq_80014ABC",
+        "raw_diff: lbarq.c hunks for lbArq_80014ABC, lbArq_80014AC4, lbArq_80014BD0, lbArq_80014D2C",
         "human_pr_text: Summary and Matching sections"
       ]
     },
     {
       "path": "src/melee/lb/lbarq.h",
-      "role": "Defines lbArqState enum, changes lbArqNode.state from u32 to lbArqState, replaces lbArqGlobal padding with lbArqNode nodes[10], and updates lbArq_80014ABC prototype.",
+      "role": "Header updates defining lbArqState, typing lbArqNode.state, replacing lbArqGlobal padding with nodes[10], and changing lbArq_80014ABC prototype to return lbArqState.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/lb/lbarq.h added 9 deleted 3 hunks 2",
-        "raw_diff: lbarq.h enum lbArqState and lbArqGlobal node pool changes",
-        "human_pr_text: 'add concrete lbArq state/list types and replace the opaque global padding with the 10-node pool'"
+        "raw_diff: lbarq.h enum lbArqState and lbArqGlobal nodes[10] changes",
+        "human_pr_text: Summary says concrete lbArq state/list types and 10-node pool"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Added lbArqState enum values LB_ARQ_STATE_FREE, LB_ARQ_STATE_PENDING, and LB_ARQ_STATE_DONE and used them for list indexing and node state assignments instead of raw 0/1/2 constants.",
+      "text": "Added enum lbArqState with LB_ARQ_STATE_FREE = 0, LB_ARQ_STATE_PENDING = 1, and LB_ARQ_STATE_DONE = 2, then replaced raw state/list indices with those names.",
       "evidence_refs": [
-        "raw_diff: lbarq.h lbArqState enum",
-        "raw_diff: lbarq.c replacements of list[0], list[1], list[2] and state 0/1/2 with enum constants"
+        "raw_diff: lbarq.h typedef enum lbArqState",
+        "raw_diff: lbarq.c replacements of list[0]/list[1]/list[2] and state 0/1/2"
       ]
     },
     {
-      "text": "Changed lbArqNode.state and lbArq_80014ABC return type from u32 to lbArqState, aligning the accessor and field type with the recovered state names.",
+      "text": "Changed lbArqNode.state from u32 to lbArqState and changed lbArq_80014ABC from returning u32 to returning lbArqState.",
       "evidence_refs": [
-        "raw_diff: lbarq.h state field and lbArq_80014ABC prototype",
+        "raw_diff: lbarq.h lbArqNode state field and lbArq_80014ABC prototype",
         "raw_diff: lbarq.c lbArq_80014ABC signature"
       ]
     },
     {
-      "text": "Replaced lbArqGlobal's opaque u8 pad[0x1E0] with lbArqNode nodes[10], and changed initialization from casting the global object to using global->nodes.",
+      "text": "Replaced lbArqGlobal's opaque pad[0x1E0] with lbArqNode nodes[10], and changed initialization to use global->nodes instead of casting the global object to lbArqNode*.",
       "evidence_refs": [
         "raw_diff: lbarq.h lbArqGlobal nodes[10]",
-        "raw_diff: lbarq.c lbArq_80014D2C nodes = global->nodes",
-        "human_pr_text: Summary states replacement of opaque global padding with 10-node pool"
+        "raw_diff: lbarq.c lbArq_80014D2C nodes = global->nodes"
       ]
     },
     {
-      "text": "Kept lbArq_80014ABC out-of-line using a scoped #pragma push / #pragma dont_inline on / #pragma pop block.",
+      "text": "Kept lbArq_80014ABC out-of-line by wrapping it in #pragma push, #pragma dont_inline on, and #pragma pop.",
       "evidence_refs": [
-        "raw_diff: lbarq.c pragma block around lbArq_80014ABC",
+        "raw_diff: lbarq.c pragma around lbArq_80014ABC",
         "human_pr_text: Summary says keep lbArq_80014ABC out-of-line"
       ]
     },
     {
       "text": "Added PAD_STACK(16) in lbArq_80014BD0 and retained PAD_STACK(8) in lbArq_80014D2C.",
       "evidence_refs": [
-        "raw_diff: lbarq.c PAD_STACK(16) added in lbArq_80014BD0",
-        "raw_diff: lbarq.c PAD_STACK(8) present in lbArq_80014D2C",
-        "human_pr_text: Summary mentions improving lbArq_80014BD0 stack/codegen"
+        "raw_diff: lbarq.c lbArq_80014BD0 adds PAD_STACK(16)",
+        "raw_diff: lbarq.c lbArq_80014D2C shows PAD_STACK(8)"
       ]
     },
     {
-      "text": "PR body reports checkdiff runs for lbArq_80014ABC, lbArq_80014AC4, lbArq_80014BD0, and lbArq_80014D2C, plus configure/ninja; the loaded slice does not include command output.",
+      "text": "Reported matching status: lbArq_80014ABC and lbArq_80014D2C at 100%; lbArq_80014AC4 at 96.9403%; lbArq_80014BD0 at 96.55173%. The bot report independently lists lbArq_80014BD0 improving from 93.97% to 96.55%.",
       "evidence_refs": [
-        "human_pr_text: Verification section"
-      ]
-    },
-    {
-      "text": "Bot report records one unmatched-item improvement for main/melee/lb/lbarq lbArq_80014BD0, from 93.97% to 96.55%, +10 bytes.",
-      "evidence_refs": [
-        "text_corpus.jsonl: decomp-dev[bot] report for GALE01"
+        "human_pr_text: Matching section",
+        "text_corpus.jsonl: decomp-dev[bot] GALE01 report"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Typed the recovered global layout directly as nodes[10] rather than continuing to access the pool through padding and casts.",
+      "text": "Recovered a real typed shape for the lbarq global pool instead of preserving opaque padding and casts.",
       "evidence_refs": [
-        "raw_diff: lbArqGlobal u8 pad[0x1E0] -> lbArqNode nodes[10]",
-        "raw_diff: lbArq_80014D2C nodes = global->nodes"
+        "human_pr_text: Summary says replace opaque global padding with the 10-node pool",
+        "raw_diff: lbArqGlobal pad[0x1E0] replaced by lbArqNode nodes[10]"
       ]
     },
     {
-      "text": "Converted magic state numbers into named enum constants while preserving their numeric values and list-index role.",
+      "text": "Named the small state domain and used the enum both for node state values and list indexing, making the free/pending/done list logic searchable and reviewable.",
       "evidence_refs": [
-        "raw_diff: lbArqState enum values 0, 1, 2",
-        "raw_diff: lbarq.c LB_ARQ_STATE_FREE/PENDING/DONE replacements"
+        "raw_diff: enum lbArqState and LB_ARQ_STATE_* replacements",
+        "human_pr_text: Summary says name the verified ARQ node states used by lbarq"
       ]
     },
     {
-      "text": "Scoped the dont_inline pragma narrowly around lbArq_80014ABC instead of applying a broad file-wide pragma.",
+      "text": "Kept a narrow out-of-line tactic localized to lbArq_80014ABC rather than broad pragma use.",
       "evidence_refs": [
-        "raw_diff: #pragma push, #pragma dont_inline on, lbArq_80014ABC, #pragma pop"
+        "raw_diff: pragma push/dont_inline/pop around only lbArq_80014ABC",
+        "human_pr_text: Summary says keep lbArq_80014ABC out-of-line"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a global's opaque padding is repeatedly treated as a homogeneous object pool, replacing the padding with a typed array can improve source clarity and matching without relying on casts.",
+      "lesson": "When an opaque global blob is used as an array of records and local initialization walks a fixed-size pool, recovering the concrete pool type can remove casts and improve both source clarity and matching work.",
+      "scope": [
+        "src/melee/lb/lbarq.c",
+        "src/melee/lb/lbarq.h",
+        "typed-fields-over-pointer-math"
+      ],
+      "evidence_refs": [
+        "raw_diff: lbArqGlobal pad[0x1E0] to lbArqNode nodes[10]",
+        "raw_diff: nodes = global->nodes instead of (lbArqNode*) global",
+        "human_pr_text: Summary"
+      ]
+    },
+    {
+      "lesson": "Small integer state fields that also select list slots are good enum candidates when the PR evidence names the states and all observed uses are the same state domain.",
       "scope": [
         "src/melee/lb/lbarq.h",
         "src/melee/lb/lbarq.c",
-        "typed globals",
-        "object pools"
+        "conservative-naming"
       ],
       "evidence_refs": [
-        "human_pr_text: 'replace the opaque global padding with the 10-node pool'",
-        "raw_diff: lbArqGlobal nodes[10] and global->nodes use"
-      ],
-      "confidence": 0.86
+        "raw_diff: lbArqState enum values FREE/PENDING/DONE",
+        "raw_diff: list[LB_ARQ_STATE_*] and node->state = LB_ARQ_STATE_*"
+      ]
     },
     {
-      "lesson": "For state/list-index values that are verified by local code behavior, an enum can make list transitions readable while preserving the exact numeric indices needed for matching.",
+      "lesson": "For matching tactics such as PAD_STACK or dont_inline, keep the tactic narrow and attach the exact function-level checkdiff evidence claimed by the PR body.",
       "scope": [
         "src/melee/lb/lbarq.c",
-        "state machines",
-        "list indices"
-      ],
-      "evidence_refs": [
-        "human_pr_text: 'name the verified ARQ node states used by lbarq'",
-        "raw_diff: LB_ARQ_STATE_FREE/PENDING/DONE used as list indexes and state values"
-      ],
-      "confidence": 0.84
-    },
-    {
-      "lesson": "Narrow stack/codegen tactics such as PAD_STACK and dont_inline should be tied to explicit matching claims and kept tightly scoped.",
-      "scope": [
-        "src/melee/lb/lbarq.c",
-        "matching tactics"
+        "matching-tactics-need-evidence",
+        "avoid-pragmas-register-asm"
       ],
       "evidence_refs": [
         "raw_diff: PAD_STACK(16) in lbArq_80014BD0",
-        "raw_diff: scoped dont_inline around lbArq_80014ABC",
-        "human_pr_text: Matching and Verification sections"
-      ],
-      "confidence": 0.72
+        "raw_diff: pragma dont_inline around lbArq_80014ABC",
+        "human_pr_text: Verification commands for lbArq_80014ABC and lbArq_80014BD0"
+      ]
     }
   ],
   "naming_conventions": [
     {
       "name": "lbArqState",
       "kind": "enum type",
-      "convention": "Subsystem-prefixed enum type naming follows lbArq* naming already used by lbArqNode, lbArqGlobal, and lbArqCallback.",
+      "rationale": "Matches the existing lbArq prefix and describes the node/list state domain introduced by the PR.",
       "evidence_refs": [
-        "raw_diff: typedef enum lbArqState",
-        "raw_diff: surrounding typedefs lbArqCallback, lbArqNode, lbArqGlobal"
+        "raw_diff: typedef enum lbArqState"
       ]
     },
     {
-      "name": "LB_ARQ_STATE_FREE, LB_ARQ_STATE_PENDING, LB_ARQ_STATE_DONE",
-      "kind": "enum constants",
-      "convention": "Uppercase subsystem-prefixed state constants encode the ARQ node list/state roles and preserve values 0, 1, and 2.",
+      "name": "LB_ARQ_STATE_FREE",
+      "kind": "enum constant",
+      "rationale": "Names raw state/list index 0 as the free list state.",
       "evidence_refs": [
-        "raw_diff: lbArqState enum definition",
-        "raw_diff: replacements in lbarq.c list and state assignments"
+        "raw_diff: LB_ARQ_STATE_FREE = 0",
+        "raw_diff: global->list[LB_ARQ_STATE_FREE] and node->state = LB_ARQ_STATE_FREE"
+      ]
+    },
+    {
+      "name": "LB_ARQ_STATE_PENDING",
+      "kind": "enum constant",
+      "rationale": "Names raw state/list index 1 as the pending list state.",
+      "evidence_refs": [
+        "raw_diff: LB_ARQ_STATE_PENDING = 1",
+        "raw_diff: global->list[LB_ARQ_STATE_PENDING] and node->state = LB_ARQ_STATE_PENDING"
+      ]
+    },
+    {
+      "name": "LB_ARQ_STATE_DONE",
+      "kind": "enum constant",
+      "rationale": "Names raw state/list index 2 as the done list state.",
+      "evidence_refs": [
+        "raw_diff: LB_ARQ_STATE_DONE = 2",
+        "raw_diff: global->list[LB_ARQ_STATE_DONE] and wait loop compares against LB_ARQ_STATE_DONE"
       ]
     },
     {
       "name": "nodes",
       "kind": "struct field",
-      "convention": "A recovered object-pool field is named by its element role rather than left as pad storage.",
+      "rationale": "Replaces opaque padding in lbArqGlobal with the 10-node pool named in the PR body.",
       "evidence_refs": [
-        "raw_diff: lbArqGlobal field nodes[10]",
-        "raw_diff: lbArq_80014D2C uses global->nodes"
+        "human_pr_text: Summary says 10-node pool",
+        "raw_diff: lbArqGlobal nodes[10]"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Scoped #pragma dont_inline around lbArq_80014ABC to keep a small state accessor out-of-line.",
+      "tactic": "Use #pragma dont_inline on around lbArq_80014ABC with push/pop scope to keep the accessor out-of-line.",
       "evidence_refs": [
         "raw_diff: pragma push/dont_inline/pop around lbArq_80014ABC",
-        "human_pr_text: 'keep lbArq_80014ABC out-of-line'",
-        "human_pr_text: lbArq_80014ABC listed as 100%"
+        "human_pr_text: Summary says keep lbArq_80014ABC out-of-line",
+        "human_pr_text: Matching says lbArq_80014ABC: 100%"
       ],
-      "caveat": "Loaded evidence includes the author's claimed checkdiff command but not checkdiff output."
+      "risk_or_constraint": "Global standards treat pragmas as exceptions; this PR evidence supports only this narrow function scope, not broad pragma use."
     },
     {
-      "tactic": "PAD_STACK(16) in lbArq_80014BD0 for stack/codegen improvement.",
+      "tactic": "Add PAD_STACK(16) in lbArq_80014BD0 to improve stack/codegen.",
       "evidence_refs": [
-        "raw_diff: PAD_STACK(16) added before DCInvalidateRange",
-        "human_pr_text: 'improve lbArq_80014BD0 stack/codegen'",
-        "text_corpus.jsonl: bot report lbArq_80014BD0 93.97% -> 96.55%"
+        "raw_diff: lbArq_80014BD0 adds PAD_STACK(16)",
+        "human_pr_text: Summary says improve lbArq_80014BD0 stack/codegen",
+        "human_pr_text: Matching says lbArq_80014BD0: 96.55173%",
+        "text_corpus.jsonl: bot report shows lbArq_80014BD0 improvement from 93.97% to 96.55%"
       ],
-      "caveat": "The PR body states remaining drift in saved-register allocation and one extra move around the free-list head; the function is not claimed as fully matched."
+      "risk_or_constraint": "PR body reports remaining drift; PAD_STACK is evidence-backed here by reported checkdiff/bot output but should not be generalized without local objdiff evidence."
     },
     {
-      "tactic": "Use typed enum constants as array indices to preserve list-address behavior while improving readability.",
+      "tactic": "Preserve list-walk loops while changing raw numeric list indices to enum constants.",
       "evidence_refs": [
-        "raw_diff: global->list[LB_ARQ_STATE_FREE/PENDING/DONE]",
-        "human_pr_text: lbArq_80014AC4 remaining drift described as one first-list address calculation order"
+        "raw_diff: while (*tail != NULL) list traversal remains while list indices become LB_ARQ_STATE_*"
       ],
-      "caveat": "lbArq_80014AC4 remains a partial match per the PR body."
+      "risk_or_constraint": "No evidence in the slice that alternate loop forms were tested; only the enum-index cleanup is supported."
     }
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    {
+      "kind": "bot_report",
+      "author": "decomp-dev[bot]",
+      "text": "GALE01 report lists one improvement in unmatched item main/melee/lb/lbarq: lbArq_80014BD0, +10 bytes, before 93.97%, after 96.55%.",
+      "evidence_refs": [
+        "text_corpus.jsonl: issue_comment by decomp-dev[bot] created_at 2026-05-15T13:29:53Z"
+      ]
+    }
+  ],
   "searchable_terms": [
     "pr-2499",
     "lb: improve lbarq matching",
-    "itsgrimetime",
+    "lbarq",
     "src/melee/lb/lbarq.c",
     "src/melee/lb/lbarq.h",
-    "lbarq",
-    "lbArq",
     "lbArqState",
     "LB_ARQ_STATE_FREE",
     "LB_ARQ_STATE_PENDING",
     "LB_ARQ_STATE_DONE",
     "lbArqNode",
     "lbArqGlobal",
-    "lbArqHandle",
+    "nodes[10]",
     "lbArq_804316C0",
     "lbArq_80014ABC",
     "lbArq_80014AC4",
     "lbArq_80014BD0",
     "lbArq_80014D2C",
+    "PAD_STACK(16)",
+    "pragma dont_inline",
     "ARQPostRequest",
     "ARQCallback",
     "DCInvalidateRange",
     "OSDisableInterrupts",
     "OSRestoreInterrupts",
     "HSD_ASSERT",
-    "PAD_STACK",
-    "pragma dont_inline",
-    "global node pool",
-    "state enum",
-    "free list",
-    "pending list",
-    "done list"
+    "checkdiff",
+    "GALE01"
   ],
   "follow_up_queries": [
-    {
-      "query": "Find other PRs that replace opaque global padding with typed node pools or arrays.",
-      "purpose": "Curate whether this is a recurring typed-fields-over-padding decomp pattern."
-    },
-    {
-      "query": "Search for scoped '#pragma dont_inline' uses around small accessors and their objdiff evidence.",
-      "purpose": "Assess whether a source update is warranted for narrowly scoped dont_inline exceptions."
-    },
-    {
-      "query": "Search for PAD_STACK uses in src/melee/lb and PR bodies that cite stack/codegen improvements.",
-      "purpose": "Collect evidence for how PAD_STACK is justified and documented in reviewable source."
-    },
-    {
-      "query": "Search lbarq follow-up PRs for lbArq_80014AC4 or lbArq_80014BD0 reaching 100%.",
-      "purpose": "Track whether the remaining drift described in this PR was later resolved."
-    }
+    "Search later PRs for lbArqState or LB_ARQ_STATE_* to see whether these names/types landed elsewhere after this closed unmerged PR.",
+    "Search lbarq current source for lbArqGlobal nodes[10] versus pad[0x1E0] to verify current accepted source state before promoting any path fact.",
+    "Search for PAD_STACK in lbArq_80014BD0 and nearby lb functions to compare whether this tactic survived review or was replaced.",
+    "Search for pragma dont_inline around small accessors in lb library code before deriving any broader convention.",
+    "Search issue or review history around PR #2499 closure if curator needs to know why it closed unmerged."
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR #2499 state CLOSED, merged_at null, changed files and counts",
-      "human_pr_text: summary, matching percentages, verification command list",
-      "raw_diff: full diff for src/melee/lb/lbarq.c and src/melee/lb/lbarq.h",
-      "text_corpus.jsonl: decomp-dev[bot] report for GALE01"
+      "metadata_json: PR number/title/state/author/timestamps/changed files",
+      "human_pr_text: Summary, Matching, Verification",
+      "raw_diff: complete 4735-byte diff for two files",
+      "text_corpus.jsonl: PR body and bot report"
     ],
     "notes": [
-      "There are no review comments or reviews in the supplied slice, so review_feedback is empty.",
-      "The PR body claims checkdiff and build commands, but the loaded evidence does not include their raw outputs; only the bot report independently confirms lbArq_80014BD0 score improvement.",
-      "The metadata says the PR is closed and merged_at is null; no acceptance or merge status is inferred beyond that.",
-      "The evidence supports file changes and author-stated matching status, but not historical reviewer intent."
+      "The diff and PR body provide strong evidence for changed files, type/name edits, and claimed checkdiff commands.",
+      "The supplied metadata says state CLOSED and merged_at null; do not infer merge acceptance.",
+      "There are no human review comments and no reviews in the slice, so reviewer intent and acceptance status are unavailable.",
+      "The PR body claims configure.py && ninja and per-function checkdiff commands, but the slice does not include raw checkdiff JSON output or build logs.",
+      "Bot report only confirms the lbArq_80014BD0 percentage improvement; it does not confirm the other function percentages."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson_candidate",
-        "title": "Recover typed object pools from opaque global padding when code consistently treats the storage as nodes.",
-        "text": "PR #2499 changed lbArqGlobal from u8 pad[0x1E0] to lbArqNode nodes[10] and updated initialization to use global->nodes, matching the PR summary's claim that the opaque global padding represented a 10-node pool.",
+        "record_type": "decomp_lesson",
+        "title": "Recover concrete pool structs from opaque global padding when initialization proves a fixed node pool",
+        "text": "In lbarq, replacing lbArqGlobal pad[0x1E0] with lbArqNode nodes[10] allowed code to use global->nodes rather than casting the global object to lbArqNode*. This is a useful typed-fields lesson, but should be scoped to evidence-backed fixed pools.",
         "scope": [
-          "src/melee/lb/lbarq.h",
           "src/melee/lb/lbarq.c",
-          "typed-fields-over-pointer-math"
+          "src/melee/lb/lbarq.h",
+          "library/lb"
         ],
         "evidence_refs": [
-          "raw_diff: lbArqGlobal nodes[10]",
-          "raw_diff: lbArq_80014D2C uses global->nodes",
+          "raw_diff: lbArqGlobal pad[0x1E0] -> lbArqNode nodes[10]",
+          "raw_diff: lbArq_80014D2C nodes = global->nodes",
           "human_pr_text: Summary"
-        ]
+        ],
+        "confidence": 0.82
       },
       {
-        "record_type": "naming_lesson_candidate",
-        "title": "Name verified state/list-index values with subsystem-prefixed enum constants.",
-        "text": "PR #2499 introduced lbArqState with LB_ARQ_STATE_FREE/PENDING/DONE and replaced raw 0/1/2 state and list-index uses in lbarq.c.",
+        "record_type": "matching_tactic",
+        "title": "Narrow dont_inline pragma for lbArq_80014ABC accessor",
+        "text": "PR #2499 used #pragma push / #pragma dont_inline on / #pragma pop only around lbArq_80014ABC, and the PR body reported lbArq_80014ABC at 100%. Treat this as a narrow, evidence-bound tactic, not a general style rule.",
         "scope": [
           "src/melee/lb/lbarq.c",
-          "src/melee/lb/lbarq.h",
-          "conservative-naming"
+          "lbArq_80014ABC"
         ],
         "evidence_refs": [
-          "raw_diff: lbArqState enum",
-          "raw_diff: state and list index replacements",
-          "human_pr_text: 'name the verified ARQ node states used by lbarq'"
-        ]
+          "raw_diff: pragma around lbArq_80014ABC",
+          "human_pr_text: Matching says lbArq_80014ABC: 100%"
+        ],
+        "confidence": 0.78
+      },
+      {
+        "record_type": "matching_tactic",
+        "title": "PAD_STACK in lbArq_80014BD0 improved reported match percentage",
+        "text": "PR #2499 added PAD_STACK(16) in lbArq_80014BD0. The PR body reported 96.55173% for the function and the bot report showed an improvement from 93.97% to 96.55%. Keep such stack tactics narrow and tied to checkdiff evidence.",
+        "scope": [
+          "src/melee/lb/lbarq.c",
+          "lbArq_80014BD0"
+        ],
+        "evidence_refs": [
+          "raw_diff: PAD_STACK(16) in lbArq_80014BD0",
+          "human_pr_text: Matching and Verification sections",
+          "text_corpus.jsonl: decomp-dev[bot] report"
+        ],
+        "confidence": 0.8
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Consider explicit guidance for typed object-pool recovery from padding",
-        "text": "This PR is an example of replacing opaque global padding with a typed fixed-size pool when local code and initialization identify the element type and count. Curator may consider whether typed-fields-over-pointer-math or data-sections-and-tu-splits should mention typed object-pool recovery as a reviewable cleanup pattern when backed by local evidence.",
-        "source_path": null,
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "Possible lbarq global layout: lbArqGlobal contains lbArqNode nodes[10] followed by three state lists",
+        "text": "PR #2499 proposed lbArqGlobal as lbArqNode nodes[10] at offset 0x000 and lbArqNode* list[3] at offset 0x1E0, replacing u8 pad[0x1E0]. Because the PR is closed with merged_at null in the slice, verify current source/symbol evidence before accepting this as a path fact.",
+        "source_path": "src/melee/lb/lbarq.h",
         "scope": [
-          "typed-fields-over-pointer-math",
-          "data-sections-and-tu-splits",
-          "global struct layout recovery"
+          "library/lb",
+          "lbarq",
+          "lbArqGlobal"
         ],
         "evidence_refs": [
-          "raw_diff: lbArqGlobal u8 pad[0x1E0] -> lbArqNode nodes[10]",
-          "raw_diff: lbArq_80014D2C nodes = global->nodes",
-          "human_pr_text: Summary"
+          "raw_diff: lbArqGlobal struct change",
+          "human_pr_text: Summary says 10-node pool",
+          "metadata_json: state CLOSED and merged_at null"
         ],
-        "reason": "The loaded standards already prefer typed fields over raw storage; this PR may provide a concrete source-owned example but should be curated rather than automatically promoted."
+        "reason": "Potentially useful type/layout fact, but PR closure without merge evidence requires curator verification against current source."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "Possible lbarq state enum names FREE/PENDING/DONE",
+        "text": "PR #2499 proposed lbArqState with LB_ARQ_STATE_FREE, LB_ARQ_STATE_PENDING, and LB_ARQ_STATE_DONE corresponding to values 0, 1, and 2, and used them for node->state and global->list indices. Verify whether this naming landed before adding to source-owned path facts.",
+        "source_path": "src/melee/lb/lbarq.h",
+        "scope": [
+          "library/lb",
+          "lbarq",
+          "lbArqState"
+        ],
+        "evidence_refs": [
+          "raw_diff: typedef enum lbArqState",
+          "raw_diff: enum constants used in lbarq.c",
+          "metadata_json: state CLOSED and merged_at null"
+        ],
+        "reason": "Good naming candidate supported by PR diff, but not accepted as current source fact from this slice alone."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Consider documenting narrow dont_inline pragma exceptions for accessor matching",
-        "text": "This PR used #pragma push / #pragma dont_inline on / #pragma pop around a small state accessor, with the PR body claiming lbArq_80014ABC reached 100%. Curator may decide whether avoid-pragmas-register-asm should include this as an example of a tightly scoped exception that still needs verifier evidence.",
+        "title": "Cautionary example for narrow pragma and PAD_STACK tactics",
+        "text": "PR #2499 is a candidate example for the existing standards on narrow matching tactics: dont_inline was scoped with push/pop around one accessor, and PAD_STACK(16) was tied to lbArq_80014BD0 matching evidence. This should be curated as an example only if current maintainers consider the closed PR useful precedent.",
         "source_path": null,
         "scope": [
-          "avoid-pragmas-register-asm",
-          "matching-tactics-need-evidence"
+          "matching-tactics-need-evidence",
+          "avoid-pragmas-register-asm"
         ],
         "evidence_refs": [
-          "raw_diff: scoped dont_inline around lbArq_80014ABC",
-          "human_pr_text: lbArq_80014ABC 100% and verification command list"
+          "raw_diff: #pragma dont_inline around lbArq_80014ABC",
+          "raw_diff: PAD_STACK(16) in lbArq_80014BD0",
+          "human_pr_text: Verification commands and matching percentages"
         ],
-        "reason": "The existing standards caution against pragmas; this slice supports only a candidate example and lacks raw checkdiff output."
+        "reason": "Could enrich standards with a concrete historical example, but the slice does not justify changing global standards."
       }
     ],
     "rejection_notes": [
-      "Do not promote the PR's claimed 100% matches as independently verified results beyond author-stated PR-body evidence; loaded raw checkdiff outputs are absent.",
-      "Do not infer that PR #2499 was merged or accepted; metadata shows state CLOSED and merged_at null.",
-      "Do not generalize PAD_STACK(16) as normal style; in this slice it is a narrow matching tactic tied to lbArq_80014BD0 and a partial-match bot report.",
-      "Do not infer reviewer feedback or reviewer intent; no review comments or reviews are present."
+      "Do not promote the lbArqGlobal nodes[10] layout or lbArqState names as accepted current path facts from this PR alone because the PR is closed and merged_at is null.",
+      "Do not infer why the PR was closed; the slice contains no human review or closure explanation.",
+      "Do not generalize PAD_STACK or dont_inline as preferred style; standards require narrow evidence and this slice only supports the specific functions touched.",
+      "Do not claim all matching percentages were independently verified by bot output; only lbArq_80014BD0 has a loaded bot report."
     ]
   },
-  "confidence": 0.82,
+  "confidence": 0.84,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

@@ -1,0 +1,233 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2697",
+  "pr": {
+    "number": 2697,
+    "title": "grbigblueroute: match grBigBlueRoute_8020DD64",
+    "url": "https://github.com/doldecomp/melee/pull/2697",
+    "state": "MERGED",
+    "author": "kolt-mcb",
+    "created_at": "2026-06-14T19:36:05Z",
+    "merged_at": "2026-06-14T20:13:46Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Matched stage function grBigBlueRoute_8020DD64 by changing its return type from void to f32, preserving the magnitude returned by lbVector_Normalize, returning it at function end, and updating the owning header declaration. Bot report showed one new match for main/melee/gr/grbigblueroute with grBigBlueRoute_8020DD64 moving from 98.60% to 100.00%.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "headers",
+      "function-signature",
+      "types-structs"
+    ],
+    "systems": [
+      "stage",
+      "grbigblueroute"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/gr/grbigblueroute.c",
+      "role": "Function definition updated: grBigBlueRoute_8020DD64 now returns f32, stores lbVector_Normalize result in mag, and returns it after existing Vec3 clamping/zeroing logic.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/gr/grbigblueroute.c added 5 deleted 5",
+        "raw_diff: grBigBlueRoute_8020DD64 signature changed void -> f32; lbVector_Normalize(v) result assigned to f32 mag; return mag added",
+        "human_pr_text: function returns f32 magnitude from lbVector_Normalize"
+      ]
+    },
+    {
+      "path": "src/melee/gr/grbigblueroute.h",
+      "role": "Owning header declaration updated to match recovered f32 return type.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/gr/grbigblueroute.h added 1 deleted 1",
+        "raw_diff: header declaration changed from void grBigBlueRoute_8020DD64(Vec3*) to f32 grBigBlueRoute_8020DD64(Vec3*)",
+        "human_pr_text: definition and header declaration updated accordingly"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "Changed grBigBlueRoute_8020DD64 return type from void to f32 in both the C definition and header prototype.",
+      "evidence_refs": [
+        "raw_diff",
+        "human_pr_text"
+      ]
+    },
+    {
+      "text": "Captured lbVector_Normalize(v)'s returned magnitude in a local named mag instead of discarding it.",
+      "evidence_refs": [
+        "raw_diff"
+      ]
+    },
+    {
+      "text": "Returned mag after the existing post-normalization Vec3 component bounds checks and fallback zeroing logic.",
+      "evidence_refs": [
+        "raw_diff"
+      ]
+    },
+    {
+      "text": "The PR body claimed objdiff reports 100%, and the bot report recorded one new match: grBigBlueRoute_8020DD64 from 98.60% to 100.00%, +4 bytes.",
+      "evidence_refs": [
+        "human_pr_text",
+        "text_corpus.jsonl: decomp-dev[bot] report for GALE01"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "Recovered the true return value rather than treating lbVector_Normalize as a side-effect-only call, allowing the function to match without wider restructuring.",
+      "evidence_refs": [
+        "human_pr_text",
+        "raw_diff"
+      ]
+    },
+    {
+      "text": "Updated the header prototype together with the function body, avoiding a stale or misleading declaration after signature recovery.",
+      "evidence_refs": [
+        "raw_diff",
+        "decomp_standards: truthful-headers-and-includes"
+      ]
+    },
+    {
+      "text": "Kept the change narrowly scoped to the matched function and its declaration.",
+      "evidence_refs": [
+        "changed_files.jsonl",
+        "raw_diff"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "text": "When a normalized vector helper returns a magnitude, check whether the caller's original function also returns that magnitude; a previously void decompilation may be discarding the value needed for a match.",
+      "scope": [
+        "function signature recovery",
+        "vector math helpers",
+        "stage code"
+      ],
+      "evidence_refs": [
+        "human_pr_text",
+        "raw_diff"
+      ]
+    },
+    {
+      "text": "After recovering a non-void return type in a function body, update the owning header declaration in the same focused change.",
+      "scope": [
+        "headers",
+        "function prototypes"
+      ],
+      "evidence_refs": [
+        "raw_diff",
+        "decomp_standards: truthful-headers-and-includes"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "The recovered lbVector_Normalize return value was named mag, a concise role name for magnitude.",
+      "evidence_refs": [
+        "raw_diff"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "text": "Use the callee return value directly as a local, then return it at the end, when matching evidence indicates the original function propagates a helper's return value.",
+      "evidence_refs": [
+        "raw_diff",
+        "human_pr_text"
+      ]
+    },
+    {
+      "text": "Signature/prototype correction can be the matching tactic: here the key change was void -> f32 for grBigBlueRoute_8020DD64, with no data, pragma, or inline-assembly edits shown.",
+      "evidence_refs": [
+        "raw_diff",
+        "changed_files.jsonl"
+      ]
+    }
+  ],
+  "review_feedback": [],
+  "searchable_terms": [
+    "pr-2697",
+    "grbigblueroute",
+    "grBigBlueRoute_8020DD64",
+    "lbVector_Normalize",
+    "Vec3",
+    "f32 magnitude",
+    "void to f32",
+    "header prototype",
+    "truthful headers",
+    "main/melee/gr/grbigblueroute",
+    "GALE01",
+    "objdiff 100%",
+    "98.60% to 100.00%"
+  ],
+  "follow_up_queries": [
+    "grBigBlueRoute_8020DD64 lbVector_Normalize return mag",
+    "void grBigBlueRoute_8020DD64 Vec3 f32",
+    "stage functions returning lbVector_Normalize magnitude",
+    "header prototype updated after function return type recovery"
+  ],
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json: PR number/title/state/author/timestamps/changed files",
+      "human_pr_text: PR body describes match, f32 magnitude return, header update, objdiff 100%",
+      "raw_diff: exact code and header changes",
+      "text_corpus.jsonl: bot report lists one new match for grBigBlueRoute_8020DD64"
+    ],
+    "notes": [
+      "No review comments were present in the loaded slice.",
+      "The objdiff 100% claim is supported by both PR body text and the loaded bot report; no independent build or objdiff was run during intake.",
+      "The slice only shows this focused signature/body/header change; no broader stage behavior claims are inferred."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "type": "decomp_lesson",
+        "title": "Propagate helper return values when signature recovery requires it",
+        "text": "PR #2697 matched grBigBlueRoute_8020DD64 by changing the function from void to f32, storing the f32 magnitude returned by lbVector_Normalize(v), and returning that value after existing Vec3 adjustment logic.",
+        "scope": [
+          "decomp-matching",
+          "function signatures",
+          "vector math helpers"
+        ],
+        "evidence_refs": [
+          "human_pr_text",
+          "raw_diff",
+          "text_corpus.jsonl: bot report"
+        ]
+      },
+      {
+        "type": "decomp_lesson",
+        "title": "Keep header prototypes truthful after body recovery",
+        "text": "When grBigBlueRoute_8020DD64's recovered body proved a f32 return type, the PR updated src/melee/gr/grbigblueroute.h from void to f32 in the same change.",
+        "scope": [
+          "headers",
+          "prototypes",
+          "stage code"
+        ],
+        "evidence_refs": [
+          "raw_diff",
+          "decomp_standards: truthful-headers-and-includes"
+        ]
+      }
+    ],
+    "source_update_candidates": [],
+    "rejection_notes": [
+      "Do not generalize that every lbVector_Normalize caller should return its magnitude; this PR only proves that behavior for grBigBlueRoute_8020DD64.",
+      "Do not infer reviewer intent or review guidance; the loaded slice contains zero review comments.",
+      "Do not promote the local variable name mag as a global naming rule; it is only a supported local naming example in this PR."
+    ]
+  },
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

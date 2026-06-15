@@ -1,0 +1,372 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2694",
+  "pr": {
+    "number": 2694,
+    "title": "tools/check: add jobj-flags --fix",
+    "url": "https://github.com/doldecomp/melee/pull/2694",
+    "state": "MERGED",
+    "author": "itsgrimetime",
+    "created_at": "2026-06-14T01:39:34Z",
+    "merged_at": "2026-06-15T02:25:02Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "PR 2694 added a local --fix mode to tools/check, with dry-run unified diff support, and made only the jobj-flags check auto-fix raw hidden-flag literals to JOBJ_HIDDEN. assert-macros remained detection-only because the PR body and comments say that conversion requires judgement. Tests were added for jobj flag fixing behavior, including preserving surrounding text, non-match safety, and idempotence.",
+  "change_classification": {
+    "primary_type": "tooling",
+    "categories": [
+      "tooling",
+      "cleanup",
+      "fix",
+      "tests",
+      "decomp-matching"
+    ],
+    "systems": [
+      "tools/check",
+      "jobj flags",
+      "assert macro detection"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "tools/check/main.py",
+      "role": "Adds Check.fix support, --fix/--dry-run CLI handling, jobj-flags fixer, refactors scanning helpers, and keeps assert-macros detection-only.",
+      "evidence_refs": [
+        "changed_files: tools/check/main.py added 142 deleted 36",
+        "diff: Check gains fix: FixFn | None",
+        "diff: fix_jobj_flags replaces spans with JOBJ_HIDDEN",
+        "diff: run_fix writes files or prints difflib.unified_diff for dry-run",
+        "pr_body: Only jobj-flags is auto-fixed; assert-macros stays detection-only"
+      ]
+    },
+    {
+      "path": "tools/check/tests/jobj_flags.py",
+      "role": "Adds unit tests for fix_jobj_flags replacement forms, exact text preservation, non-match behavior, and idempotence.",
+      "evidence_refs": [
+        "changed_files: tools/check/tests/jobj_flags.py added 44 deleted 1",
+        "diff: imports fix_jobj_flags",
+        "diff: JObjFlagsFixTest test_replaces_all_literal_forms",
+        "diff: JObjFlagsFixTest test_preserves_surrounding_text_exactly",
+        "diff: JObjFlagsFixTest test_leaves_non_matches_untouched",
+        "diff: JObjFlagsFixTest test_idempotent"
+      ]
+    }
+  ],
+  "what_changed": [
+    "tools/check documentation and usage now describe --fix and --fix --dry-run.",
+    "A FixFn type and optional Check.fix field were added so checks can remain scan-only or provide an auto-fixer.",
+    "jobj-flags was given fix_jobj_flags, which finds raw hidden-flag literal argument spans in HSD_JObjSet/ClearFlags calls and replaces only the literal token with JOBJ_HIDDEN.",
+    "assert-macros scanning was refactored into helper functions but intentionally left without a fixer.",
+    "The driver was split into run_checks and run_fix; run_fix applies enabled fixers, writes files unless dry-run, prints diffs in dry-run, and reports remaining findings.",
+    "Tests were added for all literal forms, exact surrounding text preservation, non-matches, and idempotence."
+  ],
+  "smart_moves": [
+    {
+      "text": "The PR restricted auto-fixing to the exact mechanical jobj-flags replacement and explicitly left assert macro conversion for manual review.",
+      "evidence_refs": [
+        "pr_body: Only jobj-flags is auto-fixed",
+        "pr_body: assert-macros stays detection-only; converting it needs judgement",
+        "diff: Check('assert-macros', ...) has no fix argument"
+      ]
+    },
+    {
+      "text": "The fixer uses spans from strip_noise while preserving offsets, then applies replacements in reverse order to avoid invalidating later spans.",
+      "evidence_refs": [
+        "diff: comment 'strip_noise preserves offsets'",
+        "diff: for lit_start, lit_end in sorted(spans, reverse=True)"
+      ]
+    },
+    {
+      "text": "The test suite covers safety properties important for automated source rewriting: untouched non-matches, exact surrounding text preservation, and idempotence.",
+      "evidence_refs": [
+        "diff: test_preserves_surrounding_text_exactly",
+        "diff: test_leaves_non_matches_untouched",
+        "diff: test_idempotent"
+      ]
+    },
+    {
+      "text": "Dry-run mode previews a unified diff and writes nothing, which makes automated cleanup reviewable before modifying the tree.",
+      "evidence_refs": [
+        "pr_body: --fix --dry-run prints a unified diff and writes nothing",
+        "diff: difflib.unified_diff in run_fix when dry_run"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "Automated cleanup is safest when limited to exact, token-only decomp style fixes; judgement-heavy rewrites should remain detection-only or manual.",
+      "scope": [
+        "tools/check",
+        "automated decomp cleanup",
+        "jobj flags",
+        "assert macros"
+      ],
+      "evidence_refs": [
+        "pr_body: raw hidden-flag literal replaced with JOBJ_HIDDEN; purely mechanical and exact",
+        "pr_body: assert-macros conversion needs judgement",
+        "diff: fixes change only tokens, not layout"
+      ]
+    },
+    {
+      "lesson": "For raw JObj hidden flag literals, the intended cleanup target in this PR is JOBJ_HIDDEN, but only when the hidden flag appears as the complete argument to supported HSD_JObj flag calls.",
+      "scope": [
+        "HSD_JObjSetFlags",
+        "HSD_JObjClearFlags",
+        "HSD_JObjSetFlagsAll",
+        "HSD_JObjClearFlagsAll"
+      ],
+      "evidence_refs": [
+        "diff: _JOBJ_CALL regex matches HSD_JObj(?:Set|Clear)Flags(?:All)?",
+        "diff: _HIDDEN_LITERAL regex accepts 16, 0x10, octal-like 020 forms with suffixes",
+        "diff: test_leaves_non_matches_untouched includes 0x10 | JOBJ_PTCL and 0x100"
+      ]
+    },
+    {
+      "lesson": "Assert macro conversion may require negating an if-guard and checking text equivalence; this PR treats that as not safely auto-fixable.",
+      "scope": [
+        "assert-macros",
+        "__assert",
+        "HSD_ASSERT",
+        "HSD_ASSERTMSG",
+        "HSD_ASSERTREPORT"
+      ],
+      "evidence_refs": [
+        "pr_body: converting assert-macros needs judgement",
+        "diff comment: Detection only; if-guard must be negated and matched against assert text"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "convention": "tools/check check identifiers use kebab-case such as jobj-flags and assert-macros; CLI disables are derived as --no-<check>.",
+      "evidence_refs": [
+        "diff: Check.name comment says kebab-case id drives --no-<name>",
+        "diff: CHECKS contains 'jobj-flags' and 'assert-macros'"
+      ]
+    },
+    {
+      "convention": "Scanner and fixer functions follow scan_<check> and fix_<check> naming, as shown by scan_jobj_flags and fix_jobj_flags.",
+      "evidence_refs": [
+        "diff: def scan_jobj_flags",
+        "diff: def fix_jobj_flags"
+      ]
+    },
+    {
+      "convention": "Private parsing helpers in tools/check use leading underscores, e.g. _jobj_literal_spans, _assert_sites, _has_todo, and _assert_first_arg.",
+      "evidence_refs": [
+        "diff: def _jobj_literal_spans",
+        "diff: def _assert_sites",
+        "diff: def _has_todo",
+        "diff: def _assert_first_arg"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Use a project check/fixer for mechanical JObj hidden flag cleanup instead of hand-editing many raw 0x10 literal sites.",
+      "evidence_refs": [
+        "pr_body: mechanical fix can be applied directly instead of by hand",
+        "pr_body: Replay reproduced #2675 across 73 files with zero content differences except clang-format line wrapping"
+      ]
+    },
+    {
+      "tactic": "After using the fixer, run clang-format because the PR claims fixes change only tokens, not layout.",
+      "evidence_refs": [
+        "pr_body: Fixes change only tokens, not layout — run clang-format afterward",
+        "diff docstring: Fixes change only tokens, not layout, so run clang-format afterward"
+      ]
+    },
+    {
+      "tactic": "Use --fix --dry-run to inspect the exact unified diff before writing changes.",
+      "evidence_refs": [
+        "pr_body: --fix --dry-run prints a unified diff and writes nothing",
+        "diff: --dry-run help text"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "author": "ribbanya",
+      "feedback": "Questioned the maintainability of procedural parsing and asked whether pure regex or parser combinators could be used.",
+      "evidence_refs": [
+        "review_comment r3408970564"
+      ]
+    },
+    {
+      "author": "itsgrimetime",
+      "feedback": "Responded that regex likely cannot capture all assert cases in the project; mentioned considering clang-query and parser combinators, with parser combinators implying an extra Python dependency.",
+      "evidence_refs": [
+        "review_comment r3409008267",
+        "review_comment r3409010869"
+      ]
+    },
+    {
+      "author": "itsgrimetime",
+      "feedback": "Tested clang-query and clang-tidy locally and asked whether checks should live alongside tools/issues or as standalone clang-query matchers in CI.",
+      "evidence_refs": [
+        "review_comment r3409038427"
+      ]
+    },
+    {
+      "author": "ribbanya",
+      "feedback": "Approved but stated the main issue was that the implementation seemed annoying to maintain as written and preferred one of the alternatives discussed earlier.",
+      "evidence_refs": [
+        "text_corpus review: pullrequestreview-4494081769"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR 2694",
+    "tools/check --fix",
+    "tools/check --dry-run",
+    "jobj-flags",
+    "fix_jobj_flags",
+    "scan_jobj_flags",
+    "JOBJ_HIDDEN",
+    "raw 0x10 literal",
+    "HSD_JObjSetFlags",
+    "HSD_JObjClearFlags",
+    "HSD_JObjSetFlagsAll",
+    "HSD_JObjClearFlagsAll",
+    "assert-macros detection-only",
+    "__assert",
+    "HSD_ASSERT",
+    "HSD_ASSERTMSG",
+    "HSD_ASSERTREPORT",
+    "clang-query",
+    "clang-tidy",
+    "parser combinators",
+    "difflib.unified_diff",
+    "strip_noise preserves offsets"
+  ],
+  "follow_up_queries": [
+    "PR #2693 tools/check jobj-flags assert-macros",
+    "PR #2675 JOBJ_HIDDEN sweep",
+    "tools/check main.py fix_jobj_flags",
+    "tools/check assert-macros clang-query clang-tidy",
+    "HSD_JObjSetFlagsAll raw 0x10 JOBJ_HIDDEN",
+    "__assert HSD_ASSERT conversion judgement if-guard negate"
+  ],
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json pr number/title/state/author/timestamps",
+      "human_pr_text behaviour and verification sections",
+      "changed_files.jsonl for changed paths and line counts",
+      "raw_diff for implementation and tests",
+      "review_comments.md and text_corpus.jsonl for review discussion"
+    ],
+    "notes": [
+      "The loaded PR evidence directly includes PR body, changed files, full diff, and review comments.",
+      "The PR body claims 15 unit tests and replay on the pre-sweep tree; intake records this as PR-author-provided verification, not independently rerun validation.",
+      "Review comments mention clang-query/clang-tidy and parser combinators as alternatives considered, but the evidence does not prove a final project-wide tooling direction beyond this PR."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "type": "tooling_lesson",
+        "title": "Keep tools/check auto-fixers limited to exact mechanical rewrites",
+        "text": "PR 2694 supports a tools/check pattern where a check may expose an optional fixer, but only exact token-level rewrites are auto-fixed; judgement-heavy conversions remain reported for manual review.",
+        "scope": [
+          "tools/check",
+          "auto-fix",
+          "jobj-flags",
+          "assert-macros"
+        ],
+        "evidence_refs": [
+          "pr_body: Only jobj-flags is auto-fixed; assert-macros stays detection-only",
+          "diff: Check.fix optional field",
+          "diff: assert-macros Check has no fixer"
+        ]
+      },
+      {
+        "type": "tooling_lesson",
+        "title": "Automated fixer tests should cover exactness and idempotence",
+        "text": "The jobj-flags fixer tests added in PR 2694 cover multiple literal spellings, preservation of surrounding text, non-match safety, and idempotence.",
+        "scope": [
+          "tools/check/tests",
+          "automated source rewriting"
+        ],
+        "evidence_refs": [
+          "diff: JObjFlagsFixTest"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "tools/check/main.py supports --fix and --dry-run for jobj-flags only",
+        "text": "As of PR 2694, tools/check/main.py has a --fix mode and --fix --dry-run mode. Only the jobj-flags check has an auto-fixer in this PR; assert-macros remains detection-only and reports remaining findings for manual review.",
+        "source_path": "tools/check/main.py",
+        "scope": [
+          "tools/check/main.py",
+          "tools/check CLI"
+        ],
+        "evidence_refs": [
+          "pr_body behaviour bullets",
+          "diff: parser.add_argument('--fix')",
+          "diff: parser.add_argument('--dry-run')",
+          "diff: run_fix",
+          "diff: Check('jobj-flags', ..., fix_jobj_flags)",
+          "diff: Check('assert-macros', ...) without fixer"
+        ],
+        "reason": "Useful path-level fact for future tooling work; should be curated into source-owned path facts if still current."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Raw JObj hidden flag literals should become JOBJ_HIDDEN when the argument is exactly the hidden flag",
+        "text": "PR 2694 treats replacing a raw hidden-flag literal argument in HSD_JObj Set/Clear Flags calls with JOBJ_HIDDEN as an exact mechanical cleanup. Non-exact expressions such as combined flags are intentionally left untouched by the tests.",
+        "source_path": null,
+        "scope": [
+          "HSD_JObj flag calls",
+          "JOBJ_HIDDEN",
+          "mechanical cleanup"
+        ],
+        "evidence_refs": [
+          "pr_body: raw hidden-flag literal is replaced with JOBJ_HIDDEN",
+          "diff: _HIDDEN_LITERAL and _JOBJ_REPLACEMENT",
+          "diff: test_replaces_all_literal_forms",
+          "diff: test_leaves_non_matches_untouched"
+        ],
+        "reason": "Possible decomp style standard, but curator should verify against current headers and existing standards before promoting."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Do not auto-fix direct __assert to HSD assert macros without semantic review",
+        "text": "PR 2694 documents that assert-macros conversion is judgement-laden because the if-guard must be negated and matched against assert text, and not every site is byte-identical; the tool reports those sites rather than rewriting them.",
+        "source_path": null,
+        "scope": [
+          "__assert",
+          "HSD_ASSERT",
+          "HSD_ASSERTMSG",
+          "HSD_ASSERTREPORT",
+          "tools/check"
+        ],
+        "evidence_refs": [
+          "pr_body: assert-macros stays detection-only",
+          "diff comment above assert macro scanner"
+        ],
+        "reason": "Potential refinement of assert/report cleanup guidance; should be reconciled with existing assert-report-macros standard."
+      }
+    ],
+    "rejection_notes": [
+      "Do not infer from this PR that all tools/check parsing should move to clang-query, clang-tidy, regex, or parser combinators; review comments only discuss alternatives and limitations.",
+      "Do not treat the author-provided replay claim as independently verified by this intake; no build or replay was run here.",
+      "Do not generalize the jobj-flags fixer to combined flag expressions; the added tests explicitly leave 0x10 | JOBJ_PTCL untouched."
+    ]
+  },
+  "confidence": 0.91,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

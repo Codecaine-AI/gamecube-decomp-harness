@@ -174,12 +174,12 @@ function reviewMarkdown(sliceId: string, review: PreshipReview, lintNote: string
   return lines.join("\n");
 }
 
-async function sliceDiff(repoRoot: string, baseRef: string, headRef: string, pathspecs: string[]): Promise<string> {
-  const result = await runCommand(repoRoot, ["git", "-C", repoRoot, "diff", baseRef, headRef, "--", ...pathspecs]);
+async function sliceDiff(repoRoot: string, baseRef: string, headRef: string, pathspecs: string[], outputPath: string): Promise<string> {
+  const result = await runCommand(repoRoot, ["git", "-C", repoRoot, "diff", `--output=${outputPath}`, baseRef, headRef, "--", ...pathspecs]);
   if (result.exitCode !== 0) {
     throw new Error(`git diff ${baseRef} ${headRef} failed (exit ${result.exitCode}): ${result.stderr.trim() || result.stdout.trim()}`);
   }
-  return result.stdout;
+  return readFile(outputPath, "utf8").catch(() => "");
 }
 
 async function reviewOneSlice(slice: PreshipPlanSlice, options: PreshipReviewRunOptions, runner: PreshipAgentRunner): Promise<PreshipSliceOutcome> {
@@ -187,9 +187,8 @@ async function reviewOneSlice(slice: PreshipPlanSlice, options: PreshipReviewRun
   await mkdir(reviewDir, { recursive: true });
   const repoRoot = options.plan.repoRoot;
 
-  const diff = await sliceDiff(repoRoot, options.baseRef, options.headRef, slice.pathspecs);
   const diffPath = resolve(reviewDir, "slice.diff");
-  await writeFile(diffPath, diff);
+  const diff = await sliceDiff(repoRoot, options.baseRef, options.headRef, slice.pathspecs, diffPath);
 
   if (!diff.trim()) {
     const review: PreshipReview = {

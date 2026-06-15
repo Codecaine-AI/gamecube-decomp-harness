@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Closed, unmerged PR attempting to decompile two gmregclear functions, fn_8017DE54 and fn_8017F14C, with header prototype updates and a local struct field recovery at lbl_80472D28.x10A. Evidence includes claimed and bot-reported 100% fuzzy matches, plus author comments explaining retained pointer math in fn_8017F14C and later saying the work was consolidated into other PRs.",
+  "summary": "Closed PR proposing two gmregclear function decompilations, fn_8017DE54 and fn_8017F14C, with matching report evidence for both. It also updated gmregclear.h prototypes and split a lbl_80472D28 struct padding range to expose x10A. The PR was later described by the author as consolidated into other PRs; no merge is recorded in the slice.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -20,7 +20,7 @@
       "headers",
       "types-structs",
       "pointer-math",
-      "naming"
+      "game-mode"
     ],
     "systems": [
       "game-mode",
@@ -30,280 +30,260 @@
   "key_files": [
     {
       "path": "src/melee/gm/gmregclear.c",
-      "role": "Implemented fn_8017DE54 and fn_8017F14C, split lbl_80472D28 padding to expose x10A, and retained pointer math for an unknown void* argument at offset 0x98.",
+      "role": "Added C bodies for fn_8017DE54 and fn_8017F14C; exposed struct lbl_80472D28_t field x10A at offset 0x10A.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/gm/gmregclear.c added 43 deleted 3 hunks 3",
-        "raw_diff: gmregclear.c hunk around struct lbl_80472D28_t",
-        "raw_diff: gmregclear.c hunk replacing /// #fn_8017DE54",
-        "raw_diff: gmregclear.c hunk replacing /// #fn_8017F14C",
-        "text_corpus: issuecomment-4034979912"
+        "changed_files:src/melee/gm/gmregclear.c",
+        "raw_diff:gmregclear.c hunks"
       ]
     },
     {
       "path": "src/melee/gm/gmregclear.h",
-      "role": "Updated prototypes for recovered function bodies from UNK_RET/UNK_PARAMS to concrete signatures.",
+      "role": "Replaced UNK_RET/UNK_PARAMS prototypes for fn_8017DE54 and fn_8017F14C with recovered signatures.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/gm/gmregclear.h added 2 deleted 2 hunks 2",
-        "raw_diff: gmregclear.h fn_8017DE54 prototype changed to s32 fn_8017DE54(u8, u8*)",
-        "raw_diff: gmregclear.h fn_8017F14C prototype changed to s32 fn_8017F14C(void* arg0)"
+        "changed_files:src/melee/gm/gmregclear.h",
+        "raw_diff:gmregclear.h hunks"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Decompiled fn_8017DE54 as an s32-returning helper taking a u8 flag byte and u8* buffer, with flag checks for 0x20, 0x10, and 2 and comparisons against byte value 0x21.",
+      "text": "fn_8017DE54 was decompiled as s32 fn_8017DE54(u8, u8*) with flag checks on 0x20, 0x10, and 2, plus three byte comparisons against 0x21.",
       "evidence_refs": [
-        "raw_diff: gmregclear.c fn_8017DE54 body",
-        "human_pr_text: Summary lists fn_8017DE54"
+        "raw_diff:fn_8017DE54 body"
       ]
     },
     {
-      "text": "Decompiled fn_8017F14C as an s32-returning helper taking void*, gated by gm_8016AE38()->x24C8.x4_7, clamping a value read from arg0+0x98 to 9999, and multiplying by lbl_80472D28.x10A.",
+      "text": "fn_8017F14C was decompiled as s32 fn_8017F14C(void* arg0), gated by gm_8016AE38()->x24C8.x4_7, reading a s32 at arg0+0x98, clamping values above 9999, and multiplying by lbl_80472D28.x10A.",
       "evidence_refs": [
-        "raw_diff: gmregclear.c fn_8017F14C body",
-        "human_pr_text: Summary lists fn_8017F14C"
+        "raw_diff:fn_8017F14C body"
       ]
     },
     {
-      "text": "Recovered a field in struct lbl_80472D28_t at offset 0x10A as s16 x10A by splitting prior padding.",
+      "text": "struct lbl_80472D28_t padding from +0x108 was split to add s16 x10A at +0x10A.",
       "evidence_refs": [
-        "raw_diff: struct lbl_80472D28_t pad_108 changed and x10A added"
+        "raw_diff:struct lbl_80472D28_t hunk"
       ]
     },
     {
-      "text": "Updated public header declarations for fn_8017DE54 and fn_8017F14C to concrete signatures instead of UNK_RET/UNK_PARAMS.",
+      "text": "gmregclear.h prototypes for fn_8017DE54 and fn_8017F14C were updated from unknown signatures to typed declarations.",
       "evidence_refs": [
-        "raw_diff: gmregclear.h prototype changes"
+        "raw_diff:gmregclear.h prototype replacements"
+      ]
+    },
+    {
+      "text": "The PR body claimed ninja built clean and fuzzy_match_percent was 100.0 for all functions; the bot report listed two new 100.00% matches totaling +224 bytes.",
+      "evidence_refs": [
+        "human_pr_text:PR body verification",
+        "text_corpus:decomp-dev bot report issuecomment-4034253329"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Kept header prototypes aligned with the newly recovered function bodies rather than leaving UNK_RET/UNK_PARAMS.",
+      "text": "Updated the owning header prototypes alongside the recovered function bodies instead of leaving UNK_RET/UNK_PARAMS.",
       "evidence_refs": [
-        "raw_diff: gmregclear.h prototype changes",
-        "decomp_standards: truthful-headers-and-includes"
+        "raw_diff:gmregclear.h prototype replacements",
+        "decomp_standards:truthful-headers-and-includes"
       ]
     },
     {
-      "text": "Documented why the arg0+0x98 access in fn_8017F14C remained pointer math: the parameter was void*, no known decompiled callers were identified, and the closest candidate struct had unnamed padding at that offset.",
+      "text": "Kept fn_ address-style global names rather than inventing semantic names for functions whose meaning was not established by the slice.",
       "evidence_refs": [
-        "text_corpus: issuecomment-4034979912"
+        "raw_diff:function names",
+        "decomp_standards:conservative-naming"
+      ]
+    },
+    {
+      "text": "Documented why a raw arg0+0x98 access remained in fn_8017F14C: the author stated the parameter was void*, no known decompiled callers identified the real struct type, and the offset landed in unnamed padding of the closest candidate struct.",
+      "evidence_refs": [
+        "text_corpus:issuecomment-4034979912",
+        "human_pr_text:pointer math comment"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a function body proves a signature, update the owning header prototype in the same patch rather than leaving UNK_RET/UNK_PARAMS.",
+      "lesson": "When decompiling a function body proves a signature, update the owning header at the same time rather than retaining UNK_RET/UNK_PARAMS.",
       "scope": [
-        "src/melee/gm/gmregclear.h",
-        "decompiled function prototypes"
+        "src/melee/gm/gmregclear.c",
+        "src/melee/gm/gmregclear.h"
       ],
       "evidence_refs": [
-        "raw_diff: gmregclear.h fn_8017DE54 and fn_8017F14C prototype changes",
-        "decomp_standards: truthful-headers-and-includes"
+        "raw_diff:fn_8017DE54 signature and header",
+        "raw_diff:fn_8017F14C signature and header",
+        "decomp_standards:truthful-headers-and-includes"
       ],
-      "confidence": 0.88
+      "confidence": 0.83
     },
     {
-      "lesson": "Pointer math may remain as bridge code when the argument type is genuinely unknown and no field-bearing struct is supported by available caller/type evidence, but the reason should be recorded.",
+      "lesson": "Raw pointer math should be treated as suspect and documented when it cannot yet be replaced by a typed field; in this slice, fn_8017F14C kept arg0+0x98 because the argument type and callers were not known according to the author comment.",
       "scope": [
-        "fn_8017F14C",
-        "unknown void* arguments"
+        "src/melee/gm/gmregclear.c:fn_8017F14C"
       ],
       "evidence_refs": [
-        "raw_diff: fn_8017F14C uses *(s32*) ((u8*) arg0 + 0x98)",
-        "text_corpus: issuecomment-4034979912",
-        "decomp_standards: typed-fields-over-pointer-math"
+        "raw_diff:fn_8017F14C pointer math",
+        "text_corpus:issuecomment-4034979912",
+        "decomp_standards:typed-fields-over-pointer-math"
       ],
-      "confidence": 0.7
+      "confidence": 0.66
     }
   ],
   "naming_conventions": [
     {
-      "name": "x10A",
-      "kind": "struct field",
-      "context": "New s16 field recovered in lbl_80472D28_t at offset 0x10A; address-style/offset-style name preserves uncertainty rather than inventing semantics.",
+      "text": "Address-style names fn_8017DE54 and fn_8017F14C were retained; the slice does not provide semantic evidence for renaming them.",
       "evidence_refs": [
-        "raw_diff: struct lbl_80472D28_t adds s16 x10A"
+        "raw_diff:function declarations",
+        "decomp_standards:conservative-naming"
       ]
     },
     {
-      "name": "fn_8017DE54 / fn_8017F14C",
-      "kind": "function symbols",
-      "context": "Function names remained address-style despite body recovery; no semantic rename evidence was present in this PR slice.",
+      "text": "The newly exposed struct member used offset-style name x10A, consistent with limited semantic evidence for lbl_80472D28_t.",
       "evidence_refs": [
-        "raw_diff: function definitions and header prototypes",
-        "decomp_standards: conservative-naming"
+        "raw_diff:struct lbl_80472D28_t x10A"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Clamp expression written as explicit if: val copied to ret, capped at 9999, then multiplied by recovered s16 field x10A.",
-      "symbols": [
-        "fn_8017F14C"
-      ],
+      "text": "fn_8017DE54 used explicit s32 casts for byte comparisons against 0x21 and a separate pointer p = &arg1[1], likely preserving the required code shape for the claimed match.",
       "evidence_refs": [
-        "raw_diff: fn_8017F14C body"
+        "raw_diff:fn_8017DE54 body",
+        "human_pr_text:100 percent match claim"
       ]
     },
     {
-      "tactic": "Byte-buffer checks in fn_8017DE54 use explicit pointer p = &arg1[1] and compare three bytes to 0x21 before returning 3 - count.",
-      "symbols": [
-        "fn_8017DE54"
-      ],
+      "text": "fn_8017F14C used a local data pointer to lbl_80472D28, retained a raw s32 load from arg0+0x98, and used a separate ret local after capping val above 9999.",
       "evidence_refs": [
-        "raw_diff: fn_8017DE54 body"
+        "raw_diff:fn_8017F14C body",
+        "text_corpus:issuecomment-4034979912"
       ]
     },
     {
-      "tactic": "Recovered a typed field from padding for lbl_80472D28.x10A instead of reading that global structure member by raw offset.",
-      "symbols": [
-        "lbl_80472D28_t",
-        "fn_8017F14C"
-      ],
+      "text": "Verification evidence in the slice is limited to the PR body's ninja claim and bot fuzzy-match report; no objdiff log or reviewer validation is included.",
       "evidence_refs": [
-        "raw_diff: struct lbl_80472D28_t",
-        "raw_diff: fn_8017F14C uses data->x10A"
+        "human_pr_text:PR body verification",
+        "text_corpus:decomp-dev bot report issuecomment-4034253329"
       ]
     }
   ],
   "review_feedback": [
     {
-      "kind": "author_followup",
-      "text": "Author initially said pointer math would be fixed soon.",
+      "text": "No review comments are present in the slice.",
       "evidence_refs": [
-        "text_corpus: issuecomment-4034541088"
+        "metadata_json:counts.review_comments=0",
+        "metadata_json:counts.reviews=0"
       ]
     },
     {
-      "kind": "author_followup",
-      "text": "Author later stated the fn_8017F14C pointer math could not be replaced with struct field access because arg0 was void*, had no known callers in decomped code, and offset 0x98 was padding in the closest candidate struct.",
+      "text": "The author first said pointer math would be fixed soon, then later stated the fn_8017F14C arg0+0x98 pointer math could not be replaced with struct field access because the true type and callers were unknown.",
       "evidence_refs": [
-        "text_corpus: issuecomment-4034979912"
+        "text_corpus:issuecomment-4034541088",
+        "text_corpus:issuecomment-4034979912"
       ]
     },
     {
-      "kind": "closure_note",
-      "text": "Author said the work was consolidated into other PRs.",
+      "text": "The closing comment says the work was consolidated into other PRs.",
       "evidence_refs": [
-        "text_corpus: issuecomment-4056021532"
+        "text_corpus:issuecomment-4056021532",
+        "metadata_json:pr.merged_at=null"
       ]
     }
   ],
   "searchable_terms": [
     "pr-2264",
     "gmregclear",
-    "src/melee/gm/gmregclear.c",
-    "src/melee/gm/gmregclear.h",
     "fn_8017DE54",
     "fn_8017F14C",
+    "src/melee/gm/gmregclear.c",
+    "src/melee/gm/gmregclear.h",
     "lbl_80472D28_t",
     "lbl_80472D28",
     "x10A",
-    "arg0 + 0x98",
+    "arg0+0x98",
     "pointer math",
-    "void*",
-    "gm_8016AE38",
-    "x24C8.x4_7",
     "UNK_RET",
     "UNK_PARAMS",
-    "fuzzy_match_percent 100.0",
+    "fuzzy_match_percent",
     "Consolidated into other PRs"
   ],
   "follow_up_queries": [
-    {
-      "query": "fn_8017F14C arg0 + 0x98 void* caller type",
-      "reason": "Find whether later consolidated PRs recovered the real argument type or field for the retained pointer math."
-    },
-    {
-      "query": "gmregclear fn_8017DE54 fn_8017F14C consolidated into other PRs",
-      "reason": "Locate the PR that absorbed this closed unmerged work and compare final accepted source shape."
-    },
-    {
-      "query": "lbl_80472D28_t x10A gmregclear",
-      "reason": "Check whether x10A remained an offset-style field or received a semantic name later."
-    },
-    {
-      "query": "src/melee/gm/gmregclear.h fn_8017F14C prototype",
-      "reason": "Verify final accepted prototype after consolidation."
-    }
+    "Find later PRs that consolidated or replaced PR #2264 gmregclear fn_8017DE54 fn_8017F14C",
+    "Search current gmregclear.c for fn_8017F14C arg0 + 0x98 pointer math",
+    "Search current gmregclear.h for fn_8017DE54 and fn_8017F14C final prototypes",
+    "Search for callers of fn_8017F14C to recover the void* argument type",
+    "Search lbl_80472D28_t x10A current field naming and offset ownership"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR #2264 closed, merged_at null",
-      "human_pr_text: PR body claims ninja clean and fuzzy_match_percent 100.0",
-      "text_corpus: bot report shows 2 new matches at 100.00%",
-      "raw_diff: complete 2501-byte diff loaded",
-      "changed_files.jsonl: two changed files",
-      "text_corpus: issuecomment-4056021532 says consolidated into other PRs"
+      "metadata_json",
+      "human_pr_text",
+      "raw_diff",
+      "changed_files",
+      "text_corpus"
     ],
     "notes": [
-      "Evidence is strong for what this PR changed because the full raw diff and changed-file metadata are loaded.",
-      "Acceptance status is weak: PR is closed with merged_at null, and the author said the work was consolidated into other PRs.",
-      "No review comments or formal reviewer approvals are present in the loaded slice.",
-      "Verification is supported by the PR body and bot report, but no local build, objdiff log, or final merged commit evidence is available in this slice.",
-      "The pointer-math rationale is an author issue comment ending '--Claude'; treat it as PR evidence for the stated rationale, not as proof that no type existed historically."
+      "Strong evidence for changed files and exact diff content.",
+      "Match evidence is present from the PR body and bot fuzzy report, but no objdiff/checkdiff artifact is included.",
+      "No review comments are present; pointer-math discussion is from author issue comments, one of which is explicitly signed '--Claude'.",
+      "The PR is closed with merged_at null and an author comment says it was consolidated into other PRs, so this intake does not treat the changes as accepted or merged.",
+      "The claim that fn_8017F14C has no known decompiled callers and no known concrete argument type is only evidenced by an issue comment, not independently verified in this intake."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "decomp_lesson",
-        "title": "Update owning header prototypes when function bodies are recovered",
-        "text": "PR #2264 recovered fn_8017DE54 and fn_8017F14C bodies and updated gmregclear.h declarations from UNK_RET/UNK_PARAMS to concrete signatures in the same patch.",
+        "record_type": "pr_specific_lesson",
+        "title": "gmregclear header prototypes updated with matched bodies",
+        "text": "PR #2264 changed fn_8017DE54 and fn_8017F14C from UNK_RET/UNK_PARAMS declarations to typed gmregclear.h prototypes in the same diff that added their C bodies.",
         "scope": [
-          "headers",
-          "function decompilation",
-          "gmregclear"
+          "src/melee/gm/gmregclear.c",
+          "src/melee/gm/gmregclear.h"
         ],
         "evidence_refs": [
-          "raw_diff: gmregclear.h prototype changes",
-          "raw_diff: gmregclear.c function bodies"
-        ],
-        "confidence": 0.88
+          "raw_diff:gmregclear.c function bodies",
+          "raw_diff:gmregclear.h prototype replacements"
+        ]
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Document narrow exception for retained pointer math on unknown void* arguments",
-        "text": "Consider adding guidance that raw offset access can remain temporarily when the parameter type is void*, no decompiled callers or supported candidate struct identify the real type, and the offset lies in unnamed padding; require an evidence note and follow-up search terms.",
-        "source_path": null,
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "PR #2264 pointer-math note for fn_8017F14C",
+        "text": "In PR #2264, fn_8017F14C retained `*(s32*) ((u8*) arg0 + 0x98)`; an author comment stated this could not be replaced with struct field access because arg0 was void*, no known decompiled callers identified the actual struct type, and offset 0x98 fell within unnamed padding in the closest candidate struct.",
+        "source_path": "src/melee/gm/gmregclear.c",
         "scope": [
-          "typed-fields-over-pointer-math",
-          "matching-tactics-need-evidence"
+          "fn_8017F14C",
+          "gmregclear"
         ],
         "evidence_refs": [
-          "text_corpus: issuecomment-4034979912",
-          "raw_diff: fn_8017F14C uses *(s32*) ((u8*) arg0 + 0x98)"
+          "text_corpus:issuecomment-4034979912",
+          "raw_diff:fn_8017F14C pointer math"
         ],
-        "reason": "This PR contains a concrete rationale for not replacing pointer math with field access, but because it was closed unmerged and consolidated elsewhere, curator review should decide whether this nuance belongs in global standards."
+        "reason": "Potential path fact for future gmregclear type recovery, but should be curated cautiously because the PR was not merged and the explanation was not independently verified in the slice."
       },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "gmregclear contains game-mode registration-clear helpers with partially recovered local structs",
-        "text": "src/melee/gm/gmregclear.c in this PR included recovered bodies for fn_8017DE54 and fn_8017F14C and a local field x10A in lbl_80472D28_t.",
+        "title": "PR #2264 exposed lbl_80472D28_t x10A",
+        "text": "The PR split lbl_80472D28_t padding to add `s16 x10A` at offset +0x10A, used by fn_8017F14C as a multiplier.",
         "source_path": "src/melee/gm/gmregclear.c",
         "scope": [
-          "gmregclear",
-          "game-mode"
+          "struct lbl_80472D28_t",
+          "fn_8017F14C"
         ],
         "evidence_refs": [
-          "raw_diff: gmregclear.c function and struct hunks"
+          "raw_diff:struct lbl_80472D28_t hunk",
+          "raw_diff:fn_8017F14C body"
         ],
-        "reason": "Potential path fact, but PR was closed unmerged and consolidated into other PRs, so final source should be checked before recording."
+        "reason": "May help future struct recovery, but acceptance depends on later consolidated PRs or current source confirmation."
       }
     ],
     "rejection_notes": [
-      "Do not record this PR as merged or accepted; loaded metadata has merged_at null and an author closure note says it was consolidated into other PRs.",
-      "Do not infer semantic names for fn_8017DE54, fn_8017F14C, x10A, or arg0+0x98 from this slice.",
-      "Do not promote the Claude-generated pointer-math explanation into a universal rule without checking the later consolidated PR and current source.",
-      "Do not claim objdiff verification beyond the PR body's ninja/fuzzy-match claim and the bot's 100.00% report."
+      "Do not promote the raw arg0+0x98 access as preferred style; the loaded global standard still prefers typed fields when recoverable.",
+      "Do not infer semantic names for fn_8017DE54, fn_8017F14C, or x10A from this slice.",
+      "Do not mark the PR as merged or accepted; metadata shows merged_at null and the closing comment says it was consolidated into other PRs."
     ]
   },
   "confidence": 0.78,
@@ -313,6 +293,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

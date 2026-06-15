@@ -88,9 +88,9 @@ def classify(ev):
     rv_status = ev.get("rv_status")
     rv_exact = ev.get("rv_exact")
     rv_improved = ev.get("rv_improved")
-    if et == "worker_finished" and result == "exact" and rv_status == "passed":
+    if et in ("worker_finished", "score_candidate") and result == "exact" and rv_status == "passed":
         return "confirmed_exact"
-    if et == "worker_finished" and result == "improved" and rv_status == "passed":
+    if et in ("worker_finished", "score_candidate") and result == "improved" and rv_status == "passed":
         return "confirmed_improved"
     if rv_exact:
         return "exact_rejected"
@@ -128,7 +128,9 @@ def main():
     # --- canonical outcome per lease from events ---
     lease_event = {}
     q = """SELECT run_id, event_type, payload_json, created_at FROM events
-           WHERE event_type LIKE 'worker_%' ORDER BY created_at"""
+           WHERE event_type LIKE 'worker_%'
+              OR event_type IN ('needs_fact', 'score_candidate')
+           ORDER BY created_at"""
     for run_id, et, pj, created in db.execute(q):
         if run_id not in RUNS:
             continue
@@ -267,12 +269,12 @@ def main():
     classes = ["confirmed_exact", "confirmed_improved", "exact_rejected",
                "improved_rejected", "no_change", "error", "aborted"]
     by_class = {c: [L for L in term if L["outcome"] == c] for c in classes}
-    all_tools = sorted({t for L in leases for t in L["tools"]})
+    all_tools = sorted({t for L in term for t in L["tools"]})
     tool_rows = []
     n_succ = len(succ) or 1
     n_nc = len(by_class["no_change"]) or 1
     for t in all_tools:
-        row = {"tool": t, "total_calls": sum(L["tools"].get(t, 0) for L in leases)}
+        row = {"tool": t, "total_calls": sum(L["tools"].get(t, 0) for L in term)}
         for c in classes:
             ls = by_class[c]
             row[f"adopt_{c}"] = round(
@@ -294,9 +296,9 @@ def main():
         tool_rows.append(row)
     out["tools"] = tool_rows
 
-    used_run2 = {t for L in leases if L["run"] == "run2" for t in L["tools"]}
-    out["never_called_run2"] = sorted(
-        t for t in advertised_by_run.get("run2", set()) if t not in used_run2)
+    advertised_all = set().union(*(tools for tools in advertised_by_run.values()))
+    used_all = {t for L in term for t in L["tools"]}
+    out["never_called"] = sorted(t for t in advertised_all if t not in used_all)
 
     # confirmed exact details (for the per-symbol table)
     out["confirmed_exact_details"] = sorted(

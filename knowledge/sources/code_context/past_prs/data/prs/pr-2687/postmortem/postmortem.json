@@ -1,0 +1,450 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2687",
+  "pr": {
+    "number": 2687,
+    "title": "Melee decomp: Ground, Kongo, and Zebes stage matches",
+    "url": "https://github.com/doldecomp/melee/pull/2687",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-13T21:29:26Z",
+    "merged_at": "2026-06-14T18:56:11Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Exact-match decompilation slice for Ground manager plus Kongo and Zebes stage files. The PR body reports 6 newly exact functions across 3 files, 11 additional still-unmatched function improvements, clean isolated and full ship-set regression reports, and no header churn. Review centered on narrow matching tactics: a scoped Ground pragma, a Zebes inline wrapper that preserves an HSD_LObjSetColor call path, Kongo __FILE__/jobj inline cleanup, and static ownership for a local Kongo data object.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "stage",
+      "implementation-only",
+      "matching-tactics",
+      "types-structs",
+      "assert-macro-cleanup"
+    ],
+    "systems": [
+      "Ground manager",
+      "Kongo stage",
+      "Zebes stage"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/gr/grkongo.c",
+      "role": "Largest stage-local decomp matching file; diff shows Kongo control-flow/local-name cleanup, helper refactors, assert macro use, typed pair-list data, PAD_STACK/volatile stack-shape tactics, and reviewer comments on file-name overrides, static data ownership, and jobj helper usage.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/gr/grkongo.c added 389 deleted 404 hunks 22",
+        "raw_diff: grkongo.c hunks around random_adder_f, grKongo_801D577C, grKongo_801D828C, grKongo_801D651C, grKongo_801D6668",
+        "review_comments: discussion_r3409849699",
+        "review_comments: discussion_r3409850070",
+        "review_comments: discussion_r3409850699"
+      ]
+    },
+    {
+      "path": "src/melee/gr/ground.c",
+      "role": "Ground manager matching work; PR comments identify a new scoped global_optimizer pragma around Ground_801C5878 and report the function reaching 100% with no unit regression entry.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/gr/ground.c added 167 deleted 140 hunks 14",
+        "review_comments: discussion_r3409737860",
+        "review_comments: discussion_r3409744953",
+        "review_comments: discussion_r3409852030",
+        "text_corpus: bot report lists Ground_801C0C2C as a new match and multiple Ground improvements"
+      ]
+    },
+    {
+      "path": "src/melee/gr/grzebes.c",
+      "role": "Zebes stage matching work; review discussed replacing a direct HSD_LObjSetColor call with an inline wrapper and concluded the wrapper still bottoms out in the same HSD helper and is a line-wrapper/codegen tactic.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/gr/grzebes.c added 15 deleted 6 hunks 4",
+        "review_comments: discussion_r3409737558",
+        "review_comments: discussion_r3409744726",
+        "review_comments: discussion_r3409853940",
+        "text_corpus: bot report lists grZebes_801D9798 as a new match"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "PR body reports exact-match decompilation for Ground manager plus Kongo/Zebes stage files, adding 6 newly exact functions across 3 files and improving 11 still-unmatched functions.",
+      "evidence_refs": [
+        "human_pr_text: Summary",
+        "human_pr_text: Reviewer Notes"
+      ]
+    },
+    {
+      "text": "Changed files were limited to src/melee/gr/grkongo.c, src/melee/gr/ground.c, and src/melee/gr/grzebes.c.",
+      "evidence_refs": [
+        "changed_files.jsonl"
+      ]
+    },
+    {
+      "text": "Kongo changes rewrote several generated-looking locals and branches into clearer local names and structured switch/case blocks in grKongo_801D577C, including gp, jobj, angular_vel, limit_angle, angle_delta, abs_vel, spin_step, item_gobj, rand_val, and diff.",
+      "evidence_refs": [
+        "raw_diff: grKongo_801D577C hunk"
+      ]
+    },
+    {
+      "text": "Kongo assert cleanup changed a manual __assert on gp->gv.kongo.u.taru.keep into HSD_ASSERTMSG using a small TaruKeepMsg helper.",
+      "evidence_refs": [
+        "raw_diff: grKongo_801D828C hunk"
+      ]
+    },
+    {
+      "text": "Kongo data representation for grKg_803B7FD4 changed from a flat s32 array into a typed pair-list struct, with review feedback asking that the data object be static rather than extern.",
+      "evidence_refs": [
+        "raw_diff: grKongo_801D651C hunk",
+        "review_comments: discussion_r3409850070"
+      ]
+    },
+    {
+      "text": "Ground added a scoped pragma block; author follow-up describes it as global_optimizer off wrapped in push/pop around only Ground_801C5878.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409737860",
+        "review_comments: discussion_r3409744953"
+      ]
+    },
+    {
+      "text": "Zebes replaced a direct HSD_LObjSetColor call site with grZebes_801DA254_inline2; follow-up says the wrapper still calls HSD_LObjSetColor and was used as a narrow codegen/stack-shape tactic.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409737558",
+        "review_comments: discussion_r3409744726",
+        "review_comments: discussion_r3409853940"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "The PR body included narrow verification details: baseline hash, changes_all command, slice regression report, full ship-set regression report, git diff --check, and review_lint summary.",
+      "evidence_refs": [
+        "human_pr_text: Verification"
+      ]
+    },
+    {
+      "text": "The author explicitly bounded the Ground pragma exception by noting push/pop scope around only Ground_801C5878 and no leakage into Ground_801C58E0 or later code.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409744953"
+      ]
+    },
+    {
+      "text": "The Zebes wrapper concern was checked against behavior: follow-up states the wrapper bottoms out in HSD_LObjSetColor(lobj, color), preserving source-level operation and runtime call target.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409744726",
+        "review_comments: discussion_r3409853940"
+      ]
+    },
+    {
+      "text": "Kongo locals were renamed away from temp_rXX/temp_fXX into role names where the diff made local roles apparent, improving reviewability without claiming new global semantics.",
+      "evidence_refs": [
+        "raw_diff: grKongo_801D577C hunk",
+        "raw_diff: grKongo_801D6668 hunk"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "text": "Scoped pragma exceptions can be discussed as matching tactics only when the PR records tight push/pop scope and match/regression evidence; this PR still had reviewer disagreement, so do not treat the tactic as generally preferred.",
+      "standards_refs": [
+        "avoid-pragmas-register-asm",
+        "matching-tactics-need-evidence",
+        "verification-and-regression-ledger"
+      ],
+      "evidence_refs": [
+        "review_comments: discussion_r3409744953",
+        "review_comments: discussion_r3409852030",
+        "human_pr_text: Verification"
+      ]
+    },
+    {
+      "text": "An inline wrapper around an HSD helper may be a narrow codegen/stack-shape tactic if review evidence shows it still calls the same HSD helper and does not remove the operation.",
+      "standards_refs": [
+        "matching-tactics-need-evidence",
+        "header-inlines"
+      ],
+      "evidence_refs": [
+        "review_comments: discussion_r3409744726",
+        "review_comments: discussion_r3409853940"
+      ]
+    },
+    {
+      "text": "For stage-local data used only within the TU, reviewer feedback favored static ownership over an extern declaration.",
+      "standards_refs": [
+        "data-sections-and-tu-splits"
+      ],
+      "evidence_refs": [
+        "review_comments: discussion_r3409850070"
+      ]
+    },
+    {
+      "text": "Manual __FILE__ overrides inside a file can be review noise when they duplicate the file identity; reviewer requested removing a grkongo.c __FILE__ override and related mention.",
+      "standards_refs": [
+        "assert-report-macros",
+        "data-sections-and-tu-splits"
+      ],
+      "evidence_refs": [
+        "review_comments: discussion_r3409849699"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "Use short role names for obvious local object pointers in stage code, such as gp for Ground*, jobj for HSD_JObj*, and item_gobj/kept_gobj for HSD_GObj* item references.",
+      "evidence_refs": [
+        "raw_diff: grKongo_801D577C hunk",
+        "raw_diff: grKongo_801D651C hunk",
+        "raw_diff: grKongo_801D6668 hunk"
+      ]
+    },
+    {
+      "text": "Replace temp_f/temp_r decompiler locals with local role names when the math or state-machine role is visible, as with angular_vel, limit_angle, angle_delta, abs_vel, spin_step, rand_val, diff, step, dx, dy, dz, dist, and length.",
+      "evidence_refs": [
+        "raw_diff: grKongo_801D577C hunk",
+        "raw_diff: grKongo_801D6668 hunk"
+      ]
+    },
+    {
+      "text": "Keep unproven data-symbol names address-style; this PR retained grKg_ address-style names for Kongo data while adding only local struct/type names around their observed layout.",
+      "evidence_refs": [
+        "raw_diff: grKg_803B7FD4 and grKg_801D651C_pair_list hunk"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "text": "Scoped #pragma push/pop with global_optimizer off was used for Ground_801C5878 according to author follow-up; match evidence cited was 75.88% to 100.00% and no unit regression entry.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409744953"
+      ]
+    },
+    {
+      "text": "Zebes used a line/inline wrapper to affect inlining or stack shape while preserving HSD_LObjSetColor underneath.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409744726",
+        "review_comments: discussion_r3409853940"
+      ]
+    },
+    {
+      "text": "Kongo grKongo_801D651C added PAD_STACK(8) while changing a flat list into copied typed pairs; grKongo_801D6668 used PAD_STACK(12), a volatile f32 length, and explicit frsqrte refinement math.",
+      "evidence_refs": [
+        "raw_diff: grKongo_801D651C hunk",
+        "raw_diff: grKongo_801D6668 hunk"
+      ]
+    },
+    {
+      "text": "Kongo tau_range changed from returning a value to mutating a pointer, showing pointer-shaped helper refactoring as a matching tactic for local codegen.",
+      "evidence_refs": [
+        "raw_diff: tau_range and grKongo_801D577C hunk"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "path": "src/melee/gr/grzebes.c",
+      "text": "Initial concern: replacing direct HSD_LObjSetColor with grZebes_801DA254_inline2 might regress use of HSD. Follow-up said the wrapper still bottoms out in HSD_LObjSetColor, and reviewer later said it was fine as a line wrapper to prevent inlining.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409737558",
+        "review_comments: discussion_r3409744726",
+        "review_comments: discussion_r3409853940"
+      ]
+    },
+    {
+      "path": "src/melee/gr/ground.c",
+      "text": "New pragma was flagged. Author defended it as a tightly scoped global_optimizer off around Ground_801C5878 with match evidence, but reviewer also commented 'bad, remove it'. The slice evidence does not show final resolution beyond merged PR metadata.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409737860",
+        "review_comments: discussion_r3409744953",
+        "review_comments: discussion_r3409852030",
+        "metadata_json: pr state MERGED"
+      ]
+    },
+    {
+      "path": "src/melee/gr/grkongo.c",
+      "text": "Reviewer requested removing a __FILE__ override because the file was already called grkongo.c and also removing a grkongo.c mention up top.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409849699"
+      ]
+    },
+    {
+      "path": "src/melee/gr/grkongo.c",
+      "text": "Reviewer requested changing a new extern declaration for grKg_803B7FD4 typed pair-list data to static.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409850070"
+      ]
+    },
+    {
+      "path": "src/melee/gr/grkongo.c",
+      "text": "Reviewer noted that a hand-written GetTranslation inline with jobj.h asserts was 'a call to jobj's stuff', suggesting the operation should be understood as JObj API/header-inline behavior rather than stage-local logic.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409850699"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR2687",
+    "fjooord",
+    "Ground_801C5878",
+    "Ground_801C0C2C",
+    "grKongo_801D577C",
+    "grKongo_801D651C",
+    "grKongo_801D6668",
+    "grKongo_801D828C",
+    "grKongo_801D7BBC",
+    "grZebes_801D9798",
+    "grZebes_801DA254_inline2",
+    "HSD_LObjSetColor",
+    "HSD_JObjSetRotationZ",
+    "HSD_ASSERTMSG",
+    "global_optimizer off",
+    "pragma push pop",
+    "PAD_STACK",
+    "volatile f32 length",
+    "frsqrte",
+    "grKg_803B7FD4",
+    "grKg_801D651C_pair_list",
+    "gp->u.taru.keep",
+    "jobj.h",
+    "Ground manager",
+    "Kongo stage",
+    "Zebes stage"
+  ],
+  "follow_up_queries": [
+    "PR2687 Ground_801C5878 global_optimizer off pragma final diff",
+    "PR2687 grKongo_801D7E78_GetTranslation jobj.h reviewer resolution",
+    "PR2687 grKg_803B7FD4 extern static final state",
+    "PR2687 grZebes_801DA254_inline2 HSD_LObjSetColor wrapper",
+    "PR2687 grKongo_801D6668 volatile length PAD_STACK frsqrte",
+    "stage grkongo __FILE__ assert filename override review"
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "human_pr_text.md loaded fully",
+      "review_comments.md loaded fully",
+      "changed_files.jsonl loaded fully",
+      "raw_diff.diff loaded but truncated",
+      "text_corpus.jsonl loaded but truncated"
+    ],
+    "notes": [
+      "PR identity, changed files, verification claims, and review comments are strongly evidenced by loaded PR text and metadata.",
+      "The raw diff is truncated, so file-wide final state and all hunks cannot be independently confirmed from the loaded excerpt.",
+      "Some review threads show disagreement or intermediate hunks; intake does not infer final source resolution unless directly shown by loaded diff or metadata.",
+      "Verification results are reported by the PR body and bot text; no independent build or objdiff was run during intake.",
+      "The merged state is present in metadata, but acceptance of every reviewed tactic should not be inferred as a global standard."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "pr_lesson",
+        "title": "Scoped pragma exceptions need tight scope and match evidence",
+        "text": "In PR #2687, a new Ground global_optimizer-off pragma was discussed as acceptable by the author only because it was wrapped in push/pop around Ground_801C5878 and paired with reported 100% match/no-regression evidence; reviewer disagreement means this is evidence for cautious exception handling, not a general recommendation.",
+        "scope": [
+          "src/melee/gr/ground.c",
+          "Ground_801C5878",
+          "matching tactics"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409744953",
+          "review_comments: discussion_r3409852030",
+          "human_pr_text: Verification"
+        ]
+      },
+      {
+        "record_type": "pr_lesson",
+        "title": "Wrapper tactic can preserve HSD helper behavior",
+        "text": "In PR #2687, replacing a direct HSD_LObjSetColor call with grZebes_801DA254_inline2 was accepted in review context because follow-up stated the wrapper still bottoms out in HSD_LObjSetColor and reviewer characterized it as a line wrapper to prevent inlining.",
+        "scope": [
+          "src/melee/gr/grzebes.c",
+          "grZebes_801DA254",
+          "HSD_LObjSetColor",
+          "matching tactics"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409744726",
+          "review_comments: discussion_r3409853940"
+        ]
+      },
+      {
+        "record_type": "pr_lesson",
+        "title": "Stage-local recovered data should remain static when local",
+        "text": "Review feedback on PR #2687 requested changing the recovered grKg_803B7FD4 pair-list declaration from extern to static, supporting a local-ownership preference for TU-local Kongo data.",
+        "scope": [
+          "src/melee/gr/grkongo.c",
+          "grKg_803B7FD4",
+          "data ownership"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409850070",
+          "raw_diff: grKongo_801D651C pair-list hunk"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Clarify wrapper tactics that preserve canonical helper calls",
+        "text": "Consider adding a note that a narrow wrapper used for inlining or stack shape may be reviewable when evidence shows it still calls the same canonical helper, preserves source-level behavior, and has match/regression evidence. PR #2687 provides a Zebes example around grZebes_801DA254_inline2 and HSD_LObjSetColor.",
+        "source_path": null,
+        "scope": [
+          "matching-tactics-need-evidence",
+          "header-inlines",
+          "HSD helper wrappers"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409744726",
+          "review_comments: discussion_r3409853940"
+        ],
+        "reason": "The current standards cover matching tactics and header helpers broadly; this PR gives a concrete reviewed example of a wrapper tactic that preserves a helper call."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Clarify manual __FILE__ override review risk",
+        "text": "Consider documenting that manual __FILE__ overrides inside a TU should not duplicate the file's normal identity and should be justified by assert/header-line evidence. PR #2687 review requested removing a grkongo.c __FILE__ override because the file was already grkongo.c.",
+        "source_path": null,
+        "scope": [
+          "assert-report-macros",
+          "data-sections-and-tu-splits",
+          "assert filename handling"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409849699"
+        ],
+        "reason": "The standards discuss assert/report macro cleanup and section/TU evidence; this review adds a concrete caution about redundant file-name overrides."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "src/melee/gr/ground.c pragma exception history",
+        "text": "PR #2687 introduced a scoped pragma around Ground_801C5878 according to review comments, with author-cited match evidence and reviewer objection. If path facts track exceptional pragmas, record this as a reviewed historical exception candidate, not as a preferred style.",
+        "source_path": "src/melee/gr/ground.c",
+        "scope": [
+          "Ground_801C5878",
+          "global_optimizer off",
+          "pragma exception"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409744953",
+          "review_comments: discussion_r3409852030"
+        ],
+        "reason": "Exceptional pragmas are high-risk and useful to track by path if present in final source, but the loaded slice alone does not prove final source state."
+      }
+    ],
+    "rejection_notes": [
+      "Do not promote 'global_optimizer off is acceptable' as a general rule; PR evidence shows it was controversial and defended only as a narrow exception.",
+      "Do not infer the final resolution of all review comments from merged state alone; the raw diff is truncated and review hunks may be intermediate.",
+      "Do not promote static float literal extraction in grkongo.c as a lesson; the diff shows named f32 constants, but the slice does not provide enough data-ownership rationale.",
+      "Do not claim independent verification beyond the PR-reported build/regression results."
+    ]
+  },
+  "confidence": 0.82,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

@@ -12,214 +12,241 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Matched Great Bay stage function grGreatBay_801F499C by adjusting local lifetime/codegen shape around Vec3 position use and rand_range-to-HSD_JObjSetTranslateX expressions, and updated Great Bay .data symbol boundaries for grGb_803E3F6C/string objects to fix data references for grGreatBay_801F4300.",
+  "summary": "PR #2646 adjusted Great Bay stage code and symbol metadata. In grGreatBay_801F499C, it removed temporary s32 max_x locals by folding rand_range(...) directly into HSD_JObjSetTranslateX calls, and introduced a separate Vec3 pos2 in case 2. In symbols.txt, it split the grGb_803E3F6C .data blob into a smaller object plus three string symbols to fix data references for grGreatBay_801F4300. Bot output confirms one new matched code item for grGreatBay_801F499C; the PR body claims grGreatBay_801F4300 matched, but the loaded bot report excerpt does not list it as a new code match.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "stage",
       "symbol-metadata",
-      "data-split"
+      "data-reference-fix",
+      "local-variable-codegen"
     ],
     "systems": [
-      "Great Bay stage",
-      "ground",
-      "config/GALE01 symbols"
+      "stage/greatbay",
+      "config/GALE01/symbols"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grgreatbay.c",
-      "role": "Great Bay stage source edits for grGreatBay_801F499C: added a separate Vec3 pos2 in case 2 and folded rand_range results directly into HSD_JObjSetTranslateX calls in switch cases 1, 0, and 3.",
+      "role": "Great Bay stage source edited to match grGreatBay_801F499C by changing local lifetime/stack shape and call expression structure.",
       "evidence_refs": [
         "changed_files.jsonl: src/melee/gr/grgreatbay.c added 15 deleted 11 hunks 4",
-        "raw_diff: grGreatBay_801F499C hunk adds Vec3 pos2 and replaces &pos with &pos2",
-        "raw_diff: grGreatBay_801F499C hunks remove s32 max_x locals and inline rand_range(...) into HSD_JObjSetTranslateX",
-        "human_pr_text: PR summary says temp s32 max_x forced extra stack slot/register shuffle and pos2 was needed"
+        "raw_diff: grGreatBay_801F499C hunk adds Vec3 pos2 in case 2",
+        "raw_diff: grGreatBay_801F499C hunks remove s32 max_x locals and inline rand_range into HSD_JObjSetTranslateX",
+        "human_pr_text: summary says grGreatBay_801F499C matched by folding rand_range result and using Vec3 pos2"
       ]
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Symbol metadata edits splitting grGb_803E3F6C from one 0x58 object into one 0x34 object plus three string symbols.",
+      "role": "Symbol metadata changed to split a Great Bay .data object at grGb_803E3F6C into separate object/string symbols.",
       "evidence_refs": [
         "changed_files.jsonl: config/GALE01/symbols.txt added 4 deleted 2 hunks 1",
-        "raw_diff: grGb_803E3F6C size changes 0x58 to 0x34 and adds grGb_803E3FA0, grGb_803E3FC4, grGb_803E3FD4 string objects",
-        "human_pr_text: PR summary says grGb_803E3F6C blob was actually four separate objects"
+        "raw_diff: grGb_803E3F6C size changed 0x58 to 0x34 and grGb_803E3FA0, grGb_803E3FC4, grGb_803E3FD4 string symbols added/resized",
+        "human_pr_text: summary says grGb_803E3F6C blob was actually four separate objects"
       ]
     }
   ],
   "what_changed": [
-    "In grGreatBay_801F499C case 2, introduced a distinct local Vec3 pos2 and passed it to lb_8000B1CC and grLib_801C96F8 instead of reusing the outer pos.",
-    "In grGreatBay_801F499C switch cases 1, 0, and 3, removed temporary s32 max_x locals and folded rand_range(...) directly into the HSD_JObjSetTranslateX argument expression.",
-    "In config/GALE01/symbols.txt, changed grGb_803E3F6C from a single 0x58 global object to a 0x34 global object.",
-    "Added separate data:string symbols grGb_803E3FA0 size 0x21, grGb_803E3FC4 size 0xD, and grGb_803E3FD4 size 0xB.",
-    "Bot report recorded +2752 matched-code bytes overall and one new match for main/melee/gr/grgreatbay item grGreatBay_801F499C from 99.99% to 100.00%."
+    "In grGreatBay_801F499C case 2, a new local Vec3 pos2 is declared and passed to lb_8000B1CC and grLib_801C96F8 instead of reusing the outer pos.",
+    "In three switch cases of grGreatBay_801F499C, temporary s32 max_x locals holding rand_range(...) results were removed.",
+    "The rand_range(...) calls are now folded directly into the second argument of HSD_JObjSetTranslateX as grGb_804D69E0.x0->kame_x + rand_range(...).",
+    "In config/GALE01/symbols.txt, grGb_803E3F6C was reduced from size 0x58 to 0x34.",
+    "New or corrected string symbols were added at grGb_803E3FA0 size 0x21, grGb_803E3FC4 size 0xD, and grGb_803E3FD4 size 0xB."
   ],
   "smart_moves": [
-    "Treated a seemingly harmless named temporary, s32 max_x, as a codegen-affecting local: removing it avoided an extra stack slot/register shuffle according to the PR body.",
-    "Used a separate Vec3 local for a nested case-specific position calculation instead of reusing an outer Vec3, aligning local lifetime/stack layout for the match.",
-    "Fixed data references by splitting symbol metadata for a .data blob into separate object/string symbols rather than compensating in C source."
+    "The author identified that a seemingly harmless temp local affected MWCC stack/register allocation and removed it by expressing the value directly at the use site.",
+    "The author used a distinct local Vec3 for the case-2 position flow instead of reusing an outer Vec3, addressing local lifetime or stack-slot interference.",
+    "The PR fixed symbol metadata for adjacent .data/string objects instead of compensating in C source for bad data boundaries."
   ],
   "decomp_lessons": [
     {
-      "lesson": "For MWCC matching, introducing a named temporary for a function-call result can alter stack/register allocation; if the source operation is a direct argument expression, try folding the call into the consuming call before adding padding or other steering.",
+      "lesson": "A temporary local that stores a call result can introduce an extra stack slot or register shuffle; for MWCC matching, try folding the expression directly into the consuming call when the source remains readable.",
       "scope": [
-        "C source matching",
-        "MWCC local/register shaping",
-        "function-call arguments"
+        "C decompilation",
+        "MWCC codegen",
+        "stage source"
       ],
       "evidence_refs": [
-        "human_pr_text: temp s32 max_x locals forced an extra stack slot and register shuffle",
-        "raw_diff: s32 max_x locals removed and rand_range(...) folded into HSD_JObjSetTranslateX calls"
+        "human_pr_text: temp s32 max_x locals forced an extra stack slot and register shuffle; folding rand_range result into HSD_JObjSetTranslateX fixes codegen",
+        "raw_diff: three s32 max_x declarations removed and rand_range calls inlined into HSD_JObjSetTranslateX"
       ]
     },
     {
-      "lesson": "When a local variable is reused across a broader scope but one case block needs a different stack/lifetime shape, a separate scoped local of the same type may be the matching source form.",
+      "lesson": "When a local variable is reused across a larger scope, introducing a separate block-local variable for a distinct use can improve stack/lifetime shape for matching.",
       "scope": [
+        "C decompilation",
         "local variable lifetime",
-        "stack layout",
-        "stage source functions"
+        "stage source"
       ],
       "evidence_refs": [
-        "human_pr_text: Case 2 needed its own Vec3 pos2 local instead of reusing outer pos",
-        "raw_diff: case 2 adds Vec3 pos2 and uses &pos2 for lb_8000B1CC and grLib_801C96F8"
+        "human_pr_text: case 2 needed its own Vec3 pos2 local instead of reusing outer pos",
+        "raw_diff: Vec3 pos2 added in case 2 and passed to lb_8000B1CC and grLib_801C96F8"
       ]
     },
     {
-      "lesson": "If data references look wrong around a function match, inspect symbol boundaries: one large .data object may need to be split into separate objects/strings when symbol metadata supports the references.",
+      "lesson": "If data references look wrong, inspect symbol boundaries: a single .data blob may need to be split into a smaller object plus separate string symbols rather than handled with source-level workarounds.",
       "scope": [
         "symbols.txt",
-        ".data boundaries",
-        "string symbols",
-        "data references"
+        "data references",
+        "stage data"
       ],
       "evidence_refs": [
-        "human_pr_text: grGb_803E3F6C data blob was actually four separate objects",
-        "raw_diff: grGb_803E3F6C split into grGb_803E3F6C, grGb_803E3FA0, grGb_803E3FC4, grGb_803E3FD4"
+        "human_pr_text: grGb_803E3F6C data blob was actually four separate objects; split fixed data references",
+        "raw_diff: grGb_803E3F6C size reduced and grGb_803E3FA0, grGb_803E3FC4, grGb_803E3FD4 string symbols added"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Kept address-style Great Bay data names such as grGb_803E3F6C, grGb_803E3FA0, grGb_803E3FC4, and grGb_803E3FD4 when semantics were not shown in PR evidence.",
+      "convention": "New Great Bay data symbols in this slice keep the existing address-style grGb_803E.... naming pattern when semantic names are not established.",
       "evidence_refs": [
-        "raw_diff: symbols.txt uses address-style grGb_* names for split objects"
+        "raw_diff: added grGb_803E3FA0, grGb_803E3FC4, grGb_803E3FD4",
+        "decomp_standards: conservative-naming says keep address-style names when meaning is not proven"
       ]
     },
     {
-      "convention": "Used a minimal role/locality name pos2 for an additional Vec3 where the PR evidence supports only a second position local, not a richer semantic name.",
+      "convention": "A short local suffix such as pos2 was used for a second Vec3 position local when its semantic role was only differentiated from an existing pos.",
       "evidence_refs": [
         "raw_diff: adds Vec3 pos2",
-        "human_pr_text: describes need for its own Vec3 pos2 local"
+        "human_pr_text: case 2 needed its own Vec3 pos2 local"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Inline rand_range(...) into the HSD_JObjSetTranslateX expression to avoid local temp-induced stack/register changes.",
+      "tactic": "Fold rand_range(...) directly into HSD_JObjSetTranslateX instead of assigning it to s32 max_x first to avoid an extra stack slot/register shuffle.",
       "evidence_refs": [
         "human_pr_text: folding rand_range result directly into HSD_JObjSetTranslateX fixes codegen",
-        "raw_diff: all three switch cases replace max_x local with direct rand_range expression"
+        "raw_diff: max_x locals removed in cases 1, 0, and 3"
       ]
     },
     {
-      "tactic": "Use a distinct Vec3 pos2 in case 2 to alter local lifetime/stack layout instead of reusing an outer Vec3 pos.",
+      "tactic": "Use a separate Vec3 pos2 local in a switch case to alter local lifetime/stack layout instead of reusing the outer pos local.",
       "evidence_refs": [
         "human_pr_text: case 2 needed its own Vec3 pos2 local",
-        "raw_diff: lb_8000B1CC and grLib_801C96F8 changed from &pos to &pos2"
+        "raw_diff: lb_8000B1CC and grLib_801C96F8 now use &pos2"
       ]
     },
     {
-      "tactic": "Correct symbols.txt object sizes/string boundaries when a data blob causes bad references for a match.",
+      "tactic": "Correct symbols.txt object sizes and string boundaries when data-reference mismatches stem from an overlarge data blob.",
       "evidence_refs": [
-        "raw_diff: grGb_803E3F6C size changed and three string symbols added",
-        "human_pr_text: split fixed data references"
+        "human_pr_text: split grGb_803E3F6C blob into four objects fixing data references",
+        "raw_diff: symbol size and string entries changed around .data:0x803E3F6C"
       ]
     }
   ],
   "review_feedback": [
     {
-      "kind": "bot_report",
-      "text": "decomp-dev[bot] reported matched code 71.85% (+0.07%, +2752 bytes) and 1 new match: main/melee/gr/grgreatbay grGreatBay_801F499C, +1 byte, 99.99% to 100.00%.",
+      "kind": "automation",
+      "feedback": "decomp-dev bot reported matched code increased by 2752 bytes and listed one new match: main/melee/gr/grgreatbay grGreatBay_801F499C from 99.99% to 100.00%.",
       "evidence_refs": [
-        "text_corpus.jsonl: issue_comment by decomp-dev[bot] at 2026-06-10T16:34:21Z"
+        "text_corpus.jsonl: issue_comment by decomp-dev[bot] created_at 2026-06-10T16:34:21Z"
+      ]
+    },
+    {
+      "kind": "absence",
+      "feedback": "No human review comments were present in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json: counts.review_comments = 0 and counts.reviews = 0"
       ]
     }
   ],
   "searchable_terms": [
-    "PR 2646",
+    "pr-2646",
     "MFS-code",
     "grGreatBay_801F499C",
     "grGreatBay_801F4300",
-    "grgreatbay.c",
-    "Great Bay",
-    "Ground_GObj",
-    "Vec3 pos2",
-    "s32 max_x",
-    "rand_range",
-    "HSD_JObjSetTranslateX",
-    "extra stack slot",
-    "register shuffle",
+    "src/melee/gr/grgreatbay.c",
+    "config/GALE01/symbols.txt",
     "grGb_803E3F6C",
     "grGb_803E3FA0",
     "grGb_803E3FC4",
     "grGb_803E3FD4",
-    "symbols.txt",
-    "data:string",
-    "symbol split",
-    "data references"
+    "HSD_JObjSetTranslateX",
+    "rand_range",
+    "s32 max_x",
+    "Vec3 pos2",
+    "lb_8000B1CC",
+    "grLib_801C96F8",
+    "Ground_801C53EC",
+    "grGb_804D69E0",
+    "kame_x",
+    "kame_x_fb_offset_b",
+    "kame_x_fb_offset_a",
+    "kame_x_lr_offset_b",
+    "kame_x_lr_offset_a",
+    "data blob split",
+    "extra stack slot",
+    "register shuffle"
   ],
   "follow_up_queries": [
     "grGreatBay_801F499C rand_range HSD_JObjSetTranslateX max_x",
-    "Vec3 pos2 lb_8000B1CC grLib_801C96F8 grgreatbay",
+    "Vec3 pos2 lb_8000B1CC grLib_801C96F8 grGreatBay",
     "grGb_803E3F6C grGb_803E3FA0 grGb_803E3FC4 grGb_803E3FD4 symbols.txt",
-    "extra stack slot register shuffle direct function argument MWCC",
-    "Great Bay data blob split string symbols"
+    "MWCC extra stack slot register shuffle temp local call result",
+    "Great Bay data references string symbol split"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR #2646 title/state/author/changed files",
-      "human_pr_text: PR summary with claimed matches and rationale",
-      "raw_diff: exact source and symbols.txt changes",
-      "text_corpus.jsonl: bot report for matched-code result"
+      "human_pr_text: PR summary provides explicit rationale for codegen and data-symbol edits",
+      "raw_diff: exact source and symbols.txt changes are loaded",
+      "changed_files.jsonl: changed files and line counts are loaded",
+      "text_corpus.jsonl: bot report confirms one new match for grGreatBay_801F499C"
     ],
     "notes": [
-      "Evidence is strong for the changed files and exact edits because the diff is loaded and complete.",
-      "Evidence is strong that the bot reported a new match for grGreatBay_801F499C.",
-      "Evidence for grGreatBay_801F4300 is weaker: the PR title/body claim it matched via data-symbol splitting, but the loaded bot report lists only grGreatBay_801F499C as a new match and no review/objdiff detail for grGreatBay_801F4300 is present.",
-      "No human review comments were loaded; reviewer intent should not be inferred.",
-      "No local build log or objdiff output beyond the bot summary is loaded."
+      "Evidence is strong for the concrete edits and for grGreatBay_801F499C being newly matched because the diff and bot report agree.",
+      "Evidence for grGreatBay_801F4300 is weaker: the PR body claims it matches after symbol splitting, but the loaded bot report excerpt only lists grGreatBay_801F499C as a new code match.",
+      "No human review comments are available, so reviewer intent or requested changes cannot be inferred.",
+      "No build log, objdiff details, or adjacent-function regression output beyond the bot summary are loaded."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "matching_lesson",
-        "title": "Direct argument expressions can avoid temp-local stack/register churn",
-        "text": "PR #2646 reports that s32 max_x temporaries around rand_range(...) forced an extra stack slot and register shuffle in grGreatBay_801F499C; folding rand_range(...) directly into HSD_JObjSetTranslateX in three switch cases produced the intended codegen.",
+        "type": "matching_tactic",
+        "title": "Fold temporary call-result locals into consuming calls when they cause stack/register mismatch",
+        "text": "In PR #2646, grGreatBay_801F499C matched after s32 max_x temporaries holding rand_range(...) results were removed and the rand_range(...) expressions were folded directly into HSD_JObjSetTranslateX. The PR body states the temp locals forced an extra stack slot and register shuffle.",
         "scope": [
-          "MWCC matching",
-          "local variables",
-          "function-call expressions"
+          "MWCC local variable codegen",
+          "stage C source",
+          "call expression matching"
         ],
         "evidence_refs": [
           "human_pr_text",
-          "raw_diff: grGreatBay_801F499C switch cases 1, 0, 3"
+          "raw_diff: grGreatBay_801F499C cases 1, 0, and 3",
+          "text_corpus.jsonl: decomp-dev bot new match grGreatBay_801F499C"
         ]
       },
       {
-        "record_type": "matching_lesson",
-        "title": "Separate same-type locals may be needed for stack/lifetime shape",
-        "text": "PR #2646 reports that grGreatBay_801F499C case 2 needed its own Vec3 pos2 instead of reusing the outer pos; the diff adds pos2 and passes it to lb_8000B1CC and grLib_801C96F8.",
+        "type": "matching_tactic",
+        "title": "Separate block-local Vec3 can fix local lifetime/stack shape",
+        "text": "In PR #2646, case 2 of grGreatBay_801F499C introduced Vec3 pos2 and used it for lb_8000B1CC and grLib_801C96F8. The PR body says this separate local was needed instead of reusing the outer pos.",
         "scope": [
-          "local lifetime",
+          "MWCC local lifetime",
           "stack layout",
-          "stage functions"
+          "stage source"
         ],
         "evidence_refs": [
           "human_pr_text",
-          "raw_diff: grGreatBay_801F499C case 2"
+          "raw_diff: Vec3 pos2 hunk"
+        ]
+      },
+      {
+        "type": "symbol_metadata_tactic",
+        "title": "Split overlarge .data blobs when string/object boundaries are proven by references",
+        "text": "In PR #2646, grGb_803E3F6C changed from a 0x58-byte object to a 0x34-byte object plus three string symbols at grGb_803E3FA0, grGb_803E3FC4, and grGb_803E3FD4. The PR body says the original blob was actually four separate objects and that splitting fixed data references.",
+        "scope": [
+          "config/GALE01/symbols.txt",
+          ".data symbols",
+          "string symbols",
+          "stage data references"
+        ],
+        "evidence_refs": [
+          "human_pr_text",
+          "raw_diff: config/GALE01/symbols.txt hunk"
         ]
       }
     ],
@@ -227,66 +254,70 @@
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Consider direct call expressions before retaining temp locals used only once",
-        "text": "For codegen-sensitive MWCC matches, a temporary local that only stores a call result for immediate use can introduce stack/register differences. Try the likely authored direct expression form before using padding or other steering. PR #2646 provides an example with rand_range(...) folded into HSD_JObjSetTranslateX.",
+        "title": "Expression folding as a narrow local-variable codegen tactic",
+        "text": "Consider adding an example under matching-tactics/local-lifetime guidance: when a temporary local only stores a call result for immediate use, it may create an extra stack slot or register shuffle; try folding the call expression directly into the consuming call and verify with objdiff/checkdiff.",
         "source_path": null,
         "scope": [
-          "matching-tactics-need-evidence",
-          "infer-authored-source-style"
+          "matching tactics",
+          "MWCC local variables",
+          "call expressions"
         ],
         "evidence_refs": [
-          "human_pr_text: max_x locals forced extra stack slot/register shuffle",
-          "raw_diff: max_x removed in grGreatBay_801F499C"
+          "PR #2646 human_pr_text: temp s32 max_x locals forced extra stack slot/register shuffle",
+          "PR #2646 raw_diff: rand_range folded into HSD_JObjSetTranslateX",
+          "PR #2646 bot report: grGreatBay_801F499C newly matched"
         ],
-        "reason": "This may be a reusable standard-level tactic, but should be curated against existing standards to avoid overgeneralizing from one PR."
+        "reason": "The slice provides a compact, concrete example of a reusable matching tactic, but it should be curated as a verified example rather than a broad rule."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Symbol metadata splits can be the right fix for data-reference mismatches",
-        "text": "When a large .data blob causes bad references, inspect whether symbols.txt should describe separate objects or strings instead of compensating in C. PR #2646 split grGb_803E3F6C from one 0x58 object into a 0x34 object plus three strings.",
+        "title": "Use separate locals to test lifetime/stack-slot hypotheses",
+        "text": "Consider adding an example that a separate block-local variable, such as a second Vec3 for a distinct branch/case, can be the authored or matching shape when reusing a wider-scope local perturbs stack layout.",
         "source_path": null,
         "scope": [
-          "data-sections-and-tu-splits",
-          "text-before-data-matching"
+          "local lifetime",
+          "stack layout",
+          "MWCC matching"
         ],
         "evidence_refs": [
-          "human_pr_text: data blob was actually four separate objects",
-          "raw_diff: symbols.txt split"
+          "PR #2646 human_pr_text: case 2 needed its own Vec3 pos2",
+          "PR #2646 raw_diff: Vec3 pos2 introduced and used"
         ],
-        "reason": "This aligns with existing section/symbol standards but may merit an example; curator should decide whether it belongs as an example rather than a new rule."
+        "reason": "The tactic aligns with existing matching-tactics evidence requirements and may be useful as an example for local lifetime issues."
       },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "Great Bay stage source and symbol metadata touched by PR #2646",
-        "text": "PR #2646 touched src/melee/gr/grgreatbay.c for Great Bay stage function matching and config/GALE01/symbols.txt for Great Bay .data symbol boundaries around grGb_803E3F6C.",
-        "source_path": "src/melee/gr/grgreatbay.c",
+        "title": "Great Bay stage data symbols near grGb_803E3F6C include separate string objects",
+        "text": "For config/GALE01/symbols.txt in the Great Bay region, PR #2646 split grGb_803E3F6C from one 0x58-byte object into grGb_803E3F6C size 0x34 plus string symbols grGb_803E3FA0 size 0x21, grGb_803E3FC4 size 0xD, and grGb_803E3FD4 size 0xB.",
+        "source_path": "config/GALE01/symbols.txt",
         "scope": [
           "Great Bay",
-          "stage",
-          "symbols.txt"
+          "symbols.txt",
+          ".data",
+          "string symbols"
         ],
         "evidence_refs": [
-          "changed_files.jsonl",
-          "raw_diff"
+          "PR #2646 raw_diff: symbols.txt hunk",
+          "PR #2646 human_pr_text: data blob was four separate objects"
         ],
-        "reason": "Potential path-scoped historical context; do not promote without curator review."
+        "reason": "This is a concrete path-specific metadata fact, but source/path-fact owners should verify current symbol state before promotion."
       }
     ],
     "rejection_notes": [
-      "Do not record grGreatBay_801F4300 as independently verified matched by bot evidence from this slice; the loaded bot report only names grGreatBay_801F499C.",
-      "Do not infer semantic names for grGb_803E3FA0, grGb_803E3FC4, or grGb_803E3FD4; PR evidence only supports address-style string symbol splits.",
-      "Do not generalize that all one-use temporaries should be inlined; this PR supports a narrow MWCC codegen tactic for this call pattern."
+      "Do not generalize that all temp locals should be folded into calls; PR evidence only supports this for the rand_range-to-HSD_JObjSetTranslateX pattern in grGreatBay_801F499C.",
+      "Do not record grGreatBay_801F4300 as bot-confirmed newly matched from this slice; the loaded bot report only lists grGreatBay_801F499C.",
+      "Do not infer semantic names for grGb_803E3FA0, grGb_803E3FC4, or grGb_803E3FD4; the PR used address-style names and only identifies them as strings."
     ]
   },
-  "confidence": 0.82,
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

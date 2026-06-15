@@ -12,129 +12,142 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR 2570 matched src/melee/if/if_2F72.c function if_802F7E7C by replacing a do-while loop that advanced a secondary data pointer with a for loop indexed over the original base pointer. The bot report records one new match for main/melee/if/if_2F72 if_802F7E7C, reaching 100.00% for that item.",
+  "summary": "PR 2570 matched `if_802F7E7C` in `src/melee/if/if_2F72.c` by replacing a pointer-advancing `do while` loop over `lbl_804A1340` with an indexed `for (i = 0; i < 6; i++)` loop that preserves the original base pointer for the trailing `memzero(base, 0x34)`. The bot report records one new match for `main/melee/if/if_2F72`, `if_802F7E7C`, from 93.12% to 100.00%.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
-      "control-flow-cleanup",
-      "loop-reconstruction"
+      "loop-rewrite",
+      "function-match",
+      "codegen-cleanup"
     ],
     "systems": [
       "melee-core",
-      "interface"
+      "interface",
+      "src/melee/if"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/if/if_2F72.c",
-      "role": "Only changed source file; updates if_802F7E7C loop structure and array access form.",
+      "role": "Only changed source file; rewrites `if_802F7E7C` loop structure from pointer-incrementing `do while` to indexed `for` loop.",
       "evidence_refs": [
-        "changed_files: src/melee/if/if_2F72.c added 8 deleted 10 hunks 1",
-        "raw_diff: if_802F7E7C hunk",
-        "text_corpus: decomp-dev[bot] report for GALE01"
+        "metadata_json.changed_files[0]",
+        "raw_diff",
+        "diff_excerpt"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Removed the separate HSD_GObj** data cursor initialized from lbl_804A1340 and kept a single base pointer for later use by memzero.",
+      "text": "`if_802F7E7C` removed the separate walking pointer variable `data` and retained `base = (HSD_GObj**) lbl_804A1340` as the sole array base.",
       "evidence_refs": [
-        "raw_diff: removed HSD_GObj** data = (HSD_GObj**) lbl_804A1340; kept HSD_GObj** base = (HSD_GObj**) lbl_804A1340"
+        "raw_diff"
       ]
     },
     {
-      "text": "Changed a do-while loop with manual i++ and data += 2 advancement into for (i = 0; i < 6; i++).",
+      "text": "The loop changed from `do { ... i++; data += 2; } while (i < 6);` to `for (i = 0; i < 6; i++) { ... }`.",
       "evidence_refs": [
-        "raw_diff: replaced do { ... i++; data += 2; } while (i < 6); with for (i = 0; i < 6; i++)"
+        "raw_diff",
+        "PR title"
       ]
     },
     {
-      "text": "Changed object checks from cursor-relative data[1] and data[2] to base-indexed base[i * 2 + 1] and base[i * 2 + 2], preserving calls to HSD_GObjPLink_80390228 for non-null entries.",
+      "text": "The two per-iteration null checks now index `base[i * 2 + 1]` and `base[i * 2 + 2]` before calling `HSD_GObjPLink_80390228`.",
       "evidence_refs": [
-        "raw_diff: data[1]/data[2] replaced with base[i * 2 + 1]/base[i * 2 + 2]"
+        "raw_diff"
       ]
     },
     {
-      "text": "The bot report records one new match: main/melee/if/if_2F72 item if_802F7E7C, +9 bytes, from 93.12% to 100.00%.",
+      "text": "The trailing `memzero(base, 0x34)` remained after the loop.",
       "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot], Report for GALE01, 1 new match"
+        "raw_diff"
+      ]
+    },
+    {
+      "text": "The automated report records one new match: `main/melee/if/if_2F72` item `if_802F7E7C`, 93.12% before and 100.00% after, +9 bytes.",
+      "evidence_refs": [
+        "text_corpus issue_comment decomp-dev[bot] 2026-06-02T14:54:31Z"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Kept the original base pointer available for the final memzero(base, 0x34) while expressing repeated object cleanup as indexed accesses.",
+      "text": "The rewrite uses an indexed loop for a fixed six-iteration pattern where each iteration handles two adjacent slots, making the stride explicit as `i * 2` rather than mutating a second pointer.",
       "evidence_refs": [
-        "raw_diff: base used in loop expressions and memzero(base, 0x34)"
+        "raw_diff"
       ]
     },
     {
-      "text": "Used a natural counted for loop for six repeated two-slot groups instead of retaining a generated-looking pointer-advance do-while.",
+      "text": "Keeping `base` unchanged supports the later `memzero(base, 0x34)` without needing to recover the original address after pointer walking.",
       "evidence_refs": [
-        "PR title: converting the while to a for loop",
-        "raw_diff: for (i = 0; i < 6; i++) with base[i * 2 + 1] and base[i * 2 + 2]"
+        "raw_diff"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a loop walks fixed-size repeated entries but later code still needs the original base address, try a counted for loop over the base pointer rather than a separate advancing cursor.",
+      "lesson": "When a loop walks a table by a constant stride but later code still needs the original base address, try an indexed `for` loop over the base pointer instead of advancing the only working pointer.",
       "scope": [
         "loop reconstruction",
-        "array-of-pointer cleanup",
-        "functions that reuse the base pointer after iteration"
+        "array/table cleanup",
+        "matching fixed-stride iteration"
       ],
       "evidence_refs": [
-        "raw_diff: data cursor removed; base retained for indexed loop and memzero",
-        "text_corpus: bot report records if_802F7E7C reached 100.00%"
-      ]
+        "PR title",
+        "raw_diff",
+        "text_corpus issue_comment decomp-dev[bot] 2026-06-02T14:54:31Z"
+      ],
+      "related_standard_ids": [
+        "natural-loops"
+      ],
+      "confidence": 0.88
     },
     {
-      "lesson": "A do-while with manual counter increment and pointer stride can be a decompiler-shaped form; rewriting it as for (i = 0; i < bound; i++) may both improve readability and match.",
+      "lesson": "A generated-looking pointer-advancing `do while` can sometimes be replaced by a natural counted `for` loop without losing match quality; in this PR the bot report shows the target function reaching 100.00%.",
       "scope": [
+        "control-flow cleanup",
         "natural loops",
-        "MWCC loop shape exploration"
+        "function matching"
       ],
       "evidence_refs": [
-        "PR title: Matched if_2F72 (if_802F7E7C) by converting the while to a for loop",
-        "raw_diff: do-while replaced by for loop",
-        "text_corpus: 1 new match for if_802F7E7C"
-      ]
+        "PR title",
+        "raw_diff",
+        "text_corpus issue_comment decomp-dev[bot] 2026-06-02T14:54:31Z"
+      ],
+      "related_standard_ids": [
+        "natural-loops",
+        "infer-authored-source-style"
+      ],
+      "confidence": 0.84
     }
   ],
   "naming_conventions": [
     {
-      "text": "The PR uses the local role name base for the persistent pointer to lbl_804A1340 and removes the extra cursor name data.",
+      "text": "The PR preserves the local `base` name for the original `lbl_804A1340` pointer and removes the extra `data` walking-pointer name.",
       "evidence_refs": [
-        "raw_diff: removed data declaration; retained HSD_GObj** base"
-      ]
-    },
-    {
-      "text": "No new semantic global names were introduced; the existing address-style lbl_804A1340 and function name if_802F7E7C were preserved.",
-      "evidence_refs": [
-        "raw_diff: references to lbl_804A1340 and if_802F7E7C remain"
-      ]
+        "raw_diff"
+      ],
+      "confidence": 0.76
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Try converting pointer-advance loops into indexed for loops when the stride is regular and the original base pointer remains live after the loop.",
+      "tactic": "Convert fixed-count pointer-stride iteration into `for (i = 0; i < 6; i++)` with indexed accesses `base[i * 2 + offset]`.",
       "evidence_refs": [
-        "raw_diff: data += 2 removed; indexed expressions base[i * 2 + 1] and base[i * 2 + 2] added",
-        "text_corpus: bot report shows if_802F7E7C reached 100.00%"
-      ]
-    },
-    {
-      "tactic": "Use exact integer bounds visible in the generated loop, here i < 6, when testing natural loop forms for matching.",
-      "evidence_refs": [
-        "raw_diff: while (i < 6) became for (i = 0; i < 6; i++)"
+        "PR title",
+        "raw_diff"
+      ],
+      "result_evidence": [
+        "Bot report: `if_802F7E7C` 93.12% before, 100.00% after"
+      ],
+      "caveats": [
+        "The PR slice does not include objdiff output beyond the bot summary, so adjacent-function regression details are not available."
       ]
     }
   ],
   "review_feedback": [],
   "searchable_terms": [
-    "pr-2570",
+    "PR2570",
     "if_2F72",
     "if_802F7E7C",
     "src/melee/if/if_2F72.c",
@@ -143,53 +156,62 @@
     "HSD_GObjPLink_80390228",
     "memzero",
     "for loop",
+    "while to for",
     "do while",
-    "pointer stride",
+    "fixed stride",
     "base pointer",
-    "natural loops",
-    "GALE01"
+    "natural loop",
+    "93.12%",
+    "100.00%"
   ],
   "follow_up_queries": [
-    "if_802F7E7C base[i * 2 + 1]",
-    "lbl_804A1340 HSD_GObjPLink_80390228 memzero",
-    "do while data += 2 for loop match",
-    "if_2F72 natural loop"
+    "if_802F7E7C lbl_804A1340 base i * 2",
+    "HSD_GObjPLink_80390228 base[i * 2 + 1]",
+    "\"Matched if_2F72\" \"for loop\"",
+    "\"if_802F7E7C\" \"memzero(base, 0x34)\"",
+    "\"do while\" \"data += 2\" \"i < 6\""
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR number, title, author, state, timestamps, changed file counts",
-      "raw_diff: complete single-file diff excerpt for if_802F7E7C",
-      "changed_files: one changed file with added/deleted counts",
-      "text_corpus: bot report with one new match and 100.00% after"
+      "metadata_json",
+      "raw_diff",
+      "changed_files",
+      "text_corpus issue_comment decomp-dev[bot] 2026-06-02T14:54:31Z"
     ],
     "notes": [
-      "PR body is empty and there are no human review comments in the loaded slice.",
-      "The match claim is supported by the loaded bot report, not by locally rerun objdiff or build output.",
-      "No reviewer intent or additional rationale beyond the title, diff, and bot report is available."
+      "The changed file and exact loop rewrite are directly supported by the diff.",
+      "The match result is supported by the automated issue comment reporting one new match and 100.00% after for `if_802F7E7C`.",
+      "There were no review comments or reviews in the loaded slice, so no reviewer intent or requested changes are inferred.",
+      "The PR body is empty, so rationale beyond the title and diff is limited."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson",
-        "title": "Use indexed for loops for regular pointer-stride cleanup when the base pointer remains needed",
-        "text": "In if_802F7E7C, replacing a do-while that advanced a separate HSD_GObj** cursor by two entries with a counted for loop over base[i * 2 + 1] and base[i * 2 + 2] preserved the base pointer for memzero(base, 0x34) and corresponded to a reported new 100.00% match.",
+        "type": "decomp_lesson",
+        "title": "Fixed-stride pointer loops may match as indexed counted loops",
+        "text": "In PR 2570, `if_802F7E7C` matched after converting a pointer-advancing `do while` over `lbl_804A1340` into `for (i = 0; i < 6; i++)` with `base[i * 2 + 1]` and `base[i * 2 + 2]` accesses. This supports trying natural counted loops for repeated fixed-stride table work, especially when later code still needs the original base pointer.",
         "scope": [
-          "loop reconstruction",
-          "natural loops",
-          "src/melee/if/if_2F72.c"
+          "src/melee/if/if_2F72.c",
+          "if_802F7E7C",
+          "loop reconstruction"
         ],
         "evidence_refs": [
-          "raw_diff: if_802F7E7C hunk",
-          "text_corpus: decomp-dev[bot] report, main/melee/if/if_2F72 if_802F7E7C 93.12% to 100.00%"
+          "PR title",
+          "raw_diff",
+          "text_corpus issue_comment decomp-dev[bot] 2026-06-02T14:54:31Z"
+        ],
+        "related_standard_ids": [
+          "natural-loops"
         ]
       }
     ],
     "source_update_candidates": [],
     "rejection_notes": [
-      "Do not generalize this PR into a rule that all do-while loops should become for loops; the evidence is limited to a fixed-bound, regular-stride loop in if_802F7E7C.",
-      "No source-owned path fact or global naming standard is proposed because the PR only changes one function and includes no review discussion."
+      "No new global naming rule is proposed from this single-function change; the `base`/`data` local-name choice is only local evidence.",
+      "No review-feedback lesson is extracted because the PR slice contains zero review comments and zero reviews.",
+      "No broader claim about all `lbl_804A1340` users is made because the slice only shows `if_802F7E7C`."
     ]
   },
   "confidence": 0.9,
@@ -199,6 +221,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

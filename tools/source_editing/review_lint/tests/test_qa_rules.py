@@ -68,6 +68,18 @@ def test_extern_decl_ignores_initializers_and_other_types():
     assert findings == []
 
 
+def test_function_extern_visibility_warns_on_function_prototype():
+    hunk = {
+        "file": "src/sysdolphin/baselib/cobj.c",
+        "added": [(808, "    extern int HSD_CObjGetUpVector(HSD_CObj* cobj, Vec3* up);")],
+        "removed": [],
+    }
+    findings = _qa_rules.check_function_extern_visibility(hunk)
+    assert len(findings) == 1
+    assert findings[0]["detail"]["symbol"] == "HSD_CObjGetUpVector"
+    assert findings[0]["detail"]["return_type"] == "int"
+
+
 # ---------------------------------------------------------------------------
 # packed_string_blob.
 # ---------------------------------------------------------------------------
@@ -93,6 +105,16 @@ def test_packed_blob_concatenated_literals():
     assert len(findings) == 1
     assert findings[0]["detail"]["symbol"] == "lbl_803EFB60"
     assert findings[0]["line"] == 1
+
+
+def test_packed_blob_unsized_array():
+    text = (
+        'char grRc_803E4F44[] = "dynamicsdata_shipflag\\0\\0\\0"\n'
+        '                         "gp->u.scroll.int_jobj\\0\\0\\0";\n'
+    )
+    findings = _blob_findings(text)
+    assert len(findings) == 1
+    assert findings[0]["detail"]["symbol"] == "grRc_803E4F44"
 
 
 def test_packed_blob_single_literal_with_multiple_nuls():
@@ -156,6 +178,108 @@ def test_unrolled_assert_ignores_strings():
 
 
 # ---------------------------------------------------------------------------
+# Hardened QA rules added after the full-session delta audit.
+# ---------------------------------------------------------------------------
+
+
+def _hardened_hunk(text: str, removed: list[str] | None = None):
+    return {
+        "file": "src/melee/gr/x.c",
+        "added": [(i + 1, line) for i, line in enumerate(text.splitlines())],
+        "removed": removed or [],
+    }
+
+
+def test_fake_assert_macro_flags_names_and_laundered_bodies():
+    text = (
+        "#define VENOM_JOBJ_ASSERTMSG(line, cond, msg) \\\n"
+        "    ((cond) ? (void) 0 : __assert(__FILE__, line, msg))\n"
+        "#define report_alias(msg) OSReport(msg)\n"
+    )
+    findings = _qa_rules.check_fake_assert_macro(_hardened_hunk(text))
+    assert {f["detail"]["macro"] for f in findings} == {
+        "VENOM_JOBJ_ASSERTMSG",
+        "report_alias",
+    }
+
+
+def test_assert_idiom_downgrade_requires_removed_hsd_assert():
+    hunk = _hardened_hunk(
+        '    OSReport(msg);\n    __assert(__FILE__, 77, "obj");\n',
+        removed=['    HSD_ASSERTREPORT(77, obj != NULL, "obj");'],
+    )
+    findings = _qa_rules.check_assert_idiom_downgrade(hunk)
+    assert len(findings) == 2
+    assert _qa_rules.check_assert_idiom_downgrade(_hardened_hunk('    OSReport(msg);\n')) == []
+
+
+def test_assert_idiom_downgrade_can_use_file_level_removed_assert_count():
+    hunk = _hardened_hunk('    __assert(__FILE__, 77, "obj");\n')
+    hunk["file_removed_hsd_asserts"] = 1
+    findings = _qa_rules.check_assert_idiom_downgrade(hunk)
+    assert len(findings) == 1
+    assert findings[0]["detail"]["removed_hsd_asserts"] == 1
+
+
+def test_register_keyword_and_inline_asm():
+    hunk = _hardened_hunk("    register s32 flag;\n    asm volatile (\"nop\");\n")
+    assert len(_qa_rules.check_register_keyword(hunk)) == 1
+    assert len(_qa_rules.check_inline_asm(hunk)) == 1
+
+
+def test_m2c_residue_names_error_and_sp_warning():
+    hunk = _hardened_hunk("    s32 temp_r30 = var_r4 + phi_f1;\n    Vec3 sp24;\n")
+    findings = _qa_rules.run_rules_on_hunk(
+        [rule for rule in _qa_rules.RULES if rule["rule_id"] == "m2c_residue_names"],
+        hunk,
+    )
+    severities = {f["detail"]["name"]: f["severity"] for f in findings}
+    assert severities["temp_r30"] == "error"
+    assert severities["var_r4"] == "error"
+    assert severities["phi_f1"] == "error"
+    assert severities["sp24"] == "warning"
+
+
+def test_m2c_goto_label_errors_block_labels_and_warns_other_gotos():
+    hunk = _hardened_hunk("    goto block_30;\nblock_30:\n    goto cleanup;\n")
+    findings = _qa_rules.run_rules_on_hunk(
+        [rule for rule in _qa_rules.RULES if rule["rule_id"] == "m2c_goto_label"],
+        hunk,
+    )
+    assert [f["severity"] for f in findings] == ["error", "error", "warning"]
+
+
+def test_m2c_field_and_type_erasing_casts():
+    hunk = _hardened_hunk("    M2C_FIELD(obj, s32*, 0x14) = 1;\n    data = (u8*) data;\n")
+    assert len(_qa_rules.check_m2c_field_use(hunk)) == 1
+    casts = _qa_rules.check_type_erasing_cast(hunk)
+    assert len(casts) == 1
+    assert casts[0]["detail"]["cast"] == "(u8*)"
+
+
+def test_define_alias_identifier_expression_and_canonical_macro_warning():
+    hunk = _hardened_hunk(
+        "#define old_name new_name\n"
+        "#define tm ((TmData*) arg0)\n"
+        "#define block_idx_table grI1_803E49A8.block_table\n"
+        "#define FTCO_800A9CB4_ABS(x) ((x) < 0 ? -(x) : (x))\n"
+    )
+    findings = _qa_rules.check_define_alias(hunk)
+    kinds = {f["detail"]["macro"]: (f["detail"]["kind"], f.get("severity", "error")) for f in findings}
+    assert kinds["old_name"] == ("identifier_alias", "error")
+    assert kinds["tm"] == ("expression_alias", "error")
+    assert kinds["block_idx_table"] == ("expression_alias", "error")
+    assert kinds["FTCO_800A9CB4_ABS"] == ("canonical_macro_clone", "warning")
+
+
+def test_novel_pragma_warns_only_outside_established_set():
+    hunk = _hardened_hunk("#pragma dont_inline on\n#pragma inline_depth(4)\n")
+    findings = _qa_rules.check_novel_pragma(hunk)
+    assert len(findings) == 1
+    assert findings[0]["detail"]["directive"] == "inline_depth"
+
+
+# ---------------------------------------------------------------------------
 # string_literal_to_symbol.
 # ---------------------------------------------------------------------------
 
@@ -188,6 +312,111 @@ def test_string_literal_to_symbol_requires_string_in_removed():
         "removed": ["    foo(other_value);"],
     }
     assert _qa_rules.check_string_literal_to_symbol(hunk) == []
+
+
+def test_numeric_literal_to_symbol_pairing():
+    hunk = {
+        "file": "src/melee/gr/grbigblue.c",
+        "added": [
+            (1410, "        f32 inv = grBb_804DB2F0 / Ground_801C0498();"),
+            (2111, "    best_above = grBb_804DB310;"),
+            (2143, "                if (dist < grBb_804DB2F4) {"),
+        ],
+        "removed": [
+            "        f32 inv = 1.0F / Ground_801C0498();",
+            "    best_above = -F32_MAX;",
+            "                if (dist < 0.0F) {",
+        ],
+    }
+    findings = _qa_rules.check_numeric_literal_to_symbol(hunk)
+    assert [f["detail"]["replacement"] for f in findings] == [
+        "grBb_804DB2F0",
+        "grBb_804DB310",
+        "grBb_804DB2F4",
+    ]
+
+
+def test_numeric_literal_to_symbol_requires_numeric_in_removed():
+    hunk = {
+        "file": "src/melee/gr/grbigblue.c",
+        "added": [(10, "    foo(grBb_804DB2F0);")],
+        "removed": ["    foo(existing_symbol);"],
+    }
+    assert _qa_rules.check_numeric_literal_to_symbol(hunk) == []
+
+
+def test_copied_jobj_inline_flags_local_header_body_copy():
+    hunk = {
+        "file": "src/melee/gr/grvenom.c",
+        "added": [
+            (71, '/* literal */ SDATA char grVe_804D47C0[] = "jobj.h";'),
+            (74, "static inline void grVenom_JObjSetScaleX(HSD_JObj* jobj, f32 x)"),
+            (75, "{"),
+            (76, "    HSD_ASSERTMSG(0x308, jobj, &grVe_804D47C8[0]);"),
+            (77, "    jobj->scale.x = x;"),
+            (78, "    HSD_JObjSetMtxDirtySub(jobj);"),
+            (79, "}"),
+        ],
+        "removed": [],
+    }
+    findings = _qa_rules.check_copied_jobj_inline(hunk)
+    assert len(findings) == 1
+    assert findings[0]["detail"]["helper"] == "grVenom_JObjSetScaleX"
+
+
+def test_copied_jobj_inline_allows_wrappers_that_call_hsd_helpers():
+    hunk = {
+        "file": "src/melee/it/items/itcoin.c",
+        "added": [
+            (10, "static inline void itCoin_ResetRotation(Item_GObj* gobj)"),
+            (11, "{"),
+            (12, "    HSD_JObj* jobj = GET_JOBJ(gobj);"),
+            (13, "    HSD_JObjSetRotationX(jobj, 0.0F);"),
+            (14, "}"),
+        ],
+        "removed": [],
+    }
+    assert _qa_rules.check_copied_jobj_inline(hunk) == []
+
+
+def test_stage_ground_var_owner_flags_borrowed_stage_arm():
+    hunk = {
+        "file": "src/melee/gr/grbigblue.c",
+        "added": [(1763, "            gp->gv.arwing.xC8 = 0;")],
+        "removed": [],
+    }
+    findings = _qa_rules.check_stage_ground_var_owner(hunk)
+    assert len(findings) == 1
+    assert findings[0]["detail"]["borrowed_member"] == "arwing"
+
+
+def test_stage_ground_var_owner_flags_other_stage_families_too():
+    hunk = {
+        "file": "src/melee/gr/grvenom.c",
+        "added": [(1685, "                        sub->gv.arwing.xE0 = sp94;")],
+        "removed": [],
+    }
+    findings = _qa_rules.check_stage_ground_var_owner(hunk)
+    assert len(findings) == 1
+    assert findings[0]["detail"]["allowed_members"] == ["smashtaunt", "venom", "venom2"]
+
+
+def test_stage_ground_var_owner_allows_stage_family_members():
+    hunk = {
+        "file": "src/melee/gr/grbigblue.c",
+        "added": [(1763, "            gp->gv.bigblue.platform.xC8_timer = 0;")],
+        "removed": [],
+    }
+    assert _qa_rules.check_stage_ground_var_owner(hunk) == []
+
+
+def test_stage_ground_var_owner_allows_corneria_arwing_owner():
+    hunk = {
+        "file": "src/melee/gr/grcorneria.c",
+        "added": [(636, "    gp->gv.arwing.xC8 = slot;")],
+        "removed": [],
+    }
+    assert _qa_rules.check_stage_ground_var_owner(hunk) == []
 
 
 # ---------------------------------------------------------------------------

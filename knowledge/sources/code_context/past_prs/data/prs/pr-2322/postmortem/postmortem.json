@@ -12,256 +12,216 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Decompiled selected Kirby SpecialN/SpecialHi and copied-Pikachu SpecialN collision helpers across ftKb_SpecialN.c and ftKb_SpecialNNs.c. The diff replaces decomp placeholders with C bodies for Final Cutter startup, inhale swallow proximity checks, and Skull Bash ground/wall collision behavior, plus a narrow dont_inline pragma tactic. Loaded verification is mixed: the PR body claims fuzzy_match_percent 100.0 for all functions, while the automated report shows only two 100% new matches and several near-match improvements.",
+  "summary": "PR 2322 decompiled several Kirby special-N and special-Hi routines across two ftKirby files: Final Cutter entry functions, inhale swallow-distance checks for item/fighter targets, and Pikachu-copy Skull Bash collision/wall-bounce handling. The slice includes a bot match report showing 2 new 100% matches and several high-but-not-complete improvements.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "fighter-move-logic",
-      "collision-state-transitions",
-      "matching-tactic"
+      "fighter-special-moves",
+      "collision-state-transitions"
     ],
     "systems": [
       "fighter",
       "ftKirby",
       "ftCommon",
-      "effects",
-      "items"
+      "item-effects"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
-      "role": "Decompiled Kirby Final Cutter enter functions and inhale swallow proximity helpers; added ftCo_CaptureWaitKirby include and scoped dont_inline pragmas.",
+      "role": "Decompiled Kirby Final Cutter entry routines and inhale swallow-distance helper routines; added ftCo_CaptureWaitKirby include and scoped dont_inline pragmas around swallow helper/callers.",
       "evidence_refs": [
-        "changed_files.jsonl: ftKb_SpecialN.c added 92 deleted 8 hunks 6",
-        "raw_diff: ftKb_SpecialHi_Enter and ftKb_SpecialAirHi_Enter bodies replace placeholders",
-        "raw_diff: ftKb_SpecialN_800F5DE8 and ftKb_SpecialN_800F5EA8 bodies replace placeholders",
-        "human_pr_text: summary lists four ftKb_SpecialN.c functions and dont_inline rationale"
+        "changed_files: ftKb_SpecialN.c added 92 deleted 8 hunks 6",
+        "pr_body summary lists ftKb_SpecialHi_Enter, ftKb_SpecialAirHi_Enter, ftKb_SpecialN_800F5DE8, ftKb_SpecialN_800F5EA8",
+        "diff: ftKb_SpecialHi_Enter and ftKb_SpecialAirHi_Enter replace decomp placeholders",
+        "diff: ftKb_SpecialN_800F5DE8 and ftKb_SpecialN_800F5EA8 replace decomp placeholders",
+        "issue_comment match report lists 2 new matches in ftKb_SpecialN and 2 improved unmatched SpecialN helpers"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
-      "role": "Decompiled copied-Pikachu Skull Bash collision helpers and wall-bounce callback; added extern ftCollisionBox declaration.",
+      "role": "Decompiled Pikachu-copy Skull Bash collision helpers and wall-bounce helper; added extern collision box declaration used by wall collision check.",
       "evidence_refs": [
-        "changed_files.jsonl: ftKb_SpecialNNs.c added 59 deleted 3 hunks 4",
-        "raw_diff: ftKb_PrSpecialAirNStart_Coll, ftKb_PrSpecialN_Coll, and fn_80105978 bodies replace placeholders",
-        "human_pr_text: summary lists three ftKb_SpecialNNs.c functions"
+        "changed_files: ftKb_SpecialNNs.c added 59 deleted 3 hunks 4",
+        "pr_body summary lists ftKb_PrSpecialAirNStart_Coll, ftKb_PrSpecialN_Coll, fn_80105978",
+        "diff: ftKb_PrSpecialAirNStart_Coll, ftKb_PrSpecialN_Coll, fn_80105978 replace decomp placeholders",
+        "issue_comment match report lists improvements for ftKb_PrSpecialN_Coll, fn_80105978, ftKb_PrSpecialAirNStart_Coll, and .sdata2"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Implemented ftKb_SpecialHi_Enter and ftKb_SpecialAirHi_Enter to clear cmd_vars and specialhi move fields, change to the ground or air Final Cutter startup motion state, run ftAnim_8006EBA4, spawn effect 0x494, and assign efLib_PauseAll/efLib_ResumeAll hitlag callbacks.",
+      "text": "Implemented ftKb_SpecialHi_Enter and ftKb_SpecialAirHi_Enter, resetting command and specialhi move variables, changing to ground/air Final Cutter startup motion states, spawning effect 0x494, and wiring efLib_PauseAll/efLib_ResumeAll as hitlag callbacks.",
       "evidence_refs": [
-        "raw_diff: ftKb_SpecialHi_Enter body",
-        "raw_diff: ftKb_SpecialAirHi_Enter body",
-        "human_pr_text: Final Cutter startup description"
+        "diff: ftKb_SpecialHi_Enter body",
+        "diff: ftKb_SpecialAirHi_Enter body",
+        "pr_body: Final Cutter startup description"
       ]
     },
     {
-      "text": "Implemented ftKb_SpecialN_800F5DE8 for inhaled item checks using Kirby position plus dat_attrs mouth offsets, it_802F23AC distance, item swallow call it_802F2810, and ground/air transition split.",
+      "text": "Implemented item-target inhale swallow check ftKb_SpecialN_800F5DE8: compute mouth-offset position from cur_pos, dat_attrs offsets, and facing_dir; compare item distance against squared inhale velocity; call it_802F2810 and branch to air/ground swallow transition helpers.",
       "evidence_refs": [
-        "raw_diff: ftKb_SpecialN_800F5DE8 body",
-        "human_pr_text: Inhale swallow check description"
+        "diff: ftKb_SpecialN_800F5DE8 body",
+        "pr_body: Inhale swallow check description"
       ]
     },
     {
-      "text": "Implemented ftKb_SpecialN_800F5EA8 for inhaled fighter checks using the same offset-position pattern, ftCo_800BD19C distance, ftCo_800BD620 capture/wait handling, and ground/air transition split.",
+      "text": "Implemented fighter-target inhale swallow check ftKb_SpecialN_800F5EA8 with the same mouth-offset and squared-distance structure, using ftCo_800BD19C/ftCo_800BD620 and separate air/ground transitions.",
       "evidence_refs": [
-        "raw_diff: ftKb_SpecialN_800F5EA8 body",
-        "human_pr_text: Inhale swallow check description"
+        "diff: ftKb_SpecialN_800F5EA8 body",
+        "pr_body: Inhale swallow check description"
       ]
     },
     {
-      "text": "Added scoped #pragma dont_inline blocks around ftKb_SpecialN_800F5DE8 and the capture animation callers; the PR body states this prevents MWCC from inlining 800F5DE8 into callers.",
+      "text": "Added scoped #pragma dont_inline around ftKb_SpecialN_800F5DE8 and around capture anim caller functions; PR body states this was to prevent MWCC from inlining 800F5DE8 into callers.",
       "evidence_refs": [
-        "raw_diff: #pragma dont_inline on/off around ftKb_SpecialN_800F5DE8",
-        "raw_diff: #pragma dont_inline on/off around ftKb_SpecialNCapture1_Anim and ftKb_SpecialAirNCapture_Anim",
-        "human_pr_text: dont_inline rationale"
+        "diff: #pragma dont_inline on/off near ftKb_SpecialN_800F5DE8 and capture anim callers",
+        "pr_body: 'adds a dont_inline pragma to prevent MWCC from inlining 800F5DE8 into its callers'"
       ]
     },
     {
-      "text": "Implemented ftKb_PrSpecialAirNStart_Coll to detect landing, switch to ground copied-Pikachu Skull Bash start/loop state based on mv.pr.specialn.x34.x, and restore callback fields.",
+      "text": "Implemented ftKb_PrSpecialAirNStart_Coll and ftKb_PrSpecialN_Coll for Pikachu-copy Skull Bash transitions, including ground/air checks, motion-state changes preserving cur_anim_frame, callback reinstallation, and velocity normalization on wall collision.",
       "evidence_refs": [
-        "raw_diff: ftKb_PrSpecialAirNStart_Coll body",
-        "human_pr_text: Skull Bash collision description"
+        "diff: ftKb_PrSpecialAirNStart_Coll body",
+        "diff: ftKb_PrSpecialN_Coll body",
+        "pr_body: Skull Bash collisions description"
       ]
     },
     {
-      "text": "Implemented ftKb_PrSpecialN_Coll to detect wall collision via ft_800824A0 and ftKb_Init_803CB758, change to ftKb_MS_PrSpecialNEndR, restore callback fields, and transfer horizontal self velocity into ground velocity while clearing self_vel y/z.",
+      "text": "Implemented fn_80105978 wall-bounce helper that flips model rotation and negates several velocity, acceleration, facing, and move-state direction fields.",
       "evidence_refs": [
-        "raw_diff: extern ftKb_Init_803CB758 and ftKb_PrSpecialN_Coll body",
-        "human_pr_text: Skull Bash collision description"
-      ]
-    },
-    {
-      "text": "Implemented fn_80105978 as a wall-bounce helper that rotates the model and negates self_vel.x, gr_vel, ground acceleration, multiple mv.pr.specialn fields, facing_dir, and x34 vector components.",
-      "evidence_refs": [
-        "raw_diff: fn_80105978 body",
-        "human_pr_text: wall-bounce helper description"
-      ]
-    },
-    {
-      "text": "Made formatting-only line wrapping changes in fn_800F98F4 around it_802C01AC and efSync_Spawn calls; the existing PAD_STACK(4) was not introduced by this PR excerpt.",
-      "evidence_refs": [
-        "raw_diff: fn_800F98F4 hunk"
+        "diff: fn_80105978 body",
+        "pr_body: wall-bounce helper reverses velocity/direction variables"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "The PR used existing typed fighter structures and move-specific union fields such as fp->mv.kb.specialhi and fp->mv.pr.specialn rather than raw offset arithmetic in the newly decompiled bodies.",
+      "text": "Kept unknown helper name fn_80105978 rather than inventing a semantic global name, while using local role names such as fp, fp2, da, pos, and msid where roles are clear.",
       "evidence_refs": [
-        "raw_diff: ftKb_SpecialHi_Enter specialhi fields",
-        "raw_diff: fn_80105978 mv.pr.specialn fields",
+        "diff: fn_80105978 remains address-style",
+        "diff: local variables in changed functions"
+      ]
+    },
+    {
+      "text": "Used existing typed Fighter fields and Kirby dat_attrs fields for inhale offsets and velocity rather than raw offsets or M2C_FIELD-style access.",
+      "evidence_refs": [
+        "diff: fp->dat_attrs, da->specialn_x_offset_inhaled, da->specialn_y_offset_inhaled, da->specialn_inhale_velocity",
         "decomp_standards: typed-fields-over-pointer-math"
       ]
     },
     {
-      "text": "The Final Cutter enter implementations reacquire Fighter* after Fighter_ChangeMotionState/ftAnim_8006EBA4 before writing callback fields, preserving a local source shape visible in the diff rather than assuming the old pointer remains the intended expression.",
+      "text": "For Final Cutter effects, restored hitlag pause/resume callbacks directly after effect spawn, matching the behavior described in the PR body.",
       "evidence_refs": [
-        "raw_diff: fp = GET_FIGHTER(gobj) after ftAnim_8006EBA4 in both enter functions"
-      ]
-    },
-    {
-      "text": "The inhale item and fighter helpers share a clear local pattern: compute mouth-relative position from dat_attrs, compare squared distance against squared inhale velocity, then branch to ground or air transition.",
-      "evidence_refs": [
-        "raw_diff: ftKb_SpecialN_800F5DE8",
-        "raw_diff: ftKb_SpecialN_800F5EA8"
-      ]
-    },
-    {
-      "text": "The wall-bounce helper keeps an address-style name, fn_80105978, while the PR body describes behavior; this avoids promoting an unsupported semantic symbol rename.",
-      "evidence_refs": [
-        "raw_diff: function name fn_80105978 retained",
-        "human_pr_text: wall-bounce helper description",
-        "decomp_standards: conservative-naming"
+        "diff: efSync_Spawn(0x494), fp->pre_hitlag_cb = efLib_PauseAll, fp->post_hitlag_cb = efLib_ResumeAll",
+        "pr_body: effect pauses during hit freeze"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For fighter move enter functions, matching source may require clearing command variables and move-state fields before Fighter_ChangeMotionState, then restoring effect hitlag callbacks after animation/effect setup.",
+      "lesson": "Kirby inhale swallow checks can appear as a shared mouth-offset calculation followed by squared-distance comparison against specialn_inhale_velocity squared; item and fighter paths may differ only in target object and consume/capture helper calls.",
       "scope": [
-        "fighter",
-        "ftKirby",
-        "move enter functions"
+        "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+        "Kirby SpecialN inhale/capture routines"
       ],
       "evidence_refs": [
-        "raw_diff: ftKb_SpecialHi_Enter",
-        "raw_diff: ftKb_SpecialAirHi_Enter"
+        "diff: ftKb_SpecialN_800F5DE8",
+        "diff: ftKb_SpecialN_800F5EA8"
       ],
-      "confidence": 0.78
+      "confidence": 0.86
     },
     {
-      "lesson": "Inhale/capture proximity helpers can be expressed with typed dat_attrs offsets from cur_pos and a squared-distance comparison against a squared velocity/radius threshold, with separate ground and air state transitions.",
+      "lesson": "When decompiling fighter effect startup, preserve post-call Fighter reloads if the generated code requires them; both Final Cutter enter functions call GET_FIGHTER again after ftAnim_8006EBA4 before setting effect/hitlag fields.",
       "scope": [
-        "ftKirby",
-        "SpecialN",
-        "capture/inhaled target checks"
+        "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+        "Final Cutter enter functions"
       ],
       "evidence_refs": [
-        "raw_diff: ftKb_SpecialN_800F5DE8",
-        "raw_diff: ftKb_SpecialN_800F5EA8"
-      ],
-      "confidence": 0.8
-    },
-    {
-      "lesson": "Copied-character collision code may need to restore standard fighter callback fields immediately after changing motion state; this PR repeats death2_cb, take_dmg_cb, deal_dmg_cb, and x21F8 assignments in both landing and wall-collision paths.",
-      "scope": [
-        "ftKirby",
-        "copied-character moves",
-        "collision callbacks"
-      ],
-      "evidence_refs": [
-        "raw_diff: ftKb_PrSpecialAirNStart_Coll callback block",
-        "raw_diff: ftKb_PrSpecialN_Coll callback block"
+        "diff: ftKb_SpecialHi_Enter reloads fp after ftAnim_8006EBA4",
+        "diff: ftKb_SpecialAirHi_Enter reloads fp after ftAnim_8006EBA4"
       ],
       "confidence": 0.74
     },
     {
-      "lesson": "When a helper's semantic purpose is understood but the symbol name is still address-style, keep the address-style symbol unless there is stronger naming evidence.",
+      "lesson": "For copied-move collision transitions, callback fields may need to be reinstalled after Fighter_ChangeMotionState, as shown by ftKb_PrSpecialAirNStart_Coll and ftKb_PrSpecialN_Coll setting death2_cb, take_dmg_cb, deal_dmg_cb, and x21F8 after state changes.",
       "scope": [
-        "naming",
-        "unrenamed helpers"
+        "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
+        "Kirby copied Pikachu SpecialN collision transitions"
       ],
       "evidence_refs": [
-        "raw_diff: fn_80105978 remains address-style",
-        "human_pr_text: describes it as wall-bounce helper",
-        "decomp_standards: conservative-naming"
+        "diff: ftKb_PrSpecialAirNStart_Coll callback block",
+        "diff: ftKb_PrSpecialN_Coll callback block"
       ],
-      "confidence": 0.72
+      "confidence": 0.8
     }
   ],
   "naming_conventions": [
     {
-      "text": "Kirby fighter functions in this slice use the ftKb_ prefix and descriptive move/state suffixes such as SpecialHi_Enter, SpecialAirHi_Enter, PrSpecialAirNStart_Coll, and PrSpecialN_Coll.",
+      "text": "Local fighter pointers use fp and reloaded fighter pointers may use fp2 when a second GET_FIGHTER call is needed after a state-changing call.",
       "evidence_refs": [
-        "raw_diff: function declarations",
-        "human_pr_text: summary function list"
+        "diff: Fighter* fp and Fighter* fp2 in ftKb_PrSpecialAirNStart_Coll and ftKb_PrSpecialN_Coll"
       ]
     },
     {
-      "text": "Unknown or not-yet-semantically-renamed helpers may remain address-style, as with fn_80105978, even when the PR body explains its behavior.",
+      "text": "Kirby data attributes are abbreviated as da, and position temporaries use pos.",
       "evidence_refs": [
-        "raw_diff: fn_80105978",
-        "human_pr_text: wall-bounce helper description"
+        "diff: ftKb_DatAttrs* da and Vec3 pos in ftKb_SpecialN_800F5DE8/800F5EA8"
       ]
     },
     {
-      "text": "Local Fighter pointers use short role names fp and fp2; dat_attrs is shortened to da, and local position vectors use pos.",
+      "text": "Unexplained helper fn_80105978 remains address-style, consistent with conservative naming when semantics are not promoted into a proven symbol name.",
       "evidence_refs": [
-        "raw_diff: ftKb_SpecialN_800F5DE8 locals",
-        "raw_diff: ftKb_SpecialN_800F5EA8 locals",
-        "raw_diff: ftKb_PrSpecialN_Coll locals"
+        "diff: fn_80105978 implemented without rename",
+        "decomp_standards: conservative-naming"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Scoped #pragma dont_inline was used around ftKb_SpecialN_800F5DE8 and around the caller animation functions to influence MWCC inlining behavior.",
+      "tactic": "Scoped #pragma dont_inline on/off was added around ftKb_SpecialN_800F5DE8 and around capture anim callers to prevent MWCC from inlining 800F5DE8 into callers.",
       "evidence_refs": [
-        "raw_diff: #pragma dont_inline on/off",
-        "human_pr_text: prevents MWCC from inlining 800F5DE8 into callers"
+        "diff: #pragma dont_inline on/off surrounding ftKb_SpecialN_800F5DE8",
+        "diff: #pragma dont_inline on/off surrounding ftKb_SpecialNCapture1_Anim and ftKb_SpecialAirNCapture_Anim",
+        "pr_body: dont_inline rationale"
       ],
-      "caveat": "Global standards treat pragmas as exceptions requiring narrow verifier evidence. The loaded report does not show ftKb_SpecialN_800F5DE8 as a full 100% match, so this should not be promoted as a general standard from this PR alone."
+      "caveat": "Global standards treat pragmas as exceptions requiring narrow evidence. This PR slice provides author rationale and match-report context, but the bot report does not show all affected functions at 100%."
     },
     {
-      "tactic": "The PR uses typed fields and existing callbacks rather than M2C_FIELD or raw pointer math in the decompiled functions.",
+      "tactic": "Used explicit chained assignment in AirHi cmd_vars reset but separate reverse-order assignments in ground Hi; this may reflect MWCC codegen sensitivity rather than semantic difference.",
       "evidence_refs": [
-        "raw_diff: typed fp->cmd_vars, fp->mv.kb.specialhi, fp->mv.pr.specialn, fp->pre_hitlag_cb, fp->post_hitlag_cb"
+        "diff: ftKb_SpecialHi_Enter cmd_vars[3..0] separate assignments",
+        "diff: ftKb_SpecialAirHi_Enter cmd_vars[0] = cmd_vars[1] = cmd_vars[2] = cmd_vars[3] = 0"
       ],
-      "caveat": "This is consistent with loaded standards but the PR evidence does not prove why each field name was chosen."
+      "caveat": "No review or objdiff detail explains why the assignment shapes differ."
     },
     {
-      "tactic": "The Final Cutter ground and air enter functions are nearly parallel but preserve different command-variable assignment shapes: sequential reverse order in ground and chained assignment in air.",
+      "tactic": "Used f64 for the item-distance path and f32 for the fighter-distance path, matching the helper return/use shape shown in the diff.",
       "evidence_refs": [
-        "raw_diff: ftKb_SpecialHi_Enter cmd_vars assignments",
-        "raw_diff: ftKb_SpecialAirHi_Enter cmd_vars chained assignment"
+        "diff: f64 dist = it_802F23AC(...) in ftKb_SpecialN_800F5DE8",
+        "diff: f32 dist = ftCo_800BD19C(...) in ftKb_SpecialN_800F5EA8"
       ],
-      "caveat": "No review or verifier note explains whether this difference was required for matching."
+      "caveat": "The slice does not include compiler or objdiff details explaining the type choice."
     }
   ],
   "review_feedback": [
     {
-      "text": "No human review comments are loaded for this PR slice.",
+      "text": "No human review comments are present in the loaded PR slice.",
       "evidence_refs": [
-        "metadata_json: review_comments 0, reviews 0"
+        "metadata counts: review_comments 0, reviews 0"
       ]
     },
     {
-      "text": "Automated report by encounter showed overall matched code 59.41% (+0.01%, +368 bytes), with ftKb_SpecialHi_Enter and ftKb_SpecialAirHi_Enter newly reaching 100%. It also showed several functions improved but not fully matched, contradicting or narrowing the PR body's broad 'fuzzy_match_percent: 100.0 for all functions' claim.",
+      "text": "Automated report by encounter recorded matched-code progress: 2 new 100% matches for ftKb_SpecialHi_Enter and ftKb_SpecialAirHi_Enter, plus high-percent improvements for five functions and .sdata2.",
       "evidence_refs": [
-        "human_pr_text: encounter issue comment report",
-        "text_corpus.jsonl: issue_comment by encounter"
+        "human_pr_text issue comment by encounter",
+        "text_corpus issue_comment match report"
       ]
     }
   ],
   "searchable_terms": [
-    "pr-2322",
-    "johnwinston",
-    "ftKirby",
+    "PR2322",
     "ftKb_SpecialN.c",
     "ftKb_SpecialNNs.c",
     "ftKb_SpecialHi_Enter",
@@ -271,125 +231,133 @@
     "ftKb_PrSpecialAirNStart_Coll",
     "ftKb_PrSpecialN_Coll",
     "fn_80105978",
-    "Final Cutter",
-    "Kirby inhale",
-    "Skull Bash",
-    "Pikachu copy",
+    "Kirby Final Cutter",
+    "Kirby inhale swallow check",
+    "Kirby Pikachu copy Skull Bash",
     "dont_inline",
-    "MWCC inlining",
     "efSync_Spawn 0x494",
     "efLib_PauseAll",
     "efLib_ResumeAll",
+    "specialn_inhale_velocity",
+    "ftKb_Init_803CB758",
+    "ftCollisionBox",
     "ftCo_800BD19C",
     "ftCo_800BD620",
     "it_802F23AC",
-    "it_802F2810",
-    "ftKb_Init_803CB758",
-    "ftCollisionBox",
-    "ftCommon_8007D7FC",
-    "M_PI_2",
-    "GA_Air",
-    "GA_Ground"
+    "it_802F2810"
   ],
   "follow_up_queries": [
-    "Search later ftKirby PRs for cleanup or full match of ftKb_SpecialN_800F5DE8 after dont_inline use.",
-    "Search for other uses of #pragma dont_inline in fighter move code and whether verifier reports justify them.",
-    "Search ftKb_SpecialNNs.c history for semantic rename or further documentation of fn_80105978.",
-    "Search for ftKb_Init_803CB758 declarations to confirm owning header or data symbol placement.",
-    "Search for copied-Pikachu Kirby Skull Bash collision functions to compare callback restoration patterns."
+    "Find later PRs touching ftKb_SpecialN_800F5DE8 or removing/adjusting the dont_inline pragmas.",
+    "Search for other Kirby SpecialN inhale helpers using specialn_x_offset_inhaled, specialn_y_offset_inhaled, and specialn_inhale_velocity.",
+    "Search for ftKb_Init_803CB758 declarations to confirm whether the extern was later moved to an owning header.",
+    "Search for fn_80105978 references or later semantic rename in Kirby copied Pikachu SpecialN code.",
+    "Look for follow-up objdiff/checkdiff reports for ftKb_SpecialN_800F5DE8, ftKb_SpecialN_800F5EA8, ftKb_PrSpecialN_Coll, and ftKb_PrSpecialAirNStart_Coll."
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: merged PR metadata and changed file counts",
-      "human_pr_text: PR body summary and functional descriptions",
-      "raw_diff: complete diff excerpt for two files",
-      "text_corpus.jsonl: automated issue comment report"
+      "metadata_json: PR number, title, author, state, dates, changed files",
+      "human_pr_text: PR body summary and verification claim",
+      "raw_diff: full diff excerpt for two changed files",
+      "text_corpus: encounter issue comment with match report"
     ],
     "notes": [
-      "Changed files and diff hunks are strong evidence for what source changed.",
-      "Functional descriptions are from the PR body and align with visible code, but no reviewer discussion confirms intent.",
-      "Verification evidence is inconsistent: the PR body claims fuzzy_match_percent 100.0 for all functions, but the loaded automated report records only two 100% new matches and lists the other decompiled functions as 91.96% to 99.96% improvements.",
-      "There are no loaded review comments or approval notes, so reviewer intent and final acceptance rationale are not inferable beyond merged state.",
-      "The dont_inline tactic is explicitly stated by the author and visible in the diff, but the loaded report does not prove it produced a full match for the affected helper."
+      "Changed files and implemented functions are strongly supported by full raw diff and changed_files metadata.",
+      "There are no loaded human review comments; reviewer intent cannot be inferred.",
+      "The PR body claims fuzzy_match_percent 100.0 for all functions, but the encounter report shows only two new 100% matches and several functions at 91.96% to 99.96%, so match status should not be generalized as all functions fully matched.",
+      "The dont_inline rationale is explicitly stated by the PR author, but no detailed compiler/objdiff trace is included in the slice.",
+      "The .sdata2 improvement is reported by the bot, but the diff excerpt does not show a direct data-source change beyond code changes and an extern declaration."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "pr_local_lesson",
-        "title": "Typed move fields for Kirby inhale and copied-Pikachu collision helpers",
-        "text": "PR #2322 expresses new Kirby SpecialN/SpecialHi code with existing typed Fighter fields and move-specific union fields rather than raw offsets, including fp->mv.kb.specialhi and fp->mv.pr.specialn. Useful as supporting evidence for typed-field recovery in ftKirby move code.",
+        "record_type": "pr_specific_lesson",
+        "title": "Kirby inhale helpers share mouth-offset squared-distance structure",
+        "text": "In PR 2322, ftKb_SpecialN_800F5DE8 and ftKb_SpecialN_800F5EA8 both compute an inhaled mouth position from cur_pos plus dat_attrs offsets and facing_dir, compare target distance to specialn_inhale_velocity squared, then branch to air/ground transition helpers after consuming/capturing the target.",
         "scope": [
-          "ftKirby",
-          "fighter move logic",
-          "typed fields"
+          "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+          "Kirby SpecialN inhale"
         ],
         "evidence_refs": [
-          "raw_diff: ftKb_SpecialHi_Enter",
-          "raw_diff: ftKb_SpecialN_800F5DE8",
-          "raw_diff: fn_80105978"
+          "diff: ftKb_SpecialN_800F5DE8",
+          "diff: ftKb_SpecialN_800F5EA8"
         ],
-        "confidence": 0.78
+        "confidence": 0.86
       },
       {
-        "record_type": "pr_local_lesson",
-        "title": "Keep address-style helper names when semantics are described but not symbol-backed",
-        "text": "PR #2322 describes fn_80105978 as a wall-bounce helper but leaves the symbol as fn_80105978. This is useful supporting evidence for conservative naming in decomp PRs.",
+        "record_type": "pr_specific_tactic",
+        "title": "Scoped dont_inline used for Kirby SpecialN helper inlining issue",
+        "text": "PR 2322 added scoped #pragma dont_inline blocks around ftKb_SpecialN_800F5DE8 and capture anim callers; the PR body says this was to prevent MWCC from inlining 800F5DE8 into its callers.",
         "scope": [
-          "naming",
-          "address-style helpers"
+          "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c"
         ],
         "evidence_refs": [
-          "human_pr_text: wall-bounce helper description",
-          "raw_diff: fn_80105978 declaration"
+          "pr_body: dont_inline rationale",
+          "diff: #pragma dont_inline around ftKb_SpecialN_800F5DE8 and capture anim callers"
         ],
-        "confidence": 0.72
+        "confidence": 0.78
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Consider documenting narrow dont_inline evidence requirements with PR #2322 as cautionary example",
-        "text": "PR #2322 used scoped #pragma dont_inline to prevent MWCC from inlining ftKb_SpecialN_800F5DE8 into callers. The tactic is visible and author-stated, but loaded automated verification only shows 91.96% for ftKb_SpecialN_800F5DE8 and near-matches for several functions, not full proof for all claims. If standards are expanded, frame this as a cautionary example: keep dont_inline tightly scoped and require narrow objdiff/checkdiff evidence.",
-        "source_path": null,
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "ftKb_SpecialN.c contains Kirby Final Cutter and inhale SpecialN decomp work from PR 2322",
+        "text": "PR 2322 changed src/melee/ft/chara/ftKirby/ftKb_SpecialN.c to implement ftKb_SpecialHi_Enter, ftKb_SpecialAirHi_Enter, ftKb_SpecialN_800F5DE8, and ftKb_SpecialN_800F5EA8, plus a dont_inline workaround for the item inhale helper.",
+        "source_path": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
         "scope": [
-          "avoid-pragmas-register-asm",
-          "matching-tactics-need-evidence",
-          "MWCC inlining"
+          "ftKirby",
+          "SpecialN",
+          "SpecialHi"
         ],
         "evidence_refs": [
-          "human_pr_text: dont_inline rationale",
-          "raw_diff: #pragma dont_inline blocks",
-          "text_corpus.jsonl: automated report percentages"
+          "changed_files metadata",
+          "pr_body summary",
+          "raw_diff"
         ],
-        "reason": "The existing standards already cover pragma caution; this PR may provide a concrete historical example but should not weaken the evidence requirement."
+        "reason": "Useful path-scoped history for future Kirby SpecialN/SpecialHi matching and pragma cleanup searches."
       },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "ftKirby SpecialN files contain Kirby inhale, Final Cutter, and copied-Pikachu Skull Bash logic",
-        "text": "PR #2322 changed src/melee/ft/chara/ftKirby/ftKb_SpecialN.c for Final Cutter startup and inhale swallow checks, and src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c for copied-Pikachu Skull Bash collision helpers.",
-        "source_path": "src/melee/ft/chara/ftKirby",
+        "title": "ftKb_SpecialNNs.c contains Kirby copied-Pikachu Skull Bash collision helpers from PR 2322",
+        "text": "PR 2322 changed src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c to implement ftKb_PrSpecialAirNStart_Coll, ftKb_PrSpecialN_Coll, and fn_80105978 for copied-Pikachu Skull Bash collision transitions and wall bounce handling.",
+        "source_path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
         "scope": [
-          "ftKb_SpecialN.c",
-          "ftKb_SpecialNNs.c",
-          "ftKirby"
+          "ftKirby",
+          "copied Pikachu",
+          "SpecialN collision"
         ],
         "evidence_refs": [
-          "changed_files.jsonl",
-          "human_pr_text: What these functions do",
+          "changed_files metadata",
+          "pr_body summary",
           "raw_diff"
         ],
-        "reason": "Could improve source-path search and subsystem routing, but should be curated as a path fact rather than inferred globally."
+        "reason": "Useful path-scoped history for future copied-move collision decomp and possible fn_80105978 naming review."
+      },
+      {
+        "target_source_id": "other",
+        "update_kind": "source_update",
+        "title": "Check whether ftKb_Init_803CB758 extern belongs in an owning header",
+        "text": "PR 2322 added `extern ftCollisionBox ftKb_Init_803CB758;` directly in ftKb_SpecialNNs.c for ft_800824A0. Curator may want to check whether current source later moved this declaration to an owning header.",
+        "source_path": "src/melee/ft/chara/ftKirby/ftKb_SpecialNNs.c",
+        "scope": [
+          "headers",
+          "ftKirby init data",
+          "truthful headers"
+        ],
+        "evidence_refs": [
+          "diff: extern ftCollisionBox ftKb_Init_803CB758 added",
+          "diff: ft_800824A0(gobj, &ftKb_Init_803CB758)"
+        ],
+        "reason": "Potential header/source hygiene follow-up; not enough PR evidence to decide ownership."
       }
     ],
     "rejection_notes": [
-      "Do not record 'all functions matched 100%' as accepted verification; the loaded automated report contradicts the PR body for several functions.",
-      "Do not promote dont_inline as normal decomp style from this PR; global standards require narrow evidence for pragmas and matching tactics.",
-      "Do not infer reviewer approval rationale, because no review comments or reviews are loaded.",
-      "Do not semantically rename fn_80105978 from this evidence alone; the PR retained the address-style name."
+      "Do not promote the PR body's 'fuzzy_match_percent: 100.0 for all functions' as an accepted validation result; the loaded bot report contradicts this for several functions.",
+      "Do not infer that reviewers accepted dont_inline as a general style. The slice has no human review comments and global standards treat pragmas as narrow exceptions.",
+      "Do not rename fn_80105978 from this evidence alone; the PR kept the address-style name and no reviewer naming discussion is loaded."
     ]
   },
   "confidence": 0.82,
@@ -399,6 +367,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

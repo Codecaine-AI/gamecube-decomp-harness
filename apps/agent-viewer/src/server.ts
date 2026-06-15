@@ -6,6 +6,7 @@ import {
   knowledgeCuratorPrompt,
   prContextPromptXml,
   prReviewPrompt,
+  qaRepairPrompt,
   targetPacketTarget,
   workerPacket,
   workerPrompt,
@@ -55,7 +56,7 @@ const defaultStateDir = resolve(packageRoot, ".decomp-orchestrator-state");
 const builtStaticRoot = resolve(packageRoot, "apps/agent-viewer/dist");
 const sampleRepoRoot = resolve(packageRoot, "testdata/smoke_repo");
 const port = Number(Bun.env.AGENT_VIEWER_PORT ?? Bun.env.PROMPT_VIEWER_PORT ?? Bun.env.ORCH_PROMPT_VIEWER_PORT ?? 8797);
-const promptPreviewAgents: PromptPreviewAgentId[] = ["director", "worker", "pr-review", "knowledge-curator"];
+const promptPreviewAgents: PromptPreviewAgentId[] = ["director", "worker", "pr-review", "knowledge-curator", "qa-repair"];
 
 function asObject(value: unknown): JsonObject {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonObject) : {};
@@ -264,6 +265,9 @@ interface PromptPreviewPlaceholders {
   prContextJson?: string;
   prContextXml?: string;
   prOutputSchemaJson?: string;
+  qaRepairItemJson?: string;
+  qaRepairOutputSchemaJson?: string;
+  qaRepairQueueSummaryJson?: string;
   targetGraphFileCardXml?: string;
   targetXml?: string;
 }
@@ -287,6 +291,9 @@ function hydratePromptPreviewPlaceholders(bundle: PiPromptBundle, placeholders: 
       .replace(/\{\{\s*PR_CONTEXT_JSON\s*\}\}/g, () => placeholders.prContextJson ?? "")
       .replace(/\{\{\s*PR_CONTEXT_XML\s*\}\}/g, () => placeholders.prContextXml ?? "")
       .replace(/\{\{\s*PR_OUTPUT_SCHEMA_JSON\s*\}\}/g, () => placeholders.prOutputSchemaJson ?? "")
+      .replace(/\{\{\s*QA_REPAIR_ITEM_JSON\s*\}\}/g, () => placeholders.qaRepairItemJson ?? "")
+      .replace(/\{\{\s*QA_REPAIR_OUTPUT_SCHEMA_JSON\s*\}\}/g, () => placeholders.qaRepairOutputSchemaJson ?? "")
+      .replace(/\{\{\s*QA_REPAIR_QUEUE_SUMMARY_JSON\s*\}\}/g, () => placeholders.qaRepairQueueSummaryJson ?? "")
       .replace(/\{\{\s*TARGET_GRAPH_FILE_CARD_XML\s*\}\}/g, () => placeholders.targetGraphFileCardXml ?? "")
       .replace(/\{\{\s*TARGET_XML\s*\}\}/g, () => placeholders.targetXml ?? "");
   return {
@@ -965,6 +972,109 @@ function knowledgeCuratorPromptPreview(
   };
 }
 
+function qaRepairPromptPreview(
+  paths: PromptProjectContext,
+  requestedSource: PromptPreviewSource,
+  warnings: string[],
+): PromptPreviewRendered {
+  if (requestedSource === "latest") warnings.push("The agent viewer does not keep a single current QA repair item context; rendered a deterministic sample QA repair item.");
+  const project = projectMetadataForPrompt(paths);
+  const toolContext: AgentToolRuntimeContext = {
+    role: "qa-repair",
+    cwd: paths.repoRoot,
+    repoRoot: paths.repoRoot,
+    stateDir: paths.stateDir,
+    project,
+  };
+  const item = {
+    schema_version: "qa_repair_queue_item_v1",
+    id: "src-melee-gr-grsmoke",
+    status: "queued",
+    source_path: "src/melee/gr/grsmoke.c",
+    lane: "match",
+    base_ref: paths.project?.baseRef ?? "origin/master",
+    head_sha: "agent-viewer-sample-head",
+    proofs: [
+      {
+        checkpointItemId: "agent-viewer-checkpoint-item",
+        disposition: "pr_candidate",
+        lane: "match",
+        sourcePath: "src/melee/gr/grsmoke.c",
+        symbol: "grSmoke",
+        exactMatch: true,
+        summaryPath: "state/runs/sample/checkpoints/checkpoint.json",
+      },
+    ],
+    findings: [
+      {
+        rule_id: "m2c_residue_names",
+        severity: "error",
+        file: "src/melee/gr/grsmoke.c",
+        line: 23,
+        excerpt: "s32 temp_r30 = var_r4 + phi_f1;",
+        message: "Generated m2c local names remain in source.",
+        standard_id: "global_standard:conservative-naming",
+      },
+      {
+        rule_id: "inline_asm",
+        severity: "error",
+        file: "src/melee/gr/grsmoke.c",
+        line: 32,
+        excerpt: "asm volatile (\"nop\");",
+        message: "Added inline assembly in normal source.",
+        standard_id: "global_standard:avoid-pragmas-register-asm",
+      },
+    ],
+    warnings: [
+      {
+        rule_id: "novel_pragma",
+        severity: "warning",
+        file: "src/melee/gr/grsmoke.c",
+        line: 42,
+        excerpt: "#pragma inline_depth(4)",
+        message: "Added novel pragma directive.",
+        standard_id: "global_standard:avoid-pragmas-register-asm",
+      },
+    ],
+    rule_counts: {
+      m2c_residue_names: 1,
+      inline_asm: 1,
+      novel_pragma: 1,
+    },
+    created_at: new Date().toISOString(),
+    validation: {
+      qa_scan: "review_lint scan_diff --gate for src/melee/gr/grsmoke.c",
+      target_check: "runner-owned score/build validation when available",
+      ship_set_check: "final PR ship-set verification before inclusion",
+    },
+    attempts: [],
+  };
+  const queueSummary = {
+    run_id: "agent-viewer-sample-run",
+    files_with_errors: 1,
+    queued_items: 1,
+    recommendation: "repair_required",
+  };
+  const outputSchema = readJsonObject(resolve(packageRoot, "packages/agents/src/qa-repair/schema.json"));
+  return {
+    bundle: qaRepairPrompt({ item: item as any, queueSummary, repoRoot: paths.repoRoot, stateDir: paths.stateDir, project }),
+    context: {
+      qaRepairItem: item,
+      queueSummary,
+      output_schema: outputSchema,
+      attached_tools: agentToolProfileSummary("qa-repair"),
+      available_tools_xml: availableToolsPromptXml(toolContext),
+    },
+    contextSource: "sample",
+    placeholders: {
+      availableToolsXml: availableToolsPromptXml(toolContext),
+      qaRepairItemJson: stableJson(item),
+      qaRepairOutputSchemaJson: stableJson(outputSchema),
+      qaRepairQueueSummaryJson: stableJson(queueSummary),
+    },
+  };
+}
+
 function renderPromptPreview(paths: PromptProjectContext, agent: PromptPreviewAgentId, requestedSource: PromptPreviewSource): JsonObject {
   const warnings: string[] = [];
   const rendered =
@@ -974,7 +1084,9 @@ function renderPromptPreview(paths: PromptProjectContext, agent: PromptPreviewAg
         ? workerPromptPreview(paths, requestedSource, warnings)
         : agent === "pr-review"
           ? prReviewPromptPreview(paths, requestedSource, warnings)
-          : knowledgeCuratorPromptPreview(paths, requestedSource, warnings);
+          : agent === "knowledge-curator"
+            ? knowledgeCuratorPromptPreview(paths, requestedSource, warnings)
+            : qaRepairPromptPreview(paths, requestedSource, warnings);
   const { context, contextSource } = rendered;
   const bundle = hydratePromptPreviewPlaceholders(rendered.bundle, rendered.placeholders);
   return {

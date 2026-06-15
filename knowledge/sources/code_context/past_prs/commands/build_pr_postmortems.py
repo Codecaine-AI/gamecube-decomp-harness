@@ -937,7 +937,7 @@ def read_agent_template(agent_root: Path, relative_path: str, fallback: str) -> 
 def render_agent_template(template: str, values: dict[str, str]) -> str:
     rendered = template
     for key, value in values.items():
-        rendered = re.sub(r"\{\{\s*" + re.escape(key) + r"\s*\}\}", value, rendered)
+        rendered = re.sub(r"\{\{\s*" + re.escape(key) + r"\s*\}\}", lambda _match, replacement=value: replacement, rendered)
     return rendered
 
 

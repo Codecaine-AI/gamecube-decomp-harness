@@ -12,167 +12,192 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR 2573 made a focused data-matching update in src/melee/gr/grinishie1.c. The diff fills grI1_803E4950 stage-data callback slots, adjusts report/assert strings, comments out a separate grinishie1.c string symbol in favor of an inline literal at one OSReport call, and changes one assert label from new_gobj to map_gobj. The only feedback evidence is an automated report showing .data improvement for main/melee/gr/grinishie1 from 55.52% to 89.65% and a tiny grInishie1_801FB3F0 score change.",
+  "summary": "PR 2573 made a focused data-matching pass in the Inishie1 stage translation unit, changing only src/melee/gr/grinishie1.c. The diff populated grI1_803E4950 stage-data callback entries that had been NULL, adjusted report/assert string literals, stopped using a separate grI1_803E49A8 file-name string in an OSReport call, and changed one assert message from new_gobj to map_gobj. The bot report recorded .data improvement for main/melee/gr/grinishie1 from 55.52% to 89.65% and a tiny grInishie1_801FB3F0 score improvement.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "data-matching",
-      "stage-data-cleanup",
-      "assert-report-string-adjustment"
+      "stage-data-initializer",
+      "string-literal-adjustment",
+      "assert-report-text"
     ],
     "systems": [
       "stage",
-      "grinishie1"
+      "grinishie1",
+      "main/melee/gr"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grinishie1.c",
-      "role": "Only changed source file; contains grInishie1 stage data, report/assert strings, and related stage functions adjusted for matching.",
+      "role": "Only changed file; Inishie1 stage source containing grI1_803E4950 stage data, report/assert strings, and related callbacks.",
       "evidence_refs": [
-        "changed_files: src/melee/gr/grinishie1.c added 13 deleted 13 hunks 6",
-        "raw_diff: diff --git a/src/melee/gr/grinishie1.c",
-        "bot_report: main/melee/gr/grinishie1 .data 55.52% -> 89.65%"
+        "changed_files.jsonl: src/melee/gr/grinishie1.c added 13 deleted 13 hunks 6",
+        "raw_diff: diff --git a/src/melee/gr/grinishie1.c b/src/melee/gr/grinishie1.c",
+        "text_corpus: bot report main/melee/gr/grinishie1 .data +139 55.52% -> 89.65%"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Updated invalid_state(line) to report with format \"%s:%d: oioi..\\n\" and string argument \"i!=HATENA_APPEAR_CHECKLOOP\" instead of reporting filename \"grinishie1.c\" with \"%s:%d: oioi...\".",
+      "text": "The invalid_state macro OSReport arguments changed from file-name literal grinishie1.c plus line to the string i!=HATENA_APPEAR_CHECKLOOP plus line, and the report format gained the newline shown in the diff.",
       "evidence_refs": [
-        "raw_diff hunk near #define invalid_state(line)"
+        "raw_diff: #define invalid_state(line)"
       ]
     },
     {
-      "text": "Filled previously NULL grI1_803E4950 stage-data entries with grI1_803E48F4 and grInishie1 callback/function pointers grInishie1_801FA90C, grInishie1_801FA908, grInishie1_801FA984, grInishie1_801FA988, grInishie1_801FA9AC, grInishie1_801FCBB0, and grInishie1_801FCBB8.",
+      "text": "grI1_803E4950 stage data had several NULL initializer slots replaced with concrete symbols: grI1_803E48F4, grInishie1_801FA90C, grInishie1_801FA908, grInishie1_801FA984, grInishie1_801FA988, grInishie1_801FA9AC, grInishie1_801FCBB0, and grInishie1_801FCBB8.",
       "evidence_refs": [
-        "raw_diff hunk near grInishie1_StageData grI1_803E4950"
+        "raw_diff: grInishie1_StageData grI1_803E4950 initializer hunk"
       ]
     },
     {
-      "text": "Commented out char grI1_803E49A8[] = \"grinishie1.c\" and changed the related OSReport call to pass the inline literal \"grinishie1.c\" directly.",
+      "text": "The separate char array grI1_803E49A8[] = \"grinishie1.c\" was commented out, and grInishie1_801FA9B4 now passes the inline literal \"grinishie1.c\" to OSReport.",
       "evidence_refs": [
-        "raw_diff hunk near grI1_803E49A8",
-        "raw_diff hunk near grInishie1_801FA9B4"
+        "raw_diff: char grI1_803E49A8[] = \"grinishie1.c\" -> commented out",
+        "raw_diff: OSReport(..., \"grinishie1.c\", 0xE7, arg0)"
       ]
     },
     {
-      "text": "Adjusted an assert message in grInishie1_801FB3F0_inline from \"%s:%d: oioi...\" to \"%s:%d: oioi..\\n\".",
+      "text": "The assert in grInishie1_801FB3F0_inline changed its message from \"%s:%d: oioi...\" to the newline-containing form shown in the diff.",
       "evidence_refs": [
-        "raw_diff hunk near grInishie1_801FB3F0_inline"
+        "raw_diff: __assert(\"grinishie1.c\", 0x2D0U, ...)"
       ]
     },
     {
-      "text": "Changed an assert string in fn_801FBF6C after Ground_801C2BA4(3) failure from \"new_gobj\" to \"map_gobj\".",
+      "text": "The null-gobj assert in fn_801FBF6C changed its message string from \"new_gobj\" to \"map_gobj\".",
       "evidence_refs": [
-        "raw_diff hunk near fn_801FBF6C"
+        "raw_diff: __assert(\"grinishie1.c\", 0x425, \"map_gobj\")"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "The PR kept the change narrowly scoped to one stage translation unit and one matching objective, avoiding broad unrelated cleanup.",
+      "text": "Kept the PR tightly scoped to a single stage TU and a small number of data/string initializer edits.",
       "evidence_refs": [
-        "changed_files: one file changed",
-        "metadata: added 13 deleted 13",
-        "title: improve grinishie1 data matching"
+        "changed_files.jsonl: one changed file",
+        "metadata counts: added_lines 13 deleted_lines 13"
       ]
     },
     {
-      "text": "The OSReport filename was kept as an inline literal at the callsite instead of relying on a separate char data symbol, which aligns with the loaded no-string-literal-symbol-regression standard when a code/matching PR does not prove separate data ownership.",
+      "text": "Used inline file-name string literal in the OSReport call rather than retaining a separate address-named char array for the same text.",
       "evidence_refs": [
-        "raw_diff hunk commenting grI1_803E49A8",
-        "raw_diff hunk changing OSReport argument to \"grinishie1.c\"",
-        "decomp_standards:no-string-literal-symbol-regression"
+        "raw_diff: grI1_803E49A8[] commented out",
+        "raw_diff: OSReport(..., \"grinishie1.c\", 0xE7, arg0)"
+      ]
+    },
+    {
+      "text": "Populated existing stage-data initializer slots with already-named functions instead of introducing new wrapper symbols or broad source restructuring.",
+      "evidence_refs": [
+        "raw_diff: grI1_803E4950 initializer hunk"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For stage-data matching, check whether initializer NULL slots are actually known callback/function pointers before treating the data table as incomplete or opaque.",
+      "lesson": "For stage data matching, callback-table initializer slots can be important data-section evidence; replacing placeholder NULLs with existing callback symbols may substantially improve .data matching when the table ownership is known.",
       "scope": [
         "src/melee/gr/grinishie1.c",
         "stage data initializers"
       ],
       "evidence_refs": [
-        "raw_diff hunk near grI1_803E4950 replacing NULL entries with callback/function pointers",
-        "bot_report: .data improved from 55.52% to 89.65%"
+        "raw_diff: grI1_803E4950 NULL entries replaced with callback symbols",
+        "text_corpus: bot report .data +139 55.52% -> 89.65%"
+      ],
+      "confidence": 0.82
+    },
+    {
+      "lesson": "Do not assume a separate address-named storage symbol is needed for a file-name string used in reporting; this PR improved matching while changing an OSReport call to use the inline literal \"grinishie1.c\".",
+      "scope": [
+        "src/melee/gr/grinishie1.c",
+        "report string literals"
+      ],
+      "evidence_refs": [
+        "raw_diff: grI1_803E49A8[] commented out",
+        "raw_diff: OSReport(..., \"grinishie1.c\", 0xE7, arg0)",
+        "decomp_standards:no-string-literal-symbol-regression",
+        "decomp_standards:literals-and-data-ownership"
       ],
       "confidence": 0.78
     },
     {
-      "lesson": "Small string literal details in assert/report text, including newline placement and exact labels, can materially affect data matching.",
+      "lesson": "Small punctuation, newline, and exact assert/report text changes can be part of data matching; preserve exact strings shown by evidence rather than normalizing them for readability.",
       "scope": [
-        "src/melee/gr/grinishie1.c",
-        "assert/report strings"
+        "assert/report strings",
+        "grinishie1"
       ],
       "evidence_refs": [
-        "raw_diff hunk changing oioi... to oioi..\\n",
-        "raw_diff hunk changing new_gobj to map_gobj",
-        "bot_report: .data improved from 55.52% to 89.65%"
+        "raw_diff: invalid_state OSReport string changed",
+        "raw_diff: grInishie1_801FB3F0_inline assert string changed",
+        "raw_diff: fn_801FBF6C assert string changed",
+        "text_corpus: bot report .data improvement"
       ],
-      "confidence": 0.73
+      "confidence": 0.74
     }
   ],
   "naming_conventions": [
     {
-      "name": "map_gobj",
-      "context": "Assert string used when Ground_801C2BA4(3) returns NULL in fn_801FBF6C.",
+      "text": "This PR retained existing address-style and subsystem names such as grI1_803E4950, grI1_803E48F4, and grInishie1_801FA90C rather than inventing new semantic names during data matching.",
       "evidence_refs": [
-        "raw_diff hunk near fn_801FBF6C"
-      ],
-      "notes": "Evidence supports this exact string in this PR slice; it does not prove a global naming convention."
+        "raw_diff: grI1_803E4950 initializer hunk",
+        "decomp_standards:conservative-naming"
+      ]
     },
     {
-      "name": "i!=HATENA_APPEAR_CHECKLOOP",
-      "context": "String argument used in invalid_state(line) OSReport.",
+      "text": "The assert message changed from \"new_gobj\" to \"map_gobj\" in fn_801FBF6C, but the PR evidence does not explain the naming rationale beyond the changed literal.",
       "evidence_refs": [
-        "raw_diff hunk near invalid_state(line)"
-      ],
-      "notes": "Evidence supports this exact report string only for grinishie1.c."
+        "raw_diff: __assert(\"grinishie1.c\", 0x425, \"map_gobj\")"
+      ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Improve data-section matching by correcting table initializer entries and exact string literals rather than adding broad dummy storage.",
+      "text": "Data initializer matching: fill grI1_803E4950 callback slots with existing function/data symbols instead of leaving NULL placeholders.",
       "evidence_refs": [
-        "raw_diff hunk near grI1_803E4950",
-        "raw_diff hunk near assert/report string changes",
-        "bot_report: main/melee/gr/grinishie1 .data +139 bytes, 55.52% -> 89.65%"
-      ],
-      "notes": "The slice includes automated score output but no author explanation, objdiff details, or adjacent regression discussion."
+        "raw_diff: grI1_803E4950 initializer hunk",
+        "text_corpus: bot report .data 55.52% -> 89.65%"
+      ]
     },
     {
-      "tactic": "Use inline filename literal at OSReport callsite after removing/commenting a separate filename char symbol.",
+      "text": "String-literal placement tactic: remove practical use of an address-named file-name char array by inlining \"grinishie1.c\" at the OSReport callsite.",
       "evidence_refs": [
-        "raw_diff hunk commenting grI1_803E49A8",
-        "raw_diff hunk changing OSReport(..., \"grinishie1.c\", 0xE7, arg0)"
-      ],
-      "notes": "This is consistent with loaded string-literal standards, but the PR itself does not explain data ownership reasoning."
+        "raw_diff: grI1_803E49A8[] commented out",
+        "raw_diff: OSReport(..., \"grinishie1.c\", 0xE7, arg0)"
+      ]
+    },
+    {
+      "text": "Exact assert/report text matching: adjust message strings, including newline-containing strings, to improve data layout or string matching.",
+      "evidence_refs": [
+        "raw_diff: invalid_state hunk",
+        "raw_diff: grInishie1_801FB3F0_inline hunk",
+        "raw_diff: fn_801FBF6C hunk"
+      ]
     }
   ],
   "review_feedback": [
     {
-      "kind": "automated_report",
-      "author": "decomp-dev[bot]",
-      "text": "Report for GALE01 showed two improvements in unmatched items: main/melee/gr/grinishie1 .data +139 bytes from 55.52% to 89.65%, and grInishie1_801FB3F0 80.43% to 80.44% with 0 bytes.",
+      "kind": "bot_report",
+      "text": "decomp-dev[bot] reported 2 improvements in unmatched items for GALE01: main/melee/gr/grinishie1 .data improved by +139 bytes from 55.52% to 89.65%, and grInishie1_801FB3F0 improved from 80.43% to 80.44% with 0 bytes listed.",
       "evidence_refs": [
-        "text_corpus issue_comment by decomp-dev[bot] created_at 2026-06-03T00:48:41Z"
+        "text_corpus: issue_comment by decomp-dev[bot] at 2026-06-03T00:48:41Z"
       ]
     },
     {
-      "kind": "missing_human_review",
-      "author": null,
-      "text": "No review comments or reviews are present in the loaded slice.",
+      "kind": "human_review",
+      "text": "No human review comments were present in the loaded PR slice.",
       "evidence_refs": [
-        "metadata counts: review_comments 0 reviews 0"
+        "metadata_json: review_comments 0, reviews 0"
       ]
     }
   ],
   "searchable_terms": [
     "pr-2573",
+    "improve grinishie1 data matching",
+    "src/melee/gr/grinishie1.c",
     "grinishie1",
+    "Inishie1",
     "grI1_803E4950",
+    "grInishie1_StageData",
     "grI1_803E48F4",
     "grI1_803E4944",
     "grInishie1_801FA90C",
@@ -186,110 +211,116 @@
     "invalid_state",
     "HATENA_APPEAR_CHECKLOOP",
     "OSReport",
+    "report_fmt_get_gobj",
     "grInishie1_801FA9B4",
     "grInishie1_801FB3F0_inline",
     "fn_801FBF6C",
     "Ground_801C2BA4",
     "map_gobj",
     "new_gobj",
-    ".data matching",
-    "stage data"
+    ".data",
+    "GALE01"
   ],
   "follow_up_queries": [
-    "grinishie1 grI1_803E4950 stage data callback initializer NULL",
-    "grI1_803E49A8 inline grinishie1.c OSReport data matching",
-    "HATENA_APPEAR_CHECKLOOP invalid_state oioi",
+    "grI1_803E4950 stage data callback initializer NULL grInishie1",
+    "grinishie1.c grI1_803E49A8 inline string literal OSReport",
+    "HATENA_APPEAR_CHECKLOOP invalid_state oioi grinishie1",
     "fn_801FBF6C map_gobj new_gobj assert",
     "main/melee/gr/grinishie1 .data 89.65"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json for PR identity, state, author, merge time, counts",
-      "raw_diff complete, original_chars 2359",
-      "changed_files.jsonl one changed file",
-      "text_corpus bot report with matching-score changes"
+      "metadata_json: PR number, title, author, merge state, changed file counts",
+      "raw_diff: complete 2359-byte diff for one file",
+      "changed_files.jsonl: one changed file",
+      "text_corpus: empty PR body and one bot report",
+      "metadata_json: review_comments 0, reviews 0"
     ],
     "notes": [
-      "PR body is empty, so author intent is inferred only from title and diff.",
-      "No human review comments are present.",
-      "Automated report supports data-match improvement, but no build log, objdiff details, or adjacent regression checks are included in the slice.",
-      "The diff shows exact string and initializer changes, but it does not by itself prove broader naming or data-ownership standards."
+      "The diff is complete and the bot report gives concrete matching-score evidence, so file-level and score-change facts are strong.",
+      "The PR body is empty and there are no human review comments, so author intent, rationale for each string, and reviewer acceptance reasoning are not evidenced beyond the merge metadata and bot report.",
+      "The slice does not include local objdiff output beyond the decomp-dev bot summary; do not claim full match or absence of regressions.",
+      "The commented-out char array remains visible in the diff, so this intake describes practical removal from use rather than asserting final cleanup of all dead code."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
         "record_type": "decomp_lesson_candidate",
-        "title": "Stage-data tables may need real callback/function pointers instead of placeholder NULLs",
-        "text": "In grinishie1.c, replacing multiple NULL entries in grI1_803E4950 with known grInishie1 callback/function pointers coincided with a large automated .data improvement for main/melee/gr/grinishie1.",
+        "title": "Stage-data callback table entries can drive data matching",
+        "text": "In PR 2573, grI1_803E4950 in src/melee/gr/grinishie1.c improved .data matching after NULL callback slots were replaced with existing grInishie1/grI1 symbols. Curator should treat this as a localized lesson for stage data initializer recovery, not a blanket rule to fill NULLs without table evidence.",
         "scope": [
-          "stage data initializers",
+          "stage",
+          "src/melee/gr/grinishie1.c",
+          "data initializers"
+        ],
+        "evidence_refs": [
+          "raw_diff: grI1_803E4950 initializer hunk",
+          "text_corpus: bot report .data +139 55.52% -> 89.65%"
+        ],
+        "confidence": 0.82
+      },
+      {
+        "record_type": "decomp_lesson_candidate",
+        "title": "Inline ordinary report file-name literals unless data ownership evidence requires storage",
+        "text": "PR 2573 changed an OSReport call from passing grI1_803E49A8 to passing the inline literal \"grinishie1.c\" and the bot report showed data-match improvement. This supports the existing standards that ordinary report strings should not be promoted to address-named storage without ownership evidence.",
+        "scope": [
+          "report strings",
+          "data matching",
           "src/melee/gr/grinishie1.c"
         ],
         "evidence_refs": [
-          "raw_diff hunk near grI1_803E4950",
-          "bot_report: .data 55.52% -> 89.65%"
+          "raw_diff: grI1_803E49A8[] commented out",
+          "raw_diff: OSReport(..., \"grinishie1.c\", 0xE7, arg0)",
+          "text_corpus: bot report"
         ],
-        "confidence": 0.78
-      },
-      {
-        "record_type": "matching_tactic_candidate",
-        "title": "Exact assert/report strings can be data-matching work",
-        "text": "This PR adjusted exact report/assert strings in grinishie1.c, including newline spelling and the map_gobj label, as part of a data-matching PR with automated .data improvement.",
-        "scope": [
-          "assert/report strings",
-          "stage source files"
-        ],
-        "evidence_refs": [
-          "raw_diff hunks near invalid_state, grInishie1_801FB3F0_inline, and fn_801FBF6C",
-          "bot_report: main/melee/gr/grinishie1 .data +139"
-        ],
-        "confidence": 0.73
+        "confidence": 0.76
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "grinishie1.c contains stage-data and assert/report string data-matching points",
-        "text": "src/melee/gr/grinishie1.c includes grI1_803E4950 stage data, grInishie1 callback/function pointers, and assert/report strings that affected automated .data matching in PR 2573.",
+        "title": "grinishie1.c owns Inishie1 stage data initializer grI1_803E4950",
+        "text": "PR 2573 changed src/melee/gr/grinishie1.c to improve main/melee/gr/grinishie1 .data matching by editing grI1_803E4950, including stage-data callback entries and report format strings.",
         "source_path": "src/melee/gr/grinishie1.c",
         "scope": [
           "stage",
           "grinishie1",
+          "grI1_803E4950",
           "data matching"
         ],
         "evidence_refs": [
-          "raw_diff complete",
-          "changed_files.jsonl",
-          "bot_report: main/melee/gr/grinishie1 .data 55.52% -> 89.65%"
+          "raw_diff: grI1_803E4950 initializer hunk",
+          "text_corpus: bot report main/melee/gr/grinishie1 .data 55.52% -> 89.65%"
         ],
-        "reason": "Potential path-scoped lookup aid for future grinishie1 matching work; should be curator-reviewed before adding as a path fact."
+        "reason": "Useful localized path fact for future curator search; requires curator verification against current source before promotion."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Do not create filename string globals solely for report/assert data matching",
-        "text": "PR 2573 commented out a separate grI1_803E49A8 filename string and used the inline literal \"grinishie1.c\" at the OSReport callsite while improving .data. This may reinforce the existing no-string-literal-symbol-regression standard, but the slice lacks author explanation and should not be promoted without curator comparison against more PRs.",
+        "title": "Exact assert/report strings may be data-match significant",
+        "text": "Consider whether existing assert/report and literals standards should explicitly mention preserving exact punctuation and newline content in report/assert strings when evidence shows data-match impact.",
         "source_path": null,
         "scope": [
           "assert/report strings",
-          "string literals",
           "data matching"
         ],
         "evidence_refs": [
-          "raw_diff hunk commenting grI1_803E49A8",
-          "raw_diff hunk changing OSReport argument to inline \"grinishie1.c\"",
-          "decomp_standards:no-string-literal-symbol-regression"
+          "raw_diff: invalid_state string changed to newline-containing form",
+          "raw_diff: grInishie1_801FB3F0_inline assert string changed",
+          "raw_diff: fn_801FBF6C assert message changed",
+          "text_corpus: bot report .data improvement"
         ],
-        "reason": "Possible reinforcement/example for an existing standard rather than a new accepted rule."
+        "reason": "This PR supplies one example, but it is too narrow to promote automatically as a new global standard."
       }
     ],
     "rejection_notes": [
-      "Do not infer that every grinishie1 callback pointer listed in this PR has a proven semantic role beyond its symbol identity; the slice only shows table placement.",
-      "Do not generalize map_gobj or HATENA_APPEAR_CHECKLOOP into project-wide naming conventions from this one diff.",
-      "Do not claim full function or object match; the bot report only lists .data and a small grInishie1_801FB3F0 percentage improvement."
+      "Do not infer that all NULLs in stage-data initializers should be replaced; this PR only evidences specific grI1_803E4950 slots.",
+      "Do not claim grInishie1_801FB3F0 or the full TU matched; the bot report shows only a small score improvement and no full-match claim.",
+      "Do not infer reviewer rationale or human approval comments; none were loaded.",
+      "Do not promote the exact string changes as generally semantically correct beyond the evidence that they were part of this merged data-matching PR."
     ]
   },
   "confidence": 0.78,
@@ -299,6 +330,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

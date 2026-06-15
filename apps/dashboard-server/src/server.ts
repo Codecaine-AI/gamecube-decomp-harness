@@ -1618,10 +1618,27 @@ function latestPrSplitPlanSummary(stateDir: string, runId: string): JsonObject |
   };
 }
 
+function latestQaRepairSummary(stateDir: string, runId: string): JsonObject | null {
+  const artifactDir = latestChildDirectory(resolve(stateDir, "qa_repairs", runId));
+  if (!artifactDir) return null;
+  const summaryPath = resolve(artifactDir, "summary.json");
+  const summary = readJsonObject(summaryPath);
+  if (!summary.schema_version) return null;
+  return {
+    ...summary,
+    artifactDir,
+    summaryPath,
+    queuePath: stringValue(summary.queue_path, resolve(artifactDir, "queue.json")),
+    reportPath: stringValue(summary.report_path, resolve(artifactDir, "report.md")),
+    shipStatusPath: stringValue(summary.ship_status_path, resolve(artifactDir, "ship_status.json")),
+  };
+}
+
 function handoffForRun(stateDir: string, runId: string, checkpoint: JsonObject | null): JsonObject {
   return {
     checkpoint,
     qa: latestRegressionCheckSummary(stateDir, runId),
+    qaRepair: latestQaRepairSummary(stateDir, runId),
     splitPlan: latestPrSplitPlanSummary(stateDir, runId),
     baseline: readJsonObject(resolve(stateDir, "pr_handoff", "baseline_status.json")),
     ship: readJsonObject(resolve(stateDir, "pr_handoff", "ship_status.json")),
@@ -2124,10 +2141,10 @@ async function runDashboard(paths: DashboardProjectContext): Promise<JsonObject>
   const improvements = improvementRowsFromReports(allReports);
   const improvedFiles = fileImprovementRows(improvements);
   const queueTargets = runId ? queueTargetsForRun(stateDir, runId) : [];
-  const trustedReport = runScopedTrustedReport(repoRoot, (await loadTrustedReport(repoRoot)) as unknown as JsonObject, runCreatedAt);
+  const trustedReport = runScopedTrustedReport(repoRoot, (await loadTrustedReport(repoRoot, 0)) as unknown as JsonObject, runCreatedAt);
   const productionChanges = await refreshProductionChanges(repoRoot, stateDir);
   const productionReport = productionChanges
-    ? ((await loadTrustedReportFile(productionChanges, "build/GALE01/report_changes_production.json")) as unknown as JsonObject)
+    ? ((await loadTrustedReportFile(productionChanges, "build/GALE01/report_changes_production.json", 0)) as unknown as JsonObject)
     : null;
   const checkpoint = runId ? checkpointForRun(stateDir, runId) : null;
   const handoff = runId ? handoffForRun(stateDir, runId, checkpoint) : { checkpoint: null, qa: null, splitPlan: null };
@@ -2213,17 +2230,36 @@ function dashboardScheduling(maxWorkersValue: unknown): { candidateLimit: number
   };
 }
 
+function noRefillBatchRun(stateDir: string, runId: string): boolean {
+  if (!runId) return false;
+  const store = openState(stateDir);
+  try {
+    return getRun(store, runId)?.goalKind === "never_run_sweep";
+  } finally {
+    store.db.close();
+  }
+}
+
 function commandFromBody(body: JsonObject): { command: string[]; name: string; repoRoot: string; stateDir: string; graphDbPath: string; project: ResolvedProject | null; runId: string } {
   const paths = resolveDashboardProject(body, { useDefaultProject: true });
   const { graphDbPath, project, repoRoot, stateDir } = paths;
-  const runId = stringValue(body.runId);
+  const runId = stringValue(body.runId) || latestRunId(stateDir);
   const name = processName(project?.processName ?? stringValue(body.processName, "melee-live"));
   const provider = stringValue(body.provider, "codex-lb");
   const model = stringValue(body.model, "gpt-5.5");
   const thinkingLevel = stringValue(body.thinkingLevel, "medium");
   const workerThinkingLevel = stringValue(body.workerThinkingLevel, "medium");
-  const { candidateLimit, candidateWindow, maxWorkers, queueLowWatermark, queueTargetSize } = dashboardScheduling(body.maxWorkers);
+  const noRefillBatch = noRefillBatchRun(stateDir, runId);
+  const normalScheduling = dashboardScheduling(body.maxWorkers);
+  const maxWorkers = normalScheduling.maxWorkers;
+  const candidateLimit = noRefillBatch ? 0 : normalScheduling.candidateLimit;
+  const candidateWindow = noRefillBatch ? 0 : normalScheduling.candidateWindow;
+  const queueLowWatermark = noRefillBatch ? 0 : normalScheduling.queueLowWatermark;
+  const queueTargetSize = noRefillBatch ? 0 : normalScheduling.queueTargetSize;
+  const schedulableLowWatermark = noRefillBatch ? 0 : maxWorkers;
+  const queueRefreshIntervalMs = noRefillBatch ? 0 : 60000;
   const idleSleepMs = intValue(body.idleSleepMs, 5000, 100);
+  const agentTimeoutSeconds = numberValue(body.agentTimeoutSeconds, noRefillBatch ? 5400 : 0);
   const command = [
     ...cliPrefix(paths),
     "--provider",
@@ -2234,7 +2270,7 @@ function commandFromBody(body: JsonObject): { command: string[]; name: string; r
     thinkingLevel,
   ];
   if (boolValue(body.dryRunAgents)) command.push("--dry-run-agents");
-  if (numberValue(body.agentTimeoutSeconds) > 0) command.push("--agent-timeout-seconds", String(intValue(body.agentTimeoutSeconds, 0, 0)));
+  if (agentTimeoutSeconds > 0) command.push("--agent-timeout-seconds", String(Math.trunc(agentTimeoutSeconds)));
   command.push(
     "babysit",
     "--max-workers",
@@ -2250,15 +2286,18 @@ function commandFromBody(body: JsonObject): { command: string[]; name: string; r
     "--candidate-window",
     String(candidateWindow),
     "--queue-refresh-interval-ms",
-    "60000",
+    String(queueRefreshIntervalMs),
     "--queue-low-watermark",
     String(queueLowWatermark),
     "--schedulable-low-watermark",
-    String(maxWorkers),
+    String(schedulableLowWatermark),
     "--graph-db",
     graphDbPath,
     "--force-recover-leases",
   );
+  if (noRefillBatch) {
+    command.push("--no-epoch-cycle", "--no-blocked-queue-replan", "--repair-attempts", "0", "--max-idle-iterations", "3");
+  }
   if (runId) command.push("--run-id", runId);
   return { command, name, repoRoot, stateDir, graphDbPath, project, runId };
 }
@@ -3065,6 +3104,58 @@ async function runReconcile(body: JsonObject): Promise<JsonObject> {
   });
 }
 
+async function runQaRepairForPr(body: JsonObject): Promise<JsonObject> {
+  const paths = resolveDashboardProject(body, { useDefaultProject: true });
+  const { stateDir } = paths;
+  const runId = activeRunIdFromBody(body, stateDir);
+  assertHandoffIdle(stateDir, "QA repair");
+  let checkpointPath = "";
+  const checkpointStore = openState(stateDir);
+  try {
+    checkpointPath = stringValue(latestCheckpointSummary(checkpointStore, runId)?.summaryPath);
+  } finally {
+    checkpointStore.db.close();
+  }
+  const command = [
+    ...cliPrefix(paths),
+    ...(boolValue(body.dryRunAgents) ? ["--dry-run-agents"] : []),
+    "qa-repair",
+    "--run-id",
+    runId,
+    "--base-ref",
+    stringValue(body.prBaseRef, paths.project?.baseRef ?? "origin/master").trim() || "origin/master",
+  ];
+  if (checkpointPath && existsSync(checkpointPath)) command.push("--checkpoint", checkpointPath);
+  else command.push("--all-scan-files");
+  if (body.qaRepairRunAgents !== false) command.push("--run-agents");
+  const maxItems = intValue(body.qaRepairMaxItems, 0, 0);
+  if (maxItems > 0) command.push("--max-items", String(maxItems));
+  return withOperation("qa-repair", "QA Repair", ["QA repair lane"], async () => {
+    operationStep("QA repair lane", checkpointPath ? "candidate-file scan and repair queue" : "scan replay/candidate fallback");
+    appendLog("ui", `QA repair started: ${command.join(" ")}`);
+    const result = await runCli(command);
+    appendLog("ui", `QA repair exit=${result.exitCode}`);
+    const parsed = parseCliJsonOutput(result.stdout);
+    const latest = latestQaRepairSummary(stateDir, runId) ?? {};
+    const merged = { ...latest, ...parsed };
+    const counts = asObject(merged.counts);
+    operationStepDetail(
+      "QA repair lane",
+      `${numberValue(counts.files_with_errors)} file(s) with errors; ${numberValue(counts.queued_items)} repair item(s); ${stringValue(merged.recommendation, "unknown")}`,
+    );
+    return {
+      ...merged,
+      project: paths.project ? projectToSummary(paths.project) : null,
+      runId,
+      checkpointPath: checkpointPath || null,
+      uiCommand: command,
+      cliExitCode: result.exitCode,
+      stdout: outputTail(result.stdout, 4000),
+      stderr: outputTail(result.stderr, 4000),
+    };
+  });
+}
+
 async function runPrSplitPlan(body: JsonObject): Promise<JsonObject> {
   const paths = resolveDashboardProject(body, { useDefaultProject: true });
   const { stateDir } = paths;
@@ -3624,6 +3715,7 @@ async function preparePrHandoff(body: JsonObject): Promise<JsonObject> {
     "QA build & regression gate",
     "checkpoint",
     "requeue rework",
+    "QA repair lane",
     "plan PR slices",
     "verify ship set",
     "reconcile & re-verify",
@@ -3698,7 +3790,10 @@ async function preparePrHandoff(body: JsonObject): Promise<JsonObject> {
     // match set ships. The ship-set verification below is the real gate.
     const branchVerdict = stringValue(asObject(qa.prPromotion).status, stringValue(qa.status, "unknown"));
 
-    const splitPlan = await runPrSplitPlan({ ...body, stateDir, runId });
+    const qaRepair = await runQaRepairForPr({ ...body, stateDir, runId });
+    const qaRepairShipStatusPath = stringValue(qaRepair.shipStatusPath);
+
+    const splitPlan = await runPrSplitPlan({ ...body, stateDir, runId, prShipStatusPath: qaRepairShipStatusPath });
     if (stringValue(splitPlan?.status) !== "passed") throw new Error("PR split planning failed; see Logs for the pr-split-plan output.");
 
     const matchPathspecs = asArray(splitPlan.matchPathspecs).map((path) => stringValue(path)).filter(Boolean);
@@ -3793,6 +3888,7 @@ async function preparePrHandoff(body: JsonObject): Promise<JsonObject> {
       branchVerdict,
       checkpoint,
       qa,
+      qaRepair,
       splitPlan: finalSplitPlan,
       ship,
     };
@@ -4143,6 +4239,9 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   }
   if (url.pathname === "/api/pr/qa" && req.method === "POST") {
     return json(await runPrQa(asObject(await req.json().catch(() => ({})))));
+  }
+  if (url.pathname === "/api/pr/qa-repair" && req.method === "POST") {
+    return json(await runQaRepairForPr(asObject(await req.json().catch(() => ({})))));
   }
   if (url.pathname === "/api/prs/sync" && req.method === "POST") {
     return json(await syncPrRecords(asObject(await req.json().catch(() => ({})))));

@@ -12,198 +12,149 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Draft PR adding two Transmuter helper scripts and a deliberate source perturbation in ifTime_GetCountdownSeconds to demonstrate the tool. The bot report showed two broken matches in main/melee/if/iftime, and reviewer feedback requested resubmission in a more complete state with clearer usage documentation. The PR was closed unmerged.",
+  "summary": "PR #2419 proposed adding two Transmuter helper scripts and intentionally changed ifTime_GetCountdownSeconds as a demo target. The bot reported two broken matches in main/melee/if/iftime, and a maintainer asked for resubmission when the tooling was more complete and better explained. The PR was closed without merge evidence.",
   "change_classification": {
-    "primary_type": "tooling-demo",
+    "primary_type": "tooling",
     "categories": [
       "tooling",
       "decomp-matching",
-      "regression-demo",
-      "documentation-needed"
+      "demo",
+      "regression"
     ],
     "systems": [
       "tools",
-      "melee-if",
-      "build-wrapper"
+      "melee-if-time"
     ]
   },
   "key_files": [
     {
       "path": "tools/transmuter-prepare.sh",
-      "role": "new helper script to generate a ctx file for a source TU, copy it to .ctx.c, derive the target object path, locate the Transmuter CLI, and print a suggested transmuter match invocation",
+      "role": "New helper script to generate a preprocessed .ctx file with ninja, copy it to .ctx.c, locate the Transmuter CLI, and print a suggested transmuter match command.",
       "evidence_refs": [
         "changed_files: tools/transmuter-prepare.sh added 90 lines",
-        "raw_diff: tools/transmuter-prepare.sh new file",
-        "pr_body: tools/transmuter-prepare.sh src/melee/if/iftime.c ifTime_GetCountdownSeconds"
+        "raw_diff: new file tools/transmuter-prepare.sh",
+        "pr_body: prepare command example uses src/melee/if/iftime.c and ifTime_GetCountdownSeconds"
       ]
     },
     {
       "path": "tools/transmuter-compile.sh",
-      "role": "new compile wrapper intended to replicate the mwcc_sjis ninja rule for a single preprocessed ctx-style source file",
+      "role": "New compile wrapper intended to replicate the mwcc_sjis ninja rule for compiling a single preprocessed TU through sjiswrap and mwcceppc.",
       "evidence_refs": [
         "changed_files: tools/transmuter-compile.sh added 59 lines",
-        "raw_diff: tools/transmuter-compile.sh new file",
-        "raw_diff: comment says it replicates the mwcc_sjis ninja rule for a single preprocessed TU"
+        "raw_diff: new file tools/transmuter-compile.sh",
+        "raw_diff: script comments state it replicates mwcc_sjis for a ctx-style source file"
       ]
     },
     {
       "path": "src/melee/if/iftime.c",
-      "role": "demo target; declaration order in ifTime_GetCountdownSeconds changed intentionally to break the function for Transmuter demonstration",
+      "role": "Demo code target intentionally perturbed in ifTime_GetCountdownSeconds by swapping the local declaration order of seconds and centiseconds.",
       "evidence_refs": [
         "changed_files: src/melee/if/iftime.c added 1 deleted 1",
-        "raw_diff: centiseconds declaration moved after seconds declaration",
+        "raw_diff: ifTime_GetCountdownSeconds moves gm_8016AF0C call after gm_8016AEEC call",
         "pr_body: author says they purposely break ifTime_GetCountdownSeconds to demo Transmuter"
       ]
     }
   ],
   "what_changed": [
-    {
-      "text": "Added tools/transmuter-prepare.sh, which validates a source path under src/, builds the corresponding build/GALE01/*.ctx with ninja, copies it to .ctx.c, derives build/GALE01/obj/*.o, and prints a transmuter match command.",
-      "evidence_refs": [
-        "raw_diff: tools/transmuter-prepare.sh"
-      ]
-    },
-    {
-      "text": "Added tools/transmuter-compile.sh, a bash wrapper around sjiswrap.exe and mwcceppc.exe using MW_VERSION GC/1.2.5n and CFLAGS matching the Melee build context.",
-      "evidence_refs": [
-        "raw_diff: tools/transmuter-compile.sh"
-      ]
-    },
-    {
-      "text": "Changed ifTime_GetCountdownSeconds by moving the gm_8016AF0C centiseconds call after the gm_8016AEEC seconds call.",
-      "evidence_refs": [
-        "raw_diff: src/melee/if/iftime.c hunk"
-      ]
-    },
-    {
-      "text": "PR body documented a sample Transmuter command using --target, --function, --compiler, --cwd, --isolate, --no-reduce, --no-cleanup, concurrency, max iterations, timeout, and seed.",
-      "evidence_refs": [
-        "human_pr_text: PR body Transmuter invocation"
-      ]
-    },
-    {
-      "text": "Automated report showed matched code decreased by 0.01% / 260 bytes and listed broken matches for ifTime_UpdateCountdown and ifTime_GetCountdownSeconds.",
-      "evidence_refs": [
-        "text_corpus: decomp-dev[bot] report issuecomment-4393383070"
-      ]
-    }
+    "Added tools/transmuter-prepare.sh, which validates a source path and function name, maps src/... to build/GALE01 paths, requires the target object to exist, runs ninja for the .ctx file, copies it to .ctx.c, and prints a transmuter match invocation.",
+    "Added tools/transmuter-compile.sh, which validates input/output arguments, chooses wibo or wine as a PE loader, sets MWCC flags for GC/1.2.5n, and invokes sjiswrap.exe plus mwcceppc.exe on a single input C file.",
+    "Changed src/melee/if/iftime.c in ifTime_GetCountdownSeconds by reordering calls to gm_8016AEEC and gm_8016AF0C; the PR body states this was an intentional break for demonstration.",
+    "The automated report recorded matched-code regression of 66.29% (-0.01%, -260 bytes) and broken matches for ifTime_UpdateCountdown and ifTime_GetCountdownSeconds."
   ],
   "smart_moves": [
     {
-      "text": "The demo isolated Transmuter setup into tooling scripts rather than requiring the command to be reconstructed manually each time.",
+      "text": "The prepare script tried to make the Transmuter workflow reproducible by deriving ctx, ctx.c, and target object paths from the source path and printing the exact match command.",
       "evidence_refs": [
-        "raw_diff: tools/transmuter-prepare.sh prints Ready. To run the match",
-        "raw_diff: tools/transmuter-compile.sh usage <input.c> <output.o>"
+        "raw_diff: tools/transmuter-prepare.sh BASE/CTX/CTX_C/TARGET_O derivation",
+        "raw_diff: tools/transmuter-prepare.sh cat <<EOF command output"
       ]
     },
     {
-      "text": "The prepare script derived build paths from the source path and checked for missing source and target object files before printing the Transmuter command.",
+      "text": "The compile wrapper kept compiler invocation details in one script passed through Transmuter's --compiler hook instead of embedding the full mwcc command directly in the PR body.",
       "evidence_refs": [
-        "raw_diff: source must live under src/",
-        "raw_diff: target object not found; run ninja first"
-      ]
-    },
-    {
-      "text": "The compile wrapper selected wibo on Linux when available and otherwise fell back to wine, matching the stated intent to mirror configure.py behavior.",
-      "evidence_refs": [
-        "raw_diff: Pick PE loader comment and WRAPPER selection"
+        "pr_body: --compiler \"tools/transmuter-compile.sh {{inputPath}} {{outputPath}}\"",
+        "raw_diff: tools/transmuter-compile.sh CFLAGS and exec sjiswrap/mwcceppc"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "Do not treat a tool demonstration that intentionally breaks a matched function as decomp progress; preserve regression evidence and reviewer disposition separately from reusable matching tactics.",
-      "scope": [
-        "tooling demos",
-        "decomp matching PR intake"
-      ],
+      "lesson": "Tooling-demo PRs that intentionally break a matched function need especially clear scope and usage documentation before they are reviewable.",
       "evidence_refs": [
-        "pr_body: I purposely break the function ifTime_GetCountdownSeconds to demo Transmuter",
-        "text_corpus: bot report lists broken matches",
-        "issue_comment: reviewer asked to resubmit in a more complete state"
-      ],
-      "confidence": 0.86
-    },
-    {
-      "lesson": "When introducing a matching-search tool workflow, the PR should explain usage clearly enough for reviewers; unclear or incomplete tool documentation can block acceptance even if scripts are present.",
-      "scope": [
-        "tooling workflow documentation"
-      ],
-      "evidence_refs": [
-        "issue_comment: Please resubmit this when it's in a more complete state and with a clearer explanation of its usage"
+        "pr_body: author says ifTime_GetCountdownSeconds was purposely broken to demo Transmuter",
+        "text_corpus: decomp-dev bot reports broken matches",
+        "issue_comment ribbanya: resubmit when more complete with clearer usage explanation"
       ],
       "confidence": 0.82
+    },
+    {
+      "lesson": "A transmutation or permutation workflow should be separated from lasting source changes unless the PR also restores or proves the code match.",
+      "evidence_refs": [
+        "raw_diff: src/melee/if/iftime.c declaration/call order changed",
+        "text_corpus: bot report shows ifTime_GetCountdownSeconds after 79.00% and ifTime_UpdateCountdown after 85.67%",
+        "issue_comment ribbanya: asks for resubmission in a more complete state"
+      ],
+      "confidence": 0.75
     }
   ],
   "naming_conventions": [
     {
-      "name": "Transmuter helper script names",
-      "convention": "The PR used tools/transmuter-prepare.sh for ctx preparation and tools/transmuter-compile.sh for the compiler wrapper.",
+      "name": "ctx / ctx.c",
+      "convention": "The proposed tooling used .ctx for ninja-generated preprocessed TU output and copied it to .ctx.c so both MWCC and Transmuter accept the extension.",
       "evidence_refs": [
-        "changed_files: tools/transmuter-prepare.sh",
-        "changed_files: tools/transmuter-compile.sh"
-      ],
-      "confidence": 0.9
+        "raw_diff: tools/transmuter-prepare.sh comments and CTX/CTX_C variables"
+      ]
     },
     {
-      "name": "ctx-derived build artifacts",
-      "convention": "The prepare script used BASE=build/GALE01/${SRC%.c}, CTX=$BASE.ctx, CTX_C=$BASE.ctx.c, and TARGET_O=build/GALE01/obj/${SRC#src/} with .o extension.",
+      "name": "TRANSMUTER_BIN",
+      "convention": "The prepare script allowed a TRANSMUTER environment variable to override the Transmuter CLI path.",
       "evidence_refs": [
-        "raw_diff: tools/transmuter-prepare.sh path derivation"
-      ],
-      "confidence": 0.85
+        "raw_diff: TRANSMUTER_BIN=\"${TRANSMUTER:-$REPO/../transmuter/packages/cli/dist/index.js}\""
+      ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use a generated preprocessed single-TU ctx source as Transmuter input, then copy it to .ctx.c so mwcc and Transmuter accept the extension.",
+      "tactic": "Generate a single-TU preprocessed source with ninja, copy it from .ctx to .ctx.c, and use it as Transmuter's input.",
       "evidence_refs": [
-        "raw_diff: Generates the preprocessed .ctx for a source file via ninja and copies it to a .ctx.c",
-        "human_pr_text: Generate the preprocessed single-TU source"
-      ],
-      "confidence": 0.86
+        "pr_body: tools/transmuter-prepare.sh src/melee/if/iftime.c ifTime_GetCountdownSeconds",
+        "raw_diff: ninja \"$CTX\" then cp -f \"$CTX\" \"$CTX_C\""
+      ]
     },
     {
-      "tactic": "Invoke Transmuter with a wrapper compiler command that accepts {{inputPath}} and {{outputPath}}, plus --target, --function, --cwd, and --isolate.",
+      "tactic": "Invoke Transmuter with a target object, function name, cwd, and compiler wrapper that accepts {{inputPath}} and {{outputPath}}.",
       "evidence_refs": [
-        "human_pr_text: transmuter match command",
-        "raw_diff: printed transmuter match command"
-      ],
-      "confidence": 0.84
+        "pr_body: transmuter match command",
+        "raw_diff: printed command includes --target, --function, --compiler, --cwd"
+      ]
     },
     {
-      "tactic": "The prepare script claimed --isolate strips non-target, non-inline function bodies and #defines, with claimed faster compiles and fewer iterations in practice; this is PR-authored documentation, not independently verified by this slice.",
+      "tactic": "Use --isolate to strip non-target, non-inline function bodies before the search; the script claims this can reduce iterations in practice, but the PR does not provide verifier evidence beyond the script comment.",
       "evidence_refs": [
-        "raw_diff: Tips section in tools/transmuter-prepare.sh"
-      ],
-      "confidence": 0.58
+        "raw_diff: tools/transmuter-prepare.sh printed Tips section"
+      ]
     },
     {
-      "tactic": "The demo perturbation changed declaration/call order in ifTime_GetCountdownSeconds, producing broken-match evidence suitable as a tool test case but not as a source cleanup.",
+      "tactic": "For Linux, the compile wrapper tries build/tools/wibo, then PATH wibo, then wine, matching the script's stated intent to follow Melee configure.py behavior.",
       "evidence_refs": [
-        "raw_diff: centiseconds call moved after seconds call",
-        "pr_body: purposely break the function",
-        "text_corpus: bot report broken matches"
-      ],
-      "confidence": 0.88
+        "raw_diff: tools/transmuter-compile.sh Linux case selects WRAPPER"
+      ]
     }
   ],
   "review_feedback": [
     {
       "author": "decomp-dev[bot]",
-      "kind": "automated regression report",
-      "text": "Matched code decreased by 0.01% / 260 bytes; two broken matches were reported in main/melee/if/iftime: ifTime_UpdateCountdown and ifTime_GetCountdownSeconds.",
+      "feedback": "Automated report found a matched-code regression: 66.29% total matched code, -260 bytes, with broken matches in ifTime_UpdateCountdown and ifTime_GetCountdownSeconds.",
       "evidence_refs": [
-        "text_corpus: issuecomment-4393383070"
+        "text_corpus issue_comment https://github.com/doldecomp/melee/pull/2419#issuecomment-4393383070"
       ]
     },
     {
       "author": "ribbanya",
-      "kind": "maintainer feedback",
-      "text": "Please resubmit this when it's in a more complete state and with a clearer explanation of its usage.",
+      "feedback": "Requested resubmission when the work is in a more complete state and has a clearer explanation of usage.",
       "evidence_refs": [
-        "human_pr_text: ribbanya issue comment",
-        "text_corpus: issuecomment-4460648278"
+        "human_pr_text issue comment",
+        "text_corpus issue_comment https://github.com/doldecomp/melee/pull/2419#issuecomment-4460648278"
       ]
     }
   ],
@@ -219,114 +170,92 @@
     "mwcc_sjis",
     "sjiswrap.exe",
     "mwcceppc.exe",
-    "GC/1.2.5n",
     "ctx.c",
-    "build/GALE01/src/melee/if/iftime.ctx.c",
-    "build/GALE01/obj/melee/if/iftime.o",
+    "TRANSMUTER_BIN",
     "--isolate",
     "--no-reduce",
     "--no-cleanup",
     "wibo",
     "wine",
-    "broken matches",
-    "clearer explanation of usage"
+    "broken matches"
   ],
   "follow_up_queries": [
-    "transmuter usage documentation complete state clearer explanation",
-    "tools/transmuter-prepare.sh transmuter match --isolate",
-    "tools/transmuter-compile.sh mwcc_sjis wrapper",
-    "ifTime_GetCountdownSeconds declaration order gm_8016AF0C gm_8016AEEC",
-    "PRs mentioning Transmuter in doldecomp melee",
-    "review comments Transmuter resubmit complete state"
+    "transmuter-prepare.sh",
+    "transmuter-compile.sh",
+    "Transmuter usage Melee",
+    "ifTime_GetCountdownSeconds transmuter",
+    "ctx.c transmuter match --isolate",
+    "PR 2419 resubmit complete state clearer explanation",
+    "decomp-dev bot broken matches iftime"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
       "metadata_json: PR number/title/state/author/changed files",
-      "human_pr_text: PR body and reviewer comment",
-      "raw_diff: complete diff excerpt for all changed files",
+      "raw_diff: full diff for three changed files",
+      "human_pr_text: PR body and maintainer issue comment",
       "text_corpus: bot report and issue comments"
     ],
     "notes": [
-      "Changed files and reviewer feedback are well supported by loaded PR evidence.",
-      "The PR was closed with merged_at null; no acceptance or merge should be inferred.",
-      "The PR was marked draft in raw_pr_json, but the main metadata only reports CLOSED; draft status is supporting detail, not used as an acceptance claim.",
-      "No review comments or formal reviews were present in the slice.",
-      "The author explicitly stated the ifTime_GetCountdownSeconds change was a deliberate break for demo purposes, so it should not be promoted as a valid source change.",
-      "The prepare script's claimed 30-50% fewer iterations with --isolate is not independently validated in the PR evidence."
+      "Diff and changed-file metadata are complete for the slice.",
+      "No review comments or formal reviews are present.",
+      "PR was closed with merged_at null; do not treat the tooling or tactics as accepted project practice.",
+      "The author explicitly states the iftime.c change intentionally breaks the function, and the bot report confirms broken matches.",
+      "The script comment claims --isolate makes compiles faster and search converge in fewer iterations, but the slice provides no independent benchmark or validation evidence."
     ]
   },
   "curator_handoff": {
-    "accepted_candidate_records": [
-      {
-        "record_type": "tooling_pr_lesson",
-        "title": "Tool demos must separate intentional regressions from accepted decomp progress",
-        "text": "PR #2419 intentionally broke ifTime_GetCountdownSeconds to demo Transmuter; the bot reported broken matches and the PR was closed after feedback requesting a more complete state and clearer usage explanation. Curate as a tooling-demo caution, not as an accepted source or matching tactic.",
-        "scope": [
-          "tooling demos",
-          "PR review",
-          "decomp regression handling"
-        ],
-        "evidence_refs": [
-          "pr_body: purposely break ifTime_GetCountdownSeconds",
-          "text_corpus: bot report broken matches",
-          "issue_comment: ribbanya resubmit feedback"
-        ],
-        "confidence": 0.86
-      }
-    ],
+    "accepted_candidate_records": [],
     "source_update_candidates": [
       {
         "target_source_id": "other",
         "update_kind": "source_update",
-        "title": "Consider dedicated documentation for Transmuter usage before adding helper scripts",
-        "text": "If Transmuter support is revisited, document the complete workflow: generating a ctx file, copying to .ctx.c, selecting target object, invoking transmuter match with --compiler, --cwd, --function, --target, and explaining isolation/reduction flags. PR #2419 was rejected with feedback requesting a more complete state and clearer usage explanation.",
+        "title": "Document expectations for tool-assisted matching demo PRs",
+        "text": "PR #2419 suggests that a tooling-demo PR which intentionally changes matched code should include complete usage documentation and avoid leaving the demo target broken; a maintainer asked for resubmission in a more complete state with clearer explanation.",
         "source_path": null,
         "scope": [
-          "tools",
-          "developer documentation",
-          "Transmuter workflow"
+          "tooling PR review guidance",
+          "Transmuter/permutation workflow documentation"
         ],
         "evidence_refs": [
-          "human_pr_text: sample Transmuter command",
-          "raw_diff: tools/transmuter-prepare.sh prints invocation and tips",
-          "issue_comment: clearer explanation of usage requested"
+          "pr_body: author says they purposely break ifTime_GetCountdownSeconds to demo Transmuter",
+          "text_corpus: decomp-dev bot reports broken matches",
+          "issue_comment ribbanya: Please resubmit this when it's in a more complete state and with a clearer explanation of its usage."
         ],
-        "reason": "The PR evidence supports that usage clarity was a blocker, but it does not establish an accepted project documentation standard."
+        "reason": "Potential contributor-guidance update; not an accepted decomp standard because the PR was closed unmerged and reviewer feedback asked for resubmission."
       },
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Tool-assisted matching PRs should include regression evidence and avoid intentional source breaks except as isolated demos",
-        "text": "Potential standard: when adding or demonstrating a matching-search tool, clearly label any intentional source perturbation, include bot/objdiff/checkdiff evidence, and avoid presenting the perturbation as decomp progress. PR #2419 provides a negative example: an intentional break produced broken-match reports and the PR was closed unmerged.",
-        "source_path": null,
+        "target_source_id": "other",
+        "update_kind": "source_update",
+        "title": "Evaluate whether Transmuter helper scripts belong in project tooling",
+        "text": "The PR proposed helper scripts for preparing .ctx.c files and compiling Transmuter candidates through MWCC. If similar tooling is revisited, curator/reviewer should compare against current build tooling and require validation that it does not regress matched code.",
+        "source_path": "tools/",
         "scope": [
-          "tool-assisted matching",
-          "regression reporting",
-          "review documentation"
+          "tools/transmuter-prepare.sh",
+          "tools/transmuter-compile.sh",
+          "tool-assisted matching"
         ],
         "evidence_refs": [
-          "pr_body: purposely break function to demo Transmuter",
-          "text_corpus: matched code regression and broken matches",
-          "metadata_json: merged_at null"
+          "raw_diff: new tools/transmuter-prepare.sh",
+          "raw_diff: new tools/transmuter-compile.sh",
+          "text_corpus: bot report matched-code regression"
         ],
-        "reason": "This aligns with existing verification-ledger principles, but the slice is a single closed demo PR and should be reviewed before becoming a global standard."
+        "reason": "The scripts are concrete proposed tooling, but the PR did not merge and available feedback says it was incomplete."
       }
     ],
     "rejection_notes": [
-      "Do not promote tools/transmuter-prepare.sh or tools/transmuter-compile.sh as accepted repository tooling from this slice; the PR was closed unmerged and reviewer feedback requested resubmission.",
-      "Do not treat the ifTime_GetCountdownSeconds declaration-order change as a valid matching tactic or source cleanup; the author said it was a deliberate break.",
-      "Do not promote the script's 30-50% fewer iterations claim as a verified performance result; the slice contains only the script comment, not validation data.",
-      "Do not infer reviewer intent beyond the explicit request for a more complete state and clearer usage explanation."
+      "Do not promote Transmuter usage, --isolate, --no-reduce, or the compile wrapper as accepted project standards from this PR alone.",
+      "Do not treat the iftime.c declaration-order change as a successful matching tactic; the PR body says it intentionally broke the function and the bot reported regressions.",
+      "Do not infer reviewer rejection of Transmuter itself; the loaded comment only requests a more complete resubmission with clearer usage."
     ]
   },
-  "confidence": 0.84,
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

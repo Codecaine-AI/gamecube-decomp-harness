@@ -124,6 +124,7 @@ operational notes live in the docs.
 ## Docs
 
 - [Docs map](docs/README.md)
+- [Evidence refresh cadence](EVIDENCE_REFRESH_CADENCE.md)
 - [Foundation overview](docs/00-foundation/00-overview.md)
 - [System design overview](docs/10-system-design/00-overview.md)
 - [Run director loop](docs/10-system-design/10-run-director-loop.md)

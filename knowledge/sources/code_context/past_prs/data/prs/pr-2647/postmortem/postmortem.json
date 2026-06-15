@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2647 matched three functions across pltrick, mplib, and mncount with small source-shape changes: removing a volatile stack-alignment workaround in pl_80037C60, indexing groundCollVtx directly from j_inner->vtx_start in mpLib_80057424/mpJointListAdd, and adjusting mnCount_8025092C inline counter placement plus PAD_STACK size. The bot report records 3 new matches and +2552 matched bytes.",
+  "summary": "Small matching PR across player trick stats, map collision joint vertex setup, and menu count ranking. It removed a volatile stack-alignment workaround in pl_80037C60 by reinterpreting the incoming s32 argument as union Struct2070, adjusted mpLib_80057424/mpJointListAdd register allocation by indexing groundCollVtx directly from j_inner->vtx_start, and matched mnCount_8025092C by passing the inline loop counter as a parameter plus increasing PAD_STACK from 4 to 12. Bot report records three new 100% matches.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -25,156 +25,175 @@
     "systems": [
       "melee-core",
       "player",
-      "map",
+      "map-collision",
       "menus"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/pl/pltrick.c",
-      "role": "Matched pl_80037C60 by removing volatile prev2070_word and assigning prev_union through a union reinterpretation of prev2070_int.",
+      "role": "Matched pl_80037C60 by removing volatile stack hack and assigning prev_union through a union reinterpretation of prev2070_int.",
       "evidence_refs": [
-        "raw_diff:src/melee/pl/pltrick.c",
-        "human_pr_text:summary bullet pl_80037C60",
-        "text_corpus:bot report 3 new matches"
+        "raw_diff: src/melee/pl/pltrick.c hunk in pl_80037C60",
+        "human_pr_text: summary bullet for pl_80037C60",
+        "text_corpus: decomp-dev bot report, pl_80037C60 99.98% to 100.00%"
       ]
     },
     {
       "path": "src/melee/mp/mplib.c",
-      "role": "Matched mpJointListAdd via mpLib_80057424 by removing temporary s16 start and directly indexing groundCollVtx[j_inner->vtx_start].",
+      "role": "Matched mpJointListAdd/mpLib_80057424 by removing temp s16 start and using groundCollVtx[j_inner->vtx_start] directly.",
       "evidence_refs": [
-        "raw_diff:src/melee/mp/mplib.c",
-        "human_pr_text:summary bullet mpJointListAdd",
-        "text_corpus:bot report 3 new matches"
+        "raw_diff: src/melee/mp/mplib.c hunk in mpLib_80057424",
+        "human_pr_text: summary bullet for mpJointListAdd",
+        "text_corpus: decomp-dev bot report, mpJointListAdd 99.98% to 100.00%"
       ]
     },
     {
       "path": "src/melee/mn/mncount.c",
-      "role": "Matched mnCount_8025092C by making mnCount_8025092C_inline take the loop counter as a parameter, calling it with 0, and changing PAD_STACK(4) to PAD_STACK(12).",
+      "role": "Matched mnCount_8025092C by moving inline loop counter into the inline function parameter and changing PAD_STACK(4) to PAD_STACK(12).",
       "evidence_refs": [
-        "raw_diff:src/melee/mn/mncount.c",
-        "human_pr_text:summary bullet mnCount_8025092C",
-        "text_corpus:bot report 3 new matches"
+        "raw_diff: src/melee/mn/mncount.c hunks for mnCount_8025092C_inline and mnCount_8025092C",
+        "human_pr_text: summary bullet for mnCount_8025092C",
+        "text_corpus: decomp-dev bot report, mnCount_8025092C 99.94% to 100.00%"
       ]
     }
   ],
   "what_changed": [
     {
-      "path": "src/melee/pl/pltrick.c",
-      "change": "Removed todo comments about a volatile stack-alignment hack, removed volatile s32 prev2070_word, and replaced assignment through prev_union.x2070_int with prev_union = *(union Struct2070*) &prev2070_int.",
+      "text": "pl_80037C60 no longer declares volatile s32 prev2070_word or assigns through prev_union.x2070_int; it now uses prev_union = *(union Struct2070*) &prev2070_int.",
       "evidence_refs": [
-        "raw_diff:src/melee/pl/pltrick.c"
+        "raw_diff: src/melee/pl/pltrick.c",
+        "human_pr_text: pl_80037C60 bullet"
       ]
     },
     {
-      "path": "src/melee/mp/mplib.c",
-      "change": "Removed local s16 start = j_inner->vtx_start and initialized CollVtx* vtx directly from &groundCollVtx[j_inner->vtx_start].",
+      "text": "mpLib_80057424 no longer stores j_inner->vtx_start in a temporary s16 start before indexing groundCollVtx; the index expression is kept direct.",
       "evidence_refs": [
-        "raw_diff:src/melee/mp/mplib.c"
+        "raw_diff: src/melee/mp/mplib.c",
+        "human_pr_text: mpJointListAdd bullet"
       ]
     },
     {
-      "path": "src/melee/mn/mncount.c",
-      "change": "Changed static inline mnCount_8025092C_inline from void parameters with a local int i to int i parameter, called it as mnCount_8025092C_inline(0), and increased PAD_STACK from 4 to 12.",
+      "text": "mnCount_8025092C_inline now takes int i as a parameter instead of declaring it locally, and the caller passes 0.",
       "evidence_refs": [
-        "raw_diff:src/melee/mn/mncount.c"
+        "raw_diff: src/melee/mn/mncount.c"
+      ]
+    },
+    {
+      "text": "mnCount_8025092C changed PAD_STACK(4) to PAD_STACK(12).",
+      "evidence_refs": [
+        "raw_diff: src/melee/mn/mncount.c",
+        "human_pr_text: mnCount_8025092C bullet"
+      ]
+    },
+    {
+      "text": "The bot report recorded three new matches and an overall matched-code increase of +0.07%, +2552 bytes.",
+      "evidence_refs": [
+        "text_corpus: decomp-dev bot report for GALE01"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Removed a fake volatile stack-shaping workaround once the argument could be reinterpreted directly into the union form needed for matching pl_80037C60.",
+      "text": "Removed an acknowledged fake volatile stack workaround once a more direct union reinterpretation produced the desired stack layout.",
       "evidence_refs": [
-        "human_pr_text:summary bullet pl_80037C60",
-        "raw_diff:src/melee/pl/pltrick.c"
+        "raw_diff: removed @todo and volatile prev2070_word in pltrick.c",
+        "human_pr_text: pl_80037C60 bullet"
       ]
     },
     {
-      "text": "Avoided an extra temporary for j_inner->vtx_start when direct indexing produced the desired register allocation in mpLib_80057424/mpJointListAdd.",
+      "text": "Tested expression shape/register allocation by removing a small temporary and indexing through the original field access directly.",
       "evidence_refs": [
-        "human_pr_text:summary bullet mpJointListAdd",
-        "raw_diff:src/melee/mp/mplib.c"
+        "raw_diff: mplib.c start temporary removal",
+        "human_pr_text: mpJointListAdd bullet"
       ]
     },
     {
-      "text": "Adjusted inline helper parameterization and stack padding together for mnCount_8025092C instead of treating the loop counter and stack pad as unrelated issues.",
+      "text": "Adjusted inline function parameterization rather than only local declarations when matching stack and loop-counter placement.",
       "evidence_refs": [
-        "human_pr_text:summary bullet mnCount_8025092C",
-        "raw_diff:src/melee/mn/mncount.c"
+        "raw_diff: mncount.c inline signature and call change",
+        "human_pr_text: mnCount_8025092C bullet"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For stack-sensitive matches, a direct reinterpretation into the intended union may replace volatile local copies that were only steering stack layout.",
+      "lesson": "A volatile local used only as a stack/register steering hack should be revisited; a direct type reinterpretation of an existing argument may produce the intended stack layout with less fake source.",
       "scope": [
-        "src/melee/pl/pltrick.c",
         "pl_80037C60",
-        "union Struct2070"
+        "stack-layout matching",
+        "union reinterpretation"
       ],
       "evidence_refs": [
-        "human_pr_text:summary bullet pl_80037C60",
-        "raw_diff:src/melee/pl/pltrick.c"
+        "human_pr_text: pl_80037C60 bullet",
+        "raw_diff: src/melee/pl/pltrick.c"
       ],
       "confidence": 0.82
     },
     {
-      "lesson": "A temporary variable for a struct field can perturb register allocation; direct array indexing from the field may better match original codegen.",
+      "lesson": "For MWCC register allocation, introducing a temporary for a struct field can hurt matching; keeping the field expression directly in an array index may be the original shape.",
       "scope": [
-        "src/melee/mp/mplib.c",
         "mpLib_80057424",
         "mpJointListAdd",
-        "groundCollVtx",
-        "j_inner->vtx_start"
+        "register allocation"
       ],
       "evidence_refs": [
-        "human_pr_text:summary bullet mpJointListAdd",
-        "raw_diff:src/melee/mp/mplib.c"
+        "human_pr_text: mpJointListAdd bullet",
+        "raw_diff: src/melee/mp/mplib.c"
       ],
       "confidence": 0.8
     },
     {
-      "lesson": "Inline helper shape can affect matching: passing an initial loop counter as a helper parameter, instead of declaring it locally, changed mnCount_8025092C into the matching form in this PR.",
+      "lesson": "Inline helper shape can affect matching: moving a loop counter from a local declaration into a helper parameter and passing the initial value can alter stack/layout enough to match.",
       "scope": [
-        "src/melee/mn/mncount.c",
         "mnCount_8025092C",
-        "mnCount_8025092C_inline"
+        "inline helper shape",
+        "loop counter placement"
       ],
       "evidence_refs": [
-        "human_pr_text:summary bullet mnCount_8025092C",
-        "raw_diff:src/melee/mn/mncount.c"
+        "human_pr_text: mnCount_8025092C bullet",
+        "raw_diff: src/melee/mn/mncount.c"
       ],
       "confidence": 0.78
+    },
+    {
+      "lesson": "PAD_STACK size changes are narrow matching tactics and should be tied to explicit match evidence; here PAD_STACK(12) is associated with the reported mnCount_8025092C match.",
+      "scope": [
+        "mnCount_8025092C",
+        "PAD_STACK",
+        "stack padding"
+      ],
+      "evidence_refs": [
+        "raw_diff: PAD_STACK(4) to PAD_STACK(12)",
+        "text_corpus: decomp-dev bot report, mnCount_8025092C 100.00%"
+      ],
+      "confidence": 0.76
     }
   ],
   "naming_conventions": [
     {
-      "text": "No new naming convention is established. Existing names such as fp, acp, j_inner, vtx, prev_union, and Struct2070 were used or preserved; the PR evidence is about code shape, not renaming policy.",
+      "text": "No broad naming convention change is evidenced. Existing address-style names such as pl_80037C60, mnCount_8025092C, and field-style names like x2070_int were retained.",
       "evidence_refs": [
-        "raw_diff"
+        "raw_diff: all hunks"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Remove volatile local stack hack when a typed/union reinterpretation produces the needed stack layout.",
+      "tactic": "Remove volatile local stack-alignment hack and use direct union reinterpretation from the incoming s32 argument.",
       "symbols": [
         "pl_80037C60",
+        "Struct2070",
         "prev2070_int",
-        "prev_union",
-        "Struct2070"
+        "prev_union"
       ],
       "evidence_refs": [
-        "human_pr_text:summary bullet pl_80037C60",
-        "raw_diff:src/melee/pl/pltrick.c"
-      ],
-      "related_standard_ids": [
-        "matching-tactics-need-evidence",
-        "typed-fields-over-pointer-math"
+        "human_pr_text: pl_80037C60 bullet",
+        "raw_diff: src/melee/pl/pltrick.c"
       ]
     },
     {
-      "tactic": "Eliminate unnecessary temporary field loads when direct field-based indexing improves register allocation.",
+      "tactic": "Eliminate a temporary field copy to improve register allocation, using groundCollVtx[j_inner->vtx_start] directly.",
       "symbols": [
         "mpLib_80057424",
         "mpJointListAdd",
@@ -182,155 +201,152 @@
         "j_inner->vtx_start"
       ],
       "evidence_refs": [
-        "human_pr_text:summary bullet mpJointListAdd",
-        "raw_diff:src/melee/mp/mplib.c"
-      ],
-      "related_standard_ids": [
-        "infer-authored-source-style",
-        "matching-tactics-need-evidence"
+        "human_pr_text: mpJointListAdd bullet",
+        "raw_diff: src/melee/mp/mplib.c"
       ]
     },
     {
-      "tactic": "Use narrow PAD_STACK adjustment only with match evidence; this PR changed PAD_STACK(4) to PAD_STACK(12) for mnCount_8025092C.",
+      "tactic": "Pass the inline helper's loop counter initial value as a parameter instead of declaring the counter locally inside the inline.",
+      "symbols": [
+        "mnCount_8025092C",
+        "mnCount_8025092C_inline",
+        "NUM_CHARACTERS"
+      ],
+      "evidence_refs": [
+        "human_pr_text: mnCount_8025092C bullet",
+        "raw_diff: src/melee/mn/mncount.c"
+      ]
+    },
+    {
+      "tactic": "Adjust stack padding from PAD_STACK(4) to PAD_STACK(12) for mnCount_8025092C.",
       "symbols": [
         "mnCount_8025092C",
         "PAD_STACK"
       ],
       "evidence_refs": [
-        "human_pr_text:summary bullet mnCount_8025092C",
-        "raw_diff:src/melee/mn/mncount.c",
-        "text_corpus:bot report"
-      ],
-      "related_standard_ids": [
-        "matching-tactics-need-evidence",
-        "verification-and-regression-ledger"
+        "raw_diff: src/melee/mn/mncount.c",
+        "text_corpus: decomp-dev bot report"
       ]
     }
   ],
   "review_feedback": [
     {
-      "kind": "bot_report",
-      "text": "decomp-dev[bot] reported matched code 71.85% (+0.07%, +2552 bytes) and 3 new matches: pl_80037C60, mpJointListAdd, and mnCount_8025092C each reaching 100.00%.",
-      "author": "decomp-dev[bot]",
-      "created_at": "2026-06-10T16:44:24Z",
+      "type": "bot_report",
+      "text": "decomp-dev bot reported 3 new matches: pl_80037C60, mpJointListAdd, and mnCount_8025092C each reached 100.00%; matched code increased by +0.07%, +2552 bytes.",
       "evidence_refs": [
-        "text_corpus:issue_comment decomp-dev[bot]"
+        "text_corpus: issue_comment by decomp-dev[bot] at 2026-06-10T16:44:24Z"
+      ]
+    },
+    {
+      "type": "human_review",
+      "text": "No human review comments were included in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json: review_comments=0, reviews=0"
       ]
     }
   ],
   "searchable_terms": [
-    "pr-2647",
+    "PR2647",
     "MFS-code",
     "pl_80037C60",
     "pltrick.c",
     "prev2070_int",
-    "prev2070_word",
     "prev_union",
     "Struct2070",
-    "volatile stack-alignment hack",
-    "GET_FIGHTER",
-    "Player_GetActionStats",
+    "volatile stack alignment hack",
     "mpJointListAdd",
     "mpLib_80057424",
     "mplib.c",
     "groundCollVtx",
-    "groundCollJoint",
-    "CollJoint",
-    "MapJoint",
     "j_inner->vtx_start",
+    "vtx_start",
     "register allocation",
     "mnCount_8025092C",
     "mnCount_8025092C_inline",
     "mncount.c",
-    "NUM_CHARACTERS",
-    "mnCount_GetMatchTime",
     "PAD_STACK(12)",
-    "PAD_STACK(4)"
+    "PAD_STACK(4)",
+    "inline loop counter"
   ],
   "follow_up_queries": [
-    "pl_80037C60 volatile prev2070_word prev_union Struct2070 stack layout",
-    "mpJointListAdd mpLib_80057424 j_inner->vtx_start register allocation",
-    "mnCount_8025092C_inline int i parameter PAD_STACK(12)",
-    "PR 2647 PAD_STACK mncount",
-    "groundCollVtx direct indexing vtx_start"
+    "pl_80037C60 volatile prev2070_word stack misaligned Struct2070",
+    "prev_union = *(union Struct2070*) &prev2070_int",
+    "mpLib_80057424 groundCollVtx j_inner->vtx_start register allocation",
+    "mpJointListAdd s16 start vtx_start",
+    "mnCount_8025092C_inline int i parameter PAD_STACK",
+    "PAD_STACK(12) mnCount_8025092C"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json",
-      "human_pr_text",
-      "raw_diff",
-      "changed_files",
-      "text_corpus:bot report"
+      "metadata_json: PR identity, state, changed files, counts",
+      "human_pr_text: author summary explaining the matching changes",
+      "raw_diff: exact changed lines in three files",
+      "text_corpus: decomp-dev bot match report"
     ],
     "notes": [
-      "PR body explicitly describes the intended match tactics for all three changed functions.",
-      "Diff excerpt is complete for the small changes in all three files.",
-      "Bot report supports that the three named functions became new matches and provides matched-code delta.",
-      "There were no human review comments in the loaded slice; reviewer intent or detailed acceptance rationale is not inferred.",
-      "The PR body says mpJointListAdd is matched in mpLib_80057424 whose loop is shared/inlined; no additional lookup was performed to resolve that symbol relationship beyond the supplied evidence."
+      "Evidence is strong for what changed and for the bot-reported match outcomes.",
+      "There are no human review comments, so reviewer intent or review discussion cannot be inferred.",
+      "The PR body states why the tactics helped, but no raw objdiff logs beyond the bot report are included in the slice.",
+      "The title mentions mpJointListAdd while the diff hunk is in mpLib_80057424; the PR body says the loop is shared/inlined, but broader callgraph details are not independently proven by this slice."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "matching_lesson",
-        "title": "Direct union reinterpretation can replace volatile stack-shaping locals",
-        "text": "In PR #2647, pl_80037C60 matched after removing a volatile s32 copy of prev2070_int and assigning prev_union via *(union Struct2070*) &prev2070_int. Treat volatile stack hacks as suspect and prefer a type/union expression when PR and diff evidence show it fixes the stack layout.",
+        "record_type": "matching_tactic",
+        "title": "Replace volatile stack steering with direct union reinterpretation when evidence supports it",
+        "text": "In pl_80037C60, removing a volatile s32 workaround and assigning prev_union via *(union Struct2070*) &prev2070_int was associated with a 100% match in the bot report.",
         "scope": [
-          "pl_80037C60",
           "src/melee/pl/pltrick.c",
-          "stack layout",
-          "union Struct2070"
+          "pl_80037C60",
+          "stack-layout matching"
         ],
         "evidence_refs": [
-          "human_pr_text:summary bullet pl_80037C60",
-          "raw_diff:src/melee/pl/pltrick.c",
-          "text_corpus:bot report"
-        ],
-        "confidence": 0.82
+          "raw_diff: src/melee/pl/pltrick.c",
+          "human_pr_text: pl_80037C60 bullet",
+          "text_corpus: bot report"
+        ]
       },
       {
-        "type": "matching_lesson",
-        "title": "Removing a temporary field copy can affect register allocation",
-        "text": "In PR #2647, mpJointListAdd/mpLib_80057424 matched after removing s16 start = j_inner->vtx_start and indexing groundCollVtx[j_inner->vtx_start] directly. For register-allocation-sensitive loops, compare direct field indexing against temporary field copies.",
+        "record_type": "matching_tactic",
+        "title": "Direct field-index expression can fix register allocation",
+        "text": "In mpLib_80057424/mpJointListAdd, removing a temp s16 start and using groundCollVtx[j_inner->vtx_start] directly was described as fixing register allocation and was associated with a 100% match.",
         "scope": [
-          "mpJointListAdd",
-          "mpLib_80057424",
           "src/melee/mp/mplib.c",
+          "mpLib_80057424",
+          "mpJointListAdd",
           "register allocation"
         ],
         "evidence_refs": [
-          "human_pr_text:summary bullet mpJointListAdd",
-          "raw_diff:src/melee/mp/mplib.c",
-          "text_corpus:bot report"
-        ],
-        "confidence": 0.8
+          "raw_diff: src/melee/mp/mplib.c",
+          "human_pr_text: mpJointListAdd bullet",
+          "text_corpus: bot report"
+        ]
       },
       {
-        "type": "matching_lesson",
-        "title": "Inline helper parameter placement can be part of the match",
-        "text": "In PR #2647, mnCount_8025092C matched after changing mnCount_8025092C_inline to accept int i and calling mnCount_8025092C_inline(0), rather than declaring the counter locally inside the inline helper.",
+        "record_type": "matching_tactic",
+        "title": "Inline loop counter placement can affect stack layout",
+        "text": "In mnCount_8025092C, making the inline helper take int i and calling mnCount_8025092C_inline(0), together with PAD_STACK(12), was associated with the function reaching 100%.",
         "scope": [
-          "mnCount_8025092C",
-          "mnCount_8025092C_inline",
           "src/melee/mn/mncount.c",
-          "inline helper shape"
+          "mnCount_8025092C",
+          "inline helper shape",
+          "stack padding"
         ],
         "evidence_refs": [
-          "human_pr_text:summary bullet mnCount_8025092C",
-          "raw_diff:src/melee/mn/mncount.c",
-          "text_corpus:bot report"
-        ],
-        "confidence": 0.78
+          "raw_diff: src/melee/mn/mncount.c",
+          "human_pr_text: mnCount_8025092C bullet",
+          "text_corpus: bot report"
+        ]
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Volatile locals used only for stack/register steering should be revisited when typed reinterpretation is available",
-        "text": "PR #2647 provides a concrete case where a long-standing volatile s32 stack-alignment workaround was removed after direct union reinterpretation of a parameter produced the matching stack layout. This may be a useful example under matching-tactics-need-evidence or typed-fields-over-pointer-math, but should be curated as an example rather than a blanket rule.",
+        "title": "Document volatile-local removal as a cleanup target when a typed reinterpretation matches",
+        "text": "This PR is another example that volatile locals used only for stack/register steering should be treated as temporary tactics. If a type-aware expression such as a union reinterpretation of an existing argument matches, prefer it over retaining the fake volatile.",
         "source_path": null,
         "scope": [
           "matching-tactics-need-evidence",
@@ -338,44 +354,44 @@
           "pl_80037C60"
         ],
         "evidence_refs": [
-          "human_pr_text:summary bullet pl_80037C60",
-          "raw_diff:src/melee/pl/pltrick.c"
+          "human_pr_text: pl_80037C60 bullet",
+          "raw_diff: src/melee/pl/pltrick.c"
         ],
-        "reason": "Existing standards discourage broad steering hacks and prefer typed access; this PR is a concise evidence-backed example."
+        "reason": "Consistent with current standards, but curator may want this concrete pattern indexed as a searchable example rather than a new rule."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Direct field indexing versus temporary field copies can be a register-allocation tactic",
-        "text": "PR #2647 matched mpJointListAdd/mpLib_80057424 by removing a temp s16 start and indexing groundCollVtx[j_inner->vtx_start] directly. Consider adding this as a narrow example of source-shape/register-allocation sensitivity, not as a general preference to remove temporaries.",
+        "title": "Index expression shape and local temporaries can affect MWCC register allocation",
+        "text": "The mpLib_80057424 change suggests that removing a small temporary field copy and indexing through the original field expression can be a valid matching tactic when supported by objdiff/bot evidence.",
         "source_path": null,
         "scope": [
           "matching-tactics-need-evidence",
-          "infer-authored-source-style",
           "mpLib_80057424",
           "mpJointListAdd"
         ],
         "evidence_refs": [
-          "human_pr_text:summary bullet mpJointListAdd",
-          "raw_diff:src/melee/mp/mplib.c"
+          "human_pr_text: mpJointListAdd bullet",
+          "raw_diff: src/melee/mp/mplib.c",
+          "text_corpus: bot report"
         ],
-        "reason": "The PR body explicitly links the source change to register allocation and the bot report supports the match."
+        "reason": "Potential reusable tactic, but it should remain evidence-gated and not become a blanket instruction to remove temporaries."
       }
     ],
     "rejection_notes": [
-      "Do not generalize PAD_STACK(12) beyond mnCount_8025092C; the evidence only supports this exact function and stack pad change.",
-      "Do not infer a global rule that direct union pointer casts are always preferred; this PR only shows one matching case for Struct2070 in pl_80037C60.",
-      "Do not infer human reviewer preferences; the loaded slice contains no review comments.",
-      "Do not promote mpJointListAdd/mpLib_80057424 symbol relationship beyond the PR body's statement that the loop is shared/inlined without additional source evidence."
+      "Do not generalize that union pointer casts are always preferred; this slice only supports the specific pl_80037C60 Struct2070 case.",
+      "Do not record PAD_STACK(12) as a general fix for mncount or menu code; the evidence is local to mnCount_8025092C.",
+      "Do not infer reviewer approval rationale; no human review comments are present.",
+      "Do not promote mpJointListAdd/mpLib_80057424 relationship beyond the PR body's statement that the loop is shared/inlined without additional source/callgraph evidence."
     ]
   },
-  "confidence": 0.86,
+  "confidence": 0.9,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

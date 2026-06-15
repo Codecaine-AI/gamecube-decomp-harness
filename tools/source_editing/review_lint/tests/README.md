@@ -1,4 +1,6 @@
 # Review Lint Tests
 
-Tests should cover type-erasing casts, M2C_FIELD residue, and multiple
-Item*/Fighter* pointer variable detection on small snippets.
+Tests cover the whole-file advisory scanner and the diff-aware hard gate. New
+maintainer-rejected patterns should get both a small `_qa_rules.py` unit test
+and, when practical, a `scan_diff.py --gate` fixture so CI exercises the same
+path used by worker and PR handoff validation.

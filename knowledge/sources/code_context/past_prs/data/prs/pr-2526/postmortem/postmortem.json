@@ -12,231 +12,216 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Large fighter CPU-attack decompilation PR for src/melee/ft/ftcpuattack.c. It replaced placeholders for ftCo_800B4AB0, ftCo_800B52AC, ftCo_800B5AB0, and ftCo_800B77E8 with C, added typed local structs for attack-entry and x50-like data, adjusted ftCo_800B5AB0 call/prototype arity, changed Fighter_x1A88_t.x50 from int to u32, and made smaller matching-oriented edits in ftCo_800B8A9C and ftCo_800BB220. The only textual feedback is the decomp bot report showing partial score improvements, not full matches.",
+  "summary": "Large fighter CPU attack decomp/matching PR for src/melee/ft/ftcpuattack.c. It replaced placeholder declarations for ftCo_800B4AB0, ftCo_800B52AC, ftCo_800B5AB0, and ftCo_800B77E8 with C implementations, refined ftCo_AttackEntry fields and temporary target-physics structs, updated ftCo_800B5AB0's header signature, changed Fighter_x1A88_t.x50 from int to u32, and made smaller matching-oriented edits in ftCo_800B8A9C and ftCo_800BB220. The only loaded feedback is an automated progress report showing seven unmatched-item improvements; there are no loaded human review comments.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "type-recovery",
-      "control-flow-cleanup"
+      "types"
     ],
     "systems": [
       "fighter",
-      "cpu-attack",
+      "CPU attack selection",
       "ftcpuattack"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ft/ftcpuattack.c",
-      "role": "Primary decompilation work: added math_ppc include, typed ftCo_AttackEntry fields, added local ftCo_x50_attr and ftCo_x50_t structs, implemented several ftCo CPU attack functions, and made smaller matching-oriented edits in existing functions.",
+      "role": "Main decomp/matching file; adds implementations for CPU attack-selection functions and supporting local structs, includes math_ppc.h, and adjusts nearby matching-sensitive functions.",
       "evidence_refs": [
-        "metadata_json.changed_files[0]",
-        "raw_diff:ftcpuattack.c hunk +26..+641",
-        "raw_diff:ftCo_800B77E8 hunk +1277..",
-        "raw_diff:ftCo_800B8A9C and ftCo_800BB220 hunks"
+        "changed_files.jsonl: src/melee/ft/ftcpuattack.c +1108/-25, 10 hunks",
+        "diff.diff: added #include <math_ppc.h>",
+        "diff.diff: replaces /// #ftCo_800B4AB0, /// #ftCo_800B52AC, /// #ftCo_800B5AB0, /// #ftCo_800B77E8 with C bodies",
+        "diff.diff: ftCo_800B8A9C call to ftCo_800B5AB0 gains cpu->x50 argument",
+        "diff.diff: ftCo_800BB220 switch/local-temp cleanup hunks"
       ]
     },
     {
       "path": "src/melee/ft/ftcpuattack.h",
-      "role": "Header signature update for ftCo_800B5AB0 from two parameters to three parameters.",
+      "role": "Prototype surface updated for recovered ftCo_800B5AB0 signature.",
       "evidence_refs": [
-        "metadata_json.changed_files[1]",
-        "raw_diff:ftcpuattack.h hunk -/* 0B5AB0 */ int ftCo_800B5AB0(Fighter*, void*); +/* 0B5AB0 */ int ftCo_800B5AB0(Fighter*, void*, void*);"
+        "changed_files.jsonl: src/melee/ft/ftcpuattack.h +1/-1",
+        "diff.diff: ftCo_800B5AB0 changed from int ftCo_800B5AB0(Fighter*, void*) to int ftCo_800B5AB0(Fighter*, void*, void*)"
       ]
     },
     {
       "path": "src/melee/ft/types.h",
-      "role": "Type surface update: Fighter_x1A88_t.x50 changed from int to u32.",
+      "role": "Fighter CPU state type correction for x50.",
       "evidence_refs": [
-        "metadata_json.changed_files[2]",
-        "raw_diff:types.h hunk -/* +50 */ int x50; +/* +50 */ u32 x50;"
+        "changed_files.jsonl: src/melee/ft/types.h +1/-1",
+        "diff.diff: Fighter_x1A88_t.x50 changed from int to u32"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Implemented previously undecompiled ftCo_800B4AB0, ftCo_800B52AC, and ftCo_800B5AB0 with attack-list filtering, predicted position/range checks, random weighted selection, and assert fallback paths.",
+      "text": "Implemented ftCo_800B4AB0, ftCo_800B52AC, and ftCo_800B5AB0 as attack-list filtering/selection routines that iterate ftCo_AttackEntry arrays, reject commands already in cpu->xCC_array, check CPU level and timing gates, predict relative positions using cur_pos/pos_delta/gravity/terminal velocity, and select a weighted command using HSD_Randf.",
       "evidence_refs": [
-        "raw_diff:removed /// #ftCo_800B4AB0, /// #ftCo_800B52AC, /// #ftCo_800B5AB0",
-        "raw_diff:added int ftCo_800B4AB0(...)",
-        "raw_diff:added int ftCo_800B52AC(...)",
-        "raw_diff:added int ftCo_800B5AB0(...)"
+        "diff.diff: ftCo_800B4AB0, ftCo_800B52AC, ftCo_800B5AB0 bodies",
+        "text_corpus.jsonl: bot report shows ftCo_800B4AB0 0.00% -> 91.73%, ftCo_800B52AC 0.00% -> 91.12%, ftCo_800B5AB0 0.00% -> 93.60%"
       ]
     },
     {
-      "text": "Expanded ftCo_AttackEntry from mostly padding into address-style fields x04, x08, x0C, x10, x14, x1C, and x20 while retaining the known cmd and weight fields.",
+      "text": "Expanded ftCo_AttackEntry from mostly padding to explicit fields cmd, x04, x08, x0C, x10, x14, weight, x1C, and x20; added temporary ftCo_x50_attr and ftCo_x50_t structs to express accesses in ftCo_800B5AB0.",
       "evidence_refs": [
-        "raw_diff:ftCo_AttackEntry field hunk"
+        "diff.diff: ftCo_AttackEntry field additions",
+        "diff.diff: typedef struct ftCo_x50_attr",
+        "diff.diff: typedef struct ftCo_x50_t"
       ]
     },
     {
-      "text": "Added local temporary structs ftCo_x50_attr and ftCo_x50_t to express accesses in ftCo_800B5AB0 instead of leaving the second argument completely opaque.",
+      "text": "Implemented ftCo_800B77E8 as a fighter-kind switch that appends selected command IDs into cpu->xCC_array based on target visibility/collision checks, facing direction, ground/air state, and some character-specific conditions.",
       "evidence_refs": [
-        "raw_diff:typedef struct ftCo_x50_attr",
-        "raw_diff:typedef struct ftCo_x50_t",
-        "raw_diff:ftCo_800B5AB0 uses ftCo_x50_t* x50 and ftCo_x50_attr* attrs"
+        "diff.diff: replaces /// #ftCo_800B77E8 with void ftCo_800B77E8(Fighter* fp)",
+        "diff.diff: switch(fp->kind) cases for Mario, Fox/Falco, Captain/Ganon, Pikachu/Pichu, Koopa/GKoops, Yoshi, Luigi, Peach, Kirby",
+        "text_corpus.jsonl: bot report shows ftCo_800B77E8 0.00% -> 88.33%"
       ]
     },
     {
-      "text": "Implemented ftCo_800B77E8 as a fighter-kind switch that adds command IDs to cpu->xCC_array based on line-of-sight/platform checks, ground/air state, and character-specific constants.",
+      "text": "Adjusted ftCo_800B8A9C so the ftCo_800B5AB0 call passes cpu->x50 as the new second argument before the attack-table argument.",
       "evidence_refs": [
-        "raw_diff:removed /// #ftCo_800B77E8",
-        "raw_diff:added void ftCo_800B77E8(Fighter* fp)",
-        "raw_diff:switch (fp->kind)"
+        "diff.diff: ftCo_800B8A9C hunk changes result = ftCo_800B5AB0(fp, (void*) cpu->x50, ((void**) Fighter_804D64FC->x14)[fp->kind])"
       ]
     },
     {
-      "text": "Updated ftCo_800B8A9C to pass cpu->x50 as the new second argument to ftCo_800B5AB0, shifting the previous table argument to third position.",
+      "text": "Made smaller matching-oriented edits in ftCo_800BB220: initialized temp_r31 at declaration, rewrote item-kind tests as a switch, and introduced dx/dy/dz temporaries before assigning projected hit positions.",
       "evidence_refs": [
-        "raw_diff:ftCo_800B8A9C hunk changing ftCo_800B5AB0 call"
+        "diff.diff: ftCo_800BB220 temp_r31 initialization hunk",
+        "diff.diff: ftCo_800BB220 switch(ip->kind) hunk",
+        "diff.diff: ftCo_800BB220 dx/dy/dz temporary hunks"
       ]
     },
     {
-      "text": "Made localized edits in ftCo_800BB220: initialized temp_r31 at declaration, changed an item-kind if/else into a switch, and introduced dx/dy/dz locals for repeated hit vector expressions.",
+      "text": "Updated public declarations/types to match recovered use: ftCo_800B5AB0 has three parameters in ftcpuattack.h and Fighter_x1A88_t.x50 is u32 in types.h.",
       "evidence_refs": [
-        "raw_diff:ftCo_800BB220 hunks around temp_r31, switch (ip->kind), and dx/dy/dz locals"
-      ]
-    },
-    {
-      "text": "Bot report recorded partial improvements for main/melee/ft/ftcpuattack, including ftCo_800B77E8 to 88.33%, ftCo_800B4AB0 to 91.73%, ftCo_800B52AC to 91.12%, ftCo_800B5AB0 to 93.60%, ftCo_800BB220 to 93.90%, .sdata2 to 91.88%, and ftCo_800B8A9C to 87.29%. These are score improvements, not evidence of full matching.",
-      "evidence_refs": [
-        "text_corpus:decomp-dev[bot] issue_comment 2026-05-23T18:58:09Z"
+        "diff.diff: ftcpuattack.h signature hunk",
+        "diff.diff: types.h x50 hunk"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "When a recovered function needed a real extra argument, the PR updated both the call site and the owning header prototype instead of hiding the mismatch with a local declaration.",
+      "text": "The PR propagated the recovered ftCo_800B5AB0 signature to the owning header and updated the callsite instead of hiding the extra argument behind a local declaration.",
       "evidence_refs": [
-        "raw_diff:ftCo_800B8A9C call to ftCo_800B5AB0 now has three args",
-        "raw_diff:ftcpuattack.h prototype now int ftCo_800B5AB0(Fighter*, void*, void*)"
+        "diff.diff: ftcpuattack.h signature changed to int ftCo_800B5AB0(Fighter*, void*, void*)",
+        "diff.diff: ftCo_800B8A9C passes cpu->x50 to ftCo_800B5AB0"
       ]
     },
     {
-      "text": "The PR used small temporary structs for unknown x50 data, allowing field-style accesses at known offsets while preserving uncertainty with address-style field names.",
+      "text": "The main selection routines use typed Fighter fields such as co_attrs, cur_pos, pos_delta, facing_dir, ground_or_air, x34_scale, and x1A88 members rather than raw pointer arithmetic for known Fighter state.",
       "evidence_refs": [
-        "raw_diff:ftCo_x50_attr",
-        "raw_diff:ftCo_x50_t",
-        "raw_diff:x50->xCC, x50->xC24, attrs->x14 accesses"
+        "diff.diff: ftCo_800B4AB0/52AC/5AB0 access fp->co_attrs, target->co_attrs, fp->cur_pos, target->cur_pos, fp->pos_delta, target->pos_delta, fp->x1A88"
       ]
     },
     {
-      "text": "For ftCo_800BB220, introducing dx/dy/dz locals narrowed repeated arithmetic without changing the surrounding collision-check structure.",
+      "text": "For ftCo_800BB220, introducing dx/dy/dz temporaries narrows repeated vector-delta expressions and may have been a matching tactic while also improving readability.",
       "evidence_refs": [
-        "raw_diff:ftCo_800BB220 dx/dy/dz hunks"
+        "diff.diff: ftCo_800BB220 repeated hunks replace inline (hit->x4C - hit->x58) expressions with f32 dx/dy/dz"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "If a function body proves an extra parameter is real, update the owning header and affected call sites together.",
+      "lesson": "When a recovered body proves a function takes an additional context pointer, update the owning header and all visible callsites together; this PR changed ftCo_800B5AB0 from two to three parameters and passed cpu->x50 at the callsite.",
       "scope": [
-        "headers",
-        "function signatures",
-        "ftcpuattack"
+        "src/melee/ft/ftcpuattack.c",
+        "src/melee/ft/ftcpuattack.h"
       ],
       "evidence_refs": [
-        "raw_diff:ftCo_800B8A9C call changed to ftCo_800B5AB0(fp, (void*) cpu->x50, ((void**) Fighter_804D64FC->x14)[fp->kind])",
-        "raw_diff:ftcpuattack.h prototype changed to ftCo_800B5AB0(Fighter*, void*, void*)"
-      ],
-      "confidence": 0.86
+        "diff.diff: ftcpuattack.h ftCo_800B5AB0 signature hunk",
+        "diff.diff: ftCo_800B8A9C ftCo_800B5AB0 call hunk"
+      ]
     },
     {
-      "lesson": "Temporary local structs with address-style field names are useful bridge code when an opaque argument has enough recovered offsets to express accesses as typed fields, but not enough evidence for semantic names.",
+      "lesson": "For large matching functions over table data, first recover the table stride into a small local struct with offset-labeled fields; ftCo_AttackEntry was changed from padding around cmd/weight to explicit fields used throughout the new selection functions.",
       "scope": [
-        "type recovery",
-        "opaque arguments",
-        "fighter CPU data"
+        "src/melee/ft/ftcpuattack.c"
       ],
       "evidence_refs": [
-        "raw_diff:added ftCo_x50_attr and ftCo_x50_t",
-        "raw_diff:ftCo_800B5AB0 uses x50->x40/x44/x4C/x50/xC0/xCC/xC1C/xC20/xC24/xC28 and attrs->x10/x14"
-      ],
-      "confidence": 0.78
+        "diff.diff: ftCo_AttackEntry field expansion",
+        "diff.diff: list->x04, list->x08, list->x0C, list->x10, list->x14, list->x1C, list->x20 accesses in ftCo_800B4AB0/52AC/5AB0"
+      ]
     },
     {
-      "lesson": "Partial score-report improvements should be recorded as progress, not as proof of matched functions.",
+      "lesson": "Small temporary structs can be useful bridge types when a pointee layout is partly understood but not globally named; ftCo_x50_t and ftCo_x50_attr express the x50 target/object fields used by ftCo_800B5AB0 without raw casts at every access.",
       "scope": [
-        "verification",
-        "score reports"
+        "src/melee/ft/ftcpuattack.c"
       ],
       "evidence_refs": [
-        "text_corpus:decomp-dev[bot] report lists percentages below 100% for touched functions"
-      ],
-      "confidence": 0.9
+        "diff.diff: typedef struct ftCo_x50_attr",
+        "diff.diff: typedef struct ftCo_x50_t",
+        "diff.diff: ftCo_800B5AB0 uses x50->x40/x44/x4C/x50/xC0/xCC/xC1C/xC20/xC24/xC28 and attrs->x10/x14"
+      ]
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Unproven globals/functions retained address-style names such as ftCo_800B4AB0, ftCo_800B52AC, ftCo_800B5AB0, and ftCo_800B77E8.",
+      "text": "Unproven data/layout fields remain offset-style names such as x04, x08, x0C, x10, x14, x1C, x20, x50, xC0, and xCC, while clearer local roles use names like fp, target, cpu, list, sel, count, found, nearzero, relx, fpPredY, relPredY, rangeF, and rangeB.",
       "evidence_refs": [
-        "raw_diff:function definitions retain address-style ftCo_ names"
+        "diff.diff: ftCo_AttackEntry and ftCo_x50_t definitions",
+        "diff.diff: ftCo_800B4AB0/52AC/5AB0 local declarations"
       ]
     },
     {
-      "convention": "Recovered but semantically unclear struct fields kept offset-style names such as x04, x08, xC1C, xC20, xC24, and xC28.",
+      "text": "Some decompiler-style temporaries remain in the large ftCo_800B77E8 implementation, such as temp_r30 and var_r0; the loaded evidence does not show whether these were reviewed or intended as final names.",
       "evidence_refs": [
-        "raw_diff:ftCo_AttackEntry fields",
-        "raw_diff:ftCo_x50_t fields"
-      ]
-    },
-    {
-      "convention": "Clear local roles received short names such as fp, target, cpu, list, sel, count, and attrs; less-clear locals such as temp_r30 and var_r0 were not fully semanticized.",
-      "evidence_refs": [
-        "raw_diff:ftCo_800B4AB0 local declarations",
-        "raw_diff:ftCo_800B5AB0 local declarations",
-        "raw_diff:ftCo_800B77E8 local declarations"
+        "diff.diff: ftCo_800B77E8 declares Fighter* temp_r30 and int var_r0"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Added <math_ppc.h> while using sqrtf in newly implemented prediction code.",
+      "text": "Added math_ppc.h alongside math.h, likely to support matching math code that calls sqrtf and/or PPC math forms in the new prediction logic.",
       "evidence_refs": [
-        "raw_diff:+#include <math_ppc.h>",
-        "raw_diff:ftCo_800B4AB0/52AC/5AB0 sqrtf calls"
-      ],
-      "caveat": "PR evidence does not state why this include was required."
+        "diff.diff: +#include <math_ppc.h>",
+        "diff.diff: ftCo_800B4AB0/52AC/5AB0 use sqrtf"
+      ]
     },
     {
-      "tactic": "Used explicit f64 casts around gravity/prediction formulas in the new CPU attack selection functions.",
+      "text": "Preserved several explicit f64 casts and unsuffixed double constants such as 0.5, 1.0, 5.0, and 1000.0 in matching-sensitive arithmetic rather than normalizing every literal to f32.",
       "evidence_refs": [
-        "raw_diff:fpPredY and relPredY assignments with (f64) casts"
-      ],
-      "caveat": "No review or objdiff excerpt confirms which casts were required for matching."
+        "diff.diff: ftCo_800B4AB0/52AC/5AB0 prediction expressions use f64 casts and 0.5",
+        "diff.diff: ftCo_800B8A9C changes 5.0f/1000.0f to 5.0/1000.0"
+      ]
     },
     {
-      "tactic": "Changed some literals from f32-suffixed to double literals in ftCo_800B8A9C and ftCo_800B77E8-style calls, e.g. 5.0 and 1000.0.",
+      "text": "Used explicit near-zero checks as paired comparisons against 0.00001f and -0.00001f, then a bool nearzero, instead of a macro or fabs form.",
       "evidence_refs": [
-        "raw_diff:ftCo_800B8A9C changed 5.0f/1000.0f to 5.0/1000.0",
-        "raw_diff:ftCo_800B77E8 uses 5.0 + y and y - 1000.0"
-      ],
-      "caveat": "Only score-report evidence is available; do not generalize as a style rule without objdiff evidence."
+        "diff.diff: nearzero checks in ftCo_800B4AB0/52AC/5AB0"
+      ]
     },
     {
-      "tactic": "Converted an item-kind conditional in ftCo_800BB220 into a switch over ip->kind.",
+      "text": "Used a switch over item kind in ftCo_800BB220 for a two-case special item filter, replacing an if expression over It_Kind_Unk4 and It_Kind_Star.",
       "evidence_refs": [
-        "raw_diff:ftCo_800BB220 switch (ip->kind) hunk"
-      ],
-      "caveat": "No review comment explains the motivation."
+        "diff.diff: ftCo_800BB220 switch(ip->kind) hunk"
+      ]
     },
     {
-      "tactic": "Introduced dx/dy/dz locals for repeated hit-position deltas in ftCo_800BB220.",
+      "text": "Introduced declaration-order and local-lifetime changes in ftCo_800BB220, including initializing temp_r31 at declaration and inserting block-local dx/dy/dz variables for repeated coordinate projections.",
       "evidence_refs": [
-        "raw_diff:three ftCo_800BB220 hunks adding f32 dx, dy, dz"
-      ],
-      "caveat": "Treat as a local matching tactic; no global rule is supported."
+        "diff.diff: ftCo_800BB220 temp_r31 initialization hunk",
+        "diff.diff: ftCo_800BB220 dx/dy/dz temporary hunks"
+      ]
     }
   ],
   "review_feedback": [
     {
-      "kind": "bot_report",
+      "kind": "automated_report",
       "author": "decomp-dev[bot]",
-      "text": "Reported 7 improvements in unmatched items for GALE01 between 66afaf4 and 9699c9b, with all listed touched functions still below 100%.",
+      "text": "Automated GALE01 report lists seven improvements in unmatched items: ftCo_800B77E8 to 88.33%, ftCo_800B4AB0 to 91.73%, ftCo_800B52AC to 91.12%, ftCo_800B5AB0 to 93.60%, ftCo_800BB220 to 93.90%, .sdata2 to 91.88%, and ftCo_800B8A9C to 87.29%.",
       "evidence_refs": [
-        "text_corpus:issue_comment https://github.com/doldecomp/melee/pull/2526#issuecomment-4526265067"
+        "text_corpus.jsonl: issue_comment by decomp-dev[bot] at 2026-05-23T18:58:09Z"
+      ]
+    },
+    {
+      "kind": "missing_human_review",
+      "author": null,
+      "text": "No loaded review comments or human review records are present, so reviewer intent and requested changes cannot be inferred.",
+      "evidence_refs": [
+        "metadata_json: review_comments 0, reviews 0",
+        "text_corpus.jsonl: only PR body and decomp-dev[bot] issue comment loaded"
       ]
     }
   ],
@@ -244,7 +229,6 @@
     "pr-2526",
     "Jj/ftcpuattack",
     "jurrejelle",
-    "ftcpuattack",
     "src/melee/ft/ftcpuattack.c",
     "src/melee/ft/ftcpuattack.h",
     "src/melee/ft/types.h",
@@ -258,126 +242,140 @@
     "ftCo_x50_t",
     "ftCo_x50_attr",
     "Fighter_x1A88_t",
+    "x1A88",
     "x50",
     "xCC_array",
     "xA8_array",
     "HSD_Randf",
     "sqrtf",
-    "math_ppc",
+    "math_ppc.h",
     "GA_Air",
     "GA_Ground",
-    "ftCo_800A0FB0",
     "mpCheckAll",
-    "Fighter_804D64FC",
+    "ftCo_800A0FB0",
+    "lbColl_80006094",
     "It_Kind_Star",
     "It_Kind_Unk4"
   ],
   "follow_up_queries": [
-    "ftcpuattack ftCo_800B4AB0 sqrtf f64 casts",
-    "ftcpuattack ftCo_800B5AB0 x50 xCC attrs",
-    "ftCo_800B77E8 switch fp->kind xCC_array",
-    "Fighter_x1A88_t x50 u32 cpu attack",
-    "ftCo_800BB220 dx dy dz switch ip->kind matching",
-    "PR 2526 ftcpuattack decomp-dev bot 88.33 91.73 93.60",
-    "ftCo_AttackEntry x04 x08 x0C x10 x14 weight x1C x20"
+    "Find later PRs touching ftCo_800B4AB0 or ftCo_800B52AC to see whether the duplicated prediction logic was factored or renamed.",
+    "Search for later changes to ftCo_x50_t, ftCo_x50_attr, or Fighter_x1A88_t.x50 to determine whether the temporary layout received a canonical type/name.",
+    "Search ftcpuattack.c history for temp_r30, var_r0, p1/L1/f1/n1 naming cleanup after PR 2526.",
+    "Search later PRs for ftCo_800B77E8 to see whether its repeated character-case collision checks were looped, macroed, or left as matching-required unrolled code.",
+    "Search for PRs referencing ftCo_800BB220 dx dy dz or switch(ip->kind) to identify whether those were stable matching tactics."
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json",
-      "changed_files.jsonl",
-      "raw_diff",
-      "text_corpus:bot report"
+      "metadata_json: PR number/title/state/author/timestamps and changed-file counts",
+      "changed_files.jsonl: three changed files with line counts",
+      "diff.diff: concrete hunks for ftcpuattack.c, ftcpuattack.h, types.h",
+      "text_corpus.jsonl: empty PR body and one automated decomp-dev[bot] report"
     ],
     "notes": [
-      "PR body is empty and there are no human review comments in the loaded slice.",
-      "The loaded raw diff excerpt was truncated, but targeted local reads recovered the header/type hunks and later ftcpuattack.c hunks needed for intake.",
-      "Bot report provides score improvements only; it does not prove full matches, author intent, or reviewer acceptance of specific tactics.",
-      "The PR was merged according to metadata, but no review discussion is available to infer why individual code shapes were chosen."
+      "The diff excerpt and loaded raw diff are truncated in the prompt, but targeted local reads covered the header/type hunks and key smaller ftCo_800B8A9C/ftCo_800BB220 changes.",
+      "There is no PR body explaining author intent.",
+      "There are no loaded human review comments, so no human feedback or rationale is available.",
+      "The automated report gives percentage improvements, not exact match claims; this intake does not claim any function fully matched.",
+      "ftCo_800B77E8 contains repeated per-character blocks and temporary-style names; without review or later evidence, that shape should not be promoted as a general style lesson."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "title": "Header and call sites should move with recovered signature changes",
-        "text": "PR 2526 changed ftCo_800B5AB0 from two arguments to three and updated both the call in ftCo_800B8A9C and the declaration in ftcpuattack.h. This supports the existing truthful-headers-and-includes standard for recovered decomp signatures.",
+        "record_type": "pr_local_decomp_lesson",
+        "title": "Propagate recovered ftCo_800B5AB0 signature through header and callsite",
+        "text": "PR 2526 recovered ftCo_800B5AB0 as taking three arguments, updated src/melee/ft/ftcpuattack.h accordingly, and changed ftCo_800B8A9C to pass cpu->x50 as the new context argument before the attack table.",
         "scope": [
-          "decompilation",
-          "headers",
-          "function signatures"
+          "src/melee/ft/ftcpuattack.c",
+          "src/melee/ft/ftcpuattack.h"
         ],
         "evidence_refs": [
-          "raw_diff:ftCo_800B8A9C call hunk",
-          "raw_diff:ftcpuattack.h prototype hunk"
-        ],
-        "confidence": 0.86
+          "diff.diff: ftcpuattack.h ftCo_800B5AB0 signature hunk",
+          "diff.diff: ftCo_800B8A9C ftCo_800B5AB0 call hunk"
+        ]
       },
       {
-        "title": "Temporary typed structs can bridge opaque CPU data",
-        "text": "PR 2526 added local ftCo_x50_t and ftCo_x50_attr structs to replace fully opaque access in ftCo_800B5AB0 while keeping field names offset-based where semantics were not proven.",
+        "record_type": "pr_local_decomp_lesson",
+        "title": "Use offset-labeled bridge structs for partially recovered attack data",
+        "text": "PR 2526 expanded ftCo_AttackEntry and introduced ftCo_x50_t/ftCo_x50_attr as local bridge structs so the new CPU attack-selection code could use structured field accesses while preserving unproven offset-style names.",
         "scope": [
-          "type recovery",
-          "fighter",
-          "temporary structs"
+          "src/melee/ft/ftcpuattack.c"
         ],
         "evidence_refs": [
-          "raw_diff:ftCo_x50_t and ftCo_x50_attr definitions",
-          "raw_diff:ftCo_800B5AB0 x50/attrs accesses"
-        ],
-        "confidence": 0.78
+          "diff.diff: ftCo_AttackEntry field expansion",
+          "diff.diff: ftCo_x50_t and ftCo_x50_attr definitions",
+          "diff.diff: ftCo_800B4AB0/52AC/5AB0 field accesses"
+        ]
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "ftcpuattack.c CPU attack selection decomp progress in PR 2526",
-        "text": "src/melee/ft/ftcpuattack.c was the primary file in PR 2526, with large implementations for ftCo_800B4AB0, ftCo_800B52AC, ftCo_800B5AB0, and ftCo_800B77E8 plus smaller edits to ftCo_800B8A9C and ftCo_800BB220. Bot report showed partial unmatched-item improvements for this unit.",
+        "title": "ftcpuattack.c contains fighter CPU attack-selection logic",
+        "text": "src/melee/ft/ftcpuattack.c is the file touched by PR 2526 for fighter CPU attack selection, including ftCo_800B4AB0, ftCo_800B52AC, ftCo_800B5AB0, ftCo_800B77E8, ftCo_800B8A9C, and ftCo_800BB220.",
         "source_path": "src/melee/ft/ftcpuattack.c",
         "scope": [
           "fighter",
-          "ftcpuattack",
-          "CPU attack selection"
+          "CPU attack selection",
+          "ftcpuattack"
         ],
         "evidence_refs": [
-          "metadata_json.changed_files",
-          "raw_diff:ftcpuattack.c",
-          "text_corpus:decomp-dev[bot] report"
+          "changed_files.jsonl: src/melee/ft/ftcpuattack.c +1108/-25",
+          "diff.diff: function hunks for ftCo_800B4AB0, ftCo_800B52AC, ftCo_800B5AB0, ftCo_800B77E8, ftCo_800B8A9C, ftCo_800BB220"
         ],
-        "reason": "Useful searchable path context for future work, but should be curated as a path fact rather than promoted from intake."
+        "reason": "Possible path fact for curator review; grounded in this PR's changed files and function hunks."
       },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "Fighter_x1A88_t.x50 type changed in PR 2526",
-        "text": "PR 2526 changed struct Fighter_x1A88_t field x50 from int to u32 in src/melee/ft/types.h and used it as an argument to ftCo_800B5AB0 from ftCo_800B8A9C.",
+        "title": "Fighter_x1A88_t.x50 used as ftCo_800B5AB0 context in PR 2526",
+        "text": "PR 2526 changed Fighter_x1A88_t.x50 from int to u32 and passed cpu->x50 as the second argument to ftCo_800B5AB0 in ftCo_800B8A9C.",
         "source_path": "src/melee/ft/types.h",
         "scope": [
-          "fighter types",
           "Fighter_x1A88_t",
-          "x50"
+          "ftCo_800B5AB0",
+          "ftCo_800B8A9C"
         ],
         "evidence_refs": [
-          "raw_diff:types.h x50 hunk",
-          "raw_diff:ftCo_800B8A9C call hunk"
+          "diff.diff: types.h x50 int-to-u32 hunk",
+          "diff.diff: ftCo_800B8A9C call to ftCo_800B5AB0 with (void*) cpu->x50"
         ],
-        "reason": "Potentially useful field-history fact; intake evidence supports the edit but not broader semantics."
+        "reason": "Potential type/path fact; should be checked against current source and later history before promotion."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Do not overgeneralize repeated per-character blocks from partially matched CPU AI functions",
+        "text": "PR 2526's ftCo_800B77E8 implementation uses repeated per-character local blocks and temporary-style names while the bot report shows partial progress, not a full match. This may be matching-required for this PR, but should not become a general style preference without later verifier/review evidence.",
+        "source_path": "src/melee/ft/ftcpuattack.c",
+        "scope": [
+          "ftCo_800B77E8",
+          "fighter CPU AI",
+          "matching tactics"
+        ],
+        "evidence_refs": [
+          "diff.diff: ftCo_800B77E8 declares p1/L1/f1/n1 through p10/L10/f10/n10 and temp_r30/var_r0",
+          "text_corpus.jsonl: bot report shows ftCo_800B77E8 0.00% -> 88.33%, not a full match"
+        ],
+        "reason": "Candidate caution for curator review only; aligns with existing natural-loop and conservative-naming standards, but current PR evidence is not enough to add a new global rule."
       }
     ],
     "rejection_notes": [
-      "Do not promote the large repeated ftCo_800B77E8 switch blocks as an accepted source style; no review evidence explains whether a loop/table form was attempted.",
-      "Do not mark any function as fully matched from this slice; bot report percentages remain below 100%.",
-      "Do not infer semantic names for x50, x04, x08, xC1C, or similar offset-style fields from this PR alone.",
-      "Do not generalize double-literal or f64-cast use as a global matching rule without objdiff evidence."
+      "Do not promote the unrolled p1/L1/f1/n1 through p10/L10/f10/n10 pattern in ftCo_800B77E8 as accepted source style; the loaded evidence lacks verifier detail and the automated report shows only partial improvement.",
+      "Do not claim full matches for ftCo_800B4AB0, ftCo_800B52AC, ftCo_800B5AB0, ftCo_800B77E8, ftCo_800B8A9C, or ftCo_800BB220; the only loaded validation is a bot percentage report with non-100% after values.",
+      "Do not infer reviewer approval rationale beyond the PR being merged; no human review comments are loaded.",
+      "Do not promote semantic names for ftCo_AttackEntry fields or ftCo_x50_t fields; the PR keeps offset-style names, indicating semantics are not proven in the loaded evidence."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.76,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

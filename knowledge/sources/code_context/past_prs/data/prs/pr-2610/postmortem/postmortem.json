@@ -12,129 +12,130 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Small merged cleanup/fix PR touching fighter material class initialization and item drop code. It changes ftMObj class initialization to use hsdMObj.parent as the parent class argument, and replaces three direct Item_GObj user_data accesses in itdrop.c with GET_ITEM after adding inlines.h.",
+  "summary": "Small merged cleanup/fix PR touching fighter material class initialization and item drop code. ftmaterial changed the superclass argument in hsdInitClassInfo from ftMObj.parent to hsdMObj.parent. itdrop added inlines.h and replaced three direct item_gobj->user_data accesses with GET_ITEM(...) calls.",
   "change_classification": {
     "primary_type": "cleanup_fix",
     "categories": [
       "cleanup",
       "fix",
-      "typed-accessor-cleanup",
-      "class-initialization-fix"
+      "accessor_cleanup"
     ],
     "systems": [
       "fighter",
-      "item",
-      "HSD object/material initialization"
+      "item"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ft/ftmaterial.c",
-      "role": "Fixes ftMObj class initialization call argument from self parent to HSD MObj parent.",
+      "role": "Fixes ftMaterial_800BF260 class initialization parent argument for ftMObj.",
       "evidence_refs": [
-        "raw_diff: ftmaterial.c hsdInitClassInfo call changes second argument from &ftMObj.parent to &hsdMObj.parent",
-        "changed_files: src/melee/ft/ftmaterial.c added 1 deleted 1 hunks 1"
+        "raw_diff:src/melee/ft/ftmaterial.c",
+        "changed_files:src/melee/ft/ftmaterial.c"
       ]
     },
     {
       "path": "src/melee/it/itdrop.c",
-      "role": "Cleans item object data access by including inlines.h and using GET_ITEM for Item_GObj user_data retrieval.",
+      "role": "Cleans item data access by including inlines.h and using GET_ITEM for Item_GObj user data.",
       "evidence_refs": [
-        "raw_diff: itdrop.c adds #include \"inlines.h\"",
-        "raw_diff: it_8026F3D4 changes item_gobj->user_data to GET_ITEM(item_gobj)",
-        "raw_diff: it_8026F6BC changes spawned_item_gobj->user_data to GET_ITEM(spawned_item_gobj)",
-        "raw_diff: it_8026F7C8 changes spawned_item_gobj->user_data to GET_ITEM(spawned_item_gobj)",
-        "changed_files: src/melee/it/itdrop.c added 5 deleted 3 hunks 4"
+        "raw_diff:src/melee/it/itdrop.c",
+        "changed_files:src/melee/it/itdrop.c"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "In ftMaterial_800BF260, the hsdInitClassInfo parent-class argument was changed from &ftMObj.parent to &hsdMObj.parent while keeping the destination class info as &ftMObj.parent.",
+      "path": "src/melee/ft/ftmaterial.c",
+      "description": "In ftMaterial_800BF260, hsdInitClassInfo now passes &hsdMObj.parent as the parent class argument instead of &ftMObj.parent.",
       "evidence_refs": [
-        "raw_diff: src/melee/ft/ftmaterial.c hunk at ftMaterial_800BF260"
+        "raw_diff:src/melee/ft/ftmaterial.c"
       ]
     },
     {
-      "text": "itdrop.c now includes inlines.h, apparently to make GET_ITEM available.",
+      "path": "src/melee/it/itdrop.c",
+      "description": "Added #include \"inlines.h\".",
       "evidence_refs": [
-        "raw_diff: src/melee/it/itdrop.c include hunk"
+        "raw_diff:src/melee/it/itdrop.c"
       ]
     },
     {
-      "text": "Three direct item_gobj or spawned_item_gobj user_data reads were replaced with GET_ITEM calls in item drop functions.",
+      "path": "src/melee/it/itdrop.c",
+      "description": "Replaced direct item_gobj->user_data assignment with GET_ITEM(item_gobj) in it_8026F3D4.",
       "evidence_refs": [
-        "raw_diff: it_8026F3D4",
-        "raw_diff: it_8026F6BC",
-        "raw_diff: it_8026F7C8"
+        "raw_diff:src/melee/it/itdrop.c"
+      ]
+    },
+    {
+      "path": "src/melee/it/itdrop.c",
+      "description": "Replaced direct spawned_item_gobj->user_data assignment with GET_ITEM(spawned_item_gobj) in it_8026F6BC and it_8026F7C8.",
+      "evidence_refs": [
+        "raw_diff:src/melee/it/itdrop.c"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "The item cleanup is narrow: it only adds the include needed for the inline accessor and replaces the specific Item_GObj user_data reads, without changing surrounding item drop logic.",
+      "description": "Used an existing item accessor macro rather than repeating direct user_data member access at each call site.",
       "evidence_refs": [
-        "raw_diff: itdrop.c hunks show only include and three accessor replacements"
+        "raw_diff:src/melee/it/itdrop.c",
+        "decomp_standards:typed-fields-over-pointer-math"
       ]
     },
     {
-      "text": "The ftmaterial fix is a one-argument correction in an existing initialization call, limiting blast radius.",
+      "description": "Kept the ftmaterial fix narrow: only the hsdInitClassInfo parent argument changed, with no unrelated class-info reshaping in the diff.",
       "evidence_refs": [
-        "raw_diff: ftmaterial.c single-line hsdInitClassInfo change"
+        "raw_diff:src/melee/ft/ftmaterial.c"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a GObj is known to contain an Item, prefer the existing item accessor macro GET_ITEM over direct user_data access if local include support is available.",
+      "lesson": "When a subsystem has a typed/accessor macro for recovering object user data, prefer that accessor over direct user_data access at item call sites.",
       "scope": [
         "src/melee/it/itdrop.c",
-        "Item_GObj access cleanup"
+        "Item_GObj",
+        "GET_ITEM"
       ],
       "evidence_refs": [
-        "raw_diff: added #include \"inlines.h\"",
-        "raw_diff: replaced item_gobj->user_data and spawned_item_gobj->user_data with GET_ITEM(...)"
+        "raw_diff:src/melee/it/itdrop.c",
+        "decomp_standards:typed-fields-over-pointer-math"
       ],
-      "confidence": 0.78
+      "confidence": 0.82
     },
     {
-      "lesson": "For HSD class initialization wrappers, verify that the destination class info and parent class info arguments are distinct when initializing a derived class; in this PR, ftMObj initializes against hsdMObj.parent rather than ftMObj.parent.",
+      "lesson": "Class initialization call arguments should identify the actual parent class object; this PR corrected ftMObj initialization to use hsdMObj.parent as the parent argument.",
       "scope": [
         "src/melee/ft/ftmaterial.c",
-        "hsdInitClassInfo calls"
+        "ftMaterial_800BF260",
+        "hsdInitClassInfo",
+        "ftMObj",
+        "hsdMObj"
       ],
       "evidence_refs": [
-        "raw_diff: hsdInitClassInfo(&ftMObj.parent, &hsdMObj.parent, ...)"
+        "raw_diff:src/melee/ft/ftmaterial.c"
       ],
-      "confidence": 0.72
+      "confidence": 0.76
     }
   ],
   "naming_conventions": [
     {
-      "convention": "No symbol renames are made. Existing address-style function names such as it_8026F3D4, it_8026F6BC, it_8026F7C8, and ftMaterial_800BF260 are preserved.",
+      "convention": "No symbol renames were introduced; existing names such as ftMObj, hsdMObj, item_gobj, spawned_item_gobj, and spawned_item were preserved.",
       "evidence_refs": [
-        "raw_diff: function names unchanged in hunks"
+        "raw_diff"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use established inline/accessor macro cleanup instead of raw struct member access when it expresses the typed object payload.",
+      "tactic": "Accessor substitution: direct GObj user_data reads in itdrop were rewritten as GET_ITEM(...) after adding inlines.h.",
       "evidence_refs": [
-        "raw_diff: user_data accesses replaced with GET_ITEM(...)"
-      ],
-      "related_standard_ids": [
-        "typed-fields-over-pointer-math",
-        "infer-authored-source-style"
+        "raw_diff:src/melee/it/itdrop.c"
       ]
     },
     {
-      "tactic": "Make the smallest possible call-argument correction for class initialization instead of introducing helper wrappers or broader refactors.",
+      "tactic": "Narrow call-argument correction: only the second hsdInitClassInfo argument changed from &ftMObj.parent to &hsdMObj.parent.",
       "evidence_refs": [
-        "raw_diff: ftmaterial.c only changes the second hsdInitClassInfo argument"
-      ],
-      "related_standard_ids": [
-        "infer-authored-source-style"
+        "raw_diff:src/melee/ft/ftmaterial.c"
       ]
     }
   ],
@@ -142,125 +143,123 @@
   "searchable_terms": [
     "pr-2610",
     "PsiLupan",
-    "Fixup ftmaterial function call, cleanup itdrop",
+    "Fixup ftmaterial function call cleanup itdrop",
     "src/melee/ft/ftmaterial.c",
     "src/melee/it/itdrop.c",
     "ftMaterial_800BF260",
+    "hsdInitClassInfo",
     "ftMObj",
     "hsdMObj",
-    "hsdInitClassInfo",
     "HSD_MObjInfo",
     "HSD_MObj",
-    "sysdolphin_base_library",
-    "ft_mobj",
-    "ftMaterial_800BF2B8",
+    "GET_ITEM",
+    "item_gobj->user_data",
+    "spawned_item_gobj->user_data",
     "it_8026F3D4",
     "it_8026F6BC",
     "it_8026F7C8",
-    "Item_GObj",
-    "GET_ITEM",
-    "user_data",
-    "inlines.h",
-    "itdrop"
+    "inlines.h"
   ],
   "follow_up_queries": [
-    "GET_ITEM user_data cleanup Item_GObj",
+    "GET_ITEM item_gobj user_data cleanup",
     "hsdInitClassInfo ftMObj hsdMObj parent",
-    "ftMaterial_800BF260 hsdInitClassInfo",
-    "itdrop GET_ITEM inlines.h",
-    "direct user_data access Item_GObj"
+    "src/melee/it direct user_data GET_ITEM",
+    "ftMaterial_800BF260 class info parent"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR number/title/author/state/timestamps/changed files",
-      "raw_diff: complete diff excerpt for both changed files",
-      "text_corpus: PR body empty",
-      "metadata_json: review_comments 0, issue_comments 0, reviews 0"
+      "metadata_json",
+      "raw_pr_json",
+      "raw_diff",
+      "changed_files",
+      "text_corpus"
     ],
     "notes": [
-      "Evidence strongly identifies the exact changed files and line-level edits.",
-      "There is no PR body, review discussion, or explicit validation output in the slice.",
-      "No build, objdiff, or regression evidence is present, so no match or validation result is claimed.",
-      "Intent is inferred only from the title and concrete diff; reviewer intent is absent."
+      "Diff and changed-file metadata are complete for the small PR slice.",
+      "PR body is empty and there are no issue comments, review comments, or reviews in the loaded evidence.",
+      "No build, objdiff, checkdiff, or regression output is provided, so matching/validation effects are not claimed.",
+      "Merged status is supported by metadata, but merge acceptance should not be interpreted as explicit reviewer rationale."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson_candidate",
-        "title": "Prefer GET_ITEM for known Item_GObj payload access",
-        "text": "PR 2610 replaced direct Item_GObj user_data reads in itdrop.c with GET_ITEM(...) and added inlines.h. Candidate lesson: when the object is known to be an item GObj, use the established item accessor rather than raw user_data access.",
+        "title": "Use GET_ITEM instead of direct user_data access in item GObj code",
+        "text": "PR 2610 replaced three Item_GObj user_data reads in src/melee/it/itdrop.c with GET_ITEM(...) and added inlines.h, aligning with the typed/accessor cleanup principle.",
         "scope": [
-          "src/melee/it",
+          "src/melee/it/itdrop.c",
           "Item_GObj",
           "GET_ITEM"
         ],
         "evidence_refs": [
-          "raw_diff: src/melee/it/itdrop.c include and three GET_ITEM replacements"
-        ]
+          "raw_diff:src/melee/it/itdrop.c",
+          "decomp_standards:typed-fields-over-pointer-math"
+        ],
+        "confidence": 0.82
       },
       {
-        "record_type": "decomp_lesson_candidate",
-        "title": "Check parent class argument in HSD class initialization",
-        "text": "PR 2610 changed ftMaterial_800BF260 so hsdInitClassInfo initializes ftMObj with &hsdMObj.parent as the parent argument instead of &ftMObj.parent. Candidate lesson: for derived HSD class setup, verify the parent class info argument against the intended base class.",
+        "title": "ftMObj class initialization parent argument uses hsdMObj.parent",
+        "text": "PR 2610 changed ftMaterial_800BF260 so hsdInitClassInfo initializes ftMObj with &hsdMObj.parent as the parent-class argument rather than &ftMObj.parent.",
         "scope": [
           "src/melee/ft/ftmaterial.c",
-          "HSD class initialization"
+          "ftMaterial_800BF260",
+          "hsdInitClassInfo"
         ],
         "evidence_refs": [
-          "raw_diff: src/melee/ft/ftmaterial.c hsdInitClassInfo argument change"
-        ]
+          "raw_diff:src/melee/ft/ftmaterial.c"
+        ],
+        "confidence": 0.76
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Accessor macros for GObj payloads",
-        "text": "Consider adding an example under typed-fields/accessors noting that known GObj payloads should use established accessors such as GET_ITEM when local evidence supports the object type, rather than direct user_data reads.",
-        "source_path": null,
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "itdrop.c uses inlines.h for GET_ITEM access",
+        "text": "In PR 2610, src/melee/it/itdrop.c added #include \"inlines.h\" and replaced direct item_gobj/spawned_item_gobj user_data reads with GET_ITEM(...).",
+        "source_path": "src/melee/it/itdrop.c",
         "scope": [
-          "typed-fields-over-pointer-math",
-          "Item_GObj",
-          "GET_ITEM"
+          "src/melee/it/itdrop.c",
+          "GET_ITEM",
+          "inlines.h"
         ],
         "evidence_refs": [
-          "raw_diff: itdrop.c replaces three direct user_data reads with GET_ITEM(...)"
+          "raw_diff:src/melee/it/itdrop.c"
         ],
-        "reason": "The PR provides a compact example of accessor cleanup, but broader standard wording should be curator-reviewed before promotion."
+        "reason": "Useful path-local fact for future item cleanup searches; should be curator-reviewed before adding to path facts."
       },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "itdrop.c uses inlines.h for GET_ITEM",
-        "text": "src/melee/it/itdrop.c added #include \"inlines.h\" in PR 2610 to support GET_ITEM use for Item_GObj payload access.",
-        "source_path": "src/melee/it/itdrop.c",
+        "title": "ftmaterial.c ftMObj init parent is hsdMObj.parent",
+        "text": "In PR 2610, ftMaterial_800BF260 changed the parent-class argument of hsdInitClassInfo for ftMObj from &ftMObj.parent to &hsdMObj.parent.",
+        "source_path": "src/melee/ft/ftmaterial.c",
         "scope": [
-          "src/melee/it/itdrop.c",
-          "inlines.h",
-          "GET_ITEM"
+          "src/melee/ft/ftmaterial.c",
+          "ftMaterial_800BF260",
+          "ftMObj",
+          "hsdMObj"
         ],
         "evidence_refs": [
-          "raw_diff: itdrop.c include hunk and GET_ITEM replacements"
+          "raw_diff:src/melee/ft/ftmaterial.c"
         ],
-        "reason": "Possible file-specific include/accessor fact; should be checked against current source before adding as a path fact."
+        "reason": "May help future review of HSD class-info initialization patterns; evidence is limited to the PR diff."
       }
     ],
     "rejection_notes": [
-      "Do not claim this PR proves a successful match or regression-free cleanup; no verifier output is present.",
-      "Do not infer reviewer preferences; there were no reviews or comments in the slice.",
-      "Do not generalize every GObj user_data access to GET_ITEM; the evidence only covers known Item_GObj access in itdrop.c.",
-      "Do not infer broader HSD class hierarchy rules beyond the ftMObj/hsdMObj parent-argument correction shown in the diff."
+      "Do not infer broader review intent; no review comments or PR body text are present.",
+      "Do not claim this PR proved a match or regression result; no objdiff/checkdiff/build evidence is loaded.",
+      "Do not generalize GET_ITEM usage beyond item GObj user_data cleanup without additional local evidence."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

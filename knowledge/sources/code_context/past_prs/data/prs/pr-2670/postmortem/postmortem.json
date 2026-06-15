@@ -1,0 +1,427 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2670",
+  "pr": {
+    "number": 2670,
+    "title": "Implement style check script and CI",
+    "url": "https://github.com/doldecomp/melee/pull/2670",
+    "state": "MERGED",
+    "author": "itsgrimetime",
+    "created_at": "2026-06-12T21:13:14Z",
+    "merged_at": "2026-06-13T21:29:33Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Tooling-only PR that added a Python 3.12 style-check module and CI workflow for two swept decomp style issues: raw JOBJ hidden flag literals in HSD_JObj flag calls and direct __assert calls that can use HSD assert macros. Review drove module layout, opt-out check flags, melee-issues-like output and exit codes, GitHub Actions annotations, tests kept out of CI, and src-only CI linting.",
+  "change_classification": {
+    "primary_type": "tooling",
+    "categories": [
+      "tooling",
+      "code-quality",
+      "ci",
+      "lint",
+      "decomp-style-regression-prevention"
+    ],
+    "systems": [
+      ".github/workflows",
+      "tools/check",
+      "src linting"
+    ]
+  },
+  "key_files": [
+    {
+      "path": ".github/workflows/lint.yml",
+      "role": "New CI workflow running tools/check/main.py with GitHub Actions annotations on push and pull_request paths including src, tools/check, and the workflow itself.",
+      "evidence_refs": [
+        "changed_files.jsonl:.github/workflows/lint.yml added 26",
+        "raw_diff:.github/workflows/lint.yml",
+        "review_comments:discussion_r3408457285",
+        "review_comments:discussion_r3408468394",
+        "review_comments:discussion_r3408471475",
+        "review_comments:discussion_r3408499643"
+      ]
+    },
+    {
+      "path": "tools/check/main.py",
+      "role": "New style-check command-line implementation, registry, scanners, output modes, exit codes, and check definitions for jobj-flags and assert-macros.",
+      "evidence_refs": [
+        "changed_files.jsonl:tools/check/main.py added 341",
+        "raw_diff:tools/check/main.py",
+        "human_pr_text:Summary",
+        "review_comments:discussion_r3408437211"
+      ]
+    },
+    {
+      "path": "tools/check/__init__.py",
+      "role": "Package marker and module documentation for tools/check.",
+      "evidence_refs": [
+        "changed_files.jsonl:tools/check/__init__.py added 4",
+        "raw_diff:tools/check/__init__.py",
+        "review_comments:discussion_r3408341019"
+      ]
+    },
+    {
+      "path": "tools/check/tests/assert_macros.py",
+      "role": "Unit fixtures for assert-macros scanner cases: own-file __assert detection, foreign filename non-match, @todo exemption, macro-definition ignore, and split calls.",
+      "evidence_refs": [
+        "changed_files.jsonl:tools/check/tests/assert_macros.py added 55",
+        "raw_diff:tools/check/tests/assert_macros.py",
+        "human_pr_text:fixtures per check"
+      ]
+    },
+    {
+      "path": "tools/check/tests/jobj_flags.py",
+      "role": "Unit fixtures for jobj-flags scanner cases: raw value-16 literal forms, line breaks, line/column reporting, comment/string handling, and non-matches.",
+      "evidence_refs": [
+        "changed_files.jsonl:tools/check/tests/jobj_flags.py added 76",
+        "raw_diff:tools/check/tests/jobj_flags.py",
+        "human_pr_text:fixtures per check"
+      ]
+    },
+    {
+      "path": "tools/check/tests/__init__.py",
+      "role": "Empty package marker shown in diff for check tests.",
+      "evidence_refs": [
+        "raw_diff:tools/check/tests/__init__.py"
+      ]
+    }
+  ],
+  "what_changed": [
+    "Added tools/check/main.py as an extensible source style checker with a Check registry and opt-out flags generated as --no-<check>.",
+    "Added jobj-flags check for HSD_JObjSetFlags, HSD_JObjClearFlags, HSD_JObjSetFlagsAll, and HSD_JObjClearFlagsAll calls whose second argument is a raw integer literal value 16, recommending JOBJ_HIDDEN.",
+    "Added assert-macros check for direct __assert calls whose filename argument is __FILE__ or the current file basename, recommending HSD_ASSERT, HSD_ASSERTMSG, or HSD_ASSERTREPORT unless a nearby @todo marks no known byte-matching macro form.",
+    "Implemented shared scanning helpers that blank comments and string/char literals while preserving offsets, walk parentheses, find top-level commas, compute line/column, and ignore preprocessor directive lines for assert scanning.",
+    "Added std and actions output modes: std groups like melee-issues by severity, category, option, and file; actions emits GitHub Actions warning annotations.",
+    "Copied melee-issues-style exit behavior in the tool: 0 for clean, 65 for findings, and 74 for internal error.",
+    "Added unit fixtures for both checks under tools/check/tests, while CI runs only the source lint, not the unit tests.",
+    "Added .github/workflows/lint.yml to run python3 tools/check/main.py --msg-style actions src on push and pull_request when relevant paths change."
+  ],
+  "smart_moves": [
+    "Kept the PR tooling-only after related source sweeps were split into separate PRs, reducing review scope and avoiding mixing lint infrastructure with mass source edits.",
+    "Made checks enabled by default with opt-out --no-<check> flags, matching reviewer guidance and making new style regressions visible unless explicitly disabled.",
+    "Used comment/string blanking plus parenthesis walking instead of simple line regexes, allowing detection of calls split across lines while avoiding comments and literals.",
+    "Added focused fixtures for edge cases reviewers called out, including line breaks, multiple literal forms, directive ignores, @todo exemptions, and non-matches.",
+    "CI uses --msg-style actions for inline annotations while retaining std output for local use."
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "After a source sweep removes a decomp style issue, add a narrow regression checker so the old generated/raw form does not silently return.",
+      "applies_to": [
+        "tooling",
+        "style sweeps",
+        "decomp cleanup"
+      ],
+      "evidence_refs": [
+        "human_pr_text:Tooling for the style-check series",
+        "raw_diff:tools/check/main.py CHECKS",
+        "raw_diff:.github/workflows/lint.yml"
+      ]
+    },
+    {
+      "lesson": "For checkers that reason about source calls, handle comments, string literals, nested parentheses, and split lines before reporting findings; simple token sets or single-line regexes are too fragile for reviewable CI linting.",
+      "applies_to": [
+        "tools/check",
+        "source scanning",
+        "CI lint"
+      ],
+      "evidence_refs": [
+        "review_comments:discussion_r3406593997",
+        "review_comments:discussion_r3407400967",
+        "raw_diff:strip_noise/find_close/top_level_commas",
+        "raw_diff:tools/check/tests/jobj_flags.py",
+        "raw_diff:tools/check/tests/assert_macros.py"
+      ]
+    },
+    {
+      "lesson": "When a direct __assert cannot yet be expressed with a byte-matching HSD assert macro, preserve that uncertainty with a nearby @todo rather than forcing a non-matching cleanup.",
+      "applies_to": [
+        "assert cleanup",
+        "HSD assert macros",
+        "byte matching"
+      ],
+      "evidence_refs": [
+        "raw_diff:scan_assert_macros @todo exemption",
+        "raw_diff:tools/check/tests/assert_macros.py test_todo_annotation_exempts",
+        "decomp_standards:assert-report-macros",
+        "decomp_standards:verification-and-regression-ledger"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "convention": "Check IDs are kebab-case and drive both CLI opt-out flags and output option labels, e.g. jobj-flags and assert-macros become --no-jobj-flags and --no-assert-macros.",
+      "evidence_refs": [
+        "raw_diff:Check.name comment",
+        "raw_diff:_dest",
+        "raw_diff:CHECKS",
+        "human_pr_text:--no-<check>"
+      ]
+    },
+    {
+      "convention": "The raw JObj hidden flag value should be referred to as JOBJ_HIDDEN in source-facing diagnostics.",
+      "evidence_refs": [
+        "human_pr_text:jobj-flags raw 0x10 where JOBJ_HIDDEN is meant",
+        "raw_diff:_JOBJ_MESSAGE",
+        "decomp_standards:conservative-naming"
+      ]
+    },
+    {
+      "convention": "Direct __assert cleanup diagnostics should name the existing HSD assert macro family rather than prescribing a single macro in all cases.",
+      "evidence_refs": [
+        "raw_diff:_ASSERT_MESSAGE",
+        "human_pr_text:assert-macros direct __assert calls expressible with the HSD assert macros",
+        "decomp_standards:assert-report-macros"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Treat @todo-annotated direct __assert sites as exempt when no byte-matching macro form is known, preserving matching uncertainty instead of forcing a cleanup.",
+      "evidence_refs": [
+        "raw_diff:scan_assert_macros context @todo",
+        "raw_diff:tools/check/tests/assert_macros.py test_todo_annotation_exempts"
+      ]
+    },
+    {
+      "tactic": "For JObj flag cleanup, this checker intentionally catches standalone raw value-16 literals only and does not flag composite masks such as 0x10 | JOBJ_PTCL.",
+      "evidence_refs": [
+        "raw_diff:_HIDDEN_LITERAL comment",
+        "raw_diff:tools/check/tests/jobj_flags.py test_non_matches"
+      ]
+    },
+    {
+      "tactic": "Future generalization was explicitly left as a TODO: parse arbitrary flag sets and resolve literals to defines rather than hard-coding only the hidden flag.",
+      "evidence_refs": [
+        "review_comments:discussion_r3406593997",
+        "raw_diff:TODO(future) generalize to resolving arbitrary raw literals"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "reviewer": "ribbanya",
+      "feedback": "Rename and restructure the script, add opt-out CLI flags per check, use --msg-style actions, type annotate for Python 3.12, handle line breaks, use precompiled regex, and move self-tests to a separate local implementation.",
+      "evidence_refs": [
+        "review_comments:discussion_r3406593997"
+      ]
+    },
+    {
+      "reviewer": "ribbanya",
+      "feedback": "Move from a single check.py/test_check.py layout to a tools/check module with check/main.py, __init__.py, and per-check tests under check/tests.",
+      "evidence_refs": [
+        "review_comments:discussion_r3408341019",
+        "raw_diff:tools/check/__init__.py",
+        "raw_diff:tools/check/main.py",
+        "raw_diff:tools/check/tests/jobj_flags.py"
+      ]
+    },
+    {
+      "reviewer": "ribbanya",
+      "feedback": "The CI should lint src on pull requests but should not run the unit tests, which are for local development of the tool.",
+      "evidence_refs": [
+        "review_comments:discussion_r3408341019",
+        "human_pr_text:issuecomment-4699499848",
+        "raw_diff:.github/workflows/lint.yml"
+      ]
+    },
+    {
+      "reviewer": "ribbanya",
+      "feedback": "std output should mirror melee-issues and copy its exit codes.",
+      "evidence_refs": [
+        "review_comments:discussion_r3408341019",
+        "raw_diff:print_std",
+        "raw_diff:EXIT_OK/EXIT_ISSUES/EXIT_ERROR"
+      ]
+    },
+    {
+      "reviewer": "ribbanya",
+      "feedback": "Incorporate the assert-macros check from the related PR before merging.",
+      "evidence_refs": [
+        "review_comments:discussion_r3408437211",
+        "raw_diff:CHECKS assert-macros",
+        "raw_diff:tools/check/tests/assert_macros.py"
+      ]
+    },
+    {
+      "reviewer": "ribbanya",
+      "feedback": "For the workflow, add src/** path filtering and adjust visible workflow/job/step names to Check code style, Check source for common style issues, and Run checks.",
+      "evidence_refs": [
+        "review_comments:discussion_r3408457285",
+        "review_comments:discussion_r3408468394",
+        "review_comments:discussion_r3408471475",
+        "review_comments:discussion_r3408499643",
+        "raw_diff:.github/workflows/lint.yml"
+      ]
+    },
+    {
+      "reviewer": "ribbanya",
+      "feedback": "A future local CLI option to apply fixes would be useful, but was not required for this PR.",
+      "evidence_refs": [
+        "human_pr_text:issuecomment-4699543455",
+        "human_pr_text:issuecomment-4700045721"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR2670",
+    "tools/check/main.py",
+    "tools/check/tests/jobj_flags.py",
+    "tools/check/tests/assert_macros.py",
+    ".github/workflows/lint.yml",
+    "style check",
+    "Check code style",
+    "jobj-flags",
+    "assert-macros",
+    "JOBJ_HIDDEN",
+    "raw 0x10",
+    "HSD_JObjSetFlagsAll",
+    "HSD_JObjClearFlagsAll",
+    "HSD_JObjSetFlags",
+    "HSD_JObjClearFlags",
+    "__assert",
+    "HSD_ASSERT",
+    "HSD_ASSERTMSG",
+    "HSD_ASSERTREPORT",
+    "melee-issues",
+    "EX_DATAERR",
+    "EX_IOERR",
+    "--msg-style actions",
+    "--msg-style std",
+    "--no-jobj-flags",
+    "--no-assert-macros",
+    "GitHub Actions annotations",
+    "Python 3.12",
+    "strip_noise",
+    "top_level_commas",
+    "directive_lines"
+  ],
+  "follow_up_queries": [
+    "Find later PRs adding auto-fix support to tools/check.",
+    "Find PRs extending jobj-flags from hard-coded JOBJ_HIDDEN to arbitrary JObj flag literal resolution.",
+    "Find failures or follow-up fixes for tools/check/main.py line/column reporting or comment/string stripping.",
+    "Find PRs adding more checks to CHECKS in tools/check/main.py.",
+    "Find source sweeps PR #2675 and PR #2676 for the code changes this tooling was meant to preserve.",
+    "Search for @todo annotations near __assert that exempt assert-macros."
+  ],
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json",
+      "human_pr_text",
+      "review_comments",
+      "raw_diff",
+      "changed_files.jsonl",
+      "decomp_standards"
+    ],
+    "notes": [
+      "Evidence is strong for tooling behavior because the full diff and review comments are loaded.",
+      "No build, unittest, or CI execution logs are included beyond PR text and code; do not claim tests or CI passed except that the PR metadata says merged.",
+      "Changed-file metadata lists five files, while the raw diff also shows an empty tools/check/tests/__init__.py; intake records it as diff-supported but notes the metadata mismatch.",
+      "Review comments initially referenced paths tools/jobj_flags_check.py and .github/workflows/style-check.yml, while the final diff uses tools/check/main.py and .github/workflows/lint.yml; final paths are taken from the diff and changed-file metadata."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "type": "tooling_lesson",
+        "title": "Turn completed decomp style sweeps into narrow regression checks",
+        "text": "PR #2670 added tools/check and CI after related source sweeps, using targeted checks for raw JOBJ_HIDDEN literals and direct __assert macro opportunities so swept patterns fail future source lint.",
+        "scope": [
+          "tools/check",
+          "CI lint",
+          "decomp style sweeps"
+        ],
+        "evidence_refs": [
+          "human_pr_text:Tooling for the style-check series",
+          "raw_diff:CHECKS",
+          "raw_diff:.github/workflows/lint.yml"
+        ]
+      },
+      {
+        "type": "review_pattern",
+        "title": "Keep checker self-tests local while CI lints source",
+        "text": "Reviewer clarified that tools/check tests are development fixtures and should not run in CI; CI should lint src on pull requests with actions-format annotations.",
+        "scope": [
+          "CI",
+          "tooling tests"
+        ],
+        "evidence_refs": [
+          "human_pr_text:issuecomment-4699499848",
+          "review_comments:discussion_r3408341019",
+          "raw_diff:.github/workflows/lint.yml"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "JOBJ_HIDDEN raw literal regression is enforced by tools/check",
+        "text": "Consider noting that source should use JOBJ_HIDDEN, not standalone raw value-16 literals, in HSD_JObjSet/ClearFlags[All] calls; PR #2670 added a CI checker for this exact pattern.",
+        "source_path": "tools/check/main.py",
+        "scope": [
+          "JObj flags",
+          "style lint",
+          "decomp cleanup"
+        ],
+        "evidence_refs": [
+          "human_pr_text:jobj-flags",
+          "raw_diff:_JOBJ_MESSAGE",
+          "raw_diff:scan_jobj_flags",
+          "raw_diff:tools/check/tests/jobj_flags.py"
+        ],
+        "reason": "The loaded standards include naming and macro cleanup principles but do not explicitly mention the tools/check enforcement point for JOBJ_HIDDEN."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Direct __assert cleanup can be linted, with @todo exemption for no known byte match",
+        "text": "Consider adding that direct __assert calls with __FILE__ or the current basename are linted as candidates for HSD_ASSERT/HSD_ASSERTMSG/HSD_ASSERTREPORT, while a nearby @todo may document a site where no byte-matching macro form is known.",
+        "source_path": "tools/check/main.py",
+        "scope": [
+          "assert cleanup",
+          "HSD assert macros",
+          "style lint"
+        ],
+        "evidence_refs": [
+          "raw_diff:_ASSERT_MESSAGE",
+          "raw_diff:scan_assert_macros",
+          "raw_diff:tools/check/tests/assert_macros.py",
+          "decomp_standards:assert-report-macros"
+        ],
+        "reason": "This is consistent with the existing assert-report-macros standard, but the @todo exemption and lint behavior are PR-specific evidence that may be useful to curate."
+      },
+      {
+        "target_source_id": "other",
+        "update_kind": "source_update",
+        "title": "Potential future tools/check auto-fix option",
+        "text": "Reviewer suggested a local CLI option to apply fixes instead of relying on an LLM to interpret findings; author planned to fold it into later tooling improvements.",
+        "source_path": "tools/check/main.py",
+        "scope": [
+          "tools/check",
+          "future tooling"
+        ],
+        "evidence_refs": [
+          "human_pr_text:issuecomment-4699543455",
+          "human_pr_text:issuecomment-4700045721"
+        ],
+        "reason": "Follow-up idea was explicitly non-blocking and not implemented in this PR."
+      }
+    ],
+    "rejection_notes": [
+      "Do not record that the checker catches all raw JObj flag literals; PR code only matches standalone value-16 literals for HSD_JObj Set/Clear Flags calls and explicitly leaves arbitrary flag-set resolution as future work.",
+      "Do not record that all direct __assert calls are forbidden; the checker exempts debug.h, preprocessor directives, foreign filename arguments, and nearby @todo sites.",
+      "Do not treat source sweeps #2675 and #2676 as changed in this PR; PR body says they were merged separately and this PR is tooling only.",
+      "Do not claim unit tests or CI passed from this slice; no execution logs are loaded."
+    ]
+  },
+  "confidence": 0.92,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

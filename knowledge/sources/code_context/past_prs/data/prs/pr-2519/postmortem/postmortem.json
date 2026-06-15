@@ -12,276 +12,286 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR 2519 linked `melee/lb/lbarchive.c` by changing the object status from Equivalent to Matching, inlining the `lbArchive_LoadArchive` sequence into two variadic archive-loading functions, and adjusting related lbarchive/lbdvd/lbheap string symbol metadata to local scope. The bot report records two new function matches for `lbArchive_80017040` and `lbArchive_800171CC`, plus linked code/data progress.",
+  "summary": "PR 2519 linked `melee/lb/lbarchive.c` by changing it from Equivalent to Matching, inlining `lbArchive_LoadArchive` inside two archive-loading varargs wrappers, and adjusting lbarchive-adjacent string symbol metadata in `config/GALE01/symbols.txt`. The bot report credited two new matches, `lbArchive_80017040` and `lbArchive_800171CC`, plus linked-code and linked-data gains.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
-      "object-linking",
+      "matching-status-change",
+      "source-matching-tactic",
       "symbol-metadata"
     ],
     "systems": [
-      "library",
-      "config",
-      "repo-root",
-      "melee/lb"
+      "melee/lb",
+      "lbarchive",
+      "config/GALE01",
+      "configure"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/lb/lbarchive.c",
-      "role": "Main decomp source update; replaced calls to `lbArchive_LoadArchive(filename)` inside `lbArchive_80017040` and `lbArchive_800171CC` with an explicitly inlined archive allocation/load/initialize sequence.",
+      "role": "Primary source change: two functions replaced calls to `lbArchive_LoadArchive(filename)` with a locally inlined allocation/load/initialize sequence.",
       "evidence_refs": [
-        "raw_diff: src/melee/lb/lbarchive.c hunks around lbArchive_80017040 and lbArchive_800171CC",
-        "text_corpus: decomp-dev bot report lists two new matches in main/melee/lb/lbarchive"
+        "raw_diff:src/melee/lb/lbarchive.c hunks for lbArchive_80017040 and lbArchive_800171CC"
       ]
     },
     {
       "path": "configure.py",
-      "role": "Build/config status update; changed `Object(Equivalent, \"melee/lb/lbarchive.c\")` to `Object(Matching, \"melee/lb/lbarchive.c\")`.",
+      "role": "Build/matching classification changed `melee/lb/lbarchive.c` from Equivalent to Matching.",
       "evidence_refs": [
-        "raw_diff: configure.py hunk near MatchingFor object list"
+        "raw_diff:configure.py MatchingFor hunk"
       ]
     },
     {
       "path": "config/GALE01/symbols.txt",
-      "role": "Symbol metadata update; changed several `.data` and `.sdata` string symbols near lbarchive/lbdvd/lbheap from global or unspecified scope to local scope, renamed `@126` to `@120`, and added local label `...data.0` at `.data:0x803BA588`.",
+      "role": "Symbol metadata adjusted around lbFile/lbDvd/lbHeap string data, mostly changing generated string labels from global or unspecified scope to local and adding a local data label.",
       "evidence_refs": [
-        "raw_diff: config/GALE01/symbols.txt hunks near .data:0x803BA588 and .sdata:0x804D37C0"
+        "raw_diff:config/GALE01/symbols.txt hunks near 0x803BA588 and 0x804D37C0"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "`lbArchive_80017040` now declares `void* tmp` and `HSD_Archive* archive2`, then inlines the load path that allocates file data with `lbHeap_80015BD0`, rounds file size with `OSRoundUp32B(lbFile_800163D8(filename))`, reads with `lbFile_8001668C`, initializes with `lbArchive_InitializeDAT`, and assigns `archive = archive2`.",
+      "text": "`configure.py` now treats `melee/lb/lbarchive.c` as `Object(Matching, ...)` instead of `Object(Equivalent, ...)`.",
       "evidence_refs": [
-        "raw_diff: src/melee/lb/lbarchive.c first function hunk"
+        "raw_diff:configure.py"
       ]
     },
     {
-      "text": "`lbArchive_800171CC` received the same explicit inline sequence in the non-preloaded branch.",
+      "text": "`lbArchive_80017040` and `lbArchive_800171CC` each gained `tmp` and `archive2` locals and inline the `lbArchive_LoadArchive` sequence when no preloaded archive is found.",
       "evidence_refs": [
-        "raw_diff: src/melee/lb/lbarchive.c second function hunk"
+        "raw_diff:src/melee/lb/lbarchive.c"
       ]
     },
     {
-      "text": "`configure.py` moved `melee/lb/lbarchive.c` from Equivalent to Matching.",
+      "text": "The inlined sequence allocates file data with `lbHeap_80015BD0(0, OSRoundUp32B(lbFile_800163D8(filename)))`, stores it in `tmp`, allocates `sizeof(HSD_Archive)`, loads the file with `lbFile_8001668C`, initializes via `lbArchive_InitializeDAT`, and assigns `archive = archive2`.",
       "evidence_refs": [
-        "raw_diff: configure.py hunk"
+        "raw_diff:src/melee/lb/lbarchive.c"
       ]
     },
     {
-      "text": "Several local string symbols in `config/GALE01/symbols.txt` around lbarchive/lbdvd/lbheap were corrected to local scope; one local data label was added.",
+      "text": "`symbols.txt` changed several nearby generated string labels from global or unspecified scope to local, renamed `@126` to `@120`, and added local label `...data.0` at `.data:0x803BA588`.",
       "evidence_refs": [
-        "raw_diff: config/GALE01/symbols.txt hunks"
+        "raw_diff:config/GALE01/symbols.txt"
       ]
     },
     {
-      "text": "The automated report records `lbArchive_80017040` and `lbArchive_800171CC` reaching 100.00%, with matched code +768 bytes, linked code +2664 bytes, and linked data +192 bytes.",
+      "text": "The decomp bot reported +768 matched code bytes, +2664 linked code bytes, +192 linked data bytes, and two new matches for `lbArchive_80017040` and `lbArchive_800171CC`.",
       "evidence_refs": [
-        "text_corpus: decomp-dev[bot] issue comment at 2026-05-21T14:12:06Z"
+        "text_corpus:decomp-dev[bot] issue_comment 2026-05-21T14:12:06Z"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Targeted the remaining near-matching archive functions by expanding the load helper only in the fallback path where no preloaded archive was found.",
+      "text": "Kept the source change narrow: only the two near-matching lbarchive wrapper functions were altered, with a matching-status update and minimal symbol metadata changes.",
       "evidence_refs": [
-        "raw_diff: src/melee/lb/lbarchive.c",
-        "text_corpus: bot report lists `lbArchive_80017040` and `lbArchive_800171CC` as new matches"
+        "changed_files.jsonl",
+        "raw_diff"
       ]
     },
     {
-      "text": "Paired the source change with symbol metadata scope fixes and the object-status change needed to link `lbarchive.c` as Matching.",
+      "text": "Used explicit source comments `// Inlined lbArchive_LoadArchive` at both replacement sites, making the matching tactic easy for reviewers and future decompilers to identify.",
       "evidence_refs": [
-        "raw_diff: config/GALE01/symbols.txt",
-        "raw_diff: configure.py"
+        "raw_diff:src/melee/lb/lbarchive.c"
+      ]
+    },
+    {
+      "text": "Preserved address-style function names such as `lbArchive_80017040` and `lbArchive_800171CC` rather than inventing semantics not shown in the PR evidence.",
+      "evidence_refs": [
+        "raw_diff:src/melee/lb/lbarchive.c"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For this lbarchive slice, helper-call source was not the final matching shape for two variadic archive-loading functions; the accepted diff used a narrow inline expansion of `lbArchive_LoadArchive` in the non-preloaded branch to close both functions.",
+      "lesson": "For small wrapper functions that are already near 100%, an explicit inline expansion of a helper call can be a valid narrow matching tactic when verifier output names the exact functions that become matched.",
       "scope": [
-        "src/melee/lb/lbarchive.c",
-        "lbArchive_80017040",
-        "lbArchive_800171CC"
+        "lbarchive",
+        "helper-call inlining",
+        "near-match closure"
       ],
       "evidence_refs": [
-        "raw_diff: source hunks replacing `archive = lbArchive_LoadArchive(filename);`",
-        "text_corpus: bot report shows both functions at 100.00%"
+        "raw_diff:src/melee/lb/lbarchive.c",
+        "text_corpus:decomp-dev[bot] issue_comment reporting `lbArchive_80017040` and `lbArchive_800171CC` at 100.00%"
       ],
-      "confidence": 0.86
+      "caveat": "This is not evidence that helper inlining should be used broadly; loaded standards still require explicit build/objdiff/checkdiff evidence and narrow scope for manual inline-style tactics."
     },
     {
-      "lesson": "When linking an object, symbol scope metadata may need to be tightened from global or unspecified to local for nearby string literals and labels rather than compensated for in C source.",
+      "lesson": "Linking a translation unit may require matching source edits plus symbol metadata cleanup in the same PR, but the evidence should distinguish text-section function closure from data/symbol metadata changes.",
       "scope": [
-        "config/GALE01/symbols.txt",
-        "melee/lb/lbarchive.c"
+        "lbarchive",
+        "configure.py matching status",
+        "symbols.txt metadata"
       ],
       "evidence_refs": [
-        "raw_diff: symbols.txt scope changes",
-        "raw_diff: configure.py object status change"
+        "raw_diff:configure.py",
+        "raw_diff:config/GALE01/symbols.txt",
+        "text_corpus:decomp-dev[bot] issue_comment"
       ],
-      "confidence": 0.78
+      "caveat": "The PR does not explain why each symbol scope change was necessary, so broader data-ownership rules should not be inferred."
     }
   ],
   "naming_conventions": [
     {
-      "text": "The source update kept address-style function names such as `lbArchive_80017040` and `lbArchive_800171CC`; no semantic rename was introduced for these functions.",
+      "text": "Address-style function names were retained for the two matched functions: `lbArchive_80017040` and `lbArchive_800171CC`.",
       "evidence_refs": [
-        "raw_diff: src/melee/lb/lbarchive.c"
+        "raw_diff:src/melee/lb/lbarchive.c"
       ]
     },
     {
-      "text": "Temporary locals introduced for matching were named generically (`tmp`, `archive2`, `pad`, `pad2`) rather than given broader semantic names.",
+      "text": "Temporary locals introduced for matching used generic names `tmp` and `archive2`; the PR does not provide semantic naming rationale.",
       "evidence_refs": [
-        "raw_diff: src/melee/lb/lbarchive.c"
+        "raw_diff:src/melee/lb/lbarchive.c"
       ]
     },
     {
-      "text": "Symbol metadata continued using local numbered labels such as `@12`, `@13`, `@23`, `@62`, `@120`, `@14`, and `@61`, with local scope annotations.",
+      "text": "Generated data labels in `symbols.txt` stayed address/number-style, with scope adjustments rather than semantic renames.",
       "evidence_refs": [
-        "raw_diff: config/GALE01/symbols.txt"
+        "raw_diff:config/GALE01/symbols.txt"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Manual helper inlining",
-      "text": "The PR explicitly inlined the `lbArchive_LoadArchive` allocation/load/initialize sequence in two call sites, including block-scoped locals and unused padding locals `u32 pad` and `u32 pad2`.",
+      "tactic": "Manual inline expansion of `lbArchive_LoadArchive` in `lbArchive_80017040` and `lbArchive_800171CC`.",
+      "details": "The previous single helper call was replaced by explicit file-size lookup, rounded heap allocation, archive allocation, file read, DAT initialization, and assignment to `archive`.",
       "evidence_refs": [
-        "raw_diff: comments `// Inlined lbArchive_LoadArchive` in both functions"
+        "raw_diff:src/melee/lb/lbarchive.c"
       ],
-      "risk_note": "Manual inline expansion and padding locals are matching tactics that normally need verifier evidence. Here the bot report supplies post-change match evidence for the two touched functions, but the PR slice does not include objdiff details or adjacent-function checks."
+      "verification_evidence": [
+        "decomp-dev[bot] reported both functions moved to 100.00% and listed them as two new matches."
+      ]
     },
     {
-      "tactic": "Object status promotion",
-      "text": "`configure.py` changed the lbarchive object from Equivalent to Matching after the function and symbol metadata updates.",
+      "tactic": "Introduced otherwise-unused-looking padding locals `u32 pad; u32 pad2;` inside the inline blocks.",
+      "details": "The PR diff shows these locals in both inlined blocks, but does not explain their stack/codegen purpose.",
       "evidence_refs": [
-        "raw_diff: configure.py",
-        "text_corpus: bot report linked code/data progress"
+        "raw_diff:src/melee/lb/lbarchive.c"
       ],
-      "risk_note": "The slice supports the status change through bot metrics, but does not include full build logs."
+      "verification_evidence": [
+        "Bot report names the two functions as newly matched."
+      ]
     },
     {
-      "tactic": "Symbol scope correction",
-      "text": "String symbols near the affected lbarchive/lbdvd/lbheap data ranges were made local, and a local label was introduced at `.data:0x803BA588`.",
+      "tactic": "Adjusted string symbol scopes to local around lbarchive/lbdvd/lbheap data while linking the object.",
+      "details": "Several `@NN` labels changed from `scope:global` or unspecified scope to `scope:local`; one local `...data.0` label was added.",
       "evidence_refs": [
-        "raw_diff: config/GALE01/symbols.txt"
+        "raw_diff:config/GALE01/symbols.txt"
       ],
-      "risk_note": "Evidence shows the metadata edit and linked-data improvement, but not the underlying map/split reasoning."
+      "verification_evidence": [
+        "Bot report included +192 linked data bytes, but the PR evidence does not tie each symbol edit to a specific data diff."
+      ]
     }
   ],
   "review_feedback": [
     {
-      "type": "automation_report",
-      "author": "decomp-dev[bot]",
-      "text": "Report for GALE01 recorded matched code 67.74% (+0.02%, +768 bytes), linked code 39.18% (+0.07%, +2664 bytes), linked data 33.26% (+0.02%, +192 bytes), and two new matches: `lbArchive_80017040` and `lbArchive_800171CC`.",
+      "type": "approval",
+      "author": "jurrejelle",
+      "text": "Approved with no review body or inline review comments in the loaded slice.",
       "evidence_refs": [
-        "text_corpus: issue_comment by decomp-dev[bot]"
+        "text_corpus:review state APPROVED 2026-05-21T14:14:24Z"
       ]
     },
     {
-      "type": "approval",
-      "author": "jurrejelle",
-      "text": "A review with state APPROVED is present, with no review body and no inline review comments in the loaded slice.",
+      "type": "bot_report",
+      "author": "decomp-dev[bot]",
+      "text": "Reported two new matches and measurable matched/linked code/data gains for GALE01.",
       "evidence_refs": [
-        "text_corpus: review record state APPROVED",
-        "metadata_json: review_comments count 0"
+        "text_corpus:issue_comment 2026-05-21T14:12:06Z"
       ]
     }
   ],
   "searchable_terms": [
-    "PR 2519",
+    "PR2519",
     "Link lbarchive",
     "jellejurre",
-    "lbarchive",
+    "lbarchive.c",
     "melee/lb/lbarchive.c",
-    "configure.py",
-    "config/GALE01/symbols.txt",
-    "Object(Matching)",
-    "Object(Equivalent)",
     "lbArchive_80017040",
     "lbArchive_800171CC",
     "lbArchive_LoadArchive",
+    "Inlined lbArchive_LoadArchive",
     "lbArchive_InitializeDAT",
     "lbHeap_80015BD0",
     "lbFile_800163D8",
     "lbFile_8001668C",
     "OSRoundUp32B",
     "HSD_Archive",
-    "manual inline",
-    "linked code",
-    "linked data",
-    ".data:0x803BA588",
-    ".sdata:0x804D37C0",
-    "...data.0"
+    "configure.py Object Matching",
+    "symbols.txt scope local",
+    "...data.0",
+    "@12",
+    "@13",
+    "@23",
+    "@62",
+    "@120",
+    "@14",
+    "@61"
   ],
   "follow_up_queries": [
-    "lbArchive_LoadArchive inlined lbArchive_80017040 lbArchive_800171CC",
-    "melee/lb/lbarchive.c Matching Equivalent configure.py",
-    "symbols.txt .data:0x803BA588 ...data.0 @120",
-    "symbols.txt .sdata:0x804D37C0 @14 @61 local scope",
-    "lbarchive linked data +192 PR 2519",
-    "manual helper inlining pad pad2 matching tactic"
+    "lbArchive_LoadArchive inline matching tactic",
+    "lbArchive_80017040 100.00 match",
+    "lbArchive_800171CC 100.00 match",
+    "melee/lb/lbarchive.c Matching configure.py",
+    "symbols.txt 803BA588 ...data.0 lbarchive",
+    "symbols.txt lbarchive string labels scope local",
+    "manual inline helper call pad pad2 decomp"
   ],
   "evidence_quality": {
-    "status": "mixed",
+    "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR metadata, changed files, counts",
-      "raw_diff: complete diff, 5296 bytes",
-      "changed_files: three changed files with line counts",
-      "text_corpus: empty PR body, bot report, approval review"
+      "metadata_json for PR identity, changed-file counts, merge state",
+      "raw_diff full diff",
+      "changed_files.jsonl",
+      "text_corpus.jsonl bot report and approval"
     ],
     "notes": [
-      "The diff and bot report strongly support what changed and the two new function matches.",
-      "The PR body is empty, so author intent beyond the title and diff is not available.",
-      "There are no inline review comments; reviewer rationale cannot be inferred.",
-      "The slice does not include full build logs, objdiff output, adjacent-function checks, or map reasoning for symbol-scope changes.",
-      "Manual inlining and padding locals are treated as PR-specific matching tactics, not broad decomp style."
+      "PR body is empty, so author rationale is not available.",
+      "No inline review comments are present in the loaded slice.",
+      "Verifier evidence is from the decomp bot report, not a manually included objdiff transcript.",
+      "The PR evidence supports that the two listed functions matched, but it does not explain the necessity of each individual symbol scope edit or padding local."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "pr_specific_matching_lesson",
-        "title": "lbarchive linked by narrow helper inlining",
-        "text": "In PR 2519, `lbArchive_80017040` and `lbArchive_800171CC` reached 100% after replacing a call to `lbArchive_LoadArchive(filename)` with the explicit load/archive initialization sequence inside the non-preloaded branch. Keep this as a PR-specific tactic unless additional evidence shows a broader lbarchive convention.",
+        "record_type": "matching_tactic",
+        "title": "Narrow helper-call inlining closed two lbarchive wrapper matches",
+        "text": "In PR 2519, replacing `lbArchive_LoadArchive(filename)` with an explicit inline allocation/load/initialize sequence inside `lbArchive_80017040` and `lbArchive_800171CC` coincided with the bot reporting both functions as new 100.00% matches. Treat this as a narrow, evidence-backed tactic, not a general preference for manual inlining.",
         "scope": [
           "src/melee/lb/lbarchive.c",
           "lbArchive_80017040",
           "lbArchive_800171CC"
         ],
         "evidence_refs": [
-          "raw_diff: src/melee/lb/lbarchive.c",
-          "text_corpus: decomp-dev bot report"
-        ],
-        "confidence": 0.86
+          "raw_diff:src/melee/lb/lbarchive.c",
+          "text_corpus:decomp-dev[bot] issue_comment"
+        ]
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "lbarchive object became Matching in PR 2519",
-        "text": "`configure.py` changed `melee/lb/lbarchive.c` from `Object(Equivalent, ...)` to `Object(Matching, ...)` in PR 2519. Bot report listed two new matches in `main/melee/lb/lbarchive`.",
+        "title": "`melee/lb/lbarchive.c` linked as Matching in PR 2519",
+        "text": "PR 2519 changed `configure.py` so `melee/lb/lbarchive.c` is configured as `Object(Matching, ...)` instead of `Object(Equivalent, ...)`; the bot reported two new lbarchive matches.",
         "source_path": "configure.py",
         "scope": [
           "melee/lb/lbarchive.c",
-          "configure.py"
+          "lbarchive"
         ],
         "evidence_refs": [
-          "raw_diff: configure.py",
-          "text_corpus: decomp-dev bot report"
+          "raw_diff:configure.py",
+          "text_corpus:decomp-dev[bot] issue_comment"
         ],
-        "reason": "Potential path/status fact for curator review; intake should not promote it as current source truth without checking current repository state."
+        "reason": "Path-level matching status is source-owned and should be curated as a path fact rather than promoted directly by intake."
       },
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "lbarchive-related local string symbol metadata adjusted",
-        "text": "PR 2519 changed several symbols near `.data:0x803BA588` and `.sdata:0x804D37C0` to local scope and added local label `...data.0` at `.data:0x803BA588`.",
+        "title": "lbarchive-adjacent string labels made local in PR 2519",
+        "text": "PR 2519 changed several generated string symbols near `.data:0x803BA588` and `.sdata:0x804D37C0` from global or unspecified scope to local and added local label `...data.0` at `.data:0x803BA588`.",
         "source_path": "config/GALE01/symbols.txt",
         "scope": [
           "config/GALE01/symbols.txt",
@@ -289,25 +299,25 @@
           ".sdata:0x804D37C0"
         ],
         "evidence_refs": [
-          "raw_diff: config/GALE01/symbols.txt"
+          "raw_diff:config/GALE01/symbols.txt"
         ],
-        "reason": "Potential symbol metadata/path fact; needs curator validation against current symbols and split ownership before becoming source knowledge."
+        "reason": "Symbol scope and label ownership belong in curated source/path metadata; the PR slice does not justify a global data-standard update."
       }
     ],
     "rejection_notes": [
-      "Do not generalize this PR into a standard that `lbArchive_LoadArchive` should always be manually inlined; the evidence only covers two functions in one PR.",
-      "Do not infer reviewer reasoning from the approval, because the review body is empty and there are no inline review comments.",
-      "Do not treat the local symbol-scope changes as a broad data-section rule beyond the exact addresses shown without additional map/split evidence.",
-      "Do not treat `tmp`, `archive2`, `pad`, or `pad2` as preferred naming style; they appear to be narrow matching locals in this diff."
+      "Do not infer a general rule that `lbArchive_LoadArchive` should always be manually inlined; the evidence only covers two wrapper functions in this PR.",
+      "Do not infer reviewer intent beyond an empty approval.",
+      "Do not promote the `pad` and `pad2` locals as normal style; the PR gives no rationale beyond the resulting bot-reported matches.",
+      "Do not infer broad data ownership rules from the symbol scope changes without additional section/split evidence."
     ]
   },
-  "confidence": 0.84,
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

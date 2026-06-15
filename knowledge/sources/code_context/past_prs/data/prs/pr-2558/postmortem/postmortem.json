@@ -12,377 +12,293 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Closed, unmerged PR attempting to match grInishie1_801FA9B4, with additional edits in gryorster.c and lbsnap.c. The diff adds stage data/literal storage and rewrites OSReport use in grinishie1.c, adjusts a DOBJ_CLEAR_LOOP argument through a local, changes a Yorster loop using casts/manual increment, and rewrites lbSnap_8001DF20 to use descriptor and offset locals. The only human comment says the author still had not hard-reverted and calls it a mistake, so the slice should be treated as weak historical evidence and not as an accepted matching pattern.",
+  "summary": "Closed, unmerged matching PR targeting grInishie1_801FA9B4. The diff added address-named stage data/string symbols in grinishie1.c, rewired callback/report access through those symbols, and made small codegen-oriented local/loop changes in gryorster.c and lbsnap.c. Evidence includes no review comments or validation results, and the only human comment from the author says, \"Still haven't hard reverted. My mistake again,\" so this slice should be treated as cautionary rather than a positive matching precedent.",
   "change_classification": {
-    "primary_type": "decomp-matching-attempt",
+    "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "closed-unmerged",
-      "data-literal-edit",
-      "matching-tactic"
+      "codegen-tactics",
+      "data-symbol-edit"
     ],
     "systems": [
       "stage",
-      "ground",
       "library"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/gr/grinishie1.c",
-      "role": "Primary target for the PR title; adds grI1_803E48C8 stage block data, grI1_803E4944 path string, grInishie1_StageData/grI1_803E4950, grI1_803E49A8 filename string, rewrites callback access in grInishie1_801FA9B4, rewrites OSReport arguments, and introduces a local jobj2 before DOBJ_CLEAR_LOOP.",
+      "role": "Primary target file for grInishie1_801FA9B4; added grI1_803E48C8 stage block data, grInishie1_StageData wrapper, address-named strings, callback pointer arithmetic, OSReport symbolized format/file strings, and a DOBJ_CLEAR_LOOP local temporary.",
       "evidence_refs": [
-        "metadata_json.changed_files[0]",
-        "raw_diff:src/melee/gr/grinishie1.c",
-        "diff_excerpt:grInishie1_801FA9B4",
-        "diff_excerpt:grInishie1_801FBC4C"
+        "changed_files: src/melee/gr/grinishie1.c added 40 deleted 5 hunks 5",
+        "raw_diff: grinishie1.c hunks around grI1_803E48C8, grI1_803E4950, grInishie1_801FA9B4, grInishie1_801FBC4C"
       ]
     },
     {
       "path": "src/melee/gr/gryorster.c",
-      "role": "Secondary stage/ground edit; rewrites grYorster_80202428 loop shape with a temp variable, pointer-to-s32 load, u32 casts, manual loop increment, and temporary newValue.",
+      "role": "Secondary stage file with loop/codegen adjustments in grYorster_80202428, including manual increment, s32 temporary, pointer cast, u32 comparison, and split assignment.",
       "evidence_refs": [
-        "metadata_json.changed_files[1]",
-        "raw_diff:src/melee/gr/gryorster.c",
-        "diff_excerpt:grYorster_80202428"
+        "changed_files: src/melee/gr/gryorster.c added 7 deleted 3 hunks 1",
+        "raw_diff: gryorster.c hunk in grYorster_80202428"
       ]
     },
     {
       "path": "src/melee/lb/lbsnap.c",
-      "role": "Library edit; rewrites lbSnap_8001DF20 to use descPtr and offset locals before assigning x14/x1C and calling lb_8001C4A8.",
+      "role": "Library file with local lifetime/order changes in lbSnap_8001DF20 using descPtr and offset temporaries.",
       "evidence_refs": [
-        "metadata_json.changed_files[2]",
-        "raw_diff:src/melee/lb/lbsnap.c",
-        "diff_excerpt:lbSnap_8001DF20"
+        "changed_files: src/melee/lb/lbsnap.c added 8 deleted 4 hunks 1",
+        "raw_diff: lbsnap.c hunk in lbSnap_8001DF20"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Added grI1_803E48C8 as an s16 array and used it in newly added stage data as an S16Vec3 pointer.",
+      "text": "Added grI1_803E48C8 as a 22-element s16 array and used it as StageData block data via a cast to S16Vec3*.",
       "evidence_refs": [
-        "raw_diff:src/melee/gr/grinishie1.c"
+        "raw_diff: grinishie1.c addition of s16 grI1_803E48C8[22]",
+        "raw_diff: grI1_803E4950 initializer uses (S16Vec3*) grI1_803E48C8"
       ]
     },
     {
-      "text": "Added grI1_803E4944 string '/GrI1.dat', grInishie1_StageData wrapper struct, grI1_803E4950 stage data plus report format storage, and grI1_803E49A8 string 'grinishie1.c'.",
+      "text": "Added grI1_803E4944, grInishie1_StageData, grI1_803E4950, and grI1_803E49A8 to hold stage data and report strings for grinishie1.c.",
       "evidence_refs": [
-        "raw_diff:src/melee/gr/grinishie1.c"
+        "raw_diff: grinishie1.c additions of char grI1_803E4944[] = \"/GrI1.dat\"",
+        "raw_diff: grinishie1.c addition of typedef struct grInishie1_StageData and grI1_803E4950",
+        "raw_diff: grinishie1.c addition of char grI1_803E49A8[] = \"grinishie1.c\""
       ]
     },
     {
-      "text": "Changed grInishie1_801FA9B4 callback lookup from &grI1_803E48F4[arg0] to a casted byte-offset expression based on grI1_803E48C8 + 0x2c.",
+      "text": "Changed grInishie1_801FA9B4 from direct &grI1_803E48F4[arg0] callback lookup to a casted pointer derived from ((char*) grI1_803E48C8 + 0x2c) + arg0.",
       "evidence_refs": [
-        "diff_excerpt:grInishie1_801FA9B4"
+        "raw_diff: grInishie1_801FA9B4 callback initialization"
       ]
     },
     {
-      "text": "Changed grInishie1_801FA9B4 OSReport call from inline string literals to grI1_803E4950.report_fmt_get_gobj and grI1_803E49A8.",
+      "text": "Changed the grInishie1_801FA9B4 OSReport call from inline literals to grI1_803E4950.report_fmt_get_gobj and grI1_803E49A8.",
       "evidence_refs": [
-        "diff_excerpt:grInishie1_801FA9B4"
+        "raw_diff: grInishie1_801FA9B4 OSReport hunk"
       ]
     },
     {
-      "text": "Changed grInishie1_801FBC4C to assign gp->gv.inishie1.blocks[index].jobj2 to a local HSD_JObj* before passing it to DOBJ_CLEAR_LOOP.",
+      "text": "Changed grInishie1_801FBC4C to store gp->gv.inishie1.blocks[index].jobj2 in a local HSD_JObj* before DOBJ_CLEAR_LOOP.",
       "evidence_refs": [
-        "diff_excerpt:grInishie1_801FBC4C"
+        "raw_diff: grInishie1_801FBC4C hunk"
       ]
     },
     {
-      "text": "Changed grYorster_80202428 loop from a normal for-loop increment and direct pointer comparison to manual increment, a temp s32 load through a cast, u32 comparison casts, and a newValue local before assignment.",
+      "text": "Changed grYorster_80202428 loop shape from a normal incrementing for loop to a manual-increment loop with casts and temporary locals.",
       "evidence_refs": [
-        "diff_excerpt:grYorster_80202428"
+        "raw_diff: grYorster_80202428 hunk"
       ]
     },
     {
-      "text": "Changed lbSnap_8001DF20 to introduce descPtr and offset locals and assign through descPtr before calling lb_8001C4A8.",
+      "text": "Changed lbSnap_8001DF20 to introduce descPtr and offset locals before assigning x14/x1C and calling lb_8001C4A8.",
       "evidence_refs": [
-        "diff_excerpt:lbSnap_8001DF20"
-      ]
-    },
-    {
-      "text": "PR was closed with merged_at null, and the only issue comment states: 'Still haven't hard reverted. My mistake again'.",
-      "evidence_refs": [
-        "metadata_json.pr",
-        "human_pr_text_excerpt",
-        "text_corpus.jsonl:issue_comment"
+        "raw_diff: lbSnap_8001DF20 hunk"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Using a local HSD_JObj* before DOBJ_CLEAR_LOOP is a narrow local-lifetime/codegen tactic that may be easier to inspect than repeating the full field expression, but this PR provides no verifier evidence that it was required or accepted.",
+      "text": "The DOBJ_CLEAR_LOOP change in grInishie1_801FBC4C isolates the jobj2 expression into a typed HSD_JObj* local, which is a narrow and reviewable codegen tactic if verifier evidence exists.",
       "evidence_refs": [
-        "diff_excerpt:grInishie1_801FBC4C"
+        "raw_diff: grInishie1_801FBC4C local HSD_JObj* jobj2"
       ],
-      "confidence": 0.45
+      "confidence": 0.55
     },
     {
-      "text": "Introducing descPtr and offset in lbSnap_8001DF20 makes dataflow explicit, but the slice does not show build, objdiff, review, or merge evidence supporting it as the right source form.",
+      "text": "The lbsnap.c descPtr/offset rewrite keeps the global descriptor address in a local pointer and separates the inline offset result, a common local-lifetime/codegen experiment, but the PR slice does not provide validation.",
       "evidence_refs": [
-        "diff_excerpt:lbSnap_8001DF20"
+        "raw_diff: lbSnap_8001DF20 descPtr and offset locals"
       ],
-      "confidence": 0.4
+      "confidence": 0.45
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "Do not treat closed, unmerged matching attempts with an author comment calling the state a mistake as accepted style or match evidence.",
-      "scope": [
-        "past PR intake",
-        "decomp matching history"
-      ],
+      "text": "Do not treat this PR as evidence that grinishie1 stage literals or report strings should be promoted to address-named data symbols; the PR was closed unmerged and the only human comment describes a mistake involving a hard revert.",
       "evidence_refs": [
-        "metadata_json.pr.merged_at",
-        "human_pr_text_excerpt"
+        "metadata_json: merged_at null, state CLOSED",
+        "human_pr_text: \"Still haven't hard reverted. My mistake again\"",
+        "raw_diff: grI1_803E4944, grI1_803E4950.report_fmt_get_gobj, grI1_803E49A8"
       ],
-      "confidence": 0.88
+      "related_standards": [
+        "literals-and-data-ownership",
+        "no-string-literal-symbol-regression",
+        "text-before-data-matching"
+      ],
+      "confidence": 0.8
     },
     {
-      "lesson": "Data/literal rewrites made inside a code-match PR require extra caution: this slice replaced inline OSReport strings with newly added data-backed fields and filename storage, but contains no acceptance or verification evidence.",
-      "scope": [
-        "src/melee/gr/grinishie1.c",
-        "OSReport",
-        "stage data"
-      ],
+      "text": "Pointer arithmetic that aliases one data object into another typed table, such as deriving StageCallbacks from ((char*) grI1_803E48C8 + 0x2c), needs strong section/symbol and objdiff evidence before being considered reviewable source.",
       "evidence_refs": [
-        "diff_excerpt:grInishie1_801FA9B4",
-        "raw_diff:src/melee/gr/grinishie1.c",
-        "decomp_standards:no-string-literal-symbol-regression",
-        "decomp_standards:text-before-data-matching"
+        "raw_diff: grInishie1_801FA9B4 changed callback lookup"
       ],
-      "confidence": 0.78
+      "related_standards": [
+        "typed-fields-over-pointer-math",
+        "data-sections-and-tu-splits",
+        "matching-tactics-need-evidence"
+      ],
+      "confidence": 0.76
     },
     {
-      "lesson": "Casted byte-offset access from one data symbol into another adjacent object is weak source evidence unless backed by section ownership or objdiff evidence; this PR changes grI1_803E48F4 access to a cast based on grI1_803E48C8 + 0x2c without loaded proof.",
-      "scope": [
-        "src/melee/gr/grinishie1.c",
-        "StageCallbacks",
-        "data layout"
-      ],
+      "text": "Manual loop increments, pointer reinterprets, and casted pointer comparisons may be matching tactics, but this slice gives no objdiff/checkdiff evidence and includes an author mistake comment, so they should remain cautionary examples only.",
       "evidence_refs": [
-        "diff_excerpt:grInishie1_801FA9B4",
-        "decomp_standards:typed-fields-over-pointer-math",
-        "decomp_standards:data-sections-and-tu-splits"
+        "raw_diff: grYorster_80202428 manual increment and casts",
+        "human_pr_text: author mistake comment"
+      ],
+      "related_standards": [
+        "natural-loops",
+        "matching-tactics-need-evidence",
+        "infer-authored-source-style"
       ],
       "confidence": 0.72
     }
   ],
   "naming_conventions": [
     {
-      "name": "grI1_803E48C8, grI1_803E4944, grI1_803E4950, grI1_803E49A8",
-      "observation": "New globals use address-style grI1_ prefixes rather than semantic names.",
+      "text": "The PR uses address-style data names such as grI1_803E48C8, grI1_803E4944, grI1_803E4950, and grI1_803E49A8; this is observed naming in the diff, not accepted evidence that these symbols are correct canonical names.",
       "evidence_refs": [
-        "raw_diff:src/melee/gr/grinishie1.c"
-      ],
-      "confidence": 0.86
-    },
-    {
-      "name": "grInishie1_StageData",
-      "observation": "A local wrapper typedef is named after the stage and embeds StageData plus a report format field.",
-      "evidence_refs": [
-        "raw_diff:src/melee/gr/grinishie1.c"
-      ],
-      "confidence": 0.8
-    },
-    {
-      "name": "report_fmt_get_gobj",
-      "observation": "Field name describes the OSReport format string used when Ground_GetStageGObj returns NULL.",
-      "evidence_refs": [
-        "raw_diff:src/melee/gr/grinishie1.c",
-        "diff_excerpt:grInishie1_801FA9B4"
-      ],
-      "confidence": 0.82
-    },
-    {
-      "name": "descPtr, offset, snap, temp, newValue, jobj2",
-      "observation": "New locals use role or temporary names; the PR provides no review evidence accepting these names.",
-      "evidence_refs": [
-        "diff_excerpt:grYorster_80202428",
-        "diff_excerpt:lbSnap_8001DF20",
-        "diff_excerpt:grInishie1_801FBC4C"
+        "raw_diff: grinishie1.c added data symbols"
       ],
       "confidence": 0.7
+    },
+    {
+      "text": "Local names introduced include jobj2, temp, newValue, descPtr, and offset. Only jobj2 and offset are directly descriptive from local field/value usage; temp and newValue appear codegen-oriented.",
+      "evidence_refs": [
+        "raw_diff: grInishie1_801FBC4C",
+        "raw_diff: grYorster_80202428",
+        "raw_diff: lbSnap_8001DF20"
+      ],
+      "confidence": 0.68
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Introduce data objects and reference their fields instead of inline literals, including OSReport format and source filename strings.",
+      "text": "Data adjacency tactic: derive a StageCallbacks pointer by casting from grI1_803E48C8 plus byte offset 0x2c instead of referencing grI1_803E48F4 directly.",
       "evidence_refs": [
-        "raw_diff:src/melee/gr/grinishie1.c",
-        "diff_excerpt:grInishie1_801FA9B4"
+        "raw_diff: grInishie1_801FA9B4 callback initialization"
       ],
-      "risk": "Conflicts with standards that warn against string-literal-to-symbol and data-section edits in focused code-matching PRs without ownership evidence.",
-      "confidence": 0.78
+      "accepted": false
     },
     {
-      "tactic": "Use pointer arithmetic and casting to derive StageCallbacks from an adjacent s16 data array address plus 0x2c.",
+      "text": "Literal/data relocation tactic: replace inline OSReport format and file strings with named data symbols and a struct field.",
       "evidence_refs": [
-        "diff_excerpt:grInishie1_801FA9B4"
+        "raw_diff: grInishie1_801FA9B4 OSReport change"
       ],
-      "risk": "Looks like data-layout compensation rather than typed source access; no verifier evidence is loaded.",
-      "confidence": 0.76
+      "accepted": false
     },
     {
-      "tactic": "Widen or alter local lifetimes by splitting declarations and assignments, such as declaring gobj before assigning and using jobj2 before a macro call.",
+      "text": "Local temporary tactic: assign gp->gv.inishie1.blocks[index].jobj2 to HSD_JObj* jobj2 before invoking DOBJ_CLEAR_LOOP.",
       "evidence_refs": [
-        "diff_excerpt:grInishie1_801FA9B4",
-        "diff_excerpt:grInishie1_801FBC4C"
+        "raw_diff: grInishie1_801FBC4C"
       ],
-      "risk": "Local lifetime steering needs explicit objdiff/build evidence before being treated as reviewable source.",
-      "confidence": 0.7
+      "accepted": false
     },
     {
-      "tactic": "Change a normal for-loop into manual increment form with casts and a temporary integer load for pointer comparison.",
+      "text": "Loop/register tactic: rewrite grYorster_80202428 loop with manual increment, s32 temp load through pointer cast, u32 comparison, and split f32 assignment.",
       "evidence_refs": [
-        "diff_excerpt:grYorster_80202428"
+        "raw_diff: grYorster_80202428"
       ],
-      "risk": "Comments in the diff explicitly describe matching-oriented casts/manual increment; no loaded evidence shows the tactic was accepted.",
-      "confidence": 0.82
+      "accepted": false
     },
     {
-      "tactic": "Introduce descriptor pointer and offset locals in lbSnap_8001DF20 before field stores and function call.",
+      "text": "Local lifetime/order tactic: introduce descPtr and offset locals in lbSnap_8001DF20 and call through descPtr rather than directly through lbSnap_803BACC8.",
       "evidence_refs": [
-        "diff_excerpt:lbSnap_8001DF20"
+        "raw_diff: lbSnap_8001DF20"
       ],
-      "risk": "Could be local stack/register shaping, but the PR slice has no objdiff or review evidence.",
-      "confidence": 0.63
+      "accepted": false
     }
   ],
   "review_feedback": [
     {
-      "source": "issue_comment",
-      "author": "DavidWeaverAudio",
-      "text": "Still haven't hard reverted. My mistake again",
-      "interpretation": "Author comment indicates the PR state was erroneous or not fully reverted; do not infer reviewer acceptance or validated match.",
+      "text": "No formal reviews or inline review comments are present in the slice.",
       "evidence_refs": [
-        "human_pr_text_excerpt",
-        "text_corpus.jsonl:issue_comment"
-      ],
-      "confidence": 0.9
+        "metadata_json: counts.review_comments 0, reviews 0"
+      ]
+    },
+    {
+      "text": "The only human comment is from the author: \"Still haven't hard reverted. My mistake again.\" This supports that the PR had an acknowledged problem, but does not identify reviewer intent or a specific technical rejection reason.",
+      "evidence_refs": [
+        "human_pr_text",
+        "text_corpus: issue_comment by DavidWeaverAudio at 2026-05-31T11:30:47Z"
+      ]
     }
   ],
   "searchable_terms": [
-    "pr-2558",
+    "PR2558",
     "Match/grinishie1 801FA9B4",
-    "DavidWeaverAudio",
-    "closed unmerged",
-    "hard reverted",
-    "grinishie1",
     "grInishie1_801FA9B4",
-    "grInishie1_801FBC4C",
+    "grinishie1.c",
     "grI1_803E48C8",
     "grI1_803E48F4",
-    "grI1_803E4944",
     "grI1_803E4950",
     "grI1_803E49A8",
     "StageCallbacks",
     "StageData",
-    "S16Vec3",
-    "Ground_GetStageGObj",
     "OSReport",
     "DOBJ_CLEAR_LOOP",
     "grYorster_80202428",
     "lbSnap_8001DF20",
-    "string literal symbol regression",
-    "data layout cast",
-    "manual increment for loop",
-    "u32 pointer cast"
+    "hard reverted",
+    "closed unmerged"
   ],
   "follow_up_queries": [
-    "PR 2558 hard reverted mistake DavidWeaverAudio",
-    "grInishie1_801FA9B4 later accepted match",
-    "grI1_803E48C8 grI1_803E4950 data ownership",
-    "grinishie1.c OSReport couldn't get gobj string literal",
-    "grYorster_80202428 manual increment cast matching",
-    "lbSnap_8001DF20 descPtr offset local"
+    "Search later PRs touching grInishie1_801FA9B4 to see whether the match landed with cleaner callback/data ownership.",
+    "Search for grI1_803E48C8 and grI1_803E4950 in accepted history before treating them as real data symbols.",
+    "Search accepted grYorster_80202428 changes for whether the manual increment/cast tactic was kept or reverted.",
+    "Search accepted lbSnap_8001DF20 changes for whether descPtr/offset locals were validated.",
+    "Search comments around PR 2558 or adjacent revert PRs for the hard-revert context."
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json",
-      "human_pr_text_excerpt",
-      "raw_diff",
-      "changed_files.jsonl",
-      "text_corpus.jsonl"
+      "metadata_json: PR #2558 closed, merged_at null",
+      "changed_files.jsonl: 3 changed files",
+      "raw_diff: complete 4226-byte diff included",
+      "text_corpus: empty PR body and one issue comment",
+      "metadata_json: review_comments 0, reviews 0"
     ],
     "notes": [
-      "Diff and changed-file metadata are complete for the loaded slice.",
-      "PR body is empty, there are no review comments or reviews, and merged_at is null.",
-      "The single issue comment says the author had not hard-reverted and calls it a mistake, strongly limiting reuse as accepted decomp guidance.",
-      "No build, objdiff, checkdiff, CI, or reviewer validation evidence is loaded.",
-      "Several edits resemble matching tactics or data-section/literal changes, but intent and correctness cannot be proven beyond the diff."
+      "Diff evidence is complete enough to describe changed files and tactics.",
+      "There is no objdiff, build, or regression output in the slice, so no match claim should be accepted.",
+      "The PR was closed unmerged and the author comment indicates a mistake involving a hard revert, lowering confidence in the edits as reusable examples.",
+      "No reviewer feedback is available; do not infer reviewer rationale."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "historical_pr_caution",
-        "title": "PR #2558 is closed/unmerged and should not be treated as accepted match evidence",
-        "text": "The slice for PR #2558 contains a matching-attempt diff for grInishie1_801FA9B4 plus edits in gryorster.c and lbsnap.c, but the PR is closed with merged_at null and the only issue comment says: 'Still haven't hard reverted. My mistake again'. Use it as cautionary historical evidence, not accepted source style.",
-        "scope": [
-          "PR intake",
-          "historical decomp evidence"
-        ],
-        "evidence_refs": [
-          "metadata_json.pr",
-          "human_pr_text_excerpt",
-          "text_corpus.jsonl:issue_comment"
-        ],
-        "confidence": 0.9
-      }
-    ],
-    "source_update_candidates": [
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "PR #2558 touched grinishie1 stage data and function 801FA9B4 but was closed unmerged",
-        "text": "Historical PR #2558 targeted src/melee/gr/grinishie1.c / grInishie1_801FA9B4 and added data/literal storage around grI1_803E48C8, grI1_803E4950, and OSReport, but it was closed with merged_at null and an author comment saying it had not been hard-reverted and was a mistake.",
-        "source_path": "src/melee/gr/grinishie1.c",
+        "record_type": "cautionary_pr",
+        "title": "PR 2558 is a closed/unmerged caution for data-symbol and codegen tactics in grinishie1 matching",
+        "text": "PR #2558 attempted to match grInishie1_801FA9B4 but was closed unmerged, had no validation evidence, and includes an author comment saying a hard revert still had not happened and that it was a mistake. Use as cautionary evidence, not as accepted precedent.",
         "scope": [
           "src/melee/gr/grinishie1.c",
-          "grInishie1_801FA9B4",
-          "grI1_803E48C8",
-          "grI1_803E4950"
+          "src/melee/gr/gryorster.c",
+          "src/melee/lb/lbsnap.c"
         ],
         "evidence_refs": [
-          "metadata_json.pr",
-          "raw_diff:src/melee/gr/grinishie1.c",
-          "human_pr_text_excerpt"
-        ],
-        "reason": "Useful for future searches so curators and agents do not misread this closed PR as accepted evidence for grinishie1 data or OSReport string ownership."
-      },
-      {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Closed mistake PRs should be excluded from accepted matching-style examples",
-        "text": "When a PR is closed/unmerged and contains author text indicating the branch was not hard-reverted or was a mistake, its diff may still be searchable as historical context but should not be promoted as accepted naming, data ownership, or matching tactic evidence without later corroboration.",
-        "source_path": null,
-        "scope": [
-          "past PR evidence handling",
-          "curation policy"
-        ],
-        "evidence_refs": [
-          "metadata_json.pr.merged_at",
-          "human_pr_text_excerpt"
-        ],
-        "reason": "The loaded standards cover verification and evidence, but this PR provides a concrete example where historical diff content is contradicted by closure state and author comment."
+          "metadata_json: state CLOSED, merged_at null",
+          "human_pr_text: author comment",
+          "raw_diff"
+        ]
       }
     ],
+    "source_update_candidates": [],
     "rejection_notes": [
-      "Do not promote the casted grI1_803E48C8 + 0x2c callback lookup as a valid typed access pattern; it conflicts with typed-fields/data-ownership standards and lacks verification evidence.",
-      "Do not promote the OSReport string-to-data rewrite as accepted data ownership; the PR is unmerged and lacks section/symbol evidence.",
-      "Do not infer that grYorster_80202428 should use manual increment, u32 casts, or pointer-to-s32 loads; the diff comments indicate matching-oriented changes but no acceptance evidence exists.",
-      "Do not infer reviewer intent; there are no review comments or reviews in the loaded slice."
+      "Do not promote grI1_803E48C8, grI1_803E4950, or related strings as accepted path/data facts from this PR alone.",
+      "Do not record the casted callback lookup from grI1_803E48C8 + 0x2c as an accepted decomp tactic without later verifier evidence.",
+      "Do not infer that the gryorster.c and lbsnap.c secondary edits were valid or necessary; the slice lacks validation and the PR comment suggests a mistaken state.",
+      "No global decomp standard update appears necessary; existing standards already cover data ownership, string literal symbol regressions, typed fields over pointer math, natural loops, and evidence requirements for matching tactics."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.64,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

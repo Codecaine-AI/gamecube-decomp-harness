@@ -46,6 +46,7 @@ const agents: Array<{ id: PromptPreviewAgentId; label: string }> = [
   { id: "worker", label: "Worker" },
   { id: "pr-review", label: "PR Intake" },
   { id: "knowledge-curator", label: "Curator" },
+  { id: "qa-repair", label: "QA Repair" },
 ];
 
 const sources: Array<{ id: PromptPreviewSource; label: string }> = [
@@ -443,6 +444,9 @@ function hydratePromptPlaceholders(prompt: string, context: JsonRecord = {}): st
     .replace(/\{\{\s*PR_CONTEXT_JSON\s*\}\}/g, () => JSON.stringify(asObject(context.prContext), null, 2))
     .replace(/\{\{\s*PR_CONTEXT_XML\s*\}\}/g, () => localPrContextPromptXml(context))
     .replace(/\{\{\s*PR_OUTPUT_SCHEMA_JSON\s*\}\}/g, () => JSON.stringify(asObject(context.output_schema), null, 2))
+    .replace(/\{\{\s*QA_REPAIR_ITEM_JSON\s*\}\}/g, () => JSON.stringify(asObject(context.qaRepairItem), null, 2))
+    .replace(/\{\{\s*QA_REPAIR_OUTPUT_SCHEMA_JSON\s*\}\}/g, () => JSON.stringify(asObject(context.output_schema), null, 2))
+    .replace(/\{\{\s*QA_REPAIR_QUEUE_SUMMARY_JSON\s*\}\}/g, () => JSON.stringify(firstObject(context.queueSummary, context.qaRepairQueueSummary), null, 2))
     .replace(/\{\{\s*TARGET_GRAPH_FILE_CARD_XML\s*\}\}/g, () => localTargetGraphFileCardPromptXml(context))
     .replace(/\{\{\s*TARGET_XML\s*\}\}/g, () => localTargetPromptXml(context))
     .replace(/\{\{\s*TARGET_FILE_XML\s*\}\}/g, () => localTargetFilePromptXml(context));

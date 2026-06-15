@@ -583,6 +583,9 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
           model: globals.model,
           thinkingLevel: globals.thinkingLevel,
           timeoutMs: globals.agentTimeoutSeconds ? globals.agentTimeoutSeconds * 1000 : undefined,
+          // Whole-file writes conflict with the preserve-dirty-work rule and were
+          // used in 0% of confirmed exacts (-51pt lift); edit/bash cover the need.
+          excludeBuiltinTools: ["write"],
           toolContext: {
             repoRoot: globals.repoRoot,
             stateDir: globals.stateDir,

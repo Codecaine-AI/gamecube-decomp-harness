@@ -109,6 +109,7 @@ const SYSTEM_ARG_ALLOWLIST = new Set([
   "--queue-target-size",
   "--replan-cooldown-ms",
   "--replan-interval-ms",
+  "--repair-attempts",
   "--report-type",
   "--rerun-existing-prs",
   "--run-id",

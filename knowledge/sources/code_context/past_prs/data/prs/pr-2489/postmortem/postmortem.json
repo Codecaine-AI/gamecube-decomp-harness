@@ -5,20 +5,20 @@
     "number": 2489,
     "title": "Match progress",
     "url": "https://github.com/doldecomp/melee/pull/2489",
-    "state": "OPEN",
+    "state": "MERGED",
     "author": "johnwinston",
     "created_at": "2026-05-14T01:45:41Z",
-    "merged_at": null
+    "merged_at": "2026-06-12T19:02:20Z"
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Open draft matching PR for game-mode debug results code. The slice replaces the gm_801B0DD0 placeholder in src/melee/gm/gm_1B03.c with a matched implementation and refines struct DebugResultsData in gm_1B03.static.h from a large pad to typed bitfields, byte fields, padding, and a MatchEnd member. The PR body reports gm_801B0DD0 as 100% matched, and the decomp-dev bot report confirms one new match in main/melee/gm/gm_1B03 worth +332 bytes.",
+  "summary": "Matched gm_801B0DD0 in the gm_1B03 debug results screen path by replacing a local match-data typedef with struct DebugResultsData fields in gm_1B03.static.h, loading cached debug/sound-test match parameters into MatchEnd, accumulating character result SFX, and passing that result to lbAudioAx_8002702C. Bot report confirms one new match for main/melee/gm/gm_1B03::gm_801B0DD0.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "struct-recovery",
       "headers",
+      "typed-fields",
       "game-mode"
     ],
     "systems": [
@@ -30,108 +30,82 @@
   "key_files": [
     {
       "path": "src/melee/gm/gm_1B03.c",
-      "role": "Replaces /// #gm_801B0DD0 with a C implementation that loads debug results data, builds MatchEnd player standings, computes character result SFX bits, calls audio setup, and uses PAD_STACK(8).",
+      "role": "Matched gm_801B0DD0 implementation; changed DebugResultsData access, MatchEnd setup, result SFX accumulation, and added PAD_STACK(8).",
       "evidence_refs": [
-        "changed_files.jsonl:src/melee/gm/gm_1B03.c added=35 deleted=1",
-        "raw_diff:gm_801B0DD0 implementation",
-        "human_pr_text:matched table gm_1B03.c gm_801B0DD0 ✓ 100%",
-        "text_corpus:decomp-dev bot report one new match gm_801B0DD0 +332 0.00% to 100.00%"
+        "changed_files: src/melee/gm/gm_1B03.c added 25 deleted 28",
+        "diff: gm_801B0DD0 hunk",
+        "pr_body: matched table lists gm_1B03.c gm_801B0DD0 ✓ 100%",
+        "bot_comment: 1 new match main/melee/gm/gm_1B03 gm_801B0DD0 73.04% -> 100.00%"
       ]
     },
     {
       "path": "src/melee/gm/gm_1B03.static.h",
-      "role": "Refines DebugResultsData layout from pad_x0[0x2284] into named bitfields/bytes, pad_x5[3], and MatchEnd match_end used by gm_801B0DD0.",
+      "role": "Expanded struct DebugResultsData from an opaque pad into named bitfields, byte fields, padding, and MatchEnd match_end for gm_801B0DD0.",
       "evidence_refs": [
-        "changed_files.jsonl:src/melee/gm/gm_1B03.static.h added=9 deleted=1",
-        "raw_diff:struct DebugResultsData replacement"
+        "changed_files: src/melee/gm/gm_1B03.static.h added 9 deleted 1",
+        "diff: struct DebugResultsData pad_x0[0x2284] replaced with x0_0, x0_1, x0_other, x1-x4, pad_x5, match_end"
       ]
     }
   ],
   "what_changed": [
-    {
-      "text": "gm_801B0DD0 was decompiled from a placeholder into a full function taking MinorScene* arg0.",
-      "evidence_refs": [
-        "raw_diff:-/// #gm_801B0DD0 +void gm_801B0DD0(MinorScene* arg0)"
-      ]
-    },
-    {
-      "text": "The function obtains DebugResultsData through gm_801A427C(arg0), uses data->match_end as a MatchEnd*, copies fields from un_803FA258 indices 0x5A through 0x60 and 0x51 through 0x59, and calls gm_80166A98 to rebuild match_end standings.",
-      "evidence_refs": [
-        "raw_diff:DebugResultsData* data = gm_801A427C(arg0)",
-        "raw_diff:MatchEnd* match_end = &data->match_end",
-        "raw_diff:un_803FA258 assignments and gm_80166A98 call"
-      ]
-    },
-    {
-      "text": "The implementation loops over four player standings and ORs lbAudioAx_80026E84(character_kind) into a u64 sfx_result for non-slot_type-3, non-big-loser players.",
-      "evidence_refs": [
-        "raw_diff:for (i = 0; i < 4; i++)",
-        "raw_diff:slot_type != 3 && is_big_loser == 0",
-        "raw_diff:sfx_result |= lbAudioAx_80026E84(...)"
-      ]
-    },
-    {
-      "text": "The implementation calls lbAudioAx_80026F2C(0x14), lbAudioAx_8002702C(0x4, sfx_result), gm_80168FC4(), gm_801701A0(), and ends with PAD_STACK(8).",
-      "evidence_refs": [
-        "raw_diff:tail calls in gm_801B0DD0"
-      ]
-    },
-    {
-      "text": "DebugResultsData layout was narrowed from a single byte pad of size 0x2284 to explicit x0 bitfields, x1-x4 byte fields, three bytes of padding, and a MatchEnd match_end member.",
-      "evidence_refs": [
-        "raw_diff:struct DebugResultsData"
-      ]
-    }
+    "Removed the local GmB03MatchData typedef from gm_1B03.c and switched gm_801B0DD0 to use struct DebugResultsData from gm_1B03.static.h.",
+    "Converted DebugResultsData from a large opaque pad to explicit fields: x0_0, x0_1, x0_other, x1, x2, x3, x4, pad_x5, and MatchEnd match_end.",
+    "Changed un_803FA258 indexing from byte-offset-divided-by-4 forms such as 0x178 / 4 to direct element indexes such as 0x5E, 0x5F, and 0x60.",
+    "Added explicit casts for some gm_80166A98 player arguments and masks the first argument with 0xFF.",
+    "Accumulated lbAudioAx_80026E84 return values into a u64 sfx_result for eligible player standings and passed that value to lbAudioAx_8002702C instead of passing 0.",
+    "Added PAD_STACK(8) at the end of gm_801B0DD0.",
+    "PR body claims one matched function, gm_801B0DD0, and bot report confirms one new match with gm_801B0DD0 reaching 100.00%."
   ],
   "smart_moves": [
     {
-      "text": "Recovered just enough of DebugResultsData to express gm_801B0DD0 through typed fields and a MatchEnd member instead of keeping all accesses behind a large opaque pad.",
+      "text": "Moved recovered layout information into gm_1B03.static.h rather than keeping a function-local duplicate typedef, making the recovered DebugResultsData shape reusable in the translation unit.",
       "evidence_refs": [
-        "raw_diff:DebugResultsData typed fields and MatchEnd match_end",
-        "raw_diff:data->x0_0/x0_1/x1/x2/x3/x4 and &data->match_end"
-      ],
-      "related_standard": "typed-fields-over-pointer-math"
+        "diff: removed typedef struct GmB03MatchData in gm_1B03.c",
+        "diff: struct DebugResultsData expanded in gm_1B03.static.h"
+      ]
     },
     {
-      "text": "Used a natural four-iteration for loop over player_standings rather than repeated generated blocks for each player.",
+      "text": "Preserved the natural four-player loop and refined the loop body to accumulate audio result bits for non-CPU/non-big-loser standings.",
       "evidence_refs": [
-        "raw_diff:for (i = 0; i < 4; i++) player_standings[i]"
-      ],
-      "related_standard": "natural-loops"
+        "diff: for (i = 0; i < 4; i++) retained",
+        "diff: sfx_result |= lbAudioAx_80026E84(match_end->player_standings[i].character_kind)"
+      ]
     },
     {
-      "text": "Kept the matching-only stack tactic narrow: PAD_STACK appears as PAD_STACK(8) at the end of the single newly matched function.",
+      "text": "Used typed MatchEnd access through match_end->player_standings instead of operating on opaque match-data storage.",
       "evidence_refs": [
-        "raw_diff:PAD_STACK(8)",
-        "text_corpus:decomp-dev bot report gm_801B0DD0 100.00%"
-      ],
-      "related_standard": "matching-tactics-need-evidence"
+        "diff: MatchEnd* match_end = &data->match_end",
+        "diff: match_end->player_standings[i].slot_type/is_big_loser/character_kind"
+      ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For game-mode debug result code, a partial local struct recovery can be enough to turn an opaque buffer into reviewable source: expose fields touched by the function and preserve unknown bytes as padding.",
+      "lesson": "When a matched function's local scratch typedef overlaps with an existing static-header struct, moving the recovered fields into the owning static struct can improve type truthfulness while supporting a match.",
       "scope": [
-        "src/melee/gm/gm_1B03.static.h",
         "src/melee/gm/gm_1B03.c",
-        "DebugResultsData",
+        "src/melee/gm/gm_1B03.static.h",
         "gm_801B0DD0"
       ],
       "evidence_refs": [
-        "raw_diff:pad_x0[0x2284] replaced with x0_0/x0_1/x0_other/x1-x4/pad_x5/MatchEnd",
-        "raw_diff:gm_801B0DD0 uses recovered fields"
+        "diff: GmB03MatchData removed",
+        "diff: DebugResultsData expanded with match_end",
+        "bot_comment: gm_801B0DD0 100.00%"
       ],
       "confidence": 0.82
     },
     {
-      "lesson": "When a function processes fixed-size player data, test a natural indexed loop over player_standings before preserving unrolled player-specific blocks.",
+      "lesson": "Result-screen audio setup may require preserving the return value of per-character lbAudioAx_80026E84 calls and OR-ing them into a value passed to lbAudioAx_8002702C.",
       "scope": [
-        "MatchEnd.player_standings",
-        "gm_801B0DD0"
+        "gm_801B0DD0",
+        "lbAudioAx_80026E84",
+        "lbAudioAx_8002702C"
       ],
       "evidence_refs": [
-        "raw_diff:for (i = 0; i < 4; i++)",
-        "text_corpus:decomp-dev bot report gm_801B0DD0 100.00%"
+        "diff: u64 sfx_result = 0",
+        "diff: sfx_result |= lbAudioAx_80026E84(...)",
+        "diff: lbAudioAx_8002702C(0x4, sfx_result)",
+        "bot_comment: gm_801B0DD0 100.00%"
       ],
       "confidence": 0.78
     }
@@ -139,143 +113,139 @@
   "naming_conventions": [
     {
       "name": "match_end",
-      "kind": "local variable / struct member",
-      "lesson": "Use a clear local role name for a MatchEnd pointer/member once the type is evident.",
+      "kind": "local variable",
+      "lesson": "Use match_end for a MatchEnd* local derived from DebugResultsData::match_end.",
       "evidence_refs": [
-        "raw_diff:MatchEnd* match_end = &data->match_end",
-        "raw_diff:MatchEnd match_end;"
+        "diff: MatchEnd* match_end = &data->match_end"
       ],
-      "confidence": 0.75
+      "confidence": 0.74
     },
     {
       "name": "sfx_result",
       "kind": "local variable",
-      "lesson": "A local u64 accumulating result fanfare bits was named for its audio result role.",
+      "lesson": "Use sfx_result for the accumulated u64 result of lbAudioAx_80026E84 calls before lbAudioAx_8002702C.",
       "evidence_refs": [
-        "raw_diff:u64 sfx_result = 0",
-        "raw_diff:sfx_result |= lbAudioAx_80026E84",
-        "raw_diff:lbAudioAx_8002702C(0x4, sfx_result)"
+        "diff: u64 sfx_result = 0",
+        "diff: sfx_result |= lbAudioAx_80026E84(...)"
       ],
       "confidence": 0.72
     },
     {
-      "name": "x0_0, x0_1, x0_other, x1, x2, x3, x4, pad_x5",
+      "name": "DebugResultsData fields",
       "kind": "struct fields",
-      "lesson": "For newly recovered but semantically unclear fields, address/offset-style names and explicit padding avoid inventing meaning while improving type structure.",
+      "lesson": "This PR names the recovered DebugResultsData prefix fields as x0_0, x0_1, x0_other, x1, x2, x3, x4, pad_x5, and match_end; the semantic meaning of most prefix fields remains unknown.",
       "evidence_refs": [
-        "raw_diff:struct DebugResultsData field names"
+        "diff: struct DebugResultsData field additions"
       ],
-      "confidence": 0.8
+      "confidence": 0.69
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use PAD_STACK(8) narrowly in the newly matched function.",
+      "tactic": "Use bitfields for individual flag bits in DebugResultsData instead of preserving manual masking assignments to a single u8 field.",
       "evidence_refs": [
-        "raw_diff:PAD_STACK(8)",
-        "text_corpus:decomp-dev bot report gm_801B0DD0 +332 0.00% to 100.00%"
+        "diff: old data->x0 mask assignments removed",
+        "diff: new u8 x0_0 : 1; u8 x0_1 : 1; u8 x0_other : 6",
+        "diff: data->x0_0 = un_803FA258[0x5E]; data->x0_1 = un_803FA258[0x5F]"
       ],
-      "caveat": "The slice does not include objdiff output beyond the bot report; curator should not generalize PAD_STACK use outside this function."
+      "confidence": 0.7
     },
     {
-      "tactic": "Introduce bitfields for the first byte of DebugResultsData to match individual assignments to x0_0 and x0_1 while retaining x0_other for the remaining bits.",
+      "tactic": "Add a narrow PAD_STACK(8) only in the matched function after the functional calls; this is a matching tactic supported here by the bot's 100% match report but should not be generalized without verifier evidence.",
       "evidence_refs": [
-        "raw_diff:u8 x0_0 : 1; u8 x0_1 : 1; u8 x0_other : 6;",
-        "raw_diff:data->x0_0 = un_803FA258[0x5E]; data->x0_1 = un_803FA258[0x5F];"
+        "diff: PAD_STACK(8) added at end of gm_801B0DD0",
+        "bot_comment: gm_801B0DD0 100.00%",
+        "decomp_standard: matching-tactics-need-evidence"
       ],
-      "caveat": "The slice shows the resulting source and match report, but not the failed alternatives that led to this bitfield shape."
+      "confidence": 0.76
     },
     {
-      "tactic": "Cast cached debug-menu values from un_803FA258 to s8 for player identifiers and subtract 1 from several character/slot-like values before passing them to gm_80166A98.",
+      "tactic": "Keep the four-entry for loop for player standings rather than unrolling eligible-player audio handling.",
       "evidence_refs": [
-        "raw_diff:gm_80166A98 arguments with (s8) un_803FA258[...] and un_803FA258[...] - 1"
+        "diff: for (i = 0; i < 4; i++) retained",
+        "decomp_standard: natural-loops"
       ],
-      "caveat": "The exact semantics of each un_803FA258 slot are not established in this slice."
+      "confidence": 0.8
     }
   ],
   "review_feedback": [],
   "searchable_terms": [
-    "PR 2489",
-    "Match progress",
-    "johnwinston",
+    "pr-2489",
     "gm_1B03.c",
     "gm_1B03.static.h",
     "gm_801B0DD0",
     "DebugResultsData",
-    "Debug results screen",
     "MatchEnd",
+    "match_end",
     "player_standings",
     "slot_type",
     "is_big_loser",
     "character_kind",
-    "sfx_result",
     "un_803FA258",
     "gm_801A427C",
     "gm_80166A98",
     "lbAudioAx_80026E84",
     "lbAudioAx_80026F2C",
     "lbAudioAx_8002702C",
-    "gm_80168FC4",
-    "gm_801701A0",
-    "PAD_STACK(8)",
-    "typed-fields-over-pointer-math",
-    "natural loop"
+    "sfx_result",
+    "PAD_STACK",
+    "debug results screen",
+    "sound test debug menu",
+    "victory fanfare"
   ],
   "follow_up_queries": [
-    "gm_801B0DD0 PAD_STACK(8)",
-    "DebugResultsData MatchEnd match_end gm_1B03",
-    "un_803FA258 debug results sound test gm_80166A98",
-    "lbAudioAx_80026E84 character_kind result fanfare",
-    "gm_1B03.c debug results screen player_standings",
-    "PR 2489 gm_801B0DD0 100%"
+    "gm_801B0DD0 DebugResultsData match_end PAD_STACK",
+    "lbAudioAx_80026E84 lbAudioAx_8002702C sfx_result",
+    "un_803FA258 debug results sound test match parameters",
+    "DebugResultsData x0_0 x0_1 x0_other x1 x2 x3 x4",
+    "gm_1B03 static.h MatchEnd match_end"
   ],
   "evidence_quality": {
-    "status": "mixed",
+    "status": "strong",
     "evidence_refs": [
-      "metadata_json:PR state OPEN, draft true in raw_pr_json excerpt, no merged_at",
-      "changed_files.jsonl:2 changed files",
-      "raw_diff:complete 1912-byte diff excerpt",
-      "human_pr_text:PR body reports 1 matched, 107 failed",
-      "text_corpus:decomp-dev bot report confirms one new match"
+      "metadata: PR #2489 title Match progress state MERGED author johnwinston",
+      "changed_files.jsonl: two changed files with line counts",
+      "raw_diff: complete diff for gm_1B03.c and gm_1B03.static.h",
+      "pr_body: matched table lists gm_801B0DD0 ✓ 100%",
+      "text_corpus issue_comment: decomp-dev bot reports 1 new match, gm_801B0DD0 73.04% -> 100.00%"
     ],
     "notes": [
-      "Strong evidence for changed files and the exact source edits because the full diff for the two changed files is loaded.",
-      "Strong evidence for a 100% gm_801B0DD0 match from both PR body and decomp-dev bot report.",
-      "No review comments or reviews are present in the slice, so reviewer intent and requested changes cannot be inferred.",
-      "The PR is open and draft in the loaded metadata; no acceptance, merge, or final validation status should be inferred.",
-      "The PR body includes a generated Claude Code footer, so broad functional descriptions from the body should be treated as author-supplied/generated context rather than independently verified project facts.",
-      "The slice does not include local build commands, objdiff logs, or failed matching attempts beyond the bot report."
+      "No review comments were present in the loaded slice, so review_feedback is empty.",
+      "The PR body's functional description says gm_1B03.c is the debug results screen and describes loading cached match parameters and playing character-specific result fanfare; this is accepted only as PR evidence, not independently verified intent.",
+      "PAD_STACK(8) is supported by the diff plus bot match report for this function, but the slice does not include local objdiff output beyond the bot summary.",
+      "Many failed-function names in the PR body are search terms only; they were not changed in the diff and are not treated as lessons."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson",
-        "title": "Partial struct recovery can unlock a focused function match",
-        "text": "In gm_801B0DD0, replacing a large opaque DebugResultsData pad with only the fields used by the function plus explicit padding and a typed MatchEnd member produced reviewable typed accesses and coincided with a bot-confirmed 100% match.",
+        "record_type": "pr_lesson",
+        "title": "gm_801B0DD0 matched by recovering DebugResultsData layout",
+        "text": "PR #2489 matched gm_801B0DD0 by replacing a local GmB03MatchData typedef and opaque DebugResultsData padding with typed DebugResultsData fields including bitfields and MatchEnd match_end, then using match_end for player standings and result-scene setup.",
         "scope": [
           "src/melee/gm/gm_1B03.c",
           "src/melee/gm/gm_1B03.static.h",
-          "gm_801B0DD0",
-          "DebugResultsData"
+          "gm_801B0DD0"
         ],
         "evidence_refs": [
-          "raw_diff:DebugResultsData field recovery",
-          "raw_diff:gm_801B0DD0 typed accesses",
-          "text_corpus:decomp-dev bot report one new match"
+          "diff: GmB03MatchData removed",
+          "diff: DebugResultsData expanded",
+          "bot_comment: gm_801B0DD0 100.00%"
         ]
       },
       {
         "record_type": "matching_tactic",
-        "title": "Fixed four-player standing scans can match as a natural indexed loop",
-        "text": "gm_801B0DD0 uses for (i = 0; i < 4; i++) over match_end->player_standings[i] to accumulate character result SFX bits for eligible players.",
+        "title": "gm_801B0DD0 result fanfare uses OR-accumulated lbAudioAx result",
+        "text": "In gm_801B0DD0, the matched form initializes u64 sfx_result, ORs in lbAudioAx_80026E84 for each eligible player standing, and passes sfx_result as the second argument to lbAudioAx_8002702C.",
         "scope": [
           "gm_801B0DD0",
-          "MatchEnd.player_standings"
+          "lbAudioAx_80026E84",
+          "lbAudioAx_8002702C"
         ],
         "evidence_refs": [
-          "raw_diff:for loop over four player_standings entries",
-          "text_corpus:decomp-dev bot report gm_801B0DD0 100.00%"
+          "diff: sfx_result variable and OR assignment",
+          "diff: lbAudioAx_8002702C(0x4, sfx_result)",
+          "bot_comment: gm_801B0DD0 100.00%"
         ]
       }
     ],
@@ -283,8 +253,8 @@
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "gm_1B03 debug results screen role",
-        "text": "PR #2489 describes gm_1B03.c as debug results screen code that loads cached match parameters from the sound test/debug menu into the results scene, rebuilds four-player standings, and plays character-specific result victory fanfare. The diff for gm_801B0DD0 supports parts of this by reading un_803FA258, rebuilding MatchEnd via gm_80166A98, iterating player_standings, and calling lbAudioAx result audio functions.",
+        "title": "gm_1B03.c debug results screen role",
+        "text": "PR #2489 describes gm_1B03.c as the debug results screen that loads cached match parameters from the sound test/debug menu into the results scene, rebuilds four-player standings, and plays character-specific results victory fanfare.",
         "source_path": "src/melee/gm/gm_1B03.c",
         "scope": [
           "gm_1B03.c",
@@ -292,44 +262,40 @@
           "debug results"
         ],
         "evidence_refs": [
-          "human_pr_text:What these functions do gm_1B03.c",
-          "raw_diff:gm_801B0DD0 implementation"
+          "pr_body: What these functions do section"
         ],
-        "reason": "Potential path fact, but should be curator-reviewed because the functional description is from the PR body and includes a generated Claude Code footer."
+        "reason": "Could be useful as a path fact, but it comes from PR text rather than independent source analysis and should be curator-reviewed before promotion."
       },
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Keep PAD_STACK evidence narrow",
-        "text": "PR #2489 is a concrete example where a single PAD_STACK(8) appears in a bot-confirmed matched function. This supports the existing standard that PAD_STACK is a narrow matching tactic requiring evidence, not a general style.",
-        "source_path": null,
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "DebugResultsData recovered prefix layout for gm_801B0DD0",
+        "text": "PR #2489 expands struct DebugResultsData with bitfields x0_0, x0_1, x0_other, byte fields x1-x4, pad_x5[3], and MatchEnd match_end for use by gm_801B0DD0.",
+        "source_path": "src/melee/gm/gm_1B03.static.h",
         "scope": [
-          "PAD_STACK",
-          "matching tactics",
+          "DebugResultsData",
           "gm_801B0DD0"
         ],
         "evidence_refs": [
-          "raw_diff:PAD_STACK(8)",
-          "text_corpus:decomp-dev bot report gm_801B0DD0 100.00%"
+          "diff: gm_1B03.static.h struct DebugResultsData expansion",
+          "bot_comment: gm_801B0DD0 100.00%"
         ],
-        "reason": "May be useful as an example under the existing matching-tactics-need-evidence standard; not a new standalone rule."
+        "reason": "This is a concrete recovered layout change with match evidence; curator should decide whether to record it as a path/type fact."
       }
     ],
     "rejection_notes": [
-      "Do not promote the 107 failed-function list as lessons; the slice gives little or no evidence beyond names and sparse percentages.",
-      "Do not infer that PR #2489 was merged or accepted; loaded metadata says OPEN with merged_at null.",
-      "Do not infer reviewer feedback or requested changes; no review comments are loaded.",
-      "Do not generalize the specific un_803FA258 offsets into named data semantics without additional source or data evidence.",
-      "Do not treat PAD_STACK(8) as generally acceptable outside this narrow matched gm_801B0DD0 case."
+      "Do not promote the listed 107 failed functions as changed or matched; they appear only in the PR body's failed-candidate list.",
+      "Do not generalize PAD_STACK(8) as a standard tactic from this PR alone; current standards require narrow verifier evidence for matching tactics.",
+      "Do not infer semantic meanings for x0_0, x0_1, x0_other, or x1-x4 beyond their names and assignments in the diff."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

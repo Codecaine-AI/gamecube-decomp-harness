@@ -12,14 +12,14 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR 2304 made focused THP decoder changes in the Dolphin THP header and implementation: recovered/reshaped several THP struct fields, changed THPInit to void and added low-level cache/locked-cache setup calls, passed THPFileInfo explicitly into the 512x448 iMCU row decoder path, and made small formatting/control-flow edits. The bot report showed net matched-code improvement and one new matched function, but also one broken match and one unmatched-item regression; there were no human review comments and the PR was closed unmerged.",
+  "summary": "PR 2304 made small THP decoder changes in the Dolphin THP header and implementation: THP struct layout refinements, a THPInit signature/body adjustment, a 512x448 iMCU-row helper changed to take THPFileInfo* instead of reading __THPInfo directly, and several formatting/control-shape edits. The bot report showed net matched-code improvement and one new match, but also one broken match and one unmatched regression.",
   "change_classification": {
-    "primary_type": "decomp-matching-fix",
+    "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
       "fix",
       "headers",
-      "sdk"
+      "matching-progress",
+      "struct-layout"
     ],
     "systems": [
       "external-sdk",
@@ -30,189 +30,234 @@
   "key_files": [
     {
       "path": "extern/dolphin/include/dolphin/thp/thp.h",
-      "role": "THP public/internal declarations and struct layout updates for THPHuffmanTab, THPComponent, THPFileInfo, __THPDecompressiMCURow512x448, and THPInit",
+      "role": "THP public/internal header declarations and recovered struct layout fields",
       "evidence_refs": [
         "changed_files.jsonl: extern/dolphin/include/dolphin/thp/thp.h added 10 deleted 8 hunks 4",
-        "raw_diff: thp.h hunks changing pad2[2] to pad2 plus num_Vij, adding THPComponent placeholder byte, changing THPFileInfo pad2 to byte array, changing __THPDecompressiMCURow512x448 prototype to take THPFileInfo*, and changing THPInit return type to void"
+        "raw_diff: THPHuffmanTab pad2[2] changed to pad2 plus num_Vij",
+        "raw_diff: THPComponent gained u8 _ before predDC",
+        "raw_diff: THPFileInfo pad2 changed from u32 array to byte array",
+        "raw_diff: __THPDecompressiMCURow512x448 prototype changed to THPFileInfo*",
+        "raw_diff: THPInit declaration changed from BOOL to void"
       ]
     },
     {
       "path": "extern/dolphin/src/dolphin/thp/THPDec.c",
-      "role": "THP decoder implementation changes for explicit info parameter use, Huffman table field access, THPInit setup, and minor formatting/control-flow shape edits",
+      "role": "THP decoder implementation and matching-oriented source edits",
       "evidence_refs": [
         "changed_files.jsonl: extern/dolphin/src/dolphin/thp/THPDec.c added 41 deleted 37 hunks 9",
-        "raw_diff: __THPDecompressYUV now calls __THPDecompressiMCURow512x448(__THPInfo)",
-        "raw_diff: __THPReadHuffmanTableSpecification writes info->huffmanTabs[tab_index].num_Vij instead of pad2[1]",
-        "raw_diff: __THPDecompressiMCURow512x448 now takes THPFileInfo* info and replaces repeated __THPInfo accesses with info accesses",
-        "raw_diff: THPInit changes from BOOL return to void, adds PPCMfhid2/DCInvalidateRange/LCEnable guarded setup, calls OSInitFastCast, changes THPLCWork672 offsets, and removes __THPInitFlag assignment/TRUE return"
+        "raw_diff: __THPDecompressYUV passes __THPInfo into __THPDecompressiMCURow512x448",
+        "raw_diff: __THPReadHuffmanTableSpecification writes huffmanTabs[tab_index].num_Vij",
+        "raw_diff: __THPDecompressiMCURow512x448 now uses THPFileInfo* info throughout",
+        "raw_diff: THPInit body adds PPCMfhid2/DCInvalidateRange/LCEnable and OSInitFastCast, changes LC work offsets, returns void",
+        "text_corpus bot report: THPInit improved +111 bytes, __THPHuffDecodeDCTCompY became 100%, __THPPrepBitStream broke from 100% to 99.96%"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Recovered a named Huffman-table count field by replacing THPHuffmanTab pad2[2] with pad2 plus u16 num_Vij, then using num_Vij in __THPReadHuffmanTableSpecification.",
+      "text": "Recovered a named THPHuffmanTab field num_Vij and changed the writer in __THPReadHuffmanTableSpecification from pad2[1] to num_Vij.",
       "evidence_refs": [
-        "raw_diff: THPHuffmanTab field change",
-        "raw_diff: info->huffmanTabs[tab_index].pad2[1] changed to info->huffmanTabs[tab_index].num_Vij"
+        "raw_diff: THPHuffmanTab pad2[2] -> pad2 + u16 num_Vij",
+        "raw_diff: info->huffmanTabs[tab_index].pad2[1] = num_Vij -> num_Vij = num_Vij"
       ]
     },
     {
-      "text": "Adjusted THP struct layout padding: THPComponent gained an unnamed u8 placeholder before predDC, and THPFileInfo pad2 changed from a u32 array expression to a byte array sized 0x83d - 0x756.",
+      "text": "Adjusted THPComponent and THPFileInfo padding to byte-granular fields, including a leading u8 placeholder in THPComponent and a u8 pad2 byte array in THPFileInfo.",
       "evidence_refs": [
-        "raw_diff: THPComponent adds u8 _",
+        "raw_diff: typedef struct _THPComponent gained u8 _",
         "raw_diff: THPFileInfo pad2[(0x83d - 0x756) / 4] changed to u8 pad2[0x83d - 0x756]"
       ]
     },
     {
-      "text": "Changed __THPDecompressiMCURow512x448 to accept THPFileInfo* and use the passed info for MCUsPerRow, Huffman decode calls, components, quantTabs, RST/currMCU/nMCU/cnt, and predDC resets.",
+      "text": "Changed __THPDecompressiMCURow512x448 to accept THPFileInfo* info and replaced repeated direct __THPInfo accesses inside that helper with the parameter.",
       "evidence_refs": [
-        "raw_diff: prototype and definition of __THPDecompressiMCURow512x448 changed from void to THPFileInfo* parameter",
-        "raw_diff: repeated replacements of __THPInfo with info inside __THPDecompressiMCURow512x448"
+        "raw_diff: static void __THPDecompressiMCURow512x448(void) -> static void __THPDecompressiMCURow512x448(THPFileInfo* info)",
+        "raw_diff: caller changed to __THPDecompressiMCURow512x448(__THPInfo)",
+        "raw_diff: info->MCUsPerRow, info->components, info->quantTabs, info->RST, info->currMCU, info->nMCU, info->cnt replace __THPInfo uses"
       ]
     },
     {
-      "text": "Changed THPInit signature from BOOL to void in the header and source, added conditional cache/LC initialization, called OSInitFastCast, adjusted THPLCWork672 base increments, and removed TRUE return behavior.",
+      "text": "Changed THPInit from BOOL-returning to void-returning in both header and source, removed __THPInitFlag assignment and TRUE return, enabled OSInitFastCast call, and added low-level cache/locked-cache setup guarded by PPCMfhid2.",
       "evidence_refs": [
-        "raw_diff: thp.h BOOL THPInit(void) changed to void THPInit(void)",
-        "raw_diff: THPInit adds PPCMfhid2, DCInvalidateRange, LCEnable, OSInitFastCast, offset changes, and return;"
+        "raw_diff: BOOL THPInit(void) -> void THPInit(void)",
+        "raw_diff: if (!(PPCMfhid2() & 0x10000000)) { DCInvalidateRange((u8*)(0xE0000000), 0x4000); LCEnable(); }",
+        "raw_diff: //OSInitFastCast(); -> OSInitFastCast();",
+        "raw_diff: removed __THPInitFlag = TRUE and return TRUE; added return;"
       ]
     },
     {
-      "text": "Made small formatting/control-flow layout edits around else braces and loop brace placement.",
+      "text": "Adjusted THPLCWork672 offset increments from 0x2A00/0xA80 to 0x2800/0xA00 before the final 0xA80 increment.",
       "evidence_refs": [
-        "raw_diff: else brace style changes in THPVideoDecode and __THPHuffDecodeDCTCompU",
-        "raw_diff: for loop brace formatting in __THPHuffDecodeDCTCompY"
+        "raw_diff: base += 0x2A00 -> base += 0x2800",
+        "raw_diff: base += 0xA80 -> base += 0xA00"
+      ]
+    },
+    {
+      "text": "Included several brace/formatting changes around else and loop braces that affected reported matching status for THPDec functions.",
+      "evidence_refs": [
+        "raw_diff: else brace formatting in THPVideoDecode and __THPHuffDecodeDCTCompU",
+        "raw_diff: for (k = 1; k < 64; k++) brace moved onto same line in __THPHuffDecodeDCTCompY",
+        "text_corpus bot report: __THPHuffDecodeDCTCompY became a new 100% match"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Replacing pad-index access with a named num_Vij field improves reviewability and aligns with typed-field-over-pointer/padding cleanup when the field role is evident from nearby code.",
+      "text": "Replacing pad2[1] with a named num_Vij field made the Huffman table count access self-documenting without changing the surrounding algorithm.",
       "evidence_refs": [
-        "raw_diff: THPHuffmanTab adds num_Vij",
-        "raw_diff: __THPReadHuffmanTableSpecification stores num_Vij into the named field"
+        "raw_diff: THPHuffmanTab num_Vij field addition",
+        "raw_diff: __THPReadHuffmanTableSpecification writes num_Vij"
       ]
     },
     {
-      "text": "Passing THPFileInfo* into __THPDecompressiMCURow512x448 made the function use the same explicit-info style as surrounding decode helpers such as __THPHuffDecodeDCTCompY/U/V.",
+      "text": "Passing THPFileInfo* into the 512x448 row decompressor localized state access and aligned it with nearby decode helpers that already take THPFileInfo* parameters.",
       "evidence_refs": [
-        "raw_diff: __THPDecompressiMCURow512x448(THPFileInfo* info)",
-        "raw_diff: __THPHuffDecodeDCTCompY/U/V calls receive info"
+        "raw_diff: __THPHuffDecodeDCTCompY/U/V prototypes take THPFileInfo*",
+        "raw_diff: __THPDecompressiMCURow512x448 signature and body changed to use info"
       ]
     },
     {
-      "text": "The PR kept header declarations in sync with implementation signature changes for __THPDecompressiMCURow512x448 and THPInit.",
+      "text": "The PR kept header and implementation signatures synchronized for THPInit and __THPDecompressiMCURow512x448.",
       "evidence_refs": [
         "raw_diff: thp.h prototype changes",
-        "raw_diff: THPDec.c definition changes"
+        "raw_diff: THPDec.c definition/callsite changes"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a padding slot is consistently used for a meaningful value, a narrow struct-field recovery can replace opaque pad indexing, but the layout impact should be tracked because this PR also changed adjacent padding types.",
-      "evidence_refs": [
-        "raw_diff: THPHuffmanTab pad2[2] changed to pad2 plus num_Vij",
-        "raw_diff: pad2[1] use changed to num_Vij"
+      "lesson": "When a padding slot is demonstrably used as a real value, promote that slot into a typed/named struct field and update accesses to the field.",
+      "scope": [
+        "THPDec",
+        "struct layout recovery",
+        "external/dolphin/include/dolphin/thp/thp.h"
       ],
-      "standards_refs": [
-        "typed-fields-over-pointer-math",
-        "conservative-naming"
-      ]
+      "evidence_refs": [
+        "raw_diff: THPHuffmanTab pad2[2] changed to pad2 plus u16 num_Vij",
+        "raw_diff: pad2[1] access replaced with num_Vij assignment"
+      ],
+      "confidence": 0.86
     },
     {
-      "lesson": "Signature recovery should update both the implementation and owning header together; this PR changed local static and public prototypes alongside the function bodies.",
-      "evidence_refs": [
-        "raw_diff: __THPDecompressiMCURow512x448 prototype and definition changed",
-        "raw_diff: THPInit header declaration and source definition changed"
+      "lesson": "If a helper conceptually operates on a THPFileInfo and many callees already take that type, threading the THPFileInfo* parameter through the helper can be a plausible matching and readability tactic compared with repeated global reads.",
+      "scope": [
+        "THPDec",
+        "__THPDecompressiMCURow512x448",
+        "state access"
       ],
-      "standards_refs": [
-        "truthful-headers-and-includes"
-      ]
+      "evidence_refs": [
+        "raw_diff: caller now passes __THPInfo",
+        "raw_diff: __THPDecompressiMCURow512x448 replaces repeated __THPInfo member accesses with info member accesses",
+        "raw_diff: Huffman decode helpers take THPFileInfo*"
+      ],
+      "confidence": 0.72
     },
     {
-      "lesson": "A bot-reported net score improvement is not enough to treat a matching change as clean when the same report lists a broken match or regression; keep the regression ledger attached to the PR.",
-      "evidence_refs": [
-        "text_corpus: decomp-dev[bot] report shows +0.03%, +984 bytes and 1 new match",
-        "text_corpus: same report shows 1 broken match in __THPPrepBitStream and 1 regression in __THPReadScaneHeader"
+      "lesson": "Header prototype updates should accompany recovered implementation signature changes in the same PR slice.",
+      "scope": [
+        "headers",
+        "THPInit",
+        "__THPDecompressiMCURow512x448"
       ],
-      "standards_refs": [
-        "verification-and-regression-ledger"
-      ]
+      "evidence_refs": [
+        "raw_diff: thp.h and THPDec.c both change THPInit to void",
+        "raw_diff: thp.h and THPDec.c both change __THPDecompressiMCURow512x448 to take THPFileInfo*"
+      ],
+      "confidence": 0.8
     }
   ],
   "naming_conventions": [
     {
-      "name": "num_Vij",
-      "kind": "struct field",
-      "context": "Recovered THPHuffmanTab field replacing pad2[1] storage for the local num_Vij value in __THPReadHuffmanTableSpecification.",
+      "text": "num_Vij was introduced as a named THPHuffmanTab field for a count previously stored through padding.",
       "evidence_refs": [
         "raw_diff: u16 num_Vij added to THPHuffmanTab",
-        "raw_diff: info->huffmanTabs[tab_index].num_Vij = num_Vij"
+        "raw_diff: assignment to info->huffmanTabs[tab_index].num_Vij"
       ]
     },
     {
-      "name": "info",
-      "kind": "local/function parameter",
-      "context": "THPFileInfo* parameter name used in __THPDecompressiMCURow512x448 after converting from global __THPInfo accesses.",
+      "text": "Existing THP naming style in this slice uses double-underscore internal helpers such as __THPDecompressiMCURow512x448 and __THPHuffDecodeDCTCompY, while preserving THP-prefix exported functions such as THPVideoDecode and THPInit.",
       "evidence_refs": [
-        "raw_diff: static void __THPDecompressiMCURow512x448(THPFileInfo* info)",
-        "raw_diff: info->MCUsPerRow and info->components/quantTabs/RST/currMCU uses"
+        "raw_diff: static helper prototypes in thp.h",
+        "raw_diff: THPVideoDecode and THPInit declarations"
       ]
     },
     {
-      "name": "_",
-      "kind": "placeholder struct field",
-      "context": "Unnamed/placeholder u8 field added at the start of THPComponent; semantic meaning is not established by the PR evidence.",
+      "text": "The placeholder field name '_' was added to THPComponent; this is evidence of unresolved layout padding, not a semantic name.",
       "evidence_refs": [
-        "raw_diff: typedef struct _THPComponent adds u8 _"
+        "raw_diff: typedef struct _THPComponent gained u8 _"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use an explicit THPFileInfo* parameter to influence access shape and reduce repeated global __THPInfo references in one decoder row function.",
+      "tactic": "Thread an existing global state pointer into a helper as an explicit parameter to alter access/codegen shape.",
       "evidence_refs": [
-        "raw_diff: __THPDecompressYUV passes __THPInfo to __THPDecompressiMCURow512x448",
-        "raw_diff: __THPDecompressiMCURow512x448 replaces many __THPInfo accesses with info"
+        "raw_diff: __THPDecompressiMCURow512x448(__THPInfo)",
+        "raw_diff: helper body uses info-> fields instead of __THPInfo-> fields"
       ],
-      "risk_or_note": "No inline reviewer explanation is present, and the bot report does not isolate this function as a new match; treat as a tactic candidate, not a proven global pattern."
+      "risk_or_note": "The bot report did not show this helper as newly matched; treat as a candidate tactic, not proven general guidance."
     },
     {
-      "tactic": "Recover byte-accurate struct padding where offsets appear non-word-sized.",
+      "tactic": "Use byte-granular padding for struct layout when offsets are not word-aligned or when later fields require exact byte positioning.",
       "evidence_refs": [
-        "raw_diff: THPFileInfo pad2 changed from u32 pad2[(0x83d - 0x756) / 4] to u8 pad2[0x83d - 0x756]",
-        "raw_diff: THPComponent adds u8 _ before predDC"
+        "raw_diff: THPFileInfo pad2 changed from u32 array expression to u8 pad2[0x83d - 0x756]",
+        "raw_diff: THPComponent gained u8 _ before THPCoeff predDC"
       ],
-      "risk_or_note": "The PR evidence does not include explicit offset verification; changed padding should be reviewed against struct layout and object diff evidence."
+      "risk_or_note": "The slice does not include explicit offset verification, so this remains grounded only in the diff and reported score movement."
     },
     {
-      "tactic": "Small brace-formatting changes can affect matching in sensitive SDK-like code.",
+      "tactic": "Small brace-format changes can affect MWCC matching for tight decode loops and branch structures.",
       "evidence_refs": [
-        "raw_diff: brace style changes near THPVideoDecode, __THPHuffDecodeDCTCompY, and __THPHuffDecodeDCTCompU",
-        "text_corpus: bot report shows +1 byte/new match for __THPHuffDecodeDCTCompY and minor changes in U/V"
+        "raw_diff: for-loop brace change in __THPHuffDecodeDCTCompY",
+        "raw_diff: else brace changes in THPVideoDecode and __THPHuffDecodeDCTCompU",
+        "text_corpus bot report: __THPHuffDecodeDCTCompY changed from 99.99% to 100.00%"
       ],
-      "risk_or_note": "The report associates score changes with functions but does not prove each formatting edit caused the result."
+      "risk_or_note": "The evidence correlates the PR with the match report but does not isolate which edit caused each score change."
+    },
+    {
+      "tactic": "THPInit matching work included restoring low-level SDK-like initialization calls and exact LC work-buffer offsets.",
+      "evidence_refs": [
+        "raw_diff: PPCMfhid2/DCInvalidateRange/LCEnable added",
+        "raw_diff: OSInitFastCast uncommented",
+        "raw_diff: THPLCWork672 offsets changed",
+        "text_corpus bot report: THPInit improved from 10.60% to 32.12%"
+      ],
+      "risk_or_note": "No reviewer explanation or objdiff details are included beyond the bot percentage report."
     }
   ],
   "review_feedback": [
     {
-      "type": "bot_report",
+      "kind": "bot_report",
       "author": "decomp-dev[bot]",
-      "created_at": "2026-03-15T23:36:07Z",
-      "text": "Report for GALE01 showed matched code 58.01% (+0.03%, +984 bytes), 1 new match: main/dolphin/thp/THPDec __THPHuffDecodeDCTCompY from 99.99% to 100.00%. It also showed 1 broken match: __THPPrepBitStream from 100.00% to 99.96%, 6 improvements in unmatched items including THPInit +111 bytes from 10.60% to 32.12%, and 1 regression in __THPReadScaneHeader from 42.59% to 42.57%.",
+      "text": "Report for GALE01 showed matched code 58.01% (+0.03%, +984 bytes), one new match, one broken match, six improvements in unmatched items, and one regression in an unmatched item.",
       "evidence_refs": [
-        "text_corpus.jsonl issue_comment by decomp-dev[bot]"
+        "text_corpus issue_comment decomp-dev[bot] 2026-03-15T23:36:07Z"
       ]
     },
     {
-      "type": "missing_human_review",
-      "author": null,
-      "created_at": null,
-      "text": "No review comments or human review records are present in the supplied PR slice.",
+      "kind": "match_result",
+      "author": "decomp-dev[bot]",
+      "text": "__THPHuffDecodeDCTCompY in main/dolphin/thp/THPDec improved from 99.99% to 100.00% and was reported as one new match.",
       "evidence_refs": [
-        "metadata_json: review_comments 0, reviews 0",
-        "loaded_files: text_corpus contains only empty PR body and bot report"
+        "text_corpus bot report: ✅ 1 new match table"
+      ]
+    },
+    {
+      "kind": "regression_result",
+      "author": "decomp-dev[bot]",
+      "text": "__THPPrepBitStream was reported as a broken match, going from 100.00% to 99.96%. __THPReadScaneHeader also regressed slightly among unmatched items, from 42.59% to 42.57%.",
+      "evidence_refs": [
+        "text_corpus bot report: 🥀 1 broken match table",
+        "text_corpus bot report: 📉 1 regression in an unmatched item table"
+      ]
+    },
+    {
+      "kind": "missing_human_review",
+      "author": null,
+      "text": "No human review comments or PR body rationale were present in the loaded slice.",
+      "evidence_refs": [
+        "metadata_json counts: review_comments 0, reviews 0",
+        "text_corpus pr_body body empty"
       ]
     }
   ],
@@ -220,9 +265,9 @@
     "PR2304",
     "Small fixes to THPDec",
     "PsiLupan",
-    "THPDec",
     "extern/dolphin/src/dolphin/thp/THPDec.c",
     "extern/dolphin/include/dolphin/thp/thp.h",
+    "THPDec",
     "THPHuffmanTab",
     "num_Vij",
     "THPComponent",
@@ -237,46 +282,64 @@
     "DCInvalidateRange",
     "LCEnable",
     "OSInitFastCast",
-    "__THPLCWork672"
+    "__THPLCWork672",
+    "MCUsPerRow",
+    "quantizationTableSelector"
   ],
   "follow_up_queries": [
-    "THPDec num_Vij THPHuffmanTab pad2",
+    "THPDec num_Vij pad2 THPHuffmanTab",
     "THPInit PPCMfhid2 DCInvalidateRange LCEnable OSInitFastCast",
-    "__THPDecompressiMCURow512x448 THPFileInfo info",
-    "THPDec __THPPrepBitStream broken match PR 2304",
-    "THPDec __THPReadScaneHeader regression PR 2304",
-    "extern dolphin thp struct padding THPFileInfo THPComponent"
+    "__THPDecompressiMCURow512x448 THPFileInfo info __THPInfo",
+    "THPFileInfo byte padding 0x83d 0x756",
+    "__THPPrepBitStream broken match PR 2304",
+    "__THPReadScaneHeader regression PR 2304",
+    "THPLCWork672 0x2800 0xA00 0xA80",
+    "__THPHuffDecodeDCTCompY brace 100% match"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR 2304 title/state/author/changed files/counts",
-      "raw_diff: complete diff for two changed files",
-      "text_corpus: empty PR body and decomp-dev[bot] report"
+      "metadata_json: PR 2304 title/state/author/url/timestamps and changed-file counts",
+      "raw_diff: full diff for two changed files",
+      "changed_files.jsonl: changed file metadata",
+      "text_corpus.jsonl: empty PR body and decomp-dev bot report",
+      "metadata_json counts: issue_comments 1, review_comments 0, reviews 0"
     ],
     "notes": [
-      "The diff is complete and changed-file metadata is available.",
-      "The PR body is empty, so author rationale is not available.",
-      "There are no human review comments in the slice.",
-      "The PR state is CLOSED with merged_at null; do not treat these changes as accepted or merged.",
-      "Verification evidence is limited to the bot report, which includes both improvements and regressions.",
-      "No build log, objdiff details, or manual validation notes are present beyond the bot score report."
+      "The diff evidence is complete for the loaded slice and supports changed-file and code-change facts.",
+      "There is no PR body explanation and no human review feedback in the slice, so author intent and reviewer intent cannot be inferred.",
+      "The PR is closed with merged_at null; this intake does not claim the changes were accepted or merged.",
+      "The bot report provides score/match/regression evidence but does not isolate which individual edit caused each result.",
+      "No local build, objdiff logs, or offset verification beyond the bot report are present."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "pr_lesson_candidate",
-        "title": "Keep regression details with score-improving PRs",
-        "text": "PR 2304 is a useful example that a net matched-code increase can coexist with a broken match and a regression; curator may link this to verification-ledger guidance for decomp matching work.",
+        "record_type": "decomp_lesson_candidate",
+        "title": "Promote proven padding accesses into typed fields",
+        "text": "In THPDec, a THPHuffmanTab padding-array access pad2[1] was replaced by a named u16 field num_Vij, and the writer in __THPReadHuffmanTableSpecification was updated accordingly. This is a graph-safe candidate illustrating typed fields over padding when the value role is visible in code.",
         "scope": [
-          "decomp-matching",
-          "verification",
-          "THPDec"
+          "struct layout recovery",
+          "THPDec",
+          "typed-fields-over-pointer-math"
         ],
         "evidence_refs": [
-          "text_corpus: bot report shows +0.03%, +984 bytes",
-          "text_corpus: bot report shows broken __THPPrepBitStream and regression in __THPReadScaneHeader"
+          "raw_diff: THPHuffmanTab pad2[2] -> u32 pad2 plus u16 num_Vij",
+          "raw_diff: pad2[1] assignment -> num_Vij assignment"
+        ]
+      },
+      {
+        "record_type": "matching_tactic_candidate",
+        "title": "Explicit state parameter instead of repeated global reads",
+        "text": "The 512x448 THP iMCU-row helper was changed to take THPFileInfo* and use info-> fields, with the caller passing __THPInfo. This may be useful as a searchable matching tactic in THP-like SDK code, but the slice does not prove broad applicability.",
+        "scope": [
+          "THPDec",
+          "__THPDecompressiMCURow512x448",
+          "matching tactic"
+        ],
+        "evidence_refs": [
+          "raw_diff: __THPDecompressiMCURow512x448 signature/callsite/body changes"
         ]
       }
     ],
@@ -284,53 +347,53 @@
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "Dolphin THP decoder paths",
-        "text": "PR 2304 touched the Dolphin THP decoder implementation at extern/dolphin/src/dolphin/thp/THPDec.c and its header at extern/dolphin/include/dolphin/thp/thp.h.",
-        "source_path": null,
+        "title": "THPDec path belongs to Dolphin THP external SDK decoder area",
+        "text": "The PR modifies extern/dolphin/src/dolphin/thp/THPDec.c and extern/dolphin/include/dolphin/thp/thp.h, classified in the slice as external-sdk and centered on Dolphin THP decoder code.",
+        "source_path": "extern/dolphin/src/dolphin/thp/THPDec.c",
         "scope": [
           "extern/dolphin",
           "dolphin/thp",
           "THPDec"
         ],
         "evidence_refs": [
-          "changed_files.jsonl: two changed files",
-          "metadata_json: systems external-sdk"
+          "metadata_json initial_classification systems: external-sdk",
+          "changed_files.jsonl: THPDec.c and thp.h paths"
         ],
-        "reason": "May help classify future THPDec PRs under external Dolphin SDK/THP path ownership."
+        "reason": "Could help future path classification for THP decoder PRs; curator should verify against current source ownership before adding."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Struct padding recovery should carry layout evidence",
-        "text": "This PR demonstrates padding-to-field and padding-width changes in THP structs, but the slice lacks explicit layout or objdiff proof. Curator may consider whether existing typed-fields and verification standards already cover this or whether a more specific reminder is useful.",
+        "title": "SDK-like low-level init changes need narrow regression evidence",
+        "text": "This PR changed THPInit low-level cache/LC setup and work-buffer offsets and received a mixed bot report with improvements plus regressions. A possible standards note is to require narrow verification when restoring SDK-like initialization sequences because small low-level changes can perturb nearby matching.",
         "source_path": null,
         "scope": [
-          "struct-layout",
-          "typed-fields",
-          "external-sdk"
+          "external SDK code",
+          "initialization routines",
+          "matching verification"
         ],
         "evidence_refs": [
-          "raw_diff: THPHuffmanTab pad2[2] to pad2 plus num_Vij",
-          "raw_diff: THPFileInfo u32 pad array to u8 byte padding",
-          "raw_diff: THPComponent adds u8 _"
+          "raw_diff: THPInit adds PPCMfhid2/DCInvalidateRange/LCEnable, OSInitFastCast, and offset changes",
+          "text_corpus bot report: THPInit improved but __THPPrepBitStream broke and __THPReadScaneHeader regressed"
         ],
-        "reason": "Candidate only; PR evidence supports that such changes occurred, not that they were accepted or fully verified."
+        "reason": "This aligns with existing verification standards, but the PR alone is not enough to create a new accepted global rule."
       }
     ],
     "rejection_notes": [
-      "Do not promote THPInit returning void as an accepted project fact from this slice alone; the PR was closed unmerged and no reviewer acceptance is present.",
-      "Do not infer that the THPLCWork672 offset changes are correct beyond recording that the diff made them; no rationale or validation details are present.",
-      "Do not infer human reviewer intent; there were no review comments in the loaded evidence.",
-      "Do not claim the PR matched THPInit or fixed all THPDec issues; bot evidence only shows THPInit improved from 10.60% to 32.12% and reports other regressions."
+      "Do not treat PR 2304 as an accepted or merged precedent; metadata shows state CLOSED and merged_at null.",
+      "Do not infer that changing THPInit to void is globally correct from this slice alone; there is no human rationale or acceptance evidence.",
+      "Do not claim OSRegisterVersion should be removed in THPInit generally; the diff only shows a commented-out call being replaced by other initialization work.",
+      "Do not claim brace style alone caused the __THPHuffDecodeDCTCompY match; the bot report does not isolate causality.",
+      "Do not promote the placeholder field name '_' as a naming convention beyond unresolved padding."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.76,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

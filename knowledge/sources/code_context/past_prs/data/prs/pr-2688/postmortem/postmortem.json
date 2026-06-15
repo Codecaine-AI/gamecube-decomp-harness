@@ -1,0 +1,471 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2688",
+  "pr": {
+    "number": 2688,
+    "title": "Melee decomp: Stage-specific GR matches",
+    "url": "https://github.com/doldecomp/melee/pull/2688",
+    "state": "MERGED",
+    "author": "fjooord",
+    "created_at": "2026-06-13T21:29:31Z",
+    "merged_at": "2026-06-14T18:52:16Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Stage GR decompilation slice for Big Blue, Fourside, Rainbow Cruise, Shrine Route, Old Yoshi, and Venom. The PR body and bot report claim 10 new exact matches, 11 unmatched-item improvements, clean isolated/full regression reports, and git diff/check success. The diff shows implementation matching, type/union refinements in gr/types.h, stage-local field naming, local struct/layout work, inlining/splitting tactics, PAD_STACK/local-order changes, and data/literal ownership changes. Review discussion was mixed: several comments challenged literal-to-symbol changes, copied jobj.h inline forms, static inlines, and formatting, while author replies argued some choices were backed by target section/symbol metadata and regression reports.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "cleanup",
+      "decomp-matching",
+      "headers",
+      "naming",
+      "types-structs",
+      "data-section-sensitive"
+    ],
+    "systems": [
+      "stage",
+      "ground"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/gr/grbigblue.c",
+      "role": "Big Blue stage matching and cleanup; replaced many raw gp offset accesses with gp->gv.bigblue.platform fields, adjusted locals/PAD_STACK, ABS use, and float/data references.",
+      "evidence_refs": [
+        "changed_files.jsonl: grbigblue.c +70/-65, 21 hunks",
+        "diff_excerpt: grBigBlue_801EA05C raw offsets to gp->gv.bigblue.platform fields",
+        "text_corpus bot report: grBigBlue_801EF424 and grBigBlue_801E8D64 new exact matches; grBigBlue_801EA05C and grBigBlue_801EACE8 improved",
+        "review_comments: discussion_r3409808025 asks to use TU-owned ground vars instead of arwing/borrowed vars"
+      ]
+    },
+    {
+      "path": "src/melee/gr/grfourside.c",
+      "role": "Fourside UFO matching; split grFourside_801F3894 body into static inline helper taking gobj/gp/jobj/state/prev_building.",
+      "evidence_refs": [
+        "changed_files.jsonl: grfourside.c +21/-13, 6 hunks",
+        "raw_diff: grFourside_801F3894_inline introduced",
+        "text_corpus bot report: grFourside_801F3894 new exact match"
+      ]
+    },
+    {
+      "path": "src/melee/gr/groldyoshi.c",
+      "role": "Old Yoshi matching and rodata layout; changed grOy_803B83F0 from int array to struct-wrapped data with pad and adjusted local copy/PAD_STACK placement.",
+      "evidence_refs": [
+        "changed_files.jsonl: groldyoshi.c +17/-15, 1 hunk",
+        "diff_excerpt: grOy_803B83F0_Data and grOldYoshi_8020F088 changes",
+        "text_corpus bot report: grOldYoshi_8020F088 and .rodata new exact matches"
+      ]
+    },
+    {
+      "path": "src/melee/gr/grrcruise.c",
+      "role": "Rainbow Cruise matching and data/layout work; added target-owned string/data objects, RCruise-specific local structs, inline helper changes, table data, and loop/body reshaping.",
+      "evidence_refs": [
+        "changed_files.jsonl: grrcruise.c +102/-51, 9 hunks",
+        "review_comments: discussion_r3409762448 says grRc_803E4F44 is .data string object size 0x6C",
+        "review_comments: discussion_r3409762693 says grRCruise_801FF924 improved but not exact",
+        "text_corpus bot report: grRCruise_80200C04, grRCruise_80200578, grRCruise_80200B48 exact; grrcruise .data improved"
+      ]
+    },
+    {
+      "path": "src/melee/gr/grshrineroute.c",
+      "role": "Shrine Route matching improvements; evidence in bot report and changed-file metadata, with only small excerpt coverage.",
+      "evidence_refs": [
+        "changed_files.jsonl: grshrineroute.c +29/-23, 10 hunks",
+        "text_corpus bot report: grShrineRoute_80208F70 new exact match; grShrineRoute_80209BEC slight improvement",
+        "raw_diff excerpt: grShrineRoute platform jobj assignment reshaping"
+      ]
+    },
+    {
+      "path": "src/melee/gr/grvenom.c",
+      "role": "Venom matching and data/type cleanup; large implementation reshaping, local grVenom_JObj* inline mirrors, grVe_TimingData field access, linked_gobj/xC4_flags use, switch/goto reshapes, PAD_STACK/local changes.",
+      "evidence_refs": [
+        "changed_files.jsonl: grvenom.c +250/-274, 22 hunks",
+        "review_comments: discussion_r3409762899 says grVenom_JObj* helpers mirror jobj.h helpers with matching assert line numbers",
+        "review_comments: discussion_r3409814806 and related comments object to copied jobj.h inlines",
+        "text_corpus bot report: grVenom_80206874 exact; several Venom functions improved"
+      ]
+    },
+    {
+      "path": "src/melee/gr/types.h",
+      "role": "GroundVars type updates for stage-specific storage, including grVenom xC4_flags/linked_gobj unions and grBigBlue_PlatformVars overlay.",
+      "evidence_refs": [
+        "changed_files.jsonl: types.h +42/-17, 3 hunks",
+        "raw_diff: grVenom_GroundVars union additions",
+        "raw_diff: grBigBlue_PlatformVars added and unioned into grBigBlue_GroundVars"
+      ]
+    }
+  ],
+  "what_changed": [
+    "Added exact-match decompilation progress across six stage files; PR body claims 10 newly exact functions and 11 still-unmatched improvements.",
+    "Moved Big Blue platform state from raw gp offset writes/reads into typed gp->gv.bigblue.platform fields backed by grBigBlue_PlatformVars in types.h.",
+    "Added Venom GroundVars overlays for xC4 bit flags and linked_gobj, replacing some borrowed/opaque storage uses in Venom code.",
+    "Introduced or adjusted stage-local data symbols such as grBb_804DB2F0, grRc_803E4F44, grOy_803B83F0_Data, and Venom grVe_* sdata/string references where the PR evidence says target metadata drove matches.",
+    "Used code-shape tactics including PAD_STACK changes, local declaration ordering, helper inlining, switch/goto reshaping, temporary local structs, and explicit casts to influence MWCC output.",
+    "Retained or introduced local static inline forms for some operations, notably Fourside helper extraction and Venom JObj helper mirrors."
+  ],
+  "smart_moves": [
+    {
+      "text": "Replacing raw Big Blue gp offset arithmetic with a stage-owned GroundVars overlay improved readability and aligned with reviewer guidance to use each TU's own ground vars instead of borrowed arms.",
+      "evidence_refs": [
+        "diff_excerpt: gp->gv.bigblue.platform.xC8_timer/xD0_timer/xCC_timer/height_offset/target_y/velocity",
+        "raw_diff: grBigBlue_PlatformVars added to types.h",
+        "review_comments: discussion_r3409808025"
+      ]
+    },
+    {
+      "text": "The PR separated exact-match claims from near-match improvements: grRCruise_801FF924 was explicitly described as improved to 99.99% but not exact.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409762693",
+        "text_corpus bot report: 11 improvements in unmatched items"
+      ]
+    },
+    {
+      "text": "Author replies tied controversial data-symbol uses to specific section/symbol metadata and regression reports instead of presenting them as ordinary cleanup.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409762243",
+        "review_comments: discussion_r3409762448",
+        "review_comments: discussion_r3409762899"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "For stage TUs, prefer adding or refining the owning GroundVars union/struct arm over using raw gp offsets or unrelated stage union arms when the same offsets are stage-owned.",
+      "scope": [
+        "src/melee/gr",
+        "stage GroundVars"
+      ],
+      "evidence_refs": [
+        "review_comments: discussion_r3409808025",
+        "raw_diff: grBigBlue_PlatformVars",
+        "raw_diff: grVenom_GroundVars xC4_flags and linked_gobj"
+      ]
+    },
+    {
+      "lesson": "Literal-to-symbol changes are review-sensitive; if a matching slice needs them, attach section/symbol ownership and regression evidence, and expect pushback when the change resembles data-linking work.",
+      "scope": [
+        "matching PRs",
+        ".data/.sdata/.sdata2 literals"
+      ],
+      "evidence_refs": [
+        "review_comments: discussion_r3409762243",
+        "review_comments: discussion_r3409762448",
+        "review_comments: discussion_r3409808878",
+        "review_comments: discussion_r3409810423"
+      ]
+    },
+    {
+      "lesson": "Header inline recovery can require exact assert file/line behavior, but copied local inline mirrors of jobj.h helpers are controversial and should be treated as an exception needing narrow evidence.",
+      "scope": [
+        "HSD_JObj helpers",
+        "jobj.h asserts",
+        "stage TUs"
+      ],
+      "evidence_refs": [
+        "review_comments: discussion_r3409762899",
+        "review_comments: discussion_r3409814806",
+        "review_comments: discussion_r3409817115",
+        "decomp_standards: header-inlines"
+      ]
+    },
+    {
+      "lesson": "When a helper or local struct is introduced only for codegen shape, record whether it reaches an exact match or only an improvement; the latter should not be described as a completed match.",
+      "scope": [
+        "matching tactics",
+        "local structs",
+        "static inline helpers"
+      ],
+      "evidence_refs": [
+        "review_comments: discussion_r3409762693",
+        "text_corpus bot report: grRCruise_801FF924 listed as improvement rather than exact"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "name": "stage-prefixed data symbols",
+      "examples": [
+        "grBb_804DB2F0",
+        "grRc_803E4F44",
+        "grOy_803B83F0",
+        "grVe_804D47C0"
+      ],
+      "evidence_refs": [
+        "diff_excerpt",
+        "review_comments: discussion_r3409762243",
+        "review_comments: discussion_r3409762448",
+        "review_comments: discussion_r3409762899"
+      ]
+    },
+    {
+      "name": "stage-owned GroundVars field overlays",
+      "examples": [
+        "gp->gv.bigblue.platform.xC8_timer",
+        "gp->gv.bigblue.platform.height_offset",
+        "gp->gv.bigblue.platform.target_y",
+        "gp->gv.venom.linked_gobj",
+        "gp->gv.venom.xC4_flags"
+      ],
+      "evidence_refs": [
+        "raw_diff: grBigBlue_PlatformVars",
+        "raw_diff: grVenom_GroundVars"
+      ]
+    },
+    {
+      "name": "address-style names retained for uncertain symbols",
+      "examples": [
+        "grBigBlue_801EA05C",
+        "grRCruise_801FF924",
+        "grVenom_80206874"
+      ],
+      "evidence_refs": [
+        "diff_excerpt",
+        "text_corpus bot report"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "PAD_STACK and local declaration ordering changes were used to steer stack/register layout.",
+      "evidence_refs": [
+        "diff_excerpt: PAD_STACK changes in grBigBlue_801EACE8 and grBigBlue_801EF424 local ordering",
+        "diff_excerpt: groldyoshi local34/PAD_STACK placement",
+        "raw_diff: grVenom PAD_STACK adjustments"
+      ]
+    },
+    {
+      "tactic": "Typed field overlays replaced raw pointer arithmetic where type information was recovered or added.",
+      "evidence_refs": [
+        "diff_excerpt: Big Blue raw offset conversions",
+        "raw_diff: grBigBlue_PlatformVars",
+        "raw_diff: grVenom_GroundVars linked_gobj/xC4_flags"
+      ]
+    },
+    {
+      "tactic": "Control-flow and expression reshaping included switch/grouped cases, ABS macro use, goto labels, temporary variables, and assignment collapsing such as pos = half_bot.",
+      "evidence_refs": [
+        "diff_excerpt: ABS in grBigBlue_801EA05C",
+        "diff_excerpt: pos = half_bot",
+        "raw_diff: Venom switch/goto reshapes"
+      ]
+    },
+    {
+      "tactic": "Static inline helper extraction/mirroring was used for Fourside and Venom matching, but review comments flagged copied static/JObj inlines as risky.",
+      "evidence_refs": [
+        "diff_excerpt: grFourside_801F3894_inline",
+        "review_comments: discussion_r3409762899",
+        "review_comments: discussion_r3409813624",
+        "review_comments: discussion_r3409817115"
+      ]
+    },
+    {
+      "tactic": "Target-owned data references were used for constants and strings when author evidence claimed section/symbol ownership.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409762243",
+        "review_comments: discussion_r3409762448",
+        "review_comments: discussion_r3409762899"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "topic": "Literal/data-symbol regressions",
+      "feedback": "Reviewer objected to replacing ordinary literals with named data symbols in Big Blue and Rainbow Cruise, asking to revert and use literals until linking/data ownership work is appropriate.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409804631",
+        "review_comments: discussion_r3409808878",
+        "review_comments: discussion_r3409810423"
+      ]
+    },
+    {
+      "topic": "Use owning GroundVars",
+      "feedback": "Reviewer said each TU should use its own ground vars, not borrowed gv.arwing-style fields, and this applies across touched files.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409808025"
+      ]
+    },
+    {
+      "topic": "JObj/header inlines",
+      "feedback": "Reviewer said jobj.h references indicate jobj.h inlines and objected to copied local jobj inline bodies; author argued Venom local mirrors preserved assert line numbers and target-owned strings.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409762899",
+        "review_comments: discussion_r3409814806",
+        "review_comments: discussion_r3409815897",
+        "review_comments: discussion_r3409817115"
+      ]
+    },
+    {
+      "topic": "Static inline and formatting",
+      "feedback": "Reviewer flagged some RCruise inline/static formatting as poor and said not to inline statics; evidence does not show final resolution in the loaded slice.",
+      "evidence_refs": [
+        "review_comments: discussion_r3409813287",
+        "review_comments: discussion_r3409813624"
+      ]
+    },
+    {
+      "topic": "Verification claims",
+      "feedback": "PR body and bot report claimed clean regression results, 10 new matches, no broken matches, and no fuzzy/metric regressions.",
+      "evidence_refs": [
+        "human_pr_text: Verification section",
+        "text_corpus: decomp-dev bot report"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "PR2688",
+    "Melee decomp Stage-specific GR matches",
+    "grbigblue",
+    "grfourside",
+    "grrcruise",
+    "grshrineroute",
+    "groldyoshi",
+    "grvenom",
+    "GroundVars",
+    "grBigBlue_PlatformVars",
+    "gp->gv.bigblue.platform",
+    "grVenom_GroundVars",
+    "linked_gobj",
+    "xC4_flags",
+    "grRc_803E4F44",
+    "dynamicsdata_shipflag",
+    "grBb_804DB2F0",
+    "grOy_803B83F0_Data",
+    "grVenom_JObjGetTranslation",
+    "jobj.h inline",
+    "PAD_STACK",
+    "HSD_ASSERTMSG",
+    "literal regression",
+    "target-owned sdata2"
+  ],
+  "follow_up_queries": [
+    "PR 2688 grBigBlue_801EA05C GroundVars platform xC8_timer height_offset target_y velocity",
+    "PR 2688 grRc_803E4F44 dynamicsdata_shipflag assert strings .data size 0x6C",
+    "PR 2688 grVenom_JObj helpers jobj.h assert line 0x3D3 0x394",
+    "PR 2688 reviewer arwing ground vars every TU has one ground vars",
+    "PR 2688 literal-to-symbol regression grBb_804DB310 grBb_804DB2F0",
+    "PR 2688 grRCruise_801FF924 local struct ScrollVars int_jobj cam_jobj ctr_jobj",
+    "PR 2688 grBigBlue_PlatformVars types.h",
+    "PR 2688 grVenom linked_gobj xC4_flags"
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "human_pr_text.md loaded in full",
+      "changed_files.jsonl loaded in full",
+      "review_comments.md loaded partially, with targeted reads for later reviewer comments",
+      "raw_diff.diff loaded partially, with targeted reads for types.h and review-sensitive areas",
+      "text_corpus bot report excerpt loaded"
+    ],
+    "notes": [
+      "PR identity, changed files, merge timestamp, and high-level verification claims are strong.",
+      "Review discussion is mixed and contains explicit disagreement; do not treat author replies or reviewer objections alone as final accepted standards.",
+      "The raw diff was truncated in loaded context, so file-specific summaries for grshrineroute and later Venom hunks are less complete than Big Blue/RCruise/Venom review topics.",
+      "The PR was merged, but the loaded evidence does not show which contested comments were resolved by edits versus accepted as-is.",
+      "Data-symbol ownership claims are present in author review replies, but this intake does not independently validate target section metadata."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "lesson",
+        "title": "Use stage-owned GroundVars overlays in stage TUs",
+        "text": "When matching stage ground code, replace raw gp offset access or unrelated borrowed union arms with the owning stage's GroundVars fields/overlays when offsets are understood. PR 2688 shows Big Blue and Venom overlays being added in types.h and a reviewer explicitly requests TU-owned ground vars.",
+        "scope": [
+          "src/melee/gr",
+          "GroundVars",
+          "typed-fields-over-pointer-math"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409808025",
+          "raw_diff: grBigBlue_PlatformVars",
+          "raw_diff: grVenom_GroundVars"
+        ]
+      },
+      {
+        "record_type": "lesson",
+        "title": "Separate exact matches from near-match improvements",
+        "text": "If a change improves a still-unmatched function, label it as an improvement and keep exact-match claims limited to bot/objdiff-supported symbols. PR 2688 explicitly notes grRCruise_801FF924 improved to 99.99% but was not exact.",
+        "scope": [
+          "decomp verification",
+          "matching reports"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409762693",
+          "text_corpus bot report"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Clarify exception path for target-owned literals in matching PRs",
+        "text": "PR 2688 shows a recurring review tension: reviewers objected to literal-to-symbol replacements, while author replies argued specific grBb/grRc/grVe symbols were backed by target .sdata/.sdata2/.data metadata and clean regression reports. Consider adding a standards note that such replacements require explicit symbol/section ownership evidence, narrow scope, and regression evidence, and should not be generalized as ordinary cleanup.",
+        "source_path": null,
+        "scope": [
+          "literals-and-data-ownership",
+          "no-string-literal-symbol-regression",
+          "text-before-data-matching"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409762243",
+          "review_comments: discussion_r3409762448",
+          "review_comments: discussion_r3409808878",
+          "review_comments: discussion_r3409810423"
+        ],
+        "reason": "Existing standards cover this generally, but the PR provides concrete stage-GR examples and reviewer pushback that could improve examples or exception wording."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Clarify copied header inline mirrors versus canonical helper use",
+        "text": "PR 2688 contains Venom-local grVenom_JObj* inline mirrors with author evidence about jobj.h assert line numbers and Venom-owned strings, but reviewer feedback says not to copy/paste jobj inlines. Consider clarifying when, if ever, local inline mirrors are acceptable and what proof is required.",
+        "source_path": null,
+        "scope": [
+          "header-inlines",
+          "matching-tactics-need-evidence"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409762899",
+          "review_comments: discussion_r3409814806",
+          "review_comments: discussion_r3409817115"
+        ],
+        "reason": "The loaded standards already prefer canonical HSD_JObj helpers; this PR highlights a contested exception pattern needing curator review rather than automatic promotion."
+      },
+      {
+        "target_source_id": "path_facts",
+        "update_kind": "path_fact",
+        "title": "src/melee/gr stage files own stage-specific GroundVars overlays",
+        "text": "Reviewer feedback in PR 2688 states each stage TU has one or more associated ground vars and should update/create appropriate gp->gv.<stage> fields instead of using unrelated arms. Diff evidence shows this for Big Blue and Venom.",
+        "source_path": "src/melee/gr",
+        "scope": [
+          "src/melee/gr/types.h",
+          "src/melee/gr/grbigblue.c",
+          "src/melee/gr/grvenom.c"
+        ],
+        "evidence_refs": [
+          "review_comments: discussion_r3409808025",
+          "raw_diff: grBigBlue_PlatformVars",
+          "raw_diff: grVenom_GroundVars"
+        ],
+        "reason": "Could be useful as a path-scoped fact, but should be reviewed because the PR slice does not establish all stage families or final resolution of all related comments."
+      }
+    ],
+    "rejection_notes": [
+      "Do not promote 'local copied jobj.h inline mirrors are acceptable' as a general lesson; evidence is contested and current standards prefer canonical helpers.",
+      "Do not promote 'replace literals with address-named symbols for matching' as a general rule; PR evidence shows this is controversial and requires target metadata.",
+      "Do not infer final reviewer intent or resolution for every contested comment solely from merge status.",
+      "Do not claim all changed functions matched exactly; the PR body/bot report distinguish 10 exact matches from 11 improvements."
+    ]
+  },
+  "confidence": 0.78,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

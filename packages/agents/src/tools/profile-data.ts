@@ -4,18 +4,22 @@ export interface WorkerToolPromptInfo {
   useWhen: string;
 }
 
-/** Default worker Pi tools attached to worker launches. */
+/**
+ * Default worker Pi tools attached to worker launches.
+ *
+ * Pruned 2026-06-12 per reports/pi-agent-tool-analysis-2026-06-12.html: tools
+ * used in <2% of 749 terminal xhigh leases (powerpc_*, discord topics,
+ * include_fixer_preview, struct_infer_from_asm, item_state_table_preview,
+ * ssbm search/offset, mwcc_debug_raw_dump) are no longer advertised to
+ * workers. Registrations stay in the registry; re-enable per run via the
+ * profile `enable` override.
+ */
 export const defaultWorkerToolProfile = [
   "code_graph_file_card",
   "code_graph_search",
   "past_prs_search",
   "discord_knowledge_search",
-  "discord_knowledge_topics_for_terms",
-  "ssbm_data_sheet_search",
   "ssbm_data_sheet_lookup_address",
-  "ssbm_data_sheet_lookup_offset",
-  "powerpc_docs_search",
-  "powerpc_instruction_lookup",
   "external_mirrors_search",
   "external_symbol_lookup",
   "path_facts_resolve",
@@ -31,15 +35,11 @@ export const defaultWorkerToolProfile = [
   "mwcc_debug_diagnose_stack",
   "mwcc_debug_diagnose_regflow",
   "mwcc_debug_diagnose_inlines",
-  "mwcc_debug_raw_dump",
   "source_permuter_run",
   "source_permuter_replay",
   "source_mutation_preview",
   "type_oracle_lookup",
-  "struct_infer_from_asm",
   "m2c_decompile",
-  "include_fixer_preview",
-  "item_state_table_preview",
   "review_lint_scan",
 ] as const;
 
@@ -63,6 +63,22 @@ export const defaultReconcileToolProfile = [
   "objdiff_score_candidate",
   "type_oracle_lookup",
   "include_fixer_preview",
+  "review_lint_scan",
+] as const;
+
+/** Default QA repair tools attached to candidate-file repair launches. */
+export const defaultQaRepairToolProfile = [
+  "code_graph_file_card",
+  "code_graph_search",
+  "past_prs_search",
+  "path_facts_resolve",
+  "mismatch_db_search",
+  "checkdiff_run",
+  "checkdiff_summary",
+  "direct_compile_tu",
+  "objdiff_score_candidate",
+  "source_mutation_preview",
+  "type_oracle_lookup",
   "review_lint_scan",
 ] as const;
 

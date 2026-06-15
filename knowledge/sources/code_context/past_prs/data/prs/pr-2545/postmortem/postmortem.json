@@ -12,13 +12,13 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2545 decompiled item function it_2725_Logic59_EvtUnk in src/melee/it/items/itnessyoyo.c by replacing a MWERKS_GEKKO inline assembly block and NOT_IMPLEMENTED fallback with C that calls it_8026B894 and preserves an otherwise unused comparison against the Ness yoyo item owner/reference field. The author noted the unused comparison was tricky and claimed a 100% local match; the bot report says GALE01 had no changes.",
+  "summary": "Decompiled item function it_2725_Logic59_EvtUnk in src/melee/it/items/itnessyoyo.c by replacing a MWERKS_GEKKO inline-assembly implementation and NOT_IMPLEMENTED fallback with C. The resulting C calls it_8026B894 and preserves an apparently unused comparison against the Ness yo-yo item owner field using a volatile pointer expression.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "inline-asm-removal",
-      "not-implemented-removal"
+      "asm-removal",
+      "item-code"
     ],
     "systems": [
       "item",
@@ -28,72 +28,79 @@
   "key_files": [
     {
       "path": "src/melee/it/items/itnessyoyo.c",
-      "role": "Only changed file; replaces inline asm/NOT_IMPLEMENTED for it_2725_Logic59_EvtUnk with C.",
+      "role": "Only changed file; replaced inline assembly/NOT_IMPLEMENTED for it_2725_Logic59_EvtUnk with C.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/it/items/itnessyoyo.c added 6 deleted 32 hunks 1",
-        "raw_diff: it_2725_Logic59_EvtUnk hunk"
+        "changed_files.jsonl",
+        "raw_diff.diff"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Removed the MWERKS_GEKKO asm implementation and #ifdef/#else wrapper around it_2725_Logic59_EvtUnk.",
+      "text": "Removed the MWERKS_GEKKO inline assembly block for it_2725_Logic59_EvtUnk, including pragma push/pop and the NOT_IMPLEMENTED non-Gekko fallback.",
       "evidence_refs": [
-        "raw_diff: removed #ifdef MWERKS_GEKKO, #pragma push, asm void it_2725_Logic59_EvtUnk, #pragma pop, #else, #endif"
+        "raw_diff.diff"
       ]
     },
     {
-      "text": "Replaced NOT_IMPLEMENTED with C that gets the Item pointer via GET_ITEM(gobj), calls it_8026B894(gobj, ref_gobj), then evaluates a no-op comparison between ip->xDD4_itemVar.nessyoyo.x10 and ref_gobj through a volatile owner_ptr.",
+      "text": "Added a C body that gets the Item with GET_ITEM(gobj), calls it_8026B894(gobj, ref_gobj), then evaluates a comparison between ip->xDD4_itemVar.nessyoyo.x10 and ref_gobj through a volatile owner_ptr.",
       "evidence_refs": [
-        "raw_diff: added Item* ip = GET_ITEM(gobj); it_8026B894(gobj, ref_gobj); HSD_GObj* volatile* owner_ptr = &ip->xDD4_itemVar.nessyoyo.x10; (void) ((*owner_ptr == ref_gobj) ? 0 : 0);"
+        "raw_diff.diff"
       ]
     },
     {
-      "text": "The original asm performed a call to it_8026B894, loaded offset 0xDE4 from the Item pointer, compared it to ref_gobj, and did not branch on the result; the C preserves that unused comparison shape.",
+      "text": "The PR body states that an unused comparison was the tricky part and that the function matched 100% on the author's end.",
       "evidence_refs": [
-        "raw_diff: removed asm includes bl it_8026B894, lwz r0, 0xde4(r31), cmplw r0, r30",
-        "human_pr_text: unused comparison made this one a bit tricky"
+        "human_pr_text.md",
+        "text_corpus.jsonl"
+      ]
+    },
+    {
+      "text": "The automated GALE01 report comment says 'No changes'.",
+      "evidence_refs": [
+        "text_corpus.jsonl"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "The PR uses the known Item type and nessyoyo item-var union arm instead of leaving the 0xDE4 access as raw pointer arithmetic.",
+      "text": "The decompilation kept the otherwise-unused comparison visible in C rather than deleting it, matching the assembly sequence where the result of cmplw is not consumed before function exit.",
       "evidence_refs": [
-        "raw_diff: &ip->xDD4_itemVar.nessyoyo.x10 replaces asm load from 0xde4(r31)"
+        "raw_diff.diff",
+        "human_pr_text.md"
       ]
     },
     {
-      "text": "The no-op volatile pointer comparison is narrowly scoped inside a block, making the codegen steering localized to the otherwise unused compare.",
+      "text": "Used the typed item variable path ip->xDD4_itemVar.nessyoyo.x10 instead of a raw offset for the former lwz at 0xDE4.",
       "evidence_refs": [
-        "raw_diff: local block containing HSD_GObj* volatile* owner_ptr and the discarded ternary comparison"
+        "raw_diff.diff"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "An unused compare visible in assembly may need to be represented explicitly in C even when its result has no semantic effect; in this PR, a volatile pointer load plus discarded ternary comparison was used to preserve the cmplw after the real helper call.",
+      "lesson": "When assembly performs a compare whose condition result is not used, matching C may still need to preserve the load/compare shape with a deliberate no-op expression rather than simplifying it away.",
       "scope": [
-        "matching small functions with unused comparison instructions",
-        "item logic functions"
+        "function-level matching",
+        "unused compare sequences"
       ],
       "evidence_refs": [
-        "human_pr_text: The unused comparison made this one a bit tricky, but it matches 100% on my end.",
-        "raw_diff: lwz r0, 0xde4(r31); cmplw r0, r30 replaced by volatile owner_ptr comparison"
+        "raw_diff.diff",
+        "human_pr_text.md"
       ],
-      "confidence": 0.82
+      "confidence": 0.78
     },
     {
-      "lesson": "When replacing asm that loads an item field by offset, check whether an existing ItemVars union path expresses the access; here the removed 0xDE4 load maps to ip->xDD4_itemVar.nessyoyo.x10 in the submitted C.",
+      "lesson": "A volatile pointer to a typed field can be used narrowly to keep a needed load/compare from being optimized away, but this is a matching tactic that should remain tied to objdiff or report evidence.",
       "scope": [
-        "src/melee/it/items/itnessyoyo.c",
-        "ItemVars access cleanup"
+        "matching tactics",
+        "item fields"
       ],
       "evidence_refs": [
-        "raw_diff: removed lwz r0, 0xde4(r31)",
-        "raw_diff: added &ip->xDD4_itemVar.nessyoyo.x10"
+        "raw_diff.diff",
+        "text_corpus.jsonl"
       ],
-      "confidence": 0.8
+      "confidence": 0.7
     }
   ],
   "naming_conventions": [
@@ -101,145 +108,127 @@
       "name": "ip",
       "meaning": "local Item* obtained from GET_ITEM(gobj)",
       "evidence_refs": [
-        "raw_diff: Item* ip = GET_ITEM(gobj);"
+        "raw_diff.diff"
       ]
     },
     {
       "name": "owner_ptr",
-      "meaning": "volatile pointer to the nessyoyo x10 HSD_GObj* field used for the preserved owner/reference comparison",
+      "meaning": "local volatile pointer to the Ness yo-yo item variable field x10, compared with ref_gobj",
       "evidence_refs": [
-        "raw_diff: HSD_GObj* volatile* owner_ptr = &ip->xDD4_itemVar.nessyoyo.x10;"
+        "raw_diff.diff"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use a volatile pointer to force a load for an otherwise unused field comparison.",
+      "tactic": "Replace inline assembly with C that preserves a dead comparison through `(void) ((*owner_ptr == ref_gobj) ? 0 : 0);`.",
       "evidence_refs": [
-        "raw_diff: HSD_GObj* volatile* owner_ptr = &ip->xDD4_itemVar.nessyoyo.x10;",
-        "raw_diff: (void) ((*owner_ptr == ref_gobj) ? 0 : 0);"
+        "raw_diff.diff",
+        "human_pr_text.md"
       ],
-      "caution": "This is a codegen tactic, not a general style rule; current standards require explicit build/objdiff/regression evidence for volatile or similar matching steering."
+      "notes": "The author explicitly identified the unused comparison as tricky. The bot report says 'No changes', but the slice does not include an objdiff transcript."
     },
     {
-      "tactic": "Represent an unused compare as a discarded ternary comparison rather than removing it as dead source.",
+      "tactic": "Use `HSD_GObj* volatile* owner_ptr = &ip->xDD4_itemVar.nessyoyo.x10;` to force a field load and comparison without raw pointer arithmetic.",
       "evidence_refs": [
-        "raw_diff: removed cmplw r0, r30 with no branch use",
-        "raw_diff: added discarded ternary comparison"
+        "raw_diff.diff"
       ],
-      "caution": "The PR evidence supports that this was used here, but does not prove it is broadly appropriate outside similar verified matches."
+      "notes": "This is supported by the diff but should not be generalized without verifier evidence in future PRs."
     }
   ],
   "review_feedback": [],
   "searchable_terms": [
-    "pr-2545",
-    "Decompile it_2725_Logic59_EvtUnk",
+    "PR2545",
     "it_2725_Logic59_EvtUnk",
     "itnessyoyo.c",
-    "src/melee/it/items/itnessyoyo.c",
-    "nessyoyo",
-    "Item_GObj",
-    "HSD_GObj",
-    "GET_ITEM",
-    "it_8026B894",
+    "Ness yoyo",
     "xDD4_itemVar.nessyoyo.x10",
     "owner_ptr",
     "unused comparison",
     "volatile pointer",
-    "cmplw",
-    "0xDE4",
-    "NOT_IMPLEMENTED",
+    "it_8026B894",
+    "GET_ITEM",
+    "Item_GObj",
+    "ref_gobj",
     "MWERKS_GEKKO",
-    "inline asm removal"
+    "NOT_IMPLEMENTED",
+    "GALE01 No changes"
   ],
   "follow_up_queries": [
-    "it_2725_Logic59_EvtUnk unused comparison volatile owner_ptr",
-    "xDD4_itemVar nessyoyo x10 ref_gobj",
-    "cmplw unused comparison decomp volatile pointer",
-    "src/melee/it/items/itnessyoyo.c it_8026B894",
-    "MWERKS_GEKKO asm NOT_IMPLEMENTED item nessyoyo"
+    "it_2725_Logic59_EvtUnk unused comparison",
+    "xDD4_itemVar.nessyoyo.x10 owner_ptr volatile",
+    "it_8026B894 ref_gobj yoyo",
+    "src/melee/it/items/itnessyoyo.c volatile comparison",
+    "MWERKS_GEKKO asm cmplw unused compare"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR #2545 merged, one changed file, added 6 deleted 32",
-      "human_pr_text: author states unused comparison was tricky and matches 100% locally",
-      "raw_diff: full one-hunk diff for it_2725_Logic59_EvtUnk",
-      "text_corpus.jsonl: decomp-dev[bot] Report for GALE01 says No changes"
+      "metadata_json",
+      "human_pr_text.md",
+      "raw_diff.diff",
+      "changed_files.jsonl",
+      "text_corpus.jsonl"
     ],
     "notes": [
-      "The full diff for the only changed file is present and directly supports the code-change summary.",
-      "There are no review comments or reviews in the loaded slice, so no reviewer intent or requested changes can be extracted.",
-      "The author's 100% match claim and bot 'No changes' report are useful PR evidence, but the slice does not include detailed objdiff output."
+      "Changed file and code diff are complete and concrete.",
+      "There are no review comments or human review feedback in the slice.",
+      "The PR body claims a 100% match on the author's end, and the bot report says 'No changes', but no full objdiff/checkdiff log is included.",
+      "The broader semantic meaning of the Ness yo-yo x10 field is not proven by this slice; only the local owner_ptr role in the new code is supported."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "matching_tactic",
-        "title": "Preserving an unused compare with a volatile field load",
-        "text": "In PR #2545, it_2725_Logic59_EvtUnk replaced asm containing an unused cmplw after it_8026B894 with C that takes a volatile pointer to ip->xDD4_itemVar.nessyoyo.x10 and discards a comparison against ref_gobj. The author called the unused comparison tricky and claimed a 100% local match.",
+        "record_type": "pr_lesson",
+        "title": "Preserve unused compare sequences when matching",
+        "text": "In PR #2545, the assembly for it_2725_Logic59_EvtUnk loaded ip->xDD4_itemVar.nessyoyo.x10 and compared it to ref_gobj even though the comparison result was not consumed. The matching C preserved that operation with a volatile pointer and a void no-op ternary expression.",
         "scope": [
-          "small function decompilation",
-          "unused compare instructions",
-          "item logic"
+          "src/melee/it/items/itnessyoyo.c",
+          "it_2725_Logic59_EvtUnk",
+          "function-level matching"
         ],
         "evidence_refs": [
-          "human_pr_text",
-          "raw_diff"
+          "raw_diff.diff",
+          "human_pr_text.md",
+          "text_corpus.jsonl"
         ],
-        "confidence": 0.82
+        "confidence": 0.72
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Document unused-compare codegen tactics as evidence-required",
-        "text": "Consider adding an example under matching-tactics-need-evidence: if assembly has a compare whose result is unused, a narrowly scoped volatile load or discarded comparison may preserve codegen, but it should remain an evidence-backed matching tactic rather than general style.",
+        "title": "Document volatile no-op comparisons as narrow matching tactics",
+        "text": "Consider adding a note that dead loads or compares visible in assembly may require a narrow volatile/no-op expression to preserve codegen, but only with explicit verifier evidence and without treating the pattern as normal source style.",
         "source_path": null,
         "scope": [
           "matching-tactics-need-evidence",
-          "unused compare",
-          "volatile locals/pointers"
+          "unused comparisons",
+          "volatile locals or pointers"
         ],
         "evidence_refs": [
-          "PR #2545 human_pr_text: unused comparison made this one tricky",
-          "PR #2545 raw_diff: volatile owner_ptr and discarded comparison"
+          "raw_diff.diff",
+          "human_pr_text.md",
+          "text_corpus.jsonl"
         ],
-        "reason": "The PR provides a concrete example of a volatile/discarded-comparison tactic used to replace inline asm while preserving an otherwise dead compare."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "itnessyoyo.c contains Ness yoyo item logic including it_2725_Logic59_EvtUnk",
-        "text": "src/melee/it/items/itnessyoyo.c is the file touched to decompile it_2725_Logic59_EvtUnk, using the nessyoyo item-var field xDD4_itemVar.nessyoyo.x10.",
-        "source_path": "src/melee/it/items/itnessyoyo.c",
-        "scope": [
-          "item",
-          "nessyoyo",
-          "it_2725_Logic59_EvtUnk"
-        ],
-        "evidence_refs": [
-          "changed_files.jsonl",
-          "raw_diff"
-        ],
-        "reason": "This may help future path lookup for Ness yoyo item functions, but should be curated as a path fact rather than inferred globally."
+        "reason": "PR #2545 provides a concrete example where an unused comparison was the known matching obstacle, but the tactic should remain evidence-gated."
       }
     ],
     "rejection_notes": [
-      "Do not infer a global rule that volatile pointer comparisons are preferred cleanup; current standards treat volatile/local steering as a tactic requiring explicit verification.",
-      "Do not infer reviewer approval details beyond merge status; the slice contains no human review comments.",
-      "Do not claim the exact field meaning of nessyoyo.x10 beyond its observed comparison to ref_gobj/owner-like usage in this PR."
+      "Do not infer that xDD4_itemVar.nessyoyo.x10 is definitively named or semantically an owner field beyond the local variable name owner_ptr used in this PR.",
+      "Do not promote the volatile no-op ternary expression as preferred style; the evidence only supports it as a narrow matching tactic for this function.",
+      "Do not claim reviewer approval details; the slice contains no review comments."
     ]
   },
-  "confidence": 0.86,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

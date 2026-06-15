@@ -12,13 +12,12 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2269 replaced four fighter placeholder functions with matched C implementations in Kirby and Yoshi special-move files. The PR body claims all four are 100% matched, and the bot report records four new 100% matches totaling +484 matched bytes.",
+  "summary": "Matched four fighter functions across Kirby SpecialN and Yoshi SpecialHi translation units. The PR body claims all four reached 100%, and the decomp-dev bot report lists four new 100% matches totaling +484 matched-code bytes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "fighter-action-state",
-      "callback-setup"
+      "fighter-code"
     ],
     "systems": [
       "fighter",
@@ -29,189 +28,134 @@
   "key_files": [
     {
       "path": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
-      "role": "Matched ftKb_SpecialAirHi2_Anim and ftKb_SpecialNLg_800F951C, replacing two placeholder comments with C implementations.",
+      "role": "Matched ftKb_SpecialAirHi2_Anim and ftKb_SpecialNLg_800F951C, replacing placeholder comments with C bodies.",
       "evidence_refs": [
-        "changed_files: ftKb_SpecialN.c added 32 deleted 2 in 2 hunks",
-        "raw_diff: ftKb_SpecialAirHi2_Anim implementation",
-        "raw_diff: ftKb_SpecialNLg_800F951C implementation",
-        "text_corpus: bot report lists both Kirby functions as 100.00% after"
+        "changed_files.jsonl",
+        "raw_diff: ftKb_SpecialN.c hunks",
+        "text_corpus.jsonl: pr_body",
+        "text_corpus.jsonl: decomp-dev bot report"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c",
-      "role": "Matched ftYs_SpecialHi_Enter and ftYs_SpecialAirHi_Enter, replacing two placeholder comments with C implementations.",
+      "role": "Matched ftYs_SpecialHi_Enter and ftYs_SpecialAirHi_Enter, replacing placeholder comments with C bodies.",
       "evidence_refs": [
-        "changed_files: ftYs_SpecialHi.c added 34 deleted 2 in 1 hunk",
-        "raw_diff: ftYs_SpecialHi_Enter implementation",
-        "raw_diff: ftYs_SpecialAirHi_Enter implementation",
-        "text_corpus: bot report lists both Yoshi functions as 100.00% after"
+        "changed_files.jsonl",
+        "raw_diff: ftYs_SpecialHi.c hunk",
+        "text_corpus.jsonl: pr_body",
+        "text_corpus.jsonl: decomp-dev bot report"
       ]
     }
   ],
   "what_changed": [
-    {
-      "text": "Implemented ftKb_SpecialAirHi2_Anim: gets Fighter via GET_FIGHTER, waits for no remaining animation frames, changes motion state to ftKb_MS_SpecialAirHi3 with flags 0xA, then assigns pre_hitlag_cb to efLib_PauseAll and post_hitlag_cb to efLib_ResumeAll.",
-      "evidence_refs": [
-        "raw_diff: ftKb_SpecialAirHi2_Anim"
-      ]
-    },
-    {
-      "text": "Implemented ftKb_SpecialNLg_800F951C: calls ftCommon_8007D5D4, preserves current animation frame, selects motion_id 0x190 or 0x201 based on fp2->fv.kb.hat.kind, changes motion state with flags 0x5000, and assigns accessory4_cb to fn_800F9260.",
-      "evidence_refs": [
-        "raw_diff: ftKb_SpecialNLg_800F951C"
-      ]
-    },
-    {
-      "text": "Implemented ftYs_SpecialHi_Enter and ftYs_SpecialAirHi_Enter with nearly identical setup: zero Yoshi special-hi move fields, clear fv.ys.x2238, throw_flags, and cmd_vars[0], change to grounded or aerial SpecialHi motion state, set accessory4_cb to fn_8012E110, and call ftAnim_8006EBA4.",
-      "evidence_refs": [
-        "raw_diff: ftYs_SpecialHi_Enter",
-        "raw_diff: ftYs_SpecialAirHi_Enter"
-      ]
-    },
-    {
-      "text": "The automated report records four new matches: ftKb_SpecialNLg_800F951C (+124 bytes), ftKb_SpecialAirHi2_Anim (+120 bytes), ftYs_SpecialHi_Enter (+120 bytes), and ftYs_SpecialAirHi_Enter (+120 bytes), moving each from 0.00% to 100.00%.",
-      "evidence_refs": [
-        "text_corpus: decomp-dev[bot] issue comment"
-      ]
-    }
+    "Replaced `/// #ftKb_SpecialAirHi2_Anim` with a body that checks `!ftAnim_IsFramesRemaining(gobj)`, changes Kirby to `ftKb_MS_SpecialAirHi3`, and sets `pre_hitlag_cb`/`post_hitlag_cb` to pause/resume all effects.",
+    "Replaced `/// #ftKb_SpecialNLg_800F951C` with a body that calls `ftCommon_8007D5D4`, preserves `cur_anim_frame`, chooses motion id `0x190` or `0x201` depending on `fp2->fv.kb.hat.kind`, changes motion state, and sets `accessory4_cb`.",
+    "Replaced `/// #ftYs_SpecialHi_Enter` with a body that initializes Yoshi SpecialHi movement/fighter fields, changes to `ftYs_MS_SpecialHi`, sets `accessory4_cb`, and calls `ftAnim_8006EBA4`.",
+    "Replaced `/// #ftYs_SpecialAirHi_Enter` with an analogous airborne entry body using `ftYs_MS_SpecialAirHi`.",
+    "Changed-file metadata shows 2 files touched: 32 additions/2 deletions in Kirby SpecialN and 34 additions/2 deletions in Yoshi SpecialHi.",
+    "Automated report lists 4 new matches: `ftKb_SpecialNLg_800F951C` (+124 bytes), `ftKb_SpecialAirHi2_Anim` (+120 bytes), `ftYs_SpecialHi_Enter` (+120 bytes), and `ftYs_SpecialAirHi_Enter` (+120 bytes), each from 0.00% to 100.00%."
   ],
   "smart_moves": [
-    {
-      "text": "Used typed Fighter fields and character-specific union arms rather than raw offsets for state setup and checks, including fp->mv.ys.specialhi, fp->fv.ys.x2238, fp->fv.kb.hat.kind, throw_flags, cmd_vars, cur_anim_frame, and callback fields.",
-      "evidence_refs": [
-        "raw_diff: ftKb_SpecialNLg_800F951C",
-        "raw_diff: ftYs_SpecialHi_Enter",
-        "raw_diff: ftYs_SpecialAirHi_Enter",
-        "decomp_standards: typed-fields-over-pointer-math"
-      ]
-    },
-    {
-      "text": "Kept the grounded and aerial Yoshi SpecialHi enter functions as parallel source forms with only the motion-state enum differing, matching repeated local behavior without over-abstracting into a helper.",
-      "evidence_refs": [
-        "raw_diff: ftYs_SpecialHi_Enter",
-        "raw_diff: ftYs_SpecialAirHi_Enter"
-      ]
-    },
-    {
-      "text": "For Kirby's inhale transition, used a simple local motion_id variable initialized to the default and conditionally overwritten when the Kirby hat kind is nonzero.",
-      "evidence_refs": [
-        "raw_diff: ftKb_SpecialNLg_800F951C"
-      ]
-    }
+    "Used existing typed fighter fields and callbacks such as `fp->fv.kb.hat.kind`, `fp->mv.ys.specialhi.x0`, `fp->throw_flags`, `fp->cmd_vars[0]`, and `fp->accessory4_cb` rather than raw offsets.",
+    "Kept unproven semantic names conservative: helper names like `fn_800F9260` and `fn_8012E110`, and unknown-looking fields such as `x0`, `x4`, and `x2238`, were not renamed in this slice.",
+    "For the two Yoshi entry functions, preserved the nearly identical source shape while only varying the motion-state constant for ground versus air."
   ],
   "decomp_lessons": [
     {
-      "lesson": "Small fighter action-state functions can often match cleanly by expressing state transitions through Fighter_ChangeMotionState plus typed callback and per-character FighterVar fields.",
+      "lesson": "Small fighter state-transition functions may match cleanly by expressing the state change directly through existing fighter APIs and typed fighter fields, then restoring callback fields after `Fighter_ChangeMotionState` when the diff shows that order.",
       "scope": [
-        "fighter special-move action-state functions",
-        "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
-        "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c"
+        "fighter state entry/animation callbacks",
+        "Kirby SpecialN",
+        "Yoshi SpecialHi"
       ],
       "evidence_refs": [
-        "raw_diff: all four implementations",
-        "text_corpus: bot report four 100.00% matches",
-        "decomp_standards: typed-fields-over-pointer-math"
-      ]
+        "raw_diff",
+        "text_corpus.jsonl: decomp-dev bot report"
+      ],
+      "confidence": 0.78
     },
     {
-      "lesson": "When grounded and aerial variants are structurally identical, a direct parallel implementation with only the motion-state constant changed may be the matching form.",
+      "lesson": "For this Yoshi SpecialHi pair, ground and air entry functions matched as duplicated sibling bodies with only the motion-state ID differing; this is evidence for preserving the sibling entry-function shape here, not a general rule to duplicate all similar code.",
       "scope": [
-        "fighter grounded/aerial enter variants",
+        "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c",
         "ftYs_SpecialHi_Enter",
         "ftYs_SpecialAirHi_Enter"
       ],
       "evidence_refs": [
-        "raw_diff: ftYs_SpecialHi_Enter and ftYs_SpecialAirHi_Enter",
-        "text_corpus: bot report lists both Yoshi variants as 100.00%"
-      ]
-    },
-    {
-      "lesson": "Function-local temporary names can stay conservative when semantics are only partly known; this PR keeps address-style helper names such as fn_800F9260 and fn_8012E110 while using role names for clear locals like fp, motion_id, and anim_frame.",
-      "scope": [
-        "fighter decomp naming",
-        "callback assignments"
+        "raw_diff: ftYs_SpecialHi.c hunk",
+        "text_corpus.jsonl: decomp-dev bot report"
       ],
-      "evidence_refs": [
-        "raw_diff: ftKb_SpecialNLg_800F951C",
-        "raw_diff: ftYs_SpecialHi_Enter",
-        "raw_diff: ftYs_SpecialAirHi_Enter",
-        "decomp_standards: conservative-naming"
-      ]
+      "confidence": 0.72
     }
   ],
   "naming_conventions": [
     {
-      "name": "gobj",
-      "meaning": "Fighter_GObj* function parameter for fighter action callbacks.",
+      "convention": "Use short local role names like `fp`, `fp2`, `gobj`, `motion_id`, and `anim_frame` where the role is clear.",
       "evidence_refs": [
-        "raw_diff: all four function signatures"
+        "raw_diff: ftKb_SpecialNLg_800F951C",
+        "raw_diff: ftYs_SpecialHi_Enter"
       ]
     },
     {
-      "name": "fp",
-      "meaning": "Fighter* local for the current fighter object, commonly recovered via GET_FIGHTER(gobj) or gobj->user_data in this slice.",
+      "convention": "Do not invent semantics for unresolved helper or field names; this PR leaves names such as `fn_800F9260`, `fn_8012E110`, `x0`, `x4`, and `x2238` intact.",
       "evidence_refs": [
-        "raw_diff: all four implementations"
-      ]
-    },
-    {
-      "name": "fp2",
-      "meaning": "Second Fighter* local in ftKb_SpecialNLg_800F951C, assigned from gobj->user_data and used for the Kirby hat-kind check.",
-      "evidence_refs": [
-        "raw_diff: ftKb_SpecialNLg_800F951C"
-      ]
-    },
-    {
-      "name": "motion_id",
-      "meaning": "Local s32 used to hold the selected motion-state id before Fighter_ChangeMotionState.",
-      "evidence_refs": [
-        "raw_diff: ftKb_SpecialNLg_800F951C"
-      ]
-    },
-    {
-      "name": "anim_frame",
-      "meaning": "Local f32 preserving fp->cur_anim_frame across a motion-state transition.",
-      "evidence_refs": [
-        "raw_diff: ftKb_SpecialNLg_800F951C"
-      ]
-    },
-    {
-      "name": "_",
-      "meaning": "Anonymous u8 stack-padding local used in the two matched Yoshi enter functions; evidence supports its use in this PR but not as a general style rule.",
-      "evidence_refs": [
-        "raw_diff: ftYs_SpecialHi_Enter",
-        "raw_diff: ftYs_SpecialAirHi_Enter"
+        "raw_diff"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use explicit stack padding u8 _[24] in ftYs_SpecialHi_Enter and ftYs_SpecialAirHi_Enter.",
-      "evidence_refs": [
-        "raw_diff: both Yoshi enter functions contain u8 _[24]",
-        "text_corpus: bot report lists both Yoshi functions as 100.00%"
+      "tactic": "Yoshi entry functions include a narrow local padding declaration `u8 _[24];` before field initialization.",
+      "scope": [
+        "ftYs_SpecialHi_Enter",
+        "ftYs_SpecialAirHi_Enter"
       ],
-      "caveat": "The PR evidence shows the tactic in matched functions, but does not include objdiff details explaining why the padding is required; do not generalize without local verifier evidence."
+      "evidence_refs": [
+        "raw_diff: ftYs_SpecialHi.c hunk",
+        "text_corpus.jsonl: decomp-dev bot report"
+      ],
+      "notes": "This is evidence that the tactic appeared in the matched PR slice, not enough by itself to make padding a general style."
     },
     {
-      "tactic": "Re-fetch the Fighter pointer with GET_FIGHTER(gobj) after Fighter_ChangeMotionState before assigning accessory4_cb in both Yoshi enter functions.",
-      "evidence_refs": [
-        "raw_diff: ftYs_SpecialHi_Enter",
-        "raw_diff: ftYs_SpecialAirHi_Enter",
-        "text_corpus: bot report lists both Yoshi functions as 100.00%"
+      "tactic": "Yoshi entry functions first use `gobj->user_data` for `fp`, call `Fighter_ChangeMotionState`, then reload with `GET_FIGHTER(gobj)` before assigning `accessory4_cb`.",
+      "scope": [
+        "ftYs_SpecialHi_Enter",
+        "ftYs_SpecialAirHi_Enter"
       ],
-      "caveat": "Evidence supports this exact matched shape in the two functions; broader intent is not documented."
+      "evidence_refs": [
+        "raw_diff: ftYs_SpecialHi.c hunk"
+      ],
+      "notes": "Likely codegen-sensitive ordering, supported here by the 100% bot report."
     },
     {
-      "tactic": "For Kirby SpecialNLg, preserve fp->cur_anim_frame in a local before the motion-state call and select the motion id with an if over fp2->fv.kb.hat.kind.",
-      "evidence_refs": [
-        "raw_diff: ftKb_SpecialNLg_800F951C",
-        "text_corpus: bot report lists ftKb_SpecialNLg_800F951C as 100.00%"
+      "tactic": "Kirby `ftKb_SpecialNLg_800F951C` assigns default `motion_id = 0x190`, conditionally changes it to `0x201`, and passes preserved `cur_anim_frame` into `Fighter_ChangeMotionState`.",
+      "scope": [
+        "ftKb_SpecialNLg_800F951C"
       ],
-      "caveat": "No review discussion explains whether the local ordering was required for codegen."
+      "evidence_refs": [
+        "raw_diff: ftKb_SpecialN.c second hunk",
+        "text_corpus.jsonl: decomp-dev bot report"
+      ],
+      "notes": "A simple default-then-conditional assignment matched this function."
     }
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    {
+      "kind": "automated_report",
+      "author": "decomp-dev[bot]",
+      "summary": "Reported GALE01 matched code increased to 56.01% (+0.01%, +484 bytes) with 4 new 100% matches.",
+      "evidence_refs": [
+        "text_corpus.jsonl: issue_comment by decomp-dev[bot]"
+      ]
+    },
+    {
+      "kind": "human_review",
+      "summary": "No human review comments or reviews were included in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json counts: review_comments=0, reviews=0"
+      ]
+    }
+  ],
   "searchable_terms": [
     "PR 2269",
     "fighters: match 4 functions",
@@ -223,122 +167,86 @@
     "ftYs_SpecialHi_Enter",
     "ftYs_SpecialAirHi_Enter",
     "Fighter_ChangeMotionState",
-    "GET_FIGHTER",
     "ftAnim_IsFramesRemaining",
+    "ftAnim_8006EBA4",
+    "GET_FIGHTER",
+    "accessory4_cb",
+    "pre_hitlag_cb",
+    "post_hitlag_cb",
     "efLib_PauseAll",
     "efLib_ResumeAll",
-    "accessory4_cb",
-    "fn_800F9260",
-    "fn_8012E110",
-    "ftAnim_8006EBA4",
     "ftCommon_8007D5D4",
     "fv.kb.hat.kind",
     "mv.ys.specialhi",
-    "u8 _[24]",
-    "GALE01",
-    "4 new matches",
-    "100.00%"
+    "u8 _[24]"
   ],
   "follow_up_queries": [
-    "ftKb_SpecialAirHi2_Anim efLib_PauseAll efLib_ResumeAll pre_hitlag_cb post_hitlag_cb",
+    "ftKb_SpecialAirHi2_Anim Fighter_ChangeMotionState pre_hitlag_cb post_hitlag_cb",
     "ftKb_SpecialNLg_800F951C motion_id 0x190 0x201 fv.kb.hat.kind",
-    "ftYs_SpecialHi_Enter ftYs_SpecialAirHi_Enter u8 _[24]",
-    "Fighter_ChangeMotionState accessory4_cb fn_8012E110 ftAnim_8006EBA4",
-    "fighter special hi enter re-fetch GET_FIGHTER after Fighter_ChangeMotionState"
+    "ftYs_SpecialHi_Enter u8 _[24] GET_FIGHTER accessory4_cb",
+    "ftYs_SpecialAirHi_Enter ftYs_MS_SpecialAirHi ftAnim_8006EBA4",
+    "fighter entry functions reload fp after Fighter_ChangeMotionState"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR identity, merge state, changed-file counts",
-      "human_pr_text: listed four matched functions and claimed all 100% matched",
-      "raw_diff: complete diff excerpt for all changed functions",
-      "text_corpus: decomp-dev[bot] report with four 100.00% matches and +484 bytes"
+      "metadata_json",
+      "human_pr_text.md",
+      "raw_diff",
+      "changed_files.jsonl",
+      "text_corpus.jsonl"
     ],
     "notes": [
-      "No review comments or human review feedback were present in the loaded slice.",
-      "The bot report supports 100% match outcomes, but the slice does not include local build commands, objdiff screenshots, or detailed regression ledger.",
-      "The raw PR JSON file is truncated, but the needed PR identity, body, diff, changed-files list, and bot report are available in non-truncated loaded files."
+      "The PR identity, files, function names, changed code, merge time, and automated match report are present in the loaded slice.",
+      "The PR body explicitly says all four listed functions are 100% matched; the bot report independently lists the same four as new 100% matches.",
+      "No human review comments were available, so reviewer intent or requested changes cannot be inferred.",
+      "The slice does not include full surrounding files or objdiff logs beyond the bot report, so broader style conclusions should stay narrow."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson",
-        "title": "Typed fighter fields and callbacks can match small action-state functions",
-        "text": "In PR #2269, four small fighter special-move functions matched by using typed Fighter fields, per-character union arms, Fighter_ChangeMotionState, and callback assignments rather than raw offsets.",
+        "record_type": "pr_specific_matching_tactic",
+        "title": "Yoshi SpecialHi entry matches used padding and fighter reload",
+        "text": "In PR #2269, `ftYs_SpecialHi_Enter` and `ftYs_SpecialAirHi_Enter` both matched with `u8 _[24];`, initialization of Yoshi SpecialHi fields, `Fighter_ChangeMotionState`, then `fp = GET_FIGHTER(gobj)` before assigning `accessory4_cb` and calling `ftAnim_8006EBA4`. Keep this record scoped to these functions unless further evidence supports generalization.",
         "scope": [
-          "fighter action-state matching",
-          "Kirby SpecialN",
-          "Yoshi SpecialHi"
-        ],
-        "evidence_refs": [
-          "raw_diff: all four implementations",
-          "text_corpus: bot report four 100.00% matches"
-        ]
-      },
-      {
-        "record_type": "matching_tactic",
-        "title": "Grounded and aerial fighter enter functions may need parallel source shapes",
-        "text": "The matched Yoshi SpecialHi grounded and aerial enter functions are nearly identical, differing mainly in the motion-state enum passed to Fighter_ChangeMotionState.",
-        "scope": [
+          "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c",
           "ftYs_SpecialHi_Enter",
           "ftYs_SpecialAirHi_Enter"
         ],
         "evidence_refs": [
-          "raw_diff: Yoshi enter functions",
-          "text_corpus: bot report both Yoshi functions 100.00%"
+          "raw_diff: ftYs_SpecialHi.c hunk",
+          "text_corpus.jsonl: decomp-dev bot report"
         ]
-      }
-    ],
-    "source_update_candidates": [
+      },
       {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "Kirby SpecialN source matched two functions in PR #2269",
-        "text": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c was changed in PR #2269 to implement ftKb_SpecialAirHi2_Anim and ftKb_SpecialNLg_800F951C; the bot report listed both as new 100.00% matches.",
-        "source_path": "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
+        "record_type": "pr_specific_matching_tactic",
+        "title": "Kirby SpecialNLg matched with typed hat-kind branch selecting motion id",
+        "text": "In PR #2269, `ftKb_SpecialNLg_800F951C` matched by reading `fp2->fv.kb.hat.kind`, selecting motion id `0x190` or `0x201`, preserving `fp->cur_anim_frame`, then changing motion state and setting `accessory4_cb`.",
         "scope": [
-          "ftKb_SpecialAirHi2_Anim",
+          "src/melee/ft/chara/ftKirby/ftKb_SpecialN.c",
           "ftKb_SpecialNLg_800F951C"
         ],
         "evidence_refs": [
-          "changed_files: ftKb_SpecialN.c",
-          "raw_diff: Kirby hunks",
-          "text_corpus: bot report"
-        ],
-        "reason": "Potential path-specific historical fact for curator review; do not promote automatically from PR intake."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "Yoshi SpecialHi source matched two enter functions in PR #2269",
-        "text": "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c was changed in PR #2269 to implement ftYs_SpecialHi_Enter and ftYs_SpecialAirHi_Enter; the bot report listed both as new 100.00% matches.",
-        "source_path": "src/melee/ft/chara/ftYoshi/ftYs_SpecialHi.c",
-        "scope": [
-          "ftYs_SpecialHi_Enter",
-          "ftYs_SpecialAirHi_Enter"
-        ],
-        "evidence_refs": [
-          "changed_files: ftYs_SpecialHi.c",
-          "raw_diff: Yoshi hunk",
-          "text_corpus: bot report"
-        ],
-        "reason": "Potential path-specific historical fact for curator review; do not promote automatically from PR intake."
+          "raw_diff: ftKb_SpecialN.c second hunk",
+          "text_corpus.jsonl: decomp-dev bot report"
+        ]
       }
     ],
+    "source_update_candidates": [],
     "rejection_notes": [
-      "Do not promote u8 _[24] stack padding as a general standard; the slice only shows it in two matched Yoshi functions and provides no detailed objdiff rationale.",
-      "Do not infer reviewer intent or review approval rationale; no review comments were loaded.",
-      "Do not infer that address-style callbacks fn_800F9260 and fn_8012E110 have known semantic names; the PR kept conservative address-style names."
+      "Do not promote `u8 _[24]` padding to a general standard from this PR alone; it is only shown as part of two matched Yoshi functions.",
+      "Do not infer human reviewer preferences; the loaded slice has zero review comments and zero reviews.",
+      "Do not infer that duplicated sibling bodies are generally preferred over helper extraction; the evidence only supports the exact matched Yoshi ground/air entry functions in this PR."
     ]
   },
-  "confidence": 0.88,
+  "confidence": 0.87,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

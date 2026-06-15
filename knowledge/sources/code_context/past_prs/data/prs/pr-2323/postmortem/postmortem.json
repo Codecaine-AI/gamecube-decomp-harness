@@ -12,216 +12,283 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Decompiled two small functions: `IsNameUnique` in `src/melee/mn/mnname.c` and `un_80305D00` in `src/melee/ty/toy.c`, and updated the `IsNameUnique` declaration in `mnname.h` from unknown return/params to `bool IsNameUnique(s32 slot)`. The automated report says both new matches reached 100.00%, adding 316 matched bytes total. The PR body appears unrelated to the actual title/diff, so the diff and report are stronger evidence than the body summary.",
+  "summary": "PR #2323 replaced two decomp placeholders with C implementations for mnname IsNameUnique and toy un_80305D00, and updated the IsNameUnique header prototype from UNK_RET/UNK_PARAMS to bool IsNameUnique(s32 slot). The automated report in the issue comments records two new 100% matches totaling +316 matched bytes. The PR body appears unrelated to the actual diff, describing grIceMt_801F91EC and grKongo_801D8078 instead of the changed mn/ty functions.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "naming"
+      "prototype-recovery",
+      "natural-loops"
     ],
     "systems": [
       "mn",
-      "ty",
-      "melee-core"
+      "ty"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/mn/mnname.c",
-      "role": "Replaced `/// #IsNameUnique` stub marker with a C implementation scanning up to 0x78 name slots, checking valid entries, retrieving persistent name data, and comparing name strings.",
+      "role": "Implemented IsNameUnique as a bounded scan over name slots, using IsNameValid, GetPersistentNameData, and CompareNameStrings.",
       "evidence_refs": [
         "raw_diff: src/melee/mn/mnname.c hunk",
-        "issue_comment report: main/melee/mn/mnname `IsNameUnique` 0.00% -> 100.00%, +140 bytes"
+        "changed_files.jsonl: src/melee/mn/mnname.c added 17 deleted 1",
+        "issue_comment report: main/melee/mn/mnname IsNameUnique +140 bytes 0.00% to 100.00%"
       ]
     },
     {
       "path": "src/melee/mn/mnname.h",
-      "role": "Updated the public prototype for `IsNameUnique` from `UNK_RET IsNameUnique(UNK_PARAMS)` to `bool IsNameUnique(s32 slot)`.",
+      "role": "Updated IsNameUnique declaration from unknown return/params to bool IsNameUnique(s32 slot).",
       "evidence_refs": [
-        "raw_diff: src/melee/mn/mnname.h hunk"
+        "raw_diff: src/melee/mn/mnname.h hunk",
+        "changed_files.jsonl: src/melee/mn/mnname.h added 1 deleted 1"
       ]
     },
     {
       "path": "src/melee/ty/toy.c",
-      "role": "Replaced `/// #un_80305D00` stub marker with a C implementation that scans four controller pad statuses and returns the first normal stick X value whose absolute value exceeds 0.1, or the last checked value.",
+      "role": "Implemented un_80305D00 as a loop over four controller pad statuses, returning the first nml_stickX value whose absolute value exceeds 0.1F or the final sampled value.",
       "evidence_refs": [
         "raw_diff: src/melee/ty/toy.c hunk",
-        "issue_comment report: main/melee/ty/toy `un_80305D00` 0.00% -> 100.00%, +176 bytes"
+        "changed_files.jsonl: src/melee/ty/toy.c added 19 deleted 1",
+        "issue_comment report: main/melee/ty/toy un_80305D00 +176 bytes 0.00% to 100.00%"
       ]
     }
   ],
   "what_changed": [
-    "`IsNameUnique(s32 slot)` was implemented as a `bool` function using a bounded `for (i = 0; i < 0x78; i++)` loop.",
-    "`IsNameUnique` calls `IsNameValid(i & 0xFF)`, conditionally reads `GetPersistentNameData((u8) i)->namedata`, breaks on NULL name data, and returns true when `CompareNameStrings(namedata, slot) == 0`; otherwise it returns false.",
-    "`mnname.h` was synchronized with the recovered `IsNameUnique` signature.",
-    "`un_80305D00(void)` was implemented as a `float` function using a four-iteration loop over `HSD_PadCopyStatus[(u8) i].nml_stickX`.",
-    "`un_80305D00` manually computes the absolute value of the stick X value for threshold testing while preserving `ret` as the original signed value to return.",
-    "The automated GALE01 report records two new 100.00% matches: `un_80305D00` and `IsNameUnique`."
+    {
+      "text": "Replaced the /// #IsNameUnique placeholder with a bool IsNameUnique(s32 slot) implementation that loops i from 0 to 0x77, checks IsNameValid(i & 0xFF), obtains GetPersistentNameData((u8) i)->namedata when valid, breaks on NULL namedata, and returns true when CompareNameStrings(namedata, slot) == 0.",
+      "evidence_refs": [
+        "raw_diff: src/melee/mn/mnname.c"
+      ]
+    },
+    {
+      "text": "Changed the IsNameUnique prototype in mnname.h from UNK_RET IsNameUnique(UNK_PARAMS) to bool IsNameUnique(s32 slot).",
+      "evidence_refs": [
+        "raw_diff: src/melee/mn/mnname.h"
+      ]
+    },
+    {
+      "text": "Replaced the /// #un_80305D00 placeholder with a float un_80305D00(void) implementation that scans HSD_PadCopyStatus[0..3].nml_stickX, computes an absolute-value threshold check using 0.1F, breaks when exceeded, and returns the stored sampled stick value.",
+      "evidence_refs": [
+        "raw_diff: src/melee/ty/toy.c"
+      ]
+    },
+    {
+      "text": "The automated GALE01 report recorded two new 100.00% matches: un_80305D00 in main/melee/ty/toy (+176 bytes) and IsNameUnique in main/melee/mn/mnname (+140 bytes).",
+      "evidence_refs": [
+        "human_pr_text.md issue comment by encounter",
+        "text_corpus.jsonl issue_comment"
+      ]
+    }
   ],
   "smart_moves": [
-    "The `IsNameUnique` header declaration was updated alongside the body, avoiding a stale `UNK_RET/UNK_PARAMS` prototype after the signature was recovered.",
-    "Both functions use compact natural loops rather than duplicated generated-looking checks.",
-    "`un_80305D00` keeps the original signed stick value in `ret` while using an absolute-value temporary for the deadzone threshold comparison, which reflects a common matching need where the tested value and returned value differ."
+    {
+      "text": "The PR updated the owning header prototype after recovering the IsNameUnique body, removing UNK_RET/UNK_PARAMS for that symbol.",
+      "evidence_refs": [
+        "raw_diff: src/melee/mn/mnname.h",
+        "decomp_standards: truthful-headers-and-includes"
+      ]
+    },
+    {
+      "text": "Both recovered functions use compact bounded for-loops instead of leaving placeholder or repeated generated-looking code.",
+      "evidence_refs": [
+        "raw_diff: src/melee/mn/mnname.c",
+        "raw_diff: src/melee/ty/toy.c",
+        "decomp_standards: natural-loops"
+      ]
+    },
+    {
+      "text": "The toy function uses the typed HSD_PadCopyStatus array and nml_stickX field rather than raw pointer arithmetic for pad data access.",
+      "evidence_refs": [
+        "raw_diff: src/melee/ty/toy.c",
+        "decomp_standards: typed-fields-over-pointer-math"
+      ]
+    }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a function body proves a signature, update the owning header in the same change.",
-      "evidence_refs": [
-        "raw_diff: `mnname.c` implements `bool IsNameUnique(s32 slot)`",
-        "raw_diff: `mnname.h` changes `UNK_RET IsNameUnique(UNK_PARAMS)` to `bool IsNameUnique(s32 slot)`"
+      "text": "When a matched function body proves a signature, update the owning header from UNK_RET/UNK_PARAMS to the recovered return and parameter types in the same focused change.",
+      "scope": [
+        "headers",
+        "prototype recovery",
+        "mnname.h"
       ],
-      "related_standard_ids": [
-        "truthful-headers-and-includes"
+      "evidence_refs": [
+        "raw_diff: src/melee/mn/mnname.c",
+        "raw_diff: src/melee/mn/mnname.h",
+        "decomp_standards: truthful-headers-and-includes"
       ]
     },
     {
-      "lesson": "Small repeated input/name scans can often be expressed as natural bounded `for` loops, even when casts or temporaries are needed for matching.",
-      "evidence_refs": [
-        "raw_diff: `IsNameUnique` loop over `i < 0x78`",
-        "raw_diff: `un_80305D00` loop over `i < 4`"
+      "text": "Small scan functions can match cleanly as natural bounded loops: IsNameUnique uses a for loop over 0x78 possible entries with an early break on NULL data, and un_80305D00 uses a for loop over four pad slots with an early threshold break.",
+      "scope": [
+        "mn",
+        "ty",
+        "loop recovery"
       ],
-      "related_standard_ids": [
-        "natural-loops"
-      ]
-    },
-    {
-      "lesson": "For input deadzone logic, preserve the signed value for return separately from the absolute-value temporary used for threshold checks when the assembly requires both roles.",
       "evidence_refs": [
-        "raw_diff: `un_80305D00` assigns `ret = val`, negates `val` only for comparison, and returns `ret`"
-      ],
-      "related_standard_ids": [
-        "infer-authored-source-style",
-        "canonical-control-flow-and-macros"
+        "raw_diff: src/melee/mn/mnname.c",
+        "raw_diff: src/melee/ty/toy.c",
+        "issue_comment report: both functions 100.00% after"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "name": "IsNameUnique",
-      "kind": "function",
-      "convention": "Semantic function name retained and signature clarified as returning `bool` with parameter `s32 slot`.",
+      "text": "Recovered semantic names already present in the symbol list or surrounding code were preserved: IsNameUnique, IsNameValid, GetPersistentNameData, CompareNameStrings, and namedata.",
       "evidence_refs": [
-        "PR title",
-        "raw_diff: `mnname.c` and `mnname.h`"
+        "raw_diff: src/melee/mn/mnname.c",
+        "raw_diff: src/melee/mn/mnname.h"
       ]
     },
     {
-      "name": "slot",
-      "kind": "parameter",
-      "convention": "Recovered parameter name reflects the slot passed to `CompareNameStrings`.",
+      "text": "The unknown-address-style name un_80305D00 remained unchanged despite body recovery, consistent with not inventing semantics beyond available evidence.",
       "evidence_refs": [
-        "raw_diff: `bool IsNameUnique(s32 slot)`",
-        "raw_diff: `CompareNameStrings(namedata, slot)`"
-      ]
-    },
-    {
-      "name": "un_80305D00",
-      "kind": "function",
-      "convention": "Address-style name retained because the PR evidence does not provide a semantic name.",
-      "evidence_refs": [
-        "PR title",
-        "raw_diff: `float un_80305D00(void)`"
+        "raw_diff: src/melee/ty/toy.c",
+        "decomp_standards: conservative-naming"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use explicit casts on loop index accesses where needed: `i & 0xFF`, `(u8) i`, and `HSD_PadCopyStatus[(u8) i]`.",
+      "text": "Used explicit casts to u8 in index-based accesses for matching-sensitive calls and array indexing: IsNameUnique passes (u8) i to GetPersistentNameData, while un_80305D00 indexes HSD_PadCopyStatus[(u8) i].",
       "evidence_refs": [
-        "raw_diff: `IsNameUnique`",
-        "raw_diff: `un_80305D00`"
+        "raw_diff: src/melee/mn/mnname.c",
+        "raw_diff: src/melee/ty/toy.c"
       ]
     },
     {
-      "tactic": "Use a temporary `ret` to preserve the original signed floating-point value while modifying another temporary for absolute-value comparison.",
+      "text": "In un_80305D00, retained both ret and val locals so the function can check the absolute value of val while returning the original signed stick value sampled before negation.",
       "evidence_refs": [
-        "raw_diff: `un_80305D00`"
+        "raw_diff: src/melee/ty/toy.c"
       ]
     },
     {
-      "tactic": "Use a ternary assignment to select NULL versus field access in `IsNameUnique` before the break-on-NULL check.",
+      "text": "Used a ternary in IsNameUnique to assign either NULL or namedata based on IsNameValid before a shared NULL break check.",
       "evidence_refs": [
-        "raw_diff: `namedata = !IsNameValid(i & 0xFF) ? (char*) NULL : GetPersistentNameData((u8) i)->namedata;`"
+        "raw_diff: src/melee/mn/mnname.c"
       ]
     }
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    {
+      "text": "No review comments were present in the loaded PR slice.",
+      "evidence_refs": [
+        "metadata_json counts.review_comments: 0",
+        "metadata_json counts.reviews: 0"
+      ]
+    },
+    {
+      "text": "The only loaded issue comment was an automated GALE01 match report, not human review feedback.",
+      "evidence_refs": [
+        "text_corpus.jsonl issue_comment by encounter",
+        "human_pr_text.md report"
+      ]
+    }
+  ],
   "searchable_terms": [
-    "pr-2323",
-    "johnwinston",
-    "mn/ty",
+    "PR 2323",
+    "mn/ty decompile IsNameUnique un_80305D00",
+    "src/melee/mn/mnname.c",
+    "src/melee/mn/mnname.h",
+    "src/melee/ty/toy.c",
     "IsNameUnique",
-    "un_80305D00",
-    "mnname.c",
-    "mnname.h",
-    "toy.c",
     "IsNameValid",
     "GetPersistentNameData",
     "CompareNameStrings",
+    "namedata",
+    "UNK_RET UNK_PARAMS",
+    "bool IsNameUnique s32 slot",
+    "un_80305D00",
     "HSD_PadCopyStatus",
     "nml_stickX",
-    "UNK_RET",
-    "UNK_PARAMS",
-    "truthful headers",
-    "natural loops",
-    "GALE01",
-    "fuzzy_match_percent 100.0"
+    "0.1F",
+    "natural loop",
+    "prototype recovery",
+    "GALE01 matched code"
   ],
   "follow_up_queries": [
-    "IsNameUnique mnname CompareNameStrings GetPersistentNameData slot",
-    "un_80305D00 HSD_PadCopyStatus nml_stickX deadzone",
+    "IsNameUnique CompareNameStrings GetPersistentNameData namedata",
+    "un_80305D00 HSD_PadCopyStatus nml_stickX 0.1F",
     "mnname.h UNK_RET UNK_PARAMS IsNameUnique",
-    "toy.c pad stickX threshold 0.1"
+    "PR body mismatch grIceMt_801F91EC grKongo_801D8078 PR 2323",
+    "main/melee/ty/toy un_80305D00 100.00%",
+    "main/melee/mn/mnname IsNameUnique 100.00%"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR #2323 title, author, state, changed files",
-      "raw_diff: all changed hunks",
-      "text_corpus issue_comment: GALE01 report with two new 100.00% matches",
-      "human_pr_text/pr_body: unrelated generated summary naming `grIceMt_801F91EC` and `grKongo_801D8078`"
+      "metadata_json",
+      "raw_diff",
+      "changed_files.jsonl",
+      "human_pr_text.md",
+      "text_corpus.jsonl"
     ],
     "notes": [
-      "The diff and automated report strongly support the actual changed functions and claimed match results.",
-      "The PR body summary appears to describe unrelated stage functions rather than `IsNameUnique` or `un_80305D00`; it should not be used as evidence for what this PR changed.",
-      "No review comments were present in the loaded slice, so reviewer intent or requested changes cannot be inferred.",
-      "No local build logs beyond the issue-comment match report were provided."
+      "Diff and changed-file metadata strongly support the actual code and header changes.",
+      "The issue comment report supports that IsNameUnique and un_80305D00 were newly matched at 100.00%.",
+      "The PR body is inconsistent with the title and diff: it describes grIceMt_801F91EC and grKongo_801D8078 in stage files that were not changed in this slice. Those body claims were not treated as facts about this PR's actual code changes.",
+      "No human review comments or reviewer intent were available.",
+      "No local build, objdiff, or checkdiff logs beyond the loaded automated GALE01 report were available."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson",
-        "title": "Synchronize recovered function signatures with owning headers",
-        "text": "PR #2323 implemented `bool IsNameUnique(s32 slot)` in `mnname.c` and updated `mnname.h` from `UNK_RET IsNameUnique(UNK_PARAMS)` to the recovered signature in the same change.",
+        "kind": "decomp_lesson",
+        "title": "Recover header prototypes with matched bodies",
+        "text": "PR #2323 is a compact example of updating an owning header prototype from UNK_RET/UNK_PARAMS to the recovered signature when the function body is decompiled: IsNameUnique became bool IsNameUnique(s32 slot) in both mnname.c and mnname.h.",
         "scope": [
-          "src/melee/mn/mnname.c",
-          "src/melee/mn/mnname.h"
+          "headers",
+          "prototype recovery",
+          "mnname"
         ],
         "evidence_refs": [
-          "raw_diff: `mnname.c` body",
-          "raw_diff: `mnname.h` prototype update"
+          "raw_diff: src/melee/mn/mnname.c",
+          "raw_diff: src/melee/mn/mnname.h",
+          "issue_comment report: IsNameUnique 0.00% to 100.00%"
         ]
       },
       {
-        "record_type": "matching_tactic",
-        "title": "Preserve signed return value separately from absolute-value threshold temporary",
-        "text": "In `un_80305D00`, the source stores `ret = val`, conditionally negates `val` only for comparison with `0.1F`, and returns `ret`, showing a narrow matching pattern for input deadzone scans where the compared magnitude and returned signed value differ.",
+        "kind": "matching_tactic",
+        "title": "Use typed pad status access for controller scan helpers",
+        "text": "un_80305D00 matched as a four-entry loop over HSD_PadCopyStatus[(u8) i].nml_stickX, preserving typed field access and a separate returned sample value while using an absolute-value threshold for the break condition.",
         "scope": [
-          "src/melee/ty/toy.c"
+          "ty",
+          "controller input",
+          "typed field access"
         ],
         "evidence_refs": [
-          "raw_diff: `un_80305D00` implementation",
-          "issue_comment report: `un_80305D00` 100.00%"
+          "raw_diff: src/melee/ty/toy.c",
+          "issue_comment report: un_80305D00 0.00% to 100.00%"
         ]
       }
     ],
-    "source_update_candidates": [],
+    "source_update_candidates": [
+      {
+        "target_source_id": "other",
+        "update_kind": "source_update",
+        "title": "Flag PR #2323 body/diff mismatch in past-PR corpus",
+        "text": "The loaded PR body for #2323 describes grIceMt_801F91EC in gricemt.c and grKongo_801D8078 in grkongo.c, but the title, changed files, diff, and automated match report all concern IsNameUnique in mnname and un_80305D00 in toy. Curator may want to annotate the source corpus record so downstream consumers do not treat the PR body summary as evidence for this slice's changed files.",
+        "source_path": "knowledge/sources/code_context/past_prs/data/prs/pr-2323/extracted/human_pr_text.md",
+        "scope": [
+          "past_prs",
+          "pr-2323",
+          "evidence hygiene"
+        ],
+        "evidence_refs": [
+          "human_pr_text.md PR body",
+          "raw_diff",
+          "changed_files.jsonl",
+          "text_corpus.jsonl issue_comment"
+        ],
+        "reason": "Prevent unrelated PR-body text from being promoted as facts about the changed mn/ty functions."
+      }
+    ],
     "rejection_notes": [
-      "Do not promote the PR body descriptions of `grIceMt_801F91EC` or `grKongo_801D8078`; they conflict with the PR title, changed files, diff, and match report.",
-      "Do not infer a semantic name for `un_80305D00`; the PR retained the address-style name and provides no naming rationale.",
-      "Do not treat the generated Claude PR body as validation for this PR's actual functions; the reliable validation evidence is the GALE01 issue-comment report."
+      "Do not record the PR body's Icicle Mountain or Kongo Jungle function descriptions as facts for PR #2323's actual changed files; they are unsupported by the diff and changed-file metadata in this slice.",
+      "Do not infer human reviewer approval rationale; the loaded slice has no review comments.",
+      "Do not generalize the exact local variable choices ret/val/i into a global style rule; they are only evidence for this matched function."
     ]
   },
   "confidence": 0.82,
@@ -231,6 +298,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

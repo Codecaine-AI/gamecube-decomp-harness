@@ -12,62 +12,73 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Matched two functions across fighter and stage code: ftCo_CaptureWaitKirby_IASA reached 100% and grGreens_80214B58 reached 100%. The PR also notes unresolved data/string ownership around CaptureWaitKirby and thrownkirby; reviewer feedback says shared strings imply the files/units have to be merged.",
+  "summary": "PR #2559 made focused matching changes in one fighter file and one stage file. The bot report says two functions newly matched: ftCo_CaptureWaitKirby_IASA and grGreens_80214B58. The PR body notes CaptureWaitKirby could be linked if data were figured out but shares strings with thrownkirby; reviewer feedback states shared strings mean the units have to be merged.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "decomp-matching",
-      "fighter-action",
-      "stage-function"
+      "fighter matching",
+      "stage matching",
+      "data ownership / TU split discussion",
+      "include cleanup",
+      "local codegen shaping"
     ],
     "systems": [
       "fighter",
+      "stage",
       "ftCommon",
       "Kirby capture wait",
-      "stage",
       "Green Greens"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ft/chara/ftCommon/ftCo_CaptureWaitKirby.c",
-      "role": "Matched ftCo_CaptureWaitKirby_IASA and adjusted helper calls, stick-direction argument handling, scale source, includes, and local matching shape.",
+      "role": "Fighter-side CaptureWaitKirby matching work; diff removes unused includes/static constants, adds a noinline wrapper around ftCo_800BD6EC, adjusts ftCo_CaptureWaitKirby_IASA call ordering/arguments, and changes scale source to fp->mv.co.capturekirby.scale.",
       "evidence_refs": [
-        "changed_files: src/melee/ft/chara/ftCommon/ftCo_CaptureWaitKirby.c added 16 deleted 24 hunks 5",
-        "raw_diff: ftCo_CaptureWaitKirby.c hunk changing includes, adding ftCo_800BD6EC_noinline, changing inlineB0, and changing ftCo_CaptureWaitKirby_IASA",
-        "text_corpus: decomp-dev[bot] report lists ftCo_CaptureWaitKirby_IASA +197 bytes, 63.61% to 100.00%"
+        "changed_files.jsonl: ftCo_CaptureWaitKirby.c added 16 deleted 24 hunks 5",
+        "raw_diff: ftCo_CaptureWaitKirby.c hunk",
+        "text_corpus: bot report ftCo_CaptureWaitKirby_IASA 63.61% -> 100.00%"
       ]
     },
     {
       "path": "src/melee/gr/grgreens.c",
-      "role": "Matched grGreens_80214B58 by reshaping Green Greens bomb table initialization and BOMB helper expression.",
+      "role": "Stage-side grGreens_80214B58 matching work; diff rewrites BOMB as a nested ternary assignment and changes a 0x20 clearing loop into a 24-iteration loop plus explicit stores for 0x18 through 0x1D.",
       "evidence_refs": [
-        "changed_files: src/melee/gr/grgreens.c added 12 deleted 7 hunks 1",
-        "raw_diff: grgreens.c hunk changing BOMB and grGreens_80214B58 initialization",
-        "text_corpus: decomp-dev[bot] report lists grGreens_80214B58 +9 bytes, 99.26% to 100.00%"
+        "changed_files.jsonl: grgreens.c added 12 deleted 7 hunks 1",
+        "raw_diff: grgreens.c hunk",
+        "text_corpus: bot report grGreens_80214B58 99.26% -> 100.00%"
       ]
     }
   ],
   "what_changed": [
-    "Removed unused placeholder/platform/type/baselib/dolphin includes and removed local float/double constants from ftCo_CaptureWaitKirby.c.",
-    "Added ftCo_800BD6EC_noinline as a wrapper that calls ftCo_800BD6EC, and ftCo_CaptureWaitKirby_IASA now calls the wrapper before inlineB0 inside the ftKb_SpecialN_800F5A38 branch.",
-    "Changed ftKb_SpecialN_800F5A38 argument from fp to gobj->user_data in ftCo_CaptureWaitKirby_IASA.",
-    "Changed inlineB0 to compute a signed integer direction value of -1 or 1 from lstick.x and pass that to ftKb_SpecialN_800F5A04 instead of passing the absolute stick magnitude only in the negative branch.",
-    "Changed HSD_JObjSetScale in ftCo_CaptureWaitKirby_IASA to use fp->mv.co.capturekirby.scale rather than jobj->scale.",
-    "Changed grgreens BOMB helper from temporaries c/r to a nested ternary assignment using grGr_params->x20 and HSD_Randi.",
-    "Changed grGreens_80214B58 initialization from a loop over 0x20 entries to a loop over 24 entries plus explicit zero writes for indices 0x18 through 0x1D before BOMB calls."
+    "Removed placeholder/platform and several unused fighter/baselib/dolphin includes from ftCo_CaptureWaitKirby.c.",
+    "Removed local static float/double constants ftCo_804D8BB8, ftCo_804D8BBC, ftCo_804D8BC0, and ftCo_804D8BC8 from ftCo_CaptureWaitKirby.c.",
+    "Added ftCo_800BD6EC_noinline as a wrapper that calls ftCo_800BD6EC, then used that wrapper in ftCo_CaptureWaitKirby_IASA before inlineB0.",
+    "Changed inlineB0 to compute an s32 direction value of -1 or 1 from lstick.x and pass that to ftKb_SpecialN_800F5A04.",
+    "Changed ftKb_SpecialN_800F5A38 call in ftCo_CaptureWaitKirby_IASA from passing fp to passing gobj->user_data.",
+    "Added an s32 pad local in ftCo_CaptureWaitKirby_IASA.",
+    "Changed HSD_JObjSetScale argument from &jobj->scale to &fp->mv.co.capturekirby.scale.",
+    "Rewrote grGreens BOMB helper to assign grGr_8049F9E0[idx] via a single nested ternary expression using grGr_params->x20 and HSD_Randi.",
+    "Changed grGreens_80214B58 zero initialization from a loop over 0x20 entries to a loop over 24 entries plus explicit zero stores for indices 0x18 through 0x1D.",
+    "Bot report recorded +1644 matched-code bytes and two newly matched items."
   ],
   "smart_moves": [
     {
-      "title": "Used bot match report as narrow verification evidence",
-      "text": "The PR includes an automated report showing exactly two new matches and their byte gains, grounding the matching claim for ftCo_CaptureWaitKirby_IASA and grGreens_80214B58.",
+      "text": "Kept the PR focused to two functions reported by the bot as newly matching, one in ftCommon and one in grgreens.",
       "evidence_refs": [
-        "text_corpus: decomp-dev[bot] report for GALE01 lists 2 new matches"
+        "text_corpus: bot report lists 2 new matches",
+        "changed_files.jsonl: 2 changed files"
       ]
     },
     {
-      "title": "Kept data/string ownership concern explicit instead of forcing linkage",
-      "text": "The PR body says CaptureWaitKirby could be linked if data was figured out, but shared strings with thrownkirby were unresolved. This preserves a boundary between text matching and data/TU ownership work.",
+      "text": "Removed generated-looking include and local constant clutter from ftCo_CaptureWaitKirby.c while preserving the matching target.",
+      "evidence_refs": [
+        "raw_diff: include removals and ftCo_804D8BB8/ftCo_804D8BC0 removals",
+        "text_corpus: bot report ftCo_CaptureWaitKirby_IASA 100.00%"
+      ]
+    },
+    {
+      "text": "Flagged remaining data/string ownership uncertainty in the PR body instead of presenting CaptureWaitKirby as fully linkable.",
       "evidence_refs": [
         "human_pr_text: PR body says CaptureWaitKirby could be linked if data was figured out but shares strings with thrownkirby"
       ]
@@ -75,110 +86,86 @@
   ],
   "decomp_lessons": [
     {
-      "lesson": "Shared string ownership can block or complicate linking a decompiled fighter file even when function text matching improves.",
-      "scope": [
-        "ftCommon",
-        "CaptureWaitKirby",
-        "ThrownKirby",
-        "data ownership",
-        "TU split"
-      ],
+      "lesson": "String/data ownership can block linking even when a function matches; shared strings between related fighter units may imply a TU merge or split-ownership issue rather than a simple code-only fix.",
       "evidence_refs": [
-        "human_pr_text: PR body notes CaptureWaitKirby could be linked if data was figured out but shares strings with thrownkirby",
-        "human_pr_text: ribbanya comment says if they share strings then they have to be merged"
+        "human_pr_text: author notes shared strings with thrownkirby",
+        "human_pr_text: ribbanya says shared strings have to be merged"
       ],
-      "confidence": 0.78
+      "confidence": 0.8
     },
     {
-      "lesson": "For table initialization matching, a natural loop may cover only the contiguous prefix while later slots are emitted as explicit stores; do not assume a full-array loop is always the authored/matching shape.",
-      "scope": [
-        "grgreens",
-        "grGreens_80214B58",
-        "array initialization"
-      ],
+      "lesson": "A local noinline wrapper can be a narrow matching tactic when direct calls disturb code shape, but this PR only proves that the wrapper was present in a bot-reported matching result, not that the tactic is generally preferred.",
       "evidence_refs": [
-        "raw_diff: grGreens_80214B58 loop changed from i < 0x20 to i < 24 plus explicit zero stores for 0x18..0x1D",
-        "text_corpus: bot report shows grGreens_80214B58 reached 100.00%"
-      ],
-      "confidence": 0.72
-    },
-    {
-      "lesson": "When a helper expects direction, matching may require passing a sign value derived from stick input rather than the absolute stick magnitude.",
-      "scope": [
-        "ftCo_CaptureWaitKirby.c",
-        "inlineB0",
-        "ftKb_SpecialN_800F5A04"
-      ],
-      "evidence_refs": [
-        "raw_diff: inlineB0 now sets value to -1 or 1 based on fp->input.lstick.x and passes value to ftKb_SpecialN_800F5A04",
-        "text_corpus: bot report shows ftCo_CaptureWaitKirby_IASA reached 100.00%"
+        "raw_diff: added ftCo_800BD6EC_noinline wrapper and called it from ftCo_CaptureWaitKirby_IASA",
+        "text_corpus: bot report ftCo_CaptureWaitKirby_IASA 100.00%"
       ],
       "confidence": 0.7
+    },
+    {
+      "lesson": "For array clearing code, a matching shape may split a loop from trailing explicit stores; keep this as PR-specific evidence and do not generalize it over the natural-loop standard without verifier evidence.",
+      "evidence_refs": [
+        "raw_diff: grGreens_80214B58 loop changed from i < 0x20 to i < 24 plus explicit stores for 0x18-0x1D",
+        "text_corpus: bot report grGreens_80214B58 100.00%"
+      ],
+      "confidence": 0.72
     }
   ],
   "naming_conventions": [
     {
-      "name": "BOMB",
-      "kind": "local helper macro/function-style name",
-      "lesson": "The PR retains the existing uppercase local helper name BOMB for Green Greens bomb-slot initialization; evidence supports this as local file convention but not a global naming rule.",
+      "convention": "No new broad naming convention is established. The PR keeps address-style function names such as ftCo_800BD6EC and grGreens_80214B58, and uses a mechanical suffix ftCo_800BD6EC_noinline for a wrapper.",
       "evidence_refs": [
-        "raw_diff: static inline void BOMB(int idx) retained in grgreens.c"
-      ],
-      "confidence": 0.62
+        "raw_diff: ftCo_800BD6EC_noinline addition",
+        "raw_diff: grGreens_80214B58 unchanged function name"
+      ]
     },
     {
-      "name": "ftCo_800BD6EC_noinline",
-      "kind": "address-style wrapper name",
-      "lesson": "The newly added wrapper keeps the address-style base symbol and appends _noinline, describing the matching tactic without inventing semantic meaning.",
+      "convention": "Local role names remain minimal and codegen-oriented where semantics are limited, such as value, pad, i, jobj, and fp.",
       "evidence_refs": [
-        "raw_diff: declaration and definition of ftCo_800BD6EC_noinline calling ftCo_800BD6EC"
-      ],
-      "confidence": 0.68
+        "raw_diff: s32 value, s32 pad, Fighter* fp, HSD_JObj* jobj"
+      ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Noinline wrapper to alter call/inlining shape",
-      "details": "ftCo_800BD6EC_noinline was added as a separate wrapper around ftCo_800BD6EC and ftCo_CaptureWaitKirby_IASA calls the wrapper. The bot report supports the resulting function match, but the PR does not explicitly explain the exact codegen reason.",
+      "tactic": "Use a noinline wrapper around an existing helper to alter call/inlining behavior in ftCo_CaptureWaitKirby_IASA.",
       "evidence_refs": [
-        "raw_diff: ftCo_800BD6EC_noinline added and called from ftCo_CaptureWaitKirby_IASA",
-        "text_corpus: bot report shows ftCo_CaptureWaitKirby_IASA reached 100.00%"
-      ],
-      "confidence": 0.66
+        "raw_diff: ftCo_800BD6EC_noinline definition calls ftCo_800BD6EC",
+        "raw_diff: ftCo_CaptureWaitKirby_IASA calls ftCo_800BD6EC_noinline"
+      ]
     },
     {
-      "tactic": "Local padding/stack-shape steering",
-      "details": "A local s32 pad was added at the start of ftCo_CaptureWaitKirby_IASA. This appears to be a matching tactic, but the PR slice does not include explicit objdiff details beyond the bot match report.",
+      "tactic": "Add a pad local in ftCo_CaptureWaitKirby_IASA, likely for stack/codegen shaping; PR evidence does not explain it beyond the diff and bot match.",
       "evidence_refs": [
-        "raw_diff: ftCo_CaptureWaitKirby_IASA adds s32 pad",
-        "text_corpus: bot report shows ftCo_CaptureWaitKirby_IASA reached 100.00%"
-      ],
-      "confidence": 0.55
+        "raw_diff: added s32 pad",
+        "text_corpus: bot report ftCo_CaptureWaitKirby_IASA 100.00%"
+      ]
     },
     {
-      "tactic": "Inline temporary removal and nested ternary shaping",
-      "details": "grgreens BOMB removed temporaries c and r and replaced them with a single nested ternary assignment, matching grGreens_80214B58 according to the bot report.",
+      "tactic": "Rewrite a helper assignment into a single nested ternary expression in BOMB to shape grgreens codegen.",
       "evidence_refs": [
-        "raw_diff: BOMB helper rewritten from c/r temporaries to nested ternary assignment",
-        "text_corpus: bot report shows grGreens_80214B58 reached 100.00%"
-      ],
-      "confidence": 0.69
+        "raw_diff: BOMB changed from c/r temporaries to nested ternary assignment",
+        "text_corpus: bot report grGreens_80214B58 100.00%"
+      ]
     },
     {
-      "tactic": "Partial loop plus explicit stores for array initialization",
-      "details": "grGreens_80214B58 uses a loop for indices 0..23 and explicit stores for 0x18..0x1D rather than one loop through 0x20. This is supported as matching for this function but should not be generalized without local evidence.",
+      "tactic": "Replace full array-clear loop with a shorter loop plus explicit stores for trailing indices in grGreens_80214B58.",
       "evidence_refs": [
-        "raw_diff: grGreens_80214B58 loop and explicit stores",
-        "text_corpus: bot report shows grGreens_80214B58 reached 100.00%"
-      ],
-      "confidence": 0.72
+        "raw_diff: loop i < 24 plus grGr_8049F9E0[0x18] through [0x1D] stores",
+        "text_corpus: bot report grGreens_80214B58 100.00%"
+      ]
+    },
+    {
+      "tactic": "Use struct field access for the scale argument, changing HSD_JObjSetScale from &jobj->scale to &fp->mv.co.capturekirby.scale.",
+      "evidence_refs": [
+        "raw_diff: HSD_JObjSetScale argument change"
+      ]
     }
   ],
   "review_feedback": [
     {
       "author": "ribbanya",
       "kind": "issue_comment",
-      "feedback": "If CaptureWaitKirby and thrownkirby share strings, then they have to be merged.",
+      "text": "If they share strings then they have to be merged.",
       "evidence_refs": [
         "human_pr_text: ribbanya issue comment",
         "text_corpus: issue_comment by ribbanya at 2026-05-31T16:09:09Z"
@@ -187,9 +174,9 @@
     {
       "author": "ribbanya",
       "kind": "review",
-      "feedback": "Approved review with no body text in the loaded slice.",
+      "text": "Approved review recorded with empty body.",
       "evidence_refs": [
-        "text_corpus: review by ribbanya state APPROVED at 2026-05-31T16:14:37Z"
+        "text_corpus: review by ribbanya state APPROVED"
       ]
     }
   ],
@@ -198,129 +185,114 @@
     "CaptureWaitKirby",
     "ThrownKirby",
     "shared strings",
+    "TU merge",
     "ftCo_CaptureWaitKirby_IASA",
     "ftCo_800BD6EC_noinline",
     "ftCo_800BD6EC",
-    "inlineB0",
-    "ftKb_SpecialN_800F5A04",
     "ftKb_SpecialN_800F5A38",
+    "ftKb_SpecialN_800F5A04",
+    "ftKb_SpecialN_800F5B00",
+    "ftKb_SpecialN_800F5A60",
     "HSD_JObjSetScale",
     "capturekirby.scale",
     "grGreens_80214B58",
-    "grgreens",
     "BOMB",
     "grGr_8049F9E0",
     "grGr_params->x20",
     "HSD_Randi",
-    "array initialization",
-    "explicit zero stores"
+    "noinline wrapper",
+    "pad local",
+    "nested ternary",
+    "array clear loop"
   ],
   "follow_up_queries": [
-    "CaptureWaitKirby thrownkirby shared strings merge",
+    "CaptureWaitKirby shared strings thrownkirby merge",
     "ftCo_CaptureWaitKirby_IASA ftCo_800BD6EC_noinline pad",
-    "ftKb_SpecialN_800F5A04 direction value lstick",
+    "ftCo_CaptureWaitKirby HSD_JObjSetScale capturekirby.scale",
     "grGreens_80214B58 grGr_8049F9E0 0x18 0x1D",
-    "BOMB HSD_Randi nested ternary grgreens"
+    "BOMB grGr_params->x20 HSD_Randi nested ternary",
+    "PR 2559 ribbanya shared strings merged"
   ],
   "evidence_quality": {
-    "status": "mixed",
+    "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR metadata, changed files, merge state",
-      "raw_diff: complete 4002-byte diff loaded",
-      "text_corpus: PR body, bot report, issue comment, approval review"
+      "metadata_json: PR number/title/state/author/timestamps",
+      "changed_files.jsonl: changed file list and line counts",
+      "raw_diff: full diff excerpt for both changed files",
+      "text_corpus: PR body, bot report, issue comment, approved review"
     ],
     "notes": [
-      "Strong evidence for changed files and the two function match outcomes from changed_files and decomp-dev bot report.",
-      "The PR slice has no inline review comments and no explicit author explanation for codegen tactics such as s32 pad or ftCo_800BD6EC_noinline; those are recorded as tactics with moderate confidence only.",
-      "The string-sharing/TU-merge point is supported by PR body and reviewer comment, but the slice does not include the actual shared strings or the resulting merge implementation.",
-      "No independent build, objdiff logs, or source files beyond the diff were loaded; validation claims are limited to the bot report in the PR evidence."
+      "Evidence is strong for changed files, exact code edits, bot-reported match results, and reviewer text.",
+      "No inline review comments were present.",
+      "The PR body states data/string uncertainty but does not include the underlying string/data map evidence.",
+      "The bot report supports match percentages, but this intake did not independently run builds, objdiff, or regression checks.",
+      "The reason for pad/noinline tactics is inferred from matching context and should not be treated as author-stated intent."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "pr_lesson",
-        "title": "Shared strings can require TU merge work before a file can be linked",
-        "text": "In PR #2559, the author stated CaptureWaitKirby could be linked if data was figured out but it shared strings with thrownkirby; reviewer ribbanya replied that if they share strings then they have to be merged. Curator should treat this as PR-local evidence for data/TU ownership constraints, not as proof of the exact shared-string set.",
+        "record_type": "pr_match_result",
+        "title": "PR #2559 matched ftCo_CaptureWaitKirby_IASA and grGreens_80214B58",
+        "text": "The bot report for GALE01 says PR #2559 produced two new matches: ftCo_CaptureWaitKirby_IASA in main/melee/ft/chara/ftCommon/ftCo_CaptureWaitKirby and grGreens_80214B58 in main/melee/gr/grgreens.",
+        "scope": [
+          "src/melee/ft/chara/ftCommon/ftCo_CaptureWaitKirby.c",
+          "src/melee/gr/grgreens.c"
+        ],
+        "evidence_refs": [
+          "text_corpus: decomp-dev[bot] report"
+        ]
+      },
+      {
+        "record_type": "review_observation",
+        "title": "Shared strings raised as merge/split concern",
+        "text": "The PR author noted CaptureWaitKirby shares strings with thrownkirby, and reviewer ribbanya responded that if they share strings then they have to be merged.",
         "scope": [
           "CaptureWaitKirby",
-          "ThrownKirby",
-          "ftCommon",
+          "thrownkirby",
           "data ownership",
           "TU split"
         ],
         "evidence_refs": [
           "human_pr_text: PR body",
           "human_pr_text: ribbanya issue comment"
-        ],
-        "confidence": 0.78
-      },
-      {
-        "type": "matching_tactic",
-        "title": "Partial loop plus explicit stores matched grGreens_80214B58",
-        "text": "The grGreens_80214B58 match changed a full 0x20 loop into a loop over 24 entries followed by explicit zero stores for 0x18 through 0x1D, then bomb-slot setup. This is useful as a search precedent for array initialization shape mismatches.",
-        "scope": [
-          "src/melee/gr/grgreens.c",
-          "grGreens_80214B58",
-          "grGr_8049F9E0"
-        ],
-        "evidence_refs": [
-          "raw_diff: grgreens.c hunk",
-          "text_corpus: bot report grGreens_80214B58 100.00%"
-        ],
-        "confidence": 0.72
+        ]
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Shared string ownership may imply TU merge rather than isolated linking",
-        "text": "Consider adding or cross-linking a standard note under data-sections-and-tu-splits: when two candidate TUs share strings, string ownership can be evidence that the files/units need to be merged before linking, rather than forcing separate C files with fake data ownership.",
+        "title": "Shared string clusters may indicate TU merge or split ownership work",
+        "text": "When two candidate translation units share strings, investigate section ownership and possible TU merging/splitting instead of forcing a standalone code link. This should be framed as data/TU ownership evidence, not as a blanket rule that every shared string requires a merge without corroborating map/split evidence.",
         "source_path": null,
         "scope": [
           "data-sections-and-tu-splits",
-          "string ownership",
-          "translation unit splits"
+          "text-before-data-matching",
+          "fighter TUs",
+          "string ownership"
         ],
         "evidence_refs": [
-          "human_pr_text: author says CaptureWaitKirby shares strings with thrownkirby",
-          "human_pr_text: reviewer says if they share strings then they have to be merged"
+          "human_pr_text: author says CaptureWaitKirby could be linked if data was figured out but shares strings with thrownkirby",
+          "human_pr_text: ribbanya says shared strings have to be merged"
         ],
-        "reason": "Reviewer feedback directly states the merge implication, but the slice lacks the actual strings and broader precedent; curator should decide whether this belongs in global standards."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "CaptureWaitKirby and thrownkirby shared-string linkage concern",
-        "text": "For src/melee/ft/chara/ftCommon/ftCo_CaptureWaitKirby.c, PR #2559 records that linking was blocked/complicated because data was not figured out and strings were shared with thrownkirby.",
-        "source_path": "src/melee/ft/chara/ftCommon/ftCo_CaptureWaitKirby.c",
-        "scope": [
-          "ftCo_CaptureWaitKirby.c",
-          "thrownkirby",
-          "shared strings"
-        ],
-        "evidence_refs": [
-          "raw_pr_json: PR body",
-          "human_pr_text: PR body and reviewer comment"
-        ],
-        "reason": "This is potentially useful path-specific historical context, but should not be promoted without curator review because the actual shared string symbols are not in the slice."
+        "reason": "Reviewer feedback and author note provide a concrete historical example of shared strings affecting whether a code-matching unit can be linked independently."
       }
     ],
     "rejection_notes": [
-      "Do not generalize s32 pad or noinline wrapper use as accepted style; the PR only provides a bot match result, not a detailed justification.",
-      "Do not claim CaptureWaitKirby was linked in this PR; the author explicitly says it could be linked if data was figured out, and the slice only shows function matching.",
-      "Do not infer the exact thrownkirby source path or shared string names from this slice; they are not shown.",
-      "Do not promote the grgreens partial-loop shape into a global rule; it is a local matching precedent for grGreens_80214B58."
+      "Do not promote the noinline wrapper or s32 pad as a general accepted style; the PR evidence only shows they were used in this matching diff.",
+      "Do not promote the grgreens loop-plus-explicit-stores shape as a replacement for the natural-loop standard; this is a localized matching shape with bot evidence only.",
+      "Do not claim CaptureWaitKirby was fully linked; the PR body explicitly says data remained an issue.",
+      "Do not infer detailed thrownkirby file paths or string symbols from this slice; only the name thrownkirby and shared-string concern are present."
     ]
   },
-  "confidence": 0.78,
+  "confidence": 0.87,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

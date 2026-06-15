@@ -12,13 +12,13 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Matched `fn_8031EFE4` in `src/melee/vi/vi0801.c` and updated its header prototype from unknown return/params to `void fn_8031EFE4(HSD_GObj*)`. The function uses baselib CObj/AObj types to animate a camera object, trigger `vi_8031C9B4` at specific frames, and call `lb_800145F4` plus `gm_801A4B60` at animation end. Bot report records one new 100% match for the function and `.sdata2` improvement from 0% to 38.89%.",
+  "summary": "Matched vi cutscene function fn_8031EFE4 in src/melee/vi/vi0801.c and updated its header prototype from placeholder UNK_RET/UNK_PARAMS to void fn_8031EFE4(HSD_GObj*). The function gets a camera object from the GObj, advances CObj animation, triggers vi_8031C9B4 at animation frames 1.0/30.0 and 60.0, then calls lb_800145F4 and gm_801A4B60 when the animation reaches end_frame. Bot report records one new 100% match and .sdata2 improvement for main/melee/vi/vi0801.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "typed-fields"
+      "prototype-cleanup"
     ],
     "systems": [
       "melee-core",
@@ -29,162 +29,147 @@
   "key_files": [
     {
       "path": "src/melee/vi/vi0801.c",
-      "role": "Replaced `/// #fn_8031EFE4` stub with a typed C implementation and added required gm, lb, and baselib includes.",
+      "role": "Replaced placeholder comment for fn_8031EFE4 with matched C implementation and added required gm, lb, and baselib includes.",
       "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.c",
-        "changed_files:src/melee/vi/vi0801.c"
+        "raw_diff: src/melee/vi/vi0801.c hunk",
+        "human_pr_text: Summary fn_8031EFE4 (100%)",
+        "text_corpus: decomp-dev bot report 1 new match"
       ]
     },
     {
       "path": "src/melee/vi/vi0801.h",
-      "role": "Updated `fn_8031EFE4` declaration from `UNK_RET fn_8031EFE4(UNK_PARAMS)` to `void fn_8031EFE4(HSD_GObj*)` and added baselib forward declarations.",
+      "role": "Updated fn_8031EFE4 declaration from unknown placeholder signature to void fn_8031EFE4(HSD_GObj*) and included baselib forward declarations.",
       "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.h",
-        "changed_files:src/melee/vi/vi0801.h"
+        "raw_diff: src/melee/vi/vi0801.h hunk"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "`fn_8031EFE4` was implemented as `void fn_8031EFE4(HSD_GObj* gobj)`.",
+      "text": "Implemented fn_8031EFE4(HSD_GObj* gobj) in vi0801.c, replacing the placeholder /// #fn_8031EFE4.",
       "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.c"
+        "raw_diff: src/melee/vi/vi0801.c hunk"
       ]
     },
     {
-      "text": "The implementation obtains `HSD_CObj* cobj = GET_COBJ(gobj)`, calls `HSD_CObjAnim(cobj)`, and checks `cobj->aobj->curr_frame` against `1.0F`, `30.0F`, `60.0F`, and `end_frame`.",
+      "text": "The implementation uses GET_COBJ(gobj), calls HSD_CObjAnim(cobj), checks cobj->aobj->curr_frame against 1.0F, 30.0F, 60.0F, and end_frame, then calls vi_8031C9B4, lb_800145F4, and gm_801A4B60 on those frame conditions.",
       "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.c"
+        "raw_diff: fn_8031EFE4 body"
       ]
     },
     {
-      "text": "At frames `1.0F` and `30.0F`, the function calls `vi_8031C9B4(0xC, 0)`; at frame `60.0F`, it calls `vi_8031C9B4(0x10, 0)`; at end frame, it calls `lb_800145F4()` and `gm_801A4B60()`.",
+      "text": "Added includes for gm/gm_unsplit.h, lb/lb_00F9.h, baselib/aobj.h, baselib/cobj.h, and baselib/gobj.h in vi0801.c.",
       "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.c"
+        "raw_diff: src/melee/vi/vi0801.c includes"
       ]
     },
     {
-      "text": "Header prototype was made truthful enough for the recovered body by using `void` return and `HSD_GObj*` parameter.",
+      "text": "Added <baselib/forward.h> to vi0801.h and changed fn_8031EFE4 prototype from UNK_RET fn_8031EFE4(UNK_PARAMS) to void fn_8031EFE4(HSD_GObj*).",
       "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.h"
+        "raw_diff: src/melee/vi/vi0801.h hunk"
       ]
     },
     {
-      "text": "Automated report recorded `fn_8031EFE4` as a new 100% match worth +152 bytes and reported `.sdata2` progress for `main/melee/vi/vi0801` from 0.00% to 38.89%.",
+      "text": "PR body claims fn_8031EFE4 reached 100% and vi0801 .sdata2 improved from 0 to 38.89%; bot report records +152 bytes for fn_8031EFE4 from 0.00% to 100.00% and +9 bytes for .sdata2 from 0.00% to 38.89%.",
       "evidence_refs": [
-        "text_corpus:decomp-dev[bot] issue_comment 2025-12-30T17:28:55Z",
-        "human_pr_text:Summary"
+        "human_pr_text: Summary",
+        "text_corpus: decomp-dev bot report"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Used real baselib camera/object types and fields (`HSD_GObj`, `HSD_CObj`, `aobj->curr_frame`, `aobj->end_frame`) instead of leaving unknown params or raw offset access.",
+      "text": "Recovered the function signature in the owning header alongside the implementation, avoiding a stale UNK_RET/UNK_PARAMS declaration.",
       "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.c",
-        "raw_diff:src/melee/vi/vi0801.h"
+        "raw_diff: vi0801.h prototype change",
+        "decomp_standards: truthful-headers-and-includes"
       ]
     },
     {
-      "text": "Updated the public header prototype alongside the matched body, avoiding a lingering `UNK_RET`/`UNK_PARAMS` declaration.",
+      "text": "Used typed baselib CObj/AObj access through HSD_GObj, GET_COBJ, and cobj->aobj fields rather than raw pointer offsets in the submitted source.",
       "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.h"
-      ]
-    },
-    {
-      "text": "Kept the implementation compact around frame-based camera animation side effects without introducing extra globals or data anchors in the diff.",
-      "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.c"
+        "raw_diff: fn_8031EFE4 body",
+        "decomp_standards: typed-fields-over-pointer-math"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a recovered function body proves a concrete object type, update the owning header prototype in the same change so call surfaces no longer use `UNK_RET`/`UNK_PARAMS`.",
-      "standards_alignment": [
-        "truthful-headers-and-includes"
+      "lesson": "When a matched function proves its argument and return types, update the corresponding header prototype in the same PR rather than leaving placeholder UNK_RET/UNK_PARAMS.",
+      "scope": [
+        "src/melee/vi/vi0801.h",
+        "function declarations recovered by decomp matching"
       ],
       "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.c",
-        "raw_diff:src/melee/vi/vi0801.h"
-      ],
-      "confidence": 0.9
+        "raw_diff: fn_8031EFE4 prototype changed to void fn_8031EFE4(HSD_GObj*)",
+        "decomp_standards: truthful-headers-and-includes"
+      ]
     },
     {
-      "lesson": "For camera-animation callbacks, typed baselib access through `GET_COBJ(gobj)` and `cobj->aobj` fields can express frame-gated side effects cleanly and match without raw pointer math in this PR.",
-      "standards_alignment": [
-        "typed-fields-over-pointer-math",
-        "header-inlines"
+      "lesson": "For HSD camera animation callbacks, typed CObj/AObj field access can express frame-triggered behavior cleanly: get the CObj from the GObj, call HSD_CObjAnim, then branch on curr_frame/end_frame.",
+      "scope": [
+        "src/melee/vi/vi0801.c",
+        "HSD CObj animation callbacks"
       ],
       "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.c",
-        "text_corpus:decomp-dev[bot] issue_comment 2025-12-30T17:28:55Z"
-      ],
-      "confidence": 0.78
+        "raw_diff: fn_8031EFE4 body"
+      ]
     }
   ],
   "naming_conventions": [
     {
-      "text": "The function retained its address-style name `fn_8031EFE4`; the PR did not introduce a speculative semantic rename.",
-      "standards_alignment": [
-        "conservative-naming"
-      ],
+      "name": "fn_8031EFE4",
+      "kind": "address-style function name",
+      "lesson": "The PR preserved the address-style function name while recovering its body and type; no semantic rename was introduced.",
       "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.c",
-        "raw_diff:src/melee/vi/vi0801.h"
+        "raw_diff: void fn_8031EFE4(HSD_GObj* gobj)",
+        "decomp_standards: conservative-naming"
       ]
     },
     {
-      "text": "Local variables use short role names `gobj` and `cobj` for clear baselib object roles.",
-      "standards_alignment": [
-        "conservative-naming"
-      ],
+      "name": "gobj, cobj",
+      "kind": "local variable role names",
+      "lesson": "Short local role names were used for clear HSD object roles.",
       "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.c"
+        "raw_diff: fn_8031EFE4 locals",
+        "decomp_standards: conservative-naming"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "text": "Frame comparisons were written directly as float literals (`1.0F`, `30.0F`, `60.0F`) and as an `end_frame` field comparison, with no evidence of artificial data-symbol promotion.",
-      "standards_alignment": [
-        "literals-and-data-ownership",
-        "no-string-literal-symbol-regression"
-      ],
+      "tactic": "Use exact float frame literals and direct field comparisons for animation-frame dispatch.",
+      "details": "The matched function compares curr_frame to 1.0F, 30.0F, 60.0F, and end_frame to trigger cutscene side effects.",
       "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.c"
+        "raw_diff: fn_8031EFE4 if conditions"
       ]
     },
     {
-      "text": "The match used normal C control flow with separate `if` checks for frame-triggered actions; no pragmas, register steering, inline assembly, or padding tactics appear in the diff.",
-      "standards_alignment": [
-        "avoid-pragmas-register-asm",
-        "matching-tactics-need-evidence"
-      ],
+      "tactic": "Bring in minimal headers needed for recovered calls and types.",
+      "details": "The C file includes gm_unsplit, lb_00F9, and baselib aobj/cobj/gobj; the header includes baselib/forward.h for HSD_GObj.",
       "evidence_refs": [
-        "raw_diff:src/melee/vi/vi0801.c"
-      ]
-    },
-    {
-      "text": "Automated bot evidence reports the narrow new function match for `main/melee/vi/vi0801` / `fn_8031EFE4` at 100%.",
-      "standards_alignment": [
-        "verification-and-regression-ledger"
-      ],
-      "evidence_refs": [
-        "text_corpus:decomp-dev[bot] issue_comment 2025-12-30T17:28:55Z"
+        "raw_diff: include additions in vi0801.c and vi0801.h"
       ]
     }
   ],
-  "review_feedback": [],
+  "review_feedback": [
+    {
+      "kind": "bot_report",
+      "author": "decomp-dev[bot]",
+      "text": "Report for GALE01 recorded one new match: main/melee/vi/vi0801 fn_8031EFE4 +152 bytes, 0.00% to 100.00%; and one .sdata2 improvement +9 bytes, 0.00% to 38.89%.",
+      "evidence_refs": [
+        "text_corpus: issue_comment by decomp-dev[bot] at 2025-12-30T17:28:55Z"
+      ]
+    }
+  ],
   "searchable_terms": [
-    "pr-2054",
+    "PR2054",
     "vi0801",
     "fn_8031EFE4",
     "HSD_GObj",
     "HSD_CObj",
     "GET_COBJ",
     "HSD_CObjAnim",
-    "aobj",
     "curr_frame",
     "end_frame",
     "vi_8031C9B4",
@@ -194,100 +179,79 @@
     "baselib/cobj.h",
     "baselib/gobj.h",
     "baselib/forward.h",
-    "truthful header prototype",
-    "cutscene functions",
-    "sdata2"
+    "UNK_RET",
+    "UNK_PARAMS",
+    "sdata2",
+    "cutscene functions"
   ],
   "follow_up_queries": [
     "fn_8031EFE4 HSD_CObjAnim curr_frame end_frame",
-    "vi0801 GET_COBJ camera animation frame triggers",
-    "vi_8031C9B4 0xC 0x10 cutscene frame",
-    "gm_801A4B60 lb_800145F4 end_frame",
-    "UNK_RET UNK_PARAMS HSD_GObj vi0801.h"
+    "src/melee/vi/vi0801.c vi_8031C9B4 frame 60",
+    "vi0801.h HSD_GObj prototype UNK_PARAMS",
+    "main/melee/vi/vi0801 .sdata2 38.89",
+    "GET_COBJ HSD_CObj animation callback"
   ],
   "evidence_quality": {
     "status": "strong",
     "evidence_refs": [
-      "metadata_json:pr",
-      "human_pr_text:Summary",
-      "raw_diff",
-      "changed_files",
-      "text_corpus:decomp-dev[bot] issue_comment 2025-12-30T17:28:55Z"
+      "metadata_json: PR identity, merged state, changed files",
+      "human_pr_text: PR summary",
+      "raw_diff: complete diff excerpt for both changed files",
+      "changed_files: file list and line counts",
+      "text_corpus: PR body and decomp-dev bot report"
     ],
     "notes": [
-      "The diff is small and complete for the changed files, and the bot report directly supports the claimed 100% match for `fn_8031EFE4`.",
-      "No human review comments are present in the supplied slice, so `review_feedback` is empty.",
-      "The PR body claims `.sdata2` progress and the bot report repeats it, but the diff excerpt shows only source/header edits; no broader data-ownership conclusion is inferred.",
-      "No local build logs beyond the decomp-dev bot report are supplied."
+      "No human review comments are present in the loaded slice; review feedback is limited to the automated decomp-dev report.",
+      "The slice provides no build log beyond the bot match report, so validation details are recorded only as reported percentages and bytes.",
+      "No intent is inferred for the .sdata2 improvement beyond the PR body and bot report."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson_candidate",
-        "title": "Recovered body should drive header prototype cleanup",
-        "text": "PR #2054 matched `fn_8031EFE4` and replaced the header declaration `UNK_RET fn_8031EFE4(UNK_PARAMS)` with `void fn_8031EFE4(HSD_GObj*)`, aligning the header with the recovered implementation.",
+        "type": "decomp_lesson",
+        "title": "Recover headers when a matched body proves the signature",
+        "text": "PR 2054 matched fn_8031EFE4 and updated vi0801.h from UNK_RET fn_8031EFE4(UNK_PARAMS) to void fn_8031EFE4(HSD_GObj*), with <baselib/forward.h> added for the type. This is a concrete example of keeping the owning header truthful after a function body is recovered.",
         "scope": [
+          "prototype cleanup",
           "headers",
-          "decomp-matching",
-          "src/melee/vi/vi0801.h"
+          "decomp matching"
         ],
         "evidence_refs": [
-          "raw_diff:src/melee/vi/vi0801.h",
-          "raw_diff:src/melee/vi/vi0801.c"
-        ],
-        "confidence": 0.9
+          "raw_diff: src/melee/vi/vi0801.h hunk",
+          "raw_diff: src/melee/vi/vi0801.c implementation",
+          "human_pr_text: fn_8031EFE4 (100%)"
+        ]
       },
       {
-        "record_type": "decomp_lesson_candidate",
-        "title": "Use typed baselib CObj/AObj access for camera animation frame logic",
-        "text": "In PR #2054, `fn_8031EFE4` matched by obtaining an `HSD_CObj*` with `GET_COBJ(gobj)`, calling `HSD_CObjAnim(cobj)`, and using typed `cobj->aobj->curr_frame` / `end_frame` checks for frame-gated side effects.",
-        "scope": [
-          "vi",
-          "baselib",
-          "camera-animation",
-          "typed-fields"
-        ],
-        "evidence_refs": [
-          "raw_diff:src/melee/vi/vi0801.c",
-          "text_corpus:decomp-dev[bot] issue_comment 2025-12-30T17:28:55Z"
-        ],
-        "confidence": 0.78
-      }
-    ],
-    "source_update_candidates": [
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "vi0801 contains matched cutscene camera animation callback `fn_8031EFE4`",
-        "text": "`src/melee/vi/vi0801.c` gained a matched implementation of `fn_8031EFE4(HSD_GObj*)` that animates a camera object via `HSD_CObjAnim`, checks `cobj->aobj->curr_frame` against 1.0F, 30.0F, and 60.0F, and calls `lb_800145F4`/`gm_801A4B60` when `curr_frame == end_frame`.",
-        "source_path": "src/melee/vi/vi0801.c",
+        "type": "matching_example",
+        "title": "Typed CObj/AObj frame checks in vi cutscene function",
+        "text": "fn_8031EFE4 shows a matched vi cutscene callback using HSD_GObj -> HSD_CObj via GET_COBJ, HSD_CObjAnim, and typed aobj curr_frame/end_frame checks to trigger vi, lb, and gm calls.",
         "scope": [
           "src/melee/vi/vi0801.c",
-          "src/melee/vi/vi0801.h",
-          "fn_8031EFE4"
+          "HSD camera object animation",
+          "cutscene frame dispatch"
         ],
         "evidence_refs": [
-          "raw_diff:src/melee/vi/vi0801.c",
-          "raw_diff:src/melee/vi/vi0801.h",
-          "text_corpus:decomp-dev[bot] issue_comment 2025-12-30T17:28:55Z"
-        ],
-        "reason": "Useful path-level fact for future vi/cutscene/camera matching work; should be curated against current source before promotion."
+          "raw_diff: fn_8031EFE4 body",
+          "text_corpus: bot report new 100% match"
+        ]
       }
     ],
+    "source_update_candidates": [],
     "rejection_notes": [
-      "Do not infer human reviewer approval details; no review comments or review records were supplied.",
-      "Do not promote the `.sdata2` percentage as evidence of intentional data ownership changes; the loaded diff does not show explicit data edits.",
-      "Do not generalize that all `GET_COBJ` uses are preferred cleanup; the loaded standards say header inline/helper choices require local evidence."
+      "Do not promote a new global standard from this PR alone; the relevant header and typed-field practices are already covered by loaded standards.",
+      "Do not infer semantic meaning for fn_8031EFE4 beyond its observed frame-triggered cutscene behavior; the PR retained the address-style name.",
+      "Do not treat the .sdata2 percentage improvement as evidence of deliberate data-ownership work; the diff only shows code/header changes and the bot report percentage."
     ]
   },
-  "confidence": 0.86,
+  "confidence": 0.88,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

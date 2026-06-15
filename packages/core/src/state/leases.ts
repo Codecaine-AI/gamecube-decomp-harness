@@ -1,7 +1,7 @@
 import { immediateTransaction, withBusyRetry, writeSetHash, now, type StateStore } from "./db.js";
 import { randomUUID } from "node:crypto";
 
-export const DEFAULT_WORKER_TTL_SECONDS = 4 * 60 * 60;
+export const DEFAULT_WORKER_TTL_SECONDS = 90 * 60;
 
 export interface LeasedTarget {
   leaseId: string;

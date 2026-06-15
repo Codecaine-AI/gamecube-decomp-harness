@@ -1,9 +1,10 @@
 import { Ban, ChevronLeft, ChevronRight, Download, GitBranch, GitPullRequest, Pause, Play, RefreshCw, RotateCcw, ShieldCheck, Wrench } from "lucide-react";
 import type { ReactNode } from "react";
-import { asArray, asObject, clock, delta, num, numberValue, pct, text, type Dashboard, type FormState, type UiConfig } from "@decomp-orchestrator/ui-contract";
+import { asArray, asObject, clock, num, numberValue, text, type Dashboard, type FormState, type UiConfig } from "@decomp-orchestrator/ui-contract";
 import { derivePhaseModel } from "./PhaseStepper";
-import { agoText, campaignState, stateToneClass } from "./PositionPanel";
+import { agoText } from "./PositionPanel";
 import { Button, CheckboxField, Field, PanelSection, PanelTitle, SelectField } from "./primitives";
+import { processView } from "../lib/processView";
 
 type SidebarAction =
   | "refresh"
@@ -60,19 +61,6 @@ function schedulingPresetForWorkers(workers: unknown) {
   return schedulingPresets.find((preset) => preset.workers === Number(workers)) ?? schedulingPresets[2];
 }
 
-function useProcessView(dashboard: Dashboard | null, selectedName: string) {
-  const proc = asObject(dashboard?.process);
-  const saved = asArray(proc.knownProcesses).map(asObject);
-  const selected = saved.find((item) => text(item.name) === selectedName) || saved.find((item) => item.alive === true) || {};
-  const display = proc.pid ? proc : selected;
-  const detached = !proc.pid && display.alive === true;
-  const liveState = proc.state === "running" || proc.state === "stopping" || proc.state === "draining";
-  const running = Boolean(liveState || detached);
-  const savedState = text(display.state);
-  const pillState = proc.state && proc.state !== "idle" ? text(proc.state) : detached && savedState ? savedState : detached ? "detached" : savedState || "idle";
-  return { detached, display, pillState, proc, running, saved };
-}
-
 function statusClass(value: unknown): string {
   const status = text(value);
   if (status === "passed" || status === "pr_ready") return "text-up";
@@ -111,6 +99,7 @@ function ArtifactRow({ label, path, status }: { label: string; path?: unknown; s
 
 interface ActionSpec {
   action: SidebarAction;
+  className?: string;
   enabled: boolean;
   icon: ReactNode;
   label: string;
@@ -143,9 +132,10 @@ function SidebarPanel({ children, meta, title }: { children: ReactNode; meta?: R
  * The one action the current flow position recommends; it gets the primary
  * tone in the Actions panel so "what do I do next" stays a one-glance answer.
  */
-function recommendedAction(options: { activeLeases: number; behind: number; operationActive: boolean; runActive: boolean; runPaused: boolean; running: boolean; syncing: boolean }): SidebarAction | null {
-  const { activeLeases, behind, operationActive, runActive, runPaused, running, syncing } = options;
+function recommendedAction(options: { activeLeases: number; behind: number; draining: boolean; operationActive: boolean; runActive: boolean; runPaused: boolean; running: boolean; syncing: boolean }): SidebarAction | null {
+  const { activeLeases, behind, draining, operationActive, runActive, runPaused, running, syncing } = options;
   if (syncing || operationActive) return null;
+  if (draining) return null;
   if (runActive && running) return "pausePr";
   if (runActive) return "startWork";
   if (runPaused) return activeLeases > 0 || running ? null : "preparePr";
@@ -194,6 +184,7 @@ interface FlowState {
   handoffIdle: boolean;
   handoffReason: string;
   hasRun: boolean;
+  draining: boolean;
   /** A multi-step server operation (QA, Prepare, New Session, ...) is running. */
   operationActive: boolean;
   operationLabel: string;
@@ -205,7 +196,7 @@ interface FlowState {
   syncing: boolean;
 }
 
-function flowState(dashboard: Dashboard | null, running: boolean, syncLocked: boolean): FlowState {
+function flowState(dashboard: Dashboard | null, running: boolean, syncLocked: boolean, draining: boolean): FlowState {
   const status = asObject(dashboard?.status);
   const run = asObject(status.run);
   const runStatus = text(run.status);
@@ -223,6 +214,8 @@ function flowState(dashboard: Dashboard | null, running: boolean, syncLocked: bo
   const leaseReason = activeLeases > 0 ? `Waiting on ${activeLeases} draining lease(s).` : "";
   const handoffReason = !hasRun
     ? "No run yet — Start first."
+    : draining
+      ? "Workers are draining."
     : running
       ? "Pause the run first."
       : syncing
@@ -230,8 +223,8 @@ function flowState(dashboard: Dashboard | null, running: boolean, syncLocked: bo
         : operationActive
           ? `${operationLabel} is in progress.`
           : leaseReason;
-  const recommended = recommendedAction({ activeLeases, behind, operationActive, runActive, runPaused, running, syncing });
-  return { activeLeases, behind, handoffIdle, handoffReason, hasRun, operationActive, operationLabel, recommended, runActive, runPaused, running, syncLocked, syncing };
+  const recommended = recommendedAction({ activeLeases, behind, draining, operationActive, runActive, runPaused, running, syncing });
+  return { activeLeases, behind, draining, handoffIdle, handoffReason, hasRun, operationActive, operationLabel, recommended, runActive, runPaused, running, syncLocked, syncing };
 }
 
 /**
@@ -248,28 +241,6 @@ function currentStageIndex(flow: FlowState, shipStatus: string, records: JsonObj
 }
 
 type JsonObjectLike = Record<string, unknown>;
-
-/**
- * Top-of-rail summary: the campaign's one number (matched code %) with the
- * run's movement, and the operating-state pill.
- */
-function RailSummary({ dashboard }: Pick<SidebarProps, "dashboard">) {
-  const initial = asObject(asObject(dashboard?.initial).measures);
-  const current = asObject(asObject(dashboard?.current).measures);
-  const start = Number(initial.matched_code_percent);
-  const now = Number(current.matched_code_percent);
-  const diff = Number.isFinite(start) && Number.isFinite(now) ? now - start : NaN;
-  const state = campaignState(dashboard);
-  return (
-    <div className="flex min-h-9 items-center justify-between gap-2 border border-line bg-panel px-3 py-1.5">
-      <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-dim">
-        matched <strong className="text-[13px] text-fg">{pct(now)}</strong>
-        {Number.isFinite(diff) ? <span className={`ml-1.5 ${diff > 0 ? "text-up" : diff < 0 ? "text-down" : "text-dim"}`}>{delta(diff)} run</span> : null}
-      </span>
-      <span className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] ${stateToneClass[state.tone]}`}>{state.label}</span>
-    </div>
-  );
-}
 
 /** Stage 1 — pull upstream, intake merged PRs, rebuild knowledge. */
 function SyncStage({ active, busy, dashboard, flow, onAction }: { active: boolean; busy: boolean; dashboard: Dashboard | null; flow: FlowState; onAction: (action: SidebarAction) => void }) {
@@ -343,15 +314,16 @@ function RunStage({
       icon: <Play size={14} />,
       label: flow.runPaused ? "Resume" : "Start",
       title: flow.runPaused ? "Resume scheduling for this paused run and start the worker loop." : "Init a run (if needed) and start the worker loop.",
-      reason: flow.running ? "Workers are already running." : flow.syncing ? "Sync is in progress." : `${flow.operationLabel} is in progress.`,
+      reason: flow.draining ? "Workers are draining." : flow.running ? "Workers are already running." : flow.syncing ? "Sync is in progress." : `${flow.operationLabel} is in progress.`,
     },
     {
       action: "pausePr",
-      enabled: flow.running,
-      icon: <Pause size={14} />,
-      label: "Pause",
+      className: flow.draining ? "draining-action" : "",
+      enabled: flow.running && !flow.draining,
+      icon: flow.draining ? <RefreshCw size={14} /> : <Pause size={14} />,
+      label: flow.draining ? "Draining" : "Pause",
       title: "Let in-flight workers finish, stop scheduling new ones, and pause the run at a save point.",
-      reason: flow.runPaused ? "Run is already paused." : "Workers are not running.",
+      reason: flow.draining ? "Drain already requested; waiting for workers to exit." : flow.runPaused ? "Run is already paused." : "Workers are not running.",
       tone: "warning",
     },
     {
@@ -373,12 +345,13 @@ function RunStage({
       <div className="grid grid-cols-3 gap-2">
         {buttons.map((item) => (
           <Button
+            className={item.className}
             disabled={!item.enabled || busy}
             icon={item.icon}
             key={item.action}
             onClick={() => onAction(item.action)}
             title={item.enabled ? item.title : item.reason}
-            tone={!item.enabled ? undefined : item.action === "startWork" && flow.runPaused ? "primary" : item.action === "pausePr" ? "warning" : flow.recommended === item.action ? "primary" : item.tone}
+            tone={item.action === "pausePr" && flow.draining ? "warning" : !item.enabled ? undefined : item.action === "startWork" && flow.runPaused ? "primary" : item.action === "pausePr" ? "warning" : flow.recommended === item.action ? "primary" : item.tone}
             type="button"
           >
             {item.label}
@@ -398,6 +371,9 @@ function ShipStage({ active, busy, dashboard, flow, onAction }: { active: boolea
   const counts = asObject(checkpoint.counts);
   const qa = asObject(handoff.qa);
   const qaStatus = text(asObject(qa.prPromotion).status, text(qa.status));
+  const qaRepair = asObject(handoff.qaRepair);
+  const qaRepairCounts = asObject(qaRepair.counts);
+  const qaRepairStatus = text(qaRepair.recommendation, text(qaRepair.status));
   const regressionCounts = asObject(qa.regressionCounts);
   const fuzzy = numberValue(regressionCounts.fuzzyRegressions, 0);
   const metric = numberValue(regressionCounts.metricRegressions, 0);
@@ -489,6 +465,15 @@ function ShipStage({ active, busy, dashboard, flow, onAction }: { active: boolea
             value={qaStatus ? (qaStatus === "blocked" ? `blocked — ${num(fuzzy)} fuzzy · ${num(metric)} metric regression(s) (rework; does not gate PRs)` : qaStatus) : "not run"}
           />
           <StatusRow
+            label="QA repair"
+            tone={statusClass(qaRepairStatus)}
+            value={
+              qaRepairStatus
+                ? `${qaRepairStatus} — ${num(qaRepairCounts.files_with_errors)} file(s) · ${num(qaRepairCounts.queued_items)} item(s)`
+                : "not run"
+            }
+          />
+          <StatusRow
             label="Ship set"
             tone={statusClass(shipStatus === "pr_ready" ? "pr_ready" : shipStatus)}
             value={
@@ -528,6 +513,7 @@ function ShipStage({ active, busy, dashboard, flow, onAction }: { active: boolea
         <div className="mt-2 overflow-hidden border border-line">
           <ArtifactRow label="Candidates" path={checkpoint.prCandidatesPath} status={checkpoint.id ? "written" : "-"} />
           <ArtifactRow label="QA report" path={qa.prReportPath || qa.summaryPath} status={text(qa.status, "-")} />
+          <ArtifactRow label="QA repair" path={qaRepair.reportPath || qaRepair.summaryPath} status={qaRepairStatus || "-"} />
           <ArtifactRow label="Plan" path={splitPlan.outputPath} status={text(splitPlan.status, "-")} />
         </div>
       </details>
@@ -747,7 +733,7 @@ function nextCheckpointText(dashboard: Dashboard | null): string {
 
 function ProcessDisclosure({ dashboard, form }: Pick<SidebarProps, "dashboard" | "form">) {
   const selectedName = processName(form.processName);
-  const { display, pillState, saved } = useProcessView(dashboard, selectedName);
+  const { display, pillState, saved } = processView(dashboard, selectedName);
   const run = asObject(asObject(dashboard?.status).run);
   const facts: Array<[string, unknown]> = [
     ["PID", display.pid || "-"],
@@ -797,7 +783,7 @@ function ProcessDisclosure({ dashboard, form }: Pick<SidebarProps, "dashboard" |
               key={text(item.name)}
             >
               <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-fg">{text(item.name, "-")}</span>
-              <span className={`text-right ${item.alive ? "text-up" : "text-dim"}`}>{item.alive ? "alive" : text(item.state, "saved")}</span>
+              <span className={`text-right ${item.alive ? "text-up" : "text-dim"}`}>{item.alive ? "alive" : text(item.viewState, "saved")}</span>
               <span className="text-right">{String(item.pid || "-")}</span>
             </div>
           ))}
@@ -810,12 +796,12 @@ function ProcessDisclosure({ dashboard, form }: Pick<SidebarProps, "dashboard" |
 
 export function Sidebar({ busy, collapsed, config, dashboard, form, onAction, onCollapsedChange, onOpenPr, setForm }: SidebarProps) {
   const selectedName = processName(form.processName);
-  const { running } = useProcessView(dashboard, selectedName);
+  const { draining, running } = processView(dashboard, selectedName);
   const projects = config?.availableProjects ?? [];
   const selectedProject = projects.find((project) => project.id === form.projectId) ?? dashboard?.project ?? config?.selectedProject ?? null;
   const phaseModel = derivePhaseModel(dashboard, running);
   const syncLocked = Boolean(phaseModel.syncLockReason);
-  const flow = flowState(dashboard, running, syncLocked);
+  const flow = flowState(dashboard, running, syncLocked, draining);
   const shipStatus = text(asObject(asObject(dashboard?.handoff).ship).status);
   const prRecords = asArray(asObject(dashboard?.prs).records).map(asObject);
   const stage = currentStageIndex(flow, shipStatus, prRecords);
@@ -862,7 +848,6 @@ export function Sidebar({ busy, collapsed, config, dashboard, form, onAction, on
         </div>
 
         <div className="grid gap-2.5 p-2.5">
-          <RailSummary dashboard={dashboard} />
           <SyncStage active={stage === 1} busy={busy} dashboard={dashboard} flow={flow} onAction={onAction} />
           <RunStage active={stage === 2} busy={busy} dashboard={dashboard} flow={flow} form={form} onAction={onAction} setForm={setForm} />
           <ShipStage active={stage === 3} busy={busy} dashboard={dashboard} flow={flow} onAction={onAction} />

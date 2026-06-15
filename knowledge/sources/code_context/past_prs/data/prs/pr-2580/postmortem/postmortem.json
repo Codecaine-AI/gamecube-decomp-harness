@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "PR #2580 matched seven functions and improved several more across ftCo_Shouldered, hsd_3AA7, and quatlib. The strongest evidence is the PR body, changed-file metadata, diff excerpt, and GALE01 bot report showing seven new 100% matches and thirteen unmatched-item improvements.",
+  "summary": "PR #2580 matched or improved functions across sysdolphin baselib hsd_3AA7, baselib quatlib, and ftCommon ftCo_Shouldered. The PR body claims seven new 100% matches and improvements to MatToQuat plus several hsd_3AA7 functions; the GALE01 bot report confirms seven new matches, thirteen unmatched-item improvements, and +2332 matched-code bytes.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -24,149 +24,227 @@
     "systems": [
       "fighter",
       "sysdolphin",
-      "baselib"
+      "baselib",
+      "CARD",
+      "quatlib"
     ]
   },
   "key_files": [
     {
-      "path": "src/melee/ft/chara/ftCommon/ftCo_Shouldered.c",
-      "role": "Small ftCommon matching edit for ftCo_8009C744, including stack padding and restoring a ftColl_80078710 call.",
-      "evidence_refs": [
-        "changed_files: added 3 deleted 3 hunks 2",
-        "diff: ftCo_8009C744 hunk",
-        "bot_report: ftCo_8009C744 75.36% to 100.00%"
-      ]
-    },
-    {
       "path": "src/sysdolphin/baselib/hsd_3AA7.c",
-      "role": "Main decomp/matching target with large dispatcher/control-flow, local lifetime, volatile, and CARD operation reshaping.",
+      "role": "Primary large decomp-matching target; changed CARD-related dispatcher/control-flow, retry loops, builder/write paths, local value lifetimes, volatile declaration, and multiple functions reported as new matches or improved.",
       "evidence_refs": [
-        "changed_files: added 1653 deleted 865 hunks 94",
-        "diff: hsd_803AAA48 hunk",
-        "pr_body: new hsd_3AA7 100% matches and remaining function improvements",
-        "bot_report: hsd_3AA7 new matches and 12 hsd_3AA7 improvements"
+        "changed_files.jsonl: hsd_3AA7.c +1653/-865, 94 hunks",
+        "human_pr_text: lists hsd_3AA7 matches and improvement areas",
+        "text_corpus: GALE01 report lists six new hsd_3AA7 100% matches and twelve hsd_3AA7 improvements",
+        "raw_diff: hsd_803AAA48 switch/control-flow and CARD async changes"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/quatlib.c",
-      "role": "quatlib MatToQuat improvement target.",
+      "role": "MatToQuat cleanup and near-match improvement by changing local declaration order/lifetimes, expression structure, and temporary naming.",
       "evidence_refs": [
-        "changed_files: added 17 deleted 23 hunks 2",
-        "pr_body: improves MatToQuat",
-        "bot_report: MatToQuat 95.55% to 99.92%"
+        "changed_files.jsonl: quatlib.c +17/-23, 2 hunks",
+        "human_pr_text: MatToQuat improved",
+        "text_corpus: GALE01 report MatToQuat 95.55% -> 99.92%",
+        "raw_diff: MatToQuat sc0/sc1/sc2 removed, scale introduced, q3 declaration moved"
+      ]
+    },
+    {
+      "path": "src/melee/ft/chara/ftCommon/ftCo_Shouldered.c",
+      "role": "Small ftCo_8009C744 match fix involving stack padding, victim/fighter object use, and re-enabling ftColl_80078710 call.",
+      "evidence_refs": [
+        "changed_files.jsonl: ftCo_Shouldered.c +3/-3, 2 hunks",
+        "human_pr_text: ftCo_8009C744 listed as new 100% match",
+        "text_corpus: GALE01 report ftCo_8009C744 75.36% -> 100.00%",
+        "raw_diff: PAD_STACK(8), ftCo_800DC920(fp->victim_gobj, gobj), ftColl_80078710(vic_gobj, gobj, &fp->dmg.facing_dir_1)"
       ]
     }
   ],
   "what_changed": [
-    "Added new 100% matches for ftCo_8009C744, fn_803ACF30, fn_803ADE4C, fn_803B21E8, fn_803B1F78, hsd_803B2374, and fn_803AC168.",
-    "Improved MatToQuat and multiple hsd_3AA7 functions, with the PR body specifically naming loop bounds, dispatcher/control-flow structure, builder write paths, and local value lifetimes.",
-    "In ftCo_8009C744, replaced a zeroed dummy stack array with PAD_STACK(8), called ftCo_800DC920 through fp->victim_gobj, and restored ftColl_80078710(vic_gobj, gobj, &fp->dmg.facing_dir_1).",
-    "In hsd_803AAA48, reshaped command dispatch around cmd->type, explicit switch cases, direct cmd->state access, repeated retry loops for CARD APIs, and explicit command completion by setting cmd->type = 0.",
-    "Marked hsd_804D7980 as volatile in hsd_3AA7.c.",
-    "Bot report recorded total matched code movement of +0.06% and +2332 bytes for GALE01."
+    {
+      "text": "Seven functions became 100% matches: ftCo_8009C744, fn_803ACF30, fn_803ADE4C, fn_803B21E8, fn_803B1F78, hsd_803B2374, and fn_803AC168.",
+      "evidence_refs": [
+        "human_pr_text",
+        "text_corpus: GALE01 7 new matches table"
+      ]
+    },
+    {
+      "text": "Thirteen unmatched items improved, led by hsd_803AAA48 from 28.60% to 77.68%, fn_803B1338 from 37.08% to 84.80%, fn_803AF3F0 from 48.20% to 83.22%, and MatToQuat from 95.55% to 99.92%.",
+      "evidence_refs": [
+        "text_corpus: GALE01 improvements table"
+      ]
+    },
+    {
+      "text": "hsd_3AA7.c was substantially rewritten around CARD command dispatch: type access moved through cmd->type, switch cases were reshaped/reordered, retry loops around CARDFastOpen/CARDReadAsync/CARDWriteAsync/CARDClose were expanded, and several accesses use cmd->state directly instead of a separate state local.",
+      "evidence_refs": [
+        "raw_diff: hsd_803AAA48 excerpt",
+        "changed_files.jsonl: hsd_3AA7.c 94 hunks"
+      ]
+    },
+    {
+      "text": "MatToQuat removed sc0/sc1/sc2 temporaries, introduced a clearer scale temporary, moved q3 declaration before nxt/lenCol, and recomputed normalized diagonal terms inline in trace and branch comparisons.",
+      "evidence_refs": [
+        "raw_diff: quatlib.c MatToQuat hunk"
+      ]
+    },
+    {
+      "text": "ftCo_8009C744 replaced a dummy u8 stack array with PAD_STACK(8), used fp->victim_gobj in one call, and replaced a commented ftColl_80078710 placeholder with an actual ftColl_80078710(vic_gobj, gobj, &fp->dmg.facing_dir_1) call.",
+      "evidence_refs": [
+        "raw_diff: ftCo_Shouldered.c hunk",
+        "text_corpus: GALE01 ftCo_8009C744 new match"
+      ]
+    }
   ],
   "smart_moves": [
-    "Used narrow verification reported in the PR body: python configure.py --require-protos, ninja, and GALE01 report evidence for claimed 100% functions.",
-    "Kept the ftCo_Shouldered edit minimal while converting the function to 100%, limiting the changed hunk to stack shape and call restoration.",
-    "For hsd_3AA7, concentrated most churn in one file and one subsystem rather than mixing unrelated source areas.",
-    "Made dispatcher structure more explicit by reading cmd->type and switching on it, which correlates with a large hsd_803AAA48 score improvement in the bot report."
+    {
+      "text": "The PR kept verification evidence close to the claimed matches: PR body names configure --require-protos, ninja, and GALE01 100% results; the bot report gives per-symbol before/after percentages.",
+      "evidence_refs": [
+        "human_pr_text: Verification section",
+        "text_corpus: GALE01 report"
+      ]
+    },
+    {
+      "text": "For MatToQuat, replacing anonymous scale temporaries sc0/sc1/sc2 with a single role-based scale temporary improved readability while also improving the match score.",
+      "evidence_refs": [
+        "raw_diff: quatlib.c MatToQuat hunk",
+        "text_corpus: MatToQuat 95.55% -> 99.92%"
+      ]
+    },
+    {
+      "text": "The hsd_3AA7 dispatcher changes made command type access explicit through the CardCmd view, e.g. cmd->type rather than entry->x10, which better communicates the structure being manipulated.",
+      "evidence_refs": [
+        "raw_diff: hsd_803AAA48 excerpt"
+      ]
+    }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When matching large async dispatchers, case ordering, the exact discriminant expression, and whether state is cached in a local versus reloaded through cmd->state can materially affect MWCC output.",
-      "evidence_refs": [
-        "diff: hsd_803AAA48 changes type = entry->x10/state local to type = cmd->type and repeated cmd->state",
-        "bot_report: hsd_803AAA48 28.60% to 77.68%"
+      "lesson": "In dispatcher-heavy functions, switching through the typed command view and reshaping switch cases can yield large matching gains without necessarily changing file scope.",
+      "scope": [
+        "src/sysdolphin/baselib/hsd_3AA7.c",
+        "CARD command dispatcher-style functions"
       ],
-      "confidence": 0.78
+      "evidence_refs": [
+        "human_pr_text: dispatcher/control-flow structure",
+        "raw_diff: hsd_803AAA48 switch ((u32) type), cmd->type changes",
+        "text_corpus: hsd_803AAA48 28.60% -> 77.68%"
+      ]
     },
     {
-      "lesson": "Small fighter-function matches may require restoring real helper calls before damage/knockback updates rather than leaving commented-out calls or placeholder stack arrays.",
-      "evidence_refs": [
-        "diff: ftCo_8009C744 replaces commented ftColl_80078710 with call using vic_gobj, gobj, and facing_dir_1",
-        "bot_report: ftCo_8009C744 75.36% to 100.00%"
+      "lesson": "Expression association and loop-bound operand order can affect MWCC matching; the hsd_3AA7 diff includes a loop bound changed from state->x24 + state->x8 + 0x2F to 0x2F + state->x24 + state->x8.",
+      "scope": [
+        "src/sysdolphin/baselib/hsd_3AA7.c"
       ],
-      "confidence": 0.82
+      "evidence_refs": [
+        "raw_diff: for-loop bound changed near fn around diff line 3651",
+        "human_pr_text: reshaping loop bounds"
+      ]
     },
     {
-      "lesson": "Volatile qualification on globals involved in dispatcher or interrupt-adjacent state can be part of matching source shape.",
-      "evidence_refs": [
-        "diff: hsd_804D7980 changed from extern s32 to extern volatile s32",
-        "diff: hsd_803AAA48 uses OSDisableInterrupts/OSRestoreInterrupts around busy state"
+      "lesson": "Local declaration order and temporary lifetime can materially affect stack frame shape and match percentage; MatToQuat improved after q3 declaration ordering and scale/sc temporary lifetime changes.",
+      "scope": [
+        "src/sysdolphin/baselib/quatlib.c",
+        "MatToQuat"
       ],
-      "confidence": 0.64
+      "evidence_refs": [
+        "raw_diff: MatToQuat declaration and temporary changes",
+        "text_corpus: MatToQuat 95.55% -> 99.92%"
+      ]
+    },
+    {
+      "lesson": "PAD_STACK can replace an artificial dummy byte array when narrow verification shows a match, but this remains a tactic that should stay explicitly justified by report evidence.",
+      "scope": [
+        "src/melee/ft/chara/ftCommon/ftCo_Shouldered.c",
+        "ftCo_8009C744"
+      ],
+      "evidence_refs": [
+        "raw_diff: u8 _[12] removed, PAD_STACK(8) added",
+        "text_corpus: ftCo_8009C744 75.36% -> 100.00%",
+        "decomp_standards: matching-tactics-need-evidence"
+      ]
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Unproven hsd_3AA7 functions kept address-style names such as fn_803ACF30 and hsd_803B2374; the PR did not introduce speculative semantic names for these symbols.",
+      "text": "Use role-based short locals when the role is clear: MatToQuat replaced sc0/sc1/sc2 with scale for the reusable scalar factor.",
       "evidence_refs": [
-        "pr_body: listed address-style function names",
-        "bot_report: address-style hsd_3AA7 item names"
-      ],
-      "confidence": 0.86
+        "raw_diff: quatlib.c MatToQuat hunk",
+        "decomp_standards: conservative-naming"
+      ]
     },
     {
-      "convention": "Local fighter variables use established short role names such as fp, vic_gobj, vic_fp, pos, and hit where roles are clear.",
+      "text": "For fighter common code, fp, vic_gobj, and vic_fp are supported local names in this PR slice for fighter, victim GObj, and victim fighter locals.",
       "evidence_refs": [
-        "diff: ftCo_8009C744 hunk"
-      ],
-      "confidence": 0.75
+        "raw_diff: ftCo_Shouldered.c hunk"
+      ]
+    },
+    {
+      "text": "For hsd_3AA7 CARD code, PR evidence supports cmd and state field access names where structure roles are already expressed, while many unresolved functions remain address-style names such as fn_803ACF30.",
+      "evidence_refs": [
+        "raw_diff: hsd_803AAA48 excerpt",
+        "human_pr_text: address-style matched function list",
+        "decomp_standards: conservative-naming"
+      ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "PAD_STACK(8) replaced a dummy u8 stack array in ftCo_8009C744.",
+      "tactic": "Use explicit if/else assignment instead of boolean expression when it matches generated code shape.",
+      "example": "s32 busy = hsd_804D799C == 1 became an explicit if assigning busy = 1 or 0.",
       "evidence_refs": [
-        "diff: ftCo_8009C744 removes u8 _[12] = { 0 } and adds PAD_STACK(8)",
-        "bot_report: ftCo_8009C744 reaches 100.00%"
-      ],
-      "notes": "This is a narrow tactic with GALE01 match evidence for the function, but no inline rationale explains why PAD_STACK(8) was the only viable source shape."
+        "raw_diff: hsd_803AAA48 busy assignment"
+      ]
     },
     {
-      "tactic": "Expanded boolean assignment for busy state instead of relying on a comparison expression.",
+      "tactic": "Reorder switch cases and use continue/return placement to match dispatcher control-flow layout.",
+      "example": "hsd_803AAA48 changed case ordering and command completion paths such as cmd->type = 0; hsd_804D7980 = (hsd_804D7980 + 1) % 128; continue.",
       "evidence_refs": [
-        "diff: hsd_803AAA48 changes s32 busy = hsd_804D799C == 1 to explicit if/else assigning 1 or 0"
-      ],
-      "notes": "Supported as a local matching tactic only; do not generalize without more examples."
+        "raw_diff: hsd_803AAA48 switch excerpt",
+        "human_pr_text: dispatcher/control-flow structure"
+      ]
     },
     {
-      "tactic": "Reordered and expanded switch cases in hsd_803AAA48 around CARD read/write/open/close retry loops.",
+      "tactic": "Inline or extend local value lifetimes selectively to match stack/register allocation.",
+      "example": "MatToQuat removed sc0/sc1/sc2 locals and uses inline normalized matrix diagonal terms plus a single scale temporary.",
       "evidence_refs": [
-        "diff: hsd_803AAA48 switch ((u32) type) and cases 5, 11, 10, 6, 2, 15, 4, 1, 16 excerpt",
-        "bot_report: hsd_803AAA48 28.60% to 77.68%"
-      ],
-      "notes": "The diff excerpt is truncated, so the full dispatcher transformation is only partially visible in loaded evidence."
+        "raw_diff: quatlib.c MatToQuat hunk",
+        "human_pr_text: local value lifetimes"
+      ]
     },
     {
-      "tactic": "Changed local value lifetimes by removing a cached CardState* local in visible hsd_803AAA48 code and repeatedly accessing or casting through cmd->state/op->x4.",
+      "tactic": "Use PAD_STACK only as a narrow, verified stack-shape tactic.",
+      "example": "ftCo_8009C744 uses PAD_STACK(8) after removing a dummy u8 array and is reported at 100%.",
       "evidence_refs": [
-        "diff: hsd_803AAA48 removes CardState* state and CardState* st locals in visible hunk",
-        "pr_body: mentions local value lifetimes"
-      ],
-      "notes": "Useful as a search clue for similar hsd_3AA7 matches, not a general style recommendation."
+        "raw_diff: ftCo_Shouldered.c hunk",
+        "text_corpus: GALE01 ftCo_8009C744 100.00%",
+        "decomp_standards: matching-tactics-need-evidence"
+      ]
     }
   ],
   "review_feedback": [
     {
-      "type": "approval",
-      "author": "jurrejelle",
-      "text": "Approved with no loaded review comment body.",
+      "text": "No inline review comments were present in the loaded PR slice.",
       "evidence_refs": [
-        "text_corpus: review by jurrejelle state APPROVED at 2026-06-05T17:20:56Z"
+        "metadata_json: review_comments 0",
+        "text_corpus: only PR body, bot issue comment, and approval review loaded"
       ]
     },
     {
-      "type": "bot_report",
-      "author": "decomp-dev[bot]",
-      "text": "GALE01 report showed seven new matches and thirteen improvements in unmatched items.",
+      "text": "jurrejelle approved the PR; the loaded review body is empty, so no reviewer rationale or requested changes should be inferred.",
       "evidence_refs": [
-        "text_corpus: issue_comment decomp-dev[bot] report for GALE01"
+        "text_corpus: review by jurrejelle state APPROVED"
+      ]
+    },
+    {
+      "text": "decomp-dev[bot] reported +0.06% matched code, +2332 bytes, seven new matches, and thirteen improvements.",
+      "evidence_refs": [
+        "text_corpus: GALE01 report"
       ]
     }
   ],
   "searchable_terms": [
-    "PR2580",
+    "pr-2580",
     "itsgrimetime",
     "hsd_3AA7",
     "quatlib",
@@ -180,123 +258,127 @@
     "hsd_803B2374",
     "fn_803AC168",
     "hsd_803AAA48",
-    "PAD_STACK",
+    "CARD command dispatcher",
+    "CARDFastOpen",
     "CARDReadAsync",
     "CARDWriteAsync",
-    "CARDFastOpen",
     "CARDClose",
     "CARDGetXferredBytes",
-    "OSDisableInterrupts",
-    "OSRestoreInterrupts",
-    "cmd->type",
-    "cmd->state",
-    "hsd_804D7980",
-    "volatile",
-    "ftColl_80078710",
-    "ftCo_800DC920"
+    "PAD_STACK",
+    "local value lifetimes",
+    "loop bounds",
+    "dispatcher control-flow",
+    "builder write paths",
+    "scale temporary",
+    "cmd->type"
   ],
   "follow_up_queries": [
-    "hsd_803AAA48 cmd->type switch CARDReadAsync CARDWriteAsync retry loops",
-    "PAD_STACK ftCo_8009C744 ftColl_80078710 facing_dir_1",
-    "MatToQuat quatlib loop bounds 99.92",
-    "hsd_804D7980 volatile OSDisableInterrupts hsd_3AA7",
-    "fn_803ACF30 fn_803ADE4C fn_803B21E8 fn_803B1F78 hsd_803B2374 fn_803AC168"
+    "PR 2580 hsd_803AAA48 switch cmd->type dispatcher matching",
+    "PR 2580 MatToQuat q3 scale local lifetime stack frame 99.92",
+    "PR 2580 ftCo_8009C744 PAD_STACK 8 ftColl_80078710",
+    "hsd_3AA7 CARDReadAsync CARDFastOpen retry loop decomp matching",
+    "hsd_3AA7 loop bound operand order 0x2F state x24 x8",
+    "fn_803ACF30 fn_803ADE4C hsd_803B2374 new 100 match"
   ],
   "evidence_quality": {
-    "status": "strong",
+    "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR identity, state, author, timestamps, changed files",
-      "human_pr_text: claimed matches, improvement themes, verification",
-      "text_corpus: bot report and approval review",
-      "raw_diff excerpt: visible ftCo_Shouldered and hsd_3AA7 hunks",
-      "changed_files: three changed file records"
+      "metadata_json",
+      "human_pr_text",
+      "changed_files.jsonl",
+      "text_corpus.jsonl",
+      "raw_diff excerpt",
+      "targeted local read of quatlib diff hunk"
     ],
     "notes": [
-      "The raw diff is truncated, so not all 94 hsd_3AA7 hunks or the quatlib hunks are visible in loaded evidence.",
-      "No inline review comments were loaded; review feedback is limited to an approval record and bot report.",
-      "The PR body claims configure.py --require-protos and ninja were run; the loaded evidence does not include full command logs beyond the author's statement and bot report.",
-      "Some lessons are local matching observations rather than accepted global standards."
+      "Strong evidence exists for PR identity, changed files, claimed verification, bot-reported before/after percentages, and approval.",
+      "The raw diff in the loaded context is truncated, and hsd_3AA7.c has 94 hunks; only representative diff excerpts were inspected here, so file-wide lessons are limited to claims supported by PR body, bot report, and visible hunks.",
+      "There were no loaded inline review comments; approval carries no explanatory body, so reviewer intent is not inferred.",
+      "The PR body claims configure --require-protos and ninja verification; no independent build logs beyond the GALE01 bot report are loaded."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "title": "PR2580 hsd_3AA7 dispatcher matching tactics",
-        "text": "In PR #2580, hsd_803AAA48 improved from 28.60% to 77.68% after reshaping command dispatch around cmd->type, explicit switch cases, direct cmd->state access, CARD retry loops, and local lifetime changes.",
+        "title": "MatToQuat near-match improved by local lifetime and temporary cleanup",
+        "text": "PR #2580 improved MatToQuat from 95.55% to 99.92% by changing q3 declaration order, removing sc0/sc1/sc2 temporaries, introducing a role-based scale temporary, and adjusting expression grouping. Use as a searchable historical example of local declaration/lifetime changes affecting stack frame and match quality.",
         "scope": [
-          "src/sysdolphin/baselib/hsd_3AA7.c",
-          "hsd_803AAA48"
+          "src/sysdolphin/baselib/quatlib.c",
+          "MatToQuat"
         ],
         "evidence_refs": [
-          "diff: hsd_803AAA48 visible dispatcher rewrite",
-          "bot_report: hsd_803AAA48 28.60% to 77.68%",
-          "pr_body: dispatcher/control-flow structure and local value lifetimes"
-        ],
-        "confidence": 0.78
+          "raw_diff: quatlib.c MatToQuat hunk",
+          "text_corpus: GALE01 MatToQuat 95.55% -> 99.92%"
+        ]
       },
       {
-        "title": "PR2580 ftCo_8009C744 PAD_STACK and helper-call restoration",
-        "text": "In PR #2580, ftCo_8009C744 reached 100% after replacing a dummy stack array with PAD_STACK(8), calling ftCo_800DC920 via fp->victim_gobj, and restoring ftColl_80078710(vic_gobj, gobj, &fp->dmg.facing_dir_1).",
+        "title": "PAD_STACK replacement for dummy array in ftCo_8009C744",
+        "text": "PR #2580 changed ftCo_8009C744 from a dummy u8 stack array to PAD_STACK(8), restored ftColl_80078710 call shape, and the bot report shows ftCo_8009C744 reached 100%. Treat as a narrow historical matching tactic, not a general style rule.",
         "scope": [
           "src/melee/ft/chara/ftCommon/ftCo_Shouldered.c",
           "ftCo_8009C744"
         ],
         "evidence_refs": [
-          "diff: ftCo_8009C744 hunk",
-          "bot_report: ftCo_8009C744 75.36% to 100.00%"
-        ],
-        "confidence": 0.82
+          "raw_diff: ftCo_Shouldered.c hunk",
+          "text_corpus: GALE01 ftCo_8009C744 75.36% -> 100.00%",
+          "decomp_standards: matching-tactics-need-evidence"
+        ]
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "hsd_3AA7.c contains CARD async dispatcher matching work",
-        "text": "PR #2580 provides evidence that src/sysdolphin/baselib/hsd_3AA7.c includes CARD operation dispatcher code involving cmd->type, cmd->state, CARDFastOpen, CARDReadAsync, CARDWriteAsync, CARDClose, CARDGetXferredBytes, and interrupt state globals.",
+        "title": "hsd_3AA7.c contains CARD command dispatcher matching work",
+        "text": "PR #2580 evidence shows src/sysdolphin/baselib/hsd_3AA7.c includes CARD command/state handling with CARDFastOpen, CARDReadAsync, CARDWriteAsync, CARDClose, CARDGetXferredBytes, hsd_803AAA48 dispatcher control-flow, and multiple fn_803A/803B address-style functions.",
         "source_path": "src/sysdolphin/baselib/hsd_3AA7.c",
         "scope": [
-          "hsd_803AAA48",
-          "sysdolphin baselib CARD operations"
+          "sysdolphin",
+          "baselib",
+          "CARD",
+          "hsd_3AA7"
         ],
         "evidence_refs": [
-          "diff: hsd_803AAA48 visible CARD operation cases",
-          "bot_report: hsd_3AA7 improvements"
+          "raw_diff: hsd_803AAA48 excerpt",
+          "text_corpus: GALE01 hsd_3AA7 new matches and improvements"
         ],
-        "reason": "Useful path fact for future hsd_3AA7 matching searches; should be curated as source-owned path metadata, not inferred as a global standard."
+        "reason": "Potentially useful path-scope metadata for future hsd_3AA7/CARD decomp searches; should be curated against current source before promotion."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "PAD_STACK use should retain narrow verifier evidence",
-        "text": "PR #2580 contains a narrow PAD_STACK(8) use in ftCo_8009C744 with GALE01 100% evidence. This supports the existing standard that stack padding tactics need explicit match evidence, but does not by itself justify a new broad PAD_STACK rule.",
-        "source_path": "src/melee/ft/chara/ftCommon/ftCo_Shouldered.c",
+        "title": "Expression association and declaration lifetime examples from PR #2580",
+        "text": "Consider adding PR #2580 as an example under existing standards for natural loops/canonical control flow/matching tactics: small changes to loop-bound operand order, switch dispatch shape, and local temporary lifetimes produced reported match improvements.",
+        "source_path": null,
         "scope": [
-          "ftCo_8009C744",
-          "PAD_STACK"
+          "matching tactics",
+          "MWCC expression order",
+          "local lifetime",
+          "dispatcher control-flow"
         ],
         "evidence_refs": [
-          "diff: ftCo_8009C744 PAD_STACK(8)",
-          "bot_report: ftCo_8009C744 100.00%",
-          "decomp_standards: matching-tactics-need-evidence"
+          "human_pr_text: loop bounds, dispatcher/control-flow, local value lifetimes",
+          "raw_diff: hsd_3AA7 loop-bound and switch excerpts",
+          "raw_diff: quatlib MatToQuat hunk",
+          "text_corpus: GALE01 improvements table"
         ],
-        "reason": "Possible example for an existing standards note; curator should decide whether to add as an example rather than a new rule."
+        "reason": "This should be an example attached to existing standards rather than a new rule; evidence is PR-specific."
       }
     ],
     "rejection_notes": [
-      "Do not infer reviewer intent beyond the recorded approval; no inline review feedback was loaded.",
-      "Do not generalize hsd_803AAA48's repeated cmd->state access or explicit busy if/else into project-wide style; evidence only supports local matching usefulness.",
-      "Do not claim MatToQuat reached 100%; bot report shows 99.92%.",
-      "Do not claim full hsd_3AA7 dispatcher reconstruction details from the truncated diff excerpt."
+      "Do not infer semantic names for address-style hsd_3AA7 functions; the PR keeps names such as fn_803ACF30 and does not prove meanings.",
+      "Do not promote PAD_STACK as normal style; this PR only supports it as a narrow, verified tactic for ftCo_8009C744.",
+      "Do not infer reviewer rationale from the empty approval review.",
+      "Do not claim all hsd_3AA7 functions matched; bot evidence shows seven new matches and thirteen improvements, with many listed items still below 100%."
     ]
   },
-  "confidence": 0.86,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

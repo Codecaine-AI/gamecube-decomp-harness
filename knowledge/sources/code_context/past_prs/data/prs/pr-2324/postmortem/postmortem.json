@@ -12,7 +12,7 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Decompiled three game-mode functions in gm_16F1, gm_1BA8, and gmregclear, with companion header signature updates. The PR body describes unlock-table lookup, CSS match-type cycling, and clear bonus calculation. An automated GALE01 report recorded the three targeted gm functions as 100% new matches, while also reporting unrelated-looking new matches/improvements and two .sdata2 regressions.",
+  "summary": "Decompiled three game-mode functions in gm_16F1, gm_1BA8, and gmregclear, replacing placeholder comments with C implementations and updating related header prototypes. The PR body claims fuzzy_match_percent 100.0 for all three target functions, and an automated GALE01 report records the three target functions as new 100% matches while also showing unrelated match-score movement and two .sdata2 regressions.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
@@ -27,259 +27,265 @@
   "key_files": [
     {
       "path": "src/melee/gm/gm_16F1.c",
-      "role": "Replaced placeholder for fn_80170110 with C implementation for unlock-table lookup and dispatch.",
+      "role": "Implemented fn_80170110 as an unlock-table lookup/check using lbl_803D5A4C entries, mask/flag testing, pl_80039418 for standard kinds, and fn_801701C0 for higher kinds.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/gm/gm_16F1.c added 24 deleted 1",
-        "raw_diff: fn_80170110 implementation",
-        "human_pr_text: Summary and Unlock check"
+        "raw_diff: gm_16F1.c hunk replacing /// #fn_80170110",
+        "human_pr_text: Summary and Unlock check description"
       ]
     },
     {
       "path": "src/melee/gm/gm_16F1.h",
-      "role": "Updated prototypes for fn_80170110 and fn_801701C0 from unknown-style declarations to concrete return/parameter types used by the decompiled body.",
+      "role": "Updated function prototypes for fn_80170110 and fn_801701C0 from unknown placeholders toward concrete return and parameter types.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/gm/gm_16F1.h added 2 deleted 2",
         "raw_diff: gm_16F1.h prototype changes"
       ]
     },
     {
       "path": "src/melee/gm/gm_1BA8.c",
-      "role": "Replaced placeholder for gm_801BEDA8 with CSS match-type cycling implementation and VS mode data sync.",
+      "role": "Implemented gm_801BEDA8 as CSS match-type cycling with wraparound and synchronization of CSS data into VsModeData.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/gm/gm_1BA8.c added 17 deleted 1",
-        "raw_diff: gm_801BEDA8 implementation",
-        "human_pr_text: Match type cycling on CSS"
+        "raw_diff: gm_1BA8.c hunk replacing /// #gm_801BEDA8",
+        "human_pr_text: Match type cycling on CSS description"
       ]
     },
     {
       "path": "src/melee/gm/gmregclear.c",
-      "role": "Replaced placeholder for fn_8017F09C with clear bonus calculation logic using timer and eligibility checks.",
+      "role": "Implemented fn_8017F09C as clear bonus calculation gated by clear/eligibility state, multiplying timer_seconds by data->x108 and clamping negative product to 0.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/gm/gmregclear.c added 26 deleted 1",
-        "raw_diff: fn_8017F09C implementation",
-        "human_pr_text: Clear bonus calculation"
+        "raw_diff: gmregclear.c hunk replacing /// #fn_8017F09C",
+        "human_pr_text: Clear bonus calculation description"
       ]
     },
     {
       "path": "src/melee/gm/gmregclear.h",
-      "role": "Updated fn_8017F09C prototype from unknown return/parameters to s32 fn_8017F09C(void).",
+      "role": "Updated fn_8017F09C prototype from UNK_RET/UNK_PARAMS to s32 fn_8017F09C(void).",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/gm/gmregclear.h added 1 deleted 1",
         "raw_diff: gmregclear.h prototype change"
       ]
     }
   ],
   "what_changed": [
-    "fn_80170110 was decompiled as an unlock check that finds a table entry by kind, derives flags, checks a mask, and dispatches to pl_80039418 for kind < 0xD7 or fn_801701C0 otherwise.",
-    "gm_801BEDA8 was decompiled as CSS match_type cycling: pending_scene_change == 2 decrements with wrap to 0x17, otherwise increments with modulo 24, then copies css->data into VsModeData.",
-    "fn_8017F09C was decompiled as a clear bonus calculation: checks eligibility fields, multiplies timer_seconds by data->x108, clamps negative results to 0, and otherwise returns 0 when ineligible.",
-    "Headers were updated to reflect recovered signatures for fn_80170110, fn_801701C0, and fn_8017F09C.",
-    "Automated report listed fn_8017F09C, gm_801BEDA8, and fn_80170110 as 100.00% new matches in their gm units."
+    "Replaced the fn_80170110 placeholder in gm_16F1.c with a loop over lbl_803D5A4C entries, a sentinel kind check against 0x29A, an unlock flag mask check, and dispatch to pl_80039418 or fn_801701C0 depending on kind.",
+    "Changed gm_16F1.h prototypes for fn_80170110 and fn_801701C0 to concrete int-returning signatures with void* and integer parameters.",
+    "Replaced the gm_801BEDA8 placeholder in gm_1BA8.c with logic that obtains CSSData and VsModeData, decrements or increments css->match_type with wraparound over 24 values, then copies css->data into *vs.",
+    "Replaced the fn_8017F09C placeholder in gmregclear.c with eligibility checks over lbl_80472D28 and gm_8016AE38 state, then a timer_seconds * data->x108 calculation with negative results clamped to 0.",
+    "Changed gmregclear.h prototype for fn_8017F09C to s32 fn_8017F09C(void)."
   ],
   "smart_moves": [
-    "The PR paired decompiled bodies with header prototype cleanup, avoiding stale UNK_RET/UNK_PARAMS declarations for recovered functions.",
-    "The CSS match-type function used typed structures CSSData and VsModeData rather than raw offset-only pointer arithmetic in the shown diff.",
-    "The clear-bonus function kept the nonnegative return behavior explicit by assigning product to ret and clamping ret to 0 when product is negative."
+    "Updated owning headers alongside recovered function bodies, reducing UNK_RET/UNK_PARAMS or UNK_T use where the new bodies supported concrete signatures.",
+    "Used existing domain structs and fields visible in the diff, such as CSSData, VsModeData, MinorScene, lbl_8046B6A0_t, timer_seconds, and bitfield-like members, instead of raw pointer arithmetic in the changed code.",
+    "Expressed CSS match-type wraparound with readable C control flow and modulo for forward cycling rather than preserving a placeholder or generated-looking branch-only form."
   ],
   "decomp_lessons": [
     {
-      "lesson": "When decompiling a body proves a function signature, update the owning header in the same focused change.",
+      "lesson": "When a decompiled body proves parameter and return types, update the owning header in the same PR so call surfaces move away from UNK_RET, UNK_PARAMS, and UNK_T.",
       "scope": [
-        "src/melee/gm/gm_16F1.h",
-        "src/melee/gm/gmregclear.h"
+        "headers",
+        "game-mode decompilation"
       ],
       "evidence_refs": [
-        "raw_diff: fn_80170110 changed from int fn_80170110(UNK_T, int, int, u8) to int fn_80170110(void*, int, int, u8)",
-        "raw_diff: fn_801701C0 changed from UNK_RET fn_801701C0(UNK_PARAMS) to int fn_801701C0(void*, int, int)",
-        "raw_diff: fn_8017F09C changed from UNK_RET fn_8017F09C(UNK_PARAMS) to s32 fn_8017F09C(void)"
+        "raw_diff: gm_16F1.h changed fn_80170110 and fn_801701C0 prototypes",
+        "raw_diff: gmregclear.h changed fn_8017F09C prototype",
+        "decomp_standards: truthful-headers-and-includes"
       ]
     },
     {
-      "lesson": "Small game-mode matching PRs can be organized as placeholder replacement plus minimal header surface changes, with verification tied to the touched symbols.",
+      "lesson": "For small game-mode state helpers, typed local variables and known struct fields can produce compact source that matches while remaining reviewable.",
       "scope": [
-        "src/melee/gm/gm_16F1.c",
-        "src/melee/gm/gm_1BA8.c",
-        "src/melee/gm/gmregclear.c"
+        "src/melee/gm",
+        "types-structs"
       ],
       "evidence_refs": [
-        "raw_diff: three /// # placeholders replaced",
-        "human_pr_text: fuzzy_match_percent: 100.0 for all functions",
-        "issue_comment: GALE01 report lists three targeted gm items at 100.00%"
+        "raw_diff: gm_1BA8.c uses CSSData, VsModeData, pending_scene_change, match_type",
+        "raw_diff: gmregclear.c uses lbl_8046B6A0_t, x24C8 fields, timer_seconds",
+        "decomp_standards: typed-fields-over-pointer-math"
+      ]
+    },
+    {
+      "lesson": "Automated score reports should be read narrowly: target-function 100% matches can coexist with unrelated section or fuzzy-score movement that may need separate triage.",
+      "scope": [
+        "verification",
+        "regression triage"
+      ],
+      "evidence_refs": [
+        "human_pr_text: GALE01 report records target gm functions as 100% new matches",
+        "human_pr_text: GALE01 report also records unrelated improvements and .sdata2 regressions",
+        "decomp_standards: verification-and-regression-ledger"
       ]
     }
   ],
   "naming_conventions": [
     {
-      "convention": "Address-style function names were retained for unrecovered semantic names, while local variables used short role names such as css, vs, data, p, p2, curr, kind, flags, product, and ret.",
+      "convention": "Address-style names were retained for functions and unknown global structs where semantic meaning was not established in the PR, including fn_80170110, fn_8017F09C, lbl_803D5A4C_t, and lbl_80472D28_t.",
       "evidence_refs": [
-        "raw_diff: fn_80170110 locals curr/kind/flags",
-        "raw_diff: gm_801BEDA8 locals css/vs",
-        "raw_diff: fn_8017F09C locals data/p/p2/product/ret"
+        "raw_diff: gm_16F1.c",
+        "raw_diff: gmregclear.c",
+        "decomp_standards: conservative-naming"
       ]
     },
     {
-      "convention": "Existing typed struct names were used where available, including CSSData, VsModeData, MinorScene, lbl_8046B6A0_t, and lbl_80472D28_t.",
+      "convention": "Short local role names were used for obvious temporary roles, such as css, vs, data, p, p2, curr, flags, product, and ret.",
       "evidence_refs": [
-        "raw_diff: gm_801BEDA8 signature and locals",
-        "raw_diff: fn_8017F09C locals"
+        "raw_diff: gm_16F1.c",
+        "raw_diff: gm_1BA8.c",
+        "raw_diff: gmregclear.c"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use modulo for forward wrap when the domain size is fixed: css->match_type = (css->match_type + 1) % 24.",
+      "tactic": "fn_80170110 uses a while loop over table entries plus a goto label to share the final flag-check path when the sentinel kind 0x29A is reached.",
       "evidence_refs": [
-        "raw_diff: gm_801BEDA8 forward cycling branch"
+        "raw_diff: gm_16F1.c fn_80170110"
       ]
     },
     {
-      "tactic": "Use explicit backward wrap for decrementing a bounded selector: decrement when nonzero, otherwise assign 0x17.",
+      "tactic": "gm_801BEDA8 implements reverse wraparound with an explicit zero check assigning 0x17, while forward wraparound is expressed as (match_type + 1) % 24.",
       "evidence_refs": [
-        "raw_diff: gm_801BEDA8 pending_scene_change == 2 branch"
+        "raw_diff: gm_1BA8.c gm_801BEDA8"
       ]
     },
     {
-      "tactic": "A goto label was used in fn_80170110 to share mask/flag checking after either finding a table entry or hitting sentinel kind 0x29A.",
+      "tactic": "fn_8017F09C preserves a separate flag local and duplicate gm_8016AE38 call inside the guarded block, which may reflect matching-sensitive control flow or register/lifetime shape, but the PR evidence does not explain why this shape was required.",
       "evidence_refs": [
-        "raw_diff: fn_80170110 while loop and check label"
+        "raw_diff: gmregclear.c fn_8017F09C"
       ]
     },
     {
-      "tactic": "Clear bonus logic preserved an intermediate product/ret shape before negative clamp, which may have been relevant to matching the emitted code.",
+      "tactic": "The PR body claims fuzzy_match_percent 100.0 for all three target functions, and the GALE01 report lists fn_8017F09C, gm_801BEDA8, and fn_80170110 as 100.00% after the PR.",
       "evidence_refs": [
-        "raw_diff: fn_8017F09C product and ret locals"
+        "human_pr_text: Verification section",
+        "human_pr_text: GALE01 5 new matches table"
       ]
     }
   ],
   "review_feedback": [
     {
-      "source": "issue_comment by encounter",
-      "feedback": "Automated GALE01 report showed matched code +880 bytes and listed the three targeted gm functions as 100.00% new matches.",
+      "source": "automated GALE01 issue comment by encounter",
+      "feedback": "Matched code increased to 59.10% (+0.02%, +880 bytes), with the three target gm functions reported as new 100.00% matches.",
       "evidence_refs": [
-        "text_corpus.jsonl: encounter issue_comment Report for GALE01",
-        "human_pr_text: ✅ 5 new matches table"
+        "text_corpus: issue_comment by encounter created_at 2026-03-19T14:30:52Z"
       ]
     },
     {
-      "source": "issue_comment by encounter",
-      "feedback": "The same report also listed two regressions in unmatched .sdata2 items: main/melee/gm/gmregclear .sdata2 -15 and main/melee/it/items/itclimbersice .sdata2 -4.",
+      "source": "automated GALE01 issue comment by encounter",
+      "feedback": "The report also listed two regressions in unmatched .sdata2 items: main/melee/gm/gmregclear .sdata2 from 30.12% to 24.43% and main/melee/it/items/itclimbersice .sdata2 from 66.67% to 50.00%. No human review comment in the loaded slice explains these regressions.",
       "evidence_refs": [
-        "text_corpus.jsonl: encounter issue_comment regressions table",
-        "human_pr_text: 📉 2 regressions in unmatched items"
+        "human_pr_text: GALE01 regressions table"
       ]
     }
   ],
   "searchable_terms": [
     "pr-2324",
     "johnwinston",
-    "gm decompile",
+    "gm",
+    "game-mode",
+    "gm_16F1",
+    "gm_1BA8",
+    "gmregclear",
     "fn_80170110",
     "gm_801BEDA8",
     "fn_8017F09C",
-    "src/melee/gm/gm_16F1.c",
-    "src/melee/gm/gm_1BA8.c",
-    "src/melee/gm/gmregclear.c",
-    "gm_16F1.h",
-    "gmregclear.h",
-    "unlock check",
-    "lbl_803D5A4C",
-    "pl_80039418",
     "fn_801701C0",
+    "pl_80039418",
+    "lbl_803D5A4C",
+    "lbl_80472D28",
+    "lbl_8046B6A0_t",
     "CSSData",
     "VsModeData",
-    "pending_scene_change",
-    "match_type",
+    "MinorScene",
     "gm_801A427C",
     "gm_801A5244",
-    "timer_seconds",
-    "lbl_80472D28",
     "gm_8016AE38",
+    "pending_scene_change",
+    "match_type",
+    "timer_seconds",
+    "clear bonus",
+    "unlock check",
     "fuzzy_match_percent",
-    "GALE01",
     "sdata2 regression"
   ],
   "follow_up_queries": [
-    "fn_80170110 unlock table lbl_803D5A4C kind flags sentinel 0x29A",
+    "fn_80170110 unlock table lbl_803D5A4C kind flags 0x29A",
     "gm_801BEDA8 CSSData match_type pending_scene_change modulo 24",
-    "fn_8017F09C timer_seconds x108 clear bonus negative clamp",
-    "PR 2324 gmregclear .sdata2 regression -15",
-    "header prototype cleanup UNK_RET UNK_PARAMS gm_16F1 gmregclear"
+    "fn_8017F09C timer_seconds x108 x118 x11A x11B x24C8",
+    "gmregclear .sdata2 regression PR 2324",
+    "gm_16F1.h fn_801701C0 prototype int void* int int"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json: PR identity, changed files, merge metadata",
-      "raw_diff: complete diff excerpt for five changed files",
+      "metadata_json: PR metadata, changed files, counts",
+      "raw_diff: complete diff excerpt for 5 changed files",
       "human_pr_text: PR body and automated GALE01 report",
-      "text_corpus.jsonl: pr_body and issue_comment"
+      "text_corpus: pr_body and issue_comment"
     ],
     "notes": [
-      "Changed files and code edits are directly supported by the loaded diff and changed-files metadata.",
-      "Verification is supported by the PR body's fuzzy_match_percent claim and an automated GALE01 report showing the targeted functions at 100.00%; no separate local build, objdiff command output, or reviewer approval text is present in the slice.",
-      "There are no review comments or formal review records in the loaded evidence.",
-      "The automated report includes unrelated new matches/improvements and two .sdata2 regressions; the slice does not explain whether these were accepted tradeoffs, report artifacts, or caused by this PR.",
-      "The PR body says it was generated with Claude Code; no unsupported claims are made here about author intent or source quality beyond the loaded evidence."
+      "Changed files and code edits are strongly evidenced by the raw diff and changed_files list.",
+      "Verification is evidenced by the PR body claim and an automated GALE01 report, but there is no loaded local build log or objdiff transcript beyond fuzzy/match report text.",
+      "No review comments or formal human review records are present in the loaded slice.",
+      "The PR body includes a Claude Code generation note; do not infer authored intent beyond the code and report evidence.",
+      "The automated report includes unrelated matches/improvements and two .sdata2 regressions, but the loaded evidence does not explain whether those were accepted, investigated, or incidental fuzzy-report noise."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
         "record_type": "decomp_lesson",
-        "title": "Recovering a body should drive header prototype cleanup",
-        "text": "PR #2324 replaced placeholders for three gm functions and updated owning headers where signatures became known, including removing UNK_RET/UNK_PARAMS for fn_8017F09C and refining fn_80170110/fn_801701C0 prototypes.",
+        "title": "Recover header prototypes when function bodies prove signatures",
+        "text": "PR #2324 decompiled gm functions and updated gm_16F1.h and gmregclear.h prototypes from unknown placeholders to concrete signatures supported by the recovered bodies.",
         "scope": [
-          "src/melee/gm/gm_16F1.h",
-          "src/melee/gm/gmregclear.h"
+          "headers",
+          "src/melee/gm"
         ],
         "evidence_refs": [
-          "raw_diff: gm_16F1.h prototype changes",
-          "raw_diff: gmregclear.h prototype change"
+          "raw_diff: gm_16F1.h",
+          "raw_diff: gmregclear.h"
         ]
       },
       {
-        "record_type": "matching_tactic",
-        "title": "Bounded selector wrap forms in CSS match-type cycling",
-        "text": "gm_801BEDA8 matched CSS match-type cycling with explicit backward wrap to 0x17 and forward wrap using modulo 24 before syncing css->data to VsModeData.",
+        "record_type": "matching_caution",
+        "title": "Treat automated report side effects separately from target matches",
+        "text": "PR #2324's report shows target gm functions as 100% matches while also listing unrelated improvements and .sdata2 regressions; intake should preserve this distinction rather than treating all score movement as intentional PR work.",
         "scope": [
-          "src/melee/gm/gm_1BA8.c"
+          "verification",
+          "regression-ledger"
         ],
         "evidence_refs": [
-          "raw_diff: gm_801BEDA8 implementation",
-          "human_pr_text: Match type cycling on CSS",
-          "issue_comment: gm_801BEDA8 100.00% new match"
+          "human_pr_text: GALE01 report"
         ]
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "other",
-        "update_kind": "source_update",
-        "title": "Investigate whether PR #2324 report regressions need ledger context",
-        "text": "The automated GALE01 report for PR #2324 lists targeted gm function matches, but also reports .sdata2 regressions in main/melee/gm/gmregclear and main/melee/it/items/itclimbersice. The slice does not explain cause or acceptance, so this should only be considered for a verification/regression ledger if corroborated elsewhere.",
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Document narrow handling of automated fuzzy reports with unrelated section movement",
+        "text": "Consider adding guidance that automated match reports for focused decomp PRs may include unrelated fuzzy improvements/regressions; accepted match claims should identify the target functions, while unrelated section movement should be recorded as regression triage rather than inferred author intent.",
         "source_path": null,
         "scope": [
-          "main/melee/gm/gmregclear .sdata2",
-          "main/melee/it/items/itclimbersice .sdata2"
+          "verification-and-regression-ledger",
+          "text-before-data-matching"
         ],
         "evidence_refs": [
-          "text_corpus.jsonl: encounter issue_comment regressions table"
+          "human_pr_text: GALE01 report for PR #2324 lists three target gm 100% matches plus unrelated improvements and .sdata2 regressions"
         ],
-        "reason": "Potentially useful historical regression context, but evidence is insufficient to classify it as an accepted tradeoff or source fact."
+        "reason": "This PR provides a clear example where target function matches and report side effects need separate curation."
       }
     ],
     "rejection_notes": [
-      "Do not promote the PR body's functional descriptions as canonical symbol names; the diff retains address-style names for the decompiled functions.",
-      "Do not infer reviewer intent or approval rationale; no review comments or review records are present.",
-      "Do not treat the unrelated new matches/improvements in the GALE01 report as changed files in this PR without further evidence from their diffs."
+      "Do not promote the PR body's natural-language descriptions as verified game behavior beyond what the diff and report support.",
+      "Do not infer that the .sdata2 regressions were acceptable or intentional; the loaded slice contains no human review discussion explaining them.",
+      "Do not generalize the specific goto in fn_80170110 or duplicate gm_8016AE38 call in fn_8017F09C as preferred style; the PR evidence does not explain those shapes beyond the claimed match."
     ]
   },
-  "confidence": 0.86,
+  "confidence": 0.82,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

@@ -12,28 +12,29 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Small multi-file decomp matching PR touching fighter Kirby, game-mode, result-screen, stage, interface, and snapshot code. Bot report records +940 matched-code bytes, 6 new 100% matches, and 2 unmatched-item improvements. The diff includes signature/prototype corrections, callsite argument reordering, assert macro cleanup, pointer-lifetime/register-shape steering, and narrow PAD_STACK/local temporary tactics.",
+  "summary": "Small matching-focused PR touching fighter, game-mode, stage, interface, and library files. The bot report records +940 matched bytes, 6 new matches, and 2 unmatched-item improvements. Changes include recovered or match-forcing signatures, callsite argument reordering, HSD_ASSERT cleanup for a raw __assert, temporary locals and PAD_STACK-style codegen tactics, and header prototype updates.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "signature-correction",
       "assert-cleanup",
-      "matching-tactics"
+      "signature-recovery",
+      "codegen-tactics"
     ],
     "systems": [
       "fighter",
       "game-mode",
       "stage",
       "interface",
-      "library"
+      "library",
+      "melee-core"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ft/chara/ftKirby/ftkirby.c",
-      "role": "Changed ftKb_SpecialN_800F1420 return type to u8*, widened pointer lifetime for p, and returned p after nested FtPartsVisLookup iteration.",
+      "role": "Changed ftKb_SpecialN_800F1420 from void to u8* and returned loop pointer p after widening its lifetime.",
       "evidence_refs": [
         "raw_diff:ftkirby.c",
         "text_corpus:bot_report:new_match:ftKb_SpecialN_800F1420"
@@ -41,14 +42,14 @@
     },
     {
       "path": "src/melee/ft/chara/ftKirby/ftkirby.h",
-      "role": "Updated ftKb_SpecialN_800F1420 prototype from void to u8* to match recovered body signature.",
+      "role": "Updated ftKb_SpecialN_800F1420 prototype to match the recovered u8* return type.",
       "evidence_refs": [
         "raw_diff:ftkirby.h"
       ]
     },
     {
       "path": "src/melee/gm/gm_1601.c",
-      "role": "Adjusted gm_801674C4 local temporaries, casts, pointer aliases, and PAD_STACK usage; bot reports the function reached 100%.",
+      "role": "Adjusted gm_801674C4 locals, casts, pointer aliases, and PAD_STACK placement for a reported new match.",
       "evidence_refs": [
         "raw_diff:gm_1601.c",
         "text_corpus:bot_report:new_match:gm_801674C4"
@@ -56,7 +57,7 @@
     },
     {
       "path": "src/melee/gm/gm_18A5.c",
-      "role": "Changed fn_8018E618 signature parameter order from int,int,f32 to int,f32,int and updated multiple callsites; bot reports fn_8019B860 as a new match and fn_8019B458 as improved.",
+      "role": "Changed fn_8018E618 parameter order to int, f32, int and updated multiple callsites; bot report records one new match and one improvement in this unit.",
       "evidence_refs": [
         "raw_diff:gm_18A5.c",
         "text_corpus:bot_report:new_match:fn_8019B860",
@@ -65,14 +66,14 @@
     },
     {
       "path": "src/melee/gm/gm_18A5.h",
-      "role": "Updated fn_8018E618 header prototype to match the recovered argument order.",
+      "role": "Updated fn_8018E618 prototype to the changed argument order.",
       "evidence_refs": [
         "raw_diff:gm_18A5.h"
       ]
     },
     {
       "path": "src/melee/gm/gmresult.c",
-      "role": "Changed fn_80174920 return type to u8 and reshaped fn_801749B8 locals, pointer access, casts, and GXSetScissor arithmetic; bot reports both functions as new matches.",
+      "role": "Changed fn_80174920 return type to u8 with an inline caveat comment; adjusted fn_801749B8 locals and expressions for reported new matches.",
       "evidence_refs": [
         "raw_diff:gmresult.c",
         "text_corpus:bot_report:new_match:fn_80174920",
@@ -81,14 +82,14 @@
     },
     {
       "path": "src/melee/gm/gmresult.h",
-      "role": "Updated fn_80174920 prototype from void to u8.",
+      "role": "Updated fn_80174920 prototype to u8 return type.",
       "evidence_refs": [
         "raw_diff:gmresult.h"
       ]
     },
     {
       "path": "src/melee/gr/grinishie1.c",
-      "role": "Included baselib/debug.h and it/inlines.h, introduced GET_ITEM2 inline, renamed gobj to map_gobj, replaced raw __assert pattern with HSD_ASSERT, and used temporary alias/PAD_STACK for fn_801FBF6C; bot reports the function as a new match.",
+      "role": "Added debug/item inline includes, introduced GET_ITEM2, replaced raw __assert with HSD_ASSERT after review prompt, renamed gobj to map_gobj, and retained PAD_STACK for fn_801FBF6C reported new match.",
       "evidence_refs": [
         "raw_diff:grinishie1.c",
         "review_comments:discussion_r3383466094",
@@ -97,7 +98,7 @@
     },
     {
       "path": "src/melee/if/ifcoget.c",
-      "role": "Adjusted un_802FF620 loop body by removing PAD_STACK/self-assignment, adding a typed pointer temporary to base[i].x8, and documenting similarity with un_802FF570; bot reports unmatched-item improvement.",
+      "role": "Changed un_802FF620 loop body to use an x8 substruct pointer temporary and removed a prior PAD_STACK/self-assignment shape; bot report records partial improvement.",
       "evidence_refs": [
         "raw_diff:ifcoget.c",
         "text_corpus:bot_report:improvement:un_802FF620"
@@ -105,240 +106,219 @@
     },
     {
       "path": "src/melee/lb/lbsnap.c",
-      "role": "Introduced a temporary pointer to lbSnap_803BACC8 so the address passed to lb_8001C4A8 is taken through tmp->x14.",
+      "role": "Introduced a temporary pointer to lbSnap_803BACC8 for the lb_8001C4A8 argument expression.",
       "evidence_refs": [
         "raw_diff:lbsnap.c"
       ]
     }
   ],
   "what_changed": [
-    "Updated recovered function signatures and matching headers for ftKb_SpecialN_800F1420, fn_8018E618, and fn_80174920.",
-    "Reordered fn_8018E618 arguments and updated all visible callsites in gm_18A5.c from int,int,float-style ordering to int,float,int ordering.",
-    "Converted a grinishie1.c raw assert pattern around map_gobj into HSD_ASSERT(0x425, map_gobj), with baselib/debug.h included.",
-    "Used local aliasing, declaration movement, casts, and pointer lifetime changes to influence MWCC codegen in several functions.",
-    "Bot report records 6 new matches: fn_80174920, fn_801749B8, gm_801674C4, fn_801FBF6C, fn_8019B860, and ftKb_SpecialN_800F1420.",
-    "Bot report records 2 improvements in unmatched items: fn_8019B458 and un_802FF620."
+    "The bot report says matched code increased by 940 bytes, from 71.73% by +0.02%, with 6 new matched functions: fn_80174920, fn_801749B8, gm_801674C4, fn_801FBF6C, fn_8019B860, and ftKb_SpecialN_800F1420.",
+    "The bot report also lists improvements in unmatched fn_8019B458 and un_802FF620.",
+    "Function signatures and matching headers were changed for ftKb_SpecialN_800F1420, fn_8018E618, and fn_80174920.",
+    "fn_8018E618 callsites were updated to pass the f32 argument before the final int argument.",
+    "grinishie1.c replaced an explicit __assert(\"grinishie1.c\", 0x425, \"map_gobj\") pattern with HSD_ASSERT(0x425, map_gobj), matching review feedback asking whether it could be an HSD_ASSERT.",
+    "Several functions used narrow codegen-shaping edits: widened local lifetimes, pointer aliases, temporary assignments, casts, PAD_STACK, and reordered declarations."
   ],
   "smart_moves": [
     {
-      "text": "Header prototypes were updated alongside recovered body signatures, avoiding stale declarations after signature changes.",
+      "text": "When a changed body implied a new signature, the PR updated the corresponding public header in the same patch for ftkirby.h, gm_18A5.h, and gmresult.h.",
       "evidence_refs": [
+        "raw_diff:ftkirby.c",
         "raw_diff:ftkirby.h",
+        "raw_diff:gm_18A5.c",
         "raw_diff:gm_18A5.h",
+        "raw_diff:gmresult.c",
         "raw_diff:gmresult.h"
       ]
     },
     {
-      "text": "The grinishie1.c assert cleanup follows the project pattern of replacing direct __assert blocks with HSD_ASSERT when the line number and expression are known.",
+      "text": "The grinishie1.c assert cleanup aligned raw assert evidence with the existing HSD_ASSERT macro form rather than preserving generated-looking assert code.",
       "evidence_refs": [
         "raw_diff:grinishie1.c",
-        "review_comments:discussion_r3383466094",
-        "decomp_standards:assert-report-macros"
+        "review_comments:discussion_r3383466094"
       ]
     },
     {
-      "text": "The PR kept several changes narrow to single functions or direct callsites rather than broad subsystem rewrites.",
+      "text": "Callsite updates for fn_8018E618 were made consistently across multiple callers after changing the function's parameter order.",
       "evidence_refs": [
-        "raw_diff",
-        "changed_files.jsonl"
+        "raw_diff:gm_18A5.c",
+        "raw_diff:gm_18A5.h"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a recovered body proves a non-void return or different argument order, update the owning header and all visible callsites in the same patch.",
+      "lesson": "If matching evidence forces a signature change, update the owning header in the same PR rather than leaving a stale prototype.",
       "scope": [
+        "function signatures",
         "headers",
-        "function-signatures",
-        "callsite-updates"
+        "decomp matching"
       ],
       "evidence_refs": [
-        "raw_diff:ftkirby.c",
         "raw_diff:ftkirby.h",
-        "raw_diff:gm_18A5.c",
         "raw_diff:gm_18A5.h",
-        "raw_diff:gmresult.c",
-        "raw_diff:gmresult.h",
-        "decomp_standards:truthful-headers-and-includes"
-      ]
+        "raw_diff:gmresult.h"
+      ],
+      "confidence": 0.86
     },
     {
-      "lesson": "Assert macro cleanup can be part of matching work when the raw __assert file, line, and expression map directly to HSD_ASSERT.",
+      "lesson": "A raw __assert with matching file, line, and predicate can often be expressed as HSD_ASSERT when local macro support is included.",
       "scope": [
-        "asserts",
-        "stage"
+        "assert cleanup",
+        "stage code",
+        "baselib/debug.h"
       ],
       "evidence_refs": [
         "raw_diff:grinishie1.c",
-        "review_comments:discussion_r3383466094",
-        "decomp_standards:assert-report-macros"
-      ]
+        "review_comments:discussion_r3383466094"
+      ],
+      "confidence": 0.82
     },
     {
-      "lesson": "Pointer aliasing and moving temporary declarations can be effective narrow matching tactics, but the PR evidence shows they were score-driven and should not be generalized as preferred style without objdiff/build evidence.",
+      "lesson": "Parameter order recovery can require updating both the callee signature and all visible callsites; in this slice fn_8018E618 changed from int,int,float to int,float,int and callsites were adjusted.",
       "scope": [
-        "matching-tactics",
-        "local-temporaries"
+        "signature recovery",
+        "callsite consistency",
+        "gm_18A5"
       ],
       "evidence_refs": [
-        "raw_diff:gm_1601.c",
-        "raw_diff:gmresult.c",
-        "raw_diff:lbsnap.c",
-        "text_corpus:bot_report",
-        "decomp_standards:matching-tactics-need-evidence"
-      ]
+        "raw_diff:gm_18A5.c",
+        "raw_diff:gm_18A5.h"
+      ],
+      "confidence": 0.78
     }
   ],
   "naming_conventions": [
     {
-      "name": "map_gobj",
-      "context": "Used in grinishie1.c for the Ground_801C2BA4(3) result and the HSD_ASSERT expression.",
+      "convention": "Use role-oriented locals when the role is visible, e.g. grinishie1.c changed a generic gobj local to map_gobj before asserting and passing it to map helpers.",
       "evidence_refs": [
         "raw_diff:grinishie1.c"
-      ]
+      ],
+      "confidence": 0.72
     },
     {
-      "name": "ip",
-      "context": "Local Item* role name remains short and type-indicative after changing access through GET_ITEM2.",
-      "evidence_refs": [
-        "raw_diff:grinishie1.c",
-        "decomp_standards:conservative-naming"
-      ]
-    },
-    {
-      "name": "new_var/new_var2/new_var3/new_var4/tmp/thing",
-      "context": "Several temporary names are matching-oriented and not evidence-backed semantic names; do not treat them as naming conventions.",
+      "convention": "This PR still contains generic match-temporary names such as new_var, new_var2, new_var3, tmp, thing, and p; treat them as local codegen artifacts rather than accepted naming style.",
       "evidence_refs": [
         "raw_diff:gm_1601.c",
         "raw_diff:gmresult.c",
         "raw_diff:ifcoget.c",
-        "raw_diff:lbsnap.c",
-        "decomp_standards:conservative-naming"
-      ]
+        "raw_diff:lbsnap.c"
+      ],
+      "confidence": 0.88
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Widen local pointer lifetime and return the final pointer value to satisfy ftKb_SpecialN_800F1420 codegen.",
+      "tactic": "Widen a pointer local's lifetime and return it when the function signature match requires a value, as shown by ftKb_SpecialN_800F1420 changing to return p.",
       "evidence_refs": [
         "raw_diff:ftkirby.c",
         "text_corpus:bot_report:new_match:ftKb_SpecialN_800F1420"
-      ]
+      ],
+      "caveat": "The slice does not include objdiff details beyond the bot report; do not generalize this as style without verifier evidence."
     },
     {
-      "tactic": "Change function signature argument ordering and update all callsites to align integer and float argument passing for fn_8018E618.",
-      "evidence_refs": [
-        "raw_diff:gm_18A5.c",
-        "raw_diff:gm_18A5.h"
-      ]
-    },
-    {
-      "tactic": "Use pointer aliases, explicit casts, and PAD_STACK in gm_801674C4 and fn_801FBF6C; standards require such tactics to remain narrow and evidence-backed.",
+      "tactic": "Use pointer aliases and temporary locals to influence register/stack shape, seen in gm_801674C4, gmresult fn_801749B8, ifcoget un_802FF620, and lbsnap lbSnap_8001DF20.",
       "evidence_refs": [
         "raw_diff:gm_1601.c",
-        "raw_diff:grinishie1.c",
-        "text_corpus:bot_report:new_match:gm_801674C4",
-        "text_corpus:bot_report:new_match:fn_801FBF6C",
-        "decomp_standards:matching-tactics-need-evidence"
-      ]
-    },
-    {
-      "tactic": "Use typed pointer temporaries to alter address-taking and field access shape, as in ifcoget.c and lbsnap.c.",
-      "evidence_refs": [
+        "raw_diff:gmresult.c",
         "raw_diff:ifcoget.c",
         "raw_diff:lbsnap.c"
-      ]
+      ],
+      "caveat": "Many names are generic and appear codegen-driven; keep such tactics narrow and evidence-backed."
     },
     {
-      "tactic": "Use HSD_ASSERT instead of an expanded __assert block where the source file, line, and expression are known.",
+      "tactic": "PAD_STACK was retained or introduced in some matched code paths, including gm_801674C4 and fn_801FBF6C.",
       "evidence_refs": [
-        "raw_diff:grinishie1.c",
-        "review_comments:discussion_r3383466094",
-        "decomp_standards:assert-report-macros"
-      ]
+        "raw_diff:gm_1601.c",
+        "raw_diff:grinishie1.c"
+      ],
+      "caveat": "Loaded evidence does not show adjacent regression checks, so this remains a tactic observation rather than a recommended standard."
+    },
+    {
+      "tactic": "A questionable return type can be accepted for matching in a narrow case, as gmresult.c adds the comment 'Return clearly wrong but match is match' before changing fn_80174920 from void to u8.",
+      "evidence_refs": [
+        "raw_diff:gmresult.c",
+        "text_corpus:bot_report:new_match:fn_80174920"
+      ],
+      "caveat": "This is explicitly suspicious in the diff comment and should not be promoted as a general style rule."
     }
   ],
   "review_feedback": [
     {
-      "author": "jurrejelle",
       "path": "src/melee/gr/grinishie1.c",
+      "author": "jurrejelle",
       "comment": "can this be a HSD_ASSERT?",
+      "subject": "Raw __assert(\"grinishie1.c\", 0x425, \"map_gobj\") in fn_801FBF6C.",
       "evidence_refs": [
         "review_comments:discussion_r3383466094",
-        "text_corpus:review_comment"
-      ]
-    },
-    {
-      "author": "decomp-dev[bot]",
-      "path": null,
-      "comment": "Report for GALE01 records +0.02% matched code, +940 bytes, 6 new matches, and 2 improvements in unmatched items.",
-      "evidence_refs": [
-        "text_corpus:issue_comment:bot_report"
-      ]
+        "raw_diff:grinishie1.c"
+      ],
+      "observed_resolution": "The diff shows HSD_ASSERT(0x425, map_gobj) and adds baselib/debug.h."
     }
   ],
   "searchable_terms": [
     "PR2639",
     "Low hanging fruit",
+    "jellejurre",
     "ftKb_SpecialN_800F1420",
+    "ftkirby",
+    "gm_801674C4",
+    "gm_1601",
     "fn_8018E618",
+    "gm_18A5",
     "fn_80174920",
     "fn_801749B8",
-    "gm_801674C4",
+    "gmresult",
     "fn_801FBF6C",
-    "fn_8019B860",
-    "fn_8019B458",
-    "un_802FF620",
+    "grinishie1",
     "HSD_ASSERT",
     "__assert",
-    "PAD_STACK",
-    "GET_ITEM2",
     "map_gobj",
-    "lbSnap_8001DF20",
-    "gmresult",
-    "gm_18A5",
-    "grinishie1",
+    "un_802FF620",
     "ifcoget",
-    "lbsnap",
-    "ftkirby"
+    "lbSnap_8001DF20",
+    "PAD_STACK",
+    "signature recovery",
+    "header prototype update",
+    "parameter order",
+    "return clearly wrong but match is match"
   ],
   "follow_up_queries": [
-    "fn_8018E618 argument order int float int callsite",
-    "ftKb_SpecialN_800F1420 return u8 pointer lifetime",
-    "gmresult fn_80174920 return clearly wrong but match is match",
-    "grinishie1 HSD_ASSERT map_gobj 0x425",
-    "PAD_STACK gm_801674C4 matching tactic",
-    "un_802FF620 same issue as un_802FF570 typed pointer temporary",
-    "lbSnap_8001DF20 tmp x14 address-taking"
+    "PR2639 fn_80174920 return clearly wrong but match is match",
+    "fn_8018E618 int float int callsite parameter order gm_18A5",
+    "grinishie1 fn_801FBF6C HSD_ASSERT map_gobj",
+    "gm_801674C4 PAD_STACK new_var2 new_var3",
+    "un_802FF620 Same issue as un_802FF570 thing x8",
+    "ftKb_SpecialN_800F1420 u8 return p",
+    "lbSnap_8001DF20 tmp lbSnap_803BACC8"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
       "metadata_json",
       "raw_diff",
-      "changed_files.jsonl",
+      "changed_files",
       "text_corpus:bot_report",
-      "review_comments:discussion_r3383466094",
-      "decomp_standards"
+      "review_comments:discussion_r3383466094"
     ],
     "notes": [
-      "Full diff and changed-file metadata are loaded and support file-level change extraction.",
-      "PR body is empty, so author intent beyond title and diff must not be inferred.",
-      "Bot report provides matching-score evidence for specific functions but not detailed objdiff listings or adjacent regression checks.",
-      "Several changes are explicitly matching-shaped or use weak semantic names; they are recorded as tactics, not accepted source style.",
-      "Review record is present but one review state is DISMISSED; only the visible inline comment is treated as feedback evidence."
+      "PR body is empty, so author intent is inferred only from diff, title, and bot report.",
+      "Bot report provides strong matching evidence for named functions, but no raw build logs, objdiff screenshots, or adjacent regression checks are loaded.",
+      "The review state in text_corpus is DISMISSED; the slice still preserves the review comment and the diff shows a corresponding HSD_ASSERT change.",
+      "Several edits are visibly match-shaped and use generic temporary names; they are recorded as tactics, not accepted style."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "lesson_candidate",
-        "title": "Synchronize recovered signatures with headers and callsites",
-        "text": "PR 2639 shows signature recovery landing with matching header/callsite updates for ftKb_SpecialN_800F1420, fn_8018E618, and fn_80174920.",
+        "record_type": "pr_lesson",
+        "title": "Header prototypes should track recovered bodies in matching PRs",
+        "text": "PR #2639 changed recovered function signatures in C files and updated the corresponding headers for ftKb_SpecialN_800F1420, fn_8018E618, and fn_80174920.",
         "scope": [
           "headers",
-          "prototypes",
-          "function-signatures"
+          "signature recovery",
+          "decomp matching"
         ],
         "evidence_refs": [
           "raw_diff:ftkirby.c",
@@ -350,33 +330,17 @@
         ]
       },
       {
-        "type": "lesson_candidate",
-        "title": "Use assert macros for identifiable raw assert expansions",
-        "text": "In grinishie1.c, a raw __assert pattern tied to grinishie1.c line 0x425 and map_gobj was replaced with HSD_ASSERT(0x425, map_gobj), matching reviewer feedback.",
+        "record_type": "pr_lesson",
+        "title": "Raw assert cleanup to HSD_ASSERT was reviewer-suggested in grinishie1",
+        "text": "In fn_801FBF6C, review asked whether a raw __assert could be HSD_ASSERT; the diff shows HSD_ASSERT(0x425, map_gobj) with baselib/debug.h included.",
         "scope": [
-          "asserts",
-          "stage"
+          "assert cleanup",
+          "stage",
+          "grinishie1"
         ],
         "evidence_refs": [
-          "raw_diff:grinishie1.c",
-          "review_comments:discussion_r3383466094"
-        ]
-      },
-      {
-        "type": "tactic_candidate",
-        "title": "Narrow local temporary and alias steering can close low-hanging matches",
-        "text": "PR 2639 used declaration movement, aliases, casts, pointer temporaries, and PAD_STACK narrowly across several functions; bot report shows associated matches/improvements, but these remain tactics requiring verification rather than global style.",
-        "scope": [
-          "matching-tactics",
-          "local-codegen"
-        ],
-        "evidence_refs": [
-          "raw_diff:gm_1601.c",
-          "raw_diff:gmresult.c",
-          "raw_diff:grinishie1.c",
-          "raw_diff:ifcoget.c",
-          "raw_diff:lbsnap.c",
-          "text_corpus:bot_report"
+          "review_comments:discussion_r3383466094",
+          "raw_diff:grinishie1.c"
         ]
       }
     ],
@@ -384,54 +348,53 @@
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Reinforce HSD_ASSERT cleanup when raw assert file/line/expression are known",
-        "text": "PR 2639 provides review-backed evidence that direct __assert(\"grinishie1.c\", 0x425, \"map_gobj\")-style blocks should be considered for HSD_ASSERT(0x425, map_gobj) when the macro form preserves file/line/expression behavior.",
+        "title": "Treat obviously match-only suspicious signatures as narrow exceptions requiring evidence",
+        "text": "PR #2639 changed fn_80174920 from void to u8 with the comment 'Return clearly wrong but match is match' and the bot report lists the function as newly matched. Curator may consider whether standards should explicitly say that suspicious recovered return types can be landed only with narrow match evidence and a cleanup trail, not as normal API truth.",
         "source_path": null,
         "scope": [
-          "assert-report-macros",
-          "stage",
-          "grinishie1.c"
-        ],
-        "evidence_refs": [
-          "review_comments:discussion_r3383466094",
-          "raw_diff:grinishie1.c",
-          "decomp_standards:assert-report-macros"
-        ],
-        "reason": "This is consistent with existing standards and has explicit review evidence in the PR slice; curator may decide whether it is worth adding as an example."
-      },
-      {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Document that score-closing signature changes can expose suspicious but matched returns",
-        "text": "PR 2639 changed fn_80174920 from void to u8 with the inline note 'Return clearly wrong but match is match'. This should not be promoted as style, but may warrant a cautionary example under truthful headers or matching-tactics standards: suspicious recovered returns need verification and should be documented as match-driven.",
-        "source_path": null,
-        "scope": [
-          "truthful-headers-and-includes",
-          "matching-tactics-need-evidence",
-          "gmresult"
+          "signature recovery",
+          "matching tactics",
+          "headers"
         ],
         "evidence_refs": [
           "raw_diff:gmresult.c",
           "raw_diff:gmresult.h",
           "text_corpus:bot_report:new_match:fn_80174920"
         ],
-        "reason": "The PR evidence supports the existence of a match-driven suspicious return-type change, but not enough to make a new accepted global rule without curator review."
+        "reason": "Existing standards cover truthful headers and evidence-led verification, but this PR exposes a specific edge case where a header-visible signature is acknowledged as likely wrong while used for a match."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Review raw __assert conversions to HSD_ASSERT when file, line, and predicate line up",
+        "text": "PR #2639 includes reviewer feedback asking whether a raw __assert in grinishie1.c could be HSD_ASSERT, and the diff uses HSD_ASSERT(0x425, map_gobj). This supports existing assert macro guidance and may be useful as a concrete example.",
+        "source_path": null,
+        "scope": [
+          "assert macros",
+          "stage code",
+          "baselib/debug.h"
+        ],
+        "evidence_refs": [
+          "review_comments:discussion_r3383466094",
+          "raw_diff:grinishie1.c"
+        ],
+        "reason": "Candidate example for the existing assert-report-macros standard; not a new rule."
       }
     ],
     "rejection_notes": [
-      "Do not promote new_var/new_var2/new_var3/new_var4, thing, or tmp as naming conventions; they appear to be codegen steering or temporary placeholders.",
-      "Do not infer that PAD_STACK, comma-expression address shaping, or suspicious non-void returns are accepted style; standards require narrow verifier evidence.",
-      "Do not claim all changed functions are fully matched from the diff alone; only functions named in the bot report are supported as new matches or improvements.",
-      "Do not infer reviewer approval or merge rationale beyond the visible merged metadata, bot report, and single inline comment."
+      "Do not promote generic locals such as new_var, new_var2, thing, or tmp as naming conventions; they are likely match scaffolding.",
+      "Do not infer that PAD_STACK, comma-expression address taking, or widened temporary lifetimes are broadly accepted style from this PR alone.",
+      "Do not claim full validation beyond the loaded bot report; no direct objdiff, build log, or adjacent regression evidence is present in the slice.",
+      "Do not treat the suspicious u8 return for fn_80174920 as semantic truth without additional evidence."
     ]
   },
-  "confidence": 0.82,
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

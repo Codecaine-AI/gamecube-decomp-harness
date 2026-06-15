@@ -5,357 +5,410 @@
     "number": 2655,
     "title": "Melee decomp: FT",
     "url": "https://github.com/doldecomp/melee/pull/2655",
-    "state": "OPEN",
+    "state": "MERGED",
     "author": "fjooord",
     "created_at": "2026-06-11T19:59:26Z",
-    "merged_at": null
+    "merged_at": "2026-06-12T18:57:29Z"
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Open fighter decompilation PR touching four FT files. PR body claims exact-match decompilation of 4 newly matched functions, verified in isolation with ninja changes_all and clean regression report; bot report lists 4 new matches and 8 additional unmatched-item improvements.",
+  "summary": "Exact-match fighter decompilation PR touching four FT files, with 3 bot-reported new matches and additional unmatched-function score improvements. The most substantive review thread resolved an ftcoll.c .sdata2/declaration-order issue by restoring the original .sdata2 block placement, removing extern redeclarations, inlining ordinary float literal uses, and using `if (dmg)` truthiness where MWCC needed variable-first `fcmpu` for matching.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
-      "tooling-validated"
+      "fighter",
+      "code-shape-cleanup",
+      "matching-tactic",
+      "review-fix"
     ],
     "systems": [
       "fighter",
       "fighter-common",
+      "fighter-collision",
       "kirby",
-      "fighter-collision"
+      "samus-grapple"
     ]
   },
   "key_files": [
     {
       "path": "src/melee/ft/ftcoll.c",
-      "role": "Largest change; refactors ftColl_80077970 into inline helpers, relocates .sdata2 constant definitions after the matched function with extern declarations earlier, and improves ftColl_80077C60.",
+      "role": "Largest changed file; matched/improved fighter collision functions, introduced inline helpers for item-hit collision handling, adjusted local declaration/order and PAD_STACK shapes, and was the focus of .sdata2/literal review feedback.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/ft/ftcoll.c +156/-115, 14 hunks",
-        "diff_excerpt: ftcoll.c .sdata2 extern declarations and later definitions",
-        "diff_excerpt: ftColl_80077970 introduces inlineItemA0 and inlineItemA1",
-        "text_corpus issue_comment: ftColl_8007925C and ftColl_80077970 reach 100%; ftColl_80077C60 improves to 98.60%"
+        "changed_files.jsonl: src/melee/ft/ftcoll.c added 123 deleted 102 hunks 12",
+        "diff_excerpt: ftColl_80077970 rewritten with inlineItemA0/inlineItemA1 and 0.5f midpoint literals",
+        "text_corpus issue_comment: ftColl_8007925C 97.75% -> 100.00%, ftColl_80077970 97.12% -> 100.00%, ftColl_80077C60 97.59% -> 98.60%",
+        "review_comments: discussion_r3405164858 and discussion_r3405582525"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
-      "role": "Common fighter matching cleanup; rewrites item selection control flow, adds a terminal-velocity inline accessor, and expands an island collision check in ftCo_800AB224.",
+      "role": "Common fighter behavior improvements including item-selection control-flow cleanup, terminal velocity inline access, and expanded island-floor check logic in ftCo_800AB224.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/ft/chara/ftCommon/ftCo_0A01.c +55/-35, 6 hunks",
-        "diff_excerpt: ftCo_800A61D8 uses continue guards, ftCo_800A5908, and itemDist",
-        "diff_excerpt: ftCo_800A9904_inline0 returns fp->co_attrs.terminal_vel",
-        "diff_excerpt: ftCo_800AB224 replaces ftCo_800A21FC call with explicit mpIsland_8005AB54/mpIsland_8005AC14 logic",
-        "text_corpus issue_comment: ftCo_800AB224 reaches 100%; ftCo_800A61D8 and ftCo_800A9904 improve"
+        "changed_files.jsonl: added 55 deleted 35 hunks 6",
+        "diff_excerpt: ftCo_800A61D8 nested relevant/prio logic replaced with continue filters and itemDist",
+        "diff_excerpt: ftCo_800AB224 expands ftCo_800A21FC call into mpIsland_8005AB54/mpIsland_8005AC14 logic",
+        "text_corpus issue_comment: ftCo_800AB224 99.99% -> 100.00%; ftCo_800A61D8 and ftCo_800A9904 improved"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
-      "role": "Small stack/declaration-order matching changes for Link/Samus hookshot-related functions.",
+      "role": "Samus grapple-related function score improvement via declaration/PAD_STACK changes and localized Item* declaration/access pattern.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/ft/chara/ftCommon/ftCo_Attack100.c +6/-5, 4 hunks",
-        "diff_excerpt: fn_800D8EC8 adds UNUSED u32 unused0",
-        "diff_excerpt: fn_800D9930 reorders frame/i declarations, changes PAD_STACK from 0x8 to 4, and moves Item* it declaration into branch",
-        "text_corpus issue_comment: fn_800D8EC8 reaches 100%; fn_800D9930 improves to 98.80%"
+        "changed_files.jsonl: added 5 deleted 5 hunks 3",
+        "diff_excerpt: fn_800D9930 declaration order and PAD_STACK(4) changes",
+        "text_corpus issue_comment: fn_800D9930 96.73% -> 98.80%",
+        "review_comments: final verification says fn_800D9930 unchanged at 98.8% on merged head"
       ]
     },
     {
       "path": "src/melee/ft/chara/ftKirby/ftkirby.c",
-      "role": "Kirby SpecialN matching changes; adjusts table signedness, wraps a function body in a static inline helper, extracts joint-reference loop helper, and tunes PAD_STACK/declaration order.",
+      "role": "Kirby special/copy data and matching-shape improvements, including an unsigned costume table type, inline wrapper extraction, joint-reference insertion helper, and PAD_STACK/declaration-order tweaks.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/ft/chara/ftKirby/ftkirby.c +37/-24, 8 hunks",
-        "diff_excerpt: ftKb_Init_803CB46C changes from s8 to u8",
-        "diff_excerpt: ftKb_SpecialN_800EED50 body moved into ftKb_SpecialN_800EED50_inline wrapper",
-        "diff_excerpt: ftKb_SpecialN_800EF0E4_insert_joint_refs extracted from loop over joints and FighterBone parts",
-        "diff_excerpt: ftKb_SpecialN_800EF0E4 and ftKb_SpecialN_800EF35C PAD_STACK changes",
-        "text_corpus issue_comment: Kirby functions ftKb_SpecialN_800EED50, ftKb_SpecialN_800EEC34, ftKb_SpecialN_800EF0E4, and ftKb_SpecialN_800EF35C improve but are not listed as new 100% matches"
+        "changed_files.jsonl: added 37 deleted 24 hunks 8",
+        "diff_excerpt: ftKb_Init_803CB46C changed from s8 to u8",
+        "diff_excerpt: ftKb_SpecialN_800EED50 split into static inline helper plus wrapper",
+        "diff_excerpt: ftKb_SpecialN_800EF0E4_insert_joint_refs helper extracted",
+        "text_corpus issue_comment: ftKb_SpecialN_800EED50, ftKb_SpecialN_800EEC34, ftKb_SpecialN_800EF0E4, and ftKb_SpecialN_800EF35C improved"
       ]
     }
   ],
   "what_changed": [
-    "PR body states this slice exact-matches 4 newly matched functions across 4 files, with runner validation and clean regressions.",
-    "Bot report lists 4 new matches: ftColl_8007925C, ftColl_80077970, ftCo_800AB224, and fn_800D8EC8.",
-    "Bot report lists 8 improvements in unmatched items, including ftColl_80077C60, fn_800D9930, multiple Kirby SpecialN functions, ftCo_800A61D8, and ftCo_800A9904.",
-    "ftCo_800A61D8 changed from nested relevant/prio conditionals to guard-continue filtering using ftCo_800A5908 and itemDist.",
-    "ftCo_800AB224 replaced a call to ftCo_800A21FC with explicit ground/island collision logic and corresponding stack/local changes.",
-    "ftColl_80077970 was split into two static inline helpers, inlineItemA0 and inlineItemA1, while preserving midpoint/effect-spawn logic in the wrapper.",
-    "ftcoll.c .sdata2 constants were changed from early definitions to early extern declarations plus later definitions after ftColl_80077970.",
-    "ftkirby.c introduced static inline helper extraction for ftKb_SpecialN_800EED50 and ftKb_SpecialN_800EF0E4 joint-reference insertion, plus PAD_STACK and local-order changes."
+    "PR body claims exact-match decompilation of 4 files and 4 newly matched functions, verified in isolation with `ninja changes_all` and as part of a full ship set with 0 regressions.",
+    "Bot report lists 3 new matches in this PR comparison: `ftColl_8007925C`, `ftColl_80077970`, and `ftCo_800AB224`; it also lists 8 additional unmatched-item improvements.",
+    "`ftCo_800A61D8` was reshaped from nested conditionals with `relevant`/`prio` locals into early-continue filtering using `ftCo_800A5908`, `inlineD0_it`, kind bounds, priority checks, and `itemDist`.",
+    "`ftCo_800AB224` replaced a call to `ftCo_800A21FC(fp)` at the shown site with explicit ground/air, island lookup, position setup, and `mpIsland_8005AC14` comparison logic.",
+    "`fn_800D9930` changed local declaration order, PAD_STACK size, and moved the `Item* it` declaration inside a branch before `GET_ITEM(fp->fv.ss.x223C)`.",
+    "`ftKb_Init_803CB46C` changed type from `s8` to `u8`, despite initializer entries including `-1`; the PR evidence does not explain the semantic reason.",
+    "`ftKb_SpecialN_800EED50` gained a static inline helper called by the externally visible wrapper, and direct table indexing replaced a local `ftKirby_CopyName* copy` temporary.",
+    "`ftKb_SpecialN_800EF0E4` extracted a joint-reference insertion loop into `ftKb_SpecialN_800EF0E4_insert_joint_refs` using pointer out-parameters for stack/local shape.",
+    "`ftColl_80077970` was decomposed into `inlineItemA0` and `inlineItemA1`, with midpoint computations using `0.5f` literals instead of `ftColl_804D82E8`.",
+    "Review iteration in `ftcoll.c` restored the .sdata2 block's original top-of-file ordering, removed extern redeclarations, and inlined ordinary float constant uses as literals."
   ],
   "smart_moves": [
     {
-      "text": "Flattened nested item-selection logic in ftCo_800A61D8 into guard-continue checks, reducing temporary flag variables while preserving the candidate-selection flow.",
+      "text": "Resolved a data-order/literal matching conflict by preserving original .sdata2 block ordering and inlining ordinary float constants, instead of keeping forward extern redeclarations for constants used inside functions.",
       "evidence_refs": [
-        "diff_excerpt: ftCo_800A61D8 removes relevant/prio and adds continue guards"
+        "review_comments: ribbanya says replace `ftColl_804D82EC` usages with `1.0f` etc. and do not delete ordering",
+        "review_comments: fjooord says `.sdata2` block is back in original spot, extern redeclarations gone, usages inlined as literals"
       ]
     },
     {
-      "text": "Used narrow static inline helpers to isolate codegen-sensitive subblocks in ftColl_80077970 and Kirby SpecialN without changing public call surfaces.",
+      "text": "Used `if (dmg)` rather than explicit `dmg != 0.0f` after local verification showed MWCC emits variable-first `fcmpu` for the truthiness form, avoiding special extern casts.",
       "evidence_refs": [
-        "diff_excerpt: inlineItemA0/inlineItemA1 in ftcoll.c",
-        "diff_excerpt: ftKb_SpecialN_800EED50_inline wrapper",
-        "diff_excerpt: ftKb_SpecialN_800EF0E4_insert_joint_refs"
+        "review_comments: fjooord says `if (dmg)` truthiness compiles var-first `fcmpu`, unlike explicit `!= 0.0f`",
+        "review_comments: final verification reports ftColl_80077970/ftColl_8007925C still 100% and full ninja build green"
       ]
     },
     {
-      "text": "Kept verifier evidence explicit in the PR body and bot report: isolated build, clean regression report, and per-symbol match/improvement table.",
+      "text": "Extracted repeated or bulky matching-sensitive logic into static inline helpers in `ftcoll.c` and `ftkirby.c`, while keeping public wrapper names where needed.",
       "evidence_refs": [
-        "human_pr_text: Verification section",
-        "text_corpus issue_comment: Report for GALE01"
+        "diff_excerpt: inlineItemA0/inlineItemA1 added for ftColl_80077970",
+        "diff_excerpt: ftKb_SpecialN_800EED50_inline plus wrapper",
+        "diff_excerpt: ftKb_SpecialN_800EF0E4_insert_joint_refs helper"
+      ]
+    },
+    {
+      "text": "Converted a deeply nested item-selection ladder in `ftCo_800A61D8` into early `continue` filters, making matching code more readable without losing the reported improvement.",
+      "evidence_refs": [
+        "diff_excerpt: ftCo_800A61D8 nested `relevant`/`prio` logic removed",
+        "text_corpus issue_comment: ftCo_800A61D8 improved 98.82% -> 99.11%"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For codegen-sensitive matching, extracting a repeated or bulky subblock into a static inline helper can change the wrapper shape enough to close or improve a match, but should be tied to verifier evidence.",
+      "lesson": "For float constants exposed as .sdata2 symbols, prefer inline literals for ordinary in-function uses when review evidence says data ordering should remain untouched; do not add extern redeclarations merely to force named constant loads unless a specific comparison/codegen case proves it.",
       "scope": [
-        "src/melee/ft/ftcoll.c",
-        "src/melee/ft/chara/ftKirby/ftkirby.c"
+        "ftcoll.c",
+        ".sdata2 float constants",
+        "MWCC literal/codegen matching"
       ],
       "evidence_refs": [
-        "diff_excerpt: ftColl_80077970 introduces inlineItemA0/inlineItemA1 and bot reports 100%",
-        "diff_excerpt: ftKb_SpecialN_800EF0E4_insert_joint_refs and bot reports improvement"
+        "review_comments: ribbanya requested literal inlining and preserving ordering",
+        "review_comments: fjooord confirmed extern redeclarations removed and usages inlined as literals"
+      ],
+      "confidence": 0.88
+    },
+    {
+      "lesson": "In MWCC float nonzero checks, `if (dmg)` can produce a different compare operand order than `dmg != 0.0f`; in this PR, truthiness matched variable-first `fcmpu` and avoided casted constant-symbol loads.",
+      "scope": [
+        "MWCC",
+        "float truthiness",
+        "fcmpu operand order",
+        "ftcoll.c"
+      ],
+      "evidence_refs": [
+        "review_comments: fjooord final verification of `if (dmg)` var-first `fcmpu`",
+        "review_comments: prior comment says explicit `!= 0.0f` regressed three comparisons to about 99.9%"
+      ],
+      "confidence": 0.9
+    },
+    {
+      "lesson": "Declaration order, local lifetimes, and PAD_STACK sizes remained matching-sensitive in several FT functions; the PR evidence supports treating these as narrow tactics verified by objdiff/build output, not as general style.",
+      "scope": [
+        "fighter TUs",
+        "declaration order",
+        "PAD_STACK",
+        "local stack shape"
+      ],
+      "evidence_refs": [
+        "diff_excerpt: PAD_STACK changes in fn_800D9930, ftCo_800AB224, ftKb_SpecialN_800EF0E4, ftKb_SpecialN_800EF35C",
+        "review_comments: PsiLupan notes declaration order was undesirable but removing it was a regression",
+        "PR body: regression report clean"
       ],
       "confidence": 0.78
-    },
-    {
-      "lesson": "Guard-continue control flow can be a useful alternative to deeply nested generated-looking conditionals when filtering candidates in loops.",
-      "scope": [
-        "src/melee/ft/chara/ftCommon/ftCo_0A01.c"
-      ],
-      "evidence_refs": [
-        "diff_excerpt: ftCo_800A61D8 removes nested relevant/prio ladder and uses continue guards",
-        "text_corpus issue_comment: ftCo_800A61D8 improves from 98.82% to 99.11%"
-      ],
-      "confidence": 0.72
-    },
-    {
-      "lesson": "Small stack-shape and declaration-lifetime changes, including PAD_STACK size and moving locals into narrower scopes, were used in this PR for score improvements and one new exact match; these remain matching tactics requiring verification rather than broad style guidance.",
-      "scope": [
-        "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
-        "src/melee/ft/chara/ftKirby/ftkirby.c",
-        "src/melee/ft/chara/ftCommon/ftCo_0A01.c"
-      ],
-      "evidence_refs": [
-        "diff_excerpt: fn_800D9930 PAD_STACK(4) and branch-local Item* it",
-        "diff_excerpt: ftKb_SpecialN_800EF0E4 PAD_STACK(4)",
-        "diff_excerpt: ftCo_800AB224 PAD_STACK(0x18)",
-        "human_pr_text: clean isolated regression report"
-      ],
-      "confidence": 0.7
     }
   ],
   "naming_conventions": [
     {
-      "text": "Observed inline helper names sometimes preserve the owning function name plus `_inline` or `_inline0`, e.g. ftKb_SpecialN_800EED50_inline and ftCo_800A9904_inline0.",
+      "name": "inlineItemA0 / inlineItemA1",
+      "context": "New static inline helper names introduced in `ftcoll.c` for decomposed item-hit collision logic.",
       "evidence_refs": [
-        "diff_excerpt: ftKb_SpecialN_800EED50_inline",
-        "diff_excerpt: ftCo_800A9904_inline0"
+        "diff_excerpt: `static inline void inlineItemA0(...)` and `static inline void inlineItemA1(...)`"
       ],
-      "confidence": 0.76
+      "notes": "Names are functional only at a coarse level and retain generated-like suffixes; no review evidence explains intended semantics."
     },
     {
-      "text": "Observed short local role names include fp, ip, cur, item, hit, ef_pos, part_off, sp28, and sp24; the PR does not provide enough evidence to promote these beyond local practice.",
+      "name": "ftKb_SpecialN_800EED50_inline",
+      "context": "Static inline helper paired with public wrapper `ftKb_SpecialN_800EED50`.",
       "evidence_refs": [
-        "diff_excerpt: ftCo_800A61D8 loop locals",
-        "diff_excerpt: inlineItemA0/inlineItemA1 signatures",
-        "diff_excerpt: ftKb_SpecialN_800EF0E4_insert_joint_refs signature"
+        "diff_excerpt: `void ftKb_SpecialN_800EED50` changed to `static inline void ftKb_SpecialN_800EED50_inline`, with wrapper added"
       ],
-      "confidence": 0.62
+      "notes": "Pattern preserves the original address-style public function name while extracting inlineable body."
     },
     {
-      "text": "Address-style global/function names are retained for unclear semantics, such as ftColl_804D82E0 and ftCo_800AB224.",
+      "name": "ftKb_SpecialN_800EF0E4_insert_joint_refs",
+      "context": "Static inline helper name describes the extracted HSD_IDInsertToTable/joint traversal loop.",
       "evidence_refs": [
-        "diff_excerpt: ftcoll.c ftColl_804D82E0 extern/definition",
-        "diff_excerpt: ftCo_800AB224"
+        "diff_excerpt: helper added before `ftKb_SpecialN_800EF0E4`"
       ],
-      "confidence": 0.8
+      "notes": "More semantic than address-style, but PR evidence only supports the name from the diff, not broader naming policy."
+    },
+    {
+      "name": "itemDist",
+      "context": "`ftCo_800A61D8` now calls `itemDist(fp, ip)` instead of the shown previous `ftCo_800A648C_inline0(fp, ip)` calls.",
+      "evidence_refs": [
+        "diff_excerpt: `best = itemDist(fp, ip);` and `dist = itemDist(fp, ip);`"
+      ],
+      "notes": "The diff excerpt does not show whether `itemDist` was newly introduced elsewhere or pre-existing."
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Static inline extraction to alter inlining and local code shape while preserving a public wrapper.",
+      "tactic": "Use boolean float truthiness to influence MWCC `fcmpu` operand order.",
+      "details": "The PR discussion reports `if (dmg)` compiled to variable-first `fcmpu`, while `dmg != 0.0f` canonicalized constant-first and caused near-matches instead of exact matches.",
       "evidence_refs": [
-        "diff_excerpt: ftColl_80077970 -> inlineItemA0/inlineItemA1",
-        "diff_excerpt: ftKb_SpecialN_800EED50 wrapper calls ftKb_SpecialN_800EED50_inline",
-        "diff_excerpt: ftKb_SpecialN_800EF0E4_insert_joint_refs"
+        "review_comments: discussion_r3405431152",
+        "review_comments: discussion_r3405582525"
       ]
     },
     {
-      "tactic": "PAD_STACK tuning and local declaration reordering were used in several touched functions.",
+      "tactic": "Inline ordinary float constants instead of referencing .sdata2 symbols where data ownership/order is not the matching target.",
+      "details": "Review requested replacing `ftColl_804D82EC` usages with literals such as `1.0f`; author later reported .sdata2 ordering restored and extern redeclarations removed.",
       "evidence_refs": [
-        "diff_excerpt: ftCo_800AB224 PAD_STACK(0x18)",
-        "diff_excerpt: fn_800D9930 PAD_STACK(4)",
-        "diff_excerpt: ftKb_SpecialN_800EF0E4 PAD_STACK(4)",
-        "diff_excerpt: ftKb_SpecialN_800EF35C adds PAD_STACK(4) and moves idx declaration"
+        "review_comments: discussion_r3405164858",
+        "review_comments: discussion_r3405431152"
       ]
     },
     {
-      "tactic": "Data placement was adjusted in ftcoll.c by declaring .sdata2 constants as extern near the top and defining them later after ftColl_80077970.",
+      "tactic": "Preserve or tune declaration order and PAD_STACK only with regression evidence.",
+      "details": "A reviewer explicitly disliked declaration-order dependence but accepted that removing it regressed; diffs show multiple declaration-order and PAD_STACK adjustments.",
       "evidence_refs": [
-        "diff_excerpt: ftcoll.c .sdata2 declarations changed to extern",
-        "diff_excerpt: later .sdata2 definitions inserted after ftColl_80077970"
+        "review_comments: discussion_r3399306973",
+        "diff_excerpt: fn_800D9930 PAD_STACK(4), ftCo_800AB224 PAD_STACK(0x18), ftKb PAD_STACK changes"
       ]
     },
     {
-      "tactic": "Explicit field and helper access was substituted for prior temporary variables or helper calls where it improved matching, e.g. ftCo_800A9904_inline0 and explicit mpIsland checks.",
+      "tactic": "Use static inline extraction and pointer out-parameters to shape codegen around large loops or reused collision logic.",
+      "details": "The PR introduced `inlineItemA0`, `inlineItemA1`, `ftKb_SpecialN_800EED50_inline`, and `ftKb_SpecialN_800EF0E4_insert_joint_refs`; reported matches/improvements support these as local matching tactics, not general source policy.",
       "evidence_refs": [
-        "diff_excerpt: ftCo_800A9904_inline0 returns fp->co_attrs.terminal_vel",
-        "diff_excerpt: ftCo_800AB224 expands mpIsland_8005AB54/mpIsland_8005AC14 checks"
+        "diff_excerpt: helper extractions in ftcoll.c and ftkirby.c",
+        "text_corpus issue_comment: reported match/improvement table"
+      ]
+    },
+    {
+      "tactic": "Use `goto retfalse` to share a return block when matching control-flow shape requires it.",
+      "details": "`ftColl_80077C60` changed a direct `return false` into `goto retfalse` and a shared label at function end, with bot-reported improvement but not full match.",
+      "evidence_refs": [
+        "diff_excerpt: `return false` changed to `goto retfalse`; `retfalse:` label added",
+        "text_corpus issue_comment: ftColl_80077C60 97.59% -> 98.60%"
       ]
     }
   ],
   "review_feedback": [
     {
-      "text": "No human review comments or review records are present in the loaded slice.",
+      "path": "src/melee/ft/ftcoll.c",
+      "author": "PsiLupan",
+      "feedback": "Declaration order used for matching was disliked, but removing it was known to regress.",
+      "resolution": "Subsequent comments and final verification indicate the branch retained a matching-safe form; exact final declaration-order details are only partially visible in the truncated diff.",
       "evidence_refs": [
-        "metadata_json: review_comments 0, reviews 0",
-        "text_corpus: only pr_body and decomp-dev[bot] issue_comment loaded"
+        "review_comments: discussion_r3399306973"
       ]
     },
     {
-      "text": "Automated bot feedback reports 4 new matches, 8 improvements, and matched code increase of +5812 bytes; this is validation/report evidence, not reviewer intent.",
+      "path": "src/melee/ft/ftcoll.c",
+      "author": "ribbanya",
+      "feedback": "Inline float constant usages as literals, e.g. replace `ftColl_804D82EC` uses with `1.0f`, and do not delete the existing .sdata2 ordering.",
+      "resolution": "Author reported .sdata2 block restored to original position, extern redeclarations removed, and normal usages inlined as literals.",
       "evidence_refs": [
-        "text_corpus issue_comment: Report for GALE01"
+        "review_comments: discussion_r3405164858",
+        "review_comments: discussion_r3405431152"
+      ]
+    },
+    {
+      "path": "src/melee/ft/ftcoll.c",
+      "author": "fjooord",
+      "feedback": "Initial attempt argued some forward declarations were load-bearing to prevent compiler literal pooling; this was revised after review.",
+      "resolution": "Final comment says `if (dmg)` made extern casts unnecessary and local verification found zero regressions.",
+      "evidence_refs": [
+        "review_comments: discussion_r3405051358",
+        "review_comments: discussion_r3405582525"
       ]
     }
   ],
   "searchable_terms": [
-    "pr-2655",
-    "Melee decomp: FT",
+    "PR2655",
+    "Melee decomp FT",
     "fjooord",
-    "src/melee/ft/ftcoll.c",
-    "src/melee/ft/chara/ftCommon/ftCo_0A01.c",
-    "src/melee/ft/chara/ftCommon/ftCo_Attack100.c",
-    "src/melee/ft/chara/ftKirby/ftkirby.c",
+    "fighter",
+    "ftcoll.c",
     "ftColl_80077970",
     "ftColl_8007925C",
     "ftColl_80077C60",
-    "ftCo_800AB224",
-    "ftCo_800A61D8",
-    "ftCo_800A9904",
-    "fn_800D8EC8",
-    "fn_800D9930",
-    "ftKb_SpecialN_800EED50",
-    "ftKb_SpecialN_800EF0E4",
-    "ftKb_SpecialN_800EF35C",
     "inlineItemA0",
     "inlineItemA1",
-    "ftKb_SpecialN_800EF0E4_insert_joint_refs",
+    "ftColl_804D82E0",
+    "ftColl_804D82EC",
+    ".sdata2",
+    "float literal",
+    "if (dmg)",
+    "fcmpu variable-first",
+    "extern redeclaration",
+    "declaration order regression",
     "PAD_STACK",
-    "sdata2",
+    "ftCo_0A01.c",
+    "ftCo_800A61D8",
+    "ftCo_800A9904",
+    "ftCo_800AB224",
     "mpIsland_8005AB54",
     "mpIsland_8005AC14",
-    "HSD_IDInsertToTable",
-    "Item_IsGrabbable",
-    "itemDist"
+    "ftCo_Attack100.c",
+    "fn_800D9930",
+    "Samus grapple",
+    "ftkirby.c",
+    "ftKb_Init_803CB46C",
+    "ftKb_SpecialN_800EED50_inline",
+    "ftKb_SpecialN_800EF0E4_insert_joint_refs",
+    "HSD_IDInsertToTable"
   ],
   "follow_up_queries": [
-    "Search later PRs for inlineItemA0 inlineItemA1 to see whether ftColl_80077970 helper names survived review.",
-    "Search later PRs for ftKb_SpecialN_800EF0E4_insert_joint_refs to see whether extracted joint traversal became accepted or was cleaned up.",
-    "Search ftcoll.c history for ftColl_804D82E0 .sdata2 extern definitions to determine whether this data-placement tactic was retained.",
-    "Search later comments on PR #2655 for human review after the loaded slice timestamp, because current slice has no review comments.",
-    "Search for ftCo_800AB224 and ftCo_800A21FC in later source to determine whether the explicit mpIsland expansion was retained or reabstracted."
+    "Find other PRs discussing `if (float)` versus `!= 0.0f` and MWCC `fcmpu` operand order.",
+    "Search for `.sdata2` extern redeclarations in `src/melee/ft/ftcoll.c` and whether later PRs removed or standardized them.",
+    "Search past PRs for reviewer comments about declaration order being load-bearing or a regression.",
+    "Search for other fighter PRs that use static inline wrapper names ending in `_inline` to preserve public function symbols.",
+    "Search for `ftColl_804D82E0`, `ftColl_804D82E8`, and `ftColl_804D82EC` handling across later ftcoll cleanup PRs.",
+    "Search for `PAD_STACK` adjustments in `ft/chara/ftKirby/ftkirby.c` around `ftKb_SpecialN_800EF0E4` and `ftKb_SpecialN_800EF35C`."
   ],
   "evidence_quality": {
-    "status": "mixed",
+    "status": "strong",
     "evidence_refs": [
-      "metadata_json: PR identity, state OPEN, changed-file counts",
-      "human_pr_text: summary and verification claims",
-      "text_corpus issue_comment: automated match/improvement report",
-      "diff_excerpt/raw_diff: representative file changes, but raw_diff marked truncated"
+      "PR body in human_pr_text.md",
+      "changed_files.jsonl",
+      "text_corpus.jsonl bot report and review comments",
+      "review_comments.md full comments",
+      "diff_excerpt/raw_diff excerpt"
     ],
     "notes": [
-      "Strong evidence for PR identity, changed files, validation claims, and automated match report.",
-      "Diff evidence is truncated, so details for later ftcoll.c hunks and any omitted context are incomplete.",
-      "No human review comments are loaded; review feedback is limited to automated bot output.",
-      "The PR is open and merged_at is null in the loaded metadata; do not infer merge or final acceptance.",
-      "Verification claims come from PR body and bot report in the slice; no independent tool execution was performed during intake."
+      "The PR identity, files, author, merge time, and verification claims are directly present in loaded PR metadata/body.",
+      "Review feedback about .sdata2 ordering, literal inlining, extern redeclarations, and `if (dmg)` is direct and detailed.",
+      "The raw diff is truncated, so file-level summaries are based only on visible hunks plus changed-file metadata and bot report.",
+      "The PR body claims 4 newly matched functions, while the loaded bot report excerpt lists 3 new matches and 8 improvements; this record preserves both claims rather than reconciling them beyond available evidence.",
+      "No independent build or objdiff was run during intake; validation statements are PR evidence only."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "record_type": "decomp_lesson_candidate",
-        "title": "Static inline extraction as a narrow matching tactic",
-        "text": "PR #2655 shows static inline extraction used in ftColl_80077970 and Kirby SpecialN functions, with bot-reported exact matches or improvements. Treat as a tactic requiring verifier evidence, not as unconditional style.",
+        "record_type": "matching_tactic",
+        "title": "MWCC float truthiness can affect `fcmpu` operand order",
+        "text": "In PR #2655, `if (dmg)` was reported to compile variable-first `fcmpu`, while `dmg != 0.0f` canonicalized constant-first and regressed matching in `inlineItemA0`, `inlineItemA1`, and `ftColl_8007925C`. The final branch used truthiness and reported zero regressions.",
         "scope": [
-          "fighter",
-          "src/melee/ft/ftcoll.c",
-          "src/melee/ft/chara/ftKirby/ftkirby.c"
+          "MWCC",
+          "float comparisons",
+          "ftcoll.c"
         ],
         "evidence_refs": [
-          "diff_excerpt: inlineItemA0/inlineItemA1",
-          "diff_excerpt: ftKb_SpecialN_800EED50_inline",
-          "diff_excerpt: ftKb_SpecialN_800EF0E4_insert_joint_refs",
-          "text_corpus issue_comment: match/improvement table"
-        ]
+          "review_comments: discussion_r3405431152",
+          "review_comments: discussion_r3405582525"
+        ],
+        "confidence": 0.9
       },
       {
-        "record_type": "decomp_lesson_candidate",
-        "title": "Guard-continue loop filters can replace nested generated conditionals",
-        "text": "In ftCo_800A61D8, nested item relevance/prio logic was rewritten into continue guards and helper calls, with the bot reporting a score improvement for the function.",
+        "record_type": "review_lesson",
+        "title": "Do not move .sdata2 ordering or add extern redeclarations when literals suffice",
+        "text": "The ftcoll.c review resolved a .sdata2 matching issue by restoring the original .sdata2 block placement, removing extern redeclarations, and inlining ordinary constants such as `1.0f`, `0.5f`, and `±1.0f` as literals.",
         "scope": [
-          "fighter-common",
-          "src/melee/ft/chara/ftCommon/ftCo_0A01.c"
+          "ftcoll.c",
+          ".sdata2",
+          "float literals"
         ],
         "evidence_refs": [
-          "diff_excerpt: ftCo_800A61D8",
-          "text_corpus issue_comment: ftCo_800A61D8 improves"
-        ]
+          "review_comments: discussion_r3405164858",
+          "review_comments: discussion_r3405431152"
+        ],
+        "confidence": 0.86
       }
     ],
     "source_update_candidates": [
       {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "ftcoll.c .sdata2 constants placement around ftColl_80077970",
-        "text": "In PR #2655, ftcoll.c changed ftColl_804D82E0 through ftColl_804D831C from early .sdata2 definitions to early extern declarations with definitions placed after ftColl_80077970. Curator should verify against current source/history before recording as a path fact.",
-        "source_path": "src/melee/ft/ftcoll.c",
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Mention float truthiness as a narrow MWCC compare-order tactic",
+        "text": "Consider adding a narrow note that, when objdiff shows MWCC float compare operand-order issues, `if (x)` may differ from `x != 0.0f`; keep only with per-function evidence. PR #2655 reports `if (dmg)` produced variable-first `fcmpu` and removed the need for extern constant casts.",
+        "source_path": null,
         "scope": [
-          "fighter-collision",
-          ".sdata2",
-          "ftColl_80077970"
+          "matching-tactics-need-evidence",
+          "literals-and-data-ownership",
+          "MWCC float comparisons"
         ],
         "evidence_refs": [
-          "diff_excerpt: ftcoll.c top .sdata2 block changed to extern declarations",
-          "diff_excerpt: .sdata2 definitions inserted after ftColl_80077970"
+          "review_comments: discussion_r3405582525"
         ],
-        "reason": "Possible file-specific data-placement fact, but it may be a temporary matching tactic and the PR is still open in the loaded metadata."
+        "reason": "The behavior is concrete and verified in the PR comments, but should be curated as a narrow tactic rather than promoted automatically."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Inline-helper extraction should remain evidence-gated",
-        "text": "PR #2655 provides another example where static inline helpers and wrapper functions were used for matching. Existing standards already caution that manual inline expansion/tactics need evidence; curator may consider whether inline-helper extraction should be named explicitly if similar PRs accumulate.",
+        "title": "Strengthen guidance against extern redeclarations for ordinary float literal loads",
+        "text": "PR #2655 provides a review example where extern redeclarations of .sdata2 float constants were removed and in-function uses were restored to literals while preserving data ordering. This may reinforce existing literal/data-ownership standards.",
         "source_path": null,
         "scope": [
-          "matching tactics",
-          "static inline helpers",
-          "fighter"
+          "literals-and-data-ownership",
+          "text-before-data-matching",
+          ".sdata2"
         ],
         "evidence_refs": [
-          "diff_excerpt: inlineItemA0/inlineItemA1",
-          "diff_excerpt: ftKb_SpecialN_800EED50_inline",
-          "human_pr_text: clean verification claim",
-          "text_corpus issue_comment: bot match report"
+          "review_comments: discussion_r3405164858",
+          "review_comments: discussion_r3405431152"
         ],
-        "reason": "Potential refinement to existing matching-tactics guidance; one PR alone is not enough to promote a new global standard."
+        "reason": "The loaded standards already cover literals and data ownership; this PR is a concrete supporting example for curator consideration."
       }
     ],
     "rejection_notes": [
-      "Do not promote PAD_STACK size choices from this PR as general style; they are local codegen tactics with verifier evidence only for this slice.",
-      "Do not infer semantic names for address-style symbols such as ftColl_804D82E0 or ftCo_800AB224; the PR keeps address-style names.",
-      "Do not treat the bot report as human review approval or merge acceptance.",
-      "Do not conclude that data-section movement is broadly acceptable; ftcoll.c data relocation needs source/path verification and may be specific to this match."
+      "Do not promote `ftKb_Init_803CB46C` signed-to-unsigned change as a general naming/type lesson; the diff shows it, but no review or body evidence explains the reason.",
+      "Do not treat static inline helper extraction as a universal style preference; in this PR it is evidence-backed only as local matching work.",
+      "Do not claim the final source has no data diff beyond the author/reviewer statements; intake did not inspect the full final diff or run tools.",
+      "Do not infer reviewer intent beyond the explicit comments about declaration order, literal inlining, and .sdata2 ordering."
     ]
   },
-  "confidence": 0.82,
+  "confidence": 0.86,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

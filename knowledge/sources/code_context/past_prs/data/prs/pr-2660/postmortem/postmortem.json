@@ -1,0 +1,483 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2660",
+  "pr": {
+    "number": 2660,
+    "title": "Improve mnDiagram input and init matching",
+    "url": "https://github.com/doldecomp/melee/pull/2660",
+    "state": "MERGED",
+    "author": "itsgrimetime",
+    "created_at": "2026-06-11T23:30:05Z",
+    "merged_at": "2026-06-12T16:49:19Z"
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "PR #2660 improved VS Records mnDiagram matching, mainly by reshaping mnDiagram_InputProc, mnDiagram2_HandleInput, and diagram init paths, adding visible-entry helper use, refining diagram asset/table overlays and signatures, and updating related symbols and headers. Review focused on avoiding data/string/floating-literal regressions, using readable flags, and considering natural loops for moved scan helpers.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "cleanup",
+      "decomp-matching",
+      "headers",
+      "types-structs",
+      "symbol-metadata"
+    ],
+    "systems": [
+      "melee-core",
+      "menu",
+      "mnDiagram",
+      "VS Records"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/mn/mndiagram.c",
+      "role": "Primary decomp source changes: mnDiagram_InputProc reshaping, helper extraction for visible name/fighter scans, asset overlay restructuring, init-path changes, and functions mnDiagram_80243434, mnDiagram_802437E8, mnDiagram_802427B4.",
+      "evidence_refs": [
+        "changed_files: src/melee/mn/mndiagram.c +474/-425, 26 hunks",
+        "pr_body: improves mnDiagram_InputProc; matches mnDiagram_80243434 and mnDiagram_802437E8; mnDiagram_802427B4 improves",
+        "diff_excerpt: added mnDiagram_GetVisibleNameFrom, mnDiagram_GetVisibleFighterFrom, mnDiagram_FindPrev/Next helpers, mnDiagram_SaveCursorToGameRules",
+        "review_comments: src/melee/mn/mndiagram.c comments by jurrejelle"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mndiagram2.c",
+      "role": "Secondary source changes for mnDiagram2 input matching.",
+      "evidence_refs": [
+        "changed_files: src/melee/mn/mndiagram2.c +30/-23, 8 hunks",
+        "pr_body: improves mnDiagram2_HandleInput from 89.3421% to 97.460526%"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mndiagram3.c",
+      "role": "Related mnDiagram3 changes, including data/function matching per report context.",
+      "evidence_refs": [
+        "changed_files: src/melee/mn/mndiagram3.c +16/-0, 1 hunk",
+        "text_corpus: bot report lists mnDiagram3 .data and mnDiagram3_80247008 as new matches"
+      ]
+    },
+    {
+      "path": "config/GALE01/symbols.txt",
+      "role": "Symbol metadata adjustments around mnDiagram3 data split/local strings.",
+      "evidence_refs": [
+        "changed_files: config/GALE01/symbols.txt +4/-1, 1 hunk",
+        "diff_excerpt: mnDiagram3_803EEC4C size changed 0x94 to 0x60 and local string symbols @330, @331, @332 added"
+      ]
+    },
+    {
+      "path": "src/melee/mn/inlines.h",
+      "role": "Menu inline helper update adding GET_DIAGRAM macro.",
+      "evidence_refs": [
+        "changed_files: src/melee/mn/inlines.h +1/-0, 1 hunk",
+        "diff_excerpt: added #define GET_DIAGRAM(gobj) ((Diagram*) HSD_GObjGetUserData(gobj))"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mndiagram.h",
+      "role": "Header signature/prototype updates tied to recovered diagram functions.",
+      "evidence_refs": [
+        "changed_files: src/melee/mn/mndiagram.h +2/-2, 2 hunks"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mndiagram.static.h",
+      "role": "Static header updates for diagram internals.",
+      "evidence_refs": [
+        "changed_files: src/melee/mn/mndiagram.static.h +2/-0, 1 hunk"
+      ]
+    },
+    {
+      "path": "src/melee/mn/mndiagram3.static.h",
+      "role": "Static header updates for mnDiagram3 data/signatures.",
+      "evidence_refs": [
+        "changed_files: src/melee/mn/mndiagram3.static.h +1/-4, 1 hunk"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "Reshaped mnDiagram_InputProc and mnDiagram2_HandleInput to improve matching, with PR-claimed mnDiagram_InputProc score moving from 93.74395% to 98.672615% and mnDiagram2_HandleInput from 89.3421% to 97.460526%.",
+      "evidence_refs": [
+        "pr_body: Notable function changes",
+        "text_corpus: bot report lists improvements for mnDiagram_InputProc and mnDiagram2_HandleInput"
+      ]
+    },
+    {
+      "text": "Matched mnDiagram_80243434 and mnDiagram_802437E8 according to the PR body, with mnDiagram_802437E8 init path using refined asset/table overlay access and type signatures.",
+      "evidence_refs": [
+        "pr_body: matches mnDiagram_80243434 and mnDiagram_802437E8",
+        "review_comments: mnDiagram_802437E8 hunk shows arg types changed to u8 and table/assets access changes"
+      ]
+    },
+    {
+      "text": "Added local inline helpers for visible-entry scanning and cursor persistence, including mnDiagram_GetVisibleNameFrom, mnDiagram_GetVisibleFighterFrom, mnDiagram_FindPrev/Next helpers, and mnDiagram_SaveCursorToGameRules.",
+      "evidence_refs": [
+        "diff_excerpt: helper additions before mnDiagram_InputProc",
+        "diff_excerpt: mnDiagram_InputProc calls mnDiagram_GetVisibleNameFrom and mnDiagram_FindPrevName"
+      ]
+    },
+    {
+      "text": "Adjusted mnDiagram asset layout names and size assertion, changing grouped asset arrays such as NmB, FaceB, CursorB1, ConB2, ConB3, and CursorB3.",
+      "evidence_refs": [
+        "diff_excerpt: mnDiagram_Assets field changes and STATIC_ASSERT size 0x108 to 0x118"
+      ]
+    },
+    {
+      "text": "Added GET_DIAGRAM(gobj) to src/melee/mn/inlines.h as a typed user-data accessor for Diagram.",
+      "evidence_refs": [
+        "diff_excerpt: inlines.h adds GET_DIAGRAM macro"
+      ]
+    },
+    {
+      "text": "Updated GALE01 symbols metadata for mnDiagram3_803EEC4C and added local string symbols @330, @331, and @332.",
+      "evidence_refs": [
+        "diff_excerpt: config/GALE01/symbols.txt hunk"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "Factoring repeated visible-entry scan logic into named helpers made the input handler more reviewable and reusable within the mnDiagram family, while still preserving matching-oriented control flow in the diff excerpt.",
+      "evidence_refs": [
+        "diff_excerpt: added mnDiagram_GetVisibleNameFrom/GetVisibleFighterFrom and related helpers",
+        "pr_body: refines visible-entry helper use"
+      ]
+    },
+    {
+      "text": "The author responded to review by removing a synthetic tail/string table and restoring archive section strings at call sites.",
+      "evidence_refs": [
+        "review_comment by itsgrimetime: Fixed in 15e368d: removed the synthetic tail/string table and restored the archive section strings at the call sites"
+      ]
+    },
+    {
+      "text": "The author responded to review by restoring literal layout floats in mnDiagram_802427B4 and removing generated sdata2 externs.",
+      "evidence_refs": [
+        "metadata review_feedback_examples: Fixed in 15e368d: restored the literal layout floats in mnDiagram_802427B4 and removed the generated sdata2 externs"
+      ]
+    },
+    {
+      "text": "The author responded to review by replacing raw 0x10 visibility masks with JOBJ_HIDDEN.",
+      "evidence_refs": [
+        "metadata review_feedback_examples: Fixed in 15e368d: replaced the raw 0x10 visibility masks with JOBJ_HIDDEN"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "For code-matching PRs, avoid turning inline archive section strings into a synthetic string/table structure unless the PR has explicit data-ownership evidence; reviewers identified this as a regression that makes review/linking harder.",
+      "scope": [
+        "mnDiagram init paths",
+        "archive section loading",
+        "code-matching PRs with data strings"
+      ],
+      "evidence_refs": [
+        "review_comment jurrejelle: Don't remove strings, that big data/string table up top is a regression that will make it harder to review",
+        "review_comment jurrejelle: Bad, this is a regression and is gonna make it harder to link",
+        "review_comment itsgrimetime: Fixed in 15e368d: removed the synthetic tail/string table and restored the archive section strings at the call sites"
+      ]
+    },
+    {
+      "lesson": "Do not replace ordinary float literals with generated sdata2 externs just to improve data layout; this PR's review explicitly requested not de-inlining floats and the author restored literal floats.",
+      "scope": [
+        "mnDiagram_802427B4",
+        "float literals",
+        ".sdata2 cleanup"
+      ],
+      "evidence_refs": [
+        "review_comment jurrejelle: Don't de-inline floats",
+        "metadata review_feedback_examples: restored the literal layout floats in mnDiagram_802427B4 and removed the generated sdata2 externs"
+      ]
+    },
+    {
+      "lesson": "When a magic bitmask is a known JObj flag, using the named flag improves readability; this PR's raw 0x10 visibility mask was called out and reportedly replaced with JOBJ_HIDDEN.",
+      "scope": [
+        "HSD_JObjSetFlagsAll",
+        "HSD_JObjClearFlagsAll",
+        "mnDiagram_80243434"
+      ],
+      "evidence_refs": [
+        "review_comment jurrejelle: Maybe replace the 0x10 here with the actual flags that are being cleared for readability?",
+        "metadata review_feedback_examples: replaced the raw 0x10 visibility masks with JOBJ_HIDDEN"
+      ]
+    },
+    {
+      "lesson": "Repeated scan helpers with goto-shaped bodies may still be candidates for natural for/while loops; review noted the newly factored visible-entry helpers were probably for loops, though not required for this merge because they appeared to be moved code.",
+      "scope": [
+        "visible-entry scans",
+        "mnDiagram helper extraction"
+      ],
+      "evidence_refs": [
+        "review_comment jurrejelle: All of these are probably for loops, but since I think you just moved them ig not 100% required to merge",
+        "diff_excerpt: helper functions use while plus labels/goto"
+      ]
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "Typed accessor macro naming follows existing GET_MENU style: GET_DIAGRAM(gobj) casts HSD_GObjGetUserData(gobj) to Diagram*.",
+      "evidence_refs": [
+        "diff_excerpt: inlines.h has GET_MENU and added GET_DIAGRAM"
+      ]
+    },
+    {
+      "text": "Helper names in this PR use mnDiagram_ verb phrases describing visible-entry navigation: GetVisibleNameFrom, GetVisibleFighterFrom, FindPrevFighter, FindNextFighter, FindPrevName, FindNextName, and SaveCursorToGameRules.",
+      "evidence_refs": [
+        "diff_excerpt: added helper function declarations/definitions"
+      ]
+    },
+    {
+      "text": "Asset overlay field names were refined toward archive section component names such as NmB, FaceB, CursorB1, ConB1, ConB2, ConB3, and CursorB3.",
+      "evidence_refs": [
+        "diff_excerpt: mnDiagram_Assets field changes"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "text": "Used helper extraction/inlining to share repeated visible-name and visible-fighter scan patterns while improving mnDiagram_InputProc source shape.",
+      "evidence_refs": [
+        "diff_excerpt: static inline helpers added immediately before mnDiagram_InputProc",
+        "pr_body: refines visible-entry helper use"
+      ]
+    },
+    {
+      "text": "Used PAD_STACK in mnDiagram_InputProc with changed padding from 72 to 64 in the excerpt; no reviewer evidence in the loaded slice explains the necessity, so treat this only as observed matching tactic use.",
+      "evidence_refs": [
+        "diff_excerpt: PAD_STACK(72) changed to PAD_STACK(64)"
+      ]
+    },
+    {
+      "text": "Adjusted function signatures/types where the PR body says type signatures were refined, including mnDiagram_802437E8 changing parameters from s32 to u8 in the shown hunk.",
+      "evidence_refs": [
+        "pr_body: refines type signatures",
+        "review_comments hunk: void mnDiagram_802437E8(s32 arg0, s32 arg1) to void mnDiagram_802437E8(u8 arg0, u8 arg1)"
+      ]
+    },
+    {
+      "text": "Updated symbol metadata for mnDiagram3 data size and local strings to support data/function matching around mnDiagram3.",
+      "evidence_refs": [
+        "diff_excerpt: symbols.txt size/local string symbol updates",
+        "text_corpus: bot report shows mnDiagram3 .data reached 100%"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "reviewer": "jurrejelle",
+      "path": "src/melee/mn/mndiagram.c",
+      "feedback": "Do not remove strings into a big data/string table; reviewer called it a regression that would make the PR harder to review.",
+      "evidence_refs": [
+        "review_comment: https://github.com/doldecomp/melee/pull/2660#discussion_r3401011612"
+      ],
+      "resolution_in_slice": "Author said fixed in 15e368d by removing the synthetic tail/string table and restoring archive section strings at call sites."
+    },
+    {
+      "reviewer": "jurrejelle",
+      "path": "src/melee/mn/mndiagram.c",
+      "feedback": "Replace raw 0x10 JObj flag masks with the actual flag name for readability.",
+      "evidence_refs": [
+        "review_comment: https://github.com/doldecomp/melee/pull/2660#discussion_r3401014551"
+      ],
+      "resolution_in_slice": "Metadata notes author fixed by replacing raw 0x10 visibility masks with JOBJ_HIDDEN."
+    },
+    {
+      "reviewer": "jurrejelle",
+      "path": "src/melee/mn/mndiagram.c",
+      "feedback": "Do not de-inline floats into generated symbols/externs.",
+      "evidence_refs": [
+        "review_comment: https://github.com/doldecomp/melee/pull/2660#discussion_r3401016128"
+      ],
+      "resolution_in_slice": "Metadata notes author restored literal layout floats in mnDiagram_802427B4 and removed generated sdata2 externs."
+    },
+    {
+      "reviewer": "jurrejelle",
+      "path": "src/melee/mn/mndiagram.c",
+      "feedback": "Visible-entry helper bodies are probably for loops, though not fully required if they were only moved code.",
+      "evidence_refs": [
+        "review_comment: https://github.com/doldecomp/melee/pull/2660#discussion_r3401019384"
+      ],
+      "resolution_in_slice": "No explicit final code excerpt proving conversion to loops; keep as follow-up/lesson candidate only."
+    },
+    {
+      "reviewer": "jurrejelle",
+      "path": "src/melee/mn/mndiagram.c",
+      "feedback": "Synthetic data tail/string table was called bad, a regression, and harder to link.",
+      "evidence_refs": [
+        "review_comment: https://github.com/doldecomp/melee/pull/2660#discussion_r3401020648"
+      ],
+      "resolution_in_slice": "Author later said synthetic tail/string table was removed."
+    }
+  ],
+  "searchable_terms": [
+    "PR2660",
+    "mnDiagram",
+    "mnDiagram_InputProc",
+    "mnDiagram2_HandleInput",
+    "mnDiagram_80243434",
+    "mnDiagram_802437E8",
+    "mnDiagram_802427B4",
+    "mnDiagram_CursorProc",
+    "mnDiagram_GetVisibleNameFrom",
+    "mnDiagram_GetVisibleFighterFrom",
+    "mnDiagram_FindPrevFighter",
+    "mnDiagram_FindNextFighter",
+    "mnDiagram_FindPrevName",
+    "mnDiagram_FindNextName",
+    "mnDiagram_SaveCursorToGameRules",
+    "GET_DIAGRAM",
+    "GET_DIAGRAM_ANIM_TABLE",
+    "JOBJ_HIDDEN",
+    "HSD_JObjSetFlagsAll",
+    "HSD_JObjClearFlagsAll",
+    "lbArchive_LoadSections",
+    "MenMainConB1_Top_joint",
+    "synthetic tail string table",
+    "de-inline floats",
+    "sdata2 externs",
+    "visible-entry helper",
+    "VS Records diagram",
+    "mnDiagram3_803EEC4C",
+    "mnDiagram3_80247008"
+  ],
+  "follow_up_queries": [
+    "PR2660 mnDiagram synthetic tail string table regression",
+    "mnDiagram_802427B4 de-inline floats sdata2 externs",
+    "mnDiagram JOBJ_HIDDEN 0x10 visibility masks",
+    "mnDiagram visible-entry helpers for loops",
+    "mnDiagram_InputProc PAD_STACK 64 matching",
+    "mnDiagram2_HandleInput visible helper reuse",
+    "mnDiagram3_803EEC4C symbols local strings @330 @331 @332"
+  ],
+  "evidence_quality": {
+    "status": "strong",
+    "evidence_refs": [
+      "metadata_json: PR identity, state, changed files, counts",
+      "human_pr_text: PR summary, matching, verification",
+      "changed_files.jsonl: exact changed-file list",
+      "diff_excerpt/raw_diff: representative hunks for symbols, inlines.h, mndiagram.c",
+      "review_comments_excerpt/text_corpus: reviewer comments and author fix notes"
+    ],
+    "notes": [
+      "Loaded review_comments and raw_diff are truncated, so later final-state details for some hunks are represented from metadata review_feedback_examples rather than full final diff.",
+      "The PR body claims verification commands and matching improvements; this intake records those claims as PR evidence, not independently rerun validation.",
+      "The slice provides no complete final diff confirming every review fix, but author fix comments and metadata examples support the main regression resolutions.",
+      "No tool lookup was needed because the loaded PR evidence and standards answered the intake questions."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "record_type": "pr_lesson",
+        "title": "Avoid synthetic string/data tables in focused code-matching PRs",
+        "text": "In PR #2660, moving archive section strings into a synthetic tail/string table in mnDiagram was reviewed as a regression that made the PR harder to review/link; the author reported restoring strings at lbArchive_LoadSections call sites.",
+        "scope": [
+          "mnDiagram",
+          "archive section strings",
+          "code matching"
+        ],
+        "evidence_refs": [
+          "review_comment jurrejelle discussion_r3401011612",
+          "review_comment jurrejelle discussion_r3401020648",
+          "author fix comment: Fixed in 15e368d"
+        ]
+      },
+      {
+        "record_type": "pr_lesson",
+        "title": "Keep ordinary float literals inline unless data ownership is proven",
+        "text": "PR #2660 review rejected replacing mnDiagram_802427B4 float literals with generated mnDiagram_804DBFxx symbols; the author restored literal layout floats and removed generated sdata2 externs.",
+        "scope": [
+          "mnDiagram_802427B4",
+          ".sdata2",
+          "float literals"
+        ],
+        "evidence_refs": [
+          "review_comment jurrejelle discussion_r3401016128",
+          "metadata review_feedback_examples"
+        ]
+      },
+      {
+        "record_type": "pr_lesson",
+        "title": "Use named JObj flags instead of raw visibility masks",
+        "text": "PR #2660 review asked to replace raw 0x10 masks passed to HSD_JObjSetFlagsAll/HSD_JObjClearFlagsAll with the actual flag; metadata says the author replaced them with JOBJ_HIDDEN.",
+        "scope": [
+          "HSD_JObj flags",
+          "mnDiagram_80243434"
+        ],
+        "evidence_refs": [
+          "review_comment jurrejelle discussion_r3401014551",
+          "metadata review_feedback_examples"
+        ]
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Mention review-backed rejection of de-inlining floats into generated sdata2 externs",
+        "text": "PR #2660 is a concrete example for the existing literals/data standards: reviewers rejected replacing inline floats in mnDiagram_802427B4 with generated mnDiagram_804DBFxx symbols, and the author restored literal floats.",
+        "source_path": null,
+        "scope": [
+          "literals-and-data-ownership",
+          "text-before-data-matching",
+          "mnDiagram_802427B4"
+        ],
+        "evidence_refs": [
+          "review_comment jurrejelle: Don't de-inline floats",
+          "metadata: Fixed in 15e368d restored literal layout floats and removed generated sdata2 externs"
+        ],
+        "reason": "Could be added as an example under existing standards rather than a new rule."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Use named engine flags when replacing raw masks is supported",
+        "text": "PR #2660 review requested replacing raw 0x10 JObj visibility masks with the actual flag name, and metadata says JOBJ_HIDDEN was used.",
+        "source_path": null,
+        "scope": [
+          "canonical-control-flow-and-macros",
+          "typed-fields-over-pointer-math",
+          "HSD_JObjSetFlagsAll",
+          "HSD_JObjClearFlagsAll"
+        ],
+        "evidence_refs": [
+          "review_comment jurrejelle: Maybe replace the 0x10 here with the actual flags",
+          "metadata: replaced raw 0x10 visibility masks with JOBJ_HIDDEN"
+        ],
+        "reason": "The loaded standards cover macros/typed access broadly, but this is a useful concrete flag-readability example."
+      },
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Synthetic data/string tables can be regressions in focused code matches",
+        "text": "PR #2660 review called a synthetic mnDiagram tail/string table a regression that made review/linking harder; the author removed it and restored archive strings at call sites.",
+        "source_path": null,
+        "scope": [
+          "no-string-literal-symbol-regression",
+          "text-before-data-matching",
+          "data-sections-and-tu-splits"
+        ],
+        "evidence_refs": [
+          "review_comment jurrejelle: Don't remove strings...",
+          "review_comment jurrejelle: Bad, this is a regression...",
+          "author fix comment: removed the synthetic tail/string table"
+        ],
+        "reason": "Supports existing standards with a concrete PR example."
+      }
+    ],
+    "rejection_notes": [
+      "Do not promote the PR's matching percentages as independently validated by this intake; they are PR/body/bot-report evidence only.",
+      "Do not infer that all newly added visible-entry helpers should be rewritten as for loops in the final source; the reviewer said probably for loops but not required, and the loaded final diff is truncated.",
+      "Do not mark PAD_STACK(64) as an accepted permanent tactic; the slice shows it but does not provide reviewer or objdiff-specific justification beyond the PR's general build/report claims.",
+      "Do not treat the symbols.txt local string updates as a general data-splitting rule; only record them as changed metadata in this PR."
+    ]
+  },
+  "confidence": 0.86,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

@@ -12,13 +12,13 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "A one-file stage decomp matching PR for `src/melee/gr/grinishie1.c` changed `grInishie1_801FBC4C` by introducing a local `HSD_JObj* jobj2` before calling `DOBJ_CLEAR_LOOP`. The PR body says this fixed register allocation and matched the function to 100%; the bot report confirms one new match for `grInishie1_801FBC4C`, moving that item from 93.85% to 100.00%.",
+  "summary": "Small stage decomp-matching PR for `src/melee/gr/grinishie1.c`: `grInishie1_801FBC4C` was reported as reaching 100% by introducing a local `HSD_JObj* jobj2` before calling `DOBJ_CLEAR_LOOP`, fixing register allocation.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "register-allocation-fix",
-      "small-source-cleanup"
+      "small-code-cleanup"
     ],
     "systems": [
       "stage",
@@ -29,176 +29,145 @@
   "key_files": [
     {
       "path": "src/melee/gr/grinishie1.c",
-      "role": "Only changed source file; contains `grInishie1_801FBC4C` and the local `HSD_JObj* jobj2` extraction before `DOBJ_CLEAR_LOOP`.",
+      "role": "Only changed source file; updated `grInishie1_801FBC4C` to store `gp->gv.inishie1.blocks[index].jobj2` in a local `HSD_JObj* jobj2` before `DOBJ_CLEAR_LOOP`.",
       "evidence_refs": [
-        "changed_files.jsonl: src/melee/gr/grinishie1.c added 2 deleted 1 hunks 1",
+        "changed_files.jsonl: src/melee/gr/grinishie1.c added 2 deleted 1 hunk 1",
         "raw_diff: hunk in grInishie1_801FBC4C",
-        "human_pr_text: PR body"
+        "pr_body: 'introducing a local `HSD_JObj* jobj2` to fix register allocation'"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Replaced direct macro use `DOBJ_CLEAR_LOOP(gp->gv.inishie1.blocks[index].jobj2)` with a local `HSD_JObj* jobj2 = gp->gv.inishie1.blocks[index].jobj2;` followed by `DOBJ_CLEAR_LOOP(jobj2);`.",
+      "path": "src/melee/gr/grinishie1.c",
+      "symbol": "grInishie1_801FBC4C",
+      "change": "Replaced direct macro argument `DOBJ_CLEAR_LOOP(gp->gv.inishie1.blocks[index].jobj2)` with a local assignment `HSD_JObj* jobj2 = gp->gv.inishie1.blocks[index].jobj2;` followed by `DOBJ_CLEAR_LOOP(jobj2)`.",
       "evidence_refs": [
         "raw_diff"
       ]
     },
     {
-      "text": "No other source file changes are present in the slice.",
+      "path": "src/melee/gr/grinishie1.c",
+      "symbol": "grInishie1_801FBC4C",
+      "change": "No semantic changes are evident in the diff after the macro call; the function still calls `Ground_801C4A08` on `hatena_gobj` and then clears `hatena_gobj` to `NULL`.",
       "evidence_refs": [
-        "changed_files.jsonl",
-        "metadata_json.changed_files"
-      ]
-    },
-    {
-      "text": "The PR body explicitly attributes the match to introducing local `HSD_JObj* jobj2` to fix register allocation.",
-      "evidence_refs": [
-        "human_pr_text",
-        "text_corpus.jsonl pr_body"
-      ]
-    },
-    {
-      "text": "The bot report lists one new match: `main/melee/gr/grinishie1` item `grInishie1_801FBC4C`, +10 bytes, 93.85% before and 100.00% after.",
-      "evidence_refs": [
-        "text_corpus.jsonl decomp-dev[bot] issue_comment"
+        "raw_diff"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Kept the edit narrowly scoped to one temporary variable in the target function rather than changing surrounding control flow, data, headers, or macros.",
+      "lesson": "For a small matching delta, isolate the field load into a typed local before a macro call when register allocation is the stated blocker.",
+      "why_it_helped": "The PR body says the local `HSD_JObj* jobj2` fixed register allocation, and the bot report shows `grInishie1_801FBC4C` moved from 93.85% to 100.00%.",
       "evidence_refs": [
-        "raw_diff",
-        "changed_files.jsonl"
+        "pr_body",
+        "text_corpus.jsonl: decomp-dev bot report"
       ]
     },
     {
-      "text": "Used a typed local `HSD_JObj*` instead of raw pointer arithmetic or an untyped temporary.",
+      "lesson": "Keep a focused PR limited to the single matching change needed for one function.",
+      "why_it_helped": "The changed-file metadata shows one source file, one hunk, +2/-1 lines, and the bot report attributes one new match to `grInishie1_801FBC4C`.",
       "evidence_refs": [
-        "raw_diff",
-        "decomp_standards.typed-fields-over-pointer-math"
+        "changed_files.jsonl",
+        "text_corpus.jsonl: decomp-dev bot report"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "For a macro call that takes a nested typed field expression, extracting the field into a typed local can affect MWCC register allocation enough to close a match.",
+      "lesson": "When a macro argument is a nested field access, introducing a typed local for that field can affect MWCC register allocation enough to close a match.",
       "scope": [
-        "grInishie1_801FBC4C",
-        "DOBJ_CLEAR_LOOP",
-        "HSD_JObj* locals",
-        "register allocation"
+        "small function matching",
+        "macro calls",
+        "stage/ground code"
       ],
       "evidence_refs": [
-        "human_pr_text: local `HSD_JObj* jobj2` fixed register allocation",
-        "raw_diff: direct field expression changed to local before macro call",
-        "text_corpus.jsonl bot report: function reached 100.00%"
+        "pr_body",
+        "raw_diff",
+        "text_corpus.jsonl: bot report showing `grInishie1_801FBC4C` 93.85% to 100.00%"
       ],
-      "confidence": 0.9
-    },
-    {
-      "lesson": "Small local-lifetime changes can be valid matching tactics when the PR records the intended codegen effect and a narrow report confirms the target symbol matched.",
-      "scope": [
-        "small matching PRs",
-        "local variable introduction",
-        "objdiff/checkdiff evidence"
-      ],
-      "evidence_refs": [
-        "human_pr_text",
-        "text_corpus.jsonl decomp-dev[bot] issue_comment",
-        "decomp_standards.matching-tactics-need-evidence",
-        "decomp_standards.verification-and-regression-ledger"
-      ],
-      "confidence": 0.82
+      "caveat": "Evidence is one small PR; treat as a matching tactic to try, not a universal style rule."
     }
   ],
   "naming_conventions": [
     {
       "name": "jobj2",
       "kind": "local variable",
-      "meaning": "Typed local holding `gp->gv.inishie1.blocks[index].jobj2` before calling `DOBJ_CLEAR_LOOP`.",
+      "convention": "The PR used a short local name matching the source field name `jobj2` for a `HSD_JObj*` temporary.",
       "evidence_refs": [
         "raw_diff"
       ],
-      "notes": "The name mirrors the existing field name `jobj2`; no broader naming rule is proven by this PR alone."
+      "confidence": "high"
     },
     {
       "name": "gp",
       "kind": "local variable",
-      "meaning": "Ground pointer returned by `GET_GROUND(gobj)`; pre-existing in the function context shown by the diff.",
+      "convention": "Existing local `Ground* gp = GET_GROUND(gobj);` remained unchanged; no new convention was introduced for ground pointers.",
       "evidence_refs": [
         "raw_diff"
       ],
-      "notes": "Consistent with loaded conservative-naming guidance for short role names, but this PR did not introduce `gp`."
+      "confidence": "medium"
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Introduce a typed local for a nested struct field before passing it to a macro to influence register allocation.",
-      "applied_to": "In `grInishie1_801FBC4C`, local `HSD_JObj* jobj2` stores `gp->gv.inishie1.blocks[index].jobj2` before `DOBJ_CLEAR_LOOP(jobj2)`.",
+      "tactic": "Introduce a typed local from a nested struct/union field before passing it to a macro.",
+      "example": "`HSD_JObj* jobj2 = gp->gv.inishie1.blocks[index].jobj2; DOBJ_CLEAR_LOOP(jobj2);`",
+      "claimed_effect": "Fixes register allocation for `grInishie1_801FBC4C`.",
+      "verification_evidence": "PR body claims 100%; decomp-dev bot report shows one new match for `main/melee/gr/grinishie1` item `grInishie1_801FBC4C`, before 93.85%, after 100.00%, +10 bytes.",
       "evidence_refs": [
+        "pr_body",
         "raw_diff",
-        "human_pr_text"
-      ],
-      "reported_result": "Bot report says `grInishie1_801FBC4C` reached 100.00% and was one new match.",
-      "result_evidence_refs": [
-        "text_corpus.jsonl decomp-dev[bot] issue_comment"
-      ],
-      "cautions": [
-        "This is a narrow register-allocation tactic, not a general rule to add locals everywhere.",
-        "The slice does not include assembly or objdiff output beyond the bot report."
+        "text_corpus.jsonl: decomp-dev bot report"
       ]
     }
   ],
   "review_feedback": [
     {
-      "kind": "author_comment",
-      "text": "Author said they picked something small to test the waters and asked to be told if anything was missed.",
+      "kind": "automation_report",
+      "author": "decomp-dev[bot]",
+      "feedback": "Report for GALE01 showed matched code 68.96% with 1 new match: `main/melee/gr/grinishie1` / `grInishie1_801FBC4C`, +10 bytes, 93.85% before, 100.00% after.",
       "evidence_refs": [
-        "human_pr_text issue comment",
-        "text_corpus.jsonl issue_comment by DavidWeaverAudio"
+        "text_corpus.jsonl: issue_comment by decomp-dev[bot] at 2026-05-31T09:45:16Z"
       ]
     },
     {
-      "kind": "bot_report",
-      "text": "decomp-dev bot reported one new match for GALE01: `main/melee/gr/grinishie1` / `grInishie1_801FBC4C`, +10 bytes, 93.85% before, 100.00% after.",
+      "kind": "human_review",
+      "feedback": "No loaded human review comments are present. The only human issue comment from the author says this was a small PR to test the waters and asks to be told if anything was missed.",
       "evidence_refs": [
-        "text_corpus.jsonl decomp-dev[bot] issue_comment"
-      ]
-    },
-    {
-      "kind": "absence",
-      "text": "No review comments or human review records are present in the loaded slice.",
-      "evidence_refs": [
-        "metadata_json.counts.review_comments=0",
-        "metadata_json.counts.reviews=0"
+        "metadata_json: review_comments 0, reviews 0",
+        "human_pr_text",
+        "text_corpus.jsonl: author issue_comment"
       ]
     }
   ],
   "searchable_terms": [
-    "PR2556",
+    "pr-2556",
+    "Match grInishie1_801FBC4C",
     "grInishie1_801FBC4C",
     "grInishie1_801FBAA0",
     "src/melee/gr/grinishie1.c",
-    "DOBJ_CLEAR_LOOP",
-    "HSD_JObj",
-    "jobj2",
+    "grinishie1",
+    "Ground",
     "GET_GROUND",
-    "Ground_801C4A08",
+    "GroundVars",
+    "gv.inishie1.blocks",
+    "jobj2",
     "hatena_gobj",
+    "HSD_JObj",
+    "DOBJ_CLEAR_LOOP",
+    "Ground_801C4A08",
     "register allocation",
-    "typed local",
-    "stage ground inishie1",
-    "GALE01",
-    "93.85% to 100.00%"
+    "100.00%",
+    "93.85%",
+    "GALE01"
   ],
   "follow_up_queries": [
-    "grInishie1_801FBC4C DOBJ_CLEAR_LOOP jobj2",
-    "HSD_JObj local register allocation DOBJ_CLEAR_LOOP",
-    "site:github.com/doldecomp/melee/pull/2556 grInishie1_801FBC4C",
-    "src/melee/gr/grinishie1.c hatena_gobj jobj2",
-    "DOBJ_CLEAR_LOOP nested field local variable match"
+    "grInishie1_801FBC4C jobj2 DOBJ_CLEAR_LOOP register allocation",
+    "DOBJ_CLEAR_LOOP nested field local HSD_JObj register allocation",
+    "gv.inishie1.blocks[index].jobj2",
+    "src/melee/gr/grinishie1.c HSD_JObj jobj2",
+    "Ground_801C4A08 hatena_gobj NULL grinishie1"
   ],
   "evidence_quality": {
     "status": "strong",
@@ -210,56 +179,56 @@
       "text_corpus.jsonl"
     ],
     "notes": [
-      "Evidence is strong for the exact changed file, diff, stated tactic, and reported match result.",
-      "The loaded slice has no review comments, so no reviewer intent or requested changes can be inferred.",
-      "The PR body claims a 100% match and the bot report corroborates the target item reaching 100.00%, but the slice does not include raw objdiff or assembly.",
-      "Broader guidance about local temporaries and register allocation should remain scoped because this PR contains only one small example."
+      "The slice contains the PR body, changed-file metadata, full diff for the single hunk, and bot match report.",
+      "No review comments are loaded, so reviewer intent or human approval rationale cannot be inferred.",
+      "The raw PR JSON is truncated, but the needed identity, body, merge time, changed-file metadata, diff, and text corpus are available elsewhere in the loaded slice.",
+      "The PR evidence supports a local matching tactic, but it is only one function and should not be promoted as a broad rule without curator review."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
         "record_type": "matching_tactic",
-        "title": "Typed local before macro call can fix register allocation",
-        "text": "In PR #2556, `grInishie1_801FBC4C` matched after replacing `DOBJ_CLEAR_LOOP(gp->gv.inishie1.blocks[index].jobj2)` with a typed local `HSD_JObj* jobj2 = gp->gv.inishie1.blocks[index].jobj2;` and then `DOBJ_CLEAR_LOOP(jobj2);`. The author stated this fixed register allocation, and the bot report listed the function as one new 100.00% match.",
+        "title": "Typed local before macro can fix register allocation",
+        "text": "In PR #2556, `grInishie1_801FBC4C` reached a bot-reported 100% match after changing `DOBJ_CLEAR_LOOP(gp->gv.inishie1.blocks[index].jobj2)` into a typed local `HSD_JObj* jobj2 = gp->gv.inishie1.blocks[index].jobj2; DOBJ_CLEAR_LOOP(jobj2);`. This is a narrow tactic to try when a nested field macro argument appears to affect register allocation.",
         "scope": [
-          "macro calls",
-          "nested typed field expressions",
-          "MWCC register allocation",
-          "HSD_JObj*"
+          "function matching",
+          "macro arguments",
+          "register allocation",
+          "stage/ground code"
         ],
         "evidence_refs": [
-          "PR #2556 body",
-          "PR #2556 raw_diff",
-          "PR #2556 decomp-dev bot report"
+          "pr_body",
+          "raw_diff",
+          "text_corpus.jsonl: decomp-dev bot report"
         ],
-        "confidence": 0.88
+        "confidence": 0.86
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Mention narrow typed local extraction as a register-allocation tactic when verified",
-        "text": "Consider adding a small note under matching tactics: when a macro receives a nested typed field expression, extracting that expression into a correctly typed local can be a legitimate register-allocation tactic if narrow objdiff/checkdiff or bot evidence shows it closes the target match.",
+        "title": "Consider documenting narrow local temporaries as a register-allocation matching tactic",
+        "text": "A PR-local example shows that introducing a typed local for a nested field before a macro call can fix register allocation and close a match. This should remain evidence-gated and narrow, consistent with standards requiring verifier evidence for stack/register/local-lifetime tactics.",
         "source_path": null,
         "scope": [
-          "matching-tactics-need-evidence",
-          "typed-fields-over-pointer-math",
-          "verification-and-regression-ledger"
+          "matching tactics",
+          "register allocation",
+          "macro calls"
         ],
         "evidence_refs": [
           "PR #2556 body",
-          "PR #2556 raw_diff",
-          "PR #2556 bot report"
+          "PR #2556 diff",
+          "PR #2556 decomp-dev bot report"
         ],
-        "reason": "The existing standards cover typed access and evidence-backed tactics, but this PR provides a concrete example of a typed local introduced specifically for register allocation before a macro call."
+        "reason": "The current standards discuss evidence for register/local tactics generally; this PR provides a concrete macro-argument local temporary example that may be useful as a source-owned example if the curator wants examples in standards."
       }
     ],
     "rejection_notes": [
-      "Do not generalize this PR into a rule that every nested macro argument should be extracted into a local.",
-      "Do not infer any reviewer preference because the loaded slice contains no human review comments.",
-      "Do not claim adjacent-function regression checks or raw objdiff details beyond the bot report; they are not included in the evidence."
+      "Do not infer that all `DOBJ_CLEAR_LOOP` calls should use locals; this PR only supports one instance in `grInishie1_801FBC4C`.",
+      "Do not infer human reviewer approval details; no loaded human review comments exist.",
+      "Do not promote broader claims about `hatena_gobj`, `Ground_801C4A08`, or Inishie stage behavior beyond the unchanged lines shown in the diff."
     ]
   },
   "confidence": 0.88,
@@ -269,6 +238,6 @@
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

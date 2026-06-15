@@ -12,134 +12,144 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Extern/Dolphin THP slice from a larger matching-improvement branch. The only changed file was THPDec.c, where __THPDecompressiMCURowNxN was refactored to reuse the local THPFileInfo* info, replace a raw offset-derived mcuBuffer local with casts to THPFileInfoMCUBufferView, and access xPixelSize, components, and quantTabs through info. The PR was closed unmerged after being superseded by #2632 because the extern-only split hit an EditorConfig workflow edge case.",
+  "summary": "Draft extern/Dolphin THP slice split from PR #2617, touching only extern/dolphin/src/dolphin/thp/THPDec.c. The diff refactors __THPDecompressiMCURowNxN to reuse the local THPFileInfo* info pointer, replace a raw mcuBuffer pointer derived from ((u8*) info + 0x10) with repeated THPFileInfoMCUBufferView casts, and access THP fields through info instead of __THPInfo. The PR was closed unmerged and superseded by PR #2632 after an EditorConfig workflow edge case filtered out all changed files.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
-      "matching cleanup",
-      "typed field access",
-      "external SDK"
+      "decomp-matching",
+      "source-cleanup",
+      "typed-field-access"
     ],
     "systems": [
-      "extern/dolphin",
-      "THP decoder"
+      "external-sdk",
+      "dolphin",
+      "thp"
     ]
   },
   "key_files": [
     {
       "path": "extern/dolphin/src/dolphin/thp/THPDec.c",
-      "role": "Only changed source file; updates __THPDecompressiMCURowNxN access patterns for THPFileInfo and MCU buffers.",
+      "role": "Only changed file; THP decoder source containing __THPDecompressiMCURowNxN cleanup.",
       "evidence_refs": [
-        "changed_files.jsonl: extern/dolphin/src/dolphin/thp/THPDec.c added 31 deleted 20 hunks 1",
-        "raw_diff: hunk at __THPDecompressiMCURowNxN"
+        "changed_files",
+        "raw_diff"
       ]
     }
   ],
   "what_changed": [
     {
-      "text": "Removed local mcuBuffer initialized by raw byte offset cast `(THPCoeff**) ((u8*) info + 0x10)`.",
+      "text": "Removed local THPCoeff** mcuBuffer initialized from raw byte-offset pointer math on info.",
       "evidence_refs": [
-        "raw_diff: removed `THPCoeff** mcuBuffer = (THPCoeff**) ((u8*) info + 0x10);`"
+        "raw_diff"
       ]
     },
     {
-      "text": "Replaced mcuBuffer indexed uses with `((THPFileInfoMCUBufferView*) info)->mcuBuffer[index]` for Huffman decode and inverse DCT calls.",
+      "text": "Replaced mcuBuffer[index] uses with ((THPFileInfoMCUBufferView*) info)->mcuBuffer[index] in Huffman decode and inverse DCT calls.",
       "evidence_refs": [
-        "raw_diff: __THPHuffDecodeDCTCompY/U/V calls now use THPFileInfoMCUBufferView casts",
-        "raw_diff: __THPInverseDCTNoYPos and __THPInverseDCTY8 calls now use THPFileInfoMCUBufferView casts"
+        "raw_diff"
       ]
     },
     {
-      "text": "Replaced repeated `__THPInfo->...` accesses with the local `info->...` pointer for xPixelSize, components, and quantTabs.",
+      "text": "Changed repeated __THPInfo field accesses to use the existing local THPFileInfo* info variable for xPixelSize, components, and quantTabs.",
       "evidence_refs": [
-        "raw_diff: `x = __THPInfo->xPixelSize` changed to `x = info->xPixelSize`",
-        "raw_diff: component and quantTabs accesses changed from __THPInfo to info"
+        "raw_diff"
       ]
     },
     {
-      "text": "Kept existing typed overlay casts for restart and MCU-row fields, including `THPMCURowFields` and `THPRestartFields`.",
+      "text": "PR body states this was an isolated path slice from origin/master for extern/dolphin/src/dolphin/thp, split from PR #2617 for easier review.",
       "evidence_refs": [
-        "raw_diff: loop condition still uses `((THPMCURowFields*) info)->MCUsPerRow`",
-        "raw_diff: restart block still uses `((THPRestartFields*) info)->RST` and `currMCU`"
+        "human_pr_text",
+        "text_corpus"
+      ]
+    },
+    {
+      "text": "Issue comment states the PR was superseded by combined Dolphin support split PR #2632 because the extern-only split hit an EditorConfig workflow edge case where all changed files were filtered out.",
+      "evidence_refs": [
+        "human_pr_text",
+        "text_corpus"
       ]
     }
   ],
   "smart_moves": [
     {
-      "text": "Reduced direct global `__THPInfo` reads after caching it in `info`, which makes related field accesses more consistent within the function.",
+      "text": "The diff keeps the already available info pointer and uses it consistently rather than repeatedly reading the global __THPInfo.",
       "evidence_refs": [
-        "raw_diff: local `THPFileInfo* info = __THPInfo` retained and subsequent xPixelSize/components/quantTabs accesses use `info`"
+        "raw_diff"
       ]
     },
     {
-      "text": "Changed raw offset access to a named view type for the MCU buffer, aligning the source with typed-field recovery rather than pointer arithmetic.",
+      "text": "The raw mcuBuffer offset access is replaced with a named view type, matching the loaded typed-fields-over-pointer-math standard direction.",
       "evidence_refs": [
-        "raw_diff: raw `(u8*) info + 0x10` mcuBuffer local removed",
-        "raw_diff: new `THPFileInfoMCUBufferView` casts at mcuBuffer call sites"
+        "raw_diff",
+        "decomp_standards:typed-fields-over-pointer-math"
       ]
     },
     {
-      "text": "Scoped this PR to a single extern Dolphin THP file as part of a larger directory/subsystem split for reviewability.",
+      "text": "The PR was split by directory/subsystem with a narrow scope, making the THP extern changes easier to review independently.",
       "evidence_refs": [
-        "human_pr_text: `Split from #2617 by directory/subsystem so the matching improvements are easier to review.`",
-        "human_pr_text: Scope `extern/dolphin/src/dolphin/thp`"
+        "human_pr_text"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When a known struct-view type exists for a byte-offset region, replacing a raw offset local with the view type can make repeated buffer accesses more reviewable.",
+      "lesson": "When a struct overlay/view exists for a known layout slice, prefer the typed view over raw byte-offset pointer math for repeated buffer accesses.",
       "scope": [
         "THP decoder",
-        "struct overlay/view recovery"
+        "extern/dolphin/src/dolphin/thp/THPDec.c",
+        "__THPDecompressiMCURowNxN"
       ],
       "evidence_refs": [
-        "raw_diff: removed raw offset mcuBuffer local",
-        "raw_diff: added `THPFileInfoMCUBufferView` mcuBuffer accesses"
+        "raw_diff",
+        "decomp_standards:typed-fields-over-pointer-math"
       ],
-      "confidence": 0.74
+      "confidence": 0.82
     },
     {
-      "lesson": "After caching a global pointer in a local, using the local consistently for nearby field accesses can simplify source and avoid mixed global/local access forms.",
+      "lesson": "If a function already caches a global object pointer in a local variable, using that local consistently can simplify field access without changing the visible algorithm.",
       "scope": [
-        "function-local cleanup",
-        "__THPInfo users"
+        "THP decoder",
+        "__THPInfo",
+        "THPFileInfo* info"
       ],
       "evidence_refs": [
-        "raw_diff: `__THPInfo->xPixelSize`, `__THPInfo->components`, and `__THPInfo->quantTabs` changed to `info->...`"
+        "raw_diff"
       ],
-      "confidence": 0.68
+      "confidence": 0.74
     }
   ],
   "naming_conventions": [
     {
-      "text": "The diff preserves short local role names already present in the function, including `info`, `comp`, `x_pos`, and `cl_num`.",
+      "name": "THPFileInfoMCUBufferView",
+      "kind": "typed layout view",
+      "text": "The diff uses THPFileInfoMCUBufferView as the named view exposing mcuBuffer entries from a THPFileInfo-backed address.",
       "evidence_refs": [
-        "raw_diff: declarations in __THPDecompressiMCURowNxN"
+        "raw_diff"
       ]
     },
     {
-      "text": "The new type name `THPFileInfoMCUBufferView` describes a view over `THPFileInfo` for the MCU buffer region; the PR evidence does not show where this type was defined.",
+      "name": "info",
+      "kind": "local pointer",
+      "text": "The local THPFileInfo* info is used as the canonical local handle for __THPInfo field access in this function.",
       "evidence_refs": [
-        "raw_diff: casts to `THPFileInfoMCUBufferView*`"
+        "raw_diff"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Use a temporary view struct cast at each call site to express an offset-based buffer member without keeping a raw byte-offset local.",
+      "tactic": "Typed overlay cast for layout recovery",
+      "text": "Use ((THPFileInfoMCUBufferView*) info)->mcuBuffer[index] to express an offset-backed array access instead of maintaining a separate THPCoeff** obtained via ((u8*) info + 0x10).",
       "evidence_refs": [
-        "raw_diff: `((THPFileInfoMCUBufferView*) info)->mcuBuffer[n]` used in decode and DCT calls"
-      ],
-      "caveat": "The PR slice does not include a definition for THPFileInfoMCUBufferView or per-PR objdiff/CI results."
+        "raw_diff"
+      ]
     },
     {
-      "tactic": "Retain explicit overlay casts for fields not represented directly on THPFileInfo, such as `THPMCURowFields` and `THPRestartFields`.",
+      "tactic": "Local global-pointer alias",
+      "text": "Retain THPFileInfo* info = __THPInfo and route later field accesses through info.",
       "evidence_refs": [
-        "raw_diff: `((THPMCURowFields*) info)->MCUsPerRow`",
-        "raw_diff: `((THPRestartFields*) info)->RST` and `currMCU`"
-      ],
-      "caveat": "No review discussion confirms whether these overlays were considered final style."
+        "raw_diff"
+      ]
     }
   ],
   "review_feedback": [
@@ -148,127 +158,129 @@
       "author": "fjooord",
       "text": "Superseded by the combined Dolphin support split PR #2632. The extern-only split hit the EditorConfig workflow edge case where all changed files are filtered out.",
       "evidence_refs": [
-        "text_corpus.jsonl: issue_comment 2026-06-08T14:32:56Z"
+        "text_corpus",
+        "human_pr_text"
       ]
     }
   ],
   "searchable_terms": [
-    "PR 2618",
+    "PR2618",
     "Improvements to split up: Extern",
-    "fjooord",
     "extern/dolphin/src/dolphin/thp/THPDec.c",
     "__THPDecompressiMCURowNxN",
+    "__THPInfo",
+    "THPFileInfo",
     "THPFileInfoMCUBufferView",
     "mcuBuffer",
-    "THPFileInfo",
-    "__THPInfo",
-    "THPMCURowFields",
-    "THPRestartFields",
-    "THPComponent",
+    "THPCoeff",
     "xPixelSize",
-    "quantTabs",
-    "quantizationTableSelector",
+    "THPMCURowFields",
+    "MCUsPerRow",
     "__THPHuffDecodeDCTCompY",
     "__THPHuffDecodeDCTCompU",
     "__THPHuffDecodeDCTCompV",
     "__THPInverseDCTNoYPos",
     "__THPInverseDCTY8",
-    "LCQueueWait",
+    "THPRestartFields",
     "EditorConfig workflow edge case",
-    "superseded by #2632"
+    "superseded by PR2632",
+    "Dolphin support split"
   ],
   "follow_up_queries": [
-    "PR #2632 Dolphin support split THPDec.c THPFileInfoMCUBufferView",
-    "THPFileInfoMCUBufferView definition mcuBuffer offset 0x10",
-    "__THPDecompressiMCURowNxN objdiff match THPDec.c",
-    "extern/dolphin/src/dolphin/thp/THPDec.c __THPInfo info xPixelSize quantTabs",
-    "EditorConfig workflow edge case all changed files filtered out extern-only split"
+    "PR #2632 combined Dolphin support split THPDec.c THPFileInfoMCUBufferView",
+    "THPFileInfoMCUBufferView mcuBuffer THPDec.c",
+    "__THPDecompressiMCURowNxN mcuBuffer raw offset",
+    "EditorConfig workflow edge case all changed files filtered out extern-only split",
+    "extern/dolphin/src/dolphin/thp PR2617 PR2618 PR2632"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "human_pr_text: PR body with scope, preliminary report, and local checks",
-      "raw_diff: complete single-file diff excerpt",
-      "changed_files.jsonl: one changed file",
-      "text_corpus.jsonl: superseding issue comment"
+      "metadata_json",
+      "human_pr_text",
+      "raw_diff",
+      "changed_files",
+      "text_corpus"
     ],
     "notes": [
-      "The diff evidence is concrete for the single changed file and exact code edits.",
-      "The PR was a draft/closed unmerged slice and was superseded by #2632, so this intake should not treat the changes as landed or accepted.",
-      "The PR body reports only `git diff --check` for this slice; broader CI and score data are described as preliminary or from the full unsplit source branch.",
-      "No review comments are present, and there is no loaded per-PR objdiff/checkdiff output.",
-      "The type definition for `THPFileInfoMCUBufferView` is not included in the slice, so type-ownership conclusions should be curated cautiously."
+      "Diff evidence is strong for the single changed file and exact source edits.",
+      "There are no review comments and no recorded reviewer approval or requested changes.",
+      "The PR body reports full unsplit branch metrics and local git diff --check, but also states per-PR CI/decomp-dev reporting would be authoritative once complete; no completed per-PR CI result is included in this slice.",
+      "The PR was closed unmerged and explicitly superseded by PR #2632, so lessons should be treated as PR-evidence-backed candidates rather than accepted project history.",
+      "raw_pr_json is truncated, but the loaded human text, diff, changed-files record, and text corpus cover the relevant intake facts."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "kind": "decomp_lesson_candidate",
-        "title": "Prefer typed view access over raw byte-offset locals when recovering THPFileInfo subregions",
-        "text": "In PR #2618's THPDec.c diff, a raw mcuBuffer local derived from `(u8*) info + 0x10` was removed and call sites were rewritten to `((THPFileInfoMCUBufferView*) info)->mcuBuffer[n]`. This is a candidate example of replacing pointer arithmetic with a named view type when the underlying layout is known.",
+        "type": "decomp_lesson_candidate",
+        "title": "Prefer THPFileInfoMCUBufferView over raw mcuBuffer offset math when that view describes the layout",
+        "text": "In __THPDecompressiMCURowNxN, PR #2618 replaces THPCoeff** mcuBuffer = (THPCoeff**) ((u8*) info + 0x10) and mcuBuffer[index] uses with ((THPFileInfoMCUBufferView*) info)->mcuBuffer[index]. This supports the existing typed-fields-over-pointer-math standard for this THP layout, pending confirmation from the superseding PR.",
         "scope": [
           "extern/dolphin/src/dolphin/thp/THPDec.c",
           "__THPDecompressiMCURowNxN",
-          "typed-fields-over-pointer-math"
+          "THPFileInfoMCUBufferView"
         ],
         "evidence_refs": [
-          "raw_diff: removed `THPCoeff** mcuBuffer = (THPCoeff**) ((u8*) info + 0x10);`",
-          "raw_diff: added `THPFileInfoMCUBufferView` mcuBuffer accesses"
+          "raw_diff",
+          "decomp_standards:typed-fields-over-pointer-math"
         ],
-        "confidence": 0.72
+        "confidence": 0.78
       }
     ],
     "source_update_candidates": [
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "extern/dolphin/src/dolphin/thp/THPDec.c contains THP decoder matching work",
-        "text": "PR #2618 scoped matching-improvement cleanup to `extern/dolphin/src/dolphin/thp`, with the only changed file `extern/dolphin/src/dolphin/thp/THPDec.c` and edits in `__THPDecompressiMCURowNxN`.",
+        "title": "THPDec.c extern Dolphin THP slice used THPFileInfoMCUBufferView for mcuBuffer access",
+        "text": "PR #2618 touched extern/dolphin/src/dolphin/thp/THPDec.c and used ((THPFileInfoMCUBufferView*) info)->mcuBuffer[index] inside __THPDecompressiMCURowNxN in place of a raw offset-derived THPCoeff** local. Because the PR was superseded and unmerged, verify against PR #2632/current source before recording this as a durable path fact.",
         "source_path": "extern/dolphin/src/dolphin/thp/THPDec.c",
         "scope": [
-          "extern/dolphin",
-          "THP decoder",
-          "__THPDecompressiMCURowNxN"
+          "extern/dolphin/src/dolphin/thp",
+          "__THPDecompressiMCURowNxN",
+          "THPFileInfoMCUBufferView",
+          "mcuBuffer"
         ],
         "evidence_refs": [
-          "human_pr_text: Scope `extern/dolphin/src/dolphin/thp`",
-          "changed_files.jsonl: `extern/dolphin/src/dolphin/thp/THPDec.c`",
-          "raw_diff: hunk at `static void __THPDecompressiMCURowNxN(void)`"
+          "raw_diff",
+          "human_pr_text",
+          "text_corpus"
         ],
-        "reason": "Useful for path-scoped retrieval, but should be curated as a path fact rather than promoted directly from this closed superseded PR."
+        "reason": "May help future THP decoder work find the typed view used for MCU buffer access, but needs curator verification because this PR was superseded."
       },
       {
-        "target_source_id": "decomp_standards",
-        "update_kind": "global_standard",
-        "title": "Typed overlay/view structs can replace raw offset locals when field ownership is understood",
-        "text": "The PR provides a concrete example of replacing a raw offset-derived pointer local with a named view type for repeated member access. This overlaps with the existing typed-fields-over-pointer-math standard and may be useful as an example rather than a new rule.",
-        "source_path": "extern/dolphin/src/dolphin/thp/THPDec.c",
+        "target_source_id": "other",
+        "update_kind": "source_update",
+        "title": "EditorConfig workflow edge case for extern-only split PRs",
+        "text": "Issue comment on PR #2618 says the extern-only split hit an EditorConfig workflow edge case where all changed files were filtered out, and the work was superseded by PR #2632.",
+        "source_path": null,
         "scope": [
-          "typed-fields-over-pointer-math",
-          "temporary view structs",
-          "external SDK decomp"
+          "CI/workflows",
+          "EditorConfig",
+          "extern-only PR slices",
+          "PR #2618",
+          "PR #2632"
         ],
         "evidence_refs": [
-          "raw_diff: raw mcuBuffer pointer removed",
-          "raw_diff: `THPFileInfoMCUBufferView` casts added"
+          "text_corpus",
+          "human_pr_text"
         ],
-        "reason": "Candidate example for an existing standard; not enough evidence for a new global standard because the PR was superseded and lacks loaded verifier output."
+        "reason": "Potential process/tooling note for PR slicing or CI workflow documentation; not a decomp source standard."
       }
     ],
     "rejection_notes": [
-      "Do not record PR #2618 as merged or accepted; metadata shows `merged_at` null and the issue comment says it was superseded by #2632.",
-      "Do not treat the preliminary score report as this PR's authoritative validation; the PR body says per-PR CI/decomp-dev reporting would be authoritative once complete.",
-      "Do not infer reviewer intent; there were no review comments in the slice.",
-      "Do not assert that `THPFileInfoMCUBufferView` is globally correct or newly defined by this PR; its definition is not present in the loaded evidence."
+      "Do not record the preliminary full-branch matched-code/data percentages as this PR's verified slice result; the PR body says per-PR CI/decomp-dev reporting would be authoritative once complete.",
+      "Do not infer merge acceptance or reviewer approval; the PR was closed unmerged, had no review comments, and was superseded.",
+      "Do not generalize THPFileInfoMCUBufferView layout beyond the mcuBuffer accesses shown in the diff without checking current source or the superseding PR."
     ]
   },
-  "confidence": 0.72,
+  "confidence": 0.78,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

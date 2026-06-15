@@ -6,11 +6,11 @@
  * templates. This keeps agent/tool composition explicit and testable.
  */
 import type { RuntimeAgentRole } from "@decomp-orchestrator/core/types";
-import { defaultKnowledgeCuratorToolProfile, defaultPrReviewToolProfile, defaultReconcileToolProfile, defaultWorkerToolProfile, workerToolPromptInfo } from "./profile-data.js";
+import { defaultKnowledgeCuratorToolProfile, defaultPrReviewToolProfile, defaultQaRepairToolProfile, defaultReconcileToolProfile, defaultWorkerToolProfile, workerToolPromptInfo } from "./profile-data.js";
 import { agentToolSummary, createAgentTools } from "./registry.js";
 import type { AgentToolProfileInput, AgentToolRuntimeContext, PiToolDefinition } from "./types.js";
 
-export { defaultKnowledgeCuratorToolProfile, defaultPrReviewToolProfile, defaultReconcileToolProfile, defaultWorkerToolProfile } from "./profile-data.js";
+export { defaultKnowledgeCuratorToolProfile, defaultPrReviewToolProfile, defaultQaRepairToolProfile, defaultReconcileToolProfile, defaultWorkerToolProfile } from "./profile-data.js";
 
 export const defaultAgentToolProfiles: Record<RuntimeAgentRole, string[]> = {
   director: [],
@@ -18,6 +18,7 @@ export const defaultAgentToolProfiles: Record<RuntimeAgentRole, string[]> = {
   "pr-review": [...defaultPrReviewToolProfile],
   "knowledge-curator": [...defaultKnowledgeCuratorToolProfile],
   reconcile: [...defaultReconcileToolProfile],
+  "qa-repair": [...defaultQaRepairToolProfile],
 };
 
 /** Resolve built-in defaults plus optional replace/enable/disable overrides. */

@@ -12,228 +12,202 @@
   },
   "agent_status": "agent_completed",
   "intake_role": "pr_intake",
-  "summary": "Large sysdolphin baselib psdisp decomp slice adding implementations for particleSort and psDispParticles, tightening psdisp prototypes and particle-related struct fields. Evidence includes changed-file metadata, a truncated but substantial diff, and the bot progress report; no PR body or human review comments were available.",
+  "summary": "Large sysdolphin baselib particle display decomp slice for psdisp: adds implementations for particleSort and psDispParticles, types several psdisp globals, updates particleSort's public prototype, and expands HSD_psAppSRT padding into explicit float fields. Bot report records psdisp text progress, including particleSort to 92.88% and psDispParticles to 39.03%, plus an extab match.",
   "change_classification": {
     "primary_type": "decomp-matching",
     "categories": [
       "decomp-matching",
       "headers",
-      "type-recovery",
-      "partial-function-progress"
+      "struct-typing",
+      "particle-rendering"
     ],
     "systems": [
-      "src/sysdolphin/baselib",
-      "particle display",
-      "GX/HSD rendering"
+      "src/sysdolphin/baselib"
     ]
   },
   "key_files": [
     {
       "path": "src/sysdolphin/baselib/psdisp.c",
-      "role": "Main implementation change: added includes, local particle sort/cache structs, typed externs, particleSort, and a large psDispParticles body.",
+      "role": "Main decomp body: adds includes, local helper/cache structs, typed externs, particleSort implementation, and a large psDispParticles implementation.",
       "evidence_refs": [
-        "changed_files.jsonl: psdisp.c +1456/-7, 5 hunks",
-        "raw_diff.diff:1-83 includes and local structs; raw_diff.diff:83 particleSort added; raw_diff.diff:313 psDispParticles added"
+        "changed_files.jsonl: psdisp.c +1456/-7",
+        "diff.diff: psdisp.c include/type/global changes at top of file",
+        "diff.diff: adds particleSort and psDispParticles",
+        "issuecomment-4412862500: psdisp particleSort and psDispParticles progress"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/psdisp.h",
-      "role": "Public prototype cleanup for particleSort, including baselib forward declaration include.",
+      "role": "Header prototype cleanup for particleSort, adding baselib/forward.h and replacing UNK_T prototype with HSD_Particle* and HSD_Particle** types.",
       "evidence_refs": [
-        "changed_files.jsonl: psdisp.h +3/-1, 1 hunk",
-        "raw_diff.diff:1502-1518 changes particleSort from UNK_T to HSD_Particle* with HSD_Particle** parameters"
+        "changed_files.jsonl: psdisp.h +3/-1",
+        "diff.diff: psdisp.h changes at lines around diff 1502-1519"
       ]
     },
     {
       "path": "src/sysdolphin/baselib/psstructs.h",
-      "role": "HSD_psAppSRT field typing: replaced padding from 0x6C through 0x98 with individual f32 fields.",
+      "role": "Struct layout refinement for HSD_psAppSRT: replaces padding from 0x6C to 0x9C with explicit f32 fields x6C through x98.",
       "evidence_refs": [
-        "changed_files.jsonl: psstructs.h +12/-1, 1 hunk",
-        "raw_diff.diff:1520-1542 replaces x6C_fill with f32 x6C..x98"
+        "changed_files.jsonl: psstructs.h +12/-1",
+        "diff.diff: psstructs.h changes at lines around diff 1520-1543"
       ]
     }
   ],
   "what_changed": [
-    {
-      "text": "Added particleSort implementation using a 16-entry local bucket array, HSD_Particle linked-list heads/tails, and a psdisp_ParticleSortCache wrapper over HSD_PSDisp_804D0FC0.",
-      "evidence_refs": [
-        "raw_diff.diff:26-43",
-        "raw_diff.diff:83-311"
-      ]
-    },
-    {
-      "text": "Added a large psDispParticles implementation with many stack locals and rendering-related calls/objects including GXColor, GXTexObj, GXTlutObj, HSD_LObj, HSD_psAppSRT, Mtx, Vec3, fog, TEV setup, and camera/projection matrix handling.",
-      "evidence_refs": [
-        "raw_diff.diff:313-1500 excerpt",
-        "diff_excerpt: psDispParticles added after getColorMatAmb"
-      ]
-    },
-    {
-      "text": "Changed several psdisp extern declarations from unknown or scalar types to more specific types, including HSD_Fog* for HSD_PSDisp_804D7908 and GXColor for HSD_PSDisp_804D7934 through HSD_PSDisp_804D7944.",
-      "evidence_refs": [
-        "raw_diff.diff:48-69"
-      ]
-    },
-    {
-      "text": "Added required includes for cobj, fog, lobj, mtx, psdisptev, state, util, string.h, and a local mapping of fabsf to __fabsf.",
-      "evidence_refs": [
-        "raw_diff.diff:5-19"
-      ]
-    },
-    {
-      "text": "Updated psdisp.h so particleSort returns HSD_Particle* and takes HSD_Particle** output parameters instead of UNK_T placeholders.",
-      "evidence_refs": [
-        "raw_diff.diff:1506-1518"
-      ]
-    },
-    {
-      "text": "Expanded HSD_psAppSRT in psstructs.h by replacing one padding range with twelve f32 fields x6C through x98.",
-      "evidence_refs": [
-        "raw_diff.diff:1524-1542"
-      ]
-    },
-    {
-      "text": "Bot report recorded one new match for psdisp extab and unmatched-item improvements for psDispParticles, particleSort, .sdata2, extabindex, and .sdata.",
-      "evidence_refs": [
-        "text_corpus.jsonl issue_comment by decomp-dev[bot] 2026-05-09T15:24:50Z"
-      ]
-    }
+    "Added baselib dependencies in psdisp.c for cobj, fog, lobj, mtx, psdisptev, state, and util, and switched from math.h to string.h with an explicit __fabsf alias.",
+    "Introduced local psdisp_ParticleSortBucket and psdisp_ParticleSortCache structs with STATIC_ASSERT size checks, plus Point3d as a Vec3 typedef.",
+    "Typed several psdisp-related extern globals, including hsd_804D0908 as HSD_Particle*[146], HSD_PSDisp_804D0FC0 as a particle sort cache, HSD_PSDisp_804D7908 as HSD_Fog*, and HSD_PSDisp_804D7934 through HSD_PSDisp_804D7944 as GXColor.",
+    "Added particleSort, which buckets HSD_Particle linked lists by kind bits and caches sorted list heads/tails.",
+    "Added a large partial psDispParticles body using GX, HSD_CObj, HSD_Fog, psSetupTev state, matrix/projection cache math, particle color helpers, texture/form group locals, and many stack-shaped temporaries.",
+    "Updated psdisp.h so particleSort has a typed HSD_Particle* signature instead of UNK_T.",
+    "Expanded HSD_psAppSRT layout by replacing x6C_fill padding with twelve f32 fields x6C through x98.",
+    "Bot report recorded one new matched item for psdisp extab and improvements for psDispParticles, particleSort, .sdata2, extabindex, and .sdata."
   ],
   "smart_moves": [
     {
-      "text": "Updated the public header when particleSort's recovered body exposed real HSD_Particle pointer types, rather than leaving UNK_T in the interface.",
+      "text": "Header was updated when the recovered particleSort body established a real HSD_Particle pointer signature, rather than keeping the old UNK_T declaration.",
       "evidence_refs": [
-        "raw_diff.diff:1506-1518",
-        "decomp_standards:truthful-headers-and-includes"
+        "diff.diff: psdisp.h replaces UNK_T particleSort(s32,u8,UNK_T*,UNK_T*) with HSD_Particle* particleSort(s32,u8,HSD_Particle**,HSD_Particle**)"
       ]
     },
     {
-      "text": "Introduced small local structs with STATIC_ASSERT size checks for particle sort buckets/cache, making stack/global layout assumptions explicit in the source slice.",
+      "text": "Known color globals were typed as GXColor and used through channel/TEV color setters, reducing UNK_T usage in the display state area.",
       "evidence_refs": [
-        "raw_diff.diff:26-43"
+        "diff.diff: HSD_PSDisp_804D7934..804D7944 changed from UNK_T to GXColor",
+        "diff.diff: psDispParticles initializes GXColor fields and calls GXSetChanMatColor/GXSetChanAmbColor/GXSetTevColor"
       ]
     },
     {
-      "text": "Converted several unknown globals to HSD_Fog* and GXColor where the added code accesses fog/color semantics directly.",
+      "text": "Temporary local structs with size assertions were used to document recovered layout assumptions for particle sorting bucket/cache data.",
       "evidence_refs": [
-        "raw_diff.diff:48-69",
-        "diff_excerpt: HSD_FogSet and GXSetChanMatColor/GXSetTevColor usage"
+        "diff.diff: psdisp_ParticleSortBucket, psdisp_ParticleSortCache, and STATIC_ASSERT size checks"
       ]
     }
   ],
   "decomp_lessons": [
     {
-      "lesson": "When recovering a function body that proves pointer types, update the owning header prototype instead of preserving UNK_T placeholders.",
+      "lesson": "When a recovered function body proves pointer roles, update the public header prototype in the same PR rather than leaving UNK_T/UNK_T* placeholders.",
       "scope": [
         "headers",
-        "function prototypes",
+        "typed prototypes",
         "psdisp.h"
       ],
       "evidence_refs": [
-        "raw_diff.diff:1506-1518",
-        "decomp_standards:truthful-headers-and-includes"
-      ],
-      "confidence": 0.86
+        "diff.diff: particleSort implementation returns HSD_Particle* and writes HSD_Particle** outputs",
+        "diff.diff: psdisp.h particleSort prototype changed to HSD_Particle* and HSD_Particle**"
+      ]
     },
     {
-      "lesson": "For particle/rendering code, local temporary structs plus STATIC_ASSERTs can document inferred layout constraints while more complete types are still being recovered.",
+      "lesson": "For partial baselib decomp, typing globals and stack/cache shapes can unlock progress even when field names remain address-style or offset-style.",
       "scope": [
-        "sysdolphin/baselib/psdisp.c",
-        "layout recovery",
-        "partial decomp"
+        "sysdolphin/baselib",
+        "psdisp",
+        "struct typing"
       ],
       "evidence_refs": [
-        "raw_diff.diff:26-43"
-      ],
-      "confidence": 0.72
+        "diff.diff: HSD_PSDisp_804D0FC0 typed as psdisp_ParticleSortCache",
+        "diff.diff: HSD_PSDisp_804D7934..804D7944 typed as GXColor",
+        "diff.diff: HSD_psAppSRT x6C..x98 f32 fields"
+      ]
     },
     {
-      "lesson": "Typed externs such as GXColor and HSD_Fog* are preferable to UNK_T/scalar declarations when the surrounding code uses fields or API calls that establish the type.",
+      "lesson": "A large rendering function may need subsystem includes for camera, fog, lights, matrices, state, and TEV setup once generated calls are mapped to existing baselib APIs.",
       "scope": [
-        "typed externs",
-        "GXColor",
-        "HSD_Fog"
+        "psdisp.c",
+        "rendering",
+        "includes"
       ],
       "evidence_refs": [
-        "raw_diff.diff:48-69",
-        "diff_excerpt: HSD_FogSet and GX color setter calls"
-      ],
-      "confidence": 0.78
+        "diff.diff: added cobj.h, fog.h, lobj.h, mtx.h, psdisptev.h, state.h, util.h",
+        "diff.diff: psDispParticles calls HSD_CObjGetViewingMtx, HSD_FogSet, psSetupTevInvalidState, psSetupTevCommon, GX functions"
+      ]
     }
   ],
   "naming_conventions": [
     {
-      "text": "New psdisp-local helper/type names use a psdisp_ prefix for inferred file-local structs: psdisp_ParticleSortBucket and psdisp_ParticleSortCache.",
+      "name": "particleSort",
+      "kind": "function",
+      "convention": "Existing semantic camel-case style is preserved for particle sorting API.",
       "evidence_refs": [
-        "raw_diff.diff:26-43"
+        "diff.diff: adds HSD_Particle* particleSort(...)",
+        "diff.diff: psdisp.h declares particleSort"
       ]
     },
     {
-      "text": "Public/recovered function names use camelCase already present in the file: particleSort, psDispParticles, setVtxDesc, calcTornadoLastPos, getColorPrimEnv, getColorMatAmb.",
+      "name": "psdisp_ParticleSortBucket / psdisp_ParticleSortCache",
+      "kind": "local type",
+      "convention": "New local helper structs use a psdisp_ prefix and semantic suffixes for recovered particle sorting layout.",
       "evidence_refs": [
-        "raw_diff.diff:78-84",
-        "raw_diff.diff:313",
-        "raw_diff.diff:1506-1518"
+        "diff.diff: typedef struct psdisp_ParticleSortBucket",
+        "diff.diff: typedef struct psdisp_ParticleSortCache"
       ]
     },
     {
-      "text": "Several locals remain generated or stack-offset style, such as var_r28, temp_r29, sp8BC, and sp7F4; this is evidence of partial decomp state rather than a naming standard.",
+      "name": "x6C through x98",
+      "kind": "struct fields",
+      "convention": "Unknown HSD_psAppSRT fields remain offset-style while type and layout are known but semantics are not proven.",
       "evidence_refs": [
-        "raw_diff.diff:83-120",
-        "raw_diff.diff:313-500",
-        "decomp_standards:conservative-naming"
+        "diff.diff: psstructs.h replaces x6C_fill with f32 x6C..x98"
+      ]
+    },
+    {
+      "name": "sp*, temp_r*, var_r* locals",
+      "kind": "local variables",
+      "convention": "Large psDispParticles body still contains stack/register-derived local names; this is evidence of partial decomp state, not an accepted naming standard.",
+      "evidence_refs": [
+        "diff.diff: psDispParticles declarations include sp8BC, sp7F4, temp/var-style names in particleSort"
       ]
     }
   ],
   "assembly_or_matching_tactics": [
     {
-      "tactic": "Mapped fabsf to the compiler/runtime symbol __fabsf with an extern declaration and macro.",
+      "tactic": "Used explicit __fabsf declaration and '#define fabsf __fabsf' after removing math.h.",
       "evidence_refs": [
-        "raw_diff.diff:16-19"
+        "diff.diff: extern float __fabsf(float); #define fabsf __fabsf"
       ],
-      "risk_or_note": "Evidence shows the tactic exists, but the slice does not explain why it was required or provide local objdiff details for this exact choice."
+      "caution": "This is a narrow matching tactic from the diff; no review discussion explains whether it should become general style."
     },
     {
-      "tactic": "Used explicit unrolled bucket concatenation in particleSort for buckets 0-7 and 8-15 instead of compact loops.",
+      "tactic": "Introduced a cache struct with padding to model a global area used both as particle sort tail storage and as f32 matrix/projection cache via casts.",
       "evidence_refs": [
-        "raw_diff.diff:150-265"
+        "diff.diff: psdisp_ParticleSortCache has x0_pad[0xAC] and HSD_Particle* xAC[17]",
+        "diff.diff: cache = (f32*) &HSD_PSDisp_804D0FC0 in psDispParticles"
       ],
-      "risk_or_note": "This may be a matching-driven shape. No review or verifier note explains whether natural loop forms were attempted, so this should not be promoted as preferred style."
+      "caution": "The mixed typed-struct and f32* access should be treated as partial recovered layout evidence, not final data ownership proof."
     },
     {
-      "tactic": "Used a large stack-local reconstruction in psDispParticles with many sp-offset style variables, then introduced more semantic locals inside the particle loop.",
+      "tactic": "particleSort uses duplicated bucket append blocks for buckets 0-7 and 8-15 rather than a natural loop.",
       "evidence_refs": [
-        "raw_diff.diff:313-548",
-        "raw_diff.diff:556-590"
+        "diff.diff: repeated (++temp_r3_4)->head blocks",
+        "diff.diff: repeated (++temp_r3_10)->head blocks"
       ],
-      "risk_or_note": "Bot report shows progress for psDispParticles, but not a full match; generated-looking locals should remain cleanup candidates."
+      "caution": "Loaded standards prefer natural loops unless verifier evidence requires unrolled code; this PR slice does not include author or reviewer justification for the unrolled shape."
     },
     {
-      "tactic": "Used typed global color variables and copied them through s32 temporaries/pointers before GX color calls.",
+      "tactic": "Bot-reported progress was used to justify landing a partial large function: particleSort improved to 92.88% and psDispParticles to 39.03%.",
       "evidence_refs": [
-        "raw_diff.diff:61-69",
-        "diff_excerpt: GXSetChanMatColor/GXSetChanAmbColor/GXSetTevColor setup"
+        "issuecomment-4412862500: particleSort +973 bytes, 0.00% to 92.88%",
+        "issuecomment-4412862500: psDispParticles +5655 bytes, 0.00% to 39.03%"
       ],
-      "risk_or_note": "Likely stack/register-shape sensitive; no human comment or objdiff excerpt explains the exact necessity."
+      "caution": "The report is score evidence only; it is not full objdiff or local build detail for every source tactic."
     }
   ],
   "review_feedback": [
     {
-      "kind": "bot_report",
+      "kind": "automation-report",
       "author": "decomp-dev[bot]",
-      "text": "Report for GALE01 recorded matched data at 39.41% (+32 bytes), one new psdisp extab match, and improvements to psDispParticles, particleSort, .sdata2, extabindex, and .sdata.",
+      "summary": "Bot reported matched data unchanged overall at 39.41%, one new match for main/sysdolphin/baselib/psdisp extab to 100%, and five improvements including psDispParticles, particleSort, .sdata2, extabindex, and .sdata.",
       "evidence_refs": [
-        "text_corpus.jsonl issue_comment https://github.com/doldecomp/melee/pull/2470#issuecomment-4412862500"
+        "text_corpus.jsonl: issue_comment by decomp-dev[bot] at 2026-05-09T15:24:50Z"
       ]
     },
     {
-      "kind": "absence",
+      "kind": "human-review",
       "author": null,
-      "text": "No human review comments or reviews were present in the loaded PR slice.",
+      "summary": "No human review comments or review records are present in the loaded PR slice.",
       "evidence_refs": [
-        "metadata_json counts.review_comments=0",
-        "metadata_json counts.reviews=0",
-        "loaded_files text_corpus contains only empty PR body and bot issue comment"
+        "metadata_json: review_comments 0, reviews 0",
+        "text_corpus.jsonl: only PR body and bot issue comment loaded"
       ]
     }
   ],
@@ -246,76 +220,74 @@
     "src/sysdolphin/baselib/psstructs.h",
     "particleSort",
     "psDispParticles",
+    "HSD_Particle",
+    "HSD_psAppSRT",
     "psdisp_ParticleSortBucket",
     "psdisp_ParticleSortCache",
     "HSD_PSDisp_804D0FC0",
-    "HSD_PSDisp_804D7908",
     "HSD_PSDisp_804D7934",
     "GXColor",
     "HSD_Fog",
-    "HSD_psAppSRT",
-    "Point3d",
-    "__fabsf",
     "psSetupTevInvalidState",
     "psSetupTevCommon",
-    "HSD_CObjGetViewingMtx",
-    "GXGetProjectionv",
-    "GXSetChanMatColor",
-    "GXSetTevColor",
+    "__fabsf",
+    "x6C_fill",
+    "x6C",
     "TexEdge"
   ],
   "follow_up_queries": [
-    "particleSort psdisp unrolled buckets natural loop",
-    "psDispParticles sp locals cleanup GXColor HSD_Fog",
-    "HSD_psAppSRT x6C x70 x74 x78 x7C x80 x84 x88 x8C x90 x94 x98",
-    "HSD_PSDisp_804D0FC0 particle sort cache",
-    "psdisp fabsf __fabsf macro matching",
-    "psdisp decomp-dev bot psDispParticles 39.03 particleSort 92.88"
+    "particleSort natural loop buckets psdisp",
+    "psDispParticles sp8BC stack locals cleanup",
+    "HSD_PSDisp_804D0FC0 cache matrix projection particle sort",
+    "HSD_psAppSRT x6C x70 x74 x78 x7C x80 x84 x88 x8C x90 x94 x98 semantics",
+    "psdisp __fabsf define fabsf",
+    "HSD_PSDisp_804D7934 GXColor TEV color globals",
+    "psDispParticles GXSetTevColor HSD_FogSet HSD_CObjGetViewingMtx",
+    "main/sysdolphin/baselib/psdisp extab match PR 2470"
   ],
   "evidence_quality": {
     "status": "mixed",
     "evidence_refs": [
-      "metadata_json for PR identity, state, changed files, counts",
-      "changed_files.jsonl for file list and line counts",
-      "raw_diff.diff loaded excerpt plus targeted read around header hunks",
-      "text_corpus.jsonl for bot progress report"
+      "metadata_json: PR identity, state, counts, changed files",
+      "changed_files.jsonl: exact changed file list and line counts",
+      "diff.diff: loaded top psdisp.c diff and targeted header/struct hunks",
+      "text_corpus.jsonl: bot report with progress metrics"
     ],
     "notes": [
-      "PR body is empty, so author intent and rationale for matching tactics are not documented in the loaded evidence.",
-      "No human review comments or review approvals were present in the slice.",
-      "The raw diff and raw PR JSON were truncated in loaded_files, although the visible and targeted portions cover the changed-file list, main psdisp additions, and header hunks.",
-      "Bot report provides progress metrics but not full build/objdiff logs, exact validation commands, or rationale for generated-looking source shapes.",
-      "Large parts of psDispParticles are generated-looking and only partially matched per bot report, so cleanup lessons should be treated cautiously."
+      "PR body is empty.",
+      "No human review comments are present in the loaded slice.",
+      "The raw diff is large and loaded excerpt is truncated, so detailed psDispParticles internals beyond the visible excerpt were not exhaustively reviewed.",
+      "Bot report gives progress percentages and one extab match, but the slice does not include build logs, objdiff output, or author rationale for specific matching tactics.",
+      "Generated-looking local names and unrolled code are present in the diff; they should not be interpreted as endorsed style."
     ]
   },
   "curator_handoff": {
     "accepted_candidate_records": [
       {
-        "type": "decomp_lesson_candidate",
-        "title": "Update owning headers when recovered bodies prove pointer types",
-        "text": "PR 2470 changed particleSort in psdisp.h from UNK_T particleSort(s32, u8, UNK_T*, UNK_T*) to HSD_Particle* particleSort(s32, u8, HSD_Particle**, HSD_Particle**) alongside the new body in psdisp.c. This supports the existing truthful-header standard for replacing placeholder prototypes when the implementation establishes the signature.",
+        "record_type": "decomp_lesson",
+        "title": "Update headers when recovered bodies prove signatures",
+        "text": "PR 2470 changes particleSort from an UNK_T-based header declaration to HSD_Particle* with HSD_Particle** output parameters alongside the recovered implementation, supporting the lesson that body recovery should update the owning header prototype.",
         "scope": [
           "headers",
-          "prototype recovery",
-          "src/sysdolphin/baselib/psdisp.h"
+          "typed prototypes",
+          "sysdolphin/baselib"
         ],
         "evidence_refs": [
-          "raw_diff.diff:83-84",
-          "raw_diff.diff:1506-1518"
+          "diff.diff: psdisp.h particleSort prototype change",
+          "diff.diff: particleSort implementation signature"
         ]
       },
       {
-        "type": "decomp_lesson_candidate",
-        "title": "Use small asserted local structs to bridge recovered layout",
-        "text": "PR 2470 introduced psdisp_ParticleSortBucket and psdisp_ParticleSortCache with STATIC_ASSERT size checks before using them in particleSort and psDispParticles. This is a graph-safe candidate for layout-recovery tactics, not a global rule that all inferred layouts should be local structs.",
+        "record_type": "decomp_lesson",
+        "title": "Offset-style field names are appropriate when layout is known but semantics are not",
+        "text": "PR 2470 replaces HSD_psAppSRT padding with typed f32 fields named x6C through x98, preserving unknown semantics while documenting recovered type/layout.",
         "scope": [
-          "layout recovery",
-          "partial decomp",
-          "src/sysdolphin/baselib/psdisp.c"
+          "struct layout",
+          "conservative naming",
+          "psstructs.h"
         ],
         "evidence_refs": [
-          "raw_diff.diff:26-43",
-          "raw_diff.diff:83-120"
+          "diff.diff: psstructs.h x6C_fill replaced by f32 x6C..x98"
         ]
       }
     ],
@@ -323,88 +295,69 @@
       {
         "target_source_id": "path_facts",
         "update_kind": "path_fact",
-        "title": "psdisp.c PR 2470 touched particle display decomp",
-        "text": "PR 2470 added large decompilation progress for src/sysdolphin/baselib/psdisp.c, including particleSort and psDispParticles, plus typed psdisp globals and rendering-related includes.",
+        "title": "psdisp.c contains particle display sorting and rendering code",
+        "text": "src/sysdolphin/baselib/psdisp.c includes particleSort and psDispParticles and interacts with GX, HSD_Fog, HSD_CObj, matrices, and psdisp TEV setup.",
         "source_path": "src/sysdolphin/baselib/psdisp.c",
         "scope": [
-          "sysdolphin",
-          "baselib",
+          "sysdolphin/baselib",
           "psdisp",
-          "particle display"
+          "particle rendering"
         ],
         "evidence_refs": [
-          "changed_files.jsonl: psdisp.c +1456/-7",
-          "raw_diff.diff:83 particleSort",
-          "raw_diff.diff:313 psDispParticles"
+          "diff.diff: psdisp.c adds particleSort and psDispParticles",
+          "diff.diff: added includes for cobj, fog, lobj, mtx, psdisptev, state, util"
         ],
-        "reason": "Useful searchable path fact for future psdisp decomp work; requires curator review before source promotion."
+        "reason": "Useful path-scope fact for future psdisp and particle-rendering searches."
       },
       {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "psdisp.h owns particleSort prototype",
-        "text": "PR 2470 updated src/sysdolphin/baselib/psdisp.h so particleSort is declared as returning HSD_Particle* with HSD_Particle** output parameters.",
-        "source_path": "src/sysdolphin/baselib/psdisp.h",
-        "scope": [
-          "headers",
-          "psdisp",
-          "particleSort"
-        ],
-        "evidence_refs": [
-          "raw_diff.diff:1506-1518"
-        ],
-        "reason": "Potential path fact about prototype ownership; should be checked against current source before promotion."
-      },
-      {
-        "target_source_id": "path_facts",
-        "update_kind": "path_fact",
-        "title": "psstructs.h HSD_psAppSRT recovered f32 fields in PR 2470",
-        "text": "PR 2470 replaced HSD_psAppSRT padding from offset 0x6C through 0x98 with individual f32 fields x6C, x70, x74, x78, x7C, x80, x84, x88, x8C, x90, x94, and x98.",
+        "target_source_id": "ssbm_data_sheet",
+        "update_kind": "source_update",
+        "title": "HSD_psAppSRT has f32 fields from 0x6C through 0x98 in this PR",
+        "text": "PR 2470 replaces HSD_psAppSRT padding at 0x6C..0x98 with twelve f32 fields named x6C, x70, x74, x78, x7C, x80, x84, x88, x8C, x90, x94, and x98. Semantics are not established by the slice.",
         "source_path": "src/sysdolphin/baselib/psstructs.h",
         "scope": [
           "HSD_psAppSRT",
-          "struct fields",
-          "psstructs.h"
+          "struct layout",
+          "particle structs"
         ],
         "evidence_refs": [
-          "raw_diff.diff:1524-1542"
+          "diff.diff: psstructs.h replaces x6C_fill with f32 x6C..x98"
         ],
-        "reason": "Potential struct/path fact from the PR slice; current source should verify final field names before curation."
+        "reason": "Candidate data-sheet/layout update; keep offset-style names unless later evidence proves semantics."
       },
       {
         "target_source_id": "decomp_standards",
         "update_kind": "global_standard",
-        "title": "Do not treat unrolled generated-looking bucket code as preferred style without evidence",
-        "text": "PR 2470's particleSort contains repeated unrolled bucket concatenation blocks for two groups of eight buckets. The slice lacks notes explaining whether natural loops were tried or why the unrolled form was necessary. This may reinforce the existing natural-loops and matching-tactics standards rather than requiring a new rule.",
-        "source_path": null,
+        "title": "Do not treat this PR's unrolled particleSort bucket appends as general style",
+        "text": "PR 2470 contains repeated bucket append blocks in particleSort. Because the loaded slice lacks objdiff rationale for the unrolled form and current standards prefer natural loops, curator may want to use this as a cautionary historical example rather than an accepted pattern.",
+        "source_path": "src/sysdolphin/baselib/psdisp.c",
         "scope": [
           "natural loops",
-          "matching tactics",
-          "generated-looking code"
+          "generated-looking code",
+          "matching tactics"
         ],
         "evidence_refs": [
-          "raw_diff.diff:150-265",
+          "diff.diff: repeated (++temp_r3_4)->head and (++temp_r3_10)->head blocks in particleSort",
           "decomp_standards:natural-loops",
           "decomp_standards:matching-tactics-need-evidence"
         ],
-        "reason": "Candidate reinforcement only; evidence is insufficient to define a new accepted standard."
+        "reason": "The PR is merged and scored, but the slice does not prove that unrolling was necessary; route as curator-reviewed caution only."
       }
     ],
     "rejection_notes": [
-      "Do not infer that PR 2470 fully matched psDispParticles; the bot report only shows psDispParticles improved from 0.00% to 39.03%.",
-      "Do not infer human reviewer approval rationale, because no human reviews or review comments were loaded.",
-      "Do not promote var_rXX/spXXX local names as an accepted naming convention; they appear to be generated or partial-decomp artifacts.",
-      "Do not treat the __fabsf macro as a general standard; the diff shows it was used here but gives no rationale or validation detail.",
-      "Do not treat the unrolled particleSort bucket concatenation as preferred style without additional objdiff or author/reviewer evidence."
+      "Do not promote the __fabsf macro alias as a general standard; the slice shows it was used, but gives no rationale.",
+      "Do not infer human reviewer acceptance or requested changes; no human review comments are present.",
+      "Do not claim psDispParticles matched; bot report only shows 39.03% for that function.",
+      "Do not treat temp_r*, var_r*, and sp* local names as accepted naming convention; they indicate partial/generated-shaped decomp state in this slice."
     ]
   },
-  "confidence": 0.74,
+  "confidence": 0.76,
   "agent_runtime": {
     "provider": "codex-lb",
     "model": "gpt-5.5",
     "thinking": "medium",
     "tools": "read,grep,find,ls",
     "agent_timeout_seconds": 900,
-    "session_dir": "/Users/Ford/Github Repos/oss/decomp-orchestrator/.pi-sessions/pr-review"
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
   }
 }

@@ -1,0 +1,379 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2695",
+  "pr": {
+    "number": 2695,
+    "title": "grbigblueroute: match C85C, DED4, DF80 sizes; improve CD20 and fix sdata2 ordering",
+    "url": "https://github.com/doldecomp/melee/pull/2695",
+    "state": "CLOSED",
+    "author": "kolt-mcb",
+    "created_at": "2026-06-14T03:56:05Z",
+    "merged_at": null
+  },
+  "agent_status": "agent_completed",
+  "intake_role": "pr_intake",
+  "summary": "Closed, unmerged PR touching only src/melee/gr/grbigblueroute.c. It attempted stage decomp matching improvements for grBigBlueRoute functions C85C, CD20, DED4, and DF80, plus .sdata2 constant-order work. The PR body claimed exact size matches for C85C, DED4, and DF80 and a 4-byte CD20 gap, but the author immediately commented that an agent made the PR before it was ready, so claimed results should be treated as provisional rather than accepted.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "stage",
+      "control-flow",
+      "register-pressure",
+      "sdata2-ordering",
+      "matching-tactics"
+    ],
+    "systems": [
+      "stage",
+      "Big Blue route",
+      "ground"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/gr/grbigblueroute.c",
+      "role": "Only changed source file; contains all function-size, control-flow, register-pressure, and .sdata2-ordering edits in the PR.",
+      "evidence_refs": [
+        "changed_files.jsonl: src/melee/gr/grbigblueroute.c added=62 deleted=42 hunks=15",
+        "raw_diff: diff --git a/src/melee/gr/grbigblueroute.c b/src/melee/gr/grbigblueroute.c",
+        "human_pr_text: Summary and Changes sections"
+      ]
+    }
+  ],
+  "what_changed": [
+    {
+      "text": "Updated grBigBlueRoute_8020C85C by replacing a negated less-than check with an equivalent greater-than-or-equal early return: `if (gp->u.car.x108 >= 1.0f + grBb_Route_804D6A68->x40) return;`.",
+      "evidence_refs": [
+        "raw_diff: grBigBlueRoute_8020C85C hunk",
+        "human_pr_text: C85C change says invert comparison pattern to match target size"
+      ]
+    },
+    {
+      "text": "Updated grBigBlueRoute_8020CD20 declaration order and local layout around `root_jobj`, `jobj`, and `i`; retained `volatile Vec3 rot` and PAD_STACK(0x4C).",
+      "evidence_refs": [
+        "raw_diff: grBigBlueRoute_8020CD20 declaration hunk"
+      ]
+    },
+    {
+      "text": "In CD20 case 0, moved spline point, tangent, vector diff, and rotation setup before xC adjustment, then used the adjusted fraction to scale and add position.",
+      "evidence_refs": [
+        "raw_diff: CD20 case 0 hunk moving splGetSplinePoint/lbShadow_8000E9F0/lbVector_Diff/atan2f before xC adjustment",
+        "human_pr_text: CD20 changes list"
+      ]
+    },
+    {
+      "text": "Inserted inline discarded `45.0f * Ground_801C0498();` calls to influence .sdata2 constant ordering without extending a variable live range, according to the PR body.",
+      "evidence_refs": [
+        "raw_diff: CD20 case 0 inserted `45.0f * Ground_801C0498();`",
+        "human_pr_text: .sdata2 constants section and CD20 changes"
+      ]
+    },
+    {
+      "text": "Changed a jobj update from a ternary expression to explicit if/else around `grBigBlueRoute_8020DA9C`.",
+      "evidence_refs": [
+        "raw_diff: CD20 end-of-loop jobj ternary replaced with if/else",
+        "human_pr_text: CD20 change says change jobj ternary to if-else to match target control flow"
+      ]
+    },
+    {
+      "text": "Reworked grBigBlueRoute_8020DED4 from apparent clamp assignments into repeated `Ground_801C0498()` and `Ground_801C38BC()` calls.",
+      "evidence_refs": [
+        "raw_diff: grBigBlueRoute_8020DED4 hunk",
+        "human_pr_text: DED4 change says restructure to use Ground_801C0498() + Ground_801C38BC() pattern"
+      ]
+    },
+    {
+      "text": "Changed grBigBlueRoute_8020DF80 condition from `a->y > b.y + -3.0F` to `b.y > -3.0f`, and added `Ground_801C38BC(a->y, b.y)` in the false branch.",
+      "evidence_refs": [
+        "raw_diff: grBigBlueRoute_8020DF80 hunk",
+        "human_pr_text: DF80 change description"
+      ]
+    },
+    {
+      "text": "Updated a CD20 todo comment from an 89.41% match note to a specific 3448/3452-byte, 4-byte-gap register-allocation note mentioning `stmw r24` versus target `stmw r25`, stack size 592B, FPR spills f16-f31, and .sdata2 [0-22] constants.",
+      "evidence_refs": [
+        "raw_diff: CD20 @todo comment hunk",
+        "human_pr_text: Known gap and .sdata2 constants sections"
+      ]
+    }
+  ],
+  "smart_moves": [
+    {
+      "text": "The PR documented the unresolved CD20 gap with a narrow suspected codegen cause instead of claiming a full match: extra GPR allocation in the prologue, same stack frame size, same FPR spill range, and shifted register allocation.",
+      "evidence_refs": [
+        "human_pr_text: Known gap: CD20 (4 bytes)",
+        "raw_diff: updated CD20 @todo comment"
+      ]
+    },
+    {
+      "text": "The PR body separated exact-size functions from the still-gapped CD20 function, making the claimed status searchable by function.",
+      "evidence_refs": [
+        "human_pr_text: Function sizes table"
+      ]
+    },
+    {
+      "text": "The author explicitly flagged the PR as not ready in an issue comment, which is useful intake evidence for not promoting the claimed matches as accepted.",
+      "evidence_refs": [
+        "text_corpus.jsonl: issue_comment by kolt-mcb: sorry my agent made this pr before it was ready"
+      ]
+    }
+  ],
+  "decomp_lessons": [
+    {
+      "lesson": "When a near-match differs by a small prologue/register-save gap, record the exact register-save difference, stack frame size, FPR spill range, and tested failed tactics rather than presenting the function as fully matched.",
+      "scope": [
+        "decomp-matching",
+        "MWCC register allocation",
+        "large stage functions"
+      ],
+      "evidence_refs": [
+        "human_pr_text: Known gap: CD20 (4 bytes)",
+        "raw_diff: CD20 @todo comment"
+      ],
+      "confidence": 0.72
+    },
+    {
+      "lesson": "Equivalent source-level control-flow forms can affect target size and branch shape; this PR tried comparison inversion for C85C and if/else instead of ternary for CD20.",
+      "scope": [
+        "control-flow matching",
+        "stage functions"
+      ],
+      "evidence_refs": [
+        "raw_diff: C85C comparison hunk",
+        "raw_diff: CD20 jobj ternary-to-if/else hunk",
+        "human_pr_text: Changes section"
+      ],
+      "confidence": 0.65
+    },
+    {
+      "lesson": "Constant ordering work in a code-matching PR is risky when it depends on discarded computations; this PR is evidence of the tactic being attempted, not evidence that the tactic should be accepted as style.",
+      "scope": [
+        ".sdata2 ordering",
+        "matching tactics"
+      ],
+      "evidence_refs": [
+        "human_pr_text: .sdata2 constants section",
+        "raw_diff: inserted `45.0f * Ground_801C0498();`",
+        "text_corpus.jsonl: issue_comment says PR was made before ready"
+      ],
+      "confidence": 0.55
+    }
+  ],
+  "naming_conventions": [
+    {
+      "text": "The diff retains address-style function names such as grBigBlueRoute_8020CD20, grBigBlueRoute_8020DED4, and grBigBlueRoute_8020DF80; no new semantic global renames are evidenced.",
+      "evidence_refs": [
+        "raw_diff: function hunks"
+      ]
+    },
+    {
+      "text": "Local names are role-based and short where visible: `gp`, `gobj`, `jobj`, `root_jobj`, `fighter`, `fighter_pos`, `pos`, `rot`, `p0`, `p1`, `tangent`, `road_tan`, and `road`.",
+      "evidence_refs": [
+        "raw_diff: grBigBlueRoute_8020CD20 declaration and local blocks"
+      ]
+    },
+    {
+      "text": "The PR uses `RE_ENTRY` as a macro alias for the indexed route entry: `#define RE_ENTRY (&((RouteEntry*) gp->u.car.car_info)[i])`; this is existing context in the diff, not evidence of a new global naming standard.",
+      "evidence_refs": [
+        "raw_diff: `#define RE_ENTRY` around CD20"
+      ]
+    }
+  ],
+  "assembly_or_matching_tactics": [
+    {
+      "tactic": "Comparison inversion for branch/size shape.",
+      "details": "C85C changed `!((f32) gp->u.car.x108 < 1.0f + ...)` to `gp->u.car.x108 >= 1.0f + ...`.",
+      "evidence_refs": [
+        "raw_diff: C85C comparison hunk",
+        "human_pr_text: C85C change"
+      ]
+    },
+    {
+      "tactic": "Declaration/local-order adjustments for register pressure and codegen.",
+      "details": "CD20 moved `root_jobj`, `jobj`, and `i` declarations after Vec3 locals. The PR body says declaration-order tests failed to close the 4-byte GPR gap.",
+      "evidence_refs": [
+        "raw_diff: CD20 declarations",
+        "human_pr_text: Known gap says declaration order tests failed"
+      ]
+    },
+    {
+      "tactic": "Move computations earlier to affect live ranges/control flow.",
+      "details": "CD20 moved spline/tangent/rotation computations before xC adjustment in case 0.",
+      "evidence_refs": [
+        "raw_diff: CD20 case 0 hunk",
+        "human_pr_text: CD20 changes"
+      ]
+    },
+    {
+      "tactic": "Ternary-to-if/else conversion.",
+      "details": "CD20 changed the jobj update at loop end from a conditional expression to explicit if/else, with the PR body saying this matched target control flow.",
+      "evidence_refs": [
+        "raw_diff: CD20 jobj update hunk",
+        "human_pr_text: CD20 changes"
+      ]
+    },
+    {
+      "tactic": "Discarded expression to perturb .sdata2 constant ordering.",
+      "details": "The PR inserted `45.0f * Ground_801C0498();` and states it was intended to fix .sdata2 ordering without a variable live range. Because the PR was not ready, this should remain a reviewed tactic candidate, not a style precedent.",
+      "evidence_refs": [
+        "raw_diff: inserted discarded multiply call",
+        "human_pr_text: CD20 and .sdata2 sections",
+        "text_corpus.jsonl: issue_comment says PR was made before ready"
+      ]
+    },
+    {
+      "tactic": "Document failed search space.",
+      "details": "The PR body reports declaration order, block scoping, volatile variations, ternary vs if-else patterns, and 90k+ decomp-permuter iterations did not reduce CD20 register pressure.",
+      "evidence_refs": [
+        "human_pr_text: Known gap: CD20 (4 bytes)"
+      ]
+    }
+  ],
+  "review_feedback": [
+    {
+      "author": "kolt-mcb",
+      "kind": "issue_comment",
+      "text": "sorry my agent made this pr before it was ready.",
+      "evidence_refs": [
+        "text_corpus.jsonl: issue_comment created_at=2026-06-14T03:57:29Z",
+        "human_pr_text excerpt issue comment"
+      ]
+    }
+  ],
+  "searchable_terms": [
+    "pr-2695",
+    "grbigblueroute",
+    "src/melee/gr/grbigblueroute.c",
+    "grBigBlueRoute_8020C85C",
+    "grBigBlueRoute_8020CD20",
+    "grBigBlueRoute_8020DED4",
+    "grBigBlueRoute_8020DF80",
+    "C85C",
+    "CD20",
+    "DED4",
+    "DF80",
+    "sdata2 ordering",
+    "Ground_801C0498",
+    "Ground_801C38BC",
+    "stmw r24",
+    "stmw r25",
+    "GPR spills",
+    "FPR spills f16-f31",
+    "PAD_STACK",
+    "volatile Vec3 rot",
+    "RE_ENTRY",
+    "decomp-permuter",
+    "ternary if-else",
+    "MWCC register pressure",
+    "not ready agent PR"
+  ],
+  "follow_up_queries": [
+    {
+      "query": "Find later PRs touching grBigBlueRoute_8020CD20 or grbigblueroute.c after PR #2695 to see whether the 4-byte CD20 gap was resolved.",
+      "reason": "This PR was closed unmerged and self-marked not ready."
+    },
+    {
+      "query": "Search for `stmw r24` `stmw r25` `CD20` in Big Blue route PRs or comments.",
+      "reason": "The exact unresolved gap signature is likely reusable for follow-up matching work."
+    },
+    {
+      "query": "Search for discarded `45.0f * Ground_801C0498()` or similar discarded Ground_801C0498 multiplications.",
+      "reason": "This PR attempted the pattern for .sdata2 ordering; curator should verify whether later accepted source kept or rejected it."
+    },
+    {
+      "query": "Search later history for grBigBlueRoute_8020DED4 and Ground_801C38BC/Ground_801C0498 pattern.",
+      "reason": "The DED4 rewrite is unusual and the PR was not ready, so later accepted evidence is needed before learning a standard."
+    }
+  ],
+  "evidence_quality": {
+    "status": "mixed",
+    "evidence_refs": [
+      "metadata_json: PR #2695 state CLOSED, merged_at null, changed_files=1",
+      "human_pr_text: PR body with function-size table and changes",
+      "raw_diff: full diff for src/melee/gr/grbigblueroute.c",
+      "text_corpus.jsonl: author issue comment says PR was made before ready"
+    ],
+    "notes": [
+      "Strong evidence exists for what file changed and what edits were proposed because the raw diff is available.",
+      "The function-size and .sdata2-match claims come from the PR author/body; no independent build, objdiff, or checkdiff output is included in the slice.",
+      "The PR was closed with merged_at null and the author immediately commented that the agent made the PR before it was ready; therefore claimed matches and tactics should not be treated as accepted project knowledge.",
+      "No review comments or reviewer approvals are present in the slice."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [
+      {
+        "type": "postmortem_lesson_candidate",
+        "title": "Record exact unresolved register-allocation gaps instead of overstating near matches",
+        "text": "PR #2695 documents CD20 as 3448/3452 bytes with the suspected prologue difference `stmw r24` vs target `stmw r25`, matching 592B stack frame, matching f16-f31 FPR spills, and failed attempts including declaration order, block scoping, volatile variations, ternary vs if-else, and 90k+ permuter iterations. This is useful as a search pattern and as an example of honest unresolved-gap documentation, but not as proof of a merged match.",
+        "scope": [
+          "MWCC register pressure",
+          "decomp matching notes",
+          "stage/grbigblueroute"
+        ],
+        "evidence_refs": [
+          "human_pr_text: Known gap: CD20 (4 bytes)",
+          "raw_diff: updated CD20 @todo comment",
+          "text_corpus.jsonl: issue_comment says PR was not ready"
+        ],
+        "confidence": 0.74
+      }
+    ],
+    "source_update_candidates": [
+      {
+        "target_source_id": "decomp_standards",
+        "update_kind": "global_standard",
+        "title": "Treat discarded computations for data-section ordering as high-risk matching tactics",
+        "text": "PR #2695 inserted a discarded `45.0f * Ground_801C0498();` expression and described it as fixing .sdata2 constant ordering without a variable live range. Because the PR was closed unmerged and self-marked not ready, this should not become accepted style; if promoted at all, it should reinforce that data-order perturbation tactics need explicit verifier evidence and cleanup review.",
+        "source_path": null,
+        "scope": [
+          ".sdata2 ordering",
+          "matching tactics",
+          "text-before-data matching"
+        ],
+        "evidence_refs": [
+          "human_pr_text: CD20 changes and .sdata2 constants",
+          "raw_diff: discarded multiply insertion",
+          "text_corpus.jsonl: issue_comment says PR was made before ready",
+          "decomp_standards: matching-tactics-need-evidence",
+          "decomp_standards: text-before-data-matching"
+        ],
+        "reason": "The loaded standards already warn against unsupported matching tactics and data-section chasing; this PR provides a concrete historical example for curator review, not a new accepted rule."
+      }
+    ],
+    "rejection_notes": [
+      {
+        "text": "Do not promote the PR body's exact size-match claims as accepted validation results; the slice lacks independent verifier output and the PR was explicitly marked not ready by its author.",
+        "evidence_refs": [
+          "human_pr_text: function-size table",
+          "text_corpus.jsonl: issue_comment says PR was made before ready",
+          "metadata_json: merged_at null"
+        ]
+      },
+      {
+        "text": "Do not promote the DED4 Ground_801C0498/Ground_801C38BC rewrite as a general clamp style; the resulting source shape is unusual, and the PR readiness comment weakens it as evidence.",
+        "evidence_refs": [
+          "raw_diff: grBigBlueRoute_8020DED4 hunk",
+          "text_corpus.jsonl: issue_comment says PR was made before ready"
+        ]
+      },
+      {
+        "text": "Do not treat discarded `45.0f * Ground_801C0498()` as an accepted method for .sdata2 ordering without later merged evidence.",
+        "evidence_refs": [
+          "raw_diff: CD20 inserted discarded multiply",
+          "human_pr_text: sdata2 ordering claim",
+          "text_corpus.jsonl: issue_comment says PR was made before ready"
+        ]
+      }
+    ]
+  },
+  "confidence": 0.68,
+  "agent_runtime": {
+    "provider": "codex-lb",
+    "model": "gpt-5.5",
+    "thinking": "medium",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 900,
+    "session_dir": "/Users/Ford/Github Repos/oss/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}
