@@ -15,14 +15,14 @@ artifact while naming the current package status.
 | --- | --- | --- |
 | 0 | Design doc and repo survey | Preserved in `docs/design.html` and markdown docs. |
 | 1 | Top-level orchestrator scaffold | Present under `decomp-orchestrator/`. |
-| 2 | Pi agent SDK adapter | Present for dry-run and live director/worker sessions. |
+| 2 | Pi agent SDK adapter | Present for dry-run and live worker/review/curation sessions. |
 | 3 | State substrate | Present for runs, targets, queue, leases, locks, reports, events, sessions, and integrations. |
 | 4 | Read-only indexer | Present for `report.json` and `objdiff.json` fixture/live loading; richer graph edges are future work. |
-| 5 | Director-cycle dry run | Present through `tick` and trigger-agent activation. |
-| 6 | Prompt builder and capability templates | Present under `packages/agents/src/{director,worker,pr-review}` plus agent context manifest routes. |
-| 7 | One locked worker | Present through `worker` and trigger-agent subprocess workers. |
+| 5 | Scheduler tick dry run | Present through deterministic `tick` and run-loop activation. |
+| 6 | Prompt builder and capability templates | Present under `packages/agents/src/{worker,pr-review,knowledge-curator,qa-repair}` plus agent context manifest routes. |
+| 7 | One locked worker | Present through `worker` and run-loop subprocess workers. |
 | 8 | Score integration dry run | Represented by `regression-check`, PR promotion reports, and dashboard QA controls; full patch accept/reject integration is future work. |
-| 9 | Event-driven refill loop | Present through `trigger-agent` / `bootstrap`. |
+| 9 | Event-driven refill loop | Present through `run-loop`; `trigger-agent` / `bootstrap` remain aliases. |
 | 9.5 | Process guardian wrapper | Present through `babysit`, guardian incident artifacts, worker-id lease recovery, and child restart policy. |
 | 10 | Fact-aware loop | Facts are represented in state and reports; reducer/fact promotion is future work. |
 | 11 | Human dashboard | Present as the Bun/React UI for progress, work tables, process controls, collapsible rails, checkpointing, and PR handoff controls. |

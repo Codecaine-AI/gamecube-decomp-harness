@@ -197,6 +197,9 @@ export async function runKnowledgeMaintenance(globals: GlobalArgs, args: Map<str
     includeStalled: !booleanArg(args, "--progress-only"),
   });
   const agentReview = await maybeRunCuratorAgent(globals, args, curator.output_path);
+  const dataSheetFacts = booleanArg(args, "--no-data-sheet-facts")
+    ? skipSummary("data_sheet_facts", "--no-data-sheet-facts")
+    : await runDataSheetFacts(repoRoot);
   const rebuild = booleanArg(args, "--no-rebuild")
     ? { skipped: true, reason: "--no-rebuild" }
     : rebuildKnowledgeGraph({
@@ -211,10 +214,24 @@ export async function runKnowledgeMaintenance(globals: GlobalArgs, args: Map<str
     pr_index: prIndex,
     tool_runners: toolRunners,
     tool_indexes: toolIndexes,
+    data_sheet_facts: dataSheetFacts,
     curator,
     agent_review: agentReview,
     rebuild,
   };
+}
+
+async function runDataSheetFacts(repoRoot: string): Promise<SpawnSummary> {
+  const script = resolve(packageRoot(), "knowledge/sources/code_context/ssbm_data_sheet/commands/build_codebase_facts.py");
+  const command = ["python3", script, "--repo-root", repoRoot, "--json"];
+  const proc = Bun.spawn(command, {
+    cwd: packageRoot(),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
+  if (exitCode !== 0) throw new Error(`Data-sheet fact build failed (${exitCode}): ${command.join(" ")}\n${stderr || stdout}`);
+  return { command, exit_code: exitCode, stdout, stderr };
 }
 
 async function runToolRunners(repoRoot: string): Promise<SpawnSummary[]> {

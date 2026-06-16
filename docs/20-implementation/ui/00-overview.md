@@ -152,26 +152,27 @@ The Run section manages the long-running decomp process:
 | `Report Now` | `POST /api/report/run` | Runs the trusted report refresh flow through `forceReportRun`. |
 | `Fresh Run` | `POST /api/run/fresh` | Optionally checkpoints the current run, resets the report baseline, initializes a new run, and refreshes PR knowledge. |
 
-Run Setup exposes scheduling as a size preset instead of independent queue
-numbers. The dashboard server derives `--max-workers`, `--queue-target-size`,
-`--queue-low-watermark`, `--candidate-limit`, and `--candidate-window` from that
-preset so the browser state cannot leave a mismatched worker/queue policy:
+Run Setup exposes scheduling as a size preset plus epoch controls. The dashboard
+server derives `--max-workers`, `--queue-target-size`, `--queue-low-watermark`,
+`--candidate-limit`, `--candidate-window`, `--epoch-size`,
+`--epoch-ready-queue-size`, fast refresh cadence, and boundary maintenance mode
+from form state and project defaults. The managed process name remains the
+project process name, which is `melee-live` for the Melee dashboard run.
 
-| Preset | Workers | Ready queue | Refill watermark |
+| Preset | Workers | Default epoch | Ready queue |
 | --- | ---: | ---: | ---: |
-| Small | 4 | 16 | 4 |
-| Medium | 8 | 32 | 8 |
-| Large | 16 | 64 | 16 |
-| XL | 32 | 128 | 32 |
+| Small | 4 | 16 | 16 |
+| Medium | 8 | 32 | 32 |
+| Large | 16 | 64 | 64 |
+| XL | 32 | 128 | 128 |
 
-The ready queue is the pool of queued targets that workers can lease. In the
-default epoch cycle the ready-queue size is the epoch batch size: the trigger
-fills it once, lets it drain to zero, runs the epoch checkpoint pipeline
-(commit, worktree report rebuild, regression repair requeue, `epoch` save
-point), and then refills the next batch. The refill watermark column applies
-to legacy continuous mode (`--no-epoch-cycle`), where the trigger tops the
-pool up whenever it is below target and requests a director replan at the
-watermark.
+The active scheduler epoch is a fixed admitted target set. The ready queue is
+the subset of admitted targets that workers can lease immediately. Operators can
+choose preset epoch sizes (`32`, `64`, `128`, `256`, `512`, or `full`), tune the
+ready queue independently, enable or disable fast run-evidence refresh, set the
+fast interval/report-count triggers, and choose boundary maintenance mode
+(`full`, `no-tool-runners`, or `skip`). Dashboard status surfaces active epoch
+admitted, queued, leased, completed, and remaining counts from durable state.
 
 Fresh Run (the `New Session` dock action) always checkpoints the current run
 first, preserving PR candidates and carry-forward work before the next

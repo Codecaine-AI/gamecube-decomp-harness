@@ -13,7 +13,6 @@ import type { AgentToolProfileInput, AgentToolRuntimeContext, PiToolDefinition }
 export { defaultKnowledgeCuratorToolProfile, defaultPrReviewToolProfile, defaultQaRepairToolProfile, defaultReconcileToolProfile, defaultWorkerToolProfile } from "./profile-data.js";
 
 export const defaultAgentToolProfiles: Record<RuntimeAgentRole, string[]> = {
-  director: [],
   worker: [...defaultWorkerToolProfile],
   "pr-review": [...defaultPrReviewToolProfile],
   "knowledge-curator": [...defaultKnowledgeCuratorToolProfile],

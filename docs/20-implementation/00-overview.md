@@ -56,8 +56,8 @@ decomp-orchestrator/
 
 ## Child Sections
 
-- [Agents](agents/00-overview.md): centralized director, worker, PR-review,
-  knowledge-curator, and runtime prompt/session code.
+- [Agents](agents/00-overview.md): worker, PR-review, knowledge-curator,
+  reconcile, QA repair, and runtime prompt/session code.
 - [CLI](cli/00-overview.md): operator command surface and command modules.
 - [Knowledge](knowledge/00-overview.md): sectioned knowledge sources,
   CLI-first tools, resource graph, agent context routing, and past PR library.
@@ -73,6 +73,6 @@ decomp-orchestrator/
   phases, current status, and v1 defaults.
 - [Design coverage audit](99-appendix/40-design-coverage.md): traceability from
   every HTML design section to the markdown docs.
-- [Melee live run reporting issues](99-appendix/50-melee-live-run-reporting-issues.md):
-  worker report display problems, tool-error triage, and deterministic
-  validation logging requirements from the active Melee run.
+- [Pi agent run reports](99-appendix/50-pi-agent-run-reports.md): worker report
+  outcome analysis, tool-effectiveness reporting, and deterministic validation
+  logging requirements from active Melee runs.

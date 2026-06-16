@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { WorkerReportType } from "../types/index.js";
 import { immediateTransaction, now, type StateStore } from "./db.js";
+import { markEpochTargetCompleted, markEpochTargetRequeued } from "./epochs.js";
 import { workerWakeEvent } from "./events.js";
 
 function releasedLeaseStatus(reportType: WorkerReportType): string {
@@ -14,7 +15,7 @@ function releasedLeaseStatus(reportType: WorkerReportType): string {
 
 // needs_rework (gate rejected the return — the work or our understanding needs another
 // look) and error (infrastructure broke) get distinct terminal-for-now statuses instead
-// of "reported" so they stay visible and the director can re-queue them later
+// of "reported" so they stay visible and deterministic routing can re-queue them later
 // (prioritizeQueuedTargets re-queues any target with no open queue row).
 // provider_error means the LLM provider failed before the target was really attempted,
 // so the queue row goes straight back to "queued" — quarantining it would silently drain
@@ -84,6 +85,9 @@ export function recordWorkerReport(params: {
         `,
       )
       .run(reportedTargetStatus(params.reportType), params.leaseId);
+
+    if (params.reportType === "provider_error") markEpochTargetRequeued(params.store, params.leaseId, reportCreatedAt);
+    else markEpochTargetCompleted(params.store, params.leaseId, reportCreatedAt);
 
     params.store.db
       .query("INSERT INTO events (id, run_id, event_type, producer, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?)")

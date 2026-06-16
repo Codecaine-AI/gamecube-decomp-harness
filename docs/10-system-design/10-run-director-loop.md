@@ -1,135 +1,126 @@
 ---
-covers: Run director responsibilities, trigger actor semantics, cycle, wake conditions, and worker report contract
-concepts: [director, trigger-actor, board, queue, target-packets, wake-events, reports]
+covers: Deterministic run scheduler responsibilities, run-loop process semantics, epoch queue cycle, wake handling, and worker report contract
+concepts: [scheduler, run-loop, board, queue, epochs, wake-events, reports]
 ---
 
-# Run Director Loop
+# Run Scheduler Loop
 
-The run director is the central board-level agent. It reads the current run
-state, decides which target packets are most useful next, writes decisions, and
-then goes idle. It does not perform source archaeology or source edits.
+The run scheduler is the board-level control loop. It reads durable run state,
+refreshes queue priorities from the ranked board, admits deterministic work,
+starts workers under leases, and handles wake events without requiring a
+model-driven scheduling session in the hot path.
 
 ## Behavior
 
-Each director cycle has four phases:
+Each scheduler pass has five phases:
 
-1. Board read: absorb progress, active leases, queued targets, worker reports,
-   accepted facts, rejected hypotheses, duplicate groups, and recent stalls.
-2. Prioritization: use helper scores and recent evidence to identify targets
-   that can create useful information.
-3. Delegation: emit bounded target packets and worker-slot intent.
-4. Sleep: write decisions and stop until a durable event wakes the director.
+1. Board read: observe active leases, queued targets, worker reports, wake
+   events, locked sources, run status, and graph-ranked candidates.
+2. Queue maintenance: refill or refresh the ready queue according to explicit
+   epoch, ready-queue, candidate-window, lock, cooldown, and exhaustion policy.
+3. Worker realization: start workers only for open slots and schedulable queued
+   targets, with leases and file locks as the authority.
+4. Boundary checks: trigger fast run-evidence refreshes during an epoch and full
+   truth rebuilds at epoch boundaries.
+5. Rest: mark handled wake events, record observable state, and sleep until
+   durable state changes again.
 
-The director's job is to choose the next valuable square on the board. Helper
-scores can rank likely targets, but the final scheduling decision belongs to the
-director because it has the full context of the run.
+The scheduler's decisions are reproducible from durable state and operator
+configuration. Graph scores can rank candidates, but admission and wake-event
+handling follow deterministic policy.
 
-## Director Cycle
+## Scheduler Cycle
 
 ```text
 +------------------+     +------------------+     +------------------+
-| Wake event       |---->| Board snapshot   |---->| Pi director      |
-| - run started    |     | - run target     |     | choose next      |
-| - worker stalled |     | - indexer output |     | influence point  |
-| - worker done    |     | - reducer output |     | under budget     |
-| - refill needed  |     | - leases/stalls  |     | and locks        |
+| Wake event       |---->| Board snapshot   |---->| Deterministic    |
+| - run started    |     | - ranked targets |     | scheduler policy |
+| - worker report  |     | - queue/leases   |     | admission/refill |
+| - pool pressure  |     | - locks/stalls   |     | refresh/routing  |
 +--------+---------+     +------------------+     +--------+---------+
          ^                                                 |
          |                                                 v
          |                  +------------------+     +-----+------------+
-         |                  | Write state      |<----| Decision bundle  |
-         |                  | - queue rows     |     | - target packets |
-         |                  | - lease intents  |     | - priorities     |
-         |                  | - fact requests  |     | - budgets        |
-         |                  | - cooldowns      |     | - cooldowns      |
-         |                  | then sleep       |     | - fact packets   |
+         |                  | Durable state    |<----| Scheduler result |
+         |                  | - queue rows     |     | - admitted work  |
+         |                  | - handled events |     | - refreshed rank |
+         |                  | - epoch status   |     | - boundary state |
+         |                  | - reports        |     | - routing notes  |
          |                  +--------+---------+     +------------------+
          |                           |
          |                           v
-         +------ director inactive until another durable event wakes it
+         +------ scheduler sleeps until another durable event or cadence fires
 ```
 
-The cycle is intentionally short. The director does one board read, writes one
-decision bundle, and exits. It is resumed by durable events rather than kept
-alive as a hidden strategic loop.
+The run loop is the non-agent process component that gives the scheduler a
+resting shape. It checks durable events, runs one deterministic scheduler tick
+when an unhandled event exists, keeps worker slots filled from leaseable queue
+rows, runs maintenance cadence checks, and then sleeps without keeping a
+board-level model session alive.
 
-The trigger actor is the non-agent process component that gives this a
-resting-agent feel. It checks durable events, activates one director turn when a
-wake event exists, maintains the queued target pool from board snapshots,
-realizes worker-slot intent as worker processes, and then sleeps without
-keeping a Pi director session alive.
-
-The director does not directly own process spawning. It decides what should be
-worked next; the trigger/runtime layer makes that process work happen under
-leases.
+The scheduler does not perform source archaeology or source edits. Workers own
+target-local source work; the scheduler owns target admission, queue movement,
+refresh cadence, boundary routing, and process realization.
 
 ## Epoch Queue Cycle
 
-The trigger actor treats the queue as one epoch batch rather than a
-continuously topped-up pool. Each epoch:
+An epoch is a bounded scheduling wave admitted from the freshest authoritative
+report and graph state available at epoch start.
 
-1. Refill fills the queue to the configured queue target from the freshest
-   board ranking.
-2. Workers lease and drain the batch. No new targets are inserted while it
-   drains, but queued-but-not-leased targets still receive periodic priority
-   refreshes from the graph-ranked board.
-3. When queued work reaches zero, the epoch pipeline runs while in-flight
-   workers finish: commit validated work (excluding files under active
-   leases, so half-finished attempts never poison the checkpoint), rebuild
-   the full objdiff report in a persistent epoch worktree, publish the fresh
-   report for board scoring, record an `epoch` save point as the run's
-   measured progress checkpoint, and requeue regressed functions as
-   priority repair targets.
-4. Refill grabs the next batch from the re-scored board and the cycle
-   repeats.
+Each epoch:
 
-The epoch boundary is therefore both the rescoring point and the progress
-checkpoint: every batch is ranked against the codebase as it actually stands,
-not against a stale report, and the run's history is the sequence of epoch
-save points. Work still in flight when the queue empties simply counts toward
-the next epoch's checkpoint.
+1. Admission selects up to the configured epoch size, or every currently
+   schedulable unmatched target in `Full` mode. Admission scans the ranked board
+   through the candidate window and expands when needed until the epoch target
+   is satisfied or the board is exhausted.
+2. Ready-queue refill keeps immediately leaseable work available from the
+   admitted set. Queued-but-not-leased targets can receive priority refreshes
+   from graph-ranked evidence while the epoch is running.
+3. Workers lease targets. Active leases and file locks remain authoritative, so
+   queued work behind active locks does not bypass the lock model.
+4. Fast run-evidence refreshes can ingest completed worker reports, facts,
+   blockers, stalls, and deterministic curator output. Fast refresh updates
+   learning and ranking inputs only; it does not rebuild report truth.
+5. The epoch boundary pauses intake, rebuilds report truth, runs full
+   maintenance, records a progress save point, removes exact matches from
+   future scheduling, routes regressions to repair priority, and admits the next
+   epoch from the refreshed board.
 
-Two safety valves shape the boundary. If one epoch regresses more report rows
-than the pause threshold, the pipeline records the checkpoint but withholds
-the refill and emits an `epoch_regression_pause` event instead of building on
-a damaged base. If refill after a rebuild finds no fresh board work, the
-trigger emits `pool_below_target` so the director can replan the long tail,
-and backs off before rebuilding again.
+Three sizes stay distinct:
 
-Refill itself prefers candidates that have not already been queued, leased,
-reported, or stalled in the run, and prefers distinct unlocked source paths
-before adding additional functions from an already queued source. Director
-target packets can requeue a previously attempted target when new facts make
-it worth another pass; the epoch pipeline uses that same requeue authority for
-regression repairs, while batch refill stays biased toward fresh work.
-
-`--no-epoch-cycle` restores the legacy continuous mode, where the trigger tops
-the queue back up toward the target on every pass and watermark policies
-(queue low, schedulable low, active low, long tail) emit `pool_below_target`
-replans as the pool runs down.
+| Concept | Purpose |
+| --- | --- |
+| Epoch size | Total target admissions for one epoch. |
+| Ready queue size | Number of queued targets kept immediately leaseable. |
+| Candidate window | Number of ranked board candidates scanned to satisfy admission or refill. |
 
 ## Wake Events
 
-The director wakes when durable state says it should act:
+Wake events are durable work notices, not requests for model judgment:
 
 - A run starts.
 - Active workers drop below the desired count.
-- A worker finishes, stalls, asks for a fact, or produces a score candidate.
-- New facts are accepted.
-- A score integration changes the board.
-- The run checkpoint goal is reached and the system should pause for handoff.
+- A worker finishes, stalls, asks for a fact, hits provider trouble, or produces
+  a score candidate.
+- Queue pressure shows too little schedulable work or too many locks.
+- An epoch boundary, pause, retry, or stop condition is recorded.
 
-Workers do not need the director to be live while they work. They write reports
-and events, then the runner invokes the director again when the next decision is
-needed.
+A scheduler tick handles one wake event by refreshing deterministic queue state,
+recording the result, and marking the event handled. If no schedulable board
+work exists, the scheduler records queue pressure and backs off according to
+policy rather than spinning or falling back to a model-driven replan.
 
-## Target Packets
+## Worker Delegation
 
-A target packet is the director's bounded delegation contract. It should name
-the target, write set, context to read first, relevant facts, rejected
-hypotheses, budget, capability hints, validation expectations, and stop
-conditions. The packet gives the worker enough shape to act without giving it
-board-level authority.
+A queued target is the bounded delegation contract. It names the unit, symbol,
+source path, current score evidence, priority, reason, and leaseable write set.
+The worker receives target-local context and validation expectations, but it
+does not receive board-level authority.
+
+The scheduler can requeue a previously attempted target only when deterministic
+routing has authority to do so, such as regression repair, accepted new facts,
+or explicit operator policy. Normal board refill stays biased toward fresh,
+unlocked, distinct-source work.
 
 ## Worker Report Contract
 
@@ -140,9 +131,9 @@ A worker report should tell the board what changed:
 - Facts: reusable type, symbol, source-shape, duplicate, resource, or PR-derived
   evidence.
 - Negative results: grounded hypotheses that failed and should not be repeated.
-- Blockers: exact missing constraints that justify a fact-research packet.
+- Blockers: exact missing constraints that justify a fact/tool/research lane.
 - Stall state: evidence is exhausted and the worker should stop before random
   mutation.
 
-The report is more important than the worker session. Future decisions consume
+The report is more important than the worker session. Future scheduling consumes
 durable evidence, not hidden conversation state.

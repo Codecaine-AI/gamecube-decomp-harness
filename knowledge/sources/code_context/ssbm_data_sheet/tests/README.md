@@ -1,6 +1,7 @@
 # SSBM Data Sheet Tests
 
-Add small CSV fixtures here when the sheet indexer is implemented.
+Add small CSV/source fixtures here when the sheet indexer needs unit coverage.
 
 Smoke coverage should verify address lookup, offset lookup, citation metadata,
-and low-trust graph edge emission.
+generated fact freshness, codebase-first result ranking, and low-trust graph
+edge emission for legacy workbook rows.

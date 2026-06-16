@@ -7,7 +7,7 @@ import { booleanArg, numberArg, stringArg, type GlobalArgs } from "../args.js";
  * Run one epoch checkpoint cycle by hand: commit validated work (excluding
  * in-flight worker files), rebuild the full report in the epoch worktree,
  * record the progress save point, and requeue regression repairs. The same
- * pipeline trigger-agent runs automatically when the queue drains to zero.
+ * pipeline the run loop runs automatically at scheduler epoch boundaries.
  */
 export async function epochRun(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
   const store = openState(globals.stateDir);

@@ -23,13 +23,13 @@ plus routed worker context own role behavior.
 | Tools | CLI-first helpers that rank targets, gather context, refresh PR data, or analyze last-resort experiment output |
 | Code graph | Current-checkout facts about files, object units, functions, match status, and editability |
 | Resource graph | Project-selected SQLite graph state linking the code graph with global PR history, source hits, durable lessons, mismatch patterns, editability, and rank features |
-| Agent context | Compact worker guidance selected by `packages/agents/src/context/manifest.json`; director scheduling lives in the director system prompt |
+| Agent context | Compact worker guidance selected by `packages/agents/src/context/manifest.json`; scheduler policy lives in deterministic runtime code |
 | Graph enrichments | Durable learned facts, such as imported legacy shared-agent lessons, curator-produced worker/PR lessons, and derived mismatch-pattern entities, stored as graph-owned artifacts |
 
 ## Selection
 
-The director gets scheduling policy directly in its system prompt. Workers get
-one compact operating guide by default. Capability hints add focused lookup,
+The scheduler gets ranking inputs from the graph and applies explicit epoch
+policy. Workers get one compact operating guide by default. Capability hints add focused lookup,
 matching, or last-resort sweep context only when the packet needs it. The
 one-symbol targeted iteration loop is part of the worker system prompt, not a
 separate knowledge workflow.

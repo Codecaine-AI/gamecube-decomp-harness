@@ -1,6 +1,6 @@
 ---
 covers: D-Comp Orchestrator CLI command modules and operator command surface
-concepts: [cli, commands, init-run, tick, worker, trigger-agent, babysit, recovery, checkpoint, regression-check, qa-ship-gate, qa-repair, pr-split-plan, pr-preship-review, ui]
+concepts: [cli, commands, init-run, tick, worker, scheduler, run-loop, babysit, recovery, checkpoint, regression-check, qa-ship-gate, qa-repair, pr-split-plan, pr-draft-qa, pr-preship-review, ui]
 code-ref: decomp-orchestrator/apps/cli/src/cli, decomp-orchestrator/apps/cli/src/bin/decomp-orchestrator.ts
 ---
 
@@ -35,6 +35,7 @@ apps/cli/src/
         +-- index.ts
         +-- init-run.ts
         +-- kg.ts
+        +-- pr-draft-qa.ts
         +-- pr-preship-review.ts
         +-- pr-split-plan.ts
         +-- qa-gate.ts
@@ -54,10 +55,11 @@ apps/cli/src/
 | Command | Purpose |
 | --- | --- |
 | `init-run` | Creates run state, stores the run checkpoint goal, loads board data, queues initial candidate targets, and writes the initial board snapshot. |
-| `tick` | Handles one unhandled wake event by running one director cycle. |
+| `tick` | Handles one unhandled wake event with the deterministic scheduler: refresh/refill the queue from the graph-ranked board, record queue pressure, and mark the event handled. |
 | `worker` | Leases one queued target, runs worker/repair sessions, gates returns on runner-owned post-return validation, writes report artifacts, releases the lease, and emits a wake event. |
-| `trigger-agent` | Resting supervisor loop that wakes the director on events, starts workers up to `desired_workers` or `--max-workers`, and sleeps when the board is quiet. |
-| `bootstrap` | Alias for `trigger-agent`. |
+| `run-loop` | Resting deterministic scheduler loop that handles wake events, keeps epoch work moving, starts workers up to `desired_workers` or `--max-workers`, and sleeps when the board is quiet. |
+| `trigger-agent` | Compatibility alias for `run-loop`. |
+| `bootstrap` | Compatibility alias for `run-loop`. |
 | `babysit` | Guardian wrapper that launches the decomp system command, captures process-health incidents, recovers failed or expired leases, and restarts according to policy. |
 | `checkpoint-run` | Harvests a drained run into PR-candidate exact matches and carry-forward items. |
 | `recover-leases` | Converts interrupted or expired active leases into durable stalled reports after operator confirmation. |
@@ -65,6 +67,7 @@ apps/cli/src/
 | `regression-check` | Wraps the repo's global saved-baseline regression gate, runs the QA ship gate (`review_lint` diff scan vs `--qa-base`, fail-closed, bypass only via `--skip-qa-gate`), and writes run artifacts. |
 | `qa-repair` | Builds the PR-bound QA repair queue from checkpoint candidates, explicit candidate files, or saved `review_lint scan_diff` JSON; optionally runs the `qa-repair` agent over selected items; writes queue/report/ship-filter artifacts under `state_dir/qa_repairs/<run-id>/<timestamp>/`. |
 | `pr-split-plan` | Plans review-sized PR slices from the current branch/worktree by grouping changed files by Melee subsystem or top-level directory. |
+| `pr-draft-qa` | Runs the draft PR lifecycle around an opened GitHub PR: resolve/fetch PR refs, run preship review, scan deterministic QA findings, optionally run repair agents, comment unresolved findings with stable dedupe markers, and verify CI/local checks. Artifacts land under `state_dir/pr_draft_qa/pr-<number>/<run-id>/`. |
 | `pr-preship-review` | Runs the pr-review agent in adversarial pre-ship mode over planned PR slices (`--plan` from saved `pr-split-plan --json` output, `--all` or `--slice <id>`); any `reject` finding or infrastructure failure exits 1 and blocks handoff. Artifacts land under `state_dir/preship_reviews/<run-id>/<slice-id>/`. |
 | `reconcile` | Runs the reconcile Pi agent. `--mode ship-validate` fixes QA-gate regressions before PR handoff; `--mode sync-merge` resolves merge conflicts, duplicate matches, and build errors after an upstream sync. `--attempt-budget` bounds fix cycles; artifacts land under `state_dir/reconcile/<timestamp>/`. |
 | `save-point` | Records a campaign save point: commits the dirty worktree (never staging `decomp-orchestrator/` or the state dir), copies `report.json`/`report_changes.json` plus a board snapshot under `state_dir/save_points/<timestamp>/`, and inserts the row with commit/base SHAs and `matched_code_percent`. `--list` prints recent save points. |
@@ -80,9 +83,10 @@ apps/cli/src/
 
 ## Boundaries
 
-The CLI keeps the single-step commands for debuggability, exposes
-`trigger-agent` / `bootstrap` for autonomous decomp-system runs, and exposes
-`babysit` as the outer guardian process for long-running development sessions.
+The CLI keeps the single-step commands for debuggability, exposes `run-loop`
+for autonomous decomp-system runs, preserves `trigger-agent` / `bootstrap` as
+compatibility aliases, and exposes `babysit` as the outer guardian process for
+long-running development sessions.
 
 Project resolution is a global CLI concern, not a command-local convention.
 Commands consume `globals.repoRoot`, `globals.stateDir`, optional
@@ -97,13 +101,13 @@ CLI paths resolve from the invoking working directory. Project descriptors may
 also provide validation defaults, dashboard defaults, PR split defaults,
 `baseRef`, `processName`, and `localEnv`.
 
-The trigger-agent is deliberately not a Pi agent. It is a thin evented loop over
-durable SQLite state: wake the director for unhandled events, start worker
-sessions for open slots, then rest until state changes. The babysit command is
-also not a Pi agent. It wraps the decomp system process, sleeps while that
-process runs, wakes on process exit or worker-process error, writes guardian
-artifacts under `state_dir/guardian/`, runs `recover-leases` when appropriate,
-and restarts the child when policy allows.
+The run loop is deliberately not a Pi agent. It is a thin evented loop over
+durable SQLite state: handle unhandled events with deterministic scheduler
+ticks, start worker sessions for open slots, then rest until state changes. The
+babysit command is also not a Pi agent. It wraps the decomp system process,
+sleeps while that process runs, wakes on process exit or worker-process error,
+writes guardian artifacts under `state_dir/guardian/`, runs `recover-leases`
+when appropriate, and restarts the child when policy allows.
 
 ## Worker Post-Return Gate
 
@@ -121,49 +125,57 @@ optional command hook runs from the repo root and supports placeholders:
 `{repo_root}`, `{state_dir}`, `{worker_log_dir}`, `{lease_id}`,
 `{source_path}`, `{unit}`, `{symbol}`, and `{write_set}`.
 
-`--worker-thinking-level` lets the trigger actor launch worker Pi sessions with
-a different thinking level from the director. For example, the director can stay
-on the global default while workers run with `--worker-thinking-level low`.
+`--worker-thinking-level` lets the run loop launch worker Pi sessions with
+a thinking level different from the global CLI default. For example, a run can
+keep review and manual commands on the global default while workers run with
+`--worker-thinking-level low`.
 
-The trigger actor also owns queue shape, and by default runs the epoch cycle:
-refill fills the queue to `--queue-target-size` in one batch, workers drain it
-with no top-ups, and when queued work hits zero the epoch pipeline runs while
-in-flight workers finish. The pipeline commits validated work (excluding files
-under active leases), checks that commit out into a persistent worktree at
-`<state-dir>/epoch_worktree`, runs `--epoch-configure-command` plus the full
-report build there, publishes the fresh `report.json`/`report_changes.json`
-back to the live repo for board scoring, advances the worktree baseline so the
-next epoch diffs epoch-over-epoch, records an `epoch` save point with measures,
-regression counts, and a `qa_gate` payload (the `review_lint` scan of the
-epoch diff — observability for the dashboard only; the hard stop is the L2
-gate in `regression-check`), requeues regressed functions as priority repair
-targets, and finally refills the next batch from the re-scored board. Epoch
-failures emit `epoch_cycle_error` and back off `--epoch-retry-ms`; regressions
-above `--epoch-regression-pause-threshold` emit `epoch_regression_pause` and
-withhold the refill. `--no-epoch-cycle` restores the legacy continuous mode
-described further below.
+The run loop also owns deterministic epoch shape. By default it keeps one
+active scheduler epoch in SQLite, adopts any existing queued or leased repair
+work into that epoch, admits a fixed target set from the graph-ranked board,
+and refills only the immediately leaseable ready queue from that admitted set.
+`--queue-target-size` remains a compatibility default, while
+`--epoch-size <n|full>` controls total admission and
+`--epoch-ready-queue-size <n>` controls how many admitted targets are kept
+queued for workers.
 
-Queue size and board scan width are separate. `--candidate-limit` remains the
-initial seed size and compatibility pool size. `--queue-target-size` is the
-epoch batch size (and in legacy mode, the level continuous refill maintains).
-`--candidate-window` controls the initial ranked board scan width used to find
-fresh work beyond the current pool. If that window is exhausted, deterministic
-refill expands the scan until it restores the pool target or reaches the end of
-the ranked board.
+When every admitted target reaches a terminal worker-report state, the boundary
+pipeline commits validated work (excluding files under active leases), checks
+that commit out into a persistent worktree at `<state-dir>/epoch_worktree`,
+runs `--epoch-configure-command` plus the full report build there, publishes
+fresh `report.json`/`report_changes.json` back to the live repo for board
+scoring, advances the worktree baseline so the next epoch diffs
+epoch-over-epoch, records an `epoch` save point with measures, regression
+counts, and a `qa_gate` payload, requeues regressed functions as priority repair
+targets, runs boundary knowledge maintenance according to
+`--full-kg-maintenance-mode`, closes the scheduler epoch, and admits the next
+epoch from the refreshed board. Epoch failures emit `epoch_cycle_error` and
+back off `--epoch-retry-ms`; regressions above
+`--epoch-regression-pause-threshold` emit `epoch_regression_pause` and pause
+new epoch admission.
 
-In both modes the trigger periodically rereads the graph-ranked board and
-refreshes priorities for queued-but-not-leased targets inside the scan window.
-Graph maintenance can therefore move newly informative targets upward without
-waiting for the old queue to drain completely. In epoch mode this refresh is
-priority-only and never inserts targets mid-batch.
+Three sizing knobs are separate. `--candidate-limit` remains the initial seed
+size and compatibility pool size. `--epoch-size` is total admission for the
+active scheduler epoch, with `full` admitting every currently schedulable board
+candidate as the scan expands to exhaustion. `--epoch-ready-queue-size` is the
+ready queue cap. `--candidate-window` controls the initial ranked-board scan;
+the scheduler expands it when the requested epoch size or full-board scan needs
+more candidates.
 
-In legacy continuous mode (`--no-epoch-cycle`) the trigger instead tops the
+Fast run-evidence refresh is the in-epoch maintenance lane. The run loop can run
+`kg-maintain --no-tool-runners` on an interval or after a coalesced worker-report
+count. It records started, finished, skipped, and deferred events; it never
+launches overlapping fast refreshes; and after a successful refresh it updates
+priority order for queued targets inside the active admitted set. Fast refresh
+does not rebuild report truth.
+
+In legacy continuous mode (`--no-epoch-cycle`) the run loop instead tops the
 queue back up toward the target on every pass and writes a prioritized
 `pool_below_target` event when deterministic refill is not enough and capacity
-is becoming inefficient. The CLI defaults wake the director when total queued
-work falls to 25% of `--queue-target-size`, when unlocked distinct-file work
-falls below `--max-workers`, when queued work is blocked by active file locks,
-or when a long-tail drain persists for five minutes. The dashboard uses a
+is becoming inefficient. The CLI defaults route queue-pressure work when total
+queued work falls to 25% of `--queue-target-size`, when unlocked distinct-file
+work falls below `--max-workers`, when queued work is blocked by active file
+locks, or when a long-tail drain persists for five minutes. The dashboard uses a
 stricter preset policy: ready queue is always `4 * workers`, and
 `--queue-low-watermark` is always `workers`, so a 16-worker dashboard run
 keeps a 64-target queue and asks for fresh priority work when 16 queued
@@ -175,27 +187,34 @@ directly can tune this with:
 | Flag | Meaning |
 | --- | --- |
 | `--no-epoch-cycle` | Restore continuous queue top-up and watermark-driven replan events. |
+| `--epoch-size <n\|full>` | Total target admissions for one scheduler epoch; default is `--queue-target-size`. |
+| `--epoch-ready-queue-size <n>` | Number of admitted targets kept immediately leaseable. |
 | `--epoch-worktree <path>` | Persistent checkpoint worktree; default `<state-dir>/epoch_worktree`. |
 | `--epoch-configure-command <cmd>` | Shell command run in the worktree before each report build; default `python configure.py --require-protos`. |
 | `--epoch-link-paths <a,b>` | Untracked build inputs symlinked from the live repo into the worktree; default `orig`. |
 | `--epoch-regression-pause-threshold <n>` | Pause (no refill) when more than `n` report rows regress in one epoch; default 12. |
 | `--epoch-regression-requeue-limit <n>` | Max regressed functions requeued as priority repairs per epoch; default 32. |
 | `--epoch-retry-ms <n>` | Backoff after an epoch failure, pause, or exhausted board; default 600000. |
+| `--fast-kg-maintenance-interval-ms <n>` | In-epoch fast refresh cadence; live default 180000 and dry-run default 0. |
+| `--fast-kg-maintenance-report-count <n>` | Coalesced worker-report trigger for fast refresh; default 16. |
+| `--no-fast-kg-maintenance` | Disable the in-epoch fast refresh lane. |
+| `--full-kg-maintenance-mode <mode>` | Boundary maintenance mode: `full`, `no-tool-runners`, or `skip`. |
 | `--candidate-limit <n>` | Initial seed size and compatibility pool size; default is `max(32, max_workers * 2)`. |
-| `--queue-target-size <n>` | Maintain at least this many queued targets, subject to available fresh board candidates; default is `max(candidate_limit, max_workers * 2)`. |
-| `--candidate-window <n>` | Initial number of ranked board candidates scanned for director context and deterministic refill; refill expands this when the window is exhausted. |
+| `--queue-target-size <n>` | Compatibility default for epoch size and ready queue size; in `--no-epoch-cycle` mode it is the maintained queue level. |
+| `--candidate-window <n>` | Initial number of ranked board candidates scanned; admission expands this when the window is exhausted. |
 | `--graph-db <path>` | Knowledge graph used for board ranking and worker file-card context; defaults to the selected project's graph DB, or `knowledge/resource_graph/graph.sqlite` without a project. |
-| `--queue-refresh-interval-ms <n>` | Refresh queued target priorities from the latest graph-ranked board at this interval; default is 60000. |
-| `--queue-low-watermark <n>` | Wake when total queued work is at or below `n` while workers are active. |
-| `--schedulable-low-watermark <n>` | Wake when unlocked distinct-file work is at or below `n` while the run is underfilled. |
+| `--queue-refresh-interval-ms <n>` | Legacy continuous-mode priority refresh interval; default is 60000. |
+| `--queue-low-watermark <n>` | Emit queue-pressure work when total queued work is at or below `n` while workers are active. |
+| `--schedulable-low-watermark <n>` | Emit queue-pressure work when unlocked distinct-file work is at or below `n` while the run is underfilled. |
 | `--active-low-watermark <n>` | Active-worker threshold for long-tail detection; default is 75% of `--max-workers`. |
-| `--long-tail-replan-ms <n>` | Wake after underfilled long-tail state persists for `n` ms. |
-| `--replan-interval-ms <n>` | Optional periodic director wake while workers are active; default `0` disables it. |
-| `--replan-cooldown-ms <n>` | Minimum delay between trigger-produced replan events. |
-| `--no-blocked-queue-replan` | Disable replans caused only by queued work blocked behind file locks. |
+| `--long-tail-replan-ms <n>` | Emit queue-pressure work after underfilled long-tail state persists for `n` ms. |
+| `--replan-interval-ms <n>` | Optional periodic queue-pressure refresh while workers are active; default `0` disables it. |
+| `--replan-cooldown-ms <n>` | Minimum delay between run-loop-produced replan events. |
+| `--no-blocked-queue-replan` | Disable queue-pressure work caused only by queued work blocked behind file locks. |
 
-The babysit wrapper forwards these trigger flags to its child `bootstrap` or
-`trigger-agent` command.
+The babysit wrapper forwards these run-loop flags to its child `run-loop`
+command. The legacy child command names `trigger-agent` and `bootstrap` remain
+accepted for existing scripts.
 
 ## Regression Check
 
@@ -248,18 +267,23 @@ The command writes:
 - `ship_status.json`: the split-plan filter containing surviving files and
   dropped-file reasons.
 
-By default, the command only builds the deterministic artifacts. With
+By default, the command only builds the deterministic artifacts. Error
+findings always become repair items. Warning-only files remain advisory unless
+`--repair-warnings` is set; with that flag, warnings are repair targets and the
+post-repair scan must clear them before the item can become clean. With
 `--run-agents`, it runs the `qa-repair` role for queued items; global
 `--dry-run-agents` renders item prompts and output placeholders without live Pi
 calls. `--item-id` selects one repair item and `--max-items` bounds the number
 of items processed in one invocation.
 
-Live item processing accepts only schema-valid agent JSON, then reruns the QA
-scanner for that file before applying status. `--score-check-command`,
-`--build-check-command`, and `--regression-check-command` add runner-owned
-shell validations after a live repair; each command runs from the project root,
-writes stdout/stderr/summary artifacts under the item directory, and blocks
-clean status on nonzero exit. The score command can emit JSON with
+Live item processing accepts only schema-valid agent JSON, including a
+per-finding disposition of `fixed_source`, `fixed_by_minimal_revert`,
+`left_with_evidence`, or `false_positive`, then reruns the QA scanner for that
+file before applying status. `--score-check-command`, `--build-check-command`,
+and `--regression-check-command` add runner-owned shell validations after a
+live repair; each command runs from the project root, writes
+stdout/stderr/summary artifacts under the item directory, and blocks clean
+status on nonzero exit. The score command can emit JSON with
 `preTargetScore`/`postTargetScore` or `score_impact` to route
 `clean_lower_score`.
 
@@ -345,13 +369,67 @@ changes. Use `--committed-only` after committing the source bundle,
 untracked paths, `--json` for automation, or `--output <path>` to save the
 rendered plan.
 
+## Draft PR QA Lifecycle
+
+`pr-draft-qa` is the PR-bound pre-human-review coordinator. The command either
+resolves an existing PR with `--pr` / `--pr-url`, or creates the draft first
+with `--create-draft --title`. The PR remains the remote anchor: the command
+uses `gh pr view`, fetches the PR base and `pull/<number>/head`, and writes the
+run under `state_dir/pr_draft_qa/pr-<number>/<run-id>/`.
+
+Each run writes a one-slice PR plan, a full PR diff, `review_lint` scan
+artifacts, preship-review artifacts, optional QA-repair artifacts, collected
+GitHub issue/review comments, comment-posting results, CI output, optional
+local-check output, `report.md`, and `summary.json`. The summary status is one
+of:
+
+| Status | Meaning |
+| --- | --- |
+| `ready_for_human_review` | Preship review, deterministic QA scan, repair queue, CI, and local check are clean. |
+| `ready_for_human_review_with_warnings` | Blocking findings are clean; warning-only findings remain visible in artifacts because `--advisory-warnings` or `--allow-lower-score-repairs` explicitly permits them. |
+| `manual_review_required` | Non-deterministic preship rejects remain, but they are posted or already present as PR comments for human judgment. |
+| `needs_repair` | Deterministic QA errors, strict warning findings, unresolved repair items, false positives, or lower-score repair dispositions remain. |
+| `blocked` | A scan, CI check, local check, or infrastructure step failed. |
+
+`--run-agents` runs `qa-repair` for deterministic findings and preship findings
+that have a concrete file. Draft QA is strict by default: warning findings are
+queued with `--repair-warnings`, remaining warnings block ready status, and
+`clean_lower_score` repair results remain `needs_repair` unless
+`--allow-lower-score-repairs` is set. `--advisory-warnings` restores advisory
+warning behavior for intentionally loose local checks, and
+`--no-repair-warnings` keeps warnings blocking without queueing warning-only
+files. The command repeats the preship/scan/repair loop up to
+`--max-repair-rounds` (default 2). Because live repairs edit the local checkout,
+`--run-agents` also includes the current worktree in later diffs; operators can
+pass `--include-worktree` explicitly for manual fixes before commit/push. The
+command does not commit or push repair edits.
+
+`--comment-unresolved` posts one GitHub comment per unresolved finding after the
+repair loop. Each comment includes a hidden marker derived from the finding
+source, path, line, rule, standard, and message, so reruns skip already-posted
+findings. The command tries an inline review comment when the finding has a
+file and line, then falls back to a top-level PR comment if GitHub rejects the
+inline location. Strict draft QA includes warning findings in the unresolved
+comment set; `--comment-warnings` also includes warnings when advisory mode is
+enabled.
+
+`--wait-ci` runs `gh pr checks --watch`; without it, the command snapshots
+`gh pr checks`. `--skip-ci` bypasses GitHub checks for local dry runs.
+`--local-check-command` runs a final shell gate with placeholders
+`{repo_root}`, `{state_dir}`, `{output_dir}`, `{run_id}`, `{pr}`,
+`{base_ref}`, and `{head_ref}`. The make wrapper uses the same command:
+
+```bash
+make pr-draft-qa PR=2704
+```
+
 ## Dashboard Handoff Controls
 
 The UI server wraps the same operator commands for PR preparation:
 
 | UI Action | Underlying behavior |
 | --- | --- |
-| `Pause Intake` | Drains the managed process and marks the run `paused`, which prevents `start`, `tick`, `worker`, and `trigger-agent` scheduling until the run is resumed. |
+| `Pause Intake` | Drains the managed process and marks the run `paused`, which prevents `start`, `tick`, `worker`, and `run-loop` scheduling until the run is resumed. |
 | `Checkpoint` | Runs the checkpoint handoff logic and writes checkpoint artifacts under the run state directory. |
 | `Run QA` | Runs `regression-check` with `--require-pr-promotion` enabled by default, plus `--promotion-min-unmatched-improvement-bytes` from the project's improvement byte floor so improvement-only handoffs can still promote. |
 | `Plan PRs` | Runs `pr-split-plan` with the selected base ref, group mode, branch prefix, title prefix, worktree/untracked options, the latest checkpoint for match/improvement lane splitting, and the latest ship-status filter when Prepare produced one. |
@@ -367,14 +445,14 @@ Ship details panel as the latest QA repair report/summary link.
 
 ## Knowledge Maintenance
 
-`trigger-agent` can run `kg-maintain` in the background. Live runs default to a
+`run-loop` can run `kg-maintain` in the background. Live runs default to a
 five-minute maintenance interval; dry-run agents default to disabled. Use
 `--no-knowledge-maintenance` to disable it, or
 `--knowledge-maintenance-interval-ms <n>` to tune it.
 
 Maintenance does not require the main loop to inspect individual PRs. The PR
 postmortem command uses pending-only discovery to find PRs in the active corpus
-that do not have `postmortem/postmortem.json` yet. Live trigger maintenance queues up to
+that do not have `postmortem/postmortem.json` yet. Live run-loop maintenance queues up to
 eight pending PRs per interval through the PR-review agent by default; use
 `--no-run-pr-agent` to keep the background pass deterministic or `--pr-limit`
 to tune the batch. Direct `kg-maintain` remains deterministic unless

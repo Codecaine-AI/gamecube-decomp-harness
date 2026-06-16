@@ -10,6 +10,7 @@ export const QA_REPAIR_AGENT_SCHEMA_VERSION = "melee_qa_repair_result_v1";
 
 export type QaRepairAgentOutcome = "fixed" | "needs_rework" | "blocked" | "false_positive";
 export type QaRepairScoreImpact = "same_match" | "lower_score" | "unknown";
+export type QaRepairFindingDisposition = "fixed_source" | "fixed_by_minimal_revert" | "left_with_evidence" | "false_positive";
 
 export interface QaRepairAgentResult {
   schema_version: typeof QA_REPAIR_AGENT_SCHEMA_VERSION;
@@ -24,6 +25,12 @@ export interface QaRepairAgentResult {
     status: "passed" | "failed" | "not_run";
     artifact_path: string | null;
     notes: string;
+  }>;
+  finding_dispositions: Array<{
+    rule_id: string;
+    line: number | null;
+    disposition: QaRepairFindingDisposition;
+    evidence: string;
   }>;
   remaining_findings: Array<{
     rule_id: string;
@@ -113,6 +120,23 @@ function remainingFindings(value: unknown): QaRepairAgentResult["remaining_findi
   return rows;
 }
 
+function findingDispositions(value: unknown): QaRepairAgentResult["finding_dispositions"] | null {
+  if (!Array.isArray(value)) return null;
+  const rows: QaRepairAgentResult["finding_dispositions"] = [];
+  for (const raw of value) {
+    if (!isRecord(raw)) return null;
+    const disposition = stringValue(raw.disposition);
+    if (disposition !== "fixed_source" && disposition !== "fixed_by_minimal_revert" && disposition !== "left_with_evidence" && disposition !== "false_positive") return null;
+    rows.push({
+      rule_id: stringValue(raw.rule_id),
+      line: numberOrNull(raw.line),
+      disposition,
+      evidence: stringValue(raw.evidence),
+    });
+  }
+  return rows;
+}
+
 export function validateQaRepairAgentResult(value: unknown): { result: QaRepairAgentResult | null; errors: string[] } {
   if (!isRecord(value)) return { result: null, errors: ["result is not an object"] };
   const errors: string[] = [];
@@ -125,6 +149,8 @@ export function validateQaRepairAgentResult(value: unknown): { result: QaRepairA
   if (!validation) errors.push("validation must be an array of command/status rows");
   const remaining = remainingFindings(value.remaining_findings);
   if (!remaining) errors.push("remaining_findings must be an array");
+  const dispositions = findingDispositions(value.finding_dispositions);
+  if (!dispositions) errors.push("finding_dispositions must be an array");
   const edits = stringArray(value.edits);
   if (!Array.isArray(value.edits)) errors.push("edits must be an array");
   const risks = stringArray(value.risks);
@@ -135,7 +161,7 @@ export function validateQaRepairAgentResult(value: unknown): { result: QaRepairA
   if (!itemId) errors.push("item_id is required");
   if (!sourcePath) errors.push("source_path is required");
   if (!summary) errors.push("summary is required");
-  if (errors.length > 0 || !validation || !remaining) return { result: null, errors };
+  if (errors.length > 0 || !validation || !remaining || !dispositions) return { result: null, errors };
   return {
     result: {
       schema_version: QA_REPAIR_AGENT_SCHEMA_VERSION,
@@ -146,6 +172,7 @@ export function validateQaRepairAgentResult(value: unknown): { result: QaRepairA
       summary,
       edits,
       validation,
+      finding_dispositions: dispositions,
       remaining_findings: remaining,
       risks,
     },

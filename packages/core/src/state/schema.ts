@@ -74,6 +74,43 @@ export function ensureSchema(db: Database): void {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS scheduler_epochs (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL,
+      ordinal INTEGER NOT NULL,
+      size_mode TEXT NOT NULL,
+      size_value INTEGER,
+      ready_queue_size INTEGER NOT NULL,
+      candidate_window INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      admitted_count INTEGER NOT NULL DEFAULT 0,
+      completed_count INTEGER NOT NULL DEFAULT 0,
+      fast_refresh_count INTEGER NOT NULL DEFAULT 0,
+      boundary_status TEXT,
+      routing_summary_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      closed_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS scheduler_epochs_run_status
+      ON scheduler_epochs (run_id, status, ordinal);
+
+    CREATE TABLE IF NOT EXISTS scheduler_epoch_targets (
+      epoch_id TEXT NOT NULL,
+      run_id TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      admission_index INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      admitted_at TEXT NOT NULL,
+      queued_at TEXT,
+      leased_at TEXT,
+      completed_at TEXT,
+      PRIMARY KEY (epoch_id, target_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS scheduler_epoch_targets_run_status
+      ON scheduler_epoch_targets (run_id, status);
+
     CREATE TABLE IF NOT EXISTS queue (
       id TEXT PRIMARY KEY,
       run_id TEXT NOT NULL,

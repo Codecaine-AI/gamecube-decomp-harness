@@ -4,12 +4,6 @@ import { qaRepairAgent } from "./qa-repair/index.js";
 import { reconcileAgent } from "./reconcile/index.js";
 
 export const agentRegistry = {
-  director: {
-    id: "director",
-    role: "director",
-    toolProfile: "director",
-    purpose: "Schedule decomp worker targets from board state and worker wake events.",
-  },
   worker: {
     id: "worker",
     role: "worker",

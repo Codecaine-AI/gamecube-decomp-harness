@@ -1,14 +1,15 @@
 ---
 covers: PR-review agent slice and relationship to platform-owned PR knowledge
-concepts: [pr-review-agent, pr-knowledge, schema, prompts, postmortems, preship-review, qa-ship-gate]
+concepts: [pr-review-agent, pr-knowledge, schema, prompts, postmortems, preship-review, draft-pr-qa, qa-ship-gate]
 code-ref: decomp-orchestrator/packages/agents/src/pr-review, decomp-orchestrator/knowledge/sources/code_context/past_prs
 ---
 
 # PR-Review Agent
 
 The PR-review agent is the centralized agent surface for PR analysis and
-postmortem-style review knowledge. It lives beside the director and worker
-agents so future PR review behavior has one canonical agent slice.
+postmortem-style review knowledge. It lives beside the worker, curator,
+reconcile, and QA repair agents so future PR review behavior has one canonical
+agent slice.
 
 ## Files
 
@@ -64,6 +65,30 @@ any infrastructure failure exits 1 and blocks the handoff. Rejected symbols
 follow the standard disposition — `needs_rework`, requeued at repair
 priority; the slice ships without them or not at all.
 
+`pr-draft-qa` embeds this same preship mode inside the opened draft PR
+lifecycle. In that flow, the PR is the remote anchor: the coordinator fetches
+the PR refs, renders a one-slice PR plan, runs preship review, runs the
+deterministic `review_lint` scan, and routes scanner findings plus file-backed
+preship findings through the `qa-repair` agent when `--run-agents` is set.
+Strict draft QA treats warnings as repair targets by default and keeps
+`clean_lower_score` repair results blocking unless the operator explicitly
+allows them. Findings that cannot be automatically cleared become commentable
+manual-review items after repair attempts. The coordinator uses stable hidden
+markers in GitHub comments so repeated runs can fetch the current PR
+discussion, avoid duplicate comments, and keep operating on the same draft PR
+after human reviewers add follow-up threads.
+
+The preship review mode is responsible for flagging maintainability and
+standard violations such as extern anchors, suspicious pragmas, literal/data
+ownership regressions, generated labels, and other maintainer-rejected
+patterns. `qa-repair` owns repair attempts for deterministic findings and
+preship findings that can be attached to a source file. Its output includes a
+per-finding disposition (`fixed_source`, `fixed_by_minimal_revert`,
+`left_with_evidence`, or `false_positive`) so the lifecycle distinguishes real
+source cleanup from minimal reverts and unresolved manual-review evidence.
+`pr-draft-qa` owns the lifecycle state, comment posting, and final
+CI/local-check readiness classification.
+
 ## Knowledge Relationship
 
 The platform owns historical PR data under `knowledge/sources/code_context/past_prs/data/`.
@@ -76,7 +101,7 @@ the canonical live PR-review agent definition is in
 The postmortem builder supports pending-only discovery. `kg-maintain` calls the
 builder with `--pending-only`, so newly fetched PRs are auto-discovered from
 the active PR corpus and only missing `postmortem/postmortem.json` records are queued.
-Live `trigger-agent` maintenance enables the PR-review agent by default for
+Live `run-loop` maintenance enables the PR-review agent by default for
 bounded pending batches. Direct `kg-maintain` enables model-reviewed
 postmortems with `--run-pr-agent`; otherwise deterministic scaffold records
 keep the corpus indexable.
@@ -93,7 +118,7 @@ update proposals.
 
 ## Key Rules
 
-- PR-review is a named agent in the same registry as director and worker.
+- PR-review is a named agent in the same registry as the worker and repair roles.
 - PR-review prompt/schema changes should happen in the agent slice, not in
   scattered scripts.
 - PR knowledge refresh utilities update the evidence library; they do not

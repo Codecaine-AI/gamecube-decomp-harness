@@ -1,7 +1,8 @@
 import { immediateTransaction, withBusyRetry, writeSetHash, now, type StateStore } from "./db.js";
 import { randomUUID } from "node:crypto";
+import { markEpochTargetLeased } from "./epochs.js";
 
-export const DEFAULT_WORKER_TTL_SECONDS = 90 * 60;
+export const DEFAULT_WORKER_TTL_SECONDS = 50 * 60;
 
 export interface LeasedTarget {
   leaseId: string;
@@ -161,6 +162,7 @@ export function leaseNextQueuedTarget(params: {
 
     params.store.db.query("UPDATE queue SET status = 'leased', leased_at = ? WHERE id = ?").run(createdAt, queueId);
     params.store.db.query("UPDATE targets SET status = 'leased' WHERE id = ?").run(targetId);
+    markEpochTargetLeased(params.store, queueId, createdAt);
 
     return {
       leaseId,

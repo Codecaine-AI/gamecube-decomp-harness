@@ -3,20 +3,26 @@ import { resolve } from "node:path";
 import { loadKnowledgeBoardSnapshot, packageRoot, resourceGraphDbPath } from "@decomp-orchestrator/knowledge";
 import {
   activeWorkerCount,
+  activeSchedulerEpoch,
   addEvent,
   blockedQueuedTargetCount,
+  closeSchedulerEpoch,
   DEFAULT_WORKER_TTL_SECONDS,
   getLatestRun,
   getRun,
-  listSavePoints,
   nextUnhandledEvent,
   openState,
   queuedTargetCount,
+  recordSchedulerEpochFastRefresh,
+  refreshEpochQueuedTargetPriorities,
+  refillEpochReadyQueue,
   refillQueuedTargets,
+  schedulerEpochProgress,
   schedulableTargetCount,
   unhandledEventCount,
   unhandledPoolEventCount,
   type QueueRefillResult,
+  type EpochProgressSummary,
   type StateStore,
 } from "@decomp-orchestrator/core/state";
 import { withBusyRetry } from "@decomp-orchestrator/core/state/db";
@@ -24,7 +30,13 @@ import { runEpochCycle, type EpochCycleResult } from "@decomp-orchestrator/core/
 import { runPiAgent } from "@decomp-orchestrator/agents/runtime";
 import { booleanArg, numberArg, stringArg, workerReportTypeArg, type GlobalArgs } from "../args.js";
 import { assertSchedulableRun } from "./shared.js";
-import { runDirectorTick, type DirectorTickResult } from "./tick.js";
+import {
+  ensureSchedulerEpochFromBoard,
+  runSchedulerTick,
+  schedulerEpochConfigFromArgs,
+  type SchedulerEpochEnsureResult,
+  type SchedulerTickResult,
+} from "./tick.js";
 import type { WorkerCycleResult } from "./worker.js";
 import { runKnowledgeMaintenance } from "./kg.js";
 
@@ -85,17 +97,31 @@ export interface ReplanDecision {
   longTailSinceMs: number | null;
 }
 
-export interface TriggerAgentResult {
+export type FastKnowledgeMaintenanceAction = "defer" | "none" | "skip_no_new_reports" | "start";
+
+export interface FastKnowledgeMaintenanceDecision {
+  action: FastKnowledgeMaintenanceAction;
+  reason?: "interval" | "report_count" | "no_new_reports";
+  reportDue: boolean;
+  reportsSinceRefresh: number;
+  timeDue: boolean;
+}
+
+export interface RunLoopResult {
   runId: string;
-  mode: "trigger_agent";
+  mode: "run_loop";
   stoppedReason: string;
   iterations: number;
   idleIterations: number;
   desiredWorkers: number;
   maxWorkers: number;
-  directorTicks: number;
+  schedulerTicks: number;
   epochCycle: boolean;
   epochCycles: number;
+  schedulerEpoch?: EpochProgressSummary | null;
+  epochAdmissions: number;
+  epochReadyRefills: number;
+  epochTargetsAdmitted: number;
   epochErrors: EpochError[];
   epochPaused: boolean;
   lastEpoch?: EpochCycleResult;
@@ -111,6 +137,8 @@ export interface TriggerAgentResult {
   lastProviderError?: string;
   knowledgeMaintenanceRuns: Record<string, unknown>[];
   knowledgeMaintenanceErrors: KnowledgeMaintenanceError[];
+  fastKnowledgeMaintenanceRuns: Record<string, unknown>[];
+  fastKnowledgeMaintenanceErrors: KnowledgeMaintenanceError[];
   dryRun: boolean;
   finalStatus: {
     activeWorkers: number;
@@ -120,6 +148,8 @@ export interface TriggerAgentResult {
     unhandledEvents: number;
   };
 }
+
+export type TriggerAgentResult = RunLoopResult;
 
 function sleep(ms: number): Promise<void> {
   if (ms <= 0) return Promise.resolve();
@@ -376,6 +406,24 @@ export function evaluateReplanDecision(snapshot: QueuePressureSnapshot, policy: 
   return null;
 }
 
+export function evaluateFastKnowledgeMaintenanceDecision(params: {
+  intervalMs: number;
+  lastMaintenanceMs: number;
+  nowMs: number;
+  reportCountTrigger: number;
+  reportsSinceRefresh: number;
+  running: boolean;
+}): FastKnowledgeMaintenanceDecision {
+  const reportsSinceRefresh = Math.max(0, Math.floor(params.reportsSinceRefresh));
+  const timeDue = params.intervalMs > 0 && params.nowMs - params.lastMaintenanceMs >= params.intervalMs;
+  const reportDue = params.reportCountTrigger > 0 && reportsSinceRefresh >= params.reportCountTrigger;
+  if (!timeDue && !reportDue) return { action: "none", reportDue, reportsSinceRefresh, timeDue };
+  const reason = reportDue ? "report_count" : "interval";
+  if (params.running) return { action: "defer", reason, reportDue, reportsSinceRefresh, timeDue };
+  if (reportsSinceRefresh <= 0) return { action: "skip_no_new_reports", reason: "no_new_reports", reportDue, reportsSinceRefresh, timeDue };
+  return { action: "start", reason, reportDue, reportsSinceRefresh, timeDue };
+}
+
 function writeReplanEvent(
   store: StateStore,
   runId: string,
@@ -384,12 +432,12 @@ function writeReplanEvent(
   policy: ReplanPolicy,
   refill?: QueueRefillResult | null,
 ): string {
-  return addEvent(store, runId, "pool_below_target", "trigger-agent", {
+  return addEvent(store, runId, "pool_below_target", "run-loop", {
     reason: decision.reason,
     snapshot,
     policy,
     refill: refill ?? null,
-    created_by: "trigger-agent",
+    created_by: "run-loop",
   });
 }
 
@@ -428,14 +476,38 @@ function knowledgeMaintenanceArgs(args: Map<string, string | true>, runId: strin
   return next;
 }
 
+function fastKnowledgeMaintenanceArgs(args: Map<string, string | true>, runId: string): Map<string, string | true> {
+  const next = knowledgeMaintenanceArgs(args, runId, false);
+  next.set("--no-tool-runners", true);
+  if (!next.has("--run-pr-agent")) next.set("--no-run-pr-agent", true);
+  return next;
+}
+
+function fullBoundaryKnowledgeMaintenanceArgs(args: Map<string, string | true>, runId: string, mode: string): Map<string, string | true> {
+  const next = knowledgeMaintenanceArgs(args, runId, false);
+  if (!next.has("--run-pr-agent")) next.set("--no-run-pr-agent", true);
+  if (mode === "no-tool-runners") next.set("--no-tool-runners", true);
+  return next;
+}
+
 function knowledgeMaintenanceIntervalMs(globals: GlobalArgs, args: Map<string, string | true>): number {
   if (booleanArg(args, "--no-knowledge-maintenance")) return 0;
   const fallback = globals.dryRunAgents ? 0 : 5 * 60_000;
   return Math.max(0, Math.floor(numberArg(args, "--knowledge-maintenance-interval-ms", fallback)));
 }
 
-/** Completed leases (any worker report except provider_error) after the given time. */
-function completedLeaseCountSince(store: StateStore, runId: string, sinceIso: string): number {
+function fastKnowledgeMaintenanceIntervalMs(globals: GlobalArgs, args: Map<string, string | true>): number {
+  if (booleanArg(args, "--no-fast-kg-maintenance")) return 0;
+  const fallback = globals.project?.dashboard.fastKgMaintenanceEnabled === false ? 0 : (globals.project?.dashboard.fastKgMaintenanceIntervalMs ?? (globals.dryRunAgents ? 0 : 3 * 60_000));
+  return Math.max(0, Math.floor(numberArg(args, "--fast-kg-maintenance-interval-ms", fallback)));
+}
+
+function fastKnowledgeMaintenanceReportCount(globals: GlobalArgs, args: Map<string, string | true>): number {
+  if (booleanArg(args, "--no-fast-kg-maintenance")) return 0;
+  return Math.max(0, Math.floor(numberArg(args, "--fast-kg-maintenance-report-count", globals.project?.dashboard.fastKgMaintenanceReportCount ?? 16)));
+}
+
+function workerReportCountSince(store: StateStore, runId: string, sinceIso: string): number {
   const row = withBusyRetry(
     () =>
       store.db
@@ -455,6 +527,25 @@ function completedLeaseCountSince(store: StateStore, runId: string, sinceIso: st
   return Number(row?.count ?? 0);
 }
 
+function latestFastRefreshFinishedAt(store: StateStore, runId: string, fallbackIso: string): string {
+  const row = withBusyRetry(
+    () =>
+      store.db
+        .query(
+          `
+            SELECT created_at
+            FROM events
+            WHERE run_id = ?
+              AND event_type = 'epoch_fast_refresh_finished'
+            ORDER BY created_at DESC
+            LIMIT 1
+          `,
+        )
+        .get(runId) as Record<string, unknown> | undefined,
+  );
+  return row?.created_at == null ? fallbackIso : String(row.created_at);
+}
+
 async function waitForRestingTrigger(runningWorkers: Set<Promise<void>>, idleSleepMs: number, extras: Array<Promise<void> | null> = []): Promise<void> {
   const live = [...runningWorkers, ...extras.filter((task): task is Promise<void> => task != null)];
   if (live.length === 0) {
@@ -464,7 +555,7 @@ async function waitForRestingTrigger(runningWorkers: Set<Promise<void>>, idleSle
   await Promise.race([sleep(idleSleepMs), ...live]);
 }
 
-function directorTickArgs(
+function schedulerTickArgs(
   args: Map<string, string | true>,
   params: { candidateLimit: number; candidateWindow: number; queueTargetSize: number; runId: string },
 ): Map<string, string | true> {
@@ -565,17 +656,19 @@ async function runWorkerProcess(
   }
 }
 
-export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, string | true>): Promise<TriggerAgentResult> {
+export async function runRunLoop(globals: GlobalArgs, args: Map<string, string | true>): Promise<RunLoopResult> {
   const store = openState(globals.stateDir);
   const workerResults: WorkerCycleResult[] = [];
   const workerErrors: WorkerError[] = [];
-  const directorResults: DirectorTickResult[] = [];
+  const schedulerResults: SchedulerTickResult[] = [];
   const knowledgeMaintenanceRuns: Record<string, unknown>[] = [];
   const knowledgeMaintenanceErrors: KnowledgeMaintenanceError[] = [];
+  const fastKnowledgeMaintenanceRuns: Record<string, unknown>[] = [];
+  const fastKnowledgeMaintenanceErrors: KnowledgeMaintenanceError[] = [];
   const runningWorkers = new Set<Promise<void>>();
   const runningWorkerIds = new Set<string>();
   const runningWorkerProcs = new Set<{ kill: (signal?: number) => void; exited: Promise<number> }>();
-  let runningDirector: Promise<void> | null = null;
+  let runningScheduler: Promise<void> | null = null;
   let runningKnowledgeMaintenance: Promise<void> | null = null;
   let stoppedReason = "running";
   let stopRequested = false;
@@ -602,7 +695,7 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
     if (!runId) throw new Error("No run found. Run init-run first.");
     const run = getRun(store, runId);
     if (!run) throw new Error(`Run not found: ${runId}`);
-    assertSchedulableRun(run, "trigger-agent");
+    assertSchedulableRun(run, "run-loop");
 
     const maxIterations = booleanArg(args, "--once") ? 1 : numberArg(args, "--max-iterations", 0);
     const maxIdleIterations = numberArg(args, "--max-idle-iterations", 0);
@@ -611,7 +704,7 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
     const maxWorkers = Math.max(0, Math.min(run.desiredWorkers, requestedMaxWorkers));
     if (requestedMaxWorkers > run.desiredWorkers) {
       console.error(
-        `[trigger-agent] --max-workers ${requestedMaxWorkers} exceeds run desired_workers ${run.desiredWorkers}; clamping to ${maxWorkers}. ` +
+        `[run-loop] --max-workers ${requestedMaxWorkers} exceeds run desired_workers ${run.desiredWorkers}; clamping to ${maxWorkers}. ` +
           `Raise the run's desired_workers (or re-init with --desired-workers) to use the full pool.`,
       );
     }
@@ -633,8 +726,10 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
     const exitOnWorkerError = booleanArg(args, "--exit-on-worker-error");
     const workerThinkingLevel = stringArg(args, "--worker-thinking-level", globals.thinkingLevel);
     const maintenanceIntervalMs = knowledgeMaintenanceIntervalMs(globals, args);
-    const policy = replanPolicy(args, { maxWorkers, queueTargetSize });
     const epochCycleEnabled = !booleanArg(args, "--no-epoch-cycle");
+    const schedulerEpochConfig = schedulerEpochConfigFromArgs(globals, args, { candidateWindow, queueTargetSize });
+    const readyQueueTargetSize = epochCycleEnabled ? schedulerEpochConfig.readyQueueSize : queueTargetSize;
+    const policy = replanPolicy(args, { maxWorkers, queueTargetSize: readyQueueTargetSize });
     const epochWorktreeDir = stringArg(args, "--epoch-worktree", resolve(globals.stateDir, "epoch_worktree"));
     const epochConfigureCommand = stringArg(args, "--epoch-configure-command", "python3 configure.py --require-protos");
     const epochLinkPaths = stringArg(args, "--epoch-link-paths", "orig")
@@ -644,19 +739,7 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
     const epochPauseThreshold = nonNegativeInt(numberArg(args, "--epoch-regression-pause-threshold", 12));
     const epochRequeueLimit = nonNegativeInt(numberArg(args, "--epoch-regression-requeue-limit", 32));
     const epochRetryMs = nonNegativeInt(numberArg(args, "--epoch-retry-ms", 10 * 60_000));
-    // Checkpoint cadence in completed leases. The queue keeps topping up from
-    // the board (watermark refill) and the epoch runs every N completions;
-    // 0 restores the legacy drain-to-zero mode, where inserts happen only
-    // after a checkpoint. Drain-to-zero starves on live runs: the director
-    // tops the queue up faster than it empties, so the epoch never fires.
-    // Default scales with pool size — 4 full worker rotations per checkpoint —
-    // so bigger pools don't checkpoint proportionally more often.
-    const epochLeaseInterval = nonNegativeInt(numberArg(args, "--epoch-lease-interval", maxWorkers * 4));
-    // Seed from the DB so a pool restart resumes the countdown instead of
-    // resetting it — otherwise frequent restarts could postpone checkpoints
-    // indefinitely.
-    const lastEpochSavePoint = listSavePoints(store, 200).find((savePoint) => savePoint.triggerKind === "epoch");
-    let completionsSinceEpoch = completedLeaseCountSince(store, runId, lastEpochSavePoint?.createdAt ?? run.createdAt);
+    const fullKgMaintenanceMode = stringArg(args, "--full-kg-maintenance-mode", globals.project?.dashboard.fullKgMaintenanceMode ?? "full").trim().toLowerCase();
     let runningEpoch: Promise<void> | null = null;
     let nextEpochAllowedMs = 0;
     let epochCycles = 0;
@@ -666,11 +749,21 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
     let queueRefills = 0;
     let queuePriorityRefreshes = 0;
     let queueTargetsAdded = 0;
+    let epochAdmissions = 0;
+    let epochReadyRefills = 0;
+    let epochTargetsAdmitted = 0;
+    let lastSchedulerEpoch: EpochProgressSummary | null = null;
     let lastQueueRefill: QueueRefillResult | undefined;
     let lastReplanRequestMs = 0;
     let lastPeriodicReplanMs = Date.now();
     let longTailSinceMs: number | null = null;
     let lastKnowledgeMaintenanceMs = maintenanceIntervalMs > 0 ? 0 : Date.now();
+    const fastMaintenanceIntervalMs = fastKnowledgeMaintenanceIntervalMs(globals, args);
+    const fastMaintenanceReportCount = fastKnowledgeMaintenanceReportCount(globals, args);
+    let lastFastMaintenanceMs = Date.now();
+    let lastFastMaintenanceReportIso = latestFastRefreshFinishedAt(store, runId, run.createdAt);
+    let runningFastKnowledgeMaintenance: Promise<void> | null = null;
+    let pendingFastKnowledgeMaintenance = false;
     const queueRefreshIntervalMs = nonNegativeInt(numberArg(args, "--queue-refresh-interval-ms", 60_000));
     let lastQueueRefreshMs = queueRefreshIntervalMs > 0 ? 0 : Date.now();
 
@@ -698,25 +791,25 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
         candidateLimit,
         candidateWindow,
         maxWorkers,
-        queueTargetSize,
+        queueTargetSize: readyQueueTargetSize,
         runningWorkers,
         runningWorkerIds,
         runId,
         store,
       });
       const nowMs = Date.now();
-      const launchEpochCycle = (trigger: string): void => {
+      const launchEpochCycle = (trigger: string, schedulerEpochId?: string): void => {
         const epochOrdinal = epochCycles + 1;
         let task: Promise<void>;
         task = (async () => {
             try {
+              let boundaryResult: EpochCycleResult | undefined;
               if (globals.dryRunAgents) {
-                // Dry runs skip the snapshot/build and refill straight from the
-                // current board so the pool keeps cycling in tests.
+                // Dry runs skip the snapshot/build but still close/start
+                // scheduler epochs so tests exercise deterministic admission.
                 epochCycles += 1;
-                completionsSinceEpoch = 0;
               } else {
-                console.error(`[trigger-agent] epoch ${epochOrdinal}: ${trigger}; snapshotting and rebuilding report`);
+                console.error(`[run-loop] epoch ${epochOrdinal}: ${trigger}; snapshotting and rebuilding report`);
                 const result = await runEpochCycle(store, runId, globals.repoRoot, globals.stateDir, {
                   baseRef: globals.project?.baseRef,
                   configureCommand: epochConfigureCommand,
@@ -730,63 +823,132 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
                   reportChangesRelPath: globals.project?.validation.reportChangesPath,
                   worktreeDir: epochWorktreeDir,
                 });
+                boundaryResult = result;
                 epochCycles += 1;
                 lastEpoch = result;
                 epochPaused = result.repair.paused;
-                if (!result.repair.paused) completionsSinceEpoch = 0;
                 console.error(
-                  `[trigger-agent] epoch ${epochOrdinal}: matched_code ${result.matchedCodePercent ?? "?"}%, ` +
+                  `[run-loop] epoch ${epochOrdinal}: matched_code ${result.matchedCodePercent ?? "?"}%, ` +
                     `${result.regressions.regressedFunctions} regressed functions, ${result.repair.requeued} repairs requeued, ` +
                     `qa gate ${result.qaGate === null ? "not run" : `${result.qaGate.status} (${result.qaGate.errors} errors, ${result.qaGate.warnings} warnings)`} ` +
                     `(${Math.round(result.durationMs / 1000)}s)`,
                 );
                 if (result.repair.paused) {
-                  addEvent(store, runId, "epoch_regression_pause", "trigger-agent", {
+                  addEvent(store, runId, "epoch_regression_pause", "run-loop", {
                     epoch: epochOrdinal,
                     qa_gate: result.qaGate,
                     reasons: result.repair.reasons,
                     regressions: result.regressions,
                     save_point_id: result.savePointId,
-                    created_by: "trigger-agent",
+                    created_by: "run-loop",
                   });
-                  console.error(`[trigger-agent] epoch ${epochOrdinal}: paused on regressions; retrying in ${Math.round(epochRetryMs / 1000)}s`);
+                  console.error(`[run-loop] epoch ${epochOrdinal}: paused on regressions; retrying in ${Math.round(epochRetryMs / 1000)}s`);
+                  if (schedulerEpochId) {
+                    closeSchedulerEpoch(store, schedulerEpochId, {
+                      status: "paused",
+                      boundaryStatus: "regression_pause",
+                      routingSummary: {
+                        trigger,
+                        save_point_id: result.savePointId,
+                        regressions: result.regressions,
+                        repair: result.repair,
+                        qa_gate: result.qaGate,
+                      },
+                    });
+                  }
                   nextEpochAllowedMs = Date.now() + epochRetryMs;
                   return;
                 }
               }
-              const refillSnapshot = queueSnapshot({
-                candidateLimit,
-                candidateWindow,
-                maxWorkers,
-                queueTargetSize,
-                runningWorkers,
-                runningWorkerIds,
+
+              if (!globals.dryRunAgents && fullKgMaintenanceMode !== "skip" && fullKgMaintenanceMode !== "none" && fullKgMaintenanceMode !== "off") {
+                addEvent(store, runId, "epoch_full_refresh_started", "run-loop", {
+                  epoch: epochOrdinal,
+                  lane: "full_boundary",
+                  mode: fullKgMaintenanceMode,
+                  created_by: "run-loop",
+                });
+                const maintenance = await runKnowledgeMaintenance(globals, fullBoundaryKnowledgeMaintenanceArgs(args, runId, fullKgMaintenanceMode));
+                knowledgeMaintenanceRuns.push({ ...maintenance, lane: "full_boundary", mode: fullKgMaintenanceMode });
+                addEvent(store, runId, "epoch_full_refresh_finished", "run-loop", {
+                  epoch: epochOrdinal,
+                  lane: "full_boundary",
+                  mode: fullKgMaintenanceMode,
+                  created_by: "run-loop",
+                });
+              }
+
+              if (schedulerEpochId) {
+                closeSchedulerEpoch(store, schedulerEpochId, {
+                  status: "completed",
+                  boundaryStatus: globals.dryRunAgents ? "dry_run" : "success",
+                  routingSummary: {
+                    trigger,
+                    dry_run: globals.dryRunAgents,
+                    save_point_id: boundaryResult?.savePointId ?? null,
+                    matched_code_percent: boundaryResult?.matchedCodePercent ?? null,
+                    regressions: boundaryResult?.regressions ?? null,
+                    repair: boundaryResult?.repair ?? null,
+                    qa_gate: boundaryResult?.qaGate ?? null,
+                  },
+                });
+              }
+
+              const nextEpoch = ensureSchedulerEpochFromBoard({
+                config: schedulerEpochConfig,
+                globals,
+                graphDbPath,
                 runId,
                 store,
               });
-              const epochRefill = refillQueueFromBoard({ forceRefresh: true, globals, graphDbPath, policy, runId, snapshot: refillSnapshot, store });
-              if (epochRefill) {
-                queueRefills += 1;
-                queueTargetsAdded += epochRefill.inserted;
-                lastQueueRefill = epochRefill;
-                if (epochRefill.queuedAfter === 0) {
-                  // Board exhausted: hand the long tail to the director and back
-                  // off instead of rebuilding the report in a tight loop.
-                  if (unhandledPoolEventCount(store, runId) === 0) {
-                    writeReplanEvent(store, runId, { reason: "queue_refill_exhausted", longTailSinceMs: null }, refillSnapshot, policy, epochRefill);
-                  }
-                  nextEpochAllowedMs = Date.now() + epochRetryMs;
+              lastSchedulerEpoch = nextEpoch.progress;
+              epochAdmissions += (nextEpoch.admission?.admitted ?? 0) + (nextEpoch.existingAdmission?.admitted ?? 0);
+              epochReadyRefills += nextEpoch.readyRefill.inserted > 0 ? 1 : 0;
+              epochTargetsAdmitted += (nextEpoch.admission?.admitted ?? 0) + (nextEpoch.existingAdmission?.admitted ?? 0);
+              queueTargetsAdded += (nextEpoch.admission?.queued ?? 0) + nextEpoch.readyRefill.inserted;
+              queuePriorityRefreshes += nextEpoch.priorityRefreshes;
+              if ((nextEpoch.progress.admitted === 0 || nextEpoch.progress.remaining === 0) && nextEpoch.progress.readyQueued === 0 && nextEpoch.progress.leased === 0) {
+                closeSchedulerEpoch(store, nextEpoch.epoch.id, {
+                  status: "exhausted",
+                  boundaryStatus: "board_exhausted",
+                  routingSummary: { trigger: "post_boundary_admission", board_exhausted: nextEpoch.boardExhausted },
+                });
+                addEvent(store, runId, "epoch_exhausted", "run-loop", {
+                  epoch_id: nextEpoch.epoch.id,
+                  ordinal: nextEpoch.progress.ordinal,
+                  size: nextEpoch.progress.size,
+                  created_by: "run-loop",
+                });
+                nextEpochAllowedMs = Date.now() + epochRetryMs;
+              } else {
+                addEvent(store, runId, "epoch_admitted", "run-loop", {
+                  epoch_id: nextEpoch.epoch.id,
+                  ordinal: nextEpoch.progress.ordinal,
+                  admitted: nextEpoch.progress.admitted,
+                  ready_queued: nextEpoch.progress.readyQueued,
+                  size: nextEpoch.progress.size,
+                  created_by: "run-loop",
+                });
+                if (nextEpoch.readyRefill.inserted > 0 || (nextEpoch.admission?.queued ?? 0) > 0) {
+                  didWork = true;
                 }
               }
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               epochErrors.push({ error: message });
-              console.error(`[trigger-agent] epoch ${epochOrdinal} failed: ${message}`);
-              addEvent(store, runId, "epoch_cycle_error", "trigger-agent", {
+              console.error(`[run-loop] epoch ${epochOrdinal} failed: ${message}`);
+              addEvent(store, runId, "epoch_cycle_error", "run-loop", {
                 epoch: epochOrdinal,
                 error: message.slice(0, 2000),
-                created_by: "trigger-agent",
+                created_by: "run-loop",
               });
+              if (schedulerEpochId) {
+                closeSchedulerEpoch(store, schedulerEpochId, {
+                  status: "error",
+                  boundaryStatus: "error",
+                  routingSummary: { trigger, error: message.slice(0, 2000) },
+                });
+              }
               nextEpochAllowedMs = Date.now() + epochRetryMs;
             }
         })().finally(() => {
@@ -795,23 +957,149 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
         runningEpoch = task;
       };
 
-      if (epochCycleEnabled && epochLeaseInterval === 0) {
-        // Legacy epoch mode: the queue is a batch that only drains. Queued
-        // priorities still refresh periodically, but inserts happen only in
-        // the epoch pipeline, after the report has been rebuilt.
-        const refreshDue = queueRefreshIntervalMs > 0 && beforeRefill.queuedTargets > 0 && nowMs - lastQueueRefreshMs >= queueRefreshIntervalMs;
-        if (refreshDue) {
-          const board = loadKnowledgeBoardSnapshot(globals.repoRoot, candidateWindow, { graphDbPath });
-          const refreshOnly = refillQueuedTargets(store, runId, board.candidates, { targetSize: 0, minSchedulableSources: 0 });
-          lastQueueRefreshMs = nowMs;
-          if (refreshOnly.refreshed > 0) {
-            queuePriorityRefreshes += refreshOnly.refreshed;
+      if (epochCycleEnabled && fastMaintenanceIntervalMs > 0 && !runningEpoch) {
+        const reportsSinceFast = workerReportCountSince(store, runId, lastFastMaintenanceReportIso);
+        const fastDecision = evaluateFastKnowledgeMaintenanceDecision({
+          intervalMs: fastMaintenanceIntervalMs,
+          lastMaintenanceMs: lastFastMaintenanceMs,
+          nowMs,
+          reportCountTrigger: fastMaintenanceReportCount,
+          reportsSinceRefresh: reportsSinceFast,
+          running: Boolean(runningFastKnowledgeMaintenance),
+        });
+        if (fastDecision.action !== "none") {
+          if (fastDecision.action === "defer") {
+            if (!pendingFastKnowledgeMaintenance) {
+              pendingFastKnowledgeMaintenance = true;
+              addEvent(store, runId, "epoch_fast_refresh_deferred", "run-loop", {
+                reason: fastDecision.reason,
+                reports_since_refresh: fastDecision.reportsSinceRefresh,
+                created_by: "run-loop",
+              });
+            }
+          } else if (fastDecision.action === "skip_no_new_reports") {
+            lastFastMaintenanceMs = nowMs;
+            addEvent(store, runId, "epoch_fast_refresh_skipped", "run-loop", {
+              reason: "no_new_reports",
+              created_by: "run-loop",
+            });
+          } else {
+            pendingFastKnowledgeMaintenance = false;
+            lastFastMaintenanceMs = nowMs;
+            const activeEpoch = activeSchedulerEpoch(store, runId);
+            addEvent(store, runId, "epoch_fast_refresh_started", "run-loop", {
+              epoch_id: activeEpoch?.id ?? null,
+              reports_since_refresh: fastDecision.reportsSinceRefresh,
+              reason: fastDecision.reason,
+              created_by: "run-loop",
+            });
+            let task: Promise<void>;
+            task = runKnowledgeMaintenance(globals, fastKnowledgeMaintenanceArgs(args, runId))
+              .then((result) => {
+                const completedAt = new Date().toISOString();
+                fastKnowledgeMaintenanceRuns.push({ ...result, lane: "fast_run_evidence" });
+                lastFastMaintenanceReportIso = completedAt;
+                const epoch = activeSchedulerEpoch(store, runId);
+                let progress: EpochProgressSummary | null = null;
+                let priorityRefreshes = 0;
+                let readyRefillInserted = 0;
+                if (epoch) {
+                  recordSchedulerEpochFastRefresh(store, epoch.id);
+                  const board = loadKnowledgeBoardSnapshot(globals.repoRoot, schedulerEpochConfig.candidateWindow, {
+                    graphDbPath,
+                  });
+                  priorityRefreshes = refreshEpochQueuedTargetPriorities(store, {
+                    epochId: epoch.id,
+                    runId,
+                    candidates: board.candidates,
+                  }).refreshed;
+                  const readyRefill = refillEpochReadyQueue(store, epoch.id);
+                  readyRefillInserted = readyRefill.inserted;
+                  if (readyRefillInserted > 0) {
+                    epochReadyRefills += 1;
+                    queueTargetsAdded += readyRefillInserted;
+                  }
+                  progress = schedulerEpochProgress(store, epoch.id);
+                  lastSchedulerEpoch = progress;
+                  queuePriorityRefreshes += priorityRefreshes;
+                }
+                addEvent(store, runId, "epoch_fast_refresh_finished", "run-loop", {
+                  epoch_id: epoch?.id ?? null,
+                  reports_since_refresh: fastDecision.reportsSinceRefresh,
+                  priority_refreshes: priorityRefreshes,
+                  ready_refill_inserted: readyRefillInserted,
+                  progress,
+                  created_by: "run-loop",
+                });
+              })
+              .catch((error) => {
+                const message = error instanceof Error ? error.message : String(error);
+                fastKnowledgeMaintenanceErrors.push({ error: message });
+                addEvent(store, runId, "epoch_fast_refresh_finished", "run-loop", {
+                  status: "error",
+                  error: message.slice(0, 2000),
+                  created_by: "run-loop",
+                });
+              })
+              .finally(() => {
+                if (runningFastKnowledgeMaintenance === task) runningFastKnowledgeMaintenance = null;
+              });
+            runningFastKnowledgeMaintenance = task;
             didWork = true;
           }
         }
-        if (beforeRefill.queuedTargets === 0 && !runningEpoch && nowMs >= nextEpochAllowedMs) {
-          didWork = true;
-          launchEpochCycle("queue drained");
+      }
+
+      if (epochCycleEnabled) {
+        if (!runningEpoch && nowMs >= nextEpochAllowedMs && !epochPaused) {
+          const epochResult = ensureSchedulerEpochFromBoard({
+            config: schedulerEpochConfig,
+            globals,
+            graphDbPath,
+            runId,
+            store,
+          });
+          lastSchedulerEpoch = epochResult.progress;
+          const admittedNow = (epochResult.admission?.admitted ?? 0) + (epochResult.existingAdmission?.admitted ?? 0);
+          const queuedNow = (epochResult.admission?.queued ?? 0) + epochResult.readyRefill.inserted;
+          if (admittedNow > 0) {
+            epochAdmissions += 1;
+            epochTargetsAdmitted += admittedNow;
+          }
+          if (epochResult.readyRefill.inserted > 0) epochReadyRefills += 1;
+          if (epochResult.priorityRefreshes > 0) queuePriorityRefreshes += epochResult.priorityRefreshes;
+          if (queuedNow > 0 || epochResult.priorityRefreshes > 0) didWork = true;
+          queueTargetsAdded += queuedNow;
+
+          if (admittedNow > 0) {
+            addEvent(store, runId, "epoch_admitted", "run-loop", {
+              epoch_id: epochResult.epoch.id,
+              ordinal: epochResult.progress.ordinal,
+              admitted: epochResult.progress.admitted,
+              admitted_now: admittedNow,
+              ready_queued: epochResult.progress.readyQueued,
+              size: epochResult.progress.size,
+              created_by: "run-loop",
+            });
+          }
+
+          if (epochResult.progress.admitted === 0 && beforeRefill.activeWorkers === 0 && beforeRefill.queuedTargets === 0) {
+            closeSchedulerEpoch(store, epochResult.epoch.id, {
+              status: "exhausted",
+              boundaryStatus: "board_exhausted",
+              routingSummary: { trigger: "admission", board_exhausted: epochResult.boardExhausted },
+            });
+            addEvent(store, runId, "epoch_exhausted", "run-loop", {
+              epoch_id: epochResult.epoch.id,
+              ordinal: epochResult.progress.ordinal,
+              size: epochResult.progress.size,
+              created_by: "run-loop",
+            });
+            nextEpochAllowedMs = Date.now() + epochRetryMs;
+          } else if (epochResult.progress.admitted > 0 && epochResult.progress.remaining === 0 && epochResult.progress.leased === 0) {
+            didWork = true;
+            launchEpochCycle(`scheduler epoch ${epochResult.progress.ordinal} completed`, epochResult.epoch.id);
+          }
         }
       } else {
         const refillNeeded = shouldAttemptQueueRefill(beforeRefill, policy);
@@ -830,7 +1118,7 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
           candidateLimit,
           candidateWindow,
           maxWorkers,
-          queueTargetSize,
+          queueTargetSize: readyQueueTargetSize,
           runningWorkers,
           runningWorkerIds,
           runId,
@@ -851,19 +1139,6 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
           didWork = true;
         }
 
-        // Checkpoint by work done, not queue level: every N completed leases
-        // (or when the board is truly exhausted), commit + rebuild the report
-        // while the pool keeps running. The epoch commit already excludes
-        // files held by active leases, so no drain is needed.
-        if (
-          epochCycleEnabled &&
-          !runningEpoch &&
-          nowMs >= nextEpochAllowedMs &&
-          (completionsSinceEpoch >= epochLeaseInterval || (completionsSinceEpoch > 0 && replanSnapshot.queuedTargets === 0))
-        ) {
-          didWork = true;
-          launchEpochCycle(`${completionsSinceEpoch} leases completed since last checkpoint`);
-        }
       }
 
       if (providerPausedSinceMs != null && !runningProviderProbe && Date.now() >= nextProviderProbeMs) {
@@ -873,7 +1148,7 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
           .then((probe) => {
             if (probe.healthy) {
               const pausedForMs = Date.now() - (providerPausedSinceMs ?? Date.now());
-              console.error(`[trigger-agent] provider probe succeeded after ${Math.round(pausedForMs / 1000)}s paused; resuming worker spawns`);
+              console.error(`[run-loop] provider probe succeeded after ${Math.round(pausedForMs / 1000)}s paused; resuming worker spawns`);
               providerPausedSinceMs = null;
               providerProbeBackoffMs = PROVIDER_PROBE_INITIAL_BACKOFF_MS;
             } else {
@@ -881,7 +1156,7 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
               providerProbeBackoffMs = Math.min(providerProbeBackoffMs * 2, PROVIDER_PROBE_MAX_BACKOFF_MS);
               nextProviderProbeMs = Date.now() + providerProbeBackoffMs;
               console.error(
-                `[trigger-agent] provider probe failed (${probe.error ?? "unknown"}); next probe in ${Math.round(providerProbeBackoffMs / 1000)}s`,
+                `[run-loop] provider probe failed (${probe.error ?? "unknown"}); next probe in ${Math.round(providerProbeBackoffMs / 1000)}s`,
               );
             }
           })
@@ -905,7 +1180,7 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
         workerOrdinal += 1;
         workersStarted += 1;
         didWork = true;
-        const workerId = `trigger-${process.pid}-${workerOrdinal}-${randomUUID().slice(0, 8)}`;
+        const workerId = `runloop-${process.pid}-${workerOrdinal}-${randomUUID().slice(0, 8)}`;
         let task: Promise<void>;
         task = runWorkerProcess(
           globals,
@@ -935,12 +1210,11 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
                 providerProbeBackoffMs = PROVIDER_PROBE_INITIAL_BACKOFF_MS;
                 nextProviderProbeMs = Date.now() + providerProbeBackoffMs;
                 console.error(
-                  `[trigger-agent] provider failure from ${workerId}: ${lastProviderError}; pausing worker spawns until a provider probe succeeds`,
+                  `[run-loop] provider failure from ${workerId}: ${lastProviderError}; pausing worker spawns until a provider probe succeeds`,
                 );
               }
               return;
             }
-            completionsSinceEpoch += 1;
             // failed is set only for explicit tool_error (infrastructure) results;
             // needs_rework gate rejections and heuristic tool_error guesses are normal
             // completions and never trip exit-on-worker-error.
@@ -973,29 +1247,38 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
         runningWorkerIds.add(workerId);
       }
 
-      if (!runningDirector && nextUnhandledEvent(store, runId)) {
-        const tickArgs = directorTickArgs(args, { candidateLimit, candidateWindow, queueTargetSize, runId });
+      if (!runningScheduler && nextUnhandledEvent(store, runId)) {
+        const tickArgs = schedulerTickArgs(args, { candidateLimit, candidateWindow, queueTargetSize: readyQueueTargetSize, runId });
         let task: Promise<void>;
-        task = runDirectorTick(globals, tickArgs)
+        task = runSchedulerTick(globals, tickArgs)
           .then((result) => {
-            directorResults.push(result);
+            schedulerResults.push(result);
+            if (result.schedulerEpoch) lastSchedulerEpoch = result.schedulerEpoch;
+            const admittedByTick = (result.epochAdmission?.admitted ?? 0) + (result.existingEpochAdmission?.admitted ?? 0);
+            if (admittedByTick > 0) {
+              epochAdmissions += 1;
+              epochTargetsAdmitted += admittedByTick;
+            }
+            if ((result.epochReadyRefill?.inserted ?? 0) > 0) epochReadyRefills += 1;
+            queueTargetsAdded += (result.epochAdmission?.queued ?? 0) + (result.epochReadyRefill?.inserted ?? 0);
+            queuePriorityRefreshes += result.epochPriorityRefreshes ?? 0;
           })
           .catch((error) => {
-            directorResults.push({
+            schedulerResults.push({
               runId,
-              directorPiError: error instanceof Error ? error.message : String(error),
-              failed: true,
+              eventType: "scheduler_error",
+              eventProducer: error instanceof Error ? error.message : String(error),
             });
           })
           .finally(() => {
-            if (runningDirector === task) runningDirector = null;
+            if (runningScheduler === task) runningScheduler = null;
           });
-        runningDirector = task;
+        runningScheduler = task;
         didWork = true;
       }
 
       if (didWork || runningWorkers.size === 0) iterations += 1;
-      if (didWork || runningWorkers.size > 0 || runningEpoch) idleIterations = 0;
+      if (didWork || runningWorkers.size > 0 || runningEpoch || runningFastKnowledgeMaintenance) idleIterations = 0;
       else idleIterations += 1;
 
       if (maxIdleIterations > 0 && idleIterations >= maxIdleIterations && unhandledEventCount(store, runId) === 0) {
@@ -1007,17 +1290,17 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
         break;
       }
 
-      await waitForRestingTrigger(runningWorkers, idleSleepMs, [runningEpoch]);
+      await waitForRestingTrigger(runningWorkers, idleSleepMs, [runningEpoch, runningFastKnowledgeMaintenance]);
     }
 
     if (runningWorkers.size > 0) {
       // A stopped pool must not wedge for hours awaiting worker TTLs (workers
       // ignore SIGTERM). Give in-flight workers a short grace, then kill them;
       // babysit's lease recovery requeues whatever they were holding.
-      addEvent(store, runId, "pool_stopping", "trigger-agent", {
+      addEvent(store, runId, "pool_stopping", "run-loop", {
         reason: stoppedReason,
         running_workers: runningWorkers.size,
-        created_by: "trigger-agent",
+        created_by: "run-loop",
       });
       const grace = new Promise<void>((resolveGrace) => setTimeout(resolveGrace, 30_000));
       await Promise.race([Promise.allSettled([...runningWorkers]).then(() => undefined), grace]);
@@ -1025,22 +1308,29 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
       await Promise.allSettled([...runningWorkers]);
     }
     if (runningEpoch) await runningEpoch;
-    if (runningDirector) await runningDirector;
+    if (runningScheduler) await runningScheduler;
+    if (runningFastKnowledgeMaintenance) await runningFastKnowledgeMaintenance;
     if (runningKnowledgeMaintenance) await runningKnowledgeMaintenance;
     if (runningProviderProbe) await runningProviderProbe;
     if (stoppedReason === "running") stoppedReason = "complete";
+    const finalActiveSchedulerEpoch = activeSchedulerEpoch(store, runId);
+    const finalSchedulerEpoch = lastSchedulerEpoch ?? (finalActiveSchedulerEpoch ? schedulerEpochProgress(store, finalActiveSchedulerEpoch.id) : null);
 
     return {
       runId,
-      mode: "trigger_agent",
+      mode: "run_loop",
       stoppedReason,
       iterations,
       idleIterations,
       desiredWorkers: run.desiredWorkers,
       maxWorkers,
-      directorTicks: directorResults.filter((result) => result.status !== "no_unhandled_events").length,
+      schedulerTicks: schedulerResults.filter((result) => result.status !== "no_unhandled_events").length,
       epochCycle: epochCycleEnabled,
       epochCycles,
+      schedulerEpoch: finalSchedulerEpoch,
+      epochAdmissions,
+      epochReadyRefills,
+      epochTargetsAdmitted,
       epochErrors,
       epochPaused,
       lastEpoch,
@@ -1056,6 +1346,8 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
       lastProviderError,
       knowledgeMaintenanceRuns,
       knowledgeMaintenanceErrors,
+      fastKnowledgeMaintenanceRuns,
+      fastKnowledgeMaintenanceErrors,
       dryRun: globals.dryRunAgents,
       finalStatus: {
         activeWorkers: activeWorkerCount(store, runId),
@@ -1072,6 +1364,14 @@ export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, str
   }
 }
 
+export async function runTriggerAgent(globals: GlobalArgs, args: Map<string, string | true>): Promise<RunLoopResult> {
+  return runRunLoop(globals, args);
+}
+
+export async function runLoop(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
+  console.log(JSON.stringify(await runRunLoop(globals, args), null, 2));
+}
+
 export async function triggerAgent(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
-  console.log(JSON.stringify(await runTriggerAgent(globals, args), null, 2));
+  console.log(JSON.stringify(await runRunLoop(globals, args), null, 2));
 }

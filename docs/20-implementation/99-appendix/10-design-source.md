@@ -19,7 +19,7 @@ documentation set.
 | --- | --- |
 | Goals | [Foundation overview](../../00-foundation/00-overview.md) and [Core principles](../../10-system-design/05-core-principles.md) |
 | Architecture | [System design overview](../../10-system-design/00-overview.md) and [Agent model](../../10-system-design/20-agent-model.md) |
-| Run Director Loop | [Run director loop](../../10-system-design/10-run-director-loop.md) |
+| Run Scheduler Loop | [Run scheduler loop](../../10-system-design/10-run-director-loop.md) |
 | Durable State | [Durable state and events](../../10-system-design/30-state-and-events.md) and [State implementation](../state/00-overview.md) |
 | Board Prioritization | [Board prioritization](../../10-system-design/15-board-prioritization.md) |
 | Worker Lifecycle | [Worker lifecycle](../../10-system-design/40-worker-lifecycle.md) |

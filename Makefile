@@ -3,6 +3,11 @@ SHELL := /bin/sh
 REPO_ROOT ?= $(abspath ..)
 STATE_DIR ?= $(CURDIR)/.decomp-orchestrator-state
 RUN_ID ?=
+PR ?=
+PR_QA_FLAGS ?=
+PR_QA_RUN_AGENTS ?= 1
+PR_QA_COMMENT ?= 1
+PR_QA_WAIT_CI ?= 0
 
 PROVIDER ?= codex-lb
 MODEL ?= gpt-5.5
@@ -22,9 +27,12 @@ PROMPT_VIEWER_PORT ?= $(AGENT_VIEWER_PORT)
 
 DRY_FLAG := $(if $(filter 1 true yes,$(DRY_RUN)),--dry-run-agents,)
 RUN_ID_FLAG := $(if $(RUN_ID),--run-id "$(RUN_ID)",)
+PR_QA_AGENT_FLAG := $(if $(filter 1 true yes,$(PR_QA_RUN_AGENTS)),--run-agents,)
+PR_QA_COMMENT_FLAG := $(if $(filter 1 true yes,$(PR_QA_COMMENT)),--comment-unresolved,)
+PR_QA_CI_FLAG := $(if $(filter 1 true yes,$(PR_QA_WAIT_CI)),--wait-ci,)
 ORCH_GLOBAL_FLAGS := --repo-root "$(REPO_ROOT)" --state-dir "$(STATE_DIR)" $(DRY_FLAG) --provider "$(PROVIDER)" --model "$(MODEL)" --thinking-level "$(THINKING)"
 
-.PHONY: help install check smoke ui agent-viewer prompt-viewer status init-run start dry-start recover-leases regression-check pr-split-plan kg-status kg-maintain
+.PHONY: help install check smoke ui agent-viewer prompt-viewer status init-run start dry-start recover-leases regression-check pr-split-plan pr-draft-qa kg-status kg-maintain
 
 help:
 	@printf '%s\n' \
@@ -33,11 +41,12 @@ help:
 	  '  make agent-viewer       Start the standalone agent viewer at http://localhost:$(AGENT_VIEWER_PORT)' \
 	  '  make status             Print orchestrator status for REPO_ROOT/STATE_DIR' \
 	  '  make init-run           Create a run with WORKERS/GOAL/CANDIDATE_LIMIT' \
-	  '  make start              Start babysit/trigger-agent for the current run' \
+	  '  make start              Start babysit/run-loop for the current run' \
 	  '  make dry-start          Same as start with DRY_RUN=1' \
 	  '  make recover-leases     Force-recover active leases for the run' \
 	  '  make regression-check   Run the saved-baseline regression gate' \
 	  '  make pr-split-plan      Render PR split/handoff plan' \
+	  '  make pr-draft-qa PR=N   Run draft PR QA lifecycle for PR N' \
 	  '  make kg-status          Print knowledge graph status' \
 	  '  make kg-maintain        Run knowledge maintenance' \
 	  '  make check              Typecheck + review-lint tests' \
@@ -101,6 +110,16 @@ regression-check:
 
 pr-split-plan:
 	bun run orch -- $(ORCH_GLOBAL_FLAGS) pr-split-plan
+
+pr-draft-qa:
+	@test -n "$(PR)" || (printf '%s\n' 'Set PR=<number>, for example: make pr-draft-qa PR=2704' >&2; exit 2)
+	bun run orch -- $(ORCH_GLOBAL_FLAGS) pr-draft-qa \
+	  $(RUN_ID_FLAG) \
+	  --pr "$(PR)" \
+	  $(PR_QA_AGENT_FLAG) \
+	  $(PR_QA_COMMENT_FLAG) \
+	  $(PR_QA_CI_FLAG) \
+	  $(PR_QA_FLAGS)
 
 kg-status:
 	bun run orch -- $(ORCH_GLOBAL_FLAGS) kg-status

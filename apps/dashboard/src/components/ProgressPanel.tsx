@@ -278,6 +278,16 @@ function TimelineChart({ dashboard }: { dashboard: Dashboard | null }) {
 /* ------------------------------- The panel ------------------------------ */
 
 function checkpointCountdown(dashboard: Dashboard | null): string {
+  const epoch = asObject(asObject(dashboard?.status).schedulerEpoch);
+  if (epoch.epochId) {
+    const remaining = strictNumber(epoch.remaining);
+    const admitted = strictNumber(epoch.admitted);
+    const ready = strictNumber(epoch.readyQueued);
+    const leased = strictNumber(epoch.leased);
+    if (Number.isFinite(remaining) && Number.isFinite(admitted)) {
+      return `epoch ${whole(admitted - remaining)}/${whole(admitted)} · ${whole(ready)} queued · ${whole(leased)} leased`;
+    }
+  }
   const progress = asObject(dashboard?.checkpointProgress);
   if (progress.building === true) {
     const sinceMs = Date.parse(text(progress.buildingSince));

@@ -6,8 +6,9 @@ concepts: [durable-state, sqlite, leases, events, facts, artifacts]
 # Durable State And Events
 
 Durable state is the orchestrator's memory. It records the board, active work,
-agent sessions, reports, facts, and wake events. The state substrate allows
-workers and the director to operate at different times without losing context.
+agent sessions, scheduler epochs, reports, facts, and wake events. The state
+substrate allows workers and deterministic scheduling to operate at different
+times without losing context.
 
 ## State Model
 
@@ -17,15 +18,21 @@ The board carries:
 - Targets and queue rows: candidate functions or units with priority and
   rationale.
 - Leases and file locks: active ownership of bounded write sets.
-- Pi sessions: director and worker invocation metadata.
-- Director cycles: each board read and scheduling decision.
+- Pi sessions: worker, review, curation, reconcile, and QA repair invocation
+  metadata.
+- Scheduler epochs: active epoch configuration, fixed target membership,
+  ready-queue state, completion counts, refresh counters, and boundary routing
+  summaries.
+- Legacy director cycles: old board-level decision rows retained only so old
+  state files remain readable.
 - Worker reports: progress, blockers, facts, patches, and status.
 - Attempts and integrations: validation results and score-gate records.
 - Events: durable wake requests.
 
 ## Event Handshake
 
-Events are the handshake between workers, the runner, and the sleeping director.
+Events are the handshake between workers, the runner, and the sleeping
+scheduler loop.
 A producer writes an event with payload and provenance. The runner handles the
 oldest relevant unhandled event by invoking the correct next step. The event is
 marked handled only after the resulting decision or state transition is stored.
@@ -38,17 +45,26 @@ Wake events include:
 - `needs_fact`
 - `score_candidate`
 - `pool_below_target`
+- `epoch_admitted`
+- `epoch_exhausted`
+- `epoch_fast_refresh_started`
+- `epoch_fast_refresh_finished`
+- `epoch_fast_refresh_deferred`
+- `epoch_fast_refresh_skipped`
+- `epoch_full_refresh_started`
+- `epoch_full_refresh_finished`
 - `epoch_regression_pause`
 - `epoch_cycle_error`
 
-In the default epoch cycle the queue is one batch that drains to zero before
-the epoch pipeline rebuilds the report and refills it, so a shrinking queue is
-intended shape rather than pressure. `pool_below_target` is then produced only
-when a post-rebuild refill finds no fresh board work. In legacy continuous
-mode (`--no-epoch-cycle`) the trigger tops the queue up on every pass and
-`pool_below_target` covers low queued work, low schedulable distinct-file
-work, blocked queued work behind active file locks, long-tail worker drain,
-and optional periodic replans. The state reader prioritizes unhandled
+In the default epoch cycle, fixed admission and ready-queue refill are separate.
+A shrinking ready queue is normal when the admitted set is nearly complete.
+Fast refresh events record in-epoch `kg-maintain --no-tool-runners` work and
+coalescing decisions. Full refresh events record boundary knowledge
+maintenance after report truth is rebuilt. In legacy continuous mode
+(`--no-epoch-cycle`) the trigger tops the queue up on every pass and
+`pool_below_target` covers low queued work, low schedulable distinct-file work,
+blocked queued work behind active file locks, long-tail worker drain, and
+optional periodic replans. The state reader prioritizes unhandled
 `pool_below_target` events ahead of ordinary worker-report backlog so
 capacity-preserving replans are not delayed behind many older completion
 events.
@@ -56,8 +72,8 @@ events.
 `epoch_regression_pause` records that one epoch regressed more report rows
 than the pause threshold, so the pipeline recorded its checkpoint but withheld
 the refill. `epoch_cycle_error` records a failed epoch commit or report build.
-Both carry enough payload for the director or an operator to decide whether to
-repair, revert, or resume.
+Both carry enough payload for deterministic routing or an operator to decide
+whether to repair, revert, or resume.
 
 ## Leases And Locks
 

@@ -51,7 +51,7 @@ export interface BabysitResult {
   runId?: string;
   mode: "babysit";
   stoppedReason: string;
-  systemCommand: "bootstrap" | "trigger-agent";
+  systemCommand: SystemCommand;
   systemRuns: ChildRun[];
   recoveries: RecoveryRun[];
   incidents: number;
@@ -79,10 +79,15 @@ const SYSTEM_ARG_ALLOWLIST = new Set([
   "--curator-agent-record-limit",
   "--epoch-configure-command",
   "--epoch-link-paths",
+  "--epoch-ready-queue-size",
   "--epoch-regression-pause-threshold",
   "--epoch-regression-requeue-limit",
   "--epoch-retry-ms",
+  "--epoch-size",
   "--epoch-worktree",
+  "--fast-kg-maintenance-interval-ms",
+  "--fast-kg-maintenance-report-count",
+  "--full-kg-maintenance-mode",
   "--graph-db",
   "--idle-sleep-ms",
   "--knowledge-curator-enrichment",
@@ -93,6 +98,7 @@ const SYSTEM_ARG_ALLOWLIST = new Set([
   "--max-workers",
   "--no-blocked-queue-replan",
   "--no-epoch-cycle",
+  "--no-fast-kg-maintenance",
   "--no-knowledge-maintenance",
   "--no-pr-index",
   "--no-rebuild",
@@ -121,6 +127,8 @@ const SYSTEM_ARG_ALLOWLIST = new Set([
   "--worker-limit",
   "--worker-thinking-level",
 ]);
+
+type SystemCommand = "bootstrap" | "run-loop" | "trigger-agent";
 
 function sleep(ms: number): Promise<void> {
   if (ms <= 0) return Promise.resolve();
@@ -167,10 +175,10 @@ function globalFlags(globals: GlobalArgs): string[] {
   return flags;
 }
 
-function systemCommandArg(args: Map<string, string | true>): "bootstrap" | "trigger-agent" {
-  const command = stringArg(args, "--system-command", "bootstrap");
-  if (command === "bootstrap" || command === "trigger-agent") return command;
-  throw new Error("--system-command must be bootstrap or trigger-agent");
+function systemCommandArg(args: Map<string, string | true>): SystemCommand {
+  const command = stringArg(args, "--system-command", "run-loop");
+  if (command === "run-loop" || command === "bootstrap" || command === "trigger-agent") return command;
+  throw new Error("--system-command must be run-loop, bootstrap, or trigger-agent");
 }
 
 function systemArgs(args: Map<string, string | true>): string[] {
@@ -238,7 +246,7 @@ async function finalStatus(globals: GlobalArgs): Promise<Record<string, unknown>
   }
 }
 
-async function runChild(globals: GlobalArgs, args: Map<string, string | true>, ordinal: number, commandName: "bootstrap" | "trigger-agent"): Promise<ChildRun> {
+async function runChild(globals: GlobalArgs, args: Map<string, string | true>, ordinal: number, commandName: SystemCommand): Promise<ChildRun> {
   const id = `${String(ordinal).padStart(4, "0")}-${timestampSlug()}-${shortId()}`;
   const outputDir = resolve(globals.stateDir, "guardian", "system_runs", id);
   await mkdir(outputDir, { recursive: true });

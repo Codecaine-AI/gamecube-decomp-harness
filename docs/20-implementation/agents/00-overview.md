@@ -25,11 +25,6 @@ packages/agents/src/
 +-- context.ts
 +-- context/
 |   +-- manifest.json
-+-- director/
-|   +-- index.ts
-|   +-- output.ts
-|   +-- prompt.ts
-|   +-- templates/
 +-- worker/
 |   +-- index.ts
 |   +-- output.ts
@@ -84,7 +79,7 @@ packages/agents/src/
 
 ## Child Nodes
 
-- [Director and worker agents](10-director-worker.md)
+- [Worker agents and scheduler delegation](10-director-worker.md)
 - [PR-review agent](20-pr-review.md)
 - [Knowledge-curator agent](25-knowledge-curator.md)
 - [Agent runtime](30-runtime.md)

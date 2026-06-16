@@ -1,0 +1,72 @@
+{
+  "updated": "2026-06-16",
+  "status": "passed_with_known_docs_audit_debt",
+  "commands": [
+    {
+      "command": "bun test apps/cli/src/cli/commands/trigger-agent.test.ts",
+      "status": "passed",
+      "notes": "Focused fast-refresh decision tests passed on 2026-06-16: 4 tests, 4 assertions."
+    },
+    {
+      "command": "bun test packages/core/src/state/epochs.test.ts",
+      "status": "passed",
+      "notes": "Focused scheduler epoch tests passed on 2026-06-16: 9 tests, 28 assertions. Coverage includes size parsing, distinct-source admission, Full mode exhaustion, ready-queue refill, provider-error requeue, existing queued adoption, and closed-epoch queued adoption."
+    },
+    {
+      "command": "bunx tsc --noEmit",
+      "status": "passed",
+      "notes": "Repository TypeScript compile passed after deterministic epoch runtime changes."
+    },
+    {
+      "command": "bun run check",
+      "status": "passed",
+      "notes": "Full check passed on 2026-06-16: tsc, dashboard typecheck, Agent Viewer typecheck, and review_lint pytest suite with 67 tests passing."
+    },
+    {
+      "command": "bun run smoke",
+      "status": "passed",
+      "notes": "Smoke run passed with summary path /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/decomp-orchestrator-smoke-6Qe3BR/runs/c44b5139-b3fd-4566-8ba9-c553d6f4f13a/smoke_summary.json. Coverage now invokes run-loop as the primary command, checks trigger-agent as a compatibility alias, and verifies babysit defaults to the run-loop child."
+    },
+    {
+      "command": "rg stale run-loop naming patterns across live apps/packages/tests/current docs/objective files",
+      "status": "passed",
+      "notes": "No stale live wording claims the compatibility alias is the scheduler, no current docs use trigger-actor wording, and the old trigger-agent JSON result mode no longer appears."
+    },
+    {
+      "command": "rg -n \"addDirectorCycle|director-cycles|@decomp-orchestrator/agents/director|\\\\.\\\\/director|directorPrompt|directorQueuedTargets|DirectorPrompt|target_packets|packages/agents/src/director\" apps packages tests docs objectives -g '!objectives/deterministic-epoch-orchestration/artifacts/baseline_inventory.md'",
+      "status": "passed_with_allowed_references",
+      "notes": "No live runtime imports, prompt/parser references, or target packet parser references remain. Remaining hits are negative smoke assertions and objective/project-workspace history."
+    },
+    {
+      "command": "rg -n \"runDirectorTick|DirectorTick|director tick|directorTick\" apps packages tests docs objectives -g '!objectives/deterministic-epoch-orchestration/artifacts/baseline_inventory.md'",
+      "status": "passed_with_allowed_references",
+      "notes": "No app/package/test runtime symbols remain. Hits are limited to deterministic-epoch objective planning and validation notes."
+    },
+    {
+      "command": "python3 .codex/skills/docs-framework/scripts/audit.py docs",
+      "status": "failed_known_repo_structure_debt",
+      "notes": "Exit 2 on 2026-06-16T11:29:10 from broad docs structure rules. The audit reports zero broken links. Remaining failures are repo-wide docs framework debt: missing foundation split files, missing 00-overview.md in docs/30-plans and docs/20-implementation/99-appendix, plan files without frontmatter, and naming warnings for preserved HTML/assets and unnumbered implementation subdirectories."
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed",
+      "notes": "No whitespace errors."
+    }
+  ],
+  "fixes_after_handoff": [
+    "Fast run-evidence refresh now refreshes priorities and refills only from the active epoch's admitted target set; it no longer calls the admission helper that can add new out-of-epoch work.",
+    "Existing queued/leased target adoption now excludes only targets already present in the current epoch, so queued repair/carry-forward rows from a closed epoch can be adopted by the next epoch.",
+    "The implementation overview appendix link now points at the existing Pi agent run report document.",
+    "The primary CLI entrypoint for the deterministic scheduler is now run-loop. trigger-agent and bootstrap remain aliases, run-loop results use mode run_loop, and babysit defaults its child system command to run-loop."
+  ],
+  "allowed_residue": [
+    "The legacy director_cycles SQLite table and status/dashboard read paths remain for old state readability; current scheduling does not write it.",
+    "Historical objective bundles and preserved HTML design artifacts still mention the old director model.",
+    "The scheduler-loop markdown file keeps the historical filename docs/10-system-design/10-run-director-loop.md while its title/content describe the current deterministic scheduler.",
+    "The run-loop implementation still lives in apps/cli/src/cli/commands/trigger-agent.ts so existing imports can remain stable while the CLI command surface moves first."
+  ],
+  "residual_risks": [
+    "Docs quick audit remains nonzero because of broad docs-structure debt outside this scheduler objective.",
+    "Full boundary maintenance still depends on the project report/build toolchain being available in live non-dry-run environments."
+  ]
+}

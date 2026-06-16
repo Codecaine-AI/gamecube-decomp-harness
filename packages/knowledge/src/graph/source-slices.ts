@@ -14,6 +14,7 @@ interface IndexedSliceRecord {
   linkedFilePaths?: string[];
   entityType?: string;
   entityKey?: string;
+  trustTier?: TrustTier;
 }
 
 interface SourceBuildOptions {
@@ -46,7 +47,8 @@ export function buildSsbmDataSheetGraphRecords(): GraphRecords | null {
   const sourceId = "ssbm_data_sheet";
   const dataRoot = sourceDataRoot(sourceId);
   const csvRoot = resolve(dataRoot, "csv");
-  const csvFiles = recursiveFiles(csvRoot).filter((path) => extname(path).toLowerCase() === ".csv");
+  const generatedRoot = resolve(dataRoot, "generated");
+  const csvFiles = [...new Set([...recursiveFiles(csvRoot), ...recursiveFiles(generatedRoot)])].filter((path) => extname(path).toLowerCase() === ".csv");
   const sourceFiles = recursiveFiles(resolve(dataRoot, "source"));
   const inputPaths = [...csvFiles, ...sourceFiles];
   const records: IndexedSliceRecord[] = [];
@@ -74,6 +76,7 @@ export function buildSsbmDataSheetGraphRecords(): GraphRecords | null {
         linkedFilePaths: extractLinkedFilePaths(rowText(row)),
         entityType: address ? "address_reference" : "data_sheet_row",
         entityKey: address || `${relPath}:${index + 1}`,
+        trustTier: ssbmDataSheetRowTrustTier(relPath, row),
       });
     });
   }
@@ -88,6 +91,13 @@ export function buildSsbmDataSheetGraphRecords(): GraphRecords | null {
     factType: "data_sheet_reference",
     edgeType: "HAS_DATA_SHEET_REFERENCE",
   });
+}
+
+function ssbmDataSheetRowTrustTier(relPath: string, row: Record<string, string>): TrustTier {
+  if (!relPath.startsWith("generated/")) return "external_hint";
+  const sourceType = stringField(row, "source_type");
+  if (sourceType === "codebase_function" || sourceType === "data_symbol") return "canonical";
+  return "local";
 }
 
 export function buildPowerpcDocsGraphRecords(): GraphRecords | null {
@@ -397,7 +407,7 @@ function buildIndexBackedGraphRecords(options: SourceBuildOptions): GraphRecords
         ...record.payload,
       },
       confidence: 0.55,
-      trustTier: options.trustTier,
+      trustTier: record.trustTier ?? options.trustTier,
       evidenceRef: record.evidenceRef,
       sourceVersionId,
     });

@@ -110,15 +110,23 @@ function fixedRepairJson(scoreImpact: "same_match" | "lower_score" = "same_match
     score_impact: scoreImpact,
     summary: "Removed the QA violation with a minimal source edit.",
     edits: ["src/melee/gr/grsmoke.c"],
-    validation: [
-      {
-        command: "review_lint scan_diff --gate",
-        status: "passed",
-        artifact_path: null,
-        notes: "Runner revalidates this claim.",
-      },
-    ],
-    remaining_findings: [],
+	    validation: [
+	      {
+	        command: "review_lint scan_diff --gate",
+	        status: "passed",
+	        artifact_path: null,
+	        notes: "Runner revalidates this claim.",
+	      },
+	    ],
+	    finding_dispositions: [
+	      {
+	        rule_id: "m2c_residue_names",
+	        line: 23,
+	        disposition: "fixed_source",
+	        evidence: "Removed the mocked QA violation with a minimal source edit.",
+	      },
+	    ],
+	    remaining_findings: [],
     risks: [],
   });
 }

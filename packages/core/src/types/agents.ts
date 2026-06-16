@@ -1,5 +1,5 @@
-export type AgentRole = "director" | "worker" | "pr-review" | "knowledge-curator" | "reconcile" | "qa-repair";
-export type RuntimeAgentRole = "director" | "worker" | "pr-review" | "knowledge-curator" | "reconcile" | "qa-repair";
+export type AgentRole = "worker" | "pr-review" | "knowledge-curator" | "reconcile" | "qa-repair";
+export type RuntimeAgentRole = "worker" | "pr-review" | "knowledge-curator" | "reconcile" | "qa-repair";
 // "needs_rework" is runner-assigned only (a gate rejected the worker's return); agents never
 // self-report it — agent-supplied report types are validated by isWorkerReportType, which
 // excludes it. "tool_error" is reserved for tool/API/build infrastructure failures.

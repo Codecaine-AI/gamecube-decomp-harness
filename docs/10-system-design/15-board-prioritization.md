@@ -1,13 +1,13 @@
 ---
-covers: Board prioritization, candidate-prior scoring, and director scheduling signals
+covers: Board prioritization, candidate-prior scoring, and deterministic scheduler signals
 concepts: [board-prioritization, candidate-prior, helper-score, scheduling, constraint-propagation]
 ---
 
 # Board Prioritization
 
-Board helpers produce deterministic candidate-prior features. The director uses
-those features as input, but final scheduling belongs to the director because it
-can reason over the whole run state.
+Board helpers produce deterministic candidate-prior features. The run scheduler
+uses those features as rank input, while final admission follows explicit epoch,
+ready-queue, lock, cooldown, and exhaustion policy.
 
 The helper score is graph-first. It should surface places where a worker is
 likely to create reusable information, propagate a source-shape fact, or unlock a
@@ -34,17 +34,17 @@ from compressed local closeness.
 
 The runtime uses two different limits:
 
-- Candidate window: how many ranked board candidates are inspected during a
-  director tick or deterministic refill.
-- Queue target size: how many ready queue rows the trigger tries to keep
-  available for workers.
+- Candidate window: how many ranked board candidates are inspected during
+  scheduler admission or refill.
+- Epoch size: how many targets are admitted to the active scheduler epoch.
+- Ready queue size: how many admitted targets are kept immediately leaseable for
+  workers.
 
-For example, a run can keep a queue target of 64 while scanning a candidate
-window of 512. As workers consume the first pool, refill can pull candidates 65
-and beyond instead of waiting for the pool to reach zero or reusing stale
-attempts. Periodic queue refresh also updates priorities for queued-but-not-
-leased targets from the current graph-ranked board, so new knowledge can change
-lease order before the existing pool fully drains.
+For example, a run can admit a 256-target epoch while keeping a 64-target ready
+queue and scanning a 512-target candidate window. As workers consume queued
+work, refill draws from the fixed admitted set. Fast run-evidence refresh can
+update priorities for queued-but-not-leased targets, so new knowledge can
+change lease order without injecting accidental out-of-epoch work.
 
 ## Candidate Prior
 
@@ -87,12 +87,13 @@ primary queue lane, with enough internal spread to make their order inspectable.
 | Recent stalls | Repeated no-delta attempts should cool down the target unless new facts arrive. |
 | Data/rodata risk | Header, static, section-order, split, and relocation-sensitive work needs slower validation and fewer parallel edits. |
 
-## Director Contract
+## Scheduler Contract
 
-The director receives the board plus the helper prior and decides the next
-bounded target packet. A high prior is not an instruction to edit. It is a
-claim that this target may produce leverage, which the director can accept,
-defer, cool down, or redirect into fact research.
+The scheduler receives the ranked board plus durable run state and admits a
+fixed epoch set. A high prior is not an instruction to edit. It is a claim that
+this target may produce leverage; deterministic policy can admit it, defer it
+behind locks or cooldown, or let boundary routing move it into a repair,
+fact/research, or stalled lane.
 
 ## Parallel Capacity Signal
 
@@ -100,11 +101,11 @@ Raw queue depth is not enough for a parallel run. If many queued targets share
 one source file, active file locks can leave most workers idle even while the
 queue looks full. Refill therefore tracks schedulable distinct source paths and
 prefers fresh candidates from source paths that are not already queued or
-actively locked. The trigger asks the director for a replan when the queue is
-low, the schedulable distinct-source pool is low, queued work is blocked by
-locks, or a long tail persists.
+actively locked. In epoch mode, low ready-queue depth refills from admitted
+membership; in continuous compatibility mode, queue pressure can emit
+`pool_below_target` for deterministic refill/backoff handling.
 
 ## Related
 
-- [Run director loop](10-run-director-loop.md)
+- [Run scheduler loop](10-run-director-loop.md)
 - [Core principles](05-core-principles.md)

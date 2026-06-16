@@ -24,7 +24,7 @@ docs/
 
 - [Foundation overview](00-foundation/00-overview.md) explains what the
   orchestrator is for and what it should avoid becoming.
-- [System design overview](10-system-design/00-overview.md) maps the director,
+- [System design overview](10-system-design/00-overview.md) maps the scheduler,
   workers, durable state, process guardians, knowledge, and score gate.
 - [Evidence refresh cadence](../EVIDENCE_REFRESH_CADENCE.md) is a proposed
   top-level operational policy for when epochs and run boundaries should
@@ -54,4 +54,4 @@ docs/
 - Treat experimental search as an opt-in worker capability, not the default
   worker posture.
 - Treat trigger actors and guardian processes as evented runtime actors, not
-  director/worker-style Pi agents.
+  board-scheduling Pi agents.

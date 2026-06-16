@@ -59,6 +59,7 @@ export interface QaRepairQueueItem {
   proofs: QaRepairProof[];
   findings: QaScanFinding[];
   warnings: QaScanFinding[];
+  repair_warnings: boolean;
   rule_counts: Record<string, number>;
   created_at: string;
   validation: {
@@ -148,6 +149,7 @@ export interface BuildQaRepairQueueOptions {
   candidateFiles?: string[];
   includeImprovementCandidates?: boolean;
   includeAllScanFilesWhenNoCandidates?: boolean;
+  repairWarnings?: boolean;
   createdAt?: string;
   dryRun?: boolean;
 }
@@ -342,7 +344,8 @@ export function buildQaRepairQueue(options: BuildQaRepairQueueOptions): QaRepair
       ruleCounts: fileRuleCounts,
       status: candidateFileStatus(errors.length, warnings.length),
     });
-    if (errors.length === 0) continue;
+    const repairWarnings = options.repairWarnings === true;
+    if (errors.length === 0 && (!repairWarnings || warnings.length === 0)) continue;
     items.push({
       schema_version: "qa_repair_queue_item_v1",
       id: slugForPath(sourcePath),
@@ -354,6 +357,7 @@ export function buildQaRepairQueue(options: BuildQaRepairQueueOptions): QaRepair
       proofs,
       findings: errors,
       warnings,
+      repair_warnings: repairWarnings,
       rule_counts: fileRuleCounts,
       created_at: createdAt,
       validation: {
@@ -394,8 +398,10 @@ export function summarizeQaRepairQueue(queue: QaRepairQueue, artifactPaths: Part
   }
   const filesWithErrors = queue.candidate_files.filter((file) => file.errorCount > 0).length;
   const filesWithWarnings = queue.candidate_files.filter((file) => file.warningCount > 0).length;
-  const blocked = queue.items.some((item) => item.status === "blocked");
+  const blocked = queue.items.some((item) => item.status === "blocked" || item.status === "needs_rework" || item.status === "false_positive");
   const queued = queue.items.some((item) => item.status === "queued" || item.status === "in_progress");
+  const lowerScore = queue.items.some((item) => item.status === "clean_lower_score");
+  const unresolved = queue.items.some((item) => item.status !== "clean_same_match");
   return {
     schema_version: QA_REPAIR_SUMMARY_SCHEMA_VERSION,
     run_id: queue.run_id,
@@ -420,7 +426,7 @@ export function summarizeQaRepairQueue(queue: QaRepairQueue, artifactPaths: Part
       by_status: byStatus,
       by_rule: byRule,
     },
-    recommendation: blocked ? "blocked" : queued || filesWithErrors > 0 ? "repair_required" : "clean",
+    recommendation: blocked ? "blocked" : queued || lowerScore || unresolved ? "repair_required" : "clean",
   };
 }
 
@@ -454,34 +460,35 @@ export function renderQaRepairReport(queue: QaRepairQueue, summary = summarizeQa
     `- Warnings: ${summary.counts.warnings}`,
     `- Recommendation: ${summary.recommendation}`,
     "",
-    "## Files With QA Errors",
+    "## Queued QA Repair Items",
     "",
   ];
-  const filesWithErrors = queue.candidate_files.filter((file) => file.errorCount > 0).sort((left, right) => left.sourcePath.localeCompare(right.sourcePath));
-  if (filesWithErrors.length === 0) {
-    lines.push("No candidate files have error-severity QA findings.", "");
+  const items = [...queue.items].sort((left, right) => left.source_path.localeCompare(right.source_path));
+  if (items.length === 0) {
+    lines.push("No candidate files have queued QA repair items.", "");
   } else {
-    for (const file of filesWithErrors) {
-      const item = queue.items.find((candidate) => sameOrSuffixPath(candidate.source_path, file.sourcePath));
-      lines.push(`### ${file.sourcePath}`, "");
-      lines.push(`- Lane: ${file.lane}`);
-      lines.push(`- Status: ${item?.status ?? file.status}`);
-      lines.push(`- Errors: ${file.errorCount}`);
-      lines.push(`- Warnings: ${file.warningCount}`);
-      lines.push(`- Rules: ${renderRuleCounts(file.ruleCounts)}`);
-      if (item?.routing_reason) lines.push(`- Routing: ${item.routing_reason}`);
+    for (const item of items) {
+      lines.push(`### ${item.source_path}`, "");
+      lines.push(`- Lane: ${item.lane}`);
+      lines.push(`- Status: ${item.status}`);
+      lines.push(`- Errors: ${item.findings.length}`);
+      lines.push(`- Warnings: ${item.warnings.length}`);
+      lines.push(`- Warning repair: ${item.repair_warnings ? "required" : "advisory"}`);
+      lines.push(`- Rules: ${renderRuleCounts(item.rule_counts)}`);
+      if (item.routing_reason) lines.push(`- Routing: ${item.routing_reason}`);
       lines.push("");
-      for (const finding of item?.findings ?? []) lines.push(renderFindingLine(finding));
-      if ((item?.warnings ?? []).length > 0) {
+      for (const finding of item.findings) lines.push(renderFindingLine(finding));
+      if (item.warnings.length > 0) {
         lines.push("", "Warnings:");
-        for (const finding of item?.warnings ?? []) lines.push(renderFindingLine(finding));
+        for (const finding of item.warnings) lines.push(renderFindingLine(finding));
       }
       lines.push("");
     }
   }
-  const warningOnly = queue.candidate_files.filter((file) => file.errorCount === 0 && file.warningCount > 0);
+  const queuedPaths = new Set(queue.items.map((item) => normalizePath(item.source_path)));
+  const warningOnly = queue.candidate_files.filter((file) => file.errorCount === 0 && file.warningCount > 0 && !queuedPaths.has(normalizePath(file.sourcePath)));
   if (warningOnly.length > 0) {
-    lines.push("## Warning-Only Candidate Files", "");
+    lines.push("## Advisory Warning-Only Candidate Files", "");
     for (const file of warningOnly.sort((left, right) => left.sourcePath.localeCompare(right.sourcePath))) {
       lines.push(`- ${file.sourcePath}: ${renderRuleCounts(file.ruleCounts)}`);
     }
@@ -554,9 +561,14 @@ export function validateQaRepairOutcome(input: QaRepairValidationInput): QaRepai
       validationArtifacts: artifacts,
     };
   }
-  const remainingFindings = findingsForPath(input.postScan.findings, input.item.source_path, "error");
-  if (remainingFindings.length > 0) {
-    reasons.push(`post-repair QA scan still has ${remainingFindings.length} error finding(s) for ${input.item.source_path}`);
+  const remainingErrors = findingsForPath(input.postScan.findings, input.item.source_path, "error");
+  const remainingWarnings = input.item.repair_warnings ? findingsForPath(input.postScan.findings, input.item.source_path, "warning") : [];
+  const remainingFindings = [...remainingErrors, ...remainingWarnings];
+  if (remainingErrors.length > 0) {
+    reasons.push(`post-repair QA scan still has ${remainingErrors.length} error finding(s) for ${input.item.source_path}`);
+  }
+  if (remainingWarnings.length > 0) {
+    reasons.push(`post-repair QA scan still has ${remainingWarnings.length} required warning finding(s) for ${input.item.source_path}`);
   }
   if (input.scorePassed === false) reasons.push("post-repair score validation failed");
   if (input.buildPassed === false) reasons.push("post-repair build validation failed");
@@ -619,7 +631,7 @@ export function qaRepairShipStatus(queue: QaRepairQueue): QaRepairShipStatus {
     }
   }
   const pending = queue.items.some((item) => item.status === "queued" || item.status === "in_progress");
-  const blocked = queue.items.some((item) => item.status === "blocked" || item.status === "needs_rework" || item.status === "false_positive");
+  const blocked = queue.items.some((item) => item.status === "blocked" || item.status === "needs_rework" || item.status === "false_positive" || item.status === "clean_lower_score");
   return {
     schema_version: QA_REPAIR_SHIP_STATUS_SCHEMA_VERSION,
     status: blocked ? "qa_repair_blocked" : pending ? "qa_repair_pending" : "qa_repair_clean",

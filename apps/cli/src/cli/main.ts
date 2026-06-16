@@ -14,6 +14,7 @@ import {
   kgSmoke,
   kgSources,
   kgStatus,
+  prDraftQa,
   prPreshipReview,
   prSplitPlan,
   qaRepair,
@@ -21,6 +22,7 @@ import {
   recoverLeases,
   regressionCheck,
   reportRun,
+  runLoop,
   savePoint,
   status,
   tick,
@@ -38,6 +40,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   if (command === "init-run") await initRun(globals, args);
   else if (command === "tick") await tick(globals, args);
   else if (command === "worker") await worker(globals, args);
+  else if (command === "run-loop") await runLoop(globals, args);
   else if (command === "trigger-agent" || command === "bootstrap") await triggerAgent(globals, args);
   else if (command === "babysit") await babysit(globals, args);
   else if (command === "checkpoint-run") await checkpointRun(globals, args);
@@ -49,6 +52,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   else if (command === "reconcile") await reconcile(globals, args);
   else if (command === "qa-repair") await qaRepair(globals, args);
   else if (command === "pr-split-plan") await prSplitPlan(globals, args);
+  else if (command === "pr-draft-qa") await prDraftQa(globals, args);
   else if (command === "pr-preship-review") await prPreshipReview(globals, args);
   else if (command === "kg-sources") await kgSources();
   else if (command === "kg-status") await kgStatus(globals, args);

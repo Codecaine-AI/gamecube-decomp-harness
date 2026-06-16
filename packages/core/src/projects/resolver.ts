@@ -14,6 +14,12 @@ export interface ProjectDashboardDefaults {
   queueTargetSize?: number;
   queueLowWatermark?: number;
   candidateWindow?: number;
+  epochSize?: number | string;
+  epochReadyQueueSize?: number;
+  fastKgMaintenanceIntervalMs?: number;
+  fastKgMaintenanceReportCount?: number;
+  fastKgMaintenanceEnabled?: boolean;
+  fullKgMaintenanceMode?: string;
   goalValue?: number;
 }
 
@@ -125,6 +131,12 @@ const defaultDashboard: Required<ProjectDashboardDefaults> = {
   queueTargetSize: 64,
   queueLowWatermark: 16,
   candidateWindow: 512,
+  epochSize: 64,
+  epochReadyQueueSize: 64,
+  fastKgMaintenanceIntervalMs: 180_000,
+  fastKgMaintenanceReportCount: 16,
+  fastKgMaintenanceEnabled: true,
+  fullKgMaintenanceMode: "full",
   goalValue: 100,
 };
 
@@ -184,6 +196,15 @@ function numberField(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
+function booleanField(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function stringOrNumberField(value: unknown): string | number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return stringField(value);
+}
+
 function stringArrayField(value: unknown): string[] | undefined {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : undefined;
 }
@@ -205,6 +226,12 @@ function dashboardFromObject(value: unknown): ProjectDashboardDefaults | undefin
     queueTargetSize: numberField(value.queueTargetSize),
     queueLowWatermark: numberField(value.queueLowWatermark),
     candidateWindow: numberField(value.candidateWindow),
+    epochSize: stringOrNumberField(value.epochSize),
+    epochReadyQueueSize: numberField(value.epochReadyQueueSize),
+    fastKgMaintenanceIntervalMs: numberField(value.fastKgMaintenanceIntervalMs),
+    fastKgMaintenanceReportCount: numberField(value.fastKgMaintenanceReportCount),
+    fastKgMaintenanceEnabled: booleanField(value.fastKgMaintenanceEnabled),
+    fullKgMaintenanceMode: stringField(value.fullKgMaintenanceMode),
     goalValue: numberField(value.goalValue),
   };
 }

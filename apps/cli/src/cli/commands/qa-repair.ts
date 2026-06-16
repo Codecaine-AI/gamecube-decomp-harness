@@ -505,6 +505,7 @@ export async function runQaRepair(
     candidateFiles,
     includeImprovementCandidates: !booleanArg(args, "--match-only"),
     includeAllScanFilesWhenNoCandidates: booleanArg(args, "--all-scan-files") || candidateFiles.length === 0,
+    repairWarnings: booleanArg(args, "--repair-warnings"),
     createdAt: new Date().toISOString(),
     dryRun: globals.dryRunAgents || !booleanArg(args, "--run-agents"),
   });

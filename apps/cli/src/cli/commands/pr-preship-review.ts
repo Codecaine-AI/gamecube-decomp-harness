@@ -74,6 +74,7 @@ export interface PreshipReviewRunOptions {
   selection: { kind: "all" } | { kind: "slice"; id: string };
   baseRef: string;
   headRef: string;
+  includeWorktree?: boolean;
   runId: string;
   stateDir: string;
   orchestratorRoot: string;
@@ -174,10 +175,12 @@ function reviewMarkdown(sliceId: string, review: PreshipReview, lintNote: string
   return lines.join("\n");
 }
 
-async function sliceDiff(repoRoot: string, baseRef: string, headRef: string, pathspecs: string[], outputPath: string): Promise<string> {
-  const result = await runCommand(repoRoot, ["git", "-C", repoRoot, "diff", `--output=${outputPath}`, baseRef, headRef, "--", ...pathspecs]);
+async function sliceDiff(repoRoot: string, baseRef: string, headRef: string, pathspecs: string[], outputPath: string, includeWorktree = false): Promise<string> {
+  const range = includeWorktree ? [baseRef] : [baseRef, headRef];
+  const result = await runCommand(repoRoot, ["git", "-C", repoRoot, "diff", `--output=${outputPath}`, ...range, "--", ...pathspecs]);
   if (result.exitCode !== 0) {
-    throw new Error(`git diff ${baseRef} ${headRef} failed (exit ${result.exitCode}): ${result.stderr.trim() || result.stdout.trim()}`);
+    const label = includeWorktree ? `${baseRef}..WORKTREE` : `${baseRef} ${headRef}`;
+    throw new Error(`git diff ${label} failed (exit ${result.exitCode}): ${result.stderr.trim() || result.stdout.trim()}`);
   }
   return readFile(outputPath, "utf8").catch(() => "");
 }
@@ -188,7 +191,7 @@ async function reviewOneSlice(slice: PreshipPlanSlice, options: PreshipReviewRun
   const repoRoot = options.plan.repoRoot;
 
   const diffPath = resolve(reviewDir, "slice.diff");
-  const diff = await sliceDiff(repoRoot, options.baseRef, options.headRef, slice.pathspecs, diffPath);
+  const diff = await sliceDiff(repoRoot, options.baseRef, options.headRef, slice.pathspecs, diffPath, options.includeWorktree);
 
   if (!diff.trim()) {
     const review: PreshipReview = {
@@ -196,7 +199,7 @@ async function reviewOneSlice(slice: PreshipPlanSlice, options: PreshipReviewRun
       slice_id: slice.id,
       slice_verdict: "approve",
       findings: [],
-      summary: `Empty diff for ${options.baseRef}..${options.headRef} over the slice pathspecs; nothing to review.`,
+      summary: `Empty diff for ${options.includeWorktree ? `${options.baseRef}..WORKTREE` : `${options.baseRef}..${options.headRef}`} over the slice pathspecs; nothing to review.`,
       confidence: 1,
     };
     const reviewPath = resolve(reviewDir, "review.json");
@@ -360,6 +363,7 @@ export async function prPreshipReview(globals: GlobalArgs, args: Map<string, str
     selection: sliceId ? { kind: "slice", id: sliceId } : { kind: "all" },
     baseRef: stringArg(args, "--base", plan.baseRef),
     headRef: stringArg(args, "--head", plan.headRef),
+    includeWorktree: booleanArg(args, "--include-worktree"),
     runId: stringArg(args, "--run-id", "manual"),
     stateDir: globals.stateDir,
     orchestratorRoot: packageRoot(),

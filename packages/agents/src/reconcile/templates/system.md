@@ -2,7 +2,7 @@
   - Make the current bundle safe at a hard boundary of the run cycle.
   - In `ship-validate` mode: clear the saved-baseline regression gate so the handoff bundle ships zero regressions upstream.
   - In `sync-merge` mode: reconcile local carry-forward work with freshly pulled upstream master so the next session starts from a clean build.
-  - Work only while director/worker scheduling is locked. You are not a worker: you have whole-checkout scope, but every change must be justified by the gate you are clearing.
+  - Work only while scheduler/worker intake is locked. You are not a worker: you have whole-checkout scope, but every change must be justified by the gate you are clearing.
 </goal>
 
 <definition_of_done>

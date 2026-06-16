@@ -6,7 +6,7 @@ concepts: [guardian-process, babysit, process-wrapper, health-events, recovery, 
 # Process Guardians
 
 A process guardian is an evented safety layer around the decomp system process.
-It is not a director, worker, or always-on reasoning agent. It sleeps while the
+It is not a scheduler, worker, or always-on reasoning agent. It sleeps while the
 system process runs, wakes when the process exits or reports a health incident,
 records the incident packet, runs deterministic recovery, and then restarts the
 system when policy allows.
@@ -28,13 +28,13 @@ system when policy allows.
 |                              |
 |  +------------------------+  |
 |  | Trigger actor          |  |
-|  | wake director, fill    |  |
+|  | scheduler tick, fill   |  |
 |  | worker slots, sleep    |  |
 |  +-----------+------------+  |
 |              |               |
 |      +-------+--------+      |
-|      | Pi director    |      |
-|      | queue intent   |      |
+|      | Scheduler      |      |
+|      | epoch intent   |      |
 |      +-------+--------+      |
 |              |               |
 |      +----------------+      |
@@ -44,10 +44,10 @@ system when policy allows.
 +------------------------------+
 ```
 
-The trigger actor lives inside the decomp system process. It advances durable
-run state by waking the director and realizing worker slots. The guardian wraps
-that process boundary and handles liveness, crash recovery, and incident
-artifacts.
+The run loop lives inside the decomp system process. It advances durable run
+state by running deterministic scheduler ticks and realizing worker slots.
+The guardian wraps that process boundary and handles liveness, crash recovery,
+and incident artifacts.
 
 ## Wake Semantics
 
@@ -55,18 +55,19 @@ Guardians should not constantly inspect the board as a second scheduler. They
 wake from operational health events:
 
 - The decomp system process exits with a non-zero status.
-- The trigger actor stops with a worker-process error.
+- The run loop stops with a worker-process error.
 - The system process exits while active workers remain in durable state.
 - A signal asks the process tree to shut down.
 - A future watchdog or process manager emits a timeout or heartbeat-missed
   event.
 
 The guardian may use timers as health events, but it should not duplicate the
-director's queue, target, or board reasoning.
+scheduler's queue, target, or board policy.
 
-The trigger actor owns decomp-system wakeups. It wakes the director from durable
-events, and it may also write a `pool_below_target` event when the current
-worker pool is becoming inefficient:
+The run loop owns decomp-system wakeups. It handles durable events with the
+deterministic scheduler, and in continuous compatibility mode it may also write
+a `pool_below_target` event when the current worker pool is becoming
+inefficient:
 
 - Total queued work falls below the configured low-water mark while workers are
   still active.
@@ -76,9 +77,9 @@ worker pool is becoming inefficient:
   water mark.
 - An optional periodic replan interval fires while workers are active.
 
-Those trigger-produced wake events ask the director to refill or reprioritize
-the queue. The trigger actor still does not choose decomp targets; it only
-recognizes that the process shape needs a fresh director decision.
+Those run-loop-produced wake events ask the scheduler to refill, reprioritize,
+or back off according to policy. The run loop does not edit source or perform
+decomp research; it only applies durable scheduling policy and starts workers.
 
 ## Recovery Policy
 
@@ -98,8 +99,8 @@ system repair, not decomp board strategy.
 
 - Guardians do not choose decomp targets.
 - Guardians do not edit source as worker output.
-- Guardians do not replace the trigger actor.
-- Trigger actors report operational failures as process or incident events.
+- Guardians do not replace the run loop.
+- Run loops report operational failures as process or incident events.
 - Durable state remains the source of truth after any restart.
 
 This keeps two fuzzy state machines separate: the decomp state machine advances

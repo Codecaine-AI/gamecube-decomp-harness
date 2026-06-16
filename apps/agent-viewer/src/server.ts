@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
-  directorPrompt,
   agentToolProfileSummary,
   knowledgeCuratorPrompt,
   prContextPromptXml,
@@ -17,12 +16,9 @@ import { availableToolsPromptXml, type AgentToolRuntimeContext } from "@decomp-o
 import { listProjects, projectToSummary, resolveProject, type ProjectSummary, type ResolvedProject } from "@decomp-orchestrator/core";
 import {
   activeLeasesForRun,
-  activeWorkerCount,
   DEFAULT_WORKER_TTL_SECONDS,
   getLatestRun,
-  nextUnhandledEvent,
   openState,
-  queueStatsSnapshot,
 } from "@decomp-orchestrator/core/state";
 import type { BoardSnapshot, PiPromptBundle, RunProjectMetadata, RunRecord } from "@decomp-orchestrator/core/types";
 import { globalStandardsPromptXml, loadKnowledgeBoardSnapshot } from "@decomp-orchestrator/knowledge";
@@ -56,7 +52,7 @@ const defaultStateDir = resolve(packageRoot, ".decomp-orchestrator-state");
 const builtStaticRoot = resolve(packageRoot, "apps/agent-viewer/dist");
 const sampleRepoRoot = resolve(packageRoot, "testdata/smoke_repo");
 const port = Number(Bun.env.AGENT_VIEWER_PORT ?? Bun.env.PROMPT_VIEWER_PORT ?? Bun.env.ORCH_PROMPT_VIEWER_PORT ?? 8797);
-const promptPreviewAgents: PromptPreviewAgentId[] = ["director", "worker", "pr-review", "knowledge-curator", "qa-repair"];
+const promptPreviewAgents: PromptPreviewAgentId[] = ["worker", "pr-review", "knowledge-curator", "qa-repair"];
 
 function asObject(value: unknown): JsonObject {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonObject) : {};
@@ -361,85 +357,6 @@ function firstQueuedTarget(stateDir: string, runId: string): JsonObject | null {
   } finally {
     store.db.close();
   }
-}
-
-function directorPromptPreview(
-  paths: PromptProjectContext,
-  requestedSource: PromptPreviewSource,
-  warnings: string[],
-): PromptPreviewRendered {
-  const project = projectMetadataForPrompt(paths);
-  const liveRun = requestedSource === "latest" ? latestRunForPrompt(paths.stateDir, warnings) : null;
-  const contextSource: PromptPreviewSource = liveRun ? "latest" : "sample";
-  if (requestedSource === "latest" && !liveRun) warnings.push("No latest run is available; rendered the director prompt with sample run state.");
-  const run = liveRun ?? sampleRun(project);
-  const candidateWindow = paths.project?.dashboard.candidateWindow ?? Math.max(32, run.desiredWorkers * 8);
-  const snapshot = contextSource === "latest" ? liveBoardSnapshotForPrompt(paths, candidateWindow, warnings) : sampleBoardSnapshot(paths);
-  let event: JsonObject = {
-    id: "agent-viewer-sample-event",
-    event_type: "pool_below_target",
-    producer: "agent-viewer",
-    payload_json: JSON.stringify({ reason: "sample director wake event" }),
-    created_at: new Date().toISOString(),
-  };
-  let activeWorkers = 0;
-  let queuePressure: JsonObject | null = null;
-
-  if (contextSource === "latest") {
-    const store = openState(paths.stateDir);
-    try {
-      const nextEvent = nextUnhandledEvent(store, run.id);
-      if (nextEvent) event = asObject(nextEvent);
-      activeWorkers = activeWorkerCount(store, run.id);
-      const stats = queueStatsSnapshot(store, run.id);
-      queuePressure = {
-        candidate_limit: paths.project?.dashboard.candidateLimit ?? Math.max(32, run.desiredWorkers * 2),
-        candidate_window: candidateWindow,
-        queue_target_size: paths.project?.dashboard.queueTargetSize ?? Math.max(32, run.desiredWorkers * 2),
-        queued_targets: stats.queuedTargets,
-        schedulable_targets: stats.schedulableTargets,
-        blocked_queued_targets: stats.blockedQueuedTargets,
-        active_workers: stats.activeWorkers,
-        unhandled_events: stats.unhandledEvents,
-      };
-    } catch (error) {
-      warnings.push(`Unable to read live director queue/event state: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      store.db.close();
-    }
-  } else {
-    queuePressure = {
-      candidate_limit: 16,
-      candidate_window: 32,
-      queue_target_size: 16,
-      queued_targets: 6,
-      schedulable_targets: 6,
-      blocked_queued_targets: 0,
-      active_workers: 0,
-      unhandled_events: 1,
-    };
-  }
-
-  const initialBoardPath = resolve(paths.stateDir, "runs", run.id, "snapshots", "initial_board.json");
-  const options = {
-    run,
-    snapshot,
-    event,
-    activeWorkers,
-    repoRoot: paths.repoRoot,
-    stateDir: paths.stateDir,
-    project,
-    initialBoardPath,
-    queuePressure: queuePressure ?? undefined,
-  };
-  return {
-    bundle: directorPrompt(options),
-    context: {
-      options,
-      selectedSnapshotCandidates: snapshot.candidates.slice(0, 12),
-    },
-    contextSource,
-  };
 }
 
 function sampleWorkerLease(): PromptLease {
@@ -1025,7 +942,7 @@ function qaRepairPromptPreview(
         standard_id: "global_standard:avoid-pragmas-register-asm",
       },
     ],
-    warnings: [
+	    warnings: [
       {
         rule_id: "novel_pragma",
         severity: "warning",
@@ -1035,8 +952,9 @@ function qaRepairPromptPreview(
         message: "Added novel pragma directive.",
         standard_id: "global_standard:avoid-pragmas-register-asm",
       },
-    ],
-    rule_counts: {
+	    ],
+	    repair_warnings: true,
+	    rule_counts: {
       m2c_residue_names: 1,
       inline_asm: 1,
       novel_pragma: 1,
@@ -1049,12 +967,13 @@ function qaRepairPromptPreview(
     },
     attempts: [],
   };
-  const queueSummary = {
-    run_id: "agent-viewer-sample-run",
-    files_with_errors: 1,
-    queued_items: 1,
-    recommendation: "repair_required",
-  };
+	  const queueSummary = {
+	    run_id: "agent-viewer-sample-run",
+	    files_with_errors: 1,
+	    files_with_warnings: 1,
+	    queued_items: 1,
+	    recommendation: "repair_required",
+	  };
   const outputSchema = readJsonObject(resolve(packageRoot, "packages/agents/src/qa-repair/schema.json"));
   return {
     bundle: qaRepairPrompt({ item: item as any, queueSummary, repoRoot: paths.repoRoot, stateDir: paths.stateDir, project }),
@@ -1078,15 +997,13 @@ function qaRepairPromptPreview(
 function renderPromptPreview(paths: PromptProjectContext, agent: PromptPreviewAgentId, requestedSource: PromptPreviewSource): JsonObject {
   const warnings: string[] = [];
   const rendered =
-    agent === "director"
-      ? directorPromptPreview(paths, requestedSource, warnings)
-      : agent === "worker"
-        ? workerPromptPreview(paths, requestedSource, warnings)
-        : agent === "pr-review"
-          ? prReviewPromptPreview(paths, requestedSource, warnings)
-          : agent === "knowledge-curator"
-            ? knowledgeCuratorPromptPreview(paths, requestedSource, warnings)
-            : qaRepairPromptPreview(paths, requestedSource, warnings);
+    agent === "worker"
+      ? workerPromptPreview(paths, requestedSource, warnings)
+      : agent === "pr-review"
+        ? prReviewPromptPreview(paths, requestedSource, warnings)
+        : agent === "knowledge-curator"
+          ? knowledgeCuratorPromptPreview(paths, requestedSource, warnings)
+          : qaRepairPromptPreview(paths, requestedSource, warnings);
   const { context, contextSource } = rendered;
   const bundle = hydratePromptPreviewPlaceholders(rendered.bundle, rendered.placeholders);
   return {

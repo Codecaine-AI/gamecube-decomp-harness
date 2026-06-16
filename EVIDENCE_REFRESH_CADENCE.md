@@ -71,15 +71,16 @@ Skipping live tool runners is acceptable for a fast epoch only when their
 inputs are known not to matter for the next scheduling decision. The next run
 boundary should still run the full pass.
 
-The fast-path command shape is:
+The in-epoch fast-refresh command shape is:
 
 ```sh
 bun run kg:maintain -- --project melee --run-id <run-id> --no-tool-runners
 ```
 
-Use the fast path only after the project build/report refresh has already run.
-If opcode or binary lookup quality matters for the next wave, use the full
-maintenance command instead.
+Use the fast path for learned run evidence and rank inputs only. It does not
+make compiled report truth current. If opcode, binary lookup quality, exact
+match removal, remaining counts, or regression truth matter for the next wave,
+use the full boundary refresh after rebuilding the project report.
 
 ## Run Refresh
 

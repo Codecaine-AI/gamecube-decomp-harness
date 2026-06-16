@@ -31,6 +31,7 @@ export function resourceMap(repoRoot: string, options: ResourceMapOptions): Reco
   const pastPrs = pastPrsRoot();
   const dataSheetData = sourceDataRoot("ssbm_data_sheet");
   const dataSheetCsvDir = resolve(dataSheetData, "csv");
+  const dataSheetGeneratedDir = resolve(dataSheetData, "generated");
   const powerpcData = sourceDataRoot("powerpc_docs");
   const externalMirrorsData = sourceDataRoot("external_mirrors");
   const scripts = options.scripts;
@@ -140,6 +141,7 @@ export function resourceMap(repoRoot: string, options: ResourceMapOptions): Reco
     },
     decomp_resources: {
       data_sheet_csv_dir: dataSheetCsvDir,
+      data_sheet_generated_dir: dataSheetGeneratedDir,
       data_sheet_csvs: [
         resolve(dataSheetCsvDir, "cells.csv"),
         resolve(dataSheetCsvDir, "sheet_index.csv"),
@@ -157,6 +159,15 @@ export function resourceMap(repoRoot: string, options: ResourceMapOptions): Reco
         resolve(dataSheetCsvDir, "bones.csv"),
         resolve(dataSheetCsvDir, "debug_menu_map.csv"),
       ],
+      data_sheet_generated_csvs: [
+        resolve(dataSheetGeneratedDir, "function_addresses.csv"),
+        resolve(dataSheetGeneratedDir, "data_symbols.csv"),
+        resolve(dataSheetGeneratedDir, "source_references.csv"),
+        resolve(dataSheetGeneratedDir, "curator_updates.csv"),
+        resolve(dataSheetGeneratedDir, "sheet_reconciliation.csv"),
+      ],
+      data_sheet_generated_index: resolve(dataSheetData, "..", "indexes", "codebase_facts.jsonl"),
+      data_sheet_refresh_command: `python3 knowledge/sources/code_context/ssbm_data_sheet/commands/build_codebase_facts.py --repo-root ${projectRepoRoot} --json`,
       powerpc_index: resolve(powerpcData, "indexes/powerpc_pdf_pages.csv"),
       external_hint_indexes: [
         resolve(externalMirrorsData, "training_mode/indexes/gtme01_map_symbols.csv"),
@@ -257,7 +268,7 @@ export function resourceMap(repoRoot: string, options: ResourceMapOptions): Reco
       },
       {
         path: scripts.rank_decomp_candidates.path,
-        purpose: "director target ranking from build/GALE01/report.json",
+        purpose: "scheduler target ranking from build/GALE01/report.json",
       },
       {
         path: scripts.fetch_recent_pr_dump.path,
@@ -298,7 +309,7 @@ export function resourceMap(repoRoot: string, options: ResourceMapOptions): Reco
       {
         command: `python3 "${scripts.rank_decomp_candidates.path}" --limit 30`,
         cwd: repoRoot,
-        purpose: "rank candidate functions and linked blocker units for director scheduling",
+        purpose: "rank candidate functions and linked blocker units for deterministic scheduling",
       },
       {
         command: `python3 "${scripts.decomp_context_lookup.path}" --target <source_path> --symbol <symbol>`,

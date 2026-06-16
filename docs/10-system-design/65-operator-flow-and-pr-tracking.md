@@ -21,9 +21,9 @@ One session, start to finish:
    numbers are current.
 2. **Queue runs** — workers lease targets with whatever pool/thinking
    configuration was chosen.
-3. **Epoch boundary** — when the queue drains, the epoch cycle commits,
-   rebuilds the report, and the confirmed set updates. Confirmation happens
-   *here*, continuously, not only at the end.
+3. **Epoch boundary** — when the admitted scheduler epoch completes, the epoch
+   cycle commits, rebuilds the report, and the confirmed set updates.
+   Confirmation happens *here*, continuously, not only at the end.
 4. **Salvage, don't discard** — tentative items that didn't survive are
    wiped from the board; regressions and QA failures become improvements or
    needs_rework and are requeued at repair priority. Nothing verified is

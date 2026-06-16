@@ -42,7 +42,6 @@ interface AccessGroup {
 type JsonRecord = Record<string, unknown>;
 
 const agents: Array<{ id: PromptPreviewAgentId; label: string }> = [
-  { id: "director", label: "Director" },
   { id: "worker", label: "Worker" },
   { id: "pr-review", label: "PR Intake" },
   { id: "knowledge-curator", label: "Curator" },

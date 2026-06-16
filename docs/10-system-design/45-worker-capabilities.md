@@ -6,7 +6,7 @@ concepts: [worker-capabilities, evidence, guardrails, melee-assist, context-pack
 # Worker Capabilities
 
 Worker capabilities are tactics chosen inside one lease after research. They are
-not separate worker types. The director controls target assignment and budgets;
+not separate worker types. The scheduler controls target assignment and budgets;
 the worker controls the local tactic mix inside its write set.
 
 ## Capability Table

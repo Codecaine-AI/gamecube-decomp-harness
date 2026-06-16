@@ -1,5 +1,4 @@
 export { agentRegistry, type RegisteredAgentId } from "./registry.js";
-export { directorPrompt, directorQueuedTargets, type DirectorPromptOptions } from "./director/index.js";
 export { knowledgeCuratorAgent, knowledgeCuratorPrompt, type KnowledgeCuratorPromptOptions } from "./knowledge-curator/index.js";
 export { prContextPromptXml, prReviewAgent, prReviewPrompt, type PrReviewPromptOptions } from "./pr-review/index.js";
 export { qaRepairAgent, qaRepairPrompt, validateQaRepairAgentResult, type QaRepairAgentResult, type QaRepairPromptOptions } from "./qa-repair/index.js";

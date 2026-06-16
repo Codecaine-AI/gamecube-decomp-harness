@@ -1817,9 +1817,9 @@ function runTimeline(params: {
   }
   for (const cycle of params.directorCycles) {
     pushTimeline(timeline, {
-      kind: "director_cycle",
+      kind: "legacy_scheduler_cycle",
       at: cycle.createdAt,
-      title: "director cycle",
+      title: "legacy scheduler cycle",
       detail: `${stringValue(cycle.triggerEvent)} / ${numberValue(cycle.activeWorkers)} active workers`,
       id: cycle.id,
     });
@@ -2040,7 +2040,7 @@ function epochHistory(stateDir: string, limit = 48): JsonObject[] {
   }
 }
 
-// Keep in sync with trigger-agent's --epoch-lease-interval default:
+// Keep in sync with the run-loop epoch checkpoint cadence:
 // 4 full worker rotations per checkpoint.
 const CHECKPOINT_ROTATIONS = 4;
 const CHECKPOINT_FALLBACK_WORKERS = 32;
@@ -2218,12 +2218,26 @@ function cliPrefix(paths: DashboardProjectContext): string[] {
   return command;
 }
 
-function dashboardScheduling(maxWorkersValue: unknown): { candidateLimit: number; candidateWindow: number; maxWorkers: number; queueLowWatermark: number; queueTargetSize: number } {
+function dashboardScheduling(maxWorkersValue: unknown): {
+  candidateLimit: number;
+  candidateWindow: number;
+  epochReadyQueueSize: number;
+  epochSize: string;
+  fastKgMaintenanceIntervalMs: number;
+  fastKgMaintenanceReportCount: number;
+  maxWorkers: number;
+  queueLowWatermark: number;
+  queueTargetSize: number;
+} {
   const maxWorkers = intValue(maxWorkersValue, 16, 1);
   const queueTargetSize = maxWorkers * 4;
   return {
     candidateLimit: queueTargetSize,
     candidateWindow: queueTargetSize,
+    epochReadyQueueSize: queueTargetSize,
+    epochSize: String(queueTargetSize),
+    fastKgMaintenanceIntervalMs: 180_000,
+    fastKgMaintenanceReportCount: Math.max(4, maxWorkers),
     maxWorkers,
     queueLowWatermark: maxWorkers,
     queueTargetSize,
@@ -2256,10 +2270,24 @@ function commandFromBody(body: JsonObject): { command: string[]; name: string; r
   const candidateWindow = noRefillBatch ? 0 : normalScheduling.candidateWindow;
   const queueLowWatermark = noRefillBatch ? 0 : normalScheduling.queueLowWatermark;
   const queueTargetSize = noRefillBatch ? 0 : normalScheduling.queueTargetSize;
+  const epochSize = noRefillBatch ? "1" : stringValue(body.epochSize, String(project?.dashboard.epochSize ?? normalScheduling.epochSize));
+  const epochReadyQueueSize = noRefillBatch ? 1 : intValue(body.epochReadyQueueSize, project?.dashboard.epochReadyQueueSize ?? normalScheduling.epochReadyQueueSize, 1);
+  const fastKgMaintenanceEnabled = !noRefillBatch && body.fastKgMaintenanceEnabled !== false;
+  const fastKgMaintenanceIntervalMs = intValue(
+    body.fastKgMaintenanceIntervalMs,
+    project?.dashboard.fastKgMaintenanceIntervalMs ?? normalScheduling.fastKgMaintenanceIntervalMs,
+    0,
+  );
+  const fastKgMaintenanceReportCount = intValue(
+    body.fastKgMaintenanceReportCount,
+    project?.dashboard.fastKgMaintenanceReportCount ?? normalScheduling.fastKgMaintenanceReportCount,
+    0,
+  );
+  const fullKgMaintenanceMode = stringValue(body.fullKgMaintenanceMode, project?.dashboard.fullKgMaintenanceMode ?? "full");
   const schedulableLowWatermark = noRefillBatch ? 0 : maxWorkers;
   const queueRefreshIntervalMs = noRefillBatch ? 0 : 60000;
   const idleSleepMs = intValue(body.idleSleepMs, 5000, 100);
-  const agentTimeoutSeconds = numberValue(body.agentTimeoutSeconds, noRefillBatch ? 5400 : 0);
+  const agentTimeoutSeconds = numberValue(body.agentTimeoutSeconds, noRefillBatch ? 3000 : 0);
   const command = [
     ...cliPrefix(paths),
     "--provider",
@@ -2283,6 +2311,10 @@ function commandFromBody(body: JsonObject): { command: string[]; name: string; r
     String(candidateLimit),
     "--queue-target-size",
     String(queueTargetSize),
+    "--epoch-size",
+    epochSize,
+    "--epoch-ready-queue-size",
+    String(epochReadyQueueSize),
     "--candidate-window",
     String(candidateWindow),
     "--queue-refresh-interval-ms",
@@ -2293,8 +2325,15 @@ function commandFromBody(body: JsonObject): { command: string[]; name: string; r
     String(schedulableLowWatermark),
     "--graph-db",
     graphDbPath,
+    "--fast-kg-maintenance-interval-ms",
+    String(fastKgMaintenanceIntervalMs),
+    "--fast-kg-maintenance-report-count",
+    String(fastKgMaintenanceReportCount),
+    "--full-kg-maintenance-mode",
+    fullKgMaintenanceMode,
     "--force-recover-leases",
   );
+  if (!fastKgMaintenanceEnabled) command.push("--no-fast-kg-maintenance");
   if (noRefillBatch) {
     command.push("--no-epoch-cycle", "--no-blocked-queue-replan", "--repair-attempts", "0", "--max-idle-iterations", "3");
   }

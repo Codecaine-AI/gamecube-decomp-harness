@@ -13,11 +13,11 @@ through the run.
 
 ## North Star
 
-A central run director understands the whole board. It delegates bounded target
-packets to workers, then sleeps until durable state changes. Workers research,
-edit, verify, and report inside explicit leases. The system improves because
-each worker produces durable evidence, not because agents chat with each other
-or mutate source without accountability.
+A deterministic run scheduler understands the whole board. It admits bounded
+target packets to workers, then sleeps until durable state changes. Workers
+research, edit, verify, and report inside explicit leases. The system improves
+because each worker produces durable evidence, not because agents chat with each
+other or mutate source without accountability.
 
 The core metaphor is Sudoku: a worker may discover a fact or negative result
 that does not finish its current target, but still constrains the board enough
@@ -26,13 +26,13 @@ to make a different target the right next move.
 The runtime can also be wrapped by a guardian process for long-running
 development runs. That guardian watches system health events, records incidents,
 recovers failed or expired leases, and restarts the decomp system process. It
-does not become a second director.
+does not become a second scheduler.
 
 ## Principles
 
-- Board-level reasoning belongs to the director.
-- The director chooses the next most constrained useful square; it does not camp
-  on one unfinished file.
+- Board-level admission and routing belong to the scheduler.
+- The scheduler chooses the next most constrained useful square through
+  deterministic epoch policy; it does not camp on one unfinished file.
 - Source research, local edits, validation, and blocker discovery belong to
   workers.
 - Every handoff is durable: events, reports, facts, leases, prompts, and
@@ -62,11 +62,11 @@ directory unless an operator intentionally uses raw path overrides.
 ## Current Maturity
 
 The package has a production-shaped vertical slice: it can initialize a run,
-queue fixture targets, run a dry-run director cycle, lease one worker target,
+queue fixture targets, run a dry-run scheduler tick, lease one worker target,
 write reports, recover interrupted leases, run a global regression-check
-wrapper, run a trigger-agent loop, and run a guardian wrapper around that loop.
-The trigger actor wakes the director on durable events, fills worker slots from
-queued work, and rests when the board is quiet. The guardian wrapper wakes on
+wrapper, run the deterministic run loop, and run a guardian wrapper around that
+loop. The run loop handles durable events with the scheduler, fills worker slots
+from queued work, and rests when the board is quiet. The guardian wrapper wakes on
 process-health incidents and restarts the decomp system process when policy
 allows. PR refresh and end-to-end score integration remain explicit operator
 steps.

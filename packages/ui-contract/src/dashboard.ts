@@ -42,6 +42,12 @@ export interface FormState {
   queueTargetSize: number;
   queueLowWatermark: number;
   candidateWindow: number;
+  epochSize: string;
+  epochReadyQueueSize: number;
+  fastKgMaintenanceEnabled: boolean;
+  fastKgMaintenanceIntervalMs: number;
+  fastKgMaintenanceReportCount: number;
+  fullKgMaintenanceMode: string;
   goalValue: number;
   provider: string;
   model: string;
@@ -99,7 +105,7 @@ export interface RunDetails {
   knowledgeIntake?: JsonObject;
 }
 
-export type PromptPreviewAgentId = "director" | "worker" | "pr-review" | "knowledge-curator" | "qa-repair";
+export type PromptPreviewAgentId = "worker" | "pr-review" | "knowledge-curator" | "qa-repair";
 export type PromptPreviewSource = "latest" | "sample";
 
 export interface PromptPreviewStats {

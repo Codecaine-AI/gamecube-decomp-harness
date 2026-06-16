@@ -6,8 +6,9 @@ concepts: [principles, sudoku, run-boundary, matched-code-percent, process-actor
 # Core Principles
 
 D-Comp Orchestrator treats a decompilation run as a whole-board reasoning
-problem. The director does not camp on one target just because it is unfinished.
-It asks where the current facts make the next useful move easiest.
+problem. The scheduler does not camp on one target just because it is
+unfinished. It asks where current report and graph evidence make the next useful
+move easiest, then applies deterministic epoch policy.
 
 ## Sudoku Metaphor
 
@@ -17,8 +18,8 @@ Treat decomp like Sudoku:
 - That fact can still remove bad possibilities from other targets.
 - A struct field, source shape, duplicate pattern, naming convention, or
   negative result can make a different target more constrained.
-- The director's job is to choose the next square based on the entire board, not
-  to tunnel on the last square touched.
+- The scheduler's job is to choose the next admitted square based on the entire
+  board, not to tunnel on the last square touched.
 
 In decomp terms, a worker may discover that a guessed source shape cannot be
 right, that a duplicate reference has a reusable shape, or that a data owner
@@ -65,15 +66,15 @@ move down a layer:
 | `decomp-find` | Board scan, candidate-prior features, linked-blocker awareness, and progress metrics. |
 | `melee-decomp` | Worker system prompt and co-located context for one file or symbol: gather evidence, edit source, verify, and stop before guessing. |
 | `melee-decomp-sweep` | Last-resort experimental tooling for bounded source-shape experiments, kept out of default prompt context. |
-| Run director | Pi-agent Sudoku player: decide which square to touch next based on the whole board and every new fact. |
+| Run scheduler | Deterministic Sudoku player: admit/refill/reroute targets from the whole board, explicit epoch policy, locks, cooldowns, and every durable fact. |
 
 ## Runtime Principle
 
 The orchestrator itself is not the main reasoning agent. It is a thin stateful
 runner that stores facts, leases, events, prompts, and artifacts. It launches
-director and worker Pi sessions only when durable state says there is work to
-do.
+worker and boundary-review Pi sessions only when durable state says there is
+work to do.
 
-Trigger actors and guardian wrappers are process state machines, not hidden
-board agents. The trigger actor advances the decomp loop from durable events.
-The guardian wrapper preserves liveness from process-health events.
+Run loops and guardian wrappers are process state machines, not hidden board
+agents. The run loop advances the decomp loop from durable events. The guardian
+wrapper preserves liveness from process-health events.

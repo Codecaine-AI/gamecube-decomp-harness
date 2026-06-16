@@ -95,6 +95,24 @@ describe("buildQaRepairQueue", () => {
     expect(queue.ignored_findings).toHaveLength(1);
     expect(queue.ignored_findings[0]?.reason).toBe("outside_candidate_set");
   });
+
+  test("warning-only files become repair items when warnings are required", () => {
+    const queue = buildQaRepairQueue({
+      runId: "test-run",
+      repoRoot: "/repo",
+      scanResult: scanResult([finding({ severity: "warning", rule_id: "type_erasing_cast", excerpt: "(u8*) data", message: "Added type-erasing cast." })]),
+      candidateFiles: ["src/melee/gr/grsmoke.c"],
+      repairWarnings: true,
+      createdAt: "2026-06-13T00:00:00.000Z",
+    });
+
+    expect(queue.candidate_files[0]?.status).toBe("warning_only");
+    expect(queue.items).toHaveLength(1);
+    expect(queue.items[0]?.findings).toEqual([]);
+    expect(queue.items[0]?.warnings[0]?.rule_id).toBe("type_erasing_cast");
+    expect(queue.items[0]?.repair_warnings).toBe(true);
+    expect(summarizeQaRepairQueue(queue).recommendation).toBe("repair_required");
+  });
 });
 
 describe("validateQaRepairOutcome", () => {
@@ -147,8 +165,9 @@ describe("validateQaRepairOutcome", () => {
 
     expect(result.status).toBe("clean_lower_score");
     const nextQueue = { ...queue, items: [{ ...(queue.items[0] as QaRepairQueueItem), status: result.status, routing_reason: result.reasons.join("; ") }] };
-    const shipStatus = qaRepairShipStatus(nextQueue);
-    expect(shipStatus.shippedFiles).toEqual([]);
+	    const shipStatus = qaRepairShipStatus(nextQueue);
+	    expect(shipStatus.status).toBe("qa_repair_blocked");
+	    expect(shipStatus.shippedFiles).toEqual([]);
     expect(shipStatus.cleanLowerScoreFiles).toEqual(["src/melee/gr/grsmoke.c"]);
     expect(shipStatus.droppedFiles["src/melee/gr/grsmoke.c"]?.[0]).toContain("lowered match score");
   });
@@ -173,7 +192,7 @@ describe("validateQaRepairOutcome", () => {
     expect(result.reasons).toContain("post-repair score validation failed");
   });
 
-  test("explicit score impact can route clean repairs as clean_lower_score", () => {
+	  test("explicit score impact can route clean repairs as clean_lower_score", () => {
     const queue = buildQaRepairQueue({
       runId: "test-run",
       repoRoot: "/repo",
@@ -189,6 +208,27 @@ describe("validateQaRepairOutcome", () => {
       regressionPassed: true,
     });
 
-    expect(result.status).toBe("clean_lower_score");
+	    expect(result.status).toBe("clean_lower_score");
+	  });
+
+  test("required warning findings block validation until warnings are gone", () => {
+    const queue = buildQaRepairQueue({
+      runId: "test-run",
+      repoRoot: "/repo",
+      scanResult: scanResult([finding({ severity: "warning", rule_id: "m2c_goto_label", excerpt: "goto done;", message: "Added goto." })]),
+      candidateFiles: ["src/melee/gr/grsmoke.c"],
+      repairWarnings: true,
+      createdAt: "2026-06-13T00:00:00.000Z",
+    });
+    const result = validateQaRepairOutcome({
+      item: queue.items[0] as QaRepairQueueItem,
+      postScan: scanResult([finding({ severity: "warning", rule_id: "m2c_goto_label", excerpt: "goto done;", message: "Added goto." })]),
+      buildPassed: true,
+      regressionPassed: true,
+    });
+
+    expect(result.status).toBe("needs_rework");
+    expect(result.remainingFindings).toHaveLength(1);
+    expect(result.reasons[0]).toContain("required warning");
   });
 });

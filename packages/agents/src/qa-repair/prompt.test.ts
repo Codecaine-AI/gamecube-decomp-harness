@@ -51,11 +51,12 @@ describe("validateQaRepairAgentResult", () => {
       source_path: "src/melee/gr/grsmoke.c",
       outcome: "fixed",
       score_impact: "same_match",
-      summary: "Removed generated local names.",
-      edits: ["Renamed temp_r30 to count."],
-      validation: [{ command: "review_lint scan_diff", status: "passed", artifact_path: "post_scan.json", notes: "clean" }],
-      remaining_findings: [],
-      risks: [],
+	      summary: "Removed generated local names.",
+	      edits: ["Renamed temp_r30 to count."],
+	      validation: [{ command: "review_lint scan_diff", status: "passed", artifact_path: "post_scan.json", notes: "clean" }],
+	      finding_dispositions: [{ rule_id: "m2c_residue_names", line: 23, disposition: "fixed_source", evidence: "Renamed generated locals using nearby source context." }],
+	      remaining_findings: [],
+	      risks: [],
     });
 
     expect(validated.errors).toEqual([]);
@@ -69,11 +70,12 @@ describe("validateQaRepairAgentResult", () => {
       source_path: "src/melee/gr/grsmoke.c",
       outcome: "fixed",
       score_impact: "not_measured",
-      summary: "Removed generated local names.",
-      edits: ["Renamed temp_r30 to count."],
-      validation: [{ command: "review_lint scan_diff", status: "passed", artifact_path: "post_scan.json", notes: "clean" }],
-      remaining_findings: [],
-      risks: [],
+	      summary: "Removed generated local names.",
+	      edits: ["Renamed temp_r30 to count."],
+	      validation: [{ command: "review_lint scan_diff", status: "passed", artifact_path: "post_scan.json", notes: "clean" }],
+	      finding_dispositions: [{ rule_id: "m2c_residue_names", line: 23, disposition: "fixed_source", evidence: "Renamed generated locals using nearby source context." }],
+	      remaining_findings: [],
+	      risks: [],
     });
 
     expect(validated.errors).toEqual([]);
@@ -87,11 +89,12 @@ describe("validateQaRepairAgentResult", () => {
       source_path: "src/melee/gr/grsmoke.c",
       outcome: "fixed",
       score_impact: "lower_score",
-      summary: "Removed generated local names.",
-      edits: ["Renamed temp_r30 to count."],
-      validation: [{ command: "review_lint scan_diff", status: "warning_only", artifact_path: "post_scan.json", notes: "warnings only" }],
-      remaining_findings: [],
-      risks: [],
+	      summary: "Removed generated local names.",
+	      edits: ["Renamed temp_r30 to count."],
+	      validation: [{ command: "review_lint scan_diff", status: "warning_only", artifact_path: "post_scan.json", notes: "warnings only" }],
+	      finding_dispositions: [{ rule_id: "m2c_residue_names", line: 23, disposition: "fixed_by_minimal_revert", evidence: "Removed only the generated-name hunk after source repair did not preserve clean output." }],
+	      remaining_findings: [],
+	      risks: [],
     });
 
     expect(validated.errors).toEqual([]);
@@ -107,8 +110,9 @@ describe("validateQaRepairAgentResult", () => {
       score_impact: "higher",
       summary: "",
       edits: "none",
-      validation: [{ command: "x", status: "maybe" }],
-      remaining_findings: {},
+	      validation: [{ command: "x", status: "maybe" }],
+	      finding_dispositions: {},
+	      remaining_findings: {},
       risks: [],
     });
 

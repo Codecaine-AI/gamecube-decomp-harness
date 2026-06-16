@@ -154,7 +154,6 @@ function RunDetailsPanel({ loadRunDetails, loadingRunDetails, runDetails }: Pick
     ["exact%", summary.exactMatches],
     ["files+", summary.improvedFiles],
     ["sessions", summary.piSessions],
-    ["director", summary.directorCycles],
     ["events", summary.events],
     ["leases", summary.leases],
     ["queue", summary.queueRows],
@@ -848,7 +847,7 @@ function RunTab({ dashboard, loadRunDetails, loadingRunDetails, runDetails }: Pi
   );
 }
 
-const agentRoleOrder = ["director", "worker", "knowledge-curator", "pr-review", "reconcile", "qa-repair"];
+const agentRoleOrder = ["worker", "knowledge-curator", "pr-review", "reconcile", "qa-repair"];
 const agentSessionsPerRole = 8;
 
 function sessionStatusTone(status: string): string {

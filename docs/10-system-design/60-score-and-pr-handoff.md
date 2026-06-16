@@ -1,6 +1,6 @@
 ---
 covers: Score integration gate, global regression protection, and PR handoff boundary
-concepts: [score-integration, regression-gate, qa-ship-gate, preship-review, baseline, pr-handoff, pr-split-plan, review, dashboard]
+concepts: [score-integration, regression-gate, qa-ship-gate, preship-review, draft-pr-qa, baseline, pr-handoff, pr-split-plan, review, dashboard]
 ---
 
 # Score Integration And PR Handoff
@@ -90,7 +90,7 @@ allocation decision happen outside the worker loop.
 PR preparation begins by preventing new worker edits from entering the checkout.
 The handoff pause is a run-level scheduling state, not a deletion or reset: the
 current reports, leases, checkpoints, and artifacts remain durable, but
-director/worker scheduling refuses to start while the run status is not
+worker scheduling refuses to start while the run status is not
 `active`.
 
 The dashboard's `Pause Intake` action requests a process drain and marks the run
@@ -158,6 +158,13 @@ and rollout in
   regression-check and PR body drafting; any `reject` finding — or any
   infrastructure failure — exits 1 and blocks the handoff (see
   [PR-review agent](../20-implementation/agents/20-pr-review.md)).
+- **Draft PR lifecycle.** `pr-draft-qa` runs after a draft PR exists, or opens
+  the draft first. It treats the PR as the central remote object, fetches the
+  PR refs, runs L3 preship review plus the deterministic scan/repair loop,
+  routes both scanner findings and file-backed preship findings through repair,
+  posts deduped comments only for findings that remain unresolved after repair
+  attempts, and verifies CI/local checks before the PR is considered ready for
+  human review.
 - **L4 — feedback loop.** Every new maintainer rejection is ingested into the
   `banned_patterns` source as regex rules, review exhibits, and resubmission
   tombstones, so a rejected change is mechanically blocked from ever being
@@ -176,12 +183,14 @@ without them or not at all. MATCHES-only shipping is unchanged — the gate
 narrows what a match is allowed to contain.
 
 The QA repair lane extends this disposition before split planning: a
-candidate-file sweep converts deterministic QA findings into a repair queue,
-a resolver-style agent attempts minimal source fixes, and each file is routed
-as clean with preserved proof, clean with lower score, or `needs_rework`.
-Its ship-filter artifact feeds split planning so queued, blocked, false
-positive, or clean-lower-score files are not silently included in match PRs.
-The flow and implementation details live in
+candidate-file sweep converts deterministic QA findings and file-backed review
+findings into a repair queue, a resolver-style agent attempts source-level
+repairs before minimal reverts, and each finding receives an explicit
+disposition. Strict draft PR QA treats warnings as repair targets and keeps
+clean-lower-score files out of ready status unless an operator explicitly
+accepts that outcome. Its ship-filter artifact feeds split planning so queued,
+blocked, false-positive, or clean-lower-score files are not silently included
+in match PRs. The flow and implementation details live in
 [the QA repair lane plan](../30-plans/2026-06-13-qa-repair-lane.md).
 
 ## PR Boundary
@@ -235,6 +244,14 @@ final branch creation, presentation, reviewer coordination, and merge readiness
 stay operator-owned outside the worker lease loop. Once opened, PRs become
 tracked state — slice, branch, number, draft/open/merged status, comments,
 CI — per [operator flow and PR tracking](65-operator-flow-and-pr-tracking.md).
+
+After a slice is opened as a draft PR, `pr-draft-qa` is the repeatable handoff
+loop for that remote PR. The command resolves the PR with GitHub, records
+GitHub comments and review comments, runs the preship reviewer and QA-repair
+lane against the PR diff, comments unresolved findings with stable dedupe
+markers, and records whether CI/local checks are clean. Human review comments
+do not require a new local plan; the operator reruns the lifecycle for the PR
+number so the same remote thread, comments, and artifacts stay tied together.
 
 ## Prepare Handoff Pipeline
 

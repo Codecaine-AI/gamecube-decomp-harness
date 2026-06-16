@@ -15,7 +15,7 @@ instead of manipulating SQL ad hoc.
 ```text
 packages/core/src/state/
 +-- db.ts
-+-- director-cycles.ts
++-- epochs.ts
 +-- events.ts
 +-- index.ts
 +-- leases.ts
@@ -34,12 +34,14 @@ packages/core/src/state/
 | --- | --- |
 | `runs` | Run checkpoint goal, baseline identity, desired worker count, status, and nullable project metadata for project-aware runs. |
 | `targets` | Candidate targets loaded from board data. |
-| `queue` | Priority queue rows for director/worker scheduling. |
+| `scheduler_epochs` | Active and historical deterministic scheduler epoch configuration, status, progress counters, fast-refresh count, and boundary routing summary. |
+| `scheduler_epoch_targets` | Fixed epoch membership rows for admitted targets, including queued, leased, completed, and requeued state transitions. |
+| `queue` | Priority queue rows for scheduler/worker coordination. |
 | `leases` | Active and released worker ownership records. |
 | `file_locks` | Transient path locks associated with active leases. |
 | `events` | Durable wake events and event payloads. |
-| `pi_sessions` | Director and worker session metadata. |
-| `director_cycles` | Board-level director decision records. |
+| `pi_sessions` | Worker and review/curation session metadata. |
+| `director_cycles` | Legacy board-level decision records retained for old state readability. Current scheduling does not write this table. |
 | `worker_reports` | Worker output, blocker, fact, and patch artifact references. |
 | `attempts` | Attempt-level validation and score movement records. |
 | `facts` | Reusable evidence accepted or tracked by the board. |
@@ -52,8 +54,12 @@ packages/core/src/state/
 ## Module Responsibilities
 
 - `schema.ts` configures SQLite pragmas and creates tables.
-- `runs.ts`, `targets.ts`, and `director-cycles.ts` create core board rows.
+- `runs.ts` and `targets.ts` create core board rows.
 - `targets.ts` also owns deterministic queue refill from board candidates.
+- `epochs.ts` owns scheduler epoch size parsing, fixed admission, existing
+  queued-target adoption, ready-queue refill from admitted targets, priority
+  refresh inside the active epoch, fast-refresh counters, and boundary close
+  summaries.
 - `leases.ts` leases queued targets, writes file locks, releases work, and
   handles recovery paths.
 - `events.ts` creates, reads, and handles wake events.
@@ -72,19 +78,26 @@ packages/core/src/state/
 - Project-aware runs record nullable project id, project kind, repo root, state
   directory, graph DB, descriptor path, and local override path. Legacy/raw path
   runs can leave those fields empty.
-- Run status gates scheduling. `active` runs can start workers and director
+- Run status gates scheduling. `active` runs can start workers and scheduler
   ticks; `paused`, `complete`, and `failed` runs are rejected by scheduling
   commands until an operator intentionally resumes or starts a fresh run.
 - `updateRunStatus` writes run status transitions and records a handled
-  `run_status_changed` event. The event is an audit row, not a director wake.
+  `run_status_changed` event. The event is an audit row, not scheduler work.
 - File-lock rows are transient active-lease guards.
 - Refill prefers fresh candidates that are not already represented in the run
   and skips source paths with active locks.
-- Director-selected target packets can add a fresh queued row for a previously
-  attempted target when it is not already queued or leased. The epoch
-  pipeline's regression repairs use the same `prioritizeQueuedTargets` path,
-  which is how a regressed previously-completed function re-enters the queue
-  despite refill's ever-seen dedupe.
+- Scheduler epoch admission records a fixed target set before workers lease it.
+  The ready queue can be smaller than the admitted set, and refills draw only
+  from epoch membership until the boundary closes the epoch.
+- `Full` epoch mode admits every currently schedulable candidate observed while
+  the ranked-board scan expands to exhaustion. If no unmatched schedulable work
+  remains, the scheduler closes the epoch as exhausted and backs off instead of
+  spinning.
+- Deterministic routing can add a fresh queued row for a previously attempted
+  target when it is not already queued or leased. The epoch pipeline's
+  regression repairs use the same `prioritizeQueuedTargets` path, which is how
+  a regressed previously-completed function re-enters the queue despite
+  refill's ever-seen dedupe.
 - Schedulable queue depth is counted by distinct unlocked source path, not raw
   queued row count.
 - Events are handled only after the follow-up state transition is persisted.

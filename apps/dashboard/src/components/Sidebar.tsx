@@ -45,7 +45,20 @@ const schedulingPresets = [
   { id: "xl", label: "XL", workers: 32 },
 ] as const;
 
-function schedulingForWorkers(workers: number): Pick<FormState, "candidateLimit" | "candidateWindow" | "maxWorkers" | "queueLowWatermark" | "queueTargetSize"> {
+function schedulingForWorkers(
+  workers: number,
+): Pick<
+  FormState,
+  | "candidateLimit"
+  | "candidateWindow"
+  | "epochReadyQueueSize"
+  | "epochSize"
+  | "fastKgMaintenanceIntervalMs"
+  | "fastKgMaintenanceReportCount"
+  | "maxWorkers"
+  | "queueLowWatermark"
+  | "queueTargetSize"
+> {
   const maxWorkers = Math.max(1, Math.trunc(workers));
   const queueTargetSize = maxWorkers * 4;
   return {
@@ -54,6 +67,10 @@ function schedulingForWorkers(workers: number): Pick<FormState, "candidateLimit"
     candidateWindow: queueTargetSize,
     queueLowWatermark: maxWorkers,
     queueTargetSize,
+    epochSize: String(queueTargetSize),
+    epochReadyQueueSize: queueTargetSize,
+    fastKgMaintenanceIntervalMs: 180000,
+    fastKgMaintenanceReportCount: Math.max(4, maxWorkers),
   };
 }
 
@@ -696,7 +713,7 @@ function RunSetupDisclosure({ dashboard, form, setForm }: Pick<SidebarProps, "da
   const runWorkersMismatch = text(run.status) === "active" && runDesiredWorkers > 0 && runDesiredWorkers !== form.maxWorkers;
   return (
     <details className="control-disclosure">
-      <summary>{`Setup — ${text(form.provider, "codex-lb")} · ${schedulingPreset.label} · ${num(form.maxWorkers)} workers`}</summary>
+      <summary>{`Setup — ${text(form.provider, "codex-lb")} · ${schedulingPreset.label} · epoch ${text(form.epochSize)}`}</summary>
       <label className="mt-2 mb-2 block text-xs text-dim">
         <span>Run size</span>
         <select className="mt-1" onChange={(event) => setForm(schedulingForWorkers(Number(event.currentTarget.value)))} value={schedulingPreset.workers}>
@@ -707,12 +724,47 @@ function RunSetupDisclosure({ dashboard, form, setForm }: Pick<SidebarProps, "da
           ))}
         </select>
       </label>
+      <div className="grid grid-cols-2 gap-2">
+        <SelectField
+          label="Epoch size"
+          onChange={(event) => setForm({ epochSize: event.currentTarget.value })}
+          options={["32", "64", "128", "256", "512", "full"]}
+          value={form.epochSize}
+        />
+        <Field
+          label="Ready queue"
+          min={1}
+          onChange={(event) => setForm({ epochReadyQueueSize: Math.max(1, Number(event.currentTarget.value) || 1) })}
+          type="number"
+          value={form.epochReadyQueueSize}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Field
+          disabled={!form.fastKgMaintenanceEnabled}
+          label="Fast ms"
+          min={0}
+          onChange={(event) => setForm({ fastKgMaintenanceIntervalMs: Math.max(0, Number(event.currentTarget.value) || 0) })}
+          type="number"
+          value={form.fastKgMaintenanceIntervalMs}
+        />
+        <Field
+          disabled={!form.fastKgMaintenanceEnabled}
+          label="Fast reports"
+          min={0}
+          onChange={(event) => setForm({ fastKgMaintenanceReportCount: Math.max(0, Number(event.currentTarget.value) || 0) })}
+          type="number"
+          value={form.fastKgMaintenanceReportCount}
+        />
+      </div>
+      <SelectField label="Boundary KG" onChange={(event) => setForm({ fullKgMaintenanceMode: event.currentTarget.value })} options={["full", "no-tool-runners", "skip"]} value={form.fullKgMaintenanceMode} />
+      <CheckboxField checked={form.fastKgMaintenanceEnabled} label="Fast run-evidence refresh" onChange={(event) => setForm({ fastKgMaintenanceEnabled: event.currentTarget.checked })} />
       {runWorkersMismatch ? (
         <p className="mb-2 text-xs text-warn">
           Active run is set to {runDesiredWorkers} workers. Start Work applies the new size ({form.maxWorkers}) to this run.
         </p>
       ) : null}
-      <SelectField label="Director thinking" onChange={(event) => setForm({ thinkingLevel: event.currentTarget.value })} options={["medium", "low", "high", "xhigh"]} value={form.thinkingLevel} />
+      <SelectField label="Default thinking" onChange={(event) => setForm({ thinkingLevel: event.currentTarget.value })} options={["medium", "low", "high", "xhigh"]} value={form.thinkingLevel} />
       <SelectField label="Worker thinking" onChange={(event) => setForm({ workerThinkingLevel: event.currentTarget.value })} options={["medium", "low", "high", "xhigh"]} value={form.workerThinkingLevel} />
       <p className="mt-2 text-xs text-dim">
         Handoff and QA settings (QA target, base ref, grouping, max files per PR, improvement promotion floors) come from{" "}
@@ -723,6 +775,14 @@ function RunSetupDisclosure({ dashboard, form, setForm }: Pick<SidebarProps, "da
 }
 
 function nextCheckpointText(dashboard: Dashboard | null): string {
+  const epoch = asObject(asObject(dashboard?.status).schedulerEpoch);
+  if (epoch.epochId) {
+    const completed = numberValue(epoch.completed, 0);
+    const admitted = numberValue(epoch.admitted, 0);
+    const ready = numberValue(epoch.readyQueued, 0);
+    const leased = numberValue(epoch.leased, 0);
+    return `${num(completed)}/${num(admitted)} complete · ${num(ready)} queued · ${num(leased)} leased`;
+  }
   const progress = asObject(dashboard?.checkpointProgress);
   const remaining = numberValue(progress.remaining, NaN);
   const interval = numberValue(progress.interval, NaN);
@@ -745,7 +805,7 @@ function ProcessDisclosure({ dashboard, form }: Pick<SidebarProps, "dashboard" |
     ["Run ID", text(run.id) || "-"],
     ["Created", run.createdAt ? clock(run.createdAt) : "-"],
     ["Status", text(run.status) || "-"],
-    ["Checkpoint", nextCheckpointText(dashboard)],
+    ["Epoch", nextCheckpointText(dashboard)],
   ];
 
   return (

@@ -64,7 +64,7 @@ works inside one lease, records evidence, and exits with a durable report.
                       +---------+--------+                         +----------+-------+
                                 |                                             |
                                 +-------> attempt loop                         v
-                                                        reducer/director update future
+                                                        scheduler/reducer update future
                                                         target packets through state
 ```
 

@@ -1,27 +1,21 @@
 ---
-covers: Director and worker prompt builders, packets, and output contracts
-concepts: [director-agent, worker-agent, target-packet, prompts, output]
-code-ref: decomp-orchestrator/packages/agents/src/director, decomp-orchestrator/packages/agents/src/worker
+covers: Worker prompt builders, target packets, and output contracts
+concepts: [worker-agent, scheduler, target-packet, prompts, output]
+code-ref: decomp-orchestrator/packages/agents/src/worker
 ---
 
-# Director And Worker Agents
+# Worker Agents And Scheduler Delegation
 
-The director and worker slices are the core run agents. They share the runtime
-invocation path but keep role-specific prompts and output contracts separate.
+The worker slice is the live run agent surface. Board-level target admission and
+wake-event handling are deterministic scheduler responsibilities; worker Pi
+sessions receive one leased target and return durable evidence.
 
-## Director Slice
+## Scheduler Delegation
 
-The director slice builds prompts for one board-level decision cycle. It renders
-the director system prompt, current state, candidate targets, resource map, and
-wake event context. The director output parser extracts
-structured scheduling decisions from the Pi response.
-
-| File | Purpose |
-| --- | --- |
-| `packages/agents/src/director/prompt.ts` | Builds the director prompt inputs and rendered prompt pair. |
-| `packages/agents/src/director/output.ts` | Parses director output into target-packet style decisions. |
-| `packages/agents/src/director/templates/system.md` | Defines director authority and scheduling role. |
-| `packages/agents/src/director/templates/initial_user.md` | Carries run state, board summary, wake event, and knowledge. |
+The scheduler chooses queue rows from durable state and graph-ranked board
+features. It does not render a board-level prompt. The worker prompt receives
+the target-local packet that was already selected, leased, and locked by the
+runtime.
 
 ## Worker Slice
 
@@ -41,7 +35,7 @@ runner releases the lease.
 
 ## Key Rules
 
-- The director does not perform source research or edits.
+- The scheduler owns target admission, queue ordering, refill, and routing.
 - The worker must stay inside its lease and write set.
 - Rendered prompts are artifacts and are written beside Pi output.
 - Dry-run prompts and live Pi prompts use the same builders.
@@ -52,6 +46,6 @@ runner releases the lease.
 
 ## Related
 
-- [Run director loop](../../10-system-design/10-run-director-loop.md)
+- [Run scheduler loop](../../10-system-design/10-run-director-loop.md)
 - [Worker lifecycle](../../10-system-design/40-worker-lifecycle.md)
 - [Agent runtime](30-runtime.md)

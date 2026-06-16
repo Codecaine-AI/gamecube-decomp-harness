@@ -14,7 +14,7 @@ agent-state enrichment. Agent role behavior and prompt context live beside the
 agents under `packages/agents/src/*/context/` and are selected through
 `packages/agents/src/context/manifest.json`.
 
-This keeps evidence infrastructure separate from worker/director behavior:
+This keeps evidence infrastructure separate from worker and scheduler behavior:
 sources can be indexed and refreshed without moving prompts, and prompt context
 can change without pretending it is a knowledge source. Within `knowledge/`,
 sources are sectioned by access pattern: injected context, RAG-style searchable
@@ -67,9 +67,6 @@ packages/agents/src/
 +-- context.ts
 +-- context/
 |   +-- manifest.json
-+-- director/
-|   +-- templates/
-|       +-- system.md
 +-- worker/
     +-- templates/
         +-- system.md
@@ -105,7 +102,7 @@ They are not runtime prompt routes.
 
 `packages/agents/src/context.ts` reads the manifest, resolves paths relative to the
 package root, deduplicates any selected context references, and exposes script
-metadata. Director scheduling policy is embedded in the director system prompt.
+metadata. Scheduler policy is deterministic runtime code, not prompt context.
 Worker policy is embedded in `worker/templates/system.md`, while
 `worker/templates/initial_user.md` receives target state, standards, target file
 content, and a generated `<available_tools>` block derived from the resolved
@@ -129,7 +126,7 @@ graph search, source/tool registries, graph-derived rank features, and internal
 graph enrichments. External sources and tools are registered as optional slices
 until their usage justifies deeper indexing.
 
-The resource map rendered into director and worker prompts carries both
+The resource map rendered into worker and boundary-agent prompts carries both
 boundaries: global knowledge roots under `knowledge/`, and project fields such
 as `project_id`, `project_kind`, `board_repo_root`, `state_dir`, and
 `graph_db`. This prevents prompts and knowledge commands from guessing a parent
@@ -271,11 +268,11 @@ local objdiff/checkdiff validation.
 postmortem indexing, runs live tool runners unless `--no-tool-runners` is set,
 rewrites tool lookup indexes, rewrites the curator enrichment, optionally runs
 the knowledge-curator agent for proposal review, and rebuilds the graph. The
-`trigger-agent` loop can run this in the background on
-`--knowledge-maintenance-interval-ms`; live runs default to five minutes and
-dry runs default to disabled. Live trigger maintenance queues pending PRs to
-the PR-review agent by default, bounded by `--pr-limit` with a background
-default of eight.
+`run-loop` uses two lanes: fast in-epoch refresh runs
+`kg-maintain --no-tool-runners` after a coalesced interval/report-count trigger,
+and full boundary maintenance runs after report truth is rebuilt according to
+`--full-kg-maintenance-mode`. The older background maintenance interval remains
+available through `--knowledge-maintenance-interval-ms`.
 
 ## Past PR Library
 

@@ -15,7 +15,7 @@ This audit tracks where each design idea lives in the markdown docs.
 | --- | --- | --- |
 | Goals | [Foundation](../../00-foundation/00-overview.md), [Core principles](../../10-system-design/05-core-principles.md) | Covers whole-board use, parallel evidence, matched-code metric, run boundary, and PR boundary. |
 | Architecture | [System overview](../../10-system-design/00-overview.md), [Agent model](../../10-system-design/20-agent-model.md), [Process guardians](../../10-system-design/25-process-guardians.md), [UI implementation](../ui/00-overview.md) | Covers runner/state/agent split, process health wrapping, dashboard controls, architecture diagrams, and component responsibilities. |
-| Run Director Loop | [Run director loop](../../10-system-design/10-run-director-loop.md) | Covers wake/read/delegate/sleep, trigger actor, wake events, target packets, and reports. |
+| Run Scheduler Loop | [Run scheduler loop](../../10-system-design/10-run-director-loop.md) | Covers wake/read/admit/refill/sleep, run-loop process semantics, wake events, target packets, and reports. |
 | Durable State | [Durable state and events](../../10-system-design/30-state-and-events.md), [State implementation](../state/00-overview.md) | Covers SQLite, artifacts, events, leases, reports, and fact types. |
 | Board Prioritization | [Board prioritization](../../10-system-design/15-board-prioritization.md) | Preserves candidate-prior formula and scheduling signals. |
 | Worker Lifecycle | [Worker lifecycle](../../10-system-design/40-worker-lifecycle.md), [Worker capabilities](../../10-system-design/45-worker-capabilities.md) | Covers target packet, research, attempt loop, verification, reporting, and stall policy. |
@@ -32,7 +32,7 @@ This audit tracks where each design idea lives in the markdown docs.
 | Motif | Markdown Location |
 | --- | --- |
 | Sudoku metaphor | [Core principles](../../10-system-design/05-core-principles.md) |
-| Resting/trigger agent | [Run director loop](../../10-system-design/10-run-director-loop.md), [Process guardians](../../10-system-design/25-process-guardians.md), [CLI overview](../cli/00-overview.md) |
+| Resting run loop | [Run scheduler loop](../../10-system-design/10-run-director-loop.md), [Process guardians](../../10-system-design/25-process-guardians.md), [CLI overview](../cli/00-overview.md) |
 | Former skill mapping | [Core principles](../../10-system-design/05-core-principles.md) |
 | Candidate-prior formula | [Board prioritization](../../10-system-design/15-board-prioritization.md) |
 | `melee-assist` absorption | [Worker capabilities](../../10-system-design/45-worker-capabilities.md) |

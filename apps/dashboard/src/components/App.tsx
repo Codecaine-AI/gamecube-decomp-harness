@@ -14,6 +14,10 @@ function schedulingForWorkers(workers: number) {
     maxWorkers,
     candidateLimit: queueTargetSize,
     candidateWindow: queueTargetSize,
+    epochSize: String(queueTargetSize),
+    epochReadyQueueSize: queueTargetSize,
+    fastKgMaintenanceIntervalMs: 180000,
+    fastKgMaintenanceReportCount: Math.max(4, maxWorkers),
     queueLowWatermark: maxWorkers,
     queueTargetSize,
   };
@@ -23,7 +27,21 @@ const RUN_SETTINGS_KEY = "runSettings.v1";
 
 // Run settings the operator tunes per run (pool size, thinking levels, model)
 // are remembered across page loads so the next run starts how the last one did.
-type SavedRunSettings = Pick<FormState, "maxWorkers" | "idleSleepMs" | "provider" | "model" | "thinkingLevel" | "workerThinkingLevel">;
+type SavedRunSettings = Pick<
+  FormState,
+  | "maxWorkers"
+  | "idleSleepMs"
+  | "provider"
+  | "model"
+  | "thinkingLevel"
+  | "workerThinkingLevel"
+  | "epochSize"
+  | "epochReadyQueueSize"
+  | "fastKgMaintenanceEnabled"
+  | "fastKgMaintenanceIntervalMs"
+  | "fastKgMaintenanceReportCount"
+  | "fullKgMaintenanceMode"
+>;
 
 function loadRunSettings(): Partial<SavedRunSettings> {
   try {
@@ -37,6 +55,12 @@ function loadRunSettings(): Partial<SavedRunSettings> {
     if (typeof parsed.model === "string" && parsed.model) settings.model = parsed.model;
     if (typeof parsed.thinkingLevel === "string" && parsed.thinkingLevel) settings.thinkingLevel = parsed.thinkingLevel;
     if (typeof parsed.workerThinkingLevel === "string" && parsed.workerThinkingLevel) settings.workerThinkingLevel = parsed.workerThinkingLevel;
+    if (typeof parsed.epochSize === "string" && parsed.epochSize) settings.epochSize = parsed.epochSize;
+    if (typeof parsed.epochReadyQueueSize === "number" && parsed.epochReadyQueueSize > 0) settings.epochReadyQueueSize = Math.trunc(parsed.epochReadyQueueSize);
+    if (typeof parsed.fastKgMaintenanceEnabled === "boolean") settings.fastKgMaintenanceEnabled = parsed.fastKgMaintenanceEnabled;
+    if (typeof parsed.fastKgMaintenanceIntervalMs === "number" && parsed.fastKgMaintenanceIntervalMs >= 0) settings.fastKgMaintenanceIntervalMs = Math.trunc(parsed.fastKgMaintenanceIntervalMs);
+    if (typeof parsed.fastKgMaintenanceReportCount === "number" && parsed.fastKgMaintenanceReportCount >= 0) settings.fastKgMaintenanceReportCount = Math.trunc(parsed.fastKgMaintenanceReportCount);
+    if (typeof parsed.fullKgMaintenanceMode === "string" && parsed.fullKgMaintenanceMode) settings.fullKgMaintenanceMode = parsed.fullKgMaintenanceMode;
     return settings;
   } catch {
     return {};
@@ -52,6 +76,12 @@ function saveRunSettings(form: FormState) {
       model: form.model,
       thinkingLevel: form.thinkingLevel,
       workerThinkingLevel: form.workerThinkingLevel,
+      epochSize: form.epochSize,
+      epochReadyQueueSize: form.epochReadyQueueSize,
+      fastKgMaintenanceEnabled: form.fastKgMaintenanceEnabled,
+      fastKgMaintenanceIntervalMs: form.fastKgMaintenanceIntervalMs,
+      fastKgMaintenanceReportCount: form.fastKgMaintenanceReportCount,
+      fullKgMaintenanceMode: form.fullKgMaintenanceMode,
     };
     localStorage.setItem(RUN_SETTINGS_KEY, JSON.stringify(settings));
   } catch {
@@ -62,7 +92,17 @@ function saveRunSettings(form: FormState) {
 function initialForm(): FormState {
   const saved = loadRunSettings();
   const merged = { ...defaultForm, ...saved };
-  return { ...merged, ...schedulingForWorkers(merged.maxWorkers) };
+  const sizing = schedulingForWorkers(merged.maxWorkers);
+  return {
+    ...merged,
+    ...sizing,
+    epochSize: saved.epochSize ?? sizing.epochSize,
+    epochReadyQueueSize: saved.epochReadyQueueSize ?? sizing.epochReadyQueueSize,
+    fastKgMaintenanceEnabled: saved.fastKgMaintenanceEnabled ?? merged.fastKgMaintenanceEnabled,
+    fastKgMaintenanceIntervalMs: saved.fastKgMaintenanceIntervalMs ?? sizing.fastKgMaintenanceIntervalMs,
+    fastKgMaintenanceReportCount: saved.fastKgMaintenanceReportCount ?? sizing.fastKgMaintenanceReportCount,
+    fullKgMaintenanceMode: saved.fullKgMaintenanceMode ?? merged.fullKgMaintenanceMode,
+  };
 }
 
 const defaultForm: FormState = {
@@ -79,6 +119,8 @@ const defaultForm: FormState = {
   model: "gpt-5.5",
   thinkingLevel: "medium",
   workerThinkingLevel: "medium",
+  fastKgMaintenanceEnabled: true,
+  fullKgMaintenanceMode: "full",
 };
 
 type Action = "refresh" | "sync" | "init" | "fresh" | "start" | "startWork" | "stop" | "forceStop" | "pausePr" | "resumePr" | "checkpoint" | "qa" | "reconcile" | "splitPlan" | "preparePr" | "syncPrs" | "openPr" | "openAllPrs";
@@ -268,6 +310,12 @@ export function App() {
           graphDbPath: loaded.defaultGraphDbPath,
           processName: String(projectDefaults.processName || current.processName),
           goalValue: Number(dashboardDefaults.goalValue || current.goalValue),
+          epochSize: String(dashboardDefaults.epochSize || current.epochSize),
+          epochReadyQueueSize: Number(dashboardDefaults.epochReadyQueueSize || current.epochReadyQueueSize),
+          fastKgMaintenanceEnabled: dashboardDefaults.fastKgMaintenanceEnabled !== false,
+          fastKgMaintenanceIntervalMs: Number(dashboardDefaults.fastKgMaintenanceIntervalMs || current.fastKgMaintenanceIntervalMs),
+          fastKgMaintenanceReportCount: Number(dashboardDefaults.fastKgMaintenanceReportCount || current.fastKgMaintenanceReportCount),
+          fullKgMaintenanceMode: String(dashboardDefaults.fullKgMaintenanceMode || current.fullKgMaintenanceMode),
         }));
       })
       .catch(showError);

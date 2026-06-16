@@ -1,13 +1,14 @@
 ---
 covers: D-Comp Orchestrator system design map
-concepts: [system-design, director, workers, durable-state, process-guardians, knowledge, score-gate]
+concepts: [system-design, scheduler, workers, durable-state, process-guardians, knowledge, score-gate]
 ---
 
 # System Design Overview
 
 D-Comp Orchestrator is an event-driven coordination system for decompilation
-work. A thin runner owns durable state transitions and agent invocation. Pi
-agents own reasoning. The board is the shared medium between those two worlds.
+work. A thin runner owns durable state transitions, deterministic scheduling,
+and agent invocation. Pi agents own bounded target-local or boundary-specific
+reasoning. The board is the shared medium between those two worlds.
 An optional guardian process can wrap the decomp system process to handle
 operational health events, recovery, and restart without becoming a second
 board scheduler.
@@ -18,11 +19,11 @@ board scheduler.
 OWNERSHIP LAYOUT
 
 +----------------------+     +--------------------------+     +----------------------+
-| Director scope       |     | Shared run state         |     | Worker execution     |
+| Scheduler scope      |     | Shared run state         |     | Worker execution     |
 | - run target         |     | - queue/target packets   |---->| - lease A Pi worker  |
 | - indexer output     |<--->| - leases/events/locks    |<----| - lease B Pi worker  |
 | - reducer output     |     | - facts/reports          |     | - lease N Pi worker  |
-| - Pi director        |     | - artifacts/wakeups      |     | - PR/docs/source     |
+| - epoch policy       |     | - artifacts/wakeups      |     | - PR/docs/source     |
 +----------------------+     | - score candidates       |     | - experimental       |
                              +------------+-------------+     |   search             |
                                           |                   | - permuter handoff   |
@@ -37,13 +38,13 @@ OWNERSHIP LAYOUT
 ```text
 RUNTIME FEEDBACK LOOP
 
-run target + indexer output + reducer output
+run target + report/graph evidence
         |
         v
-+---------------------+       decisions        +--------------------------+
-| Pi director         |----------------------->| State substrate          |
-| choose next         |<-----------------------| wake event + snapshot    |
-| influence point     |    wake + snapshot     | queue / leases / facts   |
++---------------------+       epoch policy     +--------------------------+
+| Deterministic       |----------------------->| State substrate          |
+| scheduler           |<-----------------------| wake event + snapshot    |
+| admit/refill/route  |    wake + snapshot     | queue / leases / facts   |
 +---------------------+                        +------------+-------------+
                                           |
                                           v
@@ -77,12 +78,13 @@ run target + indexer output + reducer output
                                     new baseline
                                           |
                                           v
-                             reducer output + next board read
+                             refreshed evidence + next board read
 ```
 
-The important split is directional: the director reads a compact board and
-writes scheduling decisions; workers receive leases and return durable evidence;
-the state substrate is the only coordination surface between them.
+The important split is directional: the scheduler reads durable board state and
+writes reproducible scheduling transitions; workers receive leases and return
+durable evidence; the state substrate is the only coordination surface between
+them.
 
 ```text
 PROCESS HEALTH LOOP
@@ -95,8 +97,8 @@ PROCESS HEALTH LOOP
            v
 +---------------------+        process exit / worker error
 | Decomp system       |----------------------------------+
-| trigger actor,      |                                  |
-| director, workers   |                                  |
+| run loop, scheduler,|                                  |
+| workers             |                                  |
 +----------+----------+                                  |
            |                                             |
            v                                             |
@@ -107,19 +109,19 @@ PROCESS HEALTH LOOP
 ```
 
 The process health loop is operational, not strategic. It preserves liveness
-around the decomp system while the director and workers continue to own
+around the decomp system while the scheduler and workers continue to own
 decompilation decisions.
 
 ## Core Concepts
 
 - [Core principles](05-core-principles.md) covers the Sudoku metaphor,
   run-boundary rule, metric choice, and former-skill mapping.
-- [Run director loop](10-run-director-loop.md) covers how board reads,
-  delegation, sleep, and wake events work.
+- [Run scheduler loop](10-run-director-loop.md) covers how board reads,
+  deterministic admission/refill, sleep, and wake events work.
 - [Board prioritization](15-board-prioritization.md) covers helper score inputs
-  and the director's scheduling prior.
-- [Agent model](20-agent-model.md) covers the director, worker, PR-review agent,
-  and shared runtime boundary.
+  and scheduler rank signals.
+- [Agent model](20-agent-model.md) covers worker, PR-review, curator, reconcile,
+  and QA repair agents plus the shared runtime boundary.
 - [Process guardians](25-process-guardians.md) covers the babysit wrapper,
   health incidents, recovery policy, and restart boundary.
 - [Durable state and events](30-state-and-events.md) covers the board, leases,

@@ -889,9 +889,9 @@ async function main(): Promise<void> {
       .query("UPDATE queue SET status = 'reported' WHERE target_id = (SELECT id FROM targets WHERE run_id = ? AND unit = ? AND symbol = ?)")
       .run(run.id, "unit_1", "fn_1");
     refillStore.db.query("UPDATE targets SET status = 'reported' WHERE run_id = ? AND unit = ? AND symbol = ?").run(run.id, "unit_1", "fn_1");
-    const directorRequeued = prioritizeQueuedTargets(refillStore, run.id, [candidate(1, "src/a.c", 101)]);
-    assertSmoke("director target packets can requeue an attempted target", directorRequeued === 1);
-    assertSmoke("director requeue restores queued target count", queuedTargetCount(refillStore, run.id) === 4);
+    const schedulerRequeued = prioritizeQueuedTargets(refillStore, run.id, [candidate(1, "src/a.c", 101)]);
+    assertSmoke("scheduler priority routing can requeue an attempted target", schedulerRequeued === 1);
+    assertSmoke("scheduler requeue restores queued target count", queuedTargetCount(refillStore, run.id) === 4);
 
     const leased = leaseNextQueuedTarget({
       store: refillStore,
@@ -902,7 +902,7 @@ async function main(): Promise<void> {
     assertSmoke("queue refill smoke created an active lease", Boolean(leased));
     const defaultLeaseMs = new Date(leased?.ttl ?? "").getTime() - Date.now();
     assertSmoke(
-      "worker lease default ttl is 90 minutes",
+      "worker lease default ttl is 50 minutes",
       defaultLeaseMs > (DEFAULT_WORKER_TTL_SECONDS - 5) * 1000 && defaultLeaseMs <= DEFAULT_WORKER_TTL_SECONDS * 1000,
     );
     const lockedSource = String(leased?.target.source_path ?? "");
@@ -1166,9 +1166,10 @@ async function main(): Promise<void> {
   );
   assertSmoke("init-run queues only the imperfect fixture function", init.targetCount === 1);
 
-  const tick = parseJson<{ directorOutput: string; directorCycleId: string; directorSystemPrompt: string; directorUserPrompt: string }>(
+  const tick = parseJson<{ handledEvent: string; schedulerTargetUpdates: number; queueRefill: { inserted: number; refreshed: number } }>(
     await runCli([...commonFlags, "tick", "--run-id", init.run.id, "--candidate-limit", "8"]),
   );
+  assertSmoke("scheduler tick handles the run-start wake event", Boolean(tick.handledEvent));
   const worker = parseJson<{
     leaseId: string;
     workerOutput: string;
@@ -1208,9 +1209,8 @@ async function main(): Promise<void> {
     assertSmoke("events include run start and worker wake", count(store, "SELECT COUNT(*) AS count FROM events WHERE run_id = ?", runId) >= 2);
     assertSmoke("run_started event handled", count(store, "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND event_type = 'run_started' AND handled_at IS NOT NULL", runId) === 1);
     assertSmoke("worker wake remains unhandled", count(store, "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND event_type = 'worker_stalled' AND handled_at IS NULL", runId) === 1);
-    assertSmoke("director session row exists", count(store, "SELECT COUNT(*) AS count FROM pi_sessions WHERE run_id = ? AND role = 'director' AND status = 'dry_run'", runId) === 1);
     assertSmoke("worker session row exists", count(store, "SELECT COUNT(*) AS count FROM pi_sessions WHERE run_id = ? AND role = 'worker' AND lease_id = ? AND status = 'dry_run'", runId, worker.leaseId) === 1);
-    assertSmoke("director cycle row exists", count(store, "SELECT COUNT(*) AS count FROM director_cycles WHERE run_id = ?", runId) === 1);
+    assertSmoke("scheduler tick does not create director cycles", count(store, "SELECT COUNT(*) AS count FROM director_cycles WHERE run_id = ?", runId) === 0);
     assertSmoke("lease row exists", count(store, "SELECT COUNT(*) AS count FROM leases WHERE id = ? AND status = 'released_stalled'", worker.leaseId) === 1);
     assertSmoke("released lease removes file lock row", count(store, "SELECT COUNT(*) AS count FROM file_locks WHERE lease_id = ?", worker.leaseId) === 0);
     assertSmoke("worker report row exists", count(store, "SELECT COUNT(*) AS count FROM worker_reports WHERE lease_id = ? AND report_type = 'stalled_no_useful_guess'", worker.leaseId) === 1);
@@ -1802,8 +1802,9 @@ async function main(): Promise<void> {
     ]),
   );
   const triggerRun = parseJson<{
+    mode: string;
     stoppedReason: string;
-    directorTicks: number;
+    schedulerTicks: number;
     workersStarted: number;
     workerResults: unknown[];
     workerErrors: unknown[];
@@ -1811,7 +1812,7 @@ async function main(): Promise<void> {
   }>(
     await runCli([
       ...triggerFlags,
-      "trigger-agent",
+      "run-loop",
       "--run-id",
       triggerInit.run.id,
       "--max-workers",
@@ -1828,19 +1829,39 @@ async function main(): Promise<void> {
   );
   const triggerStore = openState(triggerStateDir);
   try {
-    assertSmoke("trigger-agent rests after bounded idle", triggerRun.stoppedReason === "idle");
-    assertSmoke("trigger-agent wakes director for run, low-pool, and worker events", triggerRun.directorTicks === 3);
-    assertSmoke("trigger-agent starts one worker for fixture target", triggerRun.workersStarted === 1);
-    assertSmoke("trigger-agent captures worker result", triggerRun.workerResults.length === 1);
-    assertSmoke("trigger-agent has no worker errors", triggerRun.workerErrors.length === 0);
-    assertSmoke("trigger-agent leaves no active workers", triggerRun.finalStatus.activeWorkers === 0);
-    assertSmoke("trigger-agent drains unhandled events", triggerRun.finalStatus.unhandledEvents === 0);
-    assertSmoke("trigger-agent records three director cycles", count(triggerStore, "SELECT COUNT(*) AS count FROM director_cycles WHERE run_id = ?", triggerInit.run.id) === 3);
-    assertSmoke("trigger-agent records one worker report", count(triggerStore, "SELECT COUNT(*) AS count FROM worker_reports") === 1);
-    assertSmoke("trigger-agent handled all wake events", count(triggerStore, "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND handled_at IS NULL", triggerInit.run.id) === 0);
+    assertSmoke("run-loop reports run_loop mode", triggerRun.mode === "run_loop");
+    assertSmoke("run-loop rests after bounded idle", triggerRun.stoppedReason === "idle");
+    assertSmoke("run-loop handles wake events deterministically", triggerRun.schedulerTicks >= 3);
+    assertSmoke("run-loop starts one worker for fixture target", triggerRun.workersStarted === 1);
+    assertSmoke("run-loop captures worker result", triggerRun.workerResults.length === 1);
+    assertSmoke("run-loop has no worker errors", triggerRun.workerErrors.length === 0);
+    assertSmoke("run-loop leaves no active workers", triggerRun.finalStatus.activeWorkers === 0);
+    assertSmoke("run-loop drains unhandled events", triggerRun.finalStatus.unhandledEvents === 0);
+    assertSmoke("run-loop does not record director cycles", count(triggerStore, "SELECT COUNT(*) AS count FROM director_cycles WHERE run_id = ?", triggerInit.run.id) === 0);
+    assertSmoke("run-loop records one worker report", count(triggerStore, "SELECT COUNT(*) AS count FROM worker_reports") === 1);
+    assertSmoke("run-loop handled all wake events", count(triggerStore, "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND handled_at IS NULL", triggerInit.run.id) === 0);
   } finally {
     triggerStore.db.close();
   }
+  const triggerAliasRun = parseJson<{ mode: string }>(
+    await runCli([
+      ...triggerFlags,
+      "trigger-agent",
+      "--run-id",
+      triggerInit.run.id,
+      "--max-workers",
+      "0",
+      "--max-iterations",
+      "1",
+      "--max-idle-iterations",
+      "1",
+      "--idle-sleep-ms",
+      "1",
+      "--candidate-limit",
+      "8",
+    ]),
+  );
+  assertSmoke("trigger-agent remains a run-loop compatibility alias", triggerAliasRun.mode === "run_loop");
 
   const babysitStateDir = await mkdtemp(join(tmpdir(), "decomp-orchestrator-babysit-smoke-"));
   const babysitFlags = ["--repo-root", fixtureRoot, "--state-dir", babysitStateDir, "--dry-run-agents"];
@@ -1860,6 +1881,7 @@ async function main(): Promise<void> {
   );
   const babysitRun = parseJson<{
     stoppedReason: string;
+    systemCommand: string;
     incidents: number;
     restarts: number;
     systemRuns: Array<{ stdoutPath: string; stderrPath: string; resultPath: string; classification: string; reason: string }>;
@@ -1885,6 +1907,7 @@ async function main(): Promise<void> {
   const babysitStore = openState(babysitStateDir);
   try {
     assertSmoke("babysit exits after clean bounded child", babysitRun.stoppedReason === "system_clean_exit");
+    assertSmoke("babysit defaults to the run-loop child", babysitRun.systemCommand === "run-loop");
     assertSmoke("babysit records one system run", babysitRun.systemRuns.length === 1);
     assertSmoke("babysit child run is clean", babysitRun.systemRuns[0]?.classification === "clean");
     assertSmoke("babysit records no incidents", babysitRun.incidents === 0);
@@ -1895,7 +1918,7 @@ async function main(): Promise<void> {
     assertSmoke("babysit system stdout artifact exists", existsSync(babysitRun.systemRuns[0]?.stdoutPath ?? ""));
     assertSmoke("babysit system stderr artifact exists", existsSync(babysitRun.systemRuns[0]?.stderrPath ?? ""));
     assertSmoke("babysit system result artifact exists", existsSync(babysitRun.systemRuns[0]?.resultPath ?? ""));
-    assertSmoke("babysit records three director cycles", count(babysitStore, "SELECT COUNT(*) AS count FROM director_cycles WHERE run_id = ?", babysitInit.run.id) === 3);
+    assertSmoke("babysit child run does not record director cycles", count(babysitStore, "SELECT COUNT(*) AS count FROM director_cycles WHERE run_id = ?", babysitInit.run.id) === 0);
   } finally {
     babysitStore.db.close();
   }
@@ -1903,22 +1926,14 @@ async function main(): Promise<void> {
   const initialBoard = resolve(stateDir, "runs", init.run.id, "snapshots", "initial_board.json");
   const smokeSummaryPath = resolve(stateDir, "runs", init.run.id, "smoke_summary.json");
   assertSmoke("initial board snapshot artifact exists", existsSync(initialBoard));
-  assertSmoke("director dry-run artifact exists", existsSync(tick.directorOutput));
-  assertSmoke("director system prompt artifact exists", existsSync(tick.directorSystemPrompt));
-  assertSmoke("director user prompt artifact exists", existsSync(tick.directorUserPrompt));
   assertSmoke("worker dry-run artifact exists", existsSync(worker.workerOutput));
   assertSmoke("worker system prompt artifact exists", existsSync(worker.workerSystemPrompt));
   assertSmoke("worker user prompt artifact exists", existsSync(worker.workerUserPrompt));
   assertSmoke("worker report artifact exists", existsSync(worker.workerReport));
   assertSmoke("status output includes worker report count", Number(status.workerReports ?? 0) === 1);
-  const directorSystemPrompt = readFileSync(tick.directorSystemPrompt, "utf8");
-  const directorUserPrompt = readFileSync(tick.directorUserPrompt, "utf8");
   const workerSystemPrompt = readFileSync(worker.workerSystemPrompt, "utf8");
   const workerUserPrompt = readFileSync(worker.workerUserPrompt, "utf8");
-  const renderedPrompts = [directorSystemPrompt, directorUserPrompt, workerSystemPrompt, workerUserPrompt].join("\n");
-  assertSmoke("director system prompt names director role", directorSystemPrompt.includes("director Pi agent"));
-  assertSmoke("director system prompt embeds scheduling rules", directorSystemPrompt.includes("Do not schedule already exact 100% complete files"));
-  assertSmoke("director user prompt includes current state", directorUserPrompt.includes("<current_state_json>"));
+  const renderedPrompts = [workerSystemPrompt, workerUserPrompt].join("\n");
   assertSmoke("worker system prompt names target-file edit rule", workerSystemPrompt.includes('<target_file path="...">'));
   assertSmoke("worker system prompt requires local regression ledger", workerSystemPrompt.includes("local regression ledger"));
   assertSmoke("worker system prompt has local regression output contract", workerSystemPrompt.includes("local_regression_check"));
@@ -2031,8 +2046,6 @@ async function main(): Promise<void> {
       !agentViewerWorkerPrompt.includes("selected_agent_context_references") &&
       !agentViewerWorkerPrompt.includes('"lease"'),
   );
-  assertSmoke("director dry-run uses gpt-5.5", readFileSync(tick.directorOutput, "utf8").includes("model: gpt-5.5"));
-  assertSmoke("director dry-run uses medium thinking", readFileSync(tick.directorOutput, "utf8").includes("thinking: medium"));
   const workerOutput = readFileSync(worker.workerOutput, "utf8");
   const workerCustomToolsLine = workerOutput
     .split("\n")
@@ -2046,9 +2059,8 @@ async function main(): Promise<void> {
   assertSmoke("worker user prompt does not list lookup commands", !workerUserPrompt.includes('"lookup_commands"'));
   assertSmoke("rendered prompts do not reference design doc", !renderedPrompts.includes("decomp-orchestrator-design.html"));
   assertSmoke("rendered prompts do not reference Codex skill paths", !renderedPrompts.includes(".codex/skills"));
-  assertSmoke("rendered prompts include structured past PR index", renderedPrompts.includes("past_prs") && renderedPrompts.includes("index.jsonl"));
-  assertSmoke("rendered prompts include data sheet resources", renderedPrompts.includes("ssbm_data_sheet/data/csv"));
-  assertSmoke("rendered prompts include agent context manifest", renderedPrompts.includes("decomp-orchestrator/packages/agents/src/context/manifest.json"));
+  assertSmoke("worker prompt includes structured past PR resources", workerUserPrompt.includes("past_prs"));
+  assertSmoke("worker prompt includes data sheet resources", workerUserPrompt.includes("ssbm_data_sheet"));
   assertSmoke("rendered prompts do not include director scheduling context", !renderedPrompts.includes("packages/agents/src/director/context/scheduling.md"));
   assertSmoke("rendered prompts do not include worker context guide paths", !renderedPrompts.includes("packages/agents/src/worker/context/"));
   assertSmoke("worker user prompt does not duplicate Pi tool affordances", !workerUserPrompt.includes("<available_pi_tools_json>"));
@@ -2069,17 +2081,14 @@ async function main(): Promise<void> {
       targets: 1,
       queue: 1,
       events: 2,
-      pi_sessions: 2,
-      director_cycles: 1,
+      pi_sessions: 1,
+      director_cycles: 0,
       leases: 1,
       file_locks: 0,
       worker_reports: 1,
     },
     artifacts: {
       initial_board: initialBoard,
-      director_output: tick.directorOutput,
-      director_system_prompt: tick.directorSystemPrompt,
-      director_user_prompt: tick.directorUserPrompt,
       worker_output: worker.workerOutput,
       worker_system_prompt: worker.workerSystemPrompt,
       worker_user_prompt: worker.workerUserPrompt,
