@@ -131,14 +131,15 @@ state and classifies attempts. Add:
 
 - After a worker's edit passes build, run `scan_diff.py` scoped to the files
   the attempt touched (diff vs. the attempt's pre-edit snapshot).
-- Hard-fail finding ⇒ attempt classified as **rejected with structured
-  feedback** (not `tool_error` — these must not hit the quarantine path from
-  the error-target policy). Feed the findings back into the worker's next
-  iteration prompt verbatim: rule, line, excerpt, the standard text, and the
-  instruction "remove the violation; a lower match % without it is the correct
-  outcome."
-- This is the highest-leverage layer: violations die at attempt time instead
-  of contaminating epoch commits, and the worker learns *in-context* why.
+- Any QA finding under strict automated validation, including warning-only
+  findings, ⇒ attempt classified as **rejected with structured feedback** (not
+  `tool_error` — these must not hit the quarantine path from the error-target
+  policy). Feed the findings back into the worker's next iteration prompt
+  verbatim: severity, rule, line, excerpt, the standard text, and the
+  instruction "remove every QA lint finding; a lower match % without it is the
+  correct outcome."
+- This is the highest-leverage layer: findings die at attempt time instead of
+  contaminating epoch commits, and the worker learns *in-context* why.
 
 ### 2.3 Epoch flow
 

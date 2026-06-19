@@ -3,10 +3,14 @@ import { resolve } from "node:path";
 import {
   agentToolProfileSummary,
   knowledgeCuratorPrompt,
+  loadPreshipExhibits,
+  preshipExhibitsPromptXml,
   prContextPromptXml,
   prIndexerPrompt,
+  prPreshipReviewPrompt,
   prSplitterPrompt,
   qaRepairPrompt,
+  reconcilePrompt,
   targetPacketTarget,
   workerPacket,
   workerPrompt,
@@ -53,7 +57,7 @@ const defaultStateDir = resolve(packageRoot, ".decomp-orchestrator-state");
 const builtStaticRoot = resolve(packageRoot, "apps/agent-viewer/dist");
 const sampleRepoRoot = resolve(packageRoot, "testdata/smoke_repo");
 const port = Number(Bun.env.AGENT_VIEWER_PORT ?? Bun.env.PROMPT_VIEWER_PORT ?? Bun.env.ORCH_PROMPT_VIEWER_PORT ?? 8797);
-const promptPreviewAgents: PromptPreviewAgentId[] = ["worker", "pr-indexer", "pr-splitter", "knowledge-curator", "qa-repair"];
+const promptPreviewAgents: PromptPreviewAgentId[] = ["worker", "pr-indexer", "pr-reviewer", "pr-splitter", "knowledge-curator", "reconcile", "qa-repair"];
 
 function asObject(value: unknown): JsonObject {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonObject) : {};
@@ -264,9 +268,17 @@ interface PromptPreviewPlaceholders {
   prOutputSchemaJson?: string;
   prSplitterContextJson?: string;
   prSplitterOutputSchemaJson?: string;
+  exhibitsXml?: string;
+  lintFindingsJson?: string;
+  preshipOutputSchemaJson?: string;
   qaRepairItemJson?: string;
   qaRepairOutputSchemaJson?: string;
   qaRepairQueueSummaryJson?: string;
+  reconcileContextJson?: string;
+  reconcileMode?: string;
+  reconcileOutputSchemaJson?: string;
+  sliceDiff?: string;
+  sliceId?: string;
   standardExamplesXml?: string;
   targetGraphFileCardXml?: string;
   targetXml?: string;
@@ -289,6 +301,9 @@ function hydratePromptPreviewPlaceholders(bundle: PiPromptBundle, placeholders: 
       .replace(/\{\{\s*CURATOR_CONTEXT_JSON\s*\}\}/g, () => placeholders.curatorContextJson ?? "")
       .replace(/\{\{\s*CURATOR_OUTPUT_SCHEMA_JSON\s*\}\}/g, () => placeholders.curatorOutputSchemaJson ?? "")
       .replace(/\{\{\s*DECOMP_STANDARDS_XML\s*\}\}/g, () => standardsXml)
+      .replace(/\{\{\s*EXHIBITS_XML\s*\}\}/g, () => placeholders.exhibitsXml ?? "")
+      .replace(/\{\{\s*LINT_FINDINGS_JSON\s*\}\}/g, () => placeholders.lintFindingsJson ?? "")
+      .replace(/\{\{\s*PRESHIP_OUTPUT_SCHEMA_JSON\s*\}\}/g, () => placeholders.preshipOutputSchemaJson ?? "")
       .replace(/\{\{\s*PR_CONTEXT_JSON\s*\}\}/g, () => placeholders.prContextJson ?? "")
       .replace(/\{\{\s*PR_CONTEXT_XML\s*\}\}/g, () => placeholders.prContextXml ?? "")
       .replace(/\{\{\s*PR_OUTPUT_SCHEMA_JSON\s*\}\}/g, () => placeholders.prOutputSchemaJson ?? "")
@@ -297,6 +312,11 @@ function hydratePromptPreviewPlaceholders(bundle: PiPromptBundle, placeholders: 
       .replace(/\{\{\s*QA_REPAIR_ITEM_JSON\s*\}\}/g, () => placeholders.qaRepairItemJson ?? "")
       .replace(/\{\{\s*QA_REPAIR_OUTPUT_SCHEMA_JSON\s*\}\}/g, () => placeholders.qaRepairOutputSchemaJson ?? "")
       .replace(/\{\{\s*QA_REPAIR_QUEUE_SUMMARY_JSON\s*\}\}/g, () => placeholders.qaRepairQueueSummaryJson ?? "")
+      .replace(/\{\{\s*RECONCILE_CONTEXT_JSON\s*\}\}/g, () => placeholders.reconcileContextJson ?? "")
+      .replace(/\{\{\s*RECONCILE_MODE\s*\}\}/g, () => placeholders.reconcileMode ?? "")
+      .replace(/\{\{\s*RECONCILE_OUTPUT_SCHEMA_JSON\s*\}\}/g, () => placeholders.reconcileOutputSchemaJson ?? "")
+      .replace(/\{\{\s*SLICE_DIFF\s*\}\}/g, () => placeholders.sliceDiff ?? "")
+      .replace(/\{\{\s*SLICE_ID\s*\}\}/g, () => placeholders.sliceId ?? "")
       .replace(/\{\{\s*STANDARD_EXAMPLES_XML\s*\}\}/g, () => standardExamplesXml)
       .replace(/\{\{\s*TARGET_GRAPH_FILE_CARD_XML\s*\}\}/g, () => placeholders.targetGraphFileCardXml ?? "")
       .replace(/\{\{\s*TARGET_XML\s*\}\}/g, () => placeholders.targetXml ?? "");
@@ -822,6 +842,109 @@ function prIndexerPromptPreview(
   };
 }
 
+function samplePreshipSliceDiff(): string {
+  return [
+    "diff --git a/src/melee/ft/chara/ftDemo.c b/src/melee/ft/chara/ftDemo.c",
+    "index 1111111..2222222 100644",
+    "--- a/src/melee/ft/chara/ftDemo.c",
+    "+++ b/src/melee/ft/chara/ftDemo.c",
+    "@@ -42,12 +42,24 @@ void ftDemo_Update(HSD_GObj* gobj)",
+    " {",
+    "     Fighter* fp = gobj->user_data;",
+    "-    if (fp->demo_flags & 4) {",
+    "+    if ((fp->demo_flags & 4) != 0) {",
+    "         return;",
+    "     }",
+    "+    HSD_MObj* mobj = fp->x5E8_fighterBones[0].x0_jobj->u.dobj->mobj;",
+    "+    if (mobj != NULL) {",
+    "+        HSD_MObjSetDiffuse(mobj, &ftDemo_Diffuse);",
+    "+    }",
+    "+",
+    "+    HSD_ASSERTMSG(125, fp->x5E8_fighterBones[0].x0_jobj != NULL, \"demo jobj\");",
+    "     ftDemo_Advance(fp);",
+    " }",
+    "@@ -88,7 +100,8 @@ void ftDemo_Draw(HSD_GObj* gobj)",
+    "     HSD_JObj* jobj = GET_JOBJ(gobj);",
+    "-    HSD_JObjClearFlags(jobj, JOBJ_HIDDEN);",
+    "+    HSD_JObjClearFlags(jobj, JOBJ_HIDDEN);",
+    "+    HSD_JObjSetFlagsAll(jobj, JOBJ_PTCL);",
+    " }",
+  ].join("\n");
+}
+
+function samplePreshipLintFindings(): JsonObject {
+  return {
+    lint_available: true,
+    tool: "review_lint scan_diff --gate --json",
+    summary: {
+      new_exact_matches: 1,
+      fuzzy_improvements_before_cleanup: 34,
+      fuzzy_improvements_after_cleanup: 30,
+      existing_item_regressions: 0,
+    },
+    findings: [
+      {
+        rule_id: "pointer_offset_arithmetic",
+        severity: "warning",
+        standard_id: "global_standard:typed-fields-over-pointer-math",
+        file: "src/melee/ft/chara/ftDemo.c",
+        line: 49,
+        excerpt: "HSD_MObj* mobj = fp->x5E8_fighterBones[0].x0_jobj->u.dobj->mobj;",
+        message: "The new exact match depends on a raw nested access; confirm a typed helper or local idiom cannot express it cleanly.",
+      },
+      {
+        rule_id: "matching_tactic_needs_evidence",
+        severity: "warning",
+        standard_id: "global_standard:matching-tactics-need-evidence",
+        file: "src/melee/ft/chara/ftDemo.c",
+        line: 49,
+        excerpt: "HSD_MObj* mobj = fp->x5E8_fighterBones[0].x0_jobj->u.dobj->mobj;",
+        message: "The runner marked this line as match-preserving and review-sensitive; record reviewer-visible evidence instead of silently normalizing it away.",
+      },
+    ],
+  };
+}
+
+function prReviewerPromptPreview(
+  paths: PromptProjectContext,
+  requestedSource: PromptPreviewSource,
+  warnings: string[],
+): PromptPreviewRendered {
+  if (requestedSource === "latest") warnings.push("The agent viewer does not keep a single current pre-ship review slice; rendered a deterministic sample PR reviewer context.");
+  const sliceId = "agent-viewer-sample-ft-demo";
+  const sliceDiff = samplePreshipSliceDiff();
+  const lintFindings = samplePreshipLintFindings();
+  const exhibits = loadPreshipExhibits();
+  const exhibitsXml = preshipExhibitsPromptXml(exhibits);
+  const standardExamplesXml = standardExamplesPromptXml({
+    standardIds: new Set(["global_standard:typed-fields-over-pointer-math", "global_standard:matching-tactics-need-evidence"]),
+    qaRuleIds: new Set(["pointer_offset_arithmetic", "matching_tactic_needs_evidence"]),
+    limit: 12,
+  });
+  const outputSchema = readJsonObject(resolve(packageRoot, "packages/agents/src/agents/pr/reviewer/templates/preship_schema.json"));
+  return {
+    bundle: prPreshipReviewPrompt({ sliceId, sliceDiff, lintFindings, exhibits }),
+    context: {
+      sliceId,
+      sliceDiff,
+      lintFindings,
+      exhibits_xml: exhibitsXml,
+      standard_examples_xml: standardExamplesXml,
+      output_schema: outputSchema,
+      attached_tools: agentToolProfileSummary("pr-reviewer"),
+    },
+    contextSource: "sample",
+    placeholders: {
+      exhibitsXml,
+      lintFindingsJson: stableJson({ lint_available: true, result: lintFindings }),
+      preshipOutputSchemaJson: stableJson(outputSchema),
+      sliceDiff,
+      sliceId,
+      standardExamplesXml,
+    },
+  };
+}
+
 function prSplitterPromptPreview(
   paths: PromptProjectContext,
   requestedSource: PromptPreviewSource,
@@ -1044,6 +1167,110 @@ function knowledgeCuratorPromptPreview(
   };
 }
 
+function sampleReconcileContext(paths: PromptProjectContext): JsonObject {
+  return {
+    schema_version: "reconcile_context_v1",
+    mode: "ship-validate",
+    base_ref: paths.project?.baseRef ?? "origin/master",
+    head_ref: "agent-viewer-sample-head",
+    attempt_budget: {
+      max_attempts: 3,
+      attempts_used: 1,
+      remaining_attempts: 2,
+    },
+    gate: {
+      command: "ninja changes",
+      report_path: "build/GALE01/report_changes.json",
+      hard_requirement: "zero negative deltas in existing report items",
+      acceptable_losses: ["fuzzy-only improvements in new or non-shipping work"],
+      unacceptable_losses: ["broken exact matches", "negative deltas in existing items", "unit/section/function metric regressions"],
+    },
+    regression_report: {
+      exact_matches: {
+        new_matches_before_cleanup: 5,
+        new_matches_after_cleanup: 5,
+        lost_exact_matches: 0,
+      },
+      fuzzy_improvements: {
+        improvements_before_cleanup: 34,
+        improvements_after_cleanup: 30,
+        loss_is_acceptable: true,
+      },
+      existing_item_regressions: [
+        {
+          path: "src/melee/mn/mnname.c",
+          unit: "GALE01:mnName",
+          symbol: "mnName_8022B8C4",
+          previous_status: "matched",
+          current_status: "regressed",
+          delta: -0.87,
+          severity: "hard_blocker",
+          evidence: "report_changes.json shows a negative delta for an item that was already matched before this cleanup layer.",
+        },
+      ],
+      new_match_tradeoffs: [
+        {
+          path: "src/melee/ft/chara/ftDemo.c",
+          symbol: "ftDemo_Update",
+          exact_match: true,
+          concern: "The match depends on a raw nested object access that may need a helper or local idiom.",
+          banned_or_fake: false,
+          requested_disposition: "keep only with reviewer-visible evidence if validation stays regression-free",
+        },
+      ],
+    },
+    changed_files: [
+      {
+        path: "src/melee/mn/mnname.c",
+        lane: "match",
+        reason: "cleanup layer caused existing-item regression",
+      },
+      {
+        path: "src/melee/ft/chara/ftDemo.c",
+        lane: "match",
+        reason: "new exact match with review-sensitive source shape",
+      },
+    ],
+    validation_to_rerun: ["ninja changes", "inspect build/GALE01/report_changes.json"],
+  };
+}
+
+function reconcilePromptPreview(
+  paths: PromptProjectContext,
+  requestedSource: PromptPreviewSource,
+  warnings: string[],
+): PromptPreviewRendered {
+  if (requestedSource === "latest") warnings.push("The agent viewer does not keep a single current reconcile context; rendered a deterministic ship-validate sample.");
+  const project = projectMetadataForPrompt(paths);
+  const reconcileContext = sampleReconcileContext(paths);
+  const outputSchema = readJsonObject(resolve(packageRoot, "packages/agents/src/agents/pr/fixer/reconcile/schema.json"));
+  const toolContext: AgentToolRuntimeContext = {
+    role: "reconcile",
+    cwd: paths.repoRoot,
+    repoRoot: paths.repoRoot,
+    stateDir: paths.stateDir,
+    project,
+  };
+  const availableToolsXml = availableToolsPromptXml(toolContext);
+  return {
+    bundle: reconcilePrompt({ mode: "ship-validate", reconcileContext, repoRoot: paths.repoRoot, stateDir: paths.stateDir, project }),
+    context: {
+      reconcileContext,
+      reconcileMode: "ship-validate",
+      output_schema: outputSchema,
+      attached_tools: agentToolProfileSummary("reconcile"),
+      available_tools_xml: availableToolsXml,
+    },
+    contextSource: "sample",
+    placeholders: {
+      availableToolsXml,
+      reconcileContextJson: stableJson(reconcileContext),
+      reconcileMode: "ship-validate",
+      reconcileOutputSchemaJson: stableJson(outputSchema),
+    },
+  };
+}
+
 function qaRepairPromptPreview(
   paths: PromptProjectContext,
   requestedSource: PromptPreviewSource,
@@ -1097,7 +1324,7 @@ function qaRepairPromptPreview(
         standard_id: "global_standard:avoid-pragmas-register-asm",
       },
     ],
-	    warnings: [
+    warnings: [
       {
         rule_id: "novel_pragma",
         severity: "warning",
@@ -1107,9 +1334,9 @@ function qaRepairPromptPreview(
         message: "Added novel pragma directive.",
         standard_id: "global_standard:avoid-pragmas-register-asm",
       },
-	    ],
-	    repair_warnings: true,
-	    rule_counts: {
+    ],
+    repair_warnings: true,
+    rule_counts: {
       m2c_residue_names: 1,
       inline_asm: 1,
       novel_pragma: 1,
@@ -1122,13 +1349,13 @@ function qaRepairPromptPreview(
     },
     attempts: [],
   };
-	  const queueSummary = {
-	    run_id: "agent-viewer-sample-run",
-	    files_with_errors: 1,
-	    files_with_warnings: 1,
-	    queued_items: 1,
-	    recommendation: "repair_required",
-	  };
+  const queueSummary = {
+    run_id: "agent-viewer-sample-run",
+    files_with_errors: 1,
+    files_with_warnings: 1,
+    queued_items: 1,
+    recommendation: "repair_required",
+  };
   const outputSchema = readJsonObject(resolve(packageRoot, "packages/agents/src/agents/pr/fixer/schema.json"));
   return {
     bundle: qaRepairPrompt({ item: item as any, queueSummary, repoRoot: paths.repoRoot, stateDir: paths.stateDir, project }),
@@ -1156,11 +1383,15 @@ function renderPromptPreview(paths: PromptProjectContext, agent: PromptPreviewAg
       ? workerPromptPreview(paths, requestedSource, warnings)
       : agent === "pr-indexer"
         ? prIndexerPromptPreview(paths, requestedSource, warnings)
-        : agent === "pr-splitter"
-          ? prSplitterPromptPreview(paths, requestedSource, warnings)
-          : agent === "knowledge-curator"
-            ? knowledgeCuratorPromptPreview(paths, requestedSource, warnings)
-            : qaRepairPromptPreview(paths, requestedSource, warnings);
+        : agent === "pr-reviewer"
+          ? prReviewerPromptPreview(paths, requestedSource, warnings)
+          : agent === "pr-splitter"
+            ? prSplitterPromptPreview(paths, requestedSource, warnings)
+            : agent === "knowledge-curator"
+              ? knowledgeCuratorPromptPreview(paths, requestedSource, warnings)
+              : agent === "reconcile"
+                ? reconcilePromptPreview(paths, requestedSource, warnings)
+                : qaRepairPromptPreview(paths, requestedSource, warnings);
   const { context, contextSource } = rendered;
   const bundle = hydratePromptPreviewPlaceholders(rendered.bundle, rendered.placeholders);
   return {

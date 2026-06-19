@@ -141,7 +141,7 @@ describe("applyQaLintToValidation", () => {
     const validation = applyQaLintToValidation(passedValidation(), qaLint);
     expect(validation.status).toBe("failed");
     expect(validation.qaLint?.status).toBe("violations");
-    expect(validation.reasons.some((reason) => reason.includes("maintainer-rejected pattern"))).toBe(true);
+    expect(validation.reasons.some((reason) => reason.includes("QA finding(s) requiring repair"))).toBe(true);
     // The score evidence stays truthful — only the verdict changes.
     expect(validation.target?.improved).toBe(true);
     expect(validation.improvements).toHaveLength(1);
@@ -155,15 +155,20 @@ describe("applyQaLintToValidation", () => {
     expect(validation.reasons).toHaveLength(2);
   });
 
-  test("clean and warnings leave the verdict untouched", () => {
-    for (const exitCode of [0, 2]) {
-      const status = exitCode === 2 ? "warned" : "passed";
-      const warn = exitCode === 2 ? [finding({ severity: "warning" })] : [];
-      const qaLint = qaLintFromInvocation(invocation({ exitCode, result: scanResult(warn, status as QaScanResult["status"]) }), "/tmp/scan.patch");
-      const validation = applyQaLintToValidation(passedValidation(), qaLint);
-      expect(validation.status).toBe("passed");
-      expect(validation.qaLint).toEqual(qaLint);
-    }
+  test("clean leaves the verdict untouched", () => {
+    const qaLint = qaLintFromInvocation(invocation(), "/tmp/scan.patch");
+    const validation = applyQaLintToValidation(passedValidation(), qaLint);
+    expect(validation.status).toBe("passed");
+    expect(validation.qaLint).toEqual(qaLint);
+  });
+
+  test("warnings demote a passed validation to failed so the worker repairs them", () => {
+    const warn = finding({ severity: "warning" });
+    const qaLint = qaLintFromInvocation(invocation({ exitCode: 2, result: scanResult([warn], "warned") }), "/tmp/scan.patch");
+    const validation = applyQaLintToValidation(passedValidation(), qaLint);
+    expect(validation.status).toBe("failed");
+    expect(validation.qaLint?.status).toBe("warnings");
+    expect(validation.reasons.some((reason) => reason.includes("QA finding(s) requiring repair"))).toBe(true);
   });
 
   test("tool_unavailable fails open: a passed attempt stays passed but records the failure", () => {
@@ -193,27 +198,38 @@ describe("qaLintRepairReasons", () => {
     const reasons = qaLintRepairReasons(qaLint);
     expect(reasons).toHaveLength(3);
     expect(reasons[0]).toBe(
-      "qa_lint_violation: extern_literal_anchor at src/melee/ft/ftcoll.c:42 — extern-for-literal anchor referencing TU-owned data [standard: global_standard:literals-and-data-ownership] excerpt: extern const f32 lbl_804DA60C;",
+      "qa_lint_finding: error extern_literal_anchor at src/melee/ft/ftcoll.c:42 — extern-for-literal anchor referencing TU-owned data [standard: global_standard:literals-and-data-ownership] excerpt: extern const f32 lbl_804DA60C;",
     );
     expect(reasons[1]).toBe(
-      "qa_lint_violation: unrolled_assert at src/melee/gr/ground.c:99 — open-coded assert [standard: global_standard:assert-report-macros] excerpt: __assert(...)",
+      "qa_lint_finding: error unrolled_assert at src/melee/gr/ground.c:99 — open-coded assert [standard: global_standard:assert-report-macros] excerpt: __assert(...)",
     );
     expect(reasons[2]).toBe(QA_LINT_REPAIR_INSTRUCTION);
     expect(QA_LINT_REPAIR_INSTRUCTION).toBe(
-      "Remove the violation; a lower match % without it is the correct outcome. Do not re-add maintainer-rejected patterns.",
+      "Remove every QA lint finding; a lower match % without it is the correct outcome. Do not re-add maintainer-rejected patterns.",
     );
+  });
+
+  test("formats warning findings as repair reasons", () => {
+    const warn = finding({ severity: "warning", rule_id: "type_erasing_cast", message: "Added type-erasing cast.", excerpt: "(u8*) obj" });
+    const qaLint = qaLintFromInvocation(invocation({ exitCode: 2, result: scanResult([warn], "warned") }), "/tmp/scan.patch");
+    const reasons = qaLintRepairReasons(qaLint);
+    expect(reasons).toHaveLength(2);
+    expect(reasons[0]).toBe(
+      "qa_lint_finding: warning type_erasing_cast at src/melee/ft/ftcoll.c:42 — Added type-erasing cast. [standard: global_standard:literals-and-data-ownership] excerpt: (u8*) obj",
+    );
+    expect(reasons[1]).toBe(QA_LINT_REPAIR_INSTRUCTION);
   });
 
   test("violations without parseable findings still produce a reason plus the instruction", () => {
     const qaLint: WorkerQaLint = { status: "violations", exitCode: 1, findings: [], scanPath: "/tmp/scan.patch", toolError: null };
     const reasons = qaLintRepairReasons(qaLint);
     expect(reasons).toHaveLength(2);
-    expect(reasons[0]).toContain("qa_lint_violation: scan_diff gate failed (exit 1)");
+    expect(reasons[0]).toContain("qa_lint_finding: scan_diff gate failed (exit 1)");
     expect(reasons[1]).toBe(QA_LINT_REPAIR_INSTRUCTION);
   });
 
-  test("non-violation statuses produce no repair reasons", () => {
-    for (const status of ["clean", "warnings", "tool_unavailable", "skipped"] as const) {
+  test("non-finding statuses produce no repair reasons", () => {
+    for (const status of ["clean", "tool_unavailable", "skipped"] as const) {
       expect(qaLintRepairReasons({ status, exitCode: 0, findings: [], scanPath: null, toolError: null })).toEqual([]);
     }
     expect(qaLintRepairReasons(null)).toEqual([]);
@@ -295,7 +311,7 @@ describe("validateWorkerChange QA lint integration", () => {
 
     expect(validation.qaLint?.status).toBe("violations");
     expect(validation.status).not.toBe("passed");
-    expect(validation.reasons.some((reason) => reason.includes("maintainer-rejected pattern"))).toBe(true);
+    expect(validation.reasons.some((reason) => reason.includes("QA finding(s) requiring repair"))).toBe(true);
 
     expect(seenOptions).toHaveLength(1);
     expect(seenOptions[0].repoRoot).toBe(repoRoot);

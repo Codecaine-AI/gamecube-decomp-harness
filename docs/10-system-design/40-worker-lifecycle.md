@@ -116,13 +116,14 @@ L1 layer; see [score and PR handoff](60-score-and-pr-handoff.md)). The runner
 diffs the attempt's touched files against the pre-worker source snapshot and
 runs the deterministic `review_lint` maintainer-rejection scan over that diff,
 producing one of `clean`, `warnings`, `violations`, or `tool_unavailable`.
-Violations demote an otherwise passing attempt to failed — a score-improving
-attempt that re-adds a maintainer-rejected pattern is the exact failure mode
-this layer exists to stop, because the violation is what inflates the score.
-Each finding is fed verbatim into the next repair prompt (rule, `file:line`,
-message, violated standard, excerpt) plus the standing instruction that
-removing the violation is correct even when it lowers the match percentage.
-If violations survive the final attempt, the report is classified
+Warnings and violations both demote an otherwise passing attempt to failed: a
+score-improving attempt that re-adds or leaves a QA finding is the exact
+failure mode this layer exists to stop, because the finding may be what
+inflates the score. Each finding is fed verbatim into the next repair prompt
+(rule, severity, `file:line`, message, violated standard, excerpt) plus the
+standing instruction that removing every QA lint finding is correct even when
+it lowers the match percentage. If findings survive the final attempt, the
+report is classified
 `runner_validation_qa_lint_failed` — a rework kind, so the target routes to
 `needs_rework` and stays re-queueable; it is never `tool_error` and never hits
 the error-target quarantine path. The lint itself fails open: on scanner

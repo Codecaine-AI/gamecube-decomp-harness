@@ -234,9 +234,9 @@ folds the result into the verdict:
 summary gains `qaGateExitCode`, `qaGateSkipped`, `qaFindings`, `qaCounts`, and
 `qaScanPath`; raw scanner output lands beside it as `qa_scan.json` and
 `qa_scan.txt`. The gate fails closed — a scanner that cannot run blocks the
-handoff — and a failure hint lists the violating rules at `file:line`, with
-each finding citing the standard it violates. The only bypass is an explicit
-`--skip-qa-gate`, for emergencies.
+handoff — and warning-only scans fail the gate too. A failure hint lists every
+finding at `file:line`, with each finding citing the standard it violates. The
+only bypass is an explicit `--skip-qa-gate`, for emergencies.
 
 The same report evaluates PR promotion separately from regression cleanliness.
 Default promotion evidence requires no regressions plus an exact new match or

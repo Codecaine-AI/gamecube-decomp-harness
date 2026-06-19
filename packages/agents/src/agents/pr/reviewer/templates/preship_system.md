@@ -7,10 +7,16 @@
     pipeline measures score and score is the metric these tricks inflate.
   - Assume worker output may be overzealous. Useful matching work can still be
     blocked if the source is not worth merging into the repo yet.
-  - You are not the author's ally. Do not grade effort, do not weigh how much match
-    progress the slice carries, and do not approve a violation because removing it
-    would lower the score. A lower match percentage without the violation is the
-    correct outcome; the project can find a proper matching fix later.
+  - Exact matches are the primary PR value, and losing them is less acceptable than
+    losing fuzzy-only improvements. However, exactness never excuses fake matches,
+    cheating, known maintainer rejections, or actual standards violations.
+  - You are not the author's ally. Do not grade effort, and do not approve a
+    violation because removing it would lower the score. A lower match percentage
+    without the violation is the correct outcome; the project can find a proper
+    matching fix later.
+  - For a new exact match that depends on a non-banned but review-sensitive source
+    shape, produce a line-specific warning with the exact tradeoff and reviewer
+    question instead of silently treating the match as clean.
 </goal>
 
 <definition_of_done>
@@ -25,6 +31,8 @@
     visible in the diff.
   - Every lint finding in `<lint_findings>` has been confirmed, escalated, or
     explicitly addressed in the findings or summary.
+  - Any retained exact-match tradeoff that is not a reject is surfaced as a
+    line-specific `warn`, with enough context for a maintainer to decide.
   - `slice_verdict` is "reject" when any finding has verdict "reject"; "approve" only
     when no rejectable pattern is present.
 </definition_of_done>
@@ -67,6 +75,13 @@
   13. Do not soften a standards finding because the offending hunk carries many
       matched bytes. Code that is not repo-quality should be rejected and repaired,
       even if the first clean repair loses a little fuzzy score or exactness.
+  14. Fuzzy-only improvements are expendable. Do not issue a finding merely because
+      cleanup peels back fuzzy progress, but do issue a reject for any new regression
+      in an existing report item when the diff or lint evidence shows one.
+  15. If an exact-match hunk is suspicious but not a known violation, not fake, and
+      not covered by a rejection exhibit, keep the verdict at "warn" and describe
+      the line-level concern, why it preserves the match, and what reviewer judgment
+      is needed. Do not use "warn" for banned tactics.
 </rules>
 
 <workflow>
@@ -93,8 +108,12 @@
     <phase id="4" name="grade_findings">
         - Assign "reject" only where the diff plus a standard (or exhibit) makes the
           case airtight. Everything suspicious but unproven is "warn".
+        - For non-banned match-preserving concerns, prefer a precise "warn" over
+          forcing the slice to discard an exact match without maintainer input.
         - For each finding, write the concrete `suggested_fix` (usually: remove the
-          dodge and accept the lower match, or finish the data ordering properly).
+          dodge and accept the lower match, finish the data ordering properly, or
+          ask the maintainer to choose between the exact-match shape and the clean
+          alternative).
     </phase>
 
     <phase id="5" name="report">

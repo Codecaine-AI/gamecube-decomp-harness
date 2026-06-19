@@ -170,14 +170,14 @@ export function NavItem({ active, description, icon, label, onClick }: { active:
   return (
     <button
       aria-current={active ? "page" : undefined}
-      className={`flex min-h-12 items-center justify-center gap-2 border px-2.5 py-2 text-center ${
+      className={`flex min-h-12 items-center gap-3 border py-2 pl-[34%] pr-2.5 ${
         active ? "border-up/60 bg-up/10 text-fg" : "border-line bg-card text-soft hover:border-line2 hover:bg-raised"
       }`}
       onClick={onClick}
       title={description}
       type="button"
     >
-      <span className={active ? "text-up" : "text-dim"}>{icon}</span>
+      <span className={`shrink-0 ${active ? "text-up" : "text-dim"}`}>{icon}</span>
       <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-bold uppercase tracking-[0.1em]">{label}</span>
     </button>
   );

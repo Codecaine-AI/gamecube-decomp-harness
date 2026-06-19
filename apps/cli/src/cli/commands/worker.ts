@@ -259,15 +259,15 @@ export function classifyWorkerError(params: {
     };
   }
   const validationReasons = runnerValidationFailureReasons(params.runnerValidation);
-  // L1 QA lint rejection: the attempt re-added a maintainer-rejected pattern.
+  // L1 QA lint rejection: the attempt re-added or left a QA finding.
   // The runner_validation_ prefix keeps this a rework kind (isReworkErrorKind),
   // so it routes to needs_rework/repair and can never hit the tool_error
   // quarantine path — by policy, tool_error targets are never auto-requeued.
-  if (params.runnerValidation.qaLint?.status === "violations") {
+  if (params.runnerValidation.qaLint?.status === "violations" || params.runnerValidation.qaLint?.status === "warnings") {
     const qaReasons = qaLintRepairReasons(params.runnerValidation.qaLint);
     return {
       kind: "runner_validation_qa_lint_failed",
-      summary: `QA lint rejected the attempt: ${params.runnerValidation.qaLint.findings.length} maintainer-rejected pattern finding(s)`,
+      summary: `QA lint rejected the attempt: ${params.runnerValidation.qaLint.findings.length} QA finding(s) requiring repair`,
       reasons: [...validationReasons, ...qaReasons.filter((reason) => !validationReasons.includes(reason))],
     };
   }

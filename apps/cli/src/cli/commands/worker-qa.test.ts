@@ -22,6 +22,10 @@ function violationsQaLint(findings: QaScanFinding[] = [finding()]): WorkerQaLint
   return { status: "violations", exitCode: 1, findings, scanPath: "/tmp/attempt-0.qa_diff.patch", toolError: null };
 }
 
+function warningsQaLint(findings: QaScanFinding[] = [finding({ severity: "warning" })]): WorkerQaLint {
+  return { status: "warnings", exitCode: 2, findings, scanPath: "/tmp/attempt-0.qa_diff.patch", toolError: null };
+}
+
 function acceptedGate(): ReturnType<typeof evaluateWorkerReportAcceptance> {
   return { intendedReportType: "score_candidate", effectiveReportType: "score_candidate", accepted: true, reasons: [] };
 }
@@ -41,7 +45,7 @@ function rejectedValidation(qaLint: WorkerQaLint): WorkerChangeValidation {
   // What applyQaLintToValidation produces from a score-improving attempt with violations.
   return {
     status: "failed",
-    reasons: ["qa lint found 1 maintainer-rejected pattern finding(s) (gate exit 1)"],
+    reasons: [`qa lint found 1 QA finding(s) requiring repair (gate exit ${qaLint.exitCode ?? "unknown"})`],
     target: { unit: "melee/mn/mncount.c", symbol: "mnCount_803EE888", before: 80, after: 99.999999, improved: true, exact: true },
     qaLint,
   };
@@ -57,15 +61,24 @@ function passedValidation(qaLint: WorkerQaLint | null): WorkerChangeValidation {
 }
 
 describe("workerAttemptRepairReasons", () => {
-  test("violations append one verbatim qa_lint_violation reason per finding plus the instruction", () => {
+  test("violations append one verbatim qa_lint_finding reason per finding plus the instruction", () => {
     const validation = rejectedValidation(violationsQaLint());
     const reasons = workerAttemptRepairReasons({ acceptanceGate: acceptedGate(), writeSetDiffChanged: true, runnerValidation: validation });
     expect(reasons).toContain(
-      'qa_lint_violation: packed_string_blob at src/melee/mn/mncount.c:782 — hand-packed string blob [standard: global_standard:literals-and-data-ownership] excerpt: static char lbl_803EE888[0x18] = "a\\0b";',
+      'qa_lint_finding: error packed_string_blob at src/melee/mn/mncount.c:782 — hand-packed string blob [standard: global_standard:literals-and-data-ownership] excerpt: static char lbl_803EE888[0x18] = "a\\0b";',
     );
     expect(reasons[reasons.length - 1]).toBe(QA_LINT_REPAIR_INSTRUCTION);
     // The runner-validation summary reason also rides along (status is failed).
     expect(reasons.some((reason) => reason.startsWith("runner validation: qa lint found"))).toBe(true);
+  });
+
+  test("warnings append repair reasons too", () => {
+    const validation = rejectedValidation(warningsQaLint());
+    const reasons = workerAttemptRepairReasons({ acceptanceGate: acceptedGate(), writeSetDiffChanged: true, runnerValidation: validation });
+    expect(reasons).toContain(
+      'qa_lint_finding: warning packed_string_blob at src/melee/mn/mncount.c:782 — hand-packed string blob [standard: global_standard:literals-and-data-ownership] excerpt: static char lbl_803EE888[0x18] = "a\\0b";',
+    );
+    expect(reasons[reasons.length - 1]).toBe(QA_LINT_REPAIR_INSTRUCTION);
   });
 
   test("tool_unavailable contributes no rejection reasons: a passed attempt stays accepted", () => {
@@ -91,7 +104,19 @@ describe("classifyWorkerError with QA lint violations", () => {
     expect(classification).not.toBeNull();
     expect(classification?.kind).toBe("runner_validation_qa_lint_failed");
     expect(classification?.summary).toContain("QA lint rejected the attempt");
-    expect(classification?.reasons.some((reason) => reason.startsWith("qa_lint_violation: packed_string_blob"))).toBe(true);
+    expect(classification?.reasons.some((reason) => reason.startsWith("qa_lint_finding: error packed_string_blob"))).toBe(true);
+  });
+
+  test("warning findings also classify as runner_validation_qa_lint_failed", () => {
+    const classification = classifyWorkerError({
+      result: piResult(),
+      agentReport: { report_type: "score_candidate" },
+      acceptanceGate: acceptedGate(),
+      runnerValidation: rejectedValidation(warningsQaLint()),
+    });
+    expect(classification?.kind).toBe("runner_validation_qa_lint_failed");
+    expect(classification?.summary).toContain("1 QA finding(s) requiring repair");
+    expect(classification?.reasons.some((reason) => reason.startsWith("qa_lint_finding: warning packed_string_blob"))).toBe(true);
   });
 
   test("the kind is a rework kind and routes to needs_rework, never the tool_error quarantine path", () => {
@@ -138,7 +163,7 @@ describe("classifyWorkerError with QA lint violations", () => {
   test("violations outrank the generic runner_validation_<status> kind", () => {
     const validation: WorkerChangeValidation = {
       status: "no_official_score_change",
-      reasons: ["target did not improve", "qa lint found 1 maintainer-rejected pattern finding(s) (gate exit 1)"],
+      reasons: ["target did not improve", "qa lint found 1 QA finding(s) requiring repair (gate exit 1)"],
       qaLint: violationsQaLint(),
     };
     const classification = classifyWorkerError({

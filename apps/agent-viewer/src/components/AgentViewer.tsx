@@ -45,8 +45,10 @@ type JsonRecord = Record<string, unknown>;
 const agents: Array<{ id: PromptPreviewAgentId; label: string }> = [
   { id: "worker", label: "Worker" },
   { id: "pr-indexer", label: "PR Indexer" },
+  { id: "pr-reviewer", label: "PR Reviewer" },
   { id: "pr-splitter", label: "PR Splitter" },
   { id: "knowledge-curator", label: "Curator" },
+  { id: "reconcile", label: "Reconcile" },
   { id: "qa-repair", label: "PR Fixer" },
 ];
 
@@ -195,6 +197,15 @@ function localStandardExamplesPromptXml(limit = 12): string {
 }
 
 const LOCAL_STANDARD_EXAMPLES_XML = localStandardExamplesPromptXml();
+
+const LOCAL_PRESHIP_EXHIBITS_XML = [
+  '<maintainer_rejection_exhibits count="1">',
+  '    <instruction>Curated maintainer rejection examples are injected by the server when available. This client fallback keeps the placeholder readable if only raw template context is present.</instruction>',
+  '    <exhibit id="sample-match-tradeoff" kind="review_note">',
+  "        <summary>Exact matches may carry non-banned source-shape concerns, but those concerns must be reviewer-visible and line-specific.</summary>",
+  "    </exhibit>",
+  "</maintainer_rejection_exhibits>",
+].join("\n");
 
 function localAvailableToolsPromptXml(): string {
   const groups = new Map<string, { provider: string; type: string; toolIds: string[] }>();
@@ -505,6 +516,9 @@ function hydratePromptPlaceholders(prompt: string, context: JsonRecord = {}): st
     .replace(/\{\{\s*CURATOR_CONTEXT_JSON\s*\}\}/g, () => JSON.stringify(asObject(context.curatorContext), null, 2))
     .replace(/\{\{\s*CURATOR_OUTPUT_SCHEMA_JSON\s*\}\}/g, () => JSON.stringify(asObject(context.output_schema), null, 2))
     .replace(/\{\{\s*DECOMP_STANDARDS_XML\s*\}\}/g, () => LOCAL_DECOMP_STANDARDS_XML)
+    .replace(/\{\{\s*EXHIBITS_XML\s*\}\}/g, () => accessString(context.exhibits_xml) || LOCAL_PRESHIP_EXHIBITS_XML)
+    .replace(/\{\{\s*LINT_FINDINGS_JSON\s*\}\}/g, () => JSON.stringify(firstObject(context.lintFindings, context.lint_findings), null, 2))
+    .replace(/\{\{\s*PRESHIP_OUTPUT_SCHEMA_JSON\s*\}\}/g, () => JSON.stringify(asObject(context.output_schema), null, 2))
     .replace(/\{\{\s*PR_CONTEXT_JSON\s*\}\}/g, () => JSON.stringify(asObject(context.prContext), null, 2))
     .replace(/\{\{\s*PR_CONTEXT_XML\s*\}\}/g, () => localPrContextPromptXml(context))
     .replace(/\{\{\s*PR_OUTPUT_SCHEMA_JSON\s*\}\}/g, () => JSON.stringify(asObject(context.output_schema), null, 2))
@@ -513,7 +527,12 @@ function hydratePromptPlaceholders(prompt: string, context: JsonRecord = {}): st
     .replace(/\{\{\s*QA_REPAIR_ITEM_JSON\s*\}\}/g, () => JSON.stringify(asObject(context.qaRepairItem), null, 2))
     .replace(/\{\{\s*QA_REPAIR_OUTPUT_SCHEMA_JSON\s*\}\}/g, () => JSON.stringify(asObject(context.output_schema), null, 2))
     .replace(/\{\{\s*QA_REPAIR_QUEUE_SUMMARY_JSON\s*\}\}/g, () => JSON.stringify(firstObject(context.queueSummary, context.qaRepairQueueSummary), null, 2))
-    .replace(/\{\{\s*STANDARD_EXAMPLES_XML\s*\}\}/g, () => LOCAL_STANDARD_EXAMPLES_XML)
+    .replace(/\{\{\s*RECONCILE_CONTEXT_JSON\s*\}\}/g, () => JSON.stringify(asObject(context.reconcileContext), null, 2))
+    .replace(/\{\{\s*RECONCILE_MODE\s*\}\}/g, () => accessString(context.reconcileMode) || "ship-validate")
+    .replace(/\{\{\s*RECONCILE_OUTPUT_SCHEMA_JSON\s*\}\}/g, () => JSON.stringify(asObject(context.output_schema), null, 2))
+    .replace(/\{\{\s*SLICE_DIFF\s*\}\}/g, () => accessString(context.sliceDiff))
+    .replace(/\{\{\s*SLICE_ID\s*\}\}/g, () => accessString(context.sliceId) || "agent-viewer-sample")
+    .replace(/\{\{\s*STANDARD_EXAMPLES_XML\s*\}\}/g, () => accessString(context.standard_examples_xml) || LOCAL_STANDARD_EXAMPLES_XML)
     .replace(/\{\{\s*TARGET_GRAPH_FILE_CARD_XML\s*\}\}/g, () => localTargetGraphFileCardPromptXml(context))
     .replace(/\{\{\s*TARGET_XML\s*\}\}/g, () => localTargetPromptXml(context))
     .replace(/\{\{\s*TARGET_FILE_XML\s*\}\}/g, () => localTargetFilePromptXml(context));
@@ -1178,13 +1197,17 @@ function AgentAccessPanel({ agent, context, prompt }: { agent: PromptPreviewAgen
       ? "Worker Launch Inputs"
       : agent === "pr-indexer"
         ? "PR Indexer Access"
-        : agent === "pr-splitter"
-          ? "PR Splitter Access"
-          : agent === "knowledge-curator"
-            ? "Curator Access"
-            : agent === "qa-repair"
-              ? "PR Fixer Access"
-              : "Agent Access";
+        : agent === "pr-reviewer"
+          ? "PR Reviewer Access"
+          : agent === "pr-splitter"
+            ? "PR Splitter Access"
+            : agent === "knowledge-curator"
+              ? "Curator Access"
+              : agent === "reconcile"
+                ? "Reconcile Access"
+                : agent === "qa-repair"
+                  ? "PR Fixer Access"
+                  : "Agent Access";
 
   return (
     <InspectorSection badge={formatCount(groups.reduce((total, group) => total + (group.badgeCount ?? group.rows.length), 0))} title={title}>
@@ -1334,7 +1357,7 @@ export function AgentViewer() {
   const graphLabel = preview?.graphDbPath ?? form.graphDbPath;
   const hydratedSystemPrompt = useMemo(() => hydratePromptPlaceholders(preview?.systemPrompt ?? "", context), [context, preview?.systemPrompt]);
   const hydratedUserPrompt = useMemo(() => hydratePromptPlaceholders(preview?.userPrompt ?? "", context), [context, preview?.userPrompt]);
-  const attachedToolCount = useMemo(() => (preview?.agent === "worker" ? attachedToolRows(context, true).length : 0), [context, preview?.agent]);
+  const attachedToolCount = useMemo(() => attachedToolRows(context, preview?.agent === "worker").length, [context, preview?.agent]);
   const workerTargetBaseline = useMemo(() => workerTargetBaselineJson(hydratedUserPrompt), [hydratedUserPrompt]);
   const inspectorJson = preview?.agent === "worker" && workerTargetBaseline ? workerTargetBaseline : contextJson;
   const inspectorTitle = preview?.agent === "worker" && workerTargetBaseline ? "Target / Baseline" : "Injected Context";

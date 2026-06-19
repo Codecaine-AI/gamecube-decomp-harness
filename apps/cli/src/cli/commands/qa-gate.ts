@@ -52,6 +52,8 @@ export function evaluateQaGate(invocation: QaScanInvocation | null, skip: boolea
     return { qaGatePassed: true, qaGateSkipped: false, qaGateExitCode: invocation.exitCode, qaFindings, qaCounts, hint: null };
   }
   const errorCount = qaCounts?.errors ?? (qaFindings ? qaFindings.filter((finding) => finding.severity === "error").length : 0);
+  const warningCount = qaCounts?.warnings ?? (qaFindings ? qaFindings.filter((finding) => finding.severity === "warning").length : 0);
+  const findingCount = errorCount + warningCount;
   const located = qaFindings && qaFindings.length > 0 ? ` (rule_ids: ${findingsHintList(qaFindings)})` : "";
   return {
     qaGatePassed: false,
@@ -60,8 +62,8 @@ export function evaluateQaGate(invocation: QaScanInvocation | null, skip: boolea
     qaFindings,
     qaCounts,
     hint:
-      `QA gate failed: ${errorCount} maintainer-rejected pattern(s) detected${located}. ` +
-      "Each finding cites the violated standard; remove the violation — a lower match % without it is the correct outcome. " +
+      `QA gate failed: ${findingCount} QA finding(s) detected (${errorCount} error, ${warningCount} warning)${located}. ` +
+      "Each finding cites the violated standard; remove every finding or prove a false positive — a lower match % without it is the correct outcome. " +
       "See qa_scan.json.",
   };
 }

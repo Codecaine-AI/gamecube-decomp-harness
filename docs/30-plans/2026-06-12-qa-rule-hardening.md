@@ -113,10 +113,11 @@ upstream version of the same file, downgrade error → warning. Apply to
 `unrolled_assert` + all new rules.
 
 ### Severity profiles
-`scan_diff` already exits 1 = errors / 2 = warnings-only, and gates fail on
-errors. No profile mechanism needed initially — the table above is calibrated
-so errors are zero-upstream-precedent patterns and warnings are
-judgment/evidence tactics.
+`scan_diff` already exits 1 = errors / 2 = warnings-only. Strict automated
+consumers now treat both as repair targets, while the severity distinction is
+still useful for triage and false-positive review. No profile mechanism needed
+initially — the table above is calibrated so errors are
+zero-upstream-precedent patterns and warnings are judgment/evidence tactics.
 
 ## Not hard-gateable (leave to review/preship agent)
 natural-loops, infer-authored-source-style, text-before-data-matching,

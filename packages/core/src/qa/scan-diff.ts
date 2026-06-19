@@ -120,7 +120,7 @@ export function qaScanDiffScriptPath(orchestratorRoot: string): string {
 }
 
 export function qaGatePassed(invocation: QaScanInvocation): boolean {
-  return invocation.toolError === null && invocation.result !== null && invocation.result.counts.errors === 0 && (invocation.exitCode === 0 || invocation.exitCode === 2);
+  return invocation.toolError === null && invocation.result !== null && invocation.result.counts.errors === 0 && invocation.result.counts.warnings === 0 && invocation.exitCode === 0;
 }
 
 export function parseQaScanResult(stdout: string): QaScanResult | null {

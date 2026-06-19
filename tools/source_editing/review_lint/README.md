@@ -89,6 +89,7 @@ without treating it as newly invented gate-blocking code.
 Without `--gate` the exit code is `0` unless the tool itself fails (`3` for a
 missing repo or diff file). Consumers share one invoker,
 `packages/core/src/qa/scan-diff.ts`: the L2 ship gate in `regression-check`
-(fails closed on tool errors), the worker-side L1 lint in `change-validation`
-(fails open on tool errors), and `pr-preship-review` (per-slice lint evidence
-for the adversarial reviewer).
+(fails closed on tool errors and requires zero errors plus zero warnings), the
+worker-side L1 lint in `change-validation` (treats warnings as repair targets
+but fails open on tool errors), and `pr-preship-review` (per-slice lint
+evidence for the adversarial reviewer).

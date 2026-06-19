@@ -81,7 +81,7 @@ export function KnowledgeGraphPage({ form, projectName }: { form: FormState; pro
   return (
     <>
       <PageHeader kicker={projectName} title="Knowledge" />
-      <div className="mx-auto grid w-full max-w-7xl gap-4 p-4 min-h-0 flex-1 overflow-auto">
+      <div className="@container grid min-h-0 flex-1 content-start gap-4 overflow-auto p-4">
         <KnowledgeGraphPanel form={form} />
       </div>
     </>
@@ -1420,7 +1420,7 @@ function KnowledgeGraphPanel({ form }: { form: FormState }) {
   return (
     <PanelSection>
       <PanelTitle>Knowledge Graph &amp; Sources</PanelTitle>
-      <div className="grid grid-cols-2 gap-4 max-[1180px]:grid-cols-1">
+      <div className="grid grid-cols-1 gap-4 @[760px]:grid-cols-2">
         <PanelSection className="p-3">
           <PanelTitle>Global Sources</PanelTitle>
           <List values={inventory?.globalSources ?? []} empty="No global knowledge sources configured." />

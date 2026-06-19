@@ -511,17 +511,21 @@ export function qaLintFromInvocation(invocation: QaScanInvocation, scanPath: str
 }
 
 export const QA_LINT_REPAIR_INSTRUCTION =
-  "Remove the violation; a lower match % without it is the correct outcome. Do not re-add maintainer-rejected patterns.";
+  "Remove every QA lint finding; a lower match % without it is the correct outcome. Do not re-add maintainer-rejected patterns.";
+
+function qaLintRequiresRepair(qaLint: WorkerQaLint | null | undefined): qaLint is WorkerQaLint {
+  return qaLint?.status === "violations" || qaLint?.status === "warnings";
+}
 
 /** Worker-facing repair feedback: one verbatim reason per finding plus the standing instruction. */
 export function qaLintRepairReasons(qaLint: WorkerQaLint | null | undefined): string[] {
-  if (!qaLint || qaLint.status !== "violations") return [];
+  if (!qaLintRequiresRepair(qaLint)) return [];
   const reasons = qaLint.findings.map(
     (finding) =>
-      `qa_lint_violation: ${finding.rule_id} at ${finding.file}:${finding.line} — ${finding.message} [standard: ${finding.standard_id ?? "unknown"}] excerpt: ${finding.excerpt}`,
+      `qa_lint_finding: ${finding.severity} ${finding.rule_id} at ${finding.file}:${finding.line} — ${finding.message} [standard: ${finding.standard_id ?? "unknown"}] excerpt: ${finding.excerpt}`,
   );
   if (reasons.length === 0) {
-    reasons.push(`qa_lint_violation: scan_diff gate failed (exit ${qaLint.exitCode ?? "unknown"}) without parseable findings`);
+    reasons.push(`qa_lint_finding: scan_diff gate failed (exit ${qaLint.exitCode ?? "unknown"}) without parseable findings`);
   }
   reasons.push(QA_LINT_REPAIR_INSTRUCTION);
   return reasons;
@@ -529,19 +533,20 @@ export function qaLintRepairReasons(qaLint: WorkerQaLint | null | undefined): st
 
 /**
  * Fold the L1 QA lint outcome into the runner validation verdict. A
- * score-improving attempt that re-adds a maintainer-rejected pattern is the
- * exact failure mode L1 exists to stop — the violation is what inflates the
- * score — so "passed" demotes to "failed" on violations. tool_unavailable,
- * warnings, and clean never change the score verdict.
+ * score-improving attempt that re-adds or leaves a maintainer-rejected pattern
+ * is the exact failure mode L1 exists to stop. Even warning-level findings are
+ * repair targets during automated work; the right next step is to remove them
+ * or prove a false positive, not ship them as incidental score progress.
+ * tool_unavailable and clean never change the score verdict.
  */
 export function applyQaLintToValidation(validation: WorkerRunnerValidation, qaLint: WorkerQaLint | null): WorkerChangeValidation {
-  if (!qaLint || qaLint.status !== "violations") return { ...validation, qaLint };
+  if (!qaLintRequiresRepair(qaLint)) return { ...validation, qaLint };
   return {
     ...validation,
     status: validation.status === "passed" ? "failed" : validation.status,
     reasons: [
       ...validation.reasons,
-      `qa lint found ${qaLint.findings.length} maintainer-rejected pattern finding(s) (gate exit ${qaLint.exitCode ?? "unknown"})`,
+      `qa lint found ${qaLint.findings.length} QA finding(s) requiring repair (gate exit ${qaLint.exitCode ?? "unknown"})`,
     ],
     qaLint,
   };
@@ -627,7 +632,7 @@ export async function validateWorkerChange(params: {
   if (!params.shouldRun) return skipped("structured acceptance gate did not pass for progress/score_candidate");
 
   // The QA lint scan runs even when the score comparison below cannot (build
-  // failure, missing snapshot): a violation must be reported regardless of
+  // failure, missing snapshot): QA findings must be reported regardless of
   // whether the attempt's score evidence is usable.
   const qaLint = await runWorkerQaLintScan({
     repoRoot: params.repoRoot,

@@ -4,8 +4,17 @@
   - Treat worker output as useful but fallible: your job is to make the retained
     source worth merging into the repo, not to preserve every score gain.
   - Preserve useful matching work when possible by converting bad tactics into project idioms.
+  - Exact matches are the primary PR value. Fuzzy-only improvements are expendable,
+    and peeling them back is acceptable when that keeps the code reviewable.
+  - Do not introduce new regressions in existing report items. If a repair would
+    break an already-matched or already-improved baseline item, stop and report
+    the regression evidence instead of shipping the edit.
   - If a clean source repair is not possible, revert only the minimal problematic hunk needed to remove the violation.
   - If the clean fix lowers score, report `score_impact: "lower_score"` and explain exactly which useful work was lost and why the lower-score repair is still the cleanest option.
+  - If the only source shape that keeps a new exact match is review-sensitive but
+    not fake, banned, or a listed QA violation, keep the match-preserving shape
+    only with explicit `left_with_evidence` and `risks[]` entries naming the line,
+    concern, validation result, and reviewer question.
   - Do not recover the score by replacing one rejected tactic with another; clean
     source is the repair objective.
 </goal>
@@ -18,6 +27,8 @@
   - If `<qa_repair_item>.repair_warnings` is true, every warning finding is also fixed or listed with concrete evidence.
   - `<standard_examples>` has been used as targeted repair context for matching `standard_id` or `rule_id` findings.
   - Every finding has a `finding_dispositions[]` row: `fixed_source`, `fixed_by_minimal_revert`, `left_with_evidence`, or `false_positive`.
+  - Any retained match-vs-cleanliness tradeoff is called out in `risks[]` with
+    enough line-level evidence for a maintainer or PR reviewer to decide.
   - You did not edit unrelated files or opportunistically improve nearby code.
   - You ran the most relevant validation you can run from the available tools and report what passed, failed, or was not run.
   - You do not claim final cleanliness. The runner will re-run `review_lint scan_diff`, score/build/regression checks, and ship-set verification.
@@ -38,8 +49,16 @@
   12. A small score loss is acceptable when it is the cost of removing
       standards-violating worker output; record the loss instead of chasing it
       back with generated, tactic-shaped, or fake source.
+      Fuzzy improvements are less important than exact matches, and both are
+      less important than avoiding new regressions in existing items.
   13. If a finding appears false-positive, leave code minimal, set `outcome: "false_positive"`, add a `false_positive` disposition, and explain the rule/evidence gap. Do not call it clean.
-  14. If you cannot validate, set the relevant validation row to `not_run` and explain why.
+  14. Do not silently normalize away a new exact match for a merely suspicious
+      source shape. First try a clean idiomatic repair; if exactness depends on
+      a non-banned but reviewer-sensitive line, leave the smallest match-preserving
+      form and mark it `left_with_evidence` plus a `risks[]` entry for reviewer
+      judgment. If the shape is fake, cheating, a listed violation, or causes an
+      existing regression, fix/revert it even if the match is lost.
+  15. If you cannot validate, set the relevant validation row to `not_run` and explain why.
 </rules>
 
 <workflow>
@@ -54,7 +73,13 @@
         - Keep unrelated matching work intact.
         - Try `fixed_source` first: inline a constant, use an owned data definition, restore an HSD assert macro, replace generated residue names, or use typed fields/helpers.
         - Use `fixed_by_minimal_revert` only for the smallest hunk that cannot be made reviewable without keeping the banned tactic.
-        - When exact match and cleanliness conflict, choose cleanliness and report the score impact honestly.
+        - Prefer losing fuzzy improvements over losing exact matches when both
+          choices remain standards-compliant and regression-free.
+        - When exact match and a known violation conflict, choose cleanliness and
+          report the score impact honestly.
+        - When exact match depends on a non-banned unresolved style or source-shape
+          tradeoff, keep the minimal match-preserving code and annotate that line
+          in the JSON for PR-reviewer/maintainer guidance rather than hiding the concern.
     </phase>
 
     <phase id="3" name="validate">

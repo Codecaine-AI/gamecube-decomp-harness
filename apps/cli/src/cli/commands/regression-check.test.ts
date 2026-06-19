@@ -53,14 +53,15 @@ describe("evaluateQaGate", () => {
     expect(gate.hint).toBeNull();
   });
 
-  test("warnings only (exit 2) passes but surfaces warning counts and findings", () => {
+  test("warnings only (exit 2) fails the QA gate and surfaces warning counts and findings", () => {
     const warn = finding({ rule_id: "packed_string_blob", severity: "warning", line: 7 });
     const gate = evaluateQaGate(invocation({ exitCode: 2, result: scanResult([warn], "warned") }), false);
-    expect(gate.qaGatePassed).toBe(true);
+    expect(gate.qaGatePassed).toBe(false);
     expect(gate.qaGateExitCode).toBe(2);
     expect(gate.qaCounts).toEqual({ errors: 0, warnings: 1 });
     expect(gate.qaFindings).toHaveLength(1);
-    expect(gate.hint).toBeNull();
+    expect(gate.hint).toContain("0 error, 1 warning");
+    expect(gate.hint).toContain("packed_string_blob at src/melee/ft/ftcoll.c:7");
   });
 
   test("hard fail (exit 1) fails with rule ids and locations in the hint", () => {
@@ -72,7 +73,8 @@ describe("evaluateQaGate", () => {
     expect(gate.qaGatePassed).toBe(false);
     expect(gate.qaGateExitCode).toBe(1);
     expect(gate.qaCounts).toEqual({ errors: 2, warnings: 0 });
-    expect(gate.hint).toContain("QA gate failed: 2 maintainer-rejected pattern(s)");
+    expect(gate.hint).toContain("QA gate failed: 2 QA finding(s)");
+    expect(gate.hint).toContain("2 error, 0 warning");
     expect(gate.hint).toContain("extern_literal_anchor at src/melee/ft/ftcoll.c:42");
     expect(gate.hint).toContain("unrolled_assert at src/melee/gr/ground.c:99");
     expect(gate.hint).toContain("lower match % without it is the correct outcome");

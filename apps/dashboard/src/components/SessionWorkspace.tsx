@@ -626,8 +626,9 @@ function ProjectWorkspaceNav({
             title="Open the active session"
             type="button"
           >
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-2.5">
               <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-dim">Active Session</span>
+              <span className="h-3 w-px bg-line2" aria-hidden="true" />
               <span className={`text-[11px] ${view.mode === "pr" ? "text-warn" : view.mode === "run" ? "text-up" : "text-dim"}`}>{view.modeLabel}</span>
             </div>
           </button>
@@ -683,7 +684,7 @@ function RunControls({ busy, form, onAction, setForm, view }: { busy: boolean; f
             ))}
           </select>
         </label>
-        <div className="grid grid-cols-2 gap-2 max-[780px]:grid-cols-1">
+        <div className="grid grid-cols-1 gap-2 @[30rem]:grid-cols-2">
           <SelectField label="Epoch size" onChange={(event) => setForm({ epochSize: event.currentTarget.value })} options={["32", "64", "128", "256", "512", "full"]} value={form.epochSize} />
           <Field label="Ready queue" min={1} onChange={(event) => setForm({ epochReadyQueueSize: Math.max(1, Number(event.currentTarget.value) || 1) })} type="number" value={form.epochReadyQueueSize} />
           <SelectField label="Boundary KG" onChange={(event) => setForm({ fullKgMaintenanceMode: event.currentTarget.value })} options={["full", "no-tool-runners", "skip"]} value={form.fullKgMaintenanceMode} />
@@ -740,8 +741,8 @@ function ProjectOverviewPage({ busy, form, nav, onAction, view }: { busy: boolea
   return (
     <>
       <PageHeader kicker={view.project?.displayName ?? "No project selected"} title="Overview" />
-      <div className="mx-auto grid w-full max-w-4xl gap-4 p-4 min-h-0 flex-1 overflow-auto">
-        <section className="grid grid-cols-2 gap-3 max-[780px]:grid-cols-1">
+      <div className="@container grid min-h-0 flex-1 content-start gap-4 overflow-auto p-4">
+        <section className="grid grid-cols-2 gap-3 @[36rem]:grid-cols-4">
           <StatCard label="Status" tone={view.mode === "pr" ? "text-warn" : view.mode === "run" ? "text-up" : "text-dim"} value={view.mode === "none" ? "No active session" : `Active session ${view.modeLabel}`} />
           <StatCard label="Session" value={view.activeSessionLabel} />
           <StatCard label="Branch" value={view.branchLabel} />
@@ -779,7 +780,7 @@ function ProjectOverviewPage({ busy, form, nav, onAction, view }: { busy: boolea
             </div>
           </div>
         </PanelSection>
-        <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] gap-4 max-[1180px]:grid-cols-1">
+        <div className="grid grid-cols-1 gap-4 @[760px]:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
           <PanelSection>
             <PanelTitle>Recommended Next Step</PanelTitle>
             <p className="m-0 text-sm text-soft">{recommendedHint}</p>
@@ -808,7 +809,7 @@ function ProjectOverviewPage({ busy, form, nav, onAction, view }: { busy: boolea
             )}
           </PanelSection>
         </div>
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4 max-[1180px]:grid-cols-1">
+        <div className="grid grid-cols-1 gap-4 @[760px]:grid-cols-2">
           <PanelSection>
             <PanelTitle>Project Readiness</PanelTitle>
             <InfoRows rows={readinessRows(view, nav)} />
@@ -839,8 +840,8 @@ function ProjectSettingsPage({ config, form, nav, setForm, view }: { config: UiC
   return (
     <>
       <PageHeader kicker={view.project?.displayName ?? "No project selected"} title="Settings" />
-      <div className="mx-auto grid w-full max-w-4xl gap-4 p-4 min-h-0 flex-1 overflow-auto">
-        <div className="grid grid-cols-[minmax(320px,0.75fr)_minmax(0,1fr)] gap-4 max-[1180px]:grid-cols-1">
+      <div className="@container grid min-h-0 flex-1 content-start gap-4 overflow-auto p-4">
+        <div className="grid grid-cols-1 gap-4 @[760px]:grid-cols-[minmax(320px,0.75fr)_minmax(0,1fr)]">
           <PanelSection>
             <PanelTitle>Project Selection</PanelTitle>
             <SelectField
@@ -880,7 +881,7 @@ function ProjectSettingsPage({ config, form, nav, setForm, view }: { config: UiC
             />
           </PanelSection>
         </div>
-        <div className="grid grid-cols-2 gap-4 max-[1180px]:grid-cols-1">
+        <div className="grid grid-cols-1 gap-4 @[760px]:grid-cols-2">
           <PanelSection>
             <PanelTitle>Validation Defaults</PanelTitle>
             <List values={Object.entries(validation).map(([key, value]) => `${key}: ${String(value)}`)} empty="No validation defaults configured." />
@@ -900,7 +901,7 @@ function SessionsIndexPage({ busy, nav, onAction, view }: { busy: boolean; nav: 
   return (
     <>
       <PageHeader kicker={view.project?.displayName ?? "No project selected"} title="Sessions" />
-      <div className="mx-auto grid w-full max-w-5xl grid-cols-[minmax(300px,1fr)_minmax(0,1.6fr)] gap-4 p-4 max-[1180px]:grid-cols-1 min-h-0 flex-1 overflow-auto">
+      <div className="@container grid min-h-0 flex-1 content-start grid-cols-[minmax(300px,1fr)_minmax(0,1.6fr)] gap-4 overflow-auto p-4 max-[1180px]:grid-cols-1">
         <PanelSection>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <PanelTitle className="mb-0">Active Session</PanelTitle>
@@ -993,7 +994,7 @@ function ActiveSessionPage(props: { busy: boolean; dashboard: Dashboard | null; 
   return (
     <>
       <PageHeader kicker={props.view.project?.displayName ?? "No project selected"} title="Active Session" />
-      <div className="grid gap-4 p-4 min-h-0 flex-1 overflow-auto">
+      <div className="@container grid min-h-0 flex-1 content-start gap-4 overflow-auto p-4">
         <PhaseStepperBar current={currentPhaseId(props.view)} phases={SESSION_PHASES as unknown as Array<{ id: string; label: string }>} />
         <SubNav items={subItems} />
         <ActiveSessionSubPage {...props} sub={sub} />
@@ -1035,7 +1036,7 @@ function ActiveSessionSummary({ nav, view }: { nav: WorkspaceNav; view: SessionV
   const savePoint = asObject(asObject(view.prSummary.ship).savePoint);
   return (
     <div className="grid gap-4">
-      <section className="grid grid-cols-4 gap-3 max-[1180px]:grid-cols-2 max-[780px]:grid-cols-1">
+      <section className="grid grid-cols-2 gap-3 @[36rem]:grid-cols-4">
         <StatCard label="Mode" tone={view.mode === "pr" ? "text-warn" : view.mode === "run" ? "text-up" : "text-dim"} value={view.modeLabel} />
         <StatCard label="Run" value={view.runStatus || "no run"} />
         <StatCard label="Leases" value={num(view.activeLeases)} />
@@ -1045,7 +1046,7 @@ function ActiveSessionSummary({ nav, view }: { nav: WorkspaceNav; view: SessionV
         <PanelTitle>Mode Evidence</PanelTitle>
         <List values={view.modeEvidence.length ? view.modeEvidence : ["No active mode evidence yet."]} empty="No active mode evidence yet." />
       </PanelSection>
-      <div className="grid grid-cols-2 gap-4 max-[1180px]:grid-cols-1">
+      <div className="grid grid-cols-1 gap-4 @[760px]:grid-cols-2">
         <PanelSection>
           <PanelTitle>Run Artifacts</PanelTitle>
           <InfoRows
@@ -1151,7 +1152,7 @@ function RunModePage(props: {
 }) {
   return (
     <div className="grid gap-4">
-      <div className="grid grid-cols-[minmax(320px,0.72fr)_minmax(0,1fr)] gap-4 max-[1180px]:grid-cols-1">
+      <div className="grid grid-cols-1 gap-4 @[760px]:grid-cols-[minmax(320px,0.72fr)_minmax(0,1fr)]">
         <RunControls busy={props.busy} form={props.form} onAction={props.onAction} setForm={props.setForm} view={props.view} />
         <ProcessCard form={props.form} view={props.view} />
       </div>
@@ -1545,7 +1546,7 @@ function SessionHistoryPage({ dashboard, view }: { dashboard: Dashboard | null; 
   const savePoint = asObject(asObject(dashboard?.campaign).savePoint);
   return (
     <div className="grid gap-4">
-      <div className="grid grid-cols-2 gap-4 max-[1180px]:grid-cols-1">
+      <div className="grid grid-cols-1 gap-4 @[760px]:grid-cols-2">
         <PanelSection>
           <PanelTitle>Latest Save Point</PanelTitle>
           <InfoRows

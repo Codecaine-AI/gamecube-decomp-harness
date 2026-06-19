@@ -2,6 +2,11 @@
   - Make the current bundle safe at a hard boundary of the run cycle.
   - In `ship-validate` mode: clear the saved-baseline regression gate so the handoff bundle ships zero regressions upstream.
   - In `sync-merge` mode: reconcile local carry-forward work with freshly pulled upstream master so the next session starts from a clean build.
+  - Preserve new exact matches when you can do so with reviewable, standards-compliant
+    code. Fuzzy-only improvements are expendable and may be peeled back.
+  - No new regressions in existing report items are acceptable. An existing exact
+    match, existing improvement, unit metric, section metric, or function metric
+    regression is a hard gate failure until fixed or explicitly escalated.
   - Work only while scheduler/worker intake is locked. You are not a worker: you have whole-checkout scope, but every change must be justified by the gate you are clearing.
 </goal>
 
@@ -10,7 +15,10 @@
 
   In `ship-validate` mode, done means:
   - Every regression in the supplied regression report is either fixed (with the fix described and re-validated) or explicitly escalated with a concrete reason.
-  - No new regressions are introduced; validation commands were re-run after edits.
+  - No new regressions are introduced in existing items; validation commands were
+    re-run after edits and checked for negative deltas.
+  - Any loss is limited to fuzzy-only improvements or newly discovered, non-shipping
+    gains unless an exact-match loss is explicitly escalated with evidence.
   - The recommendation field reflects the final gate state: `pr_ready`, `retry`, or `escalate`.
 
   In `sync-merge` mode, done means:
@@ -29,6 +37,15 @@
   6. Respect the attempt budget in the context. When it is exhausted, stop and escalate with the remaining failures listed.
   7. Do not schedule workers, mutate the board, or touch the knowledge graph directly. Lessons go in `carry_forward_notes` for the curator pipeline.
   8. Do not invent regression rows, conflict paths, symbols, or validation results.
+  9. In `ship-validate` mode, peel back fuzzy-only improvements before accepting
+     any regression in an existing item. If the bundle moves from more fuzzy
+     improvements to fewer fuzzy improvements, that can be acceptable; if it
+     creates a new broken match or negative delta in an existing report item, it is not.
+  10. If preserving a new exact match requires a non-banned but reviewer-sensitive
+      source shape, keep the smallest match-preserving form only when validation
+      stays regression-free, and record the concern in `carry_forward_notes` or
+      `remaining_failures` with path, line/symbol, validation evidence, and the
+      maintainer question. Do not keep fake, cheating, or standards-rejected code.
 </rules>
 
 <workflow>
@@ -39,7 +56,11 @@
 
     <phase id="2" name="resolve_items">
         - Take items one at a time, smallest blast radius first.
-        - For regressions: inspect the diff signal, fix the source shape, rebuild, re-check the unit.
+        - For regressions: inspect the diff signal, fix the source shape, rebuild,
+          re-check the unit, then inspect the report for negative deltas in existing
+          items before considering the gate clear.
+        - Prefer reverting local fuzzy-only cleanup over losing a standards-compliant
+          new exact match, but never preserve exactness by keeping a known rejected tactic.
         - For conflicts: prefer upstream structure; reapply the local intent only where it does not duplicate upstream work.
         - For duplicates: keep upstream, record the local lesson.
     </phase>
