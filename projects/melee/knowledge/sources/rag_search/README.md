@@ -2,7 +2,6 @@
 
 Standalone knowledge bases that agents can query on demand.
 
-- `discord_knowledge` contains community/compiler discussion notes.
 - `powerpc_docs` contains indexed PowerPC PDF/documentation pages.
 
 Use these for research questions that are not already answered by local source,
@@ -19,3 +18,6 @@ python3 projects/melee/knowledge/sources/rag_search/<source_id>/api/semantic_sea
 Vectorization defaults to OpenAI `text-embedding-3-small` embeddings, stores
 normalized vectors in `indexes/vector.sqlite`, and writes model/chunking
 metadata to `indexes/vector_manifest.json`.
+
+Deprecated RAG-style slices live under `../deprecated/` and are inactive in the
+default worker surface.

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { boardMeasuresFromReportSummary } from "./dashboard-artifacts.js";
 import { forceReportRun } from "./run.js";
 
 let tempDirs: string[] = [];
@@ -73,6 +74,7 @@ exit 1
         unmatchedTargets: 10,
         incompleteUnits: 3,
       });
+      expect(boardMeasuresFromReportSummary(result.summary).unmatched_targets).toBe(10);
       expect(readFileSync(logPath, "utf8").trim().split("\n")).toEqual([
         "python3 configure.py --require-protos",
         "ninja build/GALE01/report.json",

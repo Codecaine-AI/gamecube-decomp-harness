@@ -10,7 +10,7 @@ Records live in `data/standards.jsonl`. Each row is a JSON object with:
 - `summary`: renderable bullet-point strings usable in a worker or QA packet.
 - `do`: actionable positive checks.
 - `do_not`: review failures and forbidden shortcuts.
-- `evidence_refs`: source documents, corpus audits, or PR-corpus artifacts that
+- `evidence_refs`: source documents, corpus audits, or review-corpus artifacts that
   justify the rule.
 - `superseded_by`: evidence classes that outrank the standard.
 - `curator_update_policy`: `target_source_id: decomp_standards`,
@@ -20,7 +20,10 @@ Records live in `data/standards.jsonl`. Each row is a JSON object with:
 Runtime rules:
 
 - Worker/writer packets load a bounded accepted subset from this source.
-- QA and PR-review contexts load accepted global standards without path facts.
+- QA and review contexts load accepted global standards without path facts.
+- Example order is meaningful. The first `examples.jsonl` record for a
+  `standard_id` is the canonical example used by compact standards context;
+  additional examples are for targeted repair/review injections.
 - Search APIs return JSON with evidence references.
 - Curator output may propose new or changed global standards, but applying a
   proposal requires source-specific validation or operator review.

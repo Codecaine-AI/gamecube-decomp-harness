@@ -281,14 +281,14 @@ def worker_tool_slot(repo_root: Path, operation: str, *, default_concurrency: in
     while True:
         if fail_fast:
             active_slots = _active_tool_slots(queue_dir, limit)
-            if active_slots:
+            if len(active_slots) >= limit:
                 raise ToolQueueBusy(
                     _tool_queue_info(
                         operation=operation,
                         queue_dir=queue_dir,
                         limit=limit,
                         started=started,
-                        policy="fail_fast_when_active",
+                        policy="fail_fast_when_full",
                         active_slots=active_slots,
                     )
                 )
@@ -312,16 +312,6 @@ def worker_tool_slot(repo_root: Path, operation: str, *, default_concurrency: in
                 if _slot_is_stale(slot_dir):
                     shutil.rmtree(slot_dir, ignore_errors=True)
                     continue
-                if fail_fast:
-                    raise ToolQueueBusy(
-                        _tool_queue_info(
-                            operation=operation,
-                            queue_dir=queue_dir,
-                            limit=limit,
-                            started=started,
-                            policy="fail_fast_when_active",
-                        )
-                    )
                 continue
             info = {
                 "enabled": True,
@@ -330,7 +320,7 @@ def worker_tool_slot(repo_root: Path, operation: str, *, default_concurrency: in
                 "slot": index,
                 "limit": limit,
                 "active_slots": 1,
-                "policy": "fail_fast_when_active" if fail_fast else "wait_for_slot",
+                "policy": "fail_fast_when_full" if fail_fast else "wait_for_slot",
                 "wait_seconds": round(time.monotonic() - started, 3),
                 "acquired_at": acquired_at,
             }
@@ -346,7 +336,8 @@ def worker_tool_slot(repo_root: Path, operation: str, *, default_concurrency: in
                     queue_dir=queue_dir,
                     limit=limit,
                     started=started,
-                    policy="fail_fast_when_active",
+                    policy="fail_fast_when_full",
+                    active_slots=_active_tool_slots(queue_dir, limit),
                 )
             )
         time.sleep(0.25 + (os.getpid() % 10) * 0.03)
@@ -552,11 +543,11 @@ def run_tool_script(
             repo_root=repo_root,
             exit_code=None,
             stdout="",
-            stderr="source_permuter is already active; skipped instead of waiting in the queue",
+            stderr="source_permuter slots are full; skipped instead of waiting in the queue",
             status="queue_busy",
             extra={
                 "retryable": True,
-                "message": "source_permuter is already active; continue with cheaper analysis or validation instead of waiting",
+                "message": "source_permuter slots are full; continue with cheaper analysis or validation instead of waiting",
                 "tool_queue": slot_info,
             },
         )

@@ -79,8 +79,8 @@ helper command starts. Slot directories sit beside the epoch worker worktrees
 under `.worker-tool-slots/<tool>/slot-N` and carry `owner.json` so stale slots
 can be recovered. Defaults are 12 checkdiff slots, 1 source-permuter run/replay
 slot, 8 m2c slots, 2 mwcc_debug slots, and 16 for other tool APIs. Source
-permuter run/replay calls fail fast with `queue_busy` when another
-source-permuter call is active instead of waiting in line. Tune tool API slots
+permuter run/replay calls fail fast with `queue_busy` when all configured
+source-permuter slots are full instead of waiting in line. Tune tool API slots
 with `ORCH_TOOL_CONCURRENCY_<TOOL>`,
 `ORCH_WORKER_TOOL_CONCURRENCY_<TOOL>`, or
 `ORCH_WORKER_TOOL_CONCURRENCY`. Tune shared MWCC/wibo compile slots with

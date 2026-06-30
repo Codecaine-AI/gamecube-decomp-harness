@@ -19,36 +19,17 @@ export function schedulingForWorkers(
   workers: number,
 ): Pick<
   FormState,
-  | "candidateLimit"
-  | "candidateWindow"
-  | "epochReadyQueueSize"
-  | "epochSize"
-  | "fastKgMaintenanceIntervalMs"
-  | "fastKgMaintenanceReportCount"
   | "maxWorkers"
-  | "queueLowWatermark"
-  | "queueTargetSize"
 > {
   const maxWorkers = Math.max(1, Math.trunc(workers));
-  const queueTargetSize = maxWorkers * 4;
   return {
     maxWorkers,
-    candidateLimit: queueTargetSize,
-    candidateWindow: queueTargetSize,
-    queueLowWatermark: maxWorkers,
-    queueTargetSize,
-    epochSize: String(queueTargetSize),
-    epochReadyQueueSize: queueTargetSize,
-    fastKgMaintenanceIntervalMs: 180000,
-    fastKgMaintenanceReportCount: Math.max(4, maxWorkers),
   };
 }
 
 export const workerCountOptions = [1, 2, 4, 8, 16, 32, 64] as const;
 
 export const epochSizeOptions = [4, 8, 16, 32, 64, 128, 256, 512, 1024] as const;
-
-export const batchSizeOptions = [4, 8, 16, 32, 64, 128, 256] as const;
 
 export function statusClass(value: unknown): string {
   const status = text(value);

@@ -86,7 +86,7 @@ function completedWorkerImprovementRows(dashboard: Dashboard | null): JsonObject
     .filter((row) => isCurrentEpochWorkerRow(dashboard, row));
 }
 
-// Confirmed = the latest epoch/full-baseline build's byte-level truth.
+// Confirmed = full-build truth accumulated across the run's saved epoch reports.
 export function confirmedMatchRows(dashboard: Dashboard | null): JsonObject[] {
   const source = improvementSourceReport(dashboard);
   return source.ready ? asArray(source.report.newMatches).map(asObject) : [];
@@ -101,25 +101,35 @@ export function confirmedRows(dashboard: Dashboard | null): JsonObject[] {
   return [...confirmedMatchRows(dashboard), ...confirmedImprovementRows(dashboard)];
 }
 
-function confirmedItemNames(dashboard: Dashboard | null): Set<string> {
-  return new Set(confirmedRows(dashboard).map((row) => text(row.itemName)).filter(Boolean));
+function latestPromotedRows(dashboard: Dashboard | null): JsonObject[] {
+  const cumulative = trustedReport(dashboard);
+  const latest = asObject(cumulative.latestReport);
+  const source = Object.keys(latest).length > 0 ? latest : cumulative;
+  return [
+    ...asArray(source.newMatches).map(asObject),
+    ...asArray(source.improvements).map(asObject),
+  ];
+}
+
+function latestPromotedItemNames(dashboard: Dashboard | null): Set<string> {
+  return new Set(latestPromotedRows(dashboard).map((row) => text(row.itemName)).filter(Boolean));
 }
 
 // Tentative = completed-worker evidence from the current epoch that the next
 // full baseline build has not promoted into the epoch report yet.
 export function tentativeMatchRows(dashboard: Dashboard | null): JsonObject[] {
-  const confirmed = confirmedItemNames(dashboard);
+  const promoted = latestPromotedItemNames(dashboard);
   return completedWorkerImprovementRows(dashboard)
     .filter(isWorkerMatch)
-    .filter((row) => !confirmed.has(text(row.symbol)))
+    .filter((row) => !promoted.has(text(row.symbol)))
     .map(workerRowDisplay);
 }
 
 export function tentativeImprovementRows(dashboard: Dashboard | null): JsonObject[] {
-  const confirmed = confirmedItemNames(dashboard);
+  const promoted = latestPromotedItemNames(dashboard);
   return completedWorkerImprovementRows(dashboard)
     .filter((row) => !isWorkerMatch(row))
-    .filter((row) => !confirmed.has(text(row.symbol)))
+    .filter((row) => !promoted.has(text(row.symbol)))
     .map(workerRowDisplay);
 }
 
@@ -138,7 +148,7 @@ export function deltaColumnLabel(mode: ImprovedMode): string {
 }
 
 export function deltaColumnTitle(mode: ImprovedMode): string {
-  if (mode === "confirmed") return "Byte movement from the latest epoch build";
+  if (mode === "confirmed") return "Cumulative byte movement from confirmed epoch builds";
   return "Completed-worker score movement in percentage points; confirmed by the next baseline build";
 }
 
@@ -149,7 +159,7 @@ export function improvedEmptyText(dashboard: Dashboard | null, mode: ImprovedMod
     if (report.status === "stale") return text(report.staleReason, `Report is stale — confirmed ${noun} appear after the next epoch build`);
     if (report.status === "parse_error") return text(report.error, "Could not parse the saved report");
     if (!trustedReady(dashboard)) return `No fresh epoch build yet — confirmed ${noun} appear after the next baseline build`;
-    return `No confirmed ${noun} in the latest epoch build`;
+    return `No confirmed ${noun} in this run yet`;
   }
   return `No completed worker ${noun} waiting for the next baseline build`;
 }
@@ -165,7 +175,12 @@ export function rowItem(entry: JsonObject): string {
 }
 
 export function rowScore(entry: JsonObject): string {
-  return text(entry.scoreLabel) || pct(entry.toPercent);
+  const scoreLabel = text(entry.scoreLabel);
+  if (scoreLabel) return scoreLabel;
+  const fromPercent = Number(entry.fromPercent);
+  const toPercent = Number(entry.toPercent);
+  if (Number.isFinite(fromPercent) && Number.isFinite(toPercent)) return `${fromPercent.toFixed(2)}% -> ${toPercent.toFixed(2)}%`;
+  return pct(entry.toPercent);
 }
 
 export function rowDelta(entry: JsonObject): string {

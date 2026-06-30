@@ -68,10 +68,10 @@ export function StandardEditForm({
       <StringListField label="QA rule ids" items={draft.qaRuleIds ?? []} onChange={(items) => setList("qaRuleIds", items)} placeholder="e.g. pointer_offset_arithmetic" mono />
       <StringListField label="Preferred repairs" items={draft.preferredRepairs ?? []} onChange={(items) => setList("preferredRepairs", items)} placeholder="Concrete repair route this standard prefers." />
       <div className="grid gap-4">
-        <StringListField label="Do" items={draft.do} onChange={(items) => setList("do", items)} placeholder="Positive check, e.g. 'Match the original instruction order.'" />
-        <StringListField label="Do Not" items={draft.doNot} onChange={(items) => setList("doNot", items)} placeholder="Forbidden shortcut, e.g. 'Do not reorder volatile reads.'" />
+        <StringListField label="Preferred signals" items={draft.do} onChange={(items) => setList("do", items)} placeholder="Positive source shape or review signal." />
+        <StringListField label="Rejected signals" items={draft.doNot} onChange={(items) => setList("doNot", items)} placeholder="Rejected shortcut or source shape." />
       </div>
-      <StringListField label="Evidence refs" items={draft.evidenceRefs} onChange={(items) => setList("evidenceRefs", items)} placeholder="e.g. evidence:PR-123#diff-..." mono />
+      <StringListField label="Evidence refs" items={draft.evidenceRefs} onChange={(items) => setList("evidenceRefs", items)} placeholder="e.g. review_corpus:literal-cleanup" mono />
       {validationErrors.length > 0 ? (
         <ul className="m-0 grid gap-1 p-0 text-xs text-down">
           {validationErrors.map((error) => (

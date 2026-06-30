@@ -134,7 +134,28 @@ function existingTargetKeys(
           `,
         )
         .all(sessionId, params.epochId) as Record<string, unknown>[])
-    : (store.db.query("SELECT target_key FROM epoch_targets WHERE session_id = ?").all(sessionId) as Record<string, unknown>[]);
+    : (store.db
+        .query(
+          `
+            SELECT target_key
+            FROM epoch_targets
+            WHERE epoch_id = ?
+            UNION
+            SELECT epoch_targets.target_key
+            FROM epoch_targets
+            JOIN epochs ON epochs.id = epoch_targets.epoch_id
+            WHERE epoch_targets.session_id = ?
+              AND epochs.ordinal = (
+                SELECT MAX(previous.ordinal)
+                FROM epochs AS previous
+                JOIN epochs AS current
+                  ON current.session_id = previous.session_id
+                WHERE current.id = ?
+                  AND previous.ordinal < current.ordinal
+              )
+          `,
+        )
+        .all(params.epochId, sessionId, params.epochId) as Record<string, unknown>[]);
   return new Set(rows.map((row) => String(row.target_key)));
 }
 

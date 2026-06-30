@@ -2,6 +2,7 @@ import { useEffect, useState, type PointerEvent as ReactPointerEvent } from "rea
 import { ChevronLeft, ChevronRight } from "@/icons";
 
 import { OperationLogsTab } from "./_components/logs-tab";
+import { ProcessTab } from "./_components/process-tab";
 import { RunTab } from "./_components/run-tab";
 import { TabButton } from "./_components/tab-button";
 import type { DetailsRailProps, DetailsTab } from "./_lib/types";
@@ -9,10 +10,12 @@ import type { DetailsRailProps, DetailsTab } from "./_lib/types";
 export type { DetailsRailProps, DetailsTab } from "./_lib/types";
 
 export function DetailsRail({
+  busy,
   collapsed,
   dashboard,
   loadRunDetails,
   loadingRunDetails,
+  onAction,
   onCollapsedChange,
   onResizeEnd,
   onResizeStart,
@@ -23,7 +26,7 @@ export function DetailsRail({
   const [activeTab, setActiveTab] = useState<DetailsTab>(() => {
     try {
       const requested = new URLSearchParams(window.location.search).get("details");
-      return requested === "run" || requested === "logs" ? requested : "run";
+      return requested === "run" || requested === "logs" || requested === "process" ? requested : "run";
     } catch {
       return "run";
     }
@@ -73,6 +76,9 @@ export function DetailsRail({
           <TabButton active={activeTab === "run"} onClick={() => setActiveTab("run")}>
             Run
           </TabButton>
+          <TabButton active={activeTab === "process"} onClick={() => setActiveTab("process")}>
+            Process
+          </TabButton>
           <TabButton active={activeTab === "logs"} onClick={() => setActiveTab("logs")}>
             Logs
           </TabButton>
@@ -80,6 +86,8 @@ export function DetailsRail({
         <div className="min-h-0 overflow-auto" role="tabpanel">
           {activeTab === "logs" ? (
             <OperationLogsTab dashboard={dashboard} />
+          ) : activeTab === "process" ? (
+            <ProcessTab busy={busy} dashboard={dashboard} onAction={onAction} />
           ) : (
             <RunTab dashboard={dashboard} loadRunDetails={loadRunDetails} loadingRunDetails={loadingRunDetails} runDetails={runDetails} />
           )}

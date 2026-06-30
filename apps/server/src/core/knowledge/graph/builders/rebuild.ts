@@ -102,16 +102,13 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
 }
 
 export function defaultGraphSources(): string[] {
-  // ssbm_data_sheet and powerpc_docs are intentionally absent: their worker
-  // tools read the python source APIs directly (never the graph), their chunks
-  // attach only to their own entity types (never file cards or rank signals),
-  // and no agent profile exposes generic graph search. Re-include via
-  // --sources if a graph consumer appears.
+  // Deprecated external/source slices are intentionally absent from default
+  // ingestion. Re-include discord_knowledge, ssbm_data_sheet, or
+  // external_mirrors via --sources for manual archaeology or experiments.
   return [
     "code_graph",
     "past_prs",
-    "discord_knowledge",
-    "external_mirrors",
+    "powerpc_docs",
     "decomp_standards",
     "path_facts",
     "agent_shared_state",

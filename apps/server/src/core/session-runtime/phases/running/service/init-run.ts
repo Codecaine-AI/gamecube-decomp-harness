@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { loadKnowledgeBoardSnapshot, resourceGraphDbPath } from "@server/core/knowledge";
-import { createRun, openState } from "@server/core/session-runtime/run-state";
+import { createRun, openState, parseEpochSize } from "@server/core/session-runtime/run-state";
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { numberArg, projectMetadata, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
 
@@ -11,15 +11,11 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
     const goalKind = stringArg(args, "--goal-kind", "matched_code_percent");
     const goalValue = numberArg(args, "--goal-value", globals.project?.dashboard.goalValue ?? 70);
     const desiredWorkers = numberArg(args, "--desired-workers", 16);
-    const candidateLimit = numberArg(args, "--candidate-limit", globals.project?.dashboard.candidateLimit ?? Math.max(32, desiredWorkers * 2));
+    const epochSize = parseEpochSize(stringArg(args, "--epoch-size", globals.project?.dashboard.epochSize == null ? "64" : String(globals.project.dashboard.epochSize)));
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
     const project = projectMetadata(globals, { graphDbPath });
     const run = createRun(store, goalKind, goalValue, desiredWorkers, project);
-
-    const candidateWindow = Math.max(
-      candidateLimit,
-      numberArg(args, "--candidate-window", globals.project?.dashboard.candidateWindow ?? candidateLimit * 8),
-    );
+    const candidateWindow = epochSize.mode === "fixed" ? Math.max(desiredWorkers, epochSize.value ?? desiredWorkers) : Math.max(desiredWorkers, 64);
     const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, candidateWindow, { graphDbPath });
     const schedulableSources = new Set(snapshot.candidates.map((candidate) => candidate.sourcePath).filter(Boolean)).size;
 

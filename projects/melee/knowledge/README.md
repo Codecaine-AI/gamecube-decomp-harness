@@ -18,8 +18,9 @@ Melee-specific tool bindings and generated tool data live under
 | Section | Sources | Access model |
 | --- | --- | --- |
 | Injected context | `decomp_standards`, `path_facts`, `banned_patterns` | Compact context selected for worker boot plus QA guardrail records. Standards are global; path facts resolve only for the target path or directory. |
-| Searchable knowledge bases | `discord_knowledge`, `powerpc_docs` | Standalone RAG-style lookup through source-local APIs and graph search. |
-| Code-connected evidence | `code_graph`, `past_prs`, `ssbm_data_sheet`, `external_mirrors` | Evidence that links to source paths, symbols, file cards, PR history, data rows, or mirrored names. |
+| Searchable knowledge bases | `powerpc_docs` | Standalone RAG-style lookup through source-local APIs and graph search. |
+| Code-connected evidence | `code_graph`, `past_prs` | Evidence that links to source paths, symbols, file cards, PR history, graph hits, and rank features. |
+| Deprecated sources | `discord_knowledge`, `ssbm_data_sheet`, `external_mirrors` | Archived lookup slices retained for manual investigation or explicit profile overrides, but inactive by default. |
 
 Graph-owned mutable state is separate from source slices:
 
@@ -47,16 +48,17 @@ the worker should use source-specific tools for concrete questions:
 
 - `code_graph_file_card` or `kg:file-card` for source-path context.
 - `past_prs_search` for historical PR tactics, review risks, and file edges.
-- `discord_knowledge_search` for community/compiler discussion.
 - `powerpc_docs_search` or `powerpc_instruction_lookup` for ABI and instruction
   documentation.
-- `ssbm_data_sheet_*` and `external_mirrors_*` for code-connected resource
-  facts.
 - `kg:search -- --source mismatch_patterns` for durable mismatch-pattern
   lessons linked into the graph.
 - First-class tool APIs such as `ghidra_lookup`, `opseq_similar_functions`,
   `mismatch_db_search`, and `mwcc_debug_lookup` for tool-local cache or runner
   evidence.
+
+Path facts are injected into the worker packet as target-scoped context. The
+default worker profile does not expose `path_facts_resolve`, `discord_knowledge_*`,
+`ssbm_data_sheet_*`, or `external_mirrors_*` tools.
 
 Current source, headers, symbols, splits, assembly, objdiff/checkdiff, and
 regression output outrank all historical or external knowledge.
@@ -73,6 +75,8 @@ projects/melee/knowledge/
 |   +-- rag_search/
 |   |   +-- <source_id>/
 |   +-- code_context/
+|   |   +-- <source_id>/
+|   +-- deprecated/
 |       +-- <source_id>/
 |           +-- source.json
 |           +-- README.md
@@ -113,10 +117,15 @@ live under `docs/archive/`, not here.
 | `decomp_standards` | `projects/melee/knowledge/sources/injectable/decomp_standards/data` |
 | `path_facts` | `projects/melee/knowledge/sources/injectable/path_facts/data` |
 | `past_prs` | `projects/melee/knowledge/sources/code_context/past_prs/data/current`, `projects/melee/knowledge/sources/code_context/past_prs/data/prs` |
-| `discord_knowledge` | `projects/melee/knowledge/sources/rag_search/discord_knowledge/data/docs` |
-| `ssbm_data_sheet` | `projects/melee/knowledge/sources/code_context/ssbm_data_sheet/data` |
 | `powerpc_docs` | `projects/melee/knowledge/sources/rag_search/powerpc_docs/data` |
-| `external_mirrors` | `projects/melee/knowledge/sources/code_context/external_mirrors/data` |
+
+Deprecated corpora remain available under:
+
+| Source | Deprecated data |
+| --- | --- |
+| `discord_knowledge` | `projects/melee/knowledge/sources/deprecated/discord_knowledge/data/docs` |
+| `ssbm_data_sheet` | `projects/melee/knowledge/sources/deprecated/ssbm_data_sheet/data` |
+| `external_mirrors` | `projects/melee/knowledge/sources/deprecated/external_mirrors/data` |
 
 Generated tool caches and indexes live under the project tool-data roots
 resolved by the tool runtime. Stable rows belong in

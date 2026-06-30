@@ -163,6 +163,7 @@ function loadBoardSnapshotFromCodeGraphIndex(
     matched_functions_percent: percent(matchedFunctions, totalFunctions),
     matched_code_percent: percent(matchedBytes, totalBytes),
     complete_code_percent: percent(matchedBytes, totalBytes),
+    unmatched_targets: Math.max(0, totalFunctions - matchedFunctions),
   };
   return {
     generatedAt: new Date().toISOString(),

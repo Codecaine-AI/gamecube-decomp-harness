@@ -75,9 +75,9 @@ Default tool slot limits:
 | `mwcc_debug:*` | 2 |
 | Other tool APIs | 16 |
 
-Source-permuter run/replay calls use a fail-fast policy: if another
-source-permuter call is active, the API returns `queue_busy` instead of waiting
-behind it. The outer source-permuter slot is separate from the permuter's
+Source-permuter run/replay calls use a fail-fast policy: if all configured
+source-permuter slots are full, the API returns `queue_busy` instead of waiting
+behind them. The outer source-permuter slot is separate from the permuter's
 internal worker count; `ORCH_SOURCE_PERMUTER_MAX_JOBS` caps requested internal
 jobs and defaults to `1`.
 

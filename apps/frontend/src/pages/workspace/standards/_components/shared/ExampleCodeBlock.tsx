@@ -5,7 +5,7 @@ export function ExampleCodeBlock({ label, value }: { label: string; value: strin
   const text = value ?? "";
   const lines = text.length ? text.split(/\r\n|\r|\n/) : [""];
   const digits = String(lines.length).length;
-  const variant = /^fix$/i.test(label) ? "fix" : "flag";
+  const variant = /^(fix|good|preferred)$/i.test(label) ? "fix" : "flag";
   return (
     <div className={`example-code example-code-${variant}`}>
       <div className="example-code-header">

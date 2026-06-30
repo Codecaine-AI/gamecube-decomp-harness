@@ -28,7 +28,6 @@ import {
   StatCard,
 } from "@/components/primitives";
 import {
-  batchSizeOptions,
   epochSizeOptions,
   prettyStatus,
   schedulingForWorkers,
@@ -643,17 +642,6 @@ export function PrepareSubPage({
                   }
                   options={[...epochSizeOptions]}
                   value={form.epochSize}
-                />
-                <SelectField
-                  className="mb-0"
-                  label="Batch size"
-                  onChange={(event) =>
-                    setForm({
-                      epochReadyQueueSize: Number(event.currentTarget.value),
-                    })
-                  }
-                  options={[...batchSizeOptions]}
-                  value={form.epochReadyQueueSize}
                 />
                 <Field
                   className="mb-0"

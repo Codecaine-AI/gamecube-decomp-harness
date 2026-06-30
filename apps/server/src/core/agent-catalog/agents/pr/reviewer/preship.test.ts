@@ -151,7 +151,7 @@ describe("prPreshipReviewPrompt", () => {
     expect(injectedContext).toContain('"lint_available": true');
     expect(injectedContext).toContain("<maintainer_rejection_exhibits");
     expect(injectedContext).toContain("<standard_examples");
-    expect(injectedContext).toContain("data-extern-float-anchor");
+    expect(injectedContext).toContain("literal-extern-float-anchor");
     expect(injectedContext).toContain("<decomp_standards>");
     expect(`${bundle.systemPrompt}\n${bundle.userPrompt}\n${injectedContext}`).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
   });

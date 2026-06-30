@@ -162,7 +162,42 @@ function promptStandardId(id: string): string {
   return id.replace(/^global_standard:/, "");
 }
 
-function standardsContextFromRecords(records: StandardsFileRecord[]): JsonObject {
+function examplesByStandardId(examples: StandardExampleFileRecord[]): Map<string, StandardExampleFileRecord[]> {
+  const grouped = new Map<string, StandardExampleFileRecord[]>();
+  for (const example of examples) {
+    const items = grouped.get(example.standard_id) ?? [];
+    items.push(example);
+    grouped.set(example.standard_id, items);
+  }
+  return grouped;
+}
+
+function formatStandardExamplePayload(example: StandardExampleFileRecord): JsonObject {
+  return {
+    id: example.id,
+    standardId: example.standard_id,
+    qaRuleId: typeof example.qa_rule_id === "string" ? example.qa_rule_id : null,
+    severity: example.severity,
+    badPattern: example.bad_pattern,
+    preferredShape: example.preferred_shape,
+    description: standardExampleDescription(example),
+  };
+}
+
+function formatStandardExampleContext(example: StandardExampleFileRecord | undefined): JsonObject | null {
+  if (!example) return null;
+  return {
+    id: example.id,
+    qa_rule_id: example.qa_rule_id,
+    severity: example.severity,
+    bad_code: example.bad_pattern,
+    preferred_code: example.preferred_shape,
+    why: standardExampleDescription(example),
+  };
+}
+
+function standardsContextFromRecords(records: StandardsFileRecord[], examples: StandardExampleFileRecord[]): JsonObject {
+  const examplesByStandard = examplesByStandardId(examples);
   return {
     source: "decomp_standards",
     status: records.length ? "ready" : "missing_records",
@@ -182,18 +217,22 @@ function standardsContextFromRecords(records: StandardsFileRecord[]): JsonObject
       title: record.title,
       summary: asStringArray(record.summary),
       qa_rule_ids: asStringArray(record.qa_rule_ids),
-      do: asStringArray(record.do),
-      do_not: asStringArray(record.do_not),
-      evidence_refs: asStringArray(record.evidence_refs),
+      example_count: examplesByStandard.get(record.id)?.length ?? 0,
+      canonical_example: formatStandardExampleContext(examplesByStandard.get(record.id)?.[0]),
+      prompt_signals: {
+        preferred: asStringArray(record.do),
+        rejected: asStringArray(record.do_not),
+      },
     })),
   };
 }
 
-function standardsPromptXmlFromRecords(records: StandardsFileRecord[]): string {
+function standardsPromptXmlFromRecords(records: StandardsFileRecord[], examples: StandardExampleFileRecord[]): string {
   const accepted = records.filter((record) => record.status === "accepted" && record.worker_facing !== false);
+  const examplesByStandard = examplesByStandardId(examples);
   const lines = [
     "<decomp_standards>",
-    "    <instruction>All code changes must conform to the active code-quality standards below. Detailed examples are routed to QA repair and pre-ship review after a finding identifies the relevant standard.</instruction>",
+    "    <instruction>Use each standard as an example-backed source-quality pattern: read the description, compare the bad/preferred code pair, and apply the same transformation only when local evidence supports it.</instruction>",
     "    <authority>Current source, headers, symbols, splits, assembly, objdiff, and regression output outrank global standards and path facts.</authority>",
   ];
   for (const record of accepted) {
@@ -204,15 +243,30 @@ function standardsPromptXmlFromRecords(records: StandardsFileRecord[]): string {
       optionalXmlAttribute("qa_enforcement", record.qa_enforcement),
     ].filter(Boolean);
     lines.push(`    <standard ${attrs.join(" ")}>`);
-    lines.push("        <summary>");
+    lines.push("        <description>");
     for (const item of asStringArray(record.summary)) lines.push(`            - ${xmlText(item)}`);
-    lines.push("        </summary>");
-    lines.push("        <do>");
-    for (const item of asStringArray(record.do)) lines.push(`            - ${xmlText(item)}`);
-    lines.push("        </do>");
-    lines.push("        <do_not>");
-    for (const item of asStringArray(record.do_not)) lines.push(`            - ${xmlText(item)}`);
-    lines.push("        </do_not>");
+    lines.push("        </description>");
+    const example = examplesByStandard.get(record.id)?.[0];
+    if (example) {
+      const exampleAttrs = [
+        optionalXmlAttribute("id", example.id),
+        optionalXmlAttribute("qa_rule_id", example.qa_rule_id),
+        optionalXmlAttribute("severity", example.severity),
+      ].filter(Boolean);
+      lines.push(`        <canonical_example ${exampleAttrs.join(" ")}>`);
+      lines.push(`            <bad_code>${xmlText(example.bad_pattern)}</bad_code>`);
+      lines.push(`            <preferred_code>${xmlText(example.preferred_shape)}</preferred_code>`);
+      lines.push("            <why>");
+      for (const item of standardExampleDescription(example)) lines.push(`                - ${xmlText(item)}`);
+      lines.push("            </why>");
+      lines.push("        </canonical_example>");
+    }
+    const qaRuleIds = asStringArray(record.qa_rule_ids);
+    if (qaRuleIds.length > 0) {
+      lines.push("        <qa_rules>");
+      for (const item of qaRuleIds) lines.push(`            - ${xmlText(item)}`);
+      lines.push("        </qa_rules>");
+    }
     lines.push("    </standard>");
   }
   lines.push("</decomp_standards>");
@@ -293,6 +347,7 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
     const paths = standardsPaths(project);
     const records = readStandardsFile(paths.standardsPath);
     const examples = readStandardExamplesFile(paths.examplesPath);
+    const examplesByStandard = examplesByStandardId(examples);
     const warnings: string[] = [];
     if (records.length === 0) warnings.push(`No standards found at ${paths.standardsPath}.`);
     if (examples.length === 0) warnings.push(`No standard examples found at ${paths.examplesPath}.`);
@@ -314,22 +369,15 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
         qaRuleIds: Array.isArray(record.qa_rule_ids) ? record.qa_rule_ids.map((item) => String(item)) : undefined,
         examplePolicy: typeof record.example_policy === "string" ? record.example_policy : undefined,
         preferredRepairs: Array.isArray(record.preferred_repairs) ? record.preferred_repairs.map((item) => String(item)) : undefined,
+        exampleCount: examplesByStandard.get(record.id)?.length ?? 0,
+        canonicalExample: examplesByStandard.get(record.id)?.[0] ? formatStandardExamplePayload(examplesByStandard.get(record.id)![0]) : undefined,
         do: record.do ?? [],
         doNot: record.do_not ?? [],
         evidenceRefs: record.evidence_refs ?? [],
       })),
-      examples: examples.map((example) => ({
-        id: example.id,
-        standardId: example.standard_id,
-        qaRuleId: typeof example.qa_rule_id === "string" ? example.qa_rule_id : null,
-        severity: example.severity,
-        badPattern: example.bad_pattern,
-        preferredShape: example.preferred_shape,
-        description: standardExampleDescription(example),
-        evidenceRef: typeof example.evidence_ref === "string" ? example.evidence_ref : undefined,
-      })),
-      effectiveXml: standardsPromptXmlFromRecords(records),
-      context: standardsContextFromRecords(records),
+      examples: examples.map(formatStandardExamplePayload),
+      effectiveXml: standardsPromptXmlFromRecords(records, examples),
+      context: standardsContextFromRecords(records, examples),
       inventory: standardsInventory(project),
       warnings,
     };

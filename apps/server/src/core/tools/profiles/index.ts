@@ -7,7 +7,12 @@
  */
 import type { RuntimeAgentRole } from "@server/core/shared/types";
 import { agentToolSummary, createAgentTools } from "../runtime/registry.js";
-import type { AgentToolProfileInput, AgentToolPromptMetadata, AgentToolRuntimeContext, PiToolDefinition } from "../types.js";
+import type {
+  AgentToolProfileInput,
+  AgentToolPromptMetadata,
+  AgentToolRuntimeContext,
+  PiToolDefinition,
+} from "../types.js";
 import { capabilityToolPromptMetadata } from "../metadata/capabilities.js";
 import { knowledgeToolPromptMetadata } from "../metadata/knowledge.js";
 import {
@@ -50,15 +55,23 @@ export const defaultAgentToolProfiles: Record<RuntimeAgentRole, string[]> = {
 };
 
 /** Resolve built-in defaults plus optional replace/enable/disable overrides. */
-export function resolveAgentToolIds(role: RuntimeAgentRole, profile?: AgentToolProfileInput): string[] {
-  const base = profile?.replace ? [...profile.replace] : [...(defaultAgentToolProfiles[role] ?? [])];
+export function resolveAgentToolIds(
+  role: RuntimeAgentRole,
+  profile?: AgentToolProfileInput,
+): string[] {
+  const base = profile?.replace
+    ? [...profile.replace]
+    : [...(defaultAgentToolProfiles[role] ?? [])];
   const enabled = [...base, ...(profile?.enable ?? [])];
   const disabled = new Set(profile?.disable ?? []);
   return [...new Set(enabled)].filter((toolId) => !disabled.has(toolId));
 }
 
 /** Build concrete Pi custom tools for the role and runtime context. */
-export function buildAgentTools(context: AgentToolRuntimeContext, profile?: AgentToolProfileInput): PiToolDefinition[] {
+export function buildAgentTools(
+  context: AgentToolRuntimeContext,
+  profile?: AgentToolProfileInput,
+): PiToolDefinition[] {
   return createAgentTools(resolveAgentToolIds(context.role, profile), context);
 }
 
@@ -78,7 +91,10 @@ interface AvailableToolRow {
   useWhen: string;
 }
 
-function availableToolRows(context: AgentToolRuntimeContext, profile?: AgentToolProfileInput): AvailableToolRow[] {
+function availableToolRows(
+  context: AgentToolRuntimeContext,
+  profile?: AgentToolProfileInput,
+): AvailableToolRow[] {
   return buildAgentTools(context, profile).map((tool) => {
     const promptInfo = agentToolPromptMetadata[tool.name];
     return {
@@ -91,29 +107,27 @@ function availableToolRows(context: AgentToolRuntimeContext, profile?: AgentTool
   });
 }
 
-/** Render the resolved agent tool profile as a compact prompt block. */
-export function availableToolsPromptXml(context: AgentToolRuntimeContext, profile?: AgentToolProfileInput): string {
-  const groups = new Map<string, { provider: string; type: string; tools: AvailableToolRow[] }>();
-  for (const row of availableToolRows(context, profile)) {
-    const groupKey = `${row.provider}\0${row.type}`;
-    const group = groups.get(groupKey) ?? { provider: row.provider, type: row.type, tools: [] };
-    group.tools.push(row);
-    groups.set(groupKey, group);
-  }
+/** Render the resolved agent tool profile as a compact prompt block, without grouping. */
+export function availableToolsPromptXml(
+  context: AgentToolRuntimeContext,
+  profile?: AgentToolProfileInput,
+): string {
+  const tools = availableToolRows(context, profile);
 
   const lines = ["    <available_tools>"];
-  for (const group of groups.values()) {
-    lines.push(`        <tool_group provider="${xmlAttribute(group.provider)}" type="${xmlAttribute(group.type)}">`);
-    for (const tool of group.tools) {
-      lines.push(`            <tool name="${xmlAttribute(tool.name)}" label="${xmlAttribute(tool.label)}" use_when="${xmlAttribute(tool.useWhen)}" />`);
-    }
-    lines.push("        </tool_group>");
+  for (const tool of tools) {
+    lines.push(
+      `        <tool name="${xmlAttribute(tool.name)}" label="${xmlAttribute(tool.label)}" use_when="${xmlAttribute(tool.useWhen)}" provider="${xmlAttribute(tool.provider)}" type="${xmlAttribute(tool.type)}" />`,
+    );
   }
   lines.push("    </available_tools>");
   return lines.join("\n");
 }
 
 /** Return a compact, prompt-safe summary of tools available to an agent role. */
-export function agentToolProfileSummary(role: RuntimeAgentRole, profile?: AgentToolProfileInput): Record<string, unknown>[] {
+export function agentToolProfileSummary(
+  role: RuntimeAgentRole,
+  profile?: AgentToolProfileInput,
+): Record<string, unknown>[] {
   return agentToolSummary(resolveAgentToolIds(role, profile), role);
 }

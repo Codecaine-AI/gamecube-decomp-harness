@@ -202,8 +202,9 @@ and access-mode metadata:
 | Section | Active sources | Access model |
 | --- | --- | --- |
 | `injectable` | `decomp_standards`, `path_facts`, `banned_patterns` | Worker bootstrap/context selection; source APIs exist for focused lookup and proposals. |
-| `rag_search` | `discord_knowledge`, `powerpc_docs` | Independently searchable knowledge bases. |
-| `code_context` | `code_graph`, `past_prs`, `ssbm_data_sheet`, `external_mirrors` | Evidence that links to files, symbols, PRs, data rows, mirrors, or graph cards. |
+| `rag_search` | `powerpc_docs` | Independently searchable knowledge bases. |
+| `code_context` | `code_graph`, `past_prs` | Evidence that links to files, symbols, PRs, graph cards, and rank features. |
+| `deprecated` | `discord_knowledge`, `ssbm_data_sheet`, `external_mirrors` | Archived lookup slices retained for manual use or explicit profile overrides, but inactive by default. |
 
 Actual corpus paths:
 
@@ -213,10 +214,15 @@ Actual corpus paths:
 | `path_facts` | `projects/melee/knowledge/sources/injectable/path_facts/data` |
 | `banned_patterns` | `projects/melee/knowledge/sources/injectable/banned_patterns/data` |
 | `past_prs` | `projects/melee/knowledge/sources/code_context/past_prs/data` |
-| `discord_knowledge` | `projects/melee/knowledge/sources/rag_search/discord_knowledge/data/docs` |
-| `ssbm_data_sheet` | `projects/melee/knowledge/sources/code_context/ssbm_data_sheet/data` |
 | `powerpc_docs` | `projects/melee/knowledge/sources/rag_search/powerpc_docs/data` |
-| `external_mirrors` | `projects/melee/knowledge/sources/code_context/external_mirrors/data` |
+
+Deprecated corpus paths:
+
+| Source | Deprecated corpus path |
+| --- | --- |
+| `discord_knowledge` | `projects/melee/knowledge/sources/deprecated/discord_knowledge/data/docs` |
+| `ssbm_data_sheet` | `projects/melee/knowledge/sources/deprecated/ssbm_data_sheet/data` |
+| `external_mirrors` | `projects/melee/knowledge/sources/deprecated/external_mirrors/data` |
 
 Every active registered source also has a source-local script API under its
 registry path, such as
@@ -230,10 +236,13 @@ registry path, such as
   into `indexes/vector.sqlite`, plus `api/semantic_search.py --query <question>
   --json` for hybrid semantic lookup over normalized vectors.
 - Source-specific aliases are thin query wrappers, such as
-  `ssbm_data_sheet/api/lookup_address.py`,
-  `powerpc_docs/api/lookup_instruction.py`,
-  `external_mirrors/api/lookup_external_symbol.py`, and
-  `discord_knowledge/api/topics_for_terms.py`.
+  `powerpc_docs/api/lookup_instruction.py`. Deprecated sources retain their
+  source-local aliases under `projects/melee/knowledge/sources/deprecated/`.
+
+Workers receive `path_facts` through `knowledge_context.path_facts` and the
+compact target graph file card. The default worker profile does not expose
+`path_facts_resolve`, `discord_knowledge_*`, `ssbm_data_sheet_*`, or
+`external_mirrors_*` tools.
 
 `banned_patterns` is the QA ship gate's executable record of maintainer
 rejections:
@@ -374,7 +383,7 @@ Current validation status, 2026-06-26:
   checks.
 - `bun run kg:smoke -- --project melee --strict` resolves tools through the
   toolpack/project binding runtime, but strict readiness still fails for
-  unindexed sources (`banned_patterns`, `powerpc_docs`, `ssbm_data_sheet`) and
+  unindexed sources (`banned_patterns`, `powerpc_docs`) and
   live-runner smoke proofs for `ghidra`, `opseq`, `mismatch_db`, and
   `mwcc_debug`.
 

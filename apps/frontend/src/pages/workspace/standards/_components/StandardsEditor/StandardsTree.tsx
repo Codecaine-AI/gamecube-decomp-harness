@@ -67,6 +67,9 @@ export function StandardsTree({
                           >
                             {prettySlug(record.id)}
                           </span>
+                          <span className="ml-2 shrink-0 border border-line px-1 text-[10px] font-bold tabular-nums text-faint" title="Code examples">
+                            {num(record.exampleCount ?? 0)}
+                          </span>
                         </button>
                       );
                     })

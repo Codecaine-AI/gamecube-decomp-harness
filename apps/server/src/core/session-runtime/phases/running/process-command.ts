@@ -1,35 +1,21 @@
 export interface RunningProcessCommandBody {
   agentTimeoutSeconds?: unknown;
-  candidateWindow?: unknown;
   dryRunAgents?: unknown;
-  epochReadyQueueSize?: unknown;
   epochSize?: unknown;
-  fastKgMaintenanceEnabled?: unknown;
-  fastKgMaintenanceIntervalMs?: unknown;
-  fastKgMaintenanceReportCount?: unknown;
-  fullKgMaintenanceMode?: unknown;
-  idleSleepMs?: unknown;
   epochConfigureCommand?: unknown;
   maxWorkers?: unknown;
   model?: unknown;
   processName?: unknown;
   provider?: unknown;
-  queueLowWatermark?: unknown;
-  queueTargetSize?: unknown;
   runId?: unknown;
   thinkingLevel?: unknown;
   workerConfigureCommand?: unknown;
-  workerThinkingLevel?: unknown;
 }
 
 export interface RunningProcessProjectDefaults {
   dashboard?: {
     agentTimeoutSeconds?: unknown;
-    epochReadyQueueSize?: unknown;
     epochSize?: unknown;
-    fastKgMaintenanceIntervalMs?: unknown;
-    fastKgMaintenanceReportCount?: unknown;
-    fullKgMaintenanceMode?: unknown;
   };
   processName?: unknown;
   projectId?: string;
@@ -84,28 +70,11 @@ function processName(value: unknown): string {
 }
 
 export function runningScheduling(maxWorkersValue: unknown): {
-  candidateLimit: number;
-  candidateWindow: number;
-  epochReadyQueueSize: number;
-  epochSize: string;
-  fastKgMaintenanceIntervalMs: number;
-  fastKgMaintenanceReportCount: number;
   maxWorkers: number;
-  queueLowWatermark: number;
-  queueTargetSize: number;
 } {
   const maxWorkers = intValue(maxWorkersValue, 16, 1);
-  const queueTargetSize = maxWorkers * 4;
   return {
-    candidateLimit: queueTargetSize,
-    candidateWindow: queueTargetSize,
-    epochReadyQueueSize: queueTargetSize,
-    epochSize: String(queueTargetSize),
-    fastKgMaintenanceIntervalMs: 180_000,
-    fastKgMaintenanceReportCount: Math.max(4, maxWorkers),
     maxWorkers,
-    queueLowWatermark: maxWorkers,
-    queueTargetSize,
   };
 }
 
@@ -115,30 +84,9 @@ export function buildRunningProcessCommand(input: RunningProcessCommandInput): R
   const provider = text(body.provider, "codex-lb");
   const model = text(body.model, "gpt-5.5");
   const thinkingLevel = text(body.thinkingLevel, "medium");
-  const workerThinkingLevel = text(body.workerThinkingLevel, "medium");
   const normalScheduling = runningScheduling(body.maxWorkers);
   const maxWorkers = normalScheduling.maxWorkers;
-  const candidateLimit = noRefillBatch ? 0 : normalScheduling.candidateLimit;
-  const candidateWindow = noRefillBatch ? 0 : intValue(body.candidateWindow, normalScheduling.candidateWindow, 0);
-  const queueLowWatermark = noRefillBatch ? 0 : intValue(body.queueLowWatermark, normalScheduling.queueLowWatermark, 0);
-  const queueTargetSize = noRefillBatch ? 0 : intValue(body.queueTargetSize, normalScheduling.queueTargetSize, 0);
-  const epochSize = noRefillBatch ? "1" : text(body.epochSize, String(project?.dashboard?.epochSize ?? normalScheduling.epochSize));
-  const epochReadyQueueSize = noRefillBatch ? 1 : intValue(body.epochReadyQueueSize, numberValue(project?.dashboard?.epochReadyQueueSize, normalScheduling.epochReadyQueueSize), 1);
-  const fastKgMaintenanceEnabled = !noRefillBatch && body.fastKgMaintenanceEnabled !== false;
-  const fastKgMaintenanceIntervalMs = intValue(
-    body.fastKgMaintenanceIntervalMs,
-    numberValue(project?.dashboard?.fastKgMaintenanceIntervalMs, normalScheduling.fastKgMaintenanceIntervalMs),
-    0,
-  );
-  const fastKgMaintenanceReportCount = intValue(
-    body.fastKgMaintenanceReportCount,
-    numberValue(project?.dashboard?.fastKgMaintenanceReportCount, normalScheduling.fastKgMaintenanceReportCount),
-    0,
-  );
-  const fullKgMaintenanceMode = text(body.fullKgMaintenanceMode, project?.dashboard?.fullKgMaintenanceMode ? String(project.dashboard.fullKgMaintenanceMode) : "full");
-  const schedulableLowWatermark = noRefillBatch ? 0 : maxWorkers;
-  const queueRefreshIntervalMs = noRefillBatch ? 0 : 60000;
-  const idleSleepMs = intValue(body.idleSleepMs, 5000, 100);
+  const epochSize = noRefillBatch ? "1" : text(body.epochSize, String(project?.dashboard?.epochSize ?? "64"));
   const workerConfigureCommand = text(body.workerConfigureCommand).trim();
   const epochConfigureCommand = text(body.epochConfigureCommand).trim();
   const agentTimeoutSeconds = numberValue(
@@ -155,37 +103,12 @@ export function buildRunningProcessCommand(input: RunningProcessCommandInput): R
     "babysit",
     "--max-workers",
     String(maxWorkers),
-    "--idle-sleep-ms",
-    String(idleSleepMs),
-    "--worker-thinking-level",
-    workerThinkingLevel,
-    "--candidate-limit",
-    String(candidateLimit),
-    "--queue-target-size",
-    String(queueTargetSize),
     "--epoch-size",
     epochSize,
-    "--epoch-ready-queue-size",
-    String(epochReadyQueueSize),
-    "--candidate-window",
-    String(candidateWindow),
-    "--queue-refresh-interval-ms",
-    String(queueRefreshIntervalMs),
-    "--queue-low-watermark",
-    String(queueLowWatermark),
-    "--schedulable-low-watermark",
-    String(schedulableLowWatermark),
     "--graph-db",
     graphDbPath,
-    "--fast-kg-maintenance-interval-ms",
-    String(fastKgMaintenanceIntervalMs),
-    "--fast-kg-maintenance-report-count",
-    String(fastKgMaintenanceReportCount),
-    "--full-kg-maintenance-mode",
-    fullKgMaintenanceMode,
     "--force-recover-claims",
   );
-  if (!fastKgMaintenanceEnabled) command.push("--no-fast-kg-maintenance");
   if (workerConfigureCommand) command.push("--worker-configure-command", workerConfigureCommand);
   if (epochConfigureCommand) command.push("--epoch-configure-command", epochConfigureCommand);
   if (noRefillBatch) {

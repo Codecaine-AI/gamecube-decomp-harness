@@ -34,6 +34,7 @@ export function boardMeasuresFromReportSummary(summary: ReportRunSummary | undef
     matched_functions_percent: summary.matchedFunctionsPercent,
     complete_units: summary.completeUnits,
     total_units: summary.totalUnits,
+    unmatched_targets: summary.unmatchedTargets,
   };
 }
 

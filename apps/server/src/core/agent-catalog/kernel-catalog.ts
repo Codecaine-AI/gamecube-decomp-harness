@@ -282,7 +282,7 @@ export const meleeKernelAgentCatalog = [
       null,
       null,
       null,
-      "Worker has no structured output contract. The runner may parse final assistant text as an advisory checkpoint note, but lifecycle status, validation, reports, and best-checkpoint selection stay runner-owned.",
+      "Worker has no structured output contract. The runner may parse final assistant text as an advisory validation handoff, but lifecycle status, validation, reports, and best-record selection stay runner-owned.",
     ),
   }),
   catalogEntry("integration-resolver", {
@@ -477,6 +477,14 @@ function viewerContextInputs(entry: KernelAgentCatalogEntry, bundle?: PiPromptBu
   };
 }
 
+function renderedPromptContent(bundle: PiPromptBundle): string {
+  const sections = ["=== SYSTEM PROMPT ===", bundle.systemPrompt];
+  if (bundle.userPrompt.trim()) {
+    sections.push("", "=== INITIAL USER PROMPT ===", bundle.userPrompt);
+  }
+  return sections.join("\n");
+}
+
 export function toKernelAgentViewerDefinition(
   entry: KernelAgentCatalogEntry,
   bundle?: PiPromptBundle,
@@ -504,13 +512,7 @@ export function toKernelAgentViewerDefinition(
     group: entry.group,
     renderedPrompt: bundle
       ? {
-          content: [
-            "=== SYSTEM PROMPT ===",
-            bundle.systemPrompt,
-            "",
-            "=== INITIAL USER PROMPT ===",
-            bundle.userPrompt,
-          ].join("\n"),
+          content: renderedPromptContent(bundle),
           timestamp: options.generatedAt ?? null,
           resolvedVariables: {},
           toolsAllowlist: entry.tools,

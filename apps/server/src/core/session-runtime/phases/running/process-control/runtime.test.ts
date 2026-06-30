@@ -80,4 +80,71 @@ describe("process control runtime", () => {
     expect(payload.command.slice(graphDbFlag, graphDbFlag + 2)).toEqual(["--graph-db", sessionGraphDb]);
     expect((spawned as StartManagedInput | null)?.command.slice(repoRootFlag, repoRootFlag + 2)).toEqual(["--repo-root", sessionRepoRoot]);
   });
+
+  test("passes tool concurrency env overrides when starting a managed process", async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "process-control-runtime-"));
+    let spawned: StartManagedInput | null = null;
+    const processController = {
+      hasActiveProcess: () => ({ active: false }),
+      spawn: (input: StartManagedInput) => {
+        spawned = input;
+      },
+    } as unknown as ManagedProcessController;
+
+    const project = {
+      projectId: "melee",
+      processName: "melee-live",
+      dashboard: {},
+      repoRoot: "/tmp/melee-checkout",
+      stateDir,
+      graphDbPath: "/tmp/melee-graph.sqlite",
+    } as unknown as ResolvedProject;
+
+    const runtime = createProcessControlRuntime({
+      appendLog: () => undefined,
+      json: (data, init) => new Response(JSON.stringify(data), init),
+      processController,
+      processStatus: () => ({}),
+      projectToSummary: () => ({
+        id: "melee",
+        displayName: "Melee",
+        kind: "doldecomp-melee",
+        repoRoot: project.repoRoot,
+        stateDir,
+        graphDbPath: project.graphDbPath,
+        processName: "melee-live",
+        baseRef: "origin/master",
+        descriptorPath: "/tmp/melee/project.json",
+        repoRootExists: true,
+        stateDirExists: true,
+        graphDbExists: true,
+      }),
+      resolveDashboardProject: () => ({
+        project,
+        repoRoot: project.repoRoot,
+        stateDir,
+        graphDbPath: project.graphDbPath,
+        usePathOverrides: false,
+      }),
+      runCli: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+      serverJobPath: "/tmp/orchestrator/apps/server/src/job-runner.ts",
+    });
+
+    const response = await runtime.startManagedProcess({
+      projectId: "melee",
+      maxWorkers: 16,
+      toolConcurrency: {
+        mwccDebug: 6,
+        sourcePermuter: 2,
+        sourcePermuterJobs: 1,
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect((spawned as StartManagedInput | null)?.env).toEqual({
+      ORCH_SOURCE_PERMUTER_MAX_JOBS: "1",
+      ORCH_WORKER_TOOL_CONCURRENCY_MWCC_DEBUG: "6",
+      ORCH_WORKER_TOOL_CONCURRENCY_SOURCE_PERMUTER: "2",
+    });
+  });
 });

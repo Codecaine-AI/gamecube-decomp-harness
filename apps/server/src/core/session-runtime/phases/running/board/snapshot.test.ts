@@ -50,4 +50,27 @@ describe("loadBoardSnapshot", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  test("counts unmatched targets from the code graph fallback", () => {
+    const root = mkdtempSync(join(tmpdir(), "board-codegraph-"));
+    try {
+      const repoRoot = resolve(root, "repo");
+      const functionsIndex = resolve(root, "functions.jsonl");
+      writeFileSync(
+        functionsIndex,
+        [
+          { unit: "a.o", sourcePath: "src/a.c", symbol: "matched", size: 100, fuzzy: 100 },
+          { unit: "b.o", sourcePath: "src/b.c", symbol: "near", size: 80, fuzzy: 99.5 },
+          { unit: "c.o", sourcePath: "src/c.c", symbol: "far", size: 20, fuzzy: 50 },
+        ].map((row) => JSON.stringify(row)).join("\n"),
+      );
+
+      const snapshot = loadBoardSnapshot(repoRoot, 12, { codeGraphFunctionsIndexPath: functionsIndex });
+
+      expect(snapshot.measures.unmatched_targets).toBe(2);
+      expect(snapshot.candidates.map((candidate) => candidate.symbol).sort()).toEqual(["far", "near"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });

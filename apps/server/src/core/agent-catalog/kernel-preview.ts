@@ -79,6 +79,17 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
                   status: "matched",
                 },
               ],
+              mismatch_patterns: [
+                {
+                  id: "kernel-viewer:first-mismatch",
+                  title: "First mismatch suggests helper-selection or control-flow shape.",
+                  category: "source_shape",
+                  symptoms: ["Branch shape diverges after a nearby helper call."],
+                  tactics: ["Compare solved sibling action helpers before trying deeper probes."],
+                  evidence_count: 1,
+                  linked_evidence_refs: ["kernel-viewer:sample"],
+                },
+              ],
               pr_history: {
                 tactics: [
                   {

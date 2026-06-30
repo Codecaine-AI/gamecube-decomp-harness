@@ -252,7 +252,17 @@ export function buildDecompStandardsGraphRecords(): GraphRecords | null {
   const sourceId = "decomp_standards";
   const dataRoot = sourceDataRoot(sourceId);
   const dataFile = resolve(dataRoot, "standards.jsonl");
+  const examplesFile = resolve(dataRoot, "examples.jsonl");
+  const examplesByStandard = new Map<string, Record<string, unknown>[]>();
+  for (const example of readJsonlObjects(examplesFile)) {
+    const standardId = stringField(example, "standard_id");
+    if (!standardId) continue;
+    const items = examplesByStandard.get(standardId) ?? [];
+    items.push(example);
+    examplesByStandard.set(standardId, items);
+  }
   const records = readJsonlObjects(dataFile).map((row) => {
+    const examples = examplesByStandard.get(stringField(row, "id")) ?? [];
     const text = compactText([
       stringField(row, "title"),
       stringField(row, "summary"),
@@ -263,13 +273,26 @@ export function buildDecompStandardsGraphRecords(): GraphRecords | null {
       arrayField(row, "do").join(" "),
       arrayField(row, "do_not").join(" "),
       arrayField(row, "evidence_refs").join(" "),
+      examples
+        .map((example) =>
+          compactText([
+            stringField(example, "id"),
+            stringField(example, "qa_rule_id"),
+            stringField(example, "severity"),
+            stringField(example, "bad_pattern"),
+            stringField(example, "preferred_shape"),
+            arrayField(example, "description").join(" "),
+            stringField(example, "evidence_ref"),
+          ]),
+        )
+        .join(" "),
     ]);
     return {
       id: stringField(row, "id") || shortHash(text),
       title: `Decomp standard: ${stringField(row, "title") || stringField(row, "id")}`,
       text,
       evidenceRef: arrayField(row, "evidence_refs").join(";") || dataFile,
-      payload: { source_id: sourceId, record: row },
+      payload: { source_id: sourceId, record: row, examples },
       linkedFilePaths: extractLinkedFilePaths(text),
       entityType: "decomp_standard",
       entityKey: stringField(row, "id") || shortHash(text),
@@ -279,7 +302,7 @@ export function buildDecompStandardsGraphRecords(): GraphRecords | null {
     sourceId,
     trustTier: "reference",
     indexFileName: "standards.jsonl",
-    inputPaths: [dataFile],
+    inputPaths: [dataFile, examplesFile],
     records,
     defaultEntityType: "decomp_standard",
     factType: "decomp_standard",

@@ -8,22 +8,17 @@
 /**
  * Default worker Pi tools attached to worker launches.
  *
- * Pruned 2026-06-12 per reports/pi-agent-tool-analysis-2026-06-12.html: tools
- * used in <2% of 749 terminal xhigh worker states (powerpc_*, discord topics,
- * include_fixer_preview, struct_infer_from_asm, item_state_table_preview,
- * ssbm search/offset, mwcc_debug_raw_dump) are no longer advertised to
- * workers. Registrations stay in the registry; re-enable per run via the
- * profile `enable` override.
+ * Pruned 2026-06-12 per reports/pi-agent-tool-analysis-2026-06-12.html and
+ * 2026-06-30 per analysis/reports/fresh-tool-distribution-15-epoch-2026-06-30.html.
+ * Low-lift/stale external sources are no longer advertised to workers, and
+ * path facts are injected into the worker packet instead of exposed as a
+ * callable worker tool. Registrations stay in the registry; re-enable per run
+ * via the profile `enable` override.
  */
 export const defaultWorkerToolProfile = [
   "code_graph_file_card",
   "code_graph_search",
   "past_prs_search",
-  "discord_knowledge_search",
-  "ssbm_data_sheet_lookup_address",
-  "external_mirrors_search",
-  "external_symbol_lookup",
-  "path_facts_resolve",
   "ghidra_lookup",
   "opseq_similar_functions",
   "mismatch_db_search",

@@ -10,17 +10,8 @@ export interface ProjectValidationDefaults {
 }
 
 export interface ProjectDashboardDefaults {
-  candidateLimit?: number;
-  queueTargetSize?: number;
-  queueLowWatermark?: number;
-  candidateWindow?: number;
   epochSize?: number | string;
-  epochReadyQueueSize?: number;
   agentTimeoutSeconds?: number;
-  fastKgMaintenanceIntervalMs?: number;
-  fastKgMaintenanceReportCount?: number;
-  fastKgMaintenanceEnabled?: boolean;
-  fullKgMaintenanceMode?: string;
   goalValue?: number;
 }
 
@@ -129,17 +120,8 @@ const defaultValidation: Required<ProjectValidationDefaults> = {
 };
 
 const defaultDashboard: Required<ProjectDashboardDefaults> = {
-  candidateLimit: 64,
-  queueTargetSize: 64,
-  queueLowWatermark: 16,
-  candidateWindow: 512,
   epochSize: 64,
-  epochReadyQueueSize: 64,
   agentTimeoutSeconds: 3000,
-  fastKgMaintenanceIntervalMs: 180_000,
-  fastKgMaintenanceReportCount: 16,
-  fastKgMaintenanceEnabled: true,
-  fullKgMaintenanceMode: "full",
   goalValue: 100,
 };
 
@@ -200,10 +182,6 @@ function numberField(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
-function booleanField(value: unknown): boolean | undefined {
-  return typeof value === "boolean" ? value : undefined;
-}
-
 function stringOrNumberField(value: unknown): string | number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   return stringField(value);
@@ -226,17 +204,8 @@ function validationFromObject(value: unknown): ProjectValidationDefaults | undef
 function dashboardFromObject(value: unknown): ProjectDashboardDefaults | undefined {
   if (!isObject(value)) return undefined;
   return {
-    candidateLimit: numberField(value.candidateLimit),
-    queueTargetSize: numberField(value.queueTargetSize),
-    queueLowWatermark: numberField(value.queueLowWatermark),
-    candidateWindow: numberField(value.candidateWindow),
     epochSize: stringOrNumberField(value.epochSize),
-    epochReadyQueueSize: numberField(value.epochReadyQueueSize),
     agentTimeoutSeconds: numberField(value.agentTimeoutSeconds),
-    fastKgMaintenanceIntervalMs: numberField(value.fastKgMaintenanceIntervalMs),
-    fastKgMaintenanceReportCount: numberField(value.fastKgMaintenanceReportCount),
-    fastKgMaintenanceEnabled: booleanField(value.fastKgMaintenanceEnabled),
-    fullKgMaintenanceMode: stringField(value.fullKgMaintenanceMode),
     goalValue: numberField(value.goalValue),
   };
 }

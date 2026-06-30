@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { listProjects, projectToSummary, resolveProject, type ProjectRuntimeContext, type ProjectSummary, type ResolvedProject } from "@server/core/project-registry";
+import { projectToolConcurrencyDefaults } from "@server/core/tools/concurrency-config";
 
 type JsonObject = Record<string, unknown>;
 
@@ -35,6 +36,7 @@ export function createDashboardProjectContextService(deps: DashboardProjectConte
       graphDbPath: project.graphDbPath,
       validation: project.validation,
       dashboard: project.dashboard,
+      toolConcurrency: projectToolConcurrencyDefaults(project.localEnvPath),
       pr: project.pr,
       knowledge: project.knowledge,
     };

@@ -182,7 +182,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
     }
   });
 
-  test("board admission skips target keys already finished in previous epochs", () => {
+  test("board admission skips target keys from the immediately previous epoch", () => {
     const { store } = tempState();
     try {
       const { run, epoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
@@ -211,6 +211,64 @@ describe("scheduler epoch and worker state lifecycle", () => {
       expect(admission).toMatchObject({ admitted: 1, skippedExisting: 1 });
       const rows = store.db.query("SELECT target_key FROM epoch_targets WHERE epoch_id = ?").all(nextEpoch.id) as Record<string, unknown>[];
       expect(rows.map((row) => row.target_key)).toEqual(["unit_2::fn_2"]);
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("board admission can revisit older epoch targets while guarding against the last epoch", () => {
+    const { store } = tempState();
+    try {
+      const { run, epoch: firstEpoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
+      const firstClaim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      expect(firstClaim).not.toBeNull();
+      closeWorkerState(store, {
+        workerStateId: firstClaim?.workerStateId ?? "",
+        lifecycleStatus: "finished",
+        summary: { source: "test" },
+      });
+      closeSchedulerEpoch(store, firstEpoch.id, { status: "completed" });
+
+      const secondEpoch = startSchedulerEpoch(store, run.id, {
+        size: { mode: "fixed", value: 1 },
+        workerPoolSize: 1,
+        candidateWindow: 1,
+      });
+      admitEpochTargets(store, {
+        epochId: secondEpoch.id,
+        runId: run.id,
+        candidates: [candidate(2, "src/b.c")],
+        size: { mode: "fixed", value: 1 },
+        workerPoolSize: 1,
+      });
+      const secondClaim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-2", baseRev: "base" });
+      expect(secondClaim).not.toBeNull();
+      closeWorkerState(store, {
+        workerStateId: secondClaim?.workerStateId ?? "",
+        lifecycleStatus: "finished",
+        summary: { source: "test" },
+      });
+      closeSchedulerEpoch(store, secondEpoch.id, { status: "completed" });
+
+      const thirdEpoch = startSchedulerEpoch(store, run.id, {
+        size: { mode: "fixed", value: 3 },
+        workerPoolSize: 3,
+        candidateWindow: 3,
+      });
+      const admission = admitEpochTargets(store, {
+        epochId: thirdEpoch.id,
+        runId: run.id,
+        candidates: [candidate(1, "src/a.c"), candidate(2, "src/b.c"), candidate(3, "src/c.c")],
+        size: { mode: "fixed", value: 3 },
+        workerPoolSize: 3,
+      });
+
+      expect(admission).toMatchObject({ admitted: 2, skippedExisting: 1 });
+      const rows = store.db.query("SELECT target_key FROM epoch_targets WHERE epoch_id = ? ORDER BY admission_index").all(thirdEpoch.id) as Record<
+        string,
+        unknown
+      >[];
+      expect(rows.map((row) => row.target_key)).toEqual(["unit_1::fn_1", "unit_3::fn_3"]);
     } finally {
       store.db.close();
     }

@@ -51,7 +51,7 @@ def main() -> None:
     payload["compiler_runner"] = runner
     payload["queue_policy"] = {
         "run_replay_default_slots": 1,
-        "run_replay_when_active": "queue_busy",
+        "run_replay_when_slots_full": "queue_busy",
         "run_default_jobs": 1,
         "run_max_jobs": max_jobs(),
         "run_max_jobs_env": "ORCH_SOURCE_PERMUTER_MAX_JOBS",

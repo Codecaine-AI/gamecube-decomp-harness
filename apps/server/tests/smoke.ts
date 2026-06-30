@@ -1402,9 +1402,14 @@ async function main(): Promise<void> {
   assertSmoke("worker system prompt names target-file edit rule", workerSystemPrompt.includes('&lt;target_file path="..."&gt;'));
   assertSmoke("worker system prompt rejects separate manual regression ledger", workerSystemPrompt.includes("Do not create a separate manual verification ledger"));
   assertSmoke("worker system prompt does not define a report-shaped output contract", !workerSystemPrompt.includes("<output_contract>") && !workerSystemPrompt.includes("Use this top-level shape"));
-  assertSmoke("worker system prompt keeps regression reporting runner-owned", workerSystemPrompt.includes("This note is not a worker report") && !workerSystemPrompt.includes("local_regression_check"));
+  assertSmoke("worker system prompt keeps regression reporting runner-owned", workerSystemPrompt.includes("This handoff is not a worker report") && !workerSystemPrompt.includes("local_regression_check"));
   assertSmoke("worker system prompt is compact", workerSystemPrompt.length < 12000);
-  assertSmoke("worker system prompt keeps structured workflow phases", workerSystemPrompt.includes("<workflow>") && workerSystemPrompt.includes('<phase id="1" name="understand_task">'));
+  assertSmoke(
+    "worker system prompt keeps process-oriented workflow phases",
+    workerSystemPrompt.includes("<workflow>") &&
+      workerSystemPrompt.includes('<phase id="1" name="holistic_file_understanding">') &&
+      workerSystemPrompt.includes('<phase id="3" name="hypothesis_generation">'),
+  );
   assertSmoke("worker system prompt includes Sudoku board metaphor", workerSystemPrompt.includes("Think like Sudoku"));
   assertSmoke("worker system prompt does not embed standards section", !workerSystemPrompt.includes("<source_standardization_rules>"));
   assertSmoke("worker system prompt forbids unresolved local regressions", workerSystemPrompt.includes("unresolved local regression"));
@@ -1423,7 +1428,11 @@ async function main(): Promise<void> {
   const injectedStandardsBlock = workerUserPrompt.match(/<decomp_standards\b[\s\S]*?<\/decomp_standards>/)?.[0] ?? "";
   assertSmoke(
     "worker user prompt injects decomp standards as XML",
-    injectedStandardsBlock.includes('id="natural-loops"') && injectedStandardsBlock.includes("<do>") && injectedStandardsBlock.includes("<do_not>"),
+    injectedStandardsBlock.includes('id="natural-loops"') &&
+      injectedStandardsBlock.includes("<description>") &&
+      injectedStandardsBlock.includes("<canonical_example") &&
+      injectedStandardsBlock.includes("<bad_code>") &&
+      injectedStandardsBlock.includes("<preferred_code>"),
   );
   assertSmoke("worker user prompt omits legacy tool/resource catalogs", !workerUserPrompt.includes("<available_pi_tools_json>") && !workerUserPrompt.includes("<available_resources_json>"));
   assertSmoke("worker system prompt describes attempt evaluation", workerSystemPrompt.includes("Evaluate attempts"));
@@ -1453,11 +1462,15 @@ async function main(): Promise<void> {
       workerUserPrompt.includes('"past_prs"') &&
       workerUserPrompt.includes('"path_facts"') &&
       workerUserPrompt.includes('"follow_up_queries"') &&
-      workerUserPrompt.includes('"path_facts_resolve"') &&
+      !workerUserPrompt.includes("path_facts_resolve") &&
       !workerUserPrompt.includes('"scheduling_signals"') &&
       !workerUserPrompt.includes('"priority_bonus"'),
   );
-  assertSmoke("worker user prompt ends with the short turn instruction", workerUserPrompt.trimEnd().endsWith("return the compact checkpoint note when ready."));
+  assertSmoke(
+    "worker user prompt omits retired short turn instruction",
+    !workerUserPrompt.includes("for this claimed target") &&
+      !workerUserPrompt.includes("Continue toward exact match"),
+  );
   assertSmoke("worker user prompt omits selected context references", !workerUserPrompt.includes("selected_agent_context_references") && !workerUserPrompt.includes("worker_operating_guide"));
   const kernelAgentsResponse = await fetchServer(new Request("http://dashboard.local/api/kernel/agents"));
   const kernelAgentsPayload = (await kernelAgentsResponse.json()) as {
@@ -1521,7 +1534,8 @@ async function main(): Promise<void> {
   assertSmoke(
     "dashboard kernel worker catalog keeps target, baseline, tools, and standards",
     kernelWorkerPrompt.includes("=== SYSTEM PROMPT ===") &&
-      kernelWorkerPrompt.includes("=== INITIAL USER PROMPT ===") &&
+      !kernelWorkerPrompt.includes("=== INITIAL USER PROMPT ===") &&
+      !kernelWorkerPrompt.includes("for this claimed target") &&
       kernelWorkerContext.includes("<target>") &&
       kernelWorkerContext.includes("<baseline") &&
       kernelWorkerContext.includes("<target_graph_file_card") &&
@@ -1532,9 +1546,11 @@ async function main(): Promise<void> {
       kernelWorkerContext.includes('"search_leads"') &&
       kernelWorkerContext.includes('"symbols"') &&
       kernelWorkerContext.includes('"target_symbol"') &&
+      kernelWorkerContext.includes('"mismatch_patterns"') &&
       kernelWorkerContext.includes('"past_prs"') &&
       kernelWorkerContext.includes('"path_facts"') &&
       kernelWorkerContext.includes('"follow_up_queries"') &&
+      !kernelWorkerContext.includes("path_facts_resolve") &&
       !kernelWorkerContext.includes('"scheduling_signals"') &&
       !kernelWorkerContext.includes('"priority_bonus"') &&
       kernelWorkerContext.includes("<decomp_standards>") &&
@@ -1549,16 +1565,24 @@ async function main(): Promise<void> {
     .split("\n")
     .find((line) => line.startsWith("custom_tools: ")) ?? "";
   const expectedWorkerTools = [...defaultWorkerToolProfile];
+  const deprecatedWorkerToolIds = [
+    "discord_knowledge_search",
+    "ssbm_data_sheet_lookup_address",
+    "external_mirrors_search",
+    "external_symbol_lookup",
+    "path_facts_resolve",
+  ];
   assertSmoke("worker dry-run uses gpt-5.5", workerOutput.includes("model: gpt-5.5"));
   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+  assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
   assertSmoke("worker dry-run omits old context guide tool", !workerCustomToolsLine.includes("worker_context_get"));
   assertSmoke("worker dry-run omits generic lookup router by default", !workerCustomToolsLine.includes("decomp_lookup"));
   assertSmoke("worker user prompt does not list lookup commands", !workerUserPrompt.includes('"lookup_commands"'));
   assertSmoke("rendered prompts do not reference design doc", !renderedPrompts.includes("decomp-orchestrator-design.html"));
   assertSmoke("rendered prompts do not reference Codex skill paths", !renderedPrompts.includes(".codex/skills"));
   assertSmoke("worker prompt includes structured past PR resources", workerUserPrompt.includes("past_prs"));
-  assertSmoke("worker prompt includes data sheet resources", workerUserPrompt.includes("ssbm_data_sheet"));
+  assertSmoke("worker prompt omits deprecated data sheet resources", !workerUserPrompt.includes("ssbm_data_sheet"));
   assertSmoke("rendered prompts do not include director scheduling context", !renderedPrompts.includes("legacy/director/context/scheduling.md"));
   assertSmoke("rendered prompts do not include worker context guide paths", !renderedPrompts.includes("legacy/worker/context/"));
   assertSmoke("worker user prompt does not duplicate Pi tool affordances", !workerUserPrompt.includes("<available_pi_tools_json>"));
@@ -1568,6 +1592,7 @@ async function main(): Promise<void> {
   assertSmoke("rendered prompts do not reference targeted iteration workflow file", !renderedPrompts.includes("workflows/targeted-iteration.md"));
   assertSmoke("rendered prompts omit legacy sweep workflow", !renderedPrompts.includes("melee-decomp-sweep"));
   assertSmoke("worker prompt omits helper command paths", !workerUserPrompt.includes("decomp_context_lookup.py"));
+  assertSmoke("worker prompt omits deprecated worker knowledge tools", deprecatedWorkerToolIds.every((toolId) => !workerUserPrompt.includes(toolId)));
 
   const summary = {
     state_dir: stateDir,

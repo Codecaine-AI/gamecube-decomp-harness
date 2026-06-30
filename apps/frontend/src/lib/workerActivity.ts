@@ -22,7 +22,9 @@ function compactScoreNumber(value: unknown): number | null {
 
 function compactScoreValue(value: unknown, missingLabel = "n/a"): string {
   const parsed = compactScoreNumber(value);
-  return parsed === null ? missingLabel : parsed.toFixed(2);
+  return parsed === null
+    ? missingLabel
+    : (Math.floor(parsed * 100) / 100).toFixed(2);
 }
 
 export function activityScoreCompact(score: JsonObject): {

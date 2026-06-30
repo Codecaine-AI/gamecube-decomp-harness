@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  dashboardArtifactPayloads,
   latestDashboardArtifact,
   latestDashboardArtifactPayload,
   openState,
@@ -61,6 +62,14 @@ describe("dashboard artifacts", () => {
           artifactKey: "current",
         }),
       ).toMatchObject({ measures: { fuzzy_match_percent: 71 } });
+
+      expect(
+        dashboardArtifactPayloads(store, {
+          runId: "run-a",
+          artifactType: "board_snapshot",
+          artifactKey: "current",
+        }).map((payload) => payload.measures),
+      ).toEqual([{ fuzzy_match_percent: 70 }, { fuzzy_match_percent: 71 }]);
 
       expect(
         latestDashboardArtifactPayload(store, {

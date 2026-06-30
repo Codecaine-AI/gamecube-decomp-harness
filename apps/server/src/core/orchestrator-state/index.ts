@@ -10,6 +10,7 @@ export {
 } from "./storage/store.js";
 export * from "./storage/schema.js";
 export {
+  dashboardArtifactPayloads,
   latestDashboardArtifact,
   latestDashboardArtifactPayload,
   recordDashboardArtifact,

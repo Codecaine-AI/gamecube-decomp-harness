@@ -34,6 +34,14 @@ function numberValue(value: unknown, fallback = 0): number {
   return fallback;
 }
 
+function unmatchedTargetsValue(measures: RunningEpochJsonObject): number {
+  const explicit = numberValue(measures.unmatched_targets, numberValue(measures.unmatchedTargets, NaN));
+  if (Number.isFinite(explicit)) return Math.max(0, explicit);
+  const totalFunctions = numberValue(measures.total_functions, numberValue(measures.totalFunctions, NaN));
+  const matchedFunctions = numberValue(measures.matched_functions, numberValue(measures.matchedFunctions, NaN));
+  return Number.isFinite(totalFunctions) && Number.isFinite(matchedFunctions) ? Math.max(0, totalFunctions - matchedFunctions) : NaN;
+}
+
 function compactMeasures(measures: RunningEpochJsonObject): RunningEpochJsonObject {
   return {
     fuzzy_match_percent: numberValue(measures.fuzzy_match_percent, NaN),
@@ -42,6 +50,7 @@ function compactMeasures(measures: RunningEpochJsonObject): RunningEpochJsonObje
     matched_functions_percent: numberValue(measures.matched_functions_percent, NaN),
     complete_units: numberValue(measures.complete_units, NaN),
     total_units: numberValue(measures.total_units, NaN),
+    unmatched_targets: unmatchedTargetsValue(measures),
   };
 }
 

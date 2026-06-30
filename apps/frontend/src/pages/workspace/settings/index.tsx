@@ -1,5 +1,7 @@
 import { asObject, type FormState, type UiConfig } from "@/lib/format";
-import { CheckboxField, Field, InfoRows, List, PageHeader, PanelSection, PanelTitle, SelectField } from "@/components/primitives";
+import { RefreshCw, RotateCcw } from "@/icons";
+import { Button, CheckboxField, Field, InfoRows, List, PageHeader, PanelHeader, PanelSection, PanelTitle, SelectField } from "@/components/primitives";
+import { DEFAULT_TOOL_CONCURRENCY, normalizeToolConcurrency, suggestedToolConcurrency, toolConcurrencyRows } from "@/lib/workerConfig";
 import { processName } from "@/pages/workspace/_lib/model";
 import type { SessionView, WorkspaceNav } from "@/pages/workspace/_lib/types";
 
@@ -8,6 +10,20 @@ export function SettingsPage({ config, form, nav, setForm, view }: { config: UiC
   const defaults = asObject(config?.projectDefaults);
   const validation = asObject(defaults.validation);
   const pr = asObject(defaults.pr);
+  const toolDefaults = asObject(defaults.toolConcurrency);
+  const configuredToolConcurrency = normalizeToolConcurrency(toolDefaults.configured, DEFAULT_TOOL_CONCURRENCY);
+  const codeToolConcurrency = normalizeToolConcurrency(toolDefaults.defaults, DEFAULT_TOOL_CONCURRENCY);
+  const toolEnv = asObject(toolDefaults.env);
+  const toolConcurrency = normalizeToolConcurrency(form.toolConcurrency, configuredToolConcurrency);
+  const setToolConcurrency = (key: keyof FormState["toolConcurrency"], value: unknown, max: number) => {
+    const parsed = Math.trunc(Number(value));
+    setForm({
+      toolConcurrency: {
+        ...toolConcurrency,
+        [key]: Math.max(1, Math.min(max, Number.isFinite(parsed) ? parsed : toolConcurrency[key])),
+      },
+    });
+  };
   return (
     <>
       <PageHeader kicker={view.project?.displayName ?? "No project selected"} title="Settings" />
@@ -62,6 +78,46 @@ export function SettingsPage({ config, form, nav, setForm, view }: { config: UiC
             <List values={Object.entries(pr).map(([key, value]) => `${key}: ${String(value)}`)} empty="No PR defaults configured." />
           </PanelSection>
         </div>
+        <PanelSection>
+          <PanelHeader
+            title="Tool Concurrency"
+            right={
+              <div className="flex flex-wrap gap-2">
+                <Button icon={<RefreshCw size={13} />} onClick={() => setForm({ toolConcurrency: suggestedToolConcurrency(form.maxWorkers) })} title="Fit tool slots to the selected worker count." type="button">
+                  Fit Workers
+                </Button>
+                <Button icon={<RotateCcw size={13} />} onClick={() => setForm({ toolConcurrency: configuredToolConcurrency })} title="Reset to the effective project defaults." type="button">
+                  Defaults
+                </Button>
+              </div>
+            }
+          />
+          <div className="mt-3 grid grid-cols-1 gap-4 @[860px]:grid-cols-[minmax(0,1fr)_minmax(280px,0.85fr)]">
+            <div className="grid grid-cols-1 gap-2 @[560px]:grid-cols-2 @[1080px]:grid-cols-4">
+              {toolConcurrencyRows.map((row) => (
+                <Field
+                  className="mb-0"
+                  key={row.key}
+                  label={row.label}
+                  max={row.max}
+                  min={1}
+                  onChange={(event) => setToolConcurrency(row.key, event.currentTarget.value, row.max)}
+                  step={1}
+                  title={String(toolEnv[row.key] ?? "")}
+                  type="number"
+                  value={toolConcurrency[row.key]}
+                />
+              ))}
+            </div>
+            <InfoRows
+              rows={toolConcurrencyRows.map((row) => [
+                row.label,
+                `${codeToolConcurrency[row.key]} default / ${String(toolEnv[row.key] ?? "-")}`,
+                toolConcurrency[row.key] === configuredToolConcurrency[row.key] ? "text-soft" : "text-warn",
+              ])}
+            />
+          </div>
+        </PanelSection>
       </div>
     </>
   );

@@ -8,17 +8,24 @@ const measureRowSpecs = [
   { key: "fuzzy_match_percent", label: "Fuzzy match" },
 ];
 
+const TOOLTIP_SIDE_BREAKPOINT = 75;
+const TOOLTIP_DOT_GAP_PX = 14;
+
+function countLabel(count: number, noun: string): string {
+  return `${count.toLocaleString()} ${noun}${count === 1 ? "" : "s"}`;
+}
+
 export function MarkTooltip({ mark }: { mark: ChartMark }) {
-  const horizontal = mark.x < 15 ? "0" : mark.x > 85 ? "-100%" : "-50%";
-  const above = mark.y >= 48;
+  const showRight = mark.x < TOOLTIP_SIDE_BREAKPOINT;
   const units = strictNumber(mark.measures.complete_units);
+  const unmatchedTargets = strictNumber(mark.measures.unmatched_targets ?? mark.measures.unmatchedTargets);
   return (
     <div
       className="pointer-events-none absolute z-10 w-[210px] border border-line2 bg-raised px-2.5 py-2 shadow-[0_4px_16px_rgba(0,0,0,0.45)]"
       style={{
         left: `${mark.x}%`,
-        top: `${mark.y}%`,
-        transform: `translate(${horizontal}, ${above ? "calc(-100% - 14px)" : "14px"})`,
+        top: "50%",
+        transform: showRight ? `translate(${TOOLTIP_DOT_GAP_PX}px, -50%)` : `translate(calc(-100% - ${TOOLTIP_DOT_GAP_PX}px), -50%)`,
       }}
     >
       <div className="flex items-baseline justify-between gap-2">
@@ -47,6 +54,12 @@ export function MarkTooltip({ mark }: { mark: ChartMark }) {
             <span className="text-soft">
               {whole(mark.measures.complete_units)} / {whole(mark.measures.total_units)}
             </span>
+          </div>
+        ) : null}
+        {Number.isFinite(unmatchedTargets) ? (
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-dim">Unmatched</span>
+            <span className={unmatchedTargets > 0 ? "text-warn" : "text-up"}>{countLabel(unmatchedTargets, "target")}</span>
           </div>
         ) : null}
         {mark.regressed > 0 ? (

@@ -40,19 +40,20 @@ policy to `indexes/vector_manifest.json`.
 Some sources expose focused aliases, such as:
 
 - `path_facts/api/resolve_for_path.py`
-- `discord_knowledge/api/topics_for_terms.py`
 - `powerpc_docs/api/lookup_instruction.py`
-- `ssbm_data_sheet/api/lookup_address.py`
-- `ssbm_data_sheet/api/lookup_offset.py`
-- `external_mirrors/api/lookup_external_symbol.py`
 
 ## Active Sections
 
 | Section | Sources | Notes |
 | --- | --- | --- |
 | `injectable` | `decomp_standards`, `path_facts`, `banned_patterns` | Auto-selected context and QA guardrail records. Search APIs exist for curation and focused follow-up, not broad worker browsing. |
-| `rag_search` | `discord_knowledge`, `powerpc_docs` | Independently searchable knowledge bases. |
-| `code_context` | `code_graph`, `past_prs`, `ssbm_data_sheet`, `external_mirrors` | Sources that connect to files, symbols, PRs, data rows, or mirrors. |
+| `rag_search` | `powerpc_docs` | Independently searchable knowledge bases. |
+| `code_context` | `code_graph`, `past_prs` | Sources that connect to files, symbols, PRs, graph cards, and rank features. |
+| `deprecated` | `discord_knowledge`, `ssbm_data_sheet`, `external_mirrors` | Archived lookup slices retained for manual use or explicit profile overrides, but inactive by default. |
+
+`path_facts` is injected into worker packets as target-scoped context. The
+default worker profile does not expose `path_facts_resolve`, Discord knowledge,
+data sheet, or external mirror tools.
 
 Callable tool results are intentionally not source slices. Expensive or
 refreshable tool evidence belongs in each resolved tool-data root: stable

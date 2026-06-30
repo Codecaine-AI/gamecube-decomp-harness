@@ -15,7 +15,7 @@ The default API behavior is conservative: permutation calls use `--apply never`
 unless explicitly overridden outside the worker profile, and `run.py` defaults
 to a single internal worker thread. `ORCH_SOURCE_PERMUTER_MAX_JOBS` caps
 accepted `--jobs` values and defaults to 1. Run/replay calls are opportunistic;
-when a source-permuter call is already active, new calls return `queue_busy`
-rather than blocking a worker. A worker should treat the result as a candidate
-hypothesis, then apply a small understood edit and verify it with
+when the configured source-permuter slots are full, new calls return
+`queue_busy` rather than blocking a worker. A worker should treat the result as
+a candidate hypothesis, then apply a small understood edit and verify it with
 checkdiff/objdiff.

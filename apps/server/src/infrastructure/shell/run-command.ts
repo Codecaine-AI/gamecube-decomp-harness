@@ -6,19 +6,38 @@ export interface CommandResult {
 
 export interface RunCommandOptions {
   env?: Record<string, string | undefined>;
+  timeoutMs?: number;
 }
 
 export async function runCommand(repoRoot: string, command: string[], options: RunCommandOptions = {}): Promise<CommandResult> {
+  let timedOut = false;
   const proc = Bun.spawn(command, {
     cwd: repoRoot,
     env: options.env ? { ...Bun.env, ...options.env } : Bun.env,
     stdout: "pipe",
     stderr: "pipe",
   });
+  const timeout =
+    options.timeoutMs && options.timeoutMs > 0
+      ? setTimeout(() => {
+          timedOut = true;
+          proc.kill(9);
+        }, options.timeoutMs)
+      : null;
   const stdoutPromise = new Response(proc.stdout).text();
   const stderrPromise = new Response(proc.stderr).text();
-  const [stdout, stderr, exitCode] = await Promise.all([stdoutPromise, stderrPromise, proc.exited]);
-  return { exitCode, stdout, stderr };
+  try {
+    const [stdout, stderr, exitCode] = await Promise.all([stdoutPromise, stderrPromise, proc.exited]);
+    if (!timedOut) return { exitCode, stdout, stderr };
+    const timeoutSeconds = Math.round((options.timeoutMs ?? 0) / 1000);
+    return {
+      exitCode: exitCode === 0 ? 124 : exitCode,
+      stdout,
+      stderr: `${stderr}${stderr.endsWith("\n") || !stderr ? "" : "\n"}Command timed out after ${timeoutSeconds}s: ${command.join(" ")}`,
+    };
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 }
 
 /**

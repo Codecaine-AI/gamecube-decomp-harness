@@ -5,6 +5,7 @@ export interface BoardMeasures {
   matched_functions_percent?: number;
   total_units?: number;
   complete_units?: number;
+  unmatched_targets?: number;
 }
 
 export interface BoardRankBreakdown {

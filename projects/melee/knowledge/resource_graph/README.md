@@ -50,8 +50,9 @@ Useful commands:
 - `bun run kg:search -- --source mismatch_patterns --query <query>`
 
 Current v1 default graph ingestion builds source versions and search chunks for
-active sources: `code_graph`, `past_prs`, `discord_knowledge`,
-`ssbm_data_sheet`, `powerpc_docs`, `external_mirrors`, `decomp_standards`, and
-`path_facts`. `agent_shared_state` and
+active sources: `code_graph`, `past_prs`, `powerpc_docs`, `decomp_standards`,
+and `path_facts`. `discord_knowledge`, `ssbm_data_sheet`, and
+`external_mirrors` are deprecated source slices that can be selected explicitly
+with `--sources` for manual investigation. `agent_shared_state` and
 `curator_enrichment` are graph-owned enrichment inputs, and
 `mismatch_patterns` is a graph-owned derived source built from those inputs.

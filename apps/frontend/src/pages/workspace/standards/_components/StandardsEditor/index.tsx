@@ -1,12 +1,16 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Database, FolderTree, RotateCcw, Wrench } from "@/icons";
+import { AlertTriangle, Database, FolderTree, RotateCcw } from "@/icons";
 import { Button } from "@/components/primitives";
 import { saveStandard } from "@/lib/api";
-import { num, type FormState, type StandardExampleRecord, type StandardRecord, type StandardsPayload } from "@/lib/format";
+import {
+  type FormState,
+  type StandardExampleRecord,
+  type StandardRecord,
+  type StandardsPayload,
+} from "@/lib/format";
 import { useStandardsPayload } from "../data/useStandardsPayload";
 import { StandardDetail } from "./StandardDetail";
 import { StandardEditForm } from "./StandardEditForm";
-import { StandardRepairsColumn } from "./StandardRepairsColumn";
 import { StandardsTree } from "./StandardsTree";
 import {
   createStandardDraft,
@@ -18,23 +22,50 @@ import {
 const EMPTY_RECORDS: StandardRecord[] = [];
 const EMPTY_EXAMPLES: StandardExampleRecord[] = [];
 
-function KnowledgeRootsStrip({ payload }: { payload: StandardsPayload | null }) {
+function KnowledgeRootsStrip({
+  payload,
+}: {
+  payload: StandardsPayload | null;
+}) {
   const roots = payload?.inventory.roots;
   if (!roots) return null;
   const rawItems = [
-    { icon: <FolderTree size={13} />, label: "Knowledge", value: roots.projectKnowledgeRoot },
-    { icon: <FolderTree size={13} />, label: "Sources", value: roots.sourcesRoot },
-    { icon: <Database size={13} />, label: "Graph", value: roots.graphDbPath ?? roots.resourceGraphRoot },
+    {
+      icon: <FolderTree size={13} />,
+      label: "Knowledge",
+      value: roots.projectKnowledgeRoot,
+    },
+    {
+      icon: <FolderTree size={13} />,
+      label: "Sources",
+      value: roots.sourcesRoot,
+    },
+    {
+      icon: <Database size={13} />,
+      label: "Graph",
+      value: roots.graphDbPath ?? roots.resourceGraphRoot,
+    },
   ];
-  const items: Array<{ icon: ReactNode; label: string; value: string }> = rawItems.flatMap((item) => (item.value ? [{ ...item, value: item.value }] : []));
+  const items: Array<{ icon: ReactNode; label: string; value: string }> =
+    rawItems.flatMap((item) =>
+      item.value ? [{ ...item, value: item.value }] : [],
+    );
 
   return (
     <div className="grid shrink-0 grid-cols-1 gap-px border-b border-line bg-line text-[11px] md:grid-cols-3">
       {items.map((item) => (
-        <div className="flex min-w-0 items-center gap-2 bg-panel px-3 py-1.5" key={item.label} title={item.value}>
+        <div
+          className="flex min-w-0 items-center gap-2 bg-panel px-3 py-1.5"
+          key={item.label}
+          title={item.value}
+        >
           <span className="shrink-0 text-dim">{item.icon}</span>
-          <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.1em] text-dim">{item.label}</span>
-          <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-soft">{item.value}</span>
+          <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.1em] text-dim">
+            {item.label}
+          </span>
+          <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-soft">
+            {item.value}
+          </span>
         </div>
       ))}
     </div>
@@ -48,25 +79,34 @@ export function StandardsEditor({ form }: { form: FormState }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [collapsedFamilies, setCollapsedFamilies] = useState<Set<string>>(new Set());
-  const [dockOpen, setDockOpen] = useState(false);
+  const [collapsedFamilies, setCollapsedFamilies] = useState<Set<string>>(
+    new Set(),
+  );
 
   const records = state.payload?.records ?? EMPTY_RECORDS;
   const examples = state.payload?.examples ?? EMPTY_EXAMPLES;
   const groups = useMemo(() => groupStandardsByFamily(records), [records]);
-  const selected = useMemo(() => records.find((record) => record.id === selectedId) ?? null, [records, selectedId]);
+  const selected = useMemo(
+    () => records.find((record) => record.id === selectedId) ?? null,
+    [records, selectedId],
+  );
   const editing = draft ?? selected;
   const dirty = draft !== null;
-  const selectedExamples = useMemo(() => (selected ? examples.filter((example) => example.standardId === selected.id) : EMPTY_EXAMPLES), [examples, selected]);
-  const selectedRepairs = selected?.preferredRepairs ?? [];
+  const selectedExamples = useMemo(
+    () =>
+      selected
+        ? examples.filter((example) => example.standardId === selected.id)
+        : EMPTY_EXAMPLES,
+    [examples, selected],
+  );
 
   useEffect(() => {
-    setSelectedId((current) => (current && records.some((record) => record.id === current) ? current : records[0]?.id ?? ""));
+    setSelectedId((current) =>
+      current && records.some((record) => record.id === current)
+        ? current
+        : (records[0]?.id ?? ""),
+    );
   }, [records]);
-
-  useEffect(() => {
-    setDockOpen(selectedExamples.length > 0 || selectedRepairs.length > 0);
-  }, [selectedId, selectedExamples.length, selectedRepairs.length]);
 
   function toggleFamily(family: string) {
     setCollapsedFamilies((current) => {
@@ -124,7 +164,11 @@ export function StandardsEditor({ form }: { form: FormState }) {
   }
 
   if (state.loading) {
-    return <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-xs text-dim">Loading standards…</div>;
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-xs text-dim">
+        Loading standards…
+      </div>
+    );
   }
 
   if (state.error) {
@@ -136,7 +180,11 @@ export function StandardsEditor({ form }: { form: FormState }) {
             <span className="min-w-0">{state.error}</span>
           </div>
           <div className="mt-3">
-            <Button icon={<RotateCcw size={13} />} onClick={() => void reload()} type="button">
+            <Button
+              icon={<RotateCcw size={13} />}
+              onClick={() => void reload()}
+              type="button"
+            >
               Retry
             </Button>
           </div>
@@ -160,9 +208,8 @@ export function StandardsEditor({ form }: { form: FormState }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <KnowledgeRootsStrip payload={state.payload} />
       {editing && dirty ? (
-        <div className="grid min-h-0 flex-1 grid-cols-[340px_minmax(0,1fr)] gap-px bg-line">
+        <div className="grid min-h-0 flex-1 grid-cols-[340px_minmax(0,1fr)] gap-px bg-line ">
           {tree}
           <div className="min-h-0 overflow-y-auto bg-panel">
             <StandardEditForm
@@ -172,37 +219,36 @@ export function StandardsEditor({ form }: { form: FormState }) {
               validationErrors={validationErrors}
               onRevert={revert}
               onSave={save}
-              onValidate={() => setValidationErrors(validateStandardDraft(editing))}
+              onValidate={() =>
+                setValidationErrors(validateStandardDraft(editing))
+              }
               setDraft={(record) => setDraft(record)}
             />
           </div>
         </div>
       ) : (
-        <div className={`grid min-h-0 flex-1 gap-px bg-line ${dockOpen ? "grid-cols-[340px_minmax(360px,1fr)_minmax(420px,480px)]" : "grid-cols-[340px_minmax(360px,1fr)_44px]"}`}>
+        <div className="grid min-h-0 flex-1 grid-cols-[340px_minmax(360px,1fr)] gap-px bg-line">
           {tree}
           {selected ? (
             <div className="min-h-0 overflow-y-auto bg-panel">
-              <StandardDetail onEdit={beginEdit} record={selected} />
+              <StandardDetail
+                examples={selectedExamples}
+                onEdit={beginEdit}
+                record={selected}
+              />
             </div>
           ) : (
-            <div className="flex items-center justify-center bg-panel p-6 text-xs text-dim">Select a standard to inspect or edit it.</div>
-          )}
-          {dockOpen ? (
-            <StandardRepairsColumn preferredRepairs={selectedRepairs} examples={selectedExamples} onClose={() => setDockOpen(false)} />
-          ) : (
-            <button
-              className="flex flex-col items-center justify-center gap-2 bg-inset text-faint hover:bg-card hover:text-soft"
-              onClick={() => setDockOpen(true)}
-              title={`Expand repairs (${num(selectedRepairs.length + selectedExamples.length)} for this standard)`}
-              type="button"
-            >
-              <Wrench size={15} />
-              <span className="border border-line px-1 text-[10px] font-bold tabular-nums">{num(selectedRepairs.length + selectedExamples.length)}</span>
-            </button>
+            <div className="flex items-center justify-center bg-panel p-6 text-xs text-dim">
+              Select a standard to inspect or edit it.
+            </div>
           )}
         </div>
       )}
-      {state.payload?.warnings.length ? <div className="shrink-0 border-t border-warn/30 bg-warn/5 px-4 py-1.5 text-[11px] text-warn">{state.payload.warnings.join(" ")}</div> : null}
+      {state.payload?.warnings.length ? (
+        <div className="shrink-0 border-t border-warn/30 bg-warn/5 px-4 py-1.5 text-[11px] text-warn">
+          {state.payload.warnings.join(" ")}
+        </div>
+      ) : null}
     </div>
   );
 }

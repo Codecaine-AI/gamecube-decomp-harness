@@ -1,9 +1,11 @@
 # Global Melee Decomp Standards
 
 This source owns runtime-accessible global standards for Melee decomp workers,
-writers, QA, and PR review. It is separate from path-scoped quick facts so broad
-rules can always be loaded without bringing item, fighter, menu, or stage hints
-into unrelated contexts.
+writers, QA, and review. A standard is primarily an example-backed code
+pattern: a short description plus bad/preferred source pairs that show the
+repair shape. It is separate from path-scoped quick facts so broad rules can
+always be loaded without bringing item, fighter, menu, or stage hints into
+unrelated contexts.
 
 Trust rule:
 
@@ -21,9 +23,11 @@ store.
 ## Record Fields
 
 The stable identity fields remain `schema_version`, `id`, `kind`, `status`,
-`title`, `summary`, `do`, `do_not`, and `evidence_refs`. `summary`, `do`, and
-`do_not` are renderable bullet-string lists. Existing
-`global_standard:*` ids should be preserved unless every consumer is migrated.
+`title`, `summary`, `do`, `do_not`, and `evidence_refs`. `summary` is the quick
+description shown before examples. `do` and `do_not` are compatibility signal
+lists for search, editing, and older tooling; they are no longer the primary
+human or injected prompt surface. Existing `global_standard:*` ids should be
+preserved unless every consumer is migrated.
 
 Current records also carry optional code-quality metadata:
 
@@ -39,14 +43,18 @@ Current records also carry optional code-quality metadata:
 - `qa_rule_ids`: deterministic `review_lint` rule ids that implement or
   partially cover the standard.
 - `example_policy` and `preferred_repairs`: compact routing/repair hints.
-  Detailed examples live in targeted repair/reviewer catalogs, not the worker
-  bootstrap prompt.
+  Detailed examples live in the example catalog and are rendered next to the
+  standard in the dashboard.
 
 `data/examples.jsonl` stores targeted bad/preferred examples for QA repair and
 pre-ship review. Each record is lookupable by `standard_id` and optional
 `qa_rule_id`; `description` is a list of bullet-point strings rendered in the
-dashboard and prompt XML. `standardExamplesPromptXml()` renders only the
-relevant subset when a repair item or lint finding identifies the rule.
+dashboard and prompt XML. Example order is intentional: the first example for a
+standard is its canonical pair. The base `<decomp_standards>` injection includes
+one canonical example pair per worker-facing standard, and unconstrained
+standard-example injections render at most the canonical example for each
+standard. `standardExamplesPromptXml()` renders additional relevant examples
+when a repair item or lint finding identifies the rule.
 
 ```bash
 python3 projects/melee/knowledge/sources/injectable/decomp_standards/api/status.py --json

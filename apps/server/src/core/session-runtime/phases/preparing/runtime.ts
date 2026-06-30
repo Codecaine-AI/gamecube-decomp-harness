@@ -222,20 +222,8 @@ function workerConfigFromBody(body: JsonObject, dashboard: JsonObject | undefine
   return {
     workerCount: numberValue(body.maxWorkers, 16),
     epochSize: stringValue(body.epochSize, dashboard?.epochSize == null ? "64" : String(dashboard.epochSize)),
-    batchSize: numberValue(body.epochReadyQueueSize, numberValue(dashboard?.epochReadyQueueSize, 64)),
     agentTimeoutSeconds: numberValue(body.agentTimeoutSeconds, numberValue(dashboard?.agentTimeoutSeconds, 3000)),
-    fullKgMaintenanceMode: stringValue(body.fullKgMaintenanceMode, stringValue(dashboard?.fullKgMaintenanceMode, "full")),
-    workerThinkingLevel: stringValue(body.workerThinkingLevel, "medium"),
-  };
-}
-
-function schedulerConfigFromBody(body: JsonObject, dashboard: JsonObject | undefined): JsonObject {
-  return {
-    candidateLimit: numberValue(body.candidateLimit, numberValue(dashboard?.candidateLimit, 64)),
-    candidateWindow: numberValue(body.candidateWindow, numberValue(dashboard?.candidateWindow, 64)),
-    queueTargetSize: numberValue(body.queueTargetSize, numberValue(dashboard?.queueTargetSize, 64)),
-    queueLowWatermark: numberValue(body.queueLowWatermark, numberValue(dashboard?.queueLowWatermark, 16)),
-    epochReadyQueueSize: numberValue(body.epochReadyQueueSize, numberValue(dashboard?.epochReadyQueueSize, 64)),
+    toolConcurrency: body.toolConcurrency && typeof body.toolConcurrency === "object" ? body.toolConcurrency : undefined,
   };
 }
 
@@ -278,15 +266,15 @@ function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command
   const { graphDbPath, project, stateDir } = paths;
   const repoRoot = stringValue(body.sessionRepoRoot, paths.repoRoot);
   const commandPaths = { ...paths, repoRoot };
-  const { candidateLimit, maxWorkers } = runningScheduling(body.maxWorkers);
+  const { maxWorkers } = runningScheduling(body.maxWorkers);
   const command = [
     ...serverJobPrefix(commandPaths, deps.serverJobPath),
     ...(boolValue(body.dryRunAgents) ? ["--dry-run-agents"] : []),
     "init-run",
     "--desired-workers",
     String(maxWorkers),
-    "--candidate-limit",
-    String(candidateLimit),
+    "--epoch-size",
+    stringValue(body.epochSize, project?.dashboard.epochSize == null ? "64" : String(project.dashboard.epochSize)),
     "--goal-kind",
     stringValue(body.goalKind, "matched_code_percent"),
     "--goal-value",
@@ -997,7 +985,6 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
           repoRoot: init.repoRoot,
           sessionRepoRoot,
           workerConfig: workerConfigFromBody(body, init.project?.dashboard),
-          schedulerConfig: schedulerConfigFromBody(body, init.project?.dashboard),
         },
       });
       deps.appendLog("ui", `init-run started: ${command.join(" ")}`);
@@ -1028,7 +1015,6 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
           metadata: {
             repoRoot: init.repoRoot,
             workerConfig: workerConfigFromBody(body, init.project?.dashboard),
-            schedulerConfig: schedulerConfigFromBody(body, init.project?.dashboard),
             savePoint,
           },
         });
@@ -1043,7 +1029,6 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
             error: error instanceof Error ? error.message : String(error),
             repoRoot: init.repoRoot,
             workerConfig: workerConfigFromBody(body, init.project?.dashboard),
-            schedulerConfig: schedulerConfigFromBody(body, init.project?.dashboard),
           },
         }).catch(() => null);
         throw error;

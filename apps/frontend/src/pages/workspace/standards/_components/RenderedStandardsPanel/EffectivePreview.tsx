@@ -9,6 +9,7 @@ export function EffectivePreview({ payload }: { payload: StandardsPayload | null
   if (!payload) return null;
 
   const accepted = payload.records.filter((record) => record.status === "accepted" && record.workerFacing !== false);
+  const canonicalExamples = accepted.filter((record) => record.canonicalExample).length;
   const xml = payload.effectiveXml || "";
 
   async function copyXml() {
@@ -29,7 +30,8 @@ export function EffectivePreview({ payload }: { payload: StandardsPayload | null
           <>
             Effective Prompt{" "}
             <span className="font-normal text-dim">
-              — {num(accepted.length)} accepted standard{accepted.length === 1 ? "" : "s"} injected
+              — {num(accepted.length)} accepted standard{accepted.length === 1 ? "" : "s"}, {num(canonicalExamples)} canonical example
+              {canonicalExamples === 1 ? "" : "s"} injected
             </span>
           </>
         }

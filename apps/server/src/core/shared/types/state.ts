@@ -13,6 +13,7 @@ export type EventType =
   | "epoch_regression_pause"
   | "epoch_cycle_error"
   | "epoch_admitted"
+  | "epoch_boundary_waiting_for_recovery"
   | "epoch_exhausted"
   | "epoch_fast_refresh_started"
   | "epoch_fast_refresh_finished"

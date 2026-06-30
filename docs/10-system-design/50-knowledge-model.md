@@ -19,8 +19,9 @@ role behavior.
 | Type | Purpose |
 | --- | --- |
 | Injected context | Compact source slices selected before or during worker boot: global `decomp_standards`, path-scoped `path_facts`, and the maintainer-rejection record `banned_patterns` |
-| Searchable knowledge bases | RAG-style corpora that workers query on demand, such as `discord_knowledge` and `powerpc_docs`; these support lexical JSONL lookup and source-local semantic vector lookup after vectorization |
-| Code-connected evidence | Source slices that link to files, symbols, PRs, data rows, mirrors, file cards, or rank features |
+| Searchable knowledge bases | RAG-style corpora that agents query on demand, such as `powerpc_docs`; these support lexical JSONL lookup and source-local semantic vector lookup after vectorization |
+| Code-connected evidence | Source slices that link to files, symbols, PRs, file cards, graph hits, or rank features |
+| Deprecated knowledge slices | Archived lookup slices such as `discord_knowledge`, `ssbm_data_sheet`, and `external_mirrors`; these are retained for manual investigation or explicit profile overrides, not default worker browsing |
 | Tools | Toolpack-defined callable operations for lookup, validation, compiler diagnosis, source editing, data conversion, and operator maintenance; project bindings choose implementation overrides, shared data roots, and worktree cache roots |
 | Code graph | Current-checkout facts about files, object units, functions, match status, and editability |
 | Resource graph | Project-selected SQLite graph state linking the code graph with global PR history, source hits, durable lessons, mismatch patterns, editability, and rank features |
@@ -80,8 +81,8 @@ PR and worker learning enters through a maintenance pipeline:
 2. The PR indexer pass creates missing per-PR postmortems under
    `projects/melee/knowledge/sources/code_context/past_prs/data/prs/pr-NNNN/postmortem`.
 3. Source indexers generate source-local `indexes/*.jsonl` files for active
-   injected context, searchable documents, CSVs, PDF page text, and external
-   mirrors.
+   injected context, searchable documents, PDF page text, and code-connected
+   graph slices.
 4. RAG source vectorizers embed generated document chunks into source-local
    `indexes/vector.sqlite` stores and record the embedding provider, model,
    dimensions, source fingerprint, and chunking policy in

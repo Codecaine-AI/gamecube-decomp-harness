@@ -26,6 +26,7 @@ import {
   toKernelParsedAgentFromBundle,
   type KernelAgentId,
 } from "./kernel-catalog.js";
+import { loadKernelAgentsPayload } from "./kernel-preview.js";
 import { resolveAgentToolIds } from "@server/core/tools/index.js";
 
 const repoRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
@@ -198,6 +199,13 @@ describe("meleeKernelAgentCatalog", () => {
     }
   });
 
+  test("describes worker output as a runner validation handoff in the catalog", () => {
+    const worker = meleeKernelAgent("worker");
+
+    expect(worker.resultContract.notes).toContain("validation handoff");
+    expect(worker.resultContract.notes).not.toContain("checkpoint note");
+  });
+
   test("loads Melee agent.ts files as a kernel registry catalog", async () => {
     const registry = await buildRegistry({
       catalogRoot: resolve(repoRoot, "apps/server/src/core/agent-catalog/agents"),
@@ -226,7 +234,9 @@ describe("meleeKernelAgentCatalog", () => {
       expect(converted.parsed.frontmatter.model).toBe(entry.model);
       expect(converted.parsed.body).toBe(bundle.systemPrompt);
       expect(bundle.systemTemplatePath.endsWith("/agent.ts")).toBeTrue();
-      expect(converted.userPrompt).toBe(bundle.userPrompt);
+      expect(converted.userPrompt).toBe(
+        bundle.kernelContext?.turnPrompt ?? bundle.kernelContext?.renderedContext ?? bundle.userPrompt,
+      );
       expect(converted.contextResolver).not.toBeNull();
       expect(converted.contextResolver?.loaders.map((loader) => loader.kind)).toEqual(entry.contextLoaderKinds);
       expect(`${converted.parsed.body}\n${converted.userPrompt}\n${bundle.userPrompt}`).not.toMatch(unresolvedPlaceholderPattern);
@@ -247,12 +257,33 @@ describe("meleeKernelAgentCatalog", () => {
       expect(viewerDefinition.source).toBe("typed");
       expect(viewerDefinition.prompt?.kind).toBe("prompt");
       expect(viewerDefinition.renderedPrompt?.content).toContain("=== SYSTEM PROMPT ===");
-      expect(viewerDefinition.renderedPrompt?.content).toContain("=== INITIAL USER PROMPT ===");
+      if (bundle.userPrompt.trim()) {
+        expect(viewerDefinition.renderedPrompt?.content).toContain("=== INITIAL USER PROMPT ===");
+      } else {
+        expect(viewerDefinition.renderedPrompt?.content).not.toContain("=== INITIAL USER PROMPT ===");
+      }
       expect(viewerDefinition.renderedPrompt?.content).not.toMatch(unresolvedPlaceholderPattern);
       expect(viewerDefinition.context?.inputs.map((input) => input.loaderKind)).toEqual(entry.contextLoaderKinds);
       expect(viewerDefinition.context?.modulePath).toBe(entry.promptPaths.contextModulePath);
       expect(viewerDefinition.context?.renderedContext).toBe(bundle.kernelContext?.renderedContext ?? bundle.userPrompt);
     }
+  });
+
+  test("renders dashboard worker sample with validation handoff language and hypothesis context", () => {
+    const payload = loadKernelAgentsPayload({
+      project: null,
+      repoRoot: sampleRepoRoot,
+      stateDir: sampleStateDir,
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+    });
+    const worker = payload.agents.find((agent) => agent.name === "worker");
+    const rendered = `${worker?.renderedPrompt?.content ?? ""}\n${worker?.context?.renderedContext ?? ""}`;
+
+    expect(worker).toBeDefined();
+    expect(rendered).toContain("validation handoff");
+    expect(rendered).not.toContain("for this claimed target");
+    expect(rendered).toContain('"mismatch_patterns"');
+    expect(rendered).not.toMatch(unresolvedPlaceholderPattern);
   });
 
 });

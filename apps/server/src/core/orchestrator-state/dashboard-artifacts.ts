@@ -65,6 +65,28 @@ function rowToRecord(row: Record<string, unknown>): DashboardArtifactRecord {
   };
 }
 
+function selectorWhere(selector: DashboardArtifactSelector): { clauses: string[]; values: Array<string | null> } {
+  const clauses = ["artifact_type = ?"];
+  const values: Array<string | null> = [selector.artifactType];
+  if (selector.artifactKey) {
+    clauses.push("artifact_key = ?");
+    values.push(selector.artifactKey);
+  }
+  if (selector.runId !== undefined) {
+    clauses.push(selector.runId ? "run_id = ?" : "run_id IS NULL");
+    if (selector.runId) values.push(selector.runId);
+  }
+  if (selector.projectId !== undefined) {
+    clauses.push(selector.projectId ? "project_id = ?" : "project_id IS NULL");
+    if (selector.projectId) values.push(selector.projectId);
+  }
+  if (selector.sessionUuid !== undefined) {
+    clauses.push(selector.sessionUuid ? "session_uuid = ?" : "session_uuid IS NULL");
+    if (selector.sessionUuid) values.push(selector.sessionUuid);
+  }
+  return { clauses, values };
+}
+
 export function recordDashboardArtifact(store: StateStore, input: DashboardArtifactInput): DashboardArtifactRecord {
   const record: DashboardArtifactRecord = {
     id: randomUUID(),
@@ -106,24 +128,7 @@ export function recordDashboardArtifact(store: StateStore, input: DashboardArtif
 }
 
 export function latestDashboardArtifact(store: StateStore, selector: DashboardArtifactSelector): DashboardArtifactRecord | null {
-  const clauses = ["artifact_type = ?"];
-  const values: Array<string | null> = [selector.artifactType];
-  if (selector.artifactKey) {
-    clauses.push("artifact_key = ?");
-    values.push(selector.artifactKey);
-  }
-  if (selector.runId !== undefined) {
-    clauses.push(selector.runId ? "run_id = ?" : "run_id IS NULL");
-    if (selector.runId) values.push(selector.runId);
-  }
-  if (selector.projectId !== undefined) {
-    clauses.push(selector.projectId ? "project_id = ?" : "project_id IS NULL");
-    if (selector.projectId) values.push(selector.projectId);
-  }
-  if (selector.sessionUuid !== undefined) {
-    clauses.push(selector.sessionUuid ? "session_uuid = ?" : "session_uuid IS NULL");
-    if (selector.sessionUuid) values.push(selector.sessionUuid);
-  }
+  const { clauses, values } = selectorWhere(selector);
   const row = store.db
     .query(
       `
@@ -140,4 +145,20 @@ export function latestDashboardArtifact(store: StateStore, selector: DashboardAr
 
 export function latestDashboardArtifactPayload(store: StateStore, selector: DashboardArtifactSelector): JsonObject {
   return latestDashboardArtifact(store, selector)?.payload ?? {};
+}
+
+export function dashboardArtifactPayloads(store: StateStore, selector: DashboardArtifactSelector): JsonObject[] {
+  const { clauses, values } = selectorWhere(selector);
+  return (
+    store.db
+      .query(
+        `
+          SELECT *
+          FROM dashboard_artifacts
+          WHERE ${clauses.join(" AND ")}
+          ORDER BY created_at ASC, id ASC
+        `,
+      )
+      .all(...values) as Record<string, unknown>[]
+  ).map((row) => rowToRecord(row).payload);
 }

@@ -10,6 +10,7 @@ Worker-facing commands:
 `run.py` and `replay.py` preserve the tool-local command output. `run.py`
 defaults to one internal job and caps accepted `--jobs` values with
 `ORCH_SOURCE_PERMUTER_MAX_JOBS` (default 1). They are opportunistic expensive
-tools: if another source-permuter call is active, the API returns `queue_busy`
-instead of waiting. `preview_mutation.py` is useful for asking "what kind of
-source-shape change would this pass try?" before spending compile time.
+tools: if all configured source-permuter slots are full, the API returns
+`queue_busy` instead of waiting. `preview_mutation.py` is useful for asking
+"what kind of source-shape change would this pass try?" before spending compile
+time.

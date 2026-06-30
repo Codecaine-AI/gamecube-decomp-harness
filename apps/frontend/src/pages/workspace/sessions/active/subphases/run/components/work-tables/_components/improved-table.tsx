@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/primitives";
+import { ArrowRight } from "@/icons";
 import { PlaceholderRows } from "./placeholder-rows";
 import { TabButton } from "./tab-button";
 import { improvedPageSize } from "../_lib/constants";
@@ -22,7 +23,7 @@ import {
   tentativeRows,
 } from "../_lib/improvements";
 import type { ImprovedMode, ImprovedResultMode, WorkTablesProps } from "../_lib/types";
-import { num, type Dashboard } from "@/lib/format";
+import { num, type Dashboard, type JsonObject } from "@/lib/format";
 
 interface ImprovedTableProps {
   dashboard: Dashboard | null;
@@ -30,6 +31,49 @@ interface ImprovedTableProps {
   page: number;
   setMode: (mode: ImprovedMode) => void;
   setPage: WorkTablesProps["setImprovedPage"];
+}
+
+function scorePart(value: unknown): string {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed.toFixed(2) : "";
+}
+
+function ScoreCell({ entry }: { entry: JsonObject }) {
+  const before = scorePart(entry.fromPercent);
+  const after = scorePart(entry.toPercent);
+  if (!before || !after) return <>{rowScore(entry)}</>;
+
+  const improvement = Number(entry.toPercent) - Number(entry.fromPercent);
+  const improvementLabel = Number.isFinite(improvement) ? `${improvement >= 0 ? "+" : ""}${improvement.toFixed(2)}` : "";
+  const improvementTone = improvement > 0 ? "text-up" : improvement < 0 ? "text-down" : "text-dim";
+
+  return (
+    <span className="inline-grid grid-cols-[6ch_14px_6ch_7ch] items-center gap-1 tabular-nums">
+      <span className="text-right text-soft">{before}</span>
+      <ArrowRight className="justify-self-center text-faint" size={11} />
+      <span className="text-right text-fg">{after}</span>
+      <span className={`text-right text-[10px] ${improvementTone}`}>{improvementLabel}</span>
+    </span>
+  );
+}
+
+function scoreTitle(entry: JsonObject): string {
+  const before = scorePart(entry.fromPercent);
+  const after = scorePart(entry.toPercent);
+  if (!before || !after) return rowScore(entry);
+  const improvement = Number(entry.toPercent) - Number(entry.fromPercent);
+  const improvementLabel = Number.isFinite(improvement) ? `${improvement >= 0 ? "+" : ""}${improvement.toFixed(2)}` : "";
+  return `${before} -> ${after}${improvementLabel ? ` (${improvementLabel})` : ""}`;
+}
+
+function bytesTitle(entry: JsonObject): string {
+  const bytes = Number(entry.bytesDelta);
+  if (!Number.isFinite(bytes)) return rowDelta(entry);
+  return `${bytes >= 0 ? "+" : ""}${Math.round(bytes)}b`;
+}
+
+function itemTitle(entry: JsonObject): string {
+  return `${rowItem(entry)}\nScore: ${scoreTitle(entry)}\nBytes: ${bytesTitle(entry)}`;
 }
 
 export function ImprovedTable({ dashboard, mode, page, setMode, setPage }: ImprovedTableProps) {
@@ -85,29 +129,32 @@ export function ImprovedTable({ dashboard, mode, page, setMode, setPage }: Impro
       </div>
       <div className="overflow-auto rounded-none border border-line">
         <table>
+          <colgroup>
+            <col className="w-1/3" />
+            <col className="w-1/3" />
+            <col className="w-1/3" />
+          </colgroup>
           <thead>
             <tr>
-              <th>Path</th>
-              <th className="w-[210px] text-left">Item</th>
-              <th className="w-24 text-right">Score</th>
-              <th className="w-24 text-right" title={deltaColumnTitle(mode)}>{deltaColumnLabel(mode)}</th>
+              <th className="text-left">Symbol</th>
+              <th className="text-center">Score</th>
+              <th className="text-right" title={deltaColumnTitle(mode)}>{deltaColumnLabel(mode)}</th>
             </tr>
           </thead>
           <tbody>
             {visible.map((entry, index) => (
               <tr className="row-rhythm-1" key={`${rowPath(entry)}-${rowItem(entry)}-${index}`}>
-                <td className="text-path" title={rowPath(entry)}>{rowPath(entry)}</td>
-                <td title={rowItem(entry)}>{rowItem(entry)}</td>
-                <td className="text-right">{rowScore(entry)}</td>
+                <td title={itemTitle(entry)}>{rowItem(entry)}</td>
+                <td className="text-center"><ScoreCell entry={entry} /></td>
                 <td className={`text-right ${rowDeltaClass(entry)}`} title={rowDeltaTitle(entry)}>{rowDelta(entry)}</td>
               </tr>
             ))}
             {visible.length === 0 ? (
               <tr className="row-rhythm-1">
-                <td className="text-dim" colSpan={4}>{improvedEmptyText(dashboard, mode, resultMode)}</td>
+                <td className="text-dim" colSpan={3}>{improvedEmptyText(dashboard, mode, resultMode)}</td>
               </tr>
             ) : null}
-            <PlaceholderRows columns={4} count={placeholderCount} rhythm="match" />
+            <PlaceholderRows columns={3} count={placeholderCount} rhythm="match" />
           </tbody>
         </table>
       </div>

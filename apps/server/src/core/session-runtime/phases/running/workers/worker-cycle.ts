@@ -574,6 +574,7 @@ const WORKER_TOOL_ARTIFACTS = [
 const WORKER_TOOL_ARTIFACT_RELATIVE_PATHS = WORKER_TOOL_ARTIFACTS.map((artifact) => artifact.relativePath);
 const WORKER_WORKTREE_LOCK_STALE_MS = 10 * 60 * 1000;
 const WORKER_WORKTREE_LOCK_MISSING_OWNER_STALE_MS = 30 * 1000;
+const WORKER_SETUP_COMMAND_TIMEOUT_MS = 20 * 60 * 1000;
 const WORKER_SHELL_BIN_DIRNAME = "worker_shell_bin";
 
 const WORKER_FIND_GUARD_SCRIPT = `#!/bin/sh
@@ -997,7 +998,7 @@ export function workerBuildNinjaNeedsToolReconfigure(buildNinjaText: string, too
 async function runLoggedWorkerSetupCommand(params: { workerRepoRoot: string; outputDir: string; logPrefix: string; command: string[]; label: string }): Promise<void> {
   const stdoutPath = resolve(params.outputDir, `${params.logPrefix}.stdout.txt`);
   const stderrPath = resolve(params.outputDir, `${params.logPrefix}.stderr.txt`);
-  const result = await runCommand(params.workerRepoRoot, params.command);
+  const result = await runCommand(params.workerRepoRoot, params.command, { timeoutMs: WORKER_SETUP_COMMAND_TIMEOUT_MS });
   await writeFile(stdoutPath, result.stdout);
   await writeFile(stderrPath, result.stderr);
   if (result.exitCode !== 0) {

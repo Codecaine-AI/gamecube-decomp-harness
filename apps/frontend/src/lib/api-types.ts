@@ -37,23 +37,23 @@ export interface FormState {
   graphDbPath: string;
   processName: string;
   maxWorkers: number;
-  idleSleepMs: number;
-  candidateLimit: number;
-  queueTargetSize: number;
-  queueLowWatermark: number;
-  candidateWindow: number;
   epochSize: string;
-  epochReadyQueueSize: number;
   agentTimeoutSeconds: number;
-  fastKgMaintenanceEnabled: boolean;
-  fastKgMaintenanceIntervalMs: number;
-  fastKgMaintenanceReportCount: number;
-  fullKgMaintenanceMode: string;
   goalValue: number;
   provider: string;
   model: string;
   thinkingLevel: string;
-  workerThinkingLevel: string;
+  toolConcurrency: ToolConcurrencySettings;
+}
+
+export interface ToolConcurrencySettings {
+  checkdiff: number;
+  compile: number;
+  m2cDecomp: number;
+  mwccDebug: number;
+  other: number;
+  sourcePermuter: number;
+  sourcePermuterJobs: number;
 }
 
 export interface Dashboard {
@@ -156,6 +156,8 @@ export interface StandardRecord {
   qaRuleIds?: string[];
   examplePolicy?: string;
   preferredRepairs?: string[];
+  exampleCount?: number;
+  canonicalExample?: StandardExampleRecord;
   do: string[];
   doNot: string[];
   evidenceRefs: string[];

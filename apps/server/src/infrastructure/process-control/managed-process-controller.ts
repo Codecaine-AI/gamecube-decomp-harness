@@ -22,6 +22,7 @@ export interface ManagedProcess {
   child: ChildProcess;
   command: string[];
   endedAt?: string;
+  envOverrides?: JsonObject;
   exitCode?: number | null;
   graphDbPath?: string;
   name: string;
@@ -51,6 +52,7 @@ export interface ProcessStatusInput {
 
 export interface StartManagedInput {
   command: string[];
+  env?: Record<string, string>;
   name: string;
   project: ManagedProcessProject | null;
   stateDir: string;
@@ -198,6 +200,7 @@ export class ManagedProcessController {
           exitCode: proc.exitCode ?? null,
           signal: proc.signal ?? null,
           command: proc.command,
+          envOverrides: proc.envOverrides ?? {},
           project: proc.project ?? null,
           projectId: stringValue(proc.project?.id),
           repoRoot: proc.repoRoot ?? null,
@@ -281,6 +284,7 @@ export class ManagedProcessController {
       exitCode: activeProcess?.exitCode ?? null,
       signal: activeProcess?.signal ?? null,
       command: activeCommand,
+      envOverrides: this.managed?.envOverrides ?? asObject(activeSaved?.envOverrides),
       repoRoot: activeRepoRoot || null,
       stateDir: this.managed?.stateDir ?? stringValue(activeSaved?.stateDir, stateDir),
       graphDbPath: activeGraphDbPath || null,
@@ -302,11 +306,12 @@ export class ManagedProcessController {
   }
 
   spawn(input: StartManagedInput): ManagedProcess {
-    const { command, name, project, stateDir } = input;
+    const { command, env, name, project, stateDir } = input;
+    const envOverrides = env && Object.keys(env).length > 0 ? env : undefined;
     const child = spawn(command[0] ?? "bun", command.slice(1), {
       cwd: this.deps.packageRoot,
       detached: true,
-      env: process.env,
+      env: { ...process.env, ...(envOverrides ?? {}) },
       argv0: `orch-${name}`,
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -314,6 +319,7 @@ export class ManagedProcessController {
     const proc: ManagedProcess = {
       child,
       command,
+      envOverrides,
       graphDbPath: project?.graphDbPath,
       name,
       pid,

@@ -2,9 +2,21 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineContext } from "@agent-kernel/kernel/agent-definition";
 import type { LoaderDeclaration } from "@agent-kernel/kernel/context";
-import type { PiPromptBundle, RunProjectMetadata } from "@server/core/shared/types";
-import { fileGraphCard, globalStandardsPromptXml, graphDbExists, openKnowledgeGraph, resourceGraphDbPath } from "@server/core/knowledge";
-import { renderTemplate, stableJson } from "@server/infrastructure/agent-runtime/runtime";
+import type {
+  PiPromptBundle,
+  RunProjectMetadata,
+} from "@server/core/shared/types";
+import {
+  fileGraphCard,
+  globalStandardsPromptXml,
+  graphDbExists,
+  openKnowledgeGraph,
+  resourceGraphDbPath,
+} from "@server/core/knowledge";
+import {
+  renderTemplate,
+  stableJson,
+} from "@server/infrastructure/agent-runtime/runtime";
 import { availableToolsPromptXml } from "@server/core/tools/index.js";
 import {
   createInlineAgentContextResolver,
@@ -16,7 +28,11 @@ import { workerCanonicalToolPathsXml } from "./tool-paths.js";
 const loaders = [
   rootContextLoaderDeclaration,
   { kind: "worker-packet", ref: "worker-packet", label: "worker-packet" },
-  { kind: "knowledge-graph-file-card", ref: "knowledge-graph-file-card", label: "knowledge-graph-file-card" },
+  {
+    kind: "knowledge-graph-file-card",
+    ref: "knowledge-graph-file-card",
+    label: "knowledge-graph-file-card",
+  },
 ] as const satisfies readonly LoaderDeclaration[];
 
 export const context = defineContext(
@@ -44,39 +60,30 @@ export interface WorkerPromptInputXml {
   targetGraphFileCardXml: string;
 }
 
-export const WORKER_TURN_PROMPT = [
-  "Use the injected worker context for this claimed target.",
-  "Continue toward exact match, follow the system prompt, and return the compact checkpoint note when ready.",
-].join(" ");
-
-const WORKER_PACKET_CONTEXT_TEMPLATE = `<task>
-    Decompile this one claimed target toward exact match.
-    Use the target, baseline, active code-quality standards, available tools, and target graph file card below, then follow the system prompt for workflow,
-    edit boundary, validation, continuation behavior, and checkpoint-note guidance.
-    When a repair_request block is present, the runner checkpointed your previous worktree and did not accept exact match.
-    Address those reasons first, then continue toward exact and return another compact checkpoint note when ready.
-</task>
-
+const WORKER_PACKET_CONTEXT_TEMPLATE = `
 {{REPAIR_REQUEST_XML}}
 
 {{TARGET_XML}}
 
 {{BASELINE_XML}}
 
-{{DECOMP_STANDARDS_XML}}
-
 {{AVAILABLE_TOOLS_XML}}
 
 {{CANONICAL_TOOL_PATHS_XML}}
 
+{{DECOMP_STANDARDS_XML}}
 `;
 
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function asRecordArray(value: unknown): Array<Record<string, unknown>> {
-  return Array.isArray(value) ? value.map(asRecord).filter((item) => Object.keys(item).length > 0) : [];
+  return Array.isArray(value)
+    ? value.map(asRecord).filter((item) => Object.keys(item).length > 0)
+    : [];
 }
 
 function optionalString(value: unknown): string | null {
@@ -107,8 +114,18 @@ function optionalAttribute(name: string, value: unknown): string {
   return ` ${name}="${xmlAttribute(value)}"`;
 }
 
-function jsonBlockXml(tag: string, value: unknown, indent = "        "): string {
-  return [`${indent}<${tag}>`, "```json", stableJson(value), "```", `${indent}</${tag}>`].join("\n");
+function jsonBlockXml(
+  tag: string,
+  value: unknown,
+  indent = "        ",
+): string {
+  return [
+    `${indent}<${tag}>`,
+    "```json",
+    stableJson(value),
+    "```",
+    `${indent}</${tag}>`,
+  ].join("\n");
 }
 
 function compactValue(value: unknown): unknown {
@@ -116,7 +133,8 @@ function compactValue(value: unknown): unknown {
     const compacted = value.map(compactValue).filter((item) => {
       if (item === null || item === undefined || item === "") return false;
       if (Array.isArray(item)) return item.length > 0;
-      if (typeof item === "object") return Object.keys(item as Record<string, unknown>).length > 0;
+      if (typeof item === "object")
+        return Object.keys(item as Record<string, unknown>).length > 0;
       return true;
     });
     return compacted;
@@ -126,9 +144,11 @@ function compactValue(value: unknown): unknown {
       Object.entries(value as Record<string, unknown>)
         .map(([key, entry]) => [key, compactValue(entry)] as const)
         .filter(([, entry]) => {
-          if (entry === null || entry === undefined || entry === "") return false;
+          if (entry === null || entry === undefined || entry === "")
+            return false;
           if (Array.isArray(entry)) return entry.length > 0;
-          if (typeof entry === "object") return Object.keys(entry as Record<string, unknown>).length > 0;
+          if (typeof entry === "object")
+            return Object.keys(entry as Record<string, unknown>).length > 0;
           return true;
         }),
     );
@@ -136,7 +156,9 @@ function compactValue(value: unknown): unknown {
   return value;
 }
 
-function compactObject(value: Record<string, unknown>): Record<string, unknown> {
+function compactObject(
+  value: Record<string, unknown>,
+): Record<string, unknown> {
   return compactValue(value) as Record<string, unknown>;
 }
 
@@ -161,7 +183,11 @@ function targetFileXml(
     optionalAttribute("unit", optionalString(target.unit)),
     optionalAttribute("symbol", optionalString(target.symbol)),
     optionalAttribute("size", optionalNumber(target.size)),
-    optionalAttribute("baseline_match_percent", optionalNumber(baseline.fuzzy_match_percent) ?? optionalNumber(target.fuzzy_match_percent)),
+    optionalAttribute(
+      "baseline_match_percent",
+      optionalNumber(baseline.fuzzy_match_percent) ??
+        optionalNumber(target.fuzzy_match_percent),
+    ),
   ].join("");
   if (!primarySourceAbs || !existsSync(primarySourceAbs)) {
     return [
@@ -170,15 +196,39 @@ function targetFileXml(
       `${indent}</target_file>`,
     ].join("\n");
   }
-  return [`${indent}<target_file${attrs}>`, cdata(readFileSync(primarySourceAbs, "utf8")), `${indent}</target_file>`].join("\n");
+  return [
+    `${indent}<target_file${attrs}>`,
+    cdata(readFileSync(primarySourceAbs, "utf8")),
+    `${indent}</target_file>`,
+  ].join("\n");
 }
 
-function targetXml(target: Record<string, unknown>, baseline: Record<string, unknown>, primarySourcePath: string, primarySourceAbs: string): string {
-  return ["    <target>", jsonBlockXml("details_json", target), targetFileXml(target, baseline, primarySourcePath, primarySourceAbs, "        "), "    </target>"].join("\n");
+function targetXml(
+  target: Record<string, unknown>,
+  baseline: Record<string, unknown>,
+  primarySourcePath: string,
+  primarySourceAbs: string,
+): string {
+  return [
+    "    <target>",
+    jsonBlockXml("details_json", target),
+    targetFileXml(
+      target,
+      baseline,
+      primarySourcePath,
+      primarySourceAbs,
+      "        ",
+    ),
+    "    </target>",
+  ].join("\n");
 }
 
 function baselineXml(baseline: Record<string, unknown>): string {
-  return ["    <baseline>", jsonBlockXml("details_json", baseline), "    </baseline>"].join("\n");
+  return [
+    "    <baseline>",
+    jsonBlockXml("details_json", baseline),
+    "    </baseline>",
+  ].join("\n");
 }
 
 // Repair attempts must see why the runner rejected the previous return; the
@@ -186,11 +236,21 @@ function baselineXml(baseline: Record<string, unknown>): string {
 function repairRequestXml(packet: Record<string, unknown>): string {
   const repair = asRecord(packet.repair_request);
   if (Object.keys(repair).length === 0) return "";
-  return ["    <repair_request>", jsonBlockXml("details_json", repair), "    </repair_request>"].join("\n");
+  return [
+    "    <repair_request>",
+    jsonBlockXml("details_json", repair),
+    "    </repair_request>",
+  ].join("\n");
 }
 
 function functionName(fn: Record<string, unknown>): string {
-  return optionalString(fn.name) ?? optionalString(fn.symbol) ?? optionalString(fn.function_name) ?? optionalString(fn.id) ?? "";
+  return (
+    optionalString(fn.name) ??
+    optionalString(fn.symbol) ??
+    optionalString(fn.function_name) ??
+    optionalString(fn.id) ??
+    ""
+  );
 }
 
 function compactFunction(fn: Record<string, unknown>): Record<string, unknown> {
@@ -199,16 +259,22 @@ function compactFunction(fn: Record<string, unknown>): Record<string, unknown> {
     symbol: optionalString(fn.symbol),
     unit: optionalString(fn.unit),
     size: optionalNumber(fn.size),
-    fuzzy_match_percent: optionalNumber(fn.fuzzy_match_percent) ?? optionalNumber(fn.match_percent) ?? optionalNumber(fn.fuzzy),
+    fuzzy_match_percent:
+      optionalNumber(fn.fuzzy_match_percent) ??
+      optionalNumber(fn.match_percent) ??
+      optionalNumber(fn.fuzzy),
     status: optionalString(fn.status),
     build_status: optionalString(fn.build_status),
     reason: optionalString(fn.reason),
   });
 }
 
-function compactMismatchPattern(pattern: Record<string, unknown>): Record<string, unknown> {
+function compactMismatchPattern(
+  pattern: Record<string, unknown>,
+): Record<string, unknown> {
   return compactObject({
-    pattern_id: optionalString(pattern.pattern_id) ?? optionalString(pattern.id),
+    pattern_id:
+      optionalString(pattern.pattern_id) ?? optionalString(pattern.id),
     title: optionalString(pattern.title),
     category: optionalString(pattern.category),
     symptoms: stringArray(pattern.symptoms, 4),
@@ -230,7 +296,9 @@ function compactMismatchPattern(pattern: Record<string, unknown>): Record<string
   });
 }
 
-function compactTouchingPr(pr: Record<string, unknown>): Record<string, unknown> {
+function compactTouchingPr(
+  pr: Record<string, unknown>,
+): Record<string, unknown> {
   return compactObject({
     pr: pr.pr ?? pr.number ?? pr.id ?? null,
     title: optionalString(pr.title) ?? optionalString(pr.summary),
@@ -240,7 +308,9 @@ function compactTouchingPr(pr: Record<string, unknown>): Record<string, unknown>
   });
 }
 
-function compactResourceHit(hit: Record<string, unknown>): Record<string, unknown> {
+function compactResourceHit(
+  hit: Record<string, unknown>,
+): Record<string, unknown> {
   return compactObject({
     source_id: optionalString(hit.source_id),
     title: optionalString(hit.title),
@@ -248,7 +318,9 @@ function compactResourceHit(hit: Record<string, unknown>): Record<string, unknow
   });
 }
 
-function compactPathFact(fact: Record<string, unknown>): Record<string, unknown> {
+function compactPathFact(
+  fact: Record<string, unknown>,
+): Record<string, unknown> {
   return compactObject({
     id: optionalString(fact.id),
     title: optionalString(fact.title),
@@ -280,25 +352,65 @@ function fileCardFromPacket(packet: Record<string, unknown>): {
   };
 }
 
-function fileCardFromGraph(sourcePath: string, project?: RunProjectMetadata, graphDbOverride?: string | null): { card: Record<string, unknown>; graphDb: string | null; status: string; reason: string | null } {
-  const graphDb = graphDbOverride || project?.graphDbPath || resourceGraphDbPath();
-  if (!sourcePath) return { card: {}, graphDb, status: "missing_source_path", reason: "No target source_path is available." };
-  if (!graphDbExists(graphDb)) return { card: {}, graphDb, status: "graph_missing", reason: "Knowledge graph DB is not available." };
+function fileCardFromGraph(
+  sourcePath: string,
+  project?: RunProjectMetadata,
+  graphDbOverride?: string | null,
+): {
+  card: Record<string, unknown>;
+  graphDb: string | null;
+  status: string;
+  reason: string | null;
+} {
+  const graphDb =
+    graphDbOverride || project?.graphDbPath || resourceGraphDbPath();
+  if (!sourcePath)
+    return {
+      card: {},
+      graphDb,
+      status: "missing_source_path",
+      reason: "No target source_path is available.",
+    };
+  if (!graphDbExists(graphDb))
+    return {
+      card: {},
+      graphDb,
+      status: "graph_missing",
+      reason: "Knowledge graph DB is not available.",
+    };
   const store = openKnowledgeGraph(graphDb);
   try {
-    return { card: fileGraphCard(store, sourcePath) as unknown as Record<string, unknown>, graphDb, status: "ready", reason: null };
+    return {
+      card: fileGraphCard(store, sourcePath) as unknown as Record<
+        string,
+        unknown
+      >,
+      graphDb,
+      status: "ready",
+      reason: null,
+    };
   } catch (error) {
-    return { card: {}, graphDb, status: "failed", reason: error instanceof Error ? error.message : String(error) };
+    return {
+      card: {},
+      graphDb,
+      status: "failed",
+      reason: error instanceof Error ? error.message : String(error),
+    };
   } finally {
     store.db.close();
   }
 }
 
-function compactTargetGraphFileCard(packet: Record<string, unknown>, project?: RunProjectMetadata): Record<string, unknown> {
+function compactTargetGraphFileCard(
+  packet: Record<string, unknown>,
+  project?: RunProjectMetadata,
+): Record<string, unknown> {
   const target = asRecord(packet.target);
   const sourcePath = String(target.source_path ?? "");
   const fromPacket = fileCardFromPacket(packet);
-  const loaded = Object.keys(fromPacket.card).length ? { ...fromPacket, status: fromPacket.status ?? "ready" } : fileCardFromGraph(sourcePath, project, fromPacket.graphDb);
+  const loaded = Object.keys(fromPacket.card).length
+    ? { ...fromPacket, status: fromPacket.status ?? "ready" }
+    : fileCardFromGraph(sourcePath, project, fromPacket.graphDb);
   const card = loaded.card;
   if (!Object.keys(card).length) {
     return compactObject({
@@ -313,24 +425,45 @@ function compactTargetGraphFileCard(packet: Record<string, unknown>, project?: R
           source_path: sourcePath,
         }),
         follow_up_queries: [
-          compactObject({ tool: "code_graph_file_card", source_path: sourcePath }),
+          compactObject({
+            tool: "code_graph_file_card",
+            source_path: sourcePath,
+          }),
           compactObject({ tool: "code_graph_search", query: sourcePath }),
-          compactObject({ tool: "path_facts_resolve", source_path: sourcePath }),
         ],
       },
-      no_context_note: loaded.reason ?? "No graph context is attached to this target source path.",
+      no_context_note:
+        loaded.reason ??
+        "No graph context is attached to this target source path.",
     });
   }
 
-  const functions = asRecordArray(card.functions).map(compactFunction).filter((fn) => Object.keys(fn).length > 0);
+  const functions = asRecordArray(card.functions)
+    .map(compactFunction)
+    .filter((fn) => Object.keys(fn).length > 0);
   const targetSymbol = optionalString(target.symbol);
-  const targetFunction = functions.find((fn) => functionName(fn) === targetSymbol || optionalString(fn.symbol) === targetSymbol) ?? null;
-  const sameFileFunctions = functions.filter((fn) => fn !== targetFunction).slice(0, 10);
+  const targetFunction =
+    functions.find(
+      (fn) =>
+        functionName(fn) === targetSymbol ||
+        optionalString(fn.symbol) === targetSymbol,
+    ) ?? null;
+  const sameFileFunctions = functions
+    .filter((fn) => fn !== targetFunction)
+    .slice(0, 10);
   const prHistory = asRecord(card.pr_history);
-  const mismatchPatterns = asRecordArray(card.mismatch_patterns).slice(0, 6).map(compactMismatchPattern);
-  const touchingPrs = asRecordArray(prHistory.touching_prs).slice(0, 6).map(compactTouchingPr);
-  const resourceHits = asRecordArray(card.resource_hits).slice(0, 8).map(compactResourceHit);
-  const pathFacts = asRecordArray(fromPacket.pathFacts.facts).slice(0, 5).map(compactPathFact);
+  const mismatchPatterns = asRecordArray(card.mismatch_patterns)
+    .slice(0, 6)
+    .map(compactMismatchPattern);
+  const touchingPrs = asRecordArray(prHistory.touching_prs)
+    .slice(0, 6)
+    .map(compactTouchingPr);
+  const resourceHits = asRecordArray(card.resource_hits)
+    .slice(0, 8)
+    .map(compactResourceHit);
+  const pathFacts = asRecordArray(fromPacket.pathFacts.facts)
+    .slice(0, 5)
+    .map(compactPathFact);
   const unitNames = asRecordArray(card.units)
     .map((unit) => optionalString(unit.unit) ?? optionalString(unit.name))
     .filter((unit): unit is string => Boolean(unit));
@@ -344,20 +477,37 @@ function compactTargetGraphFileCard(packet: Record<string, unknown>, project?: R
     .slice(0, 4);
   const followUpQueries = [
     compactObject({ tool: "code_graph_file_card", source_path: sourcePath }),
-    compactObject({ tool: "code_graph_search", query: [sourcePath, targetSymbol].filter(Boolean).join(" ") }),
-    compactObject({ tool: "past_prs_search", query: [sourcePath, targetSymbol].filter(Boolean).join(" ") }),
-    ...(mismatchQueries.length ? [compactObject({ tool: "mismatch_db_search", query: mismatchQueries.join(" OR ") })] : []),
-    compactObject({ tool: "path_facts_resolve", source_path: sourcePath }),
+    compactObject({
+      tool: "code_graph_search",
+      query: [sourcePath, targetSymbol].filter(Boolean).join(" "),
+    }),
+    compactObject({
+      tool: "past_prs_search",
+      query: [sourcePath, targetSymbol].filter(Boolean).join(" "),
+    }),
+    ...(mismatchQueries.length
+      ? [
+          compactObject({
+            tool: "mismatch_db_search",
+            query: mismatchQueries.join(" OR "),
+          }),
+        ]
+      : []),
   ];
 
   return compactObject({
     status: "ready",
     source: "code_graph_file_card",
-    authority: "Graph-derived context. Current source, headers, objdiff, and validation output outrank this summary.",
+    authority:
+      "Graph-derived context. Current source, headers, objdiff, and validation output outrank this summary.",
     graph_db: loaded.graphDb,
     source_path: optionalString(card.source_path) ?? sourcePath,
     has_graph_context: Boolean(
-      functions.length > 0 || mismatchPatterns.length > 0 || touchingPrs.length > 0 || resourceHits.length > 0 || pathFacts.length > 0,
+      functions.length > 0 ||
+      mismatchPatterns.length > 0 ||
+      touchingPrs.length > 0 ||
+      resourceHits.length > 0 ||
+      pathFacts.length > 0,
     ),
     editability: asRecord(card.editability),
     search_leads: {
@@ -372,7 +522,9 @@ function compactTargetGraphFileCard(packet: Record<string, unknown>, project?: R
       mismatch_patterns: mismatchPatterns,
       past_prs: {
         touching_prs: touchingPrs,
-        search_terms: [targetSymbol, sourcePath, ...mismatchQueries].filter(Boolean).slice(0, 8),
+        search_terms: [targetSymbol, sourcePath, ...mismatchQueries]
+          .filter(Boolean)
+          .slice(0, 8),
       },
       resources: resourceHits,
       path_facts: pathFacts,
@@ -381,33 +533,57 @@ function compactTargetGraphFileCard(packet: Record<string, unknown>, project?: R
       follow_up_queries: followUpQueries,
     },
     no_context_note:
-      functions.length === 0 && mismatchPatterns.length === 0 && touchingPrs.length === 0 && resourceHits.length === 0 && pathFacts.length === 0
+      functions.length === 0 &&
+      mismatchPatterns.length === 0 &&
+      touchingPrs.length === 0 &&
+      resourceHits.length === 0 &&
+      pathFacts.length === 0
         ? "Graph file card had no attached functions, patterns, PRs, resources, or path facts for this source path."
         : null,
   });
 }
 
-function targetGraphFileCardXml(packet: Record<string, unknown>, project?: RunProjectMetadata): string {
+function targetGraphFileCardXml(
+  packet: Record<string, unknown>,
+  project?: RunProjectMetadata,
+): string {
   const compactCard = compactTargetGraphFileCard(packet, project);
   const status = optionalString(compactCard.status);
   const unavailable = status && status !== "ready" ? ' unavailable="true"' : "";
-  return [`    <target_graph_file_card${unavailable}>`, jsonBlockXml("details_json", compactCard), "    </target_graph_file_card>"].join("\n");
+  return [
+    `    <target_graph_file_card${unavailable}>`,
+    jsonBlockXml("details_json", compactCard),
+    "    </target_graph_file_card>",
+  ].join("\n");
 }
 
-export function workerPromptInputXml(options: WorkerPromptInputXmlOptions): WorkerPromptInputXml {
+export function workerPromptInputXml(
+  options: WorkerPromptInputXmlOptions,
+): WorkerPromptInputXml {
   const target = (options.packet.target ?? {}) as Record<string, unknown>;
   const baseline = asRecord(options.packet.baseline);
   const primarySourcePath = String(target.source_path ?? "");
-  const primarySourceAbs = primarySourcePath ? resolve(options.repoRoot, primarySourcePath) : "";
+  const primarySourceAbs = primarySourcePath
+    ? resolve(options.repoRoot, primarySourcePath)
+    : "";
   return {
     targetXml: targetXml(target, baseline, primarySourcePath, primarySourceAbs),
     baselineXml: baselineXml(baseline),
-    targetGraphFileCardXml: targetGraphFileCardXml(options.packet, options.project),
+    targetGraphFileCardXml: targetGraphFileCardXml(
+      options.packet,
+      options.project,
+    ),
   };
 }
 
-export function buildWorkerKernelContext(options: WorkerPromptOptions): NonNullable<PiPromptBundle["kernelContext"]> {
-  const inputXml = workerPromptInputXml({ packet: options.packet, repoRoot: options.repoRoot, project: options.project });
+export function buildWorkerKernelContext(
+  options: WorkerPromptOptions,
+): NonNullable<PiPromptBundle["kernelContext"]> {
+  const inputXml = workerPromptInputXml({
+    packet: options.packet,
+    repoRoot: options.repoRoot,
+    project: options.project,
+  });
   const toolContext = {
     role: "worker" as const,
     cwd: options.repoRoot,
@@ -427,10 +603,17 @@ export function buildWorkerKernelContext(options: WorkerPromptOptions): NonNulla
     TARGET_GRAPH_FILE_CARD_XML: inputXml.targetGraphFileCardXml,
     TARGET_XML: inputXml.targetXml,
   };
-  const workerPacketContext = renderTemplate(WORKER_PACKET_CONTEXT_TEMPLATE, values).trim();
-  const renderedContext = [workerPacketContext, values.TARGET_GRAPH_FILE_CARD_XML].filter(Boolean).join("\n\n");
+  const workerPacketContext = renderTemplate(
+    WORKER_PACKET_CONTEXT_TEMPLATE,
+    values,
+  ).trim();
+  const renderedContext = [
+    workerPacketContext,
+    values.TARGET_GRAPH_FILE_CARD_XML,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
   return {
-    turnPrompt: WORKER_TURN_PROMPT,
     renderedContext,
     inputs: [
       {

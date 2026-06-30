@@ -2,13 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { buildRunningProcessCommand, runningScheduling } from "./process-command.js";
 
 describe("running process command", () => {
-  test("derives worker scheduling from requested workers", () => {
-    expect(runningScheduling(8)).toMatchObject({
+  test("derives worker count from requested workers", () => {
+    expect(runningScheduling(8)).toEqual({
       maxWorkers: 8,
-      candidateLimit: 32,
-      queueTargetSize: 32,
-      queueLowWatermark: 8,
-      epochReadyQueueSize: 32,
     });
   });
 
@@ -19,7 +15,6 @@ describe("running process command", () => {
         provider: "codex-lb",
         model: "gpt-5.5",
         thinkingLevel: "medium",
-        workerThinkingLevel: "high",
         dryRunAgents: true,
       },
       graphDbPath: "/state/graph.sqlite",
@@ -39,6 +34,10 @@ describe("running process command", () => {
     expect(plan.command).toContain("run-1");
     expect(plan.command).toContain("--epoch-size");
     expect(plan.command).toContain("64");
+    expect(plan.command).not.toContain("--candidate-limit");
+    expect(plan.command).not.toContain("--queue-target-size");
+    expect(plan.command).not.toContain("--epoch-ready-queue-size");
+    expect(plan.command).not.toContain("--fast-kg-maintenance-interval-ms");
   });
 
   test("passes configured worker timeout to babysit", () => {
@@ -86,7 +85,7 @@ describe("running process command", () => {
     ]);
   });
 
-  test("honors explicit queue and candidate-window overrides", () => {
+  test("ignores deprecated queue and candidate-window overrides", () => {
     const plan = buildRunningProcessCommand({
       body: {
         candidateWindow: 256,
@@ -94,7 +93,7 @@ describe("running process command", () => {
         maxWorkers: 64,
         queueLowWatermark: 64,
         queueTargetSize: 64,
-      },
+      } as Record<string, unknown>,
       graphDbPath: "/state/graph.sqlite",
       noRefillBatch: false,
       project: { projectId: "melee", processName: "melee-live" },
@@ -104,10 +103,10 @@ describe("running process command", () => {
       stateDir: "/state",
     });
 
-    expect(plan.command.slice(plan.command.indexOf("--queue-target-size"), plan.command.indexOf("--queue-target-size") + 2)).toEqual(["--queue-target-size", "64"]);
-    expect(plan.command.slice(plan.command.indexOf("--queue-low-watermark"), plan.command.indexOf("--queue-low-watermark") + 2)).toEqual(["--queue-low-watermark", "64"]);
-    expect(plan.command.slice(plan.command.indexOf("--epoch-ready-queue-size"), plan.command.indexOf("--epoch-ready-queue-size") + 2)).toEqual(["--epoch-ready-queue-size", "64"]);
-    expect(plan.command.slice(plan.command.indexOf("--candidate-window"), plan.command.indexOf("--candidate-window") + 2)).toEqual(["--candidate-window", "256"]);
+    expect(plan.command).not.toContain("--queue-target-size");
+    expect(plan.command).not.toContain("--queue-low-watermark");
+    expect(plan.command).not.toContain("--epoch-ready-queue-size");
+    expect(plan.command).not.toContain("--candidate-window");
   });
 
   test("uses project dashboard worker timeout default", () => {

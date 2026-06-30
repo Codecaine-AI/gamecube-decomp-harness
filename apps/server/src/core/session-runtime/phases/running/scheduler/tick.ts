@@ -24,7 +24,7 @@ import {
   type SchedulerEpochRecord,
   type StateStore,
 } from "@server/core/session-runtime/run-state";
-import { numberArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
+import { booleanArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
 import { assertSchedulableRun } from "@server/core/session-runtime/phases/running/jobs/shared.js";
 
 export interface SchedulerTickResult {
@@ -69,23 +69,25 @@ function nonNegativeInt(value: number): number {
   return Math.max(0, Math.floor(value));
 }
 
-function positiveIntArg(args: Map<string, string | true>, name: string, fallback: number): number {
-  return Math.max(1, nonNegativeInt(numberArg(args, name, fallback)));
-}
-
-function rawEpochSize(globals: GlobalArgs, args: Map<string, string | true>, admissionTargetSize: number): string | number {
+function rawEpochSize(globals: GlobalArgs, args: Map<string, string | true>, fallback: string | number): string | number {
   const explicit = args.get("--epoch-size");
   if (typeof explicit === "string") return explicit;
-  return globals.project?.dashboard.epochSize ?? admissionTargetSize;
+  return globals.project?.dashboard.epochSize ?? fallback;
+}
+
+export function derivedSchedulerCandidateWindow(globals: GlobalArgs, args: Map<string, string | true>, workerPoolSize: number): number {
+  const size = parseEpochSize(rawEpochSize(globals, args, "64"));
+  if (size.mode === "fixed") return Math.max(workerPoolSize, size.value ?? workerPoolSize);
+  return Math.max(workerPoolSize, 64);
 }
 
 export function schedulerEpochConfigFromArgs(
   globals: GlobalArgs,
   args: Map<string, string | true>,
-  params: { admissionTargetSize: number; candidateWindow: number },
+  params: { candidateWindow: number; workerPoolSize: number },
 ): SchedulerEpochConfig {
-  const size = parseEpochSize(rawEpochSize(globals, args, params.admissionTargetSize));
-  const workerPoolSize = positiveIntArg(args, "--epoch-ready-queue-size", globals.project?.dashboard.epochReadyQueueSize ?? params.admissionTargetSize);
+  const workerPoolSize = Math.max(1, nonNegativeInt(params.workerPoolSize));
+  const size = parseEpochSize(rawEpochSize(globals, args, "64"));
   return {
     size,
     workerPoolSize,
@@ -109,8 +111,25 @@ function combineEpochAdmissions(previous: EpochAdmissionResult | undefined, next
   };
 }
 
-function historicalTargetKeyCount(store: StateStore, runId: string): number {
-  const row = store.db.query("SELECT COUNT(DISTINCT target_key) AS count FROM epoch_targets WHERE session_id = ?").get(runId) as
+function previousEpochTargetKeyCount(store: StateStore, runId: string, epochId: string): number {
+  const row = store.db
+    .query(
+      `
+        SELECT COUNT(DISTINCT epoch_targets.target_key) AS count
+        FROM epoch_targets
+        JOIN epochs ON epochs.id = epoch_targets.epoch_id
+        WHERE epoch_targets.session_id = ?
+          AND epochs.ordinal = (
+            SELECT MAX(previous.ordinal)
+            FROM epochs AS previous
+            JOIN epochs AS current
+              ON current.session_id = previous.session_id
+            WHERE current.id = ?
+              AND previous.ordinal < current.ordinal
+          )
+      `,
+    )
+    .get(runId, epochId) as
     | Record<string, unknown>
     | undefined;
   return nonNegativeInt(Number(row?.count ?? 0));
@@ -132,8 +151,9 @@ export function ensureSchedulerEpochFromBoard(params: {
 
   const remaining = progress.admitted === 0 ? remainingFixedAdmission(params.config.size, progress) : 0;
   if (remaining > 0) {
+    const admissionWindow = params.config.size.mode === "full" ? candidateWindow : Math.max(candidateWindow, remaining);
     const admissionCandidateWindow =
-      params.config.size.mode === "full" ? candidateWindow : candidateWindow + historicalTargetKeyCount(params.store, params.runId);
+      params.config.size.mode === "full" ? admissionWindow : admissionWindow + previousEpochTargetKeyCount(params.store, params.runId, epoch.id);
     const board = loadKnowledgeBoardSnapshot(params.globals.repoRoot, admissionCandidateWindow, { graphDbPath: params.graphDbPath });
     const passSize: EpochSizeSpec = params.config.size.mode === "full" ? params.config.size : { mode: "fixed", value: remaining };
     admission = combineEpochAdmissions(
@@ -174,26 +194,21 @@ export async function runSchedulerTick(globals: GlobalArgs, args: Map<string, st
     const event = nextUnhandledEvent(store, runId);
     if (!event) return { runId, status: "no_unhandled_events" };
 
-    const candidateLimit = nonNegativeInt(
-      numberArg(args, "--candidate-limit", globals.project?.dashboard.candidateLimit ?? Math.max(32, run.desiredWorkers * 2)),
-    );
-    const admissionTargetSize = nonNegativeInt(
-      numberArg(args, "--queue-target-size", globals.project?.dashboard.queueTargetSize ?? Math.max(candidateLimit, run.desiredWorkers * 2)),
-    );
-    const requestedCandidateWindow = Math.max(
-      candidateLimit,
-      admissionTargetSize,
-      nonNegativeInt(numberArg(args, "--candidate-window", globals.project?.dashboard.candidateWindow ?? Math.max(candidateLimit, admissionTargetSize * 8))),
-    );
+    const workerPoolSize = Math.max(1, nonNegativeInt(run.desiredWorkers));
+    const candidateLimit = workerPoolSize;
+    const admissionTargetSize = workerPoolSize;
+    const requestedCandidateWindow = derivedSchedulerCandidateWindow(globals, args, workerPoolSize);
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
     let epochResult: SchedulerEpochEnsureResult | null = null;
-    epochResult = ensureSchedulerEpochFromBoard({
-      config: schedulerEpochConfigFromArgs(globals, args, { admissionTargetSize, candidateWindow: requestedCandidateWindow }),
-      globals,
-      graphDbPath,
-      runId,
-      store,
-    });
+    if (!booleanArg(args, "--no-start-epoch") || activeSchedulerEpoch(store, runId)) {
+      epochResult = ensureSchedulerEpochFromBoard({
+        config: schedulerEpochConfigFromArgs(globals, args, { candidateWindow: requestedCandidateWindow, workerPoolSize }),
+        globals,
+        graphDbPath,
+        runId,
+        store,
+      });
+    }
     markEventHandled(store, String(event.id));
     const targetPressure = targetPressureSnapshot(store, runId);
 
@@ -203,7 +218,7 @@ export async function runSchedulerTick(globals: GlobalArgs, args: Map<string, st
       eventType: String(event.event_type ?? ""),
       eventProducer: String(event.producer ?? ""),
       eventCreatedAt: String(event.created_at ?? ""),
-      schedulerTargetUpdates: (epochResult.admission?.admitted ?? 0) + epochResult.availabilityRefresh.inserted + epochResult.priorityRefreshes,
+      schedulerTargetUpdates: (epochResult?.admission?.admitted ?? 0) + (epochResult?.availabilityRefresh.inserted ?? 0) + (epochResult?.priorityRefreshes ?? 0),
       schedulerEpoch: epochResult?.progress,
       existingEpochAdmission: epochResult?.existingAdmission,
       epochAdmission: epochResult?.admission,

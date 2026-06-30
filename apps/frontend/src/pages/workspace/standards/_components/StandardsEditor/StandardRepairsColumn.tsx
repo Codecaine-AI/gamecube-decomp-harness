@@ -59,9 +59,10 @@ export function StandardRepairsColumn({
                 <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-dim">Examples</span>
                 <span className="text-[10px] tabular-nums text-faint">{num(examples.length)}</span>
               </div>
-              {examples.map((example) => (
+              {examples.map((example, index) => (
                 <div className="border-t border-line px-3 py-3 first:border-t-0" key={example.id}>
                   <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                    {index === 0 ? <MetadataChip label="context" value="canonical" /> : null}
                     <MetadataChip value={example.severity} />
                     {example.qaRuleId ? <MetadataChip label="rule" value={example.qaRuleId} /> : null}
                   </div>

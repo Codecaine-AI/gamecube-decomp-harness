@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { dashboardParams, fetchJson, fetchRunDetails, formBody, loadConfig, postJson } from "@/lib/api";
 import { asObject, numberValue, type Dashboard, type FormState, type JsonObject, type RunDetails, type UiConfig } from "@/lib/format";
 import { useDashboardStream } from "@/hooks/useDashboardStream";
-import { DetailsRail } from "@/components/details-rail";
+import { DetailsRail, type DetailsTab } from "@/components/details-rail";
 import { ProjectWorkspace, type DashboardAction } from "@/pages/workspace";
 import { type ImprovedMode, type WorkMode } from "@/pages/workspace/sessions/active/subphases/run/components/work-tables";
 import { type AppRoute, routeFromUrl, saveRoute } from "@/routing";
 import { loadGrainSettings, normalizeGrainSettings, saveGrainSettings, type GrainSettings, type GrainSettingsPatch } from "@/lib/styleSettings";
+import { normalizeToolConcurrency } from "@/lib/workerConfig";
 import { DashboardPage } from "@/pages/dashboard";
 import { GrainOverlay } from "@/components/app/_components/GrainOverlay";
 import { clampDetailsWidth, loadDetailsCollapsed, loadDetailsWidth, loadSidebarCollapsed, saveDetailsCollapsed, saveDetailsWidth, saveSidebarCollapsed } from "@/components/app/_lib/railState";
@@ -62,8 +63,7 @@ function projectSessionRunConfigPatch(projectSession: JsonObject): Partial<FormS
   const preparing = asObject(phases.preparing);
   const completion = asObject(preparing.completion);
   const workerConfig = asObject(completion.workerConfig);
-  const schedulerConfig = asObject(completion.schedulerConfig);
-  if (Object.keys(workerConfig).length === 0 && Object.keys(schedulerConfig).length === 0) return null;
+  if (Object.keys(workerConfig).length === 0) return null;
 
   const patch: Partial<FormState> = {};
   const maxWorkers = positiveInteger(workerConfig.maxWorkers) ?? positiveInteger(workerConfig.workerCount);
@@ -72,29 +72,12 @@ function projectSessionRunConfigPatch(projectSession: JsonObject): Partial<FormS
   const epochSize = stringConfigValue(workerConfig.epochSize);
   if (epochSize !== null) patch.epochSize = epochSize;
 
-  const epochReadyQueueSize = positiveInteger(schedulerConfig.epochReadyQueueSize) ?? positiveInteger(workerConfig.batchSize);
-  if (epochReadyQueueSize !== null) patch.epochReadyQueueSize = epochReadyQueueSize;
-
   const agentTimeoutSeconds = positiveInteger(workerConfig.agentTimeoutSeconds);
   if (agentTimeoutSeconds !== null) patch.agentTimeoutSeconds = agentTimeoutSeconds;
 
-  const fullKgMaintenanceMode = stringConfigValue(workerConfig.fullKgMaintenanceMode);
-  if (fullKgMaintenanceMode !== null) patch.fullKgMaintenanceMode = fullKgMaintenanceMode;
-
-  const workerThinkingLevel = stringConfigValue(workerConfig.workerThinkingLevel);
-  if (workerThinkingLevel !== null) patch.workerThinkingLevel = workerThinkingLevel;
-
-  const candidateLimit = positiveInteger(schedulerConfig.candidateLimit);
-  if (candidateLimit !== null) patch.candidateLimit = candidateLimit;
-
-  const candidateWindow = positiveInteger(schedulerConfig.candidateWindow);
-  if (candidateWindow !== null) patch.candidateWindow = candidateWindow;
-
-  const queueTargetSize = positiveInteger(schedulerConfig.queueTargetSize);
-  if (queueTargetSize !== null) patch.queueTargetSize = queueTargetSize;
-
-  const queueLowWatermark = positiveInteger(schedulerConfig.queueLowWatermark);
-  if (queueLowWatermark !== null) patch.queueLowWatermark = queueLowWatermark;
+  if (Object.keys(asObject(workerConfig.toolConcurrency)).length > 0) {
+    patch.toolConcurrency = normalizeToolConcurrency(workerConfig.toolConcurrency);
+  }
 
   return patch;
 }
@@ -165,7 +148,7 @@ export function App() {
   const [workMode, setWorkMode] = useState<WorkMode>("active");
   const [runDetails, setRunDetails] = useState<RunDetails | null>(null);
   const [loadingRunDetails, setLoadingRunDetails] = useState(false);
-  const [detailsTabRequest, setDetailsTabRequest] = useState<{ nonce: number; tab: "logs" | "run" } | null>(null);
+  const [detailsTabRequest, setDetailsTabRequest] = useState<{ nonce: number; tab: DetailsTab } | null>(null);
   const [route, setRouteState] = useState<AppRoute>(routeFromUrl);
   const [grainSettings, setGrainSettingsState] = useState<GrainSettings>(loadGrainSettings);
 
@@ -212,6 +195,7 @@ export function App() {
       .then((loaded) => {
         const projectDefaults = asObject(loaded.projectDefaults);
         const dashboardDefaults = asObject(projectDefaults.dashboard);
+        const toolConcurrencyDefaults = asObject(projectDefaults.toolConcurrency);
         setConfig(loaded);
         setFormState((current) => ({
           ...current,
@@ -224,12 +208,8 @@ export function App() {
           processName: String(projectDefaults.processName || current.processName),
           goalValue: Number(dashboardDefaults.goalValue || current.goalValue),
           epochSize: String(dashboardDefaults.epochSize || current.epochSize),
-          epochReadyQueueSize: Number(dashboardDefaults.epochReadyQueueSize || current.epochReadyQueueSize),
           agentTimeoutSeconds: numberValue(dashboardDefaults.agentTimeoutSeconds, current.agentTimeoutSeconds),
-          fastKgMaintenanceEnabled: dashboardDefaults.fastKgMaintenanceEnabled !== false,
-          fastKgMaintenanceIntervalMs: Number(dashboardDefaults.fastKgMaintenanceIntervalMs || current.fastKgMaintenanceIntervalMs),
-          fastKgMaintenanceReportCount: Number(dashboardDefaults.fastKgMaintenanceReportCount || current.fastKgMaintenanceReportCount),
-          fullKgMaintenanceMode: String(dashboardDefaults.fullKgMaintenanceMode || current.fullKgMaintenanceMode),
+          toolConcurrency: normalizeToolConcurrency(toolConcurrencyDefaults.configured, current.toolConcurrency),
         }));
       })
       .catch(showError);
@@ -361,17 +341,8 @@ export function App() {
                   workerConfig: {
                     maxWorkers: body.maxWorkers,
                     epochSize: body.epochSize,
-                    batchSize: body.epochReadyQueueSize,
                     agentTimeoutSeconds: body.agentTimeoutSeconds,
-                    fullKgMaintenanceMode: body.fullKgMaintenanceMode,
-                    workerThinkingLevel: body.workerThinkingLevel,
-                  },
-                  schedulerConfig: {
-                    candidateLimit: body.candidateLimit,
-                    candidateWindow: body.candidateWindow,
-                    queueTargetSize: body.queueTargetSize,
-                    queueLowWatermark: body.queueLowWatermark,
-                    epochReadyQueueSize: body.epochReadyQueueSize,
+                    toolConcurrency: body.toolConcurrency,
                   },
                 },
               });
@@ -565,10 +536,12 @@ export function App() {
         workMode={workMode}
       />
       <DetailsRail
+        busy={busy}
         collapsed={detailsCollapsed}
         dashboard={currentDashboard}
         loadRunDetails={() => void loadRunDetails()}
         loadingRunDetails={loadingRunDetails}
+        onAction={(nextAction) => void runAction(nextAction)}
         onCollapsedChange={setDetailsCollapsed}
         onResizeEnd={finishDetailsResize}
         onResizeStart={() => setDetailsResizing(true)}

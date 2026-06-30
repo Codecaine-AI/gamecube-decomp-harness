@@ -5,7 +5,7 @@ import { latestCheckpointSummary } from "@server/core/session-runtime/phases/pr/
 import { runningEpochCheckpointProgress, runningEpochHistory } from "@server/core/session-runtime/phases/running/epochs";
 import { knowledgeCuratorEnrichmentPath } from "@server/core/knowledge";
 import { openState, statusSnapshot } from "@server/core/session-runtime/run-state";
-import { latestDashboardArtifactPayload } from "@server/core/orchestrator-state";
+import { dashboardArtifactPayloads, latestDashboardArtifactPayload } from "@server/core/orchestrator-state";
 import { activeProjectSessionProjection } from "@server/core/project-session/store";
 import { projectToSummary as defaultProjectToSummary, type ProjectRuntimeContext, type ResolvedProject } from "@server/core/project-registry";
 import { latestChildDirectory, latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckSummary } from "@server/core/session-runtime/phases/pr/artifacts";
@@ -159,6 +159,14 @@ function measuresFromSnapshot(snapshot: JsonObject): JsonObject {
   return asObject(snapshot.measures);
 }
 
+function unmatchedTargetsValue(measures: JsonObject): number {
+  const explicit = numberValue(measures.unmatched_targets, numberValue(measures.unmatchedTargets, NaN));
+  if (Number.isFinite(explicit)) return Math.max(0, explicit);
+  const totalFunctions = numberValue(measures.total_functions, numberValue(measures.totalFunctions, NaN));
+  const matchedFunctions = numberValue(measures.matched_functions, numberValue(measures.matchedFunctions, NaN));
+  return Number.isFinite(totalFunctions) && Number.isFinite(matchedFunctions) ? Math.max(0, totalFunctions - matchedFunctions) : NaN;
+}
+
 function compactMeasures(measures: JsonObject): JsonObject {
   return {
     fuzzy_match_percent: numberValue(measures.fuzzy_match_percent, NaN),
@@ -167,6 +175,7 @@ function compactMeasures(measures: JsonObject): JsonObject {
     matched_functions_percent: numberValue(measures.matched_functions_percent, NaN),
     complete_units: numberValue(measures.complete_units, NaN),
     total_units: numberValue(measures.total_units, NaN),
+    unmatched_targets: unmatchedTargetsValue(measures),
   };
 }
 
@@ -226,6 +235,7 @@ function measuresFromSessionSummary(summary: JsonObject): JsonObject {
     matched_functions_percent: numberValue(summary.matchedFunctionsPercent, NaN),
     complete_units: numberValue(summary.completeUnits, NaN),
     total_units: numberValue(summary.totalUnits, NaN),
+    unmatched_targets: unmatchedTargetsValue(summary),
   };
 }
 
@@ -1591,14 +1601,119 @@ function emptyTrustedReport(source = "database"): JsonObject {
   };
 }
 
-function trustedReportFromDatabase(stateDir: string, runId: string): JsonObject {
+function reportEntryKey(entry: JsonObject): string {
+  return [
+    stringValue(entry.sourcePath),
+    stringValue(entry.unitName),
+    stringValue(entry.itemName),
+  ].join("\u0000");
+}
+
+function mergeProgressEntry(previous: JsonObject | undefined, next: JsonObject): JsonObject {
+  if (!previous) return next;
+  const previousFrom = numberValue(previous.fromPercent, NaN);
+  return {
+    ...next,
+    fromPercent: Number.isFinite(previousFrom) ? previousFrom : next.fromPercent,
+    bytesDelta: numberValue(previous.bytesDelta) + numberValue(next.bytesDelta),
+    size: Math.max(numberValue(previous.size), numberValue(next.size)),
+  };
+}
+
+function sortedReportEntries(entries: Iterable<JsonObject>): JsonObject[] {
+  return [...entries].sort((left, right) => numberValue(right.bytesDelta) - numberValue(left.bytesDelta));
+}
+
+function cumulativeTrustedReport(reports: JsonObject[]): JsonObject {
+  const latest = reports[reports.length - 1] ?? emptyTrustedReport("database");
+  const newMatches = new Map<string, JsonObject>();
+  const improvements = new Map<string, JsonObject>();
+  const brokenMatches: JsonObject[] = [];
+  const fuzzyRegressions: JsonObject[] = [];
+
+  for (const report of reports) {
+    for (const rawEntry of asArray(report.brokenMatches).map(asObject)) {
+      newMatches.delete(reportEntryKey(rawEntry));
+      brokenMatches.push(rawEntry);
+    }
+    for (const rawEntry of asArray(report.fuzzyRegressions).map(asObject)) {
+      const key = reportEntryKey(rawEntry);
+      const previous = improvements.get(key);
+      if (previous) {
+        const fromPercent = numberValue(previous.fromPercent, NaN);
+        const toPercent = numberValue(rawEntry.toPercent, NaN);
+        if (Number.isFinite(fromPercent) && Number.isFinite(toPercent) && toPercent <= fromPercent) improvements.delete(key);
+        else improvements.set(key, mergeProgressEntry(previous, rawEntry));
+      }
+      fuzzyRegressions.push(rawEntry);
+    }
+    for (const rawEntry of asArray(report.improvements).map(asObject)) {
+      const key = reportEntryKey(rawEntry);
+      if (!newMatches.has(key)) improvements.set(key, mergeProgressEntry(improvements.get(key), rawEntry));
+    }
+    for (const rawEntry of asArray(report.newMatches).map(asObject)) {
+      const key = reportEntryKey(rawEntry);
+      const entry = mergeProgressEntry(improvements.get(key) ?? newMatches.get(key), rawEntry);
+      improvements.delete(key);
+      newMatches.set(key, entry);
+    }
+  }
+
+  const cumulativeNewMatches = sortedReportEntries(newMatches.values());
+  const cumulativeImprovements = sortedReportEntries(improvements.values());
+  const cumulativeBrokenMatches = sortedReportEntries(brokenMatches);
+  const cumulativeFuzzyRegressions = sortedReportEntries(fuzzyRegressions);
+  const metricRegressions = asArray(latest.metricRegressions).map(asObject);
+  const metricProgressions = asArray(latest.metricProgressions).map(asObject);
+  return {
+    ...latest,
+    source: "cumulative_trusted_reports",
+    latestReport: latest,
+    counts: {
+      newMatches: cumulativeNewMatches.length,
+      brokenMatches: cumulativeBrokenMatches.length,
+      improvements: cumulativeImprovements.length,
+      fuzzyRegressions: cumulativeFuzzyRegressions.length,
+      metricRegressions: metricRegressions.length,
+      metricProgressions: metricProgressions.length,
+    },
+    newMatches: cumulativeNewMatches,
+    brokenMatches: cumulativeBrokenMatches,
+    improvements: cumulativeImprovements,
+    fuzzyRegressions: cumulativeFuzzyRegressions,
+    metricRegressions,
+    metricProgressions,
+  };
+}
+
+function trustedReportsFromDatabase(stateDir: string, runId: string): JsonObject[] {
+  const store = openState(stateDir);
+  try {
+    return dashboardArtifactPayloads(store, {
+      runId,
+      artifactType: "trusted_report",
+      artifactKey: "current",
+    });
+  } finally {
+    store.db.close();
+  }
+}
+
+function trustedReportFromDatabase(stateDir: string, runId: string, runCreatedAt = ""): JsonObject {
   if (!runId) return emptyTrustedReport("database");
-  const report = dashboardArtifactPayload(stateDir, {
+  const runMs = timeMs(runCreatedAt);
+  const reports = trustedReportsFromDatabase(stateDir, runId).filter((report) => {
+    if (stringValue(report.status) !== "ready") return false;
+    const reportMs = timeMs(report.generatedAt);
+    return !(reportMs > 0 && runMs > 0 && reportMs < runMs);
+  });
+  if (reports.length > 0) return cumulativeTrustedReport(reports);
+  const latest = dashboardArtifactPayload(stateDir, {
     runId,
     artifactType: "trusted_report",
     artifactKey: "current",
   });
-  return Object.keys(report).length > 0 ? report : emptyTrustedReport("database");
+  return Object.keys(latest).length > 0 ? runScopedTrustedReport(latest, runCreatedAt) : emptyTrustedReport("database");
 }
 
 function runScopedTrustedReport(report: JsonObject, runCreatedAt: string, reportName = "saved report"): JsonObject {
@@ -1674,7 +1789,7 @@ async function runDashboard(paths: DashboardProjectContext): Promise<JsonObject>
   const improvements = improvementRowsFromWorkerStates(allWorkerStates);
   const improvedFiles = fileImprovementRows(improvements);
   const epochTargets = runId ? epochTargetsForRun(stateDir, runId) : [];
-  const trustedReport = runScopedTrustedReport(trustedReportFromDatabase(stateDir, runId), runCreatedAt);
+  const trustedReport = trustedReportFromDatabase(stateDir, runId, runCreatedAt);
   const checkpoint = runId ? checkpointForRun(stateDir, runId) : null;
   const handoff = runId ? handoffForRun(stateDir, runId, checkpoint) : { checkpoint: null, qa: null, splitPlan: null };
   const epochs = runningEpochHistory(stateDir);
